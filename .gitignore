@@ -2,3 +2,4 @@ build/
 *.jar
 grips-backup-*.properties
 notes/
+libs/

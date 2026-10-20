@@ -1,0 +1,34 @@
+package acup.gunfeel;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
+
+class RecoilTest {
+    @Test
+    void strengthStaysInItsRange() {
+        assertEquals(0.2F, ModelRecoil.strength(0F, 0F), 1e-6F);
+        assertEquals(1.4F, ModelRecoil.strength(1000F, 1000F), 1e-6F);
+        for (float v = 0F; v < 50F; v += 0.25F) {
+            float s = ModelRecoil.strength(v, v / 3F);
+            assertTrue(s >= 0.2F && s <= 1.4F, "strength " + s + " for " + v);
+        }
+    }
+
+    @Test
+    void strengthGrowsWithRecoil() {
+        float prev = ModelRecoil.strength(0F, 0F);
+        for (float v = 0.5F; v < 40F; v += 0.5F) {
+            float s = ModelRecoil.strength(v, 0F);
+            assertTrue(s >= prev, "weaker at " + v);
+            prev = s;
+        }
+    }
+
+    @Test
+    void strengthIgnoresDirection() {
+        assertEquals(ModelRecoil.strength(5F, 2F), ModelRecoil.strength(-5F, -2F), 1e-6F);
+        assertEquals(ModelRecoil.strength(5F, 2F), ModelRecoil.strength(2F, 5F), 1e-6F);
+    }
+}
