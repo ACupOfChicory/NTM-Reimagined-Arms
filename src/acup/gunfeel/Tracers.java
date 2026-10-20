@@ -46,14 +46,19 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 // colours of its NTM tracer, flown along the same path through the client's world (from the muzzle for the player's
 // own shots), and a bullet hole where it hits a block. NTM's own wide ribbon is then not drawn for those bullets.
 public final class Tracers {
-    // eight hole shapes, then the scorch mark left by bullets that do something on impact (explosive, incendiary)
-    // SCRATCH: a ricochet's scratch, along the texture's u, laid at any angle (turn = SCRATCH_TURN + degrees)
-    private static final int HOLE_KINDS = 8, SCORCH = HOLE_KINDS, SCRATCH = SCORCH + 1, KINDS = SCRATCH + 1, SCRATCH_TURN = 1000;
+    // a hole's texture (kind): one of Decals' (holes by style, a ricochet's scratch, the scorch mark left by bullets
+    // that do something on impact), picked by the hit block's decal rule. A scratch lies along the texture's u, at any
+    // angle (turn = SCRATCH_TURN + degrees)
+    private static final int KINDS = Decals.COUNT, SCRATCH_TURN = 1000;
     private static final Identifier[] TEXTURES = new Identifier[KINDS];
     static {
-        for (int i = 0; i < HOLE_KINDS; i++) TEXTURES[i] = Identifier.fromNamespaceAndPath("ntmgunfeel", "textures/effect/bullet_hole_" + i + ".png");
-        TEXTURES[SCORCH] = Identifier.fromNamespaceAndPath("ntmgunfeel", "textures/effect/scorch.png");
-        TEXTURES[SCRATCH] = Identifier.fromNamespaceAndPath("ntmgunfeel", "textures/effect/scratch.png");
+        for (int i = 0; i < KINDS; i++) TEXTURES[i] = Identifier.fromNamespaceAndPath("ntmgunfeel", "textures/effect/" + Decals.file(i) + ".png");
+    }
+
+    // the texture for a hole on this block: its scorch for explosive and incendiary rounds, else a hole of its style
+    private static int holeKind(BlockState state, BulletConfig config) {
+        Decals.Set set = BulletRules.decal(state);
+        return config.onImpact != null ? Decals.scorch(set.scorch()) : Decals.hole(set.hole(), Math.random());
     }
     // the tracer joins the bullet's real path over this many blocks from the muzzle
     private static final float JOIN = 4F;
@@ -710,7 +715,8 @@ public final class Tracers {
         BlockPos lightAt = hit.getBlockPos().relative(hit.getDirection());
         int light = LightCoordsUtil.getLightCoords(level, lightAt);
         boolean scorch = config.onImpact != null;
-        int kind = scorch ? SCORCH : (int) (Math.random() * HOLE_KINDS);
+        BlockState decalOn = level.getBlockState(hit.getBlockPos());
+        int kind = holeKind(decalOn, config);
         float size = (scorch ? Config.scorchSize : Config.holeSize) * (0.8F + 0.4F * (float) Math.random());
         int turn = (int) (Math.random() * 8);
         if (scratch != null) {
@@ -718,7 +724,7 @@ public final class Tracers {
             double[] ea = new double[3], eb = new double[3];
             ea[ax[0]] = 1;
             eb[ax[1]] = 1;
-            kind = SCRATCH;
+            kind = Decals.scratch(BulletRules.decal(decalOn).scratch());
             turn = scratchTurn(new Vector3d(ea[0], ea[1], ea[2]), new Vector3d(eb[0], eb[1], eb[2]));
             size = scratchSize();
         }
@@ -777,7 +783,8 @@ public final class Tracers {
         if (at == null) return;
         if (normal.dot(d) > 0) normal.negate();
         boolean scorch = config.onImpact != null;
-        int kind = scorch ? SCORCH : (int) (Math.random() * HOLE_KINDS);
+        BlockState decalOn = level.getBlockState(pos);
+        int kind = holeKind(decalOn, config);
         float size = (scorch ? Config.scorchSize : Config.holeSize) * (0.8F + 0.4F * (float) Math.random());
         int turn = (int) (Math.random() * 8);
         if (scratch != null) size = scratchSize();
@@ -786,7 +793,7 @@ public final class Tracers {
         Vector3d ref = Math.abs(normal.y) < 0.9 ? new Vector3d(0, 1, 0) : new Vector3d(1, 0, 0);
         Vector3d t1 = new Vector3d(normal).cross(ref).normalize(), t2 = new Vector3d(normal).cross(t1).normalize();
         if (scratch != null) {
-            kind = SCRATCH;
+            kind = Decals.scratch(BulletRules.decal(decalOn).scratch());
             turn = scratchTurn(t1, t2);
         }
         // the faces in the same plane, here and around
@@ -1009,7 +1016,8 @@ public final class Tracers {
         if (normal.dot(d) > 0) normal.negate();
         Vector3d world = new Vector3d(d).mul(best).add(o);
         boolean scorch = config.onImpact != null;
-        int kind = scorch ? SCORCH : (int) (Math.random() * HOLE_KINDS);
+        BlockState decalOn = hitState;
+        int kind = holeKind(decalOn, config);
         float size = (scorch ? Config.scorchSize : Config.holeSize) * (0.8F + 0.4F * (float) Math.random());
         int turn = (int) (Math.random() * 8);
         if (scratch != null) size = scratchSize();
@@ -1017,7 +1025,7 @@ public final class Tracers {
         Vector3d ref = Math.abs(normal.y) < 0.9 ? new Vector3d(0, 1, 0) : new Vector3d(1, 0, 0);
         Vector3d t1 = new Vector3d(normal).cross(ref).normalize(), t2 = new Vector3d(normal).cross(t1).normalize();
         if (scratch != null) {
-            kind = SCRATCH;
+            kind = Decals.scratch(BulletRules.decal(decalOn).scratch());
             turn = scratchTurn(t1, t2);
         }
         Vector3d[] frame = {world, t1, t2, normal};

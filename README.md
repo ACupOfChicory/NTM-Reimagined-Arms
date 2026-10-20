@@ -43,7 +43,15 @@ downloads the Minecraft 26.2 client jar, NeoForge and its libraries, and JUnit i
    `@Shadow`/`@Accessor` members, and the mixin config lists exactly the classes in the mixin package. These are the
    mistakes Mixin otherwise reports only by crashing at launch, typically after an NTM update;
 3. the JUnit tests in `test/`: recoil curves, config keys and their round trip through the config file, and the
-   files in `res/` (JSON, translations in every language, sound files and their credits, duplicate keys).
+   files in `res/` (JSON, translations in every language, sound files and their credits, duplicate keys), the bullet
+   mark textures and the `decal` rules that pick them.
+
+## Bullet marks
+
+Holes, ricochet scratches and the scorch of explosive rounds come in several styles; the hit block's material picks
+one through the `decal` lines in `res/ntmgunfeel-bullets.txt` (stone and concrete chip, glass cracks, soft ground
+gets a soft hole, metal and wood keep the first set of holes). A line in `config/ntm-gunfeel-bullets.txt` changes it,
+e.g. `decal minecraft:obsidian hole=shatter`. The textures are black with alpha only, so one suits every block.
 
 ## License
 

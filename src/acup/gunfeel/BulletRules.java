@@ -77,6 +77,7 @@ public final class BulletRules {
     private static final Map<BlockState, java.util.Optional<Break>> BREAKS = new java.util.IdentityHashMap<>();
     private static final Map<BlockState, Effect> HITS = new java.util.IdentityHashMap<>();
     private static final Map<BlockState, Boolean> RICOCHETS = new java.util.IdentityHashMap<>();
+    private static final Map<BlockState, Decals.Set> DECALS = new java.util.IdentityHashMap<>();
 
     private static synchronized List<Rule> rules() {
         long now = System.currentTimeMillis();
@@ -104,6 +105,7 @@ public final class BulletRules {
                     BREAKS.clear();
                     HITS.clear();
                     RICOCHETS.clear();
+                    DECALS.clear();
                 }
             } catch (Exception e) {
                 if (rules.isEmpty()) rules = builtin;
@@ -306,6 +308,17 @@ public final class BulletRules {
         });
     }
 
+    // the marks a bullet leaves on it: each of hole, scratch and scorch from the last matching decal rule that names
+    // a known style for it (so a later line can change one and keep the others), else Decals' default
+    public static synchronized Decals.Set decal(BlockState state) {
+        List<Rule> all = rules();
+        return DECALS.computeIfAbsent(state, st -> {
+            List<Rule> mine = new ArrayList<>();
+            for (Rule r : all) if (r.kind().equals("decal") && blockMatches(r.selectors(), st)) mine.add(r);
+            return Decals.Set.of(mine.stream().map(Rule::opts).toList());
+        });
+    }
+
     public static synchronized Effect hit(BlockState state) {
         rules();
         Effect got = HITS.get(state);
@@ -397,6 +410,9 @@ public final class BulletRules {
             #   range: heard over that many blocks, fading out to it (Minecraft's own: 16)
             # ricochet <blocks> yes | no   no: a bullet meeting it at a grazing angle stops in it instead of bouncing off
             #   (NTM's ricochet); yes (the default) bounces
+            # decal <blocks> [hole=<style>] [scratch=<style>] [scorch=<style>]   the marks bullets leave on it (each player's
+            #   own game): hole = old | spall | shatter | soot, scratch (a ricochet) = gouge | burn | lines, scorch
+            #   (explosive and incendiary rounds) = star | blot | crater; each from the last matching line that names it
             # entity <who> [particles=...] [sound=...] [to=all]   a bullet hits a creature (sound heard by the shooter,
             #   to=all: by everyone near)
             # kill <who> [particles=...] [sound=...] [to=all]     a bullet kills it
@@ -411,5 +427,6 @@ public final class BulletRules {
             # entity * particles=block:minecraft:redstone_block*6
             # kill minecraft:zombie sound=minecraft:entity.experience_orb.pickup/0.5/0.6
             # whizz sound=none
+            # decal minecraft:obsidian hole=shatter
             """;
 }
