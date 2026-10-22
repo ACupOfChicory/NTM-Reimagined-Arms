@@ -169,7 +169,9 @@ public final class Materials {
             Rule r = rules.get(i);
             if (matches(r.selectors(), f)) return verdict(f, r.material(), Source.RULE, String.join(",", r.selectors()));
         }
-        if (f.hardness() < 0F) return verdict(f, Material.UNBREAKABLE, Source.UNBREAKABLE, "hardness " + BlockFacts.num(f.hardness()));
+        // bedrock has -1; NTM's sealed hatches and statues have an infinite hardness instead
+        if (f.hardness() < 0F || Float.isInfinite(f.hardness()))
+            return verdict(f, Material.UNBREAKABLE, Source.UNBREAKABLE, "hardness " + BlockFacts.num(f.hardness()));
         if (f.collisionVolume() <= 0) return verdict(f, Material.NONE, Source.NO_COLLISION, "no collision");
 
         for (String t : f.tags()) {

@@ -1046,7 +1046,7 @@ hbm:sat_dock MACHINE CLASS 1.0/3f800000
 hbm:schrabidic_block NONE NO_COLLISION 1.0/3f800000
 hbm:seal_controller STONE STONE_SOUND 3.1622777/404a62c2
 hbm:seal_frame STONE STONE_SOUND 3.1622777/404a62c2
-hbm:seal_hatch STONE STONE_SOUND 4.0/40800000
+hbm:seal_hatch UNBREAKABLE UNBREAKABLE 1.0/3f800000
 hbm:secure_access_door MACHINE CLASS 4.0/40800000
 hbm:sellafield STONE STONE_SOUND 0.91287094/3f69b1e9
 hbm:sellafield_bedrock UNBREAKABLE UNBREAKABLE 1.0/3f800000
@@ -1081,7 +1081,7 @@ hbm:stalagmite_glyphid3 NONE NO_COLLISION 1.0/3f800000
 hbm:stalagmite_ice NONE NO_COLLISION 1.0/3f800000
 hbm:stalagmite_snow NONE NO_COLLISION 1.0/3f800000
 hbm:stalagmite_sulfur NONE NO_COLLISION 1.0/3f800000
-hbm:statue_elb_f MACHINE OTHER_MACHINE 4.0/40800000
+hbm:statue_elb_f UNBREAKABLE UNBREAKABLE 1.0/3f800000
 hbm:steel_beam METAL NAME 1.2247449/3f9cc471
 hbm:steel_corner METAL NAME 1.2247449/3f9cc471
 hbm:steel_grate METAL NAME 0.70710677/3f3504f3

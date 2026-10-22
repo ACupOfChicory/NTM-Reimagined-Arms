@@ -90,6 +90,9 @@ class MaterialsTest {
         want.put("hbm:logic_block", Material.MACHINE);
         want.put("hbm:deco_pipe", Material.METAL);
         want.put("hbm:cm_engine_desh", Material.METAL);
+        // an infinite hardness is unbreakable too, like bedrock's -1
+        want.put("hbm:seal_hatch", Material.UNBREAKABLE);
+        want.put("hbm:statue_elb_f", Material.UNBREAKABLE);
         List<String> wrong = new ArrayList<>();
         for (var e : want.entrySet()) {
             Verdict got = v.get(e.getKey());

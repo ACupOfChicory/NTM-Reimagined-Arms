@@ -20,6 +20,11 @@ count only what `turn()` really applied.
 
 ## Fixed
 
+### Materials: an infinite hardness was not unbreakable
+`src/main/java/acup/gunfeel/Materials.java`: only a hardness below 0 (bedrock's -1) counted as unbreakable, but NTM
+marks its silo hatch and statue with an infinite hardness, so they came out as stone. Not in the game yet (the
+classifier was not called). Found in the material review, 2026-10-22; fixed with the test for both blocks.
+
 ### ConfigTest reported five read settings as ignored
 `test/acup/gunfeel/ConfigTest.java`: the test's "changed value" was x * 0.5 + 0.01, which is NaN again for NaN and
 0.02 again for 0.02 (tracerWidth). The mod was right. Fixed in 338318b.
