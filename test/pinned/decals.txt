@@ -1,0 +1,102 @@
+0 bullet_hole_0 hole
+1 bullet_hole_1 hole
+2 bullet_hole_2 hole
+3 bullet_hole_3 hole
+4 bullet_hole_4 hole
+5 bullet_hole_5 hole
+6 bullet_hole_6 hole
+7 bullet_hole_7 hole
+8 hole_spall_0 hole
+9 hole_spall_1 hole
+10 hole_spall_2 hole
+11 hole_spall_3 hole
+12 hole_spall_4 hole
+13 hole_spall_5 hole
+14 hole_spall_6 hole
+15 hole_spall_7 hole
+16 hole_shatter_0 hole
+17 hole_shatter_1 hole
+18 hole_shatter_2 hole
+19 hole_shatter_3 hole
+20 hole_shatter_4 hole
+21 hole_shatter_5 hole
+22 hole_shatter_6 hole
+23 hole_shatter_7 hole
+24 hole_soot_0 hole
+25 hole_soot_1 hole
+26 hole_soot_2 hole
+27 hole_soot_3 hole
+28 hole_soot_4 hole
+29 hole_soot_5 hole
+30 hole_soot_6 hole
+31 hole_soot_7 hole
+32 scratch_gouge scratch
+33 scratch_burn scratch
+34 scratch_lines scratch
+35 scorch_star scorch
+36 scorch_blot scorch
+37 scorch_crater scorch
+hole old 0.0/0 -> 0
+hole old 0.0625/3d800000 -> 0
+hole old 0.125/3e000000 -> 1
+hole old 0.1875/3e400000 -> 1
+hole old 0.25/3e800000 -> 2
+hole old 0.3125/3ea00000 -> 2
+hole old 0.375/3ec00000 -> 3
+hole old 0.4375/3ee00000 -> 3
+hole old 0.5/3f000000 -> 4
+hole old 0.5625/3f100000 -> 4
+hole old 0.625/3f200000 -> 5
+hole old 0.6875/3f300000 -> 5
+hole old 0.75/3f400000 -> 6
+hole old 0.8125/3f500000 -> 6
+hole old 0.875/3f600000 -> 7
+hole old 0.9375/3f700000 -> 7
+hole spall 0.0/0 -> 8
+hole spall 0.0625/3d800000 -> 8
+hole spall 0.125/3e000000 -> 9
+hole spall 0.1875/3e400000 -> 9
+hole spall 0.25/3e800000 -> 10
+hole spall 0.3125/3ea00000 -> 10
+hole spall 0.375/3ec00000 -> 11
+hole spall 0.4375/3ee00000 -> 11
+hole spall 0.5/3f000000 -> 12
+hole spall 0.5625/3f100000 -> 12
+hole spall 0.625/3f200000 -> 13
+hole spall 0.6875/3f300000 -> 13
+hole spall 0.75/3f400000 -> 14
+hole spall 0.8125/3f500000 -> 14
+hole spall 0.875/3f600000 -> 15
+hole spall 0.9375/3f700000 -> 15
+hole shatter 0.0/0 -> 16
+hole shatter 0.0625/3d800000 -> 16
+hole shatter 0.125/3e000000 -> 17
+hole shatter 0.1875/3e400000 -> 17
+hole shatter 0.25/3e800000 -> 18
+hole shatter 0.3125/3ea00000 -> 18
+hole shatter 0.375/3ec00000 -> 19
+hole shatter 0.4375/3ee00000 -> 19
+hole shatter 0.5/3f000000 -> 20
+hole shatter 0.5625/3f100000 -> 20
+hole shatter 0.625/3f200000 -> 21
+hole shatter 0.6875/3f300000 -> 21
+hole shatter 0.75/3f400000 -> 22
+hole shatter 0.8125/3f500000 -> 22
+hole shatter 0.875/3f600000 -> 23
+hole shatter 0.9375/3f700000 -> 23
+hole soot 0.0/0 -> 24
+hole soot 0.0625/3d800000 -> 24
+hole soot 0.125/3e000000 -> 25
+hole soot 0.1875/3e400000 -> 25
+hole soot 0.25/3e800000 -> 26
+hole soot 0.3125/3ea00000 -> 26
+hole soot 0.375/3ec00000 -> 27
+hole soot 0.4375/3ee00000 -> 27
+hole soot 0.5/3f000000 -> 28
+hole soot 0.5625/3f100000 -> 28
+hole soot 0.625/3f200000 -> 29
+hole soot 0.6875/3f300000 -> 29
+hole soot 0.75/3f400000 -> 30
+hole soot 0.8125/3f500000 -> 30
+hole soot 0.875/3f600000 -> 31
+hole soot 0.9375/3f700000 -> 31

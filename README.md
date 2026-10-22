@@ -44,7 +44,16 @@ downloads the Minecraft 26.2 client jar, NeoForge and its libraries, and JUnit i
    mistakes Mixin otherwise reports only by crashing at launch, typically after an NTM update;
 3. the JUnit tests in `test/`: recoil curves, config keys and their round trip through the config file, and the
    files in `res/` (JSON, translations in every language, sound files and their credits, duplicate keys), the bullet
-   mark textures and the `decal` rules that pick them.
+   mark textures and the `decal` rules that pick them;
+4. `PinnedTest`: what the player sees and feels, pinned in `test/pinned/*.txt` bit for bit: the recoil curves, the
+   recoil strength, every config default, the mark kinds, the ammo menu colours and a hash of every file in `res/`.
+   A build change or a clean-up must leave them all as they are. When a change is meant (new textures, a retuned
+   curve), `PIN_UPDATE=1 ./test.sh` rewrites them and the `.txt` diff goes into the same commit.
+
+`tools/JarDiff.java` tells whether two builds run the same: the bytecode of every class without debug info, and every
+other file byte for byte (`java -cp <asm, asm-tree, asm-util jars> tools/JarDiff.java old.jar new.jar`). javac's
+debug flags change the code itself (`-g` keeps constant locals), so a build compared with `build.sh` must use
+javac's default `-g:source,lines`.
 
 ## Bullet marks
 
