@@ -23,37 +23,37 @@ The same jar goes on the client and the server.
 
 ## Build
 
-`./build.sh` compiles the mod into `ntm-gunfeel-<version>.jar` (version from `neoforge.mods.toml`). It compiles against
-`libs/` when that folder is there, otherwise against the libraries of a local Prism Launcher NeoForge 26.2 instance.
-JDK 25: `$JDK`, else Prism's runtime, else `javac` from `PATH`.
+`./gradlew build` (JDK 25) builds the mod into `versions/26.2/build/libs/ntm-gunfeel-<version>.jar` (the version
+comes from `neoforge.mods.toml`) and runs every check below. Minecraft and NeoForge come through Gradle
+(ModDevGradle, without decompiling and recompiling Minecraft, so it also builds on a small ARM board). NTM NEXT is not
+on any maven: its jar goes in `libs/mods/`, under the name given in `stonecutter.properties.toml`.
 
-`libs/` needs no game install, so the mod also builds on a machine that cannot run Minecraft:
-
-    python3 tools/fetch-libs.py --ntm <url or path of the NTM NEXT jar>
-
-downloads the Minecraft 26.2 client jar, NeoForge and its libraries, and JUnit into `libs/` (about 120 MB, not in git).
+Stonecutter keeps one source for several Minecraft versions: `settings.gradle.kts` lists them,
+`stonecutter.properties.toml` holds what each one builds against, and `//? if` comments in the code pick the lines
+for each. For now there is only 26.2. `./gradlew runClient` starts the game with the mod, with the NTM jar in
+`run/mods/` (not tried yet).
 
 ## Tests
 
-`./test.sh` checks what can be checked without starting the game:
+`./gradlew build` checks what can be checked without starting the game:
 
 1. the mod compiles against Minecraft, NeoForge and NTM NEXT;
-2. `tools/MixinCheck.java`: every mixin fits the class it changes: target classes and methods exist, `@At`
-   calls and fields really occur in the target method, `@Inject`/`@Redirect`/`@ModifyArg` handler signatures,
+2. `mixinCheck` (`tools/MixinCheck.java`): every mixin fits the class it changes: target classes and methods exist,
+   `@At` calls and fields really occur in the target method, `@Inject`/`@Redirect`/`@ModifyArg` handler signatures,
    `@Shadow`/`@Accessor` members, and the mixin config lists exactly the classes in the mixin package. These are the
    mistakes Mixin otherwise reports only by crashing at launch, typically after an NTM update;
-3. the JUnit tests in `src/test/java`: recoil curves, config keys and their round trip through the config file, and the
-   files in `src/main/resources` (JSON, translations in every language, sound files and their credits, duplicate keys), the bullet
-   mark textures and the `decal` rules that pick them;
+3. the JUnit tests in `src/test/java`: recoil curves, config keys and their round trip through the config file, and
+   the files in `src/main/resources` (JSON, translations in every language, sound files and their credits, duplicate
+   keys), the bullet mark textures and the `decal` rules that pick them;
 4. `PinnedTest`: what the player sees and feels, pinned in `src/test/pinned/*.txt` bit for bit: the recoil curves, the
    recoil strength, every config default, the mark kinds, the ammo menu colours and a hash of every resource file.
    A build change or a clean-up must leave them all as they are. When a change is meant (new textures, a retuned
-   curve), `PIN_UPDATE=1 ./test.sh` rewrites them and the `.txt` diff goes into the same commit.
+   curve), `PIN_UPDATE=1 ./gradlew test` rewrites them and the `.txt` diff goes into the same commit.
 
-`tools/JarDiff.java` tells whether two builds run the same: the bytecode of every class without debug info, and every
-other file byte for byte (`java -cp <asm, asm-tree, asm-util jars> tools/JarDiff.java old.jar new.jar`). javac's
-debug flags change the code itself (`-g` keeps constant locals), so a build compared with `build.sh` must use
-javac's default `-g:source,lines`.
+`./gradlew jarDiff -Pbaseline=<old jar>` (`tools/JarDiff.java`) tells whether two builds run the same: the bytecode of
+every class without debug info, and every other file byte for byte. javac's debug flags change the code itself (`-g`
+keeps constant locals), so the build sticks to javac's default `-g:source,lines`. The move from the old `build.sh`
+to Gradle was checked this way: the same jar, 198 entries, only the manifest names Stonecutter.
 
 ## Bullet marks
 

@@ -4,3 +4,7 @@ grips-backup-*.properties
 notes/
 libs/
 logs/
+.gradle/
+.kotlin/
+run/
+!gradle/wrapper/gradle-wrapper.jar

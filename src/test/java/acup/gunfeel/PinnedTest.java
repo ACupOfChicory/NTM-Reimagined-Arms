@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 
 // What the player sees and feels, pinned: the numbers below are written to src/test/pinned/*.txt and every run must give
 // the same, bit for bit. A change to the build (Gradle, Stonecutter, a port) or a clean-up must not move any of them.
-// When a change is meant (new textures, a retuned curve), rewrite the pins with PIN_UPDATE=1 ./test.sh and commit
+// When a change is meant (new textures, a retuned curve), rewrite the pins with PIN_UPDATE=1 ./gradlew test and commit
 // the .txt diff with it, so it is plain what moved.
 class PinnedTest {
     static final Path PINS = Path.of("src/test/pinned");
@@ -147,7 +147,7 @@ class PinnedTest {
                 Files.write(file, now, StandardCharsets.UTF_8);
                 return;
             }
-            if (!Files.exists(file)) fail("no pin " + file + ": write it with PIN_UPDATE=1 ./test.sh");
+            if (!Files.exists(file)) fail("no pin " + file + ": write it with PIN_UPDATE=1 ./gradlew test");
             List<String> was = Files.readAllLines(file, StandardCharsets.UTF_8);
             if (was.equals(now)) return;
             int changed = 0, first = -1;
@@ -159,7 +159,7 @@ class PinnedTest {
             }
             String a = first < was.size() ? was.get(first) : "(none)", b = first < now.size() ? now.get(first) : "(none)";
             fail(file + ": " + changed + " lines differ, first at line " + (first + 1) + "\n  pinned: " + a + "\n  now:    " + b
-                    + "\n(if the change is meant: PIN_UPDATE=1 ./test.sh)");
+                    + "\n(if the change is meant: PIN_UPDATE=1 ./gradlew test)");
         } catch (IOException e) {
             throw new AssertionError(e);
         }

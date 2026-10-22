@@ -135,7 +135,7 @@ class ResourcesTest {
         String toml = Files.readString(RES.resolve("META-INF/neoforge.mods.toml"));
         assertTrue(toml.contains("modId = \"ntmgunfeel\""), "modId must match the assets namespace ntmgunfeel");
         Matcher v = Pattern.compile("(?m)^version *= *\"([^\"]+)\"").matcher(toml);
-        assertTrue(v.find(), "no version line (build.sh names the jar after it)");
+        assertTrue(v.find(), "no version line (the jar is named after it)");
         assertTrue(v.group(1).matches("\\d+\\.\\d+\\.\\d+(-[a-z0-9.]+)?"), "odd version " + v.group(1));
         Matcher mixins = Pattern.compile("config *= *\"([^\"]+)\"").matcher(toml);
         while (mixins.find()) assertTrue(Files.exists(RES.resolve(mixins.group(1))), "missing " + mixins.group(1));
