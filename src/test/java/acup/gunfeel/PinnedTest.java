@@ -18,24 +18,25 @@ import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
 
-// What the player sees and feels, pinned: the numbers below are written to test/pinned/*.txt and every run must give
+// What the player sees and feels, pinned: the numbers below are written to src/test/pinned/*.txt and every run must give
 // the same, bit for bit. A change to the build (Gradle, Stonecutter, a port) or a clean-up must not move any of them.
 // When a change is meant (new textures, a retuned curve), rewrite the pins with PIN_UPDATE=1 ./test.sh and commit
 // the .txt diff with it, so it is plain what moved.
 class PinnedTest {
-    static final Path PINS = Path.of("test/pinned");
+    static final Path PINS = Path.of("src/test/pinned");
 
     // every file the mod ships besides its code: textures, sounds, shaders, lang, tags, built-in configs, mixin lists
     @Test
     void resources() throws IOException {
         List<String> out = new ArrayList<>();
-        try (Stream<Path> s = Files.walk(Path.of("res"))) {
+        Path res = Path.of("src/main/resources");
+        try (Stream<Path> s = Files.walk(res)) {
             for (Path p : s.filter(Files::isRegularFile).sorted().toList()) {
                 byte[] data = Files.readAllBytes(p);
                 // the version goes up with every release: the rest of the file is pinned
                 if (p.endsWith("neoforge.mods.toml"))
                     data = new String(data, StandardCharsets.UTF_8).replaceAll("(?m)^version *=.*$", "version = (any)").getBytes(StandardCharsets.UTF_8);
-                out.add(sha256(data) + "  " + p.toString().replace('\\', '/'));
+                out.add(sha256(data) + "  " + res.relativize(p).toString().replace('\\', '/'));
             }
         }
         pin("resources", out);

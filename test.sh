@@ -2,7 +2,7 @@
 # Everything that can be checked without starting Minecraft, in the order it would break:
 #   1. the mod compiles against Minecraft, NeoForge and NTM NEXT (build.sh);
 #   2. the mixins fit the classes they change (tools/MixinCheck.java), which Mixin itself only reports by crashing;
-#   3. the unit tests in test/ (JUnit): pure logic, config round trips, the files in res/.
+#   3. the unit tests in src/test/java (JUnit): pure logic, config round trips, the files in src/main/resources.
 # Needs libs/ from tools/fetch-libs.py. Exit code 0 = all passed.
 set -e
 cd "$(dirname "$(readlink -f "$0")")"
@@ -28,6 +28,6 @@ echo "== mixins"
 
 echo "== unit tests"
 rm -rf build/test && mkdir -p build/test
-"${J}javac" --release 25 -proc:none -nowarn -cp "build/jar:$CP:$JUNIT" -d build/test $(find test -name '*.java')
+"${J}javac" --release 25 -proc:none -nowarn -cp "build/jar:$CP:$JUNIT" -d build/test $(find src/test/java -name '*.java')
 "${J}java" -jar "$JUNIT" execute --disable-banner --disable-ansi-colors --details=summary \
     --class-path "build/test:build/jar:$CP" --scan-class-path build/test

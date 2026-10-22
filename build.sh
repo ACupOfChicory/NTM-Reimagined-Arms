@@ -6,7 +6,7 @@
 # JDK: $JDK, else Prism's runtime, else javac from PATH. The jar name follows the version in neoforge.mods.toml.
 set -e
 cd "$(dirname "$(readlink -f "$0")")"
-VERSION=$(sed -n 's/^version *= *"\(.*\)"/\1/p' res/META-INF/neoforge.mods.toml)
+VERSION=$(sed -n 's/^version *= *"\(.*\)"/\1/p' src/main/resources/META-INF/neoforge.mods.toml)
 OUT=ntm-gunfeel-$VERSION.jar
 P=$HOME/.var/app/org.prismlauncher.PrismLauncher/data/PrismLauncher
 
@@ -40,7 +40,7 @@ else
 fi
 
 rm -rf build/jar && mkdir -p build/jar
-"${J}javac" --release 25 -proc:none -nowarn -cp "$CP" -d build/jar $(find src -name '*.java')
-cp -r res/. build/jar/
+"${J}javac" --release 25 -proc:none -nowarn -cp "$CP" -d build/jar $(find src/main/java -name '*.java')
+cp -r src/main/resources/. build/jar/
 rm -f "$OUT" && "${J}jar" cf "$OUT" -C build/jar .
 echo "built $OUT"

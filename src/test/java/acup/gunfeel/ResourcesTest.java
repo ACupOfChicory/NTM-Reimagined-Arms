@@ -28,7 +28,7 @@ import com.google.gson.JsonParser;
 // The files in res/ that Minecraft only reads at launch or when a sound plays: broken ones fail silently in game
 // (missing text, silent sounds) or stop the mod from loading. Run from the repository root.
 class ResourcesTest {
-    static final Path RES = Path.of("res");
+    static final Path RES = Path.of("src/main/resources");
     static final Path ASSETS = RES.resolve("assets/ntmgunfeel");
     static final Path SRC = Path.of("src");
 

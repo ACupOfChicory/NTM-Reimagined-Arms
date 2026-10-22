@@ -24,8 +24,8 @@ import org.junit.jupiter.api.Test;
 // The bullet mark textures and the decal rules that pick them: a missing or misnamed file shows in game as the
 // purple-black "missing texture" square, a typo in a rule silently falls back to the default style.
 class DecalsTest {
-    static final Path EFFECT = Path.of("res/assets/ntmgunfeel/textures/effect");
-    static final Path RULES = Path.of("res/ntmgunfeel-bullets.txt");
+    static final Path EFFECT = Path.of("src/main/resources/assets/ntmgunfeel/textures/effect");
+    static final Path RULES = Path.of("src/main/resources/ntmgunfeel-bullets.txt");
 
     @Test
     void everyKindHasItsOwnFile() {

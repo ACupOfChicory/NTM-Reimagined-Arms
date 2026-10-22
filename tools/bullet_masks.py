@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Builds res/ntmgunfeel-bullet-masks.properties: which pixels of a see-through block (bars, chain-link fence,
+# Builds src/main/resources/ntmgunfeel-bullet-masks.properties: which pixels of a see-through block (bars, chain-link fence,
 # grates) stop a bullet. The server has no textures, so the alpha of each block's texture is read here, once.
 # Line: <block id>.<face axis x|y|z or *> = 64 hex digits, 16 rows of 16 pixels from the top, 1 = solid.
 # Usage: tools/bullet_masks.py <minecraft client jar> <NTM jar> [preview.png]
@@ -67,7 +67,7 @@ for b in sorted(blocks):
         h, bits = mask(data)
         out.append('%s.%s = %s' % (b.replace(':', '\\:'), axis, h))
         previews.append(bits)
-open('res/ntmgunfeel-bullet-masks.properties', 'w').write('\n'.join(out) + '\n')
+open('src/main/resources/ntmgunfeel-bullet-masks.properties', 'w').write('\n'.join(out) + '\n')
 if len(sys.argv) > 3:
     S = 8; W = len(previews) * 17 * S; H = 16 * S
     img = [[(230, 230, 230)] * W for _ in range(H)]

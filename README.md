@@ -42,11 +42,11 @@ downloads the Minecraft 26.2 client jar, NeoForge and its libraries, and JUnit i
    calls and fields really occur in the target method, `@Inject`/`@Redirect`/`@ModifyArg` handler signatures,
    `@Shadow`/`@Accessor` members, and the mixin config lists exactly the classes in the mixin package. These are the
    mistakes Mixin otherwise reports only by crashing at launch, typically after an NTM update;
-3. the JUnit tests in `test/`: recoil curves, config keys and their round trip through the config file, and the
-   files in `res/` (JSON, translations in every language, sound files and their credits, duplicate keys), the bullet
+3. the JUnit tests in `src/test/java`: recoil curves, config keys and their round trip through the config file, and the
+   files in `src/main/resources` (JSON, translations in every language, sound files and their credits, duplicate keys), the bullet
    mark textures and the `decal` rules that pick them;
-4. `PinnedTest`: what the player sees and feels, pinned in `test/pinned/*.txt` bit for bit: the recoil curves, the
-   recoil strength, every config default, the mark kinds, the ammo menu colours and a hash of every file in `res/`.
+4. `PinnedTest`: what the player sees and feels, pinned in `src/test/pinned/*.txt` bit for bit: the recoil curves, the
+   recoil strength, every config default, the mark kinds, the ammo menu colours and a hash of every resource file.
    A build change or a clean-up must leave them all as they are. When a change is meant (new textures, a retuned
    curve), `PIN_UPDATE=1 ./test.sh` rewrites them and the `.txt` diff goes into the same commit.
 
@@ -58,7 +58,7 @@ javac's default `-g:source,lines`.
 ## Bullet marks
 
 Holes, ricochet scratches and the scorch of explosive rounds come in several styles; the hit block's material picks
-one through the `decal` lines in `res/ntmgunfeel-bullets.txt` (stone and concrete chip, glass cracks, soft ground
+one through the `decal` lines in `src/main/resources/ntmgunfeel-bullets.txt` (stone and concrete chip, glass cracks, soft ground
 gets a soft hole, metal and wood keep the first set of holes). A line in `config/ntm-gunfeel-bullets.txt` changes it,
 e.g. `decal minecraft:obsidian hole=shatter`. The textures are black with alpha only, so one suits every block.
 
@@ -70,5 +70,5 @@ The code is free software: you can redistribute it and/or modify it under the te
 License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later
 version. See [LICENSE](LICENSE).
 
-Sounds under `res/assets/ntmgunfeel/sounds/` come from freesound.org and keep their own licenses (CC0 1.0 or
-CC BY 3.0/4.0); authors and links are in [CREDITS.txt](res/assets/ntmgunfeel/sounds/bullet/CREDITS.txt).
+Sounds under `src/main/resources/assets/ntmgunfeel/sounds/` come from freesound.org and keep their own licenses (CC0 1.0 or
+CC BY 3.0/4.0); authors and links are in [CREDITS.txt](src/main/resources/assets/ntmgunfeel/sounds/bullet/CREDITS.txt).
