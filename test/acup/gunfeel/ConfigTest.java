@@ -148,7 +148,11 @@ class ConfigTest {
     static String changed(Field f, Object def) {
         if (f.getName().equals("ammoMenuColor")) return String.format("%06x", ((Integer) def) ^ 0x00FF00);
         if (def instanceof Boolean b) return Boolean.toString(!b);
-        if (def instanceof Float x) return Float.toString(x * 0.5F + 0.01F);
+        if (def instanceof Float x) {
+            // NaN (= "use another setting") and fixed points of the formula, like 0.02, would come back the same
+            float y = Float.isNaN(x) ? 1.5F : x * 0.5F + 0.01F;
+            return Float.toString(y == x ? x + 1F : y);
+        }
         if (def instanceof Integer x) return Integer.toString(x / 2 + 1);
         if (def instanceof float[] a) return (a[0] + 0.5F) + "," + (a[1] + 0.5F) + "," + (a[2] + 0.5F);
         return def + "x";
