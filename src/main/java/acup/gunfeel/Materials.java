@@ -33,7 +33,11 @@ public final class Materials {
         SOFT(12F, 0.6F, 0F),
         STONE(30F, 0.8F, 6F),
         CONCRETE(50F, 0.85F, 84F),
-        METAL(150F, 0.95F, 6F),
+        // soft and mild metals: lead, copper, gold, aluminium, vanilla iron (the hit sounds call them "metal")
+        METAL(60F, 0.85F, 6F),
+        // steel and the hard alloys: tungsten, titanium, desh, CMB, netherite (the hit sounds call them "steel");
+        // only "material" rule lines give it (per block, from the review), the steps below never do
+        STEEL(150F, 0.95F, 6F),
         // a machine is a hollow steel casing: two thin walls, whatever its collision box
         MACHINE(150F, 0.95F, 6F),
         UNBREAKABLE(Float.POSITIVE_INFINITY, 1F, 0F);

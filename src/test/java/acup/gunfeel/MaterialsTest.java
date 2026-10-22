@@ -199,5 +199,6 @@ class MaterialsTest {
         assertEquals(0.5F, Materials.strength(Material.CONCRETE, 1.8F), 1e-6F);
         assertEquals(1F, Materials.strength(Material.WOOD, 3000F), 1e-6F);
         assertEquals(4F, Materials.strength(Material.METAL, Float.POSITIVE_INFINITY), 1e-6F);
+        assertEquals(1F, Materials.strength(Material.STEEL, 6F), 1e-6F);
     }
 }
