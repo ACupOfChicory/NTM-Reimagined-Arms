@@ -93,6 +93,14 @@ class MaterialsTest {
         // an infinite hardness is unbreakable too, like bedrock's -1
         want.put("hbm:seal_hatch", Material.UNBREAKABLE);
         want.put("hbm:statue_elb_f", Material.UNBREAKABLE);
+        // armoured glass, and tiles that only sound like glass
+        want.put("hbm:reinforced_glass", Material.REINFORCED_GLASS);
+        want.put("hbm:reinforced_glass_pane", Material.REINFORCED_GLASS);
+        want.put("hbm:reinforced_laminate", Material.LAMINATE);
+        want.put("hbm:reinforced_laminate_pane", Material.LAMINATE);
+        want.put("hbm:glass_quartz", Material.GLASS);
+        want.put("hbm:vinyl_tile_large", Material.WOOD);
+        want.put("hbm:tile_lab_cracked", Material.STONE);
         List<String> wrong = new ArrayList<>();
         for (var e : want.entrySet()) {
             Verdict got = v.get(e.getKey());
@@ -190,6 +198,39 @@ class MaterialsTest {
         Verdict machine = new Verdict(Material.MACHINE, 1F, Source.CLASS, "");
         assertEquals(Materials.left(machine, 0.1, 50F, 7F, 0.1F), Materials.left(machine, 3.0, 50F, 7F, 0.1F));
         assertFalse(Float.isNaN(Materials.left(wood, 0.0, 20F, 0F, 0F)));
+    }
+
+    // NTM rounds as power (gun damage x ammo damage), threshold negation, armour piercing
+    private static final float[] UZI_FMJ = {3F * 0.8F, 2F, 0.1F}, REVOLVER_357 = {7.5F, 0F, 0F},
+            LAG_FMJ = {25F * 0.8F, 2F, 0.1F}, MAS36 = {30F, 0F, 0F}, LILMAC = {30F, 0F, 0F},
+            AMAT_AP = {30F * 1.25F, 17.5F, 0.15F}, SUBTLETY = {50F, 0F, 0F},
+            SUBTLETY_DU = {50F * 1.5F, 21F, 0.25F}, SUBTLETY_SM = {50F * 2.5F, 30F, 0.35F};
+
+    private static boolean through(Material m, double length, float[] round) {
+        return Materials.left(new Verdict(m, 1F, Source.RULE, ""), length, round[0], round[1], round[2]) > 0F;
+    }
+
+    @Test
+    void armouredGlass() {
+        double pane = 2.0 / 16.0;
+        // wired glass: the pane stops the weak pistols, the block every pistol and rifle but AP and .50
+        assertFalse(through(Material.REINFORCED_GLASS, pane, UZI_FMJ));
+        assertFalse(through(Material.REINFORCED_GLASS, pane, REVOLVER_357));
+        assertTrue(through(Material.REINFORCED_GLASS, pane, LAG_FMJ));
+        assertFalse(through(Material.REINFORCED_GLASS, 1.0, LAG_FMJ));
+        assertFalse(through(Material.REINFORCED_GLASS, 1.0, MAS36));
+        assertTrue(through(Material.REINFORCED_GLASS, 1.0, AMAT_AP));
+        // laminate: the pane stops all but the strong rounds, the block all but the very strongest
+        assertFalse(through(Material.LAMINATE, pane, LAG_FMJ));
+        assertFalse(through(Material.LAMINATE, pane, MAS36));
+        assertFalse(through(Material.LAMINATE, pane, LILMAC));
+        assertTrue(through(Material.LAMINATE, pane, AMAT_AP));
+        assertTrue(through(Material.LAMINATE, pane, SUBTLETY));
+        assertFalse(through(Material.LAMINATE, 1.0, SUBTLETY));
+        assertFalse(through(Material.LAMINATE, 1.0, SUBTLETY_DU));
+        assertTrue(through(Material.LAMINATE, 1.0, SUBTLETY_SM));
+        // plain glass stops nothing
+        assertTrue(through(Material.GLASS, 1.0, UZI_FMJ));
     }
 
     @Test

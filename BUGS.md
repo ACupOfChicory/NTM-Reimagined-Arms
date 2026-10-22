@@ -18,7 +18,20 @@ as applied (`appliedPitch = pitch`). Looking straight up and firing, the kick up
 applied in full: the view ends lower than where the player was aiming, by up to the shot's recoil each time. Fix:
 count only what `turn()` really applied.
 
+### Decals: NTM tiles get shattered-glass bullet holes
+`src/main/resources/ntmgunfeel-bullets.txt` (`decal @glass,...`): the line picks blocks by the glass sound, and NTM
+gives it to `vinyl_tile_large/small` (plastic floor) and `tile_lab*` (ceramic tiles), so a shot leaves a glass
+shatter mark on them. In the game now; changing it changes what the player sees, so it waits for a decision.
+Found 2026-10-22 with the glass materials bug (see Fixed).
+
 ## Fixed
+
+### Materials: glass is one material, armoured glass and glass-sounding tiles count as plain glass
+`src/main/java/acup/gunfeel/Materials.java`: GLASS has no strength scale (its blast is 0), so the bulletproof
+`reinforced_laminate` (blast 180) and its pane stop a bullet no better than a window (blast 0.3). The glass sound
+also makes glass of `vinyl_tile_large/small` (plastic floor, hardness 10) and `tile_lab*` (ceramic tiles). Not in the
+game yet (the classifier is not called). Found 2026-10-22 when the user asked about strong and weak glass; fixed with two armoured glass materials
+(`reinforced_glass`, `laminate`, thickness counted as its square root) and rule lines for the tiles.
 
 ### Materials: an infinite hardness was not unbreakable
 `src/main/java/acup/gunfeel/Materials.java`: only a hardness below 0 (bedrock's -1) counted as unbreakable, but NTM

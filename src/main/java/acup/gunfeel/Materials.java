@@ -25,10 +25,17 @@ public final class Materials {
     }
 
     // dt: NTM's damage threshold per block of thickness, dr: its damage resistance per block (both as NTM's armour);
-    // blast: the material's usual blast resistance, against which a block's own scales its strength (0 = never)
+    // blast: the material's usual blast resistance, against which a block's own scales its strength (0 = never);
+    // thick: how the thickness counts, as length^thick (1 = in proportion)
     public enum Material {
         NONE(0F, 0F, 0F),
         GLASS(0.5F, 0.1F, 0F),
+        // armoured glass is layered: a thin sheet holds far more than its share of a thick block (thickness ^ 0.5),
+        // so a pane (1/8 block) counts as 0.35 of a block. Wired glass: the pane stops the weak pistols, the block
+        // all pistols. Laminate: the pane stops all but the strong rounds (.50, rifle AP), the block all but the
+        // very strongest (.50 saboted)
+        REINFORCED_GLASS(30F, 0.6F, 0F, 0.5F),
+        LAMINATE(100F, 0.9F, 0F, 0.5F),
         WOOD(3F, 0.2F, 0F),
         SOFT(12F, 0.6F, 0F),
         STONE(30F, 0.8F, 6F),
@@ -42,12 +49,17 @@ public final class Materials {
         MACHINE(150F, 0.95F, 6F),
         UNBREAKABLE(Float.POSITIVE_INFINITY, 1F, 0F);
 
-        public final float dt, dr, blast;
+        public final float dt, dr, blast, thick;
 
         Material(float dt, float dr, float blast) {
+            this(dt, dr, blast, 1F);
+        }
+
+        Material(float dt, float dr, float blast, float thick) {
             this.dt = dt;
             this.dr = dr;
             this.blast = blast;
+            this.thick = thick;
         }
 
         public static Material named(String name) {
@@ -255,7 +267,8 @@ public final class Materials {
         Material m = v.material();
         if (m == Material.NONE) return power;
         if (m == Material.UNBREAKABLE || !(power > 0F)) return -1F;
-        double len = m == Material.MACHINE ? MACHINE_WALLS : Math.max(0.0, length);
+        double len = m == Material.MACHINE ? MACHINE_WALLS
+                : m.thick == 1F ? Math.max(0.0, length) : Math.pow(Math.max(0.0, length), m.thick);
         double dt = Math.max(0.0, m.dt * v.strength() * len - negation);
         if (dt >= power) return -1F;
         double dr = Math.min(1.0, m.dr * Math.max(0.0, Math.min(2.0, 1.0 - piercing)));
