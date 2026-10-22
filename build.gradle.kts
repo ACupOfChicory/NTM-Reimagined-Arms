@@ -112,6 +112,8 @@ tasks.check { dependsOn(mixinCheck) }
 tasks.matching { it.name == "runDumpBlocks" }.configureEach {
     doFirst {
         val dir = root.resolve("run-dump")
+        // the dump stops the server before any world: what a stopped run left of one would only break the next
+        dir.resolve("world").deleteRecursively()
         dir.mkdirs()
         dir.resolve("eula.txt").writeText("eula=true\n")
     }
