@@ -8,3 +8,4 @@ logs/
 .kotlin/
 run/
 !gradle/wrapper/gradle-wrapper.jar
+run-dump/

@@ -30,8 +30,14 @@ on any maven: its jar goes in `libs/mods/`, under the name given in `stonecutter
 
 Stonecutter keeps one source for several Minecraft versions: `settings.gradle.kts` lists them,
 `stonecutter.properties.toml` holds what each one builds against, and `//? if` comments in the code pick the lines
-for each. For now there is only 26.2. `./gradlew runClient` starts the game with the mod, with the NTM jar in
-`run/mods/` (not tried yet).
+for each. For now there is only 26.2. `./gradlew runClient` starts the game with the mod and NTM (not tried yet; NTM
+also needs the crankshaft mod on the client).
+
+`./gradlew runDumpBlocks -PnoAssets` starts a dedicated server with the mod and NTM that writes what the game knows
+about every block (id, classes, sound, hardness, blast resistance, shape, tags...) to
+`versions/26.2/build/blockdump/blocks.tsv` and stops before any world: about 2 minutes on an Orange Pi, no client,
+no game assets (`-PnoAssets` skips their download). The bullet material tests run on the copy in
+`src/test/blockfacts/`; dump again and replace it when NTM or Minecraft is updated.
 
 ## Tests
 

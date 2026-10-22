@@ -23,6 +23,8 @@ val tools: SourceSet = sourceSets.create("tools") {
 
 dependencies {
     compileOnly(ntm)
+    // NTM loads as a mod in the dev runs (runDumpBlocks); the mod jar never contains it
+    runtimeOnly(ntm)
     testImplementation(ntm)
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -48,6 +50,15 @@ neoForge {
         register("client") {
             client()
             gameDirectory = root.resolve("run")
+        }
+        // a dedicated server that writes what the game knows about every block (BlockDump) and stops before any
+        // world: the facts the material tests run on. No client, no assets, no world generation.
+        register("dumpBlocks") {
+            server()
+            gameDirectory = root.resolve("run-dump")
+            programArgument("--nogui")
+            jvmArgument("-Xmx1200M")
+            systemProperty("ntmgunfeel.dumpBlocks", layout.buildDirectory.file("blockdump/blocks.tsv").get().asFile.path)
         }
     }
 }
@@ -96,6 +107,37 @@ val mixinCheck = tasks.register<JavaExec>("mixinCheck") {
     })
 }
 tasks.check { dependsOn(mixinCheck) }
+
+// the dump server needs the EULA accepted in its own folder
+tasks.matching { it.name == "runDumpBlocks" }.configureEach {
+    doFirst {
+        val dir = root.resolve("run-dump")
+        dir.mkdirs()
+        dir.resolve("eula.txt").writeText("eula=true\n")
+    }
+}
+
+// NeoForm tools ask for Java 21 by default; the Java 25 the build runs on does as well (no second JDK on the Pi)
+tasks.withType<net.neoforged.nfrtgradle.NeoFormRuntimeTask>().configureEach {
+    javaExecutable = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
+        .map { it.executablePath.asFile.absolutePath }
+}
+
+// -PnoAssets (the Pi): skip the game assets, hundreds of MB that only a client needs; the runs get an empty folder.
+// runDumpBlocks is a dedicated server, so ./gradlew runDumpBlocks -PnoAssets is all it takes.
+if (providers.gradleProperty("noAssets").isPresent) {
+    tasks.named<net.neoforged.nfrtgradle.DownloadAssets>("downloadAssets") {
+        val props = assetPropertiesFile
+        val empty = layout.buildDirectory.dir("no-assets")
+        actions.clear()
+        doLast {
+            val dir = empty.get().asFile
+            dir.resolve("indexes").mkdirs()
+            dir.resolve("indexes/none.json").writeText("{\"objects\":{}}")
+            props.get().asFile.writeText("asset_index=none\nassets_root=" + dir.absolutePath.replace("\\", "/") + "\n")
+        }
+    }
+}
 
 // ./gradlew jarDiff -Pbaseline=<jar>: does this build run the same as that one (tools/JarDiff.java)
 tasks.register<JavaExec>("jarDiff") {
