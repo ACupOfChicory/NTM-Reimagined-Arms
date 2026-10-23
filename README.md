@@ -72,8 +72,8 @@ and NTM's after about 8000, counting only what passes 20 per bullet (rifles chip
 
 ## Build
 
-`./gradlew build` (JDK 25) builds the mod into `versions/26.2/build/libs/ntm-gunfeel-<version>.jar` (the version
-comes from `neoforge.mods.toml`) and runs every check below. Minecraft and NeoForge come through Gradle
+`./gradlew build` (JDK 25) builds the mod into `versions/26.2/build/libs/reimagined-arms-X<build>-mc26.2.jar` (the
+build number is counted from git, see `CLAUDE.md`) and runs every check below. Minecraft and NeoForge come through Gradle
 (ModDevGradle, without decompiling and recompiling Minecraft, so it also builds on a small ARM board). NTM NEXT is not
 on any maven: its jar goes in `libs/mods/`, under the name given in `stonecutter.properties.toml`.
 

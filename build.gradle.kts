@@ -5,9 +5,47 @@ plugins {
 }
 
 val root: File = rootProject.projectDir
-val modsToml = root.resolve("src/main/resources/META-INF/neoforge.mods.toml")
-version = Regex("""(?m)^version *= *"(.*)"""").find(modsToml.readText())!!.groupValues[1]
-base.archivesName = "ntm-gunfeel"
+// The version is counted from git, never set by hand (CLAUDE.md, "Versioning"). BUILD_OFFSET puts the count on the old
+// numbers: main at 0.1.201 (917c862) had 119 commits, so it is X201; numbers in between may be skipped.
+val BUILD_OFFSET = 82
+val mcVersion = project.name // versions/<Minecraft version>/
+val loader = property("mod.loader") as String
+fun git(vararg args: String): String? = runCatching {
+    val out = providers.exec {
+        commandLine("git", *args)
+        workingDir = root
+        isIgnoreExitValue = true
+    }
+    if (out.result.get().exitValue == 0) out.standardOutput.asText.get().trim() else null
+}.getOrNull()
+fun count(range: String): Int? = git("rev-list", "--count", range)?.toIntOrNull()
+
+val branch = git("rev-parse", "--abbrev-ref", "HEAD")
+// port/*: X<B>.<P>, B = main's commits up to where the port left it, P = the port's own commits since
+val portBase = if (branch != null && branch.startsWith("port/"))
+    (git("merge-base", "HEAD", "main") ?: git("merge-base", "HEAD", "origin/main")) else null
+// (version for the loader, name for players, jar suffix)
+val (modVersion, displayVersion, jarVersion) = if (portBase != null) {
+    val b = count(portBase)?.plus(BUILD_OFFSET)
+    val p = count("$portBase..HEAD")
+    // for the loader: <B>.<P>+mc<Minecraft version>-<loader>
+    if (b == null || p == null) Triple("0+mc$mcVersion-$loader", "X0-dev", "X0-dev-mc$mcVersion-$loader")
+    else Triple("$b.$p+mc$mcVersion-$loader", "X$b.$p", "X$b.$p-mc$mcVersion-$loader")
+} else {
+    // main (and any other branch): <N>+mc<Minecraft version>
+    val n = count("HEAD")?.plus(BUILD_OFFSET)
+    if (n == null) Triple("0+mc$mcVersion", "X0-dev", "X0-dev-mc$mcVersion")
+    else Triple("$n+mc$mcVersion", "X$n", "X$n-mc$mcVersion")
+}
+version = modVersion
+tasks.jar { archiveVersion = jarVersion }
+base.archivesName = "reimagined-arms"
+
+tasks.processResources {
+    val props = mapOf("mod_version" to version.toString(), "mod_display_version" to displayVersion)
+    inputs.properties(props)
+    filesMatching("META-INF/neoforge.mods.toml") { expand(props) }
+}
 
 repositories {
     mavenCentral()

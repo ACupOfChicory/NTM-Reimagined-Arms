@@ -33,9 +33,6 @@ class PinnedTest {
         try (Stream<Path> s = Files.walk(res)) {
             for (Path p : s.filter(Files::isRegularFile).sorted().toList()) {
                 byte[] data = Files.readAllBytes(p);
-                // the version goes up with every release: the rest of the file is pinned
-                if (p.endsWith("neoforge.mods.toml"))
-                    data = new String(data, StandardCharsets.UTF_8).replaceAll("(?m)^version *=.*$", "version = (any)").getBytes(StandardCharsets.UTF_8);
                 out.add(sha256(data) + "  " + res.relativize(p).toString().replace('\\', '/'));
             }
         }

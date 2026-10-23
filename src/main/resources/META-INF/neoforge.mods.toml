@@ -4,8 +4,9 @@ license = "GPL-3.0-or-later"
 
 [[mods]]
 modId = "ntmgunfeel"
-version="0.1.201-alpha"
-displayName = "NTM Reimagined Arms"
+# filled in by the build from git (CLAUDE.md, "Versioning"): never by hand
+version = "${mod_version}"
+displayName = "NTM Reimagined Arms ${mod_display_version}"
 description = "HBM NTM guns: hold-to-aim (server), smooth camera recoil, spring model recoil, centred hip position, hidden off-hand item and corner ammo HUD (client)."
 
 # the mixins into Minecraft and Flywheel

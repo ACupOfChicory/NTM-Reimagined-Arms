@@ -1,5 +1,7 @@
-# Per Minecraft version: what the mod is built against. The mod's own version stays in neoforge.mods.toml.
+# Per Minecraft version: what the mod is built against. The mod's own version is counted from git (CLAUDE.md).
 mod.id = "ntmgunfeel"
+# the loader this branch builds for: a port names its own (forge, fabric); in the version of port/* branches
+mod.loader = "neoforge"
 
 ["26.2"]
 deps.neoforge = "26.2.0.90"

@@ -135,8 +135,9 @@ class ResourcesTest {
         String toml = Files.readString(RES.resolve("META-INF/neoforge.mods.toml"));
         assertTrue(toml.contains("modId = \"ntmgunfeel\""), "modId must match the assets namespace ntmgunfeel");
         Matcher v = Pattern.compile("(?m)^version *= *\"([^\"]+)\"").matcher(toml);
-        assertTrue(v.find(), "no version line (the jar is named after it)");
-        assertTrue(v.group(1).matches("\\d+\\.\\d+\\.\\d+(-[a-z0-9.]+)?"), "odd version " + v.group(1));
+        assertTrue(v.find(), "no version line");
+        // the build fills it in from git (CLAUDE.md, "Versioning"): a number typed here would never change
+        assertEquals("${mod_version}", v.group(1), "the version is counted from git, not written in neoforge.mods.toml");
         Matcher mixins = Pattern.compile("config *= *\"([^\"]+)\"").matcher(toml);
         while (mixins.find()) assertTrue(Files.exists(RES.resolve(mixins.group(1))), "missing " + mixins.group(1));
     }
