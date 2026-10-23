@@ -5,6 +5,14 @@ leave the game exactly as it is.
 
 ## Open
 
+### Hit sounds hardly fade with distance: placed nearer for a 16-block fade, but they fade over 24
+`src/main/java/acup/gunfeel/BulletFx.java:190` (`play`). A hit sound heard over `range` (40) blocks is set nearer the
+listener at `16 / range` of its distance, as if Minecraft faded it out within 16 blocks. Our hit sounds have
+`attenuation_distance` 24 (some 32) in `sounds.json`, so the sound set 16 blocks away still plays at a third of its
+volume (a half for 32), and it goes from 1.6 at the shooter (hitVolume 2) to about 0.5 at 40 blocks, then stops
+short. From `/gunfeel sounddebug`: 36.8 blocks away, set at 14.7, heard at 1.6 × (1 − 14.7/24) ≈ 0.62, not 0.11.
+The scale should be the sound's own attenuation distance over `range`. Found by the user, 2026-10-23.
+
 ### Hole limits: every drawn hole counts against holeMaxMachines, ordinary blocks too
 `src/main/java/acup/gunfeel/Tracers.java:1251` (`new Hole(…, true)` in `drawnHole`). `drawnHole` makes the holes on
 every block now (the chunk's mesh), not only on machines and doors, and marks them all `machine`. So `holeMax` (blocks)
