@@ -31,33 +31,41 @@ class DecalsTest {
     void everyKindHasItsOwnFile() {
         Set<String> seen = new HashSet<>();
         for (int k = 0; k < Decals.COUNT; k++) assertTrue(seen.add(Decals.file(k)), "two kinds share " + Decals.file(k));
-        assertEquals(Decals.HOLES.size() * Decals.VARIANTS + Decals.SCRATCHES.size() + Decals.SCORCHES.size(), Decals.COUNT);
+        assertEquals(Decals.HOLES.size() + Decals.SCRATCHES.size() + Decals.SCORCHES.size(), Decals.COUNT);
     }
 
     @Test
-    void oldHolesKeepTheirNames() {
-        for (int v = 0; v < Decals.VARIANTS; v++) assertEquals("bullet_hole_" + v, Decals.file(Decals.hole("old", v / (double) Decals.VARIANTS)));
-    }
-
-    @Test
-    void holesPickTheirStyleAndEveryVariant() {
+    void holesPickTheirStyle() {
         for (String s : Decals.HOLES) {
-            Set<Integer> kinds = new HashSet<>();
-            for (int i = 0; i < 1000; i++) {
-                int k = Decals.hole(s, i / 1000.0);
-                assertFalse(Decals.isScratch(k) || Decals.isScorch(k), s);
-                assertTrue(Decals.file(k).contains(s.equals("old") ? "bullet_hole_" : "hole_" + s + "_"), Decals.file(k));
-                kinds.add(k);
-            }
-            assertEquals(Decals.VARIANTS, kinds.size(), s + " does not reach every variant");
+            int k = Decals.hole(s);
+            assertFalse(Decals.isScratch(k) || Decals.isScorch(k), s);
+            assertEquals("hole_" + s, Decals.file(k));
         }
     }
 
     @Test
-    void randomOutsideItsRangeStaysInTheStyle() {
+    void randomPicksEveryVariantAndStaysInRange() {
+        Set<Integer> seen = new HashSet<>();
+        for (int i = 0; i < 10000; i++) seen.add(Decals.variant(i / 10000.0));
+        assertEquals(Decals.VARIANTS, seen.size(), "not every variant is reached");
         for (double r : new double[] {-0.5, 1.0, 1.5, Double.NaN}) {
-            int k = Decals.hole("spall", r);
-            assertTrue(Decals.file(k).startsWith("hole_spall_"), r + " -> " + Decals.file(k));
+            int v = Decals.variant(r);
+            assertTrue(v >= 0 && v < Decals.VARIANTS, r + " -> " + v);
+        }
+    }
+
+    @Test
+    void aVariantStaysInsideItsCell() {
+        double cellSize = 1.0 / Decals.GRID;
+        Set<String> cells = new HashSet<>();
+        for (int v = 0; v < Decals.VARIANTS; v++) {
+            float[] lo = Decals.cell(v, 0F, 0F), hi = Decals.cell(v, 1F, 1F), mid = Decals.cell(v, 0.5F, 0.5F);
+            int cx = (int) (mid[0] / cellSize), cy = (int) (mid[1] / cellSize);
+            assertTrue(cells.add(cx + "," + cy), "two variants share a cell: " + v);
+            for (float[] p : new float[][] {lo, hi, Decals.cell(v, -0.2F, 1.3F)}) {
+                assertEquals(cx, (int) (p[0] / cellSize), "variant " + v + " leaves its cell in u");
+                assertEquals(cy, (int) (p[1] / cellSize), "variant " + v + " leaves its cell in v");
+            }
         }
     }
 
@@ -77,8 +85,8 @@ class DecalsTest {
 
     @Test
     void unknownStylesFallBackToTheDefault() {
-        assertEquals(Decals.hole(Decals.HOLE, 0.3), Decals.hole("punch", 0.3));
-        assertEquals(Decals.hole(Decals.HOLE, 0.3), Decals.hole(null, 0.3));
+        assertEquals(Decals.hole(Decals.HOLE), Decals.hole("punch"));
+        assertEquals(Decals.hole(Decals.HOLE), Decals.hole(null));
         assertEquals(Decals.scratch(Decals.SCRATCH), Decals.scratch("nope"));
         assertEquals(Decals.scorch(Decals.SCORCH), Decals.scorch(""));
         assertEquals(Decals.scorch("crater"), Decals.scorch("CRATER"));
@@ -94,29 +102,31 @@ class DecalsTest {
         assertEquals(new Decals.Set("shatter", "lines", "blot"), s);
     }
 
+    // a grid of square cells, grey (how much of the block's colour shows) with alpha; every cell drawn on
     @Test
-    void everyTextureIsThereBlackAndSquare() throws IOException {
+    void everyTextureIsAGridOfGreyCells() throws IOException {
         for (String f : Decals.files()) {
             Path p = EFFECT.resolve(f + ".png");
             assertTrue(Files.exists(p), "missing " + p);
             BufferedImage img = ImageIO.read(p.toFile());
             assertNotNull(img, p + " is not a PNG");
             assertEquals(img.getWidth(), img.getHeight(), p + " is not square");
-            assertTrue(Integer.bitCount(img.getWidth()) == 1, p + " is not a power of two");
+            assertTrue(Integer.bitCount(img.getWidth()) == 1 && img.getWidth() >= Decals.GRID * 16, p + " is not a power of two of at least 16 px a cell");
             assertTrue(img.getColorModel().hasAlpha(), p + " has no alpha");
-            int seen = 0;
-            for (int y = 0; y < img.getHeight(); y++) {
-                for (int x = 0; x < img.getWidth(); x++) {
-                    int argb = img.getRGB(x, y);
-                    if ((argb >>> 24) == 0) continue;
-                    seen++;
-                    // near black and grey (the old holes go up to 48, tinted by 8): one texture suits every block
-                    int r = argb >> 16 & 255, g = argb >> 8 & 255, b = argb & 255;
-                    int max = Math.max(r, Math.max(g, b)), min = Math.min(r, Math.min(g, b));
-                    assertTrue(max <= 64 && max - min <= 16, p + " is light or coloured at " + x + "," + y + ": #" + Integer.toHexString(argb & 0xFFFFFF));
+            int cell = img.getWidth() / Decals.GRID;
+            for (int c = 0; c < Decals.VARIANTS; c++) {
+                int seen = 0;
+                for (int y = c / Decals.GRID * cell; y < (c / Decals.GRID + 1) * cell; y++) {
+                    for (int x = c % Decals.GRID * cell; x < (c % Decals.GRID + 1) * cell; x++) {
+                        int argb = img.getRGB(x, y);
+                        if ((argb >>> 24) == 0) continue;
+                        seen++;
+                        int r = argb >> 16 & 255, g = argb >> 8 & 255, b = argb & 255;
+                        assertTrue(r == g && g == b, p + " is coloured at " + x + "," + y + ": #" + Integer.toHexString(argb & 0xFFFFFF));
+                    }
                 }
+                assertTrue(seen > 0, p + ": cell " + c + " is empty");
             }
-            assertTrue(seen > 0, p + " is empty");
         }
     }
 
@@ -128,7 +138,7 @@ class DecalsTest {
                 String n = p.getFileName().toString();
                 if (!n.endsWith(".png")) continue;
                 String base = n.substring(0, n.length() - 4);
-                if (base.startsWith("hole_") || base.startsWith("bullet_hole_") || base.startsWith("scratch") || base.startsWith("scorch"))
+                if (base.startsWith("hole_") || base.startsWith("bullet_hole") || base.startsWith("scratch") || base.startsWith("scorch"))
                     assertTrue(known.contains(base), n + " is not used by any decal style");
             }
         }

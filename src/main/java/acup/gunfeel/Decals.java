@@ -6,10 +6,13 @@ import java.util.Locale;
 import java.util.Map;
 
 // The textures a bullet leaves on a block, by style. Which style a block gets comes from its material (Set.of, the
-// same material its piercing uses), changed by the "decal" rules (BulletRules.decal). A kind is one texture: an index into files().
-//   hole: 8 variants each; "old" is the mod's first set (bullet_hole_0..7), the others hole_<style>_0..7
-//   scratch (a ricochet): scratch_<style>; scorch (explosive and incendiary rounds): scorch_<style>
-// The textures are made on the decal generator page and are black with alpha only, so they suit any block.
+// same material its piercing uses), changed by the "decal" rules (BulletRules.decal). A kind is one style: an index
+// into files(). Each style is one texture, a grid of GRID x GRID variants (cell(): where a variant lies on it):
+//   hole_<style> ("old": the mod's first 8 holes, repeated over the grid), scratch_<style> (a ricochet),
+//   scorch_<style> (explosive and incendiary rounds).
+// The textures are made by review/decals/render.js from the decal generator page. Their alpha is how dark the mark
+// is; their grey is how much of the block's own colour shows in it (the vertex colour, Tracers): black in the
+// deepest middle, the colour round it.
 public final class Decals {
     private Decals() {
     }
@@ -17,20 +20,16 @@ public final class Decals {
     public static final List<String> HOLES = List.of("old", "spall", "shatter", "soot");
     public static final List<String> SCRATCHES = List.of("gouge", "burn", "lines");
     public static final List<String> SCORCHES = List.of("star", "blot", "crater");
-    public static final int VARIANTS = 8;
+    public static final int GRID = 8, VARIANTS = GRID * GRID;
     // the styles of a block no rule names (not on any material list): the old holes, a gouge, a blot
     public static final String HOLE = "old", SCRATCH = "gouge", SCORCH = "blot";
 
-    private static final int FIRST_SCRATCH = HOLES.size() * VARIANTS, FIRST_SCORCH = FIRST_SCRATCH + SCRATCHES.size();
+    private static final int FIRST_SCRATCH = HOLES.size(), FIRST_SCORCH = FIRST_SCRATCH + SCRATCHES.size();
     public static final int COUNT = FIRST_SCORCH + SCORCHES.size();
 
     private static final String[] FILES = new String[COUNT];
     static {
-        for (int s = 0; s < HOLES.size(); s++) {
-            for (int v = 0; v < VARIANTS; v++) {
-                FILES[s * VARIANTS + v] = HOLES.get(s).equals("old") ? "bullet_hole_" + v : "hole_" + HOLES.get(s) + "_" + v;
-            }
-        }
+        for (int s = 0; s < HOLES.size(); s++) FILES[s] = "hole_" + HOLES.get(s);
         for (int s = 0; s < SCRATCHES.size(); s++) FILES[FIRST_SCRATCH + s] = "scratch_" + SCRATCHES.get(s);
         for (int s = 0; s < SCORCHES.size(); s++) FILES[FIRST_SCORCH + s] = "scorch_" + SCORCHES.get(s);
     }
@@ -44,11 +43,24 @@ public final class Decals {
         return Arrays.asList(FILES.clone());
     }
 
-    // a hole of that style; random in [0, 1) picks the variant. An unknown style gives the default's.
-    public static int hole(String style, double random) {
-        int s = index(HOLES, style, HOLE);
-        int v = Math.min(VARIANTS - 1, Math.max(0, (int) (random * VARIANTS)));
-        return s * VARIANTS + v;
+    // a hole of that style. An unknown style gives the default's.
+    public static int hole(String style) {
+        return index(HOLES, style, HOLE);
+    }
+
+    // the variant random in [0, 1) picks (NaN and anything outside: the nearest end)
+    public static int variant(double random) {
+        return random >= 0 ? Math.min(VARIANTS - 1, (int) (random * VARIANTS)) : 0;
+    }
+
+    // where (u, v) of a mark's own square (0..1 each) lies on its style's texture for that variant: in its cell, kept
+    // a hair inside so the next cell's edge pixels never show
+    public static float[] cell(int variant, float u, float v) {
+        int c = Math.floorMod(variant, VARIANTS);
+        float e = 1F / 512F;
+        u = Math.min(1F - e, Math.max(e, u));
+        v = Math.min(1F - e, Math.max(e, v));
+        return new float[] {(c % GRID + u) / GRID, (c / GRID + v) / GRID};
     }
 
     public static int scratch(String style) {

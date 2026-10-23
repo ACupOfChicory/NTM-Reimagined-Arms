@@ -1,5 +1,12 @@
 # Changelog
 
+## X271
+
+- Every mark style has 64 variants instead of 8 (one 8 x 8 texture per style); the first holes ("old") still have
+  their own 8, repeated.
+- Marks take the colour of the block they are on: a hole in copper is copper-brown, the darkest middle stays black.
+  New setting `holeTint` (0 = black as before, 1 = full colour, default 0.5).
+
 ## X269
 
 - Holes between two blocks a bullet goes straight through are back for every block (a grate against a scaffold,

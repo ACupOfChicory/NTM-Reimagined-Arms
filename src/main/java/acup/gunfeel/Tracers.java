@@ -47,7 +47,8 @@ public final class Tracers {
     // a hole's texture (kind): one of Decals' (holes by style, a ricochet's scratch, the scorch mark left by bullets
     // that do something on impact), picked by the hit block's decal rule. A scratch lies along the texture's u, at any
     // angle (turn = SCRATCH_TURN + degrees)
-    private static final int KINDS = Decals.COUNT, SCRATCH_TURN = 1000;
+    // A hole's variant (its cell on its style's texture, Decals.cell) rides in the turn's bits from VARIANT_SHIFT up
+    private static final int KINDS = Decals.COUNT, SCRATCH_TURN = 1000, VARIANT_SHIFT = 11, TURN_MASK = (1 << VARIANT_SHIFT) - 1;
     private static final Identifier[] TEXTURES = new Identifier[KINDS];
     static {
         for (int i = 0; i < KINDS; i++) TEXTURES[i] = Identifier.fromNamespaceAndPath("ntmgunfeel", "textures/effect/" + Decals.file(i) + ".png");
@@ -56,7 +57,7 @@ public final class Tracers {
     // the texture for a hole on this block: its scorch for explosive and incendiary rounds, else a hole of its style
     private static int holeKind(BlockState state, BulletConfig config) {
         Decals.Set set = BulletRules.decal(state);
-        return config.onImpact != null ? Decals.scorch(set.scorch()) : Decals.hole(set.hole(), Math.random());
+        return config.onImpact != null ? Decals.scorch(set.scorch()) : Decals.hole(set.hole());
     }
     // the tracer joins the bullet's real path over this many blocks from the muzzle
     private static final float JOIN = 4F;
@@ -132,7 +133,20 @@ public final class Tracers {
     // mask = which 1/16-block cells of the face show the block's pixels (null = all): cells mask.w x mask.h from
     // cell (u0, v0) on the face's two axes, in 1/16 blocks
     private record Hole(Vec3 pos, Direction face, int turn, long born, int light, int kind, float size, double[] rect, Mask mask, double plane, boolean late, boolean cull,
-            float[] mesh, boolean front, BlockPos block, BlockState state, boolean drawn, Follow follow, Vec3 hit, boolean machine) {
+            float[] mesh, boolean front, BlockPos block, BlockState state, boolean drawn, Follow follow, Vec3 hit, boolean machine, int tint) {
+    }
+
+    // a new mark's turn with a random variant in it
+    private static int withVariant(int turn) {
+        return turn | Decals.variant(Math.random()) << VARIANT_SHIFT;
+    }
+
+    // a mark's vertex colour (RGB): the colour of what it is on, by holeTint; black at 0 (the texture's grey times it)
+    private static int tint(ClientLevel level, BlockPos pos, BlockState state, Vec3 at, Vec3 dir) {
+        float k = Config.holeTint;
+        if (!(k > 0F)) return 0;
+        int c = BulletFx.markColor(level, pos, state, at, dir);
+        return Math.round((c >> 16 & 255) * k) << 16 | Math.round((c >> 8 & 255) * k) << 8 | Math.round((c & 255) * k);
     }
 
     // A hole on a part a renderer moves (a door's leaf, a press head): kept in the part's own space and put where the
@@ -715,8 +729,15 @@ public final class Tracers {
     }
 
     // where (a, b) on a hole's square (0..1 each) falls on its texture: turned / mirrored by `turn` (0..7), or a
-    // scratch's turned by its angle and shrunk by 1/sqrt 2 about the centre, so the square's corners stay on it
-    private static float[] holeUv(int turn, float a, float b) {
+    // scratch's turned by its angle and shrunk by 1/sqrt 2 about the centre, so the square's corners stay on it;
+    // then in its variant's cell (the turn's bits from VARIANT_SHIFT). v grows up, as the callers' 1 - v expects
+    private static float[] holeUv(int turnAndVariant, float a, float b) {
+        float[] uv = turned(turnAndVariant & TURN_MASK, a, b);
+        float[] c = Decals.cell(turnAndVariant >>> VARIANT_SHIFT, uv[0], 1F - uv[1]);
+        return new float[] {c[0], 1F - c[1]};
+    }
+
+    private static float[] turned(int turn, float a, float b) {
         if (turn >= SCRATCH_TURN) {
             double r = Math.toRadians(turn - SCRATCH_TURN), c = Math.cos(r), sn = Math.sin(r);
             double da = (a - 0.5) * 0.7071, db = (b - 0.5) * 0.7071;
@@ -893,6 +914,7 @@ public final class Tracers {
             turn = scratchTurn(new Vector3d(ea[0], ea[1], ea[2]), new Vector3d(eb[0], eb[1], eb[2]));
             size = scratchSize();
         }
+        turn = withVariant(turn);
         double[] rect = faceRect(level, hit.getBlockPos(), hit.getDirection());
         Mask mask = null;
         double plane = Double.NaN;
@@ -913,7 +935,8 @@ public final class Tracers {
                 && !glassLike(level.getBlockState(hit.getBlockPos()));
         addMade(new Hole(hit.getLocation(), hit.getDirection(), turn, System.nanoTime(), light, kind, size, rect, mask, plane,
                 translucent(level.getBlockState(hit.getBlockPos())) || glassLike(level.getBlockState(hit.getBlockPos())),
-                cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false));
+                cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false,
+                tint(level, hit.getBlockPos(), level.getBlockState(hit.getBlockPos()), hit.getLocation(), dir)));
         trimHoles();
     }
 
@@ -961,6 +984,7 @@ public final class Tracers {
             kind = Decals.scratch(BulletRules.decal(decalOn).scratch());
             turn = scratchTurn(t1, t2);
         }
+        turn = withVariant(turn);
         // the faces in the same plane, here and around
         List<double[]> polys = new ArrayList<>();
         List<Object[]> same = new ArrayList<>();
@@ -1011,7 +1035,8 @@ public final class Tracers {
         int light = LightCoordsUtil.getLightCoords(level, pos);
         addMade(new Hole(world, hit.getDirection(), turn, System.nanoTime(), light, kind, size, null, null, Double.NaN,
                 translucent(level.getBlockState(pos)) || glassLike(level.getBlockState(pos)), false, mesh,
-                onBoxFace(level, pos, at, normal) && !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false));
+                onBoxFace(level, pos, at, normal) && !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false,
+                tint(level, pos, level.getBlockState(pos), world, dir)));
         trimHoles();
     }
 
@@ -1193,6 +1218,7 @@ public final class Tracers {
             kind = Decals.scratch(BulletRules.decal(decalOn).scratch());
             turn = scratchTurn(t1, t2);
         }
+        turn = withVariant(turn);
         Vector3d[] frame = {world, t1, t2, normal};
         // as deep as a step, a bevel or a bar standing out of the face goes (the secure door's ribs)
         double depth = Math.max(1.5 * half, 0.1);
@@ -1344,7 +1370,8 @@ public final class Tracers {
             Follow follow = first.anchor() == null ? null : new Follow(first.anchor(), at, mesh, light);
             // counted by holeMaxMachines when it is on what a renderer draws (a machine, a door: no block), else by holeMax
             addMade(new Hole(new Vec3(at.x, at.y, at.z), hit.getDirection(), turn, born, light, kind, size, null, null, Double.NaN, late, false, mesh,
-                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, first.block() == null));
+                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, first.block() == null,
+                    tint(level, on, state, hitAt, dir)));
             dbg("  hole group: {} polygons at {} on {} tex={} front={} late={} follows={} moving={}", g.polys().size(), v(at), on,
                     RenderedMesh.texName(first.tex()), front, late, follow != null, first.moving());
         }
@@ -1869,7 +1896,7 @@ public final class Tracers {
         // instead, each face's part stood off its face and an edge showed a strip of the block between them
         float bx = (float) (pos.x - cam.x), by = (float) (pos.y - cam.y), bz = (float) (pos.z - cam.z);
         final float toward = 0.999F;
-        int color = (alpha << 24) | 0xFFFFFF;
+        int color = (alpha << 24) | h.tint();
         int k = 3;
         while (k < m.length) {
             int n = (int) m[k++];
@@ -1879,7 +1906,7 @@ public final class Tracers {
                 int[] idx = {0, i, i + 1, Math.min(i + 2, n - 1)};
                 for (int j : idx) {
                     int o = base + j * 6;
-                    vc.addVertex(p, (bx + m[o]) * toward, (by + m[o + 1]) * toward, (bz + m[o + 2]) * toward).setColor(m[o + 5] >= 1F ? color : ((int) (alpha * m[o + 5]) << 24) | 0xFFFFFF).setUv(m[o + 3], m[o + 4])
+                    vc.addVertex(p, (bx + m[o]) * toward, (by + m[o + 1]) * toward, (bz + m[o + 2]) * toward).setColor(m[o + 5] >= 1F ? color : ((int) (alpha * m[o + 5]) << 24) | h.tint()).setUv(m[o + 3], m[o + 4])
                             .setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
                 }
             }
@@ -2349,7 +2376,7 @@ public final class Tracers {
         double plane = base + 0.002 * side;
         Vector3f n = new Vector3f(f.getStepX(), f.getStepY(), f.getStepZ());
         if (flipNormal) n.negate();
-        int color = (alpha << 24) | 0xFFFFFF;
+        int color = (alpha << 24) | h.tint();
         double[][] corners = {{u0, v0}, {u1, v0}, {u1, v1}, {u0, v1}};
         // counter-clockwise seen from outside the face (its front for a one-sided hole): the face's u, v axes turn
         // the other way on east / west and up / down faces
@@ -2541,7 +2568,7 @@ public final class Tracers {
                     int[] idx = {0, i, i + 1, Math.min(i + 2, n - 1)};
                     for (int t = 0; t < 4; t++) {
                         int o = base + idx[rev ? (4 - t) % 4 : t] * 6;
-                        vc.addVertex(p, bx + m[o], by + m[o + 1], bz + m[o + 2]).setColor(((int) (255 * m[o + 5]) << 24) | 0xFFFFFF).setUv(m[o + 3], m[o + 4])
+                        vc.addVertex(p, bx + m[o], by + m[o + 1], bz + m[o + 2]).setColor(((int) (255 * m[o + 5]) << 24) | h.tint()).setUv(m[o + 3], m[o + 4])
                                 .setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, sign * nx, sign * ny, sign * nz);
                     }
                 }

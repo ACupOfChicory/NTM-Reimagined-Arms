@@ -13,7 +13,7 @@ import net.neoforged.fml.loading.FMLPaths;
 public final class Config {
     public static boolean enabled = true;
     public static boolean tracers = true, bulletHoles = true;
-    public static float tracerLength = 8F, tracerWidth = 0.02F, holeLife = 30F, holeSize = 0.28F, scorchSize = 0.9F;
+    public static float tracerLength = 8F, tracerWidth = 0.02F, holeLife = 30F, holeSize = 0.28F, scorchSize = 0.9F, holeTint = 0.5F;
     public static int holeMax = 500;
     public static int holeMaxMachines = 150;
     public static String quality = "high";
@@ -124,6 +124,7 @@ public final class Config {
             bulletHoles: holes where bullets hit blocks; holeLife seconds, holeMax hits' holes at most on blocks, holeMaxMachines on NTM
               machines and doors (oldest first; one hit there leaves a piece per part, heavier to draw), holeSize blocks;
               scorchSize: the soot mark of explosive / incendiary bullets instead of a hole, blocks
+              holeTint: how much a mark takes the colour of what it is on (copper: a copper-brown hole), 0 = black, 1 = full
               holes are cut to the hitbox and to the block's visible pixels; blocks drawn without a block model
               (machines) get none; "hole" lines in ntm-gunfeel-bullets.txt choose per block (glass: hitbox only)
             quality: low, medium, high or realism: sets holeMax, holeMaxMachines, holeLife and particleScale at once
@@ -352,6 +353,7 @@ public final class Config {
         holeLife = num(p, "holeLife", holeLife);
         holeSize = num(p, "holeSize", holeSize);
         scorchSize = num(p, "scorchSize", scorchSize);
+        holeTint = Math.clamp(num(p, "holeTint", holeTint), 0F, 1F);
         holeMax = Math.round(num(p, "holeMax", holeMax));
         holeMaxMachines = Math.round(num(p, "holeMaxMachines", holeMaxMachines));
         quality = p.getProperty("quality", quality).trim();
@@ -461,6 +463,7 @@ public final class Config {
         p.setProperty("holeLife", Float.toString(holeLife));
         p.setProperty("holeSize", Float.toString(holeSize));
         p.setProperty("scorchSize", Float.toString(scorchSize));
+        p.setProperty("holeTint", Float.toString(holeTint));
         p.setProperty("holeMax", Integer.toString(holeMax));
         p.setProperty("holeMaxMachines", Integer.toString(holeMaxMachines));
         p.setProperty("quality", quality);

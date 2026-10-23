@@ -90,7 +90,8 @@ class PinnedTest {
         List<String> out = new ArrayList<>();
         for (int k = 0; k < Decals.COUNT; k++)
             out.add(k + " " + Decals.file(k) + (Decals.isScratch(k) ? " scratch" : Decals.isScorch(k) ? " scorch" : " hole"));
-        for (String h : Decals.HOLES) for (int i = 0; i < 16; i++) out.add("hole " + h + " " + num(i / 16F) + " -> " + Decals.hole(h, i / 16.0));
+        for (String h : Decals.HOLES) out.add("hole " + h + " -> " + Decals.hole(h));
+        for (int i = 0; i < 16; i++) out.add("variant " + num(i / 16F) + " -> " + Decals.variant(i / 16.0));
         pin("decals", out);
     }
 
