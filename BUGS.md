@@ -20,6 +20,13 @@ count only what `turn()` really applied.
 
 ## Fixed
 
+### Multiblock cells: piercing, marks and ricochet by the cell, the hit sound by its machine
+`src/main/java/acup/gunfeel/PassableClip.java`, `Tracers.java`, `mixin/MixinBulletServer.java`: NTM builds its
+multiblocks from shared `multiblock_cell_*` blocks. The hit sound looked up the cell's machine, but piercing, bullet
+marks and the ricochet check used the cell itself, a steel casing: the brick-built machines the author made concrete
+(foundry, crucible, blast furnace, chimneys, cooling towers...) sounded like concrete yet were pierced, marked and
+bounced off like steel. Found 2026-10-23; fixed with `Cells.ruleState`, used everywhere a bullet rule is looked up.
+
 ### Materials: vanilla barrel, pumpkins and chorus plant counted as NTM machines
 `src/main/java/acup/gunfeel/Materials.java`: the class step looks for machine words in the block's class names, and
 vanilla's `BarrelBlock` ("Barrel"), `PumpkinBlock`/`CarvedPumpkinBlock` ("Pump") and `PipeBlock` (chorus plant,

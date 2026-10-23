@@ -74,7 +74,7 @@ public abstract class MixinBulletServer {
         if (config == null || config.onImpact != null || config.onRicochet != BulletConfig.LAMBDA_STANDARD_RICOCHET || self.level().isClientSide()
                 || !(mop instanceof net.minecraft.world.phys.BlockHitResult hit) || hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) return;
         net.minecraft.world.level.block.state.BlockState state = self.level().getBlockState(hit.getBlockPos());
-        if (state.isAir() || acup.gunfeel.BulletRules.ricochet(state)) return;
+        if (state.isAir() || acup.gunfeel.BulletRules.ricochet(acup.gunfeel.Cells.ruleState(self.level(), hit.getBlockPos(), state))) return;
         net.minecraft.core.Direction f = hit.getDirection();
         Vec3 vel = self.getDeltaMovement();
         double l = vel.length();

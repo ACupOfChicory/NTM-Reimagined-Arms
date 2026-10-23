@@ -934,7 +934,7 @@ hbm:rad_absorber_red MACHINE RULE 1.0/3f800000
 hbm:rad_lava_block NONE NO_COLLISION 1.0/3f800000
 hbm:radar_screen MACHINE CLASS 1.0/3f800000
 hbm:radio_autocal MACHINE CLASS 1.0/3f800000
-hbm:radio_telex MACHINE CLASS 1.0/3f800000
+hbm:radio_telex WOOD RULE 1.0/3f800000
 hbm:radio_torch_controller NONE NO_COLLISION 1.0/3f800000
 hbm:radio_torch_counter NONE NO_COLLISION 1.0/3f800000
 hbm:radio_torch_logic NONE NO_COLLISION 1.0/3f800000

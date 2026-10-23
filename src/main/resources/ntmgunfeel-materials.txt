@@ -75,6 +75,7 @@ material minecraft:small_amethyst_bud glass
 material hbm:book_guide wood
 material hbm:door_office wood
 material hbm:ladder_sturdy wood
+material hbm:radio_telex wood
 material hbm:skeleton_holder wood
 material minecraft:creaking_heart wood
 material minecraft:mangrove_roots wood

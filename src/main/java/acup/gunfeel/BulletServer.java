@@ -74,15 +74,7 @@ public final class BulletServer {
         if (!(mop instanceof BlockHitResult hit) || level.isClientSide()) return false;
         BlockState state = level.getBlockState(hit.getBlockPos());
         if (state.isAir()) return false;
-        BlockState rule = state;
-        if (state.getBlock() instanceof com.hbm.blocks.multiblock.BlockMultiblockCell) {
-            try {
-                BlockPos core = com.hbm.blocks.multiblock.MultiblockSurface.coreOfAny(level, hit.getBlockPos(), state);
-                if (core != null && !level.getBlockState(core).isAir()) rule = level.getBlockState(core);
-            } catch (RuntimeException e) {
-                // no core known: the cell's own rules
-            }
-        }
+        BlockState rule = Cells.ruleState(level, hit.getBlockPos(), state);
         BulletRules.Sound s = BulletRules.hit(rule).sound();
         boolean steel = s != null && (s.id().startsWith("ntmgunfeel:bullet.hit.steel") || s.id().startsWith("ntmgunfeel:bullet.hit.metal"));
         if (debugRicochet) acup.gunfeel.GunFeel.LOGGER.info("[sounddebug] server: ricochet off {} at {} (hit sound {}): {}",

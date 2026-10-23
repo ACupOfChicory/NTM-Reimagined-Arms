@@ -598,7 +598,7 @@ public final class Tracers {
         if (c.onImpact != null || c.onRicochet != BulletConfig.LAMBDA_STANDARD_RICOCHET) return false;
         BlockState state = level.getBlockState(hit.getBlockPos());
         if (state.isAir() || state.instrument() == net.minecraft.world.level.block.state.properties.NoteBlockInstrument.HAT
-                || state.is(net.minecraft.world.level.block.Blocks.GLOWSTONE) || !BulletRules.ricochet(state)) return false;
+                || state.is(net.minecraft.world.level.block.Blocks.GLOWSTONE) || !BulletRules.ricochet(Cells.ruleState(level, hit.getBlockPos(), state))) return false;
         Direction f = hit.getDirection();
         double l = vel.length();
         if (l < 1e-9) return false;
@@ -715,7 +715,7 @@ public final class Tracers {
         BlockPos lightAt = hit.getBlockPos().relative(hit.getDirection());
         int light = LightCoordsUtil.getLightCoords(level, lightAt);
         boolean scorch = config.onImpact != null;
-        BlockState decalOn = level.getBlockState(hit.getBlockPos());
+        BlockState decalOn = Cells.ruleState(level, hit.getBlockPos(), level.getBlockState(hit.getBlockPos()));
         int kind = holeKind(decalOn, config);
         float size = (scorch ? Config.scorchSize : Config.holeSize) * (0.8F + 0.4F * (float) Math.random());
         int turn = (int) (Math.random() * 8);
@@ -783,7 +783,7 @@ public final class Tracers {
         if (at == null) return;
         if (normal.dot(d) > 0) normal.negate();
         boolean scorch = config.onImpact != null;
-        BlockState decalOn = level.getBlockState(pos);
+        BlockState decalOn = Cells.ruleState(level, pos, level.getBlockState(pos));
         int kind = holeKind(decalOn, config);
         float size = (scorch ? Config.scorchSize : Config.holeSize) * (0.8F + 0.4F * (float) Math.random());
         int turn = (int) (Math.random() * 8);
@@ -1016,7 +1016,7 @@ public final class Tracers {
         if (normal.dot(d) > 0) normal.negate();
         Vector3d world = new Vector3d(d).mul(best).add(o);
         boolean scorch = config.onImpact != null;
-        BlockState decalOn = hitState;
+        BlockState decalOn = Cells.ruleState(level, pos, hitState);
         int kind = holeKind(decalOn, config);
         float size = (scorch ? Config.scorchSize : Config.holeSize) * (0.8F + 0.4F * (float) Math.random());
         int turn = (int) (Math.random() * 8);

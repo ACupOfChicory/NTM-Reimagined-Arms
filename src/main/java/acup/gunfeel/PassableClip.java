@@ -133,7 +133,7 @@ public final class PassableClip extends ClipContext {
         if (state.isAir() || !(damage >= 1F)) return -1F;
         BulletRules.Break rule = BulletRules.breakRule(state);
         if (rule != null && rule.pierce() > 0F) return rule.pierced(damage, state.getDestroySpeed(level, in.getBlockPos()));
-        Materials.Verdict v = BulletRules.material(state);
+        Materials.Verdict v = BulletRules.material(Cells.ruleState(level, in.getBlockPos(), state));
         float negation = round == null ? 0F : round.armorThresholdNegation;
         float piercing = round == null ? 0F : round.armorPiercingPercent;
         float left = Materials.left(v, in.getLocation().distanceTo(out.getLocation()), damage, negation, piercing);

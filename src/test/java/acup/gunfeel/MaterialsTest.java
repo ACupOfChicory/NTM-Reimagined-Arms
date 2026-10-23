@@ -108,6 +108,10 @@ class MaterialsTest {
         want.put("hbm:reinforced_laminate_pane", Material.LAMINATE);
         want.put("hbm:glass_quartz", Material.GLASS);
         want.put("hbm:glass_uranium", Material.TOUGH_GLASS);
+        // the author's: the telex is a wooden cabinet; vanilla's barrel and pumpkin are no NTM machines
+        want.put("hbm:radio_telex", Material.WOOD);
+        want.put("minecraft:barrel", Material.WOOD);
+        want.put("minecraft:pumpkin", Material.WOOD);
         want.put("hbm:glass_lead", Material.TOUGH_GLASS);
         want.put("hbm:vinyl_tile_large", Material.WOOD);
         want.put("hbm:tile_lab_cracked", Material.STONE);
