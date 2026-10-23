@@ -5,7 +5,11 @@ leave the game exactly as it is.
 
 ## Open
 
-None known.
+### Piercing: a second post or board in the same block costs nothing
+`src/main/java/acup/gunfeel/BulletServer.java:115` (`paid`). A bullet pays once per block: after the first post of a
+scaffold (wooden or steel) or the first board of a wooden ceiling, the next one in the same block is free. The
+`paid` set keeps a bullet that ends a tick inside a block from paying twice; per-part payment needs it per cell run.
+Small: a 2-pixel board of wood takes about 3 damage. Found with the wooden trench blocks, 2026-10-23.
 
 ## Fixed
 
