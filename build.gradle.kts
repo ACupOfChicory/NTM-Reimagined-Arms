@@ -62,6 +62,15 @@ neoForge {
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.dumpBlocks", layout.buildDirectory.file("blockdump/blocks.tsv").get().asFile.path)
         }
+        // a dedicated server that checks the server's settings for the players (SettingsCheck): it plays the server and a
+        // player on another game's server, writes versions/26.2/build/settingscheck/result.txt and stops before any world
+        register("checkSettings") {
+            server()
+            gameDirectory = root.resolve("run-check")
+            programArgument("--nogui")
+            jvmArgument("-Xmx1200M")
+            systemProperty("ntmgunfeel.checkSettings", layout.buildDirectory.file("settingscheck/result.txt").get().asFile.path)
+        }
     }
 }
 
@@ -111,9 +120,9 @@ val mixinCheck = tasks.register<JavaExec>("mixinCheck") {
 tasks.check { dependsOn(mixinCheck) }
 
 // the dump server needs the EULA accepted in its own folder
-tasks.matching { it.name == "runDumpBlocks" }.configureEach {
+tasks.matching { it.name == "runDumpBlocks" || it.name == "runCheckSettings" }.configureEach {
+    val dir = root.resolve(if (name == "runDumpBlocks") "run-dump" else "run-check")
     doFirst {
-        val dir = root.resolve("run-dump")
         // the dump stops the server before any world: what a stopped run left of one would only break the next
         dir.resolve("world").deleteRecursively()
         dir.mkdirs()

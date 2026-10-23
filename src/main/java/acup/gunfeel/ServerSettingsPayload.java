@@ -44,7 +44,7 @@ public record ServerSettingsPayload(byte[] data) implements CustomPacketPayload 
     }
 
     // the payload for the files as they are now, packed again only when one changed
-    private static synchronized ServerSettingsPayload current() {
+    static synchronized ServerSettingsPayload current() {
         String now = stamp();
         if (sent != null && now.equals(sentStamp)) return sent;
         try {

@@ -108,6 +108,12 @@ every class without debug info, and every other file byte for byte. javac's debu
 keeps constant locals), so the build sticks to javac's default `-g:source,lines`. The move from the old `build.sh`
 to Gradle was checked this way: the same jar, 198 entries, only the manifest names Stonecutter.
 
+`./gradlew runCheckSettings -PnoAssets` (`SettingsCheck`) starts a dedicated server with NTM, no client and no world,
+and checks the server's settings for the players on real blocks and tags: the payload through the network codec,
+the server's rule kinds over the player's, the player's drawing lines kept, server numbers and shapes, and all of it
+gone on leaving. The result is in `versions/26.2/build/settingscheck/result.txt`, the run fails if a check does. About
+two minutes on the Pi. What only a real client shows is in `review/INGAME-CHECKS.md`.
+
 ## Bullet marks
 
 Holes, ricochet scratches and the scorch of explosive rounds come in several styles; the hit block's material picks

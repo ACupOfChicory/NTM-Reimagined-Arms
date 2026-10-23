@@ -9,4 +9,5 @@ logs/
 run/
 !gradle/wrapper/gradle-wrapper.jar
 run-dump/
+run-check/
 review/materials/page.html
