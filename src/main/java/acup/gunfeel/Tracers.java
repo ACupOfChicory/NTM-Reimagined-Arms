@@ -1186,24 +1186,10 @@ public final class Tracers {
     }
 
     // at most holeMax hits' holes on blocks and holeMaxMachines hits' on what a renderer draws (NTM machines and
-    // doors, where one hit leaves a piece per part it covers): the oldest hits go first, a hit's pieces together
+    // doors), each limit on its own (HoleLimits, HoleLimitsTest)
     private static void trimHoles() {
-        trim(false, Config.holeMax);
-        trim(true, Config.holeMaxMachines);
-    }
-
-    private static void trim(boolean machine, int limit) {
-        int max = Math.max(1, limit);
-        ArrayDeque<Long> hits = new ArrayDeque<>();
-        long last = Long.MIN_VALUE;
-        for (Hole h : HOLES) if (h.machine() == machine && h.born() != last) {
-            hits.add(h.born());
-            last = h.born();
-        }
-        if (hits.size() <= max) return;
-        java.util.Set<Long> drop = new java.util.HashSet<>();
-        while (hits.size() > max) drop.add(hits.removeFirst());
-        HOLES.removeIf(h -> h.machine() == machine && drop.contains(h.born()));
+        HoleLimits.trim(HOLES, Hole::machine, Hole::born, false, Config.holeMax);
+        HoleLimits.trim(HOLES, Hole::machine, Hole::born, true, Config.holeMaxMachines);
     }
 
     // glass: the blocks tagged so, sounding like glass, or named so
