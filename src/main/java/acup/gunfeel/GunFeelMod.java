@@ -16,7 +16,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 public final class GunFeelMod {
     // Systems that do not fit an untested NTM are off (acup.gunfeel.compat): their listeners check Feature.on()
     // the network protocol: raise it when a payload changes, and clients and servers on different ones will not connect
-    public static final String PROTOCOL = "1";
+    public static final String PROTOCOL = "2";
 
     public GunFeelMod(IEventBus modBus, Dist dist, ModContainer container) {
         Compat.setModVersion(container.getModInfo().getVersion().toString());
@@ -26,6 +26,7 @@ public final class GunFeelMod {
         }
         if (dist.isClient()) {
             CompatClient.init();
+            ServerSettingsClient.init();
             GunFeel.init();
             HoleRender.register(modBus);
             if (Feature.AMMO_CHOICE.on()) AmmoLockKey.register(modBus);
@@ -37,11 +38,13 @@ public final class GunFeelMod {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class,
                 e -> {
                     if (Feature.BULLETS.on()) BulletServer.tick();
+                    ServerSettingsPayload.tick(e.getServer());
                 });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent.class,
                 e -> {
                     if (e.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {
                         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp, HelloPayload.ours());
+                        ServerSettingsPayload.join(sp);
                     }
                 });
         BlockDump.registerIfAsked();
@@ -54,9 +57,11 @@ public final class GunFeelMod {
                     if (Feature.TRACERS.on()) Tracers.handle(p, ctx);
                 });
                 r.playToClient(HelloPayload.TYPE, HelloPayload.CODEC, (p, ctx) -> CompatClient.hello(p));
+                r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC, (p, ctx) -> ServerSettingsClient.receive(p));
             } else {
                 r.playToClient(ShotPayload.TYPE, ShotPayload.CODEC);
                 r.playToClient(HelloPayload.TYPE, HelloPayload.CODEC);
+                r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC);
             }
             r.playToServer(AmmoSelectPayload.TYPE, AmmoSelectPayload.CODEC, (p, ctx) -> {
                 if (Feature.AMMO_CHOICE.on() && ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) AmmoLock.select(sp, p.config());

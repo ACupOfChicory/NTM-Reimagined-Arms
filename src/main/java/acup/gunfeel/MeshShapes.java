@@ -146,7 +146,7 @@ public final class MeshShapes {
         LAST_SEEN.putAll(seen);
         boolean differs = false;
         for (var e : made.entrySet()) {
-            long[] had = PassableClip.byKey(e.getKey());
+            long[] had = PassableClip.localByKey(e.getKey());
             if (had != null && java.util.Arrays.equals(had, e.getValue())) continue;
             if (had != null) {
                 int diff = 0;

@@ -60,4 +60,6 @@ ricochet $soft,$wood,$glass,$tough_glass,$reinforced_glass,$laminate,$none no
 # fences, fence gates and walls: a bullet meets their posts and rails, not their 1.5 block high hitbox (by their class,
 # any mod's). NTM's chain-link fence is a fence by its class, but goes by the pixels of its mesh
 path hbm:fence_metal,hbm:fence_metal_post pixels
+# holes on glass (any mod's block with glass in its id) follow only the hitbox: its see-through pixels are still glass
+hole ~.*glass.* hitbox
 whizz sound=ntmgunfeel:bullet.whizz/0.9 radius=3 crack=ntmgunfeel:bullet.crack/0.7 crackradius=1.2

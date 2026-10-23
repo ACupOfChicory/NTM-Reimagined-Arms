@@ -9,9 +9,10 @@ import net.minecraft.util.Mth;
 
 // Camera recoil per shot along Curve.CAM_*: a snap up within one frame, a short hold,
 // return by ~0.4 s, plus a damped roll shake. The amount comes from NTM's recoil numbers
-// (lever shotgun: 10 up -> 5.5 deg with cameraScale 0.55). The camera always comes back.
+// (lever shotgun: 10 up -> 5.5 deg with cameraScale 0.55). The camera always comes back. A server can set a minimum
+// the player can't go below (cameraScaleMin); the shake (roll) stays the player's, as do the gun model and the arms.
 public final class CameraRecoil {
-    private record Shot(long start, float up, float left, float shake, float speed, Curve cPitch, Curve cYaw, Curve cRoll) {
+    private record Shot(long start, float up, float left, float shake, float speed, Curve cPitch, Curve cYaw, Curve cRoll, float time) {
         float length() {
             return Math.max(cPitch.length(), Math.max(cYaw.length(), cRoll.length()));
         }
@@ -29,10 +30,16 @@ public final class CameraRecoil {
         float strength = ModelRecoil.strength(vertical, horizontal);
         float speed = 1F / (0.45F + 0.55F * Mth.clamp(strength, 0F, 1F));
         if (SHOTS.size() >= 16) SHOTS.remove(0);
-        SHOTS.add(new Shot(System.nanoTime(), vertical * Config.cameraScale, horizontal * Config.cameraScale,
+        // the server's minimum (cameraScaleMin in ntm-gunfeel-server.properties): with one set, the player's scale goes
+        // no lower, and the up and sideways curves and their time are the mod's, so no curve of the player's flattens it
+        float min = ReaimTimes.number("cameraScaleMin", 0F);
+        boolean held = min > 0F;
+        float scale = Math.max(Config.cameraScale, min);
+        SHOTS.add(new Shot(System.nanoTime(), vertical * scale, horizontal * scale,
                 strength * Config.cameraShake * (Math.random() < 0.5 ? 1F : -1F), speed,
-                Curve.of(Config.cameraPitch, Curve.CAM_PITCH), Curve.of(Config.cameraYaw, Curve.CAM_YAW),
-                Curve.of(Config.cameraRoll, Curve.CAM_ROLL)));
+                held ? Curve.CAM_PITCH : Curve.of(Config.cameraPitch, Curve.CAM_PITCH),
+                held ? Curve.CAM_YAW : Curve.of(Config.cameraYaw, Curve.CAM_YAW),
+                Curve.of(Config.cameraRoll, Curve.CAM_ROLL), held ? Math.max(1F, Config.cameraTime) : Config.cameraTime));
     }
 
     public static void reset() {
@@ -52,7 +59,7 @@ public final class CameraRecoil {
         float pitch = 0F, yaw = 0F, r = 0F;
         for (int i = SHOTS.size() - 1; i >= 0; i--) {
             Shot s = SHOTS.get(i);
-            float t = (now - s.start) / 1e9F * s.speed / Config.cameraTime;
+            float t = (now - s.start) / 1e9F * s.speed / s.time;
             if (t >= s.length()) {
                 SHOTS.remove(i);
                 continue;

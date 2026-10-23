@@ -18,8 +18,6 @@ public final class Config {
     public static int holeMaxMachines = 150;
     public static String quality = "high";
     public static float particleScale = 1F;
-    // blocks whose holes follow only the hitbox, not the texture's see-through pixels ("*" = any letters)
-    public static String holeHitboxBlocks = "*glass*";
     // Hip-fire X position of the gun relative to NTM's: 1 = NTM default, 0 = screen centre.
     public static float hipX = 0.6F;
     public static String modelTilt = "";
@@ -130,8 +128,7 @@ public final class Config {
               machines and doors (oldest first; one hit there leaves a piece per part, heavier to draw), holeSize blocks;
               scorchSize: the soot mark of explosive / incendiary bullets instead of a hole, blocks
               holes are cut to the hitbox and to the block's visible pixels; blocks drawn without a block model
-              (machines) get none. holeHitboxBlocks: block ids, comma separated, "*" = any letters, whose holes are
-              cut only to the hitbox (glass: its see-through pixels are still glass)
+              (machines) get none; "hole" lines in ntm-gunfeel-bullets.txt choose per block (glass: hitbox only)
             quality: low, medium, high or realism: sets holeMax, holeMaxMachines, holeLife and particleScale at once
               (realism = five times high's holes, kept five times longer); a key changed here by hand keeps its value
             particleScale: share of the particles of bullet hits, 1 = as the rules say
@@ -344,7 +341,6 @@ public final class Config {
         holeMaxMachines = Math.round(num(p, "holeMaxMachines", holeMaxMachines));
         quality = p.getProperty("quality", quality).trim();
         particleScale = num(p, "particleScale", particleScale);
-        holeHitboxBlocks = p.getProperty("holeHitboxBlocks", holeHitboxBlocks).trim();
         modelTilt = p.getProperty("modelTilt", modelTilt).trim();
         hipY = num(p, "hipY", hipY);
         hipZ = num(p, "hipZ", hipZ);
@@ -457,7 +453,6 @@ public final class Config {
         p.setProperty("holeMaxMachines", Integer.toString(holeMaxMachines));
         p.setProperty("quality", quality);
         p.setProperty("particleScale", Float.toString(particleScale));
-        p.setProperty("holeHitboxBlocks", holeHitboxBlocks);
         p.setProperty("modelTilt", modelTilt);
         p.setProperty("hipY", Float.toString(hipY));
         p.setProperty("hipZ", Float.toString(hipZ));

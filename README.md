@@ -51,6 +51,22 @@ high's holes five times longer. A value changed by hand in the file stays as it 
 | `holeLife`, s | 10 | 20 | 30 | 150 |
 | `particleScale` | 0.25 | 0.5 | 1 | 1 |
 
+### Server and player settings
+
+Each player's own: `config/ntm-gunfeel.properties` (camera, gun model, arms, HUD, quality) and the drawing lines of
+`config/ntm-gunfeel-bullets.txt` (hit, decal, hole, whizz, fly).
+
+The server's: `config/ntm-gunfeel-server.properties` (bullet speed, spread, reaim times, `cameraScaleMin`), the lines
+of `config/ntm-gunfeel-bullets.txt` that decide what a bullet does (break, material, path, ricochet, entity, kill) and
+the bullet shapes beyond the mod's. The server sends them to each player who joins and again within two seconds of a
+change. The player's game keeps them in memory while connected and drops them on leaving, so they never mix with
+another server's or the player's own files.
+
+In single player and on a LAN host the game is its own server and goes by its own files. LAN guests go by the host's.
+
+`cameraScaleMin` (0 = off): camera recoil the players can't go below. Their `cameraScale` is raised to it, and their
+own up and sideways curves and a shorter `cameraTime` don't count. The shake, the gun model and the arms stay theirs.
+
 ## Build
 
 `./gradlew build` (JDK 25) builds the mod into `versions/26.2/build/libs/ntm-gunfeel-<version>.jar` (the version

@@ -5,14 +5,33 @@ leave the game exactly as it is.
 
 ## Open
 
+None known.
+
+## Fixed
+
 ### Bullet rules are not sent from the server to the players
 `src/main/java/acup/gunfeel/BulletRules.java:29`. The server and every client read their own
 `config/ntm-gunfeel-bullets.txt`. The server decides hits, breaking and where a bullet stops (break, path, material);
 each client draws tracers and holes by its own copy. A server with changed rules (say `path somemod:railing fence`)
 and players without them: the player sees the bullet stop on the railing, the server lets it through. Found
-2026-10-23 adding the path rule; it holds for every rule since rules exist.
+2026-10-23 adding the path rule; it holds for every rule since rules exist. Fixed 2026-10-23, not yet tried in game: the server sends its rules, its
+`ntm-gunfeel-server.properties` and its extra bullet shapes to each player on joining and on every change
+(ServerSettings, ServerSettingsPayload). On another game's server the client takes the server's break, material,
+path, ricochet, entity and kill lines and keeps its own hit, decal, hole, whizz and fly lines (ServerSettingsTest).
 
-## Fixed
+### Server settings read by two threads at once in single player
+`src/main/java/acup/gunfeel/ReaimTimes.java:40`. In single player the client and the server thread share the class.
+`number()` and `seconds()` were not synchronized and clear and fill plain HashMaps, so a client read (bullet speed on
+the client's copy of the bullet) during the server's (spread on a shot) could see a map half rebuilt. Found
+2026-10-23 splitting the server and client settings. Fixed 2026-10-23: the methods are synchronized.
+
+### Bullet shapes: a dedicated server without the shapes its players' games made
+`src/main/java/acup/gunfeel/PassableClip.java:209`. A client makes the cells of blocks with a `path ... model` rule
+and of NTM's big doors from what it draws (MeshShapes) and uses them at once. A dedicated server has no models, only
+the jar's shapes and its config file: the player saw a bullet pass through a gap that the server's hitbox stopped.
+Also the shape map was a HashMap changed in place while bullet threads read it. Found 2026-10-23. Fixed 2026-10-23:
+on another game's server the client goes by the jar's shapes and the server's extra ones; the maps are replaced whole,
+never changed in place.
 
 ### Fences: a bullet through the gap between the rails hits the fence
 `src/main/java/acup/gunfeel/PassableClip.java:43`. Bullets meet blocks by their collision box (`Block.COLLIDER`),

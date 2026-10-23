@@ -11,11 +11,13 @@ import java.util.TreeMap;
 
 import net.neoforged.fml.loading.FMLPaths;
 
-// Server side: how long before the end of a reload / an inspect the held aim comes back, per gun, in seconds.
-// config/ntm-gunfeel-server.properties: "hbm\:gun_double_barrel.reaimInspect = 0.6"; set with /gunaim.
+// Server settings, config/ntm-gunfeel-server.properties: how long before the end of a reload / an inspect the held aim
+// comes back, per gun, in seconds ("hbm\:gun_double_barrel.reaimInspect = 0.6", set with /gunaim), and plain numbers
+// (bulletSpeed, spread*, cameraScaleMin). On a client connected to another game's server the server's file counts
+// (ServerSettings). Synchronized: in single player the client and the server thread share it.
 public final class ReaimTimes {
     public static final float DEFAULT = 0.3F;
-    private static final String FILE = "ntm-gunfeel-server.properties";
+    public static final String FILE = "ntm-gunfeel-server.properties";
     private static final Map<String, String> VALUES = new TreeMap<>();
     // the times shipped in the mod jar (ntmgunfeel-server.properties); the server's file wins over them
     private static final Map<String, String> BUILTIN = builtin();
@@ -39,10 +41,10 @@ public final class ReaimTimes {
     }
 
     // kind: "reload" or "inspect"
-    public static float seconds(String gun, String kind) {
+    public static synchronized float seconds(String gun, String kind) {
         poll();
         String key = gun + ".reaim" + cap(kind);
-        String v = VALUES.get(key);
+        String v = values0().get(key);
         if (v == null) v = BUILTIN.get(key);
         if (v == null) return DEFAULT;
         try {
@@ -55,21 +57,36 @@ public final class ReaimTimes {
     private static long lastPoll;
     private static final Map<String, Float> NUMBERS = new java.util.HashMap<>();
     private static long numbersStamp = Long.MIN_VALUE;
+    private static Object numbersOf;
+
+    // the file's values, or the server's while connected to one
+    private static Map<String, String> values0() {
+        ServerSettings.Snapshot remote = ServerSettings.remote();
+        return remote != null ? remote.server() : VALUES;
+    }
+
+    // the file's values as they are now, for sending to the players
+    public static synchronized Map<String, String> values() {
+        poll();
+        return new TreeMap<>(VALUES);
+    }
 
     // a plain server setting (bulletSpeed = 1.6); read often, so the file is checked at most once a second
-    public static float number(String key, float def) {
+    public static synchronized float number(String key, float def) {
         long now = System.currentTimeMillis();
         if (now - lastPoll > 1000L) {
             lastPoll = now;
             poll();
         }
-        if (numbersStamp != stamp) {
+        Map<String, String> values = values0();
+        if (numbersStamp != stamp || numbersOf != values) {
             numbersStamp = stamp;
+            numbersOf = values;
             NUMBERS.clear();
         }
         Float cached = NUMBERS.get(key);
         if (cached != null) return cached;
-        String v = VALUES.get(key);
+        String v = values.get(key);
         if (v == null) v = BUILTIN.get(key);
         float out = def;
         if (v != null) {
@@ -87,7 +104,7 @@ public final class ReaimTimes {
         return Math.round(seconds(gun, kind) * 20F);
     }
 
-    public static void set(String gun, String kind, float seconds) {
+    public static synchronized void set(String gun, String kind, float seconds) {
         poll();
         VALUES.put(gun + ".reaim" + cap(kind), Float.toString(seconds));
         save();

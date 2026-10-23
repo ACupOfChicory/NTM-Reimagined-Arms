@@ -1732,28 +1732,9 @@ public final class Tracers {
     }
 
     private static final Mask NO_PIXELS = new Mask(0, 0, 0, 0, new boolean[0], Double.NaN);
-    private static String hitboxListOf;
-    private static java.util.regex.Pattern hitboxList;
-
-    // blocks in holeHitboxBlocks (or a "hole ... hitbox" bullet rule): the hole follows only the hitbox
+    // a "hole ... hitbox" bullet rule (the mod's: glass): the hole follows only the hitbox, not the see-through pixels
     private static boolean hitboxOnly(BlockState state) {
-        String cut = BulletRules.hole(state)[1];
-        if (cut != null) return cut.equals("hitbox");
-        if (!Config.holeHitboxBlocks.equals(hitboxListOf)) {
-            hitboxListOf = Config.holeHitboxBlocks;
-            StringBuilder re = new StringBuilder();
-            for (String id : hitboxListOf.split(",")) {
-                id = id.trim();
-                if (id.isEmpty()) continue;
-                if (re.length() > 0) re.append('|');
-                for (String piece : id.split("\\*", -1)) re.append(java.util.regex.Pattern.quote(piece)).append(".*");
-                re.setLength(re.length() - 2);
-            }
-            hitboxList = re.length() == 0 ? null : java.util.regex.Pattern.compile(re.toString());
-        }
-        if (hitboxList == null) return false;
-        String id = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-        return hitboxList.matcher(id).matches();
+        return "hitbox".equals(BulletRules.hole(state)[1]);
     }
 
     // Which cells of the hole's square show the block's own pixels: the block model's faces along the hit face's axis

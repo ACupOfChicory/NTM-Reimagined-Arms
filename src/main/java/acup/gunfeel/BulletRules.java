@@ -27,7 +27,9 @@ import net.neoforged.fml.loading.FMLPaths;
 
 // What bullets do to the blocks and creatures they hit, besides NTM's damage: break blocks, particles, sounds.
 // Rules come from ntmgunfeel-bullets.txt in the mod jar, then config/ntm-gunfeel-bullets.txt (its lines win: of the
-// rules that match, the last one counts). The server uses break, entity and kill lines; the client hit, whizz and fly.
+// rules that match, the last one counts). The server acts on break, material, path, ricochet, entity and kill lines; the
+// client draws by hit, decal, hole, whizz and fly, and predicts the server's by the same lines. On another game's server
+// the client takes the server's lines of the server's kinds instead of its own (ServerSettings).
 public final class BulletRules {
     private BulletRules() {
     }
@@ -71,6 +73,8 @@ public final class BulletRules {
     private static final Effect NO_EFFECT = new Effect(List.of(), null, false, 16F);
     private static List<Rule> rules = List.of();
     private static long stamp = Long.MIN_VALUE, lastPoll;
+    // the server's settings the rules were last read with (null: none, this game's own file alone)
+    private static ServerSettings.@Nullable Snapshot rulesOf;
     private static boolean builtinRead;
     private static List<Rule> builtin = List.of();
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("ntm-gunfeel");
@@ -100,16 +104,26 @@ public final class BulletRules {
             stamp = Long.MIN_VALUE + 1;
             lastPoll = 0;
         }
-        if (now - lastPoll > 1000L) {
+        ServerSettings.Snapshot remote = ServerSettings.remote();
+        if (now - lastPoll > 1000L || remote != rulesOf) {
             lastPoll = now;
             Path f = FMLPaths.CONFIGDIR.get().resolve(FILE);
             try {
                 if (!Files.exists(f)) Files.writeString(f, HELP);
                 long m = Files.getLastModifiedTime(f).toMillis();
-                if (m != stamp) {
+                if (m != stamp || remote != rulesOf) {
                     stamp = m;
+                    rulesOf = remote;
                     List<Rule> all = new ArrayList<>(builtin);
-                    all.addAll(parse(Files.readAllLines(f, StandardCharsets.UTF_8)));
+                    List<Rule> own = parse(Files.readAllLines(f, StandardCharsets.UTF_8));
+                    if (remote == null) {
+                        all.addAll(own);
+                    } else {
+                        // on another game's server: what the server acts on by its rules, what only this client draws
+                        // by the player's
+                        for (Rule r : own) if (!ServerSettings.serverKind(r.kind())) all.add(r);
+                        for (Rule r : parse(remote.bullets().lines().toList())) if (ServerSettings.serverKind(r.kind())) all.add(r);
+                    }
                     rules = all;
                     BREAKS.clear();
                     HITS.clear();
@@ -370,7 +384,7 @@ public final class BulletRules {
     }
 
     // how a hole on the block is drawn, by "hole" lines: {glass | plain, hitbox | pixels}, each from the last line
-    // that names it, null where none does (Tracers works it out: glass by the material, the cut by holeHitboxBlocks)
+    // that names it, null where none does (Tracers works it out: glass by the material, the cut by the pixels)
     public static synchronized String[] hole(BlockState state) {
         rules();
         return HOLES.computeIfAbsent(state, st -> {
@@ -479,6 +493,11 @@ public final class BulletRules {
             # after the mod's own (ntmgunfeel-bullets.txt in the jar) and win over them: of the rules that match, the
             # last one counts. Changes apply within a second, no restart.
             #
+            # Server and players: break, material, path, ricochet, entity and kill lines are the server's. On a server
+            # the players go by the server's file for them (sent when they join and on every change), and by their own
+            # for hit, decal, hole, whizz and fly, which only they draw. In single player and on a LAN host this file is
+            # both.
+            #
             # Who: a block id (minecraft:ice), a tag (#minecraft:leaves), a pattern (~minecraft:.*_glass), a block
             # sound type (@metal, @wood, @glass, @stone, @grass ...), a mod's machines and partial blocks (%hbm: its blocks
             # with a block entity, drawn by a renderer or not a full cube), a material ($stone, $steel ...: what a bullet
@@ -522,7 +541,7 @@ public final class BulletRules {
             #   glass  seen from both sides and drawn after the glass behind it (a window); plain: on its face only.
             #          Without: glass for the glass materials ($glass, $tough_glass, $reinforced_glass, $laminate)
             #   hitbox the hole covers the box's face whole; pixels: only the texture's shown pixels (a grate's bars).
-            #          Without: hitbox for the blocks in holeHitboxBlocks (ntm-gunfeel.properties), else pixels
+            #          Without: pixels (the mod has glass of any mod, ~.*glass.*, by the hitbox)
             # decal <blocks> [hole=<style>] [scratch=<style>] [scorch=<style>]   the marks bullets leave on it (each player's
             #   own game): hole = old | spall | shatter | soot, scratch (a ricochet) = gouge | burn | lines, scorch
             #   (explosive and incendiary rounds) = star | blot | crater; each from the last matching line that names it,
