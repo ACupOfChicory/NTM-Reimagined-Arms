@@ -11,8 +11,8 @@ Client:
 - off-hand item hidden while holding a gun;
 - corner ammo HUD: gun silhouette rendered from the NTM model, magazine count, reserve, durability.
 
-Server: hold right click to aim instead of toggling; bullet spread by the shooter's state (walking widens it,
-sneaking and crawling tighten it: `spread*` in `ntmgunfeel-server.properties`).
+Server: hold right click to aim instead of toggling; living bullet spread: it grows with the shooter's speed and in
+the air, blooms in a long burst, sneaking and crawling tighten it (`spread*` in `ntmgunfeel-server.properties`).
 
 The ammo menu shows the hovered ammo's damage from the gun in hand (× projectiles for shot), a head hit and a whole shot
 into T-51 power armour, with the difference to the loaded ammo. The same numbers for every gun and ammo:

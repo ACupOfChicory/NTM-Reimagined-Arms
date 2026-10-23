@@ -69,14 +69,41 @@ for r in csv.DictReader(open(TSV, encoding='utf-8'), delimiter='\t'):
         'aspread': f['ammoSpread'] * f['spreadAmmoMult']})
 
 
-def mult(gun, key):
-    return float(SP.get(gun + '.' + key, SP.get(key, '1')))
+def mult(gun, key, d='1'):
+    return float(SP.get(gun + '.' + key, SP.get(key, d)))
+
+
+WALK, SPRINT = 0.216, 0.281  # SpreadModel: blocks per tick
+
+
+def pace(speed):
+    return 0.0 if speed < 0.02 else min(speed, SPRINT * 1.25) / WALK
+
+
+def steady(delay, per, mx, half):
+    # SpreadModel.steadyBloom: the bloom a shot meets in a held-down burst
+    k = 0.5 ** (max(1, delay) / (half * 20)) if half > 0 else 0.0
+    b = 0.0
+    for _ in range(400):
+        b = min(max(0.0, mx), b * k + max(0.0, per))
+    return b * k
 
 
 out = []
 for g in sorted(guns.values(), key=lambda g: (g['name'], g['part'])):
     m = {k: mult(g['id'], 'spread' + k) for k in ('Stand', 'Move', 'Sneak', 'Crawl', 'Aim')}
     g['mult'] = m
+    sp, air = mult(g['id'], 'spreadSpeed', '0'), mult(g['id'], 'spreadAir', '0')
+    walk, run = pace(WALK), pace(SPRINT)
+    mv = lambda p: 1 + (m['Move'] - 1) * p
+    hip = g['innate'] + g['hip']
+    # the spread the gun shot gets (SpreadModel.total), without its ammo's
+    g['live'] = {k: round(v, 5) for k, v in {
+        'walk': hip * mv(walk) + sp * walk, 'walkAim': g['innate'] * mv(walk) * m['Aim'] + sp * walk,
+        'sprint': hip * mv(run) + sp * run, 'jump': hip * m['Stand'] + air,
+        'burst': g['innate'] * m['Stand'] * m['Aim'] + steady(g['delay'], mult(g['id'], 'spreadBloom', '0'),
+                                                               mult(g['id'], 'spreadBloomMax', '0'),
+                                                               mult(g['id'], 'spreadBloomHalfLife', '0.25'))}.items()}
     out.append(g)
 
 data = {'guns': out, 'ref': {'dt': REF_DT, 'dr': REF_DR}, 'source': TSV.split('/')[-1]}

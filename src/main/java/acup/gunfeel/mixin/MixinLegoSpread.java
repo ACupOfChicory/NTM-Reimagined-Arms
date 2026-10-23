@@ -13,14 +13,13 @@ import com.hbm.items.weapon.sedna.factory.Lego;
 import acup.gunfeel.Spread;
 import net.minecraft.world.item.ItemStack;
 
-// Server: NTM's bullet spread times the shooter's state (standing, moving, sneaking, crawling, aiming), see Spread
+// Server: NTM's bullet spread by the shooter's state (speed, stance, aiming, in the air, bloom from firing), see Spread
 @Mixin(value = Lego.class, remap = false)
 public abstract class MixinLegoSpread {
     @Inject(method = "calcSpread", at = @At("RETURN"), cancellable = true)
     private static void gunfeel$state(ItemGunBaseNT.LambdaContext ctx, ItemStack stack, Receiver primary, BulletConfig config,
             boolean calcWear, int index, boolean aim, CallbackInfoReturnable<Float> cir) {
         if (ctx == null || ctx.entity() == null) return;
-        float mult = Spread.mult(ctx.entity(), stack, aim);
-        if (mult != 1F) cir.setReturnValue(cir.getReturnValue() * mult);
+        cir.setReturnValue(Spread.apply(ctx.entity(), stack, aim, cir.getReturnValue()));
     }
 }

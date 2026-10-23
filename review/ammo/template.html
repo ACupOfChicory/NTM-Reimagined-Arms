@@ -64,7 +64,8 @@ footer { color: var(--muted); font-size: 13px; display: flex; flex-direction: co
   </div>
   <main id="list"></main>
   <footer>
-    <p class="note">Урон новой пушки; с износом больше 75 % он падает до половины. У разрывных патронов урон наносит взрыв, число в колесе — его сила. Разброс: на сколько градусов уходит выстрел по каждой оси (одно стандартное отклонение), без разброса самого патрона, с множителями мода; «в прицеле» NTM убирает разброс от бедра.</p>
+    <p class="note">Урон новой пушки; с износом больше 75 % он падает до половины. У разрывных патронов урон наносит взрыв, число в колесе — его сила. Разброс: на сколько градусов уходит выстрел по каждой оси (одно стандартное отклонение), без разброса самого патрона, с живым разбросом мода: на ходу и в беге он растёт со скоростью, в прыжке добавляется, «очередь» — где он
+      устоится, если зажать спуск. «В прицеле» NTM убирает разброс от бедра.</p>
     <p class="note" id="src"></p>
   </footer>
 </div>
@@ -89,7 +90,10 @@ function gunCard(g, gi) {
     `<span class="chip">${g.auto ? "автомат" : "одиночный"} · <b>${g.delay}</b> тик</span>`,
     `<span class="chip">от бедра <b>${fdeg(base * m.Stand)}</b></span>`,
     `<span class="chip">в прицеле <b>${fdeg(g.innate * m.Stand * m.Aim)}</b></span>`,
-    `<span class="chip">на ходу <b>×${m.Move}</b> · присед <b>×${m.Sneak}</b> · ползком <b>×${m.Crawl}</b></span>`];
+    `<span class="chip">на ходу <b>${fdeg(g.live.walk)}</b> · в прицеле <b>${fdeg(g.live.walkAim)}</b></span>`,
+    `<span class="chip">бег <b>${fdeg(g.live.sprint)}</b> · прыжок <b>${fdeg(g.live.jump)}</b></span>`,
+    ...(g.auto ? [`<span class="chip">очередь в прицеле <b>${fdeg(g.live.burst)}</b></span>`] : []),
+    `<span class="chip">присед <b>×${m.Sneak}</b> · ползком <b>×${m.Crawl}</b></span>`];
   const best = {};
   for (const [k] of COLS) best[k] = Math.max(...g.rows.map(r => r[k]));
   const li = loaded.has(gi) ? loaded.get(gi) : -1;
