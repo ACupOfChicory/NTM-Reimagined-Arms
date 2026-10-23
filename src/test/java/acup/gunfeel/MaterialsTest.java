@@ -107,6 +107,8 @@ class MaterialsTest {
         want.put("hbm:reinforced_laminate", Material.LAMINATE);
         want.put("hbm:reinforced_laminate_pane", Material.LAMINATE);
         want.put("hbm:glass_quartz", Material.GLASS);
+        want.put("hbm:glass_uranium", Material.TOUGH_GLASS);
+        want.put("hbm:glass_lead", Material.TOUGH_GLASS);
         want.put("hbm:vinyl_tile_large", Material.WOOD);
         want.put("hbm:tile_lab_cracked", Material.STONE);
         List<String> wrong = new ArrayList<>();
@@ -239,6 +241,11 @@ class MaterialsTest {
         assertTrue(through(Material.LAMINATE, 1.0, SUBTLETY_SM));
         // plain glass stops nothing
         assertTrue(through(Material.GLASS, 1.0, UZI_FMJ));
+        // the special glass (lead, uranium...): stronger than plain, far weaker than wired
+        assertTrue(through(Material.TOUGH_GLASS, pane, UZI_FMJ));
+        assertFalse(through(Material.TOUGH_GLASS, 1.0, UZI_FMJ));
+        assertTrue(through(Material.TOUGH_GLASS, 1.0, LAG_FMJ));
+        assertTrue(through(Material.TOUGH_GLASS, pane, REVOLVER_357));
     }
 
     @Test
