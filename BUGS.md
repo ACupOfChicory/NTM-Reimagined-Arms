@@ -5,15 +5,19 @@ leave the game exactly as it is.
 
 ## Open
 
+None.
+
+## Fixed
+
 ### Fences: a bullet through the gap between the rails hits the fence
 `src/main/java/acup/gunfeel/PassableClip.java:43`. Bullets meet blocks by their collision box (`Block.COLLIDER`),
 except the blocks in `generate` of `ntmgunfeel-bullet-shapes.properties` (doors, trapdoors, chains, lanterns, NTM's
 scaffold), which go by their model's pixels. A fence's collision box is a solid wall from the ground to 1.5 blocks,
 so a bullet between the rails (or above the top rail) hits it: the fence takes damage (wood break rule) and the
 bullet loses damage as through a plank. Same for fence gates and walls (and other mods' blocks shaped so). Found
-2026-10-23 from the user's report.
-
-## Fixed
+2026-10-23 from the user's report. Fixed 2026-10-23, not yet tried in game: every
+FenceBlock, FenceGateBlock and WallBlock (other mods' too, not one with a mask) takes its family's cells from the
+vanilla model (tools/fence_shapes.py, PassableClip.familyKey), so the gaps are a пролёт (FenceShapesTest).
 
 ### Holes: a second glass test that disagrees with the material
 `src/main/java/acup/gunfeel/Tracers.java:1196`. `glassLike()` (glass tags, glass sound, "glass" in the id) decides

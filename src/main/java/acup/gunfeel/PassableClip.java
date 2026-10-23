@@ -229,11 +229,51 @@ public final class PassableClip extends ClipContext {
 
     public static long[] shape(BlockState state) {
         loadShapes();
-        long[] v = SHAPE_OF.computeIfAbsent(state, st -> {
-            long[] bits = SHAPES.get(key(st));
-            return bits == null ? NONE : bits;
-        });
+        long[] v = SHAPE_OF.get(state);
+        if (v == null) {
+            // not in computeIfAbsent: familyKey takes the class's lock (masks), which putShapes holds while clearing
+            long[] bits = SHAPES.get(key(state));
+            if (bits == null) {
+                String family = familyKey(state);
+                if (family != null) bits = SHAPES.get(family);
+            }
+            v = bits == null ? NONE : bits;
+            SHAPE_OF.putIfAbsent(state, v);
+        }
         return v == NONE ? null : v;
+    }
+
+    // Fences, fence gates and walls, any mod's: their collision box is a solid wall up to 1.5 blocks, so a bullet
+    // between the rails would meet it. They take the cells of their family's vanilla model (tools/fence_shapes.py):
+    // the bullet goes through the gaps (пролёт). Not one with a mask (NTM's chain-link fence: by its pixels).
+    static @Nullable String familyKey(BlockState state) {
+        net.minecraft.world.level.block.Block b = state.getBlock();
+        String family;
+        if (b == net.minecraft.world.level.block.Blocks.BAMBOO_FENCE) family = "bamboo_fence";
+        else if (b == net.minecraft.world.level.block.Blocks.BAMBOO_FENCE_GATE) family = "bamboo_fence_gate";
+        else if (b instanceof net.minecraft.world.level.block.FenceBlock) family = "fence";
+        else if (b instanceof net.minecraft.world.level.block.FenceGateBlock) family = "fence_gate";
+        else if (b instanceof net.minecraft.world.level.block.WallBlock) family = "wall";
+        else return null;
+        if (masks().containsKey(b)) return null;
+        Map<String, String> props = new java.util.TreeMap<>();
+        for (var prop : state.getProperties()) {
+            if (FAMILY_PROPS.contains(prop.getName())) props.put(prop.getName(), name(state, prop));
+        }
+        return familyKey(family, props);
+    }
+
+    // the properties that change these models (not waterlogged, powered)
+    static final Set<String> FAMILY_PROPS = Set.of("east", "north", "south", "west", "up", "facing", "in_wall", "open");
+
+    static String familyKey(String family, Map<String, String> props) {
+        StringBuilder k = new StringBuilder("~").append(family).append('[');
+        String sep = "";
+        for (var e : new java.util.TreeMap<>(props).entrySet()) {
+            k.append(sep).append(e.getKey()).append('=').append(e.getValue());
+            sep = ",";
+        }
+        return k.append(']').toString();
     }
 
     // bits[64] = 1: the model closes its hitbox all round (see MeshShapes.shell)
@@ -308,7 +348,7 @@ public final class PassableClip extends ClipContext {
         }
     }
 
-    private static long[] unpack(String v) {
+    static long[] unpack(String v) {
         long[] bits = new long[65];
         if (v.startsWith("!")) {
             bits[64] = 1L;
