@@ -20,7 +20,8 @@ import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 
 // What the game knows about every block, written to a file for the material tests (a dev run only):
 // -Dntmgunfeel.dumpBlocks=<file> on a dedicated server writes one line per block once the mods and the tags are
-// loaded, before any world, and stops the server. Without the property nothing is registered.
+// loaded, before any world, and stops the server; NTM's guns go next to it (GunDump, guns.tsv). Without the
+// property nothing is registered.
 // The BlockFacts columns come from BlockFactsOf, as in the game; the rest is for people reading the file.
 public final class BlockDump {
     public static final String PROPERTY = "ntmgunfeel.dumpBlocks";
@@ -35,6 +36,7 @@ public final class BlockDump {
             int code = 0;
             try {
                 write(Path.of(file));
+                GunDump.write(Path.of(file).resolveSibling("guns.tsv"));
             } catch (IOException | RuntimeException ex) {
                 ex.printStackTrace();
                 code = 1;

@@ -11,7 +11,12 @@ Client:
 - off-hand item hidden while holding a gun;
 - corner ammo HUD: gun silhouette rendered from the NTM model, magazine count, reserve, durability.
 
-Server: hold right click to aim instead of toggling.
+Server: hold right click to aim instead of toggling; bullet spread by the shooter's state (walking widens it,
+sneaking and crawling tighten it: `spread*` in `ntmgunfeel-server.properties`).
+
+The ammo menu shows the hovered ammo's damage from the gun in hand (× projectiles for shot), a head hit and a whole shot
+into T-51 power armour, with the difference to the loaded ammo. The same numbers for every gun and ammo:
+`python3 review/ammo/make_page.py` writes `review/ammo/page.html`.
 
 The same jar goes on the client and the server.
 
@@ -36,8 +41,9 @@ also needs the crankshaft mod on the client).
 `./gradlew runDumpBlocks -PnoAssets` starts a dedicated server with the mod and NTM that writes what the game knows
 about every block (id, classes, sound, hardness, blast resistance, shape, tags...) to
 `versions/26.2/build/blockdump/blocks.tsv` and stops before any world: about 2 minutes on an Orange Pi, no client,
-no game assets (`-PnoAssets` skips their download). The bullet material tests run on the copy in
-`src/test/blockfacts/`; dump again and replace it when NTM or Minecraft is updated.
+no game assets (`-PnoAssets` skips their download). Next to it, `guns.tsv`: every NTM gun with every ammo it takes
+(damage, projectiles, armour piercing, spread). The bullet material tests run on the copy in `src/test/blockfacts/`,
+the ammo menu tests on the one in `src/test/gundata/`; dump again and replace them when NTM or Minecraft is updated.
 
 ## Tests
 

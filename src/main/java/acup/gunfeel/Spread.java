@@ -4,7 +4,8 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 
-// Bullet spread by the shooter's state, server settings in ntm-gunfeel-server.properties (all 1 = NTM as it is):
+// Bullet spread by the shooter's state, server settings in ntm-gunfeel-server.properties (1 = NTM as it is; the mod's
+// own values and why are in ntmgunfeel-server.properties):
 // spreadStand, spreadMove, spreadSneak, spreadCrawl, spreadAim; a gun can have its own as <gun id>.spreadAim and so on.
 // spreadStack = 1: every state the shooter is in counts (sneaking and moving and aiming multiply together);
 // spreadStack = 0: only the body state that weighs most (crawl, then sneak, then move, else stand), times aim.

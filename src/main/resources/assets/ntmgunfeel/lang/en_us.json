@@ -2,5 +2,8 @@
   "key.category.ntmgunfeel.main": "NTM Reimagined Arms",
   "key.ntmgunfeel.ammo_lock": "Lock ammo type",
   "message.ntmgunfeel.ammo_locked": "Ammo locked: %s",
-  "message.ntmgunfeel.ammo_unlocked": "Ammo unlocked"
+  "message.ntmgunfeel.ammo_unlocked": "Ammo unlocked",
+  "ntmgunfeel.ammo.damage": "Damage",
+  "ntmgunfeel.ammo.head": "Head",
+  "ntmgunfeel.ammo.armor": "vs T-51"
 }

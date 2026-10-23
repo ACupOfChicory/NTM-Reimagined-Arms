@@ -6,23 +6,29 @@ import java.util.List;
 import org.joml.Matrix3x2fStack;
 
 import com.hbm.items.weapon.sedna.BulletConfig;
+import com.hbm.items.weapon.sedna.GunConfig;
+import com.hbm.items.weapon.sedna.ItemGunBaseNT;
+import com.hbm.items.weapon.sedna.Receiver;
 import com.hbm.items.weapon.sedna.mags.IMagazine;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.world.item.ItemStack;
 
 // Client: the radial ammo menu (ammo key held, AmmoLockKey). The ammo the held gun takes and the player has, one
 // sector each, clockwise from the top. The mouse turns an unseen pointer out of the centre instead of the camera
 // (MixinMouseTurn); the sector it points at slides out and is taken when the key is let go. Looks: Config.ammoMenu
-// (steel, petals, bubbles, ntm, glass, arc), colour Config.ammoMenuColor; drafts in notes/radial-site.
+// (steel, petals, bubbles, ntm, glass, arc), colour Config.ammoMenuColor; drafts in notes/radial-site. Under the hovered
+// ammo's name: its damage from the gun in hand, a head hit and a hit on armour (AmmoStats), against the loaded one.
 public final class RadialMenu {
     private static final int MAX = 16;
     private static final float R_IN = 23, R_OUT = 62, DEAD = 10, REACH = 50, TAU = (float) (Math.PI * 2);
     private static final int WHITE = 0xFFFFFF;
 
     private static List<BulletConfig> types;
+    private static AmmoStats[] stats;
     private static ItemStack gun = ItemStack.EMPTY;
     private static BulletConfig current;
     private static double px, py;
@@ -53,6 +59,7 @@ public final class RadialMenu {
         List<BulletConfig> list = choices(stack);
         if (list.isEmpty()) return false;
         types = list;
+        stats = statsFor(stack, list);
         gun = stack;
         IMagazine<?> mag = AmmoLock.primary(stack);
         Object t = mag == null ? null : mag.getType(stack, Minecraft.getInstance().player.getInventory());
@@ -64,8 +71,29 @@ public final class RadialMenu {
         return true;
     }
 
+    // the numbers of each choice from that gun, worked out once per opening; null where the gun cannot tell
+    static AmmoStats[] statsFor(ItemStack stack, List<BulletConfig> list) {
+        AmmoStats[] out = new AmmoStats[list.size()];
+        if (!(stack.getItem() instanceof ItemGunBaseNT gun) || gun.getConfigCount() == 0) return out;
+        try {
+            GunConfig cfg = gun.getConfig(stack, 0);
+            Receiver rec = cfg.getReceivers(stack)[0];
+            float wear = AmmoStats.wear(ItemGunBaseNT.getWear(stack, 0), cfg.getDurability(stack));
+            float base = rec.getBaseDamage(stack), split = rec.getSplitProjectiles(stack);
+            for (int i = 0; i < out.length; i++) {
+                BulletConfig b = list.get(i);
+                out[i] = AmmoStats.of(base, wear, split, b.damageMult, b.projectilesMin, b.projectilesMax, b.headshotMult,
+                        b.armorThresholdNegation, b.armorPiercingPercent);
+            }
+        } catch (RuntimeException e) {
+            // a gun without receivers: no numbers
+        }
+        return out;
+    }
+
     static void close() {
         types = null;
+        stats = null;
         gun = ItemStack.EMPTY;
     }
 
@@ -236,6 +264,37 @@ public final class RadialMenu {
         } else {
             text(f, name, 0, y + 10, main, 1, 1);
         }
+        stats(f, y + 24);
+    }
+
+    private static final int BETTER = 0x7CDB6A, WORSE = 0xE5605A, LABEL = 0xAAAAAA;
+
+    // the hovered ammo's numbers, one line each: damage (× projectiles for shot), a head hit, a whole shot into the
+    // reference armour (AmmoStats.REF_DT/DR); when another ammo is loaded, the difference to it in green or red
+    private static void stats(Frame f, float y) {
+        if (f.hover < 0 || stats == null || f.hover >= stats.length) return;
+        AmmoStats s = stats[f.hover];
+        if (s == null) return;
+        AmmoStats was = f.cur >= 0 && f.cur != f.hover && f.cur < stats.length ? stats[f.cur] : null;
+        String dmg = AmmoStats.fmt(s.damage()) + (s.shotgun() ? " ×" + AmmoStats.fmt(s.projectiles()) : "");
+        stat(f, "ntmgunfeel.ammo.damage", dmg, s.perShot(), was == null ? Float.NaN : was.perShot(), y);
+        y += 10;
+        if (s.headshotMult() > 1F) {
+            stat(f, "ntmgunfeel.ammo.head", AmmoStats.fmt(s.headshot()), s.headshot(), was == null ? Float.NaN : was.headshot(), y);
+            y += 10;
+        }
+        stat(f, "ntmgunfeel.ammo.armor", AmmoStats.fmt(s.perShotArmored()), s.perShotArmored(),
+                was == null ? Float.NaN : was.perShotArmored(), y);
+    }
+
+    private static void stat(Frame f, String key, String value, float now, float loaded, float y) {
+        String label = I18n.get(key) + " ", line = label + value;
+        String d = Float.isNaN(loaded) ? "" : AmmoStats.delta(now, loaded);
+        int wl = f.font.width(line), wd = d.isEmpty() ? 0 : f.font.width(d) + 4;
+        float left = -(wl + wd) / 2F;
+        text(f, label, left + f.font.width(label) / 2F, y, LABEL, 1, 1);
+        text(f, value, left + f.font.width(label) + f.font.width(value) / 2F, y, WHITE, 1, 1);
+        if (!d.isEmpty()) text(f, d, left + wl + 4 + f.font.width(d) / 2F, y, now > loaded ? BETTER : WORSE, 1, 1);
     }
 
     private static int c(int rgb, float alpha, Frame f) {
@@ -429,6 +488,7 @@ public final class RadialMenu {
                 int p = name.lastIndexOf(" ("), q = name.lastIndexOf(')');
                 text(f, p > 0 && q > p ? name.substring(p + 2, q) : name, 0, 6, 0xEBEBEB, 1, 1);
             }
+            stats(f, R_OUT + 12);
         }
     }
 }

@@ -1,0 +1,359 @@
+hbm:gun_aberrator 0/0 hbm:ammo_secret_p35_800  damage 100  head 125  armour 92.5
+hbm:gun_aberrator 0/0 hbm:ammo_secret_p35_800_bl  damage 100  head 125  armour 92.5
+hbm:gun_aberrator_eott 0/0 hbm:ammo_secret_p35_800  damage 100  head 125  armour 92.5
+hbm:gun_aberrator_eott 0/0 hbm:ammo_secret_p35_800_bl  damage 100  head 125  armour 92.5
+hbm:gun_aberrator_eott 1/0 hbm:ammo_secret_p35_800  damage 100  head 125  armour 92.5
+hbm:gun_aberrator_eott 1/0 hbm:ammo_secret_p35_800_bl  damage 100  head 125  armour 92.5
+hbm:gun_am180 0/0 hbm:ammo_standard_p22_ap  damage 2.5  head 3.1  armour 2.2
+hbm:gun_am180 0/0 hbm:ammo_standard_p22_fmj  damage 1.6  head 2  armour 0.5
+hbm:gun_am180 0/0 hbm:ammo_standard_p22_jhp  damage 3  head 4.5  armour 0.8
+hbm:gun_am180 0/0 hbm:ammo_standard_p22_sp  damage 2  head 2.5  armour 0
+hbm:gun_amat 0/0 hbm:ammo_standard_bmg50_ap  damage 37.5  head 46.9  armour 32.7
+hbm:gun_amat 0/0 hbm:ammo_standard_bmg50_du  damage 45  head 56.3  armour 39.9
+hbm:gun_amat 0/0 hbm:ammo_standard_bmg50_fmj  damage 24  head 30  armour 20.8
+hbm:gun_amat 0/0 hbm:ammo_standard_bmg50_he  damage 52.5  head 65.6  armour 42.9
+hbm:gun_amat 0/0 hbm:ammo_standard_bmg50_jhp  damage 45  head 67.5  armour 34.9
+hbm:gun_amat 0/0 hbm:ammo_standard_bmg50_sm  damage 75  head 93.8  armour 67.7
+hbm:gun_amat 0/0 hbm:ammo_standard_bmg50_sp  damage 30  head 37.5  armour 23.8
+hbm:gun_amat_penance 0/0 hbm:ammo_secret_bmg50_black  damage 67.5  head 202.5  armour 60.9
+hbm:gun_amat_penance 0/0 hbm:ammo_standard_bmg50_ap  damage 56.3  head 70.3  armour 49.1
+hbm:gun_amat_penance 0/0 hbm:ammo_standard_bmg50_du  damage 67.5  head 84.4  armour 59.9
+hbm:gun_amat_penance 0/0 hbm:ammo_standard_bmg50_fmj  damage 36  head 45  armour 31.1
+hbm:gun_amat_penance 0/0 hbm:ammo_standard_bmg50_he  damage 78.8  head 98.4  armour 65.2
+hbm:gun_amat_penance 0/0 hbm:ammo_standard_bmg50_jhp  damage 67.5  head 101.3  armour 53.2
+hbm:gun_amat_penance 0/0 hbm:ammo_standard_bmg50_sm  damage 112.5  head 140.6  armour 101.5
+hbm:gun_amat_penance 0/0 hbm:ammo_standard_bmg50_sp  damage 45  head 56.3  armour 36.6
+hbm:gun_amat_subtlety 0/0 hbm:ammo_secret_bmg50_equestrian  damage 0  head 0  armour 0
+hbm:gun_amat_subtlety 0/0 hbm:ammo_standard_bmg50_ap  damage 62.5  head 78.1  armour 54.5
+hbm:gun_amat_subtlety 0/0 hbm:ammo_standard_bmg50_du  damage 75  head 93.8  armour 66.6
+hbm:gun_amat_subtlety 0/0 hbm:ammo_standard_bmg50_fmj  damage 40  head 50  armour 34.6
+hbm:gun_amat_subtlety 0/0 hbm:ammo_standard_bmg50_he  damage 87.5  head 109.4  armour 72.7
+hbm:gun_amat_subtlety 0/0 hbm:ammo_standard_bmg50_jhp  damage 75  head 112.5  armour 59.3
+hbm:gun_amat_subtlety 0/0 hbm:ammo_standard_bmg50_sm  damage 125  head 156.3  armour 112.8
+hbm:gun_amat_subtlety 0/0 hbm:ammo_standard_bmg50_sp  damage 50  head 62.5  armour 40.8
+hbm:gun_autoshotgun 0/0 hbm:ammo_standard_g12  damage 6 x8  head 7.5  armour 40.8
+hbm:gun_autoshotgun 0/0 hbm:ammo_standard_g12_bp  damage 4.5 x8  head 5.6  armour 17
+hbm:gun_autoshotgun 0/0 hbm:ammo_standard_g12_bp_magnum  damage 9 x4  head 11.3  armour 23.8
+hbm:gun_autoshotgun 0/0 hbm:ammo_standard_g12_bp_slug  damage 36  head 45  armour 28.9
+hbm:gun_autoshotgun 0/0 hbm:ammo_standard_g12_explosive  damage 120  head 150  armour 100.3
+hbm:gun_autoshotgun 0/0 hbm:ammo_standard_g12_flechette  damage 6 x8  head 7.5  armour 42.2
+hbm:gun_autoshotgun 0/0 hbm:ammo_standard_g12_magnum  damage 24 x4  head 30  armour 81.6
+hbm:gun_autoshotgun 0/0 hbm:ammo_standard_g12_phosphorus  damage 6 x8  head 7.5  armour 27.2
+hbm:gun_autoshotgun 0/0 hbm:ammo_standard_g12_slug  damage 48  head 72  armour 41.9
+hbm:gun_autoshotgun_heretic 0/0 hbm:ammo_standard_g10  damage 10 x10  head 12.5  armour 85
+hbm:gun_autoshotgun_heretic 0/0 hbm:ammo_standard_g10_du  damage 25 x10  head 31.3  armour 220
+hbm:gun_autoshotgun_heretic 0/0 hbm:ammo_standard_g10_explosive  damage 25 x10  head 31.3  armour 195.5
+hbm:gun_autoshotgun_heretic 0/0 hbm:ammo_standard_g10_shrapnel  damage 10 x10  head 12.5  armour 85
+hbm:gun_autoshotgun_heretic 0/0 hbm:ammo_standard_g10_slug  damage 100  head 125  armour 86.5
+hbm:gun_autoshotgun_sexy 0/0 hbm:ammo_secret_g12_equestrian  damage 0  head 0  armour 0
+hbm:gun_autoshotgun_sexy 0/0 hbm:ammo_standard_g12  damage 8 x8  head 10  armour 54.4
+hbm:gun_autoshotgun_sexy 0/0 hbm:ammo_standard_g12_bp  damage 6 x8  head 7.5  armour 27.2
+hbm:gun_autoshotgun_sexy 0/0 hbm:ammo_standard_g12_bp_magnum  damage 12 x4  head 15  armour 34
+hbm:gun_autoshotgun_sexy 0/0 hbm:ammo_standard_g12_bp_slug  damage 48  head 60  armour 39.1
+hbm:gun_autoshotgun_sexy 0/0 hbm:ammo_standard_g12_explosive  damage 160  head 200  armour 134.3
+hbm:gun_autoshotgun_sexy 0/0 hbm:ammo_standard_g12_flechette  damage 8 x8  head 10  armour 56.3
+hbm:gun_autoshotgun_sexy 0/0 hbm:ammo_standard_g12_magnum  damage 32 x4  head 40  armour 108.8
+hbm:gun_autoshotgun_sexy 0/0 hbm:ammo_standard_g12_phosphorus  damage 8 x8  head 10  armour 40.8
+hbm:gun_autoshotgun_sexy 0/0 hbm:ammo_standard_g12_slug  damage 64  head 96  armour 55.8
+hbm:gun_autoshotgun_shredder 0/0 hbm:ammo_standard_g12  damage 50  head 62.5  armour 40.8
+hbm:gun_autoshotgun_shredder 0/0 hbm:ammo_standard_g12_explosive  damage 125  head 156.3  armour 104.6
+hbm:gun_autoshotgun_shredder 0/0 hbm:ammo_standard_g12_flechette  damage 50  head 62.5  armour 40.8
+hbm:gun_autoshotgun_shredder 0/0 hbm:ammo_standard_g12_magnum  damage 100  head 125  armour 83.3
+hbm:gun_autoshotgun_shredder 0/0 hbm:ammo_standard_g12_phosphorus  damage 50  head 62.5  armour 40.8
+hbm:gun_autoshotgun_shredder 0/0 hbm:ammo_standard_g12_slug  damage 50  head 62.5  armour 40.8
+hbm:gun_bolter 0/0 hbm:ammo_standard_b75  damage 15  head 18.8  armour 11.1
+hbm:gun_bolter 0/0 hbm:ammo_standard_b75_exp  damage 22.5  head 28.1  armour 16.7
+hbm:gun_bolter 0/0 hbm:ammo_standard_b75_inc  damage 12  head 15  armour 8.7
+hbm:gun_carbine 0/0 hbm:ammo_standard_r762_ap  damage 18.8  head 23.4  armour 16.4
+hbm:gun_carbine 0/0 hbm:ammo_standard_r762_du  damage 22.5  head 28.1  armour 20
+hbm:gun_carbine 0/0 hbm:ammo_standard_r762_fmj  damage 12  head 15  armour 10.4
+hbm:gun_carbine 0/0 hbm:ammo_standard_r762_he  damage 26.3  head 32.8  armour 20.6
+hbm:gun_carbine 0/0 hbm:ammo_standard_r762_jhp  damage 22.5  head 33.8  armour 16.7
+hbm:gun_carbine 0/0 hbm:ammo_standard_r762_sp  damage 15  head 18.8  armour 11.1
+hbm:gun_charge_thrower 0/0 hbm:ammo_standard_ct_hook  damage 10  head 12.5  armour 6.8
+hbm:gun_charge_thrower 0/0 hbm:ammo_standard_ct_mortar  damage 25  head 31.3  armour 19.6
+hbm:gun_charge_thrower 0/0 hbm:ammo_standard_ct_mortar_charge  damage 50  head 62.5  armour 40.8
+hbm:gun_coilgun 0/0 hbm:ammo_standard_coil_ferrouranium  damage 35  head 43.8  armour 28.1
+hbm:gun_coilgun 0/0 hbm:ammo_standard_coil_tungsten  damage 35  head 43.8  armour 28.1
+hbm:gun_congolake 0/0 hbm:ammo_standard_g40_demo  damage 15  head 18.8  armour 11.1
+hbm:gun_congolake 0/0 hbm:ammo_standard_g40_he  damage 20  head 25  armour 15.3
+hbm:gun_congolake 0/0 hbm:ammo_standard_g40_heat  damage 10  head 12.5  armour 6.8
+hbm:gun_congolake 0/0 hbm:ammo_standard_g40_inc  damage 15  head 18.8  armour 11.1
+hbm:gun_congolake 0/0 hbm:ammo_standard_g40_phosphorus  damage 15  head 18.8  armour 11.1
+hbm:gun_debug 0/0 hbm:ammo_debug  damage 10  head 12.5  armour 6.8
+hbm:gun_debug 0/1 hbm:ammo_debug  damage 5 x6  head 6.3  armour 15.3
+hbm:gun_double_barrel 0/0 hbm:ammo_standard_g10  damage 3 x10  head 3.8  armour 25.5
+hbm:gun_double_barrel 0/0 hbm:ammo_standard_g10_du  damage 7.5 x10  head 9.4  armour 66
+hbm:gun_double_barrel 0/0 hbm:ammo_standard_g10_explosive  damage 7.5 x10  head 9.4  armour 46.8
+hbm:gun_double_barrel 0/0 hbm:ammo_standard_g10_shrapnel  damage 3 x10  head 3.8  armour 25.5
+hbm:gun_double_barrel 0/0 hbm:ammo_standard_g10_slug  damage 30  head 37.5  armour 26
+hbm:gun_double_barrel_sacred_dragon 0/0 hbm:ammo_standard_g10  damage 4.5 x10  head 5.6  armour 38.3
+hbm:gun_double_barrel_sacred_dragon 0/0 hbm:ammo_standard_g10_du  damage 11.3 x10  head 14.1  armour 99
+hbm:gun_double_barrel_sacred_dragon 0/0 hbm:ammo_standard_g10_explosive  damage 11.3 x10  head 14.1  armour 78.6
+hbm:gun_double_barrel_sacred_dragon 0/0 hbm:ammo_standard_g10_shrapnel  damage 4.5 x10  head 5.6  armour 38.3
+hbm:gun_double_barrel_sacred_dragon 0/0 hbm:ammo_standard_g10_slug  damage 45  head 56.3  armour 38.9
+hbm:gun_fatman 0/0 hbm:ammo_standard_nuke_balefire  damage 250  head 312.5  armour 210.8
+hbm:gun_fatman 0/0 hbm:ammo_standard_nuke_demo  damage 100  head 125  armour 83.3
+hbm:gun_fatman 0/0 hbm:ammo_standard_nuke_high  damage 100  head 125  armour 83.3
+hbm:gun_fatman 0/0 hbm:ammo_standard_nuke_hive  damage 25 x12  head 31.3  armour 234.6
+hbm:gun_fatman 0/0 hbm:ammo_standard_nuke_standard  damage 100  head 125  armour 83.3
+hbm:gun_fatman 0/0 hbm:ammo_standard_nuke_tots  damage 35 x8  head 43.8  armour 224.4
+hbm:gun_fireext 0/0 hbm:ammo_fireext  damage 0  head 0  armour 0
+hbm:gun_fireext 0/0 hbm:ammo_fireext_foam  damage 0  head 0  armour 0
+hbm:gun_fireext 0/0 hbm:ammo_fireext_sand  damage 0  head 0  armour 0
+hbm:gun_flamer 0/0 hbm:ammo_standard_flame_balefire  damage 1  head 1.3  armour 0
+hbm:gun_flamer 0/0 hbm:ammo_standard_flame_diesel  damage 1  head 1.3  armour 0
+hbm:gun_flamer 0/0 hbm:ammo_standard_flame_gas  damage 1  head 1.3  armour 0
+hbm:gun_flamer 0/0 hbm:ammo_standard_flame_napalm  damage 1  head 1.3  armour 0
+hbm:gun_flamer_daybreaker 0/0 hbm:ammo_standard_flame_balefire  damage 25  head 31.3  armour 19.6
+hbm:gun_flamer_daybreaker 0/0 hbm:ammo_standard_flame_diesel  damage 25  head 31.3  armour 19.6
+hbm:gun_flamer_daybreaker 0/0 hbm:ammo_standard_flame_gas  damage 25  head 31.3  armour 19.6
+hbm:gun_flamer_daybreaker 0/0 hbm:ammo_standard_flame_napalm  damage 25  head 31.3  armour 19.6
+hbm:gun_flamer_topaz 0/0 hbm:ammo_standard_flame_balefire  damage 1.5 x2  head 1.9  armour 0
+hbm:gun_flamer_topaz 0/0 hbm:ammo_standard_flame_diesel  damage 1.5 x2  head 1.9  armour 0
+hbm:gun_flamer_topaz 0/0 hbm:ammo_standard_flame_gas  damage 1.5 x2  head 1.9  armour 0
+hbm:gun_flamer_topaz 0/0 hbm:ammo_standard_flame_napalm  damage 1.5 x2  head 1.9  armour 0
+hbm:gun_flaregun 0/0 hbm:ammo_standard_g26_flare  damage 15  head 18.8  armour 11.1
+hbm:gun_flaregun 0/0 hbm:ammo_standard_g26_flare_supply  damage 15  head 18.8  armour 11.1
+hbm:gun_flaregun 0/0 hbm:ammo_standard_g26_flare_weapon  damage 15  head 18.8  armour 11.1
+hbm:gun_folly 0/0 hbm:ammo_secret_folly_nuke  damage 1000  head 1250  armour 848.3
+hbm:gun_folly 0/0 hbm:ammo_secret_folly_sm  damage 1000  head 1250  armour 848.3
+hbm:gun_g3 0/0 hbm:ammo_standard_r556_ap  damage 6.3  head 7.8  armour 5.5
+hbm:gun_g3 0/0 hbm:ammo_standard_r556_fmj  damage 4  head 5  armour 3.5
+hbm:gun_g3 0/0 hbm:ammo_standard_r556_jhp  damage 7.5  head 11.3  armour 4.5
+hbm:gun_g3 0/0 hbm:ammo_standard_r556_sp  damage 5  head 6.3  armour 2.6
+hbm:gun_g3_zebra 0/0 hbm:ammo_standard_r556_ap  damage 9.4  head 11.7  armour 8.2
+hbm:gun_g3_zebra 0/0 hbm:ammo_standard_r556_fmj  damage 6  head 7.5  armour 5.2
+hbm:gun_g3_zebra 0/0 hbm:ammo_standard_r556_jhp  damage 11.3  head 16.9  armour 7.5
+hbm:gun_g3_zebra 0/0 hbm:ammo_standard_r556_sp  damage 7.5  head 9.4  armour 4.7
+hbm:gun_greasegun 0/0 hbm:ammo_standard_p9_ap  damage 3.8  head 4.7  armour 3.3
+hbm:gun_greasegun 0/0 hbm:ammo_standard_p9_fmj  damage 2.4  head 3  armour 2.1
+hbm:gun_greasegun 0/0 hbm:ammo_standard_p9_jhp  damage 4.5  head 6.8  armour 2
+hbm:gun_greasegun 0/0 hbm:ammo_standard_p9_sp  damage 3  head 3.8  armour 0.9
+hbm:gun_hangman 0/0 hbm:ammo_standard_m44_ap  damage 31.3  head 39.1  armour 27.3
+hbm:gun_hangman 0/0 hbm:ammo_standard_m44_bp  damage 18.8  head 23.4  armour 14.2
+hbm:gun_hangman 0/0 hbm:ammo_standard_m44_express  damage 37.5  head 46.9  armour 32.4
+hbm:gun_hangman 0/0 hbm:ammo_standard_m44_fmj  damage 20  head 25  armour 17.3
+hbm:gun_hangman 0/0 hbm:ammo_standard_m44_jhp  damage 37.5  head 56.3  armour 28.8
+hbm:gun_hangman 0/0 hbm:ammo_standard_m44_sp  damage 25  head 31.3  armour 19.6
+hbm:gun_heavy_revolver 0/0 hbm:ammo_standard_m44_ap  damage 18.8  head 23.4  armour 16.4
+hbm:gun_heavy_revolver 0/0 hbm:ammo_standard_m44_bp  damage 11.3  head 14.1  armour 7.9
+hbm:gun_heavy_revolver 0/0 hbm:ammo_standard_m44_express  damage 22.5  head 28.1  armour 19.5
+hbm:gun_heavy_revolver 0/0 hbm:ammo_standard_m44_fmj  damage 12  head 15  armour 10.4
+hbm:gun_heavy_revolver 0/0 hbm:ammo_standard_m44_jhp  damage 22.5  head 33.8  armour 16.7
+hbm:gun_heavy_revolver 0/0 hbm:ammo_standard_m44_sp  damage 15  head 18.8  armour 11.1
+hbm:gun_heavy_revolver_lilmac 0/0 hbm:ammo_secret_m44_equestrian  damage 0  head 0  armour 0
+hbm:gun_heavy_revolver_lilmac 0/0 hbm:ammo_standard_m44_ap  damage 37.5  head 46.9  armour 32.7
+hbm:gun_heavy_revolver_lilmac 0/0 hbm:ammo_standard_m44_bp  damage 22.5  head 28.1  armour 17.4
+hbm:gun_heavy_revolver_lilmac 0/0 hbm:ammo_standard_m44_express  damage 45  head 56.3  armour 38.9
+hbm:gun_heavy_revolver_lilmac 0/0 hbm:ammo_standard_m44_fmj  damage 24  head 30  armour 20.8
+hbm:gun_heavy_revolver_lilmac 0/0 hbm:ammo_standard_m44_jhp  damage 45  head 67.5  armour 34.9
+hbm:gun_heavy_revolver_lilmac 0/0 hbm:ammo_standard_m44_sp  damage 30  head 37.5  armour 23.8
+hbm:gun_heavy_revolver_protege 0/0 hbm:ammo_secret_m44_equestrian  damage 0  head 0  armour 0
+hbm:gun_heavy_revolver_protege 0/0 hbm:ammo_standard_m44_ap  damage 37.5  head 46.9  armour 32.7
+hbm:gun_heavy_revolver_protege 0/0 hbm:ammo_standard_m44_bp  damage 22.5  head 28.1  armour 17.4
+hbm:gun_heavy_revolver_protege 0/0 hbm:ammo_standard_m44_express  damage 45  head 56.3  armour 38.9
+hbm:gun_heavy_revolver_protege 0/0 hbm:ammo_standard_m44_fmj  damage 24  head 30  armour 20.8
+hbm:gun_heavy_revolver_protege 0/0 hbm:ammo_standard_m44_jhp  damage 45  head 67.5  armour 34.9
+hbm:gun_heavy_revolver_protege 0/0 hbm:ammo_standard_m44_sp  damage 30  head 37.5  armour 23.8
+hbm:gun_henry 0/0 hbm:ammo_standard_m44_ap  damage 12.5  head 15.6  armour 10.9
+hbm:gun_henry 0/0 hbm:ammo_standard_m44_bp  damage 7.5  head 9.4  armour 4.7
+hbm:gun_henry 0/0 hbm:ammo_standard_m44_express  damage 15  head 18.8  armour 13
+hbm:gun_henry 0/0 hbm:ammo_standard_m44_fmj  damage 8  head 10  armour 6.9
+hbm:gun_henry 0/0 hbm:ammo_standard_m44_jhp  damage 15  head 22.5  armour 10.6
+hbm:gun_henry 0/0 hbm:ammo_standard_m44_sp  damage 10  head 12.5  armour 6.8
+hbm:gun_henry_lincoln 0/0 hbm:ammo_standard_m44_ap  damage 25  head 31.3  armour 21.8
+hbm:gun_henry_lincoln 0/0 hbm:ammo_standard_m44_bp  damage 15  head 18.8  armour 11.1
+hbm:gun_henry_lincoln 0/0 hbm:ammo_standard_m44_express  damage 30  head 37.5  armour 26
+hbm:gun_henry_lincoln 0/0 hbm:ammo_standard_m44_fmj  damage 16  head 20  armour 13.8
+hbm:gun_henry_lincoln 0/0 hbm:ammo_standard_m44_jhp  damage 30  head 45  armour 22.8
+hbm:gun_henry_lincoln 0/0 hbm:ammo_standard_m44_sp  damage 20  head 25  armour 15.3
+hbm:gun_lag 0/0 hbm:ammo_standard_p9_ap  damage 31.3  head 39.1  armour 27.3
+hbm:gun_lag 0/0 hbm:ammo_standard_p9_fmj  damage 20  head 25  armour 17.3
+hbm:gun_lag 0/0 hbm:ammo_standard_p9_jhp  damage 37.5  head 56.3  armour 28.8
+hbm:gun_lag 0/0 hbm:ammo_standard_p9_sp  damage 25  head 31.3  armour 19.6
+hbm:gun_laser_pistol 0/0 hbm:ammo_standard_capacitor  damage 25  head 31.3  armour 19.6
+hbm:gun_laser_pistol 0/0 hbm:ammo_standard_capacitor_ir  damage 25  head 31.3  armour 19.6
+hbm:gun_laser_pistol 0/0 hbm:ammo_standard_capacitor_overcharge  damage 25  head 31.3  armour 19.6
+hbm:gun_laser_pistol_morning_glory 0/0 hbm:ammo_standard_capacitor  damage 20  head 25  armour 18.5
+hbm:gun_laser_pistol_morning_glory 0/0 hbm:ammo_standard_capacitor_ir  damage 20  head 25  armour 18.5
+hbm:gun_laser_pistol_morning_glory 0/0 hbm:ammo_standard_capacitor_overcharge  damage 20  head 25  armour 18.5
+hbm:gun_laser_pistol_pew_pew 0/0 hbm:ammo_standard_capacitor  damage 30  head 37.5  armour 23.8
+hbm:gun_laser_pistol_pew_pew 0/0 hbm:ammo_standard_capacitor_ir  damage 30  head 37.5  armour 23.8
+hbm:gun_laser_pistol_pew_pew 0/0 hbm:ammo_standard_capacitor_overcharge  damage 30  head 37.5  armour 23.8
+hbm:gun_lasrifle 0/0 hbm:ammo_standard_capacitor  damage 50  head 62.5  armour 40.8
+hbm:gun_lasrifle 0/0 hbm:ammo_standard_capacitor_ir  damage 50  head 62.5  armour 40.8
+hbm:gun_lasrifle 0/0 hbm:ammo_standard_capacitor_overcharge  damage 50  head 62.5  armour 40.8
+hbm:gun_liberator 0/0 hbm:ammo_standard_g12  damage 2 x8  head 2.5  armour 13.6
+hbm:gun_liberator 0/0 hbm:ammo_standard_g12_bp  damage 1.5 x8  head 1.9  armour 0
+hbm:gun_liberator 0/0 hbm:ammo_standard_g12_bp_magnum  damage 3 x4  head 3.8  armour 3.4
+hbm:gun_liberator 0/0 hbm:ammo_standard_g12_bp_slug  damage 12  head 15  armour 8.5
+hbm:gun_liberator 0/0 hbm:ammo_standard_g12_explosive  damage 40  head 50  armour 32.3
+hbm:gun_liberator 0/0 hbm:ammo_standard_g12_flechette  damage 2 x8  head 2.5  armour 14.1
+hbm:gun_liberator 0/0 hbm:ammo_standard_g12_magnum  damage 8 x4  head 10  armour 27.2
+hbm:gun_liberator 0/0 hbm:ammo_standard_g12_phosphorus  damage 2 x8  head 2.5  armour 0
+hbm:gun_liberator 0/0 hbm:ammo_standard_g12_slug  damage 16  head 24  armour 14
+hbm:gun_light_revolver 0/0 hbm:ammo_standard_m357_ap  damage 9.4  head 11.7  armour 8.2
+hbm:gun_light_revolver 0/0 hbm:ammo_standard_m357_bp  damage 5.6  head 7  armour 3.1
+hbm:gun_light_revolver 0/0 hbm:ammo_standard_m357_express  damage 11.3  head 14.1  armour 9.7
+hbm:gun_light_revolver 0/0 hbm:ammo_standard_m357_fmj  damage 6  head 7.5  armour 5.2
+hbm:gun_light_revolver 0/0 hbm:ammo_standard_m357_jhp  damage 11.3  head 16.9  armour 7.5
+hbm:gun_light_revolver 0/0 hbm:ammo_standard_m357_sp  damage 7.5  head 9.4  armour 4.7
+hbm:gun_light_revolver_atlas 0/0 hbm:ammo_standard_m357_ap  damage 15.6  head 19.5  armour 13.6
+hbm:gun_light_revolver_atlas 0/0 hbm:ammo_standard_m357_bp  damage 9.4  head 11.7  armour 6.3
+hbm:gun_light_revolver_atlas 0/0 hbm:ammo_standard_m357_express  damage 18.8  head 23.4  armour 16.2
+hbm:gun_light_revolver_atlas 0/0 hbm:ammo_standard_m357_fmj  damage 10  head 12.5  armour 8.7
+hbm:gun_light_revolver_atlas 0/0 hbm:ammo_standard_m357_jhp  damage 18.8  head 28.1  armour 13.6
+hbm:gun_light_revolver_atlas 0/0 hbm:ammo_standard_m357_sp  damage 12.5  head 15.6  armour 8.9
+hbm:gun_light_revolver_dani 0/0 hbm:ammo_standard_m357_ap  damage 18.8  head 23.4  armour 16.4
+hbm:gun_light_revolver_dani 0/0 hbm:ammo_standard_m357_bp  damage 11.3  head 14.1  armour 7.9
+hbm:gun_light_revolver_dani 0/0 hbm:ammo_standard_m357_express  damage 22.5  head 28.1  armour 19.5
+hbm:gun_light_revolver_dani 0/0 hbm:ammo_standard_m357_fmj  damage 12  head 15  armour 10.4
+hbm:gun_light_revolver_dani 0/0 hbm:ammo_standard_m357_jhp  damage 22.5  head 33.8  armour 16.7
+hbm:gun_light_revolver_dani 0/0 hbm:ammo_standard_m357_sp  damage 15  head 18.8  armour 11.1
+hbm:gun_light_revolver_dani 1/0 hbm:ammo_standard_m357_ap  damage 18.8  head 23.4  armour 16.4
+hbm:gun_light_revolver_dani 1/0 hbm:ammo_standard_m357_bp  damage 11.3  head 14.1  armour 7.9
+hbm:gun_light_revolver_dani 1/0 hbm:ammo_standard_m357_express  damage 22.5  head 28.1  armour 19.5
+hbm:gun_light_revolver_dani 1/0 hbm:ammo_standard_m357_fmj  damage 12  head 15  armour 10.4
+hbm:gun_light_revolver_dani 1/0 hbm:ammo_standard_m357_jhp  damage 22.5  head 33.8  armour 16.7
+hbm:gun_light_revolver_dani 1/0 hbm:ammo_standard_m357_sp  damage 15  head 18.8  armour 11.1
+hbm:gun_m2 0/0 hbm:ammo_standard_bmg50_ap  damage 9.4  head 11.7  armour 8.2
+hbm:gun_m2 0/0 hbm:ammo_standard_bmg50_du  damage 11.3  head 14.1  armour 10
+hbm:gun_m2 0/0 hbm:ammo_standard_bmg50_fmj  damage 6  head 7.5  armour 5.2
+hbm:gun_m2 0/0 hbm:ammo_standard_bmg50_he  damage 13.1  head 16.4  armour 9.5
+hbm:gun_m2 0/0 hbm:ammo_standard_bmg50_jhp  damage 11.3  head 16.9  armour 7.5
+hbm:gun_m2 0/0 hbm:ammo_standard_bmg50_sp  damage 7.5  head 9.4  armour 4.7
+hbm:gun_maresleg 0/0 hbm:ammo_standard_g12  damage 2 x8  head 2.5  armour 13.6
+hbm:gun_maresleg 0/0 hbm:ammo_standard_g12_bp  damage 1.5 x8  head 1.9  armour 0
+hbm:gun_maresleg 0/0 hbm:ammo_standard_g12_bp_magnum  damage 3 x4  head 3.8  armour 3.4
+hbm:gun_maresleg 0/0 hbm:ammo_standard_g12_bp_slug  damage 12  head 15  armour 8.5
+hbm:gun_maresleg 0/0 hbm:ammo_standard_g12_explosive  damage 40  head 50  armour 32.3
+hbm:gun_maresleg 0/0 hbm:ammo_standard_g12_flechette  damage 2 x8  head 2.5  armour 14.1
+hbm:gun_maresleg 0/0 hbm:ammo_standard_g12_magnum  damage 8 x4  head 10  armour 27.2
+hbm:gun_maresleg 0/0 hbm:ammo_standard_g12_phosphorus  damage 2 x8  head 2.5  armour 0
+hbm:gun_maresleg 0/0 hbm:ammo_standard_g12_slug  damage 16  head 24  armour 14
+hbm:gun_maresleg_akimbo 0/0 hbm:ammo_standard_g12  damage 2 x8  head 2.5  armour 13.6
+hbm:gun_maresleg_akimbo 0/0 hbm:ammo_standard_g12_bp  damage 1.5 x8  head 1.9  armour 0
+hbm:gun_maresleg_akimbo 0/0 hbm:ammo_standard_g12_bp_magnum  damage 3 x4  head 3.8  armour 3.4
+hbm:gun_maresleg_akimbo 0/0 hbm:ammo_standard_g12_bp_slug  damage 12  head 15  armour 8.5
+hbm:gun_maresleg_akimbo 0/0 hbm:ammo_standard_g12_explosive  damage 40  head 50  armour 32.3
+hbm:gun_maresleg_akimbo 0/0 hbm:ammo_standard_g12_flechette  damage 2 x8  head 2.5  armour 14.1
+hbm:gun_maresleg_akimbo 0/0 hbm:ammo_standard_g12_magnum  damage 8 x4  head 10  armour 27.2
+hbm:gun_maresleg_akimbo 0/0 hbm:ammo_standard_g12_phosphorus  damage 2 x8  head 2.5  armour 0
+hbm:gun_maresleg_akimbo 0/0 hbm:ammo_standard_g12_slug  damage 16  head 24  armour 14
+hbm:gun_maresleg_akimbo 1/0 hbm:ammo_standard_g12  damage 2 x8  head 2.5  armour 13.6
+hbm:gun_maresleg_akimbo 1/0 hbm:ammo_standard_g12_bp  damage 1.5 x8  head 1.9  armour 0
+hbm:gun_maresleg_akimbo 1/0 hbm:ammo_standard_g12_bp_magnum  damage 3 x4  head 3.8  armour 3.4
+hbm:gun_maresleg_akimbo 1/0 hbm:ammo_standard_g12_bp_slug  damage 12  head 15  armour 8.5
+hbm:gun_maresleg_akimbo 1/0 hbm:ammo_standard_g12_explosive  damage 40  head 50  armour 32.3
+hbm:gun_maresleg_akimbo 1/0 hbm:ammo_standard_g12_flechette  damage 2 x8  head 2.5  armour 14.1
+hbm:gun_maresleg_akimbo 1/0 hbm:ammo_standard_g12_magnum  damage 8 x4  head 10  armour 27.2
+hbm:gun_maresleg_akimbo 1/0 hbm:ammo_standard_g12_phosphorus  damage 2 x8  head 2.5  armour 0
+hbm:gun_maresleg_akimbo 1/0 hbm:ammo_standard_g12_slug  damage 16  head 24  armour 14
+hbm:gun_maresleg_broken 0/0 hbm:ammo_secret_g12_equestrian  damage 0  head 0  armour 0
+hbm:gun_maresleg_broken 0/0 hbm:ammo_standard_g12  damage 6 x8  head 7.5  armour 40.8
+hbm:gun_maresleg_broken 0/0 hbm:ammo_standard_g12_bp  damage 4.5 x8  head 5.6  armour 17
+hbm:gun_maresleg_broken 0/0 hbm:ammo_standard_g12_bp_magnum  damage 9 x4  head 11.3  armour 23.8
+hbm:gun_maresleg_broken 0/0 hbm:ammo_standard_g12_bp_slug  damage 36  head 45  armour 28.9
+hbm:gun_maresleg_broken 0/0 hbm:ammo_standard_g12_explosive  damage 120  head 150  armour 100.3
+hbm:gun_maresleg_broken 0/0 hbm:ammo_standard_g12_flechette  damage 6 x8  head 7.5  armour 42.2
+hbm:gun_maresleg_broken 0/0 hbm:ammo_standard_g12_magnum  damage 24 x4  head 30  armour 81.6
+hbm:gun_maresleg_broken 0/0 hbm:ammo_standard_g12_phosphorus  damage 6 x8  head 7.5  armour 27.2
+hbm:gun_maresleg_broken 0/0 hbm:ammo_standard_g12_slug  damage 48  head 72  armour 41.9
+hbm:gun_mas36 0/0 hbm:ammo_standard_r762_ap  damage 37.5  head 46.9  armour 32.7
+hbm:gun_mas36 0/0 hbm:ammo_standard_r762_du  damage 45  head 56.3  armour 39.9
+hbm:gun_mas36 0/0 hbm:ammo_standard_r762_fmj  damage 24  head 30  armour 20.8
+hbm:gun_mas36 0/0 hbm:ammo_standard_r762_he  damage 52.5  head 65.6  armour 42.9
+hbm:gun_mas36 0/0 hbm:ammo_standard_r762_jhp  damage 45  head 67.5  armour 34.9
+hbm:gun_mas36 0/0 hbm:ammo_standard_r762_sp  damage 30  head 37.5  armour 23.8
+hbm:gun_minigun 0/0 hbm:ammo_standard_r762_ap  damage 7.5  head 9.4  armour 6.5
+hbm:gun_minigun 0/0 hbm:ammo_standard_r762_du  damage 9  head 11.3  armour 8
+hbm:gun_minigun 0/0 hbm:ammo_standard_r762_fmj  damage 4.8  head 6  armour 4.2
+hbm:gun_minigun 0/0 hbm:ammo_standard_r762_he  damage 10.5  head 13.1  armour 7.2
+hbm:gun_minigun 0/0 hbm:ammo_standard_r762_jhp  damage 9  head 13.5  armour 5.7
+hbm:gun_minigun 0/0 hbm:ammo_standard_r762_sp  damage 6  head 7.5  armour 3.4
+hbm:gun_minigun_dual 0/0 hbm:ammo_standard_r762_ap  damage 7.5  head 9.4  armour 6.5
+hbm:gun_minigun_dual 0/0 hbm:ammo_standard_r762_du  damage 9  head 11.3  armour 8
+hbm:gun_minigun_dual 0/0 hbm:ammo_standard_r762_fmj  damage 4.8  head 6  armour 4.2
+hbm:gun_minigun_dual 0/0 hbm:ammo_standard_r762_he  damage 10.5  head 13.1  armour 7.2
+hbm:gun_minigun_dual 0/0 hbm:ammo_standard_r762_jhp  damage 9  head 13.5  armour 5.7
+hbm:gun_minigun_dual 0/0 hbm:ammo_standard_r762_sp  damage 6  head 7.5  armour 3.4
+hbm:gun_minigun_dual 1/0 hbm:ammo_standard_r762_ap  damage 7.5  head 9.4  armour 6.5
+hbm:gun_minigun_dual 1/0 hbm:ammo_standard_r762_du  damage 9  head 11.3  armour 8
+hbm:gun_minigun_dual 1/0 hbm:ammo_standard_r762_fmj  damage 4.8  head 6  armour 4.2
+hbm:gun_minigun_dual 1/0 hbm:ammo_standard_r762_he  damage 10.5  head 13.1  armour 7.2
+hbm:gun_minigun_dual 1/0 hbm:ammo_standard_r762_jhp  damage 9  head 13.5  armour 5.7
+hbm:gun_minigun_dual 1/0 hbm:ammo_standard_r762_sp  damage 6  head 7.5  armour 3.4
+hbm:gun_minigun_lacunae 0/0 hbm:ammo_standard_capacitor  damage 12  head 15  armour 8.5
+hbm:gun_minigun_lacunae 0/0 hbm:ammo_standard_capacitor_ir  damage 12  head 15  armour 8.5
+hbm:gun_minigun_lacunae 0/0 hbm:ammo_standard_capacitor_overcharge  damage 12  head 15  armour 8.5
+hbm:gun_missile_launcher 0/0 hbm:ammo_standard_rocket_demo  damage 37.5  head 46.9  armour 30.2
+hbm:gun_missile_launcher 0/0 hbm:ammo_standard_rocket_he  damage 50  head 62.5  armour 40.8
+hbm:gun_missile_launcher 0/0 hbm:ammo_standard_rocket_heat  damage 25  head 31.3  armour 19.6
+hbm:gun_missile_launcher 0/0 hbm:ammo_standard_rocket_inc  damage 37.5  head 46.9  armour 30.2
+hbm:gun_missile_launcher 0/0 hbm:ammo_standard_rocket_phosphorus  damage 37.5  head 46.9  armour 30.2
+hbm:gun_mk108 0/0 hbm:ammo_standard_g40_demo  damage 18.8  head 23.4  armour 14.2
+hbm:gun_mk108 0/0 hbm:ammo_standard_g40_he  damage 25  head 31.3  armour 19.6
+hbm:gun_mk108 0/0 hbm:ammo_standard_g40_heat  damage 12.5  head 15.6  armour 8.9
+hbm:gun_mk108 0/0 hbm:ammo_standard_g40_inc  damage 18.8  head 23.4  armour 14.2
+hbm:gun_mk108 0/0 hbm:ammo_standard_g40_phosphorus  damage 18.8  head 23.4  armour 14.2
+hbm:gun_panzerschreck 0/0 hbm:ammo_standard_rocket_demo  damage 18.8  head 23.4  armour 14.2
+hbm:gun_panzerschreck 0/0 hbm:ammo_standard_rocket_he  damage 25  head 31.3  armour 19.6
+hbm:gun_panzerschreck 0/0 hbm:ammo_standard_rocket_heat  damage 12.5  head 15.6  armour 8.9
+hbm:gun_panzerschreck 0/0 hbm:ammo_standard_rocket_inc  damage 18.8  head 23.4  armour 14.2
+hbm:gun_panzerschreck 0/0 hbm:ammo_standard_rocket_phosphorus  damage 18.8  head 23.4  armour 14.2
+hbm:gun_pepperbox 0/0 hbm:ammo_standard_stone  damage 5  head 5  armour 2.6
+hbm:gun_pepperbox 0/0 hbm:ammo_standard_stone_ap  damage 7.5  head 7.5  armour 4.7
+hbm:gun_pepperbox 0/0 hbm:ammo_standard_stone_iron  damage 7.5  head 7.5  armour 4.7
+hbm:gun_pepperbox 0/0 hbm:ammo_standard_stone_shot  damage 0.8 x6  head 0.8  armour 0
+hbm:gun_quadro 0/0 hbm:ammo_standard_rocket_demo  damage 30  head 37.5  armour 23.8
+hbm:gun_quadro 0/0 hbm:ammo_standard_rocket_he  damage 40  head 50  armour 32.3
+hbm:gun_quadro 0/0 hbm:ammo_standard_rocket_heat  damage 20  head 25  armour 15.3
+hbm:gun_quadro 0/0 hbm:ammo_standard_rocket_inc  damage 30  head 37.5  armour 23.8
+hbm:gun_quadro 0/0 hbm:ammo_standard_rocket_phosphorus  damage 30  head 37.5  armour 23.8
+hbm:gun_spas12 0/0 hbm:ammo_standard_g12  damage 4 x8  head 5  armour 27.2
+hbm:gun_spas12 0/0 hbm:ammo_standard_g12_bp  damage 3 x8  head 3.8  armour 6.8
+hbm:gun_spas12 0/0 hbm:ammo_standard_g12_bp_magnum  damage 6 x4  head 7.5  armour 13.6
+hbm:gun_spas12 0/0 hbm:ammo_standard_g12_bp_slug  damage 24  head 30  armour 18.7
+hbm:gun_spas12 0/0 hbm:ammo_standard_g12_explosive  damage 80  head 100  armour 66.3
+hbm:gun_spas12 0/0 hbm:ammo_standard_g12_flechette  damage 4 x8  head 5  armour 28.2
+hbm:gun_spas12 0/0 hbm:ammo_standard_g12_magnum  damage 16 x4  head 20  armour 54.4
+hbm:gun_spas12 0/0 hbm:ammo_standard_g12_phosphorus  damage 4 x8  head 5  armour 13.6
+hbm:gun_spas12 0/0 hbm:ammo_standard_g12_slug  damage 32  head 48  armour 27.9
+hbm:gun_star_f 0/0 hbm:ammo_standard_p22_ap  damage 15.6  head 19.5  armour 13.6
+hbm:gun_star_f 0/0 hbm:ammo_standard_p22_fmj  damage 10  head 12.5  armour 7.8
+hbm:gun_star_f 0/0 hbm:ammo_standard_p22_jhp  damage 18.8  head 28.1  armour 13.6
+hbm:gun_star_f 0/0 hbm:ammo_standard_p22_sp  damage 12.5  head 15.6  armour 8.9
+hbm:gun_star_f_akimbo 0/0 hbm:ammo_standard_p22_ap  damage 15.6  head 19.5  armour 13.6
+hbm:gun_star_f_akimbo 0/0 hbm:ammo_standard_p22_fmj  damage 10  head 12.5  armour 7.8
+hbm:gun_star_f_akimbo 0/0 hbm:ammo_standard_p22_jhp  damage 18.8  head 28.1  armour 13.6
+hbm:gun_star_f_akimbo 0/0 hbm:ammo_standard_p22_sp  damage 12.5  head 15.6  armour 8.9
+hbm:gun_star_f_akimbo 1/0 hbm:ammo_standard_p22_ap  damage 15.6  head 19.5  armour 13.6
+hbm:gun_star_f_akimbo 1/0 hbm:ammo_standard_p22_fmj  damage 10  head 12.5  armour 7.8
+hbm:gun_star_f_akimbo 1/0 hbm:ammo_standard_p22_jhp  damage 18.8  head 28.1  armour 13.6
+hbm:gun_star_f_akimbo 1/0 hbm:ammo_standard_p22_sp  damage 12.5  head 15.6  armour 8.9
+hbm:gun_stg77 0/0 hbm:ammo_standard_r556_ap  damage 12.5  head 15.6  armour 10.9
+hbm:gun_stg77 0/0 hbm:ammo_standard_r556_fmj  damage 8  head 10  armour 6.9
+hbm:gun_stg77 0/0 hbm:ammo_standard_r556_jhp  damage 15  head 22.5  armour 10.6
+hbm:gun_stg77 0/0 hbm:ammo_standard_r556_sp  damage 10  head 12.5  armour 6.8
+hbm:gun_stinger 0/0 hbm:ammo_standard_rocket_demo  damage 26.3  head 32.8  armour 20.6
+hbm:gun_stinger 0/0 hbm:ammo_standard_rocket_he  damage 35  head 43.8  armour 28.1
+hbm:gun_stinger 0/0 hbm:ammo_standard_rocket_heat  damage 17.5  head 21.9  armour 13.2
+hbm:gun_stinger 0/0 hbm:ammo_standard_rocket_inc  damage 26.3  head 32.8  armour 20.6
+hbm:gun_stinger 0/0 hbm:ammo_standard_rocket_phosphorus  damage 26.3  head 32.8  armour 20.6
+hbm:gun_tau 0/0 hbm:ammo_standard_tau_uranium  damage 25  head 31.3  armour 19.6
+hbm:gun_tesla_cannon 0/0 hbm:ammo_standard_capacitor  damage 35  head 43.8  armour 28.1
+hbm:gun_tesla_cannon 0/0 hbm:ammo_standard_capacitor_ir  damage 28  head 35  armour 22.1
+hbm:gun_tesla_cannon 0/0 hbm:ammo_standard_capacitor_overcharge  damage 52.5  head 65.6  armour 42.9
+hbm:gun_uzi 0/0 hbm:ammo_standard_p9_ap  damage 3.8  head 4.7  armour 3.3
+hbm:gun_uzi 0/0 hbm:ammo_standard_p9_fmj  damage 2.4  head 3  armour 2.1
+hbm:gun_uzi 0/0 hbm:ammo_standard_p9_jhp  damage 4.5  head 6.8  armour 2
+hbm:gun_uzi 0/0 hbm:ammo_standard_p9_sp  damage 3  head 3.8  armour 0.9
+hbm:gun_uzi_akimbo 0/0 hbm:ammo_standard_p9_ap  damage 3.8  head 4.7  armour 3.3
+hbm:gun_uzi_akimbo 0/0 hbm:ammo_standard_p9_fmj  damage 2.4  head 3  armour 2.1
+hbm:gun_uzi_akimbo 0/0 hbm:ammo_standard_p9_jhp  damage 4.5  head 6.8  armour 2
+hbm:gun_uzi_akimbo 0/0 hbm:ammo_standard_p9_sp  damage 3  head 3.8  armour 0.9
+hbm:gun_uzi_akimbo 1/0 hbm:ammo_standard_p9_ap  damage 3.8  head 4.7  armour 3.3
+hbm:gun_uzi_akimbo 1/0 hbm:ammo_standard_p9_fmj  damage 2.4  head 3  armour 2.1
+hbm:gun_uzi_akimbo 1/0 hbm:ammo_standard_p9_jhp  damage 4.5  head 6.8  armour 2
+hbm:gun_uzi_akimbo 1/0 hbm:ammo_standard_p9_sp  damage 3  head 3.8  armour 0.9
