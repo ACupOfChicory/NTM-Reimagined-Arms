@@ -80,6 +80,9 @@ public final class BulletFx {
         BlockState ruleState = Cells.ruleState(level, hit.getBlockPos(), state);
         if (debugSound && ruleState != state) sd("  cell of {}", BuiltInRegistries.BLOCK.getKey(ruleState.getBlock()));
         BulletRules.Effect fx = BulletRules.hit(ruleState);
+        if (TestLog.client) TestLog.c(TestLog.shot(), "fx", "block", ruleState, "pos", hit.getBlockPos(), "material", TestLog.material(level, hit.getBlockPos()),
+                "sound", fx.sound() == null ? "none" : fx.sound().id(), "particles", fx.particles().size(),
+                "full", state.isCollisionShapeFullBlock(level, hit.getBlockPos()), "explosive", explosive, "fxOn", Config.bulletFx);
         if (fx.empty()) {
             sd("  skipped: no hit rule gives it particles or a sound");
             return;

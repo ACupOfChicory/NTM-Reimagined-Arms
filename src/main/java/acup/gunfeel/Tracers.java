@@ -65,6 +65,7 @@ public final class Tracers {
     }
 
     private static final class Shot {
+        final int id; // the server's entity id of the bullet (TestLog)
         final BulletConfig config;
         final int owner;
         final Vec3 start;
@@ -85,6 +86,7 @@ public final class Tracers {
         int ricochets; // times it bounced off so far (NTM's standard ricochet)
 
         Shot(ShotPayload p, BulletConfig config, int[] colors) {
+            this.id = p.id();
             this.config = config;
             this.owner = p.owner();
             this.start = new Vec3(p.x(), p.y(), p.z());
@@ -100,6 +102,7 @@ public final class Tracers {
 
         // the same bullet bounced off a block: from there on with the mirrored velocity, `born` = the moment it bounced
         Shot(Shot from, Vec3 start, Vec3 v, long born, long lifeTicks) {
+            this.id = from.id;
             this.config = from.config;
             this.owner = from.owner;
             this.start = start;
@@ -414,6 +417,19 @@ public final class Tracers {
         // the server's own start point (its eyes; this client's eyes of the shooter may be off by centimetres, enough to
         // clip a corner the server's bullet misses)
         if (!Double.isNaN(p.ex())) s.eye = new Vec3(p.ex(), p.ey(), p.ez());
+        if (TestLog.client) {
+            boolean own = mc.player != null && p.owner() == mc.player.getId();
+            if (own) {
+                var pl = mc.player;
+                var mv = pl.getDeltaMovement();
+                TestLog.c(s.id, "fire", "ammo", p.config(), "own", true, "at", s.start, "v", s.v, "damage", p.damage(),
+                        "gun", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(pl.getMainHandItem().getItem()),
+                        "sneak", pl.isCrouching(), "crawl", pl.isVisuallyCrawling(), "sprint", pl.isSprinting(), "ground", pl.onGround(),
+                        "speed", Math.sqrt(mv.x * mv.x + mv.z * mv.z), "pitch", pl.getXRot());
+            } else {
+                TestLog.c(s.id, "fire", "ammo", p.config(), "own", false, "at", s.start, "v", s.v, "damage", p.damage());
+            }
+        }
         SHOTS.add(s);
         if (SHOTS.size() > 512) SHOTS.remove(0).gone = true;
         BulletFx.fly(() -> s.at(Math.min((System.nanoTime() - s.born) / 50_000_000.0, Double.isNaN(s.end) ? s.lifeTicks : s.end)),
@@ -458,6 +474,7 @@ public final class Tracers {
             double head = Double.isNaN(s.end) ? Math.min(t, s.lifeTicks) : Math.min(t, s.end);
             double tail = Math.max(0.0, t - Math.max(Config.tracerLength / s.speed, frameTicks * 1.5));
             if (tail >= head) {
+                if (TestLog.client && Double.isNaN(s.end)) TestLog.c(s.id, "end", "by", "life", "at", s.at(s.lifeTicks));
                 s.gone = true;
                 it.remove();
                 continue;
@@ -495,6 +512,7 @@ public final class Tracers {
     // test the bullet's path up to t ticks against blocks and entities; stops it at the first thing it meets
     private static void fly(Shot s, ClientLevel level, double t) {
         if (!Double.isNaN(s.end) || t <= s.checked) return;
+        TestLog.shot(s.id);
         // the real path, without the muzzle offset, decides what is hit
         Vec3 ra = tested(s, s.checked), rb = tested(s, t);
         List<BlockHitResult> through = new ArrayList<>();
@@ -518,12 +536,24 @@ public final class Tracers {
             if (!Double.isNaN(hitEntity) && hitEntity < block.getLocation().distanceTo(ra)) break;
             Vec3 unit = dir.scale(1.0 / len);
             BlockPos pos = block.getBlockPos().immutable();
-            if (s.config.onImpact != null) break; // explosive: goes off on the first block
+            if (s.config.onImpact != null) { // explosive: goes off on the first block
+                logStop(s, level, block, "explosive", Float.NaN);
+                break;
+            }
             boolean known = s.pierced.contains(pos);
             BlockHitResult out = PassableClip.exit(level, block, unit);
-            if (out == null) break;
+            if (out == null) {
+                logStop(s, level, block, "no_exit", Float.NaN);
+                break;
+            }
             float left = known ? s.damage : PassableClip.pierced(level, block, out, s.damage, s.config);
-            if (left < 0F) break;
+            if (left < 0F) {
+                logStop(s, level, block, "held", (float) block.getLocation().distanceTo(out.getLocation()));
+                break;
+            }
+            if (TestLog.client && !known) TestLog.c(s.id, "block", "block", level.getBlockState(pos), "pos", pos, "at", block.getLocation(),
+                    "material", TestLog.material(level, pos), "result", "pierce", "damage", s.damage, "left", left,
+                    "path", block.getLocation().distanceTo(out.getLocation()));
             if (!known) {
                 s.pierced.add(pos);
                 s.damage = left;
@@ -550,15 +580,19 @@ public final class Tracers {
         if (!Double.isNaN(hitEntity)) {
             s.end = s.checked + (t - s.checked) * hitEntity / len;
             stop = ra.add(dir.scale(hitEntity / len));
+            if (TestLog.client) TestLog.c(s.id, "end", "by", "entity", "at", stop);
         } else if (block.getType() != HitResult.Type.MISS) {
             s.end = s.checked + (t - s.checked) * (len > 1e-6 ? reach / len : 0.0);
             stop = block.getLocation();
+            if (TestLog.client) TestLog.c(s.id, "end", "by", "block", "block", level.getBlockState(block.getBlockPos()), "pos", block.getBlockPos(), "at", stop);
             Vec3 vel = new Vec3(s.v.x, s.v.y - s.g * s.end, s.v.z);
             if (len > 1e-6 && ricochet(s, level, block, vel)) {
                 // NTM's standard ricochet: a scratch, no hit effects (the server plays the ricochet's sound; on steel
                 // ours, BulletFx.ricochetSound); the bullet flies on mirrored on the face's axis unless that was its last
                 BulletFx.sd("ricochet off {} at {} (bounce {} of {})", net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(block.getBlockPos()).getBlock()),
                         block.getBlockPos().toShortString(), s.ricochets + 1, s.config.maxRicochetCount);
+                if (TestLog.client) TestLog.c(s.id, "ricochet", "block", level.getBlockState(block.getBlockPos()), "pos", block.getBlockPos(),
+                        "material", TestLog.material(level, block.getBlockPos()), "result", "bounced", "bounce", s.ricochets + 1);
                 if (Config.bulletHoles) {
                     scratch = vel.normalize();
                     try {
@@ -584,9 +618,21 @@ public final class Tracers {
         // blocks it flew through on the way (leaves): their crumbs, no hole
         if (len > 1e-6) {
             double far = stop.distanceToSqr(ra);
-            for (BlockHitResult h : through) if (h.getLocation().distanceToSqr(ra) < far) BulletFx.blockHit(level, h, dir.scale(1.0 / len), s.config.onImpact != null);
+            for (BlockHitResult h : through) if (h.getLocation().distanceToSqr(ra) < far) {
+                if (TestLog.client) TestLog.c(s.id, "through", "block", level.getBlockState(h.getBlockPos()), "pos", h.getBlockPos(), "at", h.getLocation());
+                BulletFx.blockHit(level, h, dir.scale(1.0 / len), s.config.onImpact != null);
+            }
         }
         s.checked = t;
+        TestLog.shot(-1);
+    }
+
+    // the test log: the bullet stops at this block on the client (the hit itself: "end" below in fly)
+    private static void logStop(Shot s, ClientLevel level, BlockHitResult hit, String why, float path) {
+        if (!TestLog.client) return;
+        BlockPos pos = hit.getBlockPos();
+        TestLog.c(s.id, "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation(), "material", TestLog.material(level, pos),
+                "result", "stop", "why", why, "damage", s.damage, "path", Float.isNaN(path) ? null : path);
     }
 
     // NTM's standard ricochet (BulletConfig.LAMBDA_STANDARD_RICOCHET) as the server has it: a bullet without an impact
@@ -661,14 +707,14 @@ public final class Tracers {
 
     // holes waiting to be made: a burst's holes (a shotgun, explosive rounds into a scaffold) are made over the next
     // frames, as many as fit in HOLE_BUDGET_NS a frame (at least one), instead of all in the frame they were hit
-    private record Pending(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir, Vec3 scratch) {
+    private record Pending(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir, Vec3 scratch, int shot) {
     }
 
     private static final ArrayDeque<Pending> PENDING = new ArrayDeque<>();
     private static final long HOLE_BUDGET_NS = 3_000_000L;
 
     private static void addHole(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir) {
-        PENDING.addLast(new Pending(level, hit, config, dir, scratch));
+        PENDING.addLast(new Pending(level, hit, config, dir, scratch, TestLog.shot()));
     }
 
     private static void makePending() {
@@ -680,14 +726,48 @@ public final class Tracers {
             if (p.level() != now || !Config.bulletHoles) continue;
             long ph = Perf.start();
             scratch = p.scratch();
+            int before = holesMade;
             try {
                 makeHole(p.level(), p.hit(), p.config(), p.dir());
             } finally {
                 scratch = null;
             }
+            if (TestLog.client) logHole(p, holesMade != before);
             Perf.add(Perf.HOLE_MAKE, ph);
             made++;
         }
+    }
+
+    // holes made so far (the test log tells a made hole from one given up)
+    private static int holesMade;
+
+    private static void addMade(Hole h) {
+        holesMade++;
+        HOLES.addLast(h);
+    }
+
+    // the test log: a hole made or given up, its style by the rules, whether it lies on a drawn board of NTM's wooden
+    // trench blocks (WoodBoxes), and the holes kept on blocks and on machines against their limits
+    private static void logHole(Pending p, boolean placed) {
+        ClientLevel level = p.level();
+        BlockPos pos = p.hit().getBlockPos();
+        BlockState state = level.getBlockState(pos);
+        Hole h = placed ? HOLES.peekLast() : null;
+        Vec3 at = h != null ? h.pos() : p.hit().getLocation();
+        Object onBoard = "-";
+        long[] boards = WoodBoxes.cells(level, pos, state);
+        if (boards != null && h != null) {
+            Vec3 in = at.add(p.dir().normalize().scale(1.0 / 64.0)); // just inside, along the bullet
+            int x = Math.clamp((int) Math.floor((in.x - pos.getX()) * 16), 0, 15), y = Math.clamp((int) Math.floor((in.y - pos.getY()) * 16), 0, 15),
+                    z = Math.clamp((int) Math.floor((in.z - pos.getZ()) * 16), 0, 15);
+            onBoard = PassableClip.cell(boards, x, y, z);
+        }
+        int machines = 0;
+        for (Hole o : HOLES) if (o.machine()) machines++;
+        String[] style = BulletRules.hole(state);
+        TestLog.c(p.shot(), "hole", "block", state, "pos", pos, "at", at, "placed", placed, "drawn", style[0], "how", style[1],
+                "glass", glassLike(state), "scratch", p.scratch() != null, "onBoard", onBoard, "machine", h != null && h.machine(),
+                "holes", HOLES.size() - machines, "machineHoles", machines, "max", Config.holeMax, "maxMachines", Config.holeMaxMachines);
     }
 
     private static void makeHole(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir) {
@@ -744,7 +824,7 @@ public final class Tracers {
         double onAxis = Double.isNaN(plane) ? comp(hit.getLocation(), hit.getDirection().getAxis().ordinal()) : plane;
         boolean cull = (level.getBlockState(hit.getBlockPos()).isCollisionShapeFullBlock(level, hit.getBlockPos()) || Math.abs(onAxis - boxFace) < 1e-3)
                 && !glassLike(level.getBlockState(hit.getBlockPos()));
-        HOLES.addLast(new Hole(hit.getLocation(), hit.getDirection(), turn, System.nanoTime(), light, kind, size, rect, mask, plane,
+        addMade(new Hole(hit.getLocation(), hit.getDirection(), turn, System.nanoTime(), light, kind, size, rect, mask, plane,
                 translucent(level.getBlockState(hit.getBlockPos())) || glassLike(level.getBlockState(hit.getBlockPos())),
                 cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false));
         trimHoles();
@@ -842,7 +922,7 @@ public final class Tracers {
         }
         Vec3 world = new Vec3(pos.getX() + at.x, pos.getY() + at.y, pos.getZ() + at.z);
         int light = LightCoordsUtil.getLightCoords(level, pos);
-        HOLES.addLast(new Hole(world, hit.getDirection(), turn, System.nanoTime(), light, kind, size, null, null, Double.NaN,
+        addMade(new Hole(world, hit.getDirection(), turn, System.nanoTime(), light, kind, size, null, null, Double.NaN,
                 translucent(level.getBlockState(pos)) || glassLike(level.getBlockState(pos)), false, mesh,
                 onBoxFace(level, pos, at, normal) && !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false));
         trimHoles();
@@ -1168,7 +1248,7 @@ public final class Tracers {
             // on glass (a glass block, a door's clear window): drawn after the glass behind it, see HoleRender
             boolean late = first.tex().glass() || first.block() != null && (translucent(state) || glassLike(state));
             Follow follow = first.anchor() == null ? null : new Follow(first.anchor(), at, mesh, light);
-            HOLES.addLast(new Hole(new Vec3(at.x, at.y, at.z), hit.getDirection(), turn, born, light, kind, size, null, null, Double.NaN, late, false, mesh,
+            addMade(new Hole(new Vec3(at.x, at.y, at.z), hit.getDirection(), turn, born, light, kind, size, null, null, Double.NaN, late, false, mesh,
                     front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, true));
             dbg("  hole group: {} polygons at {} on {} tex={} front={} late={} follows={} moving={}", g.polys().size(), v(at), on,
                     RenderedMesh.texName(first.tex()), front, late, follow != null, first.moving());

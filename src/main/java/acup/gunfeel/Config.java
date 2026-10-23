@@ -272,6 +272,27 @@ public final class Config {
         if (gun != null) p.putAll(Grips.overrides(gun));
         apply(p);
         enabled = on;
+        if (TestLog.client) {
+            String q = quality + " " + holeMax + " " + holeMaxMachines + " " + holeLife + " " + particleScale;
+            if (!q.equals(loggedQuality)) {
+                loggedQuality = q;
+                logQuality();
+            }
+        }
+    }
+
+    private static String loggedQuality;
+
+    // the test log: the preset and what it set, and the preset keys the global file holds changed by hand
+    static void logQuality() {
+        java.util.Map<String, String> preset = PRESETS.get(quality);
+        java.util.List<String> byHand = new java.util.ArrayList<>();
+        if (preset != null) for (String k : preset.keySet()) {
+            String mine = GLOBAL.getProperty(k);
+            if (mine != null && !same(mine, BUILTIN.getProperty(k))) byHand.add(k);
+        }
+        TestLog.c(-1, "quality", "preset", quality, "holeMax", holeMax, "holeMaxMachines", holeMaxMachines, "holeLife", holeLife,
+                "particleScale", particleScale, "byHand", String.join(",", byHand));
     }
 
     // built-in defaults, the quality preset, then the global file; a preset key the file holds at its built-in value

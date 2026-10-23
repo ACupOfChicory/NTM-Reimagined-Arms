@@ -20,6 +20,9 @@ public final class CameraRecoil {
 
     private static final List<Shot> SHOTS = new ArrayList<>();
     private static float appliedPitch, appliedYaw;
+    // the test log: where the view was before the first kick of a burst, and whether the ±90° stop cut a kick short
+    private static float burstPitch;
+    private static boolean burstStopped, burst;
     public static float roll;
 
     private CameraRecoil() {
@@ -35,6 +38,14 @@ public final class CameraRecoil {
         float min = ReaimTimes.number("cameraScaleMin", 0F);
         boolean held = min > 0F;
         float scale = Math.max(Config.cameraScale, min);
+        LocalPlayer pl = Minecraft.getInstance().player;
+        if (pl != null && !burst) {
+            burst = true;
+            burstPitch = pl.getXRot();
+            burstStopped = false;
+        }
+        if (TestLog.client) TestLog.c(-1, "recoil", "phase", "kick", "scale", scale, "cameraScale", Config.cameraScale, "min", min, "held", held,
+                "time", held ? Math.max(1F, Config.cameraTime) : Config.cameraTime, "ownCurves", !held, "up", vertical * scale, "pitch", pl == null ? null : pl.getXRot());
         SHOTS.add(new Shot(System.nanoTime(), vertical * scale, horizontal * scale,
                 strength * Config.cameraShake * (Math.random() < 0.5 ? 1F : -1F), speed,
                 held ? Curve.CAM_PITCH : Curve.of(Config.cameraPitch, Curve.CAM_PITCH),
@@ -74,7 +85,14 @@ public final class CameraRecoil {
         // happened and the view would end below where the player aimed
         appliedPitch += turn(player, pitch - appliedPitch, yaw - appliedYaw);
         appliedYaw = yaw;
-        if (SHOTS.isEmpty()) appliedPitch = 0F;
+        if (SHOTS.isEmpty()) {
+            appliedPitch = 0F;
+            if (burst) {
+                burst = false;
+                // the view should be back where it was (the player's own mouse moves count here too)
+                if (TestLog.client) TestLog.c(-1, "recoil", "phase", "back", "from", burstPitch, "to", player.getXRot(), "stopped", burstStopped);
+            }
+        }
     }
 
     // Like Entity.turn: move both current and previous rotation so the change shows in this frame. Returns the pitch
@@ -82,6 +100,7 @@ public final class CameraRecoil {
     private static float turn(LocalPlayer player, float up, float left) {
         if (up == 0F && left == 0F) return 0F;
         float applied = pitchTurn(player.getXRot(), up);
+        if (Math.abs(applied - up) > 1e-4F) burstStopped = true;
         player.setXRot(player.getXRot() - applied);
         player.xRotO -= applied;
         player.setYRot(player.getYRot() - left);

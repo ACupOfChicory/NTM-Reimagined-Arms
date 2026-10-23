@@ -121,6 +121,7 @@ BULLETS method com/hbm/blocks/multiblock/MultiblockSurface isSurface (Lnet/minec
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getBulletConfig ()Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getId ()I
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getOwner ()Lnet/minecraft/world/entity/Entity;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getThrower ()Lnet/minecraft/world/entity/LivingEntity;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getX ()D

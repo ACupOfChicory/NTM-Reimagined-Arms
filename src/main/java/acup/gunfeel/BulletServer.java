@@ -60,6 +60,7 @@ public final class BulletServer {
         BulletRules.Break rule = BulletRules.breakRule(state);
         if (rule == null || rule.mode() == 0) return 0;
         if (!wear(level, bullet, pos, state, rule)) return 0;
+        if (TestLog.server) TestLog.s(bullet.getId(), "end", "by", rule.pass() ? "broke_pass" : "broke", "block", state, "pos", pos, "at", hit.getLocation());
         return rule.pass() ? 2 : 1;
     }
 
@@ -80,6 +81,8 @@ public final class BulletServer {
         if (debugRicochet) acup.gunfeel.GunFeel.LOGGER.info("[sounddebug] server: ricochet off {} at {} (hit sound {}): {}",
                 BuiltInRegistries.BLOCK.getKey(rule.getBlock()), hit.getBlockPos().toShortString(), s == null ? "none" : s.id(),
                 steel ? "our steel ricochet" : "NTM's ricochet sound");
+        if (TestLog.server) TestLog.s(TestLog.shot(), "ricochet", "block", rule, "pos", hit.getBlockPos(), "material", TestLog.material(level, hit.getBlockPos()),
+                "result", "bounced", "sound", steel ? "ours" : "ntm");
         if (!steel) return false;
         Vec3 at = hit.getLocation();
         level.playSound(null, at.x, at.y, at.z, RICOCHET_STEEL, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 0.9F + level.getRandom().nextFloat() * 0.2F);
@@ -91,6 +94,7 @@ public final class BulletServer {
         if (!(bullet.level() instanceof ServerLevel level)) return;
         BlockPos pos = hit.getBlockPos().immutable();
         BlockState state = level.getBlockState(pos);
+        if (TestLog.server) TestLog.s(bullet.getId(), "through", "block", state, "pos", pos, "at", hit.getLocation());
         BulletRules.Break rule = BulletRules.breakRule(state);
         if (rule == null || rule.mode() == 0) return;
         wear(level, bullet, pos, state, rule);
@@ -102,7 +106,7 @@ public final class BulletServer {
     public static BlockHitResult clip(EntityBulletBaseMK4 bullet, Level level, Vec3 from, Vec3 to, java.util.Set<BlockPos> paid) {
         java.util.function.Consumer<BlockHitResult> through = hit -> passed(bullet, hit);
         // an explosive bullet goes off on the first block it meets, never pierces
-        if (bullet.config != null && bullet.config.onImpact != null) return PassableClip.clip(level, from, to, through);
+        if (bullet.config != null && bullet.config.onImpact != null) return stop(bullet, level, PassableClip.clip(level, from, to, through), "explosive", Float.NaN);
         Vec3 at = from;
         for (int i = 0; i < 16; i++) {
             BlockHitResult hit = PassableClip.clip(level, at, to, through);
@@ -114,9 +118,12 @@ public final class BulletServer {
             BlockPos pos = hit.getBlockPos().immutable();
             boolean known = paid.contains(pos);
             BlockHitResult out = PassableClip.exit(level, hit, dir);
-            if (out == null) return hit;
+            if (out == null) return stop(bullet, level, hit, "no_exit", Float.NaN);
             float left = known ? bullet.damage : PassableClip.pierced(level, hit, out, bullet.damage, bullet.config);
-            if (left < 0F) return hit;
+            if (left < 0F) return stop(bullet, level, hit, "held", (float) hit.getLocation().distanceTo(out.getLocation()));
+            if (TestLog.server && !known) TestLog.s(bullet.getId(), "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation(),
+                    "material", TestLog.material(level, pos), "result", "pierce", "damage", bullet.damage, "left", left,
+                    "path", hit.getLocation().distanceTo(out.getLocation()));
             if (!known) {
                 paid.add(pos);
                 if (level instanceof ServerLevel server) {
@@ -133,21 +140,49 @@ public final class BulletServer {
         return BlockHitResult.miss(to, net.minecraft.core.Direction.UP, BlockPos.containing(to));
     }
 
+    // the test log: the bullet stops at this block (NTM's onImpact takes it from here: a ricochet, a break rule)
+    private static BlockHitResult stop(EntityBulletBaseMK4 bullet, Level level, BlockHitResult hit, String why, float path) {
+        if (!TestLog.server || level.isClientSide() || hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) return hit;
+        BlockPos pos = hit.getBlockPos();
+        TestLog.s(bullet.getId(), "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation(), "material", TestLog.material(level, pos),
+                "result", "stop", "why", why, "damage", bullet.damage, "path", Float.isNaN(path) ? null : path);
+        TestLog.s(bullet.getId(), "end", "by", "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation());
+        return hit;
+    }
+
+    private static void worn(EntityBulletBaseMK4 bullet, BlockPos pos, BlockState state, String result, Object... more) {
+        if (!TestLog.server) return;
+        Object[] kv = new Object[8 + more.length];
+        Object[] head = {"block", state, "pos", pos, "result", result, "damage", bullet.damage};
+        System.arraycopy(head, 0, kv, 0, 8);
+        System.arraycopy(more, 0, kv, 8, more.length);
+        TestLog.s(bullet.getId(), "wear", kv);
+    }
+
     // one hit on the block by its rule: true when it broke
     private static boolean wear(ServerLevel level, EntityBulletBaseMK4 bullet, BlockPos pos, BlockState state, BulletRules.Break rule) {
         float hardness = state.getDestroySpeed(level, pos);
-        if (hardness < 0F) return false; // bedrock and the like
+        if (hardness < 0F) { // bedrock and the like
+            worn(bullet, pos, state, "unbreakable");
+            return false;
+        }
         Entity owner = bullet.getOwner();
         if (owner instanceof ServerPlayer player) {
-            if (!player.mayBuild()) return false;
-            BreakBlockEvent event = new BreakBlockEvent(level, pos, state, player);
-            NeoForge.EVENT_BUS.post(event);
-            if (event.isCanceled()) return false;
+            BreakBlockEvent event = player.mayBuild() ? new BreakBlockEvent(level, pos, state, player) : null;
+            if (event != null) NeoForge.EVENT_BUS.post(event);
+            if (event == null || event.isCanceled()) {
+                worn(bullet, pos, state, "protected");
+                return false;
+            }
         } else if (!level.getGameRules().get(GameRules.MOB_GRIEFING)) {
+            worn(bullet, pos, state, "no_mob_griefing");
             return false;
         }
         // too weak to harm it
-        if (rule.min() > 0F && !(bullet.damage > rule.min())) return false;
+        if (rule.min() > 0F && !(bullet.damage > rule.min())) {
+            worn(bullet, pos, state, "too_weak", "min", rule.min());
+            return false;
+        }
         long now = System.currentTimeMillis();
         forget(level, now);
         if (rule.mode() == 2 || rule.mode() == 3 || rule.mode() == 4) {
@@ -159,12 +194,14 @@ public final class BulletServer {
             float done = (w == null ? 0F : w.done()) + add;
             if (need > 0F && done < need) {
                 WEAR.put(spot, new Wear(done, now, state));
+                worn(bullet, pos, state, "wear", "done", done, "need", need, "min", rule.min());
                 level.destroyBlockProgress(crackId(pos), pos, Math.min(9, (int) (done / need * 10F)));
                 return false;
             }
             WEAR.remove(spot);
             level.destroyBlockProgress(crackId(pos), pos, -1);
         }
+        worn(bullet, pos, state, "broke", "min", rule.min());
         level.destroyBlock(pos, rule.drop(), owner);
         if (rule.replace() != null) {
             BlockState with = parse(level, rule.replace());
@@ -222,6 +259,8 @@ public final class BulletServer {
 
     // a bullet hit a creature (alive before the hit): its "entity" or, when it died, "kill" effect
     public static void entityHit(EntityBulletBaseMK4 bullet, Entity target, Vec3 at, boolean wasAlive) {
+        if (TestLog.server) TestLog.s(bullet.getId(), "end", "by", "entity", "entity", BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()), "at", at,
+                "killed", wasAlive && !target.isAlive());
         if (!(bullet.level() instanceof ServerLevel level) || !wasAlive) return;
         boolean dead = target instanceof LivingEntity living && !living.isAlive();
         play(level, bullet, target, at, BulletRules.entity("entity", target));

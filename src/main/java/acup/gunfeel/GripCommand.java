@@ -101,6 +101,7 @@ public final class GripCommand {
                     c.getSource().sendSuccess(() -> Component.literal(on ? "Отладка звуков включена: каждое попадание пишется в лог ([sounddebug])" : "Отладка звуков выключена"), false);
                     return 1;
                 }))
+                .then(Commands.literal("testlog").executes(c -> TestLogClient.toggle(c.getSource())))
                 .then(Commands.literal("holedebug").executes(c -> {
                     Tracers.debugHoles = !Tracers.debugHoles;
                     PassableClip.debug = Tracers.debugHoles;

@@ -46,13 +46,20 @@ public final class ReaimTimes {
         String key = gun + ".reaim" + cap(kind);
         String v = values0().get(key);
         if (v == null) v = BUILTIN.get(key);
-        if (v == null) return DEFAULT;
-        try {
-            return Math.max(0F, Float.parseFloat(v.trim()));
-        } catch (NumberFormatException e) {
-            return DEFAULT;
+        float out = DEFAULT;
+        if (v != null) {
+            try {
+                out = Math.max(0F, Float.parseFloat(v.trim()));
+            } catch (NumberFormatException e) {
+                // the default
+            }
         }
+        // the test log: each time a gun's time changes (after /gunaim), on the side that reads it
+        if (TestLog.any() && !Float.valueOf(out).equals(LOGGED.put(key, out))) TestLog.here("reaim", "gun", gun, "kind", kind, "seconds", out);
+        return out;
     }
+
+    private static final Map<String, Float> LOGGED = new java.util.HashMap<>();
 
     private static long lastPoll;
     private static final Map<String, Float> NUMBERS = new java.util.HashMap<>();

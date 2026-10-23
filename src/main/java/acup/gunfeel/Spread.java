@@ -26,6 +26,8 @@ public final class Spread {
     }
 
     private static final Map<LivingEntity, Bloom> BLOOM = new WeakHashMap<>();
+    // the test log: the game tick of each shooter's last logged shot (the first call in a tick is the shot)
+    private static final Map<LivingEntity, Long> LOGGED = new WeakHashMap<>();
 
     private Spread() {
     }
@@ -47,7 +49,15 @@ public final class Spread {
         }
         if (aim) mult *= get(gun, "spreadAim", 1F);
         float air = inAir(e) ? get(gun, "spreadAir", 0F) : 0F;
-        return SpreadModel.total(spread, mult, get(gun, "spreadSpeed", 0F), pace, air, bloom(e, gun), stance);
+        float bloom = bloom(e, gun);
+        float total = SpreadModel.total(spread, mult, get(gun, "spreadSpeed", 0F), pace, air, bloom, stance);
+        if (acup.gunfeel.TestLog.on(e.level())) {
+            Long last = LOGGED.put(e, e.level().getGameTime());
+            if (last == null || last != e.level().getGameTime())
+                acup.gunfeel.TestLog.at(e.level(), -1, "spread", "who", e.getPlainTextName(), "gun", gun, "aim", aim, "crawl", crawl, "sneak", sneak,
+                        "sprint", e.isSprinting(), "air", inAir(e), "pace", pace, "base", spread, "mult", mult, "bloom", bloom, "total", total);
+        }
+        return total;
     }
 
     private static boolean inAir(LivingEntity e) {

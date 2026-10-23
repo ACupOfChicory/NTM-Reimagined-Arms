@@ -139,6 +139,7 @@ public final class BulletRules {
                         for (Rule r : parse(remote.bullets().lines().toList())) if (ServerSettings.serverKind(r.kind())) all.add(r);
                     }
                     rules = all;
+                    TestLog.here("rules", "own", own.size(), "remote", remote != null, "total", all.size(), "concrete", concrete);
                     BREAKS.clear();
                     HITS.clear();
                     RICOCHETS.clear();

@@ -61,6 +61,12 @@ public final class RadialMenu {
         types = list;
         stats = statsFor(stack, list);
         gun = stack;
+        if (TestLog.client) for (int i = 0; i < list.size(); i++) {
+            AmmoStats a = stats[i];
+            TestLog.c(-1, "ammo", "gun", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()), "ammo", list.get(i).id,
+                    "damage", a == null ? null : a.damage(), "projectiles", a == null ? null : a.projectiles(), "perShot", a == null ? null : a.perShot(),
+                    "head", a == null || a.headshotMult() <= 1F ? null : a.headshot(), "armored", a == null ? null : a.perShotArmored());
+        }
         IMagazine<?> mag = AmmoLock.primary(stack);
         Object t = mag == null ? null : mag.getType(stack, Minecraft.getInstance().player.getInventory());
         current = t instanceof BulletConfig b ? b : null;

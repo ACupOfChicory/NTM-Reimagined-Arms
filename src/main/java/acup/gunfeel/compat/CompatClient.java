@@ -103,6 +103,8 @@ public final class CompatClient {
 
     public static void hello(HelloPayload p) {
         server = p;
+        if (acup.gunfeel.TestLog.client) acup.gunfeel.TestLog.c(-1, "hello", "serverMod", p.mod(), "serverNtm", p.hbm(), "mod", Compat.modVersion(),
+                "ntm", Compat.hbmVersion(), "sameMod", p.mod().equals(Compat.modVersion()), "sameNtm", p.hbm().equals(Compat.hbmVersion()));
         var player = Minecraft.getInstance().player;
         if (player == null) return;
         if (!p.mod().equals(Compat.modVersion())) {
@@ -113,6 +115,11 @@ public final class CompatClient {
             player.sendSystemMessage(Component.translatable("ntmgunfeel.compat.server_hbm", p.hbm(), Compat.hbmVersion())
                     .withStyle(ChatFormatting.GOLD));
         }
+    }
+
+    // the server's versions as last said, for the test log
+    public static @org.jspecify.annotations.Nullable HelloPayload serverHello() {
+        return server;
     }
 
     public static void leave() {

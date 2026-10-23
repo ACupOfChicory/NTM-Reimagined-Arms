@@ -82,6 +82,7 @@ public abstract class MixinBulletServer {
         double cos = (f.getStepX() * vel.x + f.getStepY() * vel.y + f.getStepZ() * vel.z) / l;
         if (Math.abs(Math.toDegrees(Math.acos(Math.clamp(cos, -1.0, 1.0))) - 90.0) > config.ricochetAngle) return;
         Vec3 at = hit.getLocation();
+        if (acup.gunfeel.TestLog.server) acup.gunfeel.TestLog.s(self.getId(), "ricochet", "block", state, "pos", hit.getBlockPos(), "result", "stopped");
         self.setPos(at.x, at.y, at.z);
         self.discard();
         ci.cancel();
@@ -106,6 +107,8 @@ public abstract class MixinBulletServer {
     @Inject(method = "tick", at = @At("HEAD"))
     private void gunfeel$announce(CallbackInfo ci) {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
+        // the test log's lines during this bullet's tick (its hits, breaking, ricochets) are this bullet's
+        if (acup.gunfeel.TestLog.server && !self.level().isClientSide()) acup.gunfeel.TestLog.shot(self.getId());
         if (gunfeel$announced || !(self.level() instanceof ServerLevel server)) return;
         gunfeel$announced = true;
         if (config == null) config = self.getBulletConfig();
@@ -120,7 +123,10 @@ public abstract class MixinBulletServer {
         if (eye != null && eye.distanceToSqr(self.position()) >= 9.0) eye = null;
         ShotPayload p = new ShotPayload(config.id, owner == null ? -1 : owner.getId(), self.getX(), self.getY(), self.getZ(),
                 (float) v.x, (float) v.y, (float) v.z, (float) (config.gravity * mult), config.expires, self.damage,
-                eye == null ? Double.NaN : eye.x, eye == null ? Double.NaN : eye.y, eye == null ? Double.NaN : eye.z);
+                eye == null ? Double.NaN : eye.x, eye == null ? Double.NaN : eye.y, eye == null ? Double.NaN : eye.z, self.getId());
         PacketDistributor.sendToPlayersNear(server, null, self.getX(), self.getY(), self.getZ(), 256.0, p);
+        if (acup.gunfeel.TestLog.server) acup.gunfeel.TestLog.s(self.getId(), "fire", "ammo", config.id, "owner", owner == null ? -1 : owner.getId(),
+                "gun", owner instanceof LivingEntity le ? net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(le.getMainHandItem().getItem()) : "-",
+                "at", self.position(), "v", v, "damage", self.damage, "speedMult", ReaimTimes.number("bulletSpeed", 1.6F));
     }
 }
