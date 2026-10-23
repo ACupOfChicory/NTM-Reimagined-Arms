@@ -19,4 +19,4 @@ stonecutter {
     }
 }
 
-rootProject.name = "NTM-NEXT-Reimagined-Arms"
+rootProject.name = "NTM-Reimagined-Arms"

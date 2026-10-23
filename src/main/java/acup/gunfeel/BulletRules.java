@@ -387,7 +387,7 @@ public final class BulletRules {
     }
 
     private static final String HELP = """
-            # NTM-NEXT Reimagined Arms: what bullets do to blocks and creatures. One rule per line; these lines come
+            # NTM Reimagined Arms: what bullets do to blocks and creatures. One rule per line; these lines come
             # after the mod's own (ntmgunfeel-bullets.txt in the jar) and win over them: of the rules that match, the
             # last one counts. Changes apply within a second, no restart.
             #

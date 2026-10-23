@@ -1,5 +1,5 @@
 {
-  "key.category.ntmgunfeel.main": "NTM-NEXT Reimagined Arms",
+  "key.category.ntmgunfeel.main": "NTM Reimagined Arms",
   "key.ntmgunfeel.ammo_lock": "Закрепить тип патронов",
   "message.ntmgunfeel.ammo_locked": "Патроны закреплены: %s",
   "message.ntmgunfeel.ammo_unlocked": "Патроны откреплены"

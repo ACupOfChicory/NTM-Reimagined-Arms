@@ -1,4 +1,4 @@
-# NTM-NEXT Reimagined Arms: the mod's own bullet rules (syntax: config/ntm-gunfeel-bullets.txt, whose lines win)
+# NTM Reimagined Arms: the mod's own bullet rules (syntax: config/ntm-gunfeel-bullets.txt, whose lines win)
 break minecraft:pointed_dripstone,minecraft:flower_pot,minecraft:decorated_pot instant drop
 break #minecraft:leaves never through
 # wood: planks and what is made of them (not chests, barrels, shelves and other storage: they would spill)

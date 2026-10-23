@@ -223,7 +223,7 @@ public final class Grips {
         try {
             Path f = file();
             try (Writer w = Files.newBufferedWriter(f)) {
-                w.write("# NTM-NEXT Reimagined Arms: your own settings per gun, on top of the ones in the mod jar\n");
+                w.write("# NTM Reimagined Arms: your own settings per gun, on top of the ones in the mod jar\n");
                 w.write("# <gun id>.<setting> = value (any key from ntm-gunfeel.properties); an empty value hides the jar's one\n");
                 w.write("# hand positions: <gun id>.right / .left = x,y,z  z stock(0)-muzzle(1); x, y across the model there, y 0 = underside\n");
                 w.write("# default right = 0.5,0,0.33  left = 0.5,0,0.70 (the hand sits under that point)\n");

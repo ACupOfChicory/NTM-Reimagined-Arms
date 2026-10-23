@@ -14,7 +14,7 @@ import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
-// Client: the ammo key (Controls, "NTM-NEXT Reimagined Arms"; Y by default). A tap locks or unlocks the held gun's
+// Client: the ammo key (Controls, "NTM Reimagined Arms"; Y by default). A tap locks or unlocks the held gun's
 // ammo type; held, it opens the radial ammo menu (on a locked gun too: the lock moves to the chosen ammo); a left click takes the
 // hovered ammo, letting go of the key just closes it.
 public final class AmmoLockKey {
