@@ -94,6 +94,8 @@ public final class BulletRules {
 
     // concrete gives way to bullets only when the server says so (off by default): ntm-gunfeel-server.properties
     public static final String CONCRETE_KEY = "bulletBreakConcrete";
+    // bullets pierce machines (material machine) only when the server says so (off by default)
+    public static final String MACHINES_KEY = "bulletPierceMachines";
     // vanilla concrete (hardness 1.8) about 1000 damage, NTM's (15) about 8000; only what passes 20 per bullet counts
     static final String CONCRETE_RULE = "break $concrete damage 550 min=20";
     private static boolean concreteOf;
@@ -533,6 +535,7 @@ public final class BulletRules {
             #   = true in ntm-gunfeel-server.properties (a built-in line "break $concrete damage 550 min=20", before this file's).
             # material <blocks> none | glass | tough_glass | reinforced_glass | laminate | wood | soft | soil | stone | concrete | metal | steel | machine | unbreakable
             #   what a bullet meets in the block when it pierces it (metal = soft metals, machine = a hollow steel casing,
+            #   pierced only with bulletPierceMachines = true in ntm-gunfeel-server.properties;
             #   soft = wool, hay and the like, soil = packed ground: dirt, sand, gravel, sandbags);
             #   without a line the mod works it out from the block. A block with a break line's pierce= uses that instead
             # hit <blocks> [particles=<p>*<n>,...] [sound=<id>[/volume[/pitch]]] [range=<blocks>]   (each player's own game)

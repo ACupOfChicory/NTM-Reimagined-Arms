@@ -25,7 +25,8 @@ public final class TestLogClient {
                     "mod", Compat.modVersion(), "ntm", Compat.hbmVersion(), "ntmTested", Compat.tested(), "inRange", Compat.inRange(),
                     "off", Compat.offList(), "serverMod", hello == null ? null : hello.mod(), "serverNtm", hello == null ? null : hello.hbm(),
                     "cameraScale", Config.cameraScale, "cameraScaleMin", ReaimTimes.number("cameraScaleMin", 0F),
-                    "bulletSpeed", ReaimTimes.number("bulletSpeed", 1.6F), "bulletBreakConcrete", ReaimTimes.flag(BulletRules.CONCRETE_KEY, false));
+                    "bulletSpeed", ReaimTimes.number("bulletSpeed", 1.6F), "bulletBreakConcrete", ReaimTimes.flag(BulletRules.CONCRETE_KEY, false),
+                    "bulletPierceMachines", ReaimTimes.flag(BulletRules.MACHINES_KEY, false));
             Config.logQuality();
         }
         // the server's side: it answers in the chat (TestLogPayload.handle)

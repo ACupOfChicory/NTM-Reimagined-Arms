@@ -114,12 +114,12 @@ public final class MeshShapes {
         LAST_SEEN.clear();
     }
 
-    // every 2 s: the listed multiblocks near the player, standing still since the last look, not read in this state yet
+    // every 2 s: the multiblocks near the player, standing still since the last look, not read in this state yet
     public static void tick() {
         if (++ticks % 40 != 0) return;
         Minecraft mc = Minecraft.getInstance();
         ClientLevel level = mc.level;
-        if (level == null || mc.player == null || Structures.listed().isEmpty()) return;
+        if (level == null || mc.player == null) return;
         BlockPos me = mc.player.blockPosition();
         Map<String, long[]> made = new TreeMap<>();
         Map<BlockPos, BlockState> seen = new java.util.HashMap<>();
@@ -130,8 +130,7 @@ public final class MeshShapes {
             for (BlockEntity be : chunk.getBlockEntities().values()) {
                 BlockState state = be.getBlockState();
                 BlockPos pos = be.getBlockPos();
-                if (!Structures.listed().contains(state.getBlock()) || pos.distSqr(me) > 48 * 48) continue;
-                if (!state.hasProperty(com.hbm.blocks.multiblock.BlockMultiblockCore.FACING) || !Structures.atRest(level, pos, state)) continue;
+                if (!Structures.taken(state) || pos.distSqr(me) > 48 * 48 || !Structures.atRest(level, pos, state)) continue;
                 seen.put(pos.immutable(), state);
                 if (state.equals(CAPTURED.get(pos)) || !state.equals(LAST_SEEN.get(pos))) continue;
                 try {

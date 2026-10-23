@@ -34,8 +34,9 @@ import net.minecraft.world.phys.Vec3;
 // meets in each of their blocks, made by the client from what it draws (MeshShapes.structures) and kept like block
 // shapes, under the core's state (facing turned to north) and the block's place from the core, turned the same way:
 // "hbm:cargo_door[facing=north,open=false,skin=0]@1,2,0". One capture serves every facing.
-// Listed under "structures" in ntmgunfeel-bullet-shapes.properties. A block of one with no cells known yet, or a door
-// on the move, keeps NTM's hitbox.
+// Every NTM multiblock core (BlockMultiblockCore with a facing) and whatever "structures" in
+// ntmgunfeel-bullet-shapes.properties adds. A block of one with no cells known yet, or a door on the move, keeps NTM's
+// hitbox.
 public final class Structures {
     private Structures() {
     }
@@ -60,9 +61,15 @@ public final class Structures {
         return listed = out;
     }
 
-    // the core of the listed multiblock this block belongs to, or null
+    // a core whose cells are read from what is drawn: any NTM multiblock core with a facing, or a listed block
+    public static boolean taken(BlockState coreState) {
+        return coreState.hasProperty(BlockMultiblockCore.FACING)
+                && (coreState.getBlock() instanceof BlockMultiblockCore || listed().contains(coreState.getBlock()));
+    }
+
+    // the core of the multiblock this block belongs to, if its cells are read from what is drawn, or null
     public static @Nullable BlockPos core(Level level, BlockPos pos, BlockState state) {
-        if (!MultiblockSurface.isSurface(state) || listed().isEmpty()) return null;
+        if (!MultiblockSurface.isSurface(state)) return null;
         BlockPos core;
         try {
             core = MultiblockSurface.coreOfAny(level, pos, state);
@@ -71,7 +78,7 @@ public final class Structures {
         }
         if (core == null) return null;
         BlockState coreState = level.getBlockState(core);
-        return listed().contains(coreState.getBlock()) && coreState.hasProperty(BlockMultiblockCore.FACING) ? core : null;
+        return taken(coreState) ? core : null;
     }
 
     // its model stands still: a door shut or open, not on its way (its cells are then NTM's)

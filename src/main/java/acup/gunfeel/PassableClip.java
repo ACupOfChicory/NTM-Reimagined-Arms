@@ -141,6 +141,8 @@ public final class PassableClip extends ClipContext {
         BulletRules.Break rule = BulletRules.breakRule(state);
         if (rule != null && rule.pierce() > 0F) return rule.pierced(damage, state.getDestroySpeed(level, in.getBlockPos()), in.getLocation().distanceTo(out.getLocation()));
         Materials.Verdict v = BulletRules.material(Cells.ruleState(level, in.getBlockPos(), state));
+        // machines stop bullets unless the server lets them through (a thin casing let them through oddly)
+        if (v.material() == Materials.Material.MACHINE && !ReaimTimes.flag(BulletRules.MACHINES_KEY, false)) return -1F;
         float negation = round == null ? 0F : round.armorThresholdNegation;
         float piercing = round == null ? 0F : round.armorPiercingPercent;
         float left = Materials.left(v, in.getLocation().distanceTo(out.getLocation()), damage, negation, piercing);
