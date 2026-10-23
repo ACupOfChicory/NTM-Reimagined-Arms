@@ -1,5 +1,10 @@
 # Changelog
 
+## X265
+
+- `/gunfeel clearholes` removes every hole, scratch and scorch mark.
+- Undone: a machine hit's particles fly off the hitbox's face again (off the model's they stuck inside the machine).
+
 ## X264
 
 - Every NTM multiblock is met by its model as drawn, not only the cargo door, the elevator and the cyclotron.
@@ -7,7 +12,6 @@
   `ntm-gunfeel-server.properties` brings it back.
 - NTM's chain-link fence and its post: bullets fly through the mesh's gaps and pierce its wire and posts.
 - A bullet stopped in a laminate pane: its hole shows from the other side too.
-- A machine hit's particles fly off the model's face, not the hitbox's.
 - Muzzle smoke no longer pours without end from a gun in a new world till it fires (NTM keeps the last shot's time
   from the old world).
 

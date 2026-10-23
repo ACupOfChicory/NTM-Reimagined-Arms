@@ -102,6 +102,11 @@ public final class GripCommand {
                     return 1;
                 }))
                 .then(Commands.literal("testlog").executes(c -> TestLogClient.toggle(c.getSource())))
+                .then(Commands.literal("clearholes").executes(c -> {
+                    int n = Tracers.clearHoles();
+                    c.getSource().sendSuccess(() -> Component.literal("Дырки убраны: " + n), false);
+                    return 1;
+                }))
                 .then(Commands.literal("holedebug").executes(c -> {
                     Tracers.debugHoles = !Tracers.debugHoles;
                     PassableClip.debug = Tracers.debugHoles;

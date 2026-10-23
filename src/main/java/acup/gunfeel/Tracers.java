@@ -436,6 +436,18 @@ public final class Tracers {
                 () -> !s.gone && Double.isNaN(s.end) && (System.nanoTime() - s.born) / 50_000_000.0 < s.lifeTicks);
     }
 
+    // /gunfeel clearholes: every hole, scratch and scorch mark in this world, and the ones still to be made; how many
+    public static int clearHoles() {
+        int n = HOLES.size() + PENDING.size();
+        HOLES.clear();
+        PENDING.clear();
+        for (Batch b : BATCHES) if (b.vb != null) b.vb.close();
+        BATCHES.clear();
+        BATCHED.clear();
+        OPEN.clear();
+        return n;
+    }
+
     public static void clear() {
         for (Shot s : SHOTS) s.gone = true;
         SHOTS.clear();
@@ -764,15 +776,9 @@ public final class Tracers {
                 Hole h = holesMade != before ? HOLES.peekLast() : null;
                 if (h != null) {
                     Vec3 at = h.hit() != null ? h.hit() : h.pos();
-                    Direction face = h.face();
-                    if (h.mesh() != null) {
-                        // the drawn face's normal, turned towards the shooter
-                        Vec3 n = new Vec3(h.mesh()[0], h.mesh()[1], h.mesh()[2]);
-                        if (n.dot(p.dir()) > 0) n = n.scale(-1);
-                        if (n.lengthSqr() > 1e-6) face = Direction.getApproximateNearest(n);
-                    }
-                    // where the bullet went into the drawn model, facing out of that face of it (not the hitbox's)
-                    BulletFx.blockHit(p.level(), new BlockHitResult(at, face, p.hit().getBlockPos(), false), p.dir(), p.fx() == 2);
+                    // where the bullet went into the drawn model, flying off the hitbox's face (off the model's they
+                    // would stick inside the machine's box)
+                    BulletFx.blockHit(p.level(), new BlockHitResult(at, p.hit().getDirection(), p.hit().getBlockPos(), false), p.dir(), p.fx() == 2);
                 } else {
                     BulletFx.sd("hit {} at {}: no hole on what is drawn there, no sound or particles", p.hit().getBlockPos().toShortString(), p.hit().getLocation());
                 }

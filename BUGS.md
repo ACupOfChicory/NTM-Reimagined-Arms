@@ -45,10 +45,6 @@ hitbox faces (its hitbox is a quarter-block slab, its mesh a plane in the middle
 all. Fixed in X262: both go by their model (`path ... model`), and pierce (`break ... pierce=1.5 keep=0.8`). Found by
 the user, 2026-10-23.
 
-### Machines: hit particles turned to the hitbox's face
-`src/main/java/acup/gunfeel/Tracers.java` (`makePending`). The effects of a hit on a model went where the hole is
-made, but faced the face of the hitbox the bullet came in by. Fixed in X262: they face the model's face. 2026-10-23.
-
 ### Machines: hit sounds and particles where the bullet enters the hitbox, not where it meets the model
 `src/main/java/acup/gunfeel/Tracers.java` (`hit`). A bullet through a machine's hitbox where nothing is drawn (a
 grazing shot past the cyclotron) played its sound and particles on going in and coming out, with no hole. Fixed in
