@@ -12,7 +12,16 @@
   - `build/handoff/ntm-tooling.bundle`: git bundle ветки `tooling`;
   - `build/handoff/claude-memory.tar.gz`: память Claude с Pi (правила работы, см. ниже).
 
-## Как забрать
+## Перенос флешкой (так решил автор)
+
+На флешке `USB_16GB`, папка `NTM-handoff/`:
+- `NTM-Reimagined-Arms.tar.gz`: весь проект с `.git` (ветка `tooling` и все коммиты), `libs/` с jar NTM и
+  конфиги. Распаковать: `tar xzf NTM-Reimagined-Arms.tar.gz` (tar сохраняет права и ссылки; vfat флешки их теряет).
+- `ntm-tooling.bundle`: только ветка, если проект на ПК уже есть: `git fetch ntm-tooling.bundle tooling:tooling`.
+- `claude-memory.tar.gz`: память Claude с Pi (правила ниже, те же). Положить в папку memory проекта на ПК.
+- `HANDOFF.md`: этот файл.
+
+## Как забрать по сети (если понадобится)
 
 Ключа ПК на Pi пока нет: в `~/.ssh/authorized_keys` только ключ телефона. Сначала автор добавляет публичный ключ ПК
 в `~/.ssh/authorized_keys` на Pi. Если ssh падает с ошибкой аутентификации, не пробовать снова, а сказать автору.
