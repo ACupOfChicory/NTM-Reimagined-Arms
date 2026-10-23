@@ -10,4 +10,5 @@ run/
 !gradle/wrapper/gradle-wrapper.jar
 run-dump/
 run-check/
+run-bullets/
 review/materials/page.html

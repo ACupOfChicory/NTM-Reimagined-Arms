@@ -71,6 +71,14 @@ neoForge {
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkSettings", layout.buildDirectory.file("settingscheck/result.txt").get().asFile.path)
         }
+        // bullets on real blocks in a small flat world (BulletCheck)
+        register("checkBullets") {
+            server()
+            gameDirectory = root.resolve("run-bullets")
+            programArgument("--nogui")
+            jvmArgument("-Xmx1200M")
+            systemProperty("ntmgunfeel.checkBullets", layout.buildDirectory.file("bulletcheck/result.txt").get().asFile.path)
+        }
     }
 }
 
@@ -120,13 +128,18 @@ val mixinCheck = tasks.register<JavaExec>("mixinCheck") {
 tasks.check { dependsOn(mixinCheck) }
 
 // the dump server needs the EULA accepted in its own folder
-tasks.matching { it.name == "runDumpBlocks" || it.name == "runCheckSettings" }.configureEach {
-    val dir = root.resolve(if (name == "runDumpBlocks") "run-dump" else "run-check")
+val checkRuns = mapOf("runDumpBlocks" to "run-dump", "runCheckSettings" to "run-check", "runCheckBullets" to "run-bullets")
+tasks.matching { it.name in checkRuns }.configureEach {
+    val dir = root.resolve(checkRuns.getValue(name))
     doFirst {
         // the dump stops the server before any world: what a stopped run left of one would only break the next
         dir.resolve("world").deleteRecursively()
         dir.mkdirs()
         dir.resolve("eula.txt").writeText("eula=true\n")
+        // the smallest world that still has one: flat, two chunks around, nothing generated on it
+        if (name == "runCheckBullets") dir.resolve("server.properties").writeText(
+            "level-type=minecraft\\:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\n" +
+            "spawn-protection=0\nonline-mode=false\nspawn-monsters=false\nspawn-animals=false\nmax-players=1\n")
     }
 }
 

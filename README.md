@@ -114,6 +114,13 @@ the server's rule kinds over the player's, the player's drawing lines kept, serv
 gone on leaving. The result is in `versions/26.2/build/settingscheck/result.txt`, the run fails if a check does. About
 two minutes on the Pi. What only a real client shows is in `review/INGAME-CHECKS.md`.
 
+`./gradlew runCheckBullets -PnoAssets` (`BulletCheck`) starts a dedicated server with a small flat world (two chunks
+around, about 1 GB of memory) and fires real NTM bullets at real blocks, ticked by hand on the server: the gaps of
+fences, closed and open gates and walls flown through and their posts, rails and bars hit; a plank pierced with the
+damage its rule takes, concrete and stone bricks stopping the bullet, a thin rail stopping a weak one; glass and panes
+broken by 10 damage over one or two bullets, the bullet flying on; `path ... hitbox` and `path ... through` in the
+server's rules file. The result is in `versions/26.2/build/bulletcheck/result.txt`; about three minutes on the Pi.
+
 ## Bullet marks
 
 Holes, ricochet scratches and the scorch of explosive rounds come in several styles; the hit block's material picks
