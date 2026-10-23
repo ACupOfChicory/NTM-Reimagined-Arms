@@ -56,8 +56,8 @@ class PinnedTest {
             }
         }
         // the config form "t:v t:v": parsed, and the bad ones fall back to the built-in curve
-        // Curve.of caches by the text alone, the fallback included: these start with two spaces so that no other test's
-        // text (CurveTest's "0:0" with another fallback) shares their cache entry
+        // the two leading spaces kept another test's text out of Curve.of's cache while it cached fallbacks too (fixed);
+        // they stay so that the pinned lines stay the same
         String[] srcs = {"  0:0 0.1:5 0.3:-1 0.5:0", "  0:0 0.2:1", "  0:1  0.4:2 ", "  0:0", "  0:0 0:1", "  0:0 0.2:x", "", "  a b c"};
         for (String src : srcs) {
             Curve c = Curve.of(src, Curve.PITCH);

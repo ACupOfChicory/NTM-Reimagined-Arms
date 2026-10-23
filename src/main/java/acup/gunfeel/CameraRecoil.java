@@ -63,19 +63,27 @@ public final class CameraRecoil {
         }
         if (SHOTS.isEmpty()) pitch = yaw = r = 0F;
         roll = r;
-        turn(player, pitch - appliedPitch, yaw - appliedYaw);
-        appliedPitch = pitch;
+        // only what the ±90° stop let through counts as applied: else the return would take back a kick that never
+        // happened and the view would end below where the player aimed
+        appliedPitch += turn(player, pitch - appliedPitch, yaw - appliedYaw);
         appliedYaw = yaw;
+        if (SHOTS.isEmpty()) appliedPitch = 0F;
     }
 
-    // Like Entity.turn: move both current and previous rotation so the change shows in this frame.
-    private static void turn(LocalPlayer player, float up, float left) {
-        if (up == 0F && left == 0F) return;
-        float pitch = Mth.clamp(player.getXRot() - up, -90F, 90F);
-        float applied = player.getXRot() - pitch;
-        player.setXRot(pitch);
+    // Like Entity.turn: move both current and previous rotation so the change shows in this frame. Returns the pitch
+    // change made.
+    private static float turn(LocalPlayer player, float up, float left) {
+        if (up == 0F && left == 0F) return 0F;
+        float applied = pitchTurn(player.getXRot(), up);
+        player.setXRot(player.getXRot() - applied);
         player.xRotO -= applied;
         player.setYRot(player.getYRot() - left);
         player.yRotO -= left;
+        return applied;
+    }
+
+    // how much of a turn up by `up` degrees fits from pitch xRot before the ±90° stop
+    static float pitchTurn(float xRot, float up) {
+        return xRot - Mth.clamp(xRot - up, -90F, 90F);
     }
 }

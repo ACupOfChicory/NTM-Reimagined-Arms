@@ -86,6 +86,13 @@ class CurveTest {
         assertSame(builtin, Curve.of("0:0 0:1", builtin), "times must go up");
     }
 
+    // the same bad text in two settings: each keeps its own built-in curve (BUGS.md: the second got the first one's)
+    @Test
+    void badTextDoesNotBorrowAnotherFallback() {
+        assertSame(Curve.PITCH, Curve.of("1:x 2:y", Curve.PITCH));
+        assertSame(Curve.CAM_PITCH, Curve.of("1:x 2:y", Curve.CAM_PITCH));
+    }
+
     @Test
     void parsesTheSameTextOnce() {
         assertSame(Curve.of("0:0 0.3:1", Curve.YAW), Curve.of("0:0 0.3:1", Curve.YAW));

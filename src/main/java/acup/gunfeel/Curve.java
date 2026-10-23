@@ -16,25 +16,30 @@ public final class Curve {
     }
 
     private static final java.util.Map<String, Curve> PARSED = new java.util.concurrent.ConcurrentHashMap<>();
+    // a text that does not parse: cached as this, so each setting still gets its own built-in curve
+    private static final Curve BAD = new Curve(0F, 0F);
 
     // "t:v t:v ..." (seconds:value) from a config key; empty or malformed = the built-in curve
     public static Curve of(String src, Curve builtin) {
         if (src == null || src.isBlank()) return builtin;
-        return PARSED.computeIfAbsent(src, k -> {
-            try {
-                String[] w = k.trim().split("\\s+");
-                float[] pairs = new float[w.length * 2];
-                for (int i = 0; i < w.length; i++) {
-                    String[] tv = w[i].split(":");
-                    pairs[2 * i] = Float.parseFloat(tv[0]);
-                    pairs[2 * i + 1] = Float.parseFloat(tv[1]);
-                    if (i > 0 && pairs[2 * i] <= pairs[2 * i - 2]) return builtin;
-                }
-                return w.length >= 2 ? new Curve(pairs) : builtin;
-            } catch (RuntimeException e) {
-                return builtin;
+        Curve c = PARSED.computeIfAbsent(src, Curve::parse);
+        return c == BAD ? builtin : c;
+    }
+
+    private static Curve parse(String src) {
+        try {
+            String[] w = src.trim().split("\\s+");
+            float[] pairs = new float[w.length * 2];
+            for (int i = 0; i < w.length; i++) {
+                String[] tv = w[i].split(":");
+                pairs[2 * i] = Float.parseFloat(tv[0]);
+                pairs[2 * i + 1] = Float.parseFloat(tv[1]);
+                if (i > 0 && pairs[2 * i] <= pairs[2 * i - 2]) return BAD;
             }
-        });
+            return w.length >= 2 ? new Curve(pairs) : BAD;
+        } catch (RuntimeException e) {
+            return BAD;
+        }
     }
 
     public float length() {

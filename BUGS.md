@@ -5,20 +5,23 @@ leave the game exactly as it is.
 
 ## Open
 
+None.
+
+## Fixed
+
 ### Curve: a bad curve text can borrow another curve's fallback
-`src/acup/gunfeel/Curve.java:23`. `Curve.of(src, builtin)` caches by the text alone, and a text it can't parse is
+`src/main/java/acup/gunfeel/Curve.java:23`. `Curve.of(src, builtin)` caches by the text alone, and a text it can't parse is
 cached together with the fallback it got the first time. If two curve settings hold the same bad text (say
 `kickPitch = 0:0` and `cameraPitch = 0:0`), the second one gets the first one's built-in curve: the camera then kicks
 along the gun model's pitch curve (peak 12.3 instead of 1). Only with a broken config. Fix: cache only parsed curves.
-Found 2026-10-22 when PinnedTest and CurveTest shared the text "0:0".
+Found 2026-10-22 when PinnedTest and CurveTest shared the text "0:0". Fixed 2026-10-23: a bad text is cached
+as "bad", and each setting gets its own built-in curve (CurveTest).
 
 ### CameraRecoil: the camera drifts when the pitch is at its ±90° stop
-`src/acup/gunfeel/CameraRecoil.java:66`. `turn()` clamps the pitch to ±90°, but `frame()` stores the whole recoil
+`src/main/java/acup/gunfeel/CameraRecoil.java:66`. `turn()` clamps the pitch to ±90°, but `frame()` stores the whole recoil
 as applied (`appliedPitch = pitch`). Looking straight up and firing, the kick up is cut off, yet its return down is
-applied in full: the view ends lower than where the player was aiming, by up to the shot's recoil each time. Fix:
-count only what `turn()` really applied.
-
-## Fixed
+applied in full: the view ends lower than where the player was aiming, by up to the shot's recoil each time. Fixed
+2026-10-23: only what `turn()` really applied is counted (RecoilTest).
 
 ### Compat: the tested NTM counted as untested
 `src/main/java/acup/gunfeel/compat/Compat.java`. NTM's jar version is `1.0.3+1b8c6c2d`; Maven's `VersionRange` keeps
