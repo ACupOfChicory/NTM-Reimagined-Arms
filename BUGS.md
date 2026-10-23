@@ -15,12 +15,9 @@ GLASS block is glassLike, so only those 5 are off. Found 2026-10-23 auditing wha
 ### Break rules pick glass and wood by id and tag, not by material
 `src/main/resources/ntmgunfeel-bullets.txt:9-19`. Glass wears by `~minecraft:.*glass.*` and a list of NTM ids, wood by
 vanilla tags. Another mod's glass or wood is classified right (it sounds and hits like glass) but never cracks or
-breaks. Found 2026-10-23.
-
-### Ricochet: hat-instrument and glowstone blocks hard-coded as no ricochet
-`src/main/java/acup/gunfeel/Tracers.java:600`. Besides the `ricochet` rules, the client refuses a ricochet off any
-block with the HAT note instrument (glass) or glowstone. Glass is in the rule already; glowstone is not, so the
-config cannot change it and the server side (rules only) may disagree. Found 2026-10-23.
+breaks. On the dump the regex catches exactly the blocks tagged `c:glass_blocks`/`c:glass_panes`, so those
+tags would do the same here and also take other mods' glass. Wood's vanilla tags already reach other mods' planks
+if those mods tag them; `$wood` would be too wide (logs, beds, chests, crates, NTM's plastics). Found 2026-10-23.
 
 ## Fixed
 
