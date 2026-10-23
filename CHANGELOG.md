@@ -1,5 +1,12 @@
 # Changelog
 
+## X266
+
+- Steel: armour-piercing rounds go through more (their threshold negation x (1 + 10 x armour piercing)), and no steel
+  or metal block is stronger than 1.5. 2 pixels of steel wall: AP and DU .50 through, FMJ not; NTM's bunker door
+  (3 pixels, was out of reach of every round): DU just through, the starmetal .50 easily; a block of steel still
+  stops everything. Concrete and soft metal pierce as before.
+
 ## X265
 
 - `/gunfeel clearholes` removes every hole, scratch and scorch mark.

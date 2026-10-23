@@ -239,6 +239,16 @@ class MaterialsTest {
         assertTrue(through(Material.METAL, door, AMAT_AP));
         assertFalse(through(Material.METAL, 1.0, SUBTLETY_SM));
         assertFalse(through(Material.STEEL, 1.0, SUBTLETY_SM));
+        // steel, as tuned with the user (2026-10-23): 2 pixels of a steel wall (strength 1.22) stop the plain .50
+        // and let AP and DU through; NTM's bunker door (blast resistance 60, strength capped at 1.5), 3 pixels: DU
+        // just through, AP not; 4 pixels of steel wall: DU not, the saboted .50 yes
+        assertFalse(throughSteel(1.2247F, 2.0 / 16.0, AMAT_FMJ));
+        assertTrue(throughSteel(1.2247F, 2.0 / 16.0, AMAT_AP));
+        assertTrue(throughSteel(1.2247F, 2.0 / 16.0, AMAT_DU));
+        assertTrue(throughSteel(3.1623F, door, AMAT_DU));
+        assertFalse(throughSteel(3.1623F, door, AMAT_AP));
+        assertFalse(throughSteel(1.2247F, 4.0 / 16.0, AMAT_DU));
+        assertTrue(throughSteel(1.2247F, 4.0 / 16.0, AMAT_SM));
         // a log stops a pistol, a rifle goes through
         assertFalse(through(Material.WOOD, 1.0, LAG_FMJ));
         assertTrue(through(Material.WOOD, 1.0, MAS36));
@@ -247,8 +257,12 @@ class MaterialsTest {
     // NTM rounds as power (gun damage x ammo damage), threshold negation, armour piercing
     private static final float[] UZI_FMJ = {3F * 0.8F, 2F, 0.1F}, REVOLVER_357 = {7.5F, 0F, 0F},
             LAG_FMJ = {25F * 0.8F, 2F, 0.1F}, MAS36 = {30F, 0F, 0F}, LILMAC = {30F, 0F, 0F},
-            AMAT_AP = {30F * 1.25F, 17.5F, 0.15F}, SUBTLETY = {50F, 0F, 0F},
+            AMAT_AP = {30F * 1.25F, 17.5F, 0.15F}, AMAT_FMJ = {24F, 7F, 0.1F}, AMAT_DU = {45F, 21F, 0.25F}, AMAT_SM = {75F, 30F, 0.35F}, SUBTLETY = {50F, 0F, 0F},
             SUBTLETY_DU = {50F * 1.5F, 21F, 0.25F}, SUBTLETY_SM = {50F * 2.5F, 30F, 0.35F};
+
+    private static boolean throughSteel(float strength, double length, float[] round) {
+        return Materials.left(new Verdict(Material.STEEL, strength, Source.RULE, ""), length, round[0], round[1], round[2]) > 0F;
+    }
 
     private static boolean through(Material m, double length, float[] round) {
         return Materials.left(new Verdict(m, 1F, Source.RULE, ""), length, round[0], round[1], round[2]) > 0F;

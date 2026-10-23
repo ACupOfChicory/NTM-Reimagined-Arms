@@ -284,6 +284,10 @@ public final class Materials {
 
     // ---------------------------------------------------------------- penetration
 
+    // metal and steel: the highest strength a block of it has; steel: how much armour piercing adds to the threshold
+    // negation (see left)
+    public static final double STEEL_STRENGTH_MAX = 1.5, STEEL_PIERCE = 10.0;
+
     // a machine's casing: two walls of a sixteenth of a block each, whatever the path through its box
     public static final double MACHINE_WALLS = 2.0 / 16.0;
 
@@ -296,7 +300,16 @@ public final class Materials {
         if (m == Material.UNBREAKABLE || !(power > 0F)) return -1F;
         double len = m == Material.MACHINE ? MACHINE_WALLS
                 : m.thick == 1F ? Math.max(0.0, length) : Math.pow(Math.max(0.0, length), m.thick);
-        double dt = Math.max(0.0, m.dt * v.strength() * len - negation);
+        double strength = v.strength(), neg = negation;
+        if (m == Material.METAL || m == Material.STEEL) {
+            // metal: its strength goes no higher than STEEL_STRENGTH_MAX (NTM's bunker door, blast resistance 60, came
+            // to 3.2: no round went through 3 pixels of it); on steel armour piercing works on the threshold too, by
+            // 1 + STEEL_PIERCE x piercing (.50 DU: 3.5 x its 21). Not on soft metal: there the heavy .50 would go
+            // through a whole block
+            strength = Math.min(strength, STEEL_STRENGTH_MAX);
+            if (m == Material.STEEL) neg *= Math.max(0.0, 1.0 + STEEL_PIERCE * piercing);
+        }
+        double dt = Math.max(0.0, m.dt * strength * len - neg);
         if (dt >= power) return -1F;
         double dr = Math.min(1.0, m.dr * Math.max(0.0, Math.min(2.0, 1.0 - piercing)));
         double out = (power - dt) * Math.pow(1.0 - dr, len);
