@@ -29,7 +29,15 @@ import acup.gunfeel.Materials.Verdict;
 // lists every block with the step that decided and why, guesses first, for checking by hand.
 class MaterialsTest {
     static final Path FACTS_DIR = Path.of("src/test/blockfacts");
-    static final Path RULES = Path.of("src/main/resources/ntmgunfeel-bullets.txt");
+    // the review's materials first, then the bullet rules' material lines, which win (as in the game)
+    static final List<Path> RULES = List.of(Path.of("src/main/resources/ntmgunfeel-materials.txt"),
+            Path.of("src/main/resources/ntmgunfeel-bullets.txt"));
+
+    static List<String> ruleLines() throws IOException {
+        List<String> all = new ArrayList<>();
+        for (Path p : RULES) all.addAll(Files.readAllLines(p, StandardCharsets.UTF_8));
+        return all;
+    }
 
     static List<BlockFacts> facts() throws IOException {
         try (Stream<Path> s = Files.list(FACTS_DIR)) {
@@ -39,7 +47,7 @@ class MaterialsTest {
     }
 
     static Map<String, Verdict> classified() throws IOException {
-        List<Materials.Rule> rules = Materials.rules(Files.readAllLines(RULES, StandardCharsets.UTF_8));
+        List<Materials.Rule> rules = Materials.rules(ruleLines());
         Map<String, Verdict> out = new LinkedHashMap<>();
         for (BlockFacts f : facts()) out.put(f.id(), Materials.classify(f, rules));
         return out;
@@ -76,20 +84,20 @@ class MaterialsTest {
         want.put("minecraft:white_concrete", Material.CONCRETE);
         want.put("minecraft:bedrock", Material.UNBREAKABLE);
         want.put("minecraft:short_grass", Material.NONE);
-        want.put("hbm:block_steel", Material.METAL);
+        want.put("hbm:block_steel", Material.STEEL);
         want.put("hbm:block_lead", Material.METAL);
         want.put("hbm:asphalt", Material.CONCRETE);
         want.put("hbm:brick_concrete", Material.CONCRETE);
         want.put("hbm:brick_ducrete", Material.CONCRETE);
-        // the words that misled the name step before it was ordered
+        // the words that misled the name step before it was ordered (some settled by the review since)
         want.put("minecraft:iron_ore", Material.STONE);
         want.put("minecraft:sandstone", Material.STONE);
         want.put("minecraft:mossy_cobblestone", Material.STONE);
         want.put("minecraft:mud_bricks", Material.STONE);
         want.put("hbm:ore_lead", Material.STONE);
-        want.put("hbm:logic_block", Material.MACHINE);
-        want.put("hbm:deco_pipe", Material.METAL);
-        want.put("hbm:cm_engine_desh", Material.METAL);
+        want.put("hbm:logic_block", Material.STEEL);
+        want.put("hbm:deco_pipe", Material.STEEL);
+        want.put("hbm:cm_engine_desh", Material.MACHINE);
         // an infinite hardness is unbreakable too, like bedrock's -1
         want.put("hbm:seal_hatch", Material.UNBREAKABLE);
         want.put("hbm:statue_elb_f", Material.UNBREAKABLE);
@@ -128,7 +136,7 @@ class MaterialsTest {
     @Test
     void everyBuiltInMaterialLineNamesAMaterialAndMatches() throws IOException {
         List<BlockFacts> all = facts();
-        for (String raw : Files.readAllLines(RULES, StandardCharsets.UTF_8)) {
+        for (String raw : ruleLines()) {
             String line = raw.strip();
             if (!line.startsWith("material ")) continue;
             String[] w = line.split("\\s+");
