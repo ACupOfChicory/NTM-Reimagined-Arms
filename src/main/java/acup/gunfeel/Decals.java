@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-// The textures a bullet leaves on a block, by style. Which style a block gets comes from the "decal" rules
-// (BulletRules.decal: by material, like the hit sounds). A kind is one texture: an index into files().
+// The textures a bullet leaves on a block, by style. Which style a block gets comes from its material (Set.of, the
+// same material its piercing uses), changed by the "decal" rules (BulletRules.decal). A kind is one texture: an index into files().
 //   hole: 8 variants each; "old" is the mod's first set (bullet_hole_0..7), the others hole_<style>_0..7
 //   scratch (a ricochet): scratch_<style>; scorch (explosive and incendiary rounds): scorch_<style>
 // The textures are made on the decal generator page and are black with alpha only, so they suit any block.
@@ -83,17 +83,33 @@ public final class Decals {
     public record Set(String hole, String scratch, String scorch) {
         public static final Set DEFAULT = new Set(HOLE, SCRATCH, SCORCH);
 
-        // from the options of the decal rules that match a block, in file order: each style from the last rule that
-        // names a known one (so a later line can change one and keep the others), else the default
+        // by the block's material, as its piercing: stone and concrete chip, glass cracks, soft ground takes a soft
+        // hole, metal, machines and wood keep the old holes
+        public static Set of(Materials.Material m) {
+            return switch (m) {
+                case STONE, CONCRETE -> new Set("spall", "gouge", "crater");
+                case GLASS, TOUGH_GLASS, REINFORCED_GLASS, LAMINATE -> new Set("shatter", "lines", "star");
+                case SOFT -> new Set("soot", "burn", "blot");
+                case METAL, STEEL, MACHINE -> new Set("old", "lines", "star");
+                case WOOD, NONE, UNBREAKABLE -> DEFAULT;
+            };
+        }
+
         public static Set of(List<Map<String, String>> rules) {
-            String hole = null, scratch = null, scorch = null;
+            return of(DEFAULT, rules);
+        }
+
+        // `base` changed by the options of the decal rules that match a block, in file order: each style from the
+        // last rule that names a known one (so a later line can change one and keep the others)
+        public static Set of(Set base, List<Map<String, String>> rules) {
+            String hole = base.hole(), scratch = base.scratch(), scorch = base.scorch();
             for (Map<String, String> o : rules) {
                 String h = known(HOLES, o.get("hole")), s = known(SCRATCHES, o.get("scratch")), c = known(SCORCHES, o.get("scorch"));
                 if (h != null) hole = h;
                 if (s != null) scratch = s;
                 if (c != null) scorch = c;
             }
-            return new Set(hole != null ? hole : HOLE, scratch != null ? scratch : SCRATCH, scorch != null ? scorch : SCORCH);
+            return new Set(hole, scratch, scorch);
         }
     }
 }

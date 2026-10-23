@@ -163,14 +163,32 @@ class DecalsTest {
                 assertNotNull(Decals.known(styles, e.getValue()), "unknown " + e.getKey() + " style " + e.getValue() + " in: " + line);
             }
         }
-        assertTrue(rules > 0, "no decal rules in " + RULES);
     }
 
     @Test
-    void everyStyleIsUsedByABuiltInRule() throws IOException {
+    void everyStyleIsUsedByAMaterialOrABuiltInRule() throws IOException {
         String text = Files.readString(RULES);
-        for (String s : Decals.HOLES) assertTrue(text.contains("hole=" + s), "no rule uses hole " + s);
-        for (String s : Decals.SCRATCHES) assertTrue(text.contains("scratch=" + s), "no rule uses scratch " + s);
-        for (String s : Decals.SCORCHES) assertTrue(text.contains("scorch=" + s), "no rule uses scorch " + s);
+        Set<String> holes = new HashSet<>(), scratches = new HashSet<>(), scorches = new HashSet<>();
+        for (Materials.Material m : Materials.Material.values()) {
+            Decals.Set d = Decals.Set.of(m);
+            holes.add(d.hole());
+            scratches.add(d.scratch());
+            scorches.add(d.scorch());
+        }
+        for (String s : Decals.HOLES) assertTrue(holes.contains(s) || text.contains("hole=" + s), "nothing uses hole " + s);
+        for (String s : Decals.SCRATCHES) assertTrue(scratches.contains(s) || text.contains("scratch=" + s), "nothing uses scratch " + s);
+        for (String s : Decals.SCORCHES) assertTrue(scorches.contains(s) || text.contains("scorch=" + s), "nothing uses scorch " + s);
+    }
+
+    @Test
+    void marksFollowTheMaterial() {
+        assertEquals(new Decals.Set("spall", "gouge", "crater"), Decals.Set.of(Materials.Material.CONCRETE));
+        assertEquals("shatter", Decals.Set.of(Materials.Material.LAMINATE).hole());
+        // NTM's floor tiles sound like glass: the vinyl ones are wood (old holes), the lab ones stone (spall)
+        assertEquals("old", Decals.Set.of(Materials.Material.WOOD).hole());
+        assertEquals("spall", Decals.Set.of(Materials.Material.STONE).hole());
+        // a decal line changes one style and keeps the material's others
+        assertEquals(new Decals.Set("shatter", "gouge", "crater"),
+                Decals.Set.of(Decals.Set.of(Materials.Material.STONE), List.of(Map.of("hole", "shatter"))));
     }
 }

@@ -344,15 +344,18 @@ public final class BulletRules {
         });
     }
 
-    // the marks a bullet leaves on it: each of hole, scratch and scorch from the last matching decal rule that names
-    // a known style for it (so a later line can change one and keep the others), else Decals' default
+    // the marks a bullet leaves on it: by its material (as its piercing), each of hole, scratch and scorch changed by
+    // the last matching decal rule that names a known style for it (so a later line can change one, keep the others)
     public static synchronized Decals.Set decal(BlockState state) {
         List<Rule> all = rules();
-        return DECALS.computeIfAbsent(state, st -> {
-            List<Rule> mine = new ArrayList<>();
-            for (Rule r : all) if (r.kind().equals("decal") && blockMatches(r.selectors(), st)) mine.add(r);
-            return Decals.Set.of(mine.stream().map(Rule::opts).toList());
-        });
+        Decals.Set known = DECALS.get(state);
+        if (known != null) return known;
+        Decals.Set base = Decals.Set.of(material(state).material());
+        List<Map<String, String>> mine = new ArrayList<>();
+        for (Rule r : all) if (r.kind().equals("decal") && blockMatches(r.selectors(), state)) mine.add(r.opts());
+        Decals.Set out = Decals.Set.of(base, mine);
+        DECALS.put(state, out);
+        return out;
     }
 
     public static synchronized Effect hit(BlockState state) {
@@ -451,7 +454,9 @@ public final class BulletRules {
             #   (NTM's ricochet); yes (the default) bounces
             # decal <blocks> [hole=<style>] [scratch=<style>] [scorch=<style>]   the marks bullets leave on it (each player's
             #   own game): hole = old | spall | shatter | soot, scratch (a ricochet) = gouge | burn | lines, scorch
-            #   (explosive and incendiary rounds) = star | blot | crater; each from the last matching line that names it
+            #   (explosive and incendiary rounds) = star | blot | crater; each from the last matching line that names it,
+            #   else by the block's material: stone, concrete spall/gouge/crater; glass shatter/lines/star; soft
+            #   soot/burn/blot; metal, steel, machine old/lines/star; the rest old/gouge/blot
             # entity <who> [particles=...] [sound=...] [to=all]   a bullet hits a creature (sound heard by the shooter,
             #   to=all: by everyone near)
             # kill <who> [particles=...] [sound=...] [to=all]     a bullet kills it

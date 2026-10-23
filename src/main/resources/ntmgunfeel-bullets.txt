@@ -45,19 +45,12 @@ material hbm:reinforced_laminate,hbm:reinforced_laminate_pane laminate
 # they sound like glass but are not: plastic floor tiles, ceramic lab tiles
 material hbm:vinyl_tile_large,hbm:vinyl_tile_small wood
 material hbm:tile_lab,hbm:tile_lab_cracked,hbm:tile_lab_broken stone
-# bullet marks by material (textures/effect, made on the decal generator page); each of hole, scratch and scorch
-# comes from the last matching line that names it. hole: old (the first set) | spall | shatter | soot;
-# scratch (a ricochet): gouge | burn | lines; scorch (explosive and incendiary rounds): star | blot | crater
-# any other block: the old holes, a gouge, a blot
-decal * hole=old scratch=gouge scorch=blot
-decal @stone,@deepslate,@deepslate_bricks,@deepslate_tiles,@polished_deepslate,@tuff,@tuff_bricks,@polished_tuff,@calcite,@basalt,@netherrack,@nether_bricks,@nether_ore,@nether_gold_ore,@dripstone_block,@pointed_dripstone,@mud_bricks,@bone_block,@ancient_debris,@gilded_blackstone hole=spall scratch=gouge scorch=crater
-decal @wood,@nether_wood,@bamboo_wood,@cherry_wood,@bamboo,@scaffolding,@ladder,@hanging_sign,@nether_wood_hanging_sign,@bamboo_wood_hanging_sign,@cherry_wood_hanging_sign,@chiseled_bookshelf,hbm:radio_telex hole=old scratch=gouge scorch=blot
-decal @gravel,@grass,@rooted_dirt,@mud,@sand,@soul_sand,@soul_soil,@moss,@moss_carpet,@packed_mud,@snow,@powder_snow,@wool,minecraft:gravel,minecraft:suspicious_gravel,~minecraft:.*_concrete_powder,minecraft:clay,minecraft:farmland,minecraft:dirt_path,minecraft:coarse_dirt,minecraft:podzol,minecraft:mycelium,~hbm:.*sand.*,~hbm:.*dirt.*,~hbm:.*gravel.* hole=soot scratch=burn scorch=blot
-decal @metal,@copper,@copper_bulb,@copper_grate,@chain,@anvil,@heavy_core,@iron,@lantern,@netherite_block,@vault,@trial_spawner,%hbm hole=old scratch=lines scorch=star
-# NTM steel by name, then concrete and brick-built machines (after the steel ones: ~hbm:machine_.* is steel)
-decal ~hbm:.*steel.*,hbm:platemetal,~hbm:.*tungsten.*,~hbm:.*titanium.*,~hbm:machine_.*,~hbm:.*_beam,~hbm:.*_poles hole=old scratch=lines scorch=star
-decal ~minecraft:.*_concrete,~hbm:.*concrete.*,~hbm:.*ducrete.*,~hbm:asphalt.*,~hbm:cmb_brick.*,hbm:foundry_basin,hbm:foundry_channel,hbm:foundry_mold,hbm:foundry_outlet,hbm:foundry_slagtap,hbm:foundry_tank,hbm:furnace_combination,hbm:machine_crucible,hbm:machine_blast_furnace,hbm:machine_furnace_brick,hbm:chimney_brick,hbm:chimney_industrial,hbm:machine_electrolyser,hbm:machine_tower_small,hbm:machine_tower_large hole=spall scratch=gouge scorch=crater
-decal @glass,@amethyst,~minecraft:.*glass.*,minecraft:ice,minecraft:packed_ice,minecraft:blue_ice hole=shatter scratch=lines scorch=star
+# bullet marks (textures/effect, made on the decal generator page: review/decals) come from the block's material,
+# the same one its piercing uses: stone and concrete chip (spall, gouge, crater), glass cracks (shatter, lines, star),
+# soft ground takes a soft hole (soot, burn, blot), metal, steel and machines keep the old holes (old, lines, star),
+# the rest the old holes, a gouge, a blot. A decal line changes that for its blocks, each style from the last line
+# that names it: hole = old | spall | shatter | soot; scratch (a ricochet) = gouge | burn | lines;
+# scorch (explosive and incendiary rounds) = star | blot | crater
 # soft ground: a grazing bullet digs in, no ricochet
 ricochet @gravel,@grass,@rooted_dirt,@mud,@sand,@soul_sand,@soul_soil,@moss,@moss_carpet,@packed_mud,@snow,@powder_snow,minecraft:gravel,minecraft:suspicious_gravel,~minecraft:.*_concrete_powder,minecraft:clay,minecraft:farmland,minecraft:dirt_path,minecraft:coarse_dirt,minecraft:podzol,minecraft:mycelium,~hbm:.*sand.*,~hbm:.*dirt.*,~hbm:.*gravel.* no
 whizz sound=ntmgunfeel:bullet.whizz/0.9 radius=3 crack=ntmgunfeel:bullet.crack/0.7 crackradius=1.2
