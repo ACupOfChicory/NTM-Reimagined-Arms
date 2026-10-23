@@ -17,6 +17,8 @@ break hbm:glass_quartz hp 10 pass
 break hbm:glass_boron,hbm:glass_lead,hbm:glass_polarized,hbm:glass_polonium,hbm:glass_trinitite,hbm:glass_uranium,hbm:glass_ash hp 25 pass
 break hbm:reinforced_glass,hbm:reinforced_glass_pane hp 120 pass
 break hbm:reinforced_laminate,hbm:reinforced_laminate_pane hp 400 pass
+# sandbags tear: 600 damage, only what passes 4 per bullet (a rifle round in about 23, a machine gun's in hundreds)
+break hbm:sandbags hp 600 min=4
 break minecraft:melon,minecraft:pumpkin,minecraft:carved_pumpkin,minecraft:jack_o_lantern hits 4 drop
 hit * particles=block*6,minecraft:smoke*1 sound=block/0.6 range=40
 # by the sound type first: what the material lines below leave, blocks a bullet never pierces (bedrock, NTM's

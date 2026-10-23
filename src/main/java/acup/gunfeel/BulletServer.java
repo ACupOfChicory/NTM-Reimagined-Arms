@@ -146,13 +146,15 @@ public final class BulletServer {
         } else if (!level.getGameRules().get(GameRules.MOB_GRIEFING)) {
             return false;
         }
+        // too weak to harm it
+        if (rule.min() > 0F && !(bullet.damage > rule.min())) return false;
         long now = System.currentTimeMillis();
         forget(level, now);
         if (rule.mode() == 2 || rule.mode() == 3 || rule.mode() == 4) {
             Spot spot = new Spot(level, pos);
             Wear w = WEAR.get(spot);
             if (w != null && w.state().getBlock() != state.getBlock()) w = null;
-            float add = rule.mode() == 2 ? 1F : Math.max(0F, bullet.damage);
+            float add = rule.mode() == 2 ? 1F : Math.max(0F, bullet.damage - rule.min());
             float need = rule.mode() == 3 ? rule.amount() * hardness : rule.amount();
             float done = (w == null ? 0F : w.done()) + add;
             if (need > 0F && done < need) {

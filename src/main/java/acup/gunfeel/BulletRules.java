@@ -40,7 +40,10 @@ public final class BulletRules {
     // 4 after `amount` damage whatever the hardness (hp)
     // pierce: a bullet goes through it, keeping `keep` of its damage less `pierce` x hardness per block of its path
     // through it (0 = never pierced): a door, 3/16 of a block, takes far less than a block of planks
-    public record Break(int mode, float amount, boolean drop, boolean pass, boolean through, @Nullable String replace, float pierce, float keep) {
+    // min: damage a bullet must bring for any wear: a hit counts only above it, a damage or hp rule takes only the part
+    // above it (a machine gun's light rounds barely scratch a sandbag, a rifle's tear it)
+    public record Break(int mode, float amount, boolean drop, boolean pass, boolean through, @Nullable String replace, float pierce, float keep,
+            float min) {
         // the bullet's damage after piercing a block of this hardness, or -1 when it stops in it
         public float pierced(float damage, float hardness, double length) {
             if (pierce <= 0F || through || hardness < 0F) return -1F;
@@ -89,6 +92,12 @@ public final class BulletRules {
     // goes up each time the rules are read anew (PassableClip forgets the shapes it took from them)
     private static int generation;
 
+    // concrete gives way to bullets only when the server says so (off by default): ntm-gunfeel-server.properties
+    public static final String CONCRETE_KEY = "bulletBreakConcrete";
+    // vanilla concrete (hardness 1.8) about 1000 damage, NTM's (15) about 8000; only what passes 20 per bullet counts
+    static final String CONCRETE_RULE = "break $concrete damage 550 min=20";
+    private static boolean concreteOf;
+
     private static synchronized List<Rule> rules() {
         long now = System.currentTimeMillis();
         if (!builtinRead) {
@@ -113,10 +122,13 @@ public final class BulletRules {
             try {
                 if (!Files.exists(f)) Files.writeString(f, HELP);
                 long m = Files.getLastModifiedTime(f).toMillis();
-                if (m != stamp || remote != rulesOf) {
+                boolean concrete = ReaimTimes.flag(CONCRETE_KEY, false);
+                if (m != stamp || remote != rulesOf || concrete != concreteOf) {
                     stamp = m;
                     rulesOf = remote;
+                    concreteOf = concrete;
                     List<Rule> all = new ArrayList<>(builtin);
+                    if (concrete) all.addAll(parse(List.of(CONCRETE_RULE)));
                     List<Rule> own = parse(Files.readAllLines(f, StandardCharsets.UTF_8));
                     if (remote == null) {
                         all.addAll(own);
@@ -295,7 +307,7 @@ public final class BulletRules {
             }
             boolean pierce = number(r.opts().get("pierce"), 0F) > 0F;
             out = mode == 0 && !through && !pierce ? null : new Break(mode, amount, drop, pass || through, through, r.opts().get("replace"),
-                    number(r.opts().get("pierce"), 0F), number(r.opts().get("keep"), 1F));
+                    number(r.opts().get("pierce"), 0F), number(r.opts().get("keep"), 1F), Math.max(0F, number(r.opts().get("min"), 0F)));
         }
         BREAKS.put(state, java.util.Optional.ofNullable(out));
         return out;
@@ -506,7 +518,7 @@ public final class BulletRules {
             # meets in it, as the material lines below decide; not in material lines), * = any; several with commas, no spaces.
             # For entity/kill lines: an entity id, #tag, ~pattern or *.
             #
-            # break <blocks> never | instant | hits <n> | damage <x> | hp <x> [drop] [pass] [replace=<block state>] [pierce=<x> [keep=<k>]]
+            # break <blocks> never | instant | hits <n> | damage <x> | hp <x> [drop] [pass] [replace=<block state>] [pierce=<x> [keep=<k>]] [min=<x>]
             #   damage <x>: breaks once the bullets' damage on it adds up to x times its hardness (hp <x>: to x); hits and damage
             #   show the cracks and are forgotten 20 s after the last hit. drop = drops itself; pass = the bullet
             #   flies on through the broken block; through = bullets always fly through it (no hole, no stop), it still
@@ -514,7 +526,10 @@ public final class BulletRules {
             #   blocks (claims, spawn protection). pierce=<x>: a bullet goes through the block (a hole where it goes in and
             #   where it comes out) keeping k (default 1) of its damage less x times the block's hardness, both per block
             #   of the bullet's path through it (a door, 3/16 of a block, takes far less); one left with less than 1 damage
-            #   stops in it. Its damage still counts towards breaking the block.
+            #   stops in it. Its damage still counts towards breaking the block. min=<x>: a bullet with no more damage than
+            #   x does it no harm; damage and hp count only the damage above x, hits only the bullets above it (sandbags
+            #   shrug off a machine gun's light rounds, not a rifle's). Concrete breaks only with bulletBreakConcrete
+            #   = true in ntm-gunfeel-server.properties (a built-in line "break $concrete damage 550 min=20", before this file's).
             # material <blocks> none | glass | tough_glass | reinforced_glass | laminate | wood | soft | soil | stone | concrete | metal | steel | machine | unbreakable
             #   what a bullet meets in the block when it pierces it (metal = soft metals, machine = a hollow steel casing,
             #   soft = wool, hay and the like, soil = packed ground: dirt, sand, gravel, sandbags);

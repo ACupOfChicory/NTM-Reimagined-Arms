@@ -134,6 +134,55 @@ public final class BulletCheck {
             check(id + ": 12 at once break it", "minecraft:air", s.after);
         }
 
+        // ---- wear with a threshold: sandbags tear only by what passes 4 damage a bullet (600 in all)
+        BlockPos bags = single("hbm:sandbags");
+        for (int i = 0; i < 160; i++) shoot(bags, .5, .5, 4F);
+        check("sandbags: 160 machine-gun-weak rounds of 4 leave them", "hbm:sandbags", after(bags));
+        for (int i = 0; i < 17; i++) shoot(bags, .5, .5, 37.5F);
+        check("sandbags: 17 rifle rounds leave them", "hbm:sandbags", after(bags));
+        shoot(bags, .5, .5, 37.5F);
+        check("sandbags: the 18th tears them", "minecraft:air", after(bags));
+
+        // ---- concrete breaks only with bulletBreakConcrete (vanilla: 990 damage above 20 a bullet)
+        BlockPos hard = single("minecraft:white_concrete");
+        for (int i = 0; i < 12; i++) shoot(hard, .5, .5, 120F);
+        check("concrete, switch off: 12 heavy rounds leave it", "minecraft:white_concrete", after(hard));
+        Path serverFile = FMLPaths.CONFIGDIR.get().resolve(ReaimTimes.FILE);
+        Files.writeString(serverFile, BulletRules.CONCRETE_KEY + " = true\n");
+        Thread.sleep(2100); // both files are looked at once a second
+        hard = single("minecraft:white_concrete");
+        for (int i = 0; i < 9; i++) shoot(hard, .5, .5, 120F);
+        check("concrete, switch on: 9 heavy rounds leave it", "minecraft:white_concrete", after(hard));
+        shoot(hard, .5, .5, 120F);
+        check("concrete, switch on: the 10th breaks it", "minecraft:air", after(hard));
+        hard = single("minecraft:white_concrete");
+        for (int i = 0; i < 60; i++) shoot(hard, .5, .5, 18F);
+        check("concrete, switch on: 60 rounds of 18 leave it", "minecraft:white_concrete", after(hard));
+        Files.writeString(serverFile, BulletRules.CONCRETE_KEY + " = false\n");
+        Thread.sleep(2100);
+
+        // ---- NTM's wooden trench blocks: their boards as drawn (the gaps flown through), not their solid hitboxes
+        // ceiling: boards along x at 15-16 px (z 1-7, 9-15), beams along z at 14-15 px (x 0-2, 14-16)
+        expect("wood ceiling: under the boards, between the beams", Want.PASS, single("hbm:wood_structure_ceiling"), .5, .905, 30F);
+        expect("wood ceiling: along a beam", Want.PIERCE, single("hbm:wood_structure_ceiling"), .06, .905, 40F);
+        expect("wood ceiling: across the boards", Want.PIERCE, single("hbm:wood_structure_ceiling"), .5, .97, 30F);
+        // roof: rails along z at 0-2 px (x 0-2, 14-16), boards at 2-3 px
+        expect("wood roof: under the boards, between the rails", Want.PASS, single("hbm:wood_structure_roof"), .5, .06, 30F);
+        expect("wood roof: the boards", Want.PIERCE, single("hbm:wood_structure_roof"), .5, .15, 30F);
+        expect("wood roof: above it", Want.PASS, single("hbm:wood_structure_roof"), .5, .5, 30F);
+        // scaffold alone: four posts, rails west/east at 2-6 px, north/south at 8-12, a floor at 14-16
+        expect("wood scaffold: between the posts, under the rails", Want.PASS, single("hbm:wood_structure_scaffold"), .5, .25, 30F);
+        expect("wood scaffold: the north and south rails", Want.PIERCE, single("hbm:wood_structure_scaffold"), .5, .625, 30F);
+        expect("wood scaffold: two posts", Want.PIERCE, single("hbm:wood_structure_scaffold"), .125, .25, 30F);
+        // barrier facing north: its panel on the south side, boards at 1-7 and 9-15 px, a post at 7-9 px across
+        expect("wood barrier: between its boards", Want.PASS, single("hbm:wood_barrier[facing=north]"), .25, .5, 30F);
+        expect("wood barrier: a board", Want.PIERCE, single("hbm:wood_barrier[facing=north]"), .25, .25, 30F);
+        expect("wood barrier: its post", Want.PIERCE, single("hbm:wood_barrier[facing=north]"), .5, .5, 30F);
+        expect("wood barrier: over the boards, nothing above", Want.PASS, single("hbm:wood_barrier[facing=north]"), .25, .97, 30F);
+        BlockPos roofed = single("hbm:wood_barrier[facing=north]");
+        level.setBlock(roofed.above(), state("minecraft:stone"), Block.UPDATE_CLIENTS);
+        expect("wood barrier: stone above, its ceiling boards", Want.PIERCE, roofed, .5, .97, 30F);
+
         // ---- path rules in the server's file
         expect("path hitbox: a spruce fence's gap is hit", Want.PIERCE, fenceRow("minecraft:spruce_fence"), .25, .65, 30F);
         s = expect("path through: stone is flown through", Want.PASS, single("minecraft:stone"), .5, .5, 30F);
@@ -179,6 +228,10 @@ public final class BulletCheck {
         b.damage = damage;
         for (int i = 0; i < 3 && !b.isRemoved(); i++) b.tick();
         return new Shot(!b.isRemoved(), b.damage, b.getZ(), BuiltInRegistries.BLOCK.getKey(level.getBlockState(at).getBlock()).toString());
+    }
+
+    private static String after(BlockPos at) {
+        return BuiltInRegistries.BLOCK.getKey(level.getBlockState(at).getBlock()).toString();
     }
 
     // a plain, single, fast NTM bullet without an impact effect: the one with the least gravity and spread

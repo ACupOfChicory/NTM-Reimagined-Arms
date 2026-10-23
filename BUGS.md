@@ -9,6 +9,19 @@ None known.
 
 ## Fixed
 
+### Wooden trench blocks: bullets hit solid slabs where boards with gaps are drawn
+`src/main/java/acup/gunfeel/WoodBoxes.java`. NTM's wood barrier, wooden roof, ceiling and scaffold are drawn as boards
+and posts with gaps that join their neighbours, but bullets met their hitboxes: the ceiling and roof as solid slabs,
+the barrier as a solid panel (its ceiling, drawn under a block above, not at all), the scaffold as an almost full
+block. Now bullets meet the boards as drawn, with NTM's own neighbour rules. Found when the user asked about them,
+2026-10-23.
+
+### Piercing: a bullet through a model's cells left at the far side of its hitbox
+`src/main/java/acup/gunfeel/PassableClip.java` (exit). A pierced block with model cells (NTM's steel scaffold, the
+cargo door) let the bullet out where its collision box ended, so a 2-pixel post cost as much as the whole box and the
+exit hole was drawn on the far side. Now it leaves where the drawn pixels end. Found with the wooden trench blocks,
+2026-10-23.
+
 ### Piercing: a door counts as a whole block of planks; vanilla concrete half as strong as NTM's
 `src/main/java/acup/gunfeel/BulletRules.java:44`, `src/main/java/acup/gunfeel/Materials.java` (strength). A break
 rule's pierce= took its loss once per block whatever the bullet's path through it: a wooden door or trapdoor (3/16 of

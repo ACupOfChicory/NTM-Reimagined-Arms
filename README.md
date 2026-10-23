@@ -67,6 +67,9 @@ In single player and on a LAN host the game is its own server and goes by its ow
 `cameraScaleMin` (0 = off): camera recoil the players can't go below. Their `cameraScale` is raised to it, and their
 own up and sideways curves and a shorter `cameraTime` don't count. The shake, the gun model and the arms stay theirs.
 
+`bulletBreakConcrete` (false = off): bullets wear concrete down and break it, vanilla concrete after about 1000 damage
+and NTM's after about 8000, counting only what passes 20 per bullet (rifles chip it, machine guns don't).
+
 ## Build
 
 `./gradlew build` (JDK 25) builds the mod into `versions/26.2/build/libs/ntm-gunfeel-<version>.jar` (the version
@@ -118,7 +121,9 @@ two minutes on the Pi. What only a real client shows is in `review/INGAME-CHECKS
 around, about 1 GB of memory) and fires real NTM bullets at real blocks, ticked by hand on the server: the gaps of
 fences, closed and open gates and walls flown through and their posts, rails and bars hit; a plank pierced with the
 damage its rule takes and a door far less, concrete, stone bricks, an iron door and sandbags stopping a rifle round,
-sandbags letting a heavy one through, a thin rail stopping a very weak one; glass and panes
+sandbags letting a heavy one through and torn by rifle rounds but not by weak ones, concrete broken only with
+`bulletBreakConcrete`, a thin rail stopping a very weak one; NTM's wooden ceiling, roof, scaffold and barrier met by
+their boards with the gaps flown through; glass and panes
 broken by 10 damage over one or two bullets, the bullet flying on; `path ... hitbox` and `path ... through` in the
 server's rules file. The result is in `versions/26.2/build/bulletcheck/result.txt`; about three minutes on the Pi.
 
@@ -134,7 +139,7 @@ black with alpha only, so one suits every block.
 
 The mod works out how a bullet meets each block: by its hitbox (most blocks), by the pixels of its texture (grates,
 bars, NTM's chain-link fence: a clear pixel lets it through), by the cells of its 3D model (NTM's scaffold, chains,
-doors, lanterns), or by the posts and rails of a fence, gate or wall (any mod's: the gaps are flown through, not the
+doors, lanterns; its wooden trench blocks by their boards, joined with their neighbours), or by the posts and rails of a fence, gate or wall (any mod's: the gaps are flown through, not the
 1.5 block high hitbox). A `path` line in `config/ntm-gunfeel-bullets.txt` makes any block go another way, e.g.
 `path somemod:railing fence` or `path somemod:solid_fence hitbox`; a `hole` line changes how its holes are drawn
 (`hole minecraft:ice glass hitbox`). The file's header explains each. The server and each player read their own file.
@@ -144,6 +149,10 @@ wool hardly stop it (buckshot goes through a wooden wall, a door is thinner stil
 round, half a block of stone or concrete the plain rounds, a block of concrete, metal or steel everything. Only the
 heavy armour-piercing .50 rounds get through stone, half a block of concrete or sandbags. The numbers are in
 `Materials.Material`; `MaterialsTest.cover` pins what stops what.
+
+Of these, bullets break planks, wooden doors and the like, glass, and sandbags: a sandbag counts only the damage above 4
+per bullet, so a rifle tears it in about 18 hits and a machine gun's light rounds barely at all. A `break` line's
+`min=` sets that threshold for any block. Stone and metal never break; concrete only with `bulletBreakConcrete`.
 
 ## License
 

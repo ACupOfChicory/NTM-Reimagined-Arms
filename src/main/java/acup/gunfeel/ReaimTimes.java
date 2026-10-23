@@ -90,14 +90,22 @@ public final class ReaimTimes {
         if (v == null) v = BUILTIN.get(key);
         float out = def;
         if (v != null) {
-            try {
-                out = Float.parseFloat(v.trim());
+            String t = v.trim();
+            if (t.equalsIgnoreCase("true")) out = 1F;
+            else if (t.equalsIgnoreCase("false")) out = 0F;
+            else try {
+                out = Float.parseFloat(t);
             } catch (NumberFormatException e) {
                 // keep the default
             }
         }
         NUMBERS.put(key, out);
         return out;
+    }
+
+    // a yes/no server setting (bulletBreakConcrete = true)
+    public static boolean flag(String key, boolean def) {
+        return number(key, def ? 1F : 0F) != 0F;
     }
 
     public static int ticks(String gun, String kind) {
