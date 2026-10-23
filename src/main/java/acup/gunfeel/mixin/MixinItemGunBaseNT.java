@@ -28,6 +28,19 @@ public abstract class MixinItemGunBaseNT {
         ci.cancel();
     }
 
+    // NTM keeps each gun's last shot on the item (one for every stack of it), in the level's game time. In a world
+    // whose time is behind the last one's (a new world) that shot lies in the future: the smoke handler then smokes
+    // without end and ever thicker (its alpha grows past 1), till the gun fires. A shot later than now is forgotten.
+    @Inject(method = "clientHeldTick", at = @At("HEAD"))
+    private static void gunfeel$staleShot(CallbackInfo ci) {
+        if (!Config.enabled) return;
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        if (player == null || !(player.getMainHandItem().getItem() instanceof ItemGunBaseNT gun) || gun.lastShot == null) return;
+        long now = com.hbm.util.GameTime.millis(player.level());
+        // a second's slack: the client's clock may run a little behind the shot's
+        for (int i = 0; i < gun.lastShot.length; i++) if (gun.lastShot[i] > now + 1000L) gun.lastShot[i] = 0L;
+    }
+
     @Inject(method = "setupRecoil(FFFF)V", at = @At("HEAD"))
     private static void gunfeel$recoil(float vertical, float horizontal, float decay, float rebound, CallbackInfo ci) {
         GunFeel.pendingRecoil += Math.abs(vertical) + Math.abs(horizontal);

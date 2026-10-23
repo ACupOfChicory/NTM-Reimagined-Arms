@@ -94,6 +94,7 @@ BULLETS class com/hbm/blockentity/machine/BlockEntityCargoElevator
 BULLETS class com/hbm/blocks/generic/BlockDoorGeneric
 BULLETS class com/hbm/blocks/machine/BlockCargoElevator
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCell
+BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCore
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
 BULLETS class com/hbm/entity/projectile/EntityThrowableNT
 BULLETS class com/hbm/items/weapon/sedna/BulletConfig
@@ -250,12 +251,15 @@ MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDI)Lcom/hbm/r
 MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDILcom/hbm/render/anim/BusAnimationKeyframe$IType;)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence hold (I)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence setPos (DDD)Lcom/hbm/render/anim/BusAnimationSequence;
+RECOIL class com/hbm/items/weapon/sedna/ItemGunBaseNT
 RECOIL class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 RECOIL field com/hbm/config/GunVisualConfig visualRecoil Z
+RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT offsetHorizontal F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT offsetVertical F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilHorizontal F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
+RECOIL method com/hbm/util/GameTime millis (Lnet/minecraft/world/level/Level;)J
 RICOCHET_SOUND class com/hbm/entity/projectile/EntityBulletBaseMK4
 SPREAD class com/hbm/items/weapon/sedna/BulletConfig
 SPREAD class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
