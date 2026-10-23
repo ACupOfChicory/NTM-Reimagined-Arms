@@ -5,7 +5,22 @@ leave the game exactly as it is.
 
 ## Open
 
-None.
+### Holes: a second glass test that disagrees with the material
+`src/main/java/acup/gunfeel/Tracers.java:1196`. `glassLike()` (glass tags, glass sound, "glass" in the id) decides
+whether a hole draws as glass (late pass, both sides, no box-face snap), apart from the block's material. On the
+NTM 1.0.3 dump it calls 5 non-glass blocks glass: `hbm:frozen_dirt`, `hbm:frozen_grass` (glass sound, SOFT),
+`hbm:block_fiberglass` (id, SOFT), `minecraft:nether_portal`, `minecraft:end_portal_frame` (UNBREAKABLE). Every
+GLASS block is glassLike, so only those 5 are off. Found 2026-10-23 auditing what uses the classification.
+
+### Break rules pick glass and wood by id and tag, not by material
+`src/main/resources/ntmgunfeel-bullets.txt:9-19`. Glass wears by `~minecraft:.*glass.*` and a list of NTM ids, wood by
+vanilla tags. Another mod's glass or wood is classified right (it sounds and hits like glass) but never cracks or
+breaks. Found 2026-10-23.
+
+### Ricochet: hat-instrument and glowstone blocks hard-coded as no ricochet
+`src/main/java/acup/gunfeel/Tracers.java:600`. Besides the `ricochet` rules, the client refuses a ricochet off any
+block with the HAT note instrument (glass) or glowstone. Glass is in the rule already; glowstone is not, so the
+config cannot change it and the server side (rules only) may disagree. Found 2026-10-23.
 
 ## Fixed
 
