@@ -65,6 +65,11 @@ public final class Materials {
             this.thick = thick;
         }
 
+        // glass of any kind: holes on it draw as on glass (both sides, after the glass behind), see Tracers
+        public boolean glass() {
+            return this == GLASS || this == TOUGH_GLASS || this == REINFORCED_GLASS || this == LAMINATE;
+        }
+
         public static Material named(String name) {
             try {
                 return valueOf(name.toUpperCase(Locale.ROOT));

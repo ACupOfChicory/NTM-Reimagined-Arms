@@ -1192,11 +1192,10 @@ public final class Tracers {
         HoleLimits.trim(HOLES, Hole::machine, Hole::born, true, Config.holeMaxMachines);
     }
 
-    // glass: the blocks tagged so, sounding like glass, or named so
+    // glass: by the block's material, as its piercing, hit sounds and decals (a copper grate is metal: its holes
+    // follow its pixels instead)
     private static boolean glassLike(BlockState state) {
-        if (state.is(net.neoforged.neoforge.common.Tags.Blocks.GLASS_BLOCKS) || state.is(net.neoforged.neoforge.common.Tags.Blocks.GLASS_PANES)) return true;
-        if (state.getSoundType() == net.minecraft.world.level.block.SoundType.GLASS) return true;
-        return net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("glass");
+        return BulletRules.material(state).material().glass();
     }
 
     // ---- the decal. Positions u, v on the hole's two axes from the hit point, in the hit face's plane (a face turned

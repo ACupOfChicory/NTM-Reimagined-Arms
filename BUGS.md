@@ -5,21 +5,25 @@ leave the game exactly as it is.
 
 ## Open
 
+None.
+
+## Fixed
+
 ### Holes: a second glass test that disagrees with the material
 `src/main/java/acup/gunfeel/Tracers.java:1196`. `glassLike()` (glass tags, glass sound, "glass" in the id) decides
 whether a hole draws as glass (late pass, both sides, no box-face snap), apart from the block's material. On the
 NTM 1.0.3 dump it calls 5 non-glass blocks glass: `hbm:frozen_dirt`, `hbm:frozen_grass` (glass sound, SOFT),
 `hbm:block_fiberglass` (id, SOFT), `minecraft:nether_portal`, `minecraft:end_portal_frame` (UNBREAKABLE). Every
-GLASS block is glassLike, so only those 5 are off. Found 2026-10-23 auditing what uses the classification.
+GLASS block is glassLike, so only those 5 are off. Found 2026-10-23 auditing what uses the classification. Fixed
+2026-10-23: `glassLike()` asks the material (`Material.glass()`), GlassTest.
 
 ### Break rules pick glass and wood by id and tag, not by material
 `src/main/resources/ntmgunfeel-bullets.txt:9-19`. Glass wears by `~minecraft:.*glass.*` and a list of NTM ids, wood by
 vanilla tags. Another mod's glass or wood is classified right (it sounds and hits like glass) but never cracks or
 breaks. On the dump the regex catches exactly the blocks tagged `c:glass_blocks`/`c:glass_panes`, so those
 tags would do the same here and also take other mods' glass. Wood's vanilla tags already reach other mods' planks
-if those mods tag them; `$wood` would be too wide (logs, beds, chests, crates, NTM's plastics). Found 2026-10-23.
-
-## Fixed
+if those mods tag them; `$wood` would be too wide (logs, beds, chests, crates, NTM's plastics). Found 2026-10-23. Fixed 2026-10-23 for glass: the line takes the tags, wood stays on
+its tags (GlassTest).
 
 ### Curve: a bad curve text can borrow another curve's fallback
 `src/main/java/acup/gunfeel/Curve.java:23`. `Curve.of(src, builtin)` caches by the text alone, and a text it can't parse is
