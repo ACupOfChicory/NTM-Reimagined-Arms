@@ -1,5 +1,10 @@
 # Changelog
 
+## X268
+
+- Glass keeps its holes between blocks: a bullet from one glass block into the next (or between glass and another
+  block) leaves them on the face between, seen through the glass.
+
 ## X267
 
 - A bullet going from one block straight into the next (two stacked steel blocks) no longer leaves holes on the

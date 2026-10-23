@@ -571,7 +571,7 @@ public final class Tracers {
                 s.damage = left;
                 // from one block straight into the next (two stacked steel blocks): no hole, sound or particles on
                 // the face between them, where nothing shows; it went into this one from inside the last
-                if (!block.isInside()) hit(level, block, s.config, unit, false);
+                if (!fromInside(level, block, unit)) hit(level, block, s.config, unit, false);
                 if (!against(level, out)) hit(level, out, s.config, unit.scale(-1.0), false);
             }
             // it comes out beyond this step's end: inside the block till the next one
@@ -633,9 +633,19 @@ public final class Tracers {
         TestLog.shot(-1);
     }
 
+    // the bullet went into this block straight from inside the last one: no hole where it went in. Glass on either
+    // side keeps it (two glass blocks: the hole between them shows through)
+    private static boolean fromInside(ClientLevel level, BlockHitResult hit, Vec3 unit) {
+        if (!hit.isInside() || glassLike(level.getBlockState(hit.getBlockPos()))) return false;
+        BlockPos was = BlockPos.containing(hit.getLocation().subtract(unit.scale(2e-3)));
+        return !glassLike(level.getBlockState(was));
+    }
+
     // the hit's face lies against another block's solid part (the bullet goes on straight into it): a hole there
-    // could not be seen, it would only spill onto the faces around. Not against glass: through it the hole shows
+    // could not be seen, it would only spill onto the faces around. Glass on either side keeps it: through it the
+    // hole shows
     private static boolean against(ClientLevel level, BlockHitResult hit) {
+        if (glassLike(level.getBlockState(hit.getBlockPos()))) return false;
         Direction f = hit.getDirection();
         Vec3 p = hit.getLocation().add(f.getStepX() * 1e-3, f.getStepY() * 1e-3, f.getStepZ() * 1e-3);
         BlockPos n = BlockPos.containing(p);
