@@ -569,8 +569,10 @@ public final class Tracers {
             if (!known) {
                 s.pierced.add(pos);
                 s.damage = left;
-                hit(level, block, s.config, unit, false);
-                hit(level, out, s.config, unit.scale(-1.0), false);
+                // from one block straight into the next (two stacked steel blocks): no hole, sound or particles on
+                // the face between them, where nothing shows; it went into this one from inside the last
+                if (!block.isInside()) hit(level, block, s.config, unit, false);
+                if (!against(level, out)) hit(level, out, s.config, unit.scale(-1.0), false);
             }
             // it comes out beyond this step's end: inside the block till the next one
             if (out.getLocation().distanceTo(ra) >= len) {
@@ -629,6 +631,25 @@ public final class Tracers {
         }
         s.checked = t;
         TestLog.shot(-1);
+    }
+
+    // the hit's face lies against another block's solid part (the bullet goes on straight into it): a hole there
+    // could not be seen, it would only spill onto the faces around. Not against glass: through it the hole shows
+    private static boolean against(ClientLevel level, BlockHitResult hit) {
+        Direction f = hit.getDirection();
+        Vec3 p = hit.getLocation().add(f.getStepX() * 1e-3, f.getStepY() * 1e-3, f.getStepZ() * 1e-3);
+        BlockPos n = BlockPos.containing(p);
+        if (n.equals(hit.getBlockPos())) return false;
+        BlockState st = level.getBlockState(n);
+        if (st.isAir() || glassLike(st)) return false;
+        net.minecraft.world.phys.shapes.VoxelShape shape = st.getCollisionShape(level, n);
+        if (shape.isEmpty()) return false;
+        Vec3 local = p.subtract(n.getX(), n.getY(), n.getZ());
+        for (AABB b : shape.toAabbs()) if (b.contains(local)) {
+            dbg("  no hole at {}: its face lies against {}", hit.getLocation(), n);
+            return true;
+        }
+        return false;
     }
 
     // A bullet stopped in see-through glass drawn translucent (a laminate pane): the glass's far face hides the hole

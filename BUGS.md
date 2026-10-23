@@ -27,6 +27,12 @@ Small: a 2-pixel board of wood takes about 3 damage. Found with the wooden trenc
 
 ## Fixed
 
+### Piercing: four holes from one bullet on the edge of two stacked blocks
+`src/main/java/acup/gunfeel/Tracers.java` (`against`). A bullet along the edge of two stacked steel corners went into
+the upper one and 5 cm later straight on into the lower one: each block pierced got a hole where the bullet went in
+and where it came out, the two on the face between them (not drawn) spilling onto the faces around. Fixed in X267:
+no hole, sound or particles on a face pressed against another block's solid part. Found by the user, 2026-10-23.
+
 ### Muzzle smoke without end, thick, from a gun in a new world (NTM)
 `src/main/java/acup/gunfeel/mixin/MixinItemGunBaseNT.java` (`staleShot`). NTM keeps a gun's last shot on the item,
 not the stack (`ItemGunBaseNT.lastShot`), in the level's game time. In a world whose time is behind the last one's it

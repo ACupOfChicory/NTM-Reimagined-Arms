@@ -1,5 +1,10 @@
 # Changelog
 
+## X267
+
+- A bullet going from one block straight into the next (two stacked steel blocks) no longer leaves holes on the
+  face between them: one hole where it goes in, one where it comes out.
+
 ## X266
 
 - Steel: armour-piercing rounds go through more (their threshold negation x (1 + 10 x armour piercing)), and no steel
