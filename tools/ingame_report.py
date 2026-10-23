@@ -123,25 +123,59 @@ def main(paths):
         r.item('ok', 'Выход с сервера: снова свои правила')
 
     both = [(sid, s) for sid, s in shots.items() if s['C'] and s['S']]
-    mism, far = [], []
+    # when the server broke each block (a client that has not heard of it yet still sees the block)
+    broke_at = defaultdict(list)
+    for e in by['wear']:
+        if e['result'] == 'broke':
+            broke_at[e['pos']].append(e['t'])
+
+    def why_differs(s, only_c, only_s):
+        """Why the two sides saw a shot differently, when that is expected; None when it is not."""
+        if any(e['ev'] == 'ricochet' and e['result'] == 'bounced' for e in s['S']):
+            return 'рикошет'
+        fired = min(e['t'] for e in s['S'])
+        if any(fired - 2000 <= t <= fired + 200 for pos, _ in only_c + only_s for t in broke_at.get(pos, ())):
+            return 'сервер только что сломал блок'
+        ce = [e for e in s['C'] if e['ev'] == 'end']
+        se = [e for e in s['S'] if e['ev'] == 'end']
+        if ce and se and ce[-1]['by'] == se[-1]['by'] == 'entity':
+            return None if dist(vec(ce[-1]['at']), vec(se[-1]['at'])) > 0.5 else 'попал в моба (строка блока за ним — до проверки мобов)'
+        if ce and se and dist(vec(ce[-1]['at']), vec(se[-1]['at'])) < 0.05:
+            return 'на границе блоков'
+        return None
+
+    mism, far, expected = [], [], Counter()
     for sid, s in both:
         cb = {(e['pos'], e['result']) for e in s['C'] if e['ev'] == 'block'}
         sb = {(e['pos'], e['result']) for e in s['S'] if e['ev'] == 'block'}
         cg = {e['pos'] for e in s['C'] if e['ev'] == 'gap'}
         sg = {e['pos'] for e in s['S'] if e['ev'] == 'gap'}
-        if cb != sb or cg != sg:
-            only_c = sorted(cb - sb) + [(p, 'gap') for p in sorted(cg - sg)]
-            only_s = sorted(sb - cb) + [(p, 'gap') for p in sorted(sg - cg)]
-            mism.append(f'выстрел {sid}: только у клиента {only_c}, только на сервере {only_s}')
         ce = [e for e in s['C'] if e['ev'] == 'end' and e['by'] != 'life']
         se = [e for e in s['S'] if e['ev'] == 'end']
+        gap = None
         if ce and se:
             a, b = vec(ce[-1]['at']), vec(se[-1]['at'])
             if a and b and dist(a, b) > 0.5:
-                far.append(f"выстрел {sid}: трассер кончился в {ce[-1]['at']}, сервер — в {se[-1]['at']} ({dist(a, b):.2f} блока)")
+                gap = dist(a, b)
+        if cb == sb and cg == sg and gap is None:
+            continue
+        only_c = sorted(cb - sb) + [(p, 'gap') for p in sorted(cg - sg)]
+        only_s = sorted(sb - cb) + [(p, 'gap') for p in sorted(sg - cg)]
+        why = why_differs(s, only_c, only_s)
+        if why:
+            expected[why] += 1
+            continue
+        if cb != sb or cg != sg:
+            mism.append(f'выстрел {sid}: только у клиента {only_c}, только на сервере {only_s}')
+        if gap is not None:
+            far.append(f"выстрел {sid}: трассер кончился в {ce[-1]['at']}, сервер — в {se[-1]['at']} ({gap:.2f} блока)")
     if both:
         r.item('bad' if mism else 'ok', f'Клиент и сервер видят одно и то же (пролёт, пробитие, стоп): {len(both) - len(mism)} из {len(both)}', mism)
         r.item('bad' if far else 'ok', f'bulletSpeed: трассер кончается там же, где сервер засчитал попадание: {len(both) - len(far)} из {len(both)}', far)
+        if expected:
+            r.item('info', 'Расхождения с понятной причиной (не считаются)', [f'{w}: {n}' for w, n in expected.most_common()])
+        if expected.get('рикошет'):
+            r.item('info', 'После рикошета сервер больше ничего не пишет, а трассер летит дальше: см. BUGS.md')
     else:
         r.item('none', 'Сверка клиента с сервером: нет выстрелов с обеих сторон')
     kicks = [e for e in by['recoil'] if e['phase'] == 'kick']
@@ -287,7 +321,11 @@ def main(paths):
             det.append(f"{m}: пробил {len(p)} из {len(es)}" + (f", теряет в среднем {100 * sum(loss) / len(loss):.0f}% урона" if loss else ''))
         r.item('info', 'Пробитие по материалам (сталь и бетон должны держать)', det)
         for m in ('steel', 'concrete'):
-            through = [e for e in pierce.get(m, []) if e['result'] == 'pierce']
+            # a path of a few hundredths: the bullet cut a corner into the next block, it did not go through
+            through = [e for e in pierce.get(m, []) if e['result'] == 'pierce' and num(e['path'], 1) >= 0.1]
+            corners = [e for e in pierce.get(m, []) if e['result'] == 'pierce' and num(e['path'], 1) < 0.1]
+            if corners:
+                r.item('info', f'{m}: задет угол {len(corners)} раз (путь < 0.1 блока, не пробитие)')
             if through:
                 r.item('bad', f'{m}: пробит {len(through)} раз', [f"выстрел {e['shot']}: {e['block']} {e['damage']}→{e['left']}" for e in through])
 
@@ -307,8 +345,11 @@ def main(paths):
                 'бег' if yes(e['sprint']) else 'ходьба' if num(e['pace'], 0) > 0 else 'стоя'
             if yes(e['aim']):
                 state += ' + прицел'
-            groups[state].append(num(e['total']) / max(num(e['base']), 1e-6))
+            groups[state].append(num(e['mult']))
         det = [f'{s}: ×{sum(v) / len(v):.2f} к разбросу NTM ({len(v)} выстр.)' for s, v in sorted(groups.items())]
+        zero = sorted({e['gun'] for e in spread if num(e['base'], 1) == 0})
+        if zero:
+            det.append('у NTM разброс 0 (множитель ни на что не влияет): ' + ', '.join(zero))
         missing = [s for s in ('стоя', 'ходьба', 'бег', 'в воздухе', 'присед', 'ползком') if not any(k.startswith(s) for k in groups)]
         r.item('info', 'Живой разброс по состояниям', det)
         if missing:
@@ -323,11 +364,11 @@ def main(paths):
                                                        f"частицы {e['particleScale']}, руками: {e['byHand'] or 'нет'}" for e in q])
     else:
         r.item('none', '/gunfeel quality: не переключал')
-    over = [f"блоки {e['holes']}/{e['max']}, машины {e['machineHoles']}/{e['maxMachines']}" for e in holes
-            if num(e['holes'], 0) > num(e['max'], 1e9) or num(e['machineHoles'], 0) > num(e['maxMachines'], 1e9)]
+    # the limits count hits (one hit on a model leaves a hole per part), the log counts holes: only the kind is checked
+    wrong_kind = sorted({e['block'] for e in holes if yes(e['placed']) and yes(e['machine']) and e['block'].startswith('minecraft:')})
     if holes:
-        peak = max(holes, key=lambda e: num(e['holes'], 0) + num(e['machineHoles'], 0))
-        r.item('bad' if over else 'ok', f"Лимиты дырок раздельно (больше всего: блоки {peak['holes']}/{peak['max']}, машины {peak['machineHoles']}/{peak['maxMachines']})", over)
+        r.item('bad' if wrong_kind else 'ok', 'Дырки на обычных блоках считаются по holeMax, а не по holeMaxMachines',
+               ['под лимитом машин: ' + ', '.join(wrong_kind[:12])] if wrong_kind else [])
     back = [e for e in by['recoil'] if e['phase'] == 'back' and yes(e['stopped'])]
     if back:
         off = [f"целился {e['from']}, взгляд вернулся на {e['to']}" for e in back if abs(num(e['from']) - num(e['to'])) > 1.0]

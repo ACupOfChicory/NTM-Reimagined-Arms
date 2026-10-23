@@ -5,6 +5,25 @@ leave the game exactly as it is.
 
 ## Open
 
+### Hole limits: every drawn hole counts against holeMaxMachines, ordinary blocks too
+`src/main/java/acup/gunfeel/Tracers.java:1251` (`new Hole(…, true)` in `drawnHole`). `drawnHole` makes the holes on
+every block now (the chunk's mesh), not only on machines and doors, and marks them all `machine`. So `holeMax` (blocks)
+counts nothing and every hole shares `holeMaxMachines` (150 on `high` instead of 500). The holes of one hit share a
+birth time and the limit counts hits, so it still holds. A hole is a machine one when its piece is on a model
+(`RenderedMesh.models`) rather than on the chunk's mesh. Found with `/gunfeel testlog`, 2026-10-23.
+
+### Quality presets: new hole limits apply only when the next hole is made
+`src/main/java/acup/gunfeel/Tracers.java:1268` (`trimHoles`). `/gunfeel quality low` lowers `holeMax` and
+`holeMaxMachines`, but the extra holes stay until a new hole calls `trimHoles`. Not critical (user). Found in game,
+2026-10-23.
+
+### Ricochet: after a bounce the server's bullet leaves no trace, the tracer flies on (unconfirmed)
+`src/main/java/acup/gunfeel/Tracers.java:589` (client ricochet), NTM `BulletConfig.LAMBDA_STANDARD_RICOCHET`. Four
+Maresleg pellets off NTM steel (tcalloy, titanium deco): the client's tracer bounced and hit concrete 6–7 blocks
+further, the server logged the bounce and then nothing more for those bullets. Either the server's bullet dies there
+(the tracer then draws a bounce that did not happen) or the test log misses its hits after a bounce. Needs a look at
+NTM's ricochet path and a shot at a steel face at a slant. Found with `/gunfeel testlog`, 2026-10-23.
+
 ### Piercing: a second post or board in the same block costs nothing
 `src/main/java/acup/gunfeel/BulletServer.java:115` (`paid`). A bullet pays once per block: after the first post of a
 scaffold (wooden or steel) or the first board of a wooden ceiling, the next one in the same block is free. The
