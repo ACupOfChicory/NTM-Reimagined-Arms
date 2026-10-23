@@ -144,33 +144,6 @@ public final class Arms {
         capturing = true;
     }
 
-    // Smoke from the muzzle (smokeUpright): NTM draws it in the gun's frame, x = trailing back, y = rising,
-    // z = sideways. Keep where it starts and its size, but lay those axes along the camera, as on an upright
-    // gun: back toward the viewer, up the screen, to the left.
-    private static final java.util.Set<Item> SMOKE_LOGGED = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-
-    public static void uprightSmoke(PoseStack pose) {
-        if (!haveCamera || item == null) return;
-        Matrix4f m = pose.last().pose();
-        Matrix4f cameraInv = new Matrix4f(CAMERA).invert();
-        Matrix4f inCamera = new Matrix4f(cameraInv).mul(m);
-        if (SMOKE_LOGGED.add(item)) {
-            Vector3f x = inCamera.transformDirection(new Vector3f(1F, 0F, 0F)).normalize();
-            Vector3f y = inCamera.transformDirection(new Vector3f(0F, 1F, 0F)).normalize();
-            GunFeel.LOGGER.info("smoke frame of {} (camera: +x left, +y up, +z forward): trail {} rise {}",
-                    BuiltInRegistries.ITEM.getKey(item), x, y);
-        }
-        float scale = inCamera.getScale(new Vector3f()).x;
-        Vector3f origin = inCamera.transformPosition(new Vector3f());
-        Matrix4f upright = new Matrix4f(
-                0F, 0F, -scale, 0F,
-                0F, scale, 0F, 0F,
-                scale, 0F, 0F, 0F,
-                origin.x, origin.y, origin.z, 1F);
-        m.set(CAMERA).mul(upright);
-        pose.last().normal().set(new org.joml.Matrix3f(m).normal());
-    }
-
     // frame before NTM's setupFirstPerson: camera-fixed, +X left, +Y up, +Z forward
     public static void cameraFrame(PoseStack pose) {
         CAMERA.set(pose.last().pose());
@@ -536,22 +509,8 @@ public final class Arms {
                     Vector3f move = to.sub(from).mul(e);
                     m = new Matrix4f().translation(move).mul(usual);
                     crop = lastCrop;
-                } else if (Config.armCarryBlend && carried[0] < 1F) {
-                    // armCarryBlend (per gun): from the hand's usual hold (sliding along a lifted gun) into carrying, so
-                    // the first frame of carrying does not jump to the bare grip point
-
-                    Matrix4f hold = HAVE_FOLLOW[i] ? new Matrix4f(cameraInv).mul(FOLLOW[i]) : bodyInCamera;
-                    Vector3f hg = hold.transformPosition(grip[i][0], grip[i][1], grip[i][2], new Vector3f());
-                    Vector3f hc = hold.transformPosition(grip[i + 2][0], grip[i + 2][1], grip[i + 2][2], new Vector3f());
-                    Quaternionf hown = new Quaternionf().slerp(twist, right ? followRight : followLeft).normalize();
-                    if (!Float.isFinite(hown.x + hown.y + hown.z + hown.w)) hown.identity();
-                    Matrix4f usual = pose(right, slim, hg, HAVE_FOLLOW[i] ? null : profiles(item)[i], geometry.fraction(grip[i][2]), bodyInCamera,
-                            down, hc, !right && !inspect, hown, 0F, r);
-                    float w = carried[0];
-                    m = blend(usual, m, w);
-                    if (w < 0.5F) crop = lastCrop;
                 }
-                branch = "carry w=" + fmt(carried[0]) + " at=" + fmt(at) + (Config.armCarryKeepAngle ? " keep" : Config.armCarryBlend ? " blend" : "");
+                branch = "carry w=" + fmt(carried[0]) + " at=" + fmt(at) + (Config.armCarryKeepAngle ? " keep" : "");
                 submit(collector, light, arm, skin, new Matrix4f(CAMERA).mul(m), crop, right, slim, sleeveShown, sleeve);
                 continue;
             }
@@ -587,13 +546,7 @@ public final class Arms {
                 if (sec != null) {
                     float a = (float) Math.toRadians(around), c = (float) Math.cos(a), sn = (float) Math.sin(a);
                     float cx = (sec[0] + sec[1]) * 0.5F, cy = (sec[2] + sec[3]) * 0.5F;
-                    // armAroundSmooth (per gun, Liberator): under the gun (-90) the hand is at its own grip point,
-                    // which need not be the bottom of the section (inside a vertical foregrip); going round to the
-                    // side (0) it moves from there onto the section. Off: the hand goes round the section only.
-                    float home = Math.clamp(-around / 90F, 0F, 1F);
-                    float pull = Config.armAroundSmooth ? home : 0F;
-                    float ox = (grip[i][0] - cx) * pull, oy = (grip[i][1] - sec[2]) * pull;
-                    Vector3f g = holder.transformPosition(cx + (sec[1] - sec[0]) * 0.5F * c + ox, cy + (sec[3] - sec[2]) * 0.5F * sn + oy, grip[i][2], new Vector3f());
+                    Vector3f g = holder.transformPosition(cx + (sec[1] - sec[0]) * 0.5F * c, cy + (sec[3] - sec[2]) * 0.5F * sn, grip[i][2], new Vector3f());
                     Vector3f out = holder.transformDirection(new Vector3f(c, sn, 0F)).normalize();
                     // armAroundShift (per gun): going round, the hand sits this many arm pixels to the left (+x), none under the part
                     // reloads may have their own values (armAroundShiftReload / armAroundTopDropReload)
@@ -609,30 +562,11 @@ public final class Arms {
                     if (topDrop != 0F && sn > 0F) {
                         g.add(holder.transformDirection(new Vector3f(0F, -1F, 0F)).normalize().mul(topDrop / 16F * r.s * sn));
                     }
-                    if (!Config.armAroundSmooth) {
-                        // back under the gun (e.g. as it is flicked up to close) the hand slides along it like at rest
-                        boolean under = Math.abs(around + 90F) < 0.5F;
-                        branch = "around " + fmt(around);
-                        arm(collector, light, arm, skin, slim, right, g, under ? profiles(item)[i] : null, gripF, holder, out, g, false,
-                                new Quaternionf(), 0F, axisPoint, r, sleeveShown, sleeve);
-                        continue;
-                    }
-                    // armAroundSmooth: going round, the arm keeps its rest length (stretching it showed its shoulder end)
-                    keepLength = true;
-                    Matrix4f m = pose(right, slim, g, null, gripF, holder, out, g, false, new Quaternionf(), 0F, r);
-                    keepLength = false;
-                    int crop = lastCrop;
-                    // Between the side (-45) and under the gun (-90) the arm turns smoothly into its usual hold,
-                    // so taking the gun again at the end of the animation does not jump.
-                    float w = Math.clamp((home - 0.5F) / 0.5F, 0F, 1F);
-                    w = w * w * (3F - 2F * w);
-                    if (w > 0F) {
-                        Matrix4f usual = pose(right, slim, g0, path, gripF, bodyInCamera, down, center, spin, own, drop, r);
-                        m = blend(m, usual, w);
-                        if (w > 0.5F) crop = lastCrop;
-                    }
-                    branch = "around smooth " + fmt(around);
-                    submit(collector, light, arm, skin, new Matrix4f(CAMERA).mul(m), crop, right, slim, sleeveShown, sleeve);
+                    // back under the gun (e.g. as it is flicked up to close) the hand slides along it like at rest
+                    boolean under = Math.abs(around + 90F) < 0.5F;
+                    branch = "around " + fmt(around);
+                    arm(collector, light, arm, skin, slim, right, g, under ? profiles(item)[i] : null, gripF, holder, out, g, false,
+                            new Quaternionf(), 0F, axisPoint, r, sleeveShown, sleeve);
                     continue;
                 }
             }
@@ -1207,17 +1141,6 @@ public final class Arms {
         submit(collector, light, arm, skin, new Matrix4f(CAMERA).mul(m), lastCrop, right, slim, sleeveShown, sleeve);
     }
 
-    // set while the left hand goes round a part: the arm keeps its rest length instead of stretching
-    private static boolean keepLength;
-
-    // between two arm poses: position, turn and size blended separately (w = 0 gives a, 1 gives b)
-    private static Matrix4f blend(Matrix4f a, Matrix4f b, float w) {
-        Vector3f t = a.getTranslation(new Vector3f()).lerp(b.getTranslation(new Vector3f()), w);
-        Vector3f sc = a.getScale(new Vector3f()).lerp(b.getScale(new Vector3f()), w);
-        Quaternionf q = a.getNormalizedRotation(new Quaternionf()).slerp(b.getNormalizedRotation(new Quaternionf()), w);
-        return new Matrix4f().translation(t).rotate(q).scale(sc);
-    }
-
     // armSwitchMs state per hand (0 = right, 1 = left): the animation drawn last, the arm drawn last, and the
     // pose a new animation starts from
     private static final String[] switchKey = new String[2];
@@ -1378,7 +1301,7 @@ public final class Arms {
         Vector3f back = new Vector3f(shoulder).sub(hand);
         if (back.lengthSquared() < 1e-8F) back.set(restArm);
         float reachNow = Math.min(back.length(), limit);
-        if (!keepLength) length = Math.max(reachNow, length);
+        length = Math.max(reachNow, length);
         // arm orientation: the rest orientation rolled with the gun, then aimed at the new direction
         Vector3f restY = new Vector3f(restArm).negate().normalize();
         Vector3f rolledY = twist.transform(new Vector3f(restY));

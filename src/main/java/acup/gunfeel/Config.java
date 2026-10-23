@@ -101,9 +101,6 @@ public final class Config {
     public static float armLoadRollRight = Float.NaN;
     public static float armLoadRollLeft = Float.NaN;
     // draw NTM's muzzle smoke rising up the screen whatever frame the renderer gives it (SPAS-12 sends it at the camera)
-    public static boolean smokeUpright = false;
-    public static boolean armAroundSmooth = false;
-    public static boolean armCarryBlend = false;
     public static boolean armCarryKeepAngle = false;
     public static boolean armPathBlend = false;
     public static float armSwitchMs = 0F;
@@ -167,10 +164,7 @@ public final class Config {
             armSwitchMs: when an animation starts or ends the arm goes from where it was over this many ms (NTM shows an animation ~50 ms in), 0 = off
             armPathBlend: near the grip a hand on its path (armLeftPath/armRightPath) turns smoothly into its usual hold
             armCarryKeepAngle: a carrying hand keeps the arm exactly as it holds the gun and only moves it (Sexy: the bottle)
-            armCarryBlend: a hand starting to carry (armLeftCarry / armRightCarry) leaves from its usual hold, blended by the carry weight (Henry: the gun is lifted when the hand leaves)
-            armAroundSmooth: while armLeftKeys moves the left hand round a part, keep the arm's length and blend into the usual hold below -45 (Liberator)
             smokeWidth: width of the muzzle smoke, 1 = as NTM draws it
-            smokeUpright: draw the muzzle smoke rising up the screen, for guns whose smoke goes the wrong way (SPAS-12)
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
             armRollRight, armRollLeft: turn of each arm around its own axis, degrees
             armDirRight, armDirLeft: direction from the hand to the shoulder: x (+ left), y (+ up), z (+ forward)
@@ -410,8 +404,6 @@ public final class Config {
         armLength = num(p, "armLength", armLength);
         armLoadRollRight = num(p, "armLoadRollRight", armLoadRollRight);
         armLoadRollLeft = num(p, "armLoadRollLeft", armLoadRollLeft);
-        armAroundSmooth = bool(p, "armAroundSmooth", armAroundSmooth);
-        armCarryBlend = bool(p, "armCarryBlend", armCarryBlend);
         armCarryKeepAngle = bool(p, "armCarryKeepAngle", armCarryKeepAngle);
         armPathBlend = bool(p, "armPathBlend", armPathBlend);
         armSwitchMs = num(p, "armSwitchMs", armSwitchMs);
@@ -424,7 +416,6 @@ public final class Config {
         armCarryTurnLeft = num(p, "armCarryTurnLeft", armCarryTurnLeft);
         armAroundShiftReload = num(p, "armAroundShiftReload", armAroundShiftReload);
         armAroundTopDropReload = num(p, "armAroundTopDropReload", armAroundTopDropReload);
-        smokeUpright = Boolean.parseBoolean(p.getProperty("smokeUpright", Boolean.toString(smokeUpright)).trim());
         smokeWidth = num(p, "smokeWidth", smokeWidth);
         armScaleRight = num(p, "armScaleRight", armScaleRight);
         armScaleLeft = num(p, "armScaleLeft", armScaleLeft);
@@ -518,8 +509,6 @@ public final class Config {
         p.setProperty("armLength", Float.toString(armLength));
         p.setProperty("armLoadRollRight", Float.toString(armLoadRollRight));
         p.setProperty("armLoadRollLeft", Float.toString(armLoadRollLeft));
-        p.setProperty("armAroundSmooth", Boolean.toString(armAroundSmooth));
-        p.setProperty("armCarryBlend", Boolean.toString(armCarryBlend));
         p.setProperty("armCarryKeepAngle", Boolean.toString(armCarryKeepAngle));
         p.setProperty("armPathBlend", Boolean.toString(armPathBlend));
         p.setProperty("armSwitchMs", Float.toString(armSwitchMs));
@@ -532,7 +521,6 @@ public final class Config {
         p.setProperty("armCarryTurnLeft", Float.toString(armCarryTurnLeft));
         p.setProperty("armAroundShiftReload", Float.toString(armAroundShiftReload));
         p.setProperty("armAroundTopDropReload", Float.toString(armAroundTopDropReload));
-        p.setProperty("smokeUpright", Boolean.toString(smokeUpright));
         p.setProperty("smokeWidth", Float.toString(smokeWidth));
         p.setProperty("armScaleRight", Float.toString(armScaleRight));
         p.setProperty("armScaleLeft", Float.toString(armScaleLeft));

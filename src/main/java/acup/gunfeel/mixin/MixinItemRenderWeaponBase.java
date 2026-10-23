@@ -88,7 +88,7 @@ public abstract class MixinItemRenderWeaponBase {
 
     // Muzzle smoke: NTM fades each smoke node by a fixed step until it is no longer above zero, so the alpha ends
     // slightly negative, and a negative alpha turns into a nearly opaque colour (the widest, oldest smoke at the top
-    // flashes white, spreading downward). Clamp it at zero. Also laid upright on guns that need it (smokeUpright).
+    // flashes white, spreading downward). Clamp it at zero.
     @Inject(method = "renderSmokeNodes", at = @At("HEAD"))
     private static void gunfeel$smoke(SubmitNodeCollector collector, PoseStack pose, java.util.List<ItemGunBaseNT.SmokeNode> nodes, double scale, int light, CallbackInfo ci) {
         // the muzzle of the gun in the player's hands: the player's own tracers start there
@@ -99,7 +99,6 @@ public abstract class MixinItemRenderWeaponBase {
         } catch (java.util.ConcurrentModificationException e) {
             // the list changed under us (game tick); next frame clamps the rest
         }
-        if (Config.smokeUpright && GunFeel.current != null && !nodes.isEmpty()) Arms.uprightSmoke(pose);
     }
 
     // Muzzle smoke width (smokeWidth): the scale argument is the smoke's width.
