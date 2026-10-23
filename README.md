@@ -100,12 +100,14 @@ the same material that picks the hit sound, the ricochet and how far a bullet go
 `config/ntm-gunfeel-bullets.txt` changes one block, e.g. `decal minecraft:obsidian hole=shatter`. The textures are
 black with alpha only, so one suits every block.
 
-## Fences, gates and walls
+## How bullets meet blocks
 
-A bullet meets a fence's posts and rails and flies through the gaps, not into its 1.5 block high hitbox; the same for
-fence gates and walls, any mod's. A `shape` line in `config/ntm-gunfeel-bullets.txt` makes any block one of them
-(`shape somemod:railing fence`) or none (`shape somemod:solid_fence none`); families: `fence`, `fence_gate`, `wall`,
-`bamboo_fence`, `bamboo_fence_gate`.
+The mod works out how a bullet meets each block: by its hitbox (most blocks), by the pixels of its texture (grates,
+bars, NTM's chain-link fence: a clear pixel lets it through), by the cells of its 3D model (NTM's scaffold, chains,
+doors, lanterns), or by the posts and rails of a fence, gate or wall (any mod's: the gaps are flown through, not the
+1.5 block high hitbox). A `path` line in `config/ntm-gunfeel-bullets.txt` makes any block go another way, e.g.
+`path somemod:railing fence` or `path somemod:solid_fence hitbox`; a `hole` line changes how its holes are drawn
+(`hole minecraft:ice glass hitbox`). The file's header explains each. The server and each player read their own file.
 
 ## License
 

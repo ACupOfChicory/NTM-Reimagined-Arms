@@ -95,15 +95,27 @@ class FenceShapesTest {
         assertTrue(at(post, 8, 15, 8), "post");
     }
 
-    // a "shape" rule wins over the class and its mask filter; without one the class decides, a mask keeps it out
+    // a "path" rule wins over the class and its mask filter; without one the class decides, a mask keeps it out
     @Test
     void ruleWinsOverTheClass() {
-        assertEquals(null, PassableClip.family("none", "fence", false), "none takes a fence out");
+        assertEquals(null, PassableClip.family("hitbox", "fence", false), "hitbox takes a fence out");
+        assertEquals(null, PassableClip.family("pixels", "fence", false), "pixels takes a fence out");
         assertEquals("fence", PassableClip.family("fence", null, false), "a rule makes any block a fence");
         assertEquals("fence", PassableClip.family("fence", "fence", true), "a rule wins over the mask filter");
+        assertEquals("wall", PassableClip.family("wall", "fence", false), "a rule wins over the class");
         assertEquals("wall", PassableClip.family(null, "wall", false), "no rule: by the class");
         assertEquals(null, PassableClip.family(null, "fence", true), "no rule, a mask: by its pixels");
         assertEquals(null, PassableClip.family(null, null, false), "no rule, no family");
+    }
+
+    // every path word but the four algorithms is a family with its cells
+    @Test
+    void pathWordsAreAlgorithmsOrFamilies() {
+        for (String w : PassableClip.PATH_WORDS) {
+            if (java.util.Set.of("hitbox", "pixels", "model", "through").contains(w)) continue;
+            assertTrue(PassableClip.FAMILIES.containsKey(w), w);
+        }
+        assertTrue(PassableClip.PATH_WORDS.containsAll(PassableClip.FAMILIES.keySet()));
     }
 
     // a block made a fence or wall by a rule, without their properties (or with others' values): the family's default
@@ -121,16 +133,19 @@ class FenceShapesTest {
         for (String f : PassableClip.FAMILIES.keySet()) assertNotNull(all.get(PassableClip.familyKey(f, Map.of())), f);
     }
 
-    // the mod's shape lines name families the mod has
+    // the mod's path and hole lines use words the rules know
     @Test
-    void builtinShapeLinesAreValid() throws IOException {
+    void builtinPathAndHoleLinesAreValid() throws IOException {
         int n = 0;
         for (String line : Files.readAllLines(Path.of("src/main/resources/ntmgunfeel-bullets.txt"), StandardCharsets.UTF_8)) {
             String[] w = line.trim().split("\\s+");
-            if (!w[0].equals("shape")) continue;
-            n++;
-            assertTrue(w.length >= 3 && (w[2].equals("none") || PassableClip.FAMILIES.containsKey(w[2])), line);
+            if (w[0].equals("path")) {
+                n++;
+                assertTrue(w.length >= 3 && PassableClip.PATH_WORDS.contains(w[2]), line);
+            } else if (w[0].equals("hole")) {
+                for (int i = 2; i < w.length; i++) assertTrue(java.util.Set.of("glass", "plain", "hitbox", "pixels").contains(w[i]), line);
+            }
         }
-        assertTrue(n >= 1, "no shape line (NTM's chain-link fence)");
+        assertTrue(n >= 1, "no path line (NTM's chain-link fence)");
     }
 }

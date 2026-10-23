@@ -1195,6 +1195,8 @@ public final class Tracers {
     // glass: by the block's material, as its piercing, hit sounds and decals (a copper grate is metal: its holes
     // follow its pixels instead)
     private static boolean glassLike(BlockState state) {
+        String drawn = BulletRules.hole(state)[0];
+        if (drawn != null) return drawn.equals("glass");
         return BulletRules.material(state).material().glass();
     }
 
@@ -1733,8 +1735,10 @@ public final class Tracers {
     private static String hitboxListOf;
     private static java.util.regex.Pattern hitboxList;
 
-    // blocks in holeHitboxBlocks: the hole follows only the hitbox
+    // blocks in holeHitboxBlocks (or a "hole ... hitbox" bullet rule): the hole follows only the hitbox
     private static boolean hitboxOnly(BlockState state) {
+        String cut = BulletRules.hole(state)[1];
+        if (cut != null) return cut.equals("hitbox");
         if (!Config.holeHitboxBlocks.equals(hitboxListOf)) {
             hitboxListOf = Config.holeHitboxBlocks;
             StringBuilder re = new StringBuilder();

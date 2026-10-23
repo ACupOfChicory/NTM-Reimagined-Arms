@@ -50,6 +50,10 @@ public final class MeshShapes {
         } catch (Exception e) {
             GunFeel.LOGGER.warn("Could not read the bullet shape list", e);
         }
+        // and the blocks a "path ... model" bullet rule names
+        for (Block b : BuiltInRegistries.BLOCK) {
+            if (!out.contains(b) && "model".equals(BulletRules.path(b.defaultBlockState()))) out.add(b);
+        }
         return out;
     }
 

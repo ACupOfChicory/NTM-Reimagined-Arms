@@ -5,7 +5,12 @@ leave the game exactly as it is.
 
 ## Open
 
-None.
+### Bullet rules are not sent from the server to the players
+`src/main/java/acup/gunfeel/BulletRules.java:29`. The server and every client read their own
+`config/ntm-gunfeel-bullets.txt`. The server decides hits, breaking and where a bullet stops (break, path, material);
+each client draws tracers and holes by its own copy. A server with changed rules (say `path somemod:railing fence`)
+and players without them: the player sees the bullet stop on the railing, the server lets it through. Found
+2026-10-23 adding the path rule; it holds for every rule since rules exist.
 
 ## Fixed
 

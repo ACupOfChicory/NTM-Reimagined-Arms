@@ -188,10 +188,10 @@ public final class PassableClip extends ClipContext {
                 BlockHitResult in = !shell(vox) ? march(vox, hit, to.subtract(from), 64)
                         : hit.isInside() ? null : march(vox, hit, to.subtract(from), 1);
                 if (in != null) return in;
-            } else if (hit.isInside() && masks().containsKey(state.getBlock())) {
+            } else if (hit.isInside() && maskOf(state) != null) {
                 // already inside a see-through block (the last tick or frame ended there after it came in through a
                 // clear pixel): its faces were passed, it flies on
-            } else if (masks().containsKey(state.getBlock()) && hiddenFace(level, hit, state)) {
+            } else if (maskOf(state) != null && hiddenFace(level, hit, state)) {
                 // came in through a face its neighbour hides (two copper grates or iron bars side by side are drawn as
                 // one thick grate, with no face between them): no pixel there to meet
             } else if (solid(state, hit)) {
@@ -239,37 +239,54 @@ public final class PassableClip extends ClipContext {
         }
         long[] v = SHAPE_OF.get(state);
         if (v == null) {
-            // not in computeIfAbsent: familyKey takes the class's lock (masks), which putShapes holds while clearing
-            long[] bits = SHAPES.get(key(state));
-            if (bits == null) {
-                String family = familyKey(state);
-                if (family != null) bits = SHAPES.get(family);
-            }
+            // not in computeIfAbsent: cellsOf takes the class's lock (masks), which putShapes holds while clearing
+            long[] bits = cellsOf(state);
             v = bits == null ? NONE : bits;
             SHAPE_OF.putIfAbsent(state, v);
         }
         return v == NONE ? null : v;
     }
 
-    // Fences, fence gates and walls: their collision box is a solid wall up to 1.5 blocks, so a bullet between the
-    // rails would meet it. They take the cells of their family's vanilla model (tools/fence_shapes.py), and the bullet
-    // goes through the gaps (пролёт). A "shape" bullet rule says the family of any block (or none); without one a
-    // fence, gate or wall of any mod goes by its class, unless it has a mask (NTM's chain-link fence: by its pixels).
-    static @Nullable String familyKey(BlockState state) {
+    // The cells a bullet meets in the block. A "path" bullet rule says how (model: its own cells; a family: that
+    // family's; hitbox, pixels, through: none). Without one: its own cells when listed (doors, scaffold), else a
+    // fence, gate or wall of any mod takes its family's, unless it has a mask (NTM's chain-link fence: by its pixels).
+    // Fences, gates and walls have a collision box that is a solid wall up to 1.5 blocks: with the family's cells
+    // (tools/fence_shapes.py) the bullet goes through the gaps (пролёт).
+    private static long @Nullable [] cellsOf(BlockState state) {
+        String path = BulletRules.path(state);
+        if (path == null || path.equals("model")) {
+            long[] own = SHAPES.get(key(state));
+            if (own != null || path != null) return own;
+        }
+        String family = familyKey(state, path);
+        return family == null ? null : SHAPES.get(family);
+    }
+
+    static @Nullable String familyKey(BlockState state, @Nullable String path) {
         net.minecraft.world.level.block.Block b = state.getBlock();
-        String family = family(BulletRules.shape(state), classFamily(b), b instanceof net.minecraft.world.level.block.FenceBlock
-                || b instanceof net.minecraft.world.level.block.FenceGateBlock || b instanceof net.minecraft.world.level.block.WallBlock
-                ? masks().containsKey(b) : false);
+        String family = family(path, classFamily(b), masks().containsKey(b));
         if (family == null) return null;
         Map<String, String> props = new HashMap<>();
         for (var prop : state.getProperties()) props.put(prop.getName(), name(state, prop));
         return familyKey(family, props);
     }
 
-    // the family a block takes: the rule's (none: no family), else its class's unless it has a mask
-    static @Nullable String family(@Nullable String rule, @Nullable String byClass, boolean masked) {
-        if (rule != null) return rule.equals("none") || !FAMILIES.containsKey(rule) ? null : rule;
+    // the family a block takes: the path rule's when it names one (another path: none), else its class's unless it
+    // has a mask
+    static @Nullable String family(@Nullable String path, @Nullable String byClass, boolean masked) {
+        if (path != null) return FAMILIES.containsKey(path) ? path : null;
         return masked ? null : byClass;
+    }
+
+    // the words of a "path" bullet rule: the four ways and the families
+    public static final Set<String> PATH_WORDS = Set.of("hitbox", "pixels", "model", "through", "fence", "fence_gate", "wall",
+            "bamboo_fence", "bamboo_fence_gate");
+
+    // the block's pixel mask, unless a path rule says other than pixels
+    private static long[] @Nullable [] maskOf(BlockState state) {
+        String path = BulletRules.path(state);
+        if (path != null && !path.equals("pixels")) return null;
+        return masks().get(state.getBlock());
     }
 
     private static @Nullable String classFamily(net.minecraft.world.level.block.Block b) {
@@ -515,7 +532,7 @@ public final class PassableClip extends ClipContext {
 
     // true unless the block has a mask and the hit lands on one of its clear pixels
     private static boolean solid(BlockState state, BlockHitResult hit) {
-        long[][] m = masks().get(state.getBlock());
+        long[][] m = maskOf(state);
         if (m == null) return true;
         Direction face = hit.getDirection();
         int axis = face.getAxis().ordinal();

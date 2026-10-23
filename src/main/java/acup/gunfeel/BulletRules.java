@@ -78,7 +78,8 @@ public final class BulletRules {
     private static final Map<BlockState, Effect> HITS = new java.util.IdentityHashMap<>();
     private static final Map<BlockState, Boolean> RICOCHETS = new java.util.IdentityHashMap<>();
     private static final Map<BlockState, Decals.Set> DECALS = new java.util.IdentityHashMap<>();
-    private static final Map<BlockState, java.util.Optional<String>> SHAPES = new java.util.IdentityHashMap<>();
+    private static final Map<BlockState, java.util.Optional<String>> PATHS = new java.util.IdentityHashMap<>();
+    private static final Map<BlockState, String[]> HOLES = new java.util.IdentityHashMap<>();
     // goes up each time the rules are read anew (PassableClip forgets the shapes it took from them)
     private static int generation;
 
@@ -114,7 +115,8 @@ public final class BulletRules {
                     HITS.clear();
                     RICOCHETS.clear();
                     DECALS.clear();
-                    SHAPES.clear();
+                    PATHS.clear();
+                    HOLES.clear();
                     generation++;
                     MATERIALS.clear();
                     materialRules = null;
@@ -321,9 +323,11 @@ public final class BulletRules {
         }
     }
 
-    // bullets always fly through it (a "break ... through" rule); it still counts the hits and breaks by its rule
+    // bullets always fly through it (a "break ... through" or "path ... through" rule); it still counts the hits and
+    // breaks by its break rule
     public static boolean through(BlockState state) {
         if (!anyThrough()) return false;
+        if ("through".equals(path(state))) return true;
         Break b = breakRule(state);
         return b != null && b.through();
     }
@@ -337,7 +341,10 @@ public final class BulletRules {
         if (all != throughOf) {
             throughOf = all;
             anyThrough = false;
-            for (Rule r : all) if (r.kind().equals("break") && java.util.Arrays.asList(r.words()).contains("through")) anyThrough = true;
+            for (Rule r : all) {
+                if (r.kind().equals("break") && java.util.Arrays.asList(r.words()).contains("through")) anyThrough = true;
+                if (r.kind().equals("path") && r.words().length > 0 && r.words()[0].equals("through")) anyThrough = true;
+            }
         }
         return anyThrough;
     }
@@ -351,16 +358,34 @@ public final class BulletRules {
         });
     }
 
-    // "shape <blocks> <family> | none": the cells a bullet meets in it are those of that family's model (fence,
-    // fence_gate, wall, bamboo_fence, bamboo_fence_gate: PassableClip.FAMILIES), or none (its own: its hitbox or
-    // its pixel mask); null: no line, PassableClip goes by the block's class
-    public static synchronized @Nullable String shape(BlockState state) {
+    // how a bullet meets the block, by a "path" line: hitbox, pixels (its texture's mask: bars, grates), model (its
+    // model's cells: scaffold, doors), a family's premade cells (fence, fence_gate, wall, bamboo_fence,
+    // bamboo_fence_gate: PassableClip.FAMILIES) or through; null: no line, PassableClip works it out
+    public static synchronized @Nullable String path(BlockState state) {
         rules();
-        return SHAPES.computeIfAbsent(state, st -> {
-            Rule r = last("shape", x -> x.words().length > 0 && (x.words()[0].equals("none") || PassableClip.FAMILIES.containsKey(x.words()[0]))
-                    && blockMatches(x.selectors(), st));
+        return PATHS.computeIfAbsent(state, st -> {
+            Rule r = last("path", x -> x.words().length > 0 && PassableClip.PATH_WORDS.contains(x.words()[0]) && blockMatches(x.selectors(), st));
             return java.util.Optional.ofNullable(r == null ? null : r.words()[0]);
         }).orElse(null);
+    }
+
+    // how a hole on the block is drawn, by "hole" lines: {glass | plain, hitbox | pixels}, each from the last line
+    // that names it, null where none does (Tracers works it out: glass by the material, the cut by holeHitboxBlocks)
+    public static synchronized String[] hole(BlockState state) {
+        rules();
+        return HOLES.computeIfAbsent(state, st -> {
+            String[] out = new String[2];
+            List<Rule> all = rules();
+            for (int i = all.size() - 1; i >= 0 && (out[0] == null || out[1] == null); i--) {
+                Rule r = all.get(i);
+                if (!r.kind().equals("hole") || !blockMatches(r.selectors(), st)) continue;
+                for (String w : r.words()) {
+                    if (out[0] == null && (w.equals("glass") || w.equals("plain"))) out[0] = w;
+                    if (out[1] == null && (w.equals("hitbox") || w.equals("pixels"))) out[1] = w;
+                }
+            }
+            return out;
+        });
     }
 
     public static synchronized int generation() {
@@ -477,11 +502,27 @@ public final class BulletRules {
             #   range: heard over that many blocks, fading out to it (Minecraft's own: 16)
             # ricochet <blocks> yes | no   no: a bullet meeting it at a grazing angle stops in it instead of bouncing off
             #   (NTM's ricochet); yes (the default) bounces. Built in: no for soft ground, wood and glass
-            # shape <blocks> fence | fence_gate | wall | bamboo_fence | bamboo_fence_gate | none   what a bullet meets in
-            #   the block: the posts and rails of that family's vanilla model (the gaps between them are flown through),
-            #   with the block's own sides, facing and so on where it has them; none = its own hitbox (or its pixel mask:
-            #   bars, chain-link fence). Without a line: fences, fence gates and walls of any mod by their family, the
-            #   rest none. Built in: none for NTM's chain-link fence
+            # path <blocks> hitbox | pixels | model | fence | fence_gate | wall | bamboo_fence | bamboo_fence_gate | through
+            #   how a bullet meets the block (overrides what the mod works out):
+            #   hitbox   its collision box: where the box is, the bullet stops (stone, planks: most blocks)
+            #   pixels   the pixels of its texture on the box's faces: a clear pixel lets the bullet through (copper grate,
+            #            iron bars, NTM's chain-link fence). Needs the block's mask (tools/bullet_masks.py makes it from
+            #            the texture; vanilla and NTM have theirs), else as hitbox
+            #   model    the cells of its 3D model: the bullet meets only what is drawn (NTM's scaffold, chains, doors,
+            #            lanterns). A model that closes its box all round (a door, a lantern) is decided where the bullet
+            #            comes in: a window lets it through the whole block. The client makes the cells on joining a
+            #            world (single player: at once; a server gets them from config/ntm-gunfeel-bullet-shapes.properties
+            #            copied over), else as hitbox
+            #   fence, fence_gate, wall, bamboo_fence, bamboo_fence_gate
+            #            the posts and rails of that vanilla model, with the block's own sides and facing where it has
+            #            them; the gaps are flown through. Without a line: fences, gates and walls of any mod
+            #   through  bullets always fly through it, no stop, no hole (as "break ... through")
+            #   Without a line: a mask = pixels, a listed model = model, a fence, gate or wall = its family, the rest hitbox
+            # hole <blocks> [glass | plain] [hitbox | pixels]   how a hole on it is drawn (each player's own game):
+            #   glass  seen from both sides and drawn after the glass behind it (a window); plain: on its face only.
+            #          Without: glass for the glass materials ($glass, $tough_glass, $reinforced_glass, $laminate)
+            #   hitbox the hole covers the box's face whole; pixels: only the texture's shown pixels (a grate's bars).
+            #          Without: hitbox for the blocks in holeHitboxBlocks (ntm-gunfeel.properties), else pixels
             # decal <blocks> [hole=<style>] [scratch=<style>] [scorch=<style>]   the marks bullets leave on it (each player's
             #   own game): hole = old | spall | shatter | soot, scratch (a ricochet) = gouge | burn | lines, scorch
             #   (explosive and incendiary rounds) = star | blot | crater; each from the last matching line that names it,
