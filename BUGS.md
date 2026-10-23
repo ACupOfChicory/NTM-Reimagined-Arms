@@ -5,7 +5,13 @@ leave the game exactly as it is.
 
 ## Open
 
-None.
+### Fences: a bullet through the gap between the rails hits the fence
+`src/main/java/acup/gunfeel/PassableClip.java:43`. Bullets meet blocks by their collision box (`Block.COLLIDER`),
+except the blocks in `generate` of `ntmgunfeel-bullet-shapes.properties` (doors, trapdoors, chains, lanterns, NTM's
+scaffold), which go by their model's pixels. A fence's collision box is a solid wall from the ground to 1.5 blocks,
+so a bullet between the rails (or above the top rail) hits it: the fence takes damage (wood break rule) and the
+bullet loses damage as through a plank. Same for fence gates and walls (and other mods' blocks shaped so). Found
+2026-10-23 from the user's report.
 
 ## Fixed
 
