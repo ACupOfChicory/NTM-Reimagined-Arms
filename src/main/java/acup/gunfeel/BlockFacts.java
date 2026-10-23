@@ -34,10 +34,6 @@ public record BlockFacts(String id, List<String> classes, String sound, float ha
         return blockEntity || !modelShape || !fullCollision;
     }
 
-    public boolean hasClass(String simpleName) {
-        return classes.contains(simpleName);
-    }
-
     public List<String> tsv() {
         return List.of(id, classes.isEmpty() ? "-" : String.join(",", classes), sound, num(hardness), num(blast),
                 String.valueOf(toolRequired), String.valueOf(fullCollision), num(collisionVolume), String.valueOf(blockEntity),

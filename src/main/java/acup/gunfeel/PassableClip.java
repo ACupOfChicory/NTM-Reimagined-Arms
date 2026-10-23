@@ -36,6 +36,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 // a bullet meeting a clear pixel flies on, a solid pixel stops it. Blocks tagged ntmgunfeel:bullet_passable
 // (empty in the jar; a datapack can fill it) are always flown through.
 public final class PassableClip extends ClipContext {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("ntm-gunfeel");
     public static final TagKey<net.minecraft.world.level.block.Block> PASSABLE =
             TagKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath("ntmgunfeel", "bullet_passable"));
     private final Set<BlockPos> skip;
@@ -64,7 +65,7 @@ public final class PassableClip extends ClipContext {
         BlockHitResult r = clip0(level, from, to);
         // the server's bullet too (every tick, misses included): where it really stops
         if (debug && (r.getType() != HitResult.Type.MISS || !level.isClientSide()))
-            org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").info("[holedebug] {} clip {} -> {} {}", side(level), from, to,
+            LOGGER.info("[holedebug] {} clip {} -> {} {}", side(level), from, to,
                     r.getType() == HitResult.Type.MISS ? "flies on" : "stops at " + r.getBlockPos() + " " + r.getDirection() + " " + r.getLocation());
         return r;
     }
@@ -164,7 +165,7 @@ public final class PassableClip extends ClipContext {
             hit = owner(hit);
             BlockState state = level.getBlockState(hit.getBlockPos());
             if (debug)
-                org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").info("[holedebug]   {} step {}: {} {} face={} at={} inside={} shape={} cells={}{}", side(level), i, hit.getBlockPos(), key(state),
+                LOGGER.info("[holedebug]   {} step {}: {} {} face={} at={} inside={} shape={} cells={}{}", side(level), i, hit.getBlockPos(), key(state),
                         hit.getDirection(), hit.getLocation(), hit.isInside(), shape(state) != null, Structures.cells(level, hit.getBlockPos(), state) != null,
                         Structures.debug(level, hit.getBlockPos(), state));
             long[] vox = shape(state);
@@ -176,7 +177,7 @@ public final class PassableClip extends ClipContext {
                 BlockHitResult in = march(cells, hit, to.subtract(from), 64);
                 BlockHitResult solid = Structures.solid(level, hit.getBlockPos(), state, from, to);
                 if (debug)
-                    org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").info("[holedebug]     {} model cells: {}, solid part: {}", side(level),
+                    LOGGER.info("[holedebug]     {} model cells: {}, solid part: {}", side(level),
                             in == null ? "none" : in.getLocation(), solid == null ? "none" : solid.getLocation());
                 if (solid != null && (in == null || solid.getLocation().distanceToSqr(from) < in.getLocation().distanceToSqr(from))) in = solid;
                 if (in != null) return in;
@@ -340,13 +341,6 @@ public final class PassableClip extends ClipContext {
         return v != null && shell(v);
     }
 
-    // this game's shapes (the jar's, the config's, this client's), not the server's: what this client makes them from
-    public static boolean hasShapes(net.minecraft.world.level.block.Block block) {
-        String id = BuiltInRegistries.BLOCK.getKey(block).toString();
-        for (String k : local().keySet()) if (k.equals(id) || k.startsWith(id + "[")) return true;
-        return false;
-    }
-
     // shapes made by this client: used at once (single player, the client's own tracers); on another game's server they
     // wait until the client leaves it, as that server goes by its own
     public static synchronized void putShapes(Map<String, long[]> shapes) {
@@ -425,7 +419,7 @@ public final class PassableClip extends ClipContext {
         try (var in = PassableClip.class.getResourceAsStream("/ntmgunfeel-bullet-shapes.properties")) {
             if (in != null) readShapes(new InputStreamReader(in, StandardCharsets.UTF_8), fromJar);
         } catch (Exception e) {
-            org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").warn("Could not read the bullet shapes", e);
+            LOGGER.warn("Could not read the bullet shapes", e);
         }
         Map<String, long[]> mine = new HashMap<>(fromJar);
         // made by a client of this mod version (MeshShapes); wins over the jar's
@@ -434,7 +428,7 @@ public final class PassableClip extends ClipContext {
             try (var r = java.nio.file.Files.newBufferedReader(f, StandardCharsets.UTF_8)) {
                 readShapes(r, mine);
             } catch (Exception e) {
-                org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").warn("Could not read {}", SHAPES_FILE, e);
+                LOGGER.warn("Could not read {}", SHAPES_FILE, e);
             }
         }
         jar = fromJar;
@@ -573,7 +567,7 @@ public final class PassableClip extends ClipContext {
                 }
             }
         } catch (Exception e) {
-            org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").warn("Could not read the bullet masks", e);
+            LOGGER.warn("Could not read the bullet masks", e);
         }
         return masks = out;
     }
