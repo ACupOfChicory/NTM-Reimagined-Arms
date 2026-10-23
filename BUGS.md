@@ -5,6 +5,13 @@ leave the game exactly as it is.
 
 ## Open
 
+### Reload: about four times slower with the inventory open (unconfirmed)
+Seen by the user, 2026-10-23: a reload started and the inventory opened, the reload seemed to slow down about four
+times. Not found in the code: NTM counts the reload on the server by ticks (`ItemGunBaseNT.inventoryTick`), which an
+open inventory does not touch, and its animations run by the clock (`HbmAnimations`, `GameTime.now`); the mod changes
+neither. Still to tell: does the ammo come in later, or does only the animation look slower, and is it the same with
+the mod off.
+
 ### Ricochet: after a bounce the server's bullet leaves no trace, the tracer flies on (unconfirmed)
 `src/main/java/acup/gunfeel/Tracers.java:589` (client ricochet), NTM `BulletConfig.LAMBDA_STANDARD_RICOCHET`. Four
 Maresleg pellets off NTM steel (tcalloy, titanium deco): the client's tracer bounced and hit concrete 6–7 blocks
@@ -19,6 +26,28 @@ scaffold (wooden or steel) or the first board of a wooden ceiling, the next one 
 Small: a 2-pixel board of wood takes about 3 damage. Found with the wooden trench blocks, 2026-10-23.
 
 ## Fixed
+
+### Muzzle smoke without end, thick, from a gun in a new world (NTM)
+`src/main/java/acup/gunfeel/mixin/MixinItemGunBaseNT.java` (`staleShot`). NTM keeps a gun's last shot on the item,
+not the stack (`ItemGunBaseNT.lastShot`), in the level's game time. In a world whose time is behind the last one's it
+lies in the future: `Lego.handleStandardSmoke` then smokes till the gun fires, and its alpha grows far past 1 (the
+mod's clamp only caught alpha below 0). Fixed in X263: a last shot later than now is forgotten. Found by the user,
+2026-10-23.
+
+### Laminate pane: a hole not seen from the other side
+`src/main/java/acup/gunfeel/Tracers.java` (`seenThrough`). NTM's laminate pane is drawn translucent, and translucent
+faces write depth: its far face hid the hole on its near face, though the hole is drawn from both sides. Fixed in X262:
+a bullet stopped in translucent glass leaves the same mark on its far face too. Found by the user, 2026-10-23.
+
+### Chain-link fence: bullets never fly through its mesh
+`src/main/resources/ntmgunfeel-bullets.txt` (`path hbm:fence_metal...`). The fence went by a pixel mask laid on its
+hitbox faces (its hitbox is a quarter-block slab, its mesh a plane in the middle), and the post block had no mask at
+all. Fixed in X262: both go by their model (`path ... model`), and pierce (`break ... pierce=1.5 keep=0.8`). Found by
+the user, 2026-10-23.
+
+### Machines: hit particles turned to the hitbox's face
+`src/main/java/acup/gunfeel/Tracers.java` (`makePending`). The effects of a hit on a model went where the hole is
+made, but faced the face of the hitbox the bullet came in by. Fixed in X262: they face the model's face. 2026-10-23.
 
 ### Machines: hit sounds and particles where the bullet enters the hitbox, not where it meets the model
 `src/main/java/acup/gunfeel/Tracers.java` (`hit`). A bullet through a machine's hitbox where nothing is drawn (a
