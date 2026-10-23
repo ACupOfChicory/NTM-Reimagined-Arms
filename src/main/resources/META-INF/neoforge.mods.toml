@@ -8,8 +8,18 @@ version="0.1.201-alpha"
 displayName = "NTM Reimagined Arms"
 description = "HBM NTM guns: hold-to-aim (server), smooth camera recoil, spring model recoil, centred hip position, hidden off-hand item and corner ammo HUD (client)."
 
+# the mixins into Minecraft and Flywheel
 [[mixins]]
 config = "ntmgunfeel.mixins.json"
+
+# the mixins into NTM: outside ntmTested they are checked first and the systems that do not fit are turned off
+[[mixins]]
+config = "ntmgunfeel-hbm.mixins.json"
+
+# NTM versions this build is tested with (Maven range, as NeoForge's versionRange). A recommendation, not a lock:
+# any NTM loads, outside the range the player is warned and what does not fit is turned off (acup.gunfeel.compat).
+[modproperties.ntmgunfeel]
+ntmTested = "[1.0.3]"
 
 [[dependencies.ntmgunfeel]]
 modId = "hbm"

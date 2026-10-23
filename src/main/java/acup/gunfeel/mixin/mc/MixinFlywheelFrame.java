@@ -1,4 +1,4 @@
-package acup.gunfeel.mixin;
+package acup.gunfeel.mixin.mc;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;

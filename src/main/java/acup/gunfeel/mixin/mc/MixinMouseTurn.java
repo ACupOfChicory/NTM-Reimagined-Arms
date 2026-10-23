@@ -1,4 +1,4 @@
-package acup.gunfeel.mixin;
+package acup.gunfeel.mixin.mc;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -19,7 +19,7 @@ public abstract class MixinMouseTurn {
 
     @Inject(method = "turnPlayer", at = @At("HEAD"), cancellable = true)
     private void gunfeel$radial(double dt, CallbackInfo ci) {
-        if (!RadialMenu.isOpen()) return;
+        if (!acup.gunfeel.compat.Feature.AMMO_CHOICE.on() || !RadialMenu.isOpen()) return;
         RadialMenu.move(accumulatedDX, accumulatedDY);
         accumulatedDX = 0;
         accumulatedDY = 0;

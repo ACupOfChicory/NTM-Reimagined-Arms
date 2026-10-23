@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.hbm.client.Keybinds;
 
 import acup.gunfeel.RadialMenu;
+import acup.gunfeel.mixin.mc.KeyMappingAccess;
 
 // While the radial ammo menu is open NTM's gun keys (fire, aim, tertiary/inspect, reload) count as let go: NTM sends
 // the release, and a key held through the menu stays up until it is pressed again

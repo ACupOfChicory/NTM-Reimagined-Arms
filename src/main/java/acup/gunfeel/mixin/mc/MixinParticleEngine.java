@@ -1,4 +1,4 @@
-package acup.gunfeel.mixin;
+package acup.gunfeel.mixin.mc;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -58,7 +58,8 @@ public abstract class MixinParticleEngine {
     @Inject(method = "createParticle", at = @At("HEAD"), cancellable = true)
     private void gunfeel$machineCrumbs(ParticleOptions options, double x, double y, double z, double xa, double ya, double za,
             CallbackInfoReturnable<Particle> cir) {
-        if (!(options instanceof BlockParticleOption block) || options.getType() != ParticleTypes.BLOCK || level == null) return;
+        if (!(options instanceof BlockParticleOption block) || options.getType() != ParticleTypes.BLOCK || level == null
+                || !acup.gunfeel.compat.Feature.BULLETS.on()) return;
         Particle p = BulletFx.missingTextureCrumb(level, block.getState(), x, y, z, xa, ya, za);
         if (p == null) return;
         add(p);

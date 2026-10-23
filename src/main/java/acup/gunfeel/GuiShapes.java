@@ -6,7 +6,7 @@ import org.joml.Vector2f;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
-import acup.gunfeel.mixin.GuiGraphicsAccess;
+import acup.gunfeel.mixin.mc.GuiGraphicsAccess;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;

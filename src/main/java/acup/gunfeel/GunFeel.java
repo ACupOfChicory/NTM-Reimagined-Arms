@@ -14,6 +14,8 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import acup.gunfeel.compat.CompatClient;
+import acup.gunfeel.compat.Feature;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.event.RenderHandEvent;
@@ -37,24 +39,40 @@ public final class GunFeel {
             LocalPlayer player = Minecraft.getInstance().player;
             Item held = player == null ? null : player.getMainHandItem().getItem();
             Config.select(held instanceof ItemGunBaseNT ? net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(held).toString() : null);
-            InstantSwitch.frame(player);
-            if (Config.enabled) CameraRecoil.frame();
+            if (Feature.INSTANT_SWITCH.on()) InstantSwitch.frame(player);
+            if (Config.enabled && Feature.RECOIL.on()) CameraRecoil.frame();
         });
         NeoForge.EVENT_BUS.addListener(RenderHandEvent.class, GunFeel::onRenderHand);
         NeoForge.EVENT_BUS.addListener(ViewportEvent.ComputeCameraAngles.class, e -> {
-            if (Config.enabled && CameraRecoil.roll != 0F) e.setRoll(e.getRoll() + CameraRecoil.roll);
+            if (Config.enabled && Feature.RECOIL.on() && CameraRecoil.roll != 0F) e.setRoll(e.getRoll() + CameraRecoil.roll);
         });
-        NeoForge.EVENT_BUS.addListener(RegisterClientCommandsEvent.class, e -> GripCommand.register(e.getDispatcher()));
-        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent.class, Tracers::submit);
-        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather.class, Tracers::afterWeather);
-        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterOpaqueFeatures.class, Tracers::afterOpaqueFeatures);
-        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> Tracers.clear());
-        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn.class, e -> MeshShapes.generate());
-        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Post.class, e -> MeshShapes.tick());
+        NeoForge.EVENT_BUS.addListener(RegisterClientCommandsEvent.class, e -> {
+            if (Feature.ARMS.on()) GripCommand.register(e.getDispatcher());
+            CompatClient.register(e.getDispatcher());
+        });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent.class, e -> {
+            if (Feature.TRACERS.on()) Tracers.submit(e);
+        });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather.class, e -> {
+            if (Feature.TRACERS.on()) Tracers.afterWeather(e);
+        });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterOpaqueFeatures.class, e -> {
+            if (Feature.TRACERS.on()) Tracers.afterOpaqueFeatures(e);
+        });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> {
+            CompatClient.leave();
+            if (Feature.TRACERS.on()) Tracers.clear();
+        });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn.class, e -> {
+            if (Feature.MACHINE_MESH.on()) MeshShapes.generate();
+        });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Post.class, e -> {
+            if (Feature.MACHINE_MESH.on()) MeshShapes.tick();
+        });
         // NTM keeps the attack and pick keys off the world while a gun is held on them, but not the use key: aiming
         // on the right button also opened doors, pressed buttons, placed the off-hand block
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.InputEvent.InteractionKeyMappingTriggered.class, e -> {
-            if (e.isUseItem() && com.hbm.client.Keybinds.isGunHeld() && com.hbm.client.Keybinds.isGunKey(Minecraft.getInstance().options.keyUse)) {
+            if (Feature.HOLD_AIM.on() && e.isUseItem() && com.hbm.client.Keybinds.isGunHeld() && com.hbm.client.Keybinds.isGunKey(Minecraft.getInstance().options.keyUse)) {
                 e.setCanceled(true);
                 e.setSwingHand(false);
             }
@@ -63,7 +81,7 @@ public final class GunFeel {
 
     // The gun is held with both hands, so the off-hand item is not drawn (it stays in the slot).
     private static void onRenderHand(RenderHandEvent event) {
-        if (!Config.enabled || !Config.hideOffhand || event.getHand() != InteractionHand.OFF_HAND) return;
+        if (!Config.enabled || !Config.hideOffhand || event.getHand() != InteractionHand.OFF_HAND || !Feature.ARMS.on()) return;
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) return;
         if (ItemRenderWeaponBase.get(player.getMainHandItem()) == null) return;

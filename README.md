@@ -20,10 +20,22 @@ into T-51 power armour, with the difference to the loaded ammo. The same numbers
 
 The same jar goes on the client and the server.
 
+## Other NTM versions
+
+The NTM versions the mod is tested with are `ntmTested` in `neoforge.mods.toml` (a recommendation: NeoForge loads the
+mod with any NTM). With another one, before anything is applied, the mod checks each of its mixins into NTM and what
+its code calls in NTM (`ntmgunfeel-ntm-api.txt`, made by `NtmApiTest`) and turns off the systems that no longer fit
+(`compat/Feature.java` maps mixins and classes to systems) instead of crashing; mixins into Minecraft and Flywheel are
+left as they are. The client then shows a warning on the title screen once a launch, with the systems turned off
+("Don't show for this version" remembers the NTM version in `config/ntm-gunfeel-compat.properties`); a server only
+writes it to its log. On joining a server the chat says when the server's mod or NTM version differs.
+`/gunfeel status` lists the versions, the tested range, the mixins not applied and the systems off.
+`python3 tools/spoof_ntm.py` makes a copy of the NTM jar with another version (and a renamed method) to try it.
+
 ## Settings
 
 `config/ntm-gunfeel.properties`, re-read while the game runs. Hand positions per gun:
-`/gunfeel grip right|left <x> <y> <z>`, `/gunfeel grip show`, `/gunfeel grip reset`
+`/gunfeel grip right|left <x> <y> <z>`, `/gunfeel grip show`, `/gunfeel grip reset`, `/gunfeel status`
 (z = stock 0 to muzzle 1; x, y across the gun there, y 0 = underside).
 
 ## Build

@@ -20,6 +20,12 @@ count only what `turn()` really applied.
 
 ## Fixed
 
+### Compat: the tested NTM counted as untested
+`src/main/java/acup/gunfeel/compat/Compat.java`. NTM's jar version is `1.0.3+1b8c6c2d`; Maven's `VersionRange` keeps
+the `+1b8c6c2d` and does not count it as `1.0.3` in `[1.0.3]`, so the "NTM not tested" check would have run, and the
+warning shown, with the very NTM the mod is built for. Found 2026-10-23 by CompatTest before it ever ran in game;
+fixed by leaving out the build after `+` when comparing.
+
 ### Multiblock cells: piercing, marks and ricochet by the cell, the hit sound by its machine
 `src/main/java/acup/gunfeel/PassableClip.java`, `Tracers.java`, `mixin/MixinBulletServer.java`: NTM builds its
 multiblocks from shared `multiblock_cell_*` blocks. The hit sound looked up the cell's machine, but piercing, bullet

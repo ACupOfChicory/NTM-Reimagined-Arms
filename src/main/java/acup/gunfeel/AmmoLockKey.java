@@ -46,9 +46,9 @@ public final class AmmoLockKey {
         boolean clicked = false;
         while (attack.consumeClick()) clicked = true;
         if (!clicked) return;
-        ((acup.gunfeel.mixin.KeyMappingAccess) attack).gunfeel$setIsDown(false);
+        ((acup.gunfeel.mixin.mc.KeyMappingAccess) attack).gunfeel$setIsDown(false);
         // NTM's fire key sits on the same button: up too, so the click does not shoot once the menu is gone
-        ((acup.gunfeel.mixin.KeyMappingAccess) (Object) com.hbm.client.Keybinds.GUN_PRIMARY).gunfeel$setIsDown(false);
+        ((acup.gunfeel.mixin.mc.KeyMappingAccess) (Object) com.hbm.client.Keybinds.GUN_PRIMARY).gunfeel$setIsDown(false);
         BulletConfig c = RadialMenu.hovered();
         if (c == null) return;
         RadialMenu.close();

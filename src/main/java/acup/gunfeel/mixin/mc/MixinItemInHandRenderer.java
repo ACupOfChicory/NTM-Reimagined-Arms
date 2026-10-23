@@ -1,4 +1,4 @@
-package acup.gunfeel.mixin;
+package acup.gunfeel.mixin.mc;
 
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -25,7 +25,7 @@ public abstract class MixinItemInHandRenderer {
     // once: a gun as it is (its draw animation lifts it), anything else from below as vanilla raises it.
     @Inject(method = "submitHandsWithItems", at = @At("HEAD"))
     private void gunfeel$instant(CallbackInfo ci) {
-        if (!Config.instantSwitch || minecraft.player == null) return;
+        if (!Config.instantSwitch || minecraft.player == null || !acup.gunfeel.compat.Feature.INSTANT_SWITCH.on()) return;
         // the slot may have changed after the frame began (a scroll): start the new gun's draw before it is drawn
         InstantSwitch.frame(minecraft.player);
         ItemStack next = minecraft.player.getMainHandItem();
