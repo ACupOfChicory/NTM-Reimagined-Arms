@@ -1,5 +1,13 @@
 # Changelog
 
+## X260
+
+- Machines: a hit's sound and particles come with its hole, where the model is met, not where the bullet enters the
+  hitbox; a bullet past a machine's model makes neither.
+- The cyclotron is met by its model as drawn, not by its hitbox.
+- Holes in the slit between a bottom and a top slab are no longer cut to triangles.
+- `/gunfeel holedebug` lists each piece of a hole, shown or hidden and by what.
+
 ## X258
 
 - Hit sounds fade with distance as they should: before, set nearer for a 16-block fade while they fade over 24, they

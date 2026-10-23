@@ -557,14 +557,8 @@ public final class Tracers {
             if (!known) {
                 s.pierced.add(pos);
                 s.damage = left;
-                if (Config.bulletHoles) {
-                    addHole(level, block, s.config, unit);
-                    addHole(level, out, s.config, unit.scale(-1.0));
-                }
-                long px = Perf.start();
-                BulletFx.blockHit(level, block, unit);
-                BulletFx.blockHit(level, out, unit.scale(-1.0));
-                Perf.add(Perf.FX, px);
+                hit(level, block, s.config, unit, false);
+                hit(level, out, s.config, unit.scale(-1.0), false);
             }
             // it comes out beyond this step's end: inside the block till the next one
             if (out.getLocation().distanceTo(ra) >= len) {
@@ -608,10 +602,7 @@ public final class Tracers {
                     if (left > 0) BOUNCED.add(new Shot(s, stop, out, s.born + (long) (s.end * 50_000_000.0), left));
                 }
             } else {
-                if (Config.bulletHoles && len > 1e-6) addHole(level, block, s.config, dir.scale(1.0 / len));
-                long px = Perf.start();
-                if (len > 1e-6) BulletFx.blockHit(level, block, dir.scale(1.0 / len), s.config.onImpact != null);
-                Perf.add(Perf.FX, px);
+                if (len > 1e-6) hit(level, block, s.config, dir.scale(1.0 / len), s.config.onImpact != null);
             }
         }
         if (!s.whizzed) s.whizzed = BulletFx.whizz(level, s.owner, ra, stop, s.speed);
@@ -712,14 +703,33 @@ public final class Tracers {
 
     // holes waiting to be made: a burst's holes (a shotgun, explosive rounds into a scaffold) are made over the next
     // frames, as many as fit in HOLE_BUDGET_NS a frame (at least one), instead of all in the frame they were hit
-    private record Pending(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir, Vec3 scratch, int shot) {
+    // fx: the hit's sound and particles wait for the hole (a machine: where its model is met, not its hitbox); 0 none,
+    // 1 a hit, 2 an explosive round's
+    private record Pending(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir, Vec3 scratch, int shot, int fx) {
     }
 
     private static final ArrayDeque<Pending> PENDING = new ArrayDeque<>();
     private static final long HOLE_BUDGET_NS = 3_000_000L;
 
     private static void addHole(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir) {
-        PENDING.addLast(new Pending(level, hit, config, dir, scratch, TestLog.shot()));
+        PENDING.addLast(new Pending(level, hit, config, dir, scratch, TestLog.shot(), 0));
+    }
+
+    // a hit's hole and its sound and particles. On a machine (a multiblock's cell, a block a renderer draws) its hitbox
+    // is not what is seen: the effects wait for the hole and go where it is made; no hole there (the bullet met the
+    // hitbox where nothing is drawn), none. Elsewhere at once.
+    private static void hit(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir, boolean explosive) {
+        BlockState state = level.getBlockState(hit.getBlockPos());
+        boolean machine = Cells.ruleState(level, hit.getBlockPos(), state) != state
+                || state.getRenderShape() != net.minecraft.world.level.block.RenderShape.MODEL;
+        if (Config.bulletHoles && machine) {
+            PENDING.addLast(new Pending(level, hit, config, dir, scratch, TestLog.shot(), explosive ? 2 : 1));
+            return;
+        }
+        if (Config.bulletHoles) addHole(level, hit, config, dir);
+        long px = Perf.start();
+        BulletFx.blockHit(level, hit, dir, explosive);
+        Perf.add(Perf.FX, px);
     }
 
     private static void makePending() {
@@ -738,6 +748,15 @@ public final class Tracers {
                 scratch = null;
             }
             if (TestLog.client) logHole(p, holesMade != before);
+            if (p.fx() != 0) {
+                Hole h = holesMade != before ? HOLES.peekLast() : null;
+                if (h != null) {
+                    Vec3 at = h.hit() != null ? h.hit() : h.pos();
+                    BulletFx.blockHit(p.level(), new BlockHitResult(at, p.hit().getDirection(), p.hit().getBlockPos(), false), p.dir(), p.fx() == 2);
+                } else {
+                    BulletFx.sd("hit {} at {}: no hole on what is drawn there, no sound or particles", p.hit().getBlockPos().toShortString(), p.hit().getLocation());
+                }
+            }
             Perf.add(Perf.HOLE_MAKE, ph);
             made++;
         }
@@ -1143,15 +1162,16 @@ public final class Tracers {
             double[] cen = centroid(pc.poly());
             boolean shown = false;
             long sh0 = System.nanoTime();
+            Vector3d back = new Vector3d(-dir.x, -dir.y, -dir.z).normalize();
             for (int s = 0; s <= pc.poly().size() && !shown; s++) {
                 double[] sm = s == 0 ? cen : lerp(pc.poly().get(s - 1), cen, 0.2);
-                shown = !hidden(grid, pc, sm);
+                shown = !hidden(grid, pc, sm, back);
             }
             hideNs += System.nanoTime() - sh0;
             if (!shown) {
                 hiddenPieces++;
                 if (debugHoles) {
-                    RenderedMesh.Tri by = hiddenBy(grid, pc, cen);
+                    RenderedMesh.Tri by = hiddenBy(grid, pc, cen, pc.frame()[3], 0);
                     dbg("    piece hidden: on {} n={} corners={} | by {}", pc.tri().block(), v(pc.tn()), corners(pc.tri()),
                             by == null ? "-" : by.block() + " " + RenderedMesh.texName(by.tex()) + " n=" + (by.normal() == null ? "?" : v(by.normal())) + " corners=" + corners(by));
                 }
@@ -1593,17 +1613,18 @@ public final class Tracers {
         else out.addAll(cells);
     }
 
-    // a shown pixel of another triangle is in front of this point of the piece, towards the shooter
-    private static boolean hidden(TriGrid grid, Piece self, double[] at) {
-        return hiddenBy(grid, self, at) != null;
+    // a shown pixel of another triangle lies over this point of the piece (along the hole's normal, as far as the hole
+    // reaches) and also between it and the shooter: a face under a ledge is hidden, but not one in a slit the shooter
+    // looks into (a bottom slab under a top slab: the top one lies over it, yet the hole on it is in plain sight)
+    private static boolean hidden(TriGrid grid, Piece self, double[] at, Vector3d back) {
+        return hiddenBy(grid, self, at, self.frame()[3], 0) != null && hiddenBy(grid, self, at, back, 3.0) != null;
     }
 
-    // the triangle in front of this point of the piece (hidden), or null
-    private static RenderedMesh.@org.jspecify.annotations.Nullable Tri hiddenBy(TriGrid grid, Piece self, double[] at) {
-        Vector3d n = self.frame()[3];
+    // the triangle in front of this point of the piece along n (hidden), or null; far 0: as far as the hole reaches
+    private static RenderedMesh.@org.jspecify.annotations.Nullable Tri hiddenBy(TriGrid grid, Piece self, double[] at, Vector3d n, double reach) {
         Vector3d from = new Vector3d(at[2], at[3], at[4]).fma(1e-3, self.tn());
         // as far as the slab reaches (an occluder further out does not lie over the hole's faces)
-        double far = 2 * Math.abs(self.frame()[0].distance(from)) + 0.1;
+        double far = reach > 0 ? reach : 2 * Math.abs(self.frame()[0].distance(from)) + 0.1;
         Vector3d to = new Vector3d(n).mul(far).add(from);
         return grid.first(from, to, o -> {
             if (o == self.tri()) return false;

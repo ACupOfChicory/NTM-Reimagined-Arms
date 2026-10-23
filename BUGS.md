@@ -20,6 +20,24 @@ Small: a 2-pixel board of wood takes about 3 damage. Found with the wooden trenc
 
 ## Fixed
 
+### Machines: hit sounds and particles where the bullet enters the hitbox, not where it meets the model
+`src/main/java/acup/gunfeel/Tracers.java` (`hit`). A bullet through a machine's hitbox where nothing is drawn (a
+grazing shot past the cyclotron) played its sound and particles on going in and coming out, with no hole. Fixed in
+X260: on a multiblock's cell or a block a renderer draws, the effects wait for the hole and go where it is made; no
+hole, none. Found by the user, 2026-10-23.
+
+### Cyclotron: a bullet stops in mid-air inside its hitbox
+`src/main/resources/ntmgunfeel-bullet-shapes.properties` (`structures`). Only the cargo door and elevator had cells as
+drawn; other machines are met by NTM's hitbox, so a bullet past the cyclotron's model stopped inside an empty cell and
+vanished. Fixed in X260 for the cyclotron (listed under `structures`, the client takes its cells from what it draws);
+other machines are still met by their hitbox. Found by the user, 2026-10-23.
+
+### Holes on a bottom slab under a top slab: cut to triangles
+`src/main/java/acup/gunfeel/Tracers.java` (`hidden`). A piece of a hole was hidden when a face lay over it along the
+hole's normal: in the half-block slit between a bottom and a top slab the top one hid the hole's pieces on the bottom
+one, a whole triangle of its face at a time. Fixed in X260: hidden only when a face also lies between it and the
+shooter. Found by the user with `/gunfeel holedebug`, 2026-10-23.
+
 ### Hit sounds hardly fade with distance: placed nearer for a 16-block fade, but they fade over 24
 `src/main/java/acup/gunfeel/BulletFx.java:190` (`play`). A hit sound heard over `range` (40) blocks is set nearer the
 listener at `16 / range` of its distance, as if Minecraft faded it out within 16 blocks. Our hit sounds have
