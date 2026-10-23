@@ -198,8 +198,11 @@ public final class Materials {
             if (m != null) return verdict(f, m, Source.TAG, t);
         }
 
-        for (String c : f.classes()) {
-            for (String w : MACHINE_CLASS_WORDS) if (c.contains(w)) return verdict(f, Material.MACHINE, Source.CLASS, c);
+        // only a mod's blocks: vanilla's BarrelBlock, PumpkinBlock and PipeBlock (chorus) are no steel casings
+        if (!f.namespace().equals("minecraft")) {
+            for (String c : f.classes()) {
+                for (String w : MACHINE_CLASS_WORDS) if (c.contains(w)) return verdict(f, Material.MACHINE, Source.CLASS, c);
+            }
         }
 
         for (String name : f.sound().split("/")) {

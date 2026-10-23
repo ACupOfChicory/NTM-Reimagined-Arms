@@ -20,6 +20,12 @@ count only what `turn()` really applied.
 
 ## Fixed
 
+### Materials: vanilla barrel, pumpkins and chorus plant counted as NTM machines
+`src/main/java/acup/gunfeel/Materials.java`: the class step looks for machine words in the block's class names, and
+vanilla's `BarrelBlock` ("Barrel"), `PumpkinBlock`/`CarvedPumpkinBlock` ("Pump") and `PipeBlock` (chorus plant,
+"Pipe") matched, so these five took a hollow steel casing (dt 150) and the steel hit sound. Found 2026-10-23 when the
+hit sounds moved to materials; fixed: the class step only for mods' blocks.
+
 ### Decals: NTM tiles get shattered-glass bullet holes
 `src/main/resources/ntmgunfeel-bullets.txt` (`decal @glass,...`): the line picks blocks by the glass sound, and NTM
 gives it to `vinyl_tile_large/small` (plastic floor) and `tile_lab*` (ceramic tiles), so a shot leaves a glass

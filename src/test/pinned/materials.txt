@@ -1235,7 +1235,7 @@ minecraft:bamboo_stairs WOOD TAG 1.0/3f800000
 minecraft:bamboo_trapdoor WOOD TAG 1.0/3f800000
 minecraft:bamboo_wall_hanging_sign WOOD SOUND 1.0/3f800000
 minecraft:bamboo_wall_sign NONE NO_COLLISION 1.0/3f800000
-minecraft:barrel MACHINE CLASS 0.6454972/3f253f4e
+minecraft:barrel WOOD SOUND 1.0/3f800000
 minecraft:barrier UNBREAKABLE UNBREAKABLE 1.0/3f800000
 minecraft:basalt STONE NAME 0.83666/3f562f5a
 minecraft:beacon MACHINE RULE 0.70710677/3f3504f3
@@ -1343,7 +1343,7 @@ minecraft:candle SOFT TOOL 1.0/3f800000
 minecraft:candle_cake SOFT SOUND 1.0/3f800000
 minecraft:carrots NONE NO_COLLISION 1.0/3f800000
 minecraft:cartography_table WOOD SOUND 1.0/3f800000
-minecraft:carved_pumpkin MACHINE CLASS 0.5/3f000000
+minecraft:carved_pumpkin WOOD SOUND 1.0/3f800000
 minecraft:cauldron METAL NAME 0.57735026/3f13cd3a
 minecraft:cave_air NONE NO_COLLISION 1.0/3f800000
 minecraft:cave_vines NONE NO_COLLISION 1.0/3f800000
@@ -1384,7 +1384,7 @@ minecraft:chiseled_sulfur STONE TOOL 1.0/3f800000
 minecraft:chiseled_tuff STONE STONE_SOUND 1.0/3f800000
 minecraft:chiseled_tuff_bricks STONE NAME 1.0/3f800000
 minecraft:chorus_flower WOOD SOUND 1.0/3f800000
-minecraft:chorus_plant MACHINE CLASS 0.5/3f000000
+minecraft:chorus_plant WOOD SOUND 1.0/3f800000
 minecraft:cinnabar STONE TOOL 1.0/3f800000
 minecraft:cinnabar_brick_slab STONE NAME 1.0/3f800000
 minecraft:cinnabar_brick_stairs STONE NAME 1.0/3f800000
@@ -1668,7 +1668,7 @@ minecraft:iron_chain METAL SOUND 1.0/3f800000
 minecraft:iron_door METAL SOUND 0.91287094/3f69b1e9
 minecraft:iron_ore STONE NAME 0.70710677/3f3504f3
 minecraft:iron_trapdoor METAL SOUND 0.91287094/3f69b1e9
-minecraft:jack_o_lantern MACHINE CLASS 0.5/3f000000
+minecraft:jack_o_lantern WOOD SOUND 1.0/3f800000
 minecraft:jigsaw UNBREAKABLE UNBREAKABLE 1.0/3f800000
 minecraft:jukebox WOOD SOUND 1.0/3f800000
 minecraft:jungle_button NONE NO_COLLISION 1.0/3f800000
@@ -2014,7 +2014,7 @@ minecraft:prismarine_bricks STONE NAME 1.0/3f800000
 minecraft:prismarine_slab STONE STONE_SOUND 1.0/3f800000
 minecraft:prismarine_stairs STONE STONE_SOUND 1.0/3f800000
 minecraft:prismarine_wall STONE STONE_SOUND 1.0/3f800000
-minecraft:pumpkin MACHINE CLASS 0.5/3f000000
+minecraft:pumpkin WOOD SOUND 1.0/3f800000
 minecraft:pumpkin_stem NONE NO_COLLISION 1.0/3f800000
 minecraft:purple_banner NONE NO_COLLISION 1.0/3f800000
 minecraft:purple_bed WOOD SOUND 1.0/3f800000
