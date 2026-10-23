@@ -133,7 +133,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 2px 0; width: 100%; }
     <div class="lede">
       <span class="label">NTM-NEXT Reimagined Arms · текстуры попаданий</span>
       <h1>Полигон декалей</h1>
-      <p>В мод идут все стили: какой из них ляжет на блок, решает материал блока (таблица под стеной). Вместо «Пробоины» на металле и дереве остаются старые дырки. Все текстуры только чёрные с прозрачностью, поэтому подходят к любому блоку.</p>
+      <p>В мод идут все стили: какой из них ляжет на блок, решает материал блока (таблица под стеной). Вместо «Пробоины» на металле и дереве остаются старые дырки. Дырка берёт цвет блока, в который попала (на меди медная), а самая тёмная середина остаётся чёрной. В мод уходит по 64 варианта каждого стиля.</p>
     </div>
     <div class="actions">
       <button id="btn-zip" type="button">Скачать ZIP</button>
@@ -151,6 +151,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 2px 0; width: 100%; }
         </div>
         <div class="seg" role="group" aria-label="Материал стены" id="wall-mat"></div>
         <button type="button" id="btn-shuffle">Перестрелять</button>
+        <label class="dial" for="tint" style="min-width:200px"><span class="dial-top"><span>Окраска под блок</span><output id="tint-out"></output></span><input type="range" id="tint" min="0" max="1" step="0.01"></label>
       </div>
     </div>
     <canvas class="wall" id="wall" width="1024" height="512"></canvas>
@@ -609,9 +610,9 @@ const STYLES = {
 };
 
 const COMMON = {
-  hole: [["size", "Размер PNG", [16, 32, 64], 32], ["pixel", "Пиксели", [0, 8, 10, 12, 16, 24], 0], ["steps", "Ступени (с пикселями)", 2, 8, 1, 4], ["shade", "Светотень", [0, 1], 0], ["opacity", "Непрозрачность", 0.3, 1.5, 0.01, 1], ["seed", "Зерно случая", 1, 999, 1, 7]],
-  scratch: [["size", "Размер PNG", [32, 64], 64], ["pixel", "Пиксели", [0, 12, 16, 20, 24, 32], 0], ["steps", "Ступени (с пикселями)", 2, 8, 1, 3], ["shade", "Светотень", [0, 1], 0], ["opacity", "Непрозрачность", 0.3, 1.5, 0.01, 1], ["seed", "Зерно случая", 1, 999, 1, 3]],
-  scorch: [["size", "Размер PNG", [32, 64, 128], 64], ["pixel", "Пиксели", [0, 12, 16, 20, 24, 32], 0], ["steps", "Ступени (с пикселями)", 2, 8, 1, 4], ["shade", "Светотень", [0, 1], 0], ["opacity", "Непрозрачность", 0.3, 1.5, 0.01, 1], ["seed", "Зерно случая", 1, 999, 1, 5]],
+  hole: [["size", "Размер PNG", [16, 32, 64], 32], ["pixel", "Пиксели", [0, 8, 10, 12, 16, 24], 0], ["steps", "Ступени (с пикселями)", 2, 8, 1, 4], ["shade", "Светотень", [0, 1], 0], ["opacity", "Непрозрачность", 0.3, 1.5, 0.01, 1], ["seed", "Зерно случая", 1, 999, 1, 7], ["core", "Чёрная середина", 0, 1, 0.01, 0.8]],
+  scratch: [["size", "Размер PNG", [32, 64], 64], ["pixel", "Пиксели", [0, 12, 16, 20, 24, 32], 0], ["steps", "Ступени (с пикселями)", 2, 8, 1, 3], ["shade", "Светотень", [0, 1], 0], ["opacity", "Непрозрачность", 0.3, 1.5, 0.01, 1], ["seed", "Зерно случая", 1, 999, 1, 3], ["core", "Чёрная середина", 0, 1, 0.01, 0.8]],
+  scorch: [["size", "Размер PNG", [32, 64, 128], 64], ["pixel", "Пиксели", [0, 12, 16, 20, 24, 32], 0], ["steps", "Ступени (с пикселями)", 2, 8, 1, 4], ["shade", "Светотень", [0, 1], 0], ["opacity", "Непрозрачность", 0.3, 1.5, 0.01, 1], ["seed", "Зерно случая", 1, 999, 1, 5], ["core", "Чёрная середина", 0, 1, 0.01, 0.8]],
 };
 // how much of a block one decal covers in game (Config holeSize 0.28, scratch x1.4 shown 1.41x zoomed, scorchSize 0.9)
 const COVER = { hole: 0.28, scratch: 0.28 * 1.4 / 1.4142, scorch: 0.9 };
@@ -650,7 +651,7 @@ const HINTS = {
 /* ------------------------------------------------------------------ state */
 const KEY = "ntm-decals-v3";   // kept: the viewer's own tweaks survive this version
 function defaults() {
-  const st = { tab: "hole", set: "new", wallMat: "stone", bg: "check", variant: 0, cats: {} };
+  const st = { tab: "hole", set: "new", wallMat: "stone", bg: "check", variant: 0, tint: 0.5, cats: {} };
   for (const c in CATS) {
     const cs = { style: CATS[c].def, common: {}, styles: {} };
     for (const d of COMMON[c]) cs.common[d[0]] = d[d.length - 1];
@@ -671,6 +672,7 @@ function load() {
         for (const sk in st.cats[c].styles) Object.assign(st.cats[c].styles[sk], pick(sc.styles && sc.styles[sk], st.cats[c].styles[sk]));
       }
       for (const k of ["tab", "set", "wallMat", "bg"]) if (typeof saved[k] === "string") st[k] = saved[k];
+      if (typeof saved.tint === "number") st.tint = saved.tint;
     }
   } catch (e) { /* storage unavailable: defaults */ }
   return st;
@@ -712,15 +714,48 @@ function renderTexture(cat, styleKey, P, common, seed) {
       const gi = Math.floor(i * grid / size), gj = Math.floor(j * grid / size), k = gj * grid + gi;
       const a = clamp(alp[k] * op, 0, 1);
       const l = alp[k] > 1e-5 ? lum[k] / alp[k] : 0;
-      // black only, as the mod's textures: a lit wall is simply less dark, so one texture suits every block
+      // alpha: how dark; grey: how much of the block's colour shows there (the game multiplies it by that colour)
       let dark = clamp(a * (1 - l), 0, 1);
       if (levels) dark = Math.round(dark * levels) / levels;
-      const o = (j * size + i) * 4;
-      d[o] = 0; d[o + 1] = 0; d[o + 2] = 0; d[o + 3] = dark * 255;
+      const o = (j * size + i) * 4, w = Math.round(tintShare(dark, common.core) * 255);
+      d[o] = w; d[o + 1] = w; d[o + 2] = w; d[o + 3] = dark * 255;
     }
   }
   return img;
 }
+// how much of the block's colour a mark's pixel shows, by its darkness: none in the darkest middle (by "core"), all
+// round it. The same formula is in render.js
+function tintShare(dark, core) { return 1 - (core === undefined ? 0.8 : core) * Math.pow(dark, 4); }
+// a mark as the game shows it on a block of colour rgb: its pixels that colour, by the tint dial, the darkest black
+const TINTED = new WeakMap();
+function tinted(img, rgb, core) {
+  if (!img) return img;
+  const key = rgb.join(",") + "|" + S.tint + "|" + core;
+  let m = TINTED.get(img); if (!m) TINTED.set(img, m = new Map());
+  if (m.has(key)) return m.get(key);
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const ctx = c.getContext("2d"); ctx.drawImage(img, 0, 0);
+  const id = ctx.getImageData(0, 0, w, h), d = id.data;
+  for (let o = 0; o < d.length; o += 4) {
+    const k = tintShare(d[o + 3] / 255, core) * S.tint;
+    d[o] = rgb[0] * k; d[o + 1] = rgb[1] * k; d[o + 2] = rgb[2] * k;
+  }
+  ctx.putImageData(id, 0, 0);
+  if (m.size > 40) m.clear();
+  m.set(key, c);
+  return c;
+}
+// the mean colour of a background (a block, or the chequer), as the mod takes a block's crumbs' colour
+const MEAN = {};
+function bgMean(kind) {
+  if (MEAN[kind]) return MEAN[kind];
+  if (kind === "check") return (MEAN[kind] = [150, 150, 150]);
+  const d = blockTex(kind, 0).getContext("2d").getImageData(0, 0, 16, 16).data, sum = [0, 0, 0];
+  for (let o = 0; o < d.length; o += 4) for (let i = 0; i < 3; i++) sum[i] += d[o + i];
+  return (MEAN[kind] = sum.map(v => v / 256));
+}
+const coreOf = (cat) => S.cats[cat].common.core;
 function toCanvas(img) { const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; c.getContext("2d").putImageData(img, 0, 0); return c; }
 
 const OUT = { hole: [], scratch: [], scorch: [] };   // generated canvases
@@ -795,9 +830,12 @@ function drawWall() {
   const useOld = S.set === "old";
   const R = rng(wallSeed * 9973);
   const rule = RULES[S.wallMat];
-  const holes = (useOld || rule.hole === "old" ? CATS.hole.files.map(f => OLD[f]) : styleTex("hole", rule.hole)).filter(Boolean);
-  const scratch = useOld ? OLD.scratch : styleTex("scratch", rule.scratch)[0];
-  const scorch = useOld ? OLD.scorch : styleTex("scorch", rule.scorch)[0];
+  // "Сейчас": the mod's black textures as they are; new: tinted by the wall's colour, as the game does
+  const mean = bgMean(S.wallMat);
+  const tw = (img, cat) => useOld ? img : tinted(img, mean, coreOf(cat));
+  const holes = (useOld || rule.hole === "old" ? CATS.hole.files.map(f => OLD[f]) : styleTex("hole", rule.hole)).filter(Boolean).map(i => tw(i, "hole"));
+  const scratch = tw(useOld ? OLD.scratch : styleTex("scratch", rule.scratch)[0], "scratch");
+  const scorch = tw(useOld ? OLD.scorch : styleTex("scorch", rule.scorch)[0], "scorch");
   const cap = $("wall-caption");
   if (cap) cap.textContent = useOld ? "Сейчас в моде: одни и те же текстуры на любом блоке."
     : MATS[S.wallMat].label + ": пули · " + styleLabel("hole", rule.hole) + ", рикошет · " + styleLabel("scratch", rule.scratch) + ", взрывные · " + styleLabel("scorch", rule.scorch) + ". Блоки по 16 пикселей, как в Minecraft.";
@@ -845,10 +883,11 @@ function drawBg(ctx, w, h, kind) {
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { ctx.fillStyle = (x + y) % 2 ? a : b; ctx.fillRect(x * q, y * q, q, q); }
   } else ctx.drawImage(blockTex(kind, 0), 0, 0, w, h);
 }
-function drawPreview(id, img, isScratch) {
+function drawPreview(id, img, isScratch, cat) {
   const cv = $(id), ctx = cv.getContext("2d");
   ctx.clearRect(0, 0, cv.width, cv.height);
   drawBg(ctx, cv.width, cv.height, S.bg);
+  if (img && cat) img = tinted(img, bgMean(S.bg), coreOf(cat));
   if (img) { ctx.imageSmoothingEnabled = false; ctx.drawImage(img, 0, 0, cv.width, cv.height); }
   if (isScratch) {
     // what the game can show: the circle every turned square stays inside
@@ -878,7 +917,7 @@ function renderStyles() {
     const ctx = cv.getContext("2d"); drawBg(ctx, 64, 64, S.bg);
     const P = cs.styles[sk];
     const img = renderTexture(cat, sk, P, Object.assign({}, cs.common, { size: 64 }), seedFor(cat, 0));
-    ctx.imageSmoothingEnabled = false; ctx.drawImage(toCanvas(img), 0, 0);
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(tinted(toCanvas(img), bgMean(S.bg), cs.common.core), 0, 0);
     const t = document.createElement("b"); t.textContent = st.label;
     const d = document.createElement("span"); d.textContent = st.blurb;
     const on = usedOn(cat, sk);
@@ -904,16 +943,16 @@ function renderPreviews() {
   const cat = S.tab, out = OUT[cat], files = CATS[cat].files;
   const i = Math.min(S.variant, files.length - 1);
   drawPreview("cmp-old", OLD[files[i]], cat === "scratch");
-  drawPreview("cmp-new", out[i], cat === "scratch");
+  drawPreview("cmp-new", out[i], cat === "scratch", cat);
   $("cmp-old-cap").textContent = "Сейчас · " + files[i] + ".png";
   $("cmp-new-cap").textContent = "Новая · " + S.cats[cat].common.size + "×" + S.cats[cat].common.size;
   const v = $("variants"); v.textContent = "";
   if (cat === "hole") {
-    v.className = "variants"; $("variants-title").textContent = "8 вариантов · нажми, чтобы рассмотреть";
+    v.className = "variants"; $("variants-title").textContent = "8 из 64 вариантов · нажми, чтобы рассмотреть";
     out.forEach((c, k) => {
       const cv = document.createElement("canvas"); cv.width = cv.height = 64; cv.setAttribute("aria-pressed", String(k === i)); cv.setAttribute("role", "button"); cv.tabIndex = 0;
       cv.setAttribute("aria-label", files[k]);
-      const ctx = cv.getContext("2d"); drawBg(ctx, 64, 64, S.bg); ctx.imageSmoothingEnabled = false; ctx.drawImage(c, 0, 0, 64, 64);
+      const ctx = cv.getContext("2d"); drawBg(ctx, 64, 64, S.bg); ctx.imageSmoothingEnabled = false; ctx.drawImage(tinted(c, bgMean(S.bg), coreOf(cat)), 0, 0, 64, 64);
       const go = () => { S.variant = k; renderPreviews(); };
       cv.onclick = go; cv.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
       v.append(cv);
@@ -923,7 +962,7 @@ function renderPreviews() {
     [0, 35, 120, 250].forEach(deg => {
       const cv = document.createElement("canvas"); cv.width = cv.height = 96;
       const ctx = cv.getContext("2d"); drawBg(ctx, 96, 96, S.bg); ctx.imageSmoothingEnabled = false;
-      if (out[0]) drawRot(ctx, out[0], 48, 48, 96, deg * Math.PI / 180, true);
+      if (out[0]) drawRot(ctx, tinted(out[0], bgMean(S.bg), coreOf(cat)), 48, 48, 96, deg * Math.PI / 180, true);
       v.append(cv);
     });
   } else {
@@ -931,7 +970,7 @@ function renderPreviews() {
     ["stone", "planks", "iron", "dirt"].forEach(m => {
       const cv = document.createElement("canvas"); cv.width = cv.height = 96;
       const ctx = cv.getContext("2d"); drawBg(ctx, 96, 96, m); ctx.imageSmoothingEnabled = false;
-      if (out[0]) ctx.drawImage(out[0], 0, 0, 96, 96);
+      if (out[0]) ctx.drawImage(tinted(out[0], bgMean(m), coreOf(cat)), 0, 0, 96, 96);
       v.append(cv);
     });
   }
@@ -985,9 +1024,8 @@ function fmt(v, step) { return step >= 1 ? String(Math.round(v)) : v.toFixed(ste
 function renderFiles() {
   const el = $("files"); el.textContent = "";
   for (const c in CATS) for (const sk in STYLES[c]) {
-    const fs = modFiles(c, sk);
     const code = document.createElement("code");
-    code.textContent = (fs.length > 1 ? CATS[c].prefix + sk + "_0–" + (fs.length - 1) : fs[0]) + ".png " + S.cats[c].common.size + "px";
+    code.textContent = CATS[c].prefix + sk + ".png · 64 варианта по " + S.cats[c].common.size + "px";
     el.append(code);
   }
 }
@@ -1059,7 +1097,7 @@ async function allFiles(progress) {
   return out;
 }
 function settingsJson() {
-  const o = { app: "ntm-gunfeel decals", version: 2, rules: Object.assign({}, RULES, { other: OTHER }) };
+  const o = { app: "ntm-gunfeel decals", version: 3, tint: S.tint, rules: Object.assign({}, RULES, { other: OTHER }) };
   for (const c in CATS) { const cs = S.cats[c]; o[c] = { common: cs.common, styles: cs.styles }; }
   return JSON.stringify(o, null, 2);
 }
@@ -1129,6 +1167,13 @@ function start() {
   renderTabs(); renderWallControls(); renderBench(); drawWall();
   for (const c in CATS) generate(c);
   $("btn-shuffle").onclick = () => { wallSeed++; drawWall(); };
+  // the mod's holeTint: 0 = black marks as before, 1 = the block's full colour
+  const tint = $("tint"); tint.value = S.tint; $("tint-out").textContent = S.tint.toFixed(2);
+  let tintTimer = 0;
+  tint.oninput = () => {
+    S.tint = Number(tint.value); $("tint-out").textContent = S.tint.toFixed(2); save();
+    drawWall(); clearTimeout(tintTimer); tintTimer = setTimeout(renderBench, 120);
+  };
   $("btn-zip").onclick = doZip; $("btn-zip2").onclick = doZip;
   $("btn-send").onclick = doSend; $("btn-send2").onclick = doSend;
   $("btn-copy").onclick = doCopy;
