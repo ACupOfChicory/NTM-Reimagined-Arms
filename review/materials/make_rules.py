@@ -43,7 +43,7 @@ for k in sorted(review):
         continue
     lines[m].append(k)
 
-ORDER = ["NONE", "GLASS", "REINFORCED_GLASS", "LAMINATE", "WOOD", "SOFT", "STONE", "CONCRETE", "METAL", "STEEL",
+ORDER = ["NONE", "GLASS", "TOUGH_GLASS", "REINFORCED_GLASS", "LAMINATE", "WOOD", "SOFT", "STONE", "CONCRETE", "METAL", "STEEL",
          "MACHINE", "UNBREAKABLE"]
 WHAT = {
     "NONE": "flown through: thin, hollow or not there for a bullet",

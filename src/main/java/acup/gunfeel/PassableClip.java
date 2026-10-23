@@ -8,6 +8,10 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import org.jspecify.annotations.Nullable;
+
+import com.hbm.items.weapon.sedna.BulletConfig;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -108,7 +112,7 @@ public final class PassableClip extends ClipContext {
 
     // a bullet that pierces the block it hit (bullet rules "pierce"): where it comes out of the block's shape, going
     // along `dir` (unit), as a hit on that far face from outside; null when its shape gives no way out
-    public static @org.jspecify.annotations.Nullable BlockHitResult exit(Level level, BlockHitResult in, Vec3 dir) {
+    public static @Nullable BlockHitResult exit(Level level, BlockHitResult in, Vec3 dir) {
         BlockPos pos = in.getBlockPos();
         BlockState state = level.getBlockState(pos);
         VoxelShape shape = state.getCollisionShape(level, pos);
@@ -119,13 +123,21 @@ public final class PassableClip extends ClipContext {
         return out == null || out.isInside() ? null : out;
     }
 
-    // the block a bullet hit, and its rule when the bullet pierces it with this much damage: the damage left, else -1
-    public static float pierced(Level level, BlockHitResult in, float damage) {
+    // a bullet with this much damage goes into the block at `in` and would come out at `out` (exit()): the damage
+    // left, else -1 (it stops in it). A break rule with pierce= says it; else the block's material (Materials, as
+    // NTM's armour: its threshold and resistance over the path's length), against the round's threshold negation
+    // and armour piercing. Less than 1 left stops it.
+    public static float pierced(Level level, BlockHitResult in, BlockHitResult out, float damage,
+            @Nullable BulletConfig round) {
         BlockState state = level.getBlockState(in.getBlockPos());
-        if (state.isAir()) return -1F;
+        if (state.isAir() || !(damage >= 1F)) return -1F;
         BulletRules.Break rule = BulletRules.breakRule(state);
-        if (rule == null) return -1F;
-        return rule.pierced(damage, state.getDestroySpeed(level, in.getBlockPos()));
+        if (rule != null && rule.pierce() > 0F) return rule.pierced(damage, state.getDestroySpeed(level, in.getBlockPos()));
+        Materials.Verdict v = BulletRules.material(state);
+        float negation = round == null ? 0F : round.armorThresholdNegation;
+        float piercing = round == null ? 0F : round.armorPiercingPercent;
+        float left = Materials.left(v, in.getLocation().distanceTo(out.getLocation()), damage, negation, piercing);
+        return left >= 1F ? left : -1F;
     }
 
     private static String side(Level level) {

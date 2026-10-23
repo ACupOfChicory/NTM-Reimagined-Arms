@@ -83,11 +83,16 @@ public final class BulletRules {
         long now = System.currentTimeMillis();
         if (!builtinRead) {
             builtinRead = true;
-            try (var in = BulletRules.class.getResourceAsStream("/ntmgunfeel-bullets.txt")) {
-                if (in != null) builtin = parse(new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)).lines().toList());
-            } catch (Exception e) {
-                LOGGER.warn("Could not read the built-in bullet rules", e);
+            // the block review's materials first: the mod's bullet rules, then the config's, come after and win
+            List<Rule> mine = new ArrayList<>();
+            for (String name : List.of("/ntmgunfeel-materials.txt", "/ntmgunfeel-bullets.txt")) {
+                try (var in = BulletRules.class.getResourceAsStream(name)) {
+                    if (in != null) mine.addAll(parse(new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)).lines().toList()));
+                } catch (Exception e) {
+                    LOGGER.warn("Could not read the built-in bullet rules {}", name, e);
+                }
             }
+            builtin = mine;
             stamp = Long.MIN_VALUE + 1;
             lastPoll = 0;
         }
@@ -106,6 +111,8 @@ public final class BulletRules {
                     HITS.clear();
                     RICOCHETS.clear();
                     DECALS.clear();
+                    MATERIALS.clear();
+                    materialRules = null;
                 }
             } catch (Exception e) {
                 if (rules.isEmpty()) rules = builtin;
@@ -269,6 +276,35 @@ public final class BulletRules {
         return out;
     }
 
+    private static final Map<BlockState, Materials.Verdict> MATERIALS = new java.util.IdentityHashMap<>();
+    private static @Nullable List<Materials.Rule> materialRules;
+
+    // what a bullet meets in this block, for piercing it: its material by the "material" lines, else as Materials
+    // works it out from the block; once per block state (the rules' reload starts over)
+    public static synchronized Materials.Verdict material(BlockState state) {
+        List<Rule> all = rules();
+        Materials.Verdict known = MATERIALS.get(state);
+        if (known != null) return known;
+        if (materialRules == null) {
+            List<Materials.Rule> m = new ArrayList<>();
+            for (Rule r : all) {
+                if (!r.kind().equals("material") || r.words().length == 0) continue;
+                Materials.Material mat = Materials.Material.named(r.words()[0]);
+                if (mat != null) m.add(new Materials.Rule(List.copyOf(r.selectors()), mat));
+            }
+            materialRules = m;
+        }
+        Materials.Verdict v;
+        try {
+            v = Materials.classify(BlockFactsOf.of(state), materialRules);
+        } catch (RuntimeException e) {
+            // a block that can't tell its facts: stops bullets, as before materials
+            v = new Materials.Verdict(Materials.Material.UNBREAKABLE, 1F, Materials.Source.UNBREAKABLE, "no facts");
+        }
+        MATERIALS.put(state, v);
+        return v;
+    }
+
     private static float number(@Nullable String text, float or) {
         if (text == null) return or;
         try {
@@ -404,6 +440,9 @@ public final class BulletRules {
             #   blocks (claims, spawn protection). pierce=<x>: a bullet goes through the block (a hole where it goes in and
             #   where it comes out) keeping k (default 1) of its damage less x times the block's hardness; one left with
             #   less than 1 damage stops in it. Its damage still counts towards breaking the block.
+            # material <blocks> none | glass | tough_glass | reinforced_glass | laminate | wood | soft | stone | concrete | metal | steel | machine | unbreakable
+            #   what a bullet meets in the block when it pierces it (metal = soft metals, machine = a hollow steel casing);
+            #   without a line the mod works it out from the block. A block with a break line's pierce= uses that instead
             # hit <blocks> [particles=<p>*<n>,...] [sound=<id>[/volume[/pitch]]] [range=<blocks>]   (each player's own game)
             #   particle: block (the hit block's crumbs), block:<id> (that block's crumbs), a particle id
             #   (minecraft:smoke); sound: block (the hit block's own hit sound), a sound id; none = nothing;

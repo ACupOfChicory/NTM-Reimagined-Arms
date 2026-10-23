@@ -35,6 +35,9 @@ public final class Materials {
         // all pistols. Laminate: the pane stops all but the strong rounds (.50, rifle AP), the block all but the
         // very strongest (.50 saboted)
         REINFORCED_GLASS(30F, 0.6F, 0F, 0.5F),
+        // NTM's special glass (boron, lead, uranium...): tougher than a window, far from wired glass; the block stops
+        // the weak pistols
+        TOUGH_GLASS(8F, 0.3F, 0F),
         LAMINATE(100F, 0.9F, 0F, 0.5F),
         WOOD(3F, 0.2F, 0F),
         SOFT(12F, 0.6F, 0F),

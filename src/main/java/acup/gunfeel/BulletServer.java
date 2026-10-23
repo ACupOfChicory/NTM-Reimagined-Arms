@@ -104,7 +104,7 @@ public final class BulletServer {
         wear(level, bullet, pos, state, rule);
     }
 
-    // the bullet's path this tick through blocks, piercing those whose rule says "pierce" while it has the damage:
+    // the bullet's path this tick through blocks, piercing them while it has the damage (PassableClip.pierced):
     // each one pierced takes its share of the damage (and counts towards breaking it). `paid` = blocks it already
     // pierced (one it ended a tick inside of is not paid for again). The first block that stops it, else a miss at `to`.
     public static BlockHitResult clip(EntityBulletBaseMK4 bullet, Level level, Vec3 from, Vec3 to, java.util.Set<BlockPos> paid) {
@@ -121,10 +121,10 @@ public final class BulletServer {
             Vec3 dir = d.scale(1.0 / len);
             BlockPos pos = hit.getBlockPos().immutable();
             boolean known = paid.contains(pos);
-            float left = known ? bullet.damage : PassableClip.pierced(level, hit, bullet.damage);
-            if (left < 0F) return hit;
             BlockHitResult out = PassableClip.exit(level, hit, dir);
             if (out == null) return hit;
+            float left = known ? bullet.damage : PassableClip.pierced(level, hit, out, bullet.damage, bullet.config);
+            if (left < 0F) return hit;
             if (!known) {
                 paid.add(pos);
                 if (level instanceof ServerLevel server) {

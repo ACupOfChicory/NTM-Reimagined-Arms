@@ -513,7 +513,7 @@ public final class Tracers {
                 }
             }
         }
-        // blocks it pierces (bullet rules "pierce", as the server has it): a hole where it goes in and where it comes out
+        // blocks it pierces (PassableClip.pierced, as the server has it): a hole where it goes in and where it comes out
         Vec3 at = ra;
         BlockHitResult block = PassableClip.clip(level, at, rb, through::add);
         for (int i = 0; i < 16 && len > 1e-6 && block.getType() != HitResult.Type.MISS; i++) {
@@ -522,10 +522,10 @@ public final class Tracers {
             BlockPos pos = block.getBlockPos().immutable();
             if (s.config.onImpact != null) break; // explosive: goes off on the first block
             boolean known = s.pierced.contains(pos);
-            float left = known ? s.damage : PassableClip.pierced(level, block, s.damage);
-            if (left < 0F) break;
             BlockHitResult out = PassableClip.exit(level, block, unit);
             if (out == null) break;
+            float left = known ? s.damage : PassableClip.pierced(level, block, out, s.damage, s.config);
+            if (left < 0F) break;
             if (!known) {
                 s.pierced.add(pos);
                 s.damage = left;
