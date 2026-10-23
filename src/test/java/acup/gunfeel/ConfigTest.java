@@ -24,6 +24,75 @@ class ConfigTest {
         apply(builtin());
     }
 
+    // ---------------------------------------------------------------- quality presets
+
+    static Properties file(String... kv) {
+        Properties p = new Properties();
+        p.putAll(builtin());
+        for (int i = 0; i < kv.length; i += 2) p.setProperty(kv[i], kv[i + 1]);
+        return p;
+    }
+
+    @Test
+    void presetSetsWhatThePlayerLeftAlone() {
+        // the file as the game writes it: every key at its default, then quality changed
+        Properties p = Config.layered(builtin(), file("quality", "low"));
+        assertEquals("100", p.getProperty("holeMax"));
+        assertEquals("30", p.getProperty("holeMaxMachines"));
+        assertEquals("10", p.getProperty("holeLife"));
+        assertEquals("0.25", p.getProperty("particleScale"));
+        Properties r = Config.layered(builtin(), file("quality", "realism"));
+        assertEquals("2500", r.getProperty("holeMax"));
+        assertEquals("750", r.getProperty("holeMaxMachines"));
+        assertEquals("150", r.getProperty("holeLife"));
+        assertEquals("1", r.getProperty("particleScale"));
+    }
+
+    @Test
+    void presetKeepsWhatThePlayerChanged() {
+        Properties p = Config.layered(builtin(), file("quality", "low", "holeMax", "321"));
+        assertEquals("321", p.getProperty("holeMax"));
+        assertEquals("30", p.getProperty("holeMaxMachines"));
+    }
+
+    @Test
+    void highAndUnknownChangeNothing() {
+        for (String q : new String[] {"high", "nonsense", ""}) {
+            Properties p = Config.layered(builtin(), file("quality", q));
+            for (String k : new String[] {"holeMax", "holeMaxMachines", "holeLife", "particleScale"}) {
+                assertEquals(Float.parseFloat(builtin().getProperty(k)), Float.parseFloat(p.getProperty(k)), q + " " + k);
+            }
+        }
+    }
+
+    @Test
+    void realismIsFiveTimesHighButTheParticles() {
+        java.util.Map<String, String> high = Config.PRESETS.get("high"), real = Config.PRESETS.get("realism");
+        for (String k : new String[] {"holeMax", "holeMaxMachines", "holeLife"}) {
+            assertEquals(5 * Float.parseFloat(high.get(k)), Float.parseFloat(real.get(k)), k);
+        }
+        assertEquals(high.get("particleScale"), real.get("particleScale"));
+    }
+
+    @Test
+    void particleShareKeepsTheAverage() {
+        assertEquals(8, Config.scaledCount(8, 1F, 0.99));
+        assertEquals(0, Config.scaledCount(8, 0F, 0.99));
+        long sum = 0;
+        java.util.Random r = new java.util.Random(1);
+        for (int i = 0; i < 100_000; i++) sum += Config.scaledCount(3, 0.25F, r.nextDouble());
+        assertEquals(0.75, sum / 100_000.0, 0.01);
+    }
+
+    @Test
+    void presetsArePinned() {
+        List<String> lines = new ArrayList<>();
+        for (String q : new java.util.TreeSet<>(Config.PRESETS.keySet())) {
+            lines.add(q + " " + new java.util.TreeMap<>(Config.PRESETS.get(q)));
+        }
+        PinnedTest.pin("presets", lines);
+    }
+
     @Test
     void everySettingHasAKey() {
         List<String> missing = new ArrayList<>();

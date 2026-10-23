@@ -16,6 +16,8 @@ public final class Config {
     public static float tracerLength = 8F, tracerWidth = 0.02F, holeLife = 30F, holeSize = 0.28F, scorchSize = 0.9F;
     public static int holeMax = 500;
     public static int holeMaxMachines = 150;
+    public static String quality = "high";
+    public static float particleScale = 1F;
     // blocks whose holes follow only the hitbox, not the texture's see-through pixels ("*" = any letters)
     public static String holeHitboxBlocks = "*glass*";
     // Hip-fire X position of the gun relative to NTM's: 1 = NTM default, 0 = screen centre.
@@ -130,6 +132,9 @@ public final class Config {
               holes are cut to the hitbox and to the block's visible pixels; blocks drawn without a block model
               (machines) get none. holeHitboxBlocks: block ids, comma separated, "*" = any letters, whose holes are
               cut only to the hitbox (glass: its see-through pixels are still glass)
+            quality: low, medium, high or realism: sets holeMax, holeMaxMachines, holeLife and particleScale at once
+              (realism = five times high's holes, kept five times longer); a key changed here by hand keeps its value
+            particleScale: share of the particles of bullet hits, 1 = as the rules say
             hipX: gun X position in hip fire, 1 = NTM default, 0 = centre of the screen
             modelTilt: "pitch,yaw,roll" degrees, the gun turned around its hip-fire position (none when aimed), empty = none
             hipY: gun Y position in hip fire, 1 = NTM default
@@ -220,6 +225,13 @@ public final class Config {
             (hbm\\:gun_maresleg.armRollLeft = -55) or with /gunfeel set <key> <value> for the held gun.
             Hand positions per gun: <gun>.right / <gun>.left there, or /gunfeel grip""";
 
+    // quality presets: keys -> value; high is the built-in defaults
+    static final java.util.Map<String, java.util.Map<String, String>> PRESETS = java.util.Map.of(
+            "low", java.util.Map.of("holeMax", "100", "holeMaxMachines", "30", "holeLife", "10", "particleScale", "0.25"),
+            "medium", java.util.Map.of("holeMax", "250", "holeMaxMachines", "75", "holeLife", "20", "particleScale", "0.5"),
+            "high", java.util.Map.of("holeMax", "500", "holeMaxMachines", "150", "holeLife", "30", "particleScale", "1"),
+            "realism", java.util.Map.of("holeMax", "2500", "holeMaxMachines", "750", "holeLife", "150", "particleScale", "1"));
+
     private static final Properties GLOBAL = new Properties();
     private static final Properties BUILTIN = snapshot();
     private static String selected;
@@ -264,13 +276,41 @@ public final class Config {
         if (java.util.Objects.equals(gun, selected) && v == selectedVersion) return;
         selected = gun;
         selectedVersion = v;
-        Properties p = new Properties();
-        p.putAll(BUILTIN);
-        p.putAll(GLOBAL);
+        Properties p = layered(BUILTIN, GLOBAL);
         boolean on = bool(p, "enabled", true);
         if (gun != null) p.putAll(Grips.overrides(gun));
         apply(p);
         enabled = on;
+    }
+
+    // built-in defaults, the quality preset, then the global file; a preset key the file holds at its built-in value
+    // (the file is written with every key) takes the preset's value, one changed by hand keeps it
+    static Properties layered(Properties builtin, Properties global) {
+        Properties p = new Properties();
+        p.putAll(builtin);
+        p.putAll(global);
+        java.util.Map<String, String> preset = PRESETS.get(p.getProperty("quality", "high").trim().toLowerCase(java.util.Locale.ROOT));
+        if (preset != null) {
+            preset.forEach((k, v) -> {
+                String mine = global.getProperty(k);
+                if (mine == null || same(mine, builtin.getProperty(k))) p.setProperty(k, v);
+            });
+        }
+        return p;
+    }
+
+    private static boolean same(String a, String b) {
+        if (b == null) return false;
+        try {
+            return Float.parseFloat(a.trim()) == Float.parseFloat(b.trim());
+        } catch (NumberFormatException e) {
+            return a.trim().equals(b.trim());
+        }
+    }
+
+    // count particles at share `scale`, rounded up or down at random so the average stays count * scale
+    public static int scaledCount(int count, float scale, double roll) {
+        return (int) Math.floor(count * Math.max(0F, scale) + roll);
     }
 
     public static boolean isKey(String key) {
@@ -302,6 +342,8 @@ public final class Config {
         scorchSize = num(p, "scorchSize", scorchSize);
         holeMax = Math.round(num(p, "holeMax", holeMax));
         holeMaxMachines = Math.round(num(p, "holeMaxMachines", holeMaxMachines));
+        quality = p.getProperty("quality", quality).trim();
+        particleScale = num(p, "particleScale", particleScale);
         holeHitboxBlocks = p.getProperty("holeHitboxBlocks", holeHitboxBlocks).trim();
         modelTilt = p.getProperty("modelTilt", modelTilt).trim();
         hipY = num(p, "hipY", hipY);
@@ -413,6 +455,8 @@ public final class Config {
         p.setProperty("scorchSize", Float.toString(scorchSize));
         p.setProperty("holeMax", Integer.toString(holeMax));
         p.setProperty("holeMaxMachines", Integer.toString(holeMaxMachines));
+        p.setProperty("quality", quality);
+        p.setProperty("particleScale", Float.toString(particleScale));
         p.setProperty("holeHitboxBlocks", holeHitboxBlocks);
         p.setProperty("modelTilt", modelTilt);
         p.setProperty("hipY", Float.toString(hipY));

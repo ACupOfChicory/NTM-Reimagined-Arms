@@ -119,6 +119,7 @@ public final class BulletFx {
         // model; the sound stays
         boolean full = state.isCollisionShapeFullBlock(level, hit.getBlockPos());
         for (BulletRules.Particle part : full ? fx.particles() : java.util.List.<BulletRules.Particle>of()) {
+            int count = Config.scaledCount(part.count(), Config.particleScale, r.nextDouble());
             if (part.id().equalsIgnoreCase("block") && byRenderer) {
                 if (!looked) {
                     looked = true;
@@ -128,14 +129,14 @@ public final class BulletFx {
                     // no drawn model there: the block's own crumbs after all (no texture for them: steel-grey ones)
                     ParticleOptions o = BulletServer.particle("block", noParticleTexture(state)
                             ? net.minecraft.world.level.block.Blocks.IRON_BLOCK.defaultBlockState() : state);
-                    for (int i = 0; o != null && i < part.count(); i++) {
+                    for (int i = 0; o != null && i < count; i++) {
                         double sp = 0.05 + r.nextDouble() * 0.15;
                         level.addParticle(o, p0.x, p0.y, p0.z, (out.x + r.nextGaussian() * 0.35) * sp, (out.y + r.nextGaussian() * 0.35) * sp + 0.03,
                                 (out.z + r.nextGaussian() * 0.35) * sp);
                     }
                 }
                 if (drawn != null) {
-                    for (int i = 0; i < part.count(); i++) {
+                    for (int i = 0; i < count; i++) {
                         double sp = 0.05 + r.nextDouble() * 0.15;
                         drawn.spawn(level, p0, (out.x + r.nextGaussian() * 0.35) * sp, (out.y + r.nextGaussian() * 0.35) * sp + 0.03,
                                 (out.z + r.nextGaussian() * 0.35) * sp);
@@ -145,7 +146,7 @@ public final class BulletFx {
             }
             ParticleOptions o = BulletServer.particle(part.id(), state);
             if (o == null) continue;
-            for (int i = 0; i < part.count(); i++) {
+            for (int i = 0; i < count; i++) {
                 double sp = 0.05 + r.nextDouble() * 0.15;
                 level.addParticle(o, p0.x, p0.y, p0.z, (out.x + r.nextGaussian() * 0.35) * sp, (out.y + r.nextGaussian() * 0.35) * sp + 0.03,
                         (out.z + r.nextGaussian() * 0.35) * sp);

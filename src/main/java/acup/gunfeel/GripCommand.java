@@ -73,6 +73,27 @@ public final class GripCommand {
                     c.getSource().sendSuccess(() -> Component.literal("Громкость попаданий: " + v + (v > 1F ? " (звук накладывается " + (int) Math.ceil(v - 1e-3F) + " раза)" : "")), false);
                     return 1;
                 })))
+                .then(Commands.literal("quality").executes(c -> {
+                    c.getSource().sendSuccess(() -> Component.literal("Качество: " + Config.quality
+                            + " (low, medium, high, realism). /gunfeel quality <пресет>"), false);
+                    return 1;
+                }).then(Commands.argument("preset", StringArgumentType.word())
+                        .suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(new java.util.TreeSet<>(Config.PRESETS.keySet()), b))
+                        .executes(c -> {
+                    String q = StringArgumentType.getString(c, "preset").toLowerCase(java.util.Locale.ROOT);
+                    if (!Config.PRESETS.containsKey(q)) {
+                        c.getSource().sendFailure(Component.literal("Нет такого пресета: " + q + " (low, medium, high, realism)"));
+                        return 0;
+                    }
+                    try {
+                        Config.setInFile("quality", q);
+                    } catch (java.io.IOException e) {
+                        c.getSource().sendFailure(Component.literal("Не записалось в конфиг: " + e.getMessage()));
+                        return 0;
+                    }
+                    c.getSource().sendSuccess(() -> Component.literal("Качество: " + q + " (дырки, их время и частицы; настройки, изменённые вручную, остаются)"), false);
+                    return 1;
+                })))
                 .then(Commands.literal("sounddebug").executes(c -> {
                     BulletFx.debugSound = !BulletFx.debugSound;
                     BulletServer.debugRicochet = BulletFx.debugSound; // the built-in server of a single player world

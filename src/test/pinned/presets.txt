@@ -1,0 +1,4 @@
+high {holeLife=30, holeMax=500, holeMaxMachines=150, particleScale=1}
+low {holeLife=10, holeMax=100, holeMaxMachines=30, particleScale=0.25}
+medium {holeLife=20, holeMax=250, holeMaxMachines=75, particleScale=0.5}
+realism {holeLife=150, holeMax=2500, holeMaxMachines=750, particleScale=1}

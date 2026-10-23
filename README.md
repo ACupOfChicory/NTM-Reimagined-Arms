@@ -40,6 +40,17 @@ writes it to its log. On joining a server the chat says when the server's mod or
 `/gunfeel grip right|left <x> <y> <z>`, `/gunfeel grip show`, `/gunfeel grip reset`, `/gunfeel status`
 (z = stock 0 to muzzle 1; x, y across the gun there, y 0 = underside).
 
+Quality presets: `quality = low | medium | high | realism` (or `/gunfeel quality <preset>`) sets the number of bullet
+holes, how long they stay and the share of hit particles at once; `high` is the default, `realism` keeps five times
+high's holes five times longer. A value changed by hand in the file stays as it is.
+
+| | low | medium | high | realism |
+|---|---|---|---|---|
+| `holeMax` | 100 | 250 | 500 | 2500 |
+| `holeMaxMachines` | 30 | 75 | 150 | 750 |
+| `holeLife`, s | 10 | 20 | 30 | 150 |
+| `particleScale` | 0.25 | 0.5 | 1 | 1 |
+
 ## Build
 
 `./gradlew build` (JDK 25) builds the mod into `versions/26.2/build/libs/ntm-gunfeel-<version>.jar` (the version
