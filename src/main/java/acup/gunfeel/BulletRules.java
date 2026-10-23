@@ -196,6 +196,8 @@ public final class BulletRules {
                 if (st != null && state.getSoundType() == st) return true;
             } else if (s.startsWith("%")) {
                 if (id.getNamespace().equals(s.substring(1)) && machineOrPartial(state)) return true;
+            } else if (s.startsWith("$")) {
+                if (material(state).material().name().equalsIgnoreCase(s.substring(1))) return true;
             } else if (idMatches(s, id)) return true;
         }
         return false;
@@ -432,7 +434,8 @@ public final class BulletRules {
             #
             # Who: a block id (minecraft:ice), a tag (#minecraft:leaves), a pattern (~minecraft:.*_glass), a block
             # sound type (@metal, @wood, @glass, @stone, @grass ...), a mod's machines and partial blocks (%hbm: its blocks
-            # with a block entity, drawn by a renderer or not a full cube), * = any; several with commas, no spaces.
+            # with a block entity, drawn by a renderer or not a full cube), a material ($stone, $steel ...: what a bullet
+            # meets in it, as the material lines below decide; not in material lines), * = any; several with commas, no spaces.
             # For entity/kill lines: an entity id, #tag, ~pattern or *.
             #
             # break <blocks> never | instant | hits <n> | damage <x> | hp <x> [drop] [pass] [replace=<block state>] [pierce=<x> [keep=<k>]]
@@ -451,7 +454,7 @@ public final class BulletRules {
             #   (minecraft:smoke); sound: block (the hit block's own hit sound), a sound id; none = nothing;
             #   range: heard over that many blocks, fading out to it (Minecraft's own: 16)
             # ricochet <blocks> yes | no   no: a bullet meeting it at a grazing angle stops in it instead of bouncing off
-            #   (NTM's ricochet); yes (the default) bounces
+            #   (NTM's ricochet); yes (the default) bounces. Built in: no for soft ground, wood and glass
             # decal <blocks> [hole=<style>] [scratch=<style>] [scorch=<style>]   the marks bullets leave on it (each player's
             #   own game): hole = old | spall | shatter | soot, scratch (a ricochet) = gouge | burn | lines, scorch
             #   (explosive and incendiary rounds) = star | blot | crater; each from the last matching line that names it,

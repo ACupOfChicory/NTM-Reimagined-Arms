@@ -248,6 +248,28 @@ class MaterialsTest {
         assertTrue(through(Material.TOUGH_GLASS, pane, REVOLVER_357));
     }
 
+    // "$stone" in a bullet rule picks blocks by material: a typo would match nothing; a material line can't use it
+    // (the material is what that line decides)
+    @Test
+    void materialSelectorsNameMaterials() throws IOException {
+        int seen = 0;
+        for (Path f : RULES) {
+            for (String raw : Files.readAllLines(f, StandardCharsets.UTF_8)) {
+                String line = raw.strip();
+                if (line.isEmpty() || line.startsWith("#")) continue;
+                String[] w = line.split("\\s+");
+                if (w.length < 2) continue;
+                for (String sel : w[1].split(",")) {
+                    if (!sel.startsWith("$")) continue;
+                    seen++;
+                    assertFalse(w[0].equals("material"), "a material line picks by material: " + line);
+                    assertNotNull(Material.named(sel.substring(1)), "no material " + sel + " in: " + line);
+                }
+            }
+        }
+        assertTrue(seen > 0, "no $material selectors in the built-in rules");
+    }
+
     @Test
     void strengthScalesWithBlastResistance() {
         assertEquals(1F, Materials.strength(Material.STONE, 6F), 1e-6F);
