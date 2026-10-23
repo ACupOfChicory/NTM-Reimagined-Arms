@@ -32,7 +32,8 @@ Small: a 2-pixel board of wood takes about 3 damage. Found with the wooden trenc
 the upper one and 5 cm later straight on into the lower one: each block pierced got a hole where the bullet went in
 and where it came out, the two on the face between them (not drawn) spilling onto the faces around. Fixed in X267:
 no hole, sound or particles on a face pressed against another block's solid part; in X268 not when glass is on
-either side (the hole between two glass blocks shows through them). Found by the user, 2026-10-23.
+either side. In X269 the rule holds only between two steel panels (`hbm:steel_corner`, `hbm:steel_wall`): for every
+other pair it hid holes that show (a copper grate against a steel scaffold). Found by the user, 2026-10-23.
 
 ### Muzzle smoke without end, thick, from a gun in a new world (NTM)
 `src/main/java/acup/gunfeel/mixin/MixinItemGunBaseNT.java` (`staleShot`). NTM keeps a gun's last shot on the item,

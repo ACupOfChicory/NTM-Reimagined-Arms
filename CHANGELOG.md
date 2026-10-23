@@ -1,5 +1,10 @@
 # Changelog
 
+## X269
+
+- Holes between two blocks a bullet goes straight through are back for every block (a grate against a scaffold,
+  glass against glass); they are left out only between two steel panels (steel corner, steel wall).
+
 ## X268
 
 - Glass keeps its holes between blocks: a bullet from one glass block into the next (or between glass and another

@@ -569,8 +569,8 @@ public final class Tracers {
             if (!known) {
                 s.pierced.add(pos);
                 s.damage = left;
-                // from one block straight into the next (two stacked steel blocks): no hole, sound or particles on
-                // the face between them, where nothing shows; it went into this one from inside the last
+                // from one steel panel straight into the next (two stacked steel corners): no hole, sound or particles
+                // on the face between them, where nothing shows; it went into this one from inside the last
                 if (!fromInside(level, block, unit)) hit(level, block, s.config, unit, false);
                 if (!against(level, out)) hit(level, out, s.config, unit.scale(-1.0), false);
             }
@@ -633,25 +633,31 @@ public final class Tracers {
         TestLog.shot(-1);
     }
 
-    // the bullet went into this block straight from inside the last one: no hole where it went in. Glass on either
-    // side keeps it (two glass blocks: the hole between them shows through)
-    private static boolean fromInside(ClientLevel level, BlockHitResult hit, Vec3 unit) {
-        if (!hit.isInside() || glassLike(level.getBlockState(hit.getBlockPos()))) return false;
-        BlockPos was = BlockPos.containing(hit.getLocation().subtract(unit.scale(2e-3)));
-        return !glassLike(level.getBlockState(was));
+    // NTM's steel panels: the only blocks the two rules below hold for (any other pair keeps its holes between them:
+    // a grate against a scaffold, glass against glass)
+    private static final java.util.Set<String> PANELS = java.util.Set.of("hbm:steel_corner", "hbm:steel_wall");
+
+    private static boolean panel(BlockState state) {
+        return PANELS.contains(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
     }
 
-    // the hit's face lies against another block's solid part (the bullet goes on straight into it): a hole there
-    // could not be seen, it would only spill onto the faces around. Glass on either side keeps it: through it the
-    // hole shows
+    // the bullet went into this steel panel straight from inside the last one: no hole where it went in
+    private static boolean fromInside(ClientLevel level, BlockHitResult hit, Vec3 unit) {
+        if (!hit.isInside() || !panel(level.getBlockState(hit.getBlockPos()))) return false;
+        BlockPos was = BlockPos.containing(hit.getLocation().subtract(unit.scale(2e-3)));
+        return panel(level.getBlockState(was));
+    }
+
+    // the steel panel's face lies against another panel's solid part (the bullet goes on straight into it): a hole
+    // there could not be seen, it would only spill onto the faces around
     private static boolean against(ClientLevel level, BlockHitResult hit) {
-        if (glassLike(level.getBlockState(hit.getBlockPos()))) return false;
+        if (!panel(level.getBlockState(hit.getBlockPos()))) return false;
         Direction f = hit.getDirection();
         Vec3 p = hit.getLocation().add(f.getStepX() * 1e-3, f.getStepY() * 1e-3, f.getStepZ() * 1e-3);
         BlockPos n = BlockPos.containing(p);
         if (n.equals(hit.getBlockPos())) return false;
         BlockState st = level.getBlockState(n);
-        if (st.isAir() || glassLike(st)) return false;
+        if (!panel(st)) return false;
         net.minecraft.world.phys.shapes.VoxelShape shape = st.getCollisionShape(level, n);
         if (shape.isEmpty()) return false;
         Vec3 local = p.subtract(n.getX(), n.getY(), n.getZ());
