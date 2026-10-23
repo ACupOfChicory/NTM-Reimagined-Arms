@@ -117,7 +117,8 @@ two minutes on the Pi. What only a real client shows is in `review/INGAME-CHECKS
 `./gradlew runCheckBullets -PnoAssets` (`BulletCheck`) starts a dedicated server with a small flat world (two chunks
 around, about 1 GB of memory) and fires real NTM bullets at real blocks, ticked by hand on the server: the gaps of
 fences, closed and open gates and walls flown through and their posts, rails and bars hit; a plank pierced with the
-damage its rule takes, concrete and stone bricks stopping the bullet, a thin rail stopping a weak one; glass and panes
+damage its rule takes and a door far less, concrete, stone bricks, an iron door and sandbags stopping a rifle round,
+sandbags letting a heavy one through, a thin rail stopping a very weak one; glass and panes
 broken by 10 damage over one or two bullets, the bullet flying on; `path ... hitbox` and `path ... through` in the
 server's rules file. The result is in `versions/26.2/build/bulletcheck/result.txt`; about three minutes on the Pi.
 
@@ -137,6 +138,12 @@ doors, lanterns), or by the posts and rails of a fence, gate or wall (any mod's:
 1.5 block high hitbox). A `path` line in `config/ntm-gunfeel-bullets.txt` makes any block go another way, e.g.
 `path somemod:railing fence` or `path somemod:solid_fence hitbox`; a `hole` line changes how its holes are drawn
 (`hole minecraft:ice glass hitbox`). The file's header explains each. The server and each player read their own file.
+
+How far a bullet goes through depends on the block's material and the length of its path through it: wood, glass and
+wool hardly stop it (buckshot goes through a wooden wall, a door is thinner still), a sandbag wall stops every rifle
+round, half a block of stone or concrete the plain rounds, a block of concrete, metal or steel everything. Only the
+heavy armour-piercing .50 rounds get through stone, half a block of concrete or sandbags. The numbers are in
+`Materials.Material`; `MaterialsTest.cover` pins what stops what.
 
 ## License
 

@@ -89,7 +89,7 @@ public final class Decals {
             return switch (m) {
                 case STONE, CONCRETE -> new Set("spall", "gouge", "crater");
                 case GLASS, TOUGH_GLASS, REINFORCED_GLASS, LAMINATE -> new Set("shatter", "lines", "star");
-                case SOFT -> new Set("soot", "burn", "blot");
+                case SOFT, SOIL -> new Set("soot", "burn", "blot");
                 case METAL, STEEL, MACHINE -> new Set("old", "lines", "star");
                 case WOOD, NONE, UNBREAKABLE -> DEFAULT;
             };

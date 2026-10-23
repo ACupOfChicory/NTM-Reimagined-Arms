@@ -38,12 +38,14 @@ public final class BulletRules {
 
     // break: how a block gives way. mode: 0 never, 1 instant, 2 after `amount` hits, 3 after `amount` x hardness damage,
     // 4 after `amount` damage whatever the hardness (hp)
-    // pierce: a bullet goes through it, keeping `keep` of its damage less `pierce` x hardness (0 = never pierced)
+    // pierce: a bullet goes through it, keeping `keep` of its damage less `pierce` x hardness per block of its path
+    // through it (0 = never pierced): a door, 3/16 of a block, takes far less than a block of planks
     public record Break(int mode, float amount, boolean drop, boolean pass, boolean through, @Nullable String replace, float pierce, float keep) {
         // the bullet's damage after piercing a block of this hardness, or -1 when it stops in it
-        public float pierced(float damage, float hardness) {
+        public float pierced(float damage, float hardness, double length) {
             if (pierce <= 0F || through || hardness < 0F) return -1F;
-            float left = damage * keep - pierce * hardness;
+            double len = Math.max(0.0, length);
+            float left = (float) (damage * Math.pow(keep, len) - pierce * hardness * len);
             return left >= 1F ? left : -1F;
         }
     }
@@ -510,10 +512,12 @@ public final class BulletRules {
             #   flies on through the broken block; through = bullets always fly through it (no hole, no stop), it still
             #   counts the hits and breaks by its rule ("never through": flown through, never broken). A player's bullet breaks only where that player could break
             #   blocks (claims, spawn protection). pierce=<x>: a bullet goes through the block (a hole where it goes in and
-            #   where it comes out) keeping k (default 1) of its damage less x times the block's hardness; one left with
-            #   less than 1 damage stops in it. Its damage still counts towards breaking the block.
-            # material <blocks> none | glass | tough_glass | reinforced_glass | laminate | wood | soft | stone | concrete | metal | steel | machine | unbreakable
-            #   what a bullet meets in the block when it pierces it (metal = soft metals, machine = a hollow steel casing);
+            #   where it comes out) keeping k (default 1) of its damage less x times the block's hardness, both per block
+            #   of the bullet's path through it (a door, 3/16 of a block, takes far less); one left with less than 1 damage
+            #   stops in it. Its damage still counts towards breaking the block.
+            # material <blocks> none | glass | tough_glass | reinforced_glass | laminate | wood | soft | soil | stone | concrete | metal | steel | machine | unbreakable
+            #   what a bullet meets in the block when it pierces it (metal = soft metals, machine = a hollow steel casing,
+            #   soft = wool, hay and the like, soil = packed ground: dirt, sand, gravel, sandbags);
             #   without a line the mod works it out from the block. A block with a break line's pierce= uses that instead
             # hit <blocks> [particles=<p>*<n>,...] [sound=<id>[/volume[/pitch]]] [range=<blocks>]   (each player's own game)
             #   particle: block (the hit block's crumbs), block:<id> (that block's crumbs), a particle id

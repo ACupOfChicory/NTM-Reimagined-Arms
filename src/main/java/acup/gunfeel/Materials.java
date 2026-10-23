@@ -39,15 +39,24 @@ public final class Materials {
         // the weak pistols
         TOUGH_GLASS(8F, 0.3F, 0F),
         LAMINATE(100F, 0.9F, 0F, 0.5F),
-        WOOD(3F, 0.2F, 0F),
+        // solid wood (logs, chests, barrels): a block stops a pistol, a rifle goes through weakened. Planks, doors,
+        // fences and the like pierce by their break rule instead
+        WOOD(25F, 0.3F, 0F),
+        // wool, hay, sponge, sculk: soft things, no cover
         SOFT(12F, 0.6F, 0F),
-        STONE(30F, 0.8F, 6F),
-        CONCRETE(50F, 0.85F, 84F),
-        // soft and mild metals: lead, copper, gold, aluminium, vanilla iron (the hit sounds call them "metal")
-        METAL(60F, 0.85F, 6F),
+        // packed ground: dirt, sand, gravel, clay, snow, NTM's sandbags. Half a block (a sandbag wall) stops every
+        // rifle round; only .50 AP and saboted go through. A block of it stops all but the saboted .50
+        SOIL(120F, 0.6F, 0F),
+        // a block of stone stops all but the saboted .50; half a block the plain rounds
+        STONE(100F, 0.8F, 6F),
+        // a block of concrete stops everything; half a block all but the saboted .50
+        CONCRETE(170F, 0.85F, 84F),
+        // soft and mild metals: lead, copper, gold, aluminium, vanilla iron (the hit sounds call them "metal"). A block
+        // stops everything; an iron door (3/16 of a block) the plain rounds, not armour-piercing ones
+        METAL(200F, 0.85F, 6F),
         // steel and the hard alloys: tungsten, titanium, desh, CMB, netherite (the hit sounds call them "steel");
         // only "material" rule lines give it (per block, from the review), the steps below never do
-        STEEL(150F, 0.95F, 6F),
+        STEEL(400F, 0.95F, 6F),
         // a machine is a hollow steel casing: two thin walls, whatever its collision box
         MACHINE(150F, 0.95F, 6F),
         UNBREAKABLE(Float.POSITIVE_INFINITY, 1F, 0F);
@@ -165,8 +174,9 @@ public final class Materials {
     private static final List<String> WOOD_SOUNDS = List.of("wood", "nether_wood", "bamboo_wood", "cherry_wood", "bamboo",
             "scaffolding", "ladder", "hanging_sign", "nether_wood_hanging_sign", "bamboo_wood_hanging_sign",
             "cherry_wood_hanging_sign", "chiseled_bookshelf", "stem", "pale_hanging_moss");
-    private static final List<String> SOFT_SOUNDS = List.of("gravel", "grass", "rooted_dirt", "mud", "sand", "soul_sand",
-            "soul_soil", "moss", "moss_carpet", "packed_mud", "snow", "powder_snow", "wool", "slime_block", "honey_block",
+    private static final List<String> SOIL_SOUNDS = List.of("gravel", "rooted_dirt", "mud", "sand", "soul_sand",
+            "soul_soil", "packed_mud", "snow");
+    private static final List<String> SOFT_SOUNDS = List.of("grass", "moss", "moss_carpet", "powder_snow", "wool", "slime_block", "honey_block",
             "wet_grass", "sponge", "wet_sponge", "azalea", "flowering_azalea", "fungus", "nether_sprouts", "roots",
             "crop", "hard_crop", "sweet_berry_bush", "cave_vines", "vine", "lily_pad", "small_dripleaf", "big_dripleaf",
             "spore_blossom", "hanging_roots", "glow_lichen", "sculk", "sculk_vein", "frogspawn", "leaf_litter", "dried_ghast");
@@ -186,7 +196,8 @@ public final class Materials {
             Map.entry(Pattern.compile("steel|iron|lead|tungsten|titanium|alloy|metal|copper|alumin|plate|beam|rebar|grate|scaffold|pipe"
                     + "|^cm_|rbmk|computer|(^|_)crt(_|$)|toaster|cabinet|cauldron"), Material.METAL),
             Map.entry(Pattern.compile("(^|_)(planks?|wood|logs?)(_|$)|rubber|polymer|bakelite|plastic"), Material.WOOD),
-            Map.entry(Pattern.compile("(^|_)(sand|dirt|gravel|ash|snow|clay|mud|soil|earth|grass|moss|wool|cloth)(_|$)"), Material.SOFT));
+            Map.entry(Pattern.compile("(^|_)(sand|sandbags?|dirt|gravel|ash|snow|clay|mud|soil|earth|grass)(_|$)"), Material.SOIL),
+            Map.entry(Pattern.compile("(^|_)(moss|wool|cloth)(_|$)"), Material.SOFT));
 
     public static Verdict classify(BlockFacts f, List<Rule> rules) {
         for (int i = rules.size() - 1; i >= 0; i--) {
@@ -214,6 +225,7 @@ public final class Materials {
             if (METAL_SOUNDS.contains(name) || name.startsWith("copper")) return verdict(f, Material.METAL, Source.SOUND, name);
             if (name.equals("glass")) return verdict(f, Material.GLASS, Source.SOUND, name);
             if (WOOD_SOUNDS.contains(name)) return verdict(f, Material.WOOD, Source.SOUND, name);
+            if (SOIL_SOUNDS.contains(name)) return verdict(f, Material.SOIL, Source.SOUND, name);
             if (SOFT_SOUNDS.contains(name)) return verdict(f, Material.SOFT, Source.SOUND, name);
         }
 
@@ -241,8 +253,10 @@ public final class Materials {
                 return Material.GLASS;
             case "minecraft:logs", "minecraft:planks", "minecraft:bamboo_blocks":
                 return Material.WOOD;
-            case "minecraft:wool", "minecraft:wool_carpets", "minecraft:mineable/shovel":
+            case "minecraft:wool", "minecraft:wool_carpets":
                 return Material.SOFT;
+            case "minecraft:mineable/shovel":
+                return Material.SOIL;
             case "c:concretes":
                 return Material.CONCRETE;
             default:
@@ -258,12 +272,14 @@ public final class Materials {
     }
 
     // how much stronger than the usual of its material: the square root of its blast resistance over the usual one,
-    // from half to four times
+    // from half to four times; concrete never below the usual (vanilla's concrete has the blast resistance of wool, yet
+    // it is concrete)
     static float strength(Material m, float blast) {
         if (m.blast <= 0F) return 1F;
-        if (Float.isNaN(blast) || blast <= 0F) return 0.5F;
+        float lo = m == Material.CONCRETE ? 1F : 0.5F;
+        if (Float.isNaN(blast) || blast <= 0F) return lo;
         if (Float.isInfinite(blast)) return 4F;
-        return (float) Math.max(0.5, Math.min(4.0, Math.sqrt(blast / m.blast)));
+        return (float) Math.max(lo, Math.min(4.0, Math.sqrt(blast / m.blast)));
     }
 
     // ---------------------------------------------------------------- penetration

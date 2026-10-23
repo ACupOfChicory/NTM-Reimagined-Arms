@@ -130,11 +130,30 @@ BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecr
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 position ()Lnet/minecraft/world/phys/Vec3;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
 BULLETS method com/hbm/entity/projectile/EntityThrowableNT getThrower ()Lnet/minecraft/world/entity/LivingEntity;
+CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
+CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
+CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+CORE field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
+CORE field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
+CORE field com/hbm/items/weapon/sedna/BulletConfig doesPenetrate Z
+CORE field com/hbm/items/weapon/sedna/BulletConfig gravity D
+CORE field com/hbm/items/weapon/sedna/BulletConfig id I
+CORE field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
+CORE field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
+CORE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
+CORE field com/hbm/items/weapon/sedna/BulletConfig spread F
+CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
 CORE method com/hbm/client/Keybinds isGunHeld ()Z
 CORE method com/hbm/client/Keybinds isGunKey (Lnet/minecraft/client/KeyMapping;)Z
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getZ ()D
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setThrowableHeading (DDDFF)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 tick ()V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase get (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/render/item/weapon/sedna/ItemRenderWeaponBase;
 HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind

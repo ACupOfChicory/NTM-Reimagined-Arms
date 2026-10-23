@@ -26,7 +26,7 @@ hit @metal,@copper,@copper_bulb,@copper_grate,@chain,@anvil,@heavy_core,@iron,@l
 # hit sounds by the block's material ($<material>: the same one its piercing and marks use; bullet/hit/, see
 # sounds/bullet/CREDITS.txt); later lines win
 hit $wood particles=block*6,minecraft:smoke*1 sound=ntmgunfeel:bullet.hit.wood/0.8 range=40
-hit $soft particles=block*6,minecraft:smoke*1 sound=ntmgunfeel:bullet.hit.dirt/0.8 range=40
+hit $soft,$soil particles=block*6,minecraft:smoke*1 sound=ntmgunfeel:bullet.hit.dirt/0.8 range=40
 # gravel crunches
 hit minecraft:gravel,minecraft:suspicious_gravel particles=block*6,minecraft:smoke*1 sound=ntmgunfeel:bullet.hit.gravel/0.8 range=40
 hit $stone particles=block*6,minecraft:smoke*1 sound=ntmgunfeel:bullet.hit.stone/0.8 range=40
@@ -56,7 +56,7 @@ material hbm:tile_lab,hbm:tile_lab_cracked,hbm:tile_lab_broken stone
 # scorch (explosive and incendiary rounds) = star | blot | crater
 # a grazing bullet bounces off hard blocks (NTM's ricochet) and digs into soft ground and wood; glass it breaks
 # or goes through. By the block's material, as the hit sounds
-ricochet $soft,$wood,$glass,$tough_glass,$reinforced_glass,$laminate,$none no
+ricochet $soft,$soil,$wood,$glass,$tough_glass,$reinforced_glass,$laminate,$none no
 # fences, fence gates and walls: a bullet meets their posts and rails, not their 1.5 block high hitbox (by their class,
 # any mod's). NTM's chain-link fence is a fence by its class, but goes by the pixels of its mesh
 path hbm:fence_metal,hbm:fence_metal_post pixels

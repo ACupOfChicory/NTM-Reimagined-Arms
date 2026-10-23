@@ -86,7 +86,7 @@ public final class BulletCheck {
         expect("fence: under the lower rail", Want.PASS, fenceRow(fence), .25, .2, 30F);
         expect("fence: the post", Want.PIERCE, fenceRow(fence), .5, .5, 30F);
         expect("fence: the upper rail", Want.PIERCE, fenceRow(fence), .25, .8, 30F);
-        expect("fence: thin rail, a weak bullet stops", Want.STOP, fenceRow(fence), .25, .8, 2F);
+        expect("fence: thin rail, a very weak bullet stops", Want.STOP, fenceRow(fence), .25, .8, 1.2F);
 
         // ---- gates: closed (bars at 6-9 and 12-15 pixels, the gap between them), open (the middle is free)
         String closed = "minecraft:oak_fence_gate[facing=north,open=false]";
@@ -106,12 +106,20 @@ public final class BulletCheck {
         // ---- materials: a plank is pierced with the rule's loss, concrete holds
         BlockState plank = state("minecraft:oak_planks");
         BulletRules.Break rule = BulletRules.breakRule(plank);
-        float left = rule == null ? -2F : rule.pierced(30F, plank.getDestroySpeed(level, BlockPos.ZERO));
+        float left = rule == null ? -2F : rule.pierced(30F, plank.getDestroySpeed(level, BlockPos.ZERO), 1.0);
         Shot s = expect("plank: pierced", Want.PIERCE, single("minecraft:oak_planks"), .5, .5, 30F);
         check("plank: damage after it, by its rule", left, s.damage);
         s = expect("concrete: stops in it", Want.STOP, single("minecraft:white_concrete"), .5, .5, 30F);
         check("concrete: still there", "minecraft:white_concrete", s.after);
         expect("stone bricks: stops in them", Want.STOP, single("minecraft:stone_bricks"), .5, .5, 30F);
+        expect("stone slab, along it: a rifle round stops", Want.STOP, single("minecraft:smooth_stone_slab[type=bottom]"), .5, .25, 30F);
+        expect("sandbags: a rifle round stops", Want.STOP, single("hbm:sandbags"), .5, .5, 37.5F);
+        expect("sandbags: a .50 AP-like round goes through", Want.PIERCE, single("hbm:sandbags"), .5, .5, 90F);
+        expect("iron door: a plain round stops", Want.STOP, single("minecraft:iron_door[facing=north,half=lower]"), .5, .5, 30F);
+        // a door's path is 3/16 of a block: it takes far less than a block of planks
+        Shot door = expect("oak door: a pellet goes through", Want.PIERCE, single("minecraft:oak_door[facing=north,half=lower]"), .5, .5, 8F);
+        Shot block = expect("oak planks: a pellet goes through", Want.PIERCE, single("minecraft:oak_planks"), .5, .5, 8F);
+        check("oak door keeps more than a block of planks", true, door.damage > block.damage + 2F);
 
         // ---- glass: worn by the damage of the bullets through it, broken at 10
         for (String glass : new String[] {"minecraft:glass", "minecraft:glass_pane[east=true,west=true]", "minecraft:red_stained_glass"}) {

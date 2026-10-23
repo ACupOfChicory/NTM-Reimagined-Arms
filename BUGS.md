@@ -9,6 +9,20 @@ None known.
 
 ## Fixed
 
+### Piercing: a door counts as a whole block of planks; vanilla concrete half as strong as NTM's
+`src/main/java/acup/gunfeel/BulletRules.java:44`, `src/main/java/acup/gunfeel/Materials.java` (strength). A break
+rule's pierce= took its loss once per block whatever the bullet's path through it: a wooden door or trapdoor (3/16 of
+a block) took as much as a block of planks. Now per block of the path. And vanilla concrete has the blast resistance of
+wool (1.8), so its strength against concrete's usual 84 came out at the floor, 0.5: half NTM's concrete. Concrete is
+now never below 1. Found while drawing up the piercing table with the user, 2026-10-23.
+
+### Piercing: a block of concrete or steel goes through to rifles; sandbags stop nothing
+`src/main/java/acup/gunfeel/Materials.java:30`. The thresholds were set for thin walls: a 7.62 DU or .50 AP round went
+through a block of concrete, the saboted .50 through a block of steel, and a sandbag wall (half a block of "soft",
+with wool and hay) stopped only buckshot. Retuned with the user (concrete 170, stone 100, metal 200, steel 400, solid
+wood 25) and packed ground split off soft as soil (120): a sandbag wall stops every rifle round, a block of concrete
+or metal everything. Planks keep their rule, so buckshot still goes through wooden walls.
+
 ### Bullet rules are not sent from the server to the players
 `src/main/java/acup/gunfeel/BulletRules.java:29`. The server and every client read their own
 `config/ntm-gunfeel-bullets.txt`. The server decides hits, breaking and where a bullet stops (break, path, material);

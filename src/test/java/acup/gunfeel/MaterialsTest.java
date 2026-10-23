@@ -75,10 +75,13 @@ class MaterialsTest {
         want.put("minecraft:oak_leaves", Material.NONE);
         want.put("minecraft:glass", Material.GLASS);
         want.put("minecraft:glass_pane", Material.GLASS);
-        want.put("minecraft:dirt", Material.SOFT);
-        want.put("minecraft:sand", Material.SOFT);
-        want.put("minecraft:gravel", Material.SOFT);
+        want.put("minecraft:dirt", Material.SOIL);
+        want.put("minecraft:sand", Material.SOIL);
+        want.put("minecraft:gravel", Material.SOIL);
         want.put("minecraft:white_wool", Material.SOFT);
+        want.put("minecraft:hay_block", Material.SOFT);
+        want.put("hbm:sandbags", Material.SOIL);
+        want.put("minecraft:snow_block", Material.SOIL);
         want.put("minecraft:iron_block", Material.METAL);
         want.put("minecraft:iron_door", Material.METAL);
         want.put("minecraft:white_concrete", Material.CONCRETE);
@@ -197,13 +200,13 @@ class MaterialsTest {
     @Test
     void penetrationFollowsNtmArmour() {
         Verdict wood = new Verdict(Material.WOOD, 1F, Source.TAG, "");
-        // one block of wood: threshold 3 off, then 20 % resistance
-        assertEquals((20F - 3F) * 0.8F, Materials.left(wood, 1.0, 20F, 0F, 0F), 1e-4F);
+        // one block of solid wood: threshold 25 off, then 30 % resistance
+        assertEquals((40F - 25F) * 0.7F, Materials.left(wood, 1.0, 40F, 0F, 0F), 1e-4F);
         // thinner is easier, piercing and negation help, a threshold above the power stops it
-        assertTrue(Materials.left(wood, 0.5, 20F, 0F, 0F) > Materials.left(wood, 1.0, 20F, 0F, 0F));
-        assertTrue(Materials.left(wood, 1.0, 20F, 2F, 0.2F) > Materials.left(wood, 1.0, 20F, 0F, 0F));
-        assertTrue(Materials.left(wood, 1.0, 20F, 0F, -0.25F) < Materials.left(wood, 1.0, 20F, 0F, 0F));
-        assertEquals(-1F, Materials.left(wood, 1.0, 2.5F, 0F, 0F));
+        assertTrue(Materials.left(wood, 0.5, 40F, 0F, 0F) > Materials.left(wood, 1.0, 40F, 0F, 0F));
+        assertTrue(Materials.left(wood, 1.0, 40F, 2F, 0.2F) > Materials.left(wood, 1.0, 40F, 0F, 0F));
+        assertTrue(Materials.left(wood, 1.0, 40F, 0F, -0.25F) < Materials.left(wood, 1.0, 40F, 0F, 0F));
+        assertEquals(-1F, Materials.left(wood, 1.0, 20F, 0F, 0F));
         Verdict none = new Verdict(Material.NONE, 1F, Source.TAG, "");
         assertEquals(20F, Materials.left(none, 1.0, 20F, 0F, 0F));
         Verdict bedrock = new Verdict(Material.UNBREAKABLE, 1F, Source.UNBREAKABLE, "");
@@ -212,6 +215,33 @@ class MaterialsTest {
         Verdict machine = new Verdict(Material.MACHINE, 1F, Source.CLASS, "");
         assertEquals(Materials.left(machine, 0.1, 50F, 7F, 0.1F), Materials.left(machine, 3.0, 50F, 7F, 0.1F));
         assertFalse(Float.isNaN(Materials.left(wood, 0.0, 20F, 0F, 0F)));
+    }
+
+    // cover, as tuned with the user: thick cover holds, only thin things and the heavy rounds go through
+    @Test
+    void cover() {
+        double door = 3.0 / 16.0;
+        // a sandbag wall (half a block of soil): every rifle round stops, the saboted .50 goes through
+        assertFalse(through(Material.SOIL, 0.5, MAS36));
+        assertFalse(through(Material.SOIL, 0.5, AMAT_AP));
+        assertFalse(through(Material.SOIL, 0.5, SUBTLETY));
+        assertTrue(through(Material.SOIL, 0.5, SUBTLETY_SM));
+        // stone: a block stops all but the saboted .50
+        assertFalse(through(Material.STONE, 1.0, SUBTLETY_DU));
+        assertTrue(through(Material.STONE, 1.0, SUBTLETY_SM));
+        // concrete: a block stops everything, half a block the plain .50 but not the heavy armour-piercing ones
+        assertFalse(through(Material.CONCRETE, 1.0, SUBTLETY_SM));
+        assertFalse(through(Material.CONCRETE, 0.5, SUBTLETY));
+        assertTrue(through(Material.CONCRETE, 0.5, SUBTLETY_DU));
+        assertTrue(through(Material.CONCRETE, 0.5, SUBTLETY_SM));
+        // an iron door stops the plain rifle round, not an armour-piercing one; a block of metal or steel everything
+        assertFalse(through(Material.METAL, door, MAS36));
+        assertTrue(through(Material.METAL, door, AMAT_AP));
+        assertFalse(through(Material.METAL, 1.0, SUBTLETY_SM));
+        assertFalse(through(Material.STEEL, 1.0, SUBTLETY_SM));
+        // a log stops a pistol, a rifle goes through
+        assertFalse(through(Material.WOOD, 1.0, LAG_FMJ));
+        assertTrue(through(Material.WOOD, 1.0, MAS36));
     }
 
     // NTM rounds as power (gun damage x ammo damage), threshold negation, armour piercing
@@ -278,7 +308,9 @@ class MaterialsTest {
     void strengthScalesWithBlastResistance() {
         assertEquals(1F, Materials.strength(Material.STONE, 6F), 1e-6F);
         assertEquals(4F, Materials.strength(Material.STONE, 216F), 1e-6F);
-        assertEquals(0.5F, Materials.strength(Material.CONCRETE, 1.8F), 1e-6F);
+        // vanilla concrete: the blast resistance of wool, still concrete
+        assertEquals(1F, Materials.strength(Material.CONCRETE, 1.8F), 1e-6F);
+        assertEquals(0.5F, Materials.strength(Material.STONE, 1F), 1e-6F);
         assertEquals(1F, Materials.strength(Material.WOOD, 3000F), 1e-6F);
         assertEquals(4F, Materials.strength(Material.METAL, Float.POSITIVE_INFINITY), 1e-6F);
         assertEquals(1F, Materials.strength(Material.STEEL, 6F), 1e-6F);
