@@ -697,6 +697,11 @@ public final class Tracers {
         if (debugHoles) GunFeel.LOGGER.info("[holedebug] " + fmt, args);
     }
 
+    // a triangle's corners, for the hole debug log
+    private static String corners(RenderedMesh.Tri t) {
+        return v(t.corner(0)) + " " + v(t.corner(1)) + " " + v(t.corner(2));
+    }
+
     private static String v(Vec3 p) {
         return String.format(java.util.Locale.ROOT, "(%.4f %.4f %.4f)", p.x, p.y, p.z);
     }
@@ -1145,8 +1150,14 @@ public final class Tracers {
             hideNs += System.nanoTime() - sh0;
             if (!shown) {
                 hiddenPieces++;
+                if (debugHoles) {
+                    RenderedMesh.Tri by = hiddenBy(grid, pc, cen);
+                    dbg("    piece hidden: on {} n={} corners={} | by {}", pc.tri().block(), v(pc.tn()), corners(pc.tri()),
+                            by == null ? "-" : by.block() + " " + RenderedMesh.texName(by.tex()) + " n=" + (by.normal() == null ? "?" : v(by.normal())) + " corners=" + corners(by));
+                }
                 continue;
             }
+            if (debugHoles) dbg("    piece shown: on {} n={} corners={}", pc.tri().block(), v(pc.tn()), corners(pc.tri()));
             RenderedMesh.Tri t = pc.tri();
             Object owner = t.anchor() != null ? List.of(t.anchor().be(), t.anchor().key()) : t.block() != null ? t.block() : "";
             Object key = List.of(owner, Math.round(pc.tn().x * 100), Math.round(pc.tn().y * 100), Math.round(pc.tn().z * 100), Math.round(pc.plane() * 200));
@@ -1584,6 +1595,11 @@ public final class Tracers {
 
     // a shown pixel of another triangle is in front of this point of the piece, towards the shooter
     private static boolean hidden(TriGrid grid, Piece self, double[] at) {
+        return hiddenBy(grid, self, at) != null;
+    }
+
+    // the triangle in front of this point of the piece (hidden), or null
+    private static RenderedMesh.@org.jspecify.annotations.Nullable Tri hiddenBy(TriGrid grid, Piece self, double[] at) {
         Vector3d n = self.frame()[3];
         Vector3d from = new Vector3d(at[2], at[3], at[4]).fma(1e-3, self.tn());
         // as far as the slab reaches (an occluder further out does not lie over the hole's faces)
@@ -1595,7 +1611,7 @@ public final class Tracers {
             if (Double.isNaN(k) || k <= 1e-4 || k > far) return false;
             double[] w = o.weights(new Vector3d(n).mul(k).add(from), 1e-6);
             return w != null && o.opaqueAt(w);
-        }) != null;
+        });
     }
 
     // another face lies back to back with the group's (a thin sheet: bars, a pane): the hole is seen from both sides
