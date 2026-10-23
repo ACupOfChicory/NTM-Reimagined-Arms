@@ -3,5 +3,5 @@ mod.id = "ntmgunfeel"
 
 ["26.2"]
 deps.neoforge = "26.2.0.90"
-# NTM NEXT is not on a maven: the jar goes in libs/mods/ (see tools/fetch-libs.py)
+# NTM is not on a maven: its jar goes in libs/mods/ by hand
 deps.ntm = "libs/mods/hbm-neoforge-1.0.3.jar"
