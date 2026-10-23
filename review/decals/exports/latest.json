@@ -1,0 +1,83 @@
+{
+  "at": "2026-10-20T16:16:17.058Z",
+  "files": {
+    "bullet_hole_0.png": "030657d449e8d24b8da9871d68ddeeef",
+    "bullet_hole_1.png": "969a4db8e74ea11aafbaebd67e96dfb2",
+    "bullet_hole_2.png": "e1b63327dd3589070fadb71584d3410e",
+    "bullet_hole_3.png": "f5ce99e98609ca8397ca35d4f06e38fb",
+    "bullet_hole_4.png": "de569c3aebb7f19db8acb5e27fddc2ff",
+    "bullet_hole_5.png": "760faed2c1c4a49750aa873ab8c0db43",
+    "bullet_hole_6.png": "f1bdb3b2b825b413cb4d0bc9bff2239c",
+    "bullet_hole_7.png": "1653932fcf668bc46dd9370533656aae",
+    "scorch.png": "8130c07f6df5289ab5fd4e9dc66898ef",
+    "scratch.png": "291ba8ee7a49fd892640b693f7040938"
+  },
+  "settings": {
+    "app": "ntm-gunfeel decals",
+    "hole": {
+      "common": {
+        "opacity": 1,
+        "pixel": 0,
+        "seed": 7,
+        "shade": 0,
+        "size": 32,
+        "steps": 4
+      },
+      "params": {
+        "branch": 0.2,
+        "core": 0.18,
+        "crackLen": 0.5,
+        "crackW": 0.04,
+        "cracks": 6,
+        "crush": 0.3,
+        "flakes": 0.3,
+        "rings": 1
+      },
+      "style": "shatter"
+    },
+    "scorch": {
+      "common": {
+        "opacity": 1,
+        "pixel": 0,
+        "seed": 5,
+        "shade": 0,
+        "size": 64,
+        "steps": 4
+      },
+      "params": {
+        "cracks": 4,
+        "crater": 0.28,
+        "density": 0.7,
+        "depth": 0.9,
+        "grain": 0.3,
+        "pits": 8,
+        "radius": 0.95,
+        "rays": 10
+      },
+      "style": "crater"
+    },
+    "scratch": {
+      "common": {
+        "opacity": 1,
+        "pixel": 0,
+        "seed": 3,
+        "shade": 0,
+        "size": 64,
+        "steps": 3
+      },
+      "params": {
+        "chips": 0,
+        "curve": 0.15,
+        "depth": 0.8,
+        "length": 0.6,
+        "light": 0.3,
+        "peak": 0.72,
+        "rough": 0.5,
+        "tail": 3,
+        "width": 0.09
+      },
+      "style": "gouge"
+    },
+    "version": 1
+  }
+}
