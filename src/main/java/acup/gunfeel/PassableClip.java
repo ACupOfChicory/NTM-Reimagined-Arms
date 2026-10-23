@@ -117,6 +117,11 @@ public final class PassableClip extends ClipContext {
     public static @Nullable BlockHitResult exit(Level level, BlockHitResult in, Vec3 dir) {
         BlockPos pos = in.getBlockPos();
         BlockState state = level.getBlockState(pos);
+        // a model's cells (a scaffold's post, a board): out where its pixels end along the way, not through the
+        // whole hitbox
+        long[] vox = shape(state);
+        long[] cells = vox != null ? (shell(vox) ? null : vox) : Structures.cells(level, pos, state);
+        if (cells != null) return leave(cells, in, dir);
         VoxelShape shape = state.getCollisionShape(level, pos);
         if (shape.isEmpty()) shape = state.getShape(level, pos);
         if (shape.isEmpty()) shape = Shapes.block();
@@ -536,6 +541,36 @@ public final class PassableClip extends ClipContext {
             if (x < 0 || x > 15 || y < 0 || y > 15 || z < 0 || z > 15) return null;
         }
         return null;
+    }
+
+    // From where the bullet meets a set cell, along `dir` (unit), to the first empty cell or the block's side: the
+    // hit there on that far face, as exit() gives it
+    static BlockHitResult leave(long[] bits, BlockHitResult in, Vec3 dir) {
+        BlockPos pos = in.getBlockPos();
+        // a little into the cell it met: on its boundary the floor may name the empty one before it
+        double px = (in.getLocation().x - pos.getX()) * 16 + dir.x * 1e-3, py = (in.getLocation().y - pos.getY()) * 16 + dir.y * 1e-3,
+                pz = (in.getLocation().z - pos.getZ()) * 16 + dir.z * 1e-3;
+        int x = Math.clamp((int) Math.floor(px), 0, 15), y = Math.clamp((int) Math.floor(py), 0, 15), z = Math.clamp((int) Math.floor(pz), 0, 15);
+        double dx = dir.x, dy = dir.y, dz = dir.z;
+        int sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
+        double tx = Math.abs(dx) < 1e-12 ? Double.POSITIVE_INFINITY : ((sx > 0 ? x + 1 : x) - px) / dx;
+        double ty = Math.abs(dy) < 1e-12 ? Double.POSITIVE_INFINITY : ((sy > 0 ? y + 1 : y) - py) / dy;
+        double tz = Math.abs(dz) < 1e-12 ? Double.POSITIVE_INFINITY : ((sz > 0 ? z + 1 : z) - pz) / dz;
+        double ddx = Math.abs(1 / dx), ddy = Math.abs(1 / dy), ddz = Math.abs(1 / dz);
+        double t = 0;
+        Direction face = in.getDirection().getOpposite();
+        for (int n = 0; n < 64 && cell(bits, x, y, z); n++) {
+            if (tx <= ty && tx <= tz) {
+                t = tx; tx += ddx; x += sx; face = sx > 0 ? Direction.EAST : Direction.WEST;
+            } else if (ty <= tz) {
+                t = ty; ty += ddy; y += sy; face = sy > 0 ? Direction.UP : Direction.DOWN;
+            } else {
+                t = tz; tz += ddz; z += sz; face = sz > 0 ? Direction.SOUTH : Direction.NORTH;
+            }
+            if (x < 0 || x > 15 || y < 0 || y > 15 || z < 0 || z > 15) break;
+        }
+        Vec3 at = new Vec3(pos.getX() + (px + dx * t) / 16, pos.getY() + (py + dy * t) / 16, pos.getZ() + (pz + dz * t) / 16);
+        return new BlockHitResult(at, face, pos, false);
     }
 
     // Masks per block: [axis 0 x, 1 y, 2 z, 3 any face] -> 256 bits, rows from the top

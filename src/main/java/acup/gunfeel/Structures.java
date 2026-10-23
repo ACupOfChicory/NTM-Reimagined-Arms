@@ -124,6 +124,9 @@ public final class Structures {
 
     // the cells (as in the world) of the listed multiblock's block here, or null (none known, a door on its way)
     public static long @Nullable [] cells(Level level, BlockPos pos, BlockState state) {
+        // NTM's wooden trench blocks: their boards as drawn, joined with their neighbours
+        long[] wood = WoodBoxes.cells(level, pos, state);
+        if (wood != null) return wood;
         BlockPos core = core(level, pos, state);
         if (core == null) return null;
         BlockState coreState = level.getBlockState(core);
