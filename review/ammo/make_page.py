@@ -64,9 +64,9 @@ for r in csv.DictReader(open(TSV, encoding='utf-8'), delimiter='\t'):
         'dmg': dmg, 'n': n, 'shot': dmg * n, 'head': head,
         'armor': through(dmg, REF_DT, REF_DR, f['thresholdNegation'], f['piercing']) * n,
         'neg': f['thresholdNegation'], 'pierce': f['piercing'],
-        # the ammo's own spread goes in twice in NTM: in Lego.calcSpread (times the gun's ammo multiplier) and again in
-        # the bullet's constructor; only the first is scaled by the shooter's state
-        'aspread': f['ammoSpread'] * f['spreadAmmoMult'], 'aspread2': f['ammoSpread']})
+        # the ammo's own spread, times the gun's ammo multiplier (Lego.calcSpread); a gun's shot takes the spread once,
+        # only submunitions (EntityBulletBaseMK4's first constructor) add the ammo's spread again
+        'aspread': f['ammoSpread'] * f['spreadAmmoMult']})
 
 
 def mult(gun, key):

@@ -18,12 +18,6 @@ as applied (`appliedPitch = pitch`). Looking straight up and firing, the kick up
 applied in full: the view ends lower than where the player was aiming, by up to the shot's recoil each time. Fix:
 count only what `turn()` really applied.
 
-### NTM: the ammo's own spread counts twice (NTM's code, not ours)
-`com.hbm.items.weapon.sedna.factory.Lego.calcSpread` adds `config.spread × the gun's ammo multiplier`, and
-`EntityBulletBaseMK4`'s constructor adds `config.spread` again before aiming the bullet. Shotgun shells and other
-ammo with their own spread scatter wider than their numbers say, and the mod's spread settings scale only the first
-part. Left as NTM has it: changing it would change NTM's balance. Found 2026-10-23 while tuning the spread settings.
-
 ## Fixed
 
 ### Multiblock cells: piercing, marks and ricochet by the cell, the hit sound by its machine
