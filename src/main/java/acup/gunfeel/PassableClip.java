@@ -4,6 +4,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -209,6 +210,7 @@ public final class PassableClip extends ClipContext {
     private static final Map<BlockState, long[]> SHAPE_OF = new java.util.concurrent.ConcurrentHashMap<>();
     private static final long[] NONE = new long[0];
     private static boolean shapesLoaded;
+    private static volatile int shapesOfRules = -1;
 
     public static String key(BlockState state) {
         StringBuilder b = new StringBuilder(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
@@ -229,6 +231,12 @@ public final class PassableClip extends ClipContext {
 
     public static long[] shape(BlockState state) {
         loadShapes();
+        int g = BulletRules.generation();
+        if (g != shapesOfRules) {
+            // the bullet rules were read anew: their shape lines may have changed
+            SHAPE_OF.clear();
+            shapesOfRules = g;
+        }
         long[] v = SHAPE_OF.get(state);
         if (v == null) {
             // not in computeIfAbsent: familyKey takes the class's lock (masks), which putShapes holds while clearing
@@ -243,34 +251,57 @@ public final class PassableClip extends ClipContext {
         return v == NONE ? null : v;
     }
 
-    // Fences, fence gates and walls, any mod's: their collision box is a solid wall up to 1.5 blocks, so a bullet
-    // between the rails would meet it. They take the cells of their family's vanilla model (tools/fence_shapes.py):
-    // the bullet goes through the gaps (пролёт). Not one with a mask (NTM's chain-link fence: by its pixels).
+    // Fences, fence gates and walls: their collision box is a solid wall up to 1.5 blocks, so a bullet between the
+    // rails would meet it. They take the cells of their family's vanilla model (tools/fence_shapes.py), and the bullet
+    // goes through the gaps (пролёт). A "shape" bullet rule says the family of any block (or none); without one a
+    // fence, gate or wall of any mod goes by its class, unless it has a mask (NTM's chain-link fence: by its pixels).
     static @Nullable String familyKey(BlockState state) {
         net.minecraft.world.level.block.Block b = state.getBlock();
-        String family;
-        if (b == net.minecraft.world.level.block.Blocks.BAMBOO_FENCE) family = "bamboo_fence";
-        else if (b == net.minecraft.world.level.block.Blocks.BAMBOO_FENCE_GATE) family = "bamboo_fence_gate";
-        else if (b instanceof net.minecraft.world.level.block.FenceBlock) family = "fence";
-        else if (b instanceof net.minecraft.world.level.block.FenceGateBlock) family = "fence_gate";
-        else if (b instanceof net.minecraft.world.level.block.WallBlock) family = "wall";
-        else return null;
-        if (masks().containsKey(b)) return null;
-        Map<String, String> props = new java.util.TreeMap<>();
-        for (var prop : state.getProperties()) {
-            if (FAMILY_PROPS.contains(prop.getName())) props.put(prop.getName(), name(state, prop));
-        }
+        String family = family(BulletRules.shape(state), classFamily(b), b instanceof net.minecraft.world.level.block.FenceBlock
+                || b instanceof net.minecraft.world.level.block.FenceGateBlock || b instanceof net.minecraft.world.level.block.WallBlock
+                ? masks().containsKey(b) : false);
+        if (family == null) return null;
+        Map<String, String> props = new HashMap<>();
+        for (var prop : state.getProperties()) props.put(prop.getName(), name(state, prop));
         return familyKey(family, props);
     }
 
-    // the properties that change these models (not waterlogged, powered)
-    static final Set<String> FAMILY_PROPS = Set.of("east", "north", "south", "west", "up", "facing", "in_wall", "open");
+    // the family a block takes: the rule's (none: no family), else its class's unless it has a mask
+    static @Nullable String family(@Nullable String rule, @Nullable String byClass, boolean masked) {
+        if (rule != null) return rule.equals("none") || !FAMILIES.containsKey(rule) ? null : rule;
+        return masked ? null : byClass;
+    }
 
+    private static @Nullable String classFamily(net.minecraft.world.level.block.Block b) {
+        if (b == net.minecraft.world.level.block.Blocks.BAMBOO_FENCE) return "bamboo_fence";
+        if (b == net.minecraft.world.level.block.Blocks.BAMBOO_FENCE_GATE) return "bamboo_fence_gate";
+        if (b instanceof net.minecraft.world.level.block.FenceBlock) return "fence";
+        if (b instanceof net.minecraft.world.level.block.FenceGateBlock) return "fence_gate";
+        if (b instanceof net.minecraft.world.level.block.WallBlock) return "wall";
+        return null;
+    }
+
+    // per family the properties that change its model, their values, the first one the default (for a block made a
+    // fence by a rule without the fence's sides: a post), as tools/fence_shapes.py makes them
+    private static final List<String> BOOL = List.of("false", "true");
+    private static final Map<String, List<String>> FENCE = Map.of("east", BOOL, "north", BOOL, "south", BOOL, "west", BOOL);
+    private static final Map<String, List<String>> GATE = Map.of("facing", List.of("north", "east", "south", "west"), "in_wall", BOOL,
+            "open", BOOL);
+    private static final List<String> SIDE = List.of("none", "low", "tall");
+    public static final Map<String, Map<String, List<String>>> FAMILIES = Map.of("fence", FENCE, "fence_gate", GATE,
+            "wall", Map.of("east", SIDE, "north", SIDE, "south", SIDE, "west", SIDE, "up", List.of("true", "false")),
+            "bamboo_fence", FENCE, "bamboo_fence_gate", GATE);
+
+    // the key of the family's cells for a block with these properties (the family's own, the rest left out; one it
+    // lacks or with a value the family has not takes the default)
     static String familyKey(String family, Map<String, String> props) {
+        Map<String, List<String>> own = FAMILIES.get(family);
         StringBuilder k = new StringBuilder("~").append(family).append('[');
         String sep = "";
-        for (var e : new java.util.TreeMap<>(props).entrySet()) {
-            k.append(sep).append(e.getKey()).append('=').append(e.getValue());
+        for (String name : new java.util.TreeSet<>(own.keySet())) {
+            String v = props.get(name);
+            if (v == null || !own.get(name).contains(v)) v = own.get(name).getFirst();
+            k.append(sep).append(name).append('=').append(v);
             sep = ",";
         }
         return k.append(']').toString();

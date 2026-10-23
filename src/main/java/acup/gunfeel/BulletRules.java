@@ -78,6 +78,9 @@ public final class BulletRules {
     private static final Map<BlockState, Effect> HITS = new java.util.IdentityHashMap<>();
     private static final Map<BlockState, Boolean> RICOCHETS = new java.util.IdentityHashMap<>();
     private static final Map<BlockState, Decals.Set> DECALS = new java.util.IdentityHashMap<>();
+    private static final Map<BlockState, java.util.Optional<String>> SHAPES = new java.util.IdentityHashMap<>();
+    // goes up each time the rules are read anew (PassableClip forgets the shapes it took from them)
+    private static int generation;
 
     private static synchronized List<Rule> rules() {
         long now = System.currentTimeMillis();
@@ -111,6 +114,8 @@ public final class BulletRules {
                     HITS.clear();
                     RICOCHETS.clear();
                     DECALS.clear();
+                    SHAPES.clear();
+                    generation++;
                     MATERIALS.clear();
                     materialRules = null;
                 }
@@ -346,6 +351,23 @@ public final class BulletRules {
         });
     }
 
+    // "shape <blocks> <family> | none": the cells a bullet meets in it are those of that family's model (fence,
+    // fence_gate, wall, bamboo_fence, bamboo_fence_gate: PassableClip.FAMILIES), or none (its own: its hitbox or
+    // its pixel mask); null: no line, PassableClip goes by the block's class
+    public static synchronized @Nullable String shape(BlockState state) {
+        rules();
+        return SHAPES.computeIfAbsent(state, st -> {
+            Rule r = last("shape", x -> x.words().length > 0 && (x.words()[0].equals("none") || PassableClip.FAMILIES.containsKey(x.words()[0]))
+                    && blockMatches(x.selectors(), st));
+            return java.util.Optional.ofNullable(r == null ? null : r.words()[0]);
+        }).orElse(null);
+    }
+
+    public static synchronized int generation() {
+        rules();
+        return generation;
+    }
+
     // the marks a bullet leaves on it: by its material (as its piercing), each of hole, scratch and scorch changed by
     // the last matching decal rule that names a known style for it (so a later line can change one, keep the others)
     public static synchronized Decals.Set decal(BlockState state) {
@@ -455,6 +477,11 @@ public final class BulletRules {
             #   range: heard over that many blocks, fading out to it (Minecraft's own: 16)
             # ricochet <blocks> yes | no   no: a bullet meeting it at a grazing angle stops in it instead of bouncing off
             #   (NTM's ricochet); yes (the default) bounces. Built in: no for soft ground, wood and glass
+            # shape <blocks> fence | fence_gate | wall | bamboo_fence | bamboo_fence_gate | none   what a bullet meets in
+            #   the block: the posts and rails of that family's vanilla model (the gaps between them are flown through),
+            #   with the block's own sides, facing and so on where it has them; none = its own hitbox (or its pixel mask:
+            #   bars, chain-link fence). Without a line: fences, fence gates and walls of any mod by their family, the
+            #   rest none. Built in: none for NTM's chain-link fence
             # decal <blocks> [hole=<style>] [scratch=<style>] [scorch=<style>]   the marks bullets leave on it (each player's
             #   own game): hole = old | spall | shatter | soot, scratch (a ricochet) = gouge | burn | lines, scorch
             #   (explosive and incendiary rounds) = star | blot | crater; each from the last matching line that names it,

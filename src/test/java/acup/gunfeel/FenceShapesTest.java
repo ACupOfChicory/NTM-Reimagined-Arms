@@ -94,4 +94,43 @@ class FenceShapesTest {
         long[] post = get(all, "wall", "north", "none", "east", "none", "south", "none", "west", "none", "up", "true");
         assertTrue(at(post, 8, 15, 8), "post");
     }
+
+    // a "shape" rule wins over the class and its mask filter; without one the class decides, a mask keeps it out
+    @Test
+    void ruleWinsOverTheClass() {
+        assertEquals(null, PassableClip.family("none", "fence", false), "none takes a fence out");
+        assertEquals("fence", PassableClip.family("fence", null, false), "a rule makes any block a fence");
+        assertEquals("fence", PassableClip.family("fence", "fence", true), "a rule wins over the mask filter");
+        assertEquals("wall", PassableClip.family(null, "wall", false), "no rule: by the class");
+        assertEquals(null, PassableClip.family(null, "fence", true), "no rule, a mask: by its pixels");
+        assertEquals(null, PassableClip.family(null, null, false), "no rule, no family");
+    }
+
+    // a block made a fence or wall by a rule, without their properties (or with others' values): the family's default
+    @Test
+    void missingPropertiesTakeTheDefault() throws IOException {
+        Map<String, long[]> all = families();
+        long[] post = all.get(PassableClip.familyKey("fence", Map.of()));
+        assertNotNull(post);
+        assertTrue(at(post, 8, 8, 8), "fence post");
+        assertFalse(at(post, 12, 7, 8), "no rails");
+        long[] wall = all.get(PassableClip.familyKey("wall", Map.of("north", "true", "waterlogged", "false")));
+        assertNotNull(wall, "a boolean side on a wall is left out");
+        assertTrue(at(wall, 8, 15, 8), "wall post");
+        assertNotNull(all.get(PassableClip.familyKey("fence_gate", Map.of("facing", "up"))));
+        for (String f : PassableClip.FAMILIES.keySet()) assertNotNull(all.get(PassableClip.familyKey(f, Map.of())), f);
+    }
+
+    // the mod's shape lines name families the mod has
+    @Test
+    void builtinShapeLinesAreValid() throws IOException {
+        int n = 0;
+        for (String line : Files.readAllLines(Path.of("src/main/resources/ntmgunfeel-bullets.txt"), StandardCharsets.UTF_8)) {
+            String[] w = line.trim().split("\\s+");
+            if (!w[0].equals("shape")) continue;
+            n++;
+            assertTrue(w.length >= 3 && (w[2].equals("none") || PassableClip.FAMILIES.containsKey(w[2])), line);
+        }
+        assertTrue(n >= 1, "no shape line (NTM's chain-link fence)");
+    }
 }

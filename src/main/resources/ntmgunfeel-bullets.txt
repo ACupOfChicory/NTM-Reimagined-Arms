@@ -57,4 +57,7 @@ material hbm:tile_lab,hbm:tile_lab_cracked,hbm:tile_lab_broken stone
 # a grazing bullet bounces off hard blocks (NTM's ricochet) and digs into soft ground and wood; glass it breaks
 # or goes through. By the block's material, as the hit sounds
 ricochet $soft,$wood,$glass,$tough_glass,$reinforced_glass,$laminate,$none no
+# fences, fence gates and walls: a bullet meets their posts and rails, not their 1.5 block high hitbox (by their class,
+# any mod's). NTM's chain-link fence is a fence by its class, but goes by the pixels of its mesh
+shape hbm:fence_metal,hbm:fence_metal_post none
 whizz sound=ntmgunfeel:bullet.whizz/0.9 radius=3 crack=ntmgunfeel:bullet.crack/0.7 crackradius=1.2
