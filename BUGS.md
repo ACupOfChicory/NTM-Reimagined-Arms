@@ -5,26 +5,6 @@ leave the game exactly as it is.
 
 ## Open
 
-### Hit sounds hardly fade with distance: placed nearer for a 16-block fade, but they fade over 24
-`src/main/java/acup/gunfeel/BulletFx.java:190` (`play`). A hit sound heard over `range` (40) blocks is set nearer the
-listener at `16 / range` of its distance, as if Minecraft faded it out within 16 blocks. Our hit sounds have
-`attenuation_distance` 24 (some 32) in `sounds.json`, so the sound set 16 blocks away still plays at a third of its
-volume (a half for 32), and it goes from 1.6 at the shooter (hitVolume 2) to about 0.5 at 40 blocks, then stops
-short. From `/gunfeel sounddebug`: 36.8 blocks away, set at 14.7, heard at 1.6 × (1 − 14.7/24) ≈ 0.62, not 0.11.
-The scale should be the sound's own attenuation distance over `range`. Found by the user, 2026-10-23.
-
-### Hole limits: every drawn hole counts against holeMaxMachines, ordinary blocks too
-`src/main/java/acup/gunfeel/Tracers.java:1251` (`new Hole(…, true)` in `drawnHole`). `drawnHole` makes the holes on
-every block now (the chunk's mesh), not only on machines and doors, and marks them all `machine`. So `holeMax` (blocks)
-counts nothing and every hole shares `holeMaxMachines` (150 on `high` instead of 500). The holes of one hit share a
-birth time and the limit counts hits, so it still holds. A hole is a machine one when its piece is on a model
-(`RenderedMesh.models`) rather than on the chunk's mesh. Found with `/gunfeel testlog`, 2026-10-23.
-
-### Quality presets: new hole limits apply only when the next hole is made
-`src/main/java/acup/gunfeel/Tracers.java:1268` (`trimHoles`). `/gunfeel quality low` lowers `holeMax` and
-`holeMaxMachines`, but the extra holes stay until a new hole calls `trimHoles`. Not critical (user). Found in game,
-2026-10-23.
-
 ### Ricochet: after a bounce the server's bullet leaves no trace, the tracer flies on (unconfirmed)
 `src/main/java/acup/gunfeel/Tracers.java:589` (client ricochet), NTM `BulletConfig.LAMBDA_STANDARD_RICOCHET`. Four
 Maresleg pellets off NTM steel (tcalloy, titanium deco): the client's tracer bounced and hit concrete 6–7 blocks
@@ -39,6 +19,26 @@ scaffold (wooden or steel) or the first board of a wooden ceiling, the next one 
 Small: a 2-pixel board of wood takes about 3 damage. Found with the wooden trench blocks, 2026-10-23.
 
 ## Fixed
+
+### Hit sounds hardly fade with distance: placed nearer for a 16-block fade, but they fade over 24
+`src/main/java/acup/gunfeel/BulletFx.java:190` (`play`). A hit sound heard over `range` (40) blocks is set nearer the
+listener at `16 / range` of its distance, as if Minecraft faded it out within 16 blocks. Our hit sounds have
+`attenuation_distance` 24 (some 32) in `sounds.json`, so the sound set 16 blocks away still plays at a third of its
+volume (a half for 32), and it goes from 1.6 at the shooter (hitVolume 2) to about 0.5 at 40 blocks, then stops
+short. From `/gunfeel sounddebug`: 36.8 blocks away, set at 14.7, heard at 1.6 × (1 − 14.7/24) ≈ 0.62, not 0.11.
+The scale should be the sound's own attenuation distance over `range`. Found by the user, 2026-10-23. Fixed in X258: the sound is set nearer by its own attenuation distance over `range`, so it fades to nothing at 40.
+
+### Hole limits: every drawn hole counts against holeMaxMachines, ordinary blocks too
+`src/main/java/acup/gunfeel/Tracers.java:1251` (`new Hole(…, true)` in `drawnHole`). `drawnHole` makes the holes on
+every block now (the chunk's mesh), not only on machines and doors, and marks them all `machine`. So `holeMax` (blocks)
+counts nothing and every hole shares `holeMaxMachines` (150 on `high` instead of 500). The holes of one hit share a
+birth time and the limit counts hits, so it still holds. A hole is a machine one when its piece is on a model
+(`RenderedMesh.models`) rather than on the chunk's mesh. Found with `/gunfeel testlog`, 2026-10-23. Fixed in X258: a hole counts as a machine one when its piece has no block (a renderer drew it).
+
+### Quality presets: new hole limits apply only when the next hole is made
+`src/main/java/acup/gunfeel/Tracers.java:1268` (`trimHoles`). `/gunfeel quality low` lowers `holeMax` and
+`holeMaxMachines`, but the extra holes stay until a new hole calls `trimHoles`. Not critical (user). Found in game,
+2026-10-23. Fixed in X258: the holes are trimmed on the next frame after the limits change.
 
 ### Wooden trench blocks: bullets hit solid slabs where boards with gaps are drawn
 `src/main/java/acup/gunfeel/WoodBoxes.java`. NTM's wood barrier, wooden roof, ceiling and scaffold are drawn as boards

@@ -1,5 +1,12 @@
 # Changelog
 
+## X258
+
+- Hit sounds fade with distance as they should: before, set nearer for a 16-block fade while they fade over 24, they
+  played at a third of their volume or more up to 40 blocks and then stopped short.
+- Hole limits: holes on ordinary blocks count by `holeMax` again (all of them went under `holeMaxMachines`).
+- `/gunfeel quality` and the hole limits apply at once, not when the next hole is made.
+
 ## X254
 
 - `/gunfeel testlog`: a test log of what bullets, holes, effects, settings and recoil do while you play

@@ -1248,8 +1248,9 @@ public final class Tracers {
             // on glass (a glass block, a door's clear window): drawn after the glass behind it, see HoleRender
             boolean late = first.tex().glass() || first.block() != null && (translucent(state) || glassLike(state));
             Follow follow = first.anchor() == null ? null : new Follow(first.anchor(), at, mesh, light);
+            // counted by holeMaxMachines when it is on what a renderer draws (a machine, a door: no block), else by holeMax
             addMade(new Hole(new Vec3(at.x, at.y, at.z), hit.getDirection(), turn, born, light, kind, size, null, null, Double.NaN, late, false, mesh,
-                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, true));
+                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, first.block() == null));
             dbg("  hole group: {} polygons at {} on {} tex={} front={} late={} follows={} moving={}", g.polys().size(), v(at), on,
                     RenderedMesh.texName(first.tex()), front, late, follow != null, first.moving());
         }
@@ -1265,7 +1266,11 @@ public final class Tracers {
 
     // at most holeMax hits' holes on blocks and holeMaxMachines hits' on what a renderer draws (NTM machines and
     // doors), each limit on its own (HoleLimits, HoleLimitsTest)
+    private static int trimmedMax = -1, trimmedMachines = -1;
+
     private static void trimHoles() {
+        trimmedMax = Config.holeMax;
+        trimmedMachines = Config.holeMaxMachines;
         HoleLimits.trim(HOLES, Hole::machine, Hole::born, false, Config.holeMax);
         HoleLimits.trim(HOLES, Hole::machine, Hole::born, true, Config.holeMaxMachines);
     }
@@ -1999,6 +2004,8 @@ public final class Tracers {
         if (HOLES.isEmpty() && BATCHES.isEmpty()) return;
         long life = (long) (Math.max(0.1F, Config.holeLife) * 1e9);
         while (!HOLES.isEmpty() && now - HOLES.peekFirst().born() > life) HOLES.removeFirst();
+        // the limits changed (/gunfeel quality, the config file): applied now, not when the next hole is made
+        if (Config.holeMax != trimmedMax || Config.holeMaxMachines != trimmedMachines) trimHoles();
         // the block it was made on was broken, replaced or changed its shape (a door opened): gone with it. Not on
         // a change that leaves the block where it was (a door powered, a block waterlogged)
         // (four times a second, not every frame: a look at every hole's block)

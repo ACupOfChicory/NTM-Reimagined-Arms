@@ -175,24 +175,29 @@ public final class BulletFx {
         play(level, at, e, volume, s.pitch() * (0.9F + r.nextFloat() * 0.2F), fx.range());
     }
 
-    // a sound heard over `range` blocks, fading out to it. Minecraft fades a block's sound out within 16 blocks
-    // (another player's bullet hitting the ground 12 blocks away was all but silent): set nearer the listener on the
-    // same line, so it comes from the same side but fades as if over `range`
+    // a sound heard over `range` blocks, fading out to it. Minecraft fades a sound out within its attenuation
+    // distance (sounds.json, 16 by default; another player's bullet hitting the ground 12 blocks away was all but
+    // silent): set nearer the listener on the same line, so it comes from the same side but fades as if over `range`
     private static void play(ClientLevel level, Vec3 at, SoundEvent e, float volume, float pitch, float range) {
+        long seed = level.getRandom().nextLong();
+        var sm = Minecraft.getInstance().getSoundManager();
+        // the track the copies below will play (same seed, same pick) and the distance it fades out over
+        var probe = new net.minecraft.client.resources.sounds.SimpleSoundInstance(e, SoundSource.PLAYERS, 1F, 1F, RandomSource.create(seed), at.x, at.y, at.z);
+        probe.resolve(sm);
+        float fade = probe.getSound() == null ? 16F : Math.max(1, probe.getSound().getAttenuationDistance());
         Vec3 p = at;
-        if (range > 16F) {
+        if (range > fade) {
             Vec3 ear = Minecraft.getInstance().gameRenderer.mainCamera().position();
             double d = at.distanceTo(ear);
             if (d >= range) {
                 if (debugSound) sd("  not played: {} blocks away, beyond its range {}", String.format("%.1f", d), range);
                 return;
             }
-            p = ear.add(at.subtract(ear).scale(16.0 / range));
+            p = ear.add(at.subtract(ear).scale(fade / range));
         }
         // Minecraft plays no louder than volume 1: louder, the same track at the same pitch several times at once
+        // (each copy at most 1, so each fades over `fade`)
         int copies = Math.min(4, Math.max(1, (int) Math.ceil(volume - 1e-3F)));
-        long seed = level.getRandom().nextLong();
-        var sm = Minecraft.getInstance().getSoundManager();
         net.minecraft.client.resources.sounds.SimpleSoundInstance inst = null;
         net.minecraft.client.sounds.SoundEngine.PlayResult result = null;
         for (int i = 0; i < copies; i++) {
@@ -203,10 +208,10 @@ public final class BulletFx {
         if (debugSound) {
             Vec3 ear = Minecraft.getInstance().gameRenderer.mainCamera().position();
             var w = sm.getSoundEvent(e.location());
-            sd("  played {} x{}: track {}, known {}, volume {}, pitch {}, {} blocks away (set at {}), result {}, active {}",
+            sd("  played {} x{}: track {}, known {}, volume {}, pitch {}, {} blocks away (set at {}, fades over {}), result {}, active {}",
                     e.location(), copies, inst.getSound() == null ? "?" : inst.getSound().getLocation(), w != null,
                     String.format("%.2f", volume), String.format("%.2f", pitch), String.format("%.1f", at.distanceTo(ear)),
-                    String.format("%.1f", p.distanceTo(ear)), result, sm.isActive(inst));
+                    String.format("%.1f", p.distanceTo(ear)), fade, result, sm.isActive(inst));
         }
     }
 
