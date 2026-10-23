@@ -18,7 +18,9 @@ The ammo menu shows the hovered ammo's damage from the gun in hand (× projectil
 into T-51 power armour, with the difference to the loaded ammo. The same numbers for every gun and ammo:
 `python3 review/ammo/make_page.py` writes `review/ammo/page.html`.
 
-The same jar goes on the client and the server.
+The same jar goes on the client and the server, and both need it: a client without the mod cannot join a server
+with it, nor a client with it a server without it (NeoForge turns them away). Different mod versions connect while
+their network protocol (`GunFeelMod.PROTOCOL`) is the same; the chat then says the versions differ.
 
 ## Other NTM versions
 

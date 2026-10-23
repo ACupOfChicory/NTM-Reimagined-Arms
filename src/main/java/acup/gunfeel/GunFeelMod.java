@@ -15,6 +15,9 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 @Mod("ntmgunfeel")
 public final class GunFeelMod {
     // Systems that do not fit an untested NTM are off (acup.gunfeel.compat): their listeners check Feature.on()
+    // the network protocol: raise it when a payload changes, and clients and servers on different ones will not connect
+    public static final String PROTOCOL = "1";
+
     public GunFeelMod(IEventBus modBus, Dist dist, ModContainer container) {
         Compat.setModVersion(container.getModInfo().getVersion().toString());
         if (!Compat.inRange()) {
@@ -37,14 +40,15 @@ public final class GunFeelMod {
                 });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent.class,
                 e -> {
-                    if (e.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp && sp.connection.hasChannel(HelloPayload.TYPE)) {
+                    if (e.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {
                         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp, HelloPayload.ours());
                     }
                 });
         BlockDump.registerIfAsked();
         modBus.addListener(RegisterPayloadHandlersEvent.class, e -> {
-            // optional: a client or server without this mod still connects
-            PayloadRegistrar r = e.registrar("1").optional();
+            // not optional: the mod is needed on both sides, so NeoForge turns away a client without it from a server
+            // with it and the other way round, and a client and server with different PROTOCOLs
+            PayloadRegistrar r = e.registrar(PROTOCOL);
             if (dist.isClient()) {
                 r.playToClient(ShotPayload.TYPE, ShotPayload.CODEC, (p, ctx) -> {
                     if (Feature.TRACERS.on()) Tracers.handle(p, ctx);

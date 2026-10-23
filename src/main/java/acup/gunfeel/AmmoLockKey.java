@@ -89,7 +89,7 @@ public final class AmmoLockKey {
         try {
             net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(p);
         } catch (RuntimeException ex) {
-            // a server without this mod
+            // not connected to a server
         }
     }
 }

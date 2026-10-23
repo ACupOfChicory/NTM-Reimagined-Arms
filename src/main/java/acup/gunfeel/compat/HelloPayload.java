@@ -7,8 +7,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 
 // server -> client when a player joins: the server's versions of this mod and of NTM. The client says in chat when
-// they differ from its own (CompatClient.hello) and shows them in /gunfeel status. Optional like the mod's other
-// payloads: a client or server without the mod still connects.
+// they differ from its own (CompatClient.hello) and shows them in /gunfeel status. Different versions still connect
+// while GunFeelMod.PROTOCOL is the same; NTM turns away a different NTM network protocol itself.
 public record HelloPayload(String mod, String hbm) implements CustomPacketPayload {
     public static final Type<HelloPayload> TYPE = new Type<>(Identifier.fromNamespaceAndPath("ntmgunfeel", "hello"));
     public static final StreamCodec<ByteBuf, HelloPayload> CODEC = StreamCodec.composite(
