@@ -601,8 +601,9 @@ public final class Tracers {
                     long left = (long) Math.max(0.0, s.lifeTicks - s.end);
                     if (left > 0) BOUNCED.add(new Shot(s, stop, out, s.born + (long) (s.end * 50_000_000.0), left));
                 }
-            } else {
-                if (len > 1e-6) hit(level, block, s.config, dir.scale(1.0 / len), s.config.onImpact != null);
+            } else if (len > 1e-6) {
+                hit(level, block, s.config, dir.scale(1.0 / len), s.config.onImpact != null);
+                seenThrough(level, block, s.config, dir.scale(1.0 / len));
             }
         }
         if (!s.whizzed) s.whizzed = BulletFx.whizz(level, s.owner, ra, stop, s.speed);
@@ -616,6 +617,17 @@ public final class Tracers {
         }
         s.checked = t;
         TestLog.shot(-1);
+    }
+
+    // A bullet stopped in see-through glass drawn translucent (a laminate pane): the glass's far face hides the hole
+    // from behind (translucent faces write depth), so the same mark goes on that face too
+    private static void seenThrough(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 unit) {
+        BlockState state = level.getBlockState(hit.getBlockPos());
+        if (!Config.bulletHoles || config.onImpact != null || !glassLike(state) || !translucent(state)) return;
+        BlockHitResult out = PassableClip.exit(level, hit, unit);
+        if (out == null) return;
+        dbg("  hole seen through the glass: its far face at {}", out.getLocation());
+        addHole(level, out, config, unit.scale(-1.0));
     }
 
     // the test log: the bullet stops at this block on the client (the hit itself: "end" below in fly)
@@ -752,7 +764,15 @@ public final class Tracers {
                 Hole h = holesMade != before ? HOLES.peekLast() : null;
                 if (h != null) {
                     Vec3 at = h.hit() != null ? h.hit() : h.pos();
-                    BulletFx.blockHit(p.level(), new BlockHitResult(at, p.hit().getDirection(), p.hit().getBlockPos(), false), p.dir(), p.fx() == 2);
+                    Direction face = h.face();
+                    if (h.mesh() != null) {
+                        // the drawn face's normal, turned towards the shooter
+                        Vec3 n = new Vec3(h.mesh()[0], h.mesh()[1], h.mesh()[2]);
+                        if (n.dot(p.dir()) > 0) n = n.scale(-1);
+                        if (n.lengthSqr() > 1e-6) face = Direction.getApproximateNearest(n);
+                    }
+                    // where the bullet went into the drawn model, facing out of that face of it (not the hitbox's)
+                    BulletFx.blockHit(p.level(), new BlockHitResult(at, face, p.hit().getBlockPos(), false), p.dir(), p.fx() == 2);
                 } else {
                     BulletFx.sd("hit {} at {}: no hole on what is drawn there, no sound or particles", p.hit().getBlockPos().toShortString(), p.hit().getLocation());
                 }

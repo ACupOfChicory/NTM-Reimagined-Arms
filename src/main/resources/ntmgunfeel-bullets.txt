@@ -60,8 +60,11 @@ material hbm:tile_lab,hbm:tile_lab_cracked,hbm:tile_lab_broken stone
 # or goes through. By the block's material, as the hit sounds
 ricochet $soft,$soil,$wood,$glass,$tough_glass,$reinforced_glass,$laminate,$none no
 # fences, fence gates and walls: a bullet meets their posts and rails, not their 1.5 block high hitbox (by their class,
-# any mod's). NTM's chain-link fence is a fence by its class, but goes by the pixels of its mesh
-path hbm:fence_metal,hbm:fence_metal_post pixels
+# any mod's). NTM's chain-link fence is a fence by its class, but goes by its model: a bullet flies through the
+# mesh's clear pixels and pierces its wire and posts, keeping 0.8 of its damage less 1.5 x hardness (15) per block of
+# its path (a wire, 1/16 block: about 1.5 off; a post, 1/4 block: about 6 off); the fence never breaks
+path hbm:fence_metal,hbm:fence_metal_post model
+break hbm:fence_metal,hbm:fence_metal_post never pierce=1.5 keep=0.8
 # holes on glass (any mod's block with glass in its id) follow only the hitbox: its see-through pixels are still glass
 hole ~.*glass.* hitbox
 whizz sound=ntmgunfeel:bullet.whizz/0.9 radius=3 crack=ntmgunfeel:bullet.crack/0.7 crackradius=1.2
