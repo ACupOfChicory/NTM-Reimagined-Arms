@@ -64,9 +64,10 @@ to Gradle was checked this way: the same jar, 198 entries, only the manifest nam
 ## Bullet marks
 
 Holes, ricochet scratches and the scorch of explosive rounds come in several styles; the hit block's material picks
-one through the `decal` lines in `src/main/resources/ntmgunfeel-bullets.txt` (stone and concrete chip, glass cracks, soft ground
-gets a soft hole, metal and wood keep the first set of holes). A line in `config/ntm-gunfeel-bullets.txt` changes it,
-e.g. `decal minecraft:obsidian hole=shatter`. The textures are black with alpha only, so one suits every block.
+one (stone and concrete chip, glass cracks, soft ground gets a soft hole, metal and wood keep the first set of holes),
+the same material that picks the hit sound, the ricochet and how far a bullet goes through. A `decal` line in
+`config/ntm-gunfeel-bullets.txt` changes one block, e.g. `decal minecraft:obsidian hole=shatter`. The textures are
+black with alpha only, so one suits every block.
 
 ## License
 
