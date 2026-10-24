@@ -61,6 +61,11 @@ mod's clamp only caught alpha below 0). Fixed in X263: a last shot later than no
 `src/main/java/acup/gunfeel/Tracers.java` (`seenThrough`). NTM's laminate pane is drawn translucent, and translucent
 faces write depth: its far face hid the hole on its near face, though the hole is drawn from both sides. Fixed in X262:
 a bullet stopped in translucent glass leaves the same mark on its far face too. Found by the user, 2026-10-23.
+That was the wrong fix: the cause was that the hole rule `hole ~.*glass.* hitbox` (`ntmgunfeel-bullets.txt`) did not
+match laminate, so its holes went the mesh way, not the glass way. The second mark looked like a pierced pane, and
+X280–X283 (moving or re-sorting glass holes) made it worse: holes jumped on edges and showed what is behind the glass.
+X284 goes back to X279's drawing, drops `seenThrough` and adds both laminate blocks to the rule. Lesson: ask what
+is wrong before building a new system. Reported by the user, 2026-10-24.
 That fix was wrong: it made a second mark, a new one (its own size and look), where the bullet's line would come out,
 so a stopped 9 mm left an entry and an "exit" in reinforced glass, apart when shot at a slant. Fixed again in X280:
 one mark, drawn on the far face, right behind where it was hit, when the camera is beyond that face. Found by the user,

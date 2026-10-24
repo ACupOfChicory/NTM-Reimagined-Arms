@@ -2155,9 +2155,75 @@ public final class Tracers {
             if (list == null) continue;
             RenderType type = HoleRender.type(TEXTURES[kind], late, cull);
             net.minecraft.client.renderer.SubmitNodeCollector.CustomGeometryRenderer draw = drawer(list, cam, now, life);
-            // holes on glass too: drawn before the translucent terrain, writing depth (HoleRender), so the glass in
-            // front of a hole lies over it and the glass behind it does not
-            event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), type, draw);
+            // holes on glass: drawn after the clouds and rain (afterWeather), which show through the glass behind
+            // them. With improved transparency (clouds and rain in targets of their own) after the translucent terrain
+            // instead, before the translucent particles drawn there (an order before 0 runs first)
+            if (late && !shaderTransparency()) continue;
+            if (late && event.getSubmitNodeCollector() instanceof net.minecraft.client.renderer.SubmitNodeStorage storage)
+                storage.order(-1).submitCustomGeometry(event.getPoseStack(), type, draw);
+            else
+                event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), type, draw);
+        }
+    }
+
+    private static boolean shaderTransparency() {
+        return Minecraft.getInstance().gameRenderer.gameRenderState().useShaderTransparency();
+    }
+
+    private static final Map<Integer, com.mojang.blaze3d.buffers.GpuBuffer> LATE_BUFFERS = new HashMap<>();
+
+    // holes on glass, drawn at once after the clouds and rain (RenderLevelStageEvent.AfterWeather): drawn before
+    // them, the clouds and rain behind the glass would cover the hole
+    public static void afterWeather(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather event) {
+        if (HOLES.isEmpty() || !Config.bulletHoles || shaderTransparency()) return;
+        long pl = Perf.start();
+        try {
+            lateHoles(event);
+        } finally {
+            Perf.add(Perf.LATE, pl);
+        }
+    }
+
+    private static void lateHoles(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather event) {
+        Vec3 cam = event.getLevelRenderState().cameraRenderState.pos;
+        long now = System.nanoTime();
+        long life = (long) (Math.max(0.1F, Config.holeLife) * 1e9);
+        PoseStack.Pose pose = new PoseStack().last();
+        @SuppressWarnings("unchecked")
+        List<Hole>[] groups = new List[2 * KINDS];
+        for (Hole h : HOLES) {
+            if (!h.late()) continue;
+            int g = h.kind() + (h.cull() ? KINDS : 0);
+            if (groups[g] == null) groups[g] = new ArrayList<>();
+            groups[g].add(h);
+        }
+        for (int group = 0; group < 2 * KINDS; group++) {
+            int kind = group % KINDS;
+            boolean cull = group >= KINDS;
+            List<Hole> list = groups[group];
+            if (list == null) continue;
+            RenderType type = HoleRender.type(TEXTURES[kind], true, cull);
+            int vertices = 0;
+            for (Hole h : list) vertices += h.mesh() != null ? h.mesh().length / 2 + 8 : 4 * 256;
+            try (var bytes = new com.mojang.blaze3d.vertex.ByteBufferBuilder(Math.max(64, vertices) * type.format().getVertexSize())) {
+                var builder = new com.mojang.blaze3d.vertex.BufferBuilder(bytes, type.primitiveTopology(), type.format());
+                drawer(list, cam, now, life).render(pose, builder);
+                try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {
+                    if (mesh == null) continue;
+                    var device = com.mojang.blaze3d.systems.RenderSystem.getDevice();
+                    java.nio.ByteBuffer data = mesh.vertexBuffer();
+                    com.mojang.blaze3d.buffers.GpuBuffer vb = LATE_BUFFERS.get(group);
+                    if (vb == null || vb.size() < data.remaining()) {
+                        if (vb != null) vb.close();
+                        vb = device.createBuffer(() -> "Bullet hole vertices", 40, data.remaining());
+                        LATE_BUFFERS.put(group, vb);
+                    }
+                    device.createCommandEncoder().writeToBuffer(vb.slice(), data);
+                    var indices = com.mojang.blaze3d.systems.RenderSystem.getSequentialBuffer(mesh.drawState().primitiveTopology());
+                    int count = mesh.drawState().indexCount();
+                    type.prepare().drawFromBuffer(vb, indices.getBuffer(count), indices.type(), 0, 0, count);
+                }
+            }
         }
     }
 

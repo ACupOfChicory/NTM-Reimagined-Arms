@@ -1,5 +1,11 @@
 # Changelog
 
+## X284
+
+- Glass holes are back to how they were in X279 and before: X280–X283 undone, and no second mark on the far side of
+  stopped-in glass. The one change: NTM's laminate (block and pane) now counts as glass, so its holes follow the
+  hitbox like reinforced glass and show from the other side.
+
 ## X283
 
 - Glass (reinforced glass, laminate, panes): holes are drawn through the glass where they are, from any side, the edges

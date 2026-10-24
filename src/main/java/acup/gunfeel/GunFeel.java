@@ -53,6 +53,9 @@ public final class GunFeel {
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent.class, e -> {
             if (Feature.TRACERS.on()) Tracers.submit(e);
         });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather.class, e -> {
+            if (Feature.TRACERS.on()) Tracers.afterWeather(e);
+        });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterOpaqueFeatures.class, e -> {
             if (Feature.TRACERS.on()) Tracers.afterOpaqueFeatures(e);
         });

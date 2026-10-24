@@ -65,6 +65,7 @@ ricochet $soft,$soil,$wood,$glass,$tough_glass,$reinforced_glass,$laminate,$none
 # its path (a wire, 1/16 block: about 1.5 off; a post, 1/4 block: about 6 off); the fence never breaks
 path hbm:fence_metal,hbm:fence_metal_post model
 break hbm:fence_metal,hbm:fence_metal_post never pierce=1.5 keep=0.8
-# holes on glass (any mod's block with glass in its id) follow only the hitbox: its see-through pixels are still glass
-hole ~.*glass.* hitbox
+# holes on glass (any mod's block with glass in its id, and NTM's laminate) follow only the hitbox: its see-through
+# pixels are still glass
+hole ~.*glass.*,hbm:reinforced_laminate,hbm:reinforced_laminate_pane hitbox
 whizz sound=ntmgunfeel:bullet.whizz/0.9 radius=3 crack=ntmgunfeel:bullet.crack/0.7 crackradius=1.2
