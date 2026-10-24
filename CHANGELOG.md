@@ -1,5 +1,10 @@
 # Changelog
 
+## X288
+
+- The ammo lock key does nothing on what has no magazine (NTM's power armour melee controller): it said "Ammo
+  locked: ?" there. X286 undone: our arms were never drawn on that controller.
+
 ## X285
 
 - Laminate (block and pane): a hole shows from the other side, through the glass where it was made. Laminate has no

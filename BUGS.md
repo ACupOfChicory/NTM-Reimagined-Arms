@@ -266,3 +266,10 @@ classifier was not called). Found in the material review, 2026-10-22; fixed with
 ### ConfigTest reported five read settings as ignored
 `test/acup/gunfeel/ConfigTest.java`: the test's "changed value" was x * 0.5 + 0.01, which is NaN again for NaN and
 0.02 again for 0.02 (tracerWidth). The mod was right. Fixed in 338318b.
+
+### Ammo lock on the power armour melee controller
+`src/main/java/acup/gunfeel/AmmoLock.java` (`toggle`, `locked`). NTM's `hbm:gun_pa_melee` is an `ItemGunBaseNT` with no
+magazine, and the lock key took any such item: "Ammo locked: ?" and the lock icon. Fixed in X288: no magazine, no lock.
+Found by the user, 2026-10-24. Its empty hand is not ours: NTM Next draws (and swings) it through the chest plate's
+melee part, which only the RPA and NCR suits have; the user wore T51 (`notes/ntm/pamelee/`). X286 had turned our arms
+off for it for nothing (it is akimbo, so none were drawn) and was reverted.

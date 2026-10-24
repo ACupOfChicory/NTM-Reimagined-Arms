@@ -35,7 +35,8 @@ public final class AmmoLock {
     }
 
     public static boolean locked(ItemStack stack) {
-        return stack != null && stack.getItem() instanceof ItemGunBaseNT && ItemGunBaseNT.getValueInt(stack, KEY) != 0;
+        // only a gun with a magazine: NTM's power armour melee controller is a "gun" with none
+        return stack != null && stack.getItem() instanceof ItemGunBaseNT && ItemGunBaseNT.getValueInt(stack, KEY) != 0 && primary(stack) != null;
     }
 
     public static BulletConfig chosen(ItemStack stack) {
@@ -166,7 +167,7 @@ public final class AmmoLock {
     // the server: the held gun's lock on or off
     public static void toggle(ServerPlayer player) {
         ItemStack stack = player.getMainHandItem();
-        if (!(stack.getItem() instanceof ItemGunBaseNT gun)) return;
+        if (!(stack.getItem() instanceof ItemGunBaseNT gun) || primary(stack) == null) return;
         boolean on = !locked(stack);
         ItemStack icon = null;
         if (on) {
