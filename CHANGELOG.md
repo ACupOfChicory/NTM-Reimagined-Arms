@@ -1,5 +1,11 @@
 # Changelog
 
+## X280
+
+- A bullet stopped in translucent glass (reinforced glass, laminate) leaves one mark, not two: seen from the other
+  side the same mark shows right behind where it was hit. Before, a second mark was made where the bullet would have
+  come out, so the glass looked pierced.
+
 ## X279
 
 - Bullets no longer stop in the air around NTM's solar boiler: the nearly invisible beams from its mirrors

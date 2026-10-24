@@ -133,7 +133,7 @@ public final class Tracers {
     // mask = which 1/16-block cells of the face show the block's pixels (null = all): cells mask.w x mask.h from
     // cell (u0, v0) on the face's two axes, in 1/16 blocks
     private record Hole(Vec3 pos, Direction face, int turn, long born, int light, int kind, float size, double[] rect, Mask mask, double plane, boolean late, boolean cull,
-            float[] mesh, boolean front, BlockPos block, BlockState state, boolean drawn, Follow follow, Vec3 hit, boolean machine) {
+            float[] mesh, boolean front, BlockPos block, BlockState state, boolean drawn, Follow follow, Vec3 hit, boolean machine, double back) {
     }
 
     // a new mark's turn with a random variant in it
@@ -623,7 +623,6 @@ public final class Tracers {
                 }
             } else if (len > 1e-6) {
                 hit(level, block, s.config, dir.scale(1.0 / len), s.config.onImpact != null);
-                seenThrough(level, block, s.config, dir.scale(1.0 / len));
             }
         }
         if (!s.whizzed) s.whizzed = BulletFx.whizz(level, s.owner, ra, stop, s.speed);
@@ -674,15 +673,18 @@ public final class Tracers {
         return false;
     }
 
-    // A bullet stopped in see-through glass drawn translucent (a laminate pane): the glass's far face hides the hole
-    // from behind (translucent faces write depth), so the same mark goes on that face too
-    private static void seenThrough(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 unit) {
+    // A hole on see-through glass drawn translucent (a laminate pane): the plane of the glass's far face, right
+    // behind the hole (along the face's normal), else NaN. Translucent faces write depth, so seen from behind the
+    // far face hides a mark on the near one: from that side the same mark is drawn on the far face instead.
+    private static double farFace(ClientLevel level, BlockHitResult hit) {
         BlockState state = level.getBlockState(hit.getBlockPos());
-        if (!Config.bulletHoles || config.onImpact != null || !glassLike(state) || !translucent(state)) return;
-        BlockHitResult out = PassableClip.exit(level, hit, unit);
-        if (out == null) return;
-        dbg("  hole seen through the glass: its far face at {}", out.getLocation());
-        addHole(level, out, config, unit.scale(-1.0));
+        if (!glassLike(state) || !translucent(state)) return Double.NaN;
+        Direction f = hit.getDirection();
+        BlockHitResult out = PassableClip.exit(level, hit, new Vec3(-f.getStepX(), -f.getStepY(), -f.getStepZ()));
+        if (out == null || out.getDirection() != f.getOpposite()) return Double.NaN;
+        double back = comp(out.getLocation(), f.getAxis().ordinal());
+        dbg("  hole on glass: its far face at {}", back);
+        return back;
     }
 
     // the test log: the bullet stops at this block on the client (the hit itself: "end" below in fly)
@@ -925,9 +927,10 @@ public final class Tracers {
         double onAxis = Double.isNaN(plane) ? comp(hit.getLocation(), hit.getDirection().getAxis().ordinal()) : plane;
         boolean cull = (level.getBlockState(hit.getBlockPos()).isCollisionShapeFullBlock(level, hit.getBlockPos()) || Math.abs(onAxis - boxFace) < 1e-3)
                 && !glassLike(level.getBlockState(hit.getBlockPos()));
+        double back = farFace(level, hit);
         addMade(new Hole(hit.getLocation(), hit.getDirection(), turn, System.nanoTime(), light, kind, size, rect, mask, plane,
                 translucent(level.getBlockState(hit.getBlockPos())) || glassLike(level.getBlockState(hit.getBlockPos())),
-                cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false));
+                cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false, back));
         trimHoles();
     }
 
@@ -1026,7 +1029,7 @@ public final class Tracers {
         int light = LightCoordsUtil.getLightCoords(level, pos);
         addMade(new Hole(world, hit.getDirection(), turn, System.nanoTime(), light, kind, size, null, null, Double.NaN,
                 translucent(level.getBlockState(pos)) || glassLike(level.getBlockState(pos)), false, mesh,
-                onBoxFace(level, pos, at, normal) && !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false));
+                onBoxFace(level, pos, at, normal) && !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false, Double.NaN));
         trimHoles();
     }
 
@@ -1360,7 +1363,7 @@ public final class Tracers {
             Follow follow = first.anchor() == null ? null : new Follow(first.anchor(), at, mesh, light);
             // counted by holeMaxMachines when it is on what a renderer draws (a machine, a door: no block), else by holeMax
             addMade(new Hole(new Vec3(at.x, at.y, at.z), hit.getDirection(), turn, born, light, kind, size, null, null, Double.NaN, late, false, mesh,
-                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, first.block() == null));
+                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, first.block() == null, Double.NaN));
             dbg("  hole group: {} polygons at {} on {} tex={} front={} late={} follows={} moving={}", g.polys().size(), v(at), on,
                     RenderedMesh.texName(first.tex()), front, late, follow != null, first.moving());
         }
@@ -2339,7 +2342,7 @@ public final class Tracers {
     private static void quad(PoseStack.Pose p, VertexConsumer vc, Hole h, Vec3 cam, float size, int alpha, double[] clip) {
         Direction f = h.face();
         int normalAxis = f.getAxis().ordinal();
-        double base = Double.isNaN(h.plane()) ? comp(h.pos(), normalAxis) : h.plane();
+        double base = baseOf(h);
         // lifted off the face towards the camera: a two-sided hole (iron bars) seen from behind would otherwise lie
         // behind the bars' own pixels and show only where the depth bias wins, cut off along a straight line
         int side = f.getAxisDirection().getStep();
@@ -2347,13 +2350,21 @@ public final class Tracers {
             double d = comp(cam, normalAxis) - base;
             if (d != 0) side = d > 0 ? 1 : -1;
         }
-        quadAt(p, vc, h, cam, size, alpha, clip, side, false, side != f.getAxisDirection().getStep());
+        // glass seen from beyond its far face: the mark on that face
+        if (!Double.isNaN(h.back()) && (comp(cam, normalAxis) - h.back()) * f.getAxisDirection().getStep() < 0) base = h.back();
+        quadAt(p, vc, h, cam, size, alpha, clip, side, false, side != f.getAxisDirection().getStep(), base);
     }
 
-    // the hole's square lifted to `side` of its face, positions from `origin`; reverse = wound the other way (seen
-    // from that side through a culling pipeline), flipNormal = its normal turned to the other side
+    // the plane of the face a flat hole lies on
+    private static double baseOf(Hole h) {
+        return Double.isNaN(h.plane()) ? comp(h.pos(), h.face().getAxis().ordinal()) : h.plane();
+    }
+
+    // the hole's square on the plane `base` (its face's, or a glass's far face), lifted to `side` of it, positions
+    // from `origin`; reverse = wound the other way (seen from that side through a culling pipeline), flipNormal = its
+    // normal turned to the other side
     private static void quadAt(PoseStack.Pose p, VertexConsumer vc, Hole h, Vec3 cam, float size, int alpha, double[] clip, int side, boolean reverse,
-            boolean flipNormal) {
+            boolean flipNormal, double base) {
         Direction f = h.face();
         int[] ax = axes(f);
         double pu = comp(h.pos(), ax[0]), pv = comp(h.pos(), ax[1]);
@@ -2361,7 +2372,6 @@ public final class Tracers {
         double v0 = Math.max(pv - size, clip[2]), v1 = Math.min(pv + size, clip[3]);
         if (u0 >= u1 || v0 >= v1) return;
         int normalAxis = f.getAxis().ordinal();
-        double base = Double.isNaN(h.plane()) ? comp(h.pos(), normalAxis) : h.plane();
         double plane = base + 0.002 * side;
         Vector3f n = new Vector3f(f.getStepX(), f.getStepY(), f.getStepZ());
         if (flipNormal) n.negate();
@@ -2505,10 +2515,10 @@ public final class Tracers {
                 float half = h.size() * 0.5F;
                 int step = h.face().getAxisDirection().getStep();
                 cells(h, cell -> {
-                    quadAt(pose, builder, h, o, half, 255, cell, step, false, false);
+                    quadAt(pose, builder, h, o, half, 255, cell, step, false, false, baseOf(h));
                     // two-sided (iron bars): its back as well, lifted to the back and wound the other way. The same
                     // normal on both: lit as the hole sent each frame is from either side
-                    if (!h.cull()) quadAt(pose, builder, h, o, half, 255, cell, -step, true, false);
+                    if (!h.cull()) quadAt(pose, builder, h, o, half, 255, cell, -step, true, false, baseOf(h));
                 });
             }
             try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {
