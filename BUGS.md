@@ -5,6 +5,18 @@ leave the game exactly as it is.
 
 ## Open
 
+### Частицы стали вместо бетона под лесами: источник пока не подтверждён
+
+Сообщение пользователя от 2026-10-24, X293. В свежем TSV выстрел №110 вызывает
+обработку эффектов стали на ложном пробитии лесов, затем эффекты бетона.
+У лесов full=false: код пропускает частицы; у бетона full=true: частицы
+разрешены. Выстрелы №188–189 проходят леса без пробития и вызывают только
+эффекты бетона. Подмена материала первым блоком логами не подтверждена. X294
+убирает ложное пробитие по неточной форме; X295 явно передаёт частицам
+координаты блока попадания и записывает число переданных движку частиц
+и текстуру. Нужна проверка в игре: старый журнал не записывал фактические
+запросы частиц.
+
 ### Reload: about four times slower with the inventory open (unconfirmed)
 Seen by the user, 2026-10-23: a reload started and the inventory opened, the reload seemed to slow down about four
 times. Not found in the code: NTM counts the reload on the server by ticks (`ItemGunBaseNT.inventoryTick`), which an

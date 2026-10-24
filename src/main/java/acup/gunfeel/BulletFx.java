@@ -121,6 +121,7 @@ public final class BulletFx {
         // only full blocks give off particles: on grates, scaffold, slabs and the like they got stuck inside the
         // model; the sound stays
         boolean full = state.isCollisionShapeFullBlock(level, hit.getBlockPos());
+        int emitted = 0;
         for (BulletRules.Particle part : full ? fx.particles() : java.util.List.<BulletRules.Particle>of()) {
             int count = Config.scaledCount(part.count(), Config.particleScale, r.nextDouble());
             if (part.id().equalsIgnoreCase("block") && byRenderer) {
@@ -132,8 +133,11 @@ public final class BulletFx {
                     // no drawn model there: the block's own crumbs after all (no texture for them: steel-grey ones)
                     ParticleOptions o = BulletServer.particle("block", noParticleTexture(state)
                             ? net.minecraft.world.level.block.Blocks.IRON_BLOCK.defaultBlockState() : state);
+                    if (o instanceof net.minecraft.core.particles.BlockParticleOption block)
+                        o = new net.minecraft.core.particles.BlockParticleOption(block.getType(), block.getState(), hit.getBlockPos());
                     for (int i = 0; o != null && i < count; i++) {
                         double sp = 0.05 + r.nextDouble() * 0.15;
+                        emitted++;
                         level.addParticle(o, p0.x, p0.y, p0.z, (out.x + r.nextGaussian() * 0.35) * sp, (out.y + r.nextGaussian() * 0.35) * sp + 0.03,
                                 (out.z + r.nextGaussian() * 0.35) * sp);
                     }
@@ -141,6 +145,7 @@ public final class BulletFx {
                 if (drawn != null) {
                     for (int i = 0; i < count; i++) {
                         double sp = 0.05 + r.nextDouble() * 0.15;
+                        emitted++;
                         drawn.spawn(level, p0, (out.x + r.nextGaussian() * 0.35) * sp, (out.y + r.nextGaussian() * 0.35) * sp + 0.03,
                                 (out.z + r.nextGaussian() * 0.35) * sp);
                     }
@@ -149,12 +154,20 @@ public final class BulletFx {
             }
             ParticleOptions o = BulletServer.particle(part.id(), state);
             if (o == null) continue;
+            if (o instanceof net.minecraft.core.particles.BlockParticleOption block) o = new net.minecraft.core.particles.BlockParticleOption(block.getType(), block.getState(), hit.getBlockPos());
             for (int i = 0; i < count; i++) {
+                emitted++;
                 double sp = 0.05 + r.nextDouble() * 0.15;
                 level.addParticle(o, p0.x, p0.y, p0.z, (out.x + r.nextGaussian() * 0.35) * sp, (out.y + r.nextGaussian() * 0.35) * sp + 0.03,
                         (out.z + r.nextGaussian() * 0.35) * sp);
             }
         }
+        // В логе fx.particles — виды из правила, а не число созданных частиц. Здесь — число частиц, переданных движку.
+        if (TestLog.client) TestLog.c(TestLog.shot(), "fx_particles", "block", state, "pos", hit.getBlockPos(),
+                "requested", emitted, "full", full, "at", p0, "hitAt", hitAt,
+                "texture", drawn != null ? RenderedMesh.texName(drawn.tri().tex())
+                        : net.minecraft.client.Minecraft.getInstance().getModelManager().getBlockStateModelSet()
+                                .getParticleMaterial(state, level, hit.getBlockPos()).sprite().contents().name());
         BulletRules.Sound s = fx.sound();
         if (s == null) {
             sd("  no sound: its hit rule has none");
