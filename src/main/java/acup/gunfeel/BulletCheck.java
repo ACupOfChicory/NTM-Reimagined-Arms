@@ -183,6 +183,15 @@ public final class BulletCheck {
         level.setBlock(roofed.above(), state("minecraft:stone"), Block.UPDATE_CLIENTS);
         expect("wood barrier: stone above, its ceiling boards", Want.PIERCE, roofed, .5, .97, 30F);
 
+        // ---- NTM's bunker door, closed: a steel leaf 3-4 px thick, a grille of 1-pixel holes in the upper half
+        // (pixel rows 6-8 from the bottom, in a chequer). A hole is flown through untouched, the steel round it holds
+        // a plain round and lets a heavy one through with far less
+        BlockPos bunker = single("hbm:door_bunker[facing=north,half=lower,hinge=left,open=false]");
+        level.setBlock(bunker.above(), state("hbm:door_bunker[facing=north,half=upper,hinge=left,open=false]"), Block.UPDATE_CLIENTS);
+        expect("bunker door: a grille hole", Want.PASS, bunker.above(), 4.5 / 16, 8.5 / 16, 60F);
+        expect("bunker door: the steel beside the hole", Want.STOP, bunker.above(), 5.5 / 16, 8.5 / 16, 60F);
+        expect("bunker door: 150 damage goes through the steel", Want.PIERCE, bunker.above(), .5, .2, 150F);
+
         // ---- path rules in the server's file
         expect("path hitbox: a spruce fence's gap is hit", Want.PIERCE, fenceRow("minecraft:spruce_fence"), .25, .65, 30F);
         s = expect("path through: stone is flown through", Want.PASS, single("minecraft:stone"), .5, .5, 30F);
