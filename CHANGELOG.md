@@ -1,5 +1,12 @@
 # Changelog
 
+## X292
+
+- Recoil is no longer scaled twice: the gun model's kick and the camera's shake were the preset times NTM's recoil
+  number for the gun (0.2–1.4), and light guns also played them faster. Now a shot plays its preset as it is (times
+  `modelKick` / `cameraShake`); the preset is for the gun's class already. The camera's up and sideways kick still
+  follow NTM's degrees.
+
 ## X291
 
 - Recoil is now made by a generator: each movement of the gun model (muzzle up, sideways, roll, up, back) and of the

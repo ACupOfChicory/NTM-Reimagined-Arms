@@ -76,15 +76,6 @@ class PinnedTest {
         pin("curves", out);
     }
 
-    // how hard a shot kicks the model and the camera, from NTM's recoil numbers
-    @Test
-    void recoilStrength() {
-        List<String> out = new ArrayList<>();
-        float[] values = {-12F, -3F, 0F, 0.05F, 0.3F, 1F, 2.5F, 4F, 6F, 10F, 15F, 25F, 40F, 100F};
-        for (float v : values) for (float h : values) out.add(num(v) + " " + num(h) + " " + num(ModelRecoil.strength(v, h)));
-        pin("recoil", out);
-    }
-
     // every setting's default as the code has it before any file is read, and as the mod's built-in file gives it
     @Test
     void configDefaults() throws IllegalAccessException {

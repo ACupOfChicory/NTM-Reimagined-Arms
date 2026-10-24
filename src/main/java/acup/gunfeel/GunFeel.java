@@ -29,8 +29,6 @@ public final class GunFeel {
     // Renderer drawing the first-person gun right now (null outside of it).
     public static ItemRenderWeaponBase current;
     public static boolean currentAkimbo;
-    // Recoil NTM asked for since the last detected shot, used as the shot's strength.
-    public static float pendingRecoil;
     private static final Map<Item, Long> SEEN_SHOT = new IdentityHashMap<>();
 
     static void init() {
@@ -96,8 +94,6 @@ public final class GunFeel {
         for (long t : gun.lastShot) newest = Math.max(newest, t);
         Long seen = SEEN_SHOT.put(gun, newest);
         if (seen == null || newest <= seen) return;
-        float recoil = pendingRecoil;
-        pendingRecoil = 0F;
-        ModelRecoil.shot(ModelRecoil.strength(recoil, 0F), ItemGunBaseNT.getIsAiming(stack));
+        ModelRecoil.shot(ItemGunBaseNT.getIsAiming(stack));
     }
 }

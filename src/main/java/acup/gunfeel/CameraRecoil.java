@@ -35,8 +35,6 @@ public final class CameraRecoil {
     public static void addImpulse(float vertical, float horizontal) {
         LocalPlayer holder = Minecraft.getInstance().player;
         if (holder != null && !GunEditor.replaying) LAST.put(holder.getMainHandItem().getItem(), new float[] {vertical, horizontal});
-        float strength = ModelRecoil.strength(vertical, horizontal);
-        float speed = 1F / (0.45F + 0.55F * Mth.clamp(strength, 0F, 1F));
         if (SHOTS.size() >= 16) SHOTS.remove(0);
         // the server's minimum (cameraScaleMin in ntm-gunfeel-server.properties): with one set, the player's scale goes
         // no lower, and the up and sideways curves and their time are the mod's, so no curve of the player's flattens it
@@ -52,7 +50,7 @@ public final class CameraRecoil {
         if (TestLog.client) TestLog.c(-1, "recoil", "phase", "kick", "scale", scale, "cameraScale", Config.cameraScale, "min", min, "held", held,
                 "time", held ? Math.max(1F, Config.cameraTime) : Config.cameraTime, "ownCurves", !held, "preset", RecoilPresets.presetOf("cameraPitch"), "up", vertical * scale, "pitch", pl == null ? null : pl.getXRot());
         SHOTS.add(new Shot(System.nanoTime(), vertical * scale, horizontal * scale,
-                strength * Config.cameraShake * (Math.random() < 0.5 ? 1F : -1F), speed,
+                Config.cameraShake * (Math.random() < 0.5 ? 1F : -1F), 1F,
                 held ? shipped("cameraPitch") : RecoilPresets.channel("cameraPitch"),
                 held ? shipped("cameraYaw") : RecoilPresets.channel("cameraYaw"),
                 RecoilPresets.channel("cameraRoll"), held ? Math.max(1F, Config.cameraTime) : Config.cameraTime));

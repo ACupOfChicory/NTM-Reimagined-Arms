@@ -27,6 +27,11 @@ Small: a 2-pixel board of wood takes about 3 damage. Found with the wooden trenc
 
 ## Fixed
 
+### Recoil: the presets scaled again by NTM's recoil (X292)
+`ModelRecoil.shot`, `CameraRecoil.addImpulse`. X291 brought presets per gun class, but the shot still multiplied
+them by `ModelRecoil.strength` (0.2–1.4 from NTM's recoil numbers) and sped them up for light guns, as with the old
+single curve. A shotgun's kick came out up to 1.4 times its preset, too strong. Seen by the user, 2026-10-24.
+
 ### Machines: bullets stopped in the air around the solar boiler (X279)
 `src/main/java/acup/gunfeel/RenderedMesh.java` (`Capture.tri`). NTM's solar boiler draws a beam from every mirror
 into it (`RenderSolarBoiler`, additive, alpha 1 %), almost invisible. The cells of a machine are read from what its

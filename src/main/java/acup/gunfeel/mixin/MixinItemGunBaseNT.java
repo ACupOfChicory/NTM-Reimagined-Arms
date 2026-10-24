@@ -40,9 +40,4 @@ public abstract class MixinItemGunBaseNT {
         // a second's slack: the client's clock may run a little behind the shot's
         for (int i = 0; i < gun.lastShot.length; i++) if (gun.lastShot[i] > now + 1000L) gun.lastShot[i] = 0L;
     }
-
-    @Inject(method = "setupRecoil(FFFF)V", at = @At("HEAD"))
-    private static void gunfeel$recoil(float vertical, float horizontal, float decay, float rebound, CallbackInfo ci) {
-        GunFeel.pendingRecoil += Math.abs(vertical) + Math.abs(horizontal);
-    }
 }

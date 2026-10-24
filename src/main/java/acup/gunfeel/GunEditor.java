@@ -211,7 +211,7 @@ public final class GunEditor extends Screen {
         }
         g.text(font, CHANNEL_NAME[channel] + ": пик " + String.format(Locale.ROOT, "%.2f", chosenPeak)
                 + (RecoilPresets.camera(chosen) && !chosen.equals("cameraRoll") ? " × отдача NTM" : ""), x0, y0 + h + 4, 0xFFFFC040);
-        g.text(font, "0 … " + Math.round(len * 1000F) + " мс (при силе 1)" + (rs[java.util.Arrays.asList(group).indexOf(chosen)] instanceof Curve ? "   своя кривая t:v" : ""),
+        g.text(font, "0 … " + Math.round(len * 1000F) + " мс" + (rs[java.util.Arrays.asList(group).indexOf(chosen)] instanceof Curve ? "   своя кривая t:v" : ""),
                 x0, y0 + h + 14, 0xFFA0A0A0);
     }
 
@@ -281,8 +281,7 @@ public final class GunEditor extends Screen {
             replaying = false;
         }
         var player = Minecraft.getInstance().player;
-        ModelRecoil.shot(ModelRecoil.strength(Math.abs(k[0]) + Math.abs(k[1]), 0F),
-                player != null && ItemGunBaseNT.getIsAiming(player.getMainHandItem()));
+        ModelRecoil.shot(player != null && ItemGunBaseNT.getIsAiming(player.getMainHandItem()));
     }
 
     private static String missing() {

@@ -9,11 +9,9 @@ import org.joml.Vector3f;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 
-import net.minecraft.util.Mth;
-
-// Gun model kick per shot along the gun's recoil preset (RecoilPresets: kickPitch ... kickPosZ), scaled by
-// the gun's NTM recoil strength. Yaw and roll get a random direction and size per shot. Light guns
-// play the curve faster. Overlapping shots add up. Rotation pivots on the right-hand grip.
+// Gun model kick per shot along the gun's recoil preset (RecoilPresets: kickPitch ... kickPosZ), as the preset has it
+// (times modelKick): the preset is for the gun's class already, so NTM's recoil number does not scale it again. Yaw
+// and roll get a random direction and size per shot. Overlapping shots add up. Rotation pivots on the right-hand grip.
 public final class ModelRecoil {
     private record Shot(long start, float strength, float speed, float pitch, float yaw, float roll,
             Recoil cPitch, Recoil cYaw, Recoil cRoll, Recoil cY, Recoil cZ) {
@@ -32,11 +30,11 @@ public final class ModelRecoil {
         return SHOTS.isEmpty();
     }
 
-    public static void shot(float strength, boolean aiming) {
-        float s = strength * Config.modelKick;
+    public static void shot(boolean aiming) {
+        float s = Config.modelKick;
         if (s <= 0F) return;
         float loose = aiming ? 0.5F : 1F;
-        float speed = Config.modelSpeed / (0.45F + 0.55F * Mth.clamp(strength, 0F, 1F));
+        float speed = Config.modelSpeed;
         if (SHOTS.size() >= 12) SHOTS.remove(0);
         SHOTS.add(new Shot(System.nanoTime(), s, speed,
                 0.85F + 0.3F * RANDOM.nextFloat(),
@@ -71,10 +69,5 @@ public final class ModelRecoil {
         pose.mulPose(Axis.YP.rotationDegrees(yaw * Config.modelRotate));
         pose.mulPose(Axis.ZP.rotationDegrees(roll * Config.modelRotate));
         pose.translate(-pivot.x, -pivot.y, -pivot.z);
-    }
-
-    public static float strength(float vertical, float horizontal) {
-        float mag = Math.abs(vertical) + Math.abs(horizontal);
-        return Mth.clamp(0.2F + 0.8F * (float) Math.sqrt(mag / 10F), 0.2F, 1.4F);
     }
 }
