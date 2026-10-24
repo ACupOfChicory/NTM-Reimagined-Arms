@@ -1,9 +1,5 @@
 # Changelog
 
-## X286
-
-- Power Armor – Melee Controller (`hbm:gun_pa_melee`): drawn as NTM draws it again, without our arms.
-
 ## X285
 
 - Laminate (block and pane): a hole shows from the other side, through the glass where it was made. Laminate has no
