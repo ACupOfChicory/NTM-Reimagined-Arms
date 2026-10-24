@@ -28,7 +28,10 @@ public final class Config {
     public static float cameraScale = 0.55F;
     public static float cameraTime = 1.0F;
     public static float cameraShake = 1.0F;
-    // recoil curves per gun, "t:v t:v ..." in seconds; empty = the built-in TaCZ M870 shapes (Curve.java)
+    // recoil presets (RecoilPresets); cameraPreset empty = the same as kickPreset
+    public static String kickPreset = "default", cameraPreset = "";
+    // one movement of the preset replaced: a Spring "amount,attack,settle,bounce,delay,freq" or a curve "t:v t:v ...";
+    // empty = the preset's
     public static String cameraPitch = "", cameraYaw = "", cameraRoll = "";
     public static String kickPitch = "", kickYaw = "", kickRoll = "", kickPosY = "", kickPosZ = "";
     // Gun model kick per shot, and how much of NTM's own RECOIL animation is kept.
@@ -133,14 +136,20 @@ public final class Config {
             modelTilt: "pitch,yaw,roll" degrees, the gun turned around its hip-fire position (none when aimed), empty = none
             hipY: gun Y position in hip fire, 1 = NTM default
             hipZ: gun distance in hip fire, 1 = NTM default, less = closer and bigger
-            cameraScale: camera kick, degrees per unit of NTM recoil (0.55: lever shotgun ~5.5 deg like TaCZ M870)
-            cameraTime: duration of the camera kick, 1 = like M870
+            cameraScale: camera kick, degrees per unit of NTM recoil (0.55: lever shotgun ~5.5 deg)
+            cameraTime: duration of the camera kick, 1 = as the preset
             cameraShake: camera roll shake on each shot, 0 = off
-            cameraPitch, cameraYaw, cameraRoll: camera recoil curves "t:v t:v ..." (seconds:value), empty = TaCZ M870;
-              pitch and yaw peak at 1 (times NTM recoil x cameraScale), roll in degrees (times cameraShake)
-            kickPitch, kickYaw, kickRoll, kickPosY, kickPosZ: gun model kick curves, same format, empty = TaCZ M870;
-              degrees and 1/16 gun-length units as in a TaCZ shoot animation (pitch = -root rotation x), end on 0
-            modelKick: strength of the gun model kick (M870 shoot animation), 0 = off
+            kickPreset: recoil preset of the gun model kick (ntmgunfeel-recoil.properties in the jar, your own in
+              config/ntm-gunfeel-recoil.properties): default, pistol, revolver, smg, assault, rifle, lever, shotgun,
+              sniper, mg, launcher; cameraPreset: the same for the camera, empty = as kickPreset
+            cameraPitch, cameraYaw, cameraRoll: one camera movement instead of the preset's, empty = the preset's:
+              "amount,attack,settle,bounce,delay,freq" (a push and a spring: rises to amount in attack seconds after
+              delay, settles in settle seconds, swings back past zero by bounce x amount, or at freq Hz when freq > 0)
+              or a curve "t:v t:v ..." (seconds:value); pitch and yaw amount 1 = NTM recoil x cameraScale, roll in
+              degrees (times cameraShake)
+            kickPitch, kickYaw, kickRoll, kickPosY, kickPosZ: one gun model movement instead of the preset's, same
+              formats: muzzle up, sideways and roll in degrees, up and back in 1/16 gun-length units
+            modelKick: strength of the gun model kick, 0 = off
             modelRotate: share of the rotation in the model kick (muzzle up, yaw, roll)
             modelSpeed: playback speed of the model kick, higher = shorter
             ntmRecoilAnim: share of NTM's own recoil animation kept, 1 = unchanged
@@ -226,6 +235,11 @@ public final class Config {
     private static final Properties GLOBAL = new Properties();
     private static final Properties BUILTIN = snapshot();
     private static String selected;
+
+    // the gun whose values are in effect (null = none)
+    public static String selectedGun() {
+        return selected;
+    }
     private static int selectedVersion = -1;
     private static Path file;
     private static long stamp = Long.MIN_VALUE;
@@ -362,6 +376,8 @@ public final class Config {
         cameraScale = num(p, "cameraScale", cameraScale);
         cameraTime = Math.max(0.05F, num(p, "cameraTime", cameraTime));
         cameraShake = num(p, "cameraShake", cameraShake);
+        kickPreset = p.getProperty("kickPreset", kickPreset).trim();
+        cameraPreset = p.getProperty("cameraPreset", cameraPreset).trim();
         cameraPitch = p.getProperty("cameraPitch", cameraPitch).trim();
         cameraYaw = p.getProperty("cameraYaw", cameraYaw).trim();
         cameraRoll = p.getProperty("cameraRoll", cameraRoll).trim();
@@ -471,6 +487,8 @@ public final class Config {
         p.setProperty("cameraScale", Float.toString(cameraScale));
         p.setProperty("cameraTime", Float.toString(cameraTime));
         p.setProperty("cameraShake", Float.toString(cameraShake));
+        p.setProperty("kickPreset", kickPreset);
+        p.setProperty("cameraPreset", cameraPreset);
         p.setProperty("cameraPitch", cameraPitch);
         p.setProperty("cameraYaw", cameraYaw);
         p.setProperty("cameraRoll", cameraRoll);

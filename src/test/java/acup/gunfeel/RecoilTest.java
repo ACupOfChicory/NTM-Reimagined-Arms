@@ -38,8 +38,9 @@ class RecoilTest {
     void cameraEndsWhereItStartedAtTheStop() {
         for (float start : new float[] {-90F, -85F, 0F, 89F, 90F}) {
             float xRot = start, applied = 0F;
-            for (float t = 0F; t <= Curve.CAM_PITCH.length() + 0.05F; t += 1F / 60F) {
-                float pitch = t >= Curve.CAM_PITCH.length() ? 0F : Curve.CAM_PITCH.at(t) * 8F;
+            Spring kick = new Spring(1F, 0.015F, 0.4F, 0.1F, 0F, 0F);
+            for (float t = 0F; t <= kick.length() + 0.05F; t += 1F / 60F) {
+                float pitch = t >= kick.length() ? 0F : kick.at(t) * 8F;
                 float got = CameraRecoil.pitchTurn(xRot, pitch - applied);
                 xRot -= got;
                 applied += got;

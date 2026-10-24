@@ -1,13 +1,9 @@
 package acup.gunfeel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -34,82 +30,27 @@ class CurveTest {
     }
 
     @Test
-    void hasNoJumpsBetweenKeyframes() {
-        for (Curve c : builtins()) {
-            float step = c.length() / 2000F;
-            float prev = c.at(0F);
-            for (float t = step; t <= c.length(); t += step) {
-                float v = c.at(t);
-                assertTrue(Math.abs(v - prev) < 0.5F, "jump of " + (v - prev) + " at t=" + t);
-                prev = v;
-            }
-        }
-    }
-
-    @Test
-    void builtInShapesStartAndEndAtRest() {
-        // the camera and the gun model always come back to where they were
-        for (Curve c : builtins()) {
-            assertEquals(0F, c.at(0F), EPS);
-            assertEquals(0F, c.at(c.length()), EPS);
-            assertEquals(0F, c.at(c.length() + 1F), EPS);
-        }
-    }
-
-    @Test
-    void builtInShapesHaveIncreasingTimes() throws ReflectiveOperationException {
-        Field times = Curve.class.getDeclaredField("t");
-        times.setAccessible(true);
-        for (Curve c : builtins()) {
-            float[] t = (float[]) times.get(c);
-            for (int i = 1; i < t.length; i++) assertTrue(t[i] > t[i - 1], "time " + t[i] + " after " + t[i - 1]);
-        }
-    }
-
-    @Test
     void parsesConfigText() {
-        Curve c = Curve.of("0:0  0.1:4 0.2:0", Curve.PITCH);
+        Curve c = Curve.of("0:0  0.1:4 0.2:0");
         assertEquals(4F, c.at(.1F), EPS);
         assertEquals(.2F, c.length(), EPS);
     }
 
     @Test
-    void keepsTheBuiltInCurveOnBadText() {
-        Curve builtin = Curve.CAM_PITCH;
-        assertSame(builtin, Curve.of(null, builtin));
-        assertSame(builtin, Curve.of("", builtin));
-        assertSame(builtin, Curve.of("   ", builtin));
-        assertSame(builtin, Curve.of("0:0", builtin), "one point is not a curve");
-        assertSame(builtin, Curve.of("0:0 abc:1", builtin));
-        assertSame(builtin, Curve.of("0:0 0.1", builtin));
-        assertSame(builtin, Curve.of("0:0 0.2:1 0.1:0", builtin), "times must go up");
-        assertSame(builtin, Curve.of("0:0 0:1", builtin), "times must go up");
-    }
-
-    // the same bad text in two settings: each keeps its own built-in curve (BUGS.md: the second got the first one's)
-    @Test
-    void badTextDoesNotBorrowAnotherFallback() {
-        assertSame(Curve.PITCH, Curve.of("1:x 2:y", Curve.PITCH));
-        assertSame(Curve.CAM_PITCH, Curve.of("1:x 2:y", Curve.CAM_PITCH));
+    void givesNothingOnBadText() {
+        assertNull(Curve.of(null));
+        assertNull(Curve.of(""));
+        assertNull(Curve.of("   "));
+        assertNull(Curve.of("0:0"), "one point is not a curve");
+        assertNull(Curve.of("0:0 abc:1"));
+        assertNull(Curve.of("0:0 0.1"));
+        assertNull(Curve.of("0:0 0.2:1 0.1:0"), "times must go up");
+        assertNull(Curve.of("0:0 0:1"), "times must go up");
+        assertNull(Curve.of("8,0.04,0.3"), "a spring is not a curve");
     }
 
     @Test
     void parsesTheSameTextOnce() {
-        assertSame(Curve.of("0:0 0.3:1", Curve.YAW), Curve.of("0:0 0.3:1", Curve.YAW));
-    }
-
-    static List<Curve> builtins() {
-        List<Curve> out = new ArrayList<>();
-        for (Field f : Curve.class.getFields()) {
-            if (Modifier.isStatic(f.getModifiers()) && f.getType() == Curve.class) {
-                try {
-                    out.add((Curve) f.get(null));
-                } catch (IllegalAccessException e) {
-                    throw new AssertionError(e);
-                }
-            }
-        }
-        assertTrue(out.size() >= 8);
-        return out;
+        assertSame(Curve.of("0:0 0.3:1"), Curve.of("0:0 0.3:1"));
     }
 }

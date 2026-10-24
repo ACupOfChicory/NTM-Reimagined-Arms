@@ -39,27 +39,38 @@ class PinnedTest {
         pin("resources", out);
     }
 
-    // the recoil shapes, sampled finely past their ends
+    // the recoil movements: the springs of every preset the jar ships and a few by hand, sampled finely past their
+    // ends, and the config form of a curve "t:v t:v"
     @Test
-    void curves() throws IllegalAccessException {
+    void curves() throws IOException {
         List<String> out = new ArrayList<>();
-        for (Field f : Curve.class.getFields()) {
-            if (f.getType() != Curve.class || !Modifier.isStatic(f.getModifiers())) continue;
-            Curve c = (Curve) f.get(null);
-            out.add(f.getName() + " length " + num(c.length()));
+        java.util.Properties presets = new java.util.Properties();
+        try (var r = Files.newBufferedReader(Path.of("src/main/resources/ntmgunfeel-recoil.properties"), StandardCharsets.UTF_8)) {
+            presets.load(r);
+        }
+        java.util.Map<String, String> springs = new java.util.TreeMap<>();
+        for (String k : presets.stringPropertyNames()) springs.put(k, presets.getProperty(k));
+        springs.put("~bounce", "5,0.03,0.4,0.3,0.02");
+        springs.put("~shake", "2,0.01,0.3,0,0,18");
+        springs.put("~tiny", "1,0,0");
+        for (var e : springs.entrySet()) {
+            Spring sp = Spring.parse(e.getValue());
+            if (sp == null) {
+                out.add(e.getKey() + " not a spring: " + e.getValue());
+                continue;
+            }
+            out.add(e.getKey() + " = " + sp + " length " + num(sp.length()));
             for (int i = -2; i <= 480; i++) {
                 float t = i * 0.0025F;
-                out.add(f.getName() + " " + num(t) + " " + num(c.at(t)));
+                out.add(e.getKey() + " " + num(t) + " " + num(sp.at(t)));
             }
         }
-        // the config form "t:v t:v": parsed, and the bad ones fall back to the built-in curve
-        // the two leading spaces kept another test's text out of Curve.of's cache while it cached fallbacks too (fixed);
-        // they stay so that the pinned lines stay the same
-        String[] srcs = {"  0:0 0.1:5 0.3:-1 0.5:0", "  0:0 0.2:1", "  0:1  0.4:2 ", "  0:0", "  0:0 0:1", "  0:0 0.2:x", "", "  a b c"};
+        String[] srcs = {"0:0 0.1:5 0.3:-1 0.5:0", "0:0 0.2:1", "0:1  0.4:2 ", "0:0", "0:0 0:1", "0:0 0.2:x", "", "a b c"};
         for (String src : srcs) {
-            Curve c = Curve.of(src, Curve.PITCH);
-            StringBuilder b = new StringBuilder("of '" + src + "'" + (c == Curve.PITCH ? " = PITCH" : "") + ":");
-            for (int i = 0; i <= 20; i++) b.append(' ').append(num(c.at(i * 0.03F)));
+            Curve c = Curve.of(src);
+            StringBuilder b = new StringBuilder("of '" + src + "':");
+            if (c == null) b.append(" none");
+            else for (int i = 0; i <= 20; i++) b.append(' ').append(num(c.at(i * 0.03F)));
             out.add(b.toString());
         }
         pin("curves", out);

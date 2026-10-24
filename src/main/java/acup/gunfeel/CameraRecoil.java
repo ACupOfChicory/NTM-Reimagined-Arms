@@ -7,12 +7,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
 
-// Camera recoil per shot along Curve.CAM_*: a snap up within one frame, a short hold,
-// return by ~0.4 s, plus a damped roll shake. The amount comes from NTM's recoil numbers
-// (lever shotgun: 10 up -> 5.5 deg with cameraScale 0.55). The camera always comes back. A server can set a minimum
-// the player can't go below (cameraScaleMin); the shake (roll) stays the player's, as do the gun model and the arms.
+// Camera recoil per shot along the gun's recoil preset (RecoilPresets: cameraPitch, cameraYaw, cameraRoll): a snap up,
+// a return, a damped roll shake. The amount comes from NTM's recoil numbers (lever shotgun: 10 up -> 5.5 deg with
+// cameraScale 0.55). The camera always comes back. A server can set a minimum the player can't go below
+// (cameraScaleMin): the up and sideways movements are then the jar's preset of the gun, at least as strong and long
+// as it ships; the shake (roll) stays the player's, as do the gun model and the arms.
 public final class CameraRecoil {
-    private record Shot(long start, float up, float left, float shake, float speed, Curve cPitch, Curve cYaw, Curve cRoll, float time) {
+    private record Shot(long start, float up, float left, float shake, float speed, Recoil cPitch, Recoil cYaw, Recoil cRoll, float time) {
         float length() {
             return Math.max(cPitch.length(), Math.max(cYaw.length(), cRoll.length()));
         }
@@ -49,12 +50,22 @@ public final class CameraRecoil {
             burstStopped = false;
         }
         if (TestLog.client) TestLog.c(-1, "recoil", "phase", "kick", "scale", scale, "cameraScale", Config.cameraScale, "min", min, "held", held,
-                "time", held ? Math.max(1F, Config.cameraTime) : Config.cameraTime, "ownCurves", !held, "up", vertical * scale, "pitch", pl == null ? null : pl.getXRot());
+                "time", held ? Math.max(1F, Config.cameraTime) : Config.cameraTime, "ownCurves", !held, "preset", RecoilPresets.presetOf("cameraPitch"), "up", vertical * scale, "pitch", pl == null ? null : pl.getXRot());
         SHOTS.add(new Shot(System.nanoTime(), vertical * scale, horizontal * scale,
                 strength * Config.cameraShake * (Math.random() < 0.5 ? 1F : -1F), speed,
-                held ? Curve.CAM_PITCH : Curve.of(Config.cameraPitch, Curve.CAM_PITCH),
-                held ? Curve.CAM_YAW : Curve.of(Config.cameraYaw, Curve.CAM_YAW),
-                Curve.of(Config.cameraRoll, Curve.CAM_ROLL), held ? Math.max(1F, Config.cameraTime) : Config.cameraTime));
+                held ? shipped("cameraPitch") : RecoilPresets.channel("cameraPitch"),
+                held ? shipped("cameraYaw") : RecoilPresets.channel("cameraYaw"),
+                RecoilPresets.channel("cameraRoll"), held ? Math.max(1F, Config.cameraTime) : Config.cameraTime));
+    }
+
+    // the movement of the preset the jar gives the gun in hand, at least the full NTM kick (amount 1)
+    private static Spring shipped(String channel) {
+        String gun = Config.selectedGun();
+        String p = gun == null ? null : Grips.shipped(gun, "cameraPreset");
+        if (p == null && gun != null) p = Grips.shipped(gun, "kickPreset");
+        if (p == null) p = Config.codeValue("kickPreset");
+        Spring s = RecoilPresets.preset(p == null ? RecoilPresets.DEFAULT : p, channel, true);
+        return s.amount() == 0F ? s : s.with(0, Math.copySign(Math.max(1F, Math.abs(s.amount())), s.amount()));
     }
 
     public static void reset() {

@@ -1,5 +1,17 @@
 # Changelog
 
+## X291
+
+- Recoil is now made by a generator: each movement of the gun model (muzzle up, sideways, roll, up, back) and of the
+  camera (up, sideways, roll shake) is a push and a damped spring, set by strength, attack, settle, bounce, delay and
+  shake rate. Presets per gun class: default, pistol, revolver, smg, assault, rifle, lever, shotgun, sniper, mg,
+  launcher (`kickPreset`, `cameraPreset`; values from real-world recoil data). NTM's guns get their class's preset.
+- The editor's "Отдача" tab has a second page "Кривые": the gun's and the camera's preset, the six numbers of each
+  movement with a live graph, and "Сохранить пресет" (to config/ntm-gunfeel-recoil.properties).
+- The old built-in curves and Henry's and Lincoln's own curves are gone. A curve of your own ("t:v t:v ...") in a
+  kick*/camera* key still works.
+- ⚠ Ломает совместимость: an empty kick*/camera* key now means the preset's movement, not the old built-in curve.
+
 ## X290
 
 - Bullet shapes made from block models are no longer a pixel too fat: a face lying on a pixel border (NTM steel

@@ -11,12 +11,12 @@ import com.mojang.math.Axis;
 
 import net.minecraft.util.Mth;
 
-// Gun model kick per shot along Curve.PITCH ... POS_Z, scaled by
+// Gun model kick per shot along the gun's recoil preset (RecoilPresets: kickPitch ... kickPosZ), scaled by
 // the gun's NTM recoil strength. Yaw and roll get a random direction and size per shot. Light guns
 // play the curve faster. Overlapping shots add up. Rotation pivots on the right-hand grip.
 public final class ModelRecoil {
     private record Shot(long start, float strength, float speed, float pitch, float yaw, float roll,
-            Curve cPitch, Curve cYaw, Curve cRoll, Curve cY, Curve cZ) {
+            Recoil cPitch, Recoil cYaw, Recoil cRoll, Recoil cY, Recoil cZ) {
         float length() {
             return Math.max(Math.max(cPitch.length(), cYaw.length()), Math.max(cRoll.length(), Math.max(cY.length(), cZ.length())));
         }
@@ -42,8 +42,8 @@ public final class ModelRecoil {
                 0.85F + 0.3F * RANDOM.nextFloat(),
                 loose * (RANDOM.nextBoolean() ? 1F : -1F) * (0.5F + 0.7F * RANDOM.nextFloat()),
                 loose * (RANDOM.nextBoolean() ? 1F : -1F) * (0.6F + 0.6F * RANDOM.nextFloat()),
-                Curve.of(Config.kickPitch, Curve.PITCH), Curve.of(Config.kickYaw, Curve.YAW), Curve.of(Config.kickRoll, Curve.ROLL),
-                Curve.of(Config.kickPosY, Curve.POS_Y), Curve.of(Config.kickPosZ, Curve.POS_Z)));
+                RecoilPresets.channel("kickPitch"), RecoilPresets.channel("kickYaw"), RecoilPresets.channel("kickRoll"),
+                RecoilPresets.channel("kickPosY"), RecoilPresets.channel("kickPosZ")));
     }
 
     // Pose is in NTM's gun frame before the model scale: +Z forward, +Y up. size = gun length there.

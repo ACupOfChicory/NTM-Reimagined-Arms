@@ -13,6 +13,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -39,6 +40,14 @@ public final class GunEditor extends Screen {
     private static int autoFire;
     private static final int[] AUTO_MS = {0, 1000, 333};
     private static final String[] AUTO_NAME = {"выкл", "1/с", "3/с"};
+    // the recoil tab's second page: presets and the movements, with their graph
+    private static boolean curves;
+    private static int channel;
+    private static final String[] CHANNELS = {"kickPitch", "kickYaw", "kickRoll", "kickPosY", "kickPosZ", "cameraPitch", "cameraYaw", "cameraRoll"};
+    private static final String[] CHANNEL_NAME = {"пушка: подъём", "пушка: вбок", "пушка: крен", "пушка: вверх", "пушка: назад",
+            "камера: подъём", "камера: вбок", "камера: крен"};
+    private static final String[] PARAM_NAME = {"сила", "резкость, с", "затухание, с", "отскок", "задержка, с", "частота, Гц"};
+    private static final int GRAPH_H = 100;
 
     private final Item item;
     private final String gun;
@@ -46,6 +55,7 @@ public final class GunEditor extends Screen {
     private final List<Row> rows = new ArrayList<>();
     private long nextShot;
     private Component status = Component.empty();
+    private EditBox presetName;
 
     private GunEditor(Item item) {
         super(Component.literal("Редактор пушки"));
@@ -95,6 +105,32 @@ public final class GunEditor extends Screen {
             b.active = i != tab;
         }
         y += ROW_H + 6;
+        int half = (PANEL_W - GAP) / 2;
+        if (tab == 3) {
+            Button general = addRenderableWidget(Button.builder(Component.literal("Общее"), p -> {
+                curves = false;
+                rebuildWidgets();
+            }).bounds(x, y, half, ROW_H).build());
+            Button shapes = addRenderableWidget(Button.builder(Component.literal("Кривые"), p -> {
+                curves = true;
+                rebuildWidgets();
+            }).bounds(x + half + GAP, y, half, ROW_H).build());
+            general.active = curves;
+            shapes.active = !curves;
+            y += ROW_H + GAP;
+            if (curves) {
+                addRenderableWidget(Button.builder(Component.literal("Пушка: " + Config.kickPreset), p -> cyclePreset(false))
+                        .bounds(x, y, half, ROW_H).build());
+                addRenderableWidget(Button.builder(Component.literal("Камера: " + (Config.cameraPreset.isBlank() ? "как пушка" : Config.cameraPreset)),
+                        p -> cyclePreset(true)).bounds(x + half + GAP, y, half, ROW_H).build());
+                y += ROW_H + GAP;
+                addRenderableWidget(Button.builder(Component.literal("Движение: " + CHANNEL_NAME[channel]), p -> {
+                    channel = (channel + (Minecraft.getInstance().hasShiftDown() ? CHANNELS.length - 1 : 1)) % CHANNELS.length;
+                    rebuildWidgets();
+                }).bounds(x, y, PANEL_W, ROW_H).build());
+                y += ROW_H + GAP;
+            }
+        }
         for (Row r : rowsFor(tab)) {
             r.setRectangle(PANEL_W - RESET_W - GAP, ROW_H, x, y);
             r.sync();
@@ -102,8 +138,15 @@ public final class GunEditor extends Screen {
             addRenderableWidget(Button.builder(Component.literal("↺"), p -> r.reset()).bounds(x + PANEL_W - RESET_W, y, RESET_W, ROW_H).build());
             y += ROW_H + GAP;
         }
+        if (tab == 3 && curves) {
+            presetName = addRenderableWidget(new EditBox(font, x, y, half, ROW_H, Component.literal("имя пресета")));
+            presetName.setMaxLength(32);
+            presetName.setHint(Component.literal("имя пресета"));
+            addRenderableWidget(Button.builder(Component.literal("Сохранить пресет"), p -> savePreset())
+                    .bounds(x + half + GAP, y, half, ROW_H).build());
+            y += ROW_H + GAP;
+        }
         y += 6;
-        int half = (PANEL_W - GAP) / 2;
         addRenderableWidget(Button.builder(Component.literal("Выстрел"), p -> testShot()).bounds(x, y, half, ROW_H).build());
         addRenderableWidget(Button.builder(Component.literal("Очередь: " + AUTO_NAME[autoFire]), p -> {
             autoFire = (autoFire + 1) % AUTO_MS.length;
@@ -131,6 +174,78 @@ public final class GunEditor extends Screen {
         g.text(font, gun + missing, 4, y, 0xFFFFFFFF);
         g.text(font, "● = своё у этой пушки   колесо: шаг, Shift+колесо: мельче", 4, y + 10, 0xFFA0A0A0);
         g.text(font, status, 4, y + 20, 0xFFFFC040);
+        if (tab == 3 && curves) graph(g);
+    }
+
+    // the movements of the chosen one's group (gun or camera) over time, each to its own peak; the chosen one bright
+    private void graph(GuiGraphicsExtractor g) {
+        int x0 = PANEL_W + 16, y0 = 28, w = Math.min(280, width - x0 - 8), h = GRAPH_H;
+        if (w < 80) return;
+        String chosen = CHANNELS[channel];
+        String[] group = RecoilPresets.camera(chosen) ? RecoilPresets.CAMERA : RecoilPresets.KICK;
+        float len = 0.1F;
+        Recoil[] rs = new Recoil[group.length];
+        for (int i = 0; i < group.length; i++) {
+            rs[i] = RecoilPresets.channel(group[i]);
+            len = Math.max(len, rs[i].length());
+        }
+        g.fill(x0 - 4, y0 - 4, x0 + w + 4, y0 + h + 26, 0xB0101010);
+        int mid = y0 + h / 2;
+        g.fill(x0, mid, x0 + w, mid + 1, 0x60FFFFFF);
+        float chosenPeak = 0F;
+        for (int i = 0; i < group.length; i++) {
+            boolean me = group[i].equals(chosen);
+            float peak = 0F;
+            for (int px = 0; px < w; px++) peak = Math.max(peak, Math.abs(rs[i].at(len * px / (w - 1))));
+            if (me) chosenPeak = peak;
+            if (peak <= 0F) continue;
+            int color = me ? 0xFFFFC040 : 0x7090B0FF;
+            int last = mid;
+            for (int px = 0; px < w; px++) {
+                float v = rs[i].at(len * px / (w - 1)) / peak;
+                int y = mid - Math.round(v * (h / 2 - 2));
+                int a = Math.min(last, y), b = Math.max(last, y);
+                g.fill(x0 + px, a, x0 + px + 1, b + 1, color);
+                last = y;
+            }
+        }
+        g.text(font, CHANNEL_NAME[channel] + ": пик " + String.format(Locale.ROOT, "%.2f", chosenPeak)
+                + (RecoilPresets.camera(chosen) && !chosen.equals("cameraRoll") ? " × отдача NTM" : ""), x0, y0 + h + 4, 0xFFFFC040);
+        g.text(font, "0 … " + Math.round(len * 1000F) + " мс (при силе 1)" + (rs[java.util.Arrays.asList(group).indexOf(chosen)] instanceof Curve ? "   своя кривая t:v" : ""),
+                x0, y0 + h + 14, 0xFFA0A0A0);
+    }
+
+    // the next preset (Shift: the one before); the camera's list starts with "as the gun"
+    private void cyclePreset(boolean camera) {
+        List<String> names = new ArrayList<>(RecoilPresets.names());
+        if (camera) names.add(0, "");
+        String now = camera ? Config.cameraPreset : Config.kickPreset;
+        int i = names.indexOf(now);
+        int step = Minecraft.getInstance().hasShiftDown() ? names.size() - 1 : 1;
+        String next = names.get(((i < 0 ? 0 : i) + step) % names.size());
+        Grips.put(gun, camera ? "cameraPreset" : "kickPreset", next, true);
+        Config.select(gun);
+        rebuildWidgets();
+    }
+
+    // the chosen group's movements as they are now, as a preset of the player's; the gun then takes it, with none
+    // of its own movements on top
+    private void savePreset() {
+        String name = presetName == null ? "" : presetName.getValue().trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "");
+        if (name.isEmpty()) {
+            status = Component.literal("Имя пресета: латиница, цифры, - и _");
+            return;
+        }
+        boolean camera = RecoilPresets.camera(CHANNELS[channel]);
+        String[] group = camera ? RecoilPresets.CAMERA : RecoilPresets.KICK;
+        Map<String, Spring> out = new java.util.LinkedHashMap<>();
+        for (String c : group) out.put(c, RecoilPresets.spring(c));
+        RecoilPresets.save(name, out);
+        for (String c : group) Grips.put(gun, c, null, false);
+        Grips.put(gun, camera ? "cameraPreset" : "kickPreset", name, true);
+        Config.select(gun);
+        status = Component.literal("Пресет " + name + " (" + (camera ? "камера" : "пушка") + ") сохранён в config/" + RecoilPresets.FILE);
+        rebuildWidgets();
     }
 
     @Override
@@ -228,6 +343,10 @@ public final class GunEditor extends Screen {
                 out.add(new ConfigRow("armSlideTo", -1, "скольжение до", 0F, 1F, 0.01F));
             }
             case 3 -> {
+                if (curves) {
+                    for (int i = 0; i < PARAM_NAME.length; i++) out.add(new SpringRow(CHANNELS[channel], i));
+                    break;
+                }
                 out.add(new ConfigRow("cameraScale", -1, "камера: сила", 0F, 2F, 0.01F));
                 out.add(new ConfigRow("cameraTime", -1, "камера: время", 0.05F, 3F, 0.01F));
                 out.add(new ConfigRow("cameraShake", -1, "камера: крен", 0F, 3F, 0.01F));
@@ -387,6 +506,70 @@ public final class GunEditor extends Screen {
 
         private float field() {
             return ((Number) value(key)).floatValue();
+        }
+    }
+
+    // one number of one recoil movement (Spring) of this gun; ↺ = the preset's movement again
+    private final class SpringRow extends Row {
+        final String key;
+        final int i;
+
+        SpringRow(String key, int i) {
+            super(lo(key, i), hi(key, i), stepOf(key, i));
+            this.key = key;
+            this.i = i;
+        }
+
+        private static float lo(String key, int i) {
+            return i == 0 ? -hi(key, 0) : i == 1 ? Spring.MIN_ATTACK : i == 2 ? Spring.MIN_SETTLE : 0F;
+        }
+
+        private static float hi(String key, int i) {
+            return switch (i) {
+                case 0 -> key.equals("cameraPitch") || key.equals("cameraYaw") ? 3F : key.startsWith("kickPos") ? 10F : key.equals("cameraRoll") ? 10F : 30F;
+                case 1 -> 0.3F;
+                case 2 -> 2F;
+                case 3 -> 0.9F;
+                case 4 -> 0.3F;
+                default -> 40F;
+            };
+        }
+
+        private static float stepOf(String key, int i) {
+            return switch (i) {
+                case 0 -> key.equals("cameraPitch") || key.equals("cameraYaw") ? 0.01F : key.startsWith("kickPos") ? 0.05F : 0.1F;
+                case 1, 4 -> 0.005F;
+                case 3, 2 -> 0.01F;
+                default -> 0.5F;
+            };
+        }
+
+        @Override
+        String name() {
+            return PARAM_NAME[i];
+        }
+
+        @Override
+        boolean own() {
+            String v = Grips.gunValue(gun, key);
+            return v != null && !v.isBlank();
+        }
+
+        @Override
+        float get() {
+            return RecoilPresets.spring(key).get(i);
+        }
+
+        @Override
+        void set(float v, boolean save) {
+            Grips.put(gun, key, RecoilPresets.spring(key).with(i, v).toString(), save);
+            Config.select(gun);
+        }
+
+        @Override
+        void reset() {
+            Grips.put(gun, key, null, true);
+            Config.select(gun);
         }
     }
 
