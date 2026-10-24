@@ -122,7 +122,8 @@ public final class BulletServer {
             boolean known = paid.contains(pos);
             BlockHitResult out = PassableClip.exit(level, hit, dir);
             if (out == null) return stop(bullet, level, hit, "no_exit", Float.NaN);
-            float left = known ? bullet.damage : PassableClip.pierced(level, hit, out, bullet.damage, bullet.config);
+            double spentBefore = steps.penetration.spent();
+            float left = known ? bullet.damage : PassableClip.pierced(level, hit, out, bullet.damage, bullet.config, steps.penetration);
             if (left < 0F) return stop(bullet, level, hit, "held", (float) hit.getLocation().distanceTo(out.getLocation()));
             if (TestLog.server && !known) TestLog.s(bullet.getId(), "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation(),
                     "material", TestLog.material(level, pos), "result", "pierce", "damage", bullet.damage, "left", left,
@@ -134,7 +135,7 @@ public final class BulletServer {
                     BulletRules.Break rule = BulletRules.breakRule(state);
                     if (rule != null && rule.mode() != 0) wear(server, bullet, pos, state, rule);
                 }
-                steps.pierced(hit, out, bullet.damage);
+                steps.pierced(hit, out, bullet.damage, spentBefore);
                 bullet.damage = left;
             }
             // it comes out beyond this tick's end: it stays inside the block till the next tick

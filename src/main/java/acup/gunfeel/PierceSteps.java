@@ -21,8 +21,10 @@ public final class PierceSteps {
         PierceSteps gunfeel$steps();
     }
 
-    private record Step(double at, float before, BlockHitResult in, BlockHitResult out) {
+    private record Step(double at, float before, double spentBefore, BlockHitResult in, BlockHitResult out) {
     }
+
+    final Materials.Penetration penetration = new Materials.Penetration();
 
     private final List<Step> steps = new ArrayList<>();
     private Vec3 from = Vec3.ZERO;
@@ -41,8 +43,8 @@ public final class PierceSteps {
     }
 
     // a block pierced, paid for at once: the damage was `before`
-    public void pierced(BlockHitResult in, BlockHitResult out, float before) {
-        steps.add(new Step(in.getLocation().distanceTo(from), before, in, out));
+    public void pierced(BlockHitResult in, BlockHitResult out, float before, double spentBefore) {
+        steps.add(new Step(in.getLocation().distanceTo(from), before, spentBefore, in, out));
         paid = steps.size();
     }
 
@@ -55,6 +57,7 @@ public final class PierceSteps {
         if (paid > k) {
             // the blocks beyond it were paid too early: back to the damage before the first of them
             bullet.damage = steps.get(k).before();
+            penetration.restore(steps.get(k).spentBefore());
             paid = k;
             if (TestLog.server) TestLog.s(bullet.getId(), "pierce_later", "blocks", steps.size() - k, "damage", bullet.damage);
         } else {
@@ -73,7 +76,7 @@ public final class PierceSteps {
         Level level = bullet.level();
         while (paid < k && !bullet.isRemoved()) {
             Step s = steps.get(paid++);
-            float left = PassableClip.pierced(level, s.in(), s.out(), bullet.damage, bullet.config);
+            float left = PassableClip.pierced(level, s.in(), s.out(), bullet.damage, bullet.config, penetration);
             if (TestLog.server) TestLog.s(bullet.getId(), "block", "block", level.getBlockState(s.in().getBlockPos()), "pos", s.in().getBlockPos(),
                     "at", s.in().getLocation(), "material", TestLog.material(level, s.in().getBlockPos()), "result", left < 0F ? "stop" : "pierce",
                     "why", "after_entity", "damage", bullet.damage, "left", left);

@@ -140,6 +140,11 @@ public final class PassableClip extends ClipContext {
     // and armour piercing. Less than 1 left stops it.
     public static float pierced(Level level, BlockHitResult in, BlockHitResult out, float damage,
             @Nullable BulletConfig round) {
+        return pierced(level, in, out, damage, round, new Materials.Penetration());
+    }
+
+    public static float pierced(Level level, BlockHitResult in, BlockHitResult out, float damage,
+            @Nullable BulletConfig round, Materials.Penetration penetration) {
         BlockState state = level.getBlockState(in.getBlockPos());
         if (state.isAir() || !(damage >= 1F)) return -1F;
         BulletRules.Break rule = BulletRules.breakRule(state);
@@ -149,7 +154,7 @@ public final class PassableClip extends ClipContext {
         if (v.material() == Materials.Material.MACHINE && !ReaimTimes.flag(BulletRules.MACHINES_KEY, false)) return -1F;
         float negation = round == null ? 0F : round.armorThresholdNegation;
         float piercing = round == null ? 0F : round.armorPiercingPercent;
-        float left = Materials.left(v, in.getLocation().distanceTo(out.getLocation()), damage, negation, piercing);
+        float left = penetration.left(v, in.getLocation().distanceTo(out.getLocation()), damage, negation, piercing);
         return left >= 1F ? left : -1F;
     }
 

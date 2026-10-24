@@ -90,6 +90,17 @@ public final class BulletCheck {
         expect("multiblock exact: empty side of occupied cells", Want.PASS, single("hbm:machine_solar_boiler[facing=north]"), .8, .8, 30F);
         expect("multiblock exact: real face stops bullet", Want.STOP, single("hbm:machine_solar_boiler[facing=north]"), .2, .2, 30F);
 
+        // DU Mr. Deuce: один лист проходит, второй не восстанавливает запас игнорирования порога.
+        BulletConfig plainRound = round;
+        round = com.hbm.items.weapon.sedna.factory.XFactory50.bmg50_du;
+        expect("Mr Deuce DU: one steel panel", Want.PIERCE, single("hbm:steel_wall"), .5, .5, 11.25F);
+        BlockPos panels = single("hbm:steel_wall");
+        level.setBlock(panels.south(), state("hbm:steel_wall"), Block.UPDATE_CLIENTS);
+        Shot secondPanel = shoot(panels, .5, .5, 11.25F);
+        check("Mr Deuce DU: second steel panel holds", false, secondPanel.alive());
+        expect("Mr Deuce DU: one metre of wired glass just passes", Want.PIERCE, single("hbm:reinforced_glass"), .5, .5, 11.25F);
+        round = plainRound;
+
         // ---- fences: a row of three, the middle one shot; rails at 6-9 and 12-15 pixels, the post in the middle
         String fence = "minecraft:oak_fence";
         expect("fence: between the rails", Want.PASS, fenceRow(fence), .25, .65, 30F);

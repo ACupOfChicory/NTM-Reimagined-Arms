@@ -291,6 +291,32 @@ public final class Materials {
     // a machine's casing: two walls of a sixteenth of a block each, whatever the path through its box
     public static final double MACHINE_WALLS = 2.0 / 16.0;
 
+    // Запас игнорирования порога общий для пули: новая панель не восстанавливает его.
+    public static final class Penetration {
+        private double spent;
+
+        public double spent() {
+            return spent;
+        }
+
+        public void restore(double value) {
+            spent = value;
+        }
+
+        public float left(Verdict v, double length, float power, float negation, float piercing) {
+            double available = Math.max(0, negation - spent);
+            float out = Materials.left(v, length, power, (float) available, piercing);
+            if (out >= 1F) {
+                Material m = v.material();
+                double len = m == Material.MACHINE ? MACHINE_WALLS : Math.pow(Math.max(0, length), m.thick);
+                double strength = m == Material.METAL || m == Material.STEEL ? Math.min(v.strength(), STEEL_STRENGTH_MAX) : v.strength();
+                double factor = m == Material.STEEL ? Math.max(0, 1 + STEEL_PIERCE * piercing) : 1;
+                if (factor > 0) spent += Math.min(available, m.dt * strength * len / factor);
+            }
+            return out;
+        }
+    }
+
     // What is left of a bullet's power after `length` blocks of this material, as NTM's armour takes damage: the
     // threshold (dt x thickness x strength, less the bullet's threshold negation) comes off, then the resistance (dr,
     // less the bullet's armour piercing, compounded over the thickness) takes its share. -1 when it stops in it.

@@ -83,6 +83,7 @@ public final class Tracers {
         boolean whizzed; // already whizzed past the player
         volatile boolean gone; // no longer flown (its in-flight sound stops)
         float damage; // what is left of its damage (bullet rules "pierce")
+        final Materials.Penetration penetration = new Materials.Penetration();
         final java.util.Set<BlockPos> pierced = new java.util.HashSet<>(); // blocks it went through
         int ricochets; // times it bounced off so far (NTM's standard ricochet)
 
@@ -114,6 +115,7 @@ public final class Tracers {
             this.light = from.light;
             this.lifeTicks = lifeTicks;
             this.damage = from.damage;
+            this.penetration.restore(from.penetration.spent());
             this.born = born;
             this.pierced.addAll(from.pierced);
             this.ricochets = from.ricochets + 1;
@@ -564,7 +566,7 @@ public final class Tracers {
                 logStop(s, level, block, "no_exit", Float.NaN);
                 break;
             }
-            float left = known ? s.damage : PassableClip.pierced(level, block, out, s.damage, s.config);
+            float left = known ? s.damage : PassableClip.pierced(level, block, out, s.damage, s.config, s.penetration);
             if (left < 0F) {
                 logStop(s, level, block, "held", (float) block.getLocation().distanceTo(out.getLocation()));
                 break;
@@ -1114,8 +1116,6 @@ public final class Tracers {
         }
         return Math.min(3.0, k + 0.05);
     }
-
-    // how far from where the bullet stopped in a model's cell its hole may go to find the model: a cell's diagonal
 
     private static boolean drawnHole(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir) {
         long started = System.nanoTime();
