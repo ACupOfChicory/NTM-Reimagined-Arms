@@ -266,3 +266,8 @@ classifier was not called). Found in the material review, 2026-10-22; fixed with
 ### ConfigTest reported five read settings as ignored
 `test/acup/gunfeel/ConfigTest.java`: the test's "changed value" was x * 0.5 + 0.01, which is NaN again for NaN and
 0.02 again for 0.02 (tracerWidth). The mod was right. Fixed in 338318b.
+
+### Power armour melee controller broken by our arms
+`src/main/resources/ntmgunfeel-guns.properties`. Our arms broke how `hbm:gun_pa_melee` is drawn in first person. Fixed
+in X286: `arms = false` for that gun only, which also skips the rest-pose pass; it is drawn as NTM draws it. Found by
+the user, 2026-10-24.
