@@ -1,5 +1,11 @@
 # Changelog
 
+## X273
+
+- Marks are black again: the colouring by the block (X271) is gone, and so is its setting `holeTint`.
+- Metal, machines, wood and every block on no list get the soft soot hole instead of the old holes; the old holes
+  stay in the mod as the style "old", for a decal rule to pick.
+
 ## X271
 
 - Every mark style has 64 variants instead of 8 (one 8 x 8 texture per style); the first holes ("old") still have

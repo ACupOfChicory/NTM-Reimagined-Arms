@@ -1,5 +1,4 @@
 {
-  "tint": 0.5,
   "cats": {
     "hole": {
       "style": "spall",
@@ -9,8 +8,7 @@
         "steps": 4,
         "shade": 0,
         "opacity": 1,
-        "seed": 7,
-        "core": 0.8
+        "seed": 7
       },
       "styles": {
         "spall": {
@@ -43,7 +41,10 @@
           "halo": 0.55,
           "haloR": 0.35,
           "blur": 0.03,
-          "cracks": 2
+          "cracks": 2,
+          "star": 0.35,
+          "rays": 6,
+          "sharp": 12
         }
       }
     },
@@ -55,8 +56,7 @@
         "steps": 3,
         "shade": 0,
         "opacity": 1,
-        "seed": 3,
-        "core": 0.8
+        "seed": 3
       },
       "styles": {
         "gouge": {
@@ -97,8 +97,7 @@
         "steps": 4,
         "shade": 0,
         "opacity": 1,
-        "seed": 5,
-        "core": 0.8
+        "seed": 5
       },
       "styles": {
         "star": {

@@ -8,11 +8,10 @@ import java.util.Map;
 // The textures a bullet leaves on a block, by style. Which style a block gets comes from its material (Set.of, the
 // same material its piercing uses), changed by the "decal" rules (BulletRules.decal). A kind is one style: an index
 // into files(). Each style is one texture, a grid of GRID x GRID variants (cell(): where a variant lies on it):
-//   hole_<style> ("old": the mod's first 8 holes, repeated over the grid), scratch_<style> (a ricochet),
-//   scorch_<style> (explosive and incendiary rounds).
-// The textures are made by review/decals/render.js from the decal generator page. Their alpha is how dark the mark
-// is; their grey is how much of the block's own colour shows in it (the vertex colour, Tracers): black in the
-// deepest middle, the colour round it.
+//   hole_<style> ("old": the mod's first 8 holes, repeated over the grid; on no material by default, a decal rule
+//   can pick it), scratch_<style> (a ricochet), scorch_<style> (explosive and incendiary rounds).
+// The textures are made by review/decals/render.js from the decal generator page: black, their alpha is how dark
+// the mark is, so one texture suits every block.
 public final class Decals {
     private Decals() {
     }
@@ -21,8 +20,8 @@ public final class Decals {
     public static final List<String> SCRATCHES = List.of("gouge", "burn", "lines");
     public static final List<String> SCORCHES = List.of("star", "blot", "crater");
     public static final int GRID = 8, VARIANTS = GRID * GRID;
-    // the styles of a block no rule names (not on any material list): the old holes, a gouge, a blot
-    public static final String HOLE = "old", SCRATCH = "gouge", SCORCH = "blot";
+    // the styles of a block no rule names (not on any material list): a soot hole, a gouge, a blot
+    public static final String HOLE = "soot", SCRATCH = "gouge", SCORCH = "blot";
 
     private static final int FIRST_SCRATCH = HOLES.size(), FIRST_SCORCH = FIRST_SCRATCH + SCRATCHES.size();
     public static final int COUNT = FIRST_SCORCH + SCORCHES.size();
@@ -96,13 +95,13 @@ public final class Decals {
         public static final Set DEFAULT = new Set(HOLE, SCRATCH, SCORCH);
 
         // by the block's material, as its piercing: stone and concrete chip, glass cracks, soft ground takes a soft
-        // hole, metal, machines and wood keep the old holes
+        // hole, and so do metal, machines, wood and the rest ("old", the mod's first holes, only by a decal rule)
         public static Set of(Materials.Material m) {
             return switch (m) {
                 case STONE, CONCRETE -> new Set("spall", "gouge", "crater");
                 case GLASS, TOUGH_GLASS, REINFORCED_GLASS, LAMINATE -> new Set("shatter", "lines", "star");
                 case SOFT, SOIL -> new Set("soot", "burn", "blot");
-                case METAL, STEEL, MACHINE -> new Set("old", "lines", "star");
+                case METAL, STEEL, MACHINE -> new Set(HOLE, "lines", "star");
                 case WOOD, NONE, UNBREAKABLE -> DEFAULT;
             };
         }

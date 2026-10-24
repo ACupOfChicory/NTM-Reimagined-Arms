@@ -102,9 +102,9 @@ class DecalsTest {
         assertEquals(new Decals.Set("shatter", "lines", "blot"), s);
     }
 
-    // a grid of square cells, grey (how much of the block's colour shows) with alpha; every cell drawn on
+    // a grid of square cells, black with alpha; every cell drawn on
     @Test
-    void everyTextureIsAGridOfGreyCells() throws IOException {
+    void everyTextureIsAGridOfBlackCells() throws IOException {
         for (String f : Decals.files()) {
             Path p = EFFECT.resolve(f + ".png");
             assertTrue(Files.exists(p), "missing " + p);
@@ -122,7 +122,7 @@ class DecalsTest {
                         if ((argb >>> 24) == 0) continue;
                         seen++;
                         int r = argb >> 16 & 255, g = argb >> 8 & 255, b = argb & 255;
-                        assertTrue(r == g && g == b, p + " is coloured at " + x + "," + y + ": #" + Integer.toHexString(argb & 0xFFFFFF));
+                        assertTrue((r | g | b) == 0, p + " is not black at " + x + "," + y + ": #" + Integer.toHexString(argb & 0xFFFFFF));
                     }
                 }
                 assertTrue(seen > 0, p + ": cell " + c + " is empty");
@@ -185,7 +185,8 @@ class DecalsTest {
             scratches.add(d.scratch());
             scorches.add(d.scorch());
         }
-        for (String s : Decals.HOLES) assertTrue(holes.contains(s) || text.contains("hole=" + s), "nothing uses hole " + s);
+        // "old", the mod's first holes, is switched off: kept for a decal rule to pick
+        for (String s : Decals.HOLES) assertTrue(s.equals("old") || holes.contains(s) || text.contains("hole=" + s), "nothing uses hole " + s);
         for (String s : Decals.SCRATCHES) assertTrue(scratches.contains(s) || text.contains("scratch=" + s), "nothing uses scratch " + s);
         for (String s : Decals.SCORCHES) assertTrue(scorches.contains(s) || text.contains("scorch=" + s), "nothing uses scorch " + s);
     }
@@ -194,8 +195,8 @@ class DecalsTest {
     void marksFollowTheMaterial() {
         assertEquals(new Decals.Set("spall", "gouge", "crater"), Decals.Set.of(Materials.Material.CONCRETE));
         assertEquals("shatter", Decals.Set.of(Materials.Material.LAMINATE).hole());
-        // NTM's floor tiles sound like glass: the vinyl ones are wood (old holes), the lab ones stone (spall)
-        assertEquals("old", Decals.Set.of(Materials.Material.WOOD).hole());
+        // NTM's floor tiles sound like glass: the vinyl ones are wood (soot holes), the lab ones stone (spall)
+        assertEquals("soot", Decals.Set.of(Materials.Material.WOOD).hole());
         assertEquals("spall", Decals.Set.of(Materials.Material.STONE).hole());
         // a decal line changes one style and keeps the material's others
         assertEquals(new Decals.Set("shatter", "gouge", "crater"),
