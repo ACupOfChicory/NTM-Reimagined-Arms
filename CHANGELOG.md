@@ -1,5 +1,11 @@
 # Changelog
 
+## X277
+
+- A bullet that hits a creature and then goes on into blocks behind it in the same tick (a shot down through a mob
+  into the ground) no longer hits the creature with the damage left after those blocks: an armour-piercing .50 into
+  a golem's head on grass did 6 instead of about 52.
+
 ## X276
 
 - `/gunfeel testlog` writes each bullet hit on a creature: the bullet's damage when it got there, whether NTM

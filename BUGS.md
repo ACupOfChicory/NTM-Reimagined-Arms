@@ -27,6 +27,14 @@ Small: a 2-pixel board of wood takes about 3 damage. Found with the wooden trenc
 
 ## Fixed
 
+### Piercing: a creature got the damage left after the blocks behind it (X277)
+`src/main/java/acup/gunfeel/BulletServer.java` (`clip`), `PierceSteps.java`. NTM asks for the blocks of a bullet's
+whole tick path (16 blocks) before it looks for creatures on it, and `clip` paid for every block it pierced at once.
+A .50 DU shot down through an iron golem's head into the grass behind it: the two grass blocks took 41 -> 4.9, then
+the head shot did 6 instead of 52. Now the damage goes back to before the first block beyond the creature, and the
+blocks are paid after the hit. Found with `/gunfeel testlog` (the hit lines of X276), 2026-10-24; the bullet check
+`golem over a floor` repeats it.
+
 ### Piercing: four holes from one bullet on the edge of two stacked blocks
 `src/main/java/acup/gunfeel/Tracers.java` (`against`). A bullet along the edge of two stacked steel corners went into
 the upper one and 5 cm later straight on into the lower one: each block pierced got a hole where the bullet went in

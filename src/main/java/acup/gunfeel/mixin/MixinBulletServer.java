@@ -22,7 +22,15 @@ import net.neoforged.neoforge.network.PacketDistributor;
 // Server: explosive bullets shatter glass; bullets fly faster (bulletSpeed in ntm-gunfeel-server.properties, TaCZ-like) and every new bullet is
 // announced to the players around, who draw its tracer and hole themselves.
 @Mixin(value = EntityBulletBaseMK4.class, remap = false)
-public abstract class MixinBulletServer {
+public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Holder {
+    @Unique
+    private final acup.gunfeel.PierceSteps gunfeel$steps = new acup.gunfeel.PierceSteps();
+
+    @Override
+    public acup.gunfeel.PierceSteps gunfeel$steps() {
+        return gunfeel$steps;
+    }
+
     @Shadow
     public BulletConfig config;
 
@@ -99,6 +107,9 @@ public abstract class MixinBulletServer {
     private void gunfeel$entityBefore(net.minecraft.world.phys.HitResult mop, CallbackInfo ci) {
         gunfeel$targetAlive = mop instanceof net.minecraft.world.phys.EntityHitResult e && e.getEntity().isAlive();
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
+        // the damage the bullet has where the creature is, not after the blocks behind it
+        if (!self.level().isClientSide() && mop instanceof net.minecraft.world.phys.EntityHitResult && mop.getLocation() != null)
+            gunfeel$steps.enter(self, mop.getLocation());
         gunfeel$damageBefore = self.damage;
         gunfeel$healthBefore = mop instanceof net.minecraft.world.phys.EntityHitResult e && e.getEntity() instanceof LivingEntity l ? l.getHealth() : Float.NaN;
     }
@@ -109,6 +120,13 @@ public abstract class MixinBulletServer {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
         if (self.level().isClientSide() || !(mop instanceof net.minecraft.world.phys.EntityHitResult e)) return;
         acup.gunfeel.BulletServer.entityHit(self, e.getEntity(), e.getLocation(), gunfeel$targetAlive, gunfeel$damageBefore, gunfeel$healthBefore);
+    }
+
+    // the blocks still owed after the creatures this tick were hit (PierceSteps)
+    @Inject(method = "tick", at = @At("RETURN"))
+    private void gunfeel$pierceOwed(CallbackInfo ci) {
+        EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
+        if (!self.level().isClientSide()) gunfeel$steps.finish(self);
     }
 
     @Inject(method = "tick", at = @At("HEAD"))

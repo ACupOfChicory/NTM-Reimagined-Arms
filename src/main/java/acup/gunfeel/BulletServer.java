@@ -103,8 +103,11 @@ public final class BulletServer {
     // the bullet's path this tick through blocks, piercing them while it has the damage (PassableClip.pierced):
     // each one pierced takes its share of the damage (and counts towards breaking it). `paid` = blocks it already
     // pierced (one it ended a tick inside of is not paid for again). The first block that stops it, else a miss at `to`.
+    // A creature NTM finds on the path before a pierced block gets the damage from before that block (PierceSteps).
     public static BlockHitResult clip(EntityBulletBaseMK4 bullet, Level level, Vec3 from, Vec3 to, java.util.Set<BlockPos> paid) {
         java.util.function.Consumer<BlockHitResult> through = hit -> passed(bullet, hit);
+        PierceSteps steps = PierceSteps.of(bullet);
+        steps.start(from);
         // an explosive bullet goes off on the first block it meets, never pierces
         if (bullet.config != null && bullet.config.onImpact != null) return stop(bullet, level, PassableClip.clip(level, from, to, through), "explosive", Float.NaN);
         Vec3 at = from;
@@ -131,6 +134,7 @@ public final class BulletServer {
                     BulletRules.Break rule = BulletRules.breakRule(state);
                     if (rule != null && rule.mode() != 0) wear(server, bullet, pos, state, rule);
                 }
+                steps.pierced(hit, out, bullet.damage);
                 bullet.damage = left;
             }
             // it comes out beyond this tick's end: it stays inside the block till the next tick

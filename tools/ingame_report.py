@@ -26,7 +26,7 @@ def parse(paths):
                 for p in parts[4:]:
                     k, _, v = p.partition('=')
                     kv[k] = v
-                events.append({'t': int(parts[0]), 'side': parts[1], 'shot': parts[2], 'ev': parts[3], **kv, 'file': path})
+                events.append({'i': len(events), 't': int(parts[0]), 'side': parts[1], 'shot': parts[2], 'ev': parts[3], **kv, 'file': path})
     return events
 
 
@@ -392,17 +392,28 @@ def main(paths):
         s = shots[e['shot']]['S']
         fire = next((x for x in s if x['ev'] == 'fire'), {})
         # what the bullet lost on its way before this hit: the blocks it pierced, the creatures it went through
-        before = [x for x in s if x['t'] <= e['t'] and x is not e]
-        lost = [f"{x['block']} {x['pos']}: {x['damage']} -> {x['left']}" for x in before if x['ev'] == 'block' and x.get('result') == 'pierce']
+        before = [x for x in s if x['i'] < e['i']]
+        # pierce_later: the blocks beyond the creature that were paid too early, given back before the hit
+        pierced = []
+        for x in before:
+            if x['ev'] == 'block' and x.get('result') == 'pierce':
+                pierced.append(x)
+            elif x['ev'] == 'pierce_later':
+                del pierced[len(pierced) - int(num(x.get('blocks'), 0)):]
+        lost = [f"{x['block']} {x['pos']}: {x['damage']} -> {x['left']}" for x in pierced]
+        # a block farther along than the creature must not have cost the bullet before the hit
+        start, hit_at = vec(fire.get('at')), vec(e.get('at'))
+        beyond = [x for x in pierced if start and hit_at and vec(x.get('at')) and dist(start, vec(x['at'])) > dist(start, hit_at) + 0.01]
         lost += [f"сквозь {x['entity']}: {x['damage']} -> {x['left']}" for x in before if x['ev'] == 'end' and x.get('by') == 'entity' and 'left' in x]
         shot_dmg, hit_dmg = num(fire.get('damage')), num(e['damage'])
-        mark = 'bad' if hit_dmg < shot_dmg - 0.01 and not lost else 'info'
+        mark = 'bad' if (hit_dmg < shot_dmg - 0.01 and not lost) or beyond else 'info'
         r.item(mark, f"выстрел {e['shot']}: {e['entity']}{' в голову' if yes(e.get('head')) else ''}, снял {e['took']} "
                      f"(здоровье {e['health']} -> {e['after']}{', убит' if yes(e.get('killed')) else ''})",
                [f"ствол {fire.get('gun', '?')}, патрон {fire.get('ammo', '?')}, урон выстрела {fire.get('damage', '?')}, износ {fire.get('wear', '?')}",
                 f"урон пули у моба {e['damage']}" + (f", по пути потеряно {shot_dmg - hit_dmg:.1f}" if hit_dmg < shot_dmg - 0.01 else ', по пути ничего не потеряно')]
                + ['пробила: ' + l for l in lost]
-               + ([] if mark == 'info' else ['урон упал без пробития по пути: так быть не должно']))
+               + [f"{x['block']} {x['pos']} лежит за мобом, а урон за него снят до попадания" for x in beyond]
+               + (['урон упал без пробития по пути: так быть не должно'] if hit_dmg < shot_dmg - 0.01 and not lost else []))
 
     r.section('Только глазами (лог этого не скажет)')
     for t in ('дырка на стекле видна с обеих сторон и поверх стекла за ним, на панели тоже',

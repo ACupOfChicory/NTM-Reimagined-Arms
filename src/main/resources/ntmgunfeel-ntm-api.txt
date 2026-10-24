@@ -147,6 +147,7 @@ CORE class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 CORE field com/hbm/blocks/generic/BlockWoodStructure kind Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
 CORE field com/hbm/blocks/generic/BlockWoodStructure$Kind ROOF Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
 CORE field com/hbm/blocks/generic/BlockWoodStructure$Kind SCAFFOLD Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
+CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 CORE field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
 CORE field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
@@ -166,8 +167,11 @@ CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind values ()[Lcom/hbm/bl
 CORE method com/hbm/client/Keybinds isGunHeld ()Z
 CORE method com/hbm/client/Keybinds isGunKey (Lnet/minecraft/client/KeyMapping;)Z
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getId ()I
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getZ ()D
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setThrowableHeading (DDDFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 tick ()V

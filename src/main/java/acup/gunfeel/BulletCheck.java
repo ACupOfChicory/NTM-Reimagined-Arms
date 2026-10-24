@@ -198,6 +198,11 @@ public final class BulletCheck {
         Path log = TestLog.set(false, true);
         check("golem: .50 DU in the body takes 45", 45F, golemHit(1.0, 45F));
         check("golem: .50 DU in the head takes 56.25", 56.25F, golemHit(2.4, 45F));
+        // a bullet from above through its head into the plank floor behind it, all in one tick: the golem gets the
+        // damage from before the floor (NTM asks for the blocks of the tick's path before the creatures on it)
+        float[] floor = golemOverFloor(45F);
+        check("golem over a floor: the head shot takes 56.25, not what the floor behind left", 56.25F, floor[0]);
+        check("golem over a floor: the floor behind it still costs the bullet", true, floor[1] < 45F);
         TestLog.set(false, false);
         String text = log == null ? "" : Files.readString(log);
         check("golem: the test log has the body hit", true, text.contains("head=false") && text.contains("took=45.000"));
@@ -269,6 +274,30 @@ public final class BulletCheck {
         float took = before - g.getHealth();
         g.discard();
         return took;
+    }
+
+    // a golem on an oak plank floor, shot at 45 degrees down through its head into the floor behind it: the health it
+    // lost and the bullet's damage after
+    private static float[] golemOverFloor(float damage) {
+        BlockPos at = new BlockPos(2 + 4 * (lane % 16), Y + 4 * (lane / 16), Z);
+        lane++;
+        for (int dz = -1; dz <= 4; dz++) level.setBlock(at.offset(0, -1, dz), state("minecraft:oak_planks"), Block.UPDATE_CLIENTS);
+        var g = net.minecraft.world.entity.EntityTypes.IRON_GOLEM.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        g.setPos(at.getX() + .5, at.getY(), at.getZ() + .5);
+        g.setNoAi(true);
+        g.setNoGravity(true);
+        level.addFreshEntity(g);
+        BulletConfig du = com.hbm.items.weapon.sedna.factory.XFactory50.bmg50_du;
+        EntityBulletBaseMK4 b = new EntityBulletBaseMK4(level, du, 1F, 0F, 0F, 0F);
+        // into the hitbox (z from -0.2) at 2.4 high, down to the floor's top 2.4 further on
+        b.setPos(at.getX() + .5, at.getY() + 4.4, at.getZ() - 2.2);
+        b.setThrowableHeading(0, -1, 1, du.velocity, 0F);
+        b.damage = damage;
+        float before = g.getHealth();
+        b.tick();
+        float took = before - g.getHealth();
+        g.discard();
+        return new float[] {took, b.damage};
     }
 
     private static String after(BlockPos at) {
