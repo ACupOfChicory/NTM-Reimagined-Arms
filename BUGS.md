@@ -68,6 +68,10 @@ one mark, drawn on the far face, right behind where it was hit, when the camera 
 X280 did it only for marks laid on the hitbox (reinforced glass): the laminate's are laid on its model (the hole rule
 `~.*glass.*` does not take `reinforced_laminate_pane`), so on the laminate no mark showed from behind at all. Fixed in
 X281 for marks on a model too. Found by the user, 2026-10-24.
+X280 and X281 were wrong too: they moved the mark onto the far face (B) when seen from there, while it lies on the
+face that was hit (A) and must be seen through the glass. Fixed in X282: the mark stays on A, on the same screen
+pixels, and seen from B each vertex is pulled along the line of sight to just before B (as marks on bars are), so
+B no longer hides it. Found by the user, 2026-10-24.
 
 ### Chain-link fence: bullets never fly through its mesh
 `src/main/resources/ntmgunfeel-bullets.txt` (`path hbm:fence_metal...`). The fence went by a pixel mask laid on its

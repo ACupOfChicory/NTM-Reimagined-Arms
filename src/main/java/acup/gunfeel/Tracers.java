@@ -133,7 +133,7 @@ public final class Tracers {
     // mask = which 1/16-block cells of the face show the block's pixels (null = all): cells mask.w x mask.h from
     // cell (u0, v0) on the face's two axes, in 1/16 blocks
     // through = on translucent glass: how thick the glass is behind the mark, along its normal (NaN = not on such
-    // glass); seen from beyond the glass the mark is drawn on its far face
+    // glass); seen from beyond the glass the mark is seen through it, see glassDepth
     private record Hole(Vec3 pos, Direction face, int turn, long born, int light, int kind, float size, double[] rect, Mask mask, double plane, boolean late, boolean cull,
             float[] mesh, boolean front, BlockPos block, BlockState state, boolean drawn, Follow follow, Vec3 hit, boolean machine, double through) {
     }
@@ -677,8 +677,8 @@ public final class Tracers {
 
     // A mark on see-through glass drawn translucent (a laminate pane, reinforced glass): how thick the glass is
     // behind it, along its normal n (out of the face, towards the shooter), else NaN. Translucent faces write depth, so
-    // seen from behind the far face hides a mark on the near one: from that side the same mark is drawn on the far
-    // face, right behind where it was made.
+    // seen from the other side the glass's face there hides the mark: from that side the mark is drawn where it is, on
+    // the same screen pixels, but pulled along the line of sight to just before that face (pulled()).
     private static double glassDepth(ClientLevel level, BlockPos pos, Vec3 at, Vec3 n) {
         BlockState state = level.getBlockState(pos);
         if (!glassLike(state) || !translucent(state)) return Double.NaN;
@@ -1882,8 +1882,10 @@ public final class Tracers {
         int light = f != null ? f.light : h.light();
         float nx = m[0], ny = m[1], nz = m[2];
         double ahead = (cam.x - pos.x) * nx + (cam.y - pos.y) * ny + (cam.z - pos.z) * nz;
-        // glass seen from beyond its far face: the mark on that face
-        if (f == null && !Double.isNaN(h.through()) && ahead < -h.through()) pos = pos.subtract(nx * h.through(), ny * h.through(), nz * h.through());
+        // glass seen from its other side: where its face on that side lies, ahead of the mark along the normal
+        // (NaN = not pulled)
+        double pullTo = f == null && !Double.isNaN(h.through()) && ahead < -h.through() - PULL_GAP ? -h.through() - PULL_GAP : Double.NaN;
+        float fx = nx, fy = ny, fz = nz;
         // towards the camera, as in quad(); a one-sided hole seen from behind is not drawn
         if (ahead < 0) {
             if (h.front()) return;
@@ -1907,7 +1909,10 @@ public final class Tracers {
                 int[] idx = {0, i, i + 1, Math.min(i + 2, n - 1)};
                 for (int j : idx) {
                     int o = base + j * 6;
-                    vc.addVertex(p, (bx + m[o]) * toward, (by + m[o + 1]) * toward, (bz + m[o + 2]) * toward).setColor(m[o + 5] >= 1F ? color : ((int) (alpha * m[o + 5]) << 24) | 0xFFFFFF).setUv(m[o + 3], m[o + 4])
+                    float rx = bx + m[o], ry = by + m[o + 1], rz = bz + m[o + 2];
+                    float t = toward;
+                    if (!Double.isNaN(pullTo)) t = Math.min(t, pulled(rx * fx + ry * fy + rz * fz, pullTo - ahead));
+                    vc.addVertex(p, rx * t, ry * t, rz * t).setColor(m[o + 5] >= 1F ? color : ((int) (alpha * m[o + 5]) << 24) | 0xFFFFFF).setUv(m[o + 3], m[o + 4])
                             .setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
                 }
             }
@@ -2359,12 +2364,19 @@ public final class Tracers {
             double d = comp(cam, normalAxis) - base;
             if (d != 0) side = d > 0 ? 1 : -1;
         }
-        // glass seen from beyond its far face: the mark on that face
-        if (!Double.isNaN(h.through())) {
-            double far = base - f.getAxisDirection().getStep() * h.through();
-            if ((comp(cam, normalAxis) - far) * f.getAxisDirection().getStep() < 0) base = far;
-        }
         quadAt(p, vc, h, cam, size, alpha, clip, side, false, side != f.getAxisDirection().getStep(), base);
+    }
+
+    // a mark on glass seen from its other side lies this far before that face, on the camera's side
+    private static final double PULL_GAP = 0.002;
+
+    // how far along its line of sight (from the camera, 0..1) a vertex of a mark on glass seen from the other side
+    // goes: the vertex lies `vertex` from the camera along the mark's normal (towards the mark), the glass's face on
+    // the camera's side `face`. It stays on the same screen pixels, where the mark is, but just before that face,
+    // which would hide it
+    private static float pulled(double vertex, double face) {
+        if (!(vertex > 1e-6) || !(face > 0)) return 1F;
+        return (float) Math.clamp(face / vertex, 0.0, 1.0);
     }
 
     // the plane of the face a flat hole lies on
@@ -2402,7 +2414,15 @@ public final class Tracers {
                 w[ax[0]] = c[0];
                 w[ax[1]] = c[1];
                 w[normalAxis] = plane;
-                vc.addVertex(p, (float) (w[0] - cam.x), (float) (w[1] - cam.y), (float) (w[2] - cam.z)).setColor(color).setUv(tu, 1F - tv)
+                double rx = w[0] - cam.x, ry = w[1] - cam.y, rz = w[2] - cam.z, t = 1.0;
+                // glass seen from its other side (only drawn this frame from the camera: holes on glass are not batched)
+                if (!Double.isNaN(h.through())) {
+                    int step = f.getAxisDirection().getStep();
+                    // ahead along the face's normal: of the camera from the mark's face, and of the glass's other face
+                    double camAhead = (comp(cam, normalAxis) - base) * step, to = -h.through() - PULL_GAP;
+                    if (camAhead < to) t = pulled((plane - comp(cam, normalAxis)) * step, to - camAhead);
+                }
+                vc.addVertex(p, (float) (rx * t), (float) (ry * t), (float) (rz * t)).setColor(color).setUv(tu, 1F - tv)
                         .setOverlay(OverlayTexture.NO_OVERLAY).setLight(h.light()).setNormal(p, n.x, n.y, n.z);
             }
         }

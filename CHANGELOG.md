@@ -1,5 +1,10 @@
 # Changelog
 
+## X282
+
+- Glass (reinforced glass, laminate): from the other side a mark is seen through the glass where it was made, not on
+  the near face of the glass.
+
 ## X281
 
 - Laminate: a stopped bullet's mark shows from the other side again (X280 did it only for reinforced glass).
