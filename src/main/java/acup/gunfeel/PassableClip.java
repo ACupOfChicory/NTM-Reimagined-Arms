@@ -147,11 +147,14 @@ public final class PassableClip extends ClipContext {
             @Nullable BulletConfig round, Materials.Penetration penetration) {
         BlockState state = level.getBlockState(in.getBlockPos());
         if (state.isAir() || !(damage >= 1F)) return -1F;
+        BlockState ruleState = Cells.ruleState(level, in.getBlockPos(), state);
+        Materials.Verdict v = BulletRules.material(ruleState);
+        // Запрет относится к машине, даже если её часть определилась как none/stone.
+        // Проверяем до правил пробития, чтобы они тоже не обходили общий выключатель.
+        if ((Cells.machine(state) || Cells.machine(ruleState) || v.material() == Materials.Material.MACHINE)
+                && !ReaimTimes.flag(BulletRules.MACHINES_KEY, false)) return -1F;
         BulletRules.Break rule = BulletRules.breakRule(state);
         if (rule != null && rule.pierce() > 0F) return rule.pierced(damage, state.getDestroySpeed(level, in.getBlockPos()), in.getLocation().distanceTo(out.getLocation()));
-        Materials.Verdict v = BulletRules.material(Cells.ruleState(level, in.getBlockPos(), state));
-        // machines stop bullets unless the server lets them through (a thin casing let them through oddly)
-        if (v.material() == Materials.Material.MACHINE && !ReaimTimes.flag(BulletRules.MACHINES_KEY, false)) return -1F;
         float negation = round == null ? 0F : round.armorThresholdNegation;
         float piercing = round == null ? 0F : round.armorPiercingPercent;
         float left = penetration.left(v, in.getLocation().distanceTo(out.getLocation()), damage, negation, piercing);

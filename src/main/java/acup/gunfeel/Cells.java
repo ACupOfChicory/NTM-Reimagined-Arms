@@ -1,6 +1,7 @@
 package acup.gunfeel;
 
 import com.hbm.blocks.multiblock.BlockMultiblockCell;
+import com.hbm.blocks.multiblock.BlockMultiblockCore;
 import com.hbm.blocks.multiblock.MultiblockSurface;
 
 import net.minecraft.core.BlockPos;
@@ -11,6 +12,11 @@ import net.minecraft.world.level.block.state.BlockState;
 // so the bullet rules (material, piercing, marks, hit sound, ricochet) are the machine's
 public final class Cells {
     private Cells() {
+    }
+
+    // Тип многоблочной машины не зависит от материала и коллизии отдельной её части.
+    public static boolean machine(BlockState state) {
+        return state.getBlock() instanceof BlockMultiblockCore || state.getBlock() instanceof BlockMultiblockCell;
     }
 
     // the block whose rules apply at pos: a cell's machine, else the block itself (also when no machine is known)

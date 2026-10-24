@@ -101,6 +101,29 @@ public final class BulletCheck {
         expect("Mr Deuce DU: one metre of wired glass just passes", Want.PIERCE, single("hbm:reinforced_glass"), .5, .5, 11.25F);
         round = plainRound;
 
+        // Части cargo-лифта обходили запрет машин через материал none/stone.
+        Path machineSettings = FMLPaths.CONFIGDIR.get().resolve(ReaimTimes.FILE);
+        Path bulletRules = FMLPaths.CONFIGDIR.get().resolve(BulletRules.FILE);
+        Files.writeString(bulletRules, RULES + "material hbm:cargo_elevator none\n"
+                + "break hbm:cargo_elevator damage 1000000 pass pierce=0.001 keep=1\n");
+        for (boolean enabled : new boolean[] {false, true}) {
+            Files.writeString(machineSettings, BulletRules.MACHINES_KEY + " = " + enabled + "\n");
+            Thread.sleep(2100);
+            for (String part : new String[] {"core", "cell"}) {
+                BlockPos at = single("hbm:cargo_elevator[facing=north,part=" + part + "]");
+                var in = new net.minecraft.world.phys.BlockHitResult(
+                        new net.minecraft.world.phys.Vec3(at.getX() + .5, at.getY() + .5, at.getZ()),
+                        net.minecraft.core.Direction.NORTH, at, false);
+                var exit = new net.minecraft.world.phys.BlockHitResult(in.getLocation().add(0, 0, .125),
+                        net.minecraft.core.Direction.SOUTH, at, false);
+                check("cargo " + part + ": machine piercing " + enabled, enabled,
+                        PassableClip.pierced(level, in, exit, 1000F, round) >= 1F);
+            }
+        }
+        Files.writeString(machineSettings, BulletRules.MACHINES_KEY + " = false\n");
+        Files.writeString(bulletRules, RULES);
+        Thread.sleep(2100);
+
         // ---- fences: a row of three, the middle one shot; rails at 6-9 and 12-15 pixels, the post in the middle
         String fence = "minecraft:oak_fence";
         expect("fence: between the rails", Want.PASS, fenceRow(fence), .25, .65, 30F);
