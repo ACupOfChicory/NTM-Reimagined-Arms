@@ -383,6 +383,27 @@ def main(paths):
         h = hello[-1]
         r.item('ok' if yes(h['sameMod']) else 'info', f"Мод на сервере {h['serverMod']}, у тебя {h['mod']}" + ('' if yes(h['sameMod']) else ': должно быть сообщение в чате'))
 
+    # ---------------------------------------------------------------- mobs
+    r.section('Попадания по мобам (сервер)')
+    hits = [e for e in by['end'] if e['side'] == 'S' and e.get('by') == 'entity' and 'took' in e]
+    if not hits:
+        r.item('none', 'Попаданий нет: включи testlog и постреляй по мобу (нужен лог сервера)')
+    for e in hits:
+        s = shots[e['shot']]['S']
+        fire = next((x for x in s if x['ev'] == 'fire'), {})
+        # what the bullet lost on its way before this hit: the blocks it pierced, the creatures it went through
+        before = [x for x in s if x['t'] <= e['t'] and x is not e]
+        lost = [f"{x['block']} {x['pos']}: {x['damage']} -> {x['left']}" for x in before if x['ev'] == 'block' and x.get('result') == 'pierce']
+        lost += [f"сквозь {x['entity']}: {x['damage']} -> {x['left']}" for x in before if x['ev'] == 'end' and x.get('by') == 'entity' and 'left' in x]
+        shot_dmg, hit_dmg = num(fire.get('damage')), num(e['damage'])
+        mark = 'bad' if hit_dmg < shot_dmg - 0.01 and not lost else 'info'
+        r.item(mark, f"выстрел {e['shot']}: {e['entity']}{' в голову' if yes(e.get('head')) else ''}, снял {e['took']} "
+                     f"(здоровье {e['health']} -> {e['after']}{', убит' if yes(e.get('killed')) else ''})",
+               [f"ствол {fire.get('gun', '?')}, патрон {fire.get('ammo', '?')}, урон выстрела {fire.get('damage', '?')}, износ {fire.get('wear', '?')}",
+                f"урон пули у моба {e['damage']}" + (f", по пути потеряно {shot_dmg - hit_dmg:.1f}" if hit_dmg < shot_dmg - 0.01 else ', по пути ничего не потеряно')]
+               + ['пробила: ' + l for l in lost]
+               + ([] if mark == 'info' else ['урон упал без пробития по пути: так быть не должно']))
+
     r.section('Только глазами (лог этого не скажет)')
     for t in ('дырка на стекле видна с обеих сторон и поверх стекла за ним, на панели тоже',
               'дырки на сетке NTM и медной решётке — по прутьям и пикселям',

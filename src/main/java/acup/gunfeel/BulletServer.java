@@ -258,13 +258,34 @@ public final class BulletServer {
     }
 
     // a bullet hit a creature (alive before the hit): its "entity" or, when it died, "kill" effect
-    public static void entityHit(EntityBulletBaseMK4 bullet, Entity target, Vec3 at, boolean wasAlive) {
-        if (TestLog.server) TestLog.s(bullet.getId(), "end", "by", "entity", "entity", BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()), "at", at,
-                "killed", wasAlive && !target.isAlive());
+    // `damage` and `health`: the bullet's damage and the creature's health before the hit (NaN: not a living one), for
+    // the test log: what it took, and whether NTM counted it in the head (x headshotMult)
+    public static void entityHit(EntityBulletBaseMK4 bullet, Entity target, Vec3 at, boolean wasAlive, float damage, float health) {
+        if (TestLog.server) {
+            float now = target instanceof LivingEntity l ? l.getHealth() : Float.NaN;
+            TestLog.s(bullet.getId(), "end", "by", "entity", "entity", BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()), "at", at,
+                    "killed", wasAlive && !target.isAlive(), "damage", damage, "head", head(bullet, target, at),
+                    "health", health, "after", now, "took", health - now, "left", bullet.damage, "flies", !bullet.isRemoved());
+        }
         if (!(bullet.level() instanceof ServerLevel level) || !wasAlive) return;
         boolean dead = target instanceof LivingEntity living && !living.isAlive();
         play(level, bullet, target, at, BulletRules.entity("entity", target));
         if (dead) play(level, bullet, target, at, BulletRules.entity("kill", target));
+    }
+
+    // NTM's headshot test (BulletConfig.LAMBDA_STANDARD_ENTITY_HIT): the hit point in the top two head heights
+    private static boolean head(EntityBulletBaseMK4 bullet, Entity target, @org.jspecify.annotations.Nullable Vec3 at) {
+        if (!(target instanceof LivingEntity living) || at == null || bullet.config == null || !(bullet.config.headshotMult > 1F)) return false;
+        double head = living.getBbHeight() - living.getEyeHeight();
+        return at.y > living.getY() + living.getBbHeight() - head * 2.0;
+    }
+
+    // the test log: how worn the shooter's gun is (worn / durability) and NTM's factor on its damage by that
+    public static String wearText(@org.jspecify.annotations.Nullable Entity owner) {
+        if (!(owner instanceof LivingEntity le) || !(le.getMainHandItem().getItem() instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)) return "-";
+        net.minecraft.world.item.ItemStack stack = le.getMainHandItem();
+        float dura = gun.getConfig(stack, 0).getDurability(stack), worn = com.hbm.items.weapon.sedna.ItemGunBaseNT.getWear(stack, 0);
+        return String.format(java.util.Locale.ROOT, "%.0f/%.0f x%.2f", worn, dura, AmmoStats.wear(worn, dura));
     }
 
     private static void play(ServerLevel level, EntityBulletBaseMK4 bullet, Entity target, Vec3 at, BulletRules.Effect fx) {

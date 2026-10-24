@@ -98,6 +98,7 @@ BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCore
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
 BULLETS class com/hbm/entity/projectile/EntityThrowableNT
 BULLETS class com/hbm/items/weapon/sedna/BulletConfig
+BULLETS class com/hbm/items/weapon/sedna/ItemGunBaseNT
 BULLETS field com/hbm/blockentity/BlockEntityDoorGeneric state B
 BULLETS field com/hbm/blockentity/machine/BlockEntityCargoElevator extension D
 BULLETS field com/hbm/blockentity/machine/BlockEntityCargoElevator height I
@@ -111,6 +112,7 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig armorThresholdNegation F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig expires I
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig gravity D
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig headshotMult F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig id I
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
@@ -128,10 +130,14 @@ BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getThrower ()Lnet/m
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getX ()D
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getY ()D
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getZ ()D
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 position ()Lnet/minecraft/world/phys/Vec3;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
 BULLETS method com/hbm/entity/projectile/EntityThrowableNT getThrower ()Lnet/minecraft/world/entity/LivingEntity;
+BULLETS method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraft/world/item/ItemStack;)F
+BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/world/item/ItemStack;I)F
 CORE class com/hbm/blocks/generic/BlockWoodBarrier
 CORE class com/hbm/blocks/generic/BlockWoodStructure
 CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
@@ -153,6 +159,7 @@ CORE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
 CORE field com/hbm/items/weapon/sedna/BulletConfig spread F
 CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
+CORE field com/hbm/items/weapon/sedna/factory/XFactory50 bmg50_du Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE method com/hbm/blocks/generic/BlockWoodBarrier panel (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind ordinal ()I
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind values ()[Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;

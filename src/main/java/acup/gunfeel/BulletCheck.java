@@ -194,8 +194,14 @@ public final class BulletCheck {
 
         // ---- .50 DU into an iron golem in the open: every bullet takes the same, 45 in the body, x1.25 in the head
         // (NTM's headshotMult); it goes through the golem and loses nothing by it
+        // with the server's test log on: the hit is written with what it took and whether it was in the head
+        Path log = TestLog.set(false, true);
         check("golem: .50 DU in the body takes 45", 45F, golemHit(1.0, 45F));
         check("golem: .50 DU in the head takes 56.25", 56.25F, golemHit(2.4, 45F));
+        TestLog.set(false, false);
+        String text = log == null ? "" : Files.readString(log);
+        check("golem: the test log has the body hit", true, text.contains("head=false") && text.contains("took=45.000"));
+        check("golem: the test log has the head hit", true, text.contains("head=true") && text.contains("took=56.250"));
 
         // ---- path rules in the server's file
         expect("path hitbox: a spruce fence's gap is hit", Want.PIERCE, fenceRow("minecraft:spruce_fence"), .25, .65, 30F);

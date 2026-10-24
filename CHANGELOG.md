@@ -1,5 +1,11 @@
 # Changelog
 
+## X276
+
+- `/gunfeel testlog` writes each bullet hit on a creature: the bullet's damage when it got there, whether NTM
+  counted it in the head, the creature's health before and after; each shot also notes how worn the gun is.
+  `tools/ingame_report.py` lists these hits with what the bullet pierced on its way.
+
 ## X273
 
 - Marks are black again: the colouring by the block (X271) is gone, and so is its setting `holeTint`.

@@ -91,9 +91,16 @@ public abstract class MixinBulletServer {
     @Unique
     private boolean gunfeel$targetAlive;
 
+    // the test log: the bullet's damage and the creature's health as the hit begins
+    @Unique
+    private float gunfeel$damageBefore, gunfeel$healthBefore;
+
     @Inject(method = "onImpact", at = @At("HEAD"))
     private void gunfeel$entityBefore(net.minecraft.world.phys.HitResult mop, CallbackInfo ci) {
         gunfeel$targetAlive = mop instanceof net.minecraft.world.phys.EntityHitResult e && e.getEntity().isAlive();
+        EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
+        gunfeel$damageBefore = self.damage;
+        gunfeel$healthBefore = mop instanceof net.minecraft.world.phys.EntityHitResult e && e.getEntity() instanceof LivingEntity l ? l.getHealth() : Float.NaN;
     }
 
     // bullet rules: "entity" and "kill" effects of the creature the bullet hit
@@ -101,7 +108,7 @@ public abstract class MixinBulletServer {
     private void gunfeel$entityAfter(net.minecraft.world.phys.HitResult mop, CallbackInfo ci) {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
         if (self.level().isClientSide() || !(mop instanceof net.minecraft.world.phys.EntityHitResult e)) return;
-        acup.gunfeel.BulletServer.entityHit(self, e.getEntity(), e.getLocation(), gunfeel$targetAlive);
+        acup.gunfeel.BulletServer.entityHit(self, e.getEntity(), e.getLocation(), gunfeel$targetAlive, gunfeel$damageBefore, gunfeel$healthBefore);
     }
 
     @Inject(method = "tick", at = @At("HEAD"))
@@ -127,6 +134,7 @@ public abstract class MixinBulletServer {
         PacketDistributor.sendToPlayersNear(server, null, self.getX(), self.getY(), self.getZ(), 256.0, p);
         if (acup.gunfeel.TestLog.server) acup.gunfeel.TestLog.s(self.getId(), "fire", "ammo", config.id, "owner", owner == null ? -1 : owner.getId(),
                 "gun", owner instanceof LivingEntity le ? net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(le.getMainHandItem().getItem()) : "-",
-                "at", self.position(), "v", v, "damage", self.damage, "speedMult", ReaimTimes.number("bulletSpeed", 1.6F));
+                "at", self.position(), "v", v, "damage", self.damage, "speedMult", ReaimTimes.number("bulletSpeed", 1.6F),
+                "wear", acup.gunfeel.BulletServer.wearText(owner));
     }
 }
