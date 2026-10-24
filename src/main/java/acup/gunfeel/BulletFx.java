@@ -237,57 +237,6 @@ public final class BulletFx {
         });
     }
 
-    // The colour a bullet mark takes on this block (RGB): what its crumbs are made of. A block with a model: its
-    // particle texture's mean colour, tinted as its crumbs are (grass, leaves); a block drawn by its renderer (a
-    // machine): its model's pixels round the hit; else steel grey.
-    public static int markColor(ClientLevel level, net.minecraft.core.BlockPos pos, BlockState state, Vec3 at, Vec3 dir) {
-        try {
-            if (noParticleTexture(state) || state.getRenderShape() != net.minecraft.world.level.block.RenderShape.MODEL) {
-                Crumbs c = Crumbs.at(level, pos, at, dir);
-                if (c != null) {
-                    int got = c.mean();
-                    if (got != 0) return got;
-                }
-                state = net.minecraft.world.level.block.Blocks.IRON_BLOCK.defaultBlockState();
-            }
-            var sprite = Minecraft.getInstance().getModelManager().getBlockStateModelSet().getParticleMaterial(state).sprite();
-            int rgb = SPRITE_MEAN.computeIfAbsent(sprite, BulletFx::mean);
-            var tint = Minecraft.getInstance().getBlockColors().getTintSource(state, 0);
-            if (tint != null) rgb = times(rgb, tint.colorAsTerrainParticle(state, level, pos));
-            return rgb;
-        } catch (RuntimeException e) {
-            return 0x808080;
-        }
-    }
-
-    private static final java.util.Map<net.minecraft.client.renderer.texture.TextureAtlasSprite, Integer> SPRITE_MEAN = new java.util.IdentityHashMap<>();
-
-    // a sprite's mean colour, by its pixels' alpha (glass: its frame and streaks, not the clear middle)
-    private static int mean(net.minecraft.client.renderer.texture.TextureAtlasSprite sp) {
-        int n = 16;
-        double[] sum = new double[4];
-        for (int j = 0; j < n; j++) for (int i = 0; i < n; i++)
-            add(sum, MeshShapes.color(sp, sp.getU((i + 0.5F) / n), sp.getV((j + 0.5F) / n)));
-        return rgb(sum, 0x808080);
-    }
-
-    private static void add(double[] sum, int argb) {
-        double a = (argb >>> 24) / 255.0;
-        sum[0] += a * (argb >> 16 & 255);
-        sum[1] += a * (argb >> 8 & 255);
-        sum[2] += a * (argb & 255);
-        sum[3] += a;
-    }
-
-    private static int rgb(double[] sum, int none) {
-        if (sum[3] < 1e-6) return none;
-        return (int) Math.round(sum[0] / sum[3]) << 16 | (int) Math.round(sum[1] / sum[3]) << 8 | (int) Math.round(sum[2] / sum[3]);
-    }
-
-    private static int times(int rgb, int tint) {
-        return ((rgb >> 16 & 255) * (tint >> 16 & 255) / 255) << 16 | ((rgb >> 8 & 255) * (tint >> 8 & 255) / 255) << 8 | (rgb & 255) * (tint & 255) / 255;
-    }
-
     // the drawn model under a hit point: its texture there, to take the crumbs' colours from
     private record Crumbs(RenderedMesh.Tri tri, float u, float v, double du, double dv) {
         // the bullet's line through the hit (the hit is on the block's cells or hitbox, up to a cell off the model):
@@ -390,13 +339,6 @@ public final class BulletFx {
             if (t.tex().color(u, v) == 0) return null;
             double[] g = t.tex().grid();
             return new Crumbs(t, u, v, g == null ? 0.01 : g[1], g == null ? 0.01 : g[3]);
-        }
-
-        // the mean colour of the pixels round the hit (2 pixels each way), RGB; 0 = none shown
-        int mean() {
-            double[] sum = new double[4];
-            for (int j = -2; j <= 2; j++) for (int i = -2; i <= 2; i++) add(sum, tri.tex().color(u + (float) (i * du), v + (float) (j * dv)));
-            return rgb(sum, 0);
         }
 
         // one crumb: a pixel near the hit (up to 2 pixels off), shaded as block crumbs are

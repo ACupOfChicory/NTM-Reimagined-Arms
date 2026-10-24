@@ -2,7 +2,7 @@
 // settings from the page's last "send to mod" (exports/latest.json; a setting missing there keeps the page's
 // default). Each style is one texture, a grid of 8 x 8 variants (Decals.GRID): hole_<style>.png, scratch_<style>.png,
 // scorch_<style>.png; "old" (hole_old.png) is the mod's first 8 holes (old/bullet_hole_0..7.png), repeated over the
-// grid. Alpha is how dark a pixel is, grey how much of the block's colour shows there (tintShare in page.html).
+// grid. Black only: alpha is how dark a pixel is.
 // The generator code is taken from page.html itself, so the files match the page's previews.
 // Usage (repo root): notes/node/bin/node review/decals/render.js
 "use strict";
@@ -17,15 +17,15 @@ const cut = (from, to) => {
   if (a < 0 || b < 0) throw new Error("page.html changed: " + from);
   return script.slice(a, b);
 };
-// noise, STYLES, COMMON, CATS, defaults; then renderTexture and tintShare
+// noise, STYLES, COMMON, CATS, defaults; then renderTexture
 const code = cut("const TAU", "/* ------------------------------------------------------------------ state */")
   + cut("function defaults()", "function load()")
-  + cut("function renderTexture", "// a mark as the game shows it");
+  + cut("function renderTexture", "function toCanvas");
 
 class ImageData {
   constructor(w, h) { this.width = w; this.height = h; this.data = new Uint8ClampedArray(w * h * 4); }
 }
-const api = new Function("ImageData", code + "\nreturn { STYLES, CATS, defaults, renderTexture, tintShare };")(ImageData);
+const api = new Function("ImageData", code + "\nreturn { STYLES, CATS, defaults, renderTexture };")(ImageData);
 
 const S = api.defaults();
 const exp = JSON.parse(fs.readFileSync(path.join(here, "exports", "latest.json"), "utf8")).settings;
@@ -37,7 +37,6 @@ for (const cat in api.CATS) {
   if (e.styles) for (const sk in e.styles) { if (S.cats[cat].styles[sk]) Object.assign(S.cats[cat].styles[sk], e.styles[sk]); }
   else if (S.cats[cat].styles[e.style]) Object.assign(S.cats[cat].styles[e.style], e.params);
 }
-const tint = typeof exp.tint === "number" ? exp.tint : S.tint;
 const seedFor = (cat, i) => (S.cats[cat].common.seed * 7919 + i * 104729 + 1) >>> 0;
 
 function png(w, h, data) {
@@ -86,18 +85,16 @@ function readPng(file) {
   return { w, h, data };
 }
 
-// 64 cells (from cell(i) -> {w, h, data}) into one grid texture; grey from each pixel's alpha (the old holes are
-// near black: their alpha is their darkness)
-function atlas(cell, core) {
+// 64 cells (from cell(i) -> {w, h, data}) into one grid texture, black with each cell's alpha
+function atlas(cell) {
   const first = cell(0), n = first.w, size = n * GRID, out = new Uint8ClampedArray(size * size * 4);
   for (let i = 0; i < GRID * GRID; i++) {
     const c = i === 0 ? first : cell(i);
     if (c.w !== n || c.h !== n) throw new Error("cells of one style differ in size");
     const ox = (i % GRID) * n, oy = Math.floor(i / GRID) * n;
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-      const s = (y * n + x) * 4, d = ((oy + y) * size + ox + x) * 4, a = c.data[s + 3];
-      const w = a ? Math.round(api.tintShare(a / 255, core) * 255) : 0;
-      out[d] = out[d + 1] = out[d + 2] = w; out[d + 3] = a;
+      const s = (y * n + x) * 4, d = ((oy + y) * size + ox + x) * 4;
+      out[d] = out[d + 1] = out[d + 2] = 0; out[d + 3] = c.data[s + 3];
     }
   }
   return png(size, size, out);
@@ -112,13 +109,13 @@ for (const cat in api.CATS) {
   const c = api.CATS[cat], cs = S.cats[cat];
   for (const sk in api.STYLES[cat]) {
     const cell = (i) => { const img = api.renderTexture(cat, sk, cs.styles[sk], cs.common, seedFor(cat, i)); return { w: img.width, h: img.height, data: img.data }; };
-    fs.writeFileSync(path.join(outDir, c.prefix + sk + ".png"), atlas(cell, cs.common.core));
+    fs.writeFileSync(path.join(outDir, c.prefix + sk + ".png"), atlas(cell));
     n++;
   }
 }
 const old = Array.from({ length: 8 }, (_, i) => readPng(path.join(here, "old", "bullet_hole_" + i + ".png")));
-fs.writeFileSync(path.join(outDir, "hole_old.png"), atlas((i) => old[i % old.length], S.cats.hole.common.core));
+fs.writeFileSync(path.join(outDir, "hole_old.png"), atlas((i) => old[i % old.length]));
 n++;
 
-fs.writeFileSync(path.join(here, "settings-used.json"), JSON.stringify({ tint, cats: S.cats }, null, 2) + "\n");
-console.log(n, "textures of", GRID * GRID, "variants written to", path.relative(process.cwd(), outDir) + "; tint (holeTint)", tint);
+fs.writeFileSync(path.join(here, "settings-used.json"), JSON.stringify({ cats: S.cats }, null, 2) + "\n");
+console.log(n, "textures of", GRID * GRID, "variants written to", path.relative(process.cwd(), outDir));
