@@ -27,6 +27,13 @@ Small: a 2-pixel board of wood takes about 3 damage. Found with the wooden trenc
 
 ## Fixed
 
+### Machines: bullets stopped in the air around the solar boiler (X279)
+`src/main/java/acup/gunfeel/RenderedMesh.java` (`Capture.tri`). NTM's solar boiler draws a beam from every mirror
+into it (`RenderSolarBoiler`, additive, alpha 1 %), almost invisible. The cells of a machine are read from what its
+renderer draws, so the beams became solid cells: a bullet stopped about a pixel off the tank, in the gap between a
+corner post and the tank, and over the top. Now a triangle drawn clear at every corner (alpha below the cutout's 26)
+is left out: no cells, no holes. Found with `/gunfeel testlog` (12 stops 0.7–1.2 px off the drawn mesh), 2026-10-24.
+
 ### Piercing: a creature got the damage left after the blocks behind it (X277)
 `src/main/java/acup/gunfeel/BulletServer.java` (`clip`), `PierceSteps.java`. NTM asks for the blocks of a bullet's
 whole tick path (16 blocks) before it looks for creatures on it, and `clip` paid for every block it pierced at once.

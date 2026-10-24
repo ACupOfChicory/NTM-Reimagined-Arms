@@ -707,6 +707,8 @@ public final class RenderedMesh {
         private final List<Tri> out;
         private final @Nullable Anchor anchor;
         private float[] v = new float[5 * 64];
+        // each vertex's alpha (0..255; 255 until the renderer gives a colour)
+        private int[] alpha = new int[64];
         private int n;
 
         Capture(RenderType type, Tex tex, BlockPos origin, List<Tri> out) {
@@ -725,6 +727,8 @@ public final class RenderedMesh {
         @Override
         public VertexConsumer addVertex(float x, float y, float z) {
             if ((n + 1) * 5 > v.length) v = java.util.Arrays.copyOf(v, v.length * 2);
+            if (n + 1 > alpha.length) alpha = java.util.Arrays.copyOf(alpha, alpha.length * 2);
+            alpha[n] = 255;
             v[n * 5] = x;
             v[n * 5 + 1] = y;
             v[n * 5 + 2] = z;
@@ -743,11 +747,13 @@ public final class RenderedMesh {
 
         @Override
         public VertexConsumer setColor(int r, int g, int b, int a) {
+            if (n > 0) alpha[n - 1] = a & 255;
             return this;
         }
 
         @Override
         public VertexConsumer setColor(int color) {
+            if (n > 0) alpha[n - 1] = color >>> 24;
             return this;
         }
 
@@ -772,6 +778,9 @@ public final class RenderedMesh {
         }
 
         private void tri(int a, int b, int c) {
+            // drawn (almost) clear at every corner: light, not something there (the solar boiler's mirror beams,
+            // alpha 1 %): bullets and holes go through it
+            if (alpha[a] < CLEAR && alpha[b] < CLEAR && alpha[c] < CLEAR) return;
             double[] p = new double[9];
             float[] uv = new float[6];
             int[] idx = {a, b, c};

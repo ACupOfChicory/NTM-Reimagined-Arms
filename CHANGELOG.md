@@ -1,5 +1,10 @@
 # Changelog
 
+## X279
+
+- Bullets no longer stop in the air around NTM's solar boiler: the nearly invisible beams from its mirrors
+  counted as solid. The boiler's cells are read again when you come near it.
+
 ## X278
 
 - Gun editor: with an NTM gun in hand press O (Controls, "NTM Reimagined Arms") for sliders over the game, which
@@ -9,6 +14,7 @@
   a slider one step (Shift: a tenth), ↺ takes a setting back to the mod's, ● marks the gun's own settings,
   "Отменить всё" goes back to how it was when the editor opened. "Выстрел" and "Очередь" replay the gun's last real
   kick (camera and model; NTM's own recoil animation does not play).
+
 ## X277
 
 - A bullet that hits a creature and then goes on into blocks behind it in the same tick (a shot down through a mob
