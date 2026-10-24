@@ -1,5 +1,10 @@
 # Changelog
 
+## X285
+
+- Laminate (block and pane): a hole shows from the other side, through the glass where it was made. Laminate has no
+  clear pixels, so its near face hid the hole; holes on such glass are now also drawn under it.
+
 ## X284
 
 - Glass holes are back to how they were in X279 and before: X280–X283 undone, and no second mark on the far side of

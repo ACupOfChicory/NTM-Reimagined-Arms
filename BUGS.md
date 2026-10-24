@@ -66,6 +66,12 @@ match laminate, so its holes went the mesh way, not the glass way. The second ma
 X280–X283 (moving or re-sorting glass holes) made it worse: holes jumped on edges and showed what is behind the glass.
 X284 goes back to X279's drawing, drops `seenThrough` and adds both laminate blocks to the rule. Lesson: ask what
 is wrong before building a new system. Reported by the user, 2026-10-24.
+Still no hole from the other side after X284. Why laminate and not reinforced glass: reinforced glass's texture is
+57% clear pixels, which write no depth, so the late hole behind shows through them; laminate's is all
+semi-transparent (alpha 103/164), so its near face writes depth over its whole area and hides the late hole on the
+far face. Fixed in X285 (`Tracers.holes`): a late hole on a translucent-layer block is also drawn before the
+translucent terrain without depth, so the glass is laid over it; from in front the late copy covers it. The test
+log's `hole` line has `under` for that copy.
 That fix was wrong: it made a second mark, a new one (its own size and look), where the bullet's line would come out,
 so a stopped 9 mm left an entry and an "exit" in reinforced glass, apart when shot at a slant. Fixed again in X280:
 one mark, drawn on the far face, right behind where it was hit, when the camera is beyond that face. Found by the user,

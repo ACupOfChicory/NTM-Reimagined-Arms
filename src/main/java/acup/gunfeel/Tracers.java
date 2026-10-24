@@ -854,7 +854,8 @@ public final class Tracers {
         for (Hole o : HOLES) if (o.machine()) machines++;
         String[] style = BulletRules.hole(state);
         TestLog.c(p.shot(), "hole", "block", state, "pos", pos, "at", at, "placed", placed, "drawn", style[0], "how", style[1],
-                "glass", glassLike(state), "scratch", p.scratch() != null, "onBoard", onBoard, "machine", h != null && h.machine(),
+                "glass", glassLike(state),
+                "under", h != null && h.late() && h.block() != null && translucent(h.state()), "scratch", p.scratch() != null, "onBoard", onBoard, "machine", h != null && h.machine(),
                 "holes", HOLES.size() - machines, "machineHoles", machines, "max", Config.holeMax, "maxMachines", Config.holeMaxMachines);
     }
 
@@ -2146,6 +2147,14 @@ public final class Tracers {
             int g = h.kind() + KINDS * ((h.late() ? 1 : 0) | (h.cull() ? 2 : 0));
             if (groups[g] == null) groups[g] = new ArrayList<>();
             groups[g].add(h);
+            // on translucent glass with no clear pixels (NTM's laminate): its near face writes depth over all of it,
+            // so the late hole on its far face is hidden. A copy drawn before the translucent terrain shows through
+            // the glass laid over it; from in front the late one covers it
+            if (h.late() && h.block() != null && translucent(h.state())) {
+                int e = h.kind() + KINDS * (h.cull() ? 2 : 0);
+                if (groups[e] == null) groups[e] = new ArrayList<>();
+                groups[e].add(h);
+            }
         }
         Perf.add(Perf.SORT, ps);
         for (int group = 0; group < 4 * KINDS; group++) {
