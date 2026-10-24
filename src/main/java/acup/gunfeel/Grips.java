@@ -36,6 +36,23 @@ public final class Grips {
     private static Path file;
     private static long stamp = Long.MIN_VALUE;
     private static int version;
+    private static boolean slimArms;
+
+    public static boolean selectArms(boolean slim) {
+        if (slimArms == slim) return false;
+        slimArms = slim;
+        merge();
+        return true;
+    }
+
+    private static boolean armKey(String key) {
+        return key.startsWith("arm") && !key.equals("armModel")
+                || key.equals("right") || key.equals("left") || key.equals("rightAt") || key.equals("leftAt");
+    }
+
+    private static String storedKey(String key) {
+        return slimArms && armKey(key) ? "slim." + key : key;
+    }
 
     public static int version() {
         return version;
@@ -82,7 +99,7 @@ public final class Grips {
         for (Map.Entry<String, String> e : VALUES.entrySet()) {
             if (!e.getKey().startsWith(prefix)) continue;
             String k = e.getKey().substring(prefix.length());
-            if (k.equals("right") || k.equals("left") || k.equals("rightAt") || k.equals("leftAt") || e.getValue().isEmpty()) continue;
+            if (k.startsWith("slim.") || k.equals("right") || k.equals("left") || k.equals("rightAt") || k.equals("leftAt") || e.getValue().isEmpty()) continue;
             out.put(k, e.getValue());
         }
     }
@@ -96,6 +113,7 @@ public final class Grips {
 
     // this gun's value from the player's file, "" = hides the shipped one; null = none
     public static String own(String gun, String key) {
+        key = storedKey(key);
         String v = USER.get(gun + "." + key);
         return v != null ? v : USER.get(canon(gun) + "." + key);
     }
@@ -113,8 +131,9 @@ public final class Grips {
     public static void set(String gun, boolean right, float x, float y, float z, boolean save) {
         gun = canon(gun);
         // a point in model units would win over these fractions: hide it
-        String at = gun + (right ? ".rightAt" : ".leftAt");
-        if (BUILTIN.containsKey(at)) USER.put(at, "");
+        String atKey = right ? "rightAt" : "leftAt";
+        String at = gun + "." + storedKey(atKey);
+        if (VALUES.containsKey(gun + "." + atKey)) USER.put(at, "");
         else USER.remove(at);
         put(gun, right ? "right" : "left", x + "," + y + "," + z, save);
     }
@@ -137,6 +156,7 @@ public final class Grips {
     public static void put(String gun, String key, String value, boolean save) {
         // a setting the gun has of its own stays its own; anything else goes to the gun it is the same as
         if (!key.equals("sameAs") && !VALUES.containsKey(gun + "." + key)) gun = canon(gun);
+        key = storedKey(key);
         String k = gun + "." + key;
         if (value == null || value.equals(BUILTIN.get(k))) USER.remove(k);
         else USER.put(k, value);
@@ -168,8 +188,8 @@ public final class Grips {
     public static void resetHand(String id, boolean right, boolean save) {
         id = canon(id);
         String h = right ? "right" : "left";
-        USER.remove(id + "." + h);
-        USER.remove(id + "." + h + "At");
+        USER.remove(id + "." + storedKey(h));
+        USER.remove(id + "." + storedKey(h + "At"));
         merge();
         if (save) save();
         else dirty = true;
@@ -208,6 +228,12 @@ public final class Grips {
         VALUES.clear();
         VALUES.putAll(BUILTIN);
         VALUES.putAll(USER);
+        if (slimArms) {
+            for (var e : USER.entrySet()) {
+                int i = e.getKey().indexOf(".slim.");
+                if (i >= 0) VALUES.put(e.getKey().substring(0, i + 1) + e.getKey().substring(i + 6), e.getValue());
+            }
+        }
         version++;
     }
 

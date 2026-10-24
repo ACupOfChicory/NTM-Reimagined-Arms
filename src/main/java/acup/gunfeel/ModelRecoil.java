@@ -31,7 +31,7 @@ public final class ModelRecoil {
     }
 
     public static void shot(boolean aiming) {
-        float s = Config.modelKick;
+        float s = Config.modelKick * (aiming ? Config.adsRecoil : 1F);
         if (s <= 0F) return;
         float loose = aiming ? 0.5F : 1F;
         float speed = Config.modelSpeed;

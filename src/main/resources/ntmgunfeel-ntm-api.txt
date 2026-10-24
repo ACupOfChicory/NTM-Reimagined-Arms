@@ -76,6 +76,7 @@ ARMS field com/hbm/render/anim/HbmAnimations$Animation startMillis J
 ARMS field com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase interp F
 ARMS field com/hbm/render/loader/GroupObject name Ljava/lang/String;
 ARMS field com/hbm/render/loader/HFRWavefrontObject groups [Lcom/hbm/render/loader/GroupObject;
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation name ()Ljava/lang/String;
 ARMS method com/hbm/render/anim/BusAnimation getBus (Ljava/lang/String;)Lcom/hbm/render/anim/BusAnimationSequence;
 ARMS method com/hbm/render/anim/BusAnimationSequence getTotalTime ()I
@@ -270,6 +271,7 @@ RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT offsetHorizontal F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT offsetVertical F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilHorizontal F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
+RECOIL method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 RECOIL method com/hbm/util/GameTime millis (Lnet/minecraft/world/level/Level;)J
 RICOCHET_SOUND class com/hbm/entity/projectile/EntityBulletBaseMK4
 SPREAD class com/hbm/items/weapon/sedna/BulletConfig

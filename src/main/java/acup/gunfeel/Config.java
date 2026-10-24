@@ -36,6 +36,8 @@ public final class Config {
     public static String kickPitch = "", kickYaw = "", kickRoll = "", kickPosY = "", kickPosZ = "";
     // Gun model kick per shot, and how much of NTM's own RECOIL animation is kept.
     public static float modelKick = 1.0F;
+    public static float adsRecoil = 0.7F;
+    public static String armModel = "auto";
     public static float modelRotate = 1.0F;
     public static float modelSpeed = 1.0F;
     public static float ntmRecoilAnim = 0.3F;
@@ -150,6 +152,7 @@ public final class Config {
             kickPitch, kickYaw, kickRoll, kickPosY, kickPosZ: one gun model movement instead of the preset's, same
               formats: muzzle up, sideways and roll in degrees, up and back in 1/16 gun-length units
             modelKick: strength of the gun model kick, 0 = off
+            adsRecoil: multiplier of all recoil movements while aiming, 0..1; camera still respects the server minimum
             modelRotate: share of the rotation in the model kick (muzzle up, yaw, roll)
             modelSpeed: playback speed of the model kick, higher = shorter
             ntmRecoilAnim: share of NTM's own recoil animation kept, 1 = unchanged
@@ -158,6 +161,8 @@ public final class Config {
             ammoMenu: look of the ammo menu (hold Y): steel, petals, bubbles, ntm, glass, arc
             ammoMenuColor: accent colour of the ammo menu, hex RRGGBB
             arms: draw the player's arms holding the gun with both hands
+            armModel: auto = skin model, classic = four-pixel arms, slim = three-pixel arms;
+              slim arm adjustments and hand positions are stored separately as <gun>.slim.<setting>
             armScale: arm thickness on top of the automatic one, 1 = vanilla arm proportions
             armMaxScale: upper limit of the automatic thickness
             armBaseRight, armBaseLeft: arm thickness before armScale, the same on every gun (as on Maresleg); 0 = automatic (grows with the arm's length)
@@ -277,6 +282,7 @@ public final class Config {
     // Values in effect for one gun: built-in defaults, then the global file, then the gun's overrides.
     // Called every frame with the held gun; re-applies only when something changed.
     public static void select(String gun) {
+        Grips.selectArms(Arms.slim());
         int v = Grips.version();
         if (java.util.Objects.equals(gun, selected) && v == selectedVersion) return;
         selected = gun;
@@ -285,6 +291,12 @@ public final class Config {
         boolean on = bool(p, "enabled", true);
         if (gun != null) p.putAll(Grips.overrides(gun));
         apply(p);
+        if (Grips.selectArms(Arms.slim())) {
+            p = layered(BUILTIN, GLOBAL);
+            if (gun != null) p.putAll(Grips.overrides(gun));
+            apply(p);
+            selectedVersion = Grips.version();
+        }
         enabled = on;
         if (TestLog.client) {
             String q = quality + " " + holeMax + " " + holeMaxMachines + " " + holeLife + " " + particleScale;
@@ -387,6 +399,8 @@ public final class Config {
         kickPosY = p.getProperty("kickPosY", kickPosY).trim();
         kickPosZ = p.getProperty("kickPosZ", kickPosZ).trim();
         modelKick = num(p, "modelKick", modelKick);
+        adsRecoil = Math.clamp(num(p, "adsRecoil", adsRecoil), 0F, 1F);
+        armModel = p.getProperty("armModel", "auto");
         modelRotate = num(p, "modelRotate", modelRotate);
         modelSpeed = Math.max(0.05F, num(p, "modelSpeed", modelSpeed));
         ntmRecoilAnim = num(p, "ntmRecoilAnim", ntmRecoilAnim);
@@ -498,6 +512,8 @@ public final class Config {
         p.setProperty("kickPosY", kickPosY);
         p.setProperty("kickPosZ", kickPosZ);
         p.setProperty("modelKick", Float.toString(modelKick));
+        p.setProperty("adsRecoil", Float.toString(adsRecoil));
+        p.setProperty("armModel", armModel);
         p.setProperty("modelRotate", Float.toString(modelRotate));
         p.setProperty("modelSpeed", Float.toString(modelSpeed));
         p.setProperty("ntmRecoilAnim", Float.toString(ntmRecoilAnim));

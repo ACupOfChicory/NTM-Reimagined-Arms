@@ -18,10 +18,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -300,15 +298,20 @@ public final class Arms {
         });
     }
 
+    public static boolean slim() {
+        if ("slim".equals(Config.armModel)) return true;
+        if ("classic".equals(Config.armModel)) return false;
+        var player = Minecraft.getInstance().player;
+        return player != null && player.getSkin().model() == PlayerModelType.SLIM;
+    }
+
     private static void draw(SubmitNodeCollector collector, int light) {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null || player.isInvisible()) return;
         float[][] grip = grips(item);
-        AvatarRenderer<?> renderer = mc.getEntityRenderDispatcher().getPlayerRenderer(player);
-        PlayerModel model = (PlayerModel) renderer.getModel();
         Identifier skin = player.getSkin().body().texturePath();
-        boolean slim = player.getSkin().model() == PlayerModelType.SLIM;
+        boolean slim = slim();
         Matrix4f cameraInv = new Matrix4f(CAMERA).invert();
         Matrix4f bodyInCamera = new Matrix4f(cameraInv).mul(BODY);
         boolean atRest = HbmAnimations.getRelevantAnim(0) == null && ModelRecoil.idle();
@@ -353,8 +356,10 @@ public final class Arms {
         Vector3f restDown = restBody.transformDirection(new Vector3f(0F, -1F, 0F)).normalize();
         for (int i = 0; i < 2; i++) {
             boolean right = i == 0;
-            ModelPart arm = right ? model.rightArm : model.leftArm;
-            ModelPart sleeve = right ? model.rightSleeve : model.leftSleeve;
+            ModelPart[] parts = CUT.computeIfAbsent((right ? 1000 : 0) + (slim ? 100 : 0) + 12,
+                    k -> cutArm(right, slim, 12));
+            ModelPart arm = parts[0];
+            ModelPart sleeve = parts[1];
             boolean sleeveShown = player.isModelPartShown(right ? PlayerModelPart.RIGHT_SLEEVE : PlayerModelPart.LEFT_SLEEVE);
             ArmRest r = rests[i];
             // the arm as it would be at rest with the gun where it is now (aimed or not)

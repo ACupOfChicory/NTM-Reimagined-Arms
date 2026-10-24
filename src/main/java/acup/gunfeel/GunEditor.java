@@ -106,6 +106,24 @@ public final class GunEditor extends Screen {
         }
         y += ROW_H + 6;
         int half = (PANEL_W - GAP) / 2;
+        if (tab <= 2) {
+            String label = switch (Config.armModel) {
+                case "classic" -> "обычные";
+                case "slim" -> "skinny";
+                default -> "по скину";
+            };
+            addRenderableWidget(Button.builder(Component.literal("Руки: " + label), p -> {
+                String next = switch (Config.armModel) {
+                    case "classic" -> "slim";
+                    case "slim" -> "auto";
+                    default -> "classic";
+                };
+                Grips.put(gun, "armModel", next);
+                Config.select(gun);
+                rebuildWidgets();
+            }).bounds(x, y, PANEL_W, ROW_H).build());
+            y += ROW_H + GAP;
+        }
         if (tab == 3) {
             Button general = addRenderableWidget(Button.builder(Component.literal("Общее"), p -> {
                 curves = false;
@@ -353,6 +371,7 @@ public final class GunEditor extends Screen {
                 out.add(new ConfigRow("modelRotate", -1, "пушка: поворот", 0F, 3F, 0.01F));
                 out.add(new ConfigRow("modelSpeed", -1, "пушка: скорость", 0.05F, 3F, 0.01F));
                 out.add(new ConfigRow("ntmRecoilAnim", -1, "анимация NTM", 0F, 1F, 0.01F));
+                out.add(new ConfigRow("adsRecoil", -1, "в прицеле: множитель", 0F, 1F, 0.01F));
             }
             default -> {
                 out.add(new ConfigRow("hipX", -1, "от бедра ← →", -0.5F, 1.5F, 0.01F));

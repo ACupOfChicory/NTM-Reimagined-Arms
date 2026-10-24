@@ -40,7 +40,9 @@ public final class CameraRecoil {
         // no lower, and the up and sideways curves and their time are the mod's, so no curve of the player's flattens it
         float min = ReaimTimes.number("cameraScaleMin", 0F);
         boolean held = min > 0F;
-        float scale = Math.max(Config.cameraScale, min);
+        boolean aiming = holder != null && com.hbm.items.weapon.sedna.ItemGunBaseNT.getIsAiming(holder.getMainHandItem());
+        float ads = aiming ? Config.adsRecoil : 1F;
+        float scale = Math.max(Config.cameraScale * ads, min);
         LocalPlayer pl = Minecraft.getInstance().player;
         if (pl != null && !burst) {
             burst = true;
@@ -50,7 +52,7 @@ public final class CameraRecoil {
         if (TestLog.client) TestLog.c(-1, "recoil", "phase", "kick", "scale", scale, "cameraScale", Config.cameraScale, "min", min, "held", held,
                 "time", held ? Math.max(1F, Config.cameraTime) : Config.cameraTime, "ownCurves", !held, "preset", RecoilPresets.presetOf("cameraPitch"), "up", vertical * scale, "pitch", pl == null ? null : pl.getXRot());
         SHOTS.add(new Shot(System.nanoTime(), vertical * scale, horizontal * scale,
-                Config.cameraShake * (Math.random() < 0.5 ? 1F : -1F), 1F,
+                Config.cameraShake * ads * (Math.random() < 0.5 ? 1F : -1F), 1F,
                 held ? shipped("cameraPitch") : RecoilPresets.channel("cameraPitch"),
                 held ? shipped("cameraYaw") : RecoilPresets.channel("cameraYaw"),
                 RecoilPresets.channel("cameraRoll"), held ? Math.max(1F, Config.cameraTime) : Config.cameraTime));

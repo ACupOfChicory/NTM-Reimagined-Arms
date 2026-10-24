@@ -21,11 +21,15 @@ public abstract class MixinHbmAnimations {
     // Tone down NTM's own "RECOIL" animation bus in first person; the spring kick replaces most of it.
     @Inject(method = "getRelevantTransformation(Ljava/lang/String;I)[D", at = @At("RETURN"), cancellable = true)
     private static void gunfeel$recoilBus(String bus, int index, CallbackInfoReturnable<double[]> cir) {
-        if (!Config.enabled || Config.ntmRecoilAnim == 1F || GunFeel.current == null || !"RECOIL".equals(bus)) return;
+        if (!Config.enabled || GunFeel.current == null || !"RECOIL".equals(bus)) return;
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        boolean aiming = player != null && com.hbm.items.weapon.sedna.ItemGunBaseNT.getIsAiming(player.getMainHandItem());
+        float strength = Config.ntmRecoilAnim * (aiming ? Config.adsRecoil : 1F);
+        if (strength == 1F) return;
         double[] t = cir.getReturnValue();
         if (t == null) return;
         double[] scaled = t.clone();
-        for (int i = 0; i < Math.min(3, scaled.length); i++) scaled[i] *= Config.ntmRecoilAnim;
+        for (int i = 0; i < Math.min(3, scaled.length); i++) scaled[i] *= strength;
         cir.setReturnValue(scaled);
     }
 }
