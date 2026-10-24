@@ -121,6 +121,10 @@ public final class PassableClip extends ClipContext {
         // whole hitbox
         long[] vox = shape(state);
         long[] cells = vox != null ? (shell(vox) ? null : vox) : Structures.cells(level, pos, state);
+        if (vox != null && ModelSurface.present(vox)) {
+            BlockHitResult out = ModelSurface.hit(vox, pos, in.getLocation(), in.getLocation().add(dir.scale(2)), true);
+            if (out != null) return out;
+        }
         if (cells != null) return leave(cells, in, dir);
         VoxelShape shape = state.getCollisionShape(level, pos);
         if (shape.isEmpty()) shape = state.getShape(level, pos);
@@ -193,7 +197,8 @@ public final class PassableClip extends ClipContext {
                 // bullet comes in, as a mask block is: a shown pixel stops it there, a see-through one lets it through
                 // the whole block (not onto its far inner face, seen through the window). Already inside it (came in
                 // through a see-through pixel the last tick): flies on.
-                BlockHitResult in = !shell(vox) ? march(vox, hit, to.subtract(from), 64)
+                BlockHitResult in = ModelSurface.present(vox) ? ModelSurface.hit(vox, hit.getBlockPos(), from, to, false)
+                        : !shell(vox) ? march(vox, hit, to.subtract(from), 64)
                         : hit.isInside() ? null : march(vox, hit, to.subtract(from), 1);
                 if (in != null) return in;
             } else if (hit.isInside() && maskOf(state) != null) {
@@ -474,34 +479,33 @@ public final class PassableClip extends ClipContext {
                 return bits;
             }
             if (!v.startsWith("z")) return null;
-            var inf = new java.util.zip.Inflater();
-            inf.setInput(java.util.Base64.getDecoder().decode(v.substring(1)));
-            byte[] b = new byte[512];
-            int n = 0;
-            while (n < 512 && !inf.finished()) {
-                int got = inf.inflate(b, n, 512 - n);
-                if (got == 0 && (inf.needsInput() || inf.needsDictionary())) break;
-                n += got;
+            byte[] compressed = java.util.Base64.getDecoder().decode(v.substring(1));
+            try (var in = new java.util.zip.InflaterInputStream(new java.io.ByteArrayInputStream(compressed))) {
+                byte[] data = in.readNBytes(1_048_577);
+                if (data.length < 512 || data.length > 1_048_576 || data.length % 8 != 0) return null;
+                bits = java.util.Arrays.copyOf(bits, 65 + (data.length - 512) / 8);
+                var longs = java.nio.ByteBuffer.wrap(data).asLongBuffer();
+                longs.get(bits, 0, 64);
+                if (longs.hasRemaining()) longs.get(bits, 65, longs.remaining());
+                return ModelSurface.valid(bits) ? bits : null;
             }
-            inf.end();
-            if (n != 512) return null;
-            java.nio.ByteBuffer.wrap(b).asLongBuffer().get(bits, 0, 64);
-            return bits;
         } catch (Exception e) {
             return null;
         }
     }
 
     public static String pack(long[] bits) {
-        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(512);
-        buf.asLongBuffer().put(bits, 0, 64);
-        var def = new java.util.zip.Deflater(java.util.zip.Deflater.BEST_COMPRESSION);
-        def.setInput(buf.array());
-        def.finish();
-        byte[] out = new byte[1024];
-        int n = def.deflate(out);
-        def.end();
-        return (shell(bits) ? "!z" : "z") + java.util.Base64.getEncoder().encodeToString(java.util.Arrays.copyOf(out, n));
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(512 + Math.max(0, bits.length - 65) * 8);
+        var longs = buf.asLongBuffer();
+        longs.put(bits, 0, 64);
+        if (bits.length > 65) longs.put(bits, 65, bits.length - 65);
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var out = new java.util.zip.DeflaterOutputStream(bytes)) {
+            out.write(buf.array());
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        return (shell(bits) ? "!z" : "z") + java.util.Base64.getEncoder().encodeToString(bytes.toByteArray());
     }
 
     public static String hex(long[] bits) {

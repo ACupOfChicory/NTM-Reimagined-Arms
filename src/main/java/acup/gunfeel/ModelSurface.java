@@ -1,0 +1,95 @@
+package acup.gunfeel;
+
+import java.util.List;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
+
+// Точные грани дополняют сетку 16³. Сервер получает вершины в координатах блока, координаты пикселей
+// и маску прозрачности, без клиентских классов и атласа текстур. Сетка задаёт толщину открытой плоскости.
+final class ModelSurface {
+    private ModelSurface() {
+    }
+
+    record Face(double[] p, double[] uv, int width, int height, long[] alpha) {
+    }
+
+    static long[] attach(long[] cells, List<Face> faces) {
+        int size = 66;
+        for (Face f : faces) size += 16 + f.alpha().length;
+        long[] out = java.util.Arrays.copyOf(cells, size);
+        out[65] = faces.size();
+        int at = 66;
+        for (Face f : faces) {
+            for (double v : f.p()) out[at++] = Double.doubleToLongBits(v);
+            for (double v : f.uv()) out[at++] = Double.doubleToLongBits(v);
+            out[at++] = (long) f.width() << 32 | f.height();
+            for (long v : f.alpha()) out[at++] = v;
+        }
+        return out;
+    }
+
+    static boolean present(long[] shape) {
+        return shape.length >= 66;
+    }
+
+    static boolean valid(long[] shape) {
+        if (!present(shape)) return shape.length == 65;
+        if (shape[65] < 0 || shape[65] > 16384) return false;
+        int at = 66;
+        for (int i = 0; i < shape[65]; i++) {
+            if (at + 16 > shape.length) return false;
+            for (int j = 0; j < 15; j++) if (!Double.isFinite(Double.longBitsToDouble(shape[at + j]))) return false;
+            int w = (int) (shape[at + 15] >>> 32), h = (int) shape[at + 15];
+            if (w < 1 || h < 1 || w > 4096 || h > 4096) return false;
+            at += 16 + (w * h + 63) / 64;
+            if (at > shape.length) return false;
+        }
+        return at == shape.length;
+    }
+
+    // Снаружи луч встречает лицевую грань. Выход через обратную грань задаёт толщину закрытой детали.
+    // Для открытых двусторонних плоскостей остаётся толщина клетки.
+    static @Nullable BlockHitResult hit(long[] shape, BlockPos pos, Vec3 from, Vec3 to, boolean leaving) {
+        Vec3 o = from.subtract(pos.getX(), pos.getY(), pos.getZ()), d = to.subtract(from);
+        double best = Double.POSITIVE_INFINITY;
+        Direction face = null;
+        int at = 66;
+        for (int i = 0; i < shape[65]; i++) {
+            double ax = number(shape, at), ay = number(shape, at + 1), az = number(shape, at + 2);
+            double ex = number(shape, at + 3) - ax, ey = number(shape, at + 4) - ay, ez = number(shape, at + 5) - az;
+            double fx = number(shape, at + 6) - ax, fy = number(shape, at + 7) - ay, fz = number(shape, at + 8) - az;
+            double nx = ey * fz - ez * fy, ny = ez * fx - ex * fz, nz = ex * fy - ey * fx;
+            double facing = nx * d.x + ny * d.y + nz * d.z;
+            int w = (int) (shape[at + 15] >>> 32), h = (int) shape[at + 15];
+            if (leaving ? facing > 1e-12 : facing < -1e-12) {
+                double px = d.y * fz - d.z * fy, py = d.z * fx - d.x * fz, pz = d.x * fy - d.y * fx;
+                double det = ex * px + ey * py + ez * pz;
+                double sx = o.x - ax, sy = o.y - ay, sz = o.z - az;
+                double b = (sx * px + sy * py + sz * pz) / det;
+                double qx = sy * ez - sz * ey, qy = sz * ex - sx * ez, qz = sx * ey - sy * ex;
+                double c = (d.x * qx + d.y * qy + d.z * qz) / det;
+                double t = (fx * qx + fy * qy + fz * qz) / det;
+                if (b >= -1e-8 && c >= -1e-8 && b + c <= 1 + 1e-8 && t > 1e-8 && t <= 1 && t < best) {
+                    double a = 1 - b - c;
+                    int u = Math.clamp((int) Math.floor(a * number(shape, at + 9) + b * number(shape, at + 11) + c * number(shape, at + 13)), 0, w - 1);
+                    int v = Math.clamp((int) Math.floor(a * number(shape, at + 10) + b * number(shape, at + 12) + c * number(shape, at + 14)), 0, h - 1);
+                    int pixel = u + w * v;
+                    if ((shape[at + 16 + (pixel >> 6)] >>> (pixel & 63) & 1L) != 0) {
+                        best = t;
+                        face = Direction.getApproximateNearest(nx, ny, nz);
+                    }
+                }
+            }
+            at += 16 + (w * h + 63) / 64;
+        }
+        return face == null ? null : new BlockHitResult(from.add(d.scale(best)), face, pos, false);
+    }
+
+    private static double number(long[] data, int at) {
+        return Double.longBitsToDouble(data[at]);
+    }
+}

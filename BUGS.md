@@ -27,6 +27,17 @@ Small: a 2-pixel board of wood takes about 3 damage. Found with the wooden trenc
 
 ## Fixed
 
+### Цепи и леса: ложное пробитие в пустоте и дырки рядом с лучом (X294)
+
+Найдено 2026-10-24 в X293. Выстрел №187: сервер считал прозрачный участок
+медной цепи пробитием, урон уменьшался с 12,5 до 8,093. Луч не пересекал
+непрозрачную поверхность; SNAP переносил дырку на соседний пиксель на 0,0365
+блока. Выстрел №110 сверху через леса: ложное пробитие длиной 0,002 блока перед
+попаданием в бетон. Причина — заполненная клетка 1/16 блока вместо точной
+поверхности. В X294 грани и маски прозрачности дополняют сетку, клиент и сервер
+проверяют луч по ним; SNAP удалён. Записанные лучи проверены без игры,
+визуальная проверка после установки ещё требуется.
+
 ### Recoil: the presets scaled again by NTM's recoil (X292)
 `ModelRecoil.shot`, `CameraRecoil.addImpulse`. X291 brought presets per gun class, but the shot still multiplied
 them by `ModelRecoil.strength` (0.2–1.4 from NTM's recoil numbers) and sped them up for light guns, as with the old

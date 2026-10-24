@@ -29,8 +29,8 @@ import net.neoforged.fml.loading.FMLPaths;
 // Client: the 3D shapes bullets meet in blocks whose model sits inside their hitbox (NTM's steel scaffold and
 // poles). The server has no models, so on joining a world the client turns the models of the blocks listed under
 // "generate" in ntmgunfeel-bullet-shapes.properties into 16 x 16 x 16 cells (set where the model shows a pixel) and
-// writes them to config/ntm-gunfeel-bullet-shapes.properties when they differ from the jar's; copied into the jar's
-// file they reach the server.
+// Помимо сетки сохраняются точные грани и прозрачность пикселей. Данные пишутся
+// в config/ntm-gunfeel-bullet-shapes.properties; сервер передаёт их клиентам вместе с сеткой.
 public final class MeshShapes {
     private static boolean done;
 
@@ -87,7 +87,7 @@ public final class MeshShapes {
         Path f = FMLPaths.CONFIGDIR.get().resolve(PassableClip.SHAPES_FILE);
         try (Writer w = Files.newBufferedWriter(f, StandardCharsets.UTF_8)) {
             w.write("# made by NTM Gun Feel from this client's block models and big NTM models: 16x16x16 cells a bullet meets,\n");
-            w.write("# bit x+16*(y+16*z), deflated and in base64 after z; states with the same cells point to one @n\n");
+            w.write("# bit x+16*(y+16*z), optional exact faces after the cells, deflated base64 after z; shared shapes point to @n\n");
             Map<String, String> ids = new java.util.LinkedHashMap<>();
             Map<String, Integer> uses = new TreeMap<>();
             for (long[] bits : all.values()) uses.merge(PassableClip.pack(bits), 1, Integer::sum);
@@ -288,6 +288,7 @@ public final class MeshShapes {
             String k = planeKey(q, false);
             if (k != null) planes.add(k);
         }
+        List<ModelSurface.Face> faces = new ArrayList<>();
         for (BakedQuad q : quads) {
             String twin = planeKey(q, true);
             boolean behind = twin == null || !planes.contains(twin);
@@ -297,11 +298,31 @@ public final class MeshShapes {
                 float[] u = {UVPair.unpackU(q.packedUV(a)), UVPair.unpackU(q.packedUV(b)), UVPair.unpackU(q.packedUV(c))};
                 float[] v = {UVPair.unpackV(q.packedUV(a)), UVPair.unpackV(q.packedUV(b)), UVPair.unpackV(q.packedUV(c))};
                 TextureAtlasSprite sprite = q.materialInfo().sprite();
-                fill(bits, new double[] {pa.x(), pa.y(), pa.z(), pb.x(), pb.y(), pb.z(), pc.x(), pc.y(), pc.z()}, behind,
+                double[] p = {pa.x(), pa.y(), pa.z(), pb.x(), pb.y(), pb.z(), pc.x(), pc.y(), pc.z()};
+                faces.add(surface(p, u, v, sprite));
+                fill(bits, p, behind,
                         (wa, wb, wc) -> opaque(sprite, (float) (wa * u[0] + wb * u[1] + wc * u[2]), (float) (wa * v[0] + wb * v[1] + wc * v[2])));
             }
         }
-        return bits;
+        return PassableClip.shell(bits) ? bits : ModelSurface.attach(bits, faces);
+    }
+
+    private static ModelSurface.Face surface(double[] p, float[] u, float[] v, TextureAtlasSprite sprite) {
+        var contents = sprite.contents();
+        int w = contents.width(), h = contents.height();
+        long[] alpha = new long[(w * h + 63) / 64];
+        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+            if (!contents.isTransparent(0, x, y)) {
+                int k = x + w * y;
+                alpha[k >> 6] |= 1L << (k & 63);
+            }
+        }
+        double[] uv = new double[6];
+        for (int i = 0; i < 3; i++) {
+            uv[2 * i] = (u[i] - sprite.getU0()) / (sprite.getU1() - sprite.getU0()) * w;
+            uv[2 * i + 1] = (v[i] - sprite.getV0()) / (sprite.getV1() - sprite.getV0()) * h;
+        }
+        return new ModelSurface.Face(p, uv, w, h, alpha);
     }
 
     interface PixelShown {

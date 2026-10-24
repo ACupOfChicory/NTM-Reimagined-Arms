@@ -65,7 +65,7 @@ class MeshShapesTest {
         assertTrue(xs(bits).isEmpty());
     }
 
-    // the hole's fallback on a model the bullet's line passes beside (Tracers.drawnHole): the nearest point of a face
+    // Ближайшая точка треугольника: внутри грани, на ребре и у вершины.
     @Test
     void nearestPointOfATriangle() {
         RenderedMesh.Tri t = new RenderedMesh.Tri(new double[] {0.125, 0, 0, 0.125, 1, 0, 0.125, 0, 1}, new float[6], null, true, false, null, null);
