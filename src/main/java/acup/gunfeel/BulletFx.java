@@ -138,7 +138,7 @@ public final class BulletFx {
                     for (int i = 0; o != null && i < count; i++) {
                         double sp = 0.05 + r.nextDouble() * 0.15;
                         emitted++;
-                        level.addParticle(o, p0.x, p0.y, p0.z, (out.x + r.nextGaussian() * 0.35) * sp, (out.y + r.nextGaussian() * 0.35) * sp + 0.03,
+                        emit(level, o, hit.getBlockPos(), p0, (out.x + r.nextGaussian() * 0.35) * sp, (out.y + r.nextGaussian() * 0.35) * sp + 0.03,
                                 (out.z + r.nextGaussian() * 0.35) * sp);
                     }
                 }
@@ -158,7 +158,7 @@ public final class BulletFx {
             for (int i = 0; i < count; i++) {
                 emitted++;
                 double sp = 0.05 + r.nextDouble() * 0.15;
-                level.addParticle(o, p0.x, p0.y, p0.z, (out.x + r.nextGaussian() * 0.35) * sp, (out.y + r.nextGaussian() * 0.35) * sp + 0.03,
+                emit(level, o, hit.getBlockPos(), p0, (out.x + r.nextGaussian() * 0.35) * sp, (out.y + r.nextGaussian() * 0.35) * sp + 0.03,
                         (out.z + r.nextGaussian() * 0.35) * sp);
             }
         }
@@ -186,6 +186,26 @@ public final class BulletFx {
             return;
         }
         play(level, at, e, volume, s.pitch() * (0.9F + r.nextFloat() * 0.2F), fx.range());
+    }
+
+    // Обычная физика TerrainParticle; место появления остаётся на входе в хитбокс.
+    // Спрайт берём явно из блока попадания, а не из блока в месте появления частицы.
+    private static void emit(ClientLevel level, ParticleOptions option, net.minecraft.core.BlockPos hit, Vec3 at,
+            double vx, double vy, double vz) {
+        if (option instanceof net.minecraft.core.particles.BlockParticleOption block) {
+            BlockState state = block.getState();
+            if (!state.isAir() && state.shouldSpawnTerrainParticles())
+                Minecraft.getInstance().particleEngine.add(new HitCrumb(level, at, vx, vy, vz, state, hit));
+        } else {
+            level.addParticle(option, at.x, at.y, at.z, vx, vy, vz);
+        }
+    }
+
+    private static final class HitCrumb extends net.minecraft.client.particle.TerrainParticle {
+        HitCrumb(ClientLevel level, Vec3 at, double vx, double vy, double vz, BlockState state, net.minecraft.core.BlockPos hit) {
+            super(level, at.x, at.y, at.z, vx, vy, vz, state, hit);
+            setSprite(Minecraft.getInstance().getModelManager().getBlockStateModelSet().getParticleMaterial(state, level, hit).sprite());
+        }
     }
 
     // a sound heard over `range` blocks, fading out to it. Minecraft fades a sound out within its attenuation
