@@ -65,6 +65,9 @@ That fix was wrong: it made a second mark, a new one (its own size and look), wh
 so a stopped 9 mm left an entry and an "exit" in reinforced glass, apart when shot at a slant. Fixed again in X280:
 one mark, drawn on the far face, right behind where it was hit, when the camera is beyond that face. Found by the user,
 2026-10-24.
+X280 did it only for marks laid on the hitbox (reinforced glass): the laminate's are laid on its model (the hole rule
+`~.*glass.*` does not take `reinforced_laminate_pane`), so on the laminate no mark showed from behind at all. Fixed in
+X281 for marks on a model too. Found by the user, 2026-10-24.
 
 ### Chain-link fence: bullets never fly through its mesh
 `src/main/resources/ntmgunfeel-bullets.txt` (`path hbm:fence_metal...`). The fence went by a pixel mask laid on its

@@ -1,5 +1,9 @@
 # Changelog
 
+## X281
+
+- Laminate: a stopped bullet's mark shows from the other side again (X280 did it only for reinforced glass).
+
 ## X280
 
 - A bullet stopped in translucent glass (reinforced glass, laminate) leaves one mark, not two: seen from the other
