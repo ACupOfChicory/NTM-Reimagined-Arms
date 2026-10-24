@@ -192,6 +192,11 @@ public final class BulletCheck {
         expect("bunker door: the steel beside the hole", Want.STOP, bunker.above(), 5.5 / 16, 8.5 / 16, 60F);
         expect("bunker door: 150 damage goes through the steel", Want.PIERCE, bunker.above(), .5, .2, 150F);
 
+        // ---- .50 DU into an iron golem in the open: every bullet takes the same, 45 in the body, x1.25 in the head
+        // (NTM's headshotMult); it goes through the golem and loses nothing by it
+        check("golem: .50 DU in the body takes 45", 45F, golemHit(1.0, 45F));
+        check("golem: .50 DU in the head takes 56.25", 56.25F, golemHit(2.4, 45F));
+
         // ---- path rules in the server's file
         expect("path hitbox: a spruce fence's gap is hit", Want.PIERCE, fenceRow("minecraft:spruce_fence"), .25, .65, 30F);
         s = expect("path through: stone is flown through", Want.PASS, single("minecraft:stone"), .5, .5, 30F);
@@ -237,6 +242,27 @@ public final class BulletCheck {
         b.damage = damage;
         for (int i = 0; i < 3 && !b.isRemoved(); i++) b.tick();
         return new Shot(!b.isRemoved(), b.damage, b.getZ(), BuiltInRegistries.BLOCK.getKey(level.getBlockState(at).getBlock()).toString());
+    }
+
+    // the health a fresh iron golem (no AI, in the open) loses to one .50 DU bullet at height fy over its feet
+    private static float golemHit(double fy, float damage) {
+        BlockPos at = new BlockPos(2 + 4 * (lane % 16), Y + 4 * (lane / 16), Z);
+        lane++;
+        var g = net.minecraft.world.entity.EntityTypes.IRON_GOLEM.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        g.setPos(at.getX() + .5, at.getY(), at.getZ() + .5);
+        g.setNoAi(true);
+        g.setNoGravity(true);
+        level.addFreshEntity(g);
+        BulletConfig du = com.hbm.items.weapon.sedna.factory.XFactory50.bmg50_du;
+        EntityBulletBaseMK4 b = new EntityBulletBaseMK4(level, du, 1F, 0F, 0F, 0F);
+        b.setPos(at.getX() + .5, at.getY() + fy, at.getZ() - 3);
+        b.setThrowableHeading(0, 0, 1, du.velocity, 0F);
+        b.damage = damage;
+        float before = g.getHealth();
+        for (int i = 0; i < 3 && !b.isRemoved(); i++) b.tick();
+        float took = before - g.getHealth();
+        g.discard();
+        return took;
     }
 
     private static String after(BlockPos at) {
