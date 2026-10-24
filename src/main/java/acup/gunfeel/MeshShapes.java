@@ -281,45 +281,89 @@ public final class MeshShapes {
         long[] bits = new long[65];
         List<BakedQuad> quads = quads(state);
         if (shell(state, quads)) bits[64] = 1L;
+        // the planes faces lie in: a face with a twin facing the other way in its plane is one side of a
+        // double-sided plane (a chain's, a ladder's), which is not pushed behind (it would come out two cells thick)
+        java.util.Set<String> planes = new java.util.HashSet<>();
         for (BakedQuad q : quads) {
+            String k = planeKey(q, false);
+            if (k != null) planes.add(k);
+        }
+        for (BakedQuad q : quads) {
+            String twin = planeKey(q, true);
+            boolean behind = twin == null || !planes.contains(twin);
             for (int t = 0; t < 2; t++) {
                 int a = 0, b = t == 0 ? 1 : 2, c = t == 0 ? 2 : 3;
                 var pa = q.position(a); var pb = q.position(b); var pc = q.position(c);
-                double edge = Math.max(dist(pa, pb), Math.max(dist(pb, pc), dist(pa, pc)));
-                int n = Math.max(2, (int) Math.ceil(edge * 64));
-                // a face lying on a cell border (a pole's side at 14/16, a hair off after the model's rotation) goes
-                // into the cell of the part it bounds, not the empty one before it: points are taken a little behind
-                // the face (its normal points out)
-                double ux = pb.x() - pa.x(), uy = pb.y() - pa.y(), uz = pb.z() - pa.z();
-                double vx = pc.x() - pa.x(), vy = pc.y() - pa.y(), vz = pc.z() - pa.z();
-                double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-                double nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
-                double back = nl > 1e-9 ? 1e-3 / nl : 0;
-                nx *= back; ny *= back; nz *= back;
-                for (int i = 0; i <= n; i++) {
-                    for (int j = 0; j <= n - i; j++) {
-                        double wa = (double) i / n, wb = (double) j / n, wc = 1 - wa - wb;
-                        double x = wa * pa.x() + wb * pb.x() + wc * pc.x() - nx;
-                        double y = wa * pa.y() + wb * pb.y() + wc * pc.y() - ny;
-                        double z = wa * pa.z() + wb * pb.z() + wc * pc.z() - nz;
-                        float u = (float) (wa * UVPair.unpackU(q.packedUV(a)) + wb * UVPair.unpackU(q.packedUV(b)) + wc * UVPair.unpackU(q.packedUV(c)));
-                        float v = (float) (wa * UVPair.unpackV(q.packedUV(a)) + wb * UVPair.unpackV(q.packedUV(b)) + wc * UVPair.unpackV(q.packedUV(c)));
-                        if (!opaque(q.materialInfo().sprite(), u, v)) continue;
-                        int cx = (int) Math.floor(x * 16), cy = (int) Math.floor(y * 16), cz = (int) Math.floor(z * 16);
-                        if (x >= 1.0 && x < 1.0 + 3e-3) cx = 15;
-                        if (y >= 1.0 && y < 1.0 + 3e-3) cy = 15;
-                        if (z >= 1.0 && z < 1.0 + 3e-3) cz = 15;
-                        if (x < 0 && x > -3e-3) cx = 0;
-                        if (y < 0 && y > -3e-3) cy = 0;
-                        if (z < 0 && z > -3e-3) cz = 0;
-                        if (cx < 0 || cx > 15 || cy < 0 || cy > 15 || cz < 0 || cz > 15) continue;
-                        int k = cx + 16 * (cy + 16 * cz);
-                        bits[k >> 6] |= 1L << (k & 63);
-                    }
-                }
+                float[] u = {UVPair.unpackU(q.packedUV(a)), UVPair.unpackU(q.packedUV(b)), UVPair.unpackU(q.packedUV(c))};
+                float[] v = {UVPair.unpackV(q.packedUV(a)), UVPair.unpackV(q.packedUV(b)), UVPair.unpackV(q.packedUV(c))};
+                TextureAtlasSprite sprite = q.materialInfo().sprite();
+                fill(bits, new double[] {pa.x(), pa.y(), pa.z(), pb.x(), pb.y(), pb.z(), pc.x(), pc.y(), pc.z()}, behind,
+                        (wa, wb, wc) -> opaque(sprite, (float) (wa * u[0] + wb * u[1] + wc * u[2]), (float) (wa * v[0] + wb * v[1] + wc * v[2])));
             }
         }
         return bits;
+    }
+
+    interface PixelShown {
+        boolean at(double wa, double wb, double wc);
+    }
+
+    // The cells a triangle (p = a, b, c as x, y, z) covers with shown pixels. A face or an edge lying on a cell
+    // border (a pole's side at 2/16, the edge of a diagonal brace there) goes into the cell of the part it bounds,
+    // not the empty one beside it: each point is taken a hair towards the triangle's middle, and (behind) a hair
+    // behind the face (its normal points out).
+    static void fill(long[] bits, double[] p, boolean behind, PixelShown shown) {
+        double ux = p[3] - p[0], uy = p[4] - p[1], uz = p[5] - p[2];
+        double vx = p[6] - p[0], vy = p[7] - p[1], vz = p[8] - p[2];
+        double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        double nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
+        double back = behind && nl > 1e-9 ? 1e-3 / nl : 0;
+        nx *= back; ny *= back; nz *= back;
+        double mx = grid((p[0] + p[3] + p[6]) / 3), my = grid((p[1] + p[4] + p[7]) / 3), mz = grid((p[2] + p[5] + p[8]) / 3);
+        double edge = Math.max(Math.sqrt(ux * ux + uy * uy + uz * uz), Math.max(Math.sqrt(vx * vx + vy * vy + vz * vz),
+                Math.sqrt((p[6] - p[3]) * (p[6] - p[3]) + (p[7] - p[4]) * (p[7] - p[4]) + (p[8] - p[5]) * (p[8] - p[5]))));
+        int n = Math.max(2, (int) Math.ceil(edge * 64));
+        final double in = 2e-3;
+        for (int i = 0; i <= n; i++) {
+            for (int j = 0; j <= n - i; j++) {
+                double wa = (double) i / n, wb = (double) j / n, wc = 1 - wa - wb;
+                if (!shown.at(wa, wb, wc)) continue;
+                double x = grid(wa * p[0] + wb * p[3] + wc * p[6]), y = grid(wa * p[1] + wb * p[4] + wc * p[7]),
+                        z = grid(wa * p[2] + wb * p[5] + wc * p[8]);
+                x += (mx - x) * in - nx;
+                y += (my - y) * in - ny;
+                z += (mz - z) * in - nz;
+                int cx = (int) Math.floor(x * 16), cy = (int) Math.floor(y * 16), cz = (int) Math.floor(z * 16);
+                if (x >= 1.0 && x < 1.0 + 3e-3) cx = 15;
+                if (y >= 1.0 && y < 1.0 + 3e-3) cy = 15;
+                if (z >= 1.0 && z < 1.0 + 3e-3) cz = 15;
+                if (x < 0 && x > -3e-3) cx = 0;
+                if (y < 0 && y > -3e-3) cy = 0;
+                if (z < 0 && z > -3e-3) cz = 0;
+                if (cx < 0 || cx > 15 || cy < 0 || cy > 15 || cz < 0 || cz > 15) continue;
+                int k = cx + 16 * (cy + 16 * cz);
+                bits[k >> 6] |= 1L << (k & 63);
+            }
+        }
+    }
+
+    // a coordinate a rounding error off a cell border (a plane at 0.5 summed from its corners) put on it
+    private static double grid(double c) {
+        double g = Math.rint(c * 16) / 16;
+        return Math.abs(c - g) < 1e-6 ? g : c;
+    }
+
+    // the face's plane as text (its normal and distance, rounded), or the plane of a face turned the other way in it
+    private static String planeKey(BakedQuad q, boolean flipped) {
+        var a = q.position(0); var b = q.position(1); var c = q.position(2);
+        double ux = b.x() - a.x(), uy = b.y() - a.y(), uz = b.z() - a.z(), vx = c.x() - a.x(), vy = c.y() - a.y(), vz = c.z() - a.z();
+        double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        double nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
+        if (nl < 1e-9) return null;
+        double f = flipped ? -1 : 1;
+        nx *= f / nl; ny *= f / nl; nz *= f / nl;
+        double d = nx * a.x() + ny * a.y() + nz * a.z();
+        return Math.round(nx * 500) + " " + Math.round(ny * 500) + " " + Math.round(nz * 500) + " " + Math.round(d * 2000);
     }
 
     // The model's faces (shown pixels or not) cover every face of the block's hitbox: a closed box such as a door,
@@ -387,11 +431,6 @@ public final class MeshShapes {
         }
         return false;
     }
-
-    private static double dist(org.joml.Vector3fc a, org.joml.Vector3fc b) {
-        return Math.sqrt((a.x() - b.x()) * (a.x() - b.x()) + (a.y() - b.y()) * (a.y() - b.y()) + (a.z() - b.z()) * (a.z() - b.z()));
-    }
-
 
     // the sprite's pixel colour at atlas coordinates (u, v), ARGB (0 = not readable)
     public static int color(TextureAtlasSprite sprite, float u, float v) {

@@ -161,6 +161,28 @@ public final class RenderedMesh {
             return tex.opaque(u, v);
         }
 
+        // the point of the triangle nearest to pt (C. Ericson, Real-Time Collision Detection, 5.1.5)
+        public Vector3d closest(Vector3d pt) {
+            Vector3d a = corner(0), b = corner(1), c = corner(2);
+            Vector3d ab = new Vector3d(b).sub(a), ac = new Vector3d(c).sub(a), ap = new Vector3d(pt).sub(a);
+            double d1 = ab.dot(ap), d2 = ac.dot(ap);
+            if (d1 <= 0 && d2 <= 0) return a;
+            Vector3d bp = new Vector3d(pt).sub(b);
+            double d3 = ab.dot(bp), d4 = ac.dot(bp);
+            if (d3 >= 0 && d4 <= d3) return b;
+            double vc = d1 * d4 - d3 * d2;
+            if (vc <= 0 && d1 >= 0 && d3 <= 0) return a.fma(d1 / (d1 - d3), ab);
+            Vector3d cp = new Vector3d(pt).sub(c);
+            double d5 = ab.dot(cp), d6 = ac.dot(cp);
+            if (d6 >= 0 && d5 <= d6) return c;
+            double vb = d5 * d2 - d1 * d6;
+            if (vb <= 0 && d2 >= 0 && d6 <= 0) return a.fma(d2 / (d2 - d6), ac);
+            double va = d3 * d6 - d5 * d4;
+            if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) return b.fma((d4 - d3) / ((d4 - d3) + (d5 - d6)), new Vector3d(c).sub(b));
+            double den = 1 / (va + vb + vc);
+            return a.fma(vb * den, ab).fma(vc * den, ac);
+        }
+
         // where the line from o along d meets it, as a distance along d; NaN = it does not
         public double cross(Vector3d o, Vector3d d) {
             double ax = p[0], ay = p[1], az = p[2];

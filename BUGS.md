@@ -291,5 +291,12 @@ vanilla arm and lets it run out of view. Fixed in X289: the whole arm (armLength
 where the model's faces are. A face lying on a cell border fell into the cell before it: the scaffold's inner pole
 face at x 14/16 is 0.87499994 after NTM's rotation and floored to cell 13, the one at 2/16 to cell 2, so every pole
 was a pixel thicker than drawn. Shots down along a pole stopped in that empty cell (x 0.8125), the hole search found no
-model face on the ray ("chosen: NONE") and gave up. Fixed in X290: points are taken 0.001 behind the face. Found by
-the user, 2026-10-24 (holedebug, `notes/ntm/scaffold/`).
+model face on the ray ("chosen: NONE") and gave up. X290 took points 0.001 behind the face, which was not enough:
+the diagonal braces' edges lie on 2/16 too (their faces slant, the push behind does not move them in x), so cell 2 stayed
+set, and a plane drawn from both sides (chains) came out two cells thick. Seen again by the user the same day: 0 holes
+of 16 on the scaffold, every hit 1/16 beside the frame (`notes/scaffold-holes/rays.py` casts the logged shots at NTM's
+mesh: none meets it). Fixed in X293: points are also taken a hair towards the triangle's middle, a face with a twin
+facing the other way in its plane is not pushed, and coordinates a rounding error off a border go on it
+(`notes/scaffold-holes/vox2.py`: the frame is cells 0..1 as drawn). And when the line still passes beside the model
+(a cell a diagonal brace only partly fills), the hole goes on the nearest shown pixel of the block's model within a
+cell's diagonal (`Tracers.drawnHole`, `SNAP`). Found by the user, 2026-10-24 (holedebug, `notes/ntm/scaffold/`).

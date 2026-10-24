@@ -1115,6 +1115,9 @@ public final class Tracers {
         return Math.min(3.0, k + 0.05);
     }
 
+    // how far from where the bullet stopped in a model's cell its hole may go to find the model: a cell's diagonal
+    static final double SNAP = 0.11;
+
     private static boolean drawnHole(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir) {
         long started = System.nanoTime();
         BlockPos pos = hit.getBlockPos();
@@ -1179,11 +1182,34 @@ public final class Tracers {
         RenderedMesh.Tri met = bestAt[0] < 0 ? null : tris.get(bestAt[0]);
         long st3 = System.nanoTime();
         if (debugHoles) debugCandidates(tris, plain, o, d, reachTo, shape, pos, drawn, reaches[0], met, best);
+        Vector3d snapped = null;
+        if (met == null && shape != null) {
+            // The bullet stopped in a 1/16 cell its model only partly fills (a diagonal brace crosses it) and its line
+            // passes beside the brace: the hole goes on the nearest shown pixel of the block's model that faces the
+            // shooter, no further than a cell's diagonal from where the bullet stopped.
+            Vector3d at = new Vector3d(hit.getLocation().x, hit.getLocation().y, hit.getLocation().z);
+            double near = SNAP;
+            for (RenderedMesh.Tri t : tris) {
+                if (!pos.equals(t.block())) continue;
+                Vector3d tn = t.normal();
+                if (tn == null || t.oneSided() && tn.dot(d) > 0) continue;
+                Vector3d c = t.closest(at);
+                double dist = c.distance(at);
+                if (dist >= near) continue;
+                double[] w = t.weights(c, 1e-6);
+                if (w == null || !t.opaqueAt(w)) continue;
+                near = dist;
+                met = t;
+                snapped = c;
+            }
+            if (met != null) dbg("  the line misses the model: hole on its nearest shown pixel, {} away, at {}", String.format(java.util.Locale.ROOT, "%.4f", near), v(snapped));
+            else dbg("  the line misses the model and no shown pixel of it is within {}", SNAP);
+        }
         if (met == null) return drawn || reaches[0];
         Vector3d normal = met.normal();
         if (normal == null) return true;
         if (normal.dot(d) > 0) normal.negate();
-        Vector3d world = new Vector3d(d).mul(best).add(o);
+        Vector3d world = snapped != null ? snapped : new Vector3d(d).mul(best).add(o);
         boolean scorch = config.onImpact != null;
         BlockState decalOn = Cells.ruleState(level, pos, hitState);
         int kind = holeKind(decalOn, config);

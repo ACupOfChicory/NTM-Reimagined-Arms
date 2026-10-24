@@ -1,5 +1,12 @@
 # Changelog
 
+## X293
+
+- Holes on NTM's steel scaffold again: X290's fix of its bullet shape was not enough (the edges of the diagonal braces
+  still made the frame a pixel thick too much) and made chains and other planes drawn from both sides a pixel thicker.
+  Both fixed; the shapes are made again on the next world join. Where a bullet stops in a pixel a brace only partly
+  fills, its hole goes on the nearest drawn part of the scaffold.
+
 ## X292
 
 - Recoil is no longer scaled twice: the gun model's kick and the camera's shake were the preset times NTM's recoil
