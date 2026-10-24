@@ -170,10 +170,12 @@ public final class MeshShapes {
             bits.put(b.immutable(), new long[65]);
         }
         int tris = 0;
+        List<ModelSurface.Face> surfaces = new ArrayList<>();
         if (Structures.rendered(coreState)) {
             for (RenderedMesh.Tri t : RenderedMesh.of(be)) {
                 tris++;
                 sample(t.p(), (u, v) -> t.tex().opaque(u, v), t.uv(), bits);
+                surfaces.add(surface(t));
             }
         }
         for (BlockPos b : com.hbm.blocks.multiblock.MultiblockSurface.rigidStructureBlocks(level, core)) {
@@ -195,6 +197,7 @@ public final class MeshShapes {
                     TextureAtlasSprite sprite = q.materialInfo().sprite();
                     tris++;
                     sample(p, (u, v) -> opaque(sprite, u, v), uv, bits);
+                    surfaces.add(surface(p, new float[] {uv[0], uv[2], uv[4]}, new float[] {uv[1], uv[3], uv[5]}, sprite));
                 }
             }
         }
@@ -213,6 +216,11 @@ public final class MeshShapes {
                 }
             }
             BlockPos b = e.getKey();
+            if (Structures.rendered(coreState)) {
+                List<ModelSurface.Face> local = new ArrayList<>();
+                for (ModelSurface.Face f : surfaces) if (ModelSurface.overlaps(f, b)) local.add(ModelSurface.local(f, b, r));
+                north = ModelSurface.attach(north, local);
+            }
             out.put(Structures.key(coreState, b.getX() - core.getX(), b.getY() - core.getY(), b.getZ() - core.getZ()), north);
         }
         GunFeel.LOGGER.info("Read the cells of {} at {}: {} blocks, {} triangles, {} cells set, {} ms", PassableClip.key(coreState), core,
@@ -317,12 +325,48 @@ public final class MeshShapes {
                 alpha[k >> 6] |= 1L << (k & 63);
             }
         }
+        if (solid(alpha, w * h)) return new ModelSurface.Face(p, new double[6], 1, 1, new long[] {1});
         double[] uv = new double[6];
         for (int i = 0; i < 3; i++) {
             uv[2 * i] = (u[i] - sprite.getU0()) / (sprite.getU1() - sprite.getU0()) * w;
             uv[2 * i + 1] = (v[i] - sprite.getV0()) / (sprite.getV1() - sprite.getV0()) * h;
         }
         return new ModelSurface.Face(p, uv, w, h, alpha);
+    }
+
+    // Геометрия рендера: прозрачность записывается в собственной сетке текстуры, без клиентских объектов.
+    private static ModelSurface.Face surface(RenderedMesh.Tri tri) {
+        if (!tri.tex().seeThrough()) return new ModelSurface.Face(tri.p(), new double[6], 1, 1, new long[] {1});
+        double[] grid = tri.tex().grid();
+        double minU = Math.min(tri.uv()[0], Math.min(tri.uv()[2], tri.uv()[4]));
+        double maxU = Math.max(tri.uv()[0], Math.max(tri.uv()[2], tri.uv()[4]));
+        double minV = Math.min(tri.uv()[1], Math.min(tri.uv()[3], tri.uv()[5]));
+        double maxV = Math.max(tri.uv()[1], Math.max(tri.uv()[3], tri.uv()[5]));
+        double du = grid == null ? Math.max(1e-8, (maxU - minU) / 64) : grid[1];
+        double dv = grid == null ? Math.max(1e-8, (maxV - minV) / 64) : grid[3];
+        double u0 = grid == null ? minU : grid[0] + Math.floor((minU - grid[0]) / du) * du;
+        double v0 = grid == null ? minV : grid[2] + Math.floor((minV - grid[2]) / dv) * dv;
+        int w = Math.max(1, (int) Math.ceil((maxU - u0) / du));
+        int h = Math.max(1, (int) Math.ceil((maxV - v0) / dv));
+        long[] alpha = new long[(w * h + 63) / 64];
+        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+            if (tri.tex().opaque((float) (u0 + (x + .5) * du), (float) (v0 + (y + .5) * dv))) {
+                int k = x + w * y;
+                alpha[k >> 6] |= 1L << (k & 63);
+            }
+        }
+        if (solid(alpha, w * h)) return new ModelSurface.Face(tri.p(), new double[6], 1, 1, new long[] {1});
+        double[] uv = new double[6];
+        for (int i = 0; i < 3; i++) {
+            uv[2 * i] = (tri.uv()[2 * i] - u0) / du;
+            uv[2 * i + 1] = (tri.uv()[2 * i + 1] - v0) / dv;
+        }
+        return new ModelSurface.Face(tri.p(), uv, w, h, alpha);
+    }
+
+    private static boolean solid(long[] alpha, int pixels) {
+        for (int i = 0; i < pixels; i++) if ((alpha[i >> 6] >>> (i & 63) & 1L) == 0) return false;
+        return true;
     }
 
     interface PixelShown {

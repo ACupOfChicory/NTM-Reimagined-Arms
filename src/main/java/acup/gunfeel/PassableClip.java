@@ -185,7 +185,8 @@ public final class PassableClip extends ClipContext {
                 // a block of a big model (NTM's cargo door): its cells as drawn, then its solid parts (an elevator's
                 // platform) as NTM has them
                 // whichever the bullet meets first: the elevator's platform lies over its base, in the same block
-                BlockHitResult in = march(cells, hit, to.subtract(from), 64);
+                BlockHitResult in = ModelSurface.present(cells) ? ModelSurface.hit(cells, hit.getBlockPos(), from, to, false, true)
+                        : march(cells, hit, to.subtract(from), 64);
                 BlockHitResult solid = Structures.solid(level, hit.getBlockPos(), state, from, to);
                 if (debug)
                     LOGGER.info("[holedebug]     {} model cells: {}, solid part: {}", side(level),
@@ -527,7 +528,11 @@ public final class PassableClip extends ClipContext {
         if (len < 1e-9) return hit;
         double dx = way.x / len, dy = way.y / len, dz = way.z / len;
         double px = (hit.getLocation().x - pos.getX()) * 16, py = (hit.getLocation().y - pos.getY()) * 16, pz = (hit.getLocation().z - pos.getZ()) * 16;
-        int x = Math.clamp((int) Math.floor(px), 0, 15), y = Math.clamp((int) Math.floor(py), 0, 15), z = Math.clamp((int) Math.floor(pz), 0, 15);
+        // На границе клетки берём сторону, в которую летит пуля. Иначе отрицательное направление
+        // на x=3/16 проверяло пустую клетку 3 вместо металла в клетке 2 (верхняя половина двери).
+        int x = Math.clamp((int) Math.floor(px + dx * 1e-7), 0, 15);
+        int y = Math.clamp((int) Math.floor(py + dy * 1e-7), 0, 15);
+        int z = Math.clamp((int) Math.floor(pz + dz * 1e-7), 0, 15);
         int sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
         double tx = Math.abs(dx) < 1e-12 ? Double.POSITIVE_INFINITY : ((sx > 0 ? x + 1 : x) - px) / dx;
         double ty = Math.abs(dy) < 1e-12 ? Double.POSITIVE_INFINITY : ((sy > 0 ? y + 1 : y) - py) / dy;

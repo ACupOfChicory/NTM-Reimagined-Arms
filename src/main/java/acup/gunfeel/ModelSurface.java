@@ -32,6 +32,66 @@ final class ModelSurface {
         return out;
     }
 
+    static List<Face> faces(long[] shape) {
+        List<Face> out = new java.util.ArrayList<>();
+        if (!present(shape)) return out;
+        int at = 66;
+        for (int i = 0; i < shape[65]; i++) {
+            double[] p = new double[9], uv = new double[6];
+            for (int j = 0; j < 9; j++) p[j] = number(shape, at++);
+            for (int j = 0; j < 6; j++) uv[j] = number(shape, at++);
+            int w = (int) (shape[at] >>> 32), h = (int) shape[at++];
+            int n = (w * h + 63) / 64;
+            out.add(new Face(p, uv, w, h, java.util.Arrays.copyOfRange(shape, at, at + n)));
+            at += n;
+        }
+        return out;
+    }
+
+    static Face local(Face face, BlockPos pos, net.minecraft.world.level.block.Rotation rotation) {
+        double[] p = face.p().clone();
+        for (int i = 0; i < 9; i += 3) {
+            double x = p[i] - pos.getX(), z = p[i + 2] - pos.getZ();
+            p[i] = switch (rotation) {
+                case CLOCKWISE_90 -> 1 - z;
+                case CLOCKWISE_180 -> 1 - x;
+                case COUNTERCLOCKWISE_90 -> z;
+                default -> x;
+            };
+            p[i + 1] -= pos.getY();
+            p[i + 2] = switch (rotation) {
+                case CLOCKWISE_90 -> x;
+                case CLOCKWISE_180 -> 1 - z;
+                case COUNTERCLOCKWISE_90 -> 1 - x;
+                default -> z;
+            };
+        }
+        return new Face(p, face.uv(), face.width(), face.height(), face.alpha());
+    }
+
+    static long[] rotate(long[] shape, net.minecraft.world.level.block.Rotation rotation) {
+        long[] out = new long[65];
+        out[64] = shape[64];
+        for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) {
+            int[] n = Structures.turn(x, z, rotation);
+            for (int y = 0; y < 16; y++) if (PassableClip.cell(shape, x, y, z)) {
+                int k = n[0] + 16 * (y + 16 * n[1]);
+                out[k >> 6] |= 1L << (k & 63);
+            }
+        }
+        return present(shape) ? attach(out, faces(shape).stream().map(f -> local(f, BlockPos.ZERO, rotation)).toList()) : out;
+    }
+
+    static boolean overlaps(Face f, BlockPos pos) {
+        for (int axis = 0; axis < 3; axis++) {
+            double min = Math.min(f.p()[axis], Math.min(f.p()[axis + 3], f.p()[axis + 6]));
+            double max = Math.max(f.p()[axis], Math.max(f.p()[axis + 3], f.p()[axis + 6]));
+            double lo = axis == 0 ? pos.getX() : axis == 1 ? pos.getY() : pos.getZ();
+            if (max < lo - 1e-7 || min > lo + 1 + 1e-7) return false;
+        }
+        return true;
+    }
+
     static boolean present(long[] shape) {
         return shape.length >= 66;
     }
@@ -54,6 +114,10 @@ final class ModelSurface {
     // Снаружи луч встречает лицевую грань. Выход через обратную грань задаёт толщину закрытой детали.
     // Для открытых двусторонних плоскостей остаётся толщина клетки.
     static @Nullable BlockHitResult hit(long[] shape, BlockPos pos, Vec3 from, Vec3 to, boolean leaving) {
+        return hit(shape, pos, from, to, leaving, false);
+    }
+
+    static @Nullable BlockHitResult hit(long[] shape, BlockPos pos, Vec3 from, Vec3 to, boolean leaving, boolean withinCell) {
         Vec3 o = from.subtract(pos.getX(), pos.getY(), pos.getZ()), d = to.subtract(from);
         double best = Double.POSITIVE_INFINITY;
         Direction face = null;
@@ -78,7 +142,10 @@ final class ModelSurface {
                     int u = Math.clamp((int) Math.floor(a * number(shape, at + 9) + b * number(shape, at + 11) + c * number(shape, at + 13)), 0, w - 1);
                     int v = Math.clamp((int) Math.floor(a * number(shape, at + 10) + b * number(shape, at + 12) + c * number(shape, at + 14)), 0, h - 1);
                     int pixel = u + w * v;
-                    if ((shape[at + 16 + (pixel >> 6)] >>> (pixel & 63) & 1L) != 0) {
+                    Vec3 point = o.add(d.scale(t));
+                    boolean inside = !withinCell || point.x >= -1e-7 && point.x <= 1 + 1e-7
+                            && point.y >= -1e-7 && point.y <= 1 + 1e-7 && point.z >= -1e-7 && point.z <= 1 + 1e-7;
+                    if (inside && (shape[at + 16 + (pixel >> 6)] >>> (pixel & 63) & 1L) != 0) {
                         best = t;
                         face = Direction.getApproximateNearest(nx, ny, nz);
                     }

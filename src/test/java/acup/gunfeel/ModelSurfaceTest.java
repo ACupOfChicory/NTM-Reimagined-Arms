@@ -80,6 +80,42 @@ class ModelSurfaceTest {
     }
 
     @Test
+    void multiblockRotationPreservesFacesAndPixels() {
+        long[] original = shape(cutout());
+        var rotated = original;
+        for (int i = 0; i < 4; i++) rotated = ModelSurface.rotate(rotated, net.minecraft.world.level.block.Rotation.CLOCKWISE_90);
+        assertArrayEquals(original, rotated);
+        for (var r : net.minecraft.world.level.block.Rotation.values()) {
+            long[] model = ModelSurface.rotate(original, r);
+            assertTrue(ModelSurface.valid(model));
+            assertArrayEquals(model, PassableClip.unpack(PassableClip.pack(model)));
+        }
+    }
+
+    @Test
+    void facesCrossingSeveralCellsOnlyHitInsideTheTestedCell() {
+        ModelSurface.Face far = new ModelSurface.Face(new double[] {1.5, 0, 0, 1.5, 0, 1, 1.5, 1, 0},
+                new double[6], 1, 1, new long[] {1});
+        Vec3 from = new Vec3(0, .1, .2), to = new Vec3(2, .1, .2);
+        assertNotNull(ModelSurface.hit(shape(far), BlockPos.ZERO, from, to, false));
+        assertNull(ModelSurface.hit(shape(far), BlockPos.ZERO, from, to, false, true));
+        assertTrue(ModelSurface.overlaps(far, new BlockPos(1, 0, 0)));
+        assertFalse(ModelSurface.overlaps(far, BlockPos.ZERO));
+    }
+
+    @Test
+    void shellEntryOnACellBoundaryUsesTheForwardCell() {
+        long[] cells = new long[65];
+        int k = 2 + 16 * (0 + 16 * 2);
+        cells[k >> 6] |= 1L << (k & 63);
+        var entry = new net.minecraft.world.phys.BlockHitResult(new Vec3(3.0 / 16, .01, 2.5 / 16),
+                net.minecraft.core.Direction.EAST, BlockPos.ZERO, false);
+        assertNotNull(PassableClip.march(cells, entry, new Vec3(-1, -.4, 0), 1));
+        assertNull(PassableClip.march(cells, entry, new Vec3(1, -.4, 0), 1));
+        assertEquals(entry.getLocation(), PassableClip.march(cells, entry, new Vec3(-1, -.4, 0), 1).getLocation());
+    }
+
+    @Test
     void malformedGeometryIsRejected() {
         long[] model = shape(cutout());
         assertTrue(ModelSurface.valid(model));

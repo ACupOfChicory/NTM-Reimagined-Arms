@@ -147,17 +147,12 @@ public final class Structures {
         long[] got = WORLD.get(world);
         if (got != null) return got == NONE ? null : got;
         long[] north = PassableClip.byKey(key);
-        long[] out = north == null ? NONE : new long[65];
-        if (north != null) {
-            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) {
-                int[] n = turn(x, z, r);
-                for (int y = 0; y < 16; y++) {
-                    if (!PassableClip.cell(north, n[0], y, n[1])) continue;
-                    int k = x + 16 * (y + 16 * z);
-                    out[k >> 6] |= 1L << (k & 63);
-                }
-            }
-        }
+        Rotation back = switch (r) {
+            case CLOCKWISE_90 -> Rotation.COUNTERCLOCKWISE_90;
+            case COUNTERCLOCKWISE_90 -> Rotation.CLOCKWISE_90;
+            default -> r;
+        };
+        long[] out = north == null ? NONE : ModelSurface.rotate(north, back);
         WORLD.put(world, out);
         return out == NONE ? null : out;
     }

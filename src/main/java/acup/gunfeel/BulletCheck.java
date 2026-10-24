@@ -80,6 +80,16 @@ public final class BulletCheck {
         }
         lines.add("     round " + round.id + ": velocity " + round.velocity + ", gravity " + round.gravity);
 
+        // Точная поверхность многоблочной машины должна заменять даже сплошную грубую сетку.
+        BlockState boilerState = state("hbm:machine_solar_boiler[facing=north]");
+        long[] coarse = new long[65];
+        java.util.Arrays.fill(coarse, 0, 64, -1L);
+        ModelSurface.Face face = new ModelSurface.Face(new double[] {.1, .1, .5, .1, .9, .5, .9, .1, .5},
+                new double[6], 1, 1, new long[] {1});
+        PassableClip.putShapes(java.util.Map.of(Structures.key(boilerState, 0, 0, 0), ModelSurface.attach(coarse, List.of(face))));
+        expect("multiblock exact: empty side of occupied cells", Want.PASS, single("hbm:machine_solar_boiler[facing=north]"), .8, .8, 30F);
+        expect("multiblock exact: real face stops bullet", Want.STOP, single("hbm:machine_solar_boiler[facing=north]"), .2, .2, 30F);
+
         // ---- fences: a row of three, the middle one shot; rails at 6-9 and 12-15 pixels, the post in the middle
         String fence = "minecraft:oak_fence";
         expect("fence: between the rails", Want.PASS, fenceRow(fence), .25, .65, 30F);
