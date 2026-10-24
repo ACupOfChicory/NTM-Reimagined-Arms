@@ -273,3 +273,10 @@ magazine, and the lock key took any such item: "Ammo locked: ?" and the lock ico
 Found by the user, 2026-10-24. Its empty hand is not ours: NTM Next draws (and swings) it through the chest plate's
 melee part, which only the RPA and NCR suits have; the user wore T51 (`notes/ntm/pamelee/`). X286 had turned our arms
 off for it for nothing (it is akimbo, so none were drawn) and was reverted.
+
+### Arm cut to a stub near the screen
+`src/main/java/acup/gunfeel/Arms.java` (`restArm`). An arm of fixed thickness ran from the hand back only to the plane
+`armReach` in front of the eye and was cut there: the closer the hand to the screen, the fewer of its 12 pixels were
+left (Grease Gun's left hand, plane at 0.41: 3-4 pixels), so it looked tiny and "shrinking". TaCZ draws the whole
+vanilla arm and lets it run out of view. Fixed in X289: the whole arm (armLength x the vanilla arm). Found by the user,
+2026-10-24 (moving "докуда рука" back confirmed it).

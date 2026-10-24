@@ -1074,14 +1074,10 @@ public final class Arms {
         // thickness: fixed (armBaseRight/Left, the same on every gun) or grown with the arm's length
         float base = right ? Config.armBaseRight : Config.armBaseLeft;
         float s = (base > 0F ? base : Math.min(length / (18F / 16F), Config.armMaxScale)) * Config.armScale * holdScale;
-        // Like TaCZ: an arm of fixed thickness keeps the vanilla proportions on every gun. It runs back to
-        // the plane in front of the eye (armReach); a short one is the hand end of the arm, cut there
-        // (local() draws fewer pixels instead of squashing it), a long one is not stretched past
-        // armLength x the vanilla arm and ends before that plane. Animations may still stretch it (armStretch).
-        if (base > 0F && Config.armLength > 0F) {
-            float need = dir.z < -1e-3F ? (grip.z - reach) / -dir.z : 12F / 16F * s;
-            length = Math.min(Math.max(need, 2F / 16F * s), 12F / 16F * s * Config.armLength);
-        }
+        // Like TaCZ: an arm of fixed thickness is the whole arm, armLength x the vanilla arm of its thickness,
+        // never cut at the plane in front of the eye (armReach): cut there, a hand near the screen kept only a few
+        // pixels and looked tiny. It runs on out of view. Animations may still stretch it (armStretch).
+        if (base > 0F && Config.armLength > 0F) length = 12F / 16F * s * Config.armLength;
         // hand hangs under the grip by half its thickness so the arm does not cut into the gun
         Vector3f hand = new Vector3f(down).mul(2F / 16F * s).add(grip);
         rest.valid = true;

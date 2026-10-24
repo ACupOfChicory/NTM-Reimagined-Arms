@@ -1,5 +1,10 @@
 # Changelog
 
+## X289
+
+- Arms are drawn whole, like TaCZ: no longer cut at a plane in front of the eye, so a hand near the screen is no
+  longer a tiny stub. The editor's "докуда рука" slider is gone (it only cut the arm).
+
 ## X288
 
 - The ammo lock key does nothing on what has no magazine (NTM's power armour melee controller): it said "Ammo

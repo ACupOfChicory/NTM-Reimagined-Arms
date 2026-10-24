@@ -152,7 +152,7 @@ public final class Config {
             armScale: arm thickness on top of the automatic one, 1 = vanilla arm proportions
             armMaxScale: upper limit of the automatic thickness
             armBaseRight, armBaseLeft: arm thickness before armScale, the same on every gun (as on Maresleg); 0 = automatic (grows with the arm's length)
-            armLength: longest arm in vanilla arms of its thickness (1 = never stretched); a shorter arm is cut at armReach, not squashed; 0 = stretched/squashed to armReach
+            armLength: arm length in vanilla arms of its thickness (1 = the whole vanilla arm, never cut or stretched, like TaCZ); 0 = stretched/squashed to armReach
             armLoadScaleRight, armLoadScaleLeft: thickness of each arm while it loads shells into the gun, on top of armScale, 1 = unchanged
             armLoadRollRight, armLoadRollLeft: turn of each arm around its own axis while it loads shells, degrees, NaN = armRollRight/Left
             armAroundTopDrop: while armLeftKeys holds the left hand over the part (90), lower it toward the part by this many arm pixels; none at the side
@@ -168,7 +168,7 @@ public final class Config {
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
             armRollRight, armRollLeft: turn of each arm around its own axis, degrees
             armDirRight, armDirLeft: direction from the hand to the shoulder: x (+ left), y (+ up), z (+ forward)
-            armReachRight, armReachLeft: the arm goes back until this distance in front of the eye (- = behind)
+            armReachRight, armReachLeft: the arm goes back until this distance in front of the eye (- = behind); only for automatic thickness (armBase 0) or armLength 0
             armFollow: how much the arms roll with the gun in animations (inspect etc.), 0 = not at all, 1 = fully
             armFollowSupport: same for the left hand while firing and cycling (the gun turns inside the hand)
             armSlide: in animations the hands slide along the gun instead of the arms stretching

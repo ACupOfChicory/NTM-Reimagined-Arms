@@ -214,7 +214,6 @@ public final class GunEditor extends Screen {
                 for (int c = 0; c < 3; c++) out.add(new HandRow(right, c));
                 String[] dir = {"плечо ← →", "плечо ↓ ↑", "плечо назад/вперёд"};
                 for (int c = 0; c < 3; c++) out.add(new ConfigRow("armDir" + side, c, dir[c], -1.5F, 1.5F, 0.01F));
-                out.add(new ConfigRow("armReach" + side, -1, "докуда рука", -2F, 2F, 0.01F));
                 out.add(new ConfigRow("armRoll" + side, -1, "поворот руки", -180F, 180F, 1F));
                 out.add(new ConfigRow("armScale" + side, -1, "толщина", 0.3F, 2.5F, 0.01F));
                 out.add(new ConfigRow("armBase" + side, -1, "толщина основа", 0F, 5F, 0.01F));
