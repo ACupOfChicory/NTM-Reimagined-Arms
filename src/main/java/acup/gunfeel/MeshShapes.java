@@ -287,19 +287,31 @@ public final class MeshShapes {
                 var pa = q.position(a); var pb = q.position(b); var pc = q.position(c);
                 double edge = Math.max(dist(pa, pb), Math.max(dist(pb, pc), dist(pa, pc)));
                 int n = Math.max(2, (int) Math.ceil(edge * 64));
+                // a face lying on a cell border (a pole's side at 14/16, a hair off after the model's rotation) goes
+                // into the cell of the part it bounds, not the empty one before it: points are taken a little behind
+                // the face (its normal points out)
+                double ux = pb.x() - pa.x(), uy = pb.y() - pa.y(), uz = pb.z() - pa.z();
+                double vx = pc.x() - pa.x(), vy = pc.y() - pa.y(), vz = pc.z() - pa.z();
+                double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+                double nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
+                double back = nl > 1e-9 ? 1e-3 / nl : 0;
+                nx *= back; ny *= back; nz *= back;
                 for (int i = 0; i <= n; i++) {
                     for (int j = 0; j <= n - i; j++) {
                         double wa = (double) i / n, wb = (double) j / n, wc = 1 - wa - wb;
-                        double x = wa * pa.x() + wb * pb.x() + wc * pc.x();
-                        double y = wa * pa.y() + wb * pb.y() + wc * pc.y();
-                        double z = wa * pa.z() + wb * pb.z() + wc * pc.z();
+                        double x = wa * pa.x() + wb * pb.x() + wc * pc.x() - nx;
+                        double y = wa * pa.y() + wb * pb.y() + wc * pc.y() - ny;
+                        double z = wa * pa.z() + wb * pb.z() + wc * pc.z() - nz;
                         float u = (float) (wa * UVPair.unpackU(q.packedUV(a)) + wb * UVPair.unpackU(q.packedUV(b)) + wc * UVPair.unpackU(q.packedUV(c)));
                         float v = (float) (wa * UVPair.unpackV(q.packedUV(a)) + wb * UVPair.unpackV(q.packedUV(b)) + wc * UVPair.unpackV(q.packedUV(c)));
                         if (!opaque(q.materialInfo().sprite(), u, v)) continue;
                         int cx = (int) Math.floor(x * 16), cy = (int) Math.floor(y * 16), cz = (int) Math.floor(z * 16);
-                        if (x >= 1.0 && x < 1.0 + 1e-3) cx = 15;
-                        if (y >= 1.0 && y < 1.0 + 1e-3) cy = 15;
-                        if (z >= 1.0 && z < 1.0 + 1e-3) cz = 15;
+                        if (x >= 1.0 && x < 1.0 + 3e-3) cx = 15;
+                        if (y >= 1.0 && y < 1.0 + 3e-3) cy = 15;
+                        if (z >= 1.0 && z < 1.0 + 3e-3) cz = 15;
+                        if (x < 0 && x > -3e-3) cx = 0;
+                        if (y < 0 && y > -3e-3) cy = 0;
+                        if (z < 0 && z > -3e-3) cz = 0;
                         if (cx < 0 || cx > 15 || cy < 0 || cy > 15 || cz < 0 || cz > 15) continue;
                         int k = cx + 16 * (cy + 16 * cz);
                         bits[k >> 6] |= 1L << (k & 63);

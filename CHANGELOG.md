@@ -1,5 +1,11 @@
 # Changelog
 
+## X290
+
+- Bullet shapes made from block models are no longer a pixel too fat: a face lying on a pixel border (NTM steel
+  scaffold poles at 14/16) went into the empty cell before it. Bullets stopped in air beside a scaffold pole and
+  left no hole. The shapes in the jar are made again after the next world join.
+
 ## X289
 
 - Arms are drawn whole, like TaCZ: no longer cut at a plane in front of the eye, so a hand near the screen is no

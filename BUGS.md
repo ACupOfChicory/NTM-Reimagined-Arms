@@ -280,3 +280,11 @@ off for it for nothing (it is akimbo, so none were drawn) and was reverted.
 left (Grease Gun's left hand, plane at 0.41: 3-4 pixels), so it looked tiny and "shrinking". TaCZ draws the whole
 vanilla arm and lets it run out of view. Fixed in X289: the whole arm (armLength x the vanilla arm). Found by the user,
 2026-10-24 (moving "докуда рука" back confirmed it).
+
+### No holes on steel scaffold
+`src/main/java/acup/gunfeel/MeshShapes.java` (`cells`). The bullet shapes of "generate" blocks are 16^3 cells set
+where the model's faces are. A face lying on a cell border fell into the cell before it: the scaffold's inner pole
+face at x 14/16 is 0.87499994 after NTM's rotation and floored to cell 13, the one at 2/16 to cell 2, so every pole
+was a pixel thicker than drawn. Shots down along a pole stopped in that empty cell (x 0.8125), the hole search found no
+model face on the ray ("chosen: NONE") and gave up. Fixed in X290: points are taken 0.001 behind the face. Found by
+the user, 2026-10-24 (holedebug, `notes/ntm/scaffold/`).
