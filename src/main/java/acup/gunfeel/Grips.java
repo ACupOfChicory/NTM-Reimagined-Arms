@@ -106,29 +106,78 @@ public final class Grips {
 
     // gun = "<gun id>" or "<gun id><missing parts>" for a variant (a sawn-off: "hbm:gun_maresleg-Stock-Barrel")
     public static void set(String gun, boolean right, float x, float y, float z) {
+        set(gun, right, x, y, z, true);
+    }
+
+    // save false: in effect at once, written to the file by flush() (the editor, while a slider is dragged)
+    public static void set(String gun, boolean right, float x, float y, float z, boolean save) {
         gun = canon(gun);
         // a point in model units would win over these fractions: hide it
         String at = gun + (right ? ".rightAt" : ".leftAt");
         if (BUILTIN.containsKey(at)) USER.put(at, "");
         else USER.remove(at);
-        put(gun, right ? "right" : "left", x + "," + y + "," + z);
+        put(gun, right ? "right" : "left", x + "," + y + "," + z, save);
     }
 
     // a point in model units for one hand (x left, y up, z to the muzzle)
     public static void setAt(String gun, boolean right, float x, float y, float z) {
+        setAt(gun, right, x, y, z, true);
+    }
+
+    public static void setAt(String gun, boolean right, float x, float y, float z, boolean save) {
         gun = canon(gun);
-        put(gun, right ? "rightAt" : "leftAt", x + "," + y + "," + z);
+        put(gun, right ? "rightAt" : "leftAt", x + "," + y + "," + z, save);
     }
 
     // value null = back to the jar's value (or none)
     public static void put(String gun, String key, String value) {
+        put(gun, key, value, true);
+    }
+
+    public static void put(String gun, String key, String value, boolean save) {
         // a setting the gun has of its own stays its own; anything else goes to the gun it is the same as
         if (!key.equals("sameAs") && !VALUES.containsKey(gun + "." + key)) gun = canon(gun);
         String k = gun + "." + key;
         if (value == null || value.equals(BUILTIN.get(k))) USER.remove(k);
         else USER.put(k, value);
         merge();
+        if (save) save();
+        else dirty = true;
+    }
+
+    private static boolean dirty;
+
+    // writes what put(..., false) left in memory only
+    public static void flush() {
+        if (dirty) save();
+    }
+
+    // the player's own settings as they are now, to go back to with restore() (the editor's "undo all")
+    public static Map<String, String> snapshot() {
+        return new HashMap<>(USER);
+    }
+
+    public static void restore(Map<String, String> user) {
+        USER.clear();
+        USER.putAll(user);
+        merge();
         save();
+    }
+
+    // one hand back to the jar's position (or computed from the model)
+    public static void resetHand(String id, boolean right, boolean save) {
+        id = canon(id);
+        String h = right ? "right" : "left";
+        USER.remove(id + "." + h);
+        USER.remove(id + "." + h + "At");
+        merge();
+        if (save) save();
+        else dirty = true;
+    }
+
+    // the gun's own value of a key, as the player's file or the jar sets it for this gun; null = it takes the global one
+    public static String gunValue(String gun, String key) {
+        return overrides(gun).get(key);
     }
 
     public static void reset(Identifier id) {
@@ -233,6 +282,7 @@ public final class Grips {
                 }
             }
             stamp = Files.getLastModifiedTime(f).toMillis();
+            dirty = false;
         } catch (IOException e) {
             GunFeel.LOGGER.warn("Could not write {}", file, e);
         }

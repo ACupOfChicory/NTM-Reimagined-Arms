@@ -1,6 +1,7 @@
 {
   "key.category.ntmgunfeel.main": "NTM Reimagined Arms",
   "key.ntmgunfeel.ammo_lock": "Lock ammo type",
+  "key.ntmgunfeel.editor": "Gun editor (hands, recoil)",
   "message.ntmgunfeel.ammo_locked": "Ammo locked: %s",
   "message.ntmgunfeel.ammo_unlocked": "Ammo unlocked",
   "ntmgunfeel.ammo.damage": "Damage",

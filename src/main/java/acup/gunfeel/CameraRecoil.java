@@ -24,12 +24,16 @@ public final class CameraRecoil {
     private static float burstPitch;
     private static boolean burstStopped, burst;
     public static float roll;
+    // each gun's last real kick (NTM's vertical, horizontal), for the editor's test shot
+    public static final java.util.Map<net.minecraft.world.item.Item, float[]> LAST = new java.util.IdentityHashMap<>();
 
     private CameraRecoil() {
     }
 
     // vertical/horizontal: what NTM's recoil lambdas asked for since the last tick
     public static void addImpulse(float vertical, float horizontal) {
+        LocalPlayer holder = Minecraft.getInstance().player;
+        if (holder != null && !GunEditor.replaying) LAST.put(holder.getMainHandItem().getItem(), new float[] {vertical, horizontal});
         float strength = ModelRecoil.strength(vertical, horizontal);
         float speed = 1F / (0.45F + 0.55F * Mth.clamp(strength, 0F, 1F));
         if (SHOTS.size() >= 16) SHOTS.remove(0);

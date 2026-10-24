@@ -1,5 +1,14 @@
 # Changelog
 
+## X278
+
+- Gun editor: with an NTM gun in hand press O (Controls, "NTM Reimagined Arms") for sliders over the game, which
+  goes on behind them. Tabs: right hand, left hand (where it holds the gun, the arm's direction, reach, roll,
+  thickness), arms (both), recoil (camera and gun model), position (hip fire, tilt, smoke). Changes show at once and
+  are saved for this gun only, in `config/ntm-gunfeel-guns.properties`, when you let go of a slider. The wheel moves
+  a slider one step (Shift: a tenth), ↺ takes a setting back to the mod's, ● marks the gun's own settings,
+  "Отменить всё" goes back to how it was when the editor opened. "Выстрел" and "Очередь" replay the gun's last real
+  kick (camera and model; NTM's own recoil animation does not play).
 ## X277
 
 - A bullet that hits a creature and then goes on into blocks behind it in the same tick (a shot down through a mob

@@ -1,6 +1,7 @@
 {
   "key.category.ntmgunfeel.main": "NTM Reimagined Arms",
   "key.ntmgunfeel.ammo_lock": "Закрепить тип патронов",
+  "key.ntmgunfeel.editor": "Редактор пушки (руки, отдача)",
   "message.ntmgunfeel.ammo_locked": "Патроны закреплены: %s",
   "message.ntmgunfeel.ammo_unlocked": "Патроны откреплены",
   "ntmgunfeel.ammo.damage": "Урон",

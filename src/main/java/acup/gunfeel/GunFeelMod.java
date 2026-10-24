@@ -30,6 +30,7 @@ public final class GunFeelMod {
             GunFeel.init();
             HoleRender.register(modBus);
             if (Feature.AMMO_CHOICE.on()) AmmoLockKey.register(modBus);
+            if (Feature.ARMS.on()) GunEditor.register(modBus);
         }
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.RegisterCommandsEvent.class,
                 e -> {
