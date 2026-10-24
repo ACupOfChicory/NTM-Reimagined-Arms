@@ -1,5 +1,11 @@
 # Changelog
 
+## X283
+
+- Glass (reinforced glass, laminate, panes): holes are drawn through the glass where they are, from any side, the edges
+  too; no second mark, nothing moves. Holes on glass now lie under the glass in front of them (seen through it) and
+  over the glass behind them.
+
 ## X282
 
 - Glass (reinforced glass, laminate): from the other side a mark is seen through the glass where it was made, not on

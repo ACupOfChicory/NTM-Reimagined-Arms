@@ -72,6 +72,12 @@ X280 and X281 were wrong too: they moved the mark onto the far face (B) when see
 face that was hit (A) and must be seen through the glass. Fixed in X282: the mark stays on A, on the same screen
 pixels, and seen from B each vertex is pulled along the line of sight to just before B (as marks on bars are), so
 B no longer hides it. Found by the user, 2026-10-24.
+X282 made it worse: on an edge (the pane's side face) the glass behind a mark is the whole pane, and marks there and
+the ones seen from the edge jumped over the screen. All of X280–X282 undone in X283, and so is the second mark of
+X262. Holes on glass are now drawn before the translucent terrain and write depth (`HoleRender`, the
+`MixinSubmitNodeCollection` / `afterWeather` late drawing gone): the glass in front of a hole lies over it, so it is
+seen through the glass where it is, from any side; the glass behind it does not cover it. Found by the user,
+2026-10-24.
 
 ### Chain-link fence: bullets never fly through its mesh
 `src/main/resources/ntmgunfeel-bullets.txt` (`path hbm:fence_metal...`). The fence went by a pixel mask laid on its

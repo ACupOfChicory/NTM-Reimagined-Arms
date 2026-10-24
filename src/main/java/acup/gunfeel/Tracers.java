@@ -132,10 +132,8 @@ public final class Tracers {
     // rect = the area of the face the hole may cover, {uMin, uMax, vMin, vMax} on the face's two axes
     // mask = which 1/16-block cells of the face show the block's pixels (null = all): cells mask.w x mask.h from
     // cell (u0, v0) on the face's two axes, in 1/16 blocks
-    // through = on translucent glass: how thick the glass is behind the mark, along its normal (NaN = not on such
-    // glass); seen from beyond the glass the mark is seen through it, see glassDepth
     private record Hole(Vec3 pos, Direction face, int turn, long born, int light, int kind, float size, double[] rect, Mask mask, double plane, boolean late, boolean cull,
-            float[] mesh, boolean front, BlockPos block, BlockState state, boolean drawn, Follow follow, Vec3 hit, boolean machine, double through) {
+            float[] mesh, boolean front, BlockPos block, BlockState state, boolean drawn, Follow follow, Vec3 hit, boolean machine) {
     }
 
     // a new mark's turn with a random variant in it
@@ -675,21 +673,6 @@ public final class Tracers {
         return false;
     }
 
-    // A mark on see-through glass drawn translucent (a laminate pane, reinforced glass): how thick the glass is
-    // behind it, along its normal n (out of the face, towards the shooter), else NaN. Translucent faces write depth, so
-    // seen from the other side the glass's face there hides the mark: from that side the mark is drawn where it is, on
-    // the same screen pixels, but pulled along the line of sight to just before that face (pulled()).
-    private static double glassDepth(ClientLevel level, BlockPos pos, Vec3 at, Vec3 n) {
-        BlockState state = level.getBlockState(pos);
-        if (!glassLike(state) || !translucent(state)) return Double.NaN;
-        BlockHitResult in = new BlockHitResult(at, Direction.getApproximateNearest(n.x, n.y, n.z), pos, false);
-        BlockHitResult out = PassableClip.exit(level, in, n.scale(-1.0));
-        if (out == null) return Double.NaN;
-        double depth = at.subtract(out.getLocation()).dot(n);
-        dbg("  mark on glass: the glass behind it {} thick", depth);
-        return depth > 1e-4 ? depth : Double.NaN;
-    }
-
     // the test log: the bullet stops at this block on the client (the hit itself: "end" below in fly)
     private static void logStop(Shot s, ClientLevel level, BlockHitResult hit, String why, float path) {
         if (!TestLog.client) return;
@@ -930,11 +913,9 @@ public final class Tracers {
         double onAxis = Double.isNaN(plane) ? comp(hit.getLocation(), hit.getDirection().getAxis().ordinal()) : plane;
         boolean cull = (level.getBlockState(hit.getBlockPos()).isCollisionShapeFullBlock(level, hit.getBlockPos()) || Math.abs(onAxis - boxFace) < 1e-3)
                 && !glassLike(level.getBlockState(hit.getBlockPos()));
-        Direction hf = hit.getDirection();
-        double through = glassDepth(level, hit.getBlockPos(), hit.getLocation(), new Vec3(hf.getStepX(), hf.getStepY(), hf.getStepZ()));
         addMade(new Hole(hit.getLocation(), hit.getDirection(), turn, System.nanoTime(), light, kind, size, rect, mask, plane,
                 translucent(level.getBlockState(hit.getBlockPos())) || glassLike(level.getBlockState(hit.getBlockPos())),
-                cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false, through));
+                cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false));
         trimHoles();
     }
 
@@ -1033,7 +1014,7 @@ public final class Tracers {
         int light = LightCoordsUtil.getLightCoords(level, pos);
         addMade(new Hole(world, hit.getDirection(), turn, System.nanoTime(), light, kind, size, null, null, Double.NaN,
                 translucent(level.getBlockState(pos)) || glassLike(level.getBlockState(pos)), false, mesh,
-                onBoxFace(level, pos, at, normal) && !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false, Double.NaN));
+                onBoxFace(level, pos, at, normal) && !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false));
         trimHoles();
     }
 
@@ -1365,11 +1346,9 @@ public final class Tracers {
             // on glass (a glass block, a door's clear window): drawn after the glass behind it, see HoleRender
             boolean late = first.tex().glass() || first.block() != null && (translucent(state) || glassLike(state));
             Follow follow = first.anchor() == null ? null : new Follow(first.anchor(), at, mesh, light);
-            double behind = follow == null && first.block() != null && late
-                    ? glassDepth(level, on, new Vec3(at.x, at.y, at.z), new Vec3(g.tn().x, g.tn().y, g.tn().z)) : Double.NaN;
             // counted by holeMaxMachines when it is on what a renderer draws (a machine, a door: no block), else by holeMax
             addMade(new Hole(new Vec3(at.x, at.y, at.z), hit.getDirection(), turn, born, light, kind, size, null, null, Double.NaN, late, false, mesh,
-                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, first.block() == null, behind));
+                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, first.block() == null));
             dbg("  hole group: {} polygons at {} on {} tex={} front={} late={} follows={} moving={}", g.polys().size(), v(at), on,
                     RenderedMesh.texName(first.tex()), front, late, follow != null, first.moving());
         }
@@ -1881,13 +1860,8 @@ public final class Tracers {
         Vec3 pos = f != null ? f.pos : h.pos();
         int light = f != null ? f.light : h.light();
         float nx = m[0], ny = m[1], nz = m[2];
-        double ahead = (cam.x - pos.x) * nx + (cam.y - pos.y) * ny + (cam.z - pos.z) * nz;
-        // glass seen from its other side: where its face on that side lies, ahead of the mark along the normal
-        // (NaN = not pulled)
-        double pullTo = f == null && !Double.isNaN(h.through()) && ahead < -h.through() - PULL_GAP ? -h.through() - PULL_GAP : Double.NaN;
-        float fx = nx, fy = ny, fz = nz;
         // towards the camera, as in quad(); a one-sided hole seen from behind is not drawn
-        if (ahead < 0) {
+        if ((cam.x - pos.x) * nx + (cam.y - pos.y) * ny + (cam.z - pos.z) * nz < 0) {
             if (h.front()) return;
             nx = -nx;
             ny = -ny;
@@ -1909,10 +1883,7 @@ public final class Tracers {
                 int[] idx = {0, i, i + 1, Math.min(i + 2, n - 1)};
                 for (int j : idx) {
                     int o = base + j * 6;
-                    float rx = bx + m[o], ry = by + m[o + 1], rz = bz + m[o + 2];
-                    float t = toward;
-                    if (!Double.isNaN(pullTo)) t = Math.min(t, pulled(rx * fx + ry * fy + rz * fz, pullTo - ahead));
-                    vc.addVertex(p, rx * t, ry * t, rz * t).setColor(m[o + 5] >= 1F ? color : ((int) (alpha * m[o + 5]) << 24) | 0xFFFFFF).setUv(m[o + 3], m[o + 4])
+                    vc.addVertex(p, (bx + m[o]) * toward, (by + m[o + 1]) * toward, (bz + m[o + 2]) * toward).setColor(m[o + 5] >= 1F ? color : ((int) (alpha * m[o + 5]) << 24) | 0xFFFFFF).setUv(m[o + 3], m[o + 4])
                             .setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
                 }
             }
@@ -2184,75 +2155,9 @@ public final class Tracers {
             if (list == null) continue;
             RenderType type = HoleRender.type(TEXTURES[kind], late, cull);
             net.minecraft.client.renderer.SubmitNodeCollector.CustomGeometryRenderer draw = drawer(list, cam, now, life);
-            // holes on glass: drawn after the clouds and rain (afterWeather), which show through the glass behind
-            // them. With improved transparency (clouds and rain in targets of their own) after the translucent terrain
-            // instead, before the translucent particles drawn there (an order before 0 runs first)
-            if (late && !shaderTransparency()) continue;
-            if (late && event.getSubmitNodeCollector() instanceof net.minecraft.client.renderer.SubmitNodeStorage storage)
-                storage.order(-1).submitCustomGeometry(event.getPoseStack(), type, draw);
-            else
-                event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), type, draw);
-        }
-    }
-
-    private static boolean shaderTransparency() {
-        return Minecraft.getInstance().gameRenderer.gameRenderState().useShaderTransparency();
-    }
-
-    private static final Map<Integer, com.mojang.blaze3d.buffers.GpuBuffer> LATE_BUFFERS = new HashMap<>();
-
-    // holes on glass, drawn at once after the clouds and rain (RenderLevelStageEvent.AfterWeather): drawn before
-    // them, the clouds and rain behind the glass would cover the hole
-    public static void afterWeather(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather event) {
-        if (HOLES.isEmpty() || !Config.bulletHoles || shaderTransparency()) return;
-        long pl = Perf.start();
-        try {
-            lateHoles(event);
-        } finally {
-            Perf.add(Perf.LATE, pl);
-        }
-    }
-
-    private static void lateHoles(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather event) {
-        Vec3 cam = event.getLevelRenderState().cameraRenderState.pos;
-        long now = System.nanoTime();
-        long life = (long) (Math.max(0.1F, Config.holeLife) * 1e9);
-        PoseStack.Pose pose = new PoseStack().last();
-        @SuppressWarnings("unchecked")
-        List<Hole>[] groups = new List[2 * KINDS];
-        for (Hole h : HOLES) {
-            if (!h.late()) continue;
-            int g = h.kind() + (h.cull() ? KINDS : 0);
-            if (groups[g] == null) groups[g] = new ArrayList<>();
-            groups[g].add(h);
-        }
-        for (int group = 0; group < 2 * KINDS; group++) {
-            int kind = group % KINDS;
-            boolean cull = group >= KINDS;
-            List<Hole> list = groups[group];
-            if (list == null) continue;
-            RenderType type = HoleRender.type(TEXTURES[kind], true, cull);
-            int vertices = 0;
-            for (Hole h : list) vertices += h.mesh() != null ? h.mesh().length / 2 + 8 : 4 * 256;
-            try (var bytes = new com.mojang.blaze3d.vertex.ByteBufferBuilder(Math.max(64, vertices) * type.format().getVertexSize())) {
-                var builder = new com.mojang.blaze3d.vertex.BufferBuilder(bytes, type.primitiveTopology(), type.format());
-                drawer(list, cam, now, life).render(pose, builder);
-                try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {
-                    if (mesh == null) continue;
-                    var device = com.mojang.blaze3d.systems.RenderSystem.getDevice();
-                    java.nio.ByteBuffer data = mesh.vertexBuffer();
-                    com.mojang.blaze3d.buffers.GpuBuffer vb = LATE_BUFFERS.get(group);
-                    if (vb == null || vb.size() < data.remaining()) {
-                        if (vb != null) vb.close();
-                        vb = device.createBuffer(() -> "Bullet hole vertices", 40, data.remaining());
-                        LATE_BUFFERS.put(group, vb);
-                    }
-                    device.createCommandEncoder().writeToBuffer(vb.slice(), data);
-                    var indices = com.mojang.blaze3d.systems.RenderSystem.getSequentialBuffer(mesh.drawState().primitiveTopology());
-                    int count = mesh.drawState().indexCount();
-                    type.prepare().drawFromBuffer(vb, indices.getBuffer(count), indices.type(), 0, 0, count);
-                }
-            }
+            // holes on glass too: drawn before the translucent terrain, writing depth (HoleRender), so the glass in
+            // front of a hole lies over it and the glass behind it does not
+            event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), type, draw);
         }
     }
 
@@ -2356,7 +2261,7 @@ public final class Tracers {
     private static void quad(PoseStack.Pose p, VertexConsumer vc, Hole h, Vec3 cam, float size, int alpha, double[] clip) {
         Direction f = h.face();
         int normalAxis = f.getAxis().ordinal();
-        double base = baseOf(h);
+        double base = Double.isNaN(h.plane()) ? comp(h.pos(), normalAxis) : h.plane();
         // lifted off the face towards the camera: a two-sided hole (iron bars) seen from behind would otherwise lie
         // behind the bars' own pixels and show only where the depth bias wins, cut off along a straight line
         int side = f.getAxisDirection().getStep();
@@ -2364,31 +2269,13 @@ public final class Tracers {
             double d = comp(cam, normalAxis) - base;
             if (d != 0) side = d > 0 ? 1 : -1;
         }
-        quadAt(p, vc, h, cam, size, alpha, clip, side, false, side != f.getAxisDirection().getStep(), base);
+        quadAt(p, vc, h, cam, size, alpha, clip, side, false, side != f.getAxisDirection().getStep());
     }
 
-    // a mark on glass seen from its other side lies this far before that face, on the camera's side
-    private static final double PULL_GAP = 0.002;
-
-    // how far along its line of sight (from the camera, 0..1) a vertex of a mark on glass seen from the other side
-    // goes: the vertex lies `vertex` from the camera along the mark's normal (towards the mark), the glass's face on
-    // the camera's side `face`. It stays on the same screen pixels, where the mark is, but just before that face,
-    // which would hide it
-    private static float pulled(double vertex, double face) {
-        if (!(vertex > 1e-6) || !(face > 0)) return 1F;
-        return (float) Math.clamp(face / vertex, 0.0, 1.0);
-    }
-
-    // the plane of the face a flat hole lies on
-    private static double baseOf(Hole h) {
-        return Double.isNaN(h.plane()) ? comp(h.pos(), h.face().getAxis().ordinal()) : h.plane();
-    }
-
-    // the hole's square on the plane `base` (its face's, or a glass's far face), lifted to `side` of it, positions
-    // from `origin`; reverse = wound the other way (seen from that side through a culling pipeline), flipNormal = its
-    // normal turned to the other side
+    // the hole's square lifted to `side` of its face, positions from `origin`; reverse = wound the other way (seen
+    // from that side through a culling pipeline), flipNormal = its normal turned to the other side
     private static void quadAt(PoseStack.Pose p, VertexConsumer vc, Hole h, Vec3 cam, float size, int alpha, double[] clip, int side, boolean reverse,
-            boolean flipNormal, double base) {
+            boolean flipNormal) {
         Direction f = h.face();
         int[] ax = axes(f);
         double pu = comp(h.pos(), ax[0]), pv = comp(h.pos(), ax[1]);
@@ -2396,6 +2283,7 @@ public final class Tracers {
         double v0 = Math.max(pv - size, clip[2]), v1 = Math.min(pv + size, clip[3]);
         if (u0 >= u1 || v0 >= v1) return;
         int normalAxis = f.getAxis().ordinal();
+        double base = Double.isNaN(h.plane()) ? comp(h.pos(), normalAxis) : h.plane();
         double plane = base + 0.002 * side;
         Vector3f n = new Vector3f(f.getStepX(), f.getStepY(), f.getStepZ());
         if (flipNormal) n.negate();
@@ -2414,15 +2302,7 @@ public final class Tracers {
                 w[ax[0]] = c[0];
                 w[ax[1]] = c[1];
                 w[normalAxis] = plane;
-                double rx = w[0] - cam.x, ry = w[1] - cam.y, rz = w[2] - cam.z, t = 1.0;
-                // glass seen from its other side (only drawn this frame from the camera: holes on glass are not batched)
-                if (!Double.isNaN(h.through())) {
-                    int step = f.getAxisDirection().getStep();
-                    // ahead along the face's normal: of the camera from the mark's face, and of the glass's other face
-                    double camAhead = (comp(cam, normalAxis) - base) * step, to = -h.through() - PULL_GAP;
-                    if (camAhead < to) t = pulled((plane - comp(cam, normalAxis)) * step, to - camAhead);
-                }
-                vc.addVertex(p, (float) (rx * t), (float) (ry * t), (float) (rz * t)).setColor(color).setUv(tu, 1F - tv)
+                vc.addVertex(p, (float) (w[0] - cam.x), (float) (w[1] - cam.y), (float) (w[2] - cam.z)).setColor(color).setUv(tu, 1F - tv)
                         .setOverlay(OverlayTexture.NO_OVERLAY).setLight(h.light()).setNormal(p, n.x, n.y, n.z);
             }
         }
@@ -2547,10 +2427,10 @@ public final class Tracers {
                 float half = h.size() * 0.5F;
                 int step = h.face().getAxisDirection().getStep();
                 cells(h, cell -> {
-                    quadAt(pose, builder, h, o, half, 255, cell, step, false, false, baseOf(h));
+                    quadAt(pose, builder, h, o, half, 255, cell, step, false, false);
                     // two-sided (iron bars): its back as well, lifted to the back and wound the other way. The same
                     // normal on both: lit as the hole sent each frame is from either side
-                    if (!h.cull()) quadAt(pose, builder, h, o, half, 255, cell, -step, true, false, baseOf(h));
+                    if (!h.cull()) quadAt(pose, builder, h, o, half, 255, cell, -step, true, false);
                 });
             }
             try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {

@@ -9,7 +9,7 @@ public final class Perf {
     // (flight holds hit effects; making holes runs apart, a few a frame; drawing holes holds following parts and block
     // checks)
     // the parts of drawing holes (in it, not in the total): sorting = batch() and the sort of the rest each frame; one by
-    // one = holes not in a batch, written each frame; glass = afterWeather's (written and sent each frame); batches =
+    // one = holes not in a batch, written each frame; glass = holes on glass (written each frame); batches =
     // the baked batches sent
     public static final int FLY = 0, HOLE_MAKE = 1, FX = 2, HOLE_DRAW = 3, TRACERS = 4, HOLE_BAKE = 5, FOLLOW = 6, CHECKS = 7, SORT = 8, ONE = 9,
             LATE = 10, BATCHES = 11;
