@@ -18,8 +18,8 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public final class ModelHits {
-    public static final int RANGE = 96, MAX_UPDATES = 16, INTERVAL = 2, MAX_AGE = 5;
-    private record PoseAt(UUID entity, Vec3 position, float yaw, Pose pose, float width, float height, long tick, List<ModelBox> boxes) {}
+    public static final int RANGE = 96, MAX_UPDATES = 16, INTERVAL = 2, MAX_SYNC_AGE = 5;
+    private record PoseAt(UUID entity, Vec3 position, float yaw, float bodyYaw, Pose pose, float width, float height, long tick, List<ModelBox> boxes) {}
     private static final Map<Level, Map<Integer, PoseAt>> POSES = new WeakHashMap<>();
     private static final Map<ServerPlayer, long[]> LIMITS = new WeakHashMap<>();
 
@@ -73,11 +73,34 @@ public final class ModelHits {
     }
 
     public static synchronized void put(Level level, LivingEntity target, float yaw, List<ModelBox> boxes) {
+        putAt(level, target, yaw, boxes, level.getGameTime());
+    }
+
+    // Явная отметка захвата также позволяет воспроизвести пропуск кадров в серверном стенде.
+    static synchronized void putAt(Level level, LivingEntity target, float yaw, List<ModelBox> boxes, long tick) {
         Map<Integer, PoseAt> poses = POSES.computeIfAbsent(level, k -> new HashMap<>());
-        long now = level.getGameTime();
-        poses.entrySet().removeIf(e -> now - e.getValue().tick() > MAX_AGE);
-        poses.put(target.getId(), new PoseAt(target.getUUID(), target.position(), yaw, target.getPose(),
-                target.getBbWidth(), target.getBbHeight(), now, List.copyOf(boxes)));
+        poses.put(target.getId(), new PoseAt(target.getUUID(), target.position(), yaw, target.yBodyRot, target.getPose(),
+                target.getBbWidth(), target.getBbHeight(), tick, List.copyOf(boxes)));
+    }
+
+    // Пропуск рендера не меняет модель сущности. Следим за корнем раз в игровой тик,
+    // не запуская рендерер или анимацию, и удаляем только действительно несовместимые позы.
+    public static synchronized void tick(Level level) {
+        Map<Integer, PoseAt> poses = POSES.get(level);
+        if (poses == null) return;
+        if (!enabled()) { POSES.remove(level); return; }
+        var it = poses.entrySet().iterator();
+        while (it.hasNext()) {
+            var entry = it.next();
+            PoseAt p = entry.getValue();
+            Entity target = level.getEntity(entry.getKey());
+            if (!compatible(target, p)) {
+                it.remove();
+            } else if (!target.position().equals(p.position())) {
+                entry.setValue(new PoseAt(p.entity(), target.position(), p.yaw(), p.bodyYaw(), p.pose(),
+                        p.width(), p.height(), p.tick(), p.boxes()));
+            }
+        }
     }
 
     public static synchronized void clear(Level level) {
@@ -90,18 +113,21 @@ public final class ModelHits {
         if (poses == null || !enabled()) return original;
         List<Entity> out = new ArrayList<>(original);
         for (var entry : poses.entrySet()) {
-            if (level.getGameTime() - entry.getValue().tick() > MAX_AGE) continue;
             Entity target = level.getEntity(entry.getKey());
-            if (target != null && target != except && filter.test(target) && target.getUUID().equals(entry.getValue().entity()) && !out.contains(target)
+            if (compatible(target, entry.getValue()) && target != except && filter.test(target) && !out.contains(target)
                     && target.getBoundingBox().inflate(radius(target)).intersects(area)) out.add(target);
         }
         return out;
     }
 
-    // No data, expired pose, teleport, changed size/posture: keep the original hitbox. An available model missed by the
+    // No data, teleport, changed size/posture: keep the original hitbox. An available model missed by the
     // ray is a real miss, never replaced with a hit on the enclosing entity AABB.
     private static boolean usable(Entity target, PoseAt p) {
-        return enabled() && p != null && p.entity().equals(target.getUUID()) && target.level().getGameTime() - p.tick() <= MAX_AGE
+        return enabled() && compatible(target, p);
+    }
+
+    private static boolean compatible(Entity target, PoseAt p) {
+        return target != null && target.isAlive() && p != null && p.entity().equals(target.getUUID())
                 && target.position().distanceToSqr(p.position()) <= 16 && p.pose() == target.getPose()
                 && p.width() == target.getBbWidth() && p.height() == target.getBbHeight();
     }
@@ -111,8 +137,7 @@ public final class ModelHits {
         Map<Integer, PoseAt> poses = POSES.get(target.level());
         PoseAt p = poses == null ? null : poses.get(target.getId());
         if (!usable(target, p) || !(target instanceof LivingEntity living)) return List.of();
-        double angle = turnAngle(target.level().isClientSide(), living.yBodyRot, p.yaw());
-        if (Math.abs(angle) > Math.PI / 3) return List.of();
+        double angle = turnAngle(target.level().isClientSide(), living.yBodyRot, p.yaw(), p.bodyYaw());
         List<Vec3[]> out = new ArrayList<>();
         for (ModelBox box : p.boxes()) {
             float[] edges = box.mesh() == 0 ? BOX_EDGES : ModelMesh.get(box.mesh()).edges();
@@ -157,13 +182,7 @@ public final class ModelHits {
                             + " from=" + from + " to=" + to);
             return fallback.contains(from) ? Optional.of(from) : fallback.clip(from, to);
         }
-        double angle = turnAngle(target.level().isClientSide(), living.yBodyRot, p.yaw());
-        // A large turn invalidates the snapshot; the next rendered pose supplies head and limb rotations again.
-        if (Math.abs(angle) > Math.PI / 3) {
-            if (!from.equals(to)) ModelHitLog.event(target.level().isClientSide() ? "client" : "server", "turn_fallback", target,
-                    () -> "stored_yaw=" + p.yaw() + " current_yaw=" + living.yBodyRot);
-            return fallback.contains(from) ? Optional.of(from) : fallback.clip(from, to);
-        }
+        double angle = turnAngle(target.level().isClientSide(), living.yBodyRot, p.yaw(), p.bodyYaw());
         Vec3 a = unturn(from.subtract(target.position()), angle), b = unturn(to.subtract(target.position()), angle);
         double nearest = Double.POSITIVE_INFINITY;
         String part = "";
@@ -184,11 +203,10 @@ public final class ModelHits {
         return Double.isFinite(nearest) ? Optional.of(from.lerp(to, nearest)) : Optional.empty();
     }
 
-    // На клиенте коробки уже имеют ровно тот поворот, с которым модель нарисована.
-    // Доворот к следующему игровому тику ломает интерполяцию и вызывает скачки к AABB.
-    // Сервер же доворачивает полученную по сети позу к своему текущему тику.
-    static double turnAngle(boolean client, float currentYaw, float capturedYaw) {
-        return client ? 0 : Math.toRadians(Mth.wrapDegrees(currentYaw - capturedYaw));
+    // Клиент сохраняет исходную интерполяцию и добавляет лишь движение корня после захвата.
+    // Сервер доворачивает от фактического угла полученной по сети геометрии.
+    static double turnAngle(boolean client, float currentYaw, float capturedYaw, float anchorYaw) {
+        return Math.toRadians(Mth.wrapDegrees(currentYaw - (client ? anchorYaw : capturedYaw)));
     }
 
     private static Vec3 unturn(Vec3 p, double angle) {

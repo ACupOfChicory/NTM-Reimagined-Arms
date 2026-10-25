@@ -111,7 +111,7 @@ public final class ModelHitClient {
             sendPeriod = tick / ModelHits.INTERVAL;
             sendBudget = ModelHits.MAX_UPDATES;
         }
-        SYNC.entrySet().removeIf(e -> tick - e.getValue().tick() > ModelHits.MAX_AGE || !eligible(e.getValue().entity()));
+        SYNC.entrySet().removeIf(e -> tick - e.getValue().tick() > ModelHits.MAX_SYNC_AGE || !eligible(e.getValue().entity()));
         if (sendBudget <= 0) return;
         // В толпе приоритет у давно не отправлявшихся сущностей, а не у первых в порядке рисования.
         var selected = SYNC.values().stream().filter(s -> tick - SENT.getOrDefault(s.entity().getUUID(), Long.MIN_VALUE / 2) >= ModelHits.INTERVAL)

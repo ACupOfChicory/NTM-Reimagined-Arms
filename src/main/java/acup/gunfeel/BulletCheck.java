@@ -361,6 +361,8 @@ public final class BulletCheck {
         shooter.discard();
         maskmanModelHits();
         surfaceModelHits();
+        retainedModelHits(net.minecraft.world.entity.EntityTypes.IRON_GOLEM.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND));
+        retainedModelHits(com.hbm.entity.ModEntities.RAD_BEAST.get().create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND));
     }
 
     private static void maskmanModelHits() {
@@ -419,6 +421,54 @@ public final class BulletCheck {
             beam.discard();
         }
         target.discard();
+    }
+
+    private static void retainedModelHits(net.minecraft.world.entity.LivingEntity target) {
+        target.setPos(65, 180, 65); target.setNoGravity(true);
+        if (target instanceof net.minecraft.world.entity.Mob mob) mob.setNoAi(true);
+        target.yBodyRot = 0;
+        level.addFreshEntity(target);
+        String name = "retained " + BuiltInRegistries.ENTITY_TYPE.getKey(target.getType());
+        var boxes = java.util.List.of(
+                new ModelBox("left", -.3,0,-.1, .2,0,0, 0,1,0, 0,0,.2),
+                new ModelBox("right", .1,0,-.1, .2,0,0, 0,1,0, 0,0,.2),
+                new ModelBox("wing", 2,.5,-.1, .2,0,0, 0,.2,0, 0,0,.2));
+        var other = net.minecraft.world.entity.EntityTypes.IRON_GOLEM.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        other.setPos(70,180,70); other.yBodyRot = 0;
+        level.addFreshEntity(other);
+        for (int age : new int[] {6, 18}) {
+            ModelHits.putAt(level, target, 0, boxes, level.getGameTime() - age);
+            ModelHits.put(level, other, 0, boxes);
+            check(name + ": render gap " + age + " ticks keeps outlines", 3, ModelHits.outlines(target).size());
+            var start = target.position().add(0,.5,-3);
+            check(name + ": render gap " + age + " ticks keeps model miss", true,
+                    target.getBoundingBox().clip(start, start.add(0,0,6)).isEmpty());
+        }
+        for (int i = 0; i < 25; i++) {
+            target.setPos(target.position().add(.25,0,0));
+            ModelHits.tick(level);
+        }
+        check(name + ": normal movement beyond four blocks keeps model", 3, ModelHits.outlines(target).size());
+        var wing = target.position().add(2.1,.6,-3);
+        check(name + ": stale pose still supplies protruding candidates", true,
+                net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(level, (net.minecraft.world.entity.Entity) null,
+                        wing, wing.add(0,0,6), new net.minecraft.world.phys.AABB(wing,wing.add(0,0,6)).inflate(.01),
+                        e -> e == target, .3F) != null);
+        target.yBodyRot = 135;
+        check(name + ": large body turn keeps outlines", 3, ModelHits.outlines(target).size());
+        var from = new net.minecraft.world.phys.Vec3(0,.5,-3).yRot((float) Math.toRadians(-135)).add(target.position());
+        var to = new net.minecraft.world.phys.Vec3(0,.5,3).yRot((float) Math.toRadians(-135)).add(target.position());
+        check(name + ": large body turn preserves real gap", true, target.getBoundingBox().clip(from,to).isEmpty());
+        target.setPos(target.position().add(30,0,0));
+        ModelHits.tick(level);
+        check(name + ": teleport removes retained model", true, ModelHits.outlines(target).isEmpty());
+        ModelHits.put(level,target,target.yBodyRot,boxes);
+        target.setPose(net.minecraft.world.entity.Pose.CROUCHING);
+        ModelHits.tick(level);
+        target.setPose(net.minecraft.world.entity.Pose.STANDING);
+        check(name + ": posture change cannot revive old geometry", true, ModelHits.outlines(target).isEmpty());
+        target.discard(); other.discard();
+        ModelHits.tick(level);
     }
 
     // what a bullet should do at the block: fly on untouched, go through with less damage, stop in it, or any of the
