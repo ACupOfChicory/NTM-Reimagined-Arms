@@ -36,7 +36,7 @@ public abstract class MixinModelHitboxDebug {
         var offset = gunfeel$entity.getPosition(gunfeel$partial).subtract(gunfeel$entity.position());
         GizmoProperties first = null;
         for (var corners : parts) for (int i = 0; i < corners.length; i += 2) {
-            var line = Gizmos.line(corners[i].add(offset), corners[i + 1].add(offset), 0xFFFFCC55, 3.5F).setAlwaysOnTop();
+            var line = Gizmos.line(corners[i].add(offset), corners[i + 1].add(offset), 0xFFFFCC55);
             if (first == null) first = line;
         }
         gunfeel$modelOutline = first;
