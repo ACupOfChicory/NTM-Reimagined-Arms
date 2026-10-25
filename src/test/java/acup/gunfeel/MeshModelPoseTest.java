@@ -11,7 +11,7 @@ import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 class MeshModelPoseTest {
-    private static GroupObject[] maskman() throws Exception {
+    static GroupObject[] maskman() throws Exception {
         try (var stream = MeshModelPoseTest.class.getResourceAsStream("/assets/hbm/models/mobs/maskman.hbm_mesh")) {
             assertNotNull(stream);
             return ObjMesh.read(stream, "maskman");

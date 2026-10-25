@@ -257,6 +257,7 @@ MODEL_HITBOXES field com/hbm/render/loader/GroupObject name Ljava/lang/String;
 MODEL_HITBOXES field com/hbm/render/loader/HFRWavefrontObject groups [Lcom/hbm/render/loader/GroupObject;
 MODEL_HITBOXES method com/hbm/entity/mob/glyphid/EntityGlyphid armor ()B
 MODEL_HITBOXES method com/hbm/render/loader/GroupObject bounds ()[F
+MODEL_HITBOXES method com/hbm/render/loader/HFRWavefrontObject partId (Ljava/lang/String;)I
 RECOIL class com/hbm/items/weapon/sedna/ItemGunBaseNT
 RECOIL class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 RECOIL field com/hbm/config/GunVisualConfig visualRecoil Z
