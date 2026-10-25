@@ -1,181 +1,144 @@
 package acup.gunfeel;
 
+import java.util.List;
 import java.util.Map;
-import java.util.WeakHashMap;
-
-import com.mojang.blaze3d.vertex.PoseStack;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
-import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
-import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import com.mojang.blaze3d.vertex.PoseStack;
+import org.joml.Matrix4f;
 
-// Adapted from Countered's LivingEntityRendererMixin (MIT). See third-party/accurate-hitboxes.txt.
-// Capture only the visible base model's parts; no armour/item layers. Skip hidden and skipDraw cubes and bound
-// traversal. Work is throttled to 10 poses/sec/entity, at most 16 entities per 2 ticks, within 96 blocks.
+// Пассивный съём уже рассчитанной позы: обычный ModelFeatureRenderer либо снимок Flywheel/Vanillate.
+// Здесь никогда не создаётся render state, не вызывается setupAnim и не повторяется submit рендерера.
 public final class ModelHitClient {
-    private static LivingEntityRenderState processing;
-    private static boolean processed;
-    // Получаем обычные преобразования рендерера и выбор взрослой/детской модели, но не отправляем рисование на GPU.
-    private static final SubmitNodeCollector DISCARD = (SubmitNodeCollector) java.lang.reflect.Proxy.newProxyInstance(
-            SubmitNodeCollector.class.getClassLoader(), new Class<?>[] {SubmitNodeCollector.class}, (proxy, method, args) -> switch (method.getName()) {
-                case "order" -> proxy;
-                case "hashCode" -> System.identityHashCode(proxy);
-                case "equals" -> proxy == args[0];
-                case "toString" -> "ModelHitCapture";
-                default -> null;
-            });
-    private static final Map<LivingEntityRenderState, java.lang.ref.WeakReference<LivingEntity>> ENTITIES = new WeakHashMap<>();
-    private static final Map<LivingEntity, Long> CAPTURED = new WeakHashMap<>();
-    private static final Map<LivingEntity, Long> SEEN = new WeakHashMap<>();
-    private static final java.util.Set<LivingEntity> SELECTED = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    private record Ready(LivingEntity entity, ModelPoseLayout layout, VanillatePose.Data pose,
+            double x, double y, double z, float yaw) {}
+    private static final Map<UUID, Ready> READY = new ConcurrentHashMap<>();
+    private record Sync(LivingEntity entity, float yaw, List<ModelBox> boxes, String source, long tick) {}
+    private static final Map<UUID, Sync> SYNC = new java.util.HashMap<>();
+    private static final Map<UUID, Long> SENT = new java.util.HashMap<>();
+    private static volatile boolean enabled = true;
     private static Level level;
-    private static long period = Long.MIN_VALUE, nextCheck;
-    private static int budget;
-    private static boolean active;
-    private static long nextDiagnostic;
+    private static long nextCheck, nextDiagnostic, sendPeriod = Long.MIN_VALUE;
+    private static int sendBudget;
+    private static long frameNanos, totalNanos, peakNanos, frames;
 
     private ModelHitClient() {}
 
+    public static boolean enabled() { return enabled; }
+
+    // Вызывается с рабочих потоков. Снимок и его массивы неизменяемы; в очереди остаётся только последний.
+    public static void offer(LivingEntity entity, ModelPoseLayout layout, VanillatePose.Data pose, double x, double y, double z) {
+        if (!enabled || READY.size() >= 512 && !READY.containsKey(entity.getUUID())) return;
+        READY.put(entity.getUUID(), new Ready(entity, layout, pose, x, y, z, entity.yBodyRot));
+        ModelHitLog.count("client", "flywheel_pose");
+    }
+
+    public static void frame() {
+        totalNanos += frameNanos;
+        peakNanos = Math.max(peakNanos, frameNanos);
+        frames++;
+        frameNanos = 0;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != level) { clear(); level = mc.level; }
+        if (level == null || mc.player == null || mc.getConnection() == null) return;
+        long now = System.currentTimeMillis();
+        if (now >= nextCheck) { enabled = ModelHits.enabled(); nextCheck = now + 1000; }
+        if (!enabled) return;
+        long started = System.nanoTime();
+        for (var entry : READY.entrySet()) if (READY.remove(entry.getKey(), entry.getValue())) {
+            Ready ready = entry.getValue();
+            LivingEntity entity = ready.entity();
+            if (!eligible(entity)) continue;
+            var pose = ready.pose();
+            Matrix4f root = new Matrix4f().translation((float) ready.x(), (float) ready.y(), (float) ready.z()).mul(pose.root());
+            List<ModelBox> boxes = ready.layout().boxes(root, pose.transforms(), pose.draw(), pose.texture());
+            publish(entity, ready.yaw(), boxes, "flywheel_snapshot");
+        }
+        sync();
+        frameNanos += System.nanoTime() - started;
+    }
+
+    // Обычная отрисовка: модель уже прошла setupAnim. Забираем только основную модель, без брони и слоёв.
+    public static void rendered(ModelFeatureRenderer.Submit<?> submit) {
+        if (!enabled || !(submit.state() instanceof LivingEntityRenderState state)
+                || !(state instanceof ModelHitState info) || info.gunfeel$primary() != submit.model()
+                || !(submit.model() instanceof EntityModel<?> model)) return;
+        LivingEntity entity = info.gunfeel$target();
+        if (entity == null || !eligible(entity)) return;
+        long started = System.nanoTime();
+        PoseStack pose = new PoseStack();
+        pose.last().set(submit.pose());
+        var camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
+        var result = ModelPoseCapture.collect(model.root(), pose, camera.x - state.x, camera.y - state.y,
+                camera.z - state.z, ModelTextureMask.parts(info.gunfeel$texture()));
+        if (result.complete()) publish(entity, entity.yBodyRot, result.boxes(), "vanilla_prepared");
+        frameNanos += System.nanoTime() - started;
+    }
+
+    private static boolean eligible(LivingEntity entity) {
+        var mc = Minecraft.getInstance();
+        return entity.level() == level && entity.isAlive() && mc.player != null
+                && entity.distanceToSqr(mc.player) <= ModelHits.RANGE * ModelHits.RANGE;
+    }
+
+    private static void publish(LivingEntity entity, float yaw, List<ModelBox> boxes, String source) {
+        if (boxes.isEmpty() || boxes.size() > ModelPosePayload.MAX_BOXES
+                || boxes.stream().anyMatch(b -> !b.valid(ModelHits.radius(entity)))) {
+            ModelHitLog.event("client", "capture_rejected", entity, () -> "source=" + source + " cubes=" + boxes.size());
+            return;
+        }
+        ModelHits.put(level, entity, yaw, boxes);
+        ModelHitLog.count("client", "local_pose");
+        SYNC.put(entity.getUUID(), new Sync(entity, yaw, List.copyOf(boxes), source, level.getGameTime()));
+    }
+
+    private static void sync() {
+        long tick = level.getGameTime();
+        if (tick / ModelHits.INTERVAL != sendPeriod) {
+            sendPeriod = tick / ModelHits.INTERVAL;
+            sendBudget = ModelHits.MAX_UPDATES;
+        }
+        SYNC.entrySet().removeIf(e -> tick - e.getValue().tick() > ModelHits.MAX_AGE || !eligible(e.getValue().entity()));
+        if (sendBudget <= 0) return;
+        // В толпе приоритет у давно не отправлявшихся сущностей, а не у первых в порядке рисования.
+        var selected = SYNC.values().stream().filter(s -> tick - SENT.getOrDefault(s.entity().getUUID(), Long.MIN_VALUE / 2) >= ModelHits.INTERVAL)
+                .sorted(java.util.Comparator.comparingLong(s -> SENT.getOrDefault(s.entity().getUUID(), Long.MIN_VALUE / 2)))
+                .limit(sendBudget).toList();
+        for (Sync pose : selected) {
+            LivingEntity entity = pose.entity();
+            sendBudget--;
+            SENT.put(entity.getUUID(), tick);
+            ClientPacketDistributor.sendToServer(new ModelPosePayload(entity.getId(), entity.getUUID(), entity.getX(), entity.getY(),
+                    entity.getZ(), pose.yaw(), pose.boxes()));
+            ModelHitLog.event("client", "sent", entity, () -> "source=" + pose.source() + " cubes=" + pose.boxes().size() + " tick=" + tick);
+        }
+        if (SENT.size() > 512) SENT.entrySet().removeIf(e -> tick - e.getValue() > 100);
+    }
+
     public static void diagnostics() {
-        if (Minecraft.getInstance().level == null) return;
+        if (level == null) return;
         long now = System.currentTimeMillis();
         if (now < nextDiagnostic) return;
         nextDiagnostic = now + 5000;
         org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").info(
-                "[modeldebug] client heartbeat enabled={} tick={} seen={} selected={} bound_states={} counters={} integrated_server={}",
-                ModelHits.enabled(), Minecraft.getInstance().level.getGameTime(), SEEN.size(), SELECTED.size(), ENTITIES.size(),
+                "[modeldebug] client heartbeat enabled={} pending={} capture_ms/frame={} capture_peak_ms={} counters={} integrated_server={}",
+                enabled, READY.size(), frames == 0 ? 0 : totalNanos / (frames * 1_000_000.0), peakNanos / 1_000_000.0,
                 ModelHitLog.counts("client"), Minecraft.getInstance().getSingleplayerServer() == null ? "remote" : ModelHitLog.counts("server"));
+        frames = totalNanos = peakNanos = 0;
     }
 
     public static void clear() {
         if (level != null) ModelHits.clear(level);
-        ENTITIES.clear();
-        CAPTURED.clear();
-        SEEN.clear();
-        SELECTED.clear();
+        READY.clear(); SENT.clear(); SYNC.clear(); ModelTextureMask.clear();
         level = null;
         nextCheck = 0;
-        period = Long.MIN_VALUE;
-    }
-
-    private static boolean active() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.level != level) {
-            clear();
-            level = mc.level;
-        }
-        if (mc.player == null || mc.getConnection() == null) return false;
-        long now = System.currentTimeMillis();
-        if (now >= nextCheck) { active = ModelHits.enabled(); nextCheck = now + 1000; }
-        return active;
-    }
-
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    public static void frame() {
-        if (!active()) return;
-        Minecraft mc = Minecraft.getInstance();
-        java.util.List<LivingEntity> work = new java.util.ArrayList<>();
-        long tick = level.getGameTime();
-        // Источник — загруженные сущности, как у F3+B. Flywheel может обходить оба ванильных этапа подготовки
-        // и рисования; поэтому не ждём, что сторонний рендерер когда-нибудь вызовет наш перехват извлечения.
-        for (var candidate : mc.level.entitiesForRendering()) {
-            if (!(candidate instanceof LivingEntity entity) || !entity.isAlive()
-                    || entity.distanceToSqr(mc.player) > ModelHits.RANGE * ModelHits.RANGE) continue;
-            var renderer = mc.getEntityRenderDispatcher().getRenderer(entity);
-            if (!(renderer instanceof LivingEntityRenderer)) {
-                ModelHitLog.event("client", "unsupported_renderer", entity, () -> "renderer=" + renderer.getClass().getName());
-                continue;
-            }
-            SEEN.put(entity, tick);
-            work.add(entity);
-        }
-        for (LivingEntity entity : work) {
-            if (!ready(entity, tick)) continue;
-            CAPTURED.put(entity, tick);
-            budget--;
-            var renderer = mc.getEntityRenderDispatcher().getRenderer(entity);
-            if (!(renderer instanceof LivingEntityRenderer living)) continue;
-            ModelHitLog.count("client", "state_requested");
-            try {
-                if (!(living.createRenderState(entity, mc.getDeltaTracker().getGameTimeDeltaPartialTick(true)) instanceof LivingEntityRenderState state)) continue;
-                ENTITIES.put(state, new java.lang.ref.WeakReference<>(entity));
-                ModelHitLog.event("client", "attached", entity, () -> "source=loaded_entities state=" + System.identityHashCode(state)
-                        + " class=" + state.getClass().getName());
-                CameraRenderState camera = new CameraRenderState();
-                camera.pos = new net.minecraft.world.phys.Vec3(state.x, state.y, state.z);
-                camera.blockPos = net.minecraft.core.BlockPos.containing(camera.pos);
-                camera.orientation = new org.joml.Quaternionf();
-                PoseStack stack = new PoseStack();
-                var offset = living.getRenderOffset(state);
-                stack.translate(offset.x, offset.y, offset.z);
-                processing = state;
-                processed = false;
-                living.submit(state, stack, DISCARD, camera);
-                if (!processed) ModelHitLog.event("client", "submit_without_capture", entity,
-                        () -> "renderer=" + renderer.getClass().getName() + " state=" + state.getClass().getName());
-            } catch (RuntimeException ex) {
-                ModelHitLog.event("client", "capture_exception", entity,
-                        () -> "renderer=" + renderer.getClass().getName() + " error=" + ex);
-            } finally { processing = null; }
-        }
-    }
-
-    public static <S extends LivingEntityRenderState> void capture(EntityModel<? super S> model, S state,
-            PoseStack stack, CameraRenderState camera) {
-        if (state != processing) return;
-        processed = true;
-        ModelHitLog.count("client", "submit_called");
-        if (!active()) { ModelHitLog.count("client", "inactive"); return; }
-        var ref = ENTITIES.get(state);
-        LivingEntity entity = ref == null ? null : ref.get();
-        Minecraft mc = Minecraft.getInstance();
-        if (entity == null || !entity.isAlive() || entity.distanceToSqr(mc.player) > ModelHits.RANGE * ModelHits.RANGE) {
-            ModelHitLog.event("client", "target_rejected", entity, () -> "state=" + System.identityHashCode(state)
-                    + " class=" + state.getClass().getName() + " alive=" + (entity != null && entity.isAlive())
-                    + " distance2=" + (entity == null ? -1 : entity.distanceToSqr(mc.player)));
-            return;
-        }
-        long tick = level.getGameTime();
-        ModelHitLog.count("client", "capture_attempt");
-        model.setupAnim(state);
-        var captured = ModelPoseCapture.collect(model.root(), stack, camera.pos.x - state.x, camera.pos.y - state.y,
-                camera.pos.z - state.z, ModelPoseCapture.ACCESS);
-        var boxes = captured.boxes();
-        if (!captured.complete() || boxes.isEmpty() || boxes.stream().anyMatch(b -> !b.valid(ModelHits.radius(entity)))) {
-            ModelHitLog.event("client", "capture_rejected", entity, () -> "model=" + model.getClass().getName()
-                    + " complete=" + captured.complete() + " nodes=" + captured.nodes() + " cubes=" + boxes.size()
-                    + " radius=" + ModelHits.radius(entity) + " entity_pos=" + entity.position()
-                    + " state_pos=" + state.x + "," + state.y + "," + state.z + " camera=" + camera.pos
-                    + " invalid_cube=" + boxes.stream().filter(b -> !b.valid(ModelHits.radius(entity))).findFirst().orElse(null));
-            return;
-        }
-        ModelHits.put(level, entity, entity.yBodyRot, boxes);
-        ClientPacketDistributor.sendToServer(new ModelPosePayload(entity.getId(), entity.getUUID(), entity.getX(), entity.getY(),
-                entity.getZ(), entity.yBodyRot, boxes));
-        ModelHitLog.event("client", "sent", entity, () -> "cubes=" + boxes.size() + " model=" + model.getClass().getName()
-                + " tick=" + tick + " yaw=" + entity.yBodyRot + " first_cube=" + boxes.getFirst());
-    }
-
-    private static boolean ready(LivingEntity entity, long tick) {
-        Minecraft mc = Minecraft.getInstance();
-        if (tick / ModelHits.INTERVAL != period) {
-            period = tick / ModelHits.INTERVAL;
-            budget = ModelHits.MAX_UPDATES;
-            SELECTED.clear();
-            // Oldest first: a crowded scene must not permanently starve entities late in render order.
-            SEEN.entrySet().stream().filter(e -> tick - e.getValue() <= 2 && e.getKey().isAlive()
-                            && e.getKey().distanceToSqr(mc.player) <= ModelHits.RANGE * ModelHits.RANGE)
-                    .map(Map.Entry::getKey).sorted(java.util.Comparator
-                            .comparingLong((LivingEntity e) -> CAPTURED.getOrDefault(e, Long.MIN_VALUE / 2))
-                            .thenComparingDouble(e -> e.distanceToSqr(mc.player)))
-                    .limit(ModelHits.MAX_UPDATES).forEach(SELECTED::add);
-        }
-        return SELECTED.contains(entity) && budget > 0
-                && tick - CAPTURED.getOrDefault(entity, Long.MIN_VALUE / 2) >= ModelHits.INTERVAL;
+        sendPeriod = Long.MIN_VALUE;
     }
 }

@@ -163,7 +163,10 @@ val mixinCheck = tasks.register<JavaExec>("mixinCheck") {
     val game = sourceSets.main.get().compileClasspath
     val classes = unpackedJar.map { it.destinationDir.path }
     argumentProviders.add(CommandLineArgumentProvider {
-        listOf(classes.get(), game.files.filter { it.name.endsWith(".jar") }.joinToString(":"))
+        // Необязательная проверка адаптера к установленному Crankshaft и вложенному Vanillate.
+        val crankshaft = root.resolve("libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar")
+        listOf(classes.get(), (game.files + listOf(crankshaft).filter { it.exists() })
+            .filter { it.name.endsWith(".jar") }.joinToString(":"))
     })
 }
 tasks.check { dependsOn(mixinCheck) }

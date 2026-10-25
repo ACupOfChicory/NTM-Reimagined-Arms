@@ -25,6 +25,9 @@ public final class GunFeelMod {
                     Compat.hbmVersion(), Compat.modVersion(), Compat.tested(), Compat.offList());
         }
         if (dist.isClient()) {
+            modBus.addListener(net.neoforged.neoforge.client.event.AddClientReloadListenersEvent.class,
+                    e -> e.addListener(net.minecraft.resources.Identifier.fromNamespaceAndPath("ntmgunfeel", "model_masks"),
+                            (net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager -> ModelHitClient.clear()));
             CompatClient.init();
             ServerSettingsClient.init();
             GunFeel.init();

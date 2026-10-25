@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 class ModelPoseCaptureTest {
     // В JUnit нет Mixin; читаем те же поля настоящего ModelPart обычной рефлексией только в тесте.
-    private static final ModelPoseCapture.Parts PARTS = new ModelPoseCapture.Parts() {
+    static final ModelPoseCapture.Parts PARTS = new ModelPoseCapture.Parts() {
         @SuppressWarnings("unchecked")
         private <T> T field(ModelPart p, String name) {
             try { Field f = ModelPart.class.getDeclaredField(name); f.setAccessible(true); return (T) f.get(p); }
