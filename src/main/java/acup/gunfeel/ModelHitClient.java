@@ -18,9 +18,8 @@ import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 // Capture only the visible base model's parts; no armour/item layers. Skip hidden and skipDraw cubes and bound
 // traversal. Work is throttled to 10 poses/sec/entity, at most 16 entities per 2 ticks, within 96 blocks.
 public final class ModelHitClient {
-    private record Pending(LivingEntity entity, LivingEntityRenderState state) {}
-    private static final Map<java.util.UUID, Pending> PENDING = new java.util.concurrent.ConcurrentHashMap<>();
     private static LivingEntityRenderState processing;
+    private static boolean processed;
     // Получаем обычные преобразования рендерера и выбор взрослой/детской модели, но не отправляем рисование на GPU.
     private static final SubmitNodeCollector DISCARD = (SubmitNodeCollector) java.lang.reflect.Proxy.newProxyInstance(
             SubmitNodeCollector.class.getClassLoader(), new Class<?>[] {SubmitNodeCollector.class}, (proxy, method, args) -> switch (method.getName()) {
@@ -59,7 +58,6 @@ public final class ModelHitClient {
         CAPTURED.clear();
         SEEN.clear();
         SELECTED.clear();
-        PENDING.clear();
         level = null;
         nextCheck = 0;
         period = Long.MIN_VALUE;
@@ -77,43 +75,52 @@ public final class ModelHitClient {
         return active;
     }
 
-    // Вызывается также с Flywheel-Worker. Здесь нет ни обхода модели, ни доступа к общим WeakHashMap.
-    public static void enqueue(LivingEntity entity, LivingEntityRenderState state) {
-        ModelHitLog.count("client", "attach_called");
-        if (PENDING.size() < 512 || PENDING.containsKey(entity.getUUID())) PENDING.put(entity.getUUID(), new Pending(entity, state));
-    }
-
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static void frame() {
         if (!active()) return;
         Minecraft mc = Minecraft.getInstance();
-        java.util.List<Pending> work = new java.util.ArrayList<>();
-        for (var entry : PENDING.entrySet()) if (PENDING.remove(entry.getKey(), entry.getValue())) {
-            Pending pending = entry.getValue();
-            LivingEntity entity = pending.entity();
-            LivingEntityRenderState state = pending.state();
-            if (entity.level() != level || !entity.isAlive() || entity.distanceToSqr(mc.player) > ModelHits.RANGE * ModelHits.RANGE) continue;
-            ENTITIES.put(state, new java.lang.ref.WeakReference<>(entity));
-            SEEN.put(entity, level.getGameTime());
-            work.add(pending);
-            ModelHitLog.event("client", "attached", entity, () -> "state=" + System.identityHashCode(state)
-                    + " class=" + state.getClass().getName());
+        java.util.List<LivingEntity> work = new java.util.ArrayList<>();
+        long tick = level.getGameTime();
+        // Источник — загруженные сущности, как у F3+B. Flywheel может обходить оба ванильных этапа подготовки
+        // и рисования; поэтому не ждём, что сторонний рендерер когда-нибудь вызовет наш перехват извлечения.
+        for (var candidate : mc.level.entitiesForRendering()) {
+            if (!(candidate instanceof LivingEntity entity) || !entity.isAlive()
+                    || entity.distanceToSqr(mc.player) > ModelHits.RANGE * ModelHits.RANGE) continue;
+            var renderer = mc.getEntityRenderDispatcher().getRenderer(entity);
+            if (!(renderer instanceof LivingEntityRenderer)) {
+                ModelHitLog.event("client", "unsupported_renderer", entity, () -> "renderer=" + renderer.getClass().getName());
+                continue;
+            }
+            SEEN.put(entity, tick);
+            work.add(entity);
         }
-        for (Pending pending : work) {
-            if (!ready(pending.entity(), level.getGameTime())) continue;
-            var renderer = mc.getEntityRenderDispatcher().getRenderer(pending.entity());
+        for (LivingEntity entity : work) {
+            if (!ready(entity, tick)) continue;
+            CAPTURED.put(entity, tick);
+            budget--;
+            var renderer = mc.getEntityRenderDispatcher().getRenderer(entity);
             if (!(renderer instanceof LivingEntityRenderer living)) continue;
-            var state = pending.state();
-            CameraRenderState camera = new CameraRenderState();
-            camera.pos = new net.minecraft.world.phys.Vec3(state.x, state.y, state.z);
-            camera.blockPos = net.minecraft.core.BlockPos.containing(camera.pos);
-            camera.orientation = new org.joml.Quaternionf();
-            PoseStack stack = new PoseStack();
-            var offset = living.getRenderOffset(state);
-            stack.translate(offset.x, offset.y, offset.z);
-            processing = state;
+            ModelHitLog.count("client", "state_requested");
             try {
+                if (!(living.createRenderState(entity, mc.getDeltaTracker().getGameTimeDeltaPartialTick(true)) instanceof LivingEntityRenderState state)) continue;
+                ENTITIES.put(state, new java.lang.ref.WeakReference<>(entity));
+                ModelHitLog.event("client", "attached", entity, () -> "source=loaded_entities state=" + System.identityHashCode(state)
+                        + " class=" + state.getClass().getName());
+                CameraRenderState camera = new CameraRenderState();
+                camera.pos = new net.minecraft.world.phys.Vec3(state.x, state.y, state.z);
+                camera.blockPos = net.minecraft.core.BlockPos.containing(camera.pos);
+                camera.orientation = new org.joml.Quaternionf();
+                PoseStack stack = new PoseStack();
+                var offset = living.getRenderOffset(state);
+                stack.translate(offset.x, offset.y, offset.z);
+                processing = state;
+                processed = false;
                 living.submit(state, stack, DISCARD, camera);
+                if (!processed) ModelHitLog.event("client", "submit_without_capture", entity,
+                        () -> "renderer=" + renderer.getClass().getName() + " state=" + state.getClass().getName());
+            } catch (RuntimeException ex) {
+                ModelHitLog.event("client", "capture_exception", entity,
+                        () -> "renderer=" + renderer.getClass().getName() + " error=" + ex);
             } finally { processing = null; }
         }
     }
@@ -121,6 +128,7 @@ public final class ModelHitClient {
     public static <S extends LivingEntityRenderState> void capture(EntityModel<? super S> model, S state,
             PoseStack stack, CameraRenderState camera) {
         if (state != processing) return;
+        processed = true;
         ModelHitLog.count("client", "submit_called");
         if (!active()) { ModelHitLog.count("client", "inactive"); return; }
         var ref = ENTITIES.get(state);
@@ -133,13 +141,7 @@ public final class ModelHitClient {
             return;
         }
         long tick = level.getGameTime();
-        if (!ready(entity, tick)) {
-            ModelHitLog.count("client", "throttled");
-            return;
-        }
         ModelHitLog.count("client", "capture_attempt");
-        CAPTURED.put(entity, tick);
-        budget--;
         model.setupAnim(state);
         var captured = ModelPoseCapture.collect(model.root(), stack, camera.pos.x - state.x, camera.pos.y - state.y,
                 camera.pos.z - state.z, ModelPoseCapture.ACCESS);
