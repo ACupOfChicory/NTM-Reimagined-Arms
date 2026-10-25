@@ -23,6 +23,12 @@ public final class ModelPoseCapture {
 
     private ModelPoseCapture() {}
 
+    public static Result collect(ModelPart root, Matrix4f matrix, Vector3f renderPosition, Parts parts) {
+        PoseStack stack = new PoseStack();
+        stack.last().pose().set(matrix);
+        return collect(root, stack, -renderPosition.x, -renderPosition.y, -renderPosition.z, parts);
+    }
+
     public static Result collect(ModelPart root, PoseStack stack, double x, double y, double z, Parts parts) {
         List<ModelBox> boxes = new ArrayList<>();
         int[] nodes = {0};
