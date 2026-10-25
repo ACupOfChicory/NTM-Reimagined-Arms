@@ -24,7 +24,7 @@ class ModelPosePayloadTest {
     @Test void roundTripKeepsIdentityAndRelativeGeometryAtWorldBorder() {
         var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
         try {
-            var box = new ModelBox("root/body/head", -.25, 1.5, -.25, .5, 0, 0, 0, .5, 0, 0, 0, .5);
+            var box = new ModelBox("root/body/head", -.25, 1.5, -.25, .5, 0, 0, 0, .5, 0, 0, 0, .5).withMesh(123456789L);
             var packet = new ModelPosePayload(42, UUID.randomUUID(), 29_999_999.75, 70, -29_999_999.75, 90, List.of(box));
             ModelPosePayload.CODEC.encode(buf, packet);
             assertEquals(packet, ModelPosePayload.CODEC.decode(buf));

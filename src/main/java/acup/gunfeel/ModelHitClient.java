@@ -24,6 +24,7 @@ public final class ModelHitClient {
     private record Sync(LivingEntity entity, float yaw, List<ModelBox> boxes, String source, long tick) {}
     private static final Map<UUID, Sync> SYNC = new java.util.HashMap<>();
     private static final Map<UUID, Long> SENT = new java.util.HashMap<>();
+    private static final java.util.Set<Long> MESH_SENT = new java.util.HashSet<>();
     private static volatile boolean enabled = true;
     private static Level level;
     private static long nextCheck, nextDiagnostic, sendPeriod = Long.MIN_VALUE;
@@ -118,6 +119,10 @@ public final class ModelHitClient {
                 .limit(sendBudget).toList();
         for (Sync pose : selected) {
             LivingEntity entity = pose.entity();
+            for (ModelBox box : pose.boxes()) if (box.mesh() != 0 && MESH_SENT.add(box.mesh())) {
+                ModelMesh mesh = ModelMesh.get(box.mesh());
+                ClientPacketDistributor.sendToServer(new ModelMeshPayload(mesh.id(), mesh.triangles()));
+            }
             sendBudget--;
             SENT.put(entity.getUUID(), tick);
             ClientPacketDistributor.sendToServer(new ModelPosePayload(entity.getId(), entity.getUUID(), entity.getX(), entity.getY(),
@@ -141,7 +146,7 @@ public final class ModelHitClient {
 
     public static void clear() {
         if (level != null) ModelHits.clear(level);
-        READY.clear(); SENT.clear(); SYNC.clear(); ModelTextureMask.clear();
+        READY.clear(); SENT.clear(); MESH_SENT.clear(); SYNC.clear(); ModelTextureMask.clear();
         NtmMeshHits.clear();
         level = null;
         nextCheck = 0;

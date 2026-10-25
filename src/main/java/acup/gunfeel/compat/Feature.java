@@ -10,7 +10,7 @@ import java.util.List;
 public enum Feature {
     CORE("core", List.of(), List.of("GunFeel", "GunFeelMod", "Config", "GunDump", "BlockDump")),
     MODEL_HITBOXES("model_hitboxes", List.of("MixinNtmMeshHits", "GlyphidGeometryAccess", "MixinGlyphidModelHits", "MixinMobObjModelHits"),
-            List.of("NtmMeshHits", "MobObjPose")),
+            List.of("NtmMeshHits", "MobObjPose", "ModelMeshCapture")),
     HOLD_AIM("hold_aim", List.of("MixinHoldAim"), List.of("ReaimCommand", "ReaimTimes")),
     BULLETS("bullets", List.of("MixinBulletServer", "MixinThrowableHit", "MixinBeamModelQuery"),
             List.of("BulletServer", "PassableClip", "Cells", "Structures", "BulletFx", "BulletRules")),

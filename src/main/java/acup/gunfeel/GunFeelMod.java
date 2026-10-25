@@ -16,7 +16,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 public final class GunFeelMod {
     // Systems that do not fit an untested NTM are off (acup.gunfeel.compat): their listeners check Feature.on()
     // the network protocol: raise it when a payload changes, and clients and servers on different ones will not connect
-    public static final String PROTOCOL = "4";
+    public static final String PROTOCOL = "5";
 
     public GunFeelMod(IEventBus modBus, Dist dist, ModContainer container) {
         Compat.setModVersion(container.getModInfo().getVersion().toString());
@@ -75,6 +75,7 @@ public final class GunFeelMod {
             r.playToServer(ModelPosePayload.TYPE, ModelPosePayload.CODEC, (p, ctx) -> {
                 if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) ModelHits.receive(sp, p);
             });
+            r.playToServer(ModelMeshPayload.TYPE, ModelMeshPayload.CODEC, (p, ctx) -> p.receive());
             r.playToServer(TestLogPayload.TYPE, TestLogPayload.CODEC, (p, ctx) -> {
                 if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) TestLogPayload.handle(sp, p);
             });

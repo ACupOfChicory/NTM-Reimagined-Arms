@@ -360,6 +360,7 @@ public final class BulletCheck {
         g.discard();
         shooter.discard();
         maskmanModelHits();
+        surfaceModelHits();
     }
 
     private static void maskmanModelHits() {
@@ -386,6 +387,38 @@ public final class BulletCheck {
                         e -> e == maskman, .3F) != null);
         check("maskman: debug uses model parts", 2, ModelHits.outlines(maskman).size());
         maskman.discard();
+    }
+
+    private static void surfaceModelHits() {
+        var mesh = new ModelMesh(new float[] {
+                0,0,0, 0,1,0, 1,0,0, 0,0,0, 1,0,0, 0,0,1,
+                0,0,0, 0,0,1, 0,1,0, 1,0,0, 0,1,0, 0,0,1});
+        new ModelMeshPayload(mesh.id(), mesh.triangles()).receive();
+        check("mesh: server registers geometry blueprint", true, ModelMesh.get(mesh.id()) != null);
+        var target = net.minecraft.world.entity.EntityTypes.IRON_GOLEM.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        target.setPos(50, 175, 50); target.setNoAi(true); target.setNoGravity(true); target.yBodyRot = 0;
+        level.addFreshEntity(target);
+        var origin = target.position();
+        ModelHits.put(level, target, 0, java.util.List.of(new ModelBox("mesh", 0,0,0, 1,0,0, 0,1,0, 0,0,1).withMesh(mesh.id())));
+        check("mesh: debug draws six surface edges", 12, ModelHits.outlines(target).getFirst().length);
+        var config = new BulletConfig().setBeam().setDamage(10).setOnBeamImpact(BulletConfig.LAMBDA_STANDARD_BEAM_HIT);
+        for (int i = 0; i < 2; i++) {
+            double xy = i == 0 ? .8 : .1;
+            var start = origin.add(xy, xy, -3);
+            var arrow = net.minecraft.world.entity.EntityTypes.ARROW.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            arrow.setPos(start); arrow.shoot(0, 0, 1, 6, 0); target.invulnerableTime = 0;
+            float before = target.getHealth();
+            arrow.tick();
+            check("mesh: real arrow " + (i == 0 ? "misses empty corner" : "hits real surface"), i != 0, target.getHealth() < before);
+            arrow.discard();
+            var beam = new com.hbm.entity.projectile.EntityBulletBeamBase(level, config, 10);
+            beam.setPos(start); beam.setRotationsFromVector(new net.minecraft.world.phys.Vec3(0,0,1));
+            target.invulnerableTime = 0; before = target.getHealth();
+            beam.performHitscanExternal(6);
+            check("mesh: NTM beam " + (i == 0 ? "misses empty corner" : "hits real surface"), i != 0, target.getHealth() < before);
+            beam.discard();
+        }
+        target.discard();
     }
 
     // what a bullet should do at the block: fly on untouched, go through with less damage, stop in it, or any of the

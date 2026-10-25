@@ -4,7 +4,12 @@ package acup.gunfeel;
 // animated part. Coordinates are relative to the entity, not world floats. The three edges need not be orthogonal
 // (parent nonuniform scale + child rotation can shear them). Intersect in the cube's own affine frame instead.
 public record ModelBox(String part, double x, double y, double z,
-        double ux, double uy, double uz, double vx, double vy, double vz, double wx, double wy, double wz) {
+        double ux, double uy, double uz, double vx, double vy, double vz, double wx, double wy, double wz, long mesh) {
+    public ModelBox(String part, double x, double y, double z, double ux, double uy, double uz,
+            double vx, double vy, double vz, double wx, double wy, double wz) {
+        this(part, x, y, z, ux, uy, uz, vx, vy, vz, wx, wy, wz, 0);
+    }
+    public ModelBox withMesh(long id) { return new ModelBox(part, x, y, z, ux, uy, uz, vx, vy, vz, wx, wy, wz, id); }
     public static final int MAX_PART_NAME = 64;
     public double[] numbers() {
         return new double[] {x, y, z, ux, uy, uz, vx, vy, vz, wx, wy, wz};
@@ -12,6 +17,7 @@ public record ModelBox(String part, double x, double y, double z,
 
     public boolean valid(double radius) {
         if (part == null || part.isEmpty() || part.length() > MAX_PART_NAME) return false;
+        if (mesh != 0 && ModelMesh.get(mesh) == null) return false;
         for (double n : numbers()) if (!Double.isFinite(n)) return false;
         if (Math.abs(determinant()) < 1e-12) return false;
         for (int i = 0; i < 8; i++) {
@@ -46,7 +52,9 @@ public record ModelBox(String part, double x, double y, double z,
                 if (hi < lo) return -1;
             }
         }
-        return lo;
+        if (mesh == 0) return lo;
+        ModelMesh shape = ModelMesh.get(mesh);
+        return shape == null ? -1 : shape.clip(start, end);
     }
 
     private double[] local(double a, double b, double c, double det) {

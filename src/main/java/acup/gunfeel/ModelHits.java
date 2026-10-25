@@ -115,9 +115,10 @@ public final class ModelHits {
         if (Math.abs(angle) > Math.PI / 3) return List.of();
         List<Vec3[]> out = new ArrayList<>();
         for (ModelBox box : p.boxes()) {
-            Vec3[] corners = new Vec3[8];
-            for (int i = 0; i < 8; i++) {
-                double a = (i & 1) == 0 ? 0 : 1, b = (i & 2) == 0 ? 0 : 1, c = (i & 4) == 0 ? 0 : 1;
+            float[] edges = box.mesh() == 0 ? BOX_EDGES : ModelMesh.get(box.mesh()).edges();
+            Vec3[] corners = new Vec3[edges.length / 3];
+            for (int i = 0; i < corners.length; i++) {
+                double a = edges[i * 3], b = edges[i * 3 + 1], c = edges[i * 3 + 2];
                 corners[i] = unturn(new Vec3(box.x() + a * box.ux() + b * box.vx() + c * box.wx(),
                         box.y() + a * box.uy() + b * box.vy() + c * box.wy(),
                         box.z() + a * box.uz() + b * box.vz() + c * box.wz()), -angle).add(target.position());
@@ -125,6 +126,20 @@ public final class ModelHits {
             out.add(corners);
         }
         return out;
+    }
+
+    // Пары концов двенадцати рёбер обычного ModelPart-куба.
+    private static final float[] BOX_EDGES = boxEdges();
+    private static float[] boxEdges() {
+        float[] edges = new float[72];
+        int at = 0;
+        for (int i = 0; i < 8; i++) for (int axis = 1; axis <= 4; axis <<= 1) if ((i & axis) == 0)
+            for (int point : new int[] {i, i | axis}) {
+                edges[at++] = (point & 1) == 0 ? 0 : 1;
+                edges[at++] = (point & 2) == 0 ? 0 : 1;
+                edges[at++] = (point & 4) == 0 ? 0 : 1;
+            }
+        return edges;
     }
 
     public static synchronized Optional<Vec3> clip(Entity target, Vec3 from, Vec3 to, AABB fallback) {

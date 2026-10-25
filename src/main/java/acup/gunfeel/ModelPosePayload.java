@@ -32,6 +32,7 @@ public record ModelPosePayload(int entity, UUID uuid, double x, double y, double
         for (ModelBox box : boxes) {
             b.writeUtf(box.part(), ModelBox.MAX_PART_NAME);
             for (double n : box.numbers()) b.writeFloat((float) n);
+            b.writeLong(box.mesh());
         }
     }
 
@@ -45,7 +46,7 @@ public record ModelPosePayload(int entity, UUID uuid, double x, double y, double
         List<ModelBox> boxes = new ArrayList<>(count);
         for (int i = 0; i < count; i++) boxes.add(new ModelBox(b.readUtf(ModelBox.MAX_PART_NAME), b.readFloat(), b.readFloat(), b.readFloat(),
                 b.readFloat(), b.readFloat(), b.readFloat(), b.readFloat(), b.readFloat(), b.readFloat(),
-                b.readFloat(), b.readFloat(), b.readFloat()));
+                b.readFloat(), b.readFloat(), b.readFloat(), b.readLong()));
         return new ModelPosePayload(entity, uuid, x, y, z, yaw, boxes);
     }
 
