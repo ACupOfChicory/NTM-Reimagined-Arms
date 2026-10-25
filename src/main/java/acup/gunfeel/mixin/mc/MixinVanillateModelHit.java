@@ -6,6 +6,7 @@ import acup.gunfeel.ModelPoseLayout;
 import acup.gunfeel.VanillatePose;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Final;
@@ -37,7 +38,9 @@ public abstract class MixinVanillateModelHit {
             if (variant < 0 || variant >= partsByVariant.length) return;
             var layout = gunfeel$layouts.computeIfAbsent(variant,
                     k -> new ModelPoseLayout(partsByVariant[k], namesByVariant[k], parentIndexByVariant[k]));
-            ModelHitClient.offer(living, layout, pose, pose.x() - state.x, pose.y() - state.y, pose.z() - state.z);
+            if (!(state instanceof LivingEntityRenderState livingState)) return;
+            ModelHitClient.offer(living, layout, pose, pose.x() - state.x, pose.y() - state.y, pose.z() - state.z,
+                    livingState.bodyRot);
         } catch (RuntimeException ex) {
             ModelHitLog.event("client", "vanillate_failed", entity, () -> ex.toString());
         }

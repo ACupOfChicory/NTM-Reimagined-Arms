@@ -111,7 +111,7 @@ public final class ModelHits {
         Map<Integer, PoseAt> poses = POSES.get(target.level());
         PoseAt p = poses == null ? null : poses.get(target.getId());
         if (!usable(target, p) || !(target instanceof LivingEntity living)) return List.of();
-        double angle = Math.toRadians(Mth.wrapDegrees(living.yBodyRot - p.yaw()));
+        double angle = turnAngle(target.level().isClientSide(), living.yBodyRot, p.yaw());
         if (Math.abs(angle) > Math.PI / 3) return List.of();
         List<Vec3[]> out = new ArrayList<>();
         for (ModelBox box : p.boxes()) {
@@ -142,7 +142,7 @@ public final class ModelHits {
                             + " from=" + from + " to=" + to);
             return fallback.contains(from) ? Optional.of(from) : fallback.clip(from, to);
         }
-        double angle = Math.toRadians(Mth.wrapDegrees(living.yBodyRot - p.yaw()));
+        double angle = turnAngle(target.level().isClientSide(), living.yBodyRot, p.yaw());
         // A large turn invalidates the snapshot; the next rendered pose supplies head and limb rotations again.
         if (Math.abs(angle) > Math.PI / 3) {
             if (!from.equals(to)) ModelHitLog.event(target.level().isClientSide() ? "client" : "server", "turn_fallback", target,
@@ -167,6 +167,13 @@ public final class ModelHits {
         if (TestLog.on(target.level()) && !from.equals(to)) TestLog.at(target.level(), -1, "model_hit", "target", target.getId(),
                 "part", part, "result", Double.isFinite(nearest) ? "hit" : "miss", "age", target.level().getGameTime() - p.tick());
         return Double.isFinite(nearest) ? Optional.of(from.lerp(to, nearest)) : Optional.empty();
+    }
+
+    // На клиенте коробки уже имеют ровно тот поворот, с которым модель нарисована.
+    // Доворот к следующему игровому тику ломает интерполяцию и вызывает скачки к AABB.
+    // Сервер же доворачивает полученную по сети позу к своему текущему тику.
+    static double turnAngle(boolean client, float currentYaw, float capturedYaw) {
+        return client ? 0 : Math.toRadians(Mth.wrapDegrees(currentYaw - capturedYaw));
     }
 
     private static Vec3 unturn(Vec3 p, double angle) {

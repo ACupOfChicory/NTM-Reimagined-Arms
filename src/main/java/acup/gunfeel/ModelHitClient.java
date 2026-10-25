@@ -34,9 +34,9 @@ public final class ModelHitClient {
     public static boolean enabled() { return enabled; }
 
     // Вызывается с рабочих потоков. Снимок и его массивы неизменяемы; в очереди остаётся только последний.
-    public static void offer(LivingEntity entity, ModelPoseLayout layout, VanillatePose.Data pose, double x, double y, double z) {
+    public static void offer(LivingEntity entity, ModelPoseLayout layout, VanillatePose.Data pose, double x, double y, double z, float yaw) {
         if (!enabled || READY.size() >= 512 && !READY.containsKey(entity.getUUID())) return;
-        READY.put(entity.getUUID(), new Ready(entity, layout, pose, x, y, z, entity.yBodyRot));
+        READY.put(entity.getUUID(), new Ready(entity, layout, pose, x, y, z, yaw));
         ModelHitLog.count("client", "flywheel_pose");
     }
 
@@ -78,7 +78,7 @@ public final class ModelHitClient {
         var camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
         var result = ModelPoseCapture.collect(model.root(), pose, camera.x - state.x, camera.y - state.y,
                 camera.z - state.z, ModelTextureMask.parts(info.gunfeel$texture()));
-        if (result.complete()) publish(entity, entity.yBodyRot, result.boxes(), "vanilla_prepared");
+        if (result.complete()) publish(entity, state.bodyRot, result.boxes(), "vanilla_prepared");
         frameNanos += System.nanoTime() - started;
     }
 

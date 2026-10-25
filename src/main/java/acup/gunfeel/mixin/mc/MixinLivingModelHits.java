@@ -29,6 +29,8 @@ public abstract class MixinLivingModelHits<T extends LivingEntity, S extends Liv
 
     @Inject(method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V", at = @At("HEAD"))
     private void gunfeel$primary(S state, PoseStack stack, SubmitNodeCollector collector, CameraRenderState camera, CallbackInfo ci) {
-        ((ModelHitState) state).gunfeel$primary(model, getTextureLocation(state));
+        // GuiEntityRenderer использует новую, неинициализированную камеру: его
+        // повёрнутый портрет не должен заменять боевую позу настоящего игрока.
+        ((ModelHitState) state).gunfeel$primary(camera.initialized ? model : null, getTextureLocation(state));
     }
 }
