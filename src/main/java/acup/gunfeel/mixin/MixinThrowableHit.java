@@ -26,6 +26,12 @@ import net.minecraft.world.phys.Vec3;
 @Mixin(value = EntityThrowableNT.class, remap = false)
 public abstract class MixinThrowableHit {
     @Redirect(method = "tick", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/world/level/Level;getEntities(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/AABB;)Ljava/util/List;"))
+    private java.util.List<net.minecraft.world.entity.Entity> gunfeel$modelCandidates(Level level, net.minecraft.world.entity.Entity except, AABB area) {
+        return acup.gunfeel.ModelHits.candidates(level, except, level.getEntities(except, area), area, e -> true);
+    }
+
+    @Redirect(method = "tick", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/phys/AABB;clip(Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;)Ljava/util/Optional;"))
     private Optional<Vec3> gunfeel$clip(AABB box, Vec3 from, Vec3 to) {
         if (!((Object) this instanceof EntityBulletBaseMK4)) return box.clip(from, to);

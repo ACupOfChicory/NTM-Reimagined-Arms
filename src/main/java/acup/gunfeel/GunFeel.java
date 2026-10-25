@@ -58,6 +58,7 @@ public final class GunFeel {
             if (Feature.TRACERS.on()) Tracers.afterOpaqueFeatures(e);
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> {
+            ModelHitClient.clear();
             CompatClient.leave();
             if (Feature.TRACERS.on()) Tracers.clear();
         });

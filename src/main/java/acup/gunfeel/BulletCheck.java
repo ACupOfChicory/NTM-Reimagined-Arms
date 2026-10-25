@@ -257,8 +257,106 @@ public final class BulletCheck {
         s = expect("path through: stone is flown through", Want.PASS, single("minecraft:stone"), .5, .5, 30F);
         check("path through: the stone stays", "minecraft:stone", s.after);
 
+        modelHits();
         lines.add(ok ? "ALL OK" : "SOME FAILED");
         return ok;
+    }
+
+    private static void modelHits() {
+        var g = net.minecraft.world.entity.EntityTypes.IRON_GOLEM.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        g.setPos(20, 170, 20);
+        g.setNoAi(true);
+        g.setNoGravity(true);
+        g.yBodyRot = 0;
+        level.addFreshEntity(g);
+        var origin = g.position();
+        java.util.List<ModelBox> boxes = java.util.List.of(
+                new ModelBox("left_leg", -.4, 0, -.1, .2, 0, 0, 0, 1, 0, 0, 0, .2),
+                new ModelBox("right_leg", .2, 0, -.1, .2, 0, 0, 0, 1, 0, 0, 0, .2),
+                new ModelBox("body", -.4, 1, -.2, .8, 0, 0, 0, 1, 0, 0, 0, .4),
+                new ModelBox("wing", 2, 1.5, -.1, .5, 0, 0, 0, .3, 0, 0, 0, .2));
+        ModelHits.put(level, g, 0, boxes);
+        var gap = origin.add(0, .5, -3);
+        var gapEnd = gap.add(0, 0, 6);
+        var leg = origin.add(.3, .5, -3);
+        var legEnd = leg.add(0, 0, 6);
+        var original = new net.minecraft.world.phys.AABB(g.getX() - g.getBbWidth() / 2, g.getY(), g.getZ() - g.getBbWidth() / 2,
+                g.getX() + g.getBbWidth() / 2, g.getY() + g.getBbHeight(), g.getZ() + g.getBbWidth() / 2);
+        check("model: real entity returns model-aware box", true, g.getBoundingBox() instanceof ModelAABB);
+        check("model: movement dimensions unchanged", original.getSize(), g.getBoundingBox().getSize());
+        check("model: gap stays a miss after NTM inflation", true, g.getBoundingBox().inflate(.3).clip(gap, gapEnd).isEmpty());
+        check("model: leg hit after vanilla scalar inflation", true, g.getBoundingBox().inflate(.3).clip(leg, legEnd).isPresent());
+        check("model: a point between legs is outside", false, g.getBoundingBox().contains(origin.add(0, .5, 0)));
+        check("model: a point inside leg is inside", true, g.getBoundingBox().contains(origin.add(.3, .5, 0)));
+        g.yBodyRot = 45;
+        check("model: body turn rotates a limb with the entity", true, g.getBoundingBox().clip(
+                leg.subtract(origin).yRot(-(float) Math.PI / 4).add(origin),
+                legEnd.subtract(origin).yRot(-(float) Math.PI / 4).add(origin)).isPresent());
+        check("model: body turn preserves gap", true, g.getBoundingBox().clip(
+                gap.subtract(origin).yRot(-(float) Math.PI / 4).add(origin),
+                gapEnd.subtract(origin).yRot(-(float) Math.PI / 4).add(origin)).isEmpty());
+        g.yBodyRot = 0;
+        java.util.function.Predicate<net.minecraft.world.entity.Entity> filter = e -> e == g;
+        check("model: vanilla projectile misses gap", true,
+                net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(level, (net.minecraft.world.entity.Entity) null,
+                        gap, gapEnd, new net.minecraft.world.phys.AABB(gap, gapEnd).inflate(1), filter, .3F) == null);
+        check("model: vanilla projectile hits leg", true,
+                net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(level, (net.minecraft.world.entity.Entity) null,
+                        leg, legEnd, new net.minecraft.world.phys.AABB(leg, legEnd).inflate(1), filter, .3F) != null);
+        var wing = origin.add(2.2, 1.6, -3);
+        var wingEnd = wing.add(0, 0, 6);
+        check("model: vanilla query finds part outside vanilla box", true,
+                net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(level, (net.minecraft.world.entity.Entity) null,
+                        wing, wingEnd, new net.minecraft.world.phys.AABB(wing, wingEnd).inflate(.1), filter, .3F) != null);
+        var shooter = net.minecraft.world.entity.EntityTypes.IRON_GOLEM.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        shooter.setPos(origin.add(0, 0, -5));
+        check("model: melee pick misses gap", true,
+                net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(shooter, gap, gapEnd,
+                        new net.minecraft.world.phys.AABB(gap, gapEnd).inflate(1), filter, 36) == null);
+        check("model: melee pick hits leg", true,
+                net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(shooter, leg, legEnd,
+                        new net.minecraft.world.phys.AABB(leg, legEnd).inflate(1), filter, 36) != null);
+        var du = com.hbm.items.weapon.sedna.factory.XFactory50.bmg50_du;
+        for (int i = 0; i < 2; i++) {
+            var arrow = net.minecraft.world.entity.EntityTypes.ARROW.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            arrow.setPos(i == 0 ? gap : leg);
+            arrow.shoot(0, 0, 1, 6, 0);
+            g.invulnerableTime = 0;
+            float before = g.getHealth();
+            arrow.tick();
+            check("model: real vanilla arrow " + (i == 0 ? "misses gap" : "hits leg"), i != 0, g.getHealth() < before);
+            arrow.discard();
+        }
+        for (int i = 0; i < 2; i++) {
+            var start = i == 0 ? gap : leg;
+            var bullet = new EntityBulletBaseMK4(level, du, 1F, 0F, 0F, 0F);
+            bullet.setPos(start);
+            bullet.setThrowableHeading(0, 0, 1, du.velocity, 0F);
+            bullet.damage = 10;
+            g.invulnerableTime = 0;
+            float before = g.getHealth();
+            bullet.tick();
+            check("model: NTM bullet " + (i == 0 ? "misses gap" : "hits leg"), i != 0, g.getHealth() < before);
+            bullet.discard();
+        }
+        var beamConfig = new BulletConfig().setBeam().setDamage(10).setOnBeamImpact(BulletConfig.LAMBDA_STANDARD_BEAM_HIT);
+        for (int i = 0; i < 2; i++) {
+            var start = i == 0 ? gap : leg;
+            var beam = new com.hbm.entity.projectile.EntityBulletBeamBase(level, beamConfig, 10);
+            beam.setPos(start);
+            beam.setRotationsFromVector(new net.minecraft.world.phys.Vec3(0, 0, 1));
+            g.invulnerableTime = 0;
+            float before = g.getHealth();
+            beam.performHitscanExternal(6);
+            check("model: NTM beam " + (i == 0 ? "misses gap" : "hits leg"), i != 0, g.getHealth() < before);
+            beam.discard();
+        }
+        g.setPos(origin.add(30, 0, 0));
+        check("model: teleport invalidates old pose", true, g.getBoundingBox().clip(gap.add(30, 0, 0), gapEnd.add(30, 0, 0)).isPresent());
+        ModelHits.clear(level);
+        check("model: missing pose uses original hitbox", true, g.getBoundingBox().clip(gap.add(30, 0, 0), gapEnd.add(30, 0, 0)).isPresent());
+        g.discard();
+        shooter.discard();
     }
 
     // what a bullet should do at the block: fly on untouched, go through with less damage, stop in it, or any of the

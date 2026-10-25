@@ -3,7 +3,8 @@
   "minVersion": "0.8",
   "package": "acup.gunfeel.mixin.mc",
   "compatibilityLevel": "JAVA_21",
+  "mixins": ["MixinEntityModelBox", "MixinProjectileModelQuery"],
   "client": ["MixinSubmitNodeCollection", "MixinItemInHandRenderer", "MixinParticleEngine", "MixinParticlesSubmit", "MixinFlywheelFrame",
-    "MixinMouseTurn", "KeyMappingAccess", "GuiGraphicsAccess"],
+    "MixinMouseTurn", "KeyMappingAccess", "GuiGraphicsAccess", "ModelPartAccess", "MixinLivingModelHits"],
   "injectors": { "defaultRequire": 1 }
 }

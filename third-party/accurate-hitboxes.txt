@@ -1,0 +1,31 @@
+Countered's Accurate Hitboxes, автор Countered
+https://modrinth.com/mod/countereds-accurate-hitboxes
+Разобрана версия: accurate_hitboxes-neoforge-2.0.0.jar (Minecraft 26.2)
+SHA-512: 9647170c700d4f89e66e0e1ec8d1b7518daaa65ad48e86957097443202eeb08a4fd33315ccac64b5d5354c0b3141b5b6c8df50a416aba3b15dbf0e56efe72ee3
+
+ModelBox, ModelHitClient, ModelPartAccess и MixinLivingModelHits адаптируют
+подход из ModelOBB и LivingEntityRendererMixin этого мода. В исходном jar
+нет файла лицензии или уведомления об авторских правах; автор указал MIT
+в метаданных проекта Modrinth. Автор заимствованных частей: Countered.
+
+Остальной код NTM Reimagined Arms остаётся под GPL-3.0-or-later.
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.

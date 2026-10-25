@@ -10,7 +10,7 @@ import java.util.List;
 public enum Feature {
     CORE("core", List.of(), List.of("GunFeel", "GunFeelMod", "Config", "GunDump", "BlockDump")),
     HOLD_AIM("hold_aim", List.of("MixinHoldAim"), List.of("ReaimCommand", "ReaimTimes")),
-    BULLETS("bullets", List.of("MixinBulletServer", "MixinThrowableHit"),
+    BULLETS("bullets", List.of("MixinBulletServer", "MixinThrowableHit", "MixinBeamModelQuery"),
             List.of("BulletServer", "PassableClip", "Cells", "Structures", "BulletFx", "BulletRules")),
     RICOCHET_SOUND("ricochet_sound", List.of("MixinRicochetSound"), List.of()),
     SPREAD("spread", List.of("MixinLegoSpread"), List.of("Spread")),

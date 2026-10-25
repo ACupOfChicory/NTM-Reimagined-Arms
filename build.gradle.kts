@@ -38,7 +38,10 @@ val (modVersion, displayVersion, jarVersion) = if (portBase != null) {
     else Triple("$n+mc$mcVersion", "X$n", "X$n-mc$mcVersion")
 }
 version = modVersion
-tasks.jar { archiveVersion = jarVersion }
+tasks.jar {
+    archiveVersion = jarVersion
+    from(root.resolve("third-party")) { into("META-INF/licenses") }
+}
 base.archivesName = "reimagined-arms"
 
 tasks.processResources {

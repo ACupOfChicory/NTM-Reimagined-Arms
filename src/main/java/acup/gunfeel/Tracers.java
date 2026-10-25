@@ -541,7 +541,8 @@ public final class Tracers {
         double hitEntity = Double.NaN;
         if (len > 1e-6) {
             AABB area = new AABB(ra, rb).inflate(1.0);
-            for (Entity e : level.getEntities((Entity) null, area, e -> e.isPickable() && e.isAlive() && e.getId() != s.owner && !(e instanceof net.minecraft.world.entity.projectile.Projectile))) {
+            java.util.function.Predicate<Entity> filter = e -> e.isPickable() && e.isAlive() && e.getId() != s.owner && !(e instanceof net.minecraft.world.entity.projectile.Projectile);
+            for (Entity e : ModelHits.candidates(level, null, level.getEntities((Entity) null, area, filter), area, filter)) {
                 var hit = e.getBoundingBox().inflate(0.3).clip(ra, rb);
                 if (hit.isPresent()) {
                     double d = hit.get().distanceTo(ra);
