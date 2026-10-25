@@ -14,16 +14,18 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Заменяем только общую коробку. Линия взгляда, высота глаз и прочая диагностика ванили остаются.
+// Точные части заменяют общую коробку и красную полосу глаз. Направление взгляда остаётся.
 @Mixin(EntityHitboxDebugRenderer.class)
 public abstract class MixinModelHitboxDebug {
     @Unique private Entity gunfeel$entity;
     @Unique private float gunfeel$partial;
+    @Unique private GizmoProperties gunfeel$modelOutline;
 
     @Inject(method = "showHitboxes", at = @At("HEAD"))
     private void gunfeel$target(Entity entity, float partial, boolean server, CallbackInfo ci) {
         gunfeel$entity = entity;
         gunfeel$partial = partial;
+        gunfeel$modelOutline = null;
     }
 
     @Redirect(method = "showHitboxes", at = @At(value = "INVOKE", ordinal = 0,
@@ -35,14 +37,22 @@ public abstract class MixinModelHitboxDebug {
         GizmoProperties first = null;
         for (var corners : parts) for (int i = 0; i < 8; i++) for (int axis = 1; axis <= 4; axis <<= 1) {
             if ((i & axis) != 0) continue;
-            var line = Gizmos.line(corners[i].add(offset), corners[i | axis].add(offset), 0xFFFFAA55);
+            var line = Gizmos.line(corners[i].add(offset), corners[i | axis].add(offset), 0xFFFFCC55, 3.5F).setAlwaysOnTop();
             if (first == null) first = line;
         }
+        gunfeel$modelOutline = first;
         return first;
+    }
+
+    @Redirect(method = "showHitboxes", at = @At(value = "INVOKE", ordinal = 2,
+            target = "Lnet/minecraft/gizmos/Gizmos;cuboid(Lnet/minecraft/world/phys/AABB;Lnet/minecraft/gizmos/GizmoStyle;)Lnet/minecraft/gizmos/GizmoProperties;"))
+    private GizmoProperties gunfeel$hideEyeStrip(AABB original, GizmoStyle style) {
+        return gunfeel$modelOutline != null ? gunfeel$modelOutline : Gizmos.cuboid(original, style);
     }
 
     @Inject(method = "showHitboxes", at = @At("RETURN"))
     private void gunfeel$clear(Entity entity, float partial, boolean server, CallbackInfo ci) {
         gunfeel$entity = null;
+        gunfeel$modelOutline = null;
     }
 }
