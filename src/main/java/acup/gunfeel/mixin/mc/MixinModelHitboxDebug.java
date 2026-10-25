@@ -35,7 +35,7 @@ public abstract class MixinModelHitboxDebug {
         GizmoProperties first = null;
         for (var corners : parts) for (int i = 0; i < 8; i++) for (int axis = 1; axis <= 4; axis <<= 1) {
             if ((i & axis) != 0) continue;
-            var line = Gizmos.line(corners[i].add(offset), corners[i | axis].add(offset), 0xFF00FF00);
+            var line = Gizmos.line(corners[i].add(offset), corners[i | axis].add(offset), 0xFFFFAA55);
             if (first == null) first = line;
         }
         return first;

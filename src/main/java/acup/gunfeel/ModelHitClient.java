@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
@@ -32,6 +33,7 @@ public final class ModelHitClient {
     private ModelHitClient() {}
 
     public static boolean enabled() { return enabled; }
+    public static void captureCost(long nanos) { frameNanos += nanos; }
 
     // Вызывается с рабочих потоков. Снимок и его массивы неизменяемы; в очереди остаётся только последний.
     public static void offer(LivingEntity entity, ModelPoseLayout layout, VanillatePose.Data pose, double x, double y, double z, float yaw) {
@@ -52,6 +54,7 @@ public final class ModelHitClient {
         if (now >= nextCheck) { enabled = ModelHits.enabled(); nextCheck = now + 1000; }
         if (!enabled) return;
         long started = System.nanoTime();
+        NtmMeshHits.flush();
         for (var entry : READY.entrySet()) if (READY.remove(entry.getKey(), entry.getValue())) {
             Ready ready = entry.getValue();
             LivingEntity entity = ready.entity();
@@ -67,7 +70,7 @@ public final class ModelHitClient {
 
     // Обычная отрисовка: модель уже прошла setupAnim. Забираем только основную модель, без брони и слоёв.
     public static void rendered(ModelFeatureRenderer.Submit<?> submit) {
-        if (!enabled || !(submit.state() instanceof LivingEntityRenderState state)
+        if (!enabled || !(submit.state() instanceof EntityRenderState state)
                 || !(state instanceof ModelHitState info) || info.gunfeel$primary() != submit.model()
                 || !(submit.model() instanceof EntityModel<?> model)) return;
         LivingEntity entity = info.gunfeel$target();
@@ -78,17 +81,19 @@ public final class ModelHitClient {
         var camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
         var result = ModelPoseCapture.collect(model.root(), pose, camera.x - state.x, camera.y - state.y,
                 camera.z - state.z, ModelTextureMask.parts(info.gunfeel$texture()));
-        if (result.complete()) publish(entity, state.bodyRot, result.boxes(), "vanilla_prepared");
+        float yaw = state instanceof LivingEntityRenderState living ? living.bodyRot
+                : net.minecraft.util.Mth.rotLerp(state.partialTick, entity.yBodyRotO, entity.yBodyRot);
+        if (result.complete()) publish(entity, yaw, result.boxes(), "vanilla_prepared");
         frameNanos += System.nanoTime() - started;
     }
 
-    private static boolean eligible(LivingEntity entity) {
+    public static boolean eligible(LivingEntity entity) {
         var mc = Minecraft.getInstance();
         return entity.level() == level && entity.isAlive() && mc.player != null
                 && entity.distanceToSqr(mc.player) <= ModelHits.RANGE * ModelHits.RANGE;
     }
 
-    private static void publish(LivingEntity entity, float yaw, List<ModelBox> boxes, String source) {
+    public static void publish(LivingEntity entity, float yaw, List<ModelBox> boxes, String source) {
         if (boxes.isEmpty() || boxes.size() > ModelPosePayload.MAX_BOXES
                 || boxes.stream().anyMatch(b -> !b.valid(ModelHits.radius(entity)))) {
             ModelHitLog.event("client", "capture_rejected", entity, () -> "source=" + source + " cubes=" + boxes.size());
@@ -137,6 +142,7 @@ public final class ModelHitClient {
     public static void clear() {
         if (level != null) ModelHits.clear(level);
         READY.clear(); SENT.clear(); SYNC.clear(); ModelTextureMask.clear();
+        NtmMeshHits.clear();
         level = null;
         nextCheck = 0;
         sendPeriod = Long.MIN_VALUE;

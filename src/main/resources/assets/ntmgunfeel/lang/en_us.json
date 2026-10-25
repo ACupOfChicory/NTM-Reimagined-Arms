@@ -8,6 +8,7 @@
   "ntmgunfeel.ammo.head": "Head",
   "ntmgunfeel.ammo.armor": "vs T-51",
   "ntmgunfeel.feature.core": "Whole mod",
+  "ntmgunfeel.feature.model_hitboxes": "Mob model hitboxes",
   "ntmgunfeel.feature.hold_aim": "Hold to aim",
   "ntmgunfeel.feature.bullets": "Bullets through blocks",
   "ntmgunfeel.feature.ricochet_sound": "Ricochet sound",

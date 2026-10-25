@@ -6,6 +6,7 @@
   "mixins": ["MixinEntityModelBox", "MixinProjectileModelQuery"],
   "client": ["MixinSubmitNodeCollection", "MixinItemInHandRenderer", "MixinParticleEngine", "MixinParticlesSubmit", "MixinFlywheelFrame",
     "MixinMouseTurn", "KeyMappingAccess", "GuiGraphicsAccess", "ModelPartAccess", "MixinLivingModelHits", "MixinModelHitboxDebug",
-    "MixinModelHitState", "MixinPreparedModelHit", "MixinVanillateModelHit", "VanillateEntityAccess"],
+    "MixinModelHitState", "MixinPreparedModelHit", "MixinVanillateModelHit", "VanillateEntityAccess",
+    "MixinEntityModelHitState", "MixinEntityMeshHits"],
   "injectors": { "defaultRequire": 1 }
 }

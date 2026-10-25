@@ -26,7 +26,7 @@ public final class ModelHits {
     private ModelHits() {}
 
     public static boolean enabled() {
-        return ReaimTimes.flag("modelHitboxes", true);
+        return acup.gunfeel.compat.Feature.MODEL_HITBOXES.on() && ReaimTimes.flag("modelHitboxes", true);
     }
 
     public static synchronized void receive(ServerPlayer observer, ModelPosePayload p) {

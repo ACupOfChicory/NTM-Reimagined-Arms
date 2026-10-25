@@ -359,6 +359,33 @@ public final class BulletCheck {
         check("model: missing pose uses original hitbox", true, g.getBoundingBox().clip(gap.add(30, 0, 0), gapEnd.add(30, 0, 0)).isPresent());
         g.discard();
         shooter.discard();
+        maskmanModelHits();
+    }
+
+    private static void maskmanModelHits() {
+        var maskman = com.hbm.entity.ModEntities.MASK_MAN.get().create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        maskman.setPos(35, 170, 35);
+        maskman.setNoAi(true);
+        maskman.setNoGravity(true);
+        maskman.yBodyRot = 0;
+        level.addFreshEntity(maskman);
+        var origin = maskman.position();
+        // Контрольный снимок: узкое тело и рука за пределами исходной коробки шириной 2.
+        ModelHits.put(level, maskman, 0, java.util.List.of(
+                new ModelBox("body", -.4, 1, -.2, .8, 0, 0, 0, 3, 0, 0, 0, .4),
+                new ModelBox("arm", 1.1, 2, -.1, .3, 0, 0, 0, 1, 0, 0, 0, .2)));
+        var empty = origin.add(.7, 2.5, -3);
+        check("maskman: no invisible 0.3 expansion beside body", true,
+                maskman.getBoundingBox().inflate(.3).clip(empty, empty.add(0, 0, 6)).isEmpty());
+        var arm = origin.add(1.25, 2.5, -3);
+        check("maskman: arm beyond vanilla width is hit", true,
+                maskman.getBoundingBox().clip(arm, arm.add(0, 0, 6)).isPresent());
+        check("maskman: arrow query finds protruding arm", true,
+                net.minecraft.world.entity.projectile.ProjectileUtil.getEntityHitResult(level, (net.minecraft.world.entity.Entity) null,
+                        arm, arm.add(0, 0, 6), new net.minecraft.world.phys.AABB(arm, arm.add(0, 0, 6)).inflate(.01),
+                        e -> e == maskman, .3F) != null);
+        check("maskman: debug uses model parts", 2, ModelHits.outlines(maskman).size());
+        maskman.discard();
     }
 
     // what a bullet should do at the block: fly on untouched, go through with less damage, stop in it, or any of the

@@ -22,11 +22,6 @@ public abstract class MixinLivingModelHits<T extends LivingEntity, S extends Liv
     @Shadow protected M model;
     @Shadow public abstract Identifier getTextureLocation(S state);
 
-    @Inject(method = "extractRenderState(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;F)V", at = @At("TAIL"))
-    private void gunfeel$target(T entity, S state, float partialTick, CallbackInfo ci) {
-        ((ModelHitState) state).gunfeel$target(entity);
-    }
-
     @Inject(method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V", at = @At("HEAD"))
     private void gunfeel$primary(S state, PoseStack stack, SubmitNodeCollector collector, CameraRenderState camera, CallbackInfo ci) {
         // GuiEntityRenderer использует новую, неинициализированную камеру: его

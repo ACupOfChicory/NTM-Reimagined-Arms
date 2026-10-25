@@ -9,6 +9,7 @@ import java.util.List;
 // ntmgunfeel.feature.<id> in ru_ru and en_us.
 public enum Feature {
     CORE("core", List.of(), List.of("GunFeel", "GunFeelMod", "Config", "GunDump", "BlockDump")),
+    MODEL_HITBOXES("model_hitboxes", List.of("MixinNtmMeshHits", "GlyphidGeometryAccess", "MixinGlyphidModelHits"), List.of("NtmMeshHits")),
     HOLD_AIM("hold_aim", List.of("MixinHoldAim"), List.of("ReaimCommand", "ReaimTimes")),
     BULLETS("bullets", List.of("MixinBulletServer", "MixinThrowableHit", "MixinBeamModelQuery"),
             List.of("BulletServer", "PassableClip", "Cells", "Structures", "BulletFx", "BulletRules")),

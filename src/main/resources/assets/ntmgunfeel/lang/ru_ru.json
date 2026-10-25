@@ -8,6 +8,7 @@
   "ntmgunfeel.ammo.head": "В голову",
   "ntmgunfeel.ammo.armor": "По T-51",
   "ntmgunfeel.feature.core": "Весь мод",
+  "ntmgunfeel.feature.model_hitboxes": "Хитбоксы моделей мобов",
   "ntmgunfeel.feature.hold_aim": "Прицел по удержанию",
   "ntmgunfeel.feature.bullets": "Пули сквозь блоки",
   "ntmgunfeel.feature.ricochet_sound": "Звук рикошета",
