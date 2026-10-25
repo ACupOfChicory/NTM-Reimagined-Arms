@@ -31,8 +31,20 @@ public final class ModelHitClient {
     private static long period = Long.MIN_VALUE, nextCheck;
     private static int budget;
     private static boolean active;
+    private static long nextDiagnostic;
 
     private ModelHitClient() {}
+
+    public static void diagnostics() {
+        if (Minecraft.getInstance().level == null) return;
+        long now = System.currentTimeMillis();
+        if (now < nextDiagnostic) return;
+        nextDiagnostic = now + 5000;
+        org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").info(
+                "[modeldebug] client heartbeat enabled={} tick={} seen={} selected={} bound_states={} counters={} integrated_server={}",
+                ModelHits.enabled(), Minecraft.getInstance().level.getGameTime(), SEEN.size(), SELECTED.size(), ENTITIES.size(),
+                ModelHitLog.counts("client"), Minecraft.getInstance().getSingleplayerServer() == null ? "remote" : ModelHitLog.counts("server"));
+    }
 
     public static void clear() {
         if (level != null) ModelHits.clear(level);
@@ -58,19 +70,28 @@ public final class ModelHitClient {
     }
 
     public static void attach(LivingEntity entity, LivingEntityRenderState state) {
+        ModelHitLog.count("client", "attach_called");
         if (active()) {
             ENTITIES.put(state, new java.lang.ref.WeakReference<>(entity));
             SEEN.put(entity, level.getGameTime());
+            ModelHitLog.event("client", "attached", entity, () -> "state=" + System.identityHashCode(state)
+                    + " class=" + state.getClass().getName());
         }
     }
 
     public static <S extends LivingEntityRenderState> void capture(EntityModel<? super S> model, S state,
             PoseStack stack, CameraRenderState camera) {
-        if (!active()) return;
+        ModelHitLog.count("client", "submit_called");
+        if (!active()) { ModelHitLog.count("client", "inactive"); return; }
         var ref = ENTITIES.get(state);
         LivingEntity entity = ref == null ? null : ref.get();
         Minecraft mc = Minecraft.getInstance();
-        if (entity == null || !entity.isAlive() || entity.distanceToSqr(mc.player) > ModelHits.RANGE * ModelHits.RANGE) return;
+        if (entity == null || !entity.isAlive() || entity.distanceToSqr(mc.player) > ModelHits.RANGE * ModelHits.RANGE) {
+            ModelHitLog.event("client", "target_rejected", entity, () -> "state=" + System.identityHashCode(state)
+                    + " class=" + state.getClass().getName() + " alive=" + (entity != null && entity.isAlive())
+                    + " distance2=" + (entity == null ? -1 : entity.distanceToSqr(mc.player)));
+            return;
+        }
         long tick = level.getGameTime();
         if (tick / ModelHits.INTERVAL != period) {
             period = tick / ModelHits.INTERVAL;
@@ -84,7 +105,11 @@ public final class ModelHitClient {
                             .thenComparingDouble(e -> e.distanceToSqr(mc.player)))
                     .limit(ModelHits.MAX_UPDATES).forEach(SELECTED::add);
         }
-        if (!SELECTED.contains(entity) || budget <= 0 || tick - CAPTURED.getOrDefault(entity, Long.MIN_VALUE / 2) < ModelHits.INTERVAL) return;
+        if (!SELECTED.contains(entity) || budget <= 0 || tick - CAPTURED.getOrDefault(entity, Long.MIN_VALUE / 2) < ModelHits.INTERVAL) {
+            ModelHitLog.count("client", "throttled");
+            return;
+        }
+        ModelHitLog.count("client", "capture_attempt");
         CAPTURED.put(entity, tick);
         budget--;
         // submit defers setupAnim with the draw command on entities without layers; explicitly apply this state
@@ -94,10 +119,19 @@ public final class ModelHitClient {
         int[] nodes = {0};
         boolean complete = traverse("root", model.root(), stack, camera.pos.x - state.x, camera.pos.y - state.y,
                 camera.pos.z - state.z, boxes, nodes, 0);
-        if (!complete || boxes.isEmpty() || boxes.stream().anyMatch(b -> !b.valid(ModelHits.radius(entity)))) return;
+        if (!complete || boxes.isEmpty() || boxes.stream().anyMatch(b -> !b.valid(ModelHits.radius(entity)))) {
+            ModelHitLog.event("client", "capture_rejected", entity, () -> "model=" + model.getClass().getName()
+                    + " complete=" + complete + " nodes=" + nodes[0] + " cubes=" + boxes.size()
+                    + " radius=" + ModelHits.radius(entity) + " entity_pos=" + entity.position()
+                    + " state_pos=" + state.x + "," + state.y + "," + state.z + " camera=" + camera.pos
+                    + " invalid_cube=" + boxes.stream().filter(b -> !b.valid(ModelHits.radius(entity))).findFirst().orElse(null));
+            return;
+        }
         ModelHits.put(level, entity, entity.yBodyRot, boxes);
         ClientPacketDistributor.sendToServer(new ModelPosePayload(entity.getId(), entity.getUUID(), entity.getX(), entity.getY(),
                 entity.getZ(), entity.yBodyRot, boxes));
+        ModelHitLog.event("client", "sent", entity, () -> "cubes=" + boxes.size() + " model=" + model.getClass().getName()
+                + " tick=" + tick + " yaw=" + entity.yBodyRot + " first_cube=" + boxes.getFirst());
     }
 
     private static boolean traverse(String name, ModelPart part, PoseStack stack, double x, double y, double z,

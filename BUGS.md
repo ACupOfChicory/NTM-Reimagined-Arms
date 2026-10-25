@@ -5,6 +5,15 @@ leave the game exactly as it is.
 
 ## Open
 
+### X301: обычный скелет сохраняет прежние попадания; нет зелёной обводки
+
+Сообщено 2026-10-25. В инстансе подтверждена загрузка X301. Причина отсутствия
+эффекта на скелете ещё не установлена: тесты выделенного сервера использовали
+заранее заданную позу, а захват реальной клиентской модели не был проверен.
+Зелёная отладочная обводка Countered's в X301 не перенесена. По просьбе
+пользователя X302 добавляет только подробное логирование всей цепочки;
+исправление поведения и обводка пока не сделаны.
+
 ### Reload: about four times slower with the inventory open (unconfirmed)
 Seen by the user, 2026-10-23: a reload started and the inventory opened, the reload seemed to slow down about four
 times. Not found in the code: NTM counts the reload on the server by ticks (`ItemGunBaseNT.inventoryTick`), which an

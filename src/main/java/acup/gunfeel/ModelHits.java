@@ -30,19 +30,41 @@ public final class ModelHits {
     }
 
     public static synchronized void receive(ServerPlayer observer, ModelPosePayload p) {
-        if (!enabled()) return;
+        ModelHitLog.count("server", "packet_received");
+        if (!enabled()) {
+            ModelHitLog.event("server", "disabled", observer, () -> "packet_entity=" + p.entity());
+            return;
+        }
         long tick = observer.level().getGameTime();
         long[] rate = LIMITS.computeIfAbsent(observer, k -> new long[] {tick / INTERVAL, 0});
         if (rate[0] != tick / INTERVAL) { rate[0] = tick / INTERVAL; rate[1] = 0; }
-        if (++rate[1] > MAX_UPDATES * 2) return;
+        if (++rate[1] > MAX_UPDATES * 2) {
+            ModelHitLog.event("server", "rate_rejected", observer, () -> "packets=" + rate[1] + " tick=" + tick);
+            return;
+        }
         Entity target = observer.level().getEntity(p.entity());
         if (!(target instanceof LivingEntity living) || !target.isAlive() || !target.getUUID().equals(p.uuid())
                 || observer.distanceToSqr(target) > RANGE * RANGE || !Double.isFinite(p.x()) || !Double.isFinite(p.y())
                 || !Double.isFinite(p.z()) || !Float.isFinite(p.yaw()) || target.position().distanceToSqr(new Vec3(p.x(), p.y(), p.z())) > 16
-                || p.boxes().isEmpty() || p.boxes().size() > ModelPosePayload.MAX_BOXES) return;
+                || p.boxes().isEmpty() || p.boxes().size() > ModelPosePayload.MAX_BOXES) {
+            ModelHitLog.event("server", "target_rejected", target, () -> "observer=" + observer.getId()
+                    + " packet_entity=" + p.entity() + " packet_uuid=" + p.uuid()
+                    + " target_uuid=" + (target == null ? null : target.getUUID())
+                    + " alive=" + (target != null && target.isAlive())
+                    + " distance2=" + (target == null ? -1 : observer.distanceToSqr(target))
+                    + " packet_pos=" + p.x() + "," + p.y() + "," + p.z()
+                    + " target_pos=" + (target == null ? null : target.position()) + " yaw=" + p.yaw() + " cubes=" + p.boxes().size());
+            return;
+        }
         double radius = radius(target);
-        if (p.boxes().stream().anyMatch(b -> !b.valid(radius))) return;
+        if (p.boxes().stream().anyMatch(b -> !b.valid(radius))) {
+            ModelHitLog.event("server", "geometry_rejected", target, () -> "radius=" + radius + " invalid_cube="
+                    + p.boxes().stream().filter(b -> !b.valid(radius)).findFirst().orElse(null));
+            return;
+        }
         put(observer.level(), living, p.yaw(), p.boxes());
+        ModelHitLog.event("server", "accepted", living, () -> "observer=" + observer.getId() + " cubes=" + p.boxes().size()
+                + " tick=" + tick + " first_cube=" + p.boxes().getFirst());
     }
 
     public static double radius(Entity target) {
@@ -85,17 +107,37 @@ public final class ModelHits {
                 && target.position().distanceToSqr(p.position()) <= 16 && p.pose() == target.getPose()
                 && p.width() == target.getBbWidth() && p.height() == target.getBbHeight();
         if (!fresh || !(target instanceof LivingEntity living)) {
+            if (!from.equals(to)) ModelHitLog.event(target.level().isClientSide() ? "client" : "server", "clip_fallback", target,
+                    () -> "enabled=" + enabled() + " has_pose=" + (p != null) + " age=" + (p == null ? -1 : target.level().getGameTime() - p.tick())
+                            + " uuid_matches=" + (p != null && p.entity().equals(target.getUUID()))
+                            + " stored_pose=" + (p == null ? null : p.pose()) + " current_pose=" + target.getPose()
+                            + " stored_size=" + (p == null ? "none" : p.width() + "," + p.height())
+                            + " current_size=" + target.getBbWidth() + "," + target.getBbHeight()
+                            + " displacement2=" + (p == null ? -1 : target.position().distanceToSqr(p.position()))
+                            + " from=" + from + " to=" + to);
             return fallback.contains(from) ? Optional.of(from) : fallback.clip(from, to);
         }
         double angle = Math.toRadians(Mth.wrapDegrees(living.yBodyRot - p.yaw()));
         // A large turn invalidates the snapshot; the next rendered pose supplies head and limb rotations again.
-        if (Math.abs(angle) > Math.PI / 3) return fallback.contains(from) ? Optional.of(from) : fallback.clip(from, to);
+        if (Math.abs(angle) > Math.PI / 3) {
+            if (!from.equals(to)) ModelHitLog.event(target.level().isClientSide() ? "client" : "server", "turn_fallback", target,
+                    () -> "stored_yaw=" + p.yaw() + " current_yaw=" + living.yBodyRot);
+            return fallback.contains(from) ? Optional.of(from) : fallback.clip(from, to);
+        }
         Vec3 a = unturn(from.subtract(target.position()), angle), b = unturn(to.subtract(target.position()), angle);
         double nearest = Double.POSITIVE_INFINITY;
         String part = "";
         for (ModelBox box : p.boxes()) {
             double t = box.clip(a.x, a.y, a.z, b.x, b.y, b.z);
             if (t >= 0 && t < nearest) { nearest = t; part = box.part(); }
+        }
+        if (!from.equals(to)) {
+            final double at = nearest;
+            final String name = part;
+            ModelHitLog.event(target.level().isClientSide() ? "client" : "server", "clip_model", target,
+                    () -> "result=" + (Double.isFinite(at) ? "hit" : "miss") + " part=" + name + " t=" + at
+                            + " cubes=" + p.boxes().size() + " age=" + (target.level().getGameTime() - p.tick())
+                            + " from=" + from + " to=" + to);
         }
         if (TestLog.on(target.level()) && !from.equals(to)) TestLog.at(target.level(), -1, "model_hit", "target", target.getId(),
                 "part", part, "result", Double.isFinite(nearest) ? "hit" : "miss", "age", target.level().getGameTime() - p.tick());
