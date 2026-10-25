@@ -32,7 +32,10 @@ public abstract class MixinModelHitboxDebug {
             target = "Lnet/minecraft/gizmos/Gizmos;cuboid(Lnet/minecraft/world/phys/AABB;Lnet/minecraft/gizmos/GizmoStyle;)Lnet/minecraft/gizmos/GizmoProperties;"))
     private GizmoProperties gunfeel$parts(AABB original, GizmoStyle style) {
         var parts = gunfeel$entity == null ? java.util.List.<net.minecraft.world.phys.Vec3[]>of() : ModelHits.outlines(gunfeel$entity);
-        if (parts.isEmpty()) return Gizmos.cuboid(original, style);
+        if (parts.isEmpty()) {
+            acup.gunfeel.MobSmoke.debug(gunfeel$entity, false);
+            return Gizmos.cuboid(original, style);
+        }
         var offset = gunfeel$entity.getPosition(gunfeel$partial).subtract(gunfeel$entity.position());
         GizmoProperties first = null;
         for (var corners : parts) for (int i = 0; i < corners.length; i += 2) {
@@ -40,6 +43,7 @@ public abstract class MixinModelHitboxDebug {
             if (first == null) first = line;
         }
         gunfeel$modelOutline = first;
+        acup.gunfeel.MobSmoke.debug(gunfeel$entity, true);
         return first;
     }
 

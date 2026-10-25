@@ -63,6 +63,7 @@ public final class ModelHits {
             return;
         }
         put(observer.level(), living, p.yaw(), p.boxes());
+        MobSmoke.accepted(living, p.yaw(), p.boxes());
         ModelHitLog.event("server", "accepted", living, () -> "observer=" + observer.getId() + " cubes=" + p.boxes().size()
                 + " tick=" + tick + " first_cube=" + p.boxes().getFirst());
     }

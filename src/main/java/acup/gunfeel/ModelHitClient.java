@@ -101,6 +101,7 @@ public final class ModelHitClient {
             return;
         }
         ModelHits.put(level, entity, yaw, boxes);
+        MobSmoke.captured(entity, entity.yBodyRot, boxes, source);
         ModelHitLog.count("client", "local_pose");
         SYNC.put(entity.getUUID(), new Sync(entity, yaw, List.copyOf(boxes), source, level.getGameTime()));
     }

@@ -1,3 +1,5 @@
+import java.time.Duration
+
 // The mod for one Minecraft version (versions/<version>/), built by Stonecutter from the shared src/.
 // The jar came out the same as the old build.sh's (./gradlew jarDiff): keep the javac flags, add nothing to it.
 plugins {
@@ -101,6 +103,17 @@ neoForge {
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
             programArguments.addAll("--width", "854", "--height", "480")
         }
+        register("checkMobs") {
+            client()
+            gameDirectory = root.resolve("run-mob-check")
+            jvmArgument("-Xmx2500M")
+            systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("mobcheck/result.txt").get().asFile.path)
+            systemProperty("ntmgunfeel.checkMobs", "true")
+            systemProperty("MC_DEBUG_ENABLED", "true")
+            systemProperty("MC_DEBUG_PREFER_WAYLAND", "true")
+            providers.gradleProperty("mobCases").orNull?.let { systemProperty("ntmgunfeel.mobCases", it) }
+            programArguments.addAll("--width", "854", "--height", "480")
+        }
         // a dedicated server that writes what the game knows about every block (BlockDump) and stops before any
         // world: the facts the material tests run on. No client, no assets, no world generation.
         register("dumpBlocks") {
@@ -195,9 +208,12 @@ tasks.matching { it.name in checkRuns }.configureEach {
 }
 
 // Настоящий клиент использует только копию тестового мира и отдельную папку запуска.
-tasks.matching { it.name == "runCheckClient" }.configureEach {
+tasks.matching { it.name == "runCheckClient" || it.name == "runCheckMobs" }.configureEach {
+    val mobs = name == "runCheckMobs"
+    timeout.set(Duration.ofMinutes(8))
+    val result = if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {
-        val dir = root.resolve("run-client-check")
+        val dir = root.resolve(if (mobs) "run-mob-check" else "run-client-check")
         val source = root.resolve("run-bullets/world")
         require(source.resolve("level.dat").exists()) { "Сначала выполните runCheckBullets: нужен изолированный тестовый мир" }
         val world = dir.resolve("saves/gunfeel-smoke")
@@ -205,13 +221,15 @@ tasks.matching { it.name == "runCheckClient" }.configureEach {
         source.copyRecursively(world, overwrite = true)
         world.resolve("session.lock").delete()
         dir.resolve("mods").mkdirs()
+        dir.resolve("config").mkdirs()
+        dir.resolve("config/fml.toml").writeText("earlyWindowControl = false\n")
         root.resolve("libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar")
             .copyTo(dir.resolve("mods/crankshaft.jar"), overwrite = true)
-        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nrenderDistance:3\nsimulationDistance:5\nmaxFps:60\n")
-        layout.buildDirectory.file("clientcheck/result.txt").get().asFile.delete()
+        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nrenderDistance:3\nsimulationDistance:5\nmaxFps:60\n")
+        layout.buildDirectory.file(result).get().asFile.delete()
     }
     doLast {
-        val report = layout.buildDirectory.file("clientcheck/result.txt").get().asFile
+        val report = layout.buildDirectory.file(result).get().asFile
         check(report.exists() && report.readLines().lastOrNull() == "PASS клиентская проверка") {
             "Клиентская проверка не прошла: ${report.path}"
         }

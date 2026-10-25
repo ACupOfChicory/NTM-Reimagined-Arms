@@ -72,7 +72,7 @@ public final class ClientSmoke {
         frames++;
         Minecraft mc = Minecraft.getInstance();
         try {
-            if (System.nanoTime() - START > 180_000_000_000L) {
+            if (System.nanoTime() - START > (MobSmoke.enabled() ? 600_000_000_000L : 180_000_000_000L)) {
                 check(false, "таймаут клиента; экран=" + mc.gui.screen());
                 finish();
                 return;
@@ -85,6 +85,12 @@ public final class ClientSmoke {
                     finish();
                 });
             } else if (phase == 1 && mc.level != null && mc.player != null && mc.getSingleplayerServer() != null) {
+                if (MobSmoke.enabled()) {
+                    phase = 10;
+                    mc.gui.setScreen(null);
+                    MobSmoke.start();
+                    return;
+                }
                 phase = 2;
                 since = System.nanoTime();
                 prepare(20);
@@ -126,6 +132,7 @@ public final class ClientSmoke {
                 mc.gui.setScreen(null);
                 finish();
             }
+            if (phase == 10) MobSmoke.frame();
             if (mc.player != null && phase >= 2 && phase <= 7) {
                 mc.player.setYRot(0);
                 mc.player.setXRot(0);
@@ -221,14 +228,14 @@ public final class ClientSmoke {
         });
     }
 
-    private static void check(boolean success, String text) {
+    static void check(boolean success, String text) {
         passed &= success;
         String line = (success ? "PASS " : "FAIL ") + text;
         REPORT.add(line);
         GunFeel.LOGGER.info("[clientcheck] {}", line);
     }
 
-    private static void finish() {
+    static void finish() {
         if (finished) return;
         finished = true;
         REPORT.add(passed ? "PASS клиентская проверка" : "FAIL клиентская проверка");
