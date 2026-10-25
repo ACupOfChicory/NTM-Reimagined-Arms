@@ -276,6 +276,7 @@ public final class BulletCheck {
                 new ModelBox("body", -.4, 1, -.2, .8, 0, 0, 0, 1, 0, 0, 0, .4),
                 new ModelBox("wing", 2, 1.5, -.1, .5, 0, 0, 0, .3, 0, 0, 0, .2));
         ModelHits.put(level, g, 0, boxes);
+        check("model: debug shows all collision parts", boxes.size(), ModelHits.outlines(g).size());
         var gap = origin.add(0, .5, -3);
         var gapEnd = gap.add(0, 0, 6);
         var leg = origin.add(.3, .5, -3);
@@ -354,6 +355,7 @@ public final class BulletCheck {
         g.setPos(origin.add(30, 0, 0));
         check("model: teleport invalidates old pose", true, g.getBoundingBox().clip(gap.add(30, 0, 0), gapEnd.add(30, 0, 0)).isPresent());
         ModelHits.clear(level);
+        check("model: no fresh pose keeps vanilla debug box", true, ModelHits.outlines(g).isEmpty());
         check("model: missing pose uses original hitbox", true, g.getBoundingBox().clip(gap.add(30, 0, 0), gapEnd.add(30, 0, 0)).isPresent());
         g.discard();
         shooter.discard();

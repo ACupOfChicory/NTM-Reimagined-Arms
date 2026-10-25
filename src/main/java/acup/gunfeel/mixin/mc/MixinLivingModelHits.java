@@ -19,11 +19,6 @@ import acup.gunfeel.ModelHitClient;
 public abstract class MixinLivingModelHits<T extends LivingEntity, S extends LivingEntityRenderState, M extends EntityModel<? super S>> {
     @Shadow protected M model;
 
-    @Inject(method = "extractRenderState(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;F)V", at = @At("TAIL"))
-    private void gunfeel$entity(T entity, S state, float partialTicks, CallbackInfo ci) {
-        ModelHitClient.attach(entity, state);
-    }
-
     @Inject(method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
             at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;popPose()V", shift = At.Shift.BEFORE))
     private void gunfeel$pose(S state, PoseStack stack, SubmitNodeCollector collector, CameraRenderState camera, CallbackInfo ci) {

@@ -3,7 +3,7 @@ https://modrinth.com/mod/countereds-accurate-hitboxes
 Разобрана версия: accurate_hitboxes-neoforge-2.0.0.jar (Minecraft 26.2)
 SHA-512: 9647170c700d4f89e66e0e1ec8d1b7518daaa65ad48e86957097443202eeb08a4fd33315ccac64b5d5354c0b3141b5b6c8df50a416aba3b15dbf0e56efe72ee3
 
-ModelBox, ModelHitClient, ModelPartAccess и MixinLivingModelHits адаптируют
+ModelBox, ModelPoseCapture, ModelHitClient, ModelPartAccess и MixinLivingModelHits адаптируют
 подход из ModelOBB и LivingEntityRendererMixin этого мода. В исходном jar
 нет файла лицензии или уведомления об авторских правах; автор указал MIT
 в метаданных проекта Modrinth. Автор заимствованных частей: Countered.

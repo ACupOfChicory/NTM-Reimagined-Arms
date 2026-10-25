@@ -33,6 +33,7 @@ public final class GunFeel {
 
     static void init() {
         NeoForge.EVENT_BUS.addListener(RenderFrameEvent.Pre.class, e -> {
+            ModelHitClient.frame();
             ModelHitClient.diagnostics();
             Config.poll();
             LocalPlayer player = Minecraft.getInstance().player;

@@ -100,12 +100,37 @@ public final class ModelHits {
 
     // No data, expired pose, teleport, changed size/posture: keep the original hitbox. An available model missed by the
     // ray is a real miss, never replaced with a hit on the enclosing entity AABB.
+    private static boolean usable(Entity target, PoseAt p) {
+        return enabled() && p != null && p.entity().equals(target.getUUID()) && target.level().getGameTime() - p.tick() <= MAX_AGE
+                && target.position().distanceToSqr(p.position()) <= 16 && p.pose() == target.getPose()
+                && p.width() == target.getBbWidth() && p.height() == target.getBbHeight();
+    }
+
+    // F3+B получает ровно ту же позу и те же проверки актуальности, что пересечение луча.
+    public static synchronized List<Vec3[]> outlines(Entity target) {
+        Map<Integer, PoseAt> poses = POSES.get(target.level());
+        PoseAt p = poses == null ? null : poses.get(target.getId());
+        if (!usable(target, p) || !(target instanceof LivingEntity living)) return List.of();
+        double angle = Math.toRadians(Mth.wrapDegrees(living.yBodyRot - p.yaw()));
+        if (Math.abs(angle) > Math.PI / 3) return List.of();
+        List<Vec3[]> out = new ArrayList<>();
+        for (ModelBox box : p.boxes()) {
+            Vec3[] corners = new Vec3[8];
+            for (int i = 0; i < 8; i++) {
+                double a = (i & 1) == 0 ? 0 : 1, b = (i & 2) == 0 ? 0 : 1, c = (i & 4) == 0 ? 0 : 1;
+                corners[i] = unturn(new Vec3(box.x() + a * box.ux() + b * box.vx() + c * box.wx(),
+                        box.y() + a * box.uy() + b * box.vy() + c * box.wy(),
+                        box.z() + a * box.uz() + b * box.vz() + c * box.wz()), -angle).add(target.position());
+            }
+            out.add(corners);
+        }
+        return out;
+    }
+
     public static synchronized Optional<Vec3> clip(Entity target, Vec3 from, Vec3 to, AABB fallback) {
         Map<Integer, PoseAt> poses = POSES.get(target.level());
         PoseAt p = poses == null ? null : poses.get(target.getId());
-        boolean fresh = enabled() && p != null && p.entity().equals(target.getUUID()) && target.level().getGameTime() - p.tick() <= MAX_AGE
-                && target.position().distanceToSqr(p.position()) <= 16 && p.pose() == target.getPose()
-                && p.width() == target.getBbWidth() && p.height() == target.getBbHeight();
+        boolean fresh = usable(target, p);
         if (!fresh || !(target instanceof LivingEntity living)) {
             if (!from.equals(to)) ModelHitLog.event(target.level().isClientSide() ? "client" : "server", "clip_fallback", target,
                     () -> "enabled=" + enabled() + " has_pose=" + (p != null) + " age=" + (p == null ? -1 : target.level().getGameTime() - p.tick())
