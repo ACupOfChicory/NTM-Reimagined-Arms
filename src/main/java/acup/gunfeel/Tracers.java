@@ -504,15 +504,15 @@ public final class Tracers {
             long pf = Perf.start();
             fly(s, level, Math.min(t, s.lifeTicks));
             Perf.add(Perf.FLY, pf);
-            double head = Double.isNaN(s.end) ? Math.min(t, s.lifeTicks) : Math.min(t, s.end);
-            double tail = Math.max(0.0, t - Math.max(Config.tracerLength / s.speed, frameTicks * 1.5));
-            if (tail >= head) {
+            var segment = BulletClock.segment(t, s.end, s.lifeTicks, Math.max(Config.tracerLength / s.speed, frameTicks * 1.5));
+            double head = segment.head(), tail = segment.tail();
+            if (segment.expired()) {
                 if (TestLog.client && Double.isNaN(s.end)) TestLog.c(s.id, "end", "by", "life", "at", s.at(s.lifeTicks));
                 s.gone = true;
                 it.remove();
                 continue;
             }
-            if (!Config.tracers) continue;
+            if (!Config.tracers || !segment.visible()) continue;
             Vec3 h = s.at(head).subtract(cam), b = s.at(tail).subtract(cam);
             streaks.add(new float[] {(float) h.x, (float) h.y, (float) h.z, (float) b.x, (float) b.y, (float) b.z,
                     Float.intBitsToFloat(s.light), Float.intBitsToFloat(s.dark), pixel});

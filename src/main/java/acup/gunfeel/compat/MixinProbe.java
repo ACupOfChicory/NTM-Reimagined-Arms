@@ -64,6 +64,11 @@ public final class MixinProbe {
         boolean pseudo = pseudo(mixin);
         List<String> targets = targets(mixin);
         if (targets.isEmpty()) out.add(new Problem(where, "@Mixin without a target", false));
+        if (targets.size() > 1) {
+            for (FieldNode f : mixin.fields) checkMultiTargetShadow(out, where + "." + f.name,
+                    annotation(f.invisibleAnnotations, f.visibleAnnotations, MIXIN + "Shadow;"));
+            for (MethodNode m : mixin.methods) checkMultiTargetShadow(out, where + "." + m.name, methodAnn(m, "Shadow;"));
+        }
         for (String target : targets) {
             ClassNode tc = classes.get(target);
             if (tc == null) {
@@ -74,6 +79,11 @@ public final class MixinProbe {
             for (MethodNode m : mixin.methods) checkMethod(out, where, m, tc, pseudo, defaultRequire);
         }
         return out;
+    }
+
+    private static void checkMultiTargetShadow(List<Problem> out, String where, AnnotationNode shadow) {
+        if (shadow != null && !Boolean.FALSE.equals(value(shadow, "remap", true)))
+            out.add(new Problem(where, "remappable @Shadow in a multi-target mixin: set remap=false on @Shadow", false));
     }
 
     private void checkShadowField(List<Problem> out, String where, FieldNode f, ClassNode target) {

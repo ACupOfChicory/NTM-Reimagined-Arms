@@ -4,6 +4,27 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
 class BulletClockTest {
+    @Test void newShotSurvivesZeroAgeFramesThenFliesAndExpires() {
+        var clock = new BulletClock();
+        double born = clock.sample(100,.25);
+        for (int frame = 0; frame < 100; frame++) {
+            var fresh = BulletClock.segment(clock.sample(100,.25)-born,Double.NaN,40,1);
+            assertFalse(fresh.expired(), "Нулевая длина на первом кадре не удаляет выстрел и его эффекты");
+            assertFalse(fresh.visible());
+        }
+        var flying = BulletClock.segment(clock.sample(100,.75)-born,Double.NaN,40,1);
+        assertTrue(flying.visible());
+        assertFalse(flying.expired());
+        assertEquals(.5,flying.head());
+        assertTrue(BulletClock.segment(42,Double.NaN,40,1).expired());
+    }
+
+    @Test void impactEndsFlightAfterItsVisibleTailPassesTheSurface() {
+        assertTrue(BulletClock.segment(.2,.1,40,1).visible());
+        assertFalse(BulletClock.segment(.2,.1,40,1).expired());
+        assertTrue(BulletClock.segment(1.2,.1,40,1).expired());
+    }
+
     @Test void pausedWorldDoesNotAdvanceEvenWithManyRenderedFrames() {
         var clock = new BulletClock();
         double born = clock.sample(100, .25);

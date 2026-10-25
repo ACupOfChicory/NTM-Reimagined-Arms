@@ -22,9 +22,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Pseudo
 @Mixin(targets = {"com.hbm.client.render.flywheel.GlyphidVisual", "com.hbm.client.render.flywheel.GlyphidNuclearVisual"}, remap = false)
 public abstract class MixinGlyphidModelHits {
-    @Shadow @Final private Matrix4f[] poses;
-    @Shadow @Final private Vector3f interpolatedPosition;
-    @Shadow private boolean shown;
+    @Shadow(remap = false) @Final private Matrix4f[] poses;
+    @Shadow(remap = false) @Final private Vector3f interpolatedPosition;
+    @Shadow(remap = false) private boolean shown;
 
     @Inject(method = "writeFrame", at = @At("RETURN"))
     private void gunfeel$pose(float partial, CallbackInfo ci) {
