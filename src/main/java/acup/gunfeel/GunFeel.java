@@ -32,6 +32,7 @@ public final class GunFeel {
     private static final Map<Item, Long> SEEN_SHOT = new IdentityHashMap<>();
 
     static void init() {
+        ClientSmoke.init();
         NeoForge.EVENT_BUS.addListener(RenderFrameEvent.Pre.class, e -> {
             ModelHitClient.frame();
             ModelHitClient.diagnostics();

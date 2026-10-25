@@ -94,6 +94,13 @@ neoForge {
             client()
             gameDirectory = root.resolve("run")
         }
+        register("checkClient") {
+            client()
+            gameDirectory = root.resolve("run-client-check")
+            jvmArgument("-Xmx2500M")
+            systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
+            programArguments.addAll("--width", "854", "--height", "480")
+        }
         // a dedicated server that writes what the game knows about every block (BlockDump) and stops before any
         // world: the facts the material tests run on. No client, no assets, no world generation.
         register("dumpBlocks") {
@@ -187,6 +194,30 @@ tasks.matching { it.name in checkRuns }.configureEach {
     }
 }
 
+// Настоящий клиент использует только копию тестового мира и отдельную папку запуска.
+tasks.matching { it.name == "runCheckClient" }.configureEach {
+    doFirst {
+        val dir = root.resolve("run-client-check")
+        val source = root.resolve("run-bullets/world")
+        require(source.resolve("level.dat").exists()) { "Сначала выполните runCheckBullets: нужен изолированный тестовый мир" }
+        val world = dir.resolve("saves/gunfeel-smoke")
+        world.deleteRecursively()
+        source.copyRecursively(world, overwrite = true)
+        world.resolve("session.lock").delete()
+        dir.resolve("mods").mkdirs()
+        root.resolve("libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar")
+            .copyTo(dir.resolve("mods/crankshaft.jar"), overwrite = true)
+        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nrenderDistance:3\nsimulationDistance:5\nmaxFps:60\n")
+        layout.buildDirectory.file("clientcheck/result.txt").get().asFile.delete()
+    }
+    doLast {
+        val report = layout.buildDirectory.file("clientcheck/result.txt").get().asFile
+        check(report.exists() && report.readLines().lastOrNull() == "PASS клиентская проверка") {
+            "Клиентская проверка не прошла: ${report.path}"
+        }
+    }
+}
+
 // NeoForm tools ask for Java 21 by default; the Java 25 the build runs on does as well (no second JDK on the Pi)
 tasks.withType<net.neoforged.nfrtgradle.NeoFormRuntimeTask>().configureEach {
     javaExecutable = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) }
@@ -195,7 +226,18 @@ tasks.withType<net.neoforged.nfrtgradle.NeoFormRuntimeTask>().configureEach {
 
 // -PnoAssets (the Pi): skip the game assets, hundreds of MB that only a client needs; the runs get an empty folder.
 // runDumpBlocks is a dedicated server, so ./gradlew runDumpBlocks -PnoAssets is all it takes.
-if (providers.gradleProperty("noAssets").isPresent) {
+if (providers.gradleProperty("installedAssets").isPresent) {
+    tasks.named<net.neoforged.nfrtgradle.DownloadAssets>("downloadAssets") {
+        val props = assetPropertiesFile
+        val installed = providers.gradleProperty("installedAssets")
+        actions.clear()
+        doLast {
+            val dir = File(installed.get())
+            require(dir.resolve("indexes/32.json").exists()) { "Нет индекса ресурсов Minecraft 26.2 (32.json)" }
+            props.get().asFile.writeText("asset_index=32\nassets_root=" + dir.absolutePath.replace("\\", "/") + "\n")
+        }
+    }
+} else if (providers.gradleProperty("noAssets").isPresent) {
     tasks.named<net.neoforged.nfrtgradle.DownloadAssets>("downloadAssets") {
         val props = assetPropertiesFile
         val empty = layout.buildDirectory.dir("no-assets")

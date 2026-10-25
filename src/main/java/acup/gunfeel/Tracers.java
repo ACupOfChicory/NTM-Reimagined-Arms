@@ -311,8 +311,8 @@ public final class Tracers {
     private static double flightTime() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return FLIGHT_CLOCK.current();
-        return FLIGHT_CLOCK.sample(mc.level.getGameTime(),
-                mc.getDeltaTracker().getGameTimeDeltaPartialTick(!mc.level.tickRateManager().isFrozen()));
+        return ClientSmoke.flightTime(FLIGHT_CLOCK.sample(mc.level.getGameTime(),
+                mc.getDeltaTracker().getGameTimeDeltaPartialTick(!mc.level.tickRateManager().isFrozen())));
     }
 
     private static double age(Shot shot) { return Math.max(0, flightTime() - shot.born); }
@@ -414,6 +414,7 @@ public final class Tracers {
         if (config.velocity < 5F) return;
         int[] c = colors(config);
         if (c == NONE) return;
+        ClientSmoke.packet();
         Shot s = new Shot(p, config, c);
         Minecraft mc = Minecraft.getInstance();
         // the player's own shot leaves the muzzle drawn in their hands
@@ -506,7 +507,9 @@ public final class Tracers {
             Perf.add(Perf.FLY, pf);
             var segment = BulletClock.segment(t, s.end, s.lifeTicks, Math.max(Config.tracerLength / s.speed, frameTicks * 1.5));
             double head = segment.head(), tail = segment.tail();
-            if (segment.expired()) {
+            boolean expired = segment.expired();
+            ClientSmoke.segment(t, expired);
+            if (expired) {
                 if (TestLog.client && Double.isNaN(s.end)) TestLog.c(s.id, "end", "by", "life", "at", s.at(s.lifeTicks));
                 s.gone = true;
                 it.remove();
@@ -523,6 +526,7 @@ public final class Tracers {
             event.getSubmitNodeCollector().submitCustomGeometry(pose, RenderTypes.debugQuads(), (p, vc) -> {
                 long pt = Perf.start();
                 for (float[] k : streaks) streak(p.pose(), vc, k);
+                ClientSmoke.tracerDrawn(streaks.size());
                 Perf.add(Perf.TRACERS, pt);
             });
         }
@@ -2490,6 +2494,7 @@ public final class Tracers {
             var indices = com.mojang.blaze3d.systems.RenderSystem.getSequentialBuffer(type.primitiveTopology());
             new net.minecraft.client.renderer.rendertype.PreparedRenderType(pr.pipeline(), pr.outputTarget(), transforms, pr.scissorState(), pr.textures())
                     .drawFromBuffer(b.vb, indices.getBuffer(b.count), indices.type(), 0, 0, b.count);
+            ClientSmoke.holeDrawn();
             Perf.batched(b.holes.size());
         }
         Perf.add(Perf.HOLE_DRAW, pd);

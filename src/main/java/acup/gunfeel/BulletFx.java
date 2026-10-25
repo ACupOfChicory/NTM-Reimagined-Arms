@@ -194,8 +194,10 @@ public final class BulletFx {
             double vx, double vy, double vz) {
         if (option instanceof net.minecraft.core.particles.BlockParticleOption block) {
             BlockState state = block.getState();
-            if (!state.isAir() && state.shouldSpawnTerrainParticles())
+            if (!state.isAir() && state.shouldSpawnTerrainParticles()) {
                 Minecraft.getInstance().particleEngine.add(new HitCrumb(level, at, vx, vy, vz, state, hit));
+                ClientSmoke.particleAdded();
+            }
         } else {
             level.addParticle(option, at.x, at.y, at.z, vx, vy, vz);
         }

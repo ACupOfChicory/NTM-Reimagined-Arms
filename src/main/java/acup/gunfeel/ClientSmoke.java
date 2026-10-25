@@ -1,0 +1,242 @@
+package acup.gunfeel;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.hbm.items.weapon.sedna.ItemGunBaseNT;
+import com.hbm.items.weapon.sedna.factory.XFactory9mm;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Blocks;
+import net.neoforged.neoforge.client.event.RenderFrameEvent;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+
+/** Настоящий клиент, отдельный мир и штатный обработчик выстрела NTM.
+ * Без свойства JVM не регистрирует событий и не меняет часы игры. */
+public final class ClientSmoke {
+    private static final String FILE = System.getProperty("ntmgunfeel.checkClient");
+    private static final boolean ENABLED = FILE != null && !FILE.isBlank();
+    private static final List<String> REPORT = new ArrayList<>();
+    private static final long START = System.nanoTime();
+    private static volatile int phase;
+    private static int frames, holdUntil, packets, zeroFrames, zeroExpired, traces, particles, holes;
+    private static double held = Double.NaN, pausedClock;
+    private static long since;
+    private static volatile boolean ready, pending, broken;
+    private static volatile int remaining;
+    private static int serverTick;
+    private static boolean passed = true, finished;
+
+    private ClientSmoke() {}
+
+    public static void init() {
+        if (!ENABLED) return;
+        NeoForge.EVENT_BUS.addListener(RenderFrameEvent.Pre.class, e -> frame());
+        NeoForge.EVENT_BUS.addListener(ServerTickEvent.Post.class, e -> tick());
+    }
+
+    static void packet() {
+        if (!ENABLED) return;
+        packets++;
+        held = Double.NaN;
+        holdUntil = frames + 2;
+    }
+
+    static double flightTime(double real) {
+        if (!ENABLED || frames > holdUntil || packets == 0) return real;
+        if (Double.isNaN(held)) held = real;
+        return held;
+    }
+
+    static void segment(double age, boolean expired) {
+        if (ENABLED && age == 0) {
+            zeroFrames++;
+            if (expired) zeroExpired++;
+        }
+    }
+    static void tracerDrawn(int count) { if (ENABLED) traces += count; }
+    static void particleAdded() { if (ENABLED) particles++; }
+    static void holeDrawn() { if (ENABLED) holes++; }
+
+    private static void frame() {
+        if (finished) return;
+        frames++;
+        Minecraft mc = Minecraft.getInstance();
+        try {
+            if (System.nanoTime() - START > 180_000_000_000L) {
+                check(false, "таймаут клиента; экран=" + mc.gui.screen());
+                finish();
+                return;
+            }
+            if (phase == 0 && mc.gui.screen() instanceof TitleScreen) {
+                phase = 1;
+                mc.options.pauseOnLostFocus = false;
+                mc.createWorldOpenFlows().openWorld("gunfeel-smoke", () -> {
+                    check(false, "мир не открыт");
+                    finish();
+                });
+            } else if (phase == 1 && mc.level != null && mc.player != null && mc.getSingleplayerServer() != null) {
+                phase = 2;
+                since = System.nanoTime();
+                prepare(20);
+            } else if (phase == 2 && ready && elapsed() > 5) {
+                mc.gui.setScreen(null);
+                reset();
+                remaining = 5;
+                phase = 3;
+                since = System.nanoTime();
+            } else if (phase == 3 && elapsed() > 6 && remaining == 0) {
+                inspect("20 TPS");
+                phase = 4;
+                since = System.nanoTime();
+            } else if (phase == 4 && !pending) {
+                prepare(2);
+                phase = 5;
+                since = System.nanoTime();
+            } else if (phase == 5 && ready && elapsed() > 2) {
+                reset();
+                remaining = 5;
+                phase = 6;
+                since = System.nanoTime();
+            } else if (phase == 6 && elapsed() > 9 && remaining == 0) {
+                inspect("2 TPS");
+                phase = 7;
+            } else if (phase == 7 && !pending) {
+                mc.getSingleplayerServer().execute(() -> mc.getSingleplayerServer().tickRateManager().setTickRate(20));
+                mc.pauseGame(false);
+                phase = 8;
+                since = System.nanoTime();
+            } else if (phase == 8 && elapsed() > 1) {
+                check(mc.gui.screen() instanceof PauseScreen, "настоящая пауза открыта");
+                pausedClock = mc.level.getGameTime() + mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+                since = System.nanoTime();
+                phase = 9;
+            } else if (phase == 9 && elapsed() > 1) {
+                double now = mc.level.getGameTime() + mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+                check(Math.abs(now - pausedClock) < 0.001, "игровые часы неподвижны в паузе: " + pausedClock + " -> " + now);
+                mc.gui.setScreen(null);
+                finish();
+            }
+            if (mc.player != null && phase >= 2 && phase <= 7) {
+                mc.player.setYRot(0);
+                mc.player.setXRot(0);
+            }
+        } catch (Throwable t) {
+            check(false, "исключение: " + t);
+            GunFeel.LOGGER.error("[clientcheck]", t);
+            finish();
+        }
+    }
+
+    private static double elapsed() { return (System.nanoTime() - since) / 1e9; }
+
+    @SuppressWarnings("unchecked")
+    private static void prepare(float rate) {
+        ready = false;
+        Minecraft.getInstance().getSingleplayerServer().execute(() -> {
+            try {
+                var server = Minecraft.getInstance().getSingleplayerServer();
+                var level = server.overworld();
+                ServerPlayer p = server.getPlayerList().getPlayers().getFirst();
+                p.setGameMode(GameType.CREATIVE);
+                p.teleportTo(level, 8.5, 100, 8.5, java.util.Set.of(), 0, 0, false);
+                for (int x = 4; x <= 12; x++) for (int z = 4; z <= 36; z++) {
+                    level.setBlock(new BlockPos(x, 99, z), Blocks.STONE.defaultBlockState(), 3);
+                    for (int y = 100; y <= 106; y++)
+                        level.setBlock(new BlockPos(x, y, z),
+                                (z == 16 ? Blocks.GLASS : z == 32 ? Blocks.STONE : Blocks.AIR).defaultBlockState(), 3);
+                }
+                ItemStack stack = new ItemStack(com.hbm.items.ModItems.GUN_UZI.get());
+                ItemGunBaseNT gun = (ItemGunBaseNT) stack.getItem();
+                var magazine = gun.getConfig(stack, 0).getReceivers(stack)[0].getMagazine(stack);
+                magazine.setType(stack, XFactory9mm.p9_ap);
+                magazine.setAmount(stack, 30);
+                ItemGunBaseNT.setIsDrawn(stack, true);
+                ItemGunBaseNT.setIsEquipped(stack, true);
+                ItemGunBaseNT.setState(stack, 0, ItemGunBaseNT.GunState.IDLE);
+                ItemGunBaseNT.setTimer(stack, 0, 0);
+                p.getInventory().setSelectedSlot(0);
+                p.setItemInHand(InteractionHand.MAIN_HAND, stack);
+                server.tickRateManager().setTickRate(rate);
+                ready = true;
+            } catch (Throwable t) {
+                Minecraft.getInstance().execute(() -> { check(false, "подготовка: " + t); finish(); });
+            }
+        });
+    }
+
+    private static void tick() {
+        if (remaining <= 0 || !ready) return;
+        if (++serverTick % (phase == 6 ? 2 : 8) != 0) return;
+        var mc = Minecraft.getInstance();
+        var server = mc.getSingleplayerServer();
+        if (server == null) return;
+        try {
+            var p = server.getPlayerList().getPlayers().getFirst();
+            p.setYRot(0);
+            p.setXRot(0);
+            ItemStack stack = p.getMainHandItem();
+            ItemGunBaseNT gun = (ItemGunBaseNT) stack.getItem();
+            var config = gun.getConfig(stack, 0);
+            config.getReceivers(stack)[0].getOnFire(stack).accept(stack,
+                    new ItemGunBaseNT.LambdaContext(config, p, p.getInventory(), 0));
+            remaining--;
+        } catch (Throwable t) {
+            remaining = 0;
+            mc.execute(() -> { check(false, "стрельба: " + t); finish(); });
+        }
+    }
+
+    private static void reset() {
+        Tracers.clearHoles();
+        packets = zeroFrames = zeroExpired = traces = particles = holes = 0;
+        serverTick = 0;
+    }
+
+    private static void inspect(String label) {
+        check(packets >= 5, label + ": пакеты выстрелов=" + packets);
+        check(zeroFrames > 0 && zeroExpired == 0, label + ": нулевые кадры=" + zeroFrames + ", удалено=" + zeroExpired);
+        check(traces > 0, label + ": отрисованные трассеры=" + traces);
+        check(particles > 0, label + ": частицы попадания добавлены в движок=" + particles);
+        check(holes > 0, label + ": вызовы рисования дырок=" + holes);
+        pending = true;
+        Minecraft.getInstance().getSingleplayerServer().execute(() -> {
+            var level = Minecraft.getInstance().getSingleplayerServer().overworld();
+            broken = false;
+            for (int x = 4; x <= 12; x++) for (int y = 100; y <= 106; y++)
+                if (level.getBlockState(new BlockPos(x, y, 16)).isAir()) broken = true;
+            Minecraft.getInstance().execute(() -> {
+                check(broken, label + ": серверная пуля разбила стекло");
+                pending = false;
+            });
+        });
+    }
+
+    private static void check(boolean success, String text) {
+        passed &= success;
+        String line = (success ? "PASS " : "FAIL ") + text;
+        REPORT.add(line);
+        GunFeel.LOGGER.info("[clientcheck] {}", line);
+    }
+
+    private static void finish() {
+        if (finished) return;
+        finished = true;
+        REPORT.add(passed ? "PASS клиентская проверка" : "FAIL клиентская проверка");
+        try {
+            Path file = Path.of(FILE);
+            Files.createDirectories(file.getParent());
+            Files.write(file, REPORT);
+        } catch (Exception e) { GunFeel.LOGGER.error("[clientcheck] запись отчёта", e); }
+        Minecraft.getInstance().stop();
+    }
+}
