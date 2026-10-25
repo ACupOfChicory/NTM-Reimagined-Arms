@@ -74,7 +74,7 @@ public final class Tracers {
         final float g;
         final double speed;
         final int dark, light;
-        final long born;
+        final double born;
         final long lifeTicks;
         Vec3 muzzleOffset = Vec3.ZERO;
         double checked; // ticks of path already tested against the world
@@ -99,11 +99,11 @@ public final class Tracers {
             this.light = colors[1];
             this.lifeTicks = p.life();
             this.damage = p.damage();
-            this.born = System.nanoTime();
+            this.born = flightTime();
         }
 
         // the same bullet bounced off a block: from there on with the mirrored velocity, `born` = the moment it bounced
-        Shot(Shot from, Vec3 start, Vec3 v, long born, long lifeTicks) {
+        Shot(Shot from, Vec3 start, Vec3 v, double born, long lifeTicks) {
             this.id = from.id;
             this.config = from.config;
             this.owner = from.owner;
@@ -305,7 +305,17 @@ public final class Tracers {
     private static final List<Shot> BOUNCED = new ArrayList<>(); // bullets that bounced off this frame, flown from the next
     private static final ArrayDeque<Hole> HOLES = new ArrayDeque<>();
     private static boolean serverAnnounces;
-    private static long lastFrame;
+    private static double lastFrame = Double.NaN;
+    private static final BulletClock FLIGHT_CLOCK = new BulletClock();
+
+    private static double flightTime() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) return FLIGHT_CLOCK.current();
+        return FLIGHT_CLOCK.sample(mc.level.getGameTime(),
+                mc.getDeltaTracker().getGameTimeDeltaPartialTick(!mc.level.tickRateManager().isFrozen()));
+    }
+
+    private static double age(Shot shot) { return Math.max(0, flightTime() - shot.born); }
 
     // NTM tracer colours per bullet type, {dark, light}; NONE = not a plain tracer (grenade, rocket...): NTM draws it
     private static final Map<BulletConfig, int[]> COLORS = new HashMap<>();
@@ -440,8 +450,8 @@ public final class Tracers {
         }
         SHOTS.add(s);
         if (SHOTS.size() > 512) SHOTS.remove(0).gone = true;
-        BulletFx.fly(() -> s.at(Math.min((System.nanoTime() - s.born) / 50_000_000.0, Double.isNaN(s.end) ? s.lifeTicks : s.end)),
-                () -> !s.gone && Double.isNaN(s.end) && (System.nanoTime() - s.born) / 50_000_000.0 < s.lifeTicks);
+        BulletFx.fly(() -> s.at(Math.min(age(s), Double.isNaN(s.end) ? s.lifeTicks : s.end)),
+                () -> !s.gone && Double.isNaN(s.end) && age(s) < s.lifeTicks);
     }
 
     // /gunfeel clearholes: every hole, scratch and scorch mark in this world, and the ones still to be made; how many
@@ -466,6 +476,8 @@ public final class Tracers {
         BATCHED.clear();
         OPEN.clear();
         RenderedMesh.clear();
+        FLIGHT_CLOCK.reset();
+        lastFrame = Double.NaN;
         serverAnnounces = false;
     }
 
@@ -477,8 +489,9 @@ public final class Tracers {
         long now = System.nanoTime();
         PoseStack pose = event.getPoseStack();
         // a frame's worth of flight, so a fast bullet's tracer does not break into dashes
-        double frameTicks = lastFrame == 0L ? 0.05 : Math.clamp((now - lastFrame) / 50_000_000.0, 0.01, 0.25);
-        lastFrame = now;
+        double tickNow = flightTime();
+        double frameTicks = Double.isNaN(lastFrame) ? 0.05 : Math.clamp(tickNow - lastFrame, 0.01, 0.25);
+        lastFrame = tickNow;
         // one screen pixel at one block away, for the tracer's least width
         Minecraft m = Minecraft.getInstance();
         float pixel = (float) (2.0 * Math.tan(Math.toRadians(m.options.fov().get()) * 0.5) / Math.max(1, m.getWindow().getHeight()));
@@ -487,7 +500,7 @@ public final class Tracers {
         Iterator<Shot> it = SHOTS.iterator();
         while (it.hasNext()) {
             Shot s = it.next();
-            double t = (now - s.born) / 50_000_000.0;
+            double t = Math.max(0, tickNow - s.born);
             long pf = Perf.start();
             fly(s, level, Math.min(t, s.lifeTicks));
             Perf.add(Perf.FLY, pf);
@@ -622,7 +635,7 @@ public final class Tracers {
                     Direction.Axis ax = block.getDirection().getAxis();
                     Vec3 out = new Vec3(ax == Direction.Axis.X ? -vel.x : vel.x, ax == Direction.Axis.Y ? -vel.y : vel.y, ax == Direction.Axis.Z ? -vel.z : vel.z);
                     long left = (long) Math.max(0.0, s.lifeTicks - s.end);
-                    if (left > 0) BOUNCED.add(new Shot(s, stop, out, s.born + (long) (s.end * 50_000_000.0), left));
+                    if (left > 0) BOUNCED.add(new Shot(s, stop, out, s.born + s.end, left));
                 }
             } else if (len > 1e-6) {
                 hit(level, block, s.config, dir.scale(1.0 / len), s.config.onImpact != null);

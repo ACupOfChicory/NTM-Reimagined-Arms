@@ -258,8 +258,24 @@ public final class BulletCheck {
         check("path through: the stone stays", "minecraft:stone", s.after);
 
         modelHits();
+        richterBulletSpeed();
         lines.add(ok ? "ALL OK" : "SOME FAILED");
         return ok;
+    }
+
+    private static void richterBulletSpeed() {
+        var config = com.hbm.items.weapon.sedna.factory.XFactory9mm.p9_ap;
+        var bullet = new EntityBulletBaseMK4(level, config, 1F,0F,0F,0F);
+        bullet.setPos(90,200,90);
+        // ItemGunBaseNT задаёт единичную начальную скорость; реальное смещение даёт motionMult.
+        bullet.setThrowableHeading(0,0,1,1F,0F);
+        var start = bullet.position();
+        bullet.tick();
+        double travelled = bullet.position().distanceTo(start);
+        double expected = config.velocity * ReaimTimes.number("bulletSpeed",1.6F);
+        check("Richter 9mm AP: real tick matches configured speed", true, Math.abs(travelled - expected) < 1e-4);
+        lines.add("     Richter 9mm AP: " + travelled + " blocks/tick, " + travelled*20 + " blocks/s at 20 TPS");
+        bullet.discard();
     }
 
     private static void modelHits() {
