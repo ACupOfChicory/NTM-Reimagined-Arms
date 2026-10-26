@@ -134,7 +134,7 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
         // the test log's lines during this bullet's tick (its hits, breaking, ricochets) are this bullet's
         if (acup.gunfeel.TestLog.server && !self.level().isClientSide()) acup.gunfeel.TestLog.shot(self.getId());
-        if (gunfeel$announced || !(self.level() instanceof ServerLevel server)) return;
+        if (gunfeel$announced || self instanceof acup.gunfeel.CollisionProbe || !(self.level() instanceof ServerLevel server)) return;
         gunfeel$announced = true;
         if (config == null) config = self.getBulletConfig();
         // only fast bullets get the client's tracer; slow projectiles (grenades, Shredder's plasma drops) stay NTM's

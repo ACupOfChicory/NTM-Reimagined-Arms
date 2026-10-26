@@ -44,6 +44,14 @@ public final class MobSmoke {
     private static long since;
     private static BulletConfig beamConfig;
     private static MobRayOracle.Ray woolRay;
+    private static final java.util.Set<Integer> PROBES=java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static int probeTracers;
+    static void tracer(int bullet) {
+        if(ENABLED && PROBES.contains(bullet)) {
+            probeTracers++;
+            ClientSmoke.check(false,"Контрольная пуля создала видимый трассер: "+bullet);
+        }
+    }
 
     private MobSmoke() {}
     static boolean enabled() { return ENABLED; }
@@ -327,7 +335,10 @@ public final class MobSmoke {
     }
     private static void check(boolean ok,String text) { ClientSmoke.check(ok,CASES.get(index)+": "+text); }
     private static void next() {
-        if(index+1>=CASES.size()) { ClientSmoke.finish(); return; }
+        if(index+1>=CASES.size()) {
+            ClientSmoke.check(!PROBES.isEmpty() && probeTracers==0,"Контрольные пули="+PROBES.size()+", сетевые трассеры="+probeTracers);
+            ClientSmoke.finish(); return;
+        }
         select(index+1);
     }
     static void select(int selected) {
@@ -475,6 +486,7 @@ public final class MobSmoke {
             return;
         }
         var bullet=new ProbeBullet(level,target);
+        PROBES.add(bullet.getId());
         float speed=(float)Math.max(1,ray.from().distanceTo(ray.to())/
                 (XFactory9mm.p9_ap.velocity*ReaimTimes.number("bulletSpeed",1.6F)));
         bullet.setPos(ray.from()); bullet.setThrowableHeading(0,0,1,speed,0); bullet.damage=0;
@@ -489,7 +501,7 @@ public final class MobSmoke {
                 ", NTM-пуля="+bullet.hit+", стрела="+arrow.hit+", NTM-луч="+beam.hit));
     }
 
-    private static final class ProbeBullet extends EntityBulletBaseMK4 {
+    private static final class ProbeBullet extends EntityBulletBaseMK4 implements CollisionProbe {
         private final Entity target;
         private boolean hit;
         ProbeBullet(ServerLevel level,Entity target) { super(level,XFactory9mm.p9_ap,1,0,0,0); this.target=target; }

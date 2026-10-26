@@ -407,6 +407,7 @@ public final class Tracers {
     }
 
     public static void handle(ShotPayload p, IPayloadContext context) {
+        MobSmoke.tracer(p.id());
         serverAnnounces = true;
         if (!Config.tracers && !Config.bulletHoles && !Config.bulletFx) return;
         if (p.config() < 0 || p.config() >= BulletConfig.configs.size()) return;
