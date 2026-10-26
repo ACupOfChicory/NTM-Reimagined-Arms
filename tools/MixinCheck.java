@@ -296,7 +296,7 @@ public class MixinCheck {
                 return;
             }
             for (int i = 0; i < tp.length; i++) {
-                if (!hp[i].equals(tp[i])) {
+                if (!parameterFits(h,i,tp[i])) {
                     errors.add(where + ": argument " + i + " is " + hp[i].getClassName() + ", " + into + " has " + tp[i].getClassName());
                     return;
                 }
@@ -357,8 +357,8 @@ public class MixinCheck {
         Type[] hp = Type.getArgumentTypes(h.desc);
         Type[] tp = Type.getArgumentTypes(tm.desc);
         boolean ok = hp.length == want.size() || hp.length == want.size() + tp.length;
-        for (int i = 0; ok && i < want.size(); i++) ok = hp[i].equals(want.get(i));
-        for (int i = want.size(); ok && i < hp.length; i++) ok = hp[i].equals(tp[i - want.size()]);
+        for (int i = 0; ok && i < want.size(); i++) ok = parameterFits(h,i,want.get(i));
+        for (int i = want.size(); ok && i < hp.length; i++) ok = parameterFits(h,i,tp[i - want.size()]);
         if (!ok) {
             errors.add(where + ": @Redirect handler should take " + typeList(want) + " (then optionally " + into
                     + "'s arguments), it takes " + typeList(List.of(hp)));
@@ -367,6 +367,19 @@ public class MixinCheck {
             errors.add(where + ": @Redirect handler should return " + ret.getClassName() + ", it returns "
                     + Type.getReturnType(h.desc).getClassName());
         }
+    }
+
+    // @Coerce Object позволяет принять недоступный private record снимка.
+    // Без аннотации типы по-прежнему должны совпадать; примитивы не ослабляем.
+    static boolean parameterFits(MethodNode handler,int index,Type target) {
+        Type actual=Type.getArgumentTypes(handler.desc)[index];
+        if(actual.equals(target)) return true;
+        if(!actual.equals(Type.getType(Object.class)) || target.getSort()!=Type.OBJECT && target.getSort()!=Type.ARRAY) return false;
+        for(var annotations:java.util.Arrays.asList(handler.visibleParameterAnnotations,handler.invisibleParameterAnnotations)) {
+            if(annotations==null || index>=annotations.length || annotations[index]==null) continue;
+            for(var a:annotations[index]) if(a.desc.equals("Lorg/spongepowered/asm/mixin/injection/Coerce;")) return true;
+        }
+        return false;
     }
 
     void checkModifyArgHandler(String where, MethodNode h, AnnotationNode a, AnnotationNode at) {

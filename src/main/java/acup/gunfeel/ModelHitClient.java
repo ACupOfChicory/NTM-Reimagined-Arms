@@ -19,7 +19,14 @@ import org.joml.Matrix4f;
 // Здесь никогда не создаётся render state, не вызывается setupAnim и не повторяется submit рендерера.
 public final class ModelHitClient {
     private record Ready(LivingEntity entity, ModelPoseLayout layout, VanillatePose.Data pose,
-            double x, double y, double z, float yaw) {}
+            double x, double y, double z, float yaw, net.minecraft.world.phys.Vec3 origin,long frame) {}
+    private static volatile long frame;
+    private static final java.util.concurrent.atomic.AtomicLong POSE_SERIAL=new java.util.concurrent.atomic.AtomicLong();
+    private static final Map<UUID,Long> APPLIED_FRAME=new ConcurrentHashMap<>(),PUBLISHED_FRAME=new ConcurrentHashMap<>();
+    static boolean currentFrame(LivingEntity entity) {
+        Long applied=APPLIED_FRAME.get(entity.getUUID());
+        return applied!=null && applied.equals(PUBLISHED_FRAME.get(entity.getUUID())) && !READY.containsKey(entity.getUUID());
+    }
     private static final Map<UUID, Ready> READY = new ConcurrentHashMap<>();
     private record Sync(LivingEntity entity, float yaw, List<ModelBox> boxes, String source, long tick) {}
     private static final Map<UUID, Sync> SYNC = new java.util.HashMap<>();
@@ -37,13 +44,16 @@ public final class ModelHitClient {
     public static void captureCost(long nanos) { frameNanos += nanos; }
 
     // Вызывается с рабочих потоков. Снимок и его массивы неизменяемы; в очереди остаётся только последний.
-    public static void offer(LivingEntity entity, ModelPoseLayout layout, VanillatePose.Data pose, double x, double y, double z, float yaw) {
+    public static void offer(LivingEntity entity, ModelPoseLayout layout, VanillatePose.Data pose, double x, double y, double z, float yaw, net.minecraft.world.phys.Vec3 origin) {
         if (!enabled || READY.size() >= 512 && !READY.containsKey(entity.getUUID())) return;
-        READY.put(entity.getUUID(), new Ready(entity, layout, pose, x, y, z, yaw));
+        long serial=POSE_SERIAL.incrementAndGet();
+        if(MobSmoke.enabled()) APPLIED_FRAME.put(entity.getUUID(),serial);
+        READY.put(entity.getUUID(), new Ready(entity, layout, pose, x, y, z, yaw,origin,serial));
         ModelHitLog.count("client", "flywheel_pose");
     }
 
     public static void frame() {
+        frame++;
         totalNanos += frameNanos;
         peakNanos = Math.max(peakNanos, frameNanos);
         frames++;
@@ -54,6 +64,11 @@ public final class ModelHitClient {
         long now = System.currentTimeMillis();
         if (now >= nextCheck) { enabled = ModelHits.enabled(); nextCheck = now + 1000; }
         if (!enabled) return;
+    }
+
+    // После подготовки и применения моделей текущего кадра, а не перед их обновлением.
+    public static void finishFrame() {
+        if(!enabled || level==null) return;
         long started = System.nanoTime();
         NtmMeshHits.flush();
         for (var entry : READY.entrySet()) if (READY.remove(entry.getKey(), entry.getValue())) {
@@ -63,7 +78,8 @@ public final class ModelHitClient {
             var pose = ready.pose();
             Matrix4f root = new Matrix4f().translation((float) ready.x(), (float) ready.y(), (float) ready.z()).mul(pose.root());
             List<ModelBox> boxes = ready.layout().boxes(root, pose.transforms(), pose.draw(), pose.texture());
-            publish(entity, ready.yaw(), boxes, "flywheel_snapshot");
+            publishAt(entity, ready.yaw(), boxes, "flywheel_snapshot",ready.origin());
+            if(MobSmoke.enabled()) PUBLISHED_FRAME.put(entity.getUUID(),ready.frame());
         }
         sync();
         frameNanos += System.nanoTime() - started;
@@ -84,7 +100,10 @@ public final class ModelHitClient {
                 camera.z - state.z, ModelBodyGeometry.parts(model,info.gunfeel$texture()));
         float yaw = state instanceof LivingEntityRenderState living ? living.bodyRot
                 : net.minecraft.util.Mth.rotLerp(state.partialTick, entity.yBodyRotO, entity.yBodyRot);
-        if (result.complete()) publish(entity, yaw, result.boxes(), "vanilla_prepared");
+        if (result.complete()) {
+            if(MobSmoke.enabled()) APPLIED_FRAME.put(entity.getUUID(),frame);
+            publishAt(entity, yaw, result.boxes(), "vanilla_prepared",new net.minecraft.world.phys.Vec3(state.x,state.y,state.z));
+        }
         frameNanos += System.nanoTime() - started;
     }
 
@@ -95,13 +114,21 @@ public final class ModelHitClient {
     }
 
     public static void publish(LivingEntity entity, float yaw, List<ModelBox> boxes, String source) {
+        publishAt(entity,yaw,boxes,source,entity.position());
+    }
+
+    public static void publishAt(LivingEntity entity,float yaw,List<ModelBox> boxes,String source,net.minecraft.world.phys.Vec3 origin) {
         if (boxes.isEmpty() || boxes.size() > ModelPosePayload.MAX_BOXES
                 || boxes.stream().anyMatch(b -> !b.valid(ModelHits.radius(entity)))) {
             ModelHitLog.event("client", "capture_rejected", entity, () -> "source=" + source + " cubes=" + boxes.size());
             return;
         }
-        ModelHits.put(level, entity, yaw, boxes);
-        MobSmoke.captured(entity, entity.yBodyRot, boxes, source);
+        var delta=origin.subtract(entity.position());
+        var rendered=delta.lengthSqr()==0?boxes:boxes.stream().map(b -> new ModelBox(b.part(),b.x()+delta.x,b.y()+delta.y,b.z()+delta.z,
+                b.ux(),b.uy(),b.uz(),b.vx(),b.vy(),b.vz(),b.wx(),b.wy(),b.wz(),b.mesh())).toList();
+        ModelHits.put(level, entity, yaw, rendered);
+        if(MobSmoke.enabled()) PUBLISHED_FRAME.put(entity.getUUID(),frame);
+        MobSmoke.captured(entity, entity.yBodyRot, rendered, source);
         ModelHitLog.count("client", "local_pose");
         SYNC.put(entity.getUUID(), new Sync(entity, yaw, List.copyOf(boxes), source, level.getGameTime()));
     }
@@ -146,9 +173,11 @@ public final class ModelHitClient {
     }
 
     public static void clear() {
+        ModelHitDebug.beginFrame();
         ModelBodyGeometry.clear();
         if (level != null) ModelHits.clear(level);
         READY.clear(); SENT.clear(); MESH_SENT.clear(); SYNC.clear(); ModelTextureMask.clear();
+        APPLIED_FRAME.clear(); PUBLISHED_FRAME.clear();
         NtmMeshHits.clear();
         level = null;
         nextCheck = 0;

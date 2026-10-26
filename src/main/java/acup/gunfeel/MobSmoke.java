@@ -37,7 +37,7 @@ public final class MobSmoke {
     private static volatile int id = -1;
     private static volatile Snapshot client, server;
     private static volatile boolean pending;
-    private static int index=-1, stage, orange, white;
+    private static int index=-1, stage, orange, white, sameFrame, oldFrame;
     private static boolean watch;
     private static long since;
     private static BulletConfig beamConfig;
@@ -72,6 +72,9 @@ public final class MobSmoke {
     public static void debug(Entity e, boolean model) {
         if (ENABLED && watch && e!=null && e.getId()==id) {
             if (model) orange++; else white++;
+            if(model && e instanceof LivingEntity living && client!=null && !client.source().startsWith("ntm_")) {
+                if(ModelHitClient.currentFrame(living)) sameFrame++; else oldFrame++;
+            }
         }
     }
 
@@ -112,6 +115,11 @@ public final class MobSmoke {
         if(review()) { reviewFrame(); return; }
         mc.player.setYRot(stage==4?180:0);
         mc.player.setXRot(0);
+        if(stage==5 && seconds()<=1 && mc.level.getEntity(id) instanceof LivingEntity rotating) {
+            rotating.yBodyRotO=rotating.yBodyRot;
+            rotating.yBodyRot=(float)(seconds()*240);
+            rotating.setYRot(rotating.yBodyRot); rotating.yHeadRot=rotating.yBodyRot;
+        }
         if(stage==0) {
             next();
         } else if(stage==1) {
@@ -122,11 +130,13 @@ public final class MobSmoke {
                 if(current().equals("minecraft:bee") || current().equals("minecraft:bat")) {
                     long flat=client.boxes().stream().filter(box -> box.mesh()!=0).count();
                     check(flat>0,"плоские части из настоящей модели="+flat);
+                    check(client.boxes().stream().filter(box -> box.mesh()!=0).allMatch(box -> ModelMesh.get(box.mesh()).edges().length>=24),
+                            "у плоских частей есть внешняя обводка");
                 }
                 if(current().equals("minecraft:breeze"))
                     check(client.boxes().stream().anyMatch(box -> box.part().contains("wind_bottom"))
                             && client.boxes().stream().anyMatch(box -> box.part().contains("wind_top")),"нижняя и верхняя части вихря присутствуют");
-                watch=true; orange=white=0;
+                watch=true; orange=white=sameFrame=oldFrame=0;
                 stage=2; since=System.nanoTime();
             } else if(seconds()>6) {
                 var entity=mc.level.getEntity(id);
@@ -139,6 +149,8 @@ public final class MobSmoke {
         } else if(stage==2 && seconds()>1) {
             watch=false;
             check(orange>0 && white==0,"F3+B: оранжевых кадров="+orange+", белых="+white);
+            if(client!=null && !client.source().startsWith("ntm_"))
+                check(sameFrame>0 && oldFrame==0,"F3+B поза текущего кадра="+sameFrame+", предыдущего="+oldFrame);
             LivingEntity target=(LivingEntity)mc.level.getEntity(id);
             if(target==null) { check(false,"цель пропала"); stage=0; return; }
             rays(target,client,CASES.get(index)+": клиент, видимый");
@@ -149,6 +161,12 @@ public final class MobSmoke {
                 anchor(target,.56,1.3,false,"пустота рядом со скелетом внутри AABB+0.3");
             }
             serverRays(false);
+            stage=5; since=System.nanoTime(); watch=true; orange=white=sameFrame=oldFrame=0;
+        } else if(stage==5 && seconds()>1) {
+            watch=false;
+            check(orange>0 && white==0,"F3+B при вращении: оранжевых="+orange+", белых="+white);
+            if(client!=null && !client.source().startsWith("ntm_"))
+                check(sameFrame>0 && oldFrame==0,"При вращении: применённая поза="+sameFrame+", отставших="+oldFrame);
             stage=3;
         } else if(stage==3) {
             pending=true;

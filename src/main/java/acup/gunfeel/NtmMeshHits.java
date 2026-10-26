@@ -20,7 +20,7 @@ public final class NtmMeshHits {
             LinkedHashSet<ModelBox> boxes) {}
     private static final ThreadLocal<Frame> SUBMIT = new ThreadLocal<>(), DRAW = new ThreadLocal<>();
     private static final java.util.Map<Frame, Boolean> PENDING = new java.util.IdentityHashMap<>();
-    private record Prepared(LivingEntity entity, float yaw, List<ModelBox> boxes) {}
+    private record Prepared(LivingEntity entity, float yaw, List<ModelBox> boxes,Vec3 origin) {}
     private static final java.util.Map<UUID, Prepared> PREPARED = new java.util.concurrent.ConcurrentHashMap<>();
 
     private NtmMeshHits() {}
@@ -71,18 +71,18 @@ public final class NtmMeshHits {
     public static void flush() {
         SUBMIT.remove(); DRAW.remove();
         for (Frame frame : PENDING.keySet()) if (ModelHitClient.eligible(frame.entity()) && !frame.boxes().isEmpty())
-            ModelHitClient.publish(frame.entity(), frame.yaw(), List.copyOf(frame.boxes()), "ntm_mesh");
+            ModelHitClient.publishAt(frame.entity(), frame.yaw(), List.copyOf(frame.boxes()), "ntm_mesh",new Vec3(frame.state().x,frame.state().y,frame.state().z));
         PENDING.clear();
         for (var entry : PREPARED.entrySet()) if (PREPARED.remove(entry.getKey(), entry.getValue())) {
             Prepared pose = entry.getValue();
             if (ModelHitClient.eligible(pose.entity()))
-                ModelHitClient.publish(pose.entity(), pose.yaw(), pose.boxes(), "ntm_flywheel_mesh");
+                ModelHitClient.publishAt(pose.entity(), pose.yaw(), pose.boxes(), "ntm_flywheel_mesh",pose.origin());
         }
     }
 
-    public static void offer(LivingEntity entity, float yaw, List<ModelBox> boxes) {
+    public static void offer(LivingEntity entity, float yaw, List<ModelBox> boxes,org.joml.Vector3f origin) {
         if (PREPARED.size() >= 512 && !PREPARED.containsKey(entity.getUUID())) return;
-        PREPARED.put(entity.getUUID(), new Prepared(entity, yaw, List.copyOf(boxes)));
+        PREPARED.put(entity.getUUID(), new Prepared(entity, yaw, List.copyOf(boxes),new Vec3(origin.x,origin.y,origin.z)));
     }
 
     public static void clear() { SUBMIT.remove(); DRAW.remove(); PENDING.clear(); PREPARED.clear(); }

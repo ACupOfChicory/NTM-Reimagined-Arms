@@ -16,6 +16,8 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Coerce;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Pseudo
@@ -26,14 +28,34 @@ public abstract class MixinVanillateModelHit {
     @Shadow @Final private String[][] namesByVariant;
     @Shadow @Final private int[][] parentIndexByVariant;
     @Unique private final java.util.Map<Integer, ModelPoseLayout> gunfeel$layouts = new java.util.concurrent.ConcurrentHashMap<>();
+    @Unique private final java.util.Map<Object,double[]> gunfeel$origins = new java.util.concurrent.ConcurrentHashMap<>();
+    @Unique private volatile Object gunfeel$lastApplied;
 
-    @Inject(method = "capture(F)V", at = @At("RETURN"))
-    private void gunfeel$snapshot(float partialTick, CallbackInfo ci) {
+    // Метаданные публикуются раньше volatile-снимка: apply другого потока
+    // не должен увидеть новую модель без соответствующего начала координат.
+    @Redirect(method = "capture(F)V", at = @At(value="FIELD",opcode=181,
+            target="Ldev/engine_room/vanillin/visuals/EntityModelVisual;published:Ldev/engine_room/vanillin/visuals/EntityModelVisual$Snapshot;"))
+    private void gunfeel$snapshot(@Coerce Object visual,@Coerce Object snapshot) {
+        if(snapshot!=null && state instanceof LivingEntityRenderState livingState) {
+            if(gunfeel$origins.size()>4) {
+                Object current=VanillatePose.published(this);
+                gunfeel$origins.keySet().removeIf(key -> key!=current && key!=gunfeel$lastApplied);
+            }
+            gunfeel$origins.put(snapshot,new double[]{state.x,state.y,state.z,livingState.bodyRot});
+        }
+        VanillatePose.publish(visual,snapshot);
+    }
+
+    @Inject(method = "apply", at = @At("RETURN"))
+    private void gunfeel$applied(@Coerce Object snapshot, CallbackInfo ci) {
+        gunfeel$lastApplied=snapshot;
         Entity entity = ((VanillateEntityAccess) (Object) this).gunfeel$entity();
         if (!(entity instanceof LivingEntity living) || !ModelHitClient.enabled()) return;
         try {
-            var pose = VanillatePose.read(this);
+            var pose = VanillatePose.snapshot(snapshot);
             if (pose == null) return;
+            var origin=gunfeel$origins.get(snapshot);
+            if(origin==null) return;
             int variant = pose.variant();
             if (variant < 0 || variant >= partsByVariant.length) return;
             var layout = gunfeel$layouts.computeIfAbsent(variant, k -> {
@@ -41,9 +63,8 @@ public abstract class MixinVanillateModelHit {
                 acup.gunfeel.ModelBodyGeometry.supplement(living,captured);
                 return captured;
             });
-            if (!(state instanceof LivingEntityRenderState livingState)) return;
-            ModelHitClient.offer(living, layout, pose, pose.x() - state.x, pose.y() - state.y, pose.z() - state.z,
-                    livingState.bodyRot);
+            ModelHitClient.offer(living, layout, pose, pose.x()-origin[0],pose.y()-origin[1],pose.z()-origin[2],
+                    (float)origin[3],new net.minecraft.world.phys.Vec3(origin[0],origin[1],origin[2]));
         } catch (RuntimeException ex) {
             ModelHitLog.event("client", "vanillate_failed", entity, () -> ex.toString());
         }

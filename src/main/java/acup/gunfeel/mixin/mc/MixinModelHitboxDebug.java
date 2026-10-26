@@ -1,6 +1,5 @@
 package acup.gunfeel.mixin.mc;
 
-import acup.gunfeel.ModelHits;
 import net.minecraft.client.renderer.debug.EntityHitboxDebugRenderer;
 import net.minecraft.gizmos.GizmoProperties;
 import net.minecraft.gizmos.GizmoStyle;
@@ -18,33 +17,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(EntityHitboxDebugRenderer.class)
 public abstract class MixinModelHitboxDebug {
     @Unique private Entity gunfeel$entity;
-    @Unique private float gunfeel$partial;
     @Unique private GizmoProperties gunfeel$modelOutline;
 
     @Inject(method = "showHitboxes", at = @At("HEAD"))
     private void gunfeel$target(Entity entity, float partial, boolean server, CallbackInfo ci) {
         gunfeel$entity = entity;
-        gunfeel$partial = partial;
         gunfeel$modelOutline = null;
     }
 
     @Redirect(method = "showHitboxes", at = @At(value = "INVOKE", ordinal = 0,
             target = "Lnet/minecraft/gizmos/Gizmos;cuboid(Lnet/minecraft/world/phys/AABB;Lnet/minecraft/gizmos/GizmoStyle;)Lnet/minecraft/gizmos/GizmoProperties;"))
     private GizmoProperties gunfeel$parts(AABB original, GizmoStyle style) {
-        var parts = gunfeel$entity == null ? java.util.List.<net.minecraft.world.phys.Vec3[]>of() : ModelHits.outlines(gunfeel$entity);
-        if (parts.isEmpty()) {
-            acup.gunfeel.MobSmoke.debug(gunfeel$entity, false);
-            return Gizmos.cuboid(original, style);
-        }
-        var offset = gunfeel$entity.getPosition(gunfeel$partial).subtract(gunfeel$entity.position());
-        GizmoProperties first = null;
-        for (var corners : parts) for (int i = 0; i < corners.length; i += 2) {
-            var line = Gizmos.line(corners[i].add(offset), corners[i + 1].add(offset), 0xFFFFCC55);
-            if (first == null) first = line;
-        }
-        gunfeel$modelOutline = first;
-        acup.gunfeel.MobSmoke.debug(gunfeel$entity, true);
-        return first;
+        if(!acup.gunfeel.ModelHitDebug.defer(gunfeel$entity,original)) return Gizmos.cuboid(original,style);
+        return gunfeel$modelOutline=acup.gunfeel.ModelHitDebug.DEFERRED;
     }
 
     @Redirect(method = "showHitboxes", at = @At(value = "INVOKE", ordinal = 2,

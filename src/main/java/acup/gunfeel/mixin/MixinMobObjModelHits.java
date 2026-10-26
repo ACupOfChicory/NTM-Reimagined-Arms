@@ -40,7 +40,7 @@ public abstract class MixinMobObjModelHits {
             }
             var boxes = MobObjPose.boxes(gunfeel$layout, lastPoses, visible, interpolatedPosition);
             if (boxes.isEmpty()) return;
-            NtmMeshHits.offer(living, Mth.rotLerp(partial, living.yBodyRotO, living.yBodyRot), boxes);
+            NtmMeshHits.offer(living, Mth.rotLerp(partial, living.yBodyRotO, living.yBodyRot), boxes,interpolatedPosition);
             ModelHitLog.event("client", "obj_pose", living, () -> "cubes=" + boxes.size());
         } catch (RuntimeException ex) {
             gunfeel$failed = true;

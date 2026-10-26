@@ -27,8 +27,21 @@ public final class VanillatePose {
     private VanillatePose() {}
 
     public static Data read(Object visual) {
+        return snapshot(published(visual));
+    }
+
+    public static Object published(Object visual) {
+        try { return PUBLISHED.get(visual.getClass()).get(visual); }
+        catch (IllegalAccessException ex) { throw new IllegalStateException(ex); }
+    }
+
+    public static void publish(Object visual,Object snapshot) {
+        try { PUBLISHED.get(visual.getClass()).set(visual,snapshot); }
+        catch(IllegalAccessException ex) { throw new IllegalStateException(ex); }
+    }
+
+    public static Data snapshot(Object snapshot) {
         try {
-            Object snapshot = PUBLISHED.get(visual.getClass()).get(visual);
             if (snapshot == null) return null;
             Fields f = FIELDS.get(snapshot.getClass());
             Matrix4f root = (Matrix4f) f.root().get(snapshot);

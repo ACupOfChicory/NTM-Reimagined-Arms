@@ -41,7 +41,7 @@ public abstract class MixinMobModelHits {
                         () -> "complete=" + result.complete() + " nodes=" + result.nodes() + " cubes=" + result.boxes().size());
                 return;
             }
-            NtmMeshHits.offer(living, state.bodyRot, result.boxes());
+            NtmMeshHits.offer(living, state.bodyRot, result.boxes(),interpolatedPosition);
             ModelHitLog.event("client", "mob_model_pose", living, () -> "cubes=" + result.boxes().size());
         } catch (RuntimeException ex) {
             ModelHitLog.event("client", "mob_model_failed", living, () -> ex.toString());
