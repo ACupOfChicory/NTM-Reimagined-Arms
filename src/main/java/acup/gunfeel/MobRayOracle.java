@@ -14,7 +14,7 @@ final class MobRayOracle {
 
     static List<Triangle> surface(LivingEntity target, float anchor, List<ModelBox> boxes) {
         List<Triangle> out = new ArrayList<>();
-        float turn = -(float) Math.toRadians(net.minecraft.util.Mth.wrapDegrees(target.yBodyRot - anchor));
+        double turn = -Math.toRadians(net.minecraft.util.Mth.wrapDegrees(target.yBodyRot - anchor));
         for (ModelBox box : boxes) {
             if (box.mesh() == 0) {
                 Vec3[] corners = new Vec3[8];
@@ -32,9 +32,10 @@ final class MobRayOracle {
         return out;
     }
 
-    private static Vec3 point(LivingEntity target, ModelBox b, float turn, double x, double y, double z) {
-        return new Vec3(b.x() + x*b.ux() + y*b.vx() + z*b.wx(), b.y() + x*b.uy() + y*b.vy() + z*b.wy(),
-                b.z() + x*b.uz() + y*b.vz() + z*b.wz()).yRot(turn).add(target.position());
+    private static Vec3 point(LivingEntity target, ModelBox b, double turn, double x, double y, double z) {
+        var p=new org.joml.Vector3d(b.x()+x*b.ux()+y*b.vx()+z*b.wx(),b.y()+x*b.uy()+y*b.vy()+z*b.wy(),b.z()+x*b.uz()+y*b.vz()+z*b.wz());
+        new org.joml.Quaterniond().rotationY(turn).transform(p);
+        return new Vec3(p.x,p.y,p.z).add(target.position());
     }
 
     static List<Ray> grid(List<Triangle> surface) {

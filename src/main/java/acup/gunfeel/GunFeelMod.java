@@ -32,6 +32,7 @@ public final class GunFeelMod {
             ServerSettingsClient.init();
             GunFeel.init();
             HoleRender.register(modBus);
+            ModelDebugRender.register(modBus);
             if (Feature.AMMO_CHOICE.on()) AmmoLockKey.register(modBus);
             if (Feature.ARMS.on()) GunEditor.register(modBus);
         }

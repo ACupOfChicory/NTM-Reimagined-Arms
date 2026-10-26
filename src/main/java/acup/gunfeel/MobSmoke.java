@@ -44,6 +44,7 @@ public final class MobSmoke {
 
     private MobSmoke() {}
     static boolean enabled() { return ENABLED; }
+    static void debugProbe(boolean ok,String text) { RESULTS.add(new Result(ok,"GPU обводка: "+text)); }
     static boolean review() { return Boolean.getBoolean("ntmgunfeel.mobReview"); }
     static List<String> cases() { return CASES; }
     static int index() { return index; }
@@ -136,6 +137,10 @@ public final class MobSmoke {
                 if(current().equals("minecraft:breeze"))
                     check(client.boxes().stream().anyMatch(box -> box.part().contains("wind_bottom"))
                             && client.boxes().stream().anyMatch(box -> box.part().contains("wind_top")),"нижняя и верхняя части вихря присутствуют");
+                if(current().equals("minecraft:goat")) {
+                    check(client.boxes().stream().noneMatch(PlaneHitPolicy::flat),"у взрослой козы нет плоских поверхностей попадания");
+                    check(EntityTypes.GOAT.getDimensions().height()==PlaneHitPolicy.LARGE_SIZE,"порог размера совпадает со взрослой козой");
+                }
                 watch=true; orange=white=sameFrame=oldFrame=0;
                 stage=2; since=System.nanoTime();
             } else if(seconds()>6) {
@@ -148,6 +153,7 @@ public final class MobSmoke {
             }
         } else if(stage==2 && seconds()>1) {
             watch=false;
+            if(index==0) check(ModelDebugRender.probesFinished(),"проверки видимости прочитали настоящие пиксели GPU");
             check(orange>0 && white==0,"F3+B: оранжевых кадров="+orange+", белых="+white);
             if(client!=null && !client.source().startsWith("ntm_"))
                 check(sameFrame>0 && oldFrame==0,"F3+B поза текущего кадра="+sameFrame+", предыдущего="+oldFrame);
@@ -276,7 +282,17 @@ public final class MobSmoke {
             try {
                 var target=(LivingEntity)Minecraft.getInstance().getSingleplayerServer().overworld().getEntity(id);
                 if(target==null || server==null) RESULTS.add(new Result(false,label+": нет цели или сетевой позы"));
-                else rays(target,server,label);
+                else {
+                    rays(target,server,label);
+                    if(target instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon dragon) {
+                        var head=ModelHits.worldBoxes(dragon).stream().filter(b -> b.part().equals("root/head")).findFirst().orElseThrow();
+                        var center=ModelContours.point(head,.5,.5,.5);
+                        var a=center.add(0,0,-.01); var b=center.add(0,0,.01);
+                        var result=ProjectileUtil.getEntityHitResult(dragon.level(),(Entity)null,a,b,new AABB(a,b).inflate(.3),
+                                e -> e instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragonPart part && part.parentMob==dragon,.3F);
+                        RESULTS.add(new Result(result!=null && result.getEntity()==dragon.getSubEntities()[0],label+": точная голова сохраняет ванильного получателя урона head"));
+                    }
+                }
             } catch(Throwable t) { RESULTS.add(new Result(false,label+": "+t)); }
             pending=false;
         });
@@ -299,10 +315,14 @@ public final class MobSmoke {
         for(var ray:grid) {
             boolean actual=ProjectileUtil.getEntityHitResult(target.level(),(Entity)null,ray.from(),ray.to(),
                     new AABB(ray.from(),ray.to()).inflate(.001),e -> e==target,.3F)!=null;
-            if(ray.hit()) { hits++; if(body==null) body=ray; } else misses++;
-            if(actual!=ray.hit()) mismatch++;
-            if(ray.hit() && raw.clip(ray.from(),ray.to()).isEmpty()) { extra++; wing=ray; }
-            if(!ray.hit() && raw.inflate(.3).clip(ray.from(),ray.to()).isPresent()) { gaps++; gap=ray; }
+            if(ray.hit()) { hits++; if(body==null && clearRay(target,ray)) body=ray; } else misses++;
+            if(actual!=ray.hit()) {
+                mismatch++;
+                ModelHitLog.event(target.level().isClientSide()?"client":"server","oracle_mismatch",target,
+                        () -> "expected="+ray.hit()+" actual="+actual+" from="+ray.from()+" to="+ray.to()+" anchor="+pose.anchor()+" current="+target.yBodyRot);
+            }
+            if(ray.hit() && raw.clip(ray.from(),ray.to()).isEmpty()) { extra++; if(clearRay(target,ray)) wing=ray; }
+            if(!ray.hit() && raw.inflate(.3).clip(ray.from(),ray.to()).isPresent()) { gaps++; if(clearRay(target,ray)) gap=ray; }
         }
         RESULTS.add(new Result(hits>0 && misses>0 && mismatch==0,label+": лучи="+grid.size()+", модель="+hits+
                 ", пустота="+misses+", расхождений="+mismatch+", вне AABB="+extra+", пустота внутри AABB+0.3="+gaps));
@@ -311,6 +331,11 @@ public final class MobSmoke {
             if(gap!=null) nativeRay((ServerLevel)target.level(),target,gap,false,label+": пустота внутри AABB+0.3");
             if(wing!=null) nativeRay((ServerLevel)target.level(),target,wing,true,label+": выступ за AABB");
         }
+    }
+
+    private static boolean clearRay(LivingEntity target,MobRayOracle.Ray ray) {
+        return target.level().isClientSide() || target.level().clip(new net.minecraft.world.level.ClipContext(ray.from(),ray.to(),
+                net.minecraft.world.level.ClipContext.Block.COLLIDER,net.minecraft.world.level.ClipContext.Fluid.NONE,target)).getType()==HitResult.Type.MISS;
     }
 
     private static void nativeRay(ServerLevel level,LivingEntity target,MobRayOracle.Ray ray,boolean expected,String label) {
@@ -341,7 +366,7 @@ public final class MobSmoke {
         private boolean hit;
         ProbeBullet(ServerLevel level,Entity target) { super(level,XFactory9mm.p9_ap,1,0,0,0); this.target=target; }
         @Override protected void onImpact(HitResult result) {
-            if(result instanceof EntityHitResult entity && entity.getEntity()==target) hit=true;
+            if(result instanceof EntityHitResult entity && entity.getEntity().is(target)) hit=true;
             super.onImpact(result);
         }
     }
@@ -350,11 +375,11 @@ public final class MobSmoke {
         private boolean hit;
         ProbeArrow(ServerLevel level,Entity target) { super(EntityTypes.ARROW,level); this.target=target; setBaseDamage(0); }
         @Override protected net.minecraft.world.entity.projectile.ProjectileDeflection hitTargetOrDeflectSelf(HitResult result) {
-            if(result instanceof EntityHitResult entity && entity.getEntity()==target) hit=true;
+            if(result instanceof EntityHitResult entity && entity.getEntity().is(target)) hit=true;
             return super.hitTargetOrDeflectSelf(result);
         }
         @Override protected void onHitEntity(EntityHitResult result) {
-            if(result.getEntity()==target) hit=true;
+            if(result.getEntity().is(target)) hit=true;
             super.onHitEntity(result);
         }
     }
@@ -363,7 +388,7 @@ public final class MobSmoke {
         private boolean hit;
         ProbeBeam(ServerLevel level,Entity target) { super(level,beamConfig,0); this.target=target; }
         @Override protected void onImpact(HitResult result) {
-            if(result instanceof EntityHitResult entity && entity.getEntity()==target) hit=true;
+            if(result instanceof EntityHitResult entity && entity.getEntity().is(target)) hit=true;
             super.onImpact(result);
         }
     }
