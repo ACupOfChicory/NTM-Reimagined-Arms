@@ -9,14 +9,61 @@ import net.minecraft.world.phys.Vec3;
 public final class ModelContours {
     private ModelContours() {}
     private static final float[] BOX_EDGES=boxEdges();
-    private static final java.util.Map<List<ModelBox>,List<Vec3[]>> CACHE=new java.util.LinkedHashMap<>(16,.75F,true) {
-        protected boolean removeEldestEntry(java.util.Map.Entry<List<ModelBox>,List<Vec3[]>> entry) { return size()>16; }
-    };
+    private record Cached(List<ModelBox> shape,List<Vec3[]> edges) {}
+    private static final java.util.ArrayDeque<Cached> CACHE=new java.util.ArrayDeque<>();
+    private static long builds;
+    static synchronized long builds() { return builds; }
+    private record Frame(Vec3 origin,Vec3 u,Vec3 v,Vec3 w) {
+        Vec3 direction(Vec3 p) { return new Vec3(p.dot(u),p.dot(v),p.dot(w)); }
+        Vec3 local(Vec3 p) { return direction(p.subtract(origin)); }
+        Vec3 world(Vec3 p) { return origin.add(u.scale(p.x)).add(v.scale(p.y)).add(w.scale(p.z)); }
+        static Frame of(ModelBox b) {
+            Vec3 u=unit(new Vec3(b.ux(),b.uy(),b.uz()));
+            Vec3 v=new Vec3(b.vx(),b.vy(),b.vz()); v=unit(v.subtract(u.scale(u.dot(v))));
+            Vec3 w=u.cross(v);
+            if(w.dot(new Vec3(b.wx(),b.wy(),b.wz()))<0) w=w.scale(-1);
+            return new Frame(new Vec3(b.x(),b.y(),b.z()),u,v,w);
+        }
+        private static Vec3 unit(Vec3 p) { return p.scale(1/Math.sqrt(p.lengthSqr())); }
+        ModelBox local(ModelBox b) {
+            Vec3 p=local(new Vec3(b.x(),b.y(),b.z())),a=direction(new Vec3(b.ux(),b.uy(),b.uz())),
+                    c=direction(new Vec3(b.vx(),b.vy(),b.vz())),d=direction(new Vec3(b.wx(),b.wy(),b.wz()));
+            return new ModelBox(b.part(),p.x,p.y,p.z,a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z,b.mesh());
+        }
+    }
     public static synchronized void clear() { CACHE.clear(); }
     public static synchronized List<Vec3[]> edges(List<ModelBox> boxes) {
-        var cached=CACHE.get(boxes);
-        if(cached!=null) return cached;
-        var result=List.copyOf(collect(boxes)); CACHE.put(List.copyOf(boxes),result); return result;
+        if(boxes.isEmpty()) return List.of();
+        // Общее перемещение и поворот не меняют топологию контура. Храним
+        // его в ортонормированной системе первой детали, без масштаба:
+        // изменение размеров или относительной позы всё ещё меняет ключ.
+        var frame=Frame.of(boxes.getFirst());
+        var shape=boxes.stream().map(frame::local).toList();
+        Cached cached=null;
+        for(var candidate:CACHE) if(same(candidate.shape(),shape)) { cached=candidate; break; }
+        if(cached==null) { builds++; cached=new Cached(shape,List.copyOf(collect(shape))); }
+        else CACHE.remove(cached);
+        CACHE.addFirst(cached); if(CACHE.size()>16) CACHE.removeLast();
+        List<Vec3[]> result=new ArrayList<>(cached.edges().size());
+        for(var strip:cached.edges()) {
+            Vec3[] transformed=new Vec3[strip.length];
+            for(int i=0;i<strip.length;i++) transformed[i]=frame.world(strip[i]);
+            result.add(transformed);
+        }
+        return result;
+    }
+    private static boolean same(List<ModelBox> a,List<ModelBox> b) {
+        if(a.size()!=b.size()) return false;
+        // Матрицы GPU содержат float: обратный поворот даёт шум в несколько
+        // миллионных блока. Допуск меньше допуска объединения поверхностей.
+        final double tolerance=1./32768;
+        for(int i=0;i<a.size();i++) {
+            var x=a.get(i); var y=b.get(i);
+            if(x.mesh()!=y.mesh() || !x.part().equals(y.part())) return false;
+            double[] p=x.numbers(),q=y.numbers();
+            for(int n=0;n<p.length;n++) if(Math.abs(p[n]-q[n])>tolerance) return false;
+        }
+        return true;
     }
     private static List<Vec3[]> collect(List<ModelBox> boxes) {
         List<Vec3[]> out=new ArrayList<>();

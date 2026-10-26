@@ -42,6 +42,7 @@ public final class MobSmoke {
     private static final boolean CONTOUR_SHOTS=Boolean.getBoolean("ntmgunfeel.contourShots");
     private static int photographed=-1;
     private static long since;
+    private static long contourBuilds;
     private static BulletConfig beamConfig;
     private static MobRayOracle.Ray woolRay;
     private static final java.util.Set<Integer> PROBES=java.util.concurrent.ConcurrentHashMap.newKeySet();
@@ -179,6 +180,7 @@ public final class MobSmoke {
                 }
                 watch=true; orange=white=sameFrame=oldFrame=0;
                 stage=2; since=System.nanoTime();
+                contourBuilds=ModelContours.builds();
             } else if(seconds()>6) {
                 var entity=mc.level.getEntity(id);
                 String renderer=entity==null?"нет сущности":mc.getEntityRenderDispatcher().getRenderer(entity).getClass().getName();
@@ -188,6 +190,10 @@ public final class MobSmoke {
                 stage=0;
             }
         } else if(stage==2 && seconds()>1) {
+            if(current().equals("hbm:entity_ufo")) {
+                long rebuilt=ModelContours.builds()-contourBuilds;
+                check(rebuilt<Math.max(1,orange/2),"жёсткое вращение: кадров="+orange+", перестроений контура="+rebuilt);
+            }
             watch=false;
             if(index==0) check(ModelDebugRender.probesFinished(),"проверки видимости прочитали настоящие пиксели GPU");
             check(orange>0 && white==0,"F3+B: оранжевых кадров="+orange+", белых="+white);

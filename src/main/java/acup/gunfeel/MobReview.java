@@ -51,6 +51,12 @@ final class MobReview {
                 filter=2; message="Первый обзор завершён. Повторная проверка отмеченных ошибок"; return i;
             }
         }
+        for(int i=0;i<MobSmoke.cases().size();i++) {
+            var decision=store.get(MobSmoke.cases().get(i));
+            if(decision!=null && decision.status().equals("skip")) {
+                filter=3; message="Остались отложенные мобы"; return i;
+            }
+        }
         message="Все мобы уже просмотрены. F6 — фильтр ошибок";
         return 0;
     }

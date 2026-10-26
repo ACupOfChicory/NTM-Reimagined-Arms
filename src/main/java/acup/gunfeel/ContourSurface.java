@@ -13,6 +13,22 @@ import net.minecraft.world.phys.Vec3;
 final class ContourSurface {
     private static final double EPS=1.0/8192,STEP=EPS*4;
     private record Triangle(Vec3 a,Vec3 b,Vec3 c,Vec3 normal) {}
+    private record Bounds(double x0,double y0,double z0,double x1,double y1,double z1) {
+        static Bounds triangle(Triangle t) {
+            return new Bounds(Math.min(t.a.x,Math.min(t.b.x,t.c.x)),Math.min(t.a.y,Math.min(t.b.y,t.c.y)),
+                    Math.min(t.a.z,Math.min(t.b.z,t.c.z)),Math.max(t.a.x,Math.max(t.b.x,t.c.x)),
+                    Math.max(t.a.y,Math.max(t.b.y,t.c.y)),Math.max(t.a.z,Math.max(t.b.z,t.c.z)));
+        }
+        Bounds union(Bounds b) { return new Bounds(Math.min(x0,b.x0),Math.min(y0,b.y0),Math.min(z0,b.z0),
+                Math.max(x1,b.x1),Math.max(y1,b.y1),Math.max(z1,b.z1)); }
+        boolean meets(Vec3 a,Vec3 b) {
+            return x1+EPS>=Math.min(a.x,b.x) && x0-EPS<=Math.max(a.x,b.x)
+                    && y1+EPS>=Math.min(a.y,b.y) && y0-EPS<=Math.max(a.y,b.y)
+                    && z1+EPS>=Math.min(a.z,b.z) && z0-EPS<=Math.max(a.z,b.z);
+        }
+        double center(int axis) { return axis==0?x0+x1:axis==1?y0+y1:z0+z1; }
+    }
+    private record Node(Bounds bounds,Node left,Node right,int from,int to) {}
     private static final class Plane {
         final Vec3 normal;
         final List<Triangle> triangles=new ArrayList<>();
@@ -27,6 +43,11 @@ final class ContourSurface {
     private record Edge(Point a,Point b) {}
     private final List<ModelBox> boxes;
     private final List<Triangle> triangles=new ArrayList<>();
+    private final Node root;
+    private final Triangle[] ordered;
+    private final java.util.Map<Triangle,Bounds> bounds=new java.util.IdentityHashMap<>();
+    private long triangleChecks;
+    long triangleChecks() { return triangleChecks; }
     private final Set<Edge> seen=new HashSet<>();
     ContourSurface(List<ModelBox> boxes) {
         this.boxes=boxes;
@@ -40,6 +61,29 @@ final class ContourSurface {
                 if(normal.lengthSqr()>1e-20) triangles.add(new Triangle(a,b,c,normal.normalize()));
             }
         }
+        ordered=triangles.toArray(Triangle[]::new);
+        for(var t:ordered) bounds.put(t,Bounds.triangle(t));
+        root=build(0,ordered.length);
+    }
+    private Node build(int from,int to) {
+        if(from==to) return null;
+        Bounds b=bounds.get(ordered[from]);
+        for(int i=from+1;i<to;i++) b=b.union(bounds.get(ordered[i]));
+        if(to-from<=8) return new Node(b,null,null,from,to);
+        int axis=b.y1-b.y0>b.x1-b.x0?1:0;
+        if(b.z1-b.z0>(axis==0?b.x1-b.x0:b.y1-b.y0)) axis=2;
+        final int split=axis;
+        java.util.Arrays.sort(ordered,from,to,java.util.Comparator.comparingDouble(t -> bounds.get(t).center(split)));
+        int mid=(from+to)/2;
+        return new Node(b,build(from,mid),build(mid,to),from,to);
+    }
+    private void candidates(Node node,Vec3 a,Vec3 b,List<Triangle> out) {
+        if(node==null || !node.bounds.meets(a,b)) return;
+        if(node.left!=null) { candidates(node.left,a,b,out); candidates(node.right,a,b,out); return; }
+        for(int i=node.from;i<node.to;i++) {
+            triangleChecks++;
+            if(bounds.get(ordered[i]).meets(a,b)) out.add(ordered[i]);
+        }
     }
 
     void append(List<Vec3> output,Vec3 a,Vec3 b,List<double[]> visible) {
@@ -52,7 +96,9 @@ final class ContourSurface {
             if(span!=null) { cuts.add(span[0]); cuts.add(span[1]); }
         }
         List<Plane> planes=new ArrayList<>();
-        for(var t:triangles) {
+        List<Triangle> nearby=new ArrayList<>();
+        candidates(root,a,b,nearby);
+        for(var t:nearby) {
             if(!overlaps(t,a,b) || Math.abs(a.subtract(t.a()).dot(t.normal()))>EPS
                     || Math.abs(b.subtract(t.a()).dot(t.normal()))>EPS) continue;
             Plane plane=null;
