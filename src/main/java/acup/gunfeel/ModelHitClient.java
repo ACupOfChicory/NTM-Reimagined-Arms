@@ -118,19 +118,20 @@ public final class ModelHitClient {
     }
 
     public static void publishAt(LivingEntity entity,float yaw,List<ModelBox> boxes,String source,net.minecraft.world.phys.Vec3 origin) {
-        if (boxes.isEmpty() || boxes.size() > ModelPosePayload.MAX_BOXES
-                || boxes.stream().anyMatch(b -> !b.valid(ModelHits.radius(entity)))) {
+        var filtered=PlaneHitPolicy.filter(entity,boxes);
+        if (filtered.isEmpty() || filtered.size() > ModelPosePayload.MAX_BOXES
+                || filtered.stream().anyMatch(b -> !b.valid(ModelHits.radius(entity)))) {
             ModelHitLog.event("client", "capture_rejected", entity, () -> "source=" + source + " cubes=" + boxes.size());
             return;
         }
         var delta=origin.subtract(entity.position());
-        var rendered=delta.lengthSqr()==0?boxes:boxes.stream().map(b -> new ModelBox(b.part(),b.x()+delta.x,b.y()+delta.y,b.z()+delta.z,
+        var rendered=delta.lengthSqr()==0?filtered:filtered.stream().map(b -> new ModelBox(b.part(),b.x()+delta.x,b.y()+delta.y,b.z()+delta.z,
                 b.ux(),b.uy(),b.uz(),b.vx(),b.vy(),b.vz(),b.wx(),b.wy(),b.wz(),b.mesh())).toList();
         ModelHits.put(level, entity, yaw, rendered);
         if(MobSmoke.enabled()) PUBLISHED_FRAME.put(entity.getUUID(),frame);
         MobSmoke.captured(entity, entity.yBodyRot, rendered, source);
         ModelHitLog.count("client", "local_pose");
-        SYNC.put(entity.getUUID(), new Sync(entity, yaw, List.copyOf(boxes), source, level.getGameTime()));
+        SYNC.put(entity.getUUID(), new Sync(entity, yaw, List.copyOf(filtered), source, level.getGameTime()));
     }
 
     private static void sync() {

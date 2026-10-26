@@ -1,7 +1,7 @@
 package acup.gunfeel;
 
 import java.util.Optional;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -9,9 +9,9 @@ import net.minecraft.world.phys.Vec3;
 // association through inflate also covers vanilla ProjectileUtil and mods which enlarge a target box before clip,
 // including NTM bullets and beams. Blocks, nonliving entities and swept movement boxes remain ordinary AABBs.
 public final class ModelAABB extends AABB {
-    private final LivingEntity entity;
+    private final Entity entity;
 
-    public ModelAABB(LivingEntity entity, AABB box) {
+    public ModelAABB(Entity entity, AABB box) {
         super(box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ);
         this.entity = entity;
     }

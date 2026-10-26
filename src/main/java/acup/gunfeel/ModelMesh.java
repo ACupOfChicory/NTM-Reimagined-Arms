@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 // Неизменяемая поверхность в единичной коробке. BVH и рёбра строятся один раз;
@@ -170,6 +171,7 @@ public final class ModelMesh {
     }
 
     private record Point(float x, float y, float z) implements Comparable<Point> {
+        Point { x=Math.round(x*1_000_000F)/1_000_000F; y=Math.round(y*1_000_000F)/1_000_000F; z=Math.round(z*1_000_000F)/1_000_000F; }
         public int compareTo(Point p) {
             int c = Float.compare(x, p.x); if (c == 0) c = Float.compare(y, p.y); return c == 0 ? Float.compare(z, p.z) : c;
         }
@@ -182,6 +184,9 @@ public final class ModelMesh {
         FaceEdge(double x, double y, double z) { this.x = x; this.y = y; this.z = z; }
     }
     private float[] buildEdges() {
+        record Side(Point a,Point b,double nx,double ny,double nz) {}
+        List<Side> sides=new ArrayList<>();
+        java.util.Set<Point> vertices=new java.util.HashSet<>();
         Map<Edge, FaceEdge> all = new HashMap<>();
         for (int k = 0; k < triangles.length; k += 9) {
             Point[] p = new Point[3];
@@ -194,10 +199,30 @@ public final class ModelMesh {
             nx /= length; ny /= length; nz /= length;
             for (int i = 0; i < 3; i++) {
                 Point a = p[i], b = p[(i + 1) % 3];
-                Edge key = a.compareTo(b) < 0 ? new Edge(a, b) : new Edge(b, a);
+                sides.add(new Side(a,b,nx,ny,nz)); vertices.add(a); vertices.add(b);
+            }
+        }
+        // Длинное ребро и несколько коротких на другой стороне T-стыка
+        // должны иметь одинаковые ключи. Иначе шов разбиения выглядит краем.
+        for(var side:sides) {
+            Point start=side.a(),end=side.b();
+            double dx=end.x-start.x,dy=end.y-start.y,dz=end.z-start.z,len=dx*dx+dy*dy+dz*dz;
+            if(len<1e-16) continue;
+            var split=new java.util.TreeMap<Double,Point>(); split.put(0.,start); split.put(1.,end);
+            for(var p:vertices) {
+                double t=((p.x-start.x)*dx+(p.y-start.y)*dy+(p.z-start.z)*dz)/len;
+                if(t<=1e-7 || t>=1-1e-7) continue;
+                double ex=p.x-start.x-t*dx,ey=p.y-start.y-t*dy,ez=p.z-start.z-t*dz;
+                if(ex*ex+ey*ey+ez*ez<2e-12) split.put(t,p);
+            }
+            Point a=null;
+            for(var b:split.values()) {
+                if(a==null) { a=b; continue; }
+                Edge key = a.compareTo(b) < 0 ? new Edge(a,b) : new Edge(b,a);
                 FaceEdge old = all.get(key);
-                if (old == null) all.put(key, new FaceEdge(nx, ny, nz));
-                else { old.count++; old.crease |= Math.abs(old.x * nx + old.y * ny + old.z * nz) < .99999; }
+                if (old == null) all.put(key, new FaceEdge(side.nx(),side.ny(),side.nz()));
+                else { old.count++; old.crease |= Math.abs(old.x*side.nx()+old.y*side.ny()+old.z*side.nz())<.99999; }
+                a=b;
             }
         }
         ArrayList<Float> lines = new ArrayList<>();

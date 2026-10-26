@@ -38,6 +38,13 @@ public abstract class MixinModelHitboxDebug {
         return gunfeel$modelOutline != null ? gunfeel$modelOutline : Gizmos.cuboid(original, style);
     }
 
+    @Redirect(method="showHitboxes",at=@At(value="INVOKE",ordinal=3,
+            target="Lnet/minecraft/gizmos/Gizmos;cuboid(Lnet/minecraft/world/phys/AABB;Lnet/minecraft/gizmos/GizmoStyle;)Lnet/minecraft/gizmos/GizmoProperties;"))
+    private GizmoProperties gunfeel$dragonParts(AABB original,GizmoStyle style) {
+        return gunfeel$entity instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon
+                && !acup.gunfeel.ModelHits.worldBoxes(gunfeel$entity).isEmpty()?acup.gunfeel.ModelHitDebug.DEFERRED:Gizmos.cuboid(original,style);
+    }
+
     @Inject(method = "showHitboxes", at = @At("RETURN"))
     private void gunfeel$clear(Entity entity, float partial, boolean server, CallbackInfo ci) {
         gunfeel$entity = null;

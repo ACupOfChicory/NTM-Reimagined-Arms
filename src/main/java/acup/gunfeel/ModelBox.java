@@ -36,6 +36,32 @@ public record ModelBox(String part, double x, double y, double z,
         return ux * (vy * wz - vz * wy) + uy * (vz * wx - vx * wz) + uz * (vx * wy - vy * wx);
     }
 
+    double[] interiorSpan(net.minecraft.world.phys.Vec3 from,net.minecraft.world.phys.Vec3 to) {
+        double det=determinant(); if(Math.abs(det)<1e-12 || mesh!=0) return null;
+        double[] a=local(from.x-x,from.y-y,from.z-z,det),b=local(to.x-x,to.y-y,to.z-z,det);
+        double lo=0,hi=1,epsilon=1e-6;
+        for(int i=0;i<3;i++) {
+            double d=b[i]-a[i];
+            if(Math.abs(d)<1e-12) { if(a[i]<=epsilon || a[i]>=1-epsilon) return null; }
+            else {
+                double p=(epsilon-a[i])/d,q=(1-epsilon-a[i])/d;
+                lo=Math.max(lo,Math.min(p,q)); hi=Math.min(hi,Math.max(p,q));
+                if(lo>=hi) return null;
+            }
+        }
+        return new double[]{lo,hi};
+    }
+
+    boolean encloses(ModelBox other) {
+        double det=determinant(); if(Math.abs(det)<1e-12) return false;
+        for(int i=0;i<8;i++) {
+            var p=ModelContours.point(other,(i&1)==0?0:1,(i&2)==0?0:1,(i&4)==0?0:1);
+            var c=local(p.x-x,p.y-y,p.z-z,det);
+            for(double value:c) if(value<=1e-6 || value>=1-1e-6) return false;
+        }
+        return true;
+    }
+
     // Fraction of the segment at its first intersection, including a start inside. -1 means no hit.
     public double clip(double ax, double ay, double az, double bx, double by, double bz) {
         double det = determinant();

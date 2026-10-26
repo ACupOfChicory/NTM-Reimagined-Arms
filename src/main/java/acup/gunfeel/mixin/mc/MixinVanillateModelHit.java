@@ -36,12 +36,15 @@ public abstract class MixinVanillateModelHit {
     @Redirect(method = "capture(F)V", at = @At(value="FIELD",opcode=181,
             target="Ldev/engine_room/vanillin/visuals/EntityModelVisual;published:Ldev/engine_room/vanillin/visuals/EntityModelVisual$Snapshot;"))
     private void gunfeel$snapshot(@Coerce Object visual,@Coerce Object snapshot) {
-        if(snapshot!=null && state instanceof LivingEntityRenderState livingState) {
+        var target=((VanillateEntityAccess)(Object)this).gunfeel$entity();
+        if(snapshot!=null && target instanceof LivingEntity living) {
             if(gunfeel$origins.size()>4) {
                 Object current=VanillatePose.published(this);
                 gunfeel$origins.keySet().removeIf(key -> key!=current && key!=gunfeel$lastApplied);
             }
-            gunfeel$origins.put(snapshot,new double[]{state.x,state.y,state.z,livingState.bodyRot});
+            float yaw=state instanceof LivingEntityRenderState livingState?livingState.bodyRot:
+                    net.minecraft.util.Mth.rotLerp(state.partialTick,living.yBodyRotO,living.yBodyRot);
+            gunfeel$origins.put(snapshot,new double[]{state.x,state.y,state.z,yaw});
         }
         VanillatePose.publish(visual,snapshot);
     }

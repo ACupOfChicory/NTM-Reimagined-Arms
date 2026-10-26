@@ -62,8 +62,10 @@ public final class ModelHits {
                     + p.boxes().stream().filter(b -> !b.valid(radius)).findFirst().orElse(null));
             return;
         }
-        put(observer.level(), living, p.yaw(), p.boxes());
-        MobSmoke.accepted(living, p.yaw(), p.boxes());
+        var filtered=PlaneHitPolicy.filter(living,p.boxes());
+        if(filtered.isEmpty()) return;
+        put(observer.level(), living, p.yaw(), filtered);
+        MobSmoke.accepted(living, p.yaw(), filtered);
         ModelHitLog.event("server", "accepted", living, () -> "observer=" + observer.getId() + " cubes=" + p.boxes().size()
                 + " tick=" + tick + " first_cube=" + p.boxes().getFirst());
     }
@@ -115,8 +117,10 @@ public final class ModelHits {
         List<Entity> out = new ArrayList<>(original);
         for (var entry : poses.entrySet()) {
             Entity target = level.getEntity(entry.getKey());
-            if (compatible(target, entry.getValue()) && target != except && filter.test(target) && !out.contains(target)
-                    && target.getBoundingBox().inflate(radius(target)).intersects(area)) out.add(target);
+            if(!compatible(target,entry.getValue()) || target==except || !target.getBoundingBox().inflate(radius(target)).intersects(area)) continue;
+            if(target instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon dragon)
+                for(var part:dragon.getSubEntities()) if(part!=except && filter.test(part) && !out.contains(part)) out.add(part);
+            if(filter.test(target) && !out.contains(target)) out.add(target);
         }
         return out;
     }
@@ -135,21 +139,21 @@ public final class ModelHits {
 
     // F3+B получает ровно ту же позу и те же проверки актуальности, что пересечение луча.
     public static synchronized List<Vec3[]> outlines(Entity target) {
+        return ModelContours.edges(worldBoxes(target));
+    }
+
+    public static synchronized List<ModelBox> worldBoxes(Entity target) {
         Map<Integer, PoseAt> poses = POSES.get(target.level());
         PoseAt p = poses == null ? null : poses.get(target.getId());
         if (!usable(target, p) || !(target instanceof LivingEntity living)) return List.of();
         double angle = turnAngle(target.level().isClientSide(), living.yBodyRot, p.yaw(), p.bodyYaw());
-        List<Vec3[]> out = new ArrayList<>();
+        List<ModelBox> out = new ArrayList<>();
         for (ModelBox box : p.boxes()) {
-            float[] edges = box.mesh() == 0 ? BOX_EDGES : ModelMesh.get(box.mesh()).edges();
-            Vec3[] corners = new Vec3[edges.length / 3];
-            for (int i = 0; i < corners.length; i++) {
-                double a = edges[i * 3], b = edges[i * 3 + 1], c = edges[i * 3 + 2];
-                corners[i] = unturn(new Vec3(box.x() + a * box.ux() + b * box.vx() + c * box.wx(),
-                        box.y() + a * box.uy() + b * box.vy() + c * box.wy(),
-                        box.z() + a * box.uz() + b * box.vz() + c * box.wz()), -angle).add(target.position());
-            }
-            out.add(corners);
+            var origin=unturn(new Vec3(box.x(),box.y(),box.z()),-angle).add(target.position());
+            var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),-angle);
+            var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),-angle);
+            var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),-angle);
+            out.add(new ModelBox(box.part(),origin.x,origin.y,origin.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z,box.mesh()));
         }
         return out;
     }
@@ -169,10 +173,12 @@ public final class ModelHits {
     }
 
     public static synchronized Optional<Vec3> clip(Entity target, Vec3 from, Vec3 to, AABB fallback) {
+        var dragonPart=target instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragonPart part?part:null;
+        Entity root=dragonPart==null?target:dragonPart.parentMob;
         Map<Integer, PoseAt> poses = POSES.get(target.level());
-        PoseAt p = poses == null ? null : poses.get(target.getId());
-        boolean fresh = usable(target, p);
-        if (!fresh || !(target instanceof LivingEntity living)) {
+        PoseAt p = poses == null ? null : poses.get(root.getId());
+        boolean fresh = usable(root, p);
+        if (!fresh || !(root instanceof LivingEntity living)) {
             if (!from.equals(to)) ModelHitLog.event(target.level().isClientSide() ? "client" : "server", "clip_fallback", target,
                     () -> "enabled=" + enabled() + " has_pose=" + (p != null) + " age=" + (p == null ? -1 : target.level().getGameTime() - p.tick())
                             + " uuid_matches=" + (p != null && p.entity().equals(target.getUUID()))
@@ -184,10 +190,14 @@ public final class ModelHits {
             return fallback.contains(from) ? Optional.of(from) : fallback.clip(from, to);
         }
         double angle = turnAngle(target.level().isClientSide(), living.yBodyRot, p.yaw(), p.bodyYaw());
-        Vec3 a = unturn(from.subtract(target.position()), angle), b = unturn(to.subtract(target.position()), angle);
+        Vec3 a = unturn(from.subtract(root.position()), angle), b = unturn(to.subtract(root.position()), angle);
         double nearest = Double.POSITIVE_INFINITY;
         String part = "";
         for (ModelBox box : p.boxes()) {
+            if(dragonPart!=null) {
+                var center=unturn(ModelContours.point(box,.5,.5,.5),-angle).add(root.position());
+                if(!DragonModelParts.belongs(dragonPart.parentMob,dragonPart,box,center)) continue;
+            }
             double t = box.clip(a.x, a.y, a.z, b.x, b.y, b.z);
             if (t >= 0 && t < nearest) { nearest = t; part = box.part(); }
         }
