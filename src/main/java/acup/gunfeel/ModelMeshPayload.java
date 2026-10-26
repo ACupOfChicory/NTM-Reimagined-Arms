@@ -11,8 +11,10 @@ public record ModelMeshPayload(long id, float[] triangles) implements CustomPack
     public static final StreamCodec<RegistryFriendlyByteBuf, ModelMeshPayload> CODEC = CustomPacketPayload.codec(ModelMeshPayload::write, ModelMeshPayload::read);
     public ModelMeshPayload { triangles = triangles.clone(); }
     private void write(RegistryFriendlyByteBuf b) {
+        int before=MobBenchMetrics.ENABLED?b.writerIndex():0;
         b.writeLong(id); b.writeVarInt(triangles.length / 9);
         for (float x : triangles) b.writeFloat(x);
+        if(MobBenchMetrics.ENABLED) MobBenchMetrics.packet(b.writerIndex()-before);
     }
     private static ModelMeshPayload read(RegistryFriendlyByteBuf b) {
         long id = b.readLong(); int count = b.readVarInt();

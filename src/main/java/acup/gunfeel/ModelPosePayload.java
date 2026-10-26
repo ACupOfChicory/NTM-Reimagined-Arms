@@ -22,6 +22,7 @@ public record ModelPosePayload(int entity, UUID uuid, double x, double y, double
     }
 
     private void write(RegistryFriendlyByteBuf b) {
+        int before=MobBenchMetrics.ENABLED?b.writerIndex():0;
         b.writeVarInt(entity);
         b.writeUUID(uuid);
         b.writeDouble(x);
@@ -34,6 +35,7 @@ public record ModelPosePayload(int entity, UUID uuid, double x, double y, double
             for (double n : box.numbers()) b.writeFloat((float) n);
             b.writeLong(box.mesh());
         }
+        if(MobBenchMetrics.ENABLED) MobBenchMetrics.packet(b.writerIndex()-before);
     }
 
     private static ModelPosePayload read(RegistryFriendlyByteBuf b) {

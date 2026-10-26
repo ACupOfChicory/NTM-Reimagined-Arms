@@ -65,7 +65,7 @@ public final class ModelHitClient {
         if (mc.level != level) { clear(); level = mc.level; }
         if (level == null || mc.player == null || mc.getConnection() == null) return;
         long now = System.currentTimeMillis();
-        if (now >= nextCheck) { enabled = ModelHits.enabled(); nextCheck = now + 1000; }
+        if (MobBenchMetrics.ENABLED || now >= nextCheck) { enabled = ModelHits.enabled(); nextCheck = now + 1000; }
         if (!enabled) return;
     }
 
@@ -83,8 +83,12 @@ public final class ModelHitClient {
             publishAt(entity, ready.yaw(), boxes, "flywheel_snapshot",ready.origin());
             if(MobSmoke.enabled()) PUBLISHED_FRAME.put(entity.getUUID(),ready.frame());
         }
+        long capture=MobBenchMetrics.start();
         NtmMeshHits.flush();
+        MobBenchMetrics.add(MobBenchMetrics.CAPTURE,capture);
+        long network=MobBenchMetrics.start();
         sync();
+        MobBenchMetrics.add(MobBenchMetrics.SYNC,network);
         frameNanos += System.nanoTime() - started;
     }
 
@@ -122,6 +126,7 @@ public final class ModelHitClient {
     }
 
     public static void publishAt(LivingEntity entity,float yaw,List<ModelBox> boxes,String source,net.minecraft.world.phys.Vec3 origin) {
+        if(MobBenchMetrics.ENABLED) MobBenchMetrics.published++;
         var filtered=PlaneHitPolicy.filter(entity,boxes);
         if (filtered.isEmpty() || filtered.size() > ModelPosePayload.MAX_BOXES
                 || filtered.stream().anyMatch(b -> !b.valid(ModelHits.radius(entity)))) {

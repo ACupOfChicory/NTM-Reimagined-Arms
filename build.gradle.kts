@@ -120,6 +120,22 @@ neoForge {
             programArguments.addAll("--width", if(providers.gradleProperty("mobContourShots").isPresent) "1708" else "854",
                     "--height", if(providers.gradleProperty("mobContourShots").isPresent) "960" else "480")
         }
+        register("benchMobs") {
+            client()
+            gameDirectory = root.resolve("run-mob-bench")
+            jvmArgument("-Xmx3000M")
+            val label=providers.gradleProperty("mobBenchLabel").orElse("before").get()
+            require(label.matches(Regex("[a-zA-Z0-9_-]+")))
+            systemProperty("ntmgunfeel.checkClient",layout.buildDirectory.file("mobbench/result.txt").get().asFile.path)
+            systemProperty("ntmgunfeel.benchMobs","true")
+            systemProperty("ntmgunfeel.benchLegacy",providers.gradleProperty("mobBenchLegacy").isPresent.toString())
+            providers.gradleProperty("mobBenchScenes").orNull?.let { systemProperty("ntmgunfeel.benchScenes",it) }
+            systemProperty("ntmgunfeel.benchFile",root.resolve("notes/mob-bench/$label.tsv").path)
+            systemProperty("MC_DEBUG_ENABLED","true")
+            systemProperty("MC_DEBUG_PREFER_WAYLAND","true")
+            jvmArgument("-XX:StartFlightRecording=filename=${root.resolve("notes/mob-bench/$label.jfr").path},settings=profile,dumponexit=true")
+            programArguments.addAll("--width","1280","--height","800")
+        }
         register("reviewMobs") {
             client()
             gameDirectory = root.resolve("run-mob-review")
@@ -228,15 +244,17 @@ tasks.matching { it.name in checkRuns }.configureEach {
 }
 
 // Настоящий клиент использует только копию тестового мира и отдельную папку запуска.
-tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs") }.configureEach {
+tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs","runBenchMobs") }.configureEach {
     val review = name == "runReviewMobs"
+    val bench = name == "runBenchMobs"
     val mobs = name == "runCheckMobs" || review
     val selfTest = providers.gradleProperty("mobReviewSelfTest").isPresent
     timeout.set(if(review && !selfTest) Duration.ofDays(1) else if(mobs && !selfTest) Duration.ofHours(1) else Duration.ofMinutes(8))
-    val result = if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
+    val result = if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {
         if(review && selfTest) root.resolve("notes/mob-review/self-test").deleteRecursively()
-        val dir = root.resolve(if(review) "run-mob-review" else if (mobs) "run-mob-check" else "run-client-check")
+        val dir = root.resolve(if(bench) "run-mob-bench" else if(review) "run-mob-review" else if (mobs) "run-mob-check" else "run-client-check")
+        if(bench) root.resolve("notes/mob-bench").mkdirs()
         val source = root.resolve("run-bullets/world")
         require(source.resolve("level.dat").exists()) { "Сначала выполните runCheckBullets: нужен изолированный тестовый мир" }
         val world = dir.resolve("saves/gunfeel-smoke")
@@ -259,7 +277,7 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
             .copyTo(dir.resolve("mods/crankshaft.jar"), overwrite = true)
         dir.resolve("config/crankshaft-client.toml").writeText(
             "backend = \"${if(providers.gradleProperty("mobCpuGeometry").isPresent) "flywheel:off" else "DEFAULT"}\"\n")
-        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(review) 8 else 3}\nsimulationDistance:5\nmaxFps:60\n")
+        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(review || bench) 8 else 3}\nsimulationDistance:5\nmaxFps:60\n")
         layout.buildDirectory.file(result).get().asFile.delete()
     }
     doLast {
