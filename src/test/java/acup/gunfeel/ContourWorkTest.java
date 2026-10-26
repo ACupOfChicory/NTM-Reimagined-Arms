@@ -24,11 +24,13 @@ class ContourWorkTest {
         var base=List.of(new ModelBox("body",0,0,0,2,0,0,0,1,0,0,0,1),
                 new ModelBox("head",2,0,0,1,0,0,0,2,0,0,0,1));
         var contour=ModelContours.edges(base);
+        var gpuGeometry=ModelContours.outline(base).edges();
         long builds=ModelContours.builds();
         for(int frame=1;frame<=80;frame++) {
             var matrix=new Matrix4f().translate(14.7F,100.5F,-21.3F).rotateXYZ(frame*.01F,frame*.07F,frame*.03F);
             var posed=base.stream().map(b -> transform(b,matrix)).toList();
             var lines=ModelContours.edges(posed);
+            assertSame(gpuGeometry,ModelContours.outline(posed).edges(),"Общее движение не должно заново загружать контур в GPU");
             assertEquals(builds,ModelContours.builds(),"Поворот без изменения позы перестроил топологию");
             assertEquals(contour.size(),lines.size());
             for(int j=0;j<contour.size();j++) for(int i=0;i<contour.get(j).length;i++) {
@@ -40,6 +42,7 @@ class ContourWorkTest {
         var changed=new ArrayList<>(base);
         changed.set(1,new ModelBox("head",2.1,0,0,1,0,0,0,2,0,0,0,1));
         ModelContours.edges(changed);
+        assertNotSame(gpuGeometry,ModelContours.outline(changed).edges(),"Изменение позы требует нового GPU-контура");
         assertEquals(builds+1,ModelContours.builds(),"Изменение относительной позы должно перестроить контур");
         var resized=ModelContours.edges(base.stream().map(b -> transform(b,new Matrix4f().scaling(2))).toList());
         assertEquals(builds+2,ModelContours.builds(),"Изменение размера не является общим поворотом");

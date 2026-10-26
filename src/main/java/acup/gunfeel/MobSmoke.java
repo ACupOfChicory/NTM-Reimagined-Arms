@@ -43,6 +43,17 @@ public final class MobSmoke {
     private static int photographed=-1;
     private static long since;
     private static long contourBuilds;
+    private static int gpuChecks,gpuMismatch,geometryChecks,geometryMismatch;
+    static void gpuGeometry(LivingEntity entity,boolean matches) {
+        if(!enabled() || entity.getId()!=id) return;
+        geometryChecks++;
+        if(!matches && geometryMismatch++==0) RESULTS.add(new Result(false,current()+": кэш геометрии отличается от пересчёта текущей матрицей"));
+    }
+    static void gpuPose(LivingEntity entity,boolean matches) {
+        if(!ENABLED || entity.getId()!=id) return;
+        gpuChecks++;
+        if(!matches && gpuMismatch++==0) RESULTS.add(new Result(false,current()+": CPU-матрица отличается от настоящей GPU-матрицы"));
+    }
     private static BulletConfig beamConfig;
     private static MobRayOracle.Ray woolRay;
     private static final java.util.Set<Integer> PROBES=java.util.concurrent.ConcurrentHashMap.newKeySet();
@@ -190,6 +201,9 @@ public final class MobSmoke {
                 stage=0;
             }
         } else if(stage==2 && seconds()>1) {
+            if(client!=null && client.source().equals("gpu_rendered_geometry"))
+                check(gpuChecks>0 && gpuMismatch==0,"сверка CPU/GPU-матриц="+gpuChecks+", расхождений="+gpuMismatch);
+            if(geometryChecks>0) check(geometryMismatch==0,"кэш геометрии и полный пересчёт="+geometryChecks+", расхождений="+geometryMismatch);
             if(current().equals("hbm:entity_ufo")) {
                 long rebuilt=ModelContours.builds()-contourBuilds;
                 check(rebuilt<Math.max(1,orange/2),"жёсткое вращение: кадров="+orange+", перестроений контура="+rebuilt);
@@ -357,7 +371,7 @@ public final class MobSmoke {
                 var level=mc.getSingleplayerServer().overworld();
                 int peas=MobStageCleanup.clear(level,mc.getSingleplayerServer().getPlayerList().getPlayers().getFirst());
                 index=selected;
-                id=-1; client=server=null; woolRay=null; watch=false; orange=white=0;
+                id=-1; client=server=null; woolRay=null; watch=false; orange=white=0; gpuChecks=gpuMismatch=geometryChecks=geometryMismatch=0;
                 RESULTS.add(new Result(true,CASES.get(index)+": стенд очищен до спавна, оставшихся сущностей=0, peas="+peas));
                 var type=BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse(CASES.get(index)));
                 Entity created=type.create(level,EntitySpawnReason.COMMAND);

@@ -22,6 +22,9 @@ public final class GpuModelHits {
     private record Layer(ModelSurfaceGeometry geometry,String suffix) {}
     private record Geometry(int generation,List<Layer> meshes) {}
     private static final Map<Model,Geometry> MODELS=new WeakHashMap<>();
+    private record PartPose(Model model,long revision,int generation,String name,double x,double y,double z,List<ModelBox> boxes) {}
+    private static final Map<TransformedInstance,PartPose> PARTS=new WeakHashMap<>();
+    private static int partGeneration=-1;
     private static final Set<Class<?>> AVAILABLE=ConcurrentHashMap.newKeySet();
     private static final ClassValue<List<Field>> FIELDS=new ClassValue<>() {
         protected List<Field> computeValue(Class<?> type) {
@@ -65,12 +68,14 @@ public final class GpuModelHits {
         } catch(ReflectiveOperationException ex) { ModelHitLog.event("client","gpu_origin_failed",entity,ex::toString); }
     }
     private static void flush() {
+        int generation=ModelTextureMask.generation();
+        if(partGeneration!=generation) { PARTS.clear(); partGeneration=generation; }
         for(var entry:PENDING.entrySet()) if(PENDING.remove(entry.getKey(),entry.getValue())) {
             var p=entry.getValue(); if(!ModelHitClient.eligible(p.entity())) continue;
             try {
                 Map<TransformedInstance,String> instances=new LinkedHashMap<>();
                 collect(p.visual(),instances,Collections.newSetFromMap(new IdentityHashMap<>()),0,"root");
-                var out=new ArrayList<ModelBox>(); int n=0;
+                var out=new ArrayList<ModelBox>();
                 if(!AVAILABLE.contains(p.visual().getClass())) ModelHitLog.event("client","gpu_instances",p.entity(),
                         () -> "visual="+p.visual().getClass().getName()+" instances="+instances.size()+" states="+
                         instances.keySet().stream().limit(3).map(i -> i.handle().getClass().getName()+":"+
@@ -81,13 +86,29 @@ public final class GpuModelHits {
                     Object instancer=handle.state;
                     if(!(instancer instanceof GpuInstancerModel)) instancer=dev.engine_room.flywheel.backend.engine.indirect.IndirectInstancer.fromState(handle.state);
                     if(!(instancer instanceof GpuInstancerModel bound) || !(bound.gunfeel$model() instanceof Model model)) continue;
-                    long pointer=handle.slabPtr(); if(pointer==0) continue;
-                    var matrix=new Matrix4f().set(MemoryUtil.memFloatBuffer(pointer+POSE_OFFSET,16));
-                    for(var layer:geometry(model)) {
-                        String name=entryInstance.getValue()+layer.suffix();
-                        if(name.length()>ModelBox.MAX_PART_NAME-5) name=name.substring(name.length()-ModelBox.MAX_PART_NAME+5);
-                        layer.geometry().append(out,name,matrix,p.x()-p.position().x,p.y()-p.position().y,p.z()-p.position().z);
+                    var shadow=(GpuPoseAccess)instance;
+                    org.joml.Matrix4fc matrix=MobBenchMetrics.LEGACY?null:shadow.gunfeel$pose();
+                    if(matrix==null) {
+                        long pointer=handle.slabPtr(); if(pointer==0) continue;
+                        matrix=new Matrix4f().set(MemoryUtil.memFloatBuffer(pointer+POSE_OFFSET,16));
+                        if(!MobBenchMetrics.LEGACY) shadow.gunfeel$seed(matrix);
                     }
+                    if(MobSmoke.enabled()) {
+                        var actual=new Matrix4f().set(MemoryUtil.memFloatBuffer(handle.slabPtr()+POSE_OFFSET,16));
+                        MobSmoke.gpuPose(p.entity(),actual.equals(matrix));
+                    }
+                    double ox=p.x()-p.position().x,oy=p.y()-p.position().y,oz=p.z()-p.position().z;
+                    String path=entryInstance.getValue();
+                    long revision=shadow.gunfeel$revision();
+                    var cached=MobBenchMetrics.LEGACY?null:PARTS.get(instance);
+                    if(cached!=null && cached.model()==model && cached.revision()==revision && cached.generation()==generation
+                            && cached.name().equals(path) && cached.x()==ox && cached.y()==oy && cached.z()==oz) {
+                        if(MobSmoke.enabled()) MobSmoke.gpuGeometry(p.entity(),cached.boxes().equals(boxes(model,path,matrix,ox,oy,oz)));
+                        out.addAll(cached.boxes()); continue;
+                    }
+                    var partBoxes=boxes(model,path,matrix,ox,oy,oz);
+                    out.addAll(partBoxes);
+                    if(!MobBenchMetrics.LEGACY) PARTS.put(instance,new PartPose(model,revision,generation,path,ox,oy,oz,List.copyOf(partBoxes)));
                 }
                 if(!out.isEmpty()) {
                     AVAILABLE.add(p.visual().getClass());
@@ -98,6 +119,15 @@ public final class GpuModelHits {
                 ModelHitLog.event("client","gpu_geometry_failed",p.entity(),ex::toString);
             }
         }
+    }
+    private static List<ModelBox> boxes(Model model,String path,org.joml.Matrix4fc matrix,double x,double y,double z) {
+        var out=new ArrayList<ModelBox>();
+        for(var layer:geometry(model)) {
+            String name=path+layer.suffix();
+            if(name.length()>ModelBox.MAX_PART_NAME-5) name=name.substring(name.length()-ModelBox.MAX_PART_NAME+5);
+            layer.geometry().append(out,name,matrix,x,y,z);
+        }
+        return out;
     }
     private static void collect(Object value,Map<TransformedInstance,String> out,Set<Object> seen,int depth,String path) throws IllegalAccessException {
         if(value==null || depth>64 || !seen.add(value)) return;

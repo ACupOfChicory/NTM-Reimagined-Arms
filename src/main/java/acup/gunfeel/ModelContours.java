@@ -13,10 +13,14 @@ public final class ModelContours {
     private static final java.util.ArrayDeque<Cached> CACHE=new java.util.ArrayDeque<>();
     private static long builds;
     static synchronized long builds() { return builds; }
-    private record Frame(Vec3 origin,Vec3 u,Vec3 v,Vec3 w) {
+    record Frame(Vec3 origin,Vec3 u,Vec3 v,Vec3 w) {
         Vec3 direction(Vec3 p) { return new Vec3(p.dot(u),p.dot(v),p.dot(w)); }
         Vec3 local(Vec3 p) { return direction(p.subtract(origin)); }
-        Vec3 world(Vec3 p) { return origin.add(u.scale(p.x)).add(v.scale(p.y)).add(w.scale(p.z)); }
+        Vec3 world(Vec3 p) {
+            if(MobBenchMetrics.LEGACY) return origin.add(u.scale(p.x)).add(v.scale(p.y)).add(w.scale(p.z));
+            return new Vec3(origin.x+u.x*p.x+v.x*p.y+w.x*p.z,origin.y+u.y*p.x+v.y*p.y+w.y*p.z,
+                    origin.z+u.z*p.x+v.z*p.y+w.z*p.z);
+        }
         static Frame of(ModelBox b) {
             Vec3 u=unit(new Vec3(b.ux(),b.uy(),b.uz()));
             Vec3 v=new Vec3(b.vx(),b.vy(),b.vz()); v=unit(v.subtract(u.scale(u.dot(v))));
@@ -31,9 +35,20 @@ public final class ModelContours {
             return new ModelBox(b.part(),p.x,p.y,p.z,a.x,a.y,a.z,c.x,c.y,c.z,d.x,d.y,d.z,b.mesh());
         }
     }
+    record Outline(Frame frame,List<Vec3[]> edges) {}
     public static synchronized void clear() { CACHE.clear(); }
     public static synchronized List<Vec3[]> edges(List<ModelBox> boxes) {
         if(boxes.isEmpty()) return List.of();
+        var outline=outline(boxes);
+        List<Vec3[]> result=new ArrayList<>(outline.edges().size());
+        for(var strip:outline.edges()) {
+            Vec3[] transformed=new Vec3[strip.length];
+            for(int i=0;i<strip.length;i++) transformed[i]=outline.frame().world(strip[i]);
+            result.add(transformed);
+        }
+        return result;
+    }
+    static synchronized Outline outline(List<ModelBox> boxes) {
         // Общее перемещение и поворот не меняют топологию контура. Храним
         // его в ортонормированной системе первой детали, без масштаба:
         // изменение размеров или относительной позы всё ещё меняет ключ.
@@ -44,13 +59,7 @@ public final class ModelContours {
         if(cached==null) { builds++; cached=new Cached(shape,List.copyOf(collect(shape))); }
         else CACHE.remove(cached);
         CACHE.addFirst(cached); if(CACHE.size()>16) CACHE.removeLast();
-        List<Vec3[]> result=new ArrayList<>(cached.edges().size());
-        for(var strip:cached.edges()) {
-            Vec3[] transformed=new Vec3[strip.length];
-            for(int i=0;i<strip.length;i++) transformed[i]=frame.world(strip[i]);
-            result.add(transformed);
-        }
-        return result;
+        return new Outline(frame,cached.edges());
     }
     private static boolean same(List<ModelBox> a,List<ModelBox> b) {
         if(a.size()!=b.size()) return false;
@@ -60,8 +69,13 @@ public final class ModelContours {
         for(int i=0;i<a.size();i++) {
             var x=a.get(i); var y=b.get(i);
             if(x.mesh()!=y.mesh() || !x.part().equals(y.part())) return false;
-            double[] p=x.numbers(),q=y.numbers();
-            for(int n=0;n<p.length;n++) if(Math.abs(p[n]-q[n])>tolerance) return false;
+            if(MobBenchMetrics.LEGACY) {
+                double[] p=x.numbers(),q=y.numbers();
+                for(int n=0;n<p.length;n++) if(Math.abs(p[n]-q[n])>tolerance) return false;
+            } else if(Math.abs(x.x()-y.x())>tolerance || Math.abs(x.y()-y.y())>tolerance || Math.abs(x.z()-y.z())>tolerance
+                    || Math.abs(x.ux()-y.ux())>tolerance || Math.abs(x.uy()-y.uy())>tolerance || Math.abs(x.uz()-y.uz())>tolerance
+                    || Math.abs(x.vx()-y.vx())>tolerance || Math.abs(x.vy()-y.vy())>tolerance || Math.abs(x.vz()-y.vz())>tolerance
+                    || Math.abs(x.wx()-y.wx())>tolerance || Math.abs(x.wy()-y.wy())>tolerance || Math.abs(x.wz()-y.wz())>tolerance) return false;
         }
         return true;
     }

@@ -36,6 +36,8 @@ public final class ModelMesh {
 
     public long id() { return id; }
     public float[] triangles() { return triangles.clone(); }
+    // Внутренний неизменяемый массив: рендер только читает его.
+    float[] triangleData() { return triangles; }
     public float[] edges() { return edges; }
     public double[] bounds() { return root.bounds().clone(); }
     public static ModelMesh get(long id) { return CACHE.get(id); }

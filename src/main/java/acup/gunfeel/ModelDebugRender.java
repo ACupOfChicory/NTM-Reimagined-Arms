@@ -19,7 +19,9 @@ import net.minecraft.world.phys.Vec3;
 // Отладочная глубина объединяет мир и точную геометрию мобов без одежды.
 // Внешняя оболочка не прячет передние линии; задние скрываются телом.
 public final class ModelDebugRender {
-    record Shape(int id,boolean custom,List<ModelBox> boxes,List<Vec3[]> edges) {}
+    record Shape(int id,boolean custom,List<ModelBox> boxes,List<Vec3[]> edges,ModelContours.Outline outline) {
+        Shape(int id,boolean custom,List<ModelBox> boxes,List<Vec3[]> edges) { this(id,custom,boxes,edges,null); }
+    }
     private static Identifier id(String name) { return Identifier.fromNamespaceAndPath("ntmgunfeel",name); }
     private static final RenderPipeline MASK=RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
             .withLocation(id("pipeline/model_hit_mask")).withPrimitiveTopology(com.mojang.blaze3d.PrimitiveTopology.TRIANGLES)
@@ -36,7 +38,7 @@ public final class ModelDebugRender {
     private ModelDebugRender() {}
     public static void register(net.neoforged.bus.api.IEventBus bus) {
         bus.addListener(net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent.class,e -> {
-            e.registerPipeline(MASK); e.registerPipeline(LINES);
+            e.registerPipeline(MASK); e.registerPipeline(LINES); e.registerPipeline(ModelDebugMask.PIPELINE); e.registerPipeline(ModelDebugLines.PIPELINE);
         });
     }
     private static RenderType type() {
@@ -57,6 +59,9 @@ public final class ModelDebugRender {
         terrain.copyDepthFrom(main); captured=true;
     }
     private static void faces(List<Shape> shapes,RenderTarget destination) {
+        if(!MobBenchMetrics.LEGACY) {
+            ModelDebugMask.draw(shapes,destination,TYPE.prepare().dynamicTransforms()); return;
+        }
         var cam=Minecraft.getInstance().gameRenderer.mainCamera().position();
         int vertices=shapes.stream().flatMap(s -> s.boxes().stream()).mapToInt(b -> b.mesh()==0?36:ModelMesh.get(b.mesh()).triangles().length/3).sum();
         if(vertices==0) return;
@@ -89,6 +94,12 @@ public final class ModelDebugRender {
         var cam=Minecraft.getInstance().gameRenderer.mainCamera().position();
         RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(terrain.getDepthTexture(),mask.getDepthTexture(),0,0,0,0,0,mask.width,mask.height);
         faces(shapes,mask);
+        if(!MobBenchMetrics.LEGACY) {
+            var sampler=RenderSystem.getSamplerCache().getClampToEdge(com.mojang.blaze3d.textures.FilterMode.NEAREST);
+            ModelDebugLines.draw(shapes,List.of(new PreparedRenderType.Texture("Sampler0",mask.getColorTextureView(),sampler),
+                    new PreparedRenderType.Texture("Sampler1",mask.getDepthTextureView(),sampler)));
+            captured=false; return;
+        }
         int count=shapes.stream().flatMap(s -> s.edges().stream()).mapToInt(e -> e.length).sum();
         if(count==0) return;
         try(var bytes=new ByteBufferBuilder(count*TYPE.format().getVertexSize())) {
@@ -116,7 +127,7 @@ public final class ModelDebugRender {
     }
     private static boolean probed;
     private static int probeDone;
-    static boolean probesFinished() { return probeDone==5; }
+    static boolean probesFinished() { return probeDone==6; }
     static void probe() {
         if(probed || terrain==null || !MobSmoke.enabled() || MobSmoke.review()) return;
         probed=true;
@@ -127,11 +138,11 @@ public final class ModelDebugRender {
         var cam=Minecraft.getInstance().gameRenderer.mainCamera().position();
         var body=new ModelBox("probe",cam.x-1,cam.y+1,cam.z+10,2,0,0,0,2,0,0,0,1);
         var blocker=new ModelBox("blocker",cam.x-2,cam.y,cam.z+8,4,0,0,0,4,0,0,0,1);
-        var own=new Shape(1,true,List.of(body),ModelContours.edges(List.of(body)));
+        var own=new Shape(1,true,List.of(body),ModelContours.edges(List.of(body)),ModelContours.outline(List.of(body)));
         var other=new Shape(2,true,List.of(blocker),List.of());
         var outer=new ModelBox("outer",cam.x-1.2,cam.y+.8,cam.z+9.8,2.4,0,0,0,2.4,0,0,0,1.4);
         var back=new Shape(1,true,List.of(body),List.<Vec3[]>of(new Vec3[]{ModelContours.point(body,.25,.5,1),ModelContours.point(body,.75,.5,1)}));
-        for(int scenario=0;scenario<5;scenario++) {
+        for(int scenario=0;scenario<6;scenario++) {
             var target=new TextureTarget("Debug visibility probe",terrain.width,terrain.height,true,GpuFormat.RGBA8_UNORM);
             var device=RenderSystem.getDevice();
             try(var pass=device.createCommandEncoder().createRenderPass(() -> "Clear debug probe",target.getColorTextureView(),
@@ -147,7 +158,14 @@ public final class ModelDebugRender {
                     // окружения пустая, а линию должно скрыть само тело.
                     device.createCommandEncoder().clearDepthTexture(terrain.getDepthTexture(),0);
                 }
-                captured=true; draw(scenario==1?List.of(own,other):scenario==2?List.of(other,own):scenario==4?List.of(back):List.of(own));
+                List<Shape> selected=scenario==1?List.of(own,other):scenario==2?List.of(other,own):scenario==4?List.of(back):List.of(own);
+                if(scenario==5) {
+                    var many=new java.util.ArrayList<Shape>();
+                    var distant=new ModelBox("outside",cam.x+1000,cam.y,cam.z+10,2,0,0,0,2,0,0,0,1);
+                    for(int i=1;i<130;i++) many.add(new Shape(i,true,List.of(distant),List.of()));
+                    many.add(new Shape(130,true,List.of(body),own.edges())); selected=many;
+                }
+                captured=true; draw(selected);
                 final int mode=scenario;
                 net.minecraft.client.Screenshot.takeScreenshot(target,image -> {
                     try(image) {
@@ -155,8 +173,8 @@ public final class ModelDebugRender {
                         for(int pixel:image.getPixels()) if((pixel&0xFFFFFF)==0xFFCC55) orange++;
                         try { image.writeToFile(java.nio.file.Path.of("../notes/accurate-hitboxes/debug-gpu-"+mode+".png")); }
                         catch(java.io.IOException ex) { MobSmoke.debugProbe(false,"не удалось сохранить маску: "+ex); }
-                        MobSmoke.debugProbe(mode==0?orange>0:orange==0,
-                                (mode==0?"внешняя оболочка не скрывает передние линии":mode==1?"чужой моб скрывает линии":mode==2?"перекрытие не зависит от порядка мобов":mode==3?"стена скрывает линии":"своё тело скрывает задние линии")+", видимых пикселей="+orange);
+                        MobSmoke.debugProbe(mode==0 || mode==5?orange>0:orange==0,
+                                (mode==0?"внешняя оболочка не скрывает передние линии":mode==1?"чужой моб скрывает линии":mode==2?"перекрытие не зависит от порядка мобов":mode==3?"стена скрывает линии":mode==4?"своё тело скрывает задние линии":"владелец маски сохраняется за границей пакета из 128 частей")+", видимых пикселей="+orange);
                         probeDone++;
                     } finally { target.destroyBuffers(); }
                 });
@@ -175,6 +193,8 @@ public final class ModelDebugRender {
     }
     public static void clear() {
         ModelContours.clear();
+        ModelDebugMask.clear();
+        ModelDebugLines.clear();
         releaseTargets();
         if(maskBuffer!=null) { maskBuffer.close(); maskBuffer=null; }
         if(lineBuffer!=null) { lineBuffer.close(); lineBuffer=null; }
@@ -184,7 +204,7 @@ public final class ModelDebugRender {
         if(mask!=null) { mask.destroyBuffers(); mask=null; }
         captured=false;
     }
-    private static final float[] CUBE=cube();
+    static final float[] CUBE=cube();
     private static float[] cube() {
         float[] data=new float[108]; int at=0;
         for(int axis=0;axis<3;axis++) for(int side=0;side<2;side++) for(int corner:new int[]{0,1,3,0,3,2}) {

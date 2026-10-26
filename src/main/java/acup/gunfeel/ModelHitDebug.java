@@ -43,7 +43,8 @@ public final class ModelHitDebug {
                 boxes=List.of(new ModelBox("fallback",b.minX,b.minY,b.minZ,b.getXsize(),0,0,0,b.getYsize(),0,0,0,b.getZsize()));
             }
             long contour=MobBenchMetrics.start();
-            shapes.add(new ModelDebugRender.Shape(++id,custom,boxes,ModelContours.edges(boxes)));
+            shapes.add(MobBenchMetrics.LEGACY?new ModelDebugRender.Shape(++id,custom,boxes,ModelContours.edges(boxes)):
+                    new ModelDebugRender.Shape(++id,custom,boxes,List.of(),ModelContours.outline(boxes)));
             MobBenchMetrics.add(MobBenchMetrics.CONTOUR,contour);
         }
         TARGETS.clear();
