@@ -28,7 +28,9 @@ public final class ModelMeshCapture {
         double vx = q[base + c] - q[base + a], vy = q[base + c + 1] - q[base + a + 1], vz = q[base + c + 2] - q[base + a + 2];
         double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
         if (nx * nx + ny * ny + nz * nz < 1e-18) return;
-        for (int vertex : new int[] {a, b, c}) for (int axis = 0; axis < 3; axis++)
-            out.add(Math.clamp((q[base + vertex + axis] - bounds[axis]) / (bounds[axis + 3] - bounds[axis]), 0, 1));
+        for (int vertex : new int[] {a, b, c}) for (int axis = 0; axis < 3; axis++) {
+            float span=bounds[axis+3]-bounds[axis];
+            out.add(span==0?0:Math.clamp((q[base+vertex+axis]-bounds[axis])/span,0,1));
+        }
     }
 }

@@ -36,8 +36,11 @@ public abstract class MixinVanillateModelHit {
             if (pose == null) return;
             int variant = pose.variant();
             if (variant < 0 || variant >= partsByVariant.length) return;
-            var layout = gunfeel$layouts.computeIfAbsent(variant,
-                    k -> new ModelPoseLayout(partsByVariant[k], namesByVariant[k], parentIndexByVariant[k]));
+            var layout = gunfeel$layouts.computeIfAbsent(variant, k -> {
+                var captured=new ModelPoseLayout(partsByVariant[k], namesByVariant[k], parentIndexByVariant[k]);
+                acup.gunfeel.ModelBodyGeometry.supplement(living,captured);
+                return captured;
+            });
             if (!(state instanceof LivingEntityRenderState livingState)) return;
             ModelHitClient.offer(living, layout, pose, pose.x() - state.x, pose.y() - state.y, pose.z() - state.z,
                     livingState.bodyRot);

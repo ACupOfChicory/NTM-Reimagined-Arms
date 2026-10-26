@@ -31,8 +31,8 @@ public final class MobObjPose {
             if (id < 0 || id >= mesh.groups.length) throw new IllegalStateException("Unknown MobObjVisual group " + name);
             var group = mesh.groups[id];
             float[] bounds = group.bounds().clone();
-            boolean volume = bounds[3] > bounds[0] && bounds[4] > bounds[1] && bounds[5] > bounds[2];
-            out.add(new Part(name, bounds, volume ? ModelMeshCapture.mesh(group).id() : 0));
+            boolean surface = MeshModelPose.hasSurface(bounds[3]-bounds[0],bounds[4]-bounds[1],bounds[5]-bounds[2]);
+            out.add(new Part(name, bounds, surface ? ModelMeshCapture.mesh(group).id() : 0));
         }
         return List.copyOf(out);
     }

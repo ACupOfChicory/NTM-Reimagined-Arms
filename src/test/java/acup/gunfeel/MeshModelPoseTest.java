@@ -55,8 +55,28 @@ class MeshModelPoseTest {
         }
     }
 
-    @Test void flatPaperDoesNotBecomeSolidHitbox() {
-        assertNull(MeshModelPose.box("IOU", new float[] {0, 0, 0, 1, 1, 0}, new Matrix4f(), 0, 0, 0));
+    @Test void flatPaperIsATwoSidedSurfaceWithoutArtificialThickness() {
+        var paper=MeshModelPose.box("IOU",new float[]{0,0,0,1,1,0},new Matrix4f(),0,0,0);
+        assertNotNull(paper);
+        assertTrue(paper.valid(1));
+        assertNotEquals(0,paper.mesh());
+        assertEquals(.5,paper.clip(.5,.5,-1,.5,.5,1),1e-8);
+        assertEquals(.5,paper.clip(.5,.5,1,.5,.5,-1),1e-8);
+        assertEquals(-1,paper.clip(.5,.5,.001,.5,.5,.001));
+        assertEquals(-1,paper.clip(-1,1.01,0,2,1.01,0));
+        assertEquals(1.0/3,paper.clip(-1,.5,0,2,.5,0),1e-8);
+        assertEquals(24,ModelMesh.get(paper.mesh()).edges().length,"Четыре ребра плоскости, без коробки и диагонали");
+    }
+
+    @Test void rotatedFlatSurfacesKeepAllThreePossibleZeroAxes() {
+        var m=new Matrix4f().translate(.3F,.4F,.5F).rotateXYZ(.3F,.7F,-.2F).scale(-2,1,.5F);
+        for(int axis=0;axis<3;axis++) {
+            float[] b={0,0,0,1,1,1}; b[axis+3]=0;
+            var flat=MeshModelPose.box("plane",b,m,0,0,0);
+            assertNotNull(flat); assertTrue(flat.valid(4));
+            assertEquals(24,ModelMesh.get(flat.mesh()).edges().length);
+        }
+        assertNull(MeshModelPose.box("line",new float[]{0,0,0,1,0,0},m,0,0,0));
     }
 
     private static Vector3f center(ModelBox box) {

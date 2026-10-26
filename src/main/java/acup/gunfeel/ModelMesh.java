@@ -35,6 +35,7 @@ public final class ModelMesh {
     public long id() { return id; }
     public float[] triangles() { return triangles.clone(); }
     public float[] edges() { return edges; }
+    public double[] bounds() { return root.bounds().clone(); }
     public static ModelMesh get(long id) { return CACHE.get(id); }
     public static ModelMesh register(ModelMesh mesh) {
         ModelMesh old = CACHE.get(mesh.id);
@@ -78,7 +79,7 @@ public final class ModelMesh {
     }
 
     private static boolean insideBounds(double[] p) {
-        return p[0] >= 0 && p[0] <= 1 && p[1] >= 0 && p[1] <= 1 && p[2] >= 0 && p[2] <= 1;
+        return p[0] >= -1e-9 && p[0] <= 1+1e-9 && p[1] >= -1e-9 && p[1] <= 1+1e-9 && p[2] >= -1e-9 && p[2] <= 1+1e-9;
     }
 
     private boolean contains(double[] a) {
@@ -137,7 +138,26 @@ public final class ModelMesh {
         double dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
         double px = dy * vz - dz * vy, py = dz * vx - dx * vz, pz = dx * vy - dy * vx;
         double det = ux * px + uy * py + uz * pz;
-        if (Math.abs(det) < 1e-12) return -1;
+        if (Math.abs(det) < 1e-12) {
+            double nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
+            double n2=nx*nx+ny*ny+nz*nz;
+            if(n2<1e-24) return -1;
+            double tx=a[0]-triangles[k],ty=a[1]-triangles[k+1],tz=a[2]-triangles[k+2];
+            if(Math.abs(tx*nx+ty*ny+tz*nz)>1e-9*Math.sqrt(n2)
+                    || Math.abs(dx*nx+dy*ny+dz*nz)>1e-9*Math.sqrt(n2)) return -1;
+            double u0=((ty*vz-tz*vy)*nx+(tz*vx-tx*vz)*ny+(tx*vy-ty*vx)*nz)/n2;
+            double v0=((uy*tz-uz*ty)*nx+(uz*tx-ux*tz)*ny+(ux*ty-uy*tx)*nz)/n2;
+            double du=((dy*vz-dz*vy)*nx+(dz*vx-dx*vz)*ny+(dx*vy-dy*vx)*nz)/n2;
+            double dv=((uy*dz-uz*dy)*nx+(uz*dx-ux*dz)*ny+(ux*dy-uy*dx)*nz)/n2;
+            double lo=0,hi=1;
+            double[] values={u0,v0,1-u0-v0},deltas={du,dv,-du-dv};
+            for(int i=0;i<3;i++) {
+                if(Math.abs(deltas[i])<1e-12) { if(values[i]<-1e-9) return -1; }
+                else if(deltas[i]>0) lo=Math.max(lo,-values[i]/deltas[i]);
+                else hi=Math.min(hi,-values[i]/deltas[i]);
+            }
+            return lo<=hi+1e-9 && lo<=1 && hi>=0?Math.clamp(lo,0,1):-1;
+        }
         double tx = a[0] - triangles[k], ty = a[1] - triangles[k + 1], tz = a[2] - triangles[k + 2];
         double u = (tx * px + ty * py + tz * pz) / det;
         if (u < -1e-9 || u > 1 + 1e-9) return -1;

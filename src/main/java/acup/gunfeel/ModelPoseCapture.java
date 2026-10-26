@@ -44,15 +44,11 @@ public final class ModelPoseCapture {
         try {
             part.translateAndRotate(stack);
             if (!part.skipDraw) for (ModelPart.Cube cube : parts.cubes(part)) {
-                if (cube.maxX <= cube.minX || cube.maxY <= cube.minY || cube.maxZ <= cube.minZ) continue;
+                if (!MeshModelPose.hasSurface(cube.maxX-cube.minX,cube.maxY-cube.minY,cube.maxZ-cube.minZ)) continue;
                 if (boxes.size() >= ModelPosePayload.MAX_BOXES) return false;
                 Matrix4f m = stack.last().pose();
-                Vector3f origin = m.transformPosition(cube.minX / 16F, cube.minY / 16F, cube.minZ / 16F, new Vector3f());
-                Vector3f u = m.transformDirection((cube.maxX - cube.minX) / 16F, 0, 0, new Vector3f());
-                Vector3f v = m.transformDirection(0, (cube.maxY - cube.minY) / 16F, 0, new Vector3f());
-                Vector3f w = m.transformDirection(0, 0, (cube.maxZ - cube.minZ) / 16F, new Vector3f());
-                boxes.add(new ModelBox(name, (float) (origin.x + x), (float) (origin.y + y), (float) (origin.z + z),
-                        u.x, u.y, u.z, v.x, v.y, v.z, w.x, w.y, w.z));
+                boxes.add(MeshModelPose.surface(name,cube.minX/16F,cube.minY/16F,cube.minZ/16F,
+                        (cube.maxX-cube.minX)/16F,(cube.maxY-cube.minY)/16F,(cube.maxZ-cube.minZ)/16F,m,x,y,z));
             }
             for (var entry : parts.children(part).entrySet())
                 if (!traverse(name + "/" + entry.getKey(), entry.getValue(), stack, x, y, z, boxes, nodes, depth + 1, parts)) return false;

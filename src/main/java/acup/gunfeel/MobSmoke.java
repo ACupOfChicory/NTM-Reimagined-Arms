@@ -119,6 +119,13 @@ public final class MobSmoke {
             if(client!=null && server!=null && seconds()>1) {
                 check(true,"захват="+client.source()+", частей="+client.boxes().size()+", сеть принята");
                 check(mc.level.getEntity(id) instanceof LivingEntity,"сущность существует у клиента");
+                if(current().equals("minecraft:bee") || current().equals("minecraft:bat")) {
+                    long flat=client.boxes().stream().filter(box -> box.mesh()!=0).count();
+                    check(flat>0,"плоские части из настоящей модели="+flat);
+                }
+                if(current().equals("minecraft:breeze"))
+                    check(client.boxes().stream().anyMatch(box -> box.part().contains("wind_bottom"))
+                            && client.boxes().stream().anyMatch(box -> box.part().contains("wind_top")),"нижняя и верхняя части вихря присутствуют");
                 watch=true; orange=white=0;
                 stage=2; since=System.nanoTime();
             } else if(seconds()>6) {
@@ -324,6 +331,10 @@ public final class MobSmoke {
         private final Entity target;
         private boolean hit;
         ProbeArrow(ServerLevel level,Entity target) { super(EntityTypes.ARROW,level); this.target=target; setBaseDamage(0); }
+        @Override protected net.minecraft.world.entity.projectile.ProjectileDeflection hitTargetOrDeflectSelf(HitResult result) {
+            if(result instanceof EntityHitResult entity && entity.getEntity()==target) hit=true;
+            return super.hitTargetOrDeflectSelf(result);
+        }
         @Override protected void onHitEntity(EntityHitResult result) {
             if(result.getEntity()==target) hit=true;
             super.onHitEntity(result);

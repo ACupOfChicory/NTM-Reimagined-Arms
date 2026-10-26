@@ -20,8 +20,11 @@ public record ModelBox(String part, double x, double y, double z,
         if (mesh != 0 && ModelMesh.get(mesh) == null) return false;
         for (double n : numbers()) if (!Double.isFinite(n)) return false;
         if (Math.abs(determinant()) < 1e-12) return false;
+        double[] bounds=mesh==0?null:ModelMesh.get(mesh).bounds();
         for (int i = 0; i < 8; i++) {
-            double a = (i & 1) == 0 ? 0 : 1, b = (i & 2) == 0 ? 0 : 1, c = (i & 4) == 0 ? 0 : 1;
+            double a = bounds==null?((i&1)==0?0:1):bounds[(i&1)==0?0:3];
+            double b = bounds==null?((i&2)==0?0:1):bounds[(i&2)==0?1:4];
+            double c = bounds==null?((i&4)==0?0:1):bounds[(i&4)==0?2:5];
             if (Math.abs(x + a * ux + b * vx + c * wx) > radius
                     || Math.abs(y + a * uy + b * vy + c * wy) > radius
                     || Math.abs(z + a * uz + b * vz + c * wz) > radius) return false;
@@ -44,7 +47,7 @@ public record ModelBox(String part, double x, double y, double z,
             double delta = end[i] - start[i];
             if (!Double.isFinite(start[i]) || !Double.isFinite(delta)) return -1;
             if (Math.abs(delta) < 1e-12) {
-                if (start[i] < 0 || start[i] > 1) return -1;
+                if (start[i] < (mesh==0?0:-1e-9) || start[i] > (mesh==0?1:1+1e-9)) return -1;
             } else {
                 double a = -start[i] / delta, b = (1 - start[i]) / delta;
                 lo = Math.max(lo, Math.min(a, b));
