@@ -10,22 +10,26 @@ import net.minecraft.client.model.monster.breeze.BreezeModel;
 import net.minecraft.client.model.animal.sheep.SheepModel;
 import net.minecraft.client.model.animal.sheep.SheepFurModel;
 import net.minecraft.client.model.animal.sheep.BabySheepModel;
+import net.minecraft.client.model.monster.slime.SlimeModel;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.SheepRenderState;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 
-// Breeze рисует ветер отдельной моделью, но анимирует те же узлы в основной.
-// Берём только геометрию слоя; setupAnim повторно не вызывается.
+// Дополнительные слои тела используют уже анимированные кости основной
+// модели. Берём только геометрию слоя; setupAnim повторно не вызывается.
 public final class ModelBodyGeometry {
     private static final Identifier WIND=Identifier.withDefaultNamespace("textures/entity/breeze/breeze_wind.png");
     private static final Identifier WOOL=Identifier.withDefaultNamespace("textures/entity/sheep/sheep_wool.png");
     private static final Identifier BABY_WOOL=Identifier.withDefaultNamespace("textures/entity/sheep/sheep_wool_baby.png");
+    private static final Identifier SLIME=Identifier.withDefaultNamespace("textures/entity/slime/slime.png");
+    public static final String SHELL_SUFFIX="/shell";
     private record Layer(Map<ModelPart,List<ModelPart.Cube>> byPart,java.util.Set<ModelPart.Cube> cubes) {}
     private static final Map<ModelPart,Layer> CACHE=new IdentityHashMap<>();
     private static final Map<Boolean,Map<String,List<ModelPart.Cube>>> WOOL_GEOMETRY=new java.util.concurrent.ConcurrentHashMap<>();
     private static Map<String,List<ModelPart.Cube>> windGeometry;
+    private static Map<String,List<ModelPart.Cube>> slimeGeometry;
     private ModelBodyGeometry() {}
 
     static synchronized Map<String,List<ModelPart.Cube>> wind(ModelPoseCapture.Parts access) {
@@ -45,15 +49,24 @@ public final class ModelBodyGeometry {
             collect(root,"root",access,out); return out;
         });
     }
+    static synchronized Map<String,List<ModelPart.Cube>> slime(ModelPoseCapture.Parts access) {
+        if(slimeGeometry==null) {
+            slimeGeometry=new LinkedHashMap<>();
+            collect(SlimeModel.createOuterBodyLayer().bakeRoot(),"root",access,slimeGeometry);
+        }
+        return slimeGeometry;
+    }
     public static void supplement(LivingEntity entity,ModelPoseLayout layout,int woolKind) {
         if(entity.getType()==EntityTypes.BREEZE) layout.supplement(wind(ModelPoseCapture.ACCESS),WIND);
         if(woolKind>0) layout.supplement(wool(woolKind==2,ModelPoseCapture.ACCESS),woolKind==2?BABY_WOOL:WOOL,ModelWool.SUFFIX);
+        if(entity.getType()==EntityTypes.SLIME) layout.supplement(slime(ModelPoseCapture.ACCESS),SLIME,SHELL_SUFFIX);
     }
     public static ModelPoseCapture.Parts parts(EntityModel<?> model,Identifier texture) {
         return parts(model,texture,null);
     }
     public static ModelPoseCapture.Parts parts(EntityModel<?> model,Identifier texture,EntityRenderState state) {
         var base=ModelTextureMask.parts(texture);
+        if(model instanceof SlimeModel) return layerParts(model.root(),base,slime(ModelPoseCapture.ACCESS),SLIME,SHELL_SUFFIX,ModelPoseCapture.ACCESS);
         boolean sheep=model instanceof SheepModel && state instanceof SheepRenderState s && !s.isSheared;
         if(!(model instanceof BreezeModel) && !sheep) return base;
         boolean baby=sheep && ((SheepRenderState)state).isBaby;
@@ -86,5 +99,5 @@ public final class ModelBodyGeometry {
         out.put(root,byName.getOrDefault(name,List.of()));
         access.children(root).forEach((key,child) -> attach(child,name+"/"+key,byName,out,access));
     }
-    public static synchronized void clear() { CACHE.clear(); WOOL_GEOMETRY.clear(); windGeometry=null; }
+    public static synchronized void clear() { CACHE.clear(); WOOL_GEOMETRY.clear(); windGeometry=null; slimeGeometry=null; }
 }

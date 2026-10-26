@@ -150,6 +150,11 @@ public final class MobSmoke {
                 check(true,"захват="+client.source()+", частей="+client.boxes().size()+", сеть принята");
                 check(mc.level.getEntity(id) instanceof LivingEntity,"сущность существует у клиента");
                 if(current().equals("minecraft:sheep")) check(hasWool(client),"захвачен отдельный слой шерсти");
+                if(current().equals("minecraft:slime")) {
+                    check(hasShell(client),"захвачена внешняя оболочка слайма");
+                    checkSlimeScale(client,1,"клиент");
+                }
+                if(current().equals("minecraft:magma_cube")) check(!hasShell(client),"к магмовому кубу не добавлена оболочка слайма");
                 if(current().equals("minecraft:bee") || current().equals("minecraft:bat")) {
                     long flat=client.boxes().stream().filter(box -> box.mesh()!=0).count();
                     check(flat>0,"плоские части из настоящей модели="+flat);
@@ -190,6 +195,8 @@ public final class MobSmoke {
             }
             if(target instanceof net.minecraft.world.entity.animal.sheep.Sheep) {
                 stage=6; since=System.nanoTime(); shearSheep();
+            } else if(target.getType()==EntityTypes.SLIME) {
+                stage=8; since=System.nanoTime(); checkSlimeAndResize(2);
             } else { serverRays(false); startRotation(); }
         } else if(stage==6) {
             if(target() instanceof net.minecraft.world.entity.animal.sheep.Sheep sheep && sheep.isSheared()
@@ -205,6 +212,16 @@ public final class MobSmoke {
                 rays(sheep,client,current()+": шерсть отросла, клиент");
                 checkRegrownSheep(); startRotation();
             } else if(seconds()>6) { check(false,"шерсть не вернулась после отрастания"); startRotation(); }
+        } else if(stage==8 || stage==9) {
+            int expected=stage==8?2:4;
+            if(target() instanceof net.minecraft.world.entity.monster.cubemob.Slime slime && slime.getSize()==expected
+                    && hasShell(client) && hasShell(server) && seconds()>1) {
+                check(true,"оболочка обновилась при размере="+expected);
+                checkSlimeScale(client,expected,"клиент");
+                rays(slime,client,current()+": размер "+expected+", клиент");
+                if(stage==8) { stage=9; since=System.nanoTime(); checkSlimeAndResize(4); }
+                else { checkSlimeAndResize(0); startRotation(); }
+            } else if(seconds()>6) { check(false,"оболочка не обновилась после изменения размера"); startRotation(); }
         } else if(stage==5 && seconds()>1) {
             watch=false;
             check(orange>0 && white==0,"F3+B при вращении: оранжевых="+orange+", белых="+white);
@@ -235,6 +252,36 @@ public final class MobSmoke {
 
     private static double seconds() { return (System.nanoTime()-since)/1e9; }
     private static boolean hasWool(Snapshot pose) { return pose!=null && pose.boxes().stream().anyMatch(ModelWool::isWool); }
+    private static boolean hasShell(Snapshot pose) {
+        return pose!=null && pose.boxes().stream().anyMatch(b -> b.part().endsWith(ModelBodyGeometry.SHELL_SUFFIX));
+    }
+    private static void checkSlimeScale(Snapshot pose,int size,String side) {
+        var shell=pose.boxes().stream().filter(b -> b.part().endsWith(ModelBodyGeometry.SHELL_SUFFIX)).findFirst().orElseThrow();
+        double width=Math.sqrt(shell.ux()*shell.ux()+shell.uy()*shell.uy()+shell.uz()*shell.uz());
+        double height=Math.sqrt(shell.vx()*shell.vx()+shell.vy()*shell.vy()+shell.vz()*shell.vz());
+        // В этом сценарии моб висит без ИИ и контакта с землёй: squish=0.
+        // Допуск учитывает штатный downscale 0.999 обычного рендерера.
+        RESULTS.add(new Result(Math.abs(width-size*.5)<size*.01 && Math.abs(height-size*.5)<size*.01,
+                current()+": "+side+", реальный размер оболочки="+width+" x "+height+", ожидается="+size*.5));
+    }
+    private static void checkSlimeAndResize(int nextSize) {
+        pending=true;
+        Minecraft.getInstance().getSingleplayerServer().execute(() -> {
+            try {
+                var level=Minecraft.getInstance().getSingleplayerServer().overworld();
+                var slime=(net.minecraft.world.entity.monster.cubemob.Slime)level.getEntity(id);
+                String label=current()+": размер "+slime.getSize()+", сервер";
+                checkSlimeScale(server,slime.getSize(),"сервер");
+                rays(slime,server,label);
+                var full=MobRayOracle.surface(slime,server.anchor(),server.boxes());
+                var core=MobRayOracle.surface(slime,server.anchor(),server.boxes().stream().filter(b -> !b.part().endsWith(ModelBodyGeometry.SHELL_SUFFIX)).toList());
+                var onlyShell=MobRayOracle.grid(full).stream().filter(ray -> ray.hit() && !MobRayOracle.hit(core,ray.from(),ray.to()) && clearRay(slime,ray)).findFirst().orElseThrow();
+                nativeRay(level,slime,onlyShell,true,label+": попадание только во внешнюю оболочку");
+                if(nextSize>0) slime.setSize(nextSize,true);
+            } catch(Throwable t) { RESULTS.add(new Result(false,current()+": оболочка/размер: "+t)); }
+            pending=false;
+        });
+    }
     private static void startRotation() {
         stage=5; since=System.nanoTime(); watch=true; orange=white=sameFrame=oldFrame=0;
     }
