@@ -248,7 +248,9 @@ MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDI)Lcom/hbm/r
 MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDILcom/hbm/render/anim/BusAnimationKeyframe$IType;)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence hold (I)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence setPos (DDD)Lcom/hbm/render/anim/BusAnimationSequence;
+MODEL_HITBOXES class com/hbm/entity/mob/EntityQuackos
 MODEL_HITBOXES class com/hbm/entity/mob/glyphid/EntityGlyphid
+MODEL_HITBOXES class com/hbm/items/tool/ItemPeas
 MODEL_HITBOXES class com/hbm/render/loader/GroupObject
 MODEL_HITBOXES class com/hbm/render/loader/HFRWavefrontObject
 MODEL_HITBOXES field com/hbm/entity/mob/glyphid/EntityGlyphid yBodyRot F

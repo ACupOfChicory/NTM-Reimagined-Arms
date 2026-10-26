@@ -27,6 +27,9 @@ public final class ModelHitClient {
         Long applied=APPLIED_FRAME.get(entity.getUUID());
         return applied!=null && applied.equals(PUBLISHED_FRAME.get(entity.getUUID())) && !READY.containsKey(entity.getUUID());
     }
+    public static void applied(LivingEntity entity) {
+        APPLIED_FRAME.put(entity.getUUID(),frame); PUBLISHED_FRAME.put(entity.getUUID(),frame);
+    }
     private static final Map<UUID, Ready> READY = new ConcurrentHashMap<>();
     private record Sync(LivingEntity entity, float yaw, List<ModelBox> boxes, String source, long tick) {}
     private static final Map<UUID, Sync> SYNC = new java.util.HashMap<>();
@@ -70,7 +73,6 @@ public final class ModelHitClient {
     public static void finishFrame() {
         if(!enabled || level==null) return;
         long started = System.nanoTime();
-        NtmMeshHits.flush();
         for (var entry : READY.entrySet()) if (READY.remove(entry.getKey(), entry.getValue())) {
             Ready ready = entry.getValue();
             LivingEntity entity = ready.entity();
@@ -81,12 +83,14 @@ public final class ModelHitClient {
             publishAt(entity, ready.yaw(), boxes, "flywheel_snapshot",ready.origin());
             if(MobSmoke.enabled()) PUBLISHED_FRAME.put(entity.getUUID(),ready.frame());
         }
+        NtmMeshHits.flush();
         sync();
         frameNanos += System.nanoTime() - started;
     }
 
     // Обычная отрисовка: модель уже прошла setupAnim. Забираем только основную модель, без брони и слоёв.
     public static void rendered(ModelFeatureRenderer.Submit<?> submit) {
+        if(NtmMeshHits.prepared(submit)) return;
         if (!enabled || !(submit.state() instanceof EntityRenderState state)
                 || !(state instanceof ModelHitState info) || info.gunfeel$primary() != submit.model()
                 || !(submit.model() instanceof EntityModel<?> model)) return;

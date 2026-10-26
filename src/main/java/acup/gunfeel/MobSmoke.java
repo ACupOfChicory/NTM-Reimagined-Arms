@@ -132,6 +132,7 @@ public final class MobSmoke {
         }
         var mc=Minecraft.getInstance();
         if(mc.player==null || pending) return;
+        if(stage==22 && !review()) { ClientSmoke.finish(); return; }
         if(review()) { reviewFrame(); return; }
         mc.player.setYRot(stage==4?180:0);
         mc.player.setXRot(0);
@@ -344,18 +345,21 @@ public final class MobSmoke {
     static void select(int selected) {
         var mc=Minecraft.getInstance();
         if(selected<0 || selected>=CASES.size() || pending) return;
-        index=selected;
-        id=-1; client=server=null; woolRay=null; watch=false; orange=white=0;
         pending=true;
         mc.getSingleplayerServer().execute(() -> {
             try {
                 var level=mc.getSingleplayerServer().overworld();
-                java.util.List<Entity> old=new java.util.ArrayList<>();
-                level.getAllEntities().forEach(old::add);
-                for(var entity:old) if(!(entity instanceof net.minecraft.server.level.ServerPlayer)) entity.discard();
+                int peas=MobStageCleanup.clear(level,mc.getSingleplayerServer().getPlayerList().getPlayers().getFirst());
+                index=selected;
+                id=-1; client=server=null; woolRay=null; watch=false; orange=white=0;
+                RESULTS.add(new Result(true,CASES.get(index)+": стенд очищен до спавна, оставшихся сущностей=0, peas="+peas));
                 var type=BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse(CASES.get(index)));
                 Entity created=type.create(level,EntitySpawnReason.COMMAND);
                 if(!(created instanceof LivingEntity target)) throw new IllegalStateException("не живой моб: "+created);
+                // Ghost штатно исчезает рядом с обычным игроком даже с NoAI.
+                // Наблюдатель исключён из его проверки присутствия игроков.
+                mc.getSingleplayerServer().getPlayerList().getPlayers().getFirst()
+                        .setGameMode(CASES.get(index).equals("hbm:entity_ghost")?GameType.SPECTATOR:GameType.CREATIVE);
                 target.setPos(8.5,100,16.5);
                 target.setYRot(180); target.yBodyRot=180; target.yHeadRot=180;
                 target.setNoGravity(true); target.setInvulnerable(true);
@@ -363,13 +367,20 @@ public final class MobSmoke {
                 id=target.getId();
                 level.addFreshEntity(target);
                 if(review()) positionCamera(target);
-            } catch(Throwable t) { RESULTS.add(new Result(false,CASES.get(index)+": создание: "+t)); }
+                stage=1; since=System.nanoTime();
+            } catch(Throwable t) {
+                RESULTS.add(new Result(false,CASES.get(selected)+": очистка/создание: "+t));
+                stage=22;
+            }
             pending=false;
         });
-        stage=1; since=System.nanoTime();
     }
 
     private static void reviewFrame() {
+        if(stage==22) {
+            MobReview.autoStatus("Очистка не удалась. Новый моб не создан; переключение можно повторить.");
+            MobReview.frame(); return;
+        }
         if(index<0) {
             select(MobReview.resume());
             return;
@@ -485,6 +496,7 @@ public final class MobSmoke {
             RESULTS.add(new Result(false,label+": ошибка стенда, луч перекрыт блоком "+block.getBlockPos()+", начало="+ray.from()));
             return;
         }
+        float health=target.getHealth();
         var bullet=new ProbeBullet(level,target);
         PROBES.add(bullet.getId());
         float speed=(float)Math.max(1,ray.from().distanceTo(ray.to())/
@@ -497,8 +509,9 @@ public final class MobSmoke {
         var beam=new ProbeBeam(level,target);
         beam.setPos(ray.from()); beam.setRotationsFromVector(ray.to().subtract(ray.from()).normalize());
         beam.performHitscanExternal(ray.from().distanceTo(ray.to())); beam.discard();
-        RESULTS.add(new Result(bullet.hit==expected && arrow.hit==expected && beam.hit==expected,label+": ожидание="+expected+
-                ", NTM-пуля="+bullet.hit+", стрела="+arrow.hit+", NTM-луч="+beam.hit));
+        boolean untouched=!target.isRemoved() && target.getHealth()==health;
+        RESULTS.add(new Result(bullet.hit==expected && arrow.hit==expected && beam.hit==expected && untouched,label+": ожидание="+expected+
+                ", NTM-пуля="+bullet.hit+", стрела="+arrow.hit+", NTM-луч="+beam.hit+", цель сохранена="+untouched));
     }
 
     private static final class ProbeBullet extends EntityBulletBaseMK4 implements CollisionProbe {
@@ -507,7 +520,6 @@ public final class MobSmoke {
         ProbeBullet(ServerLevel level,Entity target) { super(level,XFactory9mm.p9_ap,1,0,0,0); this.target=target; }
         @Override protected void onImpact(HitResult result) {
             if(result instanceof EntityHitResult entity && entity.getEntity().is(target)) hit=true;
-            super.onImpact(result);
         }
     }
     private static final class ProbeArrow extends Arrow {
@@ -520,7 +532,6 @@ public final class MobSmoke {
         }
         @Override protected void onHitEntity(EntityHitResult result) {
             if(result.getEntity().is(target)) hit=true;
-            super.onHitEntity(result);
         }
     }
     private static final class ProbeBeam extends EntityBulletBeamBase {
@@ -529,7 +540,6 @@ public final class MobSmoke {
         ProbeBeam(ServerLevel level,Entity target) { super(level,beamConfig,0); this.target=target; }
         @Override protected void onImpact(HitResult result) {
             if(result instanceof EntityHitResult entity && entity.getEntity().is(target)) hit=true;
-            super.onImpact(result);
         }
     }
 }

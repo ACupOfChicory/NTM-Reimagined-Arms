@@ -72,7 +72,7 @@ public final class ModelHits {
 
     public static double radius(Entity target) {
         // Also bounds candidate lookup: no accepted cube extends beyond this distance from the entity origin.
-        return Math.min(16, Math.max(2, Math.max(target.getBbWidth(), target.getBbHeight()) * 2));
+        return Math.min(128, Math.max(2, Math.max(target.getBbWidth(), target.getBbHeight()) * 2));
     }
 
     public static synchronized void put(Level level, LivingEntity target, float yaw, List<ModelBox> boxes) {

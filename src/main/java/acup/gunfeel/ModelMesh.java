@@ -42,7 +42,7 @@ public final class ModelMesh {
     public static ModelMesh register(ModelMesh mesh) {
         ModelMesh old = CACHE.get(mesh.id);
         if (old != null) return old;
-        if (CACHE.size() >= 512) throw new IllegalStateException("Model mesh cache full");
+        if (CACHE.size() >= 4096) throw new IllegalStateException("Model mesh cache full");
         old = CACHE.putIfAbsent(mesh.id, mesh);
         return old == null ? mesh : old;
     }
@@ -180,11 +180,11 @@ public final class ModelMesh {
     private static final class FaceEdge {
         final double x, y, z;
         int count = 1;
-        boolean crease;
+        boolean crease,positive,negative;
         FaceEdge(double x, double y, double z) { this.x = x; this.y = y; this.z = z; }
     }
     private float[] buildEdges() {
-        record Side(Point a,Point b,double nx,double ny,double nz) {}
+        record Side(Point a,Point b,double nx,double ny,double nz,double cx,double cy,double cz) {}
         List<Side> sides=new ArrayList<>();
         java.util.Set<Point> vertices=new java.util.HashSet<>();
         Map<Edge, FaceEdge> all = new HashMap<>();
@@ -199,7 +199,8 @@ public final class ModelMesh {
             nx /= length; ny /= length; nz /= length;
             for (int i = 0; i < 3; i++) {
                 Point a = p[i], b = p[(i + 1) % 3];
-                sides.add(new Side(a,b,nx,ny,nz)); vertices.add(a); vertices.add(b);
+                sides.add(new Side(a,b,nx,ny,nz,(p[0].x+p[1].x+p[2].x)/3.,
+                        (p[0].y+p[1].y+p[2].y)/3.,(p[0].z+p[1].z+p[2].z)/3.)); vertices.add(a); vertices.add(b);
             }
         }
         // Длинное ребро и несколько коротких на другой стороне T-стыка
@@ -220,15 +221,19 @@ public final class ModelMesh {
                 if(a==null) { a=b; continue; }
                 Edge key = a.compareTo(b) < 0 ? new Edge(a,b) : new Edge(b,a);
                 FaceEdge old = all.get(key);
-                if (old == null) all.put(key, new FaceEdge(side.nx(),side.ny(),side.nz()));
+                if (old == null) { old=new FaceEdge(side.nx(),side.ny(),side.nz()); all.put(key,old); }
                 else { old.count++; old.crease |= Math.abs(old.x*side.nx()+old.y*side.ny()+old.z*side.nz())<.99999; }
+                double ex=key.b.x-key.a.x,ey=key.b.y-key.a.y,ez=key.b.z-key.a.z;
+                double sign=(old.y*ez-old.z*ey)*(side.cx()-key.a.x)
+                        +(old.z*ex-old.x*ez)*(side.cy()-key.a.y)+(old.x*ey-old.y*ex)*(side.cz()-key.a.z);
+                if(sign>1e-10) old.positive=true; if(sign<-1e-10) old.negative=true;
                 a=b;
             }
         }
         ArrayList<Float> lines = new ArrayList<>();
-        closed = !all.isEmpty() && all.values().stream().allMatch(face -> face.count == 2);
+        closed = !all.isEmpty() && all.values().stream().allMatch(face -> face.count == 2 && (face.crease || face.positive && face.negative));
         all.forEach((edge, face) -> {
-            if (face.count == 1 || face.crease) for (Point p : new Point[] {edge.a, edge.b}) {
+            if (!(face.positive && face.negative) || face.crease) for (Point p : new Point[] {edge.a, edge.b}) {
                 lines.add(p.x); lines.add(p.y); lines.add(p.z);
             }
         });

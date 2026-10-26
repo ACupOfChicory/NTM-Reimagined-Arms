@@ -68,6 +68,8 @@ val tools: SourceSet = sourceSets.create("tools") {
 
 dependencies {
     compileOnly(ntm)
+    compileOnly(files(root.resolve("libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar")))
+    testImplementation(files(root.resolve("libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar")))
     // NTM loads as a mod in the dev runs (runDumpBlocks); the mod jar never contains it
     runtimeOnly(ntm)
     testImplementation(ntm)
@@ -255,6 +257,8 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
         dir.resolve("config/fml.toml").writeText("earlyWindowControl = false\n")
         root.resolve("libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar")
             .copyTo(dir.resolve("mods/crankshaft.jar"), overwrite = true)
+        dir.resolve("config/crankshaft-client.toml").writeText(
+            "backend = \"${if(providers.gradleProperty("mobCpuGeometry").isPresent) "flywheel:off" else "DEFAULT"}\"\n")
         dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(review) 8 else 3}\nsimulationDistance:5\nmaxFps:60\n")
         layout.buildDirectory.file(result).get().asFile.delete()
     }

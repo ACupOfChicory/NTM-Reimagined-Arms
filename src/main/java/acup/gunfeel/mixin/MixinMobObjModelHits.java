@@ -31,6 +31,7 @@ public abstract class MixinMobObjModelHits {
     @Inject(method = "writeFrame", at = @At("RETURN"))
     private void gunfeel$pose(float partial, CallbackInfo ci) {
         if (gunfeel$failed || !ModelHitClient.enabled() || !acup.gunfeel.compat.Feature.MODEL_HITBOXES.on()) return;
+        if(acup.gunfeel.GpuModelHits.available(this)) return;
         var target = ((VanillateEntityAccess) (Object) this).gunfeel$entity();
         if (!(target instanceof LivingEntity living)) return;
         try {

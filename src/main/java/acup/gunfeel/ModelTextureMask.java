@@ -31,6 +31,27 @@ public final class ModelTextureMask {
     private static final Map<Identifier, Cache> TEXTURES = new java.util.HashMap<>();
     private static final Map<Identifier, Map<ModelPart, List<ModelPart.Cube>>> PARTS = new java.util.HashMap<>();
     private static int generation;
+    private static final Map<net.minecraft.client.renderer.rendertype.RenderType,Identifier> RENDER_TEXTURES=new java.util.WeakHashMap<>();
+
+    public static Identifier texture(net.minecraft.client.renderer.rendertype.RenderType type) {
+        synchronized(RENDER_TEXTURES) {
+            if(RENDER_TEXTURES.containsKey(type)) return RENDER_TEXTURES.get(type);
+            Identifier result=null;
+            try {
+                var stateField=type.getClass().getDeclaredField("state"); stateField.setAccessible(true);
+                Object state=stateField.get(type);
+                var textures=state.getClass().getDeclaredField("textures"); textures.setAccessible(true);
+                Object binding=((Map<?,?>)textures.get(state)).get("Sampler0");
+                if(binding!=null) {
+                    var location=binding.getClass().getDeclaredMethod("location"); location.setAccessible(true);
+                    result=(Identifier)location.invoke(binding);
+                }
+            } catch(ReflectiveOperationException ex) {
+                org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").debug("Нет текстуры render type {}: {}",type,ex.toString());
+            }
+            RENDER_TEXTURES.put(type,result); return result;
+        }
+    }
 
     private ModelTextureMask() {}
 
@@ -62,7 +83,12 @@ public final class ModelTextureMask {
 
     public static ModelCubeGeometry geometry(ModelPart.Cube cube,Identifier texture) {
         if(texture==null) return UNMASKED.computeIfAbsent(cube,c -> ModelCubeGeometry.bake(c,null));
-        Cache cache = TEXTURES.computeIfAbsent(texture, id -> {
+        Cache cache = cache(texture);
+        return cache.cubes().computeIfAbsent(cube, c -> ModelCubeGeometry.bake(c, cache.alpha()));
+    }
+    public static Alpha mask(Identifier texture) { return texture==null?null:cache(texture).alpha(); }
+    private static Cache cache(Identifier texture) {
+        return TEXTURES.computeIfAbsent(texture, id -> {
             Alpha mask = null;
             try (var stream = Minecraft.getInstance().getResourceManager().getResourceOrThrow(id).open();
                     var image = NativeImage.read(stream)) {
@@ -72,7 +98,6 @@ public final class ModelTextureMask {
             }
             return new Cache(mask, new IdentityHashMap<>());
         });
-        return cache.cubes().computeIfAbsent(cube, c -> ModelCubeGeometry.bake(c, cache.alpha()));
     }
 
     public static ModelPoseCapture.Parts parts(Identifier texture) {
@@ -87,5 +112,5 @@ public final class ModelTextureMask {
     }
 
     public static int generation() { return generation; }
-    public static void clear() { TEXTURES.clear(); PARTS.clear(); UNMASKED.clear(); generation++; }
+    public static void clear() { TEXTURES.clear(); PARTS.clear(); UNMASKED.clear(); RENDER_TEXTURES.clear(); generation++; }
 }

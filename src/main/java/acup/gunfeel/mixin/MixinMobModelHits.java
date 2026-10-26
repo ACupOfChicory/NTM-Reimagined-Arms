@@ -32,6 +32,7 @@ public abstract class MixinMobModelHits {
             target = "Lorg/joml/Matrix4f;set(Lorg/joml/Matrix4fc;)Lorg/joml/Matrix4f;"), require = 1, allow = 1)
     private void gunfeel$pose(float partial, CallbackInfo ci) {
         if (!ModelHitClient.enabled() || !acup.gunfeel.compat.Feature.MODEL_HITBOXES.on()) return;
+        if(acup.gunfeel.GpuModelHits.available(this)) return;
         var target = ((VanillateEntityAccess) (Object) this).gunfeel$entity();
         if (!(target instanceof LivingEntity living)) return;
         try {

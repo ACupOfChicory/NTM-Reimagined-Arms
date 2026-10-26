@@ -18,16 +18,23 @@ import net.minecraft.client.renderer.rendertype.RenderType;
 // with the other translucent features (before it) the glass's own pixels would cover them.
 @Mixin(value = SubmitNodeCollection.class, remap = false)
 public abstract class MixinSubmitNodeCollection {
+    @Inject(method="submitBlockModel",at=@At("HEAD"))
+    private void gunfeel$blocks(PoseStack stack,RenderType type,
+            java.util.List<net.minecraft.client.renderer.block.dispatch.BlockStateModelPart> parts,
+            int[] tints,int light,int overlay,int outline,CallbackInfo ci) {
+        acup.gunfeel.NtmMeshHits.blocks(stack,parts);
+    }
     @ModifyVariable(method = "submitCustomGeometry", at = @At("HEAD"), argsOnly = true)
-    private SubmitNodeCollector.CustomGeometryRenderer gunfeel$mesh(SubmitNodeCollector.CustomGeometryRenderer renderer) {
-        return acup.gunfeel.NtmMeshHits.wrap(renderer);
+    private SubmitNodeCollector.CustomGeometryRenderer gunfeel$mesh(SubmitNodeCollector.CustomGeometryRenderer renderer,
+            PoseStack stack,RenderType type,SubmitNodeCollector.CustomGeometryRenderer original) {
+        return acup.gunfeel.NtmMeshHits.wrap(renderer,type);
     }
 
     @Inject(method = "submitModel", at = @At("HEAD"))
     private void gunfeel$model(net.minecraft.client.model.Model<?> model, Object state, PoseStack stack, RenderType type,
             int light, int overlay, int tint, net.minecraft.client.renderer.texture.TextureAtlasSprite sprite,
             int outline, net.minecraft.client.renderer.feature.ModelFeatureRenderer.CrumblingOverlay crumble, CallbackInfo ci) {
-        acup.gunfeel.NtmMeshHits.model(state, model);
+        acup.gunfeel.NtmMeshHits.model(state, model,stack);
     }
 
     @Inject(method = "submitCustomGeometry", at = @At("HEAD"), cancellable = true)

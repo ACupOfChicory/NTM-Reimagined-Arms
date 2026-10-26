@@ -60,6 +60,8 @@ public abstract class MixinVanillateModelHit {
             if (pose == null) return;
             var origin=gunfeel$origins.get(snapshot);
             if(origin==null) return;
+            acup.gunfeel.GpuModelHits.offer(this,living,(float)origin[3],new net.minecraft.world.phys.Vec3(pose.x(),pose.y(),pose.z()));
+            if(acup.gunfeel.GpuModelHits.available(this)) return;
             int variant = pose.variant();
             if (variant < 0 || variant >= partsByVariant.length) return;
             int wool=(int)origin[4];

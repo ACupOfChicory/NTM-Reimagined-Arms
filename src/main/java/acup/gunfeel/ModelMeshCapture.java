@@ -7,7 +7,21 @@ import java.util.Map;
 // Нормализация исходных граней выполняется один раз на группу ресурса, а не каждый кадр.
 public final class ModelMeshCapture {
     private static final Map<GroupObject, ModelMesh> CACHE = new java.util.WeakHashMap<>();
+    private record Key(net.minecraft.resources.Identifier texture,float us,float vs,float uo,float vo,int generation) {}
+    private static final Map<GroupObject,Map<Key,ModelSurfaceGeometry>> SURFACES=new java.util.WeakHashMap<>();
     private ModelMeshCapture() {}
+    public static synchronized ModelSurfaceGeometry geometry(GroupObject group,net.minecraft.resources.Identifier texture,float us,float vs,float uo,float vo) {
+        var key=new Key(texture,us,vs,uo,vo,ModelTextureMask.generation());
+        return SURFACES.computeIfAbsent(group,g -> new java.util.HashMap<>()).computeIfAbsent(key,k -> {
+            float[] quads=group.quads(true),triangles=new float[quads.length/32*30]; int at=0;
+            for(int face=0;face<quads.length;face+=32) for(int v:new int[]{0,1,2,0,2,3}) {
+                int p=face+v*8;
+                for(int a=0;a<3;a++) triangles[at++]=quads[p+a];
+                triangles[at++]=quads[p+3]*us+uo; triangles[at++]=quads[p+4]*vs+vo;
+            }
+            return ModelSurfaceGeometry.bake(triangles,ModelTextureMask.mask(texture));
+        });
+    }
 
     public static synchronized ModelMesh mesh(GroupObject group) {
         return CACHE.computeIfAbsent(group, g -> {

@@ -29,6 +29,7 @@ public abstract class MixinGlyphidModelHits {
     @Inject(method = "writeFrame", at = @At("RETURN"))
     private void gunfeel$pose(float partial, CallbackInfo ci) {
         if (!shown || !ModelHitClient.enabled() || !acup.gunfeel.compat.Feature.MODEL_HITBOXES.on()) return;
+        if(acup.gunfeel.GpuModelHits.available(this)) return;
         var entity = ((VanillateEntityAccess) (Object) this).gunfeel$entity();
         if (!(entity instanceof EntityGlyphid glyphid)) return;
         var mesh = GlyphidGeometryAccess.gunfeel$mesh();

@@ -4,6 +4,14 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
 class ModelMeshTest {
+    @Test void bothSidesOfPaperKeepBoundaryEvenWithDifferentDiagonals() {
+        var mesh=new ModelMesh(new float[]{
+                0,0,0,1,0,0,1,1,0, 0,0,0,1,1,0,0,1,0,
+                0,1,0,1,0,0,0,0,0, 0,1,0,1,1,0,1,0,0});
+        assertEquals(24,mesh.edges().length,"Две стороны одной плоскости не гасят четыре внешних ребра");
+        assertTrue(mesh.clip(new double[]{.3,.4,-1},new double[]{.3,.4,1})>=0);
+        assertEquals(-1,mesh.clip(new double[]{.3,.4,.1},new double[]{.3,.4,.2}),"У бумаги нет внутреннего объёма");
+    }
     static ModelMesh tetrahedron() {
         return ModelMesh.register(new ModelMesh(new float[] {
                 0,0,0, 0,1,0, 1,0,0,

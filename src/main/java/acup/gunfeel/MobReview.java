@@ -45,6 +45,12 @@ final class MobReview {
 
     static int resume() {
         for(int i=0;i<MobSmoke.cases().size();i++) if(!store.reviewed(MobSmoke.cases().get(i))) return i;
+        for(int i=0;i<MobSmoke.cases().size();i++) {
+            var decision=store.get(MobSmoke.cases().get(i));
+            if(decision!=null && decision.status().equals("bad")) {
+                filter=2; message="Первый обзор завершён. Повторная проверка отмеченных ошибок"; return i;
+            }
+        }
         message="Все мобы уже просмотрены. F6 — фильтр ошибок";
         return 0;
     }
