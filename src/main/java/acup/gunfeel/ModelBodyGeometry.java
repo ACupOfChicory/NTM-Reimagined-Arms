@@ -46,6 +46,10 @@ public final class ModelBodyGeometry {
                 return out;
             }
             public Map<String,ModelPart> children(ModelPart part) { return base.children(part); }
+            public ModelCubeGeometry geometry(ModelPart.Cube cube) {
+                boolean wind=extra.values().stream().anyMatch(list -> list.contains(cube));
+                return ModelTextureMask.geometry(cube,wind?WIND:texture);
+            }
         };
     }
     private static void attach(ModelPart root,String name,Map<String,List<ModelPart.Cube>> byName,Map<ModelPart,List<ModelPart.Cube>> out) {

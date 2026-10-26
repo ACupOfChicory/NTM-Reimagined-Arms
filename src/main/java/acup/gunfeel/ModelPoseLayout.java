@@ -62,10 +62,8 @@ public final class ModelPoseLayout {
             String name = names[i];
             if (name.length() > ModelBox.MAX_PART_NAME) return List.of();
             for (var cube : drawnCubes.get(i)) {
-                if (!MeshModelPose.hasSurface(cube.maxX-cube.minX,cube.maxY-cube.minY,cube.maxZ-cube.minZ)) continue;
-                if (out.size() >= ModelPosePayload.MAX_BOXES) return List.of();
-                out.add(MeshModelPose.surface(name,cube.minX/16F,cube.minY/16F,cube.minZ/16F,
-                        (cube.maxX-cube.minX)/16F,(cube.maxY-cube.minY)/16F,(cube.maxZ-cube.minZ)/16F,m,0,0,0));
+                ModelTextureMask.geometry(cube,cubeTextures.getOrDefault(cube,texture)).append(out,name,m,0,0,0);
+                if (out.size() > ModelPosePayload.MAX_BOXES) return List.of();
             }
         }
         return out;

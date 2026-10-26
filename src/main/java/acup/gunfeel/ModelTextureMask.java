@@ -11,6 +11,11 @@ import com.mojang.blaze3d.platform.NativeImage;
 // Пустые UV-области не являются геометрией попадания. Маски и результат для каждого куба кэшируются.
 public final class ModelTextureMask {
     public record Alpha(int width, int height, int[] sums) {
+        public boolean pixel(float u,float v) {
+            int x=Math.clamp((int)Math.floor(u*width),0,width-1), y=Math.clamp((int)Math.floor(v*height),0,height-1);
+            int stride=width+1;
+            return sums[(y+1)*stride+x+1]-sums[y*stride+x+1]-sums[(y+1)*stride+x]+sums[y*stride+x]>0;
+        }
         public boolean any(float u0, float v0, float u1, float v1) {
             int x0 = Math.clamp((int) Math.floor(u0 * width + 1e-4), 0, width);
             int y0 = Math.clamp((int) Math.floor(v0 * height + 1e-4), 0, height);
@@ -21,7 +26,8 @@ public final class ModelTextureMask {
                     - sums[y1 * stride + x0] + sums[y0 * stride + x0] > 0;
         }
     }
-    private record Cache(Alpha alpha, Map<ModelPart.Cube, Boolean> cubes) {}
+    private record Cache(Alpha alpha, Map<ModelPart.Cube, ModelCubeGeometry> cubes) {}
+    private static final Map<ModelPart.Cube,ModelCubeGeometry> UNMASKED=new IdentityHashMap<>();
     private static final Map<Identifier, Cache> TEXTURES = new java.util.HashMap<>();
     private static final Map<Identifier, Map<ModelPart, List<ModelPart.Cube>>> PARTS = new java.util.HashMap<>();
     private static int generation;
@@ -51,7 +57,11 @@ public final class ModelTextureMask {
     }
 
     public static boolean visible(ModelPart.Cube cube, Identifier texture) {
-        if (texture == null) return true;
+        return geometry(cube,texture).visible();
+    }
+
+    public static ModelCubeGeometry geometry(ModelPart.Cube cube,Identifier texture) {
+        if(texture==null) return UNMASKED.computeIfAbsent(cube,c -> ModelCubeGeometry.bake(c,null));
         Cache cache = TEXTURES.computeIfAbsent(texture, id -> {
             Alpha mask = null;
             try (var stream = Minecraft.getInstance().getResourceManager().getResourceOrThrow(id).open();
@@ -62,7 +72,7 @@ public final class ModelTextureMask {
             }
             return new Cache(mask, new IdentityHashMap<>());
         });
-        return cache.cubes().computeIfAbsent(cube, c -> visible(c, cache.alpha()));
+        return cache.cubes().computeIfAbsent(cube, c -> ModelCubeGeometry.bake(c, cache.alpha()));
     }
 
     public static ModelPoseCapture.Parts parts(Identifier texture) {
@@ -72,9 +82,10 @@ public final class ModelTextureMask {
                 return cache.computeIfAbsent(p, part -> ModelPoseCapture.ACCESS.cubes(part).stream().filter(c -> visible(c, texture)).toList());
             }
             public Map<String, ModelPart> children(ModelPart p) { return ModelPoseCapture.ACCESS.children(p); }
+            public ModelCubeGeometry geometry(ModelPart.Cube cube) { return ModelTextureMask.geometry(cube,texture); }
         };
     }
 
     public static int generation() { return generation; }
-    public static void clear() { TEXTURES.clear(); PARTS.clear(); generation++; }
+    public static void clear() { TEXTURES.clear(); PARTS.clear(); UNMASKED.clear(); generation++; }
 }

@@ -14,6 +14,7 @@ public final class ModelPoseCapture {
     public interface Parts {
         List<ModelPart.Cube> cubes(ModelPart part);
         Map<String, ModelPart> children(ModelPart part);
+        default ModelCubeGeometry geometry(ModelPart.Cube cube) { return ModelTextureMask.geometry(cube,null); }
     }
     public record Result(boolean complete, int nodes, List<ModelBox> boxes) {}
     public static final Parts ACCESS = new Parts() {
@@ -44,11 +45,8 @@ public final class ModelPoseCapture {
         try {
             part.translateAndRotate(stack);
             if (!part.skipDraw) for (ModelPart.Cube cube : parts.cubes(part)) {
-                if (!MeshModelPose.hasSurface(cube.maxX-cube.minX,cube.maxY-cube.minY,cube.maxZ-cube.minZ)) continue;
-                if (boxes.size() >= ModelPosePayload.MAX_BOXES) return false;
-                Matrix4f m = stack.last().pose();
-                boxes.add(MeshModelPose.surface(name,cube.minX/16F,cube.minY/16F,cube.minZ/16F,
-                        (cube.maxX-cube.minX)/16F,(cube.maxY-cube.minY)/16F,(cube.maxZ-cube.minZ)/16F,m,x,y,z));
+                parts.geometry(cube).append(boxes,name,stack.last().pose(),x,y,z);
+                if (boxes.size() > ModelPosePayload.MAX_BOXES) return false;
             }
             for (var entry : parts.children(part).entrySet())
                 if (!traverse(name + "/" + entry.getKey(), entry.getValue(), stack, x, y, z, boxes, nodes, depth + 1, parts)) return false;

@@ -19,6 +19,7 @@ public final class ModelMesh {
     private final float[] triangles, edges;
     private final Integer[] order;
     private final Node root;
+    private boolean closed;
 
     public ModelMesh(float[] data) {
         if (data.length == 0 || data.length % 9 != 0 || data.length / 9 > MAX_TRIANGLES)
@@ -93,7 +94,7 @@ public final class ModelMesh {
             if (hits[i] <= 1e-9) return true;
             if (hits[i] - previous > 1e-7) { unique++; previous = hits[i]; }
         }
-        return (unique & 1) != 0;
+        return closed && (unique & 1) != 0;
     }
 
     private double nearest(Node node, double[] a, double[] b, double best) {
@@ -200,6 +201,7 @@ public final class ModelMesh {
             }
         }
         ArrayList<Float> lines = new ArrayList<>();
+        closed = !all.isEmpty() && all.values().stream().allMatch(face -> face.count == 2);
         all.forEach((edge, face) -> {
             if (face.count == 1 || face.crease) for (Point p : new Point[] {edge.a, edge.b}) {
                 lines.add(p.x); lines.add(p.y); lines.add(p.z);
