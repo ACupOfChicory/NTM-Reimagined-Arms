@@ -114,7 +114,9 @@ neoForge {
             systemProperty("MC_DEBUG_ENABLED", "true")
             systemProperty("MC_DEBUG_PREFER_WAYLAND", "true")
             providers.gradleProperty("mobCases").orNull?.let { systemProperty("ntmgunfeel.mobCases", it) }
-            programArguments.addAll("--width", "854", "--height", "480")
+            systemProperty("ntmgunfeel.contourShots",providers.gradleProperty("mobContourShots").isPresent.toString())
+            programArguments.addAll("--width", if(providers.gradleProperty("mobContourShots").isPresent) "1708" else "854",
+                    "--height", if(providers.gradleProperty("mobContourShots").isPresent) "960" else "480")
         }
         register("reviewMobs") {
             client()

@@ -39,12 +39,22 @@ public final class MobSmoke {
     private static volatile boolean pending;
     private static int index=-1, stage, orange, white, sameFrame, oldFrame;
     private static boolean watch;
+    private static final boolean CONTOUR_SHOTS=Boolean.getBoolean("ntmgunfeel.contourShots");
+    private static int photographed=-1;
     private static long since;
     private static BulletConfig beamConfig;
 
     private MobSmoke() {}
     static boolean enabled() { return ENABLED; }
     static void debugProbe(boolean ok,String text) { RESULTS.add(new Result(ok,"GPU обводка: "+text)); }
+    static void contourShot() {
+        if(!ENABLED || review() || !CONTOUR_SHOTS || stage!=2 || seconds()<.3 || photographed==index) return;
+        photographed=index; String name=current().replace(':','_');
+        net.minecraft.client.Screenshot.takeScreenshot(Minecraft.getInstance().gameRenderer.mainRenderTarget(),image -> {
+            try(image) { image.writeToFile(java.nio.file.Path.of("../notes/accurate-hitboxes/contour-"+name+".png")); }
+            catch(java.io.IOException ex) { debugProbe(false,"сохранение контура: "+ex); }
+        });
+    }
     static boolean review() { return Boolean.getBoolean("ntmgunfeel.mobReview"); }
     static List<String> cases() { return CASES; }
     static int index() { return index; }
@@ -116,6 +126,16 @@ public final class MobSmoke {
         if(review()) { reviewFrame(); return; }
         mc.player.setYRot(stage==4?180:0);
         mc.player.setXRot(0);
+        if(CONTOUR_SHOTS && ModelDebugRender.probesFinished() && stage!=4 && target() instanceof LivingEntity lookingAt) {
+            mc.options.fov().set(30);
+            double distance=Math.hypot(lookingAt.getX()-mc.player.getX(),lookingAt.getZ()-mc.player.getZ());
+            mc.player.setXRot((float)Math.toDegrees(Math.atan2(mc.player.getEyeY()-lookingAt.getY()-lookingAt.getBbHeight()/2,distance)));
+            if(current().equals("minecraft:fox") && (stage==1 || stage==2)) {
+                lookingAt.yBodyRot=lookingAt.yBodyRotO=90;
+                lookingAt.yHeadRot=lookingAt.yHeadRotO=90;
+                lookingAt.setYRot(90); lookingAt.yRotO=90;
+            }
+        }
         if(stage==5 && seconds()<=1 && mc.level.getEntity(id) instanceof LivingEntity rotating) {
             rotating.yBodyRotO=rotating.yBodyRot;
             rotating.yBodyRot=(float)(seconds()*240);

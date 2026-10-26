@@ -174,6 +174,7 @@ public final class ModelDebugRender {
         device.createCommandEncoder().writeToBuffer(buffer.slice(),data); return buffer;
     }
     public static void clear() {
+        ModelContours.clear();
         releaseTargets();
         if(maskBuffer!=null) { maskBuffer.close(); maskBuffer=null; }
         if(lineBuffer!=null) { lineBuffer.close(); lineBuffer=null; }

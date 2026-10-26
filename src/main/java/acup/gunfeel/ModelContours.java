@@ -9,8 +9,18 @@ import net.minecraft.world.phys.Vec3;
 public final class ModelContours {
     private ModelContours() {}
     private static final float[] BOX_EDGES=boxEdges();
-    public static List<Vec3[]> edges(List<ModelBox> boxes) {
+    private static final java.util.Map<List<ModelBox>,List<Vec3[]>> CACHE=new java.util.LinkedHashMap<>(16,.75F,true) {
+        protected boolean removeEldestEntry(java.util.Map.Entry<List<ModelBox>,List<Vec3[]>> entry) { return size()>16; }
+    };
+    public static synchronized void clear() { CACHE.clear(); }
+    public static synchronized List<Vec3[]> edges(List<ModelBox> boxes) {
+        var cached=CACHE.get(boxes);
+        if(cached!=null) return cached;
+        var result=List.copyOf(collect(boxes)); CACHE.put(List.copyOf(boxes),result); return result;
+    }
+    private static List<Vec3[]> collect(List<ModelBox> boxes) {
         List<Vec3[]> out=new ArrayList<>();
+        var surface=new ContourSurface(boxes);
         for(var box:boxes) {
             // Вложенная внутренняя деталь (например, внутренний слой головы)
             // не добавляет второй каркас под внешней частью того же узла.
@@ -35,7 +45,7 @@ public final class ModelContours {
                     intervals=next;
                     if(intervals.isEmpty()) break;
                 }
-                for(var span:intervals) if(span[1]-span[0]>1e-5) { visible.add(a.lerp(b,span[0])); visible.add(a.lerp(b,span[1])); }
+                surface.append(visible,a,b,intervals);
             }
             if(!visible.isEmpty()) out.add(visible.toArray(Vec3[]::new));
         }

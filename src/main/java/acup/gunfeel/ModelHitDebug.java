@@ -44,6 +44,6 @@ public final class ModelHitDebug {
             }
             shapes.add(new ModelDebugRender.Shape(++id,custom,boxes,ModelContours.edges(boxes)));
         }
-        TARGETS.clear(); ModelDebugRender.draw(shapes); ModelDebugRender.probe();
+        TARGETS.clear(); ModelDebugRender.draw(shapes); ModelDebugRender.probe(); MobSmoke.contourShot();
     }
 }

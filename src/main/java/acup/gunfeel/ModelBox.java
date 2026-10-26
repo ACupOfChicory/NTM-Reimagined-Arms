@@ -37,14 +37,22 @@ public record ModelBox(String part, double x, double y, double z,
     }
 
     double[] interiorSpan(net.minecraft.world.phys.Vec3 from,net.minecraft.world.phys.Vec3 to) {
-        double det=determinant(); if(Math.abs(det)<1e-12 || mesh!=0) return null;
+        return mesh==0?span(from,to,1e-6,1-1e-6):null;
+    }
+
+    double[] carrierSpan(net.minecraft.world.phys.Vec3 from,net.minecraft.world.phys.Vec3 to) {
+        return span(from,to,0,1);
+    }
+
+    private double[] span(net.minecraft.world.phys.Vec3 from,net.minecraft.world.phys.Vec3 to,double min,double max) {
+        double det=determinant(); if(Math.abs(det)<1e-12) return null;
         double[] a=local(from.x-x,from.y-y,from.z-z,det),b=local(to.x-x,to.y-y,to.z-z,det);
-        double lo=0,hi=1,epsilon=1e-6;
+        double lo=0,hi=1;
         for(int i=0;i<3;i++) {
             double d=b[i]-a[i];
-            if(Math.abs(d)<1e-12) { if(a[i]<=epsilon || a[i]>=1-epsilon) return null; }
+            if(Math.abs(d)<1e-12) { if(a[i]<min || a[i]>max) return null; }
             else {
-                double p=(epsilon-a[i])/d,q=(1-epsilon-a[i])/d;
+                double p=(min-a[i])/d,q=(max-a[i])/d;
                 lo=Math.max(lo,Math.min(p,q)); hi=Math.min(hi,Math.max(p,q));
                 if(lo>=hi) return null;
             }

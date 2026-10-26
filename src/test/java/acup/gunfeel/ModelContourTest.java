@@ -4,6 +4,110 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 
 class ModelContourTest {
+    @Test void differentPartsOnOnePlaneHaveOnlyTheirCombinedContour() {
+        var a=MeshModelPose.surface("a",0,0,0,2,1,0,new org.joml.Matrix4f(),0,0,0);
+        var b=MeshModelPose.surface("b",1,0,0,2,1,0,new org.joml.Matrix4f(),0,0,0);
+        var edges=ModelContours.edges(java.util.List.of(a,b));
+        double length=0;
+        for(var line:edges) for(int i=0;i<line.length;i+=2) {
+            var p=line[i]; var q=line[i+1];
+            assertTrue(p.y==0 && q.y==0 || p.y==1 && q.y==1 || p.x==0 && q.x==0 || p.x==3 && q.x==3,
+                    "Граница соседней детали осталась внутри общей плоскости: "+p+" -> "+q);
+            length+=p.distanceTo(q);
+        }
+        assertEquals(8,length,1e-5);
+    }
+
+    @Test void coplanarUnionKeepsAnActualHole() {
+        var m=new org.joml.Matrix4f();
+        var boxes=java.util.List.of(MeshModelPose.surface("left",0,0,0,1,3,0,m,0,0,0),
+                MeshModelPose.surface("right",2,0,0,1,3,0,m,0,0,0),
+                MeshModelPose.surface("bottom",1,0,0,1,1,0,m,0,0,0),
+                MeshModelPose.surface("top",1,2,0,1,1,0,m,0,0,0));
+        double length=0,hole=0;
+        for(var edges:ModelContours.edges(boxes)) for(int i=0;i<edges.length;i+=2) {
+            double n=edges[i].distanceTo(edges[i+1]); length+=n;
+            var mid=edges[i].lerp(edges[i+1],.5);
+            if(mid.x>=1 && mid.x<=2 && mid.y>=1 && mid.y<=2) hole+=n;
+        }
+        assertEquals(16,length,1e-5); assertEquals(4,hole,1e-5);
+    }
+
+    @Test void closeParallelPlanesRemainSeparate() {
+        var m=new org.joml.Matrix4f();
+        var boxes=java.util.List.of(MeshModelPose.surface("front",0,0,0,1,1,0,m,0,0,0),
+                MeshModelPose.surface("back",0,0,.001F,1,1,0,m,0,0,0));
+        double length=0;
+        for(var edges:ModelContours.edges(boxes)) for(int i=0;i<edges.length;i+=2) length+=edges[i].distanceTo(edges[i+1]);
+        assertEquals(8,length,1e-5,"Настоящий зазор между параллельными поверхностями не склеивается");
+    }
+
+    @Test void solidStepKeepsItsConcaveCrease() {
+        var low=new ModelBox("low",0,0,0,1,0,0,0,1,0,0,0,1);
+        var high=new ModelBox("high",1,0,0,1,0,0,0,2,0,0,0,1);
+        double crease=0;
+        for(var edges:ModelContours.edges(java.util.List.of(low,high))) for(int i=0;i<edges.length;i+=2) {
+            var a=edges[i]; var b=edges[i+1];
+            if(Math.abs(a.x-1)<1e-6 && Math.abs(b.x-1)<1e-6 && Math.abs(a.y-1)<1e-6 && Math.abs(b.y-1)<1e-6)
+                crease+=a.distanceTo(b);
+        }
+        assertEquals(1,crease,1e-5,"Настоящий угол ступеньки должен остаться один раз");
+    }
+
+    @Test void diagonallyTouchingVolumesKeepTheirSharedCrease() {
+        var a=new ModelBox("a",0,0,0,1,0,0,0,1,0,0,0,1);
+        var b=new ModelBox("b",1,1,0,1,0,0,0,1,0,0,0,1);
+        double crease=0;
+        for(var edges:ModelContours.edges(java.util.List.of(a,b))) for(int i=0;i<edges.length;i+=2) {
+            var p=edges[i]; var q=edges[i+1];
+            if(Math.abs(p.x-1)<1e-6 && Math.abs(q.x-1)<1e-6 && Math.abs(p.y-1)<1e-6 && Math.abs(q.y-1)<1e-6)
+                crease+=p.distanceTo(q);
+        }
+        assertEquals(1,crease,1e-5,"Смена стороны объёма не является плоским швом");
+    }
+
+    @Test void assembledFrogFacesHaveNoSeamsBetweenHeadBodyAndPaperLayers() throws Exception {
+        var model=new net.minecraft.client.model.animal.frog.FrogModel(net.minecraft.client.model.animal.frog.FrogModel.createBodyLayer().bakeRoot());
+        model.setupAnim(new net.minecraft.client.renderer.entity.state.FrogRenderState());
+        var boxes=capture(model.root(),"frog/frog_temperate.png");
+        int front=0,back=0;
+        for(var edges:ModelContours.edges(boxes)) for(int i=0;i<edges.length;i+=2) {
+            var a=edges[i]; var b=edges[i+1];
+            boolean onFront=Math.abs(a.z+.25)<1e-5 && Math.abs(b.z+.25)<1e-5;
+            boolean onBack=Math.abs(a.z-5./16)<1e-5 && Math.abs(b.z-5./16)<1e-5;
+            if(!onFront && !onBack) continue;
+            if(onFront) front++; if(onBack) back++;
+            var mid=a.lerp(b,.5);
+            assertFalse(Math.abs(a.y-b.y)<1e-5 && mid.y>18./16+1e-4 && mid.y<23./16-1e-4,
+                    "Шов головы/тела лягушки: "+a+" -> "+b);
+        }
+        assertTrue(front>0 && back>0,"Настоящий внешний контур передней и задней граней должен остаться");
+    }
+
+    @Test void assembledFoxDoesNotOutlineLegTopsInsideItsFlank() throws Exception {
+        var model=new net.minecraft.client.model.animal.fox.AdultFoxModel(net.minecraft.client.model.animal.fox.AdultFoxModel.createBodyLayer().bakeRoot());
+        model.setupAnim(new net.minecraft.client.renderer.entity.state.FoxRenderState());
+        var boxes=capture(model.root(),"fox/fox.png");
+        for(var edges:ModelContours.edges(boxes)) for(int i=0;i<edges.length;i+=2) {
+            var a=edges[i]; var b=edges[i+1]; var mid=a.lerp(b,.5);
+            boolean insideFlank=Math.abs(a.x+3.001/16)<1e-5 && Math.abs(b.x+3.001/16)<1e-5
+                    && Math.abs(a.y-17.999/16)<1e-5 && Math.abs(b.y-17.999/16)<1e-5 && Math.abs(mid.z)<1.01/16;
+            assertFalse(insideFlank,"Служебный сдвиг ноги оставил шов на боку лисы: "+a+" -> "+b);
+        }
+    }
+
+    private java.util.List<ModelBox> capture(net.minecraft.client.model.geom.ModelPart root,String texture) throws Exception {
+        var mask=png(texture);
+        var cache=new java.util.IdentityHashMap<net.minecraft.client.model.geom.ModelPart.Cube,ModelCubeGeometry>();
+        var access=ModelPoseCaptureTest.PARTS;
+        var parts=new ModelPoseCapture.Parts() {
+            public java.util.List<net.minecraft.client.model.geom.ModelPart.Cube> cubes(net.minecraft.client.model.geom.ModelPart part) { return access.cubes(part); }
+            public java.util.Map<String,net.minecraft.client.model.geom.ModelPart> children(net.minecraft.client.model.geom.ModelPart part) { return access.children(part); }
+            public ModelCubeGeometry geometry(net.minecraft.client.model.geom.ModelPart.Cube cube) { return cache.computeIfAbsent(cube,c -> ModelCubeGeometry.bake(c,mask)); }
+        };
+        return ModelPoseCapture.collect(root,new com.mojang.blaze3d.vertex.PoseStack(),0,0,0,parts).boxes();
+    }
+
     @Test void coplanarTJunctionHasOnlyTheOuterContour() {
         // Слева один прямоугольник, справа два: длинная граница совпадает
         // с двумя короткими. Ни границы прямоугольников, ни диагонали не видны.
