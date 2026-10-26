@@ -44,7 +44,8 @@ public abstract class MixinVanillateModelHit {
             }
             float yaw=state instanceof LivingEntityRenderState livingState?livingState.bodyRot:
                     net.minecraft.util.Mth.rotLerp(state.partialTick,living.yBodyRotO,living.yBodyRot);
-            gunfeel$origins.put(snapshot,new double[]{state.x,state.y,state.z,yaw});
+            int wool=state instanceof net.minecraft.client.renderer.entity.state.SheepRenderState s && !s.isSheared?(s.isBaby?2:1):0;
+            gunfeel$origins.put(snapshot,new double[]{state.x,state.y,state.z,yaw,wool});
         }
         VanillatePose.publish(visual,snapshot);
     }
@@ -61,9 +62,10 @@ public abstract class MixinVanillateModelHit {
             if(origin==null) return;
             int variant = pose.variant();
             if (variant < 0 || variant >= partsByVariant.length) return;
-            var layout = gunfeel$layouts.computeIfAbsent(variant, k -> {
-                var captured=new ModelPoseLayout(partsByVariant[k], namesByVariant[k], parentIndexByVariant[k]);
-                acup.gunfeel.ModelBodyGeometry.supplement(living,captured);
+            int wool=(int)origin[4];
+            var layout = gunfeel$layouts.computeIfAbsent(variant*3+wool, k -> {
+                var captured=new ModelPoseLayout(partsByVariant[variant], namesByVariant[variant], parentIndexByVariant[variant]);
+                acup.gunfeel.ModelBodyGeometry.supplement(living,captured,wool);
                 return captured;
             });
             ModelHitClient.offer(living, layout, pose, pose.x()-origin[0],pose.y()-origin[1],pose.z()-origin[2],

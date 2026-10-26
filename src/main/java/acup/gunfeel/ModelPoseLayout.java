@@ -13,6 +13,7 @@ public final class ModelPoseLayout {
     private final int[] parents;
     private final List<List<ModelPart.Cube>> cubes;
     private final java.util.Map<ModelPart.Cube,Identifier> cubeTextures=new java.util.IdentityHashMap<>();
+    private final java.util.Map<ModelPart.Cube,String> cubeSuffixes=new java.util.IdentityHashMap<>();
     private final java.util.Map<Identifier, List<List<ModelPart.Cube>>> visible = new java.util.HashMap<>();
     private int maskGeneration = -1;
 
@@ -30,13 +31,17 @@ public final class ModelPoseLayout {
     }
 
     public void supplement(java.util.Map<String,List<ModelPart.Cube>> extra,Identifier texture) {
+        supplement(extra,texture,"");
+    }
+
+    public void supplement(java.util.Map<String,List<ModelPart.Cube>> extra,Identifier texture,String suffix) {
         String[] paths=new String[names.length];
         for(int i=0;i<names.length;i++) {
             paths[i]=parents[i]<0?"root":paths[parents[i]]+"/"+names[i].substring(names[i].lastIndexOf('/')+1);
             var added=extra.get(paths[i]);
             if(added==null || added.isEmpty()) continue;
             var combined=new ArrayList<>(cubes.get(i)); combined.addAll(added);
-            for(var cube:added) cubeTextures.put(cube,texture);
+            for(var cube:added) { cubeTextures.put(cube,texture); cubeSuffixes.put(cube,suffix); }
             cubes.set(i,List.copyOf(combined));
         }
         visible.clear();
@@ -62,7 +67,7 @@ public final class ModelPoseLayout {
             String name = names[i];
             if (name.length() > ModelBox.MAX_PART_NAME) return List.of();
             for (var cube : drawnCubes.get(i)) {
-                ModelTextureMask.geometry(cube,cubeTextures.getOrDefault(cube,texture)).append(out,name,m,0,0,0);
+                ModelTextureMask.geometry(cube,cubeTextures.getOrDefault(cube,texture)).append(out,name+cubeSuffixes.getOrDefault(cube,""),m,0,0,0);
                 if (out.size() > ModelPosePayload.MAX_BOXES) return List.of();
             }
         }

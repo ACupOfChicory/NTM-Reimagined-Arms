@@ -65,7 +65,7 @@ public final class ModelHits {
         var filtered=PlaneHitPolicy.filter(living,p.boxes());
         if(filtered.isEmpty()) return;
         put(observer.level(), living, p.yaw(), filtered);
-        MobSmoke.accepted(living, p.yaw(), filtered);
+        MobSmoke.accepted(living, p.yaw(), filtered.stream().filter(b -> ModelWool.visible(living,b)).toList());
         ModelHitLog.event("server", "accepted", living, () -> "observer=" + observer.getId() + " cubes=" + p.boxes().size()
                 + " tick=" + tick + " first_cube=" + p.boxes().getFirst());
     }
@@ -149,6 +149,7 @@ public final class ModelHits {
         double angle = turnAngle(target.level().isClientSide(), living.yBodyRot, p.yaw(), p.bodyYaw());
         List<ModelBox> out = new ArrayList<>();
         for (ModelBox box : p.boxes()) {
+            if(!target.level().isClientSide() && !ModelWool.visible(target,box)) continue;
             var origin=unturn(new Vec3(box.x(),box.y(),box.z()),-angle).add(target.position());
             var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),-angle);
             var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),-angle);
@@ -194,6 +195,7 @@ public final class ModelHits {
         double nearest = Double.POSITIVE_INFINITY;
         String part = "";
         for (ModelBox box : p.boxes()) {
+            if(!target.level().isClientSide() && !ModelWool.visible(root,box)) continue;
             if(dragonPart!=null) {
                 var center=unturn(ModelContours.point(box,.5,.5,.5),-angle).add(root.position());
                 if(!DragonModelParts.belongs(dragonPart.parentMob,dragonPart,box,center)) continue;

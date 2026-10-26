@@ -97,7 +97,7 @@ public final class ModelHitClient {
         pose.last().set(submit.pose());
         var camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
         var result = ModelPoseCapture.collect(model.root(), pose, camera.x - state.x, camera.y - state.y,
-                camera.z - state.z, ModelBodyGeometry.parts(model,info.gunfeel$texture()));
+                camera.z - state.z, ModelBodyGeometry.parts(model,info.gunfeel$texture(),state));
         float yaw = state instanceof LivingEntityRenderState living ? living.bodyRot
                 : net.minecraft.util.Mth.rotLerp(state.partialTick, entity.yBodyRotO, entity.yBodyRot);
         if (result.complete()) {

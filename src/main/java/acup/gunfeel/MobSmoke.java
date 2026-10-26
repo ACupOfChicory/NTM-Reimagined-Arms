@@ -43,6 +43,7 @@ public final class MobSmoke {
     private static int photographed=-1;
     private static long since;
     private static BulletConfig beamConfig;
+    private static MobRayOracle.Ray woolRay;
 
     private MobSmoke() {}
     static boolean enabled() { return ENABLED; }
@@ -148,6 +149,7 @@ public final class MobSmoke {
             if(client!=null && server!=null && seconds()>1) {
                 check(true,"захват="+client.source()+", частей="+client.boxes().size()+", сеть принята");
                 check(mc.level.getEntity(id) instanceof LivingEntity,"сущность существует у клиента");
+                if(current().equals("minecraft:sheep")) check(hasWool(client),"захвачен отдельный слой шерсти");
                 if(current().equals("minecraft:bee") || current().equals("minecraft:bat")) {
                     long flat=client.boxes().stream().filter(box -> box.mesh()!=0).count();
                     check(flat>0,"плоские части из настоящей модели="+flat);
@@ -186,8 +188,23 @@ public final class MobSmoke {
                 anchor(target,0,.3,false,"пустота между ногами скелета");
                 anchor(target,.56,1.3,false,"пустота рядом со скелетом внутри AABB+0.3");
             }
-            serverRays(false);
-            stage=5; since=System.nanoTime(); watch=true; orange=white=sameFrame=oldFrame=0;
+            if(target instanceof net.minecraft.world.entity.animal.sheep.Sheep) {
+                stage=6; since=System.nanoTime(); shearSheep();
+            } else { serverRays(false); startRotation(); }
+        } else if(stage==6) {
+            if(target() instanceof net.minecraft.world.entity.animal.sheep.Sheep sheep && sheep.isSheared()
+                    && client!=null && server!=null && !hasWool(client) && !hasWool(server) && seconds()>.6) {
+                check(true,"после стрижки шерсть исчезла у клиента и сервера");
+                rays(sheep,client,current()+": стриженая, клиент");
+                stage=7; since=System.nanoTime(); regrowSheep();
+            } else if(seconds()>6) { check(false,"шерсть не исчезла после стрижки"); startRotation(); }
+        } else if(stage==7) {
+            if(target() instanceof net.minecraft.world.entity.animal.sheep.Sheep sheep && !sheep.isSheared()
+                    && hasWool(client) && hasWool(server) && seconds()>.6) {
+                check(true,"после отрастания шерсть вернулась у клиента и сервера");
+                rays(sheep,client,current()+": шерсть отросла, клиент");
+                checkRegrownSheep(); startRotation();
+            } else if(seconds()>6) { check(false,"шерсть не вернулась после отрастания"); startRotation(); }
         } else if(stage==5 && seconds()>1) {
             watch=false;
             check(orange>0 && white==0,"F3+B при вращении: оранжевых="+orange+", белых="+white);
@@ -217,6 +234,50 @@ public final class MobSmoke {
     }
 
     private static double seconds() { return (System.nanoTime()-since)/1e9; }
+    private static boolean hasWool(Snapshot pose) { return pose!=null && pose.boxes().stream().anyMatch(ModelWool::isWool); }
+    private static void startRotation() {
+        stage=5; since=System.nanoTime(); watch=true; orange=white=sameFrame=oldFrame=0;
+    }
+    private static void shearSheep() {
+        pending=true;
+        Minecraft.getInstance().getSingleplayerServer().execute(() -> {
+            try {
+                var level=Minecraft.getInstance().getSingleplayerServer().overworld();
+                var sheep=(net.minecraft.world.entity.animal.sheep.Sheep)level.getEntity(id);
+                rays(sheep,server,current()+": с шерстью, сервер");
+                var full=MobRayOracle.surface(sheep,server.anchor(),server.boxes());
+                var bare=MobRayOracle.surface(sheep,server.anchor(),server.boxes().stream().filter(b -> !ModelWool.isWool(b)).toList());
+                woolRay=MobRayOracle.grid(full).stream().filter(ray -> ray.hit() && !MobRayOracle.hit(bare,ray.from(),ray.to()) && clearRay(sheep,ray)).findFirst().orElseThrow();
+                nativeRay(level,sheep,woolRay,true,current()+": точка только на шерсти до стрижки");
+                sheep.shear(level,net.minecraft.sounds.SoundSource.PLAYERS,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SHEARS));
+                // Та же принятая поза, ни одного нового пакета между проверками.
+                nativeRay(level,sheep,woolRay,false,current()+": та же точка сразу после стрижки, до нового пакета");
+            } catch(Throwable t) { RESULTS.add(new Result(false,current()+": стрижка: "+t)); }
+            pending=false;
+        });
+    }
+    private static void regrowSheep() {
+        pending=true;
+        Minecraft.getInstance().getSingleplayerServer().execute(() -> {
+            try {
+                var sheep=(net.minecraft.world.entity.animal.sheep.Sheep)Minecraft.getInstance().getSingleplayerServer().overworld().getEntity(id);
+                rays(sheep,server,current()+": стриженая, сервер"); sheep.ate();
+            } catch(Throwable t) { RESULTS.add(new Result(false,current()+": отрастание: "+t)); }
+            pending=false;
+        });
+    }
+    private static void checkRegrownSheep() {
+        pending=true;
+        Minecraft.getInstance().getSingleplayerServer().execute(() -> {
+            try {
+                var level=Minecraft.getInstance().getSingleplayerServer().overworld();
+                var sheep=(net.minecraft.world.entity.animal.sheep.Sheep)level.getEntity(id);
+                rays(sheep,server,current()+": шерсть отросла, сервер");
+                nativeRay(level,sheep,woolRay,true,current()+": та же точка после отрастания шерсти");
+            } catch(Throwable t) { RESULTS.add(new Result(false,current()+": проверка отрастания: "+t)); }
+            pending=false;
+        });
+    }
     private static void check(boolean ok,String text) { ClientSmoke.check(ok,CASES.get(index)+": "+text); }
     private static void next() {
         if(index+1>=CASES.size()) { ClientSmoke.finish(); return; }
@@ -226,7 +287,7 @@ public final class MobSmoke {
         var mc=Minecraft.getInstance();
         if(selected<0 || selected>=CASES.size() || pending) return;
         index=selected;
-        id=-1; client=server=null; watch=false; orange=white=0;
+        id=-1; client=server=null; woolRay=null; watch=false; orange=white=0;
         pending=true;
         mc.getSingleplayerServer().execute(() -> {
             try {
