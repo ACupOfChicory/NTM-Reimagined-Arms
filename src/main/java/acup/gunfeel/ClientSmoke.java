@@ -72,7 +72,7 @@ public final class ClientSmoke {
         frames++;
         Minecraft mc = Minecraft.getInstance();
         try {
-            if (System.nanoTime() - START > (MobSmoke.enabled() ? 600_000_000_000L : 180_000_000_000L)) {
+            if (!MobSmoke.review() && System.nanoTime() - START > (MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
                 check(false, "таймаут клиента; экран=" + mc.gui.screen());
                 finish();
                 return;

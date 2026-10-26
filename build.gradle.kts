@@ -1,4 +1,6 @@
 import java.time.Duration
+import java.nio.channels.FileChannel
+import java.nio.file.StandardOpenOption
 
 // The mod for one Minecraft version (versions/<version>/), built by Stonecutter from the shared src/.
 // The jar came out the same as the old build.sh's (./gradlew jarDiff): keep the javac flags, add nothing to it.
@@ -114,6 +116,20 @@ neoForge {
             providers.gradleProperty("mobCases").orNull?.let { systemProperty("ntmgunfeel.mobCases", it) }
             programArguments.addAll("--width", "854", "--height", "480")
         }
+        register("reviewMobs") {
+            client()
+            gameDirectory = root.resolve("run-mob-review")
+            jvmArgument("-Xmx3000M")
+            systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("mobreview/result.txt").get().asFile.path)
+            systemProperty("ntmgunfeel.checkMobs", "true")
+            systemProperty("ntmgunfeel.mobReview", "true")
+            val selfTest=providers.gradleProperty("mobReviewSelfTest").isPresent
+            systemProperty("ntmgunfeel.mobReviewSelfTest", selfTest.toString())
+            systemProperty("ntmgunfeel.mobReviewDir", root.resolve(if(selfTest) "notes/mob-review/self-test" else "notes/mob-review").path)
+            systemProperty("MC_DEBUG_ENABLED", "true")
+            systemProperty("MC_DEBUG_PREFER_WAYLAND", "true")
+            programArguments.addAll("--width", "1280", "--height", "800")
+        }
         // a dedicated server that writes what the game knows about every block (BlockDump) and stops before any
         // world: the facts the material tests run on. No client, no assets, no world generation.
         register("dumpBlocks") {
@@ -208,29 +224,41 @@ tasks.matching { it.name in checkRuns }.configureEach {
 }
 
 // Настоящий клиент использует только копию тестового мира и отдельную папку запуска.
-tasks.matching { it.name == "runCheckClient" || it.name == "runCheckMobs" }.configureEach {
-    val mobs = name == "runCheckMobs"
-    timeout.set(Duration.ofMinutes(8))
-    val result = if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
+tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs") }.configureEach {
+    val review = name == "runReviewMobs"
+    val mobs = name == "runCheckMobs" || review
+    val selfTest = providers.gradleProperty("mobReviewSelfTest").isPresent
+    timeout.set(if(review && !selfTest) Duration.ofDays(1) else if(mobs && !selfTest) Duration.ofHours(1) else Duration.ofMinutes(8))
+    val result = if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {
-        val dir = root.resolve(if (mobs) "run-mob-check" else "run-client-check")
+        if(review && selfTest) root.resolve("notes/mob-review/self-test").deleteRecursively()
+        val dir = root.resolve(if(review) "run-mob-review" else if (mobs) "run-mob-check" else "run-client-check")
         val source = root.resolve("run-bullets/world")
         require(source.resolve("level.dat").exists()) { "Сначала выполните runCheckBullets: нужен изолированный тестовый мир" }
         val world = dir.resolve("saves/gunfeel-smoke")
-        world.deleteRecursively()
-        source.copyRecursively(world, overwrite = true)
-        world.resolve("session.lock").delete()
+        if(review && world.resolve("session.lock").exists()) {
+            FileChannel.open(world.resolve("session.lock").toPath(),StandardOpenOption.WRITE).use { channel ->
+                val lease=channel.tryLock()
+                check(lease!=null) { "Окно просмотра уже открыто. Закройте его перед новым запуском." }
+                lease.release()
+            }
+        }
+        if(!review || !world.resolve("level.dat").exists()) {
+            world.deleteRecursively()
+            source.copyRecursively(world, overwrite = true)
+            world.resolve("session.lock").delete()
+        }
         dir.resolve("mods").mkdirs()
         dir.resolve("config").mkdirs()
         dir.resolve("config/fml.toml").writeText("earlyWindowControl = false\n")
         root.resolve("libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar")
             .copyTo(dir.resolve("mods/crankshaft.jar"), overwrite = true)
-        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nrenderDistance:3\nsimulationDistance:5\nmaxFps:60\n")
+        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(review) 8 else 3}\nsimulationDistance:5\nmaxFps:60\n")
         layout.buildDirectory.file(result).get().asFile.delete()
     }
     doLast {
         val report = layout.buildDirectory.file(result).get().asFile
-        check(report.exists() && report.readLines().lastOrNull() == "PASS клиентская проверка") {
+        check(review && !selfTest || report.exists() && report.readLines().lastOrNull() == "PASS клиентская проверка") {
             "Клиентская проверка не прошла: ${report.path}"
         }
     }

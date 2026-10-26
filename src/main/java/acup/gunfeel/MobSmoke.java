@@ -30,11 +30,7 @@ import net.minecraft.world.phys.Vec3;
 /** Только runCheckMobs: получает снимки от настоящего рендера и настоящей сети. */
 public final class MobSmoke {
     private static final boolean ENABLED = Boolean.getBoolean("ntmgunfeel.checkMobs");
-    private static final List<String> DEFAULT_CASES = List.of("minecraft:skeleton", "minecraft:villager", "minecraft:phantom",
-            "minecraft:spider", "minecraft:iron_golem", "hbm:entity_undead_soldier", "hbm:entity_radiation_blaze",
-            "hbm:entity_mob_mask_man", "hbm:entity_glyphid", "hbm:entity_tesla_crab", "hbm:entity_pigeon", "hbm:entity_cyber_crab");
-    private static final List<String> CASES = System.getProperty("ntmgunfeel.mobCases", "").isBlank() ? DEFAULT_CASES
-            : java.util.Arrays.stream(System.getProperty("ntmgunfeel.mobCases").split(",")).map(String::trim).toList();
+    private static volatile List<String> CASES = List.of();
     private record Snapshot(float anchor, List<ModelBox> boxes, String source) {}
     private record Result(boolean ok, String text) {}
     private static final ConcurrentLinkedQueue<Result> RESULTS = new ConcurrentLinkedQueue<>();
@@ -48,6 +44,24 @@ public final class MobSmoke {
 
     private MobSmoke() {}
     static boolean enabled() { return ENABLED; }
+    static boolean review() { return Boolean.getBoolean("ntmgunfeel.mobReview"); }
+    static List<String> cases() { return CASES; }
+    static int index() { return index; }
+    static boolean busy() { return pending; }
+    static String current() { return index<0 || index>=CASES.size()?"":CASES.get(index); }
+    static boolean hasPose() { return client!=null && server!=null; }
+    static Entity target() { var mc=Minecraft.getInstance(); return mc.level==null?null:mc.level.getEntity(id); }
+    static String status() {
+        return "модель: "+(client==null?"нет":client.boxes().size()+" частей")
+                +" · сервер: "+(server==null?"нет позы":"поза принята");
+    }
+    static String evidence() {
+        var mc=Minecraft.getInstance();
+        var target=target();
+        return "ID="+current()+"\n"+status()+"\nposition="+(target==null?"нет сущности":target.position())
+                +"\nrenderer="+(target==null?"нет":mc.getEntityRenderDispatcher().getRenderer(target).getClass().getName())
+                +"\ncamera="+mc.gameRenderer.mainCamera().position()+"\nclient="+client+"\nserver="+server+"\n";
+    }
 
     static void captured(LivingEntity e, float anchor, List<ModelBox> boxes, String source) {
         if (ENABLED && e.getId()==id) client=new Snapshot(anchor,List.copyOf(boxes),source);
@@ -68,6 +82,12 @@ public final class MobSmoke {
         mc.getSingleplayerServer().execute(() -> {
             try {
                 var level=mc.getSingleplayerServer().overworld();
+                CASES=System.getProperty("ntmgunfeel.mobCases", "").isBlank()?MobCatalog.discover():
+                        java.util.Arrays.stream(System.getProperty("ntmgunfeel.mobCases").split(",")).map(String::trim).toList();
+                java.nio.file.Path catalog=java.nio.file.Path.of(System.getProperty("ntmgunfeel.checkClient")).resolveSibling("catalog.txt");
+                java.nio.file.Files.createDirectories(catalog.getParent());
+                java.nio.file.Files.write(catalog,CASES);
+                RESULTS.add(new Result(!CASES.isEmpty(),"Реестр живых сущностей: "+CASES.size()+", все пространства имён"));
                 var p=mc.getSingleplayerServer().getPlayerList().getPlayers().getFirst();
                 p.setGameMode(GameType.CREATIVE);
                 p.teleportTo(level,8.5,100,8.5,java.util.Set.of(),0,0,false);
@@ -78,13 +98,18 @@ public final class MobSmoke {
             pending=false;
         });
         stage=0;
+        if(review()) MobReview.init();
     }
 
     static void frame() {
         Result result;
-        while((result=RESULTS.poll())!=null) ClientSmoke.check(result.ok(),result.text());
+        while((result=RESULTS.poll())!=null) {
+            ClientSmoke.check(result.ok(),result.text());
+            if(review() && result.text().startsWith(current()+":")) MobReview.checked(result.ok(),result.text());
+        }
         var mc=Minecraft.getInstance();
         if(mc.player==null || pending) return;
+        if(review()) { reviewFrame(); return; }
         mc.player.setYRot(stage==4?180:0);
         mc.player.setXRot(0);
         if(stage==0) {
@@ -143,15 +168,21 @@ public final class MobSmoke {
     private static double seconds() { return (System.nanoTime()-since)/1e9; }
     private static void check(boolean ok,String text) { ClientSmoke.check(ok,CASES.get(index)+": "+text); }
     private static void next() {
+        if(index+1>=CASES.size()) { ClientSmoke.finish(); return; }
+        select(index+1);
+    }
+    static void select(int selected) {
         var mc=Minecraft.getInstance();
-        int previous=id;
-        if(++index>=CASES.size()) { ClientSmoke.finish(); return; }
+        if(selected<0 || selected>=CASES.size() || pending) return;
+        index=selected;
         id=-1; client=server=null; watch=false; orange=white=0;
         pending=true;
         mc.getSingleplayerServer().execute(() -> {
             try {
                 var level=mc.getSingleplayerServer().overworld();
-                if(level.getEntity(previous)!=null) level.getEntity(previous).discard();
+                java.util.List<Entity> old=new java.util.ArrayList<>();
+                level.getAllEntities().forEach(old::add);
+                for(var entity:old) if(!(entity instanceof net.minecraft.server.level.ServerPlayer)) entity.discard();
                 var type=BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse(CASES.get(index)));
                 Entity created=type.create(level,EntitySpawnReason.COMMAND);
                 if(!(created instanceof LivingEntity target)) throw new IllegalStateException("не живой моб: "+created);
@@ -161,10 +192,56 @@ public final class MobSmoke {
                 if(target instanceof Mob mob) { mob.setNoAi(true); mob.setPersistenceRequired(); }
                 id=target.getId();
                 level.addFreshEntity(target);
+                if(review()) positionCamera(target);
             } catch(Throwable t) { RESULTS.add(new Result(false,CASES.get(index)+": создание: "+t)); }
             pending=false;
         });
         stage=1; since=System.nanoTime();
+    }
+
+    private static void reviewFrame() {
+        if(index<0) {
+            select(MobReview.resume());
+            return;
+        }
+        if(stage==1 && seconds()>1 && target()!=null) watch=true;
+        if(stage==1 && ((hasPose() && seconds()>1) || seconds()>6)) {
+            watch=false;
+            MobReview.autoStatus(hasPose()?"Геометрия получена; выполняется проверка лучей":"Нет полной цепочки модели и серверной позы");
+            if(hasPose() && target() instanceof LivingEntity living) {
+                rays(living,client,current()+": просмотр, клиент");
+                serverRays(false);
+            }
+            stage=20;
+        }
+        MobReview.frame();
+    }
+
+    private static void positionCamera(LivingEntity target) {
+        var p=Minecraft.getInstance().getSingleplayerServer().getPlayerList().getPlayers().getFirst();
+        double distance=Math.min(75,Math.max(3,Math.max(target.getBbWidth(),target.getBbHeight())*1.3));
+        p.getAbilities().flying=true;
+        p.onUpdateAbilities();
+        p.teleportTo((ServerLevel)target.level(),target.getX(),target.getY()+target.getBbHeight()/2-p.getEyeHeight(),
+                target.getZ()-distance,java.util.Set.of(),0,0,false);
+        p.setDeltaMovement(Vec3.ZERO);
+    }
+
+    static void camera() {
+        var mc=Minecraft.getInstance();
+        mc.getSingleplayerServer().execute(() -> {
+            var target=mc.getSingleplayerServer().overworld().getEntity(id);
+            if(target instanceof LivingEntity living) positionCamera(living);
+        });
+    }
+    static void rotate(float delta) {
+        var mc=Minecraft.getInstance();
+        mc.getSingleplayerServer().execute(() -> {
+            var target=mc.getSingleplayerServer().overworld().getEntity(id);
+            if(target instanceof LivingEntity living) {
+                living.setYRot(living.getYRot()+delta); living.yBodyRot=living.getYRot(); living.yHeadRot=living.getYRot();
+            }
+        });
     }
 
     private static void serverRays(boolean moved) {
@@ -220,7 +297,9 @@ public final class MobSmoke {
             return;
         }
         var bullet=new ProbeBullet(level,target);
-        bullet.setPos(ray.from()); bullet.setThrowableHeading(0,0,1,1,0); bullet.damage=0;
+        float speed=(float)Math.max(1,ray.from().distanceTo(ray.to())/
+                (XFactory9mm.p9_ap.velocity*ReaimTimes.number("bulletSpeed",1.6F)));
+        bullet.setPos(ray.from()); bullet.setThrowableHeading(0,0,1,speed,0); bullet.damage=0;
         bullet.tick(); bullet.discard();
         var arrow=new ProbeArrow(level,target);
         arrow.setPos(ray.from()); arrow.setNoGravity(true); arrow.setDeltaMovement(ray.to().subtract(ray.from()));
