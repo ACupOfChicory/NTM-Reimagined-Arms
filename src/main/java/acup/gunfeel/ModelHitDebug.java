@@ -91,6 +91,7 @@ public final class ModelHitDebug {
                     new ModelDebugRender.Shape(++id,custom,boxes,List.of(),ModelContours.outline(boxes)));
             MobBenchMetrics.add(MobBenchMetrics.CONTOUR,contour);
             if(HeadLabels.ENABLED) HeadLabels.overlay(shapes,id,target.entity());
+            else HeadDebug.add(shapes,id,target.entity());
         }
         TARGETS.clear();
         if(MobBenchMetrics.ENABLED) MobBenchMetrics.shapes+=shapes.size();

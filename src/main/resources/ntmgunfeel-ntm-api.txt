@@ -250,17 +250,22 @@ MARESLEG method com/hbm/render/anim/BusAnimationSequence hold (I)Lcom/hbm/render
 MARESLEG method com/hbm/render/anim/BusAnimationSequence setPos (DDD)Lcom/hbm/render/anim/BusAnimationSequence;
 MODEL_HITBOXES class com/hbm/entity/mob/EntityQuackos
 MODEL_HITBOXES class com/hbm/entity/mob/glyphid/EntityGlyphid
+MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBaseMK4
 MODEL_HITBOXES class com/hbm/items/tool/ItemPeas
 MODEL_HITBOXES class com/hbm/render/loader/GroupObject
 MODEL_HITBOXES class com/hbm/render/loader/HFRWavefrontObject
 MODEL_HITBOXES field com/hbm/entity/mob/glyphid/EntityGlyphid yBodyRot F
 MODEL_HITBOXES field com/hbm/entity/mob/glyphid/EntityGlyphid yBodyRotO F
+MODEL_HITBOXES field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
+MODEL_HITBOXES field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+MODEL_HITBOXES field com/hbm/items/weapon/sedna/BulletConfig headshotMult F
 MODEL_HITBOXES field com/hbm/render/loader/GroupObject name Ljava/lang/String;
 MODEL_HITBOXES field com/hbm/render/loader/HFRWavefrontObject groups [Lcom/hbm/render/loader/GroupObject;
 MODEL_HITBOXES method com/hbm/entity/mob/glyphid/EntityGlyphid armor ()B
 MODEL_HITBOXES method com/hbm/render/loader/GroupObject bounds ()[F
 MODEL_HITBOXES method com/hbm/render/loader/GroupObject quads (Z)[F
 MODEL_HITBOXES method com/hbm/render/loader/HFRWavefrontObject partId (Ljava/lang/String;)I
+MODEL_HITBOXES method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z
 RECOIL class com/hbm/items/weapon/sedna/ItemGunBaseNT
 RECOIL class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 RECOIL field com/hbm/config/GunVisualConfig visualRecoil Z

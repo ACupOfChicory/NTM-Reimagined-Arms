@@ -70,6 +70,7 @@ final class MobReview {
         automatic="Автоматические проверки: "+checks+" · ошибок: "+failures;
     }
     static void frame() {
+        HeadSmoke.frame();
         if(HeadLabels.ENABLED) { HeadLabels.frame(); return; }
         if(pendingEvidence!=null) {
             if(--evidenceFrames<=0) {

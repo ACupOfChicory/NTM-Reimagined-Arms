@@ -208,6 +208,7 @@ public final class ModelHitClient {
     public static void clear() {
         ModelHitDebug.beginFrame();
         ModelBodyGeometry.clear();
+        HeadDebug.clear();
         if (level != null) ModelHits.clear(level);
         READY.clear(); SENT.clear(); MESH_SENT.clear(); SYNC.clear(); ModelTextureMask.clear();
         APPLIED_FRAME.clear(); PUBLISHED_FRAME.clear();

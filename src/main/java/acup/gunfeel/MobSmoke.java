@@ -503,6 +503,8 @@ public final class MobSmoke {
                 if(target==null || server==null) RESULTS.add(new Result(false,label+": нет цели или сетевой позы"));
                 else {
                     rays(target,server,label);
+                    if(Boolean.getBoolean("ntmgunfeel.checkHeadBindings")) HeadSmoke.bindings(target,(ok,text)->RESULTS.add(new Result(ok,label+": "+text)));
+                    if(Boolean.getBoolean("ntmgunfeel.checkHeads")) HeadSmoke.run((ServerLevel)target.level(),target,(ok,text)->RESULTS.add(new Result(ok,label+": "+text)));
                     if(target instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon dragon) {
                         var head=ModelHits.worldBoxes(dragon).stream().filter(b -> b.part().equals("root/head")).findFirst().orElseThrow();
                         var center=ModelContours.point(head,.5,.5,.5);

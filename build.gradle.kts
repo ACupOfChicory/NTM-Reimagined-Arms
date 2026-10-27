@@ -176,6 +176,8 @@ neoForge {
             val sweep=providers.gradleProperty("mobRenderSweep").isPresent
             systemProperty("ntmgunfeel.mobRenderSweep",sweep.toString())
             systemProperty("ntmgunfeel.checkExtraBoxes",providers.gradleProperty("mobCheckExtraBoxes").isPresent.toString())
+            systemProperty("ntmgunfeel.checkHeads",providers.gradleProperty("checkHeads").isPresent.toString())
+            systemProperty("ntmgunfeel.checkHeadBindings",providers.gradleProperty("checkHeadBindings").isPresent.toString())
             providers.gradleProperty("mobNamespaces").orNull?.let { systemProperty("ntmgunfeel.mobNamespaces",it) }
             providers.gradleProperty("mobCases").orNull?.let { systemProperty("ntmgunfeel.mobCases",it) }
             systemProperty("ntmgunfeel.mobReviewDir", root.resolve(if(sweep) "notes/external-mob-review/sweep" else if(selfTest) "notes/mob-review/self-test" else "notes/mob-review").path)
@@ -229,6 +231,12 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.test {
     useJUnitPlatform()
+    providers.gradleProperty("headDataset").orNull?.let {
+        systemProperty("ntmgunfeel.headDataset",it)
+        inputs.file(file(it).resolve("index.json"))
+        inputs.dir(file(it).resolve("samples"))
+        outputs.file(file(it).resolve("research/oracle.json"))
+    }
     // the tests read src/main/resources and src/test/pinned from the repository root
     workingDir = root
     inputs.property("pinUpdate", providers.environmentVariable("PIN_UPDATE").orElse(""))

@@ -270,6 +270,7 @@ public final class BulletServer {
             float now = target instanceof LivingEntity l ? l.getHealth() : Float.NaN;
             TestLog.s(bullet.getId(), "end", "by", "entity", "entity", BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()), "at", at,
                     "killed", wasAlive && !target.isAlive(), "damage", damage, "head", head(bullet, target, at),
+                    "headSource", HeadDamage.last(bullet,target,at).source(), "headReason", HeadDamage.last(bullet,target,at).reason(),
                     "health", health, "after", now, "took", health - now, "left", bullet.damage, "flies", !bullet.isRemoved());
         }
         if (!(bullet.level() instanceof ServerLevel level) || !wasAlive) return;
@@ -281,6 +282,8 @@ public final class BulletServer {
     // NTM's headshot test (BulletConfig.LAMBDA_STANDARD_ENTITY_HIT): the hit point in the top two head heights
     private static boolean head(EntityBulletBaseMK4 bullet, Entity target, @org.jspecify.annotations.Nullable Vec3 at) {
         if (!(target instanceof LivingEntity living) || at == null || bullet.config == null || !(bullet.config.headshotMult > 1F)) return false;
+        var precise=HeadDamage.last(bullet,target,at);
+        if(precise.applied()) return precise.head();
         double head = living.getBbHeight() - living.getEyeHeight();
         return at.y > living.getY() + living.getBbHeight() - head * 2.0;
     }
