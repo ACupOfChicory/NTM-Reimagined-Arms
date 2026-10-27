@@ -12,12 +12,22 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 
 // Точные части заменяют общую коробку и красную полосу глаз. Направление взгляда остаётся.
 @Mixin(EntityHitboxDebugRenderer.class)
 public abstract class MixinModelHitboxDebug {
     @Unique private Entity gunfeel$entity;
     @Unique private GizmoProperties gunfeel$modelOutline;
+
+    // Область охватывает также HEAD/TAIL-инъекции других модов.
+    @WrapMethod(method="showHitboxes")
+    private void gunfeel$allDebugBoxes(Entity entity,float partial,boolean server,Operation<Void> original) {
+        var previous=acup.gunfeel.ModelHitDebug.beginBoxes(entity,partial);
+        try { original.call(entity,partial,server); }
+        finally { acup.gunfeel.ModelHitDebug.endBoxes(previous); }
+    }
 
     @Inject(method = "showHitboxes", at = @At("HEAD"))
     private void gunfeel$target(Entity entity, float partial, boolean server, CallbackInfo ci) {

@@ -171,6 +171,7 @@ neoForge {
             systemProperty("ntmgunfeel.mobReviewSelfTest", selfTest.toString())
             val sweep=providers.gradleProperty("mobRenderSweep").isPresent
             systemProperty("ntmgunfeel.mobRenderSweep",sweep.toString())
+            systemProperty("ntmgunfeel.checkExtraBoxes",providers.gradleProperty("mobCheckExtraBoxes").isPresent.toString())
             providers.gradleProperty("mobNamespaces").orNull?.let { systemProperty("ntmgunfeel.mobNamespaces",it) }
             providers.gradleProperty("mobCases").orNull?.let { systemProperty("ntmgunfeel.mobCases",it) }
             systemProperty("ntmgunfeel.mobReviewDir", root.resolve(if(sweep) "notes/external-mob-review/sweep" else if(selfTest) "notes/mob-review/self-test" else "notes/mob-review").path)

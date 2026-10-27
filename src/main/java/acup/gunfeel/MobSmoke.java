@@ -42,6 +42,14 @@ public final class MobSmoke {
     private static final boolean CONTOUR_SHOTS=Boolean.getBoolean("ntmgunfeel.contourShots");
     private static final boolean RENDER_SWEEP=Boolean.getBoolean("ntmgunfeel.mobRenderSweep");
     private static int photographed=-1;
+    private static int extraBoxesBefore;
+    private static int retainedGreenBefore;
+    private static void testModelFeature(boolean enabled) {
+        try {
+            var setter=acup.gunfeel.compat.Feature.class.getDeclaredMethod("set",boolean.class);
+            setter.setAccessible(true); setter.invoke(acup.gunfeel.compat.Feature.MODEL_HITBOXES,enabled);
+        } catch(ReflectiveOperationException ex) { throw new IllegalStateException(ex); }
+    }
     private static long since;
     private static long contourBuilds;
     private static int gpuChecks,gpuMismatch,geometryChecks,geometryMismatch;
@@ -377,6 +385,7 @@ public final class MobSmoke {
                 var level=mc.getSingleplayerServer().overworld();
                 int peas=MobStageCleanup.clear(level,mc.getSingleplayerServer().getPlayerList().getPlayers().getFirst());
                 index=selected;
+                extraBoxesBefore=ModelHitDebug.suppressedBoxes;
                 id=-1; client=server=null; woolRay=null; watch=false; orange=white=sameFrame=oldFrame=0; gpuChecks=gpuMismatch=geometryChecks=geometryMismatch=0;
                 RESULTS.add(new Result(true,CASES.get(index)+": стенд очищен до спавна, оставшихся сущностей=0, peas="+peas));
                 var type=BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse(CASES.get(index)));
@@ -404,6 +413,15 @@ public final class MobSmoke {
     }
 
     private static void reviewFrame() {
+        if(stage==23) {
+            if(seconds()<.3) return;
+            testModelFeature(true);
+            int color=net.minecraft.util.ARGB.colorFromFloat(1,.25F,1,0);
+            check(ModelHitDebug.retainedBoxColors.getOrDefault(color,0)>retainedGreenBefore,
+                    "при выключенной нашей системе зелёные коробки Naturalist сохранены="
+                    +(ModelHitDebug.retainedBoxColors.getOrDefault(color,0)-retainedGreenBefore));
+            ClientSmoke.finish(); return;
+        }
         if(stage==22) {
             if(RENDER_SWEEP) { ClientSmoke.finish(); return; }
             MobReview.autoStatus("Очистка не удалась. Новый моб не создан; переключение можно повторить.");
@@ -417,6 +435,11 @@ public final class MobSmoke {
             boolean body=hasPose() && client.boxes().stream().anyMatch(box -> !box.part().equals("mesh/block_layer"));
             check(body,"автоматический обзор: тело захвачено="+body+", "+status());
             if(body) check(sameFrame>0 && oldFrame==0,"анимация: свежих кадров="+sameFrame+", устаревших="+oldFrame);
+            if(Boolean.getBoolean("ntmgunfeel.checkExtraBoxes")) {
+                check(ModelHitDebug.suppressedBoxes>extraBoxesBefore,"дополнительные коробки чужого F3+B подавлены="+(ModelHitDebug.suppressedBoxes-extraBoxesBefore));
+                retainedGreenBefore=ModelHitDebug.retainedBoxColors.getOrDefault(net.minecraft.util.ARGB.colorFromFloat(1,.25F,1,0),0);
+                testModelFeature(false); watch=false; stage=23; since=System.nanoTime(); return;
+            }
             if(index+1==CASES.size()) { ClientSmoke.finish(); return; }
             select(index+1); return;
         }

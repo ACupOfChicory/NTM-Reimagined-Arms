@@ -8,6 +8,6 @@
     "MixinMouseTurn", "KeyMappingAccess", "GuiGraphicsAccess", "ModelPartAccess", "MixinLivingModelHits", "MixinModelHitboxDebug",
     "MixinModelHitState", "MixinPreparedModelHit", "MixinVanillateModelHit", "VanillateEntityAccess",
     "MixinEntityModelHitState", "MixinEntityMeshHits", "MixinDragonModelHit", "MixinGpuInstancerModel", "MixinGpuPoseShadow",
-    "MixinAlexRenderSetup", "MixinAlexPostEffects"],
+    "MixinAlexRenderSetup", "MixinAlexPostEffects", "MixinLegacyHitboxGizmos"],
   "injectors": { "defaultRequire": 1 }
 }
