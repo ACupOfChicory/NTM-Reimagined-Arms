@@ -18,7 +18,9 @@ final class HeadLabelScreen extends Screen {
     final Entity entity=Objects.requireNonNull(MobSmoke.target());
     List<ModelBox> boxes=List.copyOf(ModelHits.worldBoxes(entity));
     final Map<String,Integer> labels=new LinkedHashMap<>();
-    private final ArrayDeque<Map<String,Integer>> undo=new ArrayDeque<>();
+    final Map<String,List<HeadLabelCuts.Plane>> cuts=new LinkedHashMap<>();
+    private record Edit(Map<String,Integer> labels,Map<String,List<HeadLabelCuts.Plane>> cuts) {}
+    private final ArrayDeque<Edit> undo=new ArrayDeque<>();
     private final String id=MobSmoke.current();
     private String sample,message="Выдели голову и нажми Enter. Бирюзовый — текущая голова.";
     private final Vec3 original=Minecraft.getInstance().player.position();
@@ -26,6 +28,9 @@ final class HeadLabelScreen extends Screen {
     private Vec3 center;
     private double distance,phi,theta=.1,startX,startY;
     private boolean faces,drag;
+    private boolean cutMode;
+    private HeadLabelCuts.Plane pendingCut;
+    private double cutX,cutY;
     private int group=1;
     private HeadLabelGeometry.Pick hover;
     private Button groupButton;
@@ -61,7 +66,7 @@ final class HeadLabelScreen extends Screen {
                     same&=triangles.size()==current.length;
                     for(int k=0;same && k<current.length;k++) same=Math.abs(triangles.get(k).getAsFloat()-current[k])<1e-6;
                 }
-                if(same) { if(previous.status().equals("draft")) sample=previous.sample();labels.putAll(previous.labels());group=labels.values().stream().mapToInt(Integer::intValue).max().orElse(1);message="Восстановлена разметка этой позы"; }
+                if(same) { if(previous.status().equals("draft")) sample=previous.sample();labels.putAll(previous.labels());cuts.putAll(previous.cuts());group=labels.values().stream().mapToInt(Integer::intValue).max().orElse(1);message="Восстановлена разметка этой позы"; }
                 else message="Предыдущая поза сохранена. Это новый пример: разметь голову заново.";
             } catch(Exception e) { message="Старый пример сохранён; не удалось восстановить: "+e.getMessage(); }
         }
@@ -79,6 +84,7 @@ final class HeadLabelScreen extends Screen {
         if(!waiting) orbit();
     }
     private void orbit() {
+        pendingCut=null;
         var eye=center.add(Math.sin(phi)*Math.cos(theta)*distance,Math.sin(theta)*distance,-Math.cos(phi)*Math.cos(theta)*distance);
         var player=Minecraft.getInstance().player;
         player.snapTo(eye.subtract(0,player.getEyeHeight(),0),(float)Math.toDegrees(phi),(float)Math.toDegrees(theta));
@@ -96,6 +102,11 @@ final class HeadLabelScreen extends Screen {
         var from=camera.position();
         return HeadLabelGeometry.pick(boxes,from,from.add(new Vec3(v.x,v.y,v.z).normalize().scale(4096)));
     }
+    private Vec3 ray(double x,double y) {
+        var camera=Minecraft.getInstance().gameRenderer.mainCamera();
+        var v=camera.getViewRotationProjectionMatrix(new Matrix4f()).invert().transformProject(new Vector3f((float)(2*x/width-1),(float)(1-2*y/height),.5F));
+        return new Vec3(v.x,v.y,v.z).normalize();
+    }
     private void snapshot() throws Exception {
         if(sample!=null) return;
         var model=new LinkedHashMap<String,Object>();
@@ -111,24 +122,30 @@ final class HeadLabelScreen extends Screen {
         sample=HeadLabels.store.snapshot(id,model);
     }
     private void edit(Map<String,Integer> next) {
-        if(next.equals(labels)) return;
-        var previous=new LinkedHashMap<>(labels);
+        var nextCuts=new LinkedHashMap<>(cuts);
+        nextCuts.keySet().removeIf(token->!Objects.equals(next.get(token),labels.get(token)));
+        edit(next,nextCuts);
+    }
+    private void edit(Map<String,Integer> next,Map<String,List<HeadLabelCuts.Plane>> nextCuts) {
+        if(next.equals(labels) && nextCuts.equals(cuts)) return;
+        var previous=new Edit(new LinkedHashMap<>(labels),new LinkedHashMap<>(cuts));
         try {
-            snapshot(); HeadLabels.store.save(id,sample,"draft",next);
-            undo.push(previous); labels.clear(); labels.putAll(next); message="Черновик сохранён · голова №"+group;
+            snapshot(); HeadLabels.store.save(id,sample,"draft",next,nextCuts);
+            undo.push(previous); labels.clear(); labels.putAll(next);cuts.clear();cuts.putAll(nextCuts);edgeCache.clear(); message="Черновик сохранён · голова №"+group;
         } catch(Exception e) { message="Не сохранено: "+e.getMessage();GunFeel.LOGGER.error("[headlabels] сохранение",e); }
     }
     private void undo() {
         if(undo.isEmpty()) return;
         var previous=undo.pop();
-        try { snapshot();HeadLabels.store.save(id,sample,"draft",previous); labels.clear(); labels.putAll(previous); }
+        try { snapshot();HeadLabels.store.save(id,sample,"draft",previous.labels(),previous.cuts()); labels.clear(); labels.putAll(previous.labels());cuts.clear();cuts.putAll(previous.cuts());edgeCache.clear();pendingCut=null; }
         catch(Exception e) { undo.push(previous); message="Не сохранено: "+e.getMessage(); }
     }
     private void save(String status) {
+        if(pendingCut!=null) { message="Сначала щёлкни со стороны головы или нажми C для отмены отсечения.";return; }
         if(boxes.isEmpty() && !status.equals("skip")) { message="Нет геометрии: можно только отложить моба, а не объявить его безголовым.";return; }
         try {
-            snapshot(); HeadLabels.store.save(id,sample,status,status.equals("none")?Map.of():labels);
-            if(status.equals("none")) labels.clear();
+            snapshot(); HeadLabels.store.save(id,sample,status,status.equals("none")?Map.of():labels,status.equals("none")?Map.of():cuts);
+            if(status.equals("none")) { labels.clear();cuts.clear();edgeCache.clear(); }
             if(status.equals("done") || status.equals("none")) sample=null;
             if(MobSmoke.cases().stream().allMatch(HeadLabels.store::done)) { message="Все мобы размечены. ← → позволяют пересмотреть примеры.";return; }
             transition(1,true);
@@ -159,6 +176,18 @@ final class HeadLabelScreen extends Screen {
     @Override public boolean mouseClicked(MouseButtonEvent event,boolean doubled) {
         if(waiting || poseFrames<8) return true;
         if(super.mouseClicked(event,doubled)) return true;
+        if(cutMode && pendingCut!=null && event.button()==0 && event.y()>48 && event.y()<height-78) {
+            var plane=pendingCut;double side=plane.nx()*ray(event.x(),event.y()).x+plane.ny()*ray(event.x(),event.y()).y+plane.nz()*ray(event.x(),event.y()).z;
+            if(Math.abs(side)<1e-8) { message="Щёлкни дальше от линии, со стороны головы.";return true; }
+            if(side<0) plane=plane.flip();
+            var next=new LinkedHashMap<>(cuts);
+            for(var entry:labels.entrySet()) if(entry.getValue()==group) {
+                var list=new ArrayList<>(cuts.getOrDefault(entry.getKey(),List.of()));list.add(plane);next.put(entry.getKey(),List.copyOf(list));
+            }
+            var tokens=labels.entrySet().stream().filter(e->e.getValue()==group).map(Map.Entry::getKey).toList();
+            if(HeadLabelCuts.edges(boxes,tokens,next).isEmpty()) { message="С этой стороны выделение пустое. Выбери другую сторону или нажми C.";return true; }
+            edit(new LinkedHashMap<>(labels),next);pendingCut=null;cutMode=false;return true;
+        }
         if(event.button()==0 && event.y()>48 && event.y()<height-78) { startX=event.x();startY=event.y();drag=true;return true; }
         return event.button()==1;
     }
@@ -172,6 +201,14 @@ final class HeadLabelScreen extends Screen {
         if(waiting) return true;
         if(event.button()!=0 || !drag) return super.mouseReleased(event);
         drag=false;
+        if(cutMode) {
+            if(labels.values().stream().noneMatch(value->value==group)) { message="Сначала выдели деталь головы обычным ЛКМ.";return true; }
+            if(Math.hypot(event.x()-startX,event.y()-startY)<8) { message="Проведи линию с зажатой ЛКМ, затем выбери сторону головы.";return true; }
+            var normal=ray(startX,startY).cross(ray(event.x(),event.y())).normalize();
+            var camera=Minecraft.getInstance().gameRenderer.mainCamera().position();
+            pendingCut=new HeadLabelCuts.Plane(normal.x,normal.y,normal.z,-normal.dot(camera));cutX=event.x();cutY=event.y();
+            message="Теперь щёлкни со стороны головы. Срез проходит через всю глубину модели. C — отмена.";return true;
+        }
         boolean remove=(event.modifiers()&GLFW.GLFW_MOD_SHIFT)!=0;
         if(Math.hypot(event.x()-startX,event.y()-startY)<5) {
             var selected=pick(event.x(),event.y()); if(selected!=null) select(List.of(selected.token(faces)),remove,true);
@@ -193,6 +230,7 @@ final class HeadLabelScreen extends Screen {
     @Override public boolean keyPressed(KeyEvent event) {
         if(waiting && event.key()!=GLFW.GLFW_KEY_ESCAPE && event.key()!=GLFW.GLFW_KEY_H) return true;
         switch(event.key()) {
+            case GLFW.GLFW_KEY_C -> { cutMode=!cutMode;pendingCut=null;drag=false;message=cutMode?"Отсечение: проведи линию ЛКМ, затем щёлкни со стороны головы. C — отмена.":"Обычное выделение"; }
             case GLFW.GLFW_KEY_ENTER -> save("done");
             case GLFW.GLFW_KEY_RIGHT -> navigate(1);
             case GLFW.GLFW_KEY_LEFT -> navigate(-1);
@@ -216,7 +254,7 @@ final class HeadLabelScreen extends Screen {
     @Override public void extractRenderState(GuiGraphicsExtractor g,int x,int y,float partial) {
         super.extractRenderState(g,x,y,partial);
         if(!waiting && poseFrames<8 && ++poseFrames==8) { boxes=List.copyOf(ModelHits.worldBoxes(entity));restore(); }
-        hover=!waiting && y>48 && y<height-78?pick(x,y):null;
+        hover=!waiting && !cutMode && y>48 && y<height-78?pick(x,y):null;
         groupButton.setMessage(Component.literal("Голова №"+group+" ↻"));
         g.fill(0,0,width,46,0xDD181B25);
         g.text(font,"Головы · "+(MobSmoke.index()+1)+"/"+MobSmoke.cases().size()+" · "+id+" · готово "+HeadLabels.store.completed(),8,6,0xFFFFCC55);
@@ -225,9 +263,16 @@ final class HeadLabelScreen extends Screen {
         g.text(font,"Голова №"+group+" · "+(faces?"грани":"целые детали")+" · выбрано "+labels.size()+" · "+status,8,18,0xFF77FFFF);
         g.text(font,font.plainSubstrByWidth(waiting?"Подготовка следующего моба… Выделение временно отключено.":message,width-16),8,30,0xFFF2EFF8);
         g.fill(0,height-76,width,height-49,0xDD181B25);
-        g.text(font,"ЛКМ — выбрать · рамка — несколько (включая задние) · Shift — убрать · ПКМ — вращать · колесо — масштаб",8,height-71,0xFFF2EFF8);
+        g.text(font,"ЛКМ — выбрать · рамка — несколько · Shift — убрать · C — отсечь лишнее · ПКМ — вращать · колесо — масштаб",8,height-71,0xFFF2EFF8);
         g.text(font,"Enter — сохранить · ← → — листать · G — поиск · Backspace — отменить · H/Esc — игровой вид, H — вернуться",8,height-60,0xFFD7D2E8);
-        if(drag) {
+        if(cutMode && (drag || pendingCut!=null)) {
+            double ex=pendingCut==null?x:cutX,ey=pendingCut==null?y:cutY;
+            double dx=ex-startX,dy=ey-startY,length=Math.hypot(dx,dy);
+            if(length>0) for(double t=-Math.max(width,height)*2;t<Math.max(width,height)*2;t+=1) {
+                int px=(int)(startX+dx/length*t),py=(int)(startY+dy/length*t);
+                if(px>=0 && px<width && py>46 && py<height-78) g.fill(px,py,px+2,py+2,0xFF55FFFF);
+            }
+        } else if(drag) {
             int a=(int)Math.min(startX,x),b=(int)Math.min(startY,y),c=(int)Math.max(startX,x),d=(int)Math.max(startY,y);
             g.fill(a,b,c,b+1,0xFF55FFFF);g.fill(a,d,c,d+1,0xFF55FFFF);g.fill(a,b,a+1,d,0xFF55FFFF);g.fill(c,b,c+1,d,0xFF55FFFF);
         }
@@ -243,6 +288,6 @@ final class HeadLabelScreen extends Screen {
     }
     private List<Vec3[]> edges(List<String> tokens) {
         if(edgeCache.size()>64) edgeCache.clear();
-        return edgeCache.computeIfAbsent(tokens,key->HeadLabelGeometry.edges(boxes,key));
+        return edgeCache.computeIfAbsent(tokens,key->HeadLabelCuts.edges(boxes,key,cuts));
     }
 }

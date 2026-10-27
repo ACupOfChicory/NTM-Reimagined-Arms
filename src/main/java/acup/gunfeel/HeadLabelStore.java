@@ -8,7 +8,9 @@ import java.util.*;
 
 // Отдельный датасет; оценки качества хитбоксов сюда не переносятся.
 final class HeadLabelStore {
-    record Decision(String sample,String status,Map<String,Integer> labels) {}
+    record Decision(String sample,String status,Map<String,Integer> labels,Map<String,List<HeadLabelCuts.Plane>> cuts) {
+        Decision { cuts=cuts==null?Map.of():Map.copyOf(cuts); }
+    }
     private static final Gson JSON=new GsonBuilder().setPrettyPrinting().create();
     private final Path root;
     private final Map<String,Decision> entries=new LinkedHashMap<>();
@@ -32,11 +34,15 @@ final class HeadLabelStore {
         return sample;
     }
     void save(String id,String sample,String status,Map<String,Integer> labels) throws IOException {
+        save(id,sample,status,labels,Map.of());
+    }
+    void save(String id,String sample,String status,Map<String,Integer> labels,Map<String,List<HeadLabelCuts.Plane>> cuts) throws IOException {
         if(!Set.of("draft","done","none","skip").contains(status)) throw new IllegalArgumentException("Неизвестная оценка");
         if(labels.values().stream().anyMatch(group->group<1)) throw new IllegalArgumentException("Неверный номер головы");
         if(status.equals("none") && !labels.isEmpty()) throw new IllegalArgumentException("У сущности без головы не должно быть выделения");
         if(status.equals("done") && labels.isEmpty()) throw new IllegalArgumentException("Сначала выдели голову или выбери «Нет головы»");
-        var decision=new Decision(sample,status,Map.copyOf(labels));
+        if(!labels.keySet().containsAll(cuts.keySet())) throw new IllegalArgumentException("Отсечение без выделенной детали");
+        var decision=new Decision(sample,status,Map.copyOf(labels),cuts);
         write(root.resolve("samples").resolve(sample).resolve("annotation.json"),decision);
         var next=new LinkedHashMap<>(entries); next.put(id,decision);
         write(root.resolve("index.json"),next);

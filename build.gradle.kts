@@ -170,6 +170,7 @@ neoForge {
             val selfTest=providers.gradleProperty("mobReviewSelfTest").isPresent
             systemProperty("ntmgunfeel.headLabels",providers.gradleProperty("headLabels").isPresent.toString())
             systemProperty("ntmgunfeel.headLabelSelfTest",providers.gradleProperty("headLabelSelfTest").isPresent.toString())
+            systemProperty("ntmgunfeel.headCutSelfTest",providers.gradleProperty("headCutSelfTest").isPresent.toString())
             systemProperty("ntmgunfeel.headLabelDir",root.resolve(if(providers.gradleProperty("headLabelSelfTest").isPresent) "notes/head-labels/self-test" else "notes/head-labels").path)
             systemProperty("ntmgunfeel.mobReviewSelfTest", selfTest.toString())
             val sweep=providers.gradleProperty("mobRenderSweep").isPresent
