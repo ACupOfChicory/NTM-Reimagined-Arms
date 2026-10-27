@@ -20,7 +20,8 @@ final class HeadLabels {
         return 0;
     }
     static void frame() {
-        if(!ENABLED || suspended || Minecraft.getInstance().gui.screen()!=null || !MobSmoke.reviewReady()) return;
+        var current=Minecraft.getInstance().gui.screen();
+        if(!ENABLED || suspended || current!=null && !(current instanceof HeadLabelScreen screen && screen.waiting()) || !MobSmoke.reviewReady()) return;
         try { Minecraft.getInstance().gui.setScreen(new HeadLabelScreen()); }
         catch(Exception e) { suspended=true; GunFeel.LOGGER.error("Не удалось открыть разметку головы",e); }
     }

@@ -30,6 +30,8 @@ final class HeadLabelScreen extends Screen {
     private HeadLabelGeometry.Pick hover;
     private Button groupButton;
     private int poseFrames;
+    private boolean waiting,cameraRestored;
+    boolean waiting() { return waiting; }
     private final Map<List<String>,List<Vec3[]>> edgeCache=new HashMap<>();
 
     HeadLabelScreen() {
@@ -74,7 +76,7 @@ final class HeadLabelScreen extends Screen {
             var button=addRenderableWidget(Button.builder(Component.literal(names[i]),b->action.run()).bounds(6+(i%5)*(width-12)/5,height-47+(i/5)*23,(width-12)/5-2,20).build());
             if(i==5) groupButton=button;
         }
-        orbit();
+        if(!waiting) orbit();
     }
     private void orbit() {
         var eye=center.add(Math.sin(phi)*Math.cos(theta)*distance,Math.sin(theta)*distance,-Math.cos(phi)*Math.cos(theta)*distance);
@@ -129,11 +131,17 @@ final class HeadLabelScreen extends Screen {
             if(status.equals("none")) labels.clear();
             if(status.equals("done") || status.equals("none")) sample=null;
             if(MobSmoke.cases().stream().allMatch(HeadLabels.store::done)) { message="Все мобы размечены. ← → позволяют пересмотреть примеры.";return; }
-            Minecraft.getInstance().gui.setScreen(null);HeadLabels.next(1,true);
+            transition(1,true);
         } catch(Exception e) { message=e.getMessage(); }
     }
     private void navigate(int direction) {
-        Minecraft.getInstance().gui.setScreen(null); HeadLabels.next(direction,false);
+        transition(direction,false);
+    }
+    private void transition(int direction,boolean unlabeled) {
+        if(waiting) return;
+        restoreCamera();waiting=true;drag=false;hover=null;
+        children().stream().filter(Button.class::isInstance).map(Button.class::cast).forEach(button->button.active=false);
+        HeadLabels.next(direction,unlabeled);
     }
     private void select(Collection<String> tokens,boolean remove,boolean toggle) {
         var next=new LinkedHashMap<>(labels);
@@ -149,17 +157,19 @@ final class HeadLabelScreen extends Screen {
         edit(next);
     }
     @Override public boolean mouseClicked(MouseButtonEvent event,boolean doubled) {
-        if(poseFrames<8) return true;
+        if(waiting || poseFrames<8) return true;
         if(super.mouseClicked(event,doubled)) return true;
         if(event.button()==0 && event.y()>48 && event.y()<height-78) { startX=event.x();startY=event.y();drag=true;return true; }
         return event.button()==1;
     }
     @Override public boolean mouseDragged(MouseButtonEvent event,double dx,double dy) {
+        if(waiting) return true;
         if(event.button()==1) { phi-=dx*.01;theta=Math.clamp(theta+dy*.01,-1.45,1.45);orbit();return true; }
         if(drag) return true;
         return super.mouseDragged(event,dx,dy);
     }
     @Override public boolean mouseReleased(MouseButtonEvent event) {
+        if(waiting) return true;
         if(event.button()!=0 || !drag) return super.mouseReleased(event);
         drag=false;
         boolean remove=(event.modifiers()&GLFW.GLFW_MOD_SHIFT)!=0;
@@ -179,8 +189,9 @@ final class HeadLabelScreen extends Screen {
         }
         return true;
     }
-    @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical) { distance=Math.clamp(distance*Math.exp(-vertical*.12),.2,2048);orbit();return true; }
+    @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical) { if(!waiting) { distance=Math.clamp(distance*Math.exp(-vertical*.12),.2,2048);orbit(); }return true; }
     @Override public boolean keyPressed(KeyEvent event) {
+        if(waiting && event.key()!=GLFW.GLFW_KEY_ESCAPE && event.key()!=GLFW.GLFW_KEY_H) return true;
         switch(event.key()) {
             case GLFW.GLFW_KEY_ENTER -> save("done");
             case GLFW.GLFW_KEY_RIGHT -> navigate(1);
@@ -193,23 +204,26 @@ final class HeadLabelScreen extends Screen {
         return true;
     }
     @Override public void onClose() { HeadLabels.suspended=true;super.onClose(); }
-    @Override public void removed() {
+    @Override public void removed() { restoreCamera(); }
+    private void restoreCamera() {
+        if(cameraRestored) return;
+        cameraRestored=true;
         var player=Minecraft.getInstance().player;
         if(player!=null) { player.snapTo(original,originalYaw,originalPitch);player.setOldPosAndRot(); }
     }
-    @Override public boolean isPauseScreen() { return true; }
+    @Override public boolean isPauseScreen() { return !waiting; }
     @Override public void extractBackground(GuiGraphicsExtractor g,int x,int y,float partial) {}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int x,int y,float partial) {
         super.extractRenderState(g,x,y,partial);
-        if(poseFrames<8 && ++poseFrames==8) { boxes=List.copyOf(ModelHits.worldBoxes(entity));restore(); }
-        hover=y>48 && y<height-78?pick(x,y):null;
+        if(!waiting && poseFrames<8 && ++poseFrames==8) { boxes=List.copyOf(ModelHits.worldBoxes(entity));restore(); }
+        hover=!waiting && y>48 && y<height-78?pick(x,y):null;
         groupButton.setMessage(Component.literal("Голова №"+group+" ↻"));
         g.fill(0,0,width,46,0xDD181B25);
         g.text(font,"Головы · "+(MobSmoke.index()+1)+"/"+MobSmoke.cases().size()+" · "+id+" · готово "+HeadLabels.store.completed(),8,6,0xFFFFCC55);
         var old=HeadLabels.store.get(id);
         String status=old==null?"не размечен":switch(old.status()) { case "done"->"подтверждён";case "none"->"без головы";case "skip"->"отложен";default->"черновик"; };
         g.text(font,"Голова №"+group+" · "+(faces?"грани":"целые детали")+" · выбрано "+labels.size()+" · "+status,8,18,0xFF77FFFF);
-        g.text(font,font.plainSubstrByWidth(message,width-16),8,30,0xFFF2EFF8);
+        g.text(font,font.plainSubstrByWidth(waiting?"Подготовка следующего моба… Выделение временно отключено.":message,width-16),8,30,0xFFF2EFF8);
         g.fill(0,height-76,width,height-49,0xDD181B25);
         g.text(font,"ЛКМ — выбрать · рамка — несколько (включая задние) · Shift — убрать · ПКМ — вращать · колесо — масштаб",8,height-71,0xFFF2EFF8);
         g.text(font,"Enter — сохранить · ← → — листать · G — поиск · Backspace — отменить · H/Esc — игровой вид, H — вернуться",8,height-60,0xFFD7D2E8);
@@ -217,9 +231,10 @@ final class HeadLabelScreen extends Screen {
             int a=(int)Math.min(startX,x),b=(int)Math.min(startY,y),c=(int)Math.max(startX,x),d=(int)Math.max(startY,y);
             g.fill(a,b,c,b+1,0xFF55FFFF);g.fill(a,d,c,d+1,0xFF55FFFF);g.fill(a,b,a+1,d,0xFF55FFFF);g.fill(c,b,c+1,d,0xFF55FFFF);
         }
-        HeadLabelSelfTest.frame(this);
+        if(!waiting) HeadLabelSelfTest.frame(this);
     }
     void overlay(List<ModelDebugRender.Shape> shapes,int owner) {
+        if(waiting) return;
         for(boolean active:new boolean[]{false,true}) {
             var tokens=labels.entrySet().stream().filter(e->(e.getValue()==group)==active).map(Map.Entry::getKey).toList();
             if(!tokens.isEmpty()) shapes.add(new ModelDebugRender.Shape(owner,true,boxes,edges(tokens),null,active?.15F:.35F));

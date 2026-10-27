@@ -13,6 +13,10 @@ final class HeadLabelSelfTest {
     static void frame(HeadLabelScreen screen) {
         if(!Boolean.getBoolean("ntmgunfeel.headLabelSelfTest") || finished || ++frames<40) return;
         try {
+            if(stage==3) {
+                require(Minecraft.getInstance().gui.screen()==screen && screen.isPauseScreen() && !screen.waiting(),"после переключения открыт готовый интерфейс разметки");
+                finished=true;Minecraft.getInstance().gui.setScreen(null);HeadLabels.suspended=true;ClientSmoke.finish();return;
+            }
             var candidates=screen.boxes.stream().filter(b->b.part().toLowerCase(java.util.Locale.ROOT).contains("head")).toList();
             require(!candidates.isEmpty(),"в модели скелета найдена настоящая деталь головы");
             var head=candidates.getFirst();
@@ -29,17 +33,21 @@ final class HeadLabelSelfTest {
                 stage=2;frames=0;return;
             }
             if(stage==2) {
-                finished=true;
+                stage=4;
                 net.minecraft.client.Screenshot.takeScreenshot(Minecraft.getInstance().gameRenderer.mainRenderTarget(),image->{
                     try(image) {
                         long cyan=java.util.Arrays.stream(image.getPixels()).filter(pixel->(pixel>>16&255)<90 && (pixel>>8&255)>230 && (pixel&255)>230).count();
                         ClientSmoke.check(cyan>5,"Разметка: на настоящем GPU видна бирюзовая голова, пикселей="+cyan);
                         image.writeToFile(Path.of("../notes/head-labels/self-test/screen.png"));
                     } catch(Exception e) { ClientSmoke.check(false,"Разметка: снимок "+e); }
-                    Minecraft.getInstance().gui.setScreen(null);HeadLabels.suspended=true;ClientSmoke.finish();
+                    screen.keyPressed(new KeyEvent(GLFW.GLFW_KEY_RIGHT,0,0));
+                    ClientSmoke.check(Minecraft.getInstance().gui.screen()==screen && screen.waiting() && !screen.isPauseScreen(),
+                            "Разметка: стрелка сохраняет интерфейс и отпускает паузу для загрузки моба");
+                    stage=3;frames=0;
                 });
                 return;
             }
+            if(stage==4) return;
             screen.mouseClicked(event,false);screen.mouseReleased(event);
             require(screen.labels.size()==1,"ЛКМ выделяет деталь в настоящем экране");
             var saved=new HeadLabelStore(Path.of(System.getProperty("ntmgunfeel.headLabelDir")));
