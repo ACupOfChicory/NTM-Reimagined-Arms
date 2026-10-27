@@ -20,6 +20,7 @@ import org.lwjgl.glfw.GLFW;
 final class MobReview {
     private record Change(String id,MobReviewStore.Decision before) {}
     private static final ArrayDeque<Change> UNDO=new ArrayDeque<>();
+    private static final boolean SWEEP=Boolean.getBoolean("ntmgunfeel.mobRenderSweep");
     private static MobReviewStore store;
     private static Path directory;
     private static int filter;
@@ -80,6 +81,7 @@ final class MobReview {
     }
 
     static void key(int key) {
+        if(SWEEP) return;
         if(!ready || MobSmoke.busy() || MobSmoke.index()<0 || pendingEvidence!=null) return;
         try {
             switch(key) {
@@ -166,7 +168,7 @@ final class MobReview {
         String id=MobSmoke.current();
         var decision=store.get(id);
         String name=MobSmoke.target()==null?"Сущность пока не появилась":MobSmoke.target().getName().getString();
-        String[] lines={"Просмотр мобов  "+(MobSmoke.index()+1)+" / "+MobSmoke.cases().size()+"  ·  "+name,
+        String[] lines={(SWEEP?"Автопроверка — оценки отключены  ":"Просмотр мобов  ")+(MobSmoke.index()+1)+" / "+MobSmoke.cases().size()+"  ·  "+name,
                 id+"  ·  "+(decision==null?"не оценено":label(decision.status()))+"  ·  фильтр: "+new String[]{"все","не оценённые","ошибки","отложенные"}[filter],
                 "Правильно: "+store.count("ok")+" · Ошибки: "+store.count("bad")+" · Отложено: "+store.count("skip"),
                 MobSmoke.status(),MobSmoke.busy()?"Создание / автоматическая проверка…":automatic,

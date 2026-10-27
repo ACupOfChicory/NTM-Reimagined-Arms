@@ -169,7 +169,11 @@ neoForge {
             systemProperty("ntmgunfeel.mobReview", "true")
             val selfTest=providers.gradleProperty("mobReviewSelfTest").isPresent
             systemProperty("ntmgunfeel.mobReviewSelfTest", selfTest.toString())
-            systemProperty("ntmgunfeel.mobReviewDir", root.resolve(if(selfTest) "notes/mob-review/self-test" else "notes/mob-review").path)
+            val sweep=providers.gradleProperty("mobRenderSweep").isPresent
+            systemProperty("ntmgunfeel.mobRenderSweep",sweep.toString())
+            providers.gradleProperty("mobNamespaces").orNull?.let { systemProperty("ntmgunfeel.mobNamespaces",it) }
+            providers.gradleProperty("mobCases").orNull?.let { systemProperty("ntmgunfeel.mobCases",it) }
+            systemProperty("ntmgunfeel.mobReviewDir", root.resolve(if(sweep) "notes/external-mob-review/sweep" else if(selfTest) "notes/mob-review/self-test" else "notes/mob-review").path)
             systemProperty("MC_DEBUG_ENABLED", "true")
             systemProperty("MC_DEBUG_PREFER_WAYLAND", "true")
             programArguments.addAll("--width", "1280", "--height", "800")
@@ -245,7 +249,8 @@ val mixinCheck = tasks.register<JavaExec>("mixinCheck") {
     argumentProviders.add(CommandLineArgumentProvider {
         // Необязательная проверка адаптера к установленному Crankshaft и вложенному Vanillate.
         val crankshaft = root.resolve("libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar")
-        listOf(classes.get(), (game.files + listOf(crankshaft).filter { it.exists() })
+        val extra=providers.gradleProperty("compatCheckMods").orNull?.let { file(it).listFiles()?.toList() }.orEmpty()
+        listOf(classes.get(), (game.files + listOf(crankshaft).filter { it.exists() } + extra)
             .filter { it.name.endsWith(".jar") }.joinToString(":"))
     })
 }

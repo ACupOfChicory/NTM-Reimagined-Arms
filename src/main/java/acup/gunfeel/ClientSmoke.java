@@ -74,13 +74,13 @@ public final class ClientSmoke {
         frames++;
         Minecraft mc = Minecraft.getInstance();
         try {
-            if(HoleBenchMetrics.ENABLED && phase==0 && mc.gui.screen()!=null
+            if((HoleBenchMetrics.ENABLED || MobSmoke.enabled()) && phase==0 && mc.gui.screen()!=null
                     && mc.gui.screen().getClass().getName().equals("net.neoforged.neoforge.client.gui.LoadingErrorScreen")) {
                 var screen=mc.gui.screen();
                 var errors=screen.getClass().getDeclaredField("modLoadErrors"); errors.setAccessible(true);
-                if(!((List<?>)errors.get(screen)).isEmpty()) { check(false,"ошибки загрузки модов в нагрузочном клиенте"); finish(); return; }
+                if(!((List<?>)errors.get(screen)).isEmpty()) { check(false,"ошибки загрузки модов в тестовом клиенте"); finish(); return; }
                 var next=screen.getClass().getDeclaredField("nextScreenTask"); next.setAccessible(true);
-                GunFeel.LOGGER.info("[holebench] продолжаем после предупреждений NeoForge без ошибок загрузки");
+                GunFeel.LOGGER.info("[clientcheck] продолжаем после предупреждений NeoForge без ошибок загрузки");
                 ((Runnable)next.get(screen)).run(); return;
             }
             if(HoleBenchMetrics.ENABLED && phase<2 && System.currentTimeMillis()>screenLogAt) {

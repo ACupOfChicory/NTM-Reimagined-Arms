@@ -40,6 +40,7 @@ public final class MobSmoke {
     private static int index=-1, stage, orange, white, sameFrame, oldFrame;
     private static boolean watch;
     private static final boolean CONTOUR_SHOTS=Boolean.getBoolean("ntmgunfeel.contourShots");
+    private static final boolean RENDER_SWEEP=Boolean.getBoolean("ntmgunfeel.mobRenderSweep");
     private static int photographed=-1;
     private static long since;
     private static long contourBuilds;
@@ -119,6 +120,11 @@ public final class MobSmoke {
                 var level=mc.getSingleplayerServer().overworld();
                 CASES=System.getProperty("ntmgunfeel.mobCases", "").isBlank()?MobCatalog.discover():
                         java.util.Arrays.stream(System.getProperty("ntmgunfeel.mobCases").split(",")).map(String::trim).toList();
+                var namespaces=System.getProperty("ntmgunfeel.mobNamespaces", "");
+                if(!namespaces.isBlank()) {
+                    var selected=java.util.Set.of(namespaces.split(","));
+                    CASES=CASES.stream().filter(key -> selected.contains(key.substring(0,key.indexOf(':')))).toList();
+                }
                 java.nio.file.Path catalog=java.nio.file.Path.of(System.getProperty("ntmgunfeel.checkClient")).resolveSibling("catalog.txt");
                 java.nio.file.Files.createDirectories(catalog.getParent());
                 java.nio.file.Files.write(catalog,CASES);
@@ -371,7 +377,7 @@ public final class MobSmoke {
                 var level=mc.getSingleplayerServer().overworld();
                 int peas=MobStageCleanup.clear(level,mc.getSingleplayerServer().getPlayerList().getPlayers().getFirst());
                 index=selected;
-                id=-1; client=server=null; woolRay=null; watch=false; orange=white=0; gpuChecks=gpuMismatch=geometryChecks=geometryMismatch=0;
+                id=-1; client=server=null; woolRay=null; watch=false; orange=white=sameFrame=oldFrame=0; gpuChecks=gpuMismatch=geometryChecks=geometryMismatch=0;
                 RESULTS.add(new Result(true,CASES.get(index)+": стенд очищен до спавна, оставшихся сущностей=0, peas="+peas));
                 var type=BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse(CASES.get(index)));
                 Entity created=type.create(level,EntitySpawnReason.COMMAND);
@@ -384,6 +390,7 @@ public final class MobSmoke {
                 target.setYRot(180); target.yBodyRot=180; target.yHeadRot=180;
                 target.setNoGravity(true); target.setInvulnerable(true);
                 if(target instanceof Mob mob) { mob.setNoAi(true); mob.setPersistenceRequired(); }
+                MobStageContext.prepare(level,target);
                 id=target.getId();
                 level.addFreshEntity(target);
                 if(review()) positionCamera(target);
@@ -398,16 +405,24 @@ public final class MobSmoke {
 
     private static void reviewFrame() {
         if(stage==22) {
+            if(RENDER_SWEEP) { ClientSmoke.finish(); return; }
             MobReview.autoStatus("Очистка не удалась. Новый моб не создан; переключение можно повторить.");
             MobReview.frame(); return;
         }
         if(index<0) {
-            select(MobReview.resume());
+            select(RENDER_SWEEP?0:MobReview.resume());
             return;
+        }
+        if(RENDER_SWEEP && stage==20 && seconds()>3) {
+            boolean body=hasPose() && client.boxes().stream().anyMatch(box -> !box.part().equals("mesh/block_layer"));
+            check(body,"автоматический обзор: тело захвачено="+body+", "+status());
+            if(body) check(sameFrame>0 && oldFrame==0,"анимация: свежих кадров="+sameFrame+", устаревших="+oldFrame);
+            if(index+1==CASES.size()) { ClientSmoke.finish(); return; }
+            select(index+1); return;
         }
         if(stage==1 && seconds()>1 && target()!=null) watch=true;
         if(stage==1 && ((hasPose() && seconds()>1) || seconds()>6)) {
-            watch=false;
+            watch=RENDER_SWEEP;
             MobReview.autoStatus(hasPose()?"Геометрия получена; выполняется проверка лучей":"Нет полной цепочки модели и серверной позы");
             if(hasPose() && target() instanceof LivingEntity living) {
                 rays(living,client,current()+": просмотр, клиент");
@@ -522,22 +537,32 @@ public final class MobSmoke {
         float speed=(float)Math.max(1,ray.from().distanceTo(ray.to())/
                 (XFactory9mm.p9_ap.velocity*ReaimTimes.number("bulletSpeed",1.6F)));
         bullet.setPos(ray.from()); bullet.setThrowableHeading(0,0,1,speed,0); bullet.damage=0;
+        // Это контрольный сегмент уже летящей пули. Её первый тик у дула
+        // отдельно проверяет runCheckClient; перенос к глазам наблюдателя
+        // здесь изменил бы заданный луч и дал ложное попадание в пустоту.
+        bullet.ticksInAir=1;
         bullet.tick(); bullet.discard();
         var arrow=new ProbeArrow(level,target);
         arrow.setPos(ray.from()); arrow.setNoGravity(true); arrow.setDeltaMovement(ray.to().subtract(ray.from()));
         arrow.tick(); arrow.discard();
         var beam=new ProbeBeam(level,target);
         beam.setPos(ray.from()); beam.setRotationsFromVector(ray.to().subtract(ray.from()).normalize());
+        Vec3 actualBeamEnd=ray.from().add(beam.headingX*ray.from().distanceTo(ray.to()),beam.headingY*ray.from().distanceTo(ray.to()),beam.headingZ*ray.from().distanceTo(ray.to()));
+        var directBeam=target.getBoundingBox().inflate(.3).clip(ray.from(),actualBeamEnd);
         beam.performHitscanExternal(ray.from().distanceTo(ray.to())); beam.discard();
         boolean untouched=!target.isRemoved() && target.getHealth()==health;
         RESULTS.add(new Result(bullet.hit==expected && arrow.hit==expected && beam.hit==expected && untouched,label+": ожидание="+expected+
-                ", NTM-пуля="+bullet.hit+", стрела="+arrow.hit+", NTM-луч="+beam.hit+", цель сохранена="+untouched));
+                ", NTM-пуля="+bullet.hit+", стрела="+arrow.hit+", NTM-луч="+beam.hit+", цель сохранена="+untouched
+                +", pickable="+target.isPickable()+", луч попал="+beam.impact
+                +", directBeam="+directBeam.isPresent()+", beamDelta="+actualBeamEnd.subtract(ray.to())
+                +", box="+target.getBoundingBox().getClass().getSimpleName()));
     }
 
     private static final class ProbeBullet extends EntityBulletBaseMK4 implements CollisionProbe {
         private final Entity target;
         private boolean hit;
-        ProbeBullet(ServerLevel level,Entity target) { super(level,XFactory9mm.p9_ap,1,0,0,0); this.target=target; }
+        ProbeBullet(ServerLevel level,Entity target) { super(level,XFactory9mm.p9_ap,1,0,0,0); this.target=target;
+            setThrower(level.getServer().getPlayerList().getPlayers().getFirst()); }
         @Override protected void onImpact(HitResult result) {
             if(result instanceof EntityHitResult entity && entity.getEntity().is(target)) hit=true;
         }
@@ -545,7 +570,8 @@ public final class MobSmoke {
     private static final class ProbeArrow extends Arrow {
         private final Entity target;
         private boolean hit;
-        ProbeArrow(ServerLevel level,Entity target) { super(EntityTypes.ARROW,level); this.target=target; setBaseDamage(0); }
+        ProbeArrow(ServerLevel level,Entity target) { super(EntityTypes.ARROW,level); this.target=target; setBaseDamage(0);
+            setOwner(level.getServer().getPlayerList().getPlayers().getFirst()); }
         @Override protected net.minecraft.world.entity.projectile.ProjectileDeflection hitTargetOrDeflectSelf(HitResult result) {
             if(result instanceof EntityHitResult entity && entity.getEntity().is(target)) hit=true;
             return super.hitTargetOrDeflectSelf(result);
@@ -557,9 +583,14 @@ public final class MobSmoke {
     private static final class ProbeBeam extends EntityBulletBeamBase {
         private final Entity target;
         private boolean hit;
-        ProbeBeam(ServerLevel level,Entity target) { super(level,beamConfig,0); this.target=target; }
+        private String impact="нет";
+        ProbeBeam(ServerLevel level,Entity target) { super(level,beamConfig,0); this.target=target;
+            this.thrower=level.getServer().getPlayerList().getPlayers().getFirst(); }
         @Override protected void onImpact(HitResult result) {
-            if(result instanceof EntityHitResult entity && entity.getEntity().is(target)) hit=true;
+            if(result instanceof EntityHitResult entity) {
+                impact=BuiltInRegistries.ENTITY_TYPE.getKey(entity.getEntity().getType()).toString();
+                if(entity.getEntity().is(target)) hit=true;
+            }
         }
     }
 }
