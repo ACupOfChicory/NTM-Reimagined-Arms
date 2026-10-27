@@ -80,7 +80,7 @@ final class ModelDebugLines {
             }
             int owner=shape.id();
             var transforms=RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(view).mul(matrix),
-                    new Vector4f((owner>>16&255)/255F,(owner>>8&255)/255F,(owner&255)/255F,shape.custom()?1F:128/255F));
+                    new Vector4f((owner>>16&255)/255F,(owner>>8&255)/255F,(owner&255)/255F,shape.lineAlpha()));
             new PreparedRenderType(prepared.pipeline(),prepared.outputTarget(),transforms,prepared.scissorState(),textures)
                     .drawFromBuffer(geometry.buffer(),sequential.getBuffer(geometry.indices()),sequential.type(),0,0,geometry.indices());
         }

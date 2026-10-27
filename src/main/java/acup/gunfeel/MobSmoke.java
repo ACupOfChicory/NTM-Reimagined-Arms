@@ -89,6 +89,7 @@ public final class MobSmoke {
     static List<String> cases() { return CASES; }
     static int index() { return index; }
     static boolean busy() { return pending; }
+    static boolean reviewReady() { return stage==20 && !pending && target()!=null; }
     static String current() { return index<0 || index>=CASES.size()?"":CASES.get(index); }
     static boolean hasPose() { return client!=null && server!=null; }
     static Entity target() { var mc=Minecraft.getInstance(); return mc.level==null?null:mc.level.getEntity(id); }
@@ -126,6 +127,10 @@ public final class MobSmoke {
         mc.getSingleplayerServer().execute(() -> {
             try {
                 var level=mc.getSingleplayerServer().overworld();
+                if(HeadLabels.ENABLED) level.dimensionType().defaultClock().ifPresent(clock->{
+                    mc.getSingleplayerServer().clockManager().setTotalTicks(clock,18000);
+                    mc.getSingleplayerServer().clockManager().setPaused(clock,true);
+                });
                 CASES=System.getProperty("ntmgunfeel.mobCases", "").isBlank()?MobCatalog.discover():
                         java.util.Arrays.stream(System.getProperty("ntmgunfeel.mobCases").split(",")).map(String::trim).toList();
                 var namespaces=System.getProperty("ntmgunfeel.mobNamespaces", "");
@@ -139,6 +144,11 @@ public final class MobSmoke {
                 RESULTS.add(new Result(!CASES.isEmpty(),"Реестр живых сущностей: "+CASES.size()+", все пространства имён"));
                 var p=mc.getSingleplayerServer().getPlayerList().getPlayers().getFirst();
                 p.setGameMode(GameType.CREATIVE);
+                if(HeadLabels.ENABLED) {
+                    p.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND,net.minecraft.world.item.ItemStack.EMPTY);
+                    p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.NIGHT_VISION,Integer.MAX_VALUE,0,false,false));
+                    mc.getSingleplayerServer().setWeatherParameters(Integer.MAX_VALUE,0,false,false);
+                }
                 p.teleportTo(level,8.5,100,8.5,java.util.Set.of(),0,0,false);
                 for(int x=2;x<=15;x++) for(int z=3;z<=26;z++)
                     level.setBlock(new BlockPos(x,99,z),(z<=10?Blocks.STONE:Blocks.AIR).defaultBlockState(),3);
@@ -446,6 +456,7 @@ public final class MobSmoke {
         if(stage==1 && seconds()>1 && target()!=null) watch=true;
         if(stage==1 && ((hasPose() && seconds()>1) || seconds()>6)) {
             watch=RENDER_SWEEP;
+            if(HeadLabels.ENABLED) { stage=20;MobReview.frame();return; }
             MobReview.autoStatus(hasPose()?"Геометрия получена; выполняется проверка лучей":"Нет полной цепочки модели и серверной позы");
             if(hasPose() && target() instanceof LivingEntity living) {
                 rays(living,client,current()+": просмотр, клиент");

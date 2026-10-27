@@ -168,6 +168,9 @@ neoForge {
             systemProperty("ntmgunfeel.checkMobs", "true")
             systemProperty("ntmgunfeel.mobReview", "true")
             val selfTest=providers.gradleProperty("mobReviewSelfTest").isPresent
+            systemProperty("ntmgunfeel.headLabels",providers.gradleProperty("headLabels").isPresent.toString())
+            systemProperty("ntmgunfeel.headLabelSelfTest",providers.gradleProperty("headLabelSelfTest").isPresent.toString())
+            systemProperty("ntmgunfeel.headLabelDir",root.resolve(if(providers.gradleProperty("headLabelSelfTest").isPresent) "notes/head-labels/self-test" else "notes/head-labels").path)
             systemProperty("ntmgunfeel.mobReviewSelfTest", selfTest.toString())
             val sweep=providers.gradleProperty("mobRenderSweep").isPresent
             systemProperty("ntmgunfeel.mobRenderSweep",sweep.toString())
@@ -279,7 +282,7 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
     val bench = name == "runBenchMobs"
     val holes = name == "runBenchHoles"
     val mobs = name == "runCheckMobs" || review
-    val selfTest = providers.gradleProperty("mobReviewSelfTest").isPresent
+    val selfTest = providers.gradleProperty("mobReviewSelfTest").isPresent || providers.gradleProperty("headLabelSelfTest").isPresent
     timeout.set(if(review && !selfTest) Duration.ofDays(1) else if(mobs && !selfTest) Duration.ofHours(1) else Duration.ofMinutes(if(holes) 30 else 8))
     val result = if(holes) "holebench/result.txt" else if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {
@@ -291,7 +294,8 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
             }
             check(active.isEmpty()) { "Прежний тестовый клиент ещё работает: PID $active. Второе окно не запускается." }
         }
-        if(review && selfTest) root.resolve("notes/mob-review/self-test").deleteRecursively()
+        if(review && providers.gradleProperty("mobReviewSelfTest").isPresent) root.resolve("notes/mob-review/self-test").deleteRecursively()
+        if(review && providers.gradleProperty("headLabelSelfTest").isPresent) root.resolve("notes/head-labels/self-test").deleteRecursively()
         val dir = root.resolve(if(holes) { if(providers.gradleProperty("holeBenchLoaded").isPresent) "run-hole-bench-loaded" else "run-hole-bench" } else if(bench) "run-mob-bench" else if(review) "run-mob-review" else if (mobs) "run-mob-check" else "run-client-check")
         if(holes) root.resolve("notes/hole-bench").mkdirs()
         if(bench) root.resolve("notes/mob-bench").mkdirs()

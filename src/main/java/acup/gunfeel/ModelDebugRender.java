@@ -19,7 +19,8 @@ import net.minecraft.world.phys.Vec3;
 // Отладочная глубина объединяет мир и точную геометрию мобов без одежды.
 // Внешняя оболочка не прячет передние линии; задние скрываются телом.
 public final class ModelDebugRender {
-    record Shape(int id,boolean custom,List<ModelBox> boxes,List<Vec3[]> edges,ModelContours.Outline outline) {
+    record Shape(int id,boolean custom,List<ModelBox> boxes,List<Vec3[]> edges,ModelContours.Outline outline,float lineAlpha) {
+        Shape(int id,boolean custom,List<ModelBox> boxes,List<Vec3[]> edges,ModelContours.Outline outline) { this(id,custom,boxes,edges,outline,custom?1F:128/255F); }
         Shape(int id,boolean custom,List<ModelBox> boxes,List<Vec3[]> edges) { this(id,custom,boxes,edges,null); }
     }
     private static Identifier id(String name) { return Identifier.fromNamespaceAndPath("ntmgunfeel",name); }
@@ -108,7 +109,7 @@ public final class ModelDebugRender {
                 var a=edges[i].subtract(cam); var b=edges[i+1].subtract(cam); var n=b.subtract(a);
                 if(n.lengthSqr()<1e-16) continue;
                 for(var p:new Vec3[]{a,b}) builder.addVertex((float)p.x,(float)p.y,(float)p.z)
-                        .setNormal((float)n.x,(float)n.y,(float)n.z).setColor(color(shape.id(),shape.custom()?255:128)).setLineWidth(2.5F);
+                        .setNormal((float)n.x,(float)n.y,(float)n.z).setColor(color(shape.id(),Math.round(shape.lineAlpha()*255))).setLineWidth(2.5F);
             }
             try(var mesh=builder.build()) {
                 if(mesh==null) return;

@@ -32,6 +32,7 @@ final class MobReview {
 
     private MobReview() {}
     static void init() {
+        HeadLabels.init();
         try {
             directory=Path.of(System.getProperty("ntmgunfeel.mobReviewDir"));
             store=new MobReviewStore(directory.resolve("reviews.tsv"));
@@ -45,6 +46,7 @@ final class MobReview {
     }
 
     static int resume() {
+        if(HeadLabels.ENABLED) return HeadLabels.resume();
         for(int i=0;i<MobSmoke.cases().size();i++) if(!store.reviewed(MobSmoke.cases().get(i))) return i;
         for(int i=0;i<MobSmoke.cases().size();i++) {
             var decision=store.get(MobSmoke.cases().get(i));
@@ -68,6 +70,7 @@ final class MobReview {
         automatic="Автоматические проверки: "+checks+" · ошибок: "+failures;
     }
     static void frame() {
+        if(HeadLabels.ENABLED) { HeadLabels.frame(); return; }
         if(pendingEvidence!=null) {
             if(--evidenceFrames<=0) {
                 try { evidence(pendingEvidence); }
@@ -81,6 +84,13 @@ final class MobReview {
     }
 
     static void key(int key) {
+        if(HeadLabels.ENABLED) {
+            if(key==GLFW.GLFW_KEY_H) HeadLabels.suspended=false;
+            if(key==GLFW.GLFW_KEY_G) search();
+            if(key==GLFW.GLFW_KEY_RIGHT) HeadLabels.next(1,false);
+            if(key==GLFW.GLFW_KEY_LEFT) HeadLabels.next(-1,false);
+            return;
+        }
         if(SWEEP) return;
         if(!ready || MobSmoke.busy() || MobSmoke.index()<0 || pendingEvidence!=null) return;
         try {
@@ -107,6 +117,8 @@ final class MobReview {
             }
         } catch(Exception e) { message="Не сохранено: "+e.getMessage(); GunFeel.LOGGER.error("[mobreview]",e); }
     }
+
+    static void search() { Minecraft.getInstance().gui.setScreen(new NoteScreen(true)); }
 
     private static void rate(String status) throws Exception {
         String id=MobSmoke.current();
@@ -163,6 +175,7 @@ final class MobReview {
     }
 
     private static void draw(GuiGraphicsExtractor g) {
+        if(HeadLabels.ENABLED) return;
         if(!ready) return;
         var mc=Minecraft.getInstance();
         String id=MobSmoke.current();
