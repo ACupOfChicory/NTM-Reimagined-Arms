@@ -63,7 +63,7 @@ public final class ModelHits {
                     + p.boxes().stream().filter(b -> !b.valid(radius)).findFirst().orElse(null));
             return;
         }
-        var filtered=PlaneHitPolicy.filter(living,p.boxes());
+        var filtered=PlaneHitPolicy.filter(living,AvatarHitPolicy.filter(living,p.boxes()));
         if(filtered.isEmpty()) return;
         put(observer.level(), living, p.yaw(), filtered);
         MobSmoke.accepted(living, p.yaw(), filtered.stream().filter(b -> ModelWool.visible(living,b)).toList());

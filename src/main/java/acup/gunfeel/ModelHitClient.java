@@ -148,7 +148,7 @@ public final class ModelHitClient {
 
     private static boolean publishChecked(LivingEntity entity,float yaw,List<ModelBox> boxes,String source,net.minecraft.world.phys.Vec3 origin) {
         if(MobBenchMetrics.ENABLED) MobBenchMetrics.published++;
-        var filtered=PlaneHitPolicy.filter(entity,boxes);
+        var filtered=PlaneHitPolicy.filter(entity,AvatarHitPolicy.filter(entity,boxes));
         if (filtered.isEmpty() || filtered.size() > ModelPosePayload.MAX_BOXES
                 || filtered.stream().anyMatch(b -> !b.valid(ModelHits.radius(entity)))) {
             ModelHitLog.event("client", "capture_rejected", entity, () -> "source=" + source + " cubes=" + boxes.size()
