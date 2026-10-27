@@ -17,6 +17,8 @@ public record ModelSurfaceGeometry(float[] bounds,List<ModelMesh> meshes,boolean
             for(var p:poly) { u0=Math.min(u0,p[3]); u1=Math.max(u1,p[3]); v0=Math.min(v0,p[4]); v1=Math.max(v1,p[4]); }
             int x0=(int)Math.floor(u0*mask.width()),x1=(int)Math.floor(u1*mask.width());
             int y0=(int)Math.floor(v0*mask.height()),y1=(int)Math.floor(v1*mask.height());
+            if(x1<x0 || y1<y0 || (long)(x1-x0+1)*(y1-y0+1)>262144)
+                throw new IllegalArgumentException("слишком большая область UV для захвата геометрии");
             boolean all=true,any=false;
             boolean[][] pixels=new boolean[y1-y0+1][x1-x0+1];
             for(int y=y0;y<=y1;y++) for(int x=x0;x<=x1;x++) {

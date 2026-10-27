@@ -20,6 +20,8 @@ public final class ModelHitDebug {
     private ModelHitDebug() {}
     public static void beginFrame() { TARGETS.clear(); ModelDebugRender.clear(); }
     public static boolean defer(Entity entity,AABB fallback) {
+        var parent=ModelPartEntities.parent(entity);
+        if(parent!=null && ModelHitClient.enabled() && ModelHits.hasPose(parent)) return true;
         if(!(entity instanceof LivingEntity) || !ModelHitClient.enabled()
                 || !acup.gunfeel.compat.Feature.MODEL_HITBOXES.on()) return false;
         TARGETS.add(new Target(entity,fallback)); return true;

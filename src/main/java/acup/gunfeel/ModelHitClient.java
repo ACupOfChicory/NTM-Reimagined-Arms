@@ -78,10 +78,14 @@ public final class ModelHitClient {
             LivingEntity entity = ready.entity();
             if (!eligible(entity)) continue;
             var pose = ready.pose();
-            Matrix4f root = new Matrix4f().translation((float) ready.x(), (float) ready.y(), (float) ready.z()).mul(pose.root());
-            List<ModelBox> boxes = ready.layout().boxes(root, pose.transforms(), pose.draw(), pose.texture());
-            publishAt(entity, ready.yaw(), boxes, "flywheel_snapshot",ready.origin());
-            if(MobSmoke.enabled()) PUBLISHED_FRAME.put(entity.getUUID(),ready.frame());
+            try {
+                Matrix4f root = new Matrix4f().translation((float) ready.x(), (float) ready.y(), (float) ready.z()).mul(pose.root());
+                List<ModelBox> boxes = ready.layout().boxes(root, pose.transforms(), pose.draw(), pose.texture());
+                boolean published=publishAt(entity, ready.yaw(), boxes, "flywheel_snapshot",ready.origin());
+                if(published && MobSmoke.enabled()) PUBLISHED_FRAME.put(entity.getUUID(),ready.frame());
+            } catch(RuntimeException ex) {
+                ModelHitLog.event("client","gpu_capture_failed",entity,() -> ex.toString());
+            }
         }
         long capture=MobBenchMetrics.start();
         NtmMeshHits.flush();
@@ -94,6 +98,15 @@ public final class ModelHitClient {
 
     // Обычная отрисовка: модель уже прошла setupAnim. Забираем только основную модель, без брони и слоёв.
     public static void rendered(ModelFeatureRenderer.Submit<?> submit) {
+        try { renderedChecked(submit); }
+        catch(RuntimeException ex) {
+            NtmMeshHits.failed(submit);
+            var target=submit.state() instanceof ModelHitState state?state.gunfeel$target():null;
+            ModelHitLog.event("client","prepared_capture_failed",target,() -> ex.toString());
+        }
+    }
+
+    private static void renderedChecked(ModelFeatureRenderer.Submit<?> submit) {
         if(NtmMeshHits.prepared(submit)) return;
         if (!enabled || !(submit.state() instanceof EntityRenderState state)
                 || !(state instanceof ModelHitState info) || info.gunfeel$primary() != submit.model()
@@ -125,13 +138,22 @@ public final class ModelHitClient {
         publishAt(entity,yaw,boxes,source,entity.position());
     }
 
-    public static void publishAt(LivingEntity entity,float yaw,List<ModelBox> boxes,String source,net.minecraft.world.phys.Vec3 origin) {
+    public static boolean publishAt(LivingEntity entity,float yaw,List<ModelBox> boxes,String source,net.minecraft.world.phys.Vec3 origin) {
+        try { return publishChecked(entity,yaw,boxes,source,origin); }
+        catch(RuntimeException ex) {
+            ModelHitLog.event("client","publish_failed",entity,() -> "source="+source+" "+ex);
+            return false;
+        }
+    }
+
+    private static boolean publishChecked(LivingEntity entity,float yaw,List<ModelBox> boxes,String source,net.minecraft.world.phys.Vec3 origin) {
         if(MobBenchMetrics.ENABLED) MobBenchMetrics.published++;
         var filtered=PlaneHitPolicy.filter(entity,boxes);
         if (filtered.isEmpty() || filtered.size() > ModelPosePayload.MAX_BOXES
                 || filtered.stream().anyMatch(b -> !b.valid(ModelHits.radius(entity)))) {
-            ModelHitLog.event("client", "capture_rejected", entity, () -> "source=" + source + " cubes=" + boxes.size());
-            return;
+            ModelHitLog.event("client", "capture_rejected", entity, () -> "source=" + source + " cubes=" + boxes.size()
+                    +" radius="+ModelHits.radius(entity)+" invalid="+filtered.stream().filter(b -> !b.valid(ModelHits.radius(entity))).findFirst());
+            return false;
         }
         var delta=origin.subtract(entity.position());
         var rendered=delta.lengthSqr()==0?filtered:filtered.stream().map(b -> new ModelBox(b.part(),b.x()+delta.x,b.y()+delta.y,b.z()+delta.z,
@@ -141,6 +163,7 @@ public final class ModelHitClient {
         MobSmoke.captured(entity, entity.yBodyRot, rendered, source);
         ModelHitLog.count("client", "local_pose");
         SYNC.put(entity.getUUID(), new Sync(entity, yaw, List.copyOf(filtered), source, level.getGameTime()));
+        return true;
     }
 
     private static void sync() {

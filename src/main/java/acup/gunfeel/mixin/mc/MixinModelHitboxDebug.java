@@ -41,8 +41,8 @@ public abstract class MixinModelHitboxDebug {
     @Redirect(method="showHitboxes",at=@At(value="INVOKE",ordinal=3,
             target="Lnet/minecraft/gizmos/Gizmos;cuboid(Lnet/minecraft/world/phys/AABB;Lnet/minecraft/gizmos/GizmoStyle;)Lnet/minecraft/gizmos/GizmoProperties;"))
     private GizmoProperties gunfeel$dragonParts(AABB original,GizmoStyle style) {
-        return gunfeel$entity instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon
-                && !acup.gunfeel.ModelHits.worldBoxes(gunfeel$entity).isEmpty()?acup.gunfeel.ModelHitDebug.DEFERRED:Gizmos.cuboid(original,style);
+        return acup.gunfeel.ModelHits.hasPose(gunfeel$entity)
+                ?acup.gunfeel.ModelHitDebug.DEFERRED:Gizmos.cuboid(original,style);
     }
 
     @Inject(method = "showHitboxes", at = @At("RETURN"))

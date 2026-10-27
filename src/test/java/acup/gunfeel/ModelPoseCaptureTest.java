@@ -56,4 +56,18 @@ class ModelPoseCaptureTest {
         assertNotEquals(standing, walking);
         assertTrue(walking.valid(4));
     }
+
+    @Test void deeplyNestedForeignPartsKeepGeometryAndBoundedStableNames() {
+        var head=SkeletonModel.createBodyLayer().bakeRoot().getChild("head");
+        ModelPart root=head;
+        for(int i=0;i<80;i++) root=new ModelPart(List.of(),Map.of("long_foreign_bone_name_"+i,root));
+        var result=ModelPoseCapture.collect(root,new PoseStack(),0,0,0,PARTS);
+        assertTrue(result.complete(),"глубокое дерево частей не должно терять всю модель");
+        assertFalse(result.boxes().isEmpty());
+        assertTrue(result.boxes().stream().allMatch(box -> box.part().length()<=ModelBox.MAX_PART_NAME));
+        var repeated=ModelPoseCapture.collect(root,new PoseStack(),0,0,0,PARTS);
+        assertEquals(result.boxes(),repeated.boxes());
+        assertNotEquals(ModelPoseCapture.label("long_path/".repeat(10)+"branch_a/head"),
+                ModelPoseCapture.label("long_path/".repeat(10)+"branch_b/head"));
+    }
 }

@@ -17,7 +17,8 @@ public abstract class MixinEntityModelBox {
 
     @Inject(method = "getBoundingBox", at = @At("RETURN"), cancellable = true)
     private void gunfeel$rayBox(CallbackInfoReturnable<AABB> ci) {
-        if (!((Object)this instanceof LivingEntity) && !((Object)this instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragonPart)) return;
+        if (!((Object)this instanceof LivingEntity) && !((Object)this instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragonPart)
+                && acup.gunfeel.ModelPartEntities.parent((Entity)(Object)this)==null) return;
         AABB raw = ci.getReturnValue();
         if (raw instanceof ModelAABB) return;
         if (raw != gunfeel$rawBox) {

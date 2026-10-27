@@ -69,4 +69,18 @@ final class MobRayOracle {
         }
         return false;
     }
+
+    static List<Ray> acrossFaces(List<Triangle> surface) {
+        var rays=new ArrayList<Ray>();
+        for(var triangle:surface) {
+            var normal=triangle.b().subtract(triangle.a()).cross(triangle.c().subtract(triangle.a()));
+            if(normal.lengthSqr()<1e-16) continue;
+            var center=triangle.a().add(triangle.b()).add(triangle.c()).scale(1.0/3);
+            normal=normal.normalize().scale(.05);
+            var from=center.subtract(normal); var to=center.add(normal);
+            rays.add(new Ray(from,to,hit(surface,from,to)));
+            if(rays.size()==32) break;
+        }
+        return rays;
+    }
 }

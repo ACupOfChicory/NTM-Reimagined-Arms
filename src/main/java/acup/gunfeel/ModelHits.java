@@ -73,7 +73,7 @@ public final class ModelHits {
 
     public static double radius(Entity target) {
         // Also bounds candidate lookup: no accepted cube extends beyond this distance from the entity origin.
-        return Math.min(128, Math.max(2, Math.max(target.getBbWidth(), target.getBbHeight()) * 2));
+        return Math.min(256, Math.max(16, Math.max(target.getBbWidth(), target.getBbHeight()) * 4));
     }
 
     public static synchronized void put(Level level, LivingEntity target, float yaw, List<ModelBox> boxes) {
@@ -121,6 +121,8 @@ public final class ModelHits {
             if(!compatible(target,entry.getValue()) || target==except || !target.getBoundingBox().inflate(radius(target)).intersects(area)) continue;
             if(target instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon dragon)
                 for(var part:dragon.getSubEntities()) if(part!=except && filter.test(part) && !out.contains(part)) out.add(part);
+            for(var part:ModelPartEntities.parts(target))
+                if(part!=null && part!=except && filter.test(part) && !out.contains(part)) out.add(part);
             if(filter.test(target) && !out.contains(target)) out.add(target);
         }
         return out;
@@ -139,6 +141,11 @@ public final class ModelHits {
     }
 
     // F3+B получает ровно ту же позу и те же проверки актуальности, что пересечение луча.
+    public static synchronized boolean hasPose(Entity target) {
+        if(!(target instanceof LivingEntity)) return false;
+        var poses=POSES.get(target.level());
+        return poses!=null && usable(target,poses.get(target.getId()));
+    }
     public static synchronized List<Vec3[]> outlines(Entity target) {
         return ModelContours.edges(worldBoxes(target));
     }
@@ -176,9 +183,10 @@ public final class ModelHits {
 
     public static synchronized Optional<Vec3> clip(Entity target, Vec3 from, Vec3 to, AABB fallback) {
         var dragonPart=target instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragonPart part?part:null;
-        Entity root=dragonPart==null?target:dragonPart.parentMob;
+        var parent=ModelPartEntities.parent(target);
+        Entity root=dragonPart!=null?dragonPart.parentMob:parent!=null?parent:target;
         Map<Integer, PoseAt> poses = POSES.get(target.level());
-        PoseAt p = poses == null ? null : poses.get(root.getId());
+        PoseAt p = poses == null || root==null ? null : poses.get(root.getId());
         boolean fresh = usable(root, p);
         if (!fresh || !(root instanceof LivingEntity living)) {
             if (!from.equals(to)) ModelHitLog.event(target.level().isClientSide() ? "client" : "server", "clip_fallback", target,
@@ -191,8 +199,21 @@ public final class ModelHits {
                             + " from=" + from + " to=" + to);
             return fallback.contains(from) ? Optional.of(from) : fallback.clip(from, to);
         }
+        Vec3 segmentFrom=from,segmentTo=to;
+        if(parent!=null && dragonPart==null) {
+            // Не расширяем область части на 0.3 вместе с AABB снаряда.
+            // Часть сохраняет свой урон, но её невидимая коробка сама по себе
+            // больше не является поверхностью попадания.
+            AABB region=target.getBoundingBox();
+            if(region.getXsize()<=0 || region.getYsize()<=0 || region.getZsize()<=0) return Optional.empty();
+            var carrier=new ModelBox("part_region",region.minX,region.minY,region.minZ,
+                    region.getXsize(),0,0,0,region.getYsize(),0,0,0,region.getZsize());
+            double[] span=carrier.carrierSpan(from,to);
+            if(span==null) return Optional.empty();
+            segmentFrom=from.lerp(to,span[0]); segmentTo=from.lerp(to,span[1]);
+        }
         double angle = turnAngle(target.level().isClientSide(), living.yBodyRot, p.yaw(), p.bodyYaw());
-        Vec3 a = unturn(from.subtract(root.position()), angle), b = unturn(to.subtract(root.position()), angle);
+        Vec3 a = unturn(segmentFrom.subtract(root.position()), angle), b = unturn(segmentTo.subtract(root.position()), angle);
         double nearest = Double.POSITIVE_INFINITY;
         String part = "";
         for (ModelBox box : p.boxes()) {
@@ -214,7 +235,7 @@ public final class ModelHits {
         }
         if (TestLog.on(target.level()) && !from.equals(to)) TestLog.at(target.level(), -1, "model_hit", "target", target.getId(),
                 "part", part, "result", Double.isFinite(nearest) ? "hit" : "miss", "age", target.level().getGameTime() - p.tick());
-        return Double.isFinite(nearest) ? Optional.of(from.lerp(to, nearest)) : Optional.empty();
+        return Double.isFinite(nearest) ? Optional.of(segmentFrom.lerp(segmentTo, nearest)) : Optional.empty();
     }
 
     // Клиент сохраняет исходную интерполяцию и добавляет лишь движение корня после захвата.

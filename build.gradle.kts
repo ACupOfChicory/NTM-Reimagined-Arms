@@ -282,8 +282,9 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
     timeout.set(if(review && !selfTest) Duration.ofDays(1) else if(mobs && !selfTest) Duration.ofHours(1) else Duration.ofMinutes(if(holes) 30 else 8))
     val result = if(holes) "holebench/result.txt" else if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {
-        if(holes) {
-            val vmArgs="@${layout.buildDirectory.file("moddev/benchHolesRunVmArgs.txt").get().asFile.absolutePath}"
+        if(holes || review) {
+            val runName=if(review) "reviewMobs" else "benchHoles"
+            val vmArgs="@${layout.buildDirectory.file("moddev/${runName}RunVmArgs.txt").get().asFile.absolutePath}"
             val active=ProcessHandle.allProcesses().use { processes ->
                 processes.filter { it.info().arguments().orElse(emptyArray()).contains(vmArgs) }.map { it.pid() }.toList()
             }

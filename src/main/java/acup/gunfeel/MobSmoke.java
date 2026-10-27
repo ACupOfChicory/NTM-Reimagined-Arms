@@ -493,6 +493,10 @@ public final class MobSmoke {
     private static void rays(LivingEntity target,Snapshot pose,String label) {
         var triangles=MobRayOracle.surface(target,pose.anchor(),pose.boxes());
         var grid=MobRayOracle.grid(triangles);
+        if(grid.stream().noneMatch(MobRayOracle.Ray::hit)) {
+            grid=new java.util.ArrayList<>(grid);
+            grid.addAll(MobRayOracle.acrossFaces(triangles));
+        }
         int hits=0,misses=0,mismatch=0,extra=0,gaps=0;
         MobRayOracle.Ray body=null,gap=null,wing=null;
         var model=target.getBoundingBox();
@@ -536,7 +540,8 @@ public final class MobSmoke {
         PROBES.add(bullet.getId());
         float speed=(float)Math.max(1,ray.from().distanceTo(ray.to())/
                 (XFactory9mm.p9_ap.velocity*ReaimTimes.number("bulletSpeed",1.6F)));
-        bullet.setPos(ray.from()); bullet.setThrowableHeading(0,0,1,speed,0); bullet.damage=0;
+        var direction=ray.to().subtract(ray.from());
+        bullet.setPos(ray.from()); bullet.setThrowableHeading(direction.x,direction.y,direction.z,speed,0); bullet.damage=0;
         // Это контрольный сегмент уже летящей пули. Её первый тик у дула
         // отдельно проверяет runCheckClient; перенос к глазам наблюдателя
         // здесь изменил бы заданный луч и дал ложное попадание в пустоту.

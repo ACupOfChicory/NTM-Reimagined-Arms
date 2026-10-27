@@ -40,18 +40,25 @@ public final class ModelPoseCapture {
 
     private static boolean traverse(String name, ModelPart part, PoseStack stack, double x, double y, double z,
             List<ModelBox> boxes, int[] nodes, int depth, Parts parts) {
-        if (++nodes[0] > 2048 || depth > 32 || name.length() > ModelBox.MAX_PART_NAME) return false;
+        if (++nodes[0] > 2048 || depth > 128) return false;
         if (!part.visible) return true;
         stack.pushPose();
         try {
             part.translateAndRotate(stack);
             if (!part.skipDraw) for (ModelPart.Cube cube : parts.cubes(part)) {
-                parts.geometry(cube).append(boxes,parts.partName(name,cube),stack.last().pose(),x,y,z);
+                parts.geometry(cube).append(boxes,parts.partName(label(name),cube),stack.last().pose(),x,y,z);
                 if (boxes.size() > ModelPosePayload.MAX_BOXES) return false;
             }
             for (var entry : parts.children(part).entrySet())
                 if (!traverse(name + "/" + entry.getKey(), entry.getValue(), stack, x, y, z, boxes, nodes, depth + 1, parts)) return false;
             return true;
         } finally { stack.popPose(); }
+    }
+
+    static String label(String path) {
+        if(path.length()<=48) return path;
+        String leaf=path.substring(path.lastIndexOf('/')+1);
+        if(leaf.length()>20) leaf=leaf.substring(leaf.length()-20);
+        return path.substring(0,16)+"~"+Integer.toHexString(path.hashCode())+"/"+leaf;
     }
 }
