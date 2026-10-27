@@ -38,7 +38,9 @@ public final class Perf {
     private static long lastFrame, longest, longestOurs, ours;
 
     public static void other(int part, long started) {
-        OTHER_NANOS[part] += System.nanoTime() - started;
+        long elapsed=System.nanoTime()-started;
+        HoleBenchMetrics.add(12+part,elapsed);
+        OTHER_NANOS[part] += elapsed;
         OTHER_CALLS[part]++;
     }
 
@@ -57,6 +59,7 @@ public final class Perf {
 
     public static void add(int part, long started) {
         long d = System.nanoTime() - started;
+        HoleBenchMetrics.add(part,d);
         NANOS[part] += d;
         CALLS[part]++;
         if (part <= HOLE_BAKE) ours += d;

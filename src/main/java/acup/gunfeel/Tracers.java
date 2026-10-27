@@ -484,6 +484,7 @@ public final class Tracers {
     }
 
     public static void submit(SubmitCustomGeometryEvent event) {
+        if(HoleBenchMetrics.ENABLED) HoleBenchmark.applyMode();
         Minecraft mc = Minecraft.getInstance();
         ClientLevel level = mc.level;
         if (level == null) return;
@@ -792,6 +793,8 @@ public final class Tracers {
     }
 
     private static final ArrayDeque<Pending> PENDING = new ArrayDeque<>();
+    static int pendingHoles() { return PENDING.size(); }
+    static int holeCount() { return HOLES.size(); }
     private static final long HOLE_BUDGET_NS = 3_000_000L;
 
     private static void addHole(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir) {

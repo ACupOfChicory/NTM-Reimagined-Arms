@@ -31,6 +31,7 @@ public final class ClientSmoke {
     private static int frames, holdUntil, packets, zeroFrames, zeroExpired, traces, particles, holes;
     private static double held = Double.NaN, pausedClock;
     private static long since;
+    private static long screenLogAt;
     private static volatile boolean ready, pending, broken;
     private static volatile int remaining;
     private static int serverTick;
@@ -46,6 +47,7 @@ public final class ClientSmoke {
 
     static void packet() {
         if (!ENABLED) return;
+        if(HoleBenchMetrics.ENABLED) { HoleBenchMetrics.projectiles++; return; }
         packets++;
         held = Double.NaN;
         holdUntil = frames + 2;
@@ -72,7 +74,21 @@ public final class ClientSmoke {
         frames++;
         Minecraft mc = Minecraft.getInstance();
         try {
-            if (!MobSmoke.review() && System.nanoTime() - START > (MobBenchMetrics.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
+            if(HoleBenchMetrics.ENABLED && phase==0 && mc.gui.screen()!=null
+                    && mc.gui.screen().getClass().getName().equals("net.neoforged.neoforge.client.gui.LoadingErrorScreen")) {
+                var screen=mc.gui.screen();
+                var errors=screen.getClass().getDeclaredField("modLoadErrors"); errors.setAccessible(true);
+                if(!((List<?>)errors.get(screen)).isEmpty()) { check(false,"ошибки загрузки модов в нагрузочном клиенте"); finish(); return; }
+                var next=screen.getClass().getDeclaredField("nextScreenTask"); next.setAccessible(true);
+                GunFeel.LOGGER.info("[holebench] продолжаем после предупреждений NeoForge без ошибок загрузки");
+                ((Runnable)next.get(screen)).run(); return;
+            }
+            if(HoleBenchMetrics.ENABLED && phase<2 && System.currentTimeMillis()>screenLogAt) {
+                screenLogAt=System.currentTimeMillis()+5000;
+                GunFeel.LOGGER.info("[holebench] запуск phase={} screen={} world={}",phase,
+                        mc.gui.screen()==null?"null":mc.gui.screen().getClass().getName(),mc.level!=null);
+            }
+            if (!MobSmoke.review() && System.nanoTime() - START > (MobBenchMetrics.ENABLED || HoleBenchMetrics.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
                 check(false, "таймаут клиента; экран=" + mc.gui.screen());
                 finish();
                 return;
@@ -85,6 +101,7 @@ public final class ClientSmoke {
                     finish();
                 });
             } else if (phase == 1 && mc.level != null && mc.player != null && mc.getSingleplayerServer() != null) {
+                if(HoleBenchMetrics.ENABLED) { phase=12; mc.gui.setScreen(null); HoleBenchmark.start(); return; }
                 if(MobBenchMetrics.ENABLED) { phase=11; mc.gui.setScreen(null); MobBenchmark.start(); return; }
                 if (MobSmoke.enabled()) {
                     phase = 10;
@@ -135,6 +152,7 @@ public final class ClientSmoke {
             }
             if (phase == 10) MobSmoke.frame();
             if (phase == 11) MobBenchmark.frame();
+            if (phase == 12) HoleBenchmark.frame();
             if (mc.player != null && phase >= 2 && phase <= 7) {
                 mc.player.setYRot(0);
                 mc.player.setXRot(0);
@@ -184,6 +202,7 @@ public final class ClientSmoke {
     }
 
     private static void tick() {
+        if(HoleBenchMetrics.ENABLED && phase==12) { HoleBenchmark.tick(); return; }
         if (remaining <= 0 || !ready) return;
         if (++serverTick % (phase == 6 ? 2 : 8) != 0) return;
         var mc = Minecraft.getInstance();

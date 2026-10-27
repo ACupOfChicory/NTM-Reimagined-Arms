@@ -42,7 +42,7 @@ class NtmApiTest {
     static final Set<String> OBJECT = Set.of("equals", "hashCode", "toString", "getClass", "clone", "finalize", "notify",
             "notifyAll", "wait");
     // the data dumps run only in a dev run (runDumpBlocks): what they read must not turn off the mod for players
-    static final Set<String> DEV_ONLY = Set.of("GunDump", "BlockDump", "BulletCheck", "ClientSmoke", "MobSmoke", "MobReview", "MobReviewSelfTest");
+    static final Set<String> DEV_ONLY = Set.of("GunDump", "BlockDump", "BulletCheck", "ClientSmoke", "MobSmoke", "MobReview", "MobReviewSelfTest", "HoleBenchmark");
 
     @Test
     void listIsUpToDate() throws IOException {

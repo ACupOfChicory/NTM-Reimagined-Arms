@@ -120,6 +120,30 @@ neoForge {
             programArguments.addAll("--width", if(providers.gradleProperty("mobContourShots").isPresent) "1708" else "854",
                     "--height", if(providers.gradleProperty("mobContourShots").isPresent) "960" else "480")
         }
+        register("benchHoles") {
+            client()
+            val loaded=providers.gradleProperty("holeBenchLoaded").isPresent
+            gameDirectory=root.resolve(if(loaded) "run-hole-bench-loaded" else "run-hole-bench")
+            jvmArgument(if(loaded) "-Xmx6000M" else "-Xmx3000M")
+            val label=providers.gradleProperty("holeBenchLabel").orElse("before").get()
+            require(label.matches(Regex("[a-zA-Z0-9_-]+")))
+            systemProperty("ntmgunfeel.checkClient",layout.buildDirectory.file("holebench/result.txt").get().asFile.path)
+            systemProperty("ntmgunfeel.benchHoles","true")
+            systemProperty("ntmgunfeel.holeBenchLegacy",providers.gradleProperty("holeBenchLegacy").isPresent.toString())
+            systemProperty("ntmgunfeel.holeBenchFile",root.resolve("notes/hole-bench/$label.tsv").path)
+            providers.gradleProperty("holeBenchSurfaces").orNull?.let { systemProperty("ntmgunfeel.holeBenchSurfaces",it) }
+            providers.gradleProperty("holeBenchRepeats").orNull?.let { systemProperty("ntmgunfeel.holeBenchRepeats",it) }
+            providers.gradleProperty("holeBenchShells").orNull?.let { systemProperty("ntmgunfeel.holeBenchShells",it) }
+            providers.gradleProperty("holeBenchModes").orNull?.let { systemProperty("ntmgunfeel.holeBenchModes",it) }
+            systemProperty("ntmgunfeel.holeBenchCheckMotion",providers.gradleProperty("holeBenchCheckMotion").isPresent.toString())
+            systemProperty("ntmgunfeel.holeBenchLoaded",loaded.toString())
+            systemProperty("ntmgunfeel.holeBenchRealism",providers.gradleProperty("holeBenchRealism").isPresent.toString())
+            providers.gradleProperty("holeBenchOrigin").orNull?.let { systemProperty("ntmgunfeel.holeBenchOrigin",it) }
+            systemProperty("MC_DEBUG_ENABLED","true")
+            systemProperty("MC_DEBUG_PREFER_WAYLAND","true")
+            jvmArgument("-XX:StartFlightRecording=filename=${root.resolve("notes/hole-bench/$label.jfr").path},settings=profile,dumponexit=true")
+            programArguments.addAll("--width",if(loaded) "1920" else "1280","--height",if(loaded) "1080" else "800")
+        }
         register("benchMobs") {
             client()
             gameDirectory = root.resolve("run-mob-bench")
@@ -244,30 +268,43 @@ tasks.matching { it.name in checkRuns }.configureEach {
 }
 
 // Настоящий клиент использует только копию тестового мира и отдельную папку запуска.
-tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs","runBenchMobs") }.configureEach {
+tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs","runBenchMobs","runBenchHoles") }.configureEach {
     val review = name == "runReviewMobs"
     val bench = name == "runBenchMobs"
+    val holes = name == "runBenchHoles"
     val mobs = name == "runCheckMobs" || review
     val selfTest = providers.gradleProperty("mobReviewSelfTest").isPresent
-    timeout.set(if(review && !selfTest) Duration.ofDays(1) else if(mobs && !selfTest) Duration.ofHours(1) else Duration.ofMinutes(8))
-    val result = if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
+    timeout.set(if(review && !selfTest) Duration.ofDays(1) else if(mobs && !selfTest) Duration.ofHours(1) else Duration.ofMinutes(if(holes) 30 else 8))
+    val result = if(holes) "holebench/result.txt" else if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {
+        if(holes) {
+            val vmArgs="@${layout.buildDirectory.file("moddev/benchHolesRunVmArgs.txt").get().asFile.absolutePath}"
+            val active=ProcessHandle.allProcesses().use { processes ->
+                processes.filter { it.info().arguments().orElse(emptyArray()).contains(vmArgs) }.map { it.pid() }.toList()
+            }
+            check(active.isEmpty()) { "Прежний тестовый клиент ещё работает: PID $active. Второе окно не запускается." }
+        }
         if(review && selfTest) root.resolve("notes/mob-review/self-test").deleteRecursively()
-        val dir = root.resolve(if(bench) "run-mob-bench" else if(review) "run-mob-review" else if (mobs) "run-mob-check" else "run-client-check")
+        val dir = root.resolve(if(holes) { if(providers.gradleProperty("holeBenchLoaded").isPresent) "run-hole-bench-loaded" else "run-hole-bench" } else if(bench) "run-mob-bench" else if(review) "run-mob-review" else if (mobs) "run-mob-check" else "run-client-check")
+        if(holes) root.resolve("notes/hole-bench").mkdirs()
         if(bench) root.resolve("notes/mob-bench").mkdirs()
         val source = root.resolve("run-bullets/world")
         require(source.resolve("level.dat").exists()) { "Сначала выполните runCheckBullets: нужен изолированный тестовый мир" }
         val world = dir.resolve("saves/gunfeel-smoke")
-        if(review && world.resolve("session.lock").exists()) {
+        if((review || holes) && world.resolve("session.lock").exists()) {
             FileChannel.open(world.resolve("session.lock").toPath(),StandardOpenOption.WRITE).use { channel ->
                 val lease=channel.tryLock()
-                check(lease!=null) { "Окно просмотра уже открыто. Закройте его перед новым запуском." }
+                check(lease!=null) { "Тестовый мир уже открыт. Закройте прежний клиент перед новым запуском." }
                 lease.release()
             }
         }
         if(!review || !world.resolve("level.dat").exists()) {
             world.deleteRecursively()
-            source.copyRecursively(world, overwrite = true)
+            if(holes && providers.gradleProperty("holeBenchLoaded").isPresent) {
+                val saved=file(providers.gradleProperty("holeBenchWorld").get()).canonicalFile
+                world.parentFile.mkdirs()
+                check(ProcessBuilder("cp","--reflink=always","-a",saved.path,world.path).inheritIO().start().waitFor()==0)
+            } else source.copyRecursively(world, overwrite = true)
             world.resolve("session.lock").delete()
         }
         dir.resolve("mods").mkdirs()
@@ -278,6 +315,18 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
         dir.resolve("config/crankshaft-client.toml").writeText(
             "backend = \"${if(providers.gradleProperty("mobCpuGeometry").isPresent) "flywheel:off" else "DEFAULT"}\"\n")
         dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(review || bench) 8 else 3}\nsimulationDistance:5\nmaxFps:60\n")
+        if(holes && providers.gradleProperty("holeBenchLoaded").isPresent) {
+            val original=file(providers.gradleProperty("holeBenchInstance").get()).canonicalFile
+            original.resolve("config").copyRecursively(dir.resolve("config"),overwrite=true)
+            dir.resolve("config/fml.toml").writeText("earlyWindowControl = false\n")
+            original.resolve("mods").listFiles()!!.filter { it.name.endsWith(".jar") && !it.name.startsWith("ntm-next-")
+                    && !it.name.startsWith("reimagined-arms-") && !it.name.startsWith("crankshaft-") }
+                .forEach { it.copyTo(dir.resolve("mods/${it.name}"),overwrite=true) }
+            original.resolve("options.txt").copyTo(dir.resolve("options.txt"),overwrite=true)
+            dir.resolve("options.txt").appendText("\npauseOnLostFocus:false\nenableVsync:false\nrenderDistance:12\nmaxFps:260\n")
+            val voxy=dir.resolve("config/voxy-config.json")
+            voxy.writeText(voxy.readText().replace(Regex("\"section_render_distance\"\\s*:\\s*[0-9.]+"),"\"section_render_distance\": 16.0"))
+        }
         layout.buildDirectory.file(result).get().asFile.delete()
     }
     doLast {

@@ -15,5 +15,7 @@ run-client-check/
 run-mob-check/
 run-mob-review/
 run-mob-bench/
+run-hole-bench/
+run-hole-bench-loaded/
 review/materials/page.html
 pi-sessions/

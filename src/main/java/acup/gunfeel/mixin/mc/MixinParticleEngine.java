@@ -58,6 +58,8 @@ public abstract class MixinParticleEngine {
     @Inject(method = "createParticle", at = @At("HEAD"), cancellable = true)
     private void gunfeel$machineCrumbs(ParticleOptions options, double x, double y, double z, double xa, double ya, double za,
             CallbackInfoReturnable<Particle> cir) {
+        if(acup.gunfeel.HoleBenchMetrics.ENABLED && (options.getType()==ParticleTypes.EXPLOSION || options.getType()==ParticleTypes.EXPLOSION_EMITTER)
+                && acup.gunfeel.HoleBenchMetrics.explosion()) { cir.setReturnValue(null); return; }
         if (!(options instanceof BlockParticleOption block) || options.getType() != ParticleTypes.BLOCK || level == null
                 || !acup.gunfeel.compat.Feature.BULLETS.on()) return;
         Particle p = BulletFx.missingTextureCrumb(level, block.getState(), x, y, z, xa, ya, za);
