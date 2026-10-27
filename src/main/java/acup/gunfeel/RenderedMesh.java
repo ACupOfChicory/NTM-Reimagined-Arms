@@ -220,6 +220,7 @@ public final class RenderedMesh {
     }
 
     private static final Map<BlockPos, Map<PartKey, PartPose>> POSES = new HashMap<>();
+    private static final Map<BlockPos,PartPoseMemo<PartKey>> STABLE_POSES=new HashMap<>();
     private static long posesAt;
 
     // the parts block entity `pos` draws now, run once a frame (only the poses: nothing is drawn); null = no block
@@ -236,7 +237,13 @@ public final class RenderedMesh {
         BlockEntityRenderer renderer = be == null ? null : Minecraft.getInstance().getBlockEntityRenderDispatcher().getRenderer(be);
         if (renderer != null && !FAILED.contains(renderer.getClass())) {
             Recorder rec = record(be, renderer);
-            if (rec != null) got = rec.poses;
+            if (rec != null) {
+                if(HoleBenchMetrics.legacy()) got=rec.poses;
+                else {
+                    if(STABLE_POSES.size()>512) STABLE_POSES.clear();
+                    got=STABLE_POSES.computeIfAbsent(pos.immutable(),key -> new PartPoseMemo<>()).frame(rec.poses);
+                }
+            }
         }
         POSES.put(pos.immutable(), got);
         return got;
@@ -250,6 +257,7 @@ public final class RenderedMesh {
 
     public static void clear() {
         CACHE.clear();
+        POSES.clear(); STABLE_POSES.clear(); posesAt=0;
     }
 
     // the triangles of every block entity whose renderer draws into the box (their render bounds meet it)

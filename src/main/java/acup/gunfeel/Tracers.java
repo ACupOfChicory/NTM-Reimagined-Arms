@@ -184,9 +184,20 @@ public final class Tracers {
         }
 
         // true when the part moved (or was cut otherwise) since the last frame
+        private RenderedMesh.PartPose lastPose;
         boolean place(ClientLevel level, RenderedMesh.PartPose now) {
+            if(!HoleBenchMetrics.legacy() && lastPose==now) {
+                if(HoleBenchMetrics.CHECK_MOTION) {
+                    HoleBenchMetrics.poseChecks++;
+                    if(!now.pose().equals(placed) || !java.util.Arrays.deepEquals(now.planes(),cut))
+                        HoleBenchMetrics.failure="Позу следа нельзя было пропустить: изменилась матрица или срез";
+                }
+                return false;
+            }
+            lastPose=now;
             boolean samePose = now.pose().equals(placed), sameCut = java.util.Arrays.deepEquals(now.planes(), cut);
             if (samePose && sameCut) return false;
+            if(HoleBenchMetrics.CHECK_MOTION) HoleBenchMetrics.poseUpdates++;
             Perf.moved(be, !samePose, !sameCut, poseDiff(now.pose(), placed), cutDiff(now.planes(), cut));
             placed = new org.joml.Matrix4f(now.pose());
             cut = now.planes() == null ? null : copy(now.planes());
@@ -2211,6 +2222,15 @@ public final class Tracers {
         if (HOLES.isEmpty() || !Config.bulletHoles || shaderTransparency()) return;
         long pl = Perf.start();
         try {
+            if(HoleBenchMetrics.CHECK_MOTION && HoleBenchmark.wantPixelProbe()) try {
+                HoleVisualProbe.capture(() -> lateHoles(event,true),() -> {
+                    drawBatches(true,event.getLevelRenderState().cameraRenderState.pos,new Matrix4f(event.getModelViewMatrix()));
+                    lateHoles(event);
+                });
+            } catch(RuntimeException ex) { HoleBenchMetrics.failure="Проверка изображения: "+ex; }
+            long cached=Perf.start();
+            drawBatches(true,event.getLevelRenderState().cameraRenderState.pos,new Matrix4f(event.getModelViewMatrix()));
+            Perf.add(Perf.HOLE_DRAW,cached);
             lateHoles(event);
         } finally {
             Perf.add(Perf.LATE, pl);
@@ -2218,6 +2238,9 @@ public final class Tracers {
     }
 
     private static void lateHoles(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather event) {
+        lateHoles(event,false);
+    }
+    private static void lateHoles(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather event,boolean reference) {
         Vec3 cam = event.getLevelRenderState().cameraRenderState.pos;
         long now = System.nanoTime();
         long life = (long) (Math.max(0.1F, Config.holeLife) * 1e9);
@@ -2225,7 +2248,7 @@ public final class Tracers {
         @SuppressWarnings("unchecked")
         List<Hole>[] groups = new List[2 * KINDS];
         for (Hole h : HOLES) {
-            if (!h.late()) continue;
+            if (!h.late() || !reference && BATCHED.containsKey(h)) continue;
             int g = h.kind() + (h.cull() ? KINDS : 0);
             if (groups[g] == null) groups[g] = new ArrayList<>();
             groups[g].add(h);
@@ -2415,7 +2438,7 @@ public final class Tracers {
     // moves.
     private static final class Batch {
         final int kind;
-        final boolean mesh;
+        final boolean mesh,late;
         List<Hole> holes = new ArrayList<>();
         List<Hole> now = new ArrayList<>();
         boolean dirty = true;
@@ -2423,9 +2446,10 @@ public final class Tracers {
         int count;
         double ox, oy, oz;
 
-        Batch(int kind, boolean mesh) {
+        Batch(int kind, boolean mesh,boolean late) {
             this.kind = kind;
             this.mesh = mesh;
+            this.late = late;
         }
     }
 
@@ -2440,14 +2464,14 @@ public final class Tracers {
         double fadeFrom = Math.max(0.0, life / 1e9 - 3.0);
         for (Batch b : BATCHES) b.now.clear();
         if (on) for (Hole h : HOLES) {
-            if (h.late() || (now - h.born()) / 1e9 >= fadeFrom) continue;
+            if (h.late() && (HoleBenchMetrics.legacy() || shaderTransparency()) || (now - h.born()) / 1e9 >= fadeFrom) continue;
             Batch b = BATCHED.get(h);
             if (b == null) {
-                int key = h.kind() * 2 + (h.mesh() != null ? 1 : 0);
+                int key = h.kind() * 4 + (h.late()?2:0) + (h.mesh() != null ? 1 : 0);
                 b = OPEN.get(key);
                 // (holes go in the order made: the open batch's older ones are counted already)
                 if (b == null || b.now.size() >= BATCH_HOLES) {
-                    b = new Batch(h.kind(), h.mesh() != null);
+                    b = new Batch(h.kind(), h.mesh() != null,h.late());
                     BATCHES.add(b);
                     OPEN.put(key, b);
                 }
@@ -2470,7 +2494,7 @@ public final class Tracers {
             if (b.holes.isEmpty()) {
                 if (b.vb != null) b.vb.close();
                 it.remove();
-                OPEN.remove(b.kind * 2 + (b.mesh ? 1 : 0), b);
+                OPEN.remove(b.kind * 4 + (b.late?2:0) + (b.mesh ? 1 : 0), b);
             }
         }
     }
@@ -2482,16 +2506,23 @@ public final class Tracers {
         long pd = Perf.start();
         Vec3 cam = event.getLevelRenderState().cameraRenderState.pos;
         Matrix4f mv = new Matrix4f(event.getModelViewMatrix());
+        drawBatches(false,cam,mv);
+        Perf.add(Perf.HOLE_DRAW,pd);
+    }
+
+    private static void drawBatches(boolean late,Vec3 cam,Matrix4f mv) {
+        long pd=Perf.start();
         // cut holes pulled towards the camera by a tenth of a percent of the distance, as meshQuads() does
         Matrix4f mvMesh = new Matrix4f(mv).scale(0.999F);
         for (Batch b : BATCHES) {
+            if(b.late!=late) continue;
             if (b.dirty) {
                 long pb = Perf.start();
                 bake(b);
                 Perf.add(Perf.HOLE_BAKE, pb);
             }
             if (b.count == 0 || b.vb == null) continue;
-            RenderType type = HoleRender.type(TEXTURES[b.kind], false, true);
+            RenderType type = HoleRender.type(TEXTURES[b.kind], b.late, true);
             net.minecraft.client.renderer.rendertype.PreparedRenderType pr = type.prepare();
             var transforms = com.mojang.blaze3d.systems.RenderSystem.getDynamicUniforms().writeTransform(b.mesh ? mvMesh : mv,
                     new org.joml.Vector4f(1F, 1F, 1F, 1F), new Vector3f((float) (b.ox - cam.x), (float) (b.oy - cam.y), (float) (b.oz - cam.z)), new Matrix4f());
@@ -2501,7 +2532,6 @@ public final class Tracers {
             ClientSmoke.holeDrawn();
             Perf.batched(b.holes.size());
         }
-        Perf.add(Perf.HOLE_DRAW, pd);
         Perf.add(Perf.BATCHES, pd);
     }
 
@@ -2513,7 +2543,7 @@ public final class Tracers {
         b.ox = o.x;
         b.oy = o.y;
         b.oz = o.z;
-        RenderType type = HoleRender.type(TEXTURES[b.kind], false, true);
+        RenderType type = HoleRender.type(TEXTURES[b.kind], b.late, true);
         int vertices = 0;
         for (Hole h : b.holes) vertices += h.mesh() != null ? h.mesh().length + 16 : 64;
         try (var bytes = new com.mojang.blaze3d.vertex.ByteBufferBuilder(Math.max(64, vertices) * type.format().getVertexSize())) {
