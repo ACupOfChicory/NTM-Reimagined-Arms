@@ -52,10 +52,15 @@ public final class ModelDebugRender {
         captured=false;
         if(!needed) { clear(); return; }
         var main=Minecraft.getInstance().gameRenderer.mainRenderTarget();
-        if(terrain==null || terrain.width!=main.width || terrain.height!=main.height) {
+        captureTerrain(main);
+    }
+    private static void captureTerrain(RenderTarget main) {
+        boolean stencil=main.getDepthTexture().getFormat().hasStencilAspect();
+        if(terrain==null || terrain.width!=main.width || terrain.height!=main.height
+                || terrain.getDepthTexture().getFormat()!=main.getDepthTexture().getFormat()) {
             releaseTargets();
-            terrain=new TextureTarget("Model hit terrain",main.width,main.height,true,GpuFormat.RGBA8_UNORM);
-            mask=new TextureTarget("Model hit ownership",main.width,main.height,true,GpuFormat.RGBA8_UNORM);
+            terrain=new TextureTarget("Model hit terrain",main.width,main.height,true,stencil,GpuFormat.RGBA8_UNORM);
+            mask=new TextureTarget("Model hit ownership",main.width,main.height,true,stencil,GpuFormat.RGBA8_UNORM);
         }
         terrain.copyDepthFrom(main); captured=true;
     }
@@ -128,7 +133,7 @@ public final class ModelDebugRender {
     }
     private static boolean probed;
     private static int probeDone;
-    static boolean probesFinished() { return probeDone==6; }
+    static boolean probesFinished() { return probeDone==12; }
     static void probe() {
         if(probed || terrain==null || !MobSmoke.enabled() || MobSmoke.review()) return;
         probed=true;
@@ -143,11 +148,16 @@ public final class ModelDebugRender {
         var other=new Shape(2,true,List.of(blocker),List.of());
         var outer=new ModelBox("outer",cam.x-1.2,cam.y+.8,cam.z+9.8,2.4,0,0,0,2.4,0,0,0,1.4);
         var back=new Shape(1,true,List.of(body),List.<Vec3[]>of(new Vec3[]{ModelContours.point(body,.25,.5,1),ModelContours.point(body,.75,.5,1)}));
-        for(int scenario=0;scenario<6;scenario++) {
-            var target=new TextureTarget("Debug visibility probe",terrain.width,terrain.height,true,GpuFormat.RGBA8_UNORM);
+        for(int test=0;test<12;test++) {
+            int scenario=test%6;
+            boolean stencil=test>=6;
+            var target=new TextureTarget("Debug visibility probe",terrain.width,terrain.height,true,stencil,GpuFormat.RGBA8_UNORM);
             var device=RenderSystem.getDevice();
             try(var pass=device.createCommandEncoder().createRenderPass(() -> "Clear debug probe",target.getColorTextureView(),
                     Optional.of(new org.joml.Vector4f()),target.getDepthTextureView(),OptionalDouble.of(0))) {}
+            // Настоящее GPU-копирование обоих форматов и смена формата
+            // без изменения размера: именно этот путь падал с Iris.
+            captureTerrain(target);
             var oldColor=RenderSystem.outputColorTextureOverride; var oldDepth=RenderSystem.outputDepthTextureOverride;
             try {
                 RenderSystem.outputColorTextureOverride=target.getColorTextureView();
@@ -167,15 +177,15 @@ public final class ModelDebugRender {
                     many.add(new Shape(130,true,List.of(body),own.edges())); selected=many;
                 }
                 captured=true; draw(selected);
-                final int mode=scenario;
+                final int mode=scenario,formatTest=test;
                 net.minecraft.client.Screenshot.takeScreenshot(target,image -> {
                     try(image) {
                         int orange=0;
                         for(int pixel:image.getPixels()) if((pixel&0xFFFFFF)==0xFFCC55) orange++;
-                        try { image.writeToFile(java.nio.file.Path.of("../notes/accurate-hitboxes/debug-gpu-"+mode+".png")); }
+                        try { image.writeToFile(java.nio.file.Path.of("../notes/accurate-hitboxes/debug-gpu-"+formatTest+".png")); }
                         catch(java.io.IOException ex) { MobSmoke.debugProbe(false,"не удалось сохранить маску: "+ex); }
                         MobSmoke.debugProbe(mode==0 || mode==5?orange>0:orange==0,
-                                (mode==0?"внешняя оболочка не скрывает передние линии":mode==1?"чужой моб скрывает линии":mode==2?"перекрытие не зависит от порядка мобов":mode==3?"стена скрывает линии":mode==4?"своё тело скрывает задние линии":"владелец маски сохраняется за границей пакета из 128 частей")+", видимых пикселей="+orange);
+                                (mode==0?"внешняя оболочка не скрывает передние линии":mode==1?"чужой моб скрывает линии":mode==2?"перекрытие не зависит от порядка мобов":mode==3?"стена скрывает линии":mode==4?"своё тело скрывает задние линии":"владелец маски сохраняется за границей пакета из 128 частей")+", stencil="+stencil+", видимых пикселей="+orange);
                         probeDone++;
                     } finally { target.destroyBuffers(); }
                 });
