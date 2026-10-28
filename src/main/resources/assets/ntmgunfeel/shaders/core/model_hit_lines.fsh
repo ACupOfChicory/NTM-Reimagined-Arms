@@ -22,5 +22,6 @@ void main() {
     // Отладочная линия не зависит от света и тумана мира.
     fragColor = vertexColor.a < 0.25 ? vec4(0.15, 1.0, 1.0, 1.0)
         : vertexColor.a < 0.45 ? vec4(0.8, 0.45, 1.0, 1.0)
+        : vertexColor.a > 0.55 && vertexColor.a < 0.75 ? vec4(0.15, 1.0, 0.15, 1.0)
         : vertexColor.a > 0.75 ? vec4(1.0, 0.8, 0.333333, 1.0) : vec4(1.0);
 }
