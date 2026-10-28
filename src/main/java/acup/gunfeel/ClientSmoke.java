@@ -37,6 +37,15 @@ public final class ClientSmoke {
     private static int serverTick;
     private static boolean passed = true, finished;
     private static org.joml.Matrix4f drawnArm, armBefore;
+    private static final boolean WEAPON_SWAY=Boolean.getBoolean("ntmgunfeel.weaponSwaySelfTest");
+    private static WeaponSway.Turn observedTurn;
+    private static int suppressedLag;
+    public static void weaponSway(WeaponSway.Turn turn,float aiming) {
+        if(ENABLED && WEAPON_SWAY)observedTurn=turn;
+    }
+    public static void weaponLag(float value) {
+        if(ENABLED && WEAPON_SWAY && value==0)suppressedLag++;
+    }
     static void armPose(org.joml.Matrix4f pose,boolean right) {
         if(Boolean.getBoolean("ntmgunfeel.armEditorSelfTest") && !right) drawnArm=new org.joml.Matrix4f(pose);
     }
@@ -82,6 +91,12 @@ public final class ClientSmoke {
         if (finished) return;
         frames++;
         Minecraft mc = Minecraft.getInstance();
+        if(WEAPON_SWAY && phase>=30 && phase<=32 && mc.player!=null) {
+            float pitch=phase==32?0:10,yaw=phase==32?0:20;
+            mc.player.setXRot(pitch);mc.player.xRotO=pitch;mc.player.xBobO=mc.player.xBob=0;
+            mc.player.setYRot(yaw);mc.player.yRotO=yaw;mc.player.yBobO=mc.player.yBob=0;
+            ItemGunBaseNT.prevAimingProgress=ItemGunBaseNT.aimingProgress=phase==31?1:0;
+        }
         try {
             if((HoleBenchMetrics.ENABLED || MobSmoke.enabled()) && phase==0 && mc.gui.screen()!=null
                     && mc.gui.screen().getClass().getName().equals("net.neoforged.neoforge.client.gui.LoadingErrorScreen")) {
@@ -122,6 +137,11 @@ public final class ClientSmoke {
                 since = System.nanoTime();
                 prepare(20);
             } else if (phase == 2 && ready && elapsed() > 5) {
+                if(WEAPON_SWAY) {
+                    var gun=net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.Identifier.parse("hbm:gun_g3")).orElseThrow().value();
+                    mc.player.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(gun));mc.gui.setScreen(null);
+                    phase=30;since=System.nanoTime();return;
+                }
                 if (Boolean.getBoolean("ntmgunfeel.armEditorSelfTest")) {
                     var gun=net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.Identifier.parse("hbm:gun_g3")).orElseThrow().value();
                     mc.player.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(gun));
@@ -168,6 +188,17 @@ public final class ClientSmoke {
                 check(Math.abs(now - pausedClock) < 0.001, "игровые часы неподвижны в паузе: " + pausedClock + " -> " + now);
                 mc.gui.setScreen(null);
                 finish();
+            }
+            if(WEAPON_SWAY && phase>=30 && phase<=32 && elapsed()>1) {
+                var expected=WeaponSway.sample(phase==32?0:10,phase==32?0:20,phase==31?1:0);
+                check(observedTurn!=null && Math.abs(observedTurn.pitch()-expected.pitch())<1e-5
+                        && Math.abs(observedTurn.yaw()-expected.yaw())<1e-5
+                        && Math.abs(observedTurn.roll()-expected.roll())<1e-5
+                        && Math.abs(observedTurn.x()-expected.x())<1e-5,
+                        "Superb Warfare в рендере "+(phase==30?"от бедра":phase==31?"в прицеле":"после остановки")+": "+observedTurn);
+                check(suppressedLag>0,"штатное отставание NTM отключено в настоящем рендере");
+                if(phase==32){finish();return;}
+                suppressedLag=0;observedTurn=null;phase++;since=System.nanoTime();return;
             }
             if (phase == 20 && elapsed() > 2) {
                 ArmAnimationPreview.play(false);ArmAnimationPreview.seek(510);

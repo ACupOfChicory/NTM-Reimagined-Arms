@@ -167,5 +167,11 @@ author, source link and license are in
 [third-party/accurate-hitboxes.txt](third-party/accurate-hitboxes.txt), also
 included in the jar under `META-INF/licenses/accurate-hitboxes.txt`.
 
+Weapon turn sway in `WeaponSway.java` is adapted from Superb Warfare by Mercurows
+and contributors under GPL-3.0-only. The combined mod is distributed under GPL
+version 3. Source revision, changes and the license text are included in
+[third-party/superb-warfare.txt](third-party/superb-warfare.txt) and packaged under
+`META-INF/licenses/`.
+
 Sounds under `src/main/resources/assets/ntmgunfeel/sounds/` come from freesound.org and keep their own licenses (CC0 1.0 or
 CC BY 3.0/4.0); authors and links are in [CREDITS.txt](src/main/resources/assets/ntmgunfeel/sounds/bullet/CREDITS.txt).

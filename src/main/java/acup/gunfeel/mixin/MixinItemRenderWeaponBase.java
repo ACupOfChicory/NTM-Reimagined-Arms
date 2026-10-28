@@ -53,6 +53,22 @@ public abstract class MixinItemRenderWeaponBase {
         GunFeel.currentAkimbo = self.isAkimbo(player);
         if (Config.enabled && !Arms.measuring) GunFeel.checkShot(stack);
         Arms.begin(stack);
+        if(Config.enabled && !Arms.measuring) acup.gunfeel.WeaponSway.apply(pose,player);
+    }
+
+    // Два штатных поворота отставания NTM заменены целиком, а не сложены с новым движением.
+    @org.spongepowered.asm.mixin.injection.ModifyArg(method = "setupTransformsAndSubmit", at = @At(value = "INVOKE",
+            target = "Lcom/mojang/math/Axis;rotationDegrees(F)Lorg/joml/Quaternionf;", ordinal = 0), index = 0)
+    private float gunfeel$replacePitchLag(float original) {
+        if(Config.enabled)acup.gunfeel.ClientSmoke.weaponLag(0);
+        return Config.enabled ? 0F : original;
+    }
+
+    @org.spongepowered.asm.mixin.injection.ModifyArg(method = "setupTransformsAndSubmit", at = @At(value = "INVOKE",
+            target = "Lcom/mojang/math/Axis;rotationDegrees(F)Lorg/joml/Quaternionf;", ordinal = 1), index = 0)
+    private float gunfeel$replaceYawLag(float original) {
+        if(Config.enabled)acup.gunfeel.ClientSmoke.weaponLag(0);
+        return Config.enabled ? 0F : original;
     }
 
     private static final String SETUP = "Lcom/hbm/render/item/weapon/sedna/ItemRenderWeaponBase;setupFirstPerson"
