@@ -20,7 +20,7 @@ public final class GpuModelHits {
     private record Pending(Object visual,LivingEntity entity,float yaw,Vec3 position,int x,int y,int z) {}
     private static final Map<UUID,Pending> PENDING=new ConcurrentHashMap<>();
     private record Layer(ModelSurfaceGeometry geometry,String suffix) {}
-    private record Geometry(int generation,List<Layer> meshes) {}
+    private record Geometry(int generation,boolean avatar,List<Layer> meshes) {}
     private static final Map<Model,Geometry> MODELS=new WeakHashMap<>();
     private record PartPose(Model model,long revision,int generation,String name,double x,double y,double z,List<ModelBox> boxes) {}
     private static final Map<TransformedInstance,PartPose> PARTS=new WeakHashMap<>();
@@ -103,10 +103,10 @@ public final class GpuModelHits {
                     var cached=MobBenchMetrics.LEGACY?null:PARTS.get(instance);
                     if(cached!=null && cached.model()==model && cached.revision()==revision && cached.generation()==generation
                             && cached.name().equals(path) && cached.x()==ox && cached.y()==oy && cached.z()==oz) {
-                        if(MobSmoke.enabled()) MobSmoke.gpuGeometry(p.entity(),cached.boxes().equals(boxes(model,path,matrix,ox,oy,oz)));
+                        if(MobSmoke.enabled()) MobSmoke.gpuGeometry(p.entity(),cached.boxes().equals(boxes(model,path,matrix,ox,oy,oz,p.entity() instanceof net.minecraft.world.entity.Avatar)));
                         out.addAll(cached.boxes()); continue;
                     }
-                    var partBoxes=boxes(model,path,matrix,ox,oy,oz);
+                    var partBoxes=boxes(model,path,matrix,ox,oy,oz,p.entity() instanceof net.minecraft.world.entity.Avatar);
                     out.addAll(partBoxes);
                     if(!MobBenchMetrics.LEGACY) PARTS.put(instance,new PartPose(model,revision,generation,path,ox,oy,oz,List.copyOf(partBoxes)));
                 }
@@ -120,9 +120,9 @@ public final class GpuModelHits {
             }
         }
     }
-    private static List<ModelBox> boxes(Model model,String path,org.joml.Matrix4fc matrix,double x,double y,double z) {
+    private static List<ModelBox> boxes(Model model,String path,org.joml.Matrix4fc matrix,double x,double y,double z,boolean avatar) {
         var out=new ArrayList<ModelBox>();
-        for(var layer:geometry(model)) {
+        for(var layer:geometry(model,avatar)) {
             String name=path+layer.suffix();
             if(name.length()>ModelBox.MAX_PART_NAME-5) name=name.substring(name.length()-ModelBox.MAX_PART_NAME+5);
             layer.geometry().append(out,name,matrix,x,y,z);
@@ -143,9 +143,9 @@ public final class GpuModelHits {
         for(var field:FIELDS.get(value.getClass())) collect(field.get(value),out,seen,depth+1,
                 field.getName().equals("instances") && depth==0?"root":path+"/"+field.getName());
     }
-    private static List<Layer> geometry(Model model) {
+    private static List<Layer> geometry(Model model,boolean avatar) {
         var cache=MODELS.get(model);
-        if(cache!=null && cache.generation()==ModelTextureMask.generation()) return cache.meshes();
+        if(cache!=null && cache.generation()==ModelTextureMask.generation() && cache.avatar()==avatar) return cache.meshes();
         var out=new ArrayList<Layer>();
         for(var configured:model.meshes()) {
             var blend=configured.material().transparency();
@@ -173,7 +173,7 @@ public final class GpuModelHits {
                 boolean translucent=material.transparency()==dev.engine_room.flywheel.api.material.Transparency.TRANSLUCENT
                         || material.transparency()==dev.engine_room.flywheel.api.material.Transparency.ORDER_INDEPENDENT
                         || material.transparency()==dev.engine_room.flywheel.api.material.Transparency.TRANSLUCENT_ALPHA_REPLACE;
-                var geometry=translucent && unmasked.solid()?unmasked:ModelSurfaceGeometry.bake(data,ModelTextureMask.mask(texture));
+                var geometry=!avatar && translucent && unmasked.solid()?unmasked:ModelSurfaceGeometry.bake(data,ModelTextureMask.mask(texture));
                 String suffix=texture.getPath().contains("/sheep_wool")?ModelWool.SUFFIX:"";
                 var b=geometry.bounds();
                 if(texture.getPath().equals("textures/entity/slime/slime.png") && Math.abs(b[3]-b[0]-.5F)<1e-6
@@ -181,6 +181,6 @@ public final class GpuModelHits {
                 out.add(new Layer(geometry,suffix));
             } finally { MemoryUtil.nmemFree(vertices); MemoryUtil.nmemFree(index); }
         }
-        var result=List.copyOf(out); MODELS.put(model,new Geometry(ModelTextureMask.generation(),result)); return result;
+        var result=List.copyOf(out); MODELS.put(model,new Geometry(ModelTextureMask.generation(),avatar,result)); return result;
     }
 }

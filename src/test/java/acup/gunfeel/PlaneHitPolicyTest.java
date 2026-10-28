@@ -6,6 +6,16 @@ import org.joml.Matrix4f;
 import org.junit.jupiter.api.Test;
 
 class PlaneHitPolicyTest {
+    @Test void flatSkinPatchRemainsHittableOnlyForWhitelistedAvatars() {
+        var patch=MeshModelPose.surface("sleeve",0,0,0,1,1,0,new Matrix4f(),0,0,0);
+        var boxes=List.of(patch);
+        for(String type:List.of("minecraft:player","minecraft:mannequin")) {
+            var kept=PlaneHitPolicy.filter(net.minecraft.resources.Identifier.parse(type),.6F,1.8F,boxes);
+            assertEquals(boxes,kept);assertTrue(kept.getFirst().clip(.5,.5,-1,.5,.5,1)>=0);
+        }
+        var ordinary=PlaneHitPolicy.filter(net.minecraft.resources.Identifier.parse("minecraft:zombie"),.6F,1.8F,boxes);
+        assertEquals(-1,ordinary.getFirst().clip(.5,.5,-1,.5,.5,1));
+    }
     @Test void goatAndLargerLosePaperButKeepVolume() {
         var paper=MeshModelPose.surface("beard",0,0,0,1,1,0,new Matrix4f(),0,0,0);
         var horn=new ModelBox("horn",0,0,0,1,0,0,0,1,0,0,0,1);

@@ -19,7 +19,10 @@ public final class PlaneHitPolicy {
     }
     public static List<ModelBox> filter(LivingEntity entity,List<ModelBox> boxes) {
         var size=entity.getDimensions(Pose.STANDING);
-        return filter(size.width(),size.height(),boxes);
+        return filter(net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()),size.width(),size.height(),boxes);
+    }
+    static List<ModelBox> filter(net.minecraft.resources.Identifier type,float width,float height,List<ModelBox> boxes) {
+        return AvatarHitPolicy.avatar(type)?boxes:filter(width,height,boxes);
     }
     static List<ModelBox> filter(float width,float height,List<ModelBox> boxes) {
         if(!large(width,height)) return boxes;
