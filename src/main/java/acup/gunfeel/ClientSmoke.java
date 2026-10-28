@@ -113,6 +113,14 @@ public final class ClientSmoke {
                 since = System.nanoTime();
                 prepare(20);
             } else if (phase == 2 && ready && elapsed() > 5) {
+                if (Boolean.getBoolean("ntmgunfeel.armEditorSelfTest")) {
+                    var gun=net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.Identifier.parse("hbm:gun_g3")).orElseThrow().value();
+                    mc.player.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(gun));
+                    Config.select("hbm:gun_g3");
+                    mc.gui.setScreen(new ArmAnimationEditor(null,gun,"hbm:gun_g3"));
+                    check(ArmAnimationPreview.active(),"редактор открыл настоящий предпросмотр G3");
+                    phase=20;since=System.nanoTime();return;
+                }
                 mc.gui.setScreen(null);
                 reset();
                 remaining = 5;
@@ -149,6 +157,40 @@ public final class ClientSmoke {
                 check(Math.abs(now - pausedClock) < 0.001, "игровые часы неподвижны в паузе: " + pausedClock + " -> " + now);
                 mc.gui.setScreen(null);
                 finish();
+            }
+            if (phase == 20 && elapsed() > 2) {
+                ArmAnimationPreview.play(false);ArmAnimationPreview.seek(510);
+                check(ArmAnimationPreview.millis()==510,"курсор установлен на 510 мс");
+                check(com.hbm.render.anim.HbmAnimations.getGunAnimation(0)==com.hbm.render.anim.AnimationEnums.GunAnimation.RELOAD,"тип анимации синхронизирован");
+                var expected=ArmAnimationPreview.animation().animation.getBus("PLUG").getTransformation(510);
+                var actual=com.hbm.render.anim.HbmAnimations.getRelevantTransformation("PLUG");
+                check(java.util.Arrays.equals(expected,actual),"деталь оружия перемотана к курсору");
+                phase=21;since=System.nanoTime();
+            } else if (phase == 21 && elapsed() > 1) {
+                check(ArmAnimationPreview.millis()==510,"пауза держит кадр при настоящем рендере");
+                net.minecraft.client.Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(),image -> {
+                    try(image) { image.writeToFile(Path.of("../notes/arm-editor-check.png")); }
+                    catch(java.io.IOException e) { GunFeel.LOGGER.warn("Не удалось сохранить кадр редактора",e); }
+                });
+                var screen=(ArmAnimationEditor)mc.gui.screen();
+                var add=screen.children().stream().filter(w->w instanceof net.minecraft.client.gui.components.Button b && b.getMessage().getString().equals("+ Ключ")).findFirst().orElseThrow();
+                ((net.minecraft.client.gui.components.Button)add).onPress(new net.minecraft.client.input.KeyEvent(257,0,0));
+                check(Config.armLeftPath.contains("510.0:"),"кнопка добавления создала игровой ключ");
+                var undo=screen.children().stream().filter(w->w instanceof net.minecraft.client.gui.components.Button b && b.getMessage().getString().equals("Отменить шаг")).findFirst().orElseThrow();
+                ((net.minecraft.client.gui.components.Button)undo).onPress(new net.minecraft.client.input.KeyEvent(257,0,0));
+                check(!Config.armLeftPath.contains("510.0:"),"отмена вернула прежнюю траекторию");
+                ArmAnimationPreview.seek(1900);
+                check(ArmAnimationPreview.millis()==1900,"перемотка вперёд");
+                ArmAnimationPreview.seek(100);
+                check(ArmAnimationPreview.millis()==100,"перемотка назад");
+                ArmAnimationPreview.play(true);ArmAnimationPreview.speed(.1);
+                phase=22;since=System.nanoTime();
+            } else if (phase == 22 && elapsed() > 1) {
+                int position=ArmAnimationPreview.millis();
+                check(position>150 && position<400,"замедление ×0,1 работает в клиенте, t="+position);
+                ((ArmAnimationEditor)mc.gui.screen()).onClose();
+                check(!ArmAnimationPreview.active(),"после закрытия предпросмотр отключён");
+                finish();return;
             }
             if (phase == 10) MobSmoke.frame();
             if (phase == 11) MobBenchmark.frame();

@@ -18,6 +18,8 @@ class ArmContactTest {
             for (int x : new int[] {-1,1}) for (int z : new int[] {-1,1})
                 distance = Math.min(distance,pose.transformPosition(center+x*half,.75F,z*.125F,new Vector3f()).distance(target));
             assertEquals(0,distance,1e-6,"угол кисти должен касаться детали");
+            var fixed = pose.transformPosition(center+(right?half:-half),.75F,-.125F,new Vector3f());
+            assertEquals(0,fixed.distance(target),1e-6,"один и тот же угол при любом повороте");
             assertEquals(before.m00(),pose.m00());
             assertEquals(before.m11(),pose.m11());
             assertEquals(before.m22(),pose.m22());

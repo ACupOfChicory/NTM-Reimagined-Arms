@@ -103,6 +103,7 @@ neoForge {
         register("checkClient") {
             client()
             gameDirectory = root.resolve("run-client-check")
+            systemProperty("ntmgunfeel.armEditorSelfTest",providers.gradleProperty("armEditorSelfTest").isPresent.toString())
             jvmArgument("-Xmx2500M")
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
             programArguments.addAll("--width", "854", "--height", "480")

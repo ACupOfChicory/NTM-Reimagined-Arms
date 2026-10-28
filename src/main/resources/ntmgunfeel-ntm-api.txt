@@ -57,6 +57,9 @@ AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setTyp
 ARMS class com/hbm/client/render/OtherHandCollector
 ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT
 ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT$SmokeNode
+ARMS class com/hbm/render/anim/AnimationEnums$GunAnimation
+ARMS class com/hbm/render/anim/BusAnimation
+ARMS class com/hbm/render/anim/HbmAnimations$Animation
 ARMS class com/hbm/render/item/weapon/sedna/ItemRenderCoilgun
 ARMS class com/hbm/render/item/weapon/sedna/ItemRenderM2
 ARMS class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
@@ -76,14 +79,21 @@ ARMS field com/hbm/render/anim/HbmAnimations$Animation startMillis J
 ARMS field com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase interp F
 ARMS field com/hbm/render/loader/GroupObject name Ljava/lang/String;
 ARMS field com/hbm/render/loader/HFRWavefrontObject groups [Lcom/hbm/render/loader/GroupObject;
+ARMS method com/hbm/items/weapon/sedna/GunConfig getAnims (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiFunction;
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation name ()Ljava/lang/String;
+ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation ordinal ()I
+ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation values ()[Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS method com/hbm/render/anim/BusAnimation getBus (Ljava/lang/String;)Lcom/hbm/render/anim/BusAnimationSequence;
+ARMS method com/hbm/render/anim/BusAnimation getDuration ()I
 ARMS method com/hbm/render/anim/BusAnimationSequence getTotalTime ()I
 ARMS method com/hbm/render/anim/BusAnimationSequence getTransformation (I)[D
 ARMS method com/hbm/render/anim/HbmAnimations getGunAnimation (I)Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS method com/hbm/render/anim/HbmAnimations getRelevantAnim (I)Lcom/hbm/render/anim/HbmAnimations$Animation;
 ARMS method com/hbm/render/anim/HbmAnimations getRelevantTransformation (Ljava/lang/String;)[D
+ARMS method com/hbm/render/anim/HbmAnimations identity ()[D
+ARMS method com/hbm/render/anim/HbmAnimations$Animation <init> (Ljava/lang/String;JLcom/hbm/render/anim/BusAnimation;Z)V
 ARMS method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase adjustHudFov (F)F
 ARMS method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase isAkimbo (Lnet/minecraft/world/entity/LivingEntity;)Z
 ARMS method com/hbm/render/loader/GroupObject bounds ()[F
@@ -266,6 +276,8 @@ MODEL_HITBOXES method com/hbm/render/loader/GroupObject quads (Z)[F
 MODEL_HITBOXES method com/hbm/render/loader/HFRWavefrontObject partId (Ljava/lang/String;)I
 MODEL_HITBOXES method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z
 RECOIL class com/hbm/items/weapon/sedna/ItemGunBaseNT
+RECOIL class com/hbm/render/anim/AnimationEnums$GunAnimation
+RECOIL class com/hbm/render/anim/HbmAnimations$Animation
 RECOIL class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 RECOIL field com/hbm/config/GunVisualConfig visualRecoil Z
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J

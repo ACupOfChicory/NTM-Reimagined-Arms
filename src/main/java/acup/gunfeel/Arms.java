@@ -425,6 +425,7 @@ public final class Arms {
                 }
                 float holdRoll = right ? Config.armRollRight : Config.armRollLeft;
                 float loadRoll = right ? Config.armLoadRollRight : Config.armLoadRollLeft;
+                if (Float.isFinite(onPath[11])) loadRoll = holdRoll + onPath[11];
                 rollNow = Float.isNaN(loadRoll) ? Float.NaN : holdRoll + (loadRoll - holdRoll) * w;
                 Matrix4f m = pose(right, slim, p, null, geometry.fraction(grip[i][2]), bodyInCamera, off, p, false,
                         new Quaternionf(), 0F, mix);
@@ -443,6 +444,14 @@ public final class Arms {
                     crop = blendCrop;
                 }
                 if (onPath[10] > 0F) ArmContact.corner(m, p, right, slim, onPath[10]);
+                if (Minecraft.getInstance().gui.screen() instanceof ArmAnimationEditor editor) {
+                    float fov = com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase.adjustHudFov(70F);
+                    float aspect = (float)Minecraft.getInstance().getWindow().getWidth() / Math.max(1,Minecraft.getInstance().getWindow().getHeight());
+                    var clip = new Matrix4f().perspective((float)Math.toRadians(fov),aspect,.05F,100F)
+                            .mul(new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getModelViewStack())).mul(CAMERA)
+                            .transform(new org.joml.Vector4f(p,1));
+                    editor.anchor(right,clip);
+                }
                 branch = "path w=" + fmt(onPath[0]) + (Config.armPathBlend ? " blend" : "");
                 submit(collector, light, arm, skin, new Matrix4f(CAMERA).mul(m), crop, right, slim, sleeveShown, sleeve);
                 continue;
@@ -643,6 +652,7 @@ public final class Arms {
     }
 
     private static float animMillis() {
+        if (ArmAnimationPreview.active()) return ArmAnimationPreview.millis();
         HbmAnimations.Animation anim = HbmAnimations.getRelevantAnim(0);
         return anim == null ? 0F : com.hbm.util.GameTime.now() - anim.startMillis;
     }
@@ -771,7 +781,7 @@ public final class Arms {
     // /<bus> to apply only to animations that have that bus (SPAS-12: RELOAD/PumpGrip = the empty reload).
     // Each entry: {t, w, kind (0 live, 1 bus time, 2 fixed point), b, x, y, z}
     // armLeftPath / armRightPath: one key, ms -> grip (part null) or a point of a part as drawn
-    private record PathKey(float ms, String part, int nth, float[] at, float[] side, float[] shoulder, boolean corner, boolean followShoulder) {
+    private record PathKey(float ms, String part, int nth, float[] at, float[] side, float[] shoulder, boolean corner, boolean followShoulder, float roll) {
     }
 
     private static final String[] pathSource = new String[2];
@@ -813,7 +823,7 @@ public final class Arms {
                     String t = e.substring(colon + 1);
                     PathKey k;
                     if (t.equalsIgnoreCase("grip")) {
-                        k = new PathKey(ms, null, 0, null, null, null, false, false);
+                        k = new PathKey(ms, null, 0, null, null, null, false, false, 0F);
                     } else {
                         int at = t.indexOf('@');
                         String part = t.substring(0, at), pt = t.substring(at + 1);
@@ -824,6 +834,9 @@ public final class Arms {
                             nth = n.equalsIgnoreCase("last") ? -1 : Integer.parseInt(n);
                             part = part.substring(0, hash);
                         }
+                        int wrist = pt.indexOf('^');
+                        float roll = wrist < 0 ? Float.NaN : Float.parseFloat(pt.substring(wrist + 1));
+                        if (wrist >= 0) pt = pt.substring(0, wrist);
                         boolean corner = part.endsWith("!");
                         if (corner) part = part.substring(0, part.length() - 1);
                         int gt = pt.indexOf('>');
@@ -832,7 +845,7 @@ public final class Arms {
                         if (gt >= 0) pt = pt.substring(0, gt);
                         int sl = pt.indexOf('/');
                         float[] side = sl < 0 ? NO_CARRY.dir : xyz(pt.substring(sl + 1));
-                        k = new PathKey(ms, part, nth, xyz(sl < 0 ? pt : pt.substring(0, sl)), side, shoulder, corner, followShoulder);
+                        k = new PathKey(ms, part, nth, xyz(sl < 0 ? pt : pt.substring(0, sl)), side, shoulder, corner, followShoulder, roll);
                     }
                     list.add(k);
                 } catch (RuntimeException e) {
@@ -852,6 +865,13 @@ public final class Arms {
     }
 
     // the part's pose this frame (in the gun's aligned frame), or null when it was not drawn
+    static List<String> editorParts() {
+        if (frameModel == null) return List.of();
+        var names = new ArrayList<String>();
+        for (var group : frameModel.groups) names.add(group.name);
+        return names;
+    }
+
     private static Matrix4f partPose(String name, int nth) {
         int id = partByName(frameModel, name);
         if (id < 0) return null;
@@ -890,29 +910,35 @@ public final class Arms {
             }
         }
         float s = u * u * (3F - 2F * u);
-        float[] pa = pathPoint(a, cameraInv, restShoulder), pb = pathPoint(b, cameraInv, restShoulder);
+        float[] pa = pathPoint(a, cameraInv, restShoulder, hand == 0), pb = pathPoint(b, cameraInv, restShoulder, hand == 0);
         if (pa == null && pb == null) return null;
         // the grip end has no shoulder shift: it fades in and out with the weight
-        if (pa == null) return new float[] {s, pb[0], pb[1], pb[2], pb[3], pb[4], pb[5], pb[6] * s, pb[7] * s, pb[8] * s, pb[9] * s};
-        if (pb == null) return new float[] {1F - s, pa[0], pa[1], pa[2], pa[3], pa[4], pa[5], pa[6] * (1F - s), pa[7] * (1F - s), pa[8] * (1F - s), pa[9] * (1F - s)};
-        float[] out = new float[11];
+        if (pa == null) return new float[] {s, pb[0], pb[1], pb[2], pb[3], pb[4], pb[5], pb[6] * s, pb[7] * s, pb[8] * s, pb[9] * s, pb[10] * s};
+        if (pb == null) return new float[] {1F - s, pa[0], pa[1], pa[2], pa[3], pa[4], pa[5], pa[6] * (1F - s), pa[7] * (1F - s), pa[8] * (1F - s), pa[9] * (1F - s), pa[10] * (1F - s)};
+        float[] out = new float[12];
         out[0] = 1F;
-        for (int j = 0; j < 10; j++) out[j + 1] = pa[j] + (pb[j] - pa[j]) * s;
+        for (int j = 0; j < 11; j++) out[j + 1] = pa[j] + (pb[j] - pa[j]) * s;
         return out;
     }
 
     // a key's point and side in camera space; null for grip (or a part not drawn)
-    private static float[] pathPoint(PathKey key, Matrix4f cameraInv, Vector3f restShoulder) {
+    private static float[] pathPoint(PathKey key, Matrix4f cameraInv, Vector3f restShoulder, boolean right) {
         if (key.part() == null) return null;
         Matrix4f pose = partPose(key.part(), key.nth());
         if (pose == null) return null;
         Matrix4f within = new Matrix4f(cameraInv).mul(pose);
         Vector3f at = within.transformPosition(key.at()[0], key.at()[1], key.at()[2], new Vector3f());
         Vector3f d = new Vector3f(key.side());
-        Vector3f side = within.transformDirection(new Vector3f(d)).normalize().mul(d.length());
+        Vector3f side = d.lengthSquared() < 1e-8F ? new Vector3f()
+                : within.transformDirection(new Vector3f(d)).normalize().mul(d.length());
         var shoulder = new Vector3f(key.shoulder());
         if (key.followShoulder()) shoulder.add(at).sub(restShoulder);
-        return new float[] {at.x, at.y, at.z, side.x, side.y, side.z, shoulder.x, shoulder.y, shoulder.z, key.corner() ? 1F : 0F};
+        float roll = key.roll();
+        if (!Float.isFinite(roll)) {
+            float load = right ? Config.armLoadRollRight : Config.armLoadRollLeft;
+            roll = Float.isFinite(load) ? load - (right ? Config.armRollRight : Config.armRollLeft) : 0F;
+        }
+        return new float[] {at.x, at.y, at.z, side.x, side.y, side.z, shoulder.x, shoulder.y, shoulder.z, key.corner() ? 1F : 0F, roll};
     }
 
     private static Map<String, List<float[]>> parseCarryKeys(String src) {
@@ -1323,7 +1349,7 @@ public final class Arms {
         // armSwitchMs (per gun): a new animation (or its end) starts from where the arm was drawn last, over
         // this many ms. NTM's first frame of an animation comes ~50 ms in, keyed hands jumped there.
         int hand = right ? 0 : 1;
-        if (Config.armSwitchMs > 0F) {
+        if (Config.armSwitchMs > 0F && !ArmAnimationPreview.active()) {
             HbmAnimations.Animation anim = HbmAnimations.getRelevantAnim(0);
             var player = Minecraft.getInstance().player;
             String item = player == null ? "" : String.valueOf(System.identityHashCode(player.getMainHandItem().getItem()));
