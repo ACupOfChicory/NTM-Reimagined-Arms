@@ -77,6 +77,9 @@ public final class GunFeel {
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Post.class, e -> {
             if (Feature.MACHINE_MESH.on()) MeshShapes.tick();
         });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderFrameEvent.Pre.class, e -> {
+            if (Feature.MACHINE_MESH.on()) MeshShapes.frame();
+        });
         // NTM keeps the attack and pick keys off the world while a gun is held on them, but not the use key: aiming
         // on the right button also opened doors, pressed buttons, placed the off-hand block
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.InputEvent.InteractionKeyMappingTriggered.class, e -> {

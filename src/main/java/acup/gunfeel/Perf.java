@@ -112,7 +112,7 @@ public final class Perf {
             StringBuilder o = new StringBuilder();
             for (int i = 0; i < OTHER_NAMES.length; i++)
                 o.append(String.format(java.util.Locale.ROOT, "%s %.3f ms (%d calls), ", OTHER_NAMES[i], OTHER_NANOS[i] / 1e6 / f, OTHER_CALLS[i]));
-            GunFeel.LOGGER.info("Not ours, a frame: {}particles {} on average, {} at most; longest frame {} ms, ours in it {} ms", o,
+            GunFeel.LOGGER.info("Outside bullet-effects timing: {}particles {} on average, {} at most; longest frame {} ms, measured bullet effects in it {} ms", o,
                     Math.round(particles / (double) Math.max(1, OTHER_CALLS[P_EXTRACT])), particlesMax,
                     String.format(java.util.Locale.ROOT, "%.1f", longest / 1e6), String.format(java.util.Locale.ROOT, "%.1f", longestOurs / 1e6));
         }

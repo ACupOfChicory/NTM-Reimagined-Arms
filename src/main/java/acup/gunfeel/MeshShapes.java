@@ -1,10 +1,7 @@
 package acup.gunfeel;
 
 import java.io.InputStreamReader;
-import java.io.Writer;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -81,26 +78,9 @@ public final class MeshShapes {
         if (differs) write();
     }
 
-    // every shape known now (blocks and big models) to config/, for copying into the jar's file
+    private static final ShapeStore STORE=ShapeStore.background();
     private static void write() {
-        Map<String, long[]> all = PassableClip.all();
-        Path f = FMLPaths.CONFIGDIR.get().resolve(PassableClip.SHAPES_FILE);
-        try (Writer w = Files.newBufferedWriter(f, StandardCharsets.UTF_8)) {
-            w.write("# made by NTM Gun Feel from this client's block models and big NTM models: 16x16x16 cells a bullet meets,\n");
-            w.write("# bit x+16*(y+16*z), optional exact faces after the cells, deflated base64 after z; shared shapes point to @n\n");
-            Map<String, String> ids = new java.util.LinkedHashMap<>();
-            Map<String, Integer> uses = new TreeMap<>();
-            for (long[] bits : all.values()) uses.merge(PassableClip.pack(bits), 1, Integer::sum);
-            for (var e : uses.entrySet()) if (e.getValue() > 1) ids.put(e.getKey(), "@" + ids.size());
-            for (var e : ids.entrySet()) w.write(e.getValue() + " = " + e.getKey() + "\n");
-            for (var e : all.entrySet()) {
-                String packed = PassableClip.pack(e.getValue());
-                w.write(e.getKey().replace(":", "\\:").replace("=", "\\=") + " = " + ids.getOrDefault(packed, packed) + "\n");
-            }
-            GunFeel.LOGGER.info("Wrote {} bullet shapes to {}", all.size(), f);
-        } catch (Exception e) {
-            GunFeel.LOGGER.warn("Could not write {}", f, e);
-        }
+        STORE.request(FMLPaths.CONFIGDIR.get().resolve(PassableClip.SHAPES_FILE),PassableClip.all());
     }
 
     // ---- big NTM models (cargo door, cargo elevator): their cells from what is drawn, see Structures
@@ -108,142 +88,182 @@ public final class MeshShapes {
     private static final Map<BlockPos, BlockState> CAPTURED = new java.util.HashMap<>();
     private static final Map<BlockPos, BlockState> LAST_SEEN = new java.util.HashMap<>();
     private static int ticks;
+    private record Candidate(BlockPos pos,BlockState state) {}
+    private static final java.util.ArrayDeque<Candidate> QUEUE=new java.util.ArrayDeque<>();
+    private static final java.util.Set<BlockPos> QUEUED=new java.util.HashSet<>();
+    private static ClientLevel observed;
+    private static Capture active;
+    static long captureFramePeak;
+    static int capturesCompleted;
+    private static long lastReport;
 
     public static void forget() {
-        CAPTURED.clear();
-        LAST_SEEN.clear();
+        CAPTURED.clear();LAST_SEEN.clear();QUEUE.clear();QUEUED.clear();active=null;
     }
-
-    // every 2 s: the multiblocks near the player, standing still since the last look, not read in this state yet
+    private static void world(ClientLevel level) {
+        if(observed!=level){forget();observed=level;}
+    }
+    // Раз в две секунды только обнаруживаем кандидатов. Сама геометрия обрабатывается между кадрами.
     public static void tick() {
-        if (++ticks % 40 != 0) return;
-        Minecraft mc = Minecraft.getInstance();
-        ClientLevel level = mc.level;
-        if (level == null || mc.player == null) return;
-        BlockPos me = mc.player.blockPosition();
-        Map<String, long[]> made = new TreeMap<>();
-        Map<BlockPos, BlockState> seen = new java.util.HashMap<>();
-        int cx = me.getX() >> 4, cz = me.getZ() >> 4;
-        for (int x = cx - 3; x <= cx + 3; x++) for (int z = cz - 3; z <= cz + 3; z++) {
-            var chunk = level.getChunkSource().getChunk(x, z, false);
-            if (chunk == null) continue;
-            for (BlockEntity be : chunk.getBlockEntities().values()) {
-                BlockState state = be.getBlockState();
-                BlockPos pos = be.getBlockPos();
-                if (!Structures.taken(state) || pos.distSqr(me) > 48 * 48 || !Structures.atRest(level, pos, state)) continue;
-                seen.put(pos.immutable(), state);
-                if (state.equals(CAPTURED.get(pos)) || !state.equals(LAST_SEEN.get(pos))) continue;
-                try {
-                    made.putAll(capture(level, be, state));
-                } catch (Throwable t) {
-                    GunFeel.LOGGER.warn("Could not read the cells of {} at {}", state, pos, t);
-                }
-                CAPTURED.put(pos.immutable(), state);
+        Minecraft mc=Minecraft.getInstance();ClientLevel level=mc.level;world(level);
+        if(level==null || mc.player==null || ++ticks%40!=0)return;
+        BlockPos me=mc.player.blockPosition();
+        Map<BlockPos,BlockState> seen=new java.util.HashMap<>();
+        int cx=me.getX()>>4,cz=me.getZ()>>4;
+        for(int x=cx-3;x<=cx+3;x++)for(int z=cz-3;z<=cz+3;z++) {
+            var chunk=level.getChunkSource().getChunk(x,z,false);if(chunk==null)continue;
+            for(BlockEntity be:chunk.getBlockEntities().values()) {
+                BlockState state=be.getBlockState();BlockPos pos=be.getBlockPos();
+                if(!Structures.taken(state) || pos.distSqr(me)>48*48 || !Structures.atRest(level,pos,state))continue;
+                seen.put(pos.immutable(),state);
+                if(state.equals(CAPTURED.get(pos)) || !state.equals(LAST_SEEN.get(pos)) || !QUEUED.add(pos.immutable()))continue;
+                QUEUE.addLast(new Candidate(pos.immutable(),state));
             }
         }
-        LAST_SEEN.clear();
-        LAST_SEEN.putAll(seen);
-        boolean differs = false;
-        for (var e : made.entrySet()) {
-            long[] had = PassableClip.localByKey(e.getKey());
-            if (had != null && java.util.Arrays.equals(had, e.getValue())) continue;
-            if (had != null) {
-                int diff = 0;
-                for (int i = 0; i < 64; i++) diff += Long.bitCount(had[i] ^ e.getValue()[i]);
-                GunFeel.LOGGER.info("Cells of {} differ from those known by {}", e.getKey(), diff);
+        LAST_SEEN.clear();LAST_SEEN.putAll(seen);
+    }
+    public static void frame() {
+        var mc=Minecraft.getInstance();var level=mc.level;world(level);
+        if(level==null || mc.player==null)return;
+        long start=System.nanoTime();
+        try {
+            if(active==null) {
+                Candidate next=QUEUE.pollFirst();if(next==null)return;
+                var be=level.getBlockEntity(next.pos());
+                if(be==null || !valid(level,next.pos(),next.state())){QUEUED.remove(next.pos());return;}
+                try{active=new Capture(level,be,next.state());}
+                catch(Throwable e){QUEUED.remove(next.pos());throw e;}
             }
-            differs = true;
+            if(!valid(level,active.core,active.state)){QUEUED.remove(active.core);active=null;return;}
+            if(!active.step(start+1_500_000L))return;
+            var made=active.out;
+            // Публикация только целиком и только если машина всё ещё в захваченном состоянии.
+            if(valid(level,active.core,active.state)) {
+                var changed=new TreeMap<String,long[]>();
+                for(var entry:made.entrySet())
+                    if(!java.util.Arrays.equals(PassableClip.localByKey(entry.getKey()),entry.getValue()))changed.put(entry.getKey(),entry.getValue());
+                if(!changed.isEmpty()){PassableClip.putShapes(changed);write();}
+                CAPTURED.put(active.core,active.state);capturesCompleted++;
+            }
+            QUEUED.remove(active.core);active=null;
+        } catch(Throwable e) {
+            GunFeel.LOGGER.warn("Could not capture incremental bullet shapes",e);
+            if(active!=null){QUEUED.remove(active.core);active=null;}
+        } finally {
+            long cost=System.nanoTime()-start;captureFramePeak=Math.max(captureFramePeak,cost);
+            if(System.nanoTime()-lastReport>5_000_000_000L && (capturesCompleted>0 || active!=null)) {
+                GunFeel.LOGGER.info("Bullet shape capture: completed={}, queued={}, active={}, peak render work={} ms",
+                        capturesCompleted,QUEUE.size(),active!=null,captureFramePeak/1e6);
+                lastReport=System.nanoTime();
+            }
         }
-        if (!differs) return;
-        PassableClip.putShapes(made);
-        write();
+    }
+    private static boolean valid(ClientLevel level,BlockPos core,BlockState state) {
+        var player=Minecraft.getInstance().player;
+        return player!=null && level.hasChunkAt(core) && core.distSqr(player.blockPosition())<=48*48
+                && level.getBlockState(core).equals(state) && Structures.atRest(level,core,state);
     }
 
-    // the cells of each block of the multiblock, keyed as Structures.key
-    private static Map<String, long[]> capture(ClientLevel level, BlockEntity be, BlockState coreState) {
-        long start = System.nanoTime();
-        BlockPos core = be.getBlockPos();
-        Map<BlockPos, long[]> bits = new java.util.HashMap<>();
-        for (BlockPos b : com.hbm.blocks.multiblock.MultiblockSurface.rigidStructureBlocks(level, core)) {
-            // the elevator: its base and one section stand for all
-            if (Structures.layer(coreState, b.getY() - core.getY()) != b.getY() - core.getY()) continue;
-            bits.put(b.immutable(), new long[65]);
-        }
-        int tris = 0;
-        List<ModelSurface.Face> surfaces = new ArrayList<>();
-        if (Structures.rendered(coreState)) {
-            for (RenderedMesh.Tri t : RenderedMesh.of(be)) {
-                tris++;
-                sample(t.p(), (u, v) -> t.tex().opaque(u, v), t.uv(), bits);
-                surfaces.add(surface(t));
-            }
-        }
-        for (BlockPos b : com.hbm.blocks.multiblock.MultiblockSurface.rigidStructureBlocks(level, core)) {
-            BlockState st = level.getBlockState(b);
-            if (st.getRenderShape() != net.minecraft.world.level.block.RenderShape.MODEL) continue;
-            for (BakedQuad q : quads(st)) {
-                for (int k = 0; k < 2; k++) {
-                    int[] c = k == 0 ? new int[] {0, 1, 2} : new int[] {0, 2, 3};
-                    double[] p = new double[9];
-                    float[] uv = new float[6];
-                    for (int i = 0; i < 3; i++) {
-                        var v = q.position(c[i]);
-                        p[i * 3] = b.getX() + v.x();
-                        p[i * 3 + 1] = b.getY() + v.y();
-                        p[i * 3 + 2] = b.getZ() + v.z();
-                        uv[i * 2] = UVPair.unpackU(q.packedUV(c[i]));
-                        uv[i * 2 + 1] = UVPair.unpackV(q.packedUV(c[i]));
+    private record Triangle(double[] p,float[] uv,Shown shown,java.util.function.Supplier<ModelSurface.Face> face) {}
+    private static final class Capture {
+        final BlockPos core;
+        final BlockState state;
+        final boolean rendered;
+        final List<BlockPos> blocks;
+        final net.minecraft.world.level.block.Rotation rotation;
+        final Map<BlockPos,long[]> bits=new java.util.HashMap<>();
+        final List<Triangle> triangles=new ArrayList<>();
+        final List<ModelSurface.Face> surfaces=new ArrayList<>();
+        final Map<String,long[]> out=new TreeMap<>();
+        int triangle,block;
+        Sample sampling;
+        Capture(ClientLevel level,BlockEntity be,BlockState state) {
+            this.core=be.getBlockPos().immutable();this.state=state;rendered=Structures.rendered(state);
+            rotation=Structures.toNorth(state.getValue(com.hbm.blocks.multiblock.BlockMultiblockCore.FACING));
+            blocks=com.hbm.blocks.multiblock.MultiblockSurface.rigidStructureBlocks(level,core).stream().map(BlockPos::immutable).toList();
+            for(var pos:blocks)if(Structures.layer(state,pos.getY()-core.getY())==pos.getY()-core.getY())bits.put(pos,new long[65]);
+            if(rendered)for(var tri:RenderedMesh.of(be))
+                triangles.add(new Triangle(tri.p(),tri.uv(),(u,v)->tri.tex().opaque(u,v),()->surface(tri)));
+            for(var pos:blocks) {
+                var st=level.getBlockState(pos);
+                if(st.getRenderShape()!=net.minecraft.world.level.block.RenderShape.MODEL)continue;
+                for(var quad:quads(st))for(int k=0;k<2;k++) {
+                    int[] corners=k==0?new int[]{0,1,2}:new int[]{0,2,3};
+                    double[] p=new double[9];float[] uv=new float[6];
+                    for(int i=0;i<3;i++) {
+                        var v=quad.position(corners[i]);p[i*3]=pos.getX()+v.x();p[i*3+1]=pos.getY()+v.y();p[i*3+2]=pos.getZ()+v.z();
+                        uv[i*2]=UVPair.unpackU(quad.packedUV(corners[i]));uv[i*2+1]=UVPair.unpackV(quad.packedUV(corners[i]));
                     }
-                    TextureAtlasSprite sprite = q.materialInfo().sprite();
-                    tris++;
-                    sample(p, (u, v) -> opaque(sprite, u, v), uv, bits);
-                    surfaces.add(surface(p, new float[] {uv[0], uv[2], uv[4]}, new float[] {uv[1], uv[3], uv[5]}, sprite));
+                    var sprite=quad.materialInfo().sprite();
+                    triangles.add(new Triangle(p,uv,(u,v)->opaque(sprite,u,v),
+                            ()->surface(p,new float[]{uv[0],uv[2],uv[4]},new float[]{uv[1],uv[3],uv[5]},sprite)));
                 }
             }
         }
-        Map<String, long[]> out = new TreeMap<>();
-        net.minecraft.world.level.block.Rotation r = Structures.toNorth(coreState.getValue(com.hbm.blocks.multiblock.BlockMultiblockCore.FACING));
-        int set = 0;
-        for (var e : bits.entrySet()) {
-            long[] world = e.getValue(), north = new long[65];
-            for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) {
-                int[] n = Structures.turn(x, z, r);
-                for (int y = 0; y < 16; y++) {
-                    if (!PassableClip.cell(world, x, y, z)) continue;
-                    int k = n[0] + 16 * (y + 16 * n[1]);
-                    north[k >> 6] |= 1L << (k & 63);
-                    set++;
+        boolean step(long deadline) {
+            while(triangle<triangles.size()) {
+                if(System.nanoTime()>=deadline)return false;
+                var tri=triangles.get(triangle);
+                if(sampling==null) {
+                    surfaces.add(tri.face().get());
+                    sampling=new Sample(tri.p(),tri.shown(),tri.uv(),bits);
                 }
+                if(!sampling.step(deadline))return false;
+                sampling=null;triangle++;
             }
-            BlockPos b = e.getKey();
-            if (Structures.rendered(coreState)) {
-                List<ModelSurface.Face> local = new ArrayList<>();
-                for (ModelSurface.Face f : surfaces) if (ModelSurface.overlaps(f, b)) local.add(ModelSurface.local(f, b, r));
-                north = ModelSurface.attach(north, local);
+            while(block<blocks.size()) {
+                if(System.nanoTime()>=deadline)return false;
+                var pos=blocks.get(block++);var world=bits.get(pos);if(world==null)continue;
+                long[] north=new long[65];
+                for(int x=0;x<16;x++)for(int z=0;z<16;z++) {
+                    int[] n=Structures.turn(x,z,rotation);
+                    for(int y=0;y<16;y++)if(PassableClip.cell(world,x,y,z)) {
+                        int at=n[0]+16*(y+16*n[1]);north[at>>6]|=1L<<(at&63);
+                    }
+                }
+                if(rendered) {
+                    List<ModelSurface.Face> local=new ArrayList<>();
+                    for(var face:surfaces)if(ModelSurface.overlaps(face,pos))local.add(ModelSurface.local(face,pos,rotation));
+                    north=ModelSurface.attach(north,local);
+                }
+                out.put(Structures.key(state,pos.getX()-core.getX(),pos.getY()-core.getY(),pos.getZ()-core.getZ()),north);
             }
-            out.put(Structures.key(coreState, b.getX() - core.getX(), b.getY() - core.getY(), b.getZ() - core.getZ()), north);
+            return true;
         }
-        GunFeel.LOGGER.info("Read the cells of {} at {}: {} blocks, {} triangles, {} cells set, {} ms", PassableClip.key(coreState), core,
-                out.size(), tris, set, (System.nanoTime() - start) / 1_000_000);
-        return out;
     }
 
-    private interface Shown {
+    interface Shown {
         boolean at(float u, float v);
     }
 
-    // a triangle (corners in the world, their u, v) sampled 4 times a cell: its shown points set the cell they lie in,
-    // of the block they lie in (one on a block's face: either block that is one of the multiblock's)
-    private static void sample(double[] p, Shown shown, float[] uv, Map<BlockPos, long[]> bits) {
-        double edge = 0;
-        for (int i = 0; i < 3; i++) {
-            int j = (i + 1) % 3;
-            edge = Math.max(edge, Math.sqrt(sq(p[i * 3] - p[j * 3]) + sq(p[i * 3 + 1] - p[j * 3 + 1]) + sq(p[i * 3 + 2] - p[j * 3 + 2])));
+    // Та же сетка и те же пробы, но даже один большой треугольник можно остановить между порциями.
+    static final class Sample {
+        final double[] p;
+        final Shown shown;
+        final float[] uv;
+        final Map<BlockPos,long[]> bits;
+        final int n;
+        final BlockPos.MutableBlockPos at=new BlockPos.MutableBlockPos();
+        int i,j;
+        Sample(double[] p,Shown shown,float[] uv,Map<BlockPos,long[]> bits) {
+            this.p=p;this.shown=shown;this.uv=uv;this.bits=bits;
+            double edge=0;
+            for(int k=0;k<3;k++) {
+                int next=(k+1)%3;
+                edge=Math.max(edge,Math.sqrt(sq(p[k*3]-p[next*3])+sq(p[k*3+1]-p[next*3+1])+sq(p[k*3+2]-p[next*3+2])));
+            }
+            n=Math.max(2,(int)Math.ceil(edge*64));
         }
-        int n = Math.max(2, (int) Math.ceil(edge * 64));
-        BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
-        for (int i = 0; i <= n; i++) {
-            for (int j = 0; j <= n - i; j++) {
+        boolean step(long deadline) {
+            int checked=0;
+            while(i<=n) {
+                if((checked++&127)==0 && System.nanoTime()>=deadline)return false;
+                point();j++;
+                if(j>n-i){i++;j=0;}
+            }
+            return true;
+        }
+        private void point() {
                 double wa = (double) i / n, wb = (double) j / n, wc = 1 - wa - wb;
                 double x = wa * p[0] + wb * p[3] + wc * p[6];
                 double y = wa * p[1] + wb * p[4] + wc * p[7];
@@ -258,13 +278,12 @@ public final class MeshShapes {
                     bz = z - ((nudge & 4) != 0 ? 1e-4 : 0);
                     in = bits.get(at.set(Math.floor(bx), Math.floor(by), Math.floor(bz)));
                 }
-                if (in == null || !shown.at(u, v)) continue;
+                if (in == null || !shown.at(u, v)) return;
                 int cx = Math.clamp((int) Math.floor((bx - at.getX()) * 16), 0, 15);
                 int cy = Math.clamp((int) Math.floor((by - at.getY()) * 16), 0, 15);
                 int cz = Math.clamp((int) Math.floor((bz - at.getZ()) * 16), 0, 15);
                 int k = cx + 16 * (cy + 16 * cz);
                 in[k >> 6] |= 1L << (k & 63);
-            }
         }
     }
 

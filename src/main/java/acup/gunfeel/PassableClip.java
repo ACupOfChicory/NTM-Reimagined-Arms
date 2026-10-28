@@ -406,7 +406,7 @@ public final class PassableClip extends ClipContext {
         Map<String, long[]> mine = local();
         Map<String, String> out = new java.util.TreeMap<>();
         for (Map.Entry<String, long[]> e : mine.entrySet()) {
-            if (!java.util.Arrays.equals(jar.get(e.getKey()), e.getValue())) out.put(e.getKey(), pack(e.getValue()));
+            if (!java.util.Arrays.equals(jar.get(e.getKey()), e.getValue())) out.put(e.getKey(), ShapePacking.SHARED.pack(e.getValue()));
         }
         return out;
     }
