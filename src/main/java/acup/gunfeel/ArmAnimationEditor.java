@@ -102,6 +102,7 @@ public final class ArmAnimationEditor extends Screen {
     }
     private void remember(){history.push(new String[]{paths[0],paths[1],edits[0],edits[1]});if(history.size()>100)history.removeLast();}
     private void apply(){
+        ArmAnimationPreview.play(false);
         Grips.put(gun,"armRightPath",paths[0],false);Grips.put(gun,"armLeftPath",paths[1],false);
         Grips.put(gun,"armRightAdjustments",edits[0],false);Grips.put(gun,"armLeftAdjustments",edits[1],false);
         Config.select(gun);
@@ -125,8 +126,8 @@ public final class ArmAnimationEditor extends Screen {
             track.put(keys.get(i).time,values);
         }
         track.put(start(),begin.clone());track.put(finish(),end.clone());
-        edits[hand]=ArmPoseEdits.write(tracks);apply();show(atEnd?finish():start());
-        status="Изменение показано "+(atEnd?"в конце":"в начале")+" выбранного действия.";
+        edits[hand]=ArmPoseEdits.write(tracks);apply();
+        status="Правка применена. Предпросмотр остаётся на выбранном времени.";
     }
     private Button button(String name,int x,int y,int width,Runnable action){
         return addRenderableWidget(Button.builder(Component.literal(name),b->action.run()).bounds(x,y-scroll,width,H).build());
@@ -181,14 +182,14 @@ public final class ArmAnimationEditor extends Screen {
                 int n=parts.indexOf(key.part);String target=parts.get((n+1)%parts.size());remember();
                 var center=Arms.editorPartCenter(target);
                 for(int i=stage().first();i<=stage().last();i++){keys.get(i).part=target;keys.get(i).point=center.clone();}
-                paths[hand]=ArmTimeline.write(paths[hand],cue.name(),keys);apply();show(start());
+                paths[hand]=ArmTimeline.write(paths[hand],cue.name(),keys);apply();
                 // Границы действий сохраняются до следующего открытия: смена детали не объединяет соседние действия.
                 rebuildWidgets();
             });
             button("Подойти к детали: "+sideName(key.side),4,344,W,()->{
                 int side=0;for(int i=0;i<SIDE.length;i++)if(Arrays.equals(key.side,SIDE[i]))side=(i+1)%SIDE.length;
                 remember();for(int i=stage().first();i<=stage().last();i++)keys.get(i).side=SIDE[side].clone();
-                paths[hand]=ArmTimeline.write(paths[hand],cue.name(),keys);apply();show(start());rebuildWidgets();
+                paths[hand]=ArmTimeline.write(paths[hand],cue.name(),keys);apply();rebuildWidgets();
             }).active=!key.part.equals("grip");
             int contact=key.contactId();
             button(contact==0?"Контакт: как в исходной анимации":contact<=4?"Касаться углом кисти":contact>=10?"Касаться ребром кисти":"Касаться серединой плоскости",4,364,W,()->{
@@ -212,7 +213,7 @@ public final class ArmAnimationEditor extends Screen {
     private float startSafe(){return stages.isEmpty()?0:start();}
     private void contact(int id){
         remember();for(int i=stage().first();i<=stage().last();i++){keys.get(i).contact=id;keys.get(i).corner=id>=1 && id<=4;}
-        paths[hand]=ArmTimeline.write(paths[hand],cue.name(),keys);apply();show(start());rebuildWidgets();
+        paths[hand]=ArmTimeline.write(paths[hand],cue.name(),keys);apply();rebuildWidgets();
     }
     private static String contactName(int id){
         return switch(id){
