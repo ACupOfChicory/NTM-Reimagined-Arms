@@ -91,11 +91,11 @@ public final class ClientSmoke {
         if (finished) return;
         frames++;
         Minecraft mc = Minecraft.getInstance();
-        if(WEAPON_SWAY && phase>=30 && phase<=32 && mc.player!=null) {
-            float pitch=phase==32?0:10,yaw=phase==32?0:20;
+        if(WEAPON_SWAY && phase>=30 && phase<=36 && mc.player!=null) {
+            float pitch=phase==36?0:10,yaw=phase==36?0:phase==32||phase==34?-220:phase==33||phase==35?220:20;
             mc.player.setXRot(pitch);mc.player.xRotO=pitch;mc.player.xBobO=mc.player.xBob=0;
             mc.player.setYRot(yaw);mc.player.yRotO=yaw;mc.player.yBobO=mc.player.yBob=0;
-            ItemGunBaseNT.prevAimingProgress=ItemGunBaseNT.aimingProgress=phase==31?1:0;
+            ItemGunBaseNT.prevAimingProgress=ItemGunBaseNT.aimingProgress=phase==31||phase==34||phase==35?1:0;
         }
         try {
             if((HoleBenchMetrics.ENABLED || MobSmoke.enabled()) && phase==0 && mc.gui.screen()!=null
@@ -189,15 +189,15 @@ public final class ClientSmoke {
                 mc.gui.setScreen(null);
                 finish();
             }
-            if(WEAPON_SWAY && phase>=30 && phase<=32 && elapsed()>1) {
-                var expected=WeaponSway.sample(phase==32?0:10,phase==32?0:20,phase==31?1:0);
+            if(WEAPON_SWAY && phase>=30 && phase<=36 && elapsed()>1) {
+                var expected=WeaponSway.sample(phase==36?0:10,phase==36?0:phase==32||phase==34?-220:phase==33||phase==35?220:20,phase==31||phase==34||phase==35?1:0);
                 check(observedTurn!=null && Math.abs(observedTurn.pitch()-expected.pitch())<1e-5
                         && Math.abs(observedTurn.yaw()-expected.yaw())<1e-5
                         && Math.abs(observedTurn.roll()-expected.roll())<1e-5
                         && Math.abs(observedTurn.x()-expected.x())<1e-5,
-                        "Superb Warfare в рендере "+(phase==30?"от бедра":phase==31?"в прицеле":"после остановки")+": "+observedTurn);
+                        "Superb Warfare в рендере "+(phase==30?"от бедра":phase==31?"в прицеле":phase==32?"от бедра -220°":phase==33?"от бедра +220°":phase==34?"в прицеле -220°":phase==35?"в прицеле +220°":"после остановки")+": "+observedTurn);
                 check(suppressedLag>0,"штатное отставание NTM отключено в настоящем рендере");
-                if(phase==32){finish();return;}
+                if(phase==36){finish();return;}
                 suppressedLag=0;observedTurn=null;phase++;since=System.nanoTime();return;
             }
             if (phase == 20 && elapsed() > 2) {

@@ -4,6 +4,26 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class WeaponSwayTest {
+    @Test void fastTurnsAcrossHalfAndMultipleRevolutionsNeverReverseTheWeapon() {
+        for(float aiming:new float[]{0,1})for(float direction:new float[]{-1,1}) {
+            for(float base:new float[]{-1080,0,1080}) {
+                float previous=0;
+                for(float difference:new float[]{90,179,180,181,220,360,540,720}) {
+                    var turn=WeaponSway.fromAngles(0,base+direction*difference,0,base,aiming);
+                    assertTrue(turn.yaw()*direction>0,"резкий поворот "+difference+" не меняет сторону оружия");
+                    assertTrue(turn.roll()*direction>0);
+                    assertTrue(turn.x()*direction>0);
+                    assertTrue(Math.abs(turn.yaw())>=previous);previous=Math.abs(turn.yaw());
+                }
+                float view=base+direction*440,arm=base;
+                for(int tick=0;tick<24;tick++) {
+                    var turn=WeaponSway.fromAngles(0,view,0,arm,aiming);
+                    assertTrue(turn.yaw()*direction>=0,"догоняющая рука не перескакивает через камеру");
+                    arm+=(view-arm)*.5F;
+                }
+            }
+        }
+    }
     @Test void aimingUsesSuperbWarfareTurnInsteadOfFiveTimesStrongerNtmPitch() {
         var hip=WeaponSway.sample(10,20,0);
         var ads=WeaponSway.sample(10,20,1);

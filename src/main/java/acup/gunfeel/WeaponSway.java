@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Адаптировано из Superb Warfare, Mercurows и участники проекта.
 // ClientEventHandler.handleWeaponTurn / gunRootMoveV2, dabb00774e8290bdeac804d237d1f5c50364c6f7.
-// Изменения: Java/NeoForge 26.2, интеграция NTM и защита перехода yaw через ±180°.
+// Изменения: Java/NeoForge 26.2 и интеграция NTM.
 package acup.gunfeel;
 
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
@@ -15,6 +15,11 @@ import net.minecraft.util.Mth;
 public final class WeaponSway {
     public record Turn(float pitch,float yaw,float roll,float x) {}
     private WeaponSway() {}
+    static Turn fromAngles(float pitch,float yaw,float armPitch,float armYaw,float aiming) {
+        // Это непрерывные углы LocalPlayer, а не два независимых направления.
+        // wrapDegrees менял +220° отставания на -140° и перебрасывал пушку.
+        return sample(pitch-armPitch,yaw-armYaw,aiming);
+    }
     static Turn sample(float pitchDifference,float yawDifference,float aiming) {
         float zoom=Math.clamp(aiming,0F,1F);
         float pitch=Math.clamp(.05F*pitchDifference,-20F,20F)*(1-.05F*zoom);
@@ -25,10 +30,10 @@ public final class WeaponSway {
     }
     public static void apply(PoseStack pose,LocalPlayer player) {
         float partial=ItemRenderWeaponBase.interp;
-        float pitch=player.getViewXRot(partial)-Mth.lerp(partial,player.xBobO,player.xBob);
-        float yaw=Mth.wrapDegrees(player.getViewYRot(partial)-Mth.lerp(partial,player.yBobO,player.yBob));
+        float armPitch=Mth.lerp(partial,player.xBobO,player.xBob);
+        float armYaw=Mth.lerp(partial,player.yBobO,player.yBob);
         float aiming=Mth.lerp(partial,ItemGunBaseNT.prevAimingProgress,ItemGunBaseNT.aimingProgress);
-        var turn=sample(pitch,yaw,aiming);
+        var turn=fromAngles(player.getViewXRot(partial),player.getViewYRot(partial),armPitch,armYaw,aiming);
         pose.translate(turn.x(),0,0);
         pose.mulPose(Axis.XP.rotationDegrees(turn.pitch()));
         pose.mulPose(Axis.YP.rotationDegrees(turn.yaw()));
