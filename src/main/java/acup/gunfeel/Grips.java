@@ -36,22 +36,8 @@ public final class Grips {
     private static Path file;
     private static long stamp = Long.MIN_VALUE;
     private static int version;
-    private static boolean slimArms;
-
-    public static boolean selectArms(boolean slim) {
-        if (slimArms == slim) return false;
-        slimArms = slim;
-        merge();
-        return true;
-    }
-
-    private static boolean armKey(String key) {
-        return key.startsWith("arm") && !key.equals("armModel")
-                || key.equals("right") || key.equals("left") || key.equals("rightAt") || key.equals("leftAt");
-    }
-
     private static String storedKey(String key) {
-        return slimArms && armKey(key) ? "slim." + key : key;
+        return key;
     }
 
     public static int version() {
@@ -228,12 +214,6 @@ public final class Grips {
         VALUES.clear();
         VALUES.putAll(BUILTIN);
         VALUES.putAll(USER);
-        if (slimArms) {
-            for (var e : USER.entrySet()) {
-                int i = e.getKey().indexOf(".slim.");
-                if (i >= 0) VALUES.put(e.getKey().substring(0, i + 1) + e.getKey().substring(i + 6), e.getValue());
-            }
-        }
         version++;
     }
 

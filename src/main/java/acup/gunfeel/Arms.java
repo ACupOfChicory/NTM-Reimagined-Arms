@@ -1136,7 +1136,7 @@ public final class Arms {
                 .mul(basis)
                 .rotateY((float) Math.toRadians(!Float.isNaN(rollNow) ? rollNow : right ? Config.armRollRight : Config.armRollLeft))
                 .scale(s, sy, s)
-                .translate(-cx, -end, 0F);
+                .translate(-cx + (slim ? (right ? 1F : -1F) / 16F : 0F), -end, 0F);
     }
 
     // An arm during an animation, in camera space. The arm cube runs from the shoulder end (y = 0) to the

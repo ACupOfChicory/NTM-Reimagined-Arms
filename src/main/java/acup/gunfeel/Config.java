@@ -162,7 +162,7 @@ public final class Config {
             ammoMenuColor: accent colour of the ammo menu, hex RRGGBB
             arms: draw the player's arms holding the gun with both hands
             armModel: auto = skin model, classic = four-pixel arms, slim = three-pixel arms;
-              slim arm adjustments and hand positions are stored separately as <gun>.slim.<setting>
+              both models share arm adjustments; slim arms move one pixel toward their inner side
             armScale: arm thickness on top of the automatic one, 1 = vanilla arm proportions
             armMaxScale: upper limit of the automatic thickness
             armBaseRight, armBaseLeft: arm thickness before armScale, the same on every gun (as on Maresleg); 0 = automatic (grows with the arm's length)
@@ -284,7 +284,6 @@ public final class Config {
     // Values in effect for one gun: built-in defaults, then the global file, then the gun's overrides.
     // Called every frame with the held gun; re-applies only when something changed.
     public static void select(String gun) {
-        Grips.selectArms(Arms.slim());
         int v = Grips.version();
         if (java.util.Objects.equals(gun, selected) && v == selectedVersion) return;
         selected = gun;
@@ -293,12 +292,6 @@ public final class Config {
         boolean on = bool(p, "enabled", true);
         if (gun != null) p.putAll(Grips.overrides(gun));
         apply(p);
-        if (Grips.selectArms(Arms.slim())) {
-            p = layered(BUILTIN, GLOBAL);
-            if (gun != null) p.putAll(Grips.overrides(gun));
-            apply(p);
-            selectedVersion = Grips.version();
-        }
         enabled = on;
         if (TestLog.client) {
             String q = quality + " " + holeMax + " " + holeMaxMachines + " " + holeLife + " " + particleScale;
