@@ -120,6 +120,7 @@ final class HeadSmoke {
             }
             beam.discard();
             bullet.discard();
+            if(Boolean.getBoolean("ntmgunfeel.checkExplosives"))ExplosiveSmoke.run(level,target,head,body,limb,check);
         } finally {
             if(healthAttribute!=null) healthAttribute.setBaseValue(max);
             target.setHealth(health);target.setInvulnerable(invulnerable);

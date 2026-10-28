@@ -11,6 +11,10 @@ public final class HeadDamage {
     private record Last(WeakReference<EntityBulletBaseMK4> bullet,UUID target,ModelHeads.Hit hit) {}
     private static final ThreadLocal<Last> LAST=new ThreadLocal<>();
     private HeadDamage() {}
+    public static float contactDamage(float damage,EntityBulletBaseMK4 bullet,LivingEntity target,HitResult impact) {
+        var hit=hit(target,impact);LAST.set(new Last(new WeakReference<>(bullet),target.getUUID(),hit));
+        return hit.applied()?damage*ModelHeads.multiplier(hit.head(),hit.source().equals("limbs")):damage;
+    }
     public static float beamDamage(float damage,LivingEntity target,HitResult impact) {
         var hit=hit(target,impact);
         return hit.applied()?damage*ModelHeads.multiplier(hit.head(),hit.source().equals("limbs")):damage;

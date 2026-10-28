@@ -171,7 +171,7 @@ public final class MobSmoke {
         }
         var mc=Minecraft.getInstance();
         if(mc.player==null || pending) return;
-        if(stage==22 && !review()) { ClientSmoke.finish(); return; }
+        if(stage==22 && !review()) { if(ExplosiveSmoke.finish())ClientSmoke.finish(); return; }
         if(review()) { reviewFrame(); return; }
         mc.player.setYRot(stage==4?180:0);
         mc.player.setXRot(0);
@@ -391,7 +391,8 @@ public final class MobSmoke {
     private static void next() {
         if(index+1>=CASES.size()) {
             ClientSmoke.check(!PROBES.isEmpty() && probeTracers==0,"Контрольные пули="+PROBES.size()+", сетевые трассеры="+probeTracers);
-            ClientSmoke.finish(); return;
+            stage=22;
+            if(ExplosiveSmoke.finish())ClientSmoke.finish(); return;
         }
         select(index+1);
     }

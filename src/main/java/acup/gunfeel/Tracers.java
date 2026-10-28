@@ -654,7 +654,7 @@ public final class Tracers {
                     long left = (long) Math.max(0.0, s.lifeTicks - s.end);
                     if (left > 0) BOUNCED.add(new Shot(s, stop, out, s.born + s.end, left));
                 }
-            } else if (len > 1e-6) {
+            } else if (len > 1e-6 && !ExplosiveAmmo.heavy(s.config)) {
                 hit(level, block, s.config, dir.scale(1.0 / len), s.config.onImpact != null);
             }
         }
@@ -804,6 +804,14 @@ public final class Tracers {
     }
 
     private static final ArrayDeque<Pending> PENDING = new ArrayDeque<>();
+    public static void impact(ImpactHolePayload packet) {
+        var level=Minecraft.getInstance().level;
+        if(level==null || !Config.bulletHoles || packet.config()<0 || packet.config()>=BulletConfig.configs.size())return;
+        var config=BulletConfig.configs.get(packet.config());
+        if(!ExplosiveAmmo.heavy(config) || !Double.isFinite(packet.point().x+packet.point().y+packet.point().z+packet.direction().lengthSqr()))return;
+        var hit=new BlockHitResult(packet.point(),packet.face(),packet.block(),false);
+        PENDING.addLast(new Pending(level,hit,config,packet.direction(),null,packet.shot(),0));
+    }
     static int pendingHoles() { return PENDING.size(); }
     static int holeCount() { return HOLES.size(); }
     private static final long HOLE_BUDGET_NS = 3_000_000L;
@@ -845,6 +853,7 @@ public final class Tracers {
                 scratch = null;
             }
             if (TestLog.client) logHole(p, holesMade != before);
+            if(holesMade!=before)ExplosiveSmoke.hole(p.config(),HOLES.peekLast().size());
             if (p.fx() != 0) {
                 Hole h = holesMade != before ? HOLES.peekLast() : null;
                 if (h != null) {
@@ -919,7 +928,7 @@ public final class Tracers {
         boolean scorch = config.onImpact != null;
         BlockState decalOn = Cells.ruleState(level, hit.getBlockPos(), level.getBlockState(hit.getBlockPos()));
         int kind = holeKind(decalOn, config);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * (0.8F + 0.4F * (float) Math.random());
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * (0.8F + 0.4F * (float) Math.random());
         int turn = (int) (Math.random() * 8);
         if (scratch != null) {
             int[] ax = axes(hit.getDirection());
@@ -988,7 +997,7 @@ public final class Tracers {
         boolean scorch = config.onImpact != null;
         BlockState decalOn = Cells.ruleState(level, pos, level.getBlockState(pos));
         int kind = holeKind(decalOn, config);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * (0.8F + 0.4F * (float) Math.random());
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * (0.8F + 0.4F * (float) Math.random());
         int turn = (int) (Math.random() * 8);
         if (scratch != null) size = scratchSize();
         double half = size * 0.5;
@@ -1222,7 +1231,7 @@ public final class Tracers {
         boolean scorch = config.onImpact != null;
         BlockState decalOn = Cells.ruleState(level, pos, hitState);
         int kind = holeKind(decalOn, config);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * (0.8F + 0.4F * (float) Math.random());
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * (0.8F + 0.4F * (float) Math.random());
         int turn = (int) (Math.random() * 8);
         if (scratch != null) size = scratchSize();
         double half = size * 0.5;
