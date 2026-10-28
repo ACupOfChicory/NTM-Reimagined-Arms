@@ -106,7 +106,7 @@ public final class ModelContours {
                     intervals=next;
                     if(intervals.isEmpty()) break;
                 }
-                surface.append(visible,a,b,intervals);
+                surface.append(visible,a,b,intervals,box);
             }
             if(!visible.isEmpty()) out.add(visible.toArray(Vec3[]::new));
         }

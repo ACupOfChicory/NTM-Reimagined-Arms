@@ -12,7 +12,7 @@ import net.minecraft.world.phys.Vec3;
 // 0.001 пикселя у ног лисы), но не склеивает настоящие щели между деталями.
 final class ContourSurface {
     private static final double EPS=1.0/8192,STEP=EPS*4;
-    private record Triangle(Vec3 a,Vec3 b,Vec3 c,Vec3 normal) {}
+    private record Triangle(Vec3 a,Vec3 b,Vec3 c,Vec3 normal,ModelBox owner) {}
     private record Bounds(double x0,double y0,double z0,double x1,double y1,double z1) {
         static Bounds triangle(Triangle t) {
             return new Bounds(Math.min(t.a.x,Math.min(t.b.x,t.c.x)),Math.min(t.a.y,Math.min(t.b.y,t.c.y)),
@@ -58,7 +58,7 @@ final class ContourSurface {
                 var b=ModelContours.point(box,data[i+3],data[i+4],data[i+5]);
                 var c=ModelContours.point(box,data[i+6],data[i+7],data[i+8]);
                 var normal=b.subtract(a).cross(c.subtract(a));
-                if(normal.lengthSqr()>1e-20) triangles.add(new Triangle(a,b,c,normal.normalize()));
+                if(normal.lengthSqr()>1e-20) triangles.add(new Triangle(a,b,c,normal.normalize(),box));
             }
         }
         ordered=triangles.toArray(Triangle[]::new);
@@ -87,6 +87,9 @@ final class ContourSurface {
     }
 
     void append(List<Vec3> output,Vec3 a,Vec3 b,List<double[]> visible) {
+        append(output,a,b,visible,null);
+    }
+    void append(List<Vec3> output,Vec3 a,Vec3 b,List<double[]> visible,ModelBox source) {
         Vec3 direction=b.subtract(a); double lengthSquared=direction.lengthSqr();
         if(lengthSquared<1e-16 || visible.isEmpty()) return;
         var cuts=new TreeSet<Double>();
@@ -115,15 +118,25 @@ final class ContourSurface {
             if(next-start<1e-7) continue;
             double mid=(start+next)/2;
             if(visible.stream().noneMatch(s -> mid>=s[0] && mid<=s[1])) continue;
-            var point=a.add(direction.scale(mid)); boolean seam=false;
+            var point=a.add(direction.scale(mid)); boolean seam=false,sourceSeam=false,sourceCorner=false;
             for(var plane:planes) {
                 var side=plane.normal.cross(direction).normalize().scale(STEP);
                 var left=point.add(side); var right=point.subtract(side);
+                boolean flatSeam=false;
                 if(covered(plane,left) && covered(plane,right)) {
                     int l=exteriorSide(left,plane.normal),r=exteriorSide(right,plane.normal);
-                    if(l!=0 && r!=0 && (l==r || l==2 || r==2)) { seam=true; break; }
+                    flatSeam=l!=0 && r!=0 && (l==r || l==2 || r==2);
+                }
+                if(flatSeam) seam=true;
+                if(source!=null && source.mesh()!=0) {
+                    boolean leftOwned=covered(plane,left,source),rightOwned=covered(plane,right,source);
+                    if(leftOwned && rightOwned) sourceSeam=true;
+                    else if(leftOwned || rightOwned) sourceCorner=true;
                 }
             }
+            // Собственный шов меша может одновременно быть его настоящим
+            // углом. Шов, возникший между разными частями, по-прежнему убираем.
+            if(sourceSeam && sourceCorner) seam=false;
             if(seam) continue;
             Vec3 from=a.add(direction.scale(start)),to=a.add(direction.scale(next));
             Point p=new Point(from),q=new Point(to);
@@ -159,7 +172,11 @@ final class ContourSurface {
     }
     private static void cut(TreeSet<Double> cuts,double t) { if(t>0 && t<1) cuts.add(t); }
     private static boolean covered(Plane plane,Vec3 p) {
+        return covered(plane,p,null);
+    }
+    private static boolean covered(Plane plane,Vec3 p,ModelBox owner) {
         for(var t:plane.triangles) {
+            if(owner!=null && t.owner()!=owner) continue;
             if(!pointBounds(t,p)) continue;
             Vec3[] vertices={t.a,t.b,t.c}; boolean positive=true,negative=true;
             for(int i=0;i<3;i++) {

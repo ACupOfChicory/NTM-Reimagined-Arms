@@ -13,6 +13,7 @@ final class SelectionSelfTest {
         try {
             var mc=Minecraft.getInstance();int width=mc.getWindow().getGuiScaledWidth(),height=mc.getWindow().getGuiScaledHeight();
             if(stage==0) {
+                if(Boolean.getBoolean("ntmgunfeel.checkGlyphidCreases")) glyphidCreases(screen);
                 rectangle(screen,width,height,true);
                 stage=4;frames=0;return;
             }
@@ -43,6 +44,25 @@ final class SelectionSelfTest {
                 frames=0;pending=false;
             });
         } catch(Exception ex) { ClientSmoke.check(false,"Выделение: "+ex);HeadLabels.suspended=true;ClientSmoke.finish(); }
+    }
+    private static void glyphidCreases(HeadLabelScreen screen) {
+        var box=screen.boxes.getFirst();
+        if(box.mesh()==0) { ClientSmoke.check(false,"Глифид: у основной части ожидался настоящий меш");return; }
+        var before=new java.util.ArrayList<net.minecraft.world.phys.Vec3>();
+        var after=new java.util.ArrayList<net.minecraft.world.phys.Vec3>();
+        var oldSurface=new ContourSurface(screen.boxes);var newSurface=new ContourSurface(screen.boxes);
+        float[] edges=ModelMesh.get(box.mesh()).edges();
+        for(int i=0;i<edges.length;i+=6) {
+            var a=ModelContours.point(box,edges[i],edges[i+1],edges[i+2]);
+            var b=ModelContours.point(box,edges[i+3],edges[i+4],edges[i+5]);
+            oldSurface.append(before,a,b,java.util.List.of(new double[]{0,1}));
+            newSurface.append(after,a,b,java.util.List.of(new double[]{0,1}),box);
+        }
+        double oldLength=length(before),newLength=length(after);
+        ClientSmoke.check(newLength>oldLength+1e-5,"Глифид: сохранены ранее потерянные углы меша, длина до="+oldLength+", после="+newLength);
+    }
+    private static double length(java.util.List<net.minecraft.world.phys.Vec3> lines) {
+        double result=0;for(int i=0;i<lines.size();i+=2) result+=lines.get(i).distanceTo(lines.get(i+1));return result;
     }
     private static void rectangle(HeadLabelScreen screen,int width,int height,boolean remove) {
         var info=new MouseButtonInfo(0,remove?GLFW.GLFW_MOD_SHIFT:0);

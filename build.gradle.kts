@@ -124,6 +124,7 @@ neoForge {
                 systemProperty("ntmgunfeel.mobReview","true")
                 systemProperty("ntmgunfeel.limbLabels","true")
                 systemProperty("ntmgunfeel.selectionSelfTest","true")
+                systemProperty("ntmgunfeel.checkGlyphidCreases",providers.gradleProperty("checkGlyphidCreases").isPresent.toString())
                 systemProperty("ntmgunfeel.headLabelDir",root.resolve("notes/selection-self-test").path)
                 systemProperty("ntmgunfeel.mobReviewDir",root.resolve("notes/selection-self-test/review").path)
             }
