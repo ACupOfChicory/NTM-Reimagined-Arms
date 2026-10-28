@@ -36,6 +36,15 @@ public final class ClientSmoke {
     private static volatile int remaining;
     private static int serverTick;
     private static boolean passed = true, finished;
+    private static org.joml.Matrix4f drawnArm, armBefore;
+    static void armPose(org.joml.Matrix4f pose,boolean right) {
+        if(Boolean.getBoolean("ntmgunfeel.armEditorSelfTest") && !right) drawnArm=new org.joml.Matrix4f(pose);
+    }
+    private static void editorButton(String name) {
+        var screen=Minecraft.getInstance().gui.screen();
+        var button=screen.children().stream().filter(w->w instanceof net.minecraft.client.gui.components.Button b && b.getMessage().getString().equals(name)).findFirst().orElseThrow();
+        ((net.minecraft.client.gui.components.Button)button).onPress(new net.minecraft.client.input.KeyEvent(257,0,0));
+    }
 
     private ClientSmoke() {}
 
@@ -172,13 +181,25 @@ public final class ClientSmoke {
                     try(image) { image.writeToFile(Path.of("../notes/arm-editor-check.png")); }
                     catch(java.io.IOException e) { GunFeel.LOGGER.warn("Не удалось сохранить кадр редактора",e); }
                 });
-                var screen=(ArmAnimationEditor)mc.gui.screen();
-                var add=screen.children().stream().filter(w->w instanceof net.minecraft.client.gui.components.Button b && b.getMessage().getString().equals("+ Ключ")).findFirst().orElseThrow();
-                ((net.minecraft.client.gui.components.Button)add).onPress(new net.minecraft.client.input.KeyEvent(257,0,0));
-                check(Config.armLeftPath.contains("510.0:"),"кнопка добавления создала игровой ключ");
-                var undo=screen.children().stream().filter(w->w instanceof net.minecraft.client.gui.components.Button b && b.getMessage().getString().equals("Отменить шаг")).findFirst().orElseThrow();
-                ((net.minecraft.client.gui.components.Button)undo).onPress(new net.minecraft.client.input.KeyEvent(257,0,0));
-                check(!Config.armLeftPath.contains("510.0:"),"отмена вернула прежнюю траекторию");
+                ArmAnimationPreview.seek(0);phase=23;since=System.nanoTime();
+            } else if(phase==23 && elapsed()>1) {
+                armBefore=drawnArm;
+                var inputs=mc.gui.screen().children().stream().filter(w->w instanceof net.minecraft.client.gui.components.EditBox).toList();
+                ((net.minecraft.client.gui.components.EditBox)inputs.get(3)).setValue("30");
+                check(ArmAnimationPreview.millis()==0,"правка показывает редактируемый момент");
+                check(ArmPoseEdits.sample(Config.armLeftAdjustments,"RELOAD",0)[3]==30,"поворот обычного хвата сохранён");
+                phase=24;since=System.nanoTime();
+            } else if(phase==24 && elapsed()>1) {
+                check(drawnArm!=null && armBefore!=null && !drawnArm.equals(armBefore,1e-4F),"изменена настоящая матрица отрисованной руки");
+                editorButton("Отменить шаг");
+                check(ArmPoseEdits.sample(Config.armLeftAdjustments,"RELOAD",0)[3]==0,"отмена вернула обычный хват");
+                editorButton("Действие →");editorButton("Одинаково весь этап");
+                var inputs=mc.gui.screen().children().stream().filter(w->w instanceof net.minecraft.client.gui.components.EditBox).toList();
+                ((net.minecraft.client.gui.components.EditBox)inputs.get(10)).setValue("20");
+                ((net.minecraft.client.gui.components.EditBox)inputs.get(11)).setValue("50");
+                check(ArmPoseEdits.sample(Config.armLeftAdjustments,"RELOAD",180)[5]==20,"начало действия: 20 градусов");
+                check(ArmPoseEdits.sample(Config.armLeftAdjustments,"RELOAD",585)[5]==50,"конец действия: 50 градусов");
+                check(ArmAnimationPreview.millis()==585,"правка конца показывает конец действия");
                 ArmAnimationPreview.seek(1900);
                 check(ArmAnimationPreview.millis()==1900,"перемотка вперёд");
                 ArmAnimationPreview.seek(100);

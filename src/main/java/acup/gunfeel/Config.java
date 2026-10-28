@@ -86,6 +86,7 @@ public final class Config {
     public static String armLeftCarryReload = "", armRightCarryReload = "";
     public static String armLeftCarryKeys = "";
     public static String armLeftPath = "", armRightPath = "";
+    public static String armLeftAdjustments = "", armRightAdjustments = "";
     public static float armPathMinLength = 0F;
     public static String armPathTimes = "";
     public static boolean instantSwitch = true;
@@ -438,6 +439,8 @@ public final class Config {
         armLeftCarryKeys = p.getProperty("armLeftCarryKeys", armLeftCarryKeys).trim();
         armLeftPath = p.getProperty("armLeftPath", armLeftPath).trim();
         armRightPath = p.getProperty("armRightPath", armRightPath).trim();
+        armLeftAdjustments = p.getProperty("armLeftAdjustments", armLeftAdjustments).trim();
+        armRightAdjustments = p.getProperty("armRightAdjustments", armRightAdjustments).trim();
         armPathMinLength = num(p, "armPathMinLength", armPathMinLength);
         armPathTimes = p.getProperty("armPathTimes", armPathTimes).trim();
         instantSwitch = bool(p, "instantSwitch", instantSwitch);
@@ -547,6 +550,8 @@ public final class Config {
         p.setProperty("armLeftCarryKeys", armLeftCarryKeys);
         p.setProperty("armLeftPath", armLeftPath);
         p.setProperty("armRightPath", armRightPath);
+        p.setProperty("armLeftAdjustments", armLeftAdjustments);
+        p.setProperty("armRightAdjustments", armRightAdjustments);
         p.setProperty("armPathMinLength", Float.toString(armPathMinLength));
         p.setProperty("armPathTimes", armPathTimes);
         p.setProperty("instantSwitch", Boolean.toString(instantSwitch));

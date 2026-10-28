@@ -356,6 +356,7 @@ public final class Arms {
         Vector3f restDown = restBody.transformDirection(new Vector3f(0F, -1F, 0F)).normalize();
         for (int i = 0; i < 2; i++) {
             boolean right = i == 0;
+            pathCorner[i] = 0F;
             ModelPart[] parts = CUT.computeIfAbsent((right ? 1000 : 0) + (slim ? 100 : 0) + 12,
                     k -> cutArm(right, slim, 12));
             ModelPart arm = parts[0];
@@ -444,6 +445,7 @@ public final class Arms {
                     crop = blendCrop;
                 }
                 if (onPath[10] > 0F) ArmContact.corner(m, p, right, slim, onPath[10]);
+                pathCorner[i] = onPath[10];
                 if (Minecraft.getInstance().gui.screen() instanceof ArmAnimationEditor editor) {
                     float fov = com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase.adjustHudFov(70F);
                     float aspect = (float)Minecraft.getInstance().getWindow().getWidth() / Math.max(1,Minecraft.getInstance().getWindow().getHeight());
@@ -870,6 +872,15 @@ public final class Arms {
         var names = new ArrayList<String>();
         for (var group : frameModel.groups) names.add(group.name);
         return names;
+    }
+
+    static float[] editorPartCenter(String name) {
+        if(frameModel==null || geometry==null)return new float[3];
+        int id=partByName(frameModel,name);
+        if(id<0)return new float[3];
+        var b=frameModel.groups[id].bounds();
+        var p=geometry.toAligned.transform(new Vector3f((b[0]+b[3])*.5F,(b[1]+b[4])*.5F,(b[2]+b[5])*.5F));
+        return new float[]{p.x,p.y,p.z};
     }
 
     private static Matrix4f partPose(String name, int nth) {
@@ -1344,11 +1355,19 @@ public final class Arms {
         return local(hand, turn, new Vector3f(restY).negate(), right, slim, s, length);
     }
 
+    private static final float[] pathCorner = new float[2];
     private static void submit(SubmitNodeCollector collector, int light, ModelPart arm, Identifier skin, Matrix4f m,
             int crop, boolean right, boolean slim, boolean sleeveShown, ModelPart sleeve) {
         // armSwitchMs (per gun): a new animation (or its end) starts from where the arm was drawn last, over
         // this many ms. NTM's first frame of an animation comes ~50 ms in, keyed hands jumped there.
         int hand = right ? 0 : 1;
+        String adjustments = right ? Config.armRightAdjustments : Config.armLeftAdjustments;
+        if(!adjustments.isBlank() && HbmAnimations.getRelevantAnim(0)!=null) {
+            var values=ArmPoseEdits.sample(adjustments,HbmAnimations.getGunAnimation(0).name(),animMillis());
+            var cameraPose=new Matrix4f(CAMERA).invert().mul(m);
+            ArmPoseEdits.apply(cameraPose,values,right,slim,pathCorner[hand]);
+            m=new Matrix4f(CAMERA).mul(cameraPose);
+        }
         if (Config.armSwitchMs > 0F && !ArmAnimationPreview.active()) {
             HbmAnimations.Animation anim = HbmAnimations.getRelevantAnim(0);
             var player = Minecraft.getInstance().player;
@@ -1378,6 +1397,7 @@ public final class Arms {
             switchLastCrop[hand] = crop;
         }
         final int shown = crop;
+        ClientSmoke.armPose(m,right);
         if (debugArms) {
             GunAnimation type = HbmAnimations.getGunAnimation(0);
             Vector3f origin = m.transformPosition(new Vector3f());
