@@ -8,7 +8,7 @@ final class ArmContact {
     private ArmContact() {}
     static int parse(String text) {
         int id=text.isEmpty()?1:Integer.parseInt(text);
-        if(id<1 || id>9)throw new IllegalArgumentException("Неизвестная точка контакта");return id;
+        if(id<1 || id>13)throw new IllegalArgumentException("Неизвестная точка контакта");return id;
     }
     // X: внутрь/наружу в половинах ширины. Y/Z: пиксели от торца кисти.
     static Vector3f offset(int contact) {
@@ -17,7 +17,10 @@ final class ArmContact {
             case 3 -> new Vector3f(-1,0,-2); case 4 -> new Vector3f(-1,0,2);
             case 5 -> new Vector3f(1,-2,0); case 6 -> new Vector3f(-1,-2,0);
             case 7 -> new Vector3f(0,-2,-2); case 8 -> new Vector3f(0,-2,2);
-            case 9 -> new Vector3f(); default -> new Vector3f();
+            case 9 -> new Vector3f();
+            case 10 -> new Vector3f(1,0,0); case 11 -> new Vector3f(-1,0,0);
+            case 12 -> new Vector3f(0,0,-2); case 13 -> new Vector3f(0,0,2);
+            default -> new Vector3f();
         };
     }
     static Vector3f pivot(boolean right,boolean slim,Vector3f offset) {

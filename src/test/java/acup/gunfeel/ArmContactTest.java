@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ArmContactTest {
     @Test void allFacesAndCornersKeepContactAfterWristRotation() {
-        for(int id=1;id<=9;id++)for(boolean right:new boolean[]{false,true})for(boolean slim:new boolean[]{false,true}) {
+        for(int id=1;id<=13;id++)for(boolean right:new boolean[]{false,true})for(boolean slim:new boolean[]{false,true}) {
             var pose=new Matrix4f().translation(.3F,-.2F,-1).rotateXYZ(.4F,.8F,-.3F).scale(.8F,1.4F,.8F);
             var target=new Vector3f(.1F,.2F,-.7F);var offset=ArmContact.offset(id);
             ArmContact.attach(pose,target,right,slim,1,offset);
@@ -20,6 +20,9 @@ class ArmContactTest {
         }
         assertEquals(0,ArmContact.offset(5).z);assertEquals(-2,ArmContact.offset(5).y);
         assertEquals(1,ArmContact.offset(5).x);
+        assertEquals(ArmContact.offset(1).lerp(ArmContact.offset(2),.5F),ArmContact.offset(10));
+        assertEquals(ArmContact.offset(1).lerp(ArmContact.offset(3),.5F),ArmContact.offset(12));
+        assertNotEquals(ArmContact.offset(5),ArmContact.offset(10),"ребро торца отличается от середины боковой плоскости");
     }
     @Test void contactSurvivesRotationAndBothArmModels() {
         for (boolean right : new boolean[] {false,true}) for (boolean slim : new boolean[] {false,true}) {

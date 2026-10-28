@@ -203,10 +203,14 @@ public final class ClientSmoke {
                 check(ArmPoseEdits.sample(Config.armLeftAdjustments,"RELOAD",585)[5]==50,"конец действия: 50 градусов");
                 check(ArmAnimationPreview.millis()==585,"правка конца показывает конец действия");
                 editorButton("Касаться углом кисти");
+                check(Config.armLeftPath.contains("Handle!10@"),"выбрана середина внутреннего ребра торца");
+                editorButton("Ребро: внутреннее");
+                check(Config.armLeftPath.contains("Handle!11@"),"выбрана середина внешнего ребра торца");
+                editorButton("Касаться ребром кисти");
                 check(Config.armLeftPath.contains("Handle!5@"),"выбран контакт серединой внутренней грани");
-                editorButton("Грань: внутренняя");
+                editorButton("Плоскость: внутренняя");
                 check(Config.armLeftPath.contains("Handle!6@"),"выбрана середина внешней грани");
-                editorButton("Касаться серединой грани");editorButton("Контакт: как в исходной анимации");
+                editorButton("Касаться серединой плоскости");editorButton("Контакт: как в исходной анимации");
                 editorButton("Угол: внутренний, передний");
                 check(Config.armLeftPath.contains("Handle!2@"),"выбран другой угол кисти");
                 ArmAnimationPreview.seek(1900);

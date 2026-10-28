@@ -191,11 +191,11 @@ public final class ArmAnimationEditor extends Screen {
                 paths[hand]=ArmTimeline.write(paths[hand],cue.name(),keys);apply();show(start());rebuildWidgets();
             }).active=!key.part.equals("grip");
             int contact=key.contactId();
-            button(contact==0?"Контакт: как в исходной анимации":contact<=4?"Касаться углом кисти":"Касаться серединой грани",4,364,W,()->{
-                contact(contact==0?1:contact<=4?5:0);
+            button(contact==0?"Контакт: как в исходной анимации":contact<=4?"Касаться углом кисти":contact>=10?"Касаться ребром кисти":"Касаться серединой плоскости",4,364,W,()->{
+                contact(contact==0?1:contact<=4?10:contact>=10?5:0);
             }).active=!key.part.equals("grip");
             button(contactName(contact),4,384,W,()->{
-                contact(contact<=4?contact%4+1:contact==9?5:contact+1);
+                contact(contact<=4?contact%4+1:contact>=10?contact==13?10:contact+1:contact==9?5:contact+1);
             }).active=!key.part.equals("grip") && contact>0;
         }
         button("Отменить шаг",4,406,132,()->{
@@ -218,8 +218,10 @@ public final class ArmAnimationEditor extends Screen {
         return switch(id){
             case 1->"Угол: внутренний, передний";case 2->"Угол: внутренний, задний";
             case 3->"Угол: внешний, передний";case 4->"Угол: внешний, задний";
-            case 5->"Грань: внутренняя";case 6->"Грань: внешняя";
-            case 7->"Грань: передняя";case 8->"Грань: задняя";case 9->"Грань: торец кисти";
+            case 5->"Плоскость: внутренняя";case 6->"Плоскость: внешняя";
+            case 7->"Плоскость: передняя";case 8->"Плоскость: задняя";case 9->"Плоскость: торец кисти";
+            case 10->"Ребро: внутреннее";case 11->"Ребро: внешнее";
+            case 12->"Ребро: переднее";case 13->"Ребро: заднее";
             default->"Точка контакта: автоматически";
         };
     }
