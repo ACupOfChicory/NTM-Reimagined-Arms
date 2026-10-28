@@ -11,7 +11,7 @@ final class HeadDebug {
     private static final LinkedHashMap<Key,List<Vec3[]>> CACHE=new LinkedHashMap<>(32,.75F,true);
     private HeadDebug() {}
     static void add(List<ModelDebugRender.Shape> shapes,int owner,Entity entity) {
-        boolean manual=HeadProfiles.get(BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString())!=null;
+        boolean manual=HeadProfiles.get(ModelHeads.key(entity))!=null;
         for(var zone:ModelHits.headZones(entity)) {
             var box=zone.box();var local=new ArrayList<HeadZone.Plane>();
             for(var plane:zone.planes()) {

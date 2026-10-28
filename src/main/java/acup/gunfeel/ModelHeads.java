@@ -9,7 +9,13 @@ public final class ModelHeads {
     private record Key(String type,long layout) {}
     private record Definition(HeadProfiles.Binding binding,String source,float confidence) {}
     private static final LinkedHashMap<Key,Definition> CACHE=new LinkedHashMap<>(32,.75F,true);
+    private static final Map<String,HeadProfiles.Profile> LIMBS=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("config/ntmgunfeel-limbs.json"),false);
     private ModelHeads() {}
+    static float multiplier(boolean head,boolean limb) { return head?1.75F:limb?.5F:1F; }
+    static String key(net.minecraft.world.entity.Entity entity) {
+        return net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString()
+                +(entity instanceof net.minecraft.world.entity.LivingEntity living && living.isBaby()?"#baby":"");
+    }
     static boolean noHead(String type) { var p=HeadProfiles.get(type);return p!=null && p.none(); }
     private static long layout(List<ModelBox> boxes) {
         double largest=0;for(var b:boxes) for(double size:HeadProfiles.size(b)) largest=Math.max(largest,size);
@@ -21,16 +27,25 @@ public final class ModelHeads {
         return hash;
     }
     public static synchronized Resolution resolve(String type,List<ModelBox> boxes,float yaw) {
-        if(noHead(type)) return new Resolution(List.of(),"dataset","manual none",1F,0);
-        var key=new Key(type,layout(boxes));var definition=CACHE.get(key);
+        return resolve(type,boxes,yaw,HeadProfiles.all(),"head","height");
+    }
+    static synchronized Resolution limbs(String type,List<ModelBox> boxes,float yaw) {
+        return resolve(type,boxes,yaw,LIMBS,"limbs","body");
+    }
+    private static Resolution resolve(String type,List<ModelBox> boxes,float yaw,Map<String,HeadProfiles.Profile> bank,String role,String fallback) {
+        if(bank.isEmpty()) return new Resolution(List.of(),fallback,"нет проверенной разметки",0F,0);
+        var profile=HeadProfiles.get(bank,type);
+        if(profile!=null && profile.none()) return new Resolution(List.of(),"dataset","manual none",1F,0);
+        var key=new Key(role+":"+type,layout(boxes));var definition=CACHE.get(key);
         if(definition==null) {
-            var profile=HeadProfiles.get(type);
             if(profile!=null) {
                 var binding=HeadProfiles.bind(profile,boxes,yaw);
-                definition=new Definition(binding,"dataset",binding.missing()==0?1F:.5F);
-            } else {
-                var inferred=HeadRules.infer(boxes,yaw);
-                definition=new Definition(inferred.binding(),inferred.confidence()==0?"unknown":"procedural",inferred.confidence());
+                if(binding.missing()==0) definition=new Definition(binding,"dataset",1F);
+            }
+            if(definition==null) {
+                var template=ZoneTemplates.find(bank,boxes,yaw);
+                definition=template!=null?new Definition(template,"template",1F):
+                        new Definition(new HeadProfiles.Binding(List.of(),0,"нет проверенной совместимой формы"),fallback,0F);
             }
             CACHE.put(key,definition);while(CACHE.size()>256) CACHE.remove(CACHE.keySet().iterator().next());
         }

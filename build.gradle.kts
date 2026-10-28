@@ -117,6 +117,16 @@ neoForge {
             systemProperty("MC_DEBUG_PREFER_WAYLAND", "true")
             providers.gradleProperty("mobCases").orNull?.let { systemProperty("ntmgunfeel.mobCases", it) }
             systemProperty("ntmgunfeel.contourShots",providers.gradleProperty("mobContourShots").isPresent.toString())
+            systemProperty("ntmgunfeel.checkHeads",providers.gradleProperty("checkHeads").isPresent.toString())
+            systemProperty("ntmgunfeel.checkLimbs",providers.gradleProperty("checkLimbs").isPresent.toString())
+            systemProperty("ntmgunfeel.checkAvatarLayers",providers.gradleProperty("checkAvatarLayers").isPresent.toString())
+            if(providers.gradleProperty("selectionSelfTest").isPresent) {
+                systemProperty("ntmgunfeel.mobReview","true")
+                systemProperty("ntmgunfeel.limbLabels","true")
+                systemProperty("ntmgunfeel.selectionSelfTest","true")
+                systemProperty("ntmgunfeel.headLabelDir",root.resolve("notes/selection-self-test").path)
+                systemProperty("ntmgunfeel.mobReviewDir",root.resolve("notes/selection-self-test/review").path)
+            }
             programArguments.addAll("--width", if(providers.gradleProperty("mobContourShots").isPresent) "1708" else "854",
                     "--height", if(providers.gradleProperty("mobContourShots").isPresent) "960" else "480")
         }
@@ -169,18 +179,21 @@ neoForge {
             systemProperty("ntmgunfeel.mobReview", "true")
             val selfTest=providers.gradleProperty("mobReviewSelfTest").isPresent
             systemProperty("ntmgunfeel.headLabels",providers.gradleProperty("headLabels").isPresent.toString())
+            systemProperty("ntmgunfeel.limbLabels",providers.gradleProperty("limbLabels").isPresent.toString())
             systemProperty("ntmgunfeel.headLabelSelfTest",providers.gradleProperty("headLabelSelfTest").isPresent.toString())
             systemProperty("ntmgunfeel.headCutSelfTest",providers.gradleProperty("headCutSelfTest").isPresent.toString())
-            systemProperty("ntmgunfeel.headLabelDir",root.resolve(if(providers.gradleProperty("headLabelSelfTest").isPresent) "notes/head-labels/self-test" else "notes/head-labels").path)
+            systemProperty("ntmgunfeel.headLabelDir",root.resolve(if(providers.gradleProperty("headLabelSelfTest").isPresent) "notes/head-labels/self-test" else if(providers.gradleProperty("limbLabels").isPresent) "notes/limb-labels" else "notes/head-labels").path)
             systemProperty("ntmgunfeel.mobReviewSelfTest", selfTest.toString())
             val sweep=providers.gradleProperty("mobRenderSweep").isPresent
             systemProperty("ntmgunfeel.mobRenderSweep",sweep.toString())
             systemProperty("ntmgunfeel.checkExtraBoxes",providers.gradleProperty("mobCheckExtraBoxes").isPresent.toString())
             systemProperty("ntmgunfeel.checkHeads",providers.gradleProperty("checkHeads").isPresent.toString())
             systemProperty("ntmgunfeel.checkHeadBindings",providers.gradleProperty("checkHeadBindings").isPresent.toString())
+            systemProperty("ntmgunfeel.mobBabiesOnly",providers.gradleProperty("mobBabiesOnly").isPresent.toString())
             providers.gradleProperty("mobNamespaces").orNull?.let { systemProperty("ntmgunfeel.mobNamespaces",it) }
             providers.gradleProperty("mobCases").orNull?.let { systemProperty("ntmgunfeel.mobCases",it) }
-            systemProperty("ntmgunfeel.mobReviewDir", root.resolve(if(sweep) "notes/external-mob-review/sweep" else if(selfTest) "notes/mob-review/self-test" else "notes/mob-review").path)
+            providers.gradleProperty("mobStart").orNull?.let { systemProperty("ntmgunfeel.mobStart",it) }
+            systemProperty("ntmgunfeel.mobReviewDir", root.resolve(if(sweep) "notes/external-mob-review/sweep" else if(selfTest) "notes/mob-review/self-test" else if(providers.gradleProperty("mobBabiesOnly").isPresent) "notes/mob-review/babies" else "notes/mob-review").path)
             systemProperty("MC_DEBUG_ENABLED", "true")
             systemProperty("MC_DEBUG_PREFER_WAYLAND", "true")
             programArguments.addAll("--width", "1280", "--height", "800")

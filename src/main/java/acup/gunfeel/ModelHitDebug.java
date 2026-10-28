@@ -80,6 +80,7 @@ public final class ModelHitDebug {
         int id=0;
         for(var target:TARGETS) {
             var boxes=ModelHits.worldBoxes(target.entity());
+            if(HeadLabels.ENABLED) boxes=HeadLabels.boxes(target.entity(),boxes);
             boolean custom=!boxes.isEmpty();
             MobSmoke.debug(target.entity(),custom);
             if(!custom) {

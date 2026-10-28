@@ -15,17 +15,17 @@ class AvatarHitPolicyTest {
         return ModelPoseCapture.collect(root,new PoseStack(),0,0,0,ModelPoseCaptureTest.PARTS).boxes();
     }
     private List<ModelBox> filter(String id,List<ModelBox> boxes) { return AvatarHitPolicy.filter(Identifier.parse(id),boxes); }
-    @Test void classicAndSlimKeepTheirRealArmWidthWithoutCosmeticPadding() {
+    @Test void classicAndSlimKeepTheirRealArmWidthAndVisibleSkinLayer() {
         for(boolean slim:new boolean[]{false,true}) for(String type:List.of("minecraft:player","minecraft:mannequin")) {
             var original=player(slim,0);var body=filter(type,original);
-            assertEquals(6,body.size());
+            assertEquals(original,body);assertTrue(body.size()>6);
             var arm=body.stream().filter(b->b.part().equals("root/right_arm")).findFirst().orElseThrow();
             var sleeve=original.stream().filter(b->b.part().endsWith("right_sleeve")).findFirst().orElseThrow();
             assertEquals((slim?3:4)/16.0,Math.sqrt(arm.ux()*arm.ux()+arm.uy()*arm.uy()+arm.uz()*arm.uz()),1e-7);
             double outside=arm.x()-.125/16;
             double middleY=arm.y()+arm.vy()/2;
             assertTrue(sleeve.clip(outside,middleY,-2,outside,middleY,2)>=0,"до исправления край декоративного рукава ловил пулю");
-            assertTrue(body.stream().noneMatch(b->b.clip(outside,middleY,-2,outside,middleY,2)>=0),"после исправления мимо тела — промах");
+            assertTrue(body.stream().anyMatch(b->b.clip(outside,middleY,-2,outside,middleY,2)>=0),"видимый второй слой тоже является геометрией попадания");
             assertTrue(body.stream().anyMatch(b->b.clip(arm.x()+arm.ux()/2,middleY,-2,arm.x()+arm.ux()/2,middleY,2)>=0));
         }
     }
@@ -34,7 +34,7 @@ class AvatarHitPolicyTest {
         var posed=filter("minecraft:player",player(true,.7F));
         assertNotEquals(standing,posed);
         var meshNames=player(true,.7F).stream().map(b->new ModelBox("mesh/"+b.part(),b.x(),b.y(),b.z(),b.ux(),b.uy(),b.uz(),b.vx(),b.vy(),b.vz(),b.wx(),b.wy(),b.wz(),b.mesh())).toList();
-        assertEquals(6,filter("minecraft:mannequin",meshNames).size());
+        assertEquals(meshNames,filter("minecraft:mannequin",meshNames));
     }
     @Test void OtherHumanoidsAndUnknownPlayerLayoutsRemainUntouched() {
         var boxes=player(false,0);

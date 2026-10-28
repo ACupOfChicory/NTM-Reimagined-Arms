@@ -36,7 +36,7 @@ final class MobReview {
         try {
             directory=Path.of(System.getProperty("ntmgunfeel.mobReviewDir"));
             store=new MobReviewStore(directory.resolve("reviews.tsv"));
-            Minecraft.getInstance().getWindow().setTitle("Просмотр мобов — NTM");
+            Minecraft.getInstance().getWindow().setTitle(HeadLabels.ENABLED?"Разметка: "+HeadLabels.title()+" — NTM":"Просмотр мобов — NTM");
             ready=true;
             NeoForge.EVENT_BUS.addListener(InputEvent.Key.class,e -> {
                 if(e.getAction()==GLFW.GLFW_PRESS && Minecraft.getInstance().gui.screen()==null) key(e.getKey());
@@ -46,6 +46,8 @@ final class MobReview {
     }
 
     static int resume() {
+        int requested=MobSmoke.cases().indexOf(System.getProperty("ntmgunfeel.mobStart",""));
+        if(requested>=0) return requested;
         if(HeadLabels.ENABLED) return HeadLabels.resume();
         for(int i=0;i<MobSmoke.cases().size();i++) if(!store.reviewed(MobSmoke.cases().get(i))) return i;
         for(int i=0;i<MobSmoke.cases().size();i++) {
@@ -181,7 +183,8 @@ final class MobReview {
         var mc=Minecraft.getInstance();
         String id=MobSmoke.current();
         var decision=store.get(id);
-        String name=MobSmoke.target()==null?"Сущность пока не появилась":MobSmoke.target().getName().getString();
+        String name=MobSmoke.target()==null?"Сущность пока не появилась":
+                (MobCatalog.baby(id)?"Детёныш: ":"")+MobSmoke.target().getName().getString();
         String[] lines={(SWEEP?"Автопроверка — оценки отключены  ":"Просмотр мобов  ")+(MobSmoke.index()+1)+" / "+MobSmoke.cases().size()+"  ·  "+name,
                 id+"  ·  "+(decision==null?"не оценено":label(decision.status()))+"  ·  фильтр: "+new String[]{"все","не оценённые","ошибки","отложенные"}[filter],
                 "Правильно: "+store.count("ok")+" · Ошибки: "+store.count("bad")+" · Отложено: "+store.count("skip"),
@@ -218,7 +221,7 @@ final class MobReview {
                     String query=input.getValue().strip().toLowerCase(java.util.Locale.ROOT);
                     if(query.isEmpty()) return;
                     var matches=MobSmoke.cases().stream().filter(key -> key.toLowerCase(java.util.Locale.ROOT).contains(query)
-                            || net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(net.minecraft.resources.Identifier.parse(key))
+                            || net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(net.minecraft.resources.Identifier.parse(MobCatalog.type(key)))
                             .getDescription().getString().toLowerCase(java.util.Locale.ROOT).contains(query)).toList();
                     if(matches.isEmpty()) { input.setMessage(Component.literal("Моб не найден")); return; }
                     String selected=matches.contains(query)?query:matches.getFirst();

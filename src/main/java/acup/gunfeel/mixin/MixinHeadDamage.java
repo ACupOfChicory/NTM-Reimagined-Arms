@@ -12,6 +12,11 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(value=BulletConfig.class,remap=false)
 public abstract class MixinHeadDamage {
+    @Redirect(method={"lambda$static$2","lambda$static$3"},at=@At(value="INVOKE",target="Lcom/hbm/util/EntityDamageUtil;attackEntityFromNT(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z"),require=2)
+    private static boolean gunfeel$beamZones(LivingEntity target,DamageSource source,float damage,boolean first,boolean second,double knockback,float threshold,float piercing,
+            com.hbm.entity.projectile.EntityBulletBeamBase bullet,HitResult impact) {
+        return EntityDamageUtil.attackEntityFromNT(target,source,acup.gunfeel.HeadDamage.beamDamage(damage,target,impact),first,second,knockback,threshold,piercing);
+    }
     @Redirect(method="lambda$static$1",at=@At(value="INVOKE",target="Lcom/hbm/util/EntityDamageUtil;attackEntityFromNT(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z"),require=1)
     private static boolean gunfeel$head(LivingEntity target,DamageSource source,float damage,boolean first,boolean second,double knockback,float threshold,float piercing,
             EntityBulletBaseMK4 bullet,HitResult impact) {

@@ -22,7 +22,7 @@ final class HeadLabelScreen extends Screen {
     private record Edit(Map<String,Integer> labels,Map<String,List<HeadLabelCuts.Plane>> cuts) {}
     private final ArrayDeque<Edit> undo=new ArrayDeque<>();
     private final String id=MobSmoke.current();
-    private String sample,message="Выдели голову и нажми Enter. Бирюзовый — текущая голова.";
+    private String sample,message=HeadLabels.LIMBS?"Выдели руки и ноги (все конечности) и нажми Enter. Урон будет ×0,5.":"Выдели голову и нажми Enter. Бирюзовый — текущая голова.";
     private final Vec3 original=Minecraft.getInstance().player.position();
     private final float originalYaw=Minecraft.getInstance().player.getYRot(),originalPitch=Minecraft.getInstance().player.getXRot();
     private Vec3 center;
@@ -38,9 +38,13 @@ final class HeadLabelScreen extends Screen {
     private boolean waiting,cameraRestored;
     boolean waiting() { return waiting; }
     private final Map<List<String>,List<Vec3[]>> edgeCache=new HashMap<>();
+    private final Map<List<Vec3[]>,ModelContours.Outline> localOutlines=new IdentityHashMap<>();
+    private List<Vec3[]> remainingEdges;
+    private final Vec3 lineOrigin=entity.position();
+    private void invalidateEdges() { edgeCache.clear();localOutlines.clear();remainingEdges=null; }
 
     HeadLabelScreen() {
-        super(Component.literal("Разметка голов"));
+        super(Component.literal("Разметка: "+HeadLabels.title()));
         double x0=Double.POSITIVE_INFINITY,y0=x0,z0=x0,x1=-x0,y1=x1,z1=x1;
         for(var box:boxes) for(int i=0;i<8;i++) {
             var p=ModelContours.point(box,i&1,(i>>1)&1,(i>>2)&1);
@@ -49,33 +53,49 @@ final class HeadLabelScreen extends Screen {
         }
         center=new Vec3((x0+x1)/2,(y0+y1)/2,(z0+z1)/2);
         distance=Math.max(2,new Vec3(x1-x0,y1-y0,z1-z0).length()*1.5);
-        if(boxes.isEmpty()) { center=entity.position().add(0,entity.getBbHeight()/2,0);distance=Math.max(2,entity.getBbHeight()*2);message="Нет точной геометрии. Отложи этого моба: это не означает отсутствие головы."; }
+        if(boxes.isEmpty()) { center=entity.position().add(0,entity.getBbHeight()/2,0);distance=Math.max(2,entity.getBbHeight()*2);message="Нет точной геометрии. Отложи этого моба: отсутствие захвата не означает отсутствие частей тела."; }
     }
     private void restore() {
         var previous=HeadLabels.store.get(id);
         if(previous!=null) {
             try {
                 var geometry=HeadLabels.store.model(previous.sample()).getAsJsonArray("geometry");
-                boolean same=geometry.size()==boxes.size();
+                boolean same=geometry.size()==boxes.size(),samePose=true;
+                var previousBoxes=new ArrayList<ModelBox>();
                 for(int i=0;same && i<boxes.size();i++) {
                     var saved=geometry.get(i).getAsJsonObject();var frame=saved.getAsJsonArray("frame");
                     same=saved.get("part").getAsString().equals(boxes.get(i).part());
                     var numbers=boxes.get(i).numbers();
-                    for(int k=0;same && k<numbers.length;k++) same=Math.abs(frame.get(k).getAsDouble()-numbers[k])<1e-6;
+                    for(int k=0;k<numbers.length;k++) samePose&=Math.abs(frame.get(k).getAsDouble()-numbers[k])<1e-6;
+                    double[] f=new double[12];for(int k=0;k<12;k++) f[k]=frame.get(k).getAsDouble();
+                    previousBoxes.add(new ModelBox(boxes.get(i).part(),f[0],f[1],f[2],f[3],f[4],f[5],f[6],f[7],f[8],f[9],f[10],f[11],boxes.get(i).mesh()));
                     var triangles=saved.getAsJsonArray("triangles");var current=HeadLabelGeometry.triangles(boxes.get(i));
                     same&=triangles.size()==current.length;
                     for(int k=0;same && k<current.length;k++) same=Math.abs(triangles.get(k).getAsFloat()-current[k])<1e-6;
                 }
-                if(same) { if(previous.status().equals("draft")) sample=previous.sample();labels.putAll(previous.labels());cuts.putAll(previous.cuts());group=labels.values().stream().mapToInt(Integer::intValue).max().orElse(1);message="Восстановлена разметка этой позы"; }
-                else message="Предыдущая поза сохранена. Это новый пример: разметь голову заново.";
+                if(same) {
+                    var restored=new LinkedHashMap<String,List<HeadLabelCuts.Plane>>();
+                    for(var entry:previous.cuts().entrySet()) {
+                        int part=Integer.parseInt(entry.getKey().split(":")[0]);
+                        restored.put(entry.getKey(),entry.getValue().stream().map(p->{
+                            var local=HeadZone.localPlane(previousBoxes.get(part),new HeadZone.Plane(p.nx(),p.ny(),p.nz(),p.d()));
+                            var world=HeadZone.local(boxes.get(part),List.of(local)).planes().getFirst();
+                            return new HeadLabelCuts.Plane(world.x(),world.y(),world.z(),world.d());
+                        }).toList());
+                    }
+                    if(previous.status().equals("draft") && samePose) sample=previous.sample();
+                    labels.putAll(previous.labels());cuts.putAll(restored);group=labels.values().stream().mapToInt(Integer::intValue).max().orElse(1);
+                    message=samePose?"Восстановлена разметка этой позы":"Выделение восстановлено; срезы перенесены в текущую позу. Старый снимок сохранён.";
+                }
+                else message="Предыдущая поза сохранена. Это новый пример: разметь нужные части заново.";
             } catch(Exception e) { message="Старый пример сохранён; не удалось восстановить: "+e.getMessage(); }
         }
     }
     @Override protected void init() {
-        String[] names={"Сохранить →","Нет головы","Отложить →","← Предыдущий","Следующий →","Голова №1","Новая голова","Детали / грани","Отмена","Очистить"};
+        String[] names={"Сохранить →",HeadLabels.none(),"Отложить →","← Предыдущий","Следующий →",HeadLabels.group()+" №1",HeadLabels.LIMBS?"Новая группа":"Новая голова","Детали / грани","Отмена","Очистить"};
         Runnable[] actions={()->save("done"),()->save("none"),()->save("skip"),()->navigate(-1),()->navigate(1),
                 ()->{int max=labels.values().stream().mapToInt(Integer::intValue).max().orElse(1);group=group>=max?1:group+1;},
-                ()->{group=labels.values().stream().mapToInt(Integer::intValue).max().orElse(0)+1;message="Выбирается голова №"+group;},()->faces=!faces,this::undo,()->edit(Map.of())};
+                ()->{group=labels.values().stream().mapToInt(Integer::intValue).max().orElse(0)+1;message="Выбирается: "+HeadLabels.group()+" №"+group;},()->faces=!faces,this::undo,()->edit(Map.of())};
         for(int i=0;i<names.length;i++) {
             final Runnable action=actions[i];
             var button=addRenderableWidget(Button.builder(Component.literal(names[i]),b->action.run()).bounds(6+(i%5)*(width-12)/5,height-47+(i/5)*23,(width-12)/5-2,20).build());
@@ -111,6 +131,7 @@ final class HeadLabelScreen extends Screen {
         if(sample!=null) return;
         var model=new LinkedHashMap<String,Object>();
         model.put("schema",1); model.put("entity",id); model.put("renderer",Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(entity).getClass().getName());
+        model.put("zoneKind",HeadLabels.LIMBS?"limbs":"head");
         model.put("position",entity.position()); model.put("eye",entity.getEyePosition()); model.put("look",entity.getLookAngle());
         model.put("yaw",entity.getYRot()); model.put("pitch",entity.getXRot());
         model.put("camera",Minecraft.getInstance().gameRenderer.mainCamera().position());
@@ -131,21 +152,21 @@ final class HeadLabelScreen extends Screen {
         var previous=new Edit(new LinkedHashMap<>(labels),new LinkedHashMap<>(cuts));
         try {
             snapshot(); HeadLabels.store.save(id,sample,"draft",next,nextCuts);
-            undo.push(previous); labels.clear(); labels.putAll(next);cuts.clear();cuts.putAll(nextCuts);edgeCache.clear(); message="Черновик сохранён · голова №"+group;
+            undo.push(previous); labels.clear(); labels.putAll(next);cuts.clear();cuts.putAll(nextCuts);invalidateEdges(); message="Черновик сохранён · "+HeadLabels.group()+" №"+group;
         } catch(Exception e) { message="Не сохранено: "+e.getMessage();GunFeel.LOGGER.error("[headlabels] сохранение",e); }
     }
     private void undo() {
         if(undo.isEmpty()) return;
         var previous=undo.pop();
-        try { snapshot();HeadLabels.store.save(id,sample,"draft",previous.labels(),previous.cuts()); labels.clear(); labels.putAll(previous.labels());cuts.clear();cuts.putAll(previous.cuts());edgeCache.clear();pendingCut=null; }
+        try { snapshot();HeadLabels.store.save(id,sample,"draft",previous.labels(),previous.cuts()); labels.clear(); labels.putAll(previous.labels());cuts.clear();cuts.putAll(previous.cuts());invalidateEdges();pendingCut=null; }
         catch(Exception e) { undo.push(previous); message="Не сохранено: "+e.getMessage(); }
     }
     private void save(String status) {
-        if(pendingCut!=null) { message="Сначала щёлкни со стороны головы или нажми C для отмены отсечения.";return; }
-        if(boxes.isEmpty() && !status.equals("skip")) { message="Нет геометрии: можно только отложить моба, а не объявить его безголовым.";return; }
+        if(pendingCut!=null) { message="Сначала щёлкни со стороны "+HeadLabels.side()+" или нажми C для отмены отсечения.";return; }
+        if(boxes.isEmpty() && !status.equals("skip")) { message="Нет геометрии: можно только отложить моба.";return; }
         try {
             snapshot(); HeadLabels.store.save(id,sample,status,status.equals("none")?Map.of():labels,status.equals("none")?Map.of():cuts);
-            if(status.equals("none")) { labels.clear();cuts.clear();edgeCache.clear(); }
+            if(status.equals("none")) { labels.clear();cuts.clear();invalidateEdges(); }
             if(status.equals("done") || status.equals("none")) sample=null;
             if(MobSmoke.cases().stream().allMatch(HeadLabels.store::done)) { message="Все мобы размечены. ← → позволяют пересмотреть примеры.";return; }
             transition(1,true);
@@ -178,7 +199,7 @@ final class HeadLabelScreen extends Screen {
         if(super.mouseClicked(event,doubled)) return true;
         if(cutMode && pendingCut!=null && event.button()==0 && event.y()>48 && event.y()<height-78) {
             var plane=pendingCut;double side=plane.nx()*ray(event.x(),event.y()).x+plane.ny()*ray(event.x(),event.y()).y+plane.nz()*ray(event.x(),event.y()).z;
-            if(Math.abs(side)<1e-8) { message="Щёлкни дальше от линии, со стороны головы.";return true; }
+            if(Math.abs(side)<1e-8) { message="Щёлкни дальше от линии, со стороны "+HeadLabels.side()+".";return true; }
             if(side<0) plane=plane.flip();
             var next=new LinkedHashMap<>(cuts);
             for(var entry:labels.entrySet()) if(entry.getValue()==group) {
@@ -202,12 +223,12 @@ final class HeadLabelScreen extends Screen {
         if(event.button()!=0 || !drag) return super.mouseReleased(event);
         drag=false;
         if(cutMode) {
-            if(labels.values().stream().noneMatch(value->value==group)) { message="Сначала выдели деталь головы обычным ЛКМ.";return true; }
-            if(Math.hypot(event.x()-startX,event.y()-startY)<8) { message="Проведи линию с зажатой ЛКМ, затем выбери сторону головы.";return true; }
+            if(labels.values().stream().noneMatch(value->value==group)) { message="Сначала выдели нужную деталь обычным ЛКМ.";return true; }
+            if(Math.hypot(event.x()-startX,event.y()-startY)<8) { message="Проведи линию с зажатой ЛКМ, затем выбери нужную сторону.";return true; }
             var normal=ray(startX,startY).cross(ray(event.x(),event.y())).normalize();
             var camera=Minecraft.getInstance().gameRenderer.mainCamera().position();
             pendingCut=new HeadLabelCuts.Plane(normal.x,normal.y,normal.z,-normal.dot(camera));cutX=event.x();cutY=event.y();
-            message="Теперь щёлкни со стороны головы. Срез проходит через всю глубину модели. C — отмена.";return true;
+            message="Теперь щёлкни со стороны "+HeadLabels.side()+". Срез проходит через всю глубину модели. C — отмена.";return true;
         }
         boolean remove=(event.modifiers()&GLFW.GLFW_MOD_SHIFT)!=0;
         if(Math.hypot(event.x()-startX,event.y()-startY)<5) {
@@ -230,7 +251,7 @@ final class HeadLabelScreen extends Screen {
     @Override public boolean keyPressed(KeyEvent event) {
         if(waiting && event.key()!=GLFW.GLFW_KEY_ESCAPE && event.key()!=GLFW.GLFW_KEY_H) return true;
         switch(event.key()) {
-            case GLFW.GLFW_KEY_C -> { cutMode=!cutMode;pendingCut=null;drag=false;message=cutMode?"Отсечение: проведи линию ЛКМ, затем щёлкни со стороны головы. C — отмена.":"Обычное выделение"; }
+            case GLFW.GLFW_KEY_C -> { cutMode=!cutMode;pendingCut=null;drag=false;message=cutMode?"Отсечение: проведи линию ЛКМ, затем щёлкни со стороны "+HeadLabels.side()+". C — отмена.":"Обычное выделение"; }
             case GLFW.GLFW_KEY_ENTER -> save("done");
             case GLFW.GLFW_KEY_RIGHT -> navigate(1);
             case GLFW.GLFW_KEY_LEFT -> navigate(-1);
@@ -255,12 +276,13 @@ final class HeadLabelScreen extends Screen {
         super.extractRenderState(g,x,y,partial);
         if(!waiting && poseFrames<8 && ++poseFrames==8) { boxes=List.copyOf(ModelHits.worldBoxes(entity));restore(); }
         hover=!waiting && !cutMode && y>48 && y<height-78?pick(x,y):null;
-        groupButton.setMessage(Component.literal("Голова №"+group+" ↻"));
+        groupButton.setMessage(Component.literal(HeadLabels.group()+" №"+group+" ↻"));
         g.fill(0,0,width,46,0xDD181B25);
-        g.text(font,"Головы · "+(MobSmoke.index()+1)+"/"+MobSmoke.cases().size()+" · "+id+" · готово "+HeadLabels.store.completed(),8,6,0xFFFFCC55);
+        long completed=MobSmoke.cases().stream().filter(HeadLabels.store::done).count();
+        g.text(font,HeadLabels.title()+" · "+(MobSmoke.index()+1)+"/"+MobSmoke.cases().size()+" · "+id+" · готово "+completed,8,6,0xFFFFCC55);
         var old=HeadLabels.store.get(id);
-        String status=old==null?"не размечен":switch(old.status()) { case "done"->"подтверждён";case "none"->"без головы";case "skip"->"отложен";default->"черновик"; };
-        g.text(font,"Голова №"+group+" · "+(faces?"грани":"целые детали")+" · выбрано "+labels.size()+" · "+status,8,18,0xFF77FFFF);
+        String status=old==null?"не размечен":switch(old.status()) { case "done"->"подтверждён";case "none"->HeadLabels.none();case "skip"->"отложен";default->"черновик"; };
+        g.text(font,HeadLabels.group()+" №"+group+" · "+(faces?"грани":"целые детали")+" · выбрано "+labels.size()+" · "+status,8,18,0xFF77FFFF);
         g.text(font,font.plainSubstrByWidth(waiting?"Подготовка следующего моба… Выделение временно отключено.":message,width-16),8,30,0xFFF2EFF8);
         g.fill(0,height-76,width,height-49,0xDD181B25);
         g.text(font,"ЛКМ — выбрать · рамка — несколько · Shift — убрать · C — отсечь лишнее · ПКМ — вращать · колесо — масштаб",8,height-71,0xFFF2EFF8);
@@ -280,11 +302,21 @@ final class HeadLabelScreen extends Screen {
     }
     void overlay(List<ModelDebugRender.Shape> shapes,int owner) {
         if(waiting) return;
+        if(!labels.isEmpty()) for(int i=shapes.size()-1;i>=0;i--) if(shapes.get(i).id()==owner) {
+            if(remainingEdges==null) remainingEdges=SelectionContours.remaining(ModelContours.edges(boxes),edges(List.copyOf(labels.keySet())));
+            shapes.set(i,new ModelDebugRender.Shape(owner,true,boxes,List.of(),localOutline(remainingEdges),1F));break;
+        }
         for(boolean active:new boolean[]{false,true}) {
             var tokens=labels.entrySet().stream().filter(e->(e.getValue()==group)==active).map(Map.Entry::getKey).toList();
-            if(!tokens.isEmpty()) shapes.add(new ModelDebugRender.Shape(owner,true,boxes,edges(tokens),null,active?.15F:.35F));
+            if(!tokens.isEmpty()) shapes.add(new ModelDebugRender.Shape(owner,true,List.of(),List.of(),localOutline(edges(tokens)),active?.15F:.35F));
         }
-        if(hover!=null && !labels.containsKey(hover.token(faces))) shapes.add(new ModelDebugRender.Shape(owner,true,boxes,edges(List.of(hover.token(faces))),null,.5F));
+        if(hover!=null && !labels.containsKey(hover.token(faces))) shapes.add(new ModelDebugRender.Shape(owner,true,List.of(),List.of(),localOutline(edges(List.of(hover.token(faces)))),.5F));
+    }
+    private ModelContours.Outline localOutline(List<Vec3[]> world) {
+        return localOutlines.computeIfAbsent(world,edges->{
+            var local=edges.stream().map(strip->Arrays.stream(strip).map(p->p.subtract(lineOrigin)).toArray(Vec3[]::new)).toList();
+            return new ModelContours.Outline(new ModelContours.Frame(lineOrigin,new Vec3(1,0,0),new Vec3(0,1,0),new Vec3(0,0,1)),local);
+        });
     }
     private List<Vec3[]> edges(List<String> tokens) {
         if(edgeCache.size()>64) edgeCache.clear();

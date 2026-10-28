@@ -131,13 +131,16 @@ public final class MobSmoke {
                     mc.getSingleplayerServer().clockManager().setTotalTicks(clock,18000);
                     mc.getSingleplayerServer().clockManager().setPaused(clock,true);
                 });
-                CASES=System.getProperty("ntmgunfeel.mobCases", "").isBlank()?MobCatalog.discover():
+                CASES=System.getProperty("ntmgunfeel.mobCases", "").isBlank()?
+                        (review()?MobCatalog.review(level,Boolean.getBoolean("ntmgunfeel.mobBabiesOnly")):MobCatalog.discover()):
                         java.util.Arrays.stream(System.getProperty("ntmgunfeel.mobCases").split(",")).map(String::trim).toList();
                 var namespaces=System.getProperty("ntmgunfeel.mobNamespaces", "");
                 if(!namespaces.isBlank()) {
                     var selected=java.util.Set.of(namespaces.split(","));
                     CASES=CASES.stream().filter(key -> selected.contains(key.substring(0,key.indexOf(':')))).toList();
                 }
+                if(HeadLabels.LIMBS) CASES=CASES.stream().filter(key->LimbPolicy.eligible(
+                        BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse(MobCatalog.type(key))))).toList();
                 java.nio.file.Path catalog=java.nio.file.Path.of(System.getProperty("ntmgunfeel.checkClient")).resolveSibling("catalog.txt");
                 java.nio.file.Files.createDirectories(catalog.getParent());
                 java.nio.file.Files.write(catalog,CASES);
@@ -212,6 +215,12 @@ public final class MobSmoke {
                 if(current().equals("minecraft:goat")) {
                     check(client.boxes().stream().noneMatch(PlaneHitPolicy::flat),"у взрослой козы нет плоских поверхностей попадания");
                     check(EntityTypes.GOAT.getDimensions().height()==PlaneHitPolicy.LARGE_SIZE,"порог размера совпадает со взрослой козой");
+                }
+                if(Boolean.getBoolean("ntmgunfeel.checkAvatarLayers")) {
+                    check(SkinLayerGeometry.enabled(),"3D Skin Layers: необязательный API доступен");
+                    check(client.boxes().stream().anyMatch(b->b.part().endsWith("/skin3d")),"клиент: захвачены настоящие объёмные слои скина");
+                    check(server.boxes().stream().anyMatch(b->b.part().endsWith("/skin3d")),"сервер: получены объёмные слои скина");
+                    check(SkinLayerGeometry.captures>0 && SkinLayerGeometry.bakes<=6,"3D Skin Layers: кэш геометрии, captures="+SkinLayerGeometry.captures+", bakes="+SkinLayerGeometry.bakes);
                 }
                 watch=true; orange=white=sameFrame=oldFrame=0;
                 stage=2; since=System.nanoTime();
@@ -398,9 +407,14 @@ public final class MobSmoke {
                 extraBoxesBefore=ModelHitDebug.suppressedBoxes;
                 id=-1; client=server=null; woolRay=null; watch=false; orange=white=sameFrame=oldFrame=0; gpuChecks=gpuMismatch=geometryChecks=geometryMismatch=0;
                 RESULTS.add(new Result(true,CASES.get(index)+": стенд очищен до спавна, оставшихся сущностей=0, peas="+peas));
-                var type=BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse(CASES.get(index)));
+                var type=BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse(MobCatalog.type(CASES.get(index))));
                 Entity created=type.create(level,EntitySpawnReason.COMMAND);
                 if(!(created instanceof LivingEntity target)) throw new IllegalStateException("не живой моб: "+created);
+                if(MobCatalog.baby(CASES.get(index))) {
+                    if(!(target instanceof Mob mob)) throw new IllegalStateException("Нет детского варианта: "+CASES.get(index));
+                    mob.setBaby(true);
+                    if(!mob.isBaby()) throw new IllegalStateException("Моб не поддерживает детский возраст: "+CASES.get(index));
+                }
                 // Ghost штатно исчезает рядом с обычным игроком даже с NoAI.
                 // Наблюдатель исключён из его проверки присутствия игроков.
                 mc.getSingleplayerServer().getPlayerList().getPlayers().getFirst()

@@ -15,6 +15,12 @@ final class HeadSmoke {
     static void bindings(LivingEntity target,java.util.function.BiConsumer<Boolean,String> check) {
         String type=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()).toString();
         var boxes=ModelHits.worldBoxes(target);var result=ModelHits.headResolution(target);
+        if(target.isBaby()) try {
+            var parts=boxes.stream().map(b->Map.of("part",b.part(),"size",HeadProfiles.size(b),
+                    "shape",Long.toUnsignedString(HeadProfiles.shape(b),16),"frame",b.numbers())).toList();
+            java.nio.file.Files.writeString(java.nio.file.Path.of("../notes/head-labels/research/baby-binding-"+type.replace(':','_')+".json"),
+                    new com.google.gson.Gson().toJson(parts));
+        } catch(Exception ex) { check.accept(false,"снимок детской модели: "+ex); }
         check.accept(result.source().equals("dataset") && result.missing()==0,"голова: ручная привязка без потерь, частей="+boxes.size()+", зон="+result.zones().size()+", missing="+result.missing());
     }
     static void frame() {
@@ -53,7 +59,7 @@ final class HeadSmoke {
         String type=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()).toString();
         var profile=HeadProfiles.get(type);
         check.accept(profile!=null,"голова: найден ручной профиль "+type);
-        Vec3 head=null,body=null;
+        Vec3 head=null,body=null,limb=null;
         var surface=new ArrayList<MobRayOracle.Triangle>();
         for(var box:boxes) {
             float[] data=HeadLabelGeometry.triangles(box);
@@ -61,7 +67,9 @@ final class HeadSmoke {
         }
         for(var ray:MobRayOracle.grid(surface)) if(ray.hit()) {
             var hit=target.getBoundingBox().clip(ray.from(),ray.to());if(hit.isEmpty()) continue;
-            if(ModelHits.head(target,hit.get()).head()) { if(head==null) head=hit.get(); } else if(body==null) body=hit.get();
+            if(ModelHits.head(target,hit.get()).head()) { if(head==null) head=hit.get(); }
+            else if(ModelHits.limb(target,hit.get())) { if(limb==null) limb=hit.get(); }
+            else if(body==null) body=hit.get();
         }
         check.accept(!zones.isEmpty()==!profile.none(),"голова: наличие зон соответствует ручной разметке");
         if(!profile.none()) check.accept(head!=null,"голова: найдена видимая точка попадания");
@@ -73,7 +81,7 @@ final class HeadSmoke {
         if(healthAttribute!=null) healthAttribute.setBaseValue(1000);
         target.setInvulnerable(false);
         try {
-            var config=new BulletConfig().setDamage(10).setHeadshot(2);
+            var config=new BulletConfig().setDamage(10).setHeadshot(0);
             config.damageFalloffByPen=false;
             var bullet=new EntityBulletBaseMK4(level,config,1,0,0,0);
             bullet.damage=10;
@@ -85,10 +93,32 @@ final class HeadSmoke {
                 target.setHealth(1000);before=target.getHealth();
                 BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,head));
                 float headDamage=before-target.getHealth();
-                check.accept(Math.abs(headDamage-bodyDamage*2)<.01 && HeadDamage.last(bullet,target,head).head(),"голова: множитель применён один раз, тело="+bodyDamage+", голова="+headDamage);
+                check.accept(Math.abs(headDamage-bodyDamage*1.75F)<.01 && HeadDamage.last(bullet,target,head).head(),"голова: единый множитель ×1,75 при конфиге NTM ×0, тело="+bodyDamage+", голова="+headDamage);
+                config.setHeadshot(2);target.setHealth(1000);before=target.getHealth();
+                BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,head));
+                check.accept(Math.abs(before-target.getHealth()-headDamage)<.01,"голова: конфиг патрона ×2 не меняет единые ×1,75");
             } else {
                 check.accept(profile.none() && !HeadDamage.last(bullet,target,body).head(),"голова: ручное отсутствие запрещает хедшот");
             }
+            if(Boolean.getBoolean("ntmgunfeel.checkLimbs")) check.accept(limb!=null,"конечности: найдена точка проверенной области");
+            if(limb!=null) {
+                target.setHealth(1000);before=target.getHealth();
+                BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,limb));
+                check.accept(Math.abs(before-target.getHealth()-bodyDamage*.5F)<.01,"конечности: настоящая NTM-пуля ×0,5, урон="+(before-target.getHealth()));
+            }
+            var beam=new com.hbm.entity.projectile.EntityBulletBeamBase(level,config,1);beam.damage=10;
+            for(var handler:List.of(BulletConfig.LAMBDA_STANDARD_BEAM_HIT,BulletConfig.LAMBDA_BEAM_HIT)) {
+                target.setHealth(1000);before=target.getHealth();handler.accept(beam,new EntityHitResult(target,body));float beamBody=before-target.getHealth();
+                if(head!=null) {
+                    target.setHealth(1000);before=target.getHealth();handler.accept(beam,new EntityHitResult(target,head));
+                    check.accept(beamBody>0 && Math.abs(before-target.getHealth()-beamBody*1.75F)<.01,"NTM-луч: голова ×1,75, тело="+beamBody+", голова="+(before-target.getHealth()));
+                }
+                if(limb!=null) {
+                    target.setHealth(1000);before=target.getHealth();handler.accept(beam,new EntityHitResult(target,limb));
+                    check.accept(beamBody>0 && Math.abs(before-target.getHealth()-beamBody*.5F)<.01,"NTM-луч: конечность ×0,5, урон="+(before-target.getHealth()));
+                }
+            }
+            beam.discard();
             bullet.discard();
         } finally {
             if(healthAttribute!=null) healthAttribute.setBaseValue(max);

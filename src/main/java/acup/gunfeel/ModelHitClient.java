@@ -209,6 +209,7 @@ public final class ModelHitClient {
         ModelHitDebug.beginFrame();
         ModelBodyGeometry.clear();
         HeadDebug.clear();
+        SkinLayerGeometry.clear();
         if (level != null) ModelHits.clear(level);
         READY.clear(); SENT.clear(); MESH_SENT.clear(); SYNC.clear(); ModelTextureMask.clear();
         APPLIED_FRAME.clear(); PUBLISHED_FRAME.clear();

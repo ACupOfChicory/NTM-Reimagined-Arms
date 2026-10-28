@@ -16,17 +16,26 @@ final class HeadProfiles {
     private static final Map<String,Profile> PROFILES=load();
     private static final Map<Long,Long> SHAPES=new HashMap<>();
     private HeadProfiles() {}
-    static Profile get(String type) { return PROFILES.get(type.equals("minecraft:player") && !PROFILES.containsKey(type)?"minecraft:mannequin":type); }
+    static Profile get(String type) {
+        return get(PROFILES,type);
+    }
+    static Profile get(Map<String,Profile> bank,String type) {
+        var exact=bank.get(type);if(exact!=null) return exact;
+        return type.equals("minecraft:player")?bank.get("minecraft:mannequin"):null;
+    }
+    static Map<String,Profile> all() { return PROFILES; }
     static int count() { return PROFILES.size(); }
     private static Map<String,Profile> load() {
+        return loadBank("/ntmgunfeel-heads.json",Path.of("config/ntmgunfeel-heads.json"),true);
+    }
+    static Map<String,Profile> loadBank(String resource,Path override,boolean required) {
         var out=new HashMap<String,Profile>();
-        try(var stream=HeadProfiles.class.getResourceAsStream("/ntmgunfeel-heads.json")) {
-            if(stream==null) throw new IOException("Нет ресурса разметки голов");
-            read(new InputStreamReader(stream,StandardCharsets.UTF_8),out);
-        } catch(Exception e) { throw new IllegalStateException("Не удалось загрузить ручную разметку голов",e); }
-        Path override=Path.of("config/ntmgunfeel-heads.json");
+        try(var stream=HeadProfiles.class.getResourceAsStream(resource)) {
+            if(stream==null && required) throw new IOException("Нет ресурса разметки "+resource);
+            if(stream!=null) read(new InputStreamReader(stream,StandardCharsets.UTF_8),out);
+        } catch(Exception e) { throw new IllegalStateException("Не удалось загрузить ручную разметку "+resource,e); }
         if(Files.isRegularFile(override)) try(var reader=Files.newBufferedReader(override)) { read(reader,out); }
-        catch(Exception e) { GunFeel.LOGGER.error("Не удалось прочитать локальную разметку голов; встроенная сохранена",e); }
+        catch(Exception e) { GunFeel.LOGGER.error("Не удалось прочитать локальную разметку {}; встроенная сохранена",override,e); }
         return Map.copyOf(out);
     }
     private static void read(Reader reader,Map<String,Profile> destination) {
@@ -35,7 +44,8 @@ final class HeadProfiles {
         var parsed=new HashMap<String,Profile>();
         for(var entry:root.getAsJsonObject("profiles").entrySet()) {
             var value=entry.getValue().getAsJsonObject();
-            if(value.get("none").getAsBoolean()) { parsed.put(entry.getKey(),new Profile(true,List.of(),List.of()));continue; }
+            boolean none=value.get("none").getAsBoolean();
+            if(none && !value.has("parts")) { parsed.put(entry.getKey(),new Profile(true,List.of(),List.of()));continue; }
             var parts=new ArrayList<Ref>();var zones=new ArrayList<Zone>();
             for(var p:value.getAsJsonArray("parts")) {
                 var part=p.getAsJsonObject();var s=numbers(part.getAsJsonArray("size"),3);var c=numbers(part.getAsJsonArray("center"),3);
@@ -54,8 +64,8 @@ final class HeadProfiles {
                 }
                 zones.add(new Zone(part,group,List.copyOf(planes),face));
             }
-            if(zones.isEmpty()) throw new IllegalArgumentException("Пустая разметка головы");
-            parsed.put(entry.getKey(),new Profile(false,List.copyOf(parts),List.copyOf(zones)));
+            if(!none && zones.isEmpty()) throw new IllegalArgumentException("Пустая разметка головы");
+            parsed.put(entry.getKey(),new Profile(none,List.copyOf(parts),List.copyOf(zones)));
         }
         destination.putAll(parsed);
     }
@@ -82,7 +92,11 @@ final class HeadProfiles {
         else for(float f:data) { hash^=Math.round(f*10000);hash*=1099511628211L; }
         if(SHAPES.size()>2048) SHAPES.clear();SHAPES.put(box.mesh(),hash);return hash;
     }
-    private static String name(String name) { return name.startsWith("mesh/")?name.substring(5):name; }
+    private static String name(String name) {
+        if(name.startsWith("mesh/")) name=name.substring(5);
+        while(name.startsWith("root/root/")) name=name.substring(5);
+        return name;
+    }
     private static boolean anonymous(String name) { return name.equals("submitted") || name.equals("mesh/submitted"); }
     private static double error(Ref ref,ModelBox box,double scale) {
         var dimensions=size(box);double error=0;

@@ -150,19 +150,35 @@ public final class ModelHits {
         if(!enabled()) return new ModelHeads.Hit(false,false,"disabled","точные хитбоксы отключены",0);
         var parent=ModelPartEntities.parent(target);Entity root=parent==null?target:parent;
         if(!(root instanceof LivingEntity living) || point==null) return new ModelHeads.Hit(true,false,"unknown","нет живой цели или точки",0);
-        String type=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(root.getType()).toString();
+        String type=ModelHeads.key(root);
         if(ModelHeads.noHead(type)) return new ModelHeads.Hit(true,false,"dataset","размечено без головы",1);
         var poses=POSES.get(root.level());var pose=poses==null?null:poses.get(root.getId());
-        if(!usable(root,pose)) return new ModelHeads.Hit(true,false,"unknown","нет совместимой позы модели",0);
+        if(!usable(root,pose)) return heightHead(living,point);
         var resolved=ModelHeads.resolve(type,pose.boxes(),pose.yaw());
+        if(resolved.source().equals("height")) return heightHead(living,point);
         double angle=turnAngle(root.level().isClientSide(),living.yBodyRot,pose.yaw(),pose.bodyYaw());
         boolean head=HeadZone.contains(resolved.zones(),unturn(point.subtract(root.position()),angle));
         return new ModelHeads.Hit(true,head,resolved.source(),resolved.reason(),resolved.confidence());
     }
+    private static ModelHeads.Hit heightHead(LivingEntity living,Vec3 point) {
+        double margin=living.getBbHeight()-living.getEyeHeight();
+        return new ModelHeads.Hit(true,living.isAlive() && point.y>living.getY()+living.getBbHeight()-margin*2,
+                "height","высотная зона NTM с прежним допуском",0F);
+    }
+    static synchronized boolean limb(Entity target,Vec3 point) {
+        if(!enabled() || point==null) return false;
+        var parent=ModelPartEntities.parent(target);Entity root=parent==null?target:parent;
+        if(!(root instanceof LivingEntity living) || !LimbPolicy.eligible(root.getType())) return false;
+        var poses=POSES.get(root.level());var pose=poses==null?null:poses.get(root.getId());
+        if(!usable(root,pose)) return false;
+        var zones=ModelHeads.limbs(ModelHeads.key(root),pose.boxes(),pose.yaw()).zones();
+        double angle=turnAngle(root.level().isClientSide(),living.yBodyRot,pose.yaw(),pose.bodyYaw());
+        return HeadZone.contains(zones,unturn(point.subtract(root.position()),angle));
+    }
     public static synchronized List<HeadZone> headZones(Entity target) {
         var poses=POSES.get(target.level());var pose=poses==null?null:poses.get(target.getId());
         if(!usable(target,pose) || !(target instanceof LivingEntity living)) return List.of();
-        String type=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()).toString();
+        String type=ModelHeads.key(target);
         var resolved=ModelHeads.resolve(type,pose.boxes(),pose.yaw());
         double angle=turnAngle(target.level().isClientSide(),living.yBodyRot,pose.yaw(),pose.bodyYaw());
         var out=new ArrayList<HeadZone>();
@@ -177,7 +193,7 @@ public final class ModelHits {
     public static synchronized ModelHeads.Resolution headResolution(Entity target) {
         var poses=POSES.get(target.level());var pose=poses==null?null:poses.get(target.getId());
         if(!usable(target,pose)) return new ModelHeads.Resolution(List.of(),"unknown","нет совместимой позы модели",0,0);
-        String type=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()).toString();
+        String type=ModelHeads.key(target);
         return ModelHeads.resolve(type,pose.boxes(),pose.yaw());
     }
     public static synchronized List<Vec3[]> outlines(Entity target) {

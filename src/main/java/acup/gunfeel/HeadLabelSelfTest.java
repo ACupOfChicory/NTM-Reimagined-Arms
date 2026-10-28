@@ -11,6 +11,7 @@ final class HeadLabelSelfTest {
     private static int stage;
     private static boolean finished;
     static void frame(HeadLabelScreen screen) {
+        if(Boolean.getBoolean("ntmgunfeel.selectionSelfTest")) { SelectionSelfTest.frame(screen);return; }
         if(Boolean.getBoolean("ntmgunfeel.headCutSelfTest")) { HeadLabelCutSelfTest.frame(screen);return; }
         if(!Boolean.getBoolean("ntmgunfeel.headLabelSelfTest") || finished || ++frames<40) return;
         try {

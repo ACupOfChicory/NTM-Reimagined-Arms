@@ -6,7 +6,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 
 final class HeadLabels {
-    static final boolean ENABLED=Boolean.getBoolean("ntmgunfeel.headLabels");
+    static final boolean LIMBS=Boolean.getBoolean("ntmgunfeel.limbLabels");
+    static final boolean ENABLED=LIMBS || Boolean.getBoolean("ntmgunfeel.headLabels");
+    static String title() { return LIMBS?"Конечности":"Головы"; }
+    static String group() { return LIMBS?"Группа":"Голова"; }
+    static String none() { return LIMBS?"Нет конечностей":"Нет головы"; }
+    static String side() { return LIMBS?"конечности":"головы"; }
     static HeadLabelStore store;
     static boolean suspended;
     private HeadLabels() {}
@@ -35,5 +40,8 @@ final class HeadLabels {
     }
     static void overlay(List<ModelDebugRender.Shape> shapes,int id,Entity entity) {
         if(Minecraft.getInstance().gui.screen() instanceof HeadLabelScreen screen && screen.entity==entity) screen.overlay(shapes,id);
+    }
+    static List<ModelBox> boxes(Entity entity,List<ModelBox> current) {
+        return Minecraft.getInstance().gui.screen() instanceof HeadLabelScreen screen && screen.entity==entity && !screen.waiting()?screen.boxes:current;
     }
 }

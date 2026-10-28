@@ -14,7 +14,7 @@ public record HeadZone(ModelBox box,List<Plane> planes) {
     }
     public boolean contains(Vec3 point) {
         if(planes.stream().anyMatch(plane->!plane.accepts(point))) return false;
-        return box.clip(point.x,point.y,point.z,point.x,point.y,point.z)>=0;
+        return box.containsPoint(point);
     }
     /** Коэффициенты плоскости заданы в аффинной системе самой части. */
     public static HeadZone local(ModelBox box,List<Plane> local) {

@@ -66,6 +66,14 @@ public final class ModelBodyGeometry {
     }
     public static ModelPoseCapture.Parts parts(EntityModel<?> model,Identifier texture,EntityRenderState state) {
         var base=ModelTextureMask.parts(texture);
+        if(model instanceof net.minecraft.client.model.player.PlayerModel && SkinLayerGeometry.enabled()) return new ModelPoseCapture.Parts() {
+            public List<ModelPart.Cube> cubes(ModelPart part) { return base.cubes(part); }
+            public Map<String,ModelPart> children(ModelPart part) { return base.children(part); }
+            public ModelCubeGeometry geometry(ModelPart.Cube cube) { return base.geometry(cube); }
+            public boolean custom(ModelPart part,String name,com.mojang.blaze3d.vertex.PoseStack pose,List<ModelBox> out,double x,double y,double z) {
+                return SkinLayerGeometry.append(part,name,pose,out,x,y,z);
+            }
+        };
         if(model instanceof SlimeModel) return layerParts(model.root(),base,slime(ModelPoseCapture.ACCESS),SLIME,SHELL_SUFFIX,ModelPoseCapture.ACCESS);
         boolean sheep=model instanceof SheepModel && state instanceof SheepRenderState s && !s.isSheared;
         if(!(model instanceof BreezeModel) && !sheep) return base;

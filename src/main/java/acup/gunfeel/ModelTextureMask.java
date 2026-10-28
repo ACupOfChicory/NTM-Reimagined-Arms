@@ -90,9 +90,16 @@ public final class ModelTextureMask {
     private static Cache cache(Identifier texture) {
         return TEXTURES.computeIfAbsent(texture, id -> {
             Alpha mask = null;
-            try (var stream = Minecraft.getInstance().getResourceManager().getResourceOrThrow(id).open();
-                    var image = NativeImage.read(stream)) {
-                mask = alpha(image.getWidth(), image.getHeight(), image.getPixels());
+            try {
+                var resource=Minecraft.getInstance().getResourceManager().getResource(id);
+                if(resource.isPresent()) try(var stream=resource.get().open();var image=NativeImage.read(stream)) {
+                    mask=alpha(image.getWidth(),image.getHeight(),image.getPixels());
+                } else if(Minecraft.getInstance().getTextureManager().getTexture(id) instanceof net.minecraft.client.renderer.texture.DynamicTexture dynamic) {
+                    // Сетевые скины не лежат в ресурс-паке. Изображение принадлежит
+                    // TextureManager: копируем альфу и не закрываем NativeImage.
+                    var image=dynamic.getPixels();
+                    if(image!=null && !image.isClosed()) mask=alpha(image.getWidth(),image.getHeight(),image.getPixels());
+                }
             } catch (Exception ex) {
                 org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").debug("Model texture mask {}: {}", id, ex.toString());
             }

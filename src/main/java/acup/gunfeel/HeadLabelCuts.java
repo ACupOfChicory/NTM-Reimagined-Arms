@@ -14,6 +14,10 @@ final class HeadLabelCuts {
     }
     private HeadLabelCuts() {}
     static List<Vec3[]> edges(List<ModelBox> boxes,Collection<String> tokens,Map<String,List<Plane>> cuts) {
+        if(!tokens.isEmpty() && tokens.stream().allMatch(t->t.endsWith(":-1") && cuts.getOrDefault(t,List.of()).isEmpty())) {
+            var selected=tokens.stream().map(t->boxes.get(Integer.parseInt(t.substring(0,t.indexOf(':'))))).toList();
+            return ModelContours.edges(selected);
+        }
         var result=new ArrayList<Vec3[]>();
         for(String token:tokens) {
             var planes=cuts.getOrDefault(token,List.of());

@@ -35,6 +35,13 @@ public record ModelBox(String part, double x, double y, double z,
     private double determinant() {
         return ux * (vy * wz - vz * wy) + uy * (vz * wx - vx * wz) + uz * (vx * wy - vy * wx);
     }
+    boolean containsPoint(net.minecraft.world.phys.Vec3 point) {
+        double det=determinant();if(!Double.isFinite(det) || Math.abs(det)<1e-12) return false;
+        var p=local(point.x-x,point.y-y,point.z-z,det);
+        for(double value:p) if(!Double.isFinite(value) || value< -1e-7 || value>1+1e-7) return false;
+        if(mesh==0) return true;
+        var shape=ModelMesh.get(mesh);return shape!=null && shape.clip(p,p)>=0;
+    }
 
     double[] interiorSpan(net.minecraft.world.phys.Vec3 from,net.minecraft.world.phys.Vec3 to) {
         return mesh==0?span(from,to,1e-6,1-1e-6):null;

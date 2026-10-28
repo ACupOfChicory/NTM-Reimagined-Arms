@@ -16,6 +16,7 @@ public final class ModelPoseCapture {
         Map<String, ModelPart> children(ModelPart part);
         default ModelCubeGeometry geometry(ModelPart.Cube cube) { return ModelTextureMask.geometry(cube,null); }
         default String partName(String name,ModelPart.Cube cube) { return name; }
+        default boolean custom(ModelPart part,String name,PoseStack pose,List<ModelBox> out,double x,double y,double z) { return false; }
     }
     public record Result(boolean complete, int nodes, List<ModelBox> boxes) {}
     public static final Parts ACCESS = new Parts() {
@@ -45,6 +46,7 @@ public final class ModelPoseCapture {
         stack.pushPose();
         try {
             part.translateAndRotate(stack);
+            if(parts.custom(part,label(name),stack,boxes,x,y,z)) return boxes.size()<=ModelPosePayload.MAX_BOXES;
             if (!part.skipDraw) for (ModelPart.Cube cube : parts.cubes(part)) {
                 parts.geometry(cube).append(boxes,parts.partName(label(name),cube),stack.last().pose(),x,y,z);
                 if (boxes.size() > ModelPosePayload.MAX_BOXES) return false;

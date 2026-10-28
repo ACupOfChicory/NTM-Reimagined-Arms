@@ -38,9 +38,9 @@ final class HeadLabelStore {
     }
     void save(String id,String sample,String status,Map<String,Integer> labels,Map<String,List<HeadLabelCuts.Plane>> cuts) throws IOException {
         if(!Set.of("draft","done","none","skip").contains(status)) throw new IllegalArgumentException("Неизвестная оценка");
-        if(labels.values().stream().anyMatch(group->group<1)) throw new IllegalArgumentException("Неверный номер головы");
-        if(status.equals("none") && !labels.isEmpty()) throw new IllegalArgumentException("У сущности без головы не должно быть выделения");
-        if(status.equals("done") && labels.isEmpty()) throw new IllegalArgumentException("Сначала выдели голову или выбери «Нет головы»");
+        if(labels.values().stream().anyMatch(group->group<1)) throw new IllegalArgumentException("Неверный номер области");
+        if(status.equals("none") && !labels.isEmpty()) throw new IllegalArgumentException("При отсутствии области не должно быть выделения");
+        if(status.equals("done") && labels.isEmpty()) throw new IllegalArgumentException("Сначала выдели область или отметь её отсутствие");
         if(!labels.keySet().containsAll(cuts.keySet())) throw new IllegalArgumentException("Отсечение без выделенной детали");
         var decision=new Decision(sample,status,Map.copyOf(labels),cuts);
         write(root.resolve("samples").resolve(sample).resolve("annotation.json"),decision);
