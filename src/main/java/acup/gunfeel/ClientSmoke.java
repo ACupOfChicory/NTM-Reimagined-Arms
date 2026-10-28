@@ -126,6 +126,8 @@ public final class ClientSmoke {
                     var gun=net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.Identifier.parse("hbm:gun_g3")).orElseThrow().value();
                     mc.player.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(gun));
                     Config.select("hbm:gun_g3");
+                    Grips.put("hbm:gun_g3","armLeftAdjustments","",false);
+                    Grips.put("hbm:gun_g3","armRightAdjustments","",false);Config.select("hbm:gun_g3");
                     mc.gui.setScreen(new ArmAnimationEditor(null,gun,"hbm:gun_g3"));
                     check(ArmAnimationPreview.active(),"редактор открыл настоящий предпросмотр G3");
                     phase=20;since=System.nanoTime();return;
@@ -200,6 +202,13 @@ public final class ClientSmoke {
                 check(ArmPoseEdits.sample(Config.armLeftAdjustments,"RELOAD",180)[5]==20,"начало действия: 20 градусов");
                 check(ArmPoseEdits.sample(Config.armLeftAdjustments,"RELOAD",585)[5]==50,"конец действия: 50 градусов");
                 check(ArmAnimationPreview.millis()==585,"правка конца показывает конец действия");
+                editorButton("Касаться углом кисти");
+                check(Config.armLeftPath.contains("Handle!5@"),"выбран контакт серединой внутренней грани");
+                editorButton("Грань: внутренняя");
+                check(Config.armLeftPath.contains("Handle!6@"),"выбрана середина внешней грани");
+                editorButton("Касаться серединой грани");editorButton("Контакт: как в исходной анимации");
+                editorButton("Угол: внутренний, передний");
+                check(Config.armLeftPath.contains("Handle!2@"),"выбран другой угол кисти");
                 ArmAnimationPreview.seek(1900);
                 check(ArmAnimationPreview.millis()==1900,"перемотка вперёд");
                 ArmAnimationPreview.seek(100);

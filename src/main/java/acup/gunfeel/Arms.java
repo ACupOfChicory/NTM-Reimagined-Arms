@@ -356,7 +356,7 @@ public final class Arms {
         Vector3f restDown = restBody.transformDirection(new Vector3f(0F, -1F, 0F)).normalize();
         for (int i = 0; i < 2; i++) {
             boolean right = i == 0;
-            pathCorner[i] = 0F;
+            pathContact[i].zero();
             ModelPart[] parts = CUT.computeIfAbsent((right ? 1000 : 0) + (slim ? 100 : 0) + 12,
                     k -> cutArm(right, slim, 12));
             ModelPart arm = parts[0];
@@ -444,16 +444,9 @@ public final class Arms {
                     m = blendAtHand(usual, lastCrop, m, crop, e, right, slim);
                     crop = blendCrop;
                 }
-                if (onPath[10] > 0F) ArmContact.corner(m, p, right, slim, onPath[10]);
-                pathCorner[i] = onPath[10];
-                if (Minecraft.getInstance().gui.screen() instanceof ArmAnimationEditor editor) {
-                    float fov = com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase.adjustHudFov(70F);
-                    float aspect = (float)Minecraft.getInstance().getWindow().getWidth() / Math.max(1,Minecraft.getInstance().getWindow().getHeight());
-                    var clip = new Matrix4f().perspective((float)Math.toRadians(fov),aspect,.05F,100F)
-                            .mul(new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getModelViewStack())).mul(CAMERA)
-                            .transform(new org.joml.Vector4f(p,1));
-                    editor.anchor(right,clip);
-                }
+                var contactOffset=new Vector3f(onPath[12],onPath[13],onPath[14]);
+                if (onPath[10] > 0F) ArmContact.attach(m,p,right,slim,onPath[10],contactOffset);
+                pathContact[i].set(contactOffset).mul(onPath[10]);
                 branch = "path w=" + fmt(onPath[0]) + (Config.armPathBlend ? " blend" : "");
                 submit(collector, light, arm, skin, new Matrix4f(CAMERA).mul(m), crop, right, slim, sleeveShown, sleeve);
                 continue;
@@ -783,7 +776,7 @@ public final class Arms {
     // /<bus> to apply only to animations that have that bus (SPAS-12: RELOAD/PumpGrip = the empty reload).
     // Each entry: {t, w, kind (0 live, 1 bus time, 2 fixed point), b, x, y, z}
     // armLeftPath / armRightPath: one key, ms -> grip (part null) or a point of a part as drawn
-    private record PathKey(float ms, String part, int nth, float[] at, float[] side, float[] shoulder, boolean corner, boolean followShoulder, float roll) {
+    private record PathKey(float ms, String part, int nth, float[] at, float[] side, float[] shoulder, int contact, boolean followShoulder, float roll) {
     }
 
     private static final String[] pathSource = new String[2];
@@ -825,10 +818,13 @@ public final class Arms {
                     String t = e.substring(colon + 1);
                     PathKey k;
                     if (t.equalsIgnoreCase("grip")) {
-                        k = new PathKey(ms, null, 0, null, null, null, false, false, 0F);
+                        k = new PathKey(ms, null, 0, null, null, null, 0, false, 0F);
                     } else {
                         int at = t.indexOf('@');
                         String part = t.substring(0, at), pt = t.substring(at + 1);
+                        int marker=part.indexOf('!');
+                        int contact=marker<0?0:ArmContact.parse(part.substring(marker+1));
+                        if(marker>=0)part=part.substring(0,marker);
                         int nth = 0;
                         int hash = part.indexOf('#');
                         if (hash >= 0) {
@@ -839,15 +835,13 @@ public final class Arms {
                         int wrist = pt.indexOf('^');
                         float roll = wrist < 0 ? Float.NaN : Float.parseFloat(pt.substring(wrist + 1));
                         if (wrist >= 0) pt = pt.substring(0, wrist);
-                        boolean corner = part.endsWith("!");
-                        if (corner) part = part.substring(0, part.length() - 1);
                         int gt = pt.indexOf('>');
                         boolean followShoulder = gt >= 0 && pt.substring(gt + 1).startsWith("~");
                         float[] shoulder = gt < 0 ? new float[3] : xyz(pt.substring(gt + (followShoulder ? 2 : 1)));
                         if (gt >= 0) pt = pt.substring(0, gt);
                         int sl = pt.indexOf('/');
                         float[] side = sl < 0 ? NO_CARRY.dir : xyz(pt.substring(sl + 1));
-                        k = new PathKey(ms, part, nth, xyz(sl < 0 ? pt : pt.substring(0, sl)), side, shoulder, corner, followShoulder, roll);
+                        k = new PathKey(ms, part, nth, xyz(sl < 0 ? pt : pt.substring(0, sl)), side, shoulder, contact, followShoulder, roll);
                     }
                     list.add(k);
                 } catch (RuntimeException e) {
@@ -924,11 +918,11 @@ public final class Arms {
         float[] pa = pathPoint(a, cameraInv, restShoulder, hand == 0), pb = pathPoint(b, cameraInv, restShoulder, hand == 0);
         if (pa == null && pb == null) return null;
         // the grip end has no shoulder shift: it fades in and out with the weight
-        if (pa == null) return new float[] {s, pb[0], pb[1], pb[2], pb[3], pb[4], pb[5], pb[6] * s, pb[7] * s, pb[8] * s, pb[9] * s, pb[10] * s};
-        if (pb == null) return new float[] {1F - s, pa[0], pa[1], pa[2], pa[3], pa[4], pa[5], pa[6] * (1F - s), pa[7] * (1F - s), pa[8] * (1F - s), pa[9] * (1F - s), pa[10] * (1F - s)};
-        float[] out = new float[12];
+        if (pa == null) return new float[] {s, pb[0], pb[1], pb[2], pb[3], pb[4], pb[5], pb[6] * s, pb[7] * s, pb[8] * s, pb[9] * s, pb[10] * s,pb[11],pb[12],pb[13]};
+        if (pb == null) return new float[] {1F - s, pa[0], pa[1], pa[2], pa[3], pa[4], pa[5], pa[6] * (1F - s), pa[7] * (1F - s), pa[8] * (1F - s), pa[9] * (1F - s), pa[10] * (1F - s),pa[11],pa[12],pa[13]};
+        float[] out = new float[15];
         out[0] = 1F;
-        for (int j = 0; j < 11; j++) out[j + 1] = pa[j] + (pb[j] - pa[j]) * s;
+        for (int j = 0; j < 14; j++) out[j + 1] = pa[j] + (pb[j] - pa[j]) * s;
         return out;
     }
 
@@ -949,7 +943,8 @@ public final class Arms {
             float load = right ? Config.armLoadRollRight : Config.armLoadRollLeft;
             roll = Float.isFinite(load) ? load - (right ? Config.armRollRight : Config.armRollLeft) : 0F;
         }
-        return new float[] {at.x, at.y, at.z, side.x, side.y, side.z, shoulder.x, shoulder.y, shoulder.z, key.corner() ? 1F : 0F, roll};
+        var contact=ArmContact.offset(key.contact());
+        return new float[] {at.x, at.y, at.z, side.x, side.y, side.z, shoulder.x, shoulder.y, shoulder.z, key.contact()>0 ? 1F : 0F, roll,contact.x,contact.y,contact.z};
     }
 
     private static Map<String, List<float[]>> parseCarryKeys(String src) {
@@ -1355,7 +1350,7 @@ public final class Arms {
         return local(hand, turn, new Vector3f(restY).negate(), right, slim, s, length);
     }
 
-    private static final float[] pathCorner = new float[2];
+    private static final Vector3f[] pathContact = {new Vector3f(),new Vector3f()};
     private static void submit(SubmitNodeCollector collector, int light, ModelPart arm, Identifier skin, Matrix4f m,
             int crop, boolean right, boolean slim, boolean sleeveShown, ModelPart sleeve) {
         // armSwitchMs (per gun): a new animation (or its end) starts from where the arm was drawn last, over
@@ -1365,7 +1360,7 @@ public final class Arms {
         if(!adjustments.isBlank() && HbmAnimations.getRelevantAnim(0)!=null) {
             var values=ArmPoseEdits.sample(adjustments,HbmAnimations.getGunAnimation(0).name(),animMillis());
             var cameraPose=new Matrix4f(CAMERA).invert().mul(m);
-            ArmPoseEdits.apply(cameraPose,values,right,slim,pathCorner[hand]);
+            ArmPoseEdits.apply(cameraPose,values,right,slim,pathContact[hand]);
             m=new Matrix4f(CAMERA).mul(cameraPose);
         }
         if (Config.armSwitchMs > 0F && !ArmAnimationPreview.active()) {
@@ -1398,6 +1393,14 @@ public final class Arms {
         }
         final int shown = crop;
         ClientSmoke.armPose(m,right);
+        if(Minecraft.getInstance().gui.screen() instanceof ArmAnimationEditor editor) {
+            float fov=com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase.adjustHudFov(70F);
+            float aspect=(float)Minecraft.getInstance().getWindow().getWidth()/Math.max(1,Minecraft.getInstance().getWindow().getHeight());
+            var point=m.transformPosition(ArmContact.pivot(right,slim,pathContact[hand]),new Vector3f());
+            var clip=new Matrix4f().perspective((float)Math.toRadians(fov),aspect,.05F,100F)
+                    .mul(new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getModelViewStack())).transform(new org.joml.Vector4f(point,1));
+            editor.anchor(right,clip);
+        }
         if (debugArms) {
             GunAnimation type = HbmAnimations.getGunAnimation(0);
             Vector3f origin = m.transformPosition(new Vector3f());

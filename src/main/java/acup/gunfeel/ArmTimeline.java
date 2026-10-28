@@ -9,13 +9,16 @@ final class ArmTimeline {
         String part="grip";
         float[] point={0,0,0}, side={0,-1,0}, shoulder={0,0,0};
         boolean corner, follow;
+        int contact;
+        int contactId() { return contact>0?contact:corner?1:0; }
         Key copy() {
             var k=new Key(); k.time=time; k.roll=roll; k.part=part;
-            k.point=point.clone(); k.side=side.clone(); k.shoulder=shoulder.clone(); k.corner=corner; k.follow=follow; return k;
+            k.point=point.clone(); k.side=side.clone(); k.shoulder=shoulder.clone(); k.corner=corner; k.contact=contact; k.follow=follow; return k;
         }
         String token() {
             if (part.equals("grip")) return number(time)+":grip";
-            return number(time)+":"+part+(corner?"!":"")+"@"+vector(point)+"/"+vector(side)+">"+(follow?"~":"")+vector(shoulder)+"^"+number(roll);
+            int id=contactId();
+            return number(time)+":"+part+(id>0?"!"+(id==1?"":id):"")+"@"+vector(point)+"/"+vector(side)+">"+(follow?"~":"")+vector(shoulder)+"^"+number(roll);
         }
     }
     static String number(float value) { return Float.toString(value); }
@@ -44,7 +47,8 @@ final class ArmTimeline {
                 String target=words[i].substring(colon+1);
                 if(!target.equals("grip")) {
                     int at=target.indexOf('@'); k.part=target.substring(0,at);
-                    k.corner=k.part.endsWith("!"); if(k.corner) k.part=k.part.substring(0,k.part.length()-1);
+                    int marker=k.part.indexOf('!');
+                    if(marker>=0){k.contact=ArmContact.parse(k.part.substring(marker+1));k.corner=k.contact>=1 && k.contact<=4;k.part=k.part.substring(0,marker);}
                     target=target.substring(at+1);
                     int wrist=target.indexOf('^'); if(wrist>=0) { k.roll=Float.parseFloat(target.substring(wrist+1)); target=target.substring(0,wrist); }
                     int shoulder=target.indexOf('>'); if(shoulder>=0) {

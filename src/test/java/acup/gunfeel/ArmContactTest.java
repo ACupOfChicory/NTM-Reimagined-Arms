@@ -6,6 +6,21 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ArmContactTest {
+    @Test void allFacesAndCornersKeepContactAfterWristRotation() {
+        for(int id=1;id<=9;id++)for(boolean right:new boolean[]{false,true})for(boolean slim:new boolean[]{false,true}) {
+            var pose=new Matrix4f().translation(.3F,-.2F,-1).rotateXYZ(.4F,.8F,-.3F).scale(.8F,1.4F,.8F);
+            var target=new Vector3f(.1F,.2F,-.7F);var offset=ArmContact.offset(id);
+            ArmContact.attach(pose,target,right,slim,1,offset);
+            assertEquals(0,pose.transformPosition(ArmContact.pivot(right,slim,offset),new Vector3f()).distance(target),1e-6,"контакт "+id);
+            ArmPoseEdits.apply(pose,new float[]{0,0,0,35,70,-20},right,slim,offset);
+            assertEquals(0,pose.transformPosition(ArmContact.pivot(right,slim,offset),new Vector3f()).distance(target),1e-6,"поворот вокруг контакта "+id);
+            String source="RELOAD 180:Handle!"+id+"@0.44,0.72,5.6/1,0,0";
+            var keys=ArmTimeline.read(source,"RELOAD","",0);
+            assertEquals(id,ArmTimeline.read(ArmTimeline.write(source,"RELOAD",keys),"RELOAD","",0).getFirst().contactId());
+        }
+        assertEquals(0,ArmContact.offset(5).z);assertEquals(-2,ArmContact.offset(5).y);
+        assertEquals(1,ArmContact.offset(5).x);
+    }
     @Test void contactSurvivesRotationAndBothArmModels() {
         for (boolean right : new boolean[] {false,true}) for (boolean slim : new boolean[] {false,true}) {
             var pose = new Matrix4f().translation(.3F,-.2F,-1).rotateXYZ(.4F,.8F,-.3F).scale(.8F,1.4F,.8F);

@@ -31,14 +31,18 @@ public final class ArmAnimationEditor extends Screen {
     private static final String[] SIDES={"Снаружи","Изнутри","Снизу","Сверху","Спереди","Сзади"};
     private static final float[][] SIDE={{1,0,0},{-1,0,0},{0,-1,0},{0,1,0},{0,0,1},{0,0,-1}};
     private Timeline timeline;
+    private float anchorX=Float.NaN,anchorY;
     public ArmAnimationEditor(Screen parent,Item item,String gun) {
         super(Component.literal("Движения рук"));this.parent=parent;this.item=item;this.gun=gun;
         paths[0]=Config.armRightPath;paths[1]=Config.armLeftPath;
         edits[0]=Config.armRightAdjustments;edits[1]=Config.armLeftAdjustments;
         load();
     }
-    // Интерфейс больше не показывает техническую точку внутри детали.
-    void anchor(boolean right,org.joml.Vector4f point) {}
+    void anchor(boolean right,org.joml.Vector4f point) {
+        if(right!=(hand==0))return;
+        anchorX=point.w>1e-5F?(point.x/point.w+1)*.5F:Float.NaN;
+        anchorY=(1-point.y/point.w)*.5F;
+    }
     @Override public boolean isPauseScreen(){return false;}
     private static String label(GunAnimation cue) {
         return switch(cue.name()) {
@@ -181,28 +185,44 @@ public final class ArmAnimationEditor extends Screen {
                 // Границы действий сохраняются до следующего открытия: смена детали не объединяет соседние действия.
                 rebuildWidgets();
             });
-            button("Сторона хвата: "+sideName(key.side),4,344,W,()->{
+            button("Подойти к детали: "+sideName(key.side),4,344,W,()->{
                 int side=0;for(int i=0;i<SIDE.length;i++)if(Arrays.equals(key.side,SIDE[i]))side=(i+1)%SIDE.length;
                 remember();for(int i=stage().first();i<=stage().last();i++)keys.get(i).side=SIDE[side].clone();
                 paths[hand]=ArmTimeline.write(paths[hand],cue.name(),keys);apply();show(start());rebuildWidgets();
             }).active=!key.part.equals("grip");
-            button(key.corner?"Касаться углом кисти":"Касаться плоскостью кисти",4,364,W,()->{
-                remember();boolean corner=!key.corner;for(int i=stage().first();i<=stage().last();i++)keys.get(i).corner=corner;
-                paths[hand]=ArmTimeline.write(paths[hand],cue.name(),keys);apply();show(start());rebuildWidgets();
+            int contact=key.contactId();
+            button(contact==0?"Контакт: как в исходной анимации":contact<=4?"Касаться углом кисти":"Касаться серединой грани",4,364,W,()->{
+                contact(contact==0?1:contact<=4?5:0);
             }).active=!key.part.equals("grip");
+            button(contactName(contact),4,384,W,()->{
+                contact(contact<=4?contact%4+1:contact==9?5:contact+1);
+            }).active=!key.part.equals("grip") && contact>0;
         }
-        button("Отменить шаг",4,386,132,()->{
+        button("Отменить шаг",4,406,132,()->{
             if(history.isEmpty())return;var old=history.pop();paths[0]=old[0];paths[1]=old[1];edits[0]=old[2];edits[1]=old[3];apply();load();show(startSafe());rebuildWidgets();
         });
-        button("Сбросить мои правки",140,386,134,()->{
+        button("Сбросить мои правки",140,406,134,()->{
             Grips.restore(original);Config.select(gun);paths[0]=Config.armRightPath;paths[1]=Config.armLeftPath;
             edits[0]=Config.armRightAdjustments;edits[1]=Config.armLeftAdjustments;history.clear();load();show(startSafe());rebuildWidgets();
         });
-        button("Сохранить",4,406,132,()->{Grips.flush();status="Правки сохранены для этого оружия.";});
-        button("Готово",140,406,134,this::onClose);
+        button("Сохранить",4,426,132,()->{Grips.flush();status="Правки сохранены для этого оружия.";});
+        button("Готово",140,426,134,this::onClose);
         changing=false;
     }
     private float startSafe(){return stages.isEmpty()?0:start();}
+    private void contact(int id){
+        remember();for(int i=stage().first();i<=stage().last();i++){keys.get(i).contact=id;keys.get(i).corner=id>=1 && id<=4;}
+        paths[hand]=ArmTimeline.write(paths[hand],cue.name(),keys);apply();show(start());rebuildWidgets();
+    }
+    private static String contactName(int id){
+        return switch(id){
+            case 1->"Угол: внутренний, передний";case 2->"Угол: внутренний, задний";
+            case 3->"Угол: внешний, передний";case 4->"Угол: внешний, задний";
+            case 5->"Грань: внутренняя";case 6->"Грань: внешняя";
+            case 7->"Грань: передняя";case 8->"Грань: задняя";case 9->"Грань: торец кисти";
+            default->"Точка контакта: автоматически";
+        };
+    }
     private static String sideName(float[] value){for(int i=0;i<SIDE.length;i++)if(Arrays.equals(value,SIDE[i]))return SIDES[i];return "как в анимации";}
     private void select(int delta){if(stages.isEmpty())return;selected=Math.floorMod(selected+delta,stages.size());readPose();show(start());rebuildWidgets();}
     @Override public void tick(){var player=Minecraft.getInstance().player;if(player==null||player.getMainHandItem().getItem()!=item)onClose();}
@@ -212,14 +232,18 @@ public final class ArmAnimationEditor extends Screen {
     private void text(GuiGraphicsExtractor g,String value,int x,int y,int color){g.text(font,value,x,y-scroll,color);}
     @Override public void extractRenderState(GuiGraphicsExtractor g,int x,int y,float a){
         if(timeline!=null)timeline.sync();super.extractRenderState(g,x,y,a);
+        if(Float.isFinite(anchorX) && anchorX>=0 && anchorX<=1 && anchorY>=0 && anchorY<=1){
+            int ax=(int)(anchorX*width),ay=(int)(anchorY*height);
+            g.fill(ax-4,ay,ax+5,ay+1,0xFF55FFFF);g.fill(ax,ay-4,ax+1,ay+5,0xFF55FFFF);
+        }
         text(g,"Движения рук",4,4,0xFFFFFFFF);
         text(g,stages.isEmpty()?"Движение не задано":(selected+1)+". "+stage().name(),4,126,0xFFFFCC55);
         if(!stages.isEmpty()){
             text(g,dynamic?"В начале    В конце":"Весь этап",142,188,0xFFB5D8FF);
             for(int p=0;p<6;p++)text(g,PARAMETERS[p],4,206+p*20,0xFFFFFFFF);
         }
-        text(g,status,4,432,0xFFB5D8FF);
-        text(g,"Колесо на числе — правка. Shift — точнее.",4,446,0xFFAAAAAA);
+        text(g,status,4,452,0xFFB5D8FF);
+        text(g,"Бирюзовая метка — выбранный контакт кисти.",4,466,0xFFAAAAAA);
     }
     @Override public boolean keyPressed(net.minecraft.client.input.KeyEvent event){
         if(!(getFocused() instanceof EditBox)){
@@ -229,7 +253,7 @@ public final class ArmAnimationEditor extends Screen {
     }
     @Override public boolean mouseScrolled(double x,double y,double sx,double sy){
         if(super.mouseScrolled(x,y,sx,sy))return true;if(x>W+8)return false;
-        scroll=Math.clamp(scroll-(int)(sy*30),0,Math.max(0,464-height));rebuildWidgets();return true;
+        scroll=Math.clamp(scroll-(int)(sy*30),0,Math.max(0,484-height));rebuildWidgets();return true;
     }
     private final class Timeline extends AbstractSliderButton{
         Timeline(int x,int y,int w,int h){super(x,y,w,h,Component.empty(),0);sync();}

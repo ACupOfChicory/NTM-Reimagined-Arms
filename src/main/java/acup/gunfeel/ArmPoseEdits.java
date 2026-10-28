@@ -53,10 +53,11 @@ final class ArmPoseEdits {
         return sample(tracks.get(cue),time);
     }
     static void apply(Matrix4f pose,float[] values,boolean right,boolean slim,float corner) {
+        apply(pose,values,right,slim,ArmContact.offset(1).mul(corner));
+    }
+    static void apply(Matrix4f pose,float[] values,boolean right,boolean slim,Vector3f contactOffset) {
         boolean changed=false;for(float value:values)if(value!=0){changed=true;break;}if(!changed)return;
-        float center=(right?-1:1)*(slim?5.5F:6F)/16F;
-        float half=(slim?1.5F:2F)/16F;
-        var pivot=new Vector3f(center+(right?half:-half)*corner,.75F,-.125F*corner);
+        var pivot=ArmContact.pivot(right,slim,contactOffset);
         var scale=pose.getScale(new Vector3f());
         var contact=pose.transformPosition(pivot,new Vector3f());
         var rotation=new org.joml.Matrix3f(pose).scale(1/scale.x,1/scale.y,1/scale.z)
