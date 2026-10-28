@@ -12,6 +12,10 @@ void main() {
     vec3 target = floor(vertexColor.rgb * 255.0 + 0.5);
     float surfaceDepth = texelFetch(Sampler1, pixel, 0).r;
     float epsilon = max(0.00000001, surfaceDepth * 0.00001);
+    // Толстая линия покрывает соседние пиксели наклонной поверхности.
+    // Для своего тела даём небольшой допуск, не меняя проверку других мобов
+    // и блоков; дальние рёбра по-прежнему скрываются глубиной.
+    if (all(equal(owner, target))) epsilon = max(epsilon, surfaceDepth * 0.0005);
     if (surfaceDepth > gl_FragCoord.z + epsilon) discard;
     if (any(notEqual(owner, vec3(0.0))) && any(notEqual(owner, target))
         && surfaceDepth >= gl_FragCoord.z - epsilon) discard;
