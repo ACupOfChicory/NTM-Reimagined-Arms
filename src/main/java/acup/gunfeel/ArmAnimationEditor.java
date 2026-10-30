@@ -100,7 +100,17 @@ public final class ArmAnimationEditor extends Screen {
         try{ArmAnimationPreview.start(cue);if(ArmAnimationPreview.animation()==null)status="У оружия нет такой анимации";}
         catch(RuntimeException e){ArmAnimationPreview.clear();status="Предпросмотр недоступен";}
     }
-    private void remember(){history.push(new String[]{paths[0],paths[1],edits[0],edits[1]});if(history.size()>100)history.removeLast();}
+    private void remember(){history.push(new String[]{paths[0],paths[1],edits[0],edits[1],Float.toString(Config.armInspectReleaseMs)});if(history.size()>100)history.removeLast();}
+    private boolean magazineInspect(){return cue==GunAnimation.INSPECT && Config.armInspectReleaseMs>=0;}
+    private void refreshPreview(){
+        int time=ArmAnimationPreview.millis();boolean playing=ArmAnimationPreview.playing();
+        preview();ArmAnimationPreview.seek(time);ArmAnimationPreview.play(playing);
+    }
+    private void releaseChanged(float value){
+        if(changing)return;
+        remember();Grips.put(gun,"armInspectReleaseMs",Integer.toString(MagazineInspect.release(value)),false);
+        Config.select(gun);refreshPreview();status="Момент отпускания изменён; выбранный кадр сохранён.";
+    }
     private void apply(){
         ArmAnimationPreview.play(false);
         Grips.put(gun,"armRightPath",paths[0],false);Grips.put(gun,"armLeftPath",paths[1],false);
@@ -199,15 +209,18 @@ public final class ArmAnimationEditor extends Screen {
                 contact(contact<=4?contact%4+1:contact>=10?contact==13?10:contact+1:contact==9?5:contact+1);
             }).active=!key.part.equals("grip") && contact>0;
         }
-        button("Отменить шаг",4,406,132,()->{
-            if(history.isEmpty())return;var old=history.pop();paths[0]=old[0];paths[1]=old[1];edits[0]=old[2];edits[1]=old[3];apply();load();show(startSafe());rebuildWidgets();
+        int extra=magazineInspect()?22:0;
+        if(extra>0)addRenderableWidget(new ReleaseSlider(4,406-scroll,W,H));
+        button("Отменить шаг",4,406+extra,132,()->{
+            if(history.isEmpty())return;var old=history.pop();paths[0]=old[0];paths[1]=old[1];edits[0]=old[2];edits[1]=old[3];
+            Grips.put(gun,"armInspectReleaseMs",old[4],false);apply();refreshPreview();load();rebuildWidgets();
         });
-        button("Сбросить мои правки",140,406,134,()->{
+        button("Сбросить мои правки",140,406+extra,134,()->{
             Grips.restore(original);Config.select(gun);paths[0]=Config.armRightPath;paths[1]=Config.armLeftPath;
-            edits[0]=Config.armRightAdjustments;edits[1]=Config.armLeftAdjustments;history.clear();load();show(startSafe());rebuildWidgets();
+            edits[0]=Config.armRightAdjustments;edits[1]=Config.armLeftAdjustments;history.clear();refreshPreview();load();rebuildWidgets();
         });
-        button("Сохранить",4,426,132,()->{Grips.flush();status="Правки сохранены для этого оружия.";});
-        button("Готово",140,426,134,this::onClose);
+        button("Сохранить",4,426+extra,132,()->{Grips.flush();status="Правки сохранены для этого оружия.";});
+        button("Готово",140,426+extra,134,this::onClose);
         changing=false;
     }
     private float startSafe(){return stages.isEmpty()?0:start();}
@@ -245,8 +258,9 @@ public final class ArmAnimationEditor extends Screen {
             text(g,dynamic?"В начале    В конце":"Весь этап",142,188,0xFFB5D8FF);
             for(int p=0;p<6;p++)text(g,PARAMETERS[p],4,206+p*20,0xFFFFFFFF);
         }
-        text(g,status,4,452,0xFFB5D8FF);
-        text(g,"Бирюзовая метка — выбранный контакт кисти.",4,466,0xFFAAAAAA);
+        int extra=magazineInspect()?22:0;
+        text(g,status,4,452+extra,0xFFB5D8FF);
+        text(g,"Бирюзовая метка — выбранный контакт кисти.",4,466+extra,0xFFAAAAAA);
     }
     @Override public boolean keyPressed(net.minecraft.client.input.KeyEvent event){
         if(!(getFocused() instanceof EditBox)){
@@ -256,7 +270,14 @@ public final class ArmAnimationEditor extends Screen {
     }
     @Override public boolean mouseScrolled(double x,double y,double sx,double sy){
         if(super.mouseScrolled(x,y,sx,sy))return true;if(x>W+8)return false;
-        scroll=Math.clamp(scroll-(int)(sy*30),0,Math.max(0,484-height));rebuildWidgets();return true;
+        scroll=Math.clamp(scroll-(int)(sy*30),0,Math.max(0,484+(magazineInspect()?22:0)-height));rebuildWidgets();return true;
+    }
+    private final class ReleaseSlider extends AbstractSliderButton{
+        ReleaseSlider(int x,int y,int w,int h){
+            super(x,y,w,h,Component.empty(),(MagazineInspect.release(Config.armInspectReleaseMs)-MagazineInspect.MIN_RELEASE)/(double)(MagazineInspect.MAX_RELEASE-MagazineInspect.MIN_RELEASE));updateMessage();
+        }
+        @Override protected void updateMessage(){setMessage(Component.literal("Отпустить магазин: "+MagazineInspect.release(Config.armInspectReleaseMs)+" мс"));}
+        @Override protected void applyValue(){releaseChanged((float)(MagazineInspect.MIN_RELEASE+value*(MagazineInspect.MAX_RELEASE-MagazineInspect.MIN_RELEASE)));updateMessage();}
     }
     private final class Timeline extends AbstractSliderButton{
         Timeline(int x,int y,int w,int h){super(x,y,w,h,Component.empty(),0);sync();}

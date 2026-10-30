@@ -381,6 +381,31 @@ public final class Arms {
                 continue;
             }
             // A hand goes from part to part during an animation (armLeftPath / armRightPath).
+            if (magazineInspect(i)) {
+                Matrix4f rifle=partPose("Rifle",0);
+                if (rifle!=null) {
+                    // Одна постоянная поза руки в системе магазина, без повторного
+                    // решения плеча, изменения длины или отдельной траектории кисти.
+                    Matrix4f bind=new Matrix4f(restBody).invert().mul(r.local);
+                    ArmContact.attach(bind,new Vector3f(0,-2,-.5F),right,slim,1,ArmContact.offset(9));
+                    int time=(int)animMillis();
+                    var animation=HbmAnimations.getRelevantAnim(0).animation;
+                    int handTime=MagazineInspect.handTime(time,Config.armInspectReleaseMs);
+                    double[] mag=animation.getBus("MAG").getTransformation(handTime);
+                    double[] spin=animation.getBus("SPEEN").getTransformation(handTime);
+                    Matrix4f movement=new Matrix4f().set(geometry.toAligned)
+                            .translate((float)mag[0],(float)mag[1],(float)mag[2])
+                            .translate(0,-1.75F,-.5F)
+                            .rotateZ((float)Math.toRadians(spin[2])).rotateY((float)Math.toRadians(spin[1]))
+                            .translate(0,1.75F,.5F).mul(FROM_ALIGNED);
+                    Matrix4f attached=new Matrix4f(cameraInv).mul(rifle).mul(movement).mul(bind);
+                    float weight=MagazineInspect.handWeight(time,Config.armInspectReleaseMs);
+                    Matrix4f m=weight>=1?attached:weight<=0?r.local:
+                            blendAtHand(r.local,r.crop,attached,r.crop,weight,right,slim);
+                    submit(collector,light,arm,skin,new Matrix4f(CAMERA).mul(m),r.crop,right,slim,sleeveShown,sleeve);
+                    continue;
+                }
+            }
             float[] onPath = pathState(i, cameraInv, r.shoulder);
             if (onPath != null) {
                 Matrix4f home = HAVE_FOLLOW[i] ? new Matrix4f(cameraInv).mul(FOLLOW[i]) : bodyInCamera;
@@ -1044,6 +1069,11 @@ public final class Arms {
             p = pa.lerp(pb, s);
         }
         return new float[] {Math.min(w, 1F), p.x, p.y, p.z};
+    }
+
+    private static boolean magazineInspect(int hand) {
+        return hand == 1 && Config.armInspectReleaseMs >= 0 && Float.isFinite(Config.armInspectReleaseMs)
+                && HbmAnimations.getGunAnimation(0) == GunAnimation.INSPECT;
     }
 
     // the carried point with the bus at time `ms`: the bus's location (model frame) plus the point

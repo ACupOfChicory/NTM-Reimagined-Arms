@@ -55,10 +55,13 @@ AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getTyp
 AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setAmount (Lnet/minecraft/world/item/ItemStack;I)V
 AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setType (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/BulletConfig;)V
 ARMS class com/hbm/client/render/OtherHandCollector
+ARMS class com/hbm/items/weapon/sedna/GunConfig
 ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT
+ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT$SmokeNode
 ARMS class com/hbm/render/anim/AnimationEnums$GunAnimation
 ARMS class com/hbm/render/anim/BusAnimation
+ARMS class com/hbm/render/anim/BusAnimationSequence
 ARMS class com/hbm/render/anim/HbmAnimations$Animation
 ARMS class com/hbm/render/item/weapon/sedna/ItemRenderCoilgun
 ARMS class com/hbm/render/item/weapon/sedna/ItemRenderM2
@@ -67,6 +70,8 @@ ARMS class com/hbm/render/loader/HFRWavefrontObject
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT$SmokeNode alpha D
+ARMS field com/hbm/items/weapon/sedna/factory/Orchestras ORCHESTRA_G3 Ljava/util/function/BiConsumer;
+ARMS field com/hbm/items/weapon/sedna/factory/XFactory556mm LAMBDA_G3_ANIMS Ljava/util/function/BiFunction;
 ARMS field com/hbm/main/ResourceManager coilgun Lcom/hbm/render/loader/HFRWavefrontObject;
 ARMS field com/hbm/main/ResourceManager m2 Lcom/hbm/render/loader/HFRWavefrontObject;
 ARMS field com/hbm/main/ResourceManager stinger Lcom/hbm/render/loader/HFRWavefrontObject;
@@ -74,21 +79,33 @@ ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation INSPECT Lcom/hbm/rend
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD_CYCLE Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD_END Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+ARMS field com/hbm/render/anim/BusAnimationKeyframe$IType SIN_DOWN Lcom/hbm/render/anim/BusAnimationKeyframe$IType;
+ARMS field com/hbm/render/anim/BusAnimationKeyframe$IType SIN_FULL Lcom/hbm/render/anim/BusAnimationKeyframe$IType;
+ARMS field com/hbm/render/anim/BusAnimationKeyframe$IType SIN_UP Lcom/hbm/render/anim/BusAnimationKeyframe$IType;
 ARMS field com/hbm/render/anim/HbmAnimations$Animation animation Lcom/hbm/render/anim/BusAnimation;
 ARMS field com/hbm/render/anim/HbmAnimations$Animation startMillis J
 ARMS field com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase interp F
 ARMS field com/hbm/render/loader/GroupObject name Ljava/lang/String;
 ARMS field com/hbm/render/loader/HFRWavefrontObject groups [Lcom/hbm/render/loader/GroupObject;
 ARMS method com/hbm/items/weapon/sedna/GunConfig getAnims (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiFunction;
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getAnimTimer (Lnet/minecraft/world/item/ItemStack;I)I
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getLastAnim (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT setAnimTimer (Lnet/minecraft/world/item/ItemStack;II)V
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext configIndex ()I
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation name ()Ljava/lang/String;
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation ordinal ()I
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation values ()[Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+ARMS method com/hbm/render/anim/BusAnimation addBus (Ljava/lang/String;Lcom/hbm/render/anim/BusAnimationSequence;)Lcom/hbm/render/anim/BusAnimation;
 ARMS method com/hbm/render/anim/BusAnimation getBus (Ljava/lang/String;)Lcom/hbm/render/anim/BusAnimationSequence;
 ARMS method com/hbm/render/anim/BusAnimation getDuration ()I
+ARMS method com/hbm/render/anim/BusAnimationSequence <init> ()V
+ARMS method com/hbm/render/anim/BusAnimationSequence addPos (DDDI)Lcom/hbm/render/anim/BusAnimationSequence;
+ARMS method com/hbm/render/anim/BusAnimationSequence addPos (DDDILcom/hbm/render/anim/BusAnimationKeyframe$IType;)Lcom/hbm/render/anim/BusAnimationSequence;
 ARMS method com/hbm/render/anim/BusAnimationSequence getTotalTime ()I
 ARMS method com/hbm/render/anim/BusAnimationSequence getTransformation (I)[D
+ARMS method com/hbm/render/anim/BusAnimationSequence hold (I)Lcom/hbm/render/anim/BusAnimationSequence;
 ARMS method com/hbm/render/anim/HbmAnimations getGunAnimation (I)Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS method com/hbm/render/anim/HbmAnimations getRelevantAnim (I)Lcom/hbm/render/anim/HbmAnimations$Animation;
 ARMS method com/hbm/render/anim/HbmAnimations getRelevantTransformation (Ljava/lang/String;)[D

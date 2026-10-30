@@ -89,6 +89,7 @@ public final class Config {
     public static String armLeftAdjustments = "", armRightAdjustments = "";
     public static float armPathMinLength = 0F;
     public static String armPathTimes = "";
+    public static float armInspectReleaseMs = -1F;
     public static boolean instantSwitch = true;
     public static boolean bulletFx = true;
     // loudness of bullet hit sounds, times the rule's volume; above 1 the sound is doubled up (Minecraft stops at 1)
@@ -443,6 +444,7 @@ public final class Config {
         armRightAdjustments = p.getProperty("armRightAdjustments", armRightAdjustments).trim();
         armPathMinLength = num(p, "armPathMinLength", armPathMinLength);
         armPathTimes = p.getProperty("armPathTimes", armPathTimes).trim();
+        armInspectReleaseMs = num(p, "armInspectReleaseMs", -1F);
         instantSwitch = bool(p, "instantSwitch", instantSwitch);
         bulletFx = bool(p, "bulletFx", bulletFx);
         hitVolume = Math.max(0F, Math.min(4F, num(p, "hitVolume", hitVolume)));
@@ -554,6 +556,7 @@ public final class Config {
         p.setProperty("armRightAdjustments", armRightAdjustments);
         p.setProperty("armPathMinLength", Float.toString(armPathMinLength));
         p.setProperty("armPathTimes", armPathTimes);
+        p.setProperty("armInspectReleaseMs", Float.toString(armInspectReleaseMs));
         p.setProperty("instantSwitch", Boolean.toString(instantSwitch));
         p.setProperty("bulletFx", Boolean.toString(bulletFx));
         p.setProperty("hitVolume", Float.toString(hitVolume));

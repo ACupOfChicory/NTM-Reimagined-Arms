@@ -4,7 +4,7 @@
   "package": "acup.gunfeel.mixin",
   "plugin": "acup.gunfeel.compat.HbmMixinPlugin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": ["MixinHoldAim", "MixinBulletServer", "MixinHeadDamage", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinExplosiveDirect", "MixinRicochetSound", "MixinAmmoLock", "MixinAmmoLockBelt", "MixinThrowableHit", "MixinBeamModelQuery", "MixinLegoSpread", "MixinGunConfigAnims"],
+  "mixins": ["MixinHoldAim", "MixinBulletServer", "MixinHeadDamage", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinExplosiveDirect", "MixinRicochetSound", "MixinAmmoLock", "MixinAmmoLockBelt", "MixinThrowableHit", "MixinBeamModelQuery", "MixinLegoSpread", "MixinGunConfigAnims", "MixinG3Inspect"],
   "client": ["MixinItemGunBaseNT", "MixinItemRenderWeaponBase", "MixinHbmAnimations", "MixinClientRegistry", "MixinWholeModelGuns", "MixinRenderBulletMK4", "MixinLegoClient", "MixinHbmVisual", "MixinHbmAnimationPayload",
     "MixinSexyBottle", "MixinGunKeysRadial", "MixinNtmMeshHits", "GlyphidGeometryAccess", "MixinGlyphidModelHits", "MixinMobObjModelHits", "MixinMobModelHits", "MixinGpuEntityGeometry"],
   "injectors": { "defaultRequire": 0 }
