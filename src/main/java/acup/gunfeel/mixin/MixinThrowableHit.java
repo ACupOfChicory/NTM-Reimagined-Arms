@@ -1,6 +1,8 @@
 package acup.gunfeel.mixin;
 
 import java.util.Optional;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -25,6 +27,13 @@ import net.minecraft.world.phys.Vec3;
 // path starting inside a mob's hitbox hits it.
 @Mixin(value = EntityThrowableNT.class, remap = false)
 public abstract class MixinThrowableHit {
+    @org.spongepowered.asm.mixin.Shadow protected abstract double motionMult();
+    @WrapMethod(method="tick")
+    private void gunfeel$view(Operation<Void> original) {
+        var self=(EntityThrowableNT)(Object)this;
+        var previous=acup.gunfeel.ModelHits.beginProjectile(self.getThrower(),self.getDeltaMovement().length()*motionMult());
+        try{original.call();}finally{acup.gunfeel.ModelHits.endShot(previous);}
+    }
     @Redirect(method = "tick", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/Level;getEntities(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/AABB;)Ljava/util/List;"))
     private java.util.List<net.minecraft.world.entity.Entity> gunfeel$modelCandidates(Level level, net.minecraft.world.entity.Entity except, AABB area) {

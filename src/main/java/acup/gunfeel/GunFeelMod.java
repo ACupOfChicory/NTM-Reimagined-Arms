@@ -16,7 +16,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 public final class GunFeelMod {
     // Systems that do not fit an untested NTM are off (acup.gunfeel.compat): their listeners check Feature.on()
     // the network protocol: raise it when a payload changes, and clients and servers on different ones will not connect
-    public static final String PROTOCOL = "6";
+    public static final String PROTOCOL = "8";
 
     public GunFeelMod(IEventBus modBus, Dist dist, ModContainer container) {
         Compat.setModVersion(container.getModInfo().getVersion().toString());
@@ -65,6 +65,7 @@ public final class GunFeelMod {
                 r.playToClient(ShotPayload.TYPE, ShotPayload.CODEC, (p, ctx) -> {
                     if (Feature.TRACERS.on()) Tracers.handle(p, ctx);
                 });
+                r.playToClient(BulletStopPayload.TYPE,BulletStopPayload.CODEC,(p,ctx)->ctx.enqueueWork(()->Tracers.stop(p)));
                 r.playToClient(HelloPayload.TYPE, HelloPayload.CODEC, (p, ctx) -> CompatClient.hello(p));
                 r.playToClient(ImpactHolePayload.TYPE,ImpactHolePayload.CODEC,(p,ctx)->{
                     if(Feature.TRACERS.on())ctx.enqueueWork(()->Tracers.impact(p));
@@ -72,6 +73,7 @@ public final class GunFeelMod {
                 r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC, (p, ctx) -> ServerSettingsClient.receive(p));
             } else {
                 r.playToClient(ShotPayload.TYPE, ShotPayload.CODEC);
+                r.playToClient(BulletStopPayload.TYPE,BulletStopPayload.CODEC);
                 r.playToClient(ImpactHolePayload.TYPE,ImpactHolePayload.CODEC);
                 r.playToClient(HelloPayload.TYPE, HelloPayload.CODEC);
                 r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC);

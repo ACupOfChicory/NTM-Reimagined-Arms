@@ -22,6 +22,57 @@ public final class ModelHits {
     private record PoseAt(UUID entity, Vec3 position, float yaw, float bodyYaw, Pose pose, float width, float height, long tick, List<ModelBox> boxes) {}
     private static final Map<Level, Map<Integer, PoseAt>> POSES = new WeakHashMap<>();
     private static final Map<ServerPlayer, long[]> LIMITS = new WeakHashMap<>();
+    private record ViewAt(PoseAt pose,Vec3 rendered,Vec3 velocity,Level level) {}
+    private static final Map<ServerPlayer,Map<Integer,ViewAt>> VIEWS=new WeakHashMap<>();
+    private record Contact(Vec3 point,Vec3 origin,double time) {}
+    public static final class ShotContext {
+        private final ServerPlayer player;
+        private final double travel;
+        private final Map<UUID,List<Contact>> contacts=new HashMap<>();
+        private ShotContext(ServerPlayer player,double travel){this.player=player;this.travel=travel;}
+    }
+    private static final ThreadLocal<ShotContext> SHOOTER=new ThreadLocal<>();
+
+    public static ShotContext beginShot(Entity owner) {return beginProjectile(owner,0);}
+    public static ShotContext beginProjectile(Entity owner,double travel) {
+        var previous=SHOOTER.get();
+        if(owner instanceof ServerPlayer player)SHOOTER.set(new ShotContext(player,travel));else SHOOTER.remove();
+        return previous;
+    }
+    public static void endShot(ShotContext previous){if(previous==null)SHOOTER.remove();else SHOOTER.set(previous);}
+
+    private static ViewAt view(Entity target) {
+        var context=SHOOTER.get();ServerPlayer player=context==null?null:context.player;
+        var views=player==null?null:VIEWS.get(player);
+        var view=views==null?null:views.get(target.getId());
+        return view!=null && player.level()==target.level() && view.level()==target.level() && compatible(target,view.pose())
+                && target.level().getGameTime()-view.pose().tick()<=MAX_SYNC_AGE?view:null;
+    }
+    private static PoseAt pose(Entity target,Map<Integer,PoseAt> poses) {
+        var view=view(target);
+        return view==null?(poses==null?null:poses.get(target.getId())):view.pose();
+    }
+    private static Vec3 origin(Entity target) {
+        var view=view(target);
+        // Отсчитываем движение от времени снимка, а не от порядка обхода сущностей.
+        return view==null?target.position():view.rendered().add(view.velocity().scale(target.level().getGameTime()-view.pose().tick()));
+    }
+    private static Vec3 impactOrigin(Entity target,Vec3 point){
+        var contact=contact(target,point);
+        return contact==null?origin(target):contact.origin();
+    }
+    public static double contactTime(Entity target,Vec3 point){
+        var contact=contact(target,point);return contact==null?Double.NaN:contact.time();
+    }
+    private static Contact contact(Entity target,Vec3 point){
+        var parent=ModelPartEntities.parent(target);if(parent!=null)target=parent;
+        var context=SHOOTER.get();var contacts=context==null?null:context.contacts.get(target.getUUID());
+        if(contacts!=null)for(int i=contacts.size()-1;i>=0;i--)if(contacts.get(i).point().distanceToSqr(point)<1e-10)return contacts.get(i);
+        return null;
+    }
+    private static double angle(LivingEntity target,PoseAt pose) {
+        return view(target)!=null?0:turnAngle(target.level().isClientSide(),target.yBodyRot,pose.yaw(),pose.bodyYaw());
+    }
 
     private ModelHits() {}
 
@@ -66,9 +117,19 @@ public final class ModelHits {
         var filtered=PlaneHitPolicy.filter(living,AvatarHitPolicy.filter(living,p.boxes()));
         if(filtered.isEmpty()) return;
         put(observer.level(), living, p.yaw(), filtered);
+        var saved=POSES.get(observer.level()).get(target.getId());
+        var views=VIEWS.computeIfAbsent(observer,k->new HashMap<>());
+        var previous=views.get(target.getId());var rendered=new Vec3(p.x(),p.y(),p.z());
+        var velocity=target.getDeltaMovement();
+        if(previous!=null && compatible(target,previous.pose())) {
+            long elapsed=tick-previous.pose().tick();
+            velocity=elapsed>0 && elapsed<=MAX_SYNC_AGE?rendered.subtract(previous.rendered()).scale(1.0/elapsed):previous.velocity();
+        }
+        views.put(target.getId(),new ViewAt(saved,rendered,velocity,observer.level()));
         MobSmoke.accepted(living, p.yaw(), filtered.stream().filter(b -> ModelWool.visible(living,b)).toList());
         ModelHitLog.event("server", "accepted", living, () -> "observer=" + observer.getId() + " cubes=" + p.boxes().size()
-                + " tick=" + tick + " first_cube=" + p.boxes().getFirst());
+                + " tick=" + tick + " rendered=" + p.x() + "," + p.y() + "," + p.z()
+                + " authority=" + living.position() + " first_cube=" + p.boxes().getFirst());
     }
 
     public static double radius(Entity target) {
@@ -92,7 +153,7 @@ public final class ModelHits {
     public static synchronized void tick(Level level) {
         Map<Integer, PoseAt> poses = POSES.get(level);
         if (poses == null) return;
-        if (!enabled()) { POSES.remove(level); return; }
+        if (!enabled()) { clear(level); return; }
         var it = poses.entrySet().iterator();
         while (it.hasNext()) {
             var entry = it.next();
@@ -105,10 +166,24 @@ public final class ModelHits {
                         p.width(), p.height(), p.tick(), p.boxes()));
             }
         }
+        for(var observer:VIEWS.entrySet()) {
+            observer.getValue().entrySet().removeIf(entry->{
+                var v=entry.getValue();
+                if(v.level()!=level)return false;
+                var target=level.getEntity(entry.getKey());
+                if(observer.getKey().level()!=level || !compatible(target,v.pose())
+                        || level.getGameTime()-v.pose().tick()>MAX_SYNC_AGE)return true;
+                var p=v.pose();
+                entry.setValue(new ViewAt(new PoseAt(p.entity(),target.position(),p.yaw(),p.bodyYaw(),p.pose(),
+                        p.width(),p.height(),p.tick(),p.boxes()),v.rendered(),v.velocity(),level));
+                return false;
+            });
+        }
     }
 
     public static synchronized void clear(Level level) {
         POSES.remove(level);
+        VIEWS.values().forEach(views->views.values().removeIf(v->v.level()==level));
     }
 
     public static synchronized List<Entity> candidates(Level level, Entity except, List<Entity> original, AABB area,
@@ -152,28 +227,28 @@ public final class ModelHits {
         if(!(root instanceof LivingEntity living) || point==null) return new ModelHeads.Hit(true,false,"unknown","нет живой цели или точки",0);
         String type=ModelHeads.key(root);
         if(ModelHeads.noHead(type)) return new ModelHeads.Hit(true,false,"dataset","размечено без головы",1);
-        var poses=POSES.get(root.level());var pose=poses==null?null:poses.get(root.getId());
+        var poses=POSES.get(root.level());var pose=pose(root,poses);
         if(!usable(root,pose)) return heightHead(living,point);
         var resolved=ModelHeads.resolve(type,pose.boxes(),pose.yaw());
         if(resolved.source().equals("height")) return heightHead(living,point);
-        double angle=turnAngle(root.level().isClientSide(),living.yBodyRot,pose.yaw(),pose.bodyYaw());
-        boolean head=HeadZone.contains(resolved.zones(),unturn(point.subtract(root.position()),angle));
+        double angle=angle(living,pose);
+        boolean head=HeadZone.contains(resolved.zones(),unturn(point.subtract(impactOrigin(root,point)),angle));
         return new ModelHeads.Hit(true,head,resolved.source(),resolved.reason(),resolved.confidence());
     }
     private static ModelHeads.Hit heightHead(LivingEntity living,Vec3 point) {
         double margin=living.getBbHeight()-living.getEyeHeight();
-        return new ModelHeads.Hit(true,living.isAlive() && point.y>living.getY()+living.getBbHeight()-margin*2,
+        return new ModelHeads.Hit(true,living.isAlive() && point.y>impactOrigin(living,point).y+living.getBbHeight()-margin*2,
                 "height","высотная зона NTM с прежним допуском",0F);
     }
     static synchronized boolean limb(Entity target,Vec3 point) {
         if(!enabled() || point==null) return false;
         var parent=ModelPartEntities.parent(target);Entity root=parent==null?target:parent;
         if(!(root instanceof LivingEntity living) || !LimbPolicy.eligible(root.getType())) return false;
-        var poses=POSES.get(root.level());var pose=poses==null?null:poses.get(root.getId());
+        var poses=POSES.get(root.level());var pose=pose(root,poses);
         if(!usable(root,pose)) return false;
         var zones=ModelHeads.limbs(ModelHeads.key(root),pose.boxes(),pose.yaw()).zones();
-        double angle=turnAngle(root.level().isClientSide(),living.yBodyRot,pose.yaw(),pose.bodyYaw());
-        return HeadZone.contains(zones,unturn(point.subtract(root.position()),angle));
+        double angle=angle(living,pose);
+        return HeadZone.contains(zones,unturn(point.subtract(impactOrigin(root,point)),angle));
     }
     public static synchronized List<HeadZone> headZones(Entity target) {
         var poses=POSES.get(target.level());var pose=poses==null?null:poses.get(target.getId());
@@ -236,7 +311,7 @@ public final class ModelHits {
         var parent=ModelPartEntities.parent(target);
         Entity root=dragonPart!=null?dragonPart.parentMob:parent!=null?parent:target;
         Map<Integer, PoseAt> poses = POSES.get(target.level());
-        PoseAt p = poses == null || root==null ? null : poses.get(root.getId());
+        PoseAt p = root==null ? null : pose(root,poses);
         boolean fresh = usable(root, p);
         if (!fresh || !(root instanceof LivingEntity living)) {
             if (!from.equals(to)) ModelHitLog.event(target.level().isClientSide() ? "client" : "server", "clip_fallback", target,
@@ -254,7 +329,7 @@ public final class ModelHits {
             // Не расширяем область части на 0.3 вместе с AABB снаряда.
             // Часть сохраняет свой урон, но её невидимая коробка сама по себе
             // больше не является поверхностью попадания.
-            AABB region=target.getBoundingBox();
+            AABB region=target.getBoundingBox().move(origin(root).subtract(root.position()));
             if(region.getXsize()<=0 || region.getYsize()<=0 || region.getZsize()<=0) return Optional.empty();
             var carrier=new ModelBox("part_region",region.minX,region.minY,region.minZ,
                     region.getXsize(),0,0,0,region.getYsize(),0,0,0,region.getZsize());
@@ -262,8 +337,15 @@ public final class ModelHits {
             if(span==null) return Optional.empty();
             segmentFrom=from.lerp(to,span[0]); segmentTo=from.lerp(to,span[1]);
         }
-        double angle = turnAngle(target.level().isClientSide(), living.yBodyRot, p.yaw(), p.bodyYaw());
-        Vec3 a = unturn(segmentFrom.subtract(root.position()), angle), b = unturn(segmentTo.subtract(root.position()), angle);
+        double angle = angle(living,p);
+        Vec3 rootOrigin=origin(root);
+        var context=SHOOTER.get();var view=view(root);
+        double duration=context==null || context.travel<=0 || from.equals(to)?0:Math.min(1,from.distanceTo(to)/context.travel);
+        Vec3 motion=view==null?Vec3.ZERO:view.velocity().scale(duration);
+        double length=from.distanceTo(to);
+        double first=length<=1e-12?0:from.distanceTo(segmentFrom)/length,last=length<=1e-12?0:from.distanceTo(segmentTo)/length;
+        Vec3 a = unturn(segmentFrom.subtract(rootOrigin.add(motion.scale(first))), angle),
+                b = unturn(segmentTo.subtract(rootOrigin.add(motion.scale(last))), angle);
         double nearest = Double.POSITIVE_INFINITY;
         String part = "";
         for (ModelBox box : p.boxes()) {
@@ -281,11 +363,20 @@ public final class ModelHits {
             ModelHitLog.event(target.level().isClientSide() ? "client" : "server", "clip_model", target,
                     () -> "result=" + (Double.isFinite(at) ? "hit" : "miss") + " part=" + name + " t=" + at
                             + " cubes=" + p.boxes().size() + " age=" + (target.level().getGameTime() - p.tick())
+                            + " shooter=" + (SHOOTER.get()==null?"none":SHOOTER.get().player.getId())
+                            + " origin=" + rootOrigin + " authority=" + root.position()
                             + " from=" + from + " to=" + to);
         }
         if (TestLog.on(target.level()) && !from.equals(to)) TestLog.at(target.level(), -1, "model_hit", "target", target.getId(),
                 "part", part, "result", Double.isFinite(nearest) ? "hit" : "miss", "age", target.level().getGameTime() - p.tick());
-        return Double.isFinite(nearest) ? Optional.of(segmentFrom.lerp(segmentTo, nearest)) : Optional.empty();
+        if(!Double.isFinite(nearest))return Optional.empty();
+        Vec3 point=segmentFrom.lerp(segmentTo,nearest);
+        if(context!=null){
+            double time=first+(last-first)*nearest;
+            var contacts=context.contacts.computeIfAbsent(root.getUUID(),k->new ArrayList<>());
+            if(contacts.size()<32)contacts.add(new Contact(point,rootOrigin.add(motion.scale(time)),duration*time));
+        }
+        return Optional.of(point);
     }
 
     // Клиент сохраняет исходную интерполяцию и добавляет лишь движение корня после захвата.

@@ -10,7 +10,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 
 // Client -> server: the rendered pose of one nearby entity. Never a client's claim that a bullet hit something:
-// the server intersects its own bullet segment with these cubes. Models and their animation only exist on clients.
+// the server intersects its own bullet segment with these cubes. XYZ is the rendered origin, including interpolation.
 public record ModelPosePayload(int entity, UUID uuid, double x, double y, double z, float yaw, List<ModelBox> boxes)
         implements CustomPacketPayload {
     public static final int MAX_BOXES = 128;

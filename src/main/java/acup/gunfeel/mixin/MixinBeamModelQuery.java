@@ -1,6 +1,8 @@
 package acup.gunfeel.mixin;
 
 import java.util.List;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import acup.gunfeel.ModelHits;
 import com.hbm.entity.projectile.EntityBulletBeamBase;
 import net.minecraft.world.entity.Entity;
@@ -12,6 +14,11 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(value = EntityBulletBeamBase.class, remap = false)
 public abstract class MixinBeamModelQuery {
+    @WrapMethod(method="performHitscan")
+    private void gunfeel$view(Operation<Void> original) {
+        var previous=ModelHits.beginShot(((EntityBulletBeamBase)(Object)this).thrower);
+        try{original.call();}finally{ModelHits.endShot(previous);}
+    }
     @Redirect(method = "performHitscan", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/Level;getEntities(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/AABB;)Ljava/util/List;"))
     private List<Entity> gunfeel$modelCandidates(Level level, Entity except, AABB area) {

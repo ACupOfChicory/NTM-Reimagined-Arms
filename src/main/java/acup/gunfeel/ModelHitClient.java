@@ -31,7 +31,7 @@ public final class ModelHitClient {
         APPLIED_FRAME.put(entity.getUUID(),frame); PUBLISHED_FRAME.put(entity.getUUID(),frame);
     }
     private static final Map<UUID, Ready> READY = new ConcurrentHashMap<>();
-    private record Sync(LivingEntity entity, float yaw, List<ModelBox> boxes, String source, long tick) {}
+    private record Sync(LivingEntity entity, float yaw, List<ModelBox> boxes, String source, long tick,net.minecraft.world.phys.Vec3 origin) {}
     private static final Map<UUID, Sync> SYNC = new java.util.HashMap<>();
     private static final Map<UUID, Long> SENT = new java.util.HashMap<>();
     private static final java.util.Set<Long> MESH_SENT = new java.util.HashSet<>();
@@ -162,7 +162,7 @@ public final class ModelHitClient {
         if(MobSmoke.enabled()) PUBLISHED_FRAME.put(entity.getUUID(),frame);
         MobSmoke.captured(entity, entity.yBodyRot, rendered, source);
         ModelHitLog.count("client", "local_pose");
-        SYNC.put(entity.getUUID(), new Sync(entity, yaw, List.copyOf(filtered), source, level.getGameTime()));
+        SYNC.put(entity.getUUID(), new Sync(entity, yaw, List.copyOf(filtered), source, level.getGameTime(),origin));
         return true;
     }
 
@@ -186,8 +186,8 @@ public final class ModelHitClient {
             }
             sendBudget--;
             SENT.put(entity.getUUID(), tick);
-            ClientPacketDistributor.sendToServer(new ModelPosePayload(entity.getId(), entity.getUUID(), entity.getX(), entity.getY(),
-                    entity.getZ(), pose.yaw(), pose.boxes()));
+            ClientPacketDistributor.sendToServer(new ModelPosePayload(entity.getId(), entity.getUUID(), pose.origin().x, pose.origin().y,
+                    pose.origin().z, pose.yaw(), pose.boxes()));
             ModelHitLog.event("client", "sent", entity, () -> "source=" + pose.source() + " cubes=" + pose.boxes().size() + " tick=" + tick);
         }
         if (SENT.size() > 512) SENT.entrySet().removeIf(e -> tick - e.getValue() > 100);

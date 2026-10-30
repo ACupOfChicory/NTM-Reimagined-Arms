@@ -75,11 +75,14 @@ public final class Tracers {
         final double speed;
         final int dark, light;
         final double born;
+        final double rootBorn;
         final long lifeTicks;
         Vec3 muzzleOffset = Vec3.ZERO;
         double checked; // ticks of path already tested against the world
         Vec3 eye; // the shooter's eyes when the bullet starts near them: its first test starts there
         double end = Double.NaN; // ticks at which it hit something
+        double confirmedEnd=Double.NaN;
+        Vec3 stopPoint;
         boolean whizzed; // already whizzed past the player
         volatile boolean gone; // no longer flown (its in-flight sound stops)
         float damage; // what is left of its damage (bullet rules "pierce")
@@ -100,6 +103,7 @@ public final class Tracers {
             this.lifeTicks = p.life();
             this.damage = p.damage();
             this.born = flightTime();
+            this.rootBorn=this.born;
         }
 
         // the same bullet bounced off a block: from there on with the mirrored velocity, `born` = the moment it bounced
@@ -117,6 +121,7 @@ public final class Tracers {
             this.damage = from.damage;
             this.penetration.restore(from.penetration.spent());
             this.born = born;
+            this.rootBorn=from.rootBorn;
             this.pierced.addAll(from.pierced);
             this.ricochets = from.ricochets + 1;
             this.whizzed = from.whizzed;
@@ -125,6 +130,7 @@ public final class Tracers {
 
         // where the bullet is after t ticks (as the server moves it), plus the muzzle offset fading out
         Vec3 at(double t) {
+            if(stopPoint!=null && t>=confirmedEnd-1e-8)return stopPoint;
             Vec3 p = start.add(v.x * t, v.y * t - 0.5 * g * t * t, v.z * t);
             double k = Math.max(0.0, 1.0 - speed * t / JOIN);
             return k > 0 ? p.add(muzzleOffset.scale(k)) : p;
@@ -135,7 +141,7 @@ public final class Tracers {
     // mask = which 1/16-block cells of the face show the block's pixels (null = all): cells mask.w x mask.h from
     // cell (u0, v0) on the face's two axes, in 1/16 blocks
     private record Hole(Vec3 pos, Direction face, int turn, long born, int light, int kind, float size, double[] rect, Mask mask, double plane, boolean late, boolean cull,
-            float[] mesh, boolean front, BlockPos block, BlockState state, boolean drawn, Follow follow, Vec3 hit, boolean machine) {
+            float[] mesh, boolean front, BlockPos block, BlockState state, boolean drawn, Follow follow, Vec3 hit, boolean machine,int shot) {
     }
 
     // a new mark's turn with a random variant in it
@@ -313,6 +319,20 @@ public final class Tracers {
     }
 
     private static final List<Shot> SHOTS = new ArrayList<>();
+    private static final java.util.LinkedHashMap<Integer,Shot> RECENT_SHOTS=new java.util.LinkedHashMap<>();
+    public static void stop(BulletStopPayload packet) {
+        if(!Double.isFinite(packet.age()) || packet.age()<0 || !Double.isFinite(packet.point().lengthSqr()))return;
+        var recent=RECENT_SHOTS.get(packet.shot());
+        if(recent!=null){
+            PENDING.removeIf(p->p.shot()==packet.shot() && p.hit().getLocation().subtract(packet.point()).dot(recent.v)>1e-5);
+            HOLES.removeIf(h->h.shot()==packet.shot() && (h.hit()==null?h.pos():h.hit()).subtract(packet.point()).dot(recent.v)>1e-5);
+        }
+        for(var shot:SHOTS)if(shot.id==packet.shot() && (recent==null || shot.born==recent.born)) {
+            shot.confirmedEnd=Math.max(0,packet.age()-(shot.born-shot.rootBorn));
+            shot.end=shot.checked>=shot.confirmedEnd?shot.confirmedEnd:Double.NaN;
+            shot.stopPoint=packet.point();
+        }
+    }
     private static final List<Shot> BOUNCED = new ArrayList<>(); // bullets that bounced off this frame, flown from the next
     private static final ArrayDeque<Hole> HOLES = new ArrayDeque<>();
     private static boolean serverAnnounces;
@@ -462,6 +482,8 @@ public final class Tracers {
             }
         }
         SHOTS.add(s);
+        RECENT_SHOTS.put(s.id,s);
+        if(RECENT_SHOTS.size()>512)RECENT_SHOTS.remove(RECENT_SHOTS.keySet().iterator().next());
         if (SHOTS.size() > 512) SHOTS.remove(0).gone = true;
         BulletFx.fly(() -> s.at(Math.min(age(s), Double.isNaN(s.end) ? s.lifeTicks : s.end)),
                 () -> !s.gone && Double.isNaN(s.end) && age(s) < s.lifeTicks);
@@ -482,6 +504,7 @@ public final class Tracers {
     public static void clear() {
         for (Shot s : SHOTS) s.gone = true;
         SHOTS.clear();
+        RECENT_SHOTS.clear();
         HOLES.clear();
         PENDING.clear();
         for (Batch b : BATCHES) if (b.vb != null) b.vb.close();
@@ -534,6 +557,7 @@ public final class Tracers {
                     Float.intBitsToFloat(s.light), Float.intBitsToFloat(s.dark), pixel});
         }
         SHOTS.addAll(BOUNCED);
+        for(var bounced:BOUNCED)RECENT_SHOTS.put(bounced.id,bounced);
         BOUNCED.clear();
         if (!streaks.isEmpty()) {
             event.getSubmitNodeCollector().submitCustomGeometry(pose, RenderTypes.debugQuads(), (p, vc) -> {
@@ -561,6 +585,7 @@ public final class Tracers {
 
     // test the bullet's path up to t ticks against blocks and entities; stops it at the first thing it meets
     private static void fly(Shot s, ClientLevel level, double t) {
+        if(!Double.isNaN(s.confirmedEnd))t=Math.min(t,s.confirmedEnd);
         if (!Double.isNaN(s.end) || t <= s.checked) return;
         TestLog.shot(s.id);
         // the real path, without the muzzle offset, decides what is hit
@@ -569,7 +594,7 @@ public final class Tracers {
         Vec3 dir = rb.subtract(ra);
         double len = dir.length();
         double hitEntity = Double.NaN;
-        if (len > 1e-6) {
+        if (len > 1e-6 && s.id<0 && !s.config.doesPenetrate) {
             AABB area = new AABB(ra, rb).inflate(1.0);
             java.util.function.Predicate<Entity> filter = e -> e.isPickable() && e.isAlive() && e.getId() != s.owner && !(e instanceof net.minecraft.world.entity.projectile.Projectile);
             for (Entity e : ModelHits.candidates(level, null, level.getEntities((Entity) null, area, filter), area, filter)) {
@@ -668,6 +693,7 @@ public final class Tracers {
             }
         }
         s.checked = t;
+        if(!Double.isNaN(s.confirmedEnd) && t>=s.confirmedEnd)s.end=s.confirmedEnd;
         TestLog.shot(-1);
     }
 
@@ -804,6 +830,7 @@ public final class Tracers {
     }
 
     private static final ArrayDeque<Pending> PENDING = new ArrayDeque<>();
+    private static int makingShot=-1;
     public static void impact(ImpactHolePayload packet) {
         var level=Minecraft.getInstance().level;
         if(level==null || !Config.bulletHoles || packet.config()<0 || packet.config()>=BulletConfig.configs.size())return;
@@ -848,8 +875,10 @@ public final class Tracers {
             scratch = p.scratch();
             int before = holesMade;
             try {
+                makingShot=p.shot();
                 makeHole(p.level(), p.hit(), p.config(), p.dir());
             } finally {
+                makingShot=-1;
                 scratch = null;
             }
             if (TestLog.client) logHole(p, holesMade != before);
@@ -960,7 +989,7 @@ public final class Tracers {
                 && !glassLike(level.getBlockState(hit.getBlockPos()));
         addMade(new Hole(hit.getLocation(), hit.getDirection(), turn, System.nanoTime(), light, kind, size, rect, mask, plane,
                 translucent(level.getBlockState(hit.getBlockPos())) || glassLike(level.getBlockState(hit.getBlockPos())),
-                cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false));
+                cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false,makingShot));
         trimHoles();
     }
 
@@ -1083,7 +1112,7 @@ public final class Tracers {
         int light = LightCoordsUtil.getLightCoords(level, pos);
         addMade(new Hole(world, hit.getDirection(), turn, System.nanoTime(), light, kind, size, null, null, Double.NaN,
                 translucent(level.getBlockState(pos)) || glassLike(level.getBlockState(pos)), false, mesh,
-                !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false));
+                !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false,makingShot));
         trimHoles();
     }
 
@@ -1420,7 +1449,7 @@ public final class Tracers {
             Follow follow = first.anchor() == null ? null : new Follow(first.anchor(), at, mesh, light);
             // counted by holeMaxMachines when it is on what a renderer draws (a machine, a door: no block), else by holeMax
             addMade(new Hole(new Vec3(at.x, at.y, at.z), hit.getDirection(), turn, born, light, kind, size, null, null, Double.NaN, late, false, mesh,
-                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, first.block() == null));
+                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, first.block() == null,makingShot));
             dbg("  hole group: {} polygons at {} on {} tex={} front={} late={} follows={} moving={}", g.polys().size(), v(at), on,
                     RenderedMesh.texName(first.tex()), front, late, follow != null, first.moving());
         }

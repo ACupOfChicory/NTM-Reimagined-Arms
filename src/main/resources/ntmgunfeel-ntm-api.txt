@@ -107,6 +107,7 @@ BULLETS class com/hbm/blocks/machine/BlockCargoElevator
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCell
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCore
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
+BULLETS class com/hbm/entity/projectile/EntityBulletBeamBase
 BULLETS class com/hbm/entity/projectile/EntityThrowableNT
 BULLETS class com/hbm/explosion/vanillant/ExplosionVNT
 BULLETS class com/hbm/explosion/vanillant/interfaces/IEntityProcessor
@@ -119,6 +120,8 @@ BULLETS field com/hbm/blocks/generic/BlockDoorGeneric SKIN Lnet/minecraft/world/
 BULLETS field com/hbm/blocks/multiblock/BlockMultiblockCore FACING Lnet/minecraft/world/level/block/state/properties/EnumProperty;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 ticksInAir I
+BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase thrower Lnet/minecraft/world/entity/LivingEntity;
 BULLETS field com/hbm/entity/projectile/EntityThrowableNT ticksInAir I
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT exploder Lnet/minecraft/world/entity/Entity;
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/level/Level;
@@ -151,6 +154,7 @@ BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 position ()Lnet/minecraft/world/phys/Vec3;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
+BULLETS method com/hbm/entity/projectile/EntityThrowableNT getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
 BULLETS method com/hbm/entity/projectile/EntityThrowableNT getThrower ()Lnet/minecraft/world/entity/LivingEntity;
 BULLETS method com/hbm/items/weapon/sedna/BulletConfig getDamage (Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/util/DamageClass;)Lnet/minecraft/world/damagesource/DamageSource;
 BULLETS method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraft/world/item/ItemStack;)F
@@ -309,6 +313,7 @@ TRACERS field com/hbm/client/render/RenderBulletMK4$State length D
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig ammoItem Ljava/util/function/Supplier;
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig doesPenetrate Z
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig maxRicochetCount I
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;

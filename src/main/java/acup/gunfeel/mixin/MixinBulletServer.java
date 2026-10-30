@@ -39,6 +39,7 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
 
     @Unique
     private boolean gunfeel$announced;
+    @Unique private Vec3 gunfeel$tickStart;
 
     // only real bullets (NTM's default 10 blocks a tick); slow projectiles such as grenades keep their speed
     @Inject(method = "motionMult", at = @At("RETURN"), cancellable = true)
@@ -119,6 +120,13 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
     private void gunfeel$entityAfter(net.minecraft.world.phys.HitResult mop, CallbackInfo ci) {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
         if (self.level().isClientSide() || !(mop instanceof net.minecraft.world.phys.EntityHitResult e)) return;
+        if(self.isRemoved() && !(self instanceof acup.gunfeel.CollisionProbe) && config!=null && config.velocity>=5F
+                && self.level() instanceof ServerLevel level) {
+            double fraction=acup.gunfeel.ModelHits.contactTime(e.getEntity(),e.getLocation());
+            if(!Double.isFinite(fraction))fraction=Math.min(1,e.getLocation().distanceTo(gunfeel$tickStart==null?self.position():gunfeel$tickStart)/Math.max(1e-9,self.getDeltaMovement().length()*motionMult()));
+            PacketDistributor.sendToPlayersNear(level,null,self.getX(),self.getY(),self.getZ(),256,
+                    new acup.gunfeel.BulletStopPayload(self.getId(),Math.max(0,self.ticksInAir-1)+fraction,e.getLocation()));
+        }
         acup.gunfeel.BulletServer.entityHit(self, e.getEntity(), e.getLocation(), gunfeel$targetAlive, gunfeel$damageBefore, gunfeel$healthBefore);
     }
 
@@ -132,6 +140,7 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
     @Inject(method = "tick", at = @At("HEAD"))
     private void gunfeel$announce(CallbackInfo ci) {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
+        gunfeel$tickStart=self.position();
         // the test log's lines during this bullet's tick (its hits, breaking, ricochets) are this bullet's
         if (acup.gunfeel.TestLog.server && !self.level().isClientSide()) acup.gunfeel.TestLog.shot(self.getId());
         if (gunfeel$announced || self instanceof acup.gunfeel.CollisionProbe || !(self.level() instanceof ServerLevel server)) return;
