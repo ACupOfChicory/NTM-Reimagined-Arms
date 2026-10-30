@@ -49,7 +49,8 @@ public final class MeshShapes {
         }
         // and the blocks a "path ... model" bullet rule names
         for (Block b : BuiltInRegistries.BLOCK) {
-            if (!out.contains(b) && "model".equals(BulletRules.path(b.defaultBlockState()))) out.add(b);
+            if (!out.contains(b) && ("model".equals(BulletRules.path(b.defaultBlockState()))
+                    || PassableClip.needsModelMask(b.defaultBlockState()))) out.add(b);
         }
         return out;
     }

@@ -320,6 +320,13 @@ public final class PassableClip extends ClipContext {
         return masks().get(state.getBlock());
     }
 
+    // У узкой модели UV разных граней и точка встречи с лучом не совпадают с её collision box.
+    // Одна плоская маска пригодна для полного куба, но для прутьев нужны настоящие грани.
+    static boolean needsModelMask(BlockState state) {
+        return BulletRules.path(state)==null && masks().containsKey(state.getBlock())
+                && !state.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE,BlockPos.ZERO);
+    }
+
     private static @Nullable String classFamily(net.minecraft.world.level.block.Block b) {
         if (b == net.minecraft.world.level.block.Blocks.BAMBOO_FENCE) return "bamboo_fence";
         if (b == net.minecraft.world.level.block.Blocks.BAMBOO_FENCE_GATE) return "bamboo_fence_gate";
