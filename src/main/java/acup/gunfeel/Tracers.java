@@ -1278,6 +1278,7 @@ public final class Tracers {
             Piece pc = piece(t, frame, half, depth);
             if (pc != null) pieces.add(pc);
         }
+        pieces=connectedPieces(pieces,met,frame,half);
         // solid faces first: a see-through face over one in the same plane (grass's side overlay) adds nothing
         pieces.sort(java.util.Comparator.comparing(pc -> pc.tri().tex().seeThrough()));
         long born = System.nanoTime(), st4 = born, hideNs = 0;
@@ -1557,6 +1558,31 @@ public final class Tracers {
     private static final double UNFOLD_MIN = 1e-6;
     // faces turned less than this from the hit one (cos 60 degrees) are projected, steeper ones unfolded
     private static final double PROJECT_MIN = 0.5;
+
+    private static List<Piece> connectedPieces(List<Piece> pieces,RenderedMesh.Tri seed,Vector3d[] frame,double half) {
+        List<DecalSurface.Face> faces=new ArrayList<>();int root=-1;
+        for(int i=0;i<pieces.size();i++) {
+            var pc=pieces.get(i);if(pc.tri()==seed)root=i;
+            List<Vector3d> points=new ArrayList<>();
+            for(var point:pc.poly())points.add(new Vector3d(point[2],point[3],point[4]));
+            faces.add(new DecalSurface.Face(points,pc.tn()));
+        }
+        var mappings=DecalSurface.unfold(faces,root,new DecalSurface.Frame(frame[0],frame[1],frame[2],frame[3]),half);
+        List<Piece> connected=new ArrayList<>();
+        for(int i=0;i<pieces.size();i++) {
+            var mapping=mappings[i];if(mapping==null)continue;var pc=pieces.get(i);
+            List<double[]> poly=new ArrayList<>();
+            for(var original:pc.poly()) {
+                var point=original.clone();var world=new Vector3d(point[2],point[3],point[4]);
+                point[0]=mapping.x(world);point[1]=mapping.y(world);poly.add(point);
+            }
+            poly=cut(cut(cut(cut(poly,0,-half,true),0,half,false),1,-half,true),1,half,false);
+            if(poly.size()<3)continue;
+            connected.add(new Piece(pc.tri(),poly,pc.tn(),pc.plane(),box2(poly),null,null,
+                    new Vector3d[]{mapping.origin(),mapping.u(),mapping.v(),mapping.normal()}));
+        }
+        return connected;
+    }
 
     private static Piece piece(RenderedMesh.Tri t, Vector3d[] frame, double half, double depth) {
         Vector3d world = frame[0], t1 = frame[1], t2 = frame[2], n = frame[3];
