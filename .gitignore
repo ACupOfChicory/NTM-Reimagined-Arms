@@ -19,3 +19,13 @@ run-hole-bench/
 run-hole-bench-loaded/
 review/materials/page.html
 pi-sessions/
+
+# Local planning, handoffs and manual review data
+/BUGS.md
+/CLAUDE.md
+/GUNS.md
+/ROADMAP.md
+/TODO.md
+/review/
+/tools/ingame_report.py
+/tools/review_mobs.fish

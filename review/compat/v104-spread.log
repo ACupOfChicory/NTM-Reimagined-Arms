@@ -1,6 +1,0 @@
-		NTM 1.0.4 (hbm)
-[main/WARN] [ntm-gunfeel/]: NTM 1.0.4 is not a tested version for NTM Reimagined Arms (tested: [1.0.3]), checking what still fits
-[main/WARN] [ntm-gunfeel/]: Mixin MixinLegoSpread is not applied: no method "calcSpread" in Lego
-[main/WARN] [ntm-gunfeel/]: System spread is off: MixinLegoSpread: no method "calcSpread" in Lego
-[main/WARN] [ntm-gunfeel/]: NTM check took 613 ms: 1 of 13 systems off
-[modloading-worker-0/WARN] [ntm-gunfeel/]: NTM 1.0.4 is not tested with NTM Reimagined Arms 0.1.201-alpha (tested: [1.0.3]); systems off: [SPREAD]

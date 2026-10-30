@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 class RecoilTest {
     // firing while looking straight up (or down): the kick is cut off at the stop, and the return must not take back
-    // more than was applied (BUGS.md: the view ended up to a whole shot's recoil below the aim)
+    // more than was applied, otherwise the view ends up below the original aim.
     @Test
     void cameraEndsWhereItStartedAtTheStop() {
         for (float start : new float[] {-90F, -85F, 0F, 89F, 90F}) {

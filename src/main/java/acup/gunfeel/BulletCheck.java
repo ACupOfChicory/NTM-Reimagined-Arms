@@ -28,7 +28,7 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 // server thread, so the mod's mixins and BulletServer run as in a game, and nothing depends on players or chunk
 // ticking. Then: is the bullet still flying, with how much damage, and is the block still there. One line per check
 // goes to the file and the server stops (exit 1 if a check failed). Without the property nothing is registered.
-// Not covered: what players see (tracers, holes, sounds): review/INGAME-CHECKS.md.
+// Visual effects such as tracers, holes and sounds require a client-side check.
 public final class BulletCheck {
     public static final String PROPERTY = "ntmgunfeel.checkBullets";
 

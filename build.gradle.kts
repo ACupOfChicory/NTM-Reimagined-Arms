@@ -9,7 +9,7 @@ plugins {
 }
 
 val root: File = rootProject.projectDir
-// The version is counted from git, never set by hand (CLAUDE.md, "Versioning"). BUILD_OFFSET puts the count on the old
+// The version is counted from git, never set by hand. BUILD_OFFSET puts the count on the old
 // numbers: main at 0.1.201 (917c862) had 119 commits, so it is X201; numbers in between may be skipped.
 val BUILD_OFFSET = 82
 val mcVersion = project.name // versions/<Minecraft version>/

@@ -17,7 +17,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.fml.loading.FMLPaths;
 
 // /gunfeel testlog: what bullets, holes, effects, settings and recoil did while the player just plays, one line per
-// event, for tools/ingame_report.py to check review/INGAME-CHECKS.md against. The client and the server each switch
+// event, suitable for comparing client and server traces. The client and the server each switch
 // their side on (the server's by TestLogPayload, for an op); in single player both write the same file.
 // File: logs/ntm-gunfeel-test-<date>-<time>.tsv. Line: ms since the file opened, side (C/S), shot (the bullet's
 // entity id on the server, the same on the client from ShotPayload; - for none), event, then key=value fields.

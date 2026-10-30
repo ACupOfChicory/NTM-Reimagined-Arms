@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 // Bullet shapes from block models (MeshShapes.fill): a face or an edge on a cell border goes into the cell of the part
 // it bounds. NTM's steel scaffold: its side frame is 0..2/16 thick, and its diagonal braces' edges lie on 2/16; the
-// cell 2/16..3/16 beside it is air (BUGS.md: bullets stopped there and left no hole).
+// cell 2/16..3/16 beside it is air; bullets must pass through it without leaving a hole.
 class MeshShapesTest {
     private static final MeshShapes.PixelShown ALL = (a, b, c) -> true;
 

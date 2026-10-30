@@ -1,4 +1,4 @@
-# Per Minecraft version: what the mod is built against. The mod's own version is counted from git (CLAUDE.md).
+# Per Minecraft version: what the mod is built against. The mod's own version is counted from git in build.gradle.kts.
 mod.id = "ntmgunfeel"
 # the loader this branch builds for: a port names its own (forge, fabric); in the version of port/* branches
 mod.loader = "neoforge"
