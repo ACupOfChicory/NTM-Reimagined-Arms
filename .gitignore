@@ -1,6 +1,7 @@
 build/
 *.jar
 grips-backup-*.properties
+# Local handoffs, session state, test artifacts and backups stay off GitHub.
 notes/
 libs/
 logs/

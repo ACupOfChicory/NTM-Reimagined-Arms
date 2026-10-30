@@ -64,10 +64,11 @@ dependencies.
 
 Copyright (C) 2026 ACupOfChicory
 
-The code is free software: you can redistribute it and/or modify it under the
-terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
-version. See [LICENSE](LICENSE).
+Unless a file or section says otherwise, original code written for this project
+is free software: you can redistribute it and/or modify it under the terms of
+the GNU General Public License as published by the Free Software Foundation,
+either version 3 of the License, or (at your option) any later version
+(GPL-3.0-or-later). See [LICENSE](LICENSE).
 
 Model hitbox code derives in part from Countered's Accurate Hitboxes (MIT). The
 author, source link and license are in
@@ -75,10 +76,12 @@ author, source link and license are in
 included in the jar under `META-INF/licenses/accurate-hitboxes.txt`.
 
 Weapon turn sway in `WeaponSway.java` is adapted from Superb Warfare by
-Mercurows and contributors under GPL-3.0-only. The combined mod is distributed
-under GPL version 3. Source revision, changes and the license text are included
-in [third-party/superb-warfare.txt](third-party/superb-warfare.txt) and
-packaged under `META-INF/licenses/`.
+Mercurows and contributors under GPL-3.0-only. That file remains GPL-3.0-only;
+the or-later grant above applies to this project's original code, not that
+adapted code. The combined mod, which includes this GPL-3.0-only component, is
+distributed under GPL-3.0. Source revision, changes and the license text are
+included in [third-party/superb-warfare.txt](third-party/superb-warfare.txt)
+and packaged under `META-INF/licenses/`.
 
 Sounds under `src/main/resources/assets/ntmgunfeel/sounds/` come from
 freesound.org and keep their own licenses (CC0 1.0 or CC BY 3.0/4.0); authors
