@@ -981,7 +981,8 @@ public final class Tracers {
             Vector3d n = normalOf(q);
             if (n == null) continue;
             double den = n.dot(d);
-            if (Math.abs(den) < 1e-6) continue;
+            // Как при обычном захвате модели: обратная грань не становится поверхностью попадания.
+            if (den >= -1e-6) continue;
             double t = n.dot(new Vector3d(q.position0().x(), q.position0().y(), q.position0().z()).sub(o)) / den;
             if (t < 0 || t > reach || t >= best) continue;
             Vector3d pt = new Vector3d(d).mul(t).add(o);
@@ -1018,7 +1019,7 @@ public final class Tracers {
             if (st.getRenderShape() != net.minecraft.world.level.block.RenderShape.MODEL) continue;
             for (BakedQuad q : MeshShapes.quads(st)) {
                 Vector3d n = normalOf(q);
-                if (n == null || Math.abs(n.dot(normal)) < 0.999) continue;
+                if (n == null || n.dot(normal) < 0.999) continue;
                 Vector3d p0 = new Vector3d(q.position0().x() + dx, q.position0().y() + dy, q.position0().z() + dz);
                 if (Math.abs(new Vector3d(p0).sub(at).dot(normal)) > 2e-3) continue;
                 same.add(new Object[] {q, new int[] {dx, dy, dz}});
@@ -1031,6 +1032,29 @@ public final class Tracers {
             int[] off = (int[]) e[1];
             List<Vector3d> outline = outline(q, off);
             if (seeThrough(q.materialInfo().sprite())) {
+                // Тот же точный путь, что у drawnHole: пиксели текстуры, а не сетка вокруг центра дырки.
+                var texture=RenderedMesh.atlasSprite(q.materialInfo().sprite());
+                List<List<double[]>> clipped=new ArrayList<>();
+                boolean exact=true;
+                for(int triangle=0;triangle<2;triangle++) {
+                    int[] corners=triangle==0?new int[]{0,1,2}:new int[]{0,2,3};
+                    double[] points=new double[9];float[] coords=new float[6];
+                    for(int i=0;i<3;i++) {
+                        var v=q.position(corners[i]);points[i*3]=v.x()+off[0];points[i*3+1]=v.y()+off[1];points[i*3+2]=v.z()+off[2];
+                        coords[i*2]=UVPair.unpackU(q.packedUV(corners[i]));coords[i*2+1]=UVPair.unpackV(q.packedUV(corners[i]));
+                    }
+                    var tri=new RenderedMesh.Tri(points,coords,texture,true,false,null,null);
+                    var pc=piece(tri,new Vector3d[]{at,t1,t2,normal},half,2e-3);
+                    if(pc!=null && !texels(pc,texture,clipped)){exact=false;break;}
+                }
+                if(exact) {
+                    for(var polygon:clipped) {
+                        List<Vector3d> vertices=new ArrayList<>();
+                        for(var vertex:polygon)vertices.add(new Vector3d(vertex[2],vertex[3],vertex[4]));
+                        addPoly(polys,vertices,at,t1,t2,half,turn);
+                    }
+                    continue;
+                }
                 // cell by cell, where the face's pixel is shown
                 for (int i = 0; i < grid; i++) for (int j = 0; j < grid; j++) {
                     double cx = -half + (i + 0.5) * cs, cy = -half + (j + 0.5) * cs;
@@ -1059,7 +1083,7 @@ public final class Tracers {
         int light = LightCoordsUtil.getLightCoords(level, pos);
         addMade(new Hole(world, hit.getDirection(), turn, System.nanoTime(), light, kind, size, null, null, Double.NaN,
                 translucent(level.getBlockState(pos)) || glassLike(level.getBlockState(pos)), false, mesh,
-                onBoxFace(level, pos, at, normal) && !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false));
+                !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false));
         trimHoles();
     }
 
@@ -1384,10 +1408,12 @@ public final class Tracers {
             BlockPos on = first.block() != null ? first.block() : pos;
             BlockState state = level.getBlockState(on);
             int light = LightCoordsUtil.getLightCoords(level, BlockPos.containing(at.x + g.tn().x * 0.05, at.y + g.tn().y * 0.05, at.z + g.tn().z * 0.05));
-            // seen only from in front, like the face, unless the face is a thin sheet drawn from both sides (bars) or
-            // glass: through glass its far side's holes show
+            // Стекло и сплошная двусторонняя плоскость сохраняют показ сзади.
+            // Для вырезанной текстуры учитывается собственная маска каждой стороны.
             if (faces == null && first.oneSided()) faces = oneSidedFaces(near);
-            boolean front = first.oneSided() && !backed(faces, g) && !(first.block() != null && glassLike(state));
+            // У двух сторон плоской сетки могут различаться UV и прозрачность. Каждая хранит свою маску.
+            boolean front = first.oneSided() && (first.tex().seeThrough() || !backed(faces, g))
+                    && !(first.block() != null && glassLike(state));
             // on glass (a glass block, a door's clear window): drawn after the glass behind it, see HoleRender
             boolean late = first.tex().glass() || first.block() != null && (translucent(state) || glassLike(state));
             Follow follow = first.anchor() == null ? null : new Follow(first.anchor(), at, mesh, light);
