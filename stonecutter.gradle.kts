@@ -130,6 +130,25 @@ stonecutter parameters {
             // NTM Continuum draws first-person guns with Golem Core's Gem, which has no static interp
             replace("float partial=ItemRenderWeaponBase.interp;", "float partial=Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);")
             replace("import com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase;", "import net.minecraft.client.Minecraft;")
+            // port/continuum-mobs: NTM Continuum's OBJ mobs draw WavefrontObj groups, not NTM NEXT's GroupObject: NtmMeshHits
+            // and ModelMeshCapture take continuum/src's ObjGroup (the group's name, quads and bounds, as GroupObject's)
+            replace("import java.util.UUID;\nimport com.hbm.render.loader.GroupObject;", "import java.util.UUID;")
+            replace("public static void group(GroupObject group,", "public static void group(ObjGroup group,")
+            replace("import com.hbm.render.loader.GroupObject;\nimport java.util.ArrayList;", "import java.util.ArrayList;")
+            replace("Map<GroupObject, ModelMesh>", "Map<ObjGroup, ModelMesh>")
+            replace("Map<GroupObject,Map<Key,ModelSurfaceGeometry>>", "Map<ObjGroup,Map<Key,ModelSurfaceGeometry>>")
+            replace("geometry(GroupObject group,net.minecraft.resources.Identifier texture,", "geometry(ObjGroup group,net.minecraft.resources.Identifier texture,")
+            replace("ModelMesh mesh(GroupObject group)", "ModelMesh mesh(ObjGroup group)")
+            // port/continuum-mobs: 26.1's ModelSubmit has no render type, renderModel gets it apart (MixinRenderedModelHit
+            // hands it to ModelSubmit261 while NtmMeshHits reads the submit)
+            replace("(net.minecraft.client.renderer.feature.ModelFeatureRenderer.Submit<?> submit)", "(net.minecraft.client.renderer.SubmitNodeStorage.ModelSubmit<?> submit)")
+            replace("submit.renderType()", "ModelSubmit261.renderType()")
+            // port/continuum-mobs: the model hitbox mixins of this node (NTM NEXT's Flywheel mob visuals have none here)
+            replace("List.of(\"MixinNtmMeshHits\", \"GlyphidGeometryAccess\", \"MixinGlyphidModelHits\", \"MixinMobObjModelHits\", \"MixinMobModelHits\", \"MixinGpuEntityGeometry\", \"MixinHeadDamage\")",
+                "List.of(\"MixinNtmMeshHits\", \"ObjGroupAccess\", \"MixinBeamPronterHits\", \"MixinHeadDamage\")")
+            // port/continuum-mobs: 26.1's SubmitNodeCollection has no afterTerrain list
+            replace("((SubmitNodeCollection) (Object) this).afterTerrain.submit(new CustomFeatureRenderer.Submit(poseStack.last().copy(), renderType, renderer));\n        ci.cancel();",
+                "// 26.1: no afterTerrain list, holes on glass draw with the other translucent features")
         }
     }
 }

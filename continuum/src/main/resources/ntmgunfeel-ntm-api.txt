@@ -63,9 +63,11 @@ CORE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT
 MACHINE_MESH field com/hbm/blocks/multiblock/BlockMultiblockCore FACING Lnet/minecraft/world/level/block/state/properties/EnumProperty;
 MACHINE_MESH method com/hbm/blocks/multiblock/MultiblockSurface rigidStructureBlocks (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Ljava/util/List;
+MODEL_HITBOXES class com/hbm/client/model/WavefrontObj$Group
 MODEL_HITBOXES class com/hbm/entity/mob/EntityQuackos
 MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBaseMK4
 MODEL_HITBOXES class com/hbm/items/tool/ItemPeas
+MODEL_HITBOXES field com/hbm/client/model/WavefrontObj$Group name Ljava/lang/String;
 MODEL_HITBOXES field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 RECOIL class com/hbm/client/render/weapon/WeaponRenderer
 RECOIL field com/hbm/config/ClientConfig GUN_VISUAL_RECOIL Z
