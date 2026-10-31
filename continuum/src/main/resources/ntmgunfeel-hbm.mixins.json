@@ -5,8 +5,9 @@
   "plugin": "acup.gunfeel.compat.HbmMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "mixins": ["MixinBulletServer",
-    "MixinAmmoLock", "MixinAmmoLockBelt"],
+    "MixinAmmoLock", "MixinAmmoLockBelt", "MixinBeamModelQuery"],
   "client": ["MixinTracerRibbon", "MixinGunRecoil", "MixinWeaponRenderer", "WeaponPoseAccess",
-    "MixinClientRegistry", "MixinHbmKeysRadial", "MixinGunAnimationHandler"],
+    "MixinClientRegistry", "MixinHbmKeysRadial", "MixinGunAnimationHandler",
+    "MixinNtmMeshHits", "ObjGroupAccess", "MixinBeamPronterHits"],
   "injectors": { "defaultRequire": 0 }
 }

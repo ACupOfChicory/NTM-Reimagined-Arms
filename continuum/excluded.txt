@@ -70,9 +70,8 @@ ExplosiveDamage.java
 Arms.java
 ArmAnimationPreview.java
 ArmAnimationEditor.java
-# NTM mob meshes: HFRWavefrontObject/GroupObject are WavefrontObj, the mobs are not Flywheel visuals
-NtmMeshHits.java
-ModelMeshCapture.java
+# NTM NEXT's Flywheel mob visuals (MobModelVisual, MobObjVisual, GlyphidVisual): Continuum's mobs are
+# CompatEntityRenderers, their OBJ parts reach NtmMeshHits through WavefrontObj (continuum/src MixinNtmMeshHits)
 MobObjPose.java
 # client hooks: GunFeel is this node's own (continuum/src), it calls NTM Continuum
 GunFeel.java
@@ -83,9 +82,8 @@ GripCommand.java
 # Minecraft 26.1: no instanced draws (the F3+B outlines take main's legacy path) and no DrawableGizmoPrimitives.Group
 ModelDebugMask.java
 ModelDebugLines.java
-# 26.1's SubmitNodeCollection has no afterTerrain list (holes on glass draw with the other translucent features) and
-# NtmMeshHits is a stand-in here; the model capture moves to mixin/mc/MixinRenderedModelHit
-mixin/mc/MixinSubmitNodeCollection.java
+# 26.1 poses the model in renderModel: the model capture moves to mixin/mc/MixinRenderedModelHit (MixinSubmitNodeCollection
+# is built: its afterTerrain list, which 26.1 has not, becomes continuum/src LateHoles261)
 mixin/mc/MixinPreparedModelHit.java
 # Alex's Caves / Citadel post effects: written against 26.2's render pass
 mixin/mc/MixinAlexPostEffects.java

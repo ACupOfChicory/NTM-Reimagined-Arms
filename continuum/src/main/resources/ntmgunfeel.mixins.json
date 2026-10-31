@@ -8,6 +8,7 @@
     "MixinLivingModelHits", "MixinModelHitboxDebug", "MixinModelHitState", "MixinRenderedModelHit", "MixinEntityModelHitState",
     "MixinEntityMeshHits", "MixinDragonModelHit", "MixinLegacyHitboxGizmos", "MixinSkinLayerVisualizer",
     "RenderTypeAccess", "RenderSetupAccess", "MixinDeltaTimer",
-    "MixinMouseTurn", "MixinItemInHandRenderer"],
+    "MixinMouseTurn", "MixinItemInHandRenderer",
+    "MixinSubmitNodeCollection"],
   "injectors": { "defaultRequire": 1 }
 }

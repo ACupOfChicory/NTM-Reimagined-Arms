@@ -70,10 +70,13 @@ final class MobSmoke {
         return "";
     }
 
+    // the port's own mob check takes these (MobPortSmoke)
     static void captured(LivingEntity e, float anchor, List<ModelBox> boxes, String source) {
+        MobPortSmoke.captured(e, boxes, source);
     }
 
     static void accepted(LivingEntity e, float anchor, List<ModelBox> boxes) {
+        MobPortSmoke.accepted(e, boxes);
     }
 
     public static void debug(Entity e, boolean model) {

@@ -66,11 +66,13 @@ ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCell
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCore
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
+BULLETS class com/hbm/entity/projectile/EntityBulletBeamBase
 BULLETS class com/hbm/items/weapon/sedna/BulletConfig
 BULLETS class com/hbm/items/weapon/sedna/ItemGunBaseNT
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 tickCount I
+BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase thrower Lnet/minecraft/world/entity/LivingEntity;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ammo Ljava/util/function/Supplier;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
@@ -174,9 +176,11 @@ INSTANT_SWITCH method com/hbm/packet/GunAnimationPayload configIndex ()I
 INSTANT_SWITCH method com/hbm/packet/GunAnimationPayload interactionHand ()Lnet/minecraft/world/InteractionHand;
 MACHINE_MESH field com/hbm/blocks/multiblock/BlockMultiblockCore FACING Lnet/minecraft/world/level/block/state/properties/EnumProperty;
 MACHINE_MESH method com/hbm/blocks/multiblock/MultiblockSurface rigidStructureBlocks (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Ljava/util/List;
+MODEL_HITBOXES class com/hbm/client/model/WavefrontObj$Group
 MODEL_HITBOXES class com/hbm/entity/mob/EntityQuackos
 MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBaseMK4
 MODEL_HITBOXES class com/hbm/items/tool/ItemPeas
+MODEL_HITBOXES field com/hbm/client/model/WavefrontObj$Group name Ljava/lang/String;
 MODEL_HITBOXES field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 RECOIL class com/hbm/client/render/weapon/WeaponRenderer
 RECOIL field com/hbm/config/ClientConfig GUN_VISUAL_RECOIL Z
