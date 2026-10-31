@@ -96,6 +96,8 @@ public final class MachineMesh {
         final Part part;
         // the triangle met, its corners in the part's model space
         final double[] triangle;
+        // met on a clear pixel of the machine's model: its glass (MachineGlass), a window
+        boolean glass;
 
         Hit(double[] point, double[] normal, Anchor anchor, Part part, double[] triangle) {
             this.point = point;
@@ -357,6 +359,27 @@ public final class MachineMesh {
         return out;
     }
 
+    // Dev (MachineCapture): what the tile entity's renderer draws now, read afresh
+    static List<Part> drawnNow(TileEntity te) {
+        return capture(te);
+    }
+
+    // the texture a GL texture id was loaded from ("hbm:textures/models/machines/x.png"), or null (the block atlas,
+    // a dynamic texture)
+    private static Map<Integer, String> names;
+
+    static String textureName(int id) {
+        if (names == null || !names.containsKey(id)) {
+            names = new HashMap<Integer, String>();
+            Map<?, ?> m = cpw.mods.fml.relauncher.ReflectionHelper.getPrivateValue(net.minecraft.client.renderer.texture.TextureManager.class,
+                    net.minecraft.client.Minecraft.getMinecraft().getTextureManager(), "mapTextureObjects", "field_110585_a");
+            for (Map.Entry<?, ?> e : m.entrySet())
+                if (e.getValue() instanceof net.minecraft.client.renderer.texture.ITextureObject)
+                    names.put(((net.minecraft.client.renderer.texture.ITextureObject) e.getValue()).getGlTextureId(), String.valueOf(e.getKey()));
+        }
+        return names.get(id);
+    }
+
     // the tile entities whose renderer may draw the block at pos: its own, and its machine's core (NTM's dummies)
     static List<TileEntity> owners(World w, int x, int y, int z) {
         List<TileEntity> out = new ArrayList<TileEntity>();
@@ -374,8 +397,11 @@ public final class MachineMesh {
     }
 
     // the drawn triangle a bullet at `at` going `dir` meets in or around block pos: nearest along its way, its pixel
-    // shown; null = none (the bullet met the block's hitbox where nothing is drawn)
+    // shown, or clear where that is the machine's glass (MachineGlass: not on a texture listed as empty, not on a
+    // triangle clear at every corner, which is light; Hit.glass); null = none (the bullet met the block's hitbox where
+    // nothing is drawn)
     static Hit hit(World w, int[] pos, double[] at, double[] dir) {
+        boolean glassOn = MachineGlass.on();
         double dl = Math.sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
         if (dl < 1e-9) return null;
         double[] d = {dir[0] / dl, dir[1] / dl, dir[2] / dl};
@@ -386,6 +412,8 @@ public final class MachineMesh {
         for (TileEntity te : owners(w, pos[0], pos[1], pos[2])) {
             for (Part p : drawn(te)) {
                 int[][] tex = DoorCapture.texture(p.texture, TEXTURES);
+                String name = glassOn ? textureName(p.texture) : null;
+                boolean glassy = glassOn && !(name != null && MachineGlass.empty(name));
                 for (float[] f : faces(p.group)) {
                     int corners = f.length / 5;
                     if (corners < 3) continue;
@@ -410,7 +438,9 @@ public final class MachineMesh {
                         double wa = 1 - bt[1] - bt[2], wb = bt[1], wc = bt[2];
                         double u = wa * f[k[0] * 5 + 3] + wb * f[k[1] * 5 + 3] + wc * f[k[2] * 5 + 3];
                         double v = wa * f[k[0] * 5 + 4] + wb * f[k[1] * 5 + 4] + wc * f[k[2] * 5 + 4];
-                        if (!Double.isNaN(u) && !Double.isNaN(v) && !DoorCapture.shown(tex, u, v)) continue;
+                        boolean clear = !Double.isNaN(u) && !Double.isNaN(v) && !DoorCapture.shown(tex, u, v);
+                        if (clear && !(glassy && !(!DoorCapture.shown(tex, f[k[0] * 5 + 3], f[k[0] * 5 + 4]) && !DoorCapture.shown(tex, f[k[1] * 5 + 3], f[k[1] * 5 + 4])
+                                && !DoorCapture.shown(tex, f[k[2] * 5 + 3], f[k[2] * 5 + 4])))) continue;
                         double[] wn = normal(wv);
                         double[] ln = normal(m);
                         if (wn == null || ln == null) continue;
@@ -423,6 +453,7 @@ public final class MachineMesh {
                         double[] tangent = tangent(ln);
                         best = bt[0];
                         out = new Hit(new double[] {hx, hy, hz}, wn, new Anchor(w, te.xCoord, te.yCoord, te.zCoord, p, local, ln, tangent), p, m);
+                        out.glass = clear;
                     }
                 }
             }

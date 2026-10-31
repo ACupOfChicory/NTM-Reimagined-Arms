@@ -16,7 +16,7 @@ public final class BlockRay {
     }
 
     // where a ray meets a cell's shape
-    public static final class Hit {
+    public static class Hit {
         public final int x, y, z, face;
         public final double ax, ay, az;
         // the path started inside the shape (26.2: BlockHitResult.isInside)
@@ -196,5 +196,13 @@ public final class BlockRay {
     // Mth.lerp
     private static double lerp(double t, double a, double b) {
         return a + t * (b - a);
+    }
+
+    // a machine's window met (MachineCells' glass, 26.2: ModelSurface.GlassHit): glass, pierced on its own, the machine
+    // behind it still met in the same block
+    public static final class GlassHit extends Hit {
+        public GlassHit(Hit h) {
+            super(h.x, h.y, h.z, h.face, h.ax, h.ay, h.az, h.inside);
+        }
     }
 }

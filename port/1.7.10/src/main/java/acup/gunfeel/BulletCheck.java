@@ -136,6 +136,11 @@ public final class BulletCheck {
         Files.write(bulletRules, RULES.getBytes(StandardCharsets.UTF_8));
         Thread.sleep(2100);
 
+        // ---- a machine's window (MachineGlass: clear pixels of a chemical plant's model) is glass: a bullet pierces it,
+        // losing a little, and the casing behind it holds; a grate (clear pixels of a texture listed as empty, no glass
+        // there) still lets it through. The cells as ShapesScenario would make them, put in for the check.
+        machineGlass(machineSettings);
+
         // ---- fences, gates, walls: their posts and rails (26.2's family cells, FenceCells), not their collision boxes
         String cells = null;
         expect("fence: between the rails", Want.PASS, fenceRow(), .25, .65, 30F, cells);
@@ -613,6 +618,67 @@ public final class BulletCheck {
         public String toString() {
             return (alive ? "flies, " : "stopped, ") + "damage " + damage + ", z " + String.format(java.util.Locale.ROOT, "%.2f", z - Z) + ", block " + after + (trail.isEmpty() ? "" : ", ticks" + trail);
         }
+    }
+
+    // a chemical plant's core alone (it is its own core), with the cells and glass its client would have: a window
+    // across z at 8/16 from 1/16 to 15/16, maybe its casing at 13/16 behind it; a grate: a casing at 8/16 with the
+    // bottom left quarter open and no glass
+    private static void machineGlass(Path settings) throws Exception {
+        long[] window = new long[65], casing = new long[65], grate = new long[65];
+        for (int x = 1; x < 15; x++) for (int y = 1; y < 15; y++) {
+            set(window, x, y, 8);
+            set(casing, x, y, 13);
+            if (x >= 8 || y >= 8) set(grate, x, y, 8);
+        }
+        java.util.Map<String, long[]> table = new java.util.HashMap<String, long[]>(ModelCells.table());
+        // one core block per case; they share one key (a machine's type and the cell's place in it), so the table
+        // is put again before each
+        int[] win = plant(), winCase = plant(), gr = plant();
+        if (win == null || winCase == null || gr == null) return;
+        String key = MachineCells.keyAt(level, level.getBlock(win[0], win[1], win[2]), win[0], win[1], win[2]);
+        try {
+            put(table, key, new long[65], window);
+            Shot s = expect("chemplant window: pierced as glass", Want.PIERCE, win, .2, .2, 30F, null);
+            check("chemplant window: loses as a pixel of glass", true, s.damage > 29F);
+            expect("chemplant window: a weak round goes through too", Want.PIERCE, win, .2, .2, 2F, null);
+            put(table, key, casing, window);
+            s = shoot(winCase, .2, .2, 30F);
+            check("chemplant window, casing behind: the casing stops it", false, s.alive);
+            check("chemplant window, casing behind: the glass took its share first", true, s.damage < 30F);
+            put(table, key, grate, null);
+            expect("machine grate: through its clear pixel", Want.PASS, gr, .2, .2, 30F, null);
+            expect("machine grate: its bar stops it", Want.STOP, gr, .6, .2, 30F, null);
+            put(table, key, new long[65], window);
+            // bulletMachineGlass = false: the window is air again
+            Files.write(settings, (MachineGlass.KEY + " = false\n").getBytes(StandardCharsets.UTF_8));
+            Thread.sleep(2100);
+            expect("chemplant window, bulletMachineGlass off: flies through", Want.PASS, win, .2, .2, 30F, null);
+        } finally {
+            Files.write(settings, (BulletRules.MACHINES_KEY + " = false\n").getBytes(StandardCharsets.UTF_8));
+            Thread.sleep(2100);
+            ModelCells.reloadOwn();
+        }
+    }
+
+    // a chemical plant's core in the next lane; null when the block is not its own machine's core
+    private static int[] plant() {
+        int[] at = single("hbm:machine_chemical_plant", 12 + 2);
+        String key = MachineCells.keyAt(level, level.getBlock(at[0], at[1], at[2]), at[0], at[1], at[2]);
+        check("chemplant core alone is its own machine", true, key != null);
+        return key == null ? null : at;
+    }
+
+    // the machine's cells and glass (null: none) under its key, in use from now on
+    private static void put(java.util.Map<String, long[]> table, String key, long[] cells, long[] glass) {
+        table.put(key, cells);
+        if (glass != null) table.put(MachineCells.glassKey(key), glass);
+        else table.remove(MachineCells.glassKey(key));
+        ModelCells.put(table);
+    }
+
+    private static void set(long[] bits, int x, int y, int z) {
+        int k = x + 16 * (y + 16 * z);
+        bits[k >> 6] |= 1L << (k & 63);
     }
 
     // `differs`: why 1.7.10 does other than 26.2 here (a DIFF line, not a failure), null when it must do the same

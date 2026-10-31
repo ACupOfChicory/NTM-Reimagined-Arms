@@ -81,9 +81,12 @@ public final class PassableClip {
             }
             if (cells != null) {
                 // a fence, gate or wall, or a block met by its model (ModelCells): into the whole cell, then only the
-                // cells its model fills stop the bullet
+                // cells its model fills stop the bullet; a machine's glass (MachineCells) too, as a window
                 BlockRay.Hit in = BlockRay.clip(new double[] {x, y, z, x + 1, y + 1, z + 1}, 1, fx, fy, fz, tx, ty, tz, x, y, z);
-                BlockRay.Hit h = in == null ? null : FenceCells.march(cells, in, tx - fx, ty - fy, tz - fz, 64);
+                long[] glass = MachineCells.machine(b) && MachineGlass.on() ? MachineCells.glass(ModelCells.table(), world, b, x, y, z) : null;
+                BlockRay.Hit h = in == null ? null : FenceCells.march(glass == null ? cells : or(cells, glass), in, tx - fx, ty - fy, tz - fz, 64);
+                if (h != null && glass != null && FenceCells.cell(glass, cellAt(h.ax - x, tx - fx), cellAt(h.ay - y, ty - fy), cellAt(h.az - z, tz - fz)))
+                    h = new BlockRay.GlassHit(h);
                 if (debug && in != null)
                     LOGGER.info("[holedebug]   {} {} {} cells: {}", world.isRemote ? "client" : "server", BlockIds.state(Block.blockRegistry.getNameForObject(b), meta),
                             x + "," + y + "," + z, h == null ? "through the gaps" : h);
@@ -96,6 +99,17 @@ public final class PassableClip {
                         x + "," + y + "," + z, h);
             return h;
         });
+    }
+
+    private static long[] or(long[] a, long[] b) {
+        long[] out = a.clone();
+        for (int i = 0; i < 64; i++) out[i] |= b[i];
+        return out;
+    }
+
+    // the cell (0..15) a point at `at` within its block (0..1) lies in, on a boundary the one the way `d` goes into
+    private static int cellAt(double at, double d) {
+        return Math.max(0, Math.min(15, (int) Math.floor(at * 16 + Math.signum(d) * 1e-6)));
     }
 
     // 26.2's cellsOf: the cells a bullet meets in the block, or null (its collision boxes). A "path" rule says how
@@ -160,6 +174,10 @@ public final class PassableClip {
     // a bullet that pierces the block it hit (bullet rules "pierce"): where it comes out of the block's shape, going
     // along (dx, dy, dz) (unit), as a hit on that far face from outside; null when its shape gives no way out
     public static BlockRay.Hit exit(World world, BlockRay.Hit in, double dx, double dy, double dz) {
+        // a machine's window: out a pixel further on, into the machine (what is inside it is met on its own)
+        if (in instanceof BlockRay.GlassHit)
+            return new BlockRay.Hit(in.x, in.y, in.z, BlockRay.opposite(in.face), in.ax + dx * MachineGlass.PATH, in.ay + dy * MachineGlass.PATH,
+                    in.az + dz * MachineGlass.PATH, false);
         Block b = world.getBlock(in.x, in.y, in.z);
         int meta = world.getBlockMetadata(in.x, in.y, in.z);
         long[] cells = cells(world, b, meta, in.x, in.y, in.z);
@@ -176,6 +194,12 @@ public final class PassableClip {
     // left, else -1 (it stops in it). A break rule with pierce= says it; else the block's material (Materials, as
     // NTM's armour: its threshold and resistance over the path's length), against the round's threshold negation
     // and armour piercing. Less than 1 left stops it.
+    // a hit that is paid for once per block (a bullet that pierced it is not stopped by it again): not a machine's
+    // window, behind which the rest of the machine still stands in the same block
+    public static boolean paidOnce(BlockRay.Hit hit) {
+        return !(hit instanceof BlockRay.GlassHit);
+    }
+
     public static float pierced(World world, BlockRay.Hit in, BlockRay.Hit out, float damage, BulletConfig round) {
         return pierced(world, in, out, damage, round, new Materials.Penetration());
     }
@@ -184,6 +208,12 @@ public final class PassableClip {
             Materials.Penetration penetration) {
         Block b = world.getBlock(in.x, in.y, in.z);
         if (b.getMaterial() == Material.air || !(damage >= 1F)) return -1F;
+        // a machine's window is glass, not the machine's casing: bulletPierceMachines is not asked
+        if (in instanceof BlockRay.GlassHit) {
+            float left = penetration.left(MachineGlass.VERDICT, in.distance(out.ax, out.ay, out.az), damage,
+                    round == null ? 0F : round.armorThresholdNegation, round == null ? 0F : round.armorPiercingPercent);
+            return left >= 1F ? left : -1F;
+        }
         int meta = world.getBlockMetadata(in.x, in.y, in.z);
         // port: NTM 1.7.10's multiblocks are one block (BlockDummyable) in all their cells: its own rules are the
         // machine's (26.2: Cells.ruleState)

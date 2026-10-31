@@ -165,9 +165,12 @@ BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraf
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/item/ItemStack;I)F
 BULLETS method com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo values ()[Lcom/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo;
 BULLETS method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/util/DamageSource;FZZDFF)Z
+CORE class com/hbm/blocks/BlockDummyable
+CORE class com/hbm/blocks/generic/BlockDoorGeneric
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
+CORE method com/hbm/blocks/BlockDummyable findCore (Lnet/minecraft/world/IBlockAccess;III)[I
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/item/ItemStack;)Z
 HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT

@@ -161,6 +161,7 @@ tasks.named<org.gradle.jvm.tasks.Jar>("reobfJar") {
 // (Trace) in run/client/logs/ntm-gunfeel-trace-<scenario>.tsv for tools/trace_diff.py.
 val scenario = providers.gradleProperty("scenario")
 val scenarioGuns = providers.gradleProperty("scenarioGuns")
+val scenarioMachines = providers.gradleProperty("machines")
 listOf("runClient", "runObfClient").forEach { name ->
     tasks.named<JavaExec>(name) {
         if (scenario.isPresent) {
@@ -172,6 +173,8 @@ listOf("runClient", "runObfClient").forEach { name ->
         // the guns the scenario plays: -PscenarioGuns=hbm:gun_uzi,... or all (a long list does not get through
         // JAVA_TOOL_OPTIONS)
         if (scenarioGuns.isPresent) systemProperty("ntmgunfeel.scenarioGuns", scenarioGuns.get())
+        // the machines -Pscenario=shapes draws: -Pmachines=hbm:tile.machine_chemical_plant,... (default: all)
+        if (scenarioMachines.isPresent) systemProperty("ntmgunfeel.machines", scenarioMachines.get())
     }
 }
 

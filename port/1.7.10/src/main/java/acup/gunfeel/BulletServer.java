@@ -118,17 +118,17 @@ public final class BulletServer {
             dy /= len;
             dz /= len;
             long pos = key(hit.x, hit.y, hit.z);
-            boolean known = paid.contains(pos);
+            boolean once = PassableClip.paidOnce(hit), known = once && paid.contains(pos);
             BlockRay.Hit out = PassableClip.exit(level, hit, dx, dy, dz);
             if (out == null) return stop(bullet, level, hit, "no_exit", Float.NaN);
             double spentBefore = steps.penetration.spent();
             float left = known ? bullet.damage : PassableClip.pierced(level, hit, out, bullet.damage, bullet.config, steps.penetration);
             if (left < 0F) return stop(bullet, level, hit, "held", (float) hit.distance(out.ax, out.ay, out.az));
             if (TestLog.server && !known) TestLog.s(bullet.getEntityId(), "block", "block", TestLog.block(level, hit.x, hit.y, hit.z), "pos", TestLog.pos(hit),
-                    "at", TestLog.point(hit), "material", TestLog.material(level, hit.x, hit.y, hit.z), "result", "pierce", "damage", bullet.damage,
+                    "at", TestLog.point(hit), "material", TestLog.material(level, hit), "result", "pierce", "damage", bullet.damage,
                     "left", left, "path", hit.distance(out.ax, out.ay, out.az));
             if (!known) {
-                paid.add(pos);
+                if (once) paid.add(pos);
                 if (level instanceof WorldServer) {
                     Block block = level.getBlock(hit.x, hit.y, hit.z);
                     int meta = level.getBlockMetadata(hit.x, hit.y, hit.z);
@@ -150,7 +150,7 @@ public final class BulletServer {
         if (!TestLog.server || level.isRemote || hit == null) return hit;
         String block = TestLog.block(level, hit.x, hit.y, hit.z);
         TestLog.s(bullet.getEntityId(), "block", "block", block, "pos", TestLog.pos(hit), "at", TestLog.point(hit),
-                "material", TestLog.material(level, hit.x, hit.y, hit.z), "result", "stop", "why", why, "damage", bullet.damage,
+                "material", TestLog.material(level, hit), "result", "stop", "why", why, "damage", bullet.damage,
                 "path", Float.isNaN(path) ? null : path);
         TestLog.s(bullet.getEntityId(), "end", "by", "block", "block", block, "pos", TestLog.pos(hit), "at", TestLog.point(hit));
         return hit;

@@ -54,6 +54,8 @@ acup/gunfeel/DecalSurfaceTest.java
 ntmgunfeel-recoil.properties
 ntmgunfeel-guns.properties
 ntmgunfeel-server.properties
+# the machine textures whose clear pixels are not glass (MachineGlass)
+ntmgunfeel-machine-glass.txt
 # the bullet mark textures (Decals.files)
 assets/ntmgunfeel/textures/effect/*.png
 # the bullet sounds and their credits; their sounds.json is the port's own (1.7.10 format, SoundsJsonTest)

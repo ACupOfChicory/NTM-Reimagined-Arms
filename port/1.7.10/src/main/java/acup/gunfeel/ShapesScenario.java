@@ -48,7 +48,7 @@ final class ShapesScenario {
             "minecraft:wooden_door", "minecraft:iron_door", "hbm:tile.door_metal", "hbm:tile.door_office", "hbm:tile.door_bunker", "hbm:tile.door_red",
             "hbm:tile.trapdoor_steel", "hbm:tile.wood_barrier", "hbm:tile.wood_structure"};
 
-    private static final int BUILD = 5, CAPTURE = 80, DONE = 90, SPACING = 3, UP = 12, ROW = 24;
+    private static final int BUILD = 5, CAPTURE = 80, MACHINES = 100, SPACING = 3, UP = 12, ROW = 24;
 
     private static final class Spot {
         final Block block;
@@ -74,9 +74,145 @@ final class ShapesScenario {
             ShootScenario.onServer(() -> build(px, py, pz));
         } else if (t == CAPTURE) {
             capture(mc);
-        } else if (t == DONE) {
-            mc.shutdown();
+        } else if (t >= MACHINES) {
+            if (!machine(mc, t - MACHINES)) {
+                finish(mc);
+                mc.shutdown();
+            }
         }
+    }
+
+    // ---- NTM's machines (MachineCells): one by one at one spot, in each of the four facings, drawn and taken away
+
+    private static final List<Block> MACHINE_BLOCKS = new ArrayList<Block>();
+    private static int[] machineSpot;
+    private static volatile int[] machineCore;
+    private static volatile boolean machinePlaced;
+    // the facing being made (machine * 4 + facing), its step (0 set it up, 1 the server at it, 2 the client waits for
+    // it) and the tick that step began
+    private static int machineNext, machineState, machineSince;
+    private static int machinesMade, machinesNone;
+    private static final Map<Integer, int[][]> MACHINE_TEXTURES = new HashMap<Integer, int[][]>();
+
+    // a tick of the machine phase (t from its start); false: done
+    private static boolean machine(Minecraft mc, int t) {
+        if (t == 0) {
+            // -Dntmgunfeel.machines=hbm:tile.machine_chemical_plant,...: only these (dev)
+            String only = System.getProperty("ntmgunfeel.machines", "");
+            java.util.List<String> want = only.isEmpty() ? null : java.util.Arrays.asList(only.split(","));
+            for (Object o : Block.blockRegistry)
+                if (o instanceof Block && MachineCells.machine((Block) o) && (want == null || want.contains(Block.blockRegistry.getNameForObject(o))))
+                    MACHINE_BLOCKS.add((Block) o);
+            machineSpot = new int[] {(int) Math.floor(mc.thePlayer.posX), (int) Math.floor(mc.thePlayer.boundingBox.minY) + UP + 20, (int) Math.floor(mc.thePlayer.posZ) + 40};
+            GunFeel.LOGGER.info("Scenario shapes: {} machines to draw", MACHINE_BLOCKS.size());
+        }
+        int n = machineNext;
+        if (n >= MACHINE_BLOCKS.size() * 4) {
+            final int[] last = machineSpot;
+            ShootScenario.onServer(() -> clearMachine(last));
+            GunFeel.LOGGER.info("Scenario shapes: {} machine facings made, {} drew nothing", machinesMade, machinesNone);
+            return false;
+        }
+        final Block b = MACHINE_BLOCKS.get(n / 4);
+        final int facing = n % 4;
+        final int[] spot = machineSpot;
+        String id = Block.blockRegistry.getNameForObject(b);
+        if (machineState == 0) {
+            // the last one taken away and this one set in one go on the server (it keeps one task at a time)
+            machineCore = null;
+            machinePlaced = false;
+            machineSince = t;
+            machineState = 1;
+            ShootScenario.onServer(() -> {
+                clearMachine(spot);
+                machineCore = placeMachine(b, facing, spot);
+                machinePlaced = true;
+            });
+            return true;
+        }
+        if (machineState == 1) {
+            // a big machine takes the server a while: wait for it
+            if (machinePlaced) {
+                machineSince = t;
+                machineState = 2;
+            } else if (t - machineSince > 400) {
+                GunFeel.LOGGER.warn("Scenario shapes: machine {} facing {}: the server did not set it up in time", id, facing);
+                machineNext++;
+                machineState = 0;
+            }
+            return true;
+        }
+        // the client has the machine and its tile entity (a few ticks after the server), or gives up after 2 s
+        int[] c = machineCore;
+        boolean there = c != null && mc.theWorld.getBlock(c[0], c[1], c[2]) == b && mc.theWorld.getTileEntity(c[0], c[1], c[2]) != null;
+        if (c != null && !there && t - machineSince < 40 || t - machineSince < 4) return true;
+        machineNext++;
+        machineState = 0;
+        if (c == null) {
+            GunFeel.LOGGER.info("Scenario shapes: machine {} facing {}: not set up", id, facing);
+            return true;
+        }
+        Map<String, long[]> cells = null;
+        try {
+            cells = MachineCapture.capture(mc, c[0], c[1], c[2], MACHINE_TEXTURES);
+        } catch (Throwable e) {
+            GunFeel.LOGGER.warn("Scenario shapes: machine {} could not be drawn: {}", id, e.toString());
+        }
+        if (cells == null) {
+            machinesNone++;
+            GunFeel.LOGGER.info("Scenario shapes: machine {} facing {}: nothing drawn, keeps its box", id, facing);
+        } else {
+            MADE.putAll(cells);
+            machinesMade++;
+            int glass = 0;
+            for (String k : cells.keySet()) if (k.endsWith("/glass")) glass++;
+            GunFeel.LOGGER.info("Scenario shapes: machine {} meta {}: {} blocks, {} with glass", id, mc.theWorld.getBlockMetadata(c[0], c[1], c[2]),
+                    cells.size() - glass, glass);
+        }
+        return true;
+    }
+
+    // the integrated server: the machine placed at the spot as a player facing that way would (BlockDummyable builds
+    // it); its core, or null
+    private static int[] placeMachine(Block b, int facing, int[] spot) {
+        EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
+        World w = player.worldObj;
+        float yaw = player.rotationYaw;
+        player.rotationYaw = facing * 90F;
+        try {
+            w.setBlock(spot[0], spot[1], spot[2], b, 0, 3);
+            b.onBlockPlacedBy(w, spot[0], spot[1], spot[2], player, new net.minecraft.item.ItemStack(b));
+        } catch (RuntimeException e) {
+            GunFeel.LOGGER.info("Scenario shapes: machine {} could not be placed: {}", Block.blockRegistry.getNameForObject(b), e.toString());
+            return null;
+        } finally {
+            player.rotationYaw = yaw;
+        }
+        int r = MachineCapture.REACH;
+        for (int dx = -r; dx <= r; dx++) for (int dy = -r; dy <= r; dy++) for (int dz = -r; dz <= r; dz++) {
+            if (w.getBlock(spot[0] + dx, spot[1] + dy, spot[2] + dz) != b) continue;
+            int[] c = ((com.hbm.blocks.BlockDummyable) b).findCore(w, spot[0] + dx, spot[1] + dy, spot[2] + dz);
+            if (c != null && w.getBlock(c[0], c[1], c[2]) == b) return c;
+        }
+        // what stood in its way
+        StringBuilder in = new StringBuilder();
+        for (int dx = -r; dx <= r && in.length() < 300; dx++) for (int dy = -r; dy <= r; dy++) for (int dz = -r; dz <= r; dz++)
+            if (!w.isAirBlock(spot[0] + dx, spot[1] + dy, spot[2] + dz)) in.append(' ').append(dx).append(',').append(dy).append(',').append(dz).append('=')
+                    .append(Block.blockRegistry.getNameForObject(w.getBlock(spot[0] + dx, spot[1] + dy, spot[2] + dz)));
+        GunFeel.LOGGER.info("Scenario shapes: machine {} facing {}: blocks around the spot:{}", Block.blockRegistry.getNameForObject(b), facing,
+                in.length() == 0 ? " none" : in);
+        return null;
+    }
+
+    // the integrated server: every block around the spot gone, and what fell out of it
+    private static void clearMachine(int[] spot) {
+        World w = MinecraftServer.getServer().worldServerForDimension(0);
+        int r = MachineCapture.REACH + 2;
+        for (int dx = -r; dx <= r; dx++) for (int dy = -r; dy <= r; dy++) for (int dz = -r; dz <= r; dz++)
+            if (!w.isAirBlock(spot[0] + dx, spot[1] + dy, spot[2] + dz)) w.setBlock(spot[0] + dx, spot[1] + dy, spot[2] + dz, Blocks.air, 0, 2);
+        for (Object o : w.getEntitiesWithinAABB(net.minecraft.entity.Entity.class, net.minecraft.util.AxisAlignedBB.getBoundingBox(spot[0] - r, spot[1] - r - 40,
+                spot[2] - r, spot[0] + r, spot[1] + r, spot[2] + r)))
+            if (!(o instanceof EntityPlayerMP)) ((net.minecraft.entity.Entity) o).setDead();
     }
 
     // the integrated server: every spot and its joined neighbours on a square around the player, SPACING apart (a
@@ -274,6 +410,14 @@ final class ShapesScenario {
         }
         if (!wrong.isEmpty()) GunFeel.LOGGER.warn("Scenario shapes: not in the client's world (an unused meta?): {}", wrong);
         captureDoors(mc, made);
+        MADE.putAll(made);
+    }
+
+    // the table made: blocks, doors, then machines
+    private static final Map<String, long[]> MADE = new TreeMap<String, long[]>();
+
+    private static void finish(Minecraft mc) {
+        Map<String, long[]> made = MADE;
         ModelCells.put(made);
         File out = new File(mc.mcDataDir, ModelCells.FILE);
         try {

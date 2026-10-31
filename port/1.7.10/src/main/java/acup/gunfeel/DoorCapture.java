@@ -153,12 +153,12 @@ public final class DoorCapture {
         return out;
     }
 
-    private static long pack(int dx, int dy, int dz) {
+    static long pack(int dx, int dy, int dz) {
         return ((long) (dx + 512) << 20) | ((long) (dy + 512) << 10) | (dz + 512);
     }
 
     // ModelCells.fill over the blocks a triangle crosses: each point goes to the block it lies in
-    private static void fill(Map<Long, long[]> blocks, double[] p, ModelCells.PixelShown shown) {
+    static void fill(Map<Long, long[]> blocks, double[] p, ModelCells.PixelShown shown) {
         double ux = p[3] - p[0], uy = p[4] - p[1], uz = p[5] - p[2];
         double vx = p[6] - p[0], vy = p[7] - p[1], vz = p[8] - p[2];
         double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;

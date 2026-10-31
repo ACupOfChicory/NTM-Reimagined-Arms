@@ -73,6 +73,11 @@ public final class TestLog {
     }
 
     // the block's bullet material as piercing and effects have it (26.2: material(level, pos))
+    // as material(world, x, y, z), and a machine's window (MachineGlass) as "window"
+    public static String material(net.minecraft.world.World world, BlockRay.Hit hit) {
+        return hit instanceof BlockRay.GlassHit ? "window" : material(world, hit.x, hit.y, hit.z);
+    }
+
     public static String material(net.minecraft.world.World world, int x, int y, int z) {
         return BulletRules.material(world, x, y, z).material().name().toLowerCase(Locale.ROOT);
     }

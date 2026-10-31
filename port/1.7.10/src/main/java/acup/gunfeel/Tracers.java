@@ -470,9 +470,13 @@ public final class Tracers {
     // tracer stops and the hole lands where the bullet did
     private static MovingObjectPosition rayTrace(World world, double[] a, double[] b) {
         BlockRay.Hit h = PassableClip.clip(world, Vec3.createVectorHelper(a[0], a[1], a[2]), Vec3.createVectorHelper(b[0], b[1], b[2]));
+        metWindow = h instanceof BlockRay.GlassHit;
         if (h == null) return null;
         return new MovingObjectPosition(h.x, h.y, h.z, h.face, Vec3.createVectorHelper(h.ax, h.ay, h.az));
     }
+
+    // the last block met was a machine's window (MachineCells' glass): its sound and crumbs are glass's
+    private static boolean metWindow;
 
     // test the bullet's path up to t ticks against blocks; stops it at the first block it meets
     private static void fly(Shot s, World world, double t) {
@@ -486,6 +490,7 @@ public final class Tracers {
         double[] stop = rb;
         if (hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK && hit.hitVec != null)
             stop = new double[] {hit.hitVec.xCoord, hit.hitVec.yCoord, hit.hitVec.zCoord};
+        boolean window = metWindow;
         if (!s.whizzed) s.whizzed = BulletFx.whizz(world, s.owner, ra, stop, s.path.speed);
         if (hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK && hit.hitVec != null) {
             double[] at = {hit.hitVec.xCoord, hit.hitVec.yCoord, hit.hitVec.zCoord};
@@ -506,7 +511,7 @@ public final class Tracers {
                     if (left > 0) BOUNCED.add(new Shot(s, at, TracerPath.bounce(face, vel), s.born + s.end, left));
                 }
             } else if (!ExplosiveAmmo.heavy(s.config)) {
-                hit(world, at, face, pos, s.config, unit, s.config.onImpact != null, s.id);
+                hit(world, at, face, pos, s.config, unit, s.config.onImpact != null, s.id, window);
             }
         }
         s.checked = t;
@@ -525,9 +530,9 @@ public final class Tracers {
     }
 
     // a hit's hole and its sound and particles
-    private static void hit(World world, double[] at, int face, int[] pos, BulletConfig config, double[] dir, boolean explosive, int shot) {
+    private static void hit(World world, double[] at, int face, int[] pos, BulletConfig config, double[] dir, boolean explosive, int shot, boolean window) {
         if (Config.bulletHoles) PENDING.addLast(new Pending(world, at, face, pos, config, dir, null, shot));
-        BulletFx.blockHit(world, pos, face, at, dir, explosive);
+        BulletFx.blockHit(world, pos, face, at, dir, explosive, window);
     }
 
     // ---- holes
@@ -642,7 +647,8 @@ public final class Tracers {
         int light = world.getLightBrightnessForSkyBlocks((int) Math.floor(hit.point[0] + n[0] * 0.3), (int) Math.floor(hit.point[1] + n[1] * 0.3),
                 (int) Math.floor(hit.point[2] + n[2] * 0.3), 0);
         boolean scorch = p.config.onImpact != null;
-        Decals.Set set = rules.decal(world, b, meta, pos[0], pos[1], pos[2]);
+        // a machine's window (MachineGlass): a hole as on glass
+        Decals.Set set = hit.glass ? rules.decal(world, net.minecraft.init.Blocks.glass, 0, pos[0], pos[1], pos[2]) : rules.decal(world, b, meta, pos[0], pos[1], pos[2]);
         int kind = scorch ? Decals.scorch(set.scorch()) : Decals.hole(set.hole());
         Random r = Rng.shot(p.shot);
         float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(p.config) * (0.8F + 0.4F * (float) r.nextDouble());

@@ -56,10 +56,15 @@ public final class BulletFx {
 
     // explosive: a round that blows up there; its own blast is loud enough, the hit sound stays at the rule's volume
     public static void blockHit(World world, int[] pos, int face, double[] at, double[] dir, boolean explosive) {
+        blockHit(world, pos, face, at, dir, explosive, false);
+    }
+
+    // window: a machine's window (MachineGlass) met, with the sound and crumbs of glass
+    public static void blockHit(World world, int[] pos, int face, double[] at, double[] dir, boolean explosive, boolean window) {
         if (!Config.bulletFx) return;
-        Block block = world.getBlock(pos[0], pos[1], pos[2]);
+        Block block = window ? net.minecraft.init.Blocks.glass : world.getBlock(pos[0], pos[1], pos[2]);
         if (block.getMaterial() == Material.air) return;
-        int meta = world.getBlockMetadata(pos[0], pos[1], pos[2]);
+        int meta = window ? 0 : world.getBlockMetadata(pos[0], pos[1], pos[2]);
         BulletRules.Effect fx = BulletRules.hit(block, meta, world, pos[0], pos[1], pos[2]);
         if (TestLog.client) TestLog.c(TestLog.shot(), "fx", "block", BlockIds.state(Block.blockRegistry.getNameForObject(block), meta),
                 "pos", pos[0] + "," + pos[1] + "," + pos[2], "sound", fx.sound() == null ? "none" : fx.sound().id(),
@@ -72,7 +77,7 @@ public final class BulletFx {
         double px = at[0] + n[0] * 0.02, py = at[1] + n[1] * 0.02, pz = at[2] + n[2] * 0.02;
         // only full blocks give off particles: on grates, slabs and the like they got stuck inside the model; a block
         // drawn by its renderer (NTM's machines) has no crumbs of its own (26.2 draws them from its model: Crumbs)
-        if (new Tracers.WorldBoxes(world).fullCube(pos[0], pos[1], pos[2]) && block.getRenderType() == 0) {
+        if (window || new Tracers.WorldBoxes(world).fullCube(pos[0], pos[1], pos[2]) && block.getRenderType() == 0) {
             for (BulletRules.Particle part : fx.particles()) {
                 String id = BulletServer.particle(part.id(), block, meta);
                 if (id != null) spawn(world, id, Config.scaledCount(part.count(), Config.particleScale, r.nextDouble()), px, py, pz, o, r);

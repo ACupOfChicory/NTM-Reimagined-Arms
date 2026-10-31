@@ -42,6 +42,7 @@ public final class ModelCells {
         Map<String, long[]> t = table();
         if (t.isEmpty()) return null;
         if (b instanceof com.hbm.blocks.generic.BlockDoorGeneric) return DoorCells.of(t, world, b, x, y, z);
+        if (MachineCells.machine(b)) return MachineCells.of(t, world, b, x, y, z);
         String id = Block.blockRegistry.getNameForObject(b);
         if (id == null) return null;
         return t.get(key(id, fullMeta(world, b, meta, x, y, z), joins(world, b, x, y, z)));
