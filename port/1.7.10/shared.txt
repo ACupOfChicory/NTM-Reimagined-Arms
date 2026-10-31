@@ -32,6 +32,7 @@ acup/gunfeel/DeterminismTest.java
 acup/gunfeel/BulletClockTest.java
 acup/gunfeel/HoleLimitsTest.java
 acup/gunfeel/ModelBoxTest.java
+acup/gunfeel/PenetrationTest.java
 
 [resources]
 # src/main/resources
@@ -57,3 +58,5 @@ acup/gunfeel/HeadZoneTest.java
 acup/gunfeel/HeadProfilesTest.java
 acup/gunfeel/ContourIntersectionTest.java
 acup/gunfeel/ModelHitTurnTest.java
+ntmgunfeel-materials.txt
+ntmgunfeel-bullets.txt

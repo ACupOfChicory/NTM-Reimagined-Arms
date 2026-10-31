@@ -11,7 +11,8 @@ import com.gtnewhorizon.gtnhmixins.LateMixin;
 import cpw.mods.fml.relauncher.FMLLaunchHandler;
 
 // Mixins into NTM must be "late" (GTNHMixins, part of UniMixins): NTM's jar is on the class path only after FML's mod
-// discovery. Most change how the client draws and turns the camera, so the dedicated server takes only COMMON.
+// discovery. The client's change how it draws and turns the camera; the common ones go on both sides: bullets on the
+// server (their path through blocks, piercing, breaking) and the ammo lock and choice (they change the reload).
 @LateMixin
 public class LateMixins implements ILateMixinLoader {
     static final List<String> CLIENT = Arrays.asList("MixinModEventHandlerClient", "MixinItemRenderWeaponBase",
@@ -19,8 +20,8 @@ public class LateMixins implements ILateMixinLoader {
             "MixinRenderBulletMK4", "MixinLegoClient", "MixinSmokeNodes",
             "MixinGunKeysRadial", "MixinGunHud", "MixinHbmAnimationPacket");
 
-    // both sides: the ammo lock and choice change the reload, which the server runs
-    static final List<String> COMMON = Arrays.asList("MixinAmmoLock", "MixinAmmoLockBelt");
+    static final List<String> COMMON = Arrays.asList("MixinAmmoLock", "MixinAmmoLockBelt", "MixinBulletServer",
+            "MixinThrowableClip");
 
     @Override
     public String getMixinConfig() {
@@ -32,7 +33,7 @@ public class LateMixins implements ILateMixinLoader {
         List<String> list = new ArrayList<String>();
         if (loadedMods.contains("hbm")) list.addAll(COMMON);
         if (loadedMods.contains("hbm") && FMLLaunchHandler.side().isClient()) list.addAll(CLIENT);
-        GunFeel.LOGGER.info("Mixins into NTM: {}", list.isEmpty() ? "none (" + (loadedMods.contains("hbm") ? "server" : "no NTM") + ")" : list);
+        GunFeel.LOGGER.info("Mixins into NTM: {}{}", list.isEmpty() ? "none (no NTM)" : list, FMLLaunchHandler.side().isClient() ? "" : " (server)");
         return list;
     }
 }

@@ -21,6 +21,16 @@ public final class GunFeelMod {
         if (client) GunFeelClient.init();
         TraceHooks.register(client);
         ModelHitNet.init(client);
+        Net.init(client);
+        BulletCheck.registerIfAsked();
+    }
+
+    // not optional: the mod is needed on both sides (26.2: the registrar's protocol). A side without it is turned away;
+    // other versions of it come in, and the hello then compares their protocols (Net). Without this FML would ask for
+    // the very same version on both sides.
+    @cpw.mods.fml.common.network.NetworkCheckHandler
+    public boolean remote(java.util.Map<String, String> mods, Side side) {
+        return mods.containsKey(MODID);
     }
 
     // dev runs (runServer): a file "autostop" in the run folder stops the dedicated test server once it is up (the
