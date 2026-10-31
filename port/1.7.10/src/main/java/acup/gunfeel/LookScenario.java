@@ -23,7 +23,7 @@ final class LookScenario {
     }
 
     private static final int BUILD = 5, GIVE = 40, HUD = 60, SKY = 70, SHOT = 100, HOLES = 140, SWITCH = 160, BURST = 180,
-            BURST_TICKS = 20, HOLES2 = 240, TURN = 260, ZOMBIE = 280, AT_ZOMBIE = 300, DONE = 340;
+            BURST_TICKS = 20, HOLES2 = 240, TURN = 260, ZOMBIE = 280, AT_ZOMBIE = 300, RADIAL = 330, DONE = 400;
 
     // the zombie's place relative to the player's feet: 3 to the left (+x, the player looks along +z), 7 ahead
     private static final int ZX = 3, ZZ = 7;
@@ -39,6 +39,7 @@ final class LookScenario {
             ShootScenario.onServer(() -> {
                 ShootScenario.give(0, "gun_maresleg");
                 ShootScenario.give(1, "gun_am180");
+                giveAmmo(2);
             });
             mc.thePlayer.inventory.currentItem = 0;
         } else if (t == HUD) {
@@ -99,6 +100,26 @@ final class LookScenario {
             ShootScenario.trigger(false, mc);
         } else if (t == AT_ZOMBIE + 20) {
             shot(mc, "zombie-after");
+        } else if (t == RADIAL) {
+            // the ammo menu: the key held (AmmoLockKey opens it after KeyHold.HOLD_MS), the pointer on a choice, a
+            // click takes it
+            mc.thePlayer.rotationPitch = mc.thePlayer.prevRotationPitch = 0F;
+            net.minecraft.client.settings.KeyBinding.setKeyBindState(AmmoLockKey.KEY.getKeyCode(), true);
+        } else if (t == RADIAL + 10) {
+            GunFeel.LOGGER.info("Scenario look: ammo menu open {}", RadialMenu.isOpen());
+            shot(mc, "radial");
+            RadialMenu.move(60, 0);
+        } else if (t == RADIAL + 12) {
+            com.hbm.items.weapon.sedna.BulletConfig h = RadialMenu.hovered();
+            GunFeel.LOGGER.info("Scenario look: ammo menu points at {}", h == null ? "nothing" : h.id + " " + AmmoLock.ammoStack(h));
+            shot(mc, "radial-hover");
+        } else if (t == RADIAL + 14) {
+            AmmoLockKey.input(mc.gameSettings.keyBindAttack.getKeyCode(), true);
+            net.minecraft.client.settings.KeyBinding.setKeyBindState(AmmoLockKey.KEY.getKeyCode(), false);
+        } else if (t == RADIAL + 40) {
+            GunFeel.LOGGER.info("Scenario look: ammo menu open {}, loaded now {}", RadialMenu.isOpen(),
+                    ((com.hbm.items.weapon.sedna.BulletConfig) AmmoLock.primary(mc.thePlayer.getHeldItem()).getType(mc.thePlayer.getHeldItem(), null)).id);
+            shot(mc, "radial-after");
         } else if (t == DONE - 10) {
             // the systems' state in chat (the chat lines go to the log as [CHAT])
             net.minecraftforge.client.ClientCommandHandler.instance.executeCommand(mc.thePlayer, "/gunfeel status");
@@ -130,6 +151,18 @@ final class LookScenario {
         z.func_110163_bv(); // never despawns
         w.spawnEntityInWorld(z);
         GunFeel.LOGGER.info("Scenario look: wall at z {}, zombie at {} {} {}", pz + 10, px + ZX, py, pz + ZZ);
+    }
+
+    // a stack of each ammo the held gun's (slot 0) first magazine takes, from `slot` on: the ammo menu's choices
+    private static void giveAmmo(int slot) {
+        EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
+        for (com.hbm.items.weapon.sedna.BulletConfig c : AmmoLock.accepted(AmmoLock.primary(player.inventory.getStackInSlot(0)))) {
+            net.minecraft.item.ItemStack ammo = AmmoLock.ammoStack(c);
+            if (ammo == null || slot >= 9) continue;
+            ammo.stackSize = 12;
+            player.inventory.setInventorySlotContents(slot++, ammo);
+        }
+        player.inventoryContainer.detectAndSendChanges();
     }
 
     private static void shot(Minecraft mc, String name) {
