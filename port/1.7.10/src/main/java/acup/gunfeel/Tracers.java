@@ -314,26 +314,8 @@ public final class Tracers {
         World w = Minecraft.getMinecraft().theWorld;
         if (w == null || !Config.bulletHoles || config < 0 || config >= BulletConfig.configs.size() || face < 0 || face > 5) return;
         BulletConfig bc = BulletConfig.configs.get(config);
-        if (!heavy(bc) || !Double.isFinite(px + py + pz + dx + dy + dz)) return;
+        if (!ExplosiveAmmo.heavy(bc) || !Double.isFinite(px + py + pz + dx + dy + dz)) return;
         PENDING.addLast(new Pending(w, new double[] {px, py, pz}, face, new int[] {bx, by, bz}, bc, new double[] {dx, dy, dz}, null, shot));
-    }
-
-    // 26.2: ExplosiveAmmo.heavy. port: NTM 1.7.10 has one ammo item with the kinds as its meta (GunFactory.EnumAmmo)
-    static boolean heavy(BulletConfig config) {
-        if (config == null || config.ammo == null || config.onImpact == null || config.ammo.item != ModItems.ammo_standard) return false;
-        GunFactory.EnumAmmo[] all = GunFactory.EnumAmmo.values();
-        int meta = config.ammo.meta;
-        if (meta < 0 || meta >= all.length) return false;
-        return heavyPath("ammo_standard_" + all[meta].name().toLowerCase(java.util.Locale.ROOT));
-    }
-
-    // 26.2: ExplosiveAmmo.heavyPath
-    static boolean heavyPath(String path) {
-        return path.startsWith("ammo_standard_g40_") || path.startsWith("ammo_standard_rocket_");
-    }
-
-    static float holeScale(BulletConfig config) {
-        return heavy(config) ? 1.5F : 1F;
     }
 
     // /gunfeel clearholes: every hole, scratch and scorch mark in this world, and the ones still to be made; how many
@@ -507,7 +489,7 @@ public final class Tracers {
                     long left = (long) Math.max(0.0, s.lifeTicks - s.end);
                     if (left > 0) BOUNCED.add(new Shot(s, at, TracerPath.bounce(face, vel), s.born + s.end, left));
                 }
-            } else if (!heavy(s.config)) {
+            } else if (!ExplosiveAmmo.heavy(s.config)) {
                 hit(world, at, face, pos, s.config, unit, s.config.onImpact != null, s.id);
             }
         }
@@ -653,7 +635,7 @@ public final class Tracers {
         Decals.Set set = rules.decal(world, b, meta, pos[0], pos[1], pos[2]);
         int kind = scorch ? Decals.scorch(set.scorch()) : Decals.hole(set.hole());
         Random r = Rng.shot(p.shot);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * holeScale(p.config) * (0.8F + 0.4F * (float) r.nextDouble());
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(p.config) * (0.8F + 0.4F * (float) r.nextDouble());
         int turn = (int) (r.nextDouble() * 8);
         if (p.scratch != null) {
             kind = Decals.scratch(set.scratch());

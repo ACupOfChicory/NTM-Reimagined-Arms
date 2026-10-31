@@ -10,6 +10,7 @@ import java.util.List;
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.entity.projectile.EntityThrowableNT;
 import com.hbm.items.weapon.sedna.BulletConfig;
+import net.minecraft.util.MovingObjectPosition;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -218,6 +219,7 @@ public final class BulletCheck {
         // ---- port: 1.7.10's own ray (func_147447_a) gives up after 200 cells: a block 250 blocks away in one tick
         far();
         richterBulletSpeed();
+        explosives();
         lines.add(ok ? "ALL OK" : "SOME FAILED");
     }
 
@@ -257,6 +259,104 @@ public final class BulletCheck {
         Shot s = new Shot(!b.isDead, b.damage, b.posZ, after(far));
         b.setDead();
         return s;
+    }
+
+    // ---- explosive bullets (26.2: ExplosiveSmoke): NTM's whole onImpact on a pig of 1000 health without armour. At
+    // the contact 60 % of the bullet's damage times the zone (here what HeadDamage says for the point), 40 % of the
+    // blast; HEAT's own direct hit (x3) takes the zone. A blast on a block keeps 40 %; an explosion of the world is
+    // left alone; a heavy round on a wall announces its scorch once.
+    private static final class Probe extends EntityBulletBaseMK4 {
+        Probe(BulletConfig config) {
+            super(level, config, 1F, 0F, 0F, 0F);
+            damage = 10;
+            ticksExisted = 20;
+            motionX = motionY = 0;
+            motionZ = 1;
+        }
+
+        void impact(MovingObjectPosition hit) {
+            onImpact(hit);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static float measure(net.minecraft.entity.passive.EntityPig pig, BulletConfig config, MovingObjectPosition hit, boolean original)
+            throws Exception {
+        pig.setHealth(1000);
+        pig.hurtResistantTime = 0;
+        Probe bullet = new Probe(config);
+        bullet.setPosition(hit.hitVec.xCoord, hit.hitVec.yCoord, hit.hitVec.zCoord - .1);
+        level.spawnEntityInWorld(bullet); // NTM's setDead tells the bullet's trackers
+        java.lang.reflect.Field field = ExplosiveDamage.class.getDeclaredField("SUPPRESS");
+        field.setAccessible(true);
+        ThreadLocal<Boolean> guard = (ThreadLocal<Boolean>) field.get(null);
+        boolean previous = guard.get();
+        if (original) guard.set(true);
+        try {
+            bullet.impact(hit);
+            return 1000 - pig.getHealth();
+        } finally {
+            guard.set(previous);
+            bullet.setDead();
+            pig.motionX = pig.motionY = pig.motionZ = 0;
+        }
+    }
+
+    private static void explosives() {
+        int px = 40, py = 120, pz = 40;
+        net.minecraft.entity.passive.EntityPig pig = new net.minecraft.entity.passive.EntityPig(level);
+        pig.getEntityAttribute(net.minecraft.entity.SharedMonsterAttributes.maxHealth).setBaseValue(1000);
+        pig.setPosition(px + .5, py, pz + .5);
+        level.setBlock(px, py - 1, pz, net.minecraft.init.Blocks.stone);
+        level.spawnEntityInWorld(pig);
+        try {
+            net.minecraft.util.Vec3 body = net.minecraft.util.Vec3.createVectorHelper(pig.posX, pig.posY + pig.height * .5, pig.posZ - pig.width * .5);
+            BulletConfig[] configs = {com.hbm.items.weapon.sedna.factory.XFactory10ga.g10_explosive, com.hbm.items.weapon.sedna.factory.XFactory50.bmg50_he,
+                    com.hbm.items.weapon.sedna.factory.XFactory40mm.g40_he, com.hbm.items.weapon.sedna.factory.XFactory40mm.g40_heat,
+                    com.hbm.items.weapon.sedna.factory.XFactory40mm.g40_demo, com.hbm.items.weapon.sedna.factory.XFactoryRocket.rocket_rpzb[0]};
+            String[] names = {"10ga explosive", "50 BMG HE", "40mm HE", "40mm HEAT", "40mm demo", "rocket HE"};
+            for (int i = 0; i < configs.length; i++) {
+                MovingObjectPosition hit = new MovingObjectPosition(pig, body);
+                float zone = HeadDamage.contactDamage(1, new Probe(configs[i]), pig, hit);
+                float extra = configs[i] == com.hbm.items.weapon.sedna.factory.XFactory40mm.g40_heat ? 30 : 0;
+                float old = measure(pig, configs[i], hit, true);
+                float now = measure(pig, configs[i], hit, false);
+                float want = (old - extra) * .4F + (6 + extra) * zone;
+                check("explosive " + names[i] + ": " + old + " -> " + now + " (want " + want + ", zone x" + zone + ")", true,
+                        old > 0 && Math.abs(now - want) < .15F);
+                check("explosive " + names[i] + ": context cleared", true, ExplosiveDamage.current() == null);
+            }
+            MovingObjectPosition onBlock = new MovingObjectPosition(px, py - 1, pz, 1, body);
+            float old = measure(pig, com.hbm.items.weapon.sedna.factory.XFactory10ga.g10_explosive, onBlock, true);
+            float now = measure(pig, com.hbm.items.weapon.sedna.factory.XFactory10ga.g10_explosive, onBlock, false);
+            check("explosive on a block: 40 % of the blast, " + old + " -> " + now, true, old > 0 && Math.abs(now - old * .4F) < .15F);
+            pig.setHealth(1000);
+            pig.hurtResistantTime = 0;
+            com.hbm.explosion.vanillant.ExplosionVNT plain = new com.hbm.explosion.vanillant.ExplosionVNT(level, body.xCoord, body.yCoord, body.zCoord, 3, null);
+            plain.setEntityProcessor(new com.hbm.explosion.vanillant.standard.EntityProcessorCrossSmooth(.5, 10));
+            plain.setPlayerProcessor(new com.hbm.explosion.vanillant.standard.PlayerProcessorStandard());
+            plain.explode();
+            check("a plain explosion of the world is not weakened: " + (1000 - pig.getHealth()), true, Math.abs(1000 - pig.getHealth() - 10) < .15F);
+            // a heavy round on a bedrock wall: it goes off, and its scorch is announced once
+            int was = ExplosiveDamage.announced;
+            int wx = px + 12;
+            for (int x = -2; x <= 2; x++) for (int y = 0; y <= 3; y++) level.setBlock(wx + x, py + y, pz, net.minecraft.init.Blocks.bedrock);
+            BulletConfig[] heavy = {com.hbm.items.weapon.sedna.factory.XFactory40mm.g40_he, com.hbm.items.weapon.sedna.factory.XFactoryRocket.rocket_rpzb[0]};
+            for (int i = 0; i < heavy.length; i++) {
+                net.minecraft.util.Vec3 point = net.minecraft.util.Vec3.createVectorHelper(wx + i + .5, py + 1.5, pz - .001);
+                Probe bullet = new Probe(heavy[i]);
+                bullet.setPosition(point.xCoord, point.yCoord, point.zCoord - .1);
+                level.spawnEntityInWorld(bullet);
+                bullet.impact(new MovingObjectPosition(wx + i, py + 1, pz, 2, point));
+                check("heavy round " + heavy[i].id + " went off on the wall", true, bullet.isDead);
+            }
+            check("each heavy round announced its scorch once: " + (ExplosiveDamage.announced - was), 2, ExplosiveDamage.announced - was);
+        } catch (Throwable e) {
+            GunFeel.LOGGER.error("BulletCheck: explosives", e);
+            check("explosives: " + e, true, false);
+        } finally {
+            pig.setDead();
+        }
     }
 
     private static void richterBulletSpeed() {

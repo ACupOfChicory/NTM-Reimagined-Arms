@@ -9,11 +9,11 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.Entity;
 
 // The server's word on its bullets to the players around, for the client's tracers and holes (Tracers): each fast
-// bullet as it leaves (26.2: ShotPayload) and where it stopped in a creature (26.2: BulletStopPayload). On Net's
-// channel at ids first and first + 1. Not here yet: the heavy rounds' scorch (26.2: ImpactHolePayload, sent by
-// ExplosiveDamage, which the port has not).
+// bullet as it leaves (26.2: ShotPayload), where it stopped in a creature (26.2: BulletStopPayload) and where a heavy
+// round went off on a block (26.2: ImpactHolePayload, sent by ExplosiveDamage). On Net's channel at ids first to
+// first + 2.
 public final class TracerNet {
-    public static final int COUNT = 2;
+    public static final int COUNT = 3;
     static final double RANGE = 256.0;
 
     private TracerNet() {
@@ -22,6 +22,7 @@ public final class TracerNet {
     public static int register(int first) {
         Net.CHANNEL.registerMessage(ShotHandler.class, Shot.class, first, Side.CLIENT);
         Net.CHANNEL.registerMessage(StopHandler.class, Stop.class, first + 1, Side.CLIENT);
+        Net.CHANNEL.registerMessage(ImpactHandler.class, Impact.class, first + 2, Side.CLIENT);
         return first + COUNT;
     }
 
@@ -129,6 +130,61 @@ public final class TracerNet {
         }
     }
 
+    public static final class Impact implements IMessage {
+        int shot, config, bx, by, bz, face;
+        double px, py, pz, dx, dy, dz;
+
+        public Impact() {
+        }
+
+        public Impact(int shot, int config, int bx, int by, int bz, int face, double px, double py, double pz, double dx, double dy, double dz) {
+            this.shot = shot;
+            this.config = config;
+            this.bx = bx;
+            this.by = by;
+            this.bz = bz;
+            this.face = face;
+            this.px = px;
+            this.py = py;
+            this.pz = pz;
+            this.dx = dx;
+            this.dy = dy;
+            this.dz = dz;
+        }
+
+        @Override
+        public void toBytes(ByteBuf b) {
+            b.writeInt(shot);
+            b.writeInt(config);
+            b.writeInt(bx);
+            b.writeInt(by);
+            b.writeInt(bz);
+            b.writeByte(face);
+            b.writeDouble(px);
+            b.writeDouble(py);
+            b.writeDouble(pz);
+            b.writeDouble(dx);
+            b.writeDouble(dy);
+            b.writeDouble(dz);
+        }
+
+        @Override
+        public void fromBytes(ByteBuf b) {
+            shot = b.readInt();
+            config = b.readInt();
+            bx = b.readInt();
+            by = b.readInt();
+            bz = b.readInt();
+            face = b.readByte();
+            px = b.readDouble();
+            py = b.readDouble();
+            pz = b.readDouble();
+            dx = b.readDouble();
+            dy = b.readDouble();
+            dz = b.readDouble();
+        }
+    }
+
     // the network thread: Tracers takes them from any thread
     public static final class ShotHandler implements IMessageHandler<Shot, IMessage> {
         @Override
@@ -142,6 +198,14 @@ public final class TracerNet {
         @Override
         public IMessage onMessage(Stop m, MessageContext ctx) {
             if (acup.gunfeel.compat.Feature.TRACERS.on()) Tracers.stop(m.shot, m.age, m.x, m.y, m.z);
+            return null;
+        }
+    }
+
+    public static final class ImpactHandler implements IMessageHandler<Impact, IMessage> {
+        @Override
+        public IMessage onMessage(Impact m, MessageContext ctx) {
+            if (acup.gunfeel.compat.Feature.TRACERS.on()) Tracers.impact(m.shot, m.config, m.bx, m.by, m.bz, m.face, m.px, m.py, m.pz, m.dx, m.dy, m.dz);
             return null;
         }
     }

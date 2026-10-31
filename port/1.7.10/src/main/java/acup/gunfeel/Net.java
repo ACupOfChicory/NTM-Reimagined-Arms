@@ -34,7 +34,7 @@ import net.minecraft.server.MinecraftServer;
 // chat when the server's versions differ from its own (26.2: CompatClient.hello).
 public final class Net {
     // raise it when a message changes: a client and a server with different ones do not play together
-    public static final String PROTOCOL = "1.7.10-1";
+    public static final String PROTOCOL = "1.7.10-2";
     public static final SimpleNetworkWrapper CHANNEL = NetworkRegistry.INSTANCE.newSimpleChannel(GunFeelMod.MODID);
     public static final int HELLO = 0, SETTINGS = 1;
 

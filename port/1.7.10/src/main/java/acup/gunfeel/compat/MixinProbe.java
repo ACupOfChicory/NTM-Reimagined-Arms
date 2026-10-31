@@ -227,7 +227,8 @@ public final class MixinProbe {
         Member t = Member.parse(target);
         if (t == null) return; // not understood: not checked
         // port: Minecraft's classes are not readable by their names in a player's game (obfuscated)
-        if (t.owner() != null && classes.get(t.owner()) == null && !t.owner().startsWith("net/minecraft/")) {
+        // Minecraft's and the JDK's classes are always there (Java 9 and later do not hand the JDK's out as resources)
+        if (t.owner() != null && classes.get(t.owner()) == null && !t.owner().startsWith("net/minecraft/") && !t.owner().startsWith("java/")) {
             out.add(new Problem(where, "@At target class " + t.owner() + " not found", soft));
             return;
         }

@@ -13,8 +13,8 @@ import net.minecraft.util.MovingObjectPosition;
 // port: from 26.2's HeadDamage (e284339). A bullet's or beam's hit on a creature: the head zone of its model (ModelHits)
 // gives x1.75, a checked limb x0.5, the rest x1, in place of NTM's height rule (BulletConfig.headshotMult). Without a
 // pose of the model (no client has sent one, or model hitboxes off) ModelHits keeps NTM 1.7.10's height rule. The
-// last decision is kept for the bullet's log line, also after a killing hit. contactDamage (explosive bullets) waits
-// for ExplosiveDamage, which the port has not yet.
+// last decision is kept for the bullet's log line, also after a killing hit. contactDamage: an explosive bullet's
+// share at its contact (ExplosiveDamage).
 public final class HeadDamage {
     private static final class Last {
         final WeakReference<EntityBulletBaseMK4> bullet;
@@ -31,6 +31,13 @@ public final class HeadDamage {
     private static final ThreadLocal<Last> LAST = new ThreadLocal<Last>();
 
     private HeadDamage() {
+    }
+
+    // an explosive bullet's damage where it touched the creature, times the zone's multiplier
+    public static float contactDamage(float damage, EntityBulletBaseMK4 bullet, EntityLivingBase target, MovingObjectPosition impact) {
+        ModelHeads.Hit hit = hit(target, impact);
+        LAST.set(new Last(bullet, target.getUniqueID(), hit));
+        return hit.applied() ? damage * ModelHeads.multiplier(hit.head(), hit.source().equals("limbs")) : damage;
     }
 
     public static float beamDamage(float damage, EntityLivingBase target, MovingObjectPosition impact) {
