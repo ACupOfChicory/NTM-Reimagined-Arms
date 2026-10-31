@@ -127,6 +127,9 @@ neoForge {
             for (p in listOf("trace", "traceScenario", "seed", "scenario", "scenarioGuns"))
                 providers.gradleProperty(p).orNull?.let { systemProperty("ntmgunfeel.$p", it) }
             if (providers.gradleProperty("traceHex").isPresent) systemProperty("ntmgunfeel.traceHex", "true")
+            // any -Pntmgunfeel.<name>=<value> reaches the client as the system property ntmgunfeel.<name> (a self-check of
+            // a ported system can ask for its own switch without a line here)
+            providers.gradlePropertiesPrefixedBy("ntmgunfeel.").get().forEach { (k, v) -> systemProperty(k, v) }
         }
         register("server") {
             server()
