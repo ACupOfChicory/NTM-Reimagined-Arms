@@ -132,8 +132,21 @@ public abstract class MixinBulletServer implements PierceSteps.Holder {
     private void gunfeel$entityAfter(MovingObjectPosition mop, CallbackInfo ci) {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
         if (self.worldObj.isRemote || mop.typeOfHit != MovingObjectPosition.MovingObjectType.ENTITY || mop.entityHit == null) return;
+        // the bullet stopped in the creature: the clients' tracer ends there (26.2: BulletStopPayload; the fraction of
+        // the tick by distance, 26.2 asks the model's contact first)
+        if (self.isDead && config != null && config.velocity >= 5F && mop.hitVec != null) {
+            double l = Math.sqrt(self.motionX * self.motionX + self.motionY * self.motionY + self.motionZ * self.motionZ) * motionMult();
+            double dx = mop.hitVec.xCoord - gunfeel$tickX, dy = mop.hitVec.yCoord - gunfeel$tickY, dz = mop.hitVec.zCoord - gunfeel$tickZ;
+            double fraction = Math.min(1, Math.sqrt(dx * dx + dy * dy + dz * dz) / Math.max(1e-9, l));
+            acup.gunfeel.TracerNet.send(self, new acup.gunfeel.TracerNet.Stop(self.getEntityId(), Math.max(0, self.ticksInAir - 1) + fraction,
+                    mop.hitVec.xCoord, mop.hitVec.yCoord, mop.hitVec.zCoord));
+        }
         BulletServer.entityHit(self, mop.entityHit, mop.hitVec, gunfeel$targetAlive, gunfeel$damageBefore, gunfeel$healthBefore);
     }
+
+    // where the bullet was as its tick began
+    @Unique
+    private double gunfeel$tickX, gunfeel$tickY, gunfeel$tickZ;
 
     // the blocks still owed after the creatures this tick were hit (PierceSteps)
     @Inject(method = "onUpdate", at = @At("RETURN"), remap = true)
@@ -145,6 +158,9 @@ public abstract class MixinBulletServer implements PierceSteps.Holder {
     @Inject(method = "onUpdate", at = @At("HEAD"), remap = true)
     private void gunfeel$announce(CallbackInfo ci) {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
+        gunfeel$tickX = self.posX;
+        gunfeel$tickY = self.posY;
+        gunfeel$tickZ = self.posZ;
         // the test log's lines during this bullet's tick (its hits, breaking, ricochets) are this bullet's
         if (TestLog.server && !self.worldObj.isRemote) TestLog.shot(self.getEntityId());
         if (gunfeel$announced || self.worldObj.isRemote) return;
@@ -154,6 +170,22 @@ public abstract class MixinBulletServer implements PierceSteps.Holder {
         if (config == null || config.velocity < 5F) return;
         double mult = motionMult();
         Entity owner = self.getThrower();
+        // the clients' tracer (26.2: ShotPayload); the path's start the server tests first: the thrower's eyes when near
+        EntityLivingBase thrower = self.getThrower();
+        double ex = Double.NaN, ey = Double.NaN, ez = Double.NaN;
+        if (thrower != null) {
+            double eyeY = thrower.posY + thrower.getEyeHeight();
+            // as NTM places the bullet (EntityBulletBaseMK4's constructor)
+            double dx = thrower.posX - self.posX, dy = eyeY - self.posY, dz = thrower.posZ - self.posZ;
+            if (dx * dx + dy * dy + dz * dz < 9.0) {
+                ex = thrower.posX;
+                ey = eyeY;
+                ez = thrower.posZ;
+            }
+        }
+        acup.gunfeel.TracerNet.send(self, new acup.gunfeel.TracerNet.Shot(config.id, owner == null ? -1 : owner.getEntityId(), self.posX, self.posY,
+                self.posZ, (float) (self.motionX * mult), (float) (self.motionY * mult), (float) (self.motionZ * mult), (float) (config.gravity * mult),
+                config.expires, damage, ex, ey, ez, self.getEntityId()));
         if (TestLog.server) {
             ItemStack held = owner instanceof EntityLivingBase ? ((EntityLivingBase) owner).getHeldItem() : null;
             TestLog.s(self.getEntityId(), "fire", "ammo", config.id, "owner", owner == null ? -1 : owner.getEntityId(),

@@ -22,6 +22,7 @@ public final class GunFeelMod {
         TraceHooks.register(client);
         ModelHitNet.init(client);
         Net.init(client);
+        TracerNet.register(Net.SETTINGS + 1); // ids 2 and 3: the bullets' word to the clients' tracers
         BulletCheck.registerIfAsked();
     }
 
