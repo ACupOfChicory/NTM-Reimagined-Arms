@@ -48,9 +48,14 @@ public final class ShootScenario {
         return NAME.equals("shoot");
     }
 
-    // a scenario that needs the flat world: this one or a trace scenario (TraceScenario)
+    // "look": screenshots to look at (LookScenario)
+    static boolean look() {
+        return NAME.equals("look");
+    }
+
+    // a scenario that needs the flat world: this one, "look" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || TraceScenario.enabled();
+        return on() || look() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -73,6 +78,12 @@ public final class ShootScenario {
             return;
         }
         if (mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null) return;
+        if (look()) {
+            if (held) press(true);
+            if (++tick == 0) step(mc, 0);
+            else LookScenario.step(mc, tick);
+            return;
+        }
         if (!on()) {
             // a trace scenario starts a second after the player stands in the world (TraceScenario)
             if (++tick == 20) {
@@ -137,7 +148,7 @@ public final class ShootScenario {
         }
     }
 
-    private static void trigger(boolean down, Minecraft mc) {
+    static void trigger(boolean down, Minecraft mc) {
         held = down;
         press(down);
         log(down ? "press" : "release", mc);
@@ -171,7 +182,7 @@ public final class ShootScenario {
 
     // a gun in the slot with every magazine full of its first accepted ammo
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static void give(int slot, String name) {
+    static void give(int slot, String name) {
         EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
         Item item = (Item) Item.itemRegistry.getObject("hbm:item." + name);
         if (!(item instanceof ItemGunBaseNT)) throw new IllegalStateException("no NTM gun " + name);
