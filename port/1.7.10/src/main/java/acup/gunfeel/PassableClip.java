@@ -18,9 +18,8 @@ import net.minecraft.world.World;
 // the cells itself with 26.2's walk and meets each block by its collision boxes, as 26.2 does (ClipContext.Block.COLLIDER).
 // Flown through: air, liquids, blocks without a collision box (as NTM asks func_147447_a), blocks that cannot be hit
 // (canCollideCheck), and blocks with a "through" rule. Fences, gates and walls: 26.2's family cells (FenceCells).
-// Not yet on 1.7.10: masks of see-through blocks (bars, grates), model cells of single blocks (doors, scaffold) and the
-// cells of NTM's big models (Structures): those tables are made for 26.2's block states and must be made anew for
-// 1.7.10's (Block, meta). There, such blocks are met by their collision boxes ("hitbox").
+// Blocks met by their drawn model (bars, grates, scaffolds, a ladder, a trapdoor): its cells (ModelCells, made for 1.7.10's
+// (Block, meta)), as 26.2's MeshShapes and masks. Not yet: the cells of NTM's big models (Structures).
 public final class PassableClip {
     private static final org.apache.logging.log4j.Logger LOGGER = GunFeel.LOGGER;
 
@@ -66,9 +65,10 @@ public final class PassableClip {
             if (b.getMaterial() == Material.air) return null;
             int meta = world.getBlockMetadata(x, y, z);
             if (!b.canCollideCheck(meta, false) || BulletRules.through(b, meta, world, x, y, z)) return null;
-            long[] cells = FenceCells.of(world, b, meta, x, y, z, BulletRules.path(b, meta, world, x, y, z));
+            long[] cells = cells(world, b, meta, x, y, z);
             if (cells != null) {
-                // a fence, gate or wall: into the whole cell, then only the cells its model fills stop the bullet
+                // a fence, gate or wall, or a block met by its model (ModelCells): into the whole cell, then only the
+                // cells its model fills stop the bullet
                 BlockRay.Hit in = BlockRay.clip(new double[] {x, y, z, x + 1, y + 1, z + 1}, 1, fx, fy, fz, tx, ty, tz, x, y, z);
                 BlockRay.Hit h = in == null ? null : FenceCells.march(cells, in, tx - fx, ty - fy, tz - fz, 64);
                 if (debug && in != null)
@@ -83,6 +83,19 @@ public final class PassableClip {
                         x + "," + y + "," + z, h);
             return h;
         });
+    }
+
+    // 26.2's cellsOf: the cells a bullet meets in the block, or null (its collision boxes). A "path" rule says how
+    // (model, pixels: its own cells; a family: that family's; hitbox, through: none); without one its own cells when
+    // it has them (ModelCells: bars, grates, scaffolds), else a fence, gate or wall takes its family's (FenceCells).
+    // port: 26.2's pixel masks are its own cells here (the model's shown pixels)
+    static long[] cells(World world, Block b, int meta, int x, int y, int z) {
+        String path = BulletRules.path(b, meta, world, x, y, z);
+        if (path == null || path.equals("model") || path.equals("pixels")) {
+            long[] own = ModelCells.of(world, b, meta, x, y, z);
+            if (own != null || path != null) return own;
+        }
+        return FenceCells.of(world, b, meta, x, y, z, path);
     }
 
     // the block's collision boxes in the cell (world coordinates, 6 numbers each), at most out.length / 6: the shape
@@ -136,8 +149,8 @@ public final class PassableClip {
     public static BlockRay.Hit exit(World world, BlockRay.Hit in, double dx, double dy, double dz) {
         Block b = world.getBlock(in.x, in.y, in.z);
         int meta = world.getBlockMetadata(in.x, in.y, in.z);
-        long[] cells = FenceCells.of(world, b, meta, in.x, in.y, in.z, BulletRules.path(b, meta, world, in.x, in.y, in.z));
-        // a fence's post or rail: out where its cells end along the way
+        long[] cells = cells(world, b, meta, in.x, in.y, in.z);
+        // a fence's post or rail, a scaffold's pole: out where its cells end along the way
         if (cells != null) return FenceCells.leave(cells, in, dx, dy, dz);
         double[] boxes = new double[6 * 16];
         int n = outline(world, b, in.x, in.y, in.z, boxes);

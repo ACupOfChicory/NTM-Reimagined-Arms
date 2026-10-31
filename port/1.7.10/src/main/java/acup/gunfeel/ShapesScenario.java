@@ -1,0 +1,256 @@
+package acup.gunfeel;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.IntBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+
+import org.lwjgl.BufferUtils;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
+
+import cpw.mods.fml.relauncher.ReflectionHelper;
+import net.minecraft.block.Block;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderBlocks;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.texture.TextureMap;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.init.Blocks;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.World;
+
+// A dev scenario that makes ModelCells' table (gradle runClient -Pscenario=shapes): in ShootScenario's flat world it
+// sets each listed block in each meta (and, for blocks joining their neighbours, each of the 16 joins, made by the
+// same block beside it) up in the air, then draws each one with RenderBlocks into the Tessellator (the way the game
+// draws it in a chunk, Forge's render handlers too) and keeps the triangles. A triangle fills the cells where its
+// pixels show (alpha over 0.1, as 1.7.10's alpha test) in the block atlas, read back from the graphics card. The table
+// goes to run/client/ntmgunfeel-bullet-shapes-1710.properties, to be copied to src/main/resources; the game quits.
+// 26.2 makes the same on each client from its block models (MeshShapes.cells).
+final class ShapesScenario {
+    private ShapesScenario() {
+    }
+
+    // blocks met by their model: inside their hitbox (scaffold, poles, a ladder) or with see-through pixels (bars,
+    // grates, NTM's chain-link fence, a trapdoor), as 26.2's "generate" list and masks. Not glass panes: their collision
+    // boxes are their model (a lone pane a cross), and their clear pixels are still glass
+    static final String[] BLOCKS = {"minecraft:iron_bars", "minecraft:ladder", "minecraft:trapdoor", "hbm:tile.steel_scaffold",
+            "hbm:tile.steel_poles", "hbm:tile.steel_grate", "hbm:tile.steel_grate_wide", "hbm:tile.fence_metal"};
+
+    private static final int BUILD = 5, CAPTURE = 80, DONE = 90, SPACING = 3, UP = 12, ROW = 24;
+
+    private static final class Spot {
+        final Block block;
+        final int meta, x, y, z;
+        final String joins; // null: the block does not join its neighbours
+
+        Spot(Block block, int meta, int x, int y, int z, String joins) {
+            this.block = block;
+            this.meta = meta;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.joins = joins;
+        }
+    }
+
+    private static final List<Spot> SPOTS = new ArrayList<Spot>();
+
+    static void step(Minecraft mc, int t) {
+        if (t == BUILD) {
+            final int px = (int) Math.floor(mc.thePlayer.posX), py = (int) Math.floor(mc.thePlayer.boundingBox.minY) + UP,
+                    pz = (int) Math.floor(mc.thePlayer.posZ);
+            ShootScenario.onServer(() -> build(px, py, pz));
+        } else if (t == CAPTURE) {
+            capture(mc);
+        } else if (t == DONE) {
+            mc.shutdown();
+        }
+    }
+
+    // the integrated server: every spot and its joined neighbours on a square around the player, SPACING apart (a
+    // neighbour of one spot never touches another spot)
+    private static void build(int px, int py, int pz) {
+        EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
+        World w = player.worldObj;
+        int i = 0;
+        for (String id : BLOCKS) {
+            Block b = Block.getBlockFromName(id);
+            if (b == null || b == Blocks.air) {
+                GunFeel.LOGGER.warn("Scenario shapes: no block {}", id);
+                continue;
+            }
+            boolean joining = b instanceof net.minecraft.block.BlockPane || b instanceof net.minecraft.block.BlockFence;
+            for (int meta = 0; meta < 16; meta++) {
+                for (int j = 0; j < (joining ? 16 : 1); j++) {
+                    int x = px + (i % ROW - ROW / 2) * SPACING, z = pz + (i / ROW - ROW / 2) * SPACING;
+                    i++;
+                    // the joins as ModelCells keys them: north, east, south, west
+                    boolean[] side = {(j & 8) != 0, (j & 4) != 0, (j & 2) != 0, (j & 1) != 0};
+                    w.setBlock(x, py, z, b, meta, 2);
+                    if (w.getBlock(x, py, z) != b || w.getBlockMetadata(x, py, z) != meta) continue;
+                    if (joining) {
+                        if (side[0]) w.setBlock(x, py, z - 1, b, meta, 2);
+                        if (side[1]) w.setBlock(x + 1, py, z, b, meta, 2);
+                        if (side[2]) w.setBlock(x, py, z + 1, b, meta, 2);
+                        if (side[3]) w.setBlock(x - 1, py, z, b, meta, 2);
+                    }
+                    SPOTS.add(new Spot(b, meta, x, py, z, joining ? (side[0] ? "1" : "0") + (side[1] ? "1" : "0") + (side[2] ? "1" : "0") + (side[3] ? "1" : "0") : null));
+                }
+            }
+        }
+        GunFeel.LOGGER.info("Scenario shapes: {} spots set", SPOTS.size());
+    }
+
+    private static void capture(Minecraft mc) {
+        Atlas atlas = Atlas.read(mc);
+        RenderBlocks rb = new RenderBlocks(mc.theWorld);
+        Map<String, long[]> made = new TreeMap<String, long[]>();
+        Set<String> wrong = new HashSet<String>();
+        for (Spot s : SPOTS) {
+            String id = Block.blockRegistry.getNameForObject(s.block);
+            Block there = mc.theWorld.getBlock(s.x, s.y, s.z);
+            if (there != s.block || mc.theWorld.getBlockMetadata(s.x, s.y, s.z) != s.meta) {
+                wrong.add(id + "#" + s.meta);
+                continue;
+            }
+            // the joins the block itself sees: a meta that does not join (a fence's other kind) is keyed as it is drawn
+            String joins = ModelCells.joins(mc.theWorld, s.block, s.x, s.y, s.z);
+            float[] v;
+            try {
+                v = draw(rb, s.block, s.x, s.y, s.z);
+            } catch (Throwable e) {
+                GunFeel.LOGGER.warn("Scenario shapes: {}#{} could not be drawn: {}", id, s.meta, e.toString());
+                continue;
+            }
+            long[] bits = cells(v, atlas);
+            if (ModelCells.empty(bits)) continue;
+            made.put(ModelCells.key(id, s.meta, joins), bits);
+        }
+        if (!wrong.isEmpty()) GunFeel.LOGGER.warn("Scenario shapes: not in the client's world (an unused meta?): {}", wrong);
+        ModelCells.put(made);
+        File out = new File(mc.mcDataDir, ModelCells.FILE);
+        try {
+            write(out, made);
+            GunFeel.LOGGER.info("Scenario shapes: {} shapes written to {}", made.size(), out);
+        } catch (IOException e) {
+            GunFeel.LOGGER.warn("Scenario shapes: could not write " + out, e);
+        }
+    }
+
+    // the block drawn as in a chunk: its quads, 5 floats a corner (x, y, z in the block, u, v in the atlas)
+    static float[] draw(RenderBlocks rb, Block b, int x, int y, int z) {
+        Tessellator t = Tessellator.instance;
+        t.startDrawingQuads();
+        t.setTranslation(-x, -y, -z);
+        float[] out;
+        try {
+            rb.renderBlockByRenderType(b, x, y, z);
+            int[] raw = ReflectionHelper.getPrivateValue(Tessellator.class, t, "rawBuffer", "field_78405_h");
+            int n = ReflectionHelper.<Integer, Tessellator> getPrivateValue(Tessellator.class, t, "vertexCount", "field_78406_i");
+            out = new float[n / 4 * 4 * 5];
+            for (int i = 0; i < out.length / 5; i++) for (int k = 0; k < 5; k++) out[i * 5 + k] = Float.intBitsToFloat(raw[i * 8 + k]);
+        } finally {
+            t.setTranslation(0, 0, 0);
+            // the drawn quads go nowhere
+            GL11.glColorMask(false, false, false, false);
+            GL11.glDepthMask(false);
+            t.draw();
+            GL11.glDepthMask(true);
+            GL11.glColorMask(true, true, true, true);
+        }
+        return out;
+    }
+
+    // 26.2's MeshShapes.cells for the drawn quads: each quad two triangles, a face of a double-sided plane not pushed
+    // behind
+    static long[] cells(float[] v, Atlas atlas) {
+        long[] bits = new long[65];
+        int quads = v.length / 20;
+        Set<String> planes = new HashSet<String>();
+        for (int q = 0; q < quads; q++) {
+            String k = ModelCells.planeKey(tri(v, q, 0, 1, 2), false);
+            if (k != null) planes.add(k);
+        }
+        for (int q = 0; q < quads; q++) {
+            String twin = ModelCells.planeKey(tri(v, q, 0, 1, 2), true);
+            boolean behind = twin == null || !planes.contains(twin);
+            for (int t = 0; t < 2; t++) {
+                final int a = 0, b = t == 0 ? 1 : 2, c = t == 0 ? 2 : 3;
+                final float[] u = {v[(q * 4 + a) * 5 + 3], v[(q * 4 + b) * 5 + 3], v[(q * 4 + c) * 5 + 3]};
+                final float[] w = {v[(q * 4 + a) * 5 + 4], v[(q * 4 + b) * 5 + 4], v[(q * 4 + c) * 5 + 4]};
+                ModelCells.fill(bits, tri(v, q, a, b, c), behind,
+                        (wa, wb, wc) -> atlas.shown(wa * u[0] + wb * u[1] + wc * u[2], wa * w[0] + wb * w[1] + wc * w[2]));
+            }
+        }
+        return bits;
+    }
+
+    private static double[] tri(float[] v, int q, int a, int b, int c) {
+        int[] k = {a, b, c};
+        double[] p = new double[9];
+        for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) p[i * 3 + j] = v[(q * 4 + k[i]) * 5 + j];
+        return p;
+    }
+
+    // the block atlas's pixels as the graphics card has them (mip level 0)
+    static final class Atlas {
+        final int w, h;
+        final int[] argb;
+
+        private Atlas(int w, int h, int[] argb) {
+            this.w = w;
+            this.h = h;
+            this.argb = argb;
+        }
+
+        static Atlas read(Minecraft mc) {
+            mc.getTextureManager().bindTexture(TextureMap.locationBlocksTexture);
+            int w = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);
+            int h = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_HEIGHT);
+            IntBuffer buf = BufferUtils.createIntBuffer(w * h);
+            GL11.glGetTexImage(GL11.GL_TEXTURE_2D, 0, GL12.GL_BGRA, GL12.GL_UNSIGNED_INT_8_8_8_8_REV, buf);
+            int[] px = new int[w * h];
+            buf.get(px);
+            GunFeel.LOGGER.info("Scenario shapes: block atlas {} x {}", w, h);
+            return new Atlas(w, h, px);
+        }
+
+        // the pixel at (u, v) passes 1.7.10's alpha test (alpha over 0.1)
+        boolean shown(double u, double v) {
+            int x = (int) Math.floor(u * w), y = (int) Math.floor(v * h);
+            x = Math.max(0, Math.min(w - 1, x));
+            y = Math.max(0, Math.min(h - 1, y));
+            return (argb[x + w * y] >>> 24) > 25;
+        }
+    }
+
+    private static void write(File out, Map<String, long[]> made) throws IOException {
+        try (Writer wr = new OutputStreamWriter(new java.io.FileOutputStream(out), StandardCharsets.UTF_8)) {
+            wr.write("# The 16 x 16 x 16 cells bullets meet in 1.7.10 blocks drawn as a model inside their hitbox or with see-through\n");
+            wr.write("# pixels (ModelCells), made by gradle runClient -Pscenario=shapes (ShapesScenario) from what RenderBlocks draws.\n");
+            wr.write("# Key: block id # meta, and for blocks joining their neighbours / the joins north east south west (1 joined).\n");
+            Map<String, String> shapeIds = new TreeMap<String, String>();
+            Map<String, String> lines = new TreeMap<String, String>();
+            for (Map.Entry<String, long[]> e : made.entrySet()) {
+                String packed = ModelCells.pack(e.getValue());
+                String ref = shapeIds.get(packed);
+                if (ref == null) {
+                    ref = "@" + shapeIds.size();
+                    shapeIds.put(packed, ref);
+                }
+                lines.put(e.getKey(), ref);
+            }
+            for (Map.Entry<String, String> e : shapeIds.entrySet()) wr.write(e.getValue() + " = " + e.getKey() + "\n");
+            for (Map.Entry<String, String> e : lines.entrySet()) wr.write(e.getKey().replace(":", "\\:") + " = " + e.getValue() + "\n");
+        }
+    }
+}

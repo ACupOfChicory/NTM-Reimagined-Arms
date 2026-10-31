@@ -12,8 +12,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ScreenShotHelper;
 import net.minecraft.world.World;
 
-// A dev scenario for looking (gradle runClient -Pscenario=look): in ShootScenario's flat world a wall of stone and
-// glass ahead and a zombie that stands still to the side (under a stone roof, so the sun does not burn it). The
+// A dev scenario for looking (gradle runClient -Pscenario=look): in ShootScenario's flat world a wall of stone, glass
+// and iron bars (stone behind them) ahead and a zombie that stands still to the side (under a stone roof, so the sun does not burn it). The
 // player fires gun_maresleg and a burst of gun_am180 at the wall, then turns to the zombie with F3+B on and fires at
 // it. The game saves screenshots at the moments to look at (run/client/screenshots/look-*.png): the HUD, the tracers
 // in flight (look-sky-3: a shot into the sky seen from aside), the shots at the wall and their holes, the zombie's
@@ -112,7 +112,11 @@ final class LookScenario {
         World w = player.worldObj;
         w.setWorldTime(6000);
         for (int dx = -3; dx <= 3; dx++)
-            for (int dy = 0; dy < 4; dy++) w.setBlock(px + dx, py + dy, pz + 10, dx == 0 ? Blocks.glass : Blocks.stone, 0, 3);
+            for (int dy = 0; dy < 4; dy++) {
+                // the column right of the glass: iron bars before stone, holes go through the gaps (ModelCells)
+                w.setBlock(px + dx, py + dy, pz + 10, dx == 0 ? Blocks.glass : dx == -1 ? Blocks.iron_bars : Blocks.stone, 0, 3);
+                if (dx == -1) w.setBlock(px + dx, py + dy, pz + 11, Blocks.stone, 0, 3);
+            }
         w.setBlock(px + ZX, py + 3, pz + ZZ, Blocks.stone, 0, 3);
         EntityZombie z = new EntityZombie(w);
         z.setLocationAndAngles(px + ZX + .5, py, pz + ZZ + .5, 180F, 0F);

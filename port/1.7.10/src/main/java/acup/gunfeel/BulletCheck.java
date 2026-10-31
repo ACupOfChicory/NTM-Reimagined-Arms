@@ -127,6 +127,16 @@ public final class BulletCheck {
         expect("wall post: beside it", Want.PASS, single("minecraft:cobblestone_wall", 0), .1, .5, 30F, null);
         expect("wall post: into it", Want.MEET, single("minecraft:cobblestone_wall", 0), .5, .5, 30F, null);
 
+        // ---- blocks met by their drawn model (ModelCells): through the clear pixels, into the drawn ones. 26.2 has
+        // these by its masks and model cells (its own BulletCheck has no such lanes)
+        float px = 1 / 16F;
+        expect("iron bars alone: between the bars", Want.PASS, single("minecraft:iron_bars", 0), 5.5 * px, 5.5 * px, 30F, null);
+        expect("iron bars alone: a bar", Want.MEET, single("minecraft:iron_bars", 0), 2.5 * px, .5, 30F, null);
+        expect("ladder: between the rungs", Want.PASS, single("minecraft:ladder", 2), .5, 7.5 * px, 30F, null);
+        expect("ladder: a rung", Want.MEET, single("minecraft:ladder", 2), .5, 5.5 * px, 30F, null);
+        expect("chain-link fence: through the mesh", Want.PASS, row("hbm:fence_metal", 0), 1.5 * px, 14.5 * px, 30F, null);
+        expect("chain-link fence: a wire, pierced", Want.PIERCE, row("hbm:fence_metal", 0), 8.5 * px, 15.5 * px, 30F, null);
+
         // ---- materials: a plank is pierced with the rule's loss, concrete holds
         int[] at = single("minecraft:planks", 0);
         BulletRules.Break rule = BulletRules.breakRule(level, at[0], at[1], at[2]);
@@ -423,6 +433,14 @@ public final class BulletCheck {
         int[] at = single("minecraft:fence", 0);
         level.setBlock(at[0] - 1, at[1], at[2], Blocks.fence, 0, 2);
         level.setBlock(at[0] + 1, at[1], at[2], Blocks.fence, 0, 2);
+        return at;
+    }
+
+    // three of a block joined along x; the middle one is shot
+    private static int[] row(String id, int meta) {
+        int[] at = single(id, meta);
+        level.setBlock(at[0] - 1, at[1], at[2], block(id), meta, 2);
+        level.setBlock(at[0] + 1, at[1], at[2], block(id), meta, 2);
         return at;
     }
 

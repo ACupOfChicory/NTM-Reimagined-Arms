@@ -486,9 +486,12 @@ public final class Tracers {
 
     // ---- flight
 
+    // the server's path through blocks (PassableClip: fence gaps, bars and grates by their model's cells), so the
+    // tracer stops and the hole lands where the bullet did
     private static MovingObjectPosition rayTrace(World world, double[] a, double[] b) {
-        // func_147447_a moves the vectors it is given: fresh ones
-        return world.func_147447_a(Vec3.createVectorHelper(a[0], a[1], a[2]), Vec3.createVectorHelper(b[0], b[1], b[2]), false, true, false);
+        BlockRay.Hit h = PassableClip.clip(world, Vec3.createVectorHelper(a[0], a[1], a[2]), Vec3.createVectorHelper(b[0], b[1], b[2]));
+        if (h == null) return null;
+        return new MovingObjectPosition(h.x, h.y, h.z, h.face, Vec3.createVectorHelper(h.ax, h.ay, h.az));
     }
 
     // test the bullet's path up to t ticks against blocks; stops it at the first block it meets
