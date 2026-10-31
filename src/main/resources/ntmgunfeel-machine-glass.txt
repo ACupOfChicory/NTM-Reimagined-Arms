@@ -1,0 +1,68 @@
+# NTM Reimagined Arms: textures of NTM's machine models whose clear pixels (alpha below 26) are really empty.
+# Everywhere else a clear pixel on a machine's model is glass (a window): a bullet pierces it as glass and a hole
+# stays (MachineGlass, server switch bulletMachineGlass). Here go grates, nets, perforated plates and cut-outs, where a
+# bullet should fly through. One texture a line, then " # " and why. Shared by every version of the mod.
+# Made from the models and textures of NTM NEXT 1.0.3 (2026-10-31): every texture whose drawn triangles cover clear
+# pixels, looked at one by one.
+
+# grates, trusses, railings, perforated plates, louvres
+hbm:textures/block/models/machines/hephaestus.png # a cage of bars
+hbm:textures/block/models/machines/tower_small.png # cooling tower: its grilles
+hbm:textures/block/models/machines/tower_large.png # cooling tower: its grilles
+hbm:textures/block/models/machines/launchpad_soyuz.png # truss
+hbm:textures/block/models/machines/coker.png # railings and grating
+hbm:textures/block/models/machines/zirnox.png # grating
+hbm:textures/block/models/machines/zirnox_destroyed.png # grating
+hbm:textures/block/models/machines/radar_large.png # dish mesh
+hbm:textures/block/models/machines/turbofan.png # intake grille
+hbm:textures/block/models/machines/mining_drill.png # truss
+hbm:textures/block/models/machines/bigasstank.png # railings
+hbm:textures/block/models/machines/thresher.png # grille
+hbm:textures/block/models/machines/watz.png # grating
+hbm:textures/block/models/machines/intake.png # grille
+hbm:textures/block/models/machines/rtg.png # cooling fins with gaps
+hbm:textures/block/models/machines/pyrooven.png # grating
+hbm:textures/block/models/machines/furnace_steel.png # grating
+hbm:textures/block/models/machines/purex.png # railings
+hbm:textures/block/models/machines/rotary_furnace.png # grating
+hbm:textures/block/models/machines/oilburner.png # grille
+hbm:textures/block/models/machines/elevator.png # cage
+hbm:textures/block/models/machines/floodlight.png # grille
+hbm:textures/block/models/duchessgambit.png # railings
+hbm:textures/block/models/missile_parts/launch_table.png # truss
+hbm:textures/block/models/compact_launcher.png # truss
+hbm:textures/block/models/network/substation.png # fence
+hbm:textures/block/models/launchpad/silo.png # grating
+hbm:textures/block/models/launchpad/silo_rusted.png # grating
+hbm:textures/block/models/turrets/tauon.png # grille
+hbm:textures/block/models/turrets/fritz.png # grille
+hbm:textures/block/models/turrets/howard.png # grille
+hbm:textures/block/models/turrets/rusted/howard.png # grille
+hbm:textures/block/models/bombs/gadget.png # wire cage
+hbm:textures/block/models/bombs/dud_conventional.png # fins with gaps
+hbm:textures/block/models/strut.png # truss
+hbm:textures/block/models/fusion/plasma_forge.png # bars
+hbm:textures/models/soyuz_launcher/launcher_table.png # truss
+hbm:textures/models/machines/rbmk_crane.png # ladder
+hbm:textures/block/cage_lamp.png # cage
+hbm:textures/block/cage_lamp_off.png # cage
+hbm:textures/block/pipe_mesh.png # mesh
+
+# cut-outs: a part's outline or a decal laid over another face
+hbm:textures/block/barbed_wire.png # outline
+hbm:textures/block/barbed_wire_acid.png # outline
+hbm:textures/block/barbed_wire_fire.png # outline
+hbm:textures/block/barbed_wire_poison.png # outline
+hbm:textures/block/barbed_wire_ultradeath.png # outline
+hbm:textures/block/barbed_wire_wither.png # outline
+hbm:textures/block/vine_phosphor.png # outline
+hbm:textures/block/vine_phosphor_ground.png # outline
+hbm:textures/block/vine_phosphor_hang.png # outline
+hbm:textures/block/vine_phosphor_spots.png # outline
+hbm:textures/block/vine_phosphor_spots_hang.png # outline
+hbm:textures/block/capacitor_copper_top.png # outline
+hbm:textures/block/capacitor_copper_side.png # outline
+hbm:textures/block/watch.png # outline
+hbm:textures/block/models/model_gun.png # outline
+hbm:textures/block/models/machines/lpw2.png # outline
+hbm:textures/block/models/machines/assembly_factory.png # lettering decals over the heads

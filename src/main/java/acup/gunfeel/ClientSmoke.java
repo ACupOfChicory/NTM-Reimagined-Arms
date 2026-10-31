@@ -128,6 +128,7 @@ public final class ClientSmoke {
                 if(HoleBenchMetrics.ENABLED) { phase=12; mc.gui.setScreen(null); HoleBenchmark.start(); return; }
                 if(MobBenchMetrics.ENABLED) { phase=11; mc.gui.setScreen(null); MobBenchmark.start(); return; }
                 if(TraceScenario.enabled()) { phase=13; mc.gui.setScreen(null); TraceScenario.start(); return; }
+                if(MachineGlassCheck.ENABLED) { phase=14; mc.gui.setScreen(null); MachineGlassCheck.start(); return; }
                 if (MobSmoke.enabled()) {
                     phase = 10;
                     mc.gui.setScreen(null);
@@ -267,6 +268,7 @@ public final class ClientSmoke {
             if (phase == 11) MobBenchmark.frame();
             if (phase == 12) HoleBenchmark.frame();
             if (phase == 13) TraceScenario.frame();
+            if (phase == 14) MachineGlassCheck.frame();
             if (mc.player != null && phase >= 2 && phase <= 7) {
                 mc.player.setYRot(0);
                 mc.player.setXRot(0);

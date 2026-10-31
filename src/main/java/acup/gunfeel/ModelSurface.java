@@ -14,7 +14,25 @@ final class ModelSurface {
     private ModelSurface() {
     }
 
-    record Face(double[] p, double[] uv, int width, int height, long[] alpha) {
+    // glass: its shown pixels are a machine's window (MachineGlass), not its casing
+    record Face(double[] p, double[] uv, int width, int height, long[] alpha, boolean glass) {
+        Face(double[] p, double[] uv, int width, int height, long[] alpha) {
+            this(p, uv, width, height, alpha, false);
+        }
+    }
+
+    // the face's size word: width, height and, in the top bit, glass
+    private static final long GLASS = 1L << 63;
+
+    private static int width(long word) {
+        return (int) (word >>> 32 & 0x7fffffffL);
+    }
+
+    // a bullet met a machine's window: it pierces it as glass (PassableClip)
+    static final class GlassHit extends BlockHitResult {
+        GlassHit(Vec3 at, Direction face, BlockPos pos) {
+            super(at, face, pos, false);
+        }
     }
 
     static long[] attach(long[] cells, List<Face> faces) {
@@ -26,7 +44,7 @@ final class ModelSurface {
         for (Face f : faces) {
             for (double v : f.p()) out[at++] = Double.doubleToLongBits(v);
             for (double v : f.uv()) out[at++] = Double.doubleToLongBits(v);
-            out[at++] = (long) f.width() << 32 | f.height();
+            out[at++] = (long) f.width() << 32 | f.height() | (f.glass() ? GLASS : 0L);
             for (long v : f.alpha()) out[at++] = v;
         }
         return out;
@@ -40,9 +58,10 @@ final class ModelSurface {
             double[] p = new double[9], uv = new double[6];
             for (int j = 0; j < 9; j++) p[j] = number(shape, at++);
             for (int j = 0; j < 6; j++) uv[j] = number(shape, at++);
-            int w = (int) (shape[at] >>> 32), h = (int) shape[at++];
+            boolean glass = (shape[at] & GLASS) != 0;
+            int w = width(shape[at]), h = (int) shape[at++];
             int n = (w * h + 63) / 64;
-            out.add(new Face(p, uv, w, h, java.util.Arrays.copyOfRange(shape, at, at + n)));
+            out.add(new Face(p, uv, w, h, java.util.Arrays.copyOfRange(shape, at, at + n), glass));
             at += n;
         }
         return out;
@@ -66,7 +85,7 @@ final class ModelSurface {
                 default -> z;
             };
         }
-        return new Face(p, face.uv(), face.width(), face.height(), face.alpha());
+        return new Face(p, face.uv(), face.width(), face.height(), face.alpha(), face.glass());
     }
 
     static long[] rotate(long[] shape, net.minecraft.world.level.block.Rotation rotation) {
@@ -103,7 +122,7 @@ final class ModelSurface {
         for (int i = 0; i < shape[65]; i++) {
             if (at + 16 > shape.length) return false;
             for (int j = 0; j < 15; j++) if (!Double.isFinite(Double.longBitsToDouble(shape[at + j]))) return false;
-            int w = (int) (shape[at + 15] >>> 32), h = (int) shape[at + 15];
+            int w = width(shape[at + 15]), h = (int) shape[at + 15];
             if (w < 1 || h < 1 || w > 4096 || h > 4096) return false;
             at += 16 + (w * h + 63) / 64;
             if (at > shape.length) return false;
@@ -121,6 +140,8 @@ final class ModelSurface {
         Vec3 o = from.subtract(pos.getX(), pos.getY(), pos.getZ()), d = to.subtract(from);
         double best = Double.POSITIVE_INFINITY;
         Direction face = null;
+        boolean metGlass = false;
+        int windows = -1; // asked of the server's settings only when a window is there
         int at = 66;
         for (int i = 0; i < shape[65]; i++) {
             double ax = number(shape, at), ay = number(shape, at + 1), az = number(shape, at + 2);
@@ -128,8 +149,10 @@ final class ModelSurface {
             double fx = number(shape, at + 6) - ax, fy = number(shape, at + 7) - ay, fz = number(shape, at + 8) - az;
             double nx = ey * fz - ez * fy, ny = ez * fx - ex * fz, nz = ex * fy - ey * fx;
             double facing = nx * d.x + ny * d.y + nz * d.z;
-            int w = (int) (shape[at + 15] >>> 32), h = (int) shape[at + 15];
-            if (leaving ? facing > 1e-12 : facing < -1e-12) {
+            int w = width(shape[at + 15]), h = (int) shape[at + 15];
+            boolean glass = (shape[at + 15] & GLASS) != 0;
+            if (glass && !leaving && windows < 0) windows = MachineGlass.on() ? 1 : 0;
+            if ((!glass || !leaving && windows == 1) && (leaving ? facing > 1e-12 : facing < -1e-12)) {
                 double px = d.y * fz - d.z * fy, py = d.z * fx - d.x * fz, pz = d.x * fy - d.y * fx;
                 double det = ex * px + ey * py + ez * pz;
                 double sx = o.x - ax, sy = o.y - ay, sz = o.z - az;
@@ -148,12 +171,14 @@ final class ModelSurface {
                     if (inside && (shape[at + 16 + (pixel >> 6)] >>> (pixel & 63) & 1L) != 0) {
                         best = t;
                         face = Direction.getApproximateNearest(nx, ny, nz);
+                        metGlass = glass;
                     }
                 }
             }
             at += 16 + (w * h + 63) / 64;
         }
-        return face == null ? null : new BlockHitResult(from.add(d.scale(best)), face, pos, false);
+        if (face == null) return null;
+        return metGlass ? new GlassHit(from.add(d.scale(best)), face, pos) : new BlockHitResult(from.add(d.scale(best)), face, pos, false);
     }
 
     private static double number(long[] data, int at) {
