@@ -34,6 +34,8 @@ public final class WeaponSway {
         float armYaw=Mth.lerp(partial,player.yBobO,player.yBob);
         float aiming=Mth.lerp(partial,ItemGunBaseNT.prevAimingProgress,ItemGunBaseNT.aimingProgress);
         var turn=fromAngles(player.getViewXRot(partial),player.getViewYRot(partial),armPitch,armYaw,aiming);
+        if(TestLog.frames()) TestLog.c(-1,"sway","view",new org.joml.Vector3f(player.getViewXRot(partial),player.getViewYRot(partial),0F),
+                "arm",new org.joml.Vector3f(armPitch,armYaw,0F),"aiming",aiming,"pitch",turn.pitch(),"yaw",turn.yaw(),"roll",turn.roll(),"x",turn.x());
         pose.translate(turn.x(),0,0);
         pose.mulPose(Axis.XP.rotationDegrees(turn.pitch()));
         pose.mulPose(Axis.YP.rotationDegrees(turn.yaw()));

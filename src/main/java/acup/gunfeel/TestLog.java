@@ -21,6 +21,7 @@ import net.neoforged.fml.loading.FMLPaths;
 // their side on (the server's by TestLogPayload, for an op); in single player both write the same file.
 // File: logs/ntm-gunfeel-test-<date>-<time>.tsv. Line: ms since the file opened, side (C/S), shot (the bullet's
 // entity id on the server, the same on the client from ShotPayload; - for none), event, then key=value fields.
+// With -Dntmgunfeel.trace it is a trace instead (Trace): both sides on for the whole run, game time and exact numbers.
 public final class TestLog {
     public static volatile boolean client, server;
 
@@ -42,12 +43,19 @@ public final class TestLog {
         return client || server;
     }
 
+    // events written every frame (arms, recoil, sway): only into a trace, never into a log the player asked for
+    public static boolean frames() {
+        return Trace.ON && client;
+    }
+
     public static boolean on(Level level) {
         return level.isClientSide() ? client : server;
     }
 
     // switch one side; the file opens with the first side on and closes with the last one off. The file, or null.
     public static synchronized Path set(boolean clientSide, boolean on) {
+        // a trace keeps both sides on to the end of the run
+        if (Trace.ON && !on) return file;
         if (clientSide) client = on;
         else server = on;
         if (any() && out == null) open();
@@ -101,10 +109,18 @@ public final class TestLog {
         try {
             Path dir = FMLPaths.GAMEDIR.get().resolve("logs");
             Files.createDirectories(dir);
-            file = dir.resolve("ntm-gunfeel-test-" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")) + ".tsv");
+            String stamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+            file = !Trace.ON ? dir.resolve("ntm-gunfeel-test-" + stamp + ".tsv")
+                    : Trace.file() == null ? dir.resolve("ntm-gunfeel-trace-" + stamp + ".tsv") : FMLPaths.GAMEDIR.get().resolve(Trace.file());
+            Files.createDirectories(file.toAbsolutePath().getParent());
             out = Files.newBufferedWriter(file, StandardCharsets.UTF_8);
             opened = System.currentTimeMillis();
-            out.write("# ntm-gunfeel testlog, mod " + acup.gunfeel.compat.Compat.modVersion() + ", NTM " + acup.gunfeel.compat.Compat.hbmVersion() + "\n");
+            String mod = acup.gunfeel.compat.Compat.modVersion();
+            if (Trace.ON) {
+                int mc = mod.indexOf("+mc");
+                out.write(Trace.header(mod, mc < 0 ? "?" : mod.substring(mc + 3)));
+            }
+            out.write("# ntm-gunfeel testlog, mod " + mod + ", NTM " + acup.gunfeel.compat.Compat.hbmVersion() + "\n");
             out.flush();
         } catch (IOException e) {
             GunFeel.LOGGER.warn("Could not open the test log", e);
@@ -124,6 +140,7 @@ public final class TestLog {
     private static synchronized void write(String side, int shot, String event, Object[] kv) {
         if (out == null) return;
         StringBuilder b = new StringBuilder(96);
+        if (Trace.ON) b.append(Trace.time(side.equals("S"))).append('\t');
         b.append(System.currentTimeMillis() - opened).append('\t').append(side).append('\t').append(shot < 0 ? "-" : Integer.toString(shot))
                 .append('\t').append(event);
         for (int i = 0; i + 1 < kv.length; i += 2) b.append('\t').append(kv[i]).append('=').append(fmt(kv[i + 1]));
@@ -140,11 +157,30 @@ public final class TestLog {
 
     static String fmt(Object v) {
         if (v == null) return "-";
+        if (Trace.ON) return exact(v);
         if (v instanceof Float f) return String.format(Locale.ROOT, "%.3f", f);
         if (v instanceof Double d) return String.format(Locale.ROOT, "%.3f", d);
         if (v instanceof Vec3 p) return String.format(Locale.ROOT, "%.3f,%.3f,%.3f", p.x, p.y, p.z);
         if (v instanceof BlockPos p) return p.getX() + "," + p.getY() + "," + p.getZ();
         if (v instanceof BlockState s) return BuiltInRegistries.BLOCK.getKey(s.getBlock()).toString();
+        return v.toString().replace('\t', ' ').replace('\n', ' ');
+    }
+
+    // a trace's numbers: all their digits (Trace)
+    private static String exact(Object v) {
+        if (v instanceof Float f) return Trace.num(f);
+        if (v instanceof Double d) return Trace.num(d);
+        if (v instanceof Vec3 p) return Trace.vec(p.x, p.y, p.z);
+        if (v instanceof org.joml.Vector3fc p) return Trace.vec(p.x(), p.y(), p.z());
+        if (v instanceof org.joml.Matrix4fc m) return Trace.matrix(m.get(new float[16]));
+        if (v instanceof float[] a) return Trace.matrix(a);
+        if (v instanceof double[] a) {
+            StringBuilder b = new StringBuilder();
+            for (int i = 0; i < a.length; i++) b.append(i > 0 ? "," : "").append(Trace.num(a[i]));
+            return b.toString();
+        }
+        if (v instanceof BlockPos p) return p.getX() + "," + p.getY() + "," + p.getZ();
+        if (v instanceof BlockState s) return net.minecraft.commands.arguments.blocks.BlockStateParser.serialize(s);
         return v.toString().replace('\t', ' ').replace('\n', ' ');
     }
 }

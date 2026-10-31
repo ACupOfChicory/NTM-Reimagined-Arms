@@ -44,7 +44,7 @@ public final class BulletFx {
         int n = 0;
         while (n < 16 && sm.getSoundEvent(key.withSuffix(".f" + (n + 1))) != null) n++;
         if (n == 0) return id;
-        long now = System.currentTimeMillis();
+        long now = GunClock.millis();
         long[] last = FAMILY.get(id);
         if (last == null || now - last[0] > FAMILY_MS || last[1] >= n) {
             last = new long[] {now, r.nextInt(n)};

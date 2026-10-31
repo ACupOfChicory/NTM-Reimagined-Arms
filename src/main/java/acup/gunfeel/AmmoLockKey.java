@@ -63,7 +63,7 @@ public final class AmmoLockKey {
         ItemStack stack = player == null ? ItemStack.EMPTY : player.getMainHandItem();
         boolean gun = stack.getItem() instanceof ItemGunBaseNT;
         boolean down = KEY.isDown() && mc.gui.screen() == null;
-        long now = System.currentTimeMillis();
+        long now = GunClock.millis();
 
         if (RadialMenu.isOpen() && (!gun || stack.getItem() != RadialMenu.gun().getItem() || mc.gui.screen() != null)) RadialMenu.close();
 
