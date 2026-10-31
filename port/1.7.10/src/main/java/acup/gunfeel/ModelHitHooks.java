@@ -20,12 +20,12 @@ public final class ModelHitHooks {
 
     @SubscribeEvent
     public void renderTick(TickEvent.RenderTickEvent e) {
-        if (e.phase == TickEvent.Phase.START) ModelHitClient.frame();
+        if (e.phase == TickEvent.Phase.START && acup.gunfeel.compat.Feature.MODEL_HITBOXES.on()) ModelHitClient.frame();
     }
 
     @SubscribeEvent
     public void worldLast(RenderWorldLastEvent e) {
-        ModelHitClient.finishFrame();
+        if (acup.gunfeel.compat.Feature.MODEL_HITBOXES.on()) ModelHitClient.finishFrame();
     }
 
     @SubscribeEvent

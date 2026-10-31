@@ -21,7 +21,7 @@ public final class AmmoLockPayload implements IMessage {
     public static final class Handler implements IMessageHandler<AmmoLockPayload, IMessage> {
         @Override
         public IMessage onMessage(AmmoLockPayload m, MessageContext ctx) {
-            AmmoLock.toggle(ctx.getServerHandler().playerEntity);
+            if (acup.gunfeel.compat.Feature.AMMO_CHOICE.on()) AmmoLock.toggle(ctx.getServerHandler().playerEntity);
             return null;
         }
     }

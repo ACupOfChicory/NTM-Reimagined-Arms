@@ -30,29 +30,29 @@ public final class HudEvents {
     // 26.2: ClientTickEvent.Post
     @SubscribeEvent
     public void clientTick(TickEvent.ClientTickEvent e) {
-        if (e.phase == TickEvent.Phase.END) AmmoLockKey.tick();
+        if (e.phase == TickEvent.Phase.END && acup.gunfeel.compat.Feature.AMMO_CHOICE.on()) AmmoLockKey.tick();
     }
 
     // before NTM's own handlers of the same events (HbmKeybinds, priority LOW)
     @SubscribeEvent(priority = EventPriority.HIGH)
     public void mouse(InputEvent.MouseInputEvent e) {
         int button = Mouse.getEventButton();
-        if (button >= 0) AmmoLockKey.input(button - 100, Mouse.getEventButtonState());
+        if (button >= 0 && acup.gunfeel.compat.Feature.AMMO_CHOICE.on()) AmmoLockKey.input(button - 100, Mouse.getEventButtonState());
     }
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     public void key(InputEvent.KeyInputEvent e) {
-        AmmoLockKey.input(Keyboard.getEventKey(), Keyboard.getEventKeyState());
+        if (acup.gunfeel.compat.Feature.AMMO_CHOICE.on()) AmmoLockKey.input(Keyboard.getEventKey(), Keyboard.getEventKeyState());
     }
 
     @SubscribeEvent
     public void renderTick(TickEvent.RenderTickEvent e) {
-        if (e.phase == TickEvent.Phase.START) InstantSwitch.frame(Minecraft.getMinecraft().thePlayer);
+        if (e.phase == TickEvent.Phase.START && acup.gunfeel.compat.Feature.INSTANT_SWITCH.on()) InstantSwitch.frame(Minecraft.getMinecraft().thePlayer);
     }
 
     // 26.2: RenderGuiEvent.Post, over the rest of the HUD
     @SubscribeEvent
     public void overlay(RenderGameOverlayEvent.Post e) {
-        if (e.type == RenderGameOverlayEvent.ElementType.ALL) RadialMenu.render(e.resolution);
+        if (e.type == RenderGameOverlayEvent.ElementType.ALL && acup.gunfeel.compat.Feature.AMMO_CHOICE.on()) RadialMenu.render(e.resolution);
     }
 }

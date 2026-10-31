@@ -33,7 +33,7 @@ public final class AmmoSelectPayload implements IMessage {
     public static final class Handler implements IMessageHandler<AmmoSelectPayload, IMessage> {
         @Override
         public IMessage onMessage(AmmoSelectPayload m, MessageContext ctx) {
-            AmmoLock.select(ctx.getServerHandler().playerEntity, m.config);
+            if (acup.gunfeel.compat.Feature.AMMO_CHOICE.on()) AmmoLock.select(ctx.getServerHandler().playerEntity, m.config);
             return null;
         }
     }

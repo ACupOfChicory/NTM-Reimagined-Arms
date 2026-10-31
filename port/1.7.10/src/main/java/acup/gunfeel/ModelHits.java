@@ -100,7 +100,8 @@ public final class ModelHits {
 
     // port: no compat Feature switch in the port; the server's flag as in 26.2
     public static boolean enabled() {
-        return (!MobBenchMetrics.ENABLED || MobBenchMetrics.mode!=0) && ReaimTimes.flag("modelHitboxes", true);
+        return (!MobBenchMetrics.ENABLED || MobBenchMetrics.mode!=0)
+                && acup.gunfeel.compat.Feature.MODEL_HITBOXES.on() && ReaimTimes.flag("modelHitboxes", true);
     }
 
     public static synchronized void receive(EntityPlayerMP observer, ModelPosePayload p) {

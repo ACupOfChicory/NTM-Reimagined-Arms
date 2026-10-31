@@ -407,13 +407,13 @@ public final class Tracers {
     public static final class Events {
         @SubscribeEvent
         public void renderLast(RenderWorldLastEvent e) {
-            draw(e.partialTicks);
+            if (acup.gunfeel.compat.Feature.TRACERS.on()) draw(e.partialTicks);
         }
 
         // the server's announcements as soon as the tick has the packets (26.2: enqueueWork)
         @SubscribeEvent
         public void tick(cpw.mods.fml.common.gameevent.TickEvent.ClientTickEvent e) {
-            if (e.phase == cpw.mods.fml.common.gameevent.TickEvent.Phase.END) drain();
+            if (e.phase == cpw.mods.fml.common.gameevent.TickEvent.Phase.END && acup.gunfeel.compat.Feature.TRACERS.on()) drain();
         }
 
         @SubscribeEvent

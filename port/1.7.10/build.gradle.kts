@@ -171,11 +171,14 @@ listOf("runClient", "runObfClient").forEach { name ->
     }
 }
 
-// The NTM check as with an untested NTM (NtmCheck): -Ptested=[1,2] on a run task stands in for Compat.TESTED
+// The NTM check as with an untested NTM (NtmCheck): -Ptested=[1,2] on a run task stands in for Compat.TESTED;
+// -PforceOff=tracers,hud turns those systems off as if they did not fit
 val tested = providers.gradleProperty("tested")
+val forceOff = providers.gradleProperty("forceOff")
 listOf("runClient", "runObfClient", "runServer", "runObfServer").forEach { name ->
     tasks.matching { it.name == name }.configureEach {
         if (tested.isPresent) (this as JavaExec).systemProperty("ntmgunfeel.tested", tested.get())
+        if (forceOff.isPresent) (this as JavaExec).systemProperty("ntmgunfeel.forceOff", forceOff.get())
     }
 }
 

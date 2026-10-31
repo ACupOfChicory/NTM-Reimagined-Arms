@@ -31,7 +31,7 @@ import acup.gunfeel.GunFeel;
 // In a player's game NTM calls Minecraft by SRG names: the mixins' selectors and @At targets are read through the
 // mod's refmap there (in dev both are MCP's).
 public final class NtmCheck {
-    static final String MIXIN_PATH = "acup/gunfeel/mixins/", REFMAP = "mixins.ntmgunfeel.refmap.json";
+    static final String MIXIN_PATH = "acup/gunfeel/mixins/", REFMAP = "mixins.ntmgunfeel.refmap.json", FORCE_OFF = "ntmgunfeel.forceOff";
 
     private NtmCheck() {
     }
@@ -43,7 +43,7 @@ public final class NtmCheck {
             String tested = System.getProperty("ntmgunfeel.tested", Compat.TESTED);
             boolean fits = hbm != null && Compat.inRange(hbm, tested);
             Compat.setVersions(hbm, tested, fits);
-            if (fits) return wanted;
+            if (fits && System.getProperty(FORCE_OFF) == null) return wanted;
             GunFeel.LOGGER.warn("NTM {} is not a tested version for NTM Reimagined Arms (tested builds: {}), checking what still fits", hbm,
                     tested);
             Compat.Result r = check();
@@ -100,6 +100,13 @@ public final class NtmCheck {
             problems.put(m, p);
         }
         if (targetsRead == 0) return null;
+        // a dev run may turn systems off by hand (-PforceOff=tracers,hud), to see the game without them
+        String forced = System.getProperty(FORCE_OFF);
+        if (forced != null) for (String id : forced.split(",")) {
+            Feature f = Feature.byId(id.trim());
+            if (f == null) continue;
+            for (String m : f.mixins) if (problems.containsKey(m)) problems.get(m).add("turned off by hand (-PforceOff)");
+        }
         return Compat.resolve(problems, ApiProbe.missing(apiLines, classes));
     }
 

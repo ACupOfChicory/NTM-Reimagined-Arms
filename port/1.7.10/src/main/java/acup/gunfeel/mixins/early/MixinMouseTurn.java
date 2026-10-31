@@ -20,7 +20,7 @@ public abstract class MixinMouseTurn {
     @Redirect(method = "updateCameraAndRender", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/entity/EntityClientPlayerMP;setAngles(FF)V"))
     private void gunfeel$radial(EntityClientPlayerMP player, float yaw, float pitch) {
-        if (!RadialMenu.isOpen()) {
+        if (!acup.gunfeel.compat.Feature.AMMO_CHOICE.on() || !RadialMenu.isOpen()) {
             player.setAngles(yaw, pitch);
             return;
         }

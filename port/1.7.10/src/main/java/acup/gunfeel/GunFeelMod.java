@@ -17,6 +17,7 @@ public final class GunFeelMod {
     public void preInit(FMLPreInitializationEvent event) {
         GunFeel.LOGGER.info("NTM Reimagined Arms {} ({}) on Java {}", BuildInfo.DISPLAY, BuildInfo.VERSION, System.getProperty("java.version"));
         boolean client = FMLCommonHandler.instance().getSide() == Side.CLIENT;
+        acup.gunfeel.compat.Compat.setModVersion(BuildInfo.VERSION);
         AmmoNet.init(); // the ammo key's and menu's messages (AmmoNet.register: onto a common channel later)
         if (client) GunFeelClient.init();
         TraceHooks.register(client);

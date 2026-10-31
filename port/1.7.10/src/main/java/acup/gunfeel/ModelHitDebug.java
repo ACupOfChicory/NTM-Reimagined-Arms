@@ -23,7 +23,7 @@ public final class ModelHitDebug {
 
     // RenderManager.renderDebugBoundingBox HEAD; true: drawn here, skip the box
     public static boolean draw(Entity entity) {
-        if (!ModelHitClient.enabled()) return false;
+        if (!ModelHitClient.enabled() || !acup.gunfeel.compat.Feature.MODEL_HITBOXES.on()) return false;
         Entity parent = ModelPartEntities.parent(entity);
         if (parent != null) return ModelHits.hasPose(parent);
         if (!(entity instanceof EntityLivingBase) || !ModelHits.hasPose(entity)) return false;

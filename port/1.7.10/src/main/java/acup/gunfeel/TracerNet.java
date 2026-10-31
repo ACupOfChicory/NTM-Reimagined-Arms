@@ -133,7 +133,7 @@ public final class TracerNet {
     public static final class ShotHandler implements IMessageHandler<Shot, IMessage> {
         @Override
         public IMessage onMessage(Shot m, MessageContext ctx) {
-            Tracers.shot(m.id, m.owner, m.config, m.x, m.y, m.z, m.vx, m.vy, m.vz, m.gravity, m.life, m.damage, m.ex, m.ey, m.ez);
+            if (acup.gunfeel.compat.Feature.TRACERS.on()) Tracers.shot(m.id, m.owner, m.config, m.x, m.y, m.z, m.vx, m.vy, m.vz, m.gravity, m.life, m.damage, m.ex, m.ey, m.ez);
             return null;
         }
     }
@@ -141,7 +141,7 @@ public final class TracerNet {
     public static final class StopHandler implements IMessageHandler<Stop, IMessage> {
         @Override
         public IMessage onMessage(Stop m, MessageContext ctx) {
-            Tracers.stop(m.shot, m.age, m.x, m.y, m.z);
+            if (acup.gunfeel.compat.Feature.TRACERS.on()) Tracers.stop(m.shot, m.age, m.x, m.y, m.z);
             return null;
         }
     }

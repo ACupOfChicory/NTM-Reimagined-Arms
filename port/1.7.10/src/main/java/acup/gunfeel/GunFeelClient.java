@@ -32,6 +32,7 @@ public final class GunFeelClient {
         ShootScenario.register();
         Tracers.register();
         HudEvents.register(); // the ammo HUD, ammo key and menu, instant switch
+        acup.gunfeel.compat.CompatClient.init(); // the untested-NTM warning, /gunfeel status
     }
 
     // dev runs (runClient): a file "autostop" in the run folder closes the client a few seconds after the main menu
@@ -68,7 +69,7 @@ public final class GunFeelClient {
         EntityPlayer player = Minecraft.getMinecraft().thePlayer;
         ItemStack held = player == null ? null : player.getHeldItem();
         Config.select(held != null && held.getItem() instanceof ItemGunBaseNT ? gunId(held.getItem()) : null);
-        if (Config.enabled) CameraRecoil.frame();
+        if (Config.enabled && acup.gunfeel.compat.Feature.RECOIL.on()) CameraRecoil.frame();
         // a trace scenario's frame after the camera's, as 26.2's frame listeners run (TraceScenario)
         if (TraceScenario.started()) TraceScenario.frame();
     }

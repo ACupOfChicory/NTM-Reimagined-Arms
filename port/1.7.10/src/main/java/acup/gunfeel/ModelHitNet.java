@@ -92,7 +92,7 @@ public final class ModelHitNet {
 
         @SubscribeEvent
         public void worldTick(TickEvent.WorldTickEvent e) {
-            if (e.phase == TickEvent.Phase.END && !e.world.isRemote) ModelHits.tick(e.world);
+            if (e.phase == TickEvent.Phase.END && !e.world.isRemote && acup.gunfeel.compat.Feature.MODEL_HITBOXES.on()) ModelHits.tick(e.world);
         }
     }
 }

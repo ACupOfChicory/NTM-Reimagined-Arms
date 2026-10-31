@@ -70,7 +70,7 @@ public final class ModelHitClient {
         current = null;
         target = null;
         inModel = false;
-        if (!enabled || model == null || !eligible(entity)) return;
+        if (!enabled || !acup.gunfeel.compat.Feature.MODEL_HITBOXES.on() || model == null || !eligible(entity)) return;
         target = entity;
         ModelHitClient.model = model;
         renderX = x;

@@ -164,7 +164,7 @@ public final class Net {
     @SubscribeEvent
     public void serverTick(TickEvent.ServerTickEvent e) {
         if (e.phase != TickEvent.Phase.END) return;
-        BulletServer.tick();
+        if (acup.gunfeel.compat.Feature.BULLETS.on()) BulletServer.tick();
         for (Object[] k; (k = KICKS.poll()) != null;) {
             EntityPlayerMP p = (EntityPlayerMP) k[0];
             if (p.playerNetServerHandler != null) p.playerNetServerHandler.kickPlayerFromServer((String) k[1]);

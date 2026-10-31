@@ -99,6 +99,11 @@ final class LookScenario {
             ShootScenario.trigger(false, mc);
         } else if (t == AT_ZOMBIE + 20) {
             shot(mc, "zombie-after");
+        } else if (t == DONE - 10) {
+            // the systems' state in chat (the chat lines go to the log as [CHAT])
+            net.minecraftforge.client.ClientCommandHandler.instance.executeCommand(mc.thePlayer, "/gunfeel status");
+        } else if (t == DONE - 5) {
+            shot(mc, "status");
         } else if (t == DONE) {
             RenderManager.debugBoundingBox = false;
             GunFeel.LOGGER.info("Scenario look done: screenshots in {}", new File(mc.mcDataDir, "screenshots"));

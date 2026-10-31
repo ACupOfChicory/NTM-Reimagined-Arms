@@ -16,6 +16,6 @@ public abstract class MixinEntityRenderer {
     // axis before the camera's pitch and yaw, where the hurt shake turns it too. Forge 1.7.10 has no camera event.
     @Inject(method = "orientCamera", at = @At("HEAD"))
     private void gunfeel$roll(float partial, CallbackInfo ci) {
-        if (Config.enabled && CameraRecoil.roll != 0F) GL11.glRotatef(CameraRecoil.roll, 0F, 0F, 1F);
+        if (Config.enabled && acup.gunfeel.compat.Feature.RECOIL.on() && CameraRecoil.roll != 0F) GL11.glRotatef(CameraRecoil.roll, 0F, 0F, 1F);
     }
 }
