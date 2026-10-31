@@ -28,6 +28,13 @@ public final class ModelRecoil {
         return SHOTS.isEmpty();
     }
 
+    // every kick played to its end by now, drawn or not (a gun NTM draws without the mod's hook never clears them)
+    public static boolean over() {
+        long now = GunClock.nanos();
+        for (Shot s : SHOTS) if ((now - s.start) / 1e9F * s.speed < s.length()) return false;
+        return true;
+    }
+
     public static void shot(boolean aiming) {
         float s = Config.modelKick * (aiming ? Config.adsRecoil : 1F);
         if (s <= 0F) return;

@@ -321,7 +321,9 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
     val holes = name == "runBenchHoles"
     val mobs = name == "runCheckMobs" || review
     val selfTest = providers.gradleProperty("mobReviewSelfTest").isPresent || providers.gradleProperty("headLabelSelfTest").isPresent
-    timeout.set(if(review && !selfTest) Duration.ofDays(1) else if(mobs && !selfTest) Duration.ofHours(1) else Duration.ofMinutes(if(holes) 30 else 8))
+    // a trace scenario on every gun (-Pscenario, -PscenarioGuns=all) plays for about half an hour
+    val scenario = providers.gradleProperty("scenario").isPresent
+    timeout.set(if(review && !selfTest) Duration.ofDays(1) else if((mobs && !selfTest) || scenario) Duration.ofHours(if(scenario) 2 else 1) else Duration.ofMinutes(if(holes) 30 else 8))
     val result = if(holes) "holebench/result.txt" else if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {
         if(holes || review) {
