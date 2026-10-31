@@ -100,16 +100,23 @@ BULLETS method com/hbm/items/weapon/sedna/BulletConfigs indexOf (Lcom/hbm/items/
 BULLETS method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraft/world/item/ItemStack;)F
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/world/item/ItemStack;I)F
+CORE class com/hbm/client/GunHudOverlay
+CORE class com/hbm/client/anim/HbmAnimations
 CORE class com/hbm/client/render/weapon/WeaponPose
 CORE class com/hbm/client/render/weapon/WeaponRenderer
 CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
+CORE class com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
+CORE class com/hbm/items/weapon/sedna/mags/IMagazine
 CORE field com/hbm/client/HbmKeybindsClient reloadKey Ldev/golem/core/client/KeyMappings$Mapping;
+CORE field com/hbm/client/anim/HbmAnimations$Animation key Lnet/minecraft/world/item/Item;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+CORE field com/hbm/items/weapon/sedna/BulletConfig id Lnet/minecraft/resources/Identifier;
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShotByHand [[J
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+CORE method com/hbm/client/anim/HbmAnimations getRelevantAnim (Lnet/minecraft/world/InteractionHand;I)Lcom/hbm/client/anim/HbmAnimations$Animation;
 CORE method com/hbm/client/render/weapon/WeaponPose <init> ()V
 CORE method com/hbm/client/render/weapon/WeaponRenderer gem ()Ldev/golem/core/render/gem/Gem$Model;
 CORE method com/hbm/client/render/weapon/WeaponRenderers forStack (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/client/render/weapon/WeaponRenderer;
@@ -118,10 +125,20 @@ CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getId ()I
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
+CORE method com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag <init> (Lnet/minecraft/world/item/ItemStack;)V
+CORE method com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag getSlots ()I
+CORE method com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag getStackInSlot (I)Lnet/minecraft/world/item/ItemStack;
+CORE method com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag setStackInSlot (ILnet/minecraft/world/item/ItemStack;)V
+CORE method com/hbm/items/weapon/sedna/BulletConfig matchesAmmo (Lnet/minecraft/world/item/ItemStack;)Z
+CORE method com/hbm/items/weapon/sedna/BulletConfigs get (Ljava/lang/String;)Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimaryMagazine (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine ammoBag (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag;
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecraft/world/item/ItemStack;)I
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getIconForHUD (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/player/Player;)Lnet/minecraft/world/item/ItemStack;
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT
 HUD class com/hbm/items/weapon/sedna/BulletConfig
 HUD class com/hbm/items/weapon/sedna/ItemGunBaseNT
