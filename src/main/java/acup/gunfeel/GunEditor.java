@@ -372,6 +372,10 @@ public final class GunEditor extends Screen {
                 out.add(new ConfigRow("cameraScale", -1, "камера: сила", 0F, 2F, 0.01F));
                 out.add(new ConfigRow("cameraTime", -1, "камера: время", 0.05F, 3F, 0.01F));
                 out.add(new ConfigRow("cameraShake", -1, "камера: крен", 0F, 3F, 0.01F));
+                out.add(new ConfigRow("cameraClimb", -1, "камера: остаётся вверх", 0F, 1F, 0.01F));
+                out.add(new ConfigRow("cameraClimbDeg", -1, "камера: вверх, градусы", 0F, 3F, 0.01F));
+                out.add(new ConfigRow("cameraDriftDeg", -1, "камера: в бок, градусы", 0F, 3F, 0.01F));
+                out.add(new ConfigRow("cameraClimbRamp", -1, "камера: разгон, выстрелов", 0F, 30F, 1F));
                 out.add(new ConfigRow("modelKick", -1, "пушка: сила", 0F, 3F, 0.01F));
                 out.add(new ConfigRow("modelRotate", -1, "пушка: поворот", 0F, 3F, 0.01F));
                 out.add(new ConfigRow("modelSpeed", -1, "пушка: скорость", 0.05F, 3F, 0.01F));
