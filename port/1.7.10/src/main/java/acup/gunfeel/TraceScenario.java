@@ -212,7 +212,7 @@ public final class TraceScenario {
     private static boolean settled() {
         HbmAnimations.Animation anim = HbmAnimations.getRelevantAnim(0);
         boolean over = anim == null || anim.animation == null || ntmNow() - anim.startMillis > anim.animation.getDuration();
-        return over && ModelRecoil.idle() && CameraRecoil.idle();
+        return over && ModelRecoil.over() && CameraRecoil.idle();
     }
 
     // NTM's animation as from the server's packet; a shot's random draws (the gun's recoil, NTM's flash) seeded
@@ -220,6 +220,12 @@ public final class TraceScenario {
         long seed = Trace.DEFAULT_SEED + gun * 10_000L + part * 100L + k;
         player.getRNG().setSeed(seed);
         player.worldObj.rand.setSeed(seed);
+        // a gun without animations (the fire extinguisher): NTM sends it none, its packet handler would fail
+        ItemStack stack = player.getHeldItem();
+        if (((ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getAnims(stack) == null) {
+            TestLog.c(-1, "anim", "type", type, "none", true);
+            return;
+        }
         TestLog.c(-1, "anim", "type", type);
         int slot = player.inventory.currentItem;
         HbmAnimationPacket.Handler.handleSedna(player, player.getHeldItem(), slot, type, 0, 0);

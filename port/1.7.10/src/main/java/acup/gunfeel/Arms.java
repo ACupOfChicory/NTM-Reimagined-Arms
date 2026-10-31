@@ -403,6 +403,7 @@ public final class Arms {
             }
             // armLeftHide / armRightHide (per gun): the hand is not drawn in these stretches of an animation
             if (hidden(i)) {
+                if (TestLog.frames()) TestLog.c(-1, "arm_hidden", "right", right, "anim", ArmAnims.type(0), "t", animMillis());
                 if (debugArms) GunFeel.LOGGER.info("[armdebug] {} {} t={} hidden", right ? "R" : "L", ArmAnims.type(0), fmt(animMillis()));
                 continue;
             }
@@ -410,6 +411,7 @@ public final class Arms {
             if (magazineInspect(i)) {
                 Matrix4f rifle=partPose("Rifle",0);
                 if (rifle!=null) {
+                    branch = "magazine";
                     // Одна постоянная поза руки в системе магазина, без повторного
                     // решения плеча, изменения длины или отдельной траектории кисти.
                     Matrix4f bind=new Matrix4f(restBody).invert().mul(r.local);
@@ -679,6 +681,17 @@ public final class Arms {
     // /gunfeel armdebug: every frame, how each arm was placed, to the log ("[armdebug]")
     public static boolean debugArms;
     private static String branch = "", branchNote = "";
+
+    // the branch's name alone (rest, path, carry, release, around, hold, magazine): the trace compares it exactly
+    private static String branchName() {
+        int space = branch.indexOf(' ');
+        return space < 0 ? branch : branch.substring(0, space);
+    }
+
+    // port: a Vector3f for the trace as a float[] (TestLog has no JOML)
+    private static float[] xyz(Vector3f v) {
+        return new float[] {v.x, v.y, v.z};
+    }
 
     private static String fmt(float v) {
         return String.format(java.util.Locale.ROOT, "%.3f", v);
@@ -1367,10 +1380,20 @@ public final class Arms {
         }
         final int shown = crop;
         if (TestLog.frames()) {
+            // three points of the drawn arm in camera space, for comparing in blocks: the grip (the hand end's middle,
+            // moved to the contact point while a path holds it), the wrist (4 pixels back) and the elbow (the far
+            // end of what is drawn, where the arm is cut; the shoulder when it is whole)
             HbmAnimations.Animation playing = HbmAnimations.getRelevantAnim(0);
+            Matrix4f inCamera = new Matrix4f(CAMERA).invert().mul(m);
+            Vector3f grip = ArmContact.pivot(right, slim, pathContact[hand]);
+            Vector3f axis = ArmContact.pivot(right, slim, new Vector3f());
+            Vector3f wrist = inCamera.transformPosition(new Vector3f(axis.x, 8F / 16F, axis.z));
+            Vector3f elbow = inCamera.transformPosition(new Vector3f(axis.x, (12 - crop) / 16F, axis.z));
             TestLog.c(-1, "arm", "right", right, "anim", playing == null ? "none" : ArmAnims.type(0),
                     "t", playing == null ? -1L : ArmAnims.now() - playing.startMillis, "crop", crop, "slim", slim,
-                    "m", new Matrix4f(CAMERA).invert().mul(m).get(new float[16])); // port: a float[] (TestLog has no JOML)
+                    "branch", branchName(), "contact", xyz(pathContact[hand]),
+                    "grip", xyz(inCamera.transformPosition(grip)), "wrist", xyz(wrist), "elbow", xyz(elbow),
+                    "m", inCamera.get(new float[16])); // port: float[]s (TestLog has no JOML)
         }
         if (debugArms) {
             GunAnimation type = ArmAnims.type(0);
