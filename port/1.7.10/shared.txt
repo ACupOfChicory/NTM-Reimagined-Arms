@@ -1,0 +1,22 @@
+# 26.2 files this port compiles as they are, from the repository root's src/ (build.gradle.kts copies them into build/).
+# A file that needs changes for 1.7.10 is copied into port/1.7.10/src/ instead: see notes/ports/port-1.7.10-copied.md.
+
+[main]
+# src/main/java
+acup/gunfeel/Recoil.java
+acup/gunfeel/Spring.java
+acup/gunfeel/Curve.java
+
+[test]
+# src/test/java: they test the port's copies with 26.2's own expectations
+acup/gunfeel/SpringTest.java
+acup/gunfeel/CurveTest.java
+acup/gunfeel/RecoilTest.java
+acup/gunfeel/WeaponSwayTest.java
+acup/gunfeel/ConfigTest.java
+
+[resources]
+# src/main/resources
+ntmgunfeel-recoil.properties
+ntmgunfeel-guns.properties
+ntmgunfeel-server.properties

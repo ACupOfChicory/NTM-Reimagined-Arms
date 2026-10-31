@@ -1,0 +1,16 @@
+[{
+	"modid": "${modId}",
+	"name": "${modName} @DISPLAY@",
+	"description": "Recoil, weapon sway and gun model kick for HBM's Nuclear Tech Mod guns (port of NTM Reimagined Arms).",
+	"version": "${modVersion}",
+	"mcversion": "${minecraftVersion}",
+	"url": "",
+	"updateUrl": "",
+	"authorList": ["ACupOfChicory"],
+	"credits": "Weapon sway after Superb Warfare (GPL-3.0-only).",
+	"logoFile": "",
+	"screenshots": [],
+	"requiredMods": ["hbm"],
+	"dependencies": ["hbm"],
+	"useDependencyInformation": false
+}]

@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8.5-GTNH",
+  "package": "acup.gunfeel.mixins",
+  "refmap": "mixins.ntmgunfeel.refmap.json",
+  "target": "@env(DEFAULT)",
+  "compatibilityLevel": "JAVA_8",
+  "injectors": { "defaultRequire": 1 },
+  "mixins": [],
+  "client": ["MixinModEventHandlerClient", "MixinItemRenderWeaponBase", "MixinHbmAnimations", "MixinWavefrontObject", "MixinWavefrontObjectVBO"],
+  "server": []
+}

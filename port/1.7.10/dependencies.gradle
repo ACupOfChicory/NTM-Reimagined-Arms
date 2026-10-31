@@ -1,0 +1,9 @@
+dependencies {
+    // NTM 1.7.10 (release jar, deobfuscated by RFG for the dev runs); the mod jar never contains it.
+    // Copy it from ~/Riddles-NTM/jars/ into libs/ (libs/ is not in git).
+    devOnlyNonPublishable(rfg.deobf(project.files("libs/HBM-NTM-.1.0.27_X5863.jar")))
+
+    testImplementation(platform("org.junit:junit-bom:5.13.4"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
