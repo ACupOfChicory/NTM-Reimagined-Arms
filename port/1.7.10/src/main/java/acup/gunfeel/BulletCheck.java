@@ -21,9 +21,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.WorldServer;
 
 // port: 26.2's BulletCheck (0762086) on a 1.7.10 dedicated server (runServer -PcheckBullets): the same lanes, rounds
-// and checks where 1.7.10 has the blocks; the 26.2 blocks with model cells or masks (fence and gate gaps, wooden
-// structures, the bunker door's grille, copper grates) are left out or marked DIFF: 1.7.10 has no cells yet and meets
-// them by their collision boxes. Model hitboxes of mobs are the hitboxes' check. Added: a path past 200 cells in one
+// and checks where 1.7.10 has the blocks; fences, gates and walls go by 26.2's family cells (FenceCells); the 26.2
+// blocks with other model cells or masks (wooden structures, the bunker door's grille, copper grates) are left out or
+// marked DIFF: 1.7.10 has no such cells yet and meets them by their collision boxes. Model hitboxes of mobs are the hitboxes' check. Added: a path past 200 cells in one
 // tick (1.7.10's own ray stops there) and a point-blank shot.
 // -Dntmgunfeel.checkBullets=<file>: on the first server tick the server puts blocks high in the air, each in a lane of
 // its own, and fires a real NTM bullet (EntityBulletBaseMK4, no shooter) along the lane at a spot of the block. The
@@ -114,8 +114,8 @@ public final class BulletCheck {
         expect("Mr Deuce DU: one metre of wired glass just passes", Want.PIERCE, single("hbm:reinforced_glass", 0), .5, .5, 11.25F, null);
         round = plainRound;
 
-        // ---- fences, gates, walls: 26.2 meets their posts and rails (cells); 1.7.10 their collision boxes
-        String cells = "no fence/gate/wall cells on 1.7.10 yet: its collision box";
+        // ---- fences, gates, walls: their posts and rails (26.2's family cells, FenceCells), not their collision boxes
+        String cells = null;
         expect("fence: between the rails", Want.PASS, fenceRow(), .25, .65, 30F, cells);
         expect("fence: the post", Want.PIERCE, fenceRow(), .5, .5, 30F, null);
         expect("gate closed: between the bars", Want.PASS, single("minecraft:fence_gate", 0), .25, .65, 30F, cells);

@@ -482,7 +482,7 @@ public final class BulletRules {
     // how a bullet meets the block, by a "path" line: hitbox, pixels (its texture's mask: bars, grates), model (its
     // model's cells: scaffold, doors), a family's premade cells (fence, fence_gate, wall, bamboo_fence,
     // bamboo_fence_gate: PassableClip.FAMILIES) or through; null: no line, PassableClip works it out
-    // port: on 1.7.10 only hitbox and through change anything yet (no masks or cells: PassableClip)
+    // port: on 1.7.10 hitbox, through and the families (FenceCells) change anything yet (no masks or model cells)
     public static synchronized String path(Block block, int meta, World world, int x, int y, int z) {
         rules();
         Object known = PATHS.get(block, meta);

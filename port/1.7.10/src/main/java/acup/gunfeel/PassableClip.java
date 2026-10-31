@@ -17,10 +17,10 @@ import net.minecraft.world.World;
 // empties a block's shape); 1.7.10's World.func_147447_a has no such hook and other limits (BlockRay), so the port walks
 // the cells itself with 26.2's walk and meets each block by its collision boxes, as 26.2 does (ClipContext.Block.COLLIDER).
 // Flown through: air, liquids, blocks without a collision box (as NTM asks func_147447_a), blocks that cannot be hit
-// (canCollideCheck), and blocks with a "through" rule. Not yet on 1.7.10: masks of see-through blocks (bars, grates),
-// model cells (doors, scaffold, fences' gaps) and the cells of NTM's big models (Structures): the tables
-// (ntmgunfeel-bullet-masks/-shapes) are made for 26.2's block states and must be made anew for 1.7.10's (Block, meta).
-// There, such blocks are met by their collision boxes ("hitbox").
+// (canCollideCheck), and blocks with a "through" rule. Fences, gates and walls: 26.2's family cells (FenceCells).
+// Not yet on 1.7.10: masks of see-through blocks (bars, grates), model cells of single blocks (doors, scaffold) and the
+// cells of NTM's big models (Structures): those tables are made for 26.2's block states and must be made anew for
+// 1.7.10's (Block, meta). There, such blocks are met by their collision boxes ("hitbox").
 public final class PassableClip {
     private static final org.apache.logging.log4j.Logger LOGGER = GunFeel.LOGGER;
 
@@ -66,6 +66,16 @@ public final class PassableClip {
             if (b.getMaterial() == Material.air) return null;
             int meta = world.getBlockMetadata(x, y, z);
             if (!b.canCollideCheck(meta, false) || BulletRules.through(b, meta, world, x, y, z)) return null;
+            long[] cells = FenceCells.of(world, b, meta, x, y, z, BulletRules.path(b, meta, world, x, y, z));
+            if (cells != null) {
+                // a fence, gate or wall: into the whole cell, then only the cells its model fills stop the bullet
+                BlockRay.Hit in = BlockRay.clip(new double[] {x, y, z, x + 1, y + 1, z + 1}, 1, fx, fy, fz, tx, ty, tz, x, y, z);
+                BlockRay.Hit h = in == null ? null : FenceCells.march(cells, in, tx - fx, ty - fy, tz - fz, 64);
+                if (debug && in != null)
+                    LOGGER.info("[holedebug]   {} {} {} cells: {}", world.isRemote ? "client" : "server", BlockIds.state(Block.blockRegistry.getNameForObject(b), meta),
+                            x + "," + y + "," + z, h == null ? "through the gaps" : h);
+                return h;
+            }
             int n = collision(world, b, x, y, z, boxes);
             BlockRay.Hit h = BlockRay.clip(boxes, n, fx, fy, fz, tx, ty, tz, x, y, z);
             if (debug && h != null)
@@ -125,6 +135,10 @@ public final class PassableClip {
     // along (dx, dy, dz) (unit), as a hit on that far face from outside; null when its shape gives no way out
     public static BlockRay.Hit exit(World world, BlockRay.Hit in, double dx, double dy, double dz) {
         Block b = world.getBlock(in.x, in.y, in.z);
+        int meta = world.getBlockMetadata(in.x, in.y, in.z);
+        long[] cells = FenceCells.of(world, b, meta, in.x, in.y, in.z, BulletRules.path(b, meta, world, in.x, in.y, in.z));
+        // a fence's post or rail: out where its cells end along the way
+        if (cells != null) return FenceCells.leave(cells, in, dx, dy, dz);
         double[] boxes = new double[6 * 16];
         int n = outline(world, b, in.x, in.y, in.z, boxes);
         double fx = in.ax + dx * 2.0, fy = in.ay + dy * 2.0, fz = in.az + dz * 2.0;

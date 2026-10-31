@@ -53,6 +53,8 @@ ntmgunfeel-heads.json
 ntmgunfeel-limbs.json
 ntmgunfeel-materials.txt
 ntmgunfeel-bullets.txt
+# the fence, gate and wall cells (FenceCells reads the "~family[...]" lines)
+ntmgunfeel-bullet-shapes.properties
 
 [main-phys]
 # src/main/java, compiled with net.minecraft.world.phys.Vec3 read as acup.gunfeel.phys.Vec3 (build.gradle.kts)
