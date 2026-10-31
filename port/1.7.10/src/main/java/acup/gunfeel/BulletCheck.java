@@ -166,6 +166,12 @@ public final class BulletCheck {
         // a wooden door's top, closed across z (lower meta 1): its two windows, its frame
         expect("wooden door: through the window", Want.PASS, doorTop("minecraft:wooden_door", 1), 4.5 * px, 11.5 * px, 30F, null);
         expect("wooden door: the frame", Want.MEET, doorTop("minecraft:wooden_door", 1), .5, 14.5 * px, 30F, null);
+        // NTM's bunker door, closed: a steel leaf 3 px thick, a grille of 1-pixel holes in its top half (pixel rows 6-8
+        // from the bottom, in a chequer). A hole is flown through untouched, the steel round it holds a plain round and
+        // lets a heavy one through. Seen from -z the 1.7.10 texture is mirrored against 26.2's: the hole one pixel over
+        expect("bunker door: a grille hole", Want.PASS, doorTop("hbm:door_bunker", 1), 5.5 * px, 8.5 * px, 60F, null);
+        expect("bunker door: the steel beside the hole", Want.STOP, doorTop("hbm:door_bunker", 1), 4.5 * px, 8.5 * px, 60F, null);
+        expect("bunker door: 150 damage goes through the steel", Want.PIERCE, doorTop("hbm:door_bunker", 1), .5, .2, 150F, null);
 
         // ---- materials: a plank is pierced with the rule's loss, concrete holds
         int[] at = single("minecraft:planks", 0);
