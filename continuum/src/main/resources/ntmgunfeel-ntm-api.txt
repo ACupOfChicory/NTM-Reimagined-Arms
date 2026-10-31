@@ -46,27 +46,66 @@ BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/
 BULLETS method com/hbm/lib/ModDamageSources bullet (Lnet/minecraft/world/level/Level;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/world/damagesource/DamageSource;
 BULLETS method com/hbm/lib/ModDamageSources$DamageClass type ()Lnet/minecraft/resources/ResourceKey;
 BULLETS method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z
+CORE class com/hbm/blocks/generic/BlockBarrier
+CORE class com/hbm/blocks/generic/BlockWoodStructure
 CORE class com/hbm/client/render/weapon/WeaponPose
 CORE class com/hbm/client/render/weapon/WeaponRenderer
 CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
+CORE field com/hbm/blocks/generic/BlockBarrier EAST Lnet/minecraft/world/level/block/state/properties/BooleanProperty;
+CORE field com/hbm/blocks/generic/BlockBarrier NORTH Lnet/minecraft/world/level/block/state/properties/BooleanProperty;
+CORE field com/hbm/blocks/generic/BlockBarrier SOUTH Lnet/minecraft/world/level/block/state/properties/BooleanProperty;
+CORE field com/hbm/blocks/generic/BlockBarrier UP Lnet/minecraft/world/level/block/state/properties/BooleanProperty;
+CORE field com/hbm/blocks/generic/BlockBarrier WEST Lnet/minecraft/world/level/block/state/properties/BooleanProperty;
+CORE field com/hbm/blocks/generic/BlockWoodStructure EAST Lnet/minecraft/world/level/block/state/properties/BooleanProperty;
+CORE field com/hbm/blocks/generic/BlockWoodStructure NORTH Lnet/minecraft/world/level/block/state/properties/BooleanProperty;
+CORE field com/hbm/blocks/generic/BlockWoodStructure SOUTH Lnet/minecraft/world/level/block/state/properties/BooleanProperty;
+CORE field com/hbm/blocks/generic/BlockWoodStructure UP Lnet/minecraft/world/level/block/state/properties/BooleanProperty;
+CORE field com/hbm/blocks/generic/BlockWoodStructure WEST Lnet/minecraft/world/level/block/state/properties/BooleanProperty;
+CORE field com/hbm/blocks/generic/BlockWoodStructure type Lcom/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure;
+CORE field com/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure ROOF Lcom/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure;
+CORE field com/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure SCAFFOLD Lcom/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure;
 CORE field com/hbm/client/HbmKeybindsClient reloadKey Ldev/golem/core/client/KeyMappings$Mapping;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_TERTIARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+CORE field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
+CORE field com/hbm/items/weapon/sedna/BulletConfig doesPenetrate Z
+CORE field com/hbm/items/weapon/sedna/BulletConfig gravity F
+CORE field com/hbm/items/weapon/sedna/BulletConfig id Lnet/minecraft/resources/Identifier;
+CORE field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
+CORE field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
+CORE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
+CORE field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
+CORE field com/hbm/items/weapon/sedna/BulletConfig spread F
+CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShotByHand [[J
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+CORE field com/hbm/items/weapon/sedna/factory/Lego LAMBDA_TOGGLE_AIM Ljava/util/function/BiConsumer;
+CORE method com/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure ordinal ()I
+CORE method com/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure values ()[Lcom/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure;
 CORE method com/hbm/client/render/weapon/WeaponPose <init> ()V
 CORE method com/hbm/client/render/weapon/WeaponRenderer gem ()Ldev/golem/core/render/gem/Gem$Model;
 CORE method com/hbm/client/render/weapon/WeaponRenderers forStack (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/client/render/weapon/WeaponRenderer;
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/items/weapon/sedna/BulletConfig;FFDDD)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getId ()I
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 shoot (DDDF)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 tick ()V
+CORE method com/hbm/items/weapon/sedna/BulletConfigs all ()Ljava/util/List;
+CORE method com/hbm/items/weapon/sedna/BulletConfigs get (Ljava/lang/String;)Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE method com/hbm/items/weapon/sedna/GunConfig getPressTertiary (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiConsumer;
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimaryMagazine (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
 HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT

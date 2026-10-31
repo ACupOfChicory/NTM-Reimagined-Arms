@@ -43,7 +43,6 @@ mixin/mc/VanillateEntityAccess.java
 
 # Self-tests, benchmarks and dumps written for NTM NEXT on 26.2 (their runs are main's build.gradle.kts)
 ClientSmoke.java
-BulletCheck.java
 MobSmoke.java
 HeadSmoke.java
 ExplosiveSmoke.java
@@ -68,7 +67,6 @@ GunGeometry.java
 InstantSwitch.java
 # server bullets: CompatEntity bullets, BulletImpact, DamageResistanceHandler, MultiblockSurface, doors and lifts
 Structures.java
-WoodBoxes.java
 # arms: ItemRenderWeaponBase is WeaponRenderer + Gem, HbmAnimations is per hand
 Arms.java
 ArmAnimationPreview.java
