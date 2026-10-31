@@ -18,8 +18,9 @@ import net.minecraft.world.WorldServer;
 // port: 26.2's BulletCheck.modelHits, maskmanModelHits, surfaceModelHits and retainedModelHits (e284339) on the 1.7.10
 // server: a pose put straight into ModelHits (as a client's would be) and real NTM bullets and beams against it. Not
 // here, as 1.7.10 does not have them: the vanilla box of the entity (the port hands ModelAABB only to NTM's bullet and
-// beam, not to Entity.boundingBox), so no vanilla arrow or melee pick; the movement-dimension check (the box is the
-// vanilla one by construction); posture (1.7.10 has no Pose: sneaking only for players).
+// beam and vanilla projectiles, not to Entity.boundingBox); the melee pick (a client's, MixinMousePick: no client
+// here); the movement-dimension check (the box is the vanilla one by construction); posture (1.7.10 has no Pose:
+// sneaking only for players).
 final class BulletCheckModels {
     interface Check {
         void check(String name, Object want, Object got);
@@ -87,6 +88,20 @@ final class BulletCheckModels {
         return target.getHealth() < before;
     }
 
+    // a vanilla arrow at 6 blocks a tick from `start` along +z for one tick (MixinVanillaProjectileHits): whether the
+    // target lost health
+    private static boolean arrow(EntityLivingBase target, Vec3 start) {
+        net.minecraft.entity.projectile.EntityArrow a = new net.minecraft.entity.projectile.EntityArrow(level, start.x(), start.y(), start.z());
+        a.setThrowableHeading(0, 0, 1, 6F, 0F);
+        level.spawnEntityInWorld(a);
+        target.hurtResistantTime = 0;
+        target.setHealth(target.getMaxHealth());
+        float before = target.getHealth();
+        a.onUpdate();
+        a.setDead();
+        return target.getHealth() < before;
+    }
+
     private static final BulletConfig BEAM = new BulletConfig().setBeam().setDamage(10).setOnBeamImpact(BulletConfig.LAMBDA_STANDARD_BEAM_HIT);
 
     // an NTM beam with 10 damage from `start` along +z, 6 blocks: whether the target lost health
@@ -138,6 +153,9 @@ final class BulletCheckModels {
         for (int i = 0; i < 2; i++)
             check("model: NTM beam " + (i == 0 ? "misses gap" : "hits leg"), i != 0, beam(g, i == 0 ? gap : leg));
         check("model: NTM bullet hits a wing outside the vanilla box", true, bullet(g, wing));
+        for (int i = 0; i < 2; i++)
+            check("model: real vanilla arrow " + (i == 0 ? "misses gap" : "hits leg"), i != 0, arrow(g, i == 0 ? gap : leg));
+        check("model: vanilla arrow hits a wing outside the vanilla box", true, arrow(g, wing));
         g.setPosition(g.posX + 30, g.posY, g.posZ);
         check("model: teleport invalidates old pose", true, clips(g, gap.add(30, 0, 0), gapEnd.add(30, 0, 0)));
         ModelHits.clear(level);
@@ -158,6 +176,7 @@ final class BulletCheckModels {
         Vec3 arm = origin.add(1.25, 2.5, -3);
         check("maskman: arm beyond vanilla width is hit", true, clips(m, arm, arm.add(0, 0, 6)));
         check("maskman: NTM bullet hits the protruding arm", true, bullet(m, arm));
+        check("maskman: arrow finds the protruding arm", true, arrow(m, arm));
         check("maskman: debug uses model parts", 2, ModelHits.outlines(m).size());
         m.setDead();
     }
@@ -177,6 +196,7 @@ final class BulletCheckModels {
             Vec3 start = origin.add(xy, xy, -3);
             check("mesh: NTM bullet " + (i == 0 ? "misses empty corner" : "hits real surface"), i != 0, bullet(target, start));
             check("mesh: NTM beam " + (i == 0 ? "misses empty corner" : "hits real surface"), i != 0, beam(target, start));
+            check("mesh: real arrow " + (i == 0 ? "misses empty corner" : "hits real surface"), i != 0, arrow(target, start));
         }
         target.setDead();
     }

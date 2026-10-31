@@ -16,7 +16,11 @@ public final class MixinCheck {
             {"com.hbm.render.anim.HbmAnimations", "2"},
             {"com.hbm.render.loader.HFRWavefrontObject", "8"}, // 4 + MachineMesh ends 4
             {"com.hbm.render.loader.HFRWavefrontObjectVBO", "4"},
-            {"net.minecraft.client.renderer.EntityRenderer", "2"},
+            {"net.minecraft.client.renderer.EntityRenderer", "4"}, // 2 + MixinMousePick 2
+            {"net.minecraft.entity.projectile.EntityArrow", "5"}, // MixinVanillaProjectileHits, as the three below
+            {"net.minecraft.entity.projectile.EntityThrowable", "5"},
+            {"net.minecraft.entity.projectile.EntityFireball", "5"},
+            {"net.minecraft.entity.projectile.EntityFishHook", "5"},
             {"net.minecraft.util.Timer", "1"},
             {"com.hbm.util.Clock", "1"},
             {"com.hbm.render.entity.projectile.RenderBulletMK4", "1"},
