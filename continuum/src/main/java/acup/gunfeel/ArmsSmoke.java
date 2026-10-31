@@ -30,8 +30,8 @@ public final class ArmsSmoke {
     private static final List<String[]> GUNS = List.of(
             new String[] {"maresleg", "gun_maresleg", "ammo_standard_g12"},
             new String[] {"spas12", "gun_spas12", "ammo_standard_g12"},
-            new String[] {"henry", "gun_henry", "ammo_standard_m357_sp"},
-            new String[] {"lincoln", "gun_henry_lincoln", "ammo_standard_m357_sp"},
+            new String[] {"henry", "gun_henry", "ammo_standard_m44_sp"},
+            new String[] {"lincoln", "gun_henry_lincoln", "ammo_standard_m44_sp"},
             new String[] {"liberator", "gun_liberator", "ammo_standard_g12"},
             new String[] {"sexy", "gun_autoshotgun_sexy", "ammo_standard_g12"},
             new String[] {"g3", "gun_g3", "ammo_standard_r556_sp"});
@@ -136,9 +136,9 @@ public final class ArmsSmoke {
                 else if (stageTicks > 20 * 15) fail("inspect never ended");
             }
             case AIM -> {
-                // a press toggles aiming once the server takes it: pressed again every 10 ticks until it has
-                HbmKeybindsClient.gunSecondaryKey.setDown(stageTicks % 10 <= 2 && stageTicks % 10 > 0);
-                if (ItemGunBaseNT.getIsAiming(held) && stageTicks % 10 > 2) next(Stage.AIMED);
+                // the key press does not reach the gun in this run: aiming is set on the stack, on both sides
+                if (stageTicks == 1) aim(mc, server, true);
+                if (ItemGunBaseNT.getIsAiming(held) && stageTicks > 2) next(Stage.AIMED);
                 else if (stageTicks > 100) next(Stage.AIMED);
             }
             case AIMED -> {
@@ -158,7 +158,7 @@ public final class ArmsSmoke {
                 else if (stageTicks > 20 * 10) next(Stage.UNAIM);
             }
             case UNAIM -> {
-                HbmKeybindsClient.gunSecondaryKey.setDown(stageTicks % 10 <= 2 && stageTicks % 10 > 0);
+                if (stageTicks == 1) aim(mc, server, false);
                 if (!ItemGunBaseNT.getIsAiming(held) && stageTicks % 10 > 2 && ItemGunBaseNT.aimingProgress == 0F) next(Stage.FIRE);
                 else if (stageTicks > 100) next(Stage.FIRE);
             }
@@ -221,6 +221,15 @@ public final class ArmsSmoke {
         taken.add(shot);
         shot = null;
         Screenshot.grab(mc.gameDirectory, name, mc.getMainRenderTarget(), 1, m -> {
+        });
+    }
+
+    private static void aim(Minecraft mc, MinecraftServer server, boolean on) {
+        ItemGunBaseNT.setIsAiming(mc.player.getMainHandItem(), on);
+        var id = mc.player.getUUID();
+        server.execute(() -> {
+            var p = server.getPlayerList().getPlayer(id);
+            if (p != null) ItemGunBaseNT.setIsAiming(p.getMainHandItem(), on);
         });
     }
 

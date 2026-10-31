@@ -100,6 +100,7 @@ ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/w
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimaryMagazine (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/world/item/ItemStack;Z)V
 ARMS method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
 ARMS method com/hbm/util/GameTime now ()J
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCell
