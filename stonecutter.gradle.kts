@@ -60,7 +60,9 @@ stonecutter parameters {
             // the recoil and sway mixins of this node: GunRecoil and WeaponRenderer (WeaponPoseAccess measures the gun)
             replace("List.of(\"MixinItemGunBaseNT\", \"MixinHbmAnimations\")", "List.of(\"MixinGunRecoil\", \"MixinWeaponRenderer\", \"WeaponPoseAccess\")")
             replace("List.of(\"MixinItemRenderWeaponBase\", \"MixinWholeModelGuns\", \"MixinSexyBottle\", \"MixinHbmAnimations\", \"MixinG3Inspect\")",
-                "List.of(\"MixinWeaponRenderer\", \"MixinWholeModelGuns\", \"MixinSexyBottle\", \"MixinG3Inspect\")")
+                // MixinGunAnimationHandler (the arms' animation cue) is INSTANT_SWITCH's: a mixin of two systems would take the
+                // other one down with it
+                "List.of(\"MixinWeaponRenderer\", \"MixinHbmAnimations\", \"MixinWholeModelGuns\", \"MixinSexyBottle\", \"MixinG3Inspect\")")
             replace("Map.of(\"MixinHbmAnimations\", List.of(\"gone\"))", "Map.of(\"MixinWeaponRenderer\", List.of(\"gone\"))")
             replace("r.skipped().containsKey(\"MixinItemGunBaseNT\")", "r.skipped().containsKey(\"MixinGunRecoil\")")
             // Feature still names NTM NEXT's mixins for the systems not ported yet (absent classes are not checked)
@@ -251,6 +253,37 @@ stonecutter parameters {
             // moved to, are loaded at once
             replace("for (int cx = 0; cx < 4; cx++) for (int cz = 0; cz < 4; cz++) level.setChunkForced(cx, cz, true);",
                 "for (int cx = 0; cx < 8; cx++) for (int cz = 0; cz < 8; cz++) {\n            level.setChunkForced(cx, cz, true);\n            level.getChunk(cx, cz);\n        }")
+            // port/continuum-arms: Arms, GunGeometry and ArmAnimationPreview on NTM Continuum. The gun's OBJ groups are
+            // read from Continuum's WavefrontObj through continuum/src acup.gunfeel.obj (NEXT's class names, the same API)
+            replace("import com.hbm.render.loader.HFRWavefrontObject;\nimport com.mojang.blaze3d.vertex.PoseStack;\n\nimport net.minecraft.client.Minecraft;",
+                "import acup.gunfeel.obj.HFRWavefrontObject;\nimport com.mojang.blaze3d.vertex.PoseStack;\n\nimport net.minecraft.client.Minecraft;")
+            replace("import com.hbm.render.loader.GroupObject;\nimport com.hbm.render.loader.HFRWavefrontObject;\n\n// Geometry",
+                "import acup.gunfeel.obj.GroupObject;\nimport acup.gunfeel.obj.HFRWavefrontObject;\n\n// Geometry")
+            // Arms draws into Golem Core's SubmitSink (WeaponRenderer's collector): the player's arm as custom geometry
+            replace("public static void end(ItemStack stack, SubmitNodeCollector collector, int light, boolean drawArms) {",
+                "public static void end(ItemStack stack, dev.golem.core.render.SubmitSink collector, int light, boolean drawArms) {")
+            replace("private static void draw(SubmitNodeCollector collector, int light) {", "private static void draw(dev.golem.core.render.SubmitSink collector, int light) {")
+            replace("private static void arm(SubmitNodeCollector collector, int light, ModelPart arm,", "private static void arm(dev.golem.core.render.SubmitSink collector, int light, ModelPart arm,")
+            replace("private static void submit(SubmitNodeCollector collector, int light, ModelPart arm,", "private static void submit(dev.golem.core.render.SubmitSink collector, int light, ModelPart arm,")
+            replace("net.minecraft.client.renderer.SubmitNodeCollector NOWHERE = (net.minecraft.client.renderer.SubmitNodeCollector)",
+                "dev.golem.core.render.SubmitSink NOWHERE = (dev.golem.core.render.SubmitSink)")
+            replace("{net.minecraft.client.renderer.SubmitNodeCollector.class}", "{dev.golem.core.render.SubmitSink.class}")
+            replace("collector.submitModelPart(arm, pose, RenderTypes.entityTranslucent(skin), light, OverlayTexture.NO_OVERLAY, null);",
+                "final ModelPart drawn = arm;\n        collector.submitCustomGeometry(pose, RenderTypes.entityTranslucent(skin), (at, buffer) -> {\n" +
+                "            PoseStack ps = new PoseStack();\n            ps.last().set(at);\n            drawn.render(ps, buffer, light, OverlayTexture.NO_OVERLAY);\n        });")
+            // Continuum's animations do not keep their cue (AnimCue), and the hand's projection is vanilla's 70 degrees
+            replace("HbmAnimations.getGunAnimation(", "acup.gunfeel.AnimCue.of(")
+            replace("com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase.adjustHudFov(70F)", "70F")
+            // ArmAnimationPreview: an animation is keyed by its Item; a gun's own table answers when its config has none
+            replace("stack.getItem().getDescriptionId(), com.hbm.util.GameTime.now()", "stack.getItem(), com.hbm.util.GameTime.now()")
+            replace("var factory = gun.getConfig(stack,0).getAnims(stack);\n        if (factory == null) return;\n        var buses = factory.apply(stack,cue);",
+                "var factory = gun.getConfig(stack,0).getAnimation(stack);\n        var buses = factory == null ? null : factory.apply(stack,cue);\n" +
+                "        if (buses == null) buses = com.hbm.client.anim.GunAnimations.get(stack, cue, 0);")
+            replace("HbmAnimations.identity()", "new double[] {0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 2}")
+            // the arms' own classes on this node belong to ARMS (NtmApiTest, Compat): the cue, the Gem walk, the dev check, the OBJ view
+            replace("List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\")",
+                "List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\", " +
+                "\"AnimCue\", \"ArmsGem\", \"ArmsSmoke\", \"HFRWavefrontObject\", \"GroupObject\")")
         }
     }
 }

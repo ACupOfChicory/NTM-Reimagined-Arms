@@ -8,7 +8,7 @@
     "MixinExplosiveDirect", "MixinHeadDamage", "MixinRicochetSound", "MixinHoldAim",
     "MixinAmmoLock", "MixinAmmoLockBelt", "MixinBeamModelQuery"],
   "client": ["MixinTracerRibbon", "MixinGunRecoil", "MixinWeaponRenderer", "WeaponPoseAccess",
-    "MixinClientRegistry", "MixinHbmKeysRadial", "MixinGunAnimationHandler",
+    "MixinClientRegistry", "MixinHbmKeysRadial", "MixinGunAnimationHandler", "MixinHbmAnimations",
     "MixinNtmMeshHits", "ObjGroupAccess", "MixinBeamPronterHits"],
   "injectors": { "defaultRequire": 0 }
 }

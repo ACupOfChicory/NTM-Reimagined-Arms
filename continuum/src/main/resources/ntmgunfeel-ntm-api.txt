@@ -60,9 +60,48 @@ AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getCap
 AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Lcom/hbm/items/weapon/sedna/BulletConfig;
 AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setAmount (Lnet/minecraft/world/item/ItemStack;I)V
 AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setType (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/BulletConfig;)V
+ARMS class com/hbm/client/anim/HbmAnimations$Animation
+ARMS class com/hbm/client/model/WavefrontObj
+ARMS class com/hbm/client/model/WavefrontObj$Group
+ARMS class com/hbm/client/render/weapon/WeaponPose
 ARMS class com/hbm/client/render/weapon/WeaponRenderer
+ARMS class com/hbm/items/weapon/sedna/GunAnimation
+ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT
+ARMS field com/hbm/client/HbmKeybindsClient gunSecondaryKey Ldev/golem/core/client/KeyMappings$Mapping;
+ARMS field com/hbm/client/HbmKeybindsClient reloadKey Ldev/golem/core/client/KeyMappings$Mapping;
+ARMS field com/hbm/client/anim/HbmAnimations$Animation animation Ldev/golem/core/render/anim/BusAnimation;
+ARMS field com/hbm/client/anim/HbmAnimations$Animation startMillis J
+ARMS field com/hbm/client/model/WavefrontObj groups Ljava/util/List;
+ARMS field com/hbm/client/model/WavefrontObj$Group material Ljava/lang/String;
+ARMS field com/hbm/client/model/WavefrontObj$Group name Ljava/lang/String;
+ARMS field com/hbm/items/weapon/sedna/GunAnimation CYCLE Lcom/hbm/items/weapon/sedna/GunAnimation;
+ARMS field com/hbm/items/weapon/sedna/GunAnimation INSPECT Lcom/hbm/items/weapon/sedna/GunAnimation;
+ARMS field com/hbm/items/weapon/sedna/GunAnimation RELOAD Lcom/hbm/items/weapon/sedna/GunAnimation;
+ARMS field com/hbm/items/weapon/sedna/GunAnimation RELOAD_CYCLE Lcom/hbm/items/weapon/sedna/GunAnimation;
+ARMS field com/hbm/items/weapon/sedna/GunAnimation RELOAD_END Lcom/hbm/items/weapon/sedna/GunAnimation;
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
+ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+ARMS method com/hbm/client/anim/GunAnimations get (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/GunAnimation;I)Ldev/golem/core/render/anim/BusAnimation;
+ARMS method com/hbm/client/anim/HbmAnimations getRelevantAnim (I)Lcom/hbm/client/anim/HbmAnimations$Animation;
+ARMS method com/hbm/client/anim/HbmAnimations getRelevantAnim (Lnet/minecraft/world/InteractionHand;I)Lcom/hbm/client/anim/HbmAnimations$Animation;
+ARMS method com/hbm/client/anim/HbmAnimations getRelevantTransformation (Ljava/lang/String;)[D
+ARMS method com/hbm/client/anim/HbmAnimations$Animation <init> (Lnet/minecraft/world/item/Item;JLdev/golem/core/render/anim/BusAnimation;Z)V
+ARMS method com/hbm/client/model/WavefrontObj load (Lnet/minecraft/resources/Identifier;)Lcom/hbm/client/model/WavefrontObj;
+ARMS method com/hbm/client/model/WavefrontObj part (Ljava/lang/String;)Ldev/golem/core/render/gem/Geometry;
+ARMS method com/hbm/client/model/WavefrontObj partNames ()Ljava/util/Set;
+ARMS method com/hbm/client/model/WavefrontObj$Group faceCount ()I
+ARMS method com/hbm/client/render/weapon/WeaponRenderer gem ()Ldev/golem/core/render/gem/Gem$Model;
+ARMS method com/hbm/items/weapon/sedna/GunAnimation name ()Ljava/lang/String;
+ARMS method com/hbm/items/weapon/sedna/GunAnimation ordinal ()I
+ARMS method com/hbm/items/weapon/sedna/GunAnimation values ()[Lcom/hbm/items/weapon/sedna/GunAnimation;
+ARMS method com/hbm/items/weapon/sedna/GunConfig getAnimation (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiFunction;
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimaryMagazine (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+ARMS method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
+ARMS method com/hbm/util/GameTime now ()J
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCell
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCore
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
@@ -252,12 +291,17 @@ MODEL_HITBOXES class com/hbm/items/tool/ItemPeas
 MODEL_HITBOXES field com/hbm/client/model/WavefrontObj$Group name Ljava/lang/String;
 MODEL_HITBOXES field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 MODEL_HITBOXES method com/hbm/util/DamageResistanceHandler hurt (Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/damagesource/DamageSource;FFF)Z
+RECOIL class com/hbm/client/render/weapon/WeaponPose
 RECOIL class com/hbm/client/render/weapon/WeaponRenderer
+RECOIL class com/hbm/items/weapon/sedna/ItemGunBaseNT
 RECOIL field com/hbm/config/ClientConfig GUN_VISUAL_RECOIL Z
+RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT offsetHorizontal F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT offsetVertical F
+RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilHorizontal F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
+RECOIL method com/hbm/client/anim/HbmAnimations getRelevantAnim (I)Lcom/hbm/client/anim/HbmAnimations$Animation;
 RECOIL method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 RICOCHET_SOUND class com/hbm/entity/projectile/EntityBulletBaseMK4
 TRACERS class com/hbm/client/render/projectile/BulletProjectileRenderer$State

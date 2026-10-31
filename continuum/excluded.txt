@@ -55,12 +55,9 @@ MobSmoke.java
 # HUD's gun silhouette: it draws GunGeometry (GroupObject is WavefrontObj; part "arms"). The stand-in draws none, the
 # HUD shows the gun's item icon
 Silhouette.java
-GunGeometry.java
 # server bullets: CompatEntity bullets, BulletImpact, DamageResistanceHandler, MultiblockSurface, doors and lifts
 Structures.java
-# arms: ItemRenderWeaponBase is WeaponRenderer + Gem, HbmAnimations is per hand
-Arms.java
-ArmAnimationPreview.java
+# arms: the arm animation editor (its stand-in in continuum/src is never shown; the gun editor that opens it is not here)
 ArmAnimationEditor.java
 # NTM NEXT's Flywheel mob visuals (MobModelVisual, MobObjVisual, GlyphidVisual): Continuum's mobs are
 # CompatEntityRenderers, their OBJ parts reach NtmMeshHits through WavefrontObj (continuum/src MixinNtmMeshHits)
