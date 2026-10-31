@@ -38,6 +38,7 @@ public final class GunFeel {
 
     static void init() {
         PortSmoke.register();
+        ClientSmoke.init();
         NeoForge.EVENT_BUS.addListener(RenderFrameEvent.Pre.class, e -> {
             ModelHitClient.frame();
             ModelHitClient.diagnostics();

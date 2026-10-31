@@ -119,6 +119,12 @@ stonecutter parameters {
             replace("self.getOwner()", "self.getThrower()")
             replace("bullet.getOwner()", "bullet.getThrower()")
             replace("new ShotPayload(config.id,", "new ShotPayload(com.hbm.items.weapon.sedna.BulletConfigs.indexOf(config),")
+            // TraceScenario: Continuum's animations are com.hbm.client.anim.HbmAnimations, and a gun animation plays as
+            // GunAnimationHandler handles the server's GunAnimationPayload (NEXT: HbmAnimationPayload.handleSedna)
+            replace("import com.hbm.render.anim.HbmAnimations;", "import com.hbm.client.anim.HbmAnimations;")
+            replace("com.hbm.packet.toclient.HbmAnimationPayload.handleSedna(player, player.getMainHandItem(), player.getInventory().getSelectedSlot(), type, 0, 0);",
+                "com.hbm.client.anim.GunAnimationHandler.handle(new com.hbm.packet.GunAnimationPayload(type.ordinal(), 0, 0, " +
+                "net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(player.getMainHandItem().getItem()).toString()));")
             // 26.1 hands the model renderer a SubmitNodeStorage.ModelSubmit
             replace("ModelFeatureRenderer.Submit<?>", "net.minecraft.client.renderer.SubmitNodeStorage.ModelSubmit<?>")
             // NTM Continuum draws first-person guns with Golem Core's Gem, which has no static interp

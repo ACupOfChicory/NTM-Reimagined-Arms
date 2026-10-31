@@ -123,6 +123,10 @@ neoForge {
             if (providers.gradleProperty("continuum.gunSmoke").isPresent) systemProperty("hbm.gunSmokeTest", "true")
             // -Pcontinuum.portSmoke (with -Pcontinuum.world): the port's own gun feel check (PortSmoke), then quit
             if (providers.gradleProperty("continuum.portSmoke").isPresent) systemProperty("ntmgunfeel.portSmoke", "true")
+            // a trace and its scenario, as main's runs (build.gradle.kts): -Ptrace, -Pscenario=arms, -PscenarioGuns, -Pseed
+            for (p in listOf("trace", "traceScenario", "seed", "scenario", "scenarioGuns"))
+                providers.gradleProperty(p).orNull?.let { systemProperty("ntmgunfeel.$p", it) }
+            if (providers.gradleProperty("traceHex").isPresent) systemProperty("ntmgunfeel.traceHex", "true")
         }
         register("server") {
             server()
