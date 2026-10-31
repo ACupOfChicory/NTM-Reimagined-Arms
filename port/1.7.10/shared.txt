@@ -20,6 +20,11 @@ acup/gunfeel/HoleLimits.java
 acup/gunfeel/AmmoStats.java
 # mob hitboxes (notes/ports/port-1.7.10-part-hitboxes.md)
 acup/gunfeel/MobBenchMetrics.java
+# arms (port-1.7.10-part-arms.md)
+acup/gunfeel/ArmTimeline.java
+acup/gunfeel/ArmContact.java
+acup/gunfeel/ArmPoseEdits.java
+acup/gunfeel/MagazineInspect.java
 
 [test]
 # src/test/java: they test the port's copies with 26.2's own expectations
@@ -33,6 +38,9 @@ acup/gunfeel/BulletClockTest.java
 acup/gunfeel/HoleLimitsTest.java
 acup/gunfeel/ModelBoxTest.java
 acup/gunfeel/PenetrationTest.java
+acup/gunfeel/ArmContactTest.java
+acup/gunfeel/ArmTimelineTest.java
+acup/gunfeel/ArmPoseEditsTest.java
 
 [resources]
 # src/main/resources

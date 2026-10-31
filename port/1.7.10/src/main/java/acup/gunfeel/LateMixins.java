@@ -18,7 +18,7 @@ public class LateMixins implements ILateMixinLoader {
     static final List<String> CLIENT = Arrays.asList("MixinModEventHandlerClient", "MixinItemRenderWeaponBase",
             "MixinHbmAnimations", "MixinWavefrontObject", "MixinWavefrontObjectVBO",
             "MixinRenderBulletMK4", "MixinLegoClient", "MixinSmokeNodes",
-            "MixinGunKeysRadial", "MixinGunHud", "MixinHbmAnimationPacket");
+            "MixinGunKeysRadial", "MixinGunHud", "MixinHbmAnimationPacket", "MixinG3Inspect");
 
     static final List<String> COMMON = Arrays.asList("MixinAmmoLock", "MixinAmmoLockBelt", "MixinBulletServer",
             "MixinThrowableClip");

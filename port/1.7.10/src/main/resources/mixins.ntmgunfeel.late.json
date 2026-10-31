@@ -9,6 +9,6 @@
   "mixins": ["MixinAmmoLock", "MixinAmmoLockBelt"],
   "client": ["MixinModEventHandlerClient", "MixinItemRenderWeaponBase", "MixinHbmAnimations", "MixinWavefrontObject", "MixinWavefrontObjectVBO", "MixinClock",
              "MixinRenderBulletMK4", "MixinLegoClient", "MixinSmokeNodes",
-             "MixinGunKeysRadial", "MixinGunHud", "MixinHbmAnimationPacket"],
+             "MixinGunKeysRadial", "MixinGunHud", "MixinHbmAnimationPacket", "MixinG3Inspect"],
   "server": []
 }

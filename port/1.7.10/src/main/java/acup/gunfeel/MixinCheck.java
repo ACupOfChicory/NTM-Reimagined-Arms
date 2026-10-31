@@ -10,8 +10,8 @@ public final class MixinCheck {
     // target -> handlers it should have
     private static final String[][] TARGETS = {
             {"com.hbm.main.ModEventHandlerClient", "1"},
-            {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "6"}, // 5 + MixinSmokeNodes
-            {"com.hbm.render.anim.HbmAnimations", "1"},
+            {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "9"}, // 5 + MixinSmokeNodes 1 + arms 3
+            {"com.hbm.render.anim.HbmAnimations", "2"},
             {"com.hbm.render.loader.HFRWavefrontObject", "4"},
             {"com.hbm.render.loader.HFRWavefrontObjectVBO", "4"},
             {"net.minecraft.client.renderer.EntityRenderer", "2"},
@@ -23,11 +23,12 @@ public final class MixinCheck {
             {"com.hbm.items.weapon.sedna.mags.MagazineBelt", "2"},
             {"com.hbm.main.ClientProxy", "1"},
             {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "2"},
-            {"com.hbm.packet.toclient.HbmAnimationPacket$Handler", "3"},
+            {"com.hbm.packet.toclient.HbmAnimationPacket$Handler", "4"},
             {"net.minecraft.client.renderer.ItemRenderer", "5"},
             {"net.minecraft.client.renderer.entity.RendererLivingEntity", "5"},
             {"net.minecraft.client.model.ModelRenderer", "2"},
             {"net.minecraft.client.renderer.entity.RenderManager", "1"},
+            {"com.hbm.items.weapon.sedna.GunConfig", "3"},
     };
 
     private MixinCheck() {
