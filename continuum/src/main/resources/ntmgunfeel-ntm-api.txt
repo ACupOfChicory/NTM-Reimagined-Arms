@@ -1,3 +1,65 @@
+AMMO_CHOICE class com/hbm/handler/HbmKeybinds$EnumKeybind
+AMMO_CHOICE class com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag
+AMMO_CHOICE class com/hbm/items/weapon/sedna/BulletConfig
+AMMO_CHOICE class com/hbm/items/weapon/sedna/ItemGunBaseNT
+AMMO_CHOICE class com/hbm/items/weapon/sedna/mags/IMagazine
+AMMO_CHOICE class com/hbm/items/weapon/sedna/mags/MagazineBelt
+AMMO_CHOICE class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
+AMMO_CHOICE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+AMMO_CHOICE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+AMMO_CHOICE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_TERTIARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+AMMO_CHOICE field com/hbm/handler/HbmKeybinds$EnumKeybind RELOAD Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+AMMO_CHOICE field com/hbm/items/weapon/sedna/BulletConfig ammoReloadCount I
+AMMO_CHOICE field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
+AMMO_CHOICE field com/hbm/items/weapon/sedna/BulletConfig armorThresholdNegation F
+AMMO_CHOICE field com/hbm/items/weapon/sedna/BulletConfig damageMult F
+AMMO_CHOICE field com/hbm/items/weapon/sedna/BulletConfig headshotMult F
+AMMO_CHOICE field com/hbm/items/weapon/sedna/BulletConfig id Lnet/minecraft/resources/Identifier;
+AMMO_CHOICE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
+AMMO_CHOICE field com/hbm/items/weapon/sedna/BulletConfig projectilesMin I
+AMMO_CHOICE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+AMMO_CHOICE field com/hbm/items/weapon/sedna/mags/MagazineBelt acceptedBullets Ljava/util/List;
+AMMO_CHOICE field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase acceptedBullets Ljava/util/List;
+AMMO_CHOICE field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase capacity I
+AMMO_CHOICE field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase index I
+AMMO_CHOICE method com/hbm/handler/HbmKeybinds$EnumKeybind ordinal ()I
+AMMO_CHOICE method com/hbm/handler/HbmKeybinds$EnumKeybind values ()[Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+AMMO_CHOICE method com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag extractItem (IIZ)Lnet/minecraft/world/item/ItemStack;
+AMMO_CHOICE method com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag getSlots ()I
+AMMO_CHOICE method com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag getStackInSlot (I)Lnet/minecraft/world/item/ItemStack;
+AMMO_CHOICE method com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag setStackInSlot (ILnet/minecraft/world/item/ItemStack;)V
+AMMO_CHOICE method com/hbm/items/weapon/sedna/BulletConfig matchesAmmo (Lnet/minecraft/world/item/ItemStack;)Z
+AMMO_CHOICE method com/hbm/items/weapon/sedna/BulletConfig toStack ()Lnet/minecraft/world/item/ItemStack;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/BulletConfigs all ()Ljava/util/List;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/BulletConfigs byIndex (I)Lcom/hbm/items/weapon/sedna/BulletConfig;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/BulletConfigs get (Ljava/lang/String;)Lcom/hbm/items/weapon/sedna/BulletConfig;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/BulletConfigs indexOf (Lcom/hbm/items/weapon/sedna/BulletConfig;)I
+AMMO_CHOICE method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraft/world/item/ItemStack;)F
+AMMO_CHOICE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
+AMMO_CHOICE method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/ItemGunBaseNT getValueInt (Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;)I
+AMMO_CHOICE method com/hbm/items/weapon/sedna/ItemGunBaseNT getValueString (Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;)Ljava/lang/String;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/world/item/ItemStack;I)F
+AMMO_CHOICE method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
+AMMO_CHOICE method com/hbm/items/weapon/sedna/ItemGunBaseNT setValueInt (Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;I)V
+AMMO_CHOICE method com/hbm/items/weapon/sedna/ItemGunBaseNT setValueString (Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;Ljava/lang/String;)V
+AMMO_CHOICE method com/hbm/items/weapon/sedna/Receiver getBaseDamage (Lnet/minecraft/world/item/ItemStack;)F
+AMMO_CHOICE method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/Receiver getSplitProjectiles (Lnet/minecraft/world/item/ItemStack;)F
+AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/IMagazine ammoBag (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/IMagazine getIconForHUD (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/player/Player;)Lnet/minecraft/world/item/ItemStack;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/IMagazine isInfiniteBag (Lnet/minecraft/world/item/ItemStack;)Z
+AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineBelt getMagType (Lnet/minecraft/world/item/ItemStack;)Ljava/lang/String;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineBelt getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Lcom/hbm/items/weapon/sedna/BulletConfig;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineBelt setMagType (Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;)V
+AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
+AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getCapacity (Lnet/minecraft/world/item/ItemStack;)I
+AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Lcom/hbm/items/weapon/sedna/BulletConfig;
+AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setAmount (Lnet/minecraft/world/item/ItemStack;I)V
+AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setType (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/BulletConfig;)V
 ARMS class com/hbm/client/render/weapon/WeaponRenderer
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
@@ -38,16 +100,23 @@ BULLETS method com/hbm/items/weapon/sedna/BulletConfigs indexOf (Lcom/hbm/items/
 BULLETS method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraft/world/item/ItemStack;)F
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/world/item/ItemStack;I)F
+CORE class com/hbm/client/GunHudOverlay
+CORE class com/hbm/client/anim/HbmAnimations
 CORE class com/hbm/client/render/weapon/WeaponPose
 CORE class com/hbm/client/render/weapon/WeaponRenderer
 CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
+CORE class com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
+CORE class com/hbm/items/weapon/sedna/mags/IMagazine
 CORE field com/hbm/client/HbmKeybindsClient reloadKey Ldev/golem/core/client/KeyMappings$Mapping;
+CORE field com/hbm/client/anim/HbmAnimations$Animation key Lnet/minecraft/world/item/Item;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+CORE field com/hbm/items/weapon/sedna/BulletConfig id Lnet/minecraft/resources/Identifier;
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShotByHand [[J
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+CORE method com/hbm/client/anim/HbmAnimations getRelevantAnim (Lnet/minecraft/world/InteractionHand;I)Lcom/hbm/client/anim/HbmAnimations$Animation;
 CORE method com/hbm/client/render/weapon/WeaponPose <init> ()V
 CORE method com/hbm/client/render/weapon/WeaponRenderer gem ()Ldev/golem/core/render/gem/Gem$Model;
 CORE method com/hbm/client/render/weapon/WeaponRenderers forStack (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/client/render/weapon/WeaponRenderer;
@@ -56,11 +125,53 @@ CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getId ()I
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
+CORE method com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag <init> (Lnet/minecraft/world/item/ItemStack;)V
+CORE method com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag getSlots ()I
+CORE method com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag getStackInSlot (I)Lnet/minecraft/world/item/ItemStack;
+CORE method com/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag setStackInSlot (ILnet/minecraft/world/item/ItemStack;)V
+CORE method com/hbm/items/weapon/sedna/BulletConfig matchesAmmo (Lnet/minecraft/world/item/ItemStack;)Z
+CORE method com/hbm/items/weapon/sedna/BulletConfigs get (Ljava/lang/String;)Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimaryMagazine (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine ammoBag (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/tool/ItemAmmoBag$InventoryAmmoBag;
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecraft/world/item/ItemStack;)I
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getIconForHUD (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/player/Player;)Lnet/minecraft/world/item/ItemStack;
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT
+HUD class com/hbm/items/weapon/sedna/BulletConfig
+HUD class com/hbm/items/weapon/sedna/ItemGunBaseNT
+HUD class com/hbm/items/weapon/sedna/mags/IMagazine
+HUD class com/hbm/items/weapon/sedna/mags/MagazineBelt
+HUD class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
+HUD method com/hbm/items/weapon/sedna/BulletConfig toStack ()Lnet/minecraft/world/item/ItemStack;
+HUD method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraft/world/item/ItemStack;)F
+HUD method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+HUD method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+HUD method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
+HUD method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/world/item/ItemStack;I)F
+HUD method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+HUD method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
+HUD method com/hbm/items/weapon/sedna/mags/IMagazine getIconForHUD (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/player/Player;)Lnet/minecraft/world/item/ItemStack;
+HUD method com/hbm/items/weapon/sedna/mags/IMagazine reportAmmoStateForHUD (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/player/Player;)Ljava/lang/String;
+HUD method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
+HUD method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getCapacity (Lnet/minecraft/world/item/ItemStack;)I
+HUD method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getFirstConfig (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Lcom/hbm/items/weapon/sedna/BulletConfig;
+HUD method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Lcom/hbm/items/weapon/sedna/BulletConfig;
+INSTANT_SWITCH class com/hbm/items/weapon/sedna/GunAnimation
+INSTANT_SWITCH class com/hbm/items/weapon/sedna/ItemGunBaseNT
+INSTANT_SWITCH class com/hbm/packet/GunAnimationPayload
+INSTANT_SWITCH field com/hbm/items/weapon/sedna/GunAnimation EQUIP Lcom/hbm/items/weapon/sedna/GunAnimation;
+INSTANT_SWITCH field com/hbm/items/weapon/sedna/GunAnimation VALUES [Lcom/hbm/items/weapon/sedna/GunAnimation;
+INSTANT_SWITCH method com/hbm/client/anim/GunAnimationHandler handle (Lcom/hbm/packet/GunAnimationPayload;)V
+INSTANT_SWITCH method com/hbm/items/weapon/sedna/GunAnimation byOrdinal (I)Lcom/hbm/items/weapon/sedna/GunAnimation;
+INSTANT_SWITCH method com/hbm/items/weapon/sedna/GunAnimation ordinal ()I
+INSTANT_SWITCH method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
+INSTANT_SWITCH method com/hbm/packet/GunAnimationPayload <init> (IIILnet/minecraft/world/InteractionHand;Ljava/lang/String;)V
+INSTANT_SWITCH method com/hbm/packet/GunAnimationPayload animation ()I
+INSTANT_SWITCH method com/hbm/packet/GunAnimationPayload configIndex ()I
+INSTANT_SWITCH method com/hbm/packet/GunAnimationPayload interactionHand ()Lnet/minecraft/world/InteractionHand;
 MACHINE_MESH field com/hbm/blocks/multiblock/BlockMultiblockCore FACING Lnet/minecraft/world/level/block/state/properties/EnumProperty;
 MACHINE_MESH method com/hbm/blocks/multiblock/MultiblockSurface rigidStructureBlocks (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Ljava/util/List;
 MODEL_HITBOXES class com/hbm/entity/mob/EntityQuackos

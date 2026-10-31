@@ -7,6 +7,7 @@
   "client": ["MixinParticleEngine", "MixinParticlesSubmit", "KeyMappingAccess", "GuiGraphicsAccess", "ModelPartAccess",
     "MixinLivingModelHits", "MixinModelHitboxDebug", "MixinModelHitState", "MixinRenderedModelHit", "MixinEntityModelHitState",
     "MixinEntityMeshHits", "MixinDragonModelHit", "MixinLegacyHitboxGizmos", "MixinSkinLayerVisualizer",
-    "RenderTypeAccess", "RenderSetupAccess", "MixinDeltaTimer"],
+    "RenderTypeAccess", "RenderSetupAccess", "MixinDeltaTimer",
+    "MixinMouseTurn", "MixinItemInHandRenderer"],
   "injectors": { "defaultRequire": 1 }
 }

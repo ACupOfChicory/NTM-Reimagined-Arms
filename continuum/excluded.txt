@@ -4,10 +4,7 @@
 # The mixins into NTM NEXT: Continuum's classes differ (continuum.md §3); each comes back rewritten in continuum/src.
 # the mixins into NTM NEXT, all but the ones that fit Continuum with the 26.1 renames
 mixin/GlyphidGeometryAccess.java
-mixin/MixinAmmoLockBelt.java
-mixin/MixinAmmoLock.java
 mixin/MixinBeamModelQuery.java
-mixin/MixinClientRegistry.java
 mixin/MixinExplosionContext.java
 mixin/MixinExplosiveBullet.java
 mixin/MixinExplosiveDirect.java
@@ -61,16 +58,10 @@ MobSmoke.java
 
 # Systems not ported yet (continuum.md §3): their NTM side differs in Continuum. Each is off on this node (Feature) and
 # has a stand-in in continuum/src with what the rest of the mod calls.
-# ammo choice: BulletConfig ids are Identifiers in Continuum, no BulletConfig.configs; InventoryAmmoBag
-AmmoLock.java
-AmmoLockKey.java
-RadialMenu.java
-# HUD: ClientRegistry.renderGunHudComponents is GunHudOverlay; GroupObject is WavefrontObj
-Hud.java
+# HUD's gun silhouette: it draws GunGeometry (GroupObject is WavefrontObj; part "arms"). The stand-in draws none, the
+# HUD shows the gun's item icon
 Silhouette.java
 GunGeometry.java
-# instant switch: HbmAnimationPayload.handleSedna is GunAnimationHandler
-InstantSwitch.java
 # server bullets: CompatEntity bullets, BulletImpact, DamageResistanceHandler, MultiblockSurface, doors and lifts
 Structures.java
 WoodBoxes.java
@@ -85,11 +76,9 @@ ModelMeshCapture.java
 MobObjPose.java
 # client hooks: GunFeel is this node's own (continuum/src), it calls NTM Continuum
 GunFeel.java
-# arm tools (the arm editor and /gunfeel grip) and what drives the ammo menu and the instant switch
+# arm tools (the arm editor and /gunfeel grip): they edit Arms and GunGeometry, not ported yet
 GunEditor.java
 GripCommand.java
-mixin/mc/MixinMouseTurn.java
-mixin/mc/MixinItemInHandRenderer.java
 
 # Minecraft 26.1: no instanced draws (the F3+B outlines take main's legacy path) and no DrawableGizmoPrimitives.Group
 ModelDebugMask.java
