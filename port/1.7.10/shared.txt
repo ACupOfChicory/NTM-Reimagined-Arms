@@ -9,6 +9,7 @@ acup/gunfeel/Curve.java
 acup/gunfeel/GunClock.java
 acup/gunfeel/Rng.java
 acup/gunfeel/Trace.java
+acup/gunfeel/FixedStep.java
 
 [test]
 # src/test/java: they test the port's copies with 26.2's own expectations

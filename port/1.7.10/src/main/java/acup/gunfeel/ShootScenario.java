@@ -25,7 +25,8 @@ import net.minecraft.world.WorldType;
 // cameraClimbDeg, cameraDriftDeg, cameraClimbRamp), fires three single shots and one burst through NTM's own key path
 // (HbmKeybinds.gunPrimaryKey, handleProps), writes each step into the test log and quits. With -Dntmgunfeel.trace the
 // log is a trace (recoil, camera, kick with the gun's length and grip, sway) for tools/trace_diff.py.
-// Without the property it does nothing.
+// Without the property it does nothing. The world (and the server's thread) also serves TraceScenario: with another
+// scenario name it starts that one in the world instead.
 public final class ShootScenario {
     static final String NAME = System.getProperty("ntmgunfeel.scenario", "").trim();
     static final String WORLD = "ntmgunfeel-scenario";
@@ -47,8 +48,18 @@ public final class ShootScenario {
         return NAME.equals("shoot");
     }
 
+    // a scenario that needs the flat world: this one or a trace scenario (TraceScenario)
+    static boolean world() {
+        return on() || TraceScenario.enabled();
+    }
+
+    // run on the integrated server's thread at its next tick
+    static void onServer(Runnable r) {
+        serverTask = r;
+    }
+
     static void register() {
-        if (!on()) return;
+        if (!world()) return;
         FMLCommonHandler.instance().bus().register(new ShootScenario());
         GunFeel.LOGGER.info("Scenario {}: world {}, quits at tick {}", NAME, WORLD, DONE);
     }
@@ -62,6 +73,14 @@ public final class ShootScenario {
             return;
         }
         if (mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null) return;
+        if (!on()) {
+            // a trace scenario starts a second after the player stands in the world (TraceScenario)
+            if (++tick == 20) {
+                log("trace_scenario", mc);
+                TraceScenario.start();
+            }
+            return;
+        }
         // a held trigger stays held, whatever else the game did with the key this tick
         if (held) press(true);
         step(mc, ++tick);
@@ -94,10 +113,10 @@ public final class ShootScenario {
             mc.thePlayer.rotationYaw = mc.thePlayer.prevRotationYaw = 0F;
             log("in_world", mc);
         } else if (t == GIVE) {
-            serverTask = () -> {
+            onServer(() -> {
                 give(0, "gun_maresleg");
                 give(1, "gun_am180");
-            };
+            });
             mc.thePlayer.inventory.currentItem = 0;
             log("give", mc);
         } else if (t >= FIRST_SHOT && t < FIRST_SHOT + SHOTS * SHOT_GAP && (t - FIRST_SHOT) % SHOT_GAP == 0) {

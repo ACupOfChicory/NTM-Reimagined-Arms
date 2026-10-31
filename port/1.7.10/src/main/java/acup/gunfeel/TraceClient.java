@@ -17,6 +17,8 @@ final class TraceClient {
             return world == null ? -1L : world.getTotalWorldTime();
         }, () -> GunFeelClient.partial);
         GunClock.use(TraceClient::nanos);
+        // a scenario writes only what it plays, from the start (TraceScenario)
+        if (TraceScenario.enabled()) Trace.scenario = true;
         TestLog.set(true, true);
     }
 

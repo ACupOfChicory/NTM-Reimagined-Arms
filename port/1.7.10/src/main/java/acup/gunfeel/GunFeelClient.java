@@ -43,7 +43,7 @@ public final class GunFeelClient {
         if (autostop < 0) {
             if (!(mc.currentScreen instanceof net.minecraft.client.gui.GuiMainMenu)) return;
             // a scenario (ShootScenario) quits by itself
-            if (!new java.io.File("autostop").exists() || ShootScenario.on()) {
+            if (!new java.io.File("autostop").exists() || ShootScenario.world()) {
                 autostop = -2;
                 return;
             }
@@ -67,6 +67,8 @@ public final class GunFeelClient {
         ItemStack held = player == null ? null : player.getHeldItem();
         Config.select(held != null && held.getItem() instanceof ItemGunBaseNT ? gunId(held.getItem()) : null);
         if (Config.enabled) CameraRecoil.frame();
+        // a trace scenario's frame after the camera's, as 26.2's frame listeners run (TraceScenario)
+        if (TraceScenario.started()) TraceScenario.frame();
     }
 
     // The gun's id as 26.2 writes it ("hbm:gun_maresleg"): NTM 1.7.10 registers its items under their unlocalized

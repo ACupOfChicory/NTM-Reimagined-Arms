@@ -15,6 +15,8 @@ public final class MixinCheck {
             {"com.hbm.render.loader.HFRWavefrontObject", "4"},
             {"com.hbm.render.loader.HFRWavefrontObjectVBO", "4"},
             {"net.minecraft.client.renderer.EntityRenderer", "1"},
+            {"net.minecraft.util.Timer", "1"},
+            {"com.hbm.util.Clock", "1"},
     };
 
     private MixinCheck() {

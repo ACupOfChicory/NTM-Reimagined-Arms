@@ -19,7 +19,7 @@ import net.minecraft.item.ItemStack;
 // (cameraScaleMin): the up and sideways movements are then the jar's preset of the gun, at least as strong and long
 // as it ships; the shake (roll) stays the player's, as do the gun model and the arms.
 //
-// port: copied from 26.2 (4c720e2, notes/ports/port-1.7.10-copied.md). The numbers are 26.2's line for line; the
+// port: copied from 26.2 (0762086, notes/ports/port-1.7.10-copied.md). The numbers are 26.2's line for line; the
 // player is reached through View, and the clock and the random generator come in as arguments (addImpulse, frame),
 // so the tests drive the same code with fixed inputs. The editor's last-kick memory (LAST) has no editor here yet.
 public final class CameraRecoil {
@@ -205,6 +205,11 @@ public final class CameraRecoil {
         if (p == null) p = Config.codeValue("kickPreset");
         Spring s = RecoilPresets.preset(p == null ? RecoilPresets.DEFAULT : p, channel, true);
         return s.amount() == 0F ? s : s.with(0, Math.copySign(Math.max(1F, Math.abs(s.amount())), s.amount()));
+    }
+
+    // no kick playing (a trace scenario waits for it)
+    public static boolean idle() {
+        return SHOTS.isEmpty();
     }
 
     public static void reset() {
