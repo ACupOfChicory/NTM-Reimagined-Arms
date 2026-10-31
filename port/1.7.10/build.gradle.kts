@@ -182,3 +182,16 @@ val test25 = tasks.register<Test>("test25") {
     systemProperty("ntmgunfeel.config", layout.buildDirectory.dir("test-config").get().asFile.path)
 }
 tasks.check { dependsOn(test25) }
+
+// ---- 26.2 files that compile here once their Vec3 is the port's (shared.txt [main-phys], [test-phys]) ----
+// 1.7.10 has no immutable net.minecraft.world.phys.Vec3 (its net.minecraft.util.Vec3 is mutable): acup.gunfeel.phys.Vec3
+// computes the same numbers. Only that name is rewritten, so these files stay in step with 26.2 by themselves.
+fun physSources(section: String, dir: String, out: String) = tasks.register<Sync>(out) {
+    from(repo.resolve(dir)) { include(shared(section)) }
+    filter { line: String -> line.replace("net.minecraft.world.phys.Vec3", "acup.gunfeel.phys.Vec3") }
+    into(layout.buildDirectory.dir("generated/shared/$section"))
+}
+val sharedMainPhys = physSources("main-phys", "src/main/java", "sharedMainPhysSources")
+val sharedTestPhys = physSources("test-phys", "src/test/java", "sharedTestPhysSources")
+sourceSets.main { java.srcDir(sharedMainPhys) }
+sourceSets.test { java.srcDir(sharedTestPhys) }

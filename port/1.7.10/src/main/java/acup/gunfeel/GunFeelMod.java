@@ -20,6 +20,7 @@ public final class GunFeelMod {
         AmmoNet.init(); // the ammo key's and menu's messages (AmmoNet.register: onto a common channel later)
         if (client) GunFeelClient.init();
         TraceHooks.register(client);
+        ModelHitNet.init(client);
     }
 
     // dev runs (runServer): a file "autostop" in the run folder stops the dedicated test server once it is up (the

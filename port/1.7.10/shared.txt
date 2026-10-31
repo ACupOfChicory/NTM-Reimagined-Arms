@@ -18,6 +18,8 @@ acup/gunfeel/BlockFacts.java
 acup/gunfeel/HoleLimits.java
 # hud and ammo (port-1.7.10-part-hud.md)
 acup/gunfeel/AmmoStats.java
+# mob hitboxes (notes/ports/port-1.7.10-part-hitboxes.md)
+acup/gunfeel/MobBenchMetrics.java
 
 [test]
 # src/test/java: they test the port's copies with 26.2's own expectations
@@ -29,6 +31,7 @@ acup/gunfeel/ConfigTest.java
 acup/gunfeel/DeterminismTest.java
 acup/gunfeel/BulletClockTest.java
 acup/gunfeel/HoleLimitsTest.java
+acup/gunfeel/ModelBoxTest.java
 
 [resources]
 # src/main/resources
@@ -37,3 +40,20 @@ ntmgunfeel-guns.properties
 ntmgunfeel-server.properties
 # the bullet mark textures (Decals.files)
 assets/ntmgunfeel/textures/effect/*.png
+ntmgunfeel-heads.json
+ntmgunfeel-limbs.json
+
+[main-phys]
+# src/main/java, compiled with net.minecraft.world.phys.Vec3 read as acup.gunfeel.phys.Vec3 (build.gradle.kts)
+acup/gunfeel/ModelBox.java
+acup/gunfeel/HeadZone.java
+acup/gunfeel/ZoneTemplates.java
+acup/gunfeel/ModelContours.java
+acup/gunfeel/ContourSurface.java
+
+[test-phys]
+# src/test/java, the same way
+acup/gunfeel/HeadZoneTest.java
+acup/gunfeel/HeadProfilesTest.java
+acup/gunfeel/ContourIntersectionTest.java
+acup/gunfeel/ModelHitTurnTest.java

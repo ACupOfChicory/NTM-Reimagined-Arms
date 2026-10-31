@@ -25,6 +25,9 @@ public final class MixinCheck {
             {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "2"},
             {"com.hbm.packet.toclient.HbmAnimationPacket$Handler", "3"},
             {"net.minecraft.client.renderer.ItemRenderer", "5"},
+            {"net.minecraft.client.renderer.entity.RendererLivingEntity", "5"},
+            {"net.minecraft.client.model.ModelRenderer", "2"},
+            {"net.minecraft.client.renderer.entity.RenderManager", "1"},
     };
 
     private MixinCheck() {
