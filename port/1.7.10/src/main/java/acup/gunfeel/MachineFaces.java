@@ -28,7 +28,8 @@ final class MachineFaces {
     // the largest mask a face keeps (a triangle over a tiled texture): bigger ones are taken as shown all over
     private static final int MAX_MASK = 256;
 
-    // a texture's shown pixels (alpha over 0.1, as 1.7.10's alpha test); empty: listed in MachineGlass (clear is air)
+    // a texture's shown pixels (alpha over 0.1, as 1.7.10's alpha test); empty: its clear pixels are air, not glass
+    // (26.2's RenderedMesh.windowed: glass only on NTM's own textures, but those MachineGlass lists)
     static final class Tex {
         final String name;
         final int w, h;
@@ -40,7 +41,7 @@ final class MachineFaces {
             this.w = w;
             this.h = h;
             this.shown = shown;
-            this.empty = name != null && MachineGlass.empty(name);
+            this.empty = name == null || !name.startsWith("hbm:") || MachineGlass.empty(name);
         }
 
         // from a texture as read back from GL (DoorCapture.texture: {{w, h}, argb})
@@ -132,8 +133,37 @@ final class MachineFaces {
         int hash = key.indexOf("#machine/");
         String[] rest = key.substring(hash + 9).split("/");
         String[] d = rest[1].split(",");
-        int dx = Integer.parseInt(d[0]), dy = Integer.parseInt(d[1]), dz = Integer.parseInt(d[2]);
-        Model m = models.get(key.substring(0, hash) + "/" + rest[0]);
+        return make(cells, models.get(key.substring(0, hash) + "/" + rest[0]), Integer.parseInt(d[0]), Integer.parseInt(d[1]), Integer.parseInt(d[2]));
+    }
+
+    // a big door's block (DoorCells): its cells (turned as it stands) with the faces of the door shut or open, kept in
+    // the model's frame and turned the way RenderDoorGeneric turns it (quarter: DoorCells.quarter), the block's place
+    // from the core as it stands
+    static long[] door(long[] cells, String id, boolean open, int quarter, int dx, int dy, int dz) {
+        if (off || cells == null) return cells;
+        String key = id + "#door/" + (open ? "open" : "closed") + "/" + quarter + "/" + dx + "," + dy + "," + dz;
+        Object[] made = MADE.get(key);
+        if (made == null) {
+            long[] shape = null;
+            try {
+                load();
+                Model m = models.get(doorKey(id, open));
+                shape = m == null ? null : make(cells, m.turned((4 - quarter) & 3), dx, dy, dz);
+            } catch (RuntimeException e) {
+                GunFeel.LOGGER.warn("[ntm-gunfeel] Could not make the faces of " + key, e);
+            }
+            made = new Object[] {cells, shape == null ? cells : shape};
+            MADE.put(key, made);
+        }
+        return (long[]) made[1];
+    }
+
+    // the door's model key in the file: its triangles in the model's frame (DoorCells)
+    static String doorKey(String id, boolean open) {
+        return id + "#door/" + (open ? "open" : "closed");
+    }
+
+    private static long[] make(long[] cells, Model m, int dx, int dy, int dz) {
         if (m == null) return null;
         List<ModelSurface.Face> faces = new ArrayList<ModelSurface.Face>();
         double[] tri = new double[9], u = new double[3], v = new double[3];

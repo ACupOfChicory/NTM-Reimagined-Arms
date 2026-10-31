@@ -323,6 +323,7 @@ final class ShapesScenario {
                     continue;
                 }
                 made.putAll(cells);
+                if (DoorCapture.lastDoor != null) MACHINE_FACES.put(MachineFaces.doorKey(id, open), DoorCapture.lastDoor);
                 doors++;
                 GunFeel.LOGGER.info("Scenario shapes: door {} {}: {} blocks, {}", id, open ? "open" : "shut", cells.size(), gaps(mc.theWorld, b, c, open, cells));
             }

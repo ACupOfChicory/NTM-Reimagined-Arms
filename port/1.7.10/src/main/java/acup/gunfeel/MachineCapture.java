@@ -38,7 +38,7 @@ final class MachineCapture {
     // how the last machine was drawn: "tesr", "chunk" (RenderBlocks) or null
     static String how;
 
-    private static int texIndex(Object key, String name, int[][] tex) {
+    static int texIndex(Object key, String name, int[][] tex) {
         Integer i = TEX_INDEX.get(key);
         if (i == null) {
             i = TEXTURES.size();

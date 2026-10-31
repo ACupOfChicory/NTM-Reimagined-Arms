@@ -495,7 +495,9 @@ public final class BulletCheck {
             check("cargo door shut: a slit and a slat in its middle block", true, slit != null && slat != null);
             if (slit == null || slat == null) continue;
             Shot through = shoot(mid, (slit[0] + .5) / 16, (slit[1] + .5) / 16, 30F);
-            check("cargo door shut: through a slit" + through.trail, true, through.alive && through.damage == 30F);
+            // the slit's clear pixels are glass (26.2's RenderedMesh.windowed: an NTM texture not in MachineGlass' list):
+            // the bullet goes on, a pixel of glass less
+            check("cargo door shut: through a slit (glass, " + through.damage + " left)" + through.trail, true, through.alive && through.damage > 29F);
             Shot stopped = shoot(mid, (slat[0] + .5) / 16, (slat[1] + .5) / 16, 30F);
             check("cargo door shut: into a slat" + stopped.trail, true, !stopped.alive || stopped.damage < 30F);
         }

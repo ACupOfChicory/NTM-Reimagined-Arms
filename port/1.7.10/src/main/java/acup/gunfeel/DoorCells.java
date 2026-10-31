@@ -39,8 +39,10 @@ public final class DoorCells {
         if (quarter < 0) return null;
         int[] o = turn(x - core[0], z - core[2], -quarter);
         String id = Block.blockRegistry.getNameForObject(b);
-        long[] model = table.get(key(id, state == TileEntityDoorGeneric.STATE_OPEN, o[0], y - core[1], o[1]));
-        return model == null ? null : rotate(model, quarter);
+        boolean open = state == TileEntityDoorGeneric.STATE_OPEN;
+        long[] model = table.get(key(id, open, o[0], y - core[1], o[1]));
+        // with the door's exact faces (MachineFaces), turned as it stands
+        return model == null ? null : MachineFaces.door(rotate(model, quarter), id, open, quarter, x - core[0], y - core[1], z - core[2]);
     }
 
     static String key(String id, boolean open, int dx, int dy, int dz) {

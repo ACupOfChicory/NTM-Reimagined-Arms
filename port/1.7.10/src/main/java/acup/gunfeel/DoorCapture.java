@@ -74,7 +74,11 @@ public final class DoorCapture {
 
     // the door whose core is at (x, y, z), shut or open: its blocks' cells by key (DoorCells.key), in the model's frame;
     // null when nothing of NTM's models was drawn
+    // the last door drawn's triangles in the model's frame (MachineFaces), null when none
+    static MachineFaces.Model lastDoor;
+
     static Map<String, long[]> capture(Minecraft mc, int x, int y, int z, boolean open, Map<Integer, int[][]> textures) {
+        lastDoor = null;
         World w = mc.theWorld;
         TileEntity te = w.getTileEntity(x, y, z);
         if (!(te instanceof TileEntityDoorGeneric)) return null;
@@ -104,8 +108,11 @@ public final class DoorCapture {
         if (PARTS.isEmpty()) return null;
         // the cells in the world's frame, by block from the core
         Map<Long, long[]> blocks = new HashMap<Long, long[]>();
+        List<Integer> triTex = new ArrayList<Integer>();
+        List<double[]> triP = new ArrayList<double[]>(), triUv = new ArrayList<double[]>();
         for (Part p : PARTS) {
             int[][] tex = texture(p.texture, textures);
+            int index = MachineCapture.texIndex(p.texture, MachineMesh.textureName(p.texture), tex);
             for (S_GroupObject g : p.groups) {
                 for (S_Face f : g.faces) {
                     if (f.vertices == null || f.vertices.length < 3) continue;
@@ -126,10 +133,22 @@ public final class DoorCapture {
                         }
                         final int[][] t = tex;
                         fill(blocks, tri, (wa, wb, wc) -> shown(t, wa * u[0] + wb * u[1] + wc * u[2], wa * v[0] + wb * v[1] + wc * v[2]));
+                        triTex.add(index);
+                        triP.add(tri);
+                        triUv.add(new double[] {u[0], v[0], u[1], v[1], u[2], v[2]});
                     }
                 }
             }
         }
+        // its triangles for exact faces (MachineFaces), in the model's frame
+        int[] tt = new int[triTex.size()];
+        float[] fp = new float[tt.length * 9], fuv = new float[tt.length * 6];
+        for (int i = 0; i < tt.length; i++) {
+            tt[i] = triTex.get(i);
+            for (int k = 0; k < 9; k++) fp[i * 9 + k] = (float) triP.get(i)[k];
+            for (int k = 0; k < 6; k++) fuv[i * 6 + k] = (float) triUv.get(i)[k];
+        }
+        lastDoor = new MachineFaces.Model(tt, fp, fuv).turned(quarter & 3);
         // the door's blocks, each in the model's frame (empty where nothing is drawn: a bullet flies through)
         String id = Block.blockRegistry.getNameForObject(b);
         Map<String, long[]> out = new TreeMap<String, long[]>();
