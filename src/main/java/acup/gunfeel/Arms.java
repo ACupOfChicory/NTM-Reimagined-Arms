@@ -377,6 +377,7 @@ public final class Arms {
             }
             // armLeftHide / armRightHide (per gun): the hand is not drawn in these stretches of an animation
             if (hidden(i)) {
+                if (TestLog.frames()) TestLog.c(-1, "arm_hidden", "right", right, "anim", HbmAnimations.getGunAnimation(0), "t", animMillis());
                 if (debugArms) GunFeel.LOGGER.info("[armdebug] {} {} t={} hidden", right ? "R" : "L", HbmAnimations.getGunAnimation(0), fmt(animMillis()));
                 continue;
             }
@@ -384,6 +385,7 @@ public final class Arms {
             if (magazineInspect(i)) {
                 Matrix4f rifle=partPose("Rifle",0);
                 if (rifle!=null) {
+                    branch = "magazine";
                     // Одна постоянная поза руки в системе магазина, без повторного
                     // решения плеча, изменения длины или отдельной траектории кисти.
                     Matrix4f bind=new Matrix4f(restBody).invert().mul(r.local);
@@ -653,6 +655,12 @@ public final class Arms {
     // /gunfeel armdebug: every frame, how each arm was placed, to the log ("[armdebug]")
     public static boolean debugArms;
     private static String branch = "", branchNote = "";
+
+    // the branch's name alone (rest, path, carry, release, around, hold, magazine): the trace compares it exactly
+    private static String branchName() {
+        int space = branch.indexOf(' ');
+        return space < 0 ? branch : branch.substring(0, space);
+    }
 
     private static String fmt(float v) {
         return String.format(java.util.Locale.ROOT, "%.3f", v);
@@ -1424,10 +1432,19 @@ public final class Arms {
         final int shown = crop;
         ClientSmoke.armPose(m,right);
         if (TestLog.frames()) {
+            // three points of the drawn arm in camera space, for comparing in blocks: the grip (the hand end's middle,
+            // moved to the contact point while a path holds it), the wrist (4 pixels back) and the elbow (the far
+            // end of what is drawn, where the arm is cut; the shoulder when it is whole)
             HbmAnimations.Animation playing = HbmAnimations.getRelevantAnim(0);
+            Matrix4f inCamera = new Matrix4f(CAMERA).invert().mul(m);
+            Vector3f grip = ArmContact.pivot(right, slim, pathContact[hand]);
+            Vector3f axis = ArmContact.pivot(right, slim, new Vector3f());
+            Vector3f wrist = inCamera.transformPosition(new Vector3f(axis.x, 8F / 16F, axis.z));
+            Vector3f elbow = inCamera.transformPosition(new Vector3f(axis.x, (12 - crop) / 16F, axis.z));
             TestLog.c(-1, "arm", "right", right, "anim", playing == null ? "none" : HbmAnimations.getGunAnimation(0),
                     "t", playing == null ? -1L : com.hbm.util.GameTime.now() - playing.startMillis, "crop", crop, "slim", slim,
-                    "m", new Matrix4f(CAMERA).invert().mul(m));
+                    "branch", branchName(), "contact", new Vector3f(pathContact[hand]),
+                    "grip", inCamera.transformPosition(grip), "wrist", wrist, "elbow", elbow, "m", inCamera);
         }
         if(Minecraft.getInstance().gui.screen() instanceof ArmAnimationEditor editor) {
             float fov=com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase.adjustHudFov(70F);

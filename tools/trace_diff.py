@@ -2,14 +2,18 @@
 """Compare two traces of NTM Reimagined Arms (-Dntmgunfeel.trace, see Trace.java) event by event.
 
     python3 -I tools/trace_diff.py A.tsv B.tsv [--abs 1e-4] [--rel 1e-6] [--tol kind.key=abs ...]
-                                               [--skip kind ...] [--ignore key ...] [--no-time] [--raw-shots] [--show 20]
+                                               [--skip kind ...] [--only kind ...] [--ignore key ...] [--no-time]
+                                               [--bits kind.key=n ...] [--unordered kind ...] [--raw-shots] [--show 20]
 
 Lines are matched by (side, part, tick, partial, kind, shot): the n-th such event of A with the n-th of B; part counts
 the "segment" events of a scenario (TraceScenario), whose time starts over with each. Shots, and the
 entity ids in --id-keys (default: target, owner), are numbered by the order each side first names them (entity ids
 differ between runs and versions); --raw-shots keeps them as written. --no-time matches by (side, kind, shot) and order alone, for runs whose ticks are not the same.
 Fields: the same keys; numbers (and comma-separated lists of them) within --abs or --rel of each other, everything
-else exactly. --tol camera.pitch=1e-4 sets one key's tolerance; --tol hole_made=0 one kind's. Hex numbers
+else exactly. --tol camera.pitch=1e-4 sets one key's tolerance; --tol hole_made=0 one kind's. --bits mask.hit=1: a
+string of 0 and 1 (a hitbox's ray grid) may differ in up to n places. --only keeps the kinds named and drops the rest.
+--unordered hole_made: that kind's events of one key are matched as a set (sorted by their fields), not in the order
+written, for things made in the same tick in an order the run does not fix (a shotgun's pellets). Hex numbers
 (-Dntmgunfeel.traceHex) are compared as written. The wall column is never compared.
 Exit 0: the same; 1: differences; 2: bad input.
 """
@@ -92,6 +96,12 @@ def number(s):
         return None
 
 
+def bits_close(a, b, n):
+    if len(a) != len(b) or set(a) - {'0', '1'} or set(b) - {'0', '1'}:
+        return False
+    return sum(x != y for x, y in zip(a, b)) <= n
+
+
 def close(a, b, abs_tol, rel_tol):
     if a == b:
         return True
@@ -119,6 +129,9 @@ def main():
     ap.add_argument('--rel', type=float, default=0.0, help='relative tolerance for numbers (default 0)')
     ap.add_argument('--tol', action='append', default=[], help='kind.key=abs or kind=abs')
     ap.add_argument('--skip', action='append', default=[], help='an event kind left out')
+    ap.add_argument('--only', action='append', default=[], help='keep only this event kind (several allowed)')
+    ap.add_argument('--bits', action='append', default=[], help='kind.key=n: 0/1 strings may differ in n places')
+    ap.add_argument('--unordered', action='append', default=[], help='an event kind matched as a set, not in order')
     ap.add_argument('--ignore', action='append', default=[], help='a key left out (kind.key or key)')
     ap.add_argument('--no-time', action='store_true', help='match by side, kind, shot and order, not by time')
     ap.add_argument('--raw-shots', action='store_true', help='compare bullet and entity ids as written')
@@ -139,9 +152,13 @@ def main():
     for k in ('scenario', 'seed', 'clock', 'numbers'):
         if ha.get(k) != hb.get(k):
             print(f'note: header {k} differs: {ha.get(k)} / {hb.get(k)}')
-    skip = set(args.skip)
-    ea = [e for e in ea if e['kind'] not in skip]
-    eb = [e for e in eb if e['kind'] not in skip]
+    skip, only = set(args.skip), set(args.only)
+    bits = {}
+    for t in args.bits:
+        k, _, v = t.partition('=')
+        bits[k] = int(v)
+    ea = [e for e in ea if e['kind'] not in skip and (not only or e['kind'] in only)]
+    eb = [e for e in eb if e['kind'] not in skip and (not only or e['kind'] in only)]
     if not args.raw_shots:
         ids = [k for k in args.id_keys.split(',') if k]
         renumber(ea, ids)
@@ -150,8 +167,15 @@ def main():
 
     diffs = []
     only_a = only_b = same = 0
+    unordered = set(args.unordered)
+
+    def order(events):
+        return sorted(events, key=lambda e: sorted(e['fields'].items()))
+
     for key in sorted(set(ga) | set(gb)):
         la, lb = ga.get(key, []), gb.get(key, [])
+        if la and la[0]['kind'] in unordered or lb and lb[0]['kind'] in unordered:
+            la, lb = order(la), order(lb)
         for i in range(max(len(la), len(lb))):
             if i >= len(lb):
                 only_a += 1
@@ -170,6 +194,10 @@ def main():
                 va, vb = a['fields'].get(k), b['fields'].get(k)
                 if va is None or vb is None:
                     bad.append(f'{k}: {va} / {vb}')
+                    continue
+                if f'{kind}.{k}' in bits:
+                    if not bits_close(va, vb, bits[f'{kind}.{k}']):
+                        bad.append(f'{k}: {sum(x != y for x, y in zip(va, vb))} of {len(va)} differ')
                     continue
                 t = tol.get(f'{kind}.{k}', tol.get(kind, args.abs))
                 if not close(va, vb, t, args.rel):

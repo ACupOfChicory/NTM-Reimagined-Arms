@@ -42,6 +42,11 @@ final class TraceScenario {
         return Trace.ON && NAME != null && !NAME.isBlank();
     }
 
+    // the whole run's limit (ClientSmoke): a gun plays in about 20 s, all 80 or so in half an hour
+    static long timeout() {
+        return 900_000_000_000L + 60_000_000_000L * guns.size();
+    }
+
     static void start() {
         String list = System.getProperty("ntmgunfeel.scenarioGuns", GUNS).trim();
         if (list.equals("all")) {
@@ -182,7 +187,7 @@ final class TraceScenario {
         HbmAnimations.Animation anim = HbmAnimations.getRelevantAnim(0);
         boolean over = anim == null || anim.animation == null
                 || com.hbm.util.GameTime.now() - anim.startMillis > anim.animation.getDuration();
-        return over && ModelRecoil.idle() && CameraRecoil.idle();
+        return over && ModelRecoil.over() && CameraRecoil.idle();
     }
 
     // NTM's animation as from the server's packet; a shot's random draws (the gun's recoil, NTM's flash) seeded
@@ -190,6 +195,12 @@ final class TraceScenario {
         long seed = Trace.DEFAULT_SEED + gun * 10_000L + part * 100L + k;
         player.getRandom().setSeed(seed);
         player.level().getRandom().setSeed(seed);
+        // a gun without animations (the fire extinguisher): NTM sends it none, its packet handler would fail
+        ItemStack stack = player.getMainHandItem();
+        if (((ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getAnims(stack) == null) {
+            TestLog.c(-1, "anim", "type", type, "none", true);
+            return;
+        }
         TestLog.c(-1, "anim", "type", type);
         com.hbm.packet.toclient.HbmAnimationPayload.handleSedna(player, player.getMainHandItem(), player.getInventory().getSelectedSlot(), type, 0, 0);
     }

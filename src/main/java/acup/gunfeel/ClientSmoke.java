@@ -112,7 +112,7 @@ public final class ClientSmoke {
                 GunFeel.LOGGER.info("[holebench] запуск phase={} screen={} world={}",phase,
                         mc.gui.screen()==null?"null":mc.gui.screen().getClass().getName(),mc.level!=null);
             }
-            if (!MobSmoke.review() && System.nanoTime() - START > (MobBenchMetrics.ENABLED || HoleBenchMetrics.ENABLED || TraceScenario.enabled()?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
+            if (!MobSmoke.review() && System.nanoTime() - START > (TraceScenario.enabled()?TraceScenario.timeout():MobBenchMetrics.ENABLED || HoleBenchMetrics.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
                 check(false, "таймаут клиента; экран=" + mc.gui.screen());
                 finish();
                 return;
