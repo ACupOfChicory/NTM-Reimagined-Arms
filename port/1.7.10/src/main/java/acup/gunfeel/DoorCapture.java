@@ -195,7 +195,7 @@ public final class DoorCapture {
     }
 
     // a texture as the graphics card has it: {width, height}, then its ARGB pixels
-    private static int[][] texture(int id, Map<Integer, int[][]> cache) {
+    static int[][] texture(int id, Map<Integer, int[][]> cache) {
         int[][] t = cache.get(id);
         if (t != null) return t;
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, id);
@@ -215,7 +215,7 @@ public final class DoorCapture {
     }
 
     // the pixel at (u, v), the texture repeated, passes the alpha test (alpha over 0.1); no texture: drawn
-    private static boolean shown(int[][] t, double u, double v) {
+    static boolean shown(int[][] t, double u, double v) {
         int w = t[0][0], h = t[0][1];
         if (w == 0) return true;
         int x = Math.floorMod((int) Math.floor(u * w), w), y = Math.floorMod((int) Math.floor(v * h), h);

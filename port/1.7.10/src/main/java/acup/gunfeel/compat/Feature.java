@@ -9,8 +9,8 @@ import java.util.List;
 // version and one of them does not fit it, the whole system is turned off (see Compat); a mixin shared by systems turns
 // all of them off. A class calling NTM that is in no list belongs to CORE, and CORE off turns everything off. The tests
 // check every mixin into NTM is here, and the lang keys ntmgunfeel.feature.<id>.
-// Not in 26.2: TRACE, the dev trace scenario's clock (MixinClock). Not in the port: MACHINE_MESH (their
-// parts are not ported).
+// Not in 26.2: TRACE, the dev trace scenario's clock (MixinClock). MACHINE_MESH has no mixins of its own:
+// it reads NTM models through ARMS's MixinWavefrontObject(VBO).
 public enum Feature {
     CORE("core", list(), list("GunFeel", "GunFeelMod", "GunFeelClient", "Config", "Net", "PortPaths", "LateMixins")),
     MODEL_HITBOXES("model_hitboxes", list("MixinHeadDamage"),
@@ -29,6 +29,7 @@ public enum Feature {
             "MixinHbmAnimationPacket"), list("Arms", "ArmAnims", "Grips", "GunGeometry", "WeaponSway")),
     HUD("hud", list("MixinGunHud"), list("Hud", "HudEvents", "HudFormat", "Silhouette", "GunGeometry")),
     INSTANT_SWITCH("instant_switch", list("MixinHbmAnimationPacket"), list("InstantSwitch", "SwitchPrediction")),
+    MACHINE_MESH("machine_mesh", list(), list("MachineMesh")),
     TRACERS("tracers", list("MixinLegoClient", "MixinRenderBulletMK4", "MixinSmokeNodes"), list("Tracers", "TracerNet", "TracerPath")),
     MARESLEG("maresleg", list("MixinGunConfigAnims"), list()),
     TRACE("trace", list("MixinClock"), list("TraceScenario", "TraceClient", "TraceHooks", "ShootScenario", "LookScenario", "ShapesScenario"));

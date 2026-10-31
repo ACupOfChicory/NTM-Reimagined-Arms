@@ -226,6 +226,16 @@ INSTANT_SWITCH class com/hbm/render/anim/AnimationEnums$GunAnimation
 INSTANT_SWITCH field com/hbm/render/anim/AnimationEnums$GunAnimation EQUIP Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 INSTANT_SWITCH method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
 INSTANT_SWITCH method com/hbm/packet/toclient/HbmAnimationPacket$Handler handleSedna (Lnet/minecraft/entity/player/EntityPlayer;Lnet/minecraft/item/ItemStack;ILcom/hbm/render/anim/AnimationEnums$GunAnimation;II)V
+MACHINE_MESH class com/hbm/blocks/BlockDummyable
+MACHINE_MESH class com/hbm/render/loader/HFRWavefrontObject
+MACHINE_MESH class com/hbm/render/loader/S_Face
+MACHINE_MESH class com/hbm/render/loader/S_GroupObject
+MACHINE_MESH field com/hbm/render/loader/HFRWavefrontObject groupObjects Ljava/util/ArrayList;
+MACHINE_MESH field com/hbm/render/loader/S_Face textureCoordinates [Lnet/minecraftforge/client/model/obj/TextureCoordinate;
+MACHINE_MESH field com/hbm/render/loader/S_Face vertices [Lnet/minecraftforge/client/model/obj/Vertex;
+MACHINE_MESH field com/hbm/render/loader/S_GroupObject faces Ljava/util/ArrayList;
+MACHINE_MESH field com/hbm/render/loader/S_GroupObject name Ljava/lang/String;
+MACHINE_MESH method com/hbm/blocks/BlockDummyable findCore (Lnet/minecraft/world/IBlockAccess;III)[I
 MARESLEG class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 MARESLEG class com/hbm/render/anim/AnimationEnums$GunAnimation
 MARESLEG class com/hbm/render/anim/BusAnimation

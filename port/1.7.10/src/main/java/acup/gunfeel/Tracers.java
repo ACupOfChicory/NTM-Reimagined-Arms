@@ -2,9 +2,9 @@
 // 1.7.10 can do without 26.2's model capture: the tracers, their flight through the client's world, NTM's standard
 // ricochet, the server's stop point, and flat holes on block faces (cut to the hitbox and the pixels of plain cubes).
 // The pure parts are in HoleMath and TracerPath (same numbers as 26.2); this file holds the world and the drawing.
-// Left out (26.2 only, for now): holes on what a renderer draws (NTM machines and doors: RenderedMesh, Follow,
-// meshHole, drawnHole, DecalSurface), piercing on the client (PassableClip), the graphics-card hole cache (Batch,
-// holeCache), the late pass for glass, entity hits for unannounced shots, ClientSmoke / HoleBenchmark hooks.
+// Holes on what a renderer draws (NTM machines and doors) come from MachineMesh, square on the part they sit on.
+// Left out (26.2 only, for now): DecalSurface (a hole wrapped over a model's edges), piercing on the client
+// (PassableClip), the graphics-card hole cache (Batch, holeCache), the late pass for glass, entity hits for unannounced shots, ClientSmoke / HoleBenchmark hooks.
 package acup.gunfeel;
 
 import java.nio.FloatBuffer;
@@ -320,6 +320,13 @@ public final class Tracers {
         PENDING.addLast(new Pending(w, new double[] {px, py, pz}, face, new int[] {bx, by, bz}, bc, new double[] {dx, dy, dz}, null, shot));
     }
 
+    // the holes on machines and doors now (the look scenario's log)
+    public static int machineHoles() {
+        int n = 0;
+        for (Hole h : HOLES) if (h.machine()) n++;
+        return n;
+    }
+
     // /gunfeel clearholes: every hole, scratch and scorch mark in this world, and the ones still to be made; how many
     public static int clearHoles() {
         int n = HOLES.size() + PENDING.size();
@@ -533,6 +540,8 @@ public final class Tracers {
         final int x, y, z, meta;
         final Block block;
         final double[] box;
+        // on what a renderer draws (NTM's machines and doors, MachineMesh): where it sits on its part; null = on a block face
+        MachineMesh.Anchor mesh;
 
         Hole(double[] pos, int face, int turn, long born, int light, int kind, float size, double[] rect, HoleMath.Mask mask, double plane,
                 boolean cull, int[] at, Block block, int meta, double[] box, int shot) {
@@ -556,9 +565,9 @@ public final class Tracers {
             this.shot = shot;
         }
 
-        // port: no holes on what a renderer draws yet (26.2: NTM machines and doors), so none count for holeMaxMachines
+        // on what a renderer draws (NTM machines and doors): these count for holeMaxMachines
         boolean machine() {
-            return false;
+            return mesh != null;
         }
     }
 
@@ -611,6 +620,37 @@ public final class Tracers {
         }
     }
 
+    // a hole on what a renderer draws (MachineMesh: NTM's machines and doors), on the drawn triangle the bullet met;
+    // none where nothing is drawn. Square, not cut to the triangle's edges (26.2's DecalSurface wraps it over them).
+    private static Hole meshHole(Pending p, Block b, int meta) {
+        if (p.dir == null) return null;
+        MachineMesh.Hit hit = MachineMesh.hit(p.world, p.pos, p.at, p.dir);
+        if (hit == null) return null;
+        World world = p.world;
+        int[] pos = p.pos;
+        double[] n = hit.normal;
+        int light = world.getLightBrightnessForSkyBlocks((int) Math.floor(hit.point[0] + n[0] * 0.3), (int) Math.floor(hit.point[1] + n[1] * 0.3),
+                (int) Math.floor(hit.point[2] + n[2] * 0.3), 0);
+        boolean scorch = p.config.onImpact != null;
+        Decals.Set set = rules.decal(world, b, meta, pos[0], pos[1], pos[2]);
+        int kind = scorch ? Decals.scorch(set.scorch()) : Decals.hole(set.hole());
+        Random r = Rng.shot(p.shot);
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(p.config) * (0.8F + 0.4F * (float) r.nextDouble());
+        int turn = HoleMath.withVariant((int) (r.nextDouble() * 8), r.nextDouble());
+        int face = dominant(n);
+        Hole h = new Hole(hit.point, face, turn, GunClock.nanos(), light, kind, size, null, null, Double.NaN, false, pos.clone(), b, meta, null, p.shot);
+        h.mesh = hit.anchor;
+        HOLES.addLast(h);
+        trimHoles();
+        return h;
+    }
+
+    // the block face whose normal is nearest to n
+    private static int dominant(double[] n) {
+        int axis = Math.abs(n[0]) >= Math.abs(n[1]) && Math.abs(n[0]) >= Math.abs(n[2]) ? 0 : Math.abs(n[1]) >= Math.abs(n[2]) ? 1 : 2;
+        return HoleMath.face(axis, n[axis] >= 0 ? 1 : -1);
+    }
+
     // a flat hole on the hit face, or none: on a block drawn by its renderer (no block model: NTM's machines), on a
     // see-through pixel, or when none of the block's pixels lie around the hit
     private static Hole makeHole(Pending p) {
@@ -618,7 +658,8 @@ public final class Tracers {
         int[] pos = p.pos;
         Block b = world.getBlock(pos[0], pos[1], pos[2]);
         int meta = world.getBlockMetadata(pos[0], pos[1], pos[2]);
-        if (b.getMaterial() == Material.air || b.getRenderType() < 0) return null;
+        if (b.getMaterial() == Material.air) return null;
+        if (b.getRenderType() < 0) return acup.gunfeel.compat.Feature.MACHINE_MESH.on() ? meshHole(p, b, meta) : null;
         WorldPixels pixels = new WorldPixels(world);
         int face = p.face;
         int normal = HoleMath.axis(face);
@@ -692,6 +733,11 @@ public final class Tracers {
             for (Iterator<Hole> it = HOLES.iterator(); it.hasNext();) {
                 Hole h = it.next();
                 Block b = world.getBlock(h.x, h.y, h.z);
+                if (h.mesh != null) {
+                    // a machine's or door's hole goes with its tile entity; its part moving takes it along
+                    if (b != h.block || MachineMesh.gone(h.mesh)) it.remove();
+                    continue;
+                }
                 if (b != h.block) it.remove();
                 else if (world.getBlockMetadata(h.x, h.y, h.z) != h.meta && !java.util.Arrays.equals(boxes.box(h.x, h.y, h.z), h.box)) it.remove();
             }
@@ -742,6 +788,9 @@ public final class Tracers {
     // a depth bias that keeps them on the face they lie on; one-sided holes (on a cube's face) culled, the others
     // not. In the order they were made, a newer hole over an older one; grouped by texture.
     private static void drawHoles(Minecraft mc, float partial, long now, long life) {
+        List<Hole> meshHoles = new ArrayList<Hole>();
+        List<double[][]> meshPlaces = new ArrayList<double[][]>();
+        placeMeshHoles(now, life, meshHoles, meshPlaces);
         mc.entityRenderer.enableLightmap(partial);
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glDisable(GL11.GL_LIGHTING);
@@ -753,12 +802,13 @@ public final class Tracers {
         GL11.glPolygonOffset(-1F, -10F);
         GL11.glColor4f(1F, 1F, 1F, 1F);
         Tessellator t = Tessellator.instance;
+        drawMeshHoles(mc, t, now, life, meshHoles, meshPlaces);
         for (int group = 0; group < 2 * KINDS; group++) {
             int kind = group % KINDS;
             boolean cull = group >= KINDS;
             boolean started = false;
             for (Hole h : HOLES) {
-                if (h.kind != kind || h.cull != cull) continue;
+                if (h.kind != kind || h.cull != cull || h.mesh != null) continue;
                 int alpha = HoleMath.alpha(now - h.born, life);
                 if (alpha <= 0) continue;
                 for (double[] clip : HoleMath.cells(h.rect, h.mask)) {
@@ -786,6 +836,51 @@ public final class Tracers {
         GL11.glDisable(GL11.GL_BLEND);
         GL11.glEnable(GL11.GL_CULL_FACE);
         mc.entityRenderer.disableLightmap(partial);
+    }
+
+    // where the holes on machines and doors (MachineMesh) are now, read before the holes' GL state is set up (reading
+    // runs the machines' renderers)
+    private static void placeMeshHoles(long now, long life, List<Hole> holes, List<double[][]> places) {
+        for (Hole h : HOLES) {
+            if (h.mesh == null || HoleMath.alpha(now - h.born, life) <= 0) continue;
+            double[][] at = MachineMesh.place(h.mesh);
+            if (at == null) continue;
+            holes.add(h);
+            places.add(at);
+        }
+    }
+
+    // each where its part is now: a square on the part's plane, lifted towards the camera, seen from both sides
+    private static void drawMeshHoles(Minecraft mc, Tessellator t, long now, long life, List<Hole> holes, List<double[][]> places) {
+        if (holes.isEmpty()) return;
+        GL11.glDisable(GL11.GL_CULL_FACE);
+        for (int kind = 0; kind < KINDS; kind++) {
+            boolean started = false;
+            for (int i = 0; i < holes.size(); i++) {
+                Hole h = holes.get(i);
+                if (h.kind != kind) continue;
+                double[][] at = places.get(i);
+                double[] p = at[0], n = at[1], u = at[2], v = at[3];
+                double side = (CAMERA[0] - p[0]) * n[0] + (CAMERA[1] - p[1]) * n[1] + (CAMERA[2] - p[2]) * n[2] >= 0 ? 1 : -1;
+                double half = h.size * 0.5, lift = 0.003 * side;
+                if (!started) {
+                    started = true;
+                    mc.getTextureManager().bindTexture(TEXTURES[kind]);
+                    t.startDrawingQuads();
+                }
+                t.setBrightness(h.light);
+                t.setColorRGBA_I(0xFFFFFF, HoleMath.alpha(now - h.born, life));
+                t.setNormal((float) (n[0] * side), (float) (n[1] * side), (float) (n[2] * side));
+                float[][] corners = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+                for (float[] c : corners) {
+                    float[] uv = HoleMath.holeUv(h.turn, c[0], c[1]);
+                    double a = (c[0] * 2 - 1) * half, b = (c[1] * 2 - 1) * half;
+                    t.addVertexWithUV(p[0] + u[0] * a + v[0] * b + n[0] * lift - CAMERA[0], p[1] + u[1] * a + v[1] * b + n[1] * lift - CAMERA[1],
+                            p[2] + u[2] * a + v[2] * b + n[2] * lift - CAMERA[2], uv[0], 1F - uv[1]);
+                }
+            }
+            if (started) t.draw();
+        }
     }
 
     // ---- the world behind HoleMath's interfaces

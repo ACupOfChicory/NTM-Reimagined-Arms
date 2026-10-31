@@ -23,10 +23,14 @@ final class LookScenario {
     }
 
     private static final int BUILD = 5, GIVE = 40, HUD = 60, SKY = 70, SHOT = 100, HOLES = 140, SWITCH = 160, BURST = 180,
-            BURST_TICKS = 20, HOLES2 = 240, TURN = 260, ZOMBIE = 280, AT_ZOMBIE = 300, RADIAL = 330, DONE = 400;
+            BURST_TICKS = 20, HOLES2 = 240, TURN = 260, ZOMBIE = 280, AT_ZOMBIE = 300, RADIAL = 330, MACHINE = 390, DONE = 470;
 
     // the zombie's place relative to the player's feet: 3 to the left (+x, the player looks along +z), 7 ahead
     private static final int ZX = 3, ZZ = 7;
+    // the press (an NTM machine drawn by its renderer, for the holes on it: MachineMesh): its core 6 to the right
+    // (-x), 5 ahead
+    private static final int MX = -6, MZ = 5;
+    private static int[] feet;
 
     static void step(Minecraft mc, int t) {
         if (t == BUILD) {
@@ -34,6 +38,7 @@ final class LookScenario {
             Trace.recording = true;
             final int px = (int) Math.floor(mc.thePlayer.posX), py = (int) Math.floor(mc.thePlayer.boundingBox.minY),
                     pz = (int) Math.floor(mc.thePlayer.posZ);
+            feet = new int[] {px, py, pz};
             ShootScenario.onServer(() -> build(px, py, pz));
         } else if (t == GIVE) {
             ShootScenario.onServer(() -> {
@@ -120,6 +125,40 @@ final class LookScenario {
             GunFeel.LOGGER.info("Scenario look: ammo menu open {}, loaded now {}", RadialMenu.isOpen(),
                     ((com.hbm.items.weapon.sedna.BulletConfig) AmmoLock.primary(mc.thePlayer.getHeldItem()).getType(mc.thePlayer.getHeldItem(), null)).id);
             shot(mc, "radial-after");
+        } else if (t == MACHINE) {
+            final int[] f = feet;
+            ShootScenario.onServer(() -> {
+                press(f[0] + MX, f[1], f[2] + MZ);
+                ShootScenario.give(3, "gun_am180"); // a loaded one: the ammo menu left the other to reload
+            });
+        } else if (t == MACHINE + 10) {
+            // the camera on the press's body, the am180 in hand
+            mc.thePlayer.inventory.currentItem = 3;
+            double dx = feet[0] + MX + .5 - mc.thePlayer.posX, dz = feet[2] + MZ + .5 - mc.thePlayer.posZ;
+            float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+            float pitch = (float) Math.toDegrees(Math.atan2(1.62 - 1.0, Math.sqrt(dx * dx + dz * dz)));
+            mc.thePlayer.rotationYaw = mc.thePlayer.prevRotationYaw = yaw;
+            mc.thePlayer.rotationPitch = mc.thePlayer.prevRotationPitch = pitch;
+        } else if (t == MACHINE + 35) {
+            ShootScenario.trigger(true, mc);
+        } else if (t == MACHINE + 45) {
+            ShootScenario.trigger(false, mc);
+        } else if (t == MACHINE + 60) {
+            GunFeel.LOGGER.info("Scenario look: holes on machines {}", Tracers.machineHoles());
+            shot(mc, "machine-holes");
+        } else if (t == MACHINE + 62) {
+            // close up: two blocks from the press, on the side the bullets came from
+            final int[] f = feet;
+            final double cx = f[0] + MX + .5, cz = f[2] + MZ + .5;
+            final double ox = mc.thePlayer.posX - cx, oz = mc.thePlayer.posZ - cz, ol = Math.sqrt(ox * ox + oz * oz);
+            final double x = cx + ox / ol * 2.6, z = cz + oz / ol * 2.6;
+            final float yaw = (float) Math.toDegrees(Math.atan2(ox, -oz));
+            ShootScenario.onServer(() -> {
+                EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
+                player.playerNetServerHandler.setPlayerLocation(x, f[1], z, yaw, 8F);
+            });
+        } else if (t == MACHINE + 70) {
+            shot(mc, "machine-close");
         } else if (t == DONE - 10) {
             // the systems' state in chat (the chat lines go to the log as [CHAT])
             for (String c : new String[] {"/gunfeel quality low", "/gunfeel quality", "/gunfeel quality high", "/gunfeel hitvolume", "/gunfeel settings",
@@ -133,6 +172,20 @@ final class LookScenario {
             GunFeel.LOGGER.info("Scenario look done: screenshots in {}", new File(mc.mcDataDir, "screenshots"));
             mc.shutdown();
         }
+    }
+
+    // the integrated server: NTM's press with its core at (x, y, z), turned to the player (BlockDummyable)
+    private static void press(int x, int y, int z) {
+        EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
+        World w = player.worldObj;
+        net.minecraft.block.Block b = (net.minecraft.block.Block) net.minecraft.block.Block.blockRegistry.getObject("hbm:tile.machine_press");
+        if (b == null) {
+            GunFeel.LOGGER.warn("Scenario look: no hbm:tile.machine_press");
+            return;
+        }
+        w.setBlock(x, y, z, b, 0, 3);
+        b.onBlockPlacedBy(w, x, y, z, player, new net.minecraft.item.ItemStack(b));
+        GunFeel.LOGGER.info("Scenario look: press at {} {} {}: {}", x, y, z, w.getTileEntity(x, y, z));
     }
 
     // the integrated server: noon, the wall 10 ahead (stone, its middle column glass), the zombie and its roof
