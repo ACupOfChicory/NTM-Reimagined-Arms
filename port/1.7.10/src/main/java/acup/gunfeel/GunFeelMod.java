@@ -17,6 +17,7 @@ public final class GunFeelMod {
     public void preInit(FMLPreInitializationEvent event) {
         GunFeel.LOGGER.info("NTM Reimagined Arms {} ({}) on Java {}", BuildInfo.DISPLAY, BuildInfo.VERSION, System.getProperty("java.version"));
         boolean client = FMLCommonHandler.instance().getSide() == Side.CLIENT;
+        AmmoNet.init(); // the ammo key's and menu's messages (AmmoNet.register: onto a common channel later)
         if (client) GunFeelClient.init();
         TraceHooks.register(client);
     }
@@ -25,6 +26,7 @@ public final class GunFeelMod {
     // client's own server in single player stays)
     @Mod.EventHandler
     public void serverStarted(FMLServerStartedEvent event) {
+        AmmoCheck.maybeRun(); // dev: a file "ammocheck" in the run folder
         if (!net.minecraft.server.MinecraftServer.getServer().isDedicatedServer() || !new java.io.File("autostop").exists()) return;
         GunFeel.LOGGER.info("autostop file found: stopping the server");
         net.minecraft.server.MinecraftServer.getServer().initiateShutdown();

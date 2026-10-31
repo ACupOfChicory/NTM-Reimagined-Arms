@@ -16,6 +16,8 @@ acup/gunfeel/Decals.java
 acup/gunfeel/Materials.java
 acup/gunfeel/BlockFacts.java
 acup/gunfeel/HoleLimits.java
+# hud and ammo (port-1.7.10-part-hud.md)
+acup/gunfeel/AmmoStats.java
 
 [test]
 # src/test/java: they test the port's copies with 26.2's own expectations

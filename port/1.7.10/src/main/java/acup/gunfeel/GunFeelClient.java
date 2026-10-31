@@ -31,6 +31,7 @@ public final class GunFeelClient {
         FMLCommonHandler.instance().bus().register(new GunFeelClient());
         ShootScenario.register();
         Tracers.register();
+        HudEvents.register(); // the ammo HUD, ammo key and menu, instant switch
     }
 
     // dev runs (runClient): a file "autostop" in the run folder closes the client a few seconds after the main menu

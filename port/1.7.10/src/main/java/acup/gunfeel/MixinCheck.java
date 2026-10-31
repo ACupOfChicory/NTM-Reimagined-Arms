@@ -14,11 +14,17 @@ public final class MixinCheck {
             {"com.hbm.render.anim.HbmAnimations", "1"},
             {"com.hbm.render.loader.HFRWavefrontObject", "4"},
             {"com.hbm.render.loader.HFRWavefrontObjectVBO", "4"},
-            {"net.minecraft.client.renderer.EntityRenderer", "1"},
+            {"net.minecraft.client.renderer.EntityRenderer", "2"},
             {"net.minecraft.util.Timer", "1"},
             {"com.hbm.util.Clock", "1"},
             {"com.hbm.render.entity.projectile.RenderBulletMK4", "1"},
             {"com.hbm.items.weapon.sedna.factory.LegoClient", "1"},
+            {"com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase", "3"},
+            {"com.hbm.items.weapon.sedna.mags.MagazineBelt", "2"},
+            {"com.hbm.main.ClientProxy", "1"},
+            {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "2"},
+            {"com.hbm.packet.toclient.HbmAnimationPacket$Handler", "3"},
+            {"net.minecraft.client.renderer.ItemRenderer", "5"},
     };
 
     private MixinCheck() {

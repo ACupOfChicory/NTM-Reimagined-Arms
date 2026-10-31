@@ -1,0 +1,8 @@
+# the HUD part's lines of 26.2's en_us.json (0762086), in 1.7.10's .lang form
+key.category.ntmgunfeel.main=NTM Reimagined Arms
+key.ntmgunfeel.ammo_lock=Lock ammo type
+message.ntmgunfeel.ammo_locked=Ammo locked: %s
+message.ntmgunfeel.ammo_unlocked=Ammo unlocked
+ntmgunfeel.ammo.damage=Damage
+ntmgunfeel.ammo.head=Head
+ntmgunfeel.ammo.armor=vs T-51

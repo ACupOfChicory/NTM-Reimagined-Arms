@@ -6,8 +6,9 @@
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
   "injectors": { "defaultRequire": 1 },
-  "mixins": [],
+  "mixins": ["MixinAmmoLock", "MixinAmmoLockBelt"],
   "client": ["MixinModEventHandlerClient", "MixinItemRenderWeaponBase", "MixinHbmAnimations", "MixinWavefrontObject", "MixinWavefrontObjectVBO", "MixinClock",
-             "MixinRenderBulletMK4", "MixinLegoClient", "MixinSmokeNodes"],
+             "MixinRenderBulletMK4", "MixinLegoClient", "MixinSmokeNodes",
+             "MixinGunKeysRadial", "MixinGunHud", "MixinHbmAnimationPacket"],
   "server": []
 }

@@ -7,6 +7,6 @@
   "compatibilityLevel": "JAVA_8",
   "injectors": { "defaultRequire": 1 },
   "mixins": [],
-  "client": ["MixinEntityRenderer", "MixinTimer"],
+  "client": ["MixinEntityRenderer", "MixinTimer", "MixinMouseTurn", "ItemRendererAccess"],
   "server": []
 }
