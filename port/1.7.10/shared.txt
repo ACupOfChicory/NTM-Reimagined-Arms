@@ -51,6 +51,8 @@ ntmgunfeel-server.properties
 assets/ntmgunfeel/textures/effect/*.png
 ntmgunfeel-heads.json
 ntmgunfeel-limbs.json
+ntmgunfeel-materials.txt
+ntmgunfeel-bullets.txt
 
 [main-phys]
 # src/main/java, compiled with net.minecraft.world.phys.Vec3 read as acup.gunfeel.phys.Vec3 (build.gradle.kts)
@@ -66,5 +68,3 @@ acup/gunfeel/HeadZoneTest.java
 acup/gunfeel/HeadProfilesTest.java
 acup/gunfeel/ContourIntersectionTest.java
 acup/gunfeel/ModelHitTurnTest.java
-ntmgunfeel-materials.txt
-ntmgunfeel-bullets.txt
