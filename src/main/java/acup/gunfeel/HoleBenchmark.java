@@ -115,6 +115,7 @@ final class HoleBenchmark {
                 player.getInventory().setSelectedSlot(0); player.setItemInHand(InteractionHand.MAIN_HAND,stack);
                 gunStack=stack;
                 player.getRandom().setSeed(71294);
+                Rng.seed(71294);
                 readyAt=System.nanoTime();
             } catch(Throwable t) { failure=t.toString(); }
             pending=false;

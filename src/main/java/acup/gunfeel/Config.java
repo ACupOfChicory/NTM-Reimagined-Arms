@@ -28,6 +28,13 @@ public final class Config {
     public static float cameraScale = 0.55F;
     public static float cameraTime = 1.0F;
     public static float cameraShake = 1.0F;
+    // share of the camera's vertical kick that stays (the view ends higher), 0 = all of it comes back
+    public static float cameraClimb = 0F;
+    // degrees the view stays higher after each shot, on top of cameraClimb, for guns whose NTM recoil has no direction
+    public static float cameraClimbDeg = 0F;
+    // degrees the view stays to one side after each shot (the side wanders over a burst), and over how many shots of a
+    // burst the staying parts grow to their full size
+    public static float cameraDriftDeg = 0F, cameraClimbRamp = 0F;
     // recoil presets (RecoilPresets); cameraPreset empty = the same as kickPreset
     public static String kickPreset = "default", cameraPreset = "";
     // one movement of the preset replaced: a Spring "amount,attack,settle,bounce,delay,freq" or a curve "t:v t:v ...";
@@ -143,6 +150,14 @@ public final class Config {
             cameraScale: camera kick, degrees per unit of NTM recoil (0.55: lever shotgun ~5.5 deg)
             cameraTime: duration of the camera kick, 1 = as the preset
             cameraShake: camera roll shake on each shot, 0 = off
+            cameraClimb: share of the camera's vertical kick that stays, 0..1: 0 = the view always comes back, 0.5 = it
+              ends half a kick higher and the player pulls the mouse down
+            cameraClimbDeg: degrees the view stays higher after each shot, always up (times adsRecoil when aiming),
+              on top of cameraClimb; for guns whose recoil goes up and down at random
+            cameraDriftDeg: degrees the view stays to one side after each shot (times adsRecoil when aiming); the side
+              wanders over a burst: a few shots one way, then it may turn
+            cameraClimbRamp: shots of a burst over which cameraClimb, cameraClimbDeg and cameraDriftDeg grow to their
+              full size, 0 = full from the first shot
             kickPreset: recoil preset of the gun model kick (ntmgunfeel-recoil.properties in the jar, your own in
               config/ntm-gunfeel-recoil.properties): default, pistol, revolver, smg, assault, rifle, lever, shotgun,
               sniper, mg, launcher; cameraPreset: the same for the camera, empty = as kickPreset
@@ -386,6 +401,10 @@ public final class Config {
         cameraScale = num(p, "cameraScale", cameraScale);
         cameraTime = Math.max(0.05F, num(p, "cameraTime", cameraTime));
         cameraShake = num(p, "cameraShake", cameraShake);
+        cameraClimb = Math.clamp(num(p, "cameraClimb", cameraClimb), 0F, 1F);
+        cameraClimbDeg = Math.clamp(num(p, "cameraClimbDeg", cameraClimbDeg), 0F, 10F);
+        cameraDriftDeg = Math.clamp(num(p, "cameraDriftDeg", cameraDriftDeg), 0F, 10F);
+        cameraClimbRamp = Math.clamp(num(p, "cameraClimbRamp", cameraClimbRamp), 0F, 100F);
         kickPreset = p.getProperty("kickPreset", kickPreset).trim();
         cameraPreset = p.getProperty("cameraPreset", cameraPreset).trim();
         cameraPitch = p.getProperty("cameraPitch", cameraPitch).trim();
@@ -502,6 +521,10 @@ public final class Config {
         p.setProperty("cameraScale", Float.toString(cameraScale));
         p.setProperty("cameraTime", Float.toString(cameraTime));
         p.setProperty("cameraShake", Float.toString(cameraShake));
+        p.setProperty("cameraClimb", Float.toString(cameraClimb));
+        p.setProperty("cameraClimbDeg", Float.toString(cameraClimbDeg));
+        p.setProperty("cameraDriftDeg", Float.toString(cameraDriftDeg));
+        p.setProperty("cameraClimbRamp", Float.toString(cameraClimbRamp));
         p.setProperty("kickPreset", kickPreset);
         p.setProperty("cameraPreset", cameraPreset);
         p.setProperty("cameraPitch", cameraPitch);

@@ -149,7 +149,7 @@ public final class Tracers {
 
     // a new mark's turn with a random variant in it
     private static int withVariant(int turn) {
-        return turn | Decals.variant(Math.random()) << VARIANT_SHIFT;
+        return turn | Decals.variant(Rng.shot(makingShot).nextDouble()) << VARIANT_SHIFT;
     }
 
     // A hole on a part a renderer moves (a door's leaf, a press head): kept in the part's own space and put where the
@@ -396,7 +396,7 @@ public final class Tracers {
             p.y *= k;
         }
         MUZZLE.set(p);
-        muzzleTime = System.nanoTime();
+        muzzleTime = GunClock.nanos();
     }
 
     private static java.lang.reflect.Field hudFovField;
@@ -461,6 +461,7 @@ public final class Tracers {
 
     public static void handle(ShotPayload p, IPayloadContext context) {
         MobSmoke.tracer(p.id());
+        Rng.announce(p.id());
         serverAnnounces = true;
         if (!Config.tracers && !Config.bulletHoles && !Config.bulletFx) return;
         if (p.config() < 0 || p.config() >= BulletConfig.configs.size()) return;
@@ -472,7 +473,7 @@ public final class Tracers {
         Shot s = new Shot(p, config, c);
         Minecraft mc = Minecraft.getInstance();
         // the player's own shot leaves the muzzle drawn in their hands
-        if (mc.player != null && p.owner() == mc.player.getId() && System.nanoTime() - muzzleTime < 500_000_000L && mc.options.getCameraType().isFirstPerson()) {
+        if (mc.player != null && p.owner() == mc.player.getId() && GunClock.nanos() - muzzleTime < 500_000_000L && mc.options.getCameraType().isFirstPerson()) {
             Camera camera = mc.gameRenderer.mainCamera();
             Vector3f w = camera.rotation().transform(new Vector3f(MUZZLE));
             Vec3 muzzle = camera.position().add(w.x, w.y, w.z);
@@ -543,7 +544,7 @@ public final class Tracers {
         ClientLevel level = mc.level;
         if (level == null) return;
         Vec3 cam = event.getLevelRenderState().cameraRenderState.pos;
-        long now = System.nanoTime();
+        long now = GunClock.nanos();
         PoseStack pose = event.getPoseStack();
         // a frame's worth of flight, so a fast bullet's tracer does not break into dashes
         double tickNow = flightTime();
@@ -812,7 +813,7 @@ public final class Tracers {
     }
 
     private static float scratchSize() {
-        return Config.holeSize * 1.4F * (0.9F + 0.2F * (float) Math.random());
+        return Config.holeSize * 1.4F * (0.9F + 0.2F * (float) Rng.shot(makingShot).nextDouble());
     }
 
     // /gunfeel holedebug: every hit and how its hole was placed, to the log ("[holedebug]")
@@ -885,10 +886,10 @@ public final class Tracers {
     }
 
     private static void makePending() {
-        long from = System.nanoTime();
+        long from = GunClock.nanos();
         int made = 0;
         ClientLevel now = Minecraft.getInstance().level;
-        while (!PENDING.isEmpty() && (made == 0 || System.nanoTime() - from < HOLE_BUDGET_NS)) {
+        while (!PENDING.isEmpty() && (made == 0 || GunClock.nanos() - from < HOLE_BUDGET_NS)) {
             Pending p = PENDING.pollFirst();
             if (p.level() != now || !Config.bulletHoles) continue;
             long ph = Perf.start();
@@ -951,6 +952,8 @@ public final class Tracers {
                 "glass", glassLike(state),
                 "under", h != null && h.late() && h.block() != null && translucent(h.state()), "scratch", p.scratch() != null, "onBoard", onBoard, "machine", h != null && h.machine(),
                 "holes", HOLES.size() - machines, "machineHoles", machines, "max", Config.holeMax, "maxMachines", Config.holeMaxMachines);
+        if (Trace.ON && h != null) TestLog.c(p.shot(), "hole_made", "pos", pos, "at", h.pos(), "face", h.face(), "kind", h.kind(),
+                "turn", h.turn(), "size", h.size(), "plane", h.plane(), "rect", h.rect());
     }
 
     private static void makeHole(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir) {
@@ -978,8 +981,8 @@ public final class Tracers {
         boolean scorch = config.onImpact != null;
         BlockState decalOn = Cells.ruleState(level, hit.getBlockPos(), level.getBlockState(hit.getBlockPos()));
         int kind = holeKind(decalOn, config);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * (0.8F + 0.4F * (float) Math.random());
-        int turn = (int) (Math.random() * 8);
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
+        int turn = (int) (Rng.shot(makingShot).nextDouble() * 8);
         if (scratch != null) {
             int[] ax = axes(hit.getDirection());
             double[] ea = new double[3], eb = new double[3];
@@ -1008,7 +1011,7 @@ public final class Tracers {
         double onAxis = Double.isNaN(plane) ? comp(hit.getLocation(), hit.getDirection().getAxis().ordinal()) : plane;
         boolean cull = (level.getBlockState(hit.getBlockPos()).isCollisionShapeFullBlock(level, hit.getBlockPos()) || Math.abs(onAxis - boxFace) < 1e-3)
                 && !glassLike(level.getBlockState(hit.getBlockPos()));
-        addMade(new Hole(hit.getLocation(), hit.getDirection(), turn, System.nanoTime(), light, kind, size, rect, mask, plane,
+        addMade(new Hole(hit.getLocation(), hit.getDirection(), turn, GunClock.nanos(), light, kind, size, rect, mask, plane,
                 translucent(level.getBlockState(hit.getBlockPos())) || glassLike(level.getBlockState(hit.getBlockPos())),
                 cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false,makingShot, new Batch[1]));
         trimHoles();
@@ -1048,8 +1051,8 @@ public final class Tracers {
         boolean scorch = config.onImpact != null;
         BlockState decalOn = Cells.ruleState(level, pos, level.getBlockState(pos));
         int kind = holeKind(decalOn, config);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * (0.8F + 0.4F * (float) Math.random());
-        int turn = (int) (Math.random() * 8);
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
+        int turn = (int) (Rng.shot(makingShot).nextDouble() * 8);
         if (scratch != null) size = scratchSize();
         double half = size * 0.5;
         // the hole's two axes in the face's plane
@@ -1131,7 +1134,7 @@ public final class Tracers {
         }
         Vec3 world = new Vec3(pos.getX() + at.x, pos.getY() + at.y, pos.getZ() + at.z);
         int light = LightCoordsUtil.getLightCoords(level, pos);
-        addMade(new Hole(world, hit.getDirection(), turn, System.nanoTime(), light, kind, size, null, null, Double.NaN,
+        addMade(new Hole(world, hit.getDirection(), turn, GunClock.nanos(), light, kind, size, null, null, Double.NaN,
                 translucent(level.getBlockState(pos)) || glassLike(level.getBlockState(pos)), false, mesh,
                 !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false,makingShot, new Batch[1]));
         trimHoles();
@@ -1305,8 +1308,8 @@ public final class Tracers {
         boolean scorch = config.onImpact != null;
         BlockState decalOn = Cells.ruleState(level, pos, hitState);
         int kind = holeKind(decalOn, config);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * (0.8F + 0.4F * (float) Math.random());
-        int turn = (int) (Math.random() * 8);
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
+        int turn = (int) (Rng.shot(makingShot).nextDouble() * 8);
         if (scratch != null) size = scratchSize();
         double half = size * 0.5;
         Vector3d ref = Math.abs(normal.y) < 0.9 ? new Vector3d(0, 1, 0) : new Vector3d(1, 0, 0);
@@ -1331,7 +1334,7 @@ public final class Tracers {
         pieces=connectedPieces(pieces,met,frame,half);
         // solid faces first: a see-through face over one in the same plane (grass's side overlay) adds nothing
         pieces.sort(java.util.Comparator.comparing(pc -> pc.tri().tex().seeThrough()));
-        long born = System.nanoTime(), st4 = born, hideNs = 0;
+        long born = GunClock.nanos(), st4 = System.nanoTime(), hideNs = 0;
         // pieces grouped by what they go with (a block, a renderer's part) and by plane: each group is one hole,
         // facing its own way
         Map<Object, Group> groups = new java.util.LinkedHashMap<>();
@@ -2352,7 +2355,7 @@ public final class Tracers {
     }
     private static void lateHoles(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather event,boolean reference) {
         Vec3 cam = event.getLevelRenderState().cameraRenderState.pos;
-        long now = System.nanoTime();
+        long now = GunClock.nanos();
         long life = (long) (Math.max(0.1F, Config.holeLife) * 1e9);
         PoseStack.Pose pose = new PoseStack().last();
         @SuppressWarnings("unchecked")

@@ -1243,16 +1243,16 @@ public final class Arms {
 
     // Sexy's bottle as NTM drew it last (armdebug only), and when
     private static final Matrix4f bottle = new Matrix4f();
-    private static long bottleAt = -1000L;
+    private static long bottleAt = Long.MIN_VALUE / 2;
 
     public static void bottleDrawn(Matrix4f pose) {
         bottle.set(pose);
-        bottleAt = System.currentTimeMillis();
+        bottleAt = GunClock.millis();
     }
 
     // the bottle's share on screen (whiskey model: x, z -0.5..0.5, y 0..3) and its middle, or "" when not drawn now
     private static String bottleOnScreen() {
-        if (System.currentTimeMillis() - bottleAt > 100L) return "";
+        if (GunClock.millis() - bottleAt > 100L) return "";
         var mc = Minecraft.getInstance();
         float fov = com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase.adjustHudFov(70F);
         float aspect = (float) mc.getWindow().getWidth() / Math.max(1, mc.getWindow().getHeight());
@@ -1423,6 +1423,12 @@ public final class Arms {
         }
         final int shown = crop;
         ClientSmoke.armPose(m,right);
+        if (TestLog.frames()) {
+            HbmAnimations.Animation playing = HbmAnimations.getRelevantAnim(0);
+            TestLog.c(-1, "arm", "right", right, "anim", playing == null ? "none" : HbmAnimations.getGunAnimation(0),
+                    "t", playing == null ? -1L : com.hbm.util.GameTime.now() - playing.startMillis, "crop", crop, "slim", slim,
+                    "m", new Matrix4f(CAMERA).invert().mul(m));
+        }
         if(Minecraft.getInstance().gui.screen() instanceof ArmAnimationEditor editor) {
             float fov=com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase.adjustHudFov(70F);
             float aspect=(float)Minecraft.getInstance().getWindow().getWidth()/Math.max(1,Minecraft.getInstance().getWindow().getHeight());

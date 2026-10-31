@@ -31,13 +31,13 @@ public final class ArmAnimationPreview {
         if (buses == null) return;
         item = gun; type = cue;
         animation = new HbmAnimations.Animation(stack.getItem().getDescriptionId(), com.hbm.util.GameTime.now(), buses, true);
-        sampled = System.nanoTime();
+        sampled = GunClock.nanos();
     }
     public static HbmAnimations.Animation animation() { return animation; }
     public static GunAnimation type() { return type; }
     static int duration() { return animation == null ? 0 : Math.max(1,animation.animation.getDuration()); }
     public static int millis() {
-        long now = System.nanoTime();
+        long now = GunClock.nanos();
         if (playing && sampled != 0) {
             position += (now-sampled)/1e6*speed;
             if (position > duration()) position %= duration();
@@ -45,7 +45,7 @@ public final class ArmAnimationPreview {
         sampled = now;
         return (int)Math.round(position);
     }
-    static void seek(double time) { position = Math.clamp(time,0,duration()); sampled=System.nanoTime(); }
+    static void seek(double time) { position = Math.clamp(time,0,duration()); sampled=GunClock.nanos(); }
     static void play(boolean value) { millis(); playing=value; }
     static boolean playing() { return playing; }
     static void speed(double value) { millis(); speed=value; }

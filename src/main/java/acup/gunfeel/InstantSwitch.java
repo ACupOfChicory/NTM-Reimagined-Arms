@@ -56,7 +56,7 @@ public final class InstantSwitch {
         }
         predictedSlot = slot;
         predictedItem = item;
-        predictedAt = System.currentTimeMillis();
+        predictedAt = GunClock.millis();
         waiting = new boolean[n];
         java.util.Arrays.fill(waiting, true);
     }
@@ -69,7 +69,7 @@ public final class InstantSwitch {
             predictedSlot = -1;
             return true;
         }
-        if (slot != predictedSlot || item != predictedItem || System.currentTimeMillis() - predictedAt > WAIT_MS) return true;
+        if (slot != predictedSlot || item != predictedItem || GunClock.millis() - predictedAt > WAIT_MS) return true;
         if (index < 0 || index >= waiting.length || !waiting[index]) return true;
         waiting[index] = false;
         return false;

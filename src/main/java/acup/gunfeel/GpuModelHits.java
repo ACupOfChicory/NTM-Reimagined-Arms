@@ -78,7 +78,7 @@ public final class GpuModelHits {
     private static void flush() {
         int generation=ModelTextureMask.generation();
         if(partGeneration!=generation) { PARTS.clear(); WALKS.clear(); partGeneration=generation; }
-        long created=CREATED.get(),now=System.nanoTime();
+        long created=CREATED.get(),now=GunClock.nanos();
         for(var entry:PENDING.entrySet()) if(PENDING.remove(entry.getKey(),entry.getValue())) {
             var p=entry.getValue(); if(!ModelHitClient.eligible(p.entity())) continue;
             try {

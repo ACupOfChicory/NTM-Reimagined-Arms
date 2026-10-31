@@ -2,7 +2,6 @@ package acup.gunfeel;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 import org.joml.Vector3f;
 
@@ -20,7 +19,6 @@ public final class ModelRecoil {
         }
     }
 
-    private static final Random RANDOM = new Random();
     private static final List<Shot> SHOTS = new ArrayList<>();
 
     private ModelRecoil() {
@@ -36,18 +34,23 @@ public final class ModelRecoil {
         float loose = aiming ? 0.5F : 1F;
         float speed = Config.modelSpeed;
         if (SHOTS.size() >= 12) SHOTS.remove(0);
-        SHOTS.add(new Shot(System.nanoTime(), s, speed,
-                0.85F + 0.3F * RANDOM.nextFloat(),
-                loose * (RANDOM.nextBoolean() ? 1F : -1F) * (0.5F + 0.7F * RANDOM.nextFloat()),
-                loose * (RANDOM.nextBoolean() ? 1F : -1F) * (0.6F + 0.6F * RANDOM.nextFloat()),
+        java.util.Random random = Rng.model();
+        SHOTS.add(new Shot(GunClock.nanos(), s, speed,
+                0.85F + 0.3F * random.nextFloat(),
+                loose * (random.nextBoolean() ? 1F : -1F) * (0.5F + 0.7F * random.nextFloat()),
+                loose * (random.nextBoolean() ? 1F : -1F) * (0.6F + 0.6F * random.nextFloat()),
                 RecoilPresets.channel("kickPitch"), RecoilPresets.channel("kickYaw"), RecoilPresets.channel("kickRoll"),
                 RecoilPresets.channel("kickPosY"), RecoilPresets.channel("kickPosZ")));
+        if (TestLog.frames()) {
+            Shot n = SHOTS.getLast();
+            TestLog.c(-1, "kick_shot", "strength", n.strength(), "speed", n.speed(), "pitch", n.pitch(), "yaw", n.yaw(), "roll", n.roll());
+        }
     }
 
     // Pose is in NTM's gun frame before the model scale: +Z forward, +Y up. size = gun length there.
     public static void apply(PoseStack pose, float size, Vector3f pivot) {
         if (SHOTS.isEmpty()) return;
-        long now = System.nanoTime();
+        long now = GunClock.nanos();
         float pitch = 0F, yaw = 0F, roll = 0F, y = 0F, z = 0F;
         for (int i = SHOTS.size() - 1; i >= 0; i--) {
             Shot s = SHOTS.get(i);
@@ -62,6 +65,7 @@ public final class ModelRecoil {
             y += s.cY.at(t) * s.strength;
             z += s.cZ.at(t) * s.strength;
         }
+        if (TestLog.frames()) TestLog.c(-1, "kick", "shots", SHOTS.size(), "pitch", pitch, "yaw", yaw, "roll", roll, "y", y, "z", z, "size", size, "pivot", pivot);
         float px = size * 0.016F; // one kick unit (1/16 of the gun length scale) in this frame
         pose.translate(0F, y * px, -z * px);
         pose.translate(pivot.x, pivot.y, pivot.z);

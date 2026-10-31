@@ -236,21 +236,22 @@ public final class BulletCheck {
         expect("bunker door: the steel beside the hole", Want.STOP, bunker.above(), 5.5 / 16, 8.5 / 16, 60F);
         expect("bunker door: 150 damage goes through the steel", Want.PIERCE, bunker.above(), .5, .2, 150F);
 
-        // ---- .50 DU into an iron golem in the open: every bullet takes the same, 45 in the body, x1.25 in the head
-        // (NTM's headshotMult); it goes through the golem and loses nothing by it
+        // ---- .50 DU into an iron golem in the open: every bullet takes the same, 45 in the body, x1.75 in the head
+        // (the mod's one head multiplier for every gun, as HeadSmoke checks); it goes through the golem and loses
+        // nothing by it
         // with the server's test log on: the hit is written with what it took and whether it was in the head
         Path log = TestLog.set(false, true);
         check("golem: .50 DU in the body takes 45", 45F, golemHit(1.0, 45F));
-        check("golem: .50 DU in the head takes 56.25", 56.25F, golemHit(2.4, 45F));
+        check("golem: .50 DU in the head takes 78.75", 78.75F, golemHit(2.4, 45F));
         // a bullet from above through its head into the plank floor behind it, all in one tick: the golem gets the
         // damage from before the floor (NTM asks for the blocks of the tick's path before the creatures on it)
         float[] floor = golemOverFloor(45F);
-        check("golem over a floor: the head shot takes 56.25, not what the floor behind left", 56.25F, floor[0]);
+        check("golem over a floor: the head shot takes 78.75, not what the floor behind left", 78.75F, floor[0]);
         check("golem over a floor: the floor behind it still costs the bullet", true, floor[1] < 45F);
         TestLog.set(false, false);
         String text = log == null ? "" : Files.readString(log);
         check("golem: the test log has the body hit", true, text.contains("head=false") && text.contains("took=45.000"));
-        check("golem: the test log has the head hit", true, text.contains("head=true") && text.contains("took=56.250"));
+        check("golem: the test log has the head hit", true, text.contains("head=true") && text.contains("took=78.750"));
 
         // ---- path rules in the server's file
         expect("path hitbox: a spruce fence's gap is hit", Want.PIERCE, fenceRow("minecraft:spruce_fence"), .25, .65, 30F);

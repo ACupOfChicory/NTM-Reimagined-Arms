@@ -228,6 +228,14 @@ neoForge {
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkBullets", layout.buildDirectory.file("bulletcheck/result.txt").get().asFile.path)
         }
+        // -Ptrace=<file> (relative to the run's folder) or -Ptrace=true: the run writes a trace (Trace.java) to compare
+        // with tools/trace_diff.py; -PtraceScenario=<name>, -PtraceHex, -Pseed=<n> go with it
+        configureEach {
+            providers.gradleProperty("trace").orNull?.let { systemProperty("ntmgunfeel.trace", it) }
+            providers.gradleProperty("traceScenario").orNull?.let { systemProperty("ntmgunfeel.traceScenario", it) }
+            if (providers.gradleProperty("traceHex").isPresent) systemProperty("ntmgunfeel.traceHex", "true")
+            providers.gradleProperty("seed").orNull?.let { systemProperty("ntmgunfeel.seed", it) }
+        }
     }
 }
 

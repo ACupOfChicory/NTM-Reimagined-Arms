@@ -38,7 +38,7 @@ public final class BulletServer {
     private BulletServer() {
     }
 
-    // what bullets did to a block not broken yet: hits or damage so far, and when the last came
+    // what bullets did to a block not broken yet: hits or damage so far, and the game tick the last came in
     // the block it was done to: once that block is broken or replaced (by hand, a piston, a command) the wear and its
     // cracks go
     private record Wear(float done, long at, BlockState state) {
@@ -48,7 +48,8 @@ public final class BulletServer {
     }
 
     private static final Map<Spot, Wear> WEAR = new HashMap<>();
-    private static final long FORGET_MS = 20_000L;
+    // 20 s at 20 TPS; game ticks, so a paused or slowed server does not forget it sooner
+    private static final long FORGET_TICKS = 400L;
 
     // the bullet hit this block: 0 = nothing happened, 1 = it broke and the bullet stops, 2 = it broke and the bullet
     // flies on
@@ -188,7 +189,7 @@ public final class BulletServer {
             worn(bullet, pos, state, "too_weak", "min", rule.min());
             return false;
         }
-        long now = System.currentTimeMillis();
+        long now = level.getGameTime();
         forget(level, now);
         if (rule.mode() == 2 || rule.mode() == 3 || rule.mode() == 4) {
             Spot spot = new Spot(level, pos);
@@ -219,7 +220,7 @@ public final class BulletServer {
         Iterator<Map.Entry<Spot, Wear>> it = WEAR.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<Spot, Wear> e = it.next();
-            if (now - e.getValue().at() < FORGET_MS) continue;
+            if (now - e.getValue().at() < FORGET_TICKS) continue;
             e.getKey().level().destroyBlockProgress(crackId(e.getKey().pos()), e.getKey().pos(), -1);
             it.remove();
         }
@@ -230,14 +231,13 @@ public final class BulletServer {
     // every few server ticks: wear on a block that is no longer there (broken, replaced, its chunk gone) goes with its cracks
     public static void tick() {
         if (WEAR.isEmpty() || ++ticks % 5 != 0) return;
-        long now = System.currentTimeMillis();
         Iterator<Map.Entry<Spot, Wear>> it = WEAR.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<Spot, Wear> e = it.next();
             ServerLevel level = e.getKey().level();
             BlockPos pos = e.getKey().pos();
             boolean gone = !level.isLoaded(pos) || level.getBlockState(pos).getBlock() != e.getValue().state().getBlock();
-            if (!gone && now - e.getValue().at() < FORGET_MS) continue;
+            if (!gone && level.getGameTime() - e.getValue().at() < FORGET_TICKS) continue;
             level.destroyBlockProgress(crackId(pos), pos, -1);
             it.remove();
         }

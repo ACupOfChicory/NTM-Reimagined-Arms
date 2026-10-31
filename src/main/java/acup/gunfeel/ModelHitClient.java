@@ -64,7 +64,7 @@ public final class ModelHitClient {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level != level) { clear(); level = mc.level; }
         if (level == null || mc.player == null || mc.getConnection() == null) return;
-        long now = System.currentTimeMillis();
+        long now = GunClock.millis();
         if (MobBenchMetrics.ENABLED || now >= nextCheck) { enabled = ModelHits.enabled(); nextCheck = now + 1000; }
         if (!enabled) return;
     }
