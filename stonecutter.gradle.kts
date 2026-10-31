@@ -146,9 +146,10 @@ stonecutter parameters {
             // port/continuum-mobs: the model hitbox mixins of this node (NTM NEXT's Flywheel mob visuals have none here)
             replace("List.of(\"MixinNtmMeshHits\", \"GlyphidGeometryAccess\", \"MixinGlyphidModelHits\", \"MixinMobObjModelHits\", \"MixinMobModelHits\", \"MixinGpuEntityGeometry\", \"MixinHeadDamage\")",
                 "List.of(\"MixinNtmMeshHits\", \"ObjGroupAccess\", \"MixinBeamPronterHits\", \"MixinHeadDamage\")")
-            // port/continuum-mobs: 26.1's SubmitNodeCollection has no afterTerrain list
-            replace("((SubmitNodeCollection) (Object) this).afterTerrain.submit(new CustomFeatureRenderer.Submit(poseStack.last().copy(), renderType, renderer));\n        ci.cancel();",
-                "// 26.1: no afterTerrain list, holes on glass draw with the other translucent features")
+            // port/continuum-mobs: 26.1's SubmitNodeCollection has no afterTerrain list: LateHoles261 keeps the late holes (on
+            // glass) and draws them after the translucent terrain (RenderLevelStageEvent.AfterTranslucentBlocks)
+            replace("((SubmitNodeCollection) (Object) this).afterTerrain.submit(new CustomFeatureRenderer.Submit(poseStack.last().copy(), renderType, renderer));",
+                "acup.gunfeel.LateHoles261.submit(poseStack.last().copy(), renderType, renderer);")
         }
     }
 }
