@@ -118,8 +118,13 @@ public final class BulletCheck {
         // ---- fences, gates, walls: their posts and rails (26.2's family cells, FenceCells), not their collision boxes
         String cells = null;
         expect("fence: between the rails", Want.PASS, fenceRow(), .25, .65, 30F, cells);
+        expect("fence: under the lower rail", Want.PASS, fenceRow(), .25, .2, 30F, cells);
         expect("fence: the post", Want.PIERCE, fenceRow(), .5, .5, 30F, null);
+        expect("fence: the upper rail", Want.PIERCE, fenceRow(), .25, .8, 30F, null);
+        expect("fence: thin rail, a very weak bullet stops", Want.STOP, fenceRow(), .25, .8, 1.2F, null);
         expect("gate closed: between the bars", Want.PASS, single("minecraft:fence_gate", 0), .25, .65, 30F, cells);
+        expect("gate closed: under the bars", Want.PASS, single("minecraft:fence_gate", 0), .25, .2, 30F, cells);
+        expect("gate closed: a bar", Want.PIERCE, single("minecraft:fence_gate", 0), .25, .8, 30F, null);
         expect("gate closed: the middle", Want.PIERCE, single("minecraft:fence_gate", 0), .5, .5, 30F, null);
         // open, facing south or north (meta 4 | 0): the gate's collision is gone
         expect("gate open: the middle", Want.PASS, single("minecraft:fence_gate", 4), .5, .5, 30F, null);
