@@ -39,7 +39,7 @@ import net.minecraft.util.ResourceLocation;
 // the Tessellator (drawArm, 26.2: a ModelPart submitted). NTM 1.7.10's animations carry no type: ArmAnims.type(0)
 // (26.2: HbmAnimations.getGunAnimation(0)), its clock is ArmAnims.now() (26.2: GameTime.now()). The rest pose is read
 // with the gun drawn into a closed colour and depth mask (26.2: the NOWHERE collector). No arm animation editor, its
-// preview, ClientSmoke or the on-screen numbers of armdebug; skins have no sleeves and no slim model (slim()).
+// preview, ClientSmoke or the on-screen numbers of armdebug; sleeves and slim arms only with 1.8 skins (PlayerSkins).
 public final class Arms {
     // every variant of a gun seen so far (a weapon mod can change which parts NTM draws), and the one in hand
     private static final Map<Item, List<GunGeometry>> VARIANTS = new IdentityHashMap<>();
@@ -341,12 +341,33 @@ public final class Arms {
         });
     }
 
+    // dev (-PtestSkin=domain:path or a PNG file's path): the arms drawn from this skin, to see a 64 x 64 one without a
+    // skin server
+    private static final String TEST_SKIN = System.getProperty("ntmgunfeel.testSkin");
+    private static ResourceLocation testSkin;
+
+    private static ResourceLocation testSkin() {
+        if (testSkin != null) return testSkin;
+        java.io.File f = new java.io.File(TEST_SKIN);
+        if (!f.isFile()) return testSkin = new ResourceLocation(TEST_SKIN);
+        try {
+            testSkin = Minecraft.getMinecraft().getTextureManager().getDynamicTextureLocation("ntmgunfeel_test_skin",
+                    new net.minecraft.client.renderer.texture.DynamicTexture(javax.imageio.ImageIO.read(f)));
+        } catch (java.io.IOException e) {
+            GunFeel.LOGGER.warn("Could not read the test skin {}", f, e);
+            testSkin = Minecraft.getMinecraft().thePlayer.getLocationSkin();
+        }
+        return testSkin;
+    }
+
     public static boolean slim() {
         if ("slim".equals(Config.armModel)) return true;
         if ("classic".equals(Config.armModel)) return false;
-        // port: 1.7.10 skins have no slim model (auto = classic); the arms trace scenario draws the slim arms of
-        // the 26.2 trace's player
-        return TraceScenario.started();
+        // port: a vanilla 1.7.10 skin has no slim model; Et Futurum's 1.8 skins do (PlayerSkins). The arms trace
+        // scenario draws the slim arms of the 26.2 trace's player
+        if (TraceScenario.started()) return true;
+        Minecraft mc = Minecraft.getMinecraft();
+        return mc.thePlayer != null && PlayerSkins.slim(mc.thePlayer);
     }
 
     private static void draw() {
@@ -354,7 +375,7 @@ public final class Arms {
         EntityClientPlayerMP player = mc.thePlayer;
         if (player == null || player.isInvisible()) return;
         float[][] grip = grips(item);
-        ResourceLocation skin = player.getLocationSkin();
+        ResourceLocation skin = TEST_SKIN == null ? player.getLocationSkin() : testSkin();
         boolean slim = slim();
         Matrix4f cameraInv = new Matrix4f(CAMERA).invert();
         Matrix4f bodyInCamera = new Matrix4f(cameraInv).mul(BODY);
@@ -1420,21 +1441,35 @@ public final class Arms {
         drawArm(skin, m, shown, right, slim);
     }
 
-    // port: 26.2's cutArm as GL. The hand end of the player's arm: its last `n` of 12 pixels, textured as on the
-    // whole arm, the box and the pivot of the player model's arm (ModelBiped: offset (-5, 2, 0) right, (5, 2, 0)
-    // left; 26.2's slim arms are 3 pixels wide); the sides take their texture from the hand end (texture offset moved
-    // by 12 - n), the end caps from the usual place. Skins are 64 x 32 here: no left arm or sleeves of their own, the
-    // left arm is the right one mirrored, as ModelBiped has it. Faces and texture corners as ModelBox / TexturedQuad.
+    // port: 26.2's cutArm as GL. The hand end of the player's arm (and sleeve): its last `n` of 12 pixels, textured as on
+    // the whole arm, the box and the pivot of the player model's arm (ModelBiped: offset (-5, 2, 0) right, (5, 2, 0)
+    // left; slim arms are 3 pixels wide); the sides take their texture from the hand end (texture offset moved by
+    // 12 - n), the end caps from the usual place. A 64 x 32 skin (vanilla 1.7.10) has no left arm or sleeves of its own:
+    // the left arm is the right one mirrored, as ModelBiped has it. A 64 x 64 one (Et Futurum's 1.8 skins, PlayerSkins)
+    // has both, as 26.2's PlayerModel: the left arm at (32, 48), the sleeves at (40, 32) and (48, 48), 0.25 pixels out.
+    // Faces and texture corners as ModelBox / TexturedQuad.
     private static final FloatBuffer ARM_BUF = BufferUtils.createFloatBuffer(16);
 
     private static void drawArm(ResourceLocation skin, Matrix4f m, int n, boolean right, boolean slim) {
+        Minecraft.getMinecraft().getTextureManager().bindTexture(skin);
+        boolean square = PlayerSkins.square();
+        PlayerSkins.say(square, slim);
+        if (!square) {
+            drawBox(m, n, right, slim, 40F, 16F, 32F, !right, 0F);
+            return;
+        }
+        drawBox(m, n, right, slim, right ? 40F : 32F, right ? 16F : 48F, 64F, false, 0F);
+        drawBox(m, n, right, slim, right ? 40F : 48F, right ? 32F : 48F, 64F, false, 0.25F);
+    }
+
+    // one box of the arm: texture offset (u, v) on a 64 x th skin, mirrored or not, `grow` pixels out on every side
+    private static void drawBox(Matrix4f m, int n, boolean right, boolean slim, float u, float v, float th, boolean mirror, float grow) {
         float w = slim ? 3F : 4F;
         float x0 = right ? (slim ? -2F : -3F) : -1F;
         float y0 = -2F + (12 - n);
         float ox = right ? -5F : 5F, oy = 2F;
-        float u = 40F, v = 16F, sv = v + 12 - n, tw = 64F, th = 32F;
-        boolean mirror = !right;
-        float xa = x0, xb = x0 + w, ya = y0, yb = y0 + n, za = -2F, zb = 2F;
+        float sv = v + 12 - n, tw = 64F;
+        float xa = x0 - grow, xb = x0 + w + grow, ya = y0 - grow, yb = y0 + n + grow, za = -2F - grow, zb = 2F + grow;
         if (mirror) {
             float t = xa;
             xa = xb;
@@ -1452,7 +1487,6 @@ public final class Arms {
                 {1, 2, 6, 5, u + dz + dx, v + dz, u + dz + dx + dx, v},
                 {0, 7, 2, 1, u + dz, sv + dz, u + dz + dx, sv + dz + dy},
                 {3, 4, 5, 6, u + dz + dx + dz, sv + dz, u + dz + dx + dz + dx, sv + dz + dy}};
-        Minecraft.getMinecraft().getTextureManager().bindTexture(skin);
         ARM_BUF.clear();
         ARM_BUF.put(m.get(new float[16])).flip();
         boolean cull = GL11.glIsEnabled(GL11.GL_CULL_FACE), blend = GL11.glIsEnabled(GL11.GL_BLEND), normalize = GL11.glIsEnabled(GL11.GL_NORMALIZE);

@@ -171,6 +171,14 @@ listOf("runClient", "runObfClient").forEach { name ->
     }
 }
 
+// The first-person arms drawn from another skin (Arms): -PtestSkin=etfuturum:textures/entity/steve.png (a 64 x 64 one)
+val testSkin = providers.gradleProperty("testSkin")
+listOf("runClient", "runObfClient").forEach { name ->
+    tasks.named<JavaExec>(name) {
+        if (testSkin.isPresent) systemProperty("ntmgunfeel.testSkin", testSkin.get())
+    }
+}
+
 // The NTM check as with an untested NTM (NtmCheck): -Ptested=[1,2] on a run task stands in for Compat.TESTED;
 // -PforceOff=tracers,hud turns those systems off as if they did not fit
 val tested = providers.gradleProperty("tested")
