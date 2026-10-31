@@ -68,16 +68,13 @@ RadialMenu.java
 # HUD: ClientRegistry.renderGunHudComponents is GunHudOverlay; GroupObject is WavefrontObj
 Hud.java
 Silhouette.java
-GunGeometry.java
 # instant switch: HbmAnimationPayload.handleSedna is GunAnimationHandler
 InstantSwitch.java
 # server bullets: CompatEntity bullets, BulletImpact, DamageResistanceHandler, MultiblockSurface, doors and lifts
 Structures.java
 WoodBoxes.java
 ExplosiveDamage.java
-# arms: ItemRenderWeaponBase is WeaponRenderer + Gem, HbmAnimations is per hand
-Arms.java
-ArmAnimationPreview.java
+# arms: the arm animation editor (its stand-in in continuum/src is never shown; the gun editor that opens it is not here)
 ArmAnimationEditor.java
 # NTM mob meshes: HFRWavefrontObject/GroupObject are WavefrontObj, the mobs are not Flywheel visuals
 NtmMeshHits.java

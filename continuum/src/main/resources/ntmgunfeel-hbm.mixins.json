@@ -5,6 +5,6 @@
   "plugin": "acup.gunfeel.compat.HbmMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "mixins": ["MixinBulletServer"],
-  "client": ["MixinTracerRibbon", "MixinGunRecoil", "MixinWeaponRenderer", "WeaponPoseAccess"],
+  "client": ["MixinTracerRibbon", "MixinGunRecoil", "MixinWeaponRenderer", "WeaponPoseAccess", "MixinHbmAnimations", "MixinGunAnimationHandler"],
   "injectors": { "defaultRequire": 0 }
 }
