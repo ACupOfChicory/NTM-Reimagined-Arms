@@ -147,6 +147,20 @@ tasks.named<org.gradle.jvm.tasks.Jar>("reobfJar") {
     }
 }
 
+// A dev scenario in the client (ShootScenario): -Pscenario=shoot on runClient or runObfClient, with its trace
+// (Trace) in run/client/logs/ntm-gunfeel-trace-<scenario>.tsv for tools/trace_diff.py.
+val scenario = providers.gradleProperty("scenario")
+listOf("runClient", "runObfClient").forEach { name ->
+    tasks.named<JavaExec>(name) {
+        if (scenario.isPresent) {
+            val s = scenario.get()
+            systemProperty("ntmgunfeel.scenario", s)
+            systemProperty("ntmgunfeel.trace", "logs/ntm-gunfeel-trace-$s.tsv")
+            systemProperty("ntmgunfeel.traceScenario", s)
+        }
+    }
+}
+
 // The tests run on Java 8, as the players' game does (test), and on Java 25 (test25): the downgraded classes on both.
 // Paths to the 26.2 pins (src/test/pinned at the root) come in as a system property.
 tasks.test {

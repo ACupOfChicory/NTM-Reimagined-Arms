@@ -29,6 +29,7 @@ public final class GunFeelClient {
     static void init() {
         Config.poll();
         FMLCommonHandler.instance().bus().register(new GunFeelClient());
+        ShootScenario.register();
     }
 
     // dev runs (runClient): a file "autostop" in the run folder closes the client a few seconds after the main menu
@@ -41,7 +42,8 @@ public final class GunFeelClient {
         Minecraft mc = Minecraft.getMinecraft();
         if (autostop < 0) {
             if (!(mc.currentScreen instanceof net.minecraft.client.gui.GuiMainMenu)) return;
-            if (!new java.io.File("autostop").exists()) {
+            // a scenario (ShootScenario) quits by itself
+            if (!new java.io.File("autostop").exists() || ShootScenario.on()) {
                 autostop = -2;
                 return;
             }

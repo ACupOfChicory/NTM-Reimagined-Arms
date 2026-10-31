@@ -21,10 +21,11 @@ public final class GunFeelMod {
         TraceHooks.register(client);
     }
 
-    // dev runs (runServer): a file "autostop" in the run folder stops the test server once it is up
+    // dev runs (runServer): a file "autostop" in the run folder stops the dedicated test server once it is up (the
+    // client's own server in single player stays)
     @Mod.EventHandler
     public void serverStarted(FMLServerStartedEvent event) {
-        if (!new java.io.File("autostop").exists()) return;
+        if (!net.minecraft.server.MinecraftServer.getServer().isDedicatedServer() || !new java.io.File("autostop").exists()) return;
         GunFeel.LOGGER.info("autostop file found: stopping the server");
         net.minecraft.server.MinecraftServer.getServer().initiateShutdown();
     }
