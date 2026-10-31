@@ -257,9 +257,10 @@ public final class ModelHits {
         var resolved=ModelHeads.resolve(type,pose.boxes(),pose.yaw());
         double angle=turnAngle(target.level().isClientSide(),living.yBodyRot,pose.yaw(),pose.bodyYaw());
         var out=new ArrayList<HeadZone>();
+        double cos=Math.cos(-angle),sin=Math.sin(-angle);
         for(var zone:resolved.zones()) {
-            var box=zone.box();var origin=unturn(new Vec3(box.x(),box.y(),box.z()),-angle).add(target.position());
-            var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),-angle);var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),-angle);var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),-angle);
+            var box=zone.box();var origin=unturn(new Vec3(box.x(),box.y(),box.z()),cos,sin).add(target.position());
+            var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),cos,sin);var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),cos,sin);
             var world=new ModelBox(box.part(),origin.x,origin.y,origin.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z,box.mesh());
             out.add(HeadZone.local(world,zone.planes().stream().map(p->HeadZone.localPlane(box,p)).toList()));
         }
@@ -280,13 +281,14 @@ public final class ModelHits {
         PoseAt p = poses == null ? null : poses.get(target.getId());
         if (!usable(target, p) || !(target instanceof LivingEntity living)) return List.of();
         double angle = turnAngle(target.level().isClientSide(), living.yBodyRot, p.yaw(), p.bodyYaw());
-        List<ModelBox> out = new ArrayList<>();
+        List<ModelBox> out = new ArrayList<>(p.boxes().size());
+        double cos=Math.cos(-angle),sin=Math.sin(-angle);
         for (ModelBox box : p.boxes()) {
             if(!target.level().isClientSide() && !ModelWool.visible(target,box)) continue;
-            var origin=unturn(new Vec3(box.x(),box.y(),box.z()),-angle).add(target.position());
-            var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),-angle);
-            var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),-angle);
-            var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),-angle);
+            var origin=unturn(new Vec3(box.x(),box.y(),box.z()),cos,sin).add(target.position());
+            var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);
+            var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),cos,sin);
+            var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),cos,sin);
             out.add(new ModelBox(box.part(),origin.x,origin.y,origin.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z,box.mesh()));
         }
         return out;
@@ -386,7 +388,10 @@ public final class ModelHits {
     }
 
     private static Vec3 unturn(Vec3 p, double angle) {
-        double cos = Math.cos(angle), sin = Math.sin(angle);
+        return unturn(p, Math.cos(angle), Math.sin(angle));
+    }
+    // Для многих частей одной позы cos и sin считаются один раз.
+    private static Vec3 unturn(Vec3 p, double cos, double sin) {
         return new Vec3(cos * p.x + sin * p.z, p.y, -sin * p.x + cos * p.z);
     }
 }

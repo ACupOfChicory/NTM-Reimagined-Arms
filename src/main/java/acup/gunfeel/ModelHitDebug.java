@@ -57,8 +57,7 @@ public final class ModelHitDebug {
     public static boolean defer(Entity entity,AABB fallback) {
         var parent=ModelPartEntities.parent(entity);
         var context=BOX_OWNER.get();
-        if(parent!=null && ModelHitClient.enabled() && ModelHits.hasPose(parent)
-                && TARGETS.stream().anyMatch(target -> target.entity()==parent)) {
+        if(parent!=null && ModelHitClient.enabled() && ModelHits.hasPose(parent) && targeted(parent)) {
             if(context!=null && context.owner()==entity) context.queued()[0]=true;
             return true;
         }
@@ -67,6 +66,10 @@ public final class ModelHitDebug {
         TARGETS.add(new Target(entity,fallback));
         if(context!=null && context.owner()==entity && ModelHits.hasPose(entity)) context.queued()[0]=true;
         return true;
+    }
+    private static boolean targeted(Entity entity) {
+        for(var target:TARGETS) if(target.entity()==entity) return true;
+        return false;
     }
     public static void captureTerrain() { ModelDebugRender.captureTerrain(!TARGETS.isEmpty()); }
     public static void render(org.joml.Matrix4fc view) {
@@ -78,19 +81,34 @@ public final class ModelHitDebug {
         if(TARGETS.isEmpty()) return;
         List<ModelDebugRender.Shape> shapes=new ArrayList<>();
         int id=0;
-        for(var target:TARGETS) {
+        List<List<ModelBox>> all=new ArrayList<>(TARGETS.size());
+        var customs=new boolean[TARGETS.size()];
+        for(int i=0;i<customs.length;i++) {
+            var target=TARGETS.get(i);
             var boxes=ModelHits.worldBoxes(target.entity());
             if(HeadLabels.ENABLED) boxes=HeadLabels.boxes(target.entity(),boxes);
-            boolean custom=!boxes.isEmpty();
-            MobSmoke.debug(target.entity(),custom);
-            if(!custom) {
+            customs[i]=!boxes.isEmpty();
+            MobSmoke.debug(target.entity(),customs[i]);
+            if(!customs[i]) {
                 var b=target.fallback();
                 boxes=List.of(new ModelBox("fallback",b.minX,b.minY,b.minZ,b.getXsize(),0,0,0,b.getYsize(),0,0,0,b.getZsize()));
             }
+            all.add(boxes);
+        }
+        // Все контуры кадра одним вызовом: недостающие строятся параллельно.
+        List<ModelContours.Outline> outlines=null;
+        if(!MobBenchMetrics.LEGACY) {
             long contour=MobBenchMetrics.start();
-            shapes.add(MobBenchMetrics.LEGACY?new ModelDebugRender.Shape(++id,custom,boxes,ModelContours.edges(boxes)):
-                    new ModelDebugRender.Shape(++id,custom,boxes,List.of(),ModelContours.outline(boxes)));
+            outlines=ModelContours.outlines(all);
             MobBenchMetrics.add(MobBenchMetrics.CONTOUR,contour);
+        }
+        for(int i=0;i<customs.length;i++) {
+            var target=TARGETS.get(i); var boxes=all.get(i);
+            if(MobBenchMetrics.LEGACY) {
+                long contour=MobBenchMetrics.start();
+                shapes.add(new ModelDebugRender.Shape(++id,customs[i],boxes,ModelContours.edges(boxes)));
+                MobBenchMetrics.add(MobBenchMetrics.CONTOUR,contour);
+            } else shapes.add(new ModelDebugRender.Shape(++id,customs[i],boxes,List.of(),outlines.get(i)));
             if(HeadLabels.ENABLED) HeadLabels.overlay(shapes,id,target.entity());
             else HeadDebug.add(shapes,id,target.entity());
         }

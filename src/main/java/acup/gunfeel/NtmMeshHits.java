@@ -65,7 +65,11 @@ public final class NtmMeshHits {
         if(frame==null || !(submit.model() instanceof EntityModel<?> model)) return false;
         var stack=new PoseStack(); stack.last().set(submit.pose());
         var texture=ModelTextureMask.texture(submit.renderType());
-        var base=ModelTextureMask.parts(texture);
+        // Слой поверх основной модели (трещины голема) добавляет лишь то,
+        // что прозрачно в её собственной текстуре.
+        var primary=!submit.renderType().hasBlending() && submit.state() instanceof ModelHitState info
+                && info.gunfeel$primary()==model?info.gunfeel$texture():null;
+        var base=ModelTextureMask.parts(texture,primary);
         boolean avatar=model instanceof net.minecraft.client.model.player.PlayerModel;
         var access=new ModelPoseCapture.Parts() {
             public List<net.minecraft.client.model.geom.ModelPart.Cube> cubes(net.minecraft.client.model.geom.ModelPart part) { return base.cubes(part); }

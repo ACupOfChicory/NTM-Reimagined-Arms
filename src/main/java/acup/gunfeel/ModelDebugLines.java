@@ -12,7 +12,9 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.*;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.renderer.DynamicUniforms;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 // Контур хранится в системе тела. Вращение и перенос меняют только uniform,
@@ -24,9 +26,14 @@ final class ModelDebugLines {
             .withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1)
             .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS,false)).build();
     private static final RenderType TYPE=type();
-    private record Geometry(GpuBuffer buffer,int indices) {}
-    private static final LinkedHashMap<List<Vec3[]>,Geometry> CACHE=new LinkedHashMap<>(32,.75F,true);
-    private static long bytes;
+    private static final class Geometry {
+        final GpuBuffer buffer; final int indices; long frame;
+        Geometry(GpuBuffer buffer,int indices) { this.buffer=buffer; this.indices=indices; }
+    }
+    private static final LinkedHashMap<List<Vec3[]>,Geometry> CACHE=new LinkedHashMap<>(256,.75F,true);
+    private static final Vector3f NO_OFFSET=new Vector3f();
+    private static final Matrix4f NO_TEXTURE=new Matrix4f();
+    private static long bytes,frame;
     private ModelDebugLines() {}
     private static Identifier id(String path) { return Identifier.fromNamespaceAndPath("ntmgunfeel",path); }
     private static RenderType type() {
@@ -64,11 +71,17 @@ final class ModelDebugLines {
         var camera=Minecraft.getInstance().gameRenderer.mainCamera().position();
         var view=new Matrix4f(RenderSystem.getModelViewStack());
         var prepared=TYPE.prepare();
-        var sequential=RenderSystem.getSequentialBuffer(TYPE.primitiveTopology());
+        frame++;
+        // Буферы и матрицы готовятся до прохода: создание буфера внутри
+        // открытого render pass недопустимо.
+        var geometries=new Geometry[shapes.size()];
+        var transforms=new DynamicUniforms.Transform[shapes.size()];
+        int count=0,maxIndices=0;
         for(var shape:shapes) {
             var outline=shape.outline();
             var geometry=geometry(outline==null?shape.edges():outline.edges());
             if(geometry==null) continue;
+            geometry.frame=frame;
             var matrix=new Matrix4f();
             if(outline==null) matrix.translation((float)-camera.x,(float)-camera.y,(float)-camera.z);
             else {
@@ -79,18 +92,45 @@ final class ModelDebugLines {
                         .m30((float)(f.origin().x-camera.x)).m31((float)(f.origin().y-camera.y)).m32((float)(f.origin().z-camera.z));
             }
             int owner=shape.id();
-            var transforms=RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(view).mul(matrix),
-                    new Vector4f((owner>>16&255)/255F,(owner>>8&255)/255F,(owner&255)/255F,shape.lineAlpha()));
-            new PreparedRenderType(prepared.pipeline(),prepared.outputTarget(),transforms,prepared.scissorState(),textures)
-                    .drawFromBuffer(geometry.buffer(),sequential.getBuffer(geometry.indices()),sequential.type(),0,0,geometry.indices());
+            geometries[count]=geometry;
+            transforms[count++]=new DynamicUniforms.Transform(new Matrix4f(view).mul(matrix),
+                    new Vector4f((owner>>16&255)/255F,(owner>>8&255)/255F,(owner&255)/255F,shape.lineAlpha()),NO_OFFSET,NO_TEXTURE);
+            maxIndices=Math.max(maxIndices,geometry.indices);
         }
+        if(count>0) {
+            // Одна запись всех матриц и один проход вместо прохода на каждого
+            // моба; состояние прохода то же, что у PreparedRenderType.
+            var slices=RenderSystem.getDynamicUniforms().writeTransforms(java.util.Arrays.copyOf(transforms,count));
+            var sequential=RenderSystem.getSequentialBuffer(TYPE.primitiveTopology());
+            var indexBuffer=sequential.getBuffer(maxIndices);
+            var target=prepared.outputTarget().getRenderTarget();
+            var color=RenderSystem.outputColorTextureOverride!=null?RenderSystem.outputColorTextureOverride:target.getColorTextureView();
+            var depth=target.useDepth?(RenderSystem.outputDepthTextureOverride!=null?RenderSystem.outputDepthTextureOverride:target.getDepthTextureView()):null;
+            try(var pass=RenderSystem.getDevice().createCommandEncoder().createRenderPass(() -> "Model hit local contours",
+                    color,Optional.empty(),depth,OptionalDouble.empty())) {
+                pass.setPipeline(prepared.pipeline());
+                var scissor=prepared.scissorState();
+                if(scissor.enabled()) pass.enableScissor(scissor.x(),scissor.y(),scissor.width(),scissor.height());
+                RenderSystem.bindDefaultUniforms(pass);
+                for(var texture:textures) pass.bindTexture(texture.name(),texture.textureView(),texture.sampler());
+                pass.setIndexBuffer(indexBuffer,sequential.type());
+                for(int i=0;i<count;i++) {
+                    pass.setUniform("DynamicTransforms",slices[i]);
+                    pass.setVertexBuffer(0,geometries[i].buffer.slice());
+                    pass.drawIndexed(geometries[i].indices,1,0,0,0);
+                }
+            }
+        }
+        // Нужное в этом кадре не вытесняется: иначе при множестве мобов
+        // буферы пересоздавались бы каждый кадр.
         var iterator=CACHE.entrySet().iterator();
-        while((CACHE.size()>256 || bytes>32L*1024*1024) && iterator.hasNext()) {
-            var entry=iterator.next(); bytes-=entry.getValue().buffer().size(); entry.getValue().buffer().close(); iterator.remove();
+        while((CACHE.size()>2048 || bytes>64L*1024*1024) && iterator.hasNext()) {
+            var entry=iterator.next(); if(entry.getValue().frame==frame) break;
+            bytes-=entry.getValue().buffer.size(); entry.getValue().buffer.close(); iterator.remove();
         }
     }
     static void clear() {
-        for(var geometry:CACHE.values()) geometry.buffer().close();
+        for(var geometry:CACHE.values()) geometry.buffer.close();
         CACHE.clear(); bytes=0;
     }
 }

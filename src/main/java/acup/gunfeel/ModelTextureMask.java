@@ -27,9 +27,11 @@ public final class ModelTextureMask {
         }
     }
     private record Cache(Alpha alpha, Map<ModelPart.Cube, ModelCubeGeometry> cubes) {}
+    // Слой поверх той же модели: только пиксели, прозрачные в основной текстуре.
+    private record Overlay(Identifier texture, Identifier base) {}
     private static final Map<ModelPart.Cube,ModelCubeGeometry> UNMASKED=new IdentityHashMap<>();
-    private static final Map<Identifier, Cache> TEXTURES = new java.util.HashMap<>();
-    private static final Map<Identifier, Map<ModelPart, List<ModelPart.Cube>>> PARTS = new java.util.HashMap<>();
+    private static final Map<Object, Cache> TEXTURES = new java.util.HashMap<>();
+    private static final Map<Object, Map<ModelPart, List<ModelPart.Cube>>> PARTS = new java.util.HashMap<>();
     private static int generation;
     private static final Map<net.minecraft.client.renderer.rendertype.RenderType,Identifier> RENDER_TEXTURES=new java.util.WeakHashMap<>();
 
@@ -64,6 +66,21 @@ public final class ModelTextureMask {
         return new Alpha(width, height, sums);
     }
 
+    // Трещины голема или ошейник лежат на уже видимой поверхности тела и формы
+    // не добавляют. Поля шляпы жителя, прозрачные в основе, остаются.
+    // Без маски основа закрывает весь куб, а слой без маски — непрозрачен.
+    public static Alpha difference(Alpha overlay, Alpha base) {
+        if (base == null) return alpha(1, 1, new int[1]);
+        var size = overlay == null ? base : overlay;
+        int width = size.width(), height = size.height();
+        int[] argb = new int[width * height];
+        for (int y = 0; y < height; y++) for (int x = 0; x < width; x++) {
+            float u = (x + .5F) / width, v = (y + .5F) / height;
+            if ((overlay == null || overlay.pixel(u, v)) && !base.pixel(u, v)) argb[y * width + x] = 0xFF000000;
+        }
+        return alpha(width, height, argb);
+    }
+
     public static boolean visible(ModelPart.Cube cube, Alpha mask) {
         if (mask == null) return true;
         for (var face : cube.polygons) {
@@ -80,41 +97,61 @@ public final class ModelTextureMask {
     public static boolean visible(ModelPart.Cube cube, Identifier texture) {
         return geometry(cube,texture).visible();
     }
+    private static boolean visibleFor(ModelPart.Cube cube, Object key) {
+        return geometryFor(cube,key).visible();
+    }
 
     public static ModelCubeGeometry geometry(ModelPart.Cube cube,Identifier texture) {
-        if(texture==null) return UNMASKED.computeIfAbsent(cube,c -> ModelCubeGeometry.bake(c,null));
-        Cache cache = cache(texture);
+        return geometryFor(cube,texture);
+    }
+    private static ModelCubeGeometry geometryFor(ModelPart.Cube cube,Object key) {
+        if(key==null) return UNMASKED.computeIfAbsent(cube,c -> ModelCubeGeometry.bake(c,null));
+        Cache cache = cache(key);
         return cache.cubes().computeIfAbsent(cube, c -> ModelCubeGeometry.bake(c, cache.alpha()));
     }
     public static Alpha mask(Identifier texture) { return texture==null?null:cache(texture).alpha(); }
-    private static Cache cache(Identifier texture) {
-        return TEXTURES.computeIfAbsent(texture, id -> {
-            Alpha mask = null;
-            try {
-                var resource=Minecraft.getInstance().getResourceManager().getResource(id);
-                if(resource.isPresent()) try(var stream=resource.get().open();var image=NativeImage.read(stream)) {
-                    mask=alpha(image.getWidth(),image.getHeight(),image.getPixels());
-                } else if(Minecraft.getInstance().getTextureManager().getTexture(id) instanceof net.minecraft.client.renderer.texture.DynamicTexture dynamic) {
-                    // Сетевые скины не лежат в ресурс-паке. Изображение принадлежит
-                    // TextureManager: копируем альфу и не закрываем NativeImage.
-                    var image=dynamic.getPixels();
-                    if(image!=null && !image.isClosed()) mask=alpha(image.getWidth(),image.getHeight(),image.getPixels());
-                }
-            } catch (Exception ex) {
-                org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").debug("Model texture mask {}: {}", id, ex.toString());
+    private static Cache cache(Object key) {
+        var cached = TEXTURES.get(key);
+        if (cached != null) return cached;
+        // Части разности загружаются до записи: computeIfAbsent не допускает
+        // вложенного изменения той же карты.
+        var mask = key instanceof Overlay overlay ? difference(cache(overlay.texture()).alpha(), cache(overlay.base()).alpha())
+                : load((Identifier) key);
+        var result = new Cache(mask, new IdentityHashMap<>());
+        TEXTURES.put(key, result);
+        return result;
+    }
+    private static Alpha load(Identifier id) {
+        Alpha mask = null;
+        try {
+            var resource=Minecraft.getInstance().getResourceManager().getResource(id);
+            if(resource.isPresent()) try(var stream=resource.get().open();var image=NativeImage.read(stream)) {
+                mask=alpha(image.getWidth(),image.getHeight(),image.getPixels());
+            } else if(Minecraft.getInstance().getTextureManager().getTexture(id) instanceof net.minecraft.client.renderer.texture.DynamicTexture dynamic) {
+                // Сетевые скины не лежат в ресурс-паке. Изображение принадлежит
+                // TextureManager: копируем альфу и не закрываем NativeImage.
+                var image=dynamic.getPixels();
+                if(image!=null && !image.isClosed()) mask=alpha(image.getWidth(),image.getHeight(),image.getPixels());
             }
-            return new Cache(mask, new IdentityHashMap<>());
-        });
+        } catch (Exception ex) {
+            org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").debug("Model texture mask {}: {}", id, ex.toString());
+        }
+        return mask;
     }
 
-    public static ModelPoseCapture.Parts parts(Identifier texture) {
-        Map<ModelPart, List<ModelPart.Cube>> cache = PARTS.computeIfAbsent(texture, k -> new IdentityHashMap<>());
+    public static ModelPoseCapture.Parts parts(Identifier texture) { return partsFor(texture); }
+    // Повторная отрисовка основной модели с другой текстурой.
+    public static ModelPoseCapture.Parts parts(Identifier texture, Identifier base) {
+        return base == null || texture == null || base.equals(texture) ? partsFor(texture) : partsFor(new Overlay(texture, base));
+    }
+    private static ModelPoseCapture.Parts partsFor(Object key) {
+        Map<ModelPart, List<ModelPart.Cube>> cache = PARTS.computeIfAbsent(key, k -> new IdentityHashMap<>());
         return new ModelPoseCapture.Parts() {
             public List<ModelPart.Cube> cubes(ModelPart p) {
-                return cache.computeIfAbsent(p, part -> ModelPoseCapture.ACCESS.cubes(part).stream().filter(c -> visible(c, texture)).toList());
+                return cache.computeIfAbsent(p, part -> ModelPoseCapture.ACCESS.cubes(part).stream().filter(c -> visibleFor(c, key)).toList());
             }
             public Map<String, ModelPart> children(ModelPart p) { return ModelPoseCapture.ACCESS.children(p); }
-            public ModelCubeGeometry geometry(ModelPart.Cube cube) { return ModelTextureMask.geometry(cube,texture); }
+            public ModelCubeGeometry geometry(ModelPart.Cube cube) { return geometryFor(cube,key); }
         };
     }
 
