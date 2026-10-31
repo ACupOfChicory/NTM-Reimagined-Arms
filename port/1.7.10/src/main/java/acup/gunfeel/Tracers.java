@@ -60,65 +60,47 @@ public final class Tracers {
 
     // ---- what the bullet rules say about a block (26.2: BulletRules.decal, hole, ricochet and the material)
 
-    // port: 26.2 reads them from ntmgunfeel-bullets.txt by block state. Until that file has a 1.7.10 reader, the
-    // vanilla material of the block decides (VanillaRules); a port of BulletRules sets `rules`.
     public interface Rules {
         // the marks a bullet leaves on it
-        Decals.Set decal(Block block, int meta);
+        Decals.Set decal(World world, Block block, int meta, int x, int y, int z);
 
         // its holes follow only the hitbox, not its see-through pixels ("hole ... hitbox": glass)
-        boolean hitboxOnly(Block block, int meta);
+        boolean hitboxOnly(World world, Block block, int meta, int x, int y, int z);
 
         // glass: holes on it are two-sided
-        boolean glass(Block block, int meta);
+        boolean glass(World world, Block block, int meta, int x, int y, int z);
 
         // NTM's standard ricochet may bounce a bullet off it
-        boolean ricochet(Block block, int meta);
+        boolean ricochet(World world, Block block, int meta, int x, int y, int z);
     }
 
-    public static volatile Rules rules = new VanillaRules();
-
-    // the material by the block's vanilla material, as 26.2's Materials steps 3-5 tell it by tags and sounds
-    public static final class VanillaRules implements Rules {
-        public static Materials.Material material(Block b) {
-            Material m = b.getMaterial();
-            if (m == Material.air) return Materials.Material.NONE;
-            if (m == Material.glass || m == Material.ice || m == Material.packedIce) return Materials.Material.GLASS;
-            if (m == Material.iron || m == Material.anvil) return Materials.Material.METAL;
-            if (m == Material.wood || m == Material.gourd) return Materials.Material.WOOD;
-            if (m == Material.ground || m == Material.grass || m == Material.sand || m == Material.clay || m == Material.snow
-                    || m == Material.craftedSnow) return Materials.Material.SOIL;
-            if (m == Material.cloth || m == Material.leaves || m == Material.plants || m == Material.vine || m == Material.sponge
-                    || m == Material.cactus || m == Material.web || m == Material.carpet || m == Material.cake) return Materials.Material.SOFT;
-            if (m == Material.rock) {
-                String name = String.valueOf(Block.blockRegistry.getNameForObject(b)).toLowerCase(java.util.Locale.ROOT);
-                return name.contains("concrete") ? Materials.Material.CONCRETE : Materials.Material.STONE;
-            }
-            return Materials.Material.NONE;
+    // the bullet rules (ntmgunfeel-bullets.txt and the player's or server's file), as 26.2's Tracers asks them
+    public static final class FileRules implements Rules {
+        @Override
+        public Decals.Set decal(World world, Block block, int meta, int x, int y, int z) {
+            return BulletRules.decal(block, meta, world, x, y, z);
         }
 
         @Override
-        public Decals.Set decal(Block block, int meta) {
-            return Decals.Set.of(material(block));
+        public boolean hitboxOnly(World world, Block block, int meta, int x, int y, int z) {
+            return "hitbox".equals(BulletRules.hole(block, meta, world, x, y, z)[1]);
+        }
+
+        // 26.2's glassLike: a "hole" line's glass or plain, else by the block's material
+        @Override
+        public boolean glass(World world, Block block, int meta, int x, int y, int z) {
+            String drawn = BulletRules.hole(block, meta, world, x, y, z)[0];
+            if (drawn != null) return drawn.equals("glass");
+            return BulletRules.material(block, meta, world, x, y, z).material().glass();
         }
 
         @Override
-        public boolean hitboxOnly(Block block, int meta) {
-            // the mod's rule: "hole ~.*glass.*,hbm:reinforced_laminate,hbm:reinforced_laminate_pane hitbox"
-            String name = String.valueOf(Block.blockRegistry.getNameForObject(block)).toLowerCase(java.util.Locale.ROOT);
-            return name.contains("glass") || name.contains("reinforced_laminate");
-        }
-
-        @Override
-        public boolean glass(Block block, int meta) {
-            return material(block).glass() || hitboxOnly(block, meta);
-        }
-
-        @Override
-        public boolean ricochet(Block block, int meta) {
-            return true;
+        public boolean ricochet(World world, Block block, int meta, int x, int y, int z) {
+            return BulletRules.ricochet(block, meta, world, x, y, z);
         }
     }
+
+    public static volatile Rules rules = new FileRules();
 
     // ---- the bullets
 
@@ -539,7 +521,7 @@ public final class Tracers {
         BulletConfig c = s.config;
         if (c.onImpact != null || c.onRicochet != BulletConfig.LAMBDA_STANDARD_RICOCHET) return false;
         Block b = world.getBlock(pos[0], pos[1], pos[2]);
-        if (b.getMaterial() == Material.air || b.getMaterial() == Material.glass || !rules.ricochet(b, world.getBlockMetadata(pos[0], pos[1], pos[2])))
+        if (b.getMaterial() == Material.air || b.getMaterial() == Material.glass || !rules.ricochet(world, b, world.getBlockMetadata(pos[0], pos[1], pos[2]), pos[0], pos[1], pos[2]))
             return false;
         return TracerPath.glances(face, vel, c.ricochetAngle);
     }
@@ -668,7 +650,7 @@ public final class Tracers {
         int[] off = HoleMath.offset(face);
         int light = world.getLightBrightnessForSkyBlocks(pos[0] + off[0], pos[1] + off[1], pos[2] + off[2], 0);
         boolean scorch = p.config.onImpact != null;
-        Decals.Set set = rules.decal(b, meta);
+        Decals.Set set = rules.decal(world, b, meta, pos[0], pos[1], pos[2]);
         int kind = scorch ? Decals.scorch(set.scorch()) : Decals.hole(set.hole());
         Random r = Rng.shot(p.shot);
         float size = (scorch ? Config.scorchSize : Config.holeSize) * holeScale(p.config) * (0.8F + 0.4F * (float) r.nextDouble());
@@ -691,7 +673,7 @@ public final class Tracers {
         // one-sided (seen only from outside, like the face itself) when the pixels lie on the hitbox's face; two-sided
         // on glass and where the pixels lie inside the hitbox
         double onAxis = Double.isNaN(plane) ? hit[normal] : plane;
-        boolean glass = rules.glass(b, meta);
+        boolean glass = rules.glass(world, b, meta, pos[0], pos[1], pos[2]);
         boolean cull = (boxes.fullCube(pos[0], pos[1], pos[2]) || Math.abs(onAxis - boxFace) < 1e-3) && !glass;
         Hole h = new Hole(hit, face, turn, GunClock.nanos(), light, kind, size, rect, mask, plane, cull, pos.clone(), b, meta,
                 boxes.box(pos[0], pos[1], pos[2]), p.shot);
@@ -865,7 +847,7 @@ public final class Tracers {
         public boolean hitboxOnly(int x, int y, int z) {
             Block b = world.getBlock(x, y, z);
             if (b.getMaterial() == Material.air) return false;
-            return b.getRenderType() != 0 || rules.hitboxOnly(b, world.getBlockMetadata(x, y, z));
+            return b.getRenderType() != 0 || rules.hitboxOnly(world, b, world.getBlockMetadata(x, y, z), x, y, z);
         }
 
         @Override

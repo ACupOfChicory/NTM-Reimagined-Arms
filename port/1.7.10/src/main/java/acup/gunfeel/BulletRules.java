@@ -27,7 +27,7 @@ import net.minecraft.world.World;
 //  - a block's names: BlockIds (26.2 name, the canonical 1.7.10 one, "id:meta"); #tags and @sounds from BlockFacts
 //    (BlockFactsOf: the Ore Dictionary, classes, sound types), as Materials has them;
 //  - an entity's id from EntityList ("Zombie" is minecraft:zombie, a mod's "hbm.entity_x" is hbm:entity_x); no tags;
-//  - FMLPaths -> PortPaths, slf4j -> log4j; Decals (hole marks) are not ported yet, so no decal().
+//  - FMLPaths -> PortPaths, slf4j -> log4j.
 // What bullets do to the blocks and creatures they hit, besides NTM's damage: break blocks, particles, sounds.
 // Rules come from ntmgunfeel-bullets.txt in the mod jar, then config/ntm-gunfeel-bullets.txt (its lines win: of the
 // rules that match, the last one counts). The server acts on break, material, path, ricochet, entity and kill lines; the
@@ -112,6 +112,7 @@ public final class BulletRules {
     private static final org.apache.logging.log4j.Logger LOGGER = GunFeel.LOGGER;
     private static final PerMeta<Object> BREAKS = new PerMeta<Object>();
     private static final PerMeta<Effect> HITS = new PerMeta<Effect>();
+    private static final PerMeta<Decals.Set> DECALS = new PerMeta<Decals.Set>();
     private static final PerMeta<Boolean> RICOCHETS = new PerMeta<Boolean>();
     private static final PerMeta<Object> PATHS = new PerMeta<Object>();
     private static final PerMeta<String[]> HOLES = new PerMeta<String[]>();
@@ -174,6 +175,7 @@ public final class BulletRules {
                     RICOCHETS.clear();
                     PATHS.clear();
                     HOLES.clear();
+                    DECALS.clear();
                     generation++;
                     MATERIALS.clear();
                     materialRules = null;
@@ -520,7 +522,19 @@ public final class BulletRules {
         return generation;
     }
 
-    // port: decal() (Decals.Set) waits for the holes' port
+    // the marks a bullet leaves on it: by its material (as its piercing), each of hole, scratch and scorch changed by
+    // the last matching decal rule that names a known style for it (so a later line can change one, keep the others)
+    public static synchronized Decals.Set decal(Block block, int meta, World world, int x, int y, int z) {
+        List<Rule> all = rules();
+        Decals.Set known = DECALS.get(block, meta);
+        if (known != null) return known;
+        Decals.Set base = Decals.Set.of(material(block, meta, world, x, y, z).material());
+        List<Map<String, String>> mine = new ArrayList<Map<String, String>>();
+        for (Rule r : all) if (r.kind().equals("decal") && blockMatches(r.selectors(), block, meta, world, x, y, z)) mine.add(r.opts());
+        Decals.Set out = Decals.Set.of(base, mine);
+        DECALS.put(block, meta, out);
+        return out;
+    }
 
     public static synchronized Effect hit(Block block, int meta, World world, int x, int y, int z) {
         rules();
