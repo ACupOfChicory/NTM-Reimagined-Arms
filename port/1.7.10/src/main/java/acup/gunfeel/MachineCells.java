@@ -45,10 +45,11 @@ public final class MachineCells {
         return key(id, world.getBlockMetadata(core[0], core[1], core[2]), x - core[0], y - core[1], z - core[2]);
     }
 
-    // the cells of the machine's block, or null
+    // the cells of the machine's block with its exact faces (MachineFaces), or null
     static long[] of(Map<String, long[]> table, IBlockAccess world, Block b, int x, int y, int z) {
         String k = keyAt(world, b, x, y, z);
-        return k == null ? null : table.get(k);
+        long[] cells = k == null ? null : table.get(k);
+        return cells == null ? null : MachineFaces.with(cells, k);
     }
 
     // its glass cells (none of them in its cells), or null

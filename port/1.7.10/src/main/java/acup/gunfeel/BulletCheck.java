@@ -636,6 +636,19 @@ public final class BulletCheck {
         int[] win = plant(), winCase = plant(), gr = plant();
         if (win == null || winCase == null || gr == null) return;
         String key = MachineCells.keyAt(level, level.getBlock(win[0], win[1], win[2]), win[0], win[1], win[2]);
+        // the jar's exact faces (MachineFaces): the plant's core block gets its triangles, its window among them
+        long[] jarCells = ModelCells.table().get(key);
+        long[] withFaces = jarCells == null ? null : MachineFaces.with(jarCells, key);
+        int all = 0, panes = 0;
+        if (withFaces != null) for (ModelSurface.Face f : ModelSurface.faces(withFaces)) {
+            all++;
+            if (f.glass) panes++;
+        }
+        lines.add("     machine faces: " + MachineFaces.models() + " facings in the jar; chemplant core " + all + " faces, " + panes + " of glass");
+        check("machine faces: chemplant core has its faces", true, all > 0);
+        check("machine faces: chemplant core has its window", true, panes > 0);
+        // the cases here set the plant's cells themselves: its faces from the jar (MachineFaces) would stand in for them
+        MachineFaces.off = true;
         try {
             put(table, key, new long[65], window);
             Shot s = expect("chemplant window: pierced as glass", Want.PIERCE, win, .2, .2, 30F, null);
@@ -648,12 +661,29 @@ public final class BulletCheck {
             put(table, key, grate, null);
             expect("machine grate: through its clear pixel", Want.PASS, gr, .2, .2, 30F, null);
             expect("machine grate: its bar stops it", Want.STOP, gr, .6, .2, 30F, null);
+            // exact faces (ModelSurface) stand in for even a solid coarse grid (26.2: multiblock exact)
+            long[] coarse = new long[65];
+            java.util.Arrays.fill(coarse, 0, 64, -1L);
+            ModelSurface.Face face = new ModelSurface.Face(new double[] {.1, .1, .5, .1, .9, .5, .9, .1, .5}, new double[6], 1, 1, new long[] {1});
+            put(table, key, ModelSurface.attach(coarse, java.util.Collections.singletonList(face)), null);
+            expect("multiblock exact: empty side of occupied cells", Want.PASS, gr, .8, .8, 30F, null);
+            expect("multiblock exact: real face stops bullet", Want.STOP, gr, .2, .2, 30F, null);
+            // a window as a face of glass over the casing's cells
+            ModelSurface.Face pane = new ModelSurface.Face(new double[] {0, 0, .5, 0, 1, .5, 1, 0, .5}, new double[6], 1, 1, new long[] {1}, true);
+            ModelSurface.Face back = new ModelSurface.Face(new double[] {0, 0, .9, 0, 1, .9, 1, 0, .9}, new double[6], 1, 1, new long[] {1});
+            put(table, key, ModelSurface.attach(new long[65], java.util.Arrays.asList(pane, back)), null);
+            s = shoot(winCase, .2, .2, 30F);
+            check("exact window, casing behind: the casing stops it", false, s.alive);
+            check("exact window, casing behind: the glass took its share first", true, s.damage < 30F);
+            put(table, key, ModelSurface.attach(new long[65], java.util.Collections.singletonList(pane)), null);
+            expect("exact window: pierced as glass", Want.PIERCE, win, .2, .2, 30F, null);
             put(table, key, new long[65], window);
             // bulletMachineGlass = false: the window is air again
             Files.write(settings, (MachineGlass.KEY + " = false\n").getBytes(StandardCharsets.UTF_8));
             Thread.sleep(2100);
             expect("chemplant window, bulletMachineGlass off: flies through", Want.PASS, win, .2, .2, 30F, null);
         } finally {
+            MachineFaces.off = false;
             Files.write(settings, (BulletRules.MACHINES_KEY + " = false\n").getBytes(StandardCharsets.UTF_8));
             Thread.sleep(2100);
             ModelCells.reloadOwn();

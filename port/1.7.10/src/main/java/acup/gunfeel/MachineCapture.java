@@ -33,6 +33,8 @@ final class MachineCapture {
         List<MachineMesh.Part> parts = MachineMesh.drawnNow(te);
         if (parts.isEmpty()) return null;
         Map<Long, long[]> solid = new HashMap<Long, long[]>(), glass = new HashMap<Long, long[]>();
+        List<Integer> triTex = new java.util.ArrayList<Integer>();
+        List<double[]> triP = new java.util.ArrayList<double[]>(), triUv = new java.util.ArrayList<double[]>();
         for (MachineMesh.Part p : parts) {
             final int[][] tex = DoorCapture.texture(p.texture, textures);
             String name = MachineMesh.textureName(p.texture);
@@ -55,16 +57,30 @@ final class MachineCapture {
                     }
                     if (!uv) {
                         DoorCapture.fill(solid, tri, (wa, wb, wc) -> true);
+                        triTex.add(-1);
+                        triP.add(tri);
+                        triUv.add(new double[6]);
                         continue;
                     }
                     DoorCapture.fill(solid, tri, (wa, wb, wc) -> DoorCapture.shown(tex, wa * u[0] + wb * u[1] + wc * u[2], wa * v[0] + wb * v[1] + wc * v[2]));
                     if (MEASURE) measure(tri, tex, u, v);
                     boolean light = !DoorCapture.shown(tex, u[0], v[0]) && !DoorCapture.shown(tex, u[1], v[1]) && !DoorCapture.shown(tex, u[2], v[2]);
+                    triTex.add(texIndex(p.texture, tex));
+                    triP.add(tri);
+                    triUv.add(new double[] {u[0], v[0], u[1], v[1], u[2], v[2]});
                     if (empty || light) continue;
                     DoorCapture.fill(glass, tri, (wa, wb, wc) -> !DoorCapture.shown(tex, wa * u[0] + wb * u[1] + wc * u[2], wa * v[0] + wb * v[1] + wc * v[2]));
                 }
             }
         }
+        int[] t = new int[triTex.size()];
+        float[] fp = new float[t.length * 9], fuv = new float[t.length * 6];
+        for (int i = 0; i < t.length; i++) {
+            t[i] = triTex.get(i);
+            for (int k = 0; k < 9; k++) fp[i * 9 + k] = (float) triP.get(i)[k];
+            for (int k = 0; k < 6; k++) fuv[i * 6 + k] = (float) triUv.get(i)[k];
+        }
+        last = new MachineFaces.Model(t, fp, fuv);
         Block b = w.getBlock(x, y, z);
         String id = Block.blockRegistry.getNameForObject(b);
         int meta = w.getBlockMetadata(x, y, z);
@@ -83,6 +99,21 @@ final class MachineCapture {
             if (any) out.put(MachineCells.glassKey(key), only);
         }
         return out;
+    }
+
+    // exact faces (MachineFaces): the textures met so far (by GL id: index) and the last machine drawn's triangles
+    static final List<MachineFaces.Tex> TEXTURES = new java.util.ArrayList<MachineFaces.Tex>();
+    private static final Map<Integer, Integer> TEX_INDEX = new HashMap<Integer, Integer>();
+    static MachineFaces.Model last;
+
+    private static int texIndex(int glId, int[][] tex) {
+        Integer i = TEX_INDEX.get(glId);
+        if (i == null) {
+            i = TEXTURES.size();
+            TEXTURES.add(MachineFaces.Tex.of(MachineMesh.textureName(glId), tex));
+            TEX_INDEX.put(glId, i);
+        }
+        return i;
     }
 
     // dev: what exact faces (26.2's ModelSurface) would take: triangle-block pairs, of them see-through, their mask pixels

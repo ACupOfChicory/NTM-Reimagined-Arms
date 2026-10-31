@@ -154,6 +154,7 @@ final class ShapesScenario {
             return true;
         }
         Map<String, long[]> cells = null;
+        MachineCapture.last = null;
         try {
             cells = MachineCapture.capture(mc, c[0], c[1], c[2], MACHINE_TEXTURES);
         } catch (Throwable e) {
@@ -164,6 +165,7 @@ final class ShapesScenario {
             GunFeel.LOGGER.info("Scenario shapes: machine {} facing {}: nothing drawn, keeps its box", id, facing);
         } else {
             MADE.putAll(cells);
+            if (MachineCapture.last != null) MACHINE_FACES.put(id + "/" + mc.theWorld.getBlockMetadata(c[0], c[1], c[2]), MachineCapture.last);
             machinesMade++;
             int glass = 0;
             for (String k : cells.keySet()) if (k.endsWith("/glass")) glass++;
@@ -416,6 +418,8 @@ final class ShapesScenario {
 
     // the table made: blocks, doors, then machines
     private static final Map<String, long[]> MADE = new TreeMap<String, long[]>();
+    // the machines' triangles by "<id>/<core meta>" (MachineFaces)
+    private static final Map<String, MachineFaces.Model> MACHINE_FACES = new TreeMap<String, MachineFaces.Model>();
 
     private static void finish(Minecraft mc) {
         Map<String, long[]> made = MADE;
@@ -426,6 +430,16 @@ final class ShapesScenario {
             GunFeel.LOGGER.info("Scenario shapes: {} shapes written to {}", made.size(), out);
         } catch (IOException e) {
             GunFeel.LOGGER.warn("Scenario shapes: could not write " + out, e);
+        }
+        if (MACHINE_FACES.isEmpty()) return;
+        MachineFaces.put(MachineCapture.TEXTURES, MACHINE_FACES);
+        File faces = new File(mc.mcDataDir, MachineFaces.FILE);
+        try (java.io.OutputStream o = new java.io.FileOutputStream(faces)) {
+            MachineFaces.write(o, MachineCapture.TEXTURES, MACHINE_FACES);
+            GunFeel.LOGGER.info("Scenario shapes: {} machine facings' faces ({} textures) written to {}, {} bytes", MACHINE_FACES.size(),
+                    MachineCapture.TEXTURES.size(), faces, faces.length());
+        } catch (IOException e) {
+            GunFeel.LOGGER.warn("Scenario shapes: could not write " + faces, e);
         }
     }
 

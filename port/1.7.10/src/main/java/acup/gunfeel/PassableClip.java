@@ -83,6 +83,14 @@ public final class PassableClip {
                 // a fence, gate or wall, or a block met by its model (ModelCells): into the whole cell, then only the
                 // cells its model fills stop the bullet; a machine's glass (MachineCells) too, as a window
                 BlockRay.Hit in = BlockRay.clip(new double[] {x, y, z, x + 1, y + 1, z + 1}, 1, fx, fy, fz, tx, ty, tz, x, y, z);
+                if (in != null && ModelSurface.present(cells)) {
+                    // exact faces (ModelSurface): met by them, in this block only; a machine's window is a face of its own
+                    BlockRay.Hit h = ModelSurface.hit(cells, x, y, z, fx, fy, fz, tx, ty, tz, false, true);
+                    if (debug)
+                        LOGGER.info("[holedebug]   {} {} {} faces: {}", world.isRemote ? "client" : "server", BlockIds.state(Block.blockRegistry.getNameForObject(b), meta),
+                                x + "," + y + "," + z, h == null ? "through the gaps" : h);
+                    return h;
+                }
                 long[] glass = MachineCells.machine(b) && MachineGlass.on() ? MachineCells.glass(ModelCells.table(), world, b, x, y, z) : null;
                 BlockRay.Hit h = in == null ? null : FenceCells.march(glass == null ? cells : or(cells, glass), in, tx - fx, ty - fy, tz - fz, 64);
                 if (h != null && glass != null && FenceCells.cell(glass, cellAt(h.ax - x, tx - fx), cellAt(h.ay - y, ty - fy), cellAt(h.az - z, tz - fz)))
@@ -182,6 +190,11 @@ public final class PassableClip {
         int meta = world.getBlockMetadata(in.x, in.y, in.z);
         long[] cells = cells(world, b, meta, in.x, in.y, in.z);
         // a fence's post or rail, a scaffold's pole: out where its cells end along the way (a shell: its box's far side)
+        // a model's exact faces: out through the far face of the part it went into (a machine: by its cells, as 26.2)
+        if (cells != null && ModelSurface.present(cells) && !machine(b)) {
+            BlockRay.Hit out = ModelSurface.hit(cells, in.x, in.y, in.z, in.ax, in.ay, in.az, in.ax + dx * 2, in.ay + dy * 2, in.az + dz * 2, true);
+            if (out != null) return out;
+        }
         if (cells != null && !ModelCells.shell(cells)) return FenceCells.leave(cells, in, dx, dy, dz);
         double[] boxes = new double[6 * 16];
         int n = outline(world, b, in.x, in.y, in.z, boxes);

@@ -171,6 +171,7 @@ public final class ModelCells {
 
     // 26.2's unpack: FenceCells.unpack's forms, after "!" for a shell (bits[64] = 1)
     static long[] unpack(String v) {
+        if (v.startsWith("f")) return unpackFaces(v.substring(1));
         boolean shell = v.startsWith("!");
         long[] bits = FenceCells.unpack(shell ? v.substring(1) : v);
         if (bits != null && shell) bits[64] = 1L;
@@ -184,8 +185,43 @@ public final class ModelCells {
         return bits.length > 64 && bits[64] != 0L;
     }
 
+    // "f" form: a shape with exact faces (ModelSurface), all its longs deflated, in base64
+    static String packFaces(long[] shape) {
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(8 * shape.length);
+        buf.asLongBuffer().put(shape);
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        java.util.zip.Deflater d = new java.util.zip.Deflater(java.util.zip.Deflater.BEST_COMPRESSION);
+        try (java.util.zip.DeflaterOutputStream z = new java.util.zip.DeflaterOutputStream(out, d)) {
+            z.write(buf.array());
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        } finally {
+            d.end();
+        }
+        return "f" + java.util.Base64.getEncoder().encodeToString(out.toByteArray());
+    }
+
+    private static long[] unpackFaces(String v) {
+        try {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            try (java.util.zip.InflaterInputStream in = new java.util.zip.InflaterInputStream(
+                    new java.io.ByteArrayInputStream(java.util.Base64.getDecoder().decode(v)))) {
+                byte[] b = new byte[8192];
+                for (int n; (n = in.read(b)) > 0; ) out.write(b, 0, n);
+            }
+            byte[] bytes = out.toByteArray();
+            if (bytes.length % 8 != 0) return null;
+            long[] shape = new long[bytes.length / 8];
+            java.nio.ByteBuffer.wrap(bytes).asLongBuffer().get(shape);
+            return ModelSurface.valid(shape) ? shape : null;
+        } catch (java.io.IOException | IllegalArgumentException e) {
+            return null;
+        }
+    }
+
     // FenceCells.unpack's "z" form: the 64 longs deflated, in base64; "!" before it for a shell
     static String pack(long[] bits) {
+        if (ModelSurface.present(bits)) return packFaces(bits);
         java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(512);
         buf.asLongBuffer().put(bits, 0, 64);
         java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
