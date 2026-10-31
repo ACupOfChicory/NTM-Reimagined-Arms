@@ -163,6 +163,11 @@ public final class CameraRecoil {
         return s.amount() == 0F ? s : s.with(0, Math.copySign(Math.max(1F, Math.abs(s.amount())), s.amount()));
     }
 
+    // no kick playing (a trace scenario waits for it)
+    public static boolean idle() {
+        return SHOTS.isEmpty();
+    }
+
     public static void reset() {
         SHOTS.clear();
         appliedPitch = appliedYaw = roll = kept = keptSide = 0F;

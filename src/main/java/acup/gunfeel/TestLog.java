@@ -138,7 +138,7 @@ public final class TestLog {
     }
 
     private static synchronized void write(String side, int shot, String event, Object[] kv) {
-        if (out == null) return;
+        if (out == null || Trace.ON && !Trace.keep(side.equals("S"))) return;
         StringBuilder b = new StringBuilder(96);
         if (Trace.ON) b.append(Trace.time(side.equals("S"))).append('\t');
         b.append(System.currentTimeMillis() - opened).append('\t').append(side).append('\t').append(shot < 0 ? "-" : Integer.toString(shot))

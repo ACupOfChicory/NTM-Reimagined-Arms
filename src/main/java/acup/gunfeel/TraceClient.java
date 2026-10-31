@@ -17,6 +17,8 @@ final class TraceClient {
             return level == null ? -1L : level.getGameTime();
         }, () -> Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
         GunClock.use(TraceClient::nanos);
+        // a scenario writes only what it plays, from the start (TraceScenario)
+        if (TraceScenario.enabled()) Trace.scenario = true;
         TestLog.set(true, true);
     }
 

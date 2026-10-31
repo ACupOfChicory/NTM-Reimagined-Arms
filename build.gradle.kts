@@ -235,6 +235,10 @@ neoForge {
             providers.gradleProperty("traceScenario").orNull?.let { systemProperty("ntmgunfeel.traceScenario", it) }
             if (providers.gradleProperty("traceHex").isPresent) systemProperty("ntmgunfeel.traceHex", "true")
             providers.gradleProperty("seed").orNull?.let { systemProperty("ntmgunfeel.seed", it) }
+            // -Pscenario=arms (runCheckClient, with -Ptrace): TraceScenario plays the guns instead of the smoke check;
+            // -PscenarioGuns=<id,...> or all
+            providers.gradleProperty("scenario").orNull?.let { systemProperty("ntmgunfeel.scenario", it) }
+            providers.gradleProperty("scenarioGuns").orNull?.let { systemProperty("ntmgunfeel.scenarioGuns", it) }
         }
     }
 }
