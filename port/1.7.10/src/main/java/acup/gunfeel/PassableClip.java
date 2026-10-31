@@ -66,6 +66,18 @@ public final class PassableClip {
             int meta = world.getBlockMetadata(x, y, z);
             if (!b.canCollideCheck(meta, false) || BulletRules.through(b, meta, world, x, y, z)) return null;
             long[] cells = cells(world, b, meta, x, y, z);
+            if (cells != null && ModelCells.shell(cells)) {
+                // a shell (a door, a trapdoor: its model closes its collision box all round) is decided where the
+                // bullet comes in through the box: a shown pixel stops it there, a see-through one lets it through the
+                // whole block. Already inside it (came in through a clear pixel the last tick): flies on
+                int n = collision(world, b, x, y, z, boxes);
+                BlockRay.Hit in = BlockRay.clip(boxes, n, fx, fy, fz, tx, ty, tz, x, y, z);
+                BlockRay.Hit h = in == null || in.inside ? null : FenceCells.march(cells, in, tx - fx, ty - fy, tz - fz, 1);
+                if (debug && in != null)
+                    LOGGER.info("[holedebug]   {} {} {} shell: {}", world.isRemote ? "client" : "server", BlockIds.state(Block.blockRegistry.getNameForObject(b), meta),
+                            x + "," + y + "," + z, h == null ? "through a clear pixel" : h);
+                return h;
+            }
             if (cells != null) {
                 // a fence, gate or wall, or a block met by its model (ModelCells): into the whole cell, then only the
                 // cells its model fills stop the bullet
@@ -150,8 +162,8 @@ public final class PassableClip {
         Block b = world.getBlock(in.x, in.y, in.z);
         int meta = world.getBlockMetadata(in.x, in.y, in.z);
         long[] cells = cells(world, b, meta, in.x, in.y, in.z);
-        // a fence's post or rail, a scaffold's pole: out where its cells end along the way
-        if (cells != null) return FenceCells.leave(cells, in, dx, dy, dz);
+        // a fence's post or rail, a scaffold's pole: out where its cells end along the way (a shell: its box's far side)
+        if (cells != null && !ModelCells.shell(cells)) return FenceCells.leave(cells, in, dx, dy, dz);
         double[] boxes = new double[6 * 16];
         int n = outline(world, b, in.x, in.y, in.z, boxes);
         double fx = in.ax + dx * 2.0, fy = in.ay + dy * 2.0, fz = in.az + dz * 2.0;

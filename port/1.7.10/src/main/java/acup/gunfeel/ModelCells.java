@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import net.minecraft.block.Block;
+import net.minecraft.block.BlockDoor;
 import net.minecraft.block.BlockFence;
 import net.minecraft.block.BlockPane;
 import net.minecraft.world.IBlockAccess;
@@ -20,9 +21,10 @@ import net.minecraftforge.common.util.ForgeDirection;
 // the client from its block models when a world is joined and ships a copy for the server; 1.7.10 draws blocks with
 // RenderBlocks and Forge's render handlers, so the port makes them once in dev (ShapesScenario: the model drawn into
 // the Tessellator, the pixels read from the block atlas) and ships the table, ntmgunfeel-bullet-shapes-1710.properties,
-// for both sides. Blocks that join their neighbours (panes, bars, NTM's fence) are keyed by their four joins as well.
-// Left out: 26.2's exact faces and pixel surfaces over the cells (ModelSurface) and shells (closed boxes entered only
-// through their outer faces): the cells alone, as 26.2 has them before those.
+// for both sides. Blocks that join their neighbours (panes, bars, NTM's fence) are keyed by their four joins as well,
+// doors by both halves' meta. 1.7.10's door tops have windows (clear pixels), as NTM's doors.
+// Left out: 26.2's exact faces and pixel surfaces over the cells (ModelSurface): the cells alone, as 26.2 has them
+// before those.
 public final class ModelCells {
     private ModelCells() {
     }
@@ -37,10 +39,22 @@ public final class ModelCells {
         if (t.isEmpty()) return null;
         String id = Block.blockRegistry.getNameForObject(b);
         if (id == null) return null;
-        return t.get(key(id, meta, joins(world, b, x, y, z)));
+        return t.get(key(id, fullMeta(world, b, meta, x, y, z), joins(world, b, x, y, z)));
     }
 
-    // "id#meta", or "id#meta/NESW" with each join 0 or 1 (north, east, south, west) for a block joining its neighbours
+    // a door is drawn by both its halves' meta (1.7.10's func_150012_g: the lower's facing and open, the upper's hinge,
+    // 8 for the upper): keyed by that; any other block by its meta
+    static int fullMeta(IBlockAccess world, Block b, int meta, int x, int y, int z) {
+        if (b instanceof BlockDoor) return ((BlockDoor) b).func_150012_g(world, x, y, z);
+        if (b instanceof com.hbm.blocks.generic.BlockModDoor) return ((com.hbm.blocks.generic.BlockModDoor) b).func_150012_g(world, x, y, z);
+        return meta;
+    }
+
+    static boolean door(Block b) {
+        return b instanceof BlockDoor || b instanceof com.hbm.blocks.generic.BlockModDoor;
+    }
+
+    // "id#meta" (a door: its full meta), or "id#meta/NESW" with each join 0 or 1 (north, east, south, west) for a block joining its neighbours
     static String key(String id, int meta, String joins) {
         return joins == null ? id + "#" + meta : id + "#" + meta + "/" + joins;
     }
@@ -92,7 +106,7 @@ public final class ModelCells {
                 if (k.startsWith("@") || k.indexOf('#') < 0) continue;
                 String v = p.getProperty(k).trim();
                 if (v.startsWith("@")) v = p.getProperty(v, "").trim();
-                long[] bits = FenceCells.unpack(v);
+                long[] bits = unpack(v);
                 if (bits != null) out.put(k, bits);
             }
         } catch (Exception e) {
@@ -101,7 +115,22 @@ public final class ModelCells {
         return Collections.unmodifiableMap(out);
     }
 
-    // FenceCells.unpack's "z" form: the 64 longs deflated, in base64
+    // 26.2's unpack: FenceCells.unpack's forms, after "!" for a shell (bits[64] = 1)
+    static long[] unpack(String v) {
+        boolean shell = v.startsWith("!");
+        long[] bits = FenceCells.unpack(shell ? v.substring(1) : v);
+        if (bits != null && shell) bits[64] = 1L;
+        return bits;
+    }
+
+    // bits[64] = 1: the model closes its hitbox all round (a door, a trapdoor: see ShapesScenario.shell). Such a block is
+    // decided where the bullet comes in through its collision box, as 26.2's: a shown pixel there stops it, a
+    // see-through one lets it through the whole block; its thickness is its collision box's
+    public static boolean shell(long[] bits) {
+        return bits.length > 64 && bits[64] != 0L;
+    }
+
+    // FenceCells.unpack's "z" form: the 64 longs deflated, in base64; "!" before it for a shell
     static String pack(long[] bits) {
         java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(512);
         buf.asLongBuffer().put(bits, 0, 64);
@@ -114,7 +143,7 @@ public final class ModelCells {
         } finally {
             d.end();
         }
-        return "z" + java.util.Base64.getEncoder().encodeToString(out.toByteArray());
+        return (shell(bits) ? "!z" : "z") + java.util.Base64.getEncoder().encodeToString(out.toByteArray());
     }
 
     static boolean empty(long[] bits) {

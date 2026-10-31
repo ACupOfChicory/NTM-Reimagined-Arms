@@ -11,7 +11,8 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 // The 1.7.10 table ShapesScenario made (ModelCells): every listed block is in it, and a bullet goes through the clear
-// pixels of bars, a grate and a trapdoor and meets their wires, and a ladder's rungs only where they are drawn.
+// pixels of bars, a grate and a trapdoor and meets their wires, and a ladder's rungs only where they are drawn; doors
+// and trapdoors are shells (decided where the bullet comes in).
 class ModelCellsTest {
     private static long[] get(String key) {
         long[] b = ModelCells.table().get(key);
@@ -81,7 +82,23 @@ class ModelCellsTest {
     }
 
     @Test
+    void doorsAndTrapdoorsAreShellsBarsAndLaddersAreNot() {
+        assertTrue(ModelCells.shell(get("minecraft:wooden_door#9")));
+        assertTrue(ModelCells.shell(get("minecraft:iron_door#3")));
+        assertTrue(ModelCells.shell(get("minecraft:trapdoor#0")));
+        assertFalse(ModelCells.shell(get("minecraft:iron_bars#0/0000")));
+        assertFalse(ModelCells.shell(get("minecraft:ladder#2")));
+        assertFalse(ModelCells.shell(get("hbm:tile.steel_scaffold#0")));
+        // a door's top has two windows: clear on the face the bullet comes in through
+        long[] top = get("minecraft:wooden_door#9");
+        assertFalse(FenceCells.cell(top, 4, 11, 0));
+        assertTrue(FenceCells.cell(top, 4, 14, 0));
+    }
+
+    @Test
     void packIsWhatUnpackReads() {
+        long[] door = get("minecraft:wooden_door#9");
+        assertTrue(ModelCells.shell(ModelCells.unpack(ModelCells.pack(door))));
         long[] bits = get("minecraft:ladder#2");
         long[] back = FenceCells.unpack(ModelCells.pack(bits));
         for (int i = 0; i < 64; i++) assertEquals(bits[i], back[i]);

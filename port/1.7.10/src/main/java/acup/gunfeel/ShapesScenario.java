@@ -40,10 +40,12 @@ final class ShapesScenario {
     }
 
     // blocks met by their model: inside their hitbox (scaffold, poles, a ladder) or with see-through pixels (bars,
-    // grates, NTM's chain-link fence, a trapdoor), as 26.2's "generate" list and masks. Not glass panes: their collision
+    // grates, NTM's chain-link fence, trapdoors, doors with windows), as 26.2's "generate" list and masks. Not glass panes: their collision
     // boxes are their model (a lone pane a cross), and their clear pixels are still glass
     static final String[] BLOCKS = {"minecraft:iron_bars", "minecraft:ladder", "minecraft:trapdoor", "hbm:tile.steel_scaffold",
-            "hbm:tile.steel_poles", "hbm:tile.steel_grate", "hbm:tile.steel_grate_wide", "hbm:tile.fence_metal"};
+            "hbm:tile.steel_poles", "hbm:tile.steel_grate", "hbm:tile.steel_grate_wide", "hbm:tile.fence_metal",
+            "minecraft:wooden_door", "minecraft:iron_door", "hbm:tile.door_metal", "hbm:tile.door_office", "hbm:tile.door_bunker", "hbm:tile.door_red",
+            "hbm:tile.trapdoor_steel"};
 
     private static final int BUILD = 5, CAPTURE = 80, DONE = 90, SPACING = 3, UP = 12, ROW = 24;
 
@@ -89,6 +91,18 @@ final class ShapesScenario {
                 continue;
             }
             boolean joining = b instanceof net.minecraft.block.BlockPane || b instanceof net.minecraft.block.BlockFence;
+            if (ModelCells.door(b)) {
+                // the lower half's facing and open (0-7) with the upper's hinge (8 | 0, 1): both halves taken
+                for (int meta = 0; meta < 16; meta++) {
+                    int x = px + (i % ROW - ROW / 2) * SPACING, z = pz + (i / ROW - ROW / 2) * SPACING;
+                    i++;
+                    w.setBlock(x, py, z, b, meta & 7, 2);
+                    w.setBlock(x, py + 1, z, b, 8 | meta >> 3, 2);
+                    SPOTS.add(new Spot(b, meta & 7, x, py, z, null));
+                    SPOTS.add(new Spot(b, 8 | meta >> 3, x, py + 1, z, null));
+                }
+                continue;
+            }
             for (int meta = 0; meta < 16; meta++) {
                 for (int j = 0; j < (joining ? 16 : 1); j++) {
                     int x = px + (i % ROW - ROW / 2) * SPACING, z = pz + (i / ROW - ROW / 2) * SPACING;
@@ -133,7 +147,11 @@ final class ShapesScenario {
             }
             long[] bits = cells(v, atlas);
             if (ModelCells.empty(bits)) continue;
-            made.put(ModelCells.key(id, s.meta, joins), bits);
+            double[] boxes = new double[6 * 16];
+            int nb = PassableClip.collision(mc.theWorld, s.block, s.x, s.y, s.z, boxes);
+            for (int k = 0; k < nb; k++) for (int a = 0; a < 6; a++) boxes[k * 6 + a] -= a % 3 == 0 ? s.x : a % 3 == 1 ? s.y : s.z;
+            if (shell(v, boxes, nb)) bits[64] = 1L;
+            made.put(ModelCells.key(id, ModelCells.fullMeta(mc.theWorld, s.block, s.meta, s.x, s.y, s.z), joins), bits);
         }
         if (!wrong.isEmpty()) GunFeel.LOGGER.warn("Scenario shapes: not in the client's world (an unused meta?): {}", wrong);
         ModelCells.put(made);
@@ -192,6 +210,66 @@ final class ShapesScenario {
             }
         }
         return bits;
+    }
+
+    // 26.2's MeshShapes.shell: the model's quads (shown pixels or not) cover every face of the block's collision boxes
+    // (boxes: n of them, {min x, y, z, max x, y, z} in the block): a closed box such as a door or a trapdoor, entered only
+    // through its outer faces. Not: bars, a ladder, scaffold poles, whose model lies inside the hitbox
+    static boolean shell(float[] v, double[] boxes, int n) {
+        if (n == 0) return false;
+        int points = 0, covered = 0;
+        for (int b = 0; b < n; b++) {
+            double[] lo = {boxes[b * 6], boxes[b * 6 + 1], boxes[b * 6 + 2]}, hi = {boxes[b * 6 + 3], boxes[b * 6 + 4], boxes[b * 6 + 5]};
+            for (int ax = 0; ax < 3; ax++) {
+                int a1 = (ax + 1) % 3, a2 = (ax + 2) % 3;
+                for (double plane : new double[] {lo[ax], hi[ax]}) {
+                    int facePoints = 0, faceCovered = 0;
+                    for (int i = 0; i < 4; i++) for (int j = 0; j < 4; j++) {
+                        double[] p = new double[3];
+                        p[ax] = plane;
+                        p[a1] = lo[a1] + (hi[a1] - lo[a1]) * (i + 0.5) / 4;
+                        p[a2] = lo[a2] + (hi[a2] - lo[a2]) * (j + 0.5) / 4;
+                        // a face shared with another of the boxes is inside the hitbox
+                        if (inOther(boxes, n, b, p)) continue;
+                        facePoints++;
+                        if (onAnyQuad(v, p, ax)) faceCovered++;
+                    }
+                    // a bare face on the block's edge is a seam to the other half (door halves have no face where they meet)
+                    boolean edge = Math.abs(plane) < 1e-4 || Math.abs(plane - 1) < 1e-4;
+                    if (edge && faceCovered == 0) continue;
+                    points += facePoints;
+                    covered += faceCovered;
+                }
+            }
+        }
+        return points > 0 && covered >= points * 0.95;
+    }
+
+    private static boolean inOther(double[] boxes, int n, int self, double[] p) {
+        for (int o = 0; o < n; o++) {
+            if (o == self) continue;
+            boolean in = true;
+            for (int i = 0; i < 3; i++) in &= p[i] >= boxes[o * 6 + i] - 1e-4 && p[i] <= boxes[o * 6 + 3 + i] + 1e-4;
+            if (in) return true;
+        }
+        return false;
+    }
+
+    // an axis-aligned quad of the model lies in that plane over the point
+    private static boolean onAnyQuad(float[] v, double[] p, int ax) {
+        for (int q = 0; q < v.length / 20; q++) {
+            double[] mn = {Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE}, mx = {-Double.MAX_VALUE, -Double.MAX_VALUE, -Double.MAX_VALUE};
+            for (int k = 0; k < 4; k++) for (int i = 0; i < 3; i++) {
+                double c = v[(q * 4 + k) * 5 + i];
+                mn[i] = Math.min(mn[i], c);
+                mx[i] = Math.max(mx[i], c);
+            }
+            if (mx[ax] - mn[ax] > 1e-4 || Math.abs(mn[ax] - p[ax]) > 1e-3) continue;
+            boolean in = true;
+            for (int i = 0; i < 3; i++) if (i != ax) in &= p[i] >= mn[i] - 1e-4 && p[i] <= mx[i] + 1e-4;
+            if (in) return true;
+        }
+        return false;
     }
 
     private static double[] tri(float[] v, int q, int a, int b, int c) {

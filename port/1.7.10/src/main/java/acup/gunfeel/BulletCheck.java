@@ -136,6 +136,9 @@ public final class BulletCheck {
         expect("ladder: a rung", Want.MEET, single("minecraft:ladder", 2), .5, 5.5 * px, 30F, null);
         expect("chain-link fence: through the mesh", Want.PASS, row("hbm:fence_metal", 0), 1.5 * px, 14.5 * px, 30F, null);
         expect("chain-link fence: a wire, pierced", Want.PIERCE, row("hbm:fence_metal", 0), 8.5 * px, 15.5 * px, 30F, null);
+        // a wooden door's top, closed across z (lower meta 1): its two windows, its frame
+        expect("wooden door: through the window", Want.PASS, doorTop("minecraft:wooden_door", 1), 4.5 * px, 11.5 * px, 30F, null);
+        expect("wooden door: the frame", Want.MEET, doorTop("minecraft:wooden_door", 1), .5, 14.5 * px, 30F, null);
 
         // ---- materials: a plank is pierced with the rule's loss, concrete holds
         int[] at = single("minecraft:planks", 0);
@@ -441,6 +444,13 @@ public final class BulletCheck {
         int[] at = single(id, meta);
         level.setBlock(at[0] - 1, at[1], at[2], block(id), meta, 2);
         level.setBlock(at[0] + 1, at[1], at[2], block(id), meta, 2);
+        return at;
+    }
+
+    // a door's upper half (shot) over its lower half with this meta
+    private static int[] doorTop(String id, int lower) {
+        int[] at = single(id, 8);
+        level.setBlock(at[0], at[1] - 1, at[2], block(id), lower, 2);
         return at;
     }
 
