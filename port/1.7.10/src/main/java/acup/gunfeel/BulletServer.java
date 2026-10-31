@@ -25,8 +25,7 @@ import net.minecraftforge.event.world.BlockEvent;
 // port: copied from 26.2 (0762086) with changes for 1.7.10, each marked "port:": BlockState -> (Block, meta),
 // BlockPos -> x y z, BlockHitResult -> BlockRay.Hit (a miss is null), ServerLevel -> WorldServer; the break event,
 // mob griefing, cracks (destroyBlockInWorldPartially), breaking (func_147480_a), particles and sounds of 1.7.10.
-// Not here yet: our steel ricochet sound (MixinRicochetSound; the port has no sounds of its own), the mod's head test
-// (HeadDamage: the hitboxes' part; NTM's own height test is used).
+// Not here yet: our steel ricochet sound (MixinRicochetSound; the port has no sounds of its own).
 // Server side of BulletRules: blocks bullets break, and what a creature hit or killed by one gives off.
 public final class BulletServer {
     private BulletServer() {
@@ -273,8 +272,7 @@ public final class BulletServer {
             TestLog.s(bullet.getEntityId(), "end", "by", "entity", "entity", BulletRules.entityId(target),
                     "at", at == null ? null : TestLog.point(at.xCoord, at.yCoord, at.zCoord),
                     "killed", wasAlive && !target.isEntityAlive(), "damage", damage, "head", head(bullet, target, at),
-                    // port: the mod's head test (HeadDamage) is the hitboxes' part; here NTM's own by height
-                    "headSource", "height", "headReason", "-",
+                    "headSource", HeadDamage.last(bullet, target, phys(at)).source(), "headReason", HeadDamage.last(bullet, target, phys(at)).reason(),
                     "health", health, "after", now, "took", health - now, "left", bullet.damage, "flies", !bullet.isDead);
         }
         if (!(bullet.worldObj instanceof WorldServer) || !wasAlive) return;
@@ -287,9 +285,15 @@ public final class BulletServer {
     // NTM's headshot test (BulletConfig.LAMBDA_STANDARD_ENTITY_HIT): the hit point in the top two head heights
     private static boolean head(EntityBulletBaseMK4 bullet, Entity target, Vec3 at) {
         if (!(target instanceof EntityLivingBase) || at == null || bullet.config == null || !(bullet.config.headshotMult > 1F)) return false;
+        ModelHeads.Hit precise = HeadDamage.last(bullet, target, phys(at));
+        if (precise.applied()) return precise.head();
         EntityLivingBase living = (EntityLivingBase) target;
         double head = living.height - living.getEyeHeight();
         return at.yCoord > living.posY + living.height - head * 2.0;
+    }
+
+    private static acup.gunfeel.phys.Vec3 phys(Vec3 at) {
+        return at == null ? null : new acup.gunfeel.phys.Vec3(at.xCoord, at.yCoord, at.zCoord);
     }
 
     // the test log: how worn the shooter's gun is (worn / durability) and NTM's factor on its damage by that

@@ -189,13 +189,13 @@ public final class BulletCheck {
         Files.write(serverFile, (BulletRules.CONCRETE_KEY + " = false\n").getBytes(StandardCharsets.UTF_8));
         Thread.sleep(2100);
 
-        // ---- .50 DU into an iron golem in the open: the body takes the bullet's damage, the head NTM's headshot
-        // (port: NTM's height test and multiplier; 26.2 has the mod's head zones and x1.75)
-        BulletConfig du = com.hbm.items.weapon.sedna.factory.XFactory50.bmg50_du;
+        // ---- .50 DU into an iron golem in the open: every bullet takes the same, 45 in the body, x1.75 in the head
+        // (the mod's one head multiplier for every gun, HeadDamage; on this server no client sends the golem's pose, so
+        // the head is NTM 1.7.10's height rule, as ModelHits keeps it without a pose)
         check("golem: .50 DU in the body takes 45", 45F, golemHit(1.0, 45F));
-        check("golem: .50 DU in the head takes 45 x NTM's headshot", 45F * du.headshotMult, golemHit(2.4, 45F));
+        check("golem: .50 DU in the head takes 78.75", 78.75F, golemHit(2.4, 45F));
         float[] floor = golemOverFloor(45F);
-        check("golem over a floor: the head shot takes the full headshot, not what the floor behind left", 45F * du.headshotMult, floor[0]);
+        check("golem over a floor: the head shot takes 78.75, not what the floor behind left", 78.75F, floor[0]);
         check("golem over a floor: the floor behind it still costs the bullet", true, floor[1] < 45F);
 
         // ---- path rules in the server's file
