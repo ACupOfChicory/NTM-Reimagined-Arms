@@ -23,7 +23,7 @@ final class LookScenario {
     }
 
     private static final int BUILD = 5, GIVE = 40, HUD = 60, SKY = 70, SHOT = 100, HOLES = 140, SWITCH = 160, BURST = 180,
-            BURST_TICKS = 20, HOLES2 = 240, TURN = 260, ZOMBIE = 280, AT_ZOMBIE = 300, RADIAL = 330, MACHINE = 390, DONE = 470;
+            BURST_TICKS = 20, HOLES2 = 240, TURN = 260, ZOMBIE = 280, AT_ZOMBIE = 300, RADIAL = 330, MACHINE = 390, DOOR = 470, DONE = 640;
 
     // the zombie's place relative to the player's feet: 3 to the left (+x, the player looks along +z), 7 ahead
     private static final int ZX = 3, ZZ = 7;
@@ -31,6 +31,9 @@ final class LookScenario {
     // (-x), 5 ahead
     private static final int MX = -6, MZ = 5;
     private static int[] feet;
+    // the sliding blast door (its leaves slide aside when it opens: the holes on them go along), 10 to the left, 14 ahead
+    private static final int DX = 10, DZ = 14;
+    private static int[] door;
 
     static void step(Minecraft mc, int t) {
         if (t == BUILD) {
@@ -159,6 +162,34 @@ final class LookScenario {
             });
         } else if (t == MACHINE + 70) {
             shot(mc, "machine-close");
+        } else if (t == DOOR) {
+            final int[] f = feet;
+            ShootScenario.onServer(() -> door = door(f[0] + DX, f[1], f[2] + DZ));
+        } else if (t == DOOR + 10) {
+            // in front of the door, facing it
+            final int[] f = feet;
+            ShootScenario.onServer(() -> {
+                EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
+                player.playerNetServerHandler.setPlayerLocation(f[0] + DX + .5, f[1], f[2] + DZ - 7.5, 0F, -6F);
+            });
+        } else if (t == DOOR + 30) {
+            ShootScenario.trigger(true, mc);
+        } else if (t == DOOR + 38) {
+            ShootScenario.trigger(false, mc);
+        } else if (t == DOOR + 55) {
+            GunFeel.LOGGER.info("Scenario look: door at {}, holes on machines {}", door == null ? "none" : door[0] + " " + door[1] + " " + door[2],
+                    Tracers.machineHoles());
+            shot(mc, "door-shut");
+            final int[] d = door;
+            if (d != null) ShootScenario.onServer(() -> {
+                World w = MinecraftServer.getServer().worldServerForDimension(0);
+                ((com.hbm.tileentity.TileEntityDoorGeneric) w.getTileEntity(d[0], d[1], d[2])).open();
+            });
+        } else if (t == DOOR + 76) {
+            shot(mc, "door-opening");
+        } else if (t == DOOR + 150) {
+            GunFeel.LOGGER.info("Scenario look: door open, holes on machines {}", Tracers.machineHoles());
+            shot(mc, "door-open");
         } else if (t == DONE - 10) {
             // the systems' state in chat (the chat lines go to the log as [CHAT])
             for (String c : new String[] {"/gunfeel quality low", "/gunfeel quality", "/gunfeel quality high", "/gunfeel hitvolume", "/gunfeel settings",
@@ -172,6 +203,29 @@ final class LookScenario {
             GunFeel.LOGGER.info("Scenario look done: screenshots in {}", new File(mc.mcDataDir, "screenshots"));
             mc.shutdown();
         }
+    }
+
+    // the integrated server: NTM's sliding blast door placed at (x, y, z), facing the player's way (south); its core
+    private static int[] door(int x, int y, int z) {
+        EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
+        World w = player.worldObj;
+        net.minecraft.block.Block b = (net.minecraft.block.Block) net.minecraft.block.Block.blockRegistry.getObject("hbm:tile.sliding_blast_door");
+        if (b == null) {
+            GunFeel.LOGGER.warn("Scenario look: no hbm:tile.sliding_blast_door");
+            return null;
+        }
+        float yaw = player.rotationYaw;
+        player.rotationYaw = 0F;
+        try {
+            w.setBlock(x, y, z, b, 0, 3);
+            b.onBlockPlacedBy(w, x, y, z, player, new net.minecraft.item.ItemStack(b));
+        } finally {
+            player.rotationYaw = yaw;
+        }
+        for (int dx = -8; dx <= 8; dx++) for (int dy = -8; dy <= 8; dy++) for (int dz = -8; dz <= 8; dz++)
+            if (w.getTileEntity(x + dx, y + dy, z + dz) instanceof com.hbm.tileentity.TileEntityDoorGeneric) return new int[] {x + dx, y + dy, z + dz};
+        GunFeel.LOGGER.warn("Scenario look: the door was not set up");
+        return null;
     }
 
     // the integrated server: NTM's press with its core at (x, y, z), turned to the player (BlockDummyable)
