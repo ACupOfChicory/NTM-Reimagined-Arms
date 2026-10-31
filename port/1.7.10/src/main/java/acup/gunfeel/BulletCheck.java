@@ -91,6 +91,7 @@ public final class BulletCheck {
         level = server.worldServerForDimension(0);
         for (int cx = -1; cx < 6; cx++) for (int cz = -1; cz < 20; cz++) level.theChunkProviderServer.loadChunk(cx, cz);
         level.getGameRules().setOrCreateGameRule("mobGriefing", "true");
+        clearFar();
         Files.write(PortPaths.config().resolve(BulletRules.FILE), RULES.getBytes(StandardCharsets.UTF_8));
         Files.write(PortPaths.config().resolve(ReaimTimes.FILE), new byte[0]);
         Thread.sleep(2100); // the files are looked at once a second
@@ -114,6 +115,26 @@ public final class BulletCheck {
         check("Mr Deuce DU: second steel panel holds", false, secondPanel.alive);
         expect("Mr Deuce DU: one metre of wired glass just passes", Want.PIERCE, single("hbm:reinforced_glass", 0), .5, .5, 11.25F, null);
         round = plainRound;
+
+        // ---- the cargo elevator's parts named none by the server's rules still count as the machine (26.2: they once
+        // got round the ban on piercing machines); in 1.7.10 a part is a dummy cell (meta 2) or the core (meta 12)
+        Path machineSettings = PortPaths.config().resolve(ReaimTimes.FILE);
+        Path bulletRules = PortPaths.config().resolve(BulletRules.FILE);
+        Files.write(bulletRules, (RULES + "material hbm:cargo_elevator none\n"
+                + "break hbm:cargo_elevator damage 1000000 pass pierce=0.001 keep=1\n").getBytes(StandardCharsets.UTF_8));
+        for (boolean enabled : new boolean[] {false, true}) {
+            Files.write(machineSettings, (BulletRules.MACHINES_KEY + " = " + enabled + "\n").getBytes(StandardCharsets.UTF_8));
+            Thread.sleep(2100);
+            for (String part : new String[] {"core", "cell"}) {
+                int[] at = single("hbm:cargo_elevator", part.equals("core") ? 12 : 2);
+                BlockRay.Hit in = new BlockRay.Hit(at[0], at[1], at[2], 2, at[0] + .5, at[1] + .5, at[2], false);
+                BlockRay.Hit exit = new BlockRay.Hit(at[0], at[1], at[2], 3, at[0] + .5, at[1] + .5, at[2] + .125, false);
+                check("cargo " + part + ": machine piercing " + enabled, enabled, PassableClip.pierced(level, in, exit, 1000F, round) >= 1F);
+            }
+        }
+        Files.write(machineSettings, (BulletRules.MACHINES_KEY + " = false\n").getBytes(StandardCharsets.UTF_8));
+        Files.write(bulletRules, RULES.getBytes(StandardCharsets.UTF_8));
+        Thread.sleep(2100);
 
         // ---- fences, gates, walls: their posts and rails (26.2's family cells, FenceCells), not their collision boxes
         String cells = null;
@@ -208,6 +229,24 @@ public final class BulletCheck {
         Files.write(serverFile, (BulletRules.CONCRETE_KEY + " = false\n").getBytes(StandardCharsets.UTF_8));
         Thread.sleep(2100);
 
+        // ---- NTM's wooden trench blocks (26.2's WoodBoxes): their boards as drawn, from the shapes table (ModelCells).
+        // 1.7.10 has one wood_structure with meta 0 roof, 1 scaffold, 2 ceiling, and wood_barrier by side (meta 2: its
+        // panel across z, posts and boards as in 26.2)
+        String wood = "hbm:wood_structure";
+        expect("wood ceiling: under the boards, between the beams", Want.PASS, single(wood, 2), .5, .905, 30F, null);
+        expect("wood ceiling: along a beam", Want.PIERCE, single(wood, 2), .06, .905, 40F, null);
+        expect("wood ceiling: across the boards", Want.PIERCE, single(wood, 2), .5, .97, 30F, null);
+        expect("wood roof: under the boards, between the rails", Want.PASS, single(wood, 0), .5, .06, 30F, null);
+        expect("wood roof: the boards", Want.PIERCE, single(wood, 0), .5, .15, 30F, null);
+        expect("wood roof: above it", Want.PASS, single(wood, 0), .5, .5, 30F, null);
+        expect("wood scaffold: between the posts, under the rails", Want.PASS, single(wood, 1), .5, .25, 30F, null);
+        expect("wood scaffold: the north and south rails", Want.PIERCE, single(wood, 1), .5, .625, 30F, null);
+        expect("wood scaffold: two posts", Want.PIERCE, single(wood, 1), .125, .25, 30F, null);
+        expect("wood barrier: between its boards", Want.PASS, single("hbm:wood_barrier", 2), .25, .5, 30F, null);
+        expect("wood barrier: a board", Want.PIERCE, single("hbm:wood_barrier", 2), .25, .25, 30F, null);
+        expect("wood barrier: its post", Want.PIERCE, single("hbm:wood_barrier", 2), .5, .5, 30F, null);
+        expect("wood barrier: over the boards, nothing above", Want.PASS, single("hbm:wood_barrier", 2), .25, .97, 30F, null);
+
         // ---- .50 DU into an iron golem in the open: every bullet takes the same, 45 in the body, x1.75 in the head
         // (the mod's one head multiplier for every gun, HeadDamage; on this server no client sends the golem's pose, so
         // the head is NTM 1.7.10's height rule, as ModelHits keeps it without a pose)
@@ -247,6 +286,11 @@ public final class BulletCheck {
         }
     }
 
+    // what far() left in earlier runs (before it took its blocks away): 250 blocks down every lane
+    private static void clearFar() {
+        for (int i = 0; i < 256; i++) level.setBlock(2 + 4 * (i % 16), Y + 4 * (i / 16), Z + 250, Blocks.air, 0, 2);
+    }
+
     private static void far() {
         // stone bricks: it stops (nothing else in the lane); glass: it breaks the pane and flies on. NTM moves a
         // stopped bullet on to its tick's end, so where it is says nothing
@@ -272,6 +316,8 @@ public final class BulletCheck {
         b.onUpdate();
         Shot s = new Shot(!b.isDead, b.damage, b.posZ, after(far));
         b.setDead();
+        // the world stays from run to run: a block left here would stop a later run's bullets in another lane
+        level.setBlock(far[0], far[1], far[2], Blocks.air, 0, 2);
         return s;
     }
 

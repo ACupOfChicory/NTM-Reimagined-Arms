@@ -46,7 +46,7 @@ final class ShapesScenario {
     static final String[] BLOCKS = {"minecraft:iron_bars", "minecraft:ladder", "minecraft:trapdoor", "hbm:tile.steel_scaffold",
             "hbm:tile.steel_poles", "hbm:tile.steel_grate", "hbm:tile.steel_grate_wide", "hbm:tile.fence_metal",
             "minecraft:wooden_door", "minecraft:iron_door", "hbm:tile.door_metal", "hbm:tile.door_office", "hbm:tile.door_bunker", "hbm:tile.door_red",
-            "hbm:tile.trapdoor_steel"};
+            "hbm:tile.trapdoor_steel", "hbm:tile.wood_barrier", "hbm:tile.wood_structure"};
 
     private static final int BUILD = 5, CAPTURE = 80, DONE = 90, SPACING = 3, UP = 12, ROW = 24;
 
