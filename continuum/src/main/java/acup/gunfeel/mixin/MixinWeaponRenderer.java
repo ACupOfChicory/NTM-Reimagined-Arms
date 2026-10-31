@@ -111,7 +111,10 @@ public abstract class MixinWeaponRenderer {
             if (size <= 0F) size = GunExtent.size((WeaponRenderer) (Object) this, stack, pivot);
             if (size > 0F) ModelRecoil.apply(poseStack, size, pivot);
         }
-        if (arms) Arms.gunFrame(poseStack);
+        if (arms) {
+            Arms.gunFrame(poseStack);
+            ArmsGem.handed(poseStack);
+        }
     }
 
     // the parts the gun drew, then the arms holding it
@@ -120,7 +123,7 @@ public abstract class MixinWeaponRenderer {
             boolean otherArm, CallbackInfo ci) {
         if (!Feature.ARMS.on()) return;
         // scoped in, the gun drew nothing (its pose was not begun this frame)
-        if (!scopedIn(stack)) ArmsGem.parts((WeaponRenderer) (Object) this, pose, poseStack);
+        if (!scopedIn(stack)) ArmsGem.parts((WeaponRenderer) (Object) this, pose);
         Arms.end(stack, collector, light, Config.enabled && !Arms.measuring && !otherArm && ArmsGem.fits(stack));
     }
 

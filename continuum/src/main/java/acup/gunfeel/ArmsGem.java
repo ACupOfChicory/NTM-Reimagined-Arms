@@ -37,13 +37,21 @@ public final class ArmsGem {
         return ALL || FITTING.contains(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
     }
 
-    // Arms.part for every OBJ group the gun's model draws this frame, in draw order, with the pose it was drawn at.
-    // `pose` is the frame renderFirstPerson was handed (it pushes and pops around each part, so it is the same after).
-    public static void parts(WeaponRenderer renderer, WeaponPose state, PoseStack pose) {
+    // the frame renderFirstPerson is handed (MixinWeaponRenderer, right before the call)
+    private static final PoseStack HANDED = new PoseStack();
+
+    public static void handed(PoseStack pose) {
+        HANDED.last().set(pose.last());
+    }
+
+    // Arms.part for every OBJ group the gun's model draws this frame, in draw order, with the pose it was drawn at,
+    // walked from the frame renderFirstPerson was handed (handed): the pose stack after the call is not that frame,
+    // as Continuum's WeaponEffects moves it for the muzzle flash and smoke without a push (Maresleg: its 0.375 scale).
+    public static void parts(WeaponRenderer renderer, WeaponPose state) {
         HFRWavefrontObject gun = GUN_MODEL.computeIfAbsent(renderer, r -> gunModel(r, state));
         if (gun == null) return;
         PoseStack copy = new PoseStack();
-        copy.last().set(pose.last());
+        copy.last().set(HANDED.last());
         Gem.walk(renderer.gem(), state, copy, (part, geometry, at) -> {
             HFRWavefrontObject.Selection s = HFRWavefrontObject.select(geometry);
             if (s == null || s.model() != gun) return;
