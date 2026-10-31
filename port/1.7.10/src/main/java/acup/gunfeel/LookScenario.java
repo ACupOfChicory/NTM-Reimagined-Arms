@@ -23,7 +23,7 @@ final class LookScenario {
     }
 
     private static final int BUILD = 5, GIVE = 40, HUD = 60, SKY = 70, SHOT = 100, HOLES = 140, SWITCH = 160, BURST = 180,
-            BURST_TICKS = 20, HOLES2 = 240, TURN = 260, ZOMBIE = 280, AT_ZOMBIE = 300, RADIAL = 330, MACHINE = 390, DOOR = 470, DONE = 640;
+            BURST_TICKS = 20, HOLES2 = 240, TURN = 260, ZOMBIE = 280, AT_ZOMBIE = 300, RADIAL = 330, MACHINE = 390, DOOR = 470, STANDS = 650, STAND_TICKS = 60, DONE = 1040;
 
     // the zombie's place relative to the player's feet: 3 to the left (+x, the player looks along +z), 7 ahead
     private static final int ZX = 3, ZZ = 7;
@@ -34,6 +34,15 @@ final class LookScenario {
     // the sliding blast door (its leaves slide aside when it opens: the holes on them go along), 10 to the left, 14 ahead
     private static final int DX = 10, DZ = 14;
     private static int[] door;
+    // NTM blocks whose renderer draws them or a part without OBJ models (MachineMesh: ModelRenderer, the Tessellator: the
+    // pumpjack's cables, the tank's fluid gauge, the crucible's molten metal), in a row
+    // 14 behind the player, 10 apart: the block, how high on it to aim
+    private static final String[] STAND = {"hbm:tile.pole_satellite_receiver", "hbm:tile.radiobox", "hbm:tile.steel_roof", "hbm:tile.machine_pumpjack",
+            "hbm:tile.machine_bat9000", "hbm:tile.machine_crucible"};
+    private static final double[] STAND_AIM = {0.6, 0.5, 0.1, 1.5, 2.4, 1.3};
+    // where the player stands: how far in front, how high (on a stone pillar: the crucible's metal is seen from above)
+    private static final int[] STAND_BACK = {8, 8, 8, 8, 8, 4}, STAND_UP = {0, 0, 0, 0, 0, 4};
+    private static final int SZ = -14;
 
     static void step(Minecraft mc, int t) {
         if (t == BUILD) {
@@ -190,6 +199,8 @@ final class LookScenario {
         } else if (t == DOOR + 150) {
             GunFeel.LOGGER.info("Scenario look: door open, holes on machines {}", Tracers.machineHoles());
             shot(mc, "door-open");
+        } else if (t >= STANDS && t < STANDS + STAND.length * STAND_TICKS) {
+            stand(mc, (t - STANDS) / STAND_TICKS, (t - STANDS) % STAND_TICKS);
         } else if (t == DONE - 10) {
             // the systems' state in chat (the chat lines go to the log as [CHAT])
             for (String c : new String[] {"/gunfeel quality low", "/gunfeel quality", "/gunfeel quality high", "/gunfeel hitvolume", "/gunfeel settings",
@@ -203,6 +214,79 @@ final class LookScenario {
             GunFeel.LOGGER.info("Scenario look done: screenshots in {}", new File(mc.mcDataDir, "screenshots"));
             mc.shutdown();
         }
+    }
+
+    private static int sx(int i) {
+        return feet[0] + (i - STAND.length / 2) * 10;
+    }
+
+    // one stand: placed (and the am180 given again) at 0, the player in front of it facing it at 10, a burst swept
+    // across it from 20 to 32, the picture at 50
+    private static void stand(Minecraft mc, final int i, int t) {
+        final int[] f = feet;
+        final int x = sx(i), z = f[2] + SZ;
+        if (t == 0) {
+            ShootScenario.onServer(() -> {
+                place(STAND[i], x, f[1], z);
+                ShootScenario.give(3, "gun_am180");
+            });
+        } else if (t == 10) {
+            mc.thePlayer.inventory.currentItem = 3;
+            ShootScenario.onServer(() -> {
+                EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
+                int up = STAND_UP[i], back = STAND_BACK[i];
+                for (int k = 0; k < up; k++) player.worldObj.setBlock(x, f[1] + k, z + back, Blocks.stone, 0, 3);
+                player.playerNetServerHandler.setPlayerLocation(x + .5, f[1] + up, z + back + .5, 180F, 0F);
+            });
+        } else if (t >= 15 && t <= 32) {
+            double dx = x + .5 - mc.thePlayer.posX, dz = z + .5 - mc.thePlayer.posZ;
+            float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+            float pitch = (float) Math.toDegrees(Math.atan2(mc.thePlayer.posY - feet[1] - STAND_AIM[i], Math.sqrt(dx * dx + dz * dz)));
+            // across the block while firing: -8 to +8 degrees
+            if (t >= 20) yaw += -8F + 16F * (t - 20) / 12F;
+            mc.thePlayer.rotationYaw = mc.thePlayer.prevRotationYaw = yaw;
+            mc.thePlayer.rotationPitch = mc.thePlayer.prevRotationPitch = pitch;
+            if (t == 20) ShootScenario.trigger(true, mc);
+            if (t == 32) ShootScenario.trigger(false, mc);
+        } else if (t == 50) {
+            GunFeel.LOGGER.info("Scenario look: stand {} at {} {} {}, holes on machines {}", STAND[i], x, f[1], z, Tracers.machineHoles());
+            shot(mc, "stand-" + STAND[i].substring(STAND[i].indexOf('.') + 1));
+        }
+    }
+
+    // the integrated server: an NTM block placed at (x, y, z) as the player facing south would (BlockDummyable builds
+    // its machine); a tank's fluid filled, for the gauge its renderer draws
+    private static void place(String id, int x, int y, int z) {
+        EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
+        World w = player.worldObj;
+        net.minecraft.block.Block b = (net.minecraft.block.Block) net.minecraft.block.Block.blockRegistry.getObject(id);
+        if (b == null || b == Blocks.air) {
+            GunFeel.LOGGER.warn("Scenario look: no {}", id);
+            return;
+        }
+        float yaw = player.rotationYaw;
+        player.rotationYaw = 0F;
+        try {
+            w.setBlock(x, y, z, b, 0, 3);
+            b.onBlockPlacedBy(w, x, y, z, player, new net.minecraft.item.ItemStack(b));
+        } finally {
+            player.rotationYaw = yaw;
+        }
+        for (int dx = -4; dx <= 4; dx++) for (int dy = -1; dy <= 6; dy++) for (int dz = -4; dz <= 4; dz++) {
+            net.minecraft.tileentity.TileEntity te = w.getTileEntity(x + dx, y + dy, z + dz);
+            if (te instanceof com.hbm.tileentity.machine.storage.TileEntityBarrel) {
+                com.hbm.tileentity.machine.storage.TileEntityBarrel tank = (com.hbm.tileentity.machine.storage.TileEntityBarrel) te;
+                tank.tank.setTankType(com.hbm.inventory.fluid.Fluids.WATER);
+                tank.tank.setFill(tank.tank.getMaxFill() * 2 / 3);
+                te.markDirty();
+            }
+            if (te instanceof com.hbm.tileentity.machine.TileEntityCrucible) {
+                com.hbm.tileentity.machine.TileEntityCrucible c = (com.hbm.tileentity.machine.TileEntityCrucible) te;
+                if (c.wasteStack.isEmpty()) c.wasteStack.add(new com.hbm.inventory.material.Mats.MaterialStack(com.hbm.inventory.material.Mats.MAT_IRON,
+                        com.hbm.tileentity.machine.TileEntityCrucible.wasteZCapacity / 2));
+            }
+        }
+        GunFeel.LOGGER.info("Scenario look: {} at {} {} {}: {}", id, x, y, z, w.getTileEntity(x, y, z));
     }
 
     // the integrated server: NTM's sliding blast door placed at (x, y, z), facing the player's way (south); its core

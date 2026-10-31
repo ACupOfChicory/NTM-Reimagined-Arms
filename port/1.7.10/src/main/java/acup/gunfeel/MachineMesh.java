@@ -34,8 +34,10 @@ import net.minecraft.world.World;
 // MixinForgeWavefrontObject) is taken with the GL matrix then (a Part). A bullet hitting such a
 // block meets the nearest drawn triangle along its way whose pixel passes the alpha test; its hole is kept in that
 // part's own model space and drawn where the part is now (a door's leaf, a press head), the parts read again at most
-// every PARTS_MS. Not seen (no hole there): what a renderer draws without NTM's OBJ models (Tessellator, ModelRenderer,
-// Collada), and clip planes some doors cut their parts with.
+// every PARTS_MS. Also taken: ModelRenderer parts (NTM's ModelBase models: the satellite dish on a pole, the statues;
+// MixinModelRenderer) and what the renderer draws straight with the Tessellator (pylon wires, the RBMK display, molten
+// metal, fluids and screens over an OBJ body, items it shows; MixinTessellator), a draw call being a part. Not seen (no
+// hole there): Collada, and clip planes some doors cut their parts with.
 public final class MachineMesh {
     private MachineMesh() {
     }
@@ -61,7 +63,7 @@ public final class MachineMesh {
         }
 
         boolean same(Anchor a) {
-            return model == a.model && group == a.group && n == a.n;
+            return model == a.model && (group == a.group || group.equals(a.group)) && n == a.n;
         }
     }
 
@@ -136,6 +138,101 @@ public final class MachineMesh {
         return active;
     }
 
+    // inside a draw of an NTM model the parts above already took (its own Tessellator draw is not taken again), or
+    // inside ModelRenderer's display list build (drawn later with the part's matrix)
+    private static int objDepth, compiling;
+
+    public static void objBegin() {
+        if (active) objDepth++;
+    }
+
+    public static void objEnd() {
+        if (active && objDepth > 0) objDepth--;
+    }
+
+    public static void compile(boolean begin) {
+        if (active) compiling = Math.max(0, compiling + (begin ? 1 : -1));
+    }
+
+    // a ModelRenderer part starts drawing (MixinModelRenderer, render / renderWithRotation HEAD): its cubes in pixels,
+    // with the GL matrix times what render applies before its display list, times the display list's scale
+    public static void modelPart(net.minecraft.client.model.ModelRenderer r, float scale, boolean withRotation) {
+        if (!active || r == null || r.isHidden || !r.showModel || r.cubeList == null || r.cubeList.isEmpty()) return;
+        float[] mv = Mat4.mul(Mat4.mul(modelview(), ModelCapture.local(r, scale, withRotation)), ModelCapture.scaling(scale, scale, scale));
+        add(r, r, mv, GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D));
+    }
+
+    // what a renderer draws straight with the Tessellator: one draw call's faces, kept as drawn this time; the same
+    // call (by its order in the renderer and its vertex count) in the next read is the same part
+    static final class TessGroup {
+        final int index, mode, count;
+        final List<float[]> faces;
+
+        TessGroup(int index, int mode, int count, List<float[]> faces) {
+            this.index = index;
+            this.mode = mode;
+            this.count = count;
+            this.faces = faces;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof TessGroup)) return false;
+            TessGroup t = (TessGroup) o;
+            return t.index == index && t.mode == mode && t.count == count;
+        }
+
+        @Override
+        public int hashCode() {
+            return (index * 31 + mode) * 31 + count;
+        }
+    }
+
+    private static final Object TESS = "tessellator";
+    private static int tessIndex;
+
+    // Tessellator.draw HEAD (MixinTessellator): its vertices (8 ints each: x, y, z, u, v as float bits; offsets
+    // already added) in quads, triangles, a strip or a fan; lines and points are not a surface
+    public static void tess(int[] raw, int count, int mode, boolean textured) {
+        if (!active || objDepth > 0 || compiling > 0 || raw == null || count < 3) return;
+        // a glow, a beam, a scan line: blended, not a surface a bullet meets
+        if (GL11.glIsEnabled(GL11.GL_BLEND)) return;
+        int index = tessIndex++;
+        List<float[]> faces = new ArrayList<float[]>();
+        switch (mode) {
+            case GL11.GL_QUADS:
+                for (int i = 0; i + 3 < count; i += 4) faces.add(tessFace(raw, textured, i, i + 1, i + 2, i + 3));
+                break;
+            case GL11.GL_TRIANGLES:
+                for (int i = 0; i + 2 < count; i += 3) faces.add(tessFace(raw, textured, i, i + 1, i + 2));
+                break;
+            case GL11.GL_TRIANGLE_STRIP:
+            case GL11.GL_QUAD_STRIP:
+                for (int i = 0; i + 2 < count; i++) faces.add(tessFace(raw, textured, i, i + 1, i + 2));
+                break;
+            case GL11.GL_TRIANGLE_FAN:
+            case GL11.GL_POLYGON:
+                for (int i = 1; i + 1 < count; i++) faces.add(tessFace(raw, textured, 0, i, i + 1));
+                break;
+            default:
+                return;
+        }
+        add(TESS, new TessGroup(index, mode, count, faces), modelview(), GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D));
+    }
+
+    private static float[] tessFace(int[] raw, boolean textured, int... at) {
+        float[] out = new float[at.length * 5];
+        for (int c = 0; c < at.length; c++) {
+            int b = at[c] * 8;
+            out[c * 5] = Float.intBitsToFloat(raw[b]);
+            out[c * 5 + 1] = Float.intBitsToFloat(raw[b + 1]);
+            out[c * 5 + 2] = Float.intBitsToFloat(raw[b + 2]);
+            out[c * 5 + 3] = textured ? Float.intBitsToFloat(raw[b + 3]) : Float.NaN;
+            out[c * 5 + 4] = textured ? Float.intBitsToFloat(raw[b + 4]) : Float.NaN;
+        }
+        return out;
+    }
+
     // a part of an NTM model is drawn: mode 0 all groups, 1 only the named, 2 all but the named (MixinWavefrontObject)
     public static void parts(HFRWavefrontObject model, int mode, String... names) {
         if (!active || model == null) return;
@@ -178,10 +275,26 @@ public final class MachineMesh {
     private static final Map<Object, List<float[]>> FACES = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<Object, List<float[]>>());
 
     static List<float[]> faces(Object group) {
+        if (group instanceof TessGroup) return ((TessGroup) group).faces;
         List<float[]> out = FACES.get(group);
         if (out != null) return out;
         out = new ArrayList<float[]>();
-        if (group instanceof S_GroupObject) {
+        if (group instanceof net.minecraft.client.model.ModelRenderer) {
+            for (net.minecraft.client.model.ModelBox box : ((net.minecraft.client.model.ModelRenderer) group).cubeList) {
+                for (ModelCubeGeometry.Polygon q : ModelCubeGeometry.Cube.of(box).polygons) {
+                    ModelCubeGeometry.Vertex[] v = q.vertices();
+                    float[] f = new float[v.length * 5];
+                    for (int i = 0; i < v.length; i++) {
+                        f[i * 5] = v[i].x();
+                        f[i * 5 + 1] = v[i].y();
+                        f[i * 5 + 2] = v[i].z();
+                        f[i * 5 + 3] = v[i].u();
+                        f[i * 5 + 4] = v[i].v();
+                    }
+                    out.add(f);
+                }
+            }
+        } else if (group instanceof S_GroupObject) {
             for (S_Face f : ((S_GroupObject) group).faces) out.add(face(f.vertices, f.textureCoordinates));
         } else if (group instanceof GroupObject) {
             for (Face f : ((GroupObject) group).faces) out.add(face(f.vertices, f.textureCoordinates));
@@ -220,12 +333,14 @@ public final class MachineMesh {
         if (!TileEntityRendererDispatcher.instance.hasSpecialRenderer(te)) return new ArrayList<Part>();
         PARTS.clear();
         SEEN.clear();
+        objDepth = compiling = tessIndex = 0;
         GL11.glMatrixMode(GL11.GL_MODELVIEW);
         GL11.glPushMatrix();
         GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         GL11.glLoadIdentity();
         GL11.glColorMask(false, false, false, false);
         GL11.glDepthMask(false);
+        GL11.glDisable(GL11.GL_BLEND); // the renderer turns it on for what is not a surface (MachineMesh.tess)
         active = true;
         try {
             TileEntityRendererDispatcher.instance.renderTileEntityAt(te, 0, 0, 0, GunFeelClient.partial);
@@ -450,6 +565,11 @@ public final class MachineMesh {
             return new double[][] {pt, n, u, v};
         }
         return null;
+    }
+
+    // how the part a hole is on was drawn: "obj", "model" (ModelRenderer) or "tess" (the Tessellator)
+    static String kind(Anchor a) {
+        return a.model == TESS ? "tess" : a.model instanceof net.minecraft.client.model.ModelRenderer ? "model" : "obj";
     }
 
     // the tile entity at the anchor is gone (broken, replaced)

@@ -16,6 +16,7 @@ import acup.gunfeel.Arms;
 public abstract class MixinWavefrontObject {
     @Inject(method = "renderAll", at = @At("HEAD"))
     private void gunfeel$all(CallbackInfo ci) {
+        acup.gunfeel.MachineMesh.objBegin();
         if (Arms.capturing()) Arms.parts((HFRWavefrontObject) (Object) this, 0);
         if (acup.gunfeel.DoorCapture.active()) acup.gunfeel.DoorCapture.parts((HFRWavefrontObject) (Object) this, 0);
         if (acup.gunfeel.MachineMesh.active()) acup.gunfeel.MachineMesh.parts((HFRWavefrontObject) (Object) this, 0);
@@ -24,6 +25,7 @@ public abstract class MixinWavefrontObject {
 
     @Inject(method = "renderOnly", at = @At("HEAD"))
     private void gunfeel$only(String[] names, CallbackInfo ci) {
+        acup.gunfeel.MachineMesh.objBegin();
         if (Arms.capturing()) Arms.parts((HFRWavefrontObject) (Object) this, 1, names);
         if (acup.gunfeel.DoorCapture.active()) acup.gunfeel.DoorCapture.parts((HFRWavefrontObject) (Object) this, 1, names);
         if (acup.gunfeel.MachineMesh.active()) acup.gunfeel.MachineMesh.parts((HFRWavefrontObject) (Object) this, 1, names);
@@ -32,6 +34,7 @@ public abstract class MixinWavefrontObject {
 
     @Inject(method = "renderPart", at = @At("HEAD"))
     private void gunfeel$part(String name, CallbackInfo ci) {
+        acup.gunfeel.MachineMesh.objBegin();
         if (Arms.capturing()) Arms.parts((HFRWavefrontObject) (Object) this, 1, name);
         if (acup.gunfeel.DoorCapture.active()) acup.gunfeel.DoorCapture.parts((HFRWavefrontObject) (Object) this, 1, name);
         if (acup.gunfeel.MachineMesh.active()) acup.gunfeel.MachineMesh.parts((HFRWavefrontObject) (Object) this, 1, name);
@@ -40,9 +43,31 @@ public abstract class MixinWavefrontObject {
 
     @Inject(method = "renderAllExcept", at = @At("HEAD"))
     private void gunfeel$except(String[] names, CallbackInfo ci) {
+        acup.gunfeel.MachineMesh.objBegin();
         if (Arms.capturing()) Arms.parts((HFRWavefrontObject) (Object) this, 2, names);
         if (acup.gunfeel.DoorCapture.active()) acup.gunfeel.DoorCapture.parts((HFRWavefrontObject) (Object) this, 2, names);
         if (acup.gunfeel.MachineMesh.active()) acup.gunfeel.MachineMesh.parts((HFRWavefrontObject) (Object) this, 2, names);
         acup.gunfeel.ModelObjParts.hfr((HFRWavefrontObject) (Object) this, 2, names);
+    }
+
+    // its own Tessellator draw is the parts taken above (MachineMesh)
+    @Inject(method = "renderAll", at = @At("RETURN"))
+    private void gunfeel$renderAllEnd(CallbackInfo ci) {
+        acup.gunfeel.MachineMesh.objEnd();
+    }
+
+    @Inject(method = "renderOnly", at = @At("RETURN"))
+    private void gunfeel$renderOnlyEnd(CallbackInfo ci) {
+        acup.gunfeel.MachineMesh.objEnd();
+    }
+
+    @Inject(method = "renderPart", at = @At("RETURN"))
+    private void gunfeel$renderPartEnd(CallbackInfo ci) {
+        acup.gunfeel.MachineMesh.objEnd();
+    }
+
+    @Inject(method = "renderAllExcept", at = @At("RETURN"))
+    private void gunfeel$renderAllExceptEnd(CallbackInfo ci) {
+        acup.gunfeel.MachineMesh.objEnd();
     }
 }

@@ -324,11 +324,14 @@ public final class Tracers {
     public static String machineHoles() {
         int n = 0;
         StringBuilder pieces = new StringBuilder();
+        java.util.TreeMap<String, Integer> kinds = new java.util.TreeMap<String, Integer>();
         for (Hole h : HOLES) if (h.machine()) {
             n++;
             pieces.append(pieces.length() == 0 ? "" : " ").append(h.pieces.size());
+            String k = MachineMesh.kind(h.mesh);
+            kinds.put(k, kinds.containsKey(k) ? kinds.get(k) + 1 : 1);
         }
-        return n + " (pieces " + pieces + ")";
+        return n + " " + kinds + " (pieces " + pieces + ")";
     }
 
     // /gunfeel clearholes: every hole, scratch and scorch mark in this world, and the ones still to be made; how many

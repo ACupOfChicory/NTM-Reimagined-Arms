@@ -14,7 +14,7 @@ public final class MixinCheck {
             {"com.hbm.main.ModEventHandlerClient", "1"},
             {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "9"}, // 5 + MixinSmokeNodes 1 + arms 3
             {"com.hbm.render.anim.HbmAnimations", "2"},
-            {"com.hbm.render.loader.HFRWavefrontObject", "4"},
+            {"com.hbm.render.loader.HFRWavefrontObject", "8"}, // 4 + MachineMesh ends 4
             {"com.hbm.render.loader.HFRWavefrontObjectVBO", "4"},
             {"net.minecraft.client.renderer.EntityRenderer", "2"},
             {"net.minecraft.util.Timer", "1"},
@@ -25,11 +25,13 @@ public final class MixinCheck {
             {"com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase", "3"},
             {"com.hbm.items.weapon.sedna.mags.MagazineBelt", "2"},
             {"com.hbm.main.ClientProxy", "1"},
-            {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "5"}, // 2 + MixinHoldAim 3
+            {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "8"}, // 2 + MixinHoldAim 3 handlers and its 3 helpers (gunfeel$standardScope ...)
             {"com.hbm.packet.toclient.HbmAnimationPacket$Handler", "4"},
             {"net.minecraft.client.renderer.ItemRenderer", "5"},
-            {"net.minecraft.client.renderer.entity.RendererLivingEntity", "5"},
-            {"net.minecraft.client.model.ModelRenderer", "2"},
+            {"net.minecraft.client.renderer.entity.RendererLivingEntity", "6"}, // begin, end, yaw, modelStart, modelEnd, pass
+            {"net.minecraft.client.model.ModelRenderer", "4"}, // 2 + MachineMesh compile 2
+            {"net.minecraft.client.renderer.Tessellator", "1"}, // MixinTessellator
+            {"net.minecraftforge.client.model.obj.WavefrontObject", "8"}, // MixinForgeWavefrontObject 4 + ends 4
             {"net.minecraft.client.renderer.entity.RenderManager", "1"},
             {"com.hbm.items.weapon.sedna.GunConfig", "6"}, // MixinG3Inspect 4 (gunfeel$release + 3), MixinGunConfigAnims 2
             {"com.hbm.entity.projectile.EntityThrowableNT", "8"}, // MixinThrowableClip: bullets 4 + hitboxes 4
