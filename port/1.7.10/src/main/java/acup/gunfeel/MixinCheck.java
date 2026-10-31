@@ -25,7 +25,7 @@ public final class MixinCheck {
             {"com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase", "3"},
             {"com.hbm.items.weapon.sedna.mags.MagazineBelt", "2"},
             {"com.hbm.main.ClientProxy", "1"},
-            {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "2"},
+            {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "5"}, // 2 + MixinHoldAim 3
             {"com.hbm.packet.toclient.HbmAnimationPacket$Handler", "4"},
             {"net.minecraft.client.renderer.ItemRenderer", "5"},
             {"net.minecraft.client.renderer.entity.RendererLivingEntity", "5"},

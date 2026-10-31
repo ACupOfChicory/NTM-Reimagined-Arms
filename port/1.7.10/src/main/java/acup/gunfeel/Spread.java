@@ -71,7 +71,7 @@ public final class Spread {
 
     // the gun's id as 26.2 writes it, the settings' keys ("hbm:gun_uzi"; NTM 1.7.10 registers "hbm:item.gun_uzi"), as
     // GunFeelClient.gunId, which is the client's
-    static String id(Item item) {
+    public static String id(Item item) {
         String s = String.valueOf(Item.itemRegistry.getNameForObject(item));
         int colon = s.indexOf(':');
         return s.startsWith("item.", colon + 1) ? s.substring(0, colon + 1) + s.substring(colon + 6) : s;

@@ -169,6 +169,30 @@ CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/item/ItemStack;)Z
+HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
+HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT
+HOLD_AIM class com/hbm/items/weapon/sedna/mags/MagazineFullReload
+HOLD_AIM field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_TERTIARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+HOLD_AIM field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState DRAWING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+HOLD_AIM field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+HOLD_AIM field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState RELOADING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+HOLD_AIM field com/hbm/items/weapon/sedna/factory/Lego LAMBDA_TOGGLE_AIM Ljava/util/function/BiConsumer;
+HOLD_AIM field com/hbm/render/anim/AnimationEnums$GunAnimation INSPECT Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+HOLD_AIM field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+HOLD_AIM field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD_END Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+HOLD_AIM method com/hbm/items/weapon/sedna/GunConfig getInspectDuration (Lnet/minecraft/item/ItemStack;)I
+HOLD_AIM method com/hbm/items/weapon/sedna/GunConfig getPressTertiary (Lnet/minecraft/item/ItemStack;)Ljava/util/function/BiConsumer;
+HOLD_AIM method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getAnimTimer (Lnet/minecraft/item/ItemStack;I)I
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/item/ItemStack;)Z
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getLastAnim (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getTertiary (Lnet/minecraft/item/ItemStack;I)Z
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getTimer (Lnet/minecraft/item/ItemStack;I)I
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/item/ItemStack;Z)V
+HOLD_AIM method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+HOLD_AIM method com/hbm/items/weapon/sedna/Receiver getReloadEndDuration (Lnet/minecraft/item/ItemStack;)I
 HUD class com/hbm/items/weapon/sedna/BulletConfig
 HUD class com/hbm/items/weapon/sedna/ItemGunBaseNT
 HUD class com/hbm/items/weapon/sedna/hud/IHUDComponent

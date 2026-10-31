@@ -24,7 +24,7 @@ public class LateMixins implements ILateMixinLoader {
     static final List<String> COMMON = Arrays.asList("MixinAmmoLock", "MixinAmmoLockBelt", "MixinBulletServer",
             "MixinThrowableClip", "MixinBeamHits", "MixinGunConfigAnims", "MixinHeadDamage",
             "MixinRicochetSound", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinExplosiveDirect",
-            "MixinLegoSpread");
+            "MixinLegoSpread", "MixinHoldAim");
 
     @Override
     public String getMixinConfig() {

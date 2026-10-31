@@ -9,7 +9,7 @@ import java.util.List;
 // version and one of them does not fit it, the whole system is turned off (see Compat); a mixin shared by systems turns
 // all of them off. A class calling NTM that is in no list belongs to CORE, and CORE off turns everything off. The tests
 // check every mixin into NTM is here, and the lang keys ntmgunfeel.feature.<id>.
-// Not in 26.2: TRACE, the dev trace scenario's clock (MixinClock). Not in the port: HOLD_AIM, MACHINE_MESH (their
+// Not in 26.2: TRACE, the dev trace scenario's clock (MixinClock). Not in the port: MACHINE_MESH (their
 // parts are not ported).
 public enum Feature {
     CORE("core", list(), list("GunFeel", "GunFeelMod", "GunFeelClient", "Config", "Net", "PortPaths", "LateMixins")),
@@ -19,6 +19,7 @@ public enum Feature {
     BULLETS("bullets", list("MixinBulletServer", "MixinThrowableClip", "MixinBeamHits", "MixinExplosiveBullet", "MixinExplosionContext",
             "MixinExplosiveProcessor", "MixinExplosiveDirect"),
             list("BulletServer", "PassableClip", "BulletFx", "BulletRules", "FenceCells", "ModelCells", "BlockRay", "PierceSteps", "ExplosiveDamage", "ExplosiveAmmo", "DoorCells")),
+    HOLD_AIM("hold_aim", list("MixinHoldAim"), list("ReaimCommand")),
     SPREAD("spread", list("MixinLegoSpread"), list("Spread")),
     RICOCHET_SOUND("ricochet_sound", list("MixinRicochetSound"), list()),
     AMMO_CHOICE("ammo_choice", list("MixinAmmoLock", "MixinAmmoLockBelt", "MixinGunKeysRadial"),

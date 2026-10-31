@@ -4,6 +4,7 @@ import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartedEvent;
+import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import cpw.mods.fml.relauncher.Side;
 
 // The mod for Minecraft 1.7.10 Forge with NTM 1.7.10. Mixins into NTM come from LateMixins, into Minecraft from
@@ -34,6 +35,12 @@ public final class GunFeelMod {
     @cpw.mods.fml.common.network.NetworkCheckHandler
     public boolean remote(java.util.Map<String, String> mods, Side side) {
         return mods.containsKey(MODID);
+    }
+
+    // /gunaim (HOLD_AIM): how early the held aim comes back after a reload or an inspect
+    @Mod.EventHandler
+    public void serverStarting(FMLServerStartingEvent event) {
+        if (acup.gunfeel.compat.Feature.HOLD_AIM.on()) event.registerServerCommand(new ReaimCommand());
     }
 
     // dev runs (runServer): a file "autostop" in the run folder stops the dedicated test server once it is up (the

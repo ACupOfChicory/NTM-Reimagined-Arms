@@ -277,6 +277,7 @@ public final class BulletCheck {
         far();
         richterBulletSpeed();
         spread();
+        holdAim();
         explosives();
         doors();
         BulletCheckModels.run(level, BulletCheck::check);
@@ -543,6 +544,36 @@ public final class BulletCheck {
         check("spread: walking", true, Math.abs(moving - (ntm * ReaimTimes.number("spreadMove", 1F) + ReaimTimes.number("spreadSpeed", 0F))) < 1e-6);
         check("spread: in the air", true, Math.abs(air - (ntm + ReaimTimes.number("spreadAir", 0F))) < 1e-6);
         check("spread: the mod's settings change it", true, sneak < stand && stand < moving && stand < air);
+    }
+
+    // hold to aim (MixinHoldAim) through NTM's own handleKeybind and onUpdate on the uzi: the scope key aims while held,
+    // not while reloading, and the aim comes back as the reload ends with the key still held
+    private static void holdAim() {
+        net.minecraft.item.Item item = (net.minecraft.item.Item) net.minecraft.item.Item.itemRegistry.getObject("hbm:item.gun_uzi");
+        if (!(item instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT)) {
+            fail("hold aim: no hbm:item.gun_uzi");
+            return;
+        }
+        com.hbm.items.weapon.sedna.ItemGunBaseNT gun = (com.hbm.items.weapon.sedna.ItemGunBaseNT) item;
+        net.minecraft.item.ItemStack stack = new net.minecraft.item.ItemStack(item);
+        net.minecraft.entity.monster.EntityZombie z = new net.minecraft.entity.monster.EntityZombie(level);
+        z.setPosition(90.5, 200, 90.5);
+        com.hbm.handler.HbmKeybinds.EnumKeybind scope = com.hbm.handler.HbmKeybinds.EnumKeybind.GUN_TERTIARY;
+        com.hbm.items.weapon.sedna.ItemGunBaseNT.setState(stack, 0, com.hbm.items.weapon.sedna.ItemGunBaseNT.GunState.IDLE);
+        gun.handleKeybind(z, null, stack, scope, true);
+        check("hold aim: the key down aims", true, com.hbm.items.weapon.sedna.ItemGunBaseNT.getIsAiming(stack));
+        gun.handleKeybind(z, null, stack, scope, false);
+        check("hold aim: the key up stops aiming (NTM toggles)", false, com.hbm.items.weapon.sedna.ItemGunBaseNT.getIsAiming(stack));
+        com.hbm.items.weapon.sedna.ItemGunBaseNT.setState(stack, 0, com.hbm.items.weapon.sedna.ItemGunBaseNT.GunState.RELOADING);
+        com.hbm.items.weapon.sedna.ItemGunBaseNT.setLastAnim(stack, 0, com.hbm.render.anim.AnimationEnums.GunAnimation.RELOAD);
+        com.hbm.items.weapon.sedna.ItemGunBaseNT.setTimer(stack, 0, 40);
+        gun.handleKeybind(z, null, stack, scope, true);
+        check("hold aim: no aiming while reloading", false, com.hbm.items.weapon.sedna.ItemGunBaseNT.getIsAiming(stack));
+        check("hold aim: the held key is remembered", true, com.hbm.items.weapon.sedna.ItemGunBaseNT.getTertiary(stack, 0));
+        com.hbm.items.weapon.sedna.ItemGunBaseNT.setState(stack, 0, com.hbm.items.weapon.sedna.ItemGunBaseNT.GunState.IDLE);
+        com.hbm.items.weapon.sedna.ItemGunBaseNT.setTimer(stack, 0, 0);
+        gun.onUpdate(stack, level, z, 0, true);
+        check("hold aim: the aim comes back after the reload, key held", true, com.hbm.items.weapon.sedna.ItemGunBaseNT.getIsAiming(stack));
     }
 
     private static float shooterSpread(com.hbm.items.weapon.sedna.GunConfig gun, net.minecraft.item.ItemStack stack,
