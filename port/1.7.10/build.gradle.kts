@@ -171,6 +171,14 @@ listOf("runClient", "runObfClient").forEach { name ->
     }
 }
 
+// The NTM check as with an untested NTM (NtmCheck): -Ptested=[1,2] on a run task stands in for Compat.TESTED
+val tested = providers.gradleProperty("tested")
+listOf("runClient", "runObfClient", "runServer", "runObfServer").forEach { name ->
+    tasks.matching { it.name == name }.configureEach {
+        if (tested.isPresent) (this as JavaExec).systemProperty("ntmgunfeel.tested", tested.get())
+    }
+}
+
 // Bullets on real blocks on the dedicated server (BulletCheck, as 26.2's runCheckBullets): -PcheckBullets on runServer;
 // the result in run/server/logs/bullet-check.txt, its trace in run/server/logs/ntm-gunfeel-trace-bullets.tsv
 if (providers.gradleProperty("checkBullets").isPresent) tasks.named<JavaExec>("runServer") {

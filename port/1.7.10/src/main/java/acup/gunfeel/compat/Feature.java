@@ -1,0 +1,64 @@
+package acup.gunfeel.compat;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+// port: 26.2's Feature (compat/Feature.java, e284339) with the port's mixins (LateMixins) and classes. The mod's systems
+// and what each takes from NTM: its mixins into NTM and the mod classes that call NTM directly. If NTM is not a tested
+// version and one of them does not fit it, the whole system is turned off (see Compat); a mixin shared by systems turns
+// all of them off. A class calling NTM that is in no list belongs to CORE, and CORE off turns everything off. The tests
+// check every mixin into NTM is here, and the lang keys ntmgunfeel.feature.<id>.
+// Not in 26.2: TRACE, the dev trace scenario's clock (MixinClock). Not in the port: SPREAD, HOLD_AIM, MACHINE_MESH (their
+// parts are not ported).
+public enum Feature {
+    CORE("core", list(), list("GunFeel", "GunFeelMod", "GunFeelClient", "Config", "Net", "PortPaths", "LateMixins")),
+    MODEL_HITBOXES("model_hitboxes", list("MixinHeadDamage"),
+            list("ModelHits", "ModelHitHooks", "ModelHitClient", "ModelHitNet", "ModelAABB", "ModelMesh", "ModelCapture", "HeadDamage",
+                    "HeadProfiles", "ModelHeads")),
+    BULLETS("bullets", list("MixinBulletServer", "MixinThrowableClip", "MixinBeamHits"),
+            list("BulletServer", "PassableClip", "BulletFx", "BulletRules", "FenceCells", "ModelCells", "BlockRay", "PierceSteps")),
+    RICOCHET_SOUND("ricochet_sound", list("MixinRicochetSound"), list()),
+    AMMO_CHOICE("ammo_choice", list("MixinAmmoLock", "MixinAmmoLockBelt", "MixinGunKeysRadial"),
+            list("AmmoLock", "AmmoLockKey", "AmmoLogic", "AmmoNet", "RadialMenu", "AmmoStats", "AmmoSelectPayload", "AmmoLockPayload")),
+    RECOIL("recoil", list("MixinModEventHandlerClient"), list("CameraRecoil", "ModelRecoil", "RecoilPresets", "ReaimTimes")),
+    ARMS("arms", list("MixinItemRenderWeaponBase", "MixinHbmAnimations", "MixinWavefrontObject", "MixinWavefrontObjectVBO", "MixinG3Inspect",
+            "MixinHbmAnimationPacket"), list("Arms", "ArmAnims", "Grips", "GunGeometry", "WeaponSway")),
+    HUD("hud", list("MixinGunHud"), list("Hud", "HudEvents", "HudFormat")),
+    INSTANT_SWITCH("instant_switch", list("MixinHbmAnimationPacket"), list("InstantSwitch", "SwitchPrediction")),
+    TRACERS("tracers", list("MixinLegoClient", "MixinRenderBulletMK4", "MixinSmokeNodes"), list("Tracers", "TracerNet", "TracerPath")),
+    MARESLEG("maresleg", list("MixinGunConfigAnims"), list()),
+    TRACE("trace", list("MixinClock"), list("TraceScenario", "TraceClient", "TraceHooks", "ShootScenario", "LookScenario", "ShapesScenario"));
+
+    public final String id;
+    // simple names: mixins in acup.gunfeel.mixins, classes in acup.gunfeel
+    public final List<String> mixins, classes;
+    private volatile boolean on = true;
+
+    Feature(String id, List<String> mixins, List<String> classes) {
+        this.id = id;
+        this.mixins = mixins;
+        this.classes = classes;
+    }
+
+    private static List<String> list(String... names) {
+        return Collections.unmodifiableList(Arrays.asList(names));
+    }
+
+    public boolean on() {
+        return on && (this == CORE || CORE.on);
+    }
+
+    void set(boolean on) {
+        this.on = on;
+    }
+
+    public String langKey() {
+        return "ntmgunfeel.feature." + id;
+    }
+
+    public static Feature byId(String id) {
+        for (Feature f : values()) if (f.id.equals(id) || f.name().equals(id)) return f;
+        return null;
+    }
+}
