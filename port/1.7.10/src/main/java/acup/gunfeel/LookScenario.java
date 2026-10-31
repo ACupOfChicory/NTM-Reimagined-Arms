@@ -122,7 +122,10 @@ final class LookScenario {
             shot(mc, "radial-after");
         } else if (t == DONE - 10) {
             // the systems' state in chat (the chat lines go to the log as [CHAT])
-            net.minecraftforge.client.ClientCommandHandler.instance.executeCommand(mc.thePlayer, "/gunfeel status");
+            for (String c : new String[] {"/gunfeel quality low", "/gunfeel quality", "/gunfeel quality high", "/gunfeel hitvolume", "/gunfeel settings",
+                    "/gunfeel get cameraClimb", "/gunfeel set cameraClimb", "/gunfeel grip show", "/gunfeel clearholes", "/gunfeel status"})
+                net.minecraftforge.client.ClientCommandHandler.instance.executeCommand(mc.thePlayer, c);
+            mc.thePlayer.sendChatMessage("/gunaim"); // the server's (HOLD_AIM)
         } else if (t == DONE - 5) {
             shot(mc, "status");
         } else if (t == DONE) {

@@ -168,7 +168,7 @@ public final class CompatClient {
 
         @Override
         public String getCommandUsage(ICommandSender sender) {
-            return "/gunfeel status";
+            return acup.gunfeel.GunfeelCommand.usage();
         }
 
         @Override
@@ -184,13 +184,15 @@ public final class CompatClient {
         @Override
         @SuppressWarnings("rawtypes")
         public List addTabCompletionOptions(ICommandSender sender, String[] args) {
-            return args.length == 1 ? getListOfStringsMatchingLastWord(args, "status") : null;
+            return acup.gunfeel.GunfeelCommand.complete(args);
         }
 
         @Override
         public void processCommand(ICommandSender sender, String[] args) {
+            // every subcommand but status is GunfeelCommand's (26.2's GripCommand)
             if (args.length != 1 || !args[0].equals("status")) {
-                sender.addChatMessage(new ChatComponentText(getCommandUsage(sender)).setChatStyle(gray()));
+                if (args.length == 0 || args[0].equals("status") || !acup.gunfeel.GunfeelCommand.run(sender, args))
+                    sender.addChatMessage(new ChatComponentText(getCommandUsage(sender)).setChatStyle(gray()));
                 return;
             }
             sender.addChatMessage(new ChatComponentTranslation("ntmgunfeel.status.versions", Compat.modVersion(), Compat.hbmVersion()));
