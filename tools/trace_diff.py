@@ -4,7 +4,8 @@
     python3 -I tools/trace_diff.py A.tsv B.tsv [--abs 1e-4] [--rel 1e-6] [--tol kind.key=abs ...]
                                                [--skip kind ...] [--ignore key ...] [--no-time] [--raw-shots] [--show 20]
 
-Lines are matched by (side, tick, partial, kind, shot): the n-th such event of A with the n-th of B. Shots, and the
+Lines are matched by (side, part, tick, partial, kind, shot): the n-th such event of A with the n-th of B; part counts
+the "segment" events of a scenario (TraceScenario), whose time starts over with each. Shots, and the
 entity ids in --id-keys (default: target, owner), are numbered by the order each side first names them (entity ids
 differ between runs and versions); --raw-shots keeps them as written. --no-time matches by (side, kind, shot) and order alone, for runs whose ticks are not the same.
 Fields: the same keys; numbers (and comma-separated lists of them) within --abs or --rel of each other, everything
@@ -71,9 +72,13 @@ def renumber(events, id_keys):
 
 
 def group(events, timed):
-    groups = defaultdict(list)
+    # a scenario's time starts over with each part ("segment" event): the part's number goes into the key
+    groups, part = defaultdict(list), defaultdict(int)
     for e in events:
-        key = (e['side'], e['tick'], e['partial'], e['kind'], e['shot']) if timed else (e['side'], e['kind'], e['shot'])
+        if e['kind'] == 'segment':
+            part[e['side']] += 1
+        seg = part[e['side']]
+        key = (e['side'], seg, e['tick'], e['partial'], e['kind'], e['shot']) if timed else (e['side'], seg, e['kind'], e['shot'])
         groups[key].append(e)
     return groups
 

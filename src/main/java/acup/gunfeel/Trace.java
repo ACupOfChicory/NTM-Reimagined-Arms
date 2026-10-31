@@ -27,10 +27,17 @@ public final class Trace {
     public static final boolean HEX = Boolean.getBoolean("ntmgunfeel.traceHex");
     public static final String SCENARIO = System.getProperty("ntmgunfeel.traceScenario", "game").trim().replaceAll("\\s+", "_");
 
+    // a scenario (TraceScenario) writes only what it plays: the client's lines while it records, nothing while it
+    // sets up (giving a gun, waiting for the server)
+    public static volatile boolean scenario, recording;
     private static volatile LongSupplier serverTick = () -> -1L, clientTick = () -> -1L;
     private static volatile DoubleSupplier clientPartial = () -> 0.0;
 
     private Trace() {
+    }
+
+    public static boolean keep(boolean server) {
+        return !scenario || recording && !server;
     }
 
     // the file asked for (relative to the game folder), or null: the default name

@@ -112,7 +112,7 @@ public final class ClientSmoke {
                 GunFeel.LOGGER.info("[holebench] запуск phase={} screen={} world={}",phase,
                         mc.gui.screen()==null?"null":mc.gui.screen().getClass().getName(),mc.level!=null);
             }
-            if (!MobSmoke.review() && System.nanoTime() - START > (MobBenchMetrics.ENABLED || HoleBenchMetrics.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
+            if (!MobSmoke.review() && System.nanoTime() - START > (MobBenchMetrics.ENABLED || HoleBenchMetrics.ENABLED || TraceScenario.enabled()?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
                 check(false, "таймаут клиента; экран=" + mc.gui.screen());
                 finish();
                 return;
@@ -127,6 +127,7 @@ public final class ClientSmoke {
             } else if (phase == 1 && mc.level != null && mc.player != null && mc.getSingleplayerServer() != null) {
                 if(HoleBenchMetrics.ENABLED) { phase=12; mc.gui.setScreen(null); HoleBenchmark.start(); return; }
                 if(MobBenchMetrics.ENABLED) { phase=11; mc.gui.setScreen(null); MobBenchmark.start(); return; }
+                if(TraceScenario.enabled()) { phase=13; mc.gui.setScreen(null); TraceScenario.start(); return; }
                 if (MobSmoke.enabled()) {
                     phase = 10;
                     mc.gui.setScreen(null);
@@ -265,6 +266,7 @@ public final class ClientSmoke {
             if (phase == 10) MobSmoke.frame();
             if (phase == 11) MobBenchmark.frame();
             if (phase == 12) HoleBenchmark.frame();
+            if (phase == 13) TraceScenario.frame();
             if (mc.player != null && phase >= 2 && phase <= 7) {
                 mc.player.setYRot(0);
                 mc.player.setXRot(0);
