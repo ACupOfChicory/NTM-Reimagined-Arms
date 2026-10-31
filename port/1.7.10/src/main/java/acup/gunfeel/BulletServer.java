@@ -25,7 +25,6 @@ import net.minecraftforge.event.world.BlockEvent;
 // port: copied from 26.2 (0762086) with changes for 1.7.10, each marked "port:": BlockState -> (Block, meta),
 // BlockPos -> x y z, BlockHitResult -> BlockRay.Hit (a miss is null), ServerLevel -> WorldServer; the break event,
 // mob griefing, cracks (destroyBlockInWorldPartially), breaking (func_147480_a), particles and sounds of 1.7.10.
-// Not here yet: our steel ricochet sound (MixinRicochetSound; the port has no sounds of its own).
 // Server side of BulletRules: blocks bullets break, and what a creature hit or killed by one gives off.
 public final class BulletServer {
     private BulletServer() {
@@ -59,6 +58,25 @@ public final class BulletServer {
         if (TestLog.server) TestLog.s(bullet.getEntityId(), "end", "by", rule.pass() ? "broke_pass" : "broke", "block", was,
                 "pos", new int[] {x, y, z}, "at", TestLog.point(ax, ay, az));
         return rule.pass() ? 2 : 1;
+    }
+
+    // NTM's ricochet sound (MixinRicochetSound): off a block whose hit sound is steel (bullet rules; a multiblock's
+    // cell by its machine) our steel ricochet where the bullet hit instead, and true; else false (NTM's own plays)
+    public static boolean ricochetSound(World level, net.minecraft.util.MovingObjectPosition mop) {
+        if (mop == null || mop.typeOfHit != net.minecraft.util.MovingObjectPosition.MovingObjectType.BLOCK || level.isRemote) return false;
+        Block block = level.getBlock(mop.blockX, mop.blockY, mop.blockZ);
+        if (block.getMaterial() == Material.air) return false;
+        int meta = level.getBlockMetadata(mop.blockX, mop.blockY, mop.blockZ);
+        BulletRules.Sound s = BulletRules.hit(block, meta, level, mop.blockX, mop.blockY, mop.blockZ).sound();
+        boolean steel = s != null && (s.id().startsWith("ntmgunfeel:bullet.hit.steel") || s.id().startsWith("ntmgunfeel:bullet.hit.metal"));
+        if (TestLog.server) TestLog.s(TestLog.shot(), "ricochet", "block", TestLog.block(level, mop.blockX, mop.blockY, mop.blockZ),
+                "pos", new int[] {mop.blockX, mop.blockY, mop.blockZ}, "material", TestLog.material(level, mop.blockX, mop.blockY, mop.blockZ),
+                "result", "bounced", "sound", steel ? "ours" : "ntm");
+        if (!steel) return false;
+        double x = mop.hitVec != null ? mop.hitVec.xCoord : mop.blockX + .5, y = mop.hitVec != null ? mop.hitVec.yCoord : mop.blockY + .5,
+                z = mop.hitVec != null ? mop.hitVec.zCoord : mop.blockZ + .5;
+        level.playSoundEffect(x, y, z, "ntmgunfeel:bullet.ricochet.steel", 1.0F, 0.9F + level.rand.nextFloat() * 0.2F);
+        return true;
     }
 
     // the bullet flew through a block it always flies through ("through"): counts as a hit on it

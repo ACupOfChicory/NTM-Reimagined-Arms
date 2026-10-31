@@ -21,7 +21,8 @@ public class LateMixins implements ILateMixinLoader {
             "MixinGunKeysRadial", "MixinGunHud", "MixinHbmAnimationPacket", "MixinG3Inspect");
 
     static final List<String> COMMON = Arrays.asList("MixinAmmoLock", "MixinAmmoLockBelt", "MixinBulletServer",
-            "MixinThrowableClip", "MixinBeamHits", "MixinGunConfigAnims", "MixinHeadDamage");
+            "MixinThrowableClip", "MixinBeamHits", "MixinGunConfigAnims", "MixinHeadDamage",
+            "MixinRicochetSound");
 
     @Override
     public String getMixinConfig() {

@@ -49,6 +49,9 @@ ntmgunfeel-guns.properties
 ntmgunfeel-server.properties
 # the bullet mark textures (Decals.files)
 assets/ntmgunfeel/textures/effect/*.png
+# the bullet sounds and their credits; their sounds.json is the port's own (1.7.10 format, SoundsJsonTest)
+assets/ntmgunfeel/sounds/**/*.ogg
+assets/ntmgunfeel/sounds/bullet/CREDITS.txt
 ntmgunfeel-heads.json
 ntmgunfeel-limbs.json
 ntmgunfeel-materials.txt

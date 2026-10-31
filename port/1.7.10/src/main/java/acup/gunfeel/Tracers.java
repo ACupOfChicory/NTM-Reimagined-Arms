@@ -133,6 +133,7 @@ public final class Tracers {
         double checked; // ticks of path already tested against the world
         double end = Double.NaN; // ticks at which it hit something
         boolean gone;
+        boolean whizzed; // already whizzed past the player
         int ricochets;
 
         Shot(int id, BulletConfig config, int owner, TracerPath path, int[] colors, long lifeTicks, double born) {
@@ -158,6 +159,7 @@ public final class Tracers {
             this.lifeTicks = lifeTicks;
             this.born = born;
             this.rootBorn = from.rootBorn;
+            this.whizzed = from.whizzed;
             this.ricochets = from.ricochets + 1;
             this.checked = 1e-4; // not at the very face it left
         }
@@ -498,6 +500,10 @@ public final class Tracers {
         double[] dir = {rb[0] - ra[0], rb[1] - ra[1], rb[2] - ra[2]};
         double len = Math.sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
         MovingObjectPosition hit = len > 1e-6 ? rayTrace(world, ra, rb) : null;
+        double[] stop = rb;
+        if (hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK && hit.hitVec != null)
+            stop = new double[] {hit.hitVec.xCoord, hit.hitVec.yCoord, hit.hitVec.zCoord};
+        if (!s.whizzed) s.whizzed = BulletFx.whizz(world, s.owner, ra, stop, s.path.speed);
         if (hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK && hit.hitVec != null) {
             double[] at = {hit.hitVec.xCoord, hit.hitVec.yCoord, hit.hitVec.zCoord};
             double reach = Math.sqrt(sq(at[0] - ra[0]) + sq(at[1] - ra[1]) + sq(at[2] - ra[2]));
