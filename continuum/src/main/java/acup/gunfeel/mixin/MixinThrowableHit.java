@@ -52,6 +52,13 @@ public abstract class MixinThrowableHit {
     @WrapMethod(method = "tick")
     private void gunfeel$view(Operation<Void> original) {
         var self = (EntityBulletBaseMK4) (Object) this;
+        // a round without its config yet (the client before the synced index arrives, one loaded from a save): step()
+        // would throw; Continuum's tick looks the config up itself or discards the round
+        if (self.config == null) self.config = self.getBulletConfig();
+        if (self.config == null) {
+            original.call();
+            return;
+        }
         var previous = acup.gunfeel.ModelHits.beginProjectile(self.getThrower(), self.getDeltaMovement().length() * step());
         try {
             original.call();
