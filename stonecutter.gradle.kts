@@ -200,6 +200,57 @@ stonecutter parameters {
             // glass) and draws them after the translucent terrain (RenderLevelStageEvent.AfterTranslucentBlocks)
             replace("((SubmitNodeCollection) (Object) this).afterTerrain.submit(new CustomFeatureRenderer.Submit(poseStack.last().copy(), renderType, renderer));",
                 "acup.gunfeel.LateHoles261.submit(poseStack.last().copy(), renderType, renderer);")
+            // port/continuum-bullets: ExplosiveDamage on Continuum: the hole packet carries the BulletConfigs index, and a
+            // bullet's damage source is ModDamageSources.bullet (NEXT: BulletConfig.getDamage)
+            replace("new ImpactHolePayload(bullet.config.id,", "new ImpactHolePayload(com.hbm.items.weapon.sedna.BulletConfigs.indexOf(bullet.config),")
+            replace("BulletConfig.getDamage(bullet,bullet.getThrower(),bullet.config.dmgClass)",
+                "com.hbm.lib.ModDamageSources.bullet(bullet.level(),bullet.config.dmgClass.type(),bullet,bullet.getThrower())")
+            // port/continuum-bullets: MixinHoldAim: Continuum's gun ticks in Golem Core's compatInventoryTick (with held)
+            replace("@Inject(method = \"inventoryTick\", at = @At(\"TAIL\"))\n    private void gunfeel\$reaim(ItemStack stack, ServerLevel level, Entity entity, @Nullable EquipmentSlot slot, CallbackInfo ci) {",
+                "@Inject(method = \"compatInventoryTick\", at = @At(\"TAIL\"))\n    private void gunfeel\$reaim(ItemStack stack, ServerLevel level, Entity entity, @Nullable EquipmentSlot slot, boolean held, CallbackInfo ci) {")
+            // port/continuum-bullets: BulletCheck (main's runCheckBullets; here on the 26.1 client's server with
+            // -Pntmgunfeel.checkBullets): Continuum's bullet heading is a unit vector set by shoot (no velocity argument),
+            // its beam hit is XFactoryEnergy's, its entities ModNtmEntities, its bullet configs BulletConfigs.all(); a
+            // block state Continuum names otherwise (its doors, barriers, machines) is taken as the block's default
+            replace("bullet.setThrowableHeading(0,0,1,1F,0F);", "bullet.shoot(0,0,1,0F);")
+            replace("bullet.setThrowableHeading(0, 0, 1, du.velocity, 0F);", "bullet.shoot(0, 0, 1, 0F);")
+            replace("b.setThrowableHeading(0, 0, 1, round.velocity, 0F);", "b.shoot(0, 0, 1, 0F);")
+            replace("b.setThrowableHeading(0, 0, 1, du.velocity, 0F);", "b.shoot(0.0, 0.0, 1.0, 0F);")
+            replace("b.setThrowableHeading(0, -1, 1, du.velocity, 0F);", "b.shoot(0, -1, 1, 0F);")
+            replace("setOnBeamImpact(BulletConfig.LAMBDA_STANDARD_BEAM_HIT)", "setOnBeamImpact(com.hbm.items.weapon.sedna.factory.XFactoryEnergy.LAMBDA_STANDARD_BEAM_HIT)")
+            replace("com.hbm.entity.ModEntities.RAD_BEAST.", "com.hbm.entity.ModNtmEntities.RAD_BEAST.")
+            replace("com.hbm.entity.ModEntities.MASK_MAN.", "com.hbm.entity.ModNtmEntities.MASK_MAN.")
+            replace("for (BulletConfig c : BulletConfig.configs) {", "for (BulletConfig c : com.hbm.items.weapon.sedna.BulletConfigs.all()) {")
+            replace("throw new IllegalArgumentException(text, e);",
+                "lines.add(\"     port: no state \" + text + \" in NTM Continuum, the block's default\");\n" +
+                "            try {\n                return BlockStateParser.parseForBlock(level.registryAccess().lookupOrThrow(Registries.BLOCK), text.replaceAll(\"\\\\[.*\", \"\"), false).blockState();\n" +
+                "            } catch (Exception again) {\n                throw new IllegalArgumentException(text, again);\n            }")
+            // port/continuum-bullets: WoodBoxes: Continuum's wooden barrier is BlockBarrier, its wooden structures name their
+            // kind type; both draw their boards by their block state's sides (north/east/south/west/up), refreshed as the
+            // neighbours change, the same boards as NTM NEXT's model for the same sides
+            replace("import com.hbm.blocks.generic.BlockWoodBarrier;", "import com.hbm.blocks.generic.BlockBarrier;")
+            replace("state.getBlock() instanceof BlockWoodBarrier)", "state.getBlock() instanceof BlockBarrier)")
+            replace("BlockWoodBarrier.panel(state, Direction.WEST)", "state.getValue(BlockBarrier.WEST)")
+            replace("BlockWoodBarrier.panel(state, Direction.EAST)", "state.getValue(BlockBarrier.EAST)")
+            replace("BlockWoodBarrier.panel(state, Direction.NORTH)", "state.getValue(BlockBarrier.NORTH)")
+            replace("BlockWoodBarrier.panel(state, Direction.SOUTH)", "state.getValue(BlockBarrier.SOUTH)")
+            replace("(level.getBlockState(pos.above()).isSolidRender() ? 16 : 0)", "(state.getValue(BlockBarrier.UP) ? 16 : 0)")
+            replace("switch (w.kind) {", "switch (w.type) {")
+            replace("same(level, pos, state, Direction.WEST)", "state.getValue(BlockWoodStructure.WEST)")
+            replace("same(level, pos, state, Direction.EAST)", "state.getValue(BlockWoodStructure.EAST)")
+            replace("same(level, pos, state, Direction.NORTH)", "state.getValue(BlockWoodStructure.NORTH)")
+            replace("same(level, pos, state, Direction.SOUTH)", "state.getValue(BlockWoodStructure.SOUTH)")
+            replace("same(level, pos, state, Direction.UP)", "state.getValue(BlockWoodStructure.UP)")
+            // port/continuum-bullets: BulletCheck: Continuum's barrier draws its panel by its side flags, which placing it
+            // sets (the side it faces) and setBlock does not. NEXT's barrier facing north has its panel on the south side,
+            // Continuum's on the side it faces: the check's barrier is the one with the same panel
+            replace("single(\"hbm:wood_barrier[facing=north]\")", "single(\"hbm:wood_barrier[facing=south,south=true]\")")
+            // port/continuum-bullets: BulletCheck on the client's own server: it runs before the server's first tick, so the
+            // chunks it forces are not loaded yet and the creatures it adds there stay hidden from entity lookups (which
+            // ones, depends on how far the loading got: two runs differed). Its chunks, and those its creatures are
+            // moved to, are loaded at once
+            replace("for (int cx = 0; cx < 4; cx++) for (int cz = 0; cz < 4; cz++) level.setChunkForced(cx, cz, true);",
+                "for (int cx = 0; cx < 8; cx++) for (int cz = 0; cz < 8; cz++) {\n            level.setChunkForced(cx, cz, true);\n            level.getChunk(cx, cz);\n        }")
         }
     }
 }

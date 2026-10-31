@@ -11,13 +11,15 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 // port/continuum: a stand-in for Structures (NTM NEXT's multiblock cores, doors and lifts; Continuum folds its cores
-// and names its block entities apart). No machine is known: bullets and holes meet the blocks as they are.
+// and names its block entities apart). The cells of a machine are what the client captured of its drawn model
+// (MeshShapes, MixinHbmVisual: the machine mesh system), which this node does not have yet: no machine is known, bullets
+// and holes meet them as NTM has them. NTM's wooden trench blocks are known (WoodBoxes, main's, as on 26.2).
 public final class Structures {
     private Structures() {
     }
 
     public static long @Nullable [] cells(Level level, BlockPos pos, BlockState state) {
-        return null;
+        return WoodBoxes.cells(level, pos, state);
     }
 
     public static @Nullable BlockHitResult solid(Level level, BlockPos pos, BlockState state, Vec3 from, Vec3 to) {
