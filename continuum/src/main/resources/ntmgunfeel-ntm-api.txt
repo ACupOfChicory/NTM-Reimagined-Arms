@@ -4,15 +4,20 @@ ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCell
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCore
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
+BULLETS class com/hbm/explosion/vanillant/ExplosionVNT
+BULLETS class com/hbm/explosion/vanillant/interfaces/IEntityProcessor
 BULLETS class com/hbm/items/weapon/sedna/BulletConfig
 BULLETS class com/hbm/items/weapon/sedna/ItemGunBaseNT
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 tickCount I
+BULLETS field com/hbm/explosion/vanillant/ExplosionVNT exploder Lnet/minecraft/world/entity/Entity;
+BULLETS field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/level/Level;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ammo Ljava/util/function/Supplier;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig armorThresholdNegation F
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig dmgClass Lcom/hbm/lib/ModDamageSources$DamageClass;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig expires I
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig gravity F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig headshotMult F
@@ -38,6 +43,9 @@ BULLETS method com/hbm/items/weapon/sedna/BulletConfigs indexOf (Lcom/hbm/items/
 BULLETS method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraft/world/item/ItemStack;)F
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/world/item/ItemStack;I)F
+BULLETS method com/hbm/lib/ModDamageSources bullet (Lnet/minecraft/world/level/Level;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/world/damagesource/DamageSource;
+BULLETS method com/hbm/lib/ModDamageSources$DamageClass type ()Lnet/minecraft/resources/ResourceKey;
+BULLETS method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z
 CORE class com/hbm/client/render/weapon/WeaponPose
 CORE class com/hbm/client/render/weapon/WeaponRenderer
 CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
@@ -60,13 +68,38 @@ CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimaryMagazine (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
+HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT
+HOLD_AIM class com/hbm/items/weapon/sedna/mags/MagazineFullReload
+HOLD_AIM field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_TERTIARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+HOLD_AIM field com/hbm/items/weapon/sedna/GunAnimation INSPECT Lcom/hbm/items/weapon/sedna/GunAnimation;
+HOLD_AIM field com/hbm/items/weapon/sedna/GunAnimation RELOAD Lcom/hbm/items/weapon/sedna/GunAnimation;
+HOLD_AIM field com/hbm/items/weapon/sedna/GunAnimation RELOAD_END Lcom/hbm/items/weapon/sedna/GunAnimation;
+HOLD_AIM field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState DRAWING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+HOLD_AIM field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+HOLD_AIM field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState RELOADING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+HOLD_AIM field com/hbm/items/weapon/sedna/factory/Lego LAMBDA_TOGGLE_AIM Ljava/util/function/BiConsumer;
+HOLD_AIM method com/hbm/items/weapon/sedna/GunConfig getInspectDuration (Lnet/minecraft/world/item/ItemStack;)I
+HOLD_AIM method com/hbm/items/weapon/sedna/GunConfig getPressTertiary (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiConsumer;
+HOLD_AIM method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getAnimTimer (Lnet/minecraft/world/item/ItemStack;I)I
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getLastAnim (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunAnimation;
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getTertiary (Lnet/minecraft/world/item/ItemStack;I)Z
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT getTimer (Lnet/minecraft/world/item/ItemStack;I)I
+HOLD_AIM method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/world/item/ItemStack;Z)V
+HOLD_AIM method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+HOLD_AIM method com/hbm/items/weapon/sedna/Receiver getReloadEndDuration (Lnet/minecraft/world/item/ItemStack;)I
 MACHINE_MESH field com/hbm/blocks/multiblock/BlockMultiblockCore FACING Lnet/minecraft/world/level/block/state/properties/EnumProperty;
 MACHINE_MESH method com/hbm/blocks/multiblock/MultiblockSurface rigidStructureBlocks (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Ljava/util/List;
 MODEL_HITBOXES class com/hbm/entity/mob/EntityQuackos
 MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBaseMK4
+MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBeamBase
 MODEL_HITBOXES class com/hbm/items/tool/ItemPeas
 MODEL_HITBOXES field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+MODEL_HITBOXES method com/hbm/util/DamageResistanceHandler hurt (Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/damagesource/DamageSource;FFF)Z
 RECOIL class com/hbm/client/render/weapon/WeaponRenderer
 RECOIL field com/hbm/config/ClientConfig GUN_VISUAL_RECOIL Z
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT offsetHorizontal F
@@ -74,6 +107,7 @@ RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT offsetVertical F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilHorizontal F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
 RECOIL method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
+RICOCHET_SOUND class com/hbm/entity/projectile/EntityBulletBaseMK4
 TRACERS class com/hbm/client/render/projectile/BulletProjectileRenderer$State
 TRACERS class com/hbm/client/render/projectile/TracerRegistry$BulletTracer
 TRACERS class com/hbm/items/weapon/sedna/BulletConfig

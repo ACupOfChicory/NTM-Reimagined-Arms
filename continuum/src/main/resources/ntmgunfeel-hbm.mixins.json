@@ -4,7 +4,8 @@
   "package": "acup.gunfeel.mixin",
   "plugin": "acup.gunfeel.compat.HbmMixinPlugin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": ["MixinBulletServer"],
+  "mixins": ["MixinBulletServer", "MixinThrowableHit", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor",
+    "MixinExplosiveDirect", "MixinHeadDamage", "MixinRicochetSound", "MixinHoldAim"],
   "client": ["MixinTracerRibbon", "MixinGunRecoil", "MixinWeaponRenderer", "WeaponPoseAccess"],
   "injectors": { "defaultRequire": 0 }
 }

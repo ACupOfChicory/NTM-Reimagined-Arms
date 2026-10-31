@@ -8,10 +8,6 @@ mixin/MixinAmmoLockBelt.java
 mixin/MixinAmmoLock.java
 mixin/MixinBeamModelQuery.java
 mixin/MixinClientRegistry.java
-mixin/MixinExplosionContext.java
-mixin/MixinExplosiveBullet.java
-mixin/MixinExplosiveDirect.java
-mixin/MixinExplosiveProcessor.java
 mixin/MixinG3Inspect.java
 mixin/MixinGlyphidModelHits.java
 mixin/MixinGpuEntityGeometry.java
@@ -21,7 +17,6 @@ mixin/MixinHbmAnimationPayload.java
 mixin/MixinHbmAnimations.java
 mixin/MixinHbmVisual.java
 mixin/MixinHeadDamage.java
-mixin/MixinHoldAim.java
 mixin/MixinItemGunBaseNT.java
 mixin/MixinItemRenderWeaponBase.java
 mixin/MixinLegoClient.java
@@ -74,7 +69,6 @@ InstantSwitch.java
 # server bullets: CompatEntity bullets, BulletImpact, DamageResistanceHandler, MultiblockSurface, doors and lifts
 Structures.java
 WoodBoxes.java
-ExplosiveDamage.java
 # arms: ItemRenderWeaponBase is WeaponRenderer + Gem, HbmAnimations is per hand
 Arms.java
 ArmAnimationPreview.java

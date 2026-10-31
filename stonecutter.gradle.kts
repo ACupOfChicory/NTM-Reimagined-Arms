@@ -130,6 +130,14 @@ stonecutter parameters {
             // NTM Continuum draws first-person guns with Golem Core's Gem, which has no static interp
             replace("float partial=ItemRenderWeaponBase.interp;", "float partial=Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);")
             replace("import com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase;", "import net.minecraft.client.Minecraft;")
+            // port/continuum-bullets: ExplosiveDamage on Continuum: the hole packet carries the BulletConfigs index, and a
+            // bullet's damage source is ModDamageSources.bullet (NEXT: BulletConfig.getDamage)
+            replace("new ImpactHolePayload(bullet.config.id,", "new ImpactHolePayload(com.hbm.items.weapon.sedna.BulletConfigs.indexOf(bullet.config),")
+            replace("BulletConfig.getDamage(bullet,bullet.getThrower(),bullet.config.dmgClass)",
+                "com.hbm.lib.ModDamageSources.bullet(bullet.level(),bullet.config.dmgClass.type(),bullet,bullet.getThrower())")
+            // port/continuum-bullets: MixinHoldAim: Continuum's gun ticks in Golem Core's compatInventoryTick (with held)
+            replace("@Inject(method = \"inventoryTick\", at = @At(\"TAIL\"))\n    private void gunfeel\$reaim(ItemStack stack, ServerLevel level, Entity entity, @Nullable EquipmentSlot slot, CallbackInfo ci) {",
+                "@Inject(method = \"compatInventoryTick\", at = @At(\"TAIL\"))\n    private void gunfeel\$reaim(ItemStack stack, ServerLevel level, Entity entity, @Nullable EquipmentSlot slot, boolean held, CallbackInfo ci) {")
         }
     }
 }
