@@ -139,6 +139,12 @@ public final class ModelCells {
         table = remote;
     }
 
+    // the jar's own table (dev: ShapesScenario keeps what it does not draw again)
+    static synchronized Map<String, long[]> jarTable() {
+        if (jar == null) table();
+        return jar;
+    }
+
     // ShapesScenario's freshly made table, in place of the jar's (dev)
     static synchronized void put(Map<String, long[]> made) {
         table = Collections.unmodifiableMap(new HashMap<String, long[]>(made));

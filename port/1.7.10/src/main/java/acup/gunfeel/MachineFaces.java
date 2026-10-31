@@ -74,6 +74,13 @@ final class MachineFaces {
             return tex.length;
         }
 
+        // its texture indices moved on by `by` (dev: another texture list before its own)
+        Model shifted(int by) {
+            int[] t = tex.clone();
+            for (int i = 0; i < t.length; i++) if (t[i] >= 0) t[i] += by;
+            return new Model(t, p, uv);
+        }
+
         // the model turned `turns` quarters about the core block's middle (x, z) -> (1 - z, x)
         Model turned(int turns) {
             float[] q = p.clone();
@@ -212,6 +219,17 @@ final class MachineFaces {
             }
             textures = tex;
             models = m;
+        }
+    }
+
+    // dev: the jar's file as it is
+    static void readJar(List<Tex> tex, Map<String, Model> out) {
+        InputStream raw = MachineFaces.class.getResourceAsStream("/" + FILE);
+        if (raw == null) return;
+        try (DataInputStream in = new DataInputStream(new java.io.BufferedInputStream(new java.util.zip.InflaterInputStream(raw)))) {
+            read(in, tex, out);
+        } catch (IOException e) {
+            GunFeel.LOGGER.warn("[ntm-gunfeel] Could not read " + FILE, e);
         }
     }
 

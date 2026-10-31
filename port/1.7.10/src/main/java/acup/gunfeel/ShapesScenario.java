@@ -111,7 +111,6 @@ final class ShapesScenario {
             final int[] last = machineSpot;
             ShootScenario.onServer(() -> clearMachine(last));
             GunFeel.LOGGER.info("Scenario shapes: {} machine facings made, {} drew nothing", machinesMade, machinesNone);
-            if (MachineCapture.MEASURE) GunFeel.LOGGER.info("Scenario shapes: faces would be {} triangles, {} triangle-block pairs, {} see-through with {} mask pixels", MachineCapture.tris, MachineCapture.pairs, MachineCapture.clearPairs, MachineCapture.maskPixels);
             return false;
         }
         final Block b = MACHINE_BLOCKS.get(n / 4);
@@ -156,7 +155,8 @@ final class ShapesScenario {
         Map<String, long[]> cells = null;
         MachineCapture.last = null;
         try {
-            cells = MachineCapture.capture(mc, c[0], c[1], c[2], MACHINE_TEXTURES);
+            if (machineAtlas == null) machineAtlas = Atlas.read(mc);
+            cells = MachineCapture.capture(mc, c[0], c[1], c[2], MACHINE_TEXTURES, machineAtlas);
         } catch (Throwable e) {
             GunFeel.LOGGER.warn("Scenario shapes: machine {} could not be drawn: {}", id, e.toString());
         }
@@ -169,8 +169,8 @@ final class ShapesScenario {
             machinesMade++;
             int glass = 0;
             for (String k : cells.keySet()) if (k.endsWith("/glass")) glass++;
-            GunFeel.LOGGER.info("Scenario shapes: machine {} meta {}: {} blocks, {} with glass", id, mc.theWorld.getBlockMetadata(c[0], c[1], c[2]),
-                    cells.size() - glass, glass);
+            GunFeel.LOGGER.info("Scenario shapes: machine {} meta {} ({}): {} blocks, {} with glass", id, mc.theWorld.getBlockMetadata(c[0], c[1], c[2]),
+                    MachineCapture.how, cells.size() - glass, glass);
         }
         return true;
     }
@@ -182,6 +182,10 @@ final class ShapesScenario {
         World w = player.worldObj;
         float yaw = player.rotationYaw;
         player.rotationYaw = facing * 90F;
+        // the machine in hand, as a player places it (NTM's soyuz_launcher takes one off the held stack)
+        int slot = player.inventory.currentItem;
+        net.minecraft.item.ItemStack held = player.inventory.mainInventory[slot];
+        player.inventory.mainInventory[slot] = new net.minecraft.item.ItemStack(b, 64);
         try {
             w.setBlock(spot[0], spot[1], spot[2], b, 0, 3);
             b.onBlockPlacedBy(w, spot[0], spot[1], spot[2], player, new net.minecraft.item.ItemStack(b));
@@ -190,6 +194,7 @@ final class ShapesScenario {
             return null;
         } finally {
             player.rotationYaw = yaw;
+            player.inventory.mainInventory[slot] = held;
         }
         int r = MachineCapture.REACH;
         for (int dx = -r; dx <= r; dx++) for (int dy = -r; dy <= r; dy++) for (int dz = -r; dz <= r; dz++) {
@@ -421,11 +426,36 @@ final class ShapesScenario {
 
     // the table made: blocks, doors, then machines
     private static final Map<String, long[]> MADE = new TreeMap<String, long[]>();
+    private static Atlas machineAtlas;
     // the machines' triangles by "<id>/<core meta>" (MachineFaces)
     private static final Map<String, MachineFaces.Model> MACHINE_FACES = new TreeMap<String, MachineFaces.Model>();
 
     private static void finish(Minecraft mc) {
         Map<String, long[]> made = MADE;
+        // -Dntmgunfeel.machines: only those machines drawn again, the others kept from the jar's tables
+        String only = System.getProperty("ntmgunfeel.machines", "");
+        if (!only.isEmpty()) {
+            java.util.Set<String> again = new java.util.HashSet<String>(java.util.Arrays.asList(only.split(",")));
+            Map<String, long[]> merged = new TreeMap<String, long[]>();
+            for (Map.Entry<String, long[]> e : ModelCells.jarTable().entrySet()) {
+                int m = e.getKey().indexOf("#machine/");
+                if (m > 0 && !again.contains(e.getKey().substring(0, m))) merged.put(e.getKey(), e.getValue());
+            }
+            merged.putAll(made);
+            made = merged;
+            List<MachineFaces.Tex> tex = new ArrayList<MachineFaces.Tex>();
+            Map<String, MachineFaces.Model> models = new TreeMap<String, MachineFaces.Model>();
+            MachineFaces.readJar(tex, models);
+            int shift = tex.size();
+            for (String k : new ArrayList<String>(models.keySet())) if (again.contains(k.substring(0, k.lastIndexOf('/')))) models.remove(k);
+            tex.addAll(MachineCapture.TEXTURES);
+            for (Map.Entry<String, MachineFaces.Model> e : MACHINE_FACES.entrySet()) models.put(e.getKey(), e.getValue().shifted(shift));
+            MachineCapture.TEXTURES.clear();
+            MachineCapture.TEXTURES.addAll(tex);
+            MACHINE_FACES.clear();
+            MACHINE_FACES.putAll(models);
+            GunFeel.LOGGER.info("Scenario shapes: {} machines drawn again, the rest kept from the jar", again.size());
+        }
         ModelCells.put(made);
         File out = new File(mc.mcDataDir, ModelCells.FILE);
         try {
