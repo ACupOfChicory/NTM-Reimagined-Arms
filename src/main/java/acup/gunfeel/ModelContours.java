@@ -9,7 +9,9 @@ import net.minecraft.world.phys.Vec3;
 public final class ModelContours {
     private ModelContours() {}
     private static final float[] BOX_EDGES=boxEdges();
-    private record Cached(List<ModelBox> shape,List<Vec3[]> edges) {}
+    // sum и alt — суммы чисел формы (простая и знакопеременная): дешёвый
+    // отсев заведомо разных поз до поэлементного сравнения.
+    private record Cached(List<ModelBox> shape,List<Vec3[]> edges,double sum,double alt) {}
     // Прежний кэш на 16 форм: только для замера LEGACY.
     private static final java.util.ArrayDeque<Cached> LEGACY_CACHE=new java.util.ArrayDeque<>();
     // Корзина — формы с одинаковым набором частей и мешей. Числа внутри
@@ -18,6 +20,18 @@ public final class ModelContours {
     private static final java.util.LinkedHashMap<Long,ArrayList<Cached>> CACHE=new java.util.LinkedHashMap<>(64,.75F,true);
     private static int cachedShapes;
     private static long builds;
+    // Анимированный моб меняет позу каждый кадр. Кадр не ждёт новую форму:
+    // пока она строится в фоне, показывается прежний контур этого моба
+    // в текущей системе его тела. Конечности отстают не больше чем на кадр.
+    private record Shown(long key,List<Vec3[]> edges) {}
+    private static final class Flight {
+        final Request request; final List<Object> owners=new ArrayList<>(2);
+        Flight(Request request) { this.request=request; }
+    }
+    private static final java.util.Map<Object,Shown> SHOWN=new java.util.WeakHashMap<>();
+    private static final java.util.Set<Object> WAITING=java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
+    private static final List<Flight> FLIGHTS=new ArrayList<>();
+    private static long generation;
     static synchronized long builds() { return builds; }
     record Frame(Vec3 origin,Vec3 u,Vec3 v,Vec3 w) {
         Vec3 direction(Vec3 p) { return new Vec3(p.dot(u),p.dot(v),p.dot(w)); }
@@ -42,7 +56,10 @@ public final class ModelContours {
         }
     }
     record Outline(Frame frame,List<Vec3[]> edges) {}
-    public static synchronized void clear() { LEGACY_CACHE.clear(); CACHE.clear(); cachedShapes=0; }
+    public static synchronized void clear() {
+        LEGACY_CACHE.clear(); CACHE.clear(); cachedShapes=0;
+        SHOWN.clear(); WAITING.clear(); FLIGHTS.clear(); generation++;
+    }
     public static synchronized List<Vec3[]> edges(List<ModelBox> boxes) {
         if(boxes.isEmpty()) return List.of();
         var outline=outline(boxes);
@@ -54,14 +71,14 @@ public final class ModelContours {
         }
         return result;
     }
-    private record Request(Frame frame,List<ModelBox> shape,long key) {}
+    private record Request(Frame frame,List<ModelBox> shape,long key,double sum,double alt) {}
     static synchronized Outline outline(List<ModelBox> boxes) {
         var request=request(boxes);
         if(MobBenchMetrics.LEGACY) {
             var shape=request.shape();
             Cached cached=null;
             for(var candidate:LEGACY_CACHE) if(same(candidate.shape(),shape)) { cached=candidate; break; }
-            if(cached==null) { builds++; cached=new Cached(shape,List.copyOf(collect(shape))); }
+            if(cached==null) { builds++; cached=new Cached(shape,List.copyOf(collect(shape)),0,0); }
             else LEGACY_CACHE.remove(cached);
             LEGACY_CACHE.addFirst(cached); if(LEGACY_CACHE.size()>16) LEGACY_CACHE.removeLast();
             return new Outline(request.frame(),cached.edges());
@@ -72,7 +89,9 @@ public final class ModelContours {
     }
     // Контуры всех мобов кадра. Формы, которых нет в кэше, строятся
     // параллельно: сборка одной формы не зависит от других, результат тот же.
-    static synchronized List<Outline> outlines(List<List<ModelBox>> all) {
+    // owners: владелец каждой формы (сущность) или null, если прежний контур
+    // показывать нельзя.
+    static synchronized List<Outline> outlines(List<List<ModelBox>> all,List<?> owners) {
         if(MobBenchMetrics.LEGACY) return all.stream().map(ModelContours::outline).toList();
         var out=new Outline[all.size()];
         var frames=new Frame[all.size()];
@@ -80,22 +99,61 @@ public final class ModelContours {
         List<Request> pending=new ArrayList<>();
         for(int i=0;i<out.length;i++) {
             var request=request(all.get(i));
+            var owner=owners==null?null:owners.get(i);
             refs[i]=-1;
             // Одинаковая поза двух мобов строится один раз, как и прежде,
             // когда второй находил форму, только что добавленную первым.
             for(int p=pending.size()-1;p>=0 && refs[i]<0;p--)
-                if(pending.get(p).key()==request.key() && same(pending.get(p).shape(),request.shape())) refs[i]=p;
+                if(pending.get(p).key()==request.key() && near(pending.get(p).sum(),pending.get(p).alt(),request)
+                        && same(pending.get(p).shape(),request.shape())) refs[i]=p;
             if(refs[i]>=0) { frames[i]=request.frame(); continue; }
             var edges=lookup(request);
-            if(edges!=null) { out[i]=new Outline(request.frame(),edges); continue; }
+            if(edges!=null) {
+                out[i]=new Outline(request.frame(),edges);
+                if(owner!=null) SHOWN.put(owner,new Shown(request.key(),edges));
+                continue;
+            }
+            // Тот же набор частей уже показывался: прежний контур сейчас,
+            // новая форма в фоне. Первый показ строится сразу, как раньше.
+            var shown=owner==null?null:SHOWN.get(owner);
+            if(shown!=null && shown.key()==request.key()) {
+                out[i]=new Outline(request.frame(),shown.edges());
+                if(WAITING.add(owner)) later(request,owner);
+                continue;
+            }
             refs[i]=pending.size(); frames[i]=request.frame(); pending.add(request);
         }
         List<List<Vec3[]>> built=pending.size()<2?pending.stream().map(r -> List.copyOf(collect(r.shape()))).toList()
                 :pending.parallelStream().map(r -> List.copyOf(collect(r.shape()))).toList();
         List<List<Vec3[]>> stored=new ArrayList<>(built.size());
         for(int p=0;p<pending.size();p++) stored.add(store(pending.get(p),built.get(p)));
-        for(int i=0;i<out.length;i++) if(out[i]==null) out[i]=new Outline(frames[i],stored.get(refs[i]));
+        for(int i=0;i<out.length;i++) if(out[i]==null) {
+            out[i]=new Outline(frames[i],stored.get(refs[i]));
+            var owner=owners==null?null:owners.get(i);
+            if(owner!=null) SHOWN.put(owner,new Shown(pending.get(refs[i]).key(),stored.get(refs[i])));
+        }
         return List.of(out);
+    }
+    // Одна фоновая сборка на позу: моб с той же позой ждёт уже начатую.
+    private static void later(Request request,Object owner) {
+        for(var flight:FLIGHTS)
+            if(flight.request.key()==request.key() && near(flight.request.sum(),flight.request.alt(),request)
+                    && same(flight.request.shape(),request.shape())) { flight.owners.add(owner); return; }
+        var flight=new Flight(request); flight.owners.add(owner); FLIGHTS.add(flight);
+        long started=generation;
+        java.util.concurrent.ForkJoinPool.commonPool().execute(() -> {
+            List<Vec3[]> edges=null;
+            try { edges=List.copyOf(collect(request.shape())); }
+            catch(RuntimeException ex) { ModelHitLog.event("client","contour_failed",null,ex::toString); }
+            synchronized(ModelContours.class) {
+                if(started!=generation) return;
+                FLIGHTS.remove(flight);
+                for(var waiting:flight.owners) WAITING.remove(waiting);
+                if(edges==null) return;
+                var stored=store(request,edges);
+                for(var waiting:flight.owners) SHOWN.put(waiting,new Shown(request.key(),stored));
+            }
+        });
     }
     private static Request request(List<ModelBox> boxes) {
         // Общее перемещение и поворот не меняют топологию контура. Храним
@@ -107,7 +165,12 @@ public final class ModelContours {
         var shape=List.of(local);
         long key=shape.size();
         for(var box:shape) key=(key*31+box.part().hashCode())*31+Long.hashCode(box.mesh());
-        return new Request(frame,shape,key);
+        double sum=0,alt=0;
+        for(var box:shape) {
+            sum+=box.x()+box.y()+box.z()+box.ux()+box.uy()+box.uz()+box.vx()+box.vy()+box.vz()+box.wx()+box.wy()+box.wz();
+            alt+=box.x()-box.y()+box.z()-box.ux()+box.uy()-box.uz()+box.vx()-box.vy()+box.vz()-box.wx()+box.wy()-box.wz();
+        }
+        return new Request(frame,shape,key,sum,alt);
     }
     // Попадание возвращает тот же список рёбер: по нему же GPU-кэш
     // ModelDebugLines находит готовый буфер.
@@ -116,7 +179,7 @@ public final class ModelContours {
         if(bucket==null) return null;
         for(int i=0;i<bucket.size();i++) {
             var candidate=bucket.get(i);
-            if(!same(candidate.shape(),request.shape())) continue;
+            if(!near(candidate.sum(),candidate.alt(),request) || !same(candidate.shape(),request.shape())) continue;
             if(i>0) { bucket.remove(i); bucket.addFirst(candidate); }
             return candidate.edges();
         }
@@ -125,7 +188,7 @@ public final class ModelContours {
     private static List<Vec3[]> store(Request request,List<Vec3[]> edges) {
         builds++;
         var bucket=CACHE.computeIfAbsent(request.key(),k -> new ArrayList<>());
-        bucket.addFirst(new Cached(request.shape(),edges)); cachedShapes++;
+        bucket.addFirst(new Cached(request.shape(),edges,request.sum(),request.alt())); cachedShapes++;
         if(bucket.size()>BUCKET) { bucket.removeLast(); cachedShapes--; }
         // Сначала уходят формы из давно не встречавшихся корзин.
         var iterator=CACHE.values().iterator();
@@ -136,22 +199,40 @@ public final class ModelContours {
         }
         return edges;
     }
+    private static final double TOLERANCE=1./32768;
+    // Необходимое условие same(): каждое из 12·n чисел отличается не больше
+    // допуска, значит, и суммы — не больше 12·n·допуск (плюс округление).
+    // Ответ same() не меняется, отсеиваются лишь заведомо разные позы.
+    private static boolean near(double sum,double alt,Request request) {
+        if(MobBenchMetrics.LEGACY) return true;
+        double bound=12*request.shape().size()*TOLERANCE+1e-9;
+        // Через отрицание, как в same(): NaN там не отсекает, не отсекает и здесь.
+        return !(Math.abs(sum-request.sum())>bound) && !(Math.abs(alt-request.alt())>bound);
+    }
     private static boolean same(List<ModelBox> a,List<ModelBox> b) {
         if(a.size()!=b.size()) return false;
         // Матрицы GPU содержат float: обратный поворот даёт шум в несколько
         // миллионных блока. Допуск меньше допуска объединения поверхностей.
-        final double tolerance=1./32768;
-        for(int i=0;i<a.size();i++) {
-            var x=a.get(i); var y=b.get(i);
-            if(x.mesh()!=y.mesh() || !x.part().equals(y.part())) return false;
-            if(MobBenchMetrics.LEGACY) {
+        final double tolerance=TOLERANCE;
+        if(MobBenchMetrics.LEGACY) {
+            for(int i=0;i<a.size();i++) {
+                var x=a.get(i); var y=b.get(i);
+                if(x.mesh()!=y.mesh() || !x.part().equals(y.part())) return false;
                 double[] p=x.numbers(),q=y.numbers();
                 for(int n=0;n<p.length;n++) if(Math.abs(p[n]-q[n])>tolerance) return false;
-            } else if(Math.abs(x.x()-y.x())>tolerance || Math.abs(x.y()-y.y())>tolerance || Math.abs(x.z()-y.z())>tolerance
+            }
+            return true;
+        }
+        // Сначала дешёвые числа и меши, имена частей — только у совпавшей формы.
+        for(int i=0;i<a.size();i++) {
+            var x=a.get(i); var y=b.get(i);
+            if(x.mesh()!=y.mesh()) return false;
+            if(Math.abs(x.x()-y.x())>tolerance || Math.abs(x.y()-y.y())>tolerance || Math.abs(x.z()-y.z())>tolerance
                     || Math.abs(x.ux()-y.ux())>tolerance || Math.abs(x.uy()-y.uy())>tolerance || Math.abs(x.uz()-y.uz())>tolerance
                     || Math.abs(x.vx()-y.vx())>tolerance || Math.abs(x.vy()-y.vy())>tolerance || Math.abs(x.vz()-y.vz())>tolerance
                     || Math.abs(x.wx()-y.wx())>tolerance || Math.abs(x.wy()-y.wy())>tolerance || Math.abs(x.wz()-y.wz())>tolerance) return false;
         }
+        for(int i=0;i<a.size();i++) if(!a.get(i).part().equals(b.get(i).part())) return false;
         return true;
     }
     private static List<Vec3[]> collect(List<ModelBox> boxes) {

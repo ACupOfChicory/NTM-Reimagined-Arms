@@ -17,10 +17,13 @@ public record ModelBox(String part, double x, double y, double z,
 
     public boolean valid(double radius) {
         if (part == null || part.isEmpty() || part.length() > MAX_PART_NAME) return false;
-        if (mesh != 0 && ModelMesh.get(mesh) == null) return false;
-        for (double n : numbers()) if (!Double.isFinite(n)) return false;
+        ModelMesh shape = mesh == 0 ? null : ModelMesh.get(mesh);
+        if (mesh != 0 && shape == null) return false;
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z) || !Double.isFinite(ux) || !Double.isFinite(uy)
+                || !Double.isFinite(uz) || !Double.isFinite(vx) || !Double.isFinite(vy) || !Double.isFinite(vz)
+                || !Double.isFinite(wx) || !Double.isFinite(wy) || !Double.isFinite(wz)) return false;
         if (Math.abs(determinant()) < 1e-12) return false;
-        double[] bounds=mesh==0?null:ModelMesh.get(mesh).bounds();
+        double[] bounds=shape==null?null:shape.boundsData();
         for (int i = 0; i < 8; i++) {
             double a = bounds==null?((i&1)==0?0:1):bounds[(i&1)==0?0:3];
             double b = bounds==null?((i&2)==0?0:1):bounds[(i&2)==0?1:4];

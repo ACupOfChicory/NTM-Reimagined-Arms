@@ -24,6 +24,14 @@ public final class GpuModelHits {
     private static final Map<Model,Geometry> MODELS=new WeakHashMap<>();
     private record PartPose(Model model,long revision,int generation,String name,double x,double y,double z,List<ModelBox> boxes) {}
     private static final Map<TransformedInstance,PartPose> PARTS=new WeakHashMap<>();
+    // Состав частей visual меняется только с новыми экземплярами Flywheel:
+    // обход через reflection повторяется после создания любого из них
+    // и не реже раза в секунду, а не в каждом кадре.
+    private record Walk(long created,long time,List<TransformedInstance> instances,List<String> paths) {}
+    private static final Map<Object,Walk> WALKS=new WeakHashMap<>();
+    private static final long WALK_REFRESH=1_000_000_000L;
+    private static final java.util.concurrent.atomic.AtomicLong CREATED=new java.util.concurrent.atomic.AtomicLong();
+    public static void created() { CREATED.incrementAndGet(); }
     private static int partGeneration=-1;
     private static final Set<Class<?>> AVAILABLE=ConcurrentHashMap.newKeySet();
     private static final ClassValue<List<Field>> FIELDS=new ClassValue<>() {
@@ -69,19 +77,26 @@ public final class GpuModelHits {
     }
     private static void flush() {
         int generation=ModelTextureMask.generation();
-        if(partGeneration!=generation) { PARTS.clear(); partGeneration=generation; }
+        if(partGeneration!=generation) { PARTS.clear(); WALKS.clear(); partGeneration=generation; }
+        long created=CREATED.get(),now=System.nanoTime();
         for(var entry:PENDING.entrySet()) if(PENDING.remove(entry.getKey(),entry.getValue())) {
             var p=entry.getValue(); if(!ModelHitClient.eligible(p.entity())) continue;
             try {
-                Map<TransformedInstance,String> instances=new LinkedHashMap<>();
-                collect(p.visual(),instances,Collections.newSetFromMap(new IdentityHashMap<>()),0,"root");
+                var walk=MobBenchMetrics.LEGACY?null:WALKS.get(p.visual());
+                if(walk==null || walk.created()!=created || now-walk.time()>WALK_REFRESH) {
+                    Map<TransformedInstance,String> found=new LinkedHashMap<>();
+                    collect(p.visual(),found,Collections.newSetFromMap(new IdentityHashMap<>()),0,"root");
+                    walk=new Walk(created,now,List.copyOf(found.keySet()),List.copyOf(found.values()));
+                    if(!MobBenchMetrics.LEGACY) WALKS.put(p.visual(),walk);
+                }
+                var instances=walk.instances();
                 var out=new ArrayList<ModelBox>();
                 if(!AVAILABLE.contains(p.visual().getClass())) ModelHitLog.event("client","gpu_instances",p.entity(),
                         () -> "visual="+p.visual().getClass().getName()+" instances="+instances.size()+" states="+
-                        instances.keySet().stream().limit(3).map(i -> i.handle().getClass().getName()+":"+
+                        instances.stream().limit(3).map(i -> i.handle().getClass().getName()+":"+
                         (i.handle() instanceof InstanceHandleImpl<?> h?h.state.getClass().getName()+":"+(h.state instanceof GpuInstancerModel):"?")).toList());
-                for(var entryInstance:instances.entrySet()) {
-                    var instance=entryInstance.getKey();
+                for(int index=0;index<instances.size();index++) {
+                    var instance=instances.get(index);
                     if(!instance.handle().isVisible() || !(instance.handle() instanceof InstanceHandleImpl<?> handle)) continue;
                     Object instancer=handle.state;
                     if(!(instancer instanceof GpuInstancerModel)) instancer=dev.engine_room.flywheel.backend.engine.indirect.IndirectInstancer.fromState(handle.state);
@@ -98,7 +113,7 @@ public final class GpuModelHits {
                         MobSmoke.gpuPose(p.entity(),actual.equals(matrix));
                     }
                     double ox=p.x()-p.position().x,oy=p.y()-p.position().y,oz=p.z()-p.position().z;
-                    String path=entryInstance.getValue();
+                    String path=walk.paths().get(index);
                     long revision=shadow.gunfeel$revision();
                     var cached=MobBenchMetrics.LEGACY?null:PARTS.get(instance);
                     if(cached!=null && cached.model()==model && cached.revision()==revision && cached.generation()==generation

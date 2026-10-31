@@ -14,7 +14,10 @@ import java.util.concurrent.ConcurrentHashMap;
 // анимация меняет только внешний аффинный базис ModelBox.
 public final class ModelMesh {
     public static final int MAX_TRIANGLES = 768;
-    private static final Map<Long, ModelMesh> CACHE = new ConcurrentHashMap<>();
+    // Чтений тысячи за кадр, регистраций единицы за игру: читается неизменяемый
+    // снимок без блокировок и упаковки long, запись копирует его.
+    private static volatile it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<ModelMesh> CACHE =
+            new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
     private record Node(double[] bounds, int from, int to, Node left, Node right) {}
     private final long id;
     private final float[] triangles, edges;
@@ -40,13 +43,23 @@ public final class ModelMesh {
     float[] triangleData() { return triangles; }
     public float[] edges() { return edges; }
     public double[] bounds() { return root.bounds().clone(); }
+    // Внутренний массив без копии: вызывающий только читает его.
+    double[] boundsData() { return root.bounds(); }
+    // Объёмная часть для крупных мобов (PlaneHitPolicy), вычисляется один раз.
+    volatile java.util.Optional<ModelMesh> volume;
     public static ModelMesh get(long id) { return CACHE.get(id); }
     public static ModelMesh register(ModelMesh mesh) {
         ModelMesh old = CACHE.get(mesh.id);
         if (old != null) return old;
-        if (CACHE.size() >= 4096) throw new IllegalStateException("Model mesh cache full");
-        old = CACHE.putIfAbsent(mesh.id, mesh);
-        return old == null ? mesh : old;
+        synchronized (ModelMesh.class) {
+            old = CACHE.get(mesh.id);
+            if (old != null) return old;
+            if (CACHE.size() >= 4096) throw new IllegalStateException("Model mesh cache full");
+            var next = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>(CACHE);
+            next.put(mesh.id, mesh);
+            CACHE = next;
+            return mesh;
+        }
     }
 
     private static long hash(float[] data) {

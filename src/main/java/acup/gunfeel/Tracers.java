@@ -141,7 +141,10 @@ public final class Tracers {
     // mask = which 1/16-block cells of the face show the block's pixels (null = all): cells mask.w x mask.h from
     // cell (u0, v0) on the face's two axes, in 1/16 blocks
     private record Hole(Vec3 pos, Direction face, int turn, long born, int light, int kind, float size, double[] rect, Mask mask, double plane, boolean late, boolean cull,
-            float[] mesh, boolean front, BlockPos block, BlockState state, boolean drawn, Follow follow, Vec3 hit, boolean machine,int shot) {
+            float[] mesh, boolean front, BlockPos block, BlockState state, boolean drawn, Follow follow, Vec3 hit, boolean machine,int shot,
+            Batch[] batch) {
+        // batch: the one batch this hole is drawn in now (null: none), kept with the hole instead of looked up
+        // in a map for every hole every frame
     }
 
     // a new mark's turn with a random variant in it
@@ -162,6 +165,18 @@ public final class Tracers {
         int light;
         private org.joml.Matrix4f placed;
         private float[][] cut;
+        // the block entity's poses stay the same map while none of its parts moves: the part is looked up again
+        // only when it changes, not every frame (the key hashes a list of model objects)
+        private Map<RenderedMesh.PartKey, RenderedMesh.PartPose> lastPoses;
+        private RenderedMesh.PartPose lastFound;
+
+        RenderedMesh.PartPose pose(Map<RenderedMesh.PartKey, RenderedMesh.PartPose> poses) {
+            if (poses != lastPoses || HoleBenchMetrics.legacy()) {
+                lastFound = poses.get(key);
+                lastPoses = poses;
+            }
+            return lastFound;
+        }
 
         Follow(RenderedMesh.Anchor a, Vector3d world, float[] mesh, int light) {
             be = a.be();
@@ -297,21 +312,28 @@ public final class Tracers {
 
     // holes on moving parts put where their part is this frame; gone with the part (the block entity gone, the part
     // no longer drawn)
+    // (holes on moving parts are rare: while there are none, the pass over every hole is skipped)
+    private static boolean following;
+
     private static void follow(ClientLevel level, long now) {
+        if (!following) return;
+        boolean[] any = {false};
         HOLES.removeIf(h -> {
             Follow f = h.follow();
             if (f == null) return false;
             var poses = RenderedMesh.poses(level, f.be, now);
             if (poses == null) return true;
-            RenderedMesh.PartPose pp = poses.get(f.key);
+            RenderedMesh.PartPose pp = f.pose(poses);
             if (pp == null) return true;
             // moved: its batch is built again (a door standing still costs nothing)
             if (f.place(level, pp)) {
-                Batch b = BATCHED.get(h);
+                Batch b = h.batch()[0];
                 if (b != null) b.dirty = true;
             }
+            any[0] = true;
             return false;
         });
+        following = any[0];
     }
 
     // plane = where on the face's axis the block's pixels are (NaN = the hit point's)
@@ -496,7 +518,6 @@ public final class Tracers {
         PENDING.clear();
         for (Batch b : BATCHES) if (b.vb != null) b.vb.close();
         BATCHES.clear();
-        BATCHED.clear();
         OPEN.clear();
         return n;
     }
@@ -509,7 +530,6 @@ public final class Tracers {
         PENDING.clear();
         for (Batch b : BATCHES) if (b.vb != null) b.vb.close();
         BATCHES.clear();
-        BATCHED.clear();
         OPEN.clear();
         RenderedMesh.clear();
         FLIGHT_CLOCK.reset();
@@ -905,6 +925,7 @@ public final class Tracers {
     private static void addMade(Hole h) {
         holesMade++;
         HOLES.addLast(h);
+        if (h.follow() != null) following = true;
     }
 
     // the test log: a hole made or given up, its style by the rules, whether it lies on a drawn board of NTM's wooden
@@ -989,7 +1010,7 @@ public final class Tracers {
                 && !glassLike(level.getBlockState(hit.getBlockPos()));
         addMade(new Hole(hit.getLocation(), hit.getDirection(), turn, System.nanoTime(), light, kind, size, rect, mask, plane,
                 translucent(level.getBlockState(hit.getBlockPos())) || glassLike(level.getBlockState(hit.getBlockPos())),
-                cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false,makingShot));
+                cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false,makingShot, new Batch[1]));
         trimHoles();
     }
 
@@ -1112,7 +1133,7 @@ public final class Tracers {
         int light = LightCoordsUtil.getLightCoords(level, pos);
         addMade(new Hole(world, hit.getDirection(), turn, System.nanoTime(), light, kind, size, null, null, Double.NaN,
                 translucent(level.getBlockState(pos)) || glassLike(level.getBlockState(pos)), false, mesh,
-                !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false,makingShot));
+                !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false,makingShot, new Batch[1]));
         trimHoles();
     }
 
@@ -1449,7 +1470,7 @@ public final class Tracers {
             Follow follow = first.anchor() == null ? null : new Follow(first.anchor(), at, mesh, light);
             // counted by holeMaxMachines when it is on what a renderer draws (a machine, a door: no block), else by holeMax
             addMade(new Hole(new Vec3(at.x, at.y, at.z), hit.getDirection(), turn, born, light, kind, size, null, null, Double.NaN, late, false, mesh,
-                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, first.block() == null,makingShot));
+                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, first.block() == null,makingShot, new Batch[1]));
             dbg("  hole group: {} polygons at {} on {} tex={} front={} late={} follows={} moving={}", g.polys().size(), v(at), on,
                     RenderedMesh.texName(first.tex()), front, late, follow != null, first.moving());
         }
@@ -2267,8 +2288,7 @@ public final class Tracers {
         // the rest (fading, on moving parts, on glass, holeCache off) sent this frame, sorted in one pass
         @SuppressWarnings("unchecked")
         List<Hole>[] groups = new List[4 * KINDS];
-        for (Hole h : HOLES) {
-            if (BATCHED.containsKey(h)) continue;
+        for (Hole h : UNBATCHED) {
             int g = h.kind() + KINDS * ((h.late() ? 1 : 0) | (h.cull() ? 2 : 0));
             if (groups[g] == null) groups[g] = new ArrayList<>();
             groups[g].add(h);
@@ -2338,7 +2358,7 @@ public final class Tracers {
         @SuppressWarnings("unchecked")
         List<Hole>[] groups = new List[2 * KINDS];
         for (Hole h : HOLES) {
-            if (!h.late() || !reference && BATCHED.containsKey(h)) continue;
+            if (!h.late() || !reference && h.batch()[0] != null) continue;
             int g = h.kind() + (h.cull() ? KINDS : 0);
             if (groups[g] == null) groups[g] = new ArrayList<>();
             groups[g].add(h);
@@ -2545,17 +2565,23 @@ public final class Tracers {
 
     private static final int BATCH_HOLES = 128;
     private static final List<Batch> BATCHES = new ArrayList<>();
-    private static final Map<Hole, Batch> BATCHED = new java.util.IdentityHashMap<>();
     private static final Map<Integer, Batch> OPEN = new HashMap<>();
+
+    // the holes left out of the batches this frame, in the order made (the same pass sorts them, not a second
+    // look at every hole)
+    private static final List<Hole> UNBATCHED = new ArrayList<>();
 
     // which holes are in which batch this frame
     private static void batch(long now, long life) {
         boolean on = Config.holeCache && Config.bulletHoles;
         double fadeFrom = Math.max(0.0, life / 1e9 - 3.0);
+        boolean lateApart = HoleBenchMetrics.legacy() || shaderTransparency();
         for (Batch b : BATCHES) b.now.clear();
-        if (on) for (Hole h : HOLES) {
-            if (h.late() && (HoleBenchMetrics.legacy() || shaderTransparency()) || (now - h.born()) / 1e9 >= fadeFrom) continue;
-            Batch b = BATCHED.get(h);
+        UNBATCHED.clear();
+        if (!on) UNBATCHED.addAll(HOLES);
+        else for (Hole h : HOLES) {
+            if (h.late() && lateApart || (now - h.born()) / 1e9 >= fadeFrom) { UNBATCHED.add(h); continue; }
+            Batch b = h.batch()[0];
             if (b == null) {
                 int key = h.kind() * 4 + (h.late()?2:0) + (h.mesh() != null ? 1 : 0);
                 b = OPEN.get(key);
@@ -2565,7 +2591,7 @@ public final class Tracers {
                     BATCHES.add(b);
                     OPEN.put(key, b);
                 }
-                BATCHED.put(h, b);
+                h.batch()[0] = b;
                 b.dirty = true;
             }
             b.now.add(h);
@@ -2577,7 +2603,7 @@ public final class Tracers {
             if (!b.dirty && b.now.size() == b.holes.size()) continue;
             java.util.Set<Hole> keep = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
             keep.addAll(b.now);
-            for (Hole h : b.holes) if (!keep.contains(h) && BATCHED.get(h) == b) BATCHED.remove(h);
+            for (Hole h : b.holes) if (!keep.contains(h) && h.batch()[0] == b) h.batch()[0] = null;
             List<Hole> was = b.holes;
             b.holes = b.now;
             b.now = was;

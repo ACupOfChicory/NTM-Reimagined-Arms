@@ -4,6 +4,7 @@ import java.util.*;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.pipeline.*;
 import com.mojang.blaze3d.platform.CompareOp;
+import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
@@ -33,6 +34,7 @@ final class ModelDebugLines {
     private static final LinkedHashMap<List<Vec3[]>,Geometry> CACHE=new LinkedHashMap<>(256,.75F,true);
     private static final Vector3f NO_OFFSET=new Vector3f();
     private static final Matrix4f NO_TEXTURE=new Matrix4f();
+    private static final List<String> DYNAMIC=List.of("DynamicTransforms");
     private static long bytes,frame;
     private ModelDebugLines() {}
     private static Identifier id(String path) { return Identifier.fromNamespaceAndPath("ntmgunfeel",path); }
@@ -113,12 +115,15 @@ final class ModelDebugLines {
                 if(scissor.enabled()) pass.enableScissor(scissor.x(),scissor.y(),scissor.width(),scissor.height());
                 RenderSystem.bindDefaultUniforms(pass);
                 for(var texture:textures) pass.bindTexture(texture.name(),texture.textureView(),texture.sampler());
-                pass.setIndexBuffer(indexBuffer,sequential.type());
+                // Пакет готовит состояние конвейера один раз, а не перед каждым
+                // мобом; на каждый draw меняются только буфер и его матрица.
+                var draws=new ArrayList<RenderPass.Draw<Object>>(count);
                 for(int i=0;i<count;i++) {
-                    pass.setUniform("DynamicTransforms",slices[i]);
-                    pass.setVertexBuffer(0,geometries[i].buffer.slice());
-                    pass.drawIndexed(geometries[i].indices,1,0,0,0);
+                    var slice=slices[i];
+                    draws.add(new RenderPass.Draw<>(0,geometries[i].buffer,indexBuffer,sequential.type(),0,geometries[i].indices,0,
+                            (unused,uniforms) -> uniforms.upload("DynamicTransforms",slice)));
                 }
+                pass.drawMultipleIndexed(draws,indexBuffer,sequential.type(),DYNAMIC,null);
             }
         }
         // Нужное в этом кадре не вытесняется: иначе при множестве мобов

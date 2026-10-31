@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.Pseudo;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // Чтение persistently mapped GPU-памяти дорого. Сохраняем готовые CPU-числа
@@ -22,6 +23,9 @@ public abstract class MixinGpuPoseShadow implements GpuPoseAccess {
     public Matrix4fc gunfeel$pose() { gunfeel$watched=true; return gunfeel$shadow; }
     public long gunfeel$revision() { return gunfeel$revision; }
     public void gunfeel$seed(Matrix4fc pose) { gunfeel$shadow=new Matrix4f(pose); gunfeel$revision++; }
+    // Новый экземпляр может изменить состав частей моба: обход visual повторяется.
+    @Inject(method="<init>",at=@At("RETURN"))
+    private void gunfeel$created(CallbackInfo ci) { acup.gunfeel.GpuModelHits.created(); }
     @Inject(method="setTransform",at=@At("HEAD"))
     private void gunfeel$copy(Matrix4fc pose,CallbackInfoReturnable<?> cir) {
         if(!gunfeel$watched) return;

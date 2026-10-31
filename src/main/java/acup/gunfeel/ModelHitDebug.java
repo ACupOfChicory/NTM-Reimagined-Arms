@@ -83,6 +83,7 @@ public final class ModelHitDebug {
         int id=0;
         List<List<ModelBox>> all=new ArrayList<>(TARGETS.size());
         var customs=new boolean[TARGETS.size()];
+        List<Object> owners=new ArrayList<>(TARGETS.size());
         for(int i=0;i<customs.length;i++) {
             var target=TARGETS.get(i);
             var boxes=ModelHits.worldBoxes(target.entity());
@@ -93,13 +94,14 @@ public final class ModelHitDebug {
                 var b=target.fallback();
                 boxes=List.of(new ModelBox("fallback",b.minX,b.minY,b.minZ,b.getXsize(),0,0,0,b.getYsize(),0,0,0,b.getZsize()));
             }
-            all.add(boxes);
+            all.add(boxes); owners.add(target.entity());
         }
-        // Все контуры кадра одним вызовом: недостающие строятся параллельно.
+        // Все контуры кадра одним вызовом: недостающие строятся параллельно,
+        // а у уже показанного моба — в фоне, без ожидания в кадре.
         List<ModelContours.Outline> outlines=null;
         if(!MobBenchMetrics.LEGACY) {
             long contour=MobBenchMetrics.start();
-            outlines=ModelContours.outlines(all);
+            outlines=ModelContours.outlines(all,owners);
             MobBenchMetrics.add(MobBenchMetrics.CONTOUR,contour);
         }
         for(int i=0;i<customs.length;i++) {

@@ -10,11 +10,10 @@ import net.minecraft.world.entity.Pose;
 public final class PlaneHitPolicy {
     private PlaneHitPolicy() {}
     public static final float LARGE_SIZE=1.3F;
-    private static final java.util.Map<Long,java.util.Optional<ModelMesh>> VOLUME=new java.util.concurrent.ConcurrentHashMap<>();
     static boolean large(float width,float height) { return Math.max(width,height)>=LARGE_SIZE; }
     public static boolean flat(ModelBox box) {
         if(box.mesh()==0) return false;
-        var bounds=ModelMesh.get(box.mesh()).bounds();
+        var bounds=ModelMesh.get(box.mesh()).boundsData();
         return bounds[0]==bounds[3] || bounds[1]==bounds[4] || bounds[2]==bounds[5];
     }
     public static List<ModelBox> filter(LivingEntity entity,List<ModelBox> boxes) {
@@ -29,10 +28,14 @@ public final class PlaneHitPolicy {
         var solid=new java.util.ArrayList<ModelBox>();
         for(var box:boxes) {
             if(box.mesh()==0) solid.add(box);
-            else VOLUME.computeIfAbsent(box.mesh(),id -> java.util.Optional.ofNullable(volume(ModelMesh.get(id))))
-                    .ifPresent(mesh -> solid.add(box.withMesh(mesh.id())));
+            else volumeOf(ModelMesh.get(box.mesh())).ifPresent(mesh -> solid.add(mesh.id()==box.mesh()?box:box.withMesh(mesh.id())));
         }
         return solid.isEmpty() && !boxes.isEmpty()?List.of(Empty.BOX):solid;
+    }
+    private static java.util.Optional<ModelMesh> volumeOf(ModelMesh mesh) {
+        var volume=mesh.volume;
+        if(volume==null) mesh.volume=volume=java.util.Optional.ofNullable(volume(mesh));
+        return volume;
     }
     // Плоские островки могут находиться внутри объёмной OBJ-группы и быть
     // повёрнуты под любым углом. Ограничивающая коробка этого не определяет.
