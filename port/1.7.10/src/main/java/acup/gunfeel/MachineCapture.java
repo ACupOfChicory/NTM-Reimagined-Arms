@@ -58,6 +58,7 @@ final class MachineCapture {
                         continue;
                     }
                     DoorCapture.fill(solid, tri, (wa, wb, wc) -> DoorCapture.shown(tex, wa * u[0] + wb * u[1] + wc * u[2], wa * v[0] + wb * v[1] + wc * v[2]));
+                    if (MEASURE) measure(tri, tex, u, v);
                     boolean light = !DoorCapture.shown(tex, u[0], v[0]) && !DoorCapture.shown(tex, u[1], v[1]) && !DoorCapture.shown(tex, u[2], v[2]);
                     if (empty || light) continue;
                     DoorCapture.fill(glass, tri, (wa, wb, wc) -> !DoorCapture.shown(tex, wa * u[0] + wb * u[1] + wc * u[2], wa * v[0] + wb * v[1] + wc * v[2]));
@@ -82,6 +83,31 @@ final class MachineCapture {
             if (any) out.put(MachineCells.glassKey(key), only);
         }
         return out;
+    }
+
+    // dev: what exact faces (26.2's ModelSurface) would take: triangle-block pairs, of them see-through, their mask pixels
+    static final boolean MEASURE = Boolean.getBoolean("ntmgunfeel.measureFaces");
+    static long pairs, clearPairs, maskPixels, tris;
+
+    private static void measure(double[] tri, int[][] tex, double[] u, double[] v) {
+        tris++;
+        int n = 1;
+        for (int a = 0; a < 3; a++) {
+            double lo = Math.min(tri[a], Math.min(tri[a + 3], tri[a + 6])), hi = Math.max(tri[a], Math.max(tri[a + 3], tri[a + 6]));
+            n *= (int) Math.floor(hi - 1e-7) - (int) Math.floor(lo + 1e-7) + 1;
+        }
+        pairs += n;
+        int w = tex[0][0], h = tex[0][1];
+        if (w == 0) return;
+        double u0 = Math.min(u[0], Math.min(u[1], u[2])), u1 = Math.max(u[0], Math.max(u[1], u[2]));
+        double v0 = Math.min(v[0], Math.min(v[1], v[2])), v1 = Math.max(v[0], Math.max(v[1], v[2]));
+        int x0 = (int) Math.floor(u0 * w), x1 = (int) Math.ceil(u1 * w), y0 = (int) Math.floor(v0 * h), y1 = (int) Math.ceil(v1 * h);
+        boolean clear = false;
+        for (int y = y0; y < Math.max(y1, y0 + 1) && !clear; y++) for (int x = x0; x < Math.max(x1, x0 + 1) && !clear; x++)
+            clear = !DoorCapture.shown(tex, (x + .5) / w, (y + .5) / h);
+        if (!clear) return;
+        clearPairs += n;
+        maskPixels += (long) n * Math.max(1, x1 - x0) * Math.max(1, y1 - y0);
     }
 
     // the blocks of the machine whose core is at (x, y, z)

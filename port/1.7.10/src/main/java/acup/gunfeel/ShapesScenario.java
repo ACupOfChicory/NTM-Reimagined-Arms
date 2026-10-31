@@ -111,6 +111,7 @@ final class ShapesScenario {
             final int[] last = machineSpot;
             ShootScenario.onServer(() -> clearMachine(last));
             GunFeel.LOGGER.info("Scenario shapes: {} machine facings made, {} drew nothing", machinesMade, machinesNone);
+            if (MachineCapture.MEASURE) GunFeel.LOGGER.info("Scenario shapes: faces would be {} triangles, {} triangle-block pairs, {} see-through with {} mask pixels", MachineCapture.tris, MachineCapture.pairs, MachineCapture.clearPairs, MachineCapture.maskPixels);
             return false;
         }
         final Block b = MACHINE_BLOCKS.get(n / 4);

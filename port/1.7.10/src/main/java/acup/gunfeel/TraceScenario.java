@@ -146,6 +146,9 @@ public final class TraceScenario {
             // setting up: nothing is written
             ItemStack held = player.getHeldItem();
             if (wait < 0 && given && held != null && held.getItem() == guns.get(gun)) wait = SETTLE_FRAMES;
+            // port: NTM 1.7.10 plays EQUIP itself when the gun comes into the hand (ItemGunBaseNT.onEquip), 26.2's
+            // scenario gun has none: while settling the slot plays nothing, as in 26.2 (armSwitchMs blends from that pose)
+            if (wait > 0) java.util.Arrays.fill(com.hbm.render.anim.HbmAnimations.hotbar[player.inventory.currentItem], null);
             if (wait > 0 && --wait == 0) next = 0;
             return;
         }
