@@ -260,6 +260,15 @@ public final class BulletCheck {
         expect("wood barrier: a board", Want.PIERCE, single("hbm:wood_barrier", 2), .25, .25, 30F, null);
         expect("wood barrier: its post", Want.PIERCE, single("hbm:wood_barrier", 2), .5, .5, 30F, null);
         expect("wood barrier: over the boards, nothing above", Want.PASS, single("hbm:wood_barrier", 2), .25, .97, 30F, null);
+        // its neighbours as the renderer sees them (WoodBoxes): a solid block above adds the ceiling boards, one beside it
+        // that side's panel
+        int[] roofed = single("hbm:wood_barrier", 2);
+        level.setBlock(roofed[0], roofed[1] + 1, roofed[2], Blocks.stone, 0, 2);
+        expect("wood barrier: stone above, its ceiling boards", Want.PIERCE, roofed, .5, .97, 30F, null);
+        expect("wood barrier: between the posts, nothing beside", Want.PASS, single("hbm:wood_barrier", 2), .06, .5, 30F, null);
+        int[] walled = single("hbm:wood_barrier", 2);
+        level.setBlock(walled[0] - 1, walled[1], walled[2], Blocks.stone, 0, 2);
+        expect("wood barrier: stone west, that side's post", Want.PIERCE, walled, .06, .5, 30F, null);
 
         // ---- .50 DU into an iron golem in the open: every bullet takes the same, 45 in the body, x1.75 in the head
         // (the mod's one head multiplier for every gun, HeadDamage; on this server no client sends the golem's pose, so

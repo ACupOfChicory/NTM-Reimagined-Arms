@@ -39,6 +39,8 @@ public final class ModelCells {
 
     // the cells a bullet meets in this block, or null (not in the table: its collision boxes)
     public static long[] of(IBlockAccess world, Block b, int meta, int x, int y, int z) {
+        // NTM's wooden trench blocks: their boards as drawn, joined with their neighbours (26.2's WoodBoxes)
+        if (WoodBoxes.listed(b)) return WoodBoxes.cells(world, b, meta, x, y, z);
         Map<String, long[]> t = table();
         if (t.isEmpty()) return null;
         if (b instanceof com.hbm.blocks.generic.BlockDoorGeneric) return DoorCells.of(t, world, b, x, y, z);
