@@ -130,6 +130,56 @@ stonecutter parameters {
             // NTM Continuum draws first-person guns with Golem Core's Gem, which has no static interp
             replace("float partial=ItemRenderWeaponBase.interp;", "float partial=Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);")
             replace("import com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase;", "import net.minecraft.client.Minecraft;")
+            // port/continuum-hud: the corner HUD replaces Continuum's GunHudOverlay.render (NTM NEXT:
+            // ClientRegistry.renderGunHudComponents); MixinClientRegistry keeps its name, Feature.HUD is the same
+            replace("import com.hbm.client.ClientRegistry;", "import com.hbm.client.GunHudOverlay;")
+            replace("@Mixin(value = ClientRegistry.class, remap = false)", "@Mixin(value = GunHudOverlay.class, remap = false)")
+            replace("@Inject(method = \"renderGunHudComponents\", at = @At(\"HEAD\"), cancellable = true)",
+                "@Inject(method = \"render\", at = @At(\"HEAD\"), cancellable = true)")
+            // port/continuum-hud: Continuum's BulletConfig has toStack() for NEXT's ammoStack(); its ammo bags are
+            // ItemAmmoBag.InventoryAmmoBag (slots, not a Container); belts keep their type as an id string
+            replace(".ammoStack()", ".toStack()")
+            replace("bag.getContainerSize()", "bag.getSlots()")
+            replace("bag.getItem(j)", "bag.getStackInSlot(j)")
+            replace("bag.removeItem(j, n)", "bag.extractItem(j, n, false)")
+            replace("bag.setItem(j, ", "bag.setStackInSlot(j, ")
+            replace("bag.getMaxStackSize(in)", "in.getMaxStackSize()")
+            replace("bag.getMaxStackSize(left)", "left.getMaxStackSize()")
+            replace("List<com.hbm.inventory.ItemStackContainer>", "List<com.hbm.items.tool.ItemAmmoBag.InventoryAmmoBag>")
+            replace("int id = MagazineBelt.getMagType(stack);",
+                "int id = com.hbm.items.weapon.sedna.BulletConfigs.indexOf(com.hbm.items.weapon.sedna.BulletConfigs.get(MagazineBelt.getMagType(stack)));")
+            replace("MagazineBelt.setMagType(stack, id);", "MagazineBelt.setMagType(stack, target.id.toString());")
+            // port/continuum-hud: the ammo chosen in the radial menu is kept on the gun by its id (Continuum's
+            // BulletConfigs index is for one session only); the menu sends the index, as the server and client share it
+            replace("int id = ItemGunBaseNT.getValueInt(stack, NEXT) - 1;",
+                "int id = com.hbm.items.weapon.sedna.BulletConfigs.indexOf(com.hbm.items.weapon.sedna.BulletConfigs.get(ItemGunBaseNT.getValueString(stack, NEXT)));")
+            replace("ItemGunBaseNT.setValueInt(gun, NEXT, 0)", "ItemGunBaseNT.setValueString(gun, NEXT, \"\")")
+            replace("ItemGunBaseNT.setValueInt(stack, NEXT, 0)", "ItemGunBaseNT.setValueString(stack, NEXT, \"\")")
+            replace("ItemGunBaseNT.setValueInt(stack, NEXT, id + 1)", "ItemGunBaseNT.setValueString(stack, NEXT, target.id.toString())")
+            replace("ItemGunBaseNT.setValueInt(stack, AmmoLock.NEXT, 0)", "ItemGunBaseNT.setValueString(stack, AmmoLock.NEXT, \"\")")
+            replace("send(new AmmoSelectPayload(c.id));", "send(new AmmoSelectPayload(com.hbm.items.weapon.sedna.BulletConfigs.indexOf(c)));")
+            // port/continuum-hud: Continuum's gun keys are HbmKeybindsClient's, read from the physical keys;
+            // MixinHbmKeysRadial keeps them up while the menu is open (NTM NEXT: MixinGunKeysRadial)
+            replace("((acup.gunfeel.mixin.mc.KeyMappingAccess) (Object) com.hbm.client.Keybinds.GUN_PRIMARY).gunfeel\$setIsDown(false);",
+                "// Continuum: MixinHbmKeysRadial keeps GUN_PRIMARY up")
+            replace("List.of(\"MixinAmmoLock\", \"MixinAmmoLockBelt\", \"MixinGunKeysRadial\")",
+                "List.of(\"MixinAmmoLock\", \"MixinAmmoLockBelt\", \"MixinHbmKeysRadial\")")
+            // port/continuum-hud: Continuum's getFirstConfig picks the ammo through acceptedConfig, which reads acceptedBullets
+            replace("@Redirect(method = {\"standardReload\", \"getFirstConfig\"}, at = @At(value = \"FIELD\", opcode = 180 /* GETFIELD */,",
+                "@Redirect(method = {\"standardReload\", \"acceptedConfig\"}, at = @At(value = \"FIELD\", opcode = 180 /* GETFIELD */,")
+            // port/continuum-hud: instantSwitch. Continuum has no akimbo ghost item; the client starts the draw by
+            // handing GunAnimationHandler the payload the server would send (MixinGunAnimationHandler, NEXT's
+            // MixinHbmAnimationPayload, tells the two apart by serverPacket); 26.1's ItemInHandRenderer method name
+            replace("import com.hbm.items.weapon.sedna.AkimboGhost;", "import com.hbm.client.anim.GunAnimationHandler;")
+            replace("stack.getItem() instanceof ItemGunBaseNT && !AkimboGhost.isGhost(stack);", "stack.getItem() instanceof ItemGunBaseNT;")
+            replace("import com.hbm.packet.toclient.HbmAnimationPayload;", "import com.hbm.packet.GunAnimationPayload;")
+            replace("public static boolean serverPacket;", "public static boolean serverPacket = true;")
+            replace("for (int i = 0; i < n; i++) HbmAnimationPayload.handleSedna(player, stack, slot, GunAnimation.EQUIP, 0, i);",
+                "String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).toString(); serverPacket = false; " +
+                "try { for (int i = 0; i < n; i++) GunAnimationHandler.handle(new GunAnimationPayload(GunAnimation.EQUIP.ordinal(), 0, i, " +
+                "net.minecraft.world.InteractionHand.MAIN_HAND, itemId)); } finally { serverPacket = true; }")
+            replace("List.of(\"MixinHbmAnimationPayload\")", "List.of(\"MixinGunAnimationHandler\")")
+            replace("@Inject(method = \"submitHandsWithItems\", at = @At(\"HEAD\"))", "@Inject(method = \"renderHandsWithItems\", at = @At(\"HEAD\"))")
         }
     }
 }
