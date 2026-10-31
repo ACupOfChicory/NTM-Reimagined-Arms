@@ -1,0 +1,7 @@
+# tests of classes continuum/excluded.txt leaves out on this node
+MobObjPoseTest.java
+WoodBoxesTest.java
+ExplosiveDamageTest.java
+MeshModelPoseTest.java
+ModelMeshTest.java  # continuum/src/test has it without the OBJ mesh test
+compat/MixinRemapTest.java  # NTM NEXT glyphid mixin

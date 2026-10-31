@@ -1,0 +1,95 @@
+ARMS class com/hbm/client/render/weapon/WeaponRenderer
+ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
+ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
+BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCell
+BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCore
+BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
+BULLETS class com/hbm/items/weapon/sedna/BulletConfig
+BULLETS class com/hbm/items/weapon/sedna/ItemGunBaseNT
+BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
+BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 tickCount I
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig ammo Ljava/util/function/Supplier;
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig armorThresholdNegation F
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig expires I
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig gravity F
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig headshotMult F
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig id Lnet/minecraft/resources/Identifier;
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig velocity F
+BULLETS method com/hbm/blocks/multiblock/MultiblockSurface coreOfAny (Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/core/BlockPos;
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getBulletConfig ()Lcom/hbm/items/weapon/sedna/BulletConfig;
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getId ()I
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getThrower ()Lnet/minecraft/world/entity/LivingEntity;
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getX ()D
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getY ()D
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getZ ()D
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 position ()Lnet/minecraft/world/phys/Vec3;
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
+BULLETS method com/hbm/items/weapon/sedna/BulletConfigs indexOf (Lcom/hbm/items/weapon/sedna/BulletConfig;)I
+BULLETS method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraft/world/item/ItemStack;)F
+BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/world/item/ItemStack;I)F
+CORE class com/hbm/client/render/weapon/WeaponPose
+CORE class com/hbm/client/render/weapon/WeaponRenderer
+CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
+CORE class com/hbm/items/weapon/sedna/BulletConfig
+CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
+CORE field com/hbm/client/HbmKeybindsClient reloadKey Ldev/golem/core/client/KeyMappings$Mapping;
+CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShotByHand [[J
+CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+CORE method com/hbm/client/render/weapon/WeaponPose <init> ()V
+CORE method com/hbm/client/render/weapon/WeaponRenderer gem ()Ldev/golem/core/render/gem/Gem$Model;
+CORE method com/hbm/client/render/weapon/WeaponRenderers forStack (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/client/render/weapon/WeaponRenderer;
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getId ()I
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimaryMagazine (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
+HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT
+MACHINE_MESH field com/hbm/blocks/multiblock/BlockMultiblockCore FACING Lnet/minecraft/world/level/block/state/properties/EnumProperty;
+MACHINE_MESH method com/hbm/blocks/multiblock/MultiblockSurface rigidStructureBlocks (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Ljava/util/List;
+MODEL_HITBOXES class com/hbm/entity/mob/EntityQuackos
+MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBaseMK4
+MODEL_HITBOXES class com/hbm/items/tool/ItemPeas
+MODEL_HITBOXES field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+RECOIL class com/hbm/client/render/weapon/WeaponRenderer
+RECOIL field com/hbm/config/ClientConfig GUN_VISUAL_RECOIL Z
+RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT offsetHorizontal F
+RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT offsetVertical F
+RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilHorizontal F
+RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
+RECOIL method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
+TRACERS class com/hbm/client/render/projectile/BulletProjectileRenderer$State
+TRACERS class com/hbm/client/render/projectile/TracerRegistry$BulletTracer
+TRACERS class com/hbm/items/weapon/sedna/BulletConfig
+TRACERS field com/hbm/client/render/projectile/BulletProjectileRenderer$State config Lcom/hbm/items/weapon/sedna/BulletConfig;
+TRACERS field com/hbm/client/render/projectile/BulletProjectileRenderer$State length D
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig ammo Ljava/util/function/Supplier;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig doesPenetrate Z
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig id Lnet/minecraft/resources/Identifier;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig maxRicochetCount I
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig velocity F
+TRACERS method com/hbm/client/render/projectile/BulletProjectileRenderer$State <init> ()V
+TRACERS method com/hbm/client/render/projectile/TracerRegistry bullet (Lnet/minecraft/resources/Identifier;)Lcom/hbm/client/render/projectile/TracerRegistry$BulletTracer;
+TRACERS method com/hbm/client/render/projectile/TracerRegistry$BulletTracer draw (Lcom/hbm/client/render/projectile/BulletProjectileRenderer$State;Lcom/mojang/blaze3d/vertex/PoseStack;Ldev/golem/core/render/SubmitSink;)V
+TRACERS method com/hbm/items/weapon/sedna/BulletConfigs all ()Ljava/util/List;
+TRACERS method com/hbm/items/weapon/sedna/BulletConfigs byIndex (I)Lcom/hbm/items/weapon/sedna/BulletConfig;

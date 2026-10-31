@@ -1,0 +1,10 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "acup.gunfeel.mixin",
+  "plugin": "acup.gunfeel.compat.HbmMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": ["MixinBulletServer"],
+  "client": ["MixinTracerRibbon", "MixinGunRecoil", "MixinWeaponRenderer", "WeaponPoseAccess"],
+  "injectors": { "defaultRequire": 0 }
+}

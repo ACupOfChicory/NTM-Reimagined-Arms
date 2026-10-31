@@ -7,3 +7,16 @@ mod.loader = "neoforge"
 deps.neoforge = "26.2.0.90"
 # NTM is not on a maven: its jar goes in libs/mods/ by hand
 deps.ntm = "libs/mods/hbm-neoforge-1.0.3.jar"
+
+# port/continuum: NTM Continuum on Golem Core (build.continuum.gradle.kts). Released jars from CurseForge (curse.maven):
+# compile against them and run them in the dev client, never built from source.
+["26.1-neoforge"]
+mod.loader = "neoforge"
+deps.neoforge = "26.1.2.114"
+# NTM Continuum 1.0.3 (hbm-neoforge-1.0.3-26.1.jar), Golem Core 1.0.3, GemRender 0.1.20: CurseForge file ids
+deps.continuum = "curse.maven:ntm-continuum-1719328:9378096"
+deps.golemcore = "curse.maven:golem-core-1719361:9377651"
+deps.gemrender = "curse.maven:gemrender-1735539:9366687"
+# the Continuum versions this build is tested with: neoforge.mods.toml's ntmTested and its hbm range
+deps.ntm_range = "[1.0.3,1.0.4)"
+deps.golemcore_range = "[1.0.3,1.0.4)"

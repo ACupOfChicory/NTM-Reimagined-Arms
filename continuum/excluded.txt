@@ -1,0 +1,103 @@
+# Files of src/main/java/acup/gunfeel/ the 26.1-neoforge node (NTM Continuum) leaves out: they only fit NTM NEXT or 26.2.
+# One Ant pattern per line; a replacement, if any, is in continuum/src/main/java under the same name.
+
+# The mixins into NTM NEXT: Continuum's classes differ (continuum.md §3); each comes back rewritten in continuum/src.
+# the mixins into NTM NEXT, all but the ones that fit Continuum with the 26.1 renames
+mixin/GlyphidGeometryAccess.java
+mixin/MixinAmmoLockBelt.java
+mixin/MixinAmmoLock.java
+mixin/MixinBeamModelQuery.java
+mixin/MixinClientRegistry.java
+mixin/MixinExplosionContext.java
+mixin/MixinExplosiveBullet.java
+mixin/MixinExplosiveDirect.java
+mixin/MixinExplosiveProcessor.java
+mixin/MixinG3Inspect.java
+mixin/MixinGlyphidModelHits.java
+mixin/MixinGpuEntityGeometry.java
+mixin/MixinGunConfigAnims.java
+mixin/MixinGunKeysRadial.java
+mixin/MixinHbmAnimationPayload.java
+mixin/MixinHbmAnimations.java
+mixin/MixinHbmVisual.java
+mixin/MixinHeadDamage.java
+mixin/MixinHoldAim.java
+mixin/MixinItemGunBaseNT.java
+mixin/MixinItemRenderWeaponBase.java
+mixin/MixinLegoClient.java
+mixin/MixinLegoSpread.java
+mixin/MixinMobModelHits.java
+mixin/MixinMobObjModelHits.java
+mixin/MixinNtmMeshHits.java
+mixin/MixinRenderBulletMK4.java
+mixin/MixinRicochetSound.java
+mixin/MixinSexyBottle.java
+mixin/MixinThrowableHit.java
+mixin/MixinWholeModelGuns.java
+
+# Flywheel instancing of NTM NEXT's mobs and machines (CrankShaft/Vanillate): Continuum draws through Golem Core and
+# GemRender, its mobs are not Flywheel visuals.
+GpuModelHits.java
+GpuInstancerModel.java
+GpuPoseAccess.java
+mixin/mc/MixinFlywheelFrame.java
+mixin/mc/MixinGpuInstancerModel.java
+mixin/mc/MixinGpuPoseShadow.java
+mixin/mc/MixinVanillateModelHit.java
+mixin/mc/VanillateEntityAccess.java
+
+# Self-tests, benchmarks and dumps written for NTM NEXT on 26.2 (their runs are main's build.gradle.kts)
+ClientSmoke.java
+BulletCheck.java
+MobSmoke.java
+HeadSmoke.java
+ExplosiveSmoke.java
+HoleBenchmark.java
+HoleBenchWarmup.java
+HoleVisualProbe.java
+MobBenchmark.java
+GunDump.java
+MobSmoke.java
+
+# Systems not ported yet (continuum.md §3): their NTM side differs in Continuum. Each is off on this node (Feature) and
+# has a stand-in in continuum/src with what the rest of the mod calls.
+# ammo choice: BulletConfig ids are Identifiers in Continuum, no BulletConfig.configs; InventoryAmmoBag
+AmmoLock.java
+AmmoLockKey.java
+RadialMenu.java
+# HUD: ClientRegistry.renderGunHudComponents is GunHudOverlay; GroupObject is WavefrontObj
+Hud.java
+Silhouette.java
+GunGeometry.java
+# instant switch: HbmAnimationPayload.handleSedna is GunAnimationHandler
+InstantSwitch.java
+# server bullets: CompatEntity bullets, BulletImpact, DamageResistanceHandler, MultiblockSurface, doors and lifts
+Structures.java
+WoodBoxes.java
+ExplosiveDamage.java
+# arms: ItemRenderWeaponBase is WeaponRenderer + Gem, HbmAnimations is per hand
+Arms.java
+ArmAnimationPreview.java
+ArmAnimationEditor.java
+# NTM mob meshes: HFRWavefrontObject/GroupObject are WavefrontObj, the mobs are not Flywheel visuals
+NtmMeshHits.java
+ModelMeshCapture.java
+MobObjPose.java
+# client hooks: GunFeel is this node's own (continuum/src), it calls NTM Continuum
+GunFeel.java
+# arm tools (the arm editor and /gunfeel grip) and what drives the ammo menu and the instant switch
+GunEditor.java
+GripCommand.java
+mixin/mc/MixinMouseTurn.java
+mixin/mc/MixinItemInHandRenderer.java
+
+# Minecraft 26.1: no instanced draws (the F3+B outlines take main's legacy path) and no DrawableGizmoPrimitives.Group
+ModelDebugMask.java
+ModelDebugLines.java
+# 26.1's SubmitNodeCollection has no afterTerrain list (holes on glass draw with the other translucent features) and
+# NtmMeshHits is a stand-in here; the model capture moves to mixin/mc/MixinRenderedModelHit
+mixin/mc/MixinSubmitNodeCollection.java
+mixin/mc/MixinPreparedModelHit.java
+# Alex's Caves / Citadel post effects: written against 26.2's render pass
+mixin/mc/MixinAlexPostEffects.java
+mixin/mc/MixinAlexRenderSetup.java

@@ -15,6 +15,9 @@ plugins {
 stonecutter {
     create(rootProject) {
         versions("26.2")
+        // port/continuum: NTM Continuum on Golem Core. The node name carries the loader, the version is given apart
+        // (else Stonecutter reads "-neoforge" as a pre-release). Its own buildscript: build.gradle.kts stays main's.
+        version("26.1-neoforge", "26.1").buildscript = "build.continuum.gradle.kts"
         vcsVersion = "26.2"
     }
 }
