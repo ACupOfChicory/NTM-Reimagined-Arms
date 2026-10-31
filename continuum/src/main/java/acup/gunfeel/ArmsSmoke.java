@@ -136,8 +136,10 @@ public final class ArmsSmoke {
                 else if (stageTicks > 20 * 15) fail("inspect never ended");
             }
             case AIM -> {
-                HbmKeybindsClient.gunSecondaryKey.setDown(stageTicks <= 2);
-                if (stageTicks > 2) next(Stage.AIMED);
+                // a press toggles aiming once the server takes it: pressed again every 10 ticks until it has
+                HbmKeybindsClient.gunSecondaryKey.setDown(stageTicks % 10 <= 2 && stageTicks % 10 > 0);
+                if (ItemGunBaseNT.getIsAiming(held) && stageTicks % 10 > 2) next(Stage.AIMED);
+                else if (stageTicks > 100) next(Stage.AIMED);
             }
             case AIMED -> {
                 if (stageTicks == 20) {
@@ -151,18 +153,22 @@ public final class ArmsSmoke {
                 }
             }
             case AIM_FIRE -> {
+                if (stageTicks == 1) shot = "aim_fire";
                 if (stageTicks > 10 && idle) next(Stage.UNAIM);
                 else if (stageTicks > 20 * 10) next(Stage.UNAIM);
             }
             case UNAIM -> {
-                HbmKeybindsClient.gunSecondaryKey.setDown(stageTicks <= 2);
-                if (stageTicks > 20) next(Stage.FIRE);
+                HbmKeybindsClient.gunSecondaryKey.setDown(stageTicks % 10 <= 2 && stageTicks % 10 > 0);
+                if (!ItemGunBaseNT.getIsAiming(held) && stageTicks % 10 > 2 && ItemGunBaseNT.aimingProgress == 0F) next(Stage.FIRE);
+                else if (stageTicks > 100) next(Stage.FIRE);
             }
             case FIRE -> {
                 MouseInput.fireButton(0, stageTicks == 1);
                 if (stageTicks > 1) next(Stage.FIRE_WAIT);
             }
             case FIRE_WAIT -> {
+                // the model kick, turning around the right hand's grip
+                if (stageTicks == 1) shot = "fire";
                 if (stageTicks > 10 && idle || stageTicks > 20 * 10) {
                     GunFeel.LOGGER.info("[arms-smoke] {} done: took {}", current()[0], taken);
                     nextCase();

@@ -11,13 +11,16 @@ import com.hbm.client.anim.HbmAnimations;
 import acup.gunfeel.AnimCue;
 import acup.gunfeel.ArmAnimationPreview;
 import acup.gunfeel.Arms;
+import acup.gunfeel.Config;
+import acup.gunfeel.GunFeel;
+import acup.gunfeel.compat.Feature;
 import dev.golem.core.render.anim.BusAnimation;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.Item;
 
 // port/continuum: the arms' part of src/main/java MixinHbmAnimations on NTM Continuum's HbmAnimations, whose animations are
-// per hand (getRelevantAnim(hand, rail); the rail-only form and getRelevantTransformation go through it). Its RECOIL bus
-// toning is not here.
+// per hand (getRelevantAnim(hand, rail); the rail-only form and getRelevantTransformation go through it), and its RECOIL bus
+// toning (Feature.RECOIL), which the arms follow: the gun's parts read their buses through WeaponPose.bus.
 @Mixin(value = HbmAnimations.class, remap = false)
 public abstract class MixinHbmAnimations {
     // Arms.measuring: the gun as it is with no animation playing; the arm editor's preview in place of the main hand's
@@ -33,5 +36,21 @@ public abstract class MixinHbmAnimations {
             at = @At("RETURN"))
     private static void gunfeel$cue(Item item, BusAnimation animation, InteractionHand hand, int rail, boolean hold, CallbackInfo ci) {
         if (AnimCue.pending() != null) AnimCue.started(HbmAnimations.getRelevantAnim(hand, rail));
+    }
+
+    // Tone down NTM's own "RECOIL" animation bus in first person; the spring kick replaces most of it.
+    @Inject(method = "getRelevantTransformation(Ljava/lang/String;Lnet/minecraft/world/InteractionHand;I)[D", at = @At("RETURN"),
+            cancellable = true)
+    private static void gunfeel$recoilBus(String bus, InteractionHand hand, int rail, CallbackInfoReturnable<double[]> cir) {
+        if (!Config.enabled || !Feature.RECOIL.on() || GunFeel.current == null || !"RECOIL".equals(bus)) return;
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        boolean aiming = player != null && com.hbm.items.weapon.sedna.ItemGunBaseNT.getIsAiming(player.getMainHandItem());
+        float strength = Config.ntmRecoilAnim * (aiming ? Config.adsRecoil : 1F);
+        if (strength == 1F) return;
+        double[] t = cir.getReturnValue();
+        if (t == null) return;
+        double[] scaled = t.clone();
+        for (int i = 0; i < Math.min(3, scaled.length); i++) scaled[i] *= strength;
+        cir.setReturnValue(scaled);
     }
 }

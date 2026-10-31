@@ -157,10 +157,10 @@ stonecutter parameters {
                 "var factory = gun.getConfig(stack,0).getAnimation(stack);\n        var buses = factory == null ? null : factory.apply(stack,cue);\n" +
                 "        if (buses == null) buses = com.hbm.client.anim.GunAnimations.get(stack, cue, 0);")
             replace("HbmAnimations.identity()", "new double[] {0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 2}")
-            // the arms' own classes on this node belong to ARMS (NtmApiTest, Compat): the cue, the Gem walk, the OBJ view
+            // the arms' own classes on this node belong to ARMS (NtmApiTest, Compat): the cue, the Gem walk, the dev check, the OBJ view
             replace("List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\")",
                 "List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\", " +
-                "\"AnimCue\", \"ArmsGem\", \"HFRWavefrontObject\", \"GroupObject\")")
+                "\"AnimCue\", \"ArmsGem\", \"ArmsSmoke\", \"HFRWavefrontObject\", \"GroupObject\")")
         }
     }
 }

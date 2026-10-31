@@ -6,11 +6,14 @@ ARMS class com/hbm/client/render/weapon/WeaponRenderer
 ARMS class com/hbm/items/weapon/sedna/GunAnimation
 ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT
 ARMS class com/hbm/packet/GunAnimationPayload
+ARMS field com/hbm/client/HbmKeybindsClient gunSecondaryKey Ldev/golem/core/client/KeyMappings$Mapping;
+ARMS field com/hbm/client/HbmKeybindsClient reloadKey Ldev/golem/core/client/KeyMappings$Mapping;
 ARMS field com/hbm/client/anim/HbmAnimations$Animation animation Ldev/golem/core/render/anim/BusAnimation;
 ARMS field com/hbm/client/anim/HbmAnimations$Animation startMillis J
 ARMS field com/hbm/client/model/WavefrontObj groups Ljava/util/List;
 ARMS field com/hbm/client/model/WavefrontObj$Group material Ljava/lang/String;
 ARMS field com/hbm/client/model/WavefrontObj$Group name Ljava/lang/String;
+ARMS field com/hbm/items/weapon/sedna/GunAnimation CYCLE Lcom/hbm/items/weapon/sedna/GunAnimation;
 ARMS field com/hbm/items/weapon/sedna/GunAnimation INSPECT Lcom/hbm/items/weapon/sedna/GunAnimation;
 ARMS field com/hbm/items/weapon/sedna/GunAnimation RELOAD Lcom/hbm/items/weapon/sedna/GunAnimation;
 ARMS field com/hbm/items/weapon/sedna/GunAnimation RELOAD_CYCLE Lcom/hbm/items/weapon/sedna/GunAnimation;
@@ -18,6 +21,7 @@ ARMS field com/hbm/items/weapon/sedna/GunAnimation RELOAD_END Lcom/hbm/items/wea
 ARMS field com/hbm/items/weapon/sedna/GunAnimation VALUES [Lcom/hbm/items/weapon/sedna/GunAnimation;
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
+ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 ARMS method com/hbm/client/anim/GunAnimations get (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/GunAnimation;I)Ldev/golem/core/render/anim/BusAnimation;
 ARMS method com/hbm/client/anim/HbmAnimations getRelevantAnim (I)Lcom/hbm/client/anim/HbmAnimations$Animation;
 ARMS method com/hbm/client/anim/HbmAnimations getRelevantAnim (Lnet/minecraft/world/InteractionHand;I)Lcom/hbm/client/anim/HbmAnimations$Animation;
@@ -30,8 +34,14 @@ ARMS method com/hbm/client/model/WavefrontObj$Group faceCount ()I
 ARMS method com/hbm/client/render/weapon/WeaponRenderer gem ()Ldev/golem/core/render/gem/Gem$Model;
 ARMS method com/hbm/items/weapon/sedna/GunAnimation byOrdinal (I)Lcom/hbm/items/weapon/sedna/GunAnimation;
 ARMS method com/hbm/items/weapon/sedna/GunAnimation name ()Ljava/lang/String;
+ARMS method com/hbm/items/weapon/sedna/GunAnimation ordinal ()I
+ARMS method com/hbm/items/weapon/sedna/GunAnimation values ()[Lcom/hbm/items/weapon/sedna/GunAnimation;
 ARMS method com/hbm/items/weapon/sedna/GunConfig getAnimation (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiFunction;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimaryMagazine (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+ARMS method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
 ARMS method com/hbm/packet/GunAnimationPayload animation ()I
 ARMS method com/hbm/util/GameTime now ()J
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCell
