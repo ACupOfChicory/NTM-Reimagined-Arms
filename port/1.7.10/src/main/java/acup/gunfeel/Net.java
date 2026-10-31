@@ -25,7 +25,10 @@ import net.minecraft.server.MinecraftServer;
 // "ntmgunfeel" (SimpleNetworkWrapper), a message per payload, each with its own discriminator byte:
 //   0 hello     both ways: the protocol and the versions of this mod and NTM (26.2: compat.HelloPayload)
 //   1 settings  server -> client: ServerSettings, packed (26.2: ServerSettingsPayload)
-// Further messages (tracers, holes, ammo, hitboxes) take the next free numbers. Handlers run on the network thread.
+//   2-4 tracers   server -> client (TracerNet)
+//   5-6 ammo      client -> server (AmmoNet)
+//   7-8 hitboxes  client -> server (ModelHitNet)
+// Further messages take the next free numbers (GunFeelMod.preInit). Handlers run on the network thread.
 //
 // The handshake. 26.2 refuses a client with another PROTOCOL at connection (NeoForge's registrar does it) and lets
 // other mod versions in. Forge 1.7.10 checks only mod lists: GunFeelMod's @NetworkCheckHandler turns away a side
@@ -34,7 +37,7 @@ import net.minecraft.server.MinecraftServer;
 // chat when the server's versions differ from its own (26.2: CompatClient.hello).
 public final class Net {
     // raise it when a message changes: a client and a server with different ones do not play together
-    public static final String PROTOCOL = "1.7.10-2";
+    public static final String PROTOCOL = "1.7.10-3";
     public static final SimpleNetworkWrapper CHANNEL = NetworkRegistry.INSTANCE.newSimpleChannel(GunFeelMod.MODID);
     public static final int HELLO = 0, SETTINGS = 1;
 

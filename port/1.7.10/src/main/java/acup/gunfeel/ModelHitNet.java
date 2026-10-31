@@ -5,7 +5,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
-import cpw.mods.fml.common.network.NetworkRegistry;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
@@ -14,27 +13,28 @@ import cpw.mods.fml.relauncher.Side;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayerMP;
 
-// The model hitboxes' own FML channel (26.2: the model_pose and model_mesh payloads of GunFeelMod's registrar) and
+// The model hitboxes' messages on the mod's channel (26.2: the model_pose and model_mesh payloads of GunFeelMod's registrar) and
 // the ticks ModelHits needs (26.2: LevelTickEvent.Post -> ModelHits.tick). Both messages go client -> server. FML hands
 // them in on a Netty thread; they wait in a queue for the server thread's next tick, in their order, so a mesh is
-// known before the pose that uses it. The channel is separate from the rest of the mod's network so the two can be
-// built apart; one pose is at most 128 cubes of ~70 bytes, one mesh 768 triangles: well under 1.7.10's 32767-byte
-// limit for a client's packet.
+// known before the pose that uses it. One pose is at most 128 cubes of ~70 bytes, one mesh 768 triangles: well under
+// 1.7.10's 32767-byte limit for a client's packet.
 public final class ModelHitNet {
-    public static final String CHANNEL = "ntmgf_hits";
+    // ids taken on Net.CHANNEL: PoseMessage, MeshMessage
+    public static final int COUNT = 2;
     private static SimpleNetworkWrapper net;
     private record Pending(EntityPlayerMP player, Object payload) {}
     private static final ConcurrentLinkedQueue<Pending> QUEUE = new ConcurrentLinkedQueue<>();
 
     private ModelHitNet() {}
 
-    // GunFeelMod.preInit
-    public static void init(boolean client) {
-        net = NetworkRegistry.INSTANCE.newSimpleChannel(CHANNEL);
-        net.registerMessage(PoseHandler.class, PoseMessage.class, 0, Side.SERVER);
-        net.registerMessage(MeshHandler.class, MeshMessage.class, 1, Side.SERVER);
+    // GunFeelMod.preInit: the messages at ids first and first + 1; returns the next free id
+    public static int register(int first, boolean client) {
+        net = Net.CHANNEL;
+        net.registerMessage(PoseHandler.class, PoseMessage.class, first, Side.SERVER);
+        net.registerMessage(MeshHandler.class, MeshMessage.class, first + 1, Side.SERVER);
         FMLCommonHandler.instance().bus().register(new ModelHitNet.Ticks());
         if (client) ModelHitHooks.register();
+        return first + COUNT;
     }
 
     static void send(ModelPosePayload p) {

@@ -18,12 +18,13 @@ public final class GunFeelMod {
         GunFeel.LOGGER.info("NTM Reimagined Arms {} ({}) on Java {}", BuildInfo.DISPLAY, BuildInfo.VERSION, System.getProperty("java.version"));
         boolean client = FMLCommonHandler.instance().getSide() == Side.CLIENT;
         acup.gunfeel.compat.Compat.setModVersion(BuildInfo.VERSION);
-        AmmoNet.init(); // the ammo key's and menu's messages (AmmoNet.register: onto a common channel later)
         if (client) GunFeelClient.init();
         TraceHooks.register(client);
-        ModelHitNet.init(client);
+        // the mod's one channel: hello and settings (0, 1), then each system's messages at the next free ids
         Net.init(client);
-        TracerNet.register(Net.SETTINGS + 1); // ids 2 and 3: the bullets' word to the clients' tracers
+        int id = TracerNet.register(Net.SETTINGS + 1); // 2-4: the bullets' word to the clients' tracers
+        id = AmmoNet.register(Net.CHANNEL, id); // 5, 6: the ammo key's and menu's choice to the server
+        ModelHitNet.register(id, client); // 7, 8: the client's poses and meshes of the model hitboxes
         BulletCheck.registerIfAsked();
     }
 
