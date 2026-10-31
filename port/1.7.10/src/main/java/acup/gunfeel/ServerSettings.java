@@ -12,17 +12,16 @@ import java.util.TreeMap;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-// port: copied from 26.2 (0762086). slf4j -> log4j (GunFeel.LOGGER); useRemote does not hand the shapes to
-// PassableClip: the port has no bullet shapes yet (they are still sent and kept, so the format is 26.2's);
-// readNBytes (Java 9) -> readFully. The payload is the same bytes as 26.2's.
+// port: copied from 26.2 (0762086). slf4j -> log4j (GunFeel.LOGGER); useRemote hands the shapes to ModelCells (26.2:
+// PassableClip.useRemoteShapes), keyed as the port's (id#meta); readNBytes (Java 9) -> readFully. The payload is the
+// same bytes as 26.2's.
 // What the server decides, sent to every player who joins and again whenever it changes, so a player's client draws
 // what the server does:
 //  - the server's own bullet rules (config/ntm-gunfeel-bullets.txt), of which the client takes the kinds the server
 //    acts on (break, material, path, ricochet, entity, kill) and keeps its own for what only it draws (hit, decal,
 //    hole, whizz, fly);
 //  - ntm-gunfeel-server.properties (bullet speed, spread, reaim times, the camera recoil minimum);
-//  - the bullet shapes the server has beyond the mod jar's (config/ntm-gunfeel-bullet-shapes.properties, and on a LAN
-//    host the ones its own client made).
+//  - the bullet shapes the server has beyond the mod jar's (port: config/ntm-gunfeel-bullet-shapes-1710.properties).
 // The client keeps them in memory while connected and forgets them on leaving: nothing is written, so another server's
 // settings and the player's own files are never touched. In single player and on a LAN host the server is this game
 // itself and reads the same files: the client uses its files as they are (see ServerSettingsClient).
@@ -53,7 +52,7 @@ public final class ServerSettings {
     // the client joined another game's server (null: left it, or this game is the server)
     public static void useRemote(Snapshot s) {
         remote = s;
-        // port: no PassableClip.useRemoteShapes yet (no bullet shapes on 1.7.10)
+        ModelCells.useRemote(s == null ? null : s.shapes());
     }
 
     // ---- the payload: gzip of the three parts

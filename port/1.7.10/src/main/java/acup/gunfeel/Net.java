@@ -188,8 +188,8 @@ public final class Net {
         try {
             Path rules = PortPaths.config().resolve(BulletRules.FILE);
             String bullets = Files.exists(rules) ? new String(Files.readAllBytes(rules), StandardCharsets.UTF_8) : "";
-            // port: no bullet shapes on 1.7.10 yet (PassableClip.extraShapes)
-            sent = new Settings(ServerSettings.encodeFitting(new ServerSettings.Snapshot(bullets, ReaimTimes.values(), Map.<String, String>of())));
+            // the shapes beyond the jar's (26.2: PassableClip.extraShapes): the server's config file (ModelCells)
+            sent = new Settings(ServerSettings.encodeFitting(new ServerSettings.Snapshot(bullets, ReaimTimes.values(), ModelCells.reloadOwn())));
             sentStamp = now;
             return sent;
         } catch (Exception ex) {
@@ -200,7 +200,7 @@ public final class Net {
 
     private static String stamp() {
         Path dir = PortPaths.config();
-        return modified(dir.resolve(BulletRules.FILE)) + "|" + modified(dir.resolve(ReaimTimes.FILE));
+        return modified(dir.resolve(BulletRules.FILE)) + "|" + modified(dir.resolve(ReaimTimes.FILE)) + "|" + modified(dir.resolve(ModelCells.CONFIG));
     }
 
     private static long modified(Path f) {

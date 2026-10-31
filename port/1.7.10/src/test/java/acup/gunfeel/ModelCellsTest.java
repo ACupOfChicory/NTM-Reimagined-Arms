@@ -96,6 +96,24 @@ class ModelCellsTest {
     }
 
     @Test
+    void theServersShapesCountWhileConnected() {
+        long[] ladder = get("minecraft:ladder#2");
+        java.util.Map<String, String> sent = new java.util.HashMap<String, String>();
+        sent.put("othermod:grate#3", ModelCells.pack(ladder));
+        sent.put("not a key", ModelCells.pack(ladder));
+        try {
+            ModelCells.useRemote(sent);
+            assertNotNull(ModelCells.table().get("othermod:grate#3"));
+            assertNull(ModelCells.table().get("not a key"));
+            // the jar's stay
+            assertNotNull(ModelCells.table().get("minecraft:ladder#2"));
+        } finally {
+            ModelCells.useRemote(null);
+        }
+        assertNull(ModelCells.table().get("othermod:grate#3"));
+    }
+
+    @Test
     void packIsWhatUnpackReads() {
         long[] door = get("minecraft:wooden_door#9");
         assertTrue(ModelCells.shell(ModelCells.unpack(ModelCells.pack(door))));

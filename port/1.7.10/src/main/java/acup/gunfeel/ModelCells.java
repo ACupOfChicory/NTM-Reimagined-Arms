@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TreeMap;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockDoor;
@@ -30,6 +31,8 @@ public final class ModelCells {
     }
 
     static final String FILE = "ntmgunfeel-bullet-shapes-1710.properties";
+    // a server's own shapes over the jar's (another mod's blocks), sent to its players (ServerSettings)
+    static final String CONFIG = "ntm-gunfeel-bullet-shapes-1710.properties";
 
     private static volatile Map<String, long[]> table;
 
@@ -78,13 +81,59 @@ public final class ModelCells {
         return b ? "1" : "0";
     }
 
+    // the jar's table, this game's own (the jar's and config/ntm-gunfeel-bullet-shapes-1710.properties over it), and
+    // the server's (null: this game's own counts) while connected to another game's server
+    private static Map<String, long[]> jar, own, remote;
+    // the config file's shapes as read, packed: what a server sends its players beyond the jar's
+    private static Map<String, String> extra = Collections.emptyMap();
+
     static Map<String, long[]> table() {
         Map<String, long[]> m = table;
         if (m != null) return m;
         synchronized (ModelCells.class) {
-            if (table == null) table = load();
+            if (table == null) {
+                if (jar == null) jar = load(ModelCells.class.getResourceAsStream("/" + FILE), "the jar", null);
+                reloadOwn();
+            }
             return table;
         }
+    }
+
+    // reads the config file again (the server packs its settings for the players: Net.current); its shapes, packed
+    static synchronized Map<String, String> reloadOwn() {
+        if (jar == null) jar = load(ModelCells.class.getResourceAsStream("/" + FILE), "the jar", null);
+        Map<String, String> packed = new TreeMap<String, String>();
+        Map<String, long[]> m = new HashMap<String, long[]>(jar);
+        java.nio.file.Path f = PortPaths.config().resolve(CONFIG);
+        if (java.nio.file.Files.exists(f)) {
+            try {
+                m.putAll(load(java.nio.file.Files.newInputStream(f), f.toString(), packed));
+            } catch (java.io.IOException e) {
+                GunFeel.LOGGER.warn("[ntm-gunfeel] Could not read " + f, e);
+            }
+        }
+        own = Collections.unmodifiableMap(m);
+        extra = Collections.unmodifiableMap(packed);
+        if (remote == null) table = own;
+        return extra;
+    }
+
+    // 26.2's PassableClip.useRemoteShapes: the server's shapes beyond the jar's (packed, by key), or null: back to this
+    // game's own
+    public static synchronized void useRemote(Map<String, String> packed) {
+        if (jar == null) table();
+        if (packed == null) {
+            remote = null;
+            table = own;
+            return;
+        }
+        Map<String, long[]> m = new HashMap<String, long[]>(jar);
+        for (Map.Entry<String, String> e : packed.entrySet()) {
+            long[] bits = unpack(e.getValue());
+            if (bits != null && e.getKey().indexOf('#') > 0) m.put(e.getKey(), bits);
+        }
+        remote = Collections.unmodifiableMap(m);
+        table = remote;
     }
 
     // ShapesScenario's freshly made table, in place of the jar's (dev)
@@ -92,12 +141,12 @@ public final class ModelCells {
         table = Collections.unmodifiableMap(new HashMap<String, long[]>(made));
     }
 
-    // "key = <shape>" or "key = @n" with "@n = <shape>" written once, shapes as FenceCells.unpack reads them
-    private static Map<String, long[]> load() {
+    // "key = <shape>" or "key = @n" with "@n = <shape>" written once; packed (if not null) gets each key's shape as text
+    private static Map<String, long[]> load(InputStream stream, String from, Map<String, String> packed) {
         Map<String, long[]> out = new HashMap<String, long[]>();
-        try (InputStream in = ModelCells.class.getResourceAsStream("/" + FILE)) {
+        try (InputStream in = stream) {
             if (in == null) {
-                GunFeel.LOGGER.warn("[ntm-gunfeel] No 1.7.10 bullet shapes in the jar: bars, grates and scaffolds are met by their collision boxes");
+                GunFeel.LOGGER.warn("[ntm-gunfeel] No 1.7.10 bullet shapes in {}: bars, grates and doors are met by their collision boxes", from);
                 return Collections.emptyMap();
             }
             Properties p = new Properties();
@@ -107,12 +156,14 @@ public final class ModelCells {
                 String v = p.getProperty(k).trim();
                 if (v.startsWith("@")) v = p.getProperty(v, "").trim();
                 long[] bits = unpack(v);
-                if (bits != null) out.put(k, bits);
+                if (bits == null) continue;
+                out.put(k, bits);
+                if (packed != null) packed.put(k, v);
             }
         } catch (Exception e) {
-            GunFeel.LOGGER.warn("[ntm-gunfeel] Could not read the 1.7.10 bullet shapes", e);
+            GunFeel.LOGGER.warn("[ntm-gunfeel] Could not read the 1.7.10 bullet shapes in " + from, e);
         }
-        return Collections.unmodifiableMap(out);
+        return out;
     }
 
     // 26.2's unpack: FenceCells.unpack's forms, after "!" for a shell (bits[64] = 1)
