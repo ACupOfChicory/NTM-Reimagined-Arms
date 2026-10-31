@@ -2,6 +2,8 @@ package acup.gunfeel;
 
 import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 // Which of the mod's mixins took: each target class and how many of our handlers (gunfeel$...) Mixin merged into it.
@@ -28,7 +30,7 @@ public final class MixinCheck {
             {"net.minecraft.client.renderer.entity.RendererLivingEntity", "5"},
             {"net.minecraft.client.model.ModelRenderer", "2"},
             {"net.minecraft.client.renderer.entity.RenderManager", "1"},
-            {"com.hbm.items.weapon.sedna.GunConfig", "3"},
+            {"com.hbm.items.weapon.sedna.GunConfig", "6"}, // MixinG3Inspect 4 (gunfeel$release + 3), MixinGunConfigAnims 2
             {"com.hbm.entity.projectile.EntityThrowableNT", "8"}, // MixinThrowableClip: bullets 4 + hitboxes 4
             {"com.hbm.entity.projectile.EntityBulletBeamBase", "4"},
     };
@@ -41,13 +43,17 @@ public final class MixinCheck {
         Map<String, Integer> out = new LinkedHashMap<String, Integer>();
         for (String[] t : TARGETS) {
             int n = 0;
+            List<String> names = new ArrayList<String>();
             try {
-                for (Method m : Class.forName(t[0]).getDeclaredMethods()) if (m.getName().contains("gunfeel$")) n++;
+                for (Method m : Class.forName(t[0]).getDeclaredMethods()) if (m.getName().contains("gunfeel$") && !m.getName().contains("lambda$")) { // a mixin's lambdas are not handlers
+                    n++;
+                    names.add(m.getName());
+                }
             } catch (ClassNotFoundException | LinkageError e) {
                 n = -1;
             }
             out.put(t[0].substring(t[0].lastIndexOf('.') + 1), n);
-            if (n != Integer.parseInt(t[1])) GunFeel.LOGGER.warn("Mixins: {} has {} of our handlers, wants {}", t[0], n, t[1]);
+            if (n != Integer.parseInt(t[1])) GunFeel.LOGGER.warn("Mixins: {} has {} of our handlers, wants {}: {}", t[0], n, t[1], names);
         }
         GunFeel.LOGGER.info("Mixins applied (handlers per class): {}", out);
         return out;
