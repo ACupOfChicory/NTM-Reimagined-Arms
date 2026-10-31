@@ -15,7 +15,8 @@ import cpw.mods.fml.relauncher.FMLLaunchHandler;
 @LateMixin
 public class LateMixins implements ILateMixinLoader {
     static final List<String> CLIENT = Arrays.asList("MixinModEventHandlerClient", "MixinItemRenderWeaponBase",
-            "MixinHbmAnimations", "MixinWavefrontObject", "MixinWavefrontObjectVBO");
+            "MixinHbmAnimations", "MixinWavefrontObject", "MixinWavefrontObjectVBO",
+            "MixinRenderBulletMK4", "MixinLegoClient", "MixinSmokeNodes");
 
     @Override
     public String getMixinConfig() {

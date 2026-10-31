@@ -10,6 +10,12 @@ acup/gunfeel/GunClock.java
 acup/gunfeel/Rng.java
 acup/gunfeel/Trace.java
 acup/gunfeel/FixedStep.java
+# tracers and holes (port-1.7.10-part-tracers.md)
+acup/gunfeel/BulletClock.java
+acup/gunfeel/Decals.java
+acup/gunfeel/Materials.java
+acup/gunfeel/BlockFacts.java
+acup/gunfeel/HoleLimits.java
 
 [test]
 # src/test/java: they test the port's copies with 26.2's own expectations
@@ -19,9 +25,13 @@ acup/gunfeel/RecoilTest.java
 acup/gunfeel/WeaponSwayTest.java
 acup/gunfeel/ConfigTest.java
 acup/gunfeel/DeterminismTest.java
+acup/gunfeel/BulletClockTest.java
+acup/gunfeel/HoleLimitsTest.java
 
 [resources]
 # src/main/resources
 ntmgunfeel-recoil.properties
 ntmgunfeel-guns.properties
 ntmgunfeel-server.properties
+# the bullet mark textures (Decals.files)
+assets/ntmgunfeel/textures/effect/*.png

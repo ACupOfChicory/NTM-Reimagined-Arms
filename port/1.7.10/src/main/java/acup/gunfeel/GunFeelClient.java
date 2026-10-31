@@ -30,6 +30,7 @@ public final class GunFeelClient {
         Config.poll();
         FMLCommonHandler.instance().bus().register(new GunFeelClient());
         ShootScenario.register();
+        Tracers.register();
     }
 
     // dev runs (runClient): a file "autostop" in the run folder closes the client a few seconds after the main menu

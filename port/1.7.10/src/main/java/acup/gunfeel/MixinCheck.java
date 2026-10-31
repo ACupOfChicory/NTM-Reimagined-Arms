@@ -10,13 +10,15 @@ public final class MixinCheck {
     // target -> handlers it should have
     private static final String[][] TARGETS = {
             {"com.hbm.main.ModEventHandlerClient", "1"},
-            {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "5"},
+            {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "6"}, // 5 + MixinSmokeNodes
             {"com.hbm.render.anim.HbmAnimations", "1"},
             {"com.hbm.render.loader.HFRWavefrontObject", "4"},
             {"com.hbm.render.loader.HFRWavefrontObjectVBO", "4"},
             {"net.minecraft.client.renderer.EntityRenderer", "1"},
             {"net.minecraft.util.Timer", "1"},
             {"com.hbm.util.Clock", "1"},
+            {"com.hbm.render.entity.projectile.RenderBulletMK4", "1"},
+            {"com.hbm.items.weapon.sedna.factory.LegoClient", "1"},
     };
 
     private MixinCheck() {
