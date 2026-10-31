@@ -161,6 +161,14 @@ listOf("runClient", "runObfClient").forEach { name ->
     }
 }
 
+// Bullets on real blocks on the dedicated server (BulletCheck, as 26.2's runCheckBullets): -PcheckBullets on runServer;
+// the result in run/server/logs/bullet-check.txt, its trace in run/server/logs/ntm-gunfeel-trace-bullets.tsv
+if (providers.gradleProperty("checkBullets").isPresent) tasks.named<JavaExec>("runServer") {
+    systemProperty("ntmgunfeel.checkBullets", "logs/bullet-check.txt")
+    systemProperty("ntmgunfeel.trace", "logs/ntm-gunfeel-trace-bullets.tsv")
+    systemProperty("ntmgunfeel.traceScenario", "bullets")
+}
+
 // The tests run on Java 8, as the players' game does (test), and on Java 25 (test25): the downgraded classes on both.
 // Paths to the 26.2 pins (src/test/pinned at the root) come in as a system property.
 tasks.test {

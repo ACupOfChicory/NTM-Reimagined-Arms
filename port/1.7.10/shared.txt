@@ -10,6 +10,8 @@ acup/gunfeel/GunClock.java
 acup/gunfeel/Rng.java
 acup/gunfeel/Trace.java
 acup/gunfeel/FixedStep.java
+acup/gunfeel/Materials.java
+acup/gunfeel/BlockFacts.java
 
 [test]
 # src/test/java: they test the port's copies with 26.2's own expectations
@@ -19,9 +21,12 @@ acup/gunfeel/RecoilTest.java
 acup/gunfeel/WeaponSwayTest.java
 acup/gunfeel/ConfigTest.java
 acup/gunfeel/DeterminismTest.java
+acup/gunfeel/PenetrationTest.java
 
 [resources]
 # src/main/resources
 ntmgunfeel-recoil.properties
 ntmgunfeel-guns.properties
 ntmgunfeel-server.properties
+ntmgunfeel-materials.txt
+ntmgunfeel-bullets.txt

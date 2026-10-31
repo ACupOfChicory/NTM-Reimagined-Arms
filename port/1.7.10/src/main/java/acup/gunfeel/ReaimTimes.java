@@ -69,8 +69,8 @@ public final class ReaimTimes {
 
     // the file's values, or the server's while connected to one
     private static Map<String, String> values0() {
-        // port: no handshake yet, so no server's values (ServerSettings): always the local file
-        return VALUES;
+        ServerSettings.Snapshot remote = ServerSettings.remote();
+        return remote != null ? remote.server() : VALUES;
     }
 
     // the file's values as they are now, for sending to the players

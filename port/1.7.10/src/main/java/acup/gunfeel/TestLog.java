@@ -14,7 +14,7 @@ import java.util.Locale;
 // tools/trace_diff.py reads both. Line: ms since the file opened, side (C/S), shot (- for none), event, then
 // key=value fields, tab-separated. On with -Dntmgunfeel.testlog=true (26.2 turns it on with a command).
 // With -Dntmgunfeel.trace it is a trace instead (Trace): both sides on for the whole run, game time and exact numbers.
-// What 26.2 writes of levels, blocks and bullets (at, material, shot ids) comes with those parts of the mod.
+// The bullets' lines (shot ids, blocks, materials) are written as 26.2 writes them; a block is its BlockIds.state.
 public final class TestLog {
     public static volatile boolean client, server;
 
@@ -54,6 +54,45 @@ public final class TestLog {
 
     public static synchronized Path file() {
         return file;
+    }
+
+    // the bullet this thread works on (26.2: TestLog.shot): its lines during its tick are its own
+    private static final ThreadLocal<int[]> SHOT = ThreadLocal.withInitial(() -> new int[] {-1});
+
+    public static void shot(int id) {
+        SHOT.get()[0] = id;
+    }
+
+    public static int shot() {
+        return SHOT.get()[0];
+    }
+
+    // by the world's side (26.2: on(level))
+    public static boolean on(net.minecraft.world.World world) {
+        return world.isRemote ? client : server;
+    }
+
+    // the block's bullet material as piercing and effects have it (26.2: material(level, pos))
+    public static String material(net.minecraft.world.World world, int x, int y, int z) {
+        return BulletRules.material(world, x, y, z).material().name().toLowerCase(Locale.ROOT);
+    }
+
+    // the block as the log writes it (26.2: its block state): "hbm:steel_wall", "minecraft:wool[meta=14]"
+    public static String block(net.minecraft.world.World world, int x, int y, int z) {
+        return BlockIds.state(net.minecraft.block.Block.blockRegistry.getNameForObject(world.getBlock(x, y, z)), world.getBlockMetadata(x, y, z));
+    }
+
+    // a cell and a point as 26.2's log writes BlockPos and Vec3: "x,y,z"
+    public static int[] pos(BlockRay.Hit h) {
+        return new int[] {h.x, h.y, h.z};
+    }
+
+    public static double[] point(BlockRay.Hit h) {
+        return new double[] {h.ax, h.ay, h.az};
+    }
+
+    public static double[] point(double x, double y, double z) {
+        return new double[] {x, y, z};
     }
 
     public static void c(int shot, String event, Object... kv) {
@@ -126,6 +165,13 @@ public final class TestLog {
         if (Trace.ON) return exact(v);
         if (v instanceof Float) return String.format(Locale.ROOT, "%.3f", (Float) v);
         if (v instanceof Double) return String.format(Locale.ROOT, "%.3f", (Double) v);
+        if (v instanceof double[]) {
+            double[] a = (double[]) v;
+            StringBuilder b = new StringBuilder();
+            for (int i = 0; i < a.length; i++) b.append(i > 0 ? "," : "").append(String.format(Locale.ROOT, "%.3f", a[i]));
+            return b.toString();
+        }
+        if (v instanceof int[]) return ints((int[]) v);
         return v.toString().replace('\t', ' ').replace('\n', ' ');
     }
 
@@ -140,6 +186,13 @@ public final class TestLog {
             for (int i = 0; i < a.length; i++) b.append(i > 0 ? "," : "").append(Trace.num(a[i]));
             return b.toString();
         }
+        if (v instanceof int[]) return ints((int[]) v);
         return v.toString().replace('\t', ' ').replace('\n', ' ');
+    }
+
+    private static String ints(int[] a) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < a.length; i++) b.append(i > 0 ? "," : "").append(a[i]);
+        return b.toString();
     }
 }
