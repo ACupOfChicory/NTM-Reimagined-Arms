@@ -1,5 +1,10 @@
 // NTM Reimagined Arms for Minecraft 1.7.10 Forge, on the GTNH build template (RetroFuturaGradle).
 // The 26.2 build at the repository root is left alone: this one only reads the root's src/ (shared.txt).
+import java.nio.file.FileSystems
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.zip.ZipFile
+
 plugins {
     id("com.gtnewhorizons.gtnhconvention")
 }
@@ -94,6 +99,52 @@ tasks.processResources {
 extensions.configure<xyz.wagyourtail.jvmdg.gradle.JVMDowngraderExtension> {
     multiReleaseOriginal.set(false)
     multiReleaseVersions.set(emptySet())
+}
+
+// ---- JvmDowngrader's stubs in the jar (LGPL-2.1-or-later): the notice, the licence text and their sources ----
+// shadeDowngradedApi puts the java-api classes the mod calls (Math.clamp, Map.of...) into the jar. The LGPL wants
+// their notice, the licence and their source with each copy: third-party/ goes into META-INF/licenses with the jar,
+// and reobfJar (it only remaps its input, so nothing can be added to it by from()) then gets the sources of exactly
+// the shaded classes in META-INF/licenses/jvmdowngrader-src. The build fails when one has no source.
+tasks.jar {
+    from(projectDir.resolve("third-party")) { into("META-INF/licenses") }
+}
+val jvmdgApi = configurations.named("jvmdgApiForJava8")
+val jvmdgVersion = providers.provider { jvmdgApi.get().allDependencies.single().version!! }
+val jvmdgSources = configurations.create("jvmdgApiSources") {
+    isCanBeConsumed = false
+    isTransitive = false
+    withDependencies {
+        add(project.dependencies.create("xyz.wagyourtail.jvmdowngrader:jvmdowngrader-java-api:${jvmdgVersion.get()}:sources"))
+    }
+}
+tasks.named<org.gradle.jvm.tasks.Jar>("reobfJar") {
+    val sources: FileCollection = jvmdgSources
+    val notice = projectDir.resolve("third-party/jvmdowngrader.txt")
+    val v = jvmdgVersion
+    val jar = archiveFile
+    inputs.files(sources)
+    inputs.file(notice)
+    inputs.property("jvmdgVersion", v)
+    doLast {
+        if (!notice.readText().contains("Версия: ${v.get()} "))
+            throw GradleException("third-party/jvmdowngrader.txt names another JvmDowngrader version than ${v.get()}")
+        val stub = Regex("^(?:.*/)?(xyz/wagyourtail/jvmdg/[^$]+?)(?:\\$.*)?\\.class$")
+        val path = jar.get().asFile.toPath()
+        val classes = ZipFile(path.toFile()).use { z ->
+            z.entries().asSequence().mapNotNull { stub.find(it.name)?.groupValues?.get(1) }.map { "$it.java" }.toSortedSet()
+        }
+        ZipFile(sources.singleFile).use { src ->
+            FileSystems.newFileSystem(path, null as ClassLoader?).use { fs ->
+                for (c in classes) {
+                    val e = src.getEntry(c) ?: throw GradleException("no source for the shaded JvmDowngrader class $c")
+                    val to = fs.getPath("META-INF/licenses/jvmdowngrader-src/$c")
+                    Files.createDirectories(to.parent)
+                    src.getInputStream(e).use { i -> Files.copy(i, to, StandardCopyOption.REPLACE_EXISTING) }
+                }
+            }
+        }
+    }
 }
 
 // The tests run on Java 8, as the players' game does (test), and on Java 25 (test25): the downgraded classes on both.

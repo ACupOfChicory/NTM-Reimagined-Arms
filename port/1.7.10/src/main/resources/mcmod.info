@@ -7,7 +7,7 @@
 	"url": "",
 	"updateUrl": "",
 	"authorList": ["ACupOfChicory"],
-	"credits": "Weapon sway after Superb Warfare (GPL-3.0-only).",
+	"credits": "Weapon sway after Superb Warfare (GPL-3.0-only). Includes JvmDowngrader stubs by William Gray (LGPL-2.1-or-later, see META-INF/licenses).",
 	"logoFile": "",
 	"screenshots": [],
 	"requiredMods": ["hbm"],

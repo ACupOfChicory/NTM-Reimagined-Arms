@@ -1,0 +1,24 @@
+JvmDowngrader — William Gray (wagyourtail) <jvmdowngrader@wagyourtail.xyz>
+https://github.com/unimined/JvmDowngrader
+Версия: 2.0.1 (xyz.wagyourtail.jvmdowngrader:jvmdowngrader-java-api:2.0.1)
+Copyright (C) 2024 William Gray
+
+Сборка порта на Minecraft 1.7.10 понижает байткод мода до Java 8 инструментом
+JvmDowngrader и встраивает в jar классы-заглушки из его библиотеки java-api:
+замены методов Java 9+ (например, Math.clamp и Map.of), которых нет в Java 8.
+Они лежат в jar под reimagined-arms/xyz/wagyourtail/jvmdg/.
+Изменения: инструмент перенёс эти классы в этот пакет, понизил их до байткода
+Java 8 и оставил только те, что вызывает мод. Исходный код заглушек не менялся.
+
+Эти классы распространяются по GNU Lesser General Public License версии 2.1
+или (на ваш выбор) любой более поздней версии (LGPL-2.1-or-later).
+Полный текст лицензии: jvmdowngrader-LGPL-2.1.txt в этом каталоге.
+
+Исходники встроенных классов лежат в jar в META-INF/licenses/jvmdowngrader-src/.
+Полные исходники этой версии библиотеки:
+https://repo1.maven.org/maven2/xyz/wagyourtail/jvmdowngrader/jvmdowngrader-java-api/2.0.1/jvmdowngrader-java-api-2.0.1-sources.jar
+Исходники мода и сборка, которой jar пересобирается с изменённой библиотекой:
+https://github.com/ACupOfChicory/NTM-NEXT-Reimagined-Arms (каталог port/1.7.10).
+
+Остальной код NTM Reimagined Arms остаётся под GPL-3.0-or-later; WeaponSway.java —
+под GPL-3.0-only (см. superb-warfare.txt).
