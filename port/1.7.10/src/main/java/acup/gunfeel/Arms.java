@@ -171,6 +171,7 @@ public final class Arms {
         List<S_GroupObject> groups = model.groupObjects;
         for (int p = 0; p < groups.size(); p++) {
             String n = groups.get(p).name;
+            if (notGunPart(model, n)) continue;
             int named = 0;
             if (names != null) for (String s : names) if (s != null && s.equalsIgnoreCase(n)) named++;
             // renderOnly draws a group once for each time it is named, renderAllExcept once if it is not named
@@ -193,6 +194,27 @@ public final class Arms {
             notGun = src == null ? new Object() : src;
         }
         return model == notGun;
+    }
+
+    // port: parts of the gun's own model that 26.2 draws through submitCustomGeometry, past its hooked submitPart, so
+    // they are not in the gun's geometry there: N I 4 N I's coins, SPAS-12's shells, MAS-36's clipped bullets
+    private static Object[] sidePartModels;
+    private static final String[][] SIDE_PARTS = {{"Coin1", "Coin2", "Coin3", "Coin4"}, {"Shell", "ShellFore"}, {"Bullets"}};
+
+    private static boolean notGunPart(HFRWavefrontObject model, String name) {
+        if (sidePartModels == null) {
+            Object[] m = {com.hbm.main.ResourceManager.n_i_4_n_i, com.hbm.main.ResourceManager.spas_12, com.hbm.main.ResourceManager.mas36};
+            for (int i = 0; i < m.length; i++) {
+                Object src = m[i] instanceof HFRWavefrontObject ? m[i] : HFRWavefrontObject.allVBOs.get(m[i]);
+                m[i] = src == null ? new Object() : src;
+            }
+            sidePartModels = m;
+        }
+        for (int i = 0; i < sidePartModels.length; i++) {
+            if (model != sidePartModels[i]) continue;
+            for (String s : SIDE_PARTS[i]) if (s.equalsIgnoreCase(name)) return true;
+        }
+        return false;
     }
 
     public static void part(float[] pose, HFRWavefrontObject model, int part) {

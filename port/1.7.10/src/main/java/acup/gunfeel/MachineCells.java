@@ -42,7 +42,33 @@ public final class MachineCells {
         if (core == null) return null;
         String id = Block.blockRegistry.getNameForObject(b);
         if (id == null) return null;
-        return key(id, world.getBlockMetadata(core[0], core[1], core[2]), x - core[0], y - core[1], z - core[2]);
+        return key(id, world.getBlockMetadata(core[0], core[1], core[2]), x - core[0], layer(b, y - core[1]), z - core[2]);
+    }
+
+    static boolean elevator(Block b) {
+        return b instanceof com.hbm.blocks.machine.BlockCargoElevator;
+    }
+
+    // 26.2's Structures.layer: the elevator's sections above its base are all alike, one layer stands for them
+    static int layer(Block b, int dy) {
+        return elevator(b) ? Math.min(dy, 1) : dy;
+    }
+
+    // what the bullet meets in this block besides its cells: the cargo elevator's platform and piston where they are
+    // now (ElevatorMesh, 26.2's Structures.solid), or null
+    static BlockRay.Hit solid(IBlockAccess world, Block b, int x, int y, int z, double fx, double fy, double fz, double tx, double ty, double tz) {
+        if (!elevator(b) || !ElevatorMesh.available()) return null;
+        int[] core;
+        try {
+            core = ((BlockDummyable) b).findCore(world, x, y, z);
+        } catch (RuntimeException e) {
+            return null;
+        }
+        if (core == null) return null;
+        net.minecraft.tileentity.TileEntity te = world.getTileEntity(core[0], core[1], core[2]);
+        if (!(te instanceof com.hbm.tileentity.machine.TileEntityCargoElevator)) return null;
+        com.hbm.tileentity.machine.TileEntityCargoElevator elevator = (com.hbm.tileentity.machine.TileEntityCargoElevator) te;
+        return ElevatorMesh.hit(core[0], core[1], core[2], elevator.extension, x, y, z, fx, fy, fz, tx, ty, tz);
     }
 
     // the cells of the machine's block with its exact faces (MachineFaces), or null

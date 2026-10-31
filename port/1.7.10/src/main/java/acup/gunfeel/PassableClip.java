@@ -85,7 +85,8 @@ public final class PassableClip {
                 BlockRay.Hit in = BlockRay.clip(new double[] {x, y, z, x + 1, y + 1, z + 1}, 1, fx, fy, fz, tx, ty, tz, x, y, z);
                 if (in != null && ModelSurface.present(cells)) {
                     // exact faces (ModelSurface): met by them, in this block only; a machine's window is a face of its own
-                    BlockRay.Hit h = ModelSurface.hit(cells, x, y, z, fx, fy, fz, tx, ty, tz, false, true);
+                    BlockRay.Hit h = nearer(ModelSurface.hit(cells, x, y, z, fx, fy, fz, tx, ty, tz, false, true),
+                            MachineCells.solid(world, b, x, y, z, fx, fy, fz, tx, ty, tz), fx, fy, fz);
                     if (debug)
                         LOGGER.info("[holedebug]   {} {} {} faces: {}", world.isRemote ? "client" : "server", BlockIds.state(Block.blockRegistry.getNameForObject(b), meta),
                                 x + "," + y + "," + z, h == null ? "through the gaps" : h);
@@ -95,6 +96,7 @@ public final class PassableClip {
                 BlockRay.Hit h = in == null ? null : FenceCells.march(glass == null ? cells : or(cells, glass), in, tx - fx, ty - fy, tz - fz, 64);
                 if (h != null && glass != null && FenceCells.cell(glass, cellAt(h.ax - x, tx - fx), cellAt(h.ay - y, ty - fy), cellAt(h.az - z, tz - fz)))
                     h = new BlockRay.GlassHit(h);
+                if (in != null) h = nearer(h, MachineCells.solid(world, b, x, y, z, fx, fy, fz, tx, ty, tz), fx, fy, fz);
                 if (debug && in != null)
                     LOGGER.info("[holedebug]   {} {} {} cells: {}", world.isRemote ? "client" : "server", BlockIds.state(Block.blockRegistry.getNameForObject(b), meta),
                             x + "," + y + "," + z, h == null ? "through the gaps" : h);
@@ -107,6 +109,13 @@ public final class PassableClip {
                         x + "," + y + "," + z, h);
             return h;
         });
+    }
+
+    // whichever the bullet from (fx, fy, fz) meets first: the elevator's platform lies over its base, in the same block
+    private static BlockRay.Hit nearer(BlockRay.Hit a, BlockRay.Hit b, double fx, double fy, double fz) {
+        if (a == null) return b;
+        if (b == null) return a;
+        return b.distance(fx, fy, fz) < a.distance(fx, fy, fz) ? b : a;
     }
 
     private static long[] or(long[] a, long[] b) {

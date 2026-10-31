@@ -53,6 +53,8 @@ final class MachineCapture {
         final Map<Long, long[]> solid = new HashMap<Long, long[]>(), glass = new HashMap<Long, long[]>();
         final List<Integer> tex = new ArrayList<Integer>();
         final List<double[]> p = new ArrayList<double[]>(), uv = new ArrayList<double[]>();
+        // blocks to keep besides the machine's (the elevator's section above its base, not placed)
+        final List<int[]> extra = new ArrayList<int[]>();
 
         // tri: corners from the core block's corner; t: the texture ({{w, h}, argb}), null: untextured
         void add(double[] tri, int[][] t, int index, final double[] u, final double[] v, boolean empty) {
@@ -90,7 +92,9 @@ final class MachineCapture {
             String id = Block.blockRegistry.getNameForObject(b);
             int meta = w.getBlockMetadata(x, y, z);
             Map<String, long[]> out = new TreeMap<String, long[]>();
-            for (int[] o : footprint(w, b, x, y, z)) {
+            List<int[]> blocks = footprint(w, b, x, y, z);
+            blocks.addAll(extra);
+            for (int[] o : blocks) {
                 long at = DoorCapture.pack(o[0] - x, o[1] - y, o[2] - z);
                 long[] bits = solid.get(at);
                 if (bits == null) bits = new long[65];
@@ -125,10 +129,30 @@ final class MachineCapture {
         World w = mc.theWorld;
         TileEntity te = w.getTileEntity(x, y, z);
         if (te == null) return null;
-        List<MachineMesh.Part> parts = MachineMesh.drawnNow(te);
+        List<MachineMesh.Part> parts;
+        // the cargo elevator (26.2's Structures): its base and the guides of one section above it, drawn with its
+        // platform down; the platform and piston move, bullets meet them where they are (ElevatorMesh)
+        boolean elevator = te instanceof com.hbm.tileentity.machine.TileEntityCargoElevator;
+        if (elevator) {
+            com.hbm.tileentity.machine.TileEntityCargoElevator e = (com.hbm.tileentity.machine.TileEntityCargoElevator) te;
+            int height = e.height;
+            boolean platform = e.renderPlatform;
+            e.height = 1;
+            e.renderPlatform = true;
+            try {
+                parts = MachineMesh.drawnNow(te);
+            } finally {
+                e.height = height;
+                e.renderPlatform = platform;
+            }
+        } else {
+            parts = MachineMesh.drawnNow(te);
+        }
         if (parts.isEmpty()) return null;
         Collect c = new Collect();
+        if (elevator) for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) c.extra.add(new int[] {x + dx, y + 1, z + dz});
         for (MachineMesh.Part p : parts) {
+            if (elevator && moving(p.group)) continue;
             final int[][] tex = DoorCapture.texture(p.texture, textures);
             String name = MachineMesh.textureName(p.texture);
             boolean empty = name != null && MachineGlass.empty(name);
@@ -238,6 +262,13 @@ final class MachineCapture {
         int c = icon.indexOf(':');
         String domain = c < 0 ? "minecraft" : icon.substring(0, c), name = c < 0 ? icon : icon.substring(c + 1);
         return domain + ":textures/blocks/" + name + ".png";
+    }
+
+    // the cargo elevator's platform and piston (RenderCargoElevator's parts that move)
+    private static boolean moving(Object group) {
+        String n = group instanceof com.hbm.render.loader.S_GroupObject ? ((com.hbm.render.loader.S_GroupObject) group).name
+                : group instanceof net.minecraftforge.client.model.obj.GroupObject ? ((net.minecraftforge.client.model.obj.GroupObject) group).name : null;
+        return "Platform".equals(n) || "Piston".equals(n);
     }
 
     // the blocks of the machine whose core is at (x, y, z)

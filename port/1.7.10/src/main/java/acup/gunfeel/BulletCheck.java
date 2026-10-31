@@ -141,6 +141,9 @@ public final class BulletCheck {
         // there) still lets it through. The cells as ShapesScenario would make them, put in for the check.
         machineGlass(machineSettings);
 
+        // ---- the cargo elevator's platform (ElevatorMesh): where the elevator has it now, not in its cells
+        elevatorPlatform();
+
         // ---- fences, gates, walls: their posts and rails (26.2's family cells, FenceCells), not their collision boxes
         String cells = null;
         expect("fence: between the rails", Want.PASS, fenceRow(), .25, .65, 30F, cells);
@@ -689,6 +692,37 @@ public final class BulletCheck {
             Files.write(settings, (BulletRules.MACHINES_KEY + " = false\n").getBytes(StandardCharsets.UTF_8));
             Thread.sleep(2100);
             ModelCells.reloadOwn();
+        }
+    }
+
+    // the cargo elevator's core alone (its base, platform down) met from above: the bullet stops on the platform's
+    // top, which moves with the elevator (the mesh at another extension lies that much higher)
+    private static void elevatorPlatform() {
+        check("elevator mesh: read", true, ElevatorMesh.available());
+        int[] at = single("hbm:cargo_elevator", 12);
+        String key = MachineCells.keyAt(level, level.getBlock(at[0], at[1], at[2]), at[0], at[1], at[2]);
+        check("elevator core alone is its own machine", true, key != null);
+        if (key == null) return;
+        java.util.Map<String, long[]> table = new java.util.HashMap<String, long[]>(ModelCells.table());
+        long[] had = table.get(key);
+        MachineFaces.off = true;
+        try {
+            // its base's cells empty: only the platform is left to meet
+            table.put(key, new long[65]);
+            ModelCells.put(table);
+            double x = at[0] + .5, z = at[2] + .5;
+            BlockRay.Hit h = PassableClip.clip(level, net.minecraft.util.Vec3.createVectorHelper(x, at[1] + 3, z), net.minecraft.util.Vec3.createVectorHelper(x, at[1] - 1, z));
+            lines.add("     elevator platform from above: " + h);
+            check("elevator: the platform stops a bullet from above", true, h != null && h.y == at[1] && h.ay > at[1] + .74 && h.ay < at[1] + 1.0001);
+            BlockRay.Hit up = ElevatorMesh.hit(at[0], at[1], at[2], 2.0, at[0], at[1] + 2, at[2], x, at[1] + 5, z, x, at[1] - 1, z);
+            check("elevator: the platform raised by 2 is met 2 higher", true, h != null && up != null && Math.abs(up.ay - h.ay - 2.0) < 1e-6);
+            BlockRay.Hit below = ElevatorMesh.hit(at[0], at[1], at[2], 2.0, at[0], at[1], at[2], x, at[1] + .99, z, x, at[1] - 1, z);
+            check("elevator: the platform raised, the base block has no platform", true, below == null || below.ay < at[1] + .75);
+        } finally {
+            MachineFaces.off = false;
+            if (had != null) table.put(key, had);
+            else table.remove(key);
+            ModelCells.put(table);
         }
     }
 
