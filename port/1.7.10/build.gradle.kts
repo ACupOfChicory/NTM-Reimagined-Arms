@@ -101,6 +101,16 @@ extensions.configure<xyz.wagyourtail.jvmdg.gradle.JVMDowngraderExtension> {
     multiReleaseVersions.set(emptySet())
 }
 
+// JOML, shaded for the arms (dependencies.gradle, third-party/joml.txt): its module-info (Java 9 bytecode) would make
+// FML 1.7.10 on Java 8 drop the whole jar, as META-INF/versions does. The jar reobfJar takes is now shadowJar's, so
+// it gets the licences the jar task has above and below.
+tasks.named<Jar>("shadowJar") {
+    exclude("module-info.class", "META-INF/versions/**", "META-INF/*.kotlin_module")
+    from(repo.resolve("LICENSE"))
+    from(repo.resolve("third-party")) { into("META-INF/licenses") }
+    from(projectDir.resolve("third-party")) { into("META-INF/licenses") }
+}
+
 // ---- JvmDowngrader's stubs in the jar (LGPL-2.1-or-later): the notice, the licence text and their sources ----
 // shadeDowngradedApi puts the java-api classes the mod calls (Math.clamp, Map.of...) into the jar. The LGPL wants
 // their notice, the licence and their source with each copy: third-party/ goes into META-INF/licenses with the jar,

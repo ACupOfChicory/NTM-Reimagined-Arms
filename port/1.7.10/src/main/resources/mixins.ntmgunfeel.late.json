@@ -7,6 +7,6 @@
   "compatibilityLevel": "JAVA_8",
   "injectors": { "defaultRequire": 1 },
   "mixins": [],
-  "client": ["MixinModEventHandlerClient", "MixinItemRenderWeaponBase", "MixinHbmAnimations", "MixinWavefrontObject", "MixinWavefrontObjectVBO", "MixinClock"],
+  "client": ["MixinModEventHandlerClient", "MixinItemRenderWeaponBase", "MixinHbmAnimations", "MixinWavefrontObject", "MixinWavefrontObjectVBO", "MixinClock", "MixinHbmAnimationPacket", "MixinG3Inspect"],
   "server": []
 }

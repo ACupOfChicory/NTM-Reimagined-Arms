@@ -3,6 +3,11 @@ dependencies {
     // Copy it from ~/Riddles-NTM/jars/ into libs/ (libs/ is not in git).
     devOnlyNonPublishable(rfg.deobf(project.files("libs/HBM-NTM-.1.0.27_X5863.jar")))
 
+    // JOML, the vector maths of 26.2's arms (Minecraft 26.2 ships 1.10.8): shaded in and relocated
+    // (acup.gunfeel.shadow.org.joml), since 1.7.10 has none; MIT, see third-party/joml.txt
+    // not transitive: its Gradle metadata pulls in the Kotlin standard library for its Kotlin extensions
+    shadowImplementation("org.joml:joml:1.10.8") { transitive = false }
+
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

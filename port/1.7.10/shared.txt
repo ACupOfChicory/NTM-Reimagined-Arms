@@ -10,6 +10,11 @@ acup/gunfeel/GunClock.java
 acup/gunfeel/Rng.java
 acup/gunfeel/Trace.java
 acup/gunfeel/FixedStep.java
+# arms (port-1.7.10-part-arms.md)
+acup/gunfeel/ArmTimeline.java
+acup/gunfeel/ArmContact.java
+acup/gunfeel/ArmPoseEdits.java
+acup/gunfeel/MagazineInspect.java
 
 [test]
 # src/test/java: they test the port's copies with 26.2's own expectations
@@ -19,6 +24,9 @@ acup/gunfeel/RecoilTest.java
 acup/gunfeel/WeaponSwayTest.java
 acup/gunfeel/ConfigTest.java
 acup/gunfeel/DeterminismTest.java
+acup/gunfeel/ArmContactTest.java
+acup/gunfeel/ArmTimelineTest.java
+acup/gunfeel/ArmPoseEditsTest.java
 
 [resources]
 # src/main/resources
