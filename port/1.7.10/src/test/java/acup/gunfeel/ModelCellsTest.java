@@ -1,5 +1,6 @@
 package acup.gunfeel;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -118,7 +119,12 @@ class ModelCellsTest {
         long[] door = get("minecraft:wooden_door#9");
         assertTrue(ModelCells.shell(ModelCells.unpack(ModelCells.pack(door))));
         long[] bits = get("minecraft:ladder#2");
-        long[] back = FenceCells.unpack(ModelCells.pack(bits));
-        for (int i = 0; i < 64; i++) assertEquals(bits[i], back[i]);
+        // with its exact faces (ModelSurface): the "f" form
+        assertTrue(ModelSurface.present(bits));
+        assertArrayEquals(bits, ModelCells.unpack(ModelCells.pack(bits)));
+        // cells alone: FenceCells' "z" form
+        long[] cells = java.util.Arrays.copyOf(bits, 65);
+        long[] back = FenceCells.unpack(ModelCells.pack(cells));
+        for (int i = 0; i < 64; i++) assertEquals(cells[i], back[i]);
     }
 }

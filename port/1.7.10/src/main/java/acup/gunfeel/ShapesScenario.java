@@ -403,12 +403,15 @@ final class ShapesScenario {
                 GunFeel.LOGGER.warn("Scenario shapes: {}#{} could not be drawn: {}", id, s.meta, e.toString());
                 continue;
             }
-            long[] bits = cells(v, atlas);
+            List<ModelSurface.Face> faces = new ArrayList<ModelSurface.Face>();
+            long[] bits = cells(v, atlas, faces);
             if (ModelCells.empty(bits)) continue;
             double[] boxes = new double[6 * 16];
             int nb = PassableClip.collision(mc.theWorld, s.block, s.x, s.y, s.z, boxes);
             for (int k = 0; k < nb; k++) for (int a = 0; a < 6; a++) boxes[k * 6 + a] -= a % 3 == 0 ? s.x : a % 3 == 1 ? s.y : s.z;
             if (shell(v, boxes, nb)) bits[64] = 1L;
+            // exact faces as 26.2's (MeshShapes.cells): not on a shell, decided where the bullet comes into its box
+            else bits = ModelSurface.attach(bits, faces);
             made.put(ModelCells.key(id, ModelCells.fullMeta(mc.theWorld, s.block, s.meta, s.x, s.y, s.z), joins), bits);
         }
         if (!wrong.isEmpty()) GunFeel.LOGGER.warn("Scenario shapes: not in the client's world (an unused meta?): {}", wrong);
@@ -470,6 +473,11 @@ final class ShapesScenario {
     // 26.2's MeshShapes.cells for the drawn quads: each quad two triangles, a face of a double-sided plane not pushed
     // behind
     static long[] cells(float[] v, Atlas atlas) {
+        return cells(v, atlas, null);
+    }
+
+    // faces (not null): each triangle's exact face too (ModelSurface: its pixels on the atlas' grid)
+    static long[] cells(float[] v, Atlas atlas, List<ModelSurface.Face> faces) {
         long[] bits = new long[65];
         int quads = v.length / 20;
         Set<String> planes = new HashSet<String>();
@@ -486,6 +494,10 @@ final class ShapesScenario {
                 final float[] w = {v[(q * 4 + a) * 5 + 4], v[(q * 4 + b) * 5 + 4], v[(q * 4 + c) * 5 + 4]};
                 ModelCells.fill(bits, tri(v, q, a, b, c), behind,
                         (wa, wb, wc) -> atlas.shown(wa * u[0] + wb * u[1] + wc * u[2], wa * w[0] + wb * w[1] + wc * w[2]));
+                if (faces != null) {
+                    ModelSurface.Face f = MachineFaces.face(tri(v, q, a, b, c), atlas.tex(), new double[] {u[0], u[1], u[2]}, new double[] {w[0], w[1], w[2]}, false);
+                    if (f != null) faces.add(f);
+                }
             }
         }
         return bits;
@@ -581,6 +593,14 @@ final class ShapesScenario {
             return new Atlas(w, h, px);
         }
 
+        private MachineFaces.Tex tex;
+
+        // the atlas as MachineFaces' texture (its shown pixels)
+        MachineFaces.Tex tex() {
+            if (tex == null) tex = MachineFaces.Tex.of(null, new int[][] {{w, h}, argb});
+            return tex;
+        }
+
         // the pixel at (u, v) passes 1.7.10's alpha test (alpha over 0.1)
         boolean shown(double u, double v) {
             int x = (int) Math.floor(u * w), y = (int) Math.floor(v * h);
@@ -595,6 +615,8 @@ final class ShapesScenario {
             wr.write("# The 16 x 16 x 16 cells bullets meet in 1.7.10 blocks drawn as a model inside their hitbox or with see-through\n");
             wr.write("# pixels (ModelCells), made by gradle runClient -Pscenario=shapes (ShapesScenario) from what RenderBlocks draws.\n");
             wr.write("# Key: block id # meta, and for blocks joining their neighbours / the joins north east south west (1 joined).\n");
+            wr.write("# Machines: <id>#machine/<core meta>/<dx>,<dy>,<dz> (MachineCells), their glass with /glass. A shape is \"z\" + its\n");
+            wr.write("# 64 longs deflated in base64 (\"!\" before it: a shell), or \"f\" + all its longs with exact faces (ModelSurface).\n");
             Map<String, String> shapeIds = new TreeMap<String, String>();
             Map<String, String> lines = new TreeMap<String, String>();
             for (Map.Entry<String, long[]> e : made.entrySet()) {
