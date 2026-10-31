@@ -6,6 +6,9 @@
 acup/gunfeel/Recoil.java
 acup/gunfeel/Spring.java
 acup/gunfeel/Curve.java
+acup/gunfeel/GunClock.java
+acup/gunfeel/Rng.java
+acup/gunfeel/Trace.java
 
 [test]
 # src/test/java: they test the port's copies with 26.2's own expectations
@@ -14,6 +17,7 @@ acup/gunfeel/CurveTest.java
 acup/gunfeel/RecoilTest.java
 acup/gunfeel/WeaponSwayTest.java
 acup/gunfeel/ConfigTest.java
+acup/gunfeel/DeterminismTest.java
 
 [resources]
 # src/main/resources

@@ -19,6 +19,8 @@ public final class GunFeelClient {
     // renderer drawing the first-person gun right now (null outside of it)
     public static ItemRenderWeaponBase current;
     public static boolean currentAkimbo;
+    // the frame's partial tick, from RenderTickEvent (26.2: DeltaTracker), for a trace's time
+    public static volatile float partial;
     private static final Map<Item, Long> SEEN_SHOT = new IdentityHashMap<Item, Long>();
 
     private GunFeelClient() {
@@ -57,6 +59,7 @@ public final class GunFeelClient {
     @SubscribeEvent
     public void renderTick(TickEvent.RenderTickEvent e) {
         if (e.phase != TickEvent.Phase.START) return;
+        partial = e.renderTickTime;
         Config.poll();
         EntityPlayer player = Minecraft.getMinecraft().thePlayer;
         ItemStack held = player == null ? null : player.getHeldItem();

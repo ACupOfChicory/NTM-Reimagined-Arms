@@ -16,7 +16,9 @@ public final class GunFeelMod {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         GunFeel.LOGGER.info("NTM Reimagined Arms {} ({}) on Java {}", BuildInfo.DISPLAY, BuildInfo.VERSION, System.getProperty("java.version"));
-        if (FMLCommonHandler.instance().getSide() == Side.CLIENT) GunFeelClient.init();
+        boolean client = FMLCommonHandler.instance().getSide() == Side.CLIENT;
+        if (client) GunFeelClient.init();
+        TraceHooks.register(client);
     }
 
     // dev runs (runServer): a file "autostop" in the run folder stops the test server once it is up

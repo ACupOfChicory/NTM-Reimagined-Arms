@@ -10,7 +10,7 @@ import org.lwjgl.opengl.GL11;
 // (times modelKick): the preset is for the gun's class already, so NTM's recoil number does not scale it again. Yaw
 // and roll get a random direction and size per shot. Overlapping shots add up. Rotation pivots on the right-hand grip.
 //
-// port: copied from 26.2 (4a6ec20, notes/ports/port-1.7.10-copied.md). The numbers are 26.2's; the clock and the
+// port: copied from 26.2 (4c720e2, notes/ports/port-1.7.10-copied.md). The numbers are 26.2's; the clock and the
 // random numbers come in as arguments (shot, sample) for the tests, and apply turns the GL matrix (26.2: PoseStack).
 public final class ModelRecoil {
     private static final class Shot {
@@ -37,7 +37,6 @@ public final class ModelRecoil {
         }
     }
 
-    private static final Random RANDOM = new Random();
     private static final List<Shot> SHOTS = new ArrayList<Shot>();
 
     private ModelRecoil() {
@@ -48,10 +47,10 @@ public final class ModelRecoil {
     }
 
     public static void shot(boolean aiming) {
-        shot(aiming, System.nanoTime(), RANDOM);
+        shot(aiming, GunClock.nanos(), Rng.model());
     }
 
-    // the same draws from `random` in the same order as 26.2
+    // the same draws from `random` (26.2: Rng.model()) in the same order as 26.2
     static void shot(boolean aiming, long now, Random random) {
         float s = Config.modelKick * (aiming ? Config.adsRecoil : 1F);
         if (s <= 0F) return;
@@ -64,6 +63,10 @@ public final class ModelRecoil {
                 loose * (random.nextBoolean() ? 1F : -1F) * (0.6F + 0.6F * random.nextFloat()),
                 RecoilPresets.channel("kickPitch"), RecoilPresets.channel("kickYaw"), RecoilPresets.channel("kickRoll"),
                 RecoilPresets.channel("kickPosY"), RecoilPresets.channel("kickPosZ")));
+        if (TestLog.frames()) {
+            Shot n = SHOTS.get(SHOTS.size() - 1);
+            TestLog.c(-1, "kick_shot", "strength", n.strength, "speed", n.speed, "pitch", n.pitch, "yaw", n.yaw, "roll", n.roll);
+        }
     }
 
     static void reset() {
@@ -93,9 +96,10 @@ public final class ModelRecoil {
     // The GL matrix is NTM's gun frame before the model scale: +Z forward, +Y up. size = gun length there,
     // pivot = the right-hand grip there.
     public static void apply(float size, float[] pivot) {
-        float[] k = sample(System.nanoTime());
+        float[] k = sample(GunClock.nanos());
         if (k == null) return;
         float pitch = k[0], yaw = k[1], roll = k[2], y = k[3], z = k[4];
+        if (TestLog.frames()) TestLog.c(-1, "kick", "shots", SHOTS.size(), "pitch", pitch, "yaw", yaw, "roll", roll, "y", y, "z", z, "size", size, "pivot", pivot);
         float px = size * 0.016F; // one kick unit (1/16 of the gun length scale) in this frame
         GL11.glTranslatef(0F, y * px, -z * px);
         GL11.glTranslatef(pivot[0], pivot[1], pivot[2]);

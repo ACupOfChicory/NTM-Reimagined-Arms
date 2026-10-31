@@ -12,7 +12,7 @@ import com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase;
 import net.minecraft.client.entity.EntityPlayerSP;
 
 /** Отставание от поворота камеры по расчёту Superb Warfare, без второго фильтра. */
-// port: copied from 26.2 (4a6ec20, notes/ports/port-1.7.10-copied.md): Turn, fromAngles and sample unchanged,
+// port: copied from 26.2 (4c720e2, notes/ports/port-1.7.10-copied.md): Turn, fromAngles and sample unchanged,
 // apply draws with GL11 and reads EntityPlayerSP.renderArmPitch/Yaw (26.2: LocalPlayer.xBob/yBob).
 public final class WeaponSway {
     public record Turn(float pitch,float yaw,float roll,float x) {}
@@ -39,7 +39,12 @@ public final class WeaponSway {
         float armPitch=lerp(partial,player.prevRenderArmPitch,player.renderArmPitch);
         float armYaw=lerp(partial,player.prevRenderArmYaw,player.renderArmYaw);
         float aiming=lerp(partial,ItemGunBaseNT.prevAimingProgress,ItemGunBaseNT.aimingProgress);
-        return fromAngles(lerp(partial,player.prevRotationPitch,player.rotationPitch),lerp(partial,player.prevRotationYaw,player.rotationYaw),armPitch,armYaw,aiming);
+        float viewPitch=lerp(partial,player.prevRotationPitch,player.rotationPitch),viewYaw=lerp(partial,player.prevRotationYaw,player.rotationYaw);
+        Turn turn=fromAngles(viewPitch,viewYaw,armPitch,armYaw,aiming);
+        // the trace's vectors as 26.2 writes its Vector3f: x,y,z
+        if(TestLog.frames()) TestLog.c(-1,"sway","view",new float[] {viewPitch,viewYaw,0F},
+                "arm",new float[] {armPitch,armYaw,0F},"aiming",aiming,"pitch",turn.pitch(),"yaw",turn.yaw(),"roll",turn.roll(),"x",turn.x());
+        return turn;
     }
     public static void apply(EntityPlayerSP player) {
         Turn turn=turn(player);
