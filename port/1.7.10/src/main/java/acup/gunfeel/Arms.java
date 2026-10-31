@@ -182,8 +182,21 @@ public final class Arms {
         }
     }
 
+    // port: models NTM 1.7.10 draws with the gun that are not the gun (Sexy's whiskey bottle, drawn before it): on 26.2
+    // they are drawn past the hooked model calls (submitCustomGeometry), here they would be taken for the gun's model
+    private static Object notGun;
+
+    private static boolean notGun(HFRWavefrontObject model) {
+        if (notGun == null) {
+            Object w = com.hbm.main.ResourceManager.whiskey;
+            Object src = w instanceof HFRWavefrontObject ? w : HFRWavefrontObject.allVBOs.get(w);
+            notGun = src == null ? new Object() : src;
+        }
+        return model == notGun;
+    }
+
     public static void part(float[] pose, HFRWavefrontObject model, int part) {
-        if (!capturing) return;
+        if (!capturing || notGun(model)) return;
         if (frameModel == null) {
             frameModel = model;
             FOLLOW_ID[0] = partByName(model, Config.armPartRight);
