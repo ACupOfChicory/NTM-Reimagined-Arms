@@ -91,11 +91,16 @@ public final class MachineMesh {
     static final class Hit {
         final double[] point, normal;
         final Anchor anchor;
+        final Part part;
+        // the triangle met, its corners in the part's model space
+        final double[] triangle;
 
-        Hit(double[] point, double[] normal, Anchor anchor) {
+        Hit(double[] point, double[] normal, Anchor anchor, Part part, double[] triangle) {
             this.point = point;
             this.normal = normal;
             this.anchor = anchor;
+            this.part = part;
+            this.triangle = triangle;
         }
     }
 
@@ -302,12 +307,128 @@ public final class MachineMesh {
                         double[] local = {wa * m[0] + wb * m[3] + wc * m[6], wa * m[1] + wb * m[4] + wc * m[7], wa * m[2] + wb * m[5] + wc * m[8]};
                         double[] tangent = tangent(ln);
                         best = bt[0];
-                        out = new Hit(new double[] {hx, hy, hz}, wn, new Anchor(w, te.xCoord, te.yCoord, te.zCoord, p, local, ln, tangent));
+                        out = new Hit(new double[] {hx, hy, hz}, wn, new Anchor(w, te.xCoord, te.yCoord, te.zCoord, p, local, ln, tangent), p, m);
                     }
                 }
             }
         }
         return out;
+    }
+
+    // The hole of half-size `half` (world units) laid over the part's surface around the hit (26.2: connectedPieces,
+    // DecalSurface): the part's triangles joined to the hit one by their edges, unfolded into the hole's plane and cut
+    // to its square. Each piece: its unit normal in model space (3), then its corners {x, y, z, a, b}: the point in
+    // model space and where it falls on the hole's square (0..1 each). Empty: none (the hole is then drawn square).
+    static List<float[]> wrap(Hit hit, double half) {
+        List<float[]> out = new ArrayList<float[]>();
+        Anchor a = hit.anchor;
+        // the part's model space is the world's scaled: the hole's size there
+        float[] mv = hit.part.mv;
+        double scale = Math.sqrt(mv[0] * mv[0] + mv[1] * mv[1] + mv[2] * mv[2]);
+        if (!(scale > 1e-9)) return out;
+        double h = half / scale, reach = h * 1.5;
+        List<DecalSurface.Face> faces = new ArrayList<DecalSurface.Face>();
+        faces.add(face(hit.triangle));
+        for (float[] f : faces(hit.part.group)) {
+            int corners = f.length / 5;
+            for (int i = 1; i + 1 < corners; i++) {
+                double[] t = new double[9];
+                int[] k = {0, i, i + 1};
+                boolean near = true;
+                for (int c = 0; c < 3; c++) for (int ax = 0; ax < 3; ax++) t[c * 3 + ax] = f[k[c] * 5 + ax];
+                for (int ax = 0; ax < 3 && near; ax++) {
+                    double lo = Math.min(t[ax], Math.min(t[3 + ax], t[6 + ax])), hi = Math.max(t[ax], Math.max(t[3 + ax], t[6 + ax]));
+                    near = lo <= a.local[ax] + reach && hi >= a.local[ax] - reach;
+                }
+                if (!near || java.util.Arrays.equals(t, hit.triangle)) continue;
+                faces.add(face(t));
+            }
+        }
+        org.joml.Vector3d origin = new org.joml.Vector3d(a.local[0], a.local[1], a.local[2]);
+        org.joml.Vector3d n = new org.joml.Vector3d(a.normal[0], a.normal[1], a.normal[2]);
+        org.joml.Vector3d u = new org.joml.Vector3d(a.tangent[0], a.tangent[1], a.tangent[2]);
+        org.joml.Vector3d v = new org.joml.Vector3d(n).cross(u);
+        DecalSurface.Frame[] frames = DecalSurface.unfold(faces, 0, new DecalSurface.Frame(origin, u, v, n), h);
+        for (int i = 0; i < faces.size(); i++) {
+            DecalSurface.Frame fr = frames[i];
+            if (fr == null) continue;
+            List<double[]> poly = new ArrayList<double[]>();
+            for (org.joml.Vector3d p : faces.get(i).points) poly.add(new double[] {fr.x(p), fr.y(p), p.x, p.y, p.z});
+            poly = cut(cut(cut(cut(poly, 0, -h, true), 0, h, false), 1, -h, true), 1, h, false);
+            if (poly.size() < 3) continue;
+            // the piece's normal turned to the side the hole's own face looks
+            org.joml.Vector3d pn = new org.joml.Vector3d(faces.get(i).normal);
+            if (pn.dot(fr.normal()) < 0) pn.negate();
+            float[] piece = new float[3 + poly.size() * 5];
+            piece[0] = (float) pn.x;
+            piece[1] = (float) pn.y;
+            piece[2] = (float) pn.z;
+            for (int c = 0; c < poly.size(); c++) {
+                double[] q = poly.get(c);
+                piece[3 + c * 5] = (float) q[2];
+                piece[3 + c * 5 + 1] = (float) q[3];
+                piece[3 + c * 5 + 2] = (float) q[4];
+                piece[3 + c * 5 + 3] = (float) ((q[0] + h) / (2 * h));
+                piece[3 + c * 5 + 4] = (float) ((q[1] + h) / (2 * h));
+            }
+            out.add(piece);
+        }
+        return out;
+    }
+
+    private static DecalSurface.Face face(double[] t) {
+        List<org.joml.Vector3d> points = new ArrayList<org.joml.Vector3d>(3);
+        for (int c = 0; c < 3; c++) points.add(new org.joml.Vector3d(t[c * 3], t[c * 3 + 1], t[c * 3 + 2]));
+        double[] n = normal(t);
+        return new DecalSurface.Face(points, n == null ? new org.joml.Vector3d() : new org.joml.Vector3d(n[0], n[1], n[2]));
+    }
+
+    // the polygon's part on one side of the line where coordinate `axis` is `at` (keep: low = the side above it)
+    // (Sutherland-Hodgman; corners lerped in all their numbers)
+    static List<double[]> cut(List<double[]> poly, int axis, double at, boolean low) {
+        List<double[]> out = new ArrayList<double[]>();
+        for (int i = 0; i < poly.size(); i++) {
+            double[] p = poly.get(i), q = poly.get((i + 1) % poly.size());
+            boolean pin = low ? p[axis] >= at : p[axis] <= at, qin = low ? q[axis] >= at : q[axis] <= at;
+            if (pin) out.add(p);
+            if (pin != qin) {
+                double t = (at - p[axis]) / (q[axis] - p[axis]);
+                double[] m = new double[p.length];
+                for (int k = 0; k < p.length; k++) m[k] = p[k] + (q[k] - p[k]) * t;
+                out.add(m);
+            }
+        }
+        return out;
+    }
+
+    // the wrapped pieces of a hole where its part is now, in the world: each {unit normal (3), then corners {x, y, z,
+    // a, b}}; null = not drawn now
+    static List<double[]> placePieces(Anchor a, List<float[]> pieces) {
+        TileEntity te = a.world.getTileEntity(a.x, a.y, a.z);
+        if (te == null) return null;
+        for (Part p : drawn(te)) {
+            if (!p.same(a)) continue;
+            List<double[]> out = new ArrayList<double[]>(pieces.size());
+            for (float[] pc : pieces) {
+                double[] n = unit(turn(p.mv, new double[] {pc[0], pc[1], pc[2]}));
+                if (n == null) continue;
+                double[] w = new double[pc.length];
+                w[0] = n[0];
+                w[1] = n[1];
+                w[2] = n[2];
+                for (int c = 3; c + 4 < pc.length; c += 5) {
+                    double[] q = apply(p.mv, pc[c], pc[c + 1], pc[c + 2]);
+                    w[c] = q[0] + a.x;
+                    w[c + 1] = q[1] + a.y;
+                    w[c + 2] = q[2] + a.z;
+                    w[c + 3] = pc[c + 3];
+                    w[c + 4] = pc[c + 4];
+                }
+                out.add(w);
+            }
+            return out;
+        }
+        return null;
     }
 
     // where the anchor's hole is now: {point, unit normal, unit texture-u axis, unit texture-v axis} in the world;

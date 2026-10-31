@@ -320,11 +320,15 @@ public final class Tracers {
         PENDING.addLast(new Pending(w, new double[] {px, py, pz}, face, new int[] {bx, by, bz}, bc, new double[] {dx, dy, dz}, null, shot));
     }
 
-    // the holes on machines and doors now (the look scenario's log)
-    public static int machineHoles() {
+    // the holes on machines and doors now, and how many pieces each is wrapped into (the look scenario's log)
+    public static String machineHoles() {
         int n = 0;
-        for (Hole h : HOLES) if (h.machine()) n++;
-        return n;
+        StringBuilder pieces = new StringBuilder();
+        for (Hole h : HOLES) if (h.machine()) {
+            n++;
+            pieces.append(pieces.length() == 0 ? "" : " ").append(h.pieces.size());
+        }
+        return n + " (pieces " + pieces + ")";
     }
 
     // /gunfeel clearholes: every hole, scratch and scorch mark in this world, and the ones still to be made; how many
@@ -542,6 +546,8 @@ public final class Tracers {
         final double[] box;
         // on what a renderer draws (NTM's machines and doors, MachineMesh): where it sits on its part; null = on a block face
         MachineMesh.Anchor mesh;
+        // ... its pieces wrapped over the part's surface (MachineMesh.wrap); empty: a square on the hit plane
+        List<float[]> pieces = java.util.Collections.emptyList();
 
         Hole(double[] pos, int face, int turn, long born, int light, int kind, float size, double[] rect, HoleMath.Mask mask, double plane,
                 boolean cull, int[] at, Block block, int meta, double[] box, int shot) {
@@ -621,7 +627,8 @@ public final class Tracers {
     }
 
     // a hole on what a renderer draws (MachineMesh: NTM's machines and doors), on the drawn triangle the bullet met;
-    // none where nothing is drawn. Square, not cut to the triangle's edges (26.2's DecalSurface wraps it over them).
+    // none where nothing is drawn. Wrapped over the part's edges and cut to its surface (MachineMesh.wrap, 26.2's
+    // DecalSurface); square on the hit plane when that finds nothing.
     private static Hole meshHole(Pending p, Block b, int meta) {
         if (p.dir == null) return null;
         MachineMesh.Hit hit = MachineMesh.hit(p.world, p.pos, p.at, p.dir);
@@ -640,6 +647,7 @@ public final class Tracers {
         int face = dominant(n);
         Hole h = new Hole(hit.point, face, turn, GunClock.nanos(), light, kind, size, null, null, Double.NaN, false, pos.clone(), b, meta, null, p.shot);
         h.mesh = hit.anchor;
+        h.pieces = MachineMesh.wrap(hit, size * 0.5);
         HOLES.addLast(h);
         trimHoles();
         return h;
@@ -843,14 +851,39 @@ public final class Tracers {
     private static void placeMeshHoles(long now, long life, List<Hole> holes, List<double[][]> places) {
         for (Hole h : HOLES) {
             if (h.mesh == null || HoleMath.alpha(now - h.born, life) <= 0) continue;
-            double[][] at = MachineMesh.place(h.mesh);
+            double[][] at;
+            if (!h.pieces.isEmpty()) {
+                List<double[]> pieces = MachineMesh.placePieces(h.mesh, h.pieces);
+                at = pieces == null ? null : pieces.toArray(new double[0][]);
+            } else {
+                double[][] sq = MachineMesh.place(h.mesh);
+                at = sq == null ? null : new double[][] {square(sq, h.size * 0.5)};
+            }
             if (at == null) continue;
             holes.add(h);
             places.add(at);
         }
     }
 
+    // a hole drawn square on its plane (place: point, normal, u, v) as one piece: {normal, corners {x, y, z, a, b}}
+    private static double[] square(double[][] at, double half) {
+        double[] p = at[0], n = at[1], u = at[2], v = at[3];
+        double[] out = new double[3 + 4 * 5];
+        out[0] = n[0];
+        out[1] = n[1];
+        out[2] = n[2];
+        float[][] corners = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+        for (int c = 0; c < 4; c++) {
+            double a = (corners[c][0] * 2 - 1) * half, b = (corners[c][1] * 2 - 1) * half;
+            for (int k = 0; k < 3; k++) out[3 + c * 5 + k] = p[k] + u[k] * a + v[k] * b;
+            out[3 + c * 5 + 3] = corners[c][0];
+            out[3 + c * 5 + 4] = corners[c][1];
+        }
+        return out;
+    }
+
     // each where its part is now: a square on the part's plane, lifted towards the camera, seen from both sides
+    // places: per hole its pieces, each {normal, corners {x, y, z, a, b}}
     private static void drawMeshHoles(Minecraft mc, Tessellator t, long now, long life, List<Hole> holes, List<double[][]> places) {
         if (holes.isEmpty()) return;
         GL11.glDisable(GL11.GL_CULL_FACE);
@@ -859,10 +892,6 @@ public final class Tracers {
             for (int i = 0; i < holes.size(); i++) {
                 Hole h = holes.get(i);
                 if (h.kind != kind) continue;
-                double[][] at = places.get(i);
-                double[] p = at[0], n = at[1], u = at[2], v = at[3];
-                double side = (CAMERA[0] - p[0]) * n[0] + (CAMERA[1] - p[1]) * n[1] + (CAMERA[2] - p[2]) * n[2] >= 0 ? 1 : -1;
-                double half = h.size * 0.5, lift = 0.003 * side;
                 if (!started) {
                     started = true;
                     mc.getTextureManager().bindTexture(TEXTURES[kind]);
@@ -870,13 +899,23 @@ public final class Tracers {
                 }
                 t.setBrightness(h.light);
                 t.setColorRGBA_I(0xFFFFFF, HoleMath.alpha(now - h.born, life));
-                t.setNormal((float) (n[0] * side), (float) (n[1] * side), (float) (n[2] * side));
-                float[][] corners = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
-                for (float[] c : corners) {
-                    float[] uv = HoleMath.holeUv(h.turn, c[0], c[1]);
-                    double a = (c[0] * 2 - 1) * half, b = (c[1] * 2 - 1) * half;
-                    t.addVertexWithUV(p[0] + u[0] * a + v[0] * b + n[0] * lift - CAMERA[0], p[1] + u[1] * a + v[1] * b + n[1] * lift - CAMERA[1],
-                            p[2] + u[2] * a + v[2] * b + n[2] * lift - CAMERA[2], uv[0], 1F - uv[1]);
+                for (double[] pc : places.get(i)) {
+                    int corners = (pc.length - 3) / 5;
+                    if (corners < 3) continue;
+                    double nx = pc[0], ny = pc[1], nz = pc[2];
+                    // lifted off the surface towards the camera: seen from either side
+                    double side = (CAMERA[0] - pc[3]) * nx + (CAMERA[1] - pc[4]) * ny + (CAMERA[2] - pc[5]) * nz >= 0 ? 1 : -1, lift = 0.003 * side;
+                    t.setNormal((float) (nx * side), (float) (ny * side), (float) (nz * side));
+                    // a fan of quads (the last corner twice: a triangle)
+                    for (int k = 1; k + 1 < corners; k += 2) {
+                        int[] fan = {0, k, k + 1, Math.min(k + 2, corners - 1)};
+                        for (int c : fan) {
+                            int o = 3 + c * 5;
+                            float[] uv = HoleMath.holeUv(h.turn, (float) pc[o + 3], (float) pc[o + 4]);
+                            t.addVertexWithUV(pc[o] + nx * lift - CAMERA[0], pc[o + 1] + ny * lift - CAMERA[1], pc[o + 2] + nz * lift - CAMERA[2],
+                                    uv[0], 1F - uv[1]);
+                        }
+                    }
                 }
             }
             if (started) t.draw();

@@ -27,6 +27,8 @@ acup/gunfeel/ArmPoseEdits.java
 acup/gunfeel/MagazineInspect.java
 # living spread
 acup/gunfeel/SpreadModel.java
+# holes wrapped over a model's edges (MachineMesh)
+acup/gunfeel/DecalSurface.java
 # NTM compatibility (port: Feature, Compat, MixinProbe, NtmCheck are the port's)
 acup/gunfeel/compat/ApiProbe.java
 
@@ -45,6 +47,7 @@ acup/gunfeel/PenetrationTest.java
 acup/gunfeel/ArmContactTest.java
 acup/gunfeel/ArmTimelineTest.java
 acup/gunfeel/ArmPoseEditsTest.java
+acup/gunfeel/DecalSurfaceTest.java
 
 [resources]
 # src/main/resources
