@@ -1,9 +1,11 @@
 package acup.gunfeel.mixins;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -15,6 +17,8 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
 import acup.gunfeel.BlockRay;
+import acup.gunfeel.ModelAABB;
+import acup.gunfeel.ModelHits;
 import acup.gunfeel.BulletServer;
 import acup.gunfeel.PassableClip;
 import net.minecraft.entity.Entity;
@@ -45,6 +49,51 @@ public abstract class MixinThrowableClip extends Entity {
     // blocks the bullet pierced (bullet rules "pierce"), kept between ticks: one it stopped inside of is not paid twice
     @Unique
     private Set<Long> gunfeel$pierced;
+
+    @Shadow
+    protected abstract double motionMult();
+
+    // the mobs' hitboxes from their models (26.2: MixinThrowableHit's other part): while the bullet's tick runs on the
+    // server, rays are checked against the pose its shooter sees (ModelHits), NTM's entity.boundingBox in the hit loop is
+    // the model's box (ModelAABB: its calculateIntercept clips against the model) and the mobs whose model sticks out of
+    // the vanilla box are candidates too
+    @Unique
+    private ModelHits.ShotContext gunfeel$hitsPrevious;
+    @Unique
+    private boolean gunfeel$hitsOn;
+
+    @Inject(method = "onUpdate", at = @At("HEAD"), remap = true)
+    private void gunfeel$beginHits(CallbackInfo ci) {
+        if (worldObj.isRemote) return;
+        EntityThrowableNT self = (EntityThrowableNT) (Object) this;
+        double travel = Math.sqrt(motionX * motionX + motionY * motionY + motionZ * motionZ) * motionMult();
+        gunfeel$hitsPrevious = ModelHits.beginProjectile(self.getThrower(), travel);
+        gunfeel$hitsOn = true;
+    }
+
+    @Inject(method = "onUpdate", at = @At("RETURN"), remap = true)
+    private void gunfeel$endHits(CallbackInfo ci) {
+        if (!gunfeel$hitsOn) return;
+        gunfeel$hitsOn = false;
+        ModelHits.endShot(gunfeel$hitsPrevious);
+        gunfeel$hitsPrevious = null;
+    }
+
+    @WrapOperation(method = "onUpdate", remap = true, at = @At(value = "FIELD", opcode = org.objectweb.asm.Opcodes.GETFIELD, remap = true,
+            target = "Lnet/minecraft/entity/Entity;boundingBox:Lnet/minecraft/util/AxisAlignedBB;"))
+    private AxisAlignedBB gunfeel$modelBox(Entity entity, Operation<AxisAlignedBB> original) {
+        if (entity == (Object) this || worldObj.isRemote) return original.call(entity);
+        return ModelAABB.of(entity);
+    }
+
+    @WrapOperation(method = "onUpdate", remap = true, at = @At(value = "INVOKE", remap = true,
+            target = "Lnet/minecraft/world/World;getEntitiesWithinAABBExcludingEntity(Lnet/minecraft/entity/Entity;Lnet/minecraft/util/AxisAlignedBB;)Ljava/util/List;"))
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private List gunfeel$candidates(World world, Entity except, AxisAlignedBB area, Operation<List> original) {
+        List list = original.call(world, except, area);
+        if (world.isRemote) return list;
+        return ModelHits.candidates(world, except, (List<Entity>) list, area, e -> true);
+    }
 
     @Inject(method = "setThrowableHeading", at = @At("HEAD"), remap = true)
     private void gunfeel$traceSpread(double x, double y, double z, float velocity, float inaccuracy, CallbackInfo ci) {
