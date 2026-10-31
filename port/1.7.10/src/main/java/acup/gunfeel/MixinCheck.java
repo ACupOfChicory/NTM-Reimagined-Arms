@@ -21,6 +21,7 @@ public final class MixinCheck {
             {"com.hbm.util.Clock", "1"},
             {"com.hbm.render.entity.projectile.RenderBulletMK4", "1"},
             {"com.hbm.items.weapon.sedna.factory.LegoClient", "1"},
+            {"com.hbm.items.weapon.sedna.factory.Lego", "1"}, // MixinLegoSpread
             {"com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase", "3"},
             {"com.hbm.items.weapon.sedna.mags.MagazineBelt", "2"},
             {"com.hbm.main.ClientProxy", "1"},

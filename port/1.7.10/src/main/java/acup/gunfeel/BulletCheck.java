@@ -276,6 +276,7 @@ public final class BulletCheck {
         // ---- port: 1.7.10's own ray (func_147447_a) gives up after 200 cells: a block 250 blocks away in one tick
         far();
         richterBulletSpeed();
+        spread();
         explosives();
         doors();
         BulletCheckModels.run(level, BulletCheck::check);
@@ -518,6 +519,42 @@ public final class BulletCheck {
         check("Richter 9mm AP: real tick matches configured speed", true, Math.abs(travelled - expected) < 1e-4);
         lines.add("     Richter 9mm AP: " + travelled + " blocks/tick, " + travelled * 20 + " blocks/s at 20 TPS");
         bullet.setDead();
+    }
+
+    // the living spread (MixinLegoSpread, Spread) through NTM's own Lego.calcSpread, with the mod's settings (the server
+    // file is empty here): standing it is NTM's, sneaking x spreadSneak, walking x spreadMove plus spreadSpeed, in the
+    // air plus spreadAir. Each shooter is a new zombie: bloom is per shooter and starts at nothing.
+    private static void spread() {
+        net.minecraft.item.Item item = (net.minecraft.item.Item) net.minecraft.item.Item.itemRegistry.getObject("hbm:item.gun_uzi");
+        if (!(item instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT)) {
+            fail("spread: no hbm:item.gun_uzi");
+            return;
+        }
+        net.minecraft.item.ItemStack stack = new net.minecraft.item.ItemStack(item);
+        com.hbm.items.weapon.sedna.GunConfig gun = ((com.hbm.items.weapon.sedna.ItemGunBaseNT) item).getConfig(stack, 0);
+        com.hbm.items.weapon.sedna.Receiver rec = gun.getReceivers(stack)[0];
+        float ntm = rec.getInnateSpread(stack) + round.spread * rec.getAmmoSpread(stack) + rec.getHipfireSpread(stack);
+        float walk = SpreadModel.WALK;
+        float stand = shooterSpread(gun, stack, rec, false, 0, true), sneak = shooterSpread(gun, stack, rec, true, 0, true);
+        float moving = shooterSpread(gun, stack, rec, false, walk, true), air = shooterSpread(gun, stack, rec, false, 0, false);
+        lines.add("     spread uzi: NTM " + ntm + ", standing " + stand + ", sneaking " + sneak + ", walking " + moving + ", in the air " + air);
+        check("spread: standing is NTM's", true, Math.abs(stand - ntm * ReaimTimes.number("spreadStand", 1F)) < 1e-6);
+        check("spread: sneaking", true, Math.abs(sneak - ntm * ReaimTimes.number("spreadSneak", 1F)) < 1e-6);
+        check("spread: walking", true, Math.abs(moving - (ntm * ReaimTimes.number("spreadMove", 1F) + ReaimTimes.number("spreadSpeed", 0F))) < 1e-6);
+        check("spread: in the air", true, Math.abs(air - (ntm + ReaimTimes.number("spreadAir", 0F))) < 1e-6);
+        check("spread: the mod's settings change it", true, sneak < stand && stand < moving && stand < air);
+    }
+
+    private static float shooterSpread(com.hbm.items.weapon.sedna.GunConfig gun, net.minecraft.item.ItemStack stack,
+            com.hbm.items.weapon.sedna.Receiver rec, boolean sneak, double moved, boolean ground) {
+        net.minecraft.entity.monster.EntityZombie z = new net.minecraft.entity.monster.EntityZombie(level);
+        z.setPosition(90.5, 200, 90.5);
+        z.lastTickPosX = z.posX - moved;
+        z.lastTickPosZ = z.posZ;
+        z.onGround = ground;
+        z.setSneaking(sneak);
+        return com.hbm.items.weapon.sedna.factory.Lego.calcSpread(new com.hbm.items.weapon.sedna.ItemGunBaseNT.LambdaContext(gun, z, null, 0), stack,
+                rec, round, false, 0, false);
     }
 
     // what a bullet should do at the block: fly on untouched, go through with less damage, stop in it, or any of the

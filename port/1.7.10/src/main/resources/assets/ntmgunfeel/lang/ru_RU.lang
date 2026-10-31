@@ -10,6 +10,7 @@ ntmgunfeel.feature.core=Весь мод
 ntmgunfeel.feature.model_hitboxes=Хитбоксы моделей мобов
 ntmgunfeel.feature.bullets=Пули сквозь блоки
 ntmgunfeel.feature.ricochet_sound=Звук рикошета
+ntmgunfeel.feature.spread=Живой разброс
 ntmgunfeel.feature.ammo_choice=Выбор и фиксация патронов
 ntmgunfeel.feature.recoil=Отдача
 ntmgunfeel.feature.arms=Руки на оружии

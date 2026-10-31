@@ -246,6 +246,10 @@ RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilHorizontal F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
 RECOIL method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/item/ItemStack;)Z
 RICOCHET_SOUND class com/hbm/entity/projectile/EntityBulletBaseMK4
+SPREAD class com/hbm/items/weapon/sedna/BulletConfig
+SPREAD class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
+SPREAD class com/hbm/items/weapon/sedna/Receiver
+SPREAD field com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext entity Lnet/minecraft/entity/EntityLivingBase;
 TRACERS class com/hbm/entity/projectile/EntityBulletBaseMK4
 TRACERS class com/hbm/items/weapon/sedna/BulletConfig
 TRACERS class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase

@@ -10,6 +10,7 @@ ntmgunfeel.feature.core=Whole mod
 ntmgunfeel.feature.model_hitboxes=Mob model hitboxes
 ntmgunfeel.feature.bullets=Bullets through blocks
 ntmgunfeel.feature.ricochet_sound=Ricochet sound
+ntmgunfeel.feature.spread=Living spread
 ntmgunfeel.feature.ammo_choice=Ammo choice and lock
 ntmgunfeel.feature.recoil=Recoil
 ntmgunfeel.feature.arms=Arms on guns

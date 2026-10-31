@@ -25,6 +25,8 @@ acup/gunfeel/ArmTimeline.java
 acup/gunfeel/ArmContact.java
 acup/gunfeel/ArmPoseEdits.java
 acup/gunfeel/MagazineInspect.java
+# living spread
+acup/gunfeel/SpreadModel.java
 # NTM compatibility (port: Feature, Compat, MixinProbe, NtmCheck are the port's)
 acup/gunfeel/compat/ApiProbe.java
 
