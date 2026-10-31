@@ -268,6 +268,8 @@ public final class Tracers {
         RECENT_SHOTS.put(s.id, s);
         if (RECENT_SHOTS.size() > 512) RECENT_SHOTS.remove(RECENT_SHOTS.keySet().iterator().next());
         if (SHOTS.size() > 512) SHOTS.remove(0).gone = true;
+        BulletFx.fly(() -> s.path.at(Math.min(Math.max(0, flightTime() - s.born), Double.isNaN(s.end) ? s.lifeTicks : s.end)),
+                () -> !s.gone && Double.isNaN(s.end) && flightTime() - s.born < s.lifeTicks);
     }
 
     // the server stopped the bullet `age` ticks after it left, at (x, y, z): the tracer ends there, and the holes

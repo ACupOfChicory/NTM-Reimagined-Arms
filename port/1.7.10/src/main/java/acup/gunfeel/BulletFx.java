@@ -2,8 +2,8 @@
 // particles, the block's own hit sound or one of the mod's, heard over the rule's range), sound families (".f1",
 // ".f2"...: one shot's pellets sound alike) and the whizz and crack of a bullet passing the player's head.
 // Left out: the crumbs of blocks drawn by their renderer (Crumbs: NTM's machines give the block's own crumbs, or none
-// when their render type is not a plain block), the in-flight sound (no "fly" line in the jar's rules) and /gunfeel
-// sounddebug.
+// when their render type is not a plain block) and /gunfeel sounddebug. The in-flight sound (a "fly" line in the
+// server's rules; the jar's rules have none) is a 1.7.10 MovingSound.
 package acup.gunfeel;
 
 import java.util.HashMap;
@@ -13,6 +13,7 @@ import java.util.Random;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.audio.MovingSound;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.audio.SoundHandler;
 import net.minecraft.entity.Entity;
@@ -157,5 +158,48 @@ public final class BulletFx {
                     w.crack().pitch() * (0.9F + r.nextFloat() * 0.2F), (float) nx, (float) ny, (float) nz));
         }
         return true;
+    }
+
+    // the in-flight sound of one bullet, following it until it stops
+    public static void fly(java.util.function.Supplier<double[]> where, java.util.function.BooleanSupplier flying) {
+        if (!Config.bulletFx) return;
+        BulletRules.Sound s = BulletRules.fly();
+        if (s == null) return;
+        ResourceLocation id = new ResourceLocation(s.id());
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.getSoundHandler().getSound(id) == null) return;
+        mc.getSoundHandler().playSound(new Flying(id, s, where, flying));
+    }
+
+    private static final class Flying extends MovingSound {
+        private final java.util.function.Supplier<double[]> where;
+        private final java.util.function.BooleanSupplier flying;
+
+        Flying(ResourceLocation id, BulletRules.Sound s, java.util.function.Supplier<double[]> where, java.util.function.BooleanSupplier flying) {
+            super(id);
+            this.where = where;
+            this.flying = flying;
+            this.repeat = true;
+            this.field_147665_h = 0; // repeat delay
+            this.volume = s.volume();
+            this.field_147663_c = s.pitch();
+            move();
+        }
+
+        private void move() {
+            double[] p = where.get();
+            xPosF = (float) p[0];
+            yPosF = (float) p[1];
+            zPosF = (float) p[2];
+        }
+
+        @Override
+        public void update() {
+            if (!flying.getAsBoolean()) {
+                donePlaying = true;
+                return;
+            }
+            move();
+        }
     }
 }
