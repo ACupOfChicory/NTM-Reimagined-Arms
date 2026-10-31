@@ -116,6 +116,9 @@ public final class PassableClip extends ClipContext {
     // along `dir` (unit), as a hit on that far face from outside; null when its shape gives no way out
     public static @Nullable BlockHitResult exit(Level level, BlockHitResult in, Vec3 dir) {
         BlockPos pos = in.getBlockPos();
+        // a machine's window: out a pixel further on, into the machine (what is inside it is met on its own)
+        if (in instanceof ModelSurface.GlassHit)
+            return new BlockHitResult(in.getLocation().add(dir.scale(MachineGlass.PATH)), in.getDirection().getOpposite(), pos, false);
         BlockState state = level.getBlockState(pos);
         // a model's cells (a scaffold's post, a board): out where its pixels end along the way, not through the
         // whole hitbox
@@ -138,6 +141,12 @@ public final class PassableClip extends ClipContext {
     // left, else -1 (it stops in it). A break rule with pierce= says it; else the block's material (Materials, as
     // NTM's armour: its threshold and resistance over the path's length), against the round's threshold negation
     // and armour piercing. Less than 1 left stops it.
+    // a hit that is paid for once per block (a bullet that pierced it is not stopped by it again): not a machine's
+    // window, behind which the rest of the machine still stands in the same block
+    public static boolean paidOnce(BlockHitResult hit) {
+        return !(hit instanceof ModelSurface.GlassHit);
+    }
+
     public static float pierced(Level level, BlockHitResult in, BlockHitResult out, float damage,
             @Nullable BulletConfig round) {
         return pierced(level, in, out, damage, round, new Materials.Penetration());
@@ -147,6 +156,13 @@ public final class PassableClip extends ClipContext {
             @Nullable BulletConfig round, Materials.Penetration penetration) {
         BlockState state = level.getBlockState(in.getBlockPos());
         if (state.isAir() || !(damage >= 1F)) return -1F;
+        float negation = round == null ? 0F : round.armorThresholdNegation;
+        float piercing = round == null ? 0F : round.armorPiercingPercent;
+        // a machine's window is glass, not the machine's casing: bulletPierceMachines is not asked
+        if (in instanceof ModelSurface.GlassHit) {
+            float left = penetration.left(MachineGlass.VERDICT, in.getLocation().distanceTo(out.getLocation()), damage, negation, piercing);
+            return left >= 1F ? left : -1F;
+        }
         BlockState ruleState = Cells.ruleState(level, in.getBlockPos(), state);
         Materials.Verdict v = BulletRules.material(ruleState);
         // Запрет относится к машине, даже если её часть определилась как none/stone.
@@ -155,8 +171,6 @@ public final class PassableClip extends ClipContext {
                 && !ReaimTimes.flag(BulletRules.MACHINES_KEY, false)) return -1F;
         BulletRules.Break rule = BulletRules.breakRule(state);
         if (rule != null && rule.pierce() > 0F) return rule.pierced(damage, state.getDestroySpeed(level, in.getBlockPos()), in.getLocation().distanceTo(out.getLocation()));
-        float negation = round == null ? 0F : round.armorThresholdNegation;
-        float piercing = round == null ? 0F : round.armorPiercingPercent;
         float left = penetration.left(v, in.getLocation().distanceTo(out.getLocation()), damage, negation, piercing);
         return left >= 1F ? left : -1F;
     }

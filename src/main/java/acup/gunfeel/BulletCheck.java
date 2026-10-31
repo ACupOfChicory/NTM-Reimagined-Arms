@@ -90,6 +90,10 @@ public final class BulletCheck {
         expect("multiblock exact: empty side of occupied cells", Want.PASS, single("hbm:machine_solar_boiler[facing=north]"), .8, .8, 30F);
         expect("multiblock exact: real face stops bullet", Want.STOP, single("hbm:machine_solar_boiler[facing=north]"), .2, .2, 30F);
 
+        // Окно машины (прозрачные пиксели модели chemplant) — стекло: пуля пробивает его с потерей, корпус за ним держит.
+        // Решётка (прозрачные пиксели без стеклянной грани: текстура из списка исключений) по-прежнему пропускает.
+        machineGlass(coarse, machineSettings());
+
         // DU Mr. Deuce: один лист проходит, второй не восстанавливает запас игнорирования порога.
         BulletConfig plainRound = round;
         round = com.hbm.items.weapon.sedna.factory.XFactory50.bmg50_du;
@@ -490,6 +494,44 @@ public final class BulletCheck {
 
     // what a bullet should do at the block: fly on untouched, go through with less damage, stop in it, or any of the
     // last two (it met the block)
+    private static Path machineSettings() {
+        return FMLPaths.CONFIGDIR.get().resolve(ReaimTimes.FILE);
+    }
+
+    // a chemical plant's block with the faces its client would send: a window (glass face) at z = .5 facing the
+    // bullet, maybe its casing at z = .8 behind it; a grate: a casing face with a clear pixel where the bullet goes
+    private static void machineGlass(long[] coarse, Path settings) throws Exception {
+        String plant = "hbm:machine_chemical_plant[facing=north]";
+        BlockState plantState = state(plant);
+        String key = Structures.key(plantState, 0, 0, 0);
+        double[] window = {.1, .1, .5, .1, .9, .5, .9, .1, .5}, casing = {.1, .1, .8, .1, .9, .8, .9, .1, .8};
+        ModelSurface.Face glass = new ModelSurface.Face(window, new double[6], 1, 1, new long[] {1}, true);
+        ModelSurface.Face wall = new ModelSurface.Face(casing, new double[6], 1, 1, new long[] {1});
+        PassableClip.putShapes(java.util.Map.of(key, ModelSurface.attach(coarse, List.of(glass))));
+        Shot s = expect("chemplant window: pierced as glass", Want.PIERCE, single(plant), .2, .2, 30F);
+        check("chemplant window: loses as a pixel of glass", true, s.damage > 29F);
+        expect("chemplant window: a weak round goes through too", Want.PIERCE, single(plant), .2, .2, 2F);
+
+        PassableClip.putShapes(java.util.Map.of(key, ModelSurface.attach(coarse, List.of(glass, wall))));
+        s = shoot(single(plant), .2, .2, 30F);
+        check("chemplant window, casing behind: the casing stops it", false, s.alive());
+        check("chemplant window, casing behind: the glass took its share first", true, s.damage < 30F);
+
+        // a grate: 2 x 2 pixels, the one at the bottom left clear, no glass face over it
+        ModelSurface.Face grate = new ModelSurface.Face(window, new double[] {0, 0, 0, 2, 2, 0}, 2, 2, new long[] {0b1110});
+        PassableClip.putShapes(java.util.Map.of(key, ModelSurface.attach(coarse, List.of(grate))));
+        expect("machine grate: through its clear pixel", Want.PASS, single(plant), .2, .2, 30F);
+        expect("machine grate: its bar stops it", Want.STOP, single(plant), .6, .2, 30F);
+
+        // bulletMachineGlass = false: the window is air again
+        PassableClip.putShapes(java.util.Map.of(key, ModelSurface.attach(coarse, List.of(glass))));
+        Files.writeString(settings, MachineGlass.KEY + " = false\n");
+        Thread.sleep(2100);
+        expect("chemplant window, bulletMachineGlass off: flies through", Want.PASS, single(plant), .2, .2, 30F);
+        Files.writeString(settings, BulletRules.MACHINES_KEY + " = false\n");
+        Thread.sleep(2100);
+    }
+
     private enum Want {
         PASS, PIERCE, STOP, MEET
     }
@@ -576,7 +618,7 @@ public final class BulletCheck {
     }
 
     // a plain, single, fast NTM bullet without an impact effect: the one with the least gravity and spread
-    private static BulletConfig pick() {
+    static BulletConfig pick() {
         BulletConfig best = null;
         for (BulletConfig c : BulletConfig.configs) {
             if (c == null || c.velocity < 5F || c.onImpact != null || c.doesPenetrate || c.projectilesMax > 1

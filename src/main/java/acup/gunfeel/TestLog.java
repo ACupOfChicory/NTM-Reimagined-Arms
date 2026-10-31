@@ -100,6 +100,11 @@ public final class TestLog {
     }
 
     // the block's bullet material as piercing and effects have it (a multiblock cell: its machine's)
+    // as material(level, pos), and a machine's window (MachineGlass) as "window"
+    public static String material(Level level, net.minecraft.world.phys.BlockHitResult hit) {
+        return hit instanceof ModelSurface.GlassHit ? "window" : material(level, hit.getBlockPos());
+    }
+
     public static String material(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         return BulletRules.material(Cells.ruleState(level, pos, state)).material().name().toLowerCase(Locale.ROOT);

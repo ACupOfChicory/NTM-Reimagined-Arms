@@ -105,6 +105,8 @@ neoForge {
             gameDirectory = root.resolve("run-client-check")
             systemProperty("ntmgunfeel.armEditorSelfTest",providers.gradleProperty("armEditorSelfTest").isPresent.toString())
             systemProperty("ntmgunfeel.weaponSwaySelfTest",providers.gradleProperty("weaponSwaySelfTest").isPresent.toString())
+            // -PmachineGlass: windows of real NTM machines are glass (MachineGlassCheck) instead of the smoke check
+            systemProperty("ntmgunfeel.machineGlassCheck",providers.gradleProperty("machineGlass").isPresent.toString())
             jvmArgument("-Xmx2500M")
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
             programArguments.addAll("--width", "854", "--height", "480")
@@ -310,7 +312,9 @@ tasks.matching { it.name in checkRuns }.configureEach {
         // the smallest world that still has one: flat, two chunks around, nothing generated on it
         if (name == "runCheckBullets") dir.resolve("server.properties").writeText(
             "level-type=minecraft\\:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\n" +
-            "spawn-protection=0\nonline-mode=false\nspawn-monsters=false\nspawn-animals=false\nmax-players=1\n")
+            "spawn-protection=0\nonline-mode=false\nspawn-monsters=false\nspawn-animals=false\nmax-players=1\n" +
+            // -PserverPort=<n>: a port of its own, away from a real server on 25565
+            (providers.gradleProperty("serverPort").orNull?.let { "server-port=$it\n" } ?: ""))
     }
 }
 

@@ -637,7 +637,7 @@ public final class Tracers {
                 logStop(s, level, block, "explosive", Float.NaN);
                 break;
             }
-            boolean known = s.pierced.contains(pos);
+            boolean once = PassableClip.paidOnce(block), known = once && s.pierced.contains(pos);
             BlockHitResult out = PassableClip.exit(level, block, unit);
             if (out == null) {
                 logStop(s, level, block, "no_exit", Float.NaN);
@@ -649,15 +649,16 @@ public final class Tracers {
                 break;
             }
             if (TestLog.client && !known) TestLog.c(s.id, "block", "block", level.getBlockState(pos), "pos", pos, "at", block.getLocation(),
-                    "material", TestLog.material(level, pos), "result", "pierce", "damage", s.damage, "left", left,
+                    "material", TestLog.material(level, block), "result", "pierce", "damage", s.damage, "left", left,
                     "path", block.getLocation().distanceTo(out.getLocation()));
             if (!known) {
-                s.pierced.add(pos);
+                if (once) s.pierced.add(pos);
                 s.damage = left;
                 // from one steel panel straight into the next (two stacked steel corners): no hole, sound or particles
                 // on the face between them, where nothing shows; it went into this one from inside the last
-                if (!fromInside(level, block, unit)) hit(level, block, s.config, unit, false);
-                if (!against(level, out)) hit(level, out, s.config, unit.scale(-1.0), false);
+                if (!once || !fromInside(level, block, unit)) hit(level, block, s.config, unit, false);
+                // a window: one hole, seen from both sides, and no second one a pixel behind it
+                if (once && !against(level, out)) hit(level, out, s.config, unit.scale(-1.0), false);
             }
             // it comes out beyond this step's end: inside the block till the next one
             if (out.getLocation().distanceTo(ra) >= len) {
@@ -757,7 +758,7 @@ public final class Tracers {
     private static void logStop(Shot s, ClientLevel level, BlockHitResult hit, String why, float path) {
         if (!TestLog.client) return;
         BlockPos pos = hit.getBlockPos();
-        TestLog.c(s.id, "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation(), "material", TestLog.material(level, pos),
+        TestLog.c(s.id, "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation(), "material", TestLog.material(level, hit),
                 "result", "stop", "why", why, "damage", s.damage, "path", Float.isNaN(path) ? null : path);
     }
 
@@ -895,6 +896,7 @@ public final class Tracers {
             long ph = Perf.start();
             scratch = p.scratch();
             int before = holesMade;
+            metWindow = false;
             try {
                 makingShot=p.shot();
                 makeHole(p.level(), p.hit(), p.config(), p.dir());
@@ -910,7 +912,9 @@ public final class Tracers {
                     Vec3 at = h.hit() != null ? h.hit() : h.pos();
                     // where the bullet went into the drawn model, flying off the hitbox's face (off the model's they
                     // would stick inside the machine's box)
-                    BulletFx.blockHit(p.level(), new BlockHitResult(at, p.hit().getDirection(), p.hit().getBlockPos(), false), p.dir(), p.fx() == 2);
+                    BlockHitResult fxAt = metWindow ? new ModelSurface.GlassHit(at, p.hit().getDirection(), p.hit().getBlockPos())
+                            : new BlockHitResult(at, p.hit().getDirection(), p.hit().getBlockPos(), false);
+                    BulletFx.blockHit(p.level(), fxAt, p.dir(), p.fx() == 2);
                 } else {
                     BulletFx.sd("hit {} at {}: no hole on what is drawn there, no sound or particles", p.hit().getBlockPos().toShortString(), p.hit().getLocation());
                 }
@@ -922,6 +926,8 @@ public final class Tracers {
 
     // holes made so far (the test log tells a made hole from one given up)
     private static int holesMade;
+    // the last hole made went on a machine's window (MachineGlass): its sound and crumbs are glass's
+    private static boolean metWindow;
 
     private static void addMade(Hole h) {
         holesMade++;
@@ -1259,6 +1265,8 @@ public final class Tracers {
         boolean[] reaches = {false};
         java.util.Set<RenderedMesh.Tri> plain = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         tris.addAll(RenderedMesh.models(level, around, pos, cell, reaches, plain));
+        // machine windows are air again when the server says so (bulletMachineGlass = false)
+        if (!MachineGlass.on()) tris.removeIf(t -> t.tex() instanceof RenderedMesh.Window);
         long st2 = System.nanoTime();
         // blocks whose holes cover their whole face (glass: its clear pixels are glass too)
         Map<BlockPos, Boolean> whole = new HashMap<>();
@@ -1306,7 +1314,9 @@ public final class Tracers {
         if (normal.dot(d) > 0) normal.negate();
         Vector3d world = new Vector3d(d).mul(best).add(o);
         boolean scorch = config.onImpact != null;
-        BlockState decalOn = Cells.ruleState(level, pos, hitState);
+        // a machine's window: a hole as on glass
+        metWindow = met.tex() instanceof RenderedMesh.Window;
+        BlockState decalOn = metWindow ? net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState() : Cells.ruleState(level, pos, hitState);
         int kind = holeKind(decalOn, config);
         float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
         int turn = (int) (Rng.shot(makingShot).nextDouble() * 8);
@@ -1370,7 +1380,9 @@ public final class Tracers {
             if (debugHoles) dbg("    piece shown: on {} n={} corners={}", pc.tri().block(), v(pc.tn()), corners(pc.tri()));
             RenderedMesh.Tri t = pc.tri();
             Object owner = t.anchor() != null ? List.of(t.anchor().be(), t.anchor().key()) : t.block() != null ? t.block() : "";
-            Object key = List.of(owner, Math.round(pc.tn().x * 100), Math.round(pc.tn().y * 100), Math.round(pc.tn().z * 100), Math.round(pc.plane() * 200));
+            // a machine's window and its frame in one plane: two holes, the window's drawn as on glass
+            Object key = List.of(owner, Math.round(pc.tn().x * 100), Math.round(pc.tn().y * 100), Math.round(pc.tn().z * 100), Math.round(pc.plane() * 200),
+                    t.tex() instanceof RenderedMesh.Window);
             Group g = groups.computeIfAbsent(key, k -> new Group(t, pc.tn(), pc.plane(), new ArrayList<>(), new ArrayList<>()));
             if (t.tex().seeThrough() && overSolid(g, pc)) continue;
             if (!t.tex().seeThrough()) g.solid().add(pc);
@@ -1467,7 +1479,7 @@ public final class Tracers {
             if (faces == null && first.oneSided()) faces = oneSidedFaces(near);
             // У двух сторон плоской сетки могут различаться UV и прозрачность. Каждая хранит свою маску.
             boolean front = first.oneSided() && (first.tex().seeThrough() || !backed(faces, g))
-                    && !(first.block() != null && glassLike(state));
+                    && !(first.block() != null && glassLike(state)) && !(first.tex() instanceof RenderedMesh.Window);
             // on glass (a glass block, a door's clear window): drawn after the glass behind it, see HoleRender
             boolean late = first.tex().glass() || first.block() != null && (translucent(state) || glassLike(state));
             Follow follow = first.anchor() == null ? null : new Follow(first.anchor(), at, mesh, light);
