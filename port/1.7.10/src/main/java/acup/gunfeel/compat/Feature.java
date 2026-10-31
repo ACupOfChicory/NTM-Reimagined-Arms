@@ -24,7 +24,7 @@ public enum Feature {
     RECOIL("recoil", list("MixinModEventHandlerClient"), list("CameraRecoil", "ModelRecoil", "RecoilPresets", "ReaimTimes")),
     ARMS("arms", list("MixinItemRenderWeaponBase", "MixinHbmAnimations", "MixinWavefrontObject", "MixinWavefrontObjectVBO", "MixinG3Inspect",
             "MixinHbmAnimationPacket"), list("Arms", "ArmAnims", "Grips", "GunGeometry", "WeaponSway")),
-    HUD("hud", list("MixinGunHud"), list("Hud", "HudEvents", "HudFormat")),
+    HUD("hud", list("MixinGunHud"), list("Hud", "HudEvents", "HudFormat", "Silhouette", "GunGeometry")),
     INSTANT_SWITCH("instant_switch", list("MixinHbmAnimationPacket"), list("InstantSwitch", "SwitchPrediction")),
     TRACERS("tracers", list("MixinLegoClient", "MixinRenderBulletMK4", "MixinSmokeNodes"), list("Tracers", "TracerNet", "TracerPath")),
     MARESLEG("maresleg", list("MixinGunConfigAnims"), list()),

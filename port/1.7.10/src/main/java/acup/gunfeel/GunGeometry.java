@@ -79,7 +79,7 @@ public final class GunGeometry {
 
     // port: a group's faces as quads, x y z per vertex (26.2: GroupObject.quads): a quad as it is, a triangle with its
     // last vertex twice, a longer polygon as a fan of such triangles
-    private static float[] quads(S_GroupObject g) {
+    static float[] quads(S_GroupObject g) {
         int n = 0;
         for (S_Face f : g.faces) if (f.vertices != null && f.vertices.length >= 3) n += f.vertices.length == 4 ? 1 : f.vertices.length - 2;
         float[] out = new float[n * 12];

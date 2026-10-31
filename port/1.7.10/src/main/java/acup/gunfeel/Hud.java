@@ -4,7 +4,8 @@ package acup.gunfeel;
 // colour of the bar are in HudFormat. Drawing: Gui.drawRect, FontRenderer, RenderItem under the GL matrix (26.2:
 // GuiGraphicsExtractor). NTM 1.7.10 draws its counter and bar from ItemGunBaseNT.renderHUD in
 // RenderGameOverlayEvent.Pre; MixinGunHud skips those two components there and draws this once, on the HOTBAR element.
-// The gun's silhouette (26.2's Silhouette, from the first-person model's geometry) is not here: the gun's own icon.
+// The gun's silhouette: Silhouette (26.2's, from the first-person model's geometry); the gun's own icon until the gun
+// has been drawn in first person.
 
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
@@ -123,7 +124,31 @@ public final class Hud {
         // separator and gun icon
         int sepX = bigX - 6;
         Gui.drawRect(sepX, top, sepX + 1, bottom, 0xCCFFFFFF);
-        if (drawGun) item(stack, sepX - 6 - 16, top + 7);
+        if (drawGun) {
+            net.minecraft.util.ResourceLocation silhouette = Silhouette.get(stack.getItem());
+            if (silhouette != null) {
+                int w = 72, h = w * Silhouette.H / Silhouette.W;
+                silhouette(silhouette, sepX - 6 - w, top + (30 - h) / 2, w, h);
+            } else {
+                item(stack, sepX - 6 - 16, top + 7);
+            }
+        }
+    }
+
+    // port: the silhouette's texture on x, y, w, h, blended (26.2: g.blit with GUI_TEXTURED)
+    private static void silhouette(net.minecraft.util.ResourceLocation tex, int x, int y, int w, int h) {
+        Minecraft.getMinecraft().getTextureManager().bindTexture(tex);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glColor4f(1F, 1F, 1F, 1F);
+        net.minecraft.client.renderer.Tessellator t = net.minecraft.client.renderer.Tessellator.instance;
+        t.startDrawingQuads();
+        t.addVertexWithUV(x, y + h, 0, 0, 1);
+        t.addVertexWithUV(x + w, y + h, 0, 1, 1);
+        t.addVertexWithUV(x + w, y, 0, 1, 0);
+        t.addVertexWithUV(x, y, 0, 0, 0);
+        t.draw();
     }
 
     // port: an item at x, y as the hotbar draws one (26.2: g.item)
