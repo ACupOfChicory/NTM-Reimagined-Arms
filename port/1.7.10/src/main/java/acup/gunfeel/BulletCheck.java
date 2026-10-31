@@ -206,11 +206,18 @@ public final class BulletCheck {
         // ---- .50 DU into an iron golem in the open: every bullet takes the same, 45 in the body, x1.75 in the head
         // (the mod's one head multiplier for every gun, HeadDamage; on this server no client sends the golem's pose, so
         // the head is NTM 1.7.10's height rule, as ModelHits keeps it without a pose)
+        // with the server's test log on: the hit is written with what it took and whether it was in the head
+        java.nio.file.Path golemLog = TestLog.set(false, true);
         check("golem: .50 DU in the body takes 45", 45F, golemHit(1.0, 45F));
         check("golem: .50 DU in the head takes 78.75", 78.75F, golemHit(2.4, 45F));
         float[] floor = golemOverFloor(45F);
         check("golem over a floor: the head shot takes 78.75, not what the floor behind left", 78.75F, floor[0]);
         check("golem over a floor: the floor behind it still costs the bullet", true, floor[1] < 45F);
+        // port: the trace scenario keeps its test log on (TraceHooks); 26.2 turns it off here
+        if (!Trace.ON) TestLog.set(false, false);
+        String golemText = golemLog == null ? "" : new String(Files.readAllBytes(golemLog), StandardCharsets.UTF_8);
+        check("golem: the test log has the body hit", true, golemText.contains("head=false") && golemText.contains("took=45.000"));
+        check("golem: the test log has the head hit", true, golemText.contains("head=true") && golemText.contains("took=78.750"));
 
         // ---- path rules in the server's file
         s = expect("path through: stone is flown through", Want.PASS, single("minecraft:stone", 0), .5, .5, 30F, null);
@@ -221,6 +228,7 @@ public final class BulletCheck {
         richterBulletSpeed();
         explosives();
         doors();
+        BulletCheckModels.run(level, BulletCheck::check);
         lines.add(ok ? "ALL OK" : "SOME FAILED");
     }
 
