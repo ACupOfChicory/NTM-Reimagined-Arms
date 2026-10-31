@@ -150,6 +150,18 @@ final class LookScenario {
         z.getEntityAttribute(SharedMonsterAttributes.movementSpeed).setBaseValue(0);
         z.func_110163_bv(); // never despawns
         w.spawnEntityInWorld(z);
+        // a sheep and a small slime beside it: the render passes the hitboxes take (the wool, the slime's outer body)
+        net.minecraft.entity.passive.EntitySheep sheep = new net.minecraft.entity.passive.EntitySheep(w);
+        sheep.setLocationAndAngles(px + ZX + 2.5, py, pz + ZZ + .5, 180F, 0F);
+        sheep.getEntityAttribute(SharedMonsterAttributes.movementSpeed).setBaseValue(0);
+        w.spawnEntityInWorld(sheep);
+        net.minecraft.entity.monster.EntitySlime slime = new net.minecraft.entity.monster.EntitySlime(w);
+        net.minecraft.nbt.NBTTagCompound tag = new net.minecraft.nbt.NBTTagCompound();
+        slime.writeEntityToNBT(tag);
+        tag.setInteger("Size", 0); // size 1: does not hurt the player
+        slime.readEntityFromNBT(tag);
+        slime.setLocationAndAngles(px + ZX - 1.5, py, pz + ZZ + .5, 180F, 0F);
+        w.spawnEntityInWorld(slime);
         GunFeel.LOGGER.info("Scenario look: wall at z {}, zombie at {} {} {}", pz + 10, px + ZX, py, pz + ZZ);
     }
 

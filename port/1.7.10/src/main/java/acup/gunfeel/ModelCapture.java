@@ -19,6 +19,8 @@ import net.minecraft.client.model.ModelRenderer;
 // matrix at RendererLivingEntity.doRender's start maps camera-relative world points to the eye; its inverse times a
 // part's matrix gives the part in camera-relative world space, and the origin is doRender's (x, y, z).
 public final class ModelCapture {
+    // the slime's outer, see-through body (26.2: ModelBodyGeometry.SHELL_SUFFIX)
+    public static final String SHELL_SUFFIX = "/shell";
     private final ModelBase model;
     private final Map<ModelRenderer, String> names;
     private final float[] inverseView;
@@ -28,12 +30,19 @@ public final class ModelCapture {
     private final Map<ModelRenderer, List<float[]>> drawn = new IdentityHashMap<>();
     private boolean complete = true;
     private int parts;
+    // the model drawing now: the main one, or a render pass's (RendererLivingEntity.renderPassModel) with the suffix
+    // its parts' names get (ModelWool.SUFFIX, SHELL_SUFFIX)
+    private ModelBase drawing;
+    private Map<ModelRenderer, String> drawingNames;
+    private String suffix = "";
 
     // view: the GL modelview at doRender's start; x, y, z: doRender's camera-relative origin; yaw: the body's
     // interpolated yaw rotateCorpse turns the model by
     public ModelCapture(ModelBase model, float[] view, double x, double y, double z, float yaw) {
         this.model = model;
         this.names = ModelNames.of(model);
+        this.drawing = model;
+        this.drawingNames = names;
         float[] inverse = Mat4.invertAffine(view);
         this.inverseView = inverse;
         this.x = x;
@@ -59,11 +68,18 @@ public final class ModelCapture {
         return List.copyOf(boxes);
     }
 
+    // a render pass's model starts drawing (its parts named with suffix), or with null the main model again
+    public void pass(ModelBase passModel, String suffix) {
+        drawing = passModel == null ? model : passModel;
+        drawingNames = passModel == null ? names : ModelNames.of(passModel);
+        this.suffix = passModel == null ? "" : suffix;
+    }
+
     // A part of this model starts drawing (ModelRenderer.render or renderWithRotation at their head): parent is the GL
     // modelview then, texture the bound GL texture (0 when unknown).
     public void part(ModelRenderer part, float scale, boolean withRotation, float[] parent, int texture) {
         if (!complete || part.isHidden || !part.showModel) return;
-        String path = names.get(part);
+        String path = drawingNames.get(part);
         if (path == null) return; // armour, a held item: not the entity's own model
         if (++parts > 2048) { complete = false; return; }
         float[] matrix = Mat4.mul(parent, local(part, scale, withRotation));
@@ -73,7 +89,7 @@ public final class ModelCapture {
         int ordinal = before.size();
         before.add(matrix);
         if (part.cubeList == null || part.cubeList.isEmpty()) return;
-        String name = ModelNames.draw(model, path, ordinal);
+        String name = ModelNames.draw(drawing, path, ordinal) + suffix;
         float[] relative = Mat4.mul(inverseView, matrix);
         // ModelCubeGeometry.append takes 26.2's pixels / 16; the display list draws pixels * scale
         float k = scale * 16F;

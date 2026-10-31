@@ -70,6 +70,7 @@ public final class ModelHitClient {
         current = null;
         target = null;
         inModel = false;
+        inPass = false;
         if (!enabled || !acup.gunfeel.compat.Feature.MODEL_HITBOXES.on() || model == null || !eligible(entity)) return;
         target = entity;
         ModelHitClient.model = model;
@@ -95,18 +96,34 @@ public final class ModelHitClient {
     }
 
     public static boolean capturing() {
-        return inModel;
+        return inModel || inPass;
     }
+
+    // around doRender's calls of renderPassModel.render: the passes that add to the body's shape (26.2: the sheep's wool
+    // layer, the slime's outer body), named with suffix; null: a pass that adds nothing (armour, the spider's and the
+    // enderman's eyes, which are the head again)
+    public static void pass(ModelBase passModel, String suffix) {
+        if (current == null || passModel == null || suffix == null) { inPass = false; return; }
+        current.pass(passModel, suffix);
+        inPass = true;
+    }
+
+    public static void passEnd() {
+        if (current != null) current.pass(null, null);
+        inPass = false;
+    }
+    private static boolean inPass;
 
     // ModelRenderer.render / renderWithRotation HEAD
     public static void part(ModelRenderer part, float scale, boolean withRotation) {
-        if (!inModel || current == null) return;
+        if (!(inModel || inPass) || current == null) return;
         try {
             current.part(part, scale, withRotation, modelview(), GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D));
         } catch (RuntimeException ex) {
             ModelHitLog.event("client", "capture_failed", target, ex::toString);
             current = null;
             inModel = false;
+            inPass = false;
         }
     }
 
@@ -117,6 +134,7 @@ public final class ModelHitClient {
         current = null;
         target = null;
         inModel = false;
+        inPass = false;
         view = null;
         model = null;
         if (done == null || who != entity || !done.complete()) return;
