@@ -29,6 +29,8 @@ public final class MixinCheck {
             {"net.minecraft.client.model.ModelRenderer", "2"},
             {"net.minecraft.client.renderer.entity.RenderManager", "1"},
             {"com.hbm.items.weapon.sedna.GunConfig", "3"},
+            {"com.hbm.entity.projectile.EntityThrowableNT", "8"}, // MixinThrowableClip: bullets 4 + hitboxes 4
+            {"com.hbm.entity.projectile.EntityBulletBeamBase", "4"},
     };
 
     private MixinCheck() {
