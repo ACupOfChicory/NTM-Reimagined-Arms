@@ -7,6 +7,7 @@ import java.io.Writer;
 import java.nio.IntBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -122,6 +123,124 @@ final class ShapesScenario {
             }
         }
         GunFeel.LOGGER.info("Scenario shapes: {} spots set", SPOTS.size());
+        buildDoors(player, px, py, pz);
+    }
+
+    // ---- NTM's big doors (DoorCells): each set up once in the air, its core found, drawn shut and open
+
+    private static final List<int[]> DOORS = new ArrayList<int[]>();
+    static final int DOOR_SPACING = 14;
+
+    private static void buildDoors(EntityPlayerMP player, int px, int py, int pz) {
+        World w = player.worldObj;
+        float yaw = player.rotationYaw;
+        player.rotationYaw = 0F; // facing south: BlockDummyable turns the door to it
+        int i = 0;
+        try {
+            for (Object o : Block.blockRegistry) {
+                if (!(o instanceof com.hbm.blocks.generic.BlockDoorGeneric)) continue;
+                Block b = (Block) o;
+                int x = px + (i % 6 - 3) * DOOR_SPACING, z = pz - 60 - (i / 6) * DOOR_SPACING;
+                i++;
+                w.setBlock(x, py, z, b, 0, 3);
+                b.onBlockPlacedBy(w, x, py, z, player, new net.minecraft.item.ItemStack(b));
+                int[] core = null;
+                for (int dx = -8; dx <= 8 && core == null; dx++) for (int dy = -8; dy <= 8 && core == null; dy++)
+                    for (int dz = -8; dz <= 8 && core == null; dz++)
+                        if (w.getTileEntity(x + dx, py + dy, z + dz) instanceof com.hbm.tileentity.TileEntityDoorGeneric) core = new int[] {x + dx, py + dy, z + dz};
+                if (core == null) {
+                    GunFeel.LOGGER.warn("Scenario shapes: door {} was not set up", Block.blockRegistry.getNameForObject(b));
+                    continue;
+                }
+                DOORS.add(core);
+            }
+        } finally {
+            player.rotationYaw = yaw;
+        }
+        GunFeel.LOGGER.info("Scenario shapes: {} big doors set", DOORS.size());
+    }
+
+    private static void captureDoors(Minecraft mc, Map<String, long[]> made) {
+        Map<Integer, int[][]> textures = new HashMap<Integer, int[][]>();
+        int doors = 0;
+        for (int[] c : DOORS) {
+            Block b = mc.theWorld.getBlock(c[0], c[1], c[2]);
+            String id = Block.blockRegistry.getNameForObject(b);
+            for (boolean open : new boolean[] {false, true}) {
+                Map<String, long[]> cells;
+                try {
+                    cells = DoorCapture.capture(mc, c[0], c[1], c[2], open, textures);
+                } catch (Throwable e) {
+                    GunFeel.LOGGER.warn("Scenario shapes: door {} could not be drawn: {}", id, e.toString());
+                    continue;
+                }
+                if (cells == null) {
+                    GunFeel.LOGGER.info("Scenario shapes: door {} {}: none of NTM's models drawn, keeps its boxes", id, open ? "open" : "shut");
+                    continue;
+                }
+                made.putAll(cells);
+                doors++;
+                GunFeel.LOGGER.info("Scenario shapes: door {} {}: {} blocks, {}", id, open ? "open" : "shut", cells.size(), gaps(mc.theWorld, b, c, open, cells));
+            }
+        }
+        GunFeel.LOGGER.info("Scenario shapes: {} door states made", doors);
+    }
+
+    // where a bullet now flies through the door: along each axis, the lines of cells through its collision boxes that
+    // meet none of the model's cells (in the door's blocks, across them)
+    private static String gaps(World w, Block b, int[] c, boolean open, Map<String, long[]> cells) {
+        com.hbm.tileentity.TileEntityDoorGeneric te = (com.hbm.tileentity.TileEntityDoorGeneric) w.getTileEntity(c[0], c[1], c[2]);
+        byte state = te.state;
+        te.state = open ? com.hbm.tileentity.TileEntityDoorGeneric.STATE_OPEN : com.hbm.tileentity.TileEntityDoorGeneric.STATE_CLOSED;
+        StringBuilder out = new StringBuilder();
+        try {
+            // the door's cells and box cells in one grid over its blocks
+            List<int[]> blocks = DoorCapture.footprint(w, b, c[0], c[1], c[2]);
+            int[] lo = {Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MAX_VALUE}, hi = {Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE};
+            for (int[] o : blocks) for (int a = 0; a < 3; a++) {
+                lo[a] = Math.min(lo[a], o[a]);
+                hi[a] = Math.max(hi[a], o[a]);
+            }
+            int sx = (hi[0] - lo[0] + 1) * 16, sy = (hi[1] - lo[1] + 1) * 16, sz = (hi[2] - lo[2] + 1) * 16;
+            boolean[] model = new boolean[sx * sy * sz], box = new boolean[sx * sy * sz];
+            double[] boxes = new double[6 * 16];
+            for (int[] o : blocks) {
+                long[] bits = DoorCells.of(cells, w, b, o[0], o[1], o[2]);
+                int n = PassableClip.collision(w, b, o[0], o[1], o[2], boxes);
+                for (int k = 0; k < 4096; k++) {
+                    int gx = (o[0] - lo[0]) * 16 + (k & 15), gy = (o[1] - lo[1]) * 16 + (k >> 4 & 15), gz = (o[2] - lo[2]) * 16 + (k >> 8);
+                    int g = gx + sx * (gy + sy * gz);
+                    if (bits != null && (bits[k >> 6] >>> (k & 63) & 1L) != 0) model[g] = true;
+                    double cx = o[0] + ((k & 15) + .5) / 16, cy = o[1] + ((k >> 4 & 15) + .5) / 16, cz = o[2] + ((k >> 8) + .5) / 16;
+                    for (int i = 0; i < n && !box[g]; i++)
+                        box[g] = cx >= boxes[i * 6] && cx <= boxes[i * 6 + 3] && cy >= boxes[i * 6 + 1] && cy <= boxes[i * 6 + 4] && cz >= boxes[i * 6 + 2]
+                                && cz <= boxes[i * 6 + 5];
+                }
+            }
+            int[] size = {sx, sy, sz};
+            for (int ax = 0; ax < 3; ax++) {
+                int a1 = (ax + 1) % 3, a2 = (ax + 2) % 3, lines = 0, clear = 0;
+                for (int i = 0; i < size[a1]; i++) for (int j = 0; j < size[a2]; j++) {
+                    boolean inBox = false, hit = false;
+                    for (int t = 0; t < size[ax]; t++) {
+                        int[] p = new int[3];
+                        p[ax] = t;
+                        p[a1] = i;
+                        p[a2] = j;
+                        int g = p[0] + sx * (p[1] + sy * p[2]);
+                        inBox |= box[g];
+                        hit |= model[g];
+                    }
+                    if (!inBox) continue;
+                    lines++;
+                    if (!hit) clear++;
+                }
+                out.append("xyz".charAt(ax)).append(": ").append(clear).append('/').append(lines).append(" lines clear  ");
+            }
+        } finally {
+            te.state = state;
+        }
+        return out.toString();
     }
 
     private static void capture(Minecraft mc) {
@@ -154,6 +273,7 @@ final class ShapesScenario {
             made.put(ModelCells.key(id, ModelCells.fullMeta(mc.theWorld, s.block, s.meta, s.x, s.y, s.z), joins), bits);
         }
         if (!wrong.isEmpty()) GunFeel.LOGGER.warn("Scenario shapes: not in the client's world (an unused meta?): {}", wrong);
+        captureDoors(mc, made);
         ModelCells.put(made);
         File out = new File(mc.mcDataDir, ModelCells.FILE);
         try {

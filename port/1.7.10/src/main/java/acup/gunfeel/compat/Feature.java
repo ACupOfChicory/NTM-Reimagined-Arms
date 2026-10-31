@@ -18,7 +18,7 @@ public enum Feature {
                     "HeadProfiles", "ModelHeads")),
     BULLETS("bullets", list("MixinBulletServer", "MixinThrowableClip", "MixinBeamHits", "MixinExplosiveBullet", "MixinExplosionContext",
             "MixinExplosiveProcessor", "MixinExplosiveDirect"),
-            list("BulletServer", "PassableClip", "BulletFx", "BulletRules", "FenceCells", "ModelCells", "BlockRay", "PierceSteps", "ExplosiveDamage", "ExplosiveAmmo")),
+            list("BulletServer", "PassableClip", "BulletFx", "BulletRules", "FenceCells", "ModelCells", "BlockRay", "PierceSteps", "ExplosiveDamage", "ExplosiveAmmo", "DoorCells")),
     RICOCHET_SOUND("ricochet_sound", list("MixinRicochetSound"), list()),
     AMMO_CHOICE("ammo_choice", list("MixinAmmoLock", "MixinAmmoLockBelt", "MixinGunKeysRadial"),
             list("AmmoLock", "AmmoLockKey", "AmmoLogic", "AmmoNet", "RadialMenu", "AmmoStats", "AmmoSelectPayload", "AmmoLockPayload")),

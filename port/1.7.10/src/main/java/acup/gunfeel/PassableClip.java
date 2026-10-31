@@ -19,7 +19,8 @@ import net.minecraft.world.World;
 // Flown through: air, liquids, blocks without a collision box (as NTM asks func_147447_a), blocks that cannot be hit
 // (canCollideCheck), and blocks with a "through" rule. Fences, gates and walls: 26.2's family cells (FenceCells).
 // Blocks met by their drawn model (bars, grates, scaffolds, a ladder, a trapdoor): its cells (ModelCells, made for 1.7.10's
-// (Block, meta)), as 26.2's MeshShapes and masks. Not yet: the cells of NTM's big models (Structures).
+// (Block, meta)), as 26.2's MeshShapes and masks. NTM's big doors at rest: the cells of their drawn model (DoorCells, 26.2's
+// Structures).
 public final class PassableClip {
     private static final org.apache.logging.log4j.Logger LOGGER = GunFeel.LOGGER;
 

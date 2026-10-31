@@ -23,7 +23,8 @@ import net.minecraftforge.common.util.ForgeDirection;
 // RenderBlocks and Forge's render handlers, so the port makes them once in dev (ShapesScenario: the model drawn into
 // the Tessellator, the pixels read from the block atlas) and ships the table, ntmgunfeel-bullet-shapes-1710.properties,
 // for both sides. Blocks that join their neighbours (panes, bars, NTM's fence) are keyed by their four joins as well,
-// doors by both halves' meta. 1.7.10's door tops have windows (clear pixels), as NTM's doors.
+// doors by both halves' meta. 1.7.10's door tops have windows (clear pixels), as NTM's doors. NTM's big doors
+// (BlockDoorGeneric) are in the same table under their own keys (DoorCells).
 // Left out: 26.2's exact faces and pixel surfaces over the cells (ModelSurface): the cells alone, as 26.2 has them
 // before those.
 public final class ModelCells {
@@ -40,6 +41,7 @@ public final class ModelCells {
     public static long[] of(IBlockAccess world, Block b, int meta, int x, int y, int z) {
         Map<String, long[]> t = table();
         if (t.isEmpty()) return null;
+        if (b instanceof com.hbm.blocks.generic.BlockDoorGeneric) return DoorCells.of(t, world, b, x, y, z);
         String id = Block.blockRegistry.getNameForObject(b);
         if (id == null) return null;
         return t.get(key(id, fullMeta(world, b, meta, x, y, z), joins(world, b, x, y, z)));

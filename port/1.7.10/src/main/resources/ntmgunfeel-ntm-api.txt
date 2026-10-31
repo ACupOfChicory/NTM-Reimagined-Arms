@@ -106,6 +106,7 @@ ARMS method com/hbm/render/anim/HbmAnimations getRelevantTransformation (Ljava/l
 ARMS method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase isAkimbo (Lnet/minecraft/entity/EntityLivingBase;)Z
 ARMS method com/hbm/util/Clock get_ms ()J
 BULLETS class com/hbm/blocks/BlockDummyable
+BULLETS class com/hbm/blocks/generic/BlockDoorGeneric
 BULLETS class com/hbm/blocks/generic/BlockMetalFence
 BULLETS class com/hbm/blocks/generic/BlockModDoor
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
@@ -116,6 +117,7 @@ BULLETS class com/hbm/explosion/vanillant/interfaces/IEntityProcessor
 BULLETS class com/hbm/items/weapon/sedna/BulletConfig
 BULLETS class com/hbm/items/weapon/sedna/ItemGunBaseNT
 BULLETS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo
+BULLETS class com/hbm/tileentity/TileEntityDoorGeneric
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 isDead Z
@@ -147,6 +149,8 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/functi
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig velocity F
+BULLETS field com/hbm/tileentity/TileEntityDoorGeneric state B
+BULLETS method com/hbm/blocks/BlockDummyable findCore (Lnet/minecraft/world/IBlockAccess;III)[I
 BULLETS method com/hbm/blocks/generic/BlockModDoor func_150012_g (Lnet/minecraft/world/IBlockAccess;III)I
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getBulletConfig ()Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getEntityId ()I

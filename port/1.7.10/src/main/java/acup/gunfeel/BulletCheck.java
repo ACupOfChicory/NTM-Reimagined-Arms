@@ -220,6 +220,7 @@ public final class BulletCheck {
         far();
         richterBulletSpeed();
         explosives();
+        doors();
         lines.add(ok ? "ALL OK" : "SOME FAILED");
     }
 
@@ -357,6 +358,84 @@ public final class BulletCheck {
         } finally {
             pig.setDead();
         }
+    }
+
+    // ---- NTM's big doors (DoorCells): in each of the four facings their model's cells lie in NTM's box (a turn gone
+    // wrong would put them across it); the cargo door shut lets a bullet through the slits between its slats and not
+    // through a slat
+    private static void doors() {
+        Block cargo = block("hbm:tile.cargo_door");
+        net.minecraftforge.common.util.FakePlayer player = net.minecraftforge.common.util.FakePlayerFactory.getMinecraft(level);
+        double[] boxes = new double[6 * 16];
+        for (int f = 0; f < 4; f++) {
+            int x = 20 + 12 * f, y = Y + 40, z = Z + 20;
+            player.rotationYaw = 90F * f;
+            // a door left from an earlier run takes the room NTM wants free
+            for (int dx = -5; dx <= 5; dx++) for (int dy = -5; dy <= 5; dy++) for (int dz = -5; dz <= 5; dz++)
+                level.setBlock(x + dx, y + dy, z + dz, Blocks.air, 0, 2);
+            level.setBlock(x, y, z, cargo, 0, 3);
+            cargo.onBlockPlacedBy(level, x, y, z, player, new net.minecraft.item.ItemStack(cargo));
+            int[] core = null;
+            for (int dx = -4; dx <= 4 && core == null; dx++) for (int dy = -4; dy <= 4 && core == null; dy++) for (int dz = -4; dz <= 4 && core == null; dz++)
+                if (level.getTileEntity(x + dx, y + dy, z + dz) instanceof com.hbm.tileentity.TileEntityDoorGeneric) core = new int[] {x + dx, y + dy, z + dz};
+            if (core == null) {
+                fail("cargo door " + f + " set up");
+                continue;
+            }
+            int in = 0, out = 0, blocks = 0;
+            boolean alongZ = false;
+            List<int[]> mine = new java.util.ArrayList<int[]>();
+            for (int dx = -4; dx <= 4; dx++) for (int dy = -4; dy <= 4; dy++) for (int dz = -4; dz <= 4; dz++) {
+                int bx = core[0] + dx, by = core[1] + dy, bz = core[2] + dz;
+                if (level.getBlock(bx, by, bz) != cargo) continue;
+                long[] bits = ModelCells.of(level, cargo, level.getBlockMetadata(bx, by, bz), bx, by, bz);
+                if (bits == null) continue;
+                blocks++;
+                mine.add(new int[] {bx, by, bz});
+                int n = PassableClip.collision(level, cargo, bx, by, bz, boxes);
+                if (n > 0 && boxes[5] - boxes[2] < .5) alongZ = true;
+                for (int k = 0; k < 4096; k++) {
+                    if ((bits[k >> 6] >>> (k & 63) & 1L) == 0) continue;
+                    double cx = bx + ((k & 15) + .5) / 16, cy = by + ((k >> 4 & 15) + .5) / 16, cz = bz + ((k >> 8) + .5) / 16;
+                    boolean inside = false;
+                    for (int i = 0; i < n && !inside; i++)
+                        inside = cx >= boxes[i * 6] - .07 && cx <= boxes[i * 6 + 3] + .07 && cy >= boxes[i * 6 + 1] - .07 && cy <= boxes[i * 6 + 4] + .07
+                                && cz >= boxes[i * 6 + 2] - .07 && cz <= boxes[i * 6 + 5] + .07;
+                    if (inside) in++;
+                    else out++;
+                }
+            }
+            check("cargo door facing " + (level.getBlockMetadata(core[0], core[1], core[2]) - com.hbm.blocks.BlockDummyable.offset) + ": " + blocks
+                    + " blocks with cells, " + in + " cells in NTM's box, " + out + " outside", true, blocks == 9 && in > 5 * Math.max(1, out));
+            if (!alongZ) continue;
+            // a bullet along +z through the middle block's column: a slit (3 clear lines side by side; the slits are 2 cells
+            // high) and a slat
+            int[] mid = {core[0], core[1] + 1, core[2]};
+            for (int[] m : mine) if (m[1] == core[1] + 1 && Math.abs(m[0] - core[0]) + Math.abs(m[2] - core[2]) == 0) mid = m;
+            long[] bits = ModelCells.of(level, cargo, 0, mid[0], mid[1], mid[2]);
+            int[] slit = null, slat = null;
+            for (int cy = 1; cy < 15; cy++) for (int cx = 4; cx < 12; cx++) {
+                boolean clear = true;
+                for (int ox = -1; ox <= 1; ox++) clear &= !line(bits, cx + ox, cy);
+                if (clear && slit == null) slit = new int[] {cx, cy};
+                if (line(bits, cx, cy) && line(bits, cx, cy - 1) && line(bits, cx, cy + 1) && slat == null) slat = new int[] {cx, cy};
+            }
+            check("cargo door shut: a slit and a slat in its middle block", true, slit != null && slat != null);
+            if (slit == null || slat == null) continue;
+            Shot through = shoot(mid, (slit[0] + .5) / 16, (slit[1] + .5) / 16, 30F);
+            check("cargo door shut: through a slit" + through.trail, true, through.alive && through.damage == 30F);
+            Shot stopped = shoot(mid, (slat[0] + .5) / 16, (slat[1] + .5) / 16, 30F);
+            check("cargo door shut: into a slat" + stopped.trail, true, !stopped.alive || stopped.damage < 30F);
+        }
+    }
+
+    // a line of cells along z at (cx, cy) has a filled one
+    private static boolean line(long[] bits, int cx, int cy) {
+        for (int cz = 0; cz < 16; cz++) {
+            int k = cx + 16 * (cy + 16 * cz);
+            if ((bits[k >> 6] >>> (k & 63) & 1L) != 0) return true;
+        }
+        return false;
     }
 
     private static void richterBulletSpeed() {
