@@ -132,12 +132,17 @@ public abstract class MixinBulletServer implements PierceSteps.Holder {
     private void gunfeel$entityAfter(MovingObjectPosition mop, CallbackInfo ci) {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
         if (self.worldObj.isRemote || mop.typeOfHit != MovingObjectPosition.MovingObjectType.ENTITY || mop.entityHit == null) return;
-        // the bullet stopped in the creature: the clients' tracer ends there (26.2: BulletStopPayload; the fraction of
-        // the tick by distance, 26.2 asks the model's contact first)
+        // the bullet stopped in the creature: the clients' tracer ends there (26.2: BulletStopPayload). The fraction of
+        // the tick is the model's contact time (the mob moved during the tick as its shooter saw it), else by distance
         if (self.isDead && config != null && config.velocity >= 5F && mop.hitVec != null) {
-            double l = Math.sqrt(self.motionX * self.motionX + self.motionY * self.motionY + self.motionZ * self.motionZ) * motionMult();
-            double dx = mop.hitVec.xCoord - gunfeel$tickX, dy = mop.hitVec.yCoord - gunfeel$tickY, dz = mop.hitVec.zCoord - gunfeel$tickZ;
-            double fraction = Math.min(1, Math.sqrt(dx * dx + dy * dy + dz * dz) / Math.max(1e-9, l));
+            double fraction = acup.gunfeel.ModelHits.contactTime(mop.entityHit,
+                    new acup.gunfeel.phys.Vec3(mop.hitVec.xCoord, mop.hitVec.yCoord, mop.hitVec.zCoord));
+            if (!(fraction >= 0 && fraction <= 1)) {
+                double l = Math.sqrt(self.motionX * self.motionX + self.motionY * self.motionY + self.motionZ * self.motionZ) * motionMult();
+                double dx = mop.hitVec.xCoord - gunfeel$tickX, dy = mop.hitVec.yCoord - gunfeel$tickY, dz = mop.hitVec.zCoord - gunfeel$tickZ;
+                fraction = Math.min(1, Math.sqrt(dx * dx + dy * dy + dz * dz) / Math.max(1e-9, l));
+            }
+            if (TestLog.server) TestLog.s(self.getEntityId(), "stop_time", "fraction", fraction);
             acup.gunfeel.TracerNet.send(self, new acup.gunfeel.TracerNet.Stop(self.getEntityId(), Math.max(0, self.ticksInAir - 1) + fraction,
                     mop.hitVec.xCoord, mop.hitVec.yCoord, mop.hitVec.zCoord));
         }

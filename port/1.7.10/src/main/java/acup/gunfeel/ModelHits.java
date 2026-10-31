@@ -119,7 +119,10 @@ public final class ModelHits {
             return;
         }
         Entity target = entity(level,p.entity());
-        if (!(target instanceof EntityLivingBase living) || !target.isEntityAlive() || !uuid(target).equals(p.uuid())
+        // port: no UUID check (26.2: uuid(target).equals(p.uuid())). 1.7.10 does not send a mob's UUID to the clients,
+        // a client's one is its own random one; the entity id (not reused while the server runs) and the position say
+        // which mob it is
+        if (!(target instanceof EntityLivingBase living) || !target.isEntityAlive()
                 || observer.getDistanceSqToEntity(target) > RANGE * RANGE || !Double.isFinite(p.x()) || !Double.isFinite(p.y())
                 || !Double.isFinite(p.z()) || !Float.isFinite(p.yaw()) || position(target).distanceToSqr(new Vec3(p.x(), p.y(), p.z())) > 16
                 || p.boxes().isEmpty() || p.boxes().size() > ModelPosePayload.MAX_BOXES) {
