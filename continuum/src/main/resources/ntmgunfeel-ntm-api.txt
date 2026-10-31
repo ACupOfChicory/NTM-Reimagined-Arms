@@ -4,11 +4,13 @@ ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCell
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCore
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
+BULLETS class com/hbm/entity/projectile/EntityBulletBeamBase
 BULLETS class com/hbm/items/weapon/sedna/BulletConfig
 BULLETS class com/hbm/items/weapon/sedna/ItemGunBaseNT
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 tickCount I
+BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase thrower Lnet/minecraft/world/entity/LivingEntity;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ammo Ljava/util/function/Supplier;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
