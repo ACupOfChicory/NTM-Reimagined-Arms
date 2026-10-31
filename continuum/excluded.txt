@@ -52,9 +52,6 @@ MobSmoke.java
 
 # Systems not ported yet (continuum.md §3): their NTM side differs in Continuum. Each is off on this node (Feature) and
 # has a stand-in in continuum/src with what the rest of the mod calls.
-# HUD's gun silhouette: it draws GunGeometry (GroupObject is WavefrontObj; part "arms"). The stand-in draws none, the
-# HUD shows the gun's item icon
-Silhouette.java
 # server bullets: CompatEntity bullets, BulletImpact, DamageResistanceHandler, MultiblockSurface, doors and lifts
 Structures.java
 # arms: the arm animation editor (its stand-in in continuum/src is never shown; the gun editor that opens it is not here)

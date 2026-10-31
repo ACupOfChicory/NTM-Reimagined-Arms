@@ -284,6 +284,9 @@ stonecutter parameters {
             replace("List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\")",
                 "List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\", " +
                 "\"AnimCue\", \"ArmsGem\", \"ArmsSmoke\", \"HFRWavefrontObject\", \"GroupObject\")")
+            // port/continuum-hud: the HUD's gun silhouette rasterises GunGeometry's groups, Continuum's WavefrontObj through acup.gunfeel.obj
+            replace("import com.hbm.render.loader.GroupObject;\nimport com.mojang.blaze3d.platform.NativeImage;",
+                "import acup.gunfeel.obj.GroupObject;\nimport com.mojang.blaze3d.platform.NativeImage;")
         }
     }
 }
