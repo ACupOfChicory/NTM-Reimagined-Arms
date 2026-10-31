@@ -26,6 +26,11 @@ stonecutter parameters {
             replace("pass.setVertexBuffer(0,maskBuffer.slice())", "pass.setVertexBuffer(0,maskBuffer)")
             replace(",stencil,GpuFormat.RGBA8_UNORM)", ",stencil)")
             replace("import com.mojang.blaze3d.GpuFormat;", "import com.mojang.blaze3d.pipeline.TextureTarget;")
+            // 26.2's depth is reversed (near 1, far 0), 26.1's is not: depth tests, biases and clears turn round as
+            // vanilla's own do (bullet holes; the F3+B visibility probe). The F3+B line shader is continuum/src's own
+            replace("new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false, 1.0F, 10.0F)", "new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false, -1.0F, -10.0F)")
+            replace("target.getDepthTextureView(),OptionalDouble.of(0))) {}", "target.getDepthTextureView(),OptionalDouble.of(1))) {}")
+            replace("clearDepthTexture(terrain.getDepthTexture(),0)", "clearDepthTexture(terrain.getDepthTexture(),1)")
             // 26.1 names samplers on the pipeline, not bind group layouts
             replace("import net.minecraft.client.renderer.BindGroupLayouts;", "import net.minecraft.client.renderer.RenderPipelines;")
             replace(".withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1)", ".withSampler(\"Sampler0\").withSampler(\"Sampler1\")")
