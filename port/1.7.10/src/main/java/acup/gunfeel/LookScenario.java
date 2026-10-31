@@ -162,6 +162,21 @@ final class LookScenario {
         slime.readEntityFromNBT(tag);
         slime.setLocationAndAngles(px + ZX - 1.5, py, pz + ZZ + .5, 180F, 0F);
         w.spawnEntityInWorld(slime);
+        // NTM's mobs drawn by OBJ models: a glyphid (NTM's loader) and a tesla crab (Forge's), still, without their AI and
+        // away from the rest (the crab zaps what is within 3 blocks)
+        net.minecraft.entity.EntityLiving glyphid = new com.hbm.entity.mob.glyphid.EntityGlyphid(w);
+        net.minecraft.entity.EntityLiving crab = new com.hbm.entity.mob.EntityTeslaCrab(w);
+        double[][] at = {{ZX + 7.5, ZZ + 2.5}, {ZX - 7.5, ZZ + 3.5}};
+        int i = 0;
+        for (net.minecraft.entity.EntityLiving mob : new net.minecraft.entity.EntityLiving[] {glyphid, crab}) {
+            mob.setLocationAndAngles(px + at[i][0], py, pz + at[i][1], 180F, 0F);
+            mob.getEntityAttribute(SharedMonsterAttributes.movementSpeed).setBaseValue(0);
+            mob.func_110163_bv();
+            mob.tasks.taskEntries.clear();
+            mob.targetTasks.taskEntries.clear();
+            w.spawnEntityInWorld(mob);
+            i++;
+        }
         GunFeel.LOGGER.info("Scenario look: wall at z {}, zombie at {} {} {}", pz + 10, px + ZX, py, pz + ZZ);
     }
 

@@ -14,7 +14,7 @@ import java.util.List;
 public enum Feature {
     CORE("core", list(), list("GunFeel", "GunFeelMod", "GunFeelClient", "Config", "Net", "PortPaths", "LateMixins")),
     MODEL_HITBOXES("model_hitboxes", list("MixinHeadDamage"),
-            list("ModelHits", "ModelHitHooks", "ModelHitClient", "ModelHitNet", "ModelAABB", "ModelMesh", "ModelCapture", "HeadDamage",
+            list("ModelHits", "ModelHitHooks", "ModelHitClient", "ModelHitNet", "ModelAABB", "ModelMesh", "ModelCapture", "ModelObjParts", "HeadDamage",
                     "HeadProfiles", "ModelHeads")),
     BULLETS("bullets", list("MixinBulletServer", "MixinThrowableClip", "MixinBeamHits", "MixinExplosiveBullet", "MixinExplosionContext",
             "MixinExplosiveProcessor", "MixinExplosiveDirect"),

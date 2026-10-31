@@ -11,30 +11,34 @@ import com.hbm.render.loader.HFRWavefrontObject;
 import acup.gunfeel.Arms;
 
 // Which parts of an NTM model are drawn, and with what GL matrix, while the first-person gun is drawn (Arms, 26.2: submitPart),
-// or a big door for its cells (DoorCapture, dev).
+// a big door for its cells (DoorCapture, dev), or an NTM mob for its model hitboxes (ModelObjParts).
 @Mixin(value = HFRWavefrontObject.class, remap = false)
 public abstract class MixinWavefrontObject {
     @Inject(method = "renderAll", at = @At("HEAD"))
     private void gunfeel$all(CallbackInfo ci) {
         if (Arms.capturing()) Arms.parts((HFRWavefrontObject) (Object) this, 0);
         if (acup.gunfeel.DoorCapture.active()) acup.gunfeel.DoorCapture.parts((HFRWavefrontObject) (Object) this, 0);
+        acup.gunfeel.ModelObjParts.hfr((HFRWavefrontObject) (Object) this, 0);
     }
 
     @Inject(method = "renderOnly", at = @At("HEAD"))
     private void gunfeel$only(String[] names, CallbackInfo ci) {
         if (Arms.capturing()) Arms.parts((HFRWavefrontObject) (Object) this, 1, names);
         if (acup.gunfeel.DoorCapture.active()) acup.gunfeel.DoorCapture.parts((HFRWavefrontObject) (Object) this, 1, names);
+        acup.gunfeel.ModelObjParts.hfr((HFRWavefrontObject) (Object) this, 1, names);
     }
 
     @Inject(method = "renderPart", at = @At("HEAD"))
     private void gunfeel$part(String name, CallbackInfo ci) {
         if (Arms.capturing()) Arms.parts((HFRWavefrontObject) (Object) this, 1, name);
         if (acup.gunfeel.DoorCapture.active()) acup.gunfeel.DoorCapture.parts((HFRWavefrontObject) (Object) this, 1, name);
+        acup.gunfeel.ModelObjParts.hfr((HFRWavefrontObject) (Object) this, 1, name);
     }
 
     @Inject(method = "renderAllExcept", at = @At("HEAD"))
     private void gunfeel$except(String[] names, CallbackInfo ci) {
         if (Arms.capturing()) Arms.parts((HFRWavefrontObject) (Object) this, 2, names);
         if (acup.gunfeel.DoorCapture.active()) acup.gunfeel.DoorCapture.parts((HFRWavefrontObject) (Object) this, 2, names);
+        acup.gunfeel.ModelObjParts.hfr((HFRWavefrontObject) (Object) this, 2, names);
     }
 }

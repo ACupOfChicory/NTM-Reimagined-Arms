@@ -231,7 +231,14 @@ MARESLEG method com/hbm/render/anim/BusAnimationSequence hold (I)Lcom/hbm/render
 MARESLEG method com/hbm/render/anim/BusAnimationSequence setPos (DDD)Lcom/hbm/render/anim/BusAnimationSequence;
 MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBaseMK4
 MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBeamBase
+MODEL_HITBOXES class com/hbm/render/loader/HFRWavefrontObject
+MODEL_HITBOXES class com/hbm/render/loader/S_Face
+MODEL_HITBOXES class com/hbm/render/loader/S_GroupObject
 MODEL_HITBOXES field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+MODEL_HITBOXES field com/hbm/render/loader/HFRWavefrontObject groupObjects Ljava/util/ArrayList;
+MODEL_HITBOXES field com/hbm/render/loader/S_Face vertices [Lnet/minecraftforge/client/model/obj/Vertex;
+MODEL_HITBOXES field com/hbm/render/loader/S_GroupObject faces Ljava/util/ArrayList;
+MODEL_HITBOXES field com/hbm/render/loader/S_GroupObject name Ljava/lang/String;
 MODEL_HITBOXES method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/util/DamageSource;FZZDFF)Z
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT offsetHorizontal F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT offsetVertical F

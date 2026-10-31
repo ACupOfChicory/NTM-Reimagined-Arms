@@ -127,6 +127,19 @@ public final class ModelHitClient {
         }
     }
 
+    // an OBJ group drawn now (ModelObjParts)
+    public static void group(Object group, String name, ModelObjGeometry.Faces faces) {
+        if (!(inModel || inPass) || current == null) return;
+        try {
+            current.group(group, name, faces, modelview());
+        } catch (RuntimeException ex) {
+            ModelHitLog.event("client", "capture_failed", target, ex::toString);
+            current = null;
+            inModel = false;
+            inPass = false;
+        }
+    }
+
     // RendererLivingEntity.doRender RETURN
     public static void end(EntityLivingBase entity) {
         ModelCapture done = current;

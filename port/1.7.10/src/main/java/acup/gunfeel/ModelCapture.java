@@ -100,6 +100,13 @@ public final class ModelCapture {
         }
     }
 
+    // An OBJ group of this model is drawn (ModelObjParts) with the GL modelview `matrix`: its meshes where it is drawn
+    public void group(Object group, String name, ModelObjGeometry.Faces faces, float[] matrix) {
+        if (!complete) return;
+        ModelObjGeometry.append(boxes, group, name + suffix, faces, Mat4.mul(inverseView, matrix), -x, -y, -z);
+        if (boxes.size() > ModelPosePayload.MAX_BOXES) complete = false;
+    }
+
     // What ModelRenderer.render(scale) applies before its glCallList: the offset, the rotation point, then Z, Y, X
     // turns; renderWithRotation: no offset, the rotation point, then Y, X, Z.
     static float[] local(ModelRenderer r, float scale, boolean withRotation) {
