@@ -51,8 +51,8 @@ public final class CameraRecoil {
         }
         if (TestLog.client) TestLog.c(-1, "recoil", "phase", "kick", "scale", scale, "cameraScale", Config.cameraScale, "min", min, "held", held,
                 "time", held ? Math.max(1F, Config.cameraTime) : Config.cameraTime, "ownCurves", !held, "preset", RecoilPresets.presetOf("cameraPitch"), "up", vertical * scale, "pitch", pl == null ? null : pl.getXRot());
-        SHOTS.add(new Shot(System.nanoTime(), vertical * scale, horizontal * scale,
-                Config.cameraShake * ads * (Math.random() < 0.5 ? 1F : -1F), 1F,
+        SHOTS.add(new Shot(GunClock.nanos(), vertical * scale, horizontal * scale,
+                Config.cameraShake * ads * (Rng.camera().nextDouble() < 0.5 ? 1F : -1F), 1F,
                 held ? shipped("cameraPitch") : RecoilPresets.channel("cameraPitch"),
                 held ? shipped("cameraYaw") : RecoilPresets.channel("cameraYaw"),
                 RecoilPresets.channel("cameraRoll"), held ? Math.max(1F, Config.cameraTime) : Config.cameraTime));
@@ -81,7 +81,8 @@ public final class CameraRecoil {
             return;
         }
         if (mc.isPaused()) return;
-        long now = System.nanoTime();
+        long now = GunClock.nanos();
+        boolean traced = TestLog.frames() && !SHOTS.isEmpty();
         float pitch = 0F, yaw = 0F, r = 0F;
         for (int i = SHOTS.size() - 1; i >= 0; i--) {
             Shot s = SHOTS.get(i);
@@ -100,6 +101,8 @@ public final class CameraRecoil {
         // happened and the view would end below where the player aimed
         appliedPitch += turn(player, pitch - appliedPitch, yaw - appliedYaw);
         appliedYaw = yaw;
+        if (traced) TestLog.c(-1, "camera", "shots", SHOTS.size(), "pitch", pitch, "yaw", yaw, "roll", r, "applied", appliedPitch,
+                "xRot", player.getXRot(), "yRot", player.getYRot());
         if (SHOTS.isEmpty()) {
             appliedPitch = 0F;
             if (burst) {

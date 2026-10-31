@@ -278,7 +278,7 @@ public final class GunEditor extends Screen {
             onClose();
             return;
         }
-        long now = System.currentTimeMillis();
+        long now = GunClock.millis();
         if (autoFire > 0 && now >= nextShot) {
             nextShot = now + AUTO_MS[autoFire];
             testShot();

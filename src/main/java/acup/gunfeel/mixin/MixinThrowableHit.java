@@ -28,6 +28,15 @@ import net.minecraft.world.phys.Vec3;
 @Mixin(value = EntityThrowableNT.class, remap = false)
 public abstract class MixinThrowableHit {
     @org.spongepowered.asm.mixin.Shadow protected abstract double motionMult();
+    // a trace (-Dntmgunfeel.trace): NTM's spread draws from the new bullet's own random, a fresh one each time; seeded
+    // from the trace's seed by the order of the shots, so every run fires the same bullets
+    @org.spongepowered.asm.mixin.injection.Inject(method = "setThrowableHeading", at = @At("HEAD"))
+    private void gunfeel$traceSpread(double x, double y, double z, float velocity, float inaccuracy,
+            org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+        // Minecraft's own methods, called as Entity's: not part of NTM's API the mod leans on (ntmgunfeel-ntm-api.txt)
+        var self = (net.minecraft.world.entity.Entity) (Object) this;
+        if (acup.gunfeel.Trace.ON && !self.level().isClientSide()) self.getRandom().setSeed(acup.gunfeel.Rng.spread());
+    }
     @WrapMethod(method="tick")
     private void gunfeel$view(Operation<Void> original) {
         var self=(EntityThrowableNT)(Object)this;

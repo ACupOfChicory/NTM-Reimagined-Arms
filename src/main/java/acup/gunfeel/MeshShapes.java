@@ -136,7 +136,7 @@ public final class MeshShapes {
                 catch(Throwable e){QUEUED.remove(next.pos());throw e;}
             }
             if(!valid(level,active.core,active.state)){QUEUED.remove(active.core);active=null;return;}
-            if(!active.step(start+1_500_000L))return;
+            if(!active.step(GunClock.nanos()+1_500_000L))return;
             var made=active.out;
             // Публикация только целиком и только если машина всё ещё в захваченном состоянии.
             if(valid(level,active.core,active.state)) {
@@ -203,7 +203,7 @@ public final class MeshShapes {
         }
         boolean step(long deadline) {
             while(triangle<triangles.size()) {
-                if(System.nanoTime()>=deadline)return false;
+                if(GunClock.nanos()>=deadline)return false;
                 var tri=triangles.get(triangle);
                 if(sampling==null) {
                     surfaces.add(tri.face().get());
@@ -213,7 +213,7 @@ public final class MeshShapes {
                 sampling=null;triangle++;
             }
             while(block<blocks.size()) {
-                if(System.nanoTime()>=deadline)return false;
+                if(GunClock.nanos()>=deadline)return false;
                 var pos=blocks.get(block++);var world=bits.get(pos);if(world==null)continue;
                 long[] north=new long[65];
                 for(int x=0;x<16;x++)for(int z=0;z<16;z++) {
@@ -258,7 +258,7 @@ public final class MeshShapes {
         boolean step(long deadline) {
             int checked=0;
             while(i<=n) {
-                if((checked++&127)==0 && System.nanoTime()>=deadline)return false;
+                if((checked++&127)==0 && GunClock.nanos()>=deadline)return false;
                 point();j++;
                 if(j>n-i){i++;j=0;}
             }

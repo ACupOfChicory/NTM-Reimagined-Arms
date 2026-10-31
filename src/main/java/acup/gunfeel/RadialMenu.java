@@ -73,7 +73,7 @@ public final class RadialMenu {
         px = py = 0;
         h = new float[list.size()];
         any = 0;
-        openedAt = lastFrame = System.nanoTime();
+        openedAt = lastFrame = GunClock.nanos();
         return true;
     }
 
@@ -162,7 +162,7 @@ public final class RadialMenu {
         if (types == null) return;
         var mc = Minecraft.getInstance();
         if (mc.player == null) return;
-        long now = System.nanoTime();
+        long now = GunClock.nanos();
         float dt = Math.min(50, (now - lastFrame) / 1e6F);
         lastFrame = now;
         Frame f = new Frame();
