@@ -31,7 +31,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 // (RenderedMesh.of): the chemical plant must show windows on Continuum's texture (hbm:textures/models/...), the
 // chemical factory and the small cooling tower none (the factory's clear pixels are its texture's empty part, the
 // tower's texture is listed whole as empty). The fusion torus has areas listed: its windows are logged. Then the cells
-// bullets meet (Structures.cells, taken by MeshShapes within a frame's budget): every block of each machine has them,
+// bullets meet (Structures.cells, taken by MeshShapes under 2 ms in any frame): every block of each machine has them,
 // with glass faces where windows are. Report to the file, then the machines are taken away and the game quits. Continuum's
 // machines are drawn by Gem renderers (GemBER), read through GemMesh; the small cooling tower is drawn by its core.
 @EventBusSubscriber(modid = "ntmgunfeel", value = Dist.CLIENT)
@@ -90,7 +90,7 @@ public final class MachineGlassProbe {
         // the machines' cells taken from what is drawn (MeshShapes, a slice a frame), up to a minute
         if (MeshShapes.capturesCompleted < MACHINES.length && ticks < 40 + 20 * 75) return;
         lines.add("     captures completed " + MeshShapes.capturesCompleted + ", peak render work a frame " + MeshShapes.captureFramePeak / 1e6 + " ms");
-        check(MeshShapes.captureFramePeak < 4_000_000L, "capture within a frame's budget: peak " + MeshShapes.captureFramePeak / 1e6 + " ms");
+        check(MeshShapes.captureFramePeak < 2_000_000L, "capture within a frame's budget: peak " + MeshShapes.captureFramePeak / 1e6 + " ms");
         for (int i = 0; i < MACHINES.length; i++) probe(mc, i);
         finish();
     }
@@ -110,6 +110,13 @@ public final class MachineGlassProbe {
                 var result = stack.useOn(new UseOnContext(player, InteractionHand.MAIN_HAND,
                         new BlockHitResult(new Vec3(floor.getX() + .5, 100, floor.getZ() + .5), Direction.UP, floor, false)));
                 lines.add("     " + MACHINES[i] + " placed at " + floor.above().toShortString() + ": " + result);
+                if (!result.consumesAction()) {
+                    // what stands in its way
+                    for (BlockPos p : BlockPos.betweenClosed(floor.offset(-9, 1, -9), floor.offset(9, 12, 9)))
+                        if (!level.getBlockState(p).isAir()) lines.add("     in the way: " + p.toShortString() + " " + level.getBlockState(p));
+                    for (var e : level.getEntities((net.minecraft.world.entity.Entity) null, new net.minecraft.world.phys.AABB(floor).inflate(10)))
+                        lines.add("     in the way: " + e);
+                }
             }
             player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
         } catch (Throwable t) {
@@ -121,10 +128,13 @@ public final class MachineGlassProbe {
 
     // the place of the machines emptied, on bedrock (what earlier runs left there is gone)
     private static void clear(net.minecraft.server.level.ServerLevel level) {
+        // BulletCheck's lanes reach x 62 and rise in rows of 4 above y 100
         com.hbm.blocks.multiblock.BlockMultiblockCore.withoutTeardown(() -> {
-            for (int x = -8; x <= 60; x++) for (int z = -8; z <= 24; z++) for (int y = 99; y <= 135; y++)
+            for (int x = -8; x <= 72; x++) for (int z = -8; z <= 24; z++) for (int y = 99; y <= 160; y++)
                 level.setBlock(new BlockPos(x, y, z), (y == 99 ? Blocks.BEDROCK : Blocks.AIR).defaultBlockState(), 3);
         });
+        for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(-8, 99, -8, 73, 161, 25),
+                e -> !(e instanceof net.minecraft.world.entity.player.Player))) e.discard();
     }
 
     // the machine's block entities near where it was placed, the one drawn with most triangles

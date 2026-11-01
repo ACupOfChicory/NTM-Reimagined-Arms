@@ -247,7 +247,8 @@ stonecutter parameters {
             replace("            renderer.submit(state, new PoseStack(), rec, camera);",
                 "            if (!GemMesh.submit(renderer, state, new PoseStack(), rec)) renderer.submit(state, new PoseStack(), rec, camera);")
             // RenderedMesh: a texture file read on GemMesh's worker before a machine is taken (its table stays the game
-            // thread's); MeshShapes starts a machine once GemMesh has its textures (no frame reads a big PNG)
+            // thread's); MeshShapes starts a machine once GemMesh has its textures (no frame reads a big PNG), and its capture
+            // is built on GemMesh's worker (GemMesh.build: the machine's blocks, models and triangles; no frame over 2 ms)
             replace("    private static Tex load(Identifier loc) {",
                 "    static boolean known(Identifier loc) {\n        return TEXTURES.containsKey(loc);\n    }\n\n" +
                 "    static void known(Identifier loc, Tex tex) {\n        TEXTURES.putIfAbsent(loc, tex);\n    }\n\n" +
@@ -260,7 +261,9 @@ stonecutter parameters {
                 "        for (Recorder.Part part : rec.parts) part.emit(out, o);\n        return out;\n    }\n\n" +
                 "    private static Tex load(Identifier loc) {")
             replace("                try{active=new Capture(level,be,next.state());}",
-                "                if(be!=null && !GemMesh.ready(be)){QUEUE.addFirst(next);return;}\n                try{active=new Capture(level,be,next.state());}")
+                "                if(be!=null && !GemMesh.ready(be)){QUEUE.addFirst(next);return;}\n" +
+                "                try{var st=next.state();var made=GemMesh.build(next,()->new Capture(level,be,st));" +
+                "if(made==null){QUEUE.addFirst(next);return;}active=made;GemMesh.taken(next.pos());}")
             // RenderedMesh: the tables a GemBER's drawing reaches when GemMesh's worker makes it into triangles, concurrent
             // (the same declarations as feature/shapes-table's for 26.2, which reads machines on a worker too)
             replace("    private static final Set<Class<?>> FAILED = new HashSet<>();", "    private static final Set<Class<?>> FAILED = java.util.concurrent.ConcurrentHashMap.newKeySet();")
@@ -310,6 +313,14 @@ stonecutter parameters {
             // moved to, are loaded at once
             replace("for (int cx = 0; cx < 4; cx++) for (int cz = 0; cz < 4; cz++) level.setChunkForced(cx, cz, true);",
                 "for (int cx = 0; cx < 8; cx++) for (int cz = 0; cz < 8; cz++) {\n            level.setChunkForced(cx, cz, true);\n            level.getChunk(cx, cz);\n        }")
+            // ...and the chunks' entity status is set by the server's own tasks, which run between ticks: the retained model
+            // check's creature added before them stays out of entity lookups and ModelHits drops its pose (one run of
+            // three failed so). The server runs its tasks until the creature's chunk ticks entities (ten seconds at most)
+            replace("        level.addFreshEntity(target);\n        String name = \"retained \" + BuiltInRegistries.ENTITY_TYPE.getKey(target.getType());\n",
+                "        long until = System.nanoTime() + 10_000_000_000L;\n" +
+                "        level.getServer().managedBlock(() -> level.isPositionEntityTicking(target.blockPosition()) || System.nanoTime() > until);\n" +
+                "        level.addFreshEntity(target);\n        String name = \"retained \" + BuiltInRegistries.ENTITY_TYPE.getKey(target.getType());\n" +
+                "        check(name + \": its chunk ticks entities\", true, level.getEntity(target.getId()) == target);\n")
             // port/continuum-arms: Arms, GunGeometry and ArmAnimationPreview on NTM Continuum. The gun's OBJ groups are
             // read from Continuum's WavefrontObj through continuum/src acup.gunfeel.obj (NEXT's class names, the same API)
             replace("import com.hbm.render.loader.HFRWavefrontObject;\nimport com.mojang.blaze3d.vertex.PoseStack;\n\nimport net.minecraft.client.Minecraft;",

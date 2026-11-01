@@ -32,9 +32,11 @@ public final class GemMesh {
     private GemMesh() {
     }
 
-    // ---- a machine read before MeshShapes takes it, so no frame gives it more than a look: its textures (a big PNG and its
-    // masks, RenderedMesh.Image, take tens of milliseconds; each triangle's window test is made there too), then its
-    // triangles, on a worker of its own; MeshShapes starts the machine once ready() says so
+    // ---- a machine read before MeshShapes takes it, so no frame gives it more than a look (under 2 ms): on the game's
+    // thread only the renderer's state is extracted; on a worker of its own the model is walked for its textures, they
+    // are read (a big PNG and its masks, RenderedMesh.Image, take tens of milliseconds; each triangle's window test is made
+    // there too), its triangles are made, then MeshShapes' capture is built (build) and run (aside) there too.
+    // MeshShapes starts the machine once ready() says so
 
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "ntm-gunfeel Continuum machine take");
@@ -55,7 +57,11 @@ public final class GemMesh {
         Made made = MADE.get(pos);
         if (made != null && made.be == be) return made.tris.isDone();
         BlockEntityRenderer renderer = Minecraft.getInstance().getBlockEntityRenderDispatcher().getRenderer(be);
-        if (!(renderer instanceof GemBER ber)) return true;
+        if (!(renderer instanceof GemBER ber)) {
+            // any other renderer is read here, in a frame of its own (it reads the block entity as it draws)
+            MADE.put(pos, new Made(be, java.util.concurrent.CompletableFuture.completedFuture(RenderedMesh.of(be))));
+            return false;
+        }
         // its state and textures taken once, while they are read
         Pending pending = PENDING.get(pos);
         if (pending == null || pending.be != be) {
@@ -63,7 +69,14 @@ public final class GemMesh {
             if (pending == null) return true; // RenderedMesh reads it as it can
             PENDING.put(pos, pending);
         }
-        Map<Identifier, java.util.List<Drawn>> textures = pending.textures;
+        if (!pending.walked.isDone()) return false;
+        Map<Identifier, java.util.List<Drawn>> textures;
+        try {
+            textures = pending.walked.get();
+        } catch (Exception e) {
+            PENDING.remove(pos);
+            return true; // RenderedMesh reads it as it can
+        }
         boolean all = true;
         for (Identifier id : textures.keySet()) {
             if (RenderedMesh.known(id)) continue;
@@ -97,50 +110,63 @@ public final class GemMesh {
         return false;
     }
 
-    private record Pending(BlockEntity be, Object state, Map<Identifier, java.util.List<Drawn>> textures) {
+    private record Pending(BlockEntity be, Object state, java.util.concurrent.Future<Map<Identifier, java.util.List<Drawn>>> walked) {
     }
 
-    private static final Map<BlockPos, Pending> PENDING = new java.util.HashMap<>();
+    private static final Map<BlockPos, Pending> PENDING = new ConcurrentHashMap<>();
 
-    // the renderer's state taken from the block entity, and the textures its parts draw with, or null
+    // the renderer's state taken from the block entity (the game's thread), and the textures its parts draw with (walked on
+    // the worker), or null
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static Pending pending(BlockEntity be, BlockEntityRenderer renderer, GemBER ber) {
-        Map<Identifier, java.util.List<Drawn>> textures = new java.util.HashMap<>();
-        Object[] state = new Object[1];
+        Object state;
         try {
-            state[0] = renderer.createRenderState();
+            state = renderer.createRenderState();
             var mc = Minecraft.getInstance();
-            renderer.extractRenderState(be, (net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState) state[0],
+            renderer.extractRenderState(be, (net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState) state,
                     mc.getDeltaTracker().getGameTimeDeltaPartialTick(true), mc.gameRenderer.getMainCamera().position(), null);
-            Gem.walk(ber.gem(), state[0], new PoseStack(), (Gem.Visitor) (part, geometry, at) -> {
-                Surface surface = ((Gem.Part) part).surfaceOf(state[0]);
+        } catch (Throwable t) {
+            return null;
+        }
+        Object taken = state;
+        return new Pending(be, state, WORKER.submit(() -> {
+            Map<Identifier, java.util.List<Drawn>> textures = new java.util.HashMap<>();
+            Gem.walk(ber.gem(), taken, new PoseStack(), (Gem.Visitor) (part, geometry, at) -> {
+                Surface surface = ((Gem.Part) part).surfaceOf(taken);
                 if (surface != null) {
                     Identifier id = Identifier.tryParse(surface.texture());
                     if (id != null) textures.computeIfAbsent(id, k -> new java.util.ArrayList<>())
                             .add(new Drawn((dev.golem.core.render.gem.Geometry) geometry, surface.renderType().mode()));
                 }
             });
-        } catch (Throwable t) {
-            return null;
-        }
-        return new Pending(be, state[0], textures);
+            return textures;
+        }));
     }
 
     // a world left: what was asked for there is dropped
     public static void forget() {
         PENDING.clear();
         MADE.clear();
+        build = null;
+        buildOf = null;
+        aside = null;
+        asideOf = null;
     }
 
     // a machine's triangles made on the worker (ready), for MeshShapes' capture
     private record Made(BlockEntity be, java.util.concurrent.Future<java.util.List<RenderedMesh.Tri>> tris) {
     }
 
-    private static final Map<BlockPos, Made> MADE = new java.util.HashMap<>();
+    private static final Map<BlockPos, Made> MADE = new ConcurrentHashMap<>();
 
-    // what the block entity draws: made on the worker when ready() said so, else read now
+    // the capture of the machine here is made: what was made for it is dropped
+    public static void taken(BlockPos pos) {
+        MADE.remove(pos);
+    }
+
+    // what the block entity draws (asked by the capture, on the worker): made when ready() said so, else read now
     public static java.util.List<RenderedMesh.Tri> trisOf(BlockEntity be) {
-        Made made = MADE.remove(be.getBlockPos());
+        Made made = MADE.get(be.getBlockPos());
         if (made != null && made.be == be && made.tris.isDone()) {
             try {
                 return made.tris.get();
@@ -168,6 +194,25 @@ public final class GemMesh {
         aside = null;
         asideOf = null;
         return done.get();
+    }
+
+    // something made on the worker for MeshShapes (a capture, made of the machine's blocks and triangles): null until it
+    // is made (asked again with an equal key next frame); the worker's exception is thrown here
+    private static Object buildOf;
+    private static java.util.concurrent.Future<?> build;
+
+    @SuppressWarnings("unchecked")
+    public static <T> T build(Object of, java.util.concurrent.Callable<T> work) throws Exception {
+        if (!of.equals(buildOf) || build == null) {
+            buildOf = of;
+            build = WORKER.submit(work);
+            return null;
+        }
+        if (!build.isDone()) return null;
+        var done = build;
+        build = null;
+        buildOf = null;
+        return (T) done.get();
     }
 
     private record Drawn(dev.golem.core.render.gem.Geometry geometry, com.mojang.blaze3d.vertex.VertexFormat.Mode topology) {
