@@ -432,9 +432,11 @@ public final class PassableClip extends ClipContext {
         return out;
     }
 
-    // the cells under a key (block shapes and the cells of big models: see Structures), as bullets meet them
+    // the cells under a key (block shapes and the cells of big models: see Structures), as bullets meet them; a machine
+    // the jar's pack has (made with this game's NTM) by the pack: the config's may be from an older mod
     static long @org.jspecify.annotations.Nullable [] byKey(String key) {
-        return shapes().get(key);
+        long[] packed = ShapePack.get(key);
+        return packed != null ? packed : shapes().get(key);
     }
 
     // the cells under a key that this game knows (not the server's)

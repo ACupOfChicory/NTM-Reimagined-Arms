@@ -99,8 +99,10 @@ final class MachineGlassCheck {
         // the client must have read every machine's shape, windows included
         boolean all = true;
         for (int i = 0; i < CORES.size(); i++) all &= !WINDOWS[i] || windowFaces(level, CORES.get(i)) > 0;
-        // every machine captured whole (MeshShapes publishes a machine's shapes at once)
-        all &= MeshShapes.capturesCompleted >= CORES.size();
+        // every block of every machine has its cells (from the jar's table, ShapePack, or taken whole by MeshShapes)
+        for (BlockPos core : CORES)
+            for (BlockPos p : com.hbm.blocks.multiblock.MultiblockSurface.rigidStructureBlocks(level, core))
+                all &= Structures.cells(level, p, level.getBlockState(p)) != null;
         if (!all && waited < 90) return;
         if (step++ < 40) return; // a few more frames: the capture is published whole
         for (int i = 0; i < CORES.size(); i++) check(level, CORES.get(i), MACHINES[i], WINDOWS[i]);
