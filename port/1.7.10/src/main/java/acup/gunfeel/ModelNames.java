@@ -149,6 +149,21 @@ public final class ModelNames {
             {"ModelDragon", "rearLeg", "field_78218_e", "root/body/*_hind_leg"},
             {"ModelDragon", "rearLegTip", "field_78216_g", "root/body/*_hind_leg/*_hind_leg_tip"},
             {"ModelDragon", "rearFoot", "field_78227_i", "root/body/*_hind_leg/*_hind_leg_tip/*_hind_foot"},
+            // Et Futurum Requiem's rabbit and bee (the owner's pack; their own field names): the parts 26.2 marks. Their
+            // legs are cut otherwise than 26.2's and keep their own names, as the rabbit's nose
+            {"ModelRabbit", "rabbitHead", "rabbitHead", "root/body/head"},
+            {"ModelRabbit", "rabbitLeftEar", "rabbitLeftEar", "root/body/head/left_ear"},
+            {"ModelRabbit", "rabbitRightEar", "rabbitRightEar", "root/body/head/right_ear"},
+            {"ModelRabbit", "rabbitBody", "rabbitBody", "root/body"},
+            {"ModelRabbit", "rabbitLeftArm", "rabbitLeftArm", "root/body/frontlegs/left_front_leg"},
+            {"ModelRabbit", "rabbitRightArm", "rabbitRightArm", "root/body/frontlegs/right_front_leg"},
+            {"ModelRabbit", "rabbitTail", "rabbitTail", "root/body/tail"},
+            {"ModelBee", "torso", "torso", "root/bone/body"},
+            {"ModelBee", "leftAntenna", "leftAntenna", "root/bone/body/left_antenna"},
+            {"ModelBee", "rightAntenna", "rightAntenna", "root/bone/body/right_antenna"},
+            {"ModelBee", "stinger", "stinger", "root/bone/body/stinger"},
+            {"ModelBee", "leftWing", "leftWing", "root/bone/left_wing"},
+            {"ModelBee", "rightWing", "rightWing", "root/bone/right_wing"},
     };
     // 26.2's wither: shoulders, ribcage, tail; center, right and left head (1.7.10's second head is at -x)
     private static final String[] WITHER = {"root/shoulders", "root/ribcage", "root/tail", "root/center_head", "root/right_head", "root/left_head"};

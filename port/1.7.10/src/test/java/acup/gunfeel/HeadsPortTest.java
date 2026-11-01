@@ -24,7 +24,9 @@ class HeadsPortTest {
 
     static Map<String, Pose> poses() throws Exception {
         Map<String, Pose> out = new LinkedHashMap<>();
-        try (BufferedReader r = new BufferedReader(new InputStreamReader(HeadsPortTest.class.getResourceAsStream("/ntmgunfeel-mob-poses-1710.jsonl"), StandardCharsets.UTF_8))) {
+        // the dev game's types, then the other mods' of the owner's pack (Et Futurum Requiem and others; the pack stand)
+        for (String file : new String[] {"/ntmgunfeel-mob-poses-1710.jsonl", "/ntmgunfeel-mob-poses-pack-1710.jsonl"})
+        try (BufferedReader r = new BufferedReader(new InputStreamReader(HeadsPortTest.class.getResourceAsStream(file), StandardCharsets.UTF_8))) {
             for (String line; (line = r.readLine()) != null;) {
                 if (line.trim().isEmpty()) continue;
                 JsonObject o = new JsonParser().parse(line).getAsJsonObject();
@@ -51,7 +53,8 @@ class HeadsPortTest {
 
     // marked in 26.2, no head here: the cyber crab's head is its shell, one mesh in 26.2 and 20 cubes in 1.7.10; the
     // bat of 26.2 is another model (its head 4 x 3 x 2 px, 1.7.10's a 6 px cube): a head of another size is not taken
-    private static final java.util.Set<String> NO_HEAD = new java.util.HashSet<>(java.util.Arrays.asList("hbm:entity_cyber_crab", "minecraft:bat"));
+    // Et Futurum's shulker draws no head (base and lid only)
+    private static final java.util.Set<String> NO_HEAD = new java.util.HashSet<>(java.util.Arrays.asList("hbm:entity_cyber_crab", "minecraft:bat", "minecraft:shulker"));
 
     @Test
     void everyMarkedMobFindsItsHead() throws Exception {
@@ -71,7 +74,8 @@ class HeadsPortTest {
     // the zones are on the head: its cubes, the glyphid's jaws; and where 26.2 marks other parts: the nuclear glyphid's
     // mini nuke, Brenda's body, the ghast's and the squid's body, the first segment of the silverfish and the maggot
     private static final java.util.Set<String> MARKED_SO = new java.util.HashSet<>(java.util.Arrays.asList("Ghast: root/body", "Squid: root/body",
-            "Silverfish: root/segment0", "hbm.entity_parasite_maggot: root/segment0", "hbm.entity_glyphid_brenda: mesh/Body"));
+            "Silverfish: root/segment0", "hbm.entity_parasite_maggot: root/segment0", "hbm.entity_glyphid_brenda: mesh/Body",
+            "etfuturum.endermite: root/bodyParts0", "etfuturum.bee: root/bone/body"));
 
     @Test
     void zonesAreOnHeadParts() throws Exception {
@@ -93,6 +97,10 @@ class HeadsPortTest {
         assertEquals("hbm:entity_radiation_blaze", EntityKeys.of("hbm.entity_ntm_radiation_blaze"));
         assertEquals("hbm:entity_glyphid", EntityKeys.of("hbm.entity_glyphid"));
         assertEquals("minecraft:zombified_piglin", EntityKeys.of("PigZombie"));
+        assertEquals("minecraft:stray", EntityKeys.of("etfuturum.stray"));
+        assertEquals("minecraft:zombie_villager", EntityKeys.of("etfuturum.villager_zombie"));
+        assertEquals("minecraft:snow_golem", EntityKeys.of("chisel.snowman"));
+        assertEquals("randomthings:spirit", EntityKeys.of("RandomThings.spirit").toLowerCase(java.util.Locale.ROOT));
     }
 
     // the limbs (ntmgunfeel-limbs.json, the same binding): every marked mob finds them
