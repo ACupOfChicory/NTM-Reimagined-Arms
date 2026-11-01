@@ -159,7 +159,9 @@ public final class MachineGlassProbe {
             lines.add("     " + name + ": " + BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(be.getType()) + " at " + p.toShortString() + ", renderer "
                     + (renderer == null ? "none" : renderer.getClass().getName()) + ", " + tris.size() + " triangles read");
             if (core == null && Structures.taken(be.getBlockState())) core = be;
-            if (tris.size() > best.size()) {
+            // drawn alike (a machine an earlier check left, still on the client): the one nearer where it was placed
+            if (tris.size() > best.size() || !tris.isEmpty() && tris.size() == best.size() && bestBe != null
+                    && p.distSqr(floor) < bestBe.getBlockPos().distSqr(floor)) {
                 best = tris;
                 bestBe = be;
             }
