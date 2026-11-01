@@ -75,6 +75,7 @@ ARMS field com/hbm/client/anim/HbmAnimations$Animation startMillis J
 ARMS field com/hbm/client/model/WavefrontObj groups Ljava/util/List;
 ARMS field com/hbm/client/model/WavefrontObj$Group material Ljava/lang/String;
 ARMS field com/hbm/client/model/WavefrontObj$Group name Ljava/lang/String;
+ARMS field com/hbm/client/render/weapon/WeaponPose stack Lnet/minecraft/world/item/ItemStack;
 ARMS field com/hbm/items/weapon/sedna/GunAnimation ALT_CYCLE Lcom/hbm/items/weapon/sedna/GunAnimation;
 ARMS field com/hbm/items/weapon/sedna/GunAnimation CYCLE Lcom/hbm/items/weapon/sedna/GunAnimation;
 ARMS field com/hbm/items/weapon/sedna/GunAnimation CYCLE_DRY Lcom/hbm/items/weapon/sedna/GunAnimation;
@@ -89,6 +90,7 @@ ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext configIndex I
+ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext entity Lnet/minecraft/world/entity/LivingEntity;
 ARMS field com/hbm/items/weapon/sedna/factory/Orchestras ORCHESTRA_G3 Ljava/util/function/BiConsumer;
 ARMS field com/hbm/items/weapon/sedna/factory/Orchestras ORCHESTRA_SHREDDER_SEXY Ljava/util/function/BiConsumer;
 ARMS method com/hbm/client/anim/GunAnimations get (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/GunAnimation;I)Ldev/golem/core/render/anim/BusAnimation;
@@ -100,6 +102,7 @@ ARMS method com/hbm/client/model/WavefrontObj load (Lnet/minecraft/resources/Ide
 ARMS method com/hbm/client/model/WavefrontObj part (Ljava/lang/String;)Ldev/golem/core/render/gem/Geometry;
 ARMS method com/hbm/client/model/WavefrontObj partNames ()Ljava/util/Set;
 ARMS method com/hbm/client/model/WavefrontObj$Group faceCount ()I
+ARMS method com/hbm/client/render/weapon/WeaponPose has (Ljava/lang/String;)Z
 ARMS method com/hbm/client/render/weapon/WeaponRenderer gem ()Ldev/golem/core/render/gem/Gem$Model;
 ARMS method com/hbm/items/weapon/sedna/GunAnimation name ()Ljava/lang/String;
 ARMS method com/hbm/items/weapon/sedna/GunAnimation ordinal ()I

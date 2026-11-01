@@ -10,6 +10,6 @@
   "client": ["MixinTracerRibbon", "MixinGunRecoil", "MixinWeaponRenderer", "WeaponPoseAccess",
     "MixinClientRegistry", "MixinHbmKeysRadial", "MixinGunAnimationHandler", "MixinHbmAnimations",
     "MixinNtmMeshHits", "ObjGroupAccess", "MixinBeamPronterHits", "MixinGunAnimations",
-    "MixinSexyLower", "MixinDoubleBarrelPivots", "MixinG3ZebraSpeen"],
+    "MixinSexyLower", "MixinDoubleBarrelPivots", "MixinG3ZebraSpeen", "MixinOrchestraTrace", "MixinM2Pivots", "MixinDebugGunOffset"],
   "injectors": { "defaultRequire": 0 }
 }

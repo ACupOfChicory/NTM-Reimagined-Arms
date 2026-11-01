@@ -63,8 +63,9 @@ stonecutter parameters {
                 // MixinGunAnimationHandler (the arms' animation cue) is INSTANT_SWITCH's: a mixin of two systems would take the
                 // other one down with it. MixinGunAnimations and MixinNextAnimations: NTM NEXT's gun animations, on which
                 // the arms are made (ContinuumAnimations; MixinNextAnimations also has MixinG3Inspect's inspect length; MixinSexyLower,
-                // MixinDoubleBarrelPivots, MixinG3ZebraSpeen: NEXT's pivots where Continuum's renderers have others)
-                "List.of(\"MixinWeaponRenderer\", \"MixinHbmAnimations\", \"MixinWholeModelGuns\", \"MixinSexyBottle\", \"MixinGunAnimations\", \"MixinNextAnimations\", \"MixinSexyLower\", \"MixinDoubleBarrelPivots\", \"MixinG3ZebraSpeen\")")
+                // MixinDoubleBarrelPivots, MixinG3ZebraSpeen, MixinM2Pivots, MixinDebugGunOffset: NEXT's pivots where Continuum's renderers have others;
+                // MixinOrchestraTrace: the trace's gun sounds)
+                "List.of(\"MixinWeaponRenderer\", \"MixinHbmAnimations\", \"MixinWholeModelGuns\", \"MixinSexyBottle\", \"MixinGunAnimations\", \"MixinNextAnimations\", \"MixinSexyLower\", \"MixinDoubleBarrelPivots\", \"MixinG3ZebraSpeen\", \"MixinOrchestraTrace\", \"MixinM2Pivots\", \"MixinDebugGunOffset\")")
             replace("Map.of(\"MixinHbmAnimations\", List.of(\"gone\"))", "Map.of(\"MixinWeaponRenderer\", List.of(\"gone\"))")
             replace("r.skipped().containsKey(\"MixinItemGunBaseNT\")", "r.skipped().containsKey(\"MixinGunRecoil\")")
             // Feature still names NTM NEXT's mixins for the systems not ported yet (absent classes are not checked)
@@ -129,9 +130,11 @@ stonecutter parameters {
             replace("com.hbm.packet.toclient.HbmAnimationPayload.handleSedna(player, player.getMainHandItem(), player.getInventory().getSelectedSlot(), type, 0, 0);",
                 "com.hbm.client.anim.GunAnimationHandler.handle(new com.hbm.packet.GunAnimationPayload(type.ordinal(), 0, 0, " +
                 "net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(player.getMainHandItem().getItem()).toString()));")
-            // TraceScenario: a gun without animations has neither its config's own table nor one in GunAnimations
+            // TraceScenario: a gun without animations has neither its config's own table nor NEXT's (ContinuumAnimations).
+            // Asked of the gun, not of this animation: NTM sends a flamer's CYCLE that has no animation, and the shot stamp
+            // it leaves starts the kick (GunFeel.checkShot)
             replace("((ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getAnims(stack) == null",
-                "((ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getAnimation(stack) == null && com.hbm.client.anim.GunAnimations.get(stack, type, 0) == null")
+                "((ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getAnimation(stack) == null && !ContinuumAnimations.covers(stack)")
             // 26.1 hands the model renderer a SubmitNodeStorage.ModelSubmit
             replace("ModelFeatureRenderer.Submit<?>", "net.minecraft.client.renderer.SubmitNodeStorage.ModelSubmit<?>")
             // NTM Continuum draws first-person guns with Golem Core's Gem, which has no static interp

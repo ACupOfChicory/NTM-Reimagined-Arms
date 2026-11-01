@@ -26,9 +26,14 @@ public final class ArmsGem {
     private ArmsGem() {
     }
 
+    // NTM NEXT's paired guns (their renderers' isAkimbo): 26.2 draws no arms on them (MixinItemRenderWeaponBase)
+    private static final java.util.Set<String> AKIMBO = java.util.Set.of("hbm:gun_maresleg_akimbo", "hbm:gun_star_f_akimbo",
+            "hbm:gun_light_revolver_dani", "hbm:gun_aberrator_eott", "hbm:gun_minigun_dual", "hbm:gun_uzi_akimbo");
+
     // the arms are drawn on this gun
     public static boolean fits(ItemStack stack) {
-        return ALL || ContinuumAnimations.covers(stack);
+        return ALL || ContinuumAnimations.covers(stack)
+                && !AKIMBO.contains(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
     }
 
     // the frame renderFirstPerson is handed (MixinWeaponRenderer, right before the call)
@@ -46,11 +51,25 @@ public final class ArmsGem {
         if (gun == null) return;
         PoseStack copy = new PoseStack();
         copy.last().set(HANDED.last());
+        boolean unloaded = emptyChargeThrower(state);
         Gem.walk(renderer.gem(), state, copy, (part, geometry, at) -> {
             HFRWavefrontObject.Selection s = HFRWavefrontObject.select(geometry);
             if (s == null || s.model() != gun) return;
-            for (int group : s.groups()) Arms.part(at, gun, group);
+            for (int group : s.groups()) if (!unloaded || !CT_AMMO.contains(gun.groups[group].name)) Arms.part(at, gun, group);
         });
+    }
+
+    // The charge thrower's ammo parts. Continuum draws the loaded type's part at rest even with the magazine empty,
+    // NTM NEXT (ItemRenderChargeThrower) only with a round in it or while the AMMO bus plays. Told to Arms, the hook
+    // (the model's biggest part) became the gun's body, and in the reload, where AMMO moves it, the arms went with it.
+    private static final java.util.Set<String> CT_AMMO = java.util.Set.of("Hook", "Mortar", "Oomph", "Rocket");
+
+    private static boolean emptyChargeThrower(WeaponPose state) {
+        ItemStack stack = state.stack;
+        if (stack == null || !(stack.getItem() instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)
+                || !"hbm:gun_charge_thrower".equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())) return false;
+        var mag = gun.getPrimaryMagazine(stack, 0);
+        return mag != null && mag.getAmount(stack, null) <= 0 && !state.has("AMMO");
     }
 
     // The gun's own model: of the OBJ models the renderer draws (Sexy also draws its whiskey bottle, first) the one
