@@ -67,6 +67,7 @@ ARMS class com/hbm/client/render/weapon/WeaponPose
 ARMS class com/hbm/client/render/weapon/WeaponRenderer
 ARMS class com/hbm/items/weapon/sedna/GunAnimation
 ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT
+ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 ARMS field com/hbm/client/HbmKeybindsClient gunSecondaryKey Ldev/golem/core/client/KeyMappings$Mapping;
 ARMS field com/hbm/client/HbmKeybindsClient reloadKey Ldev/golem/core/client/KeyMappings$Mapping;
 ARMS field com/hbm/client/anim/HbmAnimations$Animation animation Ldev/golem/core/render/anim/BusAnimation;
@@ -87,6 +88,9 @@ ARMS field com/hbm/items/weapon/sedna/GunAnimation SPINUP Lcom/hbm/items/weapon/
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext configIndex I
+ARMS field com/hbm/items/weapon/sedna/factory/Orchestras ORCHESTRA_G3 Ljava/util/function/BiConsumer;
+ARMS field com/hbm/items/weapon/sedna/factory/Orchestras ORCHESTRA_SHREDDER_SEXY Ljava/util/function/BiConsumer;
 ARMS method com/hbm/client/anim/GunAnimations get (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/GunAnimation;I)Ldev/golem/core/render/anim/BusAnimation;
 ARMS method com/hbm/client/anim/HbmAnimations getRelevantAnim (I)Lcom/hbm/client/anim/HbmAnimations$Animation;
 ARMS method com/hbm/client/anim/HbmAnimations getRelevantAnim (Lnet/minecraft/world/InteractionHand;I)Lcom/hbm/client/anim/HbmAnimations$Animation;
@@ -102,11 +106,14 @@ ARMS method com/hbm/items/weapon/sedna/GunAnimation ordinal ()I
 ARMS method com/hbm/items/weapon/sedna/GunAnimation values ()[Lcom/hbm/items/weapon/sedna/GunAnimation;
 ARMS method com/hbm/items/weapon/sedna/GunConfig getAnimation (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiFunction;
 ARMS method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getAnimTimer (Lnet/minecraft/world/item/ItemStack;I)I
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getLastAnim (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunAnimation;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimaryMagazine (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT isValidConfigIndex (I)Z
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT setAnimTimer (Lnet/minecraft/world/item/ItemStack;II)V
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/world/item/ItemStack;Z)V
 ARMS method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 ARMS method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I

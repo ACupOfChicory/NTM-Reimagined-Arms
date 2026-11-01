@@ -120,7 +120,7 @@ public final class ContinuumAnimations {
     }
 
     // main's MixinGunConfigAnims: Sexy / Heretic inspect, the bottle waiting below the screen while the left hand lets go
-    static final int SEXY_BOTTLE_WAIT_MS = 250, SEXY_HAND_BACK_MS = 250;
+    public static final int SEXY_BOTTLE_WAIT_MS = 250, SEXY_HAND_BACK_MS = 250;
 
     private static BusAnimation sexy(ItemStack stack, GunAnimation type) {
         if (type != GunAnimation.INSPECT) return NextGunAnimations.LAMBDA_SEXY_ANIMS.apply(stack, type);

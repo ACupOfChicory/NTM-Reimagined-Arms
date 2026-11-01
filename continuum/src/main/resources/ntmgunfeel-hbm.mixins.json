@@ -9,6 +9,7 @@
     "MixinAmmoLock", "MixinAmmoLockBelt", "MixinBeamModelQuery", "MixinNextAnimations"],
   "client": ["MixinTracerRibbon", "MixinGunRecoil", "MixinWeaponRenderer", "WeaponPoseAccess",
     "MixinClientRegistry", "MixinHbmKeysRadial", "MixinGunAnimationHandler", "MixinHbmAnimations",
-    "MixinNtmMeshHits", "ObjGroupAccess", "MixinBeamPronterHits", "MixinGunAnimations"],
+    "MixinNtmMeshHits", "ObjGroupAccess", "MixinBeamPronterHits", "MixinGunAnimations",
+    "MixinSexyLower"],
   "injectors": { "defaultRequire": 0 }
 }
