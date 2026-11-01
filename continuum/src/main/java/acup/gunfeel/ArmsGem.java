@@ -3,7 +3,6 @@ package acup.gunfeel;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.Set;
 
 import com.hbm.client.render.weapon.WeaponPose;
 import com.hbm.client.render.weapon.WeaponRenderer;
@@ -19,13 +18,8 @@ import net.minecraft.world.item.ItemStack;
 // and their poses are read back with Gem.walk, the same walk and pose-stack calls the draw made, on the renderer's own
 // WeaponPose (its buses as this frame's draw read them).
 public final class ArmsGem {
-    // The guns whose arm settings fit Continuum's animations: their buses and times are NTM NEXT's to the millisecond
-    // (notes/ports/continuum.md, part 1, and continuum-anims/compare.txt). Not here: G3 / Zebra (Continuum plays the
-    // old G3 animation: other buses and times, armLeftPath would grab at nothing), the sawn-off Maresleg (an extra TURN
-    // bus), Old Classic (no LIFT in INSPECT), Shredder (MAG keys 100 ms earlier in INSPECT), and every gun without arm
-    // settings of its own, not looked at yet. -Dntmgunfeel.armsAll (gradle -Pntmgunfeel.armsAll=true) draws them on all.
-    private static final Set<String> FITTING = Set.of("hbm:gun_maresleg", "hbm:gun_henry", "hbm:gun_henry_lincoln",
-            "hbm:gun_liberator", "hbm:gun_spas12", "hbm:gun_autoshotgun_sexy", "hbm:gun_autoshotgun_heretic");
+    // The arms are drawn on every gun that animates with NTM NEXT's buses here (ContinuumAnimations): the arm settings
+    // are made on them. -Dntmgunfeel.armsAll (gradle -Pntmgunfeel.armsAll=true) draws them on the rest too.
     private static final boolean ALL = Boolean.getBoolean("ntmgunfeel.armsAll");
     private static final Map<WeaponRenderer, HFRWavefrontObject> GUN_MODEL = new IdentityHashMap<>();
 
@@ -34,7 +28,7 @@ public final class ArmsGem {
 
     // the arms are drawn on this gun
     public static boolean fits(ItemStack stack) {
-        return ALL || FITTING.contains(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+        return ALL || ContinuumAnimations.covers(stack);
     }
 
     // the frame renderFirstPerson is handed (MixinWeaponRenderer, right before the call)

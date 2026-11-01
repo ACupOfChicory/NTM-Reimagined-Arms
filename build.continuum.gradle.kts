@@ -34,6 +34,8 @@ base.archivesName = "reimagined-arms"
 tasks.jar {
     archiveVersion = jarVersion
     from(root.resolve("third-party")) { into("META-INF/licenses") }
+    // NTM NEXT (LGPL-3.0-only): the gun animations of acup.gunfeel.next, in this node's jar only
+    from(port.resolve("third-party")) { into("META-INF/licenses") }
 }
 
 // Files of the shared src/ this node leaves out, one Ant pattern per line under acup/gunfeel/ (# comments).

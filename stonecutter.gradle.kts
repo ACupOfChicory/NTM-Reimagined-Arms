@@ -61,8 +61,9 @@ stonecutter parameters {
             replace("List.of(\"MixinItemGunBaseNT\", \"MixinHbmAnimations\")", "List.of(\"MixinGunRecoil\", \"MixinWeaponRenderer\", \"WeaponPoseAccess\")")
             replace("List.of(\"MixinItemRenderWeaponBase\", \"MixinWholeModelGuns\", \"MixinSexyBottle\", \"MixinHbmAnimations\", \"MixinG3Inspect\")",
                 // MixinGunAnimationHandler (the arms' animation cue) is INSTANT_SWITCH's: a mixin of two systems would take the
-                // other one down with it
-                "List.of(\"MixinWeaponRenderer\", \"MixinHbmAnimations\", \"MixinWholeModelGuns\", \"MixinSexyBottle\", \"MixinG3Inspect\")")
+                // other one down with it. MixinGunAnimations and MixinNextAnimations: NTM NEXT's gun animations, on which
+                // the arms are made (ContinuumAnimations; MixinNextAnimations also has MixinG3Inspect's inspect length)
+                "List.of(\"MixinWeaponRenderer\", \"MixinHbmAnimations\", \"MixinWholeModelGuns\", \"MixinSexyBottle\", \"MixinGunAnimations\", \"MixinNextAnimations\")")
             replace("Map.of(\"MixinHbmAnimations\", List.of(\"gone\"))", "Map.of(\"MixinWeaponRenderer\", List.of(\"gone\"))")
             replace("r.skipped().containsKey(\"MixinItemGunBaseNT\")", "r.skipped().containsKey(\"MixinGunRecoil\")")
             // Feature still names NTM NEXT's mixins for the systems not ported yet (absent classes are not checked)
@@ -318,10 +319,10 @@ stonecutter parameters {
                 "var factory = gun.getConfig(stack,0).getAnimation(stack);\n        var buses = factory == null ? null : factory.apply(stack,cue);\n" +
                 "        if (buses == null) buses = com.hbm.client.anim.GunAnimations.get(stack, cue, 0);")
             replace("HbmAnimations.identity()", "new double[] {0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 2}")
-            // the arms' own classes on this node belong to ARMS (NtmApiTest, Compat): the cue, the Gem walk, the dev check, the OBJ view
+            // the arms' own classes on this node belong to ARMS (NtmApiTest, Compat): the cue, the Gem walk, the dev check, the OBJ view, NTM NEXT's gun animations
             replace("List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\")",
                 "List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\", " +
-                "\"AnimCue\", \"ArmsGem\", \"ArmsSmoke\", \"HFRWavefrontObject\", \"GroupObject\")")
+                "\"AnimCue\", \"ArmsGem\", \"ArmsSmoke\", \"HFRWavefrontObject\", \"GroupObject\", \"ContinuumAnimations\", \"NextGunAnimations\")")
             // port/continuum-hud: the HUD's gun silhouette rasterises GunGeometry's groups, Continuum's WavefrontObj through acup.gunfeel.obj
             replace("import com.hbm.render.loader.GroupObject;\nimport com.mojang.blaze3d.platform.NativeImage;",
                 "import acup.gunfeel.obj.GroupObject;\nimport com.mojang.blaze3d.platform.NativeImage;")

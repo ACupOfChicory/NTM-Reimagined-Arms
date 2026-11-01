@@ -1,0 +1,14 @@
+HBM's Nuclear Tech Mod (NTM NEXT, NeoForge 26.2) — HbmMods (The Bobcat), перенос на 26.2: movblock
+Версия: 1.0.3+1b8c6c2d (hbm-neoforge-1.0.3.jar)
+
+Только в jar для NTM Continuum (узел 26.1-neoforge). Пакет acup.gunfeel.next переносит из NTM NEXT:
+- анимации пушек: лямбды LAMBDA_*_ANIMS классов XFactory* и Lego (NextGunAnimations);
+- классы анимаций BusAnimation, BusAnimationSequence, BusAnimationKeyframe и загрузчик AnimationLoader
+  из com.hbm.render.anim.
+Изменения: пакет и типы NTM Continuum (GunAnimation, ItemGunBaseNT), классы анимаций унаследованы от классов
+Golem Core, скорость анимаций берётся из Golem Core, анимации из JSON читаются из ресурсов NTM Continuum (те же файлы).
+Модели, текстуры, звуки и другие художественные ресурсы не переносились.
+
+Этот заимствованный код распространяется по GNU LGPL версии 3 (LGPL-3.0-only).
+Полный текст: ntm-next-LGPL-3.0.txt в этом каталоге; LGPL дополняет GNU GPL версии 3
+(superb-warfare-GPL-3.0.txt в этом каталоге).
