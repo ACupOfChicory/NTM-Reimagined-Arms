@@ -999,6 +999,10 @@ public final class RenderedMesh {
             return new double[] {0, 1.0 / w, 0, 1.0 / h};
         }
 
+        boolean shown(int x, int y) {
+            return shown[Math.floorMod(y, h) * w + Math.floorMod(x, w)];
+        }
+
         // a triangle with these texture coordinates covers a clear pixel (more than a sliver of one)
         boolean clearIn(float[] uv) {
             return mask.covers(uv);
@@ -1042,7 +1046,8 @@ public final class RenderedMesh {
     // ---- the windows of a machine's block model (NTM bakes a machine's body into the chunk: the chemical plant's
     // window is there, not in what its renderer draws): sprites of NTM's model textures, block/models/...
 
-    private record SpriteWindow(Mask mask, Window window) {
+    // window: null when the texture is listed as really empty (its mask kept for GlassStand)
+    private record SpriteWindow(Mask mask, @Nullable Window window) {
     }
 
     private static final Map<TextureAtlasSprite, java.util.Optional<SpriteWindow>> SPRITE_WINDOWS = new java.util.IdentityHashMap<>();
@@ -1050,8 +1055,8 @@ public final class RenderedMesh {
     private static java.util.Optional<SpriteWindow> spriteWindow(TextureAtlasSprite sp) {
         return SPRITE_WINDOWS.computeIfAbsent(sp, k -> {
             Identifier name = sp.contents().name();
-            if (!name.getNamespace().equals("hbm") || !name.getPath().startsWith("block/models/")
-                    || MachineGlass.empty(name.getNamespace() + ":textures/" + name.getPath() + ".png")) return java.util.Optional.empty();
+            if (!name.getNamespace().equals("hbm") || !name.getPath().startsWith("block/models/")) return java.util.Optional.empty();
+            boolean empty = MachineGlass.empty(name.getNamespace() + ":textures/" + name.getPath() + ".png");
             var c = sp.contents();
             boolean[] shown = new boolean[c.width() * c.height()];
             boolean any = false;
@@ -1059,7 +1064,7 @@ public final class RenderedMesh {
                 shown[y * c.width() + x] = !c.isTransparent(0, x, y);
                 any |= !shown[y * c.width() + x];
             }
-            return any ? java.util.Optional.of(new SpriteWindow(new Mask(c.width(), c.height(), shown), new Window(atlasSprite(sp))))
+            return any ? java.util.Optional.of(new SpriteWindow(new Mask(c.width(), c.height(), shown), empty ? null : new Window(atlasSprite(sp))))
                     : java.util.Optional.empty();
         });
     }
@@ -1068,15 +1073,29 @@ public final class RenderedMesh {
     // model texture, or no clear pixel under it
     public static @Nullable Window windowOf(TextureAtlasSprite sp, float[] uv) {
         var got = spriteWindow(sp);
-        if (got.isEmpty()) return null;
+        if (got.isEmpty() || got.get().window() == null) return null;
+        return clearUnder(sp, uv) ? got.get().window() : null;
+    }
+
+    // a triangle of a block model drawn with this NTM model sprite (atlas coordinates uv) covers one of its clear
+    // pixels, whether they count as glass or as empty (GlassStand)
+    static boolean clearUnder(TextureAtlasSprite sp, float[] uv) {
+        var got = spriteWindow(sp);
+        if (got.isEmpty()) return false;
         float du = sp.getU1() - sp.getU0(), dv = sp.getV1() - sp.getV0();
-        if (du == 0F || dv == 0F) return null;
+        if (du == 0F || dv == 0F) return false;
         float[] local = new float[6];
         for (int i = 0; i < 3; i++) {
             local[2 * i] = (uv[2 * i] - sp.getU0()) / du;
             local[2 * i + 1] = (uv[2 * i + 1] - sp.getV0()) / dv;
         }
-        return got.get().mask().covers(local) ? got.get().window() : null;
+        return got.get().mask().covers(local);
+    }
+
+    // the sprite a block model triangle is drawn with (its Tex from atlasSprite), or null
+    static @Nullable TextureAtlasSprite spriteOf(Tex tex) {
+        for (var e : SPRITES.entrySet()) if (e.getValue() == tex) return e.getKey();
+        return null;
     }
 
     private record UvKey(float u0, float v0, float u1, float v1, float u2, float v2) {

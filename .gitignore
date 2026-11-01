@@ -18,6 +18,7 @@ run-mob-review/
 run-mob-bench/
 run-hole-bench/
 run-hole-bench-loaded/
+run-glass-stand/
 review/materials/page.html
 pi-sessions/
 
@@ -30,3 +31,4 @@ pi-sessions/
 /review/
 /tools/ingame_report.py
 /tools/review_mobs.fish
+/tools/glass_stand.fish
