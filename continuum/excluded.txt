@@ -52,8 +52,6 @@ MobSmoke.java
 
 # Systems not ported yet (continuum.md §3): their NTM side differs in Continuum. Each is off on this node (Feature) and
 # has a stand-in in continuum/src with what the rest of the mod calls.
-# server bullets: CompatEntity bullets, BulletImpact, DamageResistanceHandler, MultiblockSurface, doors and lifts
-Structures.java
 # arms: the arm animation editor (its stand-in in continuum/src is never shown; the gun editor that opens it is not here)
 ArmAnimationEditor.java
 # NTM NEXT's Flywheel mob visuals (MobModelVisual, MobObjVisual, GlyphidVisual): Continuum's mobs are

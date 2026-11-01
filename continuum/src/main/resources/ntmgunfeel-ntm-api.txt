@@ -103,6 +103,8 @@ ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/wo
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/world/item/ItemStack;Z)V
 ARMS method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
 ARMS method com/hbm/util/GameTime now ()J
+BULLETS class com/hbm/blocks/generic/BlockDoorGeneric
+BULLETS class com/hbm/blocks/machine/BlockCargoElevator
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCell
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCore
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
@@ -111,6 +113,9 @@ BULLETS class com/hbm/explosion/vanillant/ExplosionVNT
 BULLETS class com/hbm/explosion/vanillant/interfaces/IEntityProcessor
 BULLETS class com/hbm/items/weapon/sedna/BulletConfig
 BULLETS class com/hbm/items/weapon/sedna/ItemGunBaseNT
+BULLETS class com/hbm/tileentity/TileEntityDoorGeneric
+BULLETS class com/hbm/tileentity/machine/TileEntityCargoElevator
+BULLETS field com/hbm/blocks/multiblock/BlockMultiblockCore FACING Lnet/minecraft/world/level/block/state/properties/EnumProperty;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 tickCount I
@@ -130,7 +135,12 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/functi
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig velocity F
+BULLETS field com/hbm/tileentity/TileEntityDoorGeneric state B
+BULLETS field com/hbm/tileentity/machine/TileEntityCargoElevator extension D
+BULLETS field com/hbm/tileentity/machine/TileEntityCargoElevator height I
 BULLETS method com/hbm/blocks/multiblock/MultiblockSurface coreOfAny (Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/core/BlockPos;
+BULLETS method com/hbm/blocks/multiblock/MultiblockSurface foldedCore (Lnet/minecraft/world/level/block/state/BlockState;)Lcom/hbm/blocks/multiblock/BlockMultiblockCore;
+BULLETS method com/hbm/blocks/multiblock/MultiblockSurface isFoldedCell (Lnet/minecraft/world/level/block/state/BlockState;)Z
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getBulletConfig ()Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
@@ -196,6 +206,7 @@ CORE field com/hbm/items/weapon/sedna/factory/Lego LAMBDA_TOGGLE_AIM Ljava/util/
 CORE method com/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure ordinal ()I
 CORE method com/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure values ()[Lcom/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure;
 CORE method com/hbm/blocks/multiblock/BlockMultiblockCore withoutTeardown (Ljava/lang/Runnable;)V
+CORE method com/hbm/blocks/multiblock/MultiblockSurface foldedCore (Lnet/minecraft/world/level/block/state/BlockState;)Lcom/hbm/blocks/multiblock/BlockMultiblockCore;
 CORE method com/hbm/blocks/multiblock/MultiblockSurface rigidStructureBlocks (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Ljava/util/List;
 CORE method com/hbm/client/anim/HbmAnimations getRelevantAnim (Lnet/minecraft/world/InteractionHand;I)Lcom/hbm/client/anim/HbmAnimations$Animation;
 CORE method com/hbm/client/render/weapon/WeaponPose <init> ()V

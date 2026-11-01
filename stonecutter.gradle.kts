@@ -230,6 +230,50 @@ stonecutter parameters {
             // RenderedMesh: the sliding doors' windows (alpha 0 that is glass) are named as NEXT names them
             replace("if (GLASS.contains(loc.toString())) return GLASS_TEX;",
                 "if (GLASS.contains(loc.toString().replace(\"hbm:textures/models/\", \"hbm:textures/block/models/\"))) return GLASS_TEX;")
+            // Structures (main's, the machines' cells from what is drawn): Continuum folds a machine's cells into its core
+            // (MultiblockSurface.foldedCore / isFoldedCell, coreOfAny without the state), its door and lift block
+            // entities are TileEntity*, its doors have no skins; a core is the folded core, not a cell state of its block
+            replace("import com.hbm.blockentity.BlockEntityDoorGeneric;", "import com.hbm.tileentity.TileEntityDoorGeneric;")
+            replace("level.getBlockEntity(core) instanceof BlockEntityDoorGeneric door", "level.getBlockEntity(core) instanceof TileEntityDoorGeneric door")
+            replace("import com.hbm.blockentity.machine.BlockEntityCargoElevator;", "import com.hbm.tileentity.machine.TileEntityCargoElevator;")
+            replace("instanceof BlockEntityCargoElevator elevator", "instanceof TileEntityCargoElevator elevator")
+            replace("if (!MultiblockSurface.isSurface(state)) return null;", "if (!MultiblockSurface.isFoldedCell(state) && MultiblockSurface.foldedCore(state) == null) return null;")
+            replace("core = MultiblockSurface.coreOfAny(level, pos, state);", "core = MultiblockSurface.coreOfAny(level, pos);")
+            replace("&& (coreState.getBlock() instanceof BlockMultiblockCore || listed().contains(coreState.getBlock()));",
+                "&& (MultiblockSurface.foldedCore(coreState) != null || listed().contains(coreState.getBlock()));")
+            replace("        if (north.hasProperty(BlockDoorGeneric.SKIN)) north = north.setValue(BlockDoorGeneric.SKIN, 0);\n", "        // port/continuum: no door skins\n")
+            // RenderedMesh: Continuum's machines are Golem Core GemBERs, their submit replays meshes kept on the GPU; their
+            // declared model is walked into the recorder instead (GemMesh)
+            replace("            renderer.submit(state, new PoseStack(), rec, camera);",
+                "            if (!GemMesh.submit(renderer, state, new PoseStack(), rec)) renderer.submit(state, new PoseStack(), rec, camera);")
+            // RenderedMesh: a texture file read on GemMesh's worker before a machine is taken (its table stays the game
+            // thread's); MeshShapes starts a machine once GemMesh has its textures (no frame reads a big PNG)
+            replace("    private static Tex load(Identifier loc) {",
+                "    static boolean known(Identifier loc) {\n        return TEXTURES.containsKey(loc);\n    }\n\n" +
+                "    static void known(Identifier loc, Tex tex) {\n        TEXTURES.putIfAbsent(loc, tex);\n    }\n\n" +
+                "    // a texture file's pixels (not an atlas, not drawn into), on any thread\n" +
+                "    static Tex read(Identifier loc) {\n        try (var in = Minecraft.getInstance().getResourceManager().open(loc); NativeImage read = NativeImage.read(in)) {\n" +
+                "            return image(read, windowed(loc) ? loc.toString() : null);\n        } catch (Exception e) {\n            return OPAQUE;\n        }\n    }\n\n" +
+                "    // a GemBER's drawing (GemMesh) made into triangles on GemMesh's worker: the state extracted on the game's thread\n" +
+                "    static List<Tri> ofGem(BlockPos o, Object renderer, Object state) {\n        Recorder rec = new Recorder();\n" +
+                "        GemMesh.submit(renderer, state, new PoseStack(), rec);\n        List<Tri> out = new ArrayList<>();\n" +
+                "        for (Recorder.Part part : rec.parts) part.emit(out, o);\n        return out;\n    }\n\n" +
+                "    private static Tex load(Identifier loc) {")
+            replace("                try{active=new Capture(level,be,next.state());}",
+                "                if(be!=null && !GemMesh.ready(be)){QUEUE.addFirst(next);return;}\n                try{active=new Capture(level,be,next.state());}")
+            // RenderedMesh: the tables a GemBER's drawing reaches when GemMesh's worker makes it into triangles, concurrent
+            // (the same declarations as feature/shapes-table's for 26.2, which reads machines on a worker too)
+            replace("    private static final Set<Class<?>> FAILED = new HashSet<>();", "    private static final Set<Class<?>> FAILED = java.util.concurrent.ConcurrentHashMap.newKeySet();")
+            replace("    private static final Map<Class<?>, Field[]> FIELDS = new HashMap<>();", "    private static final Map<Class<?>, Field[]> FIELDS = new java.util.concurrent.ConcurrentHashMap<>();")
+            replace("    private static final Map<Identifier, Tex> TEXTURES = new HashMap<>();", "    private static final Map<Identifier, Tex> TEXTURES = new java.util.concurrent.ConcurrentHashMap<>();")
+            replace("        private final Map<UvKey, Boolean> covers = new HashMap<>();", "        private final Map<UvKey, Boolean> covers = new java.util.concurrent.ConcurrentHashMap<>();")
+            // MeshShapes: a GemBER machine's triangles come made from GemMesh's worker, and a machine's cells and faces are
+            // made there too (Capture.step reads only what the capture holds), so no frame gives them more than a look
+            replace("            if(rendered)for(var tri:RenderedMesh.of(be))\n", "            if(rendered)for(var tri:GemMesh.trisOf(be))\n")
+            replace("            if(!active.step(GunClock.nanos()+1_500_000L))return;\n",
+                "            {var cap=active;if(!GemMesh.aside(cap,()->cap.step(Long.MAX_VALUE)))return;}\n")
+            replace("        CAPTURED.clear();LAST_SEEN.clear();QUEUE.clear();QUEUED.clear();active=null;\n",
+                "        CAPTURED.clear();LAST_SEEN.clear();QUEUE.clear();QUEUED.clear();active=null;GemMesh.forget();\n")
             // MachineGlassCheck: the same unit heading for the bullet at a machine window
             replace("b.setThrowableHeading(dir.x, dir.y, dir.z, round.velocity, 0F);", "b.shoot(dir.x, dir.y, dir.z, 0F);")
             replace("setOnBeamImpact(BulletConfig.LAMBDA_STANDARD_BEAM_HIT)", "setOnBeamImpact(com.hbm.items.weapon.sedna.factory.XFactoryEnergy.LAMBDA_STANDARD_BEAM_HIT)")
