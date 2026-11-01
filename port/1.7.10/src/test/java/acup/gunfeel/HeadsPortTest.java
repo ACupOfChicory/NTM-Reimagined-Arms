@@ -53,8 +53,46 @@ class HeadsPortTest {
 
     // marked in 26.2, no head here: the cyber crab's head is its shell, one mesh in 26.2 and 20 cubes in 1.7.10; the
     // bat of 26.2 is another model (its head 4 x 3 x 2 px, 1.7.10's a 6 px cube): a head of another size is not taken
-    // Et Futurum's shulker draws no head (base and lid only)
+    // Et Futurum's shulker draws its head only open (shulkerOpenFindsItsHead); the dump's shulker is closed
     private static final java.util.Set<String> NO_HEAD = new java.util.HashSet<>(java.util.Arrays.asList("hbm:entity_cyber_crab", "minecraft:bat", "minecraft:shulker"));
+
+    // Et Futurum's shulker (ModelShulker, ShulkerRenderer.renderModel): the head is drawn in the renderer's renderModel
+    // after the model's base and lid, inside doRender's renderModel call that the capture brackets, and only while the
+    // shulker is open (isClosed false or a peek). The dump's shulker is a closed one, base and lid. Here its base as the
+    // dump has it, the head's cube where ModelShulker puts it (-3, 12, -3, 6 px, about the base's origin) and the lid
+    // raised as setRotationAngles raises it at the peek given.
+    static Pose openShulker(float peek) throws Exception {
+        Pose closed = poses().get("etfuturum.shulker");
+        ModelBox base = closed.boxes().get(0), lid = closed.boxes().get(1);
+        assertEquals("root/base", base.part());
+        assertEquals("root/lid", lid.part());
+        // the base's corner is the model's (-8, 16, -8); a pixel along the model's x, y, z is u/16, v/8, w/16
+        double px = base.ux() / 16, py = base.vy() / 8, pz = base.wz() / 16;
+        double ox = base.x() - 8 * px, oy = base.y() - 16 * py, oz = base.z() - 8 * pz; // the model's (0, 0, 0)
+        double lift = (Math.sin((0.5 + peek) * Math.PI) - 1) * 8; // the lid's rotation point, 24 closed, moves by this
+        List<ModelBox> boxes = new ArrayList<>();
+        boxes.add(base);
+        boxes.add(new ModelBox("root/lid", lid.x(), lid.y() + lift * py, lid.z(), lid.ux(), lid.uy(), lid.uz(), lid.vx(), lid.vy(), lid.vz(),
+                lid.wx(), lid.wy(), lid.wz(), lid.mesh()));
+        boxes.add(new ModelBox("root/head", ox - 3 * px, oy + 12 * py, oz - 3 * pz, 6 * px, 0, 0, 0, 6 * py, 0, 0, 0, 6 * pz, 0));
+        return new Pose("etfuturum.shulker", closed.key(), closed.yaw(), boxes);
+    }
+
+    @Test
+    void shulkerOpenFindsItsHead() throws Exception {
+        for (float peek : new float[] {0F, 0.3F, 0.5F, 1F}) {
+            Pose p = openShulker(peek);
+            var res = ModelHeads.resolve(p.key(), p.boxes(), p.yaw());
+            assertFalse(res.zones().isEmpty(), "peek " + peek + ": " + res.reason());
+            for (var z : res.zones()) assertEquals("root/head", z.box().part(), "peek " + peek);
+        }
+        // hurt, the renderer draws the head a second time for the red tint: the same cube twice
+        Pose p = openShulker(0.3F);
+        List<ModelBox> twice = new ArrayList<>(p.boxes());
+        twice.add(p.boxes().get(2));
+        var res = ModelHeads.resolve(p.key(), twice, p.yaw());
+        assertFalse(res.zones().isEmpty(), "hurt: " + res.reason());
+    }
 
     @Test
     void everyMarkedMobFindsItsHead() throws Exception {
@@ -72,10 +110,11 @@ class HeadsPortTest {
     }
 
     // the zones are on the head: its cubes, the glyphid's jaws; and where 26.2 marks other parts: the nuclear glyphid's
-    // mini nuke, Brenda's body, the ghast's and the squid's body, the first segment of the silverfish and the maggot
+    // mini nuke, Brenda's body, the ghast's and the squid's body, the first segment of the silverfish and the maggot;
+    // the port's own markup (ntmgunfeel-heads-1710.json): RandomThings' spirit, a flying face as the ghast, its inner body
     private static final java.util.Set<String> MARKED_SO = new java.util.HashSet<>(java.util.Arrays.asList("Ghast: root/body", "Squid: root/body",
             "Silverfish: root/segment0", "hbm.entity_parasite_maggot: root/segment0", "hbm.entity_glyphid_brenda: mesh/Body",
-            "etfuturum.endermite: root/bodyParts0", "etfuturum.bee: root/bone/body"));
+            "etfuturum.endermite: root/bodyParts0", "etfuturum.bee: root/bone/body", "RandomThings.spirit: root/field_78200_a"));
 
     @Test
     void zonesAreOnHeadParts() throws Exception {
@@ -89,6 +128,22 @@ class HeadsPortTest {
             }
         }
         assertTrue(bad.isEmpty(), String.join("\n", bad));
+    }
+
+    // RandomThings' spirit (RenderSpirit, ModelSlime(16) drawn as the main model): 26.2 has no such mob, the port's
+    // markup holds it. The head is the inner body the eyes and the mouth are on, as the ghast's is its body: the outer,
+    // see-through body is a pass the capture leaves out (doRender's renderPassModel, not a RenderSlime)
+    @Test
+    void spiritFindsItsHead() throws Exception {
+        Pose p = poses().get("RandomThings.spirit");
+        assertEquals("RandomThings:spirit", p.key());
+        var res = ModelHeads.resolve(p.key(), p.boxes(), p.yaw());
+        assertEquals(1, res.zones().size(), res.reason());
+        assertEquals("root/field_78200_a", res.zones().get(0).box().part());
+        // turned, the same
+        assertEquals(1, ModelHeads.resolve(p.key(), p.boxes(), p.yaw() + 90).zones().size());
+        // the port's markup holds by the type only: another mob of one such cube is no spirit
+        assertTrue(ModelHeads.resolve("foreign:cube", List.of(p.boxes().get(0)), p.yaw()).zones().isEmpty());
     }
 
     @Test
