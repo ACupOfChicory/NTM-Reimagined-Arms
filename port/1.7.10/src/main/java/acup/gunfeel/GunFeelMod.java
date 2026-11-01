@@ -27,6 +27,7 @@ public final class GunFeelMod {
         id = AmmoNet.register(Net.CHANNEL, id); // 5, 6: the ammo key's and menu's choice to the server
         ModelHitNet.register(id, client); // 7, 8: the client's poses and meshes of the model hitboxes
         BulletCheck.registerIfAsked();
+        ModelCells.preload();
     }
 
     // not optional: the mod is needed on both sides (26.2: the registrar's protocol). A side without it is turned away;

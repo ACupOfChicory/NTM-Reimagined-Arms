@@ -122,8 +122,7 @@ class ModelSurfaceTest {
         assertTrue(bytes.size() < one.size() + 40, bytes.size() + " vs " + one.size());
         List<MachineFaces.Tex> readTex = new java.util.ArrayList<MachineFaces.Tex>();
         Map<String, MachineFaces.Model> read = new HashMap<String, MachineFaces.Model>();
-        MachineFaces.read(new java.io.DataInputStream(new java.util.zip.InflaterInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))),
-                readTex, read);
+        ShapePack.faces(ShapePack.unwrap(new java.io.ByteArrayInputStream(bytes.toByteArray())).raw, readTex, read);
         assertEquals(1, readTex.size());
         assertTrue(MachineFaces.same(north, read.get("hbm:tile.m/2")));
         assertTrue(MachineFaces.same(north.turned(1), read.get("hbm:tile.m/5")));

@@ -1,7 +1,5 @@
 package acup.gunfeel;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -17,13 +15,12 @@ import java.util.concurrent.ConcurrentHashMap;
 // the core block's corner, UV on its texture, the texture's index) and each texture its shown pixels once; a block's
 // faces (ModelSurface) are made from them when a bullet first meets it, and kept. A facing whose triangles are another
 // facing's turned about the core (as NTM's renderers turn them) is kept as that turn.
-// Made in dev by ShapesScenario (MachineCapture, all four facings drawn), shipped in the jar as FILE.
+// Made in dev by ShapesScenario (MachineCapture, all four facings drawn), shipped in the jar as FILE (ShapePack).
 final class MachineFaces {
     private MachineFaces() {
     }
 
-    static final String FILE = "ntmgunfeel-machine-faces-1710.bin";
-    private static final int VERSION = 1;
+    static final String FILE = "ntmgunfeel-machine-faces-1710.pack";
 
     // the largest mask a face keeps (a triangle over a tiled texture): bigger ones are taken as shown all over
     private static final int MAX_MASK = 256;
@@ -239,8 +236,13 @@ final class MachineFaces {
             if (raw == null) {
                 GunFeel.LOGGER.warn("[ntm-gunfeel] No {} in the jar: machines are met by their cells", FILE);
             } else {
-                try (DataInputStream in = new DataInputStream(new java.io.BufferedInputStream(new java.util.zip.InflaterInputStream(raw)))) {
-                    read(in, tex, m);
+                try (InputStream in = raw) {
+                    long start = System.nanoTime();
+                    ShapePack.Read r = ShapePack.unwrap(in);
+                    ShapePack.faces(r.raw, tex, m);
+                    jarNtm = r.ntm;
+                    GunFeel.LOGGER.info("[ntm-gunfeel] Machine faces: {} models, {} textures read in {} ms (made with NTM {})", m.size(), tex.size(),
+                            (System.nanoTime() - start) / 1000000, r.ntm);
                 } catch (IOException | RuntimeException e) {
                     GunFeel.LOGGER.warn("[ntm-gunfeel] Could not read " + FILE + ": machines are met by their cells", e);
                     tex.clear();
@@ -252,105 +254,56 @@ final class MachineFaces {
         }
     }
 
+    // the NTM version the jar's faces were made with ("" before they are read)
+    static volatile String jarNtm = "";
+
     // dev: the jar's file as it is
     static void readJar(List<Tex> tex, Map<String, Model> out) {
         InputStream raw = MachineFaces.class.getResourceAsStream("/" + FILE);
         if (raw == null) return;
-        try (DataInputStream in = new DataInputStream(new java.io.BufferedInputStream(new java.util.zip.InflaterInputStream(raw)))) {
-            read(in, tex, out);
+        try (InputStream in = raw) {
+            ShapePack.faces(ShapePack.unwrap(in).raw, tex, out);
         } catch (IOException e) {
             GunFeel.LOGGER.warn("[ntm-gunfeel] Could not read " + FILE, e);
         }
     }
 
-    static void read(DataInputStream in, List<Tex> tex, Map<String, Model> out) throws IOException {
-        if (in.readInt() != VERSION) throw new IOException("not version " + VERSION);
-        int nt = in.readInt();
-        for (int i = 0; i < nt; i++) {
-            String name = in.readUTF();
-            int w = in.readInt(), h = in.readInt();
-            long[] bits = new long[(w * h + 63) / 64];
-            for (int k = 0; k < bits.length; k++) bits[k] = in.readLong();
-            tex.add(new Tex(name, w, h, bits));
-        }
-        int nm = in.readInt();
+    // dev: textures and models by "<id>/<meta>" written (ShapePack), a facing that is another's turn as that turn
+    static void write(OutputStream raw, List<Tex> tex, Map<String, Model> models) throws IOException {
         Map<String, String> turnOf = new HashMap<String, String>();
         Map<String, Integer> turns = new HashMap<String, Integer>();
-        for (int i = 0; i < nm; i++) {
-            String key = in.readUTF();
-            int kind = in.readByte();
-            if (kind == 1) {
-                turnOf.put(key, in.readUTF());
-                turns.put(key, (int) in.readByte());
-                continue;
-            }
-            int n = in.readInt();
-            int[] t = new int[n];
-            float[] p = new float[n * 9], uv = new float[n * 6];
-            for (int k = 0; k < n; k++) {
-                t[k] = in.readShort();
-                for (int j = 0; j < 9; j++) p[k * 9 + j] = in.readFloat();
-                for (int j = 0; j < 6; j++) uv[k * 6 + j] = in.readFloat();
-            }
-            out.put(key, new Model(t, p, uv));
-        }
-        for (Map.Entry<String, String> e : turnOf.entrySet()) {
-            Model base = out.get(e.getValue());
-            if (base != null) out.put(e.getKey(), base.turned(turns.get(e.getKey())));
-        }
+        turns(models, turnOf, turns);
+        raw.write(ShapePack.wrap(ShapePack.faces(tex, models, turnOf, turns), PortPaths.hbmVersion(), ShapePack.CODEC));
     }
 
-    // dev: textures and models by "<id>/<meta>" written, a facing that is another's turn as that turn
-    static void write(OutputStream raw, List<Tex> tex, Map<String, Model> models) throws IOException {
-        java.util.zip.Deflater d = new java.util.zip.Deflater(java.util.zip.Deflater.BEST_COMPRESSION);
-        try (DataOutputStream out = new DataOutputStream(new java.io.BufferedOutputStream(new java.util.zip.DeflaterOutputStream(raw, d)))) {
-            out.writeInt(VERSION);
-            out.writeInt(tex.size());
-            for (Tex t : tex) {
-                out.writeUTF(t.name == null ? "" : t.name);
-                out.writeInt(t.w);
-                out.writeInt(t.h);
-                for (long b : t.shown) out.writeLong(b);
-            }
-            out.writeInt(models.size());
-            Map<String, List<String>> byId = new java.util.TreeMap<String, List<String>>();
-            for (String k : new java.util.TreeSet<String>(models.keySet())) {
-                String id = k.substring(0, k.lastIndexOf('/'));
-                if (!byId.containsKey(id)) byId.put(id, new ArrayList<String>());
-                byId.get(id).add(k);
-            }
-            for (List<String> keys : byId.values()) {
-                List<String> own = new ArrayList<String>();
-                for (String k : keys) {
-                    Model m = models.get(k);
-                    String base = null;
-                    int turn = 0;
-                    for (String o : own) {
-                        for (int t = 1; t < 4 && base == null; t++) if (same(models.get(o).turned(t), m)) {
-                            base = o;
-                            turn = t;
-                        }
-                        if (base != null) break;
+    // which facings are another facing of the same machine turned about the core (base by key, and by how much)
+    static void turns(Map<String, Model> models, Map<String, String> turnOf, Map<String, Integer> turns) {
+        Map<String, List<String>> byId = new java.util.TreeMap<String, List<String>>();
+        for (String k : new java.util.TreeSet<String>(models.keySet())) {
+            String id = k.substring(0, k.lastIndexOf('/'));
+            if (!byId.containsKey(id)) byId.put(id, new ArrayList<String>());
+            byId.get(id).add(k);
+        }
+        for (List<String> keys : byId.values()) {
+            List<String> own = new ArrayList<String>();
+            for (String k : keys) {
+                Model m = models.get(k);
+                String base = null;
+                int turn = 0;
+                for (String o : own) {
+                    for (int t = 1; t < 4 && base == null; t++) if (same(models.get(o).turned(t), m)) {
+                        base = o;
+                        turn = t;
                     }
-                    out.writeUTF(k);
-                    if (base != null) {
-                        out.writeByte(1);
-                        out.writeUTF(base);
-                        out.writeByte(turn);
-                        continue;
-                    }
+                    if (base != null) break;
+                }
+                if (base != null) {
+                    turnOf.put(k, base);
+                    turns.put(k, turn);
+                } else {
                     own.add(k);
-                    out.writeByte(0);
-                    out.writeInt(m.size());
-                    for (int i = 0; i < m.size(); i++) {
-                        out.writeShort(m.tex[i]);
-                        for (int j = 0; j < 9; j++) out.writeFloat(m.p[i * 9 + j]);
-                        for (int j = 0; j < 6; j++) out.writeFloat(m.uv[i * 6 + j]);
-                    }
                 }
             }
-        } finally {
-            d.end();
         }
     }
 

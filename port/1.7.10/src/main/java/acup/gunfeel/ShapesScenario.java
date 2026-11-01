@@ -2,10 +2,7 @@ package acup.gunfeel;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
 import java.nio.IntBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -34,7 +31,7 @@ import net.minecraft.world.World;
 // same block beside it) up in the air, then draws each one with RenderBlocks into the Tessellator (the way the game
 // draws it in a chunk, Forge's render handlers too) and keeps the triangles. A triangle fills the cells where its
 // pixels show (alpha over 0.1, as 1.7.10's alpha test) in the block atlas, read back from the graphics card. The table
-// goes to run/client/ntmgunfeel-bullet-shapes-1710.properties, to be copied to src/main/resources; the game quits.
+// goes to run/client/ntmgunfeel-bullet-shapes-1710.pack (ShapePack), to be copied to src/main/resources; the game quits.
 // 26.2 makes the same on each client from its block models (MeshShapes.cells).
 final class ShapesScenario {
     private ShapesScenario() {
@@ -642,25 +639,6 @@ final class ShapesScenario {
     }
 
     private static void write(File out, Map<String, long[]> made) throws IOException {
-        try (Writer wr = new OutputStreamWriter(new java.io.FileOutputStream(out), StandardCharsets.UTF_8)) {
-            wr.write("# The 16 x 16 x 16 cells bullets meet in 1.7.10 blocks drawn as a model inside their hitbox or with see-through\n");
-            wr.write("# pixels (ModelCells), made by gradle runClient -Pscenario=shapes (ShapesScenario) from what RenderBlocks draws.\n");
-            wr.write("# Key: block id # meta, and for blocks joining their neighbours / the joins north east south west (1 joined).\n");
-            wr.write("# Machines: <id>#machine/<core meta>/<dx>,<dy>,<dz> (MachineCells), their glass with /glass. A shape is \"z\" + its\n");
-            wr.write("# 64 longs deflated in base64 (\"!\" before it: a shell), or \"f\" + all its longs with exact faces (ModelSurface).\n");
-            Map<String, String> shapeIds = new TreeMap<String, String>();
-            Map<String, String> lines = new TreeMap<String, String>();
-            for (Map.Entry<String, long[]> e : made.entrySet()) {
-                String packed = ModelCells.pack(e.getValue());
-                String ref = shapeIds.get(packed);
-                if (ref == null) {
-                    ref = "@" + shapeIds.size();
-                    shapeIds.put(packed, ref);
-                }
-                lines.put(e.getKey(), ref);
-            }
-            for (Map.Entry<String, String> e : shapeIds.entrySet()) wr.write(e.getValue() + " = " + e.getKey() + "\n");
-            for (Map.Entry<String, String> e : lines.entrySet()) wr.write(e.getKey().replace(":", "\\:") + " = " + e.getValue() + "\n");
-        }
+        java.nio.file.Files.write(out.toPath(), ShapePack.wrap(ShapePack.shapes(made), PortPaths.hbmVersion(), ShapePack.CODEC));
     }
 }

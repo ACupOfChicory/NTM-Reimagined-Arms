@@ -1,5 +1,6 @@
 package acup.gunfeel;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -21,8 +22,8 @@ import net.minecraftforge.common.util.ForgeDirection;
 // met by the 16 x 16 x 16 cells its drawn model fills with shown pixels, not by its collision boxes. 26.2 makes them on
 // the client from its block models when a world is joined and ships a copy for the server; 1.7.10 draws blocks with
 // RenderBlocks and Forge's render handlers, so the port makes them once in dev (ShapesScenario: the model drawn into
-// the Tessellator, the pixels read from the block atlas) and ships the table, ntmgunfeel-bullet-shapes-1710.properties,
-// for both sides. Blocks that join their neighbours (panes, bars, NTM's fence) are keyed by their four joins as well,
+// the Tessellator, the pixels read from the block atlas) and ships the table, ntmgunfeel-bullet-shapes-1710.pack
+// (ShapePack), for both sides. Blocks that join their neighbours (panes, bars, NTM's fence) are keyed by their four joins as well,
 // doors by both halves' meta. 1.7.10's door tops have windows (clear pixels), as NTM's doors. NTM's big doors
 // (BlockDoorGeneric) are in the same table under their own keys (DoorCells).
 // Left out: 26.2's exact faces and pixel surfaces over the cells (ModelSurface): the cells alone, as 26.2 has them
@@ -31,7 +32,7 @@ public final class ModelCells {
     private ModelCells() {
     }
 
-    static final String FILE = "ntmgunfeel-bullet-shapes-1710.properties";
+    static final String FILE = "ntmgunfeel-bullet-shapes-1710.pack";
     // a server's own shapes over the jar's (another mod's blocks), sent to its players (ServerSettings)
     static final String CONFIG = "ntm-gunfeel-bullet-shapes-1710.properties";
 
@@ -97,7 +98,6 @@ public final class ModelCells {
         if (m != null) return m;
         synchronized (ModelCells.class) {
             if (table == null) {
-                if (jar == null) jar = load(ModelCells.class.getResourceAsStream("/" + FILE), "the jar", null);
                 reloadOwn();
             }
             return table;
@@ -106,7 +106,7 @@ public final class ModelCells {
 
     // reads the config file again (the server packs its settings for the players: Net.current); its shapes, packed
     static synchronized Map<String, String> reloadOwn() {
-        if (jar == null) jar = load(ModelCells.class.getResourceAsStream("/" + FILE), "the jar", null);
+        if (jar == null) jar = loadJar();
         Map<String, String> packed = new TreeMap<String, String>();
         Map<String, long[]> m = new HashMap<String, long[]>(jar);
         java.nio.file.Path f = PortPaths.config().resolve(CONFIG);
@@ -150,6 +150,40 @@ public final class ModelCells {
     // ShapesScenario's freshly made table, in place of the jar's (dev)
     static synchronized void put(Map<String, long[]> made) {
         table = Collections.unmodifiableMap(new HashMap<String, long[]>(made));
+    }
+
+    // the NTM version the jar's table was made with ("" before it is read or without one)
+    static volatile String jarNtm = "";
+
+    // the jar's table (ShapePack)
+    private static Map<String, long[]> loadJar() {
+        InputStream raw = ModelCells.class.getResourceAsStream("/" + FILE);
+        if (raw == null) {
+            GunFeel.LOGGER.warn("[ntm-gunfeel] No 1.7.10 bullet shapes in the jar: bars, grates and doors are met by their collision boxes");
+            return Collections.emptyMap();
+        }
+        try (InputStream in = raw) {
+            long start = System.nanoTime();
+            ShapePack.Read r = ShapePack.unwrap(in);
+            Map<String, long[]> m = ShapePack.shapes(r.raw);
+            jarNtm = r.ntm;
+            GunFeel.LOGGER.info("[ntm-gunfeel] Bullet shapes: {} read in {} ms (made with NTM {})", m.size(), (System.nanoTime() - start) / 1000000, r.ntm);
+            return m;
+        } catch (IOException | RuntimeException e) {
+            GunFeel.LOGGER.warn("[ntm-gunfeel] Could not read the 1.7.10 bullet shapes in the jar", e);
+            return Collections.emptyMap();
+        }
+    }
+
+    // the jar's tables read on a thread of their own while the game starts, not at the first bullet (about 0.1 s)
+    static void preload() {
+        Thread t = new Thread(() -> {
+            table();
+            MachineFaces.models();
+        }, "ntm-gunfeel shapes");
+        t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
+        t.start();
     }
 
     // "key = <shape>" or "key = @n" with "@n = <shape>" written once; packed (if not null) gets each key's shape as text

@@ -8,6 +8,9 @@ dependencies {
     // not transitive: its Gradle metadata pulls in the Kotlin standard library for its Kotlin extensions
     shadowImplementation("org.joml:joml:1.10.8") { transitive = false }
 
+    // XZ for Java (public domain, Java 8 classes): the jar's shape tables packed (ShapePack); see third-party/xz.txt
+    shadowImplementation("org.tukaani:xz:1.10") { transitive = false }
+
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
