@@ -185,6 +185,7 @@ neoForge {
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("glassstand/result.txt").get().asFile.path)
             systemProperty("ntmgunfeel.glassStand", providers.gradleProperty("glassStand").orNull ?: "stand")
             systemProperty("ntmgunfeel.glassStandDir", root.resolve("notes/glass-stand").path)
+            systemProperty("ntmgunfeel.glassStandRules", root.resolve("src/main/resources/ntmgunfeel-machine-glass.txt").path)
             systemProperty("ntmgunfeel.glassStandCheck", providers.gradleProperty("glassStandCheck").isPresent.toString())
             programArguments.addAll("--width","1600","--height","900")
         }
@@ -383,7 +384,7 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
             .copyTo(dir.resolve("mods/crankshaft.jar"), overwrite = true)
         dir.resolve("config/crankshaft-client.toml").writeText(
             "backend = \"${if(providers.gradleProperty("mobCpuGeometry").isPresent) "flywheel:off" else "DEFAULT"}\"\n")
-        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(stand) 10 else if(review || bench) 8 else 3}\nsimulationDistance:5\nmaxFps:60\n${if(stand) "tutorialStep:none\n" else ""}")
+        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(stand) 10 else if(review || bench) 8 else 3}\nsimulationDistance:5\ninactivityFpsLimit:minimized\nmaxFps:${if(stand && providers.gradleProperty("glassStandCheck").isPresent) 260 else 60}\n${if(stand) "tutorialStep:none\n" else ""}")
         if(holes && providers.gradleProperty("holeBenchLoaded").isPresent) {
             val original=file(providers.gradleProperty("holeBenchInstance").get()).canonicalFile
             original.resolve("config").copyRecursively(dir.resolve("config"),overwrite=true)
