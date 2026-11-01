@@ -66,10 +66,17 @@ final class MachineCapture {
         // each triangle's texture and whether its clear pixels are air, for step
         private final List<int[][]> texOf = new ArrayList<int[][]>();
         private final List<Boolean> emptyOf = new ArrayList<Boolean>();
+        // each triangle's texture name (MachineGlass: areas of it listed as empty), null: none
+        private final List<String> nameOf = new ArrayList<String>();
         private int filled;
 
         // tri: corners from the core block's corner; t: the texture ({{w, h}, argb}), null: untextured
         void add(double[] tri, int[][] t, int index, final double[] u, final double[] v, boolean empty) {
+            add(tri, t, index, u, v, empty, null);
+        }
+
+        void add(double[] tri, int[][] t, int index, final double[] u, final double[] v, boolean empty, String name) {
+            nameOf.add(MachineGlass.hasAreas(name) ? name : null);
             tex.add(t == null ? -1 : index);
             p.add(tri);
             uv.add(t == null ? new double[6] : new double[] {u[0], v[0], u[1], v[1], u[2], v[2]});
@@ -81,13 +88,13 @@ final class MachineCapture {
         boolean step(long deadline) {
             while (filled < p.size()) {
                 int i = filled++;
-                fill(p.get(i), texOf.get(i), uv.get(i), emptyOf.get(i));
+                fill(p.get(i), texOf.get(i), uv.get(i), emptyOf.get(i), nameOf.get(i));
                 if ((filled & 7) == 0 && System.nanoTime() > deadline) break;
             }
             return filled >= p.size();
         }
 
-        private void fill(double[] tri, final int[][] t, double[] q, boolean empty) {
+        private void fill(double[] tri, final int[][] t, double[] q, boolean empty, final String areas) {
             if (t == null) {
                 DoorCapture.fill(solid, tri, (wa, wb, wc) -> true);
                 return;
@@ -96,7 +103,11 @@ final class MachineCapture {
             DoorCapture.fill(solid, tri, (wa, wb, wc) -> DoorCapture.shown(t, wa * u[0] + wb * u[1] + wc * u[2], wa * v[0] + wb * v[1] + wc * v[2]));
             boolean light = !DoorCapture.shown(t, u[0], v[0]) && !DoorCapture.shown(t, u[1], v[1]) && !DoorCapture.shown(t, u[2], v[2]);
             if (empty || light) return;
-            DoorCapture.fill(glass, tri, (wa, wb, wc) -> !DoorCapture.shown(t, wa * u[0] + wb * u[1] + wc * u[2], wa * v[0] + wb * v[1] + wc * v[2]));
+            // its clear pixels, but those in an area listed as empty
+            DoorCapture.fill(glass, tri, (wa, wb, wc) -> {
+                double pu = wa * u[0] + wb * u[1] + wc * u[2], pv = wa * v[0] + wb * v[1] + wc * v[2];
+                return !DoorCapture.shown(t, pu, pv) && (areas == null || !MachineGlass.emptyAt(areas, pu, pv, t[0][0], t[0][1]));
+            });
         }
 
         boolean isEmpty() {
@@ -190,6 +201,16 @@ final class MachineCapture {
             this.elevator = elevator;
         }
 
+        // the names of its textures (MachineMesh.textureName, the game's thread), found apart from the draw: going over
+        // the texture manager took as long as the draw
+        void name() {
+            for (int i = names.size(); i < parts.size(); i++) names.add(MachineMesh.textureName(parts.get(i).texture));
+        }
+
+        boolean named() {
+            return names.size() == parts.size();
+        }
+
         // the GL textures it was drawn with
         java.util.Set<Integer> textures() {
             java.util.Set<Integer> out = new java.util.LinkedHashSet<Integer>();
@@ -197,8 +218,10 @@ final class MachineCapture {
             return out;
         }
 
-        // its triangles; `textures` has its textures' pixels (else they are read from GL: the game's thread only)
+        // its triangles; `textures` has its textures' pixels (else they are read from GL: the game's thread only), named
+        // before on any other thread
         Collect triangles(Map<Integer, int[][]> textures) {
+            name();
             Collect c = new Collect();
             if (elevator) for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) c.extra.add(new int[] {x + dx, y + 1, z + dz});
             for (int pi = 0; pi < parts.size(); pi++) {
@@ -224,7 +247,7 @@ final class MachineCapture {
                             uv &= !Double.isNaN(u[n]) && !Double.isNaN(v[n]);
                         }
                         if (uv && index < 0) index = texIndex(p.texture, name, tex);
-                        c.add(tri, uv ? tex : null, index, u, v, empty);
+                        c.add(tri, uv ? tex : null, index, u, v, empty, name);
                     }
                 }
             }
@@ -260,7 +283,6 @@ final class MachineCapture {
         for (MachineMesh.Part p : parts) {
             if (elevator && moving(p.group)) continue;
             d.parts.add(p);
-            d.names.add(MachineMesh.textureName(p.texture));
         }
         return d;
     }
@@ -304,6 +326,7 @@ final class MachineCapture {
                 int[][] tex = null;
                 int index = -1;
                 boolean empty = false;
+                String iconName = null;
                 double u0 = 0, v0 = 0, du = 1, dv = 1;
                 if (icon != null) {
                     u0 = icon.getMinU();
@@ -314,6 +337,7 @@ final class MachineCapture {
                     tex = iconPixels(atlas, icon);
                     String name = path(icon.getIconName());
                     empty = MachineGlass.empty(name);
+                    iconName = name;
                     index = texIndex("icon:" + icon.getIconName(), name, tex);
                 }
                 for (int t = 0; t < 2; t++) {
@@ -327,7 +351,7 @@ final class MachineCapture {
                         u[n] = (q[at + 3] - u0) / du;
                         v[n] = (q[at + 4] - v0) / dv;
                     }
-                    c.add(tri, tex, index, u, v, empty);
+                    c.add(tri, tex, index, u, v, empty, iconName);
                 }
             }
         }

@@ -30,6 +30,14 @@ public final class EntityKeys {
         };
         for (String[] n : names) VANILLA.put(n[0], "minecraft:" + n[1]);
     }
+    private static final Map<String, String> ETFUTURUM = new HashMap<>(), COPIES = new HashMap<>();
+    static {
+        ETFUTURUM.put("brown_mooshroom", "mooshroom");
+        ETFUTURUM.put("villager_zombie", "zombie_villager");
+        ETFUTURUM.put("wooden_armorstand", "armor_stand");
+        COPIES.put("chisel.snowman", "minecraft:snow_golem");
+        COPIES.put("adventurebackpack.rideableSpider", "minecraft:spider");
+    }
     private static final String[] HORSES = {"horse", "donkey", "mule", "zombie_horse", "skeleton_horse"};
 
     private EntityKeys() {
@@ -54,6 +62,18 @@ public final class EntityKeys {
         String vanilla = VANILLA.get(name);
         if (vanilla != null) return vanilla;
         int dot = name.indexOf('.');
-        return dot > 0 ? name.substring(0, dot) + ":" + name.substring(dot + 1) : "minecraft:" + name.toLowerCase(java.util.Locale.ROOT);
+        if (dot <= 0) return "minecraft:" + name.toLowerCase(java.util.Locale.ROOT);
+        String mod = name.substring(0, dot), rest = name.substring(dot + 1);
+        // NTM 1.7.10 names some of its mobs entity_ntm_* (entity_ntm_ghost); 26.2 has them as entity_* (entity_ghost)
+        if (mod.equals("hbm") && rest.startsWith("entity_ntm_")) rest = "entity_" + rest.substring("entity_ntm_".length());
+        // Et Futurum Requiem brings back the mobs of later versions under their names (a few its own): 26.2 has them
+        // as vanilla types. Two mods' copies of vanilla mobs in the owner's pack too, drawn with vanilla's models
+        if (mod.equals("etfuturum")) {
+            String renamed = ETFUTURUM.get(rest);
+            return "minecraft:" + (renamed != null ? renamed : rest);
+        }
+        String copy = COPIES.get(name);
+        if (copy != null) return copy;
+        return mod + ":" + rest;
     }
 }

@@ -45,6 +45,10 @@ public final class AmmoLockKey {
         if (code != attack.getKeyCode()) return;
         while (attack.isPressed()) {
         }
+        // NTM's fire key sits on the same button: up until let go, so the click does not shoot once the menu is gone
+        // (26.2: GUN_PRIMARY.setIsDown(false)). A shot during the reload the choice starts would cancel it after one
+        // shell (Lego.clickReceiver -> setReloadCancel).
+        HELD_THROUGH.add(EnumKeybind.GUN_PRIMARY);
         BulletConfig c = RadialMenu.hovered();
         if (c == null) return;
         RadialMenu.close();

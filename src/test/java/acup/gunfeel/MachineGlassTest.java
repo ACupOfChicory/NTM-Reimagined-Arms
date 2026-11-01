@@ -14,6 +14,7 @@ class MachineGlassTest {
     @AfterEach
     void back() {
         MachineGlass.setting = () -> true;
+        MachineGlass.use(null);
     }
 
     // a 4 x 4 texture, its 2 x 2 middle clear (a window in a frame)
@@ -69,7 +70,7 @@ class MachineGlassTest {
         assertEquals("hbm:textures/a.png", MachineGlass.parse("hbm:textures/a.png # a grate"));
         assertNull(MachineGlass.parse("# comment"));
         assertNull(MachineGlass.parse("   "));
-        for (String t : MachineGlass.read()) assertTrue(t.matches("hbm:textures/[a-z0-9_/.-]+\\.png"), t);
+        for (String t : MachineGlass.read().whole()) assertTrue(t.matches("hbm:textures/[a-z0-9_/.-]+\\.png"), t);
     }
 
     // a face at x = 1/2 facing -x
@@ -113,5 +114,28 @@ class MachineGlassTest {
         long[] shape = ModelSurface.attach(new long[65], List.of(new ModelSurface.Face(new double[] {.5, 0, 0, .5, 1, 0, .5, 0, 1},
                 new double[6], 1, 1, new long[] {1}, true)));
         assertNull(ModelSurface.hit(shape, BlockPos.ZERO, new Vec3(0, .1, .2), new Vec3(1, .1, .2), true));
+    }
+
+    @Test
+    void lineWithAnAreaNamesItsRectangle() {
+        assertArrayEquals(new int[] {3, 4, 10, 12}, MachineGlass.area("hbm:textures/a.png 3,4,10,12  # стенд стекла: пустота, область 7.2"));
+        assertEquals("hbm:textures/a.png", MachineGlass.parse("hbm:textures/a.png 3,4,10,12 # why"));
+        assertNull(MachineGlass.area("hbm:textures/a.png # a grate"));
+        assertNull(MachineGlass.area("hbm:textures/a.png 3,4,10"));
+        assertNull(MachineGlass.area("hbm:textures/a.png x,4,10,12"));
+    }
+
+    @Test
+    void wholeTextureAndAreasAreEmptyWhereListed() {
+        MachineGlass.use(List.of("# head", "hbm:textures/whole.png  # all", "hbm:textures/part.png 0,0,3,3  # a", "hbm:textures/part.png 10,10,10,12"));
+        assertTrue(MachineGlass.empty("hbm:textures/whole.png"));
+        assertFalse(MachineGlass.empty("hbm:textures/part.png"));
+        assertEquals(2, MachineGlass.areas("hbm:textures/part.png").size());
+        assertTrue(MachineGlass.emptyAt("hbm:textures/whole.png", 50, 50));
+        assertTrue(MachineGlass.emptyAt("hbm:textures/part.png", 3, 3));
+        assertTrue(MachineGlass.emptyAt("hbm:textures/part.png", 10, 12));
+        assertFalse(MachineGlass.emptyAt("hbm:textures/part.png", 4, 3));
+        assertFalse(MachineGlass.emptyAt("hbm:textures/part.png", 10, 13));
+        assertFalse(MachineGlass.emptyAt("hbm:textures/other.png", 0, 0));
     }
 }

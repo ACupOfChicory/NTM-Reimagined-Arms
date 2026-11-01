@@ -19,6 +19,8 @@ public final class ModelHeads {
         return EntityKeys.type(entity)
                 +(entity instanceof net.minecraft.entity.EntityLivingBase living && living.isChild()?"#baby":"");
     }
+    // port: whether 26.2 marks this type's limbs (HeadsPortTest)
+    static boolean marksLimbs(String type) { var p=HeadProfiles.get(LIMBS,type);return p!=null && !p.none(); }
     static boolean noHead(String type) { var p=HeadProfiles.get(type);return p!=null && p.none(); }
     private static long layout(List<ModelBox> boxes) {
         double largest=0;for(var b:boxes) for(double size:HeadProfiles.size(b)) largest=Math.max(largest,size);
@@ -44,6 +46,9 @@ public final class ModelHeads {
             if(profile!=null) {
                 var binding=HeadProfiles.bind(profile,boxes,yaw);
                 if(binding.missing()==0) definition=new Definition(binding,"dataset",1F);
+                // port: a part 26.2 draws and 1.7.10 does not (the snow golem's pumpkin, drawn as a block) leaves its
+                // zone out; the zones whose parts are there still hold
+                else if(!binding.zones().isEmpty()) definition=new Definition(binding,"dataset",1F);
             }
             if(definition==null) {
                 var template=ZoneTemplates.find(bank,boxes,yaw);

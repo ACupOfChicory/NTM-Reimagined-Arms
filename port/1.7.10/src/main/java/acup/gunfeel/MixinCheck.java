@@ -12,7 +12,7 @@ public final class MixinCheck {
     // target -> handlers it should have
     private static final String[][] TARGETS = {
             {"com.hbm.main.ModEventHandlerClient", "1"},
-            {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "9"}, // 5 + MixinSmokeNodes 1 + arms 3
+            {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "13"}, // 5 + MixinSmokeNodes 1 + arms 3 + Shader Fixer path 2 and its helpers 2
             {"com.hbm.render.anim.HbmAnimations", "2"},
             {"com.hbm.render.loader.HFRWavefrontObject", "8"}, // 4 + MachineMesh ends 4
             {"com.hbm.render.loader.HFRWavefrontObjectVBO", "4"},
@@ -32,7 +32,7 @@ public final class MixinCheck {
             {"com.hbm.main.ClientProxy", "1"},
             {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "8"}, // 2 + MixinHoldAim 3 handlers and its 3 helpers (gunfeel$standardScope ...)
             {"com.hbm.packet.toclient.HbmAnimationPacket$Handler", "4"},
-            {"net.minecraft.client.renderer.ItemRenderer", "5"},
+            {"net.minecraft.client.renderer.ItemRenderer", "7"}, // ItemRendererAccess 5 + MixinItemRendererGunSway 2
             {"net.minecraft.client.renderer.entity.RendererLivingEntity", "6"}, // begin, end, yaw, modelStart, modelEnd, pass
             {"net.minecraft.client.model.ModelRenderer", "4"}, // 2 + MachineMesh compile 2
             {"net.minecraft.client.renderer.Tessellator", "1"}, // MixinTessellator

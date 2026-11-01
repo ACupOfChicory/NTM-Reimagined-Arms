@@ -365,19 +365,39 @@ public final class MachineMesh {
     }
 
     // the texture a GL texture id was loaded from ("hbm:textures/models/machines/x.png"), or null (the block atlas,
-    // a dynamic texture)
-    private static Map<Integer, String> names;
+    // a dynamic texture). An id not known yet has the texture manager's map gone over again (a reload gives textures
+    // new ids); one not in it is remembered as such until the map grows
+    private static Map<Integer, String> names = new HashMap<Integer, String>();
+    private static final java.util.Set<Integer> NAMELESS = new java.util.HashSet<Integer>();
+    private static int namelessOf = -1;
+    private static java.lang.reflect.Field textures;
 
     static String textureName(int id) {
-        if (names == null || !names.containsKey(id)) {
-            names = new HashMap<Integer, String>();
-            Map<?, ?> m = cpw.mods.fml.relauncher.ReflectionHelper.getPrivateValue(net.minecraft.client.renderer.texture.TextureManager.class,
-                    net.minecraft.client.Minecraft.getMinecraft().getTextureManager(), "mapTextureObjects", "field_110585_a");
-            for (Map.Entry<?, ?> e : m.entrySet())
-                if (e.getValue() instanceof net.minecraft.client.renderer.texture.ITextureObject)
-                    names.put(((net.minecraft.client.renderer.texture.ITextureObject) e.getValue()).getGlTextureId(), String.valueOf(e.getKey()));
+        String name = names.get(id);
+        if (name != null) return name;
+        Map<?, ?> m = textureObjects();
+        if (m.size() != namelessOf) {
+            NAMELESS.clear();
+            namelessOf = m.size();
         }
-        return names.get(id);
+        if (NAMELESS.contains(id)) return null;
+        names = new HashMap<Integer, String>();
+        for (Map.Entry<?, ?> e : m.entrySet())
+            if (e.getValue() instanceof net.minecraft.client.renderer.texture.ITextureObject)
+                names.put(((net.minecraft.client.renderer.texture.ITextureObject) e.getValue()).getGlTextureId(), String.valueOf(e.getKey()));
+        name = names.get(id);
+        if (name == null) NAMELESS.add(id);
+        return name;
+    }
+
+    private static Map<?, ?> textureObjects() {
+        if (textures == null) textures = cpw.mods.fml.relauncher.ReflectionHelper.findField(net.minecraft.client.renderer.texture.TextureManager.class,
+                "mapTextureObjects", "field_110585_a");
+        try {
+            return (Map<?, ?>) textures.get(net.minecraft.client.Minecraft.getMinecraft().getTextureManager());
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     // the tile entities whose renderer may draw the block at pos: its own, and its machine's core (NTM's dummies)
@@ -414,6 +434,7 @@ public final class MachineMesh {
                 int[][] tex = DoorCapture.texture(p.texture, TEXTURES);
                 String name = glassOn ? textureName(p.texture) : null;
                 boolean glassy = glassOn && !(name != null && MachineGlass.empty(name));
+                boolean areas = glassy && MachineGlass.hasAreas(name);
                 for (float[] f : faces(p.group)) {
                     int corners = f.length / 5;
                     if (corners < 3) continue;
@@ -439,6 +460,8 @@ public final class MachineMesh {
                         double u = wa * f[k[0] * 5 + 3] + wb * f[k[1] * 5 + 3] + wc * f[k[2] * 5 + 3];
                         double v = wa * f[k[0] * 5 + 4] + wb * f[k[1] * 5 + 4] + wc * f[k[2] * 5 + 4];
                         boolean clear = !Double.isNaN(u) && !Double.isNaN(v) && !DoorCapture.shown(tex, u, v);
+                        // a clear pixel in an area listed as empty: air
+                        if (clear && areas && MachineGlass.emptyAt(name, u, v, tex[0][0], tex[0][1])) continue;
                         if (clear && !(glassy && !(!DoorCapture.shown(tex, f[k[0] * 5 + 3], f[k[0] * 5 + 4]) && !DoorCapture.shown(tex, f[k[1] * 5 + 3], f[k[1] * 5 + 4])
                                 && !DoorCapture.shown(tex, f[k[2] * 5 + 3], f[k[2] * 5 + 4])))) continue;
                         double[] wn = normal(wv);

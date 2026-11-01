@@ -298,6 +298,15 @@ public final class ModelHits {
         }
         return List.copyOf(out);
     }
+    // the pose as taken (MobsScenario's dump): its boxes about the origin and its yaw; null without one
+    static synchronized List<ModelBox> poseBoxes(Entity target) {
+        var poses=POSES.get(target.worldObj);var pose=poses==null?null:poses.get(id(target));
+        return usable(target,pose)?pose.boxes():null;
+    }
+    static synchronized float poseYaw(Entity target) {
+        var poses=POSES.get(target.worldObj);var pose=poses==null?null:poses.get(id(target));
+        return pose==null?0F:pose.yaw();
+    }
     public static synchronized ModelHeads.Resolution headResolution(Entity target) {
         var poses=POSES.get(target.worldObj);var pose=poses==null?null:poses.get(id(target));
         if(!usable(target,pose)) return new ModelHeads.Resolution(List.of(),"unknown","нет совместимой позы модели",0,0);

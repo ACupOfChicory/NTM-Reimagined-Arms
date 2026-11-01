@@ -392,10 +392,14 @@ public final class Arms {
         return mc.thePlayer != null && PlayerSkins.slim(mc.thePlayer);
     }
 
+    // frames the first-person arms were drawn in (the look scenario says it: a pack where they are not drawn shows)
+    public static int drawnFrames;
+
     private static void draw() {
         Minecraft mc = Minecraft.getMinecraft();
         EntityClientPlayerMP player = mc.thePlayer;
         if (player == null || player.isInvisible()) return;
+        drawnFrames++;
         float[][] grip = grips(item);
         ResourceLocation skin = TEST_SKIN == null ? player.getLocationSkin() : testSkin();
         boolean slim = slim();

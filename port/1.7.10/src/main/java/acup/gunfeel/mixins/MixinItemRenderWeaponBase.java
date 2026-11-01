@@ -35,6 +35,34 @@ public abstract class MixinItemRenderWeaponBase {
 
     @Inject(method = "setupTransformsAndRender", at = @At("HEAD"))
     private void gunfeel$begin(ItemStack stack, CallbackInfo ci) {
+        gunfeel$beginFrame(stack, () -> setupTransformsAndRender(stack));
+    }
+
+    // Shader Fixer (its NTM_GUN_FIX, on by default; GTNH packs) takes NTM's RenderHandEvent away: vanilla's ItemRenderer
+    // draws the first-person gun, with the lag turns and bob of setupTransformsAndRender redone there, and calls
+    // renderItem straight (ForgeHooksClient.renderEquippedItem). A first-person renderItem reached outside
+    // setupTransformsAndRender begins and ends the frame itself. One bit a call, innermost lowest: whether it began it.
+    private static int directFrames;
+
+    @Inject(method = "renderItem", at = @At("HEAD"))
+    private void gunfeel$directBegin(IItemRenderer.ItemRenderType type, ItemStack stack, Object[] data, CallbackInfo ci) {
+        if (type != IItemRenderer.ItemRenderType.EQUIPPED_FIRST_PERSON) return;
+        boolean direct = GunFeelClient.current == null;
+        if (direct && !Arms.measuring) directFrames = 0; // the outermost call: nothing left from a frame that threw
+        directFrames = directFrames << 1 | (direct ? 1 : 0);
+        if (direct) gunfeel$beginFrame(stack, () -> ((ItemRenderWeaponBase) (Object) this).renderItem(type, stack, data));
+    }
+
+    @Inject(method = "renderItem", at = @At("RETURN"))
+    private void gunfeel$directEnd(IItemRenderer.ItemRenderType type, ItemStack stack, Object[] data, CallbackInfo ci) {
+        if (type != IItemRenderer.ItemRenderType.EQUIPPED_FIRST_PERSON) return;
+        boolean direct = (directFrames & 1) != 0;
+        directFrames >>>= 1;
+        if (direct) gunfeel$endFrame();
+    }
+
+    // the frame's start: the gun's settings, its rest pose read the first time (draw drawing it unseen), the gun current
+    private void gunfeel$beginFrame(ItemStack stack, Runnable draw) {
         ItemRenderWeaponBase self = (ItemRenderWeaponBase) (Object) this;
         // the gun drawn may not be the one in hand (switching slots): its own settings, not the defaults
         Config.select(stack == null ? null : GunFeelClient.gunId(stack.getItem()));
@@ -48,7 +76,7 @@ public abstract class MixinItemRenderWeaponBase {
             GL11.glColorMask(false, false, false, false);
             GL11.glDepthMask(false);
             try {
-                setupTransformsAndRender(stack);
+                draw.run();
             } catch (Throwable t) {
                 GunFeel.LOGGER.warn("Could not read the rest pose of {}", stack.getItem(), t);
             } finally {
@@ -155,6 +183,10 @@ public abstract class MixinItemRenderWeaponBase {
 
     @Inject(method = "setupTransformsAndRender", at = @At("RETURN"))
     private void gunfeel$end(ItemStack stack, CallbackInfo ci) {
+        gunfeel$endFrame();
+    }
+
+    private static void gunfeel$endFrame() {
         GunFeelClient.current = null;
         if (Arms.measuring) return;
         net.minecraft.entity.player.EntityPlayer player = Minecraft.getMinecraft().thePlayer;

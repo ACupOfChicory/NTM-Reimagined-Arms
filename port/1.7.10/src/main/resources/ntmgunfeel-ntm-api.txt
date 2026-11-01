@@ -107,6 +107,7 @@ ARMS method com/hbm/render/anim/BusAnimationSequence hold (I)Lcom/hbm/render/ani
 ARMS method com/hbm/render/anim/HbmAnimations getRelevantAnim (I)Lcom/hbm/render/anim/HbmAnimations$Animation;
 ARMS method com/hbm/render/anim/HbmAnimations getRelevantTransformation (Ljava/lang/String;)[D
 ARMS method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase isAkimbo (Lnet/minecraft/entity/EntityLivingBase;)Z
+ARMS method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase renderItem (Lnet/minecraftforge/client/IItemRenderer$ItemRenderType;Lnet/minecraft/item/ItemStack;[Ljava/lang/Object;)V
 ARMS method com/hbm/util/Clock get_ms ()J
 BULLETS class com/hbm/blocks/BlockDummyable
 BULLETS class com/hbm/blocks/generic/BlockDoorGeneric

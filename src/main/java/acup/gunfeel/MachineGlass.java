@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 // The clear pixels (alpha below 26) on the model of an NTM machine are glass, not air: a chemical plant's windows.
@@ -23,7 +24,12 @@ public final class MachineGlass {
     public static final double PATH = 1.0 / 16.0;
     public static final Materials.Verdict VERDICT = new Materials.Verdict(Materials.Material.GLASS, 1F, Materials.Source.RULE, "machine window");
 
-    private static volatile Set<String> empty;
+    // the textures listed whole, and the areas listed of others ("texture x0,y0,x1,y1": its clear pixels in that
+    // rectangle, both corners in, are empty; the rest of them glass)
+    record Rules(Set<String> whole, java.util.Map<String, List<int[]>> areas) {
+    }
+
+    private static volatile Rules rules;
 
     // the server says machine windows are glass (on unless bulletMachineGlass = false); tests set their own
     static java.util.function.BooleanSupplier setting = () -> ReaimTimes.flag(KEY, true);
@@ -32,25 +38,72 @@ public final class MachineGlass {
         return setting.getAsBoolean();
     }
 
-    // a texture ("hbm:textures/...png") whose clear pixels are empty after all
-    public static boolean empty(String texture) {
-        Set<String> e = empty;
-        if (e == null) empty = e = read();
-        return e.contains(texture);
+    private static Rules rules() {
+        Rules r = rules;
+        if (r == null) rules = r = read();
+        return r;
     }
 
-    static Set<String> read() {
-        Set<String> out = new HashSet<>();
+    // a texture ("hbm:textures/...png") whose clear pixels are all empty after all
+    public static boolean empty(String texture) {
+        return rules().whole().contains(texture);
+    }
+
+    // the areas of a texture whose clear pixels are empty (none: all glass, or the whole texture listed)
+    public static List<int[]> areas(String texture) {
+        return rules().areas().getOrDefault(texture, List.of());
+    }
+
+    // the clear pixel (x, y) of the texture is empty
+    public static boolean emptyAt(String texture, int x, int y) {
+        Rules r = rules();
+        if (r.whole().contains(texture)) return true;
+        for (int[] a : r.areas().getOrDefault(texture, List.of())) if (x >= a[0] && x <= a[2] && y >= a[1] && y <= a[3]) return true;
+        return false;
+    }
+
+    static Rules read() {
         try (var in = MachineGlass.class.getResourceAsStream(FILE)) {
-            if (in == null) return out;
-            for (String line : new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)).lines().toList()) {
-                String t = parse(line);
-                if (t != null) out.add(t);
-            }
+            if (in == null) return new Rules(Set.of(), java.util.Map.of());
+            return rules(new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)).lines().toList());
         } catch (Exception e) {
             GunFeel.LOGGER.warn("Could not read {}: every machine's clear pixels count as glass", FILE, e);
+            return new Rules(Set.of(), java.util.Map.of());
         }
-        return out;
+    }
+
+    static Rules rules(List<String> lines) {
+        Set<String> whole = new HashSet<>();
+        java.util.Map<String, List<int[]>> areas = new java.util.HashMap<>();
+        for (String line : lines) {
+            String t = parse(line);
+            if (t == null) continue;
+            int[] a = area(line);
+            if (a == null) whole.add(t);
+            else areas.computeIfAbsent(t, k -> new java.util.ArrayList<>()).add(a);
+        }
+        return new Rules(whole, areas);
+    }
+
+    // the glass stand edits the list as the game runs: these lines from now on
+    static void use(List<String> lines) {
+        rules = lines == null ? null : rules(lines);
+    }
+
+    // the area of a line ("texture x0,y0,x1,y1 # why"), or null: the whole texture
+    static int[] area(String line) {
+        String l = line.strip();
+        int hash = l.indexOf(" #");
+        if (hash >= 0) l = l.substring(0, hash).strip();
+        String[] f = l.split("\\s+");
+        if (f.length < 2) return null;
+        String[] n = f[1].split(",");
+        if (n.length != 4) return null;
+        try {
+            return new int[] {Integer.parseInt(n[0]), Integer.parseInt(n[1]), Integer.parseInt(n[2]), Integer.parseInt(n[3])};
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     // a line of the list: the texture, then " # " and why; blank lines and "#" lines are skipped

@@ -17,6 +17,7 @@ final class HeadProfiles {
     record Binding(List<Zone> zones,int missing,String reason) {}
     private static final Map<String,Profile> PROFILES=load();
     private static final Map<Long,Long> SHAPES=new HashMap<>();
+    private static final java.util.regex.Pattern INDEXED=java.util.regex.Pattern.compile("(mesh/)?root/(parts/)?\\d+(/base)?"); // port
     private HeadProfiles() {}
     static Profile get(String type) {
         return get(PROFILES,type);
@@ -97,12 +98,28 @@ final class HeadProfiles {
     private static String name(String name) {
         if(name.startsWith("mesh/")) name=name.substring(5);
         while(name.startsWith("root/root/")) name=name.substring(5);
+        // port: 26.2 names a part by the path its renderer took (an overlay layer's draw, a model tree, the horse's
+        // head_parts); 1.7.10's ModelRenderer has the bare part under root
+        name=name.replaceFirst("^root/overlayLayer/draws/\\d+/tree/","root/").replaceFirst("^root/tree/","root/").replaceFirst("^root/head_parts/","root/");
         return name;
     }
     private static boolean anonymous(String name) { return name.equals("submitted") || name.equals("mesh/submitted"); }
     private static double error(Ref ref,ModelBox box,double scale) {
         var dimensions=size(box);double error=0;
         for(int i=0;i<3;i++) error=Math.max(error,Math.abs(Math.log(dimensions[i]/(ref.size()[i]*scale))));
+        return error;
+    }
+    // port: how far the cubes together are from the part's size: their corners along the first cube's axes
+    private static double extentError(Ref ref,List<ModelBox> boxes,double scale) {
+        var first=boxes.getFirst();
+        Vec3[] axes={new Vec3(first.ux(),first.uy(),first.uz()).normalize(),new Vec3(first.vx(),first.vy(),first.vz()).normalize(),new Vec3(first.wx(),first.wy(),first.wz()).normalize()};
+        double[] lo={Double.MAX_VALUE,Double.MAX_VALUE,Double.MAX_VALUE},hi={-Double.MAX_VALUE,-Double.MAX_VALUE,-Double.MAX_VALUE};
+        for(var b:boxes) for(int c=0;c<8;c++) {
+            var p=ModelContours.point(b,c&1,c>>1&1,c>>2&1);
+            for(int i=0;i<3;i++) { double d=p.dot(axes[i]);lo[i]=Math.min(lo[i],d);hi[i]=Math.max(hi[i],d); }
+        }
+        double error=0;
+        for(int i=0;i<3;i++) error=Math.max(error,Math.abs(Math.log(Math.max(hi[i]-lo[i],1e-9)/(ref.size()[i]*scale))));
         return error;
     }
     static Binding bind(Profile profile,List<ModelBox> boxes,float yaw) {
@@ -120,9 +137,13 @@ final class HeadProfiles {
         ratios.sort(Double::compare);double scale=ratios.isEmpty()?1:ratios.get(ratios.size()/2);
         int[] mapping=new int[profile.parts().size()];Arrays.fill(mapping,-1);
         boolean ordered=boxes.size()==mapping.length;
+        // port: 26.2 names an OBJ mob's groups by their index (mesh/root/5, mesh/root/parts/12/base), 1.7.10 by the
+        // group's own name (mesh/Head): the same groups in the same order, told apart by their sizes
+        // (the nuclear glyphid's mini nuke among them keeps a name: half of them by index is enough)
+        boolean indexed=ordered && profile.parts().stream().filter(r->INDEXED.matcher(r.name()).matches()).count()*2>=profile.parts().size();
         if(ordered) for(int i=0;i<mapping.length;i++) {
             var r=profile.parts().get(i);var b=boxes.get(i);
-            if(!name(r.name()).equals(name(b.part())) || error(r,b,scale)>.22 || anonymous(r.name()) && r.shape()!=shape(b)) { ordered=false;break; }
+            if(!indexed && !name(r.name()).equals(name(b.part())) || error(r,b,scale)>.22 || !indexed && anonymous(r.name()) && r.shape()!=shape(b)) { ordered=false;break; }
         }
         if(ordered) for(int i=0;i<mapping.length;i++) mapping[i]=i;
         else for(int i=0;i<mapping.length;i++) {
@@ -140,6 +161,18 @@ final class HeadProfiles {
         }
         var zones=new ArrayList<Zone>();int missing=0;
         for(var zone:profile.zones()) {
+            // port: a zone of a whole part (no planes, no face of its own) whose part 1.7.10 draws as several cubes
+            // of that name (the wolf's real_head: head, ears, nose; the horse's leg: leg, shin, hoof) holds on every
+            // one of them when together they are the part's size
+            var ref=profile.parts().get(zone.part());
+            if(zone.planes().isEmpty() && zone.face()==0 && profile.parts().stream().filter(r->name(r.name()).equals(name(ref.name()))).count()==1) {
+                var same=new ArrayList<ModelBox>();var at=new ArrayList<Integer>();
+                for(int j=0;j<boxes.size();j++) if(name(boxes.get(j).part()).equals(name(ref.name()))) { same.add(boxes.get(j));at.add(j); }
+                if(same.size()>1 && extentError(ref,same,scale)<=.35) {
+                    for(int j:at) zones.add(new Zone(j,zone.group(),zone.planes(),zone.face()));
+                    continue;
+                }
+            }
             int match=mapping[zone.part()];if(match<0) { missing++;continue; }
             zones.add(new Zone(match,zone.group(),zone.planes(),zone.face()));
         }

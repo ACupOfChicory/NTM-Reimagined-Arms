@@ -44,6 +44,18 @@ final class LookScenario {
     private static final int[] STAND_BACK = {8, 8, 8, 8, 8, 4}, STAND_UP = {0, 0, 0, 0, 0, 4};
     private static final int SZ = -14;
 
+    // the held gun's rounds after the ammo menu's choice, as the server has them (a shell-by-shell gun reloads to full)
+    private static void reloadState(Minecraft mc) {
+        final int slot = mc.thePlayer.inventory.currentItem;
+        ShootScenario.onServer(() -> {
+            EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
+            net.minecraft.item.ItemStack stack = player.inventory.getStackInSlot(slot);
+            com.hbm.items.weapon.sedna.mags.IMagazine<?> mag = AmmoLock.primary(stack);
+            GunFeel.LOGGER.info("Scenario look: after the ammo choice {} of {} rounds, {}", mag == null ? -1 : mag.getAmount(stack, null),
+                    mag == null ? -1 : mag.getCapacity(stack), com.hbm.items.weapon.sedna.ItemGunBaseNT.getState(stack, 0));
+        });
+    }
+
     static void step(Minecraft mc, int t) {
         if (t == BUILD) {
             // with -Dntmgunfeel.trace (runClient -Pscenario sets it) the run is written too: what the client got
@@ -131,12 +143,20 @@ final class LookScenario {
             GunFeel.LOGGER.info("Scenario look: ammo menu points at {}", h == null ? "nothing" : h.id + " " + AmmoLock.ammoStack(h));
             shot(mc, "radial-hover");
         } else if (t == RADIAL + 14) {
+            // the click as a player's: our handler takes it, then NTM asks its fire key on the same button (it has to
+            // stay up: a shot during the reload the choice starts cancels it after one shell)
             AmmoLockKey.input(mc.gameSettings.keyBindAttack.getKeyCode(), true);
+            ShootScenario.trigger(true, mc);
             net.minecraft.client.settings.KeyBinding.setKeyBindState(AmmoLockKey.KEY.getKeyCode(), false);
+        } else if (t == RADIAL + 18) {
+            ShootScenario.trigger(false, mc);
         } else if (t == RADIAL + 40) {
             GunFeel.LOGGER.info("Scenario look: ammo menu open {}, loaded now {}", RadialMenu.isOpen(),
                     ((com.hbm.items.weapon.sedna.BulletConfig) AmmoLock.primary(mc.thePlayer.getHeldItem()).getType(mc.thePlayer.getHeldItem(), null)).id);
             shot(mc, "radial-after");
+            reloadState(mc);
+        } else if (t == MACHINE + 9) {
+            reloadState(mc);
         } else if (t == MACHINE) {
             final int[] f = feet;
             ShootScenario.onServer(() -> {
@@ -211,6 +231,7 @@ final class LookScenario {
             shot(mc, "status");
         } else if (t == DONE) {
             RenderManager.debugBoundingBox = false;
+            GunFeel.LOGGER.info("Scenario look: first-person arms drawn in {} frames", Arms.drawnFrames);
             GunFeel.LOGGER.info("Scenario look done: screenshots in {}", new File(mc.mcDataDir, "screenshots"));
             mc.shutdown();
         }
