@@ -123,4 +123,41 @@ class ModelSurfaceTest {
         model[65] = Long.MAX_VALUE;
         assertNull(PassableClip.unpack(PassableClip.pack(model)));
     }
+
+    // a big face of a machine cut down to each block it crosses (crop) is met by bullets within the block as the whole
+    // one is, and keeps far fewer pixels
+    @Test
+    void croppedFaceIsMetWithinTheBlockAsTheWholeOne() {
+        java.util.Random r = new java.util.Random(7);
+        int w = 96, h = 80;
+        long[] alpha = new long[(w * h + 63) / 64];
+        for (int i = 0; i < alpha.length; i++) alpha[i] = r.nextLong() | r.nextLong();
+        ModelSurface.Face big = new ModelSurface.Face(new double[] {-2.3, .1, -1.7, 4.6, 2.9, .4, .2, -.8, 5.1},
+                new double[] {0, 0, w, 3, 7, h}, w, h, alpha, false);
+        int checked = 0, kept = 0;
+        for (int bx = -2; bx <= 4; bx++) for (int by = -1; by <= 2; by++) for (int bz = -2; bz <= 5; bz++) {
+            BlockPos pos = new BlockPos(bx, by, bz);
+            if (!ModelSurface.overlaps(big, pos)) continue;
+            ModelSurface.Face whole = ModelSurface.local(big, pos, net.minecraft.world.level.block.Rotation.NONE);
+            ModelSurface.Face cut = ModelSurface.crop(whole);
+            if (cut != null) {
+                assertTrue(cut.alpha().length <= whole.alpha().length);
+                kept += cut.alpha().length;
+            }
+            long[] a = shape(whole), b = cut == null ? null : shape(cut);
+            for (int k = 0; k < 400; k++) {
+                Vec3 from = new Vec3(bx + r.nextDouble() * 3 - 1, by + r.nextDouble() * 3 - 1, bz + r.nextDouble() * 3 - 1);
+                Vec3 to = new Vec3(bx + r.nextDouble() * 3 - 1, by + r.nextDouble() * 3 - 1, bz + r.nextDouble() * 3 - 1);
+                var ha = ModelSurface.hit(a, pos, from, to, false, true);
+                var hb = b == null ? null : ModelSurface.hit(b, pos, from, to, false, true);
+                assertEquals(ha == null, hb == null, pos + " " + from + " " + to);
+                if (ha != null) {
+                    assertTrue(ha.getLocation().distanceTo(hb.getLocation()) < 1e-9);
+                    checked++;
+                }
+            }
+        }
+        assertTrue(checked > 100, "hits " + checked);
+        assertTrue(kept * 4 < alpha.length * 30, "kept " + kept);
+    }
 }

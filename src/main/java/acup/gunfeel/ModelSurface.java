@@ -88,6 +88,67 @@ final class ModelSurface {
         return new Face(p, face.uv(), face.width(), face.height(), face.alpha(), face.glass());
     }
 
+    // A face in a block's own coordinates (local) cut down to what lies in the block: its pixels only those under its
+    // part inside the block (a pixel more round them), as a bullet meets a machine's faces only within a block
+    // (hit, withinCell). A big face of a machine is otherwise kept whole in every block it crosses. Null: no pixel
+    // of it shows in the block (or it does not reach into it).
+    static @Nullable Face crop(Face face) {
+        double[] p = face.p(), uv = face.uv();
+        List<double[]> poly = new java.util.ArrayList<>();
+        for (int i = 0; i < 3; i++) poly.add(new double[] {p[i * 3], p[i * 3 + 1], p[i * 3 + 2], uv[i * 2], uv[i * 2 + 1]});
+        for (int axis = 0; axis < 3 && !poly.isEmpty(); axis++) {
+            poly = clip(poly, axis, -1e-6, true);
+            poly = clip(poly, axis, 1 + 1e-6, false);
+        }
+        if (poly.isEmpty()) return null;
+        int w = face.width(), h = face.height();
+        if (w == 1 && h == 1) return face.alpha()[0] != 0 ? face : null;
+        double minU = Double.POSITIVE_INFINITY, maxU = Double.NEGATIVE_INFINITY, minV = Double.POSITIVE_INFINITY, maxV = Double.NEGATIVE_INFINITY;
+        for (double[] v : poly) {
+            minU = Math.min(minU, v[3]);
+            maxU = Math.max(maxU, v[3]);
+            minV = Math.min(minV, v[4]);
+            maxV = Math.max(maxV, v[4]);
+        }
+        int x0 = Math.clamp((long) Math.floor(minU) - 1, 0, w - 1), x1 = Math.clamp((long) Math.ceil(maxU) + 1, x0 + 1, w);
+        int y0 = Math.clamp((long) Math.floor(minV) - 1, 0, h - 1), y1 = Math.clamp((long) Math.ceil(maxV) + 1, y0 + 1, h);
+        int cw = x1 - x0, ch = y1 - y0, shown = 0;
+        long[] alpha = new long[(cw * ch + 63) / 64];
+        for (int y = 0; y < ch; y++) for (int x = 0; x < cw; x++) {
+            int from = x0 + x + w * (y0 + y);
+            if ((face.alpha()[from >> 6] >>> (from & 63) & 1L) == 0) continue;
+            int k = x + cw * y;
+            alpha[k >> 6] |= 1L << (k & 63);
+            shown++;
+        }
+        if (shown == 0) return null;
+        if (shown == cw * ch) return new Face(p, new double[6], 1, 1, new long[] {1}, face.glass());
+        if (cw == w && ch == h) return face;
+        double[] moved = uv.clone();
+        for (int i = 0; i < 3; i++) {
+            moved[i * 2] -= x0;
+            moved[i * 2 + 1] -= y0;
+        }
+        return new Face(p, moved, cw, ch, alpha, face.glass());
+    }
+
+    // the polygon (x, y, z, u, v) cut at axis = at, keeping the side above it (or below)
+    private static List<double[]> clip(List<double[]> poly, int axis, double at, boolean above) {
+        List<double[]> out = new java.util.ArrayList<>();
+        for (int i = 0; i < poly.size(); i++) {
+            double[] a = poly.get(i), b = poly.get((i + 1) % poly.size());
+            boolean ina = above ? a[axis] >= at : a[axis] <= at, inb = above ? b[axis] >= at : b[axis] <= at;
+            if (ina) out.add(a);
+            if (ina != inb) {
+                double t = (at - a[axis]) / (b[axis] - a[axis]);
+                double[] c = new double[5];
+                for (int k = 0; k < 5; k++) c[k] = a[k] + (b[k] - a[k]) * t;
+                out.add(c);
+            }
+        }
+        return out;
+    }
+
     static long[] rotate(long[] shape, net.minecraft.world.level.block.Rotation rotation) {
         long[] out = new long[65];
         out[64] = shape[64];
