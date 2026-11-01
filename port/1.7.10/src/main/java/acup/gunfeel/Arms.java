@@ -145,8 +145,29 @@ public final class Arms {
 
     // frame before NTM's setupFirstPerson: camera-fixed, +X left, +Y up, +Z forward
     public static void cameraFrame() {
-        CAMERA.set(modelview());
+        float[] view = modelview();
+        CAMERA.set(view);
         haveCamera = true;
+        if (TRACE_VIEW && !measuring && TestLog.frames()) traceView(view);
+    }
+
+    // port: -Dntmgunfeel.traceView=true: the camera-fixed frame as GL has it (from the hand's identity view) and the
+    // hand's vertical FOV, a line "view" a frame. The hand is drawn by NTM (setPerspectiveAndRender) or, with Shader
+    // Fixer, by vanilla's renderHand with its own turns and FOV; the "arm" lines are relative to this frame and the same
+    // either way
+    private static final boolean TRACE_VIEW = Boolean.getBoolean("ntmgunfeel.traceView");
+
+    private static void traceView(float[] view) {
+        GL_BUF.clear();
+        GL11.glGetFloat(GL11.GL_PROJECTION_MATRIX, GL_BUF);
+        float[] p = new float[16];
+        GL_BUF.get(p);
+        double fov = Math.toDegrees(2 * Math.atan(1 / p[5]));
+        net.minecraft.entity.player.EntityPlayer pl = net.minecraft.client.Minecraft.getMinecraft().thePlayer;
+        TestLog.c(-1, "view", "anim", HbmAnimations.getRelevantAnim(0) == null ? "none" : ArmAnims.type(0),
+                "fov", fov, "aspect", p[5] / p[0], "m", view, "camPitch", pl == null ? null : pl.cameraPitch, "y",
+                pl == null ? null : pl.posY, "motionY", pl == null ? null : pl.motionY, "flying",
+                pl == null ? null : pl.capabilities.isFlying, "onGround", pl == null ? null : pl.onGround);
     }
 
     // gun frame after aiming, before the model kick
