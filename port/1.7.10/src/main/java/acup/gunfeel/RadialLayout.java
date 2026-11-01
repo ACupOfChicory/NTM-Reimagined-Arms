@@ -44,6 +44,22 @@ final class RadialLayout {
         return Math.floorMod((int) Math.floor((a + step / 2) / step), n);
     }
 
+    // How far the menu reaches from its centre, in GUI pixels: up to the hover's outer marks (a petal 6 + 2 out of
+    // R_OUT, the petals' triangle at R_OUT + 12 and 3 more), down to the last line of the name and the numbers under
+    // it (caption at R_OUT + 14 at most, the name's two lines, three lines of numbers from 24 under it, 9 high and 1 of
+    // shadow); sideways the ring and its marks. Fixed, so the menu does not move as the hover changes
+    static final float TOP = R_OUT + 16, BOTTOM = R_OUT + 14 + 24 + 20 + 10, SIDE = R_OUT + 16, MARGIN = 4;
+
+    // Where the menu goes on a screen of w x h GUI pixels: {centre x, centre y, scale}. At the middle when it fits;
+    // else moved up or down as little as keeps it on the screen (854 x 480 at GUI scale 2, 240 high: the numbers
+    // went off the bottom); scaled down only when the screen is lower or narrower than the menu itself
+    static float[] fit(float w, float h) {
+        float scale = Math.min(1, Math.min((h - 2 * MARGIN) / (TOP + BOTTOM), (w - 2 * MARGIN) / (2 * SIDE)));
+        float lo = MARGIN + TOP * scale, hi = h - MARGIN - BOTTOM * scale;
+        float cy = lo > hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, h / 2));
+        return new float[] {w / 2, cy, scale};
+    }
+
     static float ease(float t) {
         t = Math.max(0, Math.min(1, t));
         return 1 - (1 - t) * (1 - t) * (1 - t);

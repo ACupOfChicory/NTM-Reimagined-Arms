@@ -177,8 +177,9 @@ public final class RadialMenu {
         String style = Config.ammoMenu;
 
         GL11.glPushMatrix();
-        GL11.glTranslatef(res.getScaledWidth() / 2F, res.getScaledHeight() / 2F, 0);
-        float sc = 0.88F + 0.12F * f.open;
+        float[] at = RadialLayout.fit(res.getScaledWidth(), res.getScaledHeight());
+        GL11.glTranslatef(at[0], at[1], 0);
+        float sc = (0.88F + 0.12F * f.open) * at[2];
         GL11.glScalef(sc, sc, 1);
         GuiShapes sh = new GuiShapes();
         style(style, f, sh, true);
