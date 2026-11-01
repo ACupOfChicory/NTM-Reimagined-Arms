@@ -282,8 +282,14 @@ public final class Tracers {
         // fired from a gun: the path is tested from the shooter's eyes, as on the server, so a wall right in front
         // of the muzzle still gets its hole
         if (!Double.isNaN(ex)) path.eye = new double[] {ex, ey, ez};
-        if (TestLog.client) TestLog.c(id, "fire", "ammo", config, "own", mc.thePlayer != null && owner == mc.thePlayer.getEntityId(),
-                "at", v(path.start), "v", v(path.v), "damage", damage);
+        if (TestLog.client) {
+            // the shooter's own shot: where the client's camera was and looked as the server's shot came in (the owner:
+            // "the guns shoot a little above the crosshair"), against the server's start and way
+            boolean own = mc.thePlayer != null && owner == mc.thePlayer.getEntityId();
+            TestLog.c(id, "fire", "ammo", config, "own", own, "at", v(path.start), "v", v(path.v), "damage", damage,
+                    "eye", own ? v(new double[] {mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ}) : "-",
+                    "look", own ? mc.thePlayer.rotationPitch + "," + mc.thePlayer.rotationYaw : "-");
+        }
         Shot s = new Shot(id, bc, owner, path, c, life, flightTime());
         SHOTS.add(s);
         RECENT_SHOTS.put(s.id, s);
@@ -614,6 +620,10 @@ public final class Tracers {
         MachineMesh.Anchor mesh;
         // ... its pieces wrapped over the part's surface (MachineMesh.wrap); empty: a square on the hit plane
         List<float[]> pieces = java.util.Collections.emptyList();
+        // on plain cubes: its pieces wrapped over their edges, in the world (BlockDecal.wrap); null = a flat square
+        List<double[]> blockPieces;
+        // ... and which cubes around were there when they were made (BlockDecal.around): built again when that changes
+        long[] around;
 
         Hole(double[] pos, int face, int turn, long born, int light, int kind, float size, double[] rect, HoleMath.Mask mask, double plane,
                 boolean cull, int[] at, Block block, int meta, double[] box, int shot) {
@@ -777,9 +787,25 @@ public final class Tracers {
         boolean cull = (boxes.fullCube(pos[0], pos[1], pos[2]) || Math.abs(onAxis - boxFace) < 1e-3) && !glass;
         Hole h = new Hole(hit, face, turn, GunClock.nanos(), light, kind, size, rect, mask, plane, cull, pos.clone(), b, meta,
                 boxes.box(pos[0], pos[1], pos[2]), p.shot);
+        // on an opaque cube, over its edges onto the faces around (26.2's drawnHole); a square that stays on the face is
+        // drawn flat as before
+        if (mask == null && cull && opaqueCube(world, pos[0], pos[1], pos[2]))
+            wrapOnCubes(world, h);
         HOLES.addLast(h);
         trimHoles();
         return h;
+    }
+
+    private static void wrapOnCubes(World world, Hole h) {
+        BlockDecal.Cubes cubes = (x, y, z) -> opaqueCube(world, x, y, z);
+        int[] at = {h.x, h.y, h.z};
+        h.around = BlockDecal.around(at, h.size * 0.5, cubes);
+        h.blockPieces = BlockDecal.wrap(at, h.face, h.pos, h.size * 0.5, cubes);
+    }
+
+    private static boolean opaqueCube(World world, int x, int y, int z) {
+        Block b = world.getBlock(x, y, z);
+        return b.isOpaqueCube() && b.renderAsNormalBlock();
     }
 
     private static int trimmedMax = -1, trimmedMachines = -1;
@@ -815,6 +841,8 @@ public final class Tracers {
                 }
                 if (b != h.block) it.remove();
                 else if (world.getBlockMetadata(h.x, h.y, h.z) != h.meta && !java.util.Arrays.equals(boxes.box(h.x, h.y, h.z), h.box)) it.remove();
+                else if (h.around != null && !java.util.Arrays.equals(h.around, BlockDecal.around(new int[] {h.x, h.y, h.z}, h.size * 0.5,
+                        (x, y, z) -> opaqueCube(world, x, y, z)))) wrapOnCubes(world, h); // a cube placed or broken next to it
             }
         }
         if (HOLES.isEmpty() || !Config.bulletHoles) return;
@@ -884,7 +912,7 @@ public final class Tracers {
             boolean cull = group >= KINDS;
             boolean started = false;
             for (Hole h : HOLES) {
-                if (h.kind != kind || h.cull != cull || h.mesh != null) continue;
+                if (h.kind != kind || h.cull != cull || h.mesh != null || h.blockPieces != null) continue;
                 int alpha = HoleMath.alpha(now - h.born, life);
                 if (alpha <= 0) continue;
                 for (double[] clip : HoleMath.cells(h.rect, h.mask)) {
@@ -918,7 +946,15 @@ public final class Tracers {
     // runs the machines' renderers)
     private static void placeMeshHoles(long now, long life, List<Hole> holes, List<double[][]> places) {
         for (Hole h : HOLES) {
-            if (h.mesh == null || HoleMath.alpha(now - h.born, life) <= 0) continue;
+            if (HoleMath.alpha(now - h.born, life) <= 0) continue;
+            if (h.mesh == null) {
+                // a hole wrapped over plain cubes' edges: its pieces stay where they were made
+                if (h.blockPieces != null && !h.blockPieces.isEmpty()) {
+                    holes.add(h);
+                    places.add(h.blockPieces.toArray(new double[0][]));
+                }
+                continue;
+            }
             if (ShootScenario.world()) MachineMesh.lag(h.mesh);
             double[][] at;
             if (!h.pieces.isEmpty()) {
@@ -951,8 +987,11 @@ public final class Tracers {
         return out;
     }
 
-    // each where its part is now: a square on the part's plane, lifted towards the camera, seen from both sides
+    // each where its part is now (or, wrapped over plain cubes, where it was made), pulled towards the camera, seen from
+    // both sides
     // places: per hole its pieces, each {normal, corners {x, y, z, a, b}}
+    private static final double TOWARD = 0.999;
+
     private static void drawMeshHoles(Minecraft mc, Tessellator t, long now, long life, List<Hole> holes, List<double[][]> places) {
         if (holes.isEmpty()) return;
         GL11.glDisable(GL11.GL_CULL_FACE);
@@ -972,8 +1011,11 @@ public final class Tracers {
                     int corners = (pc.length - 3) / 5;
                     if (corners < 3) continue;
                     double nx = pc[0], ny = pc[1], nz = pc[2];
-                    // lifted off the surface towards the camera: seen from either side
-                    double side = (CAMERA[0] - pc[3]) * nx + (CAMERA[1] - pc[4]) * ny + (CAMERA[2] - pc[5]) * nz >= 0 ? 1 : -1, lift = 0.003 * side;
+                    // 26.2 (b7b6933): on the surface itself, only pulled towards the camera along each corner's own line of
+                    // sight (a tenth of a percent of the distance), so it stays on the same screen pixels and the pieces on
+                    // two faces of an edge still meet. Lifted along each piece's normal instead, the pieces stood off their
+                    // faces and an edge showed a strip of the surface between them.
+                    double side = (CAMERA[0] - pc[3]) * nx + (CAMERA[1] - pc[4]) * ny + (CAMERA[2] - pc[5]) * nz >= 0 ? 1 : -1;
                     t.setNormal((float) (nx * side), (float) (ny * side), (float) (nz * side));
                     // a fan of quads (the last corner twice: a triangle)
                     for (int k = 1; k + 1 < corners; k += 2) {
@@ -981,7 +1023,7 @@ public final class Tracers {
                         for (int c : fan) {
                             int o = 3 + c * 5;
                             float[] uv = HoleMath.holeUv(h.turn, (float) pc[o + 3], (float) pc[o + 4]);
-                            t.addVertexWithUV(pc[o] + nx * lift - CAMERA[0], pc[o + 1] + ny * lift - CAMERA[1], pc[o + 2] + nz * lift - CAMERA[2],
+                            t.addVertexWithUV((pc[o] - CAMERA[0]) * TOWARD, (pc[o + 1] - CAMERA[1]) * TOWARD, (pc[o + 2] - CAMERA[2]) * TOWARD,
                                     uv[0], 1F - uv[1]);
                         }
                     }

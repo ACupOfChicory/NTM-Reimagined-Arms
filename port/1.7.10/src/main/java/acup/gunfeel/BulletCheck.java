@@ -103,6 +103,7 @@ public final class BulletCheck {
         }
         lines.add("     round " + round.id + " (" + round.ammo + "): velocity " + round.velocity + ", gravity " + round.gravity + ", ricochet below "
                 + round.ricochetAngle + " degrees");
+        aim();
 
         // DU Mr. Deuce: one sheet goes through, a second does not refill what ignores the threshold
         BulletConfig plainRound = round;
@@ -913,6 +914,73 @@ public final class BulletCheck {
         level.setBlock(at[0] - 1, at[1], at[2], Blocks.cobblestone_wall, 0, 2);
         level.setBlock(at[0] + 1, at[1], at[2], Blocks.cobblestone_wall, 0, 2);
         return at;
+    }
+
+    // ---- where each gun's bullet starts and flies against the player's look (the owner: "the guns shoot a little above
+    // the crosshair"). NTM's EntityBulletBaseMK4(entity, ...) as Lego.doStandardFire makes it, spread 0: from the eye
+    // plus the receiver's projectile offset turned with the look, along the look. Information, no check: the start in
+    // the view's axes (right, up, forward), the flight's angle off the look, and how far above (+) or below the look's
+    // line it passes at 5, 20 and 50 blocks without gravity, then with NTM's gravity at the bullet's speed.
+    private static void aim() {
+        net.minecraftforge.common.util.FakePlayer player = net.minecraftforge.common.util.FakePlayerFactory.getMinecraft(level);
+        int n = 0;
+        double worst = 0;
+        String worstGun = "-";
+        for (Object o : net.minecraft.item.Item.itemRegistry) {
+            if (!(o instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT)) continue;
+            com.hbm.items.weapon.sedna.ItemGunBaseNT gun = (com.hbm.items.weapon.sedna.ItemGunBaseNT) o;
+            net.minecraft.item.ItemStack stack = new net.minecraft.item.ItemStack(gun);
+            String id = String.valueOf(net.minecraft.item.Item.itemRegistry.getNameForObject(gun));
+            for (int variant = 0; variant < 3; variant++) {
+                float pitch = variant == 2 ? 30F : 0F;
+                boolean scoped = variant == 1;
+                try {
+                    player.setPositionAndRotation(100.5, Y + 100, 100.5, 37F, pitch);
+                    player.prevRotationYaw = player.rotationYaw;
+                    player.prevRotationPitch = player.rotationPitch;
+                    com.hbm.items.weapon.sedna.Receiver rec = gun.getConfig(stack, 0).getReceivers(stack)[0];
+                    BulletConfig bc = (BulletConfig) rec.getMagazine(stack).getType(stack, null);
+                    net.minecraft.util.Vec3 off = scoped ? rec.getProjectileOffsetScoped(stack) : rec.getProjectileOffset(stack);
+                    EntityBulletBaseMK4 b = new EntityBulletBaseMK4(player, bc, 1F, 0F, off.zCoord, off.yCoord, off.xCoord);
+                    double ex = player.posX, ey = player.posY + player.getEyeHeight(), ez = player.posZ;
+                    net.minecraft.util.Vec3 look = player.getLookVec();
+                    double[] f = {look.xCoord, look.yCoord, look.zCoord};
+                    // right = look x up, up = right x look
+                    double[] r = {-f[2], 0, f[0]};
+                    double rl = Math.sqrt(r[0] * r[0] + r[2] * r[2]);
+                    r[0] /= rl;
+                    r[2] /= rl;
+                    double[] u = {r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]};
+                    double[] d = {b.posX - ex, b.posY - ey, b.posZ - ez};
+                    double sr = dot(d, r), su = dot(d, u), sf = dot(d, f);
+                    double[] v = {b.motionX, b.motionY, b.motionZ};
+                    double vf = dot(v, f), vu = dot(v, u) / vf, vr = dot(v, r) / vf;
+                    // blocks a tick: NTM's velocity, faster for real bullets (MixinBulletServer.gunfeel$speed)
+                    double speed = bc.velocity * (bc.velocity >= 5F ? ReaimTimes.number("bulletSpeed", 1.6F) : 1F);
+                    StringBuilder at = new StringBuilder();
+                    for (double dist : new double[] {5, 20, 50}) {
+                        double up = su + (dist - sf) * vu, right = sr + (dist - sf) * vr;
+                        double ticks = dist / Math.max(1e-6, speed);
+                        double drop = bc.gravity * ticks * ticks / 2;
+                        at.append(String.format(java.util.Locale.ROOT, "  %2.0f: up %+.3f right %+.3f (gravity %+.3f)", dist, up, right, up - drop));
+                        if (dist == 50 && variant == 0 && Math.abs(up) > Math.abs(worst)) {
+                            worst = up;
+                            worstGun = id;
+                        }
+                    }
+                    if (variant == 0) n++;
+                    lines.add(String.format(java.util.Locale.ROOT, "INFO aim %s pitch %.0f%s: start right %+.3f up %+.3f forward %+.3f, flight up %+.4f right %+.4f (per block), offset %s %s %s, speed %.1f, gravity %.4f;%s",
+                            id, pitch, scoped ? " aimed" : "", sr, su, sf, vu, vr, off.xCoord, off.yCoord, off.zCoord, speed, bc.gravity, at));
+                } catch (RuntimeException e) {
+                    lines.add("INFO aim " + id + " variant " + variant + ": " + e);
+                }
+            }
+        }
+        lines.add(String.format(java.util.Locale.ROOT, "INFO aim: %d guns, the farthest from the look at 50 blocks (no gravity): %s %+.3f", n, worstGun, worst));
+    }
+
+    private static double dot(double[] a, double[] b) {
+        return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     }
 
     private static void check(String name, Object want, Object got) {
