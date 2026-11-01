@@ -62,9 +62,9 @@ stonecutter parameters {
             replace("List.of(\"MixinItemRenderWeaponBase\", \"MixinWholeModelGuns\", \"MixinSexyBottle\", \"MixinHbmAnimations\", \"MixinG3Inspect\")",
                 // MixinGunAnimationHandler (the arms' animation cue) is INSTANT_SWITCH's: a mixin of two systems would take the
                 // other one down with it. MixinGunAnimations and MixinNextAnimations: NTM NEXT's gun animations, on which
-                // the arms are made (ContinuumAnimations; MixinNextAnimations also has MixinG3Inspect's inspect length; MixinSexyLower:
-                // NEXT's pivot for Sexy's LOWER)
-                "List.of(\"MixinWeaponRenderer\", \"MixinHbmAnimations\", \"MixinWholeModelGuns\", \"MixinSexyBottle\", \"MixinGunAnimations\", \"MixinNextAnimations\", \"MixinSexyLower\")")
+                // the arms are made (ContinuumAnimations; MixinNextAnimations also has MixinG3Inspect's inspect length; MixinSexyLower,
+                // MixinDoubleBarrelPivots, MixinG3ZebraSpeen: NEXT's pivots where Continuum's renderers have others)
+                "List.of(\"MixinWeaponRenderer\", \"MixinHbmAnimations\", \"MixinWholeModelGuns\", \"MixinSexyBottle\", \"MixinGunAnimations\", \"MixinNextAnimations\", \"MixinSexyLower\", \"MixinDoubleBarrelPivots\", \"MixinG3ZebraSpeen\")")
             replace("Map.of(\"MixinHbmAnimations\", List.of(\"gone\"))", "Map.of(\"MixinWeaponRenderer\", List.of(\"gone\"))")
             replace("r.skipped().containsKey(\"MixinItemGunBaseNT\")", "r.skipped().containsKey(\"MixinGunRecoil\")")
             // Feature still names NTM NEXT's mixins for the systems not ported yet (absent classes are not checked)

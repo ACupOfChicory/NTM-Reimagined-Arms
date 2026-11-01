@@ -12,7 +12,7 @@ import com.hbm.client.render.weapon.SexyWeaponRenderer;
 @Mixin(value = SexyWeaponRenderer.class, remap = false)
 public abstract class MixinSexyLower {
     // setup's second spin: EQUIP is the first, LOWER the second
-    @ModifyArg(method = "setup", at = @At(value = "INVOKE", target = "Ldev/golem/core/render/gem/Gem$Part;spin(Ldev/golem/core/render/gem/Gem$Axes;FFFLdev/golem/core/render/gem/Gem$FloatOf;)Ldev/golem/core/render/gem/Gem$Part;", ordinal = 1), index = 3)
+    @ModifyArg(method = "setup", at = @At(value = "INVOKE", target = "Ldev/golem/core/render/gem/Gem$Part;spin(Ldev/golem/core/render/gem/Gem$Axes;FFFLdev/golem/core/render/gem/Gem$FloatOf;)Ldev/golem/core/render/gem/Gem$Part;", ordinal = 1), index = 3, require = 1)
     private float gunfeel$lowerPivot(float z) {
         return z == 6F ? -6F : z;
     }
