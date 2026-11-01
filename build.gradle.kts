@@ -111,6 +111,10 @@ neoForge {
             systemProperty("ntmgunfeel.machineGlassCheck",providers.gradleProperty("machineGlass").isPresent.toString())
             // -PshapesStand=<file>: every NTM machine taken in turn, the jar's table of their shapes written there (ShapesStand)
             systemProperty("ntmgunfeel.shapesStand",providers.gradleProperty("shapesStand").orElse("").get())
+            // -PshapesFallback: a machine in the jar's table of shapes is met from there, one left out of it is taken in
+            // the game and comes out as the table has it (ShapesFallbackCheck)
+            systemProperty("ntmgunfeel.shapesFallback",providers.gradleProperty("shapesFallback").isPresent.toString())
+            if(providers.gradleProperty("shapesFallback").isPresent) systemProperty("ntmgunfeel.shapesSkip","hbm:machine_chemical_factory")
             // -PshapesOnly=a,b: only the machines whose names hold one of these (the report alone is what is wanted)
             systemProperty("ntmgunfeel.shapesOnly",providers.gradleProperty("shapesOnly").orElse("").get())
             // -PshapesResume: a stand cut short goes on from <file>.parts, the machines kept there not taken again

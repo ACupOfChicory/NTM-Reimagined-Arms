@@ -131,6 +131,7 @@ public final class ClientSmoke {
                 if(MachineGlassCheck.ENABLED) { phase=14; mc.gui.setScreen(null); MachineGlassCheck.start(); return; }
                 if(ShapesStand.ENABLED) { phase=15; mc.gui.setScreen(null); ShapesStand.start(); return; }
                 if(GlassStand.ENABLED) { phase=15; mc.gui.setScreen(null); GlassStand.start(); return; }
+                if(ShapesFallbackCheck.ENABLED) { phase=16; mc.gui.setScreen(null); ShapesFallbackCheck.start(); return; }
                 if (MobSmoke.enabled()) {
                     phase = 10;
                     mc.gui.setScreen(null);
@@ -271,6 +272,7 @@ public final class ClientSmoke {
             if (phase == 12) HoleBenchmark.frame();
             if (phase == 13) TraceScenario.frame();
             if (phase == 14) MachineGlassCheck.frame();
+            if (phase == 16) ShapesFallbackCheck.frame();
             if (phase == 15) {
                 if (ShapesStand.ENABLED) ShapesStand.frame();
                 else GlassStand.frame();
