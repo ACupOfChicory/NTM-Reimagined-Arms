@@ -169,6 +169,42 @@ class CompatPortTest {
         assertEquals("anything", r.map("acup/gunfeel/mixins/MixinRicochetSound", "anything"));
     }
 
+    // A player's game: NTM's release jar (SRG names, libs/, the one RFG deobfuscates for the dev runs) read as it is,
+    // the mixins' names through the refmap. A mixin into an NTM override of a Minecraft method left unmapped
+    // (remap = false: MixinHoldAim's onUpdate, X378.68) misses there and nowhere in dev; Minecraft's own classes are
+    // not readable by name in that game either.
+    @Test
+    void releaseNtmThroughTheRefmapTurnsNothingOff() throws IOException {
+        Path jar = null;
+        try (java.util.stream.Stream<Path> l = Files.list(Paths.get("libs"))) {
+            for (Path p : (Iterable<Path>) l::iterator) if (p.getFileName().toString().startsWith("HBM-NTM-") && p.toString().endsWith(".jar")) jar = p;
+        }
+        assertNotNull(jar, "no NTM release jar in libs/");
+        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(jar.toFile())) {
+            Map<String, ClassNode> cache = new HashMap<String, ClassNode>();
+            MixinProbe.Classes release = n -> {
+                if (!n.startsWith("com/hbm/")) return null;
+                if (!cache.containsKey(n)) {
+                    ClassNode node = null;
+                    java.util.zip.ZipEntry e = zip.getEntry(n + ".class");
+                    if (e != null) try (InputStream in = zip.getInputStream(e)) {
+                        node = new ClassNode();
+                        new org.objectweb.asm.ClassReader(in).accept(node, org.objectweb.asm.ClassReader.SKIP_DEBUG | org.objectweb.asm.ClassReader.SKIP_FRAMES);
+                    } catch (IOException x) {
+                        throw new RuntimeException(x);
+                    }
+                    cache.put(n, node);
+                }
+                return cache.get(n);
+            };
+            MixinProbe.Remap remap = NtmCheck.refmap(CompatPortTest.class.getClassLoader());
+            Compat.Result r = NtmCheck.evaluate(mixins(), release, remap, api());
+            assertNotNull(r, "no NTM class could be read");
+            assertTrue(r.skipped().isEmpty(), r.skipped().toString());
+            assertTrue(r.off().isEmpty(), r.off().toString());
+        }
+    }
+
     // ---------------------------------------------------------------- the map and the configs
 
     // every mixin LateMixins hands on is in a system, and every system's mixin is one of them

@@ -44,7 +44,8 @@ public abstract class MixinHoldAim {
     }
 
     /** Back into the aim as the reload ends, if the aim key is still held. */
-    @Inject(method = "onUpdate", at = @At("TAIL"))
+    // (Item.onUpdate: its SRG name in a player's game, through the refmap)
+    @Inject(method = "onUpdate", at = @At("TAIL"), remap = true)
     private void gunfeel$reaim(ItemStack stack, World world, Entity entity, int slot, boolean isHeld, CallbackInfo ci) {
         if (world.isRemote || !isHeld || ItemGunBaseNT.getIsAiming(stack) || !ItemGunBaseNT.getTertiary(stack, 0)) return;
         if (!gunfeel$reloadEnding(stack) || !gunfeel$standardScope(stack)) return;

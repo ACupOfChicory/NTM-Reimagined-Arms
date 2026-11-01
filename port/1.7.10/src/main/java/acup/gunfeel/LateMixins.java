@@ -33,6 +33,12 @@ public class LateMixins implements ILateMixinLoader {
 
     @Override
     public List<String> getMixins(Set<String> loadedMods) {
+        // a mixin into NTM that still fails is skipped, its systems off, the game not stopped (HbmMixinErrors)
+        try {
+            org.spongepowered.asm.mixin.Mixins.registerErrorHandlerClass(acup.gunfeel.compat.HbmMixinErrors.class.getName());
+        } catch (Throwable t) {
+            GunFeel.LOGGER.warn("Could not register the handler of failed mixins into NTM", t);
+        }
         List<String> list = new ArrayList<String>();
         if (loadedMods.contains("hbm")) list.addAll(COMMON);
         if (loadedMods.contains("hbm") && FMLLaunchHandler.side().isClient()) list.addAll(CLIENT);
