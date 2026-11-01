@@ -222,6 +222,14 @@ stonecutter parameters {
             replace("b.setThrowableHeading(0, 0, 1, round.velocity, 0F);", "b.shoot(0, 0, 1, 0F);")
             replace("b.setThrowableHeading(0, 0, 1, du.velocity, 0F);", "b.shoot(0.0, 0.0, 1.0, 0F);")
             replace("b.setThrowableHeading(0, -1, 1, du.velocity, 0F);", "b.shoot(0, -1, 1, 0F);")
+            // MachineGlass: Continuum's model textures sit where 1.7.10's did (textures/models, textures/blocks); a line
+            // of the list, written with NEXT's names, holds for Continuum's names too (ContinuumTextures)
+            replace("            if (a == null) whole.add(t);\n            else areas.computeIfAbsent(t, k -> new java.util.ArrayList<>()).add(a);",
+                "            for (String n : ContinuumTextures.names(t)) {\n                if (a == null) whole.add(n);\n" +
+                "                else areas.computeIfAbsent(n, k -> new java.util.ArrayList<>()).add(a);\n            }")
+            // RenderedMesh: the sliding doors' windows (alpha 0 that is glass) are named as NEXT names them
+            replace("if (GLASS.contains(loc.toString())) return GLASS_TEX;",
+                "if (GLASS.contains(loc.toString().replace(\"hbm:textures/models/\", \"hbm:textures/block/models/\"))) return GLASS_TEX;")
             // MachineGlassCheck: the same unit heading for the bullet at a machine window
             replace("b.setThrowableHeading(dir.x, dir.y, dir.z, round.velocity, 0F);", "b.shoot(dir.x, dir.y, dir.z, 0F);")
             replace("setOnBeamImpact(BulletConfig.LAMBDA_STANDARD_BEAM_HIT)", "setOnBeamImpact(com.hbm.items.weapon.sedna.factory.XFactoryEnergy.LAMBDA_STANDARD_BEAM_HIT)")
