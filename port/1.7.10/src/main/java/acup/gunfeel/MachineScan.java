@@ -86,6 +86,10 @@ final class MachineScan {
             "MachineCapture$Drawn", "MachineMesh", "MachineMesh$Part", "MachineMesh$TessGroup", "GlRead", "DoorCapture", "ShapesScenario",
             "ShapesScenario$Atlas", "ModelCells$PixelShown", "ShapeWriter", "ShapeWriter$Bytes", "ShapePack", "ShapePack$Out", "ShapePack$Long3",
             "MachineFaces", "MachineFaces$Model", "MachineFaces$Tex", "ModelSurface", "ModelSurface$Face", "MachineGlass", "ModelObjParts"};
+    // ... and these set up there too (no GL in their static parts): set up at the first machine, in the frame of its
+    // draw, they took half a millisecond more
+    private static final String[] SET_UP = {"MachineTake", "MachineCapture", "MachineCapture$Drawn", "MachineCapture$Collect", "MachineMesh",
+            "MachineMesh$Part", "GlRead", "MachineFaces", "DoorCapture"};
     private static final String[] LWJGL = {"org.lwjgl.opengl.GL15", "org.lwjgl.opengl.GL21", "org.lwjgl.opengl.GL32", "org.lwjgl.opengl.GLSync",
             "org.lwjgl.PointerWrapperAbstract"};
 
@@ -94,8 +98,9 @@ final class MachineScan {
             @Override
             public void run() {
                 ClassLoader l = MachineScan.class.getClassLoader();
-                for (String c : CLASSES) load("acup.gunfeel." + c, l);
-                for (String c : LWJGL) load(c, l);
+                for (String c : CLASSES) load("acup.gunfeel." + c, false, l);
+                for (String c : LWJGL) load(c, false, l);
+                for (String c : SET_UP) load("acup.gunfeel." + c, true, l);
             }
         }, "ntm-gunfeel preload");
         t.setDaemon(true);
@@ -103,9 +108,9 @@ final class MachineScan {
         t.start();
     }
 
-    private static void load(String name, ClassLoader l) {
+    private static void load(String name, boolean setUp, ClassLoader l) {
         try {
-            Class.forName(name, false, l);
+            Class.forName(name, setUp, l);
         } catch (Throwable e) {
             GunFeel.LOGGER.debug("[ntm-gunfeel] Could not preload {}", name, e);
         }

@@ -131,6 +131,10 @@ final class MachineTake {
                     // the draw took its share
                     return false;
                 case TEXTURES:
+                    if (!drawn.named()) {
+                        drawn.name();
+                        break;
+                    }
                     // one read started a piece: the GPU copies it meanwhile, its pixels are taken out from the next
                     // frame on
                     if (!toRead.isEmpty()) {

@@ -201,6 +201,16 @@ final class MachineCapture {
             this.elevator = elevator;
         }
 
+        // the names of its textures (MachineMesh.textureName, the game's thread), found apart from the draw: going over
+        // the texture manager took as long as the draw
+        void name() {
+            for (int i = names.size(); i < parts.size(); i++) names.add(MachineMesh.textureName(parts.get(i).texture));
+        }
+
+        boolean named() {
+            return names.size() == parts.size();
+        }
+
         // the GL textures it was drawn with
         java.util.Set<Integer> textures() {
             java.util.Set<Integer> out = new java.util.LinkedHashSet<Integer>();
@@ -208,8 +218,10 @@ final class MachineCapture {
             return out;
         }
 
-        // its triangles; `textures` has its textures' pixels (else they are read from GL: the game's thread only)
+        // its triangles; `textures` has its textures' pixels (else they are read from GL: the game's thread only), named
+        // before on any other thread
         Collect triangles(Map<Integer, int[][]> textures) {
+            name();
             Collect c = new Collect();
             if (elevator) for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) c.extra.add(new int[] {x + dx, y + 1, z + dz});
             for (int pi = 0; pi < parts.size(); pi++) {
@@ -271,7 +283,6 @@ final class MachineCapture {
         for (MachineMesh.Part p : parts) {
             if (elevator && moving(p.group)) continue;
             d.parts.add(p);
-            d.names.add(MachineMesh.textureName(p.texture));
         }
         return d;
     }
