@@ -131,6 +131,17 @@ class HeadsPortTest {
         assertEquals(1, whole.zones().size(), whole.reason());
         assertEquals("mesh/Head", whole.zones().get(0).box().part());
 
+        List<ModelBox> wounded = maskManWounded(p);
+        var res = ModelHeads.resolve(p.key(), wounded, p.yaw());
+        assertEquals("dataset", res.source(), res.reason());
+        assertEquals(1, res.zones().size(), res.reason());
+        assertEquals("mesh/Skull", res.zones().get(0).box().part());
+    }
+
+    // the same Mask Man at half health and below: its first five groups, the Skull where the model puts it (the same
+    // head matrix, its OBJ bounds 1 x 1 x 1 from 0.41686 over the head's bottom) and the IOU note in it
+    private static List<ModelBox> maskManWounded(Pose p) {
+        ModelBox head = p.boxes().get(5);
         double ul = Math.sqrt(head.ux() * head.ux() + head.uy() * head.uy() + head.uz() * head.uz());
         double vl = Math.sqrt(head.vx() * head.vx() + head.vy() * head.vy() + head.vz() * head.vz());
         double wl = Math.sqrt(head.wx() * head.wx() + head.wy() * head.wy() + head.wz() * head.wz());
@@ -143,10 +154,22 @@ class HeadsPortTest {
         List<ModelBox> wounded = new ArrayList<>(p.boxes().subList(0, 5));
         wounded.add(skull);
         wounded.add(note);
-        var res = ModelHeads.resolve(p.key(), wounded, p.yaw());
-        assertEquals("dataset", res.source(), res.reason());
-        assertEquals(1, res.zones().size(), res.reason());
-        assertEquals("mesh/Skull", res.zones().get(0).box().part());
+        return wounded;
+    }
+
+    // its arms and legs (x0.5) by the groups' names (ntmgunfeel-limbs-1710.json): 26.2's markup takes the six groups by
+    // their order and found nothing in the seven of the wounded stage, so a hit on an arm counted x1
+    @Test
+    void maskManFindsItsLimbsInBothStages() throws Exception {
+        Pose p = poses().get("hbm.entity_mob_mask_man");
+        java.util.Set<String> limbs = new java.util.HashSet<>(java.util.Arrays.asList("mesh/LLeg", "mesh/RLeg", "mesh/LArm", "mesh/RArm"));
+        for (List<ModelBox> boxes : java.util.Arrays.asList(p.boxes(), maskManWounded(p))) {
+            var res = ModelHeads.limbs(p.key(), boxes, p.yaw());
+            assertEquals("dataset", res.source(), boxes.size() + " groups: " + res.reason());
+            java.util.Set<String> got = new java.util.HashSet<>();
+            for (HeadZone z : res.zones()) got.add(z.box().part());
+            assertEquals(limbs, got, boxes.size() + " groups: " + res.reason());
+        }
     }
 
     @Test

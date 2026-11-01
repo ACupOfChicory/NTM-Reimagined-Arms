@@ -12,6 +12,15 @@ public final class ModelHeads {
     private record Definition(HeadProfiles.Binding binding,String source,float confidence) {}
     private static final LinkedHashMap<Key,Definition> CACHE=new LinkedHashMap<>(32,.75F,true);
     private static final Map<String,HeadProfiles.Profile> LIMBS=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("config/ntmgunfeel-limbs.json"),false);
+    // port: the owner's limbs markup for 1.7.10, by type only, before 26.2's and never a template (as HeadProfiles.PORT):
+    // Mask Man's arms and legs by their group names, so they hold in both of its stages (at half health and below NTM
+    // draws seven groups, the Skull and the IOU note in place of the Head, and 26.2's markup by the groups' order finds
+    // nothing)
+    private static final Map<String,HeadProfiles.Profile> PORT_LIMBS=HeadProfiles.loadBank("/ntmgunfeel-limbs-1710.json",java.nio.file.Path.of("config/ntmgunfeel-limbs-1710.json"),false);
+    private static HeadProfiles.Profile profile(Map<String,HeadProfiles.Profile> bank,String type) {
+        var port=bank==LIMBS?PORT_LIMBS.get(type):null;
+        return port!=null?port:HeadProfiles.get(bank,type);
+    }
     private ModelHeads() {}
     public static float multiplier(boolean head,boolean limb) { return head?1.75F:limb?.5F:1F; }
     // port: the type by its 26.2 name (EntityKeys); 1.7.10's isChild for isBaby
@@ -20,7 +29,7 @@ public final class ModelHeads {
                 +(entity instanceof net.minecraft.entity.EntityLivingBase living && living.isChild()?"#baby":"");
     }
     // port: whether 26.2 marks this type's limbs (HeadsPortTest)
-    static boolean marksLimbs(String type) { var p=HeadProfiles.get(LIMBS,type);return p!=null && !p.none(); }
+    static boolean marksLimbs(String type) { var p=profile(LIMBS,type);return p!=null && !p.none(); }
     static boolean noHead(String type) { var p=HeadProfiles.get(type);return p!=null && p.none(); }
     private static long layout(List<ModelBox> boxes) {
         double largest=0;for(var b:boxes) for(double size:HeadProfiles.size(b)) largest=Math.max(largest,size);
@@ -39,7 +48,7 @@ public final class ModelHeads {
     }
     private static Resolution resolve(String type,List<ModelBox> boxes,float yaw,Map<String,HeadProfiles.Profile> bank,String role,String fallback) {
         if(bank.isEmpty()) return new Resolution(List.of(),fallback,"нет проверенной разметки",0F,0);
-        var profile=HeadProfiles.get(bank,type);
+        var profile=profile(bank,type);
         if(profile!=null && profile.none()) return new Resolution(List.of(),"dataset","manual none",1F,0);
         var key=new Key(role+":"+type,layout(boxes));var definition=CACHE.get(key);
         if(definition==null) {
