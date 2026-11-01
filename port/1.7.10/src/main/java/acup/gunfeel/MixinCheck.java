@@ -17,6 +17,7 @@ public final class MixinCheck {
             {"com.hbm.render.loader.HFRWavefrontObject", "8"}, // 4 + MachineMesh ends 4
             {"com.hbm.render.loader.HFRWavefrontObjectVBO", "4"},
             {"net.minecraft.client.renderer.EntityRenderer", "4"}, // 2 + MixinMousePick 2
+            {"net.minecraft.client.renderer.RenderGlobal", "1"}, // MixinRenderGlobal: the holes before the block cracks
             {"net.minecraft.entity.projectile.EntityArrow", "5"}, // MixinVanillaProjectileHits, as the three below
             {"net.minecraft.entity.projectile.EntityThrowable", "5"},
             {"net.minecraft.entity.projectile.EntityFireball", "5"},

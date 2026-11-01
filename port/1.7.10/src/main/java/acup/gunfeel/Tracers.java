@@ -154,10 +154,26 @@ public final class Tracers {
     private static double lastFrame = Double.NaN;
     private static final BulletClock FLIGHT_CLOCK = new BulletClock();
 
+    // The tracers' time: the client's own ticks, not the world's. The world's time is set to the server's every second
+    // (S03PacketTimeUpdate), and a server behind 20 ticks a second (a loaded world, a busy server) puts it back by a
+    // few ticks each time: the clock, which never goes back, stood still for as long, the tracers in the air stopped and
+    // new ones were not seen until it went on. A tick of the game that is not paused, as the world's.
+    private static long clientTicks;
+
     private static double flightTime() {
-        World w = Minecraft.getMinecraft().theWorld;
-        if (w == null) return FLIGHT_CLOCK.current();
-        return FLIGHT_CLOCK.sample(w.getTotalWorldTime(), GunFeelClient.partial);
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.theWorld == null) return FLIGHT_CLOCK.current();
+        return FLIGHT_CLOCK.sample(clientTicks, framePartial(mc));
+    }
+
+    // This frame's partial tick from the game's timer. The timer is updated before the frame's ticks, RenderTickEvent
+    // only after them: a tick's announcement read with the event's value (the last frame's) put the clock up to a tick
+    // ahead of the frames.
+    private static net.minecraft.util.Timer timer;
+
+    private static float framePartial(Minecraft mc) {
+        if (timer == null) timer = cpw.mods.fml.relauncher.ReflectionHelper.getPrivateValue(Minecraft.class, mc, "timer", "field_71428_T");
+        return timer.renderPartialTicks;
     }
 
     // NTM tracer colours per bullet type, {dark, light}; NONE = not a plain tracer (grenade, rocket...): NTM draws it
@@ -174,9 +190,14 @@ public final class Tracers {
         probed = new int[] {dark, light};
     }
 
-    // true when this bullet type's tracer is drawn here instead of by NTM
+    // True when this bullet type's tracer is drawn here instead of by NTM. Only a type already probed (at its first
+    // announced shot): NTM's bullet is drawn in the world's passes, and under a shader pack one of them is the shadow
+    // pass, where Shader Fixer does not run NTM's tracer at all (its WrapMethod on renderBulletStandard). A probe there
+    // found no colours and kept that: the type had no tracer for the rest of the game (AM180's .22 in the owner's pack).
     public static boolean replaces(BulletConfig config) {
-        return serverAnnounces && Config.tracers && config != null && config.velocity >= 5F && colors(config) != NONE;
+        if (!serverAnnounces || !Config.tracers || config == null || config.velocity < 5F) return false;
+        int[] c = COLORS.get(config);
+        return c != null && c != NONE;
     }
 
     // port: NTM 1.7.10 keeps the tracer as config.renderer, drawn for a bullet entity; called once for a bullet that
@@ -408,10 +429,18 @@ public final class Tracers {
             if (acup.gunfeel.compat.Feature.TRACERS.on()) draw(e.partialTicks);
         }
 
+        @SubscribeEvent
+        public void frame(cpw.mods.fml.common.gameevent.TickEvent.RenderTickEvent e) {
+            if (e.phase == cpw.mods.fml.common.gameevent.TickEvent.Phase.START) frame++;
+        }
+
         // the server's announcements as soon as the tick has the packets (26.2: enqueueWork)
         @SubscribeEvent
         public void tick(cpw.mods.fml.common.gameevent.TickEvent.ClientTickEvent e) {
-            if (e.phase == cpw.mods.fml.common.gameevent.TickEvent.Phase.END && acup.gunfeel.compat.Feature.TRACERS.on()) drain();
+            if (e.phase != cpw.mods.fml.common.gameevent.TickEvent.Phase.END) return;
+            Minecraft mc = Minecraft.getMinecraft();
+            if (mc.theWorld != null && !mc.isGamePaused()) clientTicks++;
+            if (acup.gunfeel.compat.Feature.TRACERS.on()) drain();
         }
 
         @SubscribeEvent
@@ -460,8 +489,37 @@ public final class Tracers {
         for (Shot bounced : BOUNCED) RECENT_SHOTS.put(bounced.id, bounced);
         BOUNCED.clear();
         if (!streaks.isEmpty()) drawStreaks(mc, partial, streaks);
+        // the holes went with the world already this frame (drawWorldHoles); here only when that hook did not run
+        if (holesFrame == frame) return;
         makePending();
         holes(mc, world, partial, now);
+    }
+
+    // the frames, and the one whose holes are drawn already, before the block cracks
+    private static long frame, holesFrame = -1;
+
+    // The holes with the world (MixinRenderGlobal, as RenderGlobal.drawBlockDamageTexture starts), as 26.2 draws them
+    // with the blocks: under a shader pack (Angelica) RenderWorldLastEvent comes after the pack has finished its frame,
+    // so holes drawn there missed its fog and light; and the block cracks drawn after them lie over them. Once a frame;
+    // the caller's GL state (its blend for the cracks) is kept.
+    public static void drawWorldHoles(float partial) {
+        if (holesFrame == frame) return;
+        if (!acup.gunfeel.compat.Feature.TRACERS.on()) return;
+        Minecraft mc = Minecraft.getMinecraft();
+        World world = mc.theWorld;
+        if (world == null) return;
+        drain();
+        CAMERA[0] = RenderManager.renderPosX;
+        CAMERA[1] = RenderManager.renderPosY;
+        CAMERA[2] = RenderManager.renderPosZ;
+        GL11.glPushAttrib(GL11.GL_ENABLE_BIT | GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT | GL11.GL_POLYGON_BIT | GL11.GL_CURRENT_BIT);
+        try {
+            makePending();
+            holes(mc, world, partial, GunClock.nanos());
+        } finally {
+            GL11.glPopAttrib();
+        }
+        holesFrame = frame;
     }
 
     // ---- flight
@@ -812,7 +870,8 @@ public final class Tracers {
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glDisable(GL11.GL_LIGHTING);
         GL11.glEnable(GL11.GL_BLEND);
-        OpenGlHelper.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+        // the alpha as vanilla's translucent: what is under a hole keeps its own (a shader pack keeps its data there)
+        OpenGlHelper.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glAlphaFunc(GL11.GL_GREATER, 0.003F);
         GL11.glDepthMask(false);
         GL11.glEnable(GL11.GL_POLYGON_OFFSET_FILL);
