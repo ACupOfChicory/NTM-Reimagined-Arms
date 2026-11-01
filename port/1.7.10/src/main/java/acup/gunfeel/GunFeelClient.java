@@ -30,6 +30,7 @@ public final class GunFeelClient {
         Config.poll();
         FMLCommonHandler.instance().bus().register(new GunFeelClient());
         ShootScenario.register();
+        MachineScan.init(); // machines the jar's tables lack, taken in the game
         Tracers.register();
         HudEvents.register(); // the ammo HUD, ammo key and menu, instant switch
         acup.gunfeel.compat.CompatClient.init(); // the untested-NTM warning, /gunfeel status
@@ -41,8 +42,10 @@ public final class GunFeelClient {
 
     @SubscribeEvent
     public void clientTick(TickEvent.ClientTickEvent e) {
-        if (e.phase != TickEvent.Phase.END || autostop == -2) return;
+        if (e.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getMinecraft();
+        MachineScan.tick(mc);
+        if (autostop == -2) return;
         if (autostop < 0) {
             if (!(mc.currentScreen instanceof net.minecraft.client.gui.GuiMainMenu)) return;
             // a scenario (ShootScenario) quits by itself
@@ -63,6 +66,7 @@ public final class GunFeelClient {
     // once a frame before the world is drawn (26.2: RenderFrameEvent.Pre)
     @SubscribeEvent
     public void renderTick(TickEvent.RenderTickEvent e) {
+        if (e.phase == TickEvent.Phase.END) MachineScan.frame(Minecraft.getMinecraft());
         if (e.phase != TickEvent.Phase.START) return;
         partial = e.renderTickTime;
         Config.poll();

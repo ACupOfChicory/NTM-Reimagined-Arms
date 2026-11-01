@@ -31,7 +31,7 @@ final class MachineCapture {
     static final int REACH = 16;
 
     // exact faces (MachineFaces): the textures met so far (by GL id or icon name: index) and the last machine's triangles
-    static final List<MachineFaces.Tex> TEXTURES = new ArrayList<MachineFaces.Tex>();
+    static final List<MachineFaces.Tex> TEXTURES = MachineFaces.TAKEN_TEX;
     private static final Map<Object, Integer> TEX_INDEX = new HashMap<Object, Integer>();
     static MachineFaces.Model last;
 
@@ -40,7 +40,12 @@ final class MachineCapture {
 
     static int texIndex(Object key, String name, int[][] tex) {
         Integer i = TEX_INDEX.get(key);
-        if (i == null) {
+        // a texture kept from an earlier game (MachineScan's file) under its name
+        if (i == null && name != null) synchronized (TEXTURES) {
+            for (int k = 0; k < TEXTURES.size() && i == null; k++) if (name.equals(TEXTURES.get(k).name)) i = k;
+        }
+        if (i != null) TEX_INDEX.put(key, i);
+        if (i == null) synchronized (TEXTURES) {
             i = TEXTURES.size();
             TEXTURES.add(MachineFaces.Tex.of(name, tex));
             TEX_INDEX.put(key, i);
@@ -48,27 +53,46 @@ final class MachineCapture {
         return i;
     }
 
-    // a machine's triangles as they come, into its cells, glass and model
-    private static final class Collect {
+    // a machine's triangles as they come, into its model; into its cells and glass a few at a time (step), so a game
+    // can spread the work over its frames (MachineScan)
+    static final class Collect {
         final Map<Long, long[]> solid = new HashMap<Long, long[]>(), glass = new HashMap<Long, long[]>();
         final List<Integer> tex = new ArrayList<Integer>();
         final List<double[]> p = new ArrayList<double[]>(), uv = new ArrayList<double[]>();
         // blocks to keep besides the machine's (the elevator's section above its base, not placed)
         final List<int[]> extra = new ArrayList<int[]>();
 
+        // each triangle's texture and whether its clear pixels are air, for step
+        private final List<int[][]> texOf = new ArrayList<int[][]>();
+        private final List<Boolean> emptyOf = new ArrayList<Boolean>();
+        private int filled;
+
         // tri: corners from the core block's corner; t: the texture ({{w, h}, argb}), null: untextured
         void add(double[] tri, int[][] t, int index, final double[] u, final double[] v, boolean empty) {
+            tex.add(t == null ? -1 : index);
+            p.add(tri);
+            uv.add(t == null ? new double[6] : new double[] {u[0], v[0], u[1], v[1], u[2], v[2]});
+            texOf.add(t);
+            emptyOf.add(empty);
+        }
+
+        // fills the cells of the triangles not filled yet until `deadline` (System.nanoTime); true: all are
+        boolean step(long deadline) {
+            while (filled < p.size()) {
+                int i = filled++;
+                fill(p.get(i), texOf.get(i), uv.get(i), emptyOf.get(i));
+                if ((filled & 7) == 0 && System.nanoTime() > deadline) break;
+            }
+            return filled >= p.size();
+        }
+
+        private void fill(double[] tri, final int[][] t, double[] q, boolean empty) {
             if (t == null) {
                 DoorCapture.fill(solid, tri, (wa, wb, wc) -> true);
-                tex.add(-1);
-                p.add(tri);
-                uv.add(new double[6]);
                 return;
             }
+            final double[] u = {q[0], q[2], q[4]}, v = {q[1], q[3], q[5]};
             DoorCapture.fill(solid, tri, (wa, wb, wc) -> DoorCapture.shown(t, wa * u[0] + wb * u[1] + wc * u[2], wa * v[0] + wb * v[1] + wc * v[2]));
-            tex.add(index);
-            p.add(tri);
-            uv.add(new double[] {u[0], v[0], u[1], v[1], u[2], v[2]});
             boolean light = !DoorCapture.shown(t, u[0], v[0]) && !DoorCapture.shown(t, u[1], v[1]) && !DoorCapture.shown(t, u[2], v[2]);
             if (empty || light) return;
             DoorCapture.fill(glass, tri, (wa, wb, wc) -> !DoorCapture.shown(t, wa * u[0] + wb * u[1] + wc * u[2], wa * v[0] + wb * v[1] + wc * v[2]));
@@ -78,8 +102,13 @@ final class MachineCapture {
             return p.isEmpty();
         }
 
-        // the machine's cells and glass by key; its model in `last`
+        int size() {
+            return p.size();
+        }
+
+        // the machine's cells and glass by key (all its triangles filled: step); its model in `last`
         Map<String, long[]> finish(World w, int x, int y, int z) {
+            step(Long.MAX_VALUE);
             int[] t = new int[tex.size()];
             float[] fp = new float[t.length * 9], fuv = new float[t.length * 6];
             for (int i = 0; i < t.length; i++) {
@@ -114,8 +143,15 @@ final class MachineCapture {
     // the machine whose core is at (x, y, z): its blocks' cells by key (MachineCells.key) and its glass by glassKey;
     // null when it draws nothing
     static Map<String, long[]> capture(Minecraft mc, int x, int y, int z, Map<Integer, int[][]> textures, ShapesScenario.Atlas atlas) {
+        Collect c = start(mc, x, y, z, textures, () -> atlas);
+        return c == null ? null : c.finish(mc.theWorld, x, y, z);
+    }
+
+    // the machine's triangles as drawn now, its cells not filled yet (Collect.step), or null when it draws nothing;
+    // `how` says how it was drawn. The block atlas is asked for only when its blocks draw it (RenderBlocks)
+    static Collect start(Minecraft mc, int x, int y, int z, Map<Integer, int[][]> textures, java.util.function.Supplier<ShapesScenario.Atlas> atlas) {
         how = null;
-        Map<String, long[]> out = tesr(mc, x, y, z, textures);
+        Collect out = tesr(mc, x, y, z, textures);
         if (out != null) {
             how = "tesr";
             return out;
@@ -125,7 +161,7 @@ final class MachineCapture {
         return out;
     }
 
-    private static Map<String, long[]> tesr(Minecraft mc, int x, int y, int z, Map<Integer, int[][]> textures) {
+    private static Collect tesr(Minecraft mc, int x, int y, int z, Map<Integer, int[][]> textures) {
         World w = mc.theWorld;
         TileEntity te = w.getTileEntity(x, y, z);
         if (te == null) return null;
@@ -178,15 +214,16 @@ final class MachineCapture {
                 }
             }
         }
-        return c.finish(w, x, y, z);
+        return c;
     }
 
     // what the machine's blocks draw into the chunk (RenderBlocks), each quad on its icon (found by its UV on the atlas)
-    private static Map<String, long[]> chunk(Minecraft mc, int x, int y, int z, ShapesScenario.Atlas atlas) {
+    private static Collect chunk(Minecraft mc, int x, int y, int z, java.util.function.Supplier<ShapesScenario.Atlas> atlases) {
         World w = mc.theWorld;
         Block b = w.getBlock(x, y, z);
         RenderBlocks rb = new RenderBlocks(w);
         Collect c = new Collect();
+        ShapesScenario.Atlas atlas = null;
         for (int[] o : footprint(w, b, x, y, z)) {
             float[] q;
             try {
@@ -210,6 +247,7 @@ final class MachineCapture {
                     v0 = icon.getMinV();
                     du = icon.getMaxU() - u0;
                     dv = icon.getMaxV() - v0;
+                    if (atlas == null) atlas = atlases.get();
                     tex = iconPixels(atlas, icon);
                     String name = path(icon.getIconName());
                     empty = MachineGlass.empty(name);
@@ -230,7 +268,7 @@ final class MachineCapture {
                 }
             }
         }
-        return c.isEmpty() ? null : c.finish(w, x, y, z);
+        return c.isEmpty() ? null : c;
     }
 
     private static List<TextureAtlasSprite> icons;

@@ -249,8 +249,105 @@ final class MachineFaces {
                     m.clear();
                 }
             }
+            jarTextures = new ArrayList<Tex>(tex);
+            jarModels = new HashMap<String, Model>(m);
+            // machines taken in this game before (MachineScan), with this NTM, over the jar's
+            List<Tex> ct = new ArrayList<Tex>();
+            Map<String, Model> cm = new HashMap<String, Model>();
+            readTaken(ct, cm);
+            synchronized (TAKEN_TEX) {
+                TAKEN_TEX.clear();
+                TAKEN_TEX.addAll(ct);
+            }
+            for (Map.Entry<String, Model> e : cm.entrySet()) {
+                TAKEN.put(e.getKey(), e.getValue());
+                m.put(e.getKey(), e.getValue().shifted(tex.size()));
+            }
+            tex.addAll(ct);
             textures = tex;
             models = m;
+        }
+    }
+
+    // ---- machines taken in the game (MachineScan): kept in config/TAKEN_FILE with the NTM version they were taken with
+
+    static final String TAKEN_FILE = "ntm-gunfeel-machine-faces-1710.pack";
+    private static List<Tex> jarTextures = new ArrayList<Tex>();
+    private static Map<String, Model> jarModels = new HashMap<String, Model>();
+    // taken models by "<id>/<meta>", and their textures (MachineCapture.TEXTURES: also the dev scenario's)
+    private static final Map<String, Model> TAKEN = new java.util.TreeMap<String, Model>();
+    static final List<Tex> TAKEN_TEX = new ArrayList<Tex>();
+
+    // dev (ScanScenario): a facing's model from the jar or taken in this game, its texture names beside
+    static Model jarModel(String key) {
+        load();
+        return jarModels.get(key);
+    }
+
+    static Model takenModel(String key) {
+        synchronized (MachineFaces.class) {
+            return TAKEN.get(key);
+        }
+    }
+
+    static String jarTexture(int i) {
+        return i < 0 ? null : jarTextures.get(i).name;
+    }
+
+    static String takenTexture(int i) {
+        synchronized (TAKEN_TEX) {
+            return i < 0 ? null : TAKEN_TEX.get(i).name;
+        }
+    }
+
+    private static void readTaken(List<Tex> tex, Map<String, Model> out) {
+        java.nio.file.Path f;
+        try {
+            f = PortPaths.config().resolve(TAKEN_FILE);
+        } catch (RuntimeException | LinkageError e) {
+            return;
+        }
+        if (!java.nio.file.Files.exists(f)) return;
+        try (InputStream in = java.nio.file.Files.newInputStream(f)) {
+            ShapePack.Read r = ShapePack.unwrap(in);
+            if (!r.ntm.equals(PortPaths.hbmVersion())) {
+                GunFeel.LOGGER.info("[ntm-gunfeel] {} was taken with NTM {}, not {}: its machines are taken again", f, r.ntm, PortPaths.hbmVersion());
+                return;
+            }
+            ShapePack.faces(r.raw, tex, out);
+            GunFeel.LOGGER.info("[ntm-gunfeel] {}: {} machine facings taken in an earlier game", f, out.size());
+        } catch (IOException | RuntimeException e) {
+            GunFeel.LOGGER.warn("[ntm-gunfeel] Could not read " + f, e);
+            tex.clear();
+            out.clear();
+        }
+    }
+
+    // a machine facing taken in the game ("<id>/<meta>"), its texture indices TAKEN_TEX'; written to
+    // config/TAKEN_FILE (on the writer's thread)
+    static void taken(String modelKey, Model m) {
+        load();
+        synchronized (MachineFaces.class) {
+            TAKEN.put(modelKey, m);
+            List<Tex> tex = new ArrayList<Tex>(jarTextures);
+            List<Tex> mine;
+            synchronized (TAKEN_TEX) {
+                mine = new ArrayList<Tex>(TAKEN_TEX);
+            }
+            tex.addAll(mine);
+            Map<String, Model> all = new HashMap<String, Model>(jarModels);
+            Map<String, Model> taken = new HashMap<String, Model>(TAKEN);
+            for (Map.Entry<String, Model> e : taken.entrySet()) all.put(e.getKey(), e.getValue().shifted(jarTextures.size()));
+            textures = tex;
+            models = all;
+            String id = modelKey.substring(0, modelKey.lastIndexOf('/')), meta = modelKey.substring(modelKey.lastIndexOf('/') + 1);
+            String prefix = id + "#machine/" + meta + "/";
+            for (String k : new ArrayList<String>(MADE.keySet())) if (k.startsWith(prefix)) MADE.remove(k);
+            ShapeWriter.write(PortPaths.config().resolve(TAKEN_FILE), () -> {
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                write(out, mine, taken, ShapePack.DEFLATE);
+                return out.toByteArray();
+            });
         }
     }
 
@@ -270,10 +367,14 @@ final class MachineFaces {
 
     // dev: textures and models by "<id>/<meta>" written (ShapePack), a facing that is another's turn as that turn
     static void write(OutputStream raw, List<Tex> tex, Map<String, Model> models) throws IOException {
+        write(raw, tex, models, ShapePack.CODEC);
+    }
+
+    static void write(OutputStream raw, List<Tex> tex, Map<String, Model> models, int codec) throws IOException {
         Map<String, String> turnOf = new HashMap<String, String>();
         Map<String, Integer> turns = new HashMap<String, Integer>();
         turns(models, turnOf, turns);
-        raw.write(ShapePack.wrap(ShapePack.faces(tex, models, turnOf, turns), PortPaths.hbmVersion(), ShapePack.CODEC));
+        raw.write(ShapePack.wrap(ShapePack.faces(tex, models, turnOf, turns), PortPaths.hbmVersion(), codec));
     }
 
     // which facings are another facing of the same machine turned about the core (base by key, and by how much)

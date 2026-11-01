@@ -58,9 +58,14 @@ public final class ShootScenario {
         return NAME.equals("shapes");
     }
 
-    // a scenario that needs the flat world: this one, "look", "shapes" or a trace scenario (TraceScenario)
+    // "scan": machines taken in the game as the jar has them (ScanScenario)
+    static boolean scan() {
+        return NAME.equals("scan");
+    }
+
+    // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || look() || shapes() || TraceScenario.enabled();
+        return on() || look() || shapes() || scan() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -85,6 +90,10 @@ public final class ShootScenario {
         if (mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null) return;
         if (shapes()) {
             ShapesScenario.step(mc, ++tick);
+            return;
+        }
+        if (scan()) {
+            ScanScenario.step(mc, ++tick);
             return;
         }
         if (look()) {

@@ -174,7 +174,7 @@ final class ShapesScenario {
 
     // the integrated server: the machine placed at the spot as a player facing that way would (BlockDummyable builds
     // it); its core, or null
-    private static int[] placeMachine(Block b, int facing, int[] spot) {
+    static int[] placeMachine(Block b, int facing, int[] spot) {
         EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
         World w = player.worldObj;
         float yaw = player.rotationYaw;
@@ -210,7 +210,7 @@ final class ShapesScenario {
     }
 
     // the integrated server: every block around the spot gone, and what fell out of it
-    private static void clearMachine(int[] spot) {
+    static void clearMachine(int[] spot) {
         World w = MinecraftServer.getServer().worldServerForDimension(0);
         int r = MachineCapture.REACH + 2;
         for (int dx = -r; dx <= r; dx++) for (int dy = -r; dy <= r; dy++) for (int dz = -r; dz <= r; dz++)

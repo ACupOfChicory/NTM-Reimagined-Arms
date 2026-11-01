@@ -67,4 +67,17 @@ class ShapePackTest {
             for (int i = 0; i < a.uv.length; i++) assertEquals(a.uv[i], b.uv[i], 0.5 / ShapePack.UV, k);
         }
     }
+
+    @Test
+    void takenShapesReadBackFromTheConfigText() throws Exception {
+        Map<String, String> lines = new java.util.TreeMap<String, String>();
+        long[] cells = cells(4, false);
+        lines.put("othermod:tile.big_press#machine/12/-1,0,2", ModelCells.pack(cells));
+        lines.put("othermod:tile.big_press#machine/12/-1,0,2/glass", ModelCells.pack(cells(5, false)));
+        java.util.Properties p = new java.util.Properties();
+        p.load(new java.io.StringReader(ModelCells.configText(lines, "1.0.27 BETA (5863)")));
+        assertEquals("1.0.27 BETA (5863)", p.getProperty(ModelCells.NTM_KEY));
+        assertEquals(3, p.size());
+        assertArrayEquals(cells, ModelCells.unpack(p.getProperty("othermod:tile.big_press#machine/12/-1,0,2")));
+    }
 }

@@ -112,15 +112,83 @@ public final class ModelCells {
         java.nio.file.Path f = PortPaths.config().resolve(CONFIG);
         if (java.nio.file.Files.exists(f)) {
             try {
-                m.putAll(load(java.nio.file.Files.newInputStream(f), f.toString(), packed));
+                Map<String, long[]> mine = load(java.nio.file.Files.newInputStream(f), f.toString(), packed);
+                // machines taken in the game (MachineScan) with another NTM are taken again; the jar's stand till then
+                String with = packed.remove(NTM_KEY);
+                if (with != null && !with.equals(PortPaths.hbmVersion())) {
+                    int before = mine.size();
+                    for (String k : new java.util.ArrayList<String>(mine.keySet())) if (k.contains("#machine/")) {
+                        mine.remove(k);
+                        packed.remove(k);
+                    }
+                    GunFeel.LOGGER.info("[ntm-gunfeel] {}: {} machine shapes were taken with NTM {}, not {}; they are taken again", f, before - mine.size(),
+                            with, PortPaths.hbmVersion());
+                }
+                m.putAll(mine);
             } catch (java.io.IOException e) {
                 GunFeel.LOGGER.warn("[ntm-gunfeel] Could not read " + f, e);
             }
+        }
+        // what this game took, though the writer may not have written it yet
+        for (Map.Entry<String, long[]> e : TAKEN.entrySet()) {
+            m.put(e.getKey(), e.getValue());
+            packed.put(e.getKey(), pack(e.getValue()));
         }
         own = Collections.unmodifiableMap(m);
         extra = Collections.unmodifiableMap(packed);
         if (remote == null) table = own;
         return extra;
+    }
+
+    // the config file's line naming the NTM version its machines were taken with (MachineScan)
+    static final String NTM_KEY = "ntm-version";
+
+    // the NTM version this key's shape was made with: this game's for one in the config file, the jar's for one from
+    // the jar, null for none
+    static synchronized String madeWith(String key) {
+        table();
+        if (extra.containsKey(key)) return PortPaths.hbmVersion();
+        return jar.containsKey(key) ? jarNtm : null;
+    }
+
+    // shapes MachineScan took in this game: over this game's own, kept in the config file (on the writer's thread)
+    private static final Map<String, long[]> TAKEN = new HashMap<String, long[]>();
+
+    static synchronized void taken(Map<String, long[]> made) {
+        table();
+        TAKEN.putAll(made);
+        Map<String, long[]> m = new HashMap<String, long[]>(own);
+        Map<String, String> packed = new TreeMap<String, String>(extra);
+        for (Map.Entry<String, long[]> e : made.entrySet()) {
+            m.put(e.getKey(), e.getValue());
+            packed.put(e.getKey(), pack(e.getValue()));
+        }
+        own = Collections.unmodifiableMap(m);
+        extra = Collections.unmodifiableMap(packed);
+        if (remote == null) table = own;
+        final Map<String, String> lines = extra;
+        final String ntm = PortPaths.hbmVersion();
+        ShapeWriter.write(PortPaths.config().resolve(CONFIG), () -> configText(lines, ntm).getBytes(StandardCharsets.UTF_8));
+    }
+
+    // the config file: shapes by key as the text the jar's table once was, and the NTM version
+    static String configText(Map<String, String> lines, String ntm) {
+        StringBuilder b = new StringBuilder();
+        b.append("# Bullet shapes beyond the mod jar's (ModelCells): written by the game for machines it took itself (MachineScan),\n");
+        b.append("# and sent by a server to its players. Key: block id # meta (machines: <id>#machine/<core meta>/<dx>,<dy>,<dz>).\n");
+        b.append(NTM_KEY).append(" = ").append(escape(ntm)).append('\n');
+        for (Map.Entry<String, String> e : new TreeMap<String, String>(lines).entrySet())
+            b.append(escape(e.getKey())).append(" = ").append(e.getValue()).append('\n');
+        return b.toString();
+    }
+
+    private static String escape(String key) {
+        StringBuilder b = new StringBuilder();
+        for (char c : key.toCharArray()) {
+            if (c == ':' || c == '=' || c == ' ' || c == '\\' || c == '!' || c == '#' && b.length() == 0) b.append('\\');
+            b.append(c);
+        }
+        return b.toString();
     }
 
     // 26.2's PassableClip.useRemoteShapes: the server's shapes beyond the jar's (packed, by key), or null: back to this
@@ -139,6 +207,11 @@ public final class ModelCells {
         }
         remote = Collections.unmodifiableMap(m);
         table = remote;
+    }
+
+    // connected to another game's server: its shapes count, not this game's
+    static synchronized boolean remote() {
+        return remote != null;
     }
 
     // the jar's own table (dev: ShapesScenario keeps what it does not draw again)
@@ -175,6 +248,12 @@ public final class ModelCells {
         }
     }
 
+    // the jar's table was made with this game's NTM
+    static boolean jarTrusted() {
+        table();
+        return jarNtm.equals(PortPaths.hbmVersion());
+    }
+
     // the jar's tables read on a thread of their own while the game starts, not at the first bullet (about 0.1 s)
     static void preload() {
         Thread t = new Thread(() -> {
@@ -196,6 +275,7 @@ public final class ModelCells {
             }
             Properties p = new Properties();
             p.load(new InputStreamReader(in, StandardCharsets.UTF_8));
+            if (packed != null && p.getProperty(NTM_KEY) != null) packed.put(NTM_KEY, p.getProperty(NTM_KEY).trim());
             for (String k : p.stringPropertyNames()) {
                 if (k.startsWith("@") || k.indexOf('#') < 0) continue;
                 String v = p.getProperty(k).trim();

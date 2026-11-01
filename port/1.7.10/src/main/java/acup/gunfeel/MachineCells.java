@@ -71,10 +71,25 @@ public final class MachineCells {
         return ElevatorMesh.hit(core[0], core[1], core[2], elevator.extension, x, y, z, fx, fy, fz, tx, ty, tz);
     }
 
+    // a machine met with no cells, or with cells from another NTM version: told to the client, which takes it
+    // (MachineScan: also those without a tile entity, which its look round does not find, as NTM's rails)
+    interface Wanted {
+        void at(Block b, int x, int y, int z);
+    }
+
+    static volatile Wanted wanted;
+    // dev (ScanScenario): every machine met is told
+    static volatile boolean wantAll;
+
     // the cells of the machine's block with its exact faces (MachineFaces), or null
     static long[] of(Map<String, long[]> table, IBlockAccess world, Block b, int x, int y, int z) {
         String k = keyAt(world, b, x, y, z);
         long[] cells = k == null ? null : table.get(k);
+        Wanted w = wanted;
+        if (w != null && k != null && (cells == null || wantAll || !ModelCells.jarTrusted())) {
+            int[] core = ((BlockDummyable) b).findCore(world, x, y, z);
+            if (core != null) w.at(b, core[0], core[1], core[2]);
+        }
         return cells == null ? null : MachineFaces.with(cells, k);
     }
 
