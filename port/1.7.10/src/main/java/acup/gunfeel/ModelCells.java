@@ -89,9 +89,9 @@ public final class ModelCells {
 
     // the jar's table, this game's own (the jar's and config/ntm-gunfeel-bullet-shapes-1710.properties over it), and
     // the server's (null: this game's own counts) while connected to another game's server
-    private static Map<String, long[]> jar, own, remote;
+    private static volatile Map<String, long[]> jar, own, remote;
     // the config file's shapes as read, packed: what a server sends its players beyond the jar's
-    private static Map<String, String> extra = Collections.emptyMap();
+    private static volatile Map<String, String> extra = Collections.emptyMap();
 
     static Map<String, long[]> table() {
         Map<String, long[]> m = table;
@@ -145,7 +145,7 @@ public final class ModelCells {
 
     // the NTM version this key's shape was made with: this game's for one in the config file, the jar's for one from
     // the jar, null for none
-    static synchronized String madeWith(String key) {
+    static String madeWith(String key) {
         table();
         if (extra.containsKey(key)) return PortPaths.hbmVersion();
         return jar.containsKey(key) ? jarNtm : null;
@@ -154,6 +154,7 @@ public final class ModelCells {
     // shapes MachineScan took in this game: over this game's own, kept in the config file (on the writer's thread)
     private static final Map<String, long[]> TAKEN = new HashMap<String, long[]>();
 
+    // (MachineScan calls it on its own thread: the copy of the table takes milliseconds)
     static synchronized void taken(Map<String, long[]> made) {
         table();
         TAKEN.putAll(made);
@@ -210,7 +211,7 @@ public final class ModelCells {
     }
 
     // connected to another game's server: its shapes count, not this game's
-    static synchronized boolean remote() {
+    static boolean remote() {
         return remote != null;
     }
 

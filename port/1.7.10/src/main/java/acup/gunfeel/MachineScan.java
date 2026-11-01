@@ -1,9 +1,7 @@
 package acup.gunfeel;
 
 import java.util.ArrayDeque;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 import com.hbm.blocks.BlockDummyable;
@@ -16,8 +14,8 @@ import net.minecraft.world.World;
 // port: 26.2's MeshShapes.tick / frame for NTM 1.7.10's machines. The jar's table has the machines of the NTM it was
 // made with (ShapesScenario). A machine it lacks (an addon's, one a newer NTM added) or one it has from another NTM
 // version is taken here in the game, as the dev scenario takes them (MachineCapture): every two seconds the machines
-// near the player are looked over, one is drawn at a time, and its triangles fill their cells a little each frame
-// (1.5 ms at most), so the game does not stall. What is taken counts at once and is kept in config (ModelCells'
+// near the player are looked over, and one at a time is taken a little each frame (MachineTake: 1.5 ms of the game's
+// thread at most, the rest on a thread of its own), so the game does not stall. What is taken counts at once and is kept in config (ModelCells'
 // CONFIG, MachineFaces.TAKEN_FILE) with the NTM version; a server's admin may copy both files to the server, which sends
 // the shapes to its players. Not while connected to another game's server: its shapes count there.
 final class MachineScan {
@@ -46,15 +44,16 @@ final class MachineScan {
     private static final Set<String> DONE = new HashSet<String>();
     private static final Set<String> QUEUED = new HashSet<String>();
     private static final ArrayDeque<Candidate> QUEUE = new ArrayDeque<Candidate>();
-    // GL textures read back for the machine being taken
-    private static final Map<Integer, int[][]> GL_TEXTURES = new HashMap<Integer, int[][]>();
+    // the block atlas as read last (MachineTake), till the game needs the memory
     private static java.lang.ref.SoftReference<ShapesScenario.Atlas> atlas;
     private static World observed;
     private static Candidate active;
-    private static MachineCapture.Collect collect;
+    private static MachineTake take;
     private static long work, peak;
     private static int frames, ticks;
     static int taken;
+    // the game's longest frame share of all machines taken (the scan scenario reports it)
+    static long longest;
 
     static boolean off() {
         return ShootScenario.world() && !ShootScenario.scan() || "false".equals(System.getProperty("ntmgunfeel.machineScan")) || ModelCells.remote();
@@ -73,14 +72,59 @@ final class MachineScan {
     private static final java.util.concurrent.ConcurrentHashMap<String, int[]> MET = new java.util.concurrent.ConcurrentHashMap<String, int[]>();
 
     static void init() {
+        preload();
         MachineCells.wantAll = retake();
         MachineCells.wanted = (b, x, y, z) -> {
             if (MET.size() < 64) MET.putIfAbsent(x + "," + y + "," + z, new int[] {x, y, z});
         };
     }
 
+    // the classes taking a machine needs, loaded on a thread of their own while the game starts: loaded at the first
+    // machine (through the mod loader's transformers) they took the game's thread milliseconds
+    private static final String[] CLASSES = {"MachineTake", "MachineTake$1", "MachineTake$Result", "MachineTake$Triangles", "MachineTake$TesrTriangles",
+            "MachineTake$ChunkTriangles", "MachineTake$Work", "MachineTake$Fixed", "MachineScan$Candidate", "MachineCapture", "MachineCapture$Collect",
+            "MachineCapture$Drawn", "MachineMesh", "MachineMesh$Part", "MachineMesh$TessGroup", "GlRead", "DoorCapture", "ShapesScenario",
+            "ShapesScenario$Atlas", "ModelCells$PixelShown", "ShapeWriter", "ShapeWriter$Bytes", "ShapePack", "ShapePack$Out", "ShapePack$Long3",
+            "MachineFaces", "MachineFaces$Model", "MachineFaces$Tex", "ModelSurface", "ModelSurface$Face", "MachineGlass", "ModelObjParts"};
+    private static final String[] LWJGL = {"org.lwjgl.opengl.GL15", "org.lwjgl.opengl.GL21", "org.lwjgl.opengl.GL32", "org.lwjgl.opengl.GLSync",
+            "org.lwjgl.PointerWrapperAbstract"};
+
+    private static void preload() {
+        Thread t = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                ClassLoader l = MachineScan.class.getClassLoader();
+                for (String c : CLASSES) load("acup.gunfeel." + c, l);
+                for (String c : LWJGL) load(c, l);
+            }
+        }, "ntm-gunfeel preload");
+        t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
+        t.start();
+    }
+
+    private static void load(String name, ClassLoader l) {
+        try {
+            Class.forName(name, false, l);
+        } catch (Throwable e) {
+            GunFeel.LOGGER.debug("[ntm-gunfeel] Could not preload {}", name, e);
+        }
+    }
+
     // ClientTickEvent END: every two seconds, the machines near the player the tables lack, and those bullets met
     static void tick(Minecraft mc) {
+        long start = System.nanoTime();
+        try {
+            look(mc);
+        } finally {
+            tickLongest = Math.max(tickLongest, System.nanoTime() - start);
+        }
+    }
+
+    // the longest look over the machines near the player (tick)
+    static long tickLongest;
+
+    private static void look(Minecraft mc) {
         World w = mc.theWorld;
         if (w != observed) {
             QUEUE.clear();
@@ -150,58 +194,55 @@ final class MachineScan {
                 frames = 0;
                 work = 0;
                 peak = 0;
-                collect = MachineCapture.start(mc, c.x, c.y, c.z, GL_TEXTURES, MachineScan::atlas);
-                if (collect == null) {
-                    GunFeel.LOGGER.info("[ntm-gunfeel] Machine {} draws nothing to take: met by its box", c.key);
-                    DONE.add(c.key);
-                    drop();
-                    return;
-                }
+                take = new MachineTake(c.x, c.y, c.z, c.block, c.meta, c.key);
             }
             if (!valid(w, active)) {
                 drop();
                 return;
             }
             frames++;
-            if (!collect.step(start + FRAME_NANOS)) return;
-            Map<String, long[]> made = collect.finish(w, active.x, active.y, active.z);
-            MachineFaces.Model model = MachineCapture.last;
-            ModelCells.taken(made);
-            if (model != null) MachineFaces.taken(active.key, model);
+            if (!take.step(mc, start + FRAME_NANOS)) return;
+            MachineTake.Result r = take.result();
             DONE.add(active.key);
-            taken++;
-            long cost = System.nanoTime() - start;
-            work += cost;
-            peak = Math.max(peak, cost);
-            GunFeel.LOGGER.info("[ntm-gunfeel] Took machine {} in the game: {} blocks, {} triangles, {} frames, {} ms of work, {} ms in the longest frame",
-                    active.key, made.size(), collect.size(), frames, work / 1000000, String.format(java.util.Locale.ROOT, "%.1f", peak / 1e6));
+            if (r == null) {
+                GunFeel.LOGGER.info("[ntm-gunfeel] Machine {} draws nothing to take: met by its box", active.key);
+            } else {
+                taken++;
+                long cost = System.nanoTime() - start;
+                GunFeel.LOGGER.info("[ntm-gunfeel] Took machine {} in the game ({}): {} blocks, {} triangles, {} frames, {} ms of the game's thread, {} ms in the longest frame ({})",
+                        active.key, take.how, r.cells.size(), r.triangles, frames, String.format(java.util.Locale.ROOT, "%.1f", (work + cost) / 1e6),
+                        String.format(java.util.Locale.ROOT, "%.2f", Math.max(peak, cost) / 1e6), take.slowest());
+            }
             drop();
         } catch (Throwable e) {
             GunFeel.LOGGER.warn("[ntm-gunfeel] Could not take machine " + (active == null ? "?" : active.key), e);
             if (active != null) DONE.add(active.key);
             drop();
         } finally {
-            if (active != null) {
-                long cost = System.nanoTime() - start;
-                work += cost;
-                peak = Math.max(peak, cost);
-            }
+            long cost = System.nanoTime() - start;
+            work += cost;
+            peak = Math.max(peak, cost);
+            longest = Math.max(longest, cost);
         }
+    }
+
+    // a machine being taken now
+    static boolean busy() {
+        return active != null || !QUEUE.isEmpty();
     }
 
     private static void drop() {
         if (active != null) QUEUED.remove(active.key);
+        if (take != null) take.cancel();
         active = null;
-        collect = null;
-        GL_TEXTURES.clear();
+        take = null;
     }
 
-    private static ShapesScenario.Atlas atlas() {
-        ShapesScenario.Atlas a = atlas == null ? null : atlas.get();
-        if (a == null) {
-            a = ShapesScenario.Atlas.read(Minecraft.getMinecraft());
-            atlas = new java.lang.ref.SoftReference<ShapesScenario.Atlas>(a);
-        }
-        return a;
+    static ShapesScenario.Atlas cachedAtlas() {
+        return atlas == null ? null : atlas.get();
+    }
+
+    static void keepAtlas(ShapesScenario.Atlas a) {
+        atlas = new java.lang.ref.SoftReference<ShapesScenario.Atlas>(a);
     }
 }

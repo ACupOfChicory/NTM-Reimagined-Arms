@@ -29,6 +29,8 @@ final class ScanScenario {
         String only = System.getProperty("ntmgunfeel.machines", "");
         String[] list = only.isEmpty() ? MACHINES : only.split(",");
         if (next >= list.length) {
+            GunFeel.LOGGER.info("Scenario scan: the game's thread at most {} ms a frame taking machines, {} ms looking them over",
+                    String.format(java.util.Locale.ROOT, "%.2f", MachineScan.longest / 1e6), String.format(java.util.Locale.ROOT, "%.2f", MachineScan.tickLongest / 1e6));
             GunFeel.LOGGER.info("Scenario scan: {} machines checked, {}", checked, bad == 0 ? "ALL OK" : bad + " differ");
             mc.shutdown();
             next++;

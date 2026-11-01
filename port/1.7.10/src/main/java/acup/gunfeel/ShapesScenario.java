@@ -609,6 +609,10 @@ final class ShapesScenario {
             this.argb = argb;
         }
 
+        static Atlas of(int w, int h, int[] argb) {
+            return new Atlas(w, h, argb);
+        }
+
         static Atlas read(Minecraft mc) {
             mc.getTextureManager().bindTexture(TextureMap.locationBlocksTexture);
             int w = GL11.glGetTexLevelParameteri(GL11.GL_TEXTURE_2D, 0, GL11.GL_TEXTURE_WIDTH);

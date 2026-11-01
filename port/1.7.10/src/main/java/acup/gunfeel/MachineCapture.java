@@ -38,7 +38,8 @@ final class MachineCapture {
     // how the last machine was drawn: "tesr", "chunk" (RenderBlocks) or null
     static String how;
 
-    static int texIndex(Object key, String name, int[][] tex) {
+    // (MachineScan's thread, or the game's in ShapesScenario)
+    static synchronized int texIndex(Object key, String name, int[][] tex) {
         Integer i = TEX_INDEX.get(key);
         // a texture kept from an earlier game (MachineScan's file) under its name
         if (i == null && name != null) synchronized (TEXTURES) {
@@ -106,8 +107,19 @@ final class MachineCapture {
             return p.size();
         }
 
+        // its triangles, after finish
+        MachineFaces.Model model;
+
         // the machine's cells and glass by key (all its triangles filled: step); its model in `last`
         Map<String, long[]> finish(World w, int x, int y, int z) {
+            Block b = w.getBlock(x, y, z);
+            Map<String, long[]> out = finish(Block.blockRegistry.getNameForObject(b), w.getBlockMetadata(x, y, z), footprint(w, b, x, y, z), x, y, z);
+            last = model;
+            return out;
+        }
+
+        // the same, the machine's block id, its core's meta and its blocks given: on any thread
+        Map<String, long[]> finish(String id, int meta, List<int[]> footprint, int x, int y, int z) {
             step(Long.MAX_VALUE);
             int[] t = new int[tex.size()];
             float[] fp = new float[t.length * 9], fuv = new float[t.length * 6];
@@ -116,12 +128,9 @@ final class MachineCapture {
                 for (int k = 0; k < 9; k++) fp[i * 9 + k] = (float) p.get(i)[k];
                 for (int k = 0; k < 6; k++) fuv[i * 6 + k] = (float) uv.get(i)[k];
             }
-            last = new MachineFaces.Model(t, fp, fuv);
-            Block b = w.getBlock(x, y, z);
-            String id = Block.blockRegistry.getNameForObject(b);
-            int meta = w.getBlockMetadata(x, y, z);
+            model = new MachineFaces.Model(t, fp, fuv);
             Map<String, long[]> out = new TreeMap<String, long[]>();
-            List<int[]> blocks = footprint(w, b, x, y, z);
+            List<int[]> blocks = new ArrayList<int[]>(footprint);
             blocks.addAll(extra);
             for (int[] o : blocks) {
                 long at = DoorCapture.pack(o[0] - x, o[1] - y, o[2] - z);
@@ -162,7 +171,69 @@ final class MachineCapture {
     }
 
     private static Collect tesr(Minecraft mc, int x, int y, int z, Map<Integer, int[][]> textures) {
-        World w = mc.theWorld;
+        Drawn d = drawn(mc.theWorld, x, y, z);
+        return d == null ? null : d.triangles(textures);
+    }
+
+    // what a machine's tile entity renderer drew (the game's thread: GL), to be made into triangles on any thread once
+    // its textures are read
+    static final class Drawn {
+        final List<MachineMesh.Part> parts = new ArrayList<MachineMesh.Part>();
+        final List<String> names = new ArrayList<String>();
+        final int x, y, z;
+        final boolean elevator;
+
+        Drawn(int x, int y, int z, boolean elevator) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.elevator = elevator;
+        }
+
+        // the GL textures it was drawn with
+        java.util.Set<Integer> textures() {
+            java.util.Set<Integer> out = new java.util.LinkedHashSet<Integer>();
+            for (MachineMesh.Part p : parts) out.add(p.texture);
+            return out;
+        }
+
+        // its triangles; `textures` has its textures' pixels (else they are read from GL: the game's thread only)
+        Collect triangles(Map<Integer, int[][]> textures) {
+            Collect c = new Collect();
+            if (elevator) for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) c.extra.add(new int[] {x + dx, y + 1, z + dz});
+            for (int pi = 0; pi < parts.size(); pi++) {
+                MachineMesh.Part p = parts.get(pi);
+                final int[][] tex = textures.containsKey(p.texture) ? textures.get(p.texture) : DoorCapture.texture(p.texture, textures);
+                String name = names.get(pi);
+                boolean empty = name != null && MachineGlass.empty(name);
+                int index = -1;
+                for (float[] f : MachineMesh.faces(p.group)) {
+                    int corners = f.length / 5;
+                    for (int i = 1; i + 1 < corners; i++) {
+                        int[] k = {0, i, i + 1};
+                        double[] tri = new double[9];
+                        double[] u = new double[3], v = new double[3];
+                        boolean uv = true;
+                        for (int n = 0; n < 3; n++) {
+                            double[] t = MachineMesh.apply(p.mv, f[k[n] * 5], f[k[n] * 5 + 1], f[k[n] * 5 + 2]);
+                            tri[n * 3] = t[0];
+                            tri[n * 3 + 1] = t[1];
+                            tri[n * 3 + 2] = t[2];
+                            u[n] = f[k[n] * 5 + 3];
+                            v[n] = f[k[n] * 5 + 4];
+                            uv &= !Double.isNaN(u[n]) && !Double.isNaN(v[n]);
+                        }
+                        if (uv && index < 0) index = texIndex(p.texture, name, tex);
+                        c.add(tri, uv ? tex : null, index, u, v, empty);
+                    }
+                }
+            }
+            return c;
+        }
+    }
+
+    // what the machine's tile entity renderer draws now (the game's thread), or null when it draws nothing
+    static Drawn drawn(World w, int x, int y, int z) {
         TileEntity te = w.getTileEntity(x, y, z);
         if (te == null) return null;
         List<MachineMesh.Part> parts;
@@ -185,36 +256,13 @@ final class MachineCapture {
             parts = MachineMesh.drawnNow(te);
         }
         if (parts.isEmpty()) return null;
-        Collect c = new Collect();
-        if (elevator) for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) c.extra.add(new int[] {x + dx, y + 1, z + dz});
+        Drawn d = new Drawn(x, y, z, elevator);
         for (MachineMesh.Part p : parts) {
             if (elevator && moving(p.group)) continue;
-            final int[][] tex = DoorCapture.texture(p.texture, textures);
-            String name = MachineMesh.textureName(p.texture);
-            boolean empty = name != null && MachineGlass.empty(name);
-            int index = -1;
-            for (float[] f : MachineMesh.faces(p.group)) {
-                int corners = f.length / 5;
-                for (int i = 1; i + 1 < corners; i++) {
-                    int[] k = {0, i, i + 1};
-                    double[] tri = new double[9];
-                    double[] u = new double[3], v = new double[3];
-                    boolean uv = true;
-                    for (int n = 0; n < 3; n++) {
-                        double[] t = MachineMesh.apply(p.mv, f[k[n] * 5], f[k[n] * 5 + 1], f[k[n] * 5 + 2]);
-                        tri[n * 3] = t[0];
-                        tri[n * 3 + 1] = t[1];
-                        tri[n * 3 + 2] = t[2];
-                        u[n] = f[k[n] * 5 + 3];
-                        v[n] = f[k[n] * 5 + 4];
-                        uv &= !Double.isNaN(u[n]) && !Double.isNaN(v[n]);
-                    }
-                    if (uv && index < 0) index = texIndex(p.texture, name, tex);
-                    c.add(tri, uv ? tex : null, index, u, v, empty);
-                }
-            }
+            d.parts.add(p);
+            d.names.add(MachineMesh.textureName(p.texture));
         }
-        return c;
+        return d;
     }
 
     // what the machine's blocks draw into the chunk (RenderBlocks), each quad on its icon (found by its UV on the atlas)
@@ -222,22 +270,37 @@ final class MachineCapture {
         World w = mc.theWorld;
         Block b = w.getBlock(x, y, z);
         RenderBlocks rb = new RenderBlocks(w);
+        List<int[]> blocks = footprint(w, b, x, y, z);
+        List<float[]> quads = new ArrayList<float[]>();
+        for (int[] o : blocks) quads.add(drawBlock(rb, b, o));
+        initIcons(mc);
+        return chunkTriangles(blocks, quads, x, y, z, atlases);
+    }
+
+    // what one of the machine's blocks draws into the chunk (the game's thread), or null
+    static float[] drawBlock(RenderBlocks rb, Block b, int[] o) {
+        try {
+            return ShapesScenario.draw(rb, b, o[0], o[1], o[2]);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    // the triangles of what its blocks drew (drawBlock: quads[i] at blocks[i]), on any thread once initIcons has run
+    static Collect chunkTriangles(List<int[]> blocks, List<float[]> quads, int x, int y, int z, java.util.function.Supplier<ShapesScenario.Atlas> atlases) {
         Collect c = new Collect();
         ShapesScenario.Atlas atlas = null;
-        for (int[] o : footprint(w, b, x, y, z)) {
-            float[] q;
-            try {
-                q = ShapesScenario.draw(rb, b, o[0], o[1], o[2]);
-            } catch (RuntimeException e) {
-                continue;
-            }
+        for (int bi = 0; bi < blocks.size(); bi++) {
+            int[] o = blocks.get(bi);
+            float[] q = quads.get(bi);
+            if (q == null) continue;
             for (int quad = 0; quad < q.length / 20; quad++) {
                 double cu = 0, cv = 0;
                 for (int n = 0; n < 4; n++) {
                     cu += q[(quad * 4 + n) * 5 + 3] / 4;
                     cv += q[(quad * 4 + n) * 5 + 4] / 4;
                 }
-                TextureAtlasSprite icon = icon(mc, cu, cv);
+                TextureAtlasSprite icon = icon(cu, cv);
                 int[][] tex = null;
                 int index = -1;
                 boolean empty = false;
@@ -271,16 +334,20 @@ final class MachineCapture {
         return c.isEmpty() ? null : c;
     }
 
-    private static List<TextureAtlasSprite> icons;
+    private static volatile List<TextureAtlasSprite> icons;
 
-    // the block atlas' icon at (u, v)
-    private static TextureAtlasSprite icon(Minecraft mc, double u, double v) {
-        if (icons == null) {
-            TextureMap map = (TextureMap) mc.getTextureManager().getTexture(TextureMap.locationBlocksTexture);
-            Map<?, ?> m = cpw.mods.fml.relauncher.ReflectionHelper.getPrivateValue(TextureMap.class, map, "mapUploadedSprites", "field_94252_e");
-            icons = new ArrayList<TextureAtlasSprite>();
-            for (Object s : m.values()) if (s instanceof TextureAtlasSprite) icons.add((TextureAtlasSprite) s);
-        }
+    // the block atlas' icons, read once (the game's thread)
+    static void initIcons(Minecraft mc) {
+        if (icons != null) return;
+        TextureMap map = (TextureMap) mc.getTextureManager().getTexture(TextureMap.locationBlocksTexture);
+        Map<?, ?> m = cpw.mods.fml.relauncher.ReflectionHelper.getPrivateValue(TextureMap.class, map, "mapUploadedSprites", "field_94252_e");
+        List<TextureAtlasSprite> out = new ArrayList<TextureAtlasSprite>();
+        for (Object s : m.values()) if (s instanceof TextureAtlasSprite) out.add((TextureAtlasSprite) s);
+        icons = out;
+    }
+
+    // the block atlas' icon at (u, v) (initIcons first)
+    private static TextureAtlasSprite icon(double u, double v) {
         for (TextureAtlasSprite s : icons)
             if (u >= s.getMinU() && u <= s.getMaxU() && v >= s.getMinV() && v <= s.getMaxV()) return s;
         return null;
