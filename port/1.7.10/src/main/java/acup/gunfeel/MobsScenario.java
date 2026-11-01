@@ -70,6 +70,9 @@ final class MobsScenario {
             living.setLocationAndAngles(Math.floor(mc.thePlayer.posX) + 0.5, Math.floor(mc.thePlayer.boundingBox.minY),
                     Math.floor(mc.thePlayer.posZ) + 0.5 + d, 180F, 0F);
             living.rotationYawHead = living.prevRotationYawHead = living.renderYawOffset = living.prevRenderYawOffset = 180F;
+            // Et Futurum's shulker draws its head only open (ShulkerRenderer.renderModel): its peek, data watcher 13
+            if (living.getClass().getName().equals("ganymedes01.etfuturum.entities.EntityShulker"))
+                living.getDataWatcher().updateObject(13, (byte) 30);
             mc.theWorld.addEntityToWorld(ID_BASE - next, living);
             shown = living;
             since = 0;

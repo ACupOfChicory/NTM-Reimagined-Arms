@@ -53,29 +53,33 @@ class HeadsPortTest {
 
     // marked in 26.2, no head here: the cyber crab's head is its shell, one mesh in 26.2 and 20 cubes in 1.7.10; the
     // bat of 26.2 is another model (its head 4 x 3 x 2 px, 1.7.10's a 6 px cube): a head of another size is not taken
-    // Et Futurum's shulker draws its head only open (shulkerOpenFindsItsHead); the dump's shulker is closed
-    private static final java.util.Set<String> NO_HEAD = new java.util.HashSet<>(java.util.Arrays.asList("hbm:entity_cyber_crab", "minecraft:bat", "minecraft:shulker"));
+    private static final java.util.Set<String> NO_HEAD = new java.util.HashSet<>(java.util.Arrays.asList("hbm:entity_cyber_crab", "minecraft:bat"));
 
     // Et Futurum's shulker (ModelShulker, ShulkerRenderer.renderModel): the head is drawn in the renderer's renderModel
     // after the model's base and lid, inside doRender's renderModel call that the capture brackets, and only while the
-    // shulker is open (isClosed false or a peek). The dump's shulker is a closed one, base and lid. Here its base as the
-    // dump has it, the head's cube where ModelShulker puts it (-3, 12, -3, 6 px, about the base's origin) and the lid
-    // raised as setRotationAngles raises it at the peek given.
+    // shulker is open (isClosed false or a peek; MobsScenario opens it, the dump's is open). Here the dump's base, the
+    // head's cube where ModelShulker puts it (-3, 12, -3, 6 px, about the base's origin) and the lid where
+    // setRotationAngles puts it at the peek given (-8, 8, -8, 16 x 12 x 16 px closed).
     static Pose openShulker(float peek) throws Exception {
-        Pose closed = poses().get("etfuturum.shulker");
-        ModelBox base = closed.boxes().get(0), lid = closed.boxes().get(1);
+        Pose open = poses().get("etfuturum.shulker");
+        ModelBox base = open.boxes().get(0), lid = open.boxes().get(1);
         assertEquals("root/base", base.part());
         assertEquals("root/lid", lid.part());
+        assertEquals("root/head", open.boxes().get(2).part());
         // the base's corner is the model's (-8, 16, -8); a pixel along the model's x, y, z is u/16, v/8, w/16
         double px = base.ux() / 16, py = base.vy() / 8, pz = base.wz() / 16;
-        double ox = base.x() - 8 * px, oy = base.y() - 16 * py, oz = base.z() - 8 * pz; // the model's (0, 0, 0)
+        double ox = base.x() + 8 * px, oy = base.y() - 16 * py, oz = base.z() + 8 * pz; // the model's (0, 0, 0)
         double lift = (Math.sin((0.5 + peek) * Math.PI) - 1) * 8; // the lid's rotation point, 24 closed, moves by this
         List<ModelBox> boxes = new ArrayList<>();
         boxes.add(base);
-        boxes.add(new ModelBox("root/lid", lid.x(), lid.y() + lift * py, lid.z(), lid.ux(), lid.uy(), lid.uz(), lid.vx(), lid.vy(), lid.vz(),
-                lid.wx(), lid.wy(), lid.wz(), lid.mesh()));
-        boxes.add(new ModelBox("root/head", ox - 3 * px, oy + 12 * py, oz - 3 * pz, 6 * px, 0, 0, 0, 6 * py, 0, 0, 0, 6 * pz, 0));
-        return new Pose("etfuturum.shulker", closed.key(), closed.yaw(), boxes);
+        boxes.add(new ModelBox("root/lid", ox - 8 * px, oy + (8 + lift) * py, oz - 8 * pz, 16 * px, 0, 0, 0, 12 * py, 0, 0, 0, 16 * pz, lid.mesh()));
+        ModelBox head = new ModelBox("root/head", ox - 3 * px, oy + 12 * py, oz - 3 * pz, 6 * px, 0, 0, 0, 6 * py, 0, 0, 0, 6 * pz, 0);
+        // the dump's head is where the model puts it
+        ModelBox taken = open.boxes().get(2);
+        assertArrayEquals(new double[] {head.x(), head.y(), head.z(), head.ux(), head.vy(), head.wz()},
+                new double[] {taken.x(), taken.y(), taken.z(), taken.ux(), taken.vy(), taken.wz()}, 1e-4);
+        boxes.add(head);
+        return new Pose("etfuturum.shulker", open.key(), open.yaw(), boxes);
     }
 
     @Test
@@ -133,36 +137,31 @@ class HeadsPortTest {
     // RandomThings' spirit (RenderSpirit: ModelSlime(16) as the main model, ModelSlime(0) as its pass): 26.2 has no
     // such mob, the port's markup holds it. A flying face as the ghast, the whole body is its head: the outer,
     // see-through body taken as the slime's (MixinRendererLivingEntity.gunfeel$pass, solid to a shot as 26.2's slime
-    // shell) and the inner one in it. The dump's spirit has no outer body (taken before the pass was): here it is
-    // added where ModelSlime(0) puts it, an 8 px cube about the inner 6 px one's middle.
-    static List<ModelBox> spiritWithShell(Pose p) {
-        ModelBox in = p.boxes().get(0);
-        assertEquals("root/field_78200_a", in.part());
-        double k = 8.0 / 6.0, cx = in.x() + (in.ux() + in.vx() + in.wx()) / 2, cy = in.y() + (in.uy() + in.vy() + in.wy()) / 2,
-                cz = in.z() + (in.uz() + in.vz() + in.wz()) / 2;
-        List<ModelBox> boxes = new ArrayList<>(p.boxes());
-        boxes.add(new ModelBox("root/field_78200_a/shell", cx - (in.ux() + in.vx() + in.wx()) * k / 2, cy - (in.uy() + in.vy() + in.wy()) * k / 2,
-                cz - (in.uz() + in.vz() + in.wz()) * k / 2, in.ux() * k, in.uy() * k, in.uz() * k, in.vx() * k, in.vy() * k, in.vz() * k,
-                in.wx() * k, in.wy() * k, in.wz() * k, 0));
-        return boxes;
-    }
-
+    // shell) and the inner one in it. The dump's outer body is where ModelSlime(0) puts it, an 8 px cube about the
+    // inner 6 px one's middle.
     @Test
     void spiritFindsItsHead() throws Exception {
         Pose p = poses().get("RandomThings.spirit");
         assertEquals("RandomThings:spirit", p.key());
+        ModelBox in = p.boxes().get(0), shell = p.boxes().get(p.boxes().size() - 1);
+        assertEquals("root/field_78200_a", in.part());
+        assertEquals("root/field_78200_a/shell", shell.part());
+        // the outer body about the inner one's middle, 8 px to its 6
+        double k = 8.0 / 6.0;
+        assertArrayEquals(new double[] {in.x() + in.ux() * (1 - k) / 2, in.y() + in.vy() * (1 - k) / 2, in.z() + in.wz() * (1 - k) / 2, in.ux() * k, in.vy() * k, in.wz() * k},
+                new double[] {shell.x(), shell.y(), shell.z(), shell.ux(), shell.vy(), shell.wz()}, 1e-4);
         for (float turn : new float[] {0, 90}) {
-            var res = ModelHeads.resolve(p.key(), spiritWithShell(p), p.yaw() + turn);
+            var res = ModelHeads.resolve(p.key(), p.boxes(), p.yaw() + turn);
             java.util.Set<String> parts = new java.util.TreeSet<>();
             for (var z : res.zones()) parts.add(z.box().part());
             assertEquals(java.util.Set.of("root/field_78200_a", "root/field_78200_a/shell"), parts, res.reason());
         }
         // without the outer body (an invisible spirit draws no pass): the inner one
-        var inner = ModelHeads.resolve(p.key(), p.boxes(), p.yaw());
+        var inner = ModelHeads.resolve(p.key(), p.boxes().subList(0, p.boxes().size() - 1), p.yaw());
         assertEquals(1, inner.zones().size(), inner.reason());
         assertEquals("root/field_78200_a", inner.zones().get(0).box().part());
         // the port's markup holds by the type only: another mob of one such cube is no spirit
-        assertTrue(ModelHeads.resolve("foreign:cube", List.of(p.boxes().get(0)), p.yaw()).zones().isEmpty());
+        assertTrue(ModelHeads.resolve("foreign:cube", List.of(in), p.yaw()).zones().isEmpty());
     }
 
     @Test
