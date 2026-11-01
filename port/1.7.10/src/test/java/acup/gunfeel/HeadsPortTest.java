@@ -111,10 +111,10 @@ class HeadsPortTest {
 
     // the zones are on the head: its cubes, the glyphid's jaws; and where 26.2 marks other parts: the nuclear glyphid's
     // mini nuke, Brenda's body, the ghast's and the squid's body, the first segment of the silverfish and the maggot;
-    // the port's own markup (ntmgunfeel-heads-1710.json): RandomThings' spirit, a flying face as the ghast, its inner body
+    // the port's own markup (ntmgunfeel-heads-1710.json): RandomThings' spirit, a flying face as the ghast, its body
     private static final java.util.Set<String> MARKED_SO = new java.util.HashSet<>(java.util.Arrays.asList("Ghast: root/body", "Squid: root/body",
             "Silverfish: root/segment0", "hbm.entity_parasite_maggot: root/segment0", "hbm.entity_glyphid_brenda: mesh/Body",
-            "etfuturum.endermite: root/bodyParts0", "etfuturum.bee: root/bone/body", "RandomThings.spirit: root/field_78200_a"));
+            "etfuturum.endermite: root/bodyParts0", "etfuturum.bee: root/bone/body", "RandomThings.spirit: root/field_78200_a", "RandomThings.spirit: root/field_78200_a/shell"));
 
     @Test
     void zonesAreOnHeadParts() throws Exception {
@@ -130,18 +130,37 @@ class HeadsPortTest {
         assertTrue(bad.isEmpty(), String.join("\n", bad));
     }
 
-    // RandomThings' spirit (RenderSpirit, ModelSlime(16) drawn as the main model): 26.2 has no such mob, the port's
-    // markup holds it. The head is the inner body the eyes and the mouth are on, as the ghast's is its body: the outer,
-    // see-through body is a pass the capture leaves out (doRender's renderPassModel, not a RenderSlime)
+    // RandomThings' spirit (RenderSpirit: ModelSlime(16) as the main model, ModelSlime(0) as its pass): 26.2 has no
+    // such mob, the port's markup holds it. A flying face as the ghast, the whole body is its head: the outer,
+    // see-through body taken as the slime's (MixinRendererLivingEntity.gunfeel$pass, solid to a shot as 26.2's slime
+    // shell) and the inner one in it. The dump's spirit has no outer body (taken before the pass was): here it is
+    // added where ModelSlime(0) puts it, an 8 px cube about the inner 6 px one's middle.
+    static List<ModelBox> spiritWithShell(Pose p) {
+        ModelBox in = p.boxes().get(0);
+        assertEquals("root/field_78200_a", in.part());
+        double k = 8.0 / 6.0, cx = in.x() + (in.ux() + in.vx() + in.wx()) / 2, cy = in.y() + (in.uy() + in.vy() + in.wy()) / 2,
+                cz = in.z() + (in.uz() + in.vz() + in.wz()) / 2;
+        List<ModelBox> boxes = new ArrayList<>(p.boxes());
+        boxes.add(new ModelBox("root/field_78200_a/shell", cx - (in.ux() + in.vx() + in.wx()) * k / 2, cy - (in.uy() + in.vy() + in.wy()) * k / 2,
+                cz - (in.uz() + in.vz() + in.wz()) * k / 2, in.ux() * k, in.uy() * k, in.uz() * k, in.vx() * k, in.vy() * k, in.vz() * k,
+                in.wx() * k, in.wy() * k, in.wz() * k, 0));
+        return boxes;
+    }
+
     @Test
     void spiritFindsItsHead() throws Exception {
         Pose p = poses().get("RandomThings.spirit");
         assertEquals("RandomThings:spirit", p.key());
-        var res = ModelHeads.resolve(p.key(), p.boxes(), p.yaw());
-        assertEquals(1, res.zones().size(), res.reason());
-        assertEquals("root/field_78200_a", res.zones().get(0).box().part());
-        // turned, the same
-        assertEquals(1, ModelHeads.resolve(p.key(), p.boxes(), p.yaw() + 90).zones().size());
+        for (float turn : new float[] {0, 90}) {
+            var res = ModelHeads.resolve(p.key(), spiritWithShell(p), p.yaw() + turn);
+            java.util.Set<String> parts = new java.util.TreeSet<>();
+            for (var z : res.zones()) parts.add(z.box().part());
+            assertEquals(java.util.Set.of("root/field_78200_a", "root/field_78200_a/shell"), parts, res.reason());
+        }
+        // without the outer body (an invisible spirit draws no pass): the inner one
+        var inner = ModelHeads.resolve(p.key(), p.boxes(), p.yaw());
+        assertEquals(1, inner.zones().size(), inner.reason());
+        assertEquals("root/field_78200_a", inner.zones().get(0).box().part());
         // the port's markup holds by the type only: another mob of one such cube is no spirit
         assertTrue(ModelHeads.resolve("foreign:cube", List.of(p.boxes().get(0)), p.yaw()).zones().isEmpty());
     }

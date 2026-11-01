@@ -56,13 +56,18 @@ public abstract class MixinRendererLivingEntity {
         ModelHitClient.inModel(false);
     }
 
+    // RandomThings' spirit, a slime's model drawn by its own renderer: its outer body is the slime's
+    private static boolean spirit(Object renderer) {
+        return renderer.getClass().getName().equals("lumien.randomthings.Client.Renderer.RenderSpirit");
+    }
+
     // doRender calls renderPassModel.render itself (renderModel draws the main model): the sheep's wool and the
-    // slime's outer body add to the shape, other passes (armour, eyes) do not
+    // slime's (and RandomThings' spirit's) outer body add to the shape, other passes (armour, eyes) do not
     @WrapOperation(method = DO_RENDER, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/model/ModelBase;render(Lnet/minecraft/entity/Entity;FFFFFF)V"))
     private void gunfeel$pass(ModelBase model, Entity entity, float a, float b, float c, float d, float e, float f, Operation<Void> original) {
         Object self = this;
-        String suffix = self instanceof RenderSheep ? ModelWool.SUFFIX : self instanceof RenderSlime ? ModelCapture.SHELL_SUFFIX : null;
+        String suffix = self instanceof RenderSheep ? ModelWool.SUFFIX : self instanceof RenderSlime || spirit(self) ? ModelCapture.SHELL_SUFFIX : null;
         ModelHitClient.pass(model, suffix);
         try {
             original.call(model, entity, a, b, c, d, e, f);
