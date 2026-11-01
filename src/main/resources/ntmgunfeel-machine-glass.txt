@@ -6,7 +6,6 @@
 # pixels, looked at one by one.
 
 # grates, trusses, railings, perforated plates, louvres
-hbm:textures/block/models/machines/hephaestus.png # a cage of bars
 hbm:textures/block/models/machines/tower_small.png # cooling tower: its grilles
 hbm:textures/block/models/machines/tower_large.png # cooling tower: its grilles
 hbm:textures/block/models/machines/launchpad_soyuz.png # truss
@@ -34,7 +33,6 @@ hbm:textures/block/models/compact_launcher.png # truss
 hbm:textures/block/models/network/substation.png # fence
 hbm:textures/block/models/launchpad/silo.png # grating
 hbm:textures/block/models/launchpad/silo_rusted.png # grating
-hbm:textures/block/models/turrets/tauon.png # grille
 hbm:textures/block/models/turrets/fritz.png # grille
 hbm:textures/block/models/turrets/howard.png # grille
 hbm:textures/block/models/turrets/rusted/howard.png # grille
@@ -42,7 +40,6 @@ hbm:textures/block/models/bombs/gadget.png # wire cage
 hbm:textures/block/models/bombs/dud_conventional.png # fins with gaps
 hbm:textures/block/models/strut.png # truss
 hbm:textures/block/models/fusion/plasma_forge.png # bars
-hbm:textures/models/soyuz_launcher/launcher_table.png # truss
 hbm:textures/models/machines/rbmk_crane.png # ladder
 hbm:textures/block/cage_lamp.png # cage
 hbm:textures/block/cage_lamp_off.png # cage
@@ -65,4 +62,51 @@ hbm:textures/block/capacitor_copper_side.png # outline
 hbm:textures/block/watch.png # outline
 hbm:textures/block/models/model_gun.png # outline
 hbm:textures/block/models/machines/lpw2.png # outline
-hbm:textures/block/models/machines/assembly_factory.png # lettering decals over the heads
+
+# Решения со стенда стекла (runGlassStand): владелец переключил в игре
+hbm:textures/block/models/pheodoors/cargo_door.png  # стенд стекла: пустота, №1
+hbm:textures/block/models/machines/fraction_spacer.png  # стенд стекла: пустота, №4
+hbm:textures/block/models/fusion/torus.png 250,253,261,322  # стенд стекла: пустота, область 7.1
+hbm:textures/block/models/fusion/torus.png 266,253,266,265  # стенд стекла: пустота, область 7.2
+hbm:textures/block/models/fusion/torus.png 245,254,245,266  # стенд стекла: пустота, область 7.3
+hbm:textures/block/models/fusion/torus.png 266,269,266,305  # стенд стекла: пустота, область 7.4
+hbm:textures/block/models/fusion/torus.png 245,270,245,306  # стенд стекла: пустота, область 7.5
+hbm:textures/block/models/fusion/torus.png 266,309,266,321  # стенд стекла: пустота, область 7.6
+hbm:textures/block/models/fusion/torus.png 245,310,245,322  # стенд стекла: пустота, область 7.7
+hbm:textures/block/models/machines/icf.png 141,40,178,183  # стенд стекла: пустота, область 9.1
+hbm:textures/block/models/machines/fensu2.png  # стенд стекла: пустота, №19
+hbm:textures/block/models/machines/assembly_machine.png  # стенд стекла: пустота, №18
+hbm:textures/block/models/machines/arc_furnace.png  # стенд стекла: пустота, №16
+hbm:textures/block/models/machines/annihilator.png  # стенд стекла: пустота, №15
+hbm:textures/block/models/missile_parts/launch_table_small_scaffold_base.png  # стенд стекла: пустота, №14
+hbm:textures/block/models/missile_parts/launch_table_small_pad.png  # стенд стекла: пустота, №13
+hbm:textures/block/models/machines/catalytic_reformer.png  # стенд стекла: пустота, №21
+hbm:textures/block/models/machines/crucible_heat.png  # стенд стекла: пустота, №26
+hbm:textures/block/models/machines/exposure_chamber.png  # стенд стекла: пустота, №30 (владелец: везде пустота, 30.1 не достать кликом)
+hbm:textures/block/models/machines/precass.png  # стенд стекла: пустота, №41
+hbm:textures/block/models/machines/orbus.png 138,1,151,78  # стенд стекла: пустота, область 40.1
+hbm:textures/block/models/machines/orbus.png 155,2,157,18  # стенд стекла: пустота, область 40.2
+hbm:textures/block/models/machines/liquefactor.png  # стенд стекла: пустота, №37
+hbm:textures/block/models/machines/industrial_boiler.png  # стенд стекла: пустота, №35
+hbm:textures/block/models/machines/hephaestus.png 80,152,83,175  # стенд стекла: пустота, область 34.2
+hbm:textures/block/models/machines/hephaestus.png 96,152,103,175  # стенд стекла: пустота, область 34.3
+hbm:textures/block/models/machines/hephaestus.png 116,152,123,175  # стенд стекла: пустота, область 34.4
+hbm:textures/block/models/machines/hephaestus.png 136,152,143,175  # стенд стекла: пустота, область 34.5
+hbm:textures/block/models/machines/hephaestus.png 156,152,163,175  # стенд стекла: пустота, область 34.6
+hbm:textures/block/models/machines/hephaestus.png 176,152,183,175  # стенд стекла: пустота, область 34.7
+hbm:textures/block/models/machines/hephaestus.png 196,152,203,175  # стенд стекла: пустота, область 34.8
+hbm:textures/block/models/machines/hephaestus.png 216,152,223,175  # стенд стекла: пустота, область 34.9
+hbm:textures/block/models/machines/hephaestus.png 236,152,239,175  # стенд стекла: пустота, область 34.10
+hbm:textures/block/models/machines/fracking_tower.png  # стенд стекла: пустота, №33
+hbm:textures/block/models/machines/flare_stack.png  # стенд стекла: пустота, №32
+hbm:textures/block/models/machines/fel.png  # стенд стекла: пустота, №31
+hbm:textures/block/models/radiolysis.png  # стенд стекла: пустота, №46
+hbm:textures/block/models/machines/autocal.png  # стенд стекла: пустота, №55
+hbm:textures/block/models/particleaccelerator/dipole.png  # стенд стекла: пустота, №54
+hbm:textures/block/models/turrets/jeremy.png  # стенд стекла: пустота, №70
+hbm:textures/block/models/turrets/maxwell.png  # стенд стекла: пустота, №71
+hbm:textures/block/models/turrets/tauon.png  # стенд стекла: пустота, №73
+hbm:textures/block/models/pheodoors/water_door.png  # стенд стекла: пустота, №75
+hbm:textures/models/soyuz_launcher/launcher_tower.png  # стенд стекла: пустота, №63
+hbm:textures/models/soyuz_launcher/launcher_table.png  # стенд стекла: пустота, №62
+hbm:textures/models/soyuz_launcher/launcher_support.png 2,1,13,527  # стенд стекла: пустота, область 61.1

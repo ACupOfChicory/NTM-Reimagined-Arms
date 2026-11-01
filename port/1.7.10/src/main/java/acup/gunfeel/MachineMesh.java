@@ -414,6 +414,7 @@ public final class MachineMesh {
                 int[][] tex = DoorCapture.texture(p.texture, TEXTURES);
                 String name = glassOn ? textureName(p.texture) : null;
                 boolean glassy = glassOn && !(name != null && MachineGlass.empty(name));
+                boolean areas = glassy && MachineGlass.hasAreas(name);
                 for (float[] f : faces(p.group)) {
                     int corners = f.length / 5;
                     if (corners < 3) continue;
@@ -439,6 +440,8 @@ public final class MachineMesh {
                         double u = wa * f[k[0] * 5 + 3] + wb * f[k[1] * 5 + 3] + wc * f[k[2] * 5 + 3];
                         double v = wa * f[k[0] * 5 + 4] + wb * f[k[1] * 5 + 4] + wc * f[k[2] * 5 + 4];
                         boolean clear = !Double.isNaN(u) && !Double.isNaN(v) && !DoorCapture.shown(tex, u, v);
+                        // a clear pixel in an area listed as empty: air
+                        if (clear && areas && MachineGlass.emptyAt(name, u, v, tex[0][0], tex[0][1])) continue;
                         if (clear && !(glassy && !(!DoorCapture.shown(tex, f[k[0] * 5 + 3], f[k[0] * 5 + 4]) && !DoorCapture.shown(tex, f[k[1] * 5 + 3], f[k[1] * 5 + 4])
                                 && !DoorCapture.shown(tex, f[k[2] * 5 + 3], f[k[2] * 5 + 4])))) continue;
                         double[] wn = normal(wv);

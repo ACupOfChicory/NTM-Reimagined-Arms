@@ -209,8 +209,11 @@ final class MachineFaces {
         if (w > MAX_MASK || h > MAX_MASK) return glass ? null : new ModelSurface.Face(tri.clone(), new double[6], 1, 1, new long[] {1});
         long[] alpha = new long[(w * h + 63) / 64];
         int set = 0;
+        // a window shows its clear pixels, but those in an area listed as empty (MachineGlass)
+        boolean areas = glass && MachineGlass.hasAreas(tex.name);
         for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
-            if (tex.shown((x0 + x + .5) / tw, (y0 + y + .5) / th) != glass) {
+            double pu = (x0 + x + .5) / tw, pv = (y0 + y + .5) / th;
+            if (tex.shown(pu, pv) != glass && !(areas && MachineGlass.emptyAt(tex.name, pu, pv, tw, th))) {
                 int k = x + w * y;
                 alpha[k >> 6] |= 1L << (k & 63);
                 set++;
