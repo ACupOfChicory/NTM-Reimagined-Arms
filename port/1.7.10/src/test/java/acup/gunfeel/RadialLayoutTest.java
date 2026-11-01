@@ -77,7 +77,7 @@ class RadialLayoutTest {
         return new int[] {(int) Math.ceil((double) w / k), (int) Math.ceil((double) h / k)};
     }
 
-    // the whole menu on the screen, the hovered ammo's name and numbers too, at 854 x 480, 1280 x 720, 1920 x 1080
+    // the whole menu on the screen, the hovered ammo's name and numbers too above the hotbar, at 854 x 480, 1280 x 720, 1920 x 1080
     // and GUI scale auto and 1 to 4; at the middle and full size where it fits
     @Test
     void menuFitsTheScreen() {
@@ -88,19 +88,23 @@ class RadialLayoutTest {
             String what = win[0] + "x" + win[1] + " scale " + gs + (uni ? " unicode" : "") + " (" + s[0] + "x" + s[1] + ")";
             float k = at[2];
             assertTrue(at[1] - RadialLayout.TOP * k >= 0, what + ": top off the screen");
-            assertTrue(at[1] + RadialLayout.BOTTOM * k <= s[1], what + ": the numbers off the bottom");
+            assertTrue(at[1] + RadialLayout.BOTTOM * k <= s[1] - RadialLayout.HOTBAR, what + ": the numbers over the hotbar");
             assertTrue(at[0] - RadialLayout.SIDE * k >= 0 && at[0] + RadialLayout.SIDE * k <= s[0], what + ": off the side");
             assertEquals(s[0] / 2F, at[0], 1e-6, what);
             // the smallest screen a GUI scale gives is 320 x 240: the menu fits it full size
             assertEquals(1F, k, 1e-6, what + ": scaled down");
-            if (s[1] / 2F - RadialLayout.TOP >= RadialLayout.MARGIN && s[1] / 2F + RadialLayout.BOTTOM <= s[1] - RadialLayout.MARGIN)
+            if (s[1] / 2F - RadialLayout.TOP >= RadialLayout.MARGIN && s[1] / 2F + RadialLayout.BOTTOM <= s[1] - RadialLayout.HOTBAR - RadialLayout.MARGIN)
                 assertEquals(s[1] / 2F, at[1], 1e-6, what + ": moved though it fits at the middle");
         }
-        // 854 x 480 auto is 427 x 240: at the middle the numbers would end 10 px under the bottom; moved up instead
+        // 854 x 480 auto is 427 x 240: at the middle the numbers would end 10 px under the bottom; moved up above the
+        // hotbar instead, the top still on the screen
         int[] small = scaled(854, 480, 0, false);
         assertArrayEquals(new int[] {427, 240}, small);
         assertTrue(small[1] / 2F + RadialLayout.BOTTOM > small[1]);
-        assertEquals(240 - RadialLayout.MARGIN - RadialLayout.BOTTOM, RadialLayout.fit(427, 240)[1], 1e-6);
+        float[] at = RadialLayout.fit(427, 240);
+        assertEquals(1F, at[2], 1e-6);
+        assertEquals(240 - RadialLayout.HOTBAR - RadialLayout.MARGIN - RadialLayout.BOTTOM, at[1], 1e-6);
+        assertTrue(at[1] - RadialLayout.TOP >= RadialLayout.MARGIN);
         // 1920 x 1080 at GUI scale 1: the middle
         assertEquals(540F, RadialLayout.fit(1920, 1080)[1], 1e-6);
     }
@@ -111,7 +115,7 @@ class RadialLayoutTest {
         float[] at = RadialLayout.fit(200, 120);
         assertTrue(at[2] < 1);
         assertEquals(RadialLayout.MARGIN, at[1] - RadialLayout.TOP * at[2], 1e-4);
-        assertTrue(at[1] + RadialLayout.BOTTOM * at[2] <= 120 - RadialLayout.MARGIN + 1e-4);
+        assertTrue(at[1] + RadialLayout.BOTTOM * at[2] <= 120 - RadialLayout.HOTBAR - RadialLayout.MARGIN + 1e-4);
         assertTrue(at[0] - RadialLayout.SIDE * at[2] >= RadialLayout.MARGIN - 1e-4);
     }
 
