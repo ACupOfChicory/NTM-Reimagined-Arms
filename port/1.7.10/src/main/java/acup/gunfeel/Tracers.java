@@ -919,6 +919,7 @@ public final class Tracers {
     private static void placeMeshHoles(long now, long life, List<Hole> holes, List<double[][]> places) {
         for (Hole h : HOLES) {
             if (h.mesh == null || HoleMath.alpha(now - h.born, life) <= 0) continue;
+            if (ShootScenario.world()) MachineMesh.lag(h.mesh);
             double[][] at;
             if (!h.pieces.isEmpty()) {
                 List<double[]> pieces = MachineMesh.placePieces(h.mesh, h.pieces);

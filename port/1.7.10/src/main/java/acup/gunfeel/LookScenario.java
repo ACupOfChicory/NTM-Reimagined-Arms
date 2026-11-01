@@ -209,6 +209,7 @@ final class LookScenario {
             GunFeel.LOGGER.info("Scenario look: door at {}, holes on machines {}", door == null ? "none" : door[0] + " " + door[1] + " " + door[2],
                     Tracers.machineHoles());
             shot(mc, "door-shut");
+            MachineMesh.lagMax = 0;
             final int[] d = door;
             if (d != null) ShootScenario.onServer(() -> {
                 World w = MinecraftServer.getServer().worldServerForDimension(0);
@@ -218,6 +219,11 @@ final class LookScenario {
             shot(mc, "door-opening");
         } else if (t == DOOR + 150) {
             GunFeel.LOGGER.info("Scenario look: door open, holes on machines {}", Tracers.machineHoles());
+            GunFeel.LOGGER.info("Scenario look: holes on the door lay at most {} blocks from their leaf while it opened",
+                    String.format(java.util.Locale.ROOT, "%.3f", MachineMesh.lagMax));
+            GunFeel.LOGGER.info("Scenario look: the parts of machines read in at most {} ms a frame (frames up to 0.5 ms {}, up to 1 ms {}, more {})",
+                    String.format(java.util.Locale.ROOT, "%.2f", MachineMesh.readLongest / 1e6), MachineMesh.readFrames[0], MachineMesh.readFrames[1],
+                    MachineMesh.readFrames[2]);
             shot(mc, "door-open");
         } else if (t >= STANDS && t < STANDS + STAND.length * STAND_TICKS) {
             stand(mc, (t - STANDS) / STAND_TICKS, (t - STANDS) % STAND_TICKS);

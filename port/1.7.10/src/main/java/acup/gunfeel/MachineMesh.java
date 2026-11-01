@@ -33,8 +33,8 @@ import net.minecraft.world.World;
 // (NTM's loader: MixinWavefrontObject, MixinWavefrontObjectVBO; Forge's, which NTM loads 131 of its models with:
 // MixinForgeWavefrontObject) is taken with the GL matrix then (a Part). A bullet hitting such a
 // block meets the nearest drawn triangle along its way whose pixel passes the alpha test; its hole is kept in that
-// part's own model space and drawn where the part is now (a door's leaf, a press head), the parts read again at most
-// every PARTS_MS. Also taken: ModelRenderer parts (NTM's ModelBase models: the satellite dish on a pole, the statues;
+// part's own model space and drawn where the part is now (a door's leaf, a press head): the parts of a machine that
+// moves read again each frame, as 26.2 does (RenderedMesh.poses), of those standing still as a time budget lets. Also taken: ModelRenderer parts (NTM's ModelBase models: the satellite dish on a pole, the statues;
 // MixinModelRenderer) and what the renderer draws straight with the Tessellator (pylon wires, the RBMK display, molten
 // metal, fluids and screens over an OBJ body, items it shows; MixinTessellator), a draw call being a part. Not seen (no
 // hole there): Collada, and clip planes some doors cut their parts with.
@@ -43,6 +43,29 @@ public final class MachineMesh {
     }
 
     static final long PARTS_MS = 100;
+    // a machine whose parts moved between two reads is read each frame till they have stood still this long
+    static final long MOVING_MS = 1000;
+    // the frames (GunFeelClient.renderTick): a machine's parts are read once a frame at most
+    private static long frame;
+
+    // ... and those standing still are read again each frame too while this frame's reads of them fit in STILL_NANOS
+    // (a door starting to open has its holes go along from its first frame), else after PARTS_MS
+    static final long STILL_NANOS = 300_000;
+    private static long stillSpent;
+
+    // Dev (the look scenario): the longest a frame read the parts of machines (drawn), in nanoseconds
+    static long readLongest;
+    // ... frames that read any: up to 0.5 ms, up to 1 ms, more
+    static final int[] readFrames = new int[3];
+    private static long readSpent;
+
+    static void newFrame() {
+        frame++;
+        stillSpent = 0;
+        readLongest = Math.max(readLongest, readSpent);
+        if (readSpent > 0) readFrames[readSpent > 1_000_000 ? 2 : readSpent > 500_000 ? 1 : 0]++;
+        readSpent = 0;
+    }
     // how far around the hit block the drawn triangle may lie (a model a little bigger or smaller than its blocks)
     static final double REACH = 0.35;
 
@@ -114,15 +137,17 @@ public final class MachineMesh {
     private static final FloatBuffer MV = BufferUtils.createFloatBuffer(16);
     private static final Map<Integer, int[][]> TEXTURES = new HashMap<Integer, int[][]>();
 
-    // what each tile entity drew, kept PARTS_MS: one burst into a machine reads it once
+    // what each tile entity drew: kept for the frame, and PARTS_MS while it stands still
     private static final class Drawn {
         final TileEntity te;
-        final long at;
+        final long at, frame, moved;
         final List<Part> parts;
 
-        Drawn(TileEntity te, long at, List<Part> parts) {
+        Drawn(TileEntity te, long at, long frame, long moved, List<Part> parts) {
             this.te = te;
             this.at = at;
+            this.frame = frame;
+            this.moved = moved;
             this.parts = parts;
         }
     }
@@ -319,16 +344,34 @@ public final class MachineMesh {
         return out;
     }
 
-    // the parts the tile entity's renderer draws now (read again after PARTS_MS); empty: no renderer, or nothing of
-    // NTM's models
+    // the parts the tile entity's renderer draws now, read once a frame (the holes on them follow, MachineMesh.place):
+    // each frame while they move, while they stand still as STILL_NANOS lets and at least every PARTS_MS; empty: no
+    // renderer, or nothing of NTM's models
     static List<Part> drawn(TileEntity te) {
         String key = te.getWorldObj().provider.dimensionId + ":" + te.xCoord + "," + te.yCoord + "," + te.zCoord;
         long now = GunClock.nanos() / 1_000_000L;
         Drawn d = DRAWN.get(key);
-        if (d != null && d.te == te && now - d.at < PARTS_MS) return d.parts;
+        boolean ours = d != null && d.te == te;
+        boolean still = ours && now - d.moved >= MOVING_MS;
+        if (ours && (d.frame == frame || still && now - d.at < PARTS_MS && stillSpent >= STILL_NANOS)) return d.parts;
+        long t0 = System.nanoTime();
         List<Part> parts = capture(te);
-        DRAWN.put(key, new Drawn(te, now, parts));
+        long spent = System.nanoTime() - t0;
+        readSpent += spent;
+        if (still) stillSpent += spent;
+        long moved = !ours ? Long.MIN_VALUE / 2 : samePlaces(d.parts, parts) ? d.moved : now;
+        DRAWN.put(key, new Drawn(te, now, frame, moved, parts));
         return parts;
+    }
+
+    // the same parts drawn in the same places
+    private static boolean samePlaces(List<Part> a, List<Part> b) {
+        if (a.size() != b.size()) return false;
+        for (int i = 0; i < a.size(); i++) {
+            Part p = a.get(i), q = b.get(i);
+            if (p.model != q.model || p.n != q.n || !java.util.Arrays.equals(p.mv, q.mv)) return false;
+        }
+        return true;
     }
 
     private static List<Part> capture(TileEntity te) {
@@ -619,6 +662,23 @@ public final class MachineMesh {
             return new double[][] {pt, n, u, v};
         }
         return null;
+    }
+
+    // Dev (the look scenario): how far the holes drawn on machines lay from where their parts are this frame (read
+    // afresh, not as kept), at most, in blocks
+    static double lagMax;
+
+    static void lag(Anchor a) {
+        TileEntity te = a.world.getTileEntity(a.x, a.y, a.z);
+        double[][] kept = place(a);
+        if (te == null || kept == null) return;
+        for (Part p : capture(te)) {
+            if (!p.same(a)) continue;
+            double[] c = apply(p.mv, a.local[0], a.local[1], a.local[2]);
+            double dx = c[0] + a.x - kept[0][0], dy = c[1] + a.y - kept[0][1], dz = c[2] + a.z - kept[0][2];
+            lagMax = Math.max(lagMax, Math.sqrt(dx * dx + dy * dy + dz * dz));
+            return;
+        }
     }
 
     // how the part a hole is on was drawn: "obj", "model" (ModelRenderer) or "tess" (the Tessellator)
