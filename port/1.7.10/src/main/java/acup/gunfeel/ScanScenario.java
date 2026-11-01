@@ -76,6 +76,29 @@ final class ScanScenario {
         next++;
     }
 
+    private static int bits(long[] v) {
+        int n = 0;
+        for (long l : v) n += Long.bitCount(l);
+        return n;
+    }
+
+    // what the world has at a block of the machine (dx,dy,dz from the core, a glass key's too): the block and the core
+    // it names
+    private static String where(String offset) {
+        int[] c = core;
+        String[] d = offset.replace("/glass", "").split(",");
+        if (c == null || d.length != 3) return "?";
+        net.minecraft.world.World w = Minecraft.getMinecraft().theWorld;
+        int x = c[0] + Integer.parseInt(d[0]), y = c[1] + Integer.parseInt(d[1]), z = c[2] + Integer.parseInt(d[2]);
+        Block b = w.getBlock(x, y, z);
+        String out = Block.blockRegistry.getNameForObject(b) + "/" + w.getBlockMetadata(x, y, z);
+        if (b instanceof com.hbm.blocks.BlockDummyable) {
+            int[] f = ((com.hbm.blocks.BlockDummyable) b).findCore(w, x, y, z);
+            out += f == null ? ", no core" : ", core at " + (f[0] - c[0]) + "," + (f[1] - c[1]) + "," + (f[2] - c[2]);
+        }
+        return out;
+    }
+
     private static boolean compare(String id, String key) {
         String meta = key.substring(key.lastIndexOf('/') + 1);
         String prefix = id + "#machine/" + meta + "/";
@@ -87,6 +110,8 @@ final class ScanScenario {
             long[] n = now.get(e.getKey());
             if (n == null) onlyJar++;
             else if (java.util.Arrays.equals(e.getValue(), n)) same++;
+            else GunFeel.LOGGER.info("Scenario scan: differs {}: {}; cells jar {} taken {}", e.getKey().substring(prefix.length()), where(e.getKey().substring(prefix.length())),
+                    bits(e.getValue()), bits(n));
         }
         for (String k : now.keySet()) if (k.startsWith(prefix) && !jar.containsKey(k)) onlyNow++;
         MachineFaces.Model a = MachineFaces.jarModel(key), b = MachineFaces.takenModel(key);
