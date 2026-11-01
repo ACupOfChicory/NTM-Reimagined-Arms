@@ -120,17 +120,17 @@ public final class BulletServer {
             if (len < 1e-6) return hit;
             Vec3 dir = d.scale(1.0 / len);
             BlockPos pos = hit.getBlockPos().immutable();
-            boolean known = paid.contains(pos);
+            boolean once = PassableClip.paidOnce(hit), known = once && paid.contains(pos);
             BlockHitResult out = PassableClip.exit(level, hit, dir);
             if (out == null) return stop(bullet, level, hit, "no_exit", Float.NaN);
             double spentBefore = steps.penetration.spent();
             float left = known ? bullet.damage : PassableClip.pierced(level, hit, out, bullet.damage, bullet.config, steps.penetration);
             if (left < 0F) return stop(bullet, level, hit, "held", (float) hit.getLocation().distanceTo(out.getLocation()));
             if (TestLog.server && !known) TestLog.s(bullet.getId(), "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation(),
-                    "material", TestLog.material(level, pos), "result", "pierce", "damage", bullet.damage, "left", left,
+                    "material", TestLog.material(level, hit), "result", "pierce", "damage", bullet.damage, "left", left,
                     "path", hit.getLocation().distanceTo(out.getLocation()));
             if (!known) {
-                paid.add(pos);
+                if (once) paid.add(pos);
                 if (level instanceof ServerLevel server) {
                     BlockState state = level.getBlockState(pos);
                     BulletRules.Break rule = BulletRules.breakRule(state);
@@ -150,7 +150,7 @@ public final class BulletServer {
     private static BlockHitResult stop(EntityBulletBaseMK4 bullet, Level level, BlockHitResult hit, String why, float path) {
         if (!TestLog.server || level.isClientSide() || hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) return hit;
         BlockPos pos = hit.getBlockPos();
-        TestLog.s(bullet.getId(), "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation(), "material", TestLog.material(level, pos),
+        TestLog.s(bullet.getId(), "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation(), "material", TestLog.material(level, hit),
                 "result", "stop", "why", why, "damage", bullet.damage, "path", Float.isNaN(path) ? null : path);
         TestLog.s(bullet.getId(), "end", "by", "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation());
         return hit;

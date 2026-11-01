@@ -20,6 +20,7 @@ run-hole-bench/
 run-hole-bench-loaded/
 run-continuum/
 run-continuum-server/
+run-glass-stand/
 review/materials/page.html
 pi-sessions/
 
@@ -32,3 +33,4 @@ pi-sessions/
 /review/
 /tools/ingame_report.py
 /tools/review_mobs.fish
+/tools/glass_stand.fish

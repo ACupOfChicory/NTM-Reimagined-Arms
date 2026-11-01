@@ -174,6 +174,7 @@ CORE field com/hbm/blocks/generic/BlockWoodStructure WEST Lnet/minecraft/world/l
 CORE field com/hbm/blocks/generic/BlockWoodStructure type Lcom/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure;
 CORE field com/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure ROOF Lcom/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure;
 CORE field com/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure SCAFFOLD Lcom/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure;
+CORE field com/hbm/blocks/multiblock/BlockMultiblockCore FACING Lnet/minecraft/world/level/block/state/properties/EnumProperty;
 CORE field com/hbm/client/HbmKeybindsClient reloadKey Ldev/golem/core/client/KeyMappings$Mapping;
 CORE field com/hbm/client/anim/HbmAnimations$Animation key Lnet/minecraft/world/item/Item;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -194,6 +195,8 @@ CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items
 CORE field com/hbm/items/weapon/sedna/factory/Lego LAMBDA_TOGGLE_AIM Ljava/util/function/BiConsumer;
 CORE method com/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure ordinal ()I
 CORE method com/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure values ()[Lcom/hbm/blocks/generic/BlockWoodStructure$EnumWoodStructure;
+CORE method com/hbm/blocks/multiblock/BlockMultiblockCore withoutTeardown (Ljava/lang/Runnable;)V
+CORE method com/hbm/blocks/multiblock/MultiblockSurface rigidStructureBlocks (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Ljava/util/List;
 CORE method com/hbm/client/anim/HbmAnimations getRelevantAnim (Lnet/minecraft/world/InteractionHand;I)Lcom/hbm/client/anim/HbmAnimations$Animation;
 CORE method com/hbm/client/render/weapon/WeaponPose <init> ()V
 CORE method com/hbm/client/render/weapon/WeaponRenderer gem ()Ldev/golem/core/render/gem/Gem$Model;

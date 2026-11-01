@@ -552,9 +552,11 @@ public final class MobSmoke {
         MobRayOracle.Ray body=null,gap=null,wing=null;
         var model=target.getBoundingBox();
         var raw=new AABB(model.minX,model.minY,model.minZ,model.maxX,model.maxY,model.maxZ);
+        StringBuilder got=new StringBuilder(grid.size()),want=new StringBuilder(grid.size());
         for(var ray:grid) {
             boolean actual=ProjectileUtil.getEntityHitResult(target.level(),(Entity)null,ray.from(),ray.to(),
                     new AABB(ray.from(),ray.to()).inflate(.001),e -> e==target,.3F)!=null;
+            got.append(actual?'1':'0'); want.append(ray.hit()?'1':'0');
             if(ray.hit()) { hits++; if(body==null && clearRay(target,ray)) body=ray; } else misses++;
             if(actual!=ray.hit()) {
                 mismatch++;
@@ -564,6 +566,7 @@ public final class MobSmoke {
             if(ray.hit() && raw.clip(ray.from(),ray.to()).isEmpty()) { extra++; if(clearRay(target,ray)) wing=ray; }
             if(!ray.hit() && raw.inflate(.3).clip(ray.from(),ray.to()).isPresent()) { gaps++; if(clearRay(target,ray)) gap=ray; }
         }
+        if(Trace.ON) trace(target,pose,label,grid.size(),got,want);
         RESULTS.add(new Result(hits>0 && misses>0 && mismatch==0,label+": лучи="+grid.size()+", модель="+hits+
                 ", пустота="+misses+", расхождений="+mismatch+", вне AABB="+extra+", пустота внутри AABB+0.3="+gaps));
         if(!target.level().isClientSide()) {
@@ -571,6 +574,18 @@ public final class MobSmoke {
             if(gap!=null) nativeRay((ServerLevel)target.level(),target,gap,false,label+": пустота внутри AABB+0.3");
             if(wing!=null) nativeRay((ServerLevel)target.level(),target,wing,true,label+": выступ за AABB");
         }
+    }
+
+    // the trace (-Dntmgunfeel.trace): the hitbox's parts as the check sees them (origin and the three edges, relative
+    // to the mob, before the anchor's turn), then the ray grid's cells x by y (17 by 19, x outer), 1 = hit: what the
+    // game's hit test gave and what the independent walk over the surface expects
+    private static void trace(LivingEntity target,Snapshot pose,String label,int rays,CharSequence got,CharSequence want) {
+        for(ModelBox b:pose.boxes())
+            TestLog.at(target.level(),-1,"hitbox","case",label,"part",b.part(),"at",new double[]{b.x(),b.y(),b.z()},
+                    "u",new double[]{b.ux(),b.uy(),b.uz()},"v",new double[]{b.vx(),b.vy(),b.vz()},"w",new double[]{b.wx(),b.wy(),b.wz()},
+                    "triangles",b.mesh()==0?0:ModelMesh.get(b.mesh()).triangles().length/9);
+        TestLog.at(target.level(),-1,"mask","case",label,"source",pose.source(),"anchor",pose.anchor(),"body",target.yBodyRot,
+                "pos",target.position(),"parts",pose.boxes().size(),"rays",rays,"hit",got.toString(),"oracle",want.toString());
     }
 
     private static boolean clearRay(LivingEntity target,MobRayOracle.Ray ray) {

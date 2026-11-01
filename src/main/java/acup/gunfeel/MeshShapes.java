@@ -183,8 +183,9 @@ public final class MeshShapes {
             rotation=Structures.toNorth(state.getValue(com.hbm.blocks.multiblock.BlockMultiblockCore.FACING));
             blocks=com.hbm.blocks.multiblock.MultiblockSurface.rigidStructureBlocks(level,core).stream().map(BlockPos::immutable).toList();
             for(var pos:blocks)if(Structures.layer(state,pos.getY()-core.getY())==pos.getY()-core.getY())bits.put(pos,new long[65]);
+            // a window (MachineGlass) is a face of its own and fills no cells: the cells are what the casing holds
             if(rendered)for(var tri:RenderedMesh.of(be))
-                triangles.add(new Triangle(tri.p(),tri.uv(),(u,v)->tri.tex().opaque(u,v),()->surface(tri)));
+                triangles.add(new Triangle(tri.p(),tri.uv(),tri.tex() instanceof RenderedMesh.Window?(u,v)->false:(u,v)->tri.tex().opaque(u,v),()->surface(tri)));
             for(var pos:blocks) {
                 var st=level.getBlockState(pos);
                 if(st.getRenderShape()!=net.minecraft.world.level.block.RenderShape.MODEL)continue;
@@ -197,7 +198,11 @@ public final class MeshShapes {
                     }
                     var sprite=quad.materialInfo().sprite();
                     triangles.add(new Triangle(p,uv,(u,v)->opaque(sprite,u,v),
-                            ()->surface(p,new float[]{uv[0],uv[2],uv[4]},new float[]{uv[1],uv[3],uv[5]},sprite)));
+                            ()->surface(p,new float[]{uv[0],uv[2],uv[4]},new float[]{uv[1],uv[3],uv[5]},sprite,false)));
+                    // the machine's window baked into its block model (the chemical plant's): a glass face, no cells
+                    if(RenderedMesh.windowOf(sprite,uv)!=null)
+                        triangles.add(new Triangle(p,uv,(u,v)->false,
+                                ()->surface(p,new float[]{uv[0],uv[2],uv[4]},new float[]{uv[1],uv[3],uv[5]},sprite,true)));
                 }
             }
         }
@@ -327,7 +332,7 @@ public final class MeshShapes {
                 float[] v = {UVPair.unpackV(q.packedUV(a)), UVPair.unpackV(q.packedUV(b)), UVPair.unpackV(q.packedUV(c))};
                 TextureAtlasSprite sprite = q.materialInfo().sprite();
                 double[] p = {pa.x(), pa.y(), pa.z(), pb.x(), pb.y(), pb.z(), pc.x(), pc.y(), pc.z()};
-                faces.add(surface(p, u, v, sprite));
+                faces.add(surface(p, u, v, sprite, false));
                 fill(bits, p, behind,
                         (wa, wb, wc) -> opaque(sprite, (float) (wa * u[0] + wb * u[1] + wc * u[2]), (float) (wa * v[0] + wb * v[1] + wc * v[2])));
             }
@@ -335,27 +340,32 @@ public final class MeshShapes {
         return PassableClip.shell(bits) ? bits : ModelSurface.attach(bits, faces);
     }
 
-    private static ModelSurface.Face surface(double[] p, float[] u, float[] v, TextureAtlasSprite sprite) {
+    // glass: the face of a machine's window, its clear pixels shown (MachineGlass)
+    private static ModelSurface.Face surface(double[] p, float[] u, float[] v, TextureAtlasSprite sprite, boolean glass) {
         var contents = sprite.contents();
         int w = contents.width(), h = contents.height();
+        String texture = contents.name().getNamespace() + ":textures/" + contents.name().getPath() + ".png";
+        boolean areas = glass && !MachineGlass.areas(texture).isEmpty();
         long[] alpha = new long[(w * h + 63) / 64];
         for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
-            if (!contents.isTransparent(0, x, y)) {
+            // a window shows its clear pixels, but those in an area listed as empty
+            if (contents.isTransparent(0, x, y) == glass && !(areas && MachineGlass.emptyAt(texture, x, y))) {
                 int k = x + w * y;
                 alpha[k >> 6] |= 1L << (k & 63);
             }
         }
-        if (solid(alpha, w * h)) return new ModelSurface.Face(p, new double[6], 1, 1, new long[] {1});
+        if (solid(alpha, w * h)) return new ModelSurface.Face(p, new double[6], 1, 1, new long[] {1}, glass);
         double[] uv = new double[6];
         for (int i = 0; i < 3; i++) {
             uv[2 * i] = (u[i] - sprite.getU0()) / (sprite.getU1() - sprite.getU0()) * w;
             uv[2 * i + 1] = (v[i] - sprite.getV0()) / (sprite.getV1() - sprite.getV0()) * h;
         }
-        return new ModelSurface.Face(p, uv, w, h, alpha);
+        return new ModelSurface.Face(p, uv, w, h, alpha, glass);
     }
 
     // Геометрия рендера: прозрачность записывается в собственной сетке текстуры, без клиентских объектов.
     private static ModelSurface.Face surface(RenderedMesh.Tri tri) {
+        boolean glass = tri.tex() instanceof RenderedMesh.Window;
         if (!tri.tex().seeThrough()) return new ModelSurface.Face(tri.p(), new double[6], 1, 1, new long[] {1});
         double[] grid = tri.tex().grid();
         double minU = Math.min(tri.uv()[0], Math.min(tri.uv()[2], tri.uv()[4]));
@@ -375,13 +385,13 @@ public final class MeshShapes {
                 alpha[k >> 6] |= 1L << (k & 63);
             }
         }
-        if (solid(alpha, w * h)) return new ModelSurface.Face(tri.p(), new double[6], 1, 1, new long[] {1});
+        if (solid(alpha, w * h)) return new ModelSurface.Face(tri.p(), new double[6], 1, 1, new long[] {1}, glass);
         double[] uv = new double[6];
         for (int i = 0; i < 3; i++) {
             uv[2 * i] = (tri.uv()[2 * i] - u0) / du;
             uv[2 * i + 1] = (tri.uv()[2 * i + 1] - v0) / dv;
         }
-        return new ModelSurface.Face(tri.p(), uv, w, h, alpha);
+        return new ModelSurface.Face(tri.p(), uv, w, h, alpha, glass);
     }
 
     private static boolean solid(long[] alpha, int pixels) {

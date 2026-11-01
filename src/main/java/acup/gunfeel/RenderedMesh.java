@@ -498,6 +498,11 @@ public final class RenderedMesh {
                         }
                         made.clear();
                         quad(made, p, uv, atlasSprite(q.materialInfo().sprite()), true, false, block);
+                        for (int k = 0, n = made.size(); k < n; k++) {
+                            Tri t = made.get(k);
+                            Window win = windowOf(q.materialInfo().sprite(), t.uv());
+                            if (win != null) made.add(new Tri(t.p(), t.uv(), win, t.oneSided(), t.moving(), t.anchor(), t.block()));
+                        }
                         for (Tri t : made) {
                             if (r != INSIDE && !reaches[0] && t.meets(cell)) reaches[0] = true;
                             if (!t.meets(box)) continue;
@@ -810,7 +815,10 @@ public final class RenderedMesh {
         private void tri(int a, int b, int c) {
             // drawn (almost) clear at every corner: light, not something there (the solar boiler's mirror beams,
             // alpha 1 %): bullets and holes go through it
-            if (alpha[a] < CLEAR && alpha[b] < CLEAR && alpha[c] < CLEAR) return;
+            if (alpha[a] < CLEAR && alpha[b] < CLEAR && alpha[c] < CLEAR) {
+                if (dropped != null) dropped.add(texName(tex) + " alpha " + alpha[a] + "/" + alpha[b] + "/" + alpha[c]);
+                return;
+            }
             double[] p = new double[9];
             float[] uv = new float[6];
             int[] idx = {a, b, c};
@@ -823,6 +831,8 @@ public final class RenderedMesh {
                 uv[i * 2 + 1] = v[k + 4];
             }
             out.add(new Tri(p, uv, tex, cull, true, anchor, null));
+            // a machine's clear pixels are its windows: a second triangle, the same, showing only those as glass
+            if (tex instanceof Image img && img.window != null && img.glassIn(uv)) out.add(new Tri(p, uv, img.window, cull, true, anchor, null));
         }
 
         void finish() {
@@ -847,6 +857,9 @@ public final class RenderedMesh {
             }
         }
     }
+
+    // a check (MachineGlassCheck) lists here the triangles dropped as light while it reads a renderer
+    static @Nullable List<String> dropped;
 
     // ---- textures
 
@@ -898,6 +911,7 @@ public final class RenderedMesh {
     public static String texName(Tex tex) {
         if (tex == OPAQUE) return "OPAQUE(no texture read)";
         if (tex == GLASS_TEX) return "GLASS";
+        if (tex instanceof Window win) return "window of " + texName(win.of);
         for (var e : TEXTURES.entrySet()) if (e.getValue() == tex) return e.getKey().toString();
         for (var e : SPRITES.entrySet()) if (e.getValue() == tex) return "sprite " + e.getKey().contents().name();
         return tex.getClass().getSimpleName() + (tex.seeThrough() ? "(see-through)" : "");
@@ -910,15 +924,21 @@ public final class RenderedMesh {
         return TEXTURES.computeIfAbsent(loc, RenderedMesh::load);
     }
 
+    // a machine's texture whose clear pixels are glass (MachineGlass): NTM's own model textures, but the ones listed
+    // there as really empty (grates, nets, cut-outs)
+    static boolean windowed(Identifier loc) {
+        return loc.getNamespace().equals("hbm") && !MachineGlass.empty(loc.toString());
+    }
+
     private static Tex load(Identifier loc) {
         Minecraft mc = Minecraft.getInstance();
         try {
             AbstractTexture t = mc.getTextureManager().getTexture(loc);
             if (t instanceof TextureAtlas atlas) return new AtlasTex(atlas);
             NativeImage img = t instanceof DynamicTexture d ? d.getPixels() : null;
-            if (img != null) return image(img);
+            if (img != null) return image(img, null);
             try (var in = mc.getResourceManager().open(loc); NativeImage read = NativeImage.read(in)) {
-                return image(read);
+                return image(read, windowed(loc) ? loc.toString() : null);
             }
         } catch (Exception e) {
             GunFeel.LOGGER.debug("No pixels for {}: counted as solid", loc, e);
@@ -926,38 +946,228 @@ public final class RenderedMesh {
         }
     }
 
-    private static Tex image(NativeImage img) {
+    // glass: the texture's name when its clear pixels are glass (all but the areas MachineGlass lists), or null
+    private static Tex image(NativeImage img, @Nullable String glass) {
         int w = img.getWidth(), h = img.getHeight();
-        boolean[] shown = new boolean[w * h];
         int[] argb = new int[w * h];
-        boolean any = false;
-        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
-            int px = img.getPixel(x, y);
-            boolean s = (px >>> 24) >= CLEAR;
-            shown[y * w + x] = s;
-            argb[y * w + x] = px;
-            any |= !s;
+        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) argb[y * w + x] = img.getPixel(x, y);
+        return new Image(w, h, argb, glass);
+    }
+
+    // a texture of its own (not an atlas): its pixels, which show (alpha CLEAR and up); windowed: its clear pixels are
+    // glass, drawn as the second triangle `window` (Capture.tri)
+    static final class Image implements Tex {
+        final int w, h;
+        private final boolean[] shown;
+        private final int[] argb;
+        private final boolean clear;
+        private final Mask mask, glassMask;
+        final @Nullable Window window;
+
+        Image(int w, int h, int[] argb, @Nullable String glass) {
+            this.w = w;
+            this.h = h;
+            this.argb = argb;
+            shown = new boolean[w * h];
+            boolean any = false;
+            for (int i = 0; i < w * h; i++) {
+                shown[i] = (argb[i] >>> 24) >= CLEAR;
+                any |= !shown[i];
+            }
+            clear = any;
+            mask = new Mask(w, h, shown);
+            // the window: clear pixels but those in the areas listed as empty
+            boolean[] notGlass = shown;
+            boolean anyGlass = any;
+            java.util.function.BiPredicate<Float, Float> empty = null;
+            if (glass != null && !MachineGlass.areas(glass).isEmpty()) {
+                notGlass = new boolean[w * h];
+                anyGlass = false;
+                for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+                    notGlass[y * w + x] = shown[y * w + x] || MachineGlass.emptyAt(glass, x, y);
+                    anyGlass |= !notGlass[y * w + x];
+                }
+                empty = (u, v) -> MachineGlass.emptyAt(glass, Math.floorMod((int) Math.floor(u * w), w), Math.floorMod((int) Math.floor(v * h), h));
+            }
+            glassMask = notGlass == shown ? mask : new Mask(w, h, notGlass);
+            window = glass != null && anyGlass ? new Window(this, empty) : null;
         }
-        boolean clear = any;
-        return new Tex() {
-            public boolean opaque(float u, float v) {
-                int x = Math.floorMod((int) Math.floor(u * w), w), y = Math.floorMod((int) Math.floor(v * h), h);
-                return shown[y * w + x];
-            }
 
-            public int color(float u, float v) {
-                int x = Math.floorMod((int) Math.floor(u * w), w), y = Math.floorMod((int) Math.floor(v * h), h);
-                return argb[y * w + x];
-            }
+        private int at(float u, float v) {
+            int x = Math.floorMod((int) Math.floor(u * w), w), y = Math.floorMod((int) Math.floor(v * h), h);
+            return y * w + x;
+        }
 
-            public boolean seeThrough() {
-                return clear;
-            }
+        public boolean opaque(float u, float v) {
+            return shown[at(u, v)];
+        }
 
-            public double[] grid() {
-                return new double[] {0, 1.0 / w, 0, 1.0 / h};
+        public int color(float u, float v) {
+            return argb[at(u, v)];
+        }
+
+        public boolean seeThrough() {
+            return clear;
+        }
+
+        public double[] grid() {
+            return new double[] {0, 1.0 / w, 0, 1.0 / h};
+        }
+
+        boolean shown(int x, int y) {
+            return shown[Math.floorMod(y, h) * w + Math.floorMod(x, w)];
+        }
+
+        // a triangle with these texture coordinates covers a clear pixel (more than a sliver of one)
+        boolean clearIn(float[] uv) {
+            return mask.covers(uv);
+        }
+
+        // ... a clear pixel that is glass
+        boolean glassIn(float[] uv) {
+            return glassMask.covers(uv);
+        }
+    }
+
+    // which pixels of a texture show, and the clear ones counted for MachineGlass.covers
+    static final class Mask {
+        final int w, h;
+        private final boolean[] shown;
+        // clear pixels in the rectangle from (0, 0) to (x, y), x and y not included ((w + 1) x (h + 1))
+        private final int[] sum;
+        private final Map<UvKey, Boolean> covers = new HashMap<>();
+
+        Mask(int w, int h, boolean[] shown) {
+            this.w = w;
+            this.h = h;
+            this.shown = shown;
+            sum = new int[(w + 1) * (h + 1)];
+            for (int y = 0; y < h; y++) {
+                int row = 0;
+                for (int x = 0; x < w; x++) {
+                    if (!shown[y * w + x]) row++;
+                    sum[(y + 1) * (w + 1) + x + 1] = sum[y * (w + 1) + x + 1] + row;
+                }
             }
-        };
+        }
+
+        // uv: the triangle's coordinates in this texture, 0..1
+        boolean covers(float[] uv) {
+            UvKey key = new UvKey(uv[0], uv[1], uv[2], uv[3], uv[4], uv[5]);
+            Boolean had = covers.get(key);
+            if (had != null) return had;
+            boolean got = MachineGlass.covers(uv, w, h, shown, sum);
+            if (covers.size() > 100_000) covers.clear();
+            covers.put(key, got);
+            return got;
+        }
+    }
+
+    // ---- the windows of a machine's block model (NTM bakes a machine's body into the chunk: the chemical plant's
+    // window is there, not in what its renderer draws): sprites of NTM's model textures, block/models/...
+
+    // window: null when the texture is listed as really empty (its mask kept for GlassStand)
+    // glassMask: its clear pixels but those in areas listed as empty
+    private record SpriteWindow(Mask mask, Mask glassMask, @Nullable Window window) {
+    }
+
+    private static final Map<TextureAtlasSprite, java.util.Optional<SpriteWindow>> SPRITE_WINDOWS = new java.util.IdentityHashMap<>();
+
+    private static java.util.Optional<SpriteWindow> spriteWindow(TextureAtlasSprite sp) {
+        return SPRITE_WINDOWS.computeIfAbsent(sp, k -> {
+            Identifier name = sp.contents().name();
+            if (!name.getNamespace().equals("hbm") || !name.getPath().startsWith("block/models/")) return java.util.Optional.empty();
+            String texture = name.getNamespace() + ":textures/" + name.getPath() + ".png";
+            boolean empty = MachineGlass.empty(texture);
+            var c = sp.contents();
+            boolean[] shown = new boolean[c.width() * c.height()];
+            boolean any = false;
+            for (int y = 0; y < c.height(); y++) for (int x = 0; x < c.width(); x++) {
+                shown[y * c.width() + x] = !c.isTransparent(0, x, y);
+                any |= !shown[y * c.width() + x];
+            }
+            if (!any) return java.util.Optional.empty();
+            Mask mask = new Mask(c.width(), c.height(), shown);
+            if (empty) return java.util.Optional.of(new SpriteWindow(mask, mask, null));
+            if (MachineGlass.areas(texture).isEmpty()) return java.util.Optional.of(new SpriteWindow(mask, mask, new Window(atlasSprite(sp), null)));
+            boolean[] notGlass = new boolean[shown.length];
+            boolean anyGlass = false;
+            for (int y = 0; y < c.height(); y++) for (int x = 0; x < c.width(); x++) {
+                notGlass[y * c.width() + x] = shown[y * c.width() + x] || MachineGlass.emptyAt(texture, x, y);
+                anyGlass |= !notGlass[y * c.width() + x];
+            }
+            float u0 = sp.getU0(), v0 = sp.getV0(), du = sp.getU1() - u0, dv = sp.getV1() - v0;
+            int w = c.width(), h = c.height();
+            Window win = anyGlass ? new Window(atlasSprite(sp), (u, v) -> MachineGlass.emptyAt(texture,
+                    Math.clamp((int) Math.floor((u - u0) / du * w), 0, w - 1), Math.clamp((int) Math.floor((v - v0) / dv * h), 0, h - 1))) : null;
+            return java.util.Optional.of(new SpriteWindow(mask, new Mask(w, h, notGlass), win));
+        });
+    }
+
+    // the window over a triangle of a block model drawn with this sprite (atlas coordinates uv), or null: not an NTM
+    // model texture, or no clear pixel under it
+    public static @Nullable Window windowOf(TextureAtlasSprite sp, float[] uv) {
+        var got = spriteWindow(sp);
+        if (got.isEmpty() || got.get().window() == null) return null;
+        float[] local = local(sp, uv);
+        return local != null && got.get().glassMask().covers(local) ? got.get().window() : null;
+    }
+
+    private static float @Nullable [] local(TextureAtlasSprite sp, float[] uv) {
+        float du = sp.getU1() - sp.getU0(), dv = sp.getV1() - sp.getV0();
+        if (du == 0F || dv == 0F) return null;
+        float[] local = new float[6];
+        for (int i = 0; i < 3; i++) {
+            local[2 * i] = (uv[2 * i] - sp.getU0()) / du;
+            local[2 * i + 1] = (uv[2 * i + 1] - sp.getV0()) / dv;
+        }
+        return local;
+    }
+
+    // a triangle of a block model drawn with this NTM model sprite (atlas coordinates uv) covers one of its clear
+    // pixels, whether they count as glass or as empty (GlassStand)
+    static boolean clearUnder(TextureAtlasSprite sp, float[] uv) {
+        var got = spriteWindow(sp);
+        if (got.isEmpty()) return false;
+        float[] local = local(sp, uv);
+        return local != null && got.get().mask().covers(local);
+    }
+
+    // the sprite a block model triangle is drawn with (its Tex from atlasSprite), or null
+    static @Nullable TextureAtlasSprite spriteOf(Tex tex) {
+        for (var e : SPRITES.entrySet()) if (e.getValue() == tex) return e.getKey();
+        return null;
+    }
+
+    private record UvKey(float u0, float v0, float u1, float v1, float u2, float v2) {
+    }
+
+    // a machine's windows: the clear pixels of its texture, as glass (the bullet pierces them as glass, holes stay)
+    public static final class Window implements Tex {
+        private final Tex of;
+        // its clear pixels listed as empty (MachineGlass areas), or null: none
+        private final java.util.function.@Nullable BiPredicate<Float, Float> empty;
+
+        Window(Tex of, java.util.function.@Nullable BiPredicate<Float, Float> empty) {
+            this.of = of;
+            this.empty = empty;
+        }
+
+        public boolean opaque(float u, float v) {
+            return !of.opaque(u, v) && (empty == null || !empty.test(u, v));
+        }
+
+        public boolean seeThrough() {
+            return true;
+        }
+
+        public double[] grid() {
+            return of.grid();
+        }
+
+        public boolean glass() {
+            return true;
+        }
     }
 
     // a sprite of an atlas, its own coordinates 0..1 (a model drawn with a sprite)

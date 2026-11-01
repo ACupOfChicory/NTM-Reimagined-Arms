@@ -2,12 +2,15 @@
 
 An addon for HBM's Nuclear Tech Mod (NTM-NEXT) on NeoForge 26.2. It adds
 first-person arms, recoil, weapon sway, detailed model hitboxes and
-material-based bullet effects through mixins.
+material-based bullet effects through mixins. Ports to NTM Continuum and to the
+original NTM on Minecraft 1.7.10 are in progress; see [Ports](#ports).
 
 ## Features
 
 - Two-handed weapon grips and configurable arm animations.
 - Camera recoil, weapon recoil and turn sway.
+- Camera climb per weapon: part of each kick stays, so sustained fire climbs,
+  drifts sideways and builds up over the first shots.
 - An ammo HUD and radial ammo selection with damage information.
 - Hold-to-aim controls and spread affected by movement, stance and sustained
   fire.
@@ -33,6 +36,12 @@ Open the weapon editor with O while holding a gun. Client settings are stored
 in `config/ntm-gunfeel.properties`; per-weapon settings are stored in
 `config/ntm-gunfeel-guns.properties`.
 
+Camera climb uses four per-weapon keys, also available in the weapon editor:
+`cameraClimb` is the share of each kick that stays (0 to 1), `cameraClimbDeg`
+adds degrees that stay up, `cameraDriftDeg` sets the sideways drift, and
+`cameraClimbRamp` is the number of shots in a burst before the climb reaches
+full strength. A weapon without these keys does not climb.
+
 `/gunfeel quality low|medium|high|realism` changes impact-effect quality. High
 is the default. Individual limits changed manually in the configuration file
 override preset values.
@@ -42,6 +51,21 @@ The server controls bullet speed, spread and other gameplay settings through
 in `config/ntm-gunfeel-bullets.txt`; its header documents the available rules.
 Gameplay settings are synchronized to connected clients, while visual
 preferences remain local.
+
+## Ports
+
+Ports live on their own branches. They are not released yet, do not cover every
+feature of the 26.2 version and have not been fully tested in game.
+
+- `port/continuum`: NTM Continuum 1.0.3 with Golem Core 1.0.3 on Minecraft 26.1
+  (NeoForge 26.1.2). Arms, recoil, sway, camera climb, model hitboxes, bullets
+  and the ammo HUD are ported; the weapon and arm editors are not. Build it
+  with `./gradlew :26.1-neoforge:jar`.
+- `port/1.7.10-forge`: HBM's Nuclear Tech Mod on Minecraft 1.7.10 Forge. Arms,
+  recoil, sway, camera climb, server-side bullets, tracers and bullet holes,
+  model hitboxes and the ammo HUD are ported; bullet decals, ricochet sounds
+  and head damage are not yet. It builds from `port/1.7.10/` with its own
+  Gradle wrapper into one jar that runs on Java 8.
 
 ## Building
 
@@ -59,6 +83,11 @@ The build runs JUnit tests, resource checks, compatibility checks and mixin
 validation. `src/test/` contains the test sources and fixtures.
 `./gradlew runClient` starts a development client with the configured
 dependencies.
+
+`./gradlew runCheckClient -Pscenario=arms -Ptrace=true` plays a fixed set of
+weapon animations and records a trace of recoil, sway and arm positions;
+`tools/trace_diff.py` compares two traces. Ports are checked against this
+version the same way.
 
 ## License
 
@@ -82,6 +111,10 @@ adapted code. The combined mod, which includes this GPL-3.0-only component, is
 distributed under GPL-3.0. Source revision, changes and the license text are
 included in [third-party/superb-warfare.txt](third-party/superb-warfare.txt)
 and packaged under `META-INF/licenses/`.
+
+The 1.7.10 port also bundles stub classes from JvmDowngrader
+(LGPL-2.1-or-later) and a shaded copy of JOML (MIT). Their notices are in
+`port/1.7.10/third-party/` on that branch and packaged in its jar.
 
 Sounds under `src/main/resources/assets/ntmgunfeel/sounds/` come from
 freesound.org and keep their own licenses (CC0 1.0 or CC BY 3.0/4.0); authors

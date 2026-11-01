@@ -66,7 +66,9 @@ public final class BulletFx {
 
     // explosive: a round that blows up there; its own blast is loud enough, the hit sound stays at the rule's volume
     public static void blockHit(ClientLevel level, BlockHitResult hit, Vec3 dir, boolean explosive) {
-        BlockState state = level.getBlockState(hit.getBlockPos());
+        // a machine's window (MachineGlass): the sound and crumbs of glass
+        boolean window = hit instanceof ModelSurface.GlassHit;
+        BlockState state = window ? net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState() : level.getBlockState(hit.getBlockPos());
         if (debugSound) sd("hit {} {} at {}", BuiltInRegistries.BLOCK.getKey(state.getBlock()), hit.getBlockPos().toShortString(), hit.getLocation());
         if (!Config.bulletFx) {
             sd("  skipped: bulletFx off in the config");
@@ -77,10 +79,10 @@ public final class BulletFx {
             return;
         }
         // a cell of an NTM multiblock (the shared multiblock_cell_* blocks): the rules of its machine
-        BlockState ruleState = Cells.ruleState(level, hit.getBlockPos(), state);
+        BlockState ruleState = window ? state : Cells.ruleState(level, hit.getBlockPos(), state);
         if (debugSound && ruleState != state) sd("  cell of {}", BuiltInRegistries.BLOCK.getKey(ruleState.getBlock()));
         BulletRules.Effect fx = BulletRules.hit(ruleState);
-        if (TestLog.client) TestLog.c(TestLog.shot(), "fx", "block", ruleState, "pos", hit.getBlockPos(), "material", TestLog.material(level, hit.getBlockPos()),
+        if (TestLog.client) TestLog.c(TestLog.shot(), "fx", "block", ruleState, "pos", hit.getBlockPos(), "material", TestLog.material(level, hit),
                 "sound", fx.sound() == null ? "none" : fx.sound().id(), "particles", fx.particles().size(),
                 "full", state.isCollisionShapeFullBlock(level, hit.getBlockPos()), "explosive", explosive, "fxOn", Config.bulletFx);
         if (fx.empty()) {
@@ -96,7 +98,7 @@ public final class BulletFx {
         Vec3 back = dir.normalize().scale(-0.04);
         Vec3 probe = at.add(new Vec3(face.getStepX(), face.getStepY(), face.getStepZ()).scale(0.02));
         boolean walked = false;
-        for (int i = 0; i < 80 && insideCollision(level, probe); i++) {
+        for (int i = 0; i < 80 && !window && insideCollision(level, probe); i++) {
             probe = probe.add(back);
             walked = true;
         }
@@ -120,7 +122,7 @@ public final class BulletFx {
                     noParticleTexture(state) ? "missing" : "ok", fx.particles().size(), fx.sound() == null ? "none" : fx.sound().id());
         // only full blocks give off particles: on grates, scaffold, slabs and the like they got stuck inside the
         // model; the sound stays
-        boolean full = state.isCollisionShapeFullBlock(level, hit.getBlockPos());
+        boolean full = window || state.isCollisionShapeFullBlock(level, hit.getBlockPos());
         int emitted = 0;
         for (BulletRules.Particle part : full ? fx.particles() : java.util.List.<BulletRules.Particle>of()) {
             int count = Config.scaledCount(part.count(), Config.particleScale, r.nextDouble());
@@ -281,6 +283,8 @@ public final class BulletFx {
             // the server's hit may be on the block's hitbox, the model deeper in: up to 3 blocks along the line
             var box = new net.minecraft.world.phys.AABB(at.subtract(nd0.scale(0.5)), at.add(nd0.scale(3))).inflate(0.5);
             List<RenderedMesh.Tri> near = new java.util.ArrayList<>(RenderedMesh.within(level, box));
+            // a window's clear pixels have no colour to give
+            near.removeIf(t -> t.tex() instanceof RenderedMesh.Window);
             int drawnBy = near.size();
             // block models only of the machine's own mod (its other blocks): the line runs on through the hitbox,
             // past the model, into the grass and stone behind it

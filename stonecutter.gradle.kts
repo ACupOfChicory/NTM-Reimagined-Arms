@@ -127,6 +127,9 @@ stonecutter parameters {
             replace("com.hbm.packet.toclient.HbmAnimationPayload.handleSedna(player, player.getMainHandItem(), player.getInventory().getSelectedSlot(), type, 0, 0);",
                 "com.hbm.client.anim.GunAnimationHandler.handle(new com.hbm.packet.GunAnimationPayload(type.ordinal(), 0, 0, " +
                 "net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(player.getMainHandItem().getItem()).toString()));")
+            // TraceScenario: a gun without animations has neither its config's own table nor one in GunAnimations
+            replace("((ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getAnims(stack) == null",
+                "((ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getAnimation(stack) == null && com.hbm.client.anim.GunAnimations.get(stack, type, 0) == null")
             // 26.1 hands the model renderer a SubmitNodeStorage.ModelSubmit
             replace("ModelFeatureRenderer.Submit<?>", "net.minecraft.client.renderer.SubmitNodeStorage.ModelSubmit<?>")
             // NTM Continuum draws first-person guns with Golem Core's Gem, which has no static interp
@@ -219,6 +222,8 @@ stonecutter parameters {
             replace("b.setThrowableHeading(0, 0, 1, round.velocity, 0F);", "b.shoot(0, 0, 1, 0F);")
             replace("b.setThrowableHeading(0, 0, 1, du.velocity, 0F);", "b.shoot(0.0, 0.0, 1.0, 0F);")
             replace("b.setThrowableHeading(0, -1, 1, du.velocity, 0F);", "b.shoot(0, -1, 1, 0F);")
+            // MachineGlassCheck: the same unit heading for the bullet at a machine window
+            replace("b.setThrowableHeading(dir.x, dir.y, dir.z, round.velocity, 0F);", "b.shoot(dir.x, dir.y, dir.z, 0F);")
             replace("setOnBeamImpact(BulletConfig.LAMBDA_STANDARD_BEAM_HIT)", "setOnBeamImpact(com.hbm.items.weapon.sedna.factory.XFactoryEnergy.LAMBDA_STANDARD_BEAM_HIT)")
             replace("com.hbm.entity.ModEntities.RAD_BEAST.", "com.hbm.entity.ModNtmEntities.RAD_BEAST.")
             replace("com.hbm.entity.ModEntities.MASK_MAN.", "com.hbm.entity.ModNtmEntities.MASK_MAN.")
