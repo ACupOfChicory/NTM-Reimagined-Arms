@@ -212,14 +212,13 @@ public final class MeshShapes {
 
     // One machine taken a little each frame, no frame given more than its budget: on the game's thread only what needs
     // the world or the game's textures, a piece at a time (its blocks; its renderer's state; the textures it draws with,
-    // one a piece; the parts posing a shared model, one a piece; its blocks' model faces, QUAD_PIECE at a time); on the
-    // worker the renderer's submit, its texture files and the rest of its parts, then its cells and faces. A piece of a
+    // one a piece; the parts posing a shared model, one a piece; its blocks' model faces, one block a piece); on the
+    // worker the renderer's submit, its texture files and the rest of its parts, then the triangles, cells and faces. A piece of a
     // stage starts only when the longest one of that stage so far still fits before the deadline (the first piece of a
     // frame always), and the renderer's state starts a frame.
     private static final class Capture {
         private static final int BLOCKS=0,EXTRACT=1,SUBMIT=2,RESOLVE=3,PREPARE=4,EMIT=5,QUADS=6,WORK=7,DONE=8;
         static final String[] STAGES={"blocks","extract","submit","resolve","prepare","emit","quads","work"};
-        private static final int QUAD_PIECE=96,TRI_PIECE=1024;
         final BlockPos core;
         final BlockState state;
         final boolean rendered;
@@ -228,9 +227,10 @@ public final class MeshShapes {
         final Map<BlockPos,long[]> bits=new java.util.HashMap<>();
         final List<Triangle> triangles=new ArrayList<>();
         final Map<String,long[]> out=new TreeMap<>();
-        private int stage=BLOCKS,quadsOf,quadAt,trisAt=-1;
-        private List<BakedQuad> blockQuads;
-        private BlockPos quadsPos;
+        private int stage=BLOCKS,quadsOf;
+        private List<RenderedMesh.Tri> drawn=List.of();
+        private record BlockQuads(BlockPos pos,List<BakedQuad> quads) {}
+        private final List<BlockQuads> blockQuads=new ArrayList<>();
         private RenderedMesh.Staged staged;
         private java.util.concurrent.Future<?> work;
         final long[] slowest=new long[DONE];
@@ -288,29 +288,22 @@ public final class MeshShapes {
                     work.get();work=null;stage=EMIT;
                 }
                 case EMIT -> {
-                    if(trisAt<0){if(staged.emit())trisAt=0;break;}
-                    // a window (MachineGlass) is a face of its own and fills no cells: the cells are what the casing holds
-                    var tris=staged.tris();int end=Math.min(tris.size(),trisAt+TRI_PIECE);
-                    for(;trisAt<end;trisAt++) {
-                        var tri=tris.get(trisAt);
-                        triangles.add(new Triangle(tri.p(),tri.uv(),new TriShown(tri),new TriFace(tri)));
-                    }
-                    if(trisAt>=tris.size()){staged=null;stage=QUADS;}
+                    // the parts that pose a shared model, one a piece; the triangles are taken up on the worker (cells)
+                    if(!staged.emit())break;
+                    drawn=staged.tris();staged=null;stage=QUADS;
                 }
                 case QUADS -> {
-                    if(blockQuads!=null) {
-                        int end=Math.min(blockQuads.size(),quadAt+QUAD_PIECE);
-                        long t0=System.nanoTime();
-                        for(;quadAt<end;quadAt++)quad(quadsPos,blockQuads.get(quadAt));
-                        long t=System.nanoTime()-t0;
-                        if(quadsCost==null || t>quadsCost.nanos())quadsCost=new QuadsCost(t,blockQuads.size(),quadsPos);
-                        if(quadAt>=blockQuads.size())blockQuads=null;
-                        break;
-                    }
+                    // a block's model faces, one block a piece; their triangles are made on the worker (cells)
                     if(quadsOf<blocks.size()) {
-                        quadsPos=blocks.get(quadsOf++);
-                        var st=level.getBlockState(quadsPos);
-                        if(st.getRenderShape()==net.minecraft.world.level.block.RenderShape.MODEL){blockQuads=MeshShapes.quads(st);quadAt=0;}
+                        var pos=blocks.get(quadsOf++);
+                        var st=level.getBlockState(pos);
+                        if(st.getRenderShape()==net.minecraft.world.level.block.RenderShape.MODEL) {
+                            long t0=System.nanoTime();
+                            var q=MeshShapes.quads(st);
+                            long t=System.nanoTime()-t0;
+                            if(quadsCost==null || t>quadsCost.nanos())quadsCost=new QuadsCost(t,q.size(),pos);
+                            if(!q.isEmpty())blockQuads.add(new BlockQuads(pos,q));
+                        }
                         break;
                     }
                     work=WORKER.submit(new Runnable(){public void run(){cells();}});stage=WORK;
@@ -338,6 +331,10 @@ public final class MeshShapes {
         }
         // on the worker: the cells the triangles cover, the faces, each block turned to face north
         private void cells() {
+            // what the renderer drew comes first, then the blocks' models. A window (MachineGlass) is a face of its own
+            // and fills no cells: the cells are what the casing holds
+            for(var tri:drawn)triangles.add(new Triangle(tri.p(),tri.uv(),new TriShown(tri),new TriFace(tri)));
+            for(var b:blockQuads)for(var q:b.quads())quad(b.pos(),q);
             List<ModelSurface.Face> surfaces=new ArrayList<>();
             long tf=0,ts=0,c0=System.nanoTime();
             for(var tri:triangles) {
