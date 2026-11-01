@@ -116,6 +116,39 @@ class HeadsPortTest {
         assertFalse(res.zones().isEmpty(), "hurt: " + res.reason());
     }
 
+    // NTM's Mask Man (ModelMaskMan.render): at half health and below it draws the Skull group and the IOU note in
+    // place of the Head group. 26.2's markup takes the six groups by their order and finds nothing in the seven; the
+    // port's markup (ntmgunfeel-heads-1710.json) takes the head by its name, Head or Skull. The skull here is where the
+    // model puts it: the same head matrix, its OBJ bounds 1 x 1 x 1 from 0.41686 over the head's bottom
+    @Test
+    void maskManFindsItsHeadInBothStages() throws Exception {
+        Pose p = poses().get("hbm.entity_mob_mask_man");
+        assertEquals("hbm:entity_mob_mask_man", p.key());
+        ModelBox head = p.boxes().get(5);
+        assertEquals("mesh/Head", head.part());
+        var whole = ModelHeads.resolve(p.key(), p.boxes(), p.yaw());
+        assertEquals("dataset", whole.source(), whole.reason());
+        assertEquals(1, whole.zones().size(), whole.reason());
+        assertEquals("mesh/Head", whole.zones().get(0).box().part());
+
+        double ul = Math.sqrt(head.ux() * head.ux() + head.uy() * head.uy() + head.uz() * head.uz());
+        double vl = Math.sqrt(head.vx() * head.vx() + head.vy() * head.vy() + head.vz() * head.vz());
+        double wl = Math.sqrt(head.wx() * head.wx() + head.wy() * head.wy() + head.wz() * head.wz());
+        double up = 0.41686 / vl;
+        ModelBox skull = new ModelBox("mesh/Skull", head.x() + head.vx() * up, head.y() + head.vy() * up, head.z() + head.vz() * up,
+                head.ux() / ul, head.uy() / ul, head.uz() / ul, head.vx() / vl, head.vy() / vl, head.vz() / vl, head.wx() / wl, head.wy() / wl, head.wz() / wl);
+        // the note: a 4 x 4 px sheet in the skull, 0.1875 from its back
+        ModelBox note = new ModelBox("mesh/IOU", skull.x() + skull.ux() * .375 + skull.wx() * .1875, skull.y() + .375, skull.z() + skull.uz() * .375 + skull.wz() * .1875,
+                head.ux() / ul * .25, head.uy() / ul * .25, head.uz() / ul * .25, head.vx() / vl * .25, head.vy() / vl * .25, head.vz() / vl * .25, .001, 0, 0);
+        List<ModelBox> wounded = new ArrayList<>(p.boxes().subList(0, 5));
+        wounded.add(skull);
+        wounded.add(note);
+        var res = ModelHeads.resolve(p.key(), wounded, p.yaw());
+        assertEquals("dataset", res.source(), res.reason());
+        assertEquals(1, res.zones().size(), res.reason());
+        assertEquals("mesh/Skull", res.zones().get(0).box().part());
+    }
+
     @Test
     void everyMarkedMobFindsItsHead() throws Exception {
         List<String> bad = new ArrayList<>();

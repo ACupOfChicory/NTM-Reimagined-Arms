@@ -35,7 +35,8 @@ final class HeadProfiles {
         return loadBank("/ntmgunfeel-heads.json",Path.of("config/ntmgunfeel-heads.json"),true);
     }
     // port: the owner's markup for 1.7.10: mobs 26.2 does not have (RandomThings' spirit: a slime's model, no head as
-    // 26.2's slime) and 26.2's marked heads 1.7.10 draws otherwise (the bat, the cyber crab: no head)
+    // 26.2's slime) and 26.2's marked heads 1.7.10 draws otherwise (the bat, the cyber crab: no head;
+    // Mask Man's head by name, the Head group or the Skull NTM draws in its place at half health and below)
     private static final Map<String,Profile> PORT=loadBank("/ntmgunfeel-heads-1710.json",Path.of("config/ntmgunfeel-heads-1710.json"),true);
     static Map<String,Profile> loadBank(String resource,Path override,boolean required) {
         var out=new HashMap<String,Profile>();
