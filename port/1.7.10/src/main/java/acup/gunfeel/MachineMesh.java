@@ -165,6 +165,15 @@ public final class MachineMesh {
         return active;
     }
 
+    // a machine read, nothing else taking parts: an NTM model's parts are taken, its draw left out (drawn unseen
+    // anyway, it took a pack's game thread over a millisecond the first time)
+    public static boolean skipDraw() {
+        return active && !armsCapturing && !DoorCapture.active() && !ModelHitClient.capturing();
+    }
+
+    // Arms.capturing as Arms sets it: asking Arms would set the class up, 30 ms at the first machine taken
+    static boolean armsCapturing;
+
     // inside a draw of an NTM model the parts above already took (its own Tessellator draw is not taken again), or
     // inside ModelRenderer's display list build (drawn later with the part's matrix)
     private static int objDepth, compiling;
@@ -374,6 +383,28 @@ public final class MachineMesh {
         return true;
     }
 
+    // the GL state calls of a read gone through once with nothing drawn, a frame before the first machine's draw: cold
+    // (a pack's Angelica) they took that frame half a millisecond
+    private static boolean warm;
+
+    static boolean warmUp() {
+        if (warm) return false;
+        warm = true;
+        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+        GL11.glPushMatrix();
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GL11.glLoadIdentity();
+        GL11.glColorMask(false, false, false, false);
+        GL11.glDepthMask(false);
+        GL11.glDisable(GL11.GL_BLEND);
+        modelview();
+        GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        GL11.glIsEnabled(GL11.GL_BLEND);
+        GL11.glPopAttrib();
+        GL11.glPopMatrix();
+        return true;
+    }
+
     private static List<Part> capture(TileEntity te) {
         if (!TileEntityRendererDispatcher.instance.hasSpecialRenderer(te)) return new ArrayList<Part>();
         PARTS.clear();
@@ -409,13 +440,49 @@ public final class MachineMesh {
 
     // the texture a GL texture id was loaded from ("hbm:textures/models/machines/x.png"), or null (the block atlas,
     // a dynamic texture). An id not known yet has the texture manager's map gone over again (a reload gives textures
-    // new ids); one not in it is remembered as such until the map grows
-    private static Map<Integer, String> names = new HashMap<Integer, String>();
-    private static final java.util.Set<Integer> NAMELESS = new java.util.HashSet<Integer>();
-    private static int namelessOf = -1;
-    private static java.lang.reflect.Field textures;
+    // new ids), on any thread (no GL: the ids are read as kept); one not in it is remembered as such until the map
+    // grows. `wait` false: an unknown id is looked up on the worker, null till then (a pack's map took the game's
+    // thread 3 ms)
+    private static volatile Map<Integer, String> names = new HashMap<Integer, String>();
+    private static final java.util.Set<Integer> NAMELESS = java.util.Collections.synchronizedSet(new java.util.HashSet<Integer>());
+    private static volatile int namelessOf = -1;
+    // the ids loaded from their file as it is (SimpleTexture): their pixels can be read from it (MachineCapture)
+    private static volatile java.util.Set<Integer> fromFile = new java.util.HashSet<Integer>();
+    private static java.lang.reflect.Field textures, glId;
 
-    static String textureName(int id) {
+    static String textureName(int id, boolean wait) {
+        String name = names.get(id);
+        if (name != null || NAMELESS.contains(id)) return name;
+        if (wait) return scan(id);
+        MachineTake.later(new Scan(id));
+        return null;
+    }
+
+    // the texture's name when it was loaded from that file as it is (its pixels the file's), else null; on any thread
+    static String fileName(int id) {
+        String name = textureName(id, true);
+        return name != null && fromFile.contains(id) ? name : null;
+    }
+
+    // the map gone over ahead, as a world is entered (MachineScan)
+    static void namesLater() {
+        MachineTake.later(new Scan(-1));
+    }
+
+    private static final class Scan implements Runnable {
+        private final int id;
+
+        Scan(int id) {
+            this.id = id;
+        }
+
+        @Override
+        public void run() {
+            if (id == -1 || names.get(id) == null) scan(id);
+        }
+    }
+
+    private static synchronized String scan(int id) {
         String name = names.get(id);
         if (name != null) return name;
         Map<?, ?> m = textureObjects();
@@ -424,13 +491,42 @@ public final class MachineMesh {
             namelessOf = m.size();
         }
         if (NAMELESS.contains(id)) return null;
-        names = new HashMap<Integer, String>();
-        for (Map.Entry<?, ?> e : m.entrySet())
-            if (e.getValue() instanceof net.minecraft.client.renderer.texture.ITextureObject)
-                names.put(((net.minecraft.client.renderer.texture.ITextureObject) e.getValue()).getGlTextureId(), String.valueOf(e.getKey()));
-        name = names.get(id);
-        if (name == null) NAMELESS.add(id);
+        Map<Integer, String> fresh = new HashMap<Integer, String>();
+        java.util.Set<Integer> files = new java.util.HashSet<Integer>();
+        // the game's thread may load a texture meanwhile
+        for (int tries = 0;; tries++) {
+            try {
+                fresh.clear();
+                files.clear();
+                for (Map.Entry<?, ?> e : m.entrySet()) {
+                    Object t = e.getValue();
+                    int gl = glId(t);
+                    if (gl == -1) continue;
+                    fresh.put(gl, String.valueOf(e.getKey()));
+                    if (t.getClass() == net.minecraft.client.renderer.texture.SimpleTexture.class) files.add(gl);
+                }
+                break;
+            } catch (java.util.ConcurrentModificationException e) {
+                if (tries == 2) return null;
+            }
+        }
+        fromFile = files;
+        names = fresh;
+        name = fresh.get(id);
+        if (name == null && id != -1) NAMELESS.add(id);
         return name;
+    }
+
+    // a texture's GL id as kept (-1: none yet); getGlTextureId would make one, a GL call
+    private static int glId(Object texture) {
+        if (!(texture instanceof net.minecraft.client.renderer.texture.AbstractTexture)) return -1;
+        try {
+            if (glId == null) glId = cpw.mods.fml.relauncher.ReflectionHelper.findField(net.minecraft.client.renderer.texture.AbstractTexture.class,
+                    "glTextureId", "field_110553_a");
+            return glId.getInt(texture);
+        } catch (IllegalAccessException e) {
+            return -1;
+        }
     }
 
     private static Map<?, ?> textureObjects() {
@@ -475,7 +571,7 @@ public final class MachineMesh {
         for (TileEntity te : owners(w, pos[0], pos[1], pos[2])) {
             for (Part p : drawn(te)) {
                 int[][] tex = DoorCapture.texture(p.texture, TEXTURES);
-                String name = glassOn ? textureName(p.texture) : null;
+                String name = glassOn ? textureName(p.texture, false) : null;
                 boolean glassy = glassOn && !(name != null && MachineGlass.empty(name));
                 boolean areas = glassy && MachineGlass.hasAreas(name);
                 for (float[] f : faces(p.group)) {

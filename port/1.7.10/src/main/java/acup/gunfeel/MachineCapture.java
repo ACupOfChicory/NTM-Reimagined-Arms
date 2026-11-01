@@ -201,14 +201,10 @@ final class MachineCapture {
             this.elevator = elevator;
         }
 
-        // the names of its textures (MachineMesh.textureName, the game's thread), found apart from the draw: going over
-        // the texture manager took as long as the draw
+        // the names of its textures (MachineMesh.textureName), found on the worker: going over a pack's texture manager
+        // took the game's thread 3 ms
         void name() {
-            for (int i = names.size(); i < parts.size(); i++) names.add(MachineMesh.textureName(parts.get(i).texture));
-        }
-
-        boolean named() {
-            return names.size() == parts.size();
+            for (int i = names.size(); i < parts.size(); i++) names.add(MachineMesh.textureName(parts.get(i).texture, true));
         }
 
         // the GL textures it was drawn with
@@ -218,8 +214,7 @@ final class MachineCapture {
             return out;
         }
 
-        // its triangles; `textures` has its textures' pixels (else they are read from GL: the game's thread only), named
-        // before on any other thread
+        // its triangles; `textures` has its textures' pixels (else they are read from GL: the game's thread only)
         Collect triangles(Map<Integer, int[][]> textures) {
             name();
             Collect c = new Collect();
@@ -333,8 +328,12 @@ final class MachineCapture {
                     v0 = icon.getMinV();
                     du = icon.getMaxU() - u0;
                     dv = icon.getMaxV() - v0;
-                    if (atlas == null) atlas = atlases.get();
-                    tex = iconPixels(atlas, icon);
+                    tex = iconFile(icon);
+                    if (tex == null) {
+                        if (atlas == null) atlas = atlases.get();
+                        if (atlas == null) throw NeedAtlas.ONE;
+                        tex = iconPixels(atlas, icon);
+                    }
                     String name = path(icon.getIconName());
                     empty = MachineGlass.empty(name);
                     iconName = name;
@@ -361,7 +360,8 @@ final class MachineCapture {
     private static volatile List<TextureAtlasSprite> icons;
 
     // the block atlas' icons, read once (the game's thread)
-    static void initIcons(Minecraft mc) {
+    // any thread (the worker): no GL
+    static synchronized void initIcons(Minecraft mc) {
         if (icons != null) return;
         TextureMap map = (TextureMap) mc.getTextureManager().getTexture(TextureMap.locationBlocksTexture);
         Map<?, ?> m = cpw.mods.fml.relauncher.ReflectionHelper.getPrivateValue(TextureMap.class, map, "mapUploadedSprites", "field_94252_e");
@@ -375,6 +375,84 @@ final class MachineCapture {
         for (TextureAtlasSprite s : icons)
             if (u >= s.getMinU() && u <= s.getMaxU() && v >= s.getMinV() && v <= s.getMaxV()) return s;
         return null;
+    }
+
+    // An icon's pixels from its own file (path), on any thread: what the block atlas has of it at level 0, without
+    // reading the atlas back from GL (a pack's 4096 x 4096 one held the game's thread 9 ms); an animated one's first
+    // frame. Null: no such file (an icon made by code); the atlas is read then
+    private static final Map<String, int[][]> ICON_FILES = new java.util.concurrent.ConcurrentHashMap<String, int[][]>();
+    private static final int[][] NO_FILE = new int[0][];
+
+    static int[][] iconFile(TextureAtlasSprite s) {
+        String name = path(s.getIconName());
+        int[][] got = ICON_FILES.get(name);
+        if (got == null) {
+            got = readIcon(name, s);
+            ICON_FILES.put(name, got == null ? NO_FILE : got);
+        }
+        return got == NO_FILE ? null : got;
+    }
+
+    private static int[][] readIcon(String name, TextureAtlasSprite s) {
+        try (java.io.InputStream in = Minecraft.getMinecraft().getResourceManager().getResource(new net.minecraft.util.ResourceLocation(name)).getInputStream()) {
+            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(in);
+            if (img == null) return null;
+            int w = img.getWidth(), h = img.getHeight();
+            // frames one under another
+            if (h > w && h % w == 0) h = w;
+            // not what the atlas holds (scaled, a frame of another shape): read from it
+            if (w != s.getIconWidth() || h != s.getIconHeight()) return null;
+            int[] px = img.getRGB(0, 0, w, h, null, 0, w);
+            return new int[][] {{w, h}, px};
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // A tile entity renderer's texture's pixels from its file, on any thread (MachineTake's worker): no GL read, whose
+    // fence held the game's thread up to 9 ms in a pack. Null: not loaded from a file as it is (read from GL then)
+    private static final Map<String, int[][]> TEXTURE_FILES = new java.util.concurrent.ConcurrentHashMap<String, int[][]>();
+
+    static int[][] textureFile(int id) {
+        String name = MachineMesh.fileName(id);
+        if (name == null) return null;
+        int[][] got = TEXTURE_FILES.get(name);
+        if (got == null) {
+            got = NO_FILE;
+            try (java.io.InputStream in = Minecraft.getMinecraft().getResourceManager().getResource(new net.minecraft.util.ResourceLocation(name)).getInputStream()) {
+                java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(in);
+                if (img != null) {
+                    int w = img.getWidth(), h = img.getHeight();
+                    got = new int[][] {{w, h}, img.getRGB(0, 0, w, h, null, 0, w)};
+                }
+            } catch (Exception e) {
+                // read from GL
+            }
+            TEXTURE_FILES.put(name, got);
+        }
+        return got == NO_FILE ? null : got;
+    }
+
+    // thrown on the worker: the textures of a tile entity renderer's draw with no file, to be read from GL
+    // (MachineTake reads them and goes again)
+    static final class NeedTextures extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        final List<Integer> ids;
+
+        NeedTextures(List<Integer> ids) {
+            super(null, null, false, false);
+            this.ids = ids;
+        }
+    }
+
+    // thrown on the worker: an icon has no file and the atlas is not read yet (MachineTake reads it and goes again)
+    static final class NeedAtlas extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        static final NeedAtlas ONE = new NeedAtlas();
+
+        private NeedAtlas() {
+            super(null, null, false, false);
+        }
     }
 
     // the icon's pixels cut out of the atlas

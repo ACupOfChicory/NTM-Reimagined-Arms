@@ -18,9 +18,9 @@ import net.minecraft.world.World;
 
 // One machine taken in the game (MachineScan) a little each frame, no frame given more than its budget: on the game's
 // thread only what needs the world or GL, each a piece at a time (its blocks found a slice of the space around the core
-// at a time, its renderer drawn once, or its blocks drawn one by one into the chunk; its textures read through pixel
-// buffers, GlRead); the triangles, their cells and the model made on a thread of its own, which also puts them in the
-// tables (ModelCells.taken, MachineFaces.taken).
+// at a time, its renderer drawn once, or its blocks drawn one by one into the chunk; the textures that have no file of
+// their own read through pixel buffers, GlRead); the textures from their files, the triangles, their cells and the
+// model made on a thread of its own, which also puts them in the tables (ModelCells.taken, MachineFaces.taken).
 final class MachineTake {
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor(new java.util.concurrent.ThreadFactory() {
         @Override
@@ -31,6 +31,16 @@ final class MachineTake {
             return t;
         }
     });
+
+    static {
+        // its thread started here, as the class is set up while the game starts (MachineScan.SET_UP): started at the
+        // first machine's submit it took the game's thread a millisecond
+        WORKER.execute(new Runnable() {
+            @Override
+            public void run() {
+            }
+        });
+    }
 
     private static final int FOOTPRINT = 0, DRAW = 1, TEXTURES = 2, CHUNK = 3, ATLAS = 4, WORK = 5, DONE = 6;
 
@@ -57,13 +67,23 @@ final class MachineTake {
     private Result result;
     String how;
 
+    // the worker's answer when an icon has no file and the atlas is wanted (MachineCapture.NeedAtlas)
+    private static final Result NEED_ATLAS = new Result(null, -1);
+
     static final class Result {
         final Map<String, long[]> cells;
         final int triangles;
+        // the textures to read from GL first (MachineCapture.NeedTextures)
+        final List<Integer> need;
 
         Result(Map<String, long[]> cells, int triangles) {
+            this(cells, triangles, null);
+        }
+
+        Result(Map<String, long[]> cells, int triangles, List<Integer> need) {
             this.cells = cells;
             this.triangles = triangles;
+            this.need = need;
         }
     }
 
@@ -114,27 +134,23 @@ final class MachineTake {
         {
             switch (stage) {
                 case FOOTPRINT:
+                    if (MachineMesh.warmUp()) return false;
                     footprint(w);
                     break;
                 case DRAW:
                     drawn = MachineCapture.drawn(w, x, y, z);
                     if (drawn != null) {
                         how = "tesr";
-                        toRead.addAll(drawn.textures());
-                        stage = TEXTURES;
+                        // the textures from their files on the worker; those with none read from GL (TEXTURES)
+                        submit(new TesrTriangles(drawn, textures));
                     } else {
                         how = "chunk";
                         rb = new RenderBlocks(w);
-                        MachineCapture.initIcons(mc);
                         stage = CHUNK;
                     }
                     // the draw took its share
                     return false;
                 case TEXTURES:
-                    if (!drawn.named()) {
-                        drawn.name();
-                        break;
-                    }
                     // one read started a piece: the GPU copies it meanwhile, its pixels are taken out from the next
                     // frame on
                     if (!toRead.isEmpty()) {
@@ -155,14 +171,8 @@ final class MachineTake {
                         quads.add(MachineCapture.drawBlock(rb, block, footprint.get(drawnBlocks++)));
                         break;
                     }
+                    // the icons' pixels from their files on the worker; the atlas only when one has none (NEED_ATLAS)
                     atlas = MachineScan.cachedAtlas();
-                    if (atlas == null) {
-                        mc.getTextureManager().bindTexture(net.minecraft.client.renderer.texture.TextureMap.locationBlocksTexture);
-                        int glId = org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL11.GL_TEXTURE_BINDING_2D);
-                        atlasRead = new GlRead(glId);
-                        stage = ATLAS;
-                        return false;
-                    }
                     chunkWork();
                     break;
                 case ATLAS:
@@ -175,6 +185,25 @@ final class MachineTake {
                 case WORK:
                     if (!work.isDone()) return false;
                     result = work.get();
+                    if (result != null && result.need != null) {
+                        toRead.addAll(result.need);
+                        result = null;
+                        stage = TEXTURES;
+                        break;
+                    }
+                    if (result == NEED_ATLAS) {
+                        result = null;
+                        atlas = MachineScan.cachedAtlas();
+                        if (atlas == null) {
+                            // its id as kept, not bound and read back (that took 3 ms in a pack)
+                            int glId = mc.getTextureManager().getTexture(net.minecraft.client.renderer.texture.TextureMap.locationBlocksTexture).getGlTextureId();
+                            atlasRead = new GlRead(glId);
+                            stage = ATLAS;
+                            return false;
+                        }
+                        chunkWork();
+                        break;
+                    }
                     stage = DONE;
                     break;
                 default:
@@ -220,6 +249,14 @@ final class MachineTake {
 
         @Override
         public MachineCapture.Collect get() {
+            List<Integer> need = new ArrayList<Integer>();
+            for (int id : drawn.textures()) {
+                if (textures.containsKey(id)) continue;
+                int[][] t = MachineCapture.textureFile(id);
+                if (t != null) textures.put(id, t);
+                else need.add(id);
+            }
+            if (!need.isEmpty()) throw new MachineCapture.NeedTextures(need);
             return drawn.triangles(textures);
         }
     }
@@ -241,6 +278,8 @@ final class MachineTake {
 
         @Override
         public MachineCapture.Collect get() {
+            // the atlas' icons gone over here: a pack's thousands took the game's thread 4 to 6 ms
+            MachineCapture.initIcons(Minecraft.getMinecraft());
             return MachineCapture.chunkTriangles(blocks, quads, x, y, z, new Fixed(atlas));
         }
     }
@@ -278,13 +317,25 @@ final class MachineTake {
 
         @Override
         public Result call() {
-            MachineCapture.Collect c = triangles.get();
+            MachineCapture.Collect c;
+            try {
+                c = triangles.get();
+            } catch (MachineCapture.NeedAtlas e) {
+                return NEED_ATLAS;
+            } catch (MachineCapture.NeedTextures e) {
+                return new Result(null, -1, e.ids);
+            }
             if (c == null || c.isEmpty()) return null;
             Map<String, long[]> cells = c.finish(id, meta, blocks, x, y, z);
             ModelCells.taken(cells);
             if (c.model != null) MachineFaces.taken(key, c.model);
             return new Result(cells, c.size());
         }
+    }
+
+    // a small job for the worker, after what it has (MachineMesh's texture names)
+    static void later(Runnable r) {
+        WORKER.execute(r);
     }
 
     private void submit(Triangles triangles) {

@@ -112,7 +112,7 @@ public final class DoorCapture {
         List<double[]> triP = new ArrayList<double[]>(), triUv = new ArrayList<double[]>();
         for (Part p : PARTS) {
             int[][] tex = texture(p.texture, textures);
-            int index = MachineCapture.texIndex(p.texture, MachineMesh.textureName(p.texture), tex);
+            int index = MachineCapture.texIndex(p.texture, MachineMesh.textureName(p.texture, true), tex);
             for (S_GroupObject g : p.groups) {
                 for (S_Face f : g.faces) {
                     if (f.vertices == null || f.vertices.length < 3) continue;

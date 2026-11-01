@@ -129,6 +129,7 @@ public final class Arms {
         java.util.Arrays.fill(HAVE_FOLLOW, false);
         java.util.Arrays.fill(FOLLOW_ID, -1);
         capturing = true;
+        MachineMesh.armsCapturing = true;
     }
 
     // port: the GL modelview now, column by column (26.2: pose.last().pose())
@@ -259,6 +260,7 @@ public final class Arms {
 
     public static void end(ItemStack stack, boolean drawArms) {
         capturing = false;
+        MachineMesh.armsCapturing = false;
         geometry = variant();
         int body = -1;
         if (geometry != null) {

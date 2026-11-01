@@ -81,15 +81,16 @@ final class MachineScan {
 
     // the classes taking a machine needs, loaded on a thread of their own while the game starts: loaded at the first
     // machine (through the mod loader's transformers) they took the game's thread milliseconds
-    private static final String[] CLASSES = {"MachineTake", "MachineTake$1", "MachineTake$Result", "MachineTake$Triangles", "MachineTake$TesrTriangles",
+    private static final String[] CLASSES = {"MachineTake", "MachineTake$1", "MachineTake$2", "MachineTake$Result", "MachineTake$Triangles", "MachineTake$TesrTriangles",
             "MachineTake$ChunkTriangles", "MachineTake$Work", "MachineTake$Fixed", "MachineScan$Candidate", "MachineCapture", "MachineCapture$Collect",
-            "MachineCapture$Drawn", "MachineMesh", "MachineMesh$Part", "MachineMesh$TessGroup", "GlRead", "DoorCapture", "ShapesScenario",
+            "MachineCapture$Drawn", "MachineCapture$NeedAtlas", "MachineCapture$NeedTextures", "MachineMesh", "MachineMesh$Part", "MachineMesh$TessGroup", "MachineMesh$Scan", "GlRead", "GlRead$Copy", "GlRead$1", "DoorCapture", "ShapesScenario",
             "ShapesScenario$Atlas", "ModelCells$PixelShown", "ShapeWriter", "ShapeWriter$Bytes", "ShapePack", "ShapePack$Out", "ShapePack$Long3",
             "MachineFaces", "MachineFaces$Model", "MachineFaces$Tex", "ModelSurface", "ModelSurface$Face", "MachineGlass", "ModelObjParts"};
     // ... and these set up there too (no GL in their static parts): set up at the first machine, in the frame of its
     // draw, they took half a millisecond more
     private static final String[] SET_UP = {"MachineTake", "MachineCapture", "MachineCapture$Drawn", "MachineCapture$Collect", "MachineMesh",
-            "MachineMesh$Part", "GlRead", "MachineFaces", "DoorCapture"};
+            "MachineMesh$Part", "GlRead", "MachineFaces", "DoorCapture", "MachineTake$Result", "MachineTake$TesrTriangles", "MachineTake$ChunkTriangles",
+            "MachineTake$Work", "MachineTake$Fixed", "MachineCapture$NeedAtlas", "MachineCapture$NeedTextures", "MachineMesh$TessGroup"};
     private static final String[] LWJGL = {"org.lwjgl.opengl.GL15", "org.lwjgl.opengl.GL21", "org.lwjgl.opengl.GL32", "org.lwjgl.opengl.GLSync",
             "org.lwjgl.PointerWrapperAbstract"};
 
@@ -136,6 +137,7 @@ final class MachineScan {
             QUEUED.clear();
             drop();
             observed = w;
+            if (w != null && !off()) MachineMesh.namesLater();
         }
         if (w == null || mc.thePlayer == null || ++ticks % 40 != 0 || off()) return;
         String ntm = PortPaths.hbmVersion();
