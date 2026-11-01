@@ -50,7 +50,9 @@ sourceSets.main {
         // this node's own mods.toml, mixin lists and NTM API pin are in continuum/src/main/resources
         exclude("META-INF/neoforge.mods.toml", "ntmgunfeel.mixins.json", "ntmgunfeel-hbm.mixins.json", "ntmgunfeel-ntm-api.txt",
             // 26.1 depth is not reversed: the F3+B line shader compares it the other way round
-            "assets/ntmgunfeel/shaders/core/model_hit_lines.fsh")
+            "assets/ntmgunfeel/shaders/core/model_hit_lines.fsh",
+            // the machines' shapes taken from NTM NEXT: Continuum's are taken by its own stand (continuum/src/main/resources)
+            "ntmgunfeel-machine-shapes.pack")
     }
 }
 tasks.compileJava { source(port.resolve("src/main/java")) }
@@ -91,6 +93,8 @@ dependencies {
     compileOnly(property("deps.golemcore") as String)
     runtimeOnly(property("deps.continuum") as String)
     runtimeOnly(property("deps.golemcore") as String)
+    // XZ for Java (0BSD, third-party/xz.txt): the machines' bullet shapes in the jar (ShapePack), its jar inside the mod's
+    jarJar(implementation("org.tukaani:xz:1.10")!!)
     if (providers.gradleProperty("gemrender.run").orNull != "false") devMods(property("deps.gemrender") as String)
     testImplementation(property("deps.continuum") as String)
     testImplementation(property("deps.golemcore") as String)
@@ -113,7 +117,8 @@ neoForge {
         register("client") {
             client()
             gameDirectory = root.resolve("run-continuum")
-            jvmArgument("-Xmx3000M")
+            // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
+            jvmArgument(if (providers.gradleProperty("ntmgunfeel.shapesStand").isPresent) "-Xmx6G" else "-Xmx3000M")
             programArguments.addAll("--width", "1280", "--height", "800")
             // -Pcontinuum.join=localhost:25591 joins the dev server (runServer) on start
             providers.gradleProperty("continuum.join").orNull?.let { programArguments.addAll("--quickPlayMultiplayer", it) }
