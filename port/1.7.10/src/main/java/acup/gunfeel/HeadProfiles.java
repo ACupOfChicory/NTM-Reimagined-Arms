@@ -33,7 +33,7 @@ final class HeadProfiles {
     private static Map<String,Profile> load() {
         return loadBank("/ntmgunfeel-heads.json",Path.of("config/ntmgunfeel-heads.json"),true);
     }
-    // port: the mobs of the owner's pack 26.2 does not have (RandomThings' spirit)
+    // port: the mobs of the owner's pack 26.2 does not have (RandomThings' spirit: a slime's model, no head as 26.2's slime)
     private static final Map<String,Profile> PORT=loadBank("/ntmgunfeel-heads-1710.json",Path.of("config/ntmgunfeel-heads-1710.json"),true);
     static Map<String,Profile> loadBank(String resource,Path override,boolean required) {
         var out=new HashMap<String,Profile>();
