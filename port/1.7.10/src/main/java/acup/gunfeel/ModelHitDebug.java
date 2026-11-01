@@ -23,6 +23,8 @@ public final class ModelHitDebug {
 
     // RenderManager.renderDebugBoundingBox HEAD; true: drawn here, skip the box
     public static boolean draw(Entity entity) {
+        near(entity);
+        if (aroundCamera(entity)) return true;
         if (!ModelHitClient.enabled() || !acup.gunfeel.compat.Feature.MODEL_HITBOXES.on()) return false;
         Entity parent = ModelPartEntities.parent(entity);
         if (parent != null) return ModelHits.hasPose(parent);
@@ -44,6 +46,76 @@ public final class ModelHitDebug {
         GL11.glDisable(GL11.GL_BLEND);
         GL11.glDepthMask(true);
         return true;
+    }
+
+    // A box the camera is inside is not drawn: its lines pass a few hundredths of a block from the eye and cross the
+    // whole screen as "a box in front of the player that moves with them" (owner's report). In the owner's pack that is
+    // iChunUtil's EntityTrail (ichun.client.voxel), a 0.1 client-only entity kept at the player's position, at eye
+    // height in 1.7.10 (the client player's posY is its eye). Vanilla skips the player's own box the same way in first
+    // person.
+    static boolean aroundCamera(Entity entity) {
+        Entity view = net.minecraft.client.Minecraft.getMinecraft().renderViewEntity;
+        if (view == null || entity == view || entity.boundingBox == null) return false;
+        // the box is drawn where the entity is between two ticks, the camera is where the view is between them: both
+        // ends of the tick are checked. EntityRenderer.orientCamera: the eye is posY - (yOffset - 1.62).
+        double eye = 1.62F - view.yOffset;
+        var b = entity.boundingBox;
+        double x0 = b.minX - entity.posX, y0 = b.minY - entity.posY, z0 = b.minZ - entity.posZ;
+        double x1 = b.maxX - entity.posX, y1 = b.maxY - entity.posY, z1 = b.maxZ - entity.posZ;
+        return contains(x0, y0, z0, x1, y1, z1, view.posX - entity.posX, view.posY + eye - entity.posY, view.posZ - entity.posZ, 0.05)
+                && contains(x0, y0, z0, x1, y1, z1, view.lastTickPosX - entity.lastTickPosX, view.lastTickPosY + eye - entity.lastTickPosY,
+                        view.lastTickPosZ - entity.lastTickPosZ, 0.05);
+    }
+
+    static boolean contains(double x0, double y0, double z0, double x1, double y1, double z1, double x, double y, double z, double margin) {
+        return x >= x0 - margin && x <= x1 + margin && y >= y0 - margin && y <= y1 + margin && z >= z0 - margin && z <= z1 + margin;
+    }
+
+    // diagnostic (owner's report: a box in front of the player that moves with them): each entity within 3 blocks of
+    // the camera that gets an F3+B box, once per entity and viewport, with the viewport (a shader's shadow pass draws
+    // into a square one)
+    private static final java.util.Set<String> NEAR = new java.util.HashSet<>();
+    private static final java.nio.IntBuffer VIEWPORT = org.lwjgl.BufferUtils.createIntBuffer(16);
+    private static void near(Entity entity) {
+        Entity view = net.minecraft.client.Minecraft.getMinecraft().renderViewEntity;
+        if (view == null || entity.getDistanceSqToEntity(view) > 9) return;
+        VIEWPORT.clear();
+        GL11.glGetInteger(GL11.GL_VIEWPORT, VIEWPORT);
+        String key = entity.getEntityId() + " " + VIEWPORT.get(2) + "x" + VIEWPORT.get(3);
+        if (NEAR.size() > 200 || !NEAR.add(key)) return;
+        GunFeel.LOGGER.info("box near the camera: {} id={} self={} riding={} ridden={} at {} {} {} from the view, box {}, viewport {}",
+                entity.getClass().getName(), entity.getEntityId(), entity == view, entity.ridingEntity, entity.riddenByEntity,
+                String.format("%.2f", entity.posX - view.posX), String.format("%.2f", entity.posY - view.posY),
+                String.format("%.2f", entity.posZ - view.posZ), entity.boundingBox, VIEWPORT.get(2) + "x" + VIEWPORT.get(3));
+    }
+
+    // F3+B lines at full brightness, in the dark and in fog as in daylight: vanilla draws the box with the world's
+    // lightmap on (and its fog), so at night the lines were nearly black. The lightmap unit's texture off and its
+    // coordinates at full light (a shader pack's line program reads them), fog off; put back after.
+    private static boolean fog, bright;
+    private static float lightX, lightY;
+
+    public static void brightBegin() {
+        if (bright) return;
+        bright = true;
+        fog = GL11.glIsEnabled(GL11.GL_FOG);
+        GL11.glDisable(GL11.GL_FOG);
+        lightX = net.minecraft.client.renderer.OpenGlHelper.lastBrightnessX;
+        lightY = net.minecraft.client.renderer.OpenGlHelper.lastBrightnessY;
+        net.minecraft.client.renderer.OpenGlHelper.setLightmapTextureCoords(net.minecraft.client.renderer.OpenGlHelper.lightmapTexUnit, 240F, 240F);
+        net.minecraft.client.renderer.OpenGlHelper.setActiveTexture(net.minecraft.client.renderer.OpenGlHelper.lightmapTexUnit);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        net.minecraft.client.renderer.OpenGlHelper.setActiveTexture(net.minecraft.client.renderer.OpenGlHelper.defaultTexUnit);
+    }
+
+    public static void brightEnd() {
+        if (!bright) return;
+        bright = false;
+        net.minecraft.client.renderer.OpenGlHelper.setActiveTexture(net.minecraft.client.renderer.OpenGlHelper.lightmapTexUnit);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        net.minecraft.client.renderer.OpenGlHelper.setActiveTexture(net.minecraft.client.renderer.OpenGlHelper.defaultTexUnit);
+        net.minecraft.client.renderer.OpenGlHelper.setLightmapTextureCoords(net.minecraft.client.renderer.OpenGlHelper.lightmapTexUnit, lightX, lightY);
+        if (fog) GL11.glEnable(GL11.GL_FOG);
     }
 
     private static void lines(List<Vec3[]> strips, int color) {

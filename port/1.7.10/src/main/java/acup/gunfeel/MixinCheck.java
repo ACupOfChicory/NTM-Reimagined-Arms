@@ -16,7 +16,7 @@ public final class MixinCheck {
             {"com.hbm.render.anim.HbmAnimations", "2"},
             {"com.hbm.render.loader.HFRWavefrontObject", "8"}, // 4 + MachineMesh ends 4
             {"com.hbm.render.loader.HFRWavefrontObjectVBO", "4"},
-            {"net.minecraft.client.renderer.EntityRenderer", "4"}, // 2 + MixinMousePick 2
+            {"net.minecraft.client.renderer.EntityRenderer", "6"}, // 2 + MixinMousePick 2 + the world pass 2 (MixinEntityRenderer)
             {"net.minecraft.client.renderer.RenderGlobal", "1"}, // MixinRenderGlobal: the holes before the block cracks
             {"net.minecraft.entity.projectile.EntityArrow", "5"}, // MixinVanillaProjectileHits, as the three below
             {"net.minecraft.entity.projectile.EntityThrowable", "5"},
@@ -37,7 +37,7 @@ public final class MixinCheck {
             {"net.minecraft.client.model.ModelRenderer", "4"}, // 2 + MachineMesh compile 2
             {"net.minecraft.client.renderer.Tessellator", "1"}, // MixinTessellator
             {"net.minecraftforge.client.model.obj.WavefrontObject", "8"}, // MixinForgeWavefrontObject 4 + ends 4
-            {"net.minecraft.client.renderer.entity.RenderManager", "1"},
+            {"net.minecraft.client.renderer.entity.RenderManager", "2"}, // the model box, the box at full brightness
             {"com.hbm.items.weapon.sedna.GunConfig", "6"}, // MixinG3Inspect 4 (gunfeel$release + 3), MixinGunConfigAnims 2
             {"com.hbm.entity.projectile.EntityThrowableNT", "8"}, // MixinThrowableClip: bullets 4 + hitboxes 4
             {"com.hbm.entity.projectile.EntityBulletBeamBase", "4"},

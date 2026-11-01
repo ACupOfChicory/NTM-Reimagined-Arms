@@ -65,6 +65,18 @@ public final class ModelHitClient {
 
     // ---- capture hooks (render thread) ----
 
+    // EntityRenderer.renderWorld HEAD/RETURN (MixinEntityRenderer). A living entity drawn outside the world's pass is
+    // drawn somewhere else: the player in the inventory (GuiInventory draws them at the camera with a yaw the mouse
+    // gives), a mod's mob in a GUI. Taken, its pose went to ModelHits and to the server as the entity's own. Until the
+    // hook has run once (not applied) every draw is taken, as before.
+    private static int worldDepth;
+    private static boolean worldSeen;
+
+    public static void world(boolean in) {
+        worldSeen = true;
+        worldDepth = Math.max(0, worldDepth + (in ? 1 : -1));
+    }
+
     // RendererLivingEntity.doRender HEAD: x, y, z are camera-relative, as RenderManager passes them
     public static void begin(EntityLivingBase entity, ModelBase model, double x, double y, double z) {
         current = null;
@@ -72,6 +84,7 @@ public final class ModelHitClient {
         inModel = false;
         inPass = false;
         if (!enabled || !acup.gunfeel.compat.Feature.MODEL_HITBOXES.on() || model == null || !eligible(entity)) return;
+        if (worldSeen && worldDepth == 0) return;
         target = entity;
         ModelHitClient.model = model;
         renderX = x;

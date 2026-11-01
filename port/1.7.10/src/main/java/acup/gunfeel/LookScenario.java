@@ -23,7 +23,7 @@ final class LookScenario {
     }
 
     private static final int BUILD = 5, GIVE = 40, HUD = 60, SKY = 70, SHOT = 100, HOLES = 140, SWITCH = 160, BURST = 180,
-            BURST_TICKS = 20, HOLES2 = 240, TURN = 260, ZOMBIE = 280, AT_ZOMBIE = 300, RADIAL = 330, MACHINE = 390, DOOR = 470, STANDS = 650, STAND_TICKS = 60, DONE = 1040;
+            BURST_TICKS = 20, HOLES2 = 240, TURN = 260, ZOMBIE = 280, AT_ZOMBIE = 300, RADIAL = 330, MACHINE = 390, DOOR = 470, STANDS = 650, STAND_TICKS = 60, RCLICK = 1015, INVENTORY = 1078, DONE = 1100;
 
     // the zombie's place relative to the player's feet: 3 to the left (+x, the player looks along +z), 7 ahead
     private static final int ZX = 3, ZZ = 7;
@@ -54,6 +54,43 @@ final class LookScenario {
             GunFeel.LOGGER.info("Scenario look: after the ammo choice {} of {} rounds, {}", mag == null ? -1 : mag.getAmount(stack, null),
                     mag == null ? -1 : mag.getCapacity(stack), com.hbm.items.weapon.sedna.ItemGunBaseNT.getState(stack, 0));
         });
+    }
+
+    private static double[] close;
+    private static int armsBefore;
+    private static net.minecraft.item.ItemStack stackBefore;
+
+    // tick k of the right click (k = 0 clicks, as the game's right mouse button does): what is drawn and why
+    private static void rightClick(Minecraft mc, int k) {
+        net.minecraft.client.renderer.ItemRenderer r = mc.entityRenderer.itemRenderer;
+        net.minecraft.item.ItemStack held = mc.thePlayer.getHeldItem();
+        if (k == 0) {
+            net.minecraft.util.MovingObjectPosition hit = mc.objectMouseOver;
+            GunFeel.LOGGER.info("Scenario look: right click on {} {}", hit == null ? "nothing" : hit.typeOfHit,
+                    hit == null ? "" : hit.blockX + " " + hit.blockY + " " + hit.blockZ + " " + mc.theWorld.getBlock(hit.blockX, hit.blockY, hit.blockZ).getUnlocalizedName());
+            try {
+                cpw.mods.fml.relauncher.ReflectionHelper.findMethod(Minecraft.class, mc, new String[] {"func_147121_ag"}).invoke(mc);
+            } catch (ReflectiveOperationException e) {
+                GunFeel.LOGGER.info("Scenario look: right click failed", e);
+            }
+        }
+        if (k == 25 && mc.currentScreen != null) mc.thePlayer.closeScreen();
+        float progress = cpw.mods.fml.relauncher.ReflectionHelper.getPrivateValue(net.minecraft.client.renderer.ItemRenderer.class, r, "equippedProgress", "field_78454_c");
+        net.minecraft.item.ItemStack shown = ((acup.gunfeel.mixins.early.ItemRendererAccess) r).gunfeel$getItemToRender();
+        String gun = held != null && held.getItem() instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT
+                ? com.hbm.items.weapon.sedna.ItemGunBaseNT.getState(held, 0) + " " + com.hbm.items.weapon.sedna.ItemGunBaseNT.getLastAnim(held, 0) + " "
+                        + com.hbm.items.weapon.sedna.ItemGunBaseNT.getAnimTimer(held, 0) + " equipped=" + com.hbm.items.weapon.sedna.ItemGunBaseNT.getIsEquipped(held)
+                : String.valueOf(held);
+        GunFeel.LOGGER.info("Scenario look: right click tick {}: screen {} arms frames +{} equippedProgress {} shown==held {} new stack {} gun {}", k,
+                mc.currentScreen == null ? "none" : mc.currentScreen.getClass().getSimpleName(), Arms.drawnFrames - armsBefore, progress, shown == held,
+                held != stackBefore, gun);
+        armsBefore = Arms.drawnFrames;
+        stackBefore = held;
+    }
+
+    // steps that run with a screen open: the right click opens the machine's GUI, the inventory step its own
+    static boolean underScreen(int t) {
+        return t >= RCLICK + 14 && t <= RCLICK + 60 || t >= INVENTORY && t <= INVENTORY + 8;
     }
 
     static void step(Minecraft mc, int t) {
@@ -117,6 +154,14 @@ final class LookScenario {
             float pitch = (float) Math.toDegrees(Math.atan2(1.62 - 1.2, Math.sqrt(dx * dx + dz * dz)));
             mc.thePlayer.rotationYaw = mc.thePlayer.prevRotationYaw = yaw;
             mc.thePlayer.rotationPitch = mc.thePlayer.prevRotationPitch = pitch;
+        } else if (t == TURN + 1) {
+            // diagnostic: every entity within 4 blocks of the player
+            for (Object o : mc.theWorld.loadedEntityList) {
+                net.minecraft.entity.Entity e = (net.minecraft.entity.Entity) o;
+                if (e.getDistanceSqToEntity(mc.thePlayer) <= 16)
+                    GunFeel.LOGGER.info("Scenario look: entity near the player: {} id={} self={} riding={} at {} {} {}", e.getClass().getName(),
+                            e.getEntityId(), e == mc.thePlayer, e.ridingEntity, e.posX - mc.thePlayer.posX, e.posY - mc.thePlayer.posY, e.posZ - mc.thePlayer.posZ);
+            }
         } else if (t == ZOMBIE) {
             shot(mc, "zombie-f3b");
         } else if (t == AT_ZOMBIE) {
@@ -185,6 +230,7 @@ final class LookScenario {
             final double ox = mc.thePlayer.posX - cx, oz = mc.thePlayer.posZ - cz, ol = Math.sqrt(ox * ox + oz * oz);
             final double x = cx + ox / ol * 2.6, z = cz + oz / ol * 2.6;
             final float yaw = (float) Math.toDegrees(Math.atan2(ox, -oz));
+            close = new double[] {x, f[1], z, yaw};
             ShootScenario.onServer(() -> {
                 EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
                 player.playerNetServerHandler.setPlayerLocation(x, f[1], z, yaw, 8F);
@@ -227,6 +273,24 @@ final class LookScenario {
             shot(mc, "door-open");
         } else if (t >= STANDS && t < STANDS + STAND.length * STAND_TICKS) {
             stand(mc, (t - STANDS) / STAND_TICKS, (t - STANDS) % STAND_TICKS);
+        } else if (t == RCLICK) {
+            // diagnostic (owner's report: a right click on a machine with a gun in hand hides the gun and the arms for
+            // about a second): back at the press's close-up, the am180 in hand
+            mc.thePlayer.inventory.currentItem = 3;
+            final double[] c = close;
+            ShootScenario.onServer(() -> {
+                EntityPlayerMP player = (EntityPlayerMP) MinecraftServer.getServer().getConfigurationManager().playerEntityList.get(0);
+                player.playerNetServerHandler.setPlayerLocation(c[0], c[1], c[2], (float) c[3], 8F);
+            });
+        } else if (t >= RCLICK + 14 && t <= RCLICK + 60) {
+            rightClick(mc, t - RCLICK - 15);
+        } else if (t >= INVENTORY && t <= INVENTORY + 8) {
+            // the player in the inventory (GuiInventory draws them at the camera with the mouse's yaw) is not the
+            // player's pose: in first person without a shader pack the player is never drawn in the world, so no pose
+            if (t == INVENTORY + 8) mc.thePlayer.closeScreen();
+            GunFeel.LOGGER.info("Scenario look: inventory tick {}: screen {} own pose {}", t - INVENTORY,
+                    mc.currentScreen == null ? "none" : mc.currentScreen.getClass().getSimpleName(), ModelHits.hasPose(mc.thePlayer));
+            if (t == INVENTORY) mc.displayGuiScreen(new net.minecraft.client.gui.inventory.GuiInventory(mc.thePlayer));
         } else if (t == DONE - 10) {
             // the systems' state in chat (the chat lines go to the log as [CHAT])
             for (String c : new String[] {"/gunfeel quality low", "/gunfeel quality", "/gunfeel quality high", "/gunfeel hitvolume", "/gunfeel settings",

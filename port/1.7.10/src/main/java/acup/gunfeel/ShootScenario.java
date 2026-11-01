@@ -92,7 +92,9 @@ public final class ShootScenario {
             if (mc.currentScreen instanceof GuiMainMenu) start(mc);
             return;
         }
-        if (mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null) return;
+        if (mc.thePlayer == null || mc.theWorld == null) return;
+        // the look scenario's right click and inventory steps go on under the screen they open (and close it)
+        if (mc.currentScreen != null && !(look() && LookScenario.underScreen(tick + 1))) return;
         if (shapes()) {
             ShapesScenario.step(mc, ++tick);
             return;
