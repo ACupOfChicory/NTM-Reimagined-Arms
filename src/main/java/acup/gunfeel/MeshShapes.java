@@ -344,9 +344,12 @@ public final class MeshShapes {
     private static ModelSurface.Face surface(double[] p, float[] u, float[] v, TextureAtlasSprite sprite, boolean glass) {
         var contents = sprite.contents();
         int w = contents.width(), h = contents.height();
+        String texture = contents.name().getNamespace() + ":textures/" + contents.name().getPath() + ".png";
+        boolean areas = glass && !MachineGlass.areas(texture).isEmpty();
         long[] alpha = new long[(w * h + 63) / 64];
         for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
-            if (contents.isTransparent(0, x, y) == glass) {
+            // a window shows its clear pixels, but those in an area listed as empty
+            if (contents.isTransparent(0, x, y) == glass && !(areas && MachineGlass.emptyAt(texture, x, y))) {
                 int k = x + w * y;
                 alpha[k >> 6] |= 1L << (k & 63);
             }
