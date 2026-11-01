@@ -51,9 +51,27 @@ class HeadsPortTest {
         return out;
     }
 
-    // marked in 26.2, no head here: the cyber crab's head is its shell, one mesh in 26.2 and 20 cubes in 1.7.10; the
-    // bat of 26.2 is another model (its head 4 x 3 x 2 px, 1.7.10's a 6 px cube): a head of another size is not taken
+    // marked in 26.2, no head here (the owner's choice, 2026-11-01: the port's markup, ntmgunfeel-heads-1710.json, says
+    // "none" over 26.2's): the cyber crab's head is its shell, one mesh in 26.2 and 20 cubes in 1.7.10; the bat of 26.2
+    // is another model (its head 4 x 3 x 2 px, 1.7.10's a 6 px cube). A shape not as 26.2's: no head, the body as drawn
     private static final java.util.Set<String> NO_HEAD = new java.util.HashSet<>(java.util.Arrays.asList("hbm:entity_cyber_crab", "minecraft:bat"));
+
+    @Test
+    void batAndCyberCrabHaveNoHead() throws Exception {
+        Map<String, Pose> all = poses();
+        for (String key : NO_HEAD) {
+            assertTrue(HeadProfiles.all().containsKey(key) && !HeadProfiles.all().get(key).none(), key + ": 26.2 marks its head");
+            assertTrue(ModelHeads.noHead(key), key);
+            int seen = 0;
+            for (Pose p : all.values()) if (p.key().equals(key)) {
+                seen++;
+                var res = ModelHeads.resolve(p.key(), p.boxes(), p.yaw());
+                assertTrue(res.zones().isEmpty(), p.name() + ": " + res.reason());
+                assertEquals("dataset", res.source(), p.name());
+            }
+            assertTrue(seen > 0, key + ": no pose");
+        }
+    }
 
     // Et Futurum's shulker (ModelShulker, ShulkerRenderer.renderModel): the head is drawn in the renderer's renderModel
     // after the model's base and lid, inside doRender's renderModel call that the capture brackets, and only while the
@@ -104,7 +122,7 @@ class HeadsPortTest {
         int marked = 0;
         for (Pose p : poses().values()) {
             var profile = HeadProfiles.get(p.key());
-            if (profile == null || profile.none() || NO_HEAD.contains(p.key())) continue;
+            if (profile == null || profile.none()) continue;
             marked++;
             var res = ModelHeads.resolve(p.key(), p.boxes(), p.yaw());
             if (res.zones().isEmpty()) bad.add(p.name() + " (" + p.key() + "): " + res.reason());

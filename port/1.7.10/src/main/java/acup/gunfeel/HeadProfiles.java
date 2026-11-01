@@ -23,9 +23,10 @@ final class HeadProfiles {
         return get(PROFILES,type);
     }
     static Profile get(Map<String,Profile> bank,String type) {
-        var exact=bank.get(type);if(exact!=null) return exact;
-        // port: the port's own markup holds by its type only, never as a template for another mob (ZoneTemplates)
-        if(bank==PROFILES && (exact=PORT.get(type))!=null) return exact;
+        // port: the port's own markup holds by its type only, before 26.2's (the owner's "none" for mobs 26.2 marks),
+        // never as a template for another mob (ZoneTemplates)
+        var exact=bank==PROFILES?PORT.get(type):null;if(exact!=null) return exact;
+        exact=bank.get(type);if(exact!=null) return exact;
         return type.equals("minecraft:player")?bank.get("minecraft:mannequin"):null;
     }
     static Map<String,Profile> all() { return PROFILES; }
@@ -33,7 +34,8 @@ final class HeadProfiles {
     private static Map<String,Profile> load() {
         return loadBank("/ntmgunfeel-heads.json",Path.of("config/ntmgunfeel-heads.json"),true);
     }
-    // port: the mobs of the owner's pack 26.2 does not have (RandomThings' spirit: a slime's model, no head as 26.2's slime)
+    // port: the owner's markup for 1.7.10: mobs 26.2 does not have (RandomThings' spirit: a slime's model, no head as
+    // 26.2's slime) and 26.2's marked heads 1.7.10 draws otherwise (the bat, the cyber crab: no head)
     private static final Map<String,Profile> PORT=loadBank("/ntmgunfeel-heads-1710.json",Path.of("config/ntmgunfeel-heads-1710.json"),true);
     static Map<String,Profile> loadBank(String resource,Path override,boolean required) {
         var out=new HashMap<String,Profile>();
