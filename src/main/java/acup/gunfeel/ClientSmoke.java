@@ -389,6 +389,7 @@ public final class ClientSmoke {
             Files.createDirectories(file.getParent());
             Files.write(file, REPORT);
         } catch (Exception e) { GunFeel.LOGGER.error("[clientcheck] запись отчёта", e); }
+        ExitWatch.start();
         Minecraft.getInstance().stop();
     }
 }
