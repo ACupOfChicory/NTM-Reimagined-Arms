@@ -108,7 +108,7 @@ final class HeadProfiles {
         var ratios=new ArrayList<Double>();
         for(var ref:profile.parts()) {
             var matches=boxes.stream().filter(b->name(b.part()).equals(name(ref.name()))).toList();
-            if(matches.size()==1 && !anonymous(ref.name())) {
+            if(matches.size()==1 && !anonymous(ref.name()) && variants(profile,ref.name())==1) {
                 var s=size(matches.getFirst());for(int i=0;i<3;i++) ratios.add(s[i]/ref.size()[i]);
             }
         }
@@ -138,10 +138,23 @@ final class HeadProfiles {
         }
         var zones=new ArrayList<Zone>();int missing=0;
         for(var zone:profile.zones()) {
-            int match=mapping[zone.part()];if(match<0) { missing++;continue; }
+            int match=mapping[zone.part()];if(match<0) { if(!otherVariant(profile,mapping,zone.part())) missing++;continue; }
             zones.add(new Zone(match,zone.group(),zone.planes(),zone.face()));
         }
         return new Binding(List.copyOf(zones),missing,missing==0?"ручная разметка":"ручная разметка: часть модели не сопоставлена");
+    }
+    // Один узел модели в разных обликах под одним именем (голова Mask Man и череп, который NTM рисует вместо неё с
+    // половины здоровья): у каждого облика своя часть и зона, зона найдена, если подошёл любой облик с этим именем.
+    private static long variants(Profile profile,String name) {
+        return profile.parts().stream().filter(r->name(r.name()).equals(name(name))).count();
+    }
+    private static boolean otherVariant(Profile profile,int[] mapping,int part) {
+        String name=name(profile.parts().get(part).name());
+        for(var zone:profile.zones()) {
+            int other=zone.part();
+            if(other!=part && mapping[other]>=0 && name(profile.parts().get(other).name()).equals(name)) return true;
+        }
+        return false;
     }
     static List<HeadZone> zones(Binding binding,List<ModelBox> boxes) {
         var out=new ArrayList<HeadZone>();
