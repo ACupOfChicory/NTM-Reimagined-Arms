@@ -39,7 +39,8 @@ tasks.withType<AbstractArchiveTask>().configureEach { archiveVersion.set(jarVers
 // the licences, as in the 26.2 jar (WeaponSway is GPL-3.0-only); the JvmDowngrader stubs shaded in are LGPL-2.1
 tasks.jar {
     from(repo.resolve("LICENSE"))
-    from(repo.resolve("third-party")) { into("META-INF/licenses") }
+    // xz.txt: 26.2 nests XZ for Java as a jar (Jar-in-Jar); the port shades it, its own third-party/xz.txt says so
+    from(repo.resolve("third-party")) { into("META-INF/licenses"); exclude("xz.txt") }
 }
 
 // the version for the code: acup.gunfeel.BuildInfo (VERSION, DISPLAY)
@@ -107,7 +108,8 @@ extensions.configure<xyz.wagyourtail.jvmdg.gradle.JVMDowngraderExtension> {
 tasks.named<Jar>("shadowJar") {
     exclude("module-info.class", "META-INF/versions/**", "META-INF/*.kotlin_module")
     from(repo.resolve("LICENSE"))
-    from(repo.resolve("third-party")) { into("META-INF/licenses") }
+    // xz.txt: 26.2 nests XZ for Java as a jar (Jar-in-Jar); the port shades it, its own third-party/xz.txt says so
+    from(repo.resolve("third-party")) { into("META-INF/licenses"); exclude("xz.txt") }
     from(projectDir.resolve("third-party")) { into("META-INF/licenses") }
 }
 
