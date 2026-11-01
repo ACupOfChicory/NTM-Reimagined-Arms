@@ -68,6 +68,8 @@ val tools: SourceSet = sourceSets.create("tools") {
 
 dependencies {
     compileOnly(ntm)
+    // XZ for Java (0BSD, third-party/xz.txt): the machines' bullet shapes in the jar (ShapePack), its jar inside the mod's
+    jarJar(implementation("org.tukaani:xz:1.10")!!)
     compileOnly(files(root.resolve("libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar")))
     testImplementation(files(root.resolve("libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar")))
     // NTM loads as a mod in the dev runs (runDumpBlocks); the mod jar never contains it
@@ -107,7 +109,16 @@ neoForge {
             systemProperty("ntmgunfeel.weaponSwaySelfTest",providers.gradleProperty("weaponSwaySelfTest").isPresent.toString())
             // -PmachineGlass: windows of real NTM machines are glass (MachineGlassCheck) instead of the smoke check
             systemProperty("ntmgunfeel.machineGlassCheck",providers.gradleProperty("machineGlass").isPresent.toString())
-            jvmArgument("-Xmx2500M")
+            // -PshapesStand=<file>: every NTM machine taken in turn, the jar's table of their shapes written there (ShapesStand)
+            systemProperty("ntmgunfeel.shapesStand",providers.gradleProperty("shapesStand").orElse("").get())
+            // -PshapesOnly=a,b: only the machines whose names hold one of these (the report alone is what is wanted)
+            systemProperty("ntmgunfeel.shapesOnly",providers.gradleProperty("shapesOnly").orElse("").get())
+            // -PshapesResume: a stand cut short goes on from <file>.parts, the machines kept there not taken again
+            systemProperty("ntmgunfeel.shapesResume",providers.gradleProperty("shapesResume").isPresent.toString())
+            // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
+            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else "-Xmx2500M")
+            // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame
+            providers.gradleProperty("gcLog").orNull?.let { jvmArgument("-Xlog:gc*:file=$it:uptime,time") }
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
             programArguments.addAll("--width", "854", "--height", "480")
         }
@@ -340,8 +351,9 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
     val holes = name == "runBenchHoles"
     val mobs = name == "runCheckMobs" || review
     val selfTest = providers.gradleProperty("mobReviewSelfTest").isPresent || providers.gradleProperty("headLabelSelfTest").isPresent
-    // a trace scenario on every gun (-Pscenario, -PscenarioGuns=all) plays for about half an hour
-    val scenario = providers.gradleProperty("scenario").isPresent
+    // a trace scenario on every gun (-Pscenario, -PscenarioGuns=all) plays for about half an hour; the shapes stand
+    // (-PshapesStand) takes every machine in turn
+    val scenario = providers.gradleProperty("scenario").isPresent || providers.gradleProperty("shapesStand").isPresent
     timeout.set(if(survey) Duration.ofMinutes(40) else if(review && !selfTest) Duration.ofDays(1) else if((mobs && !selfTest) || scenario) Duration.ofHours(if(scenario) 2 else 1) else Duration.ofMinutes(if(holes) 30 else 8))
     val result = if(stand) "glassstand/result.txt" else if(holes) "holebench/result.txt" else if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {

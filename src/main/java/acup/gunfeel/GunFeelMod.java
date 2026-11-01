@@ -54,6 +54,8 @@ public final class GunFeelMod {
                         ServerSettingsPayload.join(sp);
                     }
                 });
+        // the machines' bullet shapes in the jar: their index read meanwhile
+        ShapePack.preload();
         BlockDump.registerIfAsked();
         SettingsCheck.registerIfAsked();
         BulletCheck.registerIfAsked();

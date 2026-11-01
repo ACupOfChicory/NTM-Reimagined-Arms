@@ -81,6 +81,8 @@ public final class BulletCheck {
         lines.add("     round " + round.id + ": velocity " + round.velocity + ", gravity " + round.gravity);
 
         // Точная поверхность многоблочной машины должна заменять даже сплошную грубую сетку.
+        // Здесь формы машин подложены проверкой: пакет форм из jar (ShapePack) их бы перекрыл.
+        ShapePack.off = true;
         BlockState boilerState = state("hbm:machine_solar_boiler[facing=north]");
         long[] coarse = new long[65];
         java.util.Arrays.fill(coarse, 0, 64, -1L);
@@ -93,6 +95,7 @@ public final class BulletCheck {
         // Окно машины (прозрачные пиксели модели chemplant) — стекло: пуля пробивает его с потерей, корпус за ним держит.
         // Решётка (прозрачные пиксели без стеклянной грани: текстура из списка исключений) по-прежнему пропускает.
         machineGlass(coarse, machineSettings());
+        ShapePack.off = false;
 
         // DU Mr. Deuce: один лист проходит, второй не восстанавливает запас игнорирования порога.
         BulletConfig plainRound = round;

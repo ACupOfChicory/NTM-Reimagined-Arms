@@ -252,7 +252,7 @@ public final class RenderedMesh {
     // what each block entity drew, kept a moment: one burst into a machine reads it once
     private static final Map<BlockPos, Got> CACHE = new HashMap<>();
     private static final long FRESH = 250_000_000L;
-    private static final Set<Class<?>> FAILED = new HashSet<>();
+    private static final Set<Class<?>> FAILED = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static final int REACH = 16;
 
     public static void clear() {
@@ -305,10 +305,10 @@ public final class RenderedMesh {
     // true while a renderer is run here: NTM's hasVisual answers no, so its renderer draws what Flywheel would (the
     // press head, at its height)
     // (only on the thread reading it: Flywheel may ask from its own threads meanwhile)
-    private static volatile Thread capturing;
+    private static final ThreadLocal<Boolean> CAPTURING = ThreadLocal.withInitial(() -> false);
 
     public static boolean capturingHere() {
-        return capturing == Thread.currentThread();
+        return CAPTURING.get();
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -327,21 +327,188 @@ public final class RenderedMesh {
         }
     }
 
-    // the renderer run into a recorder: what it submits, not drawn yet
+    // what the last machine's pieces cost, nanoseconds (ShapesStand's report)
+    record Cost(long extract, long submit, int textures, long prepare, int here, long longest) {
+        @Override
+        public String toString() {
+            return String.format(java.util.Locale.ROOT, "extract %.2f, submit %.2f (worker), %d textures, prepare %.2f (worker), %d parts here, longest %.2f ms",
+                    extract / 1e6, submit / 1e6, textures, prepare / 1e6, here, longest / 1e6);
+        }
+    }
+
+    static volatile @Nullable Cost lastCost;
+
+    // A block entity's drawing taken a piece at a time (MeshShapes, no frame given more than its budget). On the game's
+    // thread only what reads the world or the game's textures: the renderer's state taken from the block entity
+    // (stage), the textures it draws with looked up one a piece (resolve), the parts that pose a shared model one a
+    // piece (emit). The renderer's submit, which reads only that state (submit), the files of its textures, and the
+    // rest of its parts made into triangles (prepare) go on the worker.
+    public static final class Staged {
+        @SuppressWarnings("rawtypes")
+        private final BlockEntityRenderer renderer;
+        private final BlockEntityRenderState state;
+        private final CameraRenderState camera;
+        private final BlockPos origin;
+        private @Nullable Recorder rec;
+        private final List<Identifier> locs = new ArrayList<>();
+        private final List<Identifier> toRead = new ArrayList<>();
+        private final Map<Identifier, NativeImage> toCopy = new HashMap<>();
+        private final List<Recorder.Part> here = new ArrayList<>();
+        private final List<Tri> out = new ArrayList<>();
+        private int resolved, part;
+        private volatile boolean failed;
+        private long submitNanos, prepareNanos, longestHere;
+        private final long extractNanos;
+
+        @SuppressWarnings("rawtypes")
+        private Staged(BlockEntityRenderer renderer, BlockEntityRenderState state, CameraRenderState camera, BlockPos origin, long extractNanos) {
+            this.renderer = renderer;
+            this.state = state;
+            this.camera = camera;
+            this.origin = origin.immutable();
+            this.extractNanos = extractNanos;
+        }
+
+        // on the worker: the renderer's submit into a recorder, the textures it names
+        public void submit() {
+            long t0 = System.nanoTime();
+            rec = submitInto(renderer, state, camera);
+            if (rec == null) failed = true;
+            else for (RenderType type : rec.types) {
+                Identifier loc = textureOf(type);
+                if (loc == null || GLASS.contains(loc.toString()) || TEXTURES.containsKey(loc) || locs.contains(loc)) continue;
+                locs.add(loc);
+            }
+            submitNanos = System.nanoTime() - t0;
+        }
+
+        // on the game's thread: one texture looked up (an atlas, a texture drawn into, or a file to read); true: all are
+        public boolean resolve() {
+            if (failed || resolved >= locs.size()) return true;
+            Identifier loc = locs.get(resolved++);
+            try {
+                AbstractTexture t = present(loc);
+                if (t instanceof TextureAtlas atlas) TEXTURES.putIfAbsent(loc, new AtlasTex(atlas));
+                else if (t instanceof DynamicTexture d && d.getPixels() != null) toCopy.put(loc, d.getPixels());
+                else toRead.add(loc);
+            } catch (Exception e) {
+                toRead.add(loc);
+            }
+            return resolved >= locs.size();
+        }
+
+        // on the worker: the textures read, the parts that pose nothing shared made into triangles
+        public void prepare() {
+            if (failed) return;
+            long t0 = System.nanoTime();
+            for (Identifier loc : toRead) TEXTURES.computeIfAbsent(loc, RenderedMesh::read);
+            for (var e : toCopy.entrySet()) TEXTURES.computeIfAbsent(e.getKey(), k -> {
+                try {
+                    return image(e.getValue(), null);
+                } catch (Exception x) {
+                    return OPAQUE;
+                }
+            });
+            try {
+                for (int i = 0; i < rec.parts.size(); i++) {
+                    if (rec.shared.get(i)) here.add(rec.parts.get(i));
+                    else rec.parts.get(i).emit(out, origin);
+                }
+            } catch (Throwable t) {
+                fail(t);
+            }
+            prepareNanos = System.nanoTime() - t0;
+        }
+
+        // on the game's thread: one part that poses a shared model made into triangles; true: all are
+        public boolean emit() {
+            if (failed || part >= here.size()) return done();
+            try {
+                long t0 = System.nanoTime();
+                here.get(part++).emit(out, origin);
+                longestHere = Math.max(longestHere, System.nanoTime() - t0);
+            } catch (Throwable t) {
+                fail(t);
+                return done();
+            }
+            return part >= here.size() && done();
+        }
+
+        private boolean done() {
+            lastCost = new Cost(extractNanos, submitNanos, locs.size(), prepareNanos, here.size(), longestHere);
+            return true;
+        }
+
+        private void fail(Throwable t) {
+            FAILED.add(renderer.getClass());
+            GunFeel.LOGGER.warn("Could not read what {} draws: bullet holes go on the hitbox of its blocks", renderer.getClass().getName(), t);
+            failed = true;
+            synchronized (out) {
+                out.clear();
+            }
+        }
+
+        public List<Tri> tris() {
+            return failed ? List.of() : out;
+        }
+    }
+
+    // the texture the game holds under this name, not loaded when it has none (TextureManager.getTexture would load it)
+    private static Field byPath;
+
+    private static @Nullable AbstractTexture present(Identifier loc) throws ReflectiveOperationException {
+        var manager = Minecraft.getInstance().getTextureManager();
+        if (byPath == null) {
+            Field f = manager.getClass().getDeclaredField("byPath");
+            f.setAccessible(true);
+            byPath = f;
+        }
+        return (AbstractTexture) ((Map<?, ?>) byPath.get(manager)).get(loc);
+    }
+
+    // the renderer's state taken from the block entity (on the game's thread), or null: no renderer, or it could not be read
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static @Nullable Recorder record(BlockEntity be, BlockEntityRenderer renderer) {
-        capturing = Thread.currentThread();
+    public static @Nullable Staged stage(BlockEntity be) {
+        BlockEntityRenderer renderer = Minecraft.getInstance().getBlockEntityRenderDispatcher().getRenderer(be);
+        if (renderer == null || FAILED.contains(renderer.getClass())) return null;
+        long t0 = System.nanoTime();
+        CameraRenderState camera = camera();
+        BlockEntityRenderState state = extract(be, renderer, camera.pos);
+        return state == null ? null : new Staged(renderer, state, camera, be.getBlockPos(), System.nanoTime() - t0);
+    }
+
+    private static CameraRenderState camera() {
+        Vec3 cam = Minecraft.getInstance().gameRenderer.mainCamera().position();
+        CameraRenderState camera = new CameraRenderState();
+        camera.pos = cam;
+        camera.blockPos = BlockPos.containing(cam);
+        camera.initialized = true;
+        return camera;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static @Nullable BlockEntityRenderState extract(BlockEntity be, BlockEntityRenderer renderer, Vec3 cam) {
+        CAPTURING.set(true);
         try {
-            Minecraft mc = Minecraft.getInstance();
-            Vec3 cam = mc.gameRenderer.mainCamera().position();
-            float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+            float partial = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
             BlockEntityRenderState state = (BlockEntityRenderState) renderer.createRenderState();
             renderer.extractRenderState(be, state, partial, cam, null);
             drawItself(state);
-            CameraRenderState camera = new CameraRenderState();
-            camera.pos = cam;
-            camera.blockPos = BlockPos.containing(cam);
-            camera.initialized = true;
+            return state;
+        } catch (Throwable t) {
+            FAILED.add(renderer.getClass());
+            GunFeel.LOGGER.warn("Could not read what {} draws: bullet holes go on the hitbox of its blocks", renderer.getClass().getName(), t);
+            return null;
+        } finally {
+            CAPTURING.set(false);
+        }
+    }
+
+    // what the renderer submits for that state, not drawn yet (any thread: it reads only the state)
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static @Nullable Recorder submitInto(BlockEntityRenderer renderer, BlockEntityRenderState state, CameraRenderState camera) {
+        CAPTURING.set(true);
+        try {
             Recorder rec = new Recorder();
             renderer.submit(state, new PoseStack(), rec, camera);
             return rec;
@@ -350,8 +517,16 @@ public final class RenderedMesh {
             GunFeel.LOGGER.warn("Could not read what {} draws: bullet holes go on the hitbox of its blocks", renderer.getClass().getName(), t);
             return null;
         } finally {
-            capturing = null;
+            CAPTURING.set(false);
         }
+    }
+
+    // the renderer run into a recorder at once (on the game's thread)
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static @Nullable Recorder record(BlockEntity be, BlockEntityRenderer renderer) {
+        CameraRenderState camera = camera();
+        BlockEntityRenderState state = extract(be, renderer, camera.pos);
+        return state == null ? null : submitInto(renderer, state, camera);
     }
 
     // /gunfeel meshdump: what is read around the block looked at, to config/ntm-gunfeel-meshdump.txt
@@ -529,25 +704,42 @@ public final class RenderedMesh {
     }
 
     // NTM leaves parts to Flywheel (CrankShaft) when a visual draws them ("visualized"): draw them here too
-    private static final Map<Class<?>, Field> VISUALIZED = new HashMap<>();
+    private static final Map<Class<?>, Field> VISUALIZED = new java.util.concurrent.ConcurrentHashMap<>();
+    // marks a state class with no such field (the map holds no nulls)
+    private static final Field NOT_VISUALIZED;
+
+    static {
+        try {
+            NOT_VISUALIZED = RenderedMesh.class.getDeclaredField("NOT_VISUALIZED");
+        } catch (NoSuchFieldException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    private static Field visualized(Class<?> c) {
+        for (Class<?> k = c; k != null && k != Object.class; k = k.getSuperclass()) {
+            try {
+                Field v = k.getDeclaredField("visualized");
+                if (v.getType() != boolean.class) return NOT_VISUALIZED;
+                v.setAccessible(true);
+                return v;
+            } catch (NoSuchFieldException e) {
+                // up
+            } catch (Exception e) {
+                return NOT_VISUALIZED;
+            }
+        }
+        return NOT_VISUALIZED;
+    }
 
     private static void drawItself(BlockEntityRenderState state) {
-        Field f = VISUALIZED.computeIfAbsent(state.getClass(), c -> {
-            for (Class<?> k = c; k != null && k != Object.class; k = k.getSuperclass()) {
-                try {
-                    Field v = k.getDeclaredField("visualized");
-                    if (v.getType() != boolean.class) return null;
-                    v.setAccessible(true);
-                    return v;
-                } catch (NoSuchFieldException e) {
-                    // up
-                } catch (Exception e) {
-                    return null;
-                }
-            }
-            return null;
-        });
-        if (f == null) return;
+        // no lambda here: its first call links it in the frame of a machine being taken (MeshShapes)
+        Field f = VISUALIZED.get(state.getClass());
+        if (f == null) {
+            f = visualized(state.getClass());
+            VISUALIZED.put(state.getClass(), f);
+        }
+        if (f == NOT_VISUALIZED) return;
         try {
             f.setBoolean(state, false);
         } catch (Exception e) {
@@ -560,7 +752,7 @@ public final class RenderedMesh {
     private record Captured(List<Object> from, float @Nullable [][] planes, boolean known) {
     }
 
-    private static final Map<Class<?>, Field[]> FIELDS = new HashMap<>();
+    private static final Map<Class<?>, Field[]> FIELDS = new java.util.concurrent.ConcurrentHashMap<>();
 
     private static Captured captured(Object lambda) {
         Field[] fields = FIELDS.computeIfAbsent(lambda.getClass(), c -> {
@@ -609,6 +801,10 @@ public final class RenderedMesh {
         }
 
         final List<Part> parts = new ArrayList<>();
+        // a part that poses a model the game's own drawing shares (setupAnim): made into triangles on the game's thread
+        final List<Boolean> shared = new ArrayList<>();
+        // the render types its parts draw with: their textures read before the parts are made into triangles (Staged)
+        final Set<RenderType> types = new HashSet<>();
         final Map<PartKey, PartPose> poses = new HashMap<>();
         private final Map<List<Object>, Integer> alike = new HashMap<>();
 
@@ -629,6 +825,8 @@ public final class RenderedMesh {
             PartKey key = got.known() ? new PartKey(type, renderer.getClass(), got.from(), n) : null;
             org.joml.Matrix4f now = new org.joml.Matrix4f(pose.pose());
             if (key != null) poses.put(key, new PartPose(now, got.planes()));
+            types.add(type);
+            shared.add(false);
             parts.add((out, o) -> {
                 Capture c = new Capture(type, texOf(type), o, out, key == null ? null : new Anchor(o.immutable(), key, now));
                 renderer.render(pose, c);
@@ -640,6 +838,8 @@ public final class RenderedMesh {
         public <S> void submitModel(Model<? super S> model, S state, PoseStack poseStack, RenderType type, int light, int overlay, int tint,
                 @Nullable TextureAtlasSprite sprite, int outline, @Nullable CrumblingOverlay crumbling) {
             PoseStack.Pose pose = poseStack.last().copy();
+            if (sprite == null) types.add(type);
+            shared.add(true);
             parts.add((out, o) -> {
                 PoseStack ps = new PoseStack();
                 ps.last().pose().set(pose.pose());
@@ -655,6 +855,7 @@ public final class RenderedMesh {
         public void submitBlockModel(PoseStack poseStack, RenderType type, List<BlockStateModelPart> modelParts, int[] tints, int light, int overlay, int outline) {
             PoseStack.Pose pose = poseStack.last().copy();
             boolean cull = type.pipeline().isCull();
+            shared.add(false);
             parts.add((out, o) -> {
                 for (BlockStateModelPart part : modelParts) {
                     List<BakedQuad> quads = new ArrayList<>(part.getQuads(null));
@@ -665,9 +866,9 @@ public final class RenderedMesh {
                         float[] uv = new float[8];
                         for (int i = 0; i < 4; i++) {
                             var v = pose.pose().transformPosition(q.position(i).x(), q.position(i).y(), q.position(i).z(), new org.joml.Vector3f());
-                            p[i * 3] = o.getX() + v.x;
-                            p[i * 3 + 1] = o.getY() + v.y;
-                            p[i * 3 + 2] = o.getZ() + v.z;
+                            p[i * 3] = o.getX() + (double) v.x;
+                            p[i * 3 + 1] = o.getY() + (double) v.y;
+                            p[i * 3 + 2] = o.getZ() + (double) v.z;
                             uv[i * 2] = UVPair.unpackU(q.packedUV(i));
                             uv[i * 2 + 1] = UVPair.unpackV(q.packedUV(i));
                         }
@@ -824,9 +1025,11 @@ public final class RenderedMesh {
             int[] idx = {a, b, c};
             for (int i = 0; i < 3; i++) {
                 int k = idx[i] * 5;
-                p[i * 3] = origin.getX() + v[k];
-                p[i * 3 + 1] = origin.getY() + v[k + 1];
-                p[i * 3 + 2] = origin.getZ() + v[k + 2];
+                // in double: int + float adds in float, and a world number past 16 keeps a few bits of the model's
+                // own (the same machine came out one step apart on two spots)
+                p[i * 3] = origin.getX() + (double) v[k];
+                p[i * 3 + 1] = origin.getY() + (double) v[k + 1];
+                p[i * 3 + 2] = origin.getZ() + (double) v[k + 2];
                 uv[i * 2] = v[k + 3];
                 uv[i * 2 + 1] = v[k + 4];
             }
@@ -863,8 +1066,9 @@ public final class RenderedMesh {
 
     // ---- textures
 
-    private static final Map<Identifier, Tex> TEXTURES = new HashMap<>();
-    private static final Map<TextureAtlasSprite, Tex> SPRITES = new java.util.IdentityHashMap<>();
+    // (a texture may be read on the thread MeshShapes takes machines on, Staged.readTextures)
+    private static final Map<Identifier, Tex> TEXTURES = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<TextureAtlasSprite, Tex> SPRITES = java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
     private static Field typeState, setupTextures;
     private static Method bindingLocation;
     private static boolean toldTextures;
@@ -913,7 +1117,9 @@ public final class RenderedMesh {
         if (tex == GLASS_TEX) return "GLASS";
         if (tex instanceof Window win) return "window of " + texName(win.of);
         for (var e : TEXTURES.entrySet()) if (e.getValue() == tex) return e.getKey().toString();
-        for (var e : SPRITES.entrySet()) if (e.getValue() == tex) return "sprite " + e.getKey().contents().name();
+        synchronized (SPRITES) {
+            for (var e : SPRITES.entrySet()) if (e.getValue() == tex) return "sprite " + e.getKey().contents().name();
+        }
         return tex.getClass().getSimpleName() + (tex.seeThrough() ? "(see-through)" : "");
     }
 
@@ -931,15 +1137,27 @@ public final class RenderedMesh {
     }
 
     private static Tex load(Identifier loc) {
-        Minecraft mc = Minecraft.getInstance();
+        Tex had = loaded(loc);
+        return had != null ? had : read(loc);
+    }
+
+    // a texture the game holds itself (an atlas, a texture drawn into), or null: its file is to be read
+    private static @Nullable Tex loaded(Identifier loc) {
         try {
-            AbstractTexture t = mc.getTextureManager().getTexture(loc);
+            AbstractTexture t = Minecraft.getInstance().getTextureManager().getTexture(loc);
             if (t instanceof TextureAtlas atlas) return new AtlasTex(atlas);
             NativeImage img = t instanceof DynamicTexture d ? d.getPixels() : null;
-            if (img != null) return image(img, null);
-            try (var in = mc.getResourceManager().open(loc); NativeImage read = NativeImage.read(in)) {
-                return image(read, windowed(loc) ? loc.toString() : null);
-            }
+            return img != null ? image(img, null) : null;
+        } catch (Exception e) {
+            GunFeel.LOGGER.debug("No pixels for {}: counted as solid", loc, e);
+            return OPAQUE;
+        }
+    }
+
+    // the texture's file decoded (needs neither the game's thread nor GL)
+    private static Tex read(Identifier loc) {
+        try (var in = Minecraft.getInstance().getResourceManager().open(loc); NativeImage read = NativeImage.read(in)) {
+            return image(read, windowed(loc) ? loc.toString() : null);
         } catch (Exception e) {
             GunFeel.LOGGER.debug("No pixels for {}: counted as solid", loc, e);
             return OPAQUE;
@@ -1035,7 +1253,7 @@ public final class RenderedMesh {
         private final boolean[] shown;
         // clear pixels in the rectangle from (0, 0) to (x, y), x and y not included ((w + 1) x (h + 1))
         private final int[] sum;
-        private final Map<UvKey, Boolean> covers = new HashMap<>();
+        private final Map<UvKey, Boolean> covers = new java.util.concurrent.ConcurrentHashMap<>();
 
         Mask(int w, int h, boolean[] shown) {
             this.w = w;
@@ -1071,7 +1289,8 @@ public final class RenderedMesh {
     private record SpriteWindow(Mask mask, Mask glassMask, @Nullable Window window) {
     }
 
-    private static final Map<TextureAtlasSprite, java.util.Optional<SpriteWindow>> SPRITE_WINDOWS = new java.util.IdentityHashMap<>();
+    // (also read on the thread MeshShapes takes machines on)
+    private static final Map<TextureAtlasSprite, java.util.Optional<SpriteWindow>> SPRITE_WINDOWS = new java.util.concurrent.ConcurrentHashMap<>();
 
     private static java.util.Optional<SpriteWindow> spriteWindow(TextureAtlasSprite sp) {
         return SPRITE_WINDOWS.computeIfAbsent(sp, k -> {

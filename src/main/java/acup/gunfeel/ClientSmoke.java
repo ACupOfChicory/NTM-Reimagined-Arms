@@ -112,7 +112,7 @@ public final class ClientSmoke {
                 GunFeel.LOGGER.info("[holebench] запуск phase={} screen={} world={}",phase,
                         mc.gui.screen()==null?"null":mc.gui.screen().getClass().getName(),mc.level!=null);
             }
-            if (!MobSmoke.review() && System.nanoTime() - START > (GlassStand.ENABLED?GlassStand.timeout():TraceScenario.enabled()?TraceScenario.timeout():MobBenchMetrics.ENABLED || HoleBenchMetrics.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
+            if (!MobSmoke.review() && System.nanoTime() - START > (GlassStand.ENABLED?GlassStand.timeout():TraceScenario.enabled()?TraceScenario.timeout():ShapesStand.ENABLED?ShapesStand.timeout():MobBenchMetrics.ENABLED || HoleBenchMetrics.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
                 check(false, "таймаут клиента; экран=" + mc.gui.screen());
                 finish();
                 return;
@@ -129,6 +129,7 @@ public final class ClientSmoke {
                 if(MobBenchMetrics.ENABLED) { phase=11; mc.gui.setScreen(null); MobBenchmark.start(); return; }
                 if(TraceScenario.enabled()) { phase=13; mc.gui.setScreen(null); TraceScenario.start(); return; }
                 if(MachineGlassCheck.ENABLED) { phase=14; mc.gui.setScreen(null); MachineGlassCheck.start(); return; }
+                if(ShapesStand.ENABLED) { phase=15; mc.gui.setScreen(null); ShapesStand.start(); return; }
                 if(GlassStand.ENABLED) { phase=15; mc.gui.setScreen(null); GlassStand.start(); return; }
                 if (MobSmoke.enabled()) {
                     phase = 10;
@@ -270,7 +271,10 @@ public final class ClientSmoke {
             if (phase == 12) HoleBenchmark.frame();
             if (phase == 13) TraceScenario.frame();
             if (phase == 14) MachineGlassCheck.frame();
-            if (phase == 15) GlassStand.frame();
+            if (phase == 15) {
+                if (ShapesStand.ENABLED) ShapesStand.frame();
+                else GlassStand.frame();
+            }
             if (mc.player != null && phase >= 2 && phase <= 7) {
                 mc.player.setYRot(0);
                 mc.player.setXRot(0);

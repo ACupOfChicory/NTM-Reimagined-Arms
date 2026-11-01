@@ -147,6 +147,8 @@ public final class Structures {
         long[] got = WORLD.get(world);
         if (got != null) return got == NONE ? null : got;
         long[] north = PassableClip.byKey(key);
+        // the jar's pack has the machine but is still reading or unpacking it: asked again later, nothing kept meanwhile
+        if (north == null && ShapePack.pending(key)) return null;
         Rotation back = switch (r) {
             case CLOCKWISE_90 -> Rotation.COUNTERCLOCKWISE_90;
             case COUNTERCLOCKWISE_90 -> Rotation.CLOCKWISE_90;
