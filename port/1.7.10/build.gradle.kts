@@ -162,6 +162,7 @@ tasks.named<org.gradle.jvm.tasks.Jar>("reobfJar") {
 val scenario = providers.gradleProperty("scenario")
 val scenarioGuns = providers.gradleProperty("scenarioGuns")
 val scenarioMachines = providers.gradleProperty("machines")
+val scenarioMobs = providers.gradleProperty("mobs")
 listOf("runClient", "runObfClient").forEach { name ->
     tasks.named<JavaExec>(name) {
         if (scenario.isPresent) {
@@ -175,6 +176,8 @@ listOf("runClient", "runObfClient").forEach { name ->
         if (scenarioGuns.isPresent) systemProperty("ntmgunfeel.scenarioGuns", scenarioGuns.get())
         // the machines -Pscenario=shapes draws: -Pmachines=hbm:tile.machine_chemical_plant,... (default: all)
         if (scenarioMachines.isPresent) systemProperty("ntmgunfeel.machines", scenarioMachines.get())
+        // the living types -Pscenario=mobs puts up: -Pmobs=Zombie,hbm.entity_glyphid,... (default: all)
+        if (scenarioMobs.isPresent) systemProperty("ntmgunfeel.mobs", scenarioMobs.get())
     }
 }
 

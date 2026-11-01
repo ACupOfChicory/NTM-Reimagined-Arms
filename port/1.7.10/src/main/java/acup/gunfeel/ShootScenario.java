@@ -63,9 +63,14 @@ public final class ShootScenario {
         return NAME.equals("scan");
     }
 
+    // "mobs": what the model hitboxes take from each living type (MobsScenario)
+    static boolean mobs() {
+        return NAME.equals("mobs");
+    }
+
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || look() || shapes() || scan() || TraceScenario.enabled();
+        return on() || look() || shapes() || scan() || mobs() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -94,6 +99,10 @@ public final class ShootScenario {
         }
         if (scan()) {
             ScanScenario.step(mc, ++tick);
+            return;
+        }
+        if (mobs()) {
+            MobsScenario.step(mc, ++tick);
             return;
         }
         if (look()) {

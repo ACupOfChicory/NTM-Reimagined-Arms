@@ -54,6 +54,10 @@ public final class EntityKeys {
         String vanilla = VANILLA.get(name);
         if (vanilla != null) return vanilla;
         int dot = name.indexOf('.');
-        return dot > 0 ? name.substring(0, dot) + ":" + name.substring(dot + 1) : "minecraft:" + name.toLowerCase(java.util.Locale.ROOT);
+        if (dot <= 0) return "minecraft:" + name.toLowerCase(java.util.Locale.ROOT);
+        String mod = name.substring(0, dot), rest = name.substring(dot + 1);
+        // NTM 1.7.10 names some of its mobs entity_ntm_* (entity_ntm_ghost); 26.2 has them as entity_* (entity_ghost)
+        if (mod.equals("hbm") && rest.startsWith("entity_ntm_")) rest = "entity_" + rest.substring("entity_ntm_".length());
+        return mod + ":" + rest;
     }
 }
