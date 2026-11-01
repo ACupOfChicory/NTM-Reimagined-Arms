@@ -100,19 +100,20 @@ class HeadProfilesTest {
         assertTrue(HeadZone.contains(zones,new Vec3(1,3.8,1)));
         assertFalse(HeadZone.contains(zones,new Vec3(1,2.4,1)));
     }
-    // Mask Man с половины здоровья: NTM рисует череп (1x1x1) и записку IOU вместо головы, узел тот же — mesh/root/5
+    // Mask Man с половины здоровья: NTM рисует череп (1x1x1, захват зовёт его mesh/root/6) и записку IOU вместо головы
     @Test void maskManHeadIsFoundOnTheSkullItWearsWhenWounded() {
         var profile=HeadProfiles.get("hbm:entity_mob_mask_man");
         var healthy=new java.util.ArrayList<ModelBox>();
         for(int i=0;i<6;i++) healthy.add(box(profile.parts().get(i)));
         var wounded=new java.util.ArrayList<>(healthy.subList(0,5));
         var skull=box(profile.parts().get(6));wounded.add(skull);
-        wounded.add(new ModelBox("mesh/root/6",-.125,4.375,.1875,.25,0,0,0,.25,0,0,0,.01));
+        wounded.add(new ModelBox("mesh/root/7",-.125,4.375,.1875,.25,0,0,0,.25,0,0,0,.01));
         for(var boxes:List.of(healthy,wounded)) {
             var binding=HeadProfiles.bind(profile,boxes,0);
             assertEquals(0,binding.missing());
             assertEquals(1,binding.zones().size());
             assertEquals(5,binding.zones().getFirst().part(),"голова или череп, но не записка");
+            assertEquals(boxes==healthy?"mesh/root/5":"mesh/root/6",boxes.get(binding.zones().getFirst().part()).part());
         }
         var zones=HeadProfiles.zones(HeadProfiles.bind(profile,wounded,0),wounded);
         assertTrue(HeadZone.contains(zones,new Vec3(0,4.5,.5)));
