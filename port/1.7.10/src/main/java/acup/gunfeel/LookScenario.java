@@ -231,6 +231,7 @@ final class LookScenario {
             shot(mc, "status");
         } else if (t == DONE) {
             RenderManager.debugBoundingBox = false;
+            GunFeel.LOGGER.info("Scenario look: first-person arms drawn in {} frames", Arms.drawnFrames);
             GunFeel.LOGGER.info("Scenario look done: screenshots in {}", new File(mc.mcDataDir, "screenshots"));
             mc.shutdown();
         }

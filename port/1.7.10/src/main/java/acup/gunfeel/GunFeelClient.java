@@ -26,6 +26,16 @@ public final class GunFeelClient {
     private GunFeelClient() {
     }
 
+    // vanilla's ItemRenderer draws this first-person stack as an NTM gun (Shader Fixer, MixinItemRendererGunSway) and the
+    // sway takes the place of its lag turns: the gun's settings selected, the mod on
+    public static boolean swayInVanillaHand(ItemStack stack) {
+        if (stack == null || !acup.gunfeel.compat.Feature.ARMS.on()) return false;
+        if (!(net.minecraftforge.client.MinecraftForgeClient.getItemRenderer(stack, net.minecraftforge.client.IItemRenderer.ItemRenderType.EQUIPPED_FIRST_PERSON) instanceof ItemRenderWeaponBase))
+            return false;
+        Config.select(gunId(stack.getItem()));
+        return Config.enabled && Minecraft.getMinecraft().thePlayer != null;
+    }
+
     static void init() {
         Config.poll();
         FMLCommonHandler.instance().bus().register(new GunFeelClient());
