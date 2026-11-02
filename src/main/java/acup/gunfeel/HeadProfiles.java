@@ -9,7 +9,10 @@ import net.minecraft.world.phys.Vec3;
 
 /** Ручные области выше любых процедурных предположений. */
 final class HeadProfiles {
-    record Ref(String name,double[] size,long shape,Vec3 center) {}
+    // instead: the part this one is drawn in place of (another form of it), -1 = none
+    record Ref(String name,double[] size,long shape,Vec3 center,int instead) {
+        Ref(String name,double[] size,long shape,Vec3 center) { this(name,size,shape,center,-1); }
+    }
     record Zone(int part,int group,List<HeadZone.Plane> planes,long face) {}
     record Profile(boolean none,List<Ref> parts,List<Zone> zones) {}
     record Binding(List<Zone> zones,int missing,String reason) {}
@@ -50,7 +53,8 @@ final class HeadProfiles {
             for(var p:value.getAsJsonArray("parts")) {
                 var part=p.getAsJsonObject();var s=numbers(part.getAsJsonArray("size"),3);var c=numbers(part.getAsJsonArray("center"),3);
                 if(Arrays.stream(s).anyMatch(v->v<=0)) throw new IllegalArgumentException("Неверный размер части");
-                parts.add(new Ref(part.get("name").getAsString(),s,Long.parseUnsignedLong(part.get("shape").getAsString(),16),new Vec3(c[0],c[1],c[2])));
+                parts.add(new Ref(part.get("name").getAsString(),s,Long.parseUnsignedLong(part.get("shape").getAsString(),16),new Vec3(c[0],c[1],c[2]),
+                        part.has("instead")?part.get("instead").getAsInt():-1));
             }
             for(var z:value.getAsJsonArray("zones")) {
                 var zone=z.getAsJsonObject();int part=zone.get("part").getAsInt(),group=zone.get("group").getAsInt();
@@ -65,6 +69,7 @@ final class HeadProfiles {
                 zones.add(new Zone(part,group,List.copyOf(planes),face));
             }
             if(!none && zones.isEmpty()) throw new IllegalArgumentException("Пустая разметка головы");
+            for(var ref:parts) if(ref.instead()>=parts.size() || ref.instead()==parts.indexOf(ref)) throw new IllegalArgumentException("Неверная замена части");
             parsed.put(entry.getKey(),new Profile(none,List.copyOf(parts),List.copyOf(zones)));
         }
         destination.putAll(parsed);
@@ -138,10 +143,19 @@ final class HeadProfiles {
         }
         var zones=new ArrayList<Zone>();int missing=0;
         for(var zone:profile.zones()) {
-            int match=mapping[zone.part()];if(match<0) { missing++;continue; }
+            int match=mapping[zone.part()];if(match<0) { if(!otherVariant(profile,mapping,zone.part())) missing++;continue; }
             zones.add(new Zone(match,zone.group(),zone.planes(),zone.face()));
         }
         return new Binding(List.copyOf(zones),missing,missing==0?"ручная разметка":"ручная разметка: часть модели не сопоставлена");
+    }
+    // Часть, которую модель рисует вместо другой (череп Mask Man вместо головы с половины здоровья, instead в
+    // разметке): у каждой своя зона, зона найдена, если подошла любая из пары.
+    private static boolean otherVariant(Profile profile,int[] mapping,int part) {
+        for(var zone:profile.zones()) {
+            int other=zone.part();
+            if(other!=part && mapping[other]>=0 && (profile.parts().get(other).instead()==part || profile.parts().get(part).instead()==other)) return true;
+        }
+        return false;
     }
     static List<HeadZone> zones(Binding binding,List<ModelBox> boxes) {
         var out=new ArrayList<HeadZone>();
