@@ -71,7 +71,8 @@ final class HeadSmoke {
             else if(ModelHits.limb(target,hit.get())) { if(limb==null) limb=hit.get(); }
             else if(body==null) body=hit.get();
         }
-        check.accept(!zones.isEmpty()==!profile.none(),"голова: наличие зон соответствует ручной разметке");
+        check.accept(!zones.isEmpty()==!profile.none(),"голова: наличие зон соответствует ручной разметке"
+                +(zones.isEmpty()==!profile.none()?", "+ModelHits.headResolution(target).reason()+", части="+boxes.stream().map(b->b.part()+java.util.Arrays.toString(HeadProfiles.size(b))+"@"+ModelContours.point(b,.5,.5,.5).subtract(target.position())+"#"+Long.toUnsignedString(HeadProfiles.shape(b),16)+"/yaw"+target.getYRot()).toList():""));
         if(!profile.none()) check.accept(head!=null,"голова: найдена видимая точка попадания");
         check.accept(body!=null,"голова: найдена точка тела без бонуса");
         if(body==null || !profile.none() && head==null) return;
