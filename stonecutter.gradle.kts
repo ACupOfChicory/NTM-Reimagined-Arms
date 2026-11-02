@@ -172,6 +172,8 @@ stonecutter parameters {
             // MixinHbmKeysRadial keeps them up while the menu is open (NTM NEXT: MixinGunKeysRadial)
             replace("((acup.gunfeel.mixin.mc.KeyMappingAccess) (Object) com.hbm.client.Keybinds.GUN_PRIMARY).gunfeel\$setIsDown(false);",
                 "// Continuum: MixinHbmKeysRadial keeps GUN_PRIMARY up")
+            // aimOnRightButton: Continuum's gun keys go through HbmKeybindsClient.report (NTM NEXT: Keybinds.gunChanged)
+            replace("List.of(\"MixinHoldAim\", \"MixinAimButton\")", "List.of(\"MixinHoldAim\", \"MixinHbmAimButton\")")
             replace("List.of(\"MixinAmmoLock\", \"MixinAmmoLockBelt\", \"MixinGunKeysRadial\")",
                 "List.of(\"MixinAmmoLock\", \"MixinAmmoLockBelt\", \"MixinHbmKeysRadial\")")
             // port/continuum-hud: Continuum's getFirstConfig picks the ammo through acceptedConfig, which reads acceptedBullets

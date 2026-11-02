@@ -8,7 +8,7 @@
     "MixinExplosiveDirect", "MixinHeadDamage", "MixinRicochetSound", "MixinHoldAim",
     "MixinAmmoLock", "MixinAmmoLockBelt", "MixinBeamModelQuery", "MixinNextAnimations"],
   "client": ["MixinTracerRibbon", "MixinGunRecoil", "MixinWeaponRenderer", "WeaponPoseAccess",
-    "MixinClientRegistry", "MixinHbmKeysRadial", "MixinGunAnimationHandler", "MixinHbmAnimations",
+    "MixinClientRegistry", "MixinHbmKeysRadial", "MixinHbmAimButton", "MixinGunAnimationHandler", "MixinHbmAnimations",
     "MixinNtmMeshHits", "ObjGroupAccess", "MixinBeamPronterHits", "MixinGunAnimations",
     "MixinSexyLower", "MixinDoubleBarrelPivots", "MixinG3ZebraSpeen", "MixinOrchestraTrace", "MixinM2Pivots", "MixinDebugGunOffset"],
   "injectors": { "defaultRequire": 0 }

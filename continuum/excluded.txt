@@ -10,6 +10,7 @@ mixin/MixinGlyphidModelHits.java
 mixin/MixinGpuEntityGeometry.java
 mixin/MixinGunConfigAnims.java
 mixin/MixinGunKeysRadial.java
+mixin/MixinAimButton.java
 mixin/MixinHbmAnimationPayload.java
 mixin/MixinHbmAnimations.java
 mixin/MixinHbmVisual.java
