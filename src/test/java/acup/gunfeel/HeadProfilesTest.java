@@ -103,6 +103,8 @@ class HeadProfilesTest {
     // Mask Man с половины здоровья: NTM рисует череп (1x1x1, захват зовёт его mesh/root/6) и записку IOU вместо головы
     @Test void maskManHeadIsFoundOnTheSkullItWearsWhenWounded() {
         var profile=HeadProfiles.get("hbm:entity_mob_mask_man");
+        // порт 1.7.10 находит голову Mask Man по именам частей (своя разметка, HeadsPortTest)
+        org.junit.jupiter.api.Assumptions.assumeTrue(profile.parts().size()>6,"разметка по формам 26.2");
         var healthy=new java.util.ArrayList<ModelBox>();
         for(int i=0;i<6;i++) healthy.add(box(profile.parts().get(i)));
         var wounded=new java.util.ArrayList<>(healthy.subList(0,5));
