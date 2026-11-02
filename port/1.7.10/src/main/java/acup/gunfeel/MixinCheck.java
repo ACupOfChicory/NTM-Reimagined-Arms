@@ -29,7 +29,7 @@ public final class MixinCheck {
             {"com.hbm.items.weapon.sedna.factory.Lego", "1"}, // MixinLegoSpread
             {"com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase", "3"},
             {"com.hbm.items.weapon.sedna.mags.MagazineBelt", "2"},
-            {"com.hbm.main.ClientProxy", "1"},
+            {"com.hbm.main.ClientProxy", "2"}, // MixinGunKeysRadial, MixinAimButton
             {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "8"}, // 2 + MixinHoldAim 3 handlers and its 3 helpers (gunfeel$standardScope ...)
             {"com.hbm.packet.toclient.HbmAnimationPacket$Handler", "4"},
             {"net.minecraft.client.renderer.ItemRenderer", "10"}, // ItemRendererAccess 5 + MixinItemRendererGunSway 2 + MixinItemRendererGunSwing 3

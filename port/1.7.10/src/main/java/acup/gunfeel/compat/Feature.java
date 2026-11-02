@@ -19,7 +19,7 @@ public enum Feature {
     BULLETS("bullets", list("MixinBulletServer", "MixinThrowableClip", "MixinBeamHits", "MixinExplosiveBullet", "MixinExplosionContext",
             "MixinExplosiveProcessor", "MixinExplosiveDirect"),
             list("BulletServer", "PassableClip", "BulletFx", "BulletRules", "FenceCells", "ModelCells", "BlockRay", "PierceSteps", "ExplosiveDamage", "ExplosiveAmmo", "DoorCells")),
-    HOLD_AIM("hold_aim", list("MixinHoldAim"), list("ReaimCommand")),
+    HOLD_AIM("hold_aim", list("MixinHoldAim", "MixinAimButton"), list("ReaimCommand", "AimButton")),
     SPREAD("spread", list("MixinLegoSpread"), list("Spread")),
     RICOCHET_SOUND("ricochet_sound", list("MixinRicochetSound"), list()),
     AMMO_CHOICE("ammo_choice", list("MixinAmmoLock", "MixinAmmoLockBelt", "MixinGunKeysRadial"),
