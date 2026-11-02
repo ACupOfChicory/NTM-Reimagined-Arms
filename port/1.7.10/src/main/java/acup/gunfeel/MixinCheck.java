@@ -32,7 +32,7 @@ public final class MixinCheck {
             {"com.hbm.main.ClientProxy", "1"},
             {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "8"}, // 2 + MixinHoldAim 3 handlers and its 3 helpers (gunfeel$standardScope ...)
             {"com.hbm.packet.toclient.HbmAnimationPacket$Handler", "4"},
-            {"net.minecraft.client.renderer.ItemRenderer", "7"}, // ItemRendererAccess 5 + MixinItemRendererGunSway 2
+            {"net.minecraft.client.renderer.ItemRenderer", "10"}, // ItemRendererAccess 5 + MixinItemRendererGunSway 2 + MixinItemRendererGunSwing 3
             {"net.minecraft.client.renderer.entity.RendererLivingEntity", "6"}, // begin, end, yaw, modelStart, modelEnd, pass
             {"net.minecraft.client.model.ModelRenderer", "4"}, // 2 + MachineMesh compile 2
             {"net.minecraft.client.renderer.Tessellator", "1"}, // MixinTessellator

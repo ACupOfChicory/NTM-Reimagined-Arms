@@ -7,6 +7,6 @@
   "compatibilityLevel": "JAVA_8",
   "injectors": { "defaultRequire": 1 },
   "mixins": ["MixinVanillaProjectileHits"],
-  "client": ["MixinEntityRenderer", "MixinRenderGlobal", "MixinMousePick", "MixinTimer", "MixinMouseTurn", "ItemRendererAccess", "MixinItemRendererGunSway", "MixinRendererLivingEntity", "MixinModelRenderer", "MixinRenderManager", "MixinForgeWavefrontObject", "MixinTessellator"],
+  "client": ["MixinEntityRenderer", "MixinRenderGlobal", "MixinMousePick", "MixinTimer", "MixinMouseTurn", "ItemRendererAccess", "MixinItemRendererGunSway", "MixinItemRendererGunSwing", "MixinRendererLivingEntity", "MixinModelRenderer", "MixinRenderManager", "MixinForgeWavefrontObject", "MixinTessellator"],
   "server": []
 }
