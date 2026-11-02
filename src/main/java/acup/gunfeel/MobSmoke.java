@@ -423,6 +423,9 @@ public final class MobSmoke {
                 target.setPos(8.5,100,16.5);
                 target.setYRot(180); target.yBodyRot=180; target.yHeadRot=180;
                 target.setNoGravity(true); target.setInvulnerable(true);
+                // -PmobHealth=<доля>: моб ранен (Mask Man с половины здоровья носит череп вместо головы)
+                float share=Float.parseFloat(System.getProperty("ntmgunfeel.mobHealth","1"));
+                if(share<1) target.setHealth(target.getMaxHealth()*share);
                 if(target instanceof Mob mob) { mob.setNoAi(true); mob.setPersistenceRequired(); }
                 MobStageContext.prepare(level,target);
                 id=target.getId();

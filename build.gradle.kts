@@ -135,6 +135,7 @@ neoForge {
             systemProperty("MC_DEBUG_ENABLED", "true")
             systemProperty("MC_DEBUG_PREFER_WAYLAND", "true")
             providers.gradleProperty("mobCases").orNull?.let { systemProperty("ntmgunfeel.mobCases", it) }
+            providers.gradleProperty("mobHealth").orNull?.let { systemProperty("ntmgunfeel.mobHealth", it) }
             systemProperty("ntmgunfeel.contourShots",providers.gradleProperty("mobContourShots").isPresent.toString())
             systemProperty("ntmgunfeel.checkHeads",providers.gradleProperty("checkHeads").isPresent.toString())
             systemProperty("ntmgunfeel.checkLimbs",providers.gradleProperty("checkLimbs").isPresent.toString())

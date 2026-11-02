@@ -1,4 +1,5 @@
 field adsRecoil = 0.7/3f333333
+field aimOnRightButton = true
 field ammoMenu = steel
 field ammoMenuColor = 16747546
 field armAroundShift = 0.0/0
@@ -103,6 +104,7 @@ field tracerLength = 8.0/41000000
 field tracerWidth = 0.02/3ca3d70a
 field tracers = true
 key adsRecoil = 0.7
+key aimOnRightButton = true
 key ammoMenu = steel
 key ammoMenuColor = ff8c1a
 key armAroundShift = 0.0
