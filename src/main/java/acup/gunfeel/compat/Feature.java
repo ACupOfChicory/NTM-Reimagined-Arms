@@ -11,7 +11,7 @@ public enum Feature {
     CORE("core", List.of(), List.of("GunFeel", "GunFeelMod", "Config", "GunDump", "BlockDump")),
     MODEL_HITBOXES("model_hitboxes", List.of("MixinNtmMeshHits", "GlyphidGeometryAccess", "MixinGlyphidModelHits", "MixinMobObjModelHits", "MixinMobModelHits", "MixinGpuEntityGeometry", "MixinHeadDamage"),
             List.of("NtmMeshHits", "MobObjPose", "ModelMeshCapture", "MobStageCleanup", "HeadDamage")),
-    HOLD_AIM("hold_aim", List.of("MixinHoldAim"), List.of("ReaimCommand", "ReaimTimes")),
+    HOLD_AIM("hold_aim", List.of("MixinHoldAim", "MixinAimButton"), List.of("ReaimCommand", "ReaimTimes", "AimButton")),
     BULLETS("bullets", List.of("MixinBulletServer", "MixinThrowableHit", "MixinBeamModelQuery", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinExplosiveDirect"),
             List.of("BulletServer", "PassableClip", "Cells", "Structures", "BulletFx", "BulletRules", "ExplosiveAmmo", "ExplosiveDamage")),
     RICOCHET_SOUND("ricochet_sound", List.of("MixinRicochetSound"), List.of()),
