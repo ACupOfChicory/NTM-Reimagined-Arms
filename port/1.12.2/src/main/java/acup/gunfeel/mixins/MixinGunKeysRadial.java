@@ -22,6 +22,6 @@ public abstract class MixinGunKeysRadial {
     private void gunfeel$radial(EnumKeybind key, CallbackInfoReturnable<Boolean> cir) {
         boolean down = cir.getReturnValueZ() || key == EnumKeybind.GUN_PRIMARY && acup.gunfeel.ShootScenario.triggerHeld();
         boolean now = AmmoLockKey.gunKey(key, down);
-        if (now != down) cir.setReturnValue(now);
+        if (now != cir.getReturnValueZ()) cir.setReturnValue(now);
     }
 }

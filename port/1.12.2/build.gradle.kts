@@ -108,6 +108,8 @@ dependencies {
     devOnly(rfg.deobf(project.files("libs/NTM-CE-1.12.2-2.6.1.0.jar")))
     // what NTM CE needs in the dev runs
     runtimeOnly("com.cleanroommc:configanytime:3.0")
+    // CTM (CTM-MC1.12.2-1.0.2.31): NTM CE needs it on the client (required-client:ctm)
+    runtimeOnly(rfg.deobf("curse.maven:ctm-267602:2915363"))
 
     // Java 9+ classes the old Minecraft libraries look for on a modern JDK (as NTM CE's build)
     "patchedMinecraft"("me.eigenraven.java8unsupported:java-8-unsupported-shim:1.0.0")

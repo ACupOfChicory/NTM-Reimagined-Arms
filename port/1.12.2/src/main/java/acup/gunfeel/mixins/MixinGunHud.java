@@ -24,9 +24,12 @@ import net.minecraftforge.client.event.RenderGameOverlayEvent.ElementType;
 @Mixin(value = ItemGunBaseNT.class, remap = false)
 public abstract class MixinGunHud {
     // Replace NTM's ammo counter and durability bar next to the hotbar with the corner HUD.
+    // port: NTM CE asks each hand's item (renderHUD takes the hand); the corner HUD is the main hand's gun
     @Inject(method = "renderHUD", at = @At("HEAD"))
-    private void gunfeel$hud(RenderGameOverlayEvent.Pre event, ElementType type, EntityPlayer player, ItemStack stack, CallbackInfo ci) {
+    private void gunfeel$hud(RenderGameOverlayEvent.Pre event, ElementType type, EntityPlayer player, ItemStack stack,
+            net.minecraft.util.EnumHand hand, CallbackInfo ci) {
         if (!Config.enabled || !Config.cornerHud || type != ElementType.HOTBAR || player == null || stack == null) return;
+        if (hand == net.minecraft.util.EnumHand.OFF_HAND) return;
         Hud.render(event.getResolution(), player, stack, (ItemGunBaseNT) (Object) this);
     }
 
