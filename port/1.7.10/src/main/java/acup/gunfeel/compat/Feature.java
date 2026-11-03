@@ -30,7 +30,7 @@ public enum Feature {
     HUD("hud", list("MixinGunHud"), list("Hud", "HudEvents", "HudFormat", "Silhouette", "GunGeometry")),
     INSTANT_SWITCH("instant_switch", list("MixinHbmAnimationPacket"), list("InstantSwitch", "SwitchPrediction")),
     MACHINE_MESH("machine_mesh", list(), list("MachineMesh")),
-    TRACERS("tracers", list("MixinLegoClient", "MixinRenderBulletMK4", "MixinSmokeNodes"), list("Tracers", "TracerNet", "TracerPath")),
+    TRACERS("tracers", list("MixinLegoClient", "MixinRenderBulletMK4", "MixinSmokeNodes", "MixinRenderBlockCT"), list("Tracers", "TracerNet", "TracerPath")),
     MARESLEG("maresleg", list("MixinGunConfigAnims"), list()),
     TRACE("trace", list("MixinClock"), list("TraceScenario", "TraceClient", "TraceHooks", "ShootScenario", "LookScenario", "ShapesScenario"));
 

@@ -250,7 +250,7 @@ public final class BulletServer {
     }
 
     // a breaker id per block for its cracks, apart from the entity ids players use
-    private static int crackId(int x, int y, int z) {
+    static int crackId(int x, int y, int z) {
         // port: 26.2 hashes its BlockPos; the same spread of ids from x, y, z
         int h = (y + z * 31) * 31 + x;
         return -1_000_000 - (h & 0x3fffffff);

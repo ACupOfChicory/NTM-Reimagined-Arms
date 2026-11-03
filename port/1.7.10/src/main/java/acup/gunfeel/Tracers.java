@@ -771,11 +771,15 @@ public final class Tracers {
 
     // a hole as a scenario sees it (HolesScenario): its block, hit face, where it is and its pieces over cube edges
     static final class HoleView {
-        final int x, y, z, face;
+        final int x, y, z, face, kind, light;
+        final boolean cull;
         final double[] pos;
         final List<double[]> pieces;
 
         HoleView(Hole h) {
+            kind = h.kind;
+            light = h.light;
+            cull = h.cull;
             x = h.x;
             y = h.y;
             z = h.z;
