@@ -36,7 +36,7 @@ final class ScanScenario {
             next++;
             return;
         }
-        final Block b = Block.getBlockFromName(list[next]);
+        final Block b = Mc.blockOrNull(list[next]);
         final int[] at = spot;
         if (state == 0) {
             if (b == null) {

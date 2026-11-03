@@ -11,7 +11,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-// The 1.7.10 table ShapesScenario made (ModelCells): every listed block is in it, and a bullet goes through the clear
+// The table ShapesScenario made on NTM CE (ModelCells): every listed block is in it, and a bullet goes through the clear
 // pixels of bars, a grate and a trapdoor and meets their wires, and a ladder's rungs only where they are drawn; doors
 // and trapdoors are shells (decided where the bullet comes in).
 class ModelCellsTest {
@@ -46,24 +46,23 @@ class ModelCellsTest {
     }
 
     @Test
-    void lonelyBarsAreACrossWithGaps() {
-        // a lone pane of bars is drawn as a cross on 1.7.10: both planes through the middle
+    void lonelyBarsAreAPost() {
+        // port: a lone pane of bars is a post in the middle on 1.12.2 (pixels 7-9), as on 26.2; 1.7.10 drew a cross
         long[] bars = get("minecraft:iron_bars#0/0000");
-        BlockRay.Hit wire = along(bars, 2.5 / 16, .5);
-        assertNotNull(wire);
-        assertEquals(8 / 16.0, wire.az, 1e-9);
-        // between the bars the bullet flies through the plane across it, and meets the plane along it in the middle only
+        BlockRay.Hit post = along(bars, .5, .5);
+        assertNotNull(post);
+        assertEquals(7 / 16.0, post.az, 1e-9);
+        assertNull(along(bars, 2.5 / 16, .5));
         assertNull(along(bars, 5.5 / 16, 5.5 / 16));
-        // joined east and west only: no plane along z
+        // joined east and west: a pane across z, its bars met and the gaps between them flown through
         long[] row = get("minecraft:iron_bars#0/0101");
         assertNotNull(along(row, 2.5 / 16, .5));
-        assertNotNull(down(bars, 8.5 / 16, 2.5 / 16));
         assertNull(down(row, 8.5 / 16, 2.5 / 16));
     }
 
     @Test
     void aGrateAndATrapdoorHaveHoles() {
-        long[] grate = get("hbm:tile.steel_grate#0");
+        long[] grate = get("hbm:steel_grate#0");
         assertNull(down(grate, 1.5 / 16, 1.5 / 16));
         assertNotNull(down(grate, .5 / 16, .5 / 16));
         long[] trap = get("minecraft:trapdoor#0");
@@ -89,7 +88,7 @@ class ModelCellsTest {
         assertTrue(ModelCells.shell(get("minecraft:trapdoor#0")));
         assertFalse(ModelCells.shell(get("minecraft:iron_bars#0/0000")));
         assertFalse(ModelCells.shell(get("minecraft:ladder#2")));
-        assertFalse(ModelCells.shell(get("hbm:tile.steel_scaffold#0")));
+        assertFalse(ModelCells.shell(get("hbm:steel_scaffold#0")));
         // a door's top has two windows: clear on the face the bullet comes in through
         long[] top = get("minecraft:wooden_door#9");
         assertFalse(FenceCells.cell(top, 4, 11, 0));

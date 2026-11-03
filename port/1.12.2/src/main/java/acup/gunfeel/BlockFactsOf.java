@@ -105,7 +105,7 @@ public final class BlockFactsOf {
         if (known != null) return known;
         String all;
         try {
-            all = (s.getBreakSound().getSoundName() + " " + s.getStepSound().getSoundName() + " " + s.getPlaceSound().getSoundName()).toLowerCase(Locale.ROOT);
+            all = (s.getBreakSound().getRegistryName() + " " + s.getStepSound().getRegistryName() + " " + s.getPlaceSound().getRegistryName()).toLowerCase(Locale.ROOT);
         } catch (RuntimeException e) {
             return "?";
         }

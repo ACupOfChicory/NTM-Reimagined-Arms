@@ -3,7 +3,6 @@ package acup.gunfeel;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.init.SoundEvents;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.ResourceLocation;
@@ -57,9 +56,25 @@ public final class Mc {
         return w.isAirBlock(new BlockPos(x, y, z));
     }
 
+    // the state a meta stands for; port: a block whose properties have fewer values than 16 metas (NTM CE's grates:
+    // height 0-9) throws on the others: its default state then, as the world reads such a meta
     @SuppressWarnings("deprecation")
     public static IBlockState state(Block b, int meta) {
-        return b.getStateFromMeta(meta);
+        try {
+            return b.getStateFromMeta(meta);
+        } catch (RuntimeException e) {
+            return b.getDefaultState();
+        }
+    }
+
+    // the metas a block's states save as, in order (1.12.2: its valid states; 1.7.10 scenarios went through 0-15)
+    public static int[] metas(Block b) {
+        java.util.TreeSet<Integer> m = new java.util.TreeSet<Integer>();
+        for (IBlockState st : b.getBlockState().getValidStates()) m.add(b.getMetaFromState(st));
+        int[] out = new int[m.size()];
+        int i = 0;
+        for (int v : m) out[i++] = v;
+        return out;
     }
 
     public static boolean setBlock(World w, int x, int y, int z, Block b) {
@@ -76,7 +91,18 @@ public final class Mc {
         return r == null ? null : r.toString();
     }
 
+    // the same, null when there is none
+    public static Block blockOrNull(String name) {
+        int at = name.indexOf(":tile.");
+        if (at >= 0) name = name.substring(0, at + 1) + name.substring(at + ":tile.".length());
+        return Block.getBlockFromName(name);
+    }
+
+    // a block by its id; port: an NTM block by its 1.7.10 name ("hbm:tile.steel_grate") too, as 1.12.2 names it
+    // without the "tile." (the scenarios' and checks' lists are 1.7.10's)
     public static Block block(String name) {
+        int at = name.indexOf(":tile.");
+        if (at >= 0) name = name.substring(0, at + 1) + name.substring(at + ":tile.".length());
         return Block.REGISTRY.getObject(new ResourceLocation(name));
     }
 
@@ -337,8 +363,4 @@ public final class Mc {
         return state(w, x, y, z);
     }
 
-    static {
-        // keep SoundEvents loaded before the first lookup by name
-        SoundEvents.BLOCK_STONE_HIT.getSoundName();
-    }
 }

@@ -306,6 +306,9 @@ final class MachineCapture {
     static Collect chunkTriangles(List<int[]> blocks, List<float[]> quads, int x, int y, int z, java.util.function.Supplier<ShapesScenario.Atlas> atlases) {
         Collect c = new Collect();
         ShapesScenario.Atlas atlas = null;
+        // port: one cut per icon. NTM CE puts whole machine textures on the block atlas (StaticTesrBakedModels: the
+        // electrolyser's 350 x 308, padded), and each triangle keeps its texture: a cut per quad took gigabytes
+        Map<TextureAtlasSprite, int[][]> cuts = new java.util.IdentityHashMap<TextureAtlasSprite, int[][]>();
         for (int bi = 0; bi < blocks.size(); bi++) {
             int[] o = blocks.get(bi);
             float[] q = quads.get(bi);
@@ -331,7 +334,8 @@ final class MachineCapture {
                     if (tex == null) {
                         if (atlas == null) atlas = atlases.get();
                         if (atlas == null) throw NeedAtlas.ONE;
-                        tex = iconPixels(atlas, icon);
+                        tex = cuts.get(icon);
+                        if (tex == null) cuts.put(icon, tex = iconPixels(atlas, icon));
                     }
                     String name = path(icon.getIconName());
                     empty = MachineGlass.empty(name);
@@ -467,6 +471,9 @@ final class MachineCapture {
     static String path(String icon) {
         int c = icon.indexOf(':');
         String domain = c < 0 ? "minecraft" : icon.substring(0, c), name = c < 0 ? icon : icon.substring(c + 1);
+        // port: 1.12.2 names an icon by its path under textures/ ("hbm:blocks/rbmk_blank", NTM CE's
+        // "hbm:models/machines/electrolyser"); 1.7.10's are under blocks/ without it
+        if (name.indexOf('/') >= 0) return domain + ":textures/" + name + ".png";
         return domain + ":textures/blocks/" + name + ".png";
     }
 

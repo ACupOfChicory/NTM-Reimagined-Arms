@@ -207,33 +207,19 @@ public final class Arms {
 
     // port: models NTM 1.7.10 draws with the gun that are not the gun (Sexy's whiskey bottle, drawn before it): on 26.2
     // they are drawn past the hooked model calls (submitCustomGeometry), here they would be taken for the gun's model
-    private static Object notGun;
-
+    // (looked up each time: CeModels parses a model again after a resource reload)
     private static boolean notGun(HFRWavefrontObject model) {
-        if (notGun == null) {
-            Object w = com.hbm.main.ResourceManager.whiskey;
-            Object src = CeModels.source(w);
-            notGun = src == null ? new Object() : src;
-        }
-        return model == notGun;
+        return model == CeModels.source(com.hbm.main.ResourceManager.whiskey);
     }
 
     // port: parts of the gun's own model that 26.2 draws through submitCustomGeometry, past its hooked submitPart, so
     // they are not in the gun's geometry there: N I 4 N I's coins, SPAS-12's shells, MAS-36's clipped bullets
-    private static Object[] sidePartModels;
     private static final String[][] SIDE_PARTS = {{"Coin1", "Coin2", "Coin3", "Coin4"}, {"Shell", "ShellFore"}, {"Bullets"}};
 
     private static boolean notGunPart(HFRWavefrontObject model, String name) {
-        if (sidePartModels == null) {
-            Object[] m = {com.hbm.main.ResourceManager.n_i_4_n_i, com.hbm.main.ResourceManager.spas_12, com.hbm.main.ResourceManager.mas36};
-            for (int i = 0; i < m.length; i++) {
-                Object src = CeModels.source(m[i]);
-                m[i] = src == null ? new Object() : src;
-            }
-            sidePartModels = m;
-        }
+        Object[] sidePartModels = {com.hbm.main.ResourceManager.n_i_4_n_i, com.hbm.main.ResourceManager.spas_12, com.hbm.main.ResourceManager.mas36};
         for (int i = 0; i < sidePartModels.length; i++) {
-            if (model != sidePartModels[i]) continue;
+            if (model != CeModels.source(sidePartModels[i])) continue;
             for (String s : SIDE_PARTS[i]) if (s.equalsIgnoreCase(name)) return true;
         }
         return false;

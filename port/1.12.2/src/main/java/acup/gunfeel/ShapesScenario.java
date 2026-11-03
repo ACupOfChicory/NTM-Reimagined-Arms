@@ -39,10 +39,10 @@ final class ShapesScenario {
     // blocks met by their model: inside their hitbox (scaffold, poles, a ladder) or with see-through pixels (bars,
     // grates, NTM's chain-link fence, trapdoors, doors with windows), as 26.2's "generate" list and masks. Not glass panes: their collision
     // boxes are their model (a lone pane a cross), and their clear pixels are still glass
-    static final String[] BLOCKS = {"minecraft:iron_bars", "minecraft:ladder", "minecraft:trapdoor", "hbm:tile.steel_scaffold",
-            "hbm:tile.steel_poles", "hbm:tile.steel_grate", "hbm:tile.steel_grate_wide", "hbm:tile.fence_metal",
-            "minecraft:wooden_door", "minecraft:iron_door", "hbm:tile.door_metal", "hbm:tile.door_office", "hbm:tile.door_bunker", "hbm:tile.door_red",
-            "hbm:tile.trapdoor_steel", "hbm:tile.wood_barrier", "hbm:tile.wood_structure"};
+    static final String[] BLOCKS = {"minecraft:iron_bars", "minecraft:ladder", "minecraft:trapdoor", "hbm:steel_scaffold",
+            "hbm:steel_poles", "hbm:steel_grate", "hbm:steel_grate_wide", "hbm:fence_metal",
+            "minecraft:wooden_door", "minecraft:iron_door", "hbm:door_metal", "hbm:door_office", "hbm:door_bunker", "hbm:door_red",
+            "hbm:trapdoor_steel", "hbm:wood_barrier", "hbm:wood_structure"};
 
     private static final int BUILD = 5, CAPTURE = 80, MACHINES = 100, SPACING = 3, UP = 12, ROW = 24;
 
@@ -70,13 +70,18 @@ final class ShapesScenario {
             ShootScenario.onServer(() -> build(px, py, pz));
         } else if (t == CAPTURE) {
             capture(mc);
-        } else if (t >= MACHINES) {
+        } else if (t >= MACHINES && !finished) {
             if (!machine(mc, t - MACHINES)) {
+                // once: the game ticks on for a few seconds after shutdown() while the world saves, and finish() with
+                // -Dntmgunfeel.machines adds the jar's textures each time
+                finished = true;
                 finish(mc);
                 mc.shutdown();
             }
         }
     }
+
+    private static boolean finished;
 
     // ---- NTM's machines (MachineCells): one by one at one spot, in each of the four facings, drawn and taken away
 
@@ -88,6 +93,7 @@ final class ShapesScenario {
     // it) and the tick that step began
     private static int machineNext, machineState, machineSince;
     private static int machinesMade, machinesNone;
+    private static boolean machineRetry;
     private static final Map<Integer, int[][]> MACHINE_TEXTURES = new HashMap<Integer, int[][]>();
 
     // a tick of the machine phase (t from its start); false: done
@@ -141,7 +147,7 @@ final class ShapesScenario {
         // the client has the machine and its tile entity (a few ticks after the server), or gives up after 2 s
         int[] c = machineCore;
         boolean there = c != null && Mc.block(mc.world, c[0], c[1], c[2]) == b && Mc.te(mc.world, c[0], c[1], c[2]) != null;
-        if (c != null && !there && t - machineSince < 40 || t - machineSince < 4) return true;
+        if (c != null && !there && t - machineSince < 40 || t - machineSince < (machineRetry ? 24 : 4)) return true;
         machineNext++;
         machineState = 0;
         if (c == null) {
@@ -156,6 +162,17 @@ final class ShapesScenario {
         } catch (Throwable e) {
             GunFeel.LOGGER.warn("Scenario shapes: machine {} could not be drawn: {}", id, e.toString());
         }
+        if (cells == null && !machineRetry && there) {
+            // port: now and then a facing draws nothing on CE (its tile entity or chunk not ready yet): taken again
+            // once, a second later
+            machineRetry = true;
+            machineNext--;
+            machineState = 2;
+            machineSince = t;
+            GunFeel.LOGGER.info("Scenario shapes: machine {} facing {}: nothing drawn, taken again", id, facing);
+            return true;
+        }
+        machineRetry = false;
         if (cells == null) {
             machinesNone++;
             GunFeel.LOGGER.info("Scenario shapes: machine {} facing {}: nothing drawn, keeps its box", id, facing);
@@ -226,7 +243,7 @@ final class ShapesScenario {
         World w = player.world;
         int i = 0;
         for (String id : BLOCKS) {
-            Block b = Block.getBlockFromName(id);
+            Block b = Mc.blockOrNull(id);
             if (b == null || b == Blocks.AIR) {
                 GunFeel.LOGGER.warn("Scenario shapes: no block {}", id);
                 continue;
@@ -244,7 +261,8 @@ final class ShapesScenario {
                 }
                 continue;
             }
-            for (int meta = 0; meta < 16; meta++) {
+            // port: the metas its states save as (1.7.10: 0-15, each a state there)
+            for (int meta : Mc.metas(b)) {
                 for (int j = 0; j < (joining ? 16 : 1); j++) {
                     int x = px + (i % ROW - ROW / 2) * SPACING, z = pz + (i / ROW - ROW / 2) * SPACING;
                     i++;

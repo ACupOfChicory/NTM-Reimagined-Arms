@@ -185,9 +185,11 @@ CORE class com/hbm/tileentity/machine/TileEntityCargoElevator
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
 CORE field com/hbm/render/loader/GroupObject name Ljava/lang/String;
 CORE field com/hbm/render/loader/HFRWavefrontObject groupObjects Ljava/util/ArrayList;
+CORE field com/hbm/render/loader/HFRWavefrontObject resource Lnet/minecraft/util/ResourceLocation;
 CORE field com/hbm/tileentity/machine/TileEntityCargoElevator extension D
 CORE method com/hbm/blocks/BlockDummyable findCore (Lnet/minecraft/world/IBlockAccess;III)[I
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/item/ItemStack;)Z
+CORE method com/hbm/render/loader/HFRWavefrontObject <init> (Lnet/minecraft/util/ResourceLocation;Z)V
 CORE method com/hbm/render/loader/WaveFrontObjectVAO resolve (Ljava/lang/String;)Lcom/hbm/render/loader/GroupHandle;
 HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT

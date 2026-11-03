@@ -168,7 +168,8 @@ public final class BulletCheck {
         // these by its masks and model cells (its own BulletCheck has no such lanes)
         float px = 1 / 16F;
         expect("iron bars alone: between the bars", Want.PASS, single("minecraft:iron_bars", 0), 5.5 * px, 5.5 * px, 30F, null);
-        expect("iron bars alone: a bar", Want.MEET, single("minecraft:iron_bars", 0), 2.5 * px, .5, 30F, null);
+        // port: 1.12.2 draws lone bars as a post in the middle (pixels 7-9), as 26.2 does; 1.7.10 drew a cross of bars
+        expect("iron bars alone: the post", Want.MEET, single("minecraft:iron_bars", 0), .5, .5, 30F, null);
         expect("ladder: between the rungs", Want.PASS, single("minecraft:ladder", 2), .5, 7.5 * px, 30F, null);
         expect("ladder: a rung", Want.MEET, single("minecraft:ladder", 2), .5, 5.5 * px, 30F, null);
         expect("chain-link fence: through the mesh", Want.PASS, row("hbm:fence_metal", 0), 1.5 * px, 14.5 * px, 30F, null);
@@ -450,7 +451,7 @@ public final class BulletCheck {
     // wrong would put them across it); the cargo door shut lets a bullet through the slits between its slats and not
     // through a slat
     private static void doors() {
-        Block cargo = block("hbm:tile.cargo_door");
+        Block cargo = block("hbm:cargo_door");
         net.minecraftforge.common.util.FakePlayer player = net.minecraftforge.common.util.FakePlayerFactory.getMinecraft(level);
         double[] boxes = new double[6 * 16];
         for (int f = 0; f < 4; f++) {
@@ -871,8 +872,7 @@ public final class BulletCheck {
     }
 
     private static Block block(String id) {
-        Block b = Block.getBlockFromName(id);
-        if (b == null || b == Blocks.AIR) b = Block.getBlockFromName(id.replace(":", ":tile."));
+        Block b = Mc.blockOrNull(id);
         if (b == null || b == Blocks.AIR && !id.equals("minecraft:air")) throw new IllegalArgumentException("no block " + id);
         return b;
     }
