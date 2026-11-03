@@ -66,6 +66,10 @@ final class MobsScenario {
                 return;
             }
             EntityLiving living = (EntityLiving) e;
+            // port: 1.12.2's EntityAgeable takes a size set after its own (NTM's Elder One, 7.5 x 17.5) on its first
+            // tick (setScaleForAge); this mob never ticks
+            if (living instanceof net.minecraft.entity.EntityAgeable)
+                ((net.minecraft.entity.EntityAgeable) living).setScaleForAge(((net.minecraft.entity.EntityAgeable) living).isChild());
             double d = 3 + Math.max(living.width, living.height) * 1.5;
             living.setLocationAndAngles(Math.floor(mc.player.posX) + 0.5, Math.floor(mc.player.getEntityBoundingBox().minY),
                     Math.floor(mc.player.posZ) + 0.5 + d, 180F, 0F);

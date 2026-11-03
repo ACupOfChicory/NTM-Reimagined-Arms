@@ -121,6 +121,14 @@ public final class ModelHitClient {
         inPass = true;
     }
 
+    // port: a layer that draws a part of the main model on its own (1.12.2's shulker head, RenderShulker.HeadLayer):
+    // taken as the main model's
+    public static void passMain() {
+        if (current == null) { inPass = false; return; }
+        current.pass(null, null);
+        inPass = true;
+    }
+
     public static void passEnd() {
         if (current != null) current.pass(null, null);
         inPass = false;

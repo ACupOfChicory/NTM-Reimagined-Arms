@@ -12,7 +12,10 @@ import acup.gunfeel.phys.Vec3; // port: the port's Vec3
 /** Ручные области выше любых процедурных предположений. */
 final class HeadProfiles {
     record Ref(String name,double[] size,long shape,Vec3 center) {}
-    record Zone(int part,int group,List<HeadZone.Plane> planes,long face) {}
+    // port: union: the cubes 1.12.2 draws one part as (the llama's head: head, neck, ears), the zone on their bounds
+    record Zone(int part,int group,List<HeadZone.Plane> planes,long face,int[] union) {
+        Zone(int part,int group,List<HeadZone.Plane> planes,long face) { this(part,group,planes,face,null); }
+    }
     record Profile(boolean none,List<Ref> parts,List<Zone> zones) {}
     record Binding(List<Zone> zones,int missing,String reason) {}
     private static final Map<String,Profile> PROFILES=load();
@@ -116,6 +119,20 @@ final class HeadProfiles {
         for(int i=0;i<3;i++) error=Math.max(error,Math.abs(Math.log(dimensions[i]/(ref.size()[i]*scale))));
         return error;
     }
+    // port: the cubes' bounds as one box (26.2: a part's box is its cubes' bounds in the part's frame): along the first
+    // cube's axes, from the lowest corner
+    static ModelBox bounds(List<ModelBox> boxes,int[] at) {
+        var first=boxes.get(at[0]);
+        Vec3[] axes={new Vec3(first.ux(),first.uy(),first.uz()).normalize(),new Vec3(first.vx(),first.vy(),first.vz()).normalize(),new Vec3(first.wx(),first.wy(),first.wz()).normalize()};
+        double[] lo={Double.MAX_VALUE,Double.MAX_VALUE,Double.MAX_VALUE},hi={-Double.MAX_VALUE,-Double.MAX_VALUE,-Double.MAX_VALUE};
+        for(int j:at) for(int c=0;c<8;c++) {
+            var p=ModelContours.point(boxes.get(j),c&1,c>>1&1,c>>2&1);
+            for(int i=0;i<3;i++) { double d=p.dot(axes[i]);lo[i]=Math.min(lo[i],d);hi[i]=Math.max(hi[i],d); }
+        }
+        var o=axes[0].scale(lo[0]).add(axes[1].scale(lo[1])).add(axes[2].scale(lo[2]));
+        var u=axes[0].scale(hi[0]-lo[0]);var v=axes[1].scale(hi[1]-lo[1]);var w=axes[2].scale(hi[2]-lo[2]);
+        return new ModelBox(first.part(),o.x(),o.y(),o.z(),u.x(),u.y(),u.z(),v.x(),v.y(),v.z(),w.x(),w.y(),w.z(),0);
+    }
     // port: how far the cubes together are from the part's size: their corners along the first cube's axes
     private static double extentError(Ref ref,List<ModelBox> boxes,double scale) {
         var first=boxes.getFirst();
@@ -180,7 +197,18 @@ final class HeadProfiles {
                     continue;
                 }
             }
-            int match=mapping[zone.part()];if(match<0) { missing++;continue; }
+            int match=mapping[zone.part()];
+            // port: a zone cut by planes on a part 26.2 has as one box (its cubes' bounds in the part's frame) and
+            // 1.12.2 as several cubes: the planes on the cubes' bounds, when together they are the part's size
+            if(match<0 && !zone.planes().isEmpty() && profile.parts().stream().filter(r->name(r.name()).equals(name(ref.name()))).count()==1) {
+                var same=new ArrayList<ModelBox>();var at=new ArrayList<Integer>();
+                for(int j=0;j<boxes.size();j++) if(name(boxes.get(j).part()).equals(name(ref.name()))) { same.add(boxes.get(j));at.add(j); }
+                if(same.size()>1 && extentError(ref,same,scale)<=.35) {
+                    zones.add(new Zone(at.getFirst(),zone.group(),zone.planes(),zone.face(),at.stream().mapToInt(Integer::intValue).toArray()));
+                    continue;
+                }
+            }
+            if(match<0) { missing++;continue; }
             zones.add(new Zone(match,zone.group(),zone.planes(),zone.face()));
         }
         return new Binding(List.copyOf(zones),missing,missing==0?"ручная разметка":"ручная разметка: часть модели не сопоставлена");
@@ -188,7 +216,7 @@ final class HeadProfiles {
     static List<HeadZone> zones(Binding binding,List<ModelBox> boxes) {
         var out=new ArrayList<HeadZone>();
         for(var zone:binding.zones()) {
-            var box=boxes.get(zone.part());if(zone.face()!=0) box=box.withMesh(zone.face());
+            var box=zone.union()!=null?bounds(boxes,zone.union()):boxes.get(zone.part());if(zone.face()!=0) box=box.withMesh(zone.face());
             out.add(HeadZone.local(box,zone.planes()));
         }
         return List.copyOf(out);

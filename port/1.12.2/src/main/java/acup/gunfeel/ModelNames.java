@@ -137,6 +137,14 @@ public final class ModelNames {
             {"ModelSilverfish", "silverfishWings", "field_78169_b", "root/layer%d"},
             {"ModelWither", "field_82905_a", "field_82905_a", "root/body%d"},
             {"ModelWither", "field_82904_b", "field_82904_b", "root/head%d"},
+            // port: 1.12.2's MCP names them
+            {"ModelWither", "upperBodyParts", "field_82905_a", "root/body%d"},
+            {"ModelWither", "heads", "field_82904_b", "root/head%d"},
+            // port: the guardian (1.12.2; 26.2 has its body as the head, the rest under it)
+            {"ModelGuardian", "guardianBody", "field_178710_a", "root/head"},
+            {"ModelGuardian", "guardianEye", "field_178708_b", "root/head/eye"},
+            {"ModelGuardian", "guardianSpines", "field_178709_c", "root/head/spike%d"},
+            {"ModelGuardian", "guardianTail", "field_178707_d", "root/head/tail%d"},
             {"ModelDragon", "head", "field_78221_a", "root/head"},
             {"ModelDragon", "jaw", "field_78220_c", "root/head/jaw"},
             {"ModelDragon", "body", "field_78217_d", "root/body"},
@@ -167,6 +175,8 @@ public final class ModelNames {
     };
     // 26.2's wither: shoulders, ribcage, tail; center, right and left head (1.7.10's second head is at -x)
     private static final String[] WITHER = {"root/shoulders", "root/ribcage", "root/tail", "root/center_head", "root/right_head", "root/left_head"};
+    // port: 26.2's guardian tail, each piece under the one before
+    private static final String[] GUARDIAN_TAIL = {"root/head/tail0", "root/head/tail0/tail1", "root/head/tail0/tail1/tail2"};
     private static final Map<String, String> PATHS = new HashMap<>();
     static {
         for (String[] row : TABLE) {
@@ -229,7 +239,8 @@ public final class ModelNames {
     private static String path(Class<?> owner, String field, int index) {
         String row = PATHS.get(owner.getSimpleName() + "." + field);
         if (row == null) return "root/" + field + (index < 0 ? "" : String.valueOf(index));
-        if (owner.getSimpleName().equals("ModelWither")) return WITHER[(field.equals("field_82904_b") ? 3 : 0) + Math.min(index, 2)];
+        if (owner.getSimpleName().equals("ModelWither")) return WITHER[(field.equals("field_82904_b") || field.equals("heads") ? 3 : 0) + Math.min(index, 2)];
+        if (owner.getSimpleName().equals("ModelGuardian") && row.endsWith("tail%d")) return GUARDIAN_TAIL[Math.max(0, Math.min(index, 2))];
         return row.contains("%d") ? row.replace("%d", String.valueOf(Math.max(index, 0))) : row;
     }
 

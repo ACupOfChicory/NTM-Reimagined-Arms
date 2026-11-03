@@ -59,6 +59,8 @@ public final class EntityKeys {
         String[][] names = {{"zombie_pigman", "zombified_piglin"}, {"snowman", "snow_golem"}, {"villager_golem", "iron_golem"},
                 {"evocation_illager", "evoker"}, {"vindication_illager", "vindicator"}, {"illusion_illager", "illusioner"}};
         for (String[] n : names) MODERN.put("minecraft:" + n[0], "minecraft:" + n[1]);
+        // NTM CE dropped "mob_" from three of NTM's ids (26.2: hbm:entity_mob_mask_man)
+        for (String n : new String[] {"mask_man", "nuclear_creeper", "tainted_creeper"}) MODERN.put("hbm:entity_" + n, "hbm:entity_mob_" + n);
     }
 
     // a 1.7.10 entity name in 26.2's form
