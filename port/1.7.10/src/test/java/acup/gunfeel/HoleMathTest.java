@@ -196,6 +196,20 @@ class HoleMathTest {
         assertEquals(0.9, HoleMath.mask(new double[] {0.5, 0.9, 0.5}, 1, block, 0.14F, rect, pixels(false, 1, (u, v) -> true)).plane, 1e-12);
     }
 
+    // A plain opaque cube shows its pixels everywhere: its mask is never null, yet the hole on it is whole and may wrap
+    // over the edges. The flat-hole check once asked for a null mask, which only hitbox-only blocks (glass) give, so no
+    // hole on stone or dirt was ever wrapped (owner, X391.101: "holes do not go over block corners").
+    @Test
+    void aPlainCubeNearItsEdgeIsWholeForWrapping() {
+        double[] rect = {0, 1, 0, 1};
+        HoleMath.Mask stone = HoleMath.mask(new double[] {0.95, 1, 0.5}, 1, new int[] {0, 0, 0}, 0.14F, rect, pixels(false, 1, (u, v) -> true));
+        assertNotNull(stone);
+        assertTrue(HoleMath.wholeFace(stone));
+        assertTrue(HoleMath.wholeFace(null));
+        HoleMath.Mask half = HoleMath.mask(new double[] {0.5, 1, 0.5}, 1, new int[] {0, 0, 0}, 0.14F, rect, pixels(false, 1, (u, v) -> u > 0.5));
+        assertTrue(!HoleMath.wholeFace(half));
+    }
+
     // a wall: full blocks at x = 0..2, z = 0 (and a slab at x = 3, a block in front of x = 2 at x = -1 ... none)
     static HoleMath.Boxes wall(boolean blockInFrontOfRight, boolean slabRight) {
         return new HoleMath.Boxes() {

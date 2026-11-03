@@ -47,7 +47,7 @@ public final class TraceScenario {
     }
 
     static boolean enabled() {
-        return Trace.ON && NAME != null && !NAME.trim().isEmpty() && !NAME.trim().equals("shoot");
+        return Trace.ON && NAME != null && !NAME.trim().isEmpty() && !NAME.trim().equals("shoot") && !NAME.trim().equals("holes");
     }
 
     static boolean started() {

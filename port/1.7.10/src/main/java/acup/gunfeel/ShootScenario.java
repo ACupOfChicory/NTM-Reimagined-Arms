@@ -68,9 +68,14 @@ public final class ShootScenario {
         return NAME.equals("mobs");
     }
 
+    // "holes": the holes on plain blocks, in and out and over edges (HolesScenario)
+    static boolean holes() {
+        return NAME.equals("holes");
+    }
+
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || look() || shapes() || scan() || mobs() || TraceScenario.enabled();
+        return on() || look() || shapes() || scan() || mobs() || holes() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -105,6 +110,10 @@ public final class ShootScenario {
         }
         if (mobs()) {
             MobsScenario.step(mc, ++tick);
+            return;
+        }
+        if (holes()) {
+            HolesScenario.step(mc, ++tick);
             return;
         }
         if (look()) {

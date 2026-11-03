@@ -1,10 +1,10 @@
 // Ported from 26.2's src/main/java/acup/gunfeel/Tracers.java at 0762086 (port/1.7.10-forge de8bdf7), cut down to what
 // 1.7.10 can do without 26.2's model capture: the tracers, their flight through the client's world, NTM's standard
-// ricochet, the server's stop point, and flat holes on block faces (cut to the hitbox and the pixels of plain cubes).
+// ricochet, the server's stop point, piercing as the server pierces (a hole in and a hole out), and holes on block faces
+// (cut to the hitbox and the pixels of plain cubes, wrapped over plain cubes' edges by BlockDecal).
 // The pure parts are in HoleMath and TracerPath (same numbers as 26.2); this file holds the world and the drawing.
-// Holes on what a renderer draws (NTM machines and doors) come from MachineMesh, square on the part they sit on.
-// Left out (26.2 only, for now): DecalSurface (a hole wrapped over a model's edges), piercing on the client
-// (PassableClip), the graphics-card hole cache (Batch, holeCache), the late pass for glass, entity hits for unannounced shots, ClientSmoke / HoleBenchmark hooks.
+// Holes on what a renderer draws (NTM machines and doors) come from MachineMesh, wrapped over the part they sit on.
+// Left out (26.2 only, for now): DecalSurface over non-cube block models, the graphics-card hole cache (Batch, holeCache), the late pass for glass, entity hits for unannounced shots, ClientSmoke / HoleBenchmark hooks.
 package acup.gunfeel;
 
 import java.nio.FloatBuffer;
@@ -35,7 +35,6 @@ import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.IIcon;
-import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Vec3;
 import net.minecraft.world.World;
@@ -117,9 +116,13 @@ public final class Tracers {
         boolean gone;
         boolean whizzed; // already whizzed past the player
         int ricochets;
+        float damage; // what is left of its damage (bullet rules "pierce")
+        final Materials.Penetration penetration = new Materials.Penetration();
+        final java.util.Set<Long> pierced = new java.util.HashSet<Long>(); // blocks it went through (BulletServer.key)
 
-        Shot(int id, BulletConfig config, int owner, TracerPath path, int[] colors, long lifeTicks, double born) {
+        Shot(int id, BulletConfig config, int owner, TracerPath path, int[] colors, long lifeTicks, double born, float damage) {
             this.id = id;
+            this.damage = damage;
             this.config = config;
             this.owner = owner;
             this.path = path;
@@ -143,6 +146,9 @@ public final class Tracers {
             this.rootBorn = from.rootBorn;
             this.whizzed = from.whizzed;
             this.ricochets = from.ricochets + 1;
+            this.damage = from.damage;
+            this.penetration.restore(from.penetration.spent());
+            this.pierced.addAll(from.pierced);
             this.checked = 1e-4; // not at the very face it left
         }
     }
@@ -290,7 +296,7 @@ public final class Tracers {
                     "eye", own ? v(new double[] {mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ}) : "-",
                     "look", own ? mc.thePlayer.rotationPitch + "," + mc.thePlayer.rotationYaw : "-");
         }
-        Shot s = new Shot(id, bc, owner, path, c, life, flightTime());
+        Shot s = new Shot(id, bc, owner, path, c, life, flightTime(), damage);
         SHOTS.add(s);
         RECENT_SHOTS.put(s.id, s);
         if (RECENT_SHOTS.size() > 512) RECENT_SHOTS.remove(RECENT_SHOTS.keySet().iterator().next());
@@ -530,19 +536,22 @@ public final class Tracers {
 
     // ---- flight
 
-    // the server's path through blocks (PassableClip: fence gaps, bars and grates by their model's cells), so the
-    // tracer stops and the hole lands where the bullet did
-    private static MovingObjectPosition rayTrace(World world, double[] a, double[] b) {
-        BlockRay.Hit h = PassableClip.clip(world, Vec3.createVectorHelper(a[0], a[1], a[2]), Vec3.createVectorHelper(b[0], b[1], b[2]));
-        metWindow = h instanceof BlockRay.GlassHit;
-        if (h == null) return null;
-        return new MovingObjectPosition(h.x, h.y, h.z, h.face, Vec3.createVectorHelper(h.ax, h.ay, h.az));
+    // the last block met was a machine's window (MachineCells' glass): its sound and crumbs are glass's
+    private static boolean window(BlockRay.Hit h) {
+        return h instanceof BlockRay.GlassHit;
     }
 
-    // the last block met was a machine's window (MachineCells' glass): its sound and crumbs are glass's
-    private static boolean metWindow;
+    private static double[] point(BlockRay.Hit h) {
+        return new double[] {h.ax, h.ay, h.az};
+    }
 
-    // test the bullet's path up to t ticks against blocks; stops it at the first block it meets
+    private static int[] cell(BlockRay.Hit h) {
+        return new int[] {h.x, h.y, h.z};
+    }
+
+    // test the bullet's path up to t ticks against blocks (PassableClip: fence gaps, bars and grates by their model's
+    // cells, as the server has it). It pierces them while it has the damage (PassableClip.pierced, as BulletServer.clip
+    // and 26.2's fly): a hole where it goes in and where it comes out. Stops it at the first block that holds it.
     private static void fly(Shot s, World world, double t) {
         if (!Double.isNaN(s.path.confirmedEnd)) t = Math.min(t, s.path.confirmedEnd);
         if (!Double.isNaN(s.end) || t <= s.checked) return;
@@ -550,18 +559,59 @@ public final class Tracers {
         double[] ra = s.path.tested(s.checked), rb = s.path.tested(t);
         double[] dir = {rb[0] - ra[0], rb[1] - ra[1], rb[2] - ra[2]};
         double len = Math.sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
-        MovingObjectPosition hit = len > 1e-6 ? rayTrace(world, ra, rb) : null;
-        double[] stop = rb;
-        if (hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK && hit.hitVec != null)
-            stop = new double[] {hit.hitVec.xCoord, hit.hitVec.yCoord, hit.hitVec.zCoord};
-        boolean window = metWindow;
+        BlockRay.Hit hit = null;
+        if (len > 1e-6) {
+            double[] unit = {dir[0] / len, dir[1] / len, dir[2] / len};
+            Vec3 to = Vec3.createVectorHelper(rb[0], rb[1], rb[2]);
+            hit = PassableClip.clip(world, Vec3.createVectorHelper(ra[0], ra[1], ra[2]), to);
+            for (int i = 0; i < 16 && hit != null; i++) {
+                int[] pos = cell(hit);
+                if (s.config.onImpact != null) { // explosive: goes off on the first block
+                    logStop(s, world, hit, "explosive", Float.NaN);
+                    break;
+                }
+                long key = BulletServer.key(hit.x, hit.y, hit.z);
+                boolean once = PassableClip.paidOnce(hit), known = once && s.pierced.contains(key);
+                BlockRay.Hit out = PassableClip.exit(world, hit, unit[0], unit[1], unit[2]);
+                if (out == null) {
+                    logStop(s, world, hit, "no_exit", Float.NaN);
+                    break;
+                }
+                float left = known ? s.damage : PassableClip.pierced(world, hit, out, s.damage, s.config, s.penetration);
+                if (left < 0F) {
+                    logStop(s, world, hit, "held", (float) hit.distance(out.ax, out.ay, out.az));
+                    break;
+                }
+                if (TestLog.client && !known) TestLog.c(s.id, "block", "block", name(world, pos), "pos", v(pos), "at", v(point(hit)),
+                        "material", TestLog.material(world, hit), "result", "pierce", "damage", s.damage, "left", left,
+                        "path", hit.distance(out.ax, out.ay, out.az), "out", v(point(out)), "out_face", out.face);
+                if (!known) {
+                    if (once) s.pierced.add(key);
+                    s.damage = left;
+                    // from one steel panel straight into the next (two stacked steel corners): no hole, sound or
+                    // particles on the face between them, where nothing shows; it went into this one from inside the last
+                    if (!once || !fromInside(world, hit, unit)) hit(world, point(hit), hit.face, pos, s.config, unit, false, s.id, window(hit));
+                    // a window: one hole, seen from both sides, and no second one a pixel behind it
+                    if (once && !against(world, out))
+                        hit(world, point(out), out.face, cell(out), s.config, new double[] {-unit[0], -unit[1], -unit[2]}, false, s.id, false);
+                }
+                // it comes out beyond this step's end: inside the block till the next one
+                if (out.distanceSq(ra[0], ra[1], ra[2]) >= len * len) {
+                    hit = null;
+                    break;
+                }
+                hit = PassableClip.clip(world, Vec3.createVectorHelper(out.ax + unit[0] * 1e-3, out.ay + unit[1] * 1e-3, out.az + unit[2] * 1e-3), to);
+            }
+        }
+        double[] stop = hit != null ? point(hit) : rb;
         if (!s.whizzed) s.whizzed = BulletFx.whizz(world, s.owner, ra, stop, s.path.speed);
-        if (hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK && hit.hitVec != null) {
-            double[] at = {hit.hitVec.xCoord, hit.hitVec.yCoord, hit.hitVec.zCoord};
+        if (hit != null) {
+            boolean window = window(hit);
+            double[] at = point(hit);
             double reach = Math.sqrt(sq(at[0] - ra[0]) + sq(at[1] - ra[1]) + sq(at[2] - ra[2]));
             s.end = s.checked + (t - s.checked) * reach / len;
-            int[] pos = {hit.blockX, hit.blockY, hit.blockZ};
-            int face = hit.sideHit;
+            int[] pos = cell(hit);
+            int face = hit.face;
             double[] unit = {dir[0] / len, dir[1] / len, dir[2] / len};
             if (TestLog.client) TestLog.c(s.id, "end", "by", "block", "block", name(world, pos), "pos", v(pos), "at", v(at));
             double[] vel = s.path.velocity(s.end);
@@ -580,6 +630,43 @@ public final class Tracers {
         }
         s.checked = t;
         if (!Double.isNaN(s.path.confirmedEnd) && t >= s.path.confirmedEnd) s.end = s.path.confirmedEnd;
+    }
+
+    // the steel panels: a bullet goes from one straight into the next where they stand together (26.2's PANELS)
+    private static boolean panel(Block b) {
+        Object n = Block.blockRegistry.getNameForObject(b);
+        return "hbm:steel_corner".equals(n) || "hbm:steel_wall".equals(n);
+    }
+
+    // the bullet went into this steel panel straight from inside the last one: no hole where it went in
+    private static boolean fromInside(World world, BlockRay.Hit hit, double[] unit) {
+        if (!hit.inside || !panel(world.getBlock(hit.x, hit.y, hit.z))) return false;
+        return panel(world.getBlock((int) Math.floor(hit.ax - unit[0] * 2e-3), (int) Math.floor(hit.ay - unit[1] * 2e-3),
+                (int) Math.floor(hit.az - unit[2] * 2e-3)));
+    }
+
+    // the steel panel's face lies against another panel's solid part (the bullet goes on straight into it): a hole
+    // there could not be seen, it would only spill onto the faces around
+    private static boolean against(World world, BlockRay.Hit hit) {
+        if (!panel(world.getBlock(hit.x, hit.y, hit.z))) return false;
+        int[] off = HoleMath.offset(hit.face);
+        double px = hit.ax + off[0] * 1e-3, py = hit.ay + off[1] * 1e-3, pz = hit.az + off[2] * 1e-3;
+        int nx = (int) Math.floor(px), ny = (int) Math.floor(py), nz = (int) Math.floor(pz);
+        if (nx == hit.x && ny == hit.y && nz == hit.z) return false;
+        Block n = world.getBlock(nx, ny, nz);
+        if (!panel(n)) return false;
+        List<net.minecraft.util.AxisAlignedBB> boxes = new ArrayList<net.minecraft.util.AxisAlignedBB>();
+        n.addCollisionBoxesToList(world, nx, ny, nz, net.minecraft.util.AxisAlignedBB.getBoundingBox(px - 1e-4, py - 1e-4, pz - 1e-4,
+                px + 1e-4, py + 1e-4, pz + 1e-4), boxes, null);
+        return !boxes.isEmpty();
+    }
+
+    // the test log: the bullet stops at this block on the client (the hit itself: "end" in fly)
+    private static void logStop(Shot s, World world, BlockRay.Hit hit, String why, float path) {
+        if (!TestLog.client) return;
+        int[] pos = cell(hit);
+        TestLog.c(s.id, "block", "block", name(world, pos), "pos", v(pos), "at", v(point(hit)), "material", TestLog.material(world, hit),
+                "result", "stop", "why", why, "damage", s.damage, "path", Float.isNaN(path) ? null : path);
     }
 
     // NTM's standard ricochet (BulletConfig.LAMBDA_STANDARD_RICOCHET) as the server has it: a bullet without an impact
@@ -682,6 +769,28 @@ public final class Tracers {
         return PENDING.size();
     }
 
+    // a hole as a scenario sees it (HolesScenario): its block, hit face, where it is and its pieces over cube edges
+    static final class HoleView {
+        final int x, y, z, face;
+        final double[] pos;
+        final List<double[]> pieces;
+
+        HoleView(Hole h) {
+            x = h.x;
+            y = h.y;
+            z = h.z;
+            face = h.face;
+            pos = h.pos.clone();
+            pieces = h.blockPieces;
+        }
+    }
+
+    static List<HoleView> holesNow() {
+        List<HoleView> out = new ArrayList<HoleView>();
+        for (Hole h : HOLES) out.add(new HoleView(h));
+        return out;
+    }
+
     static int holeCount() {
         return HOLES.size();
     }
@@ -695,7 +804,8 @@ public final class Tracers {
             if (p.world != now || !Config.bulletHoles) continue;
             Hole h = makeHole(p);
             if (TestLog.client) TestLog.c(p.shot, "hole", "block", name(p.world, p.pos), "pos", v(p.pos), "at", v(h != null ? h.pos : p.at),
-                    "placed", h != null, "scratch", p.scratch != null, "holes", HOLES.size(), "max", Config.holeMax);
+                    "placed", h != null, "scratch", p.scratch != null, "holes", HOLES.size(), "max", Config.holeMax,
+                    "wrapped", h == null || h.blockPieces == null ? 0 : h.blockPieces.size(), "pieces", h == null ? "-" : pieces(h.blockPieces));
             if (h != null && Trace.ON) TestLog.c(p.shot, "hole_made", "pos", v(p.pos), "at", v(h.pos), "face", h.face, "kind", h.kind,
                     "turn", h.turn, "size", h.size, "plane", h.plane, "rect", h.rect);
             made++;
@@ -789,7 +899,7 @@ public final class Tracers {
                 boxes.box(pos[0], pos[1], pos[2]), p.shot);
         // on an opaque cube, over its edges onto the faces around (26.2's drawnHole); a square that stays on the face is
         // drawn flat as before
-        if (mask == null && cull && opaqueCube(world, pos[0], pos[1], pos[2]))
+        if (HoleMath.wholeFace(mask) && cull && opaqueCube(world, pos[0], pos[1], pos[2]))
             wrapOnCubes(world, h);
         HOLES.addLast(h);
         trimHoles();
@@ -1148,6 +1258,19 @@ public final class Tracers {
     private static String name(World world, int[] pos) {
         Block b = world.getBlock(pos[0], pos[1], pos[2]);
         return Block.blockRegistry.getNameForObject(b) + "[" + world.getBlockMetadata(pos[0], pos[1], pos[2]) + "]";
+    }
+
+    // a hole's pieces over cube edges for the test log: per piece its normal and corners, "-" when it is flat
+    static String pieces(List<double[]> pieces) {
+        if (pieces == null) return "-";
+        StringBuilder b = new StringBuilder();
+        for (double[] pc : pieces) {
+            if (b.length() > 0) b.append(" | ");
+            b.append(String.format(java.util.Locale.ROOT, "n(%.0f %.0f %.0f)", pc[0], pc[1], pc[2]));
+            for (int o = 3; o + 4 < pc.length; o += 5)
+                b.append(String.format(java.util.Locale.ROOT, " %.3f,%.3f,%.3f", pc[o], pc[o + 1], pc[o + 2]));
+        }
+        return b.toString();
     }
 
     private static String v(double[] p) {

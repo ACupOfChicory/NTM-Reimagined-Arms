@@ -188,6 +188,12 @@ final class HoleMath {
     }
 
     // the parts of the face a flat hole covers: its rect, or the runs of shown cells of its mask, row by row
+    // the face shows the block's pixels all around the hole (mask() gives null or a Mask without see-through cells):
+    // on an opaque cube such a hole may go on over the face's edges (BlockDecal.wrap)
+    static boolean wholeFace(Mask m) {
+        return m == null || m.solid == null;
+    }
+
     static List<double[]> cells(double[] rect, Mask m) {
         List<double[]> out = new ArrayList<double[]>();
         if (m == null || m.solid == null) {
