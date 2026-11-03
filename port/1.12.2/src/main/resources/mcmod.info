@@ -1,0 +1,16 @@
+[{
+	"modid": "ntmgunfeel",
+	"name": "NTM Reimagined Arms @DISPLAY@",
+	"description": "Recoil, weapon sway and gun model kick for HBM's Nuclear Tech Mod: Community Edition guns (port of NTM Reimagined Arms).",
+	"version": "@VERSION@",
+	"mcversion": "1.12.2",
+	"url": "",
+	"updateUrl": "",
+	"authorList": ["ACupOfChicory"],
+	"credits": "Weapon sway after Superb Warfare (GPL-3.0-only). Includes JvmDowngrader stubs by William Gray (LGPL-2.1-or-later, see META-INF/licenses).",
+	"logoFile": "",
+	"screenshots": [],
+	"requiredMods": ["hbm", "mixinbooter"],
+	"dependencies": ["hbm", "mixinbooter"],
+	"useDependencyInformation": false
+}]

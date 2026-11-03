@@ -1,0 +1,5 @@
+# the root .gitignore drops every *.jar, build/, run/ and libs/ (the NTM jar); the wrapper jar stays
+!gradle/wrapper/gradle-wrapper.jar
+/.idea/
+/eclipse/
+/bin/

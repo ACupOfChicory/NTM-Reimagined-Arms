@@ -1,0 +1,261 @@
+package acup.gunfeel;
+
+// port: copy of 26.2 src/main/java/acup/gunfeel/ModelMesh.java at 0762086; changes marked "port:"
+
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+
+// Неизменяемая поверхность в единичной коробке. BVH и рёбра строятся один раз;
+// анимация меняет только внешний аффинный базис ModelBox.
+public final class ModelMesh {
+    public static final int MAX_TRIANGLES = 768;
+    // Чтений тысячи за кадр, регистраций единицы за игру: читается неизменяемый
+    // снимок без блокировок и упаковки long, запись копирует его.
+    // port: java.util.HashMap instead of fastutil's Long2ObjectOpenHashMap (1.7.10 has no fastutil)
+    private static volatile HashMap<Long, ModelMesh> CACHE = new HashMap<>();
+    private record Node(double[] bounds, int from, int to, Node left, Node right) {}
+    private final long id;
+    private final float[] triangles, edges;
+    private final Integer[] order;
+    private final Node root;
+    private boolean closed;
+
+    public ModelMesh(float[] data) {
+        if (data.length == 0 || data.length % 9 != 0 || data.length / 9 > MAX_TRIANGLES)
+            throw new IllegalArgumentException("Model mesh triangle count");
+        for (float x : data) if (!Float.isFinite(x) || x < 0 || x > 1) throw new IllegalArgumentException("Model mesh coordinate");
+        triangles = data.clone();
+        id = hash(triangles);
+        order = new Integer[triangles.length / 9];
+        for (int i = 0; i < order.length; i++) order[i] = i;
+        root = build(0, order.length);
+        edges = buildEdges();
+    }
+
+    public long id() { return id; }
+    public float[] triangles() { return triangles.clone(); }
+    // Внутренний неизменяемый массив: рендер только читает его.
+    float[] triangleData() { return triangles; }
+    public float[] edges() { return edges; }
+    public double[] bounds() { return root.bounds().clone(); }
+    // Внутренний массив без копии: вызывающий только читает его.
+    double[] boundsData() { return root.bounds(); }
+    // Объёмная часть для крупных мобов (PlaneHitPolicy), вычисляется один раз.
+    volatile java.util.Optional<ModelMesh> volume;
+    public static ModelMesh get(long id) { return CACHE.get(id); }
+    public static ModelMesh register(ModelMesh mesh) {
+        ModelMesh old = CACHE.get(mesh.id);
+        if (old != null) return old;
+        synchronized (ModelMesh.class) {
+            old = CACHE.get(mesh.id);
+            if (old != null) return old;
+            if (CACHE.size() >= 4096) throw new IllegalStateException("Model mesh cache full");
+            var next = new HashMap<>(CACHE); // port: HashMap
+            next.put(mesh.id, mesh);
+            CACHE = next;
+            return mesh;
+        }
+    }
+
+    private static long hash(float[] data) {
+        try {
+            ByteBuffer bytes = ByteBuffer.allocate(data.length * 4);
+            for (float x : data) bytes.putFloat(x);
+            long id = ByteBuffer.wrap(MessageDigest.getInstance("SHA-256").digest(bytes.array())).getLong();
+            return id == 0 ? 1 : id;
+        } catch (java.security.NoSuchAlgorithmException ex) { throw new AssertionError(ex); }
+    }
+
+    private Node build(int from, int to) {
+        double[] b = {Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY,
+                Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY};
+        for (int i = from; i < to; i++) for (int v = 0; v < 9; v += 3) for (int a = 0; a < 3; a++) {
+            float p = triangles[order[i] * 9 + v + a];
+            b[a] = Math.min(b[a], p); b[a + 3] = Math.max(b[a + 3], p);
+        }
+        if (to - from <= 8) return new Node(b, from, to, null, null);
+        int axis = b[4] - b[1] > b[3] - b[0] ? 1 : 0;
+        if (b[5] - b[2] > b[axis + 3] - b[axis]) axis = 2;
+        final int a = axis;
+        Arrays.sort(order, from, to, Comparator.comparingDouble(i -> triangles[i * 9 + a]
+                + triangles[i * 9 + a + 3] + triangles[i * 9 + a + 6]));
+        int mid = (from + to) / 2;
+        return new Node(b, from, to, build(from, mid), build(mid, to));
+    }
+
+    public double clip(double[] a, double[] b) {
+        if (insideBounds(a) && contains(a)) return 0;
+        if (Arrays.equals(a, b)) return -1;
+        double hit = nearest(root, a, b, Double.POSITIVE_INFINITY);
+        return Double.isFinite(hit) ? hit : -1;
+    }
+
+    private static boolean insideBounds(double[] p) {
+        return p[0] >= -1e-9 && p[0] <= 1+1e-9 && p[1] >= -1e-9 && p[1] <= 1+1e-9 && p[2] >= -1e-9 && p[2] <= 1+1e-9;
+    }
+
+    private boolean contains(double[] a) {
+        double[] b = {a[0] + 2.137, a[1] + 2.417, a[2] + 2.731};
+        double[] hits = new double[order.length];
+        int n = crossings(root, a, b, hits, 0);
+        Arrays.sort(hits, 0, n);
+        int unique = 0;
+        double previous = -1;
+        for (int i = 0; i < n; i++) {
+            if (hits[i] <= 1e-9) return true;
+            if (hits[i] - previous > 1e-7) { unique++; previous = hits[i]; }
+        }
+        return closed && (unique & 1) != 0;
+    }
+
+    private double nearest(Node node, double[] a, double[] b, double best) {
+        if (!overlaps(node.bounds, a, b, best)) return best;
+        if (node.left != null) return nearest(node.right, a, b, nearest(node.left, a, b, best));
+        for (int i = node.from; i < node.to; i++) {
+            double hit = triangle(order[i], a, b);
+            if (hit >= 0 && hit < best) best = hit;
+        }
+        return best;
+    }
+
+    private int crossings(Node node, double[] a, double[] b, double[] hits, int n) {
+        if (!overlaps(node.bounds, a, b, 1)) return n;
+        if (node.left != null) return crossings(node.right, a, b, hits, crossings(node.left, a, b, hits, n));
+        for (int i = node.from; i < node.to; i++) {
+            double hit = triangle(order[i], a, b);
+            if (hit >= 0) hits[n++] = hit;
+        }
+        return n;
+    }
+
+    private static boolean overlaps(double[] bounds, double[] a, double[] b, double best) {
+        double lo = 0, hi = Math.min(1, best);
+        for (int i = 0; i < 3; i++) {
+            double d = b[i] - a[i];
+            if (Math.abs(d) < 1e-12) {
+                if (a[i] < bounds[i] - 1e-9 || a[i] > bounds[i + 3] + 1e-9) return false;
+            } else {
+                double t0 = (bounds[i] - a[i]) / d, t1 = (bounds[i + 3] - a[i]) / d;
+                lo = Math.max(lo, Math.min(t0, t1)); hi = Math.min(hi, Math.max(t0, t1));
+                if (hi < lo - 1e-9) return false;
+            }
+        }
+        return true;
+    }
+
+    private double triangle(int index, double[] a, double[] b) {
+        int k = index * 9;
+        double ux = triangles[k + 3] - triangles[k], uy = triangles[k + 4] - triangles[k + 1], uz = triangles[k + 5] - triangles[k + 2];
+        double vx = triangles[k + 6] - triangles[k], vy = triangles[k + 7] - triangles[k + 1], vz = triangles[k + 8] - triangles[k + 2];
+        double dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+        double px = dy * vz - dz * vy, py = dz * vx - dx * vz, pz = dx * vy - dy * vx;
+        double det = ux * px + uy * py + uz * pz;
+        if (Math.abs(det) < 1e-12) {
+            double nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
+            double n2=nx*nx+ny*ny+nz*nz;
+            if(n2<1e-24) return -1;
+            double tx=a[0]-triangles[k],ty=a[1]-triangles[k+1],tz=a[2]-triangles[k+2];
+            if(Math.abs(tx*nx+ty*ny+tz*nz)>1e-9*Math.sqrt(n2)
+                    || Math.abs(dx*nx+dy*ny+dz*nz)>1e-9*Math.sqrt(n2)) return -1;
+            double u0=((ty*vz-tz*vy)*nx+(tz*vx-tx*vz)*ny+(tx*vy-ty*vx)*nz)/n2;
+            double v0=((uy*tz-uz*ty)*nx+(uz*tx-ux*tz)*ny+(ux*ty-uy*tx)*nz)/n2;
+            double du=((dy*vz-dz*vy)*nx+(dz*vx-dx*vz)*ny+(dx*vy-dy*vx)*nz)/n2;
+            double dv=((uy*dz-uz*dy)*nx+(uz*dx-ux*dz)*ny+(ux*dy-uy*dx)*nz)/n2;
+            double lo=0,hi=1;
+            double[] values={u0,v0,1-u0-v0},deltas={du,dv,-du-dv};
+            for(int i=0;i<3;i++) {
+                if(Math.abs(deltas[i])<1e-12) { if(values[i]<-1e-9) return -1; }
+                else if(deltas[i]>0) lo=Math.max(lo,-values[i]/deltas[i]);
+                else hi=Math.min(hi,-values[i]/deltas[i]);
+            }
+            return lo<=hi+1e-9 && lo<=1 && hi>=0?Math.clamp(lo,0,1):-1;
+        }
+        double tx = a[0] - triangles[k], ty = a[1] - triangles[k + 1], tz = a[2] - triangles[k + 2];
+        double u = (tx * px + ty * py + tz * pz) / det;
+        if (u < -1e-9 || u > 1 + 1e-9) return -1;
+        double qx = ty * uz - tz * uy, qy = tz * ux - tx * uz, qz = tx * uy - ty * ux;
+        double v = (dx * qx + dy * qy + dz * qz) / det;
+        if (v < -1e-9 || u + v > 1 + 1e-9) return -1;
+        double t = (vx * qx + vy * qy + vz * qz) / det;
+        return t >= -1e-9 && t <= 1 + 1e-9 ? Math.clamp(t, 0, 1) : -1;
+    }
+
+    private record Point(float x, float y, float z) implements Comparable<Point> {
+        Point { x=Math.round(x*1_000_000F)/1_000_000F; y=Math.round(y*1_000_000F)/1_000_000F; z=Math.round(z*1_000_000F)/1_000_000F; }
+        public int compareTo(Point p) {
+            int c = Float.compare(x, p.x); if (c == 0) c = Float.compare(y, p.y); return c == 0 ? Float.compare(z, p.z) : c;
+        }
+    }
+    private record Edge(Point a, Point b) {}
+    private static final class FaceEdge {
+        final double x, y, z;
+        int count = 1;
+        boolean crease,positive,negative;
+        FaceEdge(double x, double y, double z) { this.x = x; this.y = y; this.z = z; }
+    }
+    private float[] buildEdges() {
+        record Side(Point a,Point b,double nx,double ny,double nz,double cx,double cy,double cz) {}
+        List<Side> sides=new ArrayList<>();
+        java.util.Set<Point> vertices=new java.util.HashSet<>();
+        Map<Edge, FaceEdge> all = new HashMap<>();
+        for (int k = 0; k < triangles.length; k += 9) {
+            Point[] p = new Point[3];
+            for (int i = 0; i < 3; i++) p[i] = new Point(triangles[k + i * 3], triangles[k + i * 3 + 1], triangles[k + i * 3 + 2]);
+            double ux = p[1].x - p[0].x, uy = p[1].y - p[0].y, uz = p[1].z - p[0].z;
+            double vx = p[2].x - p[0].x, vy = p[2].y - p[0].y, vz = p[2].z - p[0].z;
+            double nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+            double length = Math.sqrt(nx * nx + ny * ny + nz * nz);
+            if (length < 1e-12) continue;
+            nx /= length; ny /= length; nz /= length;
+            for (int i = 0; i < 3; i++) {
+                Point a = p[i], b = p[(i + 1) % 3];
+                sides.add(new Side(a,b,nx,ny,nz,(p[0].x+p[1].x+p[2].x)/3.,
+                        (p[0].y+p[1].y+p[2].y)/3.,(p[0].z+p[1].z+p[2].z)/3.)); vertices.add(a); vertices.add(b);
+            }
+        }
+        // Длинное ребро и несколько коротких на другой стороне T-стыка
+        // должны иметь одинаковые ключи. Иначе шов разбиения выглядит краем.
+        for(var side:sides) {
+            Point start=side.a(),end=side.b();
+            double dx=end.x-start.x,dy=end.y-start.y,dz=end.z-start.z,len=dx*dx+dy*dy+dz*dz;
+            if(len<1e-16) continue;
+            var split=new java.util.TreeMap<Double,Point>(); split.put(0.,start); split.put(1.,end);
+            for(var p:vertices) {
+                double t=((p.x-start.x)*dx+(p.y-start.y)*dy+(p.z-start.z)*dz)/len;
+                if(t<=1e-7 || t>=1-1e-7) continue;
+                double ex=p.x-start.x-t*dx,ey=p.y-start.y-t*dy,ez=p.z-start.z-t*dz;
+                if(ex*ex+ey*ey+ez*ez<2e-12) split.put(t,p);
+            }
+            Point a=null;
+            for(var b:split.values()) {
+                if(a==null) { a=b; continue; }
+                Edge key = a.compareTo(b) < 0 ? new Edge(a,b) : new Edge(b,a);
+                FaceEdge old = all.get(key);
+                if (old == null) { old=new FaceEdge(side.nx(),side.ny(),side.nz()); all.put(key,old); }
+                else { old.count++; old.crease |= Math.abs(old.x*side.nx()+old.y*side.ny()+old.z*side.nz())<.99999; }
+                double ex=key.b.x-key.a.x,ey=key.b.y-key.a.y,ez=key.b.z-key.a.z;
+                double sign=(old.y*ez-old.z*ey)*(side.cx()-key.a.x)
+                        +(old.z*ex-old.x*ez)*(side.cy()-key.a.y)+(old.x*ey-old.y*ex)*(side.cz()-key.a.z);
+                if(sign>1e-10) old.positive=true; if(sign<-1e-10) old.negative=true;
+                a=b;
+            }
+        }
+        ArrayList<Float> lines = new ArrayList<>();
+        closed = !all.isEmpty() && all.values().stream().allMatch(face -> face.count == 2 && (face.crease || face.positive && face.negative));
+        all.forEach((edge, face) -> {
+            if (!(face.positive && face.negative) || face.crease) for (Point p : new Point[] {edge.a, edge.b}) {
+                lines.add(p.x); lines.add(p.y); lines.add(p.z);
+            }
+        });
+        float[] out = new float[lines.size()];
+        for (int i = 0; i < out.length; i++) out[i] = lines.get(i);
+        return out;
+    }
+}

@@ -1,0 +1,9 @@
+{"schema": 1, "profiles": {
+  "RandomThings:spirit": {"none": true},
+  "minecraft:bat": {"none": true},
+  "hbm:entity_cyber_crab": {"none": true},
+  "hbm:entity_mob_mask_man": {"none": false, "parts": [
+    {"name": "mesh/Head", "size": [1.55936003, 1.41685903, 1.0], "shape": "aca1f778e5169381", "center": [0.0, 4.29156703, 0.77968001]},
+    {"name": "mesh/Skull", "size": [1.0, 1.0, 1.0], "shape": "0", "center": [0.0, 4.5, 0.5]}],
+   "zones": [{"part": 0, "group": 1, "planes": []}, {"part": 1, "group": 1, "planes": []}]}
+}}

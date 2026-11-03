@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "acup.gunfeel.mixins.early",
+  "refmap": "mixins.ntmgunfeel.refmap.json",
+  "target": "@env(DEFAULT)",
+  "compatibilityLevel": "JAVA_8",
+  "injectors": { "defaultRequire": 1 },
+  "mixins": ["MixinVanillaProjectileHits", "MixinThrowablePath", "MixinFishHookPath", "MixinArrowPath", "MixinProjectileHelperPath"],
+  "client": ["MixinEntityRenderer", "MixinRenderGlobal", "MixinMousePick", "MixinTimer", "MixinMouseTurn", "ItemRendererAccess", "MixinRendererLivingEntity", "MixinLayerWool", "MixinLayerGel", "MixinModelRenderer", "MixinRenderManager"],
+  "server": []
+}

@@ -1,0 +1,10 @@
+{"schema": 1, "profiles": {
+  "hbm:entity_mob_mask_man": {"none": false, "parts": [
+    {"name": "mesh/Torso", "size": [1.94284296, 3.04355907, 2.5], "shape": "3fa0b827d228905e", "center": [-0.0, 2.89677954, -0.30286288]},
+    {"name": "mesh/LLeg", "size": [0.875772, 1.90630794, 0.5], "shape": "59489c07deff3213", "center": [0.5, 0.95315397, -0.30288625]},
+    {"name": "mesh/RLeg", "size": [0.875772, 1.90630794, 0.5], "shape": "32e5ee784a49902b", "center": [-0.5, 0.95315397, -0.30288625]},
+    {"name": "mesh/LArm", "size": [2.46984601, 1.81547201, 0.5], "shape": "352a75e52981c737", "center": [1.5, 3.157736, -0.04742372]},
+    {"name": "mesh/RArm", "size": [2.96984601, 1.94047201, 0.75], "shape": "c7ec9d0a8344b52c", "center": [-1.5, 3.095236, 0.20257628]},
+    {"name": "mesh/Head", "size": [1.55936003, 1.41685903, 1.0], "shape": "aca1f778e5169381", "center": [0.0, 4.29156703, 0.77968001]}],
+   "zones": [{"part": 4, "group": 1, "planes": []}, {"part": 3, "group": 1, "planes": []}, {"part": 2, "group": 1, "planes": []}, {"part": 1, "group": 1, "planes": []}]}
+}}
