@@ -40,6 +40,8 @@ final class AmmoCheck {
             GunFeel.LOGGER.error("ammocheck: crashed", e);
         }
         GunFeel.LOGGER.info("ammocheck: {} ok, {} failed", ok, failed);
+        // the check is the run's only job (as BulletCheck's): the dev server stops after it
+        net.minecraftforge.fml.common.FMLCommonHandler.instance().getMinecraftServerInstance().initiateShutdown();
     }
 
     private static void check(String what, boolean pass, Object got) {
@@ -160,7 +162,7 @@ final class AmmoCheck {
         ItemGunBaseNT.setValueInt(gun, AmmoLock.NEXT, 0);
         toggle(p);
         check("lock: on", AmmoLock.locked(gun), null);
-        p.inventory.setInventorySlotContents(1, null);
+        p.inventory.setInventorySlotContents(1, ItemStack.EMPTY);
         mag.setAmount(gun, 0);
         check("lock: without its ammo none loads", mag.getFirstConfig(gun, p.inventory) == null && !mag.canReload(gun, p.inventory),
                 id(mag.getFirstConfig(gun, p.inventory)));
@@ -189,7 +191,7 @@ final class AmmoCheck {
         check("belt: feeds the chosen", mag.getFirstConfig(gun, p.inventory) == a, id(mag.getFirstConfig(gun, p.inventory)));
         toggle(p);
         check("belt: locked", AmmoLock.locked(gun) && AmmoLock.belt(mag, gun).size() == 1 && AmmoLock.belt(mag, gun).get(0) == a, null);
-        p.inventory.setInventorySlotContents(3, null);
+        p.inventory.setInventorySlotContents(3, ItemStack.EMPTY);
         check("belt: locked, the other is not fed", mag.getFirstConfig(gun, p.inventory) != b, id(mag.getFirstConfig(gun, p.inventory)));
         toggle(p);
         check("belt: unlocked, the first found again", mag.getFirstConfig(gun, p.inventory) == b, id(mag.getFirstConfig(gun, p.inventory)));

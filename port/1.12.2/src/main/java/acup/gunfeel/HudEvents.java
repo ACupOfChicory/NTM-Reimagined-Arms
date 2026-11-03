@@ -23,7 +23,6 @@ public final class HudEvents {
     static void register() {
         AmmoLockKey.register();
         HudEvents e = new HudEvents();
-        net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(e);
         MinecraftForge.EVENT_BUS.register(e);
     }
 

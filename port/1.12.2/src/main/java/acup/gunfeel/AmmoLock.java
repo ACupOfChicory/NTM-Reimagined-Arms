@@ -241,7 +241,7 @@ public final class AmmoLock {
                     if (mag == null) continue;
                     // a belt keeps what it feeds now
                     if (mag instanceof MagazineBelt) ((MagazineBelt) mag).getType(stack, player.inventory);
-                    if (icon == null) icon = mag.getIconForHUD(stack, player);
+                    if (icon == null || icon.isEmpty()) icon = mag.getIconForHUD(stack, player); // port: 1.12.2's "no item" is EMPTY
                 }
             }
         }
@@ -249,7 +249,7 @@ public final class AmmoLock {
         ItemGunBaseNT.setValueInt(stack, NEXT, 0); // locked: keeps its type; unlocked: back to NTM's choice
         // port: the item's name is worked out here (on a dedicated server in its language), as NTM names items in its messages
         ITextComponent msg = on
-                ? new TextComponentTranslation("message.ntmgunfeel.ammo_locked", icon == null ? "?" : icon.getDisplayName())
+                ? new TextComponentTranslation("message.ntmgunfeel.ammo_locked", icon == null || icon.isEmpty() ? "?" : icon.getDisplayName())
                 : new TextComponentTranslation("message.ntmgunfeel.ammo_unlocked");
         inform(player, msg);
     }
