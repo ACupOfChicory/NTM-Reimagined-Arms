@@ -50,6 +50,15 @@ public final class RadialMenu {
     private RadialMenu() {
     }
 
+    // the mouse's turn this frame (MixinMouseTurn, MixinMouseTurnCleanroom): true when the open menu takes it as its
+    // pointer's move, so the camera stays
+    public static boolean takesTurn() {
+        if (!acup.gunfeel.compat.Feature.AMMO_CHOICE.on() || !isOpen()) return false;
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getMinecraft();
+        move(mc.mouseHelper.deltaX, -mc.mouseHelper.deltaY);
+        return true;
+    }
+
     public static boolean isOpen() {
         return types != null;
     }

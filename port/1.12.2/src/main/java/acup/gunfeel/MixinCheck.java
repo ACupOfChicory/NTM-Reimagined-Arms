@@ -51,6 +51,8 @@ public final class MixinCheck {
     }
 
     // class -> handlers found; logs a warning for a short one
+    private static final boolean CLEANROOM = MixinCheck.class.getClassLoader().getResource("com/cleanroommc/client/input/InputHooks.class") != null;
+
     public static Map<String, Integer> report() {
         Map<String, Integer> out = new LinkedHashMap<String, Integer>();
         for (String[] t : TARGETS) {
@@ -65,7 +67,10 @@ public final class MixinCheck {
                 n = -1;
             }
             out.put(t[0].substring(t[0].lastIndexOf('.') + 1), n);
-            if (n != Integer.parseInt(t[1])) GunFeel.LOGGER.warn("Mixins: {} has {} of our handlers, wants {}: {}", t[0], n, t[1], names);
+            int want = Integer.parseInt(t[1]);
+            // port: on Cleanroom MixinMouseTurnCleanroom adds one (ArmsCore queues it there only)
+            if (CLEANROOM && t[0].equals("net.minecraft.client.renderer.EntityRenderer")) want++;
+            if (n != want) GunFeel.LOGGER.warn("Mixins: {} has {} of our handlers, wants {}: {}", t[0], n, want, names);
         }
         GunFeel.LOGGER.info("Mixins applied (handlers per class): {}", out);
         return out;

@@ -17,6 +17,9 @@ import zone.rong.mixinbooter.IEarlyMixinLoader;
 public final class ArmsCore implements IFMLLoadingPlugin, IEarlyMixinLoader {
     @Override
     public List<String> getMixinConfigs() {
+        // Cleanroom's own input hooks (MixinMouseTurnCleanroom): looked up as a file, nothing is loaded
+        if (ArmsCore.class.getClassLoader().getResource("com/cleanroommc/client/input/InputHooks.class") != null)
+            return java.util.Arrays.asList("mixins.ntmgunfeel.json", "mixins.ntmgunfeel.cleanroom.json");
         return Collections.singletonList("mixins.ntmgunfeel.json");
     }
 
