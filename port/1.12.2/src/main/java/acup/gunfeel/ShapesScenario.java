@@ -42,7 +42,10 @@ final class ShapesScenario {
     static final String[] BLOCKS = {"minecraft:iron_bars", "minecraft:ladder", "minecraft:trapdoor", "hbm:steel_scaffold",
             "hbm:steel_poles", "hbm:steel_grate", "hbm:steel_grate_wide", "hbm:fence_metal",
             "minecraft:wooden_door", "minecraft:iron_door", "hbm:door_metal", "hbm:door_office", "hbm:door_bunker", "hbm:door_red",
-            "hbm:trapdoor_steel", "hbm:wood_barrier", "hbm:wood_structure"};
+            "hbm:trapdoor_steel", "hbm:wood_barrier", "hbm:wood_structure",
+            // port: drawn by their own renderer on 1.7.10 (holes there went on their mesh), baked models on NTM CE whose
+            // collision box is more than the model: met by the model, as the scaffold
+            "hbm:pole_satellite_receiver", "hbm:radiobox", "hbm:steel_roof"};
 
     private static final int BUILD = 5, CAPTURE = 80, MACHINES = 100, SPACING = 3, UP = 12, ROW = 24;
 
