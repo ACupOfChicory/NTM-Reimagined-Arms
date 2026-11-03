@@ -110,6 +110,11 @@ final class LookScenario {
             mc.player.inventory.currentItem = 0;
         } else if (t == HUD) {
             shot(mc, "hud");
+        } else if (t == HUD + 3) {
+            // port: the arm swing (a right click on a block swings it) with a gun in hand: look-swing against look-hud
+            mc.player.swingArm(net.minecraft.util.EnumHand.MAIN_HAND);
+        } else if (t == HUD + 5) {
+            shot(mc, "swing");
         } else if (t == SKY - 1) {
             // over the wall, into the sky: the tracer flies for ticks instead of a part of one
             mc.player.rotationPitch = mc.player.prevRotationPitch = -30F;
@@ -332,7 +337,8 @@ final class LookScenario {
         } else if (t >= 15 && t <= 32) {
             double dx = x + .5 - mc.player.posX, dz = z + .5 - mc.player.posZ;
             float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
-            float pitch = (float) Math.toDegrees(Math.atan2(mc.player.posY - feet[1] - STAND_AIM[i], Math.sqrt(dx * dx + dz * dz)));
+            float pitch = (float) Math.toDegrees(Math.atan2(mc.player.posY + mc.player.getEyeHeight() - feet[1] - STAND_AIM[i], // port: 1.12.2's posY is the feet (1.7.10's player's, the eyes)
+                    Math.sqrt(dx * dx + dz * dz)));
             // across the block while firing: -8 to +8 degrees
             if (t >= 20) yaw += -8F + 16F * (t - 20) / 12F;
             mc.player.rotationYaw = mc.player.prevRotationYaw = yaw;

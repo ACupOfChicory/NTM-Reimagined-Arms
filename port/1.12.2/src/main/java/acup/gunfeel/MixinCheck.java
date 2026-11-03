@@ -36,6 +36,7 @@ public final class MixinCheck {
             {"net.minecraft.client.renderer.entity.layers.LayerSheepWool", "1"}, // MixinLayerWool
             {"net.minecraft.client.renderer.entity.layers.LayerSlimeGel", "1"}, // MixinLayerGel
             {"net.minecraft.client.renderer.entity.RenderShulker$HeadLayer", "1"}, // MixinLayerShulkerHead
+            {"net.minecraft.client.renderer.Tessellator", "1"}, // MixinTessellator
             {"net.minecraft.client.model.ModelRenderer", "4"}, // 2 + MachineMesh compile 2
             {"com.hbm.render.loader.WaveFrontObjectVAO", "1"}, // MixinVaoModel
             {"com.hbm.render.loader.GroupHandle", "2"}, // MixinGroupHandle

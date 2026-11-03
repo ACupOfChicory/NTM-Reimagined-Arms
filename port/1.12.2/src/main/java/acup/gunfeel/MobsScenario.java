@@ -86,7 +86,7 @@ final class MobsScenario {
 
     // looks at the middle of the mob, straight ahead (+z)
     private static void aim(Minecraft mc, EntityLiving e) {
-        double dz = e.posZ - mc.player.posZ, dy = e.posY + e.height / 2 - (mc.player.posY);
+        double dz = e.posZ - mc.player.posZ, dy = e.posY + e.height / 2 - (mc.player.posY + mc.player.getEyeHeight()); // port: posY is the feet on 1.12.2
         float pitch = (float) -Math.toDegrees(Math.atan2(dy, dz));
         mc.player.rotationYaw = mc.player.prevRotationYaw = 0F;
         mc.player.rotationPitch = mc.player.prevRotationPitch = pitch;
