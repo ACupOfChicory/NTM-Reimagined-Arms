@@ -73,9 +73,14 @@ public final class ShootScenario {
         return NAME.equals("holes");
     }
 
+    // "aim": the right and middle buttons on a gun that aims (aimOnRightButton, AimButton)
+    static boolean aim() {
+        return NAME.equals("aim");
+    }
+
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || look() || shapes() || scan() || mobs() || holes() || TraceScenario.enabled();
+        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -114,6 +119,10 @@ public final class ShootScenario {
         }
         if (holes()) {
             HolesScenario.step(mc, ++tick);
+            return;
+        }
+        if (aim()) {
+            aimStep(mc, ++tick);
             return;
         }
         if (look()) {
@@ -184,6 +193,51 @@ public final class ShootScenario {
             GunFeel.LOGGER.info("Scenario {} done: {}", NAME, TestLog.file());
             mc.shutdown();
         }
+    }
+
+    // the aim scenario: the gun aims on its third key (NTM CE: the middle button, -98); with aimOnRightButton the right
+    // button (-99) aims and the middle one takes the second key. Each button is pressed and let go, then what the
+    // server's gun got is written down: the keys it holds and whether it aims.
+    private static final int AIM_RIGHT = 80, AIM_RIGHT_AGAIN = 140, AIM_MIDDLE = 200, AIM_DONE = 260;
+
+    private static void aimStep(Minecraft mc, int t) {
+        if (t == 0) step(mc, 0);
+        else if (t == GIVE) {
+            onServer(() -> give(0, "gun_maresleg"));
+            mc.player.inventory.currentItem = 0;
+            log("give", mc);
+        } else if (t == AIM_RIGHT || t == AIM_RIGHT_AGAIN) button(mc, -99, true, "right_press");
+        else if (t == AIM_MIDDLE) button(mc, -98, true, "middle_press");
+        else if (t == AIM_RIGHT + 1 || t == AIM_RIGHT_AGAIN + 1 || t == AIM_MIDDLE + 1) aimState(mc, "held");
+        else if (t == AIM_RIGHT + 3 || t == AIM_RIGHT_AGAIN + 3) button(mc, -99, false, "right_release");
+        else if (t == AIM_MIDDLE + 3) button(mc, -98, false, "middle_release");
+        else if (t == AIM_RIGHT + 30 || t == AIM_RIGHT_AGAIN + 30 || t == AIM_MIDDLE + 30) aimState(mc, "after");
+        else if (t == AIM_DONE) {
+            log("done", mc);
+            GunFeel.LOGGER.info("Scenario {} done: {}", NAME, TestLog.file());
+            mc.shutdown();
+        }
+    }
+
+    // a mouse button as NTM CE's input handler takes it: the key bindings' state, then NTM's keys from it
+    private static void button(Minecraft mc, int code, boolean down, String step) {
+        net.minecraft.client.settings.KeyBinding.setKeyBindState(code, down);
+        HbmKeybinds.handleProps(down, code);
+        log(step, mc);
+    }
+
+    private static void aimState(Minecraft mc, String when) {
+        ItemStack c = mc.player.getHeldItemMainhand();
+        TestLog.c(-1, "aim", "when", when, "tick", tick, "aiming", ItemGunBaseNT.getIsAiming(c),
+                "progress", ItemGunBaseNT.aimingProgress);
+        int at = tick;
+        onServer(() -> {
+            EntityPlayerMP p = (EntityPlayerMP) net.minecraftforge.fml.common.FMLCommonHandler.instance().getMinecraftServerInstance()
+                    .getPlayerList().getPlayers().get(0);
+            ItemStack st = p.getHeldItemMainhand();
+            TestLog.s(-1, "aim", "when", when, "tick", at, "aiming", ItemGunBaseNT.getIsAiming(st),
+                    "secondary", ItemGunBaseNT.getSecondary(st, 0), "tertiary", ItemGunBaseNT.getTertiary(st, 0));
+        });
     }
 
     static void trigger(boolean down, Minecraft mc) {
