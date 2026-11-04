@@ -2,7 +2,7 @@
 break minecraft:pointed_dripstone,minecraft:flower_pot,minecraft:decorated_pot instant drop
 break #minecraft:leaves never through
 # plants a player bumps into (the rest have no collision and are flown through anyway): bullets fly through, no mark
-break minecraft:azalea,minecraft:flowering_azalea,minecraft:bamboo,minecraft:big_dripleaf,minecraft:lily_pad,minecraft:pitcher_crop,minecraft:moss_carpet,minecraft:pale_moss_carpet,minecraft:cactus,minecraft:cocoa,minecraft:sea_pickle,minecraft:chorus_plant,minecraft:chorus_flower,minecraft:mangrove_roots never through
+break minecraft:azalea,minecraft:flowering_azalea,minecraft:big_dripleaf,minecraft:lily_pad,minecraft:pitcher_crop,minecraft:moss_carpet,minecraft:pale_moss_carpet,minecraft:cocoa,minecraft:sea_pickle,minecraft:chorus_plant,minecraft:chorus_flower,minecraft:mangrove_roots never through
 # wood: planks and what is made of them (not chests, barrels, shelves and other storage: they would spill)
 # break once the bullets' damage on it adds up to 45 x its hardness (planks 90, doors 135), no drops, then the bullet flies on;
 # a bullet pierces it keeping 0.8 of its damage less 1.5 x hardness (planks: 20 -> 13 -> 7.4 -> 2.9, so 3 planks)
@@ -20,6 +20,12 @@ break hbm:reinforced_laminate,hbm:reinforced_laminate_pane hp 400 pass
 # sandbags tear: 600 damage, only what passes 4 per bullet (a rifle round in about 23, a machine gun's in hundreds)
 break hbm:sandbags hp 600 min=4
 break minecraft:melon,minecraft:pumpkin,minecraft:carved_pumpkin,minecraft:jack_o_lantern hits 4 drop
+# cactus: soft flesh, softer than a pumpkin (hardness 0.4 against 1), so two bullets; it keeps the bullet as a pumpkin
+# does, and the cacti on top of it fall as they do when it is broken by hand
+break minecraft:cactus hits 2 drop
+# bamboo: a thin stalk the first bullet snaps, then flies on; the stalk above falls with it (bamboo saplings and sugar
+# cane have no collision and are flown through anyway)
+break minecraft:bamboo instant drop pass
 hit * particles=block*6,minecraft:smoke*1 sound=block/0.6 range=40
 # by the sound type first: what the material lines below leave, blocks a bullet never pierces (bedrock, NTM's
 # hardened bricks and crystals, statues), keeps it

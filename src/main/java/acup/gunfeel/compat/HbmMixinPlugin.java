@@ -36,6 +36,8 @@ public final class HbmMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public void onLoad(String mixinPackage) {
+        // the mod's lines to their own file from the first of them (DebugLog)
+        acup.gunfeel.DebugLog.setup(!net.neoforged.fml.loading.FMLEnvironment.isProduction());
         try {
             String hbm = null, range = "";
             for (ModInfo m : LoadingModList.get().getMods()) {

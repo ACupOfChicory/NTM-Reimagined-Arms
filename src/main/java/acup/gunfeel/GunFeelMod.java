@@ -20,6 +20,9 @@ public final class GunFeelMod {
 
     public GunFeelMod(IEventBus modBus, Dist dist, ModContainer container) {
         Compat.setModVersion(container.getModInfo().getVersion().toString());
+        DebugLog.setup(!net.neoforged.fml.loading.FMLEnvironment.isProduction());
+        // the one line of the mod's in the game's log at start (a logger of its own, past DebugLog's)
+        org.slf4j.LoggerFactory.getLogger("NTM Reimagined Arms").info("NTM Reimagined Arms {}: its own log in {}", Compat.modVersion(), DebugLog.FILE);
         if (!Compat.inRange()) {
             GunFeel.LOGGER.warn("NTM {} is not tested with NTM Reimagined Arms {} (tested: {}); systems off: {}",
                     Compat.hbmVersion(), Compat.modVersion(), Compat.tested(), Compat.offList());
