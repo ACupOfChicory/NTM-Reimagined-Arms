@@ -16,7 +16,10 @@ public final class GunFeelMod {
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        GunFeel.LOGGER.info("NTM Reimagined Arms {} ({}) on Java {}", BuildInfo.DISPLAY, BuildInfo.VERSION, System.getProperty("java.version"));
+        DebugLog.setup(Boolean.TRUE.equals(net.minecraft.launchwrapper.Launch.blackboard.get("fml.deobfuscatedEnvironment")));
+        // the one line of the mod's in the game's log at start (a logger of its own, past DebugLog's)
+        org.apache.logging.log4j.LogManager.getLogger("NTM Reimagined Arms").info("NTM Reimagined Arms {} ({}) on Java {}: its own log in {}",
+                BuildInfo.DISPLAY, BuildInfo.VERSION, System.getProperty("java.version"), DebugLog.FILE);
         boolean client = FMLCommonHandler.instance().getSide() == Side.CLIENT;
         acup.gunfeel.compat.Compat.setModVersion(BuildInfo.VERSION);
         if (client) GunFeelClient.init();

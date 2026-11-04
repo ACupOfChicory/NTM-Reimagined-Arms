@@ -40,6 +40,8 @@ public final class ArmsCore implements IFMLLoadingPlugin, IEarlyMixinLoader {
 
     @Override
     public void injectData(Map<String, Object> data) {
+        // the mod's lines to their own file from the first of them (DebugLog); a dev game keeps them in the console
+        acup.gunfeel.DebugLog.setup(!Boolean.TRUE.equals(data.get("runtimeDeobfuscationEnabled")));
     }
 
     @Override
