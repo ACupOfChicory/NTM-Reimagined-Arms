@@ -73,9 +73,14 @@ public final class ShootScenario {
         return NAME.equals("holes");
     }
 
+    // "fences": holes where two fences, walls, panes or bars join lie on their posts and rails (FencesScenario)
+    static boolean fences() {
+        return NAME.equals("fences");
+    }
+
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || look() || shapes() || scan() || mobs() || holes() || TraceScenario.enabled();
+        return on() || look() || shapes() || scan() || mobs() || holes() || fences() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -114,6 +119,10 @@ public final class ShootScenario {
         }
         if (holes()) {
             HolesScenario.step(mc, ++tick);
+            return;
+        }
+        if (fences()) {
+            FencesScenario.step(mc, ++tick);
             return;
         }
         if (look()) {

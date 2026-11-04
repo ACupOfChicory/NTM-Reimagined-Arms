@@ -174,12 +174,18 @@ CORE class com/hbm/blocks/generic/BlockBarrier
 CORE class com/hbm/blocks/generic/BlockDoorGeneric
 CORE class com/hbm/blocks/generic/BlockWoodStructure
 CORE class com/hbm/blocks/machine/BlockCargoElevator
+CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 CORE class com/hbm/tileentity/machine/TileEntityCargoElevator
+CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
+CORE field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_ap Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/tileentity/machine/TileEntityCargoElevator extension D
 CORE method com/hbm/blocks/BlockDummyable findCore (Lnet/minecraft/world/IBlockAccess;III)[I
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/World;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setPosition (DDD)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setThrowableHeading (DDDFF)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/item/ItemStack;)Z
 HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT

@@ -775,6 +775,8 @@ public final class Tracers {
         final boolean cull;
         final double[] pos;
         final List<double[]> pieces;
+        // a flat hole's quads as drawn (world coordinates, seen from 3 blocks off its face), for FencesScenario
+        final List<double[][]> quads = new ArrayList<double[][]>();
 
         HoleView(Hole h) {
             kind = h.kind;
@@ -786,6 +788,16 @@ public final class Tracers {
             face = h.face;
             pos = h.pos.clone();
             pieces = h.blockPieces;
+            if (h.mesh != null || h.blockPieces != null) return;
+            int[] o = HoleMath.offset(h.face);
+            double[] cam = {h.pos[0] + o[0] * 3, h.pos[1] + o[1] * 3, h.pos[2] + o[2] * 3};
+            for (double[] clip : HoleMath.cells(h.rect, h.mask)) {
+                float[][] q = HoleMath.quad(h.pos, h.face, h.plane, h.cull, h.turn, h.size * 0.5F, clip, cam);
+                if (q == null) continue;
+                double[][] w = new double[q.length][];
+                for (int i = 0; i < q.length; i++) w[i] = new double[] {q[i][0] + cam[0], q[i][1] + cam[1], q[i][2] + cam[2]};
+                quads.add(w);
+            }
         }
     }
 
@@ -889,11 +901,17 @@ public final class Tracers {
         double[] rect = HoleMath.faceRect(pos, face, boxes);
         HoleMath.Mask mask = null;
         double plane = Double.NaN;
-        if (!hitboxOnly) {
-            mask = HoleMath.mask(hit, face, pos, size * 0.5F, rect, pixels);
+        if (!hitboxOnly) mask = HoleMath.mask(hit, face, pos, size * 0.5F, rect, pixels);
+        if (mask == HoleMath.NO_PIXELS) return null;
+        // a fence, wall, pane or bars (a shape of its own for bullets): only where that shape's surface is. Here they
+        // have render types of their own and so take the hitbox (a fence's one box over its rails and the gaps
+        // between): the whole square at the hit, cut to the shape.
+        if (PassableClip.cells(world, b, meta, pos[0], pos[1], pos[2]) != null) {
+            HoleMath.Mask m = mask != null ? mask : new HoleMath.Mask(0, 0, 0, 0, null, hit[normal]);
+            mask = HoleMath.onShape(m, hit, face, pos, size * 0.5F, rect, new WorldShape(world));
             if (mask == HoleMath.NO_PIXELS) return null;
-            plane = mask.plane;
         }
+        if (mask != null) plane = mask.plane;
         // one-sided (seen only from outside, like the face itself) when the pixels lie on the hitbox's face; two-sided
         // on glass and where the pixels lie inside the hitbox
         double onAxis = Double.isNaN(plane) ? hit[normal] : plane;
@@ -908,6 +926,40 @@ public final class Tracers {
         HOLES.addLast(h);
         trimHoles();
         return h;
+    }
+
+    // the shape bullets meet in the world (HoleMath.Shape): a block's 1/16 cells where it has them, its collision
+    // boxes elsewhere; each block's cells read once
+    static final class WorldShape implements HoleMath.Shape {
+        private final World world;
+        private final java.util.Map<Long, long[]> cells = new java.util.HashMap<Long, long[]>();
+        private static final long[] NONE = new long[0];
+
+        WorldShape(World world) {
+            this.world = world;
+        }
+
+        @Override
+        public boolean filled(double px, double py, double pz) {
+            int bx = (int) Math.floor(px), by = (int) Math.floor(py), bz = (int) Math.floor(pz);
+            Block b = world.getBlock(bx, by, bz);
+            if (b.getMaterial() == Material.air) return false;
+            long key = ((long) bx & 0x3FFFFFF) << 38 | ((long) by & 0xFFF) << 26 | ((long) bz & 0x3FFFFFF);
+            long[] bits = cells.get(key);
+            if (bits == null) {
+                bits = PassableClip.cells(world, b, world.getBlockMetadata(bx, by, bz), bx, by, bz);
+                if (bits == null) bits = NONE;
+                cells.put(key, bits);
+            }
+            if (bits != NONE) return FenceCells.cell(bits, cell(px - bx), cell(py - by), cell(pz - bz));
+            List<AxisAlignedBB> list = new ArrayList<AxisAlignedBB>(2);
+            b.addCollisionBoxesToList(world, bx, by, bz, AxisAlignedBB.getBoundingBox(px - 1e-4, py - 1e-4, pz - 1e-4, px + 1e-4, py + 1e-4, pz + 1e-4), list, null);
+            return !list.isEmpty();
+        }
+
+        private static int cell(double local) {
+            return Math.max(0, Math.min(15, (int) Math.floor(local * 16)));
+        }
     }
 
     private static void wrapOnCubes(World world, Hole h) {
