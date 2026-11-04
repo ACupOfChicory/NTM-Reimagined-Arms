@@ -279,4 +279,26 @@ class HoleMathTest {
     static double[] sub(float[] a, float[] b) {
         return new double[] {a[0] - b[0], a[1] - b[1], a[2] - b[2]};
     }
+
+    // onShape: a hole on a wall's arm keeps to the arm (not above it, where the bounds box reaches but the arm does
+    // not), and a hole on a rail's end against the next rail is no hole at all
+    @Test
+    void holesKeepToTheShapeBulletsMeet() {
+        // a wall's arm in block 0,0,0: z 5..11/16, up to 13/16; the north face (2) at z 5/16
+        HoleMath.Shape arm = (x, y, z) -> x >= 0 && x < 1 && y >= 0 && y < 13 / 16.0 && z >= 5 / 16.0 && z < 11 / 16.0;
+        double[] hit = {0.5, 0.75, 5 / 16.0};
+        double[] rect = {0, 1, 0, 1};
+        HoleMath.Mask all = new HoleMath.Mask(6, 10, 4, 4, null, 5 / 16.0);
+        HoleMath.Mask m = HoleMath.onShape(all, hit, 2, new int[] {0, 0, 0}, 2 / 16F, rect, arm);
+        assertNotNull(m.solid);
+        for (int j = 0; j < m.h; j++) for (int i = 0; i < m.w; i++)
+            assertEquals(m.v0 + j < 13, m.solid[j * m.w + i], "row " + (m.v0 + j) + " column " + (m.u0 + i));
+        // a rail running on through x = 1 into the next block: its end face (east, 5) at the joint has the rail in front
+        HoleMath.Shape rail = (x, y, z) -> x >= 0 && x < 2 && y >= 6 / 16.0 && y < 9 / 16.0 && z >= 7 / 16.0 && z < 9 / 16.0;
+        HoleMath.Mask end = new HoleMath.Mask(7, 6, 2, 3, null, 1.0);
+        assertSame(HoleMath.NO_PIXELS, HoleMath.onShape(end, new double[] {1, 7.5 / 16, 0.5}, 5, new int[] {0, 0, 0}, 1 / 16F, rect, rail));
+        // with no rail beyond (the fence's last block) the end keeps its hole, all of it
+        HoleMath.Shape last = (x, y, z) -> x >= 0 && x < 1 && y >= 6 / 16.0 && y < 9 / 16.0 && z >= 7 / 16.0 && z < 9 / 16.0;
+        assertNull(HoleMath.onShape(end, new double[] {1, 7.5 / 16, 0.5}, 5, new int[] {0, 0, 0}, 1 / 16F, rect, last).solid);
+    }
 }

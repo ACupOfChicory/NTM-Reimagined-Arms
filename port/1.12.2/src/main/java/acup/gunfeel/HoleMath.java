@@ -194,6 +194,63 @@ final class HoleMath {
         return m == null || m.solid == null;
     }
 
+    // the shape bullets meet, at a point of the world (a block's 1/16 cells, PassableClip.cells, or its collision boxes)
+    interface Shape {
+        boolean filled(double x, double y, double z);
+    }
+
+    // port: of the mask's cells, those on the shape's surface at the hole's plane: set just behind it, clear just in
+    // front (a neighbour's shape counts there too). A fence's, wall's or bars' pixels are read over its bounds box, so
+    // without this a hole spreads over the gap between the rails, above a wall's arm, past the joint into the next
+    // block's air and onto a rail's end against the next rail (26.2 cuts its holes to the drawn pixels: Tracers
+    // drawnHole, meshHole). NO_PIXELS when none is left; null solid when all are.
+    static Mask onShape(Mask m, double[] hit, int face, int[] block, float half, double[] rect, Shape shape) {
+        if (m == null || m == NO_PIXELS || Double.isNaN(m.plane)) return m;
+        int[] ax = axes(face);
+        int normal = axis(face);
+        int step = step(face);
+        int u0 = m.u0, v0 = m.v0, w = m.w, h = m.h;
+        boolean[] solid;
+        if (m.solid != null) {
+            solid = m.solid.clone();
+        } else {
+            // all shown: the cells around the hit, as mask() lays them
+            double pu = hit[ax[0]], pv = hit[ax[1]];
+            double a0 = Math.max(pu - half, rect[0]), a1 = Math.min(pu + half, rect[1]);
+            double b0 = Math.max(pv - half, rect[2]), b1 = Math.min(pv + half, rect[3]);
+            if (a0 >= a1 || b0 >= b1) return NO_PIXELS;
+            u0 = (int) Math.floor(a0 * 16);
+            v0 = (int) Math.floor(b0 * 16);
+            w = (int) Math.ceil(a1 * 16) - u0;
+            h = (int) Math.ceil(b1 * 16) - v0;
+            solid = new boolean[w * h];
+            java.util.Arrays.fill(solid, true);
+        }
+        double e = 1 / 32.0;
+        boolean any = false, all = true;
+        double[] at = new double[3];
+        for (int j = 0; j < h; j++) {
+            for (int i = 0; i < w; i++) {
+                int k = j * w + i;
+                if (!solid[k]) {
+                    all = false;
+                    continue;
+                }
+                at[ax[0]] = (u0 + i + 0.5) / 16.0;
+                at[ax[1]] = (v0 + j + 0.5) / 16.0;
+                at[normal] = m.plane - step * e;
+                boolean behind = shape.filled(at[0], at[1], at[2]);
+                at[normal] = m.plane + step * e;
+                boolean on = behind && !shape.filled(at[0], at[1], at[2]);
+                solid[k] = on;
+                any |= on;
+                all &= on;
+            }
+        }
+        if (!any) return NO_PIXELS;
+        return new Mask(u0, v0, w, h, all ? null : solid, m.plane);
+    }
+
     static List<double[]> cells(double[] rect, Mask m) {
         List<double[]> out = new ArrayList<double[]>();
         if (m == null || m.solid == null) {
