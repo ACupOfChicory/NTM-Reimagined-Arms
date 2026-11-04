@@ -97,6 +97,16 @@ class WornGearTest {
     }
 
     @Test
+    void theArmorLayersOwnDrawIsLeftAsItIs() {
+        var helmet = part("mesh/root/armor/slots/0/draws/0/tree/head", -5, 23, -5, 10, 10, 10, 1);
+        var boxes = new java.util.ArrayList<>(zombie(1));
+        boxes.add(helmet);
+        var grown = WornGear.boxes(boxes, HELMET);
+        assertSame(helmet, find(grown, "mesh/root/armor/slots/0/draws/0/tree/head"));
+        assertBox(find(grown, "root/head"), 1, -5, 23, -5, 10, 10, 10);
+    }
+
+    @Test
     void aZoneGrowsWithItsPartAndKeepsItsCut() {
         ModelBox head = part("root/head", -4, 24, -4, 8, 8, 8, 1);
         // the upper half of the head: y >= 28 pixels
