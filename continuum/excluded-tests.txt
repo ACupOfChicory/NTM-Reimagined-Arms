@@ -5,3 +5,4 @@ ExplosiveDamageTest.java
 MeshModelPoseTest.java
 ModelMeshTest.java  # continuum/src/test has it without the OBJ mesh test
 compat/MixinRemapTest.java  # NTM NEXT glyphid mixin
+compat/ClickAimTest.java  # continuum/src/test has it for HbmKeybindsClient.report

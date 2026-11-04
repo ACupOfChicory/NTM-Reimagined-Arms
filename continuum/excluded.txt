@@ -11,6 +11,7 @@ mixin/MixinGpuEntityGeometry.java
 mixin/MixinGunConfigAnims.java
 mixin/MixinGunKeysRadial.java
 mixin/MixinAimButton.java
+mixin/MixinClickAim.java
 mixin/MixinHbmAnimationPayload.java
 mixin/MixinHbmAnimations.java
 mixin/MixinHbmVisual.java
@@ -76,3 +77,7 @@ mixin/mc/MixinAlexRenderSetup.java
 # the joint check of fences (-PfenceSeam): Continuum's own ClientSmoke has no step for it, and it is written against
 # 26.2's HUD toggle and NTM NEXT's list of bullets (BulletConfig.configs); the fix it checks (Tracers.drawnQuads) is built
 FenceSeamCheck.java
+# clickAim: NTM NEXT sends gun keys from client.Keybinds.gunChanged; Continuum from HbmKeybindsClient.report
+ClickAim.java
+# CrankShaft's Vanillate (Flywheel entity visuals): Continuum's mobs are not Flywheel visuals
+mixin/mc/MixinSpawnLerp.java

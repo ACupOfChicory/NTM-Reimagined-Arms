@@ -4,7 +4,7 @@
   "package": "acup.gunfeel.mixin.mc",
   "compatibilityLevel": "JAVA_21",
   "mixins": ["MixinEntityModelBox", "MixinProjectileModelQuery"],
-  "client": ["MixinParticleEngine", "MixinParticlesSubmit", "KeyMappingAccess", "GuiGraphicsAccess", "ModelPartAccess",
+  "client": ["MixinParticleEngine", "MixinParticlesSubmit", "KeyMappingAccess", "LocalPlayerAccess", "GuiGraphicsAccess", "ModelPartAccess",
     "MixinLivingModelHits", "MixinModelHitboxDebug", "MixinModelHitState", "MixinRenderedModelHit", "MixinEntityModelHitState",
     "MixinEntityMeshHits", "MixinDragonModelHit", "MixinLegacyHitboxGizmos", "MixinSkinLayerVisualizer",
     "RenderTypeAccess", "RenderSetupAccess", "MixinDeltaTimer",

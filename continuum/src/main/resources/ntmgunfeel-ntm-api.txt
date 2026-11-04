@@ -180,6 +180,10 @@ BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/
 BULLETS method com/hbm/lib/ModDamageSources bullet (Lnet/minecraft/world/level/Level;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/world/damagesource/DamageSource;
 BULLETS method com/hbm/lib/ModDamageSources$DamageClass type ()Lnet/minecraft/resources/ResourceKey;
 BULLETS method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z
+CLICK_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
+CLICK_AIM field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+CLICK_AIM field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+CLICK_AIM method com/hbm/client/HbmKeybindsClient isHeld (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
 CORE class com/hbm/blocks/generic/BlockBarrier
 CORE class com/hbm/blocks/generic/BlockWoodStructure
 CORE class com/hbm/client/GunHudOverlay

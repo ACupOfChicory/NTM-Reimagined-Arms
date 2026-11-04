@@ -51,6 +51,7 @@ public final class GunFeel {
             if (Feature.INSTANT_SWITCH.on()) InstantSwitch.frame(player);
             if (Config.enabled && Feature.RECOIL.on()) CameraRecoil.frame();
         });
+        NeoForge.EVENT_BUS.addListener(RenderFrameEvent.Post.class, e -> ClickAim.frame());
         NeoForge.EVENT_BUS.addListener(RenderHandEvent.class, GunFeel::onRenderHand);
         NeoForge.EVENT_BUS.addListener(ViewportEvent.ComputeCameraAngles.class, e -> {
             if (Config.enabled && Feature.RECOIL.on() && CameraRecoil.roll != 0F) e.setRoll(e.getRoll() + CameraRecoil.roll);
