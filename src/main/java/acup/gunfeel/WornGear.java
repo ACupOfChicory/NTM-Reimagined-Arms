@@ -16,6 +16,8 @@ import java.util.List;
 // The model's pixel is read off the part itself (a head is 8 pixels across, a body, arm or leg 12 tall), so a baby or
 // a giant gets its own. The outer layers (hat, jacket, sleeves, trousers) already stand off their part by 0.5 or 0.25
 // and grow by the rest.
+// Only the model's own parts grow: the armor and head items 26.2 catches as geometry of their layers are left as
+// they are drawn.
 // Pure: the platforms say what is worn (ModelHits.worn); the boxes grow for the hitbox, the head and limb zones after
 // ModelHeads matched them on the bare model (its sizes pick the profile).
 public final class WornGear {
@@ -78,6 +80,9 @@ public final class WornGear {
 
     // the part grown by what is worn over it; the same box when nothing is
     static ModelBox grow(ModelBox b, Worn worn, boolean humanoid) {
+        // a layer's own draw (26.2 names it ".../draws/<n>/tree/<part>"): the armor or head item caught as geometry
+        // is already the size it is drawn at
+        if (b.part().contains("/draws/")) return b;
         String name = name(b.part());
         double side = 0, outer = 0, least = 0, base;
         boolean byLeast;
