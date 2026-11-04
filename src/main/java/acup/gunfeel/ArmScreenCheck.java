@@ -85,12 +85,15 @@ final class ArmScreenCheck {
         });
         TODO.add(() -> pressAll(gun + " · " + ArmEditor.Page.TIME.label));
         // the settings pages: each laid out and pressed through; a slider dragged on one of them
-        for (var page : List.of(ArmEditor.Page.GRIP, ArmEditor.Page.ARM, ArmEditor.Page.BOTH)) {
+        for (var page : List.of(ArmEditor.Page.KEY, ArmEditor.Page.GRIP, ArmEditor.Page.ARM, ArmEditor.Page.BOTH)) {
             TODO.add(() -> {
                 var b = screen.button("page." + page.name().toLowerCase(Locale.ROOT));
                 ClientSmoke.check(b != null && b.active, gun + ": есть вкладка «" + page.label + "»");
                 if (b != null) b.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
                 ClientSmoke.check(screen.model().page == page, gun + ": вкладка «" + page.label + "» открыла свою страницу");
+                if (page == ArmEditor.Page.KEY) ClientSmoke.check(true, gun + (atKey(screen.model()) ? ": страница «Ключ» на ключе"
+                        : ": ключей в анимациях нет, страница «Ключ» проверена без ключа"));
+                screen.refresh();
             });
             TODO.add(() -> {});
             if (gun.endsWith("sexy")) TODO.add(() -> shot("arm-screen-" + page.name().toLowerCase(Locale.ROOT) + ".png"));
@@ -98,6 +101,18 @@ final class ArmScreenCheck {
                 layout(gun + " · " + page.label);
                 pressAll(gun + " · " + page.label);
                 if (page == ArmEditor.Page.BOTH) drag(gun);
+            });
+            // the key page of a path key shows how the hand comes, too
+            if (page == ArmEditor.Page.KEY) TODO.add(() -> {
+                var m = screen.model();
+                var b = screen.button("key.view.approach");
+                if (b == null) return;
+                b.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+                ClientSmoke.check(m.approach, gun + ": «Подход» показал подход");
+                layout(gun + " · " + page.label + " · подход");
+                pressAll(gun + " · " + page.label + " · подход");
+                m.approach = false;
+                screen.refresh();
             });
         }
         TODO.add(() -> {
@@ -193,11 +208,35 @@ final class ArmScreenCheck {
 
     // presses every active button (but «Готово») from the same state: each changes something, time buttons move
     // the real preview, a change of the settings goes back with «Отменить» (or «Повторить» after «Отменить»)
+    // the key page: the left hand's first path key on a part (else the first key of any track), in its animation
+    private static boolean atKey(ArmEditor m) {
+        for (boolean part : new boolean[] {true, false})
+            for (int h : new int[] {1, 0})
+                for (var t : ArmEditor.Track.values())
+                    for (int c = 0; c < m.clipList().size(); c++) {
+                        if (part && t != ArmEditor.Track.PATH) continue;
+                        m.clip = c;
+                        m.hand = h;
+                        var k = m.keysOf(t);
+                        if (k == null) continue;
+                        for (var key : k.keys()) {
+                            if (key.ms() > m.duration() || part && k.pathEntry(key).grip()) continue;
+                            m.track = t;
+                            m.playing = false;
+                            m.seek(key.ms());
+                            return true;
+                        }
+                    }
+        return false;
+    }
+
     private static void pressAll(String gun) {
         var m = screen.model();
-        m.clip = 0;
-        if (m.page != ArmEditor.Page.BOTH) m.hand = 1;
-        m.seek(m.duration() / 2F);
+        if (m.page != ArmEditor.Page.KEY) {
+            m.clip = 0;
+            if (m.page != ArmEditor.Page.BOTH) m.hand = 1;
+            m.seek(m.duration() / 2F);
+        }
         screen.refresh();
         int dead = 0, pressed = 0;
         var before = m.state();

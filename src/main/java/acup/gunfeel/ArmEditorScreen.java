@@ -274,7 +274,7 @@ public final class ArmEditorScreen extends Screen {
         for (var x : model.actions()) a.put(x.id(), x);
         actionsShown = signature();
         int y = 14;
-        row(a, y, "page.time", "page.grip", "page.arm", "page.both");
+        row(a, y, "page.time", "page.key", "page.grip", "page.arm", "page.both");
         y += H + GAP;
         if (model.page != ArmEditor.Page.TIME) {
             settingsPage(a, y);
@@ -313,6 +313,10 @@ public final class ArmEditorScreen extends Screen {
         y += H + GAP;
         row(a, y, "reset", "arms.own", "arms.shared", "close");
         y += H + GAP;
+        if (model.page == ArmEditor.Page.KEY) {
+            row(a, y, "key.prev", "key.next", "key.add", "key.delete");
+            y += H + GAP;
+        }
         textY = y + 1;
         y += 12;
         for (var r : model.rows()) {
@@ -411,6 +415,8 @@ public final class ArmEditorScreen extends Screen {
             case 267 -> "clip.next";
             case 91 -> "key.prev";
             case 93 -> "key.next";
+            case 260 -> "key.add";
+            case 261 -> "key.delete";
             case 90 -> ctrl ? "undo" : null;
             case 89 -> ctrl ? "redo" : null;
             default -> null;

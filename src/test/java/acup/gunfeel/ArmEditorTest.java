@@ -147,25 +147,28 @@ class ArmEditorTest {
                             fresh.page = page;
                             for (int c = 0; c < Math.max(1, fresh.clipList().size()); c++)
                                 for (int h = 0; h < (page == ArmEditor.Page.BOTH ? 1 : 2); h++)
-                                    for (var t : page == ArmEditor.Page.TIME ? ArmEditor.Track.values() : new ArmEditor.Track[] {fresh.track}) {
+                                    for (var t : lane(page) ? ArmEditor.Track.values() : new ArmEditor.Track[] {fresh.track}) {
                                         fresh.clip = c;
                                         fresh.hand = h;
                                         fresh.track = t;
                                         var times = new TreeSet<Float>(List.of(0F, fresh.duration() / 2F, (float) fresh.duration()));
-                                        if (page == ArmEditor.Page.TIME) times.addAll(fresh.keys(t));
+                                        if (lane(page)) times.addAll(fresh.keys(t));
                                         for (float time : times) {
                                             fresh.time = time;
-                                            for (boolean playing : new boolean[] {false, true}) {
-                                                fresh.playing = playing;
-                                                states++;
-                                                int[] n = check(fresh, g.getKey(), seen, shown);
-                                                pressed += n[0];
-                                                grey += n[1];
-                                            }
+                                            for (boolean approach : page == ArmEditor.Page.KEY ? new boolean[] {false, true} : new boolean[] {false})
+                                                for (boolean playing : new boolean[] {false, true}) {
+                                                    fresh.approach = approach;
+                                                    fresh.playing = playing;
+                                                    states++;
+                                                    int[] n = check(fresh, g.getKey(), seen, shown);
+                                                    pressed += n[0];
+                                                    grey += n[1];
+                                                }
+                                            fresh.approach = false;
                                         }
                                     }
                             // settings pages: the same for every animation, one is enough
-                            if (page != ArmEditor.Page.TIME) fresh.clip = 0;
+                            if (!lane(page)) fresh.clip = 0;
                         }
                     }
                 }
@@ -181,8 +184,21 @@ class ArmEditorTest {
         assertEquals(Set.of(), never, "shown but never pressable");
         for (String id : List.of("clip.prev", "play", "time.start", "track.around", "key.next", "arms.own", "arms.shared", "undo", "redo", "reset", "close",
                 "page.grip", "grip.mode", "grip.reset", "grip.part.next", "grip.variant.own", "grip.variant.common", "set.grip.2.plus",
-                "set.armReachLeft.minus", "set.armMaxScale.plus", "set.armSlide.toggle", "set.armSlideNearest.reset", "set.armStretch.reset"))
+                "set.armReachLeft.minus", "set.armMaxScale.plus", "set.armSlide.toggle", "set.armSlideNearest.reset", "set.armStretch.reset",
+                "page.key", "key.add", "key.delete", "set.key.time.plus", "set.key.from.minus", "set.key.to.plus", "key.part.next", "key.nth",
+                "set.key.point.0.plus", "key.contact.next", "set.key.roll.minus", "key.roll.reset", "key.view.approach", "key.view.where",
+                "key.side.next", "key.side.reset", "set.key.shoulder.2.plus", "key.follow", "set.key.weight.minus", "key.kind.next",
+                "set.key.bus.plus", "set.key.angle.plus", "set.key.adjust.5.minus"))
             assertTrue(shown.contains(id), id + " was never shown");
+    }
+
+    // the rows of buttons at the top of a settings page (ArmEditorScreen.settingsPage)
+    static final Set<String> TOP = Set.of("clip.prev", "play", "clip.next", "speed", "hand.right", "hand.left", "undo", "redo", "reset", "arms.own",
+            "arms.shared", "close", "key.prev", "key.next", "key.add", "key.delete");
+
+    // the pages that go along the animation: every track, at every key
+    private static boolean lane(ArmEditor.Page p) {
+        return p == ArmEditor.Page.TIME || p == ArmEditor.Page.KEY;
     }
 
     // presses each control of one state; returns {pressed, grey}
@@ -220,6 +236,13 @@ class ArmEditorTest {
             e.restore(before, undo, redo);
             assertEquals(before, e.state(), where + ": the test could not go back");
         }
+        // a settings page shows an action in its rows of buttons at the top, or in the row it belongs to
+        if (e.page != ArmEditor.Page.TIME) {
+            var placed = new HashSet<>(TOP);
+            for (var r : e.rows()) placed.addAll(r.ids());
+            for (String id : ids)
+                assertTrue(id.startsWith("page.") || placed.contains(id), gun + " " + e.page + " " + e.track + " t=" + e.time + ": no place on the screen for " + id);
+        }
         for (var r : e.rows()) {
             String where = gun + e.clips.variant() + " " + e.page + " hand " + e.hand + " row";
             String text = r.slider() != null ? r.slider().text() : r.text();
@@ -242,9 +265,14 @@ class ArmEditorTest {
         var parts = new ArrayList<String>(e.clips.parts());
         parts.addAll(List.of(e.clips.variant().split("-")));
         parts.addAll(List.of(Config.armPartRight, Config.armPartLeft));
+        for (String src : List.of(Config.armRightPath, Config.armLeftPath))
+            for (var seg : ArmRig.path(src).segments)
+                for (var en : seg.entries) if (en.valid() && !en.grip()) parts.add(en.part);
+        // named moments of the path ("release"), as the gun's data names them
+        parts.addAll(ArmRig.pathTimes(Config.armPathTimes).keySet());
         parts.removeIf(String::isEmpty);
         parts.sort(Comparator.comparingInt(String::length).reversed());
-        for (String part : parts) t = t.replace(part, "");
+        for (String part : parts) t = t.replaceAll("(?i)" + java.util.regex.Pattern.quote(part), "");
         assertFalse(t.matches("(?s).*[A-Za-z].*"), where + ": English in «" + text + "»");
     }
 
