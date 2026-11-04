@@ -90,6 +90,21 @@ public final class GunFeelClient {
         if (TraceScenario.started()) TraceScenario.frame();
     }
 
+    // The off-hand item while a gun is held (hideOffhand, 26.2: GunFeel.onRenderHand). NTM CE itself never draws it then:
+    // ModEventHandlerRenderer.onRenderSpecificHand cancels both hands and draws the gun. hideOffhand (on by default)
+    // is that already; off, the item is drawn again as vanilla draws it. A gun in the off hand stays NTM CE's.
+    @SubscribeEvent(priority = net.minecraftforge.fml.common.eventhandler.EventPriority.LOW, receiveCanceled = true)
+    public void offhand(net.minecraftforge.client.event.RenderSpecificHandEvent e) {
+        if (e.getHand() == net.minecraft.util.EnumHand.OFF_HAND && e.isCanceled() && Config.enabled && !Config.hideOffhand
+                && acup.gunfeel.compat.Feature.ARMS.on()) {
+            EntityPlayer player = Minecraft.getMinecraft().player;
+            ItemStack off = e.getItemStack();
+            if (player != null && player.getHeldItemMainhand().getItem() instanceof ItemGunBaseNT && !off.isEmpty()
+                    && !(off.getItem() instanceof ItemGunBaseNT))
+                e.setCanceled(false);
+        }
+    }
+
     // The gun's id as 26.2 writes it ("hbm:gun_maresleg"): NTM 1.7.10 registers its items under their unlocalized
     // name, "hbm:item.gun_maresleg". The settings files and the 26.2 tables use the 26.2 form.
     public static String gunId(Item item) {

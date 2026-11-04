@@ -78,9 +78,14 @@ public final class ShootScenario {
         return NAME.equals("aim");
     }
 
+    // "hands": hideOffhand and smokeWidth (HandsScenario)
+    static boolean hands() {
+        return NAME.equals("hands");
+    }
+
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || TraceScenario.enabled();
+        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || hands() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -119,6 +124,11 @@ public final class ShootScenario {
         }
         if (holes()) {
             HolesScenario.step(mc, ++tick);
+            return;
+        }
+        if (hands()) {
+            if (held) press(true);
+            HandsScenario.step(mc, ++tick);
             return;
         }
         if (aim()) {
