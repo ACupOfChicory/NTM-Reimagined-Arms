@@ -5,10 +5,14 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import net.minecraft.resources.Identifier;
 import net.neoforged.fml.loading.FMLPaths;
@@ -209,12 +213,100 @@ public final class Grips {
         return to.equals(gun) ? null : to;
     }
 
-    // the player gave this gun (one with sameAs) arms of its own: some arm key of it is in the player's file
+    // this gun (one with sameAs) has arms of its own: some arm key of it is in the player's file, or in the jar
+    // (arms the editor exported and merge_arms.py put there)
     static boolean ownArms(String gun) {
         if (sharedWith(gun) == null) return false;
-        for (String k : USER.keySet())
-            if ((k.startsWith(gun + ".") || k.startsWith(gun + "-")) && armKey(k.substring(k.lastIndexOf('.') + 1))) return true;
+        for (String k : USER.keySet()) if (armKeyOf(gun, k)) return true;
+        return ownArmsShipped(gun);
+    }
+
+    // the jar itself gives this gun (one with sameAs) arms of its own: an arm key of it whose value is not the one the
+    // shared gun has (a key the same as the shared gun's changes nothing)
+    static boolean ownArmsShipped(String gun) {
+        String to = sharedWith(gun);
+        if (to == null) return false;
+        for (var e : BUILTIN.entrySet()) {
+            String k = e.getKey();
+            if (!armKeyOf(gun, k)) continue;
+            String shared = BUILTIN.getOrDefault(to + k.substring(gun.length()), "").trim();
+            if (!e.getValue().trim().equals(shared)) return true;
+        }
         return false;
+    }
+
+    // a full key ("<gun>.armLeftPath", "<gun>-Barrel.leftAt") of an arm setting of this gun or one of its variants
+    private static boolean armKeyOf(String gun, String key) {
+        return (key.startsWith(gun + ".") || key.startsWith(gun + "-")) && armKey(key.substring(key.lastIndexOf('.') + 1));
+    }
+
+    private static boolean gripKey(String key) {
+        return key.equals("right") || key.equals("left") || key.equals("rightAt") || key.equals("leftAt");
+    }
+
+    // the arms of a gun as the game reads them, as full keys of the gun they are written under (armsGun): its arm
+    // settings, its grips and its variants' keys; a gun that shares the model of another but has arms of its own
+    // gets "" for each arm setting of the other gun it does not take. Sorted. Loading it back with putArms leaves
+    // the arms as they are.
+    static Map<String, String> armsOf(String gun) {
+        String t = armsGun(baseOf(gun));
+        Map<String, String> out = new TreeMap<>();
+        for (Map.Entry<String, String> e : overrides(t).entrySet()) if (armKey(e.getKey())) out.put(t + "." + e.getKey(), e.getValue());
+        for (Map.Entry<String, String> e : VALUES.entrySet()) {
+            String k = e.getKey();
+            if (e.getValue().isEmpty() || !armKeyOf(t, k)) continue;
+            if (k.startsWith(t + "-") || gripKey(k.substring(t.length() + 1))) out.put(k, e.getValue());
+        }
+        String from = canon(t);
+        if (!from.equals(t))
+            for (Map.Entry<String, String> e : VALUES.entrySet()) {
+                String k = e.getKey();
+                if (!k.startsWith(from + ".") || e.getValue().isEmpty()) continue;
+                String name = k.substring(from.length() + 1);
+                if (armKey(name) && !gripKey(name)) out.putIfAbsent(t + "." + name, "");
+            }
+        return out;
+    }
+
+    // the arms of the gun (armsGun) made what this map says, as armsOf gives it: each arm key of the gun and its
+    // variants takes its value from the map; one the map has not is hidden ("") where the jar or the other gun of a
+    // sameAs would show through, else dropped. Keys of other guns in the map are ignored.
+    static void putArms(String gun, Map<String, String> arms) {
+        String t = armsGun(baseOf(gun)), from = canon(t);
+        Set<String> keys = new TreeSet<>();
+        for (String k : VALUES.keySet()) if (armKeyOf(t, k)) keys.add(k);
+        for (String k : arms.keySet()) if (armKeyOf(t, k)) keys.add(k);
+        if (!from.equals(t))
+            for (String k : VALUES.keySet())
+                if (k.startsWith(from + ".")) {
+                    String name = k.substring(from.length() + 1);
+                    if (armKey(name) && !gripKey(name)) keys.add(t + "." + name);
+                }
+        for (String k : keys) {
+            String name = k.substring(k.lastIndexOf('.') + 1);
+            String jar = BUILTIN.get(k);
+            String other = from.equals(t) || gripKey(name) || !k.startsWith(t + ".") ? null : VALUES.get(from + "." + name);
+            boolean through = jar != null && !jar.isEmpty() || other != null && !other.isEmpty();
+            String want = arms.get(k);
+            if (want == null || want.isEmpty()) want = through ? "" : null;
+            if (want == null || want.equals(jar)) USER.remove(k);
+            else USER.put(k, want);
+        }
+        merge();
+        dirty = true;
+    }
+
+    // the guns with arm settings of their own (not a variant, not one that shares another's), as the game names them
+    static List<String> gunsWithArms() {
+        Set<String> out = new TreeSet<>();
+        for (Map.Entry<String, String> e : VALUES.entrySet()) {
+            String k = e.getKey();
+            int dot = k.lastIndexOf('.');
+            if (dot < 0 || e.getValue().isEmpty() || !armKey(k.substring(dot + 1))) continue;
+            String g = k.substring(0, dot);
+            if (!g.contains("-")) out.add(g);
+        }
+        return new ArrayList<>(out);
     }
 
     // the gun has some arm key set (jar or player's file)

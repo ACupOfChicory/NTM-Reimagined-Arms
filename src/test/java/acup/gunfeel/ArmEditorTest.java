@@ -169,6 +169,12 @@ class ArmEditorTest {
         }
         e.time = 0F;
         e.keyView = ArmEditor.KeyView.WHERE;
+        // a key copied: pasting is there to press
+        e.track = ArmEditor.Track.PATH;
+        e.hand = 1;
+        if (!e.keys(e.track).isEmpty()) e.time = e.keys(e.track).get(0);
+        tap(e, "key.copy");
+        e.time = 0F;
         e.page = ArmEditor.Page.ARM;
         tap(e, "set.armInspectReleaseMs.toggle");
         e.page = ArmEditor.Page.TIME;
@@ -180,6 +186,13 @@ class ArmEditorTest {
         var opened = Grips.snapshot();
         int pressed = 0, grey = 0, states = 0;
         Set<String> seen = new TreeSet<>(), shown = new TreeSet<>();
+        // exports go to a folder of the test's own, all at one time; Sexy has an older file too
+        ArmFiles.dir = java.nio.file.Files.createTempDirectory("arm-editor");
+        var when = java.time.LocalDateTime.of(2026, 11, 5, 3, 0, 0);
+        ArmEditor.clock = () -> when;
+        ArmEditor.copied = null;
+        String sexy = "hbm:gun_autoshotgun_sexy";
+        ArmFiles.write(sexy, ArmFiles.text(sexy, sexy, sexy, "X0-dev", when.minusDays(1), Map.of()), when.minusDays(1));
         try {
             var guns = jarGuns();
             guns.put("gunfeel:no_animations", Set.of());
@@ -207,7 +220,7 @@ class ArmEditorTest {
                         for (var page : ArmEditor.Page.values()) {
                             fresh.page = page;
                             for (int c = 0; c < Math.max(1, fresh.clipList().size()); c++)
-                                for (int h = 0; h < (page == ArmEditor.Page.BOTH ? 1 : 2); h++)
+                                for (int h = 0; h < (page == ArmEditor.Page.BOTH || page == ArmEditor.Page.FILE ? 1 : 2); h++)
                                     for (var t : lane(page) ? ArmEditor.Track.values() : new ArmEditor.Track[] {fresh.track}) {
                                         fresh.clip = c;
                                         fresh.hand = h;
@@ -235,6 +248,7 @@ class ArmEditorTest {
                 }
             }
         } finally {
+            ArmEditor.copied = null;
             Grips.restoreUnsaved(opened);
             Config.select(null);
         }
@@ -254,7 +268,8 @@ class ArmEditorTest {
                 "carry.reload.common", "carry.part.next", "carry.bus.next", "carry.bus.add", "carry.bus.delete", "set.carry.grab.plus", "set.carry.at.0.plus",
                 "set.carry.dir.0.plus", "carry.dir.reset", "set.armCarryTurnLeft.plus", "set.armCarryKeepAngle.toggle", "release.next", "release.reset",
                 "set.armReleaseMove.0.plus", "set.armAroundShiftReload.plus", "set.armLoadRollLeft.plus", "set.armLoadScaleLeft.reset",
-                "set.armInspectReleaseMs.toggle", "set.armInspectReleaseMs.plus", "key.only.prev", "key.only.next"))
+                "set.armInspectReleaseMs.toggle", "set.armInspectReleaseMs.plus", "key.only.prev", "key.only.next", "page.file", "copy.from.next",
+                "copy.from.take", "export.write", "load.next", "load.file", "key.copy", "key.paste"))
             assertTrue(shown.contains(id), id + " was never shown");
     }
 
@@ -326,6 +341,8 @@ class ArmEditorTest {
         String t = text;
         String shared = e.sharedWith();
         if (shared != null) t = t.replace(e.clips.gunName(shared), "");
+        // guns (a stand-in names them by their ids) and the folder of the exports, as the game names them
+        t = t.replaceAll("[a-z]+:[a-z0-9_]+", "").replace("config/" + ArmFiles.FOLDER, "").replaceAll("[A-Za-z0-9_.:-]+\\.properties", "");
         // the model's part names, as the model names them, the longest first ("BarrelShort" before "Barrel")
         Config.select(e.gun);
         var parts = new ArrayList<String>(e.clips.parts());

@@ -298,4 +298,48 @@ final class ArmKeys {
     void touched() {
         readKeys();
     }
+
+    // ---------------------------------------------------------------- copy and paste
+
+    // a key as copied: its text after the time (":Pump@0,1,0", ":0.5", ":10") and, for a hidden range, how long it is
+    record Copy(ArmEditor.Track track, String rest, float length) {
+    }
+
+    Copy copy(Key k) {
+        String text = track == ArmEditor.Track.PATH ? pathEntry(k).text() : ((ArmRig.Value) seg.entries.get(k.entry())).text();
+        int colon = text.indexOf(':');
+        return new Copy(track, track == ArmEditor.Track.HIDE ? "" : text.substring(colon), k.to() - k.ms());
+    }
+
+    // the key at time t is this copy (one there keeps its time, as written); none there: a new key at t
+    void paste(Copy c, float t, float duration) {
+        ensureSegment();
+        Key at = at(t);
+        if (track == ArmEditor.Track.HIDE) {
+            float from = at != null ? at.ms() : t, to = Math.min(from + Math.max(ArmEditor.STEP, c.length()), duration);
+            for (var k : keys) if (k != at && k.ms() > from) to = Math.min(to, k.ms());
+            var r = ArmRig.range(ArmRig.number(from) + "-" + ArmRig.number(Math.max(to, from + 1)));
+            if (at != null) this.<ArmRig.Value>entries().set(at.entry(), r);
+            else this.<ArmRig.Value>entries().add(slot(from), r);
+        } else if (track == ArmEditor.Track.PATH) {
+            var e = ArmRig.PathEntry.read((at != null ? pathEntry(at).time : ArmRig.number(t)) + c.rest());
+            if (at != null) this.<ArmRig.PathEntry>entries().set(at.entry(), e);
+            else {
+                Key from = null;
+                for (var k : keys) if (k.ms() <= t) from = k;
+                int i = from != null ? from.entry() + 1 : keys.isEmpty() ? seg.entries.size() : keys.get(0).entry();
+                this.<ArmRig.PathEntry>entries().add(i, e);
+            }
+        } else {
+            String now = ArmRig.number(at != null ? at.ms() : t) + c.rest();
+            ArmRig.Value v = switch (track) {
+                case CARRY -> ArmRig.carryKey(now);
+                case AROUND -> ArmRig.angleKey(now);
+                default -> ArmRig.adjustment(now);
+            };
+            if (at != null) this.<ArmRig.Value>entries().set(at.entry(), v);
+            else this.<ArmRig.Value>entries().add(slot(t), v);
+        }
+        readKeys();
+    }
 }

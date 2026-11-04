@@ -76,7 +76,8 @@ final class ArmEditor {
         KEY("Ключ", "Ключ выбранной дорожки в этот момент: когда он, где рука и как она подходит."),
         GRIP("Хват", "Где рука держит оружие и с какой деталью двигается."),
         ARM("Рука", "Плечо, поворот и толщина выбранной руки."),
-        BOTH("Обе руки", "Настройки обеих рук этого оружия: толщина, длина, следование, скольжение.");
+        BOTH("Обе руки", "Настройки обеих рук этого оружия: толщина, длина, следование, скольжение."),
+        FILE("Файл", "Взять руки с другого оружия, выгрузить руки этого оружия в файл и загрузить их из файла.");
 
         final String label, hint;
 
@@ -154,6 +155,18 @@ final class ArmEditor {
     Page page = Page.TIME;
     // what the key page shows: the key, how a path key's hand comes, or the settings of the whole track
     KeyView keyView = KeyView.WHERE;
+    // the File page: the gun to take arms from and the file to load (as indexes of their lists), the last export
+    int from, file;
+    private int exports;
+    private java.nio.file.Path exported;
+    private String exportError;
+    // text the screen puts on the clipboard (the last export), taken once
+    private String clipboard;
+    // the key copied with "Копировать": it can be pasted to any hand, animation or gun
+    static ArmKeys.Copy copied;
+    // the mod's version in an export's head (the screen sets it), and the clock its date comes from
+    static String modVersion = "X0-dev";
+    static java.util.function.Supplier<java.time.LocalDateTime> clock = java.time.LocalDateTime::now;
     private int version = Integer.MIN_VALUE;
     private ArmRig.Drive[] drives;
 
@@ -418,7 +431,7 @@ final class ArmEditor {
                 }));
         if (page == Page.TIME) timeActions(out, none);
         if (page == Page.TIME || page == Page.KEY) keyActions(out, none);
-        if (page != Page.BOTH) {
+        if (page != Page.BOTH && page != Page.FILE) {
             out.add(new Action("hand.right", "Правая рука", "Показать и править правую руку.", "", hand == 0 ? "правая рука уже выбрана" : null, () -> {
                 hand = 0;
                 if (trackWhy(track) != null) track = Track.PATH;
@@ -426,6 +439,7 @@ final class ArmEditor {
             out.add(new Action("hand.left", "Левая рука", "Показать и править левую руку.", "", hand == 1 ? "левая рука уже выбрана" : null, () -> hand = 1));
         }
         if (page != Page.TIME) settingActions(out);
+        if (page == Page.FILE) fileActions(out);
         commonActions(out);
         return out;
     }
@@ -482,7 +496,29 @@ final class ArmEditor {
         out.add(new Action("key.delete", "− Ключ", track == Track.HIDE ? "Больше не скрывать руку в этом отрезке." : "Удалить ключ выбранной дорожки в этот момент.",
                 "Delete", cannot != null ? cannot : key == null ? (track == Track.HIDE ? "рука в этот момент не скрыта" : "в этот момент ключа нет") : null,
                 () -> change(() -> editKey((ks, x) -> ks.delete(x)))));
+        if (!trackView()) copyActions(out, k, key, cannot);
         viewActions(out);
+    }
+
+    // copying the key here, and pasting the copied one here (over the key here, which keeps its time, or as a new one)
+    private void copyActions(List<Action> out, ArmKeys k, ArmKeys.Key key, String cannot) {
+        // no keys here at all: the page says why, and there is nothing to copy or paste
+        if (cannot != null) return;
+        var mine = key == null ? null : k.copy(key);
+        out.add(new Action("key.copy", "Копировать", "Запомнить этот ключ, чтобы вставить его в другой момент, другой руке, в другую анимацию или другому оружию.",
+                "Ctrl+C", cannot != null ? cannot : key == null ? "в этот момент ключа нет" : mine.equals(copied) ? "этот ключ уже скопирован" : null,
+                () -> copied = mine));
+        String paste = cannot != null ? cannot : copied == null ? "сначала скопируй ключ («Копировать»)"
+                : copied.track() != track ? "скопирован ключ дорожки «" + copied.track().label + "», а выбрана «" + track.label + "»"
+                : track == Track.HIDE && key == null && time >= duration() ? "в конце анимации скрывать уже нечего" : null;
+        if (paste == null) {
+            var trial = keysOf(track);
+            String before = trial.write();
+            trial.paste(copied, time, duration());
+            if (trial.write().equals(before)) paste = "здесь уже такой ключ";
+        }
+        out.add(new Action("key.paste", "Вставить", key != null ? "Заменить ключ в этот момент скопированным (время ключа остаётся)."
+                : "Вставить скопированный ключ в этот момент.", "Ctrl+V", paste, () -> change(() -> editKey((ks, x) -> ks.paste(copied, time, duration())))));
     }
 
     // why the selected track has no keys to add or delete here; null = it has
@@ -526,6 +562,108 @@ final class ArmEditor {
         Config.select(gun);
     }
 
+    // ---------------------------------------------------------------- the File page
+
+    // where the gun's arms are read and written: the gun, or the gun it shares them with
+    private String target() {
+        return Grips.armsGun(base());
+    }
+
+    // the guns whose arms can be taken: those with arm settings of their own, other than this one
+    List<String> sources() {
+        String t = target();
+        var out = new ArrayList<String>();
+        for (String g : Grips.gunsWithArms()) if (!g.equals(t) && !g.equals(base())) out.add(g);
+        return out;
+    }
+
+    // another gun's arms as keys of this one
+    private Map<String, String> armsFrom(String src) {
+        String s = Grips.armsGun(src), t = target();
+        Map<String, String> out = new TreeMap<>();
+        for (var e : Grips.armsOf(src).entrySet()) out.put(t + e.getKey().substring(s.length()), e.getValue());
+        return out;
+    }
+
+    // the arms are already these (what hides the shared gun's values follows from the rest)
+    private boolean sameArms(Map<String, String> arms) {
+        String t = target();
+        Map<String, String> now = new TreeMap<>(Grips.armsOf(base())), want = new TreeMap<>();
+        for (var e : arms.entrySet())
+            if (!e.getValue().isEmpty() && (e.getKey().startsWith(t + ".") || e.getKey().startsWith(t + "-"))) want.put(e.getKey(), e.getValue());
+        now.values().removeIf(String::isEmpty);
+        return now.equals(want);
+    }
+
+    private void fileActions(List<Action> out) {
+        var src = sources();
+        String none = src.isEmpty() ? "у других оружий нет своих настроек рук" : null;
+        String one = none != null ? none : src.size() < 2 ? "взять руки можно только у одного оружия" : null;
+        out.add(new Action("copy.from.prev", "◀", "Предыдущее оружие, у которого есть свои руки.", "", one, () -> from = Math.floorMod(from - 1, src.size())));
+        out.add(new Action("copy.from.next", "▶", "Следующее оружие, у которого есть свои руки.", "", one, () -> from = Math.floorMod(from + 1, src.size())));
+        String s = none == null ? src.get(Math.floorMod(from, src.size())) : null;
+        var arms = s == null ? null : armsFrom(s);
+        out.add(new Action("copy.from.take", "Взять", "Сделать руки этого оружия такими же, как у выбранного: хват, дорожки и все настройки рук. Это можно отменить.",
+                "", none != null ? none : sameArms(arms) ? "руки уже такие же, как у «" + clips.gunName(s) + "»" : null, () -> change(() -> Grips.putArms(base(), arms))));
+        out.add(new Action("export.write", "Выгрузить", "Записать руки этого оружия в файл в папке игры config/" + ArmFiles.FOLDER
+                + " и скопировать его текст в буфер обмена: его можно сразу вставить в сообщение.", "", null, this::export));
+        var files = ArmFiles.files(target());
+        String noFile = files.isEmpty() ? "выгруженных файлов этого оружия нет" : null;
+        String oneFile = noFile != null ? noFile : files.size() < 2 ? "файл этого оружия один" : null;
+        out.add(new Action("load.prev", "◀", "Файл новее.", "", oneFile, () -> file = Math.floorMod(file - 1, files.size())));
+        out.add(new Action("load.next", "▶", "Файл старее.", "", oneFile, () -> file = Math.floorMod(file + 1, files.size())));
+        var r = noFile != null ? null : ArmFiles.read(files.get(Math.floorMod(file, files.size())).path());
+        String why = noFile != null ? noFile : r.problem() != null ? "в файле ошибка, " + r.problem() : !r.gun().equals(target()) ? "файл выгружен для другого оружия"
+                : sameArms(r.arms()) ? "руки уже как в этом файле" : null;
+        out.add(new Action("load.file", "Загрузить", "Сделать руки этого оружия такими, как в выбранном файле. Это можно отменить.", "", why,
+                () -> change(() -> Grips.putArms(base(), r.arms()))));
+    }
+
+    private void export() {
+        String t = target();
+        var when = clock.get();
+        String text = ArmFiles.text(t, clips.gunName(t), base(), modVersion, when, Grips.armsOf(base()));
+        try {
+            exported = ArmFiles.write(t, text, when);
+            exportError = null;
+            clipboard = text;
+        } catch (java.io.IOException | RuntimeException e) {
+            exported = null;
+            exportError = String.valueOf(e.getMessage());
+        }
+        exports++;
+        // the files go newest first: the one just written
+        file = 0;
+    }
+
+    // the text to put on the clipboard now, once
+    String takeClipboard() {
+        String c = clipboard;
+        clipboard = null;
+        return c;
+    }
+
+    private List<Row> fileRows() {
+        var out = new ArrayList<Row>();
+        var src = sources();
+        String t = target();
+        String shared = t.equals(base()) ? "" : " Руки этого оружия общие с «" + clips.gunName(t) + "»: правка меняет обе.";
+        out.add(new Row("Взять руки с: " + (src.isEmpty() ? "не у кого" : clips.gunName(src.get(Math.floorMod(from, src.size())))),
+                "Оружие, руки которого можно взять этому: ◀ ▶ выбирают, «Взять» копирует." + shared, null, List.of("copy.from.prev", "copy.from.next", "copy.from.take")));
+        String folder = "config/" + ArmFiles.FOLDER;
+        out.add(new Row(exportError != null ? "Не удалось выгрузить" : exported == null ? "Выгрузить руки в файл" : "Выгружено, текст в буфере",
+                exportError != null ? "Файл не записался: " + exportError + "."
+                        : exported == null ? "Файл ложится в папку игры " + folder + ", его текст — в буфер обмена."
+                        : "Файл " + folder + "/" + exported.getFileName() + ". Его текст уже в буфере обмена: вставь его в сообщение.",
+                null, List.of("export.write")));
+        var files = ArmFiles.files(t);
+        int i = files.isEmpty() ? 0 : Math.floorMod(file, files.size());
+        out.add(new Row(files.isEmpty() ? "Файлов нет" : files.get(i).label(),
+                "Выгруженные файлы этого оружия из папки " + folder + ", новые первыми" + (files.size() > 1 ? " (этот " + (i + 1) + " из " + files.size() + ")" : "")
+                        + ". Чужой файл можно положить туда же.", null, List.of("load.prev", "load.next", "load.file")));
+        return out;
+    }
+
     // own or shared arms, undo, redo, back to how it was, close: on every page
     private void commonActions(List<Action> out) {
         String shared = sharedWith();
@@ -538,7 +676,8 @@ final class ArmEditor {
                     () -> change(() -> Grips.copyArms(base()))));
             out.add(new Action("arms.shared", "Общие руки",
                     "Убрать свои руки этого оружия и снова брать руки «" + name + "».", "",
-                    own ? null : "руки и так общие с «" + name + "»", () -> change(() -> Grips.shareArms(base()))));
+                    !own ? "руки и так общие с «" + name + "»" : Grips.ownArmsShipped(base()) ? "свои руки этого оружия заданы в самом моде" : null,
+                    () -> change(() -> Grips.shareArms(base()))));
         }
         out.add(new Action("undo", "Отменить", "Отменить последнюю правку.", "Ctrl+Z", undo.isEmpty() ? "нечего отменять" : null, () -> {
             redo.push(Grips.snapshot());
@@ -1013,14 +1152,15 @@ final class ArmEditor {
         var k = keysOf(track);
         var key = k.at(time);
         if (key == null) {
-            out.add(new Row("«" + track.label + "»: здесь ключа нет", "Перейди к ключу («← Ключ», «Ключ →») или добавь его («+ Ключ»). Дорожку выбирают на странице «Анимации».",
-                    null, List.of()));
+            out.add(new Row("Здесь ключа нет", "На дорожке «" + track.label + "» в этот момент ключа нет. Перейди к ключу («← Ключ», «Ключ →»), добавь его («+ Ключ») или вставь скопированный."
+                    + " Дорожку выбирают на странице «Анимации».", null, List.of("key.copy", "key.paste")));
             return out;
         }
         boolean pathPart = track == Track.PATH && !k.pathEntry(key).grip();
         boolean approach = shownView() == KeyView.APPROACH;
-        out.add(new Row("«" + track.label + "», ключ " + (k.indexOf(key) + 1) + " из " + k.keys().size() + (approach ? ": подход" : ""),
-                "Дорожку выбирают на странице «Анимации».", null, List.of()));
+        out.add(new Row("Ключ " + (k.indexOf(key) + 1) + " из " + k.keys().size(),
+                "Ключ " + (k.indexOf(key) + 1) + " из " + k.keys().size() + " дорожки «" + track.label + "». Дорожку выбирают на странице «Анимации». «Копировать» запоминает"
+                        + " ключ, «Вставить» ставит запомненный на его место.", null, List.of("key.copy", "key.paste")));
         var knobs = keyKnobs();
         Runnable slider = () -> {
             var kn = knobs.remove(0);
@@ -1800,6 +1940,7 @@ final class ArmEditor {
         var out = new ArrayList<Row>();
         if (page == Page.TIME) return out;
         if (page == Page.KEY) return trackView() ? trackRows() : keyRows();
+        if (page == Page.FILE) return fileRows();
         if (page == Page.GRIP) {
             out.add(new Row("Хват " + (hand == 0 ? "правой" : "левой") + (gripPoint() ? ": точкой модели" : ": в долях модели"),
                     "Точка не сдвигается, когда обвесы меняют размер модели; доли идут за ними.", null, List.of("grip.mode", "grip.reset")));
@@ -2021,11 +2162,12 @@ final class ArmEditor {
     // ---------------------------------------------------------------- for the test: everything a press can change
 
     record State(int clip, int hand, float time, boolean playing, double speed, Track track, Page page, KeyView keyView, boolean closed,
-            Map<String, String> data, int undo, int redo) {
+            int from, int file, int exports, ArmKeys.Copy copied, Map<String, String> data, int undo, int redo) {
     }
 
     State state() {
-        return new State(clip, hand, time, playing, speed, track, page, keyView, closed, Grips.snapshot(), undo.size(), redo.size());
+        return new State(clip, hand, time, playing, speed, track, page, keyView, closed, from, file, exports, copied, Grips.snapshot(), undo.size(),
+                redo.size());
     }
 
     // back to a state taken before (the test tries every action from the same state)
@@ -2039,6 +2181,10 @@ final class ArmEditor {
         page = s.page;
         keyView = s.keyView;
         closed = s.closed;
+        from = s.from;
+        file = s.file;
+        exports = s.exports;
+        copied = s.copied;
         Grips.restoreUnsaved(s.data);
         undo.clear();
         undo.addAll(undoCopy);

@@ -85,7 +85,7 @@ final class ArmScreenCheck {
         });
         TODO.add(() -> pressAll(gun + " · " + ArmEditor.Page.TIME.label));
         // the settings pages: each laid out and pressed through; a slider dragged on one of them
-        for (var page : List.of(ArmEditor.Page.KEY, ArmEditor.Page.GRIP, ArmEditor.Page.ARM, ArmEditor.Page.BOTH)) {
+        for (var page : List.of(ArmEditor.Page.KEY, ArmEditor.Page.GRIP, ArmEditor.Page.ARM, ArmEditor.Page.BOTH, ArmEditor.Page.FILE)) {
             TODO.add(() -> {
                 var b = screen.button("page." + page.name().toLowerCase(Locale.ROOT));
                 ClientSmoke.check(b != null && b.active, gun + ": есть вкладка «" + page.label + "»");
@@ -101,6 +101,7 @@ final class ArmScreenCheck {
                 layout(gun + " · " + page.label);
                 pressAll(gun + " · " + page.label);
                 if (page == ArmEditor.Page.BOTH) drag(gun);
+                if (page == ArmEditor.Page.FILE) exported(gun);
             });
             // the key page's other views: on the key it stands on, then the settings of the carrying, releasing and
             // going-round tracks, in an animation where the track has them
@@ -281,6 +282,27 @@ final class ArmScreenCheck {
                         }
                     }
         return false;
+    }
+
+    // "Выгрузить": a file in the folder, its text on the clipboard, and it reads back as the arms the gun has
+    private static void exported(String gun) {
+        var b = screen.button("export.write");
+        ClientSmoke.check(b != null && b.active, gun + ": есть «Выгрузить»");
+        if (b == null) return;
+        b.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+        String clip = Minecraft.getInstance().keyboardHandler.getClipboard();
+        var files = ArmFiles.files(Grips.armsGun(Grips.baseOf(screen.model().gun)));
+        String text;
+        try {
+            text = files.isEmpty() ? null : java.nio.file.Files.readString(files.get(0).path());
+        } catch (java.io.IOException e) {
+            text = null;
+        }
+        ClientSmoke.check(text != null && text.equals(clip), gun + ": «Выгрузить» записал файл и положил его текст в буфер обмена");
+        var r = ArmFiles.read(clip);
+        ClientSmoke.check(r.problem() == null && r.arms().equals(Grips.armsOf(screen.model().gun)), gun + ": выгрузка читается обратно в те же руки"
+                + (r.problem() == null ? "" : " (" + r.problem() + ")"));
+        screen.refresh();
     }
 
     private static void pressAll(String gun) {

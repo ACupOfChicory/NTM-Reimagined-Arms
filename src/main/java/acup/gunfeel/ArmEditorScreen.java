@@ -42,6 +42,8 @@ public final class ArmEditorScreen extends Screen {
         super(Component.literal("Руки пушки"));
         this.parent = parent;
         this.item = item;
+        String v = String.valueOf(acup.gunfeel.compat.Compat.modVersion());
+        ArmEditor.modVersion = "X" + v.split("\\+")[0] + ", " + v;
         this.model = new ArmEditor(gun, new GameClips());
     }
 
@@ -274,6 +276,8 @@ public final class ArmEditorScreen extends Screen {
 
     void press(String id) {
         model.press(id);
+        String copy = model.takeClipboard();
+        if (copy != null) Minecraft.getInstance().keyboardHandler.setClipboard(copy);
         if (model.closed) {
             onClose();
             return;
@@ -309,7 +313,7 @@ public final class ArmEditorScreen extends Screen {
         for (var x : model.actions()) a.put(x.id(), x);
         actionsShown = signature();
         int y = 14;
-        row(a, y, "page.time", "page.key", "page.grip", "page.arm", "page.both");
+        row(a, y, "page.time", "page.key", "page.grip", "page.arm", "page.both", "page.file");
         y += H + GAP;
         if (model.page != ArmEditor.Page.TIME) {
             settingsPage(a, y);
@@ -455,6 +459,8 @@ public final class ArmEditorScreen extends Screen {
             case 260 -> "key.add";
             case 261 -> "key.delete";
             case 90 -> ctrl ? "undo" : null;
+            case 67 -> ctrl ? "key.copy" : null;
+            case 86 -> ctrl ? "key.paste" : null;
             case 89 -> ctrl ? "redo" : null;
             default -> null;
         };
