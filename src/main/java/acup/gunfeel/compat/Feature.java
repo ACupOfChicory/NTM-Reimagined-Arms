@@ -23,6 +23,7 @@ public enum Feature {
             List.of("Arms", "Grips", "GunGeometry", "GripCommand", "ArmAnimationPreview", "ArmAnimationEditor", "WeaponSway")),
     HUD("hud", List.of("MixinClientRegistry"), List.of("Hud", "Silhouette", "GunGeometry")),
     INSTANT_SWITCH("instant_switch", List.of("MixinHbmAnimationPayload"), List.of("InstantSwitch")),
+    CLICK_AIM("click_aim", List.of("MixinClickAim"), List.of("ClickAim")),
     TRACERS("tracers", List.of("MixinLegoClient", "MixinRenderBulletMK4"), List.of("Tracers", "ShotPayload", "ImpactHolePayload", "ExplosiveAmmo")),
     MACHINE_MESH("machine_mesh", List.of("MixinHbmVisual"), List.of("MeshShapes", "RenderedMesh")),
     MARESLEG("maresleg", List.of("MixinGunConfigAnims"), List.of());

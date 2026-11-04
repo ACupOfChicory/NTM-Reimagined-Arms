@@ -18,6 +18,7 @@
   "ntmgunfeel.feature.arms": "Arms on guns",
   "ntmgunfeel.feature.hud": "HUD",
   "ntmgunfeel.feature.instant_switch": "Instant switch",
+  "ntmgunfeel.feature.click_aim": "Bullet from the click's frame",
   "ntmgunfeel.feature.tracers": "Tracers",
   "ntmgunfeel.feature.machine_mesh": "Machine hitboxes",
   "ntmgunfeel.feature.maresleg": "Maresleg animations",

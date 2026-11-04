@@ -178,6 +178,11 @@ BULLETS method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraf
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/world/item/ItemStack;I)F
 BULLETS method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z
+CLICK_AIM field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+CLICK_AIM field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+CLICK_AIM method com/hbm/client/Keybinds isGunHeld ()Z
+CLICK_AIM method com/hbm/extprop/HbmPlayerProps getData (Lnet/minecraft/world/entity/player/Player;)Lcom/hbm/extprop/HbmPlayerProps;
+CLICK_AIM method com/hbm/extprop/HbmPlayerProps getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
 CORE class com/hbm/blocks/generic/BlockWoodBarrier
 CORE class com/hbm/blocks/generic/BlockWoodStructure
 CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
