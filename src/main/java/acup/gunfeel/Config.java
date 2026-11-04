@@ -99,6 +99,7 @@ public final class Config {
     public static float armInspectReleaseMs = -1F;
     public static boolean instantSwitch = true;
     public static boolean aimOnRightButton = true;
+    public static boolean clickAim = true;
     public static boolean bulletFx = true;
     // loudness of bullet hit sounds, times the rule's volume; above 1 the sound is doubled up (Minecraft stops at 1)
     public static float hitVolume = 2F;
@@ -129,6 +130,9 @@ public final class Config {
     public static float armAroundTopDropReload = Float.NaN;
     // width of NTM's muzzle smoke, 1 = as NTM draws it (SPAS-12's is 3x as wide as Maresleg's)
     public static float smokeWidth = 1F;
+    // the gun bobbing in step with walking and lowered to the side while sprinting (TaCZ's way), 0 = off (NTM's own bob)
+    public static float walkSway = 0F;
+    public static float sprintPose = 0F;
     public static float armScaleRight = 1F;
     public static float armScaleLeft = 1F;
 
@@ -197,6 +201,9 @@ public final class Config {
             armPathBlend: near the grip a hand on its path (armLeftPath/armRightPath) turns smoothly into its usual hold
             armCarryKeepAngle: a carrying hand keeps the arm exactly as it holds the gun and only moves it (Sexy: the bottle)
             smokeWidth: width of the muzzle smoke, 1 = as NTM draws it
+            walkSway: the gun bobs in step with the player's steps instead of NTM's own bob, 1 = as TaCZ, 0 = off (NTM's)
+            sprintPose: while sprinting the gun is lowered and turned to the side, swinging with the run, 1 = as TaCZ, 0 = off;
+              aiming, a reload or a shot bring it back
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
             armRollRight, armRollLeft: turn of each arm around its own axis, degrees
             armDirRight, armDirLeft: direction from the hand to the shoulder: x (+ left), y (+ up), z (+ forward)
@@ -242,6 +249,8 @@ public final class Config {
               until the next tick, and the new gun starts its draw animation without waiting for the server
             aimOnRightButton: a gun that aims (NTM: on the middle mouse button) aims with the right button, and its second
               action moves to the middle button; a gun that does not aim (SPAS-12, akimbo pairs) keeps it on the right
+            clickAim: a bullet flies where the player looked in the frame of the click, and a burst follows the camera
+              frame by frame (false = as in NTM: along the turn the server heard with the last tick's move packet)
             bulletFx: particles and sounds of bullets (block hits, a bullet whizzing past, the in-flight sound) by the
               rules in config/ntm-gunfeel-bullets.txt
             hitVolume: loudness of bullet hit sounds, times each hit rule's volume (1 = as the rules say, 0 = silent, up to 4;
@@ -469,6 +478,7 @@ public final class Config {
         armInspectReleaseMs = num(p, "armInspectReleaseMs", -1F);
         instantSwitch = bool(p, "instantSwitch", instantSwitch);
         aimOnRightButton = bool(p, "aimOnRightButton", aimOnRightButton);
+        clickAim = bool(p, "clickAim", clickAim);
         bulletFx = bool(p, "bulletFx", bulletFx);
         hitVolume = Math.max(0F, Math.min(4F, num(p, "hitVolume", hitVolume)));
         holeCache = bool(p, "holeCache", holeCache);
@@ -492,6 +502,8 @@ public final class Config {
         armAroundShiftReload = num(p, "armAroundShiftReload", armAroundShiftReload);
         armAroundTopDropReload = num(p, "armAroundTopDropReload", armAroundTopDropReload);
         smokeWidth = num(p, "smokeWidth", smokeWidth);
+        walkSway = num(p, "walkSway", walkSway);
+        sprintPose = num(p, "sprintPose", sprintPose);
         armScaleRight = num(p, "armScaleRight", armScaleRight);
         armScaleLeft = num(p, "armScaleLeft", armScaleLeft);
     }
@@ -586,6 +598,7 @@ public final class Config {
         p.setProperty("armInspectReleaseMs", Float.toString(armInspectReleaseMs));
         p.setProperty("instantSwitch", Boolean.toString(instantSwitch));
         p.setProperty("aimOnRightButton", Boolean.toString(aimOnRightButton));
+        p.setProperty("clickAim", Boolean.toString(clickAim));
         p.setProperty("bulletFx", Boolean.toString(bulletFx));
         p.setProperty("hitVolume", Float.toString(hitVolume));
         p.setProperty("holeCache", Boolean.toString(holeCache));
@@ -609,6 +622,8 @@ public final class Config {
         p.setProperty("armAroundShiftReload", Float.toString(armAroundShiftReload));
         p.setProperty("armAroundTopDropReload", Float.toString(armAroundTopDropReload));
         p.setProperty("smokeWidth", Float.toString(smokeWidth));
+        p.setProperty("walkSway", Float.toString(walkSway));
+        p.setProperty("sprintPose", Float.toString(sprintPose));
         p.setProperty("armScaleRight", Float.toString(armScaleRight));
         p.setProperty("armScaleLeft", Float.toString(armScaleLeft));
         return p;
