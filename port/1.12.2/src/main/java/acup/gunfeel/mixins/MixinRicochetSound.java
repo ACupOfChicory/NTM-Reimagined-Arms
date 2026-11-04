@@ -13,7 +13,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 // port: copied from 26.2 (mixin/MixinRicochetSound.java, e284339). Server: NTM's standard ricochet
 // (BulletConfig.LAMBDA_STANDARD_RICOCHET, lambda$static$0) plays "hbm:weapon.ricochet" at the bullet; off steel ours
 // instead (BulletServer.ricochetSound). port: NTM CE plays HBMSoundHandler.ricochet with World.playSound(x, y, z, ...),
-// which only a client world plays (on the server NTM CE's ricochet is silent). Not found in another NTM version: NTM's sound stays.
+// which only a client world plays (on the server NTM CE's ricochet is silent): played to everyone near instead, as
+// 26.2's NTM does (its sound, category and volume). Not found in another NTM version: NTM's sound stays.
 @Mixin(value = BulletConfig.class, remap = false)
 public abstract class MixinRicochetSound {
     @Redirect(method = "lambda$static$0", require = 0, at = @At(value = "INVOKE", remap = true,
@@ -22,6 +23,7 @@ public abstract class MixinRicochetSound {
             net.minecraft.util.SoundCategory category, float volume, float pitch, boolean delay, EntityBulletBaseMK4 bullet,
             RayTraceResult mop) {
         if (acup.gunfeel.BulletServer.ricochetSound(world, mop)) return;
-        world.playSound(x, y, z, sound, category, volume, pitch, delay);
+        if (world.isRemote) world.playSound(x, y, z, sound, category, volume, pitch, delay);
+        else world.playSound(null, x, y, z, sound, category, volume, pitch);
     }
 }
