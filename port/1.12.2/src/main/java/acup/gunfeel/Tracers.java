@@ -4,7 +4,7 @@
 // (cut to the hitbox and the pixels of plain cubes, wrapped over plain cubes' edges by BlockDecal).
 // The pure parts are in HoleMath and TracerPath (same numbers as 26.2); this file holds the world and the drawing.
 // Holes on what a renderer draws (NTM machines and doors) come from MachineMesh, wrapped over the part they sit on.
-// Left out (26.2 only, for now): DecalSurface over non-cube block models, the graphics-card hole cache (Batch, holeCache), the late pass for glass, entity hits for unannounced shots, ClientSmoke / HoleBenchmark hooks.
+// Left out (26.2 only, for now): DecalSurface over non-cube block models, the graphics-card hole cache (Batch, holeCache), the late pass for clear glass (here only for the translucent terrain: drawLateHoles), entity hits for unannounced shots, ClientSmoke / HoleBenchmark hooks.
 package acup.gunfeel;
 
 import java.nio.FloatBuffer;
@@ -502,13 +502,17 @@ public final class Tracers {
         BOUNCED.clear();
         if (!streaks.isEmpty()) drawStreaks(mc, partial, streaks);
         // the holes went with the world already this frame (drawWorldHoles); here only when that hook did not run
-        if (holesFrame == frame) return;
-        makePending();
-        holes(mc, world, partial, now);
+        if (holesFrame != frame) {
+            makePending();
+            holes(mc, world, partial, now);
+            holesFrame = frame;
+        }
+        if (lateFrame != frame) lateHoles(mc, now);
     }
 
-    // the frames, and the one whose holes are drawn already, before the block cracks
-    private static long frame, holesFrame = -1;
+    // the frames, the one whose holes are drawn already, before the block cracks, and the one whose holes on
+    // translucent blocks are drawn again after the translucent terrain
+    private static long frame, holesFrame = -1, lateFrame = -1;
 
     // The holes with the world (MixinRenderGlobal, as RenderGlobal.drawBlockDamageTexture starts), as 26.2 draws them
     // with the blocks: under a shader pack (Angelica) RenderWorldLastEvent comes after the pack has finished its frame,
@@ -532,6 +536,30 @@ public final class Tracers {
             GL11.glPopAttrib();
         }
         holesFrame = frame;
+    }
+
+    // The holes on translucent blocks again, after the translucent terrain (MixinEntityRenderer, as 26.2's late holes):
+    // drawn before it only, the block's color lies over them. Only after the holes with the world this frame; else
+    // RenderWorldLastEvent draws both.
+    public static void drawLateHoles() {
+        if (lateFrame == frame || holesFrame != frame) return;
+        if (!acup.gunfeel.compat.Feature.TRACERS.on()) return;
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.world == null) return;
+        GL11.glPushAttrib(GL11.GL_ENABLE_BIT | GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT | GL11.GL_POLYGON_BIT | GL11.GL_CURRENT_BIT);
+        try {
+            lateHoles(mc, GunClock.nanos());
+        } finally {
+            GL11.glPopAttrib();
+        }
+    }
+
+    private static void lateHoles(Minecraft mc, long now) {
+        lateFrame = frame;
+        if (HOLES.isEmpty() || !Config.bulletHoles) return;
+        boolean any = false;
+        for (Hole h : HOLES) any |= h.late;
+        if (any) drawHoles(mc, 0F, now, HoleMath.lifeNanos(Config.holeLife), true);
     }
 
     // ---- flight
@@ -710,6 +738,9 @@ public final class Tracers {
         List<double[]> blockPieces;
         // ... and which cubes around were there when they were made (BlockDecal.around): built again when that changes
         long[] around;
+        // on a block drawn with the translucent terrain (NTM's laminate, stained glass, ice): drawn again after it
+        // (drawLateHoles), else the block's own color lies over the hole
+        boolean late;
 
         Hole(double[] pos, int face, int turn, long born, int light, int kind, float size, double[] rect, HoleMath.Mask mask, double plane,
                 boolean cull, int[] at, Block block, int meta, double[] box, int shot) {
@@ -912,6 +943,7 @@ public final class Tracers {
         boolean cull = (boxes.fullCube(pos[0], pos[1], pos[2]) || Math.abs(onAxis - boxFace) < 1e-3) && !glass;
         Hole h = new Hole(hit, face, turn, GunClock.nanos(), light, kind, size, rect, mask, plane, cull, pos.clone(), b, meta,
                 boxes.box(pos[0], pos[1], pos[2]), p.shot);
+        h.late = translucentLayer(world, pos);
         // on an opaque cube, over its edges onto the faces around (26.2's drawnHole); a square that stays on the face is
         // drawn flat as before
         if (HoleMath.wholeFace(mask) && cull && opaqueCube(world, pos[0], pos[1], pos[2]))
@@ -919,6 +951,12 @@ public final class Tracers {
         HOLES.addLast(h);
         trimHoles();
         return h;
+    }
+
+    // a block drawn with the translucent terrain (26.2's translucent(state))
+    static boolean translucentLayer(World world, int[] pos) {
+        net.minecraft.block.state.IBlockState state = world.getBlockState(Mc.pos(pos[0], pos[1], pos[2]));
+        return state.getBlock().canRenderInLayer(state, net.minecraft.util.BlockRenderLayer.TRANSLUCENT);
     }
 
     // the shape bullets meet in the world (HoleMath.Shape): a block's 1/16 cells where it has them, its collision
@@ -1005,7 +1043,7 @@ public final class Tracers {
             }
         }
         if (HOLES.isEmpty() || !Config.bulletHoles) return;
-        drawHoles(mc, partial, now, life);
+        drawHoles(mc, partial, now, life, false);
     }
 
     // ---- drawing (26.2: SubmitCustomGeometryEvent and HoleRender; here immediate GL after the world, as NTM draws)
@@ -1049,10 +1087,13 @@ public final class Tracers {
     // Like entity_translucent but without writing depth (overlapping holes would hide each other's soft edges), with
     // a depth bias that keeps them on the face they lie on; one-sided holes (on a cube's face) culled, the others
     // not. In the order they were made, a newer hole over an older one; grouped by texture.
-    private static void drawHoles(Minecraft mc, float partial, long now, long life) {
+    // late: only the holes on translucent blocks that face the camera (drawLateHoles). The translucent terrain does not
+    // write depth here, so one on a far face, seen through the block, is left to the copy drawn before it, under the
+    // block's color.
+    private static void drawHoles(Minecraft mc, float partial, long now, long life, boolean late) {
         List<Hole> meshHoles = new ArrayList<Hole>();
         List<double[][]> meshPlaces = new ArrayList<double[][]>();
-        placeMeshHoles(now, life, meshHoles, meshPlaces);
+        if (!late) placeMeshHoles(now, life, meshHoles, meshPlaces);
         mc.entityRenderer.enableLightmap();
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glDisable(GL11.GL_LIGHTING);
@@ -1072,6 +1113,7 @@ public final class Tracers {
             boolean started = false;
             for (Hole h : HOLES) {
                 if (h.kind != kind || h.cull != cull || h.mesh != null || h.blockPieces != null) continue;
+                if (late && !(h.late && facesCamera(h))) continue;
                 int alpha = HoleMath.alpha(now - h.born, life);
                 if (alpha <= 0) continue;
                 for (double[] clip : HoleMath.cells(h.rect, h.mask)) {
@@ -1099,6 +1141,12 @@ public final class Tracers {
         GL11.glDisable(GL11.GL_BLEND);
         GL11.glEnable(GL11.GL_CULL_FACE);
         mc.entityRenderer.disableLightmap();
+    }
+
+    // the camera is on the side its face looks to
+    private static boolean facesCamera(Hole h) {
+        int[] o = HoleMath.offset(h.face);
+        return (CAMERA[0] - h.pos[0]) * o[0] + (CAMERA[1] - h.pos[1]) * o[1] + (CAMERA[2] - h.pos[2]) * o[2] > 0;
     }
 
     // where the holes on machines and doors (MachineMesh) are now, read before the holes' GL state is set up (reading
