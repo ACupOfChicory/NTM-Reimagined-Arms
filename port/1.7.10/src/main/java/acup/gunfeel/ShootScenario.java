@@ -78,9 +78,14 @@ public final class ShootScenario {
         return NAME.equals("fences");
     }
 
+    // "aimlag": how far a bullet is behind the turn the player saw (clickAim, AimLagScenario)
+    static boolean aimlag() {
+        return NAME.equals("aimlag");
+    }
+
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || look() || shapes() || scan() || mobs() || holes() || fences() || TraceScenario.enabled();
+        return on() || look() || shapes() || scan() || mobs() || holes() || fences() || aimlag() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -91,6 +96,7 @@ public final class ShootScenario {
     static void register() {
         if (!world()) return;
         FMLCommonHandler.instance().bus().register(new ShootScenario());
+        if (aimlag()) AimLagScenario.register();
         GunFeel.LOGGER.info("Scenario {}: world {}, quits at tick {}", NAME, WORLD, DONE);
     }
 
@@ -123,6 +129,11 @@ public final class ShootScenario {
         }
         if (fences()) {
             FencesScenario.step(mc, ++tick);
+            return;
+        }
+        if (aimlag()) {
+            if (held) press(true);
+            AimLagScenario.step(mc, ++tick);
             return;
         }
         if (look()) {

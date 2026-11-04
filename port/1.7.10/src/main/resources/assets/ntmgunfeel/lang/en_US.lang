@@ -17,6 +17,7 @@ ntmgunfeel.feature.ammo_choice=Ammo choice and lock
 ntmgunfeel.feature.recoil=Recoil
 ntmgunfeel.feature.arms=Arms on guns
 ntmgunfeel.feature.hud=HUD
+ntmgunfeel.feature.click_aim=Bullet from the click's frame
 ntmgunfeel.feature.instant_switch=Instant switch
 ntmgunfeel.feature.tracers=Tracers
 ntmgunfeel.feature.maresleg=Maresleg animations

@@ -99,6 +99,7 @@ public final class Config {
     public static float armInspectReleaseMs = -1F;
     public static boolean instantSwitch = true;
     public static boolean aimOnRightButton = true;
+    public static boolean clickAim = true;
     public static boolean bulletFx = true;
     // loudness of bullet hit sounds, times the rule's volume; above 1 the sound is doubled up (Minecraft stops at 1)
     public static float hitVolume = 2F;
@@ -242,6 +243,8 @@ public final class Config {
               until the next tick, and the new gun starts its draw animation without waiting for the server
             aimOnRightButton: a gun that aims (NTM: on the middle mouse button) aims with the right button, and its second
               action moves to the middle button; a gun that does not aim (SPAS-12, akimbo pairs) keeps it on the right
+            clickAim: a bullet flies where the player looked in the frame of the click (false = as in NTM: along the turn
+              the server heard with the last tick's move packet); on 1.7.10 a burst follows the turn of the last tick, as in NTM
             bulletFx: particles and sounds of bullets (block hits, a bullet whizzing past, the in-flight sound) by the
               rules in config/ntm-gunfeel-bullets.txt
             hitVolume: loudness of bullet hit sounds, times each hit rule's volume (1 = as the rules say, 0 = silent, up to 4;
@@ -469,6 +472,7 @@ public final class Config {
         armInspectReleaseMs = num(p, "armInspectReleaseMs", -1F);
         instantSwitch = bool(p, "instantSwitch", instantSwitch);
         aimOnRightButton = bool(p, "aimOnRightButton", aimOnRightButton);
+        clickAim = bool(p, "clickAim", clickAim);
         bulletFx = bool(p, "bulletFx", bulletFx);
         hitVolume = Math.max(0F, Math.min(4F, num(p, "hitVolume", hitVolume)));
         holeCache = bool(p, "holeCache", holeCache);
@@ -586,6 +590,7 @@ public final class Config {
         p.setProperty("armInspectReleaseMs", Float.toString(armInspectReleaseMs));
         p.setProperty("instantSwitch", Boolean.toString(instantSwitch));
         p.setProperty("aimOnRightButton", Boolean.toString(aimOnRightButton));
+        p.setProperty("clickAim", Boolean.toString(clickAim));
         p.setProperty("bulletFx", Boolean.toString(bulletFx));
         p.setProperty("hitVolume", Float.toString(hitVolume));
         p.setProperty("holeCache", Boolean.toString(holeCache));
