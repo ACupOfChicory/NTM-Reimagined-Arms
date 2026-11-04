@@ -76,6 +76,37 @@ public final class ModelHits {
 
     private ModelHits() {}
 
+    // What the target wears, on its hitbox (WornGear): off unless the server's modelHitboxesWorn is on. Armor as
+    // HumanoidArmorLayer draws it (an equippable with an asset, for its slot; not the elytra); on the head a skull or
+    // another block as CustomHeadLayer draws it.
+    static WornGear.Worn worn(Entity target) {
+        if(!(target instanceof LivingEntity living) || !ReaimTimes.flag("modelHitboxesWorn",false)) return WornGear.Worn.NOTHING;
+        return new WornGear.Worn(wornHead(living),armor(living,net.minecraft.world.entity.EquipmentSlot.CHEST),
+                armor(living,net.minecraft.world.entity.EquipmentSlot.LEGS),armor(living,net.minecraft.world.entity.EquipmentSlot.FEET));
+    }
+    private static boolean armor(LivingEntity living,net.minecraft.world.entity.EquipmentSlot slot) {
+        var stack=living.getItemBySlot(slot);
+        if(stack.isEmpty() || stack.is(net.minecraft.world.item.Items.ELYTRA)) return false;
+        var equippable=stack.get(net.minecraft.core.component.DataComponents.EQUIPPABLE);
+        return equippable!=null && equippable.slot()==slot && equippable.assetId().isPresent();
+    }
+    private static WornGear.Head wornHead(LivingEntity living) {
+        var stack=living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD);
+        if(stack.isEmpty()) return WornGear.Head.NONE;
+        if(armor(living,net.minecraft.world.entity.EquipmentSlot.HEAD)) return WornGear.Head.ARMOR;
+        if(stack.getItem() instanceof net.minecraft.world.item.BlockItem block)
+            return block.getBlock() instanceof net.minecraft.world.level.block.AbstractSkullBlock?WornGear.Head.SKULL:WornGear.Head.BLOCK;
+        return WornGear.Head.NONE;
+    }
+    private static List<ModelBox> wornBoxes(Entity target,PoseAt p) {
+        return WornGear.boxes(p.boxes(),worn(target));
+    }
+    // zones ModelHeads found on the bare model, grown with what is worn
+    private static List<HeadZone> wornZones(Entity target,PoseAt p,List<HeadZone> zones) {
+        var worn=worn(target);
+        return worn.any()?WornGear.zones(zones,worn,WornGear.humanoid(p.boxes())):zones;
+    }
+
     public static boolean enabled() {
         return (!MobBenchMetrics.ENABLED || MobBenchMetrics.mode!=0)
                 && acup.gunfeel.compat.Feature.MODEL_HITBOXES.on() && ReaimTimes.flag("modelHitboxes", true);
@@ -232,7 +263,7 @@ public final class ModelHits {
         var resolved=ModelHeads.resolve(type,pose.boxes(),pose.yaw());
         if(resolved.source().equals("height")) return heightHead(living,point);
         double angle=angle(living,pose);
-        boolean head=HeadZone.contains(resolved.zones(),unturn(point.subtract(impactOrigin(root,point)),angle));
+        boolean head=HeadZone.contains(wornZones(root,pose,resolved.zones()),unturn(point.subtract(impactOrigin(root,point)),angle));
         return new ModelHeads.Hit(true,head,resolved.source(),resolved.reason(),resolved.confidence());
     }
     private static ModelHeads.Hit heightHead(LivingEntity living,Vec3 point) {
@@ -246,7 +277,7 @@ public final class ModelHits {
         if(!(root instanceof LivingEntity living) || !LimbPolicy.eligible(root.getType())) return false;
         var poses=POSES.get(root.level());var pose=pose(root,poses);
         if(!usable(root,pose)) return false;
-        var zones=ModelHeads.limbs(ModelHeads.key(root),pose.boxes(),pose.yaw()).zones();
+        var zones=wornZones(root,pose,ModelHeads.limbs(ModelHeads.key(root),pose.boxes(),pose.yaw()).zones());
         double angle=angle(living,pose);
         return HeadZone.contains(zones,unturn(point.subtract(impactOrigin(root,point)),angle));
     }
@@ -258,7 +289,7 @@ public final class ModelHits {
         double angle=turnAngle(target.level().isClientSide(),living.yBodyRot,pose.yaw(),pose.bodyYaw());
         var out=new ArrayList<HeadZone>();
         double cos=Math.cos(-angle),sin=Math.sin(-angle);
-        for(var zone:resolved.zones()) {
+        for(var zone:wornZones(target,pose,resolved.zones())) {
             var box=zone.box();var origin=unturn(new Vec3(box.x(),box.y(),box.z()),cos,sin).add(target.position());
             var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),cos,sin);var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),cos,sin);
             var world=new ModelBox(box.part(),origin.x,origin.y,origin.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z,box.mesh());
@@ -283,7 +314,7 @@ public final class ModelHits {
         double angle = turnAngle(target.level().isClientSide(), living.yBodyRot, p.yaw(), p.bodyYaw());
         List<ModelBox> out = new ArrayList<>(p.boxes().size());
         double cos=Math.cos(-angle),sin=Math.sin(-angle);
-        for (ModelBox box : p.boxes()) {
+        for (ModelBox box : wornBoxes(target,p)) {
             if(!target.level().isClientSide() && !ModelWool.visible(target,box)) continue;
             var origin=unturn(new Vec3(box.x(),box.y(),box.z()),cos,sin).add(target.position());
             var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);
@@ -350,7 +381,7 @@ public final class ModelHits {
                 b = unturn(segmentTo.subtract(rootOrigin.add(motion.scale(last))), angle);
         double nearest = Double.POSITIVE_INFINITY;
         String part = "";
-        for (ModelBox box : p.boxes()) {
+        for (ModelBox box : wornBoxes(root,p)) {
             if(!target.level().isClientSide() && !ModelWool.visible(root,box)) continue;
             if(dragonPart!=null) {
                 var center=unturn(ModelContours.point(box,.5,.5,.5),-angle).add(root.position());
