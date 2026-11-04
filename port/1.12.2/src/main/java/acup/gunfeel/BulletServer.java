@@ -74,7 +74,8 @@ public final class BulletServer {
         if (!steel) return false;
         double x = mop.hitVec != null ? mop.hitVec.x : mop.getBlockPos().getX() + .5, y = mop.hitVec != null ? mop.hitVec.y : mop.getBlockPos().getY() + .5,
                 z = mop.hitVec != null ? mop.hitVec.z : mop.getBlockPos().getZ() + .5;
-        Mc.playSound(level, x, y, z, "ntmgunfeel:bullet.ricochet.steel", 1.0F, 0.9F + level.rand.nextFloat() * 0.2F);
+        // port: 26.2 sends it within 16 blocks and fades it out over 32 (sounds.json); 1.12.2 alone would fade it over 16
+        Mc.playSoundFaded(level, x, y, z, "ntmgunfeel:bullet.ricochet.steel", 1.0F, 0.9F + level.rand.nextFloat() * 0.2F, 16.0);
         return true;
     }
 

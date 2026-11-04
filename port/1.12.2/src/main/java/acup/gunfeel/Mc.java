@@ -119,6 +119,22 @@ public final class Mc {
         if (s != null) w.playSound(null, x, y, z, s, SoundCategory.PLAYERS, volume, pitch);
     }
 
+    // port: a sound everyone within `range` blocks hears, fading out over 26.2's distance for it (SoundFade), as 26.2's
+    // playSound(null, ...) of a sound with its own attenuation_distance: each player gets it set on the line from his
+    // ears (World.playSound would fade it over 16 and send it only within 16)
+    public static void playSoundFaded(World w, double x, double y, double z, String id, float volume, float pitch, double range) {
+        SoundEvent s = sound(id);
+        if (s == null) return;
+        float fade = SoundFade.of(id);
+        for (net.minecraft.entity.player.EntityPlayer p : w.playerEntities) {
+            if (!(p instanceof EntityPlayerMP) || ((EntityPlayerMP) p).connection == null) continue;
+            // the range from the player's position, as Minecraft's own (PlayerList.sendToAllNearExcept)
+            if (p.getDistanceSq(x, y, z) >= range * range) continue;
+            double[] at = SoundFade.at(new double[] {p.posX, p.posY + p.getEyeHeight(), p.posZ}, new double[] {x, y, z}, fade);
+            ((EntityPlayerMP) p).connection.sendPacket(new SPacketSoundEffect(s, SoundCategory.PLAYERS, at[0], at[1], at[2], volume, pitch));
+        }
+    }
+
     // the sound heard by one player only (1.7.10: S29PacketSoundEffect)
     public static void playSoundTo(EntityPlayerMP p, double x, double y, double z, String id, float volume, float pitch) {
         SoundEvent s = sound(id);

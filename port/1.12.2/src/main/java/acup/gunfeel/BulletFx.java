@@ -117,13 +117,13 @@ public final class BulletFx {
         Minecraft mc = Minecraft.getMinecraft();
         Entity ear = mc.getRenderViewEntity();
         double x = at[0], y = at[1], z = at[2];
-        float fade = fade26(id);
+        float fade = SoundFade.of(id);
         if (ear != null) {
             // port: from the ears, as 26.2 from its camera (1.12.2's posY is the feet: from there a hit came out lower and nearer)
             double ey = ear.posY + ear.getEyeHeight();
             double dx = x - ear.posX, dy = y - ey, dz = z - ear.posZ;
             if (range > fade && dx * dx + dy * dy + dz * dz >= range * range) return;
-            double[] p = faded(new double[] {ear.posX, ey, ear.posZ}, at, Math.max(fade, range));
+            double[] p = SoundFade.at(new double[] {ear.posX, ey, ear.posZ}, at, Math.max(fade, range));
             x = p[0];
             y = p[1];
             z = p[2];
@@ -154,31 +154,6 @@ public final class BulletFx {
             if (track != null && a != null) sound = track;
             return a;
         }
-    }
-
-    // port: how far 26.2 fades a sound out, its sounds.json's attenuation_distance (16 without one; SoundsJsonTest
-    // checks the table against it). 1.12.2's sounds.json has no such field: every sound fades out over 16 blocks
-    static final Map<String, Float> FADE_26 = new HashMap<String, Float>();
-    static {
-        FADE_26.put("ntmgunfeel:bullet.whizz", 8F);
-        FADE_26.put("ntmgunfeel:bullet.crack", 12F);
-        FADE_26.put("ntmgunfeel:bullet.ricochet.steel", 32F);
-        for (String hit : new String[] {"wood", "dirt", "gravel", "stone", "concrete", "metal", "steel",
-                "concrete.f1", "concrete.f2", "dirt.f1", "dirt.f2", "gravel.f1", "gravel.f2", "gravel.f3", "metal.f1", "metal.f2",
-                "steel.f1", "steel.f2", "steel.f3", "steel.f4", "steel.f5", "stone.f1", "stone.f2", "wood.f1", "wood.f2"})
-            FADE_26.put("ntmgunfeel:bullet.hit." + hit, 24F);
-    }
-
-    static float fade26(String id) {
-        Float f = FADE_26.get(id);
-        return f == null ? 16F : f;
-    }
-
-    // where a sound at `at` goes so that 1.12.2, fading it over 16 blocks, fades it as over `over` blocks: on the line
-    // from the ears, 16/over as far (so from the same side)
-    static double[] faded(double[] ear, double[] at, double over) {
-        double k = 16.0 / over;
-        return new double[] {ear[0] + (at[0] - ear[0]) * k, ear[1] + (at[1] - ear[1]) * k, ear[2] + (at[2] - ear[2]) * k};
     }
 
     // port: 1.12.2's positioned sound by its name (sounds.json), heard over 16 blocks as 1.7.10's
@@ -213,12 +188,12 @@ public final class BulletFx {
         float pitch = w.sound().pitch() * fast * (0.9F + 0.15F * close) * (0.88F + r.nextFloat() * 0.24F);
         // port: 26.2 fades the whizz over 8 blocks and the crack over 12 (sounds.json); 1.12.2 over 16, so set farther out
         double[] eye = {ex, ey, ez}, near = {nx, ny, nz};
-        double[] wp = faded(eye, near, fade26(w.sound().id()));
+        double[] wp = SoundFade.at(eye, near, SoundFade.of(w.sound().id()));
         mc.getSoundHandler().playSound(record(new ResourceLocation(w.sound().id()), vol, pitch, wp[0], wp[1], wp[2]));
         // passing right by the head: the snap of the bullet's shock wave on top
         if (w.crack() != null && d <= w.crackRadius()) {
             float cv = w.crack().volume() * (float) (0.6 + 0.4 * (1.0 - d / Math.max(0.01, w.crackRadius())));
-            double[] cp = faded(eye, near, fade26(w.crack().id()));
+            double[] cp = SoundFade.at(eye, near, SoundFade.of(w.crack().id()));
             mc.getSoundHandler().playSound(record(new ResourceLocation(w.crack().id()), cv,
                     w.crack().pitch() * (0.9F + r.nextFloat() * 0.2F), cp[0], cp[1], cp[2]));
         }
