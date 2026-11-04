@@ -59,7 +59,7 @@ final class ArmKeys {
             readable |= e instanceof ArmRig.PathEntry p ? p.key(times) != null : ((ArmRig.Value) e).v() != null;
         return switch (track) {
             case PATH, CARRY -> readable ? ArmRig.animation(s.head) : null;
-            case HIDE -> s.head.toUpperCase(Locale.ROOT);
+            case HIDE -> ArmRig.animation(s.head);
             case AROUND -> readable ? s.head.toUpperCase(Locale.ROOT) : null;
             default -> s.head;
         };

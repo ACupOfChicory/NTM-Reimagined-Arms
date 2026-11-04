@@ -117,7 +117,14 @@ class ArmRigTest {
             }
             assertEquals(describe(ArmRigOld.parseCarryKeys(v)), describe(ArmRig.carryKeys(v)), "carry keys " + v);
             assertEquals(describe(ArmRigOld.parseKeys(v)), describe(ArmRig.angleKeys(v)), "angle keys " + v);
-            assertEquals(describe(ArmRigOld.hide(v)), describe(ArmRig.ranges(v)), "hidden " + v);
+            // one change since: a hidden range for a bus ("RELOAD/PumpGrip") keeps the bus as NTM names it, as paths and
+            // carry keys do (the old reader made it "RELOAD/PUMPGRIP", which no bus is, so it was never played)
+            Map<String, float[]> hidden = new HashMap<>();
+            ArmRig.ranges(v).forEach((k, x) -> {
+                assertTrue(k.equals(k.toUpperCase(Locale.ROOT)) || k.contains("/"), "hidden " + v);
+                hidden.put(k.toUpperCase(Locale.ROOT), x);
+            });
+            assertEquals(describe(new TreeMap<>(ArmRigOld.hide(v))), describe(new TreeMap<>(hidden)), "hidden " + v);
             assertEquals(describe(ArmRigOld.carry(v)), describe(ArmRig.carry(v)), "carry " + v);
             assertEquals(adjustments(() -> ArmRigOld.read(v)), adjustments(() -> ArmRig.adjustments(v)), "adjustments " + v);
             compared += 5;

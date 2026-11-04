@@ -1522,7 +1522,7 @@ final class ArmEditor {
         String bus = k == null ? null : k.onlyWith();
         return new Row("Ключи: " + (bus == null ? "общие" : "только при " + bus),
                 "У анимации может быть вариант, где движется своя деталь (перезарядка из пустого). Ключи можно записать только для него; "
-                        + "общие — для всех вариантов.", null, List.of("key.only.prev", "key.only.next"));
+                        + "общие — те же, что у обычной анимации.", null, List.of("key.only.prev", "key.only.next"));
     }
 
     private void onlyActions(List<Action> out) {
@@ -1537,7 +1537,8 @@ final class ArmEditor {
                 : options.size() < 2 ? "у этой анимации нет варианта со своей деталью: ключи общие" : null;
         for (int d : new int[] {-1, 1})
             out.add(new Action(d < 0 ? "key.only.prev" : "key.only.next", d < 0 ? "◀" : "▶",
-                    "Для каких вариантов анимации ключи этой дорожки: для всех или только где движется деталь. Ключи переносятся как есть.", "", why,
+                    "«Только при …»: этот вариант анимации получает свои ключи, сначала такие же, как сейчас. «Общие»: свои ключи варианта"
+                            + " убираются, он играет ключи обычной анимации (нет их — на этой дорожке ничего). Отменить — «Отменить».", "", why,
                     () -> change(() -> editKey((x, y) -> x.onlyWith(options.get(Math.floorMod(at + d, options.size())))))));
     }
 
@@ -1834,10 +1835,10 @@ final class ArmEditor {
             String why = st.why();
             out.add(new Action("set." + k.id + ".minus", "−", "Уменьшить «" + k.label + "» на " + number(st.step(), st.step()) + ".", "",
                     why != null ? why : st.value() <= st.min() + eps ? "уже наименьшее значение" : null,
-                    () -> change(() -> k.put(snap(Math.max(st.min(), st.value() - st.step()), st.step())))));
+                    () -> change(() -> k.put(stepTo(st, -1)))));
             out.add(new Action("set." + k.id + ".plus", "+", "Увеличить «" + k.label + "» на " + number(st.step(), st.step()) + ".", "",
                     why != null ? why : st.value() >= st.max() - eps ? "уже наибольшее значение" : null,
-                    () -> change(() -> k.put(snap(Math.min(st.max(), st.value() + st.step()), st.step())))));
+                    () -> change(() -> k.put(stepTo(st, 1)))));
             if (k instanceof ConfigKnob ck)
                 out.add(new Action("set." + k.id + ".reset", "↺", "Вернуть «" + k.label + "», как задано в моде для этого оружия или для всех.", "", own,
                         () -> change(() -> {
@@ -1941,8 +1942,7 @@ final class ArmEditor {
     private void drag(String id, float value) {
         for (Knob k : knobs(page))
             if (k.id.equals(id) && k.why() == null) {
-                var st = k.setting();
-                k.put(snap(Math.clamp(value, st.min(), st.max()), st.step()));
+                k.put(dragTo(k.setting(), value));
             }
     }
 
@@ -1968,6 +1968,22 @@ final class ArmEditor {
 
     static float snap(float v, float step) {
         return Math.round(v / step) * step;
+    }
+
+    // a step up or down on the step's grid; a limit off the grid (a key 3.935 ms from the next) is reached itself
+    static float stepTo(Setting st, int d) {
+        float v = snap(st.value() + d * st.step(), st.step());
+        if (d > 0 && (v > st.max() || v <= st.value())) v = st.max();
+        if (d < 0 && (v < st.min() || v >= st.value())) v = st.min();
+        return v;
+    }
+
+    // a dragged value on the step's grid, the limits themselves at the ends
+    static float dragTo(Setting st, float value) {
+        float v = Math.clamp(value, st.min(), st.max()), s = snap(v, st.step());
+        if (v >= st.max() || s > st.max()) s = st.max();
+        if (v <= st.min() || s < st.min()) s = st.min();
+        return s;
     }
 
     // a number as shown: as many decimals as the step needs, with a comma

@@ -493,7 +493,8 @@ final class ArmRig {
             }
             float[] a = new float[v.size()];
             for (int j = 0; j < a.length; j++) a[j] = v.get(j);
-            out.put(s.head.toUpperCase(Locale.ROOT), a);
+            // "RELOAD/PumpGrip": the bus as NTM names it, as for paths and carry keys
+            out.put(animation(s.head), a);
         }
         return out;
     }

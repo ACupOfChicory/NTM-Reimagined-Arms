@@ -172,6 +172,7 @@ class ArmTrackTest {
             Config.select(null);
         }
     }
+
     // keys written for the reload from an empty magazine alone ("RELOAD/PumpGrip"), edited there, then common again
     @Test
     void keysForTheReloadFromEmptyAloneAreWhatTheGamePlaysThere() {
@@ -207,6 +208,61 @@ class ArmTrackTest {
             Config.select(gun);
             assertFalse(Config.armLeftPath.contains("PumpGrip"), Config.armLeftPath);
             assertEquals(1000F, ArmRig.forAnimation(ArmRig.pathKeys(Config.armLeftPath, Config.armPathTimes), "RELOAD", e.buses()).get(1).ms());
+        } finally {
+            Grips.restoreUnsaved(opened);
+            Config.select(null);
+        }
+    }
+
+    // a hidden range written for the reload from an empty magazine alone is played there and only there
+    @Test
+    void aHideForTheEmptyReloadAloneIsPlayedThere() {
+        var opened = Grips.snapshot();
+        String gun = "gunfeel:key_probe";
+        try {
+            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD"), "", true, true));
+            e.page = ArmEditor.Page.KEY;
+            e.hand = 1;
+            e.track = ArmEditor.Track.HIDE;
+            e.clip = 1;
+            e.time = 100F;
+            assertTrue(e.press("key.add"));
+            e.keyView = ArmEditor.KeyView.TRACK;
+            assertTrue(e.press("key.only.next"));
+            Config.select(gun);
+            assertTrue(Config.armLeftHide.contains("RELOAD/PumpGrip"), Config.armLeftHide);
+            // the copy is played from an empty magazine: its end moved, the loaded reload's stays
+            e.keyView = ArmEditor.KeyView.WHERE;
+            assertTrue(e.press("set.key.to.plus"));
+            Config.select(gun);
+            var hidden = ArmRig.ranges(Config.armLeftHide);
+            assertEquals(610F, ArmRig.forAnimation(hidden, "RELOAD", e.buses())[1]);
+            assertEquals(600F, ArmRig.forAnimation(hidden, "RELOAD", ArmRig.Buses.NONE)[1]);
+            var drive = new ArmRig.Drive(false);
+            assertEquals(ArmRig.Driver.HIDDEN, drive.at("RELOAD", 605F, e.buses()));
+            assertNotEquals(ArmRig.Driver.HIDDEN, drive.at("RELOAD", 605F, ArmRig.Buses.NONE));
+        } finally {
+            Grips.restoreUnsaved(opened);
+            Config.select(null);
+        }
+    }
+
+    // G3's left hand has adjustment keys at 0 and 3.935 ms: the first one's "+" moves it as far as it can go
+    @Test
+    void aLimitOffTheStepIsReached() {
+        var opened = Grips.snapshot();
+        String gun = "hbm:gun_g3";
+        try {
+            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            e.page = ArmEditor.Page.KEY;
+            e.hand = 1;
+            e.track = ArmEditor.Track.ADJUST;
+            e.time = 0F;
+            assertTrue(e.press("set.key.time.plus"));
+            Config.select(gun);
+            var keys = ArmRig.adjustments(Config.armLeftAdjustments).get("RELOAD").keySet();
+            assertTrue(keys.contains(2.935F), keys.toString());
+            assertFalse(e.action("set.key.time.plus").active(), "the next key is right after it");
         } finally {
             Grips.restoreUnsaved(opened);
             Config.select(null);
