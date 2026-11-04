@@ -172,4 +172,44 @@ class ArmTrackTest {
             Config.select(null);
         }
     }
+    // keys written for the reload from an empty magazine alone ("RELOAD/PumpGrip"), edited there, then common again
+    @Test
+    void keysForTheReloadFromEmptyAloneAreWhatTheGamePlaysThere() {
+        var opened = Grips.snapshot();
+        String gun = "gunfeel:key_probe";
+        try {
+            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD"), "", true, true));
+            e.page = ArmEditor.Page.KEY;
+            e.hand = 1;
+            e.track = ArmEditor.Track.PATH;
+            e.time = 0F;
+            assertTrue(e.press("key.add"));
+            e.time = 1000F;
+            assertTrue(e.press("key.add"));
+            e.keyView = ArmEditor.KeyView.TRACK;
+            assertFalse(e.action("key.only.next").active(), "the loaded reload has no part of its own");
+            e.clip = 1;
+            assertTrue(e.clip().empty());
+            assertTrue(e.press("key.only.next"));
+            Config.select(gun);
+            var keys = ArmRig.pathKeys(Config.armLeftPath, Config.armPathTimes);
+            assertEquals(2, keys.get("RELOAD/PumpGrip").size(), Config.armLeftPath);
+            assertEquals(2, keys.get("RELOAD").size());
+            e.keyView = ArmEditor.KeyView.WHERE;
+            e.time = 1000F;
+            assertTrue(e.press("set.key.time.plus"));
+            Config.select(gun);
+            keys = ArmRig.pathKeys(Config.armLeftPath, Config.armPathTimes);
+            assertEquals(1010F, ArmRig.forAnimation(keys, "RELOAD", e.buses()).get(1).ms());
+            assertEquals(1000F, ArmRig.forAnimation(keys, "RELOAD", ArmRig.Buses.NONE).get(1).ms());
+            e.keyView = ArmEditor.KeyView.TRACK;
+            assertTrue(e.press("key.only.prev"));
+            Config.select(gun);
+            assertFalse(Config.armLeftPath.contains("PumpGrip"), Config.armLeftPath);
+            assertEquals(1000F, ArmRig.forAnimation(ArmRig.pathKeys(Config.armLeftPath, Config.armPathTimes), "RELOAD", e.buses()).get(1).ms());
+        } finally {
+            Grips.restoreUnsaved(opened);
+            Config.select(null);
+        }
+    }
 }

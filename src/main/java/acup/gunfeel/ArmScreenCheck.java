@@ -15,7 +15,7 @@ import net.minecraft.world.item.ItemStack;
 // something, and "what moves the hand" is what the game draws, frame by frame, with NTM's real buses.
 final class ArmScreenCheck {
     private static final String[] GUNS = {"hbm:gun_autoshotgun_sexy", "hbm:gun_g3", "hbm:gun_maresleg", "hbm:gun_double_barrel",
-            "hbm:gun_autoshotgun_heretic"};
+            "hbm:gun_autoshotgun_heretic", "hbm:gun_spas12"};
     private static final int SAMPLE = 100;
     private static final Deque<Runnable> TODO = new ArrayDeque<>();
     private static final Map<String, Integer> WRONG = new TreeMap<>();
@@ -124,6 +124,32 @@ final class ArmScreenCheck {
                             TODO.add(() -> shot("arm-screen-carry.png"));
                         }
                     }
+                // the reload from an empty magazine, as NTM plays it (SPAS-12): its own keys are the ones shown
+                TODO.add(() -> {
+                    var m = screen.model();
+                    int empty = -1;
+                    for (int c = 0; c < m.clipList().size(); c++) if (m.clipList().get(c).empty()) empty = c;
+                    if (gun.endsWith("spas12")) ClientSmoke.check(empty >= 0, gun + ": есть «Перезарядка из пустого»");
+                    if (empty < 0) return;
+                    m.clip = empty;
+                    m.hand = 1;
+                    m.track = ArmEditor.Track.CARRY;
+                    m.playing = false;
+                    m.seek(m.duration() / 2F);
+                    screen.refresh();
+                });
+                TODO.add(() -> {
+                    var m = screen.model();
+                    if (m.clip() == null || !m.clip().empty()) return;
+                    view(gun, ArmEditor.KeyView.TRACK);
+                    m.keyView = ArmEditor.KeyView.TRACK;
+                    screen.refresh();
+                    boolean own = false;
+                    for (var t : screen.texts()) own |= t.text().startsWith("Ключи: только при ");
+                    ClientSmoke.check(!gun.endsWith("spas12") || own, gun + ": у перезарядки из пустого видны её свои ключи");
+                    m.keyView = ArmEditor.KeyView.WHERE;
+                    screen.refresh();
+                });
             }
         }
         TODO.add(() -> {

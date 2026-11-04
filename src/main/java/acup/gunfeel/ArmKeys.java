@@ -18,6 +18,7 @@ final class ArmKeys {
     private final ArmRig.Tracks<ArmRig.PathEntry> path;
     private final ArmRig.Tracks<ArmRig.Value> values;
     private ArmRig.Segment<?> seg;
+    private final ArmRig.Buses buses;
     private final List<Key> keys = new ArrayList<>();
     // adjustments: one entry the game cannot read and it reads none of them
     final boolean broken;
@@ -26,6 +27,7 @@ final class ArmKeys {
         this.track = track;
         this.clip = clip;
         this.times = times;
+        this.buses = buses;
         path = track == ArmEditor.Track.PATH ? ArmRig.path(src) : null;
         values = switch (track) {
             case CARRY -> ArmRig.carryKeyTracks(src);
@@ -153,6 +155,33 @@ final class ArmKeys {
 
     String write() {
         return path != null ? path.write() : values.write();
+    }
+
+    // the bus the played keys are written for ("PumpGrip" of "RELOAD/PumpGrip"), or null when for every animation of
+    // this name
+    String onlyWith() {
+        String n = seg == null ? null : nameOf(seg);
+        int slash = n == null ? -1 : n.indexOf('/');
+        return slash < 0 ? null : n.substring(slash + 1);
+    }
+
+    // the played keys written for the animations of this name that have this bus (null = for all of them): copied to
+    // "<clip>/<bus>"; the segment written for the bus before is dropped
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void onlyWith(String bus) {
+        var copy = new ArrayList<ArmRig.Entry>();
+        if (seg != null)
+            for (Object e : seg.entries) copy.add(e instanceof ArmRig.PathEntry p ? ArmRig.PathEntry.read(p.text()) : (ArmRig.Entry) e);
+        String old = seg == null ? null : nameOf(seg);
+        if (onlyWith() != null)
+            for (var s : segments()) if (old.equals(nameOf(s))) s.entries.clear();
+        if (bus != null) {
+            var s = path != null ? path.add(clip + "/" + bus) : values.add(clip + "/" + bus);
+            ((List) s.entries).addAll(copy);
+        }
+        seg = played(buses);
+        if (seg != null) readKeys();
+        else keys.clear();
     }
 
     // ---------------------------------------------------------------- editing

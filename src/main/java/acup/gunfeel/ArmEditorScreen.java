@@ -65,20 +65,55 @@ public final class ArmEditorScreen extends Screen {
             var stack = player.getMainHandItem().copy();
             var factory = gun.getConfig(stack, 0).getAnims(stack);
             if (factory == null) return;
+            // NTM picks some animations by the magazine (SPAS-12 reloads from empty otherwise): one with a round in
+            // it, and one empty when that one differs
+            ItemStack loaded = stack.copy(), empty = stack.copy();
+            try {
+                var mag = gun.getConfig(stack, 0).getReceivers(stack)[0].getMagazine(stack);
+                mag.setAmount(loaded, Math.max(1, mag.getCapacity(loaded)));
+                mag.setAmount(empty, 0);
+            } catch (RuntimeException e) {
+                GunFeel.LOGGER.debug("No magazine to empty for {}", stack, e);
+                empty = null;
+            }
             for (GunAnimation cue : GunAnimation.values()) {
                 try {
-                    BusAnimation a = factory.apply(stack, cue);
-                    if (a != null && a.getDuration() > 0) animations.put(cue.name(), a);
+                    BusAnimation a = factory.apply(loaded, cue);
+                    if (a == null || a.getDuration() <= 0) continue;
+                    animations.put(cue.name(), a);
+                    BusAnimation b = empty == null ? null : factory.apply(empty, cue);
+                    if (b != null && b.getDuration() > 0 && !same(a, b)) animations.put(cue.name() + ArmEditor.Clip.EMPTY, b);
                 } catch (RuntimeException e) {
                     GunFeel.LOGGER.debug("No {} animation for {}", cue, stack, e);
                 }
             }
         }
 
+        // two animations move the model's parts and the buses the settings name the same way
+        private static boolean same(BusAnimation a, BusAnimation b) {
+            if (a == b) return true;
+            if (a.getDuration() != b.getDuration()) return false;
+            var names = new LinkedHashSet<String>(Arms.editorParts());
+            for (String s : new String[] {Config.armReleaseLeft, Config.armReleaseRight}) if (!s.isEmpty()) names.add(s);
+            for (String s : new String[] {Config.armLeftCarry, Config.armRightCarry}) {
+                var c = ArmRig.carry(s);
+                if (c != null) names.addAll(List.of(c.buses()));
+            }
+            for (String n : names) {
+                var x = a.getBus(n);
+                var y = b.getBus(n);
+                if ((x == null) != (y == null)) return false;
+                if (x == null) continue;
+                for (int t = 0; t <= a.getDuration(); t += ArmEditor.STEP)
+                    if (!Arrays.equals(x.getTransformation(t), y.getTransformation(t))) return false;
+            }
+            return true;
+        }
+
         @Override
         public List<ArmEditor.Clip> list() {
             var out = new ArrayList<ArmEditor.Clip>();
-            animations.forEach((name, a) -> out.add(new ArmEditor.Clip(name, a.getDuration())));
+            animations.forEach((id, a) -> out.add(new ArmEditor.Clip(id.replace(ArmEditor.Clip.EMPTY, ""), a.getDuration(), id)));
             return out;
         }
 
@@ -191,9 +226,9 @@ public final class ArmEditorScreen extends Screen {
         }
         if (previewClip != model.clip || ArmAnimationPreview.animation() == null) {
             previewClip = model.clip;
-            ArmAnimationPreview.start(GunAnimation.valueOf(clip.name()));
+            ArmAnimationPreview.start(GunAnimation.valueOf(clip.name()), ((GameClips) model.clips).animations.get(clip.id()));
             moves.clear();
-            moves.putAll(model.clips.moves(clip.name()));
+            moves.putAll(model.clips.moves(clip.id()));
         }
         ArmAnimationPreview.speed(model.speed);
         if (model.playing) {
@@ -380,7 +415,7 @@ public final class ArmEditorScreen extends Screen {
         if (model.playing) model.time = ArmAnimationPreview.millis();
         super.extractRenderState(g, mx, my, a);
         var clip = model.clip();
-        String title = "Руки пушки · " + (clip == null ? "нет анимаций" : ArmEditor.clipLabel(clip.name()) + " · " + ArmEditor.seconds(clip.ms()));
+        String title = "Руки пушки · " + (clip == null ? "нет анимаций" : clip.label() + " · " + ArmEditor.seconds(clip.ms()));
         String shared = model.sharedWith();
         if (shared != null) title += Grips.ownArms(baseGun()) ? " · свои руки" : " · руки общие с «" + model.clips.gunName(shared) + "»";
         g.text(font, title, 4, 4, 0xFFFFCC55);

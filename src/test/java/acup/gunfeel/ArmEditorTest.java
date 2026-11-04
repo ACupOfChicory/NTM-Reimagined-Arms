@@ -44,7 +44,13 @@ class ArmEditorTest {
     static final Map<String, int[]> MOVES = Map.of("SHELL", new int[] {200, 800}, "ROLL", new int[] {1000, 2000});
 
     static ArmEditor.Clips clips(Collection<String> names, String variant, boolean measured) {
-        var list = names.stream().map(n -> new ArmEditor.Clip(n, 4000)).toList();
+        return clips(names, variant, measured, false);
+    }
+
+    // emptyReload: a second RELOAD, as NTM plays it from an empty magazine, where PumpGrip moves too (SPAS-12)
+    static ArmEditor.Clips clips(Collection<String> names, String variant, boolean measured, boolean emptyReload) {
+        var list = new ArrayList<>(names.stream().map(n -> new ArmEditor.Clip(n, 4000)).toList());
+        if (emptyReload) list.add(new ArmEditor.Clip("RELOAD", 4000, "RELOAD" + ArmEditor.Clip.EMPTY));
         ArmEditor.Shape box = new ArmEditor.Shape() {
             public float[] min() {
                 return new float[] {-2, -2, -10};
@@ -82,7 +88,23 @@ class ArmEditorTest {
 
             // two parts the animation moves: a shell early, a turn of the gun later
             public Map<String, int[]> moves(String clip) {
-                return MOVES;
+                if (!clip.endsWith(ArmEditor.Clip.EMPTY)) return MOVES;
+                var out = new TreeMap<>(MOVES);
+                out.put("PumpGrip", new int[] {300, 600});
+                return out;
+            }
+
+            public ArmRig.Buses buses(String clip) {
+                if (!clip.endsWith(ArmEditor.Clip.EMPTY)) return ArmRig.Buses.NONE;
+                return new ArmRig.Buses() {
+                    public boolean has(String bus) {
+                        return bus.equals("PumpGrip") || MOVES.containsKey(bus);
+                    }
+
+                    public double[] at(String bus, float ms) {
+                        return null;
+                    }
+                };
             }
         };
     }
@@ -164,6 +186,7 @@ class ArmEditorTest {
             for (var g : guns.entrySet()) {
                 List<ArmEditor.Clips> looks = new ArrayList<>(List.of(clips(g.getValue())));
                 if (VARIANTS.containsKey(g.getKey())) looks.add(clips(g.getValue(), VARIANTS.get(g.getKey()), false));
+                if (g.getKey().equals("hbm:gun_spas12")) looks.add(clips(g.getValue(), "", true, true));
                 for (var look : looks) {
                     var e = new ArmEditor(g.getKey(), look);
                     List<java.util.function.Consumer<ArmEditor>> setups = new ArrayList<>();
@@ -231,7 +254,7 @@ class ArmEditorTest {
                 "carry.reload.common", "carry.part.next", "carry.bus.next", "carry.bus.add", "carry.bus.delete", "set.carry.grab.plus", "set.carry.at.0.plus",
                 "set.carry.dir.0.plus", "carry.dir.reset", "set.armCarryTurnLeft.plus", "set.armCarryKeepAngle.toggle", "release.next", "release.reset",
                 "set.armReleaseMove.0.plus", "set.armAroundShiftReload.plus", "set.armLoadRollLeft.plus", "set.armLoadScaleLeft.reset",
-                "set.armInspectReleaseMs.toggle", "set.armInspectReleaseMs.plus"))
+                "set.armInspectReleaseMs.toggle", "set.armInspectReleaseMs.plus", "key.only.prev", "key.only.next"))
             assertTrue(shown.contains(id), id + " was never shown");
     }
 
@@ -322,7 +345,7 @@ class ArmEditorTest {
             }
         }
         parts.addAll(List.of(Config.armReleaseRight, Config.armReleaseLeft));
-        if (e.clip() != null) parts.addAll(e.clips.moves(e.clip().name()).keySet());
+        if (e.clip() != null) parts.addAll(e.clips.moves(e.clip().id()).keySet());
         parts.removeIf(String::isEmpty);
         parts.sort(Comparator.comparingInt(String::length).reversed());
         for (String part : parts) t = t.replaceAll("(?i)" + java.util.regex.Pattern.quote(part), "");

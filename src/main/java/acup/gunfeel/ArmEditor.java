@@ -7,8 +7,22 @@ import java.util.*;
  * {@link #actions()}, а тест нажимает каждое действие во всех состояниях.
  */
 final class ArmEditor {
-    // an animation the gun has, named as the game names it ("RELOAD"), and its length
-    record Clip(String name, int ms) {
+    // an animation the gun has, named as the game names it ("RELOAD"), its length, and which of the animations NTM
+    // plays under that name it is ("RELOAD", or "RELOAD#empty" from an empty magazine)
+    record Clip(String name, int ms, String id) {
+        static final String EMPTY = "#empty";
+
+        Clip(String name, int ms) {
+            this(name, ms, name);
+        }
+
+        boolean empty() {
+            return id.endsWith(EMPTY);
+        }
+
+        String label() {
+            return clipLabel(name) + (empty() ? " из пустого" : "");
+        }
     }
 
     // where the gun's animations come from: NTM in the game, a list in tests
@@ -204,7 +218,7 @@ final class ArmEditor {
     }
 
     ArmRig.Buses buses() {
-        return list.isEmpty() ? ArmRig.Buses.NONE : clips.buses(clip().name());
+        return list.isEmpty() ? ArmRig.Buses.NONE : clips.buses(clip().id());
     }
 
     // what moves the selected hand at a time of the selected animation
@@ -1139,8 +1153,7 @@ final class ArmEditor {
                 if (key == null) yield "в этот момент ключа нет";
                 yield keysOf(track).pathEntry(key).grip() ? "ключ на хвате: рука на своём месте, подходить не к чему" : null;
             }
-            case TRACK -> track == Track.HIDE || track == Track.ADJUST ? "у дорожки «" + track.label + "» нет настроек всей дорожки, только ключи"
-                    : trackWhy(track);
+            case TRACK -> track == Track.ADJUST ? "у дорожки «Поправка» нет настроек всей дорожки, только ключи" : trackWhy(track);
             case HOLD -> track != Track.CARRY ? "это есть только у дорожки «Несёт»" : null;
         };
     }
@@ -1345,7 +1358,7 @@ final class ArmEditor {
 
     // the buses that move in this animation, as the game names them
     private List<String> moving() {
-        return list.isEmpty() ? List.of() : new ArrayList<>(new TreeSet<>(clips.moves(clip().name()).keySet()));
+        return list.isEmpty() ? List.of() : new ArrayList<>(new TreeSet<>(clips.moves(clip().id()).keySet()));
     }
 
     // the bus the game takes now: the first one that moves in this animation
@@ -1486,10 +1499,53 @@ final class ArmEditor {
                 : List.of("set." + k.id + ".minus", "set." + k.id + ".plus"));
     }
 
+    // ---- keys written for one variant of an animation ("RELOAD/PumpGrip": the SPAS-12's reload from empty)
+
+    private static boolean byBus(Track t) {
+        return t == Track.HIDE || t == Track.PATH || t == Track.CARRY;
+    }
+
+    // the parts that move in this animation and that another animation of the same name lacks
+    private List<String> ownBuses() {
+        var out = new ArrayList<String>();
+        if (list.isEmpty()) return out;
+        var c = clip();
+        for (String b : moving())
+            for (var o : list)
+                if (o.name().equals(c.name()) && !o.id().equals(c.id()) && !clips.buses(o.id()).has(b) && !clips.moves(o.id()).containsKey(b)
+                        && !out.contains(b)) out.add(b);
+        return out;
+    }
+
+    private Row onlyRow() {
+        var k = keysOf(track);
+        String bus = k == null ? null : k.onlyWith();
+        return new Row("Ключи: " + (bus == null ? "общие" : "только при " + bus),
+                "У анимации может быть вариант, где движется своя деталь (перезарядка из пустого). Ключи можно записать только для него; "
+                        + "общие — для всех вариантов.", null, List.of("key.only.prev", "key.only.next"));
+    }
+
+    private void onlyActions(List<Action> out) {
+        var k = keysOf(track);
+        String now = k == null ? null : k.onlyWith();
+        var options = new ArrayList<String>();
+        options.add(null);
+        options.addAll(ownBuses());
+        if (now != null && !options.contains(now)) options.add(now);
+        int at = options.indexOf(now);
+        String why = keyless() != null ? keyless() : k == null || k.keys().isEmpty() ? "ключей этой дорожки здесь нет"
+                : options.size() < 2 ? "у этой анимации нет варианта со своей деталью: ключи общие" : null;
+        for (int d : new int[] {-1, 1})
+            out.add(new Action(d < 0 ? "key.only.prev" : "key.only.next", d < 0 ? "◀" : "▶",
+                    "Для каких вариантов анимации ключи этой дорожки: для всех или только где движется деталь. Ключи переносятся как есть.", "", why,
+                    () -> change(() -> editKey((x, y) -> x.onlyWith(options.get(Math.floorMod(at + d, options.size())))))));
+    }
+
     private List<Row> trackRows() {
         var out = new ArrayList<Row>();
         var knobs = new ArrayDeque<>(trackKnobs());
         var v = shownView();
+        if (v == KeyView.TRACK && byBus(track)) out.add(onlyRow());
         switch (track) {
             case PATH -> {
                 var ms = moments();
@@ -1556,6 +1612,7 @@ final class ArmEditor {
     }
 
     private void trackActions(List<Action> out) {
+        if (shownView() == KeyView.TRACK && byBus(track)) onlyActions(out);
         switch (track) {
             case PATH -> {
                 var ms = moments();

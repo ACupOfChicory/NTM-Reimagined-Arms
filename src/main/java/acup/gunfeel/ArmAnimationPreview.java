@@ -21,14 +21,21 @@ public final class ArmAnimationPreview {
                 && mc.player != null && mc.player.getMainHandItem().getItem() == item;
     }
     static void start(GunAnimation cue) {
-        clear();
         var player = Minecraft.getInstance().player;
-        if (player == null || !(player.getMainHandItem().getItem() instanceof ItemGunBaseNT gun)) return;
+        if (player == null || !(player.getMainHandItem().getItem() instanceof ItemGunBaseNT gun)) {
+            clear();
+            return;
+        }
         var stack = player.getMainHandItem().copy();
         var factory = gun.getConfig(stack,0).getAnims(stack);
-        if (factory == null) return;
-        var buses = factory.apply(stack,cue);
-        if (buses == null) return;
+        start(cue, factory == null ? null : factory.apply(stack,cue));
+    }
+    // this animation of the held gun under the cue's name (the arm editor: the reload from an empty magazine)
+    static void start(GunAnimation cue, com.hbm.render.anim.BusAnimation buses) {
+        clear();
+        var player = Minecraft.getInstance().player;
+        if (buses == null || player == null || !(player.getMainHandItem().getItem() instanceof ItemGunBaseNT gun)) return;
+        var stack = player.getMainHandItem();
         item = gun; type = cue;
         animation = new HbmAnimations.Animation(stack.getItem().getDescriptionId(), com.hbm.util.GameTime.now(), buses, true);
         sampled = GunClock.nanos();
