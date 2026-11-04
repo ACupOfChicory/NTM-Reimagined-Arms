@@ -122,7 +122,8 @@ public final class Mc {
     // the sound heard by one player only (1.7.10: S29PacketSoundEffect)
     public static void playSoundTo(EntityPlayerMP p, double x, double y, double z, String id, float volume, float pitch) {
         SoundEvent s = sound(id);
-        if (s != null) p.connection.sendPacket(new SPacketSoundEffect(s, SoundCategory.PLAYERS, x, y, z, volume, pitch));
+        // a FakePlayer (another mod's machine holding a gun) has no connection
+        if (s != null && p.connection != null) p.connection.sendPacket(new SPacketSoundEffect(s, SoundCategory.PLAYERS, x, y, z, volume, pitch));
     }
 
 

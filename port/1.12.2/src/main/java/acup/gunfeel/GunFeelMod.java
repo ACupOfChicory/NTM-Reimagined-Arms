@@ -28,6 +28,7 @@ public final class GunFeelMod {
         id = AmmoNet.register(Net.CHANNEL, id); // 5, 6: the ammo key's and menu's choice to the server
         ModelHitNet.register(id, client); // 7, 8: the client's poses and meshes of the model hitboxes
         BulletCheck.registerIfAsked();
+        SoundStand.registerIfAsked();
         ModelCells.preload();
     }
 

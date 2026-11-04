@@ -323,6 +323,17 @@ if (providers.gradleProperty("checkBullets").isPresent) tasks.named<RunMinecraft
     systemProperty("ntmgunfeel.traceScenario", "bullets")
 }
 
+// The sound stand (SoundStand, SoundRecord): -PsoundStand on runServer (the dev server, port 25661) and
+// -PsoundRecord=25661 on runClient, which joins it and records every sound it plays to logs/sounds.tsv
+if (providers.gradleProperty("soundStand").isPresent) tasks.named<RunMinecraftTask>("runServer") {
+    systemProperty("ntmgunfeel.soundStand", "logs/sound-stand.tsv")
+}
+val soundRecord = providers.gradleProperty("soundRecord")
+if (soundRecord.isPresent) tasks.named<RunMinecraftTask>("runClient") {
+    systemProperty("ntmgunfeel.soundRecord", "logs/sounds.tsv")
+    args("--server", "localhost", "--port", soundRecord.get())
+}
+
 // ---- the tests: on Java 8 with the downgraded classes, as the players' game runs them (test), and on Java 25 with
 // the classes as compiled (test25). Paths to the 26.2 pins (src/test/pinned at the root) come in as a property. ----
 val downgradeTestClasses = tasks.register<xyz.wagyourtail.jvmdg.gradle.task.files.DowngradeFiles>("downgradeTestClasses") {

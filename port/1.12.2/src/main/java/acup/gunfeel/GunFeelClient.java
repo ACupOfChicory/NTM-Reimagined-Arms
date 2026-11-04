@@ -33,6 +33,7 @@ public final class GunFeelClient {
         Config.poll();
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new GunFeelClient());
         ShootScenario.register();
+        SoundRecord.registerIfAsked(); // dev: the sound stand's record (SoundStand)
         MachineScan.init(); // machines the jar's tables lack, taken in the game
         Tracers.register();
         HudEvents.register(); // the ammo HUD, ammo key and menu, instant switch
