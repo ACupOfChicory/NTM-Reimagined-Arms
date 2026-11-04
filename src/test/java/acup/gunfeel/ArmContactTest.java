@@ -15,8 +15,8 @@ class ArmContactTest {
             ArmPoseEdits.apply(pose,new float[]{0,0,0,35,70,-20},right,slim,offset);
             assertEquals(0,pose.transformPosition(ArmContact.pivot(right,slim,offset),new Vector3f()).distance(target),1e-6,"поворот вокруг контакта "+id);
             String source="RELOAD 180:Handle!"+id+"@0.44,0.72,5.6/1,0,0";
-            var keys=ArmTimeline.read(source,"RELOAD","",0);
-            assertEquals(id,ArmTimeline.read(ArmTimeline.write(source,"RELOAD",keys),"RELOAD","",0).getFirst().contactId());
+            var doc=ArmRig.path(source);doc.forAnimation("RELOAD").entries.getFirst().side=new float[]{0,1,0};
+            assertEquals(id,ArmRig.path(doc.write()).forAnimation("RELOAD").entries.getFirst().contact);
         }
         assertEquals(0,ArmContact.offset(5).z);assertEquals(-2,ArmContact.offset(5).y);
         assertEquals(1,ArmContact.offset(5).x);

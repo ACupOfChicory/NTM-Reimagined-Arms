@@ -621,27 +621,7 @@ public final class Arms {
         if (src.isEmpty()) return false;
         if (!src.equals(hideSource[hand])) {
             hideSource[hand] = src;
-            Map<String, float[]> out = new HashMap<>();
-            for (String anim : src.split(";")) {
-                String[] w = anim.trim().split("\\s+");
-                if (w.length < 2) continue;
-                List<Float> v = new ArrayList<>();
-                for (int j = 1; j < w.length; j++) {
-                    String[] ab = w[j].split("-");
-                    if (ab.length != 2) continue;
-                    try {
-                        float a = Float.parseFloat(ab[0]), b = Float.parseFloat(ab[1]);
-                        v.add(a);
-                        v.add(b);
-                    } catch (NumberFormatException e) {
-                        // skip
-                    }
-                }
-                float[] a = new float[v.size()];
-                for (int j = 0; j < a.length; j++) a[j] = v.get(j);
-                out.put(w[0].toUpperCase(java.util.Locale.ROOT), a);
-            }
-            hideKeys[hand] = out;
+            hideKeys[hand] = ArmRig.ranges(src);
         }
         float[] r = forAnimation(hideKeys[hand]);
         if (r == null) return false;
@@ -691,7 +671,7 @@ public final class Arms {
         if (anim == null || type == null) return Float.NaN;
         if (!src.equals(keysSource[slot])) {
             keysSource[slot] = src;
-            keys[slot] = parseKeys(src);
+            keys[slot] = ArmRig.angleKeys(src);
         }
         float[] k = keys[slot].get(type.name());
         if (k == null) return Float.NaN;
@@ -705,33 +685,6 @@ public final class Arms {
             }
         }
         return k[k.length - 1];
-    }
-
-    // "RELOAD 0:-90 240:90; INSPECT 0:-90" -> {RELOAD: [0,-90, 240,90], ...}; bad entries are skipped
-    private static Map<String, float[]> parseKeys(String src) {
-        Map<String, float[]> out = new HashMap<>();
-        for (String anim : src.split(";")) {
-            String[] w = anim.trim().split("\\s+");
-            if (w.length < 2) continue;
-            List<Float> v = new ArrayList<>();
-            for (int j = 1; j < w.length; j++) {
-                String[] tv = w[j].split(":");
-                if (tv.length != 2) continue;
-                try {
-                    float time = Float.parseFloat(tv[0]), angle = Float.parseFloat(tv[1]);
-                    if (!v.isEmpty() && time <= v.get(v.size() - 2)) continue;
-                    v.add(time);
-                    v.add(angle);
-                } catch (NumberFormatException e) {
-                    // skip
-                }
-            }
-            if (v.isEmpty()) continue;
-            float[] a = new float[v.size()];
-            for (int j = 0; j < a.length; j++) a[j] = v.get(j);
-            out.put(w[0].toUpperCase(java.util.Locale.ROOT), a);
-        }
-        return out;
     }
 
     // what a hand carries: a point moved by an NTM bus within a part, the hand on its `dir` side.
@@ -760,7 +713,7 @@ public final class Arms {
         }
     }
 
-    private static final Carry NO_CARRY = new Carry("", new String[] {""}, 0, new float[][] {new float[3]}, new float[] {0F, 0F, -1F}, new int[1]);
+    private static final Carry NO_CARRY = new Carry("", new String[] {""}, 0, new float[][] {new float[3]}, ArmRig.DEFAULT_SIDE, new int[1]);
     private static final String[] carrySource = new String[2];
     private static final Carry[] carry = {NO_CARRY, NO_CARRY};
 
@@ -775,121 +728,26 @@ public final class Arms {
         }
         if (!src.equals(carrySource[hand])) {
             carrySource[hand] = src;
-            carry[hand] = NO_CARRY;
-            String[] w = src.split("\\s+");
-            if (w.length == 4 || w.length == 5) {
-                try {
-                    String[] pts = w[3].split("\\|");
-                    float[][] at = new float[pts.length][];
-                    for (int j = 0; j < pts.length; j++) at[j] = xyz(pts[j]);
-                    float[] dir = w.length == 5 ? xyz(w[4]) : NO_CARRY.dir;
-                    carry[hand] = new Carry(w[0], w[1].split("\\|"), Integer.parseInt(w[2]), at, dir, new int[1]);
-                } catch (RuntimeException e) {
-                    // malformed: no carrying
-                }
-            }
+            ArmRig.CarrySpec c = ArmRig.carry(src);
+            carry[hand] = c == null ? NO_CARRY
+                    : new Carry(c.part(), c.buses(), c.grab(), c.ats(), c.dir() != null ? c.dir() : NO_CARRY.dir, new int[1]);
         }
         return carry[hand];
     }
-
-    private static float[] xyz(String v) {
-        String[] t = v.split(",");
-        return new float[] {Float.parseFloat(t[0]), Float.parseFloat(t[1]), Float.parseFloat(t[2])};
-    }
-
-    private static final String[] carryKeysSource = new String[2];
-    @SuppressWarnings("unchecked")
-    private static final Map<String, List<float[]>>[] carryKeys = new Map[] {Map.of(), Map.of()};
 
     // Carry keys, per animation: "RELOAD 0:0 120:1 300:1/300 520:0 ; RELOAD_CYCLE ..." = ms:weight (0 on the gun,
     // 1 on the carried thing), optionally /b = where along the bus the thing is taken from (ms; walking b back
     // retraces its path), or @x,y,z = a fixed point instead of the bus. An animation name may be followed by
     // /<bus> to apply only to animations that have that bus (SPAS-12: RELOAD/PumpGrip = the empty reload).
     // Each entry: {t, w, kind (0 live, 1 bus time, 2 fixed point), b, x, y, z}
-    // armLeftPath / armRightPath: one key, ms -> grip (part null) or a point of a part as drawn
-    private record PathKey(float ms, String part, int nth, float[] at, float[] side, float[] shoulder, int contact, boolean followShoulder, float roll) {
-    }
+    private static final String[] carryKeysSource = new String[2];
+    @SuppressWarnings("unchecked")
+    private static final Map<String, List<float[]>>[] carryKeys = new Map[] {Map.of(), Map.of()};
 
+    // armLeftPath / armRightPath, per animation (ArmRig.pathKeys)
     private static final String[] pathSource = new String[2];
     @SuppressWarnings("unchecked")
-    private static final Map<String, List<PathKey>>[] pathKeys = new Map[] {Map.of(), Map.of()};
-
-    // a key's time: milliseconds, or a name from armPathTimes with an optional +ms / -ms ("release+300")
-    private static float pathMs(String e, Map<String, Float> times) {
-        Float whole = times.get(e.toLowerCase(java.util.Locale.ROOT));
-        if (whole != null) return whole;
-        int op = Math.max(e.lastIndexOf('+'), e.lastIndexOf('-'));
-        if (op <= 0 || Character.isDigit(e.charAt(0))) return Float.parseFloat(e);
-        Float base = times.get(e.substring(0, op).trim().toLowerCase(java.util.Locale.ROOT));
-        if (base == null) throw new IllegalArgumentException(e);
-        return base + Float.parseFloat(e.substring(op));
-    }
-
-    private static Map<String, List<PathKey>> parsePath(String src, String timeSrc) {
-        Map<String, Float> times = new HashMap<>();
-        for (String t : timeSrc.split(",")) {
-            int eq = t.indexOf('=');
-            if (eq <= 0) continue;
-            try {
-                times.put(t.substring(0, eq).trim().toLowerCase(java.util.Locale.ROOT), Float.parseFloat(t.substring(eq + 1).trim()));
-            } catch (NumberFormatException e) {
-                // skip
-            }
-        }
-        Map<String, List<PathKey>> out = new HashMap<>();
-        for (String anim : src.split(";")) {
-            String[] w = anim.trim().split("\\s+");
-            if (w.length < 2) continue;
-            List<PathKey> list = new ArrayList<>();
-            for (int j = 1; j < w.length; j++) {
-                try {
-                    String e = w[j];
-                    int colon = e.indexOf(':');
-                    float ms = pathMs(e.substring(0, colon), times);
-                    String t = e.substring(colon + 1);
-                    PathKey k;
-                    if (t.equalsIgnoreCase("grip")) {
-                        k = new PathKey(ms, null, 0, null, null, null, 0, false, 0F);
-                    } else {
-                        int at = t.indexOf('@');
-                        String part = t.substring(0, at), pt = t.substring(at + 1);
-                        int marker=part.indexOf('!');
-                        int contact=marker<0?0:ArmContact.parse(part.substring(marker+1));
-                        if(marker>=0)part=part.substring(0,marker);
-                        int nth = 0;
-                        int hash = part.indexOf('#');
-                        if (hash >= 0) {
-                            String n = part.substring(hash + 1);
-                            nth = n.equalsIgnoreCase("last") ? -1 : Integer.parseInt(n);
-                            part = part.substring(0, hash);
-                        }
-                        int wrist = pt.indexOf('^');
-                        float roll = wrist < 0 ? Float.NaN : Float.parseFloat(pt.substring(wrist + 1));
-                        if (wrist >= 0) pt = pt.substring(0, wrist);
-                        int gt = pt.indexOf('>');
-                        boolean followShoulder = gt >= 0 && pt.substring(gt + 1).startsWith("~");
-                        float[] shoulder = gt < 0 ? new float[3] : xyz(pt.substring(gt + (followShoulder ? 2 : 1)));
-                        if (gt >= 0) pt = pt.substring(0, gt);
-                        int sl = pt.indexOf('/');
-                        float[] side = sl < 0 ? NO_CARRY.dir : xyz(pt.substring(sl + 1));
-                        k = new PathKey(ms, part, nth, xyz(sl < 0 ? pt : pt.substring(0, sl)), side, shoulder, contact, followShoulder, roll);
-                    }
-                    list.add(k);
-                } catch (RuntimeException e) {
-                    // skip a malformed entry
-                }
-            }
-            if (list.isEmpty()) continue;
-            // in time order (a named time may put a key anywhere); of two keys at one time the first stays
-            list.sort(java.util.Comparator.comparingDouble(PathKey::ms));
-            for (int j = list.size() - 1; j > 0; j--) if (list.get(j).ms() <= list.get(j - 1).ms()) list.remove(j);
-            int slash = w[0].indexOf('/');
-            String name = slash < 0 ? w[0].toUpperCase(java.util.Locale.ROOT)
-                    : w[0].substring(0, slash).toUpperCase(java.util.Locale.ROOT) + w[0].substring(slash);
-            out.put(name, list);
-        }
-        return out;
-    }
+    private static final Map<String, List<ArmRig.PathKey>>[] pathKeys = new Map[] {Map.of(), Map.of()};
 
     // the part's pose this frame (in the gun's aligned frame), or null when it was not drawn
     static List<String> editorParts() {
@@ -927,12 +785,12 @@ public final class Arms {
         String srcKey = src + "\n" + Config.armPathTimes;
         if (!srcKey.equals(pathSource[hand])) {
             pathSource[hand] = srcKey;
-            pathKeys[hand] = parsePath(src, Config.armPathTimes);
+            pathKeys[hand] = ArmRig.pathKeys(src, Config.armPathTimes);
         }
-        List<PathKey> k = forAnimation(pathKeys[hand]);
+        List<ArmRig.PathKey> k = forAnimation(pathKeys[hand]);
         if (k == null) return null;
         float t = animMillis();
-        PathKey a = k.get(0), b = a;
+        ArmRig.PathKey a = k.get(0), b = a;
         float u = 0F;
         if (t >= k.get(k.size() - 1).ms()) a = b = k.get(k.size() - 1);
         else if (t > a.ms()) {
@@ -958,7 +816,7 @@ public final class Arms {
     }
 
     // a key's point and side in camera space; null for grip (or a part not drawn)
-    private static float[] pathPoint(PathKey key, Matrix4f cameraInv, Vector3f restShoulder, boolean right) {
+    private static float[] pathPoint(ArmRig.PathKey key, Matrix4f cameraInv, Vector3f restShoulder, boolean right) {
         if (key.part() == null) return null;
         Matrix4f pose = partPose(key.part(), key.nth());
         if (pose == null) return null;
@@ -976,48 +834,6 @@ public final class Arms {
         }
         var contact=ArmContact.offset(key.contact());
         return new float[] {at.x, at.y, at.z, side.x, side.y, side.z, shoulder.x, shoulder.y, shoulder.z, key.contact()>0 ? 1F : 0F, roll,contact.x,contact.y,contact.z};
-    }
-
-    private static Map<String, List<float[]>> parseCarryKeys(String src) {
-        Map<String, List<float[]>> out = new HashMap<>();
-        for (String anim : src.split(";")) {
-            String[] w = anim.trim().split("\\s+");
-            if (w.length < 2) continue;
-            List<float[]> list = new ArrayList<>();
-            for (int j = 1; j < w.length; j++) {
-                try {
-                    String e = w[j];
-                    float[] k = new float[7];
-                    int colon = e.indexOf(':');
-                    k[0] = Float.parseFloat(e.substring(0, colon));
-                    String rest = e.substring(colon + 1);
-                    int at = rest.indexOf('@'), sl = rest.indexOf('/');
-                    if (at >= 0) {
-                        float[] pt = xyz(rest.substring(at + 1));
-                        k[2] = 2F;
-                        k[4] = pt[0];
-                        k[5] = pt[1];
-                        k[6] = pt[2];
-                        rest = rest.substring(0, at);
-                    } else if (sl >= 0) {
-                        k[2] = 1F;
-                        k[3] = Float.parseFloat(rest.substring(sl + 1));
-                        rest = rest.substring(0, sl);
-                    }
-                    k[1] = Float.parseFloat(rest);
-                    if (!list.isEmpty() && k[0] <= list.get(list.size() - 1)[0]) continue;
-                    list.add(k);
-                } catch (RuntimeException e) {
-                    // skip a malformed entry
-                }
-            }
-            if (list.isEmpty()) continue;
-            int slash = w[0].indexOf('/');
-            String name = slash < 0 ? w[0].toUpperCase(java.util.Locale.ROOT)
-                    : w[0].substring(0, slash).toUpperCase(java.util.Locale.ROOT) + w[0].substring(slash);
-            out.put(name, list);
-        }
-        return out;
     }
 
     // keys for the animation playing now: "<TYPE>/<bus>" when the animation has that bus, else "<TYPE>"
@@ -1042,7 +858,7 @@ public final class Arms {
         carry(hand).pick();
         if (!src.equals(carryKeysSource[hand])) {
             carryKeysSource[hand] = src;
-            carryKeys[hand] = parseCarryKeys(src);
+            carryKeys[hand] = ArmRig.carryKeys(src);
         }
         List<float[]> k = forAnimation(carryKeys[hand]);
         if (k == null) return null;
