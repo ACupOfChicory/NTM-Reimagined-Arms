@@ -21,6 +21,7 @@ ntmgunfeel.feature.click_aim=Пуля по кадру клика
 ntmgunfeel.feature.instant_switch=Мгновенная смена
 ntmgunfeel.feature.tracers=Трассеры
 ntmgunfeel.feature.maresleg=Анимации Maresleg
+ntmgunfeel.feature.sprint_fire=Нет выстрела сразу после бега
 ntmgunfeel.feature.trace=Часы dev-трассы
 ntmgunfeel.compat.title=Версия NTM %s не протестирована, последняя поддерживаемая — %s
 ntmgunfeel.compat.all_on=Всё проверенное подходит к этой версии NTM, все системы включены. Что-то всё равно может работать странно.

@@ -21,6 +21,7 @@ ntmgunfeel.feature.click_aim=Bullet from the click's frame
 ntmgunfeel.feature.instant_switch=Instant switch
 ntmgunfeel.feature.tracers=Tracers
 ntmgunfeel.feature.maresleg=Maresleg animations
+ntmgunfeel.feature.sprint_fire=No shot right after a sprint
 ntmgunfeel.feature.trace=Dev trace clock
 ntmgunfeel.compat.title=NTM version %s is not tested, the last supported one is %s
 ntmgunfeel.compat.all_on=Everything checked still fits this NTM, all systems are on. Something may still behave oddly.

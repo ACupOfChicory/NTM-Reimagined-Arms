@@ -65,6 +65,8 @@ ARMS class com/hbm/render/loader/GroupObject
 ARMS class com/hbm/render/loader/HFRWavefrontObject
 ARMS class com/hbm/render/loader/Vertex
 ARMS class com/hbm/render/loader/WaveFrontObjectVAO
+ARMS field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+ARMS field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext configIndex I
@@ -93,6 +95,8 @@ ARMS field com/hbm/render/loader/HFRWavefrontObject groupObjects Ljava/util/Arra
 ARMS field com/hbm/render/loader/Vertex x F
 ARMS field com/hbm/render/loader/Vertex y F
 ARMS field com/hbm/render/loader/Vertex z F
+ARMS method com/hbm/capability/HbmCapability getData (Lnet/minecraft/entity/Entity;)Lcom/hbm/capability/HbmCapability$IHBMData;
+ARMS method com/hbm/capability/HbmCapability$IHBMData getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
 ARMS method com/hbm/items/weapon/sedna/GunConfig getAnims (Lnet/minecraft/item/ItemStack;)Ljava/util/function/BiFunction;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getAnimTimer (Lnet/minecraft/item/ItemStack;I)I
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/item/ItemStack;)Z
@@ -357,6 +361,31 @@ SPREAD class com/hbm/items/weapon/sedna/BulletConfig
 SPREAD class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 SPREAD class com/hbm/items/weapon/sedna/Receiver
 SPREAD field com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext entity Lnet/minecraft/entity/EntityLivingBase;
+SPRINT_FIRE class com/hbm/handler/HbmKeybinds$EnumKeybind
+SPRINT_FIRE class com/hbm/items/weapon/sedna/ItemGunBaseNT
+SPRINT_FIRE class com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState
+SPRINT_FIRE class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
+SPRINT_FIRE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+SPRINT_FIRE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+SPRINT_FIRE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState COOLDOWN Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+SPRINT_FIRE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+SPRINT_FIRE field com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext config Lcom/hbm/items/weapon/sedna/GunConfig;
+SPRINT_FIRE field com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext configIndex I
+SPRINT_FIRE field com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext entity Lnet/minecraft/entity/EntityLivingBase;
+SPRINT_FIRE method com/hbm/capability/HbmCapability getData (Lnet/minecraft/entity/Entity;)Lcom/hbm/capability/HbmCapability$IHBMData;
+SPRINT_FIRE method com/hbm/capability/HbmCapability$IHBMData getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
+SPRINT_FIRE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+SPRINT_FIRE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+SPRINT_FIRE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/item/ItemStack;)Z
+SPRINT_FIRE method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimary (Lnet/minecraft/item/ItemStack;I)Z
+SPRINT_FIRE method com/hbm/items/weapon/sedna/ItemGunBaseNT getSecondary (Lnet/minecraft/item/ItemStack;I)Z
+SPRINT_FIRE method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+SPRINT_FIRE method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext <init> (Lcom/hbm/items/weapon/sedna/GunConfig;Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/inventory/IInventory;I)V
+SPRINT_FIRE method com/hbm/items/weapon/sedna/Receiver getRefireOnHold (Lnet/minecraft/item/ItemStack;)Z
+SPRINT_FIRE method com/hbm/items/weapon/sedna/factory/Lego clickReceiver (Lnet/minecraft/item/ItemStack;Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext;I)V
+TRACE class com/hbm/entity/projectile/EntityBulletBaseMK4
+TRACE class com/hbm/items/weapon/sedna/ItemGunBaseNT
+TRACE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/item/ItemStack;Z)V
 TRACERS class com/hbm/entity/projectile/EntityBulletBaseMK4
 TRACERS class com/hbm/items/weapon/sedna/BulletConfig
 TRACERS class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase

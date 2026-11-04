@@ -12,10 +12,10 @@ public final class MixinCheck {
     // target -> handlers it should have
     private static final String[][] TARGETS = {
             {"com.hbm.main.ModEventHandlerClient", "1"},
-            {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "14"}, // 5 + MixinSmokeNodes 1 + arms 3 + direct path 2 and its helpers 3
+            {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "16"}, // 5 + MixinSmokeNodes 2 + arms 3 + direct path 2 and its helpers 3 + walkSway 1
             {"com.hbm.render.anim.sedna.HbmAnimationsSedna", "2"},
             {"com.hbm.render.loader.HFRWavefrontObject", "8"}, // 4 + MachineMesh ends 4
-            {"net.minecraft.client.renderer.EntityRenderer", "6"}, // 2 + MixinMousePick 2 + the world pass 2 (MixinEntityRenderer)
+            {"net.minecraft.client.renderer.EntityRenderer", "7"}, // 2 + MixinMousePick 2 + the world pass 2 (MixinEntityRenderer) + MixinMouseTurn 1
             {"net.minecraft.client.renderer.RenderGlobal", "1"}, // MixinRenderGlobal: the holes before the block cracks
             {"net.minecraft.entity.projectile.EntityArrow", "5"}, // MixinVanillaProjectileHits, as the three below
             {"net.minecraft.entity.projectile.EntityThrowable", "5"},
@@ -25,14 +25,16 @@ public final class MixinCheck {
             {"com.hbm.util.Clock", "1"},
             {"com.hbm.render.entity.projectile.RenderBulletMK4", "1"},
             {"com.hbm.items.weapon.sedna.factory.LegoClient", "1"},
-            {"com.hbm.items.weapon.sedna.factory.Lego", "1"}, // MixinLegoSpread
+            {"com.hbm.items.weapon.sedna.factory.Lego", "2"}, // MixinLegoSpread, MixinSprintFireClick
+            {"com.hbm.items.weapon.sedna.factory.GunStateDecider", "1"}, // MixinSprintFireDecider
             {"com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase", "3"},
             {"com.hbm.items.weapon.sedna.mags.MagazineBelt", "2"},
             {"com.hbm.main.ClientProxy", "2"}, // MixinGunKeysRadial, MixinAimButton
-            {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "8"}, // 2 + MixinHoldAim 3 handlers and its 3 helpers (gunfeel$standardScope ...)
+            {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "12"}, // 2 + MixinHoldAim 3 handlers and its 3 helpers (gunfeel$standardScope ...) + MixinSprintFireGun 4
             {"com.hbm.packet.toclient.GunAnimationPacketSedna$Handler", "4"},
             {"net.minecraft.client.renderer.ItemRenderer", "4"}, // ItemRendererAccess
             {"net.minecraft.client.renderer.entity.RenderLivingBase", "5"}, // begin, end, yaw, modelStart, modelEnd
+            {"net.minecraft.client.entity.EntityPlayerSP", "6"}, // PlayerSPAccess 5, MixinSprintStop 1
             {"net.minecraft.client.renderer.entity.layers.LayerSheepWool", "1"}, // MixinLayerWool
             {"net.minecraft.client.renderer.entity.layers.LayerSlimeGel", "1"}, // MixinLayerGel
             {"net.minecraft.client.renderer.entity.RenderShulker$HeadLayer", "1"}, // MixinLayerShulkerHead
@@ -60,7 +62,7 @@ public final class MixinCheck {
             int n = 0;
             List<String> names = new ArrayList<String>();
             try {
-                for (Method m : Class.forName(t[0]).getDeclaredMethods()) if (m.getName().contains("gunfeel$") && !m.getName().contains("lambda$")) { // a mixin's lambdas are not handlers
+                for (Method m : Class.forName(t[0]).getDeclaredMethods()) if (m.getName().contains("gunfeel$") && !m.getName().contains("lambda$") && !m.getName().startsWith("mixinextras$bridge$")) { // a mixin's lambdas and MixinExtras' bridges are not handlers
                     n++;
                     names.add(m.getName());
                 }

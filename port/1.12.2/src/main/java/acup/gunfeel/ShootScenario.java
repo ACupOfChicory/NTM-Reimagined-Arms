@@ -93,9 +93,14 @@ public final class ShootScenario {
         return NAME.equals("hands");
     }
 
+    // "walksprint": the G3 walking, aiming and sprinting (walkSway, sprintPose, sprintFireDelay; WalkSprintScenario)
+    static boolean walksprint() {
+        return NAME.equals("walksprint");
+    }
+
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || fences() || aimlag() || hands() || TraceScenario.enabled();
+        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || fences() || aimlag() || hands() || walksprint() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -107,6 +112,7 @@ public final class ShootScenario {
         if (!world()) return;
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(new ShootScenario());
         if (aimlag()) AimLagScenario.register();
+        if (walksprint()) WalkSprintScenario.register();
         GunFeel.LOGGER.info("Scenario {}: world {}, quits at tick {}", NAME, WORLD, DONE);
     }
 
@@ -153,6 +159,11 @@ public final class ShootScenario {
         }
         if (aim()) {
             aimStep(mc, ++tick);
+            return;
+        }
+        if (walksprint()) {
+            if (held) press(true);
+            WalkSprintScenario.step(mc, ++tick);
             return;
         }
         if (look()) {
@@ -288,7 +299,7 @@ public final class ShootScenario {
         return held;
     }
 
-    private static Field field(Class<?> c, String... names) throws NoSuchFieldException {
+    static Field field(Class<?> c, String... names) throws NoSuchFieldException {
         for (String n : names) {
             try {
                 Field f = c.getDeclaredField(n);
