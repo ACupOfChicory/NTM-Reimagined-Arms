@@ -130,8 +130,30 @@ public final class BulletFx {
         }
         int copies = Math.min(4, Math.max(1, (int) Math.ceil(volume - 1e-3F)));
         ResourceLocation sound = new ResourceLocation(id);
-        for (int i = 0; i < copies; i++)
-            mc.getSoundHandler().playSound(record(sound, volume / copies, pitch, x, y, z));
+        PositionedSoundRecord first = record(sound, volume / copies, pitch, x, y, z);
+        mc.getSoundHandler().playSound(first);
+        // port: the copies play the track the first one picked, as 26.2's (one seed); 1.12.2 picks again for each
+        // sound, and two tracks at once sounded as two hits
+        for (int i = 1; i < copies; i++)
+            mc.getSoundHandler().playSound(new Copy(sound, volume / copies, pitch, x, y, z, first.getSound()));
+    }
+
+    // a sound playing the track another one picked
+    private static final class Copy extends PositionedSoundRecord {
+        private final net.minecraft.client.audio.Sound track;
+
+        Copy(ResourceLocation id, float volume, float pitch, double x, double y, double z, net.minecraft.client.audio.Sound track) {
+            super(id, net.minecraft.util.SoundCategory.PLAYERS, volume, pitch, false, 0, net.minecraft.client.audio.ISound.AttenuationType.LINEAR,
+                    (float) x, (float) y, (float) z);
+            this.track = track;
+        }
+
+        @Override
+        public net.minecraft.client.audio.SoundEventAccessor createAccessor(SoundHandler handler) {
+            net.minecraft.client.audio.SoundEventAccessor a = super.createAccessor(handler);
+            if (track != null && a != null) sound = track;
+            return a;
+        }
     }
 
     // port: how far 26.2 fades a sound out, its sounds.json's attenuation_distance (16 without one; SoundsJsonTest
