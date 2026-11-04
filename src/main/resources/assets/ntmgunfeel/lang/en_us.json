@@ -22,6 +22,7 @@
   "ntmgunfeel.feature.tracers": "Tracers",
   "ntmgunfeel.feature.machine_mesh": "Machine hitboxes",
   "ntmgunfeel.feature.maresleg": "Maresleg animations",
+  "ntmgunfeel.feature.sprint_fire": "No shot right after a sprint",
   "ntmgunfeel.compat.title": "NTM version %s is not tested, the last supported one is %s",
   "ntmgunfeel.compat.all_on": "Everything checked still fits this NTM, all systems are on. Something may still behave oddly.",
   "ntmgunfeel.compat.off": "These systems do not fit this NTM and are turned off:",

@@ -96,6 +96,8 @@ public final class WalkSprint {
         boolean ground = player.onGround();
         boolean moving = player.input != null && player.input.getMoveVector().lengthSquared() > 1e-4F;
         boolean running = player.isSprinting() && !player.isMovingSlowly();
+        // a fire key held brings the gun up at once, as a shot does (a sprint may go on: NTM fires while sprinting)
+        boolean firing = firing(player);
         if (shot) {
             shot = false;
             calm = SHOT_CALM;
@@ -103,10 +105,10 @@ public final class WalkSprint {
             calm = Math.max(0F, calm - dt);
         }
         boolean walkOn = Config.walkSway > 0F && moving && ground && calm <= 0F;
-        boolean sprintOn = Config.sprintPose > 0F && running && !busy && aiming < 0.05F && calm <= 0F;
+        boolean sprintOn = Config.sprintPose > 0F && running && !busy && aiming < 0.05F && calm <= 0F && !firing;
         walk = approach(walk, walkOn, dt, WALK_IN, WALK_OUT);
         // a shot, aiming or an NTM animation take the gun out of the sprint pose quickly
-        boolean drop = calm > 0F || aiming >= 0.05F || busy;
+        boolean drop = calm > 0F || aiming >= 0.05F || busy || firing;
         sprint = approach(sprint, sprintOn, dt, SPRINT_IN, drop ? SPRINT_DROP : SPRINT_OUT);
         if (walk <= 0F && sprint <= 0F) {
             haveApplied = false;
@@ -117,7 +119,7 @@ public final class WalkSprint {
         float ws = ease(walk) * Config.walkSway * (1F - ease(sprint)), ss = ease(sprint) * Config.sprintPose;
         Pose w = Pose.NONE.plus(walk(u, aiming), ws), s = Pose.NONE.plus(sprint(u), ss);
         if (TestLog.frames()) TestLog.c(-1, "walkSprint", "walk", walk, "sprint", sprint, "u", u, "aiming", aiming,
-                "busy", busy, "calm", calm, "walkTurn", new Vector3f(w.pitch(), w.yaw(), w.roll()),
+                "busy", busy, "calm", calm, "firing", firing, "sprinting", running, "walkTurn", new Vector3f(w.pitch(), w.yaw(), w.roll()),
                 "walkPos", new Vector3f(w.x(), w.y(), w.z()), "sprintTurn", new Vector3f(s.pitch(), s.yaw(), s.roll()),
                 "sprintPos", new Vector3f(s.x(), s.y(), s.z()), "pivot", PIVOT);
         pose.translate(w.x() + s.x(), w.y() + s.y(), w.z() + s.z());
@@ -127,6 +129,12 @@ public final class WalkSprint {
         APPLIED.set(pose.last().pose());
         haveApplied = true;
         appliedItem = item;
+    }
+
+    private static boolean firing(LocalPlayer player) {
+        var props = com.hbm.extprop.HbmPlayerProps.getData(player);
+        return props.getKeyPressed(com.hbm.handler.HbmKeybinds.EnumKeybind.GUN_PRIMARY)
+                || props.getKeyPressed(com.hbm.handler.HbmKeybinds.EnumKeybind.GUN_SECONDARY);
     }
 
     private static void turn(PoseStack pose, Pose p, float px, float py, float pz) {
@@ -140,8 +148,13 @@ public final class WalkSprint {
 
     /** After NTM placed the gun: the right hand's place in the view space before our turn, for the next frame. */
     public static void gunPlaced(Item item) {
-        if (!haveApplied || appliedItem != item) return;
         Vector3f hand = new Vector3f();
+        if (TestLog.frames() && Arms.rightGripRendered(item, hand)) {
+            Vector3f back = new Vector3f(), front = new Vector3f();
+            if (Arms.gunEndsRendered(item, back, front)) TestLog.c(-1, "walkSprintHand", "hand", hand, "back", back, "front", front);
+            else TestLog.c(-1, "walkSprintHand", "hand", hand);
+        }
+        if (!haveApplied || appliedItem != item) return;
         if (!Arms.rightGripRendered(item, hand)) return;
         // APPLIED = view·T; the hand in view space is view⁻¹·hand, and before T it is T⁻¹ of that
         Matrix4f inv = new Matrix4f(APPLIED).invert();
