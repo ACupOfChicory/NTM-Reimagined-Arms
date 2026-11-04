@@ -109,6 +109,8 @@ neoForge {
             systemProperty("ntmgunfeel.weaponSwaySelfTest",providers.gradleProperty("weaponSwaySelfTest").isPresent.toString())
             // -PmachineGlass: windows of real NTM machines are glass (MachineGlassCheck) instead of the smoke check
             systemProperty("ntmgunfeel.machineGlassCheck",providers.gradleProperty("machineGlass").isPresent.toString())
+            // -PfenceSeam: holes where two fences, walls, panes or bars meet lie on their pixels (FenceSeamCheck)
+            systemProperty("ntmgunfeel.fenceSeamCheck",providers.gradleProperty("fenceSeam").isPresent.toString())
             // -PshapesStand=<file>: every NTM machine taken in turn, the jar's table of their shapes written there (ShapesStand)
             systemProperty("ntmgunfeel.shapesStand",providers.gradleProperty("shapesStand").orElse("").get())
             // -PshapesFallback: a machine in the jar's table of shapes is met from there, one left out of it is taken in
@@ -358,7 +360,7 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
     val selfTest = providers.gradleProperty("mobReviewSelfTest").isPresent || providers.gradleProperty("headLabelSelfTest").isPresent
     // a trace scenario on every gun (-Pscenario, -PscenarioGuns=all) plays for about half an hour; the shapes stand
     // (-PshapesStand) takes every machine in turn
-    val scenario = providers.gradleProperty("scenario").isPresent || providers.gradleProperty("shapesStand").isPresent
+    val scenario = providers.gradleProperty("scenario").isPresent || providers.gradleProperty("shapesStand").isPresent || providers.gradleProperty("fenceSeam").isPresent
     timeout.set(if(survey) Duration.ofMinutes(40) else if(review && !selfTest) Duration.ofDays(1) else if((mobs && !selfTest) || scenario) Duration.ofHours(if(scenario) 2 else 1) else Duration.ofMinutes(if(holes) 30 else 8))
     val result = if(stand) "glassstand/result.txt" else if(holes) "holebench/result.txt" else if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {

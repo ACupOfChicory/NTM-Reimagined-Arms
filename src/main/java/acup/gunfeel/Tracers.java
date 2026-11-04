@@ -863,6 +863,36 @@ public final class Tracers {
     }
     static int pendingHoles() { return PENDING.size(); }
     static int holeCount() { return HOLES.size(); }
+
+    // dev (FenceSeamCheck): every hole as drawn, its polygons in world space (null: a hole with no mesh of its own),
+    // with the block it goes with and that block's state when the hole was made
+    record HoleView(BlockPos block, BlockState state, @org.jspecify.annotations.Nullable Vec3 hit, @org.jspecify.annotations.Nullable Vec3 normal,
+            @org.jspecify.annotations.Nullable List<List<Vec3>> polys) {
+    }
+
+    // dev (FenceSeamCheck): a block whose holes cover its whole face (glass), as drawnHole has it
+    static boolean wholeFaces(BlockState state) {
+        return hitboxOnly(state);
+    }
+
+    static List<HoleView> holeViews() {
+        List<HoleView> out = new ArrayList<>();
+        for (Hole h : HOLES) {
+            List<List<Vec3>> polys = null;
+            float[] m = h.mesh();
+            if (m != null) {
+                polys = new ArrayList<>();
+                for (int k = 3; k < m.length; ) {
+                    int n = (int) m[k++];
+                    List<Vec3> pl = new ArrayList<>(n);
+                    for (int i = 0; i < n; i++, k += 6) pl.add(h.pos().add(m[k], m[k + 1], m[k + 2]));
+                    polys.add(pl);
+                }
+            }
+            out.add(new HoleView(h.block(), h.state(), h.hit(), m == null ? null : new Vec3(m[0], m[1], m[2]), polys));
+        }
+        return out;
+    }
     private static final long HOLE_BUDGET_NS = 3_000_000L;
 
     private static void addHole(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir) {
@@ -1036,7 +1066,10 @@ public final class Tracers {
         // a shell (door, trapdoor) stopped the bullet where it came in: the hole is on that face, never further in
         // (its far inner face, seen through the window)
         double reach = PassableClip.shell(level.getBlockState(pos)) ? 1.5 + 0.1 : 2.0;
-        for (BakedQuad q : MeshShapes.quads(level.getBlockState(pos))) {
+        Map<BakedQuad, Boolean> own = drawnQuads(level, pos, level.getBlockState(pos));
+        boolean hidden = false;
+        for (var e : own.entrySet()) {
+            BakedQuad q = e.getKey();
             Vector3d n = normalOf(q);
             if (n == null) continue;
             double den = n.dot(d);
@@ -1051,8 +1084,16 @@ public final class Tracers {
             best = t;
             at = pt;
             normal = n;
+            hidden = !e.getValue();
         }
         if (at == null) return;
+        // the first face on the line is one the game does not draw, between this block and the next (the end of a
+        // fence's rail against the next fence's rail): the bullet went from one block's solid part into the other's,
+        // and a hole there would hang in the air beside the rail
+        if (hidden) {
+            dbg("  meshHole: the face met is hidden by the neighbour: no hole");
+            return;
+        }
         if (normal.dot(d) > 0) normal.negate();
         boolean scorch = config.onImpact != null;
         BlockState decalOn = Cells.ruleState(level, pos, level.getBlockState(pos));
@@ -1076,9 +1117,11 @@ public final class Tracers {
             BlockPos np = pos.offset(dx, dy, dz);
             BlockState st = level.getBlockState(np);
             if (st.getRenderShape() != net.minecraft.world.level.block.RenderShape.MODEL) continue;
-            for (BakedQuad q : MeshShapes.quads(st)) {
+            for (var qe : (np.equals(pos) ? own : drawnQuads(level, np, st)).entrySet()) {
+                BakedQuad q = qe.getKey();
                 Vector3d n = normalOf(q);
-                if (n == null || n.dot(normal) < 0.999) continue;
+                // faces the game does not draw there take no part of the hole
+                if (!qe.getValue() || n == null || n.dot(normal) < 0.999) continue;
                 Vector3d p0 = new Vector3d(q.position0().x() + dx, q.position0().y() + dy, q.position0().z() + dz);
                 if (Math.abs(new Vector3d(p0).sub(at).dot(normal)) > 2e-3) continue;
                 same.add(new Object[] {q, new int[] {dx, dy, dz}});
@@ -1144,6 +1187,23 @@ public final class Tracers {
                 translucent(level.getBlockState(pos)) || glassLike(level.getBlockState(pos)), false, mesh,
                 !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false,makingShot, new Batch[1]));
         trimHoles();
+    }
+
+    // The block's model quads, each with whether the game draws it there: a quad with a cull face the neighbour covers
+    // (Block.shouldRenderFace, as the chunk mesh and RenderedMesh.models) is not drawn.
+    private static Map<BakedQuad, Boolean> drawnQuads(ClientLevel level, BlockPos at, BlockState st) {
+        Map<BakedQuad, Boolean> out = new java.util.LinkedHashMap<>();
+        var model = Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(st);
+        List<net.minecraft.client.renderer.block.dispatch.BlockStateModelPart> parts = new ArrayList<>();
+        model.collectParts(net.minecraft.util.RandomSource.create(42L), parts);
+        for (var part : parts) {
+            for (Direction d : Direction.values()) {
+                boolean shown = net.minecraft.world.level.block.Block.shouldRenderFace(st, level.getBlockState(at.relative(d)), d);
+                for (BakedQuad q : part.getQuads(d)) out.merge(q, shown, Boolean::logicalOr);
+            }
+            for (BakedQuad q : part.getQuads(null)) out.put(q, true);
+        }
+        return out;
     }
 
     private static long drawnChecked;
@@ -1358,6 +1418,8 @@ public final class Tracers {
         List<Vector3d> blasts = blastPoints(blast, normal, 0.12);
         Map<List<Long>, Double> lit = new HashMap<>();
         for (Piece pc : pieces) {
+            // a triangle met only along its edge or at a corner: nothing to draw
+            if (!some(pc.poly())) continue;
             boolean elsewhere = pc.tri().block() != null && !pc.tri().block().equals(pos);
             double[] cen = centroid(pc.poly());
             boolean shown = false;
@@ -1417,7 +1479,7 @@ public final class Tracers {
                                 double x0 = -half + (i0 + i) * cs, x1 = -half + (i0 + e + 1) * cs;
                                 double y0 = -half + rowStart * cs, y1 = -half + j * cs;
                                 List<double[]> r = cut(cut(cut(cut(pc.poly(), 0, x0, true), 0, x1, false), 1, y0, true), 1, y1, false);
-                                if (r.size() >= 3) g.polys().add(r);
+                                if (some(r)) g.polys().add(r);
                                 i = e;
                             }
                         }
@@ -1595,13 +1657,28 @@ public final class Tracers {
                     while (e + 1 < w && row[e + 1]) e++;
                     double s0 = gr[0] + (i0 + i) * gr[1], s1 = gr[0] + (i0 + e + 1) * gr[1];
                     List<double[]> r = cut(cut(cut(cut(pc.poly(), 6, Math.min(s0, s1), true), 6, Math.max(s0, s1), false), 7, Math.min(t0, t1), true), 7, Math.max(t0, t1), false);
-                    if (r.size() >= 3) out.add(r);
+                    if (some(r)) out.add(r);
                     i = e;
                 }
             }
             rowStart = j;
         }
         return true;
+    }
+
+    // a polygon with no area or a sliver (a piece cut to a run of shown pixels it only touches, a triangle met along
+    // its edge, a cut on the atlas's float UVs a hair off the texel's edge): it draws nothing, and is dropped. Its
+    // thickness, area by half the perimeter, under 1/2000 block (1/125 of a texel)
+    static boolean some(List<double[]> r) {
+        if (r.size() < 3) return false;
+        double a = 0, per = 0;
+        for (int i = 0; i < r.size(); i++) {
+            double[] p = r.get(i), q = r.get((i + 1) % r.size());
+            a += p[0] * q[1] - q[0] * p[1];
+            per += Math.hypot(q[0] - p[0], q[1] - p[1]);
+        }
+        a = Math.abs(a) / 2;
+        return a > 1e-7 && a / (per / 2) > 5e-4;
     }
 
     // the piece lies wholly on solid pieces of its group (the same plane)
@@ -1999,6 +2076,11 @@ public final class Tracers {
     // a cut polygon as x, y, z from the hole's centre and the hole texture's u, v (turned / mirrored like quad())
     private static void addPoly(List<double[]> polys, List<Vector3d> poly, Vector3d at, Vector3d t1, Vector3d t2, double half, int turn) {
         if (poly.size() < 3) return;
+        // a piece cut down to a line or a point (a face's edge touching the hole) draws nothing
+        Vector3d area = new Vector3d();
+        for (int i = 1; i + 1 < poly.size(); i++)
+            area.add(new Vector3d(poly.get(i)).sub(poly.get(0)).cross(new Vector3d(poly.get(i + 1)).sub(poly.get(0))));
+        if (area.length() < 1e-9) return;
         double[] out = new double[poly.size() * 6];
         int k = 0;
         for (Vector3d p : poly) {
