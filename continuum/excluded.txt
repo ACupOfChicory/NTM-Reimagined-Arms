@@ -73,3 +73,6 @@ mixin/mc/MixinPreparedModelHit.java
 # Alex's Caves / Citadel post effects: written against 26.2's render pass
 mixin/mc/MixinAlexPostEffects.java
 mixin/mc/MixinAlexRenderSetup.java
+# the joint check of fences (-PfenceSeam): Continuum's own ClientSmoke has no step for it, and it is written against
+# 26.2's HUD toggle and NTM NEXT's list of bullets (BulletConfig.configs); the fix it checks (Tracers.drawnQuads) is built
+FenceSeamCheck.java
