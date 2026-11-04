@@ -19,11 +19,12 @@ final class ArmRig {
 
     // ---------------------------------------------------------------- numbers
 
-    // the shortest spelling that reads back as the same float ("2", "0.625", "-0")
+    // the shortest spelling that reads back as the same float ("2", "0.625", "-0", "0.00001"); never an exponent:
+    // the minus of "1.0E-5" would read as an offset from a named moment in a path key's time
     static String number(float v) {
         if (v == 0F) return Float.floatToRawIntBits(v) < 0 ? "-0" : "0";
-        if (v == Math.rint(v) && Math.abs(v) < 1e7F) return Integer.toString((int) v);
-        return Float.toString(v);
+        if (!Float.isFinite(v)) return Float.toString(v);
+        return new java.math.BigDecimal(Float.toString(v)).stripTrailingZeros().toPlainString();
     }
 
     static String vector(float[] v) {
@@ -319,6 +320,22 @@ final class ArmRig {
         return times.containsKey(base.trim().toLowerCase(Locale.ROOT)) ? base : null;
     }
 
+    // the segment the game plays for this animation: the last one with a key it can read (a later segment without
+    // one is skipped by the game); none such -> the last one written for it, or null
+    static Segment<PathEntry> pathTrack(Tracks<PathEntry> doc, String animation, Map<String, Float> times) {
+        Segment<PathEntry> found = null;
+        for (var s : doc.segments) {
+            if (!animation(s.head).equals(animation)) continue;
+            for (var e : s.entries) {
+                if (e.key(times) != null) {
+                    found = s;
+                    break;
+                }
+            }
+        }
+        return found != null ? found : doc.forAnimation(animation);
+    }
+
     // the keys of one animation the game uses, in time order, each with its ms (for the editor)
     static List<PathEntry> sorted(Segment<PathEntry> s, Map<String, Float> times) {
         var out = new ArrayList<PathEntry>();
@@ -529,18 +546,38 @@ final class ArmRig {
     // one animation's adjustments set to these; entries equal to ones already written stay as written
     static void putAdjustments(Tracks<Value> doc, String animation, SortedMap<Float, float[]> track) {
         var s = doc.findOrAdd(animation);
-        var old = new ArrayList<>(s.entries);
-        s.entries.clear();
+        // what the game reads now at each time: the last entry written for it
+        Map<Float, float[]> now = new HashMap<>();
+        for (var o : s.entries) if (o.v() != null) now.put(o.v()[0], Arrays.copyOfRange(o.v(), 1, 7));
+        // a time whose value stays keeps every entry written for it, in place (two spellings of one time too)
+        var out = new ArrayList<Value>();
+        var kept = new HashSet<Float>();
+        for (var o : s.entries) {
+            if (o.v() == null) {
+                out.add(o);
+                continue;
+            }
+            float[] want = track.get(o.v()[0]);
+            if (want != null && Arrays.equals(want, now.get(o.v()[0]))) {
+                out.add(o);
+                kept.add(o.v()[0]);
+            }
+        }
+        // the rest written anew, each before the first entry that comes later
         for (var e : track.entrySet()) {
-            Value same = null;
-            for (var o : old) {
-                if (o.v() != null && o.v()[0] == e.getKey() && Arrays.equals(Arrays.copyOfRange(o.v(), 1, 7), e.getValue())) {
-                    same = o;
+            if (kept.contains(e.getKey())) continue;
+            int at = out.size();
+            for (int j = 0; j < out.size(); j++) {
+                var v = out.get(j).v();
+                if (v != null && Float.compare(v[0], e.getKey()) > 0) {
+                    at = j;
                     break;
                 }
             }
-            s.entries.add(same != null ? same : adjustment(e.getKey(), e.getValue()));
+            out.add(at, adjustment(e.getKey(), e.getValue()));
         }
+        s.entries.clear();
+        s.entries.addAll(out);
     }
 
     // ---------------------------------------------------------------- what a hand carries (armLeftCarry)

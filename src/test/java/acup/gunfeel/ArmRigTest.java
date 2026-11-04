@@ -253,6 +253,42 @@ class ArmRigTest {
         return doc.write();
     }
 
+    // findings of the Sol review (2026-11-04)
+    @Test
+    void editorOpensTheSegmentTheGamePlays() {
+        var doc = ArmRig.path("RELOAD 0:Lever@1,2,3 100:grip; RELOAD; reload x:bad");
+        var track = ArmRig.pathTrack(doc, "RELOAD", Map.of());
+        assertEquals(2, ArmRig.sorted(track, Map.of()).size(), "the first segment, the one the game reads");
+        assertEquals("Lever", ArmRig.sorted(track, Map.of()).get(0).part);
+        assertEquals(describe(ArmRig.pathKeys("RELOAD 0:Lever@1,2,3 100:grip", "").get("RELOAD")),
+                describe(ArmRig.pathKeys("RELOAD 0:Lever@1,2,3 100:grip; RELOAD; reload x:bad", "").get("RELOAD")));
+        assertNotNull(ArmRig.pathTrack(ArmRig.path("RELOAD x:bad"), "RELOAD", Map.of()), "nothing readable: the one written");
+        assertNull(ArmRig.pathTrack(ArmRig.path("INSPECT 0:grip"), "RELOAD", Map.of()));
+    }
+
+    @Test
+    void adjustmentsKeepEveryEntryOfAnUnchangedTime() {
+        String src = "RELOAD 0:1,0,0,0,0,0 0.0:2,0,0,0,0,0 100:0,0,0,0,0,0";
+        var doc = ArmRig.adjustmentTracks(src);
+        var track = ArmRig.adjustments(src).get("RELOAD");
+        track.put(100F, new float[] {0, 0, 0, 0, 0, 5});
+        track.put(50F, new float[] {1, 0, 0, 0, 0, 0});
+        ArmRig.putAdjustments(doc, "RELOAD", track);
+        assertEquals("RELOAD 0:1,0,0,0,0,0 0.0:2,0,0,0,0,0 50:1,0,0,0,0,0 100:0,0,0,0,0,5", doc.write());
+        assertEquals(describe(track), describe(ArmRig.adjustments(doc.write()).get("RELOAD")));
+    }
+
+    @Test
+    void tinyAndHugeTimesAreWrittenWithoutExponent() {
+        var doc = ArmRig.path("RELOAD 0:Lever@1,2,3");
+        var key = doc.forAnimation("RELOAD").entries.get(0);
+        key.retime(-0.00001F, Map.of());
+        assertEquals("RELOAD -0.00001:Lever@1,2,3", doc.write());
+        assertEquals(-0.00001F, ArmRig.pathKeys(doc.write(), "").get("RELOAD").get(0).ms());
+        assertEquals("3000000000", ArmRig.number(3e9F));
+        assertEquals("0.1", ArmRig.number(0.1F));
+    }
+
     @Test
     void numbersAreShortAndReadBackTheSame() {
         for (float v : new float[] {0F, -0F, 1F, -2F, 0.625F, 1.12F, -4.06F, 1e-5F, 123456.5F, 3e9F, 0.1F, 2410F})

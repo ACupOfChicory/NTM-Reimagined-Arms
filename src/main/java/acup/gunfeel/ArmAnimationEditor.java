@@ -71,8 +71,9 @@ public final class ArmAnimationEditor extends Screen {
     }
     private void load() {
         try {
-            pathDoc=ArmRig.path(paths[hand]);pathTrack=pathDoc.forAnimation(cue.name());
-            keys=ArmRig.sorted(pathTrack,ArmRig.pathTimes(Config.armPathTimes));
+            var times=ArmRig.pathTimes(Config.armPathTimes);
+            pathDoc=ArmRig.path(paths[hand]);pathTrack=ArmRig.pathTrack(pathDoc,cue.name(),times);
+            keys=ArmRig.sorted(pathTrack,times);
             if(keys.isEmpty()) {
                 keys.add(ArmRig.PathEntry.grip(0));keys.add(ArmRig.PathEntry.grip(Math.max(1,ArmAnimationPreview.duration())));
             }
