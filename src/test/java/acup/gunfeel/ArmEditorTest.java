@@ -41,6 +41,8 @@ class ArmEditorTest {
 
     // a stand-in model: a box 4 x 4 x 20, fractions as shares of it; as the real model, it has no section beyond its ends
     // (GunGeometry.fractions then gives the middle and the bottom); two parts a hand can move with
+    static final Map<String, int[]> MOVES = Map.of("SHELL", new int[] {200, 800}, "ROLL", new int[] {1000, 2000});
+
     static ArmEditor.Clips clips(Collection<String> names, String variant, boolean measured) {
         var list = names.stream().map(n -> new ArmEditor.Clip(n, 4000)).toList();
         ArmEditor.Shape box = new ArmEditor.Shape() {
@@ -77,6 +79,11 @@ class ArmEditorTest {
             public List<String> parts() {
                 return List.of("Pump", "Lever");
             }
+
+            // two parts the animation moves: a shell early, a turn of the gun later
+            public Map<String, int[]> moves(String clip) {
+                return MOVES;
+            }
         };
     }
 
@@ -92,6 +99,17 @@ class ArmEditorTest {
 
     // every setting of the gun made its own: lengths and bases 0 first (the thickness that grows with the arm), then
     // each number a step, each part and switch once, each variant its own grip
+    // each number of the page a step (down, else up)
+    private static void stepAll(ArmEditor e) {
+        for (var a : e.actions()) {
+            String id = a.id();
+            if (!id.startsWith("set.") || id.contains("armBase") || id.contains("armLength") || !id.endsWith(".minus")) continue;
+            String plus = id.substring(0, id.length() - 6) + ".plus";
+            if (a.active()) a.run().run();
+            else tap(e, plus);
+        }
+    }
+
     private static void ownEverything(ArmEditor e) {
         for (String k : List.of("armBaseRight", "armBaseLeft", "armLength")) Grips.put(e.gun, k, "0", false);
         Config.select(e.gun);
@@ -99,18 +117,38 @@ class ArmEditorTest {
             for (int h = 0; h < 2; h++) {
                 e.page = p;
                 e.hand = h;
-                for (var a : e.actions()) {
-                    String id = a.id();
-                    if (!id.startsWith("set.") || id.contains("armBase") || id.contains("armLength") || !id.endsWith(".minus")) continue;
-                    String plus = id.substring(0, id.length() - 6) + ".plus";
-                    if (a.active()) a.run().run();
-                    else tap(e, plus);
-                }
+                stepAll(e);
                 tap(e, "grip.part.next");
                 tap(e, "grip.variant.own");
                 tap(e, "set.armSlideNearest.toggle");
                 tap(e, "set.armSlide.toggle");
             }
+        // the key page's track settings: a moment of its own, something carried (a second part too, its own on the
+        // reload), a part the hand lets go at, the magazine in the inspect
+        e.page = ArmEditor.Page.KEY;
+        e.keyView = ArmEditor.KeyView.TRACK;
+        for (int h = 0; h < 2; h++) {
+            e.hand = h;
+            e.track = ArmEditor.Track.PATH;
+            e.time = e.duration() / 2F;
+            if (h == 1) tap(e, "moment.add");
+            e.track = ArmEditor.Track.CARRY;
+            tap(e, "carry.add");
+            tap(e, "carry.bus.add");
+            tap(e, "carry.reload.own");
+            e.keyView = ArmEditor.KeyView.HOLD;
+            stepAll(e);
+            e.keyView = ArmEditor.KeyView.TRACK;
+            e.track = ArmEditor.Track.RELEASE;
+            tap(e, "release.next");
+            stepAll(e);
+            e.track = ArmEditor.Track.AROUND;
+            stepAll(e);
+        }
+        e.time = 0F;
+        e.keyView = ArmEditor.KeyView.WHERE;
+        e.page = ArmEditor.Page.ARM;
+        tap(e, "set.armInspectReleaseMs.toggle");
         e.page = ArmEditor.Page.TIME;
         e.hand = 1;
     }
@@ -155,16 +193,16 @@ class ArmEditorTest {
                                         if (lane(page)) times.addAll(fresh.keys(t));
                                         for (float time : times) {
                                             fresh.time = time;
-                                            for (boolean approach : page == ArmEditor.Page.KEY ? new boolean[] {false, true} : new boolean[] {false})
+                                            for (var view : page == ArmEditor.Page.KEY ? ArmEditor.KeyView.values() : new ArmEditor.KeyView[] {ArmEditor.KeyView.WHERE})
                                                 for (boolean playing : new boolean[] {false, true}) {
-                                                    fresh.approach = approach;
+                                                    fresh.keyView = view;
                                                     fresh.playing = playing;
                                                     states++;
                                                     int[] n = check(fresh, g.getKey(), seen, shown);
                                                     pressed += n[0];
                                                     grey += n[1];
                                                 }
-                                            fresh.approach = false;
+                                            fresh.keyView = ArmEditor.KeyView.WHERE;
                                         }
                                     }
                             // settings pages: the same for every animation, one is enough
@@ -188,13 +226,18 @@ class ArmEditorTest {
                 "page.key", "key.add", "key.delete", "set.key.time.plus", "set.key.from.minus", "set.key.to.plus", "key.part.next", "key.nth",
                 "set.key.point.0.plus", "key.contact.next", "set.key.roll.minus", "key.roll.reset", "key.view.approach", "key.view.where",
                 "key.side.next", "key.side.reset", "set.key.shoulder.2.plus", "key.follow", "set.key.weight.minus", "key.kind.next",
-                "set.key.bus.plus", "set.key.angle.plus", "set.key.adjust.5.minus"))
+                "set.key.bus.plus", "set.key.angle.plus", "set.key.adjust.5.minus", "key.view.track", "key.view.hold", "moment.add", "set.moment.0.plus",
+                "moment.0.delete", "key.moment.next", "set.armPathMinLength.plus", "set.armPathBlend.toggle", "carry.add", "carry.delete", "carry.reload.own",
+                "carry.reload.common", "carry.part.next", "carry.bus.next", "carry.bus.add", "carry.bus.delete", "set.carry.grab.plus", "set.carry.at.0.plus",
+                "set.carry.dir.0.plus", "carry.dir.reset", "set.armCarryTurnLeft.plus", "set.armCarryKeepAngle.toggle", "release.next", "release.reset",
+                "set.armReleaseMove.0.plus", "set.armAroundShiftReload.plus", "set.armLoadRollLeft.plus", "set.armLoadScaleLeft.reset",
+                "set.armInspectReleaseMs.toggle", "set.armInspectReleaseMs.plus"))
             assertTrue(shown.contains(id), id + " was never shown");
     }
 
     // the rows of buttons at the top of a settings page (ArmEditorScreen.settingsPage)
     static final Set<String> TOP = Set.of("clip.prev", "play", "clip.next", "speed", "hand.right", "hand.left", "undo", "redo", "reset", "arms.own",
-            "arms.shared", "close", "key.prev", "key.next", "key.add", "key.delete");
+            "arms.shared", "close", "key.prev", "key.next", "key.add", "key.delete", "key.view.where", "key.view.approach", "key.view.track", "key.view.hold");
 
     // the pages that go along the animation: every track, at every key
     private static boolean lane(ArmEditor.Page p) {
@@ -270,6 +313,16 @@ class ArmEditorTest {
                 for (var en : seg.entries) if (en.valid() && !en.grip()) parts.add(en.part);
         // named moments of the path ("release"), as the gun's data names them
         parts.addAll(ArmRig.pathTimes(Config.armPathTimes).keySet());
+        // what the hands carry and let go at: the model's parts and NTM's buses, as they are named
+        for (String src : List.of(Config.armRightCarry, Config.armLeftCarry, Config.armRightCarryReload, Config.armLeftCarryReload)) {
+            var c = ArmRig.carry(src);
+            if (c != null) {
+                parts.add(c.part());
+                parts.addAll(List.of(c.buses()));
+            }
+        }
+        parts.addAll(List.of(Config.armReleaseRight, Config.armReleaseLeft));
+        if (e.clip() != null) parts.addAll(e.clips.moves(e.clip().name()).keySet());
         parts.removeIf(String::isEmpty);
         parts.sort(Comparator.comparingInt(String::length).reversed());
         for (String part : parts) t = t.replaceAll("(?i)" + java.util.regex.Pattern.quote(part), "");

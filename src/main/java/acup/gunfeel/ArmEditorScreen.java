@@ -22,7 +22,7 @@ import net.minecraft.world.item.ItemStack;
 
 /** Экран «Руки пушки»: показывает {@link ArmEditor}. Каждая кнопка — действие модели с подсказкой. */
 public final class ArmEditorScreen extends Screen {
-    private static final int W = 244, H = 14, GAP = 2, LABEL = 84, ROW = 10, BUS = 4, SET_H = 12, SET_STEP = 14, SMALL = 16;
+    private static final int W = 244, H = 14, GAP = 2, LABEL = 84, ROW = 10, BUS = 4, SET_H = 12, SET_STEP = 13, SMALL = 16;
     private static final int[] COLOR = {0xFF555566, 0xFFB07CFF, 0xFF4FC3F7, 0xFFFFB74D, 0xFFE57373, 0xFF81C784, 0xFF9E9E9E};
     private final Screen parent;
     private final Item item;
@@ -315,6 +315,8 @@ public final class ArmEditorScreen extends Screen {
         y += H + GAP;
         if (model.page == ArmEditor.Page.KEY) {
             row(a, y, "key.prev", "key.next", "key.add", "key.delete");
+            y += H + GAP;
+            row(a, y, "key.view.where", "key.view.approach", "key.view.track", "key.view.hold");
             y += H + GAP;
         }
         textY = y + 1;

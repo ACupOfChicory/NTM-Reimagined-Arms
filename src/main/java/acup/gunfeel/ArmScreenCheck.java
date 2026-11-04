@@ -102,18 +102,29 @@ final class ArmScreenCheck {
                 pressAll(gun + " · " + page.label);
                 if (page == ArmEditor.Page.BOTH) drag(gun);
             });
-            // the key page of a path key shows how the hand comes, too
-            if (page == ArmEditor.Page.KEY) TODO.add(() -> {
-                var m = screen.model();
-                var b = screen.button("key.view.approach");
-                if (b == null) return;
-                b.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
-                ClientSmoke.check(m.approach, gun + ": «Подход» показал подход");
-                layout(gun + " · " + page.label + " · подход");
-                pressAll(gun + " · " + page.label + " · подход");
-                m.approach = false;
-                screen.refresh();
-            });
+            // the key page's other views: on the key it stands on, then the settings of the carrying, releasing and
+            // going-round tracks, in an animation where the track has them
+            if (page == ArmEditor.Page.KEY) {
+                for (var v : List.of(ArmEditor.KeyView.APPROACH, ArmEditor.KeyView.TRACK)) TODO.add(() -> view(gun, v));
+                for (var t : List.of(ArmEditor.Track.CARRY, ArmEditor.Track.RELEASE, ArmEditor.Track.AROUND))
+                    for (var v : t == ArmEditor.Track.CARRY ? List.of(ArmEditor.KeyView.TRACK, ArmEditor.KeyView.HOLD) : List.of(ArmEditor.KeyView.TRACK)) {
+                        TODO.add(() -> {
+                            var m = screen.model();
+                            m.track = t;
+                            m.hand = 1;
+                            m.clip = 0;
+                            for (int c = 0; c < m.clipList().size(); c++) if (m.clipList().get(c).name().equals("RELOAD")) m.clip = c;
+                            m.playing = false;
+                            m.seek(m.duration() / 2F);
+                            screen.refresh();
+                        });
+                        TODO.add(() -> view(gun, v));
+                        if (gun.endsWith("sexy") && t == ArmEditor.Track.CARRY && v == ArmEditor.KeyView.TRACK) {
+                            TODO.add(() -> {});
+                            TODO.add(() -> shot("arm-screen-carry.png"));
+                        }
+                    }
+            }
         }
         TODO.add(() -> {
             var close = screen.button("close");
@@ -122,6 +133,22 @@ final class ArmScreenCheck {
             ClientSmoke.check(Minecraft.getInstance().gui.screen() == null, gun + ": «Готово» закрыла экран");
             ClientSmoke.check(!ArmAnimationPreview.active(), gun + ": после закрытия предпросмотр выключен");
         });
+    }
+
+    // a view of the key page through its button: shown, laid out, pressed through; then back to the key
+    private static void view(String gun, ArmEditor.KeyView v) {
+        var m = screen.model();
+        String name = v.name().toLowerCase(Locale.ROOT);
+        var b = screen.button("key.view." + name);
+        ClientSmoke.check(b != null, gun + ": есть кнопка вида «" + v.label + "»");
+        if (b == null || !b.active) return;
+        b.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+        String where = gun + " · Ключ · " + m.track.label + " · " + v.label;
+        ClientSmoke.check(m.shownView() == v, where + ": вид показан");
+        layout(where);
+        pressAll(where);
+        m.keyView = ArmEditor.KeyView.WHERE;
+        screen.refresh();
     }
 
     private static void compare(String gun, ArmEditor m) {

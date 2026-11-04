@@ -109,6 +109,21 @@ final class ArmEditor {
         }
     }
 
+    // the views of the key page
+    enum KeyView {
+        WHERE("Ключ", "Ключ выбранной дорожки в этот момент: когда он и где рука."),
+        APPROACH("Подход", "Как рука подходит к детали в этом ключе: сторона подхода и сдвиг плеча."),
+        TRACK("Дорожка", "Настройки всей дорожки в этой анимации: моменты, что рука несёт, когда отпускает оружие."),
+        HOLD("Как держит", "Как рука держит то, что несёт: с какой стороны, поворот, угол руки.");
+
+        final String label, hint;
+
+        KeyView(String label, String hint) {
+            this.label = label;
+            this.hint = hint;
+        }
+    }
+
     static final int STEP = 10;
     static final double[] SPEEDS = {.05, .1, .25, .5, 1};
 
@@ -123,8 +138,8 @@ final class ArmEditor {
     double speed = .25;
     Track track = Track.PATH;
     Page page = Page.TIME;
-    // the key page of a path key shows how the hand comes (side, shoulder) instead of where it is
-    boolean approach;
+    // what the key page shows: the key, how a path key's hand comes, or the settings of the whole track
+    KeyView keyView = KeyView.WHERE;
     private int version = Integer.MIN_VALUE;
     private ArmRig.Drive[] drives;
 
@@ -269,8 +284,6 @@ final class ArmEditor {
     // a track that cannot act on this hand at all, and why; null = it can
     String trackWhy(Track t) {
         if (t == Track.AROUND && hand == 0) return "обходит деталь только левая рука";
-        if (t == Track.RELEASE && settingSource(Config.armReleaseRight, Config.armReleaseLeft).isEmpty())
-            return "этой руке не задано, при вращении какой детали отпускать оружие";
         return null;
     }
 
@@ -289,6 +302,8 @@ final class ArmEditor {
     String trackNote(Track t) {
         String why = trackWhy(t);
         if (why != null) return why;
+        if (t == Track.RELEASE && settingSource(Config.armReleaseRight, Config.armReleaseLeft).isEmpty())
+            return "Этой руке не задано, при вращении какой детали отпускать оружие. Задать: «Ключ», вид «Дорожка».";
         var k = keys(t);
         if (k.isEmpty()) return null;
         long late = k.stream().filter(x -> x > duration()).count();
@@ -453,6 +468,7 @@ final class ArmEditor {
         out.add(new Action("key.delete", "− Ключ", track == Track.HIDE ? "Больше не скрывать руку в этом отрезке." : "Удалить ключ выбранной дорожки в этот момент.",
                 "Delete", cannot != null ? cannot : key == null ? (track == Track.HIDE ? "рука в этот момент не скрыта" : "в этот момент ключа нет") : null,
                 () -> change(() -> editKey((ks, x) -> ks.delete(x)))));
+        viewActions(out);
     }
 
     // why the selected track has no keys to add or delete here; null = it has
@@ -666,7 +682,7 @@ final class ArmEditor {
         var out = new ArrayList<Knob>();
         String s = side();
         switch (p) {
-            case KEY -> out.addAll(keyKnobs());
+            case KEY -> out.addAll(trackView() ? trackKnobs() : keyKnobs());
             case GRIP -> {
                 for (int c = 0; c < 3; c++) out.add(new GripKnob(c));
             }
@@ -687,8 +703,19 @@ final class ArmEditor {
                                 ? "действует, только когда «Основа толщины» этой руки 0 или «Длина руки» 0" : null;
                     }
                 });
+                out.add(new FallbackKnob("armLoadRoll" + s, "armRoll" + s, "Поворот на зарядке",
+                        "Поворот руки вокруг своей оси, пока она идёт по деталям или несёт. Если не задан, как «Поворот руки».", "°", -180F, 180F, 1F));
+                out.add(new ConfigKnob("armLoadScale" + s, -1, "Толщина на зарядке", "Толщина руки, пока она идёт по деталям или несёт, поверх обычной.", "×",
+                        0.2F, 2.5F, 0.01F));
                 if (hand == 1) out.add(new ConfigKnob("armInspectDrop", -1, "Опускание при осмотре",
                         "На сколько опускается левая рука при осмотре, когда оружие лежит на боку, в пикселях руки.", "", 0F, 4F, 0.1F));
+                if (hand == 1) out.add(new ConfigKnob("armInspectReleaseMs", -1, "Магазин до",
+                        "При осмотре левая рука держит вынутый магазин до этого времени.", "мс", 0F, 5000F, 10F) {
+                    @Override
+                    String why() {
+                        return get() < 0F ? "левая рука не держит магазин при осмотре: «Вкл» справа" : null;
+                    }
+                });
             }
             case BOTH -> {
                 out.add(new ConfigKnob("armScale", -1, "Толщина обеих", "Множитель толщины обеих рук.", "×", 0.2F, 2F, 0.01F));
@@ -865,7 +892,7 @@ final class ArmEditor {
             case PATH -> {
                 var e = k.pathEntry(key);
                 if (e.grip()) break;
-                if (!approach) {
+                if (shownView() != KeyView.APPROACH) {
                     String[] l = {"Точка ← →", "Точка ↓ ↑", "Точка вдоль"};
                     for (int c = 0; c < 3; c++) {
                         int ci = c;
@@ -976,11 +1003,10 @@ final class ArmEditor {
                     null, List.of()));
             return out;
         }
-        String head = "«" + track.label + "», ключ " + (k.indexOf(key) + 1) + " из " + k.keys().size();
         boolean pathPart = track == Track.PATH && !k.pathEntry(key).grip();
-        out.add(new Row(pathPart ? (approach ? "Ключ " + (k.indexOf(key) + 1) + " из " + k.keys().size() + ": подход" : "Ключ " + (k.indexOf(key) + 1) + " из "
-                + k.keys().size() + ": где рука") : head, "Дорожку выбирают на странице «Анимации».", null,
-                pathPart ? List.of("key.view.where", "key.view.approach") : List.of()));
+        boolean approach = shownView() == KeyView.APPROACH;
+        out.add(new Row("«" + track.label + "», ключ " + (k.indexOf(key) + 1) + " из " + k.keys().size() + (approach ? ": подход" : ""),
+                "Дорожку выбирают на странице «Анимации».", null, List.of()));
         var knobs = keyKnobs();
         Runnable slider = () -> {
             var kn = knobs.remove(0);
@@ -1043,6 +1069,7 @@ final class ArmEditor {
         }
         if (track != Track.PATH) return;
         var e = k.pathEntry(key);
+        boolean approach = shownView() == KeyView.APPROACH;
         var parts = pathParts(e.grip() ? "grip" : e.part);
         int at = parts.indexOf(e.grip() ? "grip" : e.part);
         String one = parts.size() < 2 ? "у модели этого оружия нет отдельных деталей" : null;
@@ -1056,10 +1083,6 @@ final class ArmEditor {
                         x.touched();
                     }))));
         if (e.grip()) return;
-        out.add(new Action("key.view.where", "Точка", "Показать, где рука в этом ключе: деталь, точка, касание, поворот кисти.", "",
-                approach ? null : "это уже показано", () -> approach = false));
-        out.add(new Action("key.view.approach", "Подход", "Показать, как рука подходит: сторона подхода и сдвиг плеча.", "",
-                approach ? "это уже показано" : null, () -> approach = true));
         if (!approach) {
             out.add(new Action("key.nth", e.nth == 0 ? "Последняя" : "Первая", "Брать первую или последнюю копию детали, если модель рисует её несколько раз.", "", null,
                     () -> change(() -> editKey((x, y) -> {
@@ -1098,6 +1121,562 @@ final class ArmEditor {
                         if (pe.shoulder == null) pe.shoulder = new float[3];
                         x.touched();
                     }))));
+        }
+    }
+
+    // ---- the key page: its views, and the settings of the whole track
+
+    // why the key page cannot show a view of the selected track now; null = it can
+    String viewWhy(KeyView v) {
+        if (noClip() != null) return noClip();
+        return switch (v) {
+            case WHERE -> track == Track.RELEASE ? "у дорожки «Отпускает» нет ключей, только настройки всей дорожки" : null;
+            case APPROACH -> {
+                if (track != Track.PATH) yield "подход есть только у ключей дорожки «По деталям»";
+                String why = keyless();
+                if (why != null) yield why;
+                var key = keysOf(track).at(time);
+                if (key == null) yield "в этот момент ключа нет";
+                yield keysOf(track).pathEntry(key).grip() ? "ключ на хвате: рука на своём месте, подходить не к чему" : null;
+            }
+            case TRACK -> track == Track.HIDE || track == Track.ADJUST ? "у дорожки «" + track.label + "» нет настроек всей дорожки, только ключи"
+                    : trackWhy(track);
+            case HOLD -> track != Track.CARRY ? "это есть только у дорожки «Несёт»" : null;
+        };
+    }
+
+    // the view the key page shows: the one chosen when it can be shown, else the key (a track without keys: the track)
+    KeyView shownView() {
+        if (noClip() != null) return KeyView.WHERE;
+        if (viewWhy(keyView) == null) return keyView;
+        return viewWhy(KeyView.WHERE) == null ? KeyView.WHERE : KeyView.TRACK;
+    }
+
+    boolean trackView() {
+        var v = shownView();
+        return v == KeyView.TRACK || v == KeyView.HOLD;
+    }
+
+    private void viewActions(List<Action> out) {
+        var shown = shownView();
+        for (var v : KeyView.values())
+            out.add(new Action("key.view." + v.name().toLowerCase(Locale.ROOT), v.label, v.hint, "", v == shown ? "это уже показано" : viewWhy(v), () -> keyView = v));
+    }
+
+    // a text setting of the gun: the gun's own value only when it differs from what the gun has anyway
+    private void putText(String key, String text) {
+        Grips.put(gun, key, null, false);
+        if (!text.equals(config(key))) Grips.put(gun, key, text, false);
+        Config.select(gun);
+    }
+
+    // a number that is NaN when unset and then acts as another setting (armLoadRollLeft: as armRollLeft)
+    private class FallbackKnob extends ConfigKnob {
+        final String fallback;
+
+        FallbackKnob(String key, String fallback, String label, String hint, String unit, float lo, float hi, float step) {
+            super(key, -1, label, hint, unit, lo, hi, step);
+            this.fallback = fallback;
+        }
+
+        @Override
+        float get() {
+            float v = super.get();
+            return Float.isNaN(v) ? ((Number) config(fallback)).floatValue() : v;
+        }
+    }
+
+    // a switch of the gun: key, label, hint
+    private Row switchRow(String[] sw) {
+        return new Row(sw[1] + ": " + (switchOn(sw[0]) ? "да" : "нет"), sw[2], null, List.of("set." + sw[0] + ".toggle", "set." + sw[0] + ".reset"));
+    }
+
+    private void switchActions(List<Action> out, String[] sw, String why) {
+        String key = sw[0];
+        out.add(new Action("set." + key + ".toggle", switchOn(key) ? "Выключить" : "Включить", sw[2], "", why, () -> change(() -> {
+            Grips.put(gun, key, String.valueOf(!switchOn(key)), false);
+            Config.select(gun);
+        })));
+        out.add(new Action("set." + key + ".reset", "↺", "Вернуть «" + sw[1] + "», как задано в моде.", "",
+                Grips.own(gun, key) != null ? null : "у этого оружия нет своего значения", () -> change(() -> {
+                    Grips.put(gun, key, null, false);
+                    Config.select(gun);
+                })));
+    }
+
+    private static final String[] PATH_BLEND = {"armPathBlend", "Плавно к хвату", "Рядом с хватом рука на пути плавно переходит в обычный хват (толщина, поворот)."};
+    private static final String[] KEEP_ANGLE = {"armCarryKeepAngle", "Рука как на хвате",
+            "Рука, которая несёт, не меняет угол и длину, а только сдвигается (как бутылка в осмотре дробовика). Для обеих рук."};
+    static final int MOMENTS = 4;
+
+    // ---- named moments (armPathTimes): "name=ms" entries, the game reads each name (lower case), the last one wins
+
+    private record Moment(String name, float ms, int entry) {
+    }
+
+    private List<Moment> moments() {
+        String[] entries = ((String) config("armPathTimes")).split(",");
+        Map<String, Moment> byName = new LinkedHashMap<>();
+        for (int i = 0; i < entries.length; i++) {
+            String t = entries[i];
+            int eq = t.indexOf('=');
+            if (eq <= 0) continue;
+            try {
+                String name = t.substring(0, eq).trim();
+                float ms = Float.parseFloat(t.substring(eq + 1).trim());
+                byName.remove(name.toLowerCase(Locale.ROOT));
+                byName.put(name.toLowerCase(Locale.ROOT), new Moment(name, ms, i));
+            } catch (NumberFormatException e) {
+                // the game skips it too
+            }
+        }
+        var out = new ArrayList<>(byName.values());
+        out.sort(Comparator.comparingInt(Moment::entry));
+        return out;
+    }
+
+    private void putMoment(Moment m, Float ms) {
+        var entries = new ArrayList<>(List.of(((String) config("armPathTimes")).split(",")));
+        if (ms != null) entries.set(m.entry, m.name + "=" + ArmRig.number(ms));
+        else entries.removeIf(t -> t.indexOf('=') > 0 && t.substring(0, t.indexOf('=')).trim().equalsIgnoreCase(m.name));
+        entries.removeIf(String::isBlank);
+        putText("armPathTimes", String.join(",", entries));
+    }
+
+    // the path keys of both hands, in every animation, written from a moment
+    private int keysFrom(String moment) {
+        var times = ArmRig.pathTimes((String) config("armPathTimes"));
+        int n = 0;
+        for (String src : new String[] {(String) config("armRightPath"), (String) config("armLeftPath")})
+            for (var seg : ArmRig.path(src).segments)
+                for (var e : seg.entries) {
+                    String base = e.valid() ? ArmRig.momentOf(e.time, times) : null;
+                    if (base != null && base.trim().equalsIgnoreCase(moment)) n++;
+                }
+        return n;
+    }
+
+    private int longest() {
+        int out = 0;
+        for (var c : list) out = Math.max(out, c.ms());
+        return out;
+    }
+
+    private final class MomentKnob extends Knob {
+        final int i;
+
+        MomentKnob(int i, Moment m) {
+            super("moment." + i, "Момент «" + m.name + "»",
+                    "Время с именем. Ключи, записанные от него, сдвигаются вместе с ним: у обеих рук, во всех анимациях.", "мс", STEP);
+            this.i = i;
+        }
+
+        float get() {
+            return moments().get(i).ms;
+        }
+
+        void put(float v) {
+            putMoment(moments().get(i), v);
+        }
+
+        float lo() {
+            return Math.min(0F, get());
+        }
+
+        float hi() {
+            return Math.max(longest(), get());
+        }
+    }
+
+    // ---- what a hand carries (armLeftCarry, or armLeftCarryReload on a reload that has it)
+
+    private static boolean reloadClip(String name) {
+        return name.equals("RELOAD") || name.equals("RELOAD_CYCLE") || name.equals("RELOAD_END");
+    }
+
+    private boolean onReload() {
+        return !list.isEmpty() && reloadClip(clip().name());
+    }
+
+    private String reloadKey() {
+        return "arm" + side() + "CarryReload";
+    }
+
+    // the setting the game reads for what this hand carries in this animation
+    private String carryKey() {
+        return onReload() && !((String) config(reloadKey())).isEmpty() ? reloadKey() : "arm" + side() + "Carry";
+    }
+
+    // what is carried, as an edit: part, buses with a point each, grab time, side (null = from behind)
+    private static final class Carried {
+        String part;
+        final List<String> buses = new ArrayList<>();
+        final List<float[]> ats = new ArrayList<>();
+        int grab;
+        float[] dir;
+
+        static Carried of(ArmRig.CarrySpec c) {
+            var out = new Carried();
+            out.part = c.part();
+            out.buses.addAll(List.of(c.buses()));
+            for (var a : c.ats()) out.ats.add(a.clone());
+            // as the game: a bus without its own point takes the last one
+            while (out.ats.size() < out.buses.size()) out.ats.add(out.ats.get(out.ats.size() - 1).clone());
+            out.grab = c.grab();
+            out.dir = c.dir() == null ? null : c.dir().clone();
+            return out;
+        }
+
+        String write() {
+            var pts = new ArrayList<String>();
+            for (var a : ats) pts.add(ArmRig.vector(a));
+            return part + " " + String.join("|", buses) + " " + grab + " " + String.join("|", pts) + (dir == null ? "" : " " + ArmRig.vector(dir));
+        }
+    }
+
+    private Carried carried() {
+        var c = ArmRig.carry((String) config(carryKey()));
+        return c == null ? null : Carried.of(c);
+    }
+
+    private void putCarried(Carried c) {
+        putText(carryKey(), c.write());
+    }
+
+    // the buses that move in this animation, as the game names them
+    private List<String> moving() {
+        return list.isEmpty() ? List.of() : new ArrayList<>(new TreeSet<>(clips.moves(clip().name()).keySet()));
+    }
+
+    // the bus the game takes now: the first one that moves in this animation
+    private int activeBus(Carried c) {
+        var m = moving();
+        for (int i = 0; i < c.buses.size(); i++) if (m.contains(c.buses.get(i))) return i;
+        return 0;
+    }
+
+    // something new to carry: the first part that moves in this animation, within the gun's first part
+    private Carried newCarried() {
+        var m = moving();
+        if (m.isEmpty()) return null;
+        var c = new Carried();
+        c.part = clips.parts().isEmpty() ? "Gun" : clips.parts().get(0);
+        c.buses.add(m.get(0));
+        c.ats.add(new float[3]);
+        return c;
+    }
+
+    private interface CarryGet {
+        float get(Carried c, int bus);
+    }
+
+    private interface CarryPut {
+        void put(Carried c, int bus, float v);
+    }
+
+    private final class CarryKnob extends Knob {
+        final float lo, hi;
+        final CarryGet get;
+        final CarryPut put;
+
+        CarryKnob(String id, String label, String hint, String unit, float lo, float hi, float step, CarryGet get, CarryPut put) {
+            super("carry." + id, label, hint, unit, step);
+            this.lo = lo;
+            this.hi = hi;
+            this.get = get;
+            this.put = put;
+        }
+
+        float get() {
+            var c = carried();
+            return get.get(c, activeBus(c));
+        }
+
+        void put(float v) {
+            var c = carried();
+            put.put(c, activeBus(c), Math.clamp(v, lo(), hi()));
+            putCarried(c);
+        }
+
+        float lo() {
+            return Math.min(lo, get());
+        }
+
+        float hi() {
+            return Math.max(hi, get());
+        }
+    }
+
+    private static final String[] XYZ = {"← →", "↓ ↑", "вдоль"};
+
+    private String releaseKey() {
+        return "arm" + "Release" + side();
+    }
+
+    private String releaseBus() {
+        return (String) config(releaseKey());
+    }
+
+    // the knobs of the selected track's settings
+    private List<Knob> trackKnobs() {
+        var out = new ArrayList<Knob>();
+        var v = shownView();
+        if (v != KeyView.TRACK && v != KeyView.HOLD || noClip() != null) return out;
+        String s = side();
+        switch (track) {
+            case PATH -> {
+                var ms = moments();
+                for (int i = 0; i < Math.min(ms.size(), MOMENTS); i++) out.add(new MomentKnob(i, ms.get(i)));
+                out.add(new ConfigKnob("armPathMinLength", -1, "Рука видна хотя бы",
+                        "Рука на пути у самого глаза показывает хотя бы столько пикселей руки. 0 — сколько отрежет плоскость. Для обеих рук.", "пикс.", 0F, 32F, 1F));
+            }
+            case CARRY -> {
+                if (carried() == null) break;
+                if (v == KeyView.TRACK) {
+                    out.add(new CarryKnob("grab", "Взять в", "До этого момента рука тянется туда, где деталь тогда будет; дальше несёт её.", "мс", 0F,
+                            duration(), STEP, (c, b) -> c.grab, (c, b, x) -> c.grab = Math.round(x)));
+                    for (int i = 0; i < 3; i++) {
+                        int ci = i;
+                        out.add(new CarryKnob("at." + i, "Точка " + XYZ[i], "Какую точку детали держит рука, в единицах модели.", "", -16F, 16F, 0.025F,
+                                (c, b) -> c.ats.get(b)[ci], (c, b, x) -> c.ats.get(b)[ci] = x));
+                    }
+                } else {
+                    for (int i = 0; i < 3; i++) {
+                        int ci = i;
+                        out.add(new CarryKnob("dir." + i, "Подход " + XYZ[i],
+                                "С какой стороны и как далеко рука от точки: длина 1 — кисть касается её. Обычно сзади: 0, 0, −1.", "", -3F, 3F, 0.05F,
+                                (c, b) -> (c.dir == null ? ArmRig.DEFAULT_SIDE : c.dir)[ci], (c, b, x) -> {
+                                    if (c.dir == null) c.dir = ArmRig.DEFAULT_SIDE.clone();
+                                    c.dir[ci] = x;
+                                }));
+                    }
+                    out.add(new ConfigKnob("armCarryTurn" + s, -1, "Поворот у патрона",
+                            "Рука, которая несёт, поворачивается вокруг точки по оси патрона, чтобы не уходить в оружие. Плюс — плечом вправо.", "°", -90F, 90F, 1F));
+                }
+            }
+            case RELEASE -> {
+                String key = hand == 0 ? "armReleaseMoveRight" : "armReleaseMove";
+                String[] l = {"Отходит ← →", "Отходит ↓ ↑", "Отходит вперёд-назад"};
+                for (int i = 0; i < 3; i++)
+                    out.add(new ConfigKnob(key, i, l[i], "Куда рука отходит, пока оружие вращается, и возвращается, в пикселях руки.", "пикс.", -8F, 8F, 0.1F) {
+                        @Override
+                        String why() {
+                            return releaseBus().isEmpty() ? "рука не отпускает оружие: выбери деталь выше" : null;
+                        }
+                    });
+            }
+            case AROUND -> {
+                out.add(new ConfigKnob("armAroundShift", -1, "Сдвиг наружу", "Когда рука обходит деталь, она стоит на столько левее, снаружи детали. Под деталью сдвига нет.",
+                        "пикс.", -4F, 4F, 0.1F));
+                out.add(new ConfigKnob("armAroundTopDrop", -1, "Ниже сверху", "Когда рука над деталью, она опускается к ней на столько. Сбоку — меньше, до нуля.",
+                        "пикс.", -4F, 4F, 0.1F));
+                out.add(new FallbackKnob("armAroundShiftReload", "armAroundShift", "Сдвиг на зарядке", "То же на перезарядке. Если не задано, как «Сдвиг наружу».",
+                        "пикс.", -4F, 4F, 0.1F));
+                out.add(new FallbackKnob("armAroundTopDropReload", "armAroundTopDrop", "Ниже на зарядке", "То же на перезарядке. Если не задано, как «Ниже сверху».",
+                        "пикс.", -4F, 4F, 0.1F));
+            }
+            default -> {
+            }
+        }
+        return out;
+    }
+
+    private Row knobRow(Knob k) {
+        return new Row(null, k.hint, k.setting(), k instanceof ConfigKnob ? List.of("set." + k.id + ".minus", "set." + k.id + ".plus", "set." + k.id + ".reset")
+                : List.of("set." + k.id + ".minus", "set." + k.id + ".plus"));
+    }
+
+    private List<Row> trackRows() {
+        var out = new ArrayList<Row>();
+        var knobs = new ArrayDeque<>(trackKnobs());
+        var v = shownView();
+        switch (track) {
+            case PATH -> {
+                var ms = moments();
+                out.add(new Row("Моменты: " + ms.size(), "Время с именем: от него можно записать ключи («Время ключа» ниже), и они сдвигаются вместе с ним.", null,
+                        List.of("moment.add")));
+                var k = keysOf(track);
+                var key = k == null ? null : k.at(time);
+                String from = key == null ? null : k.moment(key);
+                out.add(new Row("Время ключа: " + (key == null ? "здесь ключа нет" : from == null ? "числом" : "от «" + from.trim() + "»"),
+                        "Записать время ключа в этот момент числом или от момента: тогда ключ сдвигается вместе с моментом.", null,
+                        List.of("key.moment.prev", "key.moment.next")));
+                for (int i = 0; i < Math.min(ms.size(), MOMENTS); i++) {
+                    var kn = knobs.poll();
+                    out.add(new Row(null, kn.hint, kn.setting(), List.of("set." + kn.id + ".minus", "set." + kn.id + ".plus", "moment." + i + ".delete")));
+                }
+                out.add(knobRow(knobs.poll()));
+                out.add(switchRow(PATH_BLEND));
+            }
+            case CARRY -> {
+                var c = carried();
+                String what = c == null ? (((String) config(carryKey())).isEmpty() ? "ничего" : "запись с ошибкой") : c.buses.get(activeBus(c));
+                String reload = carryKey().equals(reloadKey()) ? "На зарядке несёт: " : "Несёт: ";
+                if (v == KeyView.TRACK) {
+                    out.add(new Row(reload + what, "Что рука берёт: деталь, которую двигает анимация. Когда она её несёт — ключи этой дорожки.", null,
+                            List.of("carry.add", "carry.delete")));
+                    if (onReload())
+                        out.add(new Row("На зарядке: " + (carryKey().equals(reloadKey()) ? "своё" : "как всегда"),
+                                "На перезарядке рука может нести другое, чем в остальных анимациях.", null, List.of("carry.reload.own", "carry.reload.common")));
+                    if (c == null) break;
+                    out.add(new Row("Внутри: " + partName(c.part), "Деталь оружия, внутри которой анимация двигает то, что несёт рука.", null,
+                            List.of("carry.part.prev", "carry.part.next")));
+                    out.add(new Row("Деталь: " + c.buses.get(activeBus(c)) + (c.buses.size() > 1 ? ", " + (activeBus(c) + 1) + " из " + c.buses.size() : ""),
+                            "Что несёт рука: деталь, которую двигает анимация. Если их несколько (патроны по одному), рука берёт ту, что движется сейчас.", null,
+                            List.of("carry.bus.prev", "carry.bus.next", "carry.bus.add", "carry.bus.delete")));
+                } else {
+                    if (c == null) {
+                        out.add(new Row(reload + what, "Сначала задай, что рука несёт: вид «Дорожка».", null, List.of()));
+                        break;
+                    }
+                    out.add(new Row("Подход: " + (c.dir == null ? "обычный, сзади" : "свой"), "С какой стороны рука держит то, что несёт.", null,
+                            List.of("carry.dir.reset")));
+                }
+                while (knobs.size() > (v == KeyView.HOLD ? 1 : 0)) out.add(knobRow(knobs.poll()));
+                if (v == KeyView.HOLD) {
+                    out.add(knobRow(knobs.poll()));
+                    out.add(switchRow(KEEP_ANGLE));
+                }
+            }
+            case RELEASE -> {
+                String bus = releaseBus();
+                out.add(new Row(bus.isEmpty() ? "Отпускает: никогда" : "Отпускает, пока вращается: " + bus,
+                        "Рука отпускает оружие, пока эта деталь делает оборот, и берёт снова, когда оборот закончен.", null,
+                        List.of("release.prev", "release.next", "release.reset")));
+                while (!knobs.isEmpty()) out.add(knobRow(knobs.poll()));
+            }
+            case AROUND -> {
+                out.add(new Row("«Обход детали»: где рука", "Как стоит левая рука, когда обходит деталь. Углы обхода — ключи этой дорожки.", null, List.of()));
+                while (!knobs.isEmpty()) out.add(knobRow(knobs.poll()));
+            }
+            default -> {
+            }
+        }
+        return out;
+    }
+
+    private void trackActions(List<Action> out) {
+        switch (track) {
+            case PATH -> {
+                var ms = moments();
+                out.add(new Action("moment.add", "+ Момент", "Добавить момент с именем на этом времени.", "",
+                        ms.size() >= MOMENTS ? "больше " + MOMENTS + " моментов здесь не помещается" : null, () -> change(() -> {
+                            var names = ArmRig.pathTimes((String) config("armPathTimes")).keySet();
+                            int n = 1;
+                            while (names.contains("m" + n)) n++;
+                            String src = (String) config("armPathTimes");
+                            putText("armPathTimes", (src.isBlank() ? "" : src + ",") + "m" + n + "=" + ArmRig.number(Math.round(time)));
+                        })));
+                for (int i = 0; i < Math.min(ms.size(), MOMENTS); i++) {
+                    var m = ms.get(i);
+                    int used = keysFrom(m.name);
+                    out.add(new Action("moment." + i + ".delete", "✕", "Удалить момент «" + m.name + "».", "",
+                            used > 0 ? "от него записаны ключи (" + used + "): сначала запиши их числом" : null, () -> change(() -> putMoment(m, null))));
+                }
+                var k = keysOf(track);
+                var key = k == null ? null : k.at(time);
+                String cannot = keyless() != null ? keyless() : key == null ? "в этот момент ключа нет" : ms.isEmpty() ? "моментов нет: добавь «+ Момент»" : null;
+                for (int d : new int[] {-1, 1})
+                    out.add(new Action(d < 0 ? "key.moment.prev" : "key.moment.next", d < 0 ? "◀" : "▶", "Записать время ключа числом или от момента: "
+                            + "ключ остаётся на месте.", "", cannot, () -> change(() -> editKey((x, y) -> {
+                                var times = ArmRig.pathTimes((String) config("armPathTimes"));
+                                var pe = x.pathEntry(y);
+                                String now = x.moment(y);
+                                var names = new ArrayList<String>();
+                                names.add(null);
+                                for (var m : ms) names.add(m.name);
+                                int at = 0;
+                                for (int j = 1; j < names.size(); j++) if (now != null && names.get(j).equalsIgnoreCase(now.trim())) at = j;
+                                String to = names.get(Math.floorMod(at + d, names.size()));
+                                float off = y.ms() - (to == null ? 0F : times.get(to.toLowerCase(Locale.ROOT)));
+                                pe.time = to == null ? ArmRig.number(y.ms()) : off == 0F ? to : to + (off > 0F ? "+" : "") + ArmRig.number(off);
+                                x.touched();
+                            }))));
+                switchActions(out, PATH_BLEND, null);
+            }
+            case CARRY -> {
+                var c = carried();
+                String text = (String) config(carryKey());
+                boolean reload = carryKey().equals(reloadKey());
+                var fresh = newCarried();
+                String nothing = "в этой анимации ничего не движется: нести нечего";
+                if (shownView() == KeyView.TRACK) {
+                out.add(new Action("carry.add", "+ Нести", "Рука несёт деталь, которую двигает анимация. Когда — задают ключи этой дорожки.", "",
+                        c != null ? "рука уже несёт: правь ниже" : fresh == null ? nothing : null, () -> change(() -> putText(carryKey(), fresh.write()))));
+                out.add(new Action("carry.delete", "Не нести", "Рука ничего не несёт.", "",
+                        reload ? "на зарядке «Как всегда» вернёт то, что рука несёт обычно" : text.isEmpty() ? "рука и так ничего не несёт" : null,
+                        () -> change(() -> putText(carryKey(), ""))));
+                if (onReload()) {
+                    String main = (String) config("arm" + side() + "Carry");
+                    out.add(new Action("carry.reload.own", "Своё", "Дать перезарядке своё: сперва как всегда, дальше правь.", "",
+                            reload ? "на зарядке уже своё" : main.isEmpty() && fresh == null ? nothing : null,
+                            () -> change(() -> putText(reloadKey(), main.isEmpty() ? fresh.write() : main))));
+                    out.add(new Action("carry.reload.common", "Как всегда", "На перезарядке рука несёт то же, что всегда.", "",
+                            reload ? null : "на зарядке и так как всегда", () -> change(() -> putText(reloadKey(), ""))));
+                }
+                }
+                if (c == null) return;
+                if (shownView() == KeyView.TRACK) {
+                    var parts = new ArrayList<String>(clips.parts());
+                    if (!parts.contains(c.part)) parts.add(c.part);
+                    int at = parts.indexOf(c.part);
+                    for (int d : new int[] {-1, 1})
+                        out.add(new Action(d < 0 ? "carry.part.prev" : "carry.part.next", d < 0 ? "◀" : "▶", "Другая деталь оружия.", "",
+                                parts.size() < 2 ? "у модели этого оружия нет отдельных деталей" : null, () -> change(() -> {
+                                    c.part = parts.get(Math.floorMod(at + d, parts.size()));
+                                    putCarried(c);
+                                })));
+                    int b = activeBus(c);
+                    var buses = new ArrayList<>(moving());
+                    if (!buses.contains(c.buses.get(b))) buses.add(c.buses.get(b));
+                    int bi = buses.indexOf(c.buses.get(b));
+                    for (int d : new int[] {-1, 1})
+                        out.add(new Action(d < 0 ? "carry.bus.prev" : "carry.bus.next", d < 0 ? "◀" : "▶", "Другая деталь, которую двигает эта анимация.", "",
+                                buses.size() < 2 ? "в этой анимации больше ничего не движется" : null, () -> change(() -> {
+                                    c.buses.set(b, buses.get(Math.floorMod(bi + d, buses.size())));
+                                    putCarried(c);
+                                })));
+                    var more = new ArrayList<>(moving());
+                    more.removeAll(c.buses);
+                    out.add(new Action("carry.bus.add", "+", "Ещё одна деталь: рука берёт ту, что движется сейчас (патроны по одному).", "",
+                            more.isEmpty() ? "всё, что движется в этой анимации, уже в списке" : null, () -> change(() -> {
+                                c.buses.add(more.get(0));
+                                c.ats.add(c.ats.get(b).clone());
+                                putCarried(c);
+                            })));
+                    out.add(new Action("carry.bus.delete", "−", "Убрать эту деталь из списка.", "", c.buses.size() < 2 ? "деталь одна: «Не нести» уберёт её" : null,
+                            () -> change(() -> {
+                                c.buses.remove(b);
+                                c.ats.remove(b);
+                                putCarried(c);
+                            })));
+                } else {
+                    out.add(new Action("carry.dir.reset", "↺", "Подход как обычно: сзади.", "", c.dir == null ? "подход и так обычный" : null, () -> change(() -> {
+                        c.dir = null;
+                        putCarried(c);
+                    })));
+                    switchActions(out, KEEP_ANGLE, null);
+                }
+            }
+            case RELEASE -> {
+                String bus = releaseBus();
+                var choices = new ArrayList<String>();
+                choices.add("");
+                choices.addAll(moving());
+                if (!choices.contains(bus)) choices.add(bus);
+                int at = choices.indexOf(bus);
+                for (int d : new int[] {-1, 1})
+                    out.add(new Action(d < 0 ? "release.prev" : "release.next", d < 0 ? "◀" : "▶", "При вращении какой детали рука отпускает оружие, или никогда.", "",
+                            choices.size() < 2 ? "в этой анимации ничего не движется" : null,
+                            () -> change(() -> putText(releaseKey(), choices.get(Math.floorMod(at + d, choices.size()))))));
+                out.add(new Action("release.reset", "↺", "Вернуть, как задано в моде.", "", Grips.own(gun, releaseKey()) != null ? null : "у этого оружия нет своего значения",
+                        () -> change(() -> {
+                            Grips.put(gun, releaseKey(), null, false);
+                            Config.select(gun);
+                        })));
+            }
+            default -> {
+            }
         }
     }
 
@@ -1162,14 +1741,17 @@ final class ArmEditor {
     List<Row> rows() {
         var out = new ArrayList<Row>();
         if (page == Page.TIME) return out;
-        if (page == Page.KEY) return keyRows();
+        if (page == Page.KEY) return trackView() ? trackRows() : keyRows();
         if (page == Page.GRIP) {
             out.add(new Row("Хват " + (hand == 0 ? "правой" : "левой") + (gripPoint() ? ": точкой модели" : ": в долях модели"),
                     "Точка не сдвигается, когда обвесы меняют размер модели; доли идут за ними.", null, List.of("grip.mode", "grip.reset")));
         }
-        for (Knob k : knobs(page))
-            out.add(new Row(null, k.hint, k.setting(), k instanceof GripKnob ? List.of("set." + k.id + ".minus", "set." + k.id + ".plus")
-                    : List.of("set." + k.id + ".minus", "set." + k.id + ".plus", "set." + k.id + ".reset")));
+        for (Knob k : knobs(page)) {
+            var r = knobRow(k);
+            if (k.id.equals("armInspectReleaseMs")) r = new Row(null, r.hint(), r.slider(), List.of("set.armInspectReleaseMs.minus", "set.armInspectReleaseMs.plus",
+                    "set.armInspectReleaseMs.toggle", "set.armInspectReleaseMs.reset"));
+            out.add(r);
+        }
         if (page == Page.GRIP) {
             out.add(new Row("Деталь: " + partName((String) config(partKey())), "Деталь модели, с которой двигается кисть (помпа, рычаг). Корпус — всё оружие.", null,
                     List.of("grip.part.prev", "grip.part.next", "grip.part.reset")));
@@ -1179,13 +1761,15 @@ final class ArmEditor {
                                 + " Общий хват — такой же, как у всего оружия.", null,
                         List.of("grip.variant.own", "grip.variant.common")));
         }
-        if (page == Page.BOTH)
-            for (String[] sw : SWITCHES) out.add(new Row(sw[1] + ": " + (switchOn(sw[0]) ? "да" : "нет"), sw[2], null, List.of("set." + sw[0] + ".toggle", "set." + sw[0] + ".reset")));
+        if (page == Page.BOTH) for (String[] sw : SWITCHES) out.add(switchRow(sw));
         return out;
     }
 
     private void settingActions(List<Action> out) {
-        if (page == Page.KEY) keySettingActions(out);
+        if (page == Page.KEY) {
+            if (trackView()) trackActions(out);
+            else keySettingActions(out);
+        }
         for (Knob k : knobs(page)) {
             var st = k.setting();
             float eps = st.step() * 1e-3F;
@@ -1203,6 +1787,16 @@ final class ArmEditor {
                             Grips.put(gun, ck.key, null, false);
                             Config.select(gun);
                         })));
+        }
+        if (page == Page.ARM && hand == 1) {
+            boolean on = (Float) config("armInspectReleaseMs") >= 0F;
+            out.add(new Action("set.armInspectReleaseMs.toggle", on ? "Выкл" : "Вкл", on ? "Левая рука не держит магазин при осмотре."
+                    : "При осмотре левая рука держит вынутый магазин (до середины осмотра, время правится ползунком).", "",
+                    on || indexOf("INSPECT") >= 0 ? null : "у этого оружия нет осмотра", () -> change(() -> {
+                        int inspect = indexOf("INSPECT");
+                        Grips.put(gun, "armInspectReleaseMs", on ? "-1" : ArmRig.number(inspect < 0 ? 500 : list.get(inspect).ms() / 2 / STEP * STEP), false);
+                        Config.select(gun);
+                    })));
         }
         if (page == Page.GRIP) {
             var sh = clips.shape();
@@ -1258,19 +1852,7 @@ final class ArmEditor {
                         })));
             }
         }
-        if (page == Page.BOTH)
-            for (String[] sw : SWITCHES) {
-                String key = sw[0];
-                out.add(new Action("set." + key + ".toggle", switchOn(key) ? "Выключить" : "Включить", sw[2], "", switchWhy(key), () -> change(() -> {
-                    Grips.put(gun, key, String.valueOf(!switchOn(key)), false);
-                    Config.select(gun);
-                })));
-                out.add(new Action("set." + key + ".reset", "↺", "Вернуть «" + sw[1] + "», как задано в моде.", "",
-                        Grips.own(gun, key) != null ? null : "у этого оружия нет своего значения", () -> change(() -> {
-                            Grips.put(gun, key, null, false);
-                            Config.select(gun);
-                        })));
-            }
+        if (page == Page.BOTH) for (String[] sw : SWITCHES) switchActions(out, sw, switchWhy(sw[0]));
     }
 
     // the grip changed way and back lands where it is: off the model's ends there is no section to take shares of
@@ -1365,12 +1947,12 @@ final class ArmEditor {
 
     // ---------------------------------------------------------------- for the test: everything a press can change
 
-    record State(int clip, int hand, float time, boolean playing, double speed, Track track, Page page, boolean approach, boolean closed,
+    record State(int clip, int hand, float time, boolean playing, double speed, Track track, Page page, KeyView keyView, boolean closed,
             Map<String, String> data, int undo, int redo) {
     }
 
     State state() {
-        return new State(clip, hand, time, playing, speed, track, page, approach, closed, Grips.snapshot(), undo.size(), redo.size());
+        return new State(clip, hand, time, playing, speed, track, page, keyView, closed, Grips.snapshot(), undo.size(), redo.size());
     }
 
     // back to a state taken before (the test tries every action from the same state)
@@ -1382,7 +1964,7 @@ final class ArmEditor {
         speed = s.speed;
         track = s.track;
         page = s.page;
-        approach = s.approach;
+        keyView = s.keyView;
         closed = s.closed;
         Grips.restoreUnsaved(s.data);
         undo.clear();
