@@ -33,6 +33,8 @@ public class LateMixins implements ILateMixinLoader {
 
     @Override
     public List<String> getMixins(Set<String> loadedMods) {
+        // the mod's lines to their own file from the first of them (DebugLog); a dev game keeps them in the console
+        DebugLog.setup(Boolean.TRUE.equals(net.minecraft.launchwrapper.Launch.blackboard.get("fml.deobfuscatedEnvironment")));
         // a mixin into NTM that still fails is skipped, its systems off, the game not stopped (HbmMixinErrors)
         try {
             org.spongepowered.asm.mixin.Mixins.registerErrorHandlerClass(acup.gunfeel.compat.HbmMixinErrors.class.getName());
