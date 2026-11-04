@@ -17,13 +17,16 @@ import net.minecraft.world.IBlockAccess;
 //   <door id>#door/<closed|open>/<dx>,<dy>,<dz>
 // with the block's place from the core and the cells in the model's own frame (the frame RenderDoorGeneric turns by the
 // core's facing). A door on its way, or a block the table does not have, keeps NTM's box.
+// port: also NTM CE's sliding blast doors (BlockSlidingBlastDoor, TileEntitySlidingBlastDoor on the core; the keypad
+// blocks of sliding_blast_door_2 are its blocks, keyed under the core's id), turned as RenderSlidingBlastDoorLegacy
+// turns them.
 public final class DoorCells {
     private DoorCells() {
     }
 
     // the cells of a block of a big door at rest, turned as the door stands, or null
     static long[] of(Map<String, long[]> table, IBlockAccess world, Block b, int x, int y, int z) {
-        if (!(b instanceof BlockDoorGeneric)) return null;
+        if (!door(b)) return null;
         int[] core;
         try {
             core = ((BlockDummyable) b).findCore(world, x, y, z);
@@ -32,17 +35,45 @@ public final class DoorCells {
         }
         if (core == null) return null;
         TileEntity te = Mc.te(world, core[0], core[1], core[2]);
-        if (!(te instanceof TileEntityDoorGeneric)) return null;
-        com.hbm.interfaces.IDoor.DoorState state = ((TileEntityDoorGeneric) te).state;
+        com.hbm.interfaces.IDoor.DoorState state = state(te);
         if (state != com.hbm.interfaces.IDoor.DoorState.CLOSED && state != com.hbm.interfaces.IDoor.DoorState.OPEN) return null;
-        int quarter = quarter(Mc.meta(world, core[0], core[1], core[2]) - BlockDummyable.offset);
+        Block coreBlock = Mc.block(world, core[0], core[1], core[2]);
+        int quarter = quarter(coreBlock, Mc.meta(world, core[0], core[1], core[2]) - BlockDummyable.offset);
         if (quarter < 0) return null;
         int[] o = turn(x - core[0], z - core[2], -quarter);
-        String id = Mc.name(b);
+        String id = Mc.name(coreBlock);
         boolean open = state == com.hbm.interfaces.IDoor.DoorState.OPEN;
         long[] model = table.get(key(id, open, o[0], y - core[1], o[1]));
         // with the door's exact faces (MachineFaces), turned as it stands
         return model == null ? null : MachineFaces.door(rotate(model, quarter), id, open, quarter, x - core[0], y - core[1], z - core[2]);
+    }
+
+    // a big door's block: NTM's generic doors and NTM CE's sliding blast doors
+    static boolean door(Block b) {
+        return b instanceof BlockDoorGeneric || b instanceof com.hbm.blocks.machine.BlockSlidingBlastDoor;
+    }
+
+    // the door's state on its core's tile entity, or null (not a door's core)
+    static com.hbm.interfaces.IDoor.DoorState state(TileEntity te) {
+        if (te instanceof TileEntityDoorGeneric) return ((TileEntityDoorGeneric) te).state;
+        if (te instanceof com.hbm.tileentity.machine.TileEntitySlidingBlastDoor) return ((com.hbm.tileentity.machine.TileEntitySlidingBlastDoor) te).state;
+        return null;
+    }
+
+    // the state set (to draw the door so); the one it had
+    static com.hbm.interfaces.IDoor.DoorState state(TileEntity te, com.hbm.interfaces.IDoor.DoorState s) {
+        com.hbm.interfaces.IDoor.DoorState was = state(te);
+        if (te instanceof TileEntityDoorGeneric) ((TileEntityDoorGeneric) te).state = s;
+        if (te instanceof com.hbm.tileentity.machine.TileEntitySlidingBlastDoor) ((com.hbm.tileentity.machine.TileEntitySlidingBlastDoor) te).state = s;
+        return was;
+    }
+
+    // the renderer's turn for the core's block and facing: RenderSlidingBlastDoorLegacy turns a quarter less than
+    // RenderDoorGeneric (facing 2 not turned, 4 by 90, 3 by 180, 5 by 270)
+    static int quarter(Block core, int dir) {
+        int q = quarter(dir);
+        if (q < 0 || !(core instanceof com.hbm.blocks.machine.BlockSlidingBlastDoor)) return q;
+        return (q + 3) & 3;
     }
 
     static String key(String id, boolean open, int dx, int dy, int dz) {

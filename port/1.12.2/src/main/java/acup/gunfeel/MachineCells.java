@@ -27,7 +27,7 @@ public final class MachineCells {
     }
 
     static boolean machine(Block b) {
-        return b instanceof BlockDummyable && !(b instanceof com.hbm.blocks.generic.BlockDoorGeneric);
+        return b instanceof BlockDummyable && !DoorCells.door(b);
     }
 
     // the key of the machine's block at (x, y, z), or null (not a machine, no core)

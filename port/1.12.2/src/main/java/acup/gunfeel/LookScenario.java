@@ -264,7 +264,9 @@ final class LookScenario {
             final int[] d = door;
             if (d != null) ShootScenario.onServer(() -> {
                 World w = net.minecraftforge.fml.common.FMLCommonHandler.instance().getMinecraftServerInstance().getWorld(0);
-                ((com.hbm.tileentity.TileEntityDoorGeneric) Mc.te(w, d[0], d[1], d[2])).open();
+                net.minecraft.tileentity.TileEntity te = Mc.te(w, d[0], d[1], d[2]);
+                if (te instanceof com.hbm.tileentity.TileEntityDoorGeneric) ((com.hbm.tileentity.TileEntityDoorGeneric) te).open();
+                else if (te instanceof com.hbm.tileentity.machine.TileEntitySlidingBlastDoor) ((com.hbm.tileentity.machine.TileEntitySlidingBlastDoor) te).open();
             });
         } else if (t == DOOR + 76) {
             shot(mc, "door-opening");
@@ -386,13 +388,15 @@ final class LookScenario {
         GunFeel.LOGGER.info("Scenario look: {} at {} {} {}: {}", id, x, y, z, Mc.te(w, x, y, z));
     }
 
-    // the integrated server: NTM's sliding blast door placed at (x, y, z), facing the player's way (south); its core
+    // the integrated server: NTM's sliding blast door placed at (x, y, z), facing the player's way (south); its core.
+    // port: -Dntmgunfeel.lookDoor (-PlookDoor) names another door, e.g. NTM CE's hbm:sliding_blast_door_legacy
     private static int[] door(int x, int y, int z) {
         EntityPlayerMP player = (EntityPlayerMP) net.minecraftforge.fml.common.FMLCommonHandler.instance().getMinecraftServerInstance().getPlayerList().getPlayers().get(0);
         World w = player.world;
-        net.minecraft.block.Block b = acup.gunfeel.Mc.block("hbm:tile.sliding_blast_door");
+        String name = System.getProperty("ntmgunfeel.lookDoor", "hbm:tile.sliding_blast_door");
+        net.minecraft.block.Block b = acup.gunfeel.Mc.block(name);
         if (b == null) {
-            GunFeel.LOGGER.warn("Scenario look: no hbm:tile.sliding_blast_door");
+            GunFeel.LOGGER.warn("Scenario look: no {}", name);
             return null;
         }
         float yaw = player.rotationYaw;
@@ -404,7 +408,7 @@ final class LookScenario {
             player.rotationYaw = yaw;
         }
         for (int dx = -8; dx <= 8; dx++) for (int dy = -8; dy <= 8; dy++) for (int dz = -8; dz <= 8; dz++)
-            if (Mc.te(w, x + dx, y + dy, z + dz) instanceof com.hbm.tileentity.TileEntityDoorGeneric) return new int[] {x + dx, y + dy, z + dz};
+            if (DoorCells.state(Mc.te(w, x + dx, y + dy, z + dz)) != null) return new int[] {x + dx, y + dy, z + dz};
         GunFeel.LOGGER.warn("Scenario look: the door was not set up");
         return null;
     }

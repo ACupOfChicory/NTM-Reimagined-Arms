@@ -44,7 +44,7 @@ public final class ModelCells {
         if (WoodBoxes.listed(b)) return WoodBoxes.cells(world, b, meta, x, y, z);
         Map<String, long[]> t = table();
         if (t.isEmpty()) return null;
-        if (b instanceof com.hbm.blocks.generic.BlockDoorGeneric) return DoorCells.of(t, world, b, x, y, z);
+        if (DoorCells.door(b)) return DoorCells.of(t, world, b, x, y, z);
         if (MachineCells.machine(b)) return MachineCells.of(t, world, b, x, y, z);
         String id = Mc.name(b);
         if (id == null) return null;

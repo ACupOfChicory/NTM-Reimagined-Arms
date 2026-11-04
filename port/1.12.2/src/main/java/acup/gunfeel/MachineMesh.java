@@ -34,7 +34,9 @@ import net.minecraft.world.World;
 // moves read again each frame, as 26.2 does (RenderedMesh.poses), of those standing still as a time budget lets. Also taken: ModelRenderer parts (NTM's ModelBase models: the satellite dish on a pole, the statues;
 // MixinModelRenderer) and what the renderer draws straight with the Tessellator (pylon wires, the RBMK display, molten
 // metal, fluids and screens over an OBJ body, items it shows; MixinTessellator), a draw call being a part. Not seen (no
-// hole there): Collada, and clip planes some doors cut their parts with.
+// hole there): clip planes some doors cut their parts with.
+// port: also NTM CE's Collada models (the sliding blast doors' leaves): each display list the renderer calls whose
+// triangles DoorCapture knows (MixinCallList) is a part.
 public final class MachineMesh {
     private MachineMesh() {
     }
@@ -253,6 +255,15 @@ public final class MachineMesh {
         add(TESS, new TessGroup(index, mode, count, faces), modelview(), GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D));
     }
 
+    private static final Object LIST = "collada";
+
+    // a display list called (MixinCallList): a Collada model's node, its triangles from DoorCapture
+    public static void list(int list) {
+        if (!active || objDepth > 0 || compiling > 0) return;
+        DoorCapture.ListGroup g = DoorCapture.group(list);
+        if (g != null) add(LIST, g, modelview(), GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D));
+    }
+
     private static float[] tessFace(int[] raw, boolean textured, int... at) {
         float[] out = new float[at.length * 5];
         for (int c = 0; c < at.length; c++) {
@@ -301,6 +312,7 @@ public final class MachineMesh {
 
     static List<float[]> faces(Object group) {
         if (group instanceof TessGroup) return ((TessGroup) group).faces;
+        if (group instanceof DoorCapture.ListGroup) return ((DoorCapture.ListGroup) group).faces;
         List<float[]> out = FACES.get(group);
         if (out != null) return out;
         out = new ArrayList<float[]>();
@@ -393,6 +405,8 @@ public final class MachineMesh {
     }
 
     private static List<Part> capture(TileEntity te) {
+        // NTM CE's sliding blast door: its Collada model's lists known first (loaded again once, DoorCapture)
+        if (te instanceof com.hbm.tileentity.machine.TileEntitySlidingBlastDoor) DoorCapture.makeLists();
         if (!(TileEntityRendererDispatcher.instance.getRenderer(te) != null)) return new ArrayList<Part>();
         PARTS.clear();
         SEEN.clear();
@@ -764,9 +778,9 @@ public final class MachineMesh {
         }
     }
 
-    // how the part a hole is on was drawn: "obj", "model" (ModelRenderer) or "tess" (the Tessellator)
+    // how the part a hole is on was drawn: "obj", "model" (ModelRenderer), "tess" (the Tessellator) or "list" (Collada)
     static String kind(Anchor a) {
-        return a.model == TESS ? "tess" : a.model instanceof net.minecraft.client.model.ModelRenderer ? "model" : "obj";
+        return a.model == TESS ? "tess" : a.model == LIST ? "list" : a.model instanceof net.minecraft.client.model.ModelRenderer ? "model" : "obj";
     }
 
     // the tile entity at the anchor is gone (broken, replaced)

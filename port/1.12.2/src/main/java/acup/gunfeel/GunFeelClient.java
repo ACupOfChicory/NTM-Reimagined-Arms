@@ -42,12 +42,19 @@ public final class GunFeelClient {
     // dev runs (runClient): a file "autostop" in the run folder closes the client a few seconds after the main menu
     // shows, with the mod list's entry in the log
     private static int autostop = -1;
+    private static boolean doorLists;
 
     @SubscribeEvent
     public void clientTick(TickEvent.ClientTickEvent e) {
         if (e.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getMinecraft();
         MachineScan.tick(mc);
+        // NTM CE's sliding blast doors: their Collada model's lists known at the main menu (DoorCapture.makeLists,
+        // about 10 ms once), not at the first door met in a game
+        if (!doorLists && mc.currentScreen instanceof net.minecraft.client.gui.GuiMainMenu) {
+            doorLists = true;
+            DoorCapture.makeLists();
+        }
         if (autostop == -2) return;
         if (autostop < 0) {
             if (!(mc.currentScreen instanceof net.minecraft.client.gui.GuiMainMenu)) return;

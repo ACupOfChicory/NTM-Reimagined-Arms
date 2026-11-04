@@ -115,15 +115,18 @@ BULLETS class com/hbm/blocks/BlockDummyable
 BULLETS class com/hbm/blocks/generic/BlockDoorGeneric
 BULLETS class com/hbm/blocks/generic/BlockMetalFence
 BULLETS class com/hbm/blocks/generic/BlockModDoor
+BULLETS class com/hbm/blocks/machine/BlockSlidingBlastDoor
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
 BULLETS class com/hbm/entity/projectile/EntityBulletBeamBase
 BULLETS class com/hbm/entity/projectile/EntityThrowableNT
 BULLETS class com/hbm/explosion/vanillant/ExplosionVNT
 BULLETS class com/hbm/explosion/vanillant/interfaces/IEntityProcessor
+BULLETS class com/hbm/interfaces/IDoor$DoorState
 BULLETS class com/hbm/items/weapon/sedna/BulletConfig
 BULLETS class com/hbm/items/weapon/sedna/ItemGunBaseNT
 BULLETS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo
 BULLETS class com/hbm/tileentity/TileEntityDoorGeneric
+BULLETS class com/hbm/tileentity/machine/TileEntitySlidingBlastDoor
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 isDead Z
@@ -156,6 +159,7 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/func
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig velocity F
 BULLETS field com/hbm/tileentity/TileEntityDoorGeneric state Lcom/hbm/interfaces/IDoor$DoorState;
+BULLETS field com/hbm/tileentity/machine/TileEntitySlidingBlastDoor state Lcom/hbm/interfaces/IDoor$DoorState;
 BULLETS method com/hbm/blocks/BlockDummyable findCore (Lnet/minecraft/world/IBlockAccess;III)[I
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getBulletConfig ()Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getEntityId ()I
@@ -172,7 +176,6 @@ BULLETS method com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo values ()[
 BULLETS method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/util/DamageSource;FZZDFF)Z
 CORE class com/hbm/blocks/BlockDummyable
 CORE class com/hbm/blocks/generic/BlockBarrier
-CORE class com/hbm/blocks/generic/BlockDoorGeneric
 CORE class com/hbm/blocks/generic/BlockWoodStructure
 CORE class com/hbm/blocks/machine/BlockCargoElevator
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
@@ -262,6 +265,7 @@ MACHINE_MESH class com/hbm/render/loader/GroupObject
 MACHINE_MESH class com/hbm/render/loader/HFRWavefrontObject
 MACHINE_MESH class com/hbm/render/loader/TextureCoordinate
 MACHINE_MESH class com/hbm/render/loader/Vertex
+MACHINE_MESH class com/hbm/tileentity/machine/TileEntitySlidingBlastDoor
 MACHINE_MESH field com/hbm/render/loader/Face textureCoordinates [Lcom/hbm/render/loader/TextureCoordinate;
 MACHINE_MESH field com/hbm/render/loader/Face vertices [Lcom/hbm/render/loader/Vertex;
 MACHINE_MESH field com/hbm/render/loader/GroupObject faces Ljava/util/ArrayList;

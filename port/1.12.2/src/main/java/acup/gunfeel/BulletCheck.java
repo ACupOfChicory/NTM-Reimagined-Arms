@@ -300,6 +300,7 @@ public final class BulletCheck {
         holdAim();
         explosives();
         doors();
+        slidingDoors();
         BulletCheckModels.run(level, BulletCheck::check);
         lines.add(ok ? "ALL OK" : "SOME FAILED");
     }
@@ -515,6 +516,72 @@ public final class BulletCheck {
             check("cargo door shut: through a slit (glass, " + through.damage + " left)" + through.trail, true, through.alive && through.damage > 29F);
             Shot stopped = shoot(mid, (slat[0] + .5) / 16, (slat[1] + .5) / 16, 30F);
             check("cargo door shut: into a slat" + stopped.trail, true, !stopped.alive || stopped.damage < 30F);
+        }
+    }
+
+    // port: NTM CE's sliding blast door with keypads (sliding_blast_door_2; DoorCells), in each of the four facings: each
+    // of its blocks, the two keypad blocks too, has the model's cells, and they lie in NTM's box; shut, a bullet into the
+    // middle of a leaf along z stops; open (the leaves drawn slid aside), the same bullet goes on through the passage
+    private static void slidingDoors() {
+        Block door = block("hbm:sliding_blast_door_2"), keypad = block("hbm:sliding_blast_door_keypad");
+        if (door == null || keypad == null) {
+            fail("sliding blast door: no hbm:sliding_blast_door_2 / _keypad");
+            return;
+        }
+        net.minecraftforge.common.util.FakePlayer player = net.minecraftforge.common.util.FakePlayerFactory.getMinecraft(level);
+        double[] boxes = new double[6 * 16];
+        for (int f = 0; f < 4; f++) {
+            int x = 20 + 14 * f, y = Y + 50, z = Z + 40;
+            player.rotationYaw = 90F * f;
+            for (int dx = -5; dx <= 5; dx++) for (int dy = -1; dy <= 5; dy++) for (int dz = -5; dz <= 5; dz++)
+                Mc.setBlock(level, x + dx, y + dy, z + dz, Blocks.AIR, 0, 2);
+            Mc.setBlock(level, x, y, z, door, 0, 3);
+            door.onBlockPlacedBy(level, Mc.pos(x, y, z), Mc.state(level, x, y, z), player, new net.minecraft.item.ItemStack(door));
+            int[] core = null;
+            for (int dx = -4; dx <= 4 && core == null; dx++) for (int dy = -4; dy <= 4 && core == null; dy++) for (int dz = -4; dz <= 4 && core == null; dz++)
+                if (Mc.te(level, x + dx, y + dy, z + dz) instanceof com.hbm.tileentity.machine.TileEntitySlidingBlastDoor) core = new int[] {x + dx, y + dy, z + dz};
+            if (core == null) {
+                fail("sliding blast door " + f + " set up");
+                continue;
+            }
+            com.hbm.tileentity.machine.TileEntitySlidingBlastDoor te = (com.hbm.tileentity.machine.TileEntitySlidingBlastDoor) Mc.te(level, core[0], core[1], core[2]);
+            int facing = Mc.meta(level, core[0], core[1], core[2]) - com.hbm.blocks.BlockDummyable.offset;
+            int in = 0, out = 0, blocks = 0, withCells = 0, keypads = 0;
+            boolean alongX = false;
+            for (int dx = -4; dx <= 4; dx++) for (int dy = 0; dy <= 4; dy++) for (int dz = -4; dz <= 4; dz++) {
+                int bx = core[0] + dx, by = core[1] + dy, bz = core[2] + dz;
+                Block b = Mc.block(level, bx, by, bz);
+                if (b != door && b != keypad) continue;
+                blocks++;
+                long[] bits = ModelCells.of(level, b, Mc.meta(level, bx, by, bz), bx, by, bz);
+                if (bits == null) continue;
+                withCells++;
+                if (b == keypad) keypads++;
+                if (dx != 0) alongX = true;
+                int n = PassableClip.collision(level, b, bx, by, bz, boxes);
+                for (int k = 0; k < 4096; k++) {
+                    if ((bits[k >> 6] >>> (k & 63) & 1L) == 0) continue;
+                    double cx = bx + ((k & 15) + .5) / 16, cy = by + ((k >> 4 & 15) + .5) / 16, cz = bz + ((k >> 8) + .5) / 16;
+                    boolean inside = false;
+                    for (int i = 0; i < n && !inside; i++)
+                        inside = cx >= boxes[i * 6] - .07 && cx <= boxes[i * 6 + 3] + .07 && cy >= boxes[i * 6 + 1] - .07 && cy <= boxes[i * 6 + 4] + .07
+                                && cz >= boxes[i * 6 + 2] - .07 && cz <= boxes[i * 6 + 5] + .07;
+                    if (inside) in++;
+                    else out++;
+                }
+            }
+            check("sliding blast door facing " + facing + " shut: " + withCells + " of " + blocks + " blocks with cells (" + keypads + " keypads), " + in
+                    + " cells in NTM's box, " + out + " outside", true, blocks == 28 && withCells == 28 && keypads == 2 && in > 5 * Math.max(1, out));
+            if (!alongX) continue;
+            int[] mid = {core[0], core[1] + 1, core[2]};
+            Shot stopped = shoot(mid, .5, .5, 30F);
+            check("sliding blast door facing " + facing + " shut: into a leaf" + stopped.trail, true, !stopped.alive || stopped.damage < 30F);
+            te.state = com.hbm.interfaces.IDoor.DoorState.OPEN;
+            long[] open = ModelCells.of(level, door, Mc.meta(level, mid[0], mid[1], mid[2]), mid[0], mid[1], mid[2]);
+            Shot through = shoot(mid, .5, .5, 30F);
+            te.state = com.hbm.interfaces.IDoor.DoorState.CLOSED;
+            check("sliding blast door facing " + facing + " open: through the passage (" + (open == null ? "no cells" : ModelCells.empty(open) ? "no cells drawn" : "cells drawn")
+                    + ")" + through.trail, true, through.alive && through.damage >= 30F);
         }
     }
 

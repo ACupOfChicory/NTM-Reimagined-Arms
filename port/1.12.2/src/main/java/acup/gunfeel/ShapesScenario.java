@@ -299,7 +299,8 @@ final class ShapesScenario {
         int i = 0;
         try {
             for (Object o : Block.REGISTRY) {
-                if (!(o instanceof com.hbm.blocks.generic.BlockDoorGeneric)) continue;
+                // port: with NTM CE's sliding blast doors; their keypad blocks come with sliding_blast_door_2
+                if (!(o instanceof Block) || !DoorCells.door((Block) o) || "hbm:sliding_blast_door_keypad".equals(Mc.name((Block) o))) continue;
                 Block b = (Block) o;
                 int x = px + (i % 6 - 3) * DOOR_SPACING, z = pz - 60 - (i / 6) * DOOR_SPACING;
                 i++;
@@ -308,7 +309,7 @@ final class ShapesScenario {
                 int[] core = null;
                 for (int dx = -8; dx <= 8 && core == null; dx++) for (int dy = -8; dy <= 8 && core == null; dy++)
                     for (int dz = -8; dz <= 8 && core == null; dz++)
-                        if (Mc.te(w, x + dx, py + dy, z + dz) instanceof com.hbm.tileentity.TileEntityDoorGeneric) core = new int[] {x + dx, py + dy, z + dz};
+                        if (DoorCells.state(Mc.te(w, x + dx, py + dy, z + dz)) != null) core = new int[] {x + dx, py + dy, z + dz};
                 if (core == null) {
                     GunFeel.LOGGER.warn("Scenario shapes: door {} was not set up", Mc.name(b));
                     continue;
@@ -351,9 +352,8 @@ final class ShapesScenario {
     // where a bullet now flies through the door: along each axis, the lines of cells through its collision boxes that
     // meet none of the model's cells (in the door's blocks, across them)
     private static String gaps(World w, Block b, int[] c, boolean open, Map<String, long[]> cells) {
-        com.hbm.tileentity.TileEntityDoorGeneric te = (com.hbm.tileentity.TileEntityDoorGeneric) Mc.te(w, c[0], c[1], c[2]);
-        com.hbm.interfaces.IDoor.DoorState state = te.state;
-        te.state = open ? com.hbm.interfaces.IDoor.DoorState.OPEN : com.hbm.interfaces.IDoor.DoorState.CLOSED;
+        net.minecraft.tileentity.TileEntity te = Mc.te(w, c[0], c[1], c[2]);
+        com.hbm.interfaces.IDoor.DoorState state = DoorCells.state(te, open ? com.hbm.interfaces.IDoor.DoorState.OPEN : com.hbm.interfaces.IDoor.DoorState.CLOSED);
         StringBuilder out = new StringBuilder();
         try {
             // the door's cells and box cells in one grid over its blocks
@@ -367,8 +367,9 @@ final class ShapesScenario {
             boolean[] model = new boolean[sx * sy * sz], box = new boolean[sx * sy * sz];
             double[] boxes = new double[6 * 16];
             for (int[] o : blocks) {
-                long[] bits = DoorCells.of(cells, w, b, o[0], o[1], o[2]);
-                int n = PassableClip.collision(w, b, o[0], o[1], o[2], boxes);
+                Block ob = Mc.block(w, o[0], o[1], o[2]);
+                long[] bits = DoorCells.of(cells, w, ob, o[0], o[1], o[2]);
+                int n = PassableClip.collision(w, ob, o[0], o[1], o[2], boxes);
                 for (int k = 0; k < 4096; k++) {
                     int gx = (o[0] - lo[0]) * 16 + (k & 15), gy = (o[1] - lo[1]) * 16 + (k >> 4 & 15), gz = (o[2] - lo[2]) * 16 + (k >> 8);
                     int g = gx + sx * (gy + sy * gz);
@@ -400,7 +401,7 @@ final class ShapesScenario {
                 out.append("xyz".charAt(ax)).append(": ").append(clear).append('/').append(lines).append(" lines clear  ");
             }
         } finally {
-            te.state = state;
+            DoorCells.state(te, state);
         }
         return out.toString();
     }

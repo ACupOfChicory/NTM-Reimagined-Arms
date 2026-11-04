@@ -30,7 +30,12 @@ import net.minecraft.world.World;
 // MixinWavefrontObjectVBO) is taken with the GL matrix and the bound texture then. Its faces fill the 16^3 cells of the
 // blocks they cross where their pixels pass the alpha test, kept per block in the model's frame (the door's turn
 // undone). Not seen: clip planes some doors cut their parts with (the cells are then a little fuller than drawn),
-// doors drawn as animated (Collada) models or without NTM's OBJ models: those keep NTM's boxes.
+// doors drawn without NTM's OBJ or Collada models: those keep NTM's boxes.
+// port: NTM CE's sliding blast doors (BlockSlidingBlastDoor: _legacy, _2 with its two keypad blocks) are not
+// BlockDoorGeneric: RenderSlidingBlastDoorLegacy draws their Collada model (com.hbm.animloader, door0/door0_1) as
+// display lists, its leaves moved by the animation's transforms on the GL matrix. The lists' triangles are taken by
+// loading the same models again (MixinTessellator, each draw into the list GL_LIST_INDEX names) and matched to the
+// loaded models' lists node by node; each list called while a door is drawn (MixinCallList) is a part.
 public final class DoorCapture {
     private DoorCapture() {
     }
@@ -42,15 +47,151 @@ public final class DoorCapture {
     private static final class Part {
         final HFRWavefrontObject model;
         final List<GroupObject> groups;
+        // or a display list's triangles: x, y, z, u, v a corner
+        final float[] tris;
         final float[] mv;
         final int texture;
 
-        Part(HFRWavefrontObject model, List<GroupObject> groups, float[] mv, int texture) {
+        Part(HFRWavefrontObject model, List<GroupObject> groups, float[] tris, float[] mv, int texture) {
             this.model = model;
             this.groups = groups;
+            this.tris = tris;
             this.mv = mv;
             this.texture = texture;
         }
+    }
+
+    // ---- the Collada models' display lists (NTM CE's sliding blast doors)
+
+    private static boolean loading;
+    // the triangles of the lists drawn into while loading, by list
+    private static final Map<Integer, List<float[]>> LOADED = new HashMap<Integer, List<float[]>>();
+    // the triangles of NTM's own lists, by list
+    private static final Map<Integer, float[]> LISTS = new HashMap<Integer, float[]>();
+    private static boolean listsMade;
+
+    public static boolean loading() {
+        return loading;
+    }
+
+    // a draw while loading (MixinTessellator): raw vertices of 8 ints (x, y, z, u, v float bits), in the list compiled
+    public static void tess(int[] raw, int count, int mode) {
+        int list = GL11.glGetInteger(GL11.GL_LIST_INDEX);
+        if (list == 0) return;
+        int[][] corners;
+        if (mode == GL11.GL_TRIANGLES) {
+            corners = new int[count / 3][];
+            for (int i = 0; i < corners.length; i++) corners[i] = new int[] {i * 3, i * 3 + 1, i * 3 + 2};
+        } else if (mode == GL11.GL_QUADS) {
+            corners = new int[count / 4 * 2][];
+            for (int i = 0; i < count / 4; i++) {
+                corners[i * 2] = new int[] {i * 4, i * 4 + 1, i * 4 + 2};
+                corners[i * 2 + 1] = new int[] {i * 4, i * 4 + 2, i * 4 + 3};
+            }
+        } else {
+            return;
+        }
+        float[] t = new float[corners.length * 15];
+        for (int i = 0; i < corners.length; i++) for (int c = 0; c < 3; c++) for (int k = 0; k < 5; k++)
+            t[i * 15 + c * 5 + k] = Float.intBitsToFloat(raw[corners[i][c] * 8 + k]);
+        List<float[]> l = LOADED.get(list);
+        if (l == null) LOADED.put(list, l = new ArrayList<float[]>());
+        l.add(t);
+    }
+
+    // a list called while a door is drawn (MixinCallList)
+    public static void list(int list) {
+        float[] t = LISTS.get(list);
+        if (t == null) return;
+        MV.clear();
+        GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, MV);
+        float[] mv = new float[16];
+        MV.get(mv);
+        PARTS.add(new Part(null, null, t, mv, GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D)));
+    }
+
+    // a display list of NTM's Collada models as a part for the holes on it (MachineMesh): its faces, each 3 corners of
+    // x, y, z, u, v; one object a list
+    public static final class ListGroup {
+        final int list;
+        final List<float[]> faces;
+
+        ListGroup(int list, List<float[]> faces) {
+            this.list = list;
+            this.faces = faces;
+        }
+    }
+
+    private static final Map<Integer, ListGroup> GROUPS = new HashMap<Integer, ListGroup>();
+
+    // the part for a list called, or null (not one of the Collada models' lists, or those not made yet: makeLists)
+    static ListGroup group(int list) {
+        ListGroup g = GROUPS.get(list);
+        if (g != null) return g;
+        float[] t = LISTS.get(list);
+        if (t == null) return null;
+        List<float[]> faces = new ArrayList<float[]>();
+        for (int i = 0; i + 15 <= t.length; i += 15) faces.add(java.util.Arrays.copyOfRange(t, i, i + 15));
+        GROUPS.put(list, g = new ListGroup(list, java.util.Collections.unmodifiableList(faces)));
+        return g;
+    }
+
+    // NTM's door models loaded again, their lists' triangles matched to the loaded models' lists; once
+    static void makeLists() {
+        if (listsMade) return;
+        listsMade = true;
+        Object[][] models = {{com.hbm.main.ResourceManager.door0, "models/anim/door0.dae"}, {com.hbm.main.ResourceManager.door0_1, "models/anim/door0_1.dae"}};
+        for (Object[] m : models) {
+            if (m[0] == null) continue;
+            com.hbm.animloader.AnimatedModel again;
+            LOADED.clear();
+            loading = true;
+            try {
+                again = com.hbm.animloader.ColladaLoader.load(new net.minecraft.util.ResourceLocation("hbm", (String) m[1]));
+            } catch (Throwable e) {
+                GunFeel.LOGGER.warn("Door capture: {} could not be loaded again: {}", m[1], e.toString());
+                continue;
+            } finally {
+                loading = false;
+            }
+            int[] n = {0, 0};
+            match((com.hbm.animloader.AnimatedModel) m[0], again, n);
+            GunFeel.LOGGER.info("Door capture: {}: {} lists matched, {} triangles", m[1], n[0], n[1]);
+        }
+        LOADED.clear();
+    }
+
+    private static void match(com.hbm.animloader.AnimatedModel mine, com.hbm.animloader.AnimatedModel again, int[] n) {
+        if (mine == null || again == null) return;
+        try {
+            java.lang.reflect.Field geo = com.hbm.animloader.AnimatedModel.class.getDeclaredField("hasGeometry");
+            java.lang.reflect.Field list = com.hbm.animloader.AnimatedModel.class.getDeclaredField("callList");
+            geo.setAccessible(true);
+            list.setAccessible(true);
+            if (geo.getBoolean(mine) && geo.getBoolean(again) && String.valueOf(mine.name).equals(String.valueOf(again.name))) {
+                int fresh = list.getInt(again);
+                List<float[]> tris = LOADED.get(fresh);
+                if (tris != null) {
+                    int size = 0;
+                    for (float[] t : tris) size += t.length;
+                    float[] all = new float[size];
+                    int at = 0;
+                    for (float[] t : tris) {
+                        System.arraycopy(t, 0, all, at, t.length);
+                        at += t.length;
+                    }
+                    LISTS.put(list.getInt(mine), all);
+                    n[0]++;
+                    n[1] += size / 15;
+                }
+                GL11.glDeleteLists(fresh, 1);
+            }
+        } catch (ReflectiveOperationException e) {
+            GunFeel.LOGGER.warn("Door capture: Collada model not read: {}", e.toString());
+            return;
+        }
+        int k = Math.min(mine.children.size(), again.children.size());
+        for (int i = 0; i < k; i++) match(mine.children.get(i), again.children.get(i), n);
     }
 
     public static boolean active() {
@@ -70,7 +211,7 @@ public final class DoorCapture {
         GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, MV);
         float[] mv = new float[16];
         MV.get(mv);
-        PARTS.add(new Part(model, groups, mv, GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D)));
+        PARTS.add(new Part(model, groups, null, mv, GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D)));
     }
 
     // the door whose core is at (x, y, z), shut or open: its blocks' cells by key (DoorCells.key), in the model's frame;
@@ -82,14 +223,13 @@ public final class DoorCapture {
         lastDoor = null;
         World w = mc.world;
         TileEntity te = Mc.te(w, x, y, z);
-        if (!(te instanceof TileEntityDoorGeneric)) return null;
-        TileEntityDoorGeneric door = (TileEntityDoorGeneric) te;
+        if (DoorCells.state(te) == null) return null;
         Block b = Mc.block(w, x, y, z);
-        int quarter = DoorCells.quarter(Mc.meta(w, x, y, z) - BlockDummyable.offset);
+        int quarter = DoorCells.quarter(b, Mc.meta(w, x, y, z) - BlockDummyable.offset);
         if (quarter < 0) return null;
-        com.hbm.interfaces.IDoor.DoorState state = door.state;
-        door.state = open ? com.hbm.interfaces.IDoor.DoorState.OPEN : com.hbm.interfaces.IDoor.DoorState.CLOSED;
-        door.currentAnimation = null;
+        if (te instanceof TileEntityDoorGeneric) ((TileEntityDoorGeneric) te).currentAnimation = null;
+        else makeLists();
+        com.hbm.interfaces.IDoor.DoorState state = DoorCells.state(te, open ? com.hbm.interfaces.IDoor.DoorState.OPEN : com.hbm.interfaces.IDoor.DoorState.CLOSED);
         PARTS.clear();
         GL11.glMatrixMode(GL11.GL_MODELVIEW);
         GL11.glPushMatrix();
@@ -104,7 +244,7 @@ public final class DoorCapture {
             GL11.glDepthMask(true);
             GL11.glColorMask(true, true, true, true);
             GL11.glPopMatrix();
-            door.state = state;
+            DoorCells.state(te, state);
         }
         if (PARTS.isEmpty()) return null;
         // the cells in the world's frame, by block from the core
@@ -114,6 +254,27 @@ public final class DoorCapture {
         for (Part p : PARTS) {
             int[][] tex = texture(p.texture, textures);
             int index = MachineCapture.texIndex(p.texture, MachineMesh.textureName(p.texture, true), tex);
+            if (p.tris != null) {
+                for (int i = 0; i + 15 <= p.tris.length; i += 15) {
+                    final double[] tri = new double[9];
+                    final double[] u = new double[3], v = new double[3];
+                    float[] m = p.mv;
+                    for (int c = 0; c < 3; c++) {
+                        float vx = p.tris[i + c * 5], vy = p.tris[i + c * 5 + 1], vz = p.tris[i + c * 5 + 2];
+                        tri[c * 3] = m[0] * vx + m[4] * vy + m[8] * vz + m[12];
+                        tri[c * 3 + 1] = m[1] * vx + m[5] * vy + m[9] * vz + m[13];
+                        tri[c * 3 + 2] = m[2] * vx + m[6] * vy + m[10] * vz + m[14];
+                        u[c] = p.tris[i + c * 5 + 3];
+                        v[c] = p.tris[i + c * 5 + 4];
+                    }
+                    final int[][] t = tex;
+                    fill(blocks, tri, (wa, wb, wc) -> shown(t, wa * u[0] + wb * u[1] + wc * u[2], wa * v[0] + wb * v[1] + wc * v[2]));
+                    triTex.add(index);
+                    triP.add(tri);
+                    triUv.add(new double[] {u[0], v[0], u[1], v[1], u[2], v[2]});
+                }
+                continue;
+            }
             for (GroupObject g : p.groups) {
                 for (Face f : g.faces) {
                     if (f.vertices == null || f.vertices.length < 3) continue;
@@ -162,12 +323,18 @@ public final class DoorCapture {
         return out;
     }
 
-    // the blocks of the door whose core is at (x, y, z)
+    // the blocks of the door whose core is at (x, y, z) (with a sliding blast door's keypad blocks)
     static List<int[]> footprint(World w, Block b, int x, int y, int z) {
         List<int[]> out = new ArrayList<int[]>();
         for (int dx = -8; dx <= 8; dx++) for (int dy = -8; dy <= 8; dy++) for (int dz = -8; dz <= 8; dz++) {
-            if (Mc.block(w, x + dx, y + dy, z + dz) != b) continue;
-            int[] c = ((BlockDummyable) b).findCore(w, x + dx, y + dy, z + dz);
+            Block at = Mc.block(w, x + dx, y + dy, z + dz);
+            if (at != b && !(at instanceof com.hbm.blocks.machine.BlockSlidingBlastDoor && b instanceof com.hbm.blocks.machine.BlockSlidingBlastDoor)) continue;
+            int[] c;
+            try {
+                c = ((BlockDummyable) at).findCore(w, x + dx, y + dy, z + dz);
+            } catch (RuntimeException e) {
+                continue;
+            }
             if (c != null && c[0] == x && c[1] == y && c[2] == z) out.add(new int[] {x + dx, y + dy, z + dz});
         }
         return out;

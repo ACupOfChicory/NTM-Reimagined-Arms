@@ -14,7 +14,8 @@ import net.minecraft.client.renderer.vertex.VertexFormat;
 import net.minecraft.client.renderer.vertex.VertexFormatElement;
 
 // Client: what a machine's renderer draws straight with the Tessellator, for the holes on it (MachineMesh). Only while
-// a machine is being read; otherwise nothing.
+// a machine is being read; otherwise nothing. Dev: also NTM CE's Collada door models as they are loaded again for
+// DoorCapture (each draw goes into a display list).
 // port: 1.12.2 keeps the vertices in the BufferBuilder, in its vertex format (NTM CE's pumpjack cables and BAT9000
 // gauge are POSITION_COLOR, the crucible's metal POSITION_TEX); they are read into 1.7.10's raw layout that
 // MachineMesh.tess takes (8 ints a vertex: x, y, z, u, v as float bits; the translation is already added by pos())
@@ -22,7 +23,8 @@ import net.minecraft.client.renderer.vertex.VertexFormatElement;
 public abstract class MixinTessellator {
     @Inject(method = "draw", at = @At("HEAD"))
     private void gunfeel$draw(CallbackInfo ci) {
-        if (!MachineMesh.active()) return;
+        boolean collada = acup.gunfeel.DoorCapture.loading();
+        if (!MachineMesh.active() && !collada) return;
         BufferBuilder b = ((Tessellator) (Object) this).getBuffer();
         int count = b.getVertexCount();
         VertexFormat f = b.getVertexFormat();
@@ -43,6 +45,7 @@ public abstract class MixinTessellator {
             for (int k = 0; k < 3; k++) raw[v * 8 + k] = data.getInt(at + pos + k * 4);
             if (uv >= 0) for (int k = 0; k < 2; k++) raw[v * 8 + 3 + k] = data.getInt(at + uv + k * 4);
         }
-        MachineMesh.tess(raw, count, b.getDrawMode(), uv >= 0);
+        if (collada) acup.gunfeel.DoorCapture.tess(raw, count, b.getDrawMode());
+        else MachineMesh.tess(raw, count, b.getDrawMode(), uv >= 0);
     }
 }
