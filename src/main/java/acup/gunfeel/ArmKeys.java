@@ -316,7 +316,7 @@ final class ArmKeys {
         ensureSegment();
         Key at = at(t);
         if (track == ArmEditor.Track.HIDE) {
-            float from = at != null ? at.ms() : t, to = Math.min(from + Math.max(ArmEditor.STEP, c.length()), duration);
+            float from = at != null ? at.ms() : t, to = Math.min(from + (c.length() > 0 ? c.length() : ArmEditor.STEP), duration);
             for (var k : keys) if (k != at && k.ms() > from) to = Math.min(to, k.ms());
             var r = ArmRig.range(ArmRig.number(from) + "-" + ArmRig.number(Math.max(to, from + 1)));
             if (at != null) this.<ArmRig.Value>entries().set(at.entry(), r);

@@ -135,6 +135,8 @@ final class ArmFiles {
         if (!k.startsWith(gun + ".") && !k.startsWith(gun + "-")) return "настройка другого оружия";
         String name = k.substring(k.lastIndexOf('.') + 1);
         if (!Grips.armKey(name)) return "это не настройка рук";
+        boolean grip = name.equals("right") || name.equals("left") || name.equals("rightAt") || name.equals("leftAt");
+        if (k.startsWith(gun + "-") && !grip) return "у оружия без части деталей игра читает только хват";
         return v.isEmpty() ? null : value(name, v, times);
     }
 

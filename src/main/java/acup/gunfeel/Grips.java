@@ -62,9 +62,15 @@ public final class Grips {
         Grip b = read(base);
         if (missing.isEmpty()) return b;
         Grip v = read(own);
-        boolean vr = VALUES.containsKey(own + ".right") || VALUES.containsKey(own + ".rightAt");
-        boolean vl = VALUES.containsKey(own + ".left") || VALUES.containsKey(own + ".leftAt");
+        // an empty value (the player's file taking a hand of the jar off) is no hand: the gun's own is used
+        boolean vr = given(own + ".right") || given(own + ".rightAt");
+        boolean vl = given(own + ".left") || given(own + ".leftAt");
         return new Grip(vr ? v.right() : b.right(), vl ? v.left() : b.left(), vr ? v.rightAt() : b.rightAt(), vl ? v.leftAt() : b.leftAt());
+    }
+
+    private static boolean given(String key) {
+        String v = VALUES.get(key);
+        return v != null && !v.isBlank();
     }
 
     private static Grip read(String key) {

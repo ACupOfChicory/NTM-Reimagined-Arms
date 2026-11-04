@@ -148,6 +148,9 @@ class ArmFilesTest {
         assertNotNull(ArmFiles.read(good + "hbm\\:gun_autoshotgun_sexy.armLeftPath = RELOAD nope:grip\n").problem());
         assertNotNull(ArmFiles.read(good + "hbm\\:gun_autoshotgun_sexy.kickPreset = smg\n").problem(), "not an arm setting");
         assertNotNull(ArmFiles.read(good + "hbm\\:gun_autoshotgun_sexy.leftAt = 1,2\n").problem());
+        // a gun without some of its parts: the game reads only its grips
+        assertNotNull(ArmFiles.read(good + "hbm\\:gun_autoshotgun_sexy-Barrel.armRollLeft = 42\n").problem());
+        assertNull(ArmFiles.read(good + "hbm\\:gun_autoshotgun_sexy-Barrel.leftAt = 1,2,3\n").problem());
     }
 
     // the File page: an export is written with its head and put on the clipboard; an older file loads back
@@ -201,6 +204,42 @@ class ArmFilesTest {
             Grips.restoreUnsaved(opened);
             Config.select(null);
         }
+    }
+
+    // G3's arms on the Mare's Leg, whose sawn-off has a grip of its own: every variant of either holds as on the G3
+    @Test
+    void armsTakenOnAGunWithVariantsHoldAsTheOthersVariants() throws Exception {
+        var opened = Grips.snapshot();
+        String gun = "hbm:gun_maresleg", from = "hbm:gun_g3";
+        try {
+            var v = new ArrayList<>(variants(gun));
+            for (String m : variants(from)) if (!v.contains(m)) v.add(m);
+            assertTrue(v.contains("-Stock-Barrel"), v.toString());
+            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            e.page = ArmEditor.Page.FILE;
+            e.from = e.sources().indexOf(from);
+            assertTrue(e.press("copy.from.take"));
+            assertEquals(hands(from, v), hands(gun, v));
+            // and the export of them, loaded, is the same hands
+            String want = hands(gun, v);
+            var read = ArmFiles.read(ArmFiles.text(gun, gun, gun, "X0-dev", WHEN, Grips.armsOf(gun)));
+            assertNull(read.problem());
+            Grips.putArms(gun, Map.of());
+            Grips.putArms(gun, read.arms());
+            assertEquals(want, hands(gun, v));
+        } finally {
+            Grips.restoreUnsaved(opened);
+            Config.select(null);
+        }
+    }
+
+    // a hidden range shorter than a step keeps its length when pasted
+    @Test
+    void aPastedShortHideKeepsItsLength() {
+        var k = new ArmKeys(ArmEditor.Track.HIDE, "RELOAD 100-105", "RELOAD", ArmRig.Buses.NONE, Map.of());
+        var c = k.copy(k.keys().get(0));
+        k.paste(c, 500F, 3000F);
+        assertEquals("RELOAD 100-105 500-505", k.write());
     }
 
     // a key of Sexy's left hand pasted to the right hand of another gun: the same key at the time it was pasted
