@@ -111,24 +111,6 @@ public final class GunEditor extends Screen {
         }).bounds(x, y, PANEL_W, ROW_H).build());
         y += ROW_H + GAP;
         int half = (PANEL_W - GAP) / 2;
-        if (tab <= 2) {
-            String label = switch (Config.armModel) {
-                case "classic" -> "обычные";
-                case "slim" -> "skinny";
-                default -> "по скину";
-            };
-            addRenderableWidget(Button.builder(Component.literal("Руки: " + label), p -> {
-                String next = switch (Config.armModel) {
-                    case "classic" -> "slim";
-                    case "slim" -> "auto";
-                    default -> "classic";
-                };
-                Grips.put(gun, "armModel", next);
-                Config.select(gun);
-                rebuildWidgets();
-            }).bounds(x, y, PANEL_W, ROW_H).build());
-            y += ROW_H + GAP;
-        }
         if (tab == 3) {
             Button general = addRenderableWidget(Button.builder(Component.literal("Общее"), p -> {
                 curves = false;

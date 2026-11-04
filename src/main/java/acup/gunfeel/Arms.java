@@ -299,8 +299,6 @@ public final class Arms {
     }
 
     public static boolean slim() {
-        if ("slim".equals(Config.armModel)) return true;
-        if ("classic".equals(Config.armModel)) return false;
         var player = Minecraft.getInstance().player;
         return player != null && player.getSkin().model() == PlayerModelType.SLIM;
     }

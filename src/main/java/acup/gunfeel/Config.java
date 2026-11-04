@@ -44,7 +44,6 @@ public final class Config {
     // Gun model kick per shot, and how much of NTM's own RECOIL animation is kept.
     public static float modelKick = 1.0F;
     public static float adsRecoil = 0.7F;
-    public static String armModel = "auto";
     public static float modelRotate = 1.0F;
     public static float modelSpeed = 1.0F;
     public static float ntmRecoilAnim = 0.3F;
@@ -179,9 +178,8 @@ public final class Config {
             cornerHud: TaCZ-style ammo counter in the bottom-right corner instead of NTM's
             ammoMenu: look of the ammo menu (hold Y): steel, petals, bubbles, ntm, glass, arc
             ammoMenuColor: accent colour of the ammo menu, hex RRGGBB
-            arms: draw the player's arms holding the gun with both hands
-            armModel: auto = skin model, classic = four-pixel arms, slim = three-pixel arms;
-              both models share arm adjustments; slim arms move one pixel toward their inner side
+            arms: draw the player's arms holding the gun with both hands; their model follows the skin,
+              slim arms share the classic arms' settings and move one pixel toward their inner side
             armScale: arm thickness on top of the automatic one, 1 = vanilla arm proportions
             armMaxScale: upper limit of the automatic thickness
             armBaseRight, armBaseLeft: arm thickness before armScale, the same on every gun (as on Maresleg); 0 = automatic (grows with the arm's length)
@@ -423,7 +421,6 @@ public final class Config {
         kickPosZ = p.getProperty("kickPosZ", kickPosZ).trim();
         modelKick = num(p, "modelKick", modelKick);
         adsRecoil = Math.clamp(num(p, "adsRecoil", adsRecoil), 0F, 1F);
-        armModel = p.getProperty("armModel", "auto");
         modelRotate = num(p, "modelRotate", modelRotate);
         modelSpeed = Math.max(0.05F, num(p, "modelSpeed", modelSpeed));
         ntmRecoilAnim = num(p, "ntmRecoilAnim", ntmRecoilAnim);
@@ -545,7 +542,6 @@ public final class Config {
         p.setProperty("kickPosZ", kickPosZ);
         p.setProperty("modelKick", Float.toString(modelKick));
         p.setProperty("adsRecoil", Float.toString(adsRecoil));
-        p.setProperty("armModel", armModel);
         p.setProperty("modelRotate", Float.toString(modelRotate));
         p.setProperty("modelSpeed", Float.toString(modelSpeed));
         p.setProperty("ntmRecoilAnim", Float.toString(ntmRecoilAnim));

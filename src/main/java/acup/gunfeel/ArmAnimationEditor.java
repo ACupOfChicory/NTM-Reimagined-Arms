@@ -169,10 +169,7 @@ public final class ArmAnimationEditor extends Screen {
             ArmAnimationPreview.speed(speeds[next]);rebuildWidgets();
         });
         timeline=addRenderableWidget(new Timeline(4,62-scroll,W,H));
-        button(hand==0?"Правая рука":"Левая рука",4,82,132,()->{hand=1-hand;selected=0;load();show(startSafe());rebuildWidgets();});
-        button("Модель: "+switch(Config.armModel){case "classic"->"обычная";case "slim"->"skinny";default->"по скину";},140,82,134,()->{
-            Grips.put(gun,"armModel",switch(Config.armModel){case "auto"->"classic";case "classic"->"slim";default->"auto";},false);Config.select(gun);rebuildWidgets();
-        });
+        button(hand==0?"Правая рука":"Левая рука",4,82,W,()->{hand=1-hand;selected=0;load();show(startSafe());rebuildWidgets();});
         button("← Действие",4,102,132,()->select(-1));button("Действие →",140,102,134,()->select(1));
         if(!stages.isEmpty()){
             button(dynamic?"Разное начало и конец":"Одинаково весь этап",4,142,W,()->{
