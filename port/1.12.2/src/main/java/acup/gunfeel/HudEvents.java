@@ -47,6 +47,8 @@ public final class HudEvents {
     @SubscribeEvent
     public void renderTick(TickEvent.RenderTickEvent e) {
         if (e.phase == TickEvent.Phase.START && acup.gunfeel.compat.Feature.INSTANT_SWITCH.on()) InstantSwitch.frame(Minecraft.getMinecraft().player);
+        // clickAim: after the frame, the turn it drew while a fire key is held
+        if (e.phase == TickEvent.Phase.END) ClickAim.frame();
     }
 
     // 26.2: RenderGuiEvent.Post, over the rest of the HUD

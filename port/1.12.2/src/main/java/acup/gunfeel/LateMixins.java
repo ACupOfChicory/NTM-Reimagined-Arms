@@ -20,7 +20,7 @@ public class LateMixins implements IMixinConfigPlugin {
     static final List<String> CLIENT = Arrays.asList("MixinModEventHandlerClient", "MixinItemRenderWeaponBase",
             "MixinHbmAnimations", "MixinWavefrontObject", "MixinVaoModel", "MixinGroupHandle",
             "MixinRenderBulletMK4", "MixinLegoClient", "MixinSmokeNodes",
-            "MixinGunKeysRadial", "MixinGunHud", "MixinHbmAnimationPacket", "MixinG3Inspect", "MixinClock", "MixinAimButton");
+            "MixinGunKeysRadial", "MixinGunHud", "MixinHbmAnimationPacket", "MixinG3Inspect", "MixinClock", "MixinAimButton", "MixinClickAim");
 
     static final List<String> COMMON = Arrays.asList("MixinAmmoLock", "MixinAmmoLockBelt", "MixinBulletServer",
             "MixinThrowableClip", "ThrowableAccess", "MixinBeamHits", "MixinGunConfigAnims", "MixinHeadDamage",

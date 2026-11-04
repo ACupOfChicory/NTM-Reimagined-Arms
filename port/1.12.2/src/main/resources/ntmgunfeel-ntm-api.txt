@@ -174,6 +174,11 @@ BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraf
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/item/ItemStack;I)F
 BULLETS method com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo values ()[Lcom/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo;
 BULLETS method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/util/DamageSource;FZZDFF)Z
+CLICK_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT
+CLICK_AIM field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+CLICK_AIM field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+CLICK_AIM method com/hbm/capability/HbmCapability getData (Lnet/minecraft/entity/Entity;)Lcom/hbm/capability/HbmCapability$IHBMData;
+CLICK_AIM method com/hbm/capability/HbmCapability$IHBMData getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
 CORE class com/hbm/blocks/BlockDummyable
 CORE class com/hbm/blocks/generic/BlockBarrier
 CORE class com/hbm/blocks/generic/BlockWoodStructure
@@ -189,6 +194,8 @@ CORE class com/hbm/render/loader/HFRWavefrontObject
 CORE class com/hbm/render/loader/WaveFrontObjectVAO
 CORE class com/hbm/tileentity/machine/TileEntityCargoElevator
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 motionX D
+CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 motionZ D
 CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 CORE field com/hbm/items/weapon/sedna/BulletConfig ammo Lcom/hbm/inventory/RecipesCommon$ComparableStack;
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J

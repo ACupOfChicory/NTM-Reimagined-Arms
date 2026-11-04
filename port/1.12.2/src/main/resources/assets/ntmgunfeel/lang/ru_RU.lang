@@ -17,6 +17,7 @@ ntmgunfeel.feature.ammo_choice=Выбор и фиксация патронов
 ntmgunfeel.feature.recoil=Отдача
 ntmgunfeel.feature.arms=Руки на оружии
 ntmgunfeel.feature.hud=HUD
+ntmgunfeel.feature.click_aim=Пуля по кадру клика
 ntmgunfeel.feature.instant_switch=Мгновенная смена
 ntmgunfeel.feature.tracers=Трассеры
 ntmgunfeel.feature.maresleg=Анимации Maresleg
