@@ -116,5 +116,6 @@ public final class GunFeelClient {
         Long seen = SEEN_SHOT.put(gun, newest);
         if (seen == null || newest <= seen) return;
         ModelRecoil.shot(ItemGunBaseNT.getIsAiming(stack));
+        WalkSprint.onShot();
     }
 }

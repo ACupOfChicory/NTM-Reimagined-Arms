@@ -19,6 +19,7 @@ import acup.gunfeel.Config;
 import acup.gunfeel.GunFeel;
 import acup.gunfeel.GunFeelClient;
 import acup.gunfeel.ModelRecoil;
+import acup.gunfeel.WalkSprint;
 import acup.gunfeel.WeaponSway;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -106,6 +107,18 @@ public abstract class MixinItemRenderWeaponBase {
     private void gunfeel$sway(ItemStack stack, CallbackInfo ci) {
         EntityPlayerSP player = Minecraft.getMinecraft().thePlayer;
         if (Config.enabled && !Arms.measuring && player != null) WeaponSway.apply(player);
+        if (Config.enabled && !Arms.measuring && player != null && !GunFeelClient.currentAkimbo && stack != null)
+            WalkSprint.apply(player, stack.getItem());
+    }
+
+    // NTM's own walking bob (its viewbob, by the camera's bob cameraYaw) is left out for a gun with walkSway on:
+    // WalkSprint does it. 26.2 has the same bob by getInterpolatedBob; 1.7.10's cameraPitch turn (by the fall speed)
+    // is kept, 26.2 has none.
+    @ModifyExpressionValue(method = "setupTransformsAndRender", at = {
+            @At(value = "FIELD", target = "Lnet/minecraft/entity/player/EntityPlayer;cameraYaw:F", opcode = Opcodes.GETFIELD, remap = true),
+            @At(value = "FIELD", target = "Lnet/minecraft/entity/player/EntityPlayer;prevCameraYaw:F", opcode = Opcodes.GETFIELD, remap = true)})
+    private float gunfeel$bob(float original) {
+        return WalkSprint.bobOff() ? 0F : original;
     }
 
     // the camera-fixed frame the arms are built in, before NTM places the gun (26.2: Arms.cameraFrame)
@@ -183,6 +196,7 @@ public abstract class MixinItemRenderWeaponBase {
 
     @Inject(method = "setupTransformsAndRender", at = @At("RETURN"))
     private void gunfeel$end(ItemStack stack, CallbackInfo ci) {
+        if (!Arms.measuring && stack != null) WalkSprint.gunPlaced(stack.getItem());
         gunfeel$endFrame();
     }
 

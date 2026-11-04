@@ -26,14 +26,15 @@ public enum Feature {
             list("AmmoLock", "AmmoLockKey", "AmmoLogic", "AmmoNet", "RadialMenu", "AmmoStats", "AmmoSelectPayload", "AmmoLockPayload")),
     RECOIL("recoil", list("MixinModEventHandlerClient"), list("CameraRecoil", "ModelRecoil", "RecoilPresets", "ReaimTimes")),
     ARMS("arms", list("MixinItemRenderWeaponBase", "MixinHbmAnimations", "MixinWavefrontObject", "MixinWavefrontObjectVBO", "MixinG3Inspect",
-            "MixinHbmAnimationPacket"), list("Arms", "ArmAnims", "Grips", "GunGeometry", "WeaponSway")),
+            "MixinHbmAnimationPacket"), list("Arms", "ArmAnims", "Grips", "GunGeometry", "WeaponSway", "WalkSprint")),
     HUD("hud", list("MixinGunHud"), list("Hud", "HudEvents", "HudFormat", "Silhouette", "GunGeometry")),
     INSTANT_SWITCH("instant_switch", list("MixinHbmAnimationPacket"), list("InstantSwitch", "SwitchPrediction")),
     CLICK_AIM("click_aim", list("MixinClickAim"), list("ClickAim")),
     MACHINE_MESH("machine_mesh", list(), list("MachineMesh")),
     TRACERS("tracers", list("MixinLegoClient", "MixinRenderBulletMK4", "MixinSmokeNodes", "MixinRenderBlockCT"), list("Tracers", "TracerNet", "TracerPath")),
     MARESLEG("maresleg", list("MixinGunConfigAnims"), list()),
-    TRACE("trace", list("MixinClock"), list("TraceScenario", "TraceClient", "TraceHooks", "ShootScenario", "LookScenario", "ShapesScenario"));
+    SPRINT_FIRE("sprint_fire", list("MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun"), list("SprintFire")),
+    TRACE("trace", list("MixinClock"), list("TraceScenario", "TraceClient", "TraceHooks", "ShootScenario", "LookScenario", "ShapesScenario", "WalkSprintScenario"));
 
     public final String id;
     // simple names: mixins in acup.gunfeel.mixins, classes in acup.gunfeel

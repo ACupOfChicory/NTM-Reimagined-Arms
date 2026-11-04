@@ -48,6 +48,7 @@ acup/gunfeel/ArmContactTest.java
 acup/gunfeel/ArmTimelineTest.java
 acup/gunfeel/ArmPoseEditsTest.java
 acup/gunfeel/DecalSurfaceTest.java
+acup/gunfeel/SprintFireTest.java
 
 [resources]
 # src/main/resources

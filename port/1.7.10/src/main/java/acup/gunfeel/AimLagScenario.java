@@ -165,7 +165,7 @@ public final class AimLagScenario {
 
     // the gun with its magazines full, and a belt-fed gun's ammo in the inventory
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static void load(int slot, String name) {
+    static void load(int slot, String name) {
         ShootScenario.give(slot, name);
         EntityPlayerMP p = player();
         ItemStack stack = p.inventory.getStackInSlot(slot);
