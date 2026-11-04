@@ -51,23 +51,14 @@ final class ArmScreenCheck {
             var m = screen.model();
             ClientSmoke.check(!m.clipList().isEmpty(), gun + ": редактор нашёл анимации оружия: " + m.clipList().size());
             ClientSmoke.check(ArmAnimationPreview.active(), gun + ": предпросмотр включён");
-            layout(gun);
+            layout(gun + " · " + m.page.label);
             if (gun.endsWith("sexy")) {
                 m.seek(Math.min(1500, m.duration()));
                 screen.refresh();
             }
         });
         if (gun.endsWith("sexy")) TODO.add(() -> {});
-        if (gun.endsWith("sexy")) TODO.add(() -> {
-            var mc = Minecraft.getInstance();
-            net.minecraft.client.Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(), image -> {
-                try (image) {
-                    image.writeToFile(Path.of("../notes/arm-screen-check.png"));
-                } catch (java.io.IOException e) {
-                    GunFeel.LOGGER.warn("Не удалось сохранить кадр экрана рук", e);
-                }
-            });
-        });
+        if (gun.endsWith("sexy")) TODO.add(() -> shot("arm-screen-check.png"));
         // what moves each hand, compared with what the game drew, in every animation of the gun
         TODO.add(() -> {
             var m = screen.model();
@@ -92,9 +83,25 @@ final class ArmScreenCheck {
             // run them right after this step, in order
             for (int i = steps.size() - 1; i >= 0; i--) TODO.addFirst(steps.get(i));
         });
-        TODO.add(() -> pressAll(gun));
+        TODO.add(() -> pressAll(gun + " · " + ArmEditor.Page.TIME.label));
+        // the settings pages: each laid out and pressed through; a slider dragged on one of them
+        for (var page : List.of(ArmEditor.Page.GRIP, ArmEditor.Page.ARM, ArmEditor.Page.BOTH)) {
+            TODO.add(() -> {
+                var b = screen.button("page." + page.name().toLowerCase(Locale.ROOT));
+                ClientSmoke.check(b != null && b.active, gun + ": есть вкладка «" + page.label + "»");
+                if (b != null) b.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+                ClientSmoke.check(screen.model().page == page, gun + ": вкладка «" + page.label + "» открыла свою страницу");
+            });
+            TODO.add(() -> {});
+            if (gun.endsWith("sexy")) TODO.add(() -> shot("arm-screen-" + page.name().toLowerCase(Locale.ROOT) + ".png"));
+            TODO.add(() -> {
+                layout(gun + " · " + page.label);
+                pressAll(gun + " · " + page.label);
+                if (page == ArmEditor.Page.BOTH) drag(gun);
+            });
+        }
         TODO.add(() -> {
-            var close = button("Готово");
+            var close = screen.button("close");
             ClientSmoke.check(close != null, gun + ": есть кнопка «Готово»");
             if (close != null) close.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
             ClientSmoke.check(Minecraft.getInstance().gui.screen() == null, gun + ": «Готово» закрыла экран");
@@ -117,10 +124,33 @@ final class ArmScreenCheck {
         m.hand = keep;
     }
 
-    private static Button button(String label) {
-        for (var w : Minecraft.getInstance().gui.screen().children())
-            if (w instanceof Button b && b.getMessage().getString().equals(label)) return b;
-        return null;
+    private static void shot(String name) {
+        var mc = Minecraft.getInstance();
+        net.minecraft.client.Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(), image -> {
+            try (image) {
+                image.writeToFile(Path.of("../notes/" + name));
+            } catch (java.io.IOException e) {
+                GunFeel.LOGGER.warn("Не удалось сохранить кадр экрана рук", e);
+            }
+        });
+    }
+
+    // a slider of the screen taken to a quarter of its way: the setting moves, one step of undo takes it back
+    private static void drag(String gun) {
+        var m = screen.model();
+        ArmEditorScreen.Slider follow = null;
+        for (var sl : screen.sliders()) if (sl.setting.id().equals("armFollow")) follow = sl;
+        ClientSmoke.check(follow != null, gun + ": есть ползунок «Руки за оружием»");
+        if (follow == null) return;
+        var before = m.state();
+        int undo = m.undoSize();
+        follow.clickAt(0.25);
+        Config.select(m.gun);
+        ClientSmoke.check(Math.abs(Config.armFollow - 0.25F) < 1e-3, gun + ": ползунок поставил «Руки за оружием» 0,25: " + Config.armFollow);
+        ClientSmoke.check(m.undoSize() == undo + 1, gun + ": ползунок — один шаг отмены");
+        var back = screen.button("undo");
+        if (back != null && back.active) back.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+        ClientSmoke.check(m.state().data().equals(before.data()), gun + ": «Отменить» вернула значение ползунка");
     }
 
     // every action of the model has its button, as active as the action; all widgets on screen, none overlapping
@@ -145,13 +175,14 @@ final class ArmScreenCheck {
         var font = Minecraft.getInstance().font;
         String cramped = "";
         for (var a : widgets)
-            if (a instanceof Button btn && font.width(btn.getMessage()) > btn.getWidth() - 4) cramped += " «" + btn.getMessage().getString() + "»";
+            if (a instanceof AbstractWidget btn && font.width(btn.getMessage()) > btn.getWidth() - 4) cramped += " «" + btn.getMessage().getString() + "»";
+        for (var t : screen.texts()) if (font.width(t.text()) > t.w()) cramped += " «" + t.text() + "»";
         ClientSmoke.check(cramped.isEmpty(), gun + ": подписи помещаются в кнопки" + cramped);
         ClientSmoke.check(fits, gun + ": все элементы на экране " + s.width + "×" + s.height + (fits ? "" : ", вылез: " + bad));
         ClientSmoke.check(apart, gun + ": элементы не налезают друг на друга" + (apart ? "" : ": " + bad));
         int missing = 0;
         for (var a : screen.model().actions()) {
-            var b = button(a.label());
+            var b = screen.button(a.id());
             if (b == null || b.active != a.active()) {
                 missing++;
                 GunFeel.LOGGER.info("[clientcheck] нет кнопки или не та серость: {} «{}»", a.id(), a.label());
@@ -165,7 +196,7 @@ final class ArmScreenCheck {
     private static void pressAll(String gun) {
         var m = screen.model();
         m.clip = 0;
-        m.hand = 1;
+        if (m.page != ArmEditor.Page.BOTH) m.hand = 1;
         m.seek(m.duration() / 2F);
         screen.refresh();
         int dead = 0, pressed = 0;
@@ -174,7 +205,7 @@ final class ArmScreenCheck {
         var redo = m.redoCopy();
         for (var a : m.actions()) {
             if (!a.active() || a.id().equals("close")) continue;
-            var b = button(a.label());
+            var b = screen.button(a.id());
             if (b == null) continue;
             b.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
             pressed++;
@@ -188,7 +219,7 @@ final class ArmScreenCheck {
                 GunFeel.LOGGER.info("[clientcheck] предпросмотр не на {} мс после «{}»: {}", after.time(), a.label(), ArmAnimationPreview.millis());
             }
             if (!after.data().equals(before.data())) {
-                var back = button(a.id().equals("undo") ? "Повторить" : "Отменить");
+                var back = screen.button(a.id().equals("undo") ? "redo" : "undo");
                 if (back == null || !back.active) dead++;
                 else {
                     back.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));

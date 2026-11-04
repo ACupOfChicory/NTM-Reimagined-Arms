@@ -6,6 +6,7 @@ import com.hbm.render.anim.AnimationEnums.GunAnimation;
 import com.hbm.render.anim.BusAnimation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
@@ -21,7 +22,7 @@ import net.minecraft.world.item.ItemStack;
 
 /** Экран «Руки пушки»: показывает {@link ArmEditor}. Каждая кнопка — действие модели с подсказкой. */
 public final class ArmEditorScreen extends Screen {
-    private static final int W = 244, H = 14, GAP = 2, LABEL = 84, ROW = 10, BUS = 4;
+    private static final int W = 244, H = 14, GAP = 2, LABEL = 84, ROW = 10, BUS = 4, SET_H = 12, SET_STEP = 14, SMALL = 16;
     private static final int[] COLOR = {0xFF555566, 0xFFB07CFF, 0xFF4FC3F7, 0xFFFFB74D, 0xFFE57373, 0xFF81C784, 0xFF9E9E9E};
     private final Screen parent;
     private final Item item;
@@ -29,6 +30,13 @@ public final class ArmEditorScreen extends Screen {
     private final Map<String, int[]> moves = new LinkedHashMap<>();
     private int previewClip = -1;
     private String actionsShown = "";
+    private final Map<String, Button> buttons = new LinkedHashMap<>();
+    // texts of the settings pages: where they stand, how wide they may be, and their hint
+    record Text(String text, String hint, int x, int y, int w) {
+    }
+
+    private final List<Text> texts = new ArrayList<>();
+    private Slider held;
 
     public ArmEditorScreen(Screen parent, Item item, String gun) {
         super(Component.literal("Руки пушки"));
@@ -128,6 +136,40 @@ public final class ArmEditorScreen extends Screen {
         }
 
         @Override
+        public ArmEditor.Shape shape() {
+            GunGeometry g = Arms.geometry(item);
+            if (g == null) return null;
+            return new ArmEditor.Shape() {
+                public float[] min() {
+                    return new float[] {g.minX, g.minY, g.minZ};
+                }
+
+                public float[] max() {
+                    return new float[] {g.maxX, g.maxY, g.maxZ};
+                }
+
+                public float[] fractions(float[] point) {
+                    return g.fractions(point);
+                }
+
+                public float[] point(float[] fractions) {
+                    return g.grip(fractions);
+                }
+            };
+        }
+
+        @Override
+        public String variant() {
+            GunGeometry g = Arms.geometry(item);
+            return g == null ? "" : g.missing;
+        }
+
+        @Override
+        public List<String> parts() {
+            return Arms.editorParts();
+        }
+
+        @Override
         public String gunName(String gun) {
             try {
                 Item i = BuiltInRegistries.ITEM.getValue(Identifier.parse(gun.contains("-") ? gun.substring(0, gun.indexOf('-')) : gun));
@@ -170,7 +212,23 @@ public final class ArmEditorScreen extends Screen {
         Button b = Button.builder(Component.literal(a.label()), p -> press(a.id())).bounds(x, y, w, H).build();
         b.setTooltip(Tooltip.create(Component.literal(tip)));
         b.active = a.active();
+        buttons.put(a.id(), b);
         return addRenderableWidget(b);
+    }
+
+    // the button of an action now on screen, null = none
+    Button button(String id) {
+        return buttons.get(id);
+    }
+
+    List<Text> texts() {
+        return texts;
+    }
+
+    List<Slider> sliders() {
+        var out = new ArrayList<Slider>();
+        for (var w : children()) if (w instanceof Slider sl) out.add(sl);
+        return out;
     }
 
     // after the model was changed from outside (the stand check)
@@ -209,10 +267,19 @@ public final class ArmEditorScreen extends Screen {
     @Override
     protected void init() {
         syncPreview();
+        buttons.clear();
+        texts.clear();
+        held = null;
         Map<String, ArmEditor.Action> a = new LinkedHashMap<>();
         for (var x : model.actions()) a.put(x.id(), x);
         actionsShown = signature();
         int y = 14;
+        row(a, y, "page.time", "page.grip", "page.arm", "page.both");
+        y += H + GAP;
+        if (model.page != ArmEditor.Page.TIME) {
+            settingsPage(a, y);
+            return;
+        }
         row(a, y, "clip.prev", "clip.next", "hand.right", "hand.left");
         y += H + GAP;
         row(a, y, "time.start", "time.back", "play", "time.forward", "time.end", "speed");
@@ -238,6 +305,32 @@ public final class ArmEditorScreen extends Screen {
 
     private int textY;
 
+    // a settings page: the animation still plays above; then one line per setting, its buttons at the right
+    private void settingsPage(Map<String, ArmEditor.Action> a, int y) {
+        row(a, y, "clip.prev", "play", "clip.next", "speed");
+        y += H + GAP;
+        row(a, y, "hand.right", "hand.left", "undo", "redo");
+        y += H + GAP;
+        row(a, y, "reset", "arms.own", "arms.shared", "close");
+        y += H + GAP;
+        textY = y + 1;
+        y += 12;
+        for (var r : model.rows()) {
+            int right = 4 + W;
+            for (int i = r.ids().size() - 1; i >= 0; i--) {
+                var act = a.get(r.ids().get(i));
+                if (act == null) continue;
+                int w = act.label().length() <= 1 ? SMALL : font.width(act.label()) + 8;
+                right -= w;
+                button(act, right, y, w).setHeight(SET_H);
+                right -= GAP;
+            }
+            if (r.slider() != null) addRenderableWidget(new Slider(r.slider(), 4, y, right - 4, SET_H, r.hint()));
+            else texts.add(new Text(r.text(), r.hint(), 4, y + 2, right - 4));
+            y += SET_STEP;
+        }
+    }
+
     // what the buttons show: rebuilt when it changes (a key passed while playing, the end reached)
     private String signature() {
         var sb = new StringBuilder();
@@ -253,7 +346,8 @@ public final class ArmEditorScreen extends Screen {
             return;
         }
         syncPreview();
-        if (!signature().equals(actionsShown)) rebuildWidgets();
+        // not while a slider is dragged: it would be made anew under the mouse
+        if (held == null && !signature().equals(actionsShown)) rebuildWidgets();
     }
 
     @Override
@@ -286,6 +380,14 @@ public final class ArmEditorScreen extends Screen {
         g.text(font, title, 4, 4, 0xFFFFCC55);
         var d = model.driver(model.time);
         g.text(font, "Сейчас (" + Math.round(model.time) + " мс): " + d.label, 4, textY, COLOR[d.ordinal()] | 0xFF000000);
+        if (model.page != ArmEditor.Page.TIME) {
+            for (var t : texts) {
+                g.text(font, t.text(), t.x(), t.y(), 0xFFE0E0E0);
+                if (mx >= t.x() && mx < t.x() + t.w() && my >= t.y() - 2 && my < t.y() + SET_H - 2)
+                    g.setTooltipForNextFrame(font, Component.literal(t.hint()), mx, my);
+            }
+            return;
+        }
         String note = model.trackNote(model.track);
         if (note == null) note = "Дорожка «" + model.track.label + "»: ключей " + model.keys(model.track).size() + ".";
         g.textWithWordWrap(font, Component.literal(note), 4, textY + 10, W, 0xFFAAAAAA);
@@ -318,6 +420,58 @@ public final class ArmEditorScreen extends Screen {
             return true;
         }
         return super.keyPressed(event);
+    }
+
+    // ---------------------------------------------------------------- a setting's slider
+
+    final class Slider extends AbstractSliderButton {
+        final ArmEditor.Setting setting;
+
+        Slider(ArmEditor.Setting s, int x, int y, int w, int h, String hint) {
+            super(x, y, w, h, Component.literal(s.text()), Math.clamp((s.value() - s.min()) / (s.max() - s.min()), 0.0, 1.0));
+            this.setting = s;
+            active = s.why() == null;
+            setTooltip(Tooltip.create(Component.literal(hint + " Тяни или щёлкни." + (active ? "" : "\nСейчас нельзя: " + s.why() + "."))));
+        }
+
+        private float target() {
+            return setting.min() + (float) value * (setting.max() - setting.min());
+        }
+
+        @Override
+        protected void updateMessage() {
+            float v = ArmEditor.snap(Math.clamp(target(), setting.min(), setting.max()), setting.step());
+            setMessage(Component.literal(new ArmEditor.Setting(setting.id(), setting.label(), setting.hint(), setting.unit(), v, setting.min(),
+                    setting.max(), setting.step(), setting.why()).text()));
+        }
+
+        @Override
+        protected void applyValue() {
+            held = this;
+            model.slide(setting.id(), target(), false);
+        }
+
+        @Override
+        public void onRelease(MouseButtonEvent event) {
+            super.onRelease(event);
+            release();
+        }
+
+        // the drag is over: one step of undo, buttons as the new value makes them
+        void release() {
+            if (held != this) return;
+            held = null;
+            model.slide(setting.id(), target(), true);
+            rebuildWidgets();
+        }
+
+        // for the stand: as a click at this share of the width and a let-go
+        void clickAt(double share) {
+            value = Math.clamp(share, 0.0, 1.0);
+            applyValue();
+            updateMessage();
+            release();
+        }
     }
 
     // ---------------------------------------------------------------- the time lane: ruler, driver, keys, buses

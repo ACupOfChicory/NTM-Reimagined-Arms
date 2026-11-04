@@ -36,76 +36,164 @@ class ArmEditorTest {
 
     // animations long enough for every key the gun has
     static ArmEditor.Clips clips(Collection<String> names) {
-        return () -> names.stream().map(n -> new ArmEditor.Clip(n, 4000)).toList();
+        return clips(names, "", true);
+    }
+
+    // a stand-in model: a box 4 x 4 x 20, fractions as shares of it; two parts a hand can move with
+    static ArmEditor.Clips clips(Collection<String> names, String variant, boolean measured) {
+        var list = names.stream().map(n -> new ArmEditor.Clip(n, 4000)).toList();
+        ArmEditor.Shape box = new ArmEditor.Shape() {
+            public float[] min() {
+                return new float[] {-2, -2, -10};
+            }
+
+            public float[] max() {
+                return new float[] {2, 2, 10};
+            }
+
+            public float[] fractions(float[] p) {
+                return new float[] {(p[0] + 2) / 4, (p[1] + 2) / 4, (p[2] + 10) / 20};
+            }
+
+            public float[] point(float[] f) {
+                return new float[] {f[0] * 4 - 2, f[1] * 4 - 2, f[2] * 20 - 10};
+            }
+        };
+        return new ArmEditor.Clips() {
+            public List<ArmEditor.Clip> list() {
+                return list;
+            }
+
+            public ArmEditor.Shape shape() {
+                return measured ? box : null;
+            }
+
+            public String variant() {
+                return variant;
+            }
+
+            public List<String> parts() {
+                return List.of("Pump", "Lever");
+            }
+        };
+    }
+
+    // guns seen as a variant too (the parts they do not draw), and without a measured model
+    static final Map<String, String> VARIANTS = Map.of("hbm:gun_double_barrel", "-Barrel", "hbm:gun_maresleg", "-Stock-Barrel",
+            "hbm:gun_autoshotgun_heretic", "-Barrel", "hbm:gun_g3", "-Mag_Paddle-Scope-Silencer");
+
+    // presses the action when it can be pressed
+    private static void tap(ArmEditor e, String id) {
+        var a = e.action(id);
+        if (a != null && a.active()) a.run().run();
+    }
+
+    // every setting of the gun made its own: lengths and bases 0 first (the thickness that grows with the arm), then
+    // each number a step, each part and switch once, each variant its own grip
+    private static void ownEverything(ArmEditor e) {
+        for (String k : List.of("armBaseRight", "armBaseLeft", "armLength")) Grips.put(e.gun, k, "0", false);
+        Config.select(e.gun);
+        for (var p : List.of(ArmEditor.Page.GRIP, ArmEditor.Page.ARM, ArmEditor.Page.BOTH))
+            for (int h = 0; h < 2; h++) {
+                e.page = p;
+                e.hand = h;
+                for (var a : e.actions()) {
+                    String id = a.id();
+                    if (!id.startsWith("set.") || id.contains("armBase") || id.contains("armLength") || !id.endsWith(".minus")) continue;
+                    String plus = id.substring(0, id.length() - 6) + ".plus";
+                    if (a.active()) a.run().run();
+                    else tap(e, plus);
+                }
+                tap(e, "grip.part.next");
+                tap(e, "grip.variant.own");
+                tap(e, "set.armSlideNearest.toggle");
+                tap(e, "set.armSlide.toggle");
+            }
+        e.page = ArmEditor.Page.TIME;
+        e.hand = 1;
     }
 
     @Test
     void everyControlDoesSomethingOrSaysWhyNot() throws Exception {
         var opened = Grips.snapshot();
         int pressed = 0, grey = 0, states = 0;
-        Set<String> seen = new TreeSet<>();
+        Set<String> seen = new TreeSet<>(), shown = new TreeSet<>();
         try {
             var guns = jarGuns();
             guns.put("gunfeel:no_animations", Set.of());
             for (var g : guns.entrySet()) {
-                var e = new ArmEditor(g.getKey(), clips(g.getValue()));
-                List<java.util.function.Consumer<ArmEditor>> setups = new ArrayList<>();
-                setups.add(x -> {});
-                // an edit made: undo has something; then undone: redo has something
-                if (e.sharedWith() != null) {
-                    setups.add(x -> assertTrue(x.press("arms.own")));
-                    setups.add(x -> {
-                        assertTrue(x.press("arms.own"));
-                        assertTrue(x.press("undo"));
-                    });
-                }
-                for (var setup : setups) {
-                    Grips.restoreUnsaved(opened);
-                    var fresh = new ArmEditor(g.getKey(), e.clips);
-                    setup.accept(fresh);
-                    for (int c = 0; c < Math.max(1, fresh.clipList().size()); c++)
-                        for (int h = 0; h < 2; h++)
-                            for (var t : ArmEditor.Track.values()) {
-                                fresh.clip = c;
-                                fresh.hand = h;
-                                fresh.track = t;
-                                var times = new TreeSet<Float>(List.of(0F, fresh.duration() / 2F, (float) fresh.duration()));
-                                times.addAll(fresh.keys(t));
-                                for (float time : times) {
-                                    fresh.time = time;
-                                    for (boolean playing : new boolean[] {false, true}) {
-                                        fresh.playing = playing;
-                                        states++;
-                                        int[] n = check(fresh, g.getKey(), seen);
-                                        pressed += n[0];
-                                        grey += n[1];
+                List<ArmEditor.Clips> looks = new ArrayList<>(List.of(clips(g.getValue())));
+                if (VARIANTS.containsKey(g.getKey())) looks.add(clips(g.getValue(), VARIANTS.get(g.getKey()), false));
+                for (var look : looks) {
+                    var e = new ArmEditor(g.getKey(), look);
+                    List<java.util.function.Consumer<ArmEditor>> setups = new ArrayList<>();
+                    setups.add(x -> {});
+                    // an edit made: undo has something; then undone: redo has something
+                    if (e.sharedWith() != null) {
+                        setups.add(x -> assertTrue(x.press("arms.own")));
+                        setups.add(x -> {
+                            assertTrue(x.press("arms.own"));
+                            assertTrue(x.press("undo"));
+                        });
+                    }
+                    setups.add(ArmEditorTest::ownEverything);
+                    for (var setup : setups) {
+                        Grips.restoreUnsaved(opened);
+                        var fresh = new ArmEditor(g.getKey(), look);
+                        setup.accept(fresh);
+                        for (var page : ArmEditor.Page.values()) {
+                            fresh.page = page;
+                            for (int c = 0; c < Math.max(1, fresh.clipList().size()); c++)
+                                for (int h = 0; h < (page == ArmEditor.Page.BOTH ? 1 : 2); h++)
+                                    for (var t : page == ArmEditor.Page.TIME ? ArmEditor.Track.values() : new ArmEditor.Track[] {fresh.track}) {
+                                        fresh.clip = c;
+                                        fresh.hand = h;
+                                        fresh.track = t;
+                                        var times = new TreeSet<Float>(List.of(0F, fresh.duration() / 2F, (float) fresh.duration()));
+                                        if (page == ArmEditor.Page.TIME) times.addAll(fresh.keys(t));
+                                        for (float time : times) {
+                                            fresh.time = time;
+                                            for (boolean playing : new boolean[] {false, true}) {
+                                                fresh.playing = playing;
+                                                states++;
+                                                int[] n = check(fresh, g.getKey(), seen, shown);
+                                                pressed += n[0];
+                                                grey += n[1];
+                                            }
+                                        }
                                     }
-                                }
-                            }
+                            // settings pages: the same for every animation, one is enough
+                            if (page != ArmEditor.Page.TIME) fresh.clip = 0;
+                        }
+                    }
                 }
             }
         } finally {
             Grips.restoreUnsaved(opened);
             Config.select(null);
         }
-        System.out.println("ARMEDITOR states " + states + " pressed " + pressed + " grey " + grey + " controls " + seen);
-        // every control was pressable somewhere
-        for (String id : List.of("clip.prev", "clip.next", "play", "speed", "time.start", "time.back", "time.forward", "time.end",
-                "hand.right", "hand.left", "track.hide", "track.path", "track.carry", "track.release", "track.around", "track.adjust",
-                "key.prev", "key.next", "arms.own", "arms.shared", "undo", "redo", "reset", "close"))
-            assertTrue(seen.contains(id), id + " was never pressable");
+        System.out.println("ARMEDITOR states " + states + " pressed " + pressed + " grey " + grey + " controls " + shown.size());
+        // every control that was ever shown could be pressed somewhere
+        var never = new TreeSet<>(shown);
+        never.removeAll(seen);
+        assertEquals(Set.of(), never, "shown but never pressable");
+        for (String id : List.of("clip.prev", "play", "time.start", "track.around", "key.next", "arms.own", "arms.shared", "undo", "redo", "reset", "close",
+                "page.grip", "grip.mode", "grip.reset", "grip.part.next", "grip.variant.own", "grip.variant.common", "set.grip.2.plus",
+                "set.armReachLeft.minus", "set.armMaxScale.plus", "set.armSlide.toggle", "set.armSlideNearest.reset", "set.armStretch.reset"))
+            assertTrue(shown.contains(id), id + " was never shown");
     }
 
     // presses each control of one state; returns {pressed, grey}
-    private static int[] check(ArmEditor e, String gun, Set<String> seen) {
+    private static int[] check(ArmEditor e, String gun, Set<String> seen, Set<String> shown) {
         var before = e.state();
         var undo = e.undoCopy();
         var redo = e.redoCopy();
         int pressed = 0, grey = 0;
         Set<String> ids = new HashSet<>();
         for (var a : e.actions()) {
-            String where = gun + " " + e.clip() + " hand " + e.hand + " " + e.track + " t=" + e.time + " " + a.id();
+            String where = gun + e.clips.variant() + " " + e.page + " " + e.clip() + " hand " + e.hand + " " + e.track + " t=" + e.time + " " + a.id();
             assertTrue(ids.add(a.id()), where + ": two controls with one id");
+            shown.add(a.id());
             assertFalse(a.label().isBlank(), where + ": no label");
             assertFalse(a.hint().isBlank(), where + ": no hint");
             noEnglish(a.label(), e, where);
@@ -130,6 +218,15 @@ class ArmEditorTest {
             e.restore(before, undo, redo);
             assertEquals(before, e.state(), where + ": the test could not go back");
         }
+        for (var r : e.rows()) {
+            String where = gun + e.clips.variant() + " " + e.page + " hand " + e.hand + " row";
+            String text = r.slider() != null ? r.slider().text() : r.text();
+            assertFalse(text.isBlank() || r.hint().isBlank(), where + ": a row without text or hint");
+            noEnglish(text, e, where);
+            noEnglish(r.hint(), e, where);
+            if (r.slider() != null && r.slider().why() != null) noEnglish(r.slider().why(), e, where);
+            for (String id : r.ids()) assertTrue(ids.contains(id), where + ": a button of the row is no action: " + id);
+        }
         return new int[] {pressed, grey};
     }
 
@@ -138,6 +235,14 @@ class ArmEditorTest {
         String t = text;
         String shared = e.sharedWith();
         if (shared != null) t = t.replace(e.clips.gunName(shared), "");
+        // the model's part names, as the model names them, the longest first ("BarrelShort" before "Barrel")
+        Config.select(e.gun);
+        var parts = new ArrayList<String>(e.clips.parts());
+        parts.addAll(List.of(e.clips.variant().split("-")));
+        parts.addAll(List.of(Config.armPartRight, Config.armPartLeft));
+        parts.removeIf(String::isEmpty);
+        parts.sort(Comparator.comparingInt(String::length).reversed());
+        for (String part : parts) t = t.replace(part, "");
         assertFalse(t.matches("(?s).*[A-Za-z].*"), where + ": English in «" + text + "»");
     }
 
