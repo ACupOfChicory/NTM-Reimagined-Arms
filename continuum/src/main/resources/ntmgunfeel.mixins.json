@@ -9,6 +9,6 @@
     "MixinEntityMeshHits", "MixinDragonModelHit", "MixinLegacyHitboxGizmos", "MixinSkinLayerVisualizer",
     "RenderTypeAccess", "RenderSetupAccess", "MixinDeltaTimer",
     "MixinMouseTurn", "MixinItemInHandRenderer",
-    "MixinSubmitNodeCollection"],
+    "MixinSubmitNodeCollection", "GameRendererAccess", "MixinHandBob", "MixinSprintStop"],
   "injectors": { "defaultRequire": 1 }
 }

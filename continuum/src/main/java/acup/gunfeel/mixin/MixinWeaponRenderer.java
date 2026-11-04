@@ -7,6 +7,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.hbm.client.anim.HbmAnimations;
@@ -21,16 +22,19 @@ import acup.gunfeel.Config;
 import acup.gunfeel.GunExtent;
 import acup.gunfeel.GunFeel;
 import acup.gunfeel.ModelRecoil;
+import acup.gunfeel.WalkSprint;
 import acup.gunfeel.WeaponSway;
 import acup.gunfeel.compat.Feature;
+import dev.golem.core.client.ViewBob;
 import dev.golem.core.render.SubmitSink;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 
 // port/continuum: src/main/java MixinItemRenderWeaponBase on NTM Continuum's WeaponRenderer, whose setupTransformsAndSubmit
 // is NTM NEXT's: turn lag, walk sway, the gun's own offset (setupFirstPerson), then renderFirstPerson. Recoil, sway, the
-// hip-fire position and the arms (Arms; the parts the gun drew come from its Gem declaration, ArmsGem).
+// hip-fire position, the walk and sprint poses (WalkSprint) and the arms (Arms; the parts the gun drew come from its Gem declaration, ArmsGem).
 @Mixin(value = WeaponRenderer.class, remap = false)
 public abstract class MixinWeaponRenderer {
     private static final String RENDER = "Lcom/hbm/client/render/weapon/WeaponRenderer;renderFirstPerson(Lnet/minecraft/world/item/ItemStack;"
@@ -76,6 +80,15 @@ public abstract class MixinWeaponRenderer {
         if (!Config.enabled || Arms.measuring) return;
         GunFeel.checkShot(stack);
         WeaponSway.apply(poseStack, player);
+        if (!otherArm) WalkSprint.apply(poseStack, player, stack.getItem());
+    }
+
+    // Continuum's own walking bob (Golem Core's ViewBob) is left out for a gun with walkSway on: WalkSprint does it
+    @Redirect(method = "setupTransformsAndSubmit", at = @At(value = "INVOKE",
+            target = "Ldev/golem/core/client/ViewBob;bob(Lnet/minecraft/client/player/AbstractClientPlayer;F)F"))
+    private float gunfeel$bob(AbstractClientPlayer player, float partial) {
+        if (Config.enabled && Config.walkSway > 0F && !Arms.measuring && !GunFeel.currentAkimbo) return 0F;
+        return ViewBob.bob(player, partial);
     }
 
     // NTM's two turn-lag rotations are replaced by WeaponSway, not added to it
@@ -132,6 +145,7 @@ public abstract class MixinWeaponRenderer {
             boolean otherArm, CallbackInfo ci) {
         GunFeel.current = null;
         if (Arms.measuring) return;
+        WalkSprint.gunPlaced(stack.getItem());
         var held = player.getMainHandItem().getItem();
         Config.select(held instanceof ItemGunBaseNT ? BuiltInRegistries.ITEM.getKey(held).toString() : null);
     }

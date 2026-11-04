@@ -6,7 +6,7 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": ["MixinBulletServer", "MixinThrowableHit", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor",
     "MixinExplosiveDirect", "MixinHeadDamage", "MixinRicochetSound", "MixinHoldAim",
-    "MixinAmmoLock", "MixinAmmoLockBelt", "MixinBeamModelQuery", "MixinNextAnimations"],
+    "MixinAmmoLock", "MixinAmmoLockBelt", "MixinBeamModelQuery", "MixinNextAnimations", "MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun"],
   "client": ["MixinTracerRibbon", "MixinGunRecoil", "MixinWeaponRenderer", "WeaponPoseAccess",
     "MixinClientRegistry", "MixinHbmKeysRadial", "MixinHbmAimButton", "MixinClickAim", "MixinGunAnimationHandler", "MixinHbmAnimations",
     "MixinNtmMeshHits", "ObjGroupAccess", "MixinBeamPronterHits", "MixinGunAnimations",

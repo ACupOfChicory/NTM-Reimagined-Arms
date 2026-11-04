@@ -220,6 +220,24 @@ stonecutter parameters {
             // port/continuum-bullets: MixinHoldAim: Continuum's gun ticks in Golem Core's compatInventoryTick (with held)
             replace("@Inject(method = \"inventoryTick\", at = @At(\"TAIL\"))\n    private void gunfeel\$reaim(ItemStack stack, ServerLevel level, Entity entity, @Nullable EquipmentSlot slot, CallbackInfo ci) {",
                 "@Inject(method = \"compatInventoryTick\", at = @At(\"TAIL\"))\n    private void gunfeel\$reaim(ItemStack stack, ServerLevel level, Entity entity, @Nullable EquipmentSlot slot, boolean held, CallbackInfo ci) {")
+            // sprintFireDelay (SprintFire, MixinSprintFire*): Continuum's LambdaContext has public fields and a hand, its
+            // gun ticks in compatInventoryTick (as MixinHoldAim above), and the local player's held gun keys are
+            // HbmKeybindsClient's (NTM NEXT: HbmPlayerProps.getKeyPressed); WalkSprint reads them the same way
+            replace("ctx.entity()", "ctx.entity")
+            replace("ctx.configIndex()", "ctx.configIndex")
+            replace("ctx.config()", "ctx.config")
+            replace("new ItemGunBaseNT.LambdaContext(config, player, player.getInventory(), index)",
+                "new ItemGunBaseNT.LambdaContext(config, player, player.getInventory(), net.minecraft.world.InteractionHand.MAIN_HAND, index)")
+            replace("HbmPlayerProps props = HbmPlayerProps.getData(player);\n        return props.getKeyPressed(EnumKeybind.GUN_PRIMARY) || props.getKeyPressed(EnumKeybind.GUN_SECONDARY);",
+                "return com.hbm.client.HbmKeybindsClient.isHeld(EnumKeybind.GUN_PRIMARY) || com.hbm.client.HbmKeybindsClient.isHeld(EnumKeybind.GUN_SECONDARY);")
+            replace("var props = com.hbm.extprop.HbmPlayerProps.getData(player);\n        return props.getKeyPressed(com.hbm.handler.HbmKeybinds.EnumKeybind.GUN_PRIMARY)\n                || props.getKeyPressed(com.hbm.handler.HbmKeybinds.EnumKeybind.GUN_SECONDARY);",
+                "return com.hbm.client.HbmKeybindsClient.isHeld(com.hbm.handler.HbmKeybinds.EnumKeybind.GUN_PRIMARY)\n                || com.hbm.client.HbmKeybindsClient.isHeld(com.hbm.handler.HbmKeybinds.EnumKeybind.GUN_SECONDARY);")
+            replace("@Inject(method = \"inventoryTick\", at = @At(\"HEAD\"))\n    private void gunfeel\$sprintTime(ItemStack stack, ServerLevel level, Entity entity, @Nullable EquipmentSlot slot, CallbackInfo ci) {",
+                "@Inject(method = \"compatInventoryTick\", at = @At(\"HEAD\"))\n    private void gunfeel\$sprintTime(ItemStack stack, ServerLevel level, Entity entity, @Nullable EquipmentSlot slot, boolean held, CallbackInfo ci) {")
+            replace("@Inject(method = \"inventoryTick\", at = @At(\"TAIL\"))\n    private void gunfeel\$heldClick(ItemStack stack, ServerLevel level, Entity entity, @Nullable EquipmentSlot slot, CallbackInfo ci) {",
+                "@Inject(method = \"compatInventoryTick\", at = @At(\"TAIL\"))\n    private void gunfeel\$heldClick(ItemStack stack, ServerLevel level, Entity entity, @Nullable EquipmentSlot slot, boolean held, CallbackInfo ci) {")
+            // WalkSprint: Golem Core's Gem has no static interp (as for the hand transform above)
+            replace("float partial = ItemRenderWeaponBase.interp;", "float partial = net.minecraft.client.Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);")
             // port/continuum-bullets: BulletCheck (main's runCheckBullets; here on the 26.1 client's server with
             // -Pntmgunfeel.checkBullets): Continuum's bullet heading is a unit vector set by shoot (no velocity argument),
             // its beam hit is XFactoryEnergy's, its entities ModNtmEntities, its bullet configs BulletConfigs.all(); a
@@ -326,8 +344,8 @@ stonecutter parameters {
                 "        if (buses == null) buses = com.hbm.client.anim.GunAnimations.get(stack, cue, 0);")
             replace("HbmAnimations.identity()", "new double[] {0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 2}")
             // the arms' own classes on this node belong to ARMS (NtmApiTest, Compat): the cue, the Gem walk, the dev check, the OBJ view, NTM NEXT's gun animations
-            replace("List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\")",
-                "List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\", " +
+            replace("List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\", \"WalkSprint\")",
+                "List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\", \"WalkSprint\", " +
                 "\"AnimCue\", \"ArmsGem\", \"ArmsSmoke\", \"HFRWavefrontObject\", \"GroupObject\", \"ContinuumAnimations\", \"NextGunAnimations\")")
             // port/continuum-hud: the HUD's gun silhouette rasterises GunGeometry's groups, Continuum's WavefrontObj through acup.gunfeel.obj
             replace("import com.hbm.render.loader.GroupObject;\nimport com.mojang.blaze3d.platform.NativeImage;",
