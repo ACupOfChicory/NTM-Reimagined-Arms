@@ -109,27 +109,52 @@ public final class BulletFx {
         }
     }
 
-    // a sound heard over `range` blocks, fading out to it. 1.7.10 fades a sound out within 16 blocks (more only for a
-    // volume over 1, which is no louder): set nearer the listener on the same line, so it comes from the same side but
-    // fades as if over `range`; louder than 1, the same sound several times at once (each at most 1)
+    // a sound heard over `range` blocks, fading out to it (over its own fade when that is longer, as 26.2's). 1.7.10
+    // fades a sound out within 16 blocks (more only for a volume over 1, which is no louder): set nearer the listener on
+    // the same line, so it comes from the same side but fades as if over `range`; louder than 1, the same sound several
+    // times at once (each at most 1)
     static void play(double[] at, String id, float volume, float pitch, float range) {
         Minecraft mc = Minecraft.getMinecraft();
         Entity ear = mc.getRenderViewEntity();
         double x = at[0], y = at[1], z = at[2];
-        float fade = 16F;
-        if (ear != null && range > fade) {
+        float fade = fade26(id);
+        if (ear != null) {
             double dx = x - ear.posX, dy = y - ear.posY, dz = z - ear.posZ;
-            double d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (d >= range) return;
-            double k = fade / range;
-            x = ear.posX + dx * k;
-            y = ear.posY + dy * k;
-            z = ear.posZ + dz * k;
+            if (range > fade && dx * dx + dy * dy + dz * dz >= range * range) return;
+            double[] p = faded(new double[] {ear.posX, ear.posY, ear.posZ}, at, Math.max(fade, range));
+            x = p[0];
+            y = p[1];
+            z = p[2];
         }
         int copies = Math.min(4, Math.max(1, (int) Math.ceil(volume - 1e-3F)));
         ResourceLocation sound = new ResourceLocation(id);
         for (int i = 0; i < copies; i++)
             mc.getSoundHandler().playSound(record(sound, volume / copies, pitch, x, y, z));
+    }
+
+    // port: how far 26.2 fades a sound out, its sounds.json's attenuation_distance (16 without one; SoundsJsonTest
+    // checks the table against it). 1.12.2's sounds.json has no such field: every sound fades out over 16 blocks
+    static final Map<String, Float> FADE_26 = new HashMap<String, Float>();
+    static {
+        FADE_26.put("ntmgunfeel:bullet.whizz", 8F);
+        FADE_26.put("ntmgunfeel:bullet.crack", 12F);
+        FADE_26.put("ntmgunfeel:bullet.ricochet.steel", 32F);
+        for (String hit : new String[] {"wood", "dirt", "gravel", "stone", "concrete", "metal", "steel",
+                "concrete.f1", "concrete.f2", "dirt.f1", "dirt.f2", "gravel.f1", "gravel.f2", "gravel.f3", "metal.f1", "metal.f2",
+                "steel.f1", "steel.f2", "steel.f3", "steel.f4", "steel.f5", "stone.f1", "stone.f2", "wood.f1", "wood.f2"})
+            FADE_26.put("ntmgunfeel:bullet.hit." + hit, 24F);
+    }
+
+    static float fade26(String id) {
+        Float f = FADE_26.get(id);
+        return f == null ? 16F : f;
+    }
+
+    // where a sound at `at` goes so that 1.12.2, fading it over 16 blocks, fades it as over `over` blocks: on the line
+    // from the ears, 16/over as far (so from the same side)
+    static double[] faded(double[] ear, double[] at, double over) {
+        double k = 16.0 / over;
+        return new double[] {ear[0] + (at[0] - ear[0]) * k, ear[1] + (at[1] - ear[1]) * k, ear[2] + (at[2] - ear[2]) * k};
     }
 
     // port: 1.12.2's positioned sound by its name (sounds.json), heard over 16 blocks as 1.7.10's
@@ -162,12 +187,16 @@ public final class BulletFx {
         float vol = w.sound().volume() * (0.4F + 0.6F * close);
         float fast = (float) Math.max(0.9, Math.min(1.15, Math.pow(speed / 10.0, 0.25)));
         float pitch = w.sound().pitch() * fast * (0.9F + 0.15F * close) * (0.88F + r.nextFloat() * 0.24F);
-        mc.getSoundHandler().playSound(record(new ResourceLocation(w.sound().id()), vol, pitch, nx, ny, nz));
+        // port: 26.2 fades the whizz over 8 blocks and the crack over 12 (sounds.json); 1.12.2 over 16, so set farther out
+        double[] eye = {ex, ey, ez}, near = {nx, ny, nz};
+        double[] wp = faded(eye, near, fade26(w.sound().id()));
+        mc.getSoundHandler().playSound(record(new ResourceLocation(w.sound().id()), vol, pitch, wp[0], wp[1], wp[2]));
         // passing right by the head: the snap of the bullet's shock wave on top
         if (w.crack() != null && d <= w.crackRadius()) {
             float cv = w.crack().volume() * (float) (0.6 + 0.4 * (1.0 - d / Math.max(0.01, w.crackRadius())));
+            double[] cp = faded(eye, near, fade26(w.crack().id()));
             mc.getSoundHandler().playSound(record(new ResourceLocation(w.crack().id()), cv,
-                    w.crack().pitch() * (0.9F + r.nextFloat() * 0.2F), nx, ny, nz));
+                    w.crack().pitch() * (0.9F + r.nextFloat() * 0.2F), cp[0], cp[1], cp[2]));
         }
         return true;
     }
