@@ -102,6 +102,16 @@ public final class ModelNames {
             {"ModelVillager", "rightVillagerLeg", "field_78187_d", "root/right_leg"},
             {"ModelVillager", "leftVillagerLeg", "field_78188_e", "root/left_leg"},
             {"ModelWitch", "witchHat", "field_82902_i", "root/head/hat"},
+            // port: the illagers (1.12.2): leg0 is the right leg; the crossed arms' left shoulder is arms' child (CHILDREN)
+            {"ModelIllager", "head", "field_191217_a", "root/head"},
+            {"ModelIllager", "hat", "field_193775_b", "root/head/hat"},
+            {"ModelIllager", "nose", "field_191222_f", "root/head/nose"},
+            {"ModelIllager", "body", "field_191218_b", "root/body"},
+            {"ModelIllager", "arms", "field_191219_c", "root/arms"},
+            {"ModelIllager", "leg0", "field_191220_d", "root/right_leg"},
+            {"ModelIllager", "leg1", "field_191221_e", "root/left_leg"},
+            {"ModelIllager", "rightArm", "field_191223_g", "root/right_arm"},
+            {"ModelIllager", "leftArm", "field_191224_h", "root/left_arm"},
             {"ModelIronGolem", "ironGolemHead", "field_78178_a", "root/head"},
             {"ModelIronGolem", "ironGolemBody", "field_78176_b", "root/body"},
             {"ModelIronGolem", "ironGolemRightArm", "field_78177_c", "root/right_arm"},
@@ -177,11 +187,29 @@ public final class ModelNames {
     private static final String[] WITHER = {"root/shoulders", "root/ribcage", "root/tail", "root/center_head", "root/right_head", "root/left_head"};
     // port: 26.2's guardian tail, each piece under the one before
     private static final String[] GUARDIAN_TAIL = {"root/head/tail0", "root/head/tail0/tail1", "root/head/tail0/tail1/tail2"};
-    private static final Map<String, String> PATHS = new HashMap<>();
+    // port: a child no field holds, named as 26.2 names it: {model class, parent's path + "/" + index, 26.2 path}
+    private static final String[][] CHILDREN = {{"ModelIllager", "root/arms/0", "root/arms/left_shoulder"}};
+    private static final Map<String, String> PATHS = new HashMap<>(), MCP = new HashMap<>();
     static {
         for (String[] row : TABLE) {
             PATHS.put(row[0] + "." + row[1], row[3]);
             PATHS.put(row[0] + "." + row[2], row[3]);
+        }
+        // port: a vanilla model's field in a player's game is its SRG name ("field_191217_a"), in the dev run its MCP
+        // name ("head"). A part outside TABLE is named by its field, and the CE poses and tests are taken in the dev run:
+        // a player's game read the illagers' head as root/field_191217_a, which no 26.2 profile names, and 1.12.2's
+        // ModelBiped arms and legs are not 1.7.10's SRG names TABLE has. The SRG name goes to the MCP one first, so
+        // both games name a part alike.
+        try (var in = ModelNames.class.getResourceAsStream("/ntmgunfeel-model-fields-1122.tsv")) {
+            if (in != null) {
+                var r = new java.io.BufferedReader(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8));
+                for (String line; (line = r.readLine()) != null;) {
+                    String[] f = line.split("\t");
+                    if (f.length == 3 && !line.startsWith("#")) MCP.put(f[0] + "." + f[1], f[2]);
+                }
+            }
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
         }
     }
     private static final Map<ModelBase, Map<ModelRenderer, String>> CACHE = new WeakHashMap<>();
@@ -215,6 +243,10 @@ public final class ModelNames {
         // children no field holds: their parent's path and index. Before boxList, which holds every part made with
         // this model, children too (the ModelRenderer constructor adds itself)
         for (var entry : new java.util.ArrayList<>(out.entrySet())) children(entry.getKey(), entry.getValue(), out, 0);
+        for (String[] row : CHILDREN) {
+            if (!row[0].equals(model.getClass().getSimpleName())) continue;
+            for (var entry : out.entrySet()) if (entry.getValue().equals(row[1])) entry.setValue(row[2]);
+        }
         List<ModelRenderer> parts = model.boxList;
         for (int i = 0; parts != null && i < parts.size(); i++) {
             ModelRenderer r = parts.get(i);
@@ -236,7 +268,8 @@ public final class ModelNames {
         }
     }
 
-    private static String path(Class<?> owner, String field, int index) {
+    static String path(Class<?> owner, String field, int index) {
+        field = MCP.getOrDefault(owner.getSimpleName() + "." + field, field);
         String row = PATHS.get(owner.getSimpleName() + "." + field);
         if (row == null) return "root/" + field + (index < 0 ? "" : String.valueOf(index));
         if (owner.getSimpleName().equals("ModelWither")) return WITHER[(field.equals("field_82904_b") || field.equals("heads") ? 3 : 0) + Math.min(index, 2)];

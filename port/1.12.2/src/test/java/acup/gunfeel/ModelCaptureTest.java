@@ -208,6 +208,29 @@ class ModelCaptureTest {
         }
     }
 
+    // port: a player's game holds a vanilla model's parts in SRG fields, the dev run (the CE poses, these tests) in MCP
+    // ones: every SRG field of 1.12.2's models is named as its MCP field, and the illager is named as 26.2's
+    @Test void srgFieldsAreNamedAsTheDevRun() throws Exception {
+        int rows = 0;
+        try (var r = new java.io.BufferedReader(new java.io.InputStreamReader(
+                ModelCaptureTest.class.getResourceAsStream("/ntmgunfeel-model-fields-1122.tsv"), java.nio.charset.StandardCharsets.UTF_8))) {
+            for (String line; (line = r.readLine()) != null;) {
+                if (line.startsWith("#")) continue;
+                String[] f = line.split("\\t");
+                Class<?> owner = Class.forName("net.minecraft.client.model." + f[0]);
+                assertEquals(ModelNames.path(owner, f[2], 0), ModelNames.path(owner, f[1], 0), line);
+                assertEquals(ModelNames.path(owner, f[2], 1), ModelNames.path(owner, f[1], 1), line);
+                rows++;
+            }
+        }
+        assertEquals(241, rows);
+        assertEquals("root/head", ModelNames.path(net.minecraft.client.model.ModelIllager.class, "field_191217_a", -1));
+        assertEquals("root/right_arm", ModelNames.path(net.minecraft.client.model.ModelBiped.class, "field_178723_h", -1));
+        var names = new java.util.TreeSet<>(ModelNames.of(new net.minecraft.client.model.ModelIllager(0F, 0F, 64, 64)).values());
+        assertEquals(new java.util.TreeSet<>(List.of("root/head", "root/head/hat", "root/head/nose", "root/body", "root/arms",
+                "root/arms/left_shoulder", "root/right_leg", "root/left_leg", "root/right_arm", "root/left_arm")), names);
+    }
+
     @Test void dragonDrawsAreNamedAsThe26_2Dataset() throws Exception {
         ModelDragon model = new ModelDragon(0F);
         Map<ModelRenderer, String> names = ModelNames.of(model);

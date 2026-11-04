@@ -68,6 +68,21 @@ class HeadsCeTest {
         assertTrue(bad.isEmpty(), String.join("\n", bad));
     }
 
+    // the illagers' head, nose and hat (illusioner) and their limbs: every part of their 26.2 profile is found
+    @Test
+    void illagersFindEveryMarkedPart() throws Exception {
+        var poses = poses();
+        for (String name : new String[] {"minecraft:evocation_illager", "minecraft:vindication_illager", "minecraft:illusion_illager"}) {
+            var p = poses.get(name);
+            var head = ModelHeads.resolve(p.key(), p.boxes(), p.yaw());
+            assertEquals(0, head.missing(), name + " " + head.reason());
+            assertEquals(name.startsWith("minecraft:illusion") ? 3 : 2, head.zones().size(), name);
+            var limbs = ModelHeads.limbs(p.key(), p.boxes(), p.yaw());
+            assertEquals(0, limbs.missing(), name + " " + limbs.reason());
+            assertEquals("dataset", limbs.source(), name);
+        }
+    }
+
     @Test
     void everyMarkedMobFindsItsLimbs() throws Exception {
         List<String> bad = new ArrayList<>(), good = new ArrayList<>();
