@@ -108,7 +108,11 @@ public final class GunEditor extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Анимации · движения рук"), p -> {
             autoFire = 0;
             Minecraft.getInstance().gui.setScreen(new ArmAnimationEditor(this, item, gun));
-        }).bounds(x, y, PANEL_W, ROW_H).build());
+        }).bounds(x, y, (PANEL_W - GAP) / 2, ROW_H).build());
+        addRenderableWidget(Button.builder(Component.literal("Руки пушки (новый)"), p -> {
+            autoFire = 0;
+            Minecraft.getInstance().gui.setScreen(new ArmEditorScreen(this, item, gun));
+        }).bounds(x + (PANEL_W + GAP) / 2, y, (PANEL_W - GAP) / 2, ROW_H).build());
         y += ROW_H + GAP;
         int half = (PANEL_W - GAP) / 2;
         if (tab == 3) {

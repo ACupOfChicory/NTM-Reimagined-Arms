@@ -17,7 +17,7 @@ public final class ArmAnimationPreview {
     private ArmAnimationPreview() {}
     public static boolean active() {
         var mc = Minecraft.getInstance();
-        return animation != null && mc.gui.screen() instanceof ArmAnimationEditor
+        return animation != null && (mc.gui.screen() instanceof ArmAnimationEditor || mc.gui.screen() instanceof ArmEditorScreen)
                 && mc.player != null && mc.player.getMainHandItem().getItem() == item;
     }
     static void start(GunAnimation cue) {

@@ -600,4 +600,141 @@ final class ArmRig {
             return null;
         }
     }
+
+    // ---------------------------------------------------------------- what moves a hand
+
+    // What moves a hand at a moment of an animation, tried in the order Arms.draw tries them. The game may still
+    // fall further down at run time: a path whose ends are not drawn, a carried part or a section the model lacks.
+    enum Driver {
+        HIDDEN("рука скрыта"), MAGAZINE("рука держит магазин (осмотр)"), PATH("рука идёт по деталям"),
+        CARRY("рука несёт деталь"), RELEASE("рука отпускает оружие, пока оно вращается"),
+        AROUND("рука обходит деталь"), HOLD("рука держит оружие");
+
+        final String label;
+
+        Driver(String label) {
+            this.label = label;
+        }
+    }
+
+    // what the game knows of the animation playing: whether it has a bus, and a bus's transform at a time
+    interface Buses {
+        boolean has(String bus);
+
+        // null = no such bus
+        double[] at(String bus, float ms);
+
+        Buses NONE = new Buses() {
+            public boolean has(String bus) {
+                return false;
+            }
+
+            public double[] at(String bus, float ms) {
+                return null;
+            }
+        };
+    }
+
+    // keys for an animation: "<TYPE>/<bus>" when the animation has that bus, else "<TYPE>" (as Arms.forAnimation)
+    static <T> T forAnimation(Map<String, T> byName, String type, Buses buses) {
+        String prefix = type + "/";
+        for (Map.Entry<String, T> e : byName.entrySet()) {
+            if (!e.getKey().startsWith(prefix)) continue;
+            if (buses.has(e.getKey().substring(prefix.length()))) return e.getValue();
+        }
+        return byName.get(type);
+    }
+
+    // one hand's settings of the selected gun (Config), read once
+    static final class Drive {
+        final boolean right;
+        final Map<String, float[]> hide, around;
+        final Map<String, List<PathKey>> path;
+        final Map<String, List<float[]>> carryKeys;
+        final boolean carry, carryOnReload;
+        final String release;
+        final float inspectRelease;
+
+        Drive(boolean right) {
+            this.right = right;
+            hide = ranges(right ? Config.armRightHide : Config.armLeftHide);
+            path = pathKeys(right ? Config.armRightPath : Config.armLeftPath, Config.armPathTimes);
+            carryKeys = carryKeys(right ? Config.armRightCarryKeys : Config.armLeftCarryKeys);
+            carry = carry(right ? Config.armRightCarry : Config.armLeftCarry) != null;
+            String reload = right ? Config.armRightCarryReload : Config.armLeftCarryReload;
+            carryOnReload = reload.isEmpty() ? carry : carry(reload) != null;
+            release = right ? Config.armReleaseRight : Config.armReleaseLeft;
+            around = right ? Map.of() : angleKeys(Config.armLeftKeys);
+            inspectRelease = Config.armInspectReleaseMs;
+        }
+
+        Driver at(String type, float t, Buses buses) {
+            float[] r = forAnimation(hide, type, buses);
+            if (r != null) for (int j = 0; j + 1 < r.length; j += 2) if (t >= r[j] && t < r[j + 1]) return Driver.HIDDEN;
+            if (!right && inspectRelease >= 0 && Float.isFinite(inspectRelease) && type.equals("INSPECT")) return Driver.MAGAZINE;
+            List<PathKey> k = forAnimation(path, type, buses);
+            if (k != null) {
+                PathKey a = k.get(0), b = a;
+                if (t >= k.get(k.size() - 1).ms()) a = b = k.get(k.size() - 1);
+                else if (t > a.ms()) {
+                    for (int j = 1; j < k.size(); j++) {
+                        if (t < k.get(j).ms()) {
+                            a = k.get(j - 1);
+                            b = k.get(j);
+                            break;
+                        }
+                    }
+                }
+                if (a.part() != null || b.part() != null) return Driver.PATH;
+            }
+            boolean reload = type.equals("RELOAD") || type.equals("RELOAD_CYCLE") || type.equals("RELOAD_END");
+            if ((reload ? carryOnReload : carry) && carryWeight(forAnimation(carryKeys, type, buses), t) > 0F) return Driver.CARRY;
+            if (!release.isEmpty() && turn(buses.at(release, t)) > 0F) return Driver.RELEASE;
+            if (!right && !Float.isNaN(angle(around.get(type), t))) return Driver.AROUND;
+            return Driver.HOLD;
+        }
+    }
+
+    // carry weight at t of carry keys {t, w, ...} (as Arms.carryState); 0 = none
+    static float carryWeight(List<float[]> k, float t) {
+        if (k == null) return 0F;
+        float[] a = k.get(0), b = a;
+        float u = 0F;
+        if (t >= k.get(k.size() - 1)[0]) a = b = k.get(k.size() - 1);
+        else if (t > a[0]) {
+            for (int j = 1; j < k.size(); j++) {
+                if (t < k.get(j)[0]) {
+                    a = k.get(j - 1);
+                    b = k.get(j);
+                    u = (t - a[0]) / Math.max(b[0] - a[0], 1F);
+                    break;
+                }
+            }
+        }
+        float s = u * u * (3F - 2F * u);
+        return Math.max(0F, a[1] + (b[1] - a[1]) * s);
+    }
+
+    // angle keys {t0, a0, t1, a1, ...} at t (as Arms.keyValue); NaN = none
+    static float angle(float[] k, float t) {
+        if (k == null) return Float.NaN;
+        if (t <= k[0]) return k[1];
+        for (int j = 2; j + 1 < k.length; j += 2) {
+            if (t < k[j]) {
+                float u = (t - k[j - 2]) / Math.max(k[j] - k[j - 2], 1F);
+                u = u * u * (3F - 2F * u);
+                return k[j - 1] + (k[j + 1] - k[j - 1]) * u;
+            }
+        }
+        return k[k.length - 1];
+    }
+
+    // progress (0..1) of a turn from a bus transform (as Arms.release); 0 = none
+    static float turn(double[] t) {
+        if (t == null) return 0F;
+        double angle = Math.max(Math.abs(t[0]), Math.max(Math.abs(t[1]), Math.abs(t[2])));
+        double turns = angle / 360.0;
+        float p = (float) (turns - Math.floor(turns));
+        return p > 1e-3F && p < 1F - 1e-3F ? p : 0F;
+    }
 }

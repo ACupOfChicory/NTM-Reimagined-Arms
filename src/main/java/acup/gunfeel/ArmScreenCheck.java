@@ -1,0 +1,214 @@
+package acup.gunfeel;
+
+import java.nio.file.Path;
+import java.util.*;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+
+// The arm editor screen in a real client (-ParmScreenSelfTest): for five guns every control of the model has its
+// button (label, grey or not, tooltip), the buttons fit the screen and do not overlap, every active button does
+// something, and "what moves the hand" is what the game draws, frame by frame, with NTM's real buses.
+final class ArmScreenCheck {
+    private static final String[] GUNS = {"hbm:gun_autoshotgun_sexy", "hbm:gun_g3", "hbm:gun_maresleg", "hbm:gun_double_barrel",
+            "hbm:gun_autoshotgun_heretic"};
+    private static final int SAMPLE = 100;
+    private static final Deque<Runnable> TODO = new ArrayDeque<>();
+    private static final Map<String, Integer> WRONG = new TreeMap<>();
+    private static ArmEditorScreen screen;
+    // compared: frames where the game drew an arm and the editor was asked; slots: hand-frames sampled
+    private static int compared, slots, pressedAll;
+    private static boolean started;
+
+    private ArmScreenCheck() {
+    }
+
+    static void frame() {
+        if (!started) {
+            started = true;
+            for (String gun : GUNS) plan(gun);
+            TODO.add(ArmScreenCheck::done);
+        }
+        var next = TODO.poll();
+        if (next != null) next.run();
+    }
+
+    private static void plan(String gun) {
+        TODO.add(() -> {
+            var mc = Minecraft.getInstance();
+            var item = BuiltInRegistries.ITEM.getValue(Identifier.parse(gun));
+            mc.player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(item));
+            Config.select(gun);
+            screen = new ArmEditorScreen(null, item, gun);
+            mc.gui.setScreen(screen);
+        });
+        for (int i = 0; i < 10; i++) TODO.add(() -> {});
+        TODO.add(() -> {
+            var m = screen.model();
+            ClientSmoke.check(!m.clipList().isEmpty(), gun + ": редактор нашёл анимации оружия: " + m.clipList().size());
+            ClientSmoke.check(ArmAnimationPreview.active(), gun + ": предпросмотр включён");
+            layout(gun);
+            if (gun.endsWith("sexy")) {
+                m.seek(Math.min(1500, m.duration()));
+                screen.refresh();
+            }
+        });
+        if (gun.endsWith("sexy")) TODO.add(() -> {});
+        if (gun.endsWith("sexy")) TODO.add(() -> {
+            var mc = Minecraft.getInstance();
+            net.minecraft.client.Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(), image -> {
+                try (image) {
+                    image.writeToFile(Path.of("../notes/arm-screen-check.png"));
+                } catch (java.io.IOException e) {
+                    GunFeel.LOGGER.warn("Не удалось сохранить кадр экрана рук", e);
+                }
+            });
+        });
+        // what moves each hand, compared with what the game drew, in every animation of the gun
+        TODO.add(() -> {
+            var m = screen.model();
+            List<Runnable> steps = new ArrayList<>();
+            for (int c = 0; c < m.clipList().size(); c++) {
+                int clip = c;
+                for (int t = 0; t <= m.clipList().get(c).ms(); t += SAMPLE) {
+                    int time = t;
+                    steps.add(() -> {
+                        m.clip = clip;
+                        m.playing = false;
+                        m.seek(time);
+                        screen.refresh();
+                    });
+                    steps.add(() -> {
+                        ClientSmoke.drawnBranch[0] = null;
+                        ClientSmoke.drawnBranch[1] = null;
+                    });
+                    steps.add(() -> compare(gun, m));
+                }
+            }
+            // run them right after this step, in order
+            for (int i = steps.size() - 1; i >= 0; i--) TODO.addFirst(steps.get(i));
+        });
+        TODO.add(() -> pressAll(gun));
+        TODO.add(() -> {
+            var close = button("Готово");
+            ClientSmoke.check(close != null, gun + ": есть кнопка «Готово»");
+            if (close != null) close.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+            ClientSmoke.check(Minecraft.getInstance().gui.screen() == null, gun + ": «Готово» закрыла экран");
+            ClientSmoke.check(!ArmAnimationPreview.active(), gun + ": после закрытия предпросмотр выключен");
+        });
+    }
+
+    private static void compare(String gun, ArmEditor m) {
+        int keep = m.hand;
+        for (int h = 0; h < 2; h++) {
+            slots++;
+            String drawn = ClientSmoke.drawnBranch[h];
+            if (drawn == null || drawn.equals("rest")) continue;
+            m.hand = h;
+            String expected = m.driver(m.time).name().toLowerCase(Locale.ROOT);
+            compared++;
+            if (!expected.equals(drawn))
+                WRONG.merge(gun + " " + m.clip().name() + (h == 0 ? " R " : " L ") + "редактор " + expected + ", игра " + drawn, 1, Integer::sum);
+        }
+        m.hand = keep;
+    }
+
+    private static Button button(String label) {
+        for (var w : Minecraft.getInstance().gui.screen().children())
+            if (w instanceof Button b && b.getMessage().getString().equals(label)) return b;
+        return null;
+    }
+
+    // every action of the model has its button, as active as the action; all widgets on screen, none overlapping
+    private static void layout(String gun) {
+        var s = Minecraft.getInstance().gui.screen();
+        var widgets = new ArrayList<AbstractWidget>();
+        for (var w : s.children()) if (w instanceof AbstractWidget a) widgets.add(a);
+        boolean fits = true, apart = true;
+        String bad = "";
+        for (var a : widgets) {
+            if (a.getX() < 0 || a.getY() < 0 || a.getX() + a.getWidth() > s.width || a.getY() + a.getHeight() > s.height) {
+                fits = false;
+                bad = a.getMessage().getString();
+            }
+            for (var b : widgets)
+                if (a != b && a.getX() < b.getX() + b.getWidth() && b.getX() < a.getX() + a.getWidth()
+                        && a.getY() < b.getY() + b.getHeight() && b.getY() < a.getY() + a.getHeight()) {
+                    apart = false;
+                    bad = a.getMessage().getString() + " / " + b.getMessage().getString();
+                }
+        }
+        var font = Minecraft.getInstance().font;
+        String cramped = "";
+        for (var a : widgets)
+            if (a instanceof Button btn && font.width(btn.getMessage()) > btn.getWidth() - 4) cramped += " «" + btn.getMessage().getString() + "»";
+        ClientSmoke.check(cramped.isEmpty(), gun + ": подписи помещаются в кнопки" + cramped);
+        ClientSmoke.check(fits, gun + ": все элементы на экране " + s.width + "×" + s.height + (fits ? "" : ", вылез: " + bad));
+        ClientSmoke.check(apart, gun + ": элементы не налезают друг на друга" + (apart ? "" : ": " + bad));
+        int missing = 0;
+        for (var a : screen.model().actions()) {
+            var b = button(a.label());
+            if (b == null || b.active != a.active()) {
+                missing++;
+                GunFeel.LOGGER.info("[clientcheck] нет кнопки или не та серость: {} «{}»", a.id(), a.label());
+            }
+        }
+        ClientSmoke.check(missing == 0, gun + ": у каждого действия своя кнопка с той же серостью (" + screen.model().actions().size() + ")");
+    }
+
+    // presses every active button (but «Готово») from the same state: each changes something, time buttons move
+    // the real preview, a change of the settings goes back with «Отменить» (or «Повторить» after «Отменить»)
+    private static void pressAll(String gun) {
+        var m = screen.model();
+        m.clip = 0;
+        m.hand = 1;
+        m.seek(m.duration() / 2F);
+        screen.refresh();
+        int dead = 0, pressed = 0;
+        var before = m.state();
+        var undo = m.undoCopy();
+        var redo = m.redoCopy();
+        for (var a : m.actions()) {
+            if (!a.active() || a.id().equals("close")) continue;
+            var b = button(a.label());
+            if (b == null) continue;
+            b.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+            pressed++;
+            var after = m.state();
+            if (after.equals(before)) {
+                dead++;
+                GunFeel.LOGGER.info("[clientcheck] кнопка ничего не сделала: {}", a.label());
+            }
+            if (!after.playing() && ArmAnimationPreview.millis() != Math.round(after.time())) {
+                dead++;
+                GunFeel.LOGGER.info("[clientcheck] предпросмотр не на {} мс после «{}»: {}", after.time(), a.label(), ArmAnimationPreview.millis());
+            }
+            if (!after.data().equals(before.data())) {
+                var back = button(a.id().equals("undo") ? "Повторить" : "Отменить");
+                if (back == null || !back.active) dead++;
+                else {
+                    back.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+                    if (!m.state().data().equals(before.data())) dead++;
+                }
+            }
+            m.restore(before, undo, redo);
+            screen.refresh();
+        }
+        pressedAll += pressed;
+        ClientSmoke.check(pressed > 0 && dead == 0, gun + ": нажато кнопок " + pressed + ", без толку " + dead);
+    }
+
+    private static void done() {
+        // most sampled frames must reach the comparison: an arm not drawn at all would hide a mismatch
+        ClientSmoke.check(compared > 500 && compared * 2 >= slots,
+                "«Сейчас руку ведёт» сверено с игрой на кадрах: " + compared + " из " + slots);
+        WRONG.forEach((k, n) -> ClientSmoke.check(false, k + " ×" + n));
+        ClientSmoke.check(WRONG.isEmpty(), "«Сейчас руку ведёт» совпало с игрой везде");
+        ClientSmoke.check(pressedAll > 0, "кнопок нажато всего: " + pressedAll);
+        ClientSmoke.finish();
+    }
+}

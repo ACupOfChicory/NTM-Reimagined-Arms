@@ -375,6 +375,7 @@ public final class Arms {
             }
             // armLeftHide / armRightHide (per gun): the hand is not drawn in these stretches of an animation
             if (hidden(i)) {
+                ClientSmoke.armBranch(right, "hidden");
                 if (TestLog.frames()) TestLog.c(-1, "arm_hidden", "right", right, "anim", HbmAnimations.getGunAnimation(0), "t", animMillis());
                 if (debugArms) GunFeel.LOGGER.info("[armdebug] {} {} t={} hidden", right ? "R" : "L", HbmAnimations.getGunAnimation(0), fmt(animMillis()));
                 continue;
@@ -1245,6 +1246,7 @@ public final class Arms {
         }
         final int shown = crop;
         ClientSmoke.armPose(m,right);
+        ClientSmoke.armBranch(right, branchName());
         if (TestLog.frames()) {
             // three points of the drawn arm in camera space, for comparing in blocks: the grip (the hand end's middle,
             // moved to the contact point while a path holds it), the wrist (4 pixels back) and the elbow (the far

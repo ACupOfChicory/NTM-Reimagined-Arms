@@ -140,8 +140,9 @@ public final class Grips {
     }
 
     public static void put(String gun, String key, String value, boolean save) {
-        // a setting the gun has of its own stays its own; anything else goes to the gun it is the same as
-        if (!key.equals("sameAs") && !VALUES.containsKey(gun + "." + key)) gun = canon(gun);
+        // a setting the gun has of its own stays its own; anything else goes to the gun it is the same as,
+        // unless the gun was given arms of its own (the arm editor's "own arms")
+        if (!key.equals("sameAs") && !VALUES.containsKey(gun + "." + key) && !(armKey(key) && ownArms(gun))) gun = canon(gun);
         key = storedKey(key);
         String k = gun + "." + key;
         if (value == null || value.equals(BUILTIN.get(k))) USER.remove(k);
@@ -168,6 +169,77 @@ public final class Grips {
         USER.putAll(user);
         merge();
         save();
+    }
+
+    // restore() for the editors' undo: in effect at once, written by flush()
+    static void restoreUnsaved(Map<String, String> user) {
+        USER.clear();
+        USER.putAll(user);
+        merge();
+        dirty = true;
+    }
+
+    // a key of the arms: hand positions and every arm* setting
+    static boolean armKey(String key) {
+        return key.startsWith("arm") || key.equals("right") || key.equals("left") || key.equals("rightAt") || key.equals("leftAt");
+    }
+
+    // the gun this one shares its settings with (sameAs), null = none
+    static String sharedWith(String gun) {
+        String to = canon(gun);
+        return to.equals(gun) ? null : to;
+    }
+
+    // the player gave this gun (one with sameAs) arms of its own: some arm key of it is in the player's file
+    static boolean ownArms(String gun) {
+        if (sharedWith(gun) == null) return false;
+        String prefix = gun + ".";
+        for (String k : USER.keySet()) if (k.startsWith(prefix) && armKey(k.substring(prefix.length()))) return true;
+        return false;
+    }
+
+    // the gun has some arm key set (jar or player's file)
+    static boolean hasArms(String gun) {
+        String prefix = gun + ".";
+        for (Map.Entry<String, String> e : VALUES.entrySet())
+            if (e.getKey().startsWith(prefix) && armKey(e.getKey().substring(prefix.length())) && !e.getValue().isEmpty()) return true;
+        return false;
+    }
+
+    // how many arm keys copyArms would copy
+    static int armsToCopy(String gun) {
+        String from = sharedWith(gun);
+        if (from == null) return 0;
+        String prefix = from + ".";
+        int n = 0;
+        for (String key : VALUES.keySet()) {
+            if (!key.startsWith(prefix)) continue;
+            String k = key.substring(prefix.length());
+            if (armKey(k) && !VALUES.containsKey(gun + "." + k)) n++;
+        }
+        return n;
+    }
+
+    // own arms: every arm key of the shared gun copied to this one (keys it has itself stay)
+    static void copyArms(String gun) {
+        String from = sharedWith(gun);
+        if (from == null) return;
+        String prefix = from + ".";
+        for (Map.Entry<String, String> e : new HashMap<>(VALUES).entrySet()) {
+            if (!e.getKey().startsWith(prefix)) continue;
+            String k = e.getKey().substring(prefix.length());
+            if (armKey(k) && !VALUES.containsKey(gun + "." + k)) USER.put(gun + "." + k, e.getValue());
+        }
+        merge();
+        dirty = true;
+    }
+
+    // shared arms again: the player's own arm keys of this gun removed
+    static void shareArms(String gun) {
+        String prefix = gun + ".";
+        USER.keySet().removeIf(k -> k.startsWith(prefix) && armKey(k.substring(prefix.length())));
+        merge();
+        dirty = true;
     }
 
     // one hand back to the jar's position (or computed from the model)

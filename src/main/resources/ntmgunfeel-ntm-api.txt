@@ -96,6 +96,7 @@ ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT setAnimTimer (Lnet/minecraf
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext configIndex ()I
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation name ()Ljava/lang/String;
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation ordinal ()I
+ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation valueOf (Ljava/lang/String;)Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation values ()[Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS method com/hbm/render/anim/BusAnimation addBus (Ljava/lang/String;Lcom/hbm/render/anim/BusAnimationSequence;)Lcom/hbm/render/anim/BusAnimation;
 ARMS method com/hbm/render/anim/BusAnimation getBus (Ljava/lang/String;)Lcom/hbm/render/anim/BusAnimationSequence;
