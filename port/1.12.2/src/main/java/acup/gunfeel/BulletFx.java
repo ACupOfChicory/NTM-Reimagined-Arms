@@ -175,10 +175,11 @@ public final class BulletFx {
         double abx = b[0] - a[0], aby = b[1] - a[1], abz = b[2] - a[2];
         double l2 = abx * abx + aby * aby + abz * abz;
         double k = l2 < 1e-9 ? 0.0 : Math.max(0.0, Math.min(1.0, ((ex - a[0]) * abx + (ey - a[1]) * aby + (ez - a[2]) * abz) / l2));
-        // the nearest point must be along the stretch, not its end: else it is still coming or already gone
-        if (l2 >= 1e-9 && (k <= 0.0 || k >= 1.0)) return false;
         double nx = a[0] + abx * k, ny = a[1] + aby * k, nz = a[2] + abz * k;
         double d = Math.sqrt((nx - ex) * (nx - ex) + (ny - ey) * (ny - ey) + (nz - ez) * (nz - ez));
+        if (TestLog.client && d <= w.radius() * 2) TestLog.c(-1, "whizz_check", "owner", owner, "a", a, "b", b, "k", k, "d", d);
+        // the nearest point must be along the stretch, not its end: else it is still coming or already gone
+        if (l2 >= 1e-9 && (k <= 0.0 || k >= 1.0)) return false;
         if (d > w.radius()) return false;
         Random r = world.rand;
         // closer: louder and a little higher; faster bullets (NTM's usual is 10 blocks a tick) higher too

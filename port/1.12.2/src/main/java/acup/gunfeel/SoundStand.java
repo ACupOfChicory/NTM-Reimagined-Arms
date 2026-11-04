@@ -169,8 +169,18 @@ public final class SoundStand {
         stand();
         shooter = FakePlayerFactory.get(w, new GameProfile(UUID.fromString("5a0e5a0e-0000-4000-8000-00000000a215"), "Shooter"));
         shooter.interactionManager.setGameType(GameType.SURVIVAL); // a FakePlayer has no connection to tell
+        // the jar's rules only: BulletCheck, on the same dev server, leaves its own in the server's file (stone flown through)
+        try {
+            java.nio.file.Files.write(PortPaths.config().resolve(BulletRules.FILE),
+                    "# the sound stand: the jar's rules only\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException(ex);
+        }
+        // the server's bullet log (hits, ricochets, where), to set against what the listener heard
+        java.nio.file.Path bullets = TestLog.set(false, true);
         log("setup", cx, y0, cz, 0, 0, "listener " + player.getName() + " id " + player.getEntityId() + ", shooter id " + shooter.getEntityId()
-                + ", steel " + steel.getRegistryName());
+                + ", steel " + steel.getRegistryName() + ", wall " + w.getBlockState(new BlockPos(OX, y0 + 1, OZ + 4)).getBlock().getRegistryName()
+                + ", ground " + w.getBlockState(new BlockPos(OX, y0 - 1, OZ)).getBlock().getRegistryName() + ", bullets " + bullets);
         plan();
         mark("setup y0 " + y0);
     }
@@ -222,6 +232,8 @@ public final class SoundStand {
         shooter.prevPosX = shooter.lastTickPosX = ex;
         shooter.prevPosY = shooter.lastTickPosY = y0;
         shooter.prevPosZ = shooter.lastTickPosZ = ez;
+        // standing, as a player on the ground (else the mod spreads his shots as a jumping one's)
+        shooter.onGround = true;
     }
 
     private void hold(String gunName) {
@@ -316,10 +328,12 @@ public final class SoundStand {
         shoot("past_front_1.5_from_right", g, -20, 1.5, 20, eye, 1.5, 2, 0, 20);
         shoot("past_behind_1.5_from_right", g, -20, -1.5, 20, eye, -1.5, 2, 0, 20);
         shoot("past_front_0.6_from_right", g, -20, 0.6, 20, eye, 0.6, 2, 0, 20);
-        shoot("over_2_from_right", g, -20, 0, 20, eye + 2, 0, 2, 0, 20);
         shoot("past_behind_4_from_right", g, -20, -4, 20, eye, -4, 2, 0, 20);
         shoot("past_front_1.5_from_left", g, 20, 1.5, -20, eye, 1.5, 2, 0, 20);
         shoot("past_behind_0.6_from_left", g, 20, -0.6, -20, eye, -0.6, 2, 0, 20);
+        // over his head from the left, aimed at the point over him: from the right the pillar 10 blocks off stands in the line
+        shoot("over_2_from_left", g, 20, 0, 0, eye + 2, 0, 2, 0, 20);
+        shoot("over_1_from_left", g, 20, 0, 0, eye + 1, 0, 2, 0, 20);
         // into the wall by him, front left and front right, from aside (no whizz, no grazing angle)
         shoot("wall_front_left", g, 20, 1, 2, eye, 3.5, 2, 0, 20);
         shoot("wall_front_right", g, -20, 1, -2, eye, 3.5, 2, 0, 20);

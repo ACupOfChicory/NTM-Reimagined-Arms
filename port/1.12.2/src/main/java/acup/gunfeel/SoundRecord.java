@@ -125,6 +125,8 @@ public final class SoundRecord implements ISoundEventListener {
         if (!listening && mc.getSoundHandler() != null) {
             listening = true;
             mc.getSoundHandler().addListener(this);
+            // the client's bullet log too (tracers, whizz checks), to set against the sounds
+            TestLog.set(true, true);
             out.println("mark\t-1\t" + tick + "\t-1\tchannels " + paulscode.sound.SoundSystemConfig.getNumberNormalChannels() + " normal, "
                     + paulscode.sound.SoundSystemConfig.getNumberStreamingChannels() + " streaming");
         }

@@ -178,20 +178,35 @@ CORE class com/hbm/blocks/BlockDummyable
 CORE class com/hbm/blocks/generic/BlockBarrier
 CORE class com/hbm/blocks/generic/BlockWoodStructure
 CORE class com/hbm/blocks/machine/BlockCargoElevator
+CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
+CORE class com/hbm/items/weapon/sedna/mags/MagazineBelt
 CORE class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 CORE class com/hbm/render/loader/GroupHandle
 CORE class com/hbm/render/loader/GroupObject
 CORE class com/hbm/render/loader/HFRWavefrontObject
 CORE class com/hbm/render/loader/WaveFrontObjectVAO
 CORE class com/hbm/tileentity/machine/TileEntityCargoElevator
+CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+CORE field com/hbm/items/weapon/sedna/BulletConfig ammo Lcom/hbm/inventory/RecipesCommon$ComparableStack;
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
+CORE field com/hbm/items/weapon/sedna/mags/MagazineBelt acceptedBullets Ljava/util/List;
 CORE field com/hbm/render/loader/GroupObject name Ljava/lang/String;
 CORE field com/hbm/render/loader/HFRWavefrontObject groupObjects Ljava/util/ArrayList;
 CORE field com/hbm/render/loader/HFRWavefrontObject resource Lnet/minecraft/util/ResourceLocation;
 CORE field com/hbm/tileentity/machine/TileEntityCargoElevator extension D
 CORE method com/hbm/blocks/BlockDummyable findCore (Lnet/minecraft/world/IBlockAccess;III)[I
+CORE method com/hbm/inventory/RecipesCommon$ComparableStack toStack ()Lnet/minecraft/item/ItemStack;
+CORE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/item/ItemStack;)Z
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/entity/player/EntityPlayer;Lnet/minecraft/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
+CORE method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecraft/item/ItemStack;)I
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/item/ItemStack;Lnet/minecraft/inventory/IInventory;)Ljava/lang/Object;
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine setAmount (Lnet/minecraft/item/ItemStack;I)V
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine setType (Lnet/minecraft/item/ItemStack;Ljava/lang/Object;)V
 CORE method com/hbm/render/loader/HFRWavefrontObject <init> (Lnet/minecraft/util/ResourceLocation;Z)V
 CORE method com/hbm/render/loader/WaveFrontObjectVAO resolve (Ljava/lang/String;)Lcom/hbm/render/loader/GroupHandle;
 HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
