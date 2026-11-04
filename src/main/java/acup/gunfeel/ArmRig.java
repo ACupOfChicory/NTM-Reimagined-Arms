@@ -624,6 +624,11 @@ final class ArmRig {
         // null = no such bus
         double[] at(String bus, float ms);
 
+        // the model draws the nth part of that name (-1 = the last); a key on a part not drawn is grip
+        default boolean drawn(String part, int nth) {
+            return true;
+        }
+
         Buses NONE = new Buses() {
             public boolean has(String bus) {
                 return false;
@@ -685,7 +690,8 @@ final class ArmRig {
                         }
                     }
                 }
-                if (a.part() != null || b.part() != null) return Driver.PATH;
+                // as Arms.pathPoint: a key on a part the model does not draw this frame is grip
+                if (a.part() != null && buses.drawn(a.part(), a.nth()) || b.part() != null && buses.drawn(b.part(), b.nth())) return Driver.PATH;
             }
             boolean reload = type.equals("RELOAD") || type.equals("RELOAD_CYCLE") || type.equals("RELOAD_END");
             if ((reload ? carryOnReload : carry) && carryWeight(forAnimation(carryKeys, type, buses), t) > 0F) return Driver.CARRY;

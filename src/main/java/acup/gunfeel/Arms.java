@@ -767,6 +767,11 @@ public final class Arms {
         return new float[]{p.x,p.y,p.z};
     }
 
+    // the arm editor: the part was drawn in the last frame (a path key on it moves the hand); no frame yet = drawn
+    static boolean editorPartDrawn(String name, int nth) {
+        return frameModel == null || partPose(name, nth) != null;
+    }
+
     private static Matrix4f partPose(String name, int nth) {
         int id = partByName(frameModel, name);
         if (id < 0) return null;

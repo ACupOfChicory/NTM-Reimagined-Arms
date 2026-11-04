@@ -87,6 +87,10 @@ public final class ArmEditorScreen extends Screen {
                     var s = a.getBus(bus);
                     return s == null ? null : s.getTransformation((int) ms);
                 }
+
+                public boolean drawn(String part, int nth) {
+                    return Arms.editorPartDrawn(part, nth);
+                }
             };
         }
 

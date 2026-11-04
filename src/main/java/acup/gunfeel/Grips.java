@@ -54,7 +54,7 @@ public final class Grips {
     // A variant of the gun (missing = the model parts it does not draw, e.g. "-Barrel" for a sawn-off) may
     // have its own hand positions: "<gun id>-Barrel.leftAt"; each hand falls back to the gun's own.
     public static Grip get(Identifier id, String missing) {
-        String base = canon(id.toString()), own = base + missing;
+        String base = armsGun(id.toString()), own = base + missing;
         Grip b = read(base);
         if (missing.isEmpty()) return b;
         Grip v = read(own);
@@ -75,7 +75,9 @@ public final class Grips {
         Map<String, String> out = new TreeMap<>();
         String target = canon(gun);
         collect(target, out);
+        // the gun's own "" hides the other gun's value too (own arms: a hide taken off)
         if (!target.equals(gun)) collect(gun, out);
+        out.values().removeIf(String::isEmpty);
         out.remove("sameAs");
         return out;
     }
@@ -85,7 +87,7 @@ public final class Grips {
         for (Map.Entry<String, String> e : VALUES.entrySet()) {
             if (!e.getKey().startsWith(prefix)) continue;
             String k = e.getKey().substring(prefix.length());
-            if (k.startsWith("slim.") || k.equals("right") || k.equals("left") || k.equals("rightAt") || k.equals("leftAt") || e.getValue().isEmpty()) continue;
+            if (k.startsWith("slim.") || k.equals("right") || k.equals("left") || k.equals("rightAt") || k.equals("leftAt")) continue;
             out.put(k, e.getValue());
         }
     }
@@ -115,7 +117,7 @@ public final class Grips {
 
     // save false: in effect at once, written to the file by flush() (the editor, while a slider is dragged)
     public static void set(String gun, boolean right, float x, float y, float z, boolean save) {
-        gun = canon(gun);
+        gun = armsGun(gun);
         // a point in model units would win over these fractions: hide it
         String atKey = right ? "rightAt" : "leftAt";
         String at = gun + "." + storedKey(atKey);
@@ -130,7 +132,7 @@ public final class Grips {
     }
 
     public static void setAt(String gun, boolean right, float x, float y, float z, boolean save) {
-        gun = canon(gun);
+        gun = armsGun(gun);
         put(gun, right ? "rightAt" : "leftAt", x + "," + y + "," + z, save);
     }
 
@@ -142,7 +144,7 @@ public final class Grips {
     public static void put(String gun, String key, String value, boolean save) {
         // a setting the gun has of its own stays its own; anything else goes to the gun it is the same as,
         // unless the gun was given arms of its own (the arm editor's "own arms")
-        if (!key.equals("sameAs") && !VALUES.containsKey(gun + "." + key) && !(armKey(key) && ownArms(gun))) gun = canon(gun);
+        if (!key.equals("sameAs") && !VALUES.containsKey(gun + "." + key) && !(armKey(key) && ownArms(baseOf(gun)))) gun = canon(gun);
         key = storedKey(key);
         String k = gun + "." + key;
         if (value == null || value.equals(BUILTIN.get(k))) USER.remove(k);
@@ -184,6 +186,23 @@ public final class Grips {
         return key.startsWith("arm") || key.equals("right") || key.equals("left") || key.equals("rightAt") || key.equals("leftAt");
     }
 
+    // where a gun's hands are read and written: the gun itself when it has arms of its own, else as canon()
+    static String armsGun(String gun) {
+        return ownArms(baseOf(gun)) ? gun : canon(gun);
+    }
+
+    static String baseOf(String gun) {
+        int dash = gun.indexOf('-');
+        return dash < 0 ? gun : gun.substring(0, dash);
+    }
+
+    // a variant ("<gun>-Barrel") has a hand of its own: in the jar (shipped) or the player's file
+    static boolean variantHand(String variant, boolean right, boolean shippedOnly) {
+        String g = armsGun(variant), h = right ? "right" : "left";
+        var from = shippedOnly ? BUILTIN : VALUES;
+        return from.containsKey(g + "." + h) || from.containsKey(g + "." + h + "At");
+    }
+
     // the gun this one shares its settings with (sameAs), null = none
     static String sharedWith(String gun) {
         String to = canon(gun);
@@ -193,8 +212,8 @@ public final class Grips {
     // the player gave this gun (one with sameAs) arms of its own: some arm key of it is in the player's file
     static boolean ownArms(String gun) {
         if (sharedWith(gun) == null) return false;
-        String prefix = gun + ".";
-        for (String k : USER.keySet()) if (k.startsWith(prefix) && armKey(k.substring(prefix.length()))) return true;
+        for (String k : USER.keySet())
+            if ((k.startsWith(gun + ".") || k.startsWith(gun + "-")) && armKey(k.substring(k.lastIndexOf('.') + 1))) return true;
         return false;
     }
 
@@ -206,45 +225,43 @@ public final class Grips {
         return false;
     }
 
-    // how many arm keys copyArms would copy
-    static int armsToCopy(String gun) {
+    // the arm keys of the shared gun and its variants ("<gun>-Barrel.left"), as this gun's keys, that this gun has not
+    private static Map<String, String> armsOfShared(String gun) {
+        Map<String, String> out = new TreeMap<>();
         String from = sharedWith(gun);
-        if (from == null) return 0;
-        String prefix = from + ".";
-        int n = 0;
-        for (String key : VALUES.keySet()) {
-            if (!key.startsWith(prefix)) continue;
-            String k = key.substring(prefix.length());
-            if (armKey(k) && !VALUES.containsKey(gun + "." + k)) n++;
+        if (from == null) return out;
+        for (Map.Entry<String, String> e : VALUES.entrySet()) {
+            String key = e.getKey();
+            if (!key.startsWith(from + ".") && !key.startsWith(from + "-")) continue;
+            int dot = key.lastIndexOf('.');
+            String mine = gun + key.substring(from.length(), dot) + key.substring(dot);
+            if (armKey(key.substring(dot + 1)) && !VALUES.containsKey(mine)) out.put(mine, e.getValue());
         }
-        return n;
+        return out;
     }
 
-    // own arms: every arm key of the shared gun copied to this one (keys it has itself stay)
+    // how many arm keys copyArms would copy
+    static int armsToCopy(String gun) {
+        return armsOfShared(gun).size();
+    }
+
+    // own arms: every arm key of the shared gun and its variants copied to this one (keys it has itself stay)
     static void copyArms(String gun) {
-        String from = sharedWith(gun);
-        if (from == null) return;
-        String prefix = from + ".";
-        for (Map.Entry<String, String> e : new HashMap<>(VALUES).entrySet()) {
-            if (!e.getKey().startsWith(prefix)) continue;
-            String k = e.getKey().substring(prefix.length());
-            if (armKey(k) && !VALUES.containsKey(gun + "." + k)) USER.put(gun + "." + k, e.getValue());
-        }
+        USER.putAll(armsOfShared(gun));
         merge();
         dirty = true;
     }
 
-    // shared arms again: the player's own arm keys of this gun removed
+    // shared arms again: the player's own arm keys of this gun and its variants removed
     static void shareArms(String gun) {
-        String prefix = gun + ".";
-        USER.keySet().removeIf(k -> k.startsWith(prefix) && armKey(k.substring(prefix.length())));
+        USER.keySet().removeIf(k -> (k.startsWith(gun + ".") || k.startsWith(gun + "-")) && armKey(k.substring(k.lastIndexOf('.') + 1)));
         merge();
         dirty = true;
     }
 
     // one hand back to the jar's position (or computed from the model)
     public static void resetHand(String id, boolean right, boolean save) {
-        id = canon(id);
+        id = armsGun(id);
         String h = right ? "right" : "left";
         USER.remove(id + "." + storedKey(h));
         USER.remove(id + "." + storedKey(h + "At"));
@@ -264,7 +281,7 @@ public final class Grips {
 
     // hand positions back to the jar's (or computed from the model when the jar has none)
     public static void reset(String id) {
-        id = canon(id);
+        id = armsGun(id);
         USER.remove(id + ".right");
         USER.remove(id + ".left");
         USER.remove(id + ".rightAt");
