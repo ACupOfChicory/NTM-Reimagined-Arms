@@ -197,7 +197,10 @@ CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/w
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 CORE field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
 CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
+CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
+CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
+CORE field com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase interp F
 CORE method com/hbm/blocks/generic/BlockWoodBarrier panel (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind ordinal ()I
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind values ()[Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
@@ -214,6 +217,7 @@ CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setThrowableHeading (DDDFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 tick ()V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
+CORE method com/hbm/render/anim/HbmAnimations getRelevantAnim (I)Lcom/hbm/render/anim/HbmAnimations$Animation;
 CORE method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase get (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/render/item/weapon/sedna/ItemRenderWeaponBase;
 HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT

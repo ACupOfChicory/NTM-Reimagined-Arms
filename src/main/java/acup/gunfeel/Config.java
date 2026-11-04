@@ -130,6 +130,9 @@ public final class Config {
     public static float armAroundTopDropReload = Float.NaN;
     // width of NTM's muzzle smoke, 1 = as NTM draws it (SPAS-12's is 3x as wide as Maresleg's)
     public static float smokeWidth = 1F;
+    // the gun bobbing in step with walking and lowered to the side while sprinting (TaCZ's way), 0 = off (NTM's own bob)
+    public static float walkSway = 0F;
+    public static float sprintPose = 0F;
     public static float armScaleRight = 1F;
     public static float armScaleLeft = 1F;
 
@@ -198,6 +201,9 @@ public final class Config {
             armPathBlend: near the grip a hand on its path (armLeftPath/armRightPath) turns smoothly into its usual hold
             armCarryKeepAngle: a carrying hand keeps the arm exactly as it holds the gun and only moves it (Sexy: the bottle)
             smokeWidth: width of the muzzle smoke, 1 = as NTM draws it
+            walkSway: the gun bobs in step with the player's steps instead of NTM's own bob, 1 = as TaCZ, 0 = off (NTM's)
+            sprintPose: while sprinting the gun is lowered and turned to the side, swinging with the run, 1 = as TaCZ, 0 = off;
+              aiming, a reload or a shot bring it back
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
             armRollRight, armRollLeft: turn of each arm around its own axis, degrees
             armDirRight, armDirLeft: direction from the hand to the shoulder: x (+ left), y (+ up), z (+ forward)
@@ -496,6 +502,8 @@ public final class Config {
         armAroundShiftReload = num(p, "armAroundShiftReload", armAroundShiftReload);
         armAroundTopDropReload = num(p, "armAroundTopDropReload", armAroundTopDropReload);
         smokeWidth = num(p, "smokeWidth", smokeWidth);
+        walkSway = num(p, "walkSway", walkSway);
+        sprintPose = num(p, "sprintPose", sprintPose);
         armScaleRight = num(p, "armScaleRight", armScaleRight);
         armScaleLeft = num(p, "armScaleLeft", armScaleLeft);
     }
@@ -614,6 +622,8 @@ public final class Config {
         p.setProperty("armAroundShiftReload", Float.toString(armAroundShiftReload));
         p.setProperty("armAroundTopDropReload", Float.toString(armAroundTopDropReload));
         p.setProperty("smokeWidth", Float.toString(smokeWidth));
+        p.setProperty("walkSway", Float.toString(walkSway));
+        p.setProperty("sprintPose", Float.toString(sprintPose));
         p.setProperty("armScaleRight", Float.toString(armScaleRight));
         p.setProperty("armScaleLeft", Float.toString(armScaleLeft));
         return p;

@@ -389,6 +389,8 @@ public final class GunEditor extends Screen {
                 String[] tilt = {"наклон: нос", "наклон: вбок", "наклон: крен"};
                 for (int c = 0; c < 3; c++) out.add(new ConfigRow("modelTilt", c, tilt[c], -45F, 45F, 0.5F));
                 out.add(new ConfigRow("smokeWidth", -1, "ширина дыма", 0F, 4F, 0.05F));
+                out.add(new ConfigRow("walkSway", -1, "качание при ходьбе", 0F, 2F, 0.05F));
+                out.add(new ConfigRow("sprintPose", -1, "пушка вбок при беге", 0F, 1.5F, 0.05F));
             }
         }
         return out;

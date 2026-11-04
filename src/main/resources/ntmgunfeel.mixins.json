@@ -6,7 +6,7 @@
   "mixins": ["MixinEntityModelBox", "MixinProjectileModelQuery"],
   "client": ["MixinSubmitNodeCollection", "MixinItemInHandRenderer", "MixinParticleEngine", "MixinParticlesSubmit", "MixinFlywheelFrame",
     "MixinMouseTurn", "KeyMappingAccess", "LocalPlayerAccess", "GuiGraphicsAccess", "ModelPartAccess", "MixinLivingModelHits", "MixinModelHitboxDebug",
-    "MixinModelHitState", "MixinPreparedModelHit", "MixinVanillateModelHit", "VanillateEntityAccess", "MixinSpawnLerp",
+    "MixinModelHitState", "MixinPreparedModelHit", "MixinVanillateModelHit", "VanillateEntityAccess", "MixinSpawnLerp", "MixinHandBob", "GameRendererAccess",
     "MixinEntityModelHitState", "MixinEntityMeshHits", "MixinDragonModelHit", "MixinGpuInstancerModel", "MixinGpuPoseShadow",
     "MixinAlexRenderSetup", "MixinAlexPostEffects", "MixinLegacyHitboxGizmos", "MixinSkinLayerVisualizer", "MixinDeltaTimer"],
   "injectors": { "defaultRequire": 1 }

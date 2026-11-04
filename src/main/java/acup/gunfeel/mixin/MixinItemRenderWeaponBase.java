@@ -54,6 +54,16 @@ public abstract class MixinItemRenderWeaponBase {
         if (Config.enabled && !Arms.measuring) GunFeel.checkShot(stack);
         Arms.begin(stack);
         if(Config.enabled && !Arms.measuring) acup.gunfeel.WeaponSway.apply(pose,player);
+        if (Config.enabled && !Arms.measuring && !GunFeel.currentAkimbo && !(collector instanceof OtherHandCollector))
+            acup.gunfeel.WalkSprint.apply(pose, player, stack.getItem());
+    }
+
+    // NTM's own walking bob (a sway by the vanilla bob) is left out for a gun with walkSway on: WalkSprint does it.
+    @org.spongepowered.asm.mixin.injection.Redirect(method = "setupTransformsAndSubmit", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/client/entity/ClientAvatarState;getInterpolatedBob(F)F"))
+    private float gunfeel$bob(net.minecraft.client.entity.ClientAvatarState state, float partial) {
+        if (Config.enabled && Config.walkSway > 0F && !Arms.measuring && !GunFeel.currentAkimbo) return 0F;
+        return state.getInterpolatedBob(partial);
     }
 
     // Два штатных поворота отставания NTM заменены целиком, а не сложены с новым движением.
@@ -127,6 +137,7 @@ public abstract class MixinItemRenderWeaponBase {
     private void gunfeel$end(ItemStack stack, LocalPlayer player, PoseStack pose, SubmitNodeCollector collector, int light, CallbackInfo ci) {
         GunFeel.current = null;
         if (Arms.measuring) return;
+        acup.gunfeel.WalkSprint.gunPlaced(stack.getItem());
         var held = player.getMainHandItem().getItem();
         Config.select(held instanceof ItemGunBaseNT ? net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(held).toString() : null);
     }
