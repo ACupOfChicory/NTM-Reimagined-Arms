@@ -119,9 +119,11 @@ public final class BulletFx {
         double x = at[0], y = at[1], z = at[2];
         float fade = fade26(id);
         if (ear != null) {
-            double dx = x - ear.posX, dy = y - ear.posY, dz = z - ear.posZ;
+            // port: from the ears, as 26.2 from its camera (1.12.2's posY is the feet: from there a hit came out lower and nearer)
+            double ey = ear.posY + ear.getEyeHeight();
+            double dx = x - ear.posX, dy = y - ey, dz = z - ear.posZ;
             if (range > fade && dx * dx + dy * dy + dz * dz >= range * range) return;
-            double[] p = faded(new double[] {ear.posX, ear.posY, ear.posZ}, at, Math.max(fade, range));
+            double[] p = faded(new double[] {ear.posX, ey, ear.posZ}, at, Math.max(fade, range));
             x = p[0];
             y = p[1];
             z = p[2];
