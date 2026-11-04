@@ -39,6 +39,30 @@ class ArmSettingsTest {
         }
     }
 
+    // a key or a button pressed while the mouse still holds the slider (the screen is rebuilt and the drag is never let
+    // go): the drag so far is its own step, and the next drag is undone to where it began
+    @Test
+    void aDragCutShortIsItsOwnStep() {
+        var opened = Grips.snapshot();
+        try {
+            var e = new ArmEditor(GUN, ArmEditorTest.clips(List.of("RELOAD")));
+            e.page = ArmEditor.Page.BOTH;
+            float was = setting(e, "armFollow").value();
+            e.slide("armFollow", 0.5F, false);
+            assertTrue(e.press("undo"));
+            assertEquals(was, setting(e, "armFollow").value(), 1e-4);
+            e.slide("armFollow", 0.3F, false);
+            e.slide("armFollow", 0.2F, true);
+            assertTrue(e.press("undo"));
+            assertEquals(was, setting(e, "armFollow").value(), 1e-4, "undone to where the second drag began");
+            assertTrue(e.press("redo"));
+            assertEquals(0.2F, setting(e, "armFollow").value(), 1e-4);
+        } finally {
+            Grips.restoreUnsaved(opened);
+            Config.select(null);
+        }
+    }
+
     @Test
     void aSettingThatDoesNotActIsGreyAndCannotBeDragged() {
         var opened = Grips.snapshot();
@@ -57,9 +81,10 @@ class ArmSettingsTest {
             Grips.put(GUN, "armBaseLeft", "0", false);
             assertNull(setting(e, "armMaxScale").why());
             assertTrue(e.press("set.armMaxScale.plus"));
-            // no sliding of the hands: stretch and how far to slide do nothing
+            // no sliding of the hands: how far to slide does nothing; the stretch still holds the arm's reach (Arms.pose)
             assertTrue(e.press("set.armSlide.toggle"));
-            assertNotNull(setting(e, "armStretch").why());
+            assertNotNull(setting(e, "armSlideTo").why());
+            assertNull(setting(e, "armStretch").why());
             assertFalse(e.action("set.armSlideNearest.toggle").active());
         } finally {
             Grips.restoreUnsaved(opened);
@@ -84,6 +109,13 @@ class ArmSettingsTest {
             assertArrayEquals(new float[] {(at[0] + 2) / 4, (at[1] + 2) / 4, (at[2] + 10) / 20}, f, 1e-4F);
             assertTrue(e.press("grip.mode"));
             assertArrayEquals(at, Grips.get(Identifier.parse(GUN)).leftAt(), 1e-4F);
+            // beyond the muzzle the model has no section to take shares of: the hand would move, so it does not change way
+            assertTrue(e.press("grip.mode"));
+            assertNull(e.action("grip.mode").why());
+            Grips.setAt(GUN, false, 1F, -1F, 12F, false);
+            assertNotNull(e.action("grip.mode").why());
+            assertFalse(e.press("grip.mode"));
+            assertArrayEquals(new float[] {1F, -1F, 12F}, Grips.get(Identifier.parse(GUN)).leftAt(), 1e-4F);
             // without a measured model there is nothing to change by
             var blind = new ArmEditor(GUN, ArmEditorTest.clips(List.of("RELOAD"), "", false));
             blind.page = ArmEditor.Page.GRIP;

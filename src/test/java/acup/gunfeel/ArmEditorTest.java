@@ -39,7 +39,8 @@ class ArmEditorTest {
         return clips(names, "", true);
     }
 
-    // a stand-in model: a box 4 x 4 x 20, fractions as shares of it; two parts a hand can move with
+    // a stand-in model: a box 4 x 4 x 20, fractions as shares of it; as the real model, it has no section beyond its ends
+    // (GunGeometry.fractions then gives the middle and the bottom); two parts a hand can move with
     static ArmEditor.Clips clips(Collection<String> names, String variant, boolean measured) {
         var list = names.stream().map(n -> new ArmEditor.Clip(n, 4000)).toList();
         ArmEditor.Shape box = new ArmEditor.Shape() {
@@ -52,7 +53,8 @@ class ArmEditorTest {
             }
 
             public float[] fractions(float[] p) {
-                return new float[] {(p[0] + 2) / 4, (p[1] + 2) / 4, (p[2] + 10) / 20};
+                float z = (p[2] + 10) / 20;
+                return z < 0 || z > 1 ? new float[] {0.5F, 0F, z} : new float[] {(p[0] + 2) / 4, (p[1] + 2) / 4, z};
             }
 
             public float[] point(float[] f) {

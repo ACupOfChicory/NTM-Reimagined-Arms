@@ -640,13 +640,7 @@ final class ArmEditor {
                 out.add(new ConfigKnob("armFollow", -1, "Руки за оружием", "Насколько руки поворачиваются вместе с оружием в анимациях: 0 — нет, 1 — полностью.", "", 0F, 1F, 0.01F));
                 out.add(new ConfigKnob("armFollowSupport", -1, "Левая при стрельбе", "То же для левой руки при стрельбе и передёргивании: оружие поворачивается в ладони.", "", 0F, 1F, 0.01F));
                 String noSlide = "действует, только когда включено «Скольжение рук»";
-                out.add(new ConfigKnob("armStretch", -1, "Растяжение", "На сколько рука может растянуться, прежде чем кисть заскользит по оружию: 0,1 — на 10 %.", "", 0F, 1F, 0.01F) {
-                    @Override
-                    String why() {
-                        Config.select(gun);
-                        return Config.armSlide ? null : noSlide;
-                    }
-                });
+                out.add(new ConfigKnob("armStretch", -1, "Растяжение", "На сколько рука может растянуться: 0,1 — на 10 %. Со «Скольжением рук» дальше кисть скользит по оружию.", "", 0F, 1F, 0.01F));
                 out.add(new ConfigKnob("armSlideTo", -1, "Скольжение до", "Докуда кисть может скользить к прикладу: 0 — до конца приклада, 1 — до дула.", "", 0F, 1F, 0.01F) {
                     @Override
                     String why() {
@@ -782,7 +776,9 @@ final class ArmEditor {
             out.add(new Action("grip.mode", point ? "В доли" : "В точку",
                     point ? "Задать хват долями модели: он пойдёт за обвесами, когда они меняют размер модели."
                             : "Задать хват точкой модели: он не сдвинется от обвесов.", "",
-                    sh == null ? "модель оружия ещё не измерена: посмотри на него секунду" : null, () -> change(() -> {
+                    sh == null ? "модель оружия ещё не измерена: посмотри на него секунду"
+                            : !sameWay(sh, point) ? "хват за краем модели: в " + (point ? "долях" : "точке") + " рука бы сдвинулась" : null,
+                    () -> change(() -> {
                         float[] g = grip();
                         if (point) {
                             float[] f = sh.fractions(g);
@@ -843,6 +839,14 @@ final class ArmEditor {
             }
     }
 
+    // the grip changed way and back lands where it is: off the model's ends there is no section to take shares of
+    private boolean sameWay(Shape sh, boolean point) {
+        float[] g = grip(), back = point ? sh.point(sh.fractions(g)) : sh.fractions(sh.point(g));
+        float tol = point ? Math.max(0.01F, (sh.max()[2] - sh.min()[2]) / 2000F) : 0.001F;
+        for (int i = 0; i < 3; i++) if (!(Math.abs(back[i] - g[i]) <= tol)) return false;
+        return true;
+    }
+
     private void setPart(String part) {
         Grips.put(gun, partKey(), part, false);
         Config.select(gun);
@@ -853,21 +857,31 @@ final class ArmEditor {
 
     void slide(String id, float value, boolean last) {
         if (dragFrom == null) dragFrom = Grips.snapshot();
+        try {
+            drag(id, value);
+        } finally {
+            if (last) endDrag();
+            Config.select(gun);
+        }
+    }
+
+    private void drag(String id, float value) {
         for (Knob k : knobs(page))
             if (k.id.equals(id) && k.why() == null) {
                 var st = k.setting();
                 k.put(snap(Math.clamp(value, st.min(), st.max()), st.step()));
             }
-        if (last) {
-            var from = dragFrom;
-            dragFrom = null;
-            if (!Grips.snapshot().equals(from)) {
-                undo.push(from);
-                if (undo.size() > 200) undo.removeLast();
-                redo.clear();
-            }
-        }
-        Config.select(gun);
+    }
+
+    // the drag let go, or cut short by a key or a button pressed while the mouse is still down: what it changed so far
+    // is its own step of undo, and the next drag starts from where things are now
+    private void endDrag() {
+        var from = dragFrom;
+        dragFrom = null;
+        if (from == null || Grips.snapshot().equals(from)) return;
+        undo.push(from);
+        if (undo.size() > 200) undo.removeLast();
+        redo.clear();
     }
 
     private Object config(String key) {
@@ -903,6 +917,7 @@ final class ArmEditor {
 
     // for the screen's hotkeys: presses the action when it can be pressed now
     boolean press(String id) {
+        endDrag();
         var a = action(id);
         if (a == null || !a.active()) return false;
         a.run().run();
