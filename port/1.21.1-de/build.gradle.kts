@@ -214,7 +214,9 @@ tasks.matching { it.name == "runCheckClient" }.configureEach {
         dir.resolve("config").mkdirs()
         dir.resolve("config/fml.toml").writeText("earlyWindowControl = false\n")
         dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:3\n" +
-            "simulationDistance:5\ninactivityFpsLimit:minimized\nmaxFps:60\nonboardAccessibility:false\n")
+            "simulationDistance:5\ninactivityFpsLimit:minimized\nmaxFps:60\nonboardAccessibility:false\n" +
+            // -Pfabulous: the "Fabulous!" graphics (shader transparency, the holes on glass after the translucent terrain)
+            (if (providers.gradleProperty("fabulous").isPresent) "graphicsMode:2\n" else ""))
         result.get().asFile.delete()
     }
     doLast {

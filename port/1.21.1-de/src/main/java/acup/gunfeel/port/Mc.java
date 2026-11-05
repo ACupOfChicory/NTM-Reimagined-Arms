@@ -133,4 +133,21 @@ public final class Mc {
         Vector2f p = pose.transformPosition(x, y, new Vector2f());
         return vc.addVertex(p.x, p.y, 0);
     }
+
+    private static volatile float worldFov = 70F;
+
+    // 26.2 Camera.getFov(): the field of view the level is drawn with, zoom included. 1.21.1 keeps it inside
+    // GameRenderer: it is read back from the level's projection each frame (the port's GunFeel, AFTER_SKY). That
+    // projection is the perspective times the hurt tilt and the view bob (turns and shifts): its second row is the
+    // perspective's 1/tan(fov/2) times a unit row of the turn, so its length is the fov without them. The nausea
+    // warp (a scale) is not taken out
+    public static float worldFov() {
+        return worldFov;
+    }
+
+    public static void levelProjection(org.joml.Matrix4f projection) {
+        double y = Math.sqrt((double) projection.m01() * projection.m01() + (double) projection.m11() * projection.m11()
+                + (double) projection.m21() * projection.m21());
+        if (y > 1e-6) worldFov = (float) Math.toDegrees(2.0 * Math.atan(1.0 / y));
+    }
 }

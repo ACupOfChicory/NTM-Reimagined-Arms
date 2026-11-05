@@ -173,6 +173,9 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/functi
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig velocity F
+BULLETS method com/hbm/backport/client/blockmodel/BlockStateModelSet current ()Lcom/hbm/backport/client/blockmodel/BlockStateModelSet;
+BULLETS method com/hbm/backport/client/blockmodel/BlockStateModelSet getParticleMaterial (Lnet/minecraft/world/level/block/state/BlockState;)Lcom/hbm/backport/client/blockmodel/Material$Baked;
+BULLETS method com/hbm/backport/client/blockmodel/Material$Baked sprite ()Lnet/minecraft/client/renderer/texture/TextureAtlasSprite;
 BULLETS method com/hbm/blocks/multiblock/MultiblockSurface clientCoreOf (Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/core/BlockPos;
 BULLETS method com/hbm/blocks/multiblock/MultiblockSurface coreOfAny (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)Lnet/minecraft/core/BlockPos;
 BULLETS method com/hbm/blocks/multiblock/MultiblockSurface isSurface (Lnet/minecraft/world/level/block/state/BlockState;)Z
@@ -202,12 +205,18 @@ CLICK_AIM method com/hbm/client/Keybinds isGunHeld ()Z
 CLICK_AIM method com/hbm/extprop/HbmPlayerProps getData (Lnet/minecraft/world/entity/player/Player;)Lcom/hbm/extprop/HbmPlayerProps;
 CLICK_AIM method com/hbm/extprop/HbmPlayerProps getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
 CORE class com/hbm/backport/client/core/BlockEntityRenderer
+CORE class com/hbm/backport/client/core/CameraRenderState
 CORE class com/hbm/backport/client/core/EntityRenderState
+CORE class com/hbm/backport/client/core/LevelRenderState
+CORE class com/hbm/backport/client/core/OrderedSubmitNodeCollector
+CORE class com/hbm/backport/client/core/SubmitNodeCollector
+CORE class com/hbm/backport/client/core/SubmitNodeCollector$CustomGeometryRenderer
 CORE class com/hbm/backport/client/gui/GuiGraphicsExtractor
 CORE class com/hbm/backport/client/gui/input/KeyEvent
 CORE class com/hbm/backport/client/gui/render/TextureSetup
 CORE class com/hbm/backport/client/gui/state/GuiElementRenderState
 CORE class com/hbm/backport/client/gui/state/GuiRenderState
+CORE class com/hbm/backport/client/itemmodel/ItemStackRenderState$FoilType
 CORE class com/hbm/backport/client/rendertype/PrimitiveTopology
 CORE class com/hbm/backport/client/rendertype/RenderPipeline
 CORE class com/hbm/blocks/generic/BlockWoodBarrier
@@ -216,6 +225,7 @@ CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
+CORE field com/hbm/backport/client/core/LevelRenderState cameraRenderState Lcom/hbm/backport/client/core/CameraRenderState;
 CORE field com/hbm/backport/client/rendertype/RenderPipelines GUI Lcom/hbm/backport/client/rendertype/RenderPipeline;
 CORE field com/hbm/blocks/generic/BlockWoodStructure kind Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
 CORE field com/hbm/blocks/generic/BlockWoodStructure$Kind ROOF Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
@@ -225,6 +235,13 @@ CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/w
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
+CORE method com/hbm/backport/client/core/CameraRenderState of (Lnet/minecraft/client/Camera;)Lcom/hbm/backport/client/core/CameraRenderState;
+CORE method com/hbm/backport/client/core/LevelRenderState <init> ()V
+CORE method com/hbm/backport/client/core/SubmitNodeCollector immediate (Lnet/minecraft/client/renderer/MultiBufferSource;)Lcom/hbm/backport/client/core/SubmitNodeCollector;
+CORE method com/hbm/backport/client/core/SubmitNodeCollector submitItem (Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/item/ItemDisplayContext;III[ILjava/util/List;Lcom/hbm/backport/client/itemmodel/ItemStackRenderState$FoilType;)V
+CORE method com/hbm/backport/client/core/SubmitNodeCollector submitNameTag (Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/phys/Vec3;ILnet/minecraft/network/chat/Component;ZILcom/hbm/backport/client/core/CameraRenderState;)V
+CORE method com/hbm/backport/client/core/SubmitNodeCollector submitText (Lcom/mojang/blaze3d/vertex/PoseStack;FFLnet/minecraft/util/FormattedCharSequence;ZLnet/minecraft/client/gui/Font$DisplayMode;IIII)V
+CORE method com/hbm/backport/client/core/SubmitNodeCollector$CustomGeometryRenderer render (Lcom/mojang/blaze3d/vertex/PoseStack$Pose;Lcom/mojang/blaze3d/vertex/VertexConsumer;)V
 CORE method com/hbm/backport/client/gui/GuiGraphicsExtractor pose ()Lcom/hbm/backport/client/gui/GuiPoseStack;
 CORE method com/hbm/backport/client/gui/GuiPoseStack matrix2d ()Lorg/joml/Matrix3x2f;
 CORE method com/hbm/backport/client/gui/input/KeyEvent <init> (III)V
@@ -237,6 +254,7 @@ CORE method com/hbm/backport/client/gui/state/GuiRenderState addGuiElement (Lcom
 CORE method com/hbm/backport/client/rendertype/PrimitiveTopology of (Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;)Lcom/hbm/backport/client/rendertype/PrimitiveTopology;
 CORE method com/hbm/backport/client/rendertype/RenderPipeline getPrimitiveTopology ()Lcom/hbm/backport/client/rendertype/PrimitiveTopology;
 CORE method com/hbm/backport/client/rendertype/RenderPipeline isCull ()Z
+CORE method com/hbm/backport/client/rendertype/RenderTypeFactory create (Ljava/lang/String;Lcom/mojang/blaze3d/vertex/VertexFormat;Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;IZZLnet/minecraft/client/renderer/RenderType$CompositeState;)Lnet/minecraft/client/renderer/RenderType;
 CORE method com/hbm/backport/client/rendertype/RenderTypeInfo pipeline (Lnet/minecraft/client/renderer/RenderType;)Lcom/hbm/backport/client/rendertype/RenderPipeline;
 CORE method com/hbm/blocks/generic/BlockWoodBarrier panel (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind ordinal ()I
@@ -416,6 +434,7 @@ RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilHorizontal F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
 RECOIL method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 RECOIL method com/hbm/util/GameTime millis (Lnet/minecraft/world/level/Level;)J
+RICOCHET_SOUND class com/hbm/entity/projectile/EntityBulletBaseMK4
 SPREAD class com/hbm/items/weapon/sedna/BulletConfig
 SPREAD class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 SPREAD class com/hbm/items/weapon/sedna/Receiver
@@ -442,6 +461,52 @@ SPRINT_FIRE method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext config
 SPRINT_FIRE method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext entity ()Lnet/minecraft/world/entity/LivingEntity;
 SPRINT_FIRE method com/hbm/items/weapon/sedna/Receiver getRefireOnHold (Lnet/minecraft/world/item/ItemStack;)Z
 SPRINT_FIRE method com/hbm/items/weapon/sedna/factory/Lego clickReceiver (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext;I)V
+TRACERS class com/hbm/backport/client/blockmodel/BakedQuad
+TRACERS class com/hbm/backport/client/blockmodel/BlockStateModelPart
+TRACERS class com/hbm/backport/client/core/CameraRenderState
+TRACERS class com/hbm/backport/client/core/LevelRenderState
+TRACERS class com/hbm/backport/client/core/OrderedSubmitNodeCollector
+TRACERS class com/hbm/backport/client/core/SubmitNodeCollector
+TRACERS class com/hbm/backport/client/core/SubmitNodeCollector$CustomGeometryRenderer
+TRACERS class com/hbm/client/render/RenderBulletMK4
+TRACERS class com/hbm/client/render/RenderBulletMK4$State
+TRACERS class com/hbm/client/render/RenderBulletMK4$Tracer
 TRACERS class com/hbm/items/weapon/sedna/BulletConfig
+TRACERS field com/hbm/backport/client/core/CameraRenderState pos Lnet/minecraft/world/phys/Vec3;
+TRACERS field com/hbm/backport/client/core/LevelRenderState cameraRenderState Lcom/hbm/backport/client/core/CameraRenderState;
+TRACERS field com/hbm/backport/client/rendertype/ChunkSectionLayer TRANSLUCENT Lcom/hbm/backport/client/rendertype/ChunkSectionLayer;
+TRACERS field com/hbm/client/render/RenderBulletMK4$State config Lcom/hbm/items/weapon/sedna/BulletConfig;
+TRACERS field com/hbm/client/render/RenderBulletMK4$State length D
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig ammoItem Ljava/util/function/Supplier;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig doesPenetrate Z
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig maxRicochetCount I
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig velocity F
+TRACERS method com/hbm/backport/client/blockmodel/BakedQuad direction ()Lnet/minecraft/core/Direction;
+TRACERS method com/hbm/backport/client/blockmodel/BakedQuad materialInfo ()Lcom/hbm/backport/client/blockmodel/BakedQuad$MaterialInfo;
+TRACERS method com/hbm/backport/client/blockmodel/BakedQuad packedUV (I)J
+TRACERS method com/hbm/backport/client/blockmodel/BakedQuad packedUV0 ()J
+TRACERS method com/hbm/backport/client/blockmodel/BakedQuad packedUV1 ()J
+TRACERS method com/hbm/backport/client/blockmodel/BakedQuad packedUV3 ()J
+TRACERS method com/hbm/backport/client/blockmodel/BakedQuad position (I)Lorg/joml/Vector3fc;
+TRACERS method com/hbm/backport/client/blockmodel/BakedQuad position0 ()Lorg/joml/Vector3fc;
+TRACERS method com/hbm/backport/client/blockmodel/BakedQuad position1 ()Lorg/joml/Vector3fc;
+TRACERS method com/hbm/backport/client/blockmodel/BakedQuad position2 ()Lorg/joml/Vector3fc;
+TRACERS method com/hbm/backport/client/blockmodel/BakedQuad position3 ()Lorg/joml/Vector3fc;
+TRACERS method com/hbm/backport/client/blockmodel/BakedQuad$MaterialInfo layer ()Lcom/hbm/backport/client/rendertype/ChunkSectionLayer;
+TRACERS method com/hbm/backport/client/blockmodel/BakedQuad$MaterialInfo sprite ()Lnet/minecraft/client/renderer/texture/TextureAtlasSprite;
+TRACERS method com/hbm/backport/client/blockmodel/BlockStateModel collectParts (Lnet/minecraft/util/RandomSource;Ljava/util/List;)V
+TRACERS method com/hbm/backport/client/blockmodel/BlockStateModelPart getQuads (Lnet/minecraft/core/Direction;)Ljava/util/List;
+TRACERS method com/hbm/backport/client/blockmodel/BlockStateModelSet current ()Lcom/hbm/backport/client/blockmodel/BlockStateModelSet;
+TRACERS method com/hbm/backport/client/blockmodel/BlockStateModelSet get (Lnet/minecraft/world/level/block/state/BlockState;)Lcom/hbm/backport/client/blockmodel/BlockStateModel;
+TRACERS method com/hbm/backport/client/blockmodel/Uv unpackU (J)F
+TRACERS method com/hbm/backport/client/blockmodel/Uv unpackV (J)F
+TRACERS method com/hbm/backport/client/core/OrderedSubmitNodeCollector submitCustomGeometry (Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/RenderType;Lcom/hbm/backport/client/core/SubmitNodeCollector$CustomGeometryRenderer;)V
+TRACERS method com/hbm/backport/client/core/SubmitNodeCollector$CustomGeometryRenderer render (Lcom/mojang/blaze3d/vertex/PoseStack$Pose;Lcom/mojang/blaze3d/vertex/VertexConsumer;)V
+TRACERS method com/hbm/backport/client/rendertype/RenderTypes debugQuads ()Lnet/minecraft/client/renderer/RenderType;
+TRACERS method com/hbm/client/render/RenderBulletMK4$State <init> ()V
+TRACERS method com/hbm/client/render/RenderBulletMK4$Tracer draw (Lcom/hbm/client/render/RenderBulletMK4$State;Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/hbm/backport/client/core/SubmitNodeCollector;)V

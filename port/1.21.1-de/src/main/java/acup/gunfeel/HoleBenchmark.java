@@ -14,4 +14,11 @@ final class HoleBenchmark {
 
     static void frame() {
     }
+
+    static void applyMode() {
+    }
+
+    static boolean wantPixelProbe() {
+        return false;
+    }
 }

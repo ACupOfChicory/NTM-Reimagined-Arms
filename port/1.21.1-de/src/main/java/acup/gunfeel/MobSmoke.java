@@ -32,4 +32,7 @@ public final class MobSmoke {
 
     public static void debug(Entity e, boolean model) {
     }
+
+    static void tracer(int bullet) {
+    }
 }

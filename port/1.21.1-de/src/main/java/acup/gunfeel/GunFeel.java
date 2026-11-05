@@ -23,7 +23,8 @@ import net.neoforged.neoforge.client.event.ViewportEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
 // The port's copy of the root's GunFeel (notes/ports/de-1.21.1.md, "Копии"): 1.21.1 has one RenderLevelStageEvent
-// with stages for 26.2's AfterWeather, AfterOpaqueBlocks and the rest, and no SubmitCustomGeometryEvent.
+// with stages for 26.2's AfterWeather, AfterOpaqueBlocks and the rest, and no SubmitCustomGeometryEvent (Tracers gets
+// them as port/StageEvent).
 // Client-side state and hooks; loaded only on the client (see GunFeelMod).
 public final class GunFeel {
     public static final Logger LOGGER = LoggerFactory.getLogger("ntm-gunfeel");
@@ -54,8 +55,26 @@ public final class GunFeel {
             if (Feature.ARMS.on()) GripCommand.register(e.getDispatcher());
             CompatClient.register(e.getDispatcher());
         });
+        // the root's SubmitCustomGeometry and AfterOpaqueFeatures: after the block entities, before the translucent
+        // terrain. As in 26.2 the frame's holes and tracers are submitted first (submit() also updates the batches),
+        // the batched holes drawn, then what was submitted; the holes on glass that 26.2 submits after the
+        // translucent terrain (improved transparency) after it here too. AfterWeather as it is
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderLevelStageEvent.class, e -> {
-            if (e.getStage() == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_LEVEL) ModelHitClient.finishFrame();
+            var stage = e.getStage();
+            if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_SKY) acup.gunfeel.port.Mc.levelProjection(e.getProjectionMatrix());
+            if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES && Feature.TRACERS.on()) {
+                var ev = acup.gunfeel.port.StageEvent.of(e);
+                Tracers.submit(ev);
+                Tracers.afterOpaqueFeatures(ev);
+                ev.flush();
+            }
+            if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) acup.gunfeel.port.StageEvent.flushLate();
+            if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_WEATHER && Feature.TRACERS.on())
+                Tracers.afterWeather(acup.gunfeel.port.StageEvent.of(e));
+            if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_LEVEL) {
+                acup.gunfeel.port.StageEvent.endFrame();
+                ModelHitClient.finishFrame();
+            }
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> {
             ModelHitClient.clear();
