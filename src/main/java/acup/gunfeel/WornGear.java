@@ -6,22 +6,24 @@ import java.util.List;
 // What a mob wears, on its hitbox (modelHitboxesWorn, on by default): the model parts under worn armor or a head
 // item grow by what vanilla draws over them.
 // - Armor (HumanoidArmorLayer; 1.12.2 LayerBipedArmor) is the player's cubes inflated: helmet, chestplate and boots by
-//   1 pixel a side, leggings by 0.5. Drawn on humanoid models only (head, body, two arms, two legs), and on a model
-//   of its own: a skeleton's 2-pixel limbs wear 4-pixel armor. So a part grows by that and to at least the armored
-//   player's cube (8 head; 12 x 8 x 4 body; 12 x 4 x 4 limbs, its longest edge the 12). Armor is solid: a part taken
-//   as a mesh of its opaque pixels (a skeleton's ribs) is a whole cube under it.
+//   1 pixel a side, leggings by 0.5. Drawn on humanoid models only (head, body and two arms; the legs may be hidden,
+//   as NTM's full Digamma hides them), and on a model of its own: a skeleton's 2-pixel limbs wear 4-pixel armor. Both
+//   platforms catch that drawn armor as geometry of its layer, so a part here only grows by the side, about its middle:
+//   armor is solid, a part taken as a mesh of its opaque pixels (a skeleton's ribs) is a whole cube under it.
 // - A skull on the head (CustomHeadLayer; 1.12.2 LayerCustomHead) is the 8-pixel skull drawn 1.1875 times larger,
-//   9.5 pixels; a block (a carved pumpkin) is drawn at 0.625 of a block, 10 pixels. The head grows to at least that
-//   on each axis, about its middle. On any model with a head part.
+//   9.5 pixels, standing on the base of the head; a dragon's head is its 16-pixel cube drawn at 0.75 of that, 14.25,
+//   standing the same way (its snout sticks out further and is not counted); a block (a carved pumpkin) is drawn at
+//   0.625 of a block, 10 pixels, about the head's middle. The head grows to at least that on each axis. On any model
+//   with a head part. The base is the head's lower face, found by the world's up.
 // The model's pixel is read off the part itself (a head is 8 pixels across, a body, arm or leg 12 tall), so a baby or
 // a giant gets its own. The outer layers (hat, jacket, sleeves, trousers) already stand off their part by 0.5 or 0.25
 // and grow by the rest.
-// Only the model's own parts grow: the armor and head items 26.2 catches as geometry of their layers are left as
-// they are drawn.
+// Only the model's own parts grow: the armor (both platforms) and head items (26.2) caught as geometry of their layers
+// are left as they are drawn.
 // Pure: the platforms say what is worn (ModelHits.worn); the boxes grow for the hitbox, the head and limb zones after
 // ModelHeads matched them on the bare model (its sizes pick the profile).
 public final class WornGear {
-    public enum Head { NONE, ARMOR, SKULL, BLOCK }
+    public enum Head { NONE, ARMOR, SKULL, DRAGON, BLOCK }
 
     public record Worn(Head head, boolean chest, boolean legs, boolean feet) {
         public static final Worn NOTHING = new Worn(Head.NONE, false, false, false);
@@ -31,8 +33,8 @@ public final class WornGear {
         }
     }
 
-    static final double SKULL_PIXELS = 8 * 1.1875, BLOCK_PIXELS = 16 * 0.625;
-    private static final String[] HUMANOID = {"head", "body", "right_arm", "left_arm", "right_leg", "left_leg"};
+    static final double SKULL_PIXELS = 8 * 1.1875, DRAGON_PIXELS = 16 * 0.75 * 1.1875, BLOCK_PIXELS = 16 * 0.625;
+    private static final String[] HUMANOID = {"head", "body", "right_arm", "left_arm"};
 
     private WornGear() {
     }
@@ -85,39 +87,35 @@ public final class WornGear {
         if (b.part().contains("/draws/")) return b;
         String name = name(b.part());
         double side = 0, outer = 0, least = 0, base;
-        boolean byLeast;
-        double[] armored = null; // the armored player's cube, pixels, longest first
+        boolean byLeast, standing = false;
         switch (name) {
             case "head", "hat" -> {
                 outer = name.equals("hat") ? 0.5 : 0;
                 base = 8 + 2 * outer;
                 byLeast = true;
-                if (worn.head() == Head.ARMOR && humanoid) {
-                    side = 1;
-                    armored = new double[] {8, 8, 8};
-                } else if (worn.head() == Head.SKULL) least = SKULL_PIXELS;
-                else if (worn.head() == Head.BLOCK) least = BLOCK_PIXELS;
+                if (worn.head() == Head.ARMOR && humanoid) side = 1;
+                else if (worn.head() == Head.SKULL || worn.head() == Head.DRAGON) {
+                    least = worn.head() == Head.SKULL ? SKULL_PIXELS : DRAGON_PIXELS;
+                    standing = true;
+                } else if (worn.head() == Head.BLOCK) least = BLOCK_PIXELS;
             }
             case "body", "jacket" -> {
                 outer = name.equals("jacket") ? 0.25 : 0;
                 base = 12 + 2 * outer;
                 byLeast = false;
                 if (humanoid) side = worn.chest() ? 1 : worn.legs() ? 0.5 : 0;
-                armored = new double[] {12, 8, 4};
             }
             case "right_arm", "left_arm", "right_sleeve", "left_sleeve" -> {
                 outer = name.endsWith("sleeve") ? 0.25 : 0;
                 base = 12 + 2 * outer;
                 byLeast = false;
                 if (humanoid && worn.chest()) side = 1;
-                armored = new double[] {12, 4, 4};
             }
             case "right_leg", "left_leg", "right_pants", "left_pants" -> {
                 outer = name.endsWith("pants") ? 0.25 : 0;
                 base = 12 + 2 * outer;
                 byLeast = false;
                 if (humanoid) side = worn.feet() ? 1 : worn.legs() ? 0.5 : 0;
-                armored = new double[] {12, 4, 4};
             }
             default -> {
                 return b;
@@ -130,22 +128,24 @@ public final class WornGear {
         // one of the part's pixels, in the box's units
         double pixel = (byLeast ? Math.min(len[0], Math.min(len[1], len[2])) : Math.max(len[0], Math.max(len[1], len[2]))) / base;
         if (side == 0 && least == 0) return b;
-        // the edges, longest first
-        Integer[] order = {0, 1, 2};
-        java.util.Arrays.sort(order, (i, j) -> Double.compare(len[j], len[i]));
         double[] grown = new double[3];
-        for (int r = 0; r < 3; r++) {
-            int i = order[r];
+        for (int i = 0; i < 3; i++) {
             grown[i] = len[i];
             if (side > outer) grown[i] += 2 * (side - outer) * pixel;
-            if (side > 0) grown[i] = Math.max(grown[i], (armored[r] + 2 * side) * pixel);
             if (least > 0) grown[i] = Math.max(grown[i], least * pixel);
         }
         if (grown[0] == len[0] && grown[1] == len[1] && grown[2] == len[2]) return b;
+        // a standing item keeps the head's lower face: the edge nearest the world's up grows from its lower end
+        int up = -1;
+        if (standing) {
+            up = 0;
+            for (int i = 1; i < 3; i++) if (Math.abs(e[i][1]) / len[i] > Math.abs(e[up][1]) / len[up]) up = i;
+        }
         double x = b.x(), y = b.y(), z = b.z();
         double[][] out = new double[3][3];
         for (int i = 0; i < 3; i++) {
             double k = grown[i] / len[i], back = (grown[i] - len[i]) / 2 / len[i];
+            if (i == up) back = e[i][1] > 0 ? 0 : 2 * back;
             for (int j = 0; j < 3; j++) out[i][j] = e[i][j] * k;
             x -= e[i][0] * back;
             y -= e[i][1] * back;
