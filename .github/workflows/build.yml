@@ -1,0 +1,64 @@
+# Builds every push of main and the ports, and releases a new CHANGELOG heading as a GitHub pre-release.
+# The work is in .github/release.sh (the same file on every branch); ci/ branches only try it out.
+name: Build and release
+
+on:
+  push:
+    branches: [main, port/1.7.10-forge, port/1.12.2-ce, port/1.21.1-de, 'ci/**']
+  workflow_dispatch:
+    inputs:
+      test_release:
+        description: "On a ci/ branch: really create the release, under a ci-test- tag (delete it after)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+# one run per branch at a time, never cancelled: two pushes must not release one tag twice
+concurrency:
+  group: build-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # the version is counted from the history, and the ports count from where they left main
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          # 25 last: it runs Gradle; 8 and 21 are the toolchains of the ports' builds and tests
+          java-version: |
+            8
+            21
+            25
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: false
+
+      - name: Cache the fetched jars
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ntm-arms-deps
+          key: ntm-arms-deps-${{ hashFiles('.github/deps.tsv') }}
+          restore-keys: ntm-arms-deps-
+
+      - name: Build, and release a new heading
+        run: .github/release.sh ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEST_RELEASE: ${{ inputs.test_release || 'false' }}
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: jar
+          path: ${{ runner.temp }}/ntm-arms/jar/
+          if-no-files-found: ignore
