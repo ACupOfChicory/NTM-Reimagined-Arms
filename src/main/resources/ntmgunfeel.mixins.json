@@ -8,6 +8,7 @@
     "MixinMouseTurn", "KeyMappingAccess", "LocalPlayerAccess", "GuiGraphicsAccess", "ModelPartAccess", "MixinLivingModelHits", "MixinModelHitboxDebug",
     "MixinModelHitState", "MixinPreparedModelHit", "MixinVanillateModelHit", "VanillateEntityAccess", "MixinSpawnLerp", "MixinHandBob", "GameRendererAccess", "MixinSprintStop",
     "MixinEntityModelHitState", "MixinEntityMeshHits", "MixinDragonModelHit", "MixinGpuInstancerModel", "MixinGpuPoseShadow",
-    "MixinAlexRenderSetup", "MixinAlexPostEffects", "MixinLegacyHitboxGizmos", "MixinSkinLayerVisualizer", "MixinDeltaTimer", "MixinTracePartialTick"],
+    "MixinAlexRenderSetup", "MixinAlexPostEffects", "MixinLegacyHitboxGizmos", "MixinSkinLayerVisualizer", "MixinDeltaTimer", "MixinTracePartialTick",
+    "MixinPunchyMovesEngine"],
   "injectors": { "defaultRequire": 1 }
 }
