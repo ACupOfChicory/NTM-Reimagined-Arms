@@ -321,6 +321,29 @@ public final class ModelHits {
         return ModelContours.edges(worldBoxes(target));
     }
 
+    // Стенд: привязка конечностей по той же позе, что у headResolution.
+    static synchronized ModelHeads.Resolution limbResolution(Entity target) {
+        var poses=POSES.get(target.level());var pose=poses==null?null:poses.get(target.getId());
+        if(!usable(target,pose)) return new ModelHeads.Resolution(List.of(),"unknown","нет совместимой позы модели",0,0);
+        return ModelHeads.limbs(ModelHeads.key(target),pose.boxes(),pose.yaw());
+    }
+    // Стенд: части позы в кадре, где HeadProfiles.bind сравнивает их с разметкой (центр повёрнут на yaw позы),
+    // и вершины сетки части в том же кадре.
+    record ProfilePart(HeadProfiles.Ref ref,List<Vec3> vertices) {}
+    static synchronized List<ProfilePart> profileParts(Entity target) {
+        var poses=POSES.get(target.level());var pose=poses==null?null:poses.get(target.getId());
+        if(!usable(target,pose)) return List.of();
+        double a=Math.toRadians(pose.yaw()),cos=Math.cos(a),sin=Math.sin(a);
+        java.util.function.UnaryOperator<Vec3> turn=c->new Vec3(cos*c.x+sin*c.z,c.y,-sin*c.x+cos*c.z);
+        return pose.boxes().stream().map(b->{
+            var data=HeadLabelGeometry.triangles(b);var vertices=new java.util.LinkedHashSet<Vec3>();
+            for(int at=0;at<data.length;at+=3) {
+                var v=turn.apply(ModelContours.point(b,data[at],data[at+1],data[at+2]));
+                vertices.add(new Vec3(Math.round(v.x*1e4)/1e4,Math.round(v.y*1e4)/1e4,Math.round(v.z*1e4)/1e4));
+            }
+            return new ProfilePart(new HeadProfiles.Ref(b.part(),HeadProfiles.size(b),HeadProfiles.shape(b),turn.apply(ModelContours.point(b,.5,.5,.5)),-1),List.copyOf(vertices));
+        }).toList();
+    }
     public static synchronized List<ModelBox> worldBoxes(Entity target) {
         Map<Integer, PoseAt> poses = POSES.get(target.level());
         PoseAt p = poses == null ? null : poses.get(target.getId());

@@ -416,6 +416,7 @@ public final class MobSmoke {
                     mob.setBaby(true);
                     if(!mob.isBaby()) throw new IllegalStateException("Моб не поддерживает детский возраст: "+CASES.get(index));
                 }
+                MobVariants.apply(target,MobCatalog.variants(CASES.get(index)));
                 // Ghost штатно исчезает рядом с обычным игроком даже с NoAI.
                 // Наблюдатель исключён из его проверки присутствия игроков.
                 mc.getSingleplayerServer().getPlayerList().getPlayers().getFirst()
