@@ -53,7 +53,7 @@ public final class SprintFire {
     public static boolean on(Item gun) {
         if (!Feature.SPRINT_FIRE.on()) return false;
         String id = id(gun);
-        return ReaimTimes.flag(id + ".sprintFireDelay", ReaimTimes.flag("sprintFireDelay", false));
+        return ReaimTimes.flag(id + ".sprintFireDelay", ReaimTimes.flag("sprintFireDelay", true));
     }
 
     public static float time(Item gun) {

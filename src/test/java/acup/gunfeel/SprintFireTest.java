@@ -28,16 +28,16 @@ class SprintFireTest {
         assertEquals(0.05F, SprintFire.step(0F, true, 0.15F, 0.05F), 1e-6F);
     }
 
-    // the mod ships the delay switched off: the server has to turn it on
+    // the mod ships the delay switched on for every gun: a server turns it off with sprintFireDelay = false
     @Test
-    void offByDefault() throws Exception {
+    void onByDefault() throws Exception {
         Properties p = new Properties();
         try (var in = SprintFire.class.getResourceAsStream("/ntmgunfeel-server.properties")) {
             p.load(new InputStreamReader(in, StandardCharsets.UTF_8));
         }
-        assertEquals("false", p.getProperty("sprintFireDelay"));
+        assertEquals("true", p.getProperty("sprintFireDelay"));
         for (String key : p.stringPropertyNames())
-            if (key.endsWith(".sprintFireDelay")) throw new AssertionError("a gun has the delay on in the mod: " + key);
+            if (key.endsWith(".sprintFireDelay")) throw new AssertionError("a gun has its own delay switch in the mod: " + key);
         assertEquals(0.08F, Float.parseFloat(p.getProperty("hbm:gun_light_revolver.sprintFireTime")));
         assertEquals(0.19F, Float.parseFloat(p.getProperty("hbm:gun_m2.sprintFireTime")));
     }
