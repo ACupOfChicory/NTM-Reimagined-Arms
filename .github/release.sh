@@ -84,10 +84,27 @@ build() {
     local paths; paths=$(printf '%s,' ${JAVA_HOME_8_X64:-} ${JAVA_HOME_21_X64:-} ${JAVA_HOME_25_X64:-}); paths=${paths%,}
     [[ -n "$paths" ]] && java=("-Porg.gradle.java.installations.paths=$paths")
     (cd "$tree/$DIR" && ./gradlew "${ARGS[@]}" ${java[@]+"${java[@]}"} --console=plain) >&2
+    tests "$tree/$DIR" >&2
     local jars; jars=$(find "$tree/$LIBS" -maxdepth 1 -type f -regextype posix-extended \
         -regex ".*/reimagined-arms-X[0-9]+(\.[0-9]+)?${SUFFIX//./\\.}\.jar")
     [[ $(printf '%s\n' "$jars" | grep -c .) -eq 1 ]] || die "expected one reimagined-arms-X*$SUFFIX.jar in $LIBS, found: ${jars:-none}"
     echo "$jars"
+}
+
+# what the tests did, from their reports: totals per task and the names of the skipped ones
+tests() {
+    python3 - "$1" <<'PY' | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+import glob, os, sys, xml.etree.ElementTree as E
+root = sys.argv[1]
+for task in sorted(glob.glob(os.path.join(root, "**/build/test-results/*/"), recursive=True)):
+    n = s = f = 0; skipped = []
+    for x in glob.glob(task + "*.xml"):
+        r = E.parse(x).getroot()
+        n += int(r.get("tests", 0)); s += int(r.get("skipped", 0))
+        f += int(r.get("failures", 0)) + int(r.get("errors", 0))
+        skipped += [r.get("name", "").rsplit(".", 1)[-1] + "." + c.get("name") for c in r.iter("testcase") if c.find("skipped") is not None]
+    print(f"Tests {os.path.relpath(task, root)}: {n} run, {s} skipped, {f} failed" + (": skipped " + ", ".join(sorted(skipped)) if skipped else ""))
+PY
 }
 
 heading() {
