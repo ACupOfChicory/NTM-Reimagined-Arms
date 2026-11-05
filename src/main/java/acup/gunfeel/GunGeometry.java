@@ -117,8 +117,9 @@ public final class GunGeometry {
 
     /**
      * The points of a cloud (x, y, z after each other) farthest along 512 directions spread evenly over the sphere,
-     * each once. They are corners of its hull: the picture of the cloud placed anywhere in front of the eye ends at
-     * one of them, as a point's place on the screen (x / z, y / z) is highest at a corner of the hull.
+     * each once. They are corners of its hull, though not every corner: a corner sticking out less than the spacing
+     * of the directions may be missed. The picture of the cloud placed in front of the eye ends at a corner of the
+     * hull (a point's place on the screen, x / z or y / z, is highest at one), so at one of these or close to one.
      */
     static Vector3f[] extremes(float[] xyz) {
         int n = xyz.length / 3;

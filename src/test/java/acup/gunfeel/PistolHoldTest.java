@@ -339,6 +339,18 @@ class PistolHoldTest {
         assertEquals(PistolHold.AIM_SIZE, PistolHold.size(eye, 0F), 1e-4F);
     }
 
+    // a gun wider than it is deep still ends as big as AIM_SIZE: the search reaches far enough for its width
+    @Test
+    void aWideGunIsAimedAsSmall() {
+        List<Vector3f> c = new ArrayList<>();
+        for (int i = 0; i < 4; i++) c.add(new Vector3f((i & 1) == 0 ? -1F : 1F, (i & 2) == 0 ? -1F : 1F, 1F));
+        Vector3f out = new Vector3f();
+        assertTrue(PistolHold.aim(new Matrix4f(), new Matrix4f(), c.toArray(new Vector3f[0]), 0F, 0F, 0F, out));
+        Vector3f[] eye = new Vector3f[c.size()];
+        for (int i = 0; i < eye.length; i++) eye[i] = new Vector3f(c.get(i)).add(out);
+        assertEquals(PistolHold.AIM_SIZE, PistolHold.size(eye, 0F), 1e-4F);
+    }
+
     // as the hip place: the aimed place is the same however the camera looks, with the turn's sway in the pose, and
     // WalkSprint's move stays on top of it
     @Test

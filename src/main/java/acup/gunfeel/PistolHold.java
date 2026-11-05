@@ -181,7 +181,9 @@ public final class PistolHold {
      * The aimed place for the pose of standardAimingTransform in the eye's space (the eye at the origin, looking
      * along +z), the gun's corners past it and NTM's aimed place a, found before moved as hip's: NTM's place moved
      * along the eye's line (the eye's z) until the gun's picture is AIM_SIZE big. A point on that line stays on it,
-     * so the sights NTM puts there stay on the middle of the screen; nothing turns.
+     * so the sights NTM puts there stay on the middle of the screen; nothing turns. The sway and the walk on top of
+     * it (moved) move the gun with its sights off the line, as they move NTM's aimed place, and back onto it when the
+     * camera stands still.
      */
     static boolean aim(Matrix4f pose, Matrix4f moved, Vector3f[] corners, float aX, float aY, float aZ, Vector3f out) {
         if (corners.length == 0 || Math.abs(moved.determinant()) < 1e-12F) return false;
@@ -189,15 +191,16 @@ public final class PistolHold {
         Matrix3f r = m.get3x3(new Matrix3f());
         if (Math.abs(r.determinant()) < 1e-12F) return false;
         Vector3f[] eye = new Vector3f[corners.length];
-        float nearest = Float.MAX_VALUE, farthest = -Float.MAX_VALUE;
+        float nearest = Float.MAX_VALUE, across = 0F;
         for (int i = 0; i < corners.length; i++) {
             eye[i] = m.transformPosition(aX + corners[i].x, aY + corners[i].y, aZ + corners[i].z, new Vector3f());
             nearest = Math.min(nearest, eye[i].z);
-            farthest = Math.max(farthest, eye[i].z);
+            across = Math.max(across, Math.max(Math.abs(eye[i].x), Math.abs(eye[i].y)));
         }
-        if (!Float.isFinite(nearest) || !Float.isFinite(farthest)) return false;
-        // the picture shrinks as the gun goes away: from all of it in front of the eye to far past its size
-        float lo = NEAR - nearest, hi = Math.max(lo, 0F) + 20F * Math.max(farthest - nearest, NEAR);
+        if (!Float.isFinite(nearest) || !Float.isFinite(across)) return false;
+        // the picture shrinks as the gun goes away: from all of it in front of the eye to where its nearest point is
+        // so far that no side of the picture can be wider than AIM_SIZE (2 across / its depth)
+        float lo = NEAR - nearest, hi = Math.max(lo, 2F * across / AIM_SIZE - nearest);
         float dz;
         if (size(eye, lo) <= AIM_SIZE) dz = lo;
         else if (size(eye, hi) >= AIM_SIZE) dz = hi;
