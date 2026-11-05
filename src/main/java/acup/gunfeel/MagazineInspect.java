@@ -4,6 +4,9 @@ package acup.gunfeel;
 public final class MagazineInspect {
     public static final int PREPARE = 250, MIN_RELEASE = 350, MAX_RELEASE = 1000;
     private MagazineInspect() {}
+    public static boolean enabled(float value) {
+        return value >= 0F && Float.isFinite(value);
+    }
     public static int release(float value) {
         return Float.isFinite(value) ? Math.clamp(Math.round(value), MIN_RELEASE, MAX_RELEASE) : 550;
     }
