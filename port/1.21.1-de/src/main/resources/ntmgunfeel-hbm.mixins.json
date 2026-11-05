@@ -4,8 +4,8 @@
   "package": "acup.gunfeel.mixin",
   "plugin": "acup.gunfeel.compat.HbmMixinPlugin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": ["MixinG3Inspect", "MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun"],
-  "client": ["MixinItemGunBaseNT", "MixinItemRenderWeaponBase", "MixinHbmAnimations", "MixinWholeModelGuns", "MixinSexyBottle"],
+  "mixins": ["MixinG3Inspect", "MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun", "MixinHoldAim"],
+  "client": ["MixinItemGunBaseNT", "MixinItemRenderWeaponBase", "MixinHbmAnimations", "MixinWholeModelGuns", "MixinSexyBottle", "MixinAimButton", "MixinClickAim"],
   "injectors": {
     "defaultRequire": 0
   }
