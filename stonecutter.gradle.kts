@@ -339,13 +339,14 @@ stonecutter parameters {
             replace("com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase.adjustHudFov(70F)", "70F")
             // ArmAnimationPreview: an animation is keyed by its Item; a gun's own table answers when its config has none
             replace("stack.getItem().getDescriptionId(), com.hbm.util.GameTime.now()", "stack.getItem(), com.hbm.util.GameTime.now()")
-            replace("var factory = gun.getConfig(stack,0).getAnims(stack);\n        if (factory == null) return;\n        var buses = factory.apply(stack,cue);",
+            replace("var factory = gun.getConfig(stack,0).getAnims(stack);\n        start(cue, factory == null ? null : factory.apply(stack,cue));",
                 "var factory = gun.getConfig(stack,0).getAnimation(stack);\n        var buses = factory == null ? null : factory.apply(stack,cue);\n" +
-                "        if (buses == null) buses = com.hbm.client.anim.GunAnimations.get(stack, cue, 0);")
+                "        if (buses == null) buses = com.hbm.client.anim.GunAnimations.get(stack, cue, 0);\n        start(cue, buses);")
+            replace("static void start(GunAnimation cue, com.hbm.render.anim.BusAnimation buses)", "static void start(GunAnimation cue, dev.golem.core.render.anim.BusAnimation buses)")
             replace("HbmAnimations.identity()", "new double[] {0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 2}")
             // the arms' own classes on this node belong to ARMS (NtmApiTest, Compat): the cue, the Gem walk, the dev check, the OBJ view, NTM NEXT's gun animations
-            replace("List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\", \"WalkSprint\")",
-                "List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"WeaponSway\", \"WalkSprint\", " +
+            replace("List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"ArmEditorScreen\", \"WeaponSway\", \"WalkSprint\", \"PistolHold\")",
+                "List.of(\"Arms\", \"Grips\", \"GunGeometry\", \"GripCommand\", \"ArmAnimationPreview\", \"ArmAnimationEditor\", \"ArmEditorScreen\", \"WeaponSway\", \"WalkSprint\", \"PistolHold\", " +
                 "\"AnimCue\", \"ArmsGem\", \"ArmsSmoke\", \"HFRWavefrontObject\", \"GroupObject\", \"ContinuumAnimations\", \"NextGunAnimations\")")
             // port/continuum-hud: the HUD's gun silhouette rasterises GunGeometry's groups, Continuum's WavefrontObj through acup.gunfeel.obj
             replace("import com.hbm.render.loader.GroupObject;\nimport com.mojang.blaze3d.platform.NativeImage;",

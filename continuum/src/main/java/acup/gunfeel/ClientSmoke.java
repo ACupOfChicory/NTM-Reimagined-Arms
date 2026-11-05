@@ -15,6 +15,12 @@ public final class ClientSmoke {
     public static void weaponLag(float value) {
     }
 
+    // main's arm editor check reads the branch each hand drew; not on this node
+    static final String[] drawnBranch = new String[2];
+
+    static void armBranch(boolean right, String branch) {
+    }
+
     static void armPose(org.joml.Matrix4f pose, boolean right) {
     }
 

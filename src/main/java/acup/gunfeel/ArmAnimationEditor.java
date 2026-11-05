@@ -19,7 +19,9 @@ public final class ArmAnimationEditor extends Screen {
     private final Deque<String[]> history=new ArrayDeque<>();
     private final String[] paths=new String[2], edits=new String[2];
     private GunAnimation cue=GunAnimation.RELOAD;
-    private List<ArmTimeline.Key> keys=new ArrayList<>();
+    private List<ArmRig.PathEntry> keys=new ArrayList<>();
+    private ArmRig.Tracks<ArmRig.PathEntry> pathDoc=ArmRig.path("");
+    private ArmRig.Segment<ArmRig.PathEntry> pathTrack;
     private record Stage(int first,int last,String name) {}
     private final List<Stage> stages=new ArrayList<>();
     private int hand=1, selected, scroll;
@@ -69,12 +71,11 @@ public final class ArmAnimationEditor extends Screen {
     }
     private void load() {
         try {
-            float roll=hand==0?Config.armLoadRollRight:Config.armLoadRollLeft;
-            float hold=hand==0?Config.armRollRight:Config.armRollLeft;
-            keys=ArmTimeline.read(paths[hand],cue.name(),Config.armPathTimes,Float.isFinite(roll)?roll-hold:0);
+            var times=ArmRig.pathTimes(Config.armPathTimes);
+            pathDoc=ArmRig.path(paths[hand]);pathTrack=ArmRig.pathTrack(pathDoc,cue.name(),times);
+            keys=ArmRig.sorted(pathTrack,times);
             if(keys.isEmpty()) {
-                var a=new ArmTimeline.Key();var b=new ArmTimeline.Key();b.time=Math.max(1,ArmAnimationPreview.duration());
-                keys.add(a);keys.add(b);
+                keys.add(ArmRig.PathEntry.grip(0));keys.add(ArmRig.PathEntry.grip(Math.max(1,ArmAnimationPreview.duration())));
             }
             stages.clear();
             for(int i=0;i<keys.size();) {
@@ -87,10 +88,10 @@ public final class ArmAnimationEditor extends Screen {
         } catch(RuntimeException e){stages.clear();status="Не удалось открыть движение: "+e.getMessage();}
     }
     private Stage stage(){return stages.get(selected);}
-    private float start(){return keys.get(stage().first()).time;}
+    private float start(){return keys.get(stage().first()).ms;}
     private float finish(){
-        if(stage().first()!=stage().last())return keys.get(stage().last()).time;
-        return stage().last()+1<keys.size()?Math.max(start(),keys.get(stage().last()+1).time-1):Math.max(start(),ArmAnimationPreview.duration());
+        if(stage().first()!=stage().last())return keys.get(stage().last()).ms;
+        return stage().last()+1<keys.size()?Math.max(start(),keys.get(stage().last()+1).ms-1):Math.max(start(),ArmAnimationPreview.duration());
     }
     private void readPose(){
         begin=ArmPoseEdits.sample(edits[hand],cue.name(),start());end=ArmPoseEdits.sample(edits[hand],cue.name(),finish());
@@ -123,20 +124,21 @@ public final class ArmAnimationEditor extends Screen {
         remember();
         if(!dynamic){begin[parameter]=value;end[parameter]=value;}
         else (atEnd?end:begin)[parameter]=value;
-        var tracks=ArmPoseEdits.read(edits[hand]);
+        var doc=ArmRig.adjustmentTracks(edits[hand]);
+        var tracks=ArmRig.adjustments(edits[hand]);
         var track=tracks.computeIfAbsent(cue.name(),k->new TreeMap<>());
         // Нейтральные опоры соседних действий не дают одной правке захватить всю анимацию.
-        for(var key:keys)track.putIfAbsent(key.time,new float[6]);
+        for(var key:keys)track.putIfAbsent(key.ms,new float[6]);
         track.putIfAbsent(0F,new float[6]);
         track.putIfAbsent((float)ArmAnimationPreview.duration(),new float[6]);
         float duration=finish()-start();
         for(int i=stage().first();i<=stage().last();i++){
-            float t=duration<=0?0:(keys.get(i).time-start())/duration;
+            float t=duration<=0?0:(keys.get(i).ms-start())/duration;
             var values=new float[6];for(int c=0;c<6;c++)values[c]=begin[c]+(end[c]-begin[c])*t;
-            track.put(keys.get(i).time,values);
+            track.put(keys.get(i).ms,values);
         }
         track.put(start(),begin.clone());track.put(finish(),end.clone());
-        edits[hand]=ArmPoseEdits.write(tracks);apply();
+        ArmRig.putAdjustments(doc,cue.name(),track);edits[hand]=doc.write();apply();
         status="Правка применена. Предпросмотр остаётся на выбранном времени.";
     }
     private Button button(String name,int x,int y,int width,Runnable action){
@@ -169,10 +171,7 @@ public final class ArmAnimationEditor extends Screen {
             ArmAnimationPreview.speed(speeds[next]);rebuildWidgets();
         });
         timeline=addRenderableWidget(new Timeline(4,62-scroll,W,H));
-        button(hand==0?"Правая рука":"Левая рука",4,82,132,()->{hand=1-hand;selected=0;load();show(startSafe());rebuildWidgets();});
-        button("Модель: "+switch(Config.armModel){case "classic"->"обычная";case "slim"->"skinny";default->"по скину";},140,82,134,()->{
-            Grips.put(gun,"armModel",switch(Config.armModel){case "auto"->"classic";case "classic"->"slim";default->"auto";},false);Config.select(gun);rebuildWidgets();
-        });
+        button(hand==0?"Правая рука":"Левая рука",4,82,W,()->{hand=1-hand;selected=0;load();show(startSafe());rebuildWidgets();});
         button("← Действие",4,102,132,()->select(-1));button("Действие →",140,102,134,()->select(1));
         if(!stages.isEmpty()){
             button(dynamic?"Разное начало и конец":"Одинаково весь этап",4,142,W,()->{
@@ -191,17 +190,17 @@ public final class ArmAnimationEditor extends Screen {
                 var parts=new ArrayList<String>();parts.add("grip");parts.addAll(Arms.editorParts());
                 int n=parts.indexOf(key.part);String target=parts.get((n+1)%parts.size());remember();
                 var center=Arms.editorPartCenter(target);
-                for(int i=stage().first();i<=stage().last();i++){keys.get(i).part=target;keys.get(i).point=center.clone();}
-                paths[hand]=ArmTimeline.write(paths[hand],cue.name(),keys);apply();
+                for(int i=stage().first();i<=stage().last();i++)keys.get(i).attach(target,center);
+                writePath();
                 // Границы действий сохраняются до следующего открытия: смена детали не объединяет соседние действия.
                 rebuildWidgets();
             });
             button("Подойти к детали: "+sideName(key.side),4,344,W,()->{
                 int side=0;for(int i=0;i<SIDE.length;i++)if(Arrays.equals(key.side,SIDE[i]))side=(i+1)%SIDE.length;
                 remember();for(int i=stage().first();i<=stage().last();i++)keys.get(i).side=SIDE[side].clone();
-                paths[hand]=ArmTimeline.write(paths[hand],cue.name(),keys);apply();rebuildWidgets();
+                writePath();rebuildWidgets();
             }).active=!key.part.equals("grip");
-            int contact=key.contactId();
+            int contact=key.contact;
             button(contact==0?"Контакт: как в исходной анимации":contact<=4?"Касаться углом кисти":contact>=10?"Касаться ребром кисти":"Касаться серединой плоскости",4,364,W,()->{
                 contact(contact==0?1:contact<=4?10:contact>=10?5:0);
             }).active=!key.part.equals("grip");
@@ -225,8 +224,14 @@ public final class ArmAnimationEditor extends Screen {
     }
     private float startSafe(){return stages.isEmpty()?0:start();}
     private void contact(int id){
-        remember();for(int i=stage().first();i<=stage().last();i++){keys.get(i).contact=id;keys.get(i).corner=id>=1 && id<=4;}
-        paths[hand]=ArmTimeline.write(paths[hand],cue.name(),keys);apply();rebuildWidgets();
+        remember();for(int i=stage().first();i<=stage().last();i++)keys.get(i).contact=id;
+        writePath();rebuildWidgets();
+    }
+    // the edited keys back into the path: entries nobody touched stay as written ("release+300", no side)
+    private void writePath(){
+        if(pathTrack==null)pathTrack=pathDoc.add(cue.name());
+        for(var key:keys)if(!pathTrack.entries.contains(key))pathTrack.entries.add(key);
+        paths[hand]=pathDoc.write();apply();
     }
     private static String contactName(int id){
         return switch(id){

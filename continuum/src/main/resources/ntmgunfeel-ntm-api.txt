@@ -112,6 +112,7 @@ ARMS method com/hbm/items/weapon/sedna/GunAnimation ordinal ()I
 ARMS method com/hbm/items/weapon/sedna/GunAnimation values ()[Lcom/hbm/items/weapon/sedna/GunAnimation;
 ARMS method com/hbm/items/weapon/sedna/GunConfig getAnimation (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiFunction;
 ARMS method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+ARMS method com/hbm/items/weapon/sedna/GunConfig getScopeTexture (Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/resources/Identifier;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getAnimTimer (Lnet/minecraft/world/item/ItemStack;I)I
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z

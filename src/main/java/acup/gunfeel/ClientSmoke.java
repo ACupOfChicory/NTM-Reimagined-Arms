@@ -46,6 +46,12 @@ public final class ClientSmoke {
     public static void weaponLag(float value) {
         if(ENABLED && WEAPON_SWAY && value==0)suppressedLag++;
     }
+    static final boolean ARM_SCREEN=Boolean.getBoolean("ntmgunfeel.armScreenSelfTest");
+    // the branch each hand was last drawn with (Arms), for ArmScreenCheck
+    static final String[] drawnBranch=new String[2];
+    static void armBranch(boolean right,String branch) {
+        if(ENABLED && ARM_SCREEN) drawnBranch[right?0:1]=branch;
+    }
     static void armPose(org.joml.Matrix4f pose,boolean right) {
         if(Boolean.getBoolean("ntmgunfeel.armEditorSelfTest") && !right) drawnArm=new org.joml.Matrix4f(pose);
     }
@@ -147,6 +153,9 @@ public final class ClientSmoke {
                     var gun=net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.Identifier.parse("hbm:gun_g3")).orElseThrow().value();
                     mc.player.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(gun));mc.gui.setScreen(null);
                     phase=30;since=System.nanoTime();return;
+                }
+                if (ARM_SCREEN) {
+                    phase=40;since=System.nanoTime();return;
                 }
                 if (Boolean.getBoolean("ntmgunfeel.armEditorSelfTest")) {
                     var gun=net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.Identifier.parse("hbm:gun_g3")).orElseThrow().value();
@@ -272,6 +281,7 @@ public final class ClientSmoke {
             if (phase == 11) MobBenchmark.frame();
             if (phase == 12) HoleBenchmark.frame();
             if (phase == 13) TraceScenario.frame();
+            if (phase == 40) ArmScreenCheck.frame();
             if (phase == 14) MachineGlassCheck.frame();
             if (phase == 16) ShapesFallbackCheck.frame();
             if (phase == 17) FenceSeamCheck.frame();

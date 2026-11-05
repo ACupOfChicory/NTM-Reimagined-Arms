@@ -56,6 +56,10 @@ MobSmoke.java
 # has a stand-in in continuum/src with what the rest of the mod calls.
 # arms: the arm animation editor (its stand-in in continuum/src is never shown; the gun editor that opens it is not here)
 ArmAnimationEditor.java
+# arms: the arm editor's screen and its self-check (the gun editor that opens it is not here); ArmEditorScreen's
+# stand-in in continuum/src is never shown
+ArmEditorScreen.java
+ArmScreenCheck.java
 # NTM NEXT's Flywheel mob visuals (MobModelVisual, MobObjVisual, GlyphidVisual): Continuum's mobs are
 # CompatEntityRenderers, their OBJ parts reach NtmMeshHits through WavefrontObj (continuum/src MixinNtmMeshHits)
 MobObjPose.java
