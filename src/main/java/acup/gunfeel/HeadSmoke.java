@@ -108,6 +108,7 @@ final class HeadSmoke {
         if(healthAttribute!=null) healthAttribute.setBaseValue(1000);
         target.setInvulnerable(false);
         try {
+            if(target instanceof net.minecraft.world.entity.monster.EnderMan) { enderman(level,target,head,body,limb,check);return; }
             var config=new BulletConfig().setDamage(10).setHeadshot(0);
             config.damageFalloffByPen=false;
             var bullet=new EntityBulletBaseMK4(level,config,1,0,0,0);
@@ -156,5 +157,31 @@ final class HeadSmoke {
             if(healthAttribute!=null) healthAttribute.setBaseValue(max);
             target.setHealth(health);target.setInvulnerable(invulnerable);
         }
+    }
+    // Эндермен снарядом не ранится (ванилла: EnderMan.hurtServer на урон IS_PROJECTILE телепортируется и урона не
+    // берёт), и пуля, и луч NTM по нему в игре дают урон 0; настоящий удар увёл бы его со стенда. Множители
+    // проверяются там, где их подставляет мод (MixinHeadDamage: damage для пули, beamDamage для луча), без удара.
+    private static void enderman(ServerLevel level,LivingEntity target,Vec3 head,Vec3 body,Vec3 limb,java.util.function.BiConsumer<Boolean,String> check) {
+        String why=" (без удара: эндермен снарядом не ранится, ванилла)";
+        var bullet=new EntityBulletBaseMK4(level,new BulletConfig().setDamage(10).setHeadshot(0),1,0,0,0);bullet.damage=10;
+        try {
+            float bodyDamage=HeadDamage.damage(bullet,target,new EntityHitResult(target,body),10);
+            check.accept(bodyDamage==10 && !HeadDamage.last(bullet,target,body).head(),"голова: NTM-пуля по телу ×1, урон="+bodyDamage+why);
+            if(head!=null) {
+                float headDamage=HeadDamage.damage(bullet,target,new EntityHitResult(target,head),10);
+                check.accept(Math.abs(headDamage-17.5F)<.01 && HeadDamage.last(bullet,target,head).head(),"голова: единый множитель ×1,75, голова="+headDamage+why);
+                check.accept(Math.abs(HeadDamage.beamDamage(10,target,new EntityHitResult(target,head))-17.5F)<.01,"NTM-луч: голова ×1,75"+why);
+            }
+            if(Boolean.getBoolean("ntmgunfeel.checkLimbs")) {
+                if(LimbPolicy.eligible(target.getType())) check.accept(limb!=null,"конечности: найдена точка проверенной области");
+                else check.accept(limb==null,"конечности: мелкий вид без конечностей");
+            }
+            if(limb!=null) {
+                float limbDamage=HeadDamage.damage(bullet,target,new EntityHitResult(target,limb),10);
+                check.accept(Math.abs(limbDamage-5)<.01,"конечности: NTM-пуля ×0,5, урон="+limbDamage+why);
+                check.accept(Math.abs(HeadDamage.beamDamage(10,target,new EntityHitResult(target,limb))-5)<.01,"NTM-луч: конечность ×0,5"+why);
+            }
+            check.accept(Math.abs(HeadDamage.beamDamage(10,target,new EntityHitResult(target,body))-10)<.01,"NTM-луч: тело ×1"+why);
+        } finally { bullet.discard(); }
     }
 }
