@@ -72,11 +72,58 @@ class ArmTypeTest {
         }
     }
 
-    // a step lands on the decimal itself: 7 steps of 0.05 is written 0.35
+    // a step lands on the decimal itself: 7 steps of 0.05 is written 0.35; a number off the grid is shown as it is
     @Test
     void aStepIsTheDecimal() {
         assertEquals(0.35F, ArmEditor.snap(0.349F, 0.05F));
         assertEquals("0.35", ArmRig.number(ArmEditor.snap(0.351F, 0.05F)));
         assertEquals(-0.44F, ArmEditor.snap(-0.44F, 0.01F));
+        assertEquals("0,35", ArmEditor.number(0.35F, 0.05F));
+        assertEquals("-66", ArmEditor.number(-66F, 1F));
+        assertEquals("-66,25", ArmEditor.number(-66.25F, 1F));
+        assertEquals("3,935", ArmEditor.number(3.935F, ArmEditor.STEP));
+    }
+
+    // the game takes a whole number of milliseconds for the moment a carry is taken: a fraction is refused, saying so
+    @Test
+    void aWholeNumberSliderRefusesAFraction() {
+        var opened = Grips.snapshot();
+        String gun = "gunfeel:key_probe";
+        try {
+            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            e.page = ArmEditor.Page.KEY;
+            e.track = ArmEditor.Track.CARRY;
+            e.hand = 1;
+            assertTrue(e.press("key.view.track"));
+            assertTrue(e.press("carry.add"), String.valueOf(e.action("carry.add")));
+            var before = e.state();
+            String why = e.type("carry.grab", "865,5");
+            assertNotNull(why);
+            assertTrue(why.contains("целое"), why);
+            assertEquals(before, e.state());
+            assertNull(e.type("carry.grab", "865"));
+            Config.select(gun);
+            assertEquals(865, ArmRig.carry(Config.armLeftCarry).grab(), Config.armLeftCarry);
+        } finally {
+            Grips.restoreUnsaved(opened);
+            Config.select(null);
+        }
+    }
+
+    // a key written from a named moment reads back as the time typed: the game adds the offset as a float
+    @Test
+    void aKeyFromAMomentReadsAsTyped() {
+        var times = java.util.Map.of("release", 2410F);
+        for (float ms : new float[] {0.1F, 3.935F, 2410F, 2750F, 0.3F, 2409.9F}) {
+            String t = ArmRig.fromMoment("release", 2410F, ms);
+            if (t == null) continue;
+            assertEquals(ms, ArmRig.pathMs(t, times), t);
+        }
+        assertEquals("release+340", ArmRig.fromMoment("release", 2410F, 2750F));
+        assertEquals("release", ArmRig.fromMoment("release", 2410F, 2410F));
+        // retimed: from the moment where an offset adds up, else in milliseconds
+        var e = ArmRig.PathEntry.read("release+300:Pump@0,0,0");
+        e.retime(0.1F, times);
+        assertEquals(0.1F, ArmRig.pathMs(e.time, times), e.time);
     }
 }

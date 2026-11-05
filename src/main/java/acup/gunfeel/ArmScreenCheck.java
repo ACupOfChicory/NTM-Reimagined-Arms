@@ -315,6 +315,18 @@ final class ArmScreenCheck {
         var undo = screen.button("undo");
         if (undo != null && undo.active) undo.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
         ClientSmoke.check(m.state().data().equals(before.data()), gun + ": «Отменить» вернул хват после ввода числа");
+        // the box is for what the editor shows now: playing stops, and once the time moves the box closes, taking nothing
+        screen.refresh();
+        m.playing = true;
+        for (var x : screen.sliders()) if (x.setting.id().equals("grip.0")) sl = x;
+        screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(sl.getX() + sl.getWidth() / 2, sl.getY() + sl.getHeight() / 2,
+                new net.minecraft.client.input.MouseButtonInfo(1, 0)), false);
+        ClientSmoke.check(screen.typing() != null && !m.playing, gun + ": поле для числа остановило анимацию");
+        var shown = m.state();
+        if (screen.typing() != null) screen.typing().setValue("0,5");
+        m.seek(m.time + ArmEditor.STEP);
+        screen.tick();
+        ClientSmoke.check(screen.typing() == null && m.state().data().equals(shown.data()), gun + ": время сдвинулось — поле закрылось, ничего не записав");
         screen.refresh();
     }
 

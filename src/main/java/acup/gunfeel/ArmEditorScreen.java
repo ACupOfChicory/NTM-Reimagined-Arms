@@ -41,6 +41,8 @@ public final class ArmEditorScreen extends Screen {
     // a number being typed for a slider (right click on it): the box over the slider, the slider's setting
     private EditBox typing;
     private ArmEditor.Setting typed;
+    // what the editor showed when the box was opened: the box closes, taking nothing, once that changes
+    private String typedWhere;
 
     public ArmEditorScreen(Screen parent, Item item, String gun) {
         super(Component.literal("Руки пушки"));
@@ -397,6 +399,7 @@ public final class ArmEditorScreen extends Screen {
             return;
         }
         syncPreview();
+        if (typing != null && !where().equals(typedWhere)) stopTyping();
         // not while a slider is dragged: it would be made anew under the mouse
         if (held == null && typing == null && !signature().equals(actionsShown)) rebuildWidgets();
     }
@@ -458,6 +461,9 @@ public final class ArmEditorScreen extends Screen {
     // a box over the slider with its value; Enter takes the number, Esc leaves it
     void startTyping(Slider sl) {
         if (typing != null) removeWidget(typing);
+        // the number is for the key under the cursor now: the animation stops so that it stays the same key
+        model.playing = false;
+        typedWhere = where();
         typed = sl.setting;
         typing = new EditBox(font, sl.getX(), sl.getY(), sl.getWidth(), sl.getHeight(), Component.literal(typed.label()));
         typing.setMaxLength(24);
@@ -470,8 +476,17 @@ public final class ArmEditorScreen extends Screen {
     }
 
     // Enter: the typed number goes to the model; a number it does not take keeps the box open and says why
+    // the key, part and page a slider is about
+    private String where() {
+        return (model.clipList().isEmpty() ? "" : model.clip().id()) + "|" + model.hand + "|" + model.time + "|" + model.track + "|" + model.page + "|" + model.shownView();
+    }
+
     String finishTyping() {
         if (typing == null) return "нет поля";
+        if (!where().equals(typedWhere)) {
+            stopTyping();
+            return "ползунок уже о другом ключе";
+        }
         String why = model.type(typed.id(), typing.getValue());
         if (why != null) {
             typing.setTextColor(0xFFFF6666);

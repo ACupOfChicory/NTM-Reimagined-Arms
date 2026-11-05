@@ -724,6 +724,11 @@ final class ArmEditor {
             return null;
         }
 
+        // the game takes only whole numbers here (milliseconds the carry is taken at)
+        boolean whole() {
+            return false;
+        }
+
         Setting setting() {
             return new Setting(id, label, hint, unit, get(), lo(), hi(), step, why());
         }
@@ -1562,7 +1567,7 @@ final class ArmEditor {
         void put(Carried c, int bus, float v);
     }
 
-    private final class CarryKnob extends Knob {
+    private class CarryKnob extends Knob {
         final float lo, hi;
         final CarryGet get;
         final CarryPut put;
@@ -1622,7 +1627,12 @@ final class ArmEditor {
                 if (carried() == null) break;
                 if (v == KeyView.TRACK) {
                     out.add(new CarryKnob("grab", "Взять в", "До этого момента рука тянется туда, где деталь тогда будет; дальше несёт её.", "мс", 0F,
-                            duration(), STEP, (c, b) -> c.grab, (c, b, x) -> c.grab = Math.round(x)));
+                            duration(), STEP, (c, b) -> c.grab, (c, b, x) -> c.grab = Math.round(x)) {
+                        @Override
+                        boolean whole() {
+                            return true;
+                        }
+                    });
                     for (int i = 0; i < 3; i++) {
                         int ci = i;
                         out.add(new CarryKnob("at." + i, "Точка " + XYZ[i], "Какую точку детали держит рука, в единицах модели.", "", -16F, 16F, 0.025F,
@@ -1808,21 +1818,25 @@ final class ArmEditor {
                 }
                 var k = keysOf(track);
                 var key = k == null ? null : k.at(time);
-                String cannot = keyless() != null ? keyless() : key == null ? "в этот момент ключа нет" : ms.isEmpty() ? "моментов нет: добавь «+ Момент»" : null;
+                // in milliseconds, or from each moment the key's time adds up to exactly as the game reads it
+                String now = key == null ? null : k.moment(key);
+                var names = new ArrayList<String>();
+                names.add(null);
+                for (var m : ms)
+                    if (key != null && (now != null && m.name.equalsIgnoreCase(now.trim()) || ArmRig.fromMoment(m.name, m.ms, key.ms()) != null))
+                        names.add(m.name);
+                String cannot = keyless() != null ? keyless() : key == null ? "в этот момент ключа нет" : ms.isEmpty() ? "моментов нет: добавь «+ Момент»"
+                        : names.size() < 2 ? "время ключа не записать от момента точно: оно остаётся числом" : null;
                 for (int d : new int[] {-1, 1})
                     out.add(new Action(d < 0 ? "key.moment.prev" : "key.moment.next", d < 0 ? "◀" : "▶", "Записать время ключа числом или от момента: "
                             + "ключ остаётся на месте.", "", cannot, () -> change(() -> editKey((x, y) -> {
                                 var times = ArmRig.pathTimes((String) config("armPathTimes"));
                                 var pe = x.pathEntry(y);
-                                String now = x.moment(y);
-                                var names = new ArrayList<String>();
-                                names.add(null);
-                                for (var m : ms) names.add(m.name);
                                 int at = 0;
                                 for (int j = 1; j < names.size(); j++) if (now != null && names.get(j).equalsIgnoreCase(now.trim())) at = j;
                                 String to = names.get(Math.floorMod(at + d, names.size()));
-                                float off = y.ms() - (to == null ? 0F : times.get(to.toLowerCase(Locale.ROOT)));
-                                pe.time = to == null ? ArmRig.number(y.ms()) : off == 0F ? to : to + (off > 0F ? "+" : "") + ArmRig.number(off);
+                                String from = to == null ? null : ArmRig.fromMoment(to, times.get(to.toLowerCase(Locale.ROOT)), y.ms());
+                                pe.time = from != null ? from : ArmRig.number(y.ms());
                                 x.touched();
                             }))));
                 switchActions(out, PATH_BLEND, null);
@@ -2165,6 +2179,8 @@ final class ArmEditor {
 
     // a number as shown: as many decimals as the step needs, with a comma
     static String number(float v, float step) {
+        // a number off the slider's grid (typed, or from the mod: 3.935 ms, -66.25°) is shown as it is
+        if (snap(v, step) != v && Float.isFinite(v)) return ArmRig.number(v).replace('.', ',');
         String f = step >= 1F ? "%.0f" : step >= 0.1F ? "%.1f" : step >= 0.01F ? "%.2f" : "%.3f";
         String out = String.format(Locale.ROOT, f, v);
         if (out.matches("-0[.,]?0*")) out = out.substring(1);
@@ -2191,6 +2207,7 @@ final class ArmEditor {
             if (!t.matches("-?(\\d+\\.?\\d*|\\.\\d+)")) return "введи число, например 0,5 или -12";
             float v = Float.parseFloat(t), lo = k.lo(), hi = k.hi();
             if (v < lo || v > hi) return "можно от " + number(lo, k.step) + " до " + number(hi, k.step);
+            if (k.whole() && v != Math.round(v)) return "здесь только целое число, например " + Math.round(v);
             change(() -> k.put(v));
             return null;
         }

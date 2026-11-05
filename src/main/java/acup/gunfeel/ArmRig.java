@@ -243,8 +243,8 @@ final class ArmRig {
                 time = number(ms);
                 return;
             }
-            float off = ms - times.get(base.trim().toLowerCase(Locale.ROOT));
-            time = off == 0F ? base : base + (off > 0F ? "+" : "") + number(off);
+            String from = fromMoment(base, times.get(base.trim().toLowerCase(Locale.ROOT)), ms);
+            time = from != null ? from : number(ms);
         }
 
         private String canonical() {
@@ -298,6 +298,22 @@ final class ArmRig {
             }
         }
         return times;
+    }
+
+    // a time written from a moment at `at` that the game reads back as ms exactly (it adds the offset as a float): the
+    // offset, moved by a few ulps where the plain one does not add up ("release-2409.9" with release 2410 reads
+    // 0.100097656); null when none does, and the time is then written in milliseconds
+    static String fromMoment(String base, float at, float ms) {
+        float off = ms - at;
+        if (off == 0F) return base;
+        float up = off, down = off;
+        for (int i = 0; i < 8; i++) {
+            for (float o : new float[] {up, down})
+                if (o != 0F && at + Float.parseFloat(number(o)) == ms) return base + (o > 0F ? "+" : "") + number(o);
+            up = Math.nextUp(up);
+            down = Math.nextDown(down);
+        }
+        return null;
     }
 
     // a key's time: milliseconds, or a name from armPathTimes with an optional +ms / -ms ("release+300")
