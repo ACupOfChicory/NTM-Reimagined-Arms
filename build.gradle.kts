@@ -380,6 +380,10 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
         if(review && providers.gradleProperty("headLabelSelfTest").isPresent) root.resolve("notes/head-labels/self-test").deleteRecursively()
         val dir = root.resolve(if(stand) "run-glass-stand" else if(holes) { if(providers.gradleProperty("holeBenchLoaded").isPresent) "run-hole-bench-loaded" else "run-hole-bench" } else if(bench) "run-mob-bench" else if(review) "run-mob-review" else if (mobs) "run-mob-check" else "run-client-check")
         if(holes) root.resolve("notes/hole-bench").mkdirs()
+        // in the stand's nested kwin (notes/ports/vkwin.sh) MC_DEBUG_PREFER_WAYLAND has GLFW take its Wayland, and the
+        // first mouse grab (wp_pointer_warp_v1) breaks the connection: the client closes in the first phase. The
+        // stand's Xwayland works.
+        if(holes && System.getenv("XDG_RUNTIME_DIR")?.contains("/vkwin-home/")==true) (this as JavaExec).environment.remove("WAYLAND_DISPLAY")
         if(bench) root.resolve("notes/mob-bench").mkdirs()
         val source = root.resolve("run-bullets/world")
         require(source.resolve("level.dat").exists()) { "Сначала выполните runCheckBullets: нужен изолированный тестовый мир" }
