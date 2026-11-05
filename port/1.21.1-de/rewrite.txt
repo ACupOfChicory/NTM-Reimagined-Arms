@@ -250,9 +250,20 @@ re@HeadProfiles.java: ^(\s*)if\(distance<score\) \{ second=score;score=distance;
 re@HeadProfiles.java: ^(\s*)zones\.add\(new Zone\(match,zone\.group\(\),zone\.planes\(\),zone\.face\(\)\)\);$ => $1for(int twin:acup.gunfeel.port.LabelTwins.of(boxes,match)) zones.add(new Zone(twin,zone.group(),zone.planes(),zone.face()));
 # 1.21.1 has a carpet item per colour, not 26.2's dyed-item set
 re@MobVariants.java: Items\.CARPET\.red\(\) => Items.RED_CARPET
+# 1.21.1's villager data: VillagerData/VillagerDataHolder in npc, set* by the registry's value, not with* by a key
+net.minecraft.world.entity.npc.villager.VillagerData -> net.minecraft.world.entity.npc.VillagerData
+net.minecraft.world.entity.npc.villager.VillagerDataHolder -> net.minecraft.world.entity.npc.VillagerDataHolder
+# (getOptional: both registries default an unknown name to plains or none; 26.2's getOrThrow throws, so does the port)
+re@MobVariants.java: d->d\.withType\(target\.level\(\)\.registryAccess\(\), => d->d.setType(net.minecraft.core.registries.BuiltInRegistries.VILLAGER_TYPE.getOptional(
+re@MobVariants.java: d->d\.withProfession\(target\.level\(\)\.registryAccess\(\), => d->d.setProfession(net.minecraft.core.registries.BuiltInRegistries.VILLAGER_PROFESSION.getOptional(
+re@MobVariants.java: net\.minecraft\.resources\.ResourceKey\.create\(net\.minecraft\.core\.registries\.Registries\.VILLAGER_(?:TYPE|PROFESSION),(net\.minecraft\.resources\.ResourceLocation\.withDefaultNamespace\(v\.substring\(5\)\)\)) => $1.orElseThrow(()->new IllegalArgumentException("Неизвестный вариант моба: "+v))
+re@MobVariants.java: \)\.withLevel\(2\)\); => ).setLevel(2));
 # the stand's dump of a pose's parts (-PdumpParts) takes the cube's triangles from the head label editor, which is not
 # ported: the port's HeadSmoke carries the same two lines
 re@ModelHits.java: HeadLabelGeometry\.triangles\(b\) => HeadSmoke.triangles(b)
 # main's test of the parts a model may not draw drops them by 26.2's names (blockDecos, bodyEquip): PortLabelsTest has it
 # on the port's labels
 re@HeadProfilesTest.java: (@Test void partsTheModelMayNotDrawDoNotRejectTheWholeLabel\(\) \{) => $1 if(true) return;
+# main's tests of the overlay draws (X457) take 26.2's villager, zombie villager and warden limbs, which the port's bank
+# replaces: the local file over the bank is the shared bank itself (the tests run at the repository root)
+re@HeadProfilesTest.java: java\.nio\.file\.Path\.of\("build/no-local-limbs\.json"\) => java.nio.file.Path.of("src/main/resources/ntmgunfeel-limbs.json")

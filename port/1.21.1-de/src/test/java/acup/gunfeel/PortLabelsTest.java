@@ -65,6 +65,39 @@ class PortLabelsTest {
             assertTrue(HeadProfiles.bind(unlinked,boxes,0).missing()>0,c.type()+" без "+c.what()+": без instead разметка отвергается");
         }
     }
+    // 1.21.1 draws the villager's type, profession and level layers with the whole model: the villager's jacket (the
+    // zombie villager's robe) once or twice, the hat none to two times, as the type and the profession wear one (the
+    // stand port-villagers457: 45 states of type and profession). Every state keeps the whole label, and each robe its zone
+    @Test void everyVillagerLayerStateKeepsThePortLabel() {
+        var limbs=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("build/no-local-limbs.json"),false);
+        record Case(String type,String robe,String hat,int robes) {}
+        for(var c:List.of(new Case("minecraft:villager","root/body/jacket","root/head/hat",2),new Case("minecraft:villager#baby","root/body/jacket","root/head/hat",1),
+                new Case("minecraft:zombie_villager","root/body","root/hat",2),new Case("minecraft:zombie_villager#baby","root/body","root/hat",1))) {
+            var profile=HeadProfiles.get(limbs,c.type());var parts=profile.parts();
+            // the robe is the long one of its name (the zombie villager's torso is root/body too)
+            java.util.function.IntPredicate robe=i->parts.get(i).name().equals(c.robe()) && parts.get(i).size()[1]>parts.get(i).size()[0]*2;
+            var head=parts.stream().filter(r->r.name().equals("root/head")).max(Comparator.comparingDouble(r->r.size()[0])).orElseThrow();
+            var robeRef=parts.get(java.util.stream.IntStream.range(0,parts.size()).filter(robe).findFirst().orElseThrow());
+            long robeZones=profile.zones().stream().filter(z->robe.test(z.part())).count();
+            assertTrue(robeZones>0,c+": мантия размечена");
+            var base=new ArrayList<ModelBox>();
+            for(int i=0;i<parts.size();i++) if(!robe.test(i) && !parts.get(i).name().equals(c.hat())) base.add(box(parts.get(i)));
+            var expected=new ArrayList<String>();
+            for(var z:profile.zones()) if(!robe.test(z.part())) expected.add(parts.get(z.part()).name());
+            for(int robes=1;robes<=c.robes();robes++) for(int hats=0;hats<=2;hats++) {
+                var boxes=new ArrayList<>(base);
+                for(int i=0;i<robes;i++) boxes.add(box(robeRef));
+                var s=head.size();var o=head.center();
+                for(int i=0;i<hats;i++) boxes.add(box(c.hat(),o.x-s[0]*.5625,o.y-s[1]*.5625,o.z-s[2]*.5625,s[0]*1.125,s[1]*1.125,s[2]*1.125));
+                var binding=HeadProfiles.bind(profile,boxes,0);var state=c.type()+", мантий "+robes+", шляп "+hats;
+                assertEquals(0,binding.missing(),state);
+                var names=new ArrayList<>(expected);for(long i=0;i<robeZones*robes;i++) names.add(c.robe());
+                var bound=binding.zones().stream().map(z->boxes.get(z.part()).part()).sorted().toList();
+                assertEquals(names.stream().sorted().toList(),bound,state+": зоны на своих частях");
+                for(int i=base.size();i<base.size()+robes;i++) { int b=i;assertEquals(robeZones,binding.zones().stream().filter(z->z.part()==b).count(),state+": зона на каждой мантии"); }
+            }
+        }
+    }
     // the zombie villager's type and profession layers draw one robe twice: its zone binds with one, two or three robes,
     // and goes on each of them
     @Test void identicalLayerBoxesDoNotMakeTheZoneAmbiguous() {

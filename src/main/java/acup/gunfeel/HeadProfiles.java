@@ -128,18 +128,33 @@ final class HeadProfiles {
             if(!name(r.name()).equals(name(b.part())) || error(r,b,scale)>.22 || anonymous(r.name()) && r.shape()!=shape(b)) { ordered=false;break; }
         }
         if(ordered) for(int i=0;i<mapping.length;i++) mapping[i]=i;
-        else for(int i=0;i<mapping.length;i++) {
-            var ref=profile.parts().get(i);int best=-1;double score=Double.POSITIVE_INFINITY,second=score;
-            for(int j=0;j<boxes.size();j++) {
-                var box=boxes.get(j);if(!name(ref.name()).equals(name(box.part()))) continue;
-                double mismatch=error(ref,box,scale);if(mismatch>.35 || anonymous(ref.name()) && ref.shape()!=shape(box)) continue;
-                var c=ModelContours.point(box,.5,.5,.5);double angle=Math.toRadians(yaw),cos=Math.cos(angle),sin=Math.sin(angle);
-                var relative=new Vec3(cos*c.x+sin*c.z,c.y,-sin*c.x+cos*c.z).scale(1/scale);
-                double distance=relative.distanceTo(ref.center())+mismatch*2+(ref.shape()==shape(box)?0:.2);
-                if(distance<score) { second=score;score=distance;best=j; } else second=Math.min(second,distance);
+        else {
+            var own=new HashSet<String>();for(var ref:profile.parts()) own.add(name(ref.name()));
+            var other=new ArrayList<Integer>();
+            for(int i=0;i<mapping.length;i++) {
+                var ref=profile.parts().get(i);var exact=name(ref.name());
+                if(boxes.stream().anyMatch(b->name(b.part()).equals(exact))) mapping[i]=best(ref,boxes,scale,yaw,b->name(b.part()).equals(exact)).box();
+                else if(!layerFree(exact).equals(exact)) other.add(i);
             }
-            // Равные варианты с разными ролями нельзя разрешать случайным порядком.
-            if(best>=0 && (second-score>.03 || second==Double.POSITIVE_INFINITY)) mapping[i]=best;
+            // Слой, который в позе стоит под другим номером draw: у CrankShaft draws — все слои вида по порядку
+            // (у жителя: тип со шляпой, тип без шляпы, профессия, уровень), показан из них не каждый. Берётся та же
+            // часть из другого draw, если такого имени нет в профиле; коробку, нужную двум частям, получает та, что
+            // ближе по месту и размеру.
+            var picks=new ArrayList<int[]>();var scores=new HashMap<Integer,Double>();
+            for(int i:other) {
+                var ref=profile.parts().get(i);var free=layerFree(name(ref.name()));
+                // Ближайший номер: варианты одного слоя (со шляпой и без) стоят в списке рядом, профессия — дальше.
+                int at=draw(ref.name());
+                for(int distance=1;distance<=MAX_DRAWS;distance++) {
+                    int d=distance;
+                    var pick=best(ref,boxes,scale,yaw,b->!own.contains(name(b.part())) && layerFree(name(b.part())).equals(free) && Math.abs(draw(b.part())-at)==d);
+                    if(pick.box()>=0) { picks.add(new int[]{i,pick.box()});scores.put(i,pick.score()); }
+                    if(pick.score()<Double.POSITIVE_INFINITY) break;
+                }
+            }
+            picks.sort(Comparator.comparingDouble(p->scores.get(p[0])));
+            var taken=new HashSet<Integer>();
+            for(var p:picks) if(taken.add(p[1])) mapping[p[0]]=p[1];
         }
         var zones=new ArrayList<Zone>();int missing=0;
         for(var zone:profile.zones()) {
@@ -148,6 +163,24 @@ final class HeadProfiles {
         }
         return new Binding(List.copyOf(zones),missing,missing==0?"ручная разметка":"ручная разметка: часть модели не сопоставлена");
     }
+    private record Pick(int box,double score) {}
+    private static Pick best(Ref ref,List<ModelBox> boxes,double scale,float yaw,java.util.function.Predicate<ModelBox> candidate) {
+        int best=-1;double score=Double.POSITIVE_INFINITY,second=score;
+        for(int j=0;j<boxes.size();j++) {
+            var box=boxes.get(j);if(!candidate.test(box)) continue;
+            double mismatch=error(ref,box,scale);if(mismatch>.35 || anonymous(ref.name()) && ref.shape()!=shape(box)) continue;
+            var c=ModelContours.point(box,.5,.5,.5);double angle=Math.toRadians(yaw),cos=Math.cos(angle),sin=Math.sin(angle);
+            var relative=new Vec3(cos*c.x+sin*c.z,c.y,-sin*c.x+cos*c.z).scale(1/scale);
+            double distance=relative.distanceTo(ref.center())+mismatch*2+(ref.shape()==shape(box)?0:.2);
+            if(distance<score) { second=score;score=distance;best=j; } else second=Math.min(second,distance);
+        }
+        // Равные варианты с разными ролями нельзя разрешать случайным порядком.
+        return best>=0 && (second-score>.03 || second==Double.POSITIVE_INFINITY)?new Pick(best,score):new Pick(-1,score);
+    }
+    private static final int MAX_DRAWS=16;
+    private static final java.util.regex.Pattern DRAW=java.util.regex.Pattern.compile("/draws/(\\d+)/");
+    private static String layerFree(String name) { return DRAW.matcher(name).replaceAll("/draws/*/"); }
+    private static int draw(String name) { var m=DRAW.matcher(name);return m.find()?Integer.parseInt(m.group(1)):-1; }
     // Часть, которую модель рисует вместо другой (череп Mask Man вместо головы с половины здоровья, instead в
     // разметке): у каждой своя зона, зона найдена, если подошла любая из пары.
     private static boolean otherVariant(Profile profile,int[] mapping,int part) {
