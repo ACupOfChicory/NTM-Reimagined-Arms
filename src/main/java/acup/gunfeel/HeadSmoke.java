@@ -22,6 +22,19 @@ final class HeadSmoke {
                     new com.google.gson.Gson().toJson(parts));
         } catch(Exception ex) { check.accept(false,"снимок детской модели: "+ex); }
         check.accept(result.source().equals("dataset") && result.missing()==0,"голова: ручная привязка без потерь, частей="+boxes.size()+", зон="+result.zones().size()+", missing="+result.missing());
+        if(LimbPolicy.eligible(target.getType())) {
+            var limbs=ModelHits.limbResolution(target);
+            boolean ok=limbs.source().equals("dataset") && limbs.missing()==0;
+            check.accept(ok,"конечности: ручная привязка без потерь, зон="+limbs.zones().size()+", missing="+limbs.missing()+", "+limbs.reason()
+                    +(ok?"":", части="+boxes.stream().map(ModelBox::part).toList()));
+        }
+        if(Boolean.getBoolean("ntmgunfeel.dumpParts")) try {
+            var parts=ModelHits.profileParts(target).stream().map(p->{var r=p.ref();return Map.of("name",r.name(),"size",r.size(),
+                    "shape",Long.toUnsignedString(r.shape(),16),"center",new double[]{r.center().x,r.center().y,r.center().z},
+                    "vertices",p.vertices().stream().map(v->new double[]{v.x,v.y,v.z}).toList());}).toList();
+            java.nio.file.Files.writeString(java.nio.file.Path.of("../notes/head-labels/research/parts-"+MobSmoke.current().replace(':','_').replace('#','-')+".json"),
+                    new com.google.gson.Gson().toJson(parts));
+        } catch(Exception ex) { check.accept(false,"снимок частей: "+ex); }
     }
     static void frame() {
         if(!Boolean.getBoolean("ntmgunfeel.checkHeadBindings") || !MobSmoke.reviewReady() || !(MobSmoke.target() instanceof LivingEntity target) || PHOTOS.contains(target.getId())) return;
@@ -101,7 +114,11 @@ final class HeadSmoke {
             } else {
                 check.accept(profile.none() && !HeadDamage.last(bullet,target,body).head(),"голова: ручное отсутствие запрещает хедшот");
             }
-            if(Boolean.getBoolean("ntmgunfeel.checkLimbs")) check.accept(limb!=null,"конечности: найдена точка проверенной области");
+            // Мелкий вид (LimbPolicy) штрафа за конечности не получает: точки конечности у него быть не должно.
+            if(Boolean.getBoolean("ntmgunfeel.checkLimbs")) {
+                if(LimbPolicy.eligible(target.getType())) check.accept(limb!=null,"конечности: найдена точка проверенной области");
+                else check.accept(limb==null,"конечности: мелкий вид без конечностей");
+            }
             if(limb!=null) {
                 target.setHealth(1000);before=target.getHealth();
                 BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,limb));

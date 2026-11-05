@@ -21,11 +21,11 @@ class HeadProfilesTest {
         assertEquals(0,binding.missing());
         assertTrue(HeadZone.contains(HeadProfiles.zones(binding,boxes),new Vec3(.4,1.4,.4)));
         assertFalse(HeadZone.contains(HeadProfiles.zones(binding,boxes),new Vec3(.2,.5,.2)));
-        assertNull(HeadProfiles.get("minecraft:zombie#baby"),"Непроверенный детёныш не наследует разметку взрослого по ID");
+        assertNull(HeadProfiles.get("naturalist:bear#baby"),"Непроверенный детёныш не наследует разметку взрослого по ID");
     }
     private ModelBox box(String name,double y) { return new ModelBox(name,0,y,0,1,0,0,0,1,0,0,0,1); }
     @Test void allManualTypesArePackagedAndNoHeadIsAuthoritative() {
-        assertEquals(218,HeadProfiles.count());
+        assertEquals(264,HeadProfiles.count());
         for(String type:List.of("minecraft:slime","naturalist:piranha","alexscaves:deep_one_mage")) {
             var result=ModelHeads.resolve(type,List.of(box("root/head",0)),0);
             assertEquals("dataset",result.source());assertTrue(result.zones().isEmpty());
@@ -121,6 +121,26 @@ class HeadProfilesTest {
         assertTrue(HeadZone.contains(zones,new Vec3(0,4.5,.5)));
         var healthyZones=HeadProfiles.zones(HeadProfiles.bind(profile,healthy,0),healthy);
         assertTrue(HeadZone.contains(healthyZones,ModelContours.point(healthy.get(5),.5,.5,.5)));
+    }
+    // Части, которых модель может не нарисовать: шерсть стриженой овцы, рог козы, тыква снеговика, ковёр ламы,
+    // скрещённые руки разбойника (в атаке и колдовстве модель рисует right_arm/left_arm).
+    @Test void partsTheModelMayNotDrawDoNotRejectTheWholeLabel() {
+        var limbs=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("build/no-local-limbs.json"),false);
+        record Case(boolean limb,String type,String drop,int zones) {}
+        for(var c:List.of(new Case(false,"minecraft:sheep","/wool",1),new Case(true,"minecraft:sheep","/wool",4),
+                new Case(true,"minecraft:sheep#baby","/wool",4),new Case(false,"minecraft:goat","/left_horn",3),
+                new Case(false,"minecraft:goat","_horn",2),new Case(false,"minecraft:snow_golem","/blockDecos/",1),
+                new Case(false,"minecraft:llama","/bodyEquip/",1),new Case(false,"minecraft:llama","-",2),
+                new Case(true,"minecraft:vindicator","_arm",4),new Case(true,"minecraft:vindicator","/arms",4),
+                new Case(true,"minecraft:evoker","_arm",5),new Case(true,"minecraft:evoker","/arms",5),
+                new Case(true,"minecraft:illusioner","_arm",5),new Case(true,"minecraft:illusioner","/arms",5))) {
+            var profile=c.limb()?HeadProfiles.get(limbs,c.type()):HeadProfiles.get(c.type());
+            var boxes=profile.parts().stream().filter(r->!r.name().contains(c.drop())).map(HeadProfilesTest::box).toList();
+            assertTrue(boxes.size()<profile.parts().size() || c.drop().equals("-"),c+": нечего убирать");
+            var binding=HeadProfiles.bind(profile,boxes,0);
+            assertEquals(0,binding.missing(),c.toString());
+            assertEquals(c.zones(),binding.zones().size(),c.toString());
+        }
     }
     private static ModelBox box(HeadProfiles.Ref ref) {
         var c=ref.center();var s=ref.size();
