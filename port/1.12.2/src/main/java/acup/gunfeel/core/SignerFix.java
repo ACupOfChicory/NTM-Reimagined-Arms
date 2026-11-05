@@ -2,6 +2,7 @@ package acup.gunfeel.core;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Reader;
 import java.lang.reflect.Field;
 import java.net.JarURLConnection;
@@ -19,6 +20,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -33,8 +36,8 @@ import org.apache.logging.log4j.LogManager;
  * <p>Java keeps one signer per package in ClassLoader.package2certs. That map of the game's class loader is swapped
  * for one that forgets this package and only it, so the check is skipped there. It is done only when it is needed:
  * Java 8 (the field is closed on 9+, and Cleanroom's Forge is not signed), a signed Forge jar, and a class of another
- * jar in that package; and the key forgeSignerFix (config/ntm-gunfeel.properties, on by default) can turn it off. One
- * line in the mod's log says what was done or why not.
+ * jar in that package; and the key forgeSignerFix (config/ntm-gunfeel.properties, on by default) can turn it off. On
+ * Java 8 one line in the mod's log says what was done or why not; on a newer Java (Cleanroom) it is silent.
  */
 public final class SignerFix {
     static final String PKG = "net.minecraftforge.client.model";
@@ -47,6 +50,7 @@ public final class SignerFix {
 
     // from ArmsCore.injectData: before any game class is loaded, after the mod's log is set up
     static void run(ClassLoader loader, File game) {
+        if (!java8()) return;
         String line;
         try {
             line = install(loader, game);
@@ -56,14 +60,19 @@ public final class SignerFix {
         LogManager.getLogger(LOG).info("Forge signer fix ({}): {}", PKG, line);
     }
 
+    // the field is closed on Java 9+, and Cleanroom's Forge (Java 25) is not signed
+    static boolean java8() {
+        return "1.8".equals(System.getProperty("java.specification.version"));
+    }
+
+    // the line for the log; null, with nothing touched, on a newer Java than 8
     static String install(ClassLoader loader, File game) throws IOException {
-        String java = System.getProperty("java.specification.version");
-        if (!"1.8".equals(java)) return "not needed (Java " + java + ")";
+        if (!java8()) return null;
         if (!key(game)) return "off (" + KEY + " = false)";
         URL own = loader.getResource(DIR + "ModelLoaderRegistry.class");
         File forge = jarOf(own);
         if (forge == null) return "not needed (no Forge jar: " + own + ")";
-        if (!signed(forge)) return "not needed (Forge is not signed)";
+        if (!signed(forge, DIR + "ModelLoaderRegistry.class")) return "not needed (Forge is not signed)";
         List<String> foreign = foreign(jars(loader, game), forge);
         if (foreign.isEmpty()) return "not needed (no class of another jar in the package)";
         String why = forget(loader);
@@ -97,17 +106,23 @@ public final class SignerFix {
         }
     }
 
-    // a jar signed as Forge's is: a signature file in META-INF
-    static boolean signed(File jar) throws IOException {
-        try (ZipFile z = new ZipFile(jar)) {
-            Enumeration<? extends ZipEntry> e = z.entries();
-            while (e.hasMoreElements()) {
-                String n = e.nextElement().getName().toUpperCase(java.util.Locale.ROOT);
-                if (n.startsWith("META-INF/") && n.indexOf('/', 9) < 0 && (n.endsWith(".SF") || n.endsWith(".DSA") || n.endsWith(".RSA") || n.endsWith(".EC")))
-                    return true;
+    // whether the entry is signed as Java sees it when it loads the class: its signers, known once it is read through
+    static boolean signed(File jar, String entry) throws IOException {
+        try (JarFile j = new JarFile(jar, true)) {
+            JarEntry e = j.getJarEntry(entry);
+            if (e == null) return false;
+            try (InputStream in = j.getInputStream(e)) {
+                byte[] buf = new byte[8192];
+                while (in.read(buf) >= 0) {
+                    // read to the end: the signers are set then
+                }
             }
+            Certificate[] c = e.getCertificates();
+            return c != null && c.length > 0;
+        } catch (SecurityException e) {
+            // a broken signature: Java would refuse the class itself, not ours
+            return false;
         }
-        return false;
     }
 
     // the jars the game may load classes from: the class loader's sources and mods/ (and mods/1.12.2/), whose mods
@@ -179,6 +194,9 @@ public final class SignerFix {
                 map.putAll(was);
                 map.remove(PKG);
                 f.set(loader, map);
+                // a parallel capable loader does not take its lock in checkCerts: a signer another thread put in the
+                // old map meanwhile is copied over, so its package keeps the check
+                if (map instanceof ConcurrentHashMap) for (Map.Entry<String, Certificate[]> e : was.entrySet()) map.putIfAbsent(e.getKey(), e.getValue());
             }
         } catch (IllegalAccessException | RuntimeException e) {
             return "package2certs not set (" + e + ")";
