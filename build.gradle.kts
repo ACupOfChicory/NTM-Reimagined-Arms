@@ -145,6 +145,9 @@ neoForge {
             systemProperty("ntmgunfeel.contourShots",providers.gradleProperty("mobContourShots").isPresent.toString())
             systemProperty("ntmgunfeel.checkHeads",providers.gradleProperty("checkHeads").isPresent.toString())
             systemProperty("ntmgunfeel.checkLimbs",providers.gradleProperty("checkLimbs").isPresent.toString())
+            // -PcheckHeadBindings: строки привязки головы и конечностей; -PdumpParts: части каждой позы в notes/head-labels/research
+            systemProperty("ntmgunfeel.checkHeadBindings",providers.gradleProperty("checkHeadBindings").isPresent.toString())
+            systemProperty("ntmgunfeel.dumpParts",providers.gradleProperty("dumpParts").isPresent.toString())
             systemProperty("ntmgunfeel.checkExplosives",providers.gradleProperty("checkExplosives").isPresent.toString())
             systemProperty("ntmgunfeel.checkAvatarLayers",providers.gradleProperty("checkAvatarLayers").isPresent.toString())
             if(providers.gradleProperty("selectionSelfTest").isPresent) {

@@ -231,7 +231,9 @@ public final class MobSmoke {
                 anchor(target,0,.3,false,"пустота между ногами скелета");
                 anchor(target,.56,1.3,false,"пустота рядом со скелетом внутри AABB+0.3");
             }
-            if(target instanceof net.minecraft.world.entity.animal.Sheep) {
+            // a case already sheared (#sheared, MobVariants) keeps the fleece off: the head and limb checks after this
+            // run on the sheared model, not on the wool the shearing stage grows back (the root's stand regrows it)
+            if(target instanceof net.minecraft.world.entity.animal.Sheep && !MobCatalog.variants(CASES.get(index)).contains("sheared")) {
                 stage=6; since=System.nanoTime(); shearSheep();
             } else if(target.getType()==EntityType.SLIME) {
                 stage=8; since=System.nanoTime(); checkSlimeAndResize(2);
@@ -391,6 +393,7 @@ public final class MobSmoke {
                     mob.setBaby(true);
                     if(!mob.isBaby()) throw new IllegalStateException("Моб не поддерживает детский возраст: "+CASES.get(index));
                 }
+                MobVariants.apply(target,MobCatalog.variants(CASES.get(index)));
                 // Ghost штатно исчезает рядом с обычным игроком даже с NoAI.
                 // Наблюдатель исключён из его проверки присутствия игроков.
                 mc.getSingleplayerServer().getPlayerList().getPlayers().getFirst()

@@ -61,6 +61,10 @@ public final class PistolHold {
     // VIEW·pose with the eye looking along +z and the screen's right -x, as the pose space is when the camera looks
     // along the world's +z (yaw 0, pitch 0). The pose space itself is turned with the world, not with the camera
     private static final Matrix4f VIEW = new Matrix4f();
+    private static String hipDefaultsGun;
+    private static int hipDefaultsVersion = -1;
+    private static float hipDefaultX = 0.6F, hipDefaultY = 1F, hipDefaultZ = 0.75F;
+    private static final float[] HIP_SCALES = new float[3];
 
     private PistolHold() {
     }
@@ -109,7 +113,43 @@ public final class PistolHold {
     public static boolean hip(PoseStack pose, Item item, double aX, double aY, double aZ, Vector3f out) {
         Vector3f[] ends = ENDS.get(item);
         if (ends == null) return false;
-        return hip(VIEW, pose.last().pose(), WalkSprint.moved(item), ends, (float) aX, (float) aY, (float) aZ, out);
+        float[] k = hipScales(Config.selectedGun());
+        return hip(VIEW, pose.last().pose(), WalkSprint.moved(item), ends, (float) aX, (float) aY, (float) aZ, k[0], k[1], k[2], out);
+    }
+
+    static float[] hipScales(String gun) {
+        int version = Grips.version();
+        if (!java.util.Objects.equals(gun, hipDefaultsGun) || version != hipDefaultsVersion) {
+            hipDefaultsGun = gun;
+            hipDefaultsVersion = version;
+            hipDefaultX = defaultHip(gun, "hipX");
+            hipDefaultY = defaultHip(gun, "hipY");
+            hipDefaultZ = defaultHip(gun, "hipZ");
+        }
+        HIP_SCALES[0] = hipScale(Config.hipX, hipDefaultX);
+        HIP_SCALES[1] = hipScale(Config.hipY, hipDefaultY);
+        HIP_SCALES[2] = hipScale(Config.hipZ, hipDefaultZ);
+        return HIP_SCALES;
+    }
+
+    static void clearHipDefaults() {
+        hipDefaultsGun = null;
+        hipDefaultsVersion = -1;
+    }
+
+    static float defaultHip(String gun, String key) {
+        String shipped = gun == null ? null : Grips.shipped(gun, key);
+        String value = shipped == null ? Config.codeValue(key) : shipped;
+        if (value == null) return 1F;
+        try {
+            return Float.parseFloat(value.trim());
+        } catch (NumberFormatException ignored) {
+            return 1F;
+        }
+    }
+
+    static float hipScale(float value, float defaultValue) {
+        return Math.abs(defaultValue) < 1e-6F ? 1F + value - defaultValue : value / defaultValue;
     }
 
     /**
@@ -117,9 +157,14 @@ public final class PistolHold {
      * space the pose is view·pose and moved is view·moved·view⁻¹.
      */
     static boolean hip(Matrix4f view, Matrix4f pose, Matrix4f moved, Vector3f[] ends, float aX, float aY, float aZ, Vector3f out) {
+        return hip(view, pose, moved, ends, aX, aY, aZ, 1F, 1F, 1F, out);
+    }
+
+    static boolean hip(Matrix4f view, Matrix4f pose, Matrix4f moved, Vector3f[] ends, float aX, float aY, float aZ,
+            float kx, float ky, float kz, Vector3f out) {
         if (Math.abs(view.determinant()) < 1e-12F) return false;
         Matrix4f eyeMoved = new Matrix4f(view).mul(moved).mul(new Matrix4f(view).invert());
-        return hip(new Matrix4f(view).mul(pose), eyeMoved, ends, aX, aY, aZ, out);
+        return hip(new Matrix4f(view).mul(pose), eyeMoved, ends, aX, aY, aZ, kx, ky, kz, out);
     }
 
     /**
@@ -142,6 +187,11 @@ public final class PistolHold {
      * on top of the hip place, as they do of the aimed one.
      */
     static boolean hip(Matrix4f pose, Matrix4f moved, Vector3f[] ends, float aX, float aY, float aZ, Vector3f out) {
+        return hip(pose, moved, ends, aX, aY, aZ, 1F, 1F, 1F, out);
+    }
+
+    static boolean hip(Matrix4f pose, Matrix4f moved, Vector3f[] ends, float aX, float aY, float aZ,
+            float kx, float ky, float kz, Vector3f out) {
         if (Math.abs(moved.determinant()) < 1e-12F) return false;
         Matrix4f m = new Matrix4f(moved).invert().mul(pose);
         // the ends and the middle when aimed: the eye is at the pose space's origin and looks along +z
@@ -154,7 +204,7 @@ public final class PistolHold {
         // the pose space is turned half round from the screen's: the screen's right is -x and the eye looks along +z
         // (Arms.cameraFrame); the middle goes from where it is aimed to its hip place, and the inverse takes that
         // through what NTM's renderer did before this frame
-        Vector3f d = new Vector3f(-RIGHT * len - c.x, UP * len - c.y, AHEAD * len - c.z);
+        Vector3f d = new Vector3f(-RIGHT * kx * len - c.x, UP * ky * len - c.y, AHEAD * kz * len - c.z);
         r.invert().transform(d);
         out.set(aX + d.x, aY + d.y, aZ + d.z);
         return Float.isFinite(out.x) && Float.isFinite(out.y) && Float.isFinite(out.z);

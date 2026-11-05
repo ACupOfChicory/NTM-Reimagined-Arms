@@ -7,8 +7,10 @@ import net.minecraft.world.entity.ai.attributes.DefaultAttributes;
 
 final class MobCatalog {
     private MobCatalog() {}
-    static String type(String key) { return key.endsWith("#baby")?key.substring(0,key.length()-5):key; }
-    static boolean baby(String key) { return key.endsWith("#baby"); }
+    static String type(String key) { int at=key.indexOf('#');return at<0?key:key.substring(0,at); }
+    static boolean baby(String key) { return variants(key).contains("baby"); }
+    /** Суффиксы после типа: minecraft:goat#baby#nolefthorn. Что делает каждый, см. MobVariants. */
+    static List<String> variants(String key) { int at=key.indexOf('#');return at<0?List.of():List.of(key.substring(at+1).split("#")); }
     static List<String> review(net.minecraft.server.level.ServerLevel level,boolean babiesOnly) {
         var babies=babies(level);
         if(babiesOnly) return babies;

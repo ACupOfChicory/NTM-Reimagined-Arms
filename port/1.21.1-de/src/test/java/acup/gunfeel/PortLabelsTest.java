@@ -15,7 +15,7 @@ class PortLabelsTest {
         return new HeadProfiles.Ref(b.part(),HeadProfiles.size(b),0,ModelContours.point(b,.5,.5,.5));
     }
     @Test void portBankReplacesTheSharedProfileOfItsTypes() {
-        assertEquals(218,HeadProfiles.count(),"порт не добавляет типов, только заменяет");
+        assertEquals(264,HeadProfiles.count(),"порт не добавляет типов, только заменяет");
         // 1.21.1's goat head: two ear cubes under root/head, the skull under root/head/nose, two horns
         var goat=HeadProfiles.get("minecraft:goat");
         assertEquals(11,goat.parts().size());
@@ -24,6 +24,46 @@ class PortLabelsTest {
         var limbs=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("config/none.json"),false);
         assertTrue(limbs.containsKey("minecraft:zombie#baby"));
         assertTrue(limbs.get("minecraft:zombie#baby").parts().stream().allMatch(p->!p.name().startsWith("mesh/")),"детёныш 1.21.1 — модель взрослого");
+    }
+    // main's partsTheModelMayNotDrawDoNotRejectTheWholeLabel on the port's own labels (rewrite.txt turns main's off: it
+    // drops parts by 26.2's names). A state of the mob that does not draw labelled boxes (the sheared sheep's wool, the
+    // goat's horns, the llama without a carpet, the illager's crossed or free arms) keeps the rest of the label
+    private static ModelBox box(HeadProfiles.Ref r) {
+        var c=r.center();var s=r.size();
+        return new ModelBox(r.name(),c.x-s[0]/2,c.y-s[1]/2,c.z-s[2]/2,s[0],0,0,0,s[1],0,0,0,s[2]);
+    }
+    @Test void partsTheModelMayNotDrawDoNotRejectThePortLabel() {
+        var limbs=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("build/no-local-limbs.json"),false);
+        record Case(boolean limb,String type,java.util.function.Predicate<String> drop,String what) {}
+        java.util.function.Function<String,java.util.function.Predicate<String>> named=part->n->n.contains(part);
+        var cases=List.of(new Case(false,"minecraft:sheep",named.apply("/wool"),"шерсть"),new Case(true,"minecraft:sheep",named.apply("/wool"),"шерсть"),
+                new Case(false,"minecraft:sheep#baby",named.apply("/wool"),"шерсть"),new Case(true,"minecraft:sheep#baby",named.apply("/wool"),"шерсть"),
+                new Case(false,"minecraft:goat",named.apply("/left_horn"),"левый рог"),new Case(false,"minecraft:goat",named.apply("_horn"),"рога"),
+                new Case(true,"minecraft:vindicator",named.apply("_arm"),"свободные руки"),new Case(true,"minecraft:vindicator",named.apply("/arms"),"скрещённые руки"),
+                new Case(true,"minecraft:evoker",named.apply("_arm"),"свободные руки"),new Case(true,"minecraft:evoker",named.apply("/arms"),"скрещённые руки"),
+                new Case(true,"minecraft:illusioner",named.apply("_arm"),"свободные руки"),new Case(true,"minecraft:illusioner",named.apply("/arms"),"скрещённые руки"));
+        var all=new ArrayList<>(cases);
+        // the llama's carpet: the decor layer's boxes, named as the model's own (the parts after the model's nine)
+        all.add(new Case(false,"minecraft:llama",null,"ковёр"));
+        for(var c:all) {
+            var profile=c.limb()?HeadProfiles.get(limbs,c.type()):HeadProfiles.get(c.type());
+            var parts=profile.parts();var kept=new ArrayList<Integer>();
+            for(int i=0;i<parts.size();i++) if(c.drop()==null?i<9:!c.drop().test(parts.get(i).name())) kept.add(i);
+            assertTrue(kept.size()<parts.size(),c+": нечего убирать");
+            var boxes=kept.stream().map(i->box(parts.get(i))).toList();
+            var binding=HeadProfiles.bind(profile,boxes,0);
+            assertEquals(0,binding.missing(),c.type()+" без "+c.what());
+            // the labelled boxes are those left of the labelled parts (without its carpet the llama's carpet part binds to
+            // the head of its name and adds the head a second zone, cut 0.01 lower)
+            var expected=profile.zones().stream().map(HeadProfiles.Zone::part).filter(kept::contains).map(kept::indexOf).collect(java.util.stream.Collectors.toSet());
+            var bound=binding.zones().stream().map(HeadProfiles.Zone::part).collect(java.util.stream.Collectors.toSet());
+            assertEquals(expected,bound,c.type()+" без "+c.what()+": размечены оставшиеся части");
+            assertFalse(expected.isEmpty(),c.type()+" без "+c.what()+": разметка осталась");
+            // without the links the same state rejects the whole label (the llama's carpet part finds the head of its name)
+            if(c.drop()==null) continue;
+            var unlinked=new HeadProfiles.Profile(false,parts.stream().map(r->new HeadProfiles.Ref(r.name(),r.size(),r.shape(),r.center(),-1)).toList(),profile.zones());
+            assertTrue(HeadProfiles.bind(unlinked,boxes,0).missing()>0,c.type()+" без "+c.what()+": без instead разметка отвергается");
+        }
     }
     // the zombie villager's type and profession layers draw one robe twice: its zone binds with one, two or three robes,
     // and goes on each of them

@@ -1,28 +1,66 @@
-# types whose shared label does not bind on the 1.21.1 model (port-bindings*.result); baby heads have no shared profile
+# types whose shared label does not bind on the 1.21.1 model (port-bindings*.result, port-dumps456*.result); after a type, the
+# stand cases of its other states (port_labels.py). Baby heads: main's own (X456) are of 26.2's baby models; the bee's,
+# pig's and turtle's bind on 1.21.1 as they are
 heads hbm:entity_elder_one
+heads hbm:entity_elder_one#baby
 heads hbm:entity_fucc_a_ducc
+heads hbm:entity_fucc_a_ducc#baby
 heads hbm:entity_ghost
+heads minecraft:armadillo#baby
+heads minecraft:axolotl#baby
 heads minecraft:bogged
 heads minecraft:breeze
 heads minecraft:camel
+heads minecraft:camel#baby
+heads minecraft:cat#baby
 heads minecraft:cave_spider
 heads minecraft:chicken
+heads minecraft:chicken#baby
+heads minecraft:cow#baby
+heads minecraft:donkey#baby
 heads minecraft:drowned
+heads minecraft:drowned#baby
 heads minecraft:enderman
-heads minecraft:goat
-heads minecraft:llama
+heads minecraft:fox#baby
+heads minecraft:goat minecraft:goat#nolefthorn minecraft:goat#norighthorn minecraft:goat#nolefthorn#norighthorn
+heads minecraft:goat#baby minecraft:goat#baby#nolefthorn minecraft:goat#baby#nolefthorn#norighthorn
+heads minecraft:hoglin#baby
+heads minecraft:horse#baby
+heads minecraft:husk#baby
+heads minecraft:llama minecraft:llama#carpet
+heads minecraft:llama#baby
+heads minecraft:mooshroom#baby
+heads minecraft:mule#baby
+heads minecraft:ocelot#baby
+heads minecraft:panda#baby
 heads minecraft:phantom
+heads minecraft:piglin#baby
 heads minecraft:polar_bear
+heads minecraft:polar_bear#baby
 heads minecraft:rabbit
-heads minecraft:sheep
-heads minecraft:snow_golem
+heads minecraft:rabbit#baby
+heads minecraft:sheep minecraft:sheep#sheared
+heads minecraft:sheep#baby minecraft:sheep#baby#sheared
+heads minecraft:skeleton_horse#baby
+heads minecraft:sniffer#baby
+heads minecraft:snow_golem minecraft:snow_golem#sheared
 heads minecraft:spider
 heads minecraft:stray
+heads minecraft:strider#baby
 heads minecraft:trader_llama
+heads minecraft:trader_llama#baby
 heads minecraft:tropical_fish
+heads minecraft:villager#baby
 heads minecraft:wandering_trader
+heads minecraft:wandering_trader#baby
 heads minecraft:warden
 heads minecraft:wolf
+heads minecraft:wolf#baby
+heads minecraft:zoglin#baby
+heads minecraft:zombie#baby
+heads minecraft:zombie_horse#baby
+heads minecraft:zombie_villager#baby
+heads minecraft:zombified_piglin#baby
 limbs minecraft:bogged
 limbs minecraft:cow#baby
 limbs minecraft:donkey#baby
@@ -31,25 +69,25 @@ limbs minecraft:drowned#baby
 limbs minecraft:elder_guardian
 limbs minecraft:ender_dragon
 limbs minecraft:enderman
-limbs minecraft:evoker
+limbs minecraft:evoker minecraft:evoker#spell minecraft:evoker#celebrate
 limbs minecraft:horse#baby
 limbs minecraft:husk#baby
-limbs minecraft:illusioner
+limbs minecraft:illusioner minecraft:illusioner#attack minecraft:illusioner#spell
 limbs minecraft:mooshroom#baby
 limbs minecraft:mule#baby
 limbs minecraft:panda#baby
 limbs minecraft:piglin#baby
 limbs minecraft:piglin_brute
 limbs minecraft:polar_bear#baby
-limbs minecraft:sheep
-limbs minecraft:sheep#baby
+limbs minecraft:sheep minecraft:sheep#sheared
+limbs minecraft:sheep#baby minecraft:sheep#baby#sheared
 limbs minecraft:skeleton_horse#baby
 limbs minecraft:spider
 limbs minecraft:stray
 limbs minecraft:strider#baby
 limbs minecraft:villager
 limbs minecraft:villager#baby
-limbs minecraft:vindicator
+limbs minecraft:vindicator minecraft:vindicator#attack minecraft:vindicator#celebrate
 limbs minecraft:wandering_trader
 limbs minecraft:warden
 limbs minecraft:witch

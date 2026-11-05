@@ -13,8 +13,7 @@ import net.minecraft.world.phys.*;
 /** Проверяет настоящую стандартную обработку NTM, а не копию формулы урона. */
 final class HeadSmoke {
     private HeadSmoke() {}
-    private static final Map<String,HeadProfiles.Profile> LIMBS=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("config/ntmgunfeel-limbs.json"),false);
-    // the root's check of the head binding, here with the limbs' too where a limb profile exists. The root's photo of
+    // the root's check of the head and limb bindings. The root's photo of
     // the baby models (into its notes/head-labels/research) is left out; -PdumpProfiles=<dir> writes every model's parts
     // instead, as HeadProfiles.bind reads them (the pose's boxes turned back by its yaw: the profiles' frame)
     static void bindings(LivingEntity target,java.util.function.BiConsumer<Boolean,String> check) {
@@ -22,12 +21,12 @@ final class HeadSmoke {
         var boxes=ModelHits.worldBoxes(target);var result=ModelHits.headResolution(target);
         dump(target,type,check);
         check.accept(result.source().equals("dataset") && result.missing()==0,"голова: ручная привязка без потерь, частей="+boxes.size()+", зон="+result.zones().size()+", missing="+result.missing()+", "+result.reason());
-        var limbProfile=HeadProfiles.get(LIMBS,type);
-        if(limbProfile!=null && !limbProfile.none()) {
-            var pose=pose(target);
-            var limbs=pose==null?null:ModelHeads.limbs(type,pose.boxes(),pose.yaw());
-            check.accept(limbs!=null && limbs.source().equals("dataset") && limbs.missing()==0,"конечности: ручная привязка без потерь, зон="
-                    +(limbs==null?0:limbs.zones().size())+", missing="+(limbs==null?-1:limbs.missing())+", "+(limbs==null?"нет позы":limbs.reason()));
+        // as the root (X456): every kind LimbPolicy gives limbs, so a kind without a limb label fails
+        if(LimbPolicy.eligible(target.getType())) {
+            var limbs=ModelHits.limbResolution(target);
+            boolean ok=limbs.source().equals("dataset") && limbs.missing()==0;
+            check.accept(ok,"конечности: ручная привязка без потерь, зон="+limbs.zones().size()+", missing="+limbs.missing()+", "+limbs.reason()
+                    +(ok?"":", части="+boxes.stream().map(ModelBox::part).toList()));
         }
     }
     private record Pose(List<ModelBox> boxes,float yaw) {}
@@ -50,7 +49,9 @@ final class HeadSmoke {
     // once per type, at the first check: the mob still stands as spawned, not mid-step
     private static final Set<String> DUMPED=java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static void dump(LivingEntity target,String type,java.util.function.BiConsumer<Boolean,String> check) {
-        String dir=System.getProperty("ntmgunfeel.dumpProfiles","");if(dir.isBlank() || !DUMPED.add(type)) return;
+        // one per stand case: a case's suffixes (minecraft:goat#nolefthorn, MobVariants) draw other parts of one type
+        String key=MobSmoke.current().isEmpty()?type:MobSmoke.current();
+        String dir=System.getProperty("ntmgunfeel.dumpProfiles","");if(dir.isBlank() || !DUMPED.add(key)) return;
         var pose=pose(target);if(pose==null) { check.accept(false,"снимок частей: нет позы");return; }
         double angle=Math.toRadians(pose.yaw()),cos=Math.cos(angle),sin=Math.sin(angle);
         var parts=new ArrayList<Map<String,Object>>();
@@ -64,9 +65,9 @@ final class HeadSmoke {
                     "w",new double[]{cos*b.wx()+sin*b.wz(),b.wy(),-sin*b.wx()+cos*b.wz()}));
         }
         try {
-            var file=java.nio.file.Path.of(dir).resolve(type.replace(':','_').replace('#','_')+".json");
+            var file=java.nio.file.Path.of(dir).resolve(key.replace(':','_').replace('#','_')+".json");
             java.nio.file.Files.createDirectories(file.getParent());
-            java.nio.file.Files.writeString(file,new com.google.gson.Gson().toJson(Map.of("type",type,"yaw",pose.yaw(),"parts",parts)));
+            java.nio.file.Files.writeString(file,new com.google.gson.Gson().toJson(Map.of("type",type,"case",key,"yaw",pose.yaw(),"parts",parts)));
         } catch(Exception ex) { check.accept(false,"снимок частей: "+ex); }
     }
     static void run(ServerLevel level,LivingEntity target,java.util.function.BiConsumer<Boolean,String> check) {
@@ -116,7 +117,11 @@ final class HeadSmoke {
             } else {
                 check.accept(profile.none() && !HeadDamage.last(bullet,target,body).head(),"голова: ручное отсутствие запрещает хедшот");
             }
-            if(Boolean.getBoolean("ntmgunfeel.checkLimbs")) check.accept(limb!=null,"конечности: найдена точка проверенной области");
+            // Мелкий вид (LimbPolicy) штрафа за конечности не получает: точки конечности у него быть не должно.
+            if(Boolean.getBoolean("ntmgunfeel.checkLimbs")) {
+                if(LimbPolicy.eligible(target.getType())) check.accept(limb!=null,"конечности: найдена точка проверенной области");
+                else check.accept(limb==null,"конечности: мелкий вид без конечностей");
+            }
             if(limb!=null) {
                 target.setHealth(1000);before=target.getHealth();
                 BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,limb));
@@ -142,7 +147,7 @@ final class HeadSmoke {
             target.setHealth(health);target.setInvulnerable(invulnerable);
         }
     }
-    private static float[] triangles(ModelBox box) { return box.mesh()==0?CUBE:ModelMesh.get(box.mesh()).triangles(); }
+    static float[] triangles(ModelBox box) { return box.mesh()==0?CUBE:ModelMesh.get(box.mesh()).triangles(); }
     private static Vec3 point(ModelBox box,float[] data,int at) { return ModelContours.point(box,data[at],data[at+1],data[at+2]); }
     private static final float[] CUBE=cube();
     private static float[] cube() {
