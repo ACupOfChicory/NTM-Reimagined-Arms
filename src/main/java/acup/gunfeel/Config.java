@@ -135,6 +135,9 @@ public final class Config {
     // a pistol or a revolver held from the hip and aimed by the reference measurements (PistolHold), 0 = off (NTM's
     // hold, hipX/Y/Z)
     public static float pistolHold = 1F;
+    // a pistol or a revolver aimed as far along the eye's line as the reference measurements show it (PistolHold.aim),
+    // 0 = off (NTM's aimed place)
+    public static float aimHold = 1F;
     public static float armScaleRight = 1F;
     public static float armScaleLeft = 1F;
 
@@ -208,6 +211,9 @@ public final class Config {
             pistolHold: a pistol or a revolver is held from the hip a little right of the middle, lower and farther ahead,
               pointing ahead, and comes up to its sights on a smooth curve, 1 = as measured, 0 = off (NTM's hold); hipX, hipY and hipZ
               are not used for a pistol while it is on
+            aimHold: a pistol or a revolver is aimed farther along the line of its sights, as small on the screen as the
+              measured pistols are, its sights staying on the middle of the screen, 1 = as measured, 0 = off (NTM's aimed place);
+              not for a gun with a scope, nor for long guns
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
             armRollRight, armRollLeft: turn of each arm around its own axis, degrees
             armDirRight, armDirLeft: direction from the hand to the shoulder: x (+ left), y (+ up), z (+ forward)
@@ -508,6 +514,7 @@ public final class Config {
         walkSway = num(p, "walkSway", walkSway);
         sprintPose = num(p, "sprintPose", sprintPose);
         pistolHold = num(p, "pistolHold", pistolHold);
+        aimHold = num(p, "aimHold", aimHold);
         armScaleRight = num(p, "armScaleRight", armScaleRight);
         armScaleLeft = num(p, "armScaleLeft", armScaleLeft);
     }
@@ -628,6 +635,7 @@ public final class Config {
         p.setProperty("walkSway", Float.toString(walkSway));
         p.setProperty("sprintPose", Float.toString(sprintPose));
         p.setProperty("pistolHold", Float.toString(pistolHold));
+        p.setProperty("aimHold", Float.toString(aimHold));
         p.setProperty("armScaleRight", Float.toString(armScaleRight));
         p.setProperty("armScaleLeft", Float.toString(armScaleLeft));
         return p;

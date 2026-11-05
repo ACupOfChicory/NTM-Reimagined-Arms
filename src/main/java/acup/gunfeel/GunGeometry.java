@@ -105,6 +105,46 @@ public final class GunGeometry {
         return maxZ - minZ;
     }
 
+    // the drawn vertices outermost in many directions, aligned frame: the corners of the cloud's hull, enough to find
+    // where the gun's picture ends from any side (PistolHold.aim); empty until aligned
+    private Vector3f[] extremes;
+
+    public Vector3f[] extremes() {
+        if (!aligned) return new Vector3f[0];
+        if (extremes == null) extremes = extremes(verts);
+        return extremes;
+    }
+
+    /**
+     * The points of a cloud (x, y, z after each other) farthest along 512 directions spread evenly over the sphere,
+     * each once. They are corners of its hull: the picture of the cloud placed anywhere in front of the eye ends at
+     * one of them, as a point's place on the screen (x / z, y / z) is highest at a corner of the hull.
+     */
+    static Vector3f[] extremes(float[] xyz) {
+        int n = xyz.length / 3;
+        if (n == 0) return new Vector3f[0];
+        java.util.LinkedHashSet<Integer> best = new java.util.LinkedHashSet<>();
+        double golden = Math.PI * (3 - Math.sqrt(5));
+        for (int k = 0; k < 512; k++) {
+            double y = 1 - 2 * (k + 0.5) / 512, r = Math.sqrt(1 - y * y), t = golden * k;
+            float ux = (float) (Math.cos(t) * r), uy = (float) y, uz = (float) (Math.sin(t) * r);
+            int at = 0;
+            float far = -Float.MAX_VALUE;
+            for (int i = 0; i < n; i++) {
+                float d = xyz[i * 3] * ux + xyz[i * 3 + 1] * uy + xyz[i * 3 + 2] * uz;
+                if (d > far) {
+                    far = d;
+                    at = i;
+                }
+            }
+            best.add(at);
+        }
+        Vector3f[] out = new Vector3f[best.size()];
+        int o = 0;
+        for (int i : best) out[o++] = new Vector3f(xyz[i * 3], xyz[i * 3 + 1], xyz[i * 3 + 2]);
+        return out;
+    }
+
     public float fraction(float z) {
         return length() > 0F ? (z - minZ) / length() : 0.5F;
     }

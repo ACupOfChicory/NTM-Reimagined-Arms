@@ -1,6 +1,7 @@
 package acup.gunfeel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -245,6 +246,139 @@ class PistolHoldTest {
         assertEquals(still.x, hip.x, 1e-4F);
         assertEquals(still.y, hip.y, 1e-4F);
         assertEquals(still.z, hip.z, 1e-4F);
+    }
+
+    // ---- aimed (aimHold): NTM's aimed place moved along the eye's line until the picture is as big as the measured
+    // pistols'
+
+    static Vector3f[] corners(List<Vector3f> model) {
+        float[] xyz = new float[model.size() * 3];
+        for (int i = 0; i < model.size(); i++) {
+            xyz[i * 3] = model.get(i).x;
+            xyz[i * 3 + 1] = model.get(i).y;
+            xyz[i * 3 + 2] = model.get(i).z;
+        }
+        return GunGeometry.extremes(xyz);
+    }
+
+    /** The visible frame of the gun placed at o, to the screen's edge: left, right, top, bottom. */
+    static float[] frame(List<Vector3f> model, Vector3f o) {
+        float l = 1, r = 0, t = 1, b = 0;
+        for (Vector3f v : model) {
+            Vector3f p = new Vector3f(v).add(o);
+            if (p.z < 0.05F) continue;
+            float[] s = screen(p);
+            l = Math.min(l, Math.max(0F, s[0]));
+            r = Math.max(r, Math.min(1F, s[0]));
+            t = Math.min(t, Math.max(0F, s[1]));
+            b = Math.max(b, Math.min(1F, s[1]));
+        }
+        return new float[] {l, r, t, b};
+    }
+
+    // aimed, the picture is within the two measured pistols': the middle of the visible frame at 0.500 across and
+    // 0.7235..0.746 down, its bottom at 0.948..0.991, the root of its width by its height at 0.167..0.180 (0.062 by
+    // 0.449 .. 0.066 by 0.490); the top stays on the middle line (0.500 ± 0.005), or no farther from it than NTM puts
+    // it (the LAG's sights stand a little over it). NTM's models are not of the measured shape: the width and the
+    // height each within a tenth past the measured ranges, the Star F's within them; the LAG's bottom at the edge
+    @Test
+    void aimedPictureIsAsMeasured() throws Exception {
+        for (Gun gun : GUNS) {
+            List<Vector3f> model = vertices(gun);
+            Vector3f a = gun.aimed(), out = new Vector3f();
+            assertTrue(PistolHold.aim(new Matrix4f(), new Matrix4f(), corners(model), a.x, a.y, a.z, out), gun.model());
+            float[] f = frame(model, out), ntm = frame(model, a);
+            float w = f[1] - f[0], h = f[3] - f[2], size = (float) Math.sqrt(w * h);
+            String at = gun.model() + " " + java.util.Arrays.toString(f);
+            assertEquals(0.5F, (f[0] + f[1]) / 2, 0.005F, at);
+            // the LAG, taller for its width than the measured pistols, reaches the screen's edge (to 1.004 unclipped)
+            boolean tall = gun.model().equals("mike_hawk");
+            assertTrue((f[2] + f[3]) / 2 >= 0.7235F && (f[2] + f[3]) / 2 <= (tall ? 0.748F : 0.746F), at);
+            assertTrue(f[3] >= 0.948F && f[3] <= (tall ? 1F : 0.991F), at);
+            assertTrue(size >= 0.1668F && size <= 0.1798F, at + " size " + size);
+            assertTrue(Math.abs(f[2] - 0.5F) <= Math.max(0.005F, Math.abs(ntm[2] - 0.5F) + 1e-4F), at + " NTM's top " + ntm[2]);
+            assertTrue(w >= 0.062F * 0.9F && w <= 0.066F * 1.1F && h >= 0.449F * 0.9F && h <= 0.490F * 1.1F, at);
+            if (gun.model().equals("star_f")) assertTrue(w >= 0.062F && w <= 0.066F && h >= 0.449F && h <= 0.490F, at);
+            // NTM's own place is far bigger
+            assertTrue(ntm[1] - ntm[0] > 2F * w, at);
+        }
+    }
+
+    // the eye's space as NTM's frame may be turned in it, and a gun of two boxes: a slide on the eye's line, a grip
+    static final Matrix4f TURNED = new Matrix4f().rotationY((float) Math.PI).rotateX(0.04F).translate(0.02F, -0.3F, 0.875F);
+    static final Vector3f[] BOXES = boxes();
+
+    static Vector3f[] boxes() {
+        List<Vector3f> out = new ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            out.add(new Vector3f((i & 1) == 0 ? -0.1F : 0.1F, (i & 2) == 0 ? -0.2F : 0F, (i & 4) == 0 ? -0.6F : 0.6F));
+            out.add(new Vector3f((i & 1) == 0 ? -0.1F : 0.1F, (i & 2) == 0 ? -0.9F : -0.2F, (i & 4) == 0 ? -0.6F : -0.2F));
+        }
+        return out.toArray(new Vector3f[0]);
+    }
+
+    // the aimed place goes along the eye's line only: a point of the gun on that line stays on it, farther, and the
+    // picture is then AIM_SIZE big
+    @Test
+    void theAimedPlaceKeepsTheSightLine() {
+        // NTM's aimed place: the slide's top on the eye's line
+        Vector3f a = new Matrix4f(TURNED).invert().transformPosition(new Vector3f(0F, 0F, 0.9F));
+        Vector3f out = new Vector3f();
+        assertTrue(PistolHold.aim(TURNED, new Matrix4f(), BOXES, a.x, a.y, a.z, out));
+        // the gun's point that was at the eye's line, 0.9 ahead, and another one on it, its rear sight
+        for (Vector3f q : new Vector3f[] {new Vector3f(), new Matrix4f(TURNED).invert().transformPosition(new Vector3f(0F, 0F, 1.4F)).sub(a)}) {
+            Vector3f before = TURNED.transformPosition(new Vector3f(a).add(q)), after = TURNED.transformPosition(new Vector3f(out).add(q));
+            assertEquals(0F, before.x, 1e-5F);
+            assertEquals(0F, before.y, 1e-5F);
+            assertEquals(0F, after.x, 1e-4F);
+            assertEquals(0F, after.y, 1e-4F);
+            assertTrue(after.z > before.z + 0.5F, "farther: " + before.z + " -> " + after.z);
+        }
+        Vector3f[] eye = new Vector3f[BOXES.length];
+        for (int i = 0; i < eye.length; i++) eye[i] = TURNED.transformPosition(new Vector3f(out).add(BOXES[i]));
+        assertEquals(PistolHold.AIM_SIZE, PistolHold.size(eye, 0F), 1e-4F);
+    }
+
+    // as the hip place: the aimed place is the same however the camera looks, with the turn's sway in the pose, and
+    // WalkSprint's move stays on top of it
+    @Test
+    void theAimedPlaceTurnsWithTheCamera() {
+        Vector3f a = new Matrix4f(TURNED).invert().transformPosition(new Vector3f(0F, 0F, 0.9F));
+        Vector3f still = new Vector3f();
+        assertTrue(PistolHold.aim(new Matrix4f(), TURNED, new Matrix4f(), BOXES, a.x, a.y, a.z, still));
+        Matrix4f view = new Matrix4f().rotateX(0.52F).rotateY(2.36F);
+        Matrix4f inView = new Matrix4f(view).invert();
+        Matrix4f sway = new Matrix4f().translation(0.05F, 0F, 0F).rotateY(0.1F);
+        Matrix4f moved = new Matrix4f(inView).mul(sway).mul(view);
+        Vector3f aimed = new Vector3f();
+        assertTrue(PistolHold.aim(view, new Matrix4f(moved).mul(inView).mul(TURNED), moved, BOXES, a.x, a.y, a.z, aimed));
+        assertEquals(still.x, aimed.x, 1e-4F);
+        assertEquals(still.y, aimed.y, 1e-4F);
+        assertEquals(still.z, aimed.z, 1e-4F);
+        // and it did move: 0.5 along the eye's line at least
+        assertTrue(still.distance(a) > 0.5F, "moved " + still.distance(a));
+    }
+
+    // aimHold 0: NTM's own aimed place; in between, the way between the two
+    @Test
+    void aimHoldOffIsNtmsPlace() {
+        float was = Config.aimHold;
+        try {
+            Config.aimHold = 0F;
+            assertFalse(PistolHold.aimOn());
+        } finally {
+            Config.aimHold = was;
+        }
+        Vector3f measured = new Vector3f(0.3F, -0.1F, 2.5F);
+        Vector3f off = PistolHold.blend(0F, 0.0, -0.4, 0.5, measured), half = PistolHold.blend(0.5F, 0.0, -0.4, 0.5, measured);
+        assertEquals(0F, off.x, 0F);
+        assertEquals(-0.4F, off.y, 0F);
+        assertEquals(0.5F, off.z, 0F);
+        assertEquals(0.15F, half.x, 1e-6F);
+        assertEquals(-0.25F, half.y, 1e-6F);
+        assertEquals(1.5F, half.z, 1e-6F);
+        Vector3f over = PistolHold.blend(2F, 0.0, -0.4, 0.5, measured);
+        assertEquals(measured.z, over.z, 1e-6F);
     }
 
     // the camera's view looks along -z with the screen's right +x; looking along the world's +z (yaw 0, pitch 0) it is

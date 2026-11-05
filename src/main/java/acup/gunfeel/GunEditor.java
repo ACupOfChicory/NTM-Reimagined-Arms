@@ -324,6 +324,7 @@ public final class GunEditor extends Screen {
                 out.add(new ConfigRow("walkSway", -1, "качание при ходьбе", 0F, 2F, 0.05F));
                 out.add(new ConfigRow("sprintPose", -1, "пушка вбок при беге", 0F, 1.5F, 0.05F));
                 out.add(new ConfigRow("pistolHold", -1, "пистолет у бедра", 0F, 1F, 0.05F));
+                out.add(new ConfigRow("aimHold", -1, "пистолет в прицеле", 0F, 1F, 0.05F));
             }
         }
         return out;

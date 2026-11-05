@@ -206,6 +206,16 @@ public final class Arms {
         return true;
     }
 
+    // the corners of the gun's cloud of vertices (GunGeometry.extremes) as placed this frame without the model kick, in
+    // the pose stack's space; null while the gun is not known yet
+    public static Vector3f[] gunExtremesAimed(Item held) {
+        if (!haveRel || relItem != held || geometry(held) == null) return null;
+        Vector3f[] in = geometry(held).extremes();
+        Vector3f[] out = new Vector3f[in.length];
+        for (int i = 0; i < in.length; i++) out[i] = AIMED.transformPosition(REL.transformPosition(in[i], new Vector3f()));
+        return out;
+    }
+
     // the middle of the gun's cloud of vertices (their mean across, halfway along) as placed this frame without the
     // model kick, in the pose stack's space
     public static boolean gunMiddleAimed(Item held, Vector3f out) {
