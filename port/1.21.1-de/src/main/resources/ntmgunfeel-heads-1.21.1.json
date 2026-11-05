@@ -1,0 +1,3782 @@
+{
+ "schema": 1,
+ "profiles": {
+  "hbm:entity_elder_one": {
+   "none": false,
+   "parts": [
+    {
+     "name": "mesh/root/tree/beak",
+     "size": [
+      6.25,
+      3.125,
+      3.125
+     ],
+     "shape": "0",
+     "center": [
+      2e-06,
+      18.774994,
+      10.937499
+     ]
+    },
+    {
+     "name": "mesh/root/tree/body",
+     "size": [
+      9.375,
+      12.5,
+      9.375
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      12.524994,
+      0.0
+     ]
+    },
+    {
+     "name": "mesh/root/tree/head",
+     "size": [
+      6.25,
+      9.375,
+      4.6875
+     ],
+     "shape": "0",
+     "center": [
+      1e-06,
+      18.774994,
+      7.031249
+     ]
+    },
+    {
+     "name": "mesh/root/tree/left_leg",
+     "size": [
+      4.6875,
+      7.8125,
+      4.6875
+     ],
+     "shape": "b6fae53c63fd747a",
+     "center": [
+      2.343751,
+      3.931244,
+      0.78125
+     ]
+    },
+    {
+     "name": "mesh/root/tree/left_wing",
+     "size": [
+      1.5625,
+      6.25,
+      9.375
+     ],
+     "shape": "0",
+     "center": [
+      8.016805,
+      14.519099,
+      -2e-06
+     ]
+    },
+    {
+     "name": "mesh/root/tree/right_leg",
+     "size": [
+      4.6875,
+      7.8125,
+      4.6875
+     ],
+     "shape": "b6fae53c63fd747a",
+     "center": [
+      -2.343749,
+      3.931244,
+      0.78125
+     ]
+    },
+    {
+     "name": "mesh/root/tree/right_wing",
+     "size": [
+      1.5625,
+      6.25,
+      9.375
+     ],
+     "shape": "0",
+     "center": [
+      -8.016805,
+      14.519099,
+      2e-06
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 2,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "hbm:entity_fucc_a_ducc": {
+   "none": false,
+   "parts": [
+    {
+     "name": "mesh/root/tree/beak",
+     "size": [
+      0.25,
+      0.125,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      0.750999,
+      0.4375
+     ]
+    },
+    {
+     "name": "mesh/root/tree/body",
+     "size": [
+      0.375,
+      0.5,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      0.500999,
+      -0.0
+     ]
+    },
+    {
+     "name": "mesh/root/tree/head",
+     "size": [
+      0.25,
+      0.375,
+      0.1875
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      0.750999,
+      0.28125
+     ]
+    },
+    {
+     "name": "mesh/root/tree/left_leg",
+     "size": [
+      0.1875,
+      0.3125,
+      0.1875
+     ],
+     "shape": "b6fae53c63fd747a",
+     "center": [
+      0.09375,
+      0.157249,
+      0.03125
+     ]
+    },
+    {
+     "name": "mesh/root/tree/left_wing",
+     "size": [
+      0.0625,
+      0.25,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      0.37782,
+      0.704733,
+      -0.0
+     ]
+    },
+    {
+     "name": "mesh/root/tree/right_leg",
+     "size": [
+      0.1875,
+      0.3125,
+      0.1875
+     ],
+     "shape": "b6fae53c63fd747a",
+     "center": [
+      -0.09375,
+      0.157249,
+      0.03125
+     ]
+    },
+    {
+     "name": "mesh/root/tree/right_wing",
+     "size": [
+      0.0625,
+      0.25,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      -0.37782,
+      0.704736,
+      0.0
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 2,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "hbm:entity_ghost": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.751,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.5,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      1.126,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/right_arm",
+     "size": [
+      0.25,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      -0.3764,
+      1.126413,
+      -0.005401
+     ]
+    },
+    {
+     "name": "root/left_arm",
+     "size": [
+      0.25,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.3764,
+      1.126413,
+      0.005401
+     ]
+    },
+    {
+     "name": "root/right_leg",
+     "size": [
+      0.25,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      -0.120625,
+      0.376005,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/left_leg",
+     "size": [
+      0.25,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.120625,
+      0.376005,
+      0.0
+     ]
+    },
+    {
+     "name": "root/hat",
+     "size": [
+      0.5625,
+      0.5625,
+      0.5625
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.751,
+      -0.0
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 6,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:bogged": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "shape": "6f8921c924ef7bc1",
+     "center": [
+      0.0,
+      1.751,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.5,
+      0.75,
+      0.25
+     ],
+     "shape": "2a69dff013401ef0",
+     "center": [
+      -0.0,
+      1.126,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/right_arm",
+     "size": [
+      0.125,
+      0.75,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.313901,
+      1.126062,
+      -0.005401
+     ]
+    },
+    {
+     "name": "root/left_arm",
+     "size": [
+      0.125,
+      0.75,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.313901,
+      1.126062,
+      0.005401
+     ]
+    },
+    {
+     "name": "root/right_leg",
+     "size": [
+      0.125,
+      0.75,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.126875,
+      0.376005,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/left_leg",
+     "size": [
+      0.125,
+      0.75,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.126875,
+      0.376005,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.525,
+      0.525,
+      0.525
+     ],
+     "shape": "ee1b25852c7568b1",
+     "center": [
+      0.0,
+      1.751,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.525,
+      0.775,
+      0.275
+     ],
+     "shape": "31e42a11bf7886f3",
+     "center": [
+      0.0,
+      1.126,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/right_arm",
+     "size": [
+      0.275,
+      0.775,
+      0.275
+     ],
+     "shape": "fc1f39ad450aeeb8",
+     "center": [
+      -0.3764,
+      1.126413,
+      -0.005401
+     ]
+    },
+    {
+     "name": "root/left_arm",
+     "size": [
+      0.275,
+      0.775,
+      0.275
+     ],
+     "shape": "4fda854f53f9fdb7",
+     "center": [
+      0.3764,
+      1.126413,
+      0.005401
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 6,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:breeze": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/body/head",
+     "size": [
+      0.625,
+      0.1875,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.454983,
+      0.1375
+     ]
+    },
+    {
+     "name": "root/body/head",
+     "size": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.486233,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/body/rods/rod_2",
+     "size": [
+      0.125,
+      0.5,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.135794,
+      0.909695,
+      -0.156654
+     ]
+    },
+    {
+     "name": "root/body/rods/rod_3",
+     "size": [
+      0.125,
+      0.5,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.067769,
+      0.909695,
+      0.195924
+     ]
+    },
+    {
+     "name": "root/body/rods/rod_1",
+     "size": [
+      0.125,
+      0.5,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.203563,
+      0.909695,
+      -0.039272
+     ]
+    },
+    {
+     "name": "root/wind_body/wind_bottom",
+     "size": [
+      0.3125,
+      0.4375,
+      0.3125
+     ],
+     "shape": "0",
+     "center": [
+      -0.014767,
+      0.21975,
+      -0.005107
+     ]
+    },
+    {
+     "name": "root/wind_body/wind_bottom/wind_mid",
+     "size": [
+      0.75,
+      0.375,
+      0.75
+     ],
+     "shape": "0",
+     "center": [
+      -0.022938,
+      0.626,
+      -0.052361
+     ]
+    },
+    {
+     "name": "root/wind_body/wind_bottom/wind_mid",
+     "size": [
+      0.5,
+      0.375,
+      0.5
+     ],
+     "shape": "0",
+     "center": [
+      -0.022938,
+      0.626,
+      -0.052361
+     ]
+    },
+    {
+     "name": "root/wind_body/wind_bottom/wind_mid",
+     "size": [
+      0.3125,
+      0.375,
+      0.3125
+     ],
+     "shape": "0",
+     "center": [
+      -0.022938,
+      0.626,
+      -0.052361
+     ]
+    },
+    {
+     "name": "root/wind_body/wind_bottom/wind_mid/wind_top",
+     "size": [
+      1.125,
+      0.5,
+      1.125
+     ],
+     "shape": "0",
+     "center": [
+      0.012502,
+      1.0635,
+      -0.040104
+     ]
+    },
+    {
+     "name": "root/wind_body/wind_bottom/wind_mid/wind_top",
+     "size": [
+      0.75,
+      0.5,
+      0.75
+     ],
+     "shape": "0",
+     "center": [
+      0.012502,
+      1.0635,
+      -0.040104
+     ]
+    },
+    {
+     "name": "root/wind_body/wind_bottom/wind_mid/wind_top",
+     "size": [
+      0.3125,
+      0.5,
+      0.3125
+     ],
+     "shape": "0",
+     "center": [
+      0.012502,
+      1.0635,
+      -0.040104
+     ]
+    },
+    {
+     "name": "root/body/head/eyes",
+     "size": [
+      0.625,
+      0.1875,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.454983,
+      0.1375
+     ]
+    },
+    {
+     "name": "root/body/head/eyes",
+     "size": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.486233,
+      -0.0
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 12,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 13,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 1,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:camel": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/right_front_leg",
+     "size": [
+      0.3125,
+      1.3125,
+      0.3125
+     ],
+     "shape": "0",
+     "center": [
+      -0.30625,
+      0.65725,
+      0.65625
+     ]
+    },
+    {
+     "name": "root/right_hind_leg",
+     "size": [
+      0.3125,
+      1.3125,
+      0.3125
+     ],
+     "shape": "0",
+     "center": [
+      -0.30625,
+      0.65725,
+      -0.59375
+     ]
+    },
+    {
+     "name": "root/left_hind_leg",
+     "size": [
+      0.3125,
+      1.3125,
+      0.3125
+     ],
+     "shape": "0",
+     "center": [
+      0.30625,
+      0.65725,
+      -0.59375
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.9375,
+      0.75,
+      1.6875
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.626,
+      0.03125
+     ]
+    },
+    {
+     "name": "root/body/head",
+     "size": [
+      0.4375,
+      0.5,
+      1.1875
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.640796,
+      0.960256
+     ]
+    },
+    {
+     "name": "root/body/head",
+     "size": [
+      0.4375,
+      0.875,
+      0.4375
+     ],
+     "shape": "505e3c79b05f29cd",
+     "center": [
+      0.0,
+      2.343978,
+      1.304953
+     ]
+    },
+    {
+     "name": "root/body/head",
+     "size": [
+      0.3125,
+      0.3125,
+      0.375
+     ],
+     "shape": "8f5f57678a48b2d",
+     "center": [
+      0.0,
+      2.642658,
+      1.698566
+     ]
+    },
+    {
+     "name": "root/body/head/right_ear",
+     "size": [
+      0.1875,
+      0.0625,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.244638,
+      2.775618,
+      1.161014
+     ]
+    },
+    {
+     "name": "root/body/head/left_ear",
+     "size": [
+      0.1875,
+      0.0625,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.244639,
+      2.775618,
+      1.161014
+     ]
+    },
+    {
+     "name": "root/body/hump",
+     "size": [
+      0.5625,
+      0.3125,
+      0.6875
+     ],
+     "shape": "505e3c79b05f29cd",
+     "center": [
+      -0.0,
+      2.15725,
+      0.03125
+     ]
+    },
+    {
+     "name": "root/left_front_leg",
+     "size": [
+      0.3125,
+      1.3125,
+      0.3125
+     ],
+     "shape": "0",
+     "center": [
+      0.30625,
+      0.65725,
+      0.65625
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 5,
+     "group": 1,
+     "planes": [
+      [
+       -0.002852,
+       -0.873605,
+       -0.024534,
+       0.342159
+      ]
+     ]
+    },
+    {
+     "part": 6,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:cave_spider": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.35,
+      0.35,
+      0.35
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.39445,
+      0.30625
+     ]
+    },
+    {
+     "name": "root/right_front_leg",
+     "size": [
+      0.7,
+      0.0875,
+      0.0875
+     ],
+     "shape": "0",
+     "center": [
+      -0.328125,
+      0.241325,
+      0.260301
+     ]
+    },
+    {
+     "name": "root/right_hind_leg",
+     "size": [
+      0.7,
+      0.0875,
+      0.0875
+     ],
+     "shape": "0",
+     "center": [
+      -0.328125,
+      0.241325,
+      -0.304051
+     ]
+    },
+    {
+     "name": "root/left_middle_front_leg",
+     "size": [
+      0.7,
+      0.0875,
+      0.0875
+     ],
+     "shape": "0",
+     "center": [
+      0.411482,
+      0.239111,
+      0.117197
+     ]
+    },
+    {
+     "name": "root/body0",
+     "size": [
+      0.2625,
+      0.2625,
+      0.2625
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.39445,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/body1",
+     "size": [
+      0.4375,
+      0.35,
+      0.525
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      0.39445,
+      -0.39375
+     ]
+    },
+    {
+     "name": "root/left_hind_leg",
+     "size": [
+      0.7,
+      0.0875,
+      0.0875
+     ],
+     "shape": "0",
+     "center": [
+      0.328125,
+      0.241325,
+      -0.30405
+     ]
+    },
+    {
+     "name": "root/right_middle_hind_leg",
+     "size": [
+      0.7,
+      0.0875,
+      0.0875
+     ],
+     "shape": "0",
+     "center": [
+      -0.411482,
+      0.239111,
+      -0.160947
+     ]
+    },
+    {
+     "name": "root/right_middle_front_leg",
+     "size": [
+      0.7,
+      0.0875,
+      0.0875
+     ],
+     "shape": "0",
+     "center": [
+      -0.411482,
+      0.239111,
+      0.117196
+     ]
+    },
+    {
+     "name": "root/left_middle_hind_leg",
+     "size": [
+      0.7,
+      0.0875,
+      0.0875
+     ],
+     "shape": "0",
+     "center": [
+      0.411482,
+      0.239111,
+      -0.160947
+     ]
+    },
+    {
+     "name": "root/left_front_leg",
+     "size": [
+      0.7,
+      0.0875,
+      0.0875
+     ],
+     "shape": "0",
+     "center": [
+      0.328125,
+      0.241325,
+      0.260301
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:chicken": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.25,
+      0.375,
+      0.1875
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.751,
+      0.28125
+     ]
+    },
+    {
+     "name": "root/beak",
+     "size": [
+      0.25,
+      0.125,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.751,
+      0.4375
+     ]
+    },
+    {
+     "name": "root/red_thing",
+     "size": [
+      0.125,
+      0.125,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.626,
+      0.375
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.375,
+      0.5,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.501,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/right_leg",
+     "size": [
+      0.1875,
+      0.3125,
+      0.1875
+     ],
+     "shape": "742fd29cb11f3943",
+     "center": [
+      -0.09375,
+      0.15725,
+      0.03125
+     ]
+    },
+    {
+     "name": "root/left_leg",
+     "size": [
+      0.1875,
+      0.3125,
+      0.1875
+     ],
+     "shape": "742fd29cb11f3943",
+     "center": [
+      0.09375,
+      0.15725,
+      0.03125
+     ]
+    },
+    {
+     "name": "root/right_wing",
+     "size": [
+      0.0625,
+      0.25,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      -0.237343,
+      0.560276,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/left_wing",
+     "size": [
+      0.0625,
+      0.25,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      0.237343,
+      0.560276,
+      -0.0
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 1,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 2,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:drowned": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.751,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.5,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      1.126,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/right_arm",
+     "size": [
+      0.25,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      -0.350477,
+      1.327458,
+      0.250216
+     ]
+    },
+    {
+     "name": "root/left_arm",
+     "size": [
+      0.25,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.35023,
+      1.338155,
+      0.252092
+     ]
+    },
+    {
+     "name": "root/right_leg",
+     "size": [
+      0.25,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      -0.120625,
+      0.376005,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/left_leg",
+     "size": [
+      0.25,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.120625,
+      0.376005,
+      0.0
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.53125,
+      0.53125,
+      0.53125
+     ],
+     "shape": "83bfca5282567075",
+     "center": [
+      0.0,
+      1.751,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.53125,
+      0.78125,
+      0.28125
+     ],
+     "shape": "575a41a995aaff65",
+     "center": [
+      0.0,
+      1.126,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/right_arm",
+     "size": [
+      0.28125,
+      0.78125,
+      0.28125
+     ],
+     "shape": "9b409018380c00bc",
+     "center": [
+      -0.350477,
+      1.327458,
+      0.250215
+     ]
+    },
+    {
+     "name": "root/left_arm",
+     "size": [
+      0.28125,
+      0.78125,
+      0.28125
+     ],
+     "shape": "8280e82d095996e7",
+     "center": [
+      0.35023,
+      1.338155,
+      0.252092
+     ]
+    },
+    {
+     "name": "root/right_leg",
+     "size": [
+      0.28125,
+      0.78125,
+      0.28125
+     ],
+     "shape": "cb4c26de94abaddd",
+     "center": [
+      -0.120625,
+      0.376005,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/left_leg",
+     "size": [
+      0.28125,
+      0.78125,
+      0.28125
+     ],
+     "shape": "dc43ecee6dc62f50",
+     "center": [
+      0.120625,
+      0.376005,
+      0.0
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 6,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:enderman": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "shape": "cb57e9a5f685a3c1",
+     "center": [
+      0.0,
+      2.5635,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.5,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      2.001,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/right_arm",
+     "size": [
+      0.125,
+      1.875,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.317124,
+      1.43856,
+      -0.008729
+     ]
+    },
+    {
+     "name": "root/left_arm",
+     "size": [
+      0.125,
+      1.875,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.317124,
+      1.43856,
+      0.008728
+     ]
+    },
+    {
+     "name": "root/right_leg",
+     "size": [
+      0.125,
+      1.875,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.129687,
+      0.876012,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/left_leg",
+     "size": [
+      0.125,
+      1.875,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.129687,
+      0.876012,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/hat",
+     "size": [
+      0.4375,
+      0.4375,
+      0.4375
+     ],
+     "shape": "68e1b7e9a6f86d4b",
+     "center": [
+      0.0,
+      2.5635,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      2.5635,
+      -0.0
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 7,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:goat": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.1875,
+      0.125,
+      0.0625
+     ],
+     "shape": "0",
+     "center": [
+      -0.21875,
+      1.251,
+      0.59375
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.1875,
+      0.125,
+      0.0625
+     ],
+     "shape": "0",
+     "center": [
+      0.28125,
+      1.251,
+      0.59375
+     ]
+    },
+    {
+     "name": "root/head/nose",
+     "size": [
+      0.3125,
+      0.4375,
+      0.625
+     ],
+     "shape": "0",
+     "center": [
+      0.03125,
+      0.990337,
+      0.633148
+     ]
+    },
+    {
+     "name": "root/head/right_horn",
+     "size": [
+      0.125,
+      0.4375,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.061875,
+      1.40725,
+      0.5625
+     ]
+    },
+    {
+     "name": "root/head/left_horn",
+     "size": [
+      0.125,
+      0.4375,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.124375,
+      1.40725,
+      0.5625
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.5625,
+      0.6875,
+      1.0
+     ],
+     "shape": "0",
+     "center": [
+      0.03125,
+      0.71975,
+      -0.0625
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.6875,
+      0.875,
+      0.6875
+     ],
+     "shape": "1447e2ced24cb557",
+     "center": [
+      0.03125,
+      0.6885,
+      0.15625
+     ]
+    },
+    {
+     "name": "root/right_hind_leg",
+     "size": [
+      0.1875,
+      0.375,
+      0.1875
+     ],
+     "shape": "0",
+     "center": [
+      -0.09375,
+      0.1885,
+      -0.34375
+     ]
+    },
+    {
+     "name": "root/left_hind_leg",
+     "size": [
+      0.1875,
+      0.375,
+      0.1875
+     ],
+     "shape": "0",
+     "center": [
+      0.15625,
+      0.1885,
+      -0.34375
+     ]
+    },
+    {
+     "name": "root/right_front_leg",
+     "size": [
+      0.1875,
+      0.625,
+      0.1875
+     ],
+     "shape": "0",
+     "center": [
+      -0.09375,
+      0.3135,
+      0.28125
+     ]
+    },
+    {
+     "name": "root/left_front_leg",
+     "size": [
+      0.1875,
+      0.625,
+      0.1875
+     ],
+     "shape": "0",
+     "center": [
+      0.15625,
+      0.3135,
+      0.28125
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 1,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 3,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 2,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 4,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:llama": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.25,
+      0.25,
+      0.5625
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.8135,
+      0.71875
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.5,
+      1.125,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.501,
+      0.5625
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.1875,
+      0.1875,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.15625,
+      2.15725,
+      0.5625
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.1875,
+      0.1875,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.15625,
+      2.15725,
+      0.5625
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.75,
+      1.125,
+      0.625
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      1.0635,
+      -0.0625
+     ]
+    },
+    {
+     "name": "root/right_hind_leg",
+     "size": [
+      0.25,
+      0.875,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      -0.21875,
+      0.4385,
+      -0.375
+     ]
+    },
+    {
+     "name": "root/left_hind_leg",
+     "size": [
+      0.25,
+      0.875,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.21875,
+      0.4385,
+      -0.375
+     ]
+    },
+    {
+     "name": "root/right_front_leg",
+     "size": [
+      0.25,
+      0.875,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      -0.21875,
+      0.4385,
+      0.3125
+     ]
+    },
+    {
+     "name": "root/left_front_leg",
+     "size": [
+      0.25,
+      0.875,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.21875,
+      0.4385,
+      0.3125
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 1,
+     "group": 1,
+     "planes": [
+      [
+       -0.002561,
+       -1.124949,
+       -0.003029,
+       0.383801
+      ]
+     ]
+    },
+    {
+     "part": 2,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 3,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:phantom": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/body",
+     "size": [
+      0.3125,
+      0.1875,
+      0.5625
+     ],
+     "shape": "0",
+     "center": [
+      -0.03125,
+      0.241432,
+      0.027037
+     ]
+    },
+    {
+     "name": "root/body/head",
+     "size": [
+      0.4375,
+      0.1875,
+      0.3125
+     ],
+     "shape": "0",
+     "center": [
+      -0.03125,
+      0.185484,
+      0.412643
+     ]
+    },
+    {
+     "name": "root/body/right_wing_base",
+     "size": [
+      0.375,
+      0.125,
+      0.5625
+     ],
+     "shape": "0",
+     "center": [
+      -0.384828,
+      0.32363,
+      0.01879
+     ]
+    },
+    {
+     "name": "root/body/right_wing_base/right_wing_tip",
+     "size": [
+      0.8125,
+      0.0625,
+      0.5625
+     ],
+     "shape": "bf44513381712785",
+     "center": [
+      -0.915559,
+      0.610349,
+      -0.009977
+     ]
+    },
+    {
+     "name": "root/body/tail_base",
+     "size": [
+      0.1875,
+      0.125,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      -0.03125,
+      0.198431,
+      -0.427558
+     ]
+    },
+    {
+     "name": "root/body/tail_base/tail_tip",
+     "size": [
+      0.0625,
+      0.0625,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      -0.03125,
+      0.076656,
+      -0.775797
+     ]
+    },
+    {
+     "name": "root/body/left_wing_base",
+     "size": [
+      0.375,
+      0.125,
+      0.5625
+     ],
+     "shape": "0",
+     "center": [
+      0.322328,
+      0.32363,
+      0.01879
+     ]
+    },
+    {
+     "name": "root/body/left_wing_base/left_wing_tip",
+     "size": [
+      0.8125,
+      0.0625,
+      0.5625
+     ],
+     "shape": "9e48218796f6195f",
+     "center": [
+      0.853059,
+      0.610349,
+      -0.009978
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 1,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:polar_bear": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.525,
+      0.525,
+      0.525
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.0137,
+      1.1625
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.375,
+      0.225,
+      0.225
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.8637,
+      1.5375
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.15,
+      0.15,
+      0.075
+     ],
+     "shape": "0",
+     "center": [
+      -0.2625,
+      1.2762,
+      1.2375
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.15,
+      0.15,
+      0.075
+     ],
+     "shape": "0",
+     "center": [
+      0.2625,
+      1.2762,
+      1.2375
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      1.05,
+      1.05,
+      0.825
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      1.0137,
+      -0.45
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.9,
+      0.9,
+      0.75
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.9762,
+      0.525
+     ]
+    },
+    {
+     "name": "root/right_hind_leg",
+     "size": [
+      0.3,
+      0.75,
+      0.6
+     ],
+     "shape": "0",
+     "center": [
+      -0.3375,
+      0.3762,
+      -0.6
+     ]
+    },
+    {
+     "name": "root/left_hind_leg",
+     "size": [
+      0.3,
+      0.75,
+      0.6
+     ],
+     "shape": "0",
+     "center": [
+      0.3375,
+      0.3762,
+      -0.6
+     ]
+    },
+    {
+     "name": "root/right_front_leg",
+     "size": [
+      0.3,
+      0.75,
+      0.45
+     ],
+     "shape": "0",
+     "center": [
+      -0.2625,
+      0.3762,
+      0.525
+     ]
+    },
+    {
+     "name": "root/left_front_leg",
+     "size": [
+      0.3,
+      0.75,
+      0.45
+     ],
+     "shape": "0",
+     "center": [
+      0.2625,
+      0.3762,
+      0.525
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 1,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 2,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 3,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:rabbit": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/left_hind_foot",
+     "size": [
+      0.075,
+      0.0375,
+      0.2625
+     ],
+     "shape": "0",
+     "center": [
+      0.1125,
+      0.01975,
+      -0.13125
+     ]
+    },
+    {
+     "name": "root/right_hind_foot",
+     "size": [
+      0.075,
+      0.0375,
+      0.2625
+     ],
+     "shape": "0",
+     "center": [
+      -0.1125,
+      0.01975,
+      -0.13125
+     ]
+    },
+    {
+     "name": "root/left_haunch",
+     "size": [
+      0.075,
+      0.15,
+      0.1875
+     ],
+     "shape": "0",
+     "center": [
+      0.1125,
+      0.141134,
+      -0.199396
+     ]
+    },
+    {
+     "name": "root/right_haunch",
+     "size": [
+      0.075,
+      0.15,
+      0.1875
+     ],
+     "shape": "0",
+     "center": [
+      -0.1125,
+      0.141134,
+      -0.199396
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.225,
+      0.1875,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      0.235009,
+      -0.117395
+     ]
+    },
+    {
+     "name": "root/left_front_leg",
+     "size": [
+      0.075,
+      0.2625,
+      0.075
+     ],
+     "shape": "0",
+     "center": [
+      0.1125,
+      0.134661,
+      0.062543
+     ]
+    },
+    {
+     "name": "root/right_front_leg",
+     "size": [
+      0.075,
+      0.2625,
+      0.075
+     ],
+     "shape": "0",
+     "center": [
+      -0.1125,
+      0.134661,
+      0.062543
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.1875,
+      0.15,
+      0.1875
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.376,
+      0.13125
+     ]
+    },
+    {
+     "name": "root/right_ear",
+     "size": [
+      0.075,
+      0.1875,
+      0.0375
+     ],
+     "shape": "0",
+     "center": [
+      -0.04948,
+      0.54475,
+      0.07017
+     ]
+    },
+    {
+     "name": "root/left_ear",
+     "size": [
+      0.075,
+      0.1875,
+      0.0375
+     ],
+     "shape": "0",
+     "center": [
+      0.04948,
+      0.54475,
+      0.07017
+     ]
+    },
+    {
+     "name": "root/tail",
+     "size": [
+      0.1125,
+      0.1125,
+      0.075
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      0.138174,
+      -0.297738
+     ]
+    },
+    {
+     "name": "root/nose",
+     "size": [
+      0.0375,
+      0.0375,
+      0.0375
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.376,
+      0.225
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 7,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 9,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 8,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:sheep": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.375,
+      0.375,
+      0.5
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.1885,
+      0.625
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.5,
+      1.0,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      0.9385,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/right_hind_leg",
+     "size": [
+      0.25,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      -0.187499,
+      0.376,
+      -0.437499
+     ]
+    },
+    {
+     "name": "root/left_hind_leg",
+     "size": [
+      0.25,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.1875,
+      0.376,
+      -0.4375
+     ]
+    },
+    {
+     "name": "root/right_front_leg",
+     "size": [
+      0.25,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      -0.1875,
+      0.376,
+      0.3125
+     ]
+    },
+    {
+     "name": "root/left_front_leg",
+     "size": [
+      0.25,
+      0.75,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.1875,
+      0.376,
+      0.3125
+     ]
+    },
+    {
+     "name": "root/head/wool",
+     "size": [
+      0.45,
+      0.45,
+      0.45
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      1.1885,
+      0.5625
+     ]
+    },
+    {
+     "name": "root/body/wool",
+     "size": [
+      0.71875,
+      1.21875,
+      0.59375
+     ],
+     "shape": "0",
+     "center": [
+      -1e-06,
+      0.9385,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/right_hind_leg/wool",
+     "size": [
+      0.3125,
+      0.4375,
+      0.3125
+     ],
+     "shape": "0",
+     "center": [
+      -0.1875,
+      0.5635,
+      -0.4375
+     ]
+    },
+    {
+     "name": "root/left_hind_leg/wool",
+     "size": [
+      0.3125,
+      0.4375,
+      0.3125
+     ],
+     "shape": "0",
+     "center": [
+      0.187499,
+      0.5635,
+      -0.4375
+     ]
+    },
+    {
+     "name": "root/right_front_leg/wool",
+     "size": [
+      0.3125,
+      0.4375,
+      0.3125
+     ],
+     "shape": "0",
+     "center": [
+      -0.1875,
+      0.5635,
+      0.3125
+     ]
+    },
+    {
+     "name": "root/left_front_leg/wool",
+     "size": [
+      0.3125,
+      0.4375,
+      0.3125
+     ],
+     "shape": "0",
+     "center": [
+      0.1875,
+      0.5635,
+      0.3125
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 6,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:snow_golem": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.4375,
+      0.4375,
+      0.4375
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.501,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/right_arm",
+     "size": [
+      0.6875,
+      0.0625,
+      0.0625
+     ],
+     "shape": "0",
+     "center": [
+      -0.428753,
+      0.829271,
+      0.0
+     ]
+    },
+    {
+     "name": "root/upper_body",
+     "size": [
+      0.5625,
+      0.5625,
+      0.5625
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.001,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/left_arm",
+     "size": [
+      0.6875,
+      0.0625,
+      0.0625
+     ],
+     "shape": "0",
+     "center": [
+      0.428753,
+      0.829271,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/lower_body",
+     "size": [
+      0.6875,
+      0.6875,
+      0.6875
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      0.376,
+      -0.0
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:spider": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.5635,
+      0.4375
+     ]
+    },
+    {
+     "name": "root/right_front_leg",
+     "size": [
+      1.0,
+      0.125,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.46875,
+      0.34475,
+      0.371859
+     ]
+    },
+    {
+     "name": "root/right_hind_leg",
+     "size": [
+      1.0,
+      0.125,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.46875,
+      0.34475,
+      -0.434359
+     ]
+    },
+    {
+     "name": "root/left_middle_front_leg",
+     "size": [
+      1.0,
+      0.125,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.587831,
+      0.341587,
+      0.167424
+     ]
+    },
+    {
+     "name": "root/body0",
+     "size": [
+      0.375,
+      0.375,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      0.5635,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/body1",
+     "size": [
+      0.625,
+      0.5,
+      0.75
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      0.5635,
+      -0.5625
+     ]
+    },
+    {
+     "name": "root/left_hind_leg",
+     "size": [
+      1.0,
+      0.125,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.46875,
+      0.34475,
+      -0.434359
+     ]
+    },
+    {
+     "name": "root/right_middle_hind_leg",
+     "size": [
+      1.0,
+      0.125,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.587831,
+      0.341587,
+      -0.229924
+     ]
+    },
+    {
+     "name": "root/right_middle_front_leg",
+     "size": [
+      1.0,
+      0.125,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.587831,
+      0.341587,
+      0.167424
+     ]
+    },
+    {
+     "name": "root/left_middle_hind_leg",
+     "size": [
+      1.0,
+      0.125,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.587831,
+      0.341587,
+      -0.229924
+     ]
+    },
+    {
+     "name": "root/left_front_leg",
+     "size": [
+      1.0,
+      0.125,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.46875,
+      0.34475,
+      0.371859
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:stray": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.5,
+      0.5,
+      0.5
+     ],
+     "shape": "6f8921c924ef7bc1",
+     "center": [
+      0.0,
+      1.751,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.5,
+      0.75,
+      0.25
+     ],
+     "shape": "d78d9711b9570045",
+     "center": [
+      -0.0,
+      1.126,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/right_arm",
+     "size": [
+      0.125,
+      0.75,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.313078,
+      1.126093,
+      -0.006803
+     ]
+    },
+    {
+     "name": "root/left_arm",
+     "size": [
+      0.125,
+      0.75,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.313078,
+      1.126093,
+      0.006802
+     ]
+    },
+    {
+     "name": "root/right_leg",
+     "size": [
+      0.125,
+      0.75,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.126875,
+      0.376005,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/left_leg",
+     "size": [
+      0.125,
+      0.75,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.126875,
+      0.376005,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.53125,
+      0.53125,
+      0.53125
+     ],
+     "shape": "792287eb0b9ee64f",
+     "center": [
+      0.0,
+      1.751,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.53125,
+      0.78125,
+      0.28125
+     ],
+     "shape": "f0ff4d26a49f45d1",
+     "center": [
+      0.0,
+      1.126,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/right_arm",
+     "size": [
+      0.28125,
+      0.78125,
+      0.28125
+     ],
+     "shape": "a2885ec3b6e4ccb",
+     "center": [
+      -0.375578,
+      1.126238,
+      -0.006802
+     ]
+    },
+    {
+     "name": "root/left_arm",
+     "size": [
+      0.28125,
+      0.78125,
+      0.28125
+     ],
+     "shape": "8db85b76986ebbba",
+     "center": [
+      0.375578,
+      1.126238,
+      0.006803
+     ]
+    },
+    {
+     "name": "root/right_leg",
+     "size": [
+      0.28125,
+      0.78125,
+      0.28125
+     ],
+     "shape": "c9732dd43e72ed1",
+     "center": [
+      -0.120625,
+      0.376005,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/left_leg",
+     "size": [
+      0.28125,
+      0.78125,
+      0.28125
+     ],
+     "shape": "f68d2eb52300f723",
+     "center": [
+      0.120625,
+      0.376005,
+      0.0
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 6,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:trader_llama": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.25,
+      0.25,
+      0.5625
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.8135,
+      0.71875
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.5,
+      1.125,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.501,
+      0.5625
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.1875,
+      0.1875,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.15625,
+      2.15725,
+      0.5625
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.1875,
+      0.1875,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.15625,
+      2.15725,
+      0.5625
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.75,
+      1.125,
+      0.625
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      1.0635,
+      -0.0625
+     ]
+    },
+    {
+     "name": "root/right_hind_leg",
+     "size": [
+      0.25,
+      0.875,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      -0.21875,
+      0.4385,
+      -0.375
+     ]
+    },
+    {
+     "name": "root/left_hind_leg",
+     "size": [
+      0.25,
+      0.875,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.21875,
+      0.4385,
+      -0.375
+     ]
+    },
+    {
+     "name": "root/right_front_leg",
+     "size": [
+      0.25,
+      0.875,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      -0.21875,
+      0.4385,
+      0.3125
+     ]
+    },
+    {
+     "name": "root/left_front_leg",
+     "size": [
+      0.25,
+      0.875,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.21875,
+      0.4385,
+      0.3125
+     ]
+    },
+    {
+     "name": "root/head",
+     "size": [
+      0.5625,
+      1.1875,
+      0.4375
+     ],
+     "shape": "d9cac9e8b4058525",
+     "center": [
+      0.0,
+      1.501,
+      0.5625
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.8125,
+      1.1875,
+      0.6875
+     ],
+     "shape": "143559fd144b0422",
+     "center": [
+      -0.0,
+      1.0635,
+      -0.0625
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 1,
+     "group": 1,
+     "planes": [
+      [
+       -0.001526,
+       -1.124989,
+       0.00121,
+       0.384708
+      ]
+     ]
+    },
+    {
+     "part": 2,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 3,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 9,
+     "group": 1,
+     "planes": [
+      [
+       -0.001717,
+       -1.187488,
+       0.001411,
+       0.415952
+      ]
+     ]
+    }
+   ]
+  },
+  "minecraft:tropical_fish": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/left_fin",
+     "size": [
+      0.125,
+      0.125,
+      0.0625
+     ],
+     "shape": "9f8e468ecbd7de9d",
+     "center": [
+      -0.100505,
+      0.015403,
+      -0.073286
+     ]
+    },
+    {
+     "name": "root/top_fin",
+     "size": [
+      0.0625,
+      0.1875,
+      0.375
+     ],
+     "shape": "85efc9d6a9c597b4",
+     "center": [
+      0.113238,
+      0.06875,
+      0.007708
+     ]
+    },
+    {
+     "name": "root/tail",
+     "size": [
+      0.0625,
+      0.1875,
+      0.375
+     ],
+     "shape": "40325058e0efa52a",
+     "center": [
+      -0.051886,
+      -0.033199,
+      -0.327393
+     ]
+    },
+    {
+     "name": "root/right_fin",
+     "size": [
+      0.125,
+      0.125,
+      0.0625
+     ],
+     "shape": "22a4ba0d7c933c7d",
+     "center": [
+      -0.100505,
+      0.184597,
+      -0.073286
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.125,
+      0.1875,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      -0.073829,
+      0.1,
+      -0.005026
+     ]
+    },
+    {
+     "name": "root/left_fin",
+     "size": [
+      0.126,
+      0.126,
+      0.001
+     ],
+     "shape": "eaacc04e141a325d",
+     "center": [
+      -0.102006,
+      -0.006694,
+      -0.05124
+     ]
+    },
+    {
+     "name": "root/tail",
+     "size": [
+      0.001,
+      0.1885,
+      0.376
+     ],
+     "shape": "7d073a11f2a586",
+     "center": [
+      -0.050668,
+      -0.007607,
+      -0.345287
+     ]
+    },
+    {
+     "name": "root/right_fin",
+     "size": [
+      0.126,
+      0.126,
+      0.001
+     ],
+     "shape": "4dac3397e6a4256d",
+     "center": [
+      -0.102006,
+      0.206694,
+      -0.05124
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.126,
+      0.1885,
+      0.376
+     ],
+     "shape": "ae7f567f2255d890",
+     "center": [
+      -0.073829,
+      0.1,
+      -0.005026
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 4,
+     "group": 1,
+     "planes": [
+      [
+       -6e-05,
+       -0.014557,
+       -0.373868,
+       0.132681
+      ]
+     ]
+    },
+    {
+     "part": 8,
+     "group": 1,
+     "planes": [
+      [
+       -6.1e-05,
+       -0.014634,
+       -0.374865,
+       0.133218
+      ]
+     ]
+    },
+    {
+     "part": 4,
+     "group": 1,
+     "planes": [
+      [
+       -6e-05,
+       -0.014557,
+       -0.373868,
+       0.132683
+      ]
+     ]
+    },
+    {
+     "part": 8,
+     "group": 1,
+     "planes": [
+      [
+       -6.1e-05,
+       -0.014634,
+       -0.374865,
+       0.13322
+      ]
+     ]
+    }
+   ]
+  },
+  "minecraft:wandering_trader": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head",
+     "size": [
+      0.46875,
+      0.585938,
+      0.46875
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.700156,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/head/nose",
+     "size": [
+      0.117188,
+      0.234375,
+      0.117188
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.465781,
+      0.292969
+     ]
+    },
+    {
+     "name": "root/head/hat",
+     "size": [
+      0.528516,
+      0.645703,
+      0.528516
+     ],
+     "shape": "8ad519d9e4f00611",
+     "center": [
+      0.0,
+      1.700156,
+      0.0
+     ]
+    },
+    {
+     "name": "root/left_leg",
+     "size": [
+      0.234375,
+      0.703125,
+      0.234375
+     ],
+     "shape": "0",
+     "center": [
+      0.117188,
+      0.3525,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/right_leg",
+     "size": [
+      0.234375,
+      0.703125,
+      0.234375
+     ],
+     "shape": "0",
+     "center": [
+      -0.117187,
+      0.3525,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/arms",
+     "size": [
+      0.234375,
+      0.46875,
+      0.234375
+     ],
+     "shape": "0",
+     "center": [
+      -0.351562,
+      1.145662,
+      0.138473
+     ]
+    },
+    {
+     "name": "root/arms",
+     "size": [
+      0.234375,
+      0.46875,
+      0.234375
+     ],
+     "shape": "0",
+     "center": [
+      0.351563,
+      1.145662,
+      0.138473
+     ]
+    },
+    {
+     "name": "root/arms",
+     "size": [
+      0.46875,
+      0.234375,
+      0.234375
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      1.059917,
+      0.218353
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.46875,
+      0.703125,
+      0.351563
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      1.055625,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/body/jacket",
+     "size": [
+      0.527344,
+      1.230469,
+      0.410156
+     ],
+     "shape": "af580d7bc31c310d",
+     "center": [
+      -0.0,
+      0.82125,
+      -0.0
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 2,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 1,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:warden": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/bone/left_leg",
+     "size": [
+      0.375,
+      0.8125,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      0.375,
+      0.40725,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/bone/right_leg",
+     "size": [
+      0.375,
+      0.8125,
+      0.375
+     ],
+     "shape": "0",
+     "center": [
+      -0.375,
+      0.40725,
+      -0.0
+     ]
+    },
+    {
+     "name": "root/bone/body",
+     "size": [
+      1.125,
+      1.3125,
+      0.6875
+     ],
+     "shape": "0",
+     "center": [
+      -0.002942,
+      1.46818,
+      -0.096273
+     ]
+    },
+    {
+     "name": "root/bone/body/head",
+     "size": [
+      1.0,
+      1.0,
+      0.625
+     ],
+     "shape": "0",
+     "center": [
+      -0.044376,
+      2.623951,
+      -0.044094
+     ]
+    },
+    {
+     "name": "root/bone/body/right_arm",
+     "size": [
+      0.5,
+      1.75,
+      0.5
+     ],
+     "shape": "0",
+     "center": [
+      -0.811145,
+      1.234555,
+      -0.061478
+     ]
+    },
+    {
+     "name": "root/bone/body/left_arm",
+     "size": [
+      0.5,
+      1.75,
+      0.5
+     ],
+     "shape": "0",
+     "center": [
+      0.813561,
+      1.265457,
+      -0.061478
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 3,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  },
+  "minecraft:wolf": {
+   "none": false,
+   "parts": [
+    {
+     "name": "root/head/real_head",
+     "size": [
+      0.375,
+      0.375,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.65725,
+      0.4375
+     ]
+    },
+    {
+     "name": "root/head/real_head",
+     "size": [
+      0.125,
+      0.125,
+      0.0625
+     ],
+     "shape": "0",
+     "center": [
+      -0.125,
+      0.90725,
+      0.40625
+     ]
+    },
+    {
+     "name": "root/head/real_head",
+     "size": [
+      0.125,
+      0.125,
+      0.0625
+     ],
+     "shape": "0",
+     "center": [
+      0.125,
+      0.90725,
+      0.40625
+     ]
+    },
+    {
+     "name": "root/head/real_head",
+     "size": [
+      0.1875,
+      0.1875,
+      0.25
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.563563,
+      0.625
+     ]
+    },
+    {
+     "name": "root/body",
+     "size": [
+      0.375,
+      0.5625,
+      0.375
+     ],
+     "shape": "317c976223250d6d",
+     "center": [
+      -0.0,
+      0.626,
+      -0.28125
+     ]
+    },
+    {
+     "name": "root/right_hind_leg",
+     "size": [
+      0.125,
+      0.5,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.09375,
+      0.251,
+      -0.4375
+     ]
+    },
+    {
+     "name": "root/left_hind_leg",
+     "size": [
+      0.125,
+      0.5,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.09375,
+      0.251,
+      -0.4375
+     ]
+    },
+    {
+     "name": "root/right_front_leg",
+     "size": [
+      0.125,
+      0.5,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.09375,
+      0.251,
+      0.25
+     ]
+    },
+    {
+     "name": "root/left_front_leg",
+     "size": [
+      0.125,
+      0.5,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      0.09375,
+      0.251,
+      0.25
+     ]
+    },
+    {
+     "name": "root/tail/real_tail",
+     "size": [
+      0.125,
+      0.5,
+      0.125
+     ],
+     "shape": "0",
+     "center": [
+      -0.0,
+      0.548746,
+      -0.646946
+     ]
+    },
+    {
+     "name": "root/upper_body",
+     "size": [
+      0.5,
+      0.375,
+      0.4375
+     ],
+     "shape": "0",
+     "center": [
+      0.0,
+      0.65725,
+      0.1875
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "part": 0,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 1,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 2,
+     "group": 1,
+     "planes": []
+    },
+    {
+     "part": 3,
+     "group": 1,
+     "planes": []
+    }
+   ]
+  }
+ }
+}

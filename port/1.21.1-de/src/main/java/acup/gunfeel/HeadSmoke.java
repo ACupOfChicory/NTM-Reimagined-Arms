@@ -13,16 +13,61 @@ import net.minecraft.world.phys.*;
 /** Проверяет настоящую стандартную обработку NTM, а не копию формулы урона. */
 final class HeadSmoke {
     private HeadSmoke() {}
+    private static final Map<String,HeadProfiles.Profile> LIMBS=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("config/ntmgunfeel-limbs.json"),false);
+    // the root's check of the head binding, here with the limbs' too where a limb profile exists. The root's photo of
+    // the baby models (into its notes/head-labels/research) is left out; -PdumpProfiles=<dir> writes every model's parts
+    // instead, as HeadProfiles.bind reads them (the pose's boxes turned back by its yaw: the profiles' frame)
     static void bindings(LivingEntity target,java.util.function.BiConsumer<Boolean,String> check) {
-        String type=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()).toString();
+        String type=ModelHeads.key(target);
         var boxes=ModelHits.worldBoxes(target);var result=ModelHits.headResolution(target);
-        if(target.isBaby()) try {
-            var parts=boxes.stream().map(b->Map.of("part",b.part(),"size",HeadProfiles.size(b),
-                    "shape",Long.toUnsignedString(HeadProfiles.shape(b),16),"frame",b.numbers())).toList();
-            java.nio.file.Files.writeString(java.nio.file.Path.of("../notes/head-labels/research/baby-binding-"+type.replace(':','_')+".json"),
-                    new com.google.gson.Gson().toJson(parts));
-        } catch(Exception ex) { check.accept(false,"снимок детской модели: "+ex); }
-        check.accept(result.source().equals("dataset") && result.missing()==0,"голова: ручная привязка без потерь, частей="+boxes.size()+", зон="+result.zones().size()+", missing="+result.missing());
+        dump(target,type,check);
+        check.accept(result.source().equals("dataset") && result.missing()==0,"голова: ручная привязка без потерь, частей="+boxes.size()+", зон="+result.zones().size()+", missing="+result.missing()+", "+result.reason());
+        var limbProfile=HeadProfiles.get(LIMBS,type);
+        if(limbProfile!=null && !limbProfile.none()) {
+            var pose=pose(target);
+            var limbs=pose==null?null:ModelHeads.limbs(type,pose.boxes(),pose.yaw());
+            check.accept(limbs!=null && limbs.source().equals("dataset") && limbs.missing()==0,"конечности: ручная привязка без потерь, зон="
+                    +(limbs==null?0:limbs.zones().size())+", missing="+(limbs==null?-1:limbs.missing())+", "+(limbs==null?"нет позы":limbs.reason()));
+        }
+    }
+    private record Pose(List<ModelBox> boxes,float yaw) {}
+    // ModelHits keeps the captured pose private: read by reflection, as the stand only
+    @SuppressWarnings("unchecked")
+    private static Pose pose(LivingEntity target) {
+        try {
+            var f=ModelHits.class.getDeclaredField("POSES");f.setAccessible(true);
+            Object at;
+            synchronized(ModelHits.class) {
+                var levels=(Map<Object,Map<Integer,Object>>)f.get(null);var poses=levels.get(target.level());
+                at=poses==null?null:poses.get(target.getId());
+            }
+            if(at==null) return null;
+            var boxes=at.getClass().getDeclaredMethod("boxes");boxes.setAccessible(true);
+            var yaw=at.getClass().getDeclaredMethod("yaw");yaw.setAccessible(true);
+            return new Pose(List.copyOf((List<ModelBox>)boxes.invoke(at)),(float)yaw.invoke(at));
+        } catch(ReflectiveOperationException|RuntimeException e) { return null; }
+    }
+    // once per type, at the first check: the mob still stands as spawned, not mid-step
+    private static final Set<String> DUMPED=java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static void dump(LivingEntity target,String type,java.util.function.BiConsumer<Boolean,String> check) {
+        String dir=System.getProperty("ntmgunfeel.dumpProfiles","");if(dir.isBlank() || !DUMPED.add(type)) return;
+        var pose=pose(target);if(pose==null) { check.accept(false,"снимок частей: нет позы");return; }
+        double angle=Math.toRadians(pose.yaw()),cos=Math.cos(angle),sin=Math.sin(angle);
+        var parts=new ArrayList<Map<String,Object>>();
+        for(var b:pose.boxes()) {
+            var c=ModelContours.point(b,.5,.5,.5);
+            parts.add(Map.of("name",b.part(),"size",HeadProfiles.size(b),"shape",Long.toHexString(HeadProfiles.shape(b)),
+                    "center",new double[]{cos*c.x+sin*c.z,c.y,-sin*c.x+cos*c.z},
+                    "origin",new double[]{cos*b.x()+sin*b.z(),b.y(),-sin*b.x()+cos*b.z()},
+                    "u",new double[]{cos*b.ux()+sin*b.uz(),b.uy(),-sin*b.ux()+cos*b.uz()},
+                    "v",new double[]{cos*b.vx()+sin*b.vz(),b.vy(),-sin*b.vx()+cos*b.vz()},
+                    "w",new double[]{cos*b.wx()+sin*b.wz(),b.wy(),-sin*b.wx()+cos*b.wz()}));
+        }
+        try {
+            var file=java.nio.file.Path.of(dir).resolve(type.replace(':','_').replace('#','_')+".json");
+            java.nio.file.Files.createDirectories(file.getParent());
+            java.nio.file.Files.writeString(file,new com.google.gson.Gson().toJson(Map.of("type",type,"yaw",pose.yaw(),"parts",parts)));
+        } catch(Exception ex) { check.accept(false,"снимок частей: "+ex); }
     }
     static void run(ServerLevel level,LivingEntity target,java.util.function.BiConsumer<Boolean,String> check) {
         var zones=ModelHits.headZones(target);var boxes=ModelHits.worldBoxes(target);

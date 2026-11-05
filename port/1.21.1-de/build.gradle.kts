@@ -154,6 +154,8 @@ neoForge {
                     systemProperty("ntmgunfeel.$check", providers.gradleProperty(check).isPresent.toString())
                 providers.gradleProperty("mobCases").orNull?.let { systemProperty("ntmgunfeel.mobCases", it) }
                 providers.gradleProperty("mobHealth").orNull?.let { systemProperty("ntmgunfeel.mobHealth", it) }
+                // -PdumpProfiles=<dir>: with -PcheckHeadBindings each model's parts as the label profiles hold them (HeadSmoke)
+                providers.gradleProperty("dumpProfiles").orNull?.let { systemProperty("ntmgunfeel.dumpProfiles", it) }
             }
             // -PcheckHud: the HUD part's stand (HudCheck) instead of the smoke check
             systemProperty("ntmgunfeel.checkHud", providers.gradleProperty("checkHud").isPresent.toString())

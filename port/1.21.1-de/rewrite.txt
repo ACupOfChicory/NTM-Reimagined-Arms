@@ -235,3 +235,11 @@ re@GuiShapes.java: ^import acup\.gunfeel\.mixin\.mc\.GuiGraphicsAccess; =>
 # the port's HUD stand (HudCheck, -PcheckHud) in the smoke world instead of the smoke check, with the stands' 15 minutes
 re@ClientSmoke.java: if\(FenceAirStand\.ENABLED\) \{ phase=18; => if(HudCheck.ENABLED) { phase=19; mc.setScreen(null); HudCheck.start(); return; } if(FenceAirStand.ENABLED) { phase=18;
 re@ClientSmoke.java: \|\| FenceAirStand\.ENABLED\?900_000_000_000L => || FenceAirStand.ENABLED || HudCheck.ENABLED?900_000_000_000L
+# head and limb labels: after the shared bank the port's own for the models 1.21.1 draws otherwise
+# (resources/ntmgunfeel-heads-1.21.1.json, ntmgunfeel-limbs-1.21.1.json); a type there replaces the shared one
+re@HeadProfiles.java: ^(\s*)if\(stream!=null\) read\(new InputStreamReader\(stream,StandardCharsets\.UTF_8\),out\);$ => $1if(stream!=null) read(new InputStreamReader(stream,StandardCharsets.UTF_8),out); try(var port=HeadProfiles.class.getResourceAsStream(resource.replace(".json","-1.21.1.json"))) { if(port!=null) read(new InputStreamReader(port,StandardCharsets.UTF_8),out); }
+# a layer that draws the model again (the zombie villager's type and profession robes) gives 1.21.1 boxes of one name and
+# one place, where 26.2 names each draw (overlayLayer/draws/N). Such a twin of the best box is no rival to it, and the
+# zone goes on every twin: their masks differ, so each keeps its own surface (port/LabelTwins)
+re@HeadProfiles.java: ^(\s*)if\(distance<score\) \{ second=score;score=distance;best=j; \} else second=Math\.min\(second,distance\);$ => $1if(best>=0 && acup.gunfeel.port.LabelTwins.same(boxes.get(best),box)) { if(distance<score) { score=distance;best=j; } continue; } if(distance<score) { second=score;score=distance;best=j; } else second=Math.min(second,distance);
+re@HeadProfiles.java: ^(\s*)zones\.add\(new Zone\(match,zone\.group\(\),zone\.planes\(\),zone\.face\(\)\)\);$ => $1for(int twin:acup.gunfeel.port.LabelTwins.of(boxes,match)) zones.add(new Zone(twin,zone.group(),zone.planes(),zone.face()));
