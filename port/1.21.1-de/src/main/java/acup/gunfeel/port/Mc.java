@@ -31,6 +31,13 @@ public final class Mc {
         return -(player.walkDist + (player.walkDist - player.walkDistO) * partial);
     }
 
+    // 26.2 Vec3.normalize(): zero below 1e-5f, where 1.21.1's is zero below 1e-4 (a part's thin cube, as the hoglin's
+    // mane, 6.3e-5 across, keeps its axis)
+    public static Vec3 normalize(Vec3 v) {
+        double d = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+        return d < 1.0E-5F ? Vec3.ZERO : new Vec3(v.x / d, v.y / d, v.z / d);
+    }
+
     // 26.2 Entity.getKnownSpeed(): for a player what its client last sent, as 1.21.1 getKnownMovement(); for anything
     // else the blocks it moved last tick, where 1.21.1 gives its velocity instead
     public static Vec3 knownSpeed(Entity e) {

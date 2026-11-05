@@ -130,7 +130,9 @@ class HeadProfilesTest {
         for(var c:List.of(new Case(false,"minecraft:sheep","/wool",1),new Case(true,"minecraft:sheep","/wool",4),
                 new Case(true,"minecraft:sheep#baby","/wool",4),new Case(false,"minecraft:goat","/left_horn",3),
                 new Case(false,"minecraft:goat","_horn",2),new Case(false,"minecraft:goat#baby","/left_horn",2),
-                new Case(false,"minecraft:goat#baby","_horn",1),new Case(false,"minecraft:sheep#baby","/wool",1),new Case(false,"minecraft:snow_golem","/blockDecos/",1),
+                new Case(false,"minecraft:goat#baby","_horn",1),new Case(false,"minecraft:sheep#baby","/wool",1),new Case(false,"minecraft:snow_golem","block_layer",2),
+                new Case(false,"minecraft:snow_golem","/blockDecos/",2),new Case(false,"minecraft:snow_golem","block",1),
+                new Case(false,"minecraft:trader_llama","/bodyEquip/",1),
                 new Case(false,"minecraft:llama","/bodyEquip/",1),new Case(false,"minecraft:llama","-",2),
                 new Case(true,"minecraft:vindicator","_arm",4),new Case(true,"minecraft:vindicator","/arms",4),
                 new Case(true,"minecraft:evoker","_arm",5),new Case(true,"minecraft:evoker","/arms",5),
@@ -184,6 +186,133 @@ class HeadProfilesTest {
         boxes.set(jacket,new ModelBox(j.part(),j.x(),j.y(),j.z(),s[0],0,0,0,s[1]*.68/1.23,0,0,0,s[2]));
         binding=HeadProfiles.bind(profile,boxes,0);
         assertEquals(0,binding.missing());assertEquals(3,binding.zones().size());
+    }
+    // Без Flywheel (его backend выключен) часть приходит по кубам: несколько коробок с одним именем без "mesh/".
+    // Кубы одной части сопоставляются как одна коробка вокруг них, как её рисует Flywheel.
+    @Test void withoutFlywheelThePartsCubesAreMatchedAsOnePart() {
+        var llama=HeadProfiles.get("minecraft:llama");
+        var whole=new ArrayList<ModelBox>();var cubes=new ArrayList<ModelBox>();
+        for(var r:llama.parts()) {
+            if(r.name().contains("/bodyEquip/")) continue;
+            var name=r.name().substring("mesh/".length());whole.add(box(r,name));
+            if(!name.equals("root/head")) { cubes.add(box(r,name));continue; }
+            // голова ламы — шея и морда: нижний и верхний куб, верхний уже по x и z
+            var c=r.center();var s=r.size();double low=s[1]*.6;
+            cubes.add(new ModelBox(name,c.x-s[0]/2,c.y-s[1]/2,c.z-s[2]/2,s[0],0,0,0,low,0,0,0,s[2]*.6));
+            cubes.add(new ModelBox(name,c.x-s[0]/4,c.y-s[1]/2+low,c.z-s[2]/2,s[0]/2,0,0,0,s[1]-low,0,0,0,s[2]));
+        }
+        var expected=ModelHeads.resolve("minecraft:llama",whole,0);
+        assertEquals("dataset",expected.source());assertEquals(1,expected.zones().size());
+        var resolved=ModelHeads.resolve("minecraft:llama",cubes,0);
+        assertEquals("dataset",resolved.source(),resolved.reason());assertEquals(0,resolved.missing());
+        int head=0;var b=whole.stream().filter(x->x.part().equals("root/head")).findFirst().orElseThrow();
+        for(int i=0;i<=10;i++) for(int j=0;j<=10;j++) for(int k=0;k<=10;k++) {
+            var point=ModelContours.point(b,i/10.,j/10.,k/10.);
+            boolean in=HeadZone.contains(expected.zones(),point);if(in) head++;
+            assertEquals(in,HeadZone.contains(resolved.zones(),point),point.toString());
+        }
+        assertTrue(head>100,"в голове есть точки зоны: "+head);
+        // коза без рогов: голова без Flywheel — только уши (бородка плоская), головой остаётся нос
+        var goat=HeadProfiles.get("minecraft:goat");var ears=new ArrayList<ModelBox>();
+        for(var r:goat.parts()) {
+            var name=r.name().substring("mesh/".length());
+            if(name.endsWith("_horn")) continue;
+            if(!name.equals("root/head")) { ears.add(box(r,name));continue; }
+            var c=r.center();var s=r.size();
+            for(double x:new double[]{c.x-s[0]/2,c.x+s[0]/2-.1875}) ears.add(new ModelBox(name,x,c.y+s[1]/2-.125,c.z,.1875,0,0,0,.125,0,0,0,.0625));
+        }
+        var horns=ModelHeads.resolve("minecraft:goat",ears,0);
+        assertEquals("dataset",horns.source(),horns.reason());assertEquals(1,horns.zones().size());
+        // Flywheel даёт часть целиком; коробки с "mesh/" не склеиваются
+        var flywheel=cubes.stream().map(x->x.part().startsWith("root/head")?new ModelBox("mesh/"+x.part(),x.x(),x.y(),x.z(),x.ux(),x.uy(),x.uz(),x.vx(),x.vy(),x.vz(),x.wx(),x.wy(),x.wz()):x).toList();
+        assertEquals(flywheel,HeadProfiles.unite(llama,flywheel));
+        // кубы, повёрнутые друг к другу, — не одна рамка: не склеиваются
+        var turned=new ArrayList<>(cubes);int at=-1;for(int i=0;i<turned.size();i++) if(turned.get(i).part().equals("root/head")) at=i;
+        var t=turned.get(at);double q=Math.sqrt(.5);
+        turned.set(at,new ModelBox(t.part(),t.x(),t.y(),t.z(),t.ux()*q,0,t.ux()*q,0,t.vy(),0,-t.wz()*q,0,t.wz()*q));
+        assertEquals(turned,HeadProfiles.unite(llama,turned));
+        // профиль из таких же кубов (имя в нём не одно) их не склеивает
+        var bank=HeadProfiles.all();
+        var repeated=bank.keySet().stream().filter(type->{
+            var names=new HashMap<String,Integer>();for(var r:bank.get(type).parts()) names.merge(r.name(),1,Integer::sum);
+            return names.values().stream().anyMatch(n->n>1);
+        }).sorted().toList();
+        assertFalse(repeated.isEmpty());
+        for(var type:repeated) {
+            var profile=bank.get(type);
+            var own=profile.parts().stream().map(r->box(r,r.name().replaceFirst("^mesh/",""))).toList();
+            assertEquals(own,HeadProfiles.unite(profile,own),type);
+        }
+    }
+    // Без Flywheel слой поверх моба приходит под именами самой модели (root/<часть>): копией модели (утопленник,
+    // страй, болотник) или никак, когда текстура слоя ничего не добавляет (глаза паука, свечение вардена). Часть слоя
+    // (".../draws/N/tree/<часть>") берёт коробку root/<часть>.
+    @Test void withoutFlywheelALayerTakesTheModelsBoxOfItsName() {
+        var limbs=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("build/no-local-limbs.json"),false);
+        record Case(boolean limb,String type,boolean copy,int zones) {}
+        for(var c:List.of(new Case(false,"minecraft:drowned",true,2),new Case(true,"minecraft:drowned",true,8),
+                new Case(false,"minecraft:stray",true,2),new Case(false,"minecraft:bogged",true,2),
+                new Case(false,"minecraft:spider",false,1),new Case(true,"minecraft:spider",false,15),
+                new Case(false,"minecraft:warden",false,1),new Case(true,"minecraft:warden",false,4),
+                new Case(false,"minecraft:enderman",false,2),new Case(true,"minecraft:enderman",false,6))) {
+            var profile=c.limb()?HeadProfiles.get(limbs,c.type()):HeadProfiles.get(c.type());
+            var vanilla=new ArrayList<ModelBox>();var flywheel=new ArrayList<ModelBox>();
+            for(var r:profile.parts()) {
+                var tree=r.name().indexOf("/tree/");
+                if(tree<0) { vanilla.add(box(r,r.name().substring("mesh/".length())));flywheel.add(box(r)); }
+                else if(c.copy()) vanilla.add(box(r,"root/"+r.name().substring(tree+"/tree/".length())));
+            }
+            var cpu=HeadProfiles.unite(profile,vanilla);
+            var binding=HeadProfiles.bind(profile,cpu,0);
+            assertEquals(0,binding.missing(),c.toString());assertEquals(c.zones(),binding.zones().size(),c.toString());
+            // с Flywheel пропавший слой остаётся пропавшим
+            assertTrue(HeadProfiles.bind(profile,flywheel,0).missing()>0,c+": Flywheel");
+        }
+        // свинозомби: штаны без Flywheel — целый куб (под Flywheel обрезаны по текстуре), их зону покрывает нога
+        var piglin=HeadProfiles.get(limbs,"minecraft:zombified_piglin");var boxes=new ArrayList<ModelBox>();
+        for(var r:piglin.parts()) {
+            var name=r.name().substring("mesh/".length());
+            if(!name.endsWith("_pants")) { boxes.add(box(r,name));continue; }
+            var cc=r.center();var size=r.size();
+            boxes.add(new ModelBox(name,cc.x-size[0]/2,cc.y+size[1]/2-.781,cc.z-size[2]/2,size[0],0,0,0,.781,0,0,0,size[2]));
+        }
+        var binding=HeadProfiles.bind(piglin,HeadProfiles.unite(piglin,boxes),0);
+        assertEquals(0,binding.missing());assertEquals(4,binding.zones().size());
+    }
+    // Кость скелета и одежда поверх неё без Flywheel — одна коробка root/<часть>: у страя она по размеру одежды
+    // (кость её берёт тоже), у болотника одежда закрывает полкости (под Flywheel обрезана по текстуре), и коробка не
+    // подходит ни к одной из двух частей — сопоставляется как коробка вокруг обеих. Позы — снимок стенда без Flywheel
+    // (центр и размер кубов).
+    @Test void aBoneAndTheClothesOverItShareOneBoxWithoutFlywheel() {
+        var limbs=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("build/no-local-limbs.json"),false);
+        var base=List.of("root/head 0 1.751 0 .5 .5 .5","root/right_arm -.3346 1.1272 .0106 .125 .75 .125",
+                "root/left_leg .1269 .376 0 .125 .75 .125","root/left_arm .3346 1.1272 -.0106 .125 .75 .125",
+                "root/right_leg -.1269 .376 0 .125 .75 .125","root/body 0 1.126 0 .5 .75 .25");
+        var stray=List.of("root/head 0 1.751 0 .5312 .5312 .5312","root/right_arm -.3968 1.1327 .0106 .2812 .7813 .2812",
+                "root/left_leg .1206 .376 0 .2812 .7812 .2812","root/left_arm .3968 1.1327 -.0106 .2812 .7813 .2812",
+                "root/right_leg -.1206 .376 0 .2812 .7812 .2812","root/body 0 1.126 0 .5312 .7812 .2812");
+        var bogged=List.of("root/head 0 1.751 0 .525 .525 .525","root/right_arm -.3968 1.1327 .0106 .275 .775 .275",
+                "root/left_arm .3968 1.1327 -.0106 .275 .775 .275","root/body 0 1.126 0 .525 .775 .275");
+        for(var c:List.of(Map.entry("minecraft:stray",stray),Map.entry("minecraft:bogged",bogged))) {
+            var profile=HeadProfiles.get(limbs,c.getKey());var boxes=new ArrayList<ModelBox>();
+            var lines=new ArrayList<>(base);lines.addAll(c.getValue());
+            for(var line:lines) {
+                var f=line.split(" ");double[] v=new double[6];for(int i=0;i<6;i++) v[i]=Double.parseDouble(f[i+1]);
+                boxes.add(new ModelBox(f[0],v[0]-v[3]/2,v[1]-v[4]/2,v[2]-v[5]/2,v[3],0,0,0,v[4],0,0,0,v[5]));
+            }
+            var cpu=HeadProfiles.unite(profile,boxes);var binding=HeadProfiles.bind(profile,cpu,0);
+            assertEquals(0,binding.missing(),c.getKey());assertEquals(profile.zones().size(),binding.zones().size(),c.getKey());
+            // кость и одежда левой руки — одна коробка
+            assertEquals(2,binding.zones().stream().filter(z->cpu.get(z.part()).part().equals("root/left_arm")).count(),c.getKey());
+        }
+        // слой рисуется не всегда (лама без ковра): часть модели нашлась — слой, который на неё не похож, коробку не
+        // берёт, даже если коробка вокруг обеих на неё похожа; его зону покрывает instead
+        var profile=new HeadProfiles.Profile(false,List.of(
+                new HeadProfiles.Ref("mesh/root/head",new double[]{1,1,1},0,new Vec3(0,0,0),-1),
+                new HeadProfiles.Ref("mesh/root/overlayLayer/draws/0/tree/head",new double[]{.6,1.1,.6},0,new Vec3(0,.05,0),0)),
+                List.of(new HeadProfiles.Zone(0,1,List.of(),0),new HeadProfiles.Zone(1,1,List.of(),0)));
+        var binding=HeadProfiles.bind(profile,List.of(new ModelBox("root/head",-.5,-.5,-.5,1,0,0,0,1,0,0,0,1)),0);
+        assertEquals(0,binding.missing());assertEquals(1,binding.zones().size());assertEquals(0,binding.zones().getFirst().part());
     }
     private static ModelBox box(HeadProfiles.Ref ref) { return box(ref,ref.name()); }
     private static ModelBox box(HeadProfiles.Ref ref,String name) {

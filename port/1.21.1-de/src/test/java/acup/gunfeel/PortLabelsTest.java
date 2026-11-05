@@ -65,6 +65,52 @@ class PortLabelsTest {
             assertTrue(HeadProfiles.bind(unlinked,boxes,0).missing()>0,c.type()+" без "+c.what()+": без instead разметка отвергается");
         }
     }
+    // DE draws every vanilla mob cube by cube, as 26.2 without Flywheel: main's unite (X463) puts the cubes of a name the
+    // profile holds once into one box. The port's profiles are made from DE's cubes, so a name repeats on DE only when a
+    // layer draws the model again (the villager's jacket, its hat): the copies unite into the profile's own box, and the
+    // label binds whole, with a zone on every labelled part (Flywheel's meshes, mesh/..., unite leaves as they are)
+    @Test void uniteKeepsThePortsOwnCubes() {
+        int profiles=0,copied=0;
+        for(var resource:List.of("/ntmgunfeel-heads-1.21.1.json","/ntmgunfeel-limbs-1.21.1.json")) {
+            var bank=HeadProfiles.loadBank(resource,java.nio.file.Path.of("build/no-local-port.json"),true);
+            for(var entry:bank.entrySet()) {
+                var profile=entry.getValue();if(profile.none()) continue;
+                var own=profile.parts().stream().map(PortLabelsTest::box).toList();
+                assertEquals(own,HeadProfiles.unite(profile,own),resource+" "+entry.getKey());
+                var counts=new HashMap<String,Integer>();for(var b:own) counts.merge(b.part(),1,Integer::sum);
+                var drawn=new ArrayList<>(own);for(var b:own) if(counts.get(b.part())==1 && !b.part().startsWith("mesh/") && !b.part().equals("submitted")) { drawn.add(b);copied++; }
+                var united=HeadProfiles.unite(profile,drawn);var what=resource+" "+entry.getKey()+", части слоя дважды";
+                assertEquals(own.size(),united.size(),what);
+                for(int i=0;i<own.size();i++) assertBox(own.get(i),united.get(i),what);
+                var binding=HeadProfiles.bind(profile,united,0);
+                assertEquals(0,binding.missing(),what);
+                var zoned=profile.zones().stream().map(z->own.get(z.part()).part()).collect(java.util.stream.Collectors.toSet());
+                assertEquals(zoned,binding.zones().stream().map(z->united.get(z.part()).part()).collect(java.util.stream.Collectors.toSet()),what+": зоны");
+                profiles++;
+            }
+        }
+        assertEquals(96,profiles,"профили порта");assertTrue(copied>500,"скопировано частей: "+copied);
+        // main's withoutFlywheelThePartsCubesAreMatchedAsOnePart (off in rewrite.txt: it resolves 26.2's llama and goat
+        // through the bank) on the port's llama: Flywheel's mesh/ boxes and a cube turned to the other are not united
+        var llama=HeadProfiles.get("minecraft:llama");
+        var cubes=new ArrayList<>(llama.parts().stream().map(PortLabelsTest::box).toList());
+        // a part the llama's profile holds once (its head and body are twice: the model's and the carpet's)
+        int head=-1;for(int i=0;i<cubes.size() && head<0;i++) { var n=cubes.get(i).part();if(cubes.stream().filter(b->b.part().equals(n)).count()==1) head=i; }
+        var c=cubes.get(head);var once=c.part();double q=Math.sqrt(.5);
+        var turned=new ArrayList<>(cubes);turned.add(new ModelBox(c.part(),c.x(),c.y(),c.z(),c.ux()*q,0,c.ux()*q,0,c.vy(),0,-c.wz()*q,0,c.wz()*q));
+        assertEquals(cubes.size(),HeadProfiles.unite(llama,new ArrayList<>(List.of(cubes.toArray(ModelBox[]::new))){{add(c);}}).size(),"копия "+once+" склеивается");
+        // (a group unite leaves stays together, in the place of its first box)
+        var kept=HeadProfiles.unite(llama,turned);
+        assertEquals(turned.size(),kept.size(),"повёрнутый куб");assertEquals(new HashSet<>(turned),new HashSet<>(kept),"повёрнутый куб");
+        var mesh=turned.stream().map(b->b.part().equals(once)?new ModelBox("mesh/"+b.part(),b.x(),b.y(),b.z(),b.ux(),b.uy(),b.uz(),b.vx(),b.vy(),b.vz(),b.wx(),b.wy(),b.wz()):b).toList();
+        var doubled=new ArrayList<>(mesh);doubled.add(mesh.get(head));
+        assertEquals(doubled,HeadProfiles.unite(llama,doubled),"коробки Flywheel");
+    }
+    private static void assertBox(ModelBox a,ModelBox b,String what) {
+        assertEquals(a.part(),b.part(),what);
+        double[] x={a.x(),a.y(),a.z(),a.ux(),a.uy(),a.uz(),a.vx(),a.vy(),a.vz(),a.wx(),a.wy(),a.wz()},y={b.x(),b.y(),b.z(),b.ux(),b.uy(),b.uz(),b.vx(),b.vy(),b.vz(),b.wx(),b.wy(),b.wz()};
+        for(int i=0;i<x.length;i++) assertEquals(x[i],y[i],1e-9,what+" "+a.part());
+    }
     // 1.21.1 draws the villager's type, profession and level layers with the whole model: the villager's jacket (the
     // zombie villager's robe) once or twice, the hat none to two times, as the type and the profession wear one (the
     // stand port-villagers457: 45 states of type and profession). Every state keeps the whole label, and each robe its zone

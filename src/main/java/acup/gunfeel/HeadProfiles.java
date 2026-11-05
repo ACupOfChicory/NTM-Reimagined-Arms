@@ -156,12 +156,86 @@ final class HeadProfiles {
             var taken=new HashSet<Integer>();
             for(var p:picks) if(taken.add(p[1])) mapping[p[0]]=p[1];
         }
+        // Without Flywheel the game draws a layer over the mob with the model's own part names (root/<part>), its cubes
+        // in the same box as the model's, or not at all when the layer's texture adds nothing: a layer's part
+        // (".../draws/N/tree/<part>") that has no box of its own takes that box. The model's part and its layer's are
+        // then one box (a skeleton's bone in its clothes): when it fits the layer's part, the model's takes it too (the
+        // model is drawn under the layer; a layer is not always drawn over the model: a llama without its carpet); when
+        // it fits none (the clothes cover half the bone), it is matched as the box around them all.
+        for(int i=0;i<mapping.length;i++) {
+            if(mapping[i]>=0 || !layer(profile.parts().get(i))) continue;
+            var plain=vanilla(profile.parts().get(i));
+            var pick=best(profile.parts().get(i),boxes,scale,yaw,b->!b.part().startsWith("mesh/") && name(b.part()).equals(plain));
+            if(pick.box()>=0) mapping[i]=pick.box();
+        }
+        var shared=new LinkedHashMap<String,List<Integer>>();
+        for(int i=0;i<mapping.length;i++) shared.computeIfAbsent(vanilla(profile.parts().get(i)),k->new ArrayList<>()).add(i);
+        for(var entry:shared.entrySet()) {
+            var group=entry.getValue();var plain=entry.getKey();
+            if(group.stream().map(i->name(profile.parts().get(i).name())).distinct().count()<2 || group.stream().allMatch(i->mapping[i]>=0)) continue;
+            int box=group.stream().filter(i->mapping[i]>=0 && !boxes.get(mapping[i]).part().startsWith("mesh/") && name(boxes.get(mapping[i]).part()).equals(plain)).map(i->mapping[i]).findFirst().orElse(-1);
+            if(box>=0) { for(int i:group) if(mapping[i]<0 && !layer(profile.parts().get(i))) mapping[i]=box;continue; }
+            box=best(around(plain,group.stream().map(i->profile.parts().get(i)).toList()),boxes,scale,yaw,b->!b.part().startsWith("mesh/") && name(b.part()).equals(plain)).box();
+            if(box>=0) for(int i:group) if(mapping[i]<0) mapping[i]=box;
+        }
         var zones=new ArrayList<Zone>();int missing=0;
         for(var zone:profile.zones()) {
             int match=mapping[zone.part()];if(match<0) { if(!otherVariant(profile,mapping,zone.part())) missing++;continue; }
             zones.add(new Zone(match,zone.group(),zone.planes(),zone.face()));
         }
         return new Binding(List.copyOf(zones),missing,missing==0?"ручная разметка":"ручная разметка: часть модели не сопоставлена");
+    }
+    // Without Flywheel (its backend off) a part comes cube by cube: several boxes with one name, each smaller than the
+    // part the profile holds. Where the profile has that name once, its cubes in one frame are matched as one box
+    // around them all, as Flywheel draws the part; a profile made from such cubes (a name in it more than once) keeps
+    // them apart. Flywheel's boxes (names from "mesh/") are left as they are.
+    static List<ModelBox> unite(Profile profile,List<ModelBox> boxes) {
+        var once=new HashMap<String,Integer>();for(var ref:profile.parts()) once.merge(name(ref.name()),1,Integer::sum);
+        var groups=new LinkedHashMap<String,List<ModelBox>>();
+        for(var box:boxes) if(!box.part().startsWith("mesh/")) groups.computeIfAbsent(box.part(),k->new ArrayList<>()).add(box);
+        if(groups.values().stream().allMatch(group->group.size()==1)) return boxes;
+        var out=new ArrayList<ModelBox>();var done=new HashSet<String>();
+        for(var box:boxes) {
+            var key=box.part();var group=groups.get(key);
+            if(group==null || group.size()==1 || once.getOrDefault(name(key),0)!=1 || anonymous(key)) { out.add(box);continue; }
+            if(!done.add(key)) continue;
+            var united=around(group);
+            if(united==null) out.addAll(group); else out.add(united);
+        }
+        return List.copyOf(out);
+    }
+    // the box around boxes whose edges run the same ways (the cubes of one part), null if they do not
+    private static ModelBox around(List<ModelBox> group) {
+        var first=group.getFirst();
+        Vec3[] axis={new Vec3(first.ux(),first.uy(),first.uz()).normalize(),new Vec3(first.vx(),first.vy(),first.vz()).normalize(),new Vec3(first.wx(),first.wy(),first.wz()).normalize()};
+        var inverse=new org.joml.Matrix3d(axis[0].x,axis[0].y,axis[0].z,axis[1].x,axis[1].y,axis[1].z,axis[2].x,axis[2].y,axis[2].z);
+        if(Math.abs(inverse.determinant())<1e-9) return null;
+        inverse.invert();
+        double[] min={Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY},max={Double.NEGATIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NEGATIVE_INFINITY};
+        var origin=new Vec3(first.x(),first.y(),first.z());
+        for(var box:group) {
+            Vec3[] edges={new Vec3(box.ux(),box.uy(),box.uz()),new Vec3(box.vx(),box.vy(),box.vz()),new Vec3(box.wx(),box.wy(),box.wz())};
+            for(int a=0;a<3;a++) if(edges[a].normalize().dot(axis[a])<1-1e-4) return null;
+            for(int corner=0;corner<8;corner++) {
+                var point=new Vec3(box.x(),box.y(),box.z());
+                for(int a=0;a<3;a++) if((corner>>a&1)!=0) point=point.add(edges[a]);
+                var d=point.subtract(origin);var c=inverse.transform(new org.joml.Vector3d(d.x,d.y,d.z));
+                double[] at={c.x,c.y,c.z};
+                for(int a=0;a<3;a++) { min[a]=Math.min(min[a],at[a]);max[a]=Math.max(max[a],at[a]); }
+            }
+        }
+        var start=origin.add(axis[0].scale(min[0])).add(axis[1].scale(min[1])).add(axis[2].scale(min[2]));
+        var u=axis[0].scale(max[0]-min[0]);var v=axis[1].scale(max[1]-min[1]);var w=axis[2].scale(max[2]-min[2]);
+        return new ModelBox(first.part(),start.x,start.y,start.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z);
+    }
+    // the part around the profile's parts (the model's and its layers'), as the game draws them in one box
+    private static Ref around(String name,List<Ref> parts) {
+        double[] min={Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY},max={Double.NEGATIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NEGATIVE_INFINITY};
+        for(var ref:parts) {
+            double[] c={ref.center().x,ref.center().y,ref.center().z};
+            for(int a=0;a<3;a++) { min[a]=Math.min(min[a],c[a]-ref.size()[a]/2);max[a]=Math.max(max[a],c[a]+ref.size()[a]/2); }
+        }
+        return new Ref(name,new double[]{max[0]-min[0],max[1]-min[1],max[2]-min[2]},0,new Vec3((min[0]+max[0])/2,(min[1]+max[1])/2,(min[2]+max[2])/2),-1);
     }
     private record Pick(int box,double score) {}
     private static Pick best(Ref ref,List<ModelBox> boxes,double scale,float yaw,java.util.function.Predicate<ModelBox> candidate) {
@@ -178,7 +252,13 @@ final class HeadProfiles {
         return best>=0 && (second-score>.03 || second==Double.POSITIVE_INFINITY)?new Pick(best,score):new Pick(-1,score);
     }
     private static final int MAX_DRAWS=16;
+    private static final java.util.regex.Pattern TREE=java.util.regex.Pattern.compile("/draws/\\d+/tree/(.+)$");
     private static final java.util.regex.Pattern DRAW=java.util.regex.Pattern.compile("/draws/(\\d+)/");
+    // the name the part comes under without Flywheel: a layer's part under the model's own name
+    private static String vanilla(Ref ref) {
+        var tree=TREE.matcher(name(ref.name()));return tree.find()?name("root/"+tree.group(1)):name(ref.name());
+    }
+    private static boolean layer(Ref ref) { return TREE.matcher(name(ref.name())).find(); }
     private static String layerFree(String name) { return DRAW.matcher(name).replaceAll("/draws/*/"); }
     private static int draw(String name) { var m=DRAW.matcher(name);return m.find()?Integer.parseInt(m.group(1)):-1; }
     // Часть, которую модель рисует вместо другой (череп Mask Man вместо головы с половины здоровья, instead в

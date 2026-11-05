@@ -234,6 +234,7 @@ tasks.matching { it.name == "runCheckClient" }.configureEach {
     val scenario = listOf("scenario", "shapesStand", "fenceSeam", "holeBench", "checkMobs").any { providers.gradleProperty(it).isPresent }
     timeout.set(Duration.ofMinutes(if (scenario) 120 else 8))
     val result = layout.buildDirectory.file("clientcheck/result.txt")
+    val cpuGeometry = providers.gradleProperty("mobCpuGeometry").isPresent
     doFirst {
         val source = projectDir.resolve("run-world/world")
         require(source.resolve("level.dat").exists()) { "Сначала сделайте мир: notes/ports/de-1.21.1/makeworld.sh" }
@@ -244,6 +245,13 @@ tasks.matching { it.name == "runCheckClient" }.configureEach {
         world.resolve("session.lock").delete()
         dir.resolve("config").mkdirs()
         dir.resolve("config/fml.toml").writeText("earlyWindowControl = false\n")
+        // -PmobCpuGeometry: as the root's, the mobs without Flywheel: its backend "flywheel:off" (NTM's mobs then draw
+        // through their renderers, cube by cube, as the vanilla ones always do on DE); without it Flywheel decides
+        val flywheel = dir.resolve("config/flywheel-client.toml")
+        val backend = "backend = \"${if (cpuGeometry) "flywheel:off" else "DEFAULT"}\""
+        val lines = if (flywheel.exists()) flywheel.readLines() else emptyList()
+        flywheel.writeText((if (lines.any { it.startsWith("backend =") }) lines.map { if (it.startsWith("backend =")) backend else it }
+            else listOf(backend) + lines).joinToString("\n", postfix = "\n"))
         dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:3\n" +
             "simulationDistance:5\ninactivityFpsLimit:minimized\nmaxFps:60\nonboardAccessibility:false\n" +
             // -Pfabulous: the "Fabulous!" graphics (shader transparency, the holes on glass after the translucent terrain)

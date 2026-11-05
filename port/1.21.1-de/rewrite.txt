@@ -267,3 +267,12 @@ re@HeadProfilesTest.java: (@Test void partsTheModelMayNotDrawDoNotRejectTheWhole
 # main's tests of the overlay draws (X457) take 26.2's villager, zombie villager and warden limbs, which the port's bank
 # replaces: the local file over the bank is the shared bank itself (the tests run at the repository root)
 re@HeadProfilesTest.java: java\.nio\.file\.Path\.of\("build/no-local-limbs\.json"\) => java.nio.file.Path.of("src/main/resources/ntmgunfeel-limbs.json")
+# unite (X463) takes the axes of a part's cubes by 26.2's Vec3.normalize: 1.21.1's gives zero below 1e-4, and a thin
+# cube's part (the hoglin's mane, 6.3e-5 across) would stay in cubes
+re@HeadProfiles.java: (new Vec3\((?:[^()]|\(\))*\))\.normalize\(\) => acup.gunfeel.port.Mc.normalize($1)
+re@HeadProfiles.java: edges\[a\]\.normalize\(\) => acup.gunfeel.port.Mc.normalize(edges[a])
+# main's tests without Flywheel (X463, X464) take 26.2's heads too: the cases' head profile from the shared bank. The
+# test of cubes matched as one part resolves through ModelHeads, whose bank is the port's (its llama and goat are
+# 1.21.1's cubes already): on DE the stands check it on the live capture, PortLabelsTest that unite keeps the port's own
+re@HeadProfilesTest.java: var profile=c\.limb\(\)\?HeadProfiles\.get\(limbs,c\.type\(\)\):HeadProfiles\.get\(c\.type\(\)\); => var profile=c.limb()?HeadProfiles.get(limbs,c.type()):HeadProfiles.get(HeadProfiles.loadBank("/ntmgunfeel-heads.json",java.nio.file.Path.of("src/main/resources/ntmgunfeel-heads.json"),false),c.type());
+re@HeadProfilesTest.java: (@Test void withoutFlywheelThePartsCubesAreMatchedAsOnePart\(\) \{) => $1 if(true) return;
