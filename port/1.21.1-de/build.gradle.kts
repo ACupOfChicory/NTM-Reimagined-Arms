@@ -142,6 +142,8 @@ neoForge {
             systemProperty("ntmgunfeel.shapesResume", providers.gradleProperty("shapesResume").isPresent.toString())
             systemProperty("ntmgunfeel.shapesFallback", providers.gradleProperty("shapesFallback").isPresent.toString())
             if (providers.gradleProperty("shapesFallback").isPresent) systemProperty("ntmgunfeel.shapesSkip", "hbm:machine_chemical_factory")
+            // -PmachineGlass: windows of real NTM machines are glass (MachineGlassCheck) instead of the smoke check
+            systemProperty("ntmgunfeel.machineGlassCheck", providers.gradleProperty("machineGlass").isPresent.toString())
         }
         // DE alone, without this mod: for what DE does by itself (notes/ports/de-1.21.1/de-repro.sh runs the two at once).
         // -Pjoin=host:port: the client goes straight onto that server
