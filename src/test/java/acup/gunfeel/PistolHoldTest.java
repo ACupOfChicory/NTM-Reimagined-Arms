@@ -204,6 +204,23 @@ class PistolHoldTest {
         assertEquals(still.z, turned.z, 1e-4F);
     }
 
+    // the defaults are cached per gun: going from a gun shipped with its own hipZ to one without it takes the new one's
+    @Test
+    void hipDefaultsFollowTheGunInHand() {
+        float was = Config.hipZ;
+        try {
+            Config.hipZ = 1F;
+            assertEquals(1F, PistolHold.hipScales("hbm:gun_laser_pistol")[2], 1e-6F);
+            Config.hipZ = 0.75F;
+            assertEquals(1F, PistolHold.hipScales("hbm:gun_star_f")[2], 1e-6F);
+            Config.hipZ = 1.5F;
+            assertEquals(2F, PistolHold.hipScales("hbm:gun_star_f")[2], 1e-6F);
+            assertEquals(1.5F, PistolHold.hipScales("hbm:gun_laser_pistol")[2], 1e-6F);
+        } finally {
+            Config.hipZ = was;
+        }
+    }
+
     @Test
     void hipDefaultsComeFromShippedGunSettingsOrBuiltinValues() {
         assertEquals(0.75F, PistolHold.defaultHip("hbm:gun_heavy_revolver", "hipZ"), 0F);
