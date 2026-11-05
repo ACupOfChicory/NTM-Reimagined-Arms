@@ -272,12 +272,12 @@ public final class MobSmoke {
             pending=true;
             mc.getSingleplayerServer().execute(() -> {
                 var target=(LivingEntity)mc.getSingleplayerServer().overworld().getEntity(id);
-                if(target!=null) {
-                    target.setPos(target.position().add(.6,0,0));
-                    target.setYRot(90); target.yBodyRot=90; target.yHeadRot=90;
-                }
+                if(target!=null) move(target);
                 pending=false;
             });
+            // EnderDragon.aiStep returns at once for a NoAi dragon, before it interpolates (1.21.1 as 26.2): its client
+            // copy never follows the server, and the player sees (and hits) it where it was. Move that copy the same way.
+            if(mc.level.getEntity(id) instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon dragon && dragon.isNoAi()) move(dragon);
             stage=4; since=System.nanoTime();
         } else if(stage==4 && seconds()>1.2) {
             var target=(LivingEntity)mc.level.getEntity(id);
@@ -290,6 +290,10 @@ public final class MobSmoke {
         }
     }
 
+    private static void move(LivingEntity target) {
+        target.setPos(target.position().add(.6,0,0));
+        target.setYRot(90); target.yBodyRot=90; target.yHeadRot=90;
+    }
     private static double seconds() { return (System.nanoTime()-since)/1e9; }
     private static boolean hasWool(Snapshot pose) { return pose!=null && pose.boxes().stream().anyMatch(ModelWool::isWool); }
     private static boolean hasShell(Snapshot pose) {
@@ -334,11 +338,15 @@ public final class MobSmoke {
                 rays(sheep,server,current()+": с шерстью, сервер");
                 var full=MobRayOracle.surface(sheep,server.anchor(),server.boxes());
                 var bare=MobRayOracle.surface(sheep,server.anchor(),server.boxes().stream().filter(b -> !ModelWool.isWool(b)).toList());
-                woolRay=MobRayOracle.grid(full).stream().filter(ray -> ray.hit() && !MobRayOracle.hit(bare,ray.from(),ray.to()) && clearRay(sheep,ray)).findFirst().orElseThrow();
-                nativeRay(level,sheep,woolRay,true,current()+": точка только на шерсти до стрижки");
+                var woolOnly=MobRayOracle.grid(full).stream().filter(ray -> ray.hit() && !MobRayOracle.hit(bare,ray.from(),ray.to())).toList();
+                woolRay=woolOnly.stream().filter(ray -> clearRay(sheep,ray)).findFirst().orElse(null);
+                // a lamb's fleece is the size of the parts it covers or lies inside them: no point is on the wool alone
+                if(woolRay==null) RESULTS.add(new Result(woolOnly.isEmpty() && MobCatalog.baby(current()),
+                        current()+": шерсть не выступает за модель без неё, точек только на шерсти="+woolOnly.size()));
+                else nativeRay(level,sheep,woolRay,true,current()+": точка только на шерсти до стрижки");
                 sheep.shear(net.minecraft.sounds.SoundSource.PLAYERS);
                 // Та же принятая поза, ни одного нового пакета между проверками.
-                nativeRay(level,sheep,woolRay,false,current()+": та же точка сразу после стрижки, до нового пакета");
+                if(woolRay!=null) nativeRay(level,sheep,woolRay,false,current()+": та же точка сразу после стрижки, до нового пакета");
             } catch(Throwable t) { RESULTS.add(new Result(false,current()+": стрижка: "+t)); }
             pending=false;
         });
@@ -360,7 +368,7 @@ public final class MobSmoke {
                 var level=Minecraft.getInstance().getSingleplayerServer().overworld();
                 var sheep=(net.minecraft.world.entity.animal.Sheep)level.getEntity(id);
                 rays(sheep,server,current()+": шерсть отросла, сервер");
-                nativeRay(level,sheep,woolRay,true,current()+": та же точка после отрастания шерсти");
+                if(woolRay!=null) nativeRay(level,sheep,woolRay,true,current()+": та же точка после отрастания шерсти");
             } catch(Throwable t) { RESULTS.add(new Result(false,current()+": проверка отрастания: "+t)); }
             pending=false;
         });
