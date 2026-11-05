@@ -103,6 +103,8 @@ class WornGearTest {
         assertBox(find(skull, "root/head"), 1, -4.75, 24, -4.75, 9.5, 9.5, 9.5);
         var dragon = WornGear.boxes(zombie(1), new WornGear.Worn(WornGear.Head.DRAGON, false, false, false));
         assertBox(find(dragon, "root/head"), 1, -7.125, 24, -7.125, 14.25, 14.25, 14.25);
+        var old = WornGear.boxes(zombie(1), new WornGear.Worn(WornGear.Head.OLD_SKULL, false, false, false));
+        assertBox(find(old, "root/head"), 1, -4.25, 24, -4.25, 8.5, 8.5, 8.5);
         // a head whose up edge points down (its corner on top) keeps the same lower face
         var hanging = List.of(new ModelBox("root/head", -4 * PX, 32 * PX, -4 * PX, 8 * PX, 0, 0, 0, -8 * PX, 0, 0, 0, 8 * PX));
         ModelBox h = find(WornGear.boxes(hanging, new WornGear.Worn(WornGear.Head.SKULL, false, false, false)), "root/head");
@@ -133,12 +135,12 @@ class WornGearTest {
         ModelBox head = part("root/head", -4, 24, -4, 8, 8, 8, 1);
         // the upper half of the head: y >= 28 pixels
         var zone = new HeadZone(head, List.of(new HeadZone.Plane(0, 1, 0, -28 * PX)));
-        var grown = WornGear.zones(List.of(zone), HELMET, true).getFirst();
+        var grown = WornGear.zones(List.of(zone), HELMET, true).get(0);
         Vec3 aboveTheBareHead = new Vec3(0, 32.5 * PX, 0), sideOfIt = new Vec3(4.5 * PX, 30 * PX, 0), neck = new Vec3(0, 26 * PX, 0);
         assertFalse(zone.contains(aboveTheBareHead));
         assertTrue(grown.contains(aboveTheBareHead));
         assertTrue(grown.contains(sideOfIt));
         assertFalse(grown.contains(neck));
-        assertSame(zone, WornGear.zones(List.of(zone), HELMET, false).getFirst());
+        assertSame(zone, WornGear.zones(List.of(zone), HELMET, false).get(0));
     }
 }
