@@ -15,6 +15,8 @@
 # heading in, and the version Gradle counts there must be the heading, or the run fails. A tag that is already there
 # means it was released: nothing to do.
 set -euo pipefail
+# a failure inside $(...) stops the script too (bash clears -e there otherwise)
+shopt -s inherit_errexit
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_URL="https://github.com/${GITHUB_REPOSITORY:-ACupOfChicory/NTM-Reimagined-Arms}"
@@ -87,28 +89,26 @@ build() {
     # the JDKs setup-java put in: Gradle does not look in the runner's tool cache by itself
     local paths; paths=$(printf '%s,' ${JAVA_HOME_8_X64:-} ${JAVA_HOME_21_X64:-} ${JAVA_HOME_25_X64:-}); paths=${paths%,}
     [[ -n "$paths" ]] && java=("-Porg.gradle.java.installations.paths=$paths")
-    (cd "$tree/$DIR" && ./gradlew "${ARGS[@]}" ${java[@]+"${java[@]}"} --console=plain) >&2
+    (cd "$tree/$DIR" && ./gradlew "${ARGS[@]}" ${java[@]+"${java[@]}"} --console=plain) >&2 || die "the build failed in $DIR"
     # the ports' tests of downgraded classes see no classes on a clean tree's first run ("NO-SOURCE"): jvmdg's
     # output list is taken before the classes are there. A second run finds them.
     if [[ ${#RETEST[@]} -gt 0 ]]; then
-        (cd "$tree/$DIR" && ./gradlew "${RETEST[@]}" ${java[@]+"${java[@]}"} --console=plain) >&2
+        (cd "$tree/$DIR" && ./gradlew "${RETEST[@]}" ${java[@]+"${java[@]}"} --console=plain) >&2 || die "the tests failed in $DIR"
     fi
-    tests "$tree/$DIR" >&2
-    local d
-    for d in "${TESTS[@]}"; do
-        compgen -G "$tree/$DIR/$d/*.xml" >/dev/null || die "no test ran in $DIR/$d"
-    done
+    tests "$tree/$DIR" "${TESTS[@]}" >&2 || die "a test task of $DIR ran no test or a test failed"
     local jars; jars=$(find "$tree/$LIBS" -maxdepth 1 -type f -regextype posix-extended \
         -regex ".*/reimagined-arms-X[0-9]+(\.[0-9]+)?${SUFFIX//./\\.}\.jar")
     [[ $(printf '%s\n' "$jars" | grep -c .) -eq 1 ]] || die "expected one reimagined-arms-X*$SUFFIX.jar in $LIBS, found: ${jars:-none}"
     echo "$jars"
 }
 
-# what the tests did, from their reports: totals per task and the names of the skipped ones
+# what the tests did, from their reports: totals per task and the names of the skipped ones. Fails when one of the
+# named result folders ran no test (none there, or all skipped) or a test failed.
 tests() {
-    python3 - "$1" <<'PY' | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+    python3 - "$@" <<'PY' | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
 import glob, os, sys, xml.etree.ElementTree as E
-root = sys.argv[1]
+root, want = sys.argv[1], sys.argv[2:]
+bad = [w for w in want if not glob.glob(os.path.join(root, w, "*.xml"))]
 for task in sorted(glob.glob(os.path.join(root, "**/build/test-results/*/"), recursive=True)):
     n = s = f = 0; skipped = []
     for x in glob.glob(task + "*.xml"):
@@ -116,7 +116,11 @@ for task in sorted(glob.glob(os.path.join(root, "**/build/test-results/*/"), rec
         n += int(r.get("tests", 0)); s += int(r.get("skipped", 0))
         f += int(r.get("failures", 0)) + int(r.get("errors", 0))
         skipped += [r.get("name", "").rsplit(".", 1)[-1] + "." + c.get("name") for c in r.iter("testcase") if c.find("skipped") is not None]
-    print(f"Tests {os.path.relpath(task, root)}: {n} run, {s} skipped, {f} failed" + (": skipped " + ", ".join(sorted(skipped)) if skipped else ""))
+    rel = os.path.relpath(task, root)
+    print(f"Tests {rel}: {n} run, {s} skipped, {f} failed" + (": skipped " + ", ".join(sorted(skipped)) if skipped else ""))
+    if rel in want and (n - s <= 0 or f > 0): bad.append(rel)
+for b in sorted(set(bad)): print(f"Tests {b}: no test ran there, or one failed")
+sys.exit(1 if bad else 0)
 PY
 }
 
@@ -125,21 +129,24 @@ heading() {
     grep -m1 -oE "^## ${HEAD_RE}[[:space:]]*$" CHANGELOG.md | awk '{print $2}' || true
 }
 
+# the oldest first-parent commit with the heading (a heading removed and put back stays where it first came in);
+# grep reads to the end: with -q it would close the pipe, and pipefail would take git's SIGPIPE for "not there"
 commit() {
-    local h=$1 re found=
+    local h=$1 re c
     re="^## ${h//./\\.}[[:space:]]*$"
-    for c in $(git rev-list --first-parent HEAD); do
-        git show "$c:CHANGELOG.md" 2>/dev/null | grep -qE "$re" || break
-        found=$c
+    for c in $(git rev-list --first-parent --reverse HEAD); do
+        if git show "$c:CHANGELOG.md" 2>/dev/null | grep -E "$re" >/dev/null; then
+            echo "$c"
+            return 0
+        fi
     done
-    [[ -n "$found" ]] || die "no commit has '## $h' in CHANGELOG.md"
-    echo "$found"
+    die "no commit has '## $h' in CHANGELOG.md"
 }
 
 # the heading's part of CHANGELOG.md at that commit
 section() {
     git show "$2:CHANGELOG.md" | awk -v h="## $1" '
-        $0 ~ /^## / { if (on) exit; if ($1 " " $2 == h) { on = 1; next } }
+        $0 ~ /^## / { if (on) { on = 0; done = 1 } else if (!done && $1 " " $2 == h) { on = 1; next } }
         on { print }' | sed -e '/./,$!d'
 }
 
@@ -206,7 +213,12 @@ ci() {
         [[ -n "${GITHUB_STEP_SUMMARY:-}" ]] && { echo; cat "$out/notes.md"; } >> "$GITHUB_STEP_SUMMARY"
         return 0
     fi
-    gh release create "$tag" "$rel" --target "$c" --title "$title" --notes-file "$out/notes.md" --prerelease
+    if ! gh release create "$tag" "$rel" --target "$c" --title "$title" --notes-file "$out/notes.md" --prerelease; then
+        # another run made it meanwhile: that is a release, not a failure
+        git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null || die "could not release $tag"
+        summary "$tag was released by another run meanwhile."
+        return 0
+    fi
     summary "Released $tag from ${c:0:7}${mode/release/}."
 }
 
