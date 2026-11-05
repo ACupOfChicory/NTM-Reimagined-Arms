@@ -10,6 +10,7 @@ import java.util.Set;
 
 import com.hbm.render.loader.GroupObject;
 import com.hbm.render.loader.ObjMesh;
+import com.mojang.blaze3d.vertex.PoseStack;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -186,5 +187,73 @@ class PistolHoldTest {
         assertEquals(want.x, got.x, 1e-4F);
         assertEquals(want.y, got.y, 1e-4F);
         assertEquals(want.z, got.z, 1e-4F);
+    }
+
+    // the sway as the camera turns (WeaponSway) and NTM's own bob are in the pose before NTM places the gun, and
+    // WalkSprint.moved holds them with WalkSprint at rest: the gun's middle from the hip goes with them, it does not
+    // stand still on the screen while the camera turns
+    @Test
+    void theTurnsSwayMovesTheHipPlace() {
+        Matrix4f ntm = new Matrix4f().translation(0F, 0F, 0.875F);
+        Vector3f[] ends = {new Vector3f(0F, 0F, -0.5F), new Vector3f(0F, 0F, 2.5F), new Vector3f(0.05F, -0.1F, 1F)};
+        float aX = 0F, aY = -0.4F, aZ = 0.5F;
+        Vector3f still = new Vector3f();
+        assertTrue(PistolHold.hip(ntm, new Matrix4f(), ends, aX, aY, aZ, still));
+        Vector3f p0 = ntm.transformPosition(new Vector3f(still).add(ends[2]));
+        // moved knows the gun only by reference: null stands for the gun drawn (no registries in a unit test)
+        net.minecraft.world.item.Item item = null;
+        // a quick turn right and down, then NTM's transform up to setupFirstPerson: its half turn about y, its bob
+        PoseStack pose = new PoseStack();
+        WalkSprint.base(pose);
+        WeaponSway.apply(pose, WeaponSway.sample(10F, 200F, 0F));
+        WalkSprint.applied(pose, item);
+        pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180F));
+        pose.translate(0.02F, -0.03F, 0F);
+        pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees(1.5F));
+        // the move to undo: everything but the half turn
+        Matrix4f sway = new Matrix4f(pose.last().pose()).rotateY((float) Math.PI);
+        WalkSprint.setup(pose);
+        Matrix4f moved = WalkSprint.moved(item);
+        for (int i = 0; i < 16; i++) assertEquals(sway.get(i / 4, i % 4), moved.get(i / 4, i % 4), 1e-6F);
+        Vector3f hip = new Vector3f();
+        assertTrue(PistolHold.hip(new Matrix4f(sway).mul(ntm), moved, ends, aX, aY, aZ, hip));
+        Vector3f got = new Matrix4f(sway).mul(ntm).transformPosition(new Vector3f(hip).add(ends[2]));
+        Vector3f want = sway.transformPosition(new Vector3f(p0));
+        assertEquals(want.x, got.x, 1e-4F);
+        assertEquals(want.y, got.y, 1e-4F);
+        assertEquals(want.z, got.z, 1e-4F);
+        // and the sway moves it noticeably (more than 0.05 of the gun's length)
+        assertTrue(want.distance(p0) > 0.15F, "sway " + want.distance(p0));
+    }
+
+    // the hands' pose space is turned with the world (the camera's view brings it to the eye): the hip place is the
+    // same however the camera looks, so the gun turns with the camera and does not stay where it was in the world
+    @Test
+    void theHipPlaceTurnsWithTheCamera() {
+        Matrix4f ntm = new Matrix4f().translation(0F, 0F, 0.875F);
+        Vector3f[] ends = {new Vector3f(0F, 0F, -0.5F), new Vector3f(0F, 0F, 2.5F), new Vector3f(0.05F, -0.1F, 1F)};
+        float aX = 0F, aY = -0.4F, aZ = 0.5F;
+        Vector3f still = new Vector3f();
+        assertTrue(PistolHold.hip(new Matrix4f(), ntm, new Matrix4f(), ends, aX, aY, aZ, still));
+        // looking 135° to the side and 30° down, with the turn's sway in the pose
+        Matrix4f view = new Matrix4f().rotateX(0.52F).rotateY(2.36F);
+        Matrix4f inView = new Matrix4f(view).invert();
+        Matrix4f sway = new Matrix4f().translation(0.05F, 0F, 0F).rotateY(0.1F);
+        Matrix4f moved = new Matrix4f(inView).mul(sway).mul(view);
+        Vector3f hip = new Vector3f();
+        assertTrue(PistolHold.hip(view, new Matrix4f(moved).mul(inView).mul(ntm), moved, ends, aX, aY, aZ, hip));
+        assertEquals(still.x, hip.x, 1e-4F);
+        assertEquals(still.y, hip.y, 1e-4F);
+        assertEquals(still.z, hip.z, 1e-4F);
+    }
+
+    // the camera's view looks along -z with the screen's right +x; looking along the world's +z (yaw 0, pitch 0) it is
+    // half a turn about y, and hip's frame (ahead +z, right -x) is then the pose space itself
+    @Test
+    void theEyeAtYawZeroIsThePoseSpace() {
+        PistolHold.view(new Matrix4f().rotationY((float) Math.PI));
+        Matrix4f eye = PistolHold.eye();
+        for (int i = 0; i < 16; i++) assertEquals(i / 4 == i % 4 ? 1F : 0F, eye.get(i / 4, i % 4), 1e-6F);
+        PistolHold.view(new Matrix4f());
     }
 }

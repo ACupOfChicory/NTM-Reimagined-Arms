@@ -53,9 +53,12 @@ public abstract class MixinItemRenderWeaponBase {
         GunFeel.currentAkimbo = self.isAkimbo(player);
         if (Config.enabled && !Arms.measuring) GunFeel.checkShot(stack);
         Arms.begin(stack);
+        // the pose before our sway, WalkSprint and NTM's bob: PistolHold places the gun from the hip before them
+        // (WalkSprint.moved, taken at setupFirstPerson)
+        if (Config.enabled && !Arms.measuring) acup.gunfeel.WalkSprint.base(pose);
         if(Config.enabled && !Arms.measuring) acup.gunfeel.WeaponSway.apply(pose,player);
         if (Config.enabled && !Arms.measuring && !GunFeel.currentAkimbo && !(collector instanceof OtherHandCollector))
-            acup.gunfeel.WalkSprint.apply(pose, player, stack.getItem());
+            acup.gunfeel.WalkSprint.apply(pose, player, stack);
     }
 
     // NTM's own walking bob (a sway by the vanilla bob) is left out for a gun with walkSway on: WalkSprint does it.
@@ -87,6 +90,7 @@ public abstract class MixinItemRenderWeaponBase {
     @Inject(method = "setupTransformsAndSubmit", at = @At(value = "INVOKE", target = SETUP))
     private void gunfeel$camera(ItemStack stack, LocalPlayer player, PoseStack pose, SubmitNodeCollector collector, int light, CallbackInfo ci) {
         Arms.cameraFrame(pose);
+        acup.gunfeel.WalkSprint.setup(pose);
         acup.gunfeel.PistolHold.setup();
     }
 

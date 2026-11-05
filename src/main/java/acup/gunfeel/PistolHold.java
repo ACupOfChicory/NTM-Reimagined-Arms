@@ -38,6 +38,10 @@ public final class PistolHold {
     private static Item framed;
     // NTM's setupFirstPerson is about to place the gun: its first standardAimingTransform is the placing one
     private static boolean placing;
+    // this frame's camera view the hands' pose is drawn through, past a half turn about y: the eye's space is
+    // VIEW·pose with the eye looking along +z and the screen's right -x, as the pose space is when the camera looks
+    // along the world's +z (yaw 0, pitch 0). The pose space itself is turned with the world, not with the camera
+    private static final Matrix4f VIEW = new Matrix4f();
 
     private PistolHold() {
     }
@@ -77,13 +81,37 @@ public final class PistolHold {
     public static boolean hip(PoseStack pose, Item item, double aX, double aY, double aZ, Vector3f out) {
         Vector3f[] ends = ENDS.get(item);
         if (ends == null) return false;
-        return hip(pose.last().pose(), WalkSprint.moved(item), ends, (float) aX, (float) aY, (float) aZ, out);
+        return hip(VIEW, pose.last().pose(), WalkSprint.moved(item), ends, (float) aX, (float) aY, (float) aZ, out);
     }
 
     /**
-     * The hip place for the pose m of standardAimingTransform, the gun's ends and middle past it, the aimed place a.
-     * moved is WalkSprint's move in view space, already in m: the place is found in the frame before it (moved⁻¹·m),
-     * so the walk's, the run's and the jump's move stays on top of the hip place, as it does of the aimed one.
+     * The hip place for the camera's view, the pose and moved in the pose space (turned with the world): in the eye's
+     * space the pose is view·pose and moved is view·moved·view⁻¹.
+     */
+    static boolean hip(Matrix4f view, Matrix4f pose, Matrix4f moved, Vector3f[] ends, float aX, float aY, float aZ, Vector3f out) {
+        if (Math.abs(view.determinant()) < 1e-12F) return false;
+        Matrix4f eyeMoved = new Matrix4f(view).mul(moved).mul(new Matrix4f(view).invert());
+        return hip(new Matrix4f(view).mul(pose), eyeMoved, ends, aX, aY, aZ, out);
+    }
+
+    /**
+     * The camera's view at the start of the hands' drawing (GameRenderer.renderItemInHand): the eye's space looks
+     * along -z with the screen's right +x, half a turn about y from the frame hip works in.
+     */
+    public static void view(org.joml.Matrix4fc view) {
+        VIEW.rotationY((float) Math.PI).mul(view);
+    }
+
+    static Matrix4f eye() {
+        return VIEW;
+    }
+
+    /**
+     * The hip place for the pose m of standardAimingTransform in the eye's space (the eye at the origin, looking
+     * along +z: VIEW·pose), the gun's ends and middle past it, the aimed place a. moved is the move in the same space
+     * before NTM places the gun (the turn's sway, WalkSprint, NTM's bob), already in m: the place is found in the
+     * frame before it (moved⁻¹·m), so the sway as the camera turns and the walk's, the run's and the jump's move stay
+     * on top of the hip place, as they do of the aimed one.
      */
     static boolean hip(Matrix4f pose, Matrix4f moved, Vector3f[] ends, float aX, float aY, float aZ, Vector3f out) {
         if (Math.abs(moved.determinant()) < 1e-12F) return false;

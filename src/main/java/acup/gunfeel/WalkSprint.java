@@ -8,6 +8,7 @@ import com.mojang.math.Axis;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -123,7 +124,8 @@ public final class WalkSprint {
     // the run comes in only once it has held this long: the measured run starts late (10 % at 0.13..0.19 s) and is
     // in at the same 90 %
     static final float SPRINT_DELAY = 0.04F;
-    // seconds for the sprint's swing to go and come back as the player starts or stops flying
+    // seconds for the sprint's swing to go and come back as the player starts or stops flying: chosen, not measured
+    // (the measurements have the still pose in flight, not how long it takes to come in)
     static final float FLY_IN = 0.25F;
     // after a shot the walking bob calms down for a moment
     static final float SHOT_CALM = 0.3F;
@@ -149,9 +151,12 @@ public final class WalkSprint {
     // the gun's length in the view space, from the last frame: the L the shifts are measured in
     private static float length = 1F;
     private static final Matrix4f APPLIED = new Matrix4f();
-    // this frame's move of WalkSprint in view space, APPLIED·before⁻¹ (identity at rest): PistolHold places the gun
-    // from the hip in the frame before it, and the move goes on top (moved)
-    private static final Matrix4f MOVED = new Matrix4f(), IDENTITY = new Matrix4f();
+    // this frame's move in view space from the start of NTM's first-person transform to its setupFirstPerson: the
+    // turn's sway (WeaponSway), WalkSprint and NTM's own bob, all but NTM's half turn about y (identity at rest).
+    // PistolHold places the gun from the hip in the frame before them, and the move goes on top (moved). BASE is the
+    // pose at that start, before WeaponSway
+    private static final Matrix4f MOVED = new Matrix4f(), IDENTITY = new Matrix4f(), BASE = new Matrix4f();
+    private static boolean based;
     private static boolean haveApplied;
     private static Item appliedItem;
     // the gun PIVOT and length were measured on; another gun starts from rest and is measured first
@@ -279,10 +284,9 @@ public final class WalkSprint {
     }
 
     /** Called with Config selected for the gun drawn, at the start of NTM's first-person transform. */
-    public static void apply(PoseStack pose, LocalPlayer player, Item item) {
+    public static void apply(PoseStack pose, LocalPlayer player, ItemStack stack) {
+        Item item = stack.getItem();
         long now = System.nanoTime();
-        Matrix4f before = new Matrix4f(pose.last().pose());
-        MOVED.identity();
         float dt = last == 0 ? 0F : Math.clamp((now - last) / 1e9F, 0F, 0.1F);
         last = now;
         float partial = ItemRenderWeaponBase.interp;
@@ -328,11 +332,9 @@ public final class WalkSprint {
         // then comes in as usual
         if (measuredItem != item) walk = sprint = 0F;
         // the gun is measured every frame, moving or not (gunPlaced)
-        appliedItem = item;
-        haveApplied = true;
         float js = Config.walkSway > 0F && measuredItem == item && Float.isFinite(jump) ? jump * Config.walkSway : 0F;
         if (walk <= 0F && sprint <= 0F && js == 0F) {
-            APPLIED.set(pose.last().pose());
+            applied(pose, item);
             return;
         }
         float d = groundDist;
@@ -341,7 +343,7 @@ public final class WalkSprint {
         boolean pistol = pistol(Config.kickPreset);
         Pose w = walk(uw, aiming, pistol, ws), s = sprint(us, ease(fly), pistol, ss);
         // a pistol in pistolHold is where the measured pistols are: it takes the full drop
-        float down = pistol && PistolHold.on() && !PistolHold.scoped(player.getMainHandItem()) ? 1F : DROP;
+        float down = pistol && PistolHold.on() && !PistolHold.scoped(stack) ? 1F : DROP;
         float jumpL = (pistol ? JUMP_PISTOL : JUMP_LONG) * js;
         if (TestLog.frames()) TestLog.c(-1, "walkSprint", "walk", walk, "sprint", sprint, "fly", fly, "uWalk", uw, "uSprint", us,
                 "aiming", aiming, "busy", busy, "calm", calm, "firing", firing, "sprinting", running, "pistol", pistol, "down", down,
@@ -353,13 +355,38 @@ public final class WalkSprint {
         // both turn around the gun's middle, as the measurements turn it
         turn(pose, s, PIVOT.x, PIVOT.y, PIVOT.z);
         turn(pose, w, PIVOT.x, PIVOT.y, PIVOT.z);
-        APPLIED.set(pose.last().pose());
-        if (Math.abs(before.determinant()) > 1e-12F) APPLIED.mul(before.invert(), MOVED);
+        applied(pose, item);
+    }
+
+    /** The pose before the turn's sway (WeaponSway) and apply, at the start of NTM's first-person transform. */
+    public static void base(PoseStack pose) {
+        BASE.set(pose.last().pose());
+        based = true;
     }
 
     /**
-     * This frame's move of the gun drawn by WalkSprint in view space (its shift and turns around the gun's middle),
-     * identity while it does not move it; for PistolHold.hip, called between apply and gunPlaced.
+     * At NTM's setupFirstPerson: the move since base, past NTM's half turn about y (its only fixed step there), for
+     * moved; identity when base was not called for this pass (the rest pose's measuring pass, our code off).
+     */
+    public static void setup(PoseStack pose) {
+        MOVED.identity();
+        if (!based) return;
+        based = false;
+        Matrix4f rest = new Matrix4f(BASE).rotateY((float) Math.PI);
+        if (Math.abs(rest.determinant()) > 1e-12F) new Matrix4f(pose.last().pose()).mul(rest.invert(), MOVED);
+    }
+
+    /** The pose past apply for the gun drawn, for gunPlaced; moved belongs to this gun from now. */
+    static void applied(PoseStack pose, Item item) {
+        appliedItem = item;
+        haveApplied = true;
+        APPLIED.set(pose.last().pose());
+    }
+
+    /**
+     * This frame's move of the gun drawn in view space before NTM places it: the turn's sway, WalkSprint (its shift
+     * and turns around the gun's middle) and NTM's own bob, identity while none moves it; for PistolHold.hip, called
+     * between setup and gunPlaced.
      */
     public static Matrix4f moved(Item item) {
         return haveApplied && appliedItem == item ? MOVED : IDENTITY;
