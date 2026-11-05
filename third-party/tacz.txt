@@ -4,6 +4,8 @@ https://github.com/MCModderAnchor/TACZ
 
 Скопированы из кода TaCZ (Java) в пакет acup.gunfeel.tacz:
 - SecondOrderDynamics.java — util/math/SecondOrderDynamics.java, целиком;
+  потоки фильтра помечены daemon (иначе не дают игре закрыться), поля target,
+  py, pyd — volatile;
 - GunTime.java — util/time/GunTime.java; часы (у TaCZ — из SimpleBedrockModel)
   заменены своим классом Clock в конце файла;
 - JumpingSway.java — поля и метод applyJumpingSway из

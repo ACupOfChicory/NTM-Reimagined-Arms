@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copied from TaCZ (Timeless and Classics Zero), MCModderAnchor/TACZ and contributors, GPL-3.0.
 // https://github.com/MCModderAnchor/TACZ, revision 19f14c8, src/main/java/com/tacz/guns/util/math/SecondOrderDynamics.java.
-// Changes: the package; GunTime is acup.gunfeel.tacz.GunTime.
+// Changes: the package; GunTime is acup.gunfeel.tacz.GunTime; the pool's threads are daemons (TaCZ's inherit the
+// render thread's flag and keep the game from closing); target, py and pyd are volatile (written and read by both the
+// frame and the filter's thread).
 package acup.gunfeel.tacz;
 
 import net.minecraft.client.Minecraft;
@@ -10,7 +12,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 public class SecondOrderDynamics {
-    public static final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(15, Thread::new);
+    public static final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(15, r -> {
+        Thread t = new Thread(r, "reimagined-arms-dynamics");
+        t.setDaemon(true);
+        return t;
+    });
 
     static {
         for (int i = 0; i < 15; i++) {
@@ -23,11 +29,11 @@ public class SecondOrderDynamics {
     private final float k2;
     private final float k3;
 
-    private float py;
-    private float pyd;
+    private volatile float py;
+    private volatile float pyd;
     private float px;
 
-    private float target;
+    private volatile float target;
 
     private boolean stop = false;
 

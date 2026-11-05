@@ -55,6 +55,10 @@ public final class WalkSprint {
     private static MoveState state = MoveState.IDLE;
     // the walk distance walked on the ground (the phase), and vanilla's walk distance at the last frame
     private static float groundDist, lastDist = Float.NaN;
+    // the player on the ground at the last frame (a step counts between two frames on the ground), and the player the
+    // distances belong to (a new world or a respawn starts over)
+    private static boolean lastGround;
+    private static Object lastPlayer;
     private static boolean shot;
     // view-space pivot of the turns, from the last frame: the middle of the gun between its two ends (NTM holds a gun
     // with the hand below the screen's edge; TaCZ's root, the grip, is on the screen, and so is the gun's middle)
@@ -92,6 +96,12 @@ public final class WalkSprint {
     public static void tick() {
         var player = net.minecraft.client.Minecraft.getInstance().player;
         state = player == null ? MoveState.IDLE : MoveState.of(player);
+        if (player != lastPlayer) {
+            lastPlayer = player;
+            groundDist = 0F;
+            lastDist = Float.NaN;
+            lastGround = false;
+        }
     }
 
     /** A new shot of the held gun (GunFeel.checkShot). */
@@ -164,10 +174,13 @@ public final class WalkSprint {
         boolean running = state == MoveState.RUN;
         // the phase goes on only with the steps on the ground
         float dist = player.avatarState().getBackwardsInterpolatedWalkDistance(partial);
-        groundDist = groundStep(groundDist, ground, lastDist, dist);
+        groundDist = groundStep(groundDist, ground && lastGround, lastDist, dist);
         lastDist = dist;
-        // called every frame, as TaCZ does: its timing counts from the last call
-        float jump = JumpingSway.applyJumpingSway(partial);
+        lastGround = ground;
+        // every frame while walkSway is on, as TaCZ calls it: its timing counts from the last call (off, its filter's
+        // threads are not even started). TaCZ's speed is the frame's height change over partialTicks, which is the
+        // tick's whole change for any partialTicks above 0; at 0 it would be 0 / 0
+        float jump = Config.walkSway > 0F ? JumpingSway.applyJumpingSway(Math.max(partial, 1e-3F)) : 0F;
         // a fire key held brings the gun up at once, as a shot does (a sprint may go on: NTM fires while sprinting)
         boolean firing = firing(player);
         if (shot) {

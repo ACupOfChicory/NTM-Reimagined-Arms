@@ -88,6 +88,8 @@ public final class GunTime {
         }
 
         boolean shouldTick() {
+            // the filter's thread asks every few milliseconds: it keeps the pause counted while nothing reads the time
+            nowNanos();
             var mc = net.minecraft.client.Minecraft.getInstance();
             return mc == null || !mc.isPaused();
         }
