@@ -21,6 +21,9 @@ public final class GunGeometry {
     // the model parts this variant does not draw, "-Barrel-Stock" ("" = all drawn): names the variant in the grip file
     public final String missing;
     public float minX, minY, minZ, maxX, maxY, maxZ;
+    // the mean of every drawn vertex across the gun (aligned x, y): with (minZ + maxZ) / 2 the middle of the gun's
+    // cloud of vertices, which the reference measurements turn the gun around and place it by
+    public float meanX, meanY;
     // the part that carries the gun's body: the biggest one (others may move in animations)
     public int bodyPart = -1;
     // model space -> aligned frame
@@ -75,6 +78,7 @@ public final class GunGeometry {
         Vector3f v = new Vector3f();
         minX = minY = minZ = Float.MAX_VALUE;
         maxX = maxY = maxZ = -Float.MAX_VALUE;
+        double sumX = 0, sumY = 0;
         for (int p = parts.nextSetBit(0); p >= 0; p = parts.nextSetBit(p + 1)) {
             float[] q = model.groups[p].quads(model.smoothing());
             for (int i = 0; i + 2 < q.length; i += GroupObject.STRIDE) {
@@ -88,8 +92,12 @@ public final class GunGeometry {
                 maxX = Math.max(maxX, v.x);
                 maxY = Math.max(maxY, v.y);
                 maxZ = Math.max(maxZ, v.z);
+                sumX += v.x;
+                sumY += v.y;
             }
         }
+        meanX = n > 0 ? (float) (sumX / n) : 0F;
+        meanY = n > 0 ? (float) (sumY / n) : 0F;
         aligned = minX <= maxX;
     }
 

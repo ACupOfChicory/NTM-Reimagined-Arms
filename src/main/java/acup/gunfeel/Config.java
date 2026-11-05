@@ -201,11 +201,11 @@ public final class Config {
             armPathBlend: near the grip a hand on its path (armLeftPath/armRightPath) turns smoothly into its usual hold
             armCarryKeepAngle: a carrying hand keeps the arm exactly as it holds the gun and only moves it (Sexy: the bottle)
             smokeWidth: width of the muzzle smoke, 1 = as NTM draws it
-            walkSway: the gun bobs in step with the player's steps instead of NTM's own bob, 1 = as TaCZ, 0 = off (NTM's, the default for now)
-            sprintPose: while sprinting the gun is lowered and turned to the side, swinging with the run, 1 = as TaCZ, 0 = off (the default for now);
+            walkSway: the gun bobs in step with the player's steps instead of NTM's own bob, 1 = as measured, 0 = off (NTM's, the default for now)
+            sprintPose: while sprinting the muzzle is raised and turned to the left, the gun swinging with the run, 1 = as measured, 0 = off (the default for now);
               aiming, a reload or a shot bring it back
-            pistolHold: a pistol or a revolver is held from the hip almost on the sight line, a little to the right and
-              lower, and comes up to its sights on a smooth curve, 1 = as TaCZ, 0 = off (NTM's hold); hipX, hipY and hipZ
+            pistolHold: a pistol or a revolver is held from the hip a little right of the middle, lower and farther ahead,
+              pointing ahead, and comes up to its sights on a smooth curve, 1 = as measured, 0 = off (NTM's hold); hipX, hipY and hipZ
               are not used for a pistol while it is on
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
             armRollRight, armRollLeft: turn of each arm around its own axis, degrees
