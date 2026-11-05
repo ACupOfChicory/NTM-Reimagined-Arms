@@ -118,6 +118,11 @@ final class FenceAirStand {
             for (FenceAirCheck.Ray r : rays) onServer.path(r, truth, PassableClip.clip(level, r.from(), r.to()));
             FenceAirCheck.bullets(level, round, rays, truth, onServer, 300);
         }).join();
+        // the check itself: a path that met nothing would be seen going through what is drawn
+        FenceAirCheck.Tally blind = new FenceAirCheck.Tally(name + " (a path meeting nothing)");
+        for (FenceAirCheck.Ray r : rays) blind.path(r, truth, BlockHitResult.miss(r.to(), net.minecraft.core.Direction.UP, BlockPos.containing(r.to())));
+        GunFeel.LOGGER.info("[fenceair] the check sees a path through it: {} of {} rays", blind.solid, blind.rays);
+        ClientSmoke.check(!truth.exact() || blind.solid > 100, "заборы, пролёт: проверка видит путь сквозь блок, " + name + ": " + blind.solid);
         for (FenceAirCheck.Tally t : List.of(client, onServer)) {
             GunFeel.LOGGER.info("[fenceair] {}", t.line());
             for (String e : t.examples) GunFeel.LOGGER.info("[fenceair]        {}", e);
@@ -125,7 +130,7 @@ final class FenceAirStand {
         }
     }
 
-    // the first shown pixel along the line, and how far a point is from one
+    // the first shown pixel along the line (on a face turned to it), and how far a point is from one
     static FenceAirCheck.Truth drawn(List<RenderedMesh.Tri> all) {
         List<RenderedMesh.Tri> tris = new ArrayList<>();
         for (RenderedMesh.Tri t : all) if (t.normal() != null) tris.add(t);
@@ -136,7 +141,9 @@ final class FenceAirStand {
                 for (RenderedMesh.Tri t : tris) {
                     Vector3d n = t.normal();
                     double den = n.dot(d);
-                    if (Math.abs(den) < 1e-12) continue;
+                    // only a face turned to the line is drawn to it (the back of a double-sided plane, the chain-link
+                    // fence's, shows its texture mirrored and is culled), as the path meets only those
+                    if (den > -1e-12) continue;
                     double s = new Vector3d(t.corner(0)).sub(o).dot(n) / den;
                     if (s < 0 || s > 1 || !Double.isNaN(best) && s >= best) continue;
                     Vector3d pt = new Vector3d(d).mul(s).add(o);
@@ -161,11 +168,25 @@ final class FenceAirStand {
             // the point or one 1/1000 block beside it in the triangle shows a pixel: a hit on a pixel's edge (12/16
             // met as 0.7499999) is on the pixel whichever way the rounding goes
             private boolean shown(RenderedMesh.Tri t, Vector3d c) {
-                Vector3d e1 = new Vector3d(t.corner(1)).sub(t.corner(0)).normalize(1e-3), e2 = new Vector3d(t.corner(2)).sub(t.corner(0)).normalize(1e-3);
+                return around(t, c, 1e-3, false);
+            }
+
+            // the points 1/250 block round c in the triangle's plane: any (all) of them and c on a shown pixel
+            private boolean around(RenderedMesh.Tri t, Vector3d c, double by, boolean all) {
+                Vector3d e1 = new Vector3d(t.corner(1)).sub(t.corner(0)).normalize(by), e2 = new Vector3d(t.corner(2)).sub(t.corner(0)).normalize(by);
                 for (Vector3d s : new Vector3d[] {new Vector3d(), e1, e2, new Vector3d(e1).negate(), new Vector3d(e2).negate()}) {
                     double[] w = t.weights(new Vector3d(c).add(s), 1e-6);
-                    if (w != null && t.opaqueAt(w)) return true;
+                    boolean on = w != null && t.opaqueAt(w);
+                    if (on != all) return on;
                 }
+                return all;
+            }
+
+            // met well inside a shown pixel of a drawn face (not at its edge or a pixel's): a bullet must stop there
+            public boolean firm(Vec3 met, Vec3 way) {
+                Vector3d pt = new Vector3d(met.x, met.y, met.z);
+                for (RenderedMesh.Tri t : tris)
+                    if (t.normal().dot(way.x, way.y, way.z) < -1e-9 && t.closest(pt).distance(pt) < 1e-6 && around(t, pt, 4e-3, true)) return true;
                 return false;
             }
 

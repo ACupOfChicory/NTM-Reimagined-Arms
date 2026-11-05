@@ -48,6 +48,12 @@ final class FenceAirCheck {
 
         // it is the shape the path goes by (cells of a block without exact faces): a path going on past it is wrong too
         boolean exact();
+
+        // the line met it at `met` going on along `way` and goes into it there, not along its edge: going on past
+        // that point is going through it (cells: a point a little further on is inside them)
+        default boolean firm(Vec3 met, Vec3 way) {
+            return off(met.add(way.scale(NEAR))) == 0;
+        }
     }
 
     static final class Tally {
@@ -78,7 +84,7 @@ final class FenceAirCheck {
             double t = truth.first(r.from, r.to), len = r.to.distanceTo(r.from);
             Vec3 met = Double.isNaN(t) ? null : r.from.add(r.to.subtract(r.from).scale(t));
             if (hit.getType() == HitResult.Type.MISS) {
-                if (truth.exact() && met != null && truth.off(met.add(r.way.scale(NEAR))) == 0) {
+                if (truth.exact() && met != null && truth.firm(met, r.way)) {
                     solid++;
                     example("through it: " + r.from + " -> " + r.to + ", met at " + met);
                 }
@@ -89,7 +95,7 @@ final class FenceAirCheck {
                 air++;
                 example("stopped in the air: " + r.from + " -> " + r.to + " at " + hit.getLocation() + " in " + hit.getBlockPos().toShortString()
                         + " face " + hit.getDirection() + ", " + (met == null ? "nothing on the line" : "first met at " + met));
-            } else if (truth.exact() && met != null && h > t + NEAR / len && truth.off(met.add(r.way.scale(NEAR))) == 0) {
+            } else if (truth.exact() && met != null && h > t + NEAR / len && truth.firm(met, r.way)) {
                 solid++;
                 example("through it: " + r.from + " -> " + r.to + " stopped at " + hit.getLocation() + ", met at " + met);
             }
@@ -227,6 +233,13 @@ final class FenceAirCheck {
             for (Ray ray : rays) tally.path(ray, truth, PassableClip.clip(level, ray.from, ray.to));
             bullets(level, round, rays, truth, tally, 300);
             ok &= tally.ok();
+            // the check itself: a path meeting nothing is seen going through the cells
+            Tally blind = new Tally("");
+            for (Ray ray : rays) blind.path(ray, truth, BlockHitResult.miss(ray.to, net.minecraft.core.Direction.UP, BlockPos.containing(ray.to)));
+            if (truth.exact() && blind.solid <= 100) {
+                ok = false;
+                lines.add("FAIL fence air: " + type + " " + layout + ": the check sees no path through it (" + blind.solid + ")");
+            }
             lines.add(tally.line());
             for (String e : tally.examples) lines.add("       " + e);
         }
