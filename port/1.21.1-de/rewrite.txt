@@ -162,6 +162,7 @@ re@MixinItemRenderWeaponBase.java: return state\.getInterpolatedBob\(partial\); 
 re: \.onPress\(new [\w.]*KeyEvent\([^()]*\)\) => .onPress()
 re: LevelRenderer\.getLightCoords\( => LevelRenderer.getLightColor(
 re@Tracers.java: camera\.getFov\(\) => acup.gunfeel.port.Mc.worldFov()
+re@Tracers.java: ([ (,])hudFov\(camera\) => $1acup.gunfeel.port.Mc.handFov(camera)
 re@Tracers.java: camera\.position\(\) => camera.getPosition()
 re@Tracers.java: Minecraft\.getInstance\(\)\.gameRenderer\.gameRenderState\(\)\.useShaderTransparency\(\) => Minecraft.useShaderTransparency()
 re@Tracers.java: net\.minecraft\.client\.renderer\.rendertype\.PreparedRenderType pr = type\.prepare\(\); => RenderType pr = type;
@@ -226,3 +227,11 @@ net.minecraft.client.model.animal.golem.IronGolemModel -> net.minecraft.client.m
 net.minecraft.client.model.animal.goat.GoatModel -> net.minecraft.client.model.GoatModel
 re: /assets/minecraft/textures/entity/chicken/chicken_temperate\.png => /assets/minecraft/textures/entity/chicken.png
 re: /assets/minecraft/textures/entity/bat/bat\.png => /assets/minecraft/textures/entity/bat.png
+# the HUD part: the instant switch takes the new item where 26.2 submits the hands, 1.21.1 renders them
+re@MixinItemInHandRenderer.java: method = "submitHandsWithItems" => method = "renderHandsWithItems"
+# DE's GuiGraphicsExtractor has guiRenderState public, the accessor is left out (skip.txt)
+re@GuiShapes.java: \(\(GuiGraphicsAccess\) g\)\.gunfeel\$state\(\) => g.guiRenderState
+re@GuiShapes.java: ^import acup\.gunfeel\.mixin\.mc\.GuiGraphicsAccess; => 
+# the port's HUD stand (HudCheck, -PcheckHud) in the smoke world instead of the smoke check, with the stands' 15 minutes
+re@ClientSmoke.java: if\(FenceAirStand\.ENABLED\) \{ phase=18; => if(HudCheck.ENABLED) { phase=19; mc.setScreen(null); HudCheck.start(); return; } if(FenceAirStand.ENABLED) { phase=18;
+re@ClientSmoke.java: \|\| FenceAirStand\.ENABLED\?900_000_000_000L => || FenceAirStand.ENABLED || HudCheck.ENABLED?900_000_000_000L

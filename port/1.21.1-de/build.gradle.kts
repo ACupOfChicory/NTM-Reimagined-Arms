@@ -155,6 +155,8 @@ neoForge {
                 providers.gradleProperty("mobCases").orNull?.let { systemProperty("ntmgunfeel.mobCases", it) }
                 providers.gradleProperty("mobHealth").orNull?.let { systemProperty("ntmgunfeel.mobHealth", it) }
             }
+            // -PcheckHud: the HUD part's stand (HudCheck) instead of the smoke check
+            systemProperty("ntmgunfeel.checkHud", providers.gradleProperty("checkHud").isPresent.toString())
             // -PmachineGlass: windows of real NTM machines are glass (MachineGlassCheck) instead of the smoke check
             systemProperty("ntmgunfeel.machineGlassCheck", providers.gradleProperty("machineGlass").isPresent.toString())
             // -PfenceSeam: holes where two fences, walls, panes or bars meet lie on their pixels (FenceSeamCheck)

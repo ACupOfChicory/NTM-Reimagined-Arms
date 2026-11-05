@@ -6,7 +6,8 @@
   "mixins": ["MixinEntityModelBox", "MixinProjectileModelQuery"],
   "client": ["MixinDeltaTimer", "MixinHandBob", "GameRendererAccess", "MixinSprintStop", "LocalPlayerAccess", "MixinParticleEngine",
     "ModelPartAccess", "MixinModelPartDraws", "MixinBufferTypes", "MixinOutlineBufferTypes", "MixinFoilBufferTypes", "MixinEntityMeshHits", "MixinEntityRenderDepth", "EntityRenderDispatcherAccess", "MixinItemDraws", "MixinLivingModelHits", "MixinModelHitboxDebug",
-    "VanillateEntityAccess", "MixinGpuInstancerModel", "MixinGpuPoseShadow"],
+    "VanillateEntityAccess", "MixinGpuInstancerModel", "MixinGpuPoseShadow",
+    "MixinItemInHandRenderer", "MixinMouseTurn", "KeyMappingAccess", "MixinHandFov"],
   "injectors": {
     "defaultRequire": 1
   }

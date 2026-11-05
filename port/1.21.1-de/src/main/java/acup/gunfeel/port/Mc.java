@@ -173,6 +173,18 @@ public final class Mc {
         return worldFov;
     }
 
+    private static volatile float handFov = 70F;
+
+    // 26.2 Camera.hudFov: the field of view the hand was last drawn with (mixin/mc/MixinHandFov, renderItemInHand's
+    // projection); 70 until a hand is drawn
+    public static float handFov(net.minecraft.client.Camera camera) {
+        return handFov;
+    }
+
+    public static void handProjection(double fov) {
+        if (fov > 1 && fov < 179) handFov = (float) fov;
+    }
+
     public static void levelProjection(org.joml.Matrix4f projection) {
         double y = Math.sqrt((double) projection.m01() * projection.m01() + (double) projection.m11() * projection.m11()
                 + (double) projection.m21() * projection.m21());

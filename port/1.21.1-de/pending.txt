@@ -8,7 +8,3 @@ acup/gunfeel/MobBenchmark.java
 
 [failing]
 # tests that compile but pass only once their part is ported: Gradle's test filter leaves them out (Class.method)
-# Compat over DE: until every part with mixins is ported, its systems are off and its mixins are not listed
-acup.gunfeel.compat.CompatTest.testedNtmTurnsNothingOff
-acup.gunfeel.compat.CompatTest.everyNtmMixinBelongsToASystem
-acup.gunfeel.compat.CompatTest.renamedMethodTurnsOffOnlyItsSystem

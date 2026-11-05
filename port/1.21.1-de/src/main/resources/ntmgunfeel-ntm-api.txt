@@ -214,18 +214,24 @@ CORE class com/hbm/backport/client/gui/GuiGraphicsExtractor
 CORE class com/hbm/backport/client/gui/input/KeyEvent
 CORE class com/hbm/backport/client/gui/render/TextureSetup
 CORE class com/hbm/backport/client/gui/state/GuiElementRenderState
-CORE class com/hbm/backport/client/gui/state/GuiRenderState
 CORE class com/hbm/backport/client/itemmodel/ItemStackRenderState$FoilType
 CORE class com/hbm/backport/client/rendertype/PrimitiveTopology
 CORE class com/hbm/backport/client/rendertype/RenderPipeline
 CORE class com/hbm/blocks/generic/BlockWoodBarrier
 CORE class com/hbm/blocks/generic/BlockWoodStructure
+CORE class com/hbm/client/ClientRegistry
 CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
+CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
+CORE class com/hbm/items/weapon/sedna/Receiver
+CORE class com/hbm/items/weapon/sedna/factory/Lego
+CORE class com/hbm/items/weapon/sedna/mags/IMagazine
+CORE class com/hbm/render/anim/BusAnimation
 CORE class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 CORE field com/hbm/backport/client/core/CameraRenderState pos Lnet/minecraft/world/phys/Vec3;
 CORE field com/hbm/backport/client/core/LevelRenderState cameraRenderState Lcom/hbm/backport/client/core/CameraRenderState;
+CORE field com/hbm/backport/client/gui/GuiGraphicsExtractor guiRenderState Lcom/hbm/backport/client/gui/state/GuiRenderState;
 CORE field com/hbm/backport/client/rendertype/PrimitiveTopology QUADS Lcom/hbm/backport/client/rendertype/PrimitiveTopology;
 CORE field com/hbm/backport/client/rendertype/PrimitiveTopology TRIANGLES Lcom/hbm/backport/client/rendertype/PrimitiveTopology;
 CORE field com/hbm/backport/client/rendertype/RenderPipelines GUI Lcom/hbm/backport/client/rendertype/RenderPipeline;
@@ -233,11 +239,24 @@ CORE field com/hbm/blocks/generic/BlockWoodStructure kind Lcom/hbm/blocks/generi
 CORE field com/hbm/blocks/generic/BlockWoodStructure$Kind ROOF Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
 CORE field com/hbm/blocks/generic/BlockWoodStructure$Kind SCAFFOLD Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
 CORE field com/hbm/blocks/multiblock/BlockMultiblockCore FACING Lnet/minecraft/world/level/block/state/properties/EnumProperty;
+CORE field com/hbm/client/Keybinds RELOAD Lcom/hbm/client/Keybinds$GameplayKey;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+CORE field com/hbm/items/ModItems GUN_MARESLEG_AKIMBO Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems GUN_MARESLEG_BROKEN Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
+CORE field com/hbm/items/weapon/sedna/BulletConfig id I
 CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
+CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory12ga LAMBDA_MARESLEG_ANIMS Ljava/util/function/BiFunction;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory12ga LAMBDA_MARESLEG_SHORT_ANIMS Ljava/util/function/BiFunction;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_ap Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_fmj Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_jhp Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/render/anim/AnimationEnums$GunAnimation CYCLE Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+CORE field com/hbm/render/anim/HbmAnimations hotbar [[Lcom/hbm/render/anim/HbmAnimations$Animation;
 CORE method com/hbm/backport/client/core/CameraRenderState of (Lnet/minecraft/client/Camera;)Lcom/hbm/backport/client/core/CameraRenderState;
 CORE method com/hbm/backport/client/core/LevelRenderState <init> ()V
 CORE method com/hbm/backport/client/core/SubmitNodeCollector immediate (Lnet/minecraft/client/renderer/MultiBufferSource;)Lcom/hbm/backport/client/core/SubmitNodeCollector;
@@ -246,6 +265,7 @@ CORE method com/hbm/backport/client/core/SubmitNodeCollector submitNameTag (Lcom
 CORE method com/hbm/backport/client/core/SubmitNodeCollector submitText (Lcom/mojang/blaze3d/vertex/PoseStack;FFLnet/minecraft/util/FormattedCharSequence;ZLnet/minecraft/client/gui/Font$DisplayMode;IIII)V
 CORE method com/hbm/backport/client/core/SubmitNodeCollector$CustomGeometryRenderer render (Lcom/mojang/blaze3d/vertex/PoseStack$Pose;Lcom/mojang/blaze3d/vertex/VertexConsumer;)V
 CORE method com/hbm/backport/client/gui/GuiGraphicsExtractor fill (IIIII)V
+CORE method com/hbm/backport/client/gui/GuiGraphicsExtractor flush ()V
 CORE method com/hbm/backport/client/gui/GuiGraphicsExtractor guiWidth ()I
 CORE method com/hbm/backport/client/gui/GuiGraphicsExtractor of (Lnet/minecraft/client/gui/GuiGraphics;)Lcom/hbm/backport/client/gui/GuiGraphicsExtractor;
 CORE method com/hbm/backport/client/gui/GuiGraphicsExtractor pose ()Lcom/hbm/backport/client/gui/GuiPoseStack;
@@ -274,6 +294,7 @@ CORE method com/hbm/blocks/multiblock/BlockMultiblockCore withoutTeardown (Ljava
 CORE method com/hbm/blocks/multiblock/MultiblockSurface rigidStructureBlocks (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Ljava/util/List;
 CORE method com/hbm/client/Keybinds isGunHeld ()Z
 CORE method com/hbm/client/Keybinds isGunKey (Lnet/minecraft/client/KeyMapping;)Z
+CORE method com/hbm/client/Keybinds$GameplayKey setDown (Z)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getId ()I
@@ -282,7 +303,29 @@ CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setThrowableHeading (DDDFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 tick ()V
+CORE method com/hbm/inventory/ItemStackContainer getContainerSize ()I
+CORE method com/hbm/inventory/ItemStackContainer getItem (I)Lnet/minecraft/world/item/ItemStack;
+CORE method com/hbm/inventory/ItemStackContainer setChanged ()V
+CORE method com/hbm/inventory/ItemStackContainer setItem (ILnet/minecraft/world/item/ItemStack;)V
+CORE method com/hbm/items/tool/ItemAmmoBag contents (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/inventory/ItemStackContainer;
+CORE method com/hbm/items/weapon/sedna/BulletConfig matchesAmmo (Lnet/minecraft/world/item/ItemStack;)Z
+CORE method com/hbm/items/weapon/sedna/GunConfig getAnims (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiFunction;
+CORE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/world/item/ItemStack;Z)V
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext <init> (Lcom/hbm/items/weapon/sedna/GunConfig;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;I)V
+CORE method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine ammoBag (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/inventory/ItemStackContainer;
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecraft/world/item/ItemStack;)I
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getIconForHUD (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/player/Player;)Lnet/minecraft/world/item/ItemStack;
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;
+CORE method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
+CORE method com/hbm/render/anim/BusAnimation getDuration ()I
+CORE method com/hbm/render/anim/BusAnimation getTimedTransformation (Ljava/lang/String;I)[D
+CORE method com/hbm/render/anim/HbmAnimations getRelevantAnim (I)Lcom/hbm/render/anim/HbmAnimations$Animation;
 CORE method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase get (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/render/item/weapon/sedna/ItemRenderWeaponBase;
 HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT

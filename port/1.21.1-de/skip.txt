@@ -10,6 +10,8 @@ acup/gunfeel/ArmAnimationEditor.java
 # order(-1), and the particles' hand-over is measured on ParticleEngine.render (the port's MixinParticleEngine)
 acup/gunfeel/mixin/mc/MixinSubmitNodeCollection.java
 acup/gunfeel/mixin/mc/MixinParticlesSubmit.java
+# DE's backport GuiGraphicsExtractor keeps guiRenderState public: GuiShapes reads it without the accessor (rewrite.txt)
+acup/gunfeel/mixin/mc/GuiGraphicsAccess.java
 
 # model hitboxes: the head label editor and its self-tests, the mob review and selection tools are editors, not ported
 # (owner, 2026-10-31); F3+B is drawn as port/1.12.2 draws it (the port's ModelHitDebug), without 26.2's GPU mask and
