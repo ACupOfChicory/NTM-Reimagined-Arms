@@ -14,6 +14,8 @@ import acup.gunfeel.ModelCapture;
 import acup.gunfeel.ModelHitClient;
 import acup.gunfeel.ModelWool;
 import net.minecraft.client.model.ModelBase;
+import net.minecraft.client.renderer.entity.RenderBiped;
+import net.minecraft.client.renderer.entity.RenderPlayer;
 import net.minecraft.client.renderer.entity.RenderSheep;
 import net.minecraft.client.renderer.entity.RenderSlime;
 import net.minecraft.client.renderer.entity.RendererLivingEntity;
@@ -24,7 +26,8 @@ import net.minecraft.entity.EntityLivingBase;
 // MixinPreparedModelHit on ModelFeatureRenderer.prepareModel). doRender's start gives the view and the origin, the
 // rotateCorpse call the body's yaw, and the renderModel call brackets the main model's pass, so overlays and the hurt
 // tint drawn after it are not taken. Of the renderPassModel's passes only those that add to the body are (gunfeel$pass:
-// the sheep's wool, the slime's outer body), not armour or eyes. The bracket is at doRender's call site, so a renderer
+// the sheep's wool, the slime's outer body, and the armour RenderBiped and RenderPlayer draw, named as a layer's draw so
+// the worn hitbox does not grow it again), not eyes or the enchantment's glint. The bracket is at doRender's call site, so a renderer
 // that overrides renderModel (RenderDragon) is bracketed too. The parts come from MixinModelRenderer.
 @Mixin(RendererLivingEntity.class)
 public abstract class MixinRendererLivingEntity {
@@ -32,6 +35,8 @@ public abstract class MixinRendererLivingEntity {
     protected ModelBase mainModel;
 
     private static final String DO_RENDER = "doRender(Lnet/minecraft/entity/EntityLivingBase;DDDFF)V";
+    // a worn armour pass's parts: ".../armor/draws/0", as on 1.12.2 (WornGear leaves a layer's draw at its drawn size)
+    private static final String ARMOR_SUFFIX = "/armor/draws/0";
 
     @Inject(method = DO_RENDER, at = @At("HEAD"))
     private void gunfeel$begin(EntityLivingBase entity, double x, double y, double z, float yaw, float partial, CallbackInfo ci) {
@@ -61,13 +66,34 @@ public abstract class MixinRendererLivingEntity {
         return renderer.getClass().getName().equals("lumien.randomthings.Client.Renderer.RenderSpirit");
     }
 
-    // doRender calls renderPassModel.render itself (renderModel draws the main model): the sheep's wool and the
-    // slime's (and RandomThings' spirit's) outer body add to the shape, other passes (armour, eyes) do not
-    @WrapOperation(method = DO_RENDER, at = @At(value = "INVOKE",
+    // doRender calls renderPassModel.render itself (renderModel draws the main model): its pass (ordinal 0), the pass's
+    // overlay (1: leather armour's undyed part) and the glint of an enchantment (2). The sheep's wool and the slime's
+    // (and RandomThings' spirit's) outer body add to the shape, and so does the armour a biped or a player wears (a
+    // RenderBiped's or RenderPlayer's passes are its armour, vanilla's or a mod's model from getArmorModel); eyes do not
+    @WrapOperation(method = DO_RENDER, at = @At(value = "INVOKE", ordinal = 0,
             target = "Lnet/minecraft/client/model/ModelBase;render(Lnet/minecraft/entity/Entity;FFFFFF)V"))
     private void gunfeel$pass(ModelBase model, Entity entity, float a, float b, float c, float d, float e, float f, Operation<Void> original) {
+        gunfeel$draw(model, entity, a, b, c, d, e, f, original, true);
+    }
+
+    @WrapOperation(method = DO_RENDER, at = @At(value = "INVOKE", ordinal = 1,
+            target = "Lnet/minecraft/client/model/ModelBase;render(Lnet/minecraft/entity/Entity;FFFFFF)V"))
+    private void gunfeel$overlay(ModelBase model, Entity entity, float a, float b, float c, float d, float e, float f, Operation<Void> original) {
+        gunfeel$draw(model, entity, a, b, c, d, e, f, original, true);
+    }
+
+    @WrapOperation(method = DO_RENDER, at = @At(value = "INVOKE", ordinal = 2,
+            target = "Lnet/minecraft/client/model/ModelBase;render(Lnet/minecraft/entity/Entity;FFFFFF)V"))
+    private void gunfeel$glint(ModelBase model, Entity entity, float a, float b, float c, float d, float e, float f, Operation<Void> original) {
+        gunfeel$draw(model, entity, a, b, c, d, e, f, original, false);
+    }
+
+    private void gunfeel$draw(ModelBase model, Entity entity, float a, float b, float c, float d, float e, float f, Operation<Void> original,
+            boolean shape) {
         Object self = this;
-        String suffix = self instanceof RenderSheep ? ModelWool.SUFFIX : self instanceof RenderSlime || spirit(self) ? ModelCapture.SHELL_SUFFIX : null;
+        String suffix = !shape ? null : self instanceof RenderSheep ? ModelWool.SUFFIX
+                : self instanceof RenderSlime || spirit(self) ? ModelCapture.SHELL_SUFFIX
+                : self instanceof RenderBiped || self instanceof RenderPlayer ? ARMOR_SUFFIX : null;
         ModelHitClient.pass(model, suffix);
         try {
             original.call(model, entity, a, b, c, d, e, f);

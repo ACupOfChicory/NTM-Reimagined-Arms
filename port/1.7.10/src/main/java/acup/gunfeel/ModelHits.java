@@ -30,7 +30,7 @@ import net.minecraft.world.World;
 
 public final class ModelHits {
     public static final int RANGE = 96, MAX_UPDATES = 16, INTERVAL = 2, MAX_SYNC_AGE = 5;
-    private record PoseAt(UUID entity, Vec3 position, float yaw, float bodyYaw, int pose, float width, float height, long tick, List<ModelBox> boxes) {}
+    private record PoseAt(UUID entity, Vec3 position, float yaw, float bodyYaw, int pose, float width, float height, long tick, List<ModelBox> boxes, List<Object> gear) {}
     private static final Map<World, Map<Integer, PoseAt>> POSES = new WeakHashMap<>();
     private static final Map<EntityPlayerMP, long[]> LIMITS = new WeakHashMap<>();
     private record ViewAt(PoseAt pose,Vec3 rendered,Vec3 velocity,World level) {}
@@ -172,7 +172,7 @@ public final class ModelHits {
     static synchronized void putAt(World level, EntityLivingBase target, float yaw, List<ModelBox> boxes, long tick) {
         Map<Integer, PoseAt> poses = POSES.computeIfAbsent(level, k -> new HashMap<>());
         poses.put(id(target), new PoseAt(uuid(target), position(target), yaw, target.renderYawOffset, pose(target),
-                target.width, target.height, tick, List.copyOf(boxes)));
+                target.width, target.height, tick, List.copyOf(boxes), gear(target)));
     }
 
     // Пропуск рендера не меняет модель сущности. Следим за корнем раз в игровой тик,
@@ -190,7 +190,7 @@ public final class ModelHits {
                 it.remove();
             } else if (!position(target).equals(p.position())) {
                 entry.setValue(new PoseAt(p.entity(), position(target), p.yaw(), p.bodyYaw(), p.pose(),
-                        p.width(), p.height(), p.tick(), p.boxes()));
+                        p.width(), p.height(), p.tick(), p.boxes(), p.gear()));
             }
         }
         for(var observer:VIEWS.entrySet()) {
@@ -202,7 +202,7 @@ public final class ModelHits {
                         || time(level)-v.pose().tick()>MAX_SYNC_AGE)return true;
                 var p=v.pose();
                 entry.setValue(new ViewAt(new PoseAt(p.entity(),position(target),p.yaw(),p.bodyYaw(),p.pose(),
-                        p.width(),p.height(),p.tick(),p.boxes()),v.rendered(),v.velocity(),level));
+                        p.width(),p.height(),p.tick(),p.boxes(),p.gear()),v.rendered(),v.velocity(),level));
                 return false;
             });
         }
@@ -243,7 +243,54 @@ public final class ModelHits {
     private static boolean compatible(Entity target, PoseAt p) {
         return target != null && target.isEntityAlive() && p != null && p.entity().equals(uuid(target))
                 && position(target).distanceToSqr(p.position()) <= 16 && p.pose() == pose(target)
-                && p.width() == target.width && p.height() == target.height;
+                && p.width() == target.width && p.height() == target.height && p.gear().equals(gear(target));
+    }
+
+    // what it wore when the pose was caught: the armor passes are in the boxes, so a pose outlives no change of them.
+    // port: 1.7.10's getEquipmentInSlot 4 is the helmet, down to 1 the boots; a skull's kind is the stack's damage
+    private static List<Object> gear(Entity target) {
+        if(!(target instanceof EntityLivingBase living)) return List.of();
+        var gear=new java.util.ArrayList<Object>(8);
+        for(int slot=4;slot>=1;slot--) {
+            var stack=living.getEquipmentInSlot(slot);
+            gear.add(stack==null?"":stack.getItem());
+            gear.add(stack==null || !stack.getHasSubtypes()?0:stack.getItemDamage()); // wear on armor is damage too, and changes nothing drawn
+        }
+        return gear;
+    }
+
+    // What the target wears, on its hitbox (WornGear): on unless the server turns modelHitboxesWorn off. port: 1.7.10's
+    // RenderBiped and RenderPlayer draw an ItemArmor for its slot as a render pass (MixinRendererLivingEntity takes it),
+    // and on the head a skull 1.0625 times larger or a block (a pumpkin).
+    static WornGear.Worn worn(Entity target) {
+        if(!(target instanceof EntityLivingBase living) || !ReaimTimes.flag("modelHitboxesWorn",true)) return WornGear.Worn.NOTHING;
+        return new WornGear.Worn(wornHead(living),armor(living,1),armor(living,2),armor(living,3));
+    }
+    // armorType: 0 the helmet, 1 the chestplate, 2 the leggings, 3 the boots (ItemArmor's)
+    private static boolean armor(EntityLivingBase living,int armorType) {
+        var stack=living.getEquipmentInSlot(4-armorType);
+        if(stack==null) return false;
+        var item=stack.getItem();
+        if(item instanceof net.minecraft.item.ItemArmor armor) return armor.armorType==armorType; // vanilla's, NTM's suits (ArmorFSB)
+        // another mod's armor that is not an ItemArmor names its slot through Forge's hook; not a block or a skull (Forge
+        // takes a pumpkin and a skull as valid on the head too)
+        return !(item instanceof net.minecraft.item.ItemBlock) && item!=net.minecraft.init.Items.skull
+                && item.isValidArmor(stack,armorType,living);
+    }
+    private static WornGear.Head wornHead(EntityLivingBase living) {
+        var stack=living.getEquipmentInSlot(4);
+        if(stack==null) return WornGear.Head.NONE;
+        if(armor(living,0)) return WornGear.Head.ARMOR;
+        if(stack.getItem()==net.minecraft.init.Items.skull) return WornGear.Head.OLD_SKULL;
+        return stack.getItem() instanceof net.minecraft.item.ItemBlock?WornGear.Head.BLOCK:WornGear.Head.NONE;
+    }
+    private static List<ModelBox> wornBoxes(Entity target,PoseAt p) {
+        return WornGear.boxes(p.boxes(),worn(target));
+    }
+    // zones ModelHeads found on the bare model, grown with what is worn
+    private static List<HeadZone> wornZones(Entity target,PoseAt p,List<HeadZone> zones) {
+        var worn=worn(target);
+        return worn.any()?WornGear.zones(zones,worn,WornGear.humanoid(p.boxes())):zones;
     }
 
     // F3+B получает ровно ту же позу и те же проверки актуальности, что пересечение луча.
@@ -263,7 +310,7 @@ public final class ModelHits {
         var resolved=ModelHeads.resolve(type,pose.boxes(),pose.yaw());
         if(resolved.source().equals("height")) return heightHead(living,point);
         double angle=angle(living,pose);
-        boolean head=HeadZone.contains(resolved.zones(),unturn(point.subtract(impactOrigin(root,point)),angle));
+        boolean head=HeadZone.contains(wornZones(root,pose,resolved.zones()),unturn(point.subtract(impactOrigin(root,point)),angle));
         return new ModelHeads.Hit(true,head,resolved.source(),resolved.reason(),resolved.confidence());
     }
     // port: NTM 1.7.10's own rule (BulletConfig LAMBDA_STANDARD_ENTITY_HIT): head = height - getEyeHeight()
@@ -278,7 +325,7 @@ public final class ModelHits {
         if(!(root instanceof EntityLivingBase living) || !LimbPolicy.eligible(living)) return false;
         var poses=POSES.get(root.worldObj);var pose=pose(root,poses);
         if(!usable(root,pose)) return false;
-        var zones=ModelHeads.limbs(ModelHeads.key(root),pose.boxes(),pose.yaw()).zones();
+        var zones=wornZones(root,pose,ModelHeads.limbs(ModelHeads.key(root),pose.boxes(),pose.yaw()).zones());
         double angle=angle(living,pose);
         return HeadZone.contains(zones,unturn(point.subtract(impactOrigin(root,point)),angle));
     }
@@ -290,7 +337,7 @@ public final class ModelHits {
         double angle=turnAngle(target.worldObj.isRemote,living.renderYawOffset,pose.yaw(),pose.bodyYaw());
         var out=new ArrayList<HeadZone>();
         double cos=Math.cos(-angle),sin=Math.sin(-angle);
-        for(var zone:resolved.zones()) {
+        for(var zone:wornZones(target,pose,resolved.zones())) {
             var box=zone.box();var origin=unturn(new Vec3(box.x(),box.y(),box.z()),cos,sin).add(position(target));
             var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),cos,sin);var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),cos,sin);
             var world=new ModelBox(box.part(),origin.x,origin.y,origin.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z,box.mesh());
@@ -324,7 +371,7 @@ public final class ModelHits {
         double angle = turnAngle(target.worldObj.isRemote, living.renderYawOffset, p.yaw(), p.bodyYaw());
         List<ModelBox> out = new ArrayList<>(p.boxes().size());
         double cos=Math.cos(-angle),sin=Math.sin(-angle);
-        for (ModelBox box : p.boxes()) {
+        for (ModelBox box : wornBoxes(target,p)) {
             if(!target.worldObj.isRemote && !ModelWool.visible(target,box)) continue;
             var origin=unturn(new Vec3(box.x(),box.y(),box.z()),cos,sin).add(position(target));
             var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);
@@ -396,7 +443,7 @@ public final class ModelHits {
                 b = unturn(segmentTo.subtract(rootOrigin.add(motion.scale(last))), angle);
         double nearest = Double.POSITIVE_INFINITY;
         String part = "";
-        for (ModelBox box : p.boxes()) {
+        for (ModelBox box : wornBoxes(root,p)) {
             if(!target.worldObj.isRemote && !ModelWool.visible(root,box)) continue;
             if(dragonPart!=null) {
                 var center=unturn(ModelContours.point(box,.5,.5,.5),-angle).add(position(root));

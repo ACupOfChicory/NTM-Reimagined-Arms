@@ -76,6 +76,8 @@ acup/gunfeel/HeadZone.java
 acup/gunfeel/ZoneTemplates.java
 acup/gunfeel/ModelContours.java
 acup/gunfeel/ContourSurface.java
+# what is worn on the hitbox (modelHitboxesWorn)
+acup/gunfeel/WornGear.java
 
 [test-phys]
 # src/test/java, the same way
@@ -83,3 +85,4 @@ acup/gunfeel/HeadZoneTest.java
 acup/gunfeel/HeadProfilesTest.java
 acup/gunfeel/ContourIntersectionTest.java
 acup/gunfeel/ModelHitTurnTest.java
+acup/gunfeel/WornGearTest.java

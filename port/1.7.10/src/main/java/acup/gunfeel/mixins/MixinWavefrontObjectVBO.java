@@ -11,7 +11,8 @@ import com.hbm.render.loader.HFRWavefrontObjectVBO;
 import acup.gunfeel.Arms;
 
 // Which parts of an NTM model are drawn, and with what GL matrix, while the first-person gun is drawn (Arms, 26.2: submitPart),
-// a big door for its cells (DoorCapture, dev), or a machine or door a bullet hit for its hole (MachineMesh).
+// a big door for its cells (DoorCapture, dev), a machine or door a bullet hit for its hole (MachineMesh), or a model a mob
+// draws or wears (NTM's suits, ModelObjParts) for its model hitboxes.
 @Mixin(value = HFRWavefrontObjectVBO.class, remap = false)
 public abstract class MixinWavefrontObjectVBO {
     @Inject(method = "renderAll", at = @At("HEAD"), cancellable = true)
@@ -19,6 +20,7 @@ public abstract class MixinWavefrontObjectVBO {
         if (Arms.capturing()) Arms.parts(HFRWavefrontObject.allVBOs.get((Object) this), 0);
         if (acup.gunfeel.DoorCapture.active()) acup.gunfeel.DoorCapture.parts(HFRWavefrontObject.allVBOs.get((Object) this), 0);
         if (acup.gunfeel.MachineMesh.active()) acup.gunfeel.MachineMesh.parts(HFRWavefrontObject.allVBOs.get((Object) this), 0);
+        acup.gunfeel.ModelObjParts.hfr(HFRWavefrontObject.allVBOs.get((Object) this), 0);
         if (acup.gunfeel.MachineMesh.skipDraw()) ci.cancel();
     }
 
@@ -27,6 +29,7 @@ public abstract class MixinWavefrontObjectVBO {
         if (Arms.capturing()) Arms.parts(HFRWavefrontObject.allVBOs.get((Object) this), 1, names);
         if (acup.gunfeel.DoorCapture.active()) acup.gunfeel.DoorCapture.parts(HFRWavefrontObject.allVBOs.get((Object) this), 1, names);
         if (acup.gunfeel.MachineMesh.active()) acup.gunfeel.MachineMesh.parts(HFRWavefrontObject.allVBOs.get((Object) this), 1, names);
+        acup.gunfeel.ModelObjParts.hfr(HFRWavefrontObject.allVBOs.get((Object) this), 1, names);
         if (acup.gunfeel.MachineMesh.skipDraw()) ci.cancel();
     }
 
@@ -35,6 +38,7 @@ public abstract class MixinWavefrontObjectVBO {
         if (Arms.capturing()) Arms.parts(HFRWavefrontObject.allVBOs.get((Object) this), 1, name);
         if (acup.gunfeel.DoorCapture.active()) acup.gunfeel.DoorCapture.parts(HFRWavefrontObject.allVBOs.get((Object) this), 1, name);
         if (acup.gunfeel.MachineMesh.active()) acup.gunfeel.MachineMesh.parts(HFRWavefrontObject.allVBOs.get((Object) this), 1, name);
+        acup.gunfeel.ModelObjParts.hfr(HFRWavefrontObject.allVBOs.get((Object) this), 1, name);
         if (acup.gunfeel.MachineMesh.skipDraw()) ci.cancel();
     }
 
@@ -43,6 +47,7 @@ public abstract class MixinWavefrontObjectVBO {
         if (Arms.capturing()) Arms.parts(HFRWavefrontObject.allVBOs.get((Object) this), 2, names);
         if (acup.gunfeel.DoorCapture.active()) acup.gunfeel.DoorCapture.parts(HFRWavefrontObject.allVBOs.get((Object) this), 2, names);
         if (acup.gunfeel.MachineMesh.active()) acup.gunfeel.MachineMesh.parts(HFRWavefrontObject.allVBOs.get((Object) this), 2, names);
+        acup.gunfeel.ModelObjParts.hfr(HFRWavefrontObject.allVBOs.get((Object) this), 2, names);
         if (acup.gunfeel.MachineMesh.skipDraw()) ci.cancel();
     }
 }

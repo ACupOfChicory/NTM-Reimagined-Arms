@@ -113,8 +113,8 @@ public final class ModelHitClient {
     }
 
     // around doRender's calls of renderPassModel.render: the passes that add to the body's shape (26.2: the sheep's wool
-    // layer, the slime's outer body), named with suffix; null: a pass that adds nothing (armour, the spider's and the
-    // enderman's eyes, which are the head again)
+    // layer, the slime's outer body; the armour a biped wears), named with suffix; null: a pass that adds nothing (the
+    // spider's and the enderman's eyes, which are the head again, an enchantment's glint)
     public static void pass(ModelBase passModel, String suffix) {
         if (current == null || passModel == null || suffix == null) { inPass = false; return; }
         current.pass(passModel, suffix);
