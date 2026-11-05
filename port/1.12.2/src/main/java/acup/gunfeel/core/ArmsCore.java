@@ -42,6 +42,9 @@ public final class ArmsCore implements IFMLLoadingPlugin, IEarlyMixinLoader {
     public void injectData(Map<String, Object> data) {
         // the mod's lines to their own file from the first of them (DebugLog); a dev game keeps them in the console
         acup.gunfeel.DebugLog.setup(!Boolean.TRUE.equals(data.get("runtimeDeobfuscationEnabled")));
+        // before any game class: StellarCore's class in Forge's signed package must be let in (SignerFix)
+        Object game = data.get("mcLocation");
+        SignerFix.run(ArmsCore.class.getClassLoader(), game instanceof java.io.File ? (java.io.File) game : new java.io.File("."));
     }
 
     @Override
