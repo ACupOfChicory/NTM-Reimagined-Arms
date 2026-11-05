@@ -19,6 +19,8 @@ import acup.gunfeel.Config;
 import acup.gunfeel.GunFeel;
 import acup.gunfeel.GunFeelClient;
 import acup.gunfeel.ModelRecoil;
+import acup.gunfeel.PistolHold;
+import acup.gunfeel.TestLog;
 import acup.gunfeel.WalkSprint;
 import acup.gunfeel.WeaponSway;
 import net.minecraft.client.Minecraft;
@@ -132,7 +134,9 @@ public abstract class MixinItemRenderWeaponBase {
     @Inject(method = "renderByItem(Lnet/minecraft/item/ItemStack;F)V", remap = true, at = @At(value = "INVOKE", remap = false,
             target = "Lcom/hbm/render/item/weapon/sedna/ItemRenderWeaponBase;setupFirstPerson(Lnet/minecraft/item/ItemStack;)V"))
     private void gunfeel$camera(ItemStack stack, float partialTicks, CallbackInfo ci) {
-        if (GunFeelClient.current == (Object) this) Arms.cameraFrame();
+        if (GunFeelClient.current != (Object) this) return;
+        Arms.cameraFrame();
+        PistolHold.setup();
     }
 
     // Spring kick in the gun's frame, after NTM placed the gun and before it draws the model.
@@ -162,12 +166,29 @@ public abstract class MixinItemRenderWeaponBase {
     // GL turns instead of PoseStack ones). The arms are built around the gun where this puts it.
     @Inject(method = "standardAimingTransform", at = @At("HEAD"), cancellable = true)
     private static void gunfeel$hip(ItemStack stack, double sX, double sY, double sZ, double aX, double aY, double aZ, CallbackInfo ci) {
+        boolean placing = PistolHold.placing();
         if (!Config.enabled || GunFeelClient.current == null || GunFeelClient.currentAkimbo) return;
         float[] tilt = tilt();
-        if (Config.hipX == 1F && Config.hipY == 1F && Config.hipZ == 1F && tilt == null) return;
+        // pistolHold: a pistol's hip place and aiming curve as TaCZ's; hipX/Y/Z are not used for it then
+        // (a pistol not measured yet keeps the old hold until it is measured); only NTM's placing call in
+        // setupFirstPerson, not a later one (the heavy revolver's kick in renderFirstPerson calls it again)
+        Vector3f held = new Vector3f();
+        boolean hold = placing && PistolHold.on() && !PistolHold.scoped(stack);
+        boolean pistol = hold && stack != null && PistolHold.hip(stack.getItem(), aX, aY, aZ, held);
+        if (!hold && Config.hipX == 1F && Config.hipY == 1F && Config.hipZ == 1F && tilt == null) return;
         float p = ItemGunBaseNT.prevAimingProgress + (ItemGunBaseNT.aimingProgress - ItemGunBaseNT.prevAimingProgress) * ItemRenderWeaponBase.interp;
         double hx = sX * Config.hipX, hy = sY * Config.hipY;
         double hz = sZ > 0 ? sZ * Config.hipZ : sZ;
+        if (pistol) {
+            float w = Math.min(1F, Config.pistolHold);
+            hx = sX + (held.x - sX) * w;
+            hy = sY + (held.y - sY) * w;
+            hz = sZ + (held.z - sZ) * w;
+            float raw = p;
+            p = raw + (PistolHold.curve(raw) - raw) * w;
+            if (TestLog.frames()) TestLog.c(-1, "pistolHold", "aiming", raw, "curve", p, "hip", new float[] {held.x, held.y, held.z},
+                    "ntmHip", new float[] {(float) sX, (float) sY, (float) sZ}, "aim", new float[] {(float) aX, (float) aY, (float) aZ});
+        }
         // 26.2: PoseStack.translate(double...) takes them as floats
         GL11.glTranslatef((float) (hx + (aX - hx) * p), (float) (hy + (aY - hy) * p), (float) (hz + (aZ - hz) * p));
         // modelTilt (per gun): turned around the hip-fire position, fading out as the gun is aimed
@@ -177,6 +198,8 @@ public abstract class MixinItemRenderWeaponBase {
             GL11.glRotatef(tilt[0] * w, 1F, 0F, 0F);
             GL11.glRotatef(tilt[2] * w, 0F, 0F, 1F);
         }
+        // the gun's ends are measured in the frame NTM draws it in from here, past the hip shift and the tilt
+        if (hold && stack != null) PistolHold.framed(stack.getItem());
         ci.cancel();
     }
 
@@ -203,7 +226,10 @@ public abstract class MixinItemRenderWeaponBase {
 
     @Inject(method = "setupTransformsAndRender", at = @At("RETURN"))
     private void gunfeel$end(ItemStack stack, CallbackInfo ci) {
-        if (!Arms.measuring && stack != null) WalkSprint.gunPlaced(stack.getItem());
+        if (!Arms.measuring && stack != null) {
+            WalkSprint.gunPlaced(stack.getItem());
+            PistolHold.placed(stack.getItem());
+        }
         gunfeel$endFrame();
     }
 

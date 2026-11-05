@@ -25,8 +25,8 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
-// The gun editor (key O, "NTM Reimagined Arms" in Controls): sliders for the held gun's hands, arms, recoil and
-// position, in effect while you drag, written to config/ntm-gunfeel-guns.properties for this gun only when you let go.
+// The gun editor (key O, "NTM Reimagined Arms" in Controls): sliders for the held gun's recoil and position (the
+// arms are in ArmEditorScreen, "Руки пушки"), in effect while you drag, written to config/ntm-gunfeel-guns.properties for this gun only when you let go.
 // The game goes on behind it (no pause, no blur), so the gun and the arms are seen as they change. A slider's wheel
 // moves it by one step (Shift: a tenth); ↺ takes the gun's value back to the mod's own (or the global one).
 public final class GunEditor extends Screen {
@@ -35,7 +35,7 @@ public final class GunEditor extends Screen {
     static boolean replaying;
 
     private static final int PANEL_W = 214, ROW_H = 18, GAP = 2, RESET_W = 16;
-    private static final String[] TABS = {"Правая", "Левая", "Руки", "Отдача", "Положение"};
+    private static final String[] TABS = {"Отдача", "Положение"};
     private static int tab;
     private static int autoFire;
     private static final int[] AUTO_MS = {0, 1000, 333};
@@ -94,6 +94,7 @@ public final class GunEditor extends Screen {
     @Override
     protected void init() {
         rows.clear();
+        if (tab >= TABS.length) tab = 0;
         int x = 4, y = 4;
         int tw = (PANEL_W - (TABS.length - 1) * GAP) / TABS.length;
         for (int i = 0; i < TABS.length; i++) {
@@ -105,31 +106,17 @@ public final class GunEditor extends Screen {
             b.active = i != tab;
         }
         y += ROW_H + 6;
-        addRenderableWidget(Button.builder(Component.literal("Анимации · движения рук"), p -> {
+        addRenderableWidget(Button.builder(Component.literal("Движения рук (старый)"), p -> {
             autoFire = 0;
             Minecraft.getInstance().gui.setScreen(new ArmAnimationEditor(this, item, gun));
-        }).bounds(x, y, PANEL_W, ROW_H).build());
+        }).bounds(x, y, (PANEL_W - GAP) / 2, ROW_H).build());
+        addRenderableWidget(Button.builder(Component.literal("Руки пушки"), p -> {
+            autoFire = 0;
+            Minecraft.getInstance().gui.setScreen(new ArmEditorScreen(this, item, gun));
+        }).bounds(x + (PANEL_W + GAP) / 2, y, (PANEL_W - GAP) / 2, ROW_H).build());
         y += ROW_H + GAP;
         int half = (PANEL_W - GAP) / 2;
-        if (tab <= 2) {
-            String label = switch (Config.armModel) {
-                case "classic" -> "обычные";
-                case "slim" -> "skinny";
-                default -> "по скину";
-            };
-            addRenderableWidget(Button.builder(Component.literal("Руки: " + label), p -> {
-                String next = switch (Config.armModel) {
-                    case "classic" -> "slim";
-                    case "slim" -> "auto";
-                    default -> "classic";
-                };
-                Grips.put(gun, "armModel", next);
-                Config.select(gun);
-                rebuildWidgets();
-            }).bounds(x, y, PANEL_W, ROW_H).build());
-            y += ROW_H + GAP;
-        }
-        if (tab == 3) {
+        if (tab == 0) {
             Button general = addRenderableWidget(Button.builder(Component.literal("Общее"), p -> {
                 curves = false;
                 rebuildWidgets();
@@ -161,7 +148,7 @@ public final class GunEditor extends Screen {
             addRenderableWidget(Button.builder(Component.literal("↺"), p -> r.reset()).bounds(x + PANEL_W - RESET_W, y, RESET_W, ROW_H).build());
             y += ROW_H + GAP;
         }
-        if (tab == 3 && curves) {
+        if (tab == 0 && curves) {
             presetName = addRenderableWidget(new EditBox(font, x, y, half, ROW_H, Component.literal("имя пресета")));
             presetName.setMaxLength(32);
             presetName.setHint(Component.literal("имя пресета"));
@@ -176,12 +163,6 @@ public final class GunEditor extends Screen {
             p.setMessage(Component.literal("Очередь: " + AUTO_NAME[autoFire]));
         }).bounds(x + half + GAP, y, half, ROW_H).build());
         y += ROW_H + GAP;
-        if (tab <= 1) {
-            boolean right = tab == 0;
-            addRenderableWidget(Button.builder(Component.literal(handAt(right) ? "Точка → доли модели" : "Доли → точка модели"), p -> convertHand(right))
-                    .bounds(x, y, PANEL_W, ROW_H).build());
-            y += ROW_H + GAP;
-        }
         addRenderableWidget(Button.builder(Component.literal("Отменить всё"), p -> {
             Grips.restore(before);
             status = Component.literal("Вернул, как было при открытии");
@@ -197,7 +178,7 @@ public final class GunEditor extends Screen {
         g.text(font, gun + missing, 4, y, 0xFFFFFFFF);
         g.text(font, "● = своё у этой пушки   колесо: шаг, Shift+колесо: мельче", 4, y + 10, 0xFFA0A0A0);
         g.text(font, status, 4, y + 20, 0xFFFFC040);
-        if (tab == 3 && curves) graph(g);
+        if (tab == 0 && curves) graph(g);
     }
 
     // the movements of the chosen one's group (gun or camera) over time, each to its own peak; the chosen one bright
@@ -312,59 +293,10 @@ public final class GunEditor extends Screen {
         return g == null ? "" : g.missing;
     }
 
-    private GunGeometry geo() {
-        return Arms.geometry(item);
-    }
-
-    private boolean handAt(boolean right) {
-        Grips.Grip g = Grips.get(BuiltInRegistries.ITEM.getKey(item), missing());
-        return (right ? g.rightAt() : g.leftAt()) != null;
-    }
-
-    // switch a hand between a point in model units and fractions of the model, keeping where it is now
-    private void convertHand(boolean right) {
-        GunGeometry geo = geo();
-        if (geo == null) {
-            status = Component.literal("Модель пушки ещё не измерена: посмотри на неё секунду");
-            return;
-        }
-        Grips.Grip g = Grips.get(BuiltInRegistries.ITEM.getKey(item), missing());
-        float[] at = right ? g.rightAt() : g.leftAt();
-        if (at != null) {
-            float[] f = geo.fractions(at);
-            Grips.set(gun + missing(), right, f[0], f[1], f[2]);
-            status = Component.literal("Рука в долях модели: идёт за обвесами");
-        } else {
-            float[] p = geo.grip(right ? g.right() : g.left());
-            Grips.setAt(gun + missing(), right, p[0], p[1], p[2]);
-            status = Component.literal("Рука в точке модели: не сдвигается от обвесов");
-        }
-        rebuildWidgets();
-    }
-
     private List<Row> rowsFor(int t) {
         List<Row> out = new ArrayList<>();
         switch (t) {
-            case 0, 1 -> {
-                boolean right = t == 0;
-                String side = right ? "Right" : "Left";
-                for (int c = 0; c < 3; c++) out.add(new HandRow(right, c));
-                String[] dir = {"плечо ← →", "плечо ↓ ↑", "плечо назад/вперёд"};
-                for (int c = 0; c < 3; c++) out.add(new ConfigRow("armDir" + side, c, dir[c], -1.5F, 1.5F, 0.01F));
-                out.add(new ConfigRow("armRoll" + side, -1, "поворот руки", -180F, 180F, 1F));
-                out.add(new ConfigRow("armScale" + side, -1, "толщина", 0.3F, 2.5F, 0.01F));
-                out.add(new ConfigRow("armBase" + side, -1, "толщина основа", 0F, 5F, 0.01F));
-            }
-            case 2 -> {
-                out.add(new ConfigRow("armScale", -1, "толщина обеих", 0.2F, 2F, 0.01F));
-                out.add(new ConfigRow("armLength", -1, "длина руки", 0F, 2F, 0.01F));
-                out.add(new ConfigRow("armMaxScale", -1, "предел толщины", 0.5F, 8F, 0.05F));
-                out.add(new ConfigRow("armFollow", -1, "руки за пушкой", 0F, 1F, 0.01F));
-                out.add(new ConfigRow("armFollowSupport", -1, "левая при стрельбе", 0F, 1F, 0.01F));
-                out.add(new ConfigRow("armStretch", -1, "растяжение", 0F, 1F, 0.01F));
-                out.add(new ConfigRow("armSlideTo", -1, "скольжение до", 0F, 1F, 0.01F));
-            }
-            case 3 -> {
+            case 0 -> {
                 if (curves) {
                     for (int i = 0; i < PARAM_NAME.length; i++) out.add(new SpringRow(CHANNELS[channel], i));
                     break;
@@ -391,6 +323,7 @@ public final class GunEditor extends Screen {
                 out.add(new ConfigRow("smokeWidth", -1, "ширина дыма", 0F, 4F, 0.05F));
                 out.add(new ConfigRow("walkSway", -1, "качание при ходьбе", 0F, 2F, 0.05F));
                 out.add(new ConfigRow("sprintPose", -1, "пушка вбок при беге", 0F, 1.5F, 0.05F));
+                out.add(new ConfigRow("pistolHold", -1, "пистолет как TaCZ", 0F, 1F, 0.05F));
             }
         }
         return out;
@@ -600,74 +533,6 @@ public final class GunEditor extends Screen {
             Grips.put(gun, key, null, true);
             Config.select(gun);
         }
-    }
-
-    // where one hand holds the gun: fractions of the model, or a point in model units when the gun has one
-    private final class HandRow extends Row {
-        final boolean right;
-        final int c;
-
-        HandRow(boolean right, int c) {
-            super(GunEditor.this.lo(right, c), GunEditor.this.hi(right, c), GunEditor.this.stepOf(right));
-            this.right = right;
-            this.c = c;
-        }
-
-        @Override
-        String name() {
-            String[] n = {"рука ← →", "рука ↓ ↑", "рука вдоль"};
-            return n[c] + (handAt(right) ? " (точка)" : "");
-        }
-
-        @Override
-        boolean own() {
-            String h = right ? "right" : "left", m = missing();
-            return Grips.own(gun + m, h) != null || Grips.own(gun + m, h + "At") != null;
-        }
-
-        private float[] now() {
-            Grips.Grip g = Grips.get(BuiltInRegistries.ITEM.getKey(item), missing());
-            float[] at = right ? g.rightAt() : g.leftAt();
-            return (at != null ? at : right ? g.right() : g.left()).clone();
-        }
-
-        @Override
-        float get() {
-            return now()[c];
-        }
-
-        @Override
-        void set(float v, boolean save) {
-            float[] p = now();
-            p[c] = v;
-            if (handAt(right)) Grips.setAt(gun + missing(), right, p[0], p[1], p[2], save);
-            else Grips.set(gun + missing(), right, p[0], p[1], p[2], save);
-        }
-
-        @Override
-        void reset() {
-            Grips.resetHand(gun + missing(), right, true);
-        }
-    }
-
-    // ranges of a hand slider: fractions go a bit past the model; a point goes 30% of the gun's length past its box
-    private float lo(boolean right, int c) {
-        GunGeometry g = geo();
-        if (!handAt(right) || g == null) return c == 2 ? -0.2F : -0.5F;
-        float pad = g.length() * 0.3F;
-        return (c == 0 ? g.minX : c == 1 ? g.minY : g.minZ) - pad;
-    }
-
-    private float hi(boolean right, int c) {
-        GunGeometry g = geo();
-        if (!handAt(right) || g == null) return c == 2 ? 1.2F : 1.5F;
-        float pad = g.length() * 0.3F;
-        return (c == 0 ? g.maxX : c == 1 ? g.maxY : g.maxZ) + pad;
-    }
-
-    private float stepOf(boolean right) {
-        GunGeometry g = geo();
-        return handAt(right) && g != null ? Math.max(1e-3F, g.length() / 400F) : 0.005F;
     }
 
     private static Object value(String key) {

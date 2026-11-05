@@ -98,7 +98,9 @@ ARMS field com/hbm/render/loader/Vertex z F
 ARMS method com/hbm/capability/HbmCapability getData (Lnet/minecraft/entity/Entity;)Lcom/hbm/capability/HbmCapability$IHBMData;
 ARMS method com/hbm/capability/HbmCapability$IHBMData getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
 ARMS method com/hbm/items/weapon/sedna/GunConfig getAnims (Lnet/minecraft/item/ItemStack;)Ljava/util/function/BiFunction;
+ARMS method com/hbm/items/weapon/sedna/GunConfig getScopeTexture (Lnet/minecraft/item/ItemStack;)Lnet/minecraft/util/ResourceLocation;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getAnimTimer (Lnet/minecraft/item/ItemStack;I)I
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/item/ItemStack;)Z
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getLastAnim (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/render/anim/sedna/AnimationEnums$GunAnimation;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT setAnimTimer (Lnet/minecraft/item/ItemStack;II)V

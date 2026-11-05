@@ -27,6 +27,12 @@ public final class NtmMeshHits {
         public int hashCode() { return 31*(31*System.identityHashCode(model)+System.identityHashCode(state))+pose.hashCode(); }
     }
     private static final java.util.Map<ModelKey,Frame> MODELS=new java.util.HashMap<>();
+    // Models a layer draws over the mob's own: the armor (port/continuum: MixinEquipmentLayerModel). Their parts take a
+    // layer's name, ".../armor/draws/0", so WornGear leaves them at their drawn size.
+    public static final String ARMOR_SUFFIX="/armor/draws/0";
+    private static final java.util.Set<Object> LAYER_MODELS=java.util.Collections.synchronizedSet(
+            java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>()));
+    public static void layerModel(Object model) { LAYER_MODELS.add(model); }
     private static final java.util.Map<Object,ModelSurfaceGeometry> BLOCKS=new java.util.WeakHashMap<>();
     private record Prepared(LivingEntity entity, float yaw, List<ModelBox> boxes,Vec3 origin) {}
     private static final java.util.Map<UUID, Prepared> PREPARED = new java.util.concurrent.ConcurrentHashMap<>();
@@ -88,7 +94,7 @@ public final class NtmMeshHits {
             boolean wool=texture!=null && texture.getPath().contains("/sheep_wool");
             boolean shell=model instanceof net.minecraft.client.model.monster.slime.SlimeModel && model.root().hasChild("cube")
                     && ModelPoseCapture.ACCESS.cubes(model.root().getChild("cube")).stream().anyMatch(c -> Math.abs(c.maxX-c.minX-8)<1e-5);
-            String suffix=wool?ModelWool.SUFFIX:shell?ModelBodyGeometry.SHELL_SUFFIX:"";
+            String suffix=wool?ModelWool.SUFFIX:shell?ModelBodyGeometry.SHELL_SUFFIX:LAYER_MODELS.contains(model)?ARMOR_SUFFIX:"";
             for(var box:result.boxes()) frame.boxes().add(!suffix.isEmpty()?new ModelBox(box.part()+suffix,
                     box.x(),box.y(),box.z(),box.ux(),box.uy(),box.uz(),box.vx(),box.vy(),box.vz(),box.wx(),box.wy(),box.wz(),box.mesh()):box);
         } else {

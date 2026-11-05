@@ -9,31 +9,12 @@ final class ArmPoseEdits {
     private static final Map<String,Map<String,TreeMap<Float,float[]>>> CACHE=new LinkedHashMap<>();
     private ArmPoseEdits() {}
     static Map<String,TreeMap<Float,float[]>> read(String source) {
-        var result=new LinkedHashMap<String,TreeMap<Float,float[]>>();
-        for(var segment:source.split(";")) {
-            var words=segment.trim().split("\\s+"); if(words.length<2) continue;
-            var values=new TreeMap<Float,float[]>();
-            for(int i=1;i<words.length;i++) {
-                int colon=words[i].indexOf(':'); float time=Float.parseFloat(words[i].substring(0,colon));
-                var numbers=words[i].substring(colon+1).split(","); if(numbers.length!=6) throw new IllegalArgumentException();
-                var pose=new float[6]; for(int j=0;j<6;j++){pose[j]=Float.parseFloat(numbers[j]);if(!Float.isFinite(pose[j]))throw new IllegalArgumentException();}
-                if(!Float.isFinite(time))throw new IllegalArgumentException(); values.put(time,pose);
-            }
-            result.put(words[0],values);
-        }
-        return result;
+        return ArmRig.adjustments(source);
     }
     static String write(Map<String,TreeMap<Float,float[]>> tracks) {
-        var segments=new ArrayList<String>();
-        for(var track:tracks.entrySet()) {
-            var line=new StringBuilder(track.getKey());
-            for(var entry:track.getValue().entrySet()) {
-                line.append(' ').append(entry.getKey()).append(':');
-                for(int i=0;i<6;i++){if(i>0)line.append(',');line.append(entry.getValue()[i]);}
-            }
-            if(!track.getValue().isEmpty())segments.add(line.toString());
-        }
-        return String.join("; ",segments);
+        var doc=ArmRig.adjustmentTracks("");
+        for(var track:tracks.entrySet())ArmRig.putAdjustments(doc,track.getKey(),track.getValue());
+        return doc.write();
     }
     static float[] sample(TreeMap<Float,float[]> track,float time) {
         if(track==null || track.isEmpty())return new float[6];

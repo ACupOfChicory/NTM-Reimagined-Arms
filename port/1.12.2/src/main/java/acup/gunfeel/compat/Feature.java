@@ -26,7 +26,7 @@ public enum Feature {
             list("AmmoLock", "AmmoLockKey", "AmmoLogic", "AmmoNet", "RadialMenu", "AmmoStats", "AmmoSelectPayload", "AmmoLockPayload")),
     RECOIL("recoil", list("MixinModEventHandlerClient"), list("CameraRecoil", "ModelRecoil", "RecoilPresets", "ReaimTimes")),
     ARMS("arms", list("MixinItemRenderWeaponBase", "MixinHbmAnimations", "MixinWavefrontObject", "MixinVaoModel", "MixinGroupHandle", "MixinG3Inspect",
-            "MixinHbmAnimationPacket"), list("Arms", "ArmAnims", "Grips", "GunGeometry", "WeaponSway", "WalkSprint")),
+            "MixinHbmAnimationPacket"), list("Arms", "ArmAnims", "Grips", "GunGeometry", "WeaponSway", "WalkSprint", "PistolHold")),
     HUD("hud", list("MixinGunHud"), list("Hud", "HudEvents", "HudFormat", "Silhouette", "GunGeometry")),
     INSTANT_SWITCH("instant_switch", list("MixinHbmAnimationPacket"), list("InstantSwitch", "SwitchPrediction")),
     CLICK_AIM("click_aim", list("MixinClickAim"), list("ClickAim")),
