@@ -1,0 +1,74 @@
+package acup.gunfeel;
+
+import static org.junit.jupiter.api.Assertions.*;
+import java.lang.reflect.Field;
+import java.util.List;
+import java.util.Map;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.SkeletonModel;
+import org.junit.jupiter.api.Test;
+
+// Port copy (notes/ports/de-1.21.1.md, «Копии»): 1.21.1's SkeletonModel animates from the mob itself, which a unit
+// test has not; the skeleton's walk is TestSkeleton's, 1.21.1 HumanoidModel's swing of the legs and arms.
+class ModelPoseCaptureTest {
+    // В JUnit нет Mixin; читаем те же поля настоящего ModelPart обычной рефлексией только в тесте.
+    static final ModelPoseCapture.Parts PARTS = new ModelPoseCapture.Parts() {
+        @SuppressWarnings("unchecked")
+        private <T> T field(ModelPart p, String name) {
+            try { Field f = ModelPart.class.getDeclaredField(name); f.setAccessible(true); return (T) f.get(p); }
+            catch (ReflectiveOperationException e) { throw new AssertionError(e); }
+        }
+        public List<ModelPart.Cube> cubes(ModelPart p) { return field(p, "cubes"); }
+        public Map<String, ModelPart> children(ModelPart p) { return field(p, "children"); }
+    };
+
+    @Test void realSkeletonHasLegsAndAnEmptyGap() {
+        var model = new TestSkeleton();
+        var state = new TestSkeleton.State();
+        model.setupAnim(state);
+        var stack = new PoseStack();
+        stack.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180));
+        stack.scale(-1, -1, 1);
+        stack.translate(0, -1.501F, 0);
+        var result = ModelPoseCapture.collect(model.root(), stack, 0, 0, 0, PARTS);
+        assertTrue(result.complete());
+        assertTrue(result.boxes().size() >= 6);
+        assertTrue(result.boxes().stream().allMatch(b -> b.valid(3.98)), result.boxes().toString());
+        assertTrue(result.boxes().stream().noneMatch(b -> b.clip(0, .3, -2, 0, .3, 2) >= 0));
+        assertTrue(result.boxes().stream().anyMatch(b -> b.clip(.125, .3, -2, .125, .3, 2) >= 0));
+        model.root().getChild("right_leg").visible = false;
+        var hidden = ModelPoseCapture.collect(model.root(), stack, 0, 0, 0, PARTS);
+        assertTrue(hidden.boxes().stream().noneMatch(b -> b.part().endsWith("right_leg")));
+    }
+
+    @Test void walkingAnimationChangesTheActualLegBox() {
+        var model = new TestSkeleton();
+        var state = new TestSkeleton.State();
+        var stack = new PoseStack();
+        model.setupAnim(state);
+        var standing = ModelPoseCapture.collect(model.root(), stack, 0, 0, 0, PARTS).boxes().stream()
+                .filter(b -> b.part().endsWith("right_leg")).findFirst().orElseThrow();
+        state.walkAnimationSpeed = 1;
+        state.walkAnimationPos = 1;
+        model.setupAnim(state);
+        var walking = ModelPoseCapture.collect(model.root(), stack, 0, 0, 0, PARTS).boxes().stream()
+                .filter(b -> b.part().endsWith("right_leg")).findFirst().orElseThrow();
+        assertNotEquals(standing, walking);
+        assertTrue(walking.valid(4));
+    }
+
+    @Test void deeplyNestedForeignPartsKeepGeometryAndBoundedStableNames() {
+        var head=SkeletonModel.createBodyLayer().bakeRoot().getChild("head");
+        ModelPart root=head;
+        for(int i=0;i<80;i++) root=new ModelPart(List.of(),Map.of("long_foreign_bone_name_"+i,root));
+        var result=ModelPoseCapture.collect(root,new PoseStack(),0,0,0,PARTS);
+        assertTrue(result.complete(),"глубокое дерево частей не должно терять всю модель");
+        assertFalse(result.boxes().isEmpty());
+        assertTrue(result.boxes().stream().allMatch(box -> box.part().length()<=ModelBox.MAX_PART_NAME));
+        var repeated=ModelPoseCapture.collect(root,new PoseStack(),0,0,0,PARTS);
+        assertEquals(result.boxes(),repeated.boxes());
+        assertNotEquals(ModelPoseCapture.label("long_path/".repeat(10)+"branch_a/head"),
+                ModelPoseCapture.label("long_path/".repeat(10)+"branch_b/head"));
+    }
+}

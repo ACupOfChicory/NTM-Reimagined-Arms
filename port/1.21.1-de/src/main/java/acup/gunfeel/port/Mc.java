@@ -60,6 +60,27 @@ public final class Mc {
         return texture.getPixels();
     }
 
+    // 26.2 !NativeImage.isClosed(): 1.21.1 frees an image by zeroing its pixels pointer, read here
+    private static final java.lang.reflect.Field IMAGE_PIXELS;
+    static {
+        java.lang.reflect.Field f = null;
+        try {
+            f = NativeImage.class.getDeclaredField("pixels");
+            f.setAccessible(true);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            acup.gunfeel.GunFeel.LOGGER.warn("NativeImage.pixels cannot be read: every image is taken as open", e);
+        }
+        IMAGE_PIXELS = f;
+    }
+
+    public static boolean allocated(NativeImage image) {
+        try {
+            return IMAGE_PIXELS == null || IMAGE_PIXELS.getLong(image) != 0;
+        } catch (IllegalAccessException e) {
+            return true;
+        }
+    }
+
     public static int pixel(NativeImage image, int x, int y) {
         return swapRedBlue(image.getPixelRGBA(x, y));
     }
@@ -113,6 +134,13 @@ public final class Mc {
         var pipeline = com.hbm.backport.client.rendertype.RenderTypeInfo.pipeline(type);
         if (pipeline != null) return pipeline.isCull();
         return VanillaRenderTypes.cull(type);
+    }
+
+    // 26.2 RenderType.hasBlending(): DE's types by their pipeline's blend function, a vanilla type by its transparency
+    public static boolean blending(net.minecraft.client.renderer.RenderType type) {
+        var pipeline = com.hbm.backport.client.rendertype.RenderTypeInfo.pipeline(type);
+        if (pipeline != null) return pipeline.getColorTargetState().blendFunction().isPresent();
+        return VanillaRenderTypes.blending(type);
     }
 
     // 26.2 RenderType.primitiveTopology(): what 1.21.1 calls the type's mode

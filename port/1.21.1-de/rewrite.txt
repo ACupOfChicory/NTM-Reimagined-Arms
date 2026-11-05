@@ -189,3 +189,40 @@ re@GlassStand.java: Set\.of\(\), 0F, 12F, false\)\) => Set.of(), 0F, 12F))
 re@GlassStand.java: ^\s*NeoForge\.EVENT_BUS\.addListener\(StageEvent\.class, GlassStand::submit\); => 
 re@GlassStand.java: private static void submit\(StageEvent event\) => static void submit(StageEvent event)
 re@GlassStand.java: cs\.cullFrustum => event.getFrustum()
+# model hitboxes: 1.21.1 keeps a cube's faces to itself (CubeFaces), has no NativeImage.isClosed (Mc.allocated) and
+# no line width on a vertex; a vanilla RenderType's texture is read as DE reads it (RenderTypeInfo)
+re: (\w+)\.polygons\b => acup.gunfeel.port.CubeFaces.of($1)
+re@ModelTextureMask.java: image!=null && !image\.isClosed\(\) => image!=null && acup.gunfeel.port.Mc.allocated(image)
+re@ModelTextureMask.java: (public static (?:Identifier|ResourceLocation) texture\(net\.minecraft\.client\.renderer\.RenderType type\) \{) => $1 if(true) return com.hbm.backport.client.rendertype.RenderTypeInfo.texture(type);
+re@SubmittedModelGeometry.java: ^\s*@Override public VertexConsumer setLineWidth\(float width\).*$ => 
+re@MobStageContext.java: headType\.create\(level,EntitySpawnReason\.COMMAND\) => headType.create(level)
+re@MobStageContext.java: ^import net\.minecraft\.world\.entity\.EntitySpawnReason;$ => 
+# model hitboxes: DE's own renderers are read by two mixins of the port's own (MixinBackportModelHits, MixinBackportGeometryHits)
+re@Feature.java: "MixinGpuEntityGeometry", "MixinHeadDamage"\) => "MixinGpuEntityGeometry", "MixinHeadDamage", "MixinBackportModelHits", "MixinBackportGeometryHits")
+# GpuModelHits: Flywheel 1.0.7 keeps an instance's pose on the CPU (TransformedInstance.pose), where 26.2's CrankShaft
+# writes it straight to GPU memory (slabPtr + OFF_POSE): it is read from there, every frame (no shadow copy and no
+# revision to cache a part's boxes by: a 1.0.7 visual may change the matrix in place). 1.0.7 has no
+# ORDER_INDEPENDENT_ADDITIVE and TRANSLUCENT_ALPHA_REPLACE.
+re@GpuModelHits.java: private static final int POSE_OFFSET=poseOffset\(\); => private static final int POSE_OFFSET=0;
+re@GpuModelHits.java: var shadow=\(GpuPoseAccess\)instance; => 
+re@GpuModelHits.java: org\.joml\.Matrix4fc matrix=MobBenchMetrics\.LEGACY\?null:shadow\.gunfeel\$pose\(\); => org.joml.Matrix4fc matrix=instance.pose;
+re@GpuModelHits.java: long pointer=handle\.slabPtr\(\); if\(pointer==0\) continue; => long pointer=0L; if(pointer==0) continue;
+# Flywheel 1.0.7's InstanceHandleImpl.isVisible() is state instanceof AbstractInstancer: true on the instancing backend,
+# but on the indirect one a shown instance's state is its IndirectInstancer$InstancePage, and every instance reads as
+# hidden. Hidden and Deleted are the states of a hidden or removed one
+re@GpuModelHits.java: if\(!instance\.handle\(\)\.isVisible\(\) \|\| !\(instance\.handle\(\) instanceof InstanceHandleImpl<\?> handle\)\) continue; => if(!(instance.handle() instanceof InstanceHandleImpl<?> handle) || handle.state instanceof InstanceHandleImpl.Hidden<?> || handle.state instanceof InstanceHandleImpl.Deleted<?>) continue;
+re@GpuModelHits.java: if\(!MobBenchMetrics\.LEGACY\) shadow\.gunfeel\$seed\(matrix\); => 
+re@GpuModelHits.java: var actual=new Matrix4f\(\)\.set\(MemoryUtil\.memFloatBuffer\(handle\.slabPtr\(\)\+POSE_OFFSET,16\)\); => var actual=new Matrix4f(instance.pose);
+re@GpuModelHits.java: long revision=shadow\.gunfeel\$revision\(\); => long revision=0;
+re@GpuModelHits.java: var cached=MobBenchMetrics\.LEGACY\?null:PARTS\.get\(instance\); => PartPose cached=null;
+re@GpuModelHits.java: \|\| blend==dev\.engine_room\.flywheel\.api\.material\.Transparency\.ORDER_INDEPENDENT_ADDITIVE => 
+re@GpuModelHits.java: \|\| material\.transparency\(\)==dev\.engine_room\.flywheel\.api\.material\.Transparency\.TRANSLUCENT_ALPHA_REPLACE; => ;
+# the model hitboxes' tests: 1.21.1 keeps the vanilla models in net.minecraft.client.model, the adult chicken and fox
+# as ChickenModel and FoxModel
+net.minecraft.client.model.animal.chicken.AdultChickenModel -> net.minecraft.client.model.ChickenModel
+net.minecraft.client.model.ambient.BatModel -> net.minecraft.client.model.BatModel
+net.minecraft.client.model.npc.VillagerModel -> net.minecraft.client.model.VillagerModel
+net.minecraft.client.model.animal.golem.IronGolemModel -> net.minecraft.client.model.IronGolemModel
+net.minecraft.client.model.animal.goat.GoatModel -> net.minecraft.client.model.GoatModel
+re: /assets/minecraft/textures/entity/chicken/chicken_temperate\.png => /assets/minecraft/textures/entity/chicken.png
+re: /assets/minecraft/textures/entity/bat/bat\.png => /assets/minecraft/textures/entity/bat.png

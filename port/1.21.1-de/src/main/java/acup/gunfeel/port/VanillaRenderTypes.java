@@ -11,11 +11,13 @@ final class VanillaRenderTypes {
     private static final Method STATE;
     private static final Field CULL;
     private static final Field ENABLED;
+    private static final Field TRANSPARENCY;
 
     static {
         Method state = null;
         Field cull = null;
         Field enabled = null;
+        Field transparency = null;
         try {
             state = Class.forName("net.minecraft.client.renderer.RenderType$CompositeRenderType").getDeclaredMethod("state");
             state.setAccessible(true);
@@ -23,12 +25,15 @@ final class VanillaRenderTypes {
             cull.setAccessible(true);
             enabled = RenderStateShard.BooleanStateShard.class.getDeclaredField("enabled");
             enabled.setAccessible(true);
+            transparency = RenderType.CompositeState.class.getDeclaredField("transparencyState");
+            transparency.setAccessible(true);
         } catch (ReflectiveOperationException | RuntimeException e) {
             acup.gunfeel.GunFeel.LOGGER.warn("The state of 1.21.1 RenderTypes cannot be read: every type is taken as culled", e);
         }
         STATE = state;
         CULL = cull;
         ENABLED = enabled;
+        TRANSPARENCY = transparency;
     }
 
     private VanillaRenderTypes() {
@@ -41,6 +46,17 @@ final class VanillaRenderTypes {
             return ENABLED.getBoolean(CULL.get(STATE.invoke(type)));
         } catch (ReflectiveOperationException | RuntimeException e) {
             return true;
+        }
+    }
+
+    // whether the type blends what it draws with what is behind (its transparency is not NO_TRANSPARENCY; false when it
+    // cannot be read)
+    static boolean blending(RenderType type) {
+        if (STATE == null || TRANSPARENCY == null || !STATE.getDeclaringClass().isInstance(type)) return false;
+        try {
+            return TRANSPARENCY.get(STATE.invoke(type)) != RenderStateShard.NO_TRANSPARENCY;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return false;
         }
     }
 }

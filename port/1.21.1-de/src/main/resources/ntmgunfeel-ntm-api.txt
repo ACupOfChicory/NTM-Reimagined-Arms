@@ -206,7 +206,6 @@ CLICK_AIM method com/hbm/extprop/HbmPlayerProps getData (Lnet/minecraft/world/en
 CLICK_AIM method com/hbm/extprop/HbmPlayerProps getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
 CORE class com/hbm/backport/client/core/BlockEntityRenderer
 CORE class com/hbm/backport/client/core/CameraRenderState
-CORE class com/hbm/backport/client/core/EntityRenderState
 CORE class com/hbm/backport/client/core/LevelRenderState
 CORE class com/hbm/backport/client/core/OrderedSubmitNodeCollector
 CORE class com/hbm/backport/client/core/SubmitNodeCollector
@@ -227,6 +226,8 @@ CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 CORE field com/hbm/backport/client/core/CameraRenderState pos Lnet/minecraft/world/phys/Vec3;
 CORE field com/hbm/backport/client/core/LevelRenderState cameraRenderState Lcom/hbm/backport/client/core/CameraRenderState;
+CORE field com/hbm/backport/client/rendertype/PrimitiveTopology QUADS Lcom/hbm/backport/client/rendertype/PrimitiveTopology;
+CORE field com/hbm/backport/client/rendertype/PrimitiveTopology TRIANGLES Lcom/hbm/backport/client/rendertype/PrimitiveTopology;
 CORE field com/hbm/backport/client/rendertype/RenderPipelines GUI Lcom/hbm/backport/client/rendertype/RenderPipeline;
 CORE field com/hbm/blocks/generic/BlockWoodStructure kind Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
 CORE field com/hbm/blocks/generic/BlockWoodStructure$Kind ROOF Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
@@ -257,11 +258,14 @@ CORE method com/hbm/backport/client/gui/input/KeyEvent modifiers ()I
 CORE method com/hbm/backport/client/gui/input/KeyEvent scancode ()I
 CORE method com/hbm/backport/client/gui/render/TextureSetup noTexture ()Lcom/hbm/backport/client/gui/render/TextureSetup;
 CORE method com/hbm/backport/client/gui/state/GuiRenderState addGuiElement (Lcom/hbm/backport/client/gui/state/GuiElementRenderState;)V
+CORE method com/hbm/backport/client/rendertype/ColorTargetState blendFunction ()Ljava/util/Optional;
 CORE method com/hbm/backport/client/rendertype/PrimitiveTopology of (Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;)Lcom/hbm/backport/client/rendertype/PrimitiveTopology;
+CORE method com/hbm/backport/client/rendertype/RenderPipeline getColorTargetState ()Lcom/hbm/backport/client/rendertype/ColorTargetState;
 CORE method com/hbm/backport/client/rendertype/RenderPipeline getPrimitiveTopology ()Lcom/hbm/backport/client/rendertype/PrimitiveTopology;
 CORE method com/hbm/backport/client/rendertype/RenderPipeline isCull ()Z
 CORE method com/hbm/backport/client/rendertype/RenderTypeFactory create (Ljava/lang/String;Lcom/mojang/blaze3d/vertex/VertexFormat;Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;IZZLnet/minecraft/client/renderer/RenderType$CompositeState;)Lnet/minecraft/client/renderer/RenderType;
 CORE method com/hbm/backport/client/rendertype/RenderTypeInfo pipeline (Lnet/minecraft/client/renderer/RenderType;)Lcom/hbm/backport/client/rendertype/RenderPipeline;
+CORE method com/hbm/backport/client/rendertype/RenderTypeInfo texture (Lnet/minecraft/client/renderer/RenderType;)Lnet/minecraft/resources/ResourceLocation;
 CORE method com/hbm/backport/client/rendertype/RenderTypes debugQuads ()Lnet/minecraft/client/renderer/RenderType;
 CORE method com/hbm/blocks/generic/BlockWoodBarrier panel (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind ordinal ()I
@@ -422,12 +426,32 @@ MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDI)Lcom/hbm/r
 MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDILcom/hbm/render/anim/BusAnimationKeyframe$IType;)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence hold (I)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence setPos (DDD)Lcom/hbm/render/anim/BusAnimationSequence;
+MODEL_HITBOXES class com/hbm/backport/client/core/LivingEntityRenderState
+MODEL_HITBOXES class com/hbm/backport/client/core/LivingEntityRenderer
+MODEL_HITBOXES class com/hbm/backport/client/core/Model
+MODEL_HITBOXES class com/hbm/backport/client/core/ModelFeatureRenderer$CrumblingOverlay
+MODEL_HITBOXES class com/hbm/backport/client/core/SubmitNodeCollector
+MODEL_HITBOXES class com/hbm/backport/client/core/SubmitNodeCollector$CustomGeometryRenderer
+MODEL_HITBOXES class com/hbm/backport/client/rendertype/PrimitiveTopology
 MODEL_HITBOXES class com/hbm/entity/mob/EntityQuackos
+MODEL_HITBOXES class com/hbm/entity/mob/glyphid/EntityGlyphid
 MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBaseMK4
 MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBeamBase
 MODEL_HITBOXES class com/hbm/items/tool/ItemPeas
+MODEL_HITBOXES class com/hbm/render/loader/GroupObject
 MODEL_HITBOXES class com/hbm/render/loader/HFRWavefrontObject
+MODEL_HITBOXES field com/hbm/backport/client/core/LivingEntityRenderState bodyRot F
+MODEL_HITBOXES field com/hbm/entity/mob/glyphid/EntityGlyphid yBodyRot F
+MODEL_HITBOXES field com/hbm/entity/mob/glyphid/EntityGlyphid yBodyRotO F
 MODEL_HITBOXES field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+MODEL_HITBOXES field com/hbm/render/loader/GroupObject name Ljava/lang/String;
+MODEL_HITBOXES field com/hbm/render/loader/HFRWavefrontObject groups [Lcom/hbm/render/loader/GroupObject;
+MODEL_HITBOXES method com/hbm/backport/client/core/LivingEntityRenderer getTextureLocation (Lcom/hbm/backport/client/core/LivingEntityRenderState;)Lnet/minecraft/resources/ResourceLocation;
+MODEL_HITBOXES method com/hbm/backport/client/core/SubmitNodeCollector$CustomGeometryRenderer render (Lcom/mojang/blaze3d/vertex/PoseStack$Pose;Lcom/mojang/blaze3d/vertex/VertexConsumer;)V
+MODEL_HITBOXES method com/hbm/entity/mob/glyphid/EntityGlyphid armor ()B
+MODEL_HITBOXES method com/hbm/render/loader/GroupObject bounds ()[F
+MODEL_HITBOXES method com/hbm/render/loader/GroupObject quads (Z)[F
+MODEL_HITBOXES method com/hbm/render/loader/HFRWavefrontObject partId (Ljava/lang/String;)I
 MODEL_HITBOXES method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z
 RECOIL class com/hbm/items/weapon/sedna/ItemGunBaseNT
 RECOIL class com/hbm/render/anim/AnimationEnums$GunAnimation

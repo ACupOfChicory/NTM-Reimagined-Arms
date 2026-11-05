@@ -145,6 +145,16 @@ neoForge {
             systemProperty("ntmgunfeel.shapesResume", providers.gradleProperty("shapesResume").isPresent.toString())
             systemProperty("ntmgunfeel.shapesFallback", providers.gradleProperty("shapesFallback").isPresent.toString())
             if (providers.gradleProperty("shapesFallback").isPresent) systemProperty("ntmgunfeel.shapesSkip", "hbm:machine_chemical_factory")
+            // -PcheckMobs: the root's checkMobs in the smoke world (MobSmoke, without its review), with -PmobCases=a,b
+            // and -PmobHealth as there; -PcheckHeads, -PcheckLimbs, -PcheckExplosives and -PcheckHeadBindings run the
+            // root's damage checks on each mob (HeadSmoke, ExplosiveSmoke)
+            if (providers.gradleProperty("checkMobs").isPresent) {
+                systemProperty("ntmgunfeel.checkMobs", "true")
+                for (check in listOf("checkHeads", "checkLimbs", "checkExplosives", "checkHeadBindings"))
+                    systemProperty("ntmgunfeel.$check", providers.gradleProperty(check).isPresent.toString())
+                providers.gradleProperty("mobCases").orNull?.let { systemProperty("ntmgunfeel.mobCases", it) }
+                providers.gradleProperty("mobHealth").orNull?.let { systemProperty("ntmgunfeel.mobHealth", it) }
+            }
             // -PmachineGlass: windows of real NTM machines are glass (MachineGlassCheck) instead of the smoke check
             systemProperty("ntmgunfeel.machineGlassCheck", providers.gradleProperty("machineGlass").isPresent.toString())
             // -PfenceSeam: holes where two fences, walls, panes or bars meet lie on their pixels (FenceSeamCheck)
@@ -217,7 +227,7 @@ tasks.matching { it.name == "runMakeWorld" || it.name == "runCheckBullets" }.con
     }
 }
 tasks.matching { it.name == "runCheckClient" }.configureEach {
-    val scenario = listOf("scenario", "shapesStand", "fenceSeam", "holeBench").any { providers.gradleProperty(it).isPresent }
+    val scenario = listOf("scenario", "shapesStand", "fenceSeam", "holeBench", "checkMobs").any { providers.gradleProperty(it).isPresent }
     timeout.set(Duration.ofMinutes(if (scenario) 120 else 8))
     val result = layout.buildDirectory.file("clientcheck/result.txt")
     doFirst {
@@ -411,6 +421,8 @@ val mixinCheck = tasks.register<JavaExec>("mixinCheck") {
             listOf("mixins", "client", "server").flatMap { (o[it] as List<*>?).orEmpty().map { m -> m.toString() } }
         }.toSet()
         val text = out.toString()
+        // MIXINCHECK_ALL=1: the findings of the mixins not listed yet too (for the part being ported)
+        if (System.getenv("MIXINCHECK_ALL") != null) text.lines().filter { Regex("""^(ERROR|WARN) """).containsMatchIn(it) }.forEach(::println)
         val failing = mutableListOf<String>()
         var pending = 0
         for (line in text.lines()) {

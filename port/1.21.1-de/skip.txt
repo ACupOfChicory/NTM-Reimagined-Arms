@@ -11,6 +11,40 @@ acup/gunfeel/ArmAnimationEditor.java
 acup/gunfeel/mixin/mc/MixinSubmitNodeCollection.java
 acup/gunfeel/mixin/mc/MixinParticlesSubmit.java
 
+# model hitboxes: the head label editor and its self-tests, the mob review and selection tools are editors, not ported
+# (owner, 2026-10-31); F3+B is drawn as port/1.12.2 draws it (the port's ModelHitDebug), without 26.2's GPU mask and
+# lines and the head zones' cut planes (HeadDebug, HeadLabelCuts); HeadSmoke is the port's copy, without its photo
+# of the zones on that mask
+acup/gunfeel/HeadLabel*.java
+acup/gunfeel/HeadDebug.java
+acup/gunfeel/MobReview*.java
+acup/gunfeel/SelectionSelfTest.java
+acup/gunfeel/ModelDebugLines.java
+acup/gunfeel/ModelDebugMask.java
+acup/gunfeel/mixin/mc/MixinLegacyHitboxGizmos.java
+# 26.2's render states and submits, which 1.21.1's vanilla renderers have not: NtmMeshHits takes a model's parts as
+# they are drawn (the port's MixinModelPartDraws), the dragon's among them, so nothing marks the main model on a state
+acup/gunfeel/ModelHitState.java
+acup/gunfeel/mixin/mc/MixinModelHitState.java
+acup/gunfeel/mixin/mc/MixinEntityModelHitState.java
+acup/gunfeel/mixin/mc/MixinPreparedModelHit.java
+acup/gunfeel/mixin/mc/MixinDragonModelHit.java
+# Vanillate (Vanillin's vanilla mobs on Flywheel) is not in DE: vanilla mobs and players are drawn by their renderers
+acup/gunfeel/mixin/mc/MixinVanillateModelHit.java
+acup/gunfeel/mixin/mc/MixinSkinLayerVisualizer.java
+# Alex's Caves' 26.2 port (its Citadel shaders): not a 1.21.1 mod
+acup/gunfeel/mixin/mc/MixinAlexRenderSetup.java
+acup/gunfeel/mixin/mc/MixinAlexPostEffects.java
+
 [test]
+# the head label editor's and the mob review's (skip.txt [main]); SelectionContoursTest checks HeadLabelCuts
+acup/gunfeel/HeadLabel*Test.java
+acup/gunfeel/MobReview*Test.java
+acup/gunfeel/SelectionContoursTest.java
+# a body layer added to a pose taken without it (ModelBodyGeometry: the Flywheel and Vanillate snapshots): DE takes
+# the layers as they are drawn (the port's ModelBodyGeometry)
+acup/gunfeel/SheepWoolGeometryTest.java
+acup/gunfeel/SlimeShellGeometryTest.java
+acup/gunfeel/FlatMobGeometryTest.java
 
 [resources]
