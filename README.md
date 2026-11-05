@@ -112,6 +112,13 @@ distributed under GPL-3.0. Source revision, changes and the license text are
 included in [third-party/superb-warfare.txt](third-party/superb-warfare.txt)
 and packaged under `META-INF/licenses/`.
 
+The jumping sway, the run / walk / idle choice and their smoothing filter in
+`src/main/java/acup/gunfeel/tacz/` are copied from TaCZ (Timeless and Classics
+Zero) by MCModderAnchor and contributors under GPL-3.0. Those files remain
+GPL-3.0-only, like the Superb Warfare code above. Source revision, changes and
+the license text are in [third-party/tacz.txt](third-party/tacz.txt) and
+packaged under `META-INF/licenses/`. No TaCZ assets are included.
+
 The 1.7.10 port also bundles stub classes from JvmDowngrader
 (LGPL-2.1-or-later) and a shaded copy of JOML (MIT). Their notices are in
 `port/1.7.10/third-party/` on that branch and packaged in its jar.

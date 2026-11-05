@@ -11,13 +11,19 @@ import net.minecraft.world.item.Item;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import acup.gunfeel.tacz.JumpingSway;
+import acup.gunfeel.tacz.MoveState;
+
 /**
  * The gun bobbing in step with walking (walkSway) and lowered to the side while sprinting (sprintPose), after TaCZ's
  * walk and run animations. Applied in view space before NTM places the gun, so the arms go with it; NTM's own walking
  * bob is left out for a gun that has walkSway on (MixinItemRenderWeaponBase).
  *
- * <p>The phase is vanilla's walk distance, the same that bobs the camera: one cycle is two steps, the gun dips at each
- * step together with the camera. Weights ramp in and out over time and are eased, so nothing jumps.
+ * <p>Run, walk or idle is TaCZ's choice, by the sprint and the movement keys, once a tick (tacz.MoveState), not by the
+ * speed. The phase is vanilla's walk distance, the same that bobs the camera, but only the part walked on the ground:
+ * in the air (flying, gliding, falling) it stands still, and so does the gun. One cycle is two steps, the gun dips at
+ * each step together with the camera. A jump and a landing move the gun by TaCZ's jumping sway (tacz.JumpingSway,
+ * with walkSway). Weights ramp in and out over time and are eased, so nothing jumps.
  */
 public final class WalkSprint {
     /**
@@ -45,6 +51,10 @@ public final class WalkSprint {
 
     private static long last;
     private static float walk, sprint, calm;
+    // TaCZ's state of the player, from the last client tick
+    private static MoveState state = MoveState.IDLE;
+    // the walk distance walked on the ground (the phase), and vanilla's walk distance at the last frame
+    private static float groundDist, lastDist = Float.NaN;
     private static boolean shot;
     // view-space pivot of the turns, from the last frame: the middle of the gun between its two ends (NTM holds a gun
     // with the hand below the screen's edge; TaCZ's root, the grip, is on the screen, and so is the gun's middle)
@@ -76,6 +86,12 @@ public final class WalkSprint {
         if (!bobOff()) return false;
         var mc = net.minecraft.client.Minecraft.getInstance();
         return mc.player != null && mc.player.getMainHandItem().getItem() instanceof ItemGunBaseNT;
+    }
+
+    /** Once a client tick: TaCZ's run / walk / idle for the player (its TickAnimationEvent does it with a gun held). */
+    public static void tick() {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        state = player == null ? MoveState.IDLE : MoveState.of(player);
     }
 
     /** A new shot of the held gun (GunFeel.checkShot). */
@@ -117,6 +133,16 @@ public final class WalkSprint {
         return new Pose(pitch, 45.5F + swing, 30.9F + lean, 1.05F - 0.73F * s1 + 1.9F * c1 - 0.36F * s2, -5.3F - 0.3F * c1 - 1.34F * s2, -0.64F);
     }
 
+    /**
+     * The walk distance on the ground after a frame: vanilla's walk distance went from last to now, and only on the
+     * ground it counts (in the air the phase, and the gun, stand still). A jump of 2 or more in one frame (a new world,
+     * a respawn) is not a step.
+     */
+    static float groundStep(float acc, boolean ground, float last, float now) {
+        if (!ground || !Float.isFinite(last) || !Float.isFinite(now) || Math.abs(now - last) >= 2F) return acc;
+        return acc + now - last;
+    }
+
     static float ease(float w) {
         return w * w * (3F - 2F * w);
     }
@@ -134,8 +160,14 @@ public final class WalkSprint {
         float aiming = Mth.lerp(partial, ItemGunBaseNT.prevAimingProgress, ItemGunBaseNT.aimingProgress);
         boolean busy = HbmAnimations.getRelevantAnim(0) != null;
         boolean ground = player.onGround();
-        boolean moving = player.input != null && player.input.getMoveVector().lengthSquared() > 1e-4F;
-        boolean running = player.isSprinting() && !player.isMovingSlowly();
+        boolean moving = state == MoveState.WALK;
+        boolean running = state == MoveState.RUN;
+        // the phase goes on only with the steps on the ground
+        float dist = player.avatarState().getBackwardsInterpolatedWalkDistance(partial);
+        groundDist = groundStep(groundDist, ground, lastDist, dist);
+        lastDist = dist;
+        // called every frame, as TaCZ does: its timing counts from the last call
+        float jump = JumpingSway.applyJumpingSway(partial);
         // a fire key held brings the gun up at once, as a shot does (a sprint may go on: NTM fires while sprinting)
         boolean firing = firing(player);
         if (shot) {
@@ -156,11 +188,12 @@ public final class WalkSprint {
         // the gun is measured every frame, moving or not (gunPlaced)
         appliedItem = item;
         haveApplied = true;
-        if (walk <= 0F && sprint <= 0F) {
+        float js = Config.walkSway > 0F && measuredItem == item && Float.isFinite(jump) ? jump * Config.walkSway : 0F;
+        if (walk <= 0F && sprint <= 0F && js == 0F) {
             APPLIED.set(pose.last().pose());
             return;
         }
-        float d = player.avatarState().getBackwardsInterpolatedWalkDistance(partial);
+        float d = groundDist;
         float u = d / 2F - Mth.floor(d / 2F);
         float ws = ease(walk) * Config.walkSway * (1F - ease(sprint)), ss = ease(sprint) * Config.sprintPose;
         boolean pistol = pistol(Config.kickPreset);
@@ -170,8 +203,9 @@ public final class WalkSprint {
         if (TestLog.frames()) TestLog.c(-1, "walkSprint", "walk", walk, "sprint", sprint, "u", u, "aiming", aiming,
                 "busy", busy, "calm", calm, "firing", firing, "sprinting", running, "pistol", pistol, "scale", scale, "walkTurn", new Vector3f(w.pitch(), w.yaw(), w.roll()),
                 "walkPos", new Vector3f(w.x(), w.y(), w.z()), "sprintTurn", new Vector3f(s.pitch(), s.yaw(), s.roll()),
-                "sprintPos", new Vector3f(s.x(), s.y(), s.z()), "pivot", PIVOT, "length", length);
-        pose.translate((w.x() + s.x()) * scale, (w.y() + s.y()) * scale * DROP, (w.z() + s.z()) * scale * DROP);
+                "sprintPos", new Vector3f(s.x(), s.y(), s.z()), "pivot", PIVOT, "length", length, "state", state.name(),
+                "ground", ground, "dist", d, "jump", js);
+        pose.translate((w.x() + s.x()) * scale, ((w.y() + s.y()) * DROP + js) * scale, (w.z() + s.z()) * scale * DROP);
         // both turn around the gun's middle, as TaCZ turns its root bone around the grip
         turn(pose, s, PIVOT.x, PIVOT.y, PIVOT.z);
         turn(pose, w, PIVOT.x, PIVOT.y, PIVOT.z);

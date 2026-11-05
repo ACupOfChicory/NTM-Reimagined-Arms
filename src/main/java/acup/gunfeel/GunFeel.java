@@ -77,6 +77,7 @@ public final class GunFeel {
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Post.class, e -> {
             if (Feature.MACHINE_MESH.on()) MeshShapes.tick();
+            WalkSprint.tick();
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderFrameEvent.Pre.class, e -> {
             if (Feature.MACHINE_MESH.on()) MeshShapes.frame();
