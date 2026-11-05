@@ -1,0 +1,23 @@
+TaCZ (Timeless and Classics Zero) — MCModderAnchor/TACZ и участники проекта
+https://github.com/MCModderAnchor/TACZ
+Версия исходников: 19f14c8
+
+Скопированы из кода TaCZ (Java) в пакет acup.gunfeel.tacz:
+- SecondOrderDynamics.java — util/math/SecondOrderDynamics.java, целиком;
+  потоки фильтра помечены daemon (иначе не дают игре закрыться), поля target,
+  py, pyd — volatile;
+- GunTime.java — util/time/GunTime.java; часы (у TaCZ — из SimpleBedrockModel)
+  заменены своим классом Clock в конце файла;
+- JumpingSway.java — поля и метод applyJumpingSway из
+  client/event/FirstPersonRenderGunEvent.java; метод возвращает сдвиг, а не
+  двигает кость модели TaCZ;
+- MoveState.java — выбор бега, ходьбы и покоя из
+  client/event/TickAnimationEvent.java; состояние возвращается, а не уходит
+  в машину анимаций TaCZ.
+Изменения в каждом файле перечислены в его шапке.
+
+Ассеты TaCZ (анимации, модели, скрипты машин состояний; CC BY-NC-ND 4.0)
+не переносились.
+
+Этот заимствованный код распространяется по GNU GPL версии 3 (GPL-3.0-only).
+Полный текст лицензии: tacz-GPL-3.0.txt в этом каталоге.
