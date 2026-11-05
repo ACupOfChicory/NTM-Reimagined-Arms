@@ -255,7 +255,9 @@ public final class MobSmoke {
                 anchor(target,0,.3,false,"пустота между ногами скелета");
                 anchor(target,.56,1.3,false,"пустота рядом со скелетом внутри AABB+0.3");
             }
-            if(target instanceof net.minecraft.world.entity.animal.sheep.Sheep) {
+            // a case already sheared (#sheared, MobVariants) keeps the fleece off: the head and limb checks after this
+            // run on the sheared model, not on the wool the shearing stage grows back
+            if(target instanceof net.minecraft.world.entity.animal.sheep.Sheep && !MobCatalog.variants(CASES.get(index)).contains("sheared")) {
                 stage=6; since=System.nanoTime(); shearSheep();
             } else if(target.getType()==EntityTypes.SLIME) {
                 stage=8; since=System.nanoTime(); checkSlimeAndResize(2);
@@ -360,11 +362,15 @@ public final class MobSmoke {
                 rays(sheep,server,current()+": с шерстью, сервер");
                 var full=MobRayOracle.surface(sheep,server.anchor(),server.boxes());
                 var bare=MobRayOracle.surface(sheep,server.anchor(),server.boxes().stream().filter(b -> !ModelWool.isWool(b)).toList());
-                woolRay=MobRayOracle.grid(full).stream().filter(ray -> ray.hit() && !MobRayOracle.hit(bare,ray.from(),ray.to()) && clearRay(sheep,ray)).findFirst().orElseThrow();
-                nativeRay(level,sheep,woolRay,true,current()+": точка только на шерсти до стрижки");
+                var woolOnly=MobRayOracle.grid(full).stream().filter(ray -> ray.hit() && !MobRayOracle.hit(bare,ray.from(),ray.to())).toList();
+                woolRay=woolOnly.stream().filter(ray -> clearRay(sheep,ray)).findFirst().orElse(null);
+                // a lamb's fleece is the size of the parts it covers or lies inside them: no point is on the wool alone
+                if(woolRay==null) RESULTS.add(new Result(woolOnly.isEmpty() && MobCatalog.baby(current()),
+                        current()+": шерсть не выступает за модель без неё, точек только на шерсти="+woolOnly.size()));
+                else nativeRay(level,sheep,woolRay,true,current()+": точка только на шерсти до стрижки");
                 sheep.shear(level,net.minecraft.sounds.SoundSource.PLAYERS,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SHEARS));
                 // Та же принятая поза, ни одного нового пакета между проверками.
-                nativeRay(level,sheep,woolRay,false,current()+": та же точка сразу после стрижки, до нового пакета");
+                if(woolRay!=null) nativeRay(level,sheep,woolRay,false,current()+": та же точка сразу после стрижки, до нового пакета");
             } catch(Throwable t) { RESULTS.add(new Result(false,current()+": стрижка: "+t)); }
             pending=false;
         });
@@ -386,7 +392,7 @@ public final class MobSmoke {
                 var level=Minecraft.getInstance().getSingleplayerServer().overworld();
                 var sheep=(net.minecraft.world.entity.animal.sheep.Sheep)level.getEntity(id);
                 rays(sheep,server,current()+": шерсть отросла, сервер");
-                nativeRay(level,sheep,woolRay,true,current()+": та же точка после отрастания шерсти");
+                if(woolRay!=null) nativeRay(level,sheep,woolRay,true,current()+": та же точка после отрастания шерсти");
             } catch(Throwable t) { RESULTS.add(new Result(false,current()+": проверка отрастания: "+t)); }
             pending=false;
         });
