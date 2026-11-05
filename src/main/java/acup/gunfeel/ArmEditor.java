@@ -155,6 +155,8 @@ final class ArmEditor {
     Page page = Page.TIME;
     // what the key page shows: the key, how a path key's hand comes, or the settings of the whole track
     KeyView keyView = KeyView.WHERE;
+    // the lines of settings the screen has room for (the screen sets it), and the first line shown when not all fit
+    int room = Integer.MAX_VALUE, first;
     // the File page: the gun to take arms from and the file to load (as indexes of their lists), the last export
     int from, file;
     private int exports;
@@ -416,13 +418,16 @@ final class ArmEditor {
     List<Action> actions() {
         var out = new ArrayList<Action>();
         for (Page p : Page.values())
-            out.add(new Action("page." + p.name().toLowerCase(Locale.ROOT), p.label, p.hint, "", p == page ? "эта страница уже открыта" : null, () -> page = p));
+            out.add(new Action("page." + p.name().toLowerCase(Locale.ROOT), p.label, p.hint, "", p == page ? "эта страница уже открыта" : null, () -> {
+                page = p;
+                first = 0;
+            }));
         String none = noClip();
         String one = none != null ? none : list.size() < 2 ? "у этого оружия одна анимация" : null;
         out.add(new Action("clip.prev", "← Анимация", "Предыдущая анимация этого оружия.", "PgUp", one, () -> selectClip(clip - 1)));
         out.add(new Action("clip.next", "Анимация →", "Следующая анимация этого оружия.", "PgDn", one, () -> selectClip(clip + 1)));
         out.add(new Action("play", playing ? "Пауза" : "Играть", playing ? "Остановить анимацию на этом кадре." : "Играть анимацию по кругу.",
-                "Пробел", none, () -> playing = !playing));
+                "Space", none, () -> playing = !playing));
         out.add(new Action("speed", "Скорость ×" + String.valueOf(speed).replace('.', ','),
                 "Скорость показа, по кругу: ×0,05, ×0,1, ×0,25, ×0,5, ×1.", "", none, () -> {
                     int i = 0;
@@ -678,6 +683,13 @@ final class ArmEditor {
                     "Убрать свои руки этого оружия и снова брать руки «" + name + "».", "",
                     !own ? "руки и так общие с «" + name + "»" : Grips.ownArmsShipped(base()) ? "свои руки этого оружия заданы в самом моде" : null,
                     () -> change(() -> Grips.shareArms(base()))));
+        }
+        int n = page == Page.TIME ? 0 : rows().size();
+        if (n > room) {
+            int f = firstShown(n), c = shownCount(n);
+            out.add(new Action("rows.up", "▲", "Показать строку выше. Листать можно и колесом мыши.", "", f == 0 ? "выше строк нет" : null, () -> first = f - 1));
+            out.add(new Action("rows.down", "▼", "Показать строку ниже. Листать можно и колесом мыши.", "", f + c >= n ? "ниже строк нет" : null,
+                    () -> first = f + 1));
         }
         out.add(new Action("undo", "Отменить", "Отменить последнюю правку.", "Ctrl+Z", undo.isEmpty() ? "нечего отменять" : null, () -> {
             redo.push(Grips.snapshot());
@@ -1339,7 +1351,10 @@ final class ArmEditor {
     private void viewActions(List<Action> out) {
         var shown = shownView();
         for (var v : KeyView.values())
-            out.add(new Action("key.view." + v.name().toLowerCase(Locale.ROOT), v.label, v.hint, "", v == shown ? "это уже показано" : viewWhy(v), () -> keyView = v));
+            out.add(new Action("key.view." + v.name().toLowerCase(Locale.ROOT), v.label, v.hint, "", v == shown ? "это уже показано" : viewWhy(v), () -> {
+                keyView = v;
+                first = 0;
+            }));
     }
 
     // a text setting of the gun: the gun's own value only when it differs from what the gun has anyway
@@ -1985,6 +2000,35 @@ final class ArmEditor {
 
     // ---- rows and actions of the settings pages
 
+    // how many of n lines of settings are shown: all when they fit, else as many as fit over the line «Строки … из …»
+    private int shownCount(int n) {
+        return n <= room ? n : Math.max(1, room - 1);
+    }
+
+    private int firstShown(int n) {
+        return Math.clamp(first, 0, Math.max(0, n - shownCount(n)));
+    }
+
+    // the lines of settings on screen: those that fit from the first shown, and when not all fit, a line to scroll them
+    List<Row> shownRows() {
+        var all = rows();
+        int n = all.size();
+        if (n <= room) return all;
+        int c = shownCount(n), f = firstShown(n);
+        var out = new ArrayList<>(all.subList(f, f + c));
+        out.add(new Row("Строки " + (f + 1) + "–" + (f + c) + " из " + n,
+                "Все настройки страницы на экран не помещаются. Листай кнопками ▲ ▼ справа или колесом мыши.", null, List.of("rows.up", "rows.down")));
+        return out;
+    }
+
+    // the actions of the lines scrolled away: they have no button now
+    Set<String> hiddenIds() {
+        var out = new HashSet<String>();
+        for (var r : rows()) out.addAll(r.ids());
+        for (var r : shownRows()) out.removeAll(r.ids());
+        return out;
+    }
+
     List<Row> rows() {
         var out = new ArrayList<Row>();
         if (page == Page.TIME) return out;
@@ -2235,12 +2279,12 @@ final class ArmEditor {
 
     // ---------------------------------------------------------------- for the test: everything a press can change
 
-    record State(int clip, int hand, float time, boolean playing, double speed, Track track, Page page, KeyView keyView, boolean closed,
+    record State(int clip, int hand, float time, boolean playing, double speed, Track track, Page page, KeyView keyView, int first, boolean closed,
             int from, int file, int exports, ArmKeys.Copy copied, Map<String, String> data, int undo, int redo) {
     }
 
     State state() {
-        return new State(clip, hand, time, playing, speed, track, page, keyView, closed, from, file, exports, copied, Grips.snapshot(), undo.size(),
+        return new State(clip, hand, time, playing, speed, track, page, keyView, first, closed, from, file, exports, copied, Grips.snapshot(), undo.size(),
                 redo.size());
     }
 
@@ -2254,6 +2298,7 @@ final class ArmEditor {
         track = s.track;
         page = s.page;
         keyView = s.keyView;
+        first = s.first;
         closed = s.closed;
         from = s.from;
         file = s.file;

@@ -23,12 +23,16 @@ import net.minecraft.world.item.ItemStack;
 
 /** Экран «Руки пушки»: показывает {@link ArmEditor}. Каждая кнопка — действие модели с подсказкой. */
 public final class ArmEditorScreen extends Screen {
-    private static final int W = 244, H = 14, GAP = 2, LABEL = 84, ROW = 10, BUS = 4, SET_H = 12, SET_STEP = 13, SMALL = 16;
+    private static final int MIN_W = 248, H = 14, GAP = 2, LABEL = 84, ROW = 10, BUS = 4, SET_H = 12, SET_STEP = 13, SMALL = 16;
     private static final int[] COLOR = {0xFF555566, 0xFFB07CFF, 0xFF4FC3F7, 0xFFFFB74D, 0xFFE57373, 0xFF81C784, 0xFF9E9E9E};
     private final Screen parent;
     private final Item item;
     private final ArmEditor model;
     private final Map<String, int[]> moves = new LinkedHashMap<>();
+    // the panel: a third of the screen, never narrower than MIN_W, where every label is whole; the rest shows the gun
+    private int panelW = MIN_W;
+    // the widest a row of this layout wanted, its labels whole: for the stand
+    private int need;
     private int previewClip = -1;
     private String actionsShown = "";
     private final Map<String, Button> buttons = new LinkedHashMap<>();
@@ -264,6 +268,14 @@ public final class ArmEditorScreen extends Screen {
         return buttons.get(id);
     }
 
+    int panel() {
+        return panelW;
+    }
+
+    int need() {
+        return need;
+    }
+
     List<Text> texts() {
         return texts;
     }
@@ -294,19 +306,31 @@ public final class ArmEditorScreen extends Screen {
 
     private int timelineY, timelineH;
 
-    // a row of buttons across the column: each as wide as its label needs, the rest of the row shared out
-    private void row(Map<String, ArmEditor.Action> a, int y, String... ids) {
+    // a row of buttons across the panel: each as wide as its label needs, the rest of the line shared out; the
+    // buttons that do not fit go on to the next line. The y under the row
+    private int row(Map<String, ArmEditor.Action> a, int y, String... ids) {
         var list = new ArrayList<ArmEditor.Action>();
         for (String id : ids) if (a.containsKey(id)) list.add(a.get(id));
-        int[] w = new int[list.size()];
-        int used = GAP * (list.size() - 1);
-        for (int i = 0; i < w.length; i++) used += w[i] = font.width(list.get(i).label()) + 8;
-        int spare = Math.max(0, W - used), x = 4;
-        for (int i = 0; i < w.length; i++) {
-            int width = w[i] + spare / w.length + (i == w.length - 1 ? spare % w.length : 0);
-            button(list.get(i), x, y, width);
-            x += width + GAP;
+        int from = 0;
+        while (from < list.size()) {
+            int to = from, used = 0;
+            while (to < list.size()) {
+                int w = font.width(list.get(to).label()) + 8;
+                if (to > from && used + GAP + w > panelW) break;
+                used += (to > from ? GAP : 0) + w;
+                to++;
+            }
+            need = Math.max(need, used);
+            int n = to - from, spare = Math.max(0, panelW - used), x = 4;
+            for (int i = from; i < to; i++) {
+                int width = font.width(list.get(i).label()) + 8 + spare / n + (i == to - 1 ? spare % n : 0);
+                button(list.get(i), x, y, width);
+                x += width + GAP;
+            }
+            y += H + GAP;
+            from = to;
         }
+        return y;
     }
 
     @Override
@@ -317,24 +341,22 @@ public final class ArmEditorScreen extends Screen {
         held = null;
         typing = null;
         typed = null;
+        panelW = Math.max(MIN_W, width / 3);
+        need = 0;
         Map<String, ArmEditor.Action> a = new LinkedHashMap<>();
         for (var x : model.actions()) a.put(x.id(), x);
-        actionsShown = signature();
         int y = 14;
-        row(a, y, "page.time", "page.key", "page.grip", "page.arm", "page.both", "page.file");
-        y += H + GAP;
+        y = row(a, y, "page.time", "page.key", "page.grip", "page.arm", "page.both", "page.file");
         if (model.page != ArmEditor.Page.TIME) {
             settingsPage(a, y);
+            actionsShown = signature();
             return;
         }
-        row(a, y, "clip.prev", "clip.next", "hand.right", "hand.left");
-        y += H + GAP;
-        row(a, y, "time.start", "time.back", "play", "time.forward", "time.end", "speed");
-        y += H + GAP;
-        row(a, y, "key.prev", "key.next", "undo", "redo");
-        y += H + GAP;
-        row(a, y, "reset", "arms.own", "arms.shared", "close");
-        y += H + GAP;
+        actionsShown = signature();
+        y = row(a, y, "clip.prev", "clip.next", "hand.right", "hand.left");
+        y = row(a, y, "time.start", "time.back", "play", "time.forward", "time.end", "speed");
+        y = row(a, y, "key.prev", "key.next", "undo", "redo");
+        y = row(a, y, "reset", "arms.own", "arms.shared", "close");
         textY = y + 1;
         // two lines of text, then the time lane: ruler and "what moves the hand", the tracks, the buses
         timelineY = y + 32;
@@ -347,29 +369,28 @@ public final class ArmEditorScreen extends Screen {
             var b = button(a.get("track." + t.name().toLowerCase(Locale.ROOT)), 4, timelineY + 16 + i * ROW, LABEL);
             b.setHeight(ROW - 1);
         }
-        addRenderableWidget(new Lane(4 + LABEL + 2, timelineY, W - LABEL - 2, timelineH));
+        addRenderableWidget(new Lane(4 + LABEL + 2, timelineY, panelW - LABEL - 2, timelineH));
     }
 
     private int textY;
 
     // a settings page: the animation still plays above; then one line per setting, its buttons at the right
     private void settingsPage(Map<String, ArmEditor.Action> a, int y) {
-        row(a, y, "clip.prev", "play", "clip.next", "speed");
-        y += H + GAP;
-        row(a, y, "hand.right", "hand.left", "undo", "redo");
-        y += H + GAP;
-        row(a, y, "reset", "arms.own", "arms.shared", "close");
-        y += H + GAP;
+        y = row(a, y, "clip.prev", "play", "clip.next", "speed");
+        y = row(a, y, "hand.right", "hand.left", "undo", "redo");
+        y = row(a, y, "reset", "arms.own", "arms.shared", "close");
         if (model.page == ArmEditor.Page.KEY) {
-            row(a, y, "key.prev", "key.next", "key.add", "key.delete");
-            y += H + GAP;
-            row(a, y, "key.view.where", "key.view.approach", "key.view.track", "key.view.hold");
-            y += H + GAP;
+            y = row(a, y, "key.prev", "key.next", "key.add", "key.delete");
+            y = row(a, y, "key.view.where", "key.view.approach", "key.view.track", "key.view.hold");
         }
         textY = y + 1;
         y += 12;
-        for (var r : model.rows()) {
-            int right = 4 + W;
+        // as many lines as fit above the screen's bottom; the rest is scrolled to, with buttons the model now has
+        model.room = Math.max(2, (height - 2 - SET_H - y) / SET_STEP + 1);
+        a.clear();
+        for (var x : model.actions()) a.put(x.id(), x);
+        for (var r : model.shownRows()) {
+            int right = 4 + panelW;
             for (int i = r.ids().size() - 1; i >= 0; i--) {
                 var act = a.get(r.ids().get(i));
                 if (act == null) continue;
@@ -378,6 +399,8 @@ public final class ArmEditorScreen extends Screen {
                 button(act, right, y, w).setHeight(SET_H);
                 right -= GAP;
             }
+            int label = r.slider() != null ? font.width(r.slider().text()) + 4 : font.width(r.text());
+            need = Math.max(need, panelW - (right - 4) + label);
             if (r.slider() != null) addRenderableWidget(new Slider(r.slider(), 4, y, right - 4, SET_H, r.hint()));
             else texts.add(new Text(r.text(), r.hint(), 4, y + 2, right - 4));
             y += SET_STEP;
@@ -420,20 +443,15 @@ public final class ArmEditorScreen extends Screen {
 
     @Override
     public void extractBackground(GuiGraphicsExtractor g, int x, int y, float a) {
-        g.fill(0, 0, W + 8, height, 0x90101018);
+        g.fill(0, 0, panelW + 8, height, 0x90101018);
     }
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float a) {
         if (model.playing) model.time = ArmAnimationPreview.millis();
         super.extractRenderState(g, mx, my, a);
-        var clip = model.clip();
-        String title = "Руки пушки · " + (clip == null ? "нет анимаций" : clip.label() + " · " + ArmEditor.seconds(clip.ms()));
-        String shared = model.sharedWith();
-        if (shared != null) title += Grips.ownArms(baseGun()) ? " · свои руки" : " · руки общие с «" + model.clips.gunName(shared) + "»";
-        g.text(font, title, 4, 4, 0xFFFFCC55);
-        var d = model.driver(model.time);
-        g.text(font, "Сейчас (" + Math.round(model.time) + " мс): " + d.label, 4, textY, COLOR[d.ordinal()] | 0xFF000000);
+        g.text(font, title(), 4, 4, 0xFFFFCC55);
+        g.text(font, now(), 4, textY, COLOR[model.driver(model.time).ordinal()] | 0xFF000000);
         if (model.page != ArmEditor.Page.TIME) {
             for (var t : texts) {
                 g.text(font, t.text(), t.x(), t.y(), 0xFFE0E0E0);
@@ -444,7 +462,25 @@ public final class ArmEditorScreen extends Screen {
         }
         String note = model.trackNote(model.track);
         if (note == null) note = "Дорожка «" + model.track.label + "»: ключей " + model.keys(model.track).size() + ".";
-        g.textWithWordWrap(font, Component.literal(note), 4, textY + 10, W, 0xFFAAAAAA);
+        g.textWithWordWrap(font, Component.literal(note), 4, textY + 10, panelW, 0xFFAAAAAA);
+    }
+
+    // the line at the top: the animation, its length, whose arms these are; what does not fit in the panel is left
+    // out, the screen's name first, then the length
+    String title() {
+        var clip = model.clip();
+        String shared = model.sharedWith();
+        String whose = shared == null ? "" : Grips.ownArms(baseGun()) ? " · свои руки" : " · руки общие с «" + model.clips.gunName(shared) + "»";
+        if (clip == null) return "Руки пушки · нет анимаций" + whose;
+        String head = clip.label() + " · " + ArmEditor.seconds(clip.ms());
+        for (String t : new String[] {"Руки пушки · " + head + whose, head + whose, head + whose.replace("руки общие", "общие")})
+            if (font.width(t) <= panelW) return t;
+        return clip.label() + whose.replace("руки общие", "общие");
+    }
+
+    // the line over the settings or the time lane: what moves the hand now
+    String now() {
+        return "Сейчас (" + Math.round(model.time) + " мс): " + model.driver(model.time).label;
     }
 
     private String baseGun() {
@@ -478,7 +514,8 @@ public final class ArmEditorScreen extends Screen {
     // Enter: the typed number goes to the model; a number it does not take keeps the box open and says why
     // the key, part and page a slider is about
     private String where() {
-        return (model.clipList().isEmpty() ? "" : model.clip().id()) + "|" + model.hand + "|" + model.time + "|" + model.track + "|" + model.page + "|" + model.shownView();
+        return (model.clipList().isEmpty() ? "" : model.clip().id()) + "|" + model.hand + "|" + model.time + "|" + model.track + "|" + model.page + "|" + model.shownView()
+                + "|" + model.first;
     }
 
     String finishTyping() {
@@ -500,6 +537,20 @@ public final class ArmEditorScreen extends Screen {
 
     void stopTyping() {
         rebuildWidgets();
+    }
+
+    // the wheel over the panel scrolls the lines of settings, when not all fit
+    @Override
+    public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+        if (mx < panelW + 8 && sy != 0 && typing == null) {
+            String id = sy > 0 ? "rows.up" : "rows.down";
+            var b = buttons.get(id);
+            if (b != null && b.active) {
+                press(id);
+                return true;
+            }
+        }
+        return super.mouseScrolled(mx, my, sx, sy);
     }
 
     @Override

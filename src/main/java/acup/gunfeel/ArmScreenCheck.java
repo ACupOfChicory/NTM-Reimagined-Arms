@@ -223,35 +223,101 @@ final class ArmScreenCheck {
         ClientSmoke.check(m.state().data().equals(before.data()), gun + ": «Отменить» вернула значение ползунка");
     }
 
-    // every action of the model has its button, as active as the action; all widgets on screen, none overlapping
-    private static void layout(String gun) {
-        var s = Minecraft.getInstance().gui.screen();
+    // the screens of a player's game: 1280×720 and 1920×1080, at every GUI scale the game offers there
+    private static final int[][] SCREENS = {{1280, 720}, {1920, 1080}};
+    // the widest a layout wanted, its labels whole, and where
+    private static int widest, scrolls;
+    private static String widestWhere = "";
+
+    // the largest GUI scale the game's «Авто» picks for this window
+    static int maxScale(int w, int h) {
+        int i = 1;
+        while (i < w && i < h && w / (i + 1) >= 320 && h / (i + 1) >= 240) i++;
+        return i;
+    }
+
+    // what is wrong with the layout now on screen: labels cut, widgets off the screen or on each other; "" = nothing
+    private static String problems(ArmEditorScreen s) {
         var widgets = new ArrayList<AbstractWidget>();
         for (var w : s.children()) if (w instanceof AbstractWidget a) widgets.add(a);
-        boolean fits = true, apart = true;
-        String bad = "";
-        for (var a : widgets) {
-            if (a.getX() < 0 || a.getY() < 0 || a.getX() + a.getWidth() > s.width || a.getY() + a.getHeight() > s.height) {
-                fits = false;
-                bad = a.getMessage().getString();
-            }
-            for (var b : widgets)
-                if (a != b && a.getX() < b.getX() + b.getWidth() && b.getX() < a.getX() + a.getWidth()
-                        && a.getY() < b.getY() + b.getHeight() && b.getY() < a.getY() + a.getHeight()) {
-                    apart = false;
-                    bad = a.getMessage().getString() + " / " + b.getMessage().getString();
-                }
-        }
         var font = Minecraft.getInstance().font;
-        String cramped = "";
-        for (var a : widgets)
-            if (a instanceof AbstractWidget btn && font.width(btn.getMessage()) > btn.getWidth() - 4) cramped += " «" + btn.getMessage().getString() + "»";
-        for (var t : screen.texts()) if (font.width(t.text()) > t.w()) cramped += " «" + t.text() + "»";
-        ClientSmoke.check(cramped.isEmpty(), gun + ": подписи помещаются в кнопки" + cramped);
-        ClientSmoke.check(fits, gun + ": все элементы на экране " + s.width + "×" + s.height + (fits ? "" : ", вылез: " + bad));
-        ClientSmoke.check(apart, gun + ": элементы не налезают друг на друга" + (apart ? "" : ": " + bad));
+        String out = "";
+        for (int i = 0; i < widgets.size(); i++) {
+            var a = widgets.get(i);
+            if (font.width(a.getMessage()) > a.getWidth() - 4) out += " обрезана «" + a.getMessage().getString() + "»;";
+            if (a.getX() < 0 || a.getY() < 0 || a.getX() + a.getWidth() > s.width || a.getY() + a.getHeight() > s.height)
+                out += " вылез «" + a.getMessage().getString() + "»;";
+            if (a.getX() + a.getWidth() > 4 + s.panel()) out += " за панелью «" + a.getMessage().getString() + "»;";
+            for (var b : widgets.subList(i + 1, widgets.size()))
+                if (a.getX() < b.getX() + b.getWidth() && b.getX() < a.getX() + a.getWidth()
+                        && a.getY() < b.getY() + b.getHeight() && b.getY() < a.getY() + a.getHeight())
+                    out += " налезают «" + a.getMessage().getString() + "» / «" + b.getMessage().getString() + "»;";
+        }
+        for (var t : s.texts()) if (font.width(t.text()) > t.w()) out += " обрезана «" + t.text() + "»;";
+        for (String line : List.of(s.title(), s.now())) if (font.width(line) > s.panel()) out += " за панелью «" + line + "»;";
+        // the gun is drawn in the right half: the panel leaves at least 40 % of the width to it
+        if ((s.panel() + 8) * 10 > s.width * 6) out += " панель " + (s.panel() + 8) + " из " + s.width + " закрывает оружие;";
+        return out;
+    }
+
+    // the lines of settings that do not fit, scrolled through with ▼ and back with ▲: the layout whole at each place,
+    // each line reached; "" = all well (or nothing to scroll)
+    private static String scrolled(ArmEditorScreen s) {
+        var m = s.model();
+        if (s.button("rows.down") == null) return "";
+        int first = m.first, n = m.rows().size(), presses = 0;
+        String out = "";
+        var last = m.rows().get(n - 1);
+        boolean reached = false;
+        for (int guard = 0; guard < 200; guard++) {
+            var shown = m.shownRows();
+            if (shown.get(shown.size() - 2).equals(last)) reached = true;
+            var down = s.button("rows.down");
+            if (down == null || !down.active) break;
+            down.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+            presses++;
+            String p = problems(s);
+            if (!p.isEmpty() && !out.contains(p)) out += " после ▼ ×" + presses + ":" + p;
+        }
+        if (!reached) out += " листанием не дойти до последней строки «" + (last.slider() != null ? last.slider().label() : last.text()) + "»;";
+        for (int guard = 0; guard < 200; guard++) {
+            var up = s.button("rows.up");
+            if (up == null || !up.active) break;
+            up.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+        }
+        if (!m.shownRows().get(0).equals(m.rows().get(0))) out += " ▲ не вернула к первой строке;";
+        scrolls += presses;
+        m.first = first;
+        s.refresh();
+        return out;
+    }
+
+    // every action of the model has its button, as active as the action; all widgets on screen, none overlapping,
+    // no label cut: here and on the player's screens
+    private static void layout(String gun) {
+        var s = screen;
+        ClientSmoke.check(Minecraft.getInstance().gui.screen() == s, gun + ": открыт экран рук");
+        String here = problems(s);
+        ClientSmoke.check(here.isEmpty(), gun + ": раскладка на " + s.width + "×" + s.height + " цела" + here);
+        int w0 = s.width, h0 = s.height;
+        String other = "";
+        for (int[] r : SCREENS)
+            for (int k = 1; k <= maxScale(r[0], r[1]); k++) {
+                int gw = (r[0] + k - 1) / k, gh = (r[1] + k - 1) / k;
+                s.init(gw, gh);
+                String p = problems(s) + scrolled(s);
+                if (!p.isEmpty()) other += " " + r[0] + "×" + r[1] + " масштаб " + k + " (" + gw + "×" + gh + "):" + p;
+                if (s.need() > widest) {
+                    widest = s.need();
+                    widestWhere = gun;
+                }
+            }
+        s.init(w0, h0);
+        ClientSmoke.check(other.isEmpty(), gun + ": раскладка цела на 1280×720 и 1920×1080 при любом масштабе" + other);
         int missing = 0;
+        var hidden = screen.model().hiddenIds();
         for (var a : screen.model().actions()) {
+            if (hidden.contains(a.id())) continue;
             var b = screen.button(a.id());
             if (b == null || b.active != a.active()) {
                 missing++;
@@ -400,6 +466,8 @@ final class ArmScreenCheck {
         WRONG.forEach((k, n) -> ClientSmoke.check(false, k + " ×" + n));
         ClientSmoke.check(WRONG.isEmpty(), "«Сейчас руку ведёт» совпало с игрой везде");
         ClientSmoke.check(pressedAll > 0, "кнопок нажато всего: " + pressedAll);
+        ClientSmoke.check(widest > 0, "самой широкой раскладке нужно " + widest + " (" + widestWhere + ")");
+        ClientSmoke.check(scrolls > 0, "строки настроек пролистаны на узких экранах: нажато ▼ " + scrolls);
         ClientSmoke.finish();
     }
 }
