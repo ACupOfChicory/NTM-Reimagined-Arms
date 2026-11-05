@@ -71,14 +71,15 @@ class WornGearTest {
     }
 
     @Test
-    void aSkeletonWearsThePlayersArmorAndItsRibsAreSolidUnderIt() {
+    void aSkeletonsThinLimbsGrowByTheSideAndItsRibsAreSolidUnderIt() {
         var ribs = part("root/body", -4, 12, -2, 8, 12, 4, 1).withMesh(ModelMeshTest.tetrahedron().id());
         var skeleton = List.of(part("root/head", -4, 24, -4, 8, 8, 8, 1), ribs, part("root/right_arm", -6, 12, -1, 2, 12, 2, 1),
                 part("root/left_arm", 4, 12, -1, 2, 12, 2, 1), part("root/right_leg", -3, 0, -1, 2, 12, 2, 1),
                 part("root/left_leg", 1, 0, -1, 2, 12, 2, 1));
         var grown = WornGear.boxes(skeleton, new WornGear.Worn(WornGear.Head.NONE, true, false, true));
-        assertBox(find(grown, "root/right_arm"), 1, -8, 11, -3, 6, 14, 6);
-        assertBox(find(grown, "root/left_leg"), 1, -1, -1, -3, 6, 14, 6);
+        // the drawn armor is caught as its layer's own geometry; the thin limb under it only gets its side
+        assertBox(find(grown, "root/right_arm"), 1, -7, 11, -2, 4, 14, 4);
+        assertBox(find(grown, "root/left_leg"), 1, 0, -1, -2, 4, 14, 4);
         ModelBox body = find(grown, "root/body");
         assertBox(body, 1, -5, 11, -3, 10, 14, 6);
         assertEquals(0, body.mesh());
@@ -94,6 +95,27 @@ class WornGearTest {
         var pumpkin = WornGear.boxes(zombie(1), new WornGear.Worn(WornGear.Head.BLOCK, false, false, false));
         assertBox(find(pumpkin, "root/head"), 1, -5, 23, -5, 10, 10, 10);
         assertBox(find(pumpkin, "root/right_leg"), 1, -4, 0, -2, 4, 12, 4);
+    }
+
+    @Test
+    void aSkullStandsOnTheBaseOfTheHeadAndADragonsHeadIsLarger() {
+        var skull = WornGear.boxes(zombie(1), new WornGear.Worn(WornGear.Head.SKULL, false, false, false));
+        assertBox(find(skull, "root/head"), 1, -4.75, 24, -4.75, 9.5, 9.5, 9.5);
+        var dragon = WornGear.boxes(zombie(1), new WornGear.Worn(WornGear.Head.DRAGON, false, false, false));
+        assertBox(find(dragon, "root/head"), 1, -7.125, 24, -7.125, 14.25, 14.25, 14.25);
+        // a head whose up edge points down (its corner on top) keeps the same lower face
+        var hanging = List.of(new ModelBox("root/head", -4 * PX, 32 * PX, -4 * PX, 8 * PX, 0, 0, 0, -8 * PX, 0, 0, 0, 8 * PX));
+        ModelBox h = find(WornGear.boxes(hanging, new WornGear.Worn(WornGear.Head.SKULL, false, false, false)), "root/head");
+        assertEquals(33.5, h.y() / PX, 1e-9);
+        assertEquals(-9.5, h.vy() / PX, 1e-9);
+    }
+
+    @Test
+    void aSuitThatHidesTheLegsStillGrowsTheRest() {
+        var legless = zombie(1).stream().filter(b -> !b.part().endsWith("_leg")).toList();
+        assertTrue(WornGear.humanoid(legless));
+        assertBox(find(WornGear.boxes(legless, HELMET), "root/head"), 1, -5, 23, -5, 10, 10, 10);
+        assertFalse(WornGear.humanoid(List.of(part("root/head", -4, 24, -4, 8, 8, 8, 1), part("root/body", -4, 12, -2, 8, 12, 4, 1))));
     }
 
     @Test

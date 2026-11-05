@@ -30,7 +30,7 @@ import net.minecraft.world.World;
 
 public final class ModelHits {
     public static final int RANGE = 96, MAX_UPDATES = 16, INTERVAL = 2, MAX_SYNC_AGE = 5;
-    private record PoseAt(UUID entity, Vec3 position, float yaw, float bodyYaw, int pose, float width, float height, long tick, List<ModelBox> boxes) {}
+    private record PoseAt(UUID entity, Vec3 position, float yaw, float bodyYaw, int pose, float width, float height, long tick, List<ModelBox> boxes, List<Object> gear) {}
     private static final Map<World, Map<Integer, PoseAt>> POSES = new WeakHashMap<>();
     private static final Map<EntityPlayerMP, long[]> LIMITS = new WeakHashMap<>();
     private record ViewAt(PoseAt pose,Vec3 rendered,Vec3 velocity,World level) {}
@@ -172,7 +172,7 @@ public final class ModelHits {
     static synchronized void putAt(World level, EntityLivingBase target, float yaw, List<ModelBox> boxes, long tick) {
         Map<Integer, PoseAt> poses = POSES.computeIfAbsent(level, k -> new HashMap<>());
         poses.put(id(target), new PoseAt(uuid(target), position(target), yaw, target.renderYawOffset, pose(target),
-                target.width, target.height, tick, List.copyOf(boxes)));
+                target.width, target.height, tick, List.copyOf(boxes), gear(target)));
     }
 
     // Пропуск рендера не меняет модель сущности. Следим за корнем раз в игровой тик,
@@ -190,7 +190,7 @@ public final class ModelHits {
                 it.remove();
             } else if (!position(target).equals(p.position())) {
                 entry.setValue(new PoseAt(p.entity(), position(target), p.yaw(), p.bodyYaw(), p.pose(),
-                        p.width(), p.height(), p.tick(), p.boxes()));
+                        p.width(), p.height(), p.tick(), p.boxes(), p.gear()));
             }
         }
         for(var observer:VIEWS.entrySet()) {
@@ -202,7 +202,7 @@ public final class ModelHits {
                         || time(level)-v.pose().tick()>MAX_SYNC_AGE)return true;
                 var p=v.pose();
                 entry.setValue(new ViewAt(new PoseAt(p.entity(),position(target),p.yaw(),p.bodyYaw(),p.pose(),
-                        p.width(),p.height(),p.tick(),p.boxes()),v.rendered(),v.velocity(),level));
+                        p.width(),p.height(),p.tick(),p.boxes(),p.gear()),v.rendered(),v.velocity(),level));
                 return false;
             });
         }
@@ -243,7 +243,22 @@ public final class ModelHits {
     private static boolean compatible(Entity target, PoseAt p) {
         return target != null && target.isEntityAlive() && p != null && p.entity().equals(uuid(target))
                 && position(target).distanceToSqr(p.position()) <= 16 && p.pose() == pose(target)
-                && p.width() == target.width && p.height() == target.height;
+                && p.width() == target.width && p.height() == target.height && p.gear().equals(gear(target));
+    }
+
+    // what it wore when the pose was caught: the armor layers are in the boxes, so a pose outlives no change of them.
+    // port: 1.12.2 tells a skull's kind by the stack's damage
+    private static List<Object> gear(Entity target) {
+        if(!(target instanceof EntityLivingBase living)) return List.of();
+        var gear=new java.util.ArrayList<Object>(8);
+        for(var slot:new net.minecraft.inventory.EntityEquipmentSlot[]{net.minecraft.inventory.EntityEquipmentSlot.HEAD,
+                net.minecraft.inventory.EntityEquipmentSlot.CHEST,net.minecraft.inventory.EntityEquipmentSlot.LEGS,
+                net.minecraft.inventory.EntityEquipmentSlot.FEET}) {
+            var stack=living.getItemStackFromSlot(slot);
+            gear.add(stack.getItem());
+            gear.add(stack.getHasSubtypes()?stack.getMetadata():0); // wear on armor is damage too, and changes nothing drawn
+        }
+        return gear;
     }
 
     // F3+B получает ровно ту же позу и те же проверки актуальности, что пересечение луча.
@@ -271,7 +286,7 @@ public final class ModelHits {
         var stack=living.getItemStackFromSlot(net.minecraft.inventory.EntityEquipmentSlot.HEAD);
         if(stack.isEmpty()) return WornGear.Head.NONE;
         if(armor(living,net.minecraft.inventory.EntityEquipmentSlot.HEAD)) return WornGear.Head.ARMOR;
-        if(stack.getItem()==net.minecraft.init.Items.SKULL) return WornGear.Head.SKULL;
+        if(stack.getItem()==net.minecraft.init.Items.SKULL) return stack.getMetadata()==5?WornGear.Head.DRAGON:WornGear.Head.SKULL; // 5: the dragon's
         return stack.getItem() instanceof net.minecraft.item.ItemBlock?WornGear.Head.BLOCK:WornGear.Head.NONE;
     }
     private static List<ModelBox> wornBoxes(Entity target,PoseAt p) {
