@@ -26,17 +26,21 @@ conf() {
     case "$1" in
         26.2)
             DIR=.; ARGS=(build -PnoAssets); LIBS=versions/26.2/build/libs; SUFFIX=-mc26.2; HEAD_RE='X[0-9]+'
-            BRANCH=main; TITLE="26.2 NeoForge"; MC="Minecraft 26.2 (NeoForge)"; PORT= ;;
+            BRANCH=main; TITLE="26.2 NeoForge"; MC="Minecraft 26.2 (NeoForge)"; PORT=
+            TESTS=(versions/26.2/build/test-results/test); RETEST=() ;;
         1.7.10)
             DIR=port/1.7.10; ARGS=(build); LIBS=port/1.7.10/build/libs; SUFFIX=-mc1.7.10-forge; HEAD_RE='X[0-9]+\.[0-9]+'
-            BRANCH=port/1.7.10-forge; TITLE="1.7.10 Forge"; MC="Minecraft 1.7.10 (Forge)"; PORT=1 ;;
+            BRANCH=port/1.7.10-forge; TITLE="1.7.10 Forge"; MC="Minecraft 1.7.10 (Forge)"; PORT=1
+            TESTS=(build/test-results/test build/test-results/test25); RETEST=(test test25) ;;
         1.12.2)
             DIR=port/1.12.2; ARGS=(build); LIBS=port/1.12.2/build/libs; SUFFIX=-mc1.12.2-ce; HEAD_RE='X[0-9]+\.[0-9]+'
-            BRANCH=port/1.12.2-ce; TITLE="1.12.2 Forge and Cleanroom"; MC="Minecraft 1.12.2 (Forge and Cleanroom)"; PORT=1 ;;
+            BRANCH=port/1.12.2-ce; TITLE="1.12.2 Forge and Cleanroom"; MC="Minecraft 1.12.2 (Forge and Cleanroom)"; PORT=1
+            TESTS=(build/test-results/test build/test-results/test25); RETEST=(test test25) ;;
         1.21.1-de)
             DIR=port/1.21.1-de; ARGS=(build); LIBS=port/1.21.1-de/build/libs; SUFFIX=-mc1.21.1-de; HEAD_RE='X[0-9]+\.[0-9]+'
             BRANCH=port/1.21.1-de; TITLE="1.21.1 NeoForge, NTM: Decentralized Edition"
-            MC="Minecraft 1.21.1 (NeoForge) with NTM: Decentralized Edition"; PORT=1 ;;
+            MC="Minecraft 1.21.1 (NeoForge) with NTM: Decentralized Edition"; PORT=1
+            TESTS=(build/test-results/test); RETEST=() ;;
         *) die "unknown target '$1'" ;;
     esac
 }
@@ -84,7 +88,16 @@ build() {
     local paths; paths=$(printf '%s,' ${JAVA_HOME_8_X64:-} ${JAVA_HOME_21_X64:-} ${JAVA_HOME_25_X64:-}); paths=${paths%,}
     [[ -n "$paths" ]] && java=("-Porg.gradle.java.installations.paths=$paths")
     (cd "$tree/$DIR" && ./gradlew "${ARGS[@]}" ${java[@]+"${java[@]}"} --console=plain) >&2
+    # the ports' tests of downgraded classes see no classes on a clean tree's first run ("NO-SOURCE"): jvmdg's
+    # output list is taken before the classes are there. A second run finds them.
+    if [[ ${#RETEST[@]} -gt 0 ]]; then
+        (cd "$tree/$DIR" && ./gradlew "${RETEST[@]}" ${java[@]+"${java[@]}"} --console=plain) >&2
+    fi
     tests "$tree/$DIR" >&2
+    local d
+    for d in "${TESTS[@]}"; do
+        compgen -G "$tree/$DIR/$d/*.xml" >/dev/null || die "no test ran in $DIR/$d"
+    done
     local jars; jars=$(find "$tree/$LIBS" -maxdepth 1 -type f -regextype posix-extended \
         -regex ".*/reimagined-arms-X[0-9]+(\.[0-9]+)?${SUFFIX//./\\.}\.jar")
     [[ $(printf '%s\n' "$jars" | grep -c .) -eq 1 ]] || die "expected one reimagined-arms-X*$SUFFIX.jar in $LIBS, found: ${jars:-none}"
