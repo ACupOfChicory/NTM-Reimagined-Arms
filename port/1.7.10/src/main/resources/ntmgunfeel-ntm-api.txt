@@ -96,7 +96,9 @@ ARMS field com/hbm/render/loader/S_GroupObject name Ljava/lang/String;
 ARMS method com/hbm/extprop/HbmPlayerProps getData (Lnet/minecraft/entity/player/EntityPlayer;)Lcom/hbm/extprop/HbmPlayerProps;
 ARMS method com/hbm/extprop/HbmPlayerProps getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
 ARMS method com/hbm/items/weapon/sedna/GunConfig getAnims (Lnet/minecraft/item/ItemStack;)Ljava/util/function/BiFunction;
+ARMS method com/hbm/items/weapon/sedna/GunConfig getScopeTexture (Lnet/minecraft/item/ItemStack;)Lnet/minecraft/util/ResourceLocation;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getAnimTimer (Lnet/minecraft/item/ItemStack;I)I
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/item/ItemStack;)Z
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getLastAnim (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT setAnimTimer (Lnet/minecraft/item/ItemStack;II)V

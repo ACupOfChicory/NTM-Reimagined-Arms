@@ -44,7 +44,6 @@ public final class Config {
     // Gun model kick per shot, and how much of NTM's own RECOIL animation is kept.
     public static float modelKick = 1.0F;
     public static float adsRecoil = 0.7F;
-    public static String armModel = "auto";
     public static float modelRotate = 1.0F;
     public static float modelSpeed = 1.0F;
     public static float ntmRecoilAnim = 0.3F;
@@ -131,8 +130,10 @@ public final class Config {
     // width of NTM's muzzle smoke, 1 = as NTM draws it (SPAS-12's is 3x as wide as Maresleg's)
     public static float smokeWidth = 1F;
     // the gun bobbing in step with walking and lowered to the side while sprinting (TaCZ's way), 0 = off (NTM's own bob)
-    public static float walkSway = 0F;
-    public static float sprintPose = 0F;
+    public static float walkSway = 1F;
+    public static float sprintPose = 1F;
+    // a pistol or a revolver held from the hip and aimed as TaCZ holds them, 0 = off (NTM's hold, hipX/Y/Z)
+    public static float pistolHold = 1F;
     public static float armScaleRight = 1F;
     public static float armScaleLeft = 1F;
 
@@ -182,9 +183,8 @@ public final class Config {
             cornerHud: TaCZ-style ammo counter in the bottom-right corner instead of NTM's
             ammoMenu: look of the ammo menu (hold Y): steel, petals, bubbles, ntm, glass, arc
             ammoMenuColor: accent colour of the ammo menu, hex RRGGBB
-            arms: draw the player's arms holding the gun with both hands
-            armModel: auto = skin model, classic = four-pixel arms, slim = three-pixel arms;
-              both models share arm adjustments; slim arms move one pixel toward their inner side
+            arms: draw the player's arms holding the gun with both hands; their model follows the skin,
+              slim arms share the classic arms' settings and move one pixel toward their inner side
             armScale: arm thickness on top of the automatic one, 1 = vanilla arm proportions
             armMaxScale: upper limit of the automatic thickness
             armBaseRight, armBaseLeft: arm thickness before armScale, the same on every gun (as on Maresleg); 0 = automatic (grows with the arm's length)
@@ -204,6 +204,9 @@ public final class Config {
             walkSway: the gun bobs in step with the player's steps instead of NTM's own bob, 1 = as TaCZ, 0 = off (NTM's)
             sprintPose: while sprinting the gun is lowered and turned to the side, swinging with the run, 1 = as TaCZ, 0 = off;
               aiming, a reload or a shot bring it back
+            pistolHold: a pistol or a revolver is held from the hip almost on the sight line, a little to the right and
+              lower, and comes up to its sights on a smooth curve, 1 = as TaCZ, 0 = off (NTM's hold); hipX, hipY and hipZ
+              are not used for a pistol while it is on
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
             armRollRight, armRollLeft: turn of each arm around its own axis, degrees
             armDirRight, armDirLeft: direction from the hand to the shoulder: x (+ left), y (+ up), z (+ forward)
@@ -429,7 +432,6 @@ public final class Config {
         kickPosZ = p.getProperty("kickPosZ", kickPosZ).trim();
         modelKick = num(p, "modelKick", modelKick);
         adsRecoil = Math.clamp(num(p, "adsRecoil", adsRecoil), 0F, 1F);
-        armModel = p.getProperty("armModel", "auto");
         modelRotate = num(p, "modelRotate", modelRotate);
         modelSpeed = Math.max(0.05F, num(p, "modelSpeed", modelSpeed));
         ntmRecoilAnim = num(p, "ntmRecoilAnim", ntmRecoilAnim);
@@ -504,6 +506,7 @@ public final class Config {
         smokeWidth = num(p, "smokeWidth", smokeWidth);
         walkSway = num(p, "walkSway", walkSway);
         sprintPose = num(p, "sprintPose", sprintPose);
+        pistolHold = num(p, "pistolHold", pistolHold);
         armScaleRight = num(p, "armScaleRight", armScaleRight);
         armScaleLeft = num(p, "armScaleLeft", armScaleLeft);
     }
@@ -553,7 +556,6 @@ public final class Config {
         p.setProperty("kickPosZ", kickPosZ);
         p.setProperty("modelKick", Float.toString(modelKick));
         p.setProperty("adsRecoil", Float.toString(adsRecoil));
-        p.setProperty("armModel", armModel);
         p.setProperty("modelRotate", Float.toString(modelRotate));
         p.setProperty("modelSpeed", Float.toString(modelSpeed));
         p.setProperty("ntmRecoilAnim", Float.toString(ntmRecoilAnim));
@@ -624,6 +626,7 @@ public final class Config {
         p.setProperty("smokeWidth", Float.toString(smokeWidth));
         p.setProperty("walkSway", Float.toString(walkSway));
         p.setProperty("sprintPose", Float.toString(sprintPose));
+        p.setProperty("pistolHold", Float.toString(pistolHold));
         p.setProperty("armScaleRight", Float.toString(armScaleRight));
         p.setProperty("armScaleLeft", Float.toString(armScaleLeft));
         return p;

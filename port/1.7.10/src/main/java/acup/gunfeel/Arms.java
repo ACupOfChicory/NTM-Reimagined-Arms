@@ -277,6 +277,16 @@ public final class Arms {
         return true;
     }
 
+    // the gun's two ends along its length as placed this frame without the model kick, in the GL modelview's space
+    public static boolean gunEndsAimed(Item held, Vector3f back, Vector3f front) {
+        if (!haveRel || relItem != held || geometry(held) == null) return false;
+        GunGeometry g = geometry(held);
+        // KICKED·REL is the body as drawn, AIMED·REL the same before the kick
+        AIMED.transformPosition(REL.transformPosition(0F, 0F, g.minZ, back));
+        AIMED.transformPosition(REL.transformPosition(0F, 0F, g.maxZ, front));
+        return true;
+    }
+
     // the gun's two ends along its length (model z min / max) as drawn this frame, in the GL modelview's space
     public static boolean gunEndsRendered(Item held, Vector3f back, Vector3f front) {
         if (!haveRel || relItem != held || geometry(held) == null) return false;
@@ -424,8 +434,6 @@ public final class Arms {
     }
 
     public static boolean slim() {
-        if ("slim".equals(Config.armModel)) return true;
-        if ("classic".equals(Config.armModel)) return false;
         // port: a vanilla 1.7.10 skin has no slim model; Et Futurum's 1.8 skins do (PlayerSkins). The arms trace
         // scenario draws the slim arms of the 26.2 trace's player
         if (TraceScenario.started()) return true;

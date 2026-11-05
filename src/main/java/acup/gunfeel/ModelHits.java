@@ -248,13 +248,16 @@ public final class ModelHits {
                 && p.width() == target.getBbWidth() && p.height() == target.getBbHeight() && p.gear().equals(gear(target));
     }
 
-    // what it wore when the pose was caught: the armor layers are in the boxes, so a pose outlives no change of them
+    // what it wore when the pose was caught: the armor layers (a wolf's or horse's body armor and a saddle too) are in
+    // the boxes, so a pose outlives no change of them
     private static List<Object> gear(Entity target) {
         if(!(target instanceof LivingEntity living)) return List.of();
         return List.of(living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).getItem(),
                 living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getItem(),
                 living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.LEGS).getItem(),
-                living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET).getItem());
+                living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET).getItem(),
+                living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.BODY).getItem(),
+                living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.SADDLE).getItem());
     }
 
     // F3+B получает ровно ту же позу и те же проверки актуальности, что пересечение луча.
