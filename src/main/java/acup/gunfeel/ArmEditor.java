@@ -1063,6 +1063,20 @@ final class ArmEditor {
                                 x.touched();
                             }));
                 } else {
+                    if (e.side != null) {
+                        String[] sl = {"Подход ← →", "Подход ↓ ↑", "Подход вдоль"};
+                        for (int c = 0; c < 3; c++) {
+                            int ci = c;
+                            float[] r = bounds(-1F, 1F, e.side[c]);
+                            out.add(new KeyKnob("side." + c, sl[c], "Откуда кисть подходит к детали, точнее стрелок: направление по осям модели детали.", "",
+                                    r[0], r[1], 0.05F, (x, y) -> x.pathEntry(y).side == null ? 0F : x.pathEntry(y).side[ci], (x, y, v) -> {
+                                        var pe = x.pathEntry(y);
+                                        if (pe.side == null) pe.side = SIDE[0].clone();
+                                        pe.side[ci] = v;
+                                        x.touched();
+                                    }));
+                        }
+                    }
                     String[] l = {"Плечо ← →", "Плечо ↓ ↑", "Плечо вперёд-назад"};
                     for (int c = 0; c < 3; c++) {
                         int ci = c;
@@ -1189,9 +1203,14 @@ final class ArmEditor {
                 int si = sideIndex(e.side);
                 out.add(new Row("Подход: " + (si < 0 ? "свой" : SIDES[si]) + (e.side == null ? " (обычно)" : ""),
                         "С какой стороны детали кисть к ней подходит.", null, List.of("key.side.prev", "key.side.next", "key.side.reset")));
-                for (int c = 0; c < 3; c++) slider.run();
-                out.add(new Row("Плечо за точкой: " + (e.follow ? "да" : "нет"), "Плечо идёт вслед за точкой детали, а не стоит на месте.", null,
-                        List.of("key.follow")));
+                if (e.side != null) for (int c = 0; c < 3; c++) slider.run();
+                // the shoulder's sliders, the first with the switch "follows the point" (a row less: the side's sliders fit)
+                for (int c = 0; c < 3; c++) {
+                    var kn = knobs.remove(0);
+                    var ids = new ArrayList<>(List.of("set." + kn.id + ".minus", "set." + kn.id + ".plus"));
+                    if (c == 0) ids.add("key.follow");
+                    out.add(new Row(null, kn.hint, kn.setting(), ids));
+                }
             }
             return out;
         }
@@ -1268,7 +1287,9 @@ final class ArmEditor {
                         x.pathEntry(y).side = null;
                         x.touched();
                     }))));
-            out.add(new Action("key.follow", e.follow ? "Выключить" : "Включить", "Плечо идёт вслед за точкой детали, а не стоит на месте.", "", null,
+            out.add(new Action("key.follow", e.follow ? "На месте" : "За точкой", e.follow
+                    ? "Сейчас плечо идёт вслед за точкой детали. Нажми — плечо будет стоять на месте, сдвинутое ползунками «Плечо»."
+                    : "Сейчас плечо стоит на месте. Нажми — плечо пойдёт вслед за точкой детали, со сдвигом ползунков «Плечо».", "", null,
                     () -> change(() -> editKey((x, y) -> {
                         var pe = x.pathEntry(y);
                         pe.follow = !pe.follow;
@@ -1501,11 +1522,25 @@ final class ArmEditor {
         return list.isEmpty() ? List.of() : new ArrayList<>(new TreeSet<>(clips.moves(clip().id()).keySet()));
     }
 
-    // the bus the game takes now: the first one that moves in this animation
+    // the bus the rows show and the sliders change: the one the animation moves now, else the last one it moved by now,
+    // else the first one it moves (several shells, one by one: the one in the hand at this time)
     private int activeBus(Carried c) {
-        var m = moving();
-        for (int i = 0; i < c.buses.size(); i++) if (m.contains(c.buses.get(i))) return i;
-        return 0;
+        var m = list.isEmpty() ? Map.<String, int[]>of() : clips.moves(clip().id());
+        int last = -1, first = -1;
+        float lastFrom = Float.NEGATIVE_INFINITY;
+        for (int i = 0; i < c.buses.size(); i++) {
+            int[] w = m.get(c.buses.get(i));
+            if (w == null) continue;
+            if (first < 0) first = i;
+            for (int j = 0; j + 1 < w.length; j += 2) {
+                if (time >= w[j] && time <= w[j + 1]) return i;
+                if (w[j] <= time && w[j] > lastFrom) {
+                    lastFrom = w[j];
+                    last = i;
+                }
+            }
+        }
+        return last >= 0 ? last : Math.max(first, 0);
     }
 
     // something new to carry: the first part that moves in this animation, within the gun's first part
@@ -2107,8 +2142,9 @@ final class ArmEditor {
         }
     }
 
+    // the grid's number nearest to v, as the float nearest to that decimal (0.35, not 7 * 0.05F = 0.35000002)
     static float snap(float v, float step) {
-        return Math.round(v / step) * step;
+        return new java.math.BigDecimal(Float.toString(step)).multiply(java.math.BigDecimal.valueOf(Math.round(v / step))).floatValue();
     }
 
     // a step up or down on the step's grid; a limit off the grid (a key 3.935 ms from the next) is reached itself
@@ -2135,9 +2171,30 @@ final class ArmEditor {
         return out.replace('.', ',');
     }
 
+    // a number as written into the settings: four decimals at most when they read back as the same number, else every
+    // digit it needs (a typed 0.42999998 stays itself)
     private static String plain(float v) {
         String s = String.format(Locale.ROOT, "%.4f", v).replaceAll("0+$", "");
-        return s.endsWith(".") ? s.substring(0, s.length() - 1) : s;
+        if (s.endsWith(".")) s = s.substring(0, s.length() - 1);
+        if (s.equals("-0")) s = "0";
+        return Float.parseFloat(s) == v || v == 0F ? s : ArmRig.number(v);
+    }
+
+    // a number typed for a slider ("-0,44", "865"): the value of the setting, in one step of undo; null = done, else
+    // why it was not taken
+    String type(String id, String text) {
+        endDrag();
+        for (Knob k : knobs(page)) {
+            if (!k.id.equals(id)) continue;
+            if (k.why() != null) return k.why();
+            String t = text.trim().replace('−', '-').replace(',', '.');
+            if (!t.matches("-?(\\d+\\.?\\d*|\\.\\d+)")) return "введи число, например 0,5 или -12";
+            float v = Float.parseFloat(t), lo = k.lo(), hi = k.hi();
+            if (v < lo || v > hi) return "можно от " + number(lo, k.step) + " до " + number(hi, k.step);
+            change(() -> k.put(v));
+            return null;
+        }
+        return "этого ползунка сейчас нет";
     }
 
     Action action(String id) {

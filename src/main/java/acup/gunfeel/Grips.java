@@ -133,7 +133,7 @@ public final class Grips {
         String at = gun + "." + storedKey(atKey);
         if (VALUES.containsKey(gun + "." + atKey)) USER.put(at, "");
         else USER.remove(at);
-        put(gun, right ? "right" : "left", x + "," + y + "," + z, save);
+        put(gun, right ? "right" : "left", ArmRig.vector(new float[] {x, y, z}), save);
     }
 
     // a point in model units for one hand (x left, y up, z to the muzzle)
@@ -143,7 +143,10 @@ public final class Grips {
 
     public static void setAt(String gun, boolean right, float x, float y, float z, boolean save) {
         gun = armsGun(gun);
-        put(gun, right ? "rightAt" : "leftAt", x + "," + y + "," + z, save);
+        // the point wins over fractions: the player's own ones go (the jar's stay, they are not the player's)
+        String frac = gun + "." + storedKey(right ? "right" : "left");
+        if (!BUILTIN.containsKey(frac)) USER.remove(frac);
+        put(gun, right ? "rightAt" : "leftAt", ArmRig.vector(new float[] {x, y, z}), save);
     }
 
     // value null = back to the jar's value (or none)

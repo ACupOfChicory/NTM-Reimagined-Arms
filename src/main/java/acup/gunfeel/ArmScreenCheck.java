@@ -102,6 +102,7 @@ final class ArmScreenCheck {
                 pressAll(gun + " · " + page.label);
                 if (page == ArmEditor.Page.BOTH) drag(gun);
                 if (page == ArmEditor.Page.FILE) exported(gun);
+                if (page == ArmEditor.Page.GRIP) typedNumber(gun);
             });
             // the key page's other views: on the key it stands on, then the settings of the carrying, releasing and
             // going-round tracks, in an animation where the track has them
@@ -282,6 +283,39 @@ final class ArmScreenCheck {
                         }
                     }
         return false;
+    }
+
+    // a number typed for a slider: right click opens a box, a wrong text is not taken, Enter takes the number, undo
+    // gives the old value back
+    private static void typedNumber(String gun) {
+        var m = screen.model();
+        m.hand = 1;
+        screen.refresh();
+        ArmEditorScreen.Slider sl = null;
+        for (var x : screen.sliders()) if (x.setting.id().equals("grip.0") && x.active) sl = x;
+        ClientSmoke.check(sl != null, gun + ": у хвата есть ползунок «Хват ← →»");
+        if (sl == null) return;
+        var s = sl.setting;
+        int cx = sl.getX() + sl.getWidth() / 2, cy = sl.getY() + sl.getHeight() / 2;
+        screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(cx, cy, new net.minecraft.client.input.MouseButtonInfo(1, 0)), false);
+        var box = screen.typing();
+        ClientSmoke.check(box != null, gun + ": правая кнопка на ползунке открыла поле для числа");
+        if (box == null) return;
+        var before = m.state();
+        box.setValue("пять");
+        screen.keyPressed(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+        ClientSmoke.check(screen.typing() != null && m.state().equals(before), gun + ": не число не принято, поле осталось открытым");
+        // a number off the slider's step, as the jar has them
+        float want = Float.parseFloat(ArmRig.number(s.min() + (s.max() - s.min()) * 0.37F + 0.0013F));
+        screen.typing().setValue(ArmRig.number(want).replace('.', ','));
+        screen.keyPressed(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+        float now = Float.NaN;
+        for (var x : screen.sliders()) if (x.setting.id().equals("grip.0")) now = x.setting.value();
+        ClientSmoke.check(screen.typing() == null && Math.abs(now - want) < 1e-5F, gun + ": введённое число " + want + " стало значением хвата (" + now + ")");
+        var undo = screen.button("undo");
+        if (undo != null && undo.active) undo.onPress(new net.minecraft.client.input.KeyEvent(257, 0, 0));
+        ClientSmoke.check(m.state().data().equals(before.data()), gun + ": «Отменить» вернул хват после ввода числа");
+        screen.refresh();
     }
 
     // "Выгрузить": a file in the folder, its text on the clipboard, and it reads back as the arms the gun has

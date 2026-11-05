@@ -9,6 +9,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
@@ -37,6 +38,9 @@ public final class ArmEditorScreen extends Screen {
 
     private final List<Text> texts = new ArrayList<>();
     private Slider held;
+    // a number being typed for a slider (right click on it): the box over the slider, the slider's setting
+    private EditBox typing;
+    private ArmEditor.Setting typed;
 
     public ArmEditorScreen(Screen parent, Item item, String gun) {
         super(Component.literal("Руки пушки"));
@@ -309,6 +313,8 @@ public final class ArmEditorScreen extends Screen {
         buttons.clear();
         texts.clear();
         held = null;
+        typing = null;
+        typed = null;
         Map<String, ArmEditor.Action> a = new LinkedHashMap<>();
         for (var x : model.actions()) a.put(x.id(), x);
         actionsShown = signature();
@@ -392,7 +398,7 @@ public final class ArmEditorScreen extends Screen {
         }
         syncPreview();
         // not while a slider is dragged: it would be made anew under the mouse
-        if (held == null && !signature().equals(actionsShown)) rebuildWidgets();
+        if (held == null && typing == null && !signature().equals(actionsShown)) rebuildWidgets();
     }
 
     @Override
@@ -443,8 +449,58 @@ public final class ArmEditorScreen extends Screen {
         return dash < 0 ? model.gun : model.gun.substring(0, dash);
     }
 
+    // ---------------------------------------------------------------- a number typed for a slider
+
+    EditBox typing() {
+        return typing;
+    }
+
+    // a box over the slider with its value; Enter takes the number, Esc leaves it
+    void startTyping(Slider sl) {
+        if (typing != null) removeWidget(typing);
+        typed = sl.setting;
+        typing = new EditBox(font, sl.getX(), sl.getY(), sl.getWidth(), sl.getHeight(), Component.literal(typed.label()));
+        typing.setMaxLength(24);
+        typing.setValue(ArmRig.number(typed.value()).replace('.', ','));
+        typing.setTooltip(Tooltip.create(Component.literal(typed.label() + ": введи число и нажми Enter (Esc — не менять). Можно от "
+                + ArmEditor.number(typed.min(), typed.step()) + " до " + ArmEditor.number(typed.max(), typed.step()) + ".")));
+        addRenderableWidget(typing);
+        setFocused(typing);
+        typing.setFocused(true);
+    }
+
+    // Enter: the typed number goes to the model; a number it does not take keeps the box open and says why
+    String finishTyping() {
+        if (typing == null) return "нет поля";
+        String why = model.type(typed.id(), typing.getValue());
+        if (why != null) {
+            typing.setTextColor(0xFFFF6666);
+            typing.setTooltip(Tooltip.create(Component.literal("Не принято: " + why + ".")));
+            return why;
+        }
+        syncPreview();
+        rebuildWidgets();
+        return null;
+    }
+
+    void stopTyping() {
+        rebuildWidgets();
+    }
+
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if (typing != null) {
+            if (event.key() == 257 || event.key() == 335) {
+                finishTyping();
+                return true;
+            }
+            if (event.key() == 256) {
+                stopTyping();
+                return true;
+            }
+            typing.keyPressed(event);
+            return true;
+        }
         boolean ctrl = (event.modifiers() & 2) != 0;
         String id = switch (event.key()) {
             case 32 -> "play";
@@ -480,7 +536,17 @@ public final class ArmEditorScreen extends Screen {
             super(x, y, w, h, Component.literal(s.text()), Math.clamp((s.value() - s.min()) / (s.max() - s.min()), 0.0, 1.0));
             this.setting = s;
             active = s.why() == null;
-            setTooltip(Tooltip.create(Component.literal(hint + " Тяни или щёлкни." + (active ? "" : "\nСейчас нельзя: " + s.why() + "."))));
+            setTooltip(Tooltip.create(Component.literal(hint + " Тяни или щёлкни; правой кнопкой — ввести число." + (active ? "" : "\nСейчас нельзя: " + s.why() + "."))));
+        }
+
+        // a right click: type the number
+        @Override
+        public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+            if (event.button() == 1 && active && visible && isMouseOver(event.x(), event.y())) {
+                startTyping(this);
+                return true;
+            }
+            return super.mouseClicked(event, doubleClick);
         }
 
         private float target() {
