@@ -184,9 +184,11 @@ final class HeadProfiles {
         // cut to the opaque pixels of its texture (the wandering trader's hat, a piglin brute's pants), or around flat
         // cubes that a large mob loses whole without Flywheel (PlaneHitPolicy; under Flywheel only their triangles go:
         // the elder guardian's fin, the creaking's twigs). The one box of the part's name, inside it or holding it on
-        // every axis, is that part.
+        // every axis, is that part. A name the profile holds more than once (a part made of cubes, a camel husk's
+        // head) is left to the steps above: its one box would stand for two parts.
+        var names=new HashMap<String,Integer>();for(var ref:profile.parts()) names.merge(name(ref.name()),1,Integer::sum);
         for(int i=0;i<mapping.length;i++) {
-            var ref=profile.parts().get(i);if(mapping[i]>=0) continue;
+            var ref=profile.parts().get(i);if(mapping[i]>=0 || names.get(name(ref.name()))!=1) continue;
             var own=new ArrayList<Integer>();
             for(int j=0;j<boxes.size();j++) if(!boxes.get(j).part().startsWith("mesh/") && name(boxes.get(j).part()).equals(name(ref.name()))) own.add(j);
             if(own.size()==1 && nested(ref,boxes.get(own.getFirst()),scale)) mapping[i]=own.getFirst();

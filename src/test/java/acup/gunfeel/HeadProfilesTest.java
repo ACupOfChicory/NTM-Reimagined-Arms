@@ -436,6 +436,10 @@ class HeadProfilesTest {
         // две коробки одного имени (кубы не в одной рамке, не склеены) — какая из них часть, не сказать
         assertEquals(1,HeadProfiles.bind(profile,List.of(new ModelBox("root/head",-1,-1,-.5,2,0,0,0,2,0,0,0,1),
                 new ModelBox("root/head",-.25,-.25,-.5,.5,0,0,0,.5,0,0,0,1)),0).missing());
+        // имя, которое в профиле не одно (голова кадавра верблюда из трёх кубов): коробка одного куба — не все три
+        var husk=HeadProfiles.get("minecraft:camel_husk");var cubes=new ArrayList<ModelBox>();
+        for(int i=0;i<husk.parts().size();i++) if(i!=4 && i!=6) cubes.add(box(husk.parts().get(i)));
+        assertEquals(1,HeadProfiles.bind(husk,cubes,0).missing());
         // слой рисуется не всегда (лама без ковра): коробку модели, в которую он вложен, он так не берёт
         var layered=new HeadProfiles.Profile(false,List.of(
                 new HeadProfiles.Ref("mesh/root/head",new double[]{1,1,1},0,new Vec3(0,0,0),-1),
