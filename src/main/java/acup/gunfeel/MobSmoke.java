@@ -294,12 +294,12 @@ public final class MobSmoke {
             pending=true;
             mc.getSingleplayerServer().execute(() -> {
                 var target=(LivingEntity)mc.getSingleplayerServer().overworld().getEntity(id);
-                if(target!=null) {
-                    target.setPos(target.position().add(.6,0,0));
-                    target.setYRot(90); target.yBodyRot=90; target.yHeadRot=90;
-                }
+                if(target!=null) move(target);
                 pending=false;
             });
+            // EnderDragon.aiStep returns at once for a NoAi dragon, before it interpolates: its client copy never
+            // follows the server, and the player sees (and hits) it where it was. Move that copy the same way.
+            if(mc.level.getEntity(id) instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon dragon && dragon.isNoAi()) move(dragon);
             stage=4; since=System.nanoTime();
         } else if(stage==4 && seconds()>1.2) {
             var target=(LivingEntity)mc.level.getEntity(id);
@@ -312,6 +312,10 @@ public final class MobSmoke {
         }
     }
 
+    private static void move(LivingEntity target) {
+        target.setPos(target.position().add(.6,0,0));
+        target.setYRot(90); target.yBodyRot=90; target.yHeadRot=90;
+    }
     private static double seconds() { return (System.nanoTime()-since)/1e9; }
     private static boolean hasWool(Snapshot pose) { return pose!=null && pose.boxes().stream().anyMatch(ModelWool::isWool); }
     private static boolean hasShell(Snapshot pose) {
