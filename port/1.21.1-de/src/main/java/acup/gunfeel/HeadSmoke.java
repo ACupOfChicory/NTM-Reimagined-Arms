@@ -12,7 +12,15 @@ import net.minecraft.world.phys.*;
 // two calls are here (the head label editor is not ported), with its cube (ModelDebugRender.CUBE).
 /** Проверяет настоящую стандартную обработку NTM, а не копию формулы урона. */
 final class HeadSmoke {
+    private static final List<Vec3> SIDES=List.of(new Vec3(0,0,1),new Vec3(0,0,-1),new Vec3(1,0,0),new Vec3(-1,0,0),new Vec3(0,-1,0));
     private HeadSmoke() {}
+    private static boolean zonedWhole(LivingEntity target,List<ModelBox> boxes) {
+        var whole=new HashSet<String>();
+        var resolutions=new ArrayList<>(List.of(ModelHits.headResolution(target)));
+        if(LimbPolicy.eligible(target.getType())) resolutions.add(ModelHits.limbResolution(target));
+        for(var resolution:resolutions) for(var zone:resolution.zones()) if(zone.planes().isEmpty()) whole.add(zone.box().part()+"#"+zone.box().mesh());
+        return !boxes.isEmpty() && boxes.stream().allMatch(box->whole.contains(box.part()+"#"+box.mesh()));
+    }
     // the root's check of the head and limb bindings. The root's photo of
     // the baby models (into its notes/head-labels/research) is left out; -PdumpProfiles=<dir> writes every model's parts
     // instead, as HeadProfiles.bind reads them (the pose's boxes turned back by its yaw: the profiles' frame)
@@ -81,7 +89,8 @@ final class HeadSmoke {
             float[] data=triangles(box);
             for(int at=0;at<data.length;at+=9) surface.add(new MobRayOracle.Triangle(point(box,data,at),point(box,data,at+3),point(box,data,at+6)));
         }
-        for(var ray:MobRayOracle.grid(surface)) if(ray.hit()) {
+        // Крупная детская голова или ноги закрывают тело с одной стороны: смотрим ещё с трёх сторон и сверху.
+        for(var side:SIDES) for(var ray:MobRayOracle.grid(surface,side)) if(ray.hit()) {
             var hit=target.getBoundingBox().clip(ray.from(),ray.to());if(hit.isEmpty()) continue;
             if(ModelHits.head(target,hit.get()).head()) { if(head==null) head=hit.get(); }
             else if(ModelHits.limb(target,hit.get())) { if(limb==null) limb=hit.get(); }
@@ -90,11 +99,15 @@ final class HeadSmoke {
         check.accept(!zones.isEmpty()==!profile.none(),"голова: наличие зон соответствует ручной разметке"
                 +(zones.isEmpty()==!profile.none()?", "+ModelHits.headResolution(target).reason()+", части="+boxes.stream().map(b->b.part()+java.util.Arrays.toString(HeadProfiles.size(b))+"@"+ModelContours.point(b,.5,.5,.5).subtract(target.position())+"#"+Long.toUnsignedString(HeadProfiles.shape(b),16)+"/yaw"+target.getYRot()).toList():""));
         if(!profile.none()) check.accept(head!=null,"голова: найдена видимая точка попадания");
+        // У страйдера корпус размечен головой, а ноги — конечностями: точки без бонуса у него нет по разметке.
+        if(body==null && zonedWhole(target,boxes)) { check.accept(true,"голова: точки тела без бонуса нет по разметке: каждая часть целиком голова или конечность");return; }
         check.accept(body!=null,"голова: найдена точка тела без бонуса");
         if(body==null || !profile.none() && head==null) return;
         var healthAttribute=target.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH);
         double max=healthAttribute==null?20:healthAttribute.getBaseValue();
         boolean invulnerable=target.isInvulnerable();float health=target.getHealth();
+        // Старший (Quackos) у NTM бессмертен при любом флаге: isInvulnerableTo всегда true, setHealth ставит максимум.
+        if(target instanceof com.hbm.entity.mob.EntityQuackos) { check.accept(true,"голова: урон не проверяется, NTM делает цель бессмертной");return; }
         if(healthAttribute!=null) healthAttribute.setBaseValue(1000);
         target.setInvulnerable(false);
         try {
