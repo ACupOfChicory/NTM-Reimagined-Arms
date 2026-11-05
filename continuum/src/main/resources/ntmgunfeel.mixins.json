@@ -5,7 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": ["MixinEntityModelBox", "MixinProjectileModelQuery"],
   "client": ["MixinParticleEngine", "MixinParticlesSubmit", "KeyMappingAccess", "LocalPlayerAccess", "GuiGraphicsAccess", "ModelPartAccess",
-    "MixinLivingModelHits", "MixinModelHitboxDebug", "MixinModelHitState", "MixinRenderedModelHit", "MixinEntityModelHitState",
+    "MixinLivingModelHits", "MixinModelHitboxDebug", "MixinModelHitState", "MixinRenderedModelHit", "MixinEquipmentLayerModel", "MixinEntityModelHitState",
     "MixinEntityMeshHits", "MixinDragonModelHit", "MixinLegacyHitboxGizmos", "MixinSkinLayerVisualizer",
     "RenderTypeAccess", "RenderSetupAccess", "MixinDeltaTimer",
     "MixinMouseTurn", "MixinItemInHandRenderer",
