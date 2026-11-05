@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 
 class ArmDeadSliderTest {
     private static final List<String> GUNS = List.of("hbm:gun_greasegun", "hbm:gun_star_f");
+    // a path of the hand along the parts, as shipped for a gun that has one
+    private static final String PATH = Grips.shipped("hbm:gun_g3", "armLeftPath");
 
     private static ArmEditor.Setting setting(ArmEditor editor, String id) {
         for (var row : editor.rows()) if (row.slider() != null && row.slider().id().equals(id)) return row.slider();
@@ -135,13 +137,28 @@ class ArmDeadSliderTest {
                                 "armLoadScale" + (right ? "Right" : "Left"))) {
                             resetState(opened, gun, state);
                             armDirection(gun, right);
-                            ArmEditor.Setting s = setting(editor, id);
                             boolean isLoad = id.startsWith("armLoad");
+                            // the loading pose is drawn only while the hand goes along a path or carries
+                            // (Arms.pathState / carryState are null for an empty source): give it a path
+                            if (isLoad) set(gun, right ? "armRightPath" : "armLeftPath", PATH);
+                            ArmEditor.Setting s = setting(editor, id);
                             boolean isDead = dead(editor, s, right, isLoad);
                             assertEquals(isDead, s.why() != null,
                                     gun + " " + state + " " + id + " grey iff pose is unchanged");
                             if (s.why() != null) assertTrue(s.text().length() <= 34, s.text());
+                            if (isLoad) {
+                                set(gun, right ? "armRightPath" : "armLeftPath", "");
+                                set(gun, right ? "armRightCarryKeys" : "armLeftCarryKeys", "");
+                                assertNotNull(setting(editor, id).why(), gun + " " + state + " " + id + ": grey with no path and no carrying");
+                            }
                         }
+                        // the arm runs forward from the hand: its length does not depend on how far back it goes
+                        resetState(opened, gun, state);
+                        String side = right ? "Right" : "Left";
+                        set(gun, "armDir" + side, (right ? "-0.25" : "0.25") + ",0.1,0.5");
+                        ArmEditor.Setting reach = setting(editor, "armReach" + side);
+                        assertEquals(dead(editor, reach, right, false), reach.why() != null, gun + " " + state + " armReach" + side + " with the arm going forward");
+                        if (state == 3) assertNotNull(reach.why(), gun + ": a forward arm with base 0 has no reach to take");
                     }
                     editor.page = ArmEditor.Page.BOTH;
                     for (String id : List.of("armScale", "armLength", "armMaxScale")) {
@@ -161,6 +178,22 @@ class ArmDeadSliderTest {
                         if (state == 6 && id.equals("armLength")) assertFalse(dead, gun + ": a thick arm is cut by armLength");
                         assertEquals(dead, s.why() != null, gun + " " + state + " " + id + " grey iff both poses are unchanged");
                         if (s.why() != null) assertTrue(s.text().length() <= 34, s.text());
+                    }
+                    if (state == 6) {
+                        // the same thick arm held to a small thickness by armMaxScale is long in its own pixels again
+                        resetState(opened, gun, state);
+                        armDirection(gun, true);
+                        armDirection(gun, false);
+                        set(gun, "armMaxScale", "0.5");
+                        ArmEditor.Setting length = setting(editor, "armLength");
+                        assertNotNull(length.why(), gun + ": armLength with a small armMaxScale");
+                        Pose[] first = null;
+                        for (int n = 0; n < 9; n++) {
+                            put(editor, length, length.min() + (length.max() - length.min()) * n / 8F);
+                            Pose[] now = {pose(true, false), pose(false, false), pose(true, true), pose(false, true)};
+                            if (first == null) first = now;
+                            else for (int i = 0; i < now.length; i++) assertTrue(first[i].same(now[i]), gun + ": armLength moves an arm held thin");
+                        }
                     }
                 }
             }
@@ -203,7 +236,7 @@ class ArmDeadSliderTest {
                                     assertEquals(s.label() + ": " + s.off(), s.text());
                                     assertTrue(s.text().length() <= 34, gun + " " + page + " " + s.text());
                                     assertTrue(Set.of("armReachRight", "armReachLeft", "armInspectReleaseMs", "armMaxScale", "armSlideTo",
-                                            "armLength", "armReleaseMove.0", "armReleaseMove.1", "armReleaseMove.2", "armReleaseMoveRight.0",
+                                            "armLength", "armLoadRollRight", "armLoadRollLeft", "armLoadScaleRight", "armLoadScaleLeft", "armReleaseMove.0", "armReleaseMove.1", "armReleaseMove.2", "armReleaseMoveRight.0",
                                             "armReleaseMoveRight.1", "armReleaseMoveRight.2").contains(s.id()),
                                             "Unexpected conditional slider without a pose probe: " + page + " " + s.id());
                                 }
@@ -246,8 +279,10 @@ class ArmDeadSliderTest {
                 var s = setting(editor, "armReleaseMove." + (n % 3));
                 assertNotNull(s.why());
                 put(editor, s, s.min() + (s.max() - s.min()) * n / 8F);
-                assertEquals(0F, Arms.release("", new double[] {0D, 0D, 180D}), 0F);
-                Matrix4f matrix = new Matrix4f(rest.local);
+                float progress = Arms.release("", new double[] {0D, 0D, 180D});
+                assertEquals(0F, progress, 0F);
+                // as Arms.draw: the moved pose only while the turn is on, else the arm at rest
+                Matrix4f matrix = progress > 0F ? Arms.releasePose(rest, false, progress) : new Matrix4f(rest.local);
                 float[] now = new float[16];
                 matrix.get(now);
                 if (off == null) off = now;
