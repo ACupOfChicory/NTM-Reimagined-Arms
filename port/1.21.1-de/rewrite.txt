@@ -147,6 +147,9 @@ re@RenderedMesh.java: ^import net\.minecraft\.client\.model\.Model;$ => import c
 re@RenderedMesh.java: ^import net\.minecraft\.client\.renderer\.gizmos\.DrawableGizmoPrimitives\.Group;$ =>
 re@RenderedMesh.java: submitGizmoPrimitives\(Group group => submitGizmoPrimitives(Object group
 re@RenderedMesh.java: (?:Minecraft\.getInstance\(\)\.getBlockEntityRenderDispatcher\(\)|dispatcher)\.getRenderer\((\w+)\) => acup.gunfeel.port.Mc.renderer($1)
+# RenderedMesh.textureOf reads 26.2's type.state.textures: 1.21.1 keeps the texture in CompositeRenderType.state().textureState,
+# so every renderer's texture was OPAQUE (the blast door's window not glass, see-through pixels solid). DE's RenderTypeInfo reads both
+re@RenderedMesh.java: (private static @Nullable (?:Identifier|ResourceLocation) textureOf\(RenderType type\) \{) => $1 if(true) return com.hbm.backport.client.rendertype.RenderTypeInfo.texture(type);
 # NtmApiTest: the port's list of what it calls in NTM is its own (ApiProbe reads it from the jar), next to its mixins
 re@NtmApiTest.java: Path\.of\("src/main/resources", ApiProbe\.FILE\) => Path.of("port/1.21.1-de/src/main/resources", ApiProbe.FILE)
 # CompatTest: the port's resources as the jar has them (its mods.toml with ntmTested filled in, its mixin configs)
