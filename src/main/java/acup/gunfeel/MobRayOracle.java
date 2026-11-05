@@ -54,6 +54,23 @@ final class MobRayOracle {
         return out;
     }
 
+    // The same 17x19 grid looking along direction; along +z it is grid(surface).
+    static List<Ray> grid(List<Triangle> surface, Vec3 direction) {
+        Vec3 d = direction.normalize(), u = (Math.abs(d.y) > .9 ? new Vec3(1,0,0) : new Vec3(0,1,0)).cross(d).normalize(), v = d.cross(u);
+        double minU=Double.POSITIVE_INFINITY, minV=minU, minD=minU, maxU=Double.NEGATIVE_INFINITY, maxV=maxU, maxD=maxU;
+        for (Triangle t : surface) for (Vec3 p : List.of(t.a(),t.b(),t.c())) {
+            minU=Math.min(minU,p.dot(u)); minV=Math.min(minV,p.dot(v)); minD=Math.min(minD,p.dot(d));
+            maxU=Math.max(maxU,p.dot(u)); maxV=Math.max(maxV,p.dot(v)); maxD=Math.max(maxD,p.dot(d));
+        }
+        List<Ray> out = new ArrayList<>();
+        for (int x=0; x<17; x++) for (int y=0; y<19; y++) {
+            Vec3 across = u.scale(minU-.2+(maxU-minU+.4)*(x+.37)/17).add(v.scale(minV-.2+(maxV-minV+.4)*(y+.41)/19));
+            Vec3 a = across.add(d.scale(minD-2)), b = across.add(d.scale(maxD+2));
+            out.add(new Ray(a,b,hit(surface,a,b)));
+        }
+        return out;
+    }
+
     static boolean hit(List<Triangle> surface, Vec3 a, Vec3 b) {
         Vec3 dir = b.subtract(a);
         for (Triangle t : surface) {
