@@ -220,7 +220,7 @@ public final class PassableClip extends ClipContext {
                 // bullet comes in, as a mask block is: a shown pixel stops it there, a see-through one lets it through
                 // the whole block (not onto its far inner face, seen through the window). Already inside it (came in
                 // through a see-through pixel the last tick): flies on.
-                BlockHitResult in = ModelSurface.present(vox) ? ModelSurface.hit(vox, hit.getBlockPos(), from, to, false)
+                BlockHitResult in = ModelSurface.present(vox) ? ModelSurface.hit(vox, hit.getBlockPos(), from, to, false, false, hiddenSides(level, hit.getBlockPos(), state))
                         : !shell(vox) ? march(vox, hit, to.subtract(from), 64)
                         : hit.isInside() ? null : march(vox, hit, to.subtract(from), 1);
                 if (in != null) return in;
@@ -328,7 +328,7 @@ public final class PassableClip extends ClipContext {
             "bamboo_fence", "bamboo_fence_gate");
 
     // the block's pixel mask, unless a path rule says other than pixels
-    private static long[] @Nullable [] maskOf(BlockState state) {
+    static long[] @Nullable [] maskOf(BlockState state) {
         String path = BulletRules.path(state);
         if (path != null && !path.equals("pixels")) return null;
         return masks().get(state.getBlock());
@@ -650,6 +650,14 @@ public final class PassableClip extends ClipContext {
             LOGGER.warn("Could not read the bullet masks", e);
         }
         return masks = out;
+    }
+
+    // the block's sides its neighbours hide (bit Direction.ordinal): the game does not draw its faces there
+    static int hiddenSides(BlockGetter level, BlockPos pos, BlockState state) {
+        int out = 0;
+        for (Direction d : Direction.values())
+            if (!net.minecraft.world.level.block.Block.shouldRenderFace(state, level.getBlockState(pos.relative(d)), d)) out |= 1 << d.ordinal();
+        return out;
     }
 
     // the hit lies on the block's own face toward a neighbour that hides that face (it is not drawn)
