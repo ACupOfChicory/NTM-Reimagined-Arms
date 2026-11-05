@@ -100,6 +100,8 @@ final class HeadProfiles {
     private static String name(String name) {
         if(name.startsWith("mesh/")) name=name.substring(5);
         while(name.startsWith("root/root/")) name=name.substring(5);
+        // Flywheel (CrankShaft) puts a legacy NTM model's parts under "root/tree/"; without Flywheel they come as root/<part>
+        if(name.startsWith("root/tree/")) name="root/"+name.substring(10);
         return name;
     }
     private static boolean anonymous(String name) { return name.equals("submitted") || name.equals("mesh/submitted"); }
@@ -178,6 +180,17 @@ final class HeadProfiles {
             box=best(around(plain,group.stream().map(i->profile.parts().get(i)).toList()),boxes,scale,yaw,b->!b.part().startsWith("mesh/") && name(b.part()).equals(plain)).box();
             if(box>=0) for(int i:group) if(mapping[i]<0) mapping[i]=box;
         }
+        // Without Flywheel a part's box is around its whole cubes; the profile holds the box of the mesh Flywheel draws:
+        // cut to the opaque pixels of its texture (the wandering trader's hat, a piglin brute's pants), or around flat
+        // cubes that a large mob loses whole without Flywheel (PlaneHitPolicy; under Flywheel only their triangles go:
+        // the elder guardian's fin, the creaking's twigs). The one box of the part's name, inside it or holding it on
+        // every axis, is that part.
+        for(int i=0;i<mapping.length;i++) {
+            var ref=profile.parts().get(i);if(mapping[i]>=0) continue;
+            var own=new ArrayList<Integer>();
+            for(int j=0;j<boxes.size();j++) if(!boxes.get(j).part().startsWith("mesh/") && name(boxes.get(j).part()).equals(name(ref.name()))) own.add(j);
+            if(own.size()==1 && nested(ref,boxes.get(own.getFirst()),scale)) mapping[i]=own.getFirst();
+        }
         var zones=new ArrayList<Zone>();int missing=0;
         for(var zone:profile.zones()) {
             int match=mapping[zone.part()];if(match<0) { if(!otherVariant(profile,mapping,zone.part())) missing++;continue; }
@@ -203,6 +216,15 @@ final class HeadProfiles {
             if(united==null) out.addAll(group); else out.add(united);
         }
         return List.copyOf(out);
+    }
+    // every side of the box no shorter than the part's, or every side no longer (a little over for rounding)
+    private static boolean nested(Ref ref,ModelBox box,double scale) {
+        var size=size(box);boolean holds=true,inside=true;
+        for(int a=0;a<3;a++) {
+            double ratio=size[a]/(ref.size()[a]*scale);
+            holds&=ratio>=1/1.05;inside&=ratio<=1.05;
+        }
+        return holds || inside;
     }
     // the box around boxes whose edges run the same ways (the cubes of one part), null if they do not
     private static ModelBox around(List<ModelBox> group) {

@@ -212,7 +212,7 @@ class HeadProfilesTest {
             assertEquals(in,HeadZone.contains(resolved.zones(),point),point.toString());
         }
         assertTrue(head>100,"в голове есть точки зоны: "+head);
-        // коза без рогов: голова без Flywheel — только уши (бородка плоская), головой остаётся нос
+        // коза без рогов: голова без Flywheel — только уши (бородка плоская): голова — уши и нос, как под Flywheel
         var goat=HeadProfiles.get("minecraft:goat");var ears=new ArrayList<ModelBox>();
         for(var r:goat.parts()) {
             var name=r.name().substring("mesh/".length());
@@ -222,7 +222,7 @@ class HeadProfilesTest {
             for(double x:new double[]{c.x-s[0]/2,c.x+s[0]/2-.1875}) ears.add(new ModelBox(name,x,c.y+s[1]/2-.125,c.z,.1875,0,0,0,.125,0,0,0,.0625));
         }
         var horns=ModelHeads.resolve("minecraft:goat",ears,0);
-        assertEquals("dataset",horns.source(),horns.reason());assertEquals(1,horns.zones().size());
+        assertEquals("dataset",horns.source(),horns.reason());assertEquals(2,horns.zones().size());
         // Flywheel даёт часть целиком; коробки с "mesh/" не склеиваются
         var flywheel=cubes.stream().map(x->x.part().startsWith("root/head")?new ModelBox("mesh/"+x.part(),x.x(),x.y(),x.z(),x.ux(),x.uy(),x.uz(),x.vx(),x.vy(),x.vz(),x.wx(),x.wy(),x.wz()):x).toList();
         assertEquals(flywheel,HeadProfiles.unite(llama,flywheel));
@@ -268,7 +268,7 @@ class HeadProfilesTest {
             // с Flywheel пропавший слой остаётся пропавшим
             assertTrue(HeadProfiles.bind(profile,flywheel,0).missing()>0,c+": Flywheel");
         }
-        // свинозомби: штаны без Flywheel — целый куб (под Flywheel обрезаны по текстуре), их зону покрывает нога
+        // свинозомби: штаны без Flywheel — целый куб (под Flywheel обрезаны по текстуре): он и есть штаны, ноги — свои
         var piglin=HeadProfiles.get(limbs,"minecraft:zombified_piglin");var boxes=new ArrayList<ModelBox>();
         for(var r:piglin.parts()) {
             var name=r.name().substring("mesh/".length());
@@ -277,7 +277,7 @@ class HeadProfilesTest {
             boxes.add(new ModelBox(name,cc.x-size[0]/2,cc.y+size[1]/2-.781,cc.z-size[2]/2,size[0],0,0,0,.781,0,0,0,size[2]));
         }
         var binding=HeadProfiles.bind(piglin,HeadProfiles.unite(piglin,boxes),0);
-        assertEquals(0,binding.missing());assertEquals(4,binding.zones().size());
+        assertEquals(0,binding.missing());assertEquals(6,binding.zones().size());
     }
     // Кость скелета и одежда поверх неё без Flywheel — одна коробка root/<часть>: у страя она по размеру одежды
     // (кость её берёт тоже), у болотника одежда закрывает полкости (под Flywheel обрезана по текстуре), и коробка не
@@ -313,6 +313,135 @@ class HeadProfilesTest {
                 List.of(new HeadProfiles.Zone(0,1,List.of(),0),new HeadProfiles.Zone(1,1,List.of(),0)));
         var binding=HeadProfiles.bind(profile,List.of(new ModelBox("root/head",-.5,-.5,-.5,1,0,0,0,1,0,0,0,1)),0);
         assertEquals(0,binding.missing());assertEquals(1,binding.zones().size());assertEquals(0,binding.zones().getFirst().part());
+    }
+    // Без Flywheel коробка части — её целые кубы, а профиль снят с сетки Flywheel: она обрезана по непрозрачным пикселям
+    // текстуры (шляпа торговца, штаны брутального пиглина) или с плоскими кубами, которые у крупного моба без Flywheel
+    // выброшены целиком (PlaneHitPolicy: плавник древнего стража, ветки скрипуна). Единственная коробка с именем части,
+    // вложенная в неё или вмещающая её по всем осям, — эта часть. Старые модели NTM под Flywheel — root/tree/<часть>,
+    // без него root/<часть>. Позы — снимок стенда без Flywheel (центр и размер кубов).
+    @Test void withoutFlywheelAPartsWholeCubesStandForTheMeshFlywheelCuts() {
+        var limbs=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("build/no-local-limbs.json"),false);
+        var poses=Map.ofEntries(
+                Map.entry("minecraft:wandering_trader","""
+                        root/head -0 1.7 -0 0.4688 0.5859 0.4688
+                        root/head/nose -0 1.466 0.293 0.1172 0.2344 0.1172
+                        root/head/hat -0 1.7 -0 0.5285 0.6457 0.5285
+                        root/arms -0.3516 1.146 0.1385 0.2344 0.4688 0.2344
+                        root/arms 0.3516 1.146 0.1385 0.2344 0.4688 0.2344
+                        root/arms 0 1.06 0.2184 0.4688 0.2344 0.2344
+                        root/left_leg 0.1172 0.3525 0 0.2344 0.7031 0.2344
+                        root/body -0 1.056 -0 0.4688 0.7031 0.3516
+                        root/body/jacket -0 0.8213 -0 0.5273 1.23 0.4102
+                        root/right_leg -0.1172 0.3525 -0 0.2344 0.7031 0.2344"""),
+                Map.entry("minecraft:piglin_brute","""
+                        root/head -0 1.751 -0 0.625 0.5 0.5
+                        root/head 0 1.626 0.2813 0.25 0.25 0.0625
+                        root/head 0.1563 1.563 0.2813 0.0625 0.125 0.0625
+                        root/head -0.1562 1.563 0.2813 0.0625 0.125 0.0625
+                        root/head/right_ear -0.3911 1.761 -0 0.0625 0.3125 0.25
+                        root/head/left_ear 0.3784 1.75 -0 0.0625 0.3125 0.25
+                        root/right_arm -0.3968 1.133 0.0107 0.25 0.75 0.25
+                        root/left_leg 0.1206 0.376 0 0.25 0.75 0.25
+                        root/left_leg/left_pants 0.1206 0.376 0 0.2812 0.7812 0.2812
+                        root/left_arm 0.3968 1.133 -0.0107 0.25 0.75 0.25
+                        root/right_leg -0.1206 0.376 -0 0.25 0.75 0.25
+                        root/right_leg/right_pants -0.1206 0.376 -0 0.2812 0.7812 0.2812
+                        root/body -0 1.126 -0 0.5 0.75 0.25
+                        root/body/jacket -0 1.126 -0 0.5313 0.7812 0.2813"""),
+                Map.entry("minecraft:elder_guardian","""
+                        root/head -0 1.177 -0 1.762 1.762 2.35
+                        root/head -1.028 1.177 0 0.2937 1.762 1.762
+                        root/head 1.028 1.177 -0 0.2937 1.762 1.762
+                        root/head -0 2.205 -0 1.762 0.2937 1.762
+                        root/head -0 0.1492 -0 1.762 0.2937 1.762
+                        root/head/spike10 0.8539 0.3234 -0 0.2937 1.322 0.2937
+                        root/head/spike11 -0.8592 0.3182 0 0.2937 1.322 0.2937
+                        root/head/spike6 0.8732 1.177 -0.8732 0.2937 1.322 0.2937
+                        root/head/spike7 -0.8773 1.177 -0.8773 0.2937 1.322 0.2937
+                        root/head/spike8 -0 0.3067 -0.8707 0.2937 1.322 0.2937
+                        root/head/spike9 0 0.3179 0.8594 0.2937 1.322 0.2937
+                        root/head/eye 0.2729 1.177 1.138 0.2937 0.2937 0.1469
+                        root/head/tail0 -0.1438 1.177 -1.609 0.5875 0.5875 1.175
+                        root/head/tail0/tail1 -0.3257 1.177 -2.583 0.4406 0.4406 1.028
+                        root/head/tail0/tail1/tail2 -0.6625 1.177 -3.352 0.2937 0.2937 0.8812
+                        root/head/spike0 -0 2.053 -0.8754 0.2937 1.322 0.2938
+                        root/head/spike1 0 2.054 0.8764 0.2937 1.322 0.2937
+                        root/head/spike2 0.8675 2.045 -0 0.2937 1.322 0.2937
+                        root/head/spike3 -0.8569 2.034 0 0.2938 1.322 0.2937
+                        root/head/spike4 -0.8543 1.177 0.8543 0.2937 1.322 0.2937
+                        root/head/spike5 0.8622 1.177 0.8622 0.2937 1.322 0.2937"""),
+                Map.entry("minecraft:creaking","""
+                        root/root/upper_body/head -0.25 2.188 0 0.375 0.625 0.375
+                        root/root/upper_body/head -0.25 2.595 0 0.375 0.1875 0.375
+                        root/root/upper_body/right_arm -0.5313 1.22 -0.0937 0.1875 1.312 0.1875
+                        root/root/upper_body/right_arm -0.5312 0.4385 -0.0937 0.1875 0.25 0.1875
+                        root/root/upper_body/left_arm 0.4063 1.313 -0.0313 0.1875 1 0.1875
+                        root/root/upper_body/left_arm 0.4062 1.938 -0.0312 0.1875 0.25 0.1875
+                        root/root/upper_body/left_arm 0.4063 0.6885 -0.0313 0.1875 0.25 0.1875
+                        root/root/upper_body/body 0.125 1.407 -0.0312 0.375 0.8125 0.3125
+                        root/root/upper_body/body -0.25 1.657 -0.0313 0.375 0.4375 0.3125
+                        root/root/left_leg 0.0938 0.501 -0.0313 0.1875 1 0.1875
+                        root/root/right_leg -0.1563 0.5948 -0.0312 0.1875 1.188 0.1875
+                        root/root/right_leg -0.1562 1.282 -0.0313 0.1875 0.1875 0.1875"""),
+                Map.entry("minecraft:breeze","""
+                        root/body/head 0 1.532 0.1375 0.625 0.1875 0.25
+                        root/body/head -0 1.563 -0 0.5 0.5 0.5
+                        root/body/head/eyes 0 1.532 0.1375 0.625 0.1875 0.25
+                        root/body/head/eyes -0 1.563 -0 0.5 0.5 0.5
+                        root/body/rods/rod_2 0.0747 0.8517 0.1934 0.125 0.5 0.125
+                        root/body/rods/rod_3 0.1301 0.8517 -0.1614 0.125 0.5 0.125
+                        root/body/rods/rod_1 -0.2048 0.8517 -0.032 0.125 0.5 0.125
+                        root/wind_body/wind_bottom -0 0.2198 -0 0.3125 0.4375 0.3125
+                        root/wind_body/wind_bottom/wind_mid -0.0223 0.626 -0.0313 0.75 0.375 0.75
+                        root/wind_body/wind_bottom/wind_mid -0.0223 0.626 -0.0313 0.5 0.375 0.5
+                        root/wind_body/wind_bottom/wind_mid -0.0223 0.626 -0.0313 0.3125 0.375 0.3125
+                        root/wind_body/wind_bottom/wind_mid/wind_top -0.0535 1.063 -0.0402 1.125 0.5 1.125
+                        root/wind_body/wind_bottom/wind_mid/wind_top -0.0535 1.063 -0.0402 0.75 0.5 0.75
+                        root/wind_body/wind_bottom/wind_mid/wind_top -0.0535 1.063 -0.0402 0.3125 0.5 0.3125"""),
+                Map.entry("hbm:entity_mob_gold_creeper","""
+                        root/head -0 1.376 -0 0.5 0.5 0.5
+                        root/right_front_leg -0.125 0.1885 0.25 0.25 0.375 0.25
+                        root/right_hind_leg -0.125 0.1885 -0.25 0.25 0.375 0.25
+                        root/left_hind_leg 0.125 0.1885 -0.25 0.25 0.375 0.25
+                        root/body 0 0.751 0 0.5 0.75 0.25
+                        root/left_front_leg 0.125 0.1885 0.25 0.25 0.375 0.25"""),
+                Map.entry("hbm:entity_elder_one","""
+                        root/head 0 18.77 7.031 6.25 9.375 4.688
+                        root/head/beak 0 18.77 10.94 6.25 3.125 3.125
+                        root/left_leg 2.344 3.931 0.7812 4.688 7.812 4.688
+                        root/right_leg -2.344 3.931 0.7812 4.688 7.812 4.688
+                        root/right_wing -8.485 14.89 0 1.562 6.25 9.375
+                        root/left_wing 8.485 14.89 -0 1.562 6.25 9.375
+                        root/body 0 12.53 -0 9.375 12.5 9.375"""));
+        record Case(String type,boolean limb,int zones) {}
+        for(var c:List.of(new Case("minecraft:wandering_trader",false,3),new Case("minecraft:piglin_brute",true,5),
+                new Case("minecraft:elder_guardian",true,15),new Case("minecraft:creaking",false,1),new Case("minecraft:creaking",true,4),
+                new Case("minecraft:breeze",false,1),new Case("hbm:entity_mob_gold_creeper",false,1),new Case("hbm:entity_mob_gold_creeper",true,4),
+                new Case("hbm:entity_elder_one",false,2),new Case("hbm:entity_elder_one",true,4))) {
+            var profile=c.limb()?HeadProfiles.get(limbs,c.type()):HeadProfiles.get(c.type());var boxes=new ArrayList<ModelBox>();
+            for(var line:poses.get(c.type()).strip().split("\n")) {
+                var f=line.strip().split(" ");double[] v=new double[6];for(int i=0;i<6;i++) v[i]=Double.parseDouble(f[i+1]);
+                boxes.add(new ModelBox(f[0],v[0]-v[3]/2,v[1]-v[4]/2,v[2]-v[5]/2,v[3],0,0,0,v[4],0,0,0,v[5]));
+            }
+            var binding=HeadProfiles.bind(profile,HeadProfiles.unite(profile,boxes),0);
+            assertEquals(0,binding.missing(),c.toString());assertEquals(c.zones(),binding.zones().size(),c.toString());
+        }
+        // коробка больше по одной оси и меньше по другой — не та часть; коробки Flywheel (mesh/) не берутся
+        var profile=new HeadProfiles.Profile(false,List.of(new HeadProfiles.Ref("mesh/root/head",new double[]{1,1,1},0,new Vec3(0,0,0),-1)),
+                List.of(new HeadProfiles.Zone(0,1,List.of(),0)));
+        assertEquals(1,HeadProfiles.bind(profile,List.of(new ModelBox("root/head",-1,-.25,-.5,2,0,0,0,.5,0,0,0,1)),0).missing());
+        assertEquals(0,HeadProfiles.bind(profile,List.of(new ModelBox("root/head",-1,-1,-.5,2,0,0,0,2,0,0,0,1)),0).missing());
+        assertEquals(0,HeadProfiles.bind(profile,List.of(new ModelBox("root/head",-.25,-.25,-.5,.5,0,0,0,.5,0,0,0,1)),0).missing());
+        assertEquals(1,HeadProfiles.bind(profile,List.of(new ModelBox("mesh/root/head",-1,-1,-.5,2,0,0,0,2,0,0,0,1)),0).missing());
+        // две коробки одного имени (кубы не в одной рамке, не склеены) — какая из них часть, не сказать
+        assertEquals(1,HeadProfiles.bind(profile,List.of(new ModelBox("root/head",-1,-1,-.5,2,0,0,0,2,0,0,0,1),
+                new ModelBox("root/head",-.25,-.25,-.5,.5,0,0,0,.5,0,0,0,1)),0).missing());
+        // слой рисуется не всегда (лама без ковра): коробку модели, в которую он вложен, он так не берёт
+        var layered=new HeadProfiles.Profile(false,List.of(
+                new HeadProfiles.Ref("mesh/root/head",new double[]{1,1,1},0,new Vec3(0,0,0),-1),
+                new HeadProfiles.Ref("mesh/root/overlayLayer/draws/0/tree/head",new double[]{.6,.6,.6},0,new Vec3(0,0,0),0)),
+                List.of(new HeadProfiles.Zone(0,1,List.of(),0),new HeadProfiles.Zone(1,1,List.of(),0)));
+        assertEquals(1,HeadProfiles.bind(layered,List.of(new ModelBox("root/head",-.5,-.5,-.5,1,0,0,0,1,0,0,0,1)),0).zones().size());
     }
     private static ModelBox box(HeadProfiles.Ref ref) { return box(ref,ref.name()); }
     private static ModelBox box(HeadProfiles.Ref ref,String name) {
