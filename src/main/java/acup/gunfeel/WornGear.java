@@ -11,9 +11,10 @@ import java.util.List;
 //   platforms catch that drawn armor as geometry of its layer, so a part here only grows by the side, about its middle:
 //   armor is solid, a part taken as a mesh of its opaque pixels (a skeleton's ribs) is a whole cube under it.
 // - A skull on the head (CustomHeadLayer; 1.12.2 LayerCustomHead) is the 8-pixel skull drawn 1.1875 times larger,
-//   9.5 pixels, standing on the base of the head; a dragon's head is its 16-pixel cube drawn at 0.75 of that, 14.25,
-//   standing the same way (its snout sticks out further and is not counted); a block (a carved pumpkin) is drawn at
-//   0.625 of a block, 10 pixels, about the head's middle. The head grows to at least that on each axis. On any model
+//   9.5 pixels, standing on the base of the head (1.7.10's RenderBiped draws it 1.0625 times larger, 8.5: OLD_SKULL);
+//   a dragon's head is its 16-pixel cube drawn at 0.75 of that, 14.25, standing the same way (its snout sticks out
+//   further and is not counted); a block (a carved pumpkin) is drawn at 0.625 of a block, 10 pixels, about the head's
+//   middle. The head grows to at least that on each axis. On any model
 //   with a head part. The base is the head's lower face, found by the world's up.
 // The model's pixel is read off the part itself (a head is 8 pixels across, a body, arm or leg 12 tall), so a baby or
 // a giant gets its own. The outer layers (hat, jacket, sleeves, trousers) already stand off their part by 0.5 or 0.25
@@ -23,7 +24,7 @@ import java.util.List;
 // Pure: the platforms say what is worn (ModelHits.worn); the boxes grow for the hitbox, the head and limb zones after
 // ModelHeads matched them on the bare model (its sizes pick the profile).
 public final class WornGear {
-    public enum Head { NONE, ARMOR, SKULL, DRAGON, BLOCK }
+    public enum Head { NONE, ARMOR, SKULL, OLD_SKULL, DRAGON, BLOCK }
 
     public record Worn(Head head, boolean chest, boolean legs, boolean feet) {
         public static final Worn NOTHING = new Worn(Head.NONE, false, false, false);
@@ -33,7 +34,7 @@ public final class WornGear {
         }
     }
 
-    static final double SKULL_PIXELS = 8 * 1.1875, DRAGON_PIXELS = 16 * 0.75 * 1.1875, BLOCK_PIXELS = 16 * 0.625;
+    static final double SKULL_PIXELS = 8 * 1.1875, OLD_SKULL_PIXELS = 8 * 1.0625, DRAGON_PIXELS = 16 * 0.75 * 1.1875, BLOCK_PIXELS = 16 * 0.625;
     private static final String[] HUMANOID = {"head", "body", "right_arm", "left_arm"};
 
     private WornGear() {
@@ -94,8 +95,8 @@ public final class WornGear {
                 base = 8 + 2 * outer;
                 byLeast = true;
                 if (worn.head() == Head.ARMOR && humanoid) side = 1;
-                else if (worn.head() == Head.SKULL || worn.head() == Head.DRAGON) {
-                    least = worn.head() == Head.SKULL ? SKULL_PIXELS : DRAGON_PIXELS;
+                else if (worn.head() == Head.SKULL || worn.head() == Head.OLD_SKULL || worn.head() == Head.DRAGON) {
+                    least = worn.head() == Head.SKULL ? SKULL_PIXELS : worn.head() == Head.OLD_SKULL ? OLD_SKULL_PIXELS : DRAGON_PIXELS;
                     standing = true;
                 } else if (worn.head() == Head.BLOCK) least = BLOCK_PIXELS;
             }
