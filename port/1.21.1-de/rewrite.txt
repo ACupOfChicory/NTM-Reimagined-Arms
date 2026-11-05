@@ -143,3 +143,12 @@ re@RenderedMesh.java: (?:Minecraft\.getInstance\(\)\.getBlockEntityRenderDispatc
 re@NtmApiTest.java: Path\.of\("src/main/resources", ApiProbe\.FILE\) => Path.of("port/1.21.1-de/src/main/resources", ApiProbe.FILE)
 # CompatTest: the port's resources as the jar has them (its mods.toml with ntmTested filled in, its mixin configs)
 re@CompatTest.java: Path\.of\("src/main/resources"\) => Path.of("port/1.21.1-de/build/resources/main")
+# 26.2 PoseStack.Pose.set(other): 1.21.1 keeps the matrix and the normal apart
+re: (\w+)\.last\(\)\.set\(([\w.]+(?:\(\))?)\) => acup.gunfeel.port.Mc.setPose($1.last(), $2)
+# MixinItemRenderWeaponBase: DE reads the camera bob as Mth.lerp(interp, player.oBob, player.bob), the third lerp of
+# setupTransformsAndSubmit (after the arm pitch and yaw), where 26.2 calls ClientAvatarState.getInterpolatedBob
+re@MixinItemRenderWeaponBase.java: target = "Lnet/minecraft/client/entity/ClientAvatarState;getInterpolatedBob\(F\)F"\)\) => target = "Lnet/minecraft/util/Mth;lerp(FFF)F", ordinal = 2))
+re@MixinItemRenderWeaponBase.java: gunfeel\$bob\(net\.minecraft\.client\.entity\.ClientAvatarState state, float partial\) => gunfeel\$bob(float partial, float bobO, float bob)
+re@MixinItemRenderWeaponBase.java: return state\.getInterpolatedBob\(partial\); => return net.minecraft.util.Mth.lerp(partial, bobO, bob);
+# 26.2 Button.onPress(input): 1.21.1 presses it with no input
+re: \.onPress\(new [\w.]*KeyEvent\([^()]*\)\) => .onPress()

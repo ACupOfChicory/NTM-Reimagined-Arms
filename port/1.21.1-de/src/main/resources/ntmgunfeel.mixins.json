@@ -4,7 +4,7 @@
   "package": "acup.gunfeel.mixin.mc",
   "compatibilityLevel": "JAVA_21",
   "mixins": [],
-  "client": [],
+  "client": ["MixinDeltaTimer"],
   "injectors": {
     "defaultRequire": 1
   }

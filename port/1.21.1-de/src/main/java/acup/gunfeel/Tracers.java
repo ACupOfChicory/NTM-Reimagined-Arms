@@ -10,6 +10,10 @@ public final class Tracers {
     private Tracers() {
     }
 
+    // where the player's own tracers start: the muzzle of the gun in hand (MixinItemRenderWeaponBase)
+    public static void muzzle(com.mojang.blaze3d.vertex.PoseStack pose) {
+    }
+
     public static void handle(ShotPayload p, IPayloadContext context) {
     }
 

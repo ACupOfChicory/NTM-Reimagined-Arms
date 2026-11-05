@@ -122,6 +122,12 @@ public final class Mc {
         return com.hbm.backport.client.rendertype.PrimitiveTopology.of(type.mode());
     }
 
+    // 26.2 PoseStack.Pose.set(other): the matrix and the normal of other
+    public static void setPose(com.mojang.blaze3d.vertex.PoseStack.Pose to, com.mojang.blaze3d.vertex.PoseStack.Pose from) {
+        to.pose().set(from.pose());
+        to.normal().set(from.normal());
+    }
+
     // 26.2 VertexConsumer.addVertexWith2DPose(pose, x, y): a GUI vertex through a 2D pose, at depth 0
     public static VertexConsumer vertex2d(VertexConsumer vc, Matrix3x2f pose, float x, float y) {
         Vector2f p = pose.transformPosition(x, y, new Vector2f());

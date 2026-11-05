@@ -1,3 +1,6 @@
+import java.io.ByteArrayOutputStream
+import java.time.Duration
+
 // NTM Reimagined Arms for Minecraft 1.21.1 and NTM: Decentralized Edition, on NeoForge 21.1 (ModDevGradle).
 // The 26.2 build at the repository root is left alone: this one reads the root's src/ (README.md here).
 // - Every file of the root's src/ is the port's too, copied into build/ with the 26.x names of rewrite.txt
@@ -102,6 +105,69 @@ neoForge {
             gameDirectory.set(projectDir.resolve("run-server"))
             programArgument("--nogui")
         }
+        // the test world of checkClient: a dedicated server makes a flat one in run-world/world and is stopped
+        // (notes/ports/de-1.21.1/makeworld.sh); 26.2's run-bullets world is too new for 1.21.1
+        register("makeWorld") {
+            server()
+            gameDirectory.set(projectDir.resolve("run-world"))
+            programArgument("--nogui")
+            jvmArgument("-Xmx1200M")
+        }
+        // the root's checkClient: the smoke check, or with -Ptrace -Pscenario=arms the trace scenario
+        register("checkClient") {
+            client()
+            gameDirectory.set(projectDir.resolve("run-client-check"))
+            jvmArgument("-Xmx4G")
+            systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
+            programArguments.addAll("--width", "854", "--height", "480")
+        }
+        // -Ptrace=<file> (relative to the run's folder) or -Ptrace=true, -Pscenario, -PscenarioGuns, -Pseed: as at the root
+        configureEach {
+            providers.gradleProperty("trace").orNull?.let { systemProperty("ntmgunfeel.trace", it) }
+            providers.gradleProperty("scenario").orNull?.let { systemProperty("ntmgunfeel.scenario", it) }
+            providers.gradleProperty("scenarioGuns").orNull?.let { systemProperty("ntmgunfeel.scenarioGuns", it) }
+            providers.gradleProperty("seed").orNull?.let { systemProperty("ntmgunfeel.seed", it) }
+            if (providers.gradleProperty("traceHex").isPresent) systemProperty("ntmgunfeel.traceHex", "true")
+        }
+    }
+}
+
+tasks.matching { it.name == "runMakeWorld" }.configureEach {
+    doFirst {
+        val dir = projectDir.resolve("run-world")
+        dir.resolve("world").deleteRecursively()
+        dir.mkdirs()
+        dir.resolve("eula.txt").writeText("eula=true\n")
+        // as the root's run-bullets: flat, two chunks around, nothing generated on it; a port of its own, not 25565
+        dir.resolve("server.properties").writeText(
+            "level-type=minecraft\\:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\n" +
+            "spawn-protection=0\nonline-mode=false\nspawn-monsters=false\nspawn-animals=false\nmax-players=1\n" +
+            "server-port=25610\n")
+    }
+}
+tasks.matching { it.name == "runCheckClient" }.configureEach {
+    val scenario = providers.gradleProperty("scenario").isPresent
+    timeout.set(Duration.ofMinutes(if (scenario) 120 else 8))
+    val result = layout.buildDirectory.file("clientcheck/result.txt")
+    doFirst {
+        val source = projectDir.resolve("run-world/world")
+        require(source.resolve("level.dat").exists()) { "Сначала сделайте мир: notes/ports/de-1.21.1/makeworld.sh" }
+        val dir = projectDir.resolve("run-client-check")
+        val world = dir.resolve("saves/gunfeel-smoke")
+        world.deleteRecursively()
+        source.copyRecursively(world, overwrite = true)
+        world.resolve("session.lock").delete()
+        dir.resolve("config").mkdirs()
+        dir.resolve("config/fml.toml").writeText("earlyWindowControl = false\n")
+        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:3\n" +
+            "simulationDistance:5\ninactivityFpsLimit:minimized\nmaxFps:60\nonboardAccessibility:false\n")
+        result.get().asFile.delete()
+    }
+    doLast {
+        val report = result.get().asFile
+        check(report.exists() && report.readLines().lastOrNull() == "PASS клиентская проверка") {
+            "Клиентская проверка не прошла: ${report.path}"
+        }
     }
 }
 
@@ -188,7 +254,24 @@ fun sharedSources(dir: String, section: String, out: String, rewrite: Boolean) =
         exclude(skip)
         if (rewrite) eachFile {
             val mine = rules.filter { it.file == null || it.file == name }
-            filter { line: String -> mine.fold(line) { acc, r -> r.regex.replace(acc, r.to) } }
+            val file = name
+            filter { line: String ->
+                mine.fold(line) { acc, r ->
+                    try {
+                        r.regex.replace(acc, r.to)
+                    } catch (e: Exception) {
+                        throw GradleException("rewrite.txt: ${r.regex.pattern} => ${r.to} on $file: ${e.message}", e)
+                    }
+                }
+            }
+        }
+    }
+    // a rule that broke on a file leaves it empty: an empty shared file whose root file is not is an error
+    doLast {
+        val base = repo.resolve("src/$dir")
+        destinationDir.walkTopDown().filter { it.isFile && it.length() == 0L }.forEach {
+            val src = base.resolve(it.relativeTo(destinationDir).path)
+            if (src.length() > 0L) throw GradleException("rewrite.txt left ${it.relativeTo(destinationDir)} empty")
         }
     }
     into(layout.buildDirectory.dir("generated/shared/$section"))
@@ -213,6 +296,62 @@ sourceSets.test {
     compileClasspath += sourceSets.main.get().compileClasspath
     runtimeClasspath += sourceSets.main.get().compileClasspath
 }
+
+// tools/ of the root: MixinCheck, run by mixinCheck below
+val tools: SourceSet = sourceSets.create("tools") {
+    java.setSrcDirs(listOf(repo.resolve("tools")))
+    java.include("MixinCheck.java")
+}
+dependencies {
+    // MixinCheck shares its checks with the game's (acup.gunfeel.compat.MixinProbe)
+    "toolsImplementation"(sourceSets.main.get().output)
+    "toolsImplementation"("org.ow2.asm:asm-tree:9.10.1")
+    "toolsImplementation"("org.ow2.asm:asm-util:9.10.1")
+}
+// The mixins against the Minecraft 1.21.1, NeoForge and DE classes they change, without starting the game
+val unpackedJar = tasks.register<Sync>("unpackJar") {
+    from(zipTree(tasks.jar.flatMap { it.archiveFile }))
+    into(layout.buildDirectory.dir("mixincheck"))
+}
+val mixinCheck = tasks.register<JavaExec>("mixinCheck") {
+    group = "verification"
+    description = "Checks every mixin against the Minecraft, NeoForge and DE classes it changes."
+    dependsOn(unpackedJar)
+    classpath = tools.runtimeClasspath
+    mainClass = "MixinCheck"
+    val game = sourceSets.main.get().compileClasspath
+    val classes = unpackedJar.map { it.destinationDir.path }
+    argumentProviders.add(CommandLineArgumentProvider {
+        listOf(classes.get(), game.files.filter { it.name.endsWith(".jar") }.joinToString(":"))
+    })
+    // A mixin the port's configs do not list yet (its part is not ported) is not applied: what MixinCheck finds in
+    // it is shown, and fails the check only for a listed one.
+    val out = ByteArrayOutputStream()
+    standardOutput = out
+    isIgnoreExitValue = true
+    val configs = listOf("ntmgunfeel.mixins.json", "ntmgunfeel-hbm.mixins.json").map { projectDir.resolve("src/main/resources/$it") }
+    inputs.files(configs)
+    doLast {
+        val listed = configs.flatMap { f ->
+            val o = groovy.json.JsonSlurper().parse(f) as Map<*, *>
+            listOf("mixins", "client", "server").flatMap { (o[it] as List<*>?).orEmpty().map { m -> m.toString() } }
+        }.toSet()
+        val text = out.toString()
+        val failing = mutableListOf<String>()
+        var pending = 0
+        for (line in text.lines()) {
+            val m = Regex("""^(ERROR|WARN) +(\w+)""").find(line) ?: continue
+            if (m.groupValues[2] in listed) {
+                println(line)
+                if (m.groupValues[1] == "ERROR") failing += line
+            } else pending++
+        }
+        println(text.lines().lastOrNull { it.contains("injectors checked") } ?: "")
+        println("${listed.size} mixins listed; $pending findings in mixins not listed yet (their parts are not ported)")
+        if (failing.isNotEmpty()) throw GradleException("${failing.size} mixin errors in listed mixins")
+    }
+}
+tasks.check { dependsOn(mixinCheck) }
 
 tasks.test {
     useJUnitPlatform()

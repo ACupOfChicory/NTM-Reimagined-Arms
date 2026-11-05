@@ -37,7 +37,6 @@ acup/gunfeel/SkinLayerGeometry.java
 acup/gunfeel/SubmittedModelGeometry.java
 acup/gunfeel/mixin/MixinGlyphidModelHits.java
 acup/gunfeel/mixin/MixinGpuEntityGeometry.java
-acup/gunfeel/mixin/MixinItemRenderWeaponBase.java
 acup/gunfeel/mixin/MixinLegoClient.java
 acup/gunfeel/mixin/MixinMobModelHits.java
 acup/gunfeel/mixin/MixinMobObjModelHits.java

@@ -14,6 +14,8 @@ run-dump/
 run-check/
 run-bullets/
 run-client-check/
+run-world/
+run-server/
 run-mob-check/
 run-mob-review/
 run-mob-bench/

@@ -67,9 +67,11 @@ AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getTyp
 AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setAmount (Lnet/minecraft/world/item/ItemStack;I)V
 AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setType (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/BulletConfig;)V
 ARMS class com/hbm/backport/client/core/SubmitNodeCollector
+ARMS class com/hbm/client/render/OtherHandCollector
 ARMS class com/hbm/items/weapon/sedna/GunConfig
 ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT
 ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
+ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT$SmokeNode
 ARMS class com/hbm/render/anim/AnimationEnums$GunAnimation
 ARMS class com/hbm/render/anim/BusAnimation
 ARMS class com/hbm/render/anim/BusAnimationSequence
@@ -82,6 +84,7 @@ ARMS field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/
 ARMS field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
+ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT$SmokeNode alpha D
 ARMS field com/hbm/items/weapon/sedna/factory/Orchestras ORCHESTRA_G3 Ljava/util/function/BiConsumer;
 ARMS field com/hbm/items/weapon/sedna/factory/XFactory556mm LAMBDA_G3_ANIMS Ljava/util/function/BiFunction;
 ARMS field com/hbm/main/ResourceManager coilgun Lcom/hbm/render/loader/HFRWavefrontObject;
@@ -127,6 +130,7 @@ ARMS method com/hbm/render/anim/HbmAnimations getRelevantTransformation (Ljava/l
 ARMS method com/hbm/render/anim/HbmAnimations identity ()[D
 ARMS method com/hbm/render/anim/HbmAnimations$Animation <init> (Ljava/lang/String;JLcom/hbm/render/anim/BusAnimation;Z)V
 ARMS method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase adjustHudFov (F)F
+ARMS method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase isAkimbo (Lnet/minecraft/world/entity/LivingEntity;)Z
 ARMS method com/hbm/render/loader/GroupObject bounds ()[F
 ARMS method com/hbm/render/loader/GroupObject quads (Z)[F
 ARMS method com/hbm/render/loader/HFRWavefrontObject smoothing ()Z

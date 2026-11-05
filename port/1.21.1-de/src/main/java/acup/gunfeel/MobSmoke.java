@@ -14,6 +14,16 @@ public final class MobSmoke {
         return false;
     }
 
+    static boolean review() {
+        return false;
+    }
+
+    static void start() {
+    }
+
+    static void frame() {
+    }
+
     static void captured(LivingEntity e, float anchor, List<ModelBox> boxes, String source) {
     }
 
