@@ -6,6 +6,10 @@
 acup/gunfeel/GunEditor.java
 acup/gunfeel/ArmEditorScreen.java
 acup/gunfeel/ArmAnimationEditor.java
+# 26.2's submit pass, which 1.21.1 has not: the holes on glass after the translucent terrain are port/StageEvent's
+# order(-1), and the particles' hand-over is measured on ParticleEngine.render (the port's MixinParticleEngine)
+acup/gunfeel/mixin/mc/MixinSubmitNodeCollection.java
+acup/gunfeel/mixin/mc/MixinParticlesSubmit.java
 
 [test]
 

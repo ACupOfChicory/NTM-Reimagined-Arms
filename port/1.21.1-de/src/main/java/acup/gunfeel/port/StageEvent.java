@@ -38,10 +38,12 @@ public final class StageEvent {
     private final Matrix4f modelView;
     private final PoseStack pose = new PoseStack();
     private final Collector collector = new Collector(NOW);
+    private final net.minecraft.client.renderer.culling.Frustum frustum;
 
     private StageEvent(RenderLevelStageEvent event) {
         state.cameraRenderState = CameraRenderState.of(event.getCamera());
         modelView = new Matrix4f(event.getModelViewMatrix());
+        frustum = event.getFrustum();
     }
 
     public static StageEvent of(RenderLevelStageEvent event) {
@@ -58,6 +60,11 @@ public final class StageEvent {
 
     public PoseStack getPoseStack() {
         return pose;
+    }
+
+    // 26.2 CameraRenderState.cullFrustum (rewrite.txt)
+    public net.minecraft.client.renderer.culling.Frustum getFrustum() {
+        return frustum;
     }
 
     public Collector getSubmitNodeCollector() {

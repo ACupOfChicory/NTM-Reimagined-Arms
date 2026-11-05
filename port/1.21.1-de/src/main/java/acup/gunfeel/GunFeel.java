@@ -62,10 +62,11 @@ public final class GunFeel {
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderLevelStageEvent.class, e -> {
             var stage = e.getStage();
             if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_SKY) acup.gunfeel.port.Mc.levelProjection(e.getProjectionMatrix());
-            if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES && Feature.TRACERS.on()) {
+            if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES && (Feature.TRACERS.on() || GlassStand.ENABLED)) {
                 var ev = acup.gunfeel.port.StageEvent.of(e);
-                Tracers.submit(ev);
-                Tracers.afterOpaqueFeatures(ev);
+                if (Feature.TRACERS.on()) Tracers.submit(ev);
+                if (GlassStand.ENABLED) GlassStand.submit(ev);
+                if (Feature.TRACERS.on()) Tracers.afterOpaqueFeatures(ev);
                 ev.flush();
             }
             if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) acup.gunfeel.port.StageEvent.flushLate();

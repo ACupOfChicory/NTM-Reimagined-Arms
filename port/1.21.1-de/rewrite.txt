@@ -177,3 +177,15 @@ re@BulletFx.java: \.getParticleMaterial\((\w+), \w+, [\w.]+(?:\(\))?\) => .getPa
 re@BulletFx.java: \be\.location\(\) => e.getLocation()
 re@BulletFx.java: net\.minecraft\.client\.sounds\.SoundEngine\.PlayResult result = null; => String result = null;
 re@BulletFx.java: result = sm\.play\(inst\); => sm.play(inst); result = "played";
+# the hole stands (HoleBenchmark, GlassStand): 1.21.1 has no inactivity fps limit and no debug entries (the hitboxes
+# are the entity render dispatcher's), its ParticleEngine clears its particles in setLevel, ServerPlayer.level() is a
+# Level and teleportTo takes no resetCamera; the stage events are the port GunFeel's (StageEvent, with the frustum)
+re@HoleBenchmark.java: mc\.options\.inactivityFpsLimit\(\)\.set\([^;]*\); => 
+re@HoleBenchmark.java: mc\.debugEntries\.setStatus\(net\.minecraft\.client\.gui\.components\.debug\.DebugScreenEntries\.ENTITY_HITBOXES,$ => mc.getEntityRenderDispatcher().setRenderHitBoxes(false);
+re@HoleBenchmark.java: ^\s*net\.minecraft\.client\.gui\.components\.debug\.DebugScreenEntryStatus\.NEVER\);$ => 
+re@HoleBenchmark.java: mc\.particleEngine\.clearParticles\(\) => mc.particleEngine.setLevel(mc.level)
+re@HoleBenchmark.java: player\.teleportTo\(player\.level\(\), => player.teleportTo((net.minecraft.server.level.ServerLevel) player.level(),
+re@GlassStand.java: Set\.of\(\), 0F, 12F, false\)\) => Set.of(), 0F, 12F))
+re@GlassStand.java: ^\s*NeoForge\.EVENT_BUS\.addListener\(StageEvent\.class, GlassStand::submit\); => 
+re@GlassStand.java: private static void submit\(StageEvent event\) => static void submit(StageEvent event)
+re@GlassStand.java: cs\.cullFrustum => event.getFrustum()

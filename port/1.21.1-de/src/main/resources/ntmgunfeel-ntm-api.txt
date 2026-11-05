@@ -225,6 +225,7 @@ CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
+CORE field com/hbm/backport/client/core/CameraRenderState pos Lnet/minecraft/world/phys/Vec3;
 CORE field com/hbm/backport/client/core/LevelRenderState cameraRenderState Lcom/hbm/backport/client/core/CameraRenderState;
 CORE field com/hbm/backport/client/rendertype/RenderPipelines GUI Lcom/hbm/backport/client/rendertype/RenderPipeline;
 CORE field com/hbm/blocks/generic/BlockWoodStructure kind Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
@@ -233,6 +234,7 @@ CORE field com/hbm/blocks/generic/BlockWoodStructure$Kind SCAFFOLD Lcom/hbm/bloc
 CORE field com/hbm/blocks/multiblock/BlockMultiblockCore FACING Lnet/minecraft/world/level/block/state/properties/EnumProperty;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+CORE field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
 CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
 CORE method com/hbm/backport/client/core/CameraRenderState of (Lnet/minecraft/client/Camera;)Lcom/hbm/backport/client/core/CameraRenderState;
@@ -242,7 +244,11 @@ CORE method com/hbm/backport/client/core/SubmitNodeCollector submitItem (Lcom/mo
 CORE method com/hbm/backport/client/core/SubmitNodeCollector submitNameTag (Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/phys/Vec3;ILnet/minecraft/network/chat/Component;ZILcom/hbm/backport/client/core/CameraRenderState;)V
 CORE method com/hbm/backport/client/core/SubmitNodeCollector submitText (Lcom/mojang/blaze3d/vertex/PoseStack;FFLnet/minecraft/util/FormattedCharSequence;ZLnet/minecraft/client/gui/Font$DisplayMode;IIII)V
 CORE method com/hbm/backport/client/core/SubmitNodeCollector$CustomGeometryRenderer render (Lcom/mojang/blaze3d/vertex/PoseStack$Pose;Lcom/mojang/blaze3d/vertex/VertexConsumer;)V
+CORE method com/hbm/backport/client/gui/GuiGraphicsExtractor fill (IIIII)V
+CORE method com/hbm/backport/client/gui/GuiGraphicsExtractor guiWidth ()I
+CORE method com/hbm/backport/client/gui/GuiGraphicsExtractor of (Lnet/minecraft/client/gui/GuiGraphics;)Lcom/hbm/backport/client/gui/GuiGraphicsExtractor;
 CORE method com/hbm/backport/client/gui/GuiGraphicsExtractor pose ()Lcom/hbm/backport/client/gui/GuiPoseStack;
+CORE method com/hbm/backport/client/gui/GuiGraphicsExtractor text (Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V
 CORE method com/hbm/backport/client/gui/GuiPoseStack matrix2d ()Lorg/joml/Matrix3x2f;
 CORE method com/hbm/backport/client/gui/input/KeyEvent <init> (III)V
 CORE method com/hbm/backport/client/gui/input/KeyEvent isEscape ()Z
@@ -256,6 +262,7 @@ CORE method com/hbm/backport/client/rendertype/RenderPipeline getPrimitiveTopolo
 CORE method com/hbm/backport/client/rendertype/RenderPipeline isCull ()Z
 CORE method com/hbm/backport/client/rendertype/RenderTypeFactory create (Ljava/lang/String;Lcom/mojang/blaze3d/vertex/VertexFormat;Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;IZZLnet/minecraft/client/renderer/RenderType$CompositeState;)Lnet/minecraft/client/renderer/RenderType;
 CORE method com/hbm/backport/client/rendertype/RenderTypeInfo pipeline (Lnet/minecraft/client/renderer/RenderType;)Lcom/hbm/backport/client/rendertype/RenderPipeline;
+CORE method com/hbm/backport/client/rendertype/RenderTypes debugQuads ()Lnet/minecraft/client/renderer/RenderType;
 CORE method com/hbm/blocks/generic/BlockWoodBarrier panel (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind ordinal ()I
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind values ()[Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;

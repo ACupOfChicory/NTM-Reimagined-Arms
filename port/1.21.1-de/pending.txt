@@ -2,8 +2,6 @@
 # only shrinks). Sections as in skip.txt.
 
 [main]
-acup/gunfeel/FenceSeamCheck.java
-acup/gunfeel/GlassStand.java
 acup/gunfeel/GpuModelHits.java
 acup/gunfeel/HeadDebug.java
 acup/gunfeel/HeadLabelCutSelfTest.java
@@ -14,8 +12,6 @@ acup/gunfeel/HeadLabelSelfTest.java
 acup/gunfeel/HeadLabelStore.java
 acup/gunfeel/HeadLabels.java
 acup/gunfeel/HeadSmoke.java
-acup/gunfeel/HoleBenchmark.java
-acup/gunfeel/HoleVisualProbe.java
 acup/gunfeel/MobBenchmark.java
 acup/gunfeel/MobObjPose.java
 acup/gunfeel/MobReview.java
@@ -48,17 +44,13 @@ acup/gunfeel/mixin/mc/MixinGpuPoseShadow.java
 acup/gunfeel/mixin/mc/MixinLegacyHitboxGizmos.java
 acup/gunfeel/mixin/mc/MixinLivingModelHits.java
 acup/gunfeel/mixin/mc/MixinModelHitboxDebug.java
-acup/gunfeel/mixin/mc/MixinParticleEngine.java
-acup/gunfeel/mixin/mc/MixinParticlesSubmit.java
 acup/gunfeel/mixin/mc/MixinPreparedModelHit.java
 acup/gunfeel/mixin/mc/MixinSkinLayerVisualizer.java
-acup/gunfeel/mixin/mc/MixinSubmitNodeCollection.java
 acup/gunfeel/mixin/mc/MixinVanillateModelHit.java
 
 [test]
 # the NTM checks of the mixins and of what the mod calls in NTM: green once the parts with mixins are ported
 acup/gunfeel/AvatarHitPolicyTest.java
-acup/gunfeel/FenceSeamTest.java
 acup/gunfeel/FlatMobGeometryTest.java
 acup/gunfeel/HeadLabelCutsTest.java
 acup/gunfeel/HeadLabelGeometryTest.java

@@ -4,7 +4,7 @@
   "package": "acup.gunfeel.mixin.mc",
   "compatibilityLevel": "JAVA_21",
   "mixins": [],
-  "client": ["MixinDeltaTimer", "MixinHandBob", "GameRendererAccess", "MixinSprintStop", "LocalPlayerAccess"],
+  "client": ["MixinDeltaTimer", "MixinHandBob", "GameRendererAccess", "MixinSprintStop", "LocalPlayerAccess", "MixinParticleEngine"],
   "injectors": {
     "defaultRequire": 1
   }

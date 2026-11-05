@@ -81,6 +81,9 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // Minecraft's own assets (block models: FenceSeamTest): 26.2's game jar has them, 1.21.1 keeps them apart
+    testRuntimeOnly(files(layout.buildDirectory.file("moddev/artifacts/neoforge-${property("deps.neoforge")}-client-extra-aka-minecraft-resources.jar"))
+        .builtBy("createMinecraftArtifacts"))
 }
 
 // the classpath of the deServer and deClient runs: Minecraft and DE, not this mod (FML would find the mod's
@@ -144,6 +147,20 @@ neoForge {
             if (providers.gradleProperty("shapesFallback").isPresent) systemProperty("ntmgunfeel.shapesSkip", "hbm:machine_chemical_factory")
             // -PmachineGlass: windows of real NTM machines are glass (MachineGlassCheck) instead of the smoke check
             systemProperty("ntmgunfeel.machineGlassCheck", providers.gradleProperty("machineGlass").isPresent.toString())
+            // -PfenceSeam: holes where two fences, walls, panes or bars meet lie on their pixels (FenceSeamCheck)
+            systemProperty("ntmgunfeel.fenceSeamCheck", providers.gradleProperty("fenceSeam").isPresent.toString())
+            // -PholeBench=<label>: the root's benchHoles in the smoke world (HoleBenchmark), its table in
+            // build/holebench/<label>.tsv; -PholeBenchCheckMotion, -PholeBenchSurfaces, -PholeBenchModes,
+            // -PholeBenchRepeats, -PholeBenchShells, -PholeBenchLegacy as there (no loaded world, no JFR)
+            providers.gradleProperty("holeBench").orNull?.let { label ->
+                require(label.matches(Regex("[a-zA-Z0-9_-]+")))
+                systemProperty("ntmgunfeel.benchHoles", "true")
+                systemProperty("ntmgunfeel.holeBenchFile", layout.buildDirectory.file("holebench/$label.tsv").get().asFile.path)
+                systemProperty("ntmgunfeel.holeBenchLegacy", providers.gradleProperty("holeBenchLegacy").isPresent.toString())
+                systemProperty("ntmgunfeel.holeBenchCheckMotion", providers.gradleProperty("holeBenchCheckMotion").isPresent.toString())
+                for (k in listOf("Surfaces", "Repeats", "Shells", "Modes", "Origin"))
+                    providers.gradleProperty("holeBench$k").orNull?.let { systemProperty("ntmgunfeel.holeBench$k", it) }
+            }
         }
         // DE alone, without this mod: for what DE does by itself (notes/ports/de-1.21.1/de-repro.sh runs the two at once).
         // -Pjoin=host:port: the client goes straight onto that server
@@ -200,7 +217,7 @@ tasks.matching { it.name == "runMakeWorld" || it.name == "runCheckBullets" }.con
     }
 }
 tasks.matching { it.name == "runCheckClient" }.configureEach {
-    val scenario = providers.gradleProperty("scenario").isPresent || providers.gradleProperty("shapesStand").isPresent
+    val scenario = listOf("scenario", "shapesStand", "fenceSeam", "holeBench").any { providers.gradleProperty(it).isPresent }
     timeout.set(Duration.ofMinutes(if (scenario) 120 else 8))
     val result = layout.buildDirectory.file("clientcheck/result.txt")
     doFirst {
@@ -218,6 +235,7 @@ tasks.matching { it.name == "runCheckClient" }.configureEach {
             // -Pfabulous: the "Fabulous!" graphics (shader transparency, the holes on glass after the translucent terrain)
             (if (providers.gradleProperty("fabulous").isPresent) "graphicsMode:2\n" else ""))
         result.get().asFile.delete()
+        layout.buildDirectory.dir("holebench").get().asFile.mkdirs()
     }
     doLast {
         val report = result.get().asFile
