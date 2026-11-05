@@ -113,6 +113,14 @@ neoForge {
             programArgument("--nogui")
             jvmArgument("-Xmx1200M")
         }
+        // the root's checkBullets: bullets on real blocks in a small flat world (BulletCheck), its own folder and port
+        register("checkBullets") {
+            server()
+            gameDirectory.set(projectDir.resolve("run-bullets"))
+            programArgument("--nogui")
+            jvmArgument("-Xmx1200M")
+            systemProperty("ntmgunfeel.checkBullets", layout.buildDirectory.file("bulletcheck/result.txt").get().asFile.path)
+        }
         // the root's checkClient: the smoke check, or with -Ptrace -Pscenario=arms the trace scenario
         register("checkClient") {
             client()
@@ -132,9 +140,10 @@ neoForge {
     }
 }
 
-tasks.matching { it.name == "runMakeWorld" }.configureEach {
+tasks.matching { it.name == "runMakeWorld" || it.name == "runCheckBullets" }.configureEach {
+    val bullets = name == "runCheckBullets"
     doFirst {
-        val dir = projectDir.resolve("run-world")
+        val dir = projectDir.resolve(if (bullets) "run-bullets" else "run-world")
         dir.resolve("world").deleteRecursively()
         dir.mkdirs()
         dir.resolve("eula.txt").writeText("eula=true\n")
@@ -142,7 +151,7 @@ tasks.matching { it.name == "runMakeWorld" }.configureEach {
         dir.resolve("server.properties").writeText(
             "level-type=minecraft\\:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\n" +
             "spawn-protection=0\nonline-mode=false\nspawn-monsters=false\nspawn-animals=false\nmax-players=1\n" +
-            "server-port=25610\n")
+            "server-port=${if (bullets) 25611 else 25610}\n")
     }
 }
 tasks.matching { it.name == "runCheckClient" }.configureEach {

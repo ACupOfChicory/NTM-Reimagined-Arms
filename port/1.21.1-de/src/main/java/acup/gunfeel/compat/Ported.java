@@ -7,7 +7,7 @@ import java.util.Set;
 // own here with its mixins. The rest are off from the start, the way Compat turns off a system NTM does not fit,
 // but they are not NTM's doing, so the compatibility warning does not list them.
 public final class Ported {
-    public static final Set<Feature> DONE = EnumSet.of(Feature.CORE, Feature.RECOIL, Feature.ARMS, Feature.SPRINT_FIRE, Feature.HOLD_AIM, Feature.CLICK_AIM);
+    public static final Set<Feature> DONE = EnumSet.of(Feature.CORE, Feature.RECOIL, Feature.ARMS, Feature.SPRINT_FIRE, Feature.HOLD_AIM, Feature.CLICK_AIM, Feature.BULLETS);
 
     private Ported() {
     }
