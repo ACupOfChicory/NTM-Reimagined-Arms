@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "acup.gunfeel.mixin.de",
+  "plugin": "acup.gunfeel.port.DeReadBounds",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [],
+  "client": ["RenderChunkRegionAccess", "MixinBlockReadBounds"],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

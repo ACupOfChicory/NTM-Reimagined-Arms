@@ -83,6 +83,11 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// the classpath of the deServer and deClient runs: Minecraft and DE, not this mod (FML would find the mod's
+// neoforge.mods.toml in the main source set's resources and load it without its classes)
+val deOnly: SourceSet = sourceSets.create("deOnly")
+dependencies { "deOnlyRuntimeOnly"(ntm) }
+
 neoForge {
     enable {
         version = property("deps.neoforge") as String
@@ -99,6 +104,8 @@ neoForge {
             client()
             gameDirectory.set(projectDir.resolve("run"))
             jvmArgument("-Xmx4G")
+            // -Pjoin=host:port, as deClient's: de-repro.sh mod
+            providers.gradleProperty("join").orNull?.let { programArguments.addAll("--quickPlayMultiplayer", it) }
         }
         register("server") {
             server()
@@ -128,6 +135,40 @@ neoForge {
             jvmArgument("-Xmx4G")
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
             programArguments.addAll("--width", "854", "--height", "480")
+            // -PshapesStand=<file>, -PshapesOnly=a,b, -PshapesResume, -PshapesFallback: as at the root (ShapesStand,
+            // ShapesFallbackCheck); the stand keeps to the -Xmx4G of every stand client here
+            systemProperty("ntmgunfeel.shapesStand", providers.gradleProperty("shapesStand").orElse("").get())
+            systemProperty("ntmgunfeel.shapesOnly", providers.gradleProperty("shapesOnly").orElse("").get())
+            systemProperty("ntmgunfeel.shapesResume", providers.gradleProperty("shapesResume").isPresent.toString())
+            systemProperty("ntmgunfeel.shapesFallback", providers.gradleProperty("shapesFallback").isPresent.toString())
+            if (providers.gradleProperty("shapesFallback").isPresent) systemProperty("ntmgunfeel.shapesSkip", "hbm:machine_chemical_factory")
+        }
+        // DE alone, without this mod: for what DE does by itself (notes/ports/de-1.21.1/de-repro.sh runs the two at once).
+        // -Pjoin=host:port: the client goes straight onto that server
+        register("deServer") {
+            server()
+            gameDirectory.set(projectDir.resolve("run-de-server"))
+            programArgument("--nogui")
+            jvmArgument("-Xmx1200M")
+            sourceSet = deOnly
+            loadedMods.empty()
+        }
+        // the same server with this mod (de-repro.sh mod)
+        register("deModServer") {
+            server()
+            gameDirectory.set(projectDir.resolve("run-de-mod-server"))
+            programArgument("--nogui")
+            jvmArgument("-Xmx1200M")
+        }
+        register("deClient") {
+            client()
+            gameDirectory.set(projectDir.resolve("run-de-client"))
+            jvmArgument("-Xmx4G")
+            // the whole stack of an exception thrown many times (else HotSpot gives it as "null" with no frames)
+            jvmArgument("-XX:-OmitStackTraceInFastThrow")
+            sourceSet = deOnly
+            loadedMods.empty()
+            providers.gradleProperty("join").orNull?.let { programArguments.addAll("--quickPlayMultiplayer", it) }
         }
         // -Ptrace=<file> (relative to the run's folder) or -Ptrace=true, -Pscenario, -PscenarioGuns, -Pseed: as at the root
         configureEach {
@@ -139,6 +180,8 @@ neoForge {
         }
     }
 }
+
+neoForge.addModdingDependenciesTo(deOnly)
 
 tasks.matching { it.name == "runMakeWorld" || it.name == "runCheckBullets" }.configureEach {
     val bullets = name == "runCheckBullets"
@@ -155,7 +198,7 @@ tasks.matching { it.name == "runMakeWorld" || it.name == "runCheckBullets" }.con
     }
 }
 tasks.matching { it.name == "runCheckClient" }.configureEach {
-    val scenario = providers.gradleProperty("scenario").isPresent
+    val scenario = providers.gradleProperty("scenario").isPresent || providers.gradleProperty("shapesStand").isPresent
     timeout.set(Duration.ofMinutes(if (scenario) 120 else 8))
     val result = layout.buildDirectory.file("clientcheck/result.txt")
     doFirst {
@@ -338,7 +381,7 @@ val mixinCheck = tasks.register<JavaExec>("mixinCheck") {
     val out = ByteArrayOutputStream()
     standardOutput = out
     isIgnoreExitValue = true
-    val configs = listOf("ntmgunfeel.mixins.json", "ntmgunfeel-hbm.mixins.json").map { projectDir.resolve("src/main/resources/$it") }
+    val configs = listOf("ntmgunfeel.mixins.json", "ntmgunfeel-hbm.mixins.json", "ntmgunfeel-de.mixins.json").map { projectDir.resolve("src/main/resources/$it") }
     inputs.files(configs)
     doLast {
         val listed = configs.flatMap { f ->

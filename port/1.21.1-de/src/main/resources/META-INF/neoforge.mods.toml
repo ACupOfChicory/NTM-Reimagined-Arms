@@ -17,6 +17,10 @@ config = "ntmgunfeel.mixins.json"
 [[mixins]]
 config = "ntmgunfeel-hbm.mixins.json"
 
+# the patches to DE's own bugs, until DE fixes them (notes/ports/de-bug-blockreadbounds.md)
+[[mixins]]
+config = "ntmgunfeel-de.mixins.json"
+
 # DE versions this build is tested with (Maven range, as NeoForge's versionRange). A recommendation, not a lock:
 # any DE loads, outside the range the player is warned and what does not fit is turned off (acup.gunfeel.compat).
 [modproperties.ntmgunfeel]
