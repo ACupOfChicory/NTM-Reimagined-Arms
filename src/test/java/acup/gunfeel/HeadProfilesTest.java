@@ -143,8 +143,51 @@ class HeadProfilesTest {
             assertEquals(c.zones(),binding.zones().size(),c.toString());
         }
     }
-    private static ModelBox box(HeadProfiles.Ref ref) {
+    // CrankShaft держит все слои одежды вида в одном массиве draws, показан не каждый: у жителя тип со шляпой
+    // (draws/0) или без (draws/1), профессия (draws/2) есть не у всех. Номер в имени части разметку не ломает.
+    @Test void anOverlayDrawnUnderAnotherDrawNumberKeepsTheLabel() {
+        var limbs=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("build/no-local-limbs.json"),false);
+        record Case(String type,String from,String to,String drop,int zones,int missing) {}
+        for(var c:List.of(new Case("minecraft:zombie_villager#baby","/draws/1/","/draws/0/","-",4,0),
+                new Case("minecraft:zombie_villager","/draws/0/","/draws/1/","-",8,0),
+                new Case("minecraft:zombie_villager","/draws/0/","/draws/1/","/draws/2/",7,0),
+                new Case("minecraft:zombie_villager","-","-","/draws/2/",7,0),
+                new Case("minecraft:villager","/draws/0/","/draws/1/","-",4,0),
+                new Case("minecraft:villager#baby","/draws/0/","/draws/1/","-",4,0),
+                // у вардена оба draw рисуются сразу: пропавший draws/1 не подменяется своим же draws/0
+                new Case("minecraft:warden","-","-","/draws/1/",2,2))) {
+            var profile=HeadProfiles.get(limbs,c.type());
+            var boxes=profile.parts().stream().filter(r->!r.name().contains(c.drop()))
+                    .map(r->box(r,r.name().replace(c.from(),c.to()))).toList();
+            assertTrue(boxes.stream().anyMatch(b->b.part().contains(c.to())) || c.to().equals("-"),c+": нечего переименовать");
+            var binding=HeadProfiles.bind(profile,boxes,0);
+            assertEquals(c.missing(),binding.missing(),c.toString());
+            assertEquals(c.zones(),binding.zones().size(),c.toString());
+            var used=new HashSet<Integer>();for(var z:binding.zones()) assertTrue(used.add(z.part()),c+": одна коробка в двух зонах");
+        }
+    }
+    // Стенд, житель-фермер из пустыни: тип без шляпы (draws/1) и руки профессии (draws/2) того же размера — берётся
+    // ближайший номер. Пиджак типа обрезан по текстуре (1,23 → 0,68) и не сходится: пропадает только его зона.
+    @Test void theNearestDrawWinsAndATrimmedRobeDropsOnlyItsZone() {
+        var limbs=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("build/no-local-limbs.json"),false);
+        var profile=HeadProfiles.get(limbs,"minecraft:villager");
+        var boxes=new ArrayList<ModelBox>();
+        for(var r:profile.parts()) boxes.add(box(r,r.name().replace("/draws/0/","/draws/1/")));
+        var arms=profile.parts().stream().filter(r->r.name().endsWith("/draws/0/tree/arms")).findFirst().orElseThrow();
+        boxes.add(box(arms,arms.name().replace("/draws/0/","/draws/2/")));
+        var binding=HeadProfiles.bind(profile,boxes,0);
+        assertEquals(0,binding.missing());assertEquals(4,binding.zones().size());
+        var zoneBoxes=binding.zones().stream().map(z->boxes.get(z.part()).part()).toList();
+        assertTrue(zoneBoxes.contains("mesh/root/overlayLayer/draws/1/tree/arms"),zoneBoxes.toString());
+        int jacket=-1;for(int i=0;i<boxes.size();i++) if(boxes.get(i).part().endsWith("/body/jacket")) jacket=i;
+        var j=boxes.get(jacket);var s=HeadProfiles.size(j);
+        boxes.set(jacket,new ModelBox(j.part(),j.x(),j.y(),j.z(),s[0],0,0,0,s[1]*.68/1.23,0,0,0,s[2]));
+        binding=HeadProfiles.bind(profile,boxes,0);
+        assertEquals(0,binding.missing());assertEquals(3,binding.zones().size());
+    }
+    private static ModelBox box(HeadProfiles.Ref ref) { return box(ref,ref.name()); }
+    private static ModelBox box(HeadProfiles.Ref ref,String name) {
         var c=ref.center();var s=ref.size();
-        return new ModelBox(ref.name(),c.x-s[0]/2,c.y-s[1]/2,c.z-s[2]/2,s[0],0,0,0,s[1],0,0,0,s[2]);
+        return new ModelBox(name,c.x-s[0]/2,c.y-s[1]/2,c.z-s[2]/2,s[0],0,0,0,s[1],0,0,0,s[2]);
     }
 }

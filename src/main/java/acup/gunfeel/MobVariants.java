@@ -27,8 +27,17 @@ final class MobVariants {
             case "celebrate" -> ((Raider)target).setCelebrating(true);
             case "spell" -> spell((SpellcasterIllager)target);
             case "carpet" -> target.setItemSlot(EquipmentSlot.BODY,new ItemStack(Items.CARPET.red()));
+            // Житель и житель-зомби: тип (одежда, шляпа) и профессия, prof_none — без профессии.
+            case String v when v.startsWith("type_") -> villager(target,d->d.withType(target.level().registryAccess(),
+                    net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.VILLAGER_TYPE,net.minecraft.resources.Identifier.withDefaultNamespace(v.substring(5)))));
+            case String v when v.startsWith("prof_") -> villager(target,d->d.withProfession(target.level().registryAccess(),
+                    net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.VILLAGER_PROFESSION,net.minecraft.resources.Identifier.withDefaultNamespace(v.substring(5)))).withLevel(2));
             default -> throw new IllegalArgumentException("Неизвестный вариант моба: "+variant);
         }
+    }
+    private static void villager(LivingEntity target,java.util.function.UnaryOperator<net.minecraft.world.entity.npc.villager.VillagerData> change) {
+        var holder=(net.minecraft.world.entity.npc.villager.VillagerDataHolder)target;
+        holder.setVillagerData(change.apply(holder.getVillagerData()));
     }
     // IllagerSpell закрыт (protected): заклинание ставится через рефлексию.
     @SuppressWarnings({"unchecked","rawtypes"})
