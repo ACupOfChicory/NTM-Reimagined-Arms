@@ -58,9 +58,12 @@ public final class WalkSprint {
     private WalkSprint() {
     }
 
-    /** An NTM gun with walkSway is in the main hand: the vanilla bob of the hands is left out (MixinHandBob). */
+    /**
+     * An NTM gun with walkSway is in the main hand: the vanilla bob of the hands is left out (MixinHandBob). Not for an
+     * akimbo pair (as last drawn): WalkSprint leaves it alone, so it keeps both bobs.
+     */
     public static boolean handBobOff() {
-        if (!Config.enabled || Config.walkSway <= 0F) return false;
+        if (!Config.enabled || Config.walkSway <= 0F || GunFeel.currentAkimbo) return false;
         var mc = net.minecraft.client.Minecraft.getInstance();
         return mc.player != null && mc.player.getMainHandItem().getItem() instanceof ItemGunBaseNT;
     }

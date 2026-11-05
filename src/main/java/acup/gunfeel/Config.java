@@ -130,8 +130,8 @@ public final class Config {
     // width of NTM's muzzle smoke, 1 = as NTM draws it (SPAS-12's is 3x as wide as Maresleg's)
     public static float smokeWidth = 1F;
     // the gun bobbing in step with walking and lowered to the side while sprinting (TaCZ's way), 0 = off (NTM's own bob)
-    public static float walkSway = 0F;
-    public static float sprintPose = 0F;
+    public static float walkSway = 1F;
+    public static float sprintPose = 1F;
     public static float armScaleRight = 1F;
     public static float armScaleLeft = 1F;
 
