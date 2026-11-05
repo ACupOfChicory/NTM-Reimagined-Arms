@@ -158,6 +158,63 @@ class PistolHoldTest {
         }
     }
 
+    @Test
+    void hipSlidersKeepTheMeasuredPositionAtOneAndMoveEachEyeAxis() {
+        Matrix4f pose = new Matrix4f().translation(0F, 0F, 0.875F);
+        Vector3f[] ends = {new Vector3f(0F, 0F, -0.5F), new Vector3f(0F, 0F, 2.5F), new Vector3f(0.05F, -0.1F, 1F)};
+        float aX = 0F, aY = -0.4F, aZ = 0.5F;
+        Vector3f old = new Vector3f(), same = new Vector3f();
+        assertTrue(PistolHold.hip(pose, new Matrix4f(), ends, aX, aY, aZ, old));
+        assertTrue(PistolHold.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 1F, same));
+        assertEquals(old.x, same.x, 0F);
+        assertEquals(old.y, same.y, 0F);
+        assertEquals(old.z, same.z, 0F);
+
+        Vector3f x = new Vector3f(), y = new Vector3f(), z = new Vector3f();
+        assertTrue(PistolHold.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 0F, 1F, 1F, x));
+        assertTrue(PistolHold.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 1F, 0F, 1F, y));
+        assertTrue(PistolHold.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 2F, z));
+        Vector3f mx = pose.transformPosition(new Vector3f(x).add(ends[2]));
+        Vector3f my = pose.transformPosition(new Vector3f(y).add(ends[2]));
+        Vector3f mz = pose.transformPosition(new Vector3f(z).add(ends[2]));
+        Vector3f m0 = pose.transformPosition(new Vector3f(old).add(ends[2]));
+        assertEquals(0F, mx.x, 1e-5F);
+        assertEquals(m0.y, mx.y, 1e-5F);
+        assertEquals(m0.z, mx.z, 1e-5F);
+        assertEquals(0F, my.y, 1e-5F);
+        assertEquals(m0.x, my.x, 1e-5F);
+        assertEquals(m0.z, my.z, 1e-5F);
+        assertEquals(m0.z * 2F, mz.z, 1e-5F);
+    }
+
+    @Test
+    void hipSliderOffsetsTurnWithTheCamera() {
+        Matrix4f ntm = new Matrix4f().translation(0F, 0F, 0.875F);
+        Vector3f[] ends = {new Vector3f(0F, 0F, -0.5F), new Vector3f(0F, 0F, 2.5F), new Vector3f(0.05F, -0.1F, 1F)};
+        float aX = 0F, aY = -0.4F, aZ = 0.5F;
+        Vector3f still = new Vector3f(), turned = new Vector3f();
+        assertTrue(PistolHold.hip(ntm, new Matrix4f(), ends, aX, aY, aZ, 0.5F, 1.5F, 1.25F, still));
+        Matrix4f view = new Matrix4f().rotateX(0.52F).rotateY(2.36F);
+        Matrix4f inView = new Matrix4f(view).invert();
+        Matrix4f moved = new Matrix4f(inView).mul(new Matrix4f().translation(0.05F, 0F, 0F).rotateY(0.1F)).mul(view);
+        assertTrue(PistolHold.hip(view, new Matrix4f(moved).mul(inView).mul(ntm), moved,
+                ends, aX, aY, aZ, 0.5F, 1.5F, 1.25F, turned));
+        assertEquals(still.x, turned.x, 1e-4F);
+        assertEquals(still.y, turned.y, 1e-4F);
+        assertEquals(still.z, turned.z, 1e-4F);
+    }
+
+    @Test
+    void hipDefaultsComeFromShippedGunSettingsOrBuiltinValues() {
+        assertEquals(0.75F, PistolHold.defaultHip("hbm:gun_heavy_revolver", "hipZ"), 0F);
+        assertEquals(0.6F, PistolHold.defaultHip("hbm:gun_star_f", "hipX"), 0F);
+        assertEquals(0.75F, PistolHold.defaultHip("hbm:gun_star_f", "hipZ"), 0F);
+        // a value shipped for the gun wins over the built-in one
+        assertEquals(0.74F, PistolHold.defaultHip("hbm:gun_greasegun", "hipX"), 0F);
+        assertEquals(1F, PistolHold.hipScale(0F, 0F), 0F);
+        assertEquals(1.25F, PistolHold.hipScale(0.25F, 0F), 0F);
+    }
+
     // the hip place is found before WalkSprint's move and the move stays on top: with a shift and a turn around the
     // gun's middle (PIVOT) the gun's middle from the hip goes by the shift and turns around PIVOT, as when aimed
     @Test

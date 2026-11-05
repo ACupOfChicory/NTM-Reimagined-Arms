@@ -36,6 +36,13 @@ Open the weapon editor with O while holding a gun. Client settings are stored
 in `config/ntm-gunfeel.properties`; per-weapon settings are stored in
 `config/ntm-gunfeel-guns.properties`.
 
+Pistols and revolvers are held and aimed by measured positions (`pistolHold`
+and `aimHold`, both on). The hip sliders in the editor (`hipX`, `hipY`, `hipZ`)
+still move such a gun at the hip, as a share of its default place: `hipX = 0`
+puts it in the middle of the screen across, `hipY = 0` in the middle up and
+down, a smaller `hipZ` brings it closer. They do not move it when aimed, so the
+sights stay on the crosshair.
+
 Camera climb uses four per-weapon keys, also available in the weapon editor:
 `cameraClimb` is the share of each kick that stays (0 to 1), `cameraClimbDeg`
 adds degrees that stay up, `cameraDriftDeg` sets the sideways drift, and

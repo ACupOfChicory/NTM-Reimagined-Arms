@@ -154,8 +154,8 @@ public abstract class MixinItemRenderWeaponBase {
         boolean placing = acup.gunfeel.PistolHold.placing();
         if (!Config.enabled || GunFeel.current == null || GunFeel.currentAkimbo) return;
         float[] tilt = tilt();
-        // pistolHold: a pistol's hip place and aiming curve by the measurements (PistolHold); hipX/Y/Z are not used for it then
-        // (a pistol not measured yet keeps the old hold until it is measured); only NTM's placing call in
+        // pistolHold: a pistol's hip place and aiming curve by the measurements (PistolHold), hipX/Y/Z moving it from
+        // there (a pistol not measured yet keeps the old hold until it is measured); only NTM's placing call in
         // setupFirstPerson, not a later one (the heavy revolver's kick in renderFirstPerson calls it again)
         Vector3f held = new Vector3f();
         boolean hold = placing && acup.gunfeel.PistolHold.on() && !acup.gunfeel.PistolHold.scoped(stack);

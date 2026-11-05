@@ -153,10 +153,11 @@ public final class Config {
             quality: low, medium, high or realism: sets holeMax, holeMaxMachines, holeLife and particleScale at once
               (realism = five times high's holes, kept five times longer); a key changed here by hand keeps its value
             particleScale: share of the particles of bullet hits, 1 = as the rules say
-            hipX: gun X position in hip fire, 1 = NTM default, 0 = centre of the screen
+            hipX: gun X position in hip fire, 1 = NTM default; with pistolHold, a pistol moves from its measured hip place
+              by this value relative to its own default (0 = screen centre)
             modelTilt: "pitch,yaw,roll" degrees, the gun turned around its hip-fire position (none when aimed), empty = none
-            hipY: gun Y position in hip fire, 1 = NTM default
-            hipZ: gun distance in hip fire, 1 = NTM default, less = closer and bigger
+            hipY: gun Y position in hip fire, 1 = NTM default; with pistolHold, 0 = screen centre
+            hipZ: gun distance in hip fire, 1 = NTM default, less = closer and bigger; with pistolHold, less = closer
             cameraScale: camera kick, degrees per unit of NTM recoil (0.55: lever shotgun ~5.5 deg)
             cameraTime: duration of the camera kick, 1 = as the preset
             cameraShake: camera roll shake on each shot, 0 = off
@@ -209,8 +210,8 @@ public final class Config {
             sprintPose: while sprinting the muzzle is raised and turned to the left, the gun swinging with the run, 1 = as measured (the default), 0 = off;
               aiming, a reload or a shot bring it back
             pistolHold: a pistol or a revolver is held from the hip a little right of the middle, lower and farther ahead,
-              pointing ahead, and comes up to its sights on a smooth curve, 1 = as measured, 0 = off (NTM's hold); hipX, hipY and hipZ
-              are not used for a pistol while it is on
+              pointing ahead, and comes up to its sights on a smooth curve, 1 = as measured, 0 = off (NTM's hold);
+              hipX, hipY and hipZ move its measured hip place relative to this gun's default
             aimHold: a pistol or a revolver is aimed farther along the line of its sights, as small on the screen as the
               measured pistols are, its sights staying on the middle of the screen, 1 = as measured, 0 = off (NTM's aimed place);
               not for a gun with a scope, nor for long guns
@@ -308,6 +309,7 @@ public final class Config {
             long modified = Files.getLastModifiedTime(file).toMillis();
             if (modified == stamp) return;
             stamp = modified;
+            PistolHold.clearHipDefaults();
             Properties p = new Properties();
             try (Reader r = Files.newBufferedReader(file)) {
                 p.load(r);
