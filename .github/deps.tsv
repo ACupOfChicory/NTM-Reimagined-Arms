@@ -1,0 +1,11 @@
+# Jars the build needs that are not in git, fetched by .github/release.sh deps and checked against the sha256 here.
+# target	path in the tree	source	sha256
+# A source "jar:<path>!/<entry>" is taken out of a jar fetched above it (DE carries Flywheel, Ponder and Sable inside).
+26.2	libs/mods/hbm-neoforge-1.0.3.jar	https://repo.warfactory.co/releases/com/hbm/ntm-next-neoforge/1.0.3%2Bmc26.2/ntm-next-neoforge-1.0.3%2Bmc26.2.jar	923a0a2bea1deded10a71cc7273cb687d728b27fe1c2ba06774150f09c28a273
+26.2	libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar	https://cdn.modrinth.com/data/mxkab2de/versions/mufouKie/crankshaft-neoforge-1.6.0%2Bmc26.2.jar	a84c69bb8246b2e2526a3821264620039bba11192abc105b9b56f65203cb3d93
+1.7.10	port/1.7.10/libs/HBM-NTM-.1.0.27_X5863.jar	https://github.com/HbmMods/Hbm-s-Nuclear-Tech-GIT/releases/download/1.0.27_X5863/HBM-NTM-.1.0.27_X5863.jar	863c499ebafc7ad9fe614ca197b11e9496f0e135c5753b0d61bda832e72502a2
+1.12.2	port/1.12.2/libs/NTM-CE-1.12.2-2.6.1.0.jar	https://cdn.modrinth.com/data/oKqJzTkl/versions/8te6YIHl/NTM-CE-1.12.2-2.6.1.0.jar	43b0a3f71e58cca548d3ff1aa01faf45ad2eaa5477adfcaa9d161300b589266d
+1.21.1-de	port/1.21.1-de/libs/ntm-de-1.21.1-1.0.0-beta.14.jar	https://www.cursemaven.com/curse/maven/ntm-decentralized-edition-1719854/9434569/ntm-decentralized-edition-1719854-9434569.jar	13ca8d280c492993ab7b8918d5758312e019bbb4fadfb0b8028ab0c640da1891
+1.21.1-de	port/1.21.1-de/libs/flywheel-neoforge-1.21.1-1.0.7-48.jar	jar:port/1.21.1-de/libs/ntm-de-1.21.1-1.0.0-beta.14.jar!/META-INF/jarjar/flywheel-neoforge-1.21.1-1.0.7-48.jar	22646a6be8c9d5204a4b42ce95bcad703b53817e039c81ce427302b02759ba4c
+1.21.1-de	port/1.21.1-de/libs/ponder-neoforge-1.0.82+mc1.21.1.jar	jar:port/1.21.1-de/libs/ntm-de-1.21.1-1.0.0-beta.14.jar!/META-INF/jarjar/ponder-neoforge-1.0.82+mc1.21.1.jar	0cf4611ad853042b689ac386184c5bbe02950efcffddb49e5f604e82baddb0dc
+1.21.1-de	port/1.21.1-de/libs/sable-companion-common-1.21.1-1.6.0.jar	jar:port/1.21.1-de/libs/ntm-de-1.21.1-1.0.0-beta.14.jar!/META-INF/jarjar/sable-companion-common-1.21.1-1.6.0.jar	873633e35046e3761b277ff8a1ecad0d55d9a3014fa81a0b084c9aecba1f3bed
