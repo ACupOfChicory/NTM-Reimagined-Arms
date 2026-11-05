@@ -202,7 +202,6 @@ CLICK_AIM method com/hbm/client/Keybinds isGunHeld ()Z
 CLICK_AIM method com/hbm/extprop/HbmPlayerProps getData (Lnet/minecraft/world/entity/player/Player;)Lcom/hbm/extprop/HbmPlayerProps;
 CLICK_AIM method com/hbm/extprop/HbmPlayerProps getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
 CORE class com/hbm/backport/client/core/BlockEntityRenderer
-CORE class com/hbm/backport/client/core/CameraRenderState
 CORE class com/hbm/backport/client/core/EntityRenderState
 CORE class com/hbm/backport/client/gui/GuiGraphicsExtractor
 CORE class com/hbm/backport/client/gui/input/KeyEvent
