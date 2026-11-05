@@ -196,6 +196,16 @@ public final class Arms {
         return true;
     }
 
+    // the gun's two ends along its length as placed this frame without the model kick, in the pose stack's space
+    public static boolean gunEndsAimed(Item held, Vector3f back, Vector3f front) {
+        if (!haveRel || relItem != held || geometry(held) == null) return false;
+        GunGeometry g = geometry(held);
+        // KICKED·REL is the body as drawn, AIMED·REL the same before the kick
+        AIMED.transformPosition(REL.transformPosition(0F, 0F, g.minZ, back));
+        AIMED.transformPosition(REL.transformPosition(0F, 0F, g.maxZ, front));
+        return true;
+    }
+
     // the gun's two ends along its length (model z min / max) as drawn this frame, in the pose stack's space
     public static boolean gunEndsRendered(Item held, Vector3f back, Vector3f front) {
         if (!haveRel || relItem != held || geometry(held) == null) return false;
