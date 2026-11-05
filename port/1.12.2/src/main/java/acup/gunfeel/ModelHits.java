@@ -252,16 +252,20 @@ public final class ModelHits {
         var poses=POSES.get(target.world);
         return poses!=null && usable(target,poses.get(id(target)));
     }
-    // What the target wears, on its hitbox (WornGear): off unless the server's modelHitboxesWorn is on. port: 1.12.2's
+    // What the target wears, on its hitbox (WornGear): on unless the server turns modelHitboxesWorn off. port: 1.12.2's
     // LayerBipedArmor draws an ItemArmor for its slot; LayerCustomHead a skull, or a block (a pumpkin) as an item.
     static WornGear.Worn worn(Entity target) {
-        if(!(target instanceof EntityLivingBase living) || !ReaimTimes.flag("modelHitboxesWorn",false)) return WornGear.Worn.NOTHING;
+        if(!(target instanceof EntityLivingBase living) || !ReaimTimes.flag("modelHitboxesWorn",true)) return WornGear.Worn.NOTHING;
         return new WornGear.Worn(wornHead(living),armor(living,net.minecraft.inventory.EntityEquipmentSlot.CHEST),
                 armor(living,net.minecraft.inventory.EntityEquipmentSlot.LEGS),armor(living,net.minecraft.inventory.EntityEquipmentSlot.FEET));
     }
     private static boolean armor(EntityLivingBase living,net.minecraft.inventory.EntityEquipmentSlot slot) {
-        var item=living.getItemStackFromSlot(slot).getItem();
-        return item instanceof net.minecraft.item.ItemArmor armor && armor.armorType==slot;
+        var stack=living.getItemStackFromSlot(slot);
+        var item=stack.getItem();
+        if(item instanceof net.minecraft.item.ItemArmor armor) return armor.armorType==slot; // vanilla's, NTM's suits (ArmorFSB)
+        // another mod's armor that is not an ItemArmor names its slot through Forge's hook; not the elytra or a block
+        return !stack.isEmpty() && !(item instanceof net.minecraft.item.ItemElytra) && !(item instanceof net.minecraft.item.ItemBlock)
+                && item.getEquipmentSlot(stack)==slot;
     }
     private static WornGear.Head wornHead(EntityLivingBase living) {
         var stack=living.getItemStackFromSlot(net.minecraft.inventory.EntityEquipmentSlot.HEAD);

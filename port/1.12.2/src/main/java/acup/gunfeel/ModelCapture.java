@@ -80,7 +80,7 @@ public final class ModelCapture {
     public void part(ModelRenderer part, float scale, boolean withRotation, float[] parent, int texture) {
         if (!complete || part.isHidden || !part.showModel) return;
         String path = drawingNames.get(part);
-        if (path == null) return; // armour, a held item: not the entity's own model
+        if (path == null) return; // a held item: not the entity's own model
         if (++parts > 2048) { complete = false; return; }
         float[] matrix = Mat4.mul(parent, local(part, scale, withRotation));
         // the same part in the same pose again (the hurt overlay, the dragon's dissolve pass): not new geometry

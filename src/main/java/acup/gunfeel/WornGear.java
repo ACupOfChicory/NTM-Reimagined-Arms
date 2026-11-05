@@ -3,7 +3,7 @@ package acup.gunfeel;
 import java.util.ArrayList;
 import java.util.List;
 
-// What a mob wears, on its hitbox (modelHitboxesWorn, off by default): the model parts under worn armor or a head
+// What a mob wears, on its hitbox (modelHitboxesWorn, on by default): the model parts under worn armor or a head
 // item grow by what vanilla draws over them.
 // - Armor (HumanoidArmorLayer; 1.12.2 LayerBipedArmor) is the player's cubes inflated: helmet, chestplate and boots by
 //   1 pixel a side, leggings by 0.5. Drawn on humanoid models only (head, body, two arms, two legs), and on a model
