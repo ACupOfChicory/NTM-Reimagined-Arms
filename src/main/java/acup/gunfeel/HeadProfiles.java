@@ -163,6 +163,49 @@ final class HeadProfiles {
         }
         return new Binding(List.copyOf(zones),missing,missing==0?"ручная разметка":"ручная разметка: часть модели не сопоставлена");
     }
+    // Without Flywheel (its backend off) a part comes cube by cube: several boxes with one name, each smaller than the
+    // part the profile holds. Where the profile has that name once, its cubes in one frame are matched as one box
+    // around them all, as Flywheel draws the part; a profile made from such cubes (a name in it more than once) keeps
+    // them apart. Flywheel's boxes (names from "mesh/") are left as they are.
+    static List<ModelBox> unite(Profile profile,List<ModelBox> boxes) {
+        var once=new HashMap<String,Integer>();for(var ref:profile.parts()) once.merge(name(ref.name()),1,Integer::sum);
+        var groups=new LinkedHashMap<String,List<ModelBox>>();
+        for(var box:boxes) if(!box.part().startsWith("mesh/")) groups.computeIfAbsent(box.part(),k->new ArrayList<>()).add(box);
+        if(groups.values().stream().allMatch(group->group.size()==1)) return boxes;
+        var out=new ArrayList<ModelBox>();var done=new HashSet<String>();
+        for(var box:boxes) {
+            var key=box.part();var group=groups.get(key);
+            if(group==null || group.size()==1 || once.getOrDefault(name(key),0)!=1 || anonymous(key)) { out.add(box);continue; }
+            if(!done.add(key)) continue;
+            var united=around(group);
+            if(united==null) out.addAll(group); else out.add(united);
+        }
+        return List.copyOf(out);
+    }
+    // the box around boxes whose edges run the same ways (the cubes of one part), null if they do not
+    private static ModelBox around(List<ModelBox> group) {
+        var first=group.getFirst();
+        Vec3[] axis={new Vec3(first.ux(),first.uy(),first.uz()).normalize(),new Vec3(first.vx(),first.vy(),first.vz()).normalize(),new Vec3(first.wx(),first.wy(),first.wz()).normalize()};
+        var inverse=new org.joml.Matrix3d(axis[0].x,axis[0].y,axis[0].z,axis[1].x,axis[1].y,axis[1].z,axis[2].x,axis[2].y,axis[2].z);
+        if(Math.abs(inverse.determinant())<1e-9) return null;
+        inverse.invert();
+        double[] min={Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY},max={Double.NEGATIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NEGATIVE_INFINITY};
+        var origin=new Vec3(first.x(),first.y(),first.z());
+        for(var box:group) {
+            Vec3[] edges={new Vec3(box.ux(),box.uy(),box.uz()),new Vec3(box.vx(),box.vy(),box.vz()),new Vec3(box.wx(),box.wy(),box.wz())};
+            for(int a=0;a<3;a++) if(edges[a].normalize().dot(axis[a])<1-1e-4) return null;
+            for(int corner=0;corner<8;corner++) {
+                var point=new Vec3(box.x(),box.y(),box.z());
+                for(int a=0;a<3;a++) if((corner>>a&1)!=0) point=point.add(edges[a]);
+                var d=point.subtract(origin);var c=inverse.transform(new org.joml.Vector3d(d.x,d.y,d.z));
+                double[] at={c.x,c.y,c.z};
+                for(int a=0;a<3;a++) { min[a]=Math.min(min[a],at[a]);max[a]=Math.max(max[a],at[a]); }
+            }
+        }
+        var start=origin.add(axis[0].scale(min[0])).add(axis[1].scale(min[1])).add(axis[2].scale(min[2]));
+        var u=axis[0].scale(max[0]-min[0]);var v=axis[1].scale(max[1]-min[1]);var w=axis[2].scale(max[2]-min[2]);
+        return new ModelBox(first.part(),start.x,start.y,start.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z);
+    }
     private record Pick(int box,double score) {}
     private static Pick best(Ref ref,List<ModelBox> boxes,double scale,float yaw,java.util.function.Predicate<ModelBox> candidate) {
         int best=-1;double score=Double.POSITIVE_INFINITY,second=score;

@@ -36,6 +36,7 @@ public final class ModelHeads {
         if(bank.isEmpty()) return new Resolution(List.of(),fallback,"нет проверенной разметки",0F,0);
         var profile=HeadProfiles.get(bank,type);
         if(profile!=null && profile.none()) return new Resolution(List.of(),"dataset","manual none",1F,0);
+        if(profile!=null) boxes=HeadProfiles.unite(profile,boxes);
         var key=new Key(role+":"+type,layout(boxes));var definition=CACHE.get(key);
         if(definition==null) {
             if(profile!=null) {
