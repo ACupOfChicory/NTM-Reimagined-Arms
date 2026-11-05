@@ -58,7 +58,7 @@ final class HeadSmoke {
         if(frames<15) return;
         PHOTOS.add(target.getId());
         bindings(target,(ok,text)->ClientSmoke.check(ok,MobSmoke.current()+": клиент: "+text));
-        String id=MobSmoke.current();boolean expected=!HeadProfiles.get(id).none();
+        String id=MobSmoke.current();var profile=HeadProfiles.get(ModelHeads.key(target));boolean expected=profile==null || !profile.none();
         net.minecraft.client.Screenshot.takeScreenshot(net.minecraft.client.Minecraft.getInstance().gameRenderer.mainRenderTarget(),image->{
             try(image) {
                 long cyan=Arrays.stream(image.getPixels()).filter(pixel->(pixel>>16&255)<90 && (pixel>>8&255)>230 && (pixel&255)>230).count();
