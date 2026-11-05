@@ -62,7 +62,7 @@ public abstract class MixinItemRenderWeaponBase {
     @org.spongepowered.asm.mixin.injection.Redirect(method = "setupTransformsAndSubmit", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/client/entity/ClientAvatarState;getInterpolatedBob(F)F"))
     private float gunfeel$bob(net.minecraft.client.entity.ClientAvatarState state, float partial) {
-        if (Config.enabled && Config.walkSway > 0F && !Arms.measuring && !GunFeel.currentAkimbo) return 0F;
+        if (acup.gunfeel.WalkSprint.bobOff()) return 0F;
         return state.getInterpolatedBob(partial);
     }
 

@@ -54,16 +54,26 @@ public final class WalkSprint {
     private static final Matrix4f APPLIED = new Matrix4f();
     private static boolean haveApplied;
     private static Item appliedItem;
+    // the gun PIVOT and length were measured on; another gun starts from rest and is measured first
+    private static Item measuredItem;
 
     private WalkSprint() {
     }
 
     /**
-     * An NTM gun with walkSway is in the main hand: the vanilla bob of the hands is left out (MixinHandBob). Not for an
-     * akimbo pair (as last drawn): WalkSprint leaves it alone, so it keeps both bobs.
+     * WalkSprint bobs the gun drawn, so NTM's own walking bob is left out (MixinItemRenderWeaponBase). Not for an akimbo
+     * pair (as last drawn) or a left main hand: NTM draws those through the other hand's pass, which WalkSprint leaves
+     * alone, so they keep NTM's bob.
      */
+    public static boolean bobOff() {
+        if (!Config.enabled || Config.walkSway <= 0F || Arms.measuring || GunFeel.currentAkimbo) return false;
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        return mc.options.mainHand().get() != net.minecraft.world.entity.HumanoidArm.LEFT;
+    }
+
+    /** An NTM gun with walkSway is in the main hand: the vanilla bob of the hands is left out too (MixinHandBob). */
     public static boolean handBobOff() {
-        if (!Config.enabled || Config.walkSway <= 0F || GunFeel.currentAkimbo) return false;
+        if (!bobOff()) return false;
         var mc = net.minecraft.client.Minecraft.getInstance();
         return mc.player != null && mc.player.getMainHandItem().getItem() instanceof ItemGunBaseNT;
     }
@@ -140,8 +150,14 @@ public final class WalkSprint {
         // a shot, aiming or an NTM animation take the gun out of the sprint pose quickly
         boolean drop = calm > 0F || aiming >= 0.05F || busy || firing;
         sprint = approach(sprint, sprintOn, dt, SPRINT_IN, drop ? SPRINT_DROP : SPRINT_OUT);
+        // a gun not yet measured would turn around the last gun's middle: it stays at rest until gunPlaced measures it,
+        // then comes in as usual
+        if (measuredItem != item) walk = sprint = 0F;
+        // the gun is measured every frame, moving or not (gunPlaced)
+        appliedItem = item;
+        haveApplied = true;
         if (walk <= 0F && sprint <= 0F) {
-            haveApplied = false;
+            APPLIED.set(pose.last().pose());
             return;
         }
         float d = player.avatarState().getBackwardsInterpolatedWalkDistance(partial);
@@ -160,8 +176,6 @@ public final class WalkSprint {
         turn(pose, s, PIVOT.x, PIVOT.y, PIVOT.z);
         turn(pose, w, PIVOT.x, PIVOT.y, PIVOT.z);
         APPLIED.set(pose.last().pose());
-        haveApplied = true;
-        appliedItem = item;
     }
 
     private static boolean firing(LocalPlayer player) {
@@ -188,6 +202,8 @@ public final class WalkSprint {
             else TestLog.c(-1, "walkSprintHand", "hand", hand);
         }
         if (!haveApplied || appliedItem != item) return;
+        // once per apply: a second pass of the same gun (the other hand) is not measured against this one's matrix
+        haveApplied = false;
         Vector3f back = new Vector3f(), front = new Vector3f();
         if (!Arms.gunEndsRendered(item, back, front)) return;
         // APPLIED = view·T; a point in view space is view⁻¹·p, and before T it is T⁻¹ of that
@@ -199,5 +215,6 @@ public final class WalkSprint {
         if (!Float.isFinite(len) || len < 1e-3F || len > 10F || mid.lengthSquared() > 25F) return;
         PIVOT.set(mid);
         length = len;
+        measuredItem = item;
     }
 }
