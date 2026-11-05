@@ -1,0 +1,145 @@
+# The 26.x names in the root's sources and what they are on Minecraft 1.21.1 with NTM: Decentralized Edition.
+# "<26.x class> -> <class here>": build.gradle.kts replaces the full name everywhere in the shared files, and the
+# simple name as a whole word too when it differs (Identifier -> ResourceLocation).
+# com.hbm.backport.*: DE's own 26.x shapes over 1.21.1, which NTM's code hands us (de-1.21.1.md, "Классы NTM").
+
+# renamed or moved in 1.21.1
+net.minecraft.resources.Identifier -> net.minecraft.resources.ResourceLocation
+net.minecraft.world.level.gamerules.GameRules -> net.minecraft.world.level.GameRules
+net.minecraft.world.entity.animal.sheep.Sheep -> net.minecraft.world.entity.animal.Sheep
+net.minecraft.world.entity.boss.enderdragon.EnderDragonPart -> net.minecraft.world.entity.boss.EnderDragonPart
+net.minecraft.world.entity.projectile.arrow.Arrow -> net.minecraft.world.entity.projectile.Arrow
+net.minecraft.client.model.animal.sheep.SheepModel -> net.minecraft.client.model.SheepModel
+net.minecraft.client.model.animal.sheep.SheepFurModel -> net.minecraft.client.model.SheepFurModel
+net.minecraft.client.model.monster.breeze.BreezeModel -> net.minecraft.client.model.BreezeModel
+net.minecraft.client.model.monster.slime.SlimeModel -> net.minecraft.client.model.SlimeModel
+net.minecraft.client.renderer.rendertype.RenderType -> net.minecraft.client.renderer.RenderType
+
+# what NTM's renderers and HUD take and give: DE's backport of them
+net.minecraft.client.renderer.SubmitNodeCollector -> com.hbm.backport.client.core.SubmitNodeCollector
+net.minecraft.client.renderer.OrderedSubmitNodeCollector -> com.hbm.backport.client.core.OrderedSubmitNodeCollector
+net.minecraft.client.renderer.SubmitNodeCollection -> com.hbm.backport.client.core.SubmitNodeCollection
+net.minecraft.client.gui.GuiGraphicsExtractor -> com.hbm.backport.client.gui.GuiGraphicsExtractor
+net.minecraft.client.renderer.entity.state.EntityRenderState -> com.hbm.backport.client.core.EntityRenderState
+net.minecraft.client.renderer.entity.state.LivingEntityRenderState -> com.hbm.backport.client.core.LivingEntityRenderState
+net.minecraft.client.renderer.state.level.CameraRenderState -> com.hbm.backport.client.core.CameraRenderState
+net.minecraft.client.renderer.feature.ModelFeatureRenderer -> com.hbm.backport.client.core.ModelFeatureRenderer
+net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState -> com.hbm.backport.client.core.BlockEntityRenderState
+net.minecraft.client.renderer.block.MovingBlockRenderState -> com.hbm.backport.client.core.MovingBlockRenderState
+net.minecraft.client.renderer.item.ItemStackRenderState -> com.hbm.backport.client.itemmodel.ItemStackRenderState
+net.minecraft.client.renderer.block.dispatch.BlockStateModelPart -> com.hbm.backport.client.blockmodel.BlockStateModelPart
+net.minecraft.client.resources.model.geometry.BakedQuad -> com.hbm.backport.client.blockmodel.BakedQuad
+net.minecraft.client.renderer.state.level.QuadParticleRenderState -> com.hbm.backport.client.particle.QuadParticleRenderState
+net.minecraft.client.renderer.state.gui.GuiRenderState -> com.hbm.backport.client.gui.state.GuiRenderState
+net.minecraft.client.renderer.state.gui.GuiElementRenderState -> com.hbm.backport.client.gui.state.GuiElementRenderState
+net.minecraft.client.gui.render.TextureSetup -> com.hbm.backport.client.gui.render.TextureSetup
+net.minecraft.client.input.KeyEvent -> com.hbm.backport.client.gui.input.KeyEvent
+net.minecraft.client.input.MouseButtonEvent -> com.hbm.backport.client.gui.input.MouseButtonEvent
+net.minecraft.client.renderer.RenderPipelines -> com.hbm.backport.client.rendertype.RenderPipelines
+net.minecraft.client.renderer.rendertype.RenderTypes -> com.hbm.backport.client.rendertype.RenderTypes
+net.minecraft.client.renderer.rendertype.RenderSetup -> com.hbm.backport.client.rendertype.RenderSetup
+net.minecraft.client.renderer.BindGroupLayouts -> com.hbm.backport.client.rendertype.BindGroupLayouts
+com.mojang.blaze3d.PrimitiveTopology -> com.hbm.backport.client.rendertype.PrimitiveTopology
+com.mojang.blaze3d.platform.CompareOp -> com.hbm.backport.client.rendertype.CompareOp
+com.mojang.blaze3d.pipeline.BlendFunction -> com.hbm.backport.client.rendertype.BlendFunction
+com.mojang.blaze3d.pipeline.ColorTargetState -> com.hbm.backport.client.rendertype.ColorTargetState
+com.mojang.blaze3d.pipeline.DepthStencilState -> com.hbm.backport.client.rendertype.DepthStencilState
+com.mojang.blaze3d.GpuFormat -> com.hbm.backport.client.rendertype.GpuFormat
+net.minecraft.util.ARGB -> com.hbm.backport.ARGB
+net.minecraft.world.entity.EntityTypes -> net.minecraft.world.entity.EntityType
+com.mojang.blaze3d.pipeline.RenderPipeline -> com.hbm.backport.client.rendertype.RenderPipeline
+net.neoforged.neoforge.client.network.ClientPacketDistributor -> net.neoforged.neoforge.network.PacketDistributor
+net.minecraft.world.entity.Avatar -> net.minecraft.world.entity.player.Player
+net.minecraft.client.model.player.PlayerModel -> net.minecraft.client.model.PlayerModel
+net.neoforged.neoforge.event.level.block.BreakBlockEvent -> net.neoforged.neoforge.event.level.BlockEvent.BreakEvent
+net.minecraft.client.model.geom.builders.UVPair -> com.hbm.backport.client.blockmodel.Uv
+net.minecraft.client.renderer.blockentity.BlockEntityRenderer -> com.hbm.backport.client.core.BlockEntityRenderer
+
+# members: Java regexes on each line, after the names above (1.21.1 names checked against its mappings)
+re: \.gui\.screen\(\) => .screen
+re: \.gui\.setScreen\( => .setScreen(
+re: \.mainCamera\(\)\.position\(\) => .getMainCamera().getPosition()
+re: \.mainCamera\(\) => .getMainCamera()
+re: \.gameRenderer\.mainRenderTarget\(\) => .getMainRenderTarget()
+re: \.getDeltaTracker\(\) => .getTimer()
+# 26.2 get(id) is the holder, getValue(id) the thing; 1.21.1 getHolder(id) and get(id)
+re: (BuiltInRegistries\.\w+)\.get\( => $1.getHolder(
+re: (BuiltInRegistries\.\w+)\.getValue\( => $1.get(
+re: \.getInventory\(\)\.setSelectedSlot\(([^()]*)\) => .getInventory().selected = $1
+re: \.create\(([^,()]+),\s*(?:net\.minecraft\.world\.entity\.)?EntitySpawnReason\.\w+\) => .create($1)
+# game rules: 26.2 names, set(rule, value, server) and get(rule) -> 1.21.1 RULE_*, getRule(rule).set and getBoolean
+re: GameRules\.ADVANCE_TIME\b => GameRules.RULE_DAYLIGHT
+re: GameRules\.ADVANCE_WEATHER\b => GameRules.RULE_WEATHER_CYCLE
+re: GameRules\.SPAWN_MOBS\b => GameRules.RULE_DOMOBSPAWNING
+re: GameRules\.MOB_GRIEFING\b => GameRules.RULE_MOBGRIEFING
+re: \.set\(((?:net\.minecraft\.world\.level\.)?GameRules\.\w+),\s*([^,()]+),\s*(\w+)\) => .getRule($1).set($2, $3)
+re: \.getGameRules\(\)\.get\(((?:net\.minecraft\.world\.level\.)?GameRules\.\w+)\) => .getGameRules().getBoolean($1)
+re: FMLEnvironment\.isProduction\(\) => FMLEnvironment.production
+re: \.getSelectedSlot\(\) => .selected
+re: Direction\.getApproximateNearest\( => Direction.getNearest(
+re: \.getPlainTextName\(\) => .getName().getString()
+re: (\w+)\.getKnownSpeed\(\) => acup.gunfeel.port.Mc.knownSpeed($1)
+re: (\w+)\.avatarState\(\)\.getBackwardsInterpolatedWalkDistance\( => acup.gunfeel.port.Mc.backwardsWalkDistance($1, 
+# the 26.2 teleport's last argument (keep the vehicle) is not in 1.21.1
+re: \.teleportTo\((.*),\s*false\) => .teleportTo($1)
+# 26.2 Gui.hud: in 1.21.1 the HUD is Gui itself, hidden by options.hideGui
+re: (\w+)\.gui\.hud\.toggle\(\) => $1.options.hideGui = !$1.options.hideGui
+re: \.gui\.hud\.isHidden\(\) => .options.hideGui
+re: \.gui\.hud\. => .gui.
+re: (\w+)\.sendOverlayMessage\( => acup.gunfeel.port.Mc.overlay($1, 
+re: (?:net\.minecraft\.client\.)?Screenshot\.takeScreenshot\( => acup.gunfeel.port.Mc.screenshot(
+re: ([\w.]+(?:\([^()]*\))?)\.getPixels\(\) => acup.gunfeel.port.Mc.pixels($1)
+re: ([\w.]+(?:\([^()]*\))?)\.getPixel\( => acup.gunfeel.port.Mc.pixel($1, 
+re: ([\w.]+(?:\([^()]*\))?)\.setPixel\( => acup.gunfeel.port.Mc.setPixel($1, 
+re: new DynamicTexture\([^,()]+,\s* => new DynamicTexture(
+re: (\w+)\.getBlockState\(([^()]*(?:\([^()]*\))?)\)\.isSolidRender\(\) => $1.getBlockState($2).isSolidRender($1, $2)
+re: Block\.shouldRenderFace\((\w+),\s*(\w+)\.getBlockState\((\w+)\.relative\((\w+)\)\),\s*(\w+)\) => Block.shouldRenderFace($1, $2, $3, $5, $3.relative($4))
+re: (\w+)\.is\(TagKey\.create\(Registries\.ENTITY_TYPE, => $1.getType().is(TagKey.create(Registries.ENTITY_TYPE,
+re: \.isSingleplayerOwner\((\w+)\.nameAndId\(\)\) => .isSingleplayerOwner($1.getGameProfile())
+re: (\w+)\.permissions\(\)\.hasPermission\((?:net\.minecraft\.server\.permissions\.)?Permissions\.COMMANDS_GAMEMASTER\) => $1.hasPermissions(2)
+re: ^import net\.minecraft\.server\.permissions\.Permissions;$ => 
+# 26.2 worn gear: the glider and equippable components and the saddle slot (Mc)
+re: (\w+)\.has\(net\.minecraft\.core\.component\.DataComponents\.GLIDER\) => acup.gunfeel.port.Mc.glider($1)
+re: (\w+)\.get\(net\.minecraft\.core\.component\.DataComponents\.EQUIPPABLE\) => acup.gunfeel.port.Mc.equippable($1)
+re: (\w+)\.getItemBySlot\(net\.minecraft\.world\.entity\.EquipmentSlot\.SADDLE\)\.getItem\(\) => acup.gunfeel.port.Mc.saddle($1)
+# the player's skin: 26.2 PlayerModelType and body().texturePath() -> 1.21.1 PlayerSkin.Model and texture()
+re: ^import net\.minecraft\.world\.entity\.player\.PlayerModelType;$ => 
+re: (?<![\w.])PlayerModelType\. => net.minecraft.client.resources.PlayerSkin.Model.
+re: \.getSkin\(\)\.body\(\)\.texturePath\(\) => .getSkin().texture()
+# 26.2 key categories are objects registered with the keys; in 1.21.1 a category is its translation key
+re: KeyMapping\.Category (\w+) = new KeyMapping\.Category\(.*\);$ => String $1 = "key.category.ntmgunfeel.main";
+re: ^\s*e\.registerCategory\(\w+\);$ => 
+# the GUI: RenderGuiEvent gives vanilla GuiGraphics, DE's GuiGraphicsExtractor wraps it; its pose() is a GuiPoseStack
+re: \(e\.getGuiGraphics\(\)\) => (com.hbm.backport.client.gui.GuiGraphicsExtractor.of(e.getGuiGraphics()))
+re: ^import org\.joml\.Matrix3x2fStack;$ => 
+re: Matrix3x2fStack (\w+) = => com.hbm.backport.client.gui.GuiPoseStack $1 =
+re: new Matrix3x2f\(([\w.]+)\.pose\(\)\) => new Matrix3x2f($1.pose().matrix2d())
+# 26.2 nextStratum(): draw above what is drawn so far; DE clears the GUI depth for that (its item())
+re: (\w+)\.nextStratum\(\); => $1.resetDepth();
+re: (\w+)\.blurBeforeThisStratum\(\); => acup.gunfeel.port.Mc.blur($1);
+re: (\w+)\.addVertexWith2DPose\( => acup.gunfeel.port.Mc.vertex2d($1, 
+# screens: 26.2 keyPressed(KeyEvent) -> 1.21.1 keyPressed(key, scancode, modifiers), with DE's KeyEvent made from them
+re: public boolean keyPressed\(KeyEvent (\w+)\) \{ => public boolean keyPressed(int gunfeelKey, int gunfeelScan, int gunfeelMods) { KeyEvent $1 = new KeyEvent(gunfeelKey, gunfeelScan, gunfeelMods);
+re: super\.keyPressed\((\w+)\) => super.keyPressed($1.key(), $1.scancode(), $1.modifiers())
+# 26.2 ServerboundMovePlayerPacket.Rot(yRot, xRot, onGround, horizontalCollision): 1.21.1 has no horizontalCollision
+re: new ServerboundMovePlayerPacket\.Rot\(([^,]+),([^,]+),([^,]+),\s*[\w.$]+\(\)\) => new ServerboundMovePlayerPacket.Rot($1,$2,$3)
+# the block models: 26.2 ModelManager.getBlockStateModelSet() is DE's BlockStateModelSet
+re: (?:net\.minecraft\.client\.)?Minecraft\.getInstance\(\)\.getModelManager\(\)\.getBlockStateModelSet\(\) => com.hbm.backport.client.blockmodel.BlockStateModelSet.current()
+# the height of the world: 26.2 getMaxY() is the top block, 1.21.1 getMaxBuildHeight() the one above it
+re: \.getMinY\(\) => .getMinBuildHeight()
+re: ([\w.]+)\.getMaxY\(\) => ($1.getMaxBuildHeight() - 1)
+# a RenderType's pipeline: DE knows it for its own types (RenderTypeInfo), Mc for the vanilla ones too
+re: \btype\.pipeline\(\)\.isCull\(\) => acup.gunfeel.port.Mc.cull(type)
+re: \btype\.primitiveTopology\(\) => acup.gunfeel.port.Mc.topology(type)
+
+# RenderedMesh: what NTM's machines draw, through DE's backport of the 26.2 renderers (its Recorder is DE's
+# SubmitNodeCollector, less what that has not: the @Overrides go, the gizmo group is left untyped)
+re@RenderedMesh.java: ^\s*@Override\s*$ =>
+re@RenderedMesh.java: ^import net\.minecraft\.client\.model\.Model;$ => import com.hbm.backport.client.core.Model;
+re@RenderedMesh.java: ^import net\.minecraft\.client\.renderer\.gizmos\.DrawableGizmoPrimitives\.Group;$ =>
+re@RenderedMesh.java: submitGizmoPrimitives\(Group group => submitGizmoPrimitives(Object group
+re@RenderedMesh.java: (?:Minecraft\.getInstance\(\)\.getBlockEntityRenderDispatcher\(\)|dispatcher)\.getRenderer\((\w+)\) => acup.gunfeel.port.Mc.renderer($1)
+# NtmApiTest: the port's list of what it calls in NTM is its own (ApiProbe reads it from the jar), next to its mixins
+re@NtmApiTest.java: Path\.of\("src/main/resources", ApiProbe\.FILE\) => Path.of("port/1.21.1-de/src/main/resources", ApiProbe.FILE)
+# CompatTest: the port's resources as the jar has them (its mods.toml with ntmTested filled in, its mixin configs)
+re@CompatTest.java: Path\.of\("src/main/resources"\) => Path.of("port/1.21.1-de/build/resources/main")

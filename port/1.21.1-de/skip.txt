@@ -1,0 +1,12 @@
+# The root's files the port leaves out for good (build.gradle.kts): Ant patterns per section.
+# What is only not ported yet is in pending.txt, which tools/prune.py keeps.
+
+[main]
+# the in-game editors are not ported (owner, 2026-10-31): the gun editor (O), the arm editor and its screen
+acup/gunfeel/GunEditor.java
+acup/gunfeel/ArmEditorScreen.java
+acup/gunfeel/ArmAnimationEditor.java
+
+[test]
+
+[resources]

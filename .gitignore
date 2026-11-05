@@ -9,6 +9,7 @@ logs/
 .kotlin/
 run/
 !gradle/wrapper/gradle-wrapper.jar
+!port/*/gradle/wrapper/gradle-wrapper.jar
 run-dump/
 run-check/
 run-bullets/
