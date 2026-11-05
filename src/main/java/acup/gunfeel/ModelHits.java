@@ -76,19 +76,20 @@ public final class ModelHits {
 
     private ModelHits() {}
 
-    // What the target wears, on its hitbox (WornGear): off unless the server's modelHitboxesWorn is on. Armor as
-    // HumanoidArmorLayer draws it (an equippable with an asset, for its slot; not the elytra); on the head a skull or
-    // another block as CustomHeadLayer draws it.
+    // What the target wears, on its hitbox (WornGear): on unless the server turns modelHitboxesWorn off. Armor: an
+    // equippable for its slot, vanilla's (HumanoidArmorLayer) or a mod's that draws its own model (NTM's suits); not a
+    // glider (the elytra) or a block. On the head a skull or another block as CustomHeadLayer draws it.
     static WornGear.Worn worn(Entity target) {
-        if(!(target instanceof LivingEntity living) || !ReaimTimes.flag("modelHitboxesWorn",false)) return WornGear.Worn.NOTHING;
+        if(!(target instanceof LivingEntity living) || !ReaimTimes.flag("modelHitboxesWorn",true)) return WornGear.Worn.NOTHING;
         return new WornGear.Worn(wornHead(living),armor(living,net.minecraft.world.entity.EquipmentSlot.CHEST),
                 armor(living,net.minecraft.world.entity.EquipmentSlot.LEGS),armor(living,net.minecraft.world.entity.EquipmentSlot.FEET));
     }
     private static boolean armor(LivingEntity living,net.minecraft.world.entity.EquipmentSlot slot) {
         var stack=living.getItemBySlot(slot);
-        if(stack.isEmpty() || stack.is(net.minecraft.world.item.Items.ELYTRA)) return false;
+        if(stack.isEmpty() || stack.has(net.minecraft.core.component.DataComponents.GLIDER)
+                || stack.getItem() instanceof net.minecraft.world.item.BlockItem) return false;
         var equippable=stack.get(net.minecraft.core.component.DataComponents.EQUIPPABLE);
-        return equippable!=null && equippable.slot()==slot && equippable.assetId().isPresent();
+        return equippable!=null && equippable.slot()==slot;
     }
     private static WornGear.Head wornHead(LivingEntity living) {
         var stack=living.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD);
