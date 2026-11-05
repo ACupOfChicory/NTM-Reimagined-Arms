@@ -187,6 +187,24 @@ public final class Arms {
         return -1;
     }
 
+    // the right-hand grip as drawn this frame, in the pose stack's space (after end())
+    public static boolean rightGripRendered(Item held, Vector3f out) {
+        if (!haveRel || relItem != held || geometry(held) == null) return false;
+        float[] right = grips(held)[0];
+        REL.transformPosition(right[0], right[1], right[2], out);
+        KICKED.transformPosition(out);
+        return true;
+    }
+
+    // the gun's two ends along its length (model z min / max) as drawn this frame, in the pose stack's space
+    public static boolean gunEndsRendered(Item held, Vector3f back, Vector3f front) {
+        if (!haveRel || relItem != held || geometry(held) == null) return false;
+        GunGeometry g = geometry(held);
+        KICKED.transformPosition(REL.transformPosition(0F, 0F, g.minZ, back));
+        KICKED.transformPosition(REL.transformPosition(0F, 0F, g.maxZ, front));
+        return true;
+    }
+
     // pivot (right-hand grip) and gun length in the gun frame, for the model kick
     public static float kickFrame(Item held, Vector3f pivot) {
         if (!haveRel || relItem != held || geometry(held) == null) return 0F;

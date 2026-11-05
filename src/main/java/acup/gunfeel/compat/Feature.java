@@ -20,13 +20,14 @@ public enum Feature {
             List.of("AmmoLock", "AmmoLockKey", "RadialMenu", "AmmoStats", "AmmoSelectPayload", "AmmoLockPayload")),
     RECOIL("recoil", List.of("MixinItemGunBaseNT", "MixinHbmAnimations"), List.of("CameraRecoil", "ModelRecoil")),
     ARMS("arms", List.of("MixinItemRenderWeaponBase", "MixinWholeModelGuns", "MixinSexyBottle", "MixinHbmAnimations", "MixinG3Inspect"),
-            List.of("Arms", "Grips", "GunGeometry", "GripCommand", "ArmAnimationPreview", "ArmAnimationEditor", "ArmEditorScreen", "WeaponSway")),
+            List.of("Arms", "Grips", "GunGeometry", "GripCommand", "ArmAnimationPreview", "ArmAnimationEditor", "ArmEditorScreen", "WeaponSway", "WalkSprint")),
     HUD("hud", List.of("MixinClientRegistry"), List.of("Hud", "Silhouette", "GunGeometry")),
     INSTANT_SWITCH("instant_switch", List.of("MixinHbmAnimationPayload"), List.of("InstantSwitch")),
     CLICK_AIM("click_aim", List.of("MixinClickAim"), List.of("ClickAim")),
     TRACERS("tracers", List.of("MixinLegoClient", "MixinRenderBulletMK4"), List.of("Tracers", "ShotPayload", "ImpactHolePayload", "ExplosiveAmmo")),
     MACHINE_MESH("machine_mesh", List.of("MixinHbmVisual"), List.of("MeshShapes", "RenderedMesh")),
-    MARESLEG("maresleg", List.of("MixinGunConfigAnims"), List.of());
+    MARESLEG("maresleg", List.of("MixinGunConfigAnims"), List.of()),
+    SPRINT_FIRE("sprint_fire", List.of("MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun"), List.of("SprintFire"));
 
     public final String id;
     // simple names: mixins in acup.gunfeel.mixin, classes in acup.gunfeel
