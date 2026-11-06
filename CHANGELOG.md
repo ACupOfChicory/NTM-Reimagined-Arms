@@ -1,15 +1,73 @@
 # Changelog
 
-## X488
+## X504
 
 - F3+B: the hitbox outline of an animated mob no longer lags behind its model.
   It now shows the pose of this frame, of the last frame, or one younger than
   1/60 s. Before, a mob whose outline takes long to build (glyphids, mask man,
   tesla crab and other NTM mobs) could show a pose several frames old while
   it walked. The outline is still built in the background; a frame waits for
-  it only when the one on screen would be too old. At 60 FPS this costs
-  nothing; above it, many walking NTM mobs with F3+B on lower the frame rate:
-  10 or 30 of them at a 144 FPS cap went from 137 to about 105 FPS.
+  it only when the one on screen would be too old. So F3+B with walking NTM
+  mobs is now more expensive above 60 FPS: 10 or 30 of them at a 144 FPS cap
+  went from 137 to about 105 FPS. At 60 FPS, and without F3+B, nothing
+  changes.
+
+## X498
+
+- Bullets meeting water now splash the way it moves: a crown and spray on still
+  water, a fan downstream on a slope, a burst through a waterfall, a low spray
+  on a thin sheet. Rings lie on the surface and drift with the current, foam
+  and bubbles rise and pop at the surface, and a skipping round splashes at
+  each bounce. Nothing sinks under the surface or hangs over air, and a ring
+  goes away when its water does. Off with `waterSplash = false`.
+- Under water a shot has no muzzle flash. It throws a gas bubble at the muzzle
+  that swells, shrinks, bounces and breaks into rising bubbles, its size set by
+  the calibre. The round itself is visible in the water with a fading light
+  trail, and hollow and soft points open into a mushroom as they slow.
+- A round the water stopped sinks, tumbles and lies on the bottom for a while
+  (on your screen only; a round that hit a block is gone, as before). Keys:
+  `waterBodyMax = 400` (0 = none), `waterBodyLife = 30` (seconds).
+- A blast at water shows it: on the surface a column of water with spray, rings
+  and foam; under it a burst of bubbles that pushes sunk rounds aside.
+
+## X493
+
+- Works with Punchy! and Punchy! Moves: Punchy! no longer animates NTM guns in
+  first person, and in third person Punchy! Moves keeps the arm pose NTM gives
+  a gun (aiming, akimbo, left hand). Nothing changes without those mods or with
+  `arms` off. Thanks to irislgtm (#2).
+- Explosive NTM rounds, grenades and rockets meet water by their fuze. Hitting
+  it steeper than 10° they go off on the surface; shallower they skip and go
+  off at the next thing they touch. Fired under water they fly, slow down like
+  any bullet and go off on a block or a mob. One that water stopped sinks at
+  most a block a second and goes off where it lands or on NTM's timer.
+- An explosive round goes off at the first touch of anything, another bullet
+  or a sinking explosive included; only pellets of one shot leave each other
+  alone.
+- A blast with its centre in water reaches 1.5 times as far for mobs in the
+  water, and a mob above it takes half. Blocks break as before.
+- Under water an incendiary 75 bolt gives a weak blast, about a quarter of the
+  explosive bolt's, and no fire; phosphorus and flares do not burn, and fire
+  grenades and rockets only explode.
+- Fast bullets (rifles, machine guns) now really slow down in water as they
+  fly; before, they kept full speed up to the point where they stopped.
+- Keys in `ntm-gunfeel-server.properties`: `waterFuze`, `waterFuzeSkipAngle`, `waterBlastRadius`.
+- ⚠ Breaks compatibility: the network protocol is now 9 (a new packet for
+  blasts at water); client and server need the same build.
+
+## X488
+
+- NTM bullets slow down in water, and their damage and piercing fall with the
+  square of the speed; a hole in a block behind water comes out smaller. A
+  pistol bullet goes through about 2.4 blocks of water, a rifle bullet 1.2, an
+  armour-piercing one 1.7, a shotgun slug 2.7, buckshot 0.6, and 10 gauge DU,
+  ten uranium mini-bullets, 1.3. Hollow and soft points open in water and stop
+  sooner: a 9 mm JHP after 1.3 blocks, an SP after 1.8. A falling stream
+  barely slows a bullet; lava and a flamethrower's fire stop where they meet.
+- At a shallow angle (under 6°, 10° for grenades and rockets) a bullet skips
+  off water, at most twice a flight, losing a third of its speed. A shot from
+  under water follows the same rules and sounds duller and lower.
+- Keys in `ntm-gunfeel-server.properties`: `waterBallistics`, `waterStopFraction`, `waterRangeScale`, `waterSkipAngle`, `waterMuffle`.
 
 ## X483
 
