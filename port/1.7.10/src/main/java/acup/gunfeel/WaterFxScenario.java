@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
 
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.items.weapon.sedna.BulletConfig;
@@ -14,6 +16,9 @@ import com.hbm.items.weapon.sedna.BulletConfig;
 import acup.gunfeel.water.WaterClass;
 import acup.gunfeel.water.WaterEvents;
 import acup.gunfeel.water.WaterFx;
+import acup.gunfeel.water.AmmoModels;
+import acup.gunfeel.water.SunkBullets;
+import acup.gunfeel.water.SunkPhysics;
 import acup.gunfeel.water.WaterParticle;
 import acup.gunfeel.water.WaterRings;
 import net.minecraft.block.Block;
@@ -32,7 +37,10 @@ import net.minecraft.world.World;
 // bubble each), the NTM flash of a gun fired with its muzzle under water (hidden), a ring on the still pool seen from
 // above before and after (waterfx-rings-{0,1}.png, for pixel numbers: the ring is white, not grey), a foam patch drawn
 // after the water and, for the control, before it (waterfx-foam-{late,early}.png), the ring taken off
-// when its water is drained, and every particle gone in the end. Lines in run/client/waterfx.txt and the log; quits.
+// when its water is drained, and every particle gone in the end. The rounds the water stopped (SunkBullets, 2b): their
+// size from NTM's casings (a line per round), rounds drawn in flight under water and lying on the bottom, and a round
+// asleep on the waterfall basin's bottom going down when the stone under it is broken (X517). Lines in
+// run/client/waterfx.txt and the log; quits.
 final class WaterFxScenario {
     private WaterFxScenario() {
     }
@@ -40,7 +48,7 @@ final class WaterFxScenario {
     private static final int BUILD = 20, SHOTS = 120, POOL_TICKS = 70, SHOT_GAP = 15, UNDER = 420, UNDER_CHECK = 470, FLASH_GO = 480,
             FLASH_FIRE = 520, FLASH_STOP = 540, FLASH_CHECK = 560, DRY_GO = 562, DRY_FIRE = 575, DRY_STOP = 595, DRY_CHECK = 605, LOOK = 610,
             RINGS0 = 650, RING_ADD = 655, RINGS1 = 670, FOAM = 672, FOAM_LATE = 690, FOAM_EARLY = 700, DRAIN = 730, DRAIN_CHECK = 780,
-            LIVE_CHECK = 1000, DONE = 1020;
+            FLOOR = 790, FLOOR_WAIT = 240, LIVE_AFTER = 220, DONE_AFTER = 20;
     private static final String[] AMMO = {"ammo_standard_p9_fmj", "ammo_standard_r762_fmj", "ammo_standard_g12", "ammo_standard_g12_slug"};
     private static final String[] POOLS = {"still", "slope", "fall", "shallow"};
 
@@ -51,13 +59,22 @@ final class WaterFxScenario {
     private static int[] before, eventsBefore;
     private static int ringsBefore, ringsLeft0, flash0, traced0, late0, shotEnter0;
     private static final int[] perShot = new int[AMMO.length];
+    // the sunk rounds: the most at once, the physics' worst frame; the floor test's step (0 looking, 1 falling, 3
+    // done), its round, the tick the end's checks come
+    private static int bodiesMax, floorStep, floorTick, liveCheck = Integer.MAX_VALUE;
+    private static double physMsMax, sleeperY;
+    private static long since;
+    private static SunkPhysics.Body sleeper;
 
     static void step(Minecraft mc, int t) {
         if (t == BUILD) ShootScenario.onServer(WaterFxScenario::build);
         if (t == BUILD + 1) {
             mc.gameSettings.hideGUI = true;
             WaterFx.audit = true;
+            sizes();
         }
+        bodiesMax = Math.max(bodiesMax, SunkBullets.bodies());
+        physMsMax = Math.max(physMsMax, SunkBullets.physicsMs());
         for (int p = 0; p < POOLS.length; p++) {
             int from = SHOTS + p * POOL_TICKS;
             if (t == from - 1) mark();
@@ -71,6 +88,14 @@ final class WaterFxScenario {
                 if (t == from + (a + 1) * SHOT_GAP - 2) perShot[a] = enters() - shotEnter0;
             }
             if (t == from + POOL_TICKS - 2) pool(p);
+        }
+        // the rounds the pools stopped lie on their bottoms (26.2's stand: the still pool's); the ones under water
+        // in flight drawn as models
+        if (t == UNDER - 2) {
+            lines.add(String.format(Locale.ROOT, "sunk rounds: bodies %d (most %d), asleep %d, physics most %.3f ms a frame; drawn in flight %d, lying %d",
+                    SunkBullets.bodies(), bodiesMax, SunkBullets.asleep(), physMsMax, SunkBullets.flyingDrawn, SunkBullets.bodiesDrawn));
+            check(bodiesMax > 0 && SunkBullets.bodiesDrawn > 0, "the rounds the water stopped lie on the bottom, drawn");
+            check(SunkBullets.flyingDrawn > 0, "the rounds in flight under water drawn");
         }
         if (t == UNDER - 1) mark();
         for (int i = 0; i < 3; i++) if (t == UNDER + i * SHOT_GAP) ShootScenario.onServer(WaterFxScenario::fireUnder);
@@ -157,7 +182,10 @@ final class WaterFxScenario {
             lines.add("rings taken off as their water went: " + left + ", alive now " + WaterRings.alive());
             check(left > 0 && WaterRings.alive() == 0, "a ring goes when its water goes");
         }
-        if (t == LIVE_CHECK) {
+        if (t == FLOOR) ShootScenario.onServer(WaterFxScenario::fireFloor);
+        // ShootScenario.onServer holds one task: the next one two ticks after the last
+        if (t > FLOOR + 2 && floorStep < 3) floorGone(t);
+        if (t == liveCheck) {
             lines.add("surface audit: under the surface by more than 0.15: " + WaterFx.below + ", over air: " + WaterFx.overAir + ", deepest "
                     + String.format(Locale.ROOT, "%.3f", WaterFx.worstBelow));
             check(WaterFx.below == 0 && WaterFx.overAir == 0, "no particle under the surface by 0.15 or over air");
@@ -166,10 +194,103 @@ final class WaterFxScenario {
             WaterFx.audit = false;
             write();
         }
-        if (t == DONE) {
+        if (t == liveCheck + DONE_AFTER) {
             GunFeel.LOGGER.info("Scenario waterfx: done");
             mc.shutdown();
         }
+    }
+
+    // ---- X517: a round asleep on the waterfall basin's bottom (the still pool is drained by now), the stone under it
+    // (3 × 3) taken away on the server: it goes down a block within a second (26.2's stand: the still pool's). The stone
+    // is put back after, so the basin's water stops running out ----
+    private static void floorGone(int t) {
+        if (floorStep == 0) {
+            sleeper = null;
+            for (SunkPhysics.Body b : SunkBullets.list())
+                if (b.asleep && b.px > x0 + 22 && b.px < x0 + 27 && b.pz > z0 && b.pz < z0 + 5 && b.py < y - 2.5) sleeper = b;
+            if (sleeper == null) {
+                if (t < FLOOR + FLOOR_WAIT) return;
+                lines.add("floor gone: no round asleep on the waterfall basin's bottom");
+                check(false, "a round asleep on the bottom");
+                end(t);
+                return;
+            }
+            sleeperY = sleeper.py;
+            final int bx = (int) Math.floor(sleeper.px), bz = (int) Math.floor(sleeper.pz);
+            lines.add(String.format(Locale.ROOT, "floor gone: a round asleep at %.2f %.3f %.2f; bodies %d, asleep %d, physics %.4f ms a frame", sleeper.px,
+                    sleeper.py, sleeper.pz, SunkBullets.bodies(), SunkBullets.asleep(), SunkBullets.physicsMs()));
+            floorX = bx;
+            floorZ = bz;
+            ShootScenario.onServer(() -> floor(bx, bz, Blocks.air));
+            floorStep = 1;
+            floorTick = t;
+            since = 0;
+            return;
+        }
+        // the time from when the client has the hole (not from the server's task: its tick and the packet are no
+        // part of the physics)
+        if (floorStep == 1 && since == 0 && Minecraft.getMinecraft().theWorld.getBlock(floorX, y - 4, floorZ) != Blocks.stone) since = System.nanoTime();
+        if (floorStep == 1 && since == 0 && t > floorTick + 100) {
+            lines.add("floor gone: the client never saw the stone go");
+            check(false, "a round on the bottom falls when the block under it is broken");
+            end(t);
+            return;
+        }
+        if (floorStep == 1 && since != 0 && t > floorTick + 2) {
+            double drop = sleeperY - sleeper.py, s = (System.nanoTime() - since) / 1e9;
+            if (drop < 1 && s < 3 && SunkBullets.list().contains(sleeper)) return;
+            lines.add(String.format(Locale.ROOT, "floor gone: the round went down %.2f blocks in %.2f s (asleep %b)", drop, s, sleeper.asleep));
+            check(drop >= 1 && s <= 1, "a round on the bottom falls when the block under it is broken");
+            // the stone back where it was taken (the round's block when it lay there)
+            final int fx = floorX, fz = floorZ;
+            ShootScenario.onServer(() -> floor(fx, fz, Blocks.stone));
+            end(t);
+        }
+    }
+
+    private static int floorX, floorZ;
+
+    // the basin's floor (y - 4) under (bx, bz), 3 × 3
+    private static void floor(int bx, int bz, Block b) {
+        World w = player().worldObj;
+        for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) set(w, bx + x, y - 4, bz + z, b);
+    }
+
+    private static void end(int t) {
+        floorStep = 3;
+        liveCheck = t + LIVE_AFTER;
+    }
+
+    // three p9 rounds at the waterfall basin's west half, from the north at 60° down (clear of the falling column)
+    private static void fireFloor() {
+        BulletConfig c = config("ammo_standard_p9_fmj");
+        if (c == null) return;
+        double dy = -Math.sin(Math.toRadians(60)), dz = Math.cos(Math.toRadians(60));
+        for (int i = 0; i < 3; i++) spawn(c, x0 + 22.8 + 0.4 * i, y - 1 + 8 / 9.0 - dy * 4, z0 + 3.0 - dz * 4, 0, dy, dz);
+    }
+
+    // the size of every round in water, from NTM's casing of it (SunkBullets.model), once per round; the four the
+    // pools are shot with sized by their casing
+    private static void sizes() {
+        Map<String, String> out = new TreeMap<String, String>();
+        int byCasing = 0;
+        for (BulletConfig c : BulletConfig.configs) {
+            String a = c == null ? null : WaterFx.ammo(c);
+            AmmoModels.Model m = a == null ? null : SunkBullets.model(c);
+            if (m == null || out.containsKey(a)) continue;
+            if (m.byCasing) byCasing++;
+            out.put(a, String.format(Locale.ROOT, "%s len %.4f d %.4f %s", a, m.length, 2 * m.radius,
+                    c.casing == null ? "no casing" : (m.byCasing ? "casing " : "casing not sized ") + c.casing.getType()));
+        }
+        lines.add("sizes: " + out.size() + " rounds, by casing " + byCasing);
+        for (String v : out.values()) lines.add("size " + v);
+        boolean ours = true;
+        for (String a : AMMO) {
+            BulletConfig c = config(a);
+            AmmoModels.Model m = c == null ? null : SunkBullets.model(c);
+            ours &= m != null && m.byCasing;
+        }
+        check(ours, "the pools' four rounds sized by NTM's casings");
     }
 
     private static EntityPlayerMP player() {

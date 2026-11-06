@@ -1,5 +1,17 @@
 # Changelog
 
+## X543.139
+
+- As in 26.2: a bullet flying in water is seen as a small model of the
+  round, a hollow or soft point opening into a mushroom as it goes, with a
+  light streak behind it that fades as it slows. A round the water stopped
+  drifts on, tumbles, sinks and lies on the bottom for `waterBodyLife`
+  seconds (at most `waterBodyMax`), and it falls when the block under it is
+  broken. Rounds with an impact fuze sink as
+  NTM's own projectile.
+- The rounds are as big next to the casings NTM drops as the real bullets
+  next to their cases, times `waterBodyScale` (1 by default, 0.25 to 4).
+
 ## X543.138
 
 - As in 26.2 X498 and X517: bullets meeting water now splash the way it

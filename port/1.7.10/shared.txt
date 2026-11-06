@@ -33,6 +33,9 @@ acup/gunfeel/DecalSurface.java
 acup/gunfeel/compat/ApiProbe.java
 # water (notes/ports/1.7.10-water/README.md): its keys; the rest is the port's copy (WaterPath reads 1.7.10's liquids)
 acup/gunfeel/water/WaterSettings.java
+# rounds seen in water (SunkBullets is the port's): their models and the sunk bodies' physics, no Minecraft classes
+acup/gunfeel/water/AmmoModels.java
+acup/gunfeel/water/SunkPhysics.java
 
 [test]
 # src/test/java: they test the port's copies with 26.2's own expectations
@@ -53,6 +56,8 @@ acup/gunfeel/SprintFireTest.java
 acup/gunfeel/WalkSprintTest.java
 acup/gunfeel/ArmAimScaleTest.java
 acup/gunfeel/ArmPistolScaleTest.java
+# the sunk bodies (AmmoModelsTest is the port's: it measures 1.7.10's casings.obj)
+acup/gunfeel/water/SunkPhysicsTest.java
 
 [resources]
 # src/main/resources
@@ -74,6 +79,8 @@ ntmgunfeel-bullets.txt
 ntmgunfeel-bullet-shapes.properties
 # the water effects' textures (WaterRings)
 assets/ntmgunfeel/textures/particle/*.png
+# the rounds' real sizes (AmmoModels)
+assets/ntmgunfeel/water/ammo.tsv
 
 [main-phys]
 # src/main/java, compiled with net.minecraft.world.phys.Vec3 read as acup.gunfeel.phys.Vec3 (build.gradle.kts)

@@ -586,6 +586,14 @@ public final class Tracers {
                 it.remove();
                 continue;
             }
+            // in water: the round itself, seen (SunkBullets; with the world it is drawn the next frame)
+            if (Double.isNaN(s.end) || segment.head() < s.end - 1e-6) {
+                double[] at = s.path.at(segment.head()), vel = s.path.velocity(segment.head());
+                double wf = s.waterPath != null ? s.waterPath.fAt(vec(at)) : s.waterF;
+                double k = s.waterF > 0 ? wf / s.waterF : 1;
+                acup.gunfeel.phys.Vec3 v = vec(vel);
+                acup.gunfeel.water.SunkBullets.flying(world, s.config, vec(at), v, wf, v.length() * k);
+            }
             if (!Config.tracers || !segment.visible()) continue;
             double[] h = s.path.at(segment.head()), b = s.path.at(segment.tail());
             streaks.add(new float[] {(float) (h[0] - CAMERA[0]), (float) (h[1] - CAMERA[1]), (float) (h[2] - CAMERA[2]),
@@ -600,6 +608,8 @@ public final class Tracers {
         acup.gunfeel.water.WaterRings.render(world, CAMERA[0], CAMERA[1], CAMERA[2], partial);
         // the water's particles on the camera's side of the surface, after the water (WaterParticle)
         acup.gunfeel.water.WaterParticle.renderLate(partial);
+        // the rounds in water, when the world's hook (drawWorldHoles) did not draw them this frame
+        if (!acup.gunfeel.water.SunkBullets.drawnThisFrame()) acup.gunfeel.water.SunkBullets.render(world, CAMERA[0], CAMERA[1], CAMERA[2], partial);
         // the holes went with the world already this frame (drawWorldHoles); here only when that hook did not run
         if (holesFrame == frame) return;
         makePending();
@@ -627,6 +637,8 @@ public final class Tracers {
         try {
             makePending();
             holes(mc, world, partial, GunClock.nanos());
+            // the rounds in water with the world too: before the water, which then lies over them (SunkBullets)
+            acup.gunfeel.water.SunkBullets.render(world, CAMERA[0], CAMERA[1], CAMERA[2], partial);
         } finally {
             GL11.glPopAttrib();
         }

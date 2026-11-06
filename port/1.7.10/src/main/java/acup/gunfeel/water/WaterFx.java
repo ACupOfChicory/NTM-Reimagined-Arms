@@ -325,6 +325,7 @@ public final class WaterFx {
         for (int j = 0; j < n; j++)
             spawn(level, WaterParticle.Kind.RISE, at.x + rnd(-.05, .05), at.y + rnd(-.05, .05), at.z + rnd(-.05, .05), rnd(-.2, .2), rnd(0.2, 0.6),
                     rnd(-.2, .2), 10, rnd(0.05, 0.1), 1F);
+        SunkBullets.stopped(level, e);
     }
 
     // through shallow water into the bottom: crumbs of the block (blockcrack) and a few bubbles
@@ -556,6 +557,7 @@ public final class WaterFx {
     public static void clear() {
         LATER.clear();
         WaterRings.clear();
+        SunkBullets.clear();
         WaterParticle.forget();
         gasTick = Long.MIN_VALUE;
         gasAt = Vec3.ZERO;
@@ -656,6 +658,7 @@ public final class WaterFx {
                     0.05, 1F);
             if (q != null) q.color(0.91F, 0.95F, 1F);
         }
+        SunkBullets.blast(at, p, inc);
         level.playSound(at.x, at.y, at.z, "random.explode", (float) Math.min(1.0, 0.3 + p), 0.6F, false);
     }
 
