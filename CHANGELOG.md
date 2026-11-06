@@ -1,5 +1,16 @@
 # Changelog
 
+## X513
+
+- On NTM Decentralized Edition, see-through glass (stained glass and its pane,
+  the reinforced glass pane, the reinforced laminate and its pane) no longer
+  disappears behind NTM's explosion smoke. The smoke marked its whole cloud,
+  faint edges included, as nearer than the glass, so the glass behind it was
+  not drawn. Now the glass shows; where the smoke is thin, the glass is drawn
+  over it rather than under it, as on Minecraft 26.2. "Fabulous!" graphics did
+  not have the problem and are left as they were. Part of the ntmRenderFixes
+  setting (on by default).
+
 ## X510
 
 - The arms holding a gun now wear what the player wears on the arms seen from
