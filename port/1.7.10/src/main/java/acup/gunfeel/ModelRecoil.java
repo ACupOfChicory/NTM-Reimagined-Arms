@@ -54,12 +54,17 @@ public final class ModelRecoil {
     }
 
     public static void shot(boolean aiming) {
-        shot(aiming, GunClock.nanos(), Rng.model());
+        shot(aiming, GunClock.nanos(), Rng.model(), PowerArmor.recoil(net.minecraft.client.Minecraft.getMinecraft().thePlayer));
+    }
+
+    static void shot(boolean aiming, long now, Random random) {
+        shot(aiming, now, random, 1F);
     }
 
     // the same draws from `random` (26.2: Rng.model()) in the same order as 26.2
-    static void shot(boolean aiming, long now, Random random) {
-        float s = Config.modelKick * (aiming ? Config.adsRecoil : 1F);
+    // armor: PowerArmor.recoil of the player (1 out of power armour)
+    static void shot(boolean aiming, long now, Random random, float armor) {
+        float s = Config.modelKick * (aiming ? Config.adsRecoil : 1F) * armor;
         if (s <= 0F) return;
         float loose = aiming ? 0.5F : 1F;
         float speed = Config.modelSpeed;

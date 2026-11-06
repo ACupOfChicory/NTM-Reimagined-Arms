@@ -1,12 +1,22 @@
 # Changelog
 
+## X543.131
+
+- As in 26.2 X510: in NTM power armour all recoil is halved: the camera kick,
+  the gun model's kick the arms follow and NTM's own recoil animation. Power
+  armour is the chestplate of a battery-powered suit: T-51, AJR, AJRO, RPA,
+  NCRPA, BJ (with or without the jetpack), Envsuit, HEV, Digamma, DNT; not the
+  diesel and Desh suits, Trenchmaster or other NTM armour. The chestplate is
+  enough, charged or not. Key `powerArmorRecoil` (0.5; 1 = off). On a server
+  that sets `cameraScaleMin`, the camera kick stays at least half.
+
 ## X543.130
 
 - As in 26.2 X515: the walking bob and the sprint pose now work on long guns
   too: the Panzerschreck, the Stinger, the Tesla Cannon, the Folly and the Zebra
   Rifle used to stay still.
 - The sections X478-X543 below are 26.2's. On 1.7.10 their settings are already
-  in the config files (water, smoke, armour on the arms, power armour recoil,
+  in the config files (water, smoke, armour on the arms,
   `spectatorNoGuns` in the server file) but do nothing yet: these parts come to
   1.7.10 one by one in the next builds. `spectatorNoGuns` never will: 1.7.10 has
   no spectator mode.
