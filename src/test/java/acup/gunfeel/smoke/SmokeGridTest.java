@@ -44,12 +44,15 @@ class SmokeGridTest {
     void wallKeepsTheSmokeOut() {
         int wall = OX + 3;
         SmokeGrid g = grid(7, (x, y, z) -> y < OY || x == wall);
+        float against = 0F;
         for (int t = 0; t < SMOKE.maxAge(); t++) {
             g.step();
+            // the smoke piles up against the wall (the cell in front of it), and not a trace of it gets through
+            against = Math.max(against, g.density(wall - 1, OY, OZ));
             for (int y = 0; y < SY; y++) for (int z = 0; z < SZ; z++) for (int x = wall; x < SX; x++)
                 assertEquals(0F, g.density(x, y, z), "smoke at " + x + "," + y + "," + z + " behind the wall, tick " + t);
         }
-        assertTrue(reachX(grid(7, FIELD)) >= 0);
+        assertTrue(against > 0.3F, "the smoke never reached the wall: " + against);
     }
 
     @Test
@@ -174,15 +177,109 @@ class SmokeGridTest {
     }
 
     @Test
-    void eightCloudsStepQuickly() {
-        SmokeGrid[] gs = new SmokeGrid[8];
-        for (int i = 0; i < gs.length; i++) gs[i] = grid(i, FIELD);
-        // warm up, then the dense part of their lives
-        for (SmokeGrid g : gs) run(g, 100);
-        long t0 = System.nanoTime();
-        for (int t = 0; t < 200; t++) for (SmokeGrid g : gs) g.step();
-        double ms = (System.nanoTime() - t0) / 1e6 / 200;
-        // ~0.1 ms on the dev machine; a loose bound for slow test machines
-        assertTrue(ms < 3.0, "8 clouds take " + ms + " ms a tick");
+    void cloudsOnlyStepTheirOwnBox() {
+        // the cost of a step is the occupied box (and one cell around it): in the dense phase it stays a small part of
+        // the grid, so eight clouds step quickly (a bound on the work, not on the clock, so it never flickers)
+        for (int i = 0; i < 8; i++) {
+            SmokeGrid g = grid(i, FIELD);
+            run(g, 300);
+            int[] b = g.box();
+            long box = (long) (b[3] - b[0] + 1) * (b[4] - b[1] + 1) * (b[5] - b[2] + 1);
+            assertTrue(box < SmokeGrid.CELLS * 0.4, "cloud " + i + " fills " + box + " of " + SmokeGrid.CELLS + " cells");
+        }
+    }
+
+    @Test
+    void cloudLivesAboutAsLongAsTheTextsSay() {
+        // the changelog and the settings say how long a cloud lasts: hold 20 s after the release, then it is gone
+        // 6 to 10 s after it starts to thin
+        int thinFrom = SMOKE.release() + SMOKE.hold();
+        for (long seed = 1; seed <= 4; seed++) {
+            SmokeGrid g = grid(seed, FIELD);
+            int gone = -1;
+            for (int t = 0; t < SMOKE.maxAge() + 50 && gone < 0; t++) {
+                g.step();
+                if (g.done()) gone = g.age();
+            }
+            assertTrue(gone > thinFrom + 6 * 20 && gone < thinFrom + 10 * 20, "seed " + seed + ": gone at tick " + gone + ", thinning from " + thinFrom);
+            assertTrue(gone <= SMOKE.maxAge(), "maxAge " + SMOKE.maxAge() + " is below the real end " + gone);
+        }
+    }
+
+    // ---- the grid read from bytes
+
+    private static byte[] packet(int age, int ax, int ay, int az, int bx, int by, int bz, float... cells) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        DataOutputStream out = new DataOutputStream(bytes);
+        out.writeShort(age);
+        for (int v : new int[] {ax, ay, az, bx, by, bz}) out.writeByte(v);
+        for (float c : cells) out.writeFloat(c);
+        return bytes.toByteArray();
+    }
+
+    private static float[] fill(int n, float v) {
+        float[] a = new float[n];
+        java.util.Arrays.fill(a, v);
+        return a;
+    }
+
+    @Test
+    void readRefusesABadGridAndChangesNothing() throws Exception {
+        SmokeGrid g = grid(21, FIELD);
+        run(g, 150);
+        long hash = g.hash();
+        int[] box = g.box();
+        float total = g.total();
+        int age = g.age();
+        byte[][] bad = {
+            // an empty side in x with y and z far outside the grid: the box that would blow up the next step
+            packet(5, 10, -100, 3, 4, 100, 3),
+            packet(5, 10, 0, 0, 4, 12, 24),
+            // every corner must be in the grid, and no side backwards
+            packet(5, -1, 0, 0, 3, 3, 3, fill(5 * 4 * 4, 0.1F)),
+            packet(5, 0, 0, 0, SX, 3, 3, fill(26 * 4 * 4, 0.1F)),
+            packet(5, 0, 0, 0, 3, SY, 3, fill(4 * 14 * 4, 0.1F)),
+            packet(5, 0, 0, 0, 3, 3, SZ, fill(4 * 4 * 26, 0.1F)),
+            packet(5, 3, 0, 0, 2, 3, 3),
+            packet(5, 0, 3, 0, 3, 2, 3),
+            packet(5, 0, 0, 3, 3, 3, 2),
+            // a box that is not the empty one by its corners alone
+            packet(5, SX, SY, SZ, -1, -1, 0),
+            // a density that is not one
+            packet(5, 0, 0, 0, 1, 1, 1, 0.1F, 0.1F, 0.1F, 0.1F, 0.1F, 0.1F, Float.NaN, 0.1F),
+            packet(5, 0, 0, 0, 1, 1, 1, 0.1F, 0.1F, 0.1F, 0.1F, 0.1F, 0.1F, -0.5F, 0.1F),
+            packet(5, 0, 0, 0, 1, 1, 1, 0.1F, 0.1F, 0.1F, 0.1F, 0.1F, 0.1F, 0.1F, 500F),
+            // an age no cloud of this kind reaches
+            packet(SMOKE.maxAge() + 5, 0, 0, 0, 1, 1, 1, fill(8, 0.1F)),
+            // cut short: in the middle of the cells, in the middle of the header, nothing at all
+            java.util.Arrays.copyOf(packet(5, 0, 0, 0, 3, 3, 3, fill(64, 0.1F)), 20),
+            java.util.Arrays.copyOf(packet(5, 0, 0, 0, 3, 3, 3, fill(64, 0.1F)), 4),
+            new byte[0],
+        };
+        for (int i = 0; i < bad.length; i++) {
+            final int n = i;
+            org.junit.jupiter.api.Assertions.assertThrows(java.io.IOException.class, () -> g.read(new DataInputStream(new ByteArrayInputStream(bad[n]))), "packet " + n);
+            assertEquals(hash, g.hash(), "packet " + i + " changed the cells");
+            assertEquals(age, g.age(), "packet " + i + " changed the age");
+            assertEquals(java.util.Arrays.toString(box), java.util.Arrays.toString(g.box()), "packet " + i + " changed the box");
+            assertEquals(total, g.total(), "packet " + i);
+        }
+        // and a cloud that came through a bad grid goes on stepping without an index out of range
+        run(g, 50);
+    }
+
+    @Test
+    void readTakesTheEmptyGridAndAGoodBox() throws Exception {
+        SmokeGrid g = grid(22, FIELD);
+        run(g, 100);
+        g.read(new DataInputStream(new ByteArrayInputStream(packet(77, SX, SY, SZ, -1, -1, -1))));
+        assertEquals(77, g.age());
+        assertTrue(!g.occupied());
+        assertEquals(0F, g.total());
+        g.read(new DataInputStream(new ByteArrayInputStream(packet(78, 2, 3, 4, 3, 4, 5, fill(8, 0.25F)))));
+        assertEquals(78, g.age());
+        assertEquals(2F, g.total(), 1e-5F);
+        assertEquals(0.25F, g.density(3, 4, 5));
+        assertEquals(0F, g.density(4, 4, 5));
     }
 }

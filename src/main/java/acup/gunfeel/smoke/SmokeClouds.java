@@ -337,7 +337,7 @@ public final class SmokeClouds {
     }
 
     // density times length through one cloud's cells (3D DDA)
-    private static float walk(Cloud c, Vec3 from, Vec3 to) {
+    static float walk(Cloud c, Vec3 from, Vec3 to) {
         int[] b = c.grid.box();
         double minX = c.baseX() + b[0], minY = c.baseY() + b[1], minZ = c.baseZ() + b[2];
         double maxX = c.baseX() + b[3] + 1, maxY = c.baseY() + b[4] + 1, maxZ = c.baseZ() + b[5] + 1;
