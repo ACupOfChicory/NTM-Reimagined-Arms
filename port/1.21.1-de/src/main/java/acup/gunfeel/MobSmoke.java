@@ -78,6 +78,9 @@ public final class MobSmoke {
     }
     // режима обзора на порте нет
     static boolean review() { return false; }
+    // a trace (-Ptrace): the partial tick is 0 (MixinTracePartialTick) and the target's pose stays (hold), so two runs
+    // write the same parts
+    public static boolean frozen() { return ENABLED && Trace.ON && !review(); }
     static List<String> cases() { return CASES; }
     static int index() { return index; }
     static boolean busy() { return pending; }
@@ -148,6 +151,7 @@ public final class MobSmoke {
             ClientSmoke.check(result.ok(),result.text());
         }
         var mc=Minecraft.getInstance();
+        if(frozen() && mc.level!=null && mc.level.getEntity(id) instanceof LivingEntity still) hold(still);
         if(mc.player==null || pending) return;
         if(stage==22) { if(ExplosiveSmoke.finish())ClientSmoke.finish(); return; }
         mc.player.setYRot(stage==4?180:0);
@@ -168,6 +172,7 @@ public final class MobSmoke {
             rotating.setYRot(rotating.yBodyRot); rotating.yHeadRot=rotating.yBodyRot;
         }
         if(stage==0) {
+            turned=false;
             next();
         } else if(stage==1) {
             if(seconds()>1 && mc.level.getEntity(id)!=null) watch=true;
@@ -264,6 +269,8 @@ public final class MobSmoke {
             } else if(seconds()>6) { check(false,"оболочка не обновилась после изменения размера"); startRotation(); }
         } else if(stage==5 && seconds()>1) {
             watch=false;
+            // the turn stopped on whatever frame came last; a trace takes it to one angle and keeps it (hold)
+            turned=frozen();
             check(orange>0 && white==0,"F3+B при вращении: оранжевых="+orange+", белых="+white);
             if(client!=null && !client.source().startsWith("ntm_"))
                 check(sameFrame>0 && oldFrame==0,"При вращении: применённая поза="+sameFrame+", отставших="+oldFrame);
@@ -288,6 +295,19 @@ public final class MobSmoke {
             } else check(false,"цель пропала после движения");
             stage=0;
         }
+    }
+
+    // a trace: the target's age, walk and turn do not run on between frames (0 marks a mob just added, SpawnLerp).
+    // After the turn its angle stays at the turn's end: the server's turn reaches the client's copy by packets, and a
+    // slime's body takes its head's angle when its size comes, whenever in the head's turn that is
+    private static boolean turned;
+    private static void hold(LivingEntity mob) {
+        if(mob.tickCount>0) mob.tickCount=100;
+        // 1.21.1's WalkAnimationState has no stop(): speed and speedOld go to 0, the position (still 0 for the stand's
+        // mob, which never walks) stays
+        mob.walkAnimation.setSpeed(0); mob.walkAnimation.update(0,1);
+        if(turned) { mob.yBodyRot=mob.yHeadRot=240; mob.setYRot(240); }
+        mob.yBodyRotO=mob.yBodyRot; mob.yHeadRotO=mob.yHeadRot; mob.yRotO=mob.getYRot(); mob.xRotO=mob.getXRot();
     }
 
     private static void move(LivingEntity target) {

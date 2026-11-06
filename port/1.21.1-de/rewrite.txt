@@ -276,3 +276,5 @@ re@HeadProfiles.java: edges\[a\]\.normalize\(\) => acup.gunfeel.port.Mc.normaliz
 # 1.21.1's cubes already): on DE the stands check it on the live capture, PortLabelsTest that unite keeps the port's own
 re@HeadProfilesTest.java: var profile=c\.limb\(\)\?HeadProfiles\.get\(limbs,c\.type\(\)\):HeadProfiles\.get\(c\.type\(\)\); => var profile=c.limb()?HeadProfiles.get(limbs,c.type()):HeadProfiles.get(HeadProfiles.loadBank("/ntmgunfeel-heads.json",java.nio.file.Path.of("src/main/resources/ntmgunfeel-heads.json"),false),c.type());
 re@HeadProfilesTest.java: (@Test void withoutFlywheelThePartsCubesAreMatchedAsOnePart\(\) \{) => $1 if(true) return;
+# the head label editor is not ported: the rays at a united head's faces take HeadSmoke's copy of its pick
+re@HeadProfilesTest.java: HeadLabelGeometry\.pick\( => HeadSmoke.pick(

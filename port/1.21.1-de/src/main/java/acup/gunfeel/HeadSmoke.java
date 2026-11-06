@@ -9,7 +9,7 @@ import net.minecraft.world.phys.*;
 
 // Port copy (notes/ports/de-1.21.1.md, «Копии»): the root's HeadSmoke without frame(), the mob review's photo of the
 // head zones on 26.2's GPU mask (not ported); the damage checks on the server stay as they are. HeadLabelGeometry's
-// two calls are here (the head label editor is not ported), with its cube (ModelDebugRender.CUBE).
+// two calls and pick are here (the head label editor is not ported); its cube is the port's ModelDebugRender.CUBE.
 /** Проверяет настоящую стандартную обработку NTM, а не копию формулы урона. */
 final class HeadSmoke {
     private static final List<Vec3> SIDES=List.of(new Vec3(0,0,1),new Vec3(0,0,-1),new Vec3(1,0,0),new Vec3(-1,0,0),new Vec3(0,-1,0));
@@ -96,6 +96,7 @@ final class HeadSmoke {
             else if(ModelHits.limb(target,hit.get())) { if(limb==null) limb=hit.get(); }
             else if(body==null) body=hit.get();
         }
+        strip(target,surface,check);
         check.accept(!zones.isEmpty()==!profile.none(),"голова: наличие зон соответствует ручной разметке"
                 +(zones.isEmpty()==!profile.none()?", "+ModelHits.headResolution(target).reason()+", части="+boxes.stream().map(b->b.part()+java.util.Arrays.toString(HeadProfiles.size(b))+"@"+ModelContours.point(b,.5,.5,.5).subtract(target.position())+"#"+Long.toUnsignedString(HeadProfiles.shape(b),16)+"/yaw"+target.getYRot()).toList():""));
         if(!profile.none()) check.accept(head!=null,"голова: найдена видимая точка попадания");
@@ -111,6 +112,7 @@ final class HeadSmoke {
         if(healthAttribute!=null) healthAttribute.setBaseValue(1000);
         target.setInvulnerable(false);
         try {
+            if(target instanceof net.minecraft.world.entity.monster.EnderMan) { enderman(level,target,head,body,limb,check);return; }
             var config=new BulletConfig().setDamage(10).setHeadshot(0);
             config.damageFalloffByPen=false;
             var bullet=new EntityBulletBaseMK4(level,config,1,0,0,0);
@@ -160,15 +162,86 @@ final class HeadSmoke {
             target.setHealth(health);target.setInvulnerable(invulnerable);
         }
     }
-    static float[] triangles(ModelBox box) { return box.mesh()==0?CUBE:ModelMesh.get(box.mesh()).triangles(); }
-    private static Vec3 point(ModelBox box,float[] data,int at) { return ModelContours.point(box,data[at],data[at+1],data[at+2]); }
-    private static final float[] CUBE=cube();
-    private static float[] cube() {
-        float[] data=new float[108]; int at=0;
-        for(int axis=0;axis<3;axis++) for(int side=0;side<2;side++) for(int corner:new int[]{0,1,3,0,3,2}) {
-            float[] p=new float[3]; p[axis]=side; p[(axis+1)%3]=corner&1; p[(axis+2)%3]=(corner>>1)&1;
-            for(float value:p) data[at++]=value;
+    // Точки поверхности модели (та же сетка лучей, первая встреча с настоящими гранями частей позы), которые сервер
+    // (ModelHits.head) засчитывает головой, хотя ни одна часть, чью грань луч встретил первой, не размечена головой:
+    // спина под черепом в коробке головы и подобное. Таких быть не должно. Размечена — по самой коробке
+    // (ModelHits.standParts), не по имени. Совпавшие грани (череп и нос, копия слоя) — все первые. Точки частей
+    // головы вне зоны — сведения: плоскости режут их нарочно (шея ламы). Конечности (ModelHits.limb) — тоже сведения.
+    private static void strip(LivingEntity target,List<MobRayOracle.Triangle> surface,java.util.function.BiConsumer<Boolean,String> check) {
+        // Высотная зона NTM (разметка не привязалась) — не геометрия частей: её и считать нечего.
+        if(ModelHits.headResolution(target).zones().isEmpty()) return;
+        var parts=ModelHits.standParts(target);boolean limbs=parts.stream().anyMatch(ModelHits.StandPart::limb);
+        int bodyHits=0,headHits=0,headOut=0,limbHits=0,limbOut=0;var inHead=new TreeMap<String,Integer>();var heads=new TreeMap<String,Integer>();var inLimb=new TreeMap<String,Integer>();
+        for(var side:SIDES) for(var ray:MobRayOracle.grid(surface,side)) if(ray.hit()) {
+            double epsilon=1e-5/ray.to().subtract(ray.from()).length(),best=Double.POSITIVE_INFINITY;var first=new ArrayList<ModelHits.StandPart>();
+            for(var part:parts) {
+                var pick=pick(List.of(part.box()),ray.from(),ray.to());if(pick==null || pick.t()>best+epsilon) continue;
+                if(pick.t()<best-epsilon) first.clear();
+                first.add(part);best=Math.min(best,pick.t());
+            }
+            if(first.isEmpty()) continue;
+            var point=ray.from().add(ray.to().subtract(ray.from()).scale(best));var part=first.getFirst().box().part();
+            boolean head=ModelHits.head(target,point).head();if(head) heads.merge(part,1,Integer::sum);
+            if(first.stream().anyMatch(ModelHits.StandPart::head)) { headHits++;if(!head) headOut++;continue; }
+            boolean limb=!head && limbs && ModelHits.limb(target,point);
+            if(first.stream().anyMatch(ModelHits.StandPart::limb)) { limbHits++;if(!limb && !head) limbOut++; }
+            else { bodyHits++;if(limb) inLimb.merge(part,1,Integer::sum); }
+            if(head) inHead.merge(part,1,Integer::sum);
         }
-        return data;
+        int strayHead=inHead.values().stream().mapToInt(Integer::intValue).sum();
+        check.accept(strayHead==0,"голова: точек поверхности не головы в зоне головы="+strayHead+" из "+(bodyHits+limbHits)+inHead
+                +", точек частей головы вне зоны="+headOut+" из "+headHits+", головой по частям "+heads);
+        if(limbs) check.accept(true,"конечности (сведения): точек тела в зоне конечностей="+inLimb.values().stream().mapToInt(Integer::intValue).sum()
+                +" из "+bodyHits+inLimb+", точек частей конечностей вне зоны="+limbOut+" из "+limbHits);
     }
+    // Эндермен снарядом не ранится (ванилла: EnderMan.hurtServer на урон IS_PROJECTILE телепортируется и урона не
+    // берёт), и пуля, и луч NTM по нему в игре дают урон 0; настоящий удар увёл бы его со стенда. Множители
+    // проверяются там, где их подставляет мод (MixinHeadDamage: damage для пули, beamDamage для луча), без удара.
+    private static void enderman(ServerLevel level,LivingEntity target,Vec3 head,Vec3 body,Vec3 limb,java.util.function.BiConsumer<Boolean,String> check) {
+        String why=" (без удара: эндермен снарядом не ранится, ванилла)";
+        var bullet=new EntityBulletBaseMK4(level,new BulletConfig().setDamage(10).setHeadshot(0),1,0,0,0);bullet.damage=10;
+        try {
+            float bodyDamage=HeadDamage.damage(bullet,target,new EntityHitResult(target,body),10);
+            check.accept(bodyDamage==10 && !HeadDamage.last(bullet,target,body).head(),"голова: NTM-пуля по телу ×1, урон="+bodyDamage+why);
+            if(head!=null) {
+                float headDamage=HeadDamage.damage(bullet,target,new EntityHitResult(target,head),10);
+                check.accept(Math.abs(headDamage-17.5F)<.01 && HeadDamage.last(bullet,target,head).head(),"голова: единый множитель ×1,75, голова="+headDamage+why);
+                check.accept(Math.abs(HeadDamage.beamDamage(10,target,new EntityHitResult(target,head))-17.5F)<.01,"NTM-луч: голова ×1,75"+why);
+            }
+            if(Boolean.getBoolean("ntmgunfeel.checkLimbs")) {
+                if(LimbPolicy.eligible(target.getType())) check.accept(limb!=null,"конечности: найдена точка проверенной области");
+                else check.accept(limb==null,"конечности: мелкий вид без конечностей");
+            }
+            if(limb!=null) {
+                float limbDamage=HeadDamage.damage(bullet,target,new EntityHitResult(target,limb),10);
+                check.accept(Math.abs(limbDamage-5)<.01,"конечности: NTM-пуля ×0,5, урон="+limbDamage+why);
+                check.accept(Math.abs(HeadDamage.beamDamage(10,target,new EntityHitResult(target,limb))-5)<.01,"NTM-луч: конечность ×0,5"+why);
+            }
+            check.accept(Math.abs(HeadDamage.beamDamage(10,target,new EntityHitResult(target,body))-10)<.01,"NTM-луч: тело ×1"+why);
+        } finally { bullet.discard(); }
+    }
+    // HeadLabelGeometry.pick корня (редактор разметки не перенесён): первая встреча луча с гранями коробок.
+    record Pick(int box,double t) {}
+    static Pick pick(List<ModelBox> boxes,Vec3 from,Vec3 to) {
+        Pick best=null;
+        for(int i=0;i<boxes.size();i++) {
+            var box=boxes.get(i); var data=triangles(box);
+            if(box.clip(from.x,from.y,from.z,to.x,to.y,to.z)<0) continue;
+            for(int at=0;at<data.length;at+=9) {
+                double t=intersection(from,to,point(box,data,at),point(box,data,at+3),point(box,data,at+6));
+                if(t>=0 && (best==null || t<best.t())) best=new Pick(i,t);
+            }
+        }
+        return best;
+    }
+    private static double intersection(Vec3 from,Vec3 to,Vec3 a,Vec3 b,Vec3 c) {
+        var d=to.subtract(from); var u=b.subtract(a); var v=c.subtract(a); var p=d.cross(v);
+        double determinant=u.dot(p); if(Math.abs(determinant)<1e-12) return -1;
+        var s=from.subtract(a); double x=s.dot(p)/determinant; if(x<0 || x>1) return -1;
+        var q=s.cross(u); double y=d.dot(q)/determinant;
+        double t=v.dot(q)/determinant;
+        return y>=0 && x+y<=1 && t>=0 && t<=1?t:-1;
+    }
+    static float[] triangles(ModelBox box) { return box.mesh()==0?ModelDebugRender.CUBE:ModelMesh.get(box.mesh()).triangles(); }
+    private static Vec3 point(ModelBox box,float[] data,int at) { return ModelContours.point(box,data[at],data[at+1],data[at+2]); }
 }
