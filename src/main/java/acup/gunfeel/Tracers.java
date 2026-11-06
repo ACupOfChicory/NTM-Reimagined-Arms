@@ -102,6 +102,8 @@ public final class Tracers {
         // an impact fuze went off on the water's surface (waterFuze): the shot ends at waterCut
         boolean waterFuzed;
         Shot waterNext;
+        // its water events for the effects, each with the tick it happens at, handed over as the head passes it
+        java.util.ArrayList<Object[]> waterFx;
 
         Shot(ShotPayload p, BulletConfig config, int[] colors) {
             this.id = p.id();
@@ -425,6 +427,12 @@ public final class Tracers {
     // with their own field of view (70, or NTM's model FOV), the world with the player's (zoomed while aiming): the
     // muzzle is moved to where it shows on screen in the world's view.
     public static void muzzle(PoseStack pose) {
+        MUZZLE.set(view(pose));
+        muzzleTime = GunClock.nanos();
+    }
+
+    // the pose's origin while the hands are drawn, in the world's view space (see muzzle)
+    public static Vector3f view(PoseStack pose) {
         Vector3f p = pose.last().pose().transformPosition(0F, 0F, 0F, new Vector3f());
         Matrix4f view = new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getModelViewStack());
         view.transformPosition(p);
@@ -435,8 +443,7 @@ public final class Tracers {
             p.x *= k;
             p.y *= k;
         }
-        MUZZLE.set(p);
-        muzzleTime = GunClock.nanos();
+        return p;
     }
 
     private static java.lang.reflect.Field hudFovField;
@@ -526,6 +533,9 @@ public final class Tracers {
                 GunFeel.LOGGER.debug("tracer muzzle view {} start view {} fov {} hud {} offset {}", MUZZLE, st, camera.getFov(), hudFov(camera), s.muzzleOffset);
             }
         }
+        acup.gunfeel.water.WaterFx.traced(p.id());
+        // under water: a gas bubble at the muzzle, no flash
+        if (mc.level != null) acup.gunfeel.water.WaterFx.fired(mc.level, s.start.add(s.muzzleOffset), s.v, config);
         // fired from a gun (not spawned somewhere else): the path is tested from the shooter's eyes, as on the
         // server, so a wall right in front of the muzzle still gets its hole
         // the server's own start point (its eyes; this client's eyes of the shooter may be off by centimetres, enough to
@@ -602,6 +612,7 @@ public final class Tracers {
             long pf = Perf.start();
             fly(s, level, Math.min(t, s.lifeTicks));
             Perf.add(Perf.FLY, pf);
+            if (s.waterFx != null) waterFx(s, level, t);
             var segment = BulletClock.segment(t, s.end, s.lifeTicks, Math.max(Config.tracerLength / s.speed, frameTicks * 1.5));
             double head = segment.head(), tail = segment.tail();
             boolean expired = segment.expired();
@@ -611,6 +622,14 @@ public final class Tracers {
                 s.gone = true;
                 it.remove();
                 continue;
+            }
+            // in water: the round itself, seen (water effects)
+            if (Double.isNaN(s.end) || head < s.end - 1e-6) {
+                Vec3 at = s.at(head);
+                double wf = s.waterPath != null ? s.waterPath.fAt(at) : s.waterF;
+                Vec3 vel = new Vec3(s.v.x, s.v.y - s.g * head, s.v.z);
+                double k = s.waterF > 0 ? wf / s.waterF : 1;
+                acup.gunfeel.water.SunkBullets.flying(level, s.config, at, vel, wf, vel.length() * k);
             }
             if (!Config.tracers || !segment.visible()) continue;
             Vec3 h = s.at(head).subtract(cam), b = s.at(tail).subtract(cam);
@@ -633,6 +652,18 @@ public final class Tracers {
         holes(event, cam, now);
         Perf.add(Perf.HOLE_DRAW, pd);
         Perf.frame(SHOTS.size(), HOLES.size());
+    }
+
+    // the shot's water events up to t (and not past where it hit something), to the effects
+    private static void waterFx(Shot s, ClientLevel level, double t) {
+        double upTo = Double.isNaN(s.end) ? t : Math.min(t, s.end);
+        var it = s.waterFx.iterator();
+        while (it.hasNext()) {
+            Object[] q = it.next();
+            if ((double) q[0] > upTo + 1e-9) continue;
+            it.remove();
+            acup.gunfeel.water.WaterFx.tracerEvent(level, (acup.gunfeel.water.WaterEvents.Event) q[1], s.config);
+        }
     }
 
     // the point of the tested path at t ticks. The first tick runs straight from the shooter's eyes to where the
@@ -739,6 +770,14 @@ public final class Tracers {
         } else if (block.getType() != HitResult.Type.MISS) {
             s.end = s.checked + (t - s.checked) * (len > 1e-6 ? reach / len : 0.0);
             stop = block.getLocation();
+            // through shallow water into the bottom: its crumbs (WaterTick.blocks has it for the bullet)
+            if (s.waterPath != null) {
+                var bottom = s.waterPath.bottom(stop, block.getDirection());
+                if (bottom != null) {
+                    if (s.waterFx == null) s.waterFx = new java.util.ArrayList<>();
+                    s.waterFx.add(new Object[] {s.end, bottom});
+                }
+            }
             if (TestLog.client) TestLog.c(s.id, "end", "by", "block", "block", level.getBlockState(block.getBlockPos()), "pos", block.getBlockPos(), "at", stop);
             Vec3 vel = new Vec3(s.v.x, s.v.y - s.g * s.end, s.v.z);
             if (len > 1e-6 && ricochet(s, level, block, vel)) {
@@ -827,6 +866,11 @@ public final class Tracers {
             s.waterFuzed = true;
             return;
         }
+        if (!r.events.isEmpty()) {
+            if (s.waterFx == null) s.waterFx = new java.util.ArrayList<>();
+            for (var e : r.events) s.waterFx.add(new Object[] {k + r.t(e.at()), e});
+        }
+        acup.gunfeel.water.WaterFx.tracerTick(level, r);
         if (r.cut()) s.waterCut = k + r.t(r.end());
         else if (r.f < s.waterF - 1e-12 && k + 1 < s.lifeTicks) s.waterCut = k + 1;
     }

@@ -98,7 +98,7 @@ class CompatTest {
         Compat.Result r = Compat.resolve(Map.of(), Map.of(Feature.TRACERS, List.of("ShotPayload", "x")));
         assertEquals(Set.of(Feature.TRACERS), r.off().keySet());
         assertEquals("NTM: ShotPayload (+1)", r.off().get(Feature.TRACERS));
-        assertEquals(Set.of("MixinLegoClient", "MixinRenderBulletMK4"), r.skipped().keySet());
+        assertEquals(Set.of("MixinLegoClient", "MixinRenderBulletMK4", "MixinMuzzleFlash"), r.skipped().keySet());
     }
 
     @Test

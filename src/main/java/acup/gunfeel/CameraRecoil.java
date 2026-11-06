@@ -120,7 +120,10 @@ public final class CameraRecoil {
         boolean held = min > 0F;
         boolean aiming = holder != null && com.hbm.items.weapon.sedna.ItemGunBaseNT.getIsAiming(holder.getMainHandItem());
         float ads = aiming ? Config.adsRecoil : 1F;
-        float scale = Math.max(Config.cameraScale * ads, min);
+        // powerArmorRecoil: in NTM's power armour the whole kick is smaller, the server's minimum included
+        float armor = PowerArmor.cameraRecoil(holder);
+        float scale = Math.max(Config.cameraScale * ads, min) * armor;
+        if (TestLog.client && armor != 1F) TestLog.c(-1, "power_armor", "camera", armor, "model", PowerArmor.recoil(holder));
         Recoil cPitch = held ? shipped("cameraPitch") : RecoilPresets.channel("cameraPitch");
         LocalPlayer pl = Minecraft.getInstance().player;
         boolean first = !burst;
@@ -134,11 +137,11 @@ public final class CameraRecoil {
         float climb = Config.cameraClimb * ramp;
         // degrees up, always: for guns whose NTM recoil is noise around 0 (G3, M2, miniguns), where a share of the kick
         // would wander up and down; lighter while aiming, like the kick
-        float deg = Config.cameraClimbDeg * ads * ramp;
+        float deg = Config.cameraClimbDeg * ads * armor * ramp;
         float side = 0F;
         if (Config.cameraDriftDeg > 0F) {
             drift = nextDrift(drift, first, (float) Rng.camera().nextGaussian());
-            side = Config.cameraDriftDeg * ads * ramp * drift;
+            side = Config.cameraDriftDeg * ads * armor * ramp * drift;
         }
         float[] reach = climb > 0F || deg > 0F || side != 0F ? reachTable(cPitch) : NO_REACH;
         if (TestLog.client) TestLog.c(-1, "recoil", "phase", "kick", "scale", scale, "cameraScale", Config.cameraScale, "min", min, "held", held,
@@ -146,7 +149,7 @@ public final class CameraRecoil {
                 "cameraClimb", climb, "cameraClimbDeg", deg, "ramp", ramp, "shot", burstShots, "keep", vertical * scale * climb * reach[reach.length - 1] + deg,
                 "side", side);
         SHOTS.add(new Shot(GunClock.nanos(), vertical * scale, horizontal * scale,
-                Config.cameraShake * ads * (Rng.camera().nextDouble() < 0.5 ? 1F : -1F), 1F,
+                Config.cameraShake * ads * armor * (Rng.camera().nextDouble() < 0.5 ? 1F : -1F), 1F,
                 cPitch,
                 held ? shipped("cameraYaw") : RecoilPresets.channel("cameraYaw"),
                 RecoilPresets.channel("cameraRoll"), held ? Math.max(1F, Config.cameraTime) : Config.cameraTime,

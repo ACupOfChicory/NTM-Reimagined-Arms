@@ -115,6 +115,8 @@ neoForge {
             systemProperty("ntmgunfeel.fenceSeamCheck",providers.gradleProperty("fenceSeam").isPresent.toString())
             // -PfenceAir: bullets through the empty part of fences, walls, panes and bars, by what they draw (FenceAirStand)
             systemProperty("ntmgunfeel.fenceAir",providers.gradleProperty("fenceAir").isPresent.toString())
+            // -PwaterFx: the water effects counted per kind per shot on four pools, the surface audit, frames (WaterFxStand)
+            systemProperty("ntmgunfeel.waterFx",providers.gradleProperty("waterFx").isPresent.toString())
             // -PglassBack[=fabulous]: glass seen through, and holes on its far side seen through it (GlassBackCheck)
             systemProperty("ntmgunfeel.glassBack",providers.gradleProperty("glassBack").map { it.ifBlank { "fancy" } }.orElse("").get())
             // -PspectatorStand: may a spectator use an NTM gun (SpectatorStand)
@@ -133,7 +135,7 @@ neoForge {
             // -PstandSize=1920x1080 the window, -PsmokeBackend=vulkan the renderer
             systemProperty("ntmgunfeel.smokeStand",providers.gradleProperty("smokeStand").orElse("").get())
             // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
-            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent) "-Xmx4G" else "-Xmx2500M")
+            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("waterFx").isPresent) "-Xmx4G" else "-Xmx2500M")
             // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame
             providers.gradleProperty("gcLog").orNull?.let { jvmArgument("-Xlog:gc*:file=$it:uptime,time") }
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
@@ -205,6 +207,12 @@ neoForge {
             systemProperty("ntmgunfeel.benchMobs","true")
             systemProperty("ntmgunfeel.benchLegacy",providers.gradleProperty("mobBenchLegacy").isPresent.toString())
             providers.gradleProperty("mobBenchScenes").orNull?.let { systemProperty("ntmgunfeel.benchScenes",it) }
+            // -PmobBenchLimit=<ms>[,<walking ms>]: fail a scene whose F3+B adds more than that over vanilla's F3+B;
+            // -PcontourAge: count the contour points older than the last frame's model or -PcontourLag=<ms> (1/60 s)
+            providers.gradleProperty("mobBenchLimit").orNull?.let { systemProperty("ntmgunfeel.benchLimit",it) }
+            systemProperty("ntmgunfeel.contourAge",providers.gradleProperty("contourAge").isPresent.toString())
+            providers.gradleProperty("contourLag").orNull?.let { systemProperty("ntmgunfeel.contourLag",it) }
+            providers.gradleProperty("mobBenchFps").orNull?.let { systemProperty("ntmgunfeel.benchFps",it) }
             systemProperty("ntmgunfeel.benchFile",root.resolve("notes/mob-bench/$label.tsv").path)
             systemProperty("MC_DEBUG_ENABLED","true")
             systemProperty("MC_DEBUG_PREFER_WAYLAND","true")
@@ -306,6 +314,7 @@ neoForge {
             // -PscenarioGuns=<id,...> or all
             providers.gradleProperty("scenario").orNull?.let { systemProperty("ntmgunfeel.scenario", it) }
             providers.gradleProperty("scenarioGuns").orNull?.let { systemProperty("ntmgunfeel.scenarioGuns", it) }
+            providers.gradleProperty("scenarioArmor").orNull?.let { systemProperty("ntmgunfeel.scenarioArmor", it) }
         }
     }
 }
@@ -397,7 +406,7 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
     // a trace scenario on every gun (-Pscenario, -PscenarioGuns=all) plays for about half an hour; the shapes stand
     // (-PshapesStand) takes every machine in turn
     val scenario = providers.gradleProperty("scenario").isPresent || providers.gradleProperty("shapesStand").isPresent || providers.gradleProperty("fenceSeam").isPresent || providers.gradleProperty("fenceAir").isPresent
-    timeout.set(if(survey) Duration.ofMinutes(40) else if(review && !selfTest) Duration.ofDays(1) else if((mobs && !selfTest) || scenario) Duration.ofHours(if(scenario) 2 else 1) else Duration.ofMinutes(if(holes || smoke) 30 else 8))
+    timeout.set(if(survey) Duration.ofMinutes(40) else if(review && !selfTest) Duration.ofDays(1) else if((mobs && !selfTest) || scenario) Duration.ofHours(if(scenario) 2 else 1) else Duration.ofMinutes(if(holes || bench || smoke) 30 else 8))
     val result = if(stand) "glassstand/result.txt" else if(holes) "holebench/result.txt" else if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {
         if(holes || review || stand) {
@@ -415,7 +424,7 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
         // in the stand's nested kwin (notes/ports/vkwin.sh) MC_DEBUG_PREFER_WAYLAND has GLFW take its Wayland, and the
         // first mouse grab (wp_pointer_warp_v1) breaks the connection: the client closes in the first phase. The
         // stand's Xwayland works.
-        if(holes && System.getenv("XDG_RUNTIME_DIR")?.contains("/vkwin-home/")==true) (this as JavaExec).environment.remove("WAYLAND_DISPLAY")
+        if((holes || bench) && System.getenv("XDG_RUNTIME_DIR")?.contains("/vkwin-home/")==true) (this as JavaExec).environment.remove("WAYLAND_DISPLAY")
         if(bench) root.resolve("notes/mob-bench").mkdirs()
         val source = root.resolve("run-bullets/world")
         require(source.resolve("level.dat").exists()) { "Сначала выполните runCheckBullets: нужен изолированный тестовый мир" }
@@ -443,7 +452,7 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
             .copyTo(dir.resolve("mods/crankshaft.jar"), overwrite = true)
         dir.resolve("config/crankshaft-client.toml").writeText(
             "backend = \"${if(providers.gradleProperty("mobCpuGeometry").isPresent) "flywheel:off" else "DEFAULT"}\"\n")
-        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(stand) 10 else if(review || bench || smoke) 8 else 3}\nsimulationDistance:5\ninactivityFpsLimit:minimized\nmaxFps:${if(stand && providers.gradleProperty("glassStandCheck").isPresent) 260 else 60}\n${if(stand || smoke) "tutorialStep:none\n" else ""}")
+        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(stand) 10 else if(review || bench || smoke) 8 else 3}\nsimulationDistance:5\ninactivityFpsLimit:minimized\nmaxFps:${providers.gradleProperty("standMaxFps").orNull ?: if(stand && providers.gradleProperty("glassStandCheck").isPresent) 260 else 60}\n${if(stand || smoke) "tutorialStep:none\n" else ""}")
         if(holes && providers.gradleProperty("holeBenchLoaded").isPresent) {
             val original=file(providers.gradleProperty("holeBenchInstance").get()).canonicalFile
             original.resolve("config").copyRecursively(dir.resolve("config"),overwrite=true)
