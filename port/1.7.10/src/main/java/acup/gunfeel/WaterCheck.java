@@ -358,6 +358,14 @@ public final class WaterCheck {
             boolean good = !b.isDead && b.posY >= surface - 1e-6 && dy > 0 && w.gunfeel$waterSkips() == 1;
             rowFlag("c: skip at " + deg + " deg: skips", wc, ammo, "1, up, f=0.7", w.gunfeel$waterSkips() + ", dy " + fmt(dy),
                     good && Math.abs(w.gunfeel$waterF() - 0.7) < .02, note);
+            // the tick after: motionMult × f (NTM's velocity, bulletSpeed and water's f all at once), as the 1.12.2 port
+            if (!b.isDead) {
+                double want = step(c) * w.gunfeel$waterF();
+                double x0 = b.posX, y0 = b.posY, z0 = b.posZ;
+                b.onUpdate();
+                double len = Math.sqrt((b.posX - x0) * (b.posX - x0) + (b.posY - y0) * (b.posY - y0) + (b.posZ - z0) * (b.posZ - z0));
+                row("c: skip at " + deg + " deg: the next tick's length", wc, ammo, want, len, 1e-3, "air step × f");
+            }
         } else {
             boolean good = w.gunfeel$waterSkips() == 0 && (b.isDead || b.posY < surface);
             rowFlag("c: no skip at " + deg + " deg", wc, ammo, "0 skips, in the water", w.gunfeel$waterSkips() + ", y-surface " + fmt(b.posY - surface),

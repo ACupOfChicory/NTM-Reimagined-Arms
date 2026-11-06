@@ -1,5 +1,11 @@
 # Changelog
 
+## X543.134
+
+- A fast bullet that came out of water flies on at the speed water left it,
+  not at its full speed. On a client, a tracer cut by water stops where the
+  server's bullet stopped, also when water cut it at the very start of a tick.
+
 ## X543.133
 
 - As in 26.2 X488: NTM bullets slow down in water, and their damage and

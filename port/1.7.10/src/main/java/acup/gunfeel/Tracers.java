@@ -352,7 +352,11 @@ public final class Tracers {
     private static void stop0(int shot, double age, double x, double y, double z) {
         if (!Double.isFinite(age) || age < 0 || !Double.isFinite(x + y + z)) return;
         double[] point = {x, y, z};
-        Shot recent = RECENT_SHOTS.get(shot);
+        // the piece the stop falls in: the last one begun by `age` (water makes a piece a tick, so the newest may already
+        // be past it; as the 1.12.2 port, b308e37); 26.2 takes the newest
+        Shot recent = null;
+        for (Shot s : SHOTS) if (s.id == shot && s.born - s.rootBorn <= age + 1e-9 && (recent == null || s.born > recent.born)) recent = s;
+        if (recent == null) recent = RECENT_SHOTS.get(shot);
         if (recent != null) {
             double[] v = recent.path.v;
             for (Iterator<Pending> it = PENDING.iterator(); it.hasNext();) {
@@ -363,6 +367,11 @@ public final class Tracers {
                 Hole h = it.next();
                 if (h.shot == shot && beyond(h.pos, point, v)) it.remove();
             }
+        }
+        for (Shot s : SHOTS) if (s.id == shot && recent != null && s.born > recent.born) {
+            // begun after the stop: it does not fly
+            s.path.confirmedEnd = 0;
+            s.end = 0;
         }
         for (Shot s : SHOTS) if (s.id == shot && (recent == null || s.born == recent.born)) {
             s.path.confirmedEnd = Math.max(0, age - (s.born - s.rootBorn));
@@ -608,7 +617,11 @@ public final class Tracers {
         // water: not past where it cuts this piece
         water(s, world);
         if (!Double.isNaN(s.waterCut)) t = Math.min(t, s.waterCut);
-        if (t <= s.checked) return;
+        if (t <= s.checked) {
+            // water cut it where the last step ended (a stop or a skip right at a tick's start)
+            waterEnd(s, s.checked);
+            return;
+        }
         // the real path, without the muzzle offset, decides what is hit
         double[] ra = s.path.tested(s.checked), rb = s.path.tested(t);
         double[] dir = {rb[0] - ra[0], rb[1] - ra[1], rb[2] - ra[2]};
@@ -689,14 +702,17 @@ public final class Tracers {
         }
         s.checked = t;
         waterHole = 1F;
-        // water cut this piece here: it stops, or goes on as a new piece, slower or turned
-        if (Double.isNaN(s.end) && !Double.isNaN(s.waterCut) && t >= s.waterCut - 1e-9) {
-            s.end = s.waterCut;
-            Shot next = waterNext(s);
-            if (next != null) BOUNCED.add(next);
-            else if (TestLog.client) TestLog.c(s.id, "end", "by", "water", "at", v(s.path.at(s.end)));
-        }
+        waterEnd(s, t);
         if (!Double.isNaN(s.path.confirmedEnd) && t >= s.path.confirmedEnd) s.end = s.path.confirmedEnd;
+    }
+
+    // water cut this piece at t: it stops, or goes on as a new piece, slower or turned
+    private static void waterEnd(Shot s, double t) {
+        if (!Double.isNaN(s.end) || Double.isNaN(s.waterCut) || t < s.waterCut - 1e-9) return;
+        s.end = s.waterCut;
+        Shot next = waterNext(s);
+        if (next != null) BOUNCED.add(next);
+        else if (TestLog.client) TestLog.c(s.id, "end", "by", "water", "at", v(s.path.at(s.end)));
     }
 
     // a hole's size behind water, × (0.5 + 0.5·f) where it is (Pending takes it while fly makes one)

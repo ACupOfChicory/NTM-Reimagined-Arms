@@ -3,10 +3,9 @@ package acup.gunfeel.mixins;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 
 import acup.gunfeel.water.WaterBullet;
 import acup.gunfeel.water.WaterClass;
@@ -15,7 +14,8 @@ import acup.gunfeel.water.WaterPath;
 // What an NTM bullet keeps of water between ticks (WaterBullet). Its speed is NTM's motionMult × f, so the server and
 // the tracer move it alike; the path in water is worked out in MixinThrowableClip (WaterTick).
 // port: 26.2's MixinWaterBullet (df28728) on NTM 1.7.10's EntityBulletBaseMK4 (the same motionMult and config). Like
-// MixinBulletServer's bulletSpeed, the return value is multiplied, so the order of the two does not matter.
+// MixinBulletServer's bulletSpeed, the return value is modified, not set: a cancelling inject (setReturnValue) would end
+// the method before the other, and a fast bullet out of water would fly at its full speed.
 @Mixin(value = EntityBulletBaseMK4.class, remap = false)
 public abstract class MixinWaterBullet implements WaterBullet {
     @Unique private double gunfeel$f = 1.0;
@@ -26,9 +26,9 @@ public abstract class MixinWaterBullet implements WaterBullet {
     @Unique private WaterClass.Expansion gunfeel$expansion;
     @Unique private double gunfeel$opened;
 
-    @Inject(method = "motionMult", at = @At("RETURN"), cancellable = true)
-    private void gunfeel$waterSpeed(CallbackInfoReturnable<Double> cir) {
-        if (gunfeel$f < 1.0) cir.setReturnValue(cir.getReturnValue() * gunfeel$f);
+    @ModifyReturnValue(method = "motionMult", at = @At("RETURN"))
+    private double gunfeel$waterSpeed(double mult) {
+        return gunfeel$f < 1.0 ? mult * gunfeel$f : mult;
     }
 
     @Override public double gunfeel$waterF() { return gunfeel$f; }
