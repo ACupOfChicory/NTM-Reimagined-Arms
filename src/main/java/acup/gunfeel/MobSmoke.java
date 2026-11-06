@@ -86,6 +86,9 @@ public final class MobSmoke {
         });
     }
     static boolean review() { return Boolean.getBoolean("ntmgunfeel.mobReview"); }
+    // a trace (-Ptrace): the partial tick is 0 (MixinTracePartialTick) and the target's pose stays (hold), so two runs
+    // write the same parts
+    public static boolean frozen() { return ENABLED && Trace.ON && !review(); }
     static List<String> cases() { return CASES; }
     static int index() { return index; }
     static boolean busy() { return pending; }
@@ -170,6 +173,7 @@ public final class MobSmoke {
             if(review() && result.text().startsWith(current()+":")) MobReview.checked(result.ok(),result.text());
         }
         var mc=Minecraft.getInstance();
+        if(frozen() && mc.level!=null && mc.level.getEntity(id) instanceof LivingEntity still) hold(still);
         if(mc.player==null || pending) return;
         if(stage==22 && !review()) { if(ExplosiveSmoke.finish())ClientSmoke.finish(); return; }
         if(review()) { reviewFrame(); return; }
@@ -191,6 +195,7 @@ public final class MobSmoke {
             rotating.setYRot(rotating.yBodyRot); rotating.yHeadRot=rotating.yBodyRot;
         }
         if(stage==0) {
+            turned=false;
             next();
         } else if(stage==1) {
             if(seconds()>1 && mc.level.getEntity(id)!=null) watch=true;
@@ -255,7 +260,9 @@ public final class MobSmoke {
                 anchor(target,0,.3,false,"пустота между ногами скелета");
                 anchor(target,.56,1.3,false,"пустота рядом со скелетом внутри AABB+0.3");
             }
-            if(target instanceof net.minecraft.world.entity.animal.sheep.Sheep) {
+            // a case already sheared (#sheared, MobVariants) keeps the fleece off: the head and limb checks after this
+            // run on the sheared model, not on the wool the shearing stage grows back
+            if(target instanceof net.minecraft.world.entity.animal.sheep.Sheep && !MobCatalog.variants(CASES.get(index)).contains("sheared")) {
                 stage=6; since=System.nanoTime(); shearSheep();
             } else if(target.getType()==EntityTypes.SLIME) {
                 stage=8; since=System.nanoTime(); checkSlimeAndResize(2);
@@ -286,6 +293,8 @@ public final class MobSmoke {
             } else if(seconds()>6) { check(false,"оболочка не обновилась после изменения размера"); startRotation(); }
         } else if(stage==5 && seconds()>1) {
             watch=false;
+            // the turn stopped on whatever frame came last; a trace takes it to one angle and keeps it (hold)
+            turned=frozen();
             check(orange>0 && white==0,"F3+B при вращении: оранжевых="+orange+", белых="+white);
             if(client!=null && !client.source().startsWith("ntm_"))
                 check(sameFrame>0 && oldFrame==0,"При вращении: применённая поза="+sameFrame+", отставших="+oldFrame);
@@ -294,12 +303,12 @@ public final class MobSmoke {
             pending=true;
             mc.getSingleplayerServer().execute(() -> {
                 var target=(LivingEntity)mc.getSingleplayerServer().overworld().getEntity(id);
-                if(target!=null) {
-                    target.setPos(target.position().add(.6,0,0));
-                    target.setYRot(90); target.yBodyRot=90; target.yHeadRot=90;
-                }
+                if(target!=null) move(target);
                 pending=false;
             });
+            // EnderDragon.aiStep returns at once for a NoAi dragon, before it interpolates: its client copy never
+            // follows the server, and the player sees (and hits) it where it was. Move that copy the same way.
+            if(mc.level.getEntity(id) instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon dragon && dragon.isNoAi()) move(dragon);
             stage=4; since=System.nanoTime();
         } else if(stage==4 && seconds()>1.2) {
             var target=(LivingEntity)mc.level.getEntity(id);
@@ -312,6 +321,21 @@ public final class MobSmoke {
         }
     }
 
+    // a trace: the target's age, walk and turn do not run on between frames (0 marks a mob just added, SpawnLerp).
+    // After the turn its angle stays at the turn's end: the server's turn reaches the client's copy by packets, and a
+    // slime's body takes its head's angle when its size comes, whenever in the head's turn that is
+    private static boolean turned;
+    private static void hold(LivingEntity mob) {
+        if(mob.tickCount>0) mob.tickCount=100;
+        mob.walkAnimation.stop();
+        if(turned) { mob.yBodyRot=mob.yHeadRot=240; mob.setYRot(240); }
+        mob.yBodyRotO=mob.yBodyRot; mob.yHeadRotO=mob.yHeadRot; mob.yRotO=mob.getYRot(); mob.xRotO=mob.getXRot();
+    }
+
+    private static void move(LivingEntity target) {
+        target.setPos(target.position().add(.6,0,0));
+        target.setYRot(90); target.yBodyRot=90; target.yHeadRot=90;
+    }
     private static double seconds() { return (System.nanoTime()-since)/1e9; }
     private static boolean hasWool(Snapshot pose) { return pose!=null && pose.boxes().stream().anyMatch(ModelWool::isWool); }
     private static boolean hasShell(Snapshot pose) {
@@ -356,11 +380,15 @@ public final class MobSmoke {
                 rays(sheep,server,current()+": с шерстью, сервер");
                 var full=MobRayOracle.surface(sheep,server.anchor(),server.boxes());
                 var bare=MobRayOracle.surface(sheep,server.anchor(),server.boxes().stream().filter(b -> !ModelWool.isWool(b)).toList());
-                woolRay=MobRayOracle.grid(full).stream().filter(ray -> ray.hit() && !MobRayOracle.hit(bare,ray.from(),ray.to()) && clearRay(sheep,ray)).findFirst().orElseThrow();
-                nativeRay(level,sheep,woolRay,true,current()+": точка только на шерсти до стрижки");
+                var woolOnly=MobRayOracle.grid(full).stream().filter(ray -> ray.hit() && !MobRayOracle.hit(bare,ray.from(),ray.to())).toList();
+                woolRay=woolOnly.stream().filter(ray -> clearRay(sheep,ray)).findFirst().orElse(null);
+                // a lamb's fleece is the size of the parts it covers or lies inside them: no point is on the wool alone
+                if(woolRay==null) RESULTS.add(new Result(woolOnly.isEmpty() && MobCatalog.baby(current()),
+                        current()+": шерсть не выступает за модель без неё, точек только на шерсти="+woolOnly.size()));
+                else nativeRay(level,sheep,woolRay,true,current()+": точка только на шерсти до стрижки");
                 sheep.shear(level,net.minecraft.sounds.SoundSource.PLAYERS,new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SHEARS));
                 // Та же принятая поза, ни одного нового пакета между проверками.
-                nativeRay(level,sheep,woolRay,false,current()+": та же точка сразу после стрижки, до нового пакета");
+                if(woolRay!=null) nativeRay(level,sheep,woolRay,false,current()+": та же точка сразу после стрижки, до нового пакета");
             } catch(Throwable t) { RESULTS.add(new Result(false,current()+": стрижка: "+t)); }
             pending=false;
         });
@@ -382,7 +410,7 @@ public final class MobSmoke {
                 var level=Minecraft.getInstance().getSingleplayerServer().overworld();
                 var sheep=(net.minecraft.world.entity.animal.sheep.Sheep)level.getEntity(id);
                 rays(sheep,server,current()+": шерсть отросла, сервер");
-                nativeRay(level,sheep,woolRay,true,current()+": та же точка после отрастания шерсти");
+                if(woolRay!=null) nativeRay(level,sheep,woolRay,true,current()+": та же точка после отрастания шерсти");
             } catch(Throwable t) { RESULTS.add(new Result(false,current()+": проверка отрастания: "+t)); }
             pending=false;
         });
@@ -416,6 +444,7 @@ public final class MobSmoke {
                     mob.setBaby(true);
                     if(!mob.isBaby()) throw new IllegalStateException("Моб не поддерживает детский возраст: "+CASES.get(index));
                 }
+                MobVariants.apply(target,MobCatalog.variants(CASES.get(index)));
                 // Ghost штатно исчезает рядом с обычным игроком даже с NoAI.
                 // Наблюдатель исключён из его проверки присутствия игроков.
                 mc.getSingleplayerServer().getPlayerList().getPlayers().getFirst()

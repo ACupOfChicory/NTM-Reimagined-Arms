@@ -50,7 +50,7 @@ public final class Arms {
     // each arm at rest, per gun variant: during animations the arm keeps this length and thickness
     private static final Map<GunGeometry, ArmRest[]> ARM_REST = new IdentityHashMap<>();
 
-    private static final class ArmRest {
+    static final class ArmRest {
         boolean valid;
         float length, s;
         final Vector3f hand = new Vector3f(), shoulder = new Vector3f(), axis = new Vector3f(), center = new Vector3f();
@@ -203,6 +203,33 @@ public final class Arms {
         // KICKED·REL is the body as drawn, AIMED·REL the same before the kick
         AIMED.transformPosition(REL.transformPosition(0F, 0F, g.minZ, back));
         AIMED.transformPosition(REL.transformPosition(0F, 0F, g.maxZ, front));
+        return true;
+    }
+
+    // the corners of the gun's cloud of vertices (GunGeometry.extremes) as placed this frame without the model kick, in
+    // the pose stack's space; null while the gun is not known yet
+    public static Vector3f[] gunExtremesAimed(Item held) {
+        if (!haveRel || relItem != held || geometry(held) == null) return null;
+        Vector3f[] in = geometry(held).extremes();
+        Vector3f[] out = new Vector3f[in.length];
+        for (int i = 0; i < in.length; i++) out[i] = AIMED.transformPosition(REL.transformPosition(in[i], new Vector3f()));
+        return out;
+    }
+
+    // the middle of the gun's cloud of vertices (their mean across, halfway along) as placed this frame without the
+    // model kick, in the pose stack's space
+    public static boolean gunMiddleAimed(Item held, Vector3f out) {
+        if (!haveRel || relItem != held || geometry(held) == null) return false;
+        GunGeometry g = geometry(held);
+        AIMED.transformPosition(REL.transformPosition(g.meanX, g.meanY, (g.minZ + g.maxZ) / 2F, out));
+        return true;
+    }
+
+    // the same as drawn this frame
+    public static boolean gunMiddleRendered(Item held, Vector3f out) {
+        if (!haveRel || relItem != held || geometry(held) == null) return false;
+        GunGeometry g = geometry(held);
+        KICKED.transformPosition(REL.transformPosition(g.meanX, g.meanY, (g.minZ + g.maxZ) / 2F, out));
         return true;
     }
 
@@ -582,9 +609,7 @@ public final class Arms {
             // moves aside and back, and takes the gun again when the turn is complete.
             float release = release(right ? Config.armReleaseRight : Config.armReleaseLeft);
             if (release > 0F) {
-                float[] m = right ? Config.armReleaseMoveRight : Config.armReleaseMove;
-                float k = (0.5F - 0.5F * (float) Math.cos(2.0 * Math.PI * release)) / 16F * r.s;
-                Matrix4f moved = new Matrix4f().translate(m[0] * k, m[1] * k, m[2] * k).mul(r.local);
+                Matrix4f moved = releasePose(r, right, release);
                 branch = "release " + fmt(release);
                 submit(collector, light, arm, skin, new Matrix4f(CAMERA).mul(moved), r.crop, right, slim, sleeveShown, sleeve);
                 continue;
@@ -927,8 +952,8 @@ public final class Arms {
         return new float[] {Math.min(w, 1F), p.x, p.y, p.z};
     }
 
-    private static boolean magazineInspect(int hand) {
-        return hand == 1 && Config.armInspectReleaseMs >= 0 && Float.isFinite(Config.armInspectReleaseMs)
+    static boolean magazineInspect(int hand) {
+        return hand == 1 && MagazineInspect.enabled(Config.armInspectReleaseMs)
                 && HbmAnimations.getGunAnimation(0) == GunAnimation.INSPECT;
     }
 
@@ -950,13 +975,23 @@ public final class Arms {
 
     // progress (0..1) of the turn on a release bus (armReleaseLeft / armReleaseRight) while the hand is off the gun,
     // else 0; the turn is on whichever axis the bus rotates (Maresleg FLIP: x, Henry ROLL: z)
-    private static float release(String bus) {
+    static float release(String bus) {
         if (bus.isEmpty() || HbmAnimations.getRelevantAnim(0) == null) return 0F;
-        double[] t = HbmAnimations.getRelevantTransformation(bus);
+        return release(bus, HbmAnimations.getRelevantTransformation(bus));
+    }
+
+    static float release(String bus, double[] t) {
+        if (bus.isEmpty() || t == null) return 0F;
         double angle = Math.max(Math.abs(t[0]), Math.max(Math.abs(t[1]), Math.abs(t[2])));
         double turns = angle / 360.0;
         float p = (float) (turns - Math.floor(turns));
         return p > 1e-3F && p < 1F - 1e-3F ? p : 0F;
+    }
+
+    static Matrix4f releasePose(ArmRest rest, boolean right, float progress) {
+        float[] m = right ? Config.armReleaseMoveRight : Config.armReleaseMove;
+        float k = (0.5F - 0.5F * (float) Math.cos(2.0 * Math.PI * progress)) / 16F * rest.s;
+        return new Matrix4f().translate(m[0] * k, m[1] * k, m[2] * k).mul(rest.local);
     }
 
     // point at fraction f (stock 0 - muzzle 1) of a hand's path, in camera space, hand offset added
@@ -989,7 +1024,7 @@ public final class Arms {
     }
 
     // holdScale: armScaleRight/Left, the thickness of an arm holding the gun (1 for a hand carrying something)
-    private static void restArm(ArmRest rest, boolean right, boolean slim, Vector3f grip, Vector3f down, Vector3f center,
+    static void restArm(ArmRest rest, boolean right, boolean slim, Vector3f grip, Vector3f down, Vector3f center,
             Vector3f axisPoint, float[] dirCfg, float reach, float holdScale) {
         Vector3f dir = new Vector3f(dirCfg[0], dirCfg[1], dirCfg[2]);
         if (dir.lengthSquared() < 1e-6F) {
@@ -1021,13 +1056,13 @@ public final class Arms {
     }
 
     // pixels of the arm the last local() call drew from the hand (12 = all of it)
-    private static int lastCrop = 12;
+    static int lastCrop = 12;
 
     // roll of the arm being drawn instead of armRollRight/Left, NaN = those (set while a hand carries shells)
-    private static float rollNow = Float.NaN;
+    static float rollNow = Float.NaN;
 
     // arm cube placed with its hand end at `hand`, built along `dir` (hand -> shoulder), then turned by `turn`
-    private static Matrix4f local(Vector3f hand, Quaternionf turn, Vector3f dir, boolean right, boolean slim, float s, float length) {
+    static Matrix4f local(Vector3f hand, Quaternionf turn, Vector3f dir, boolean right, boolean slim, float s, float length) {
         Vector3f y = new Vector3f(dir).negate().normalize();
         Vector3f x = new Vector3f(0F, 1F, 0F).cross(y);
         if (x.lengthSquared() < 1e-6F) x.set(1F, 0F, 0F);
@@ -1161,7 +1196,7 @@ public final class Arms {
     }
 
     // The arm's pose in camera space (before CAMERA); lastCrop is set to the pixels of arm it shows.
-    private static Matrix4f pose(boolean right, boolean slim, Vector3f grip, float[][] path, float gripF, Matrix4f bodyInCamera,
+    static Matrix4f pose(boolean right, boolean slim, Vector3f grip, float[][] path, float gripF, Matrix4f bodyInCamera,
             Vector3f down, Vector3f center, boolean spin, Quaternionf twist, float drop, ArmRest rest) {
         if (spin) {
             // The rest arm, carried along with the held part and turned (by its share of the roll) around

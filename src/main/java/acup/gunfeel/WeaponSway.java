@@ -36,10 +36,13 @@ public final class WeaponSway {
         var turn=fromAngles(player.getViewXRot(partial),player.getViewYRot(partial),armPitch,armYaw,aiming);
         if(TestLog.frames()) TestLog.c(-1,"sway","view",new org.joml.Vector3f(player.getViewXRot(partial),player.getViewYRot(partial),0F),
                 "arm",new org.joml.Vector3f(armPitch,armYaw,0F),"aiming",aiming,"pitch",turn.pitch(),"yaw",turn.yaw(),"roll",turn.roll(),"x",turn.x());
+        apply(pose,turn);
+        ClientSmoke.weaponSway(turn,aiming);
+    }
+    static void apply(PoseStack pose,Turn turn) {
         pose.translate(turn.x(),0,0);
         pose.mulPose(Axis.XP.rotationDegrees(turn.pitch()));
         pose.mulPose(Axis.YP.rotationDegrees(turn.yaw()));
         pose.mulPose(Axis.ZP.rotationDegrees(turn.roll()));
-        ClientSmoke.weaponSway(turn,aiming);
     }
 }

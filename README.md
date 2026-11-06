@@ -36,6 +36,13 @@ Open the weapon editor with O while holding a gun. Client settings are stored
 in `config/ntm-gunfeel.properties`; per-weapon settings are stored in
 `config/ntm-gunfeel-guns.properties`.
 
+Pistols and revolvers are held and aimed by measured positions (`pistolHold`
+and `aimHold`, both on). The hip sliders in the editor (`hipX`, `hipY`, `hipZ`)
+still move such a gun at the hip, as a share of its default place: `hipX = 0`
+puts it in the middle of the screen across, `hipY = 0` in the middle up and
+down, a smaller `hipZ` brings it closer. They do not move it when aimed, so the
+sights stay on the crosshair.
+
 Camera climb uses four per-weapon keys, also available in the weapon editor:
 `cameraClimb` is the share of each kick that stays (0 to 1), `cameraClimbDeg`
 adds degrees that stay up, `cameraDriftDeg` sets the sideways drift, and
@@ -111,6 +118,13 @@ adapted code. The combined mod, which includes this GPL-3.0-only component, is
 distributed under GPL-3.0. Source revision, changes and the license text are
 included in [third-party/superb-warfare.txt](third-party/superb-warfare.txt)
 and packaged under `META-INF/licenses/`.
+
+The jumping sway, the run / walk / idle choice and their smoothing filter in
+`src/main/java/acup/gunfeel/tacz/` are copied from TaCZ (Timeless and Classics
+Zero) by MCModderAnchor and contributors under GPL-3.0. Those files remain
+GPL-3.0-only, like the Superb Warfare code above. Source revision, changes and
+the license text are in [third-party/tacz.txt](third-party/tacz.txt) and
+packaged under `META-INF/licenses/`. No TaCZ assets are included.
 
 The 1.7.10 port also bundles stub classes from JvmDowngrader
 (LGPL-2.1-or-later) and a shaded copy of JOML (MIT). Their notices are in

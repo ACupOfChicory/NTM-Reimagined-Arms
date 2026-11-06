@@ -265,6 +265,9 @@ public final class BulletCheck {
         s = expect("path through: stone is flown through", Want.PASS, single("minecraft:stone"), .5, .5, 30F);
         check("path through: the stone stays", "minecraft:stone", s.after);
 
+        // ---- bullets through the empty part of fences, walls, panes and bars, and their joints
+        ok &= FenceAirCheck.run(level, round, lines, 1L);
+
         modelHits();
         richterBulletSpeed();
         lines.add(ok ? "ALL OK" : "SOME FAILED");

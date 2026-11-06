@@ -87,9 +87,11 @@ final class ArmEditor {
         }
     }
 
-    // a number shown as a slider; why != null = it does not act now, and why
-    record Setting(String id, String label, String hint, String unit, float value, float min, float max, float step, String why) {
+    // a number shown as a slider; why != null = it does not act now, and why; off = that reason in a few words, shown on
+    // the slider in place of its number (the full one is in its hint)
+    record Setting(String id, String label, String hint, String unit, float value, float min, float max, float step, String why, String off) {
         String text() {
+            if (why != null && off != null) return label + ": " + off;
             return label + ": " + number(value, step) + (unit.isEmpty() ? "" : " " + unit);
         }
     }
@@ -736,13 +738,17 @@ final class ArmEditor {
             return null;
         }
 
+        String off() {
+            return null;
+        }
+
         // the game takes only whole numbers here (milliseconds the carry is taken at)
         boolean whole() {
             return false;
         }
 
         Setting setting() {
-            return new Setting(id, label, hint, unit, get(), lo(), hi(), step, why());
+            return new Setting(id, label, hint, unit, get(), lo(), hi(), step, why(), off());
         }
     }
 
@@ -826,7 +832,7 @@ final class ArmEditor {
             float st = step;
             var sh = clips.shape();
             if (gripPoint()) st = sh == null ? 0.05F : Math.max(1e-3F, (sh.max()[2] - sh.min()[2]) / 400F);
-            return new Setting(id, label, hint, gripPoint() ? "ед. модели" : "", get(), lo(), hi(), st, null);
+            return new Setting(id, label, hint, gripPoint() ? "ед. модели" : "", get(), lo(), hi(), st, null, null);
         }
     }
 
@@ -845,6 +851,20 @@ final class ArmEditor {
     private float base(boolean right) {
         Config.select(gun);
         return right ? Config.armBaseRight : Config.armBaseLeft;
+    }
+
+    // the arm runs from the hand back toward the eye, so how far back it goes is read (Arms.restArm)
+    private boolean back(boolean right) {
+        Config.select(gun);
+        float[] d = right ? Config.armDirRight : Config.armDirLeft;
+        float sq = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+        return sq >= 1e-6F && d[2] / (float) Math.sqrt(sq) < -1e-3F;
+    }
+
+    // the hand has keys of a path along the parts or of carrying
+    private boolean loads(boolean right) {
+        Config.select(gun);
+        return !(right ? Config.armRightPath : Config.armLeftPath).isEmpty() || !(right ? Config.armRightCarryKeys : Config.armLeftCarryKeys).isEmpty();
     }
 
     // the knobs of a page, in the order shown
@@ -869,14 +889,41 @@ final class ArmEditor {
                 out.add(new ConfigKnob("armReach" + s, -1, "Плечо до", "Рука идёт назад до этой глубины перед глазом (минус — за глазом).", "", -2F, 2F, 0.01F) {
                     @Override
                     String why() {
-                        return base(right) > 0F && Config.armLength > 0F
-                                ? "действует, только когда «Основа толщины» этой руки 0 или «Длина руки» 0" : null;
+                        if (base(right) > 0F && Config.armLength > 0F) return "действует, только когда «Основа толщины» этой руки 0 или «Длина руки» 0";
+                        return back(right) ? null : "действует, только когда рука идёт от кисти к плечу назад: «Плечо назад/вперёд» меньше 0";
+                    }
+
+                    @Override
+                    String off() {
+                        return base(right) > 0F && Config.armLength > 0F ? "при основе или длине 0" : "при плече назад";
                     }
                 });
+                // read only while the hand goes along its path or carries (Arms.pathState, carryState)
+                String noLoad = "действует, только когда у этой руки есть ключи пути по деталям или переноса";
                 out.add(new FallbackKnob("armLoadRoll" + s, "armRoll" + s, "Поворот на зарядке",
-                        "Поворот руки вокруг своей оси, пока она идёт по деталям или несёт. Если не задан, как «Поворот руки».", "°", -180F, 180F, 1F));
+                        "Поворот руки вокруг своей оси, пока она идёт по деталям или несёт. Если не задан, как «Поворот руки».", "°", -180F, 180F, 1F) {
+                    @Override
+                    String why() {
+                        return loads(right) ? null : noLoad;
+                    }
+
+                    @Override
+                    String off() {
+                        return "нет ключей";
+                    }
+                });
                 out.add(new ConfigKnob("armLoadScale" + s, -1, "Толщина на зарядке", "Толщина руки, пока она идёт по деталям или несёт, поверх обычной.", "×",
-                        0.2F, 2.5F, 0.01F));
+                        0.2F, 2.5F, 0.01F) {
+                    @Override
+                    String why() {
+                        return loads(right) ? null : noLoad;
+                    }
+
+                    @Override
+                    String off() {
+                        return "нет ключей";
+                    }
+                });
                 if (hand == 1) out.add(new ConfigKnob("armInspectDrop", -1, "Опускание при осмотре",
                         "На сколько опускается левая рука при осмотре, когда оружие лежит на боку, в пикселях руки.", "", 0F, 4F, 0.1F));
                 if (hand == 1) out.add(new ConfigKnob("armInspectReleaseMs", -1, "Магазин до",
@@ -885,15 +932,42 @@ final class ArmEditor {
                     String why() {
                         return get() < 0F ? "левая рука не держит магазин при осмотре: «Вкл» справа" : null;
                     }
+
+                    @Override
+                    String off() {
+                        return "выключено";
+                    }
                 });
             }
             case BOTH -> {
                 out.add(new ConfigKnob("armScale", -1, "Толщина обеих", "Множитель толщины обеих рук.", "×", 0.2F, 2F, 0.01F));
-                out.add(new ConfigKnob("armLength", -1, "Длина руки", "Длина руки в ванильных руках её толщины. 0 — рука тянется до «Плечо до».", "", 0F, 2F, 0.01F));
+                out.add(new ConfigKnob("armLength", -1, "Длина руки", "Длина руки в ванильных руках её толщины. 0 — рука тянется до «Плечо до».", "", 0F, 2F, 0.01F) {
+                    // with both bases 0 it only lets an arm drawn shorter than 11.5 of its pixels be cut (Arms.local), and
+                    // such an arm is at least 18 / (armScale x its own thickness x min(1, armMaxScale)) pixels long
+                    @Override
+                    String why() {
+                        Config.select(gun);
+                        float thickest = Config.armScale * Math.min(1F, Config.armMaxScale) * Math.max(Math.max(Config.armScaleRight, Config.armScaleLeft),
+                                Math.max(Config.armLoadScaleRight, Config.armLoadScaleLeft));
+                        return base(true) <= 0F && base(false) <= 0F && 18F / thickest >= 11.5F
+                                ? "действует, только когда «Основа толщины» хоть одной руки больше 0 или рука вместе с «Толщиной обеих» толще "
+                                        + number(18F / 11.5F, 0.01F) : null;
+                    }
+
+                    @Override
+                    String off() {
+                        return "при основе больше 0";
+                    }
+                });
                 out.add(new ConfigKnob("armMaxScale", -1, "Предел толщины", "Наибольшая толщина, которую рука набирает с длиной.", "", 0.5F, 8F, 0.05F) {
                     @Override
                     String why() {
                         return base(true) > 0F && base(false) > 0F ? "действует, только когда «Основа толщины» хоть одной руки 0" : null;
+                    }
+
+                    @Override
+                    String off() {
+                        return "при основе 0";
                     }
                 });
                 out.add(new ConfigKnob("armFollow", -1, "Руки за оружием", "Насколько руки поворачиваются вместе с оружием в анимациях: 0 — нет, 1 — полностью.", "", 0F, 1F, 0.01F));
@@ -905,6 +979,11 @@ final class ArmEditor {
                     String why() {
                         Config.select(gun);
                         return Config.armSlide ? null : noSlide;
+                    }
+
+                    @Override
+                    String off() {
+                        return "при скольжении рук";
                     }
                 });
                 out.add(new ConfigKnob("armSwitchMs", -1, "Переход анимаций", "За сколько миллисекунд рука переходит на новое место, когда анимация начинается или кончается. 0 — сразу.", "мс", 0F, 300F, 10F));
@@ -1675,6 +1754,11 @@ final class ArmEditor {
                         @Override
                         String why() {
                             return releaseBus().isEmpty() ? "рука не отпускает оружие: выбери деталь выше" : null;
+                        }
+
+                        @Override
+                        String off() {
+                            return "нет детали";
                         }
                     });
             }
