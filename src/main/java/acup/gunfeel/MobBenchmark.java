@@ -36,6 +36,7 @@ final class MobBenchmark {
     private static final List<Phase> PLAN=new ArrayList<>();
     private static final List<String> ROWS=new ArrayList<>();
     private static final long[] TIMES=new long[100_000];
+    private static final com.sun.management.OperatingSystemMXBean SYSTEM=(com.sun.management.OperatingSystemMXBean)ManagementFactory.getOperatingSystemMXBean();
     private static final com.sun.management.ThreadMXBean THREADS=(com.sun.management.ThreadMXBean)ManagementFactory.getThreadMXBean();
     private static int index=-1,samples;
     private static String scene;
@@ -52,7 +53,7 @@ final class MobBenchmark {
     private static volatile boolean pending;
     private static volatile String failure;
     private static long since,last,measuring,allocationStart,bytesStart,packetsStart;
-    private static long publishStart,shapeStart;
+    private static long publishStart,shapeStart,cpuStart;
     private static final long[] costs=new long[4];
     private static final double WARM=Double.parseDouble(System.getProperty("ntmgunfeel.benchWarm","2"));
     private static final double MEASURE=Double.parseDouble(System.getProperty("ntmgunfeel.benchSeconds","4"));
@@ -83,7 +84,7 @@ final class MobBenchmark {
                 PLAN.add(new Phase(s,pass,v%2,v>=2));
             }
         }
-        ROWS.add("сцена\tповтор\tсистема\tF3B\tкадров\tсекунд\tFPS\tсредний_мс\tмедиана_мс\tp95_мс\tp99_мс\tаллокаций_байт_кадр\tзахват_мс\tсеть_мс\tконтур_мс\tрисование_мс\tбайт_с\tпакетов_с\tсущностей_клиент\tпубликаций_кадр\tобводок_кадр");
+        ROWS.add("сцена\tповтор\tсистема\tF3B\tкадров\tсекунд\tFPS\tсредний_мс\tмедиана_мс\tp95_мс\tp99_мс\tаллокаций_байт_кадр\tзахват_мс\tсеть_мс\tконтур_мс\tрисование_мс\tбайт_с\tпакетов_с\tсущностей_клиент\tпубликаций_кадр\tобводок_кадр\tпроцессор_ядер");
         org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").info("[mobbench] окно={}x{} расстояние={} FPS={} vsync={} камера=70",
                 mc.gameRenderer.mainRenderTarget().width,mc.gameRenderer.mainRenderTarget().height,
                 mc.options.renderDistance().get(),mc.options.framerateLimit().get(),mc.options.enableVsync().get());
@@ -180,7 +181,7 @@ final class MobBenchmark {
             measuring=last=now; samples=0;
             allocationStart=THREADS.getThreadAllocatedBytes(Thread.currentThread().threadId());
             bytesStart=MobBenchMetrics.bytes.sum(); packetsStart=MobBenchMetrics.packets.sum();
-            publishStart=MobBenchMetrics.published; shapeStart=MobBenchMetrics.shapes;
+            publishStart=MobBenchMetrics.published; shapeStart=MobBenchMetrics.shapes; cpuStart=SYSTEM.getProcessCpuTime();
             System.arraycopy(MobBenchMetrics.nanos,0,costs,0,4); ContourAge.reset(); return;
         }
         if(samples<TIMES.length) TIMES[samples++]=now-last;
@@ -202,8 +203,9 @@ final class MobBenchmark {
             if(entity instanceof LivingEntity && !(entity instanceof net.minecraft.world.entity.player.Player)) alive++;
         int expected=count(p.scene());
         if(alive!=expected) { failure="Ожидалось сущностей "+expected+", клиент видит "+alive; return; }
-        row+=String.format(Locale.ROOT,"\t%d\t%.2f\t%.2f",alive,(MobBenchMetrics.published-publishStart)/(double)samples,
-                (MobBenchMetrics.shapes-shapeStart)/(double)samples);
+        // процессор всего процесса (клиент, сервер, фоновые сборки) — в среднем ядер за фазу
+        row+=String.format(Locale.ROOT,"\t%d\t%.2f\t%.2f\t%.2f",alive,(MobBenchMetrics.published-publishStart)/(double)samples,
+                (MobBenchMetrics.shapes-shapeStart)/(double)samples,(SYSTEM.getProcessCpuTime()-cpuStart)/1e9/seconds);
         MEANS.computeIfAbsent(p.scene(),k -> new double[4])[p.mode()+(p.debug()?2:0)]+=seconds*1000/samples;
         if(ContourAge.ENABLED && p.mode()==1 && p.debug()) {
             long[] a=AGES.computeIfAbsent(p.scene(),k -> new long[4]);
