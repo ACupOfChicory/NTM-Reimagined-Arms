@@ -255,6 +255,7 @@ neoForge {
             providers.gradleProperty("trace").orNull?.let { systemProperty("ntmgunfeel.trace", it) }
             providers.gradleProperty("scenario").orNull?.let { systemProperty("ntmgunfeel.scenario", it) }
             providers.gradleProperty("scenarioGuns").orNull?.let { systemProperty("ntmgunfeel.scenarioGuns", it) }
+            providers.gradleProperty("scenarioArmor").orNull?.let { systemProperty("ntmgunfeel.scenarioArmor", it) }
             providers.gradleProperty("seed").orNull?.let { systemProperty("ntmgunfeel.seed", it) }
             if (providers.gradleProperty("traceHex").isPresent) systemProperty("ntmgunfeel.traceHex", "true")
         }

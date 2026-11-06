@@ -310,3 +310,6 @@ re@SmokeCommand.java: Commands\.hasPermission\(Commands\.LEVEL_GAMEMASTERS\) => 
 re@SmokeNet.java: r\.playToClient\((SmokePayloads\.\w+\.TYPE), (SmokePayloads\.\w+\.CODEC)\); => r.playToClient($1, $2, (p, ctx) -> {});
 re@SmokeNet.java: ChunkPos\.containing\(c\.origin\) => new ChunkPos(c.origin)
 re@SmokeNet.java: contains\(at\.x\(\), at\.z\(\), false\) => contains(at.x, at.z, false)
+# main X510's armour stand dresses the player: 1.21.1's dye takes "shown in tooltip", its trims live in armortrim
+re@TraceScenario.java: new net\.minecraft\.world\.item\.component\.DyedItemColor\(0xB02E26\) => new net.minecraft.world.item.component.DyedItemColor(0xB02E26, true)
+re@TraceScenario.java: net\.minecraft\.world\.item\.equipment\.trim\. => net.minecraft.world.item.armortrim.
