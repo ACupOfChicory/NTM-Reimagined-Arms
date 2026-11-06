@@ -1,29 +1,38 @@
 package acup.gunfeel.smoke.client;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import acup.gunfeel.smoke.SmokeClouds;
+import acup.gunfeel.smoke.SmokeGrid;
 import acup.gunfeel.smoke.SmokeKind;
 import acup.gunfeel.smoke.SmokeNet;
 import acup.gunfeel.smoke.SmokePayloads;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 /**
  * Client: this game's copies of the clouds the server tells about. They are stepped every client tick up to their age
- * at the level's game time (a cloud that came late is caught up, at most {@link #CATCH_UP} steps a tick), their hash is
- * kept for the last ticks and compared with the server's checks; a copy that went apart asks for the server's grid.
+ * at the level's game time. A cloud that came late is caught up on a budget of {@link #CATCH_UP} steps a tick for all
+ * the clouds together ({@link SmokeClouds#catchUp}); until it has caught up it is not drawn, does not thicken the fog
+ * and is not compared. Its hash is kept only at the ages the server sends a check for ({@link SmokeNet#checkDue}) and
+ * compared with the server's; a copy that went apart asks for the server's grid.
  */
 public final class SmokeClient {
-    /** Steps a cloud may take in one tick while it catches up. */
+    /** Steps all the clouds together may take in one tick while some catch up. */
     public static final int CATCH_UP = 200;
-    private static final int RING = 64;
+    /** Steps a cloud takes in one turn of the catch-up. */
+    private static final int BURST = 25;
+    // hashes kept per cloud: the last four check ages (a check is every CHECK_EVERY ticks)
+    private static final int RING = 4;
     private static final Map<Integer, Track> TRACKS = new HashMap<>();
     private static ClientLevel level;
-    // counters for the stand: checks that matched, went apart, grids applied
-    public static int matched, apart, grids;
+    // counters for the stand: checks that matched, went apart, grids applied, mismatches left alone for an unloaded chunk
+    public static int matched, apart, grids, deferred;
 
     private static final class Track {
         final long[] hashes = new long[RING];
@@ -55,6 +64,13 @@ public final class SmokeClient {
         return now == null || now != level ? null : SmokeClouds.get(now);
     }
 
+    /**
+     * A cloud to simulate. It comes when the server lets one out and again when this player starts to watch its chunk
+     * ({@code ChunkWatchEvent.Sent}, after the chunk itself). The first one can come before the chunk is here: the
+     * origin is then a closed cell, nothing comes out of it and the cloud ends at once; the second one, with the chunk
+     * loaded, replaces it and is caught up from the cloud's birth. So a cloud born at the edge of the loaded area is
+     * not lost, only late.
+     */
     public static void spawn(SmokePayloads.Spawn p) {
         SmokeClouds all = clouds();
         if (all == null) return;
@@ -71,10 +87,12 @@ public final class SmokeClient {
 
     public static void check(SmokePayloads.Check p) {
         Track t = TRACKS.get(p.id());
-        if (t == null) return;
+        SmokeClouds all = current();
+        SmokeClouds.Cloud c = all == null ? null : all.cloud(p.id());
+        if (t == null || c == null) return;
         t.checkAge = p.age();
         t.checkHash = p.hash();
-        compare(p.id(), t);
+        compare(c, t);
     }
 
     public static void grid(SmokePayloads.Grid p) {
@@ -88,24 +106,34 @@ public final class SmokeClient {
             if (t != null) {
                 java.util.Arrays.fill(t.ages, -1);
                 t.checkAge = -1;
-                remember(t, c);
             }
         } catch (java.io.IOException ex) {
             // a broken grid: SmokeGrid.read changed nothing, the copy stays as it was and the next check asks again
         }
     }
 
-    private static void remember(Track t, SmokeClouds.Cloud c) {
-        int slot = c.grid.age() % RING;
-        t.ages[slot] = c.grid.age();
-        t.hashes[slot] = c.grid.hash();
+    private static int slot(int id, int age) {
+        return (age + id * 7) / SmokeNet.CHECK_EVERY % RING;
+    }
+
+    // the copy's hash at an age the server checks
+    private static void remember(Track t, int id, SmokeGrid g) {
+        int age = g.age();
+        if (!SmokeNet.checkDue(id, age)) return;
+        int slot = slot(id, age);
+        t.ages[slot] = age;
+        t.hashes[slot] = g.hash();
     }
 
     // the server's check against the copy's hash at that age, once the copy has got there
-    private static void compare(int id, Track t) {
-        if (t.checkAge < 0) return;
-        int slot = t.checkAge % RING;
-        if (t.ages[slot] != t.checkAge) return;
+    private static void compare(SmokeClouds.Cloud c, Track t) {
+        if (t.checkAge < 0 || level == null || c.catchingUp(level.getGameTime())) return;
+        int slot = slot(c.id, t.checkAge);
+        if (t.ages[slot] != t.checkAge) {
+            // not there yet, or already so far past that the hash was overwritten: that check is dropped
+            if (c.grid.age() > t.checkAge) t.checkAge = -1;
+            return;
+        }
         boolean same = t.hashes[slot] == t.checkHash;
         t.checkAge = -1;
         if (same) {
@@ -113,10 +141,25 @@ public final class SmokeClient {
             return;
         }
         apart++;
-        long now = level == null ? 0 : level.getGameTime();
+        // At the edge of what this client has loaded the copy differs for good: the server has the chunk next to the
+        // cloud and its smoke went in, here that chunk is not loaded, so its cells are closed. A grid from the server
+        // would not help (the next check differs again), so no grid is asked for until the chunk is here; then the
+        // next check differs once more and asks.
+        if (touchesUnloaded(c)) {
+            deferred++;
+            return;
+        }
+        long now = level.getGameTime();
         if (now - t.lastAsk < 100 && now >= t.lastAsk) return;
         t.lastAsk = now;
-        ClientPacketDistributor.sendToServer(new SmokePayloads.Resync(id));
+        ClientPacketDistributor.sendToServer(new SmokePayloads.Resync(c.id));
+    }
+
+    // whether a chunk the cloud's smoke is in or next to is not loaded here
+    private static boolean touchesUnloaded(SmokeClouds.Cloud c) {
+        int[] b = c.grid.box();
+        if (!c.grid.occupied()) b = new int[] {0, 0, 0, SmokeGrid.SX - 1, SmokeGrid.SY - 1, SmokeGrid.SZ - 1};
+        return !level.hasChunksAt(c.baseX() + b[0] - 1, c.baseZ() + b[2] - 1, c.baseX() + b[3] + 1, c.baseZ() + b[5] + 1);
     }
 
     /** Every client tick. */
@@ -125,15 +168,13 @@ public final class SmokeClient {
         if (all == null || all.isEmpty()) return;
         long t0 = System.nanoTime();
         long time = level.getGameTime();
+        all.catchUp(time, CATCH_UP, BURST, (c, g) -> {
+            Track t = TRACKS.get(c.id);
+            if (t != null) remember(t, c.id, g);
+        });
         for (SmokeClouds.Cloud c : all.clouds()) {
             Track t = TRACKS.get(c.id);
-            int before = c.grid.age();
-            all.step(c, time, CATCH_UP, t == null ? null : g -> {
-                int slot = g.age() % RING;
-                t.ages[slot] = g.age();
-                t.hashes[slot] = g.hash();
-            });
-            if (t != null && c.grid.age() != before) compare(c.id, t);
+            if (t != null && t.checkAge >= 0) compare(c, t);
         }
         for (SmokeClouds.Cloud c : all.reap()) TRACKS.remove(c.id);
         SmokeStats.tick(System.nanoTime() - t0);
@@ -143,5 +184,36 @@ public final class SmokeClient {
         if (level != null) SmokeClouds.forget(level);
         level = null;
         TRACKS.clear();
+    }
+
+    // ---- which clouds are drawn (the volume and the slices pick them the same way)
+
+    private record Near(SmokeClouds.Cloud cloud, double distance) {
+    }
+
+    /** How far a world point is from a cloud's occupied box (0 inside it). */
+    public static double distance(SmokeClouds.Cloud c, Vec3 cam) {
+        int[] b = c.grid.box();
+        double x = Math.clamp(cam.x, c.baseX() + b[0], c.baseX() + b[3] + 1), y = Math.clamp(cam.y, c.baseY() + b[1], c.baseY() + b[4] + 1),
+                z = Math.clamp(cam.z, c.baseZ() + b[2], c.baseZ() + b[5] + 1);
+        double dx = cam.x - x, dy = cam.y - y, dz = cam.z - z;
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    /**
+     * The clouds to draw: some smoke in them, caught up, within {@code far} blocks of the camera, the {@code most}
+     * nearest, nearest first.
+     */
+    public static List<SmokeClouds.Cloud> nearest(SmokeClouds all, Vec3 cam, long time, double far, int most) {
+        List<Near> near = new ArrayList<>();
+        for (SmokeClouds.Cloud c : all.clouds()) {
+            if (!c.grid.occupied() || c.catchingUp(time)) continue;
+            double d = distance(c, cam);
+            if (d <= far) near.add(new Near(c, d));
+        }
+        near.sort(java.util.Comparator.comparingDouble(Near::distance));
+        List<SmokeClouds.Cloud> out = new ArrayList<>(Math.min(most, near.size()));
+        for (int i = 0; i < near.size() && i < most; i++) out.add(near.get(i).cloud);
+        return out;
     }
 }

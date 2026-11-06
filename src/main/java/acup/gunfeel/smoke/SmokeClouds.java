@@ -18,8 +18,8 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>The layers stay apart, so a later gas kept in the chunks' data can take the place of the grids: the simulation
  * ({@link SmokeGrid}), what a cell is made of ({@link SmokeKind}), the store of clouds here, the network ({@link SmokeNet})
- * and the drawing ({@code SmokeRender} on the client) only meet through {@link #density}, {@link #clouds()} and the
- * grids' own cells.
+ * and the drawing ({@code SmokeRender} on the client) only meet through {@link #clouds()}, {@link Cloud#density} and
+ * the grids' own cells.
  */
 public final class SmokeClouds {
     private static final Map<Level, SmokeClouds> LEVELS = new ConcurrentHashMap<>();
@@ -45,6 +45,14 @@ public final class SmokeClouds {
             this.dirX = dirX;
             this.dirZ = dirZ;
             this.scale = scale;
+        }
+
+        /**
+         * Whether the copy is more than a couple of ticks behind its age at this game time: a cloud that came late and is
+         * still catching up. It is not drawn, does not thicken the fog and is not compared with the server's hash.
+         */
+        public boolean catchingUp(long gameTime) {
+            return grid.age() < gameTime - born - 2;
         }
 
         public int baseX() {
@@ -91,14 +99,19 @@ public final class SmokeClouds {
         }
     }
 
-    private final Level level;
+    private final java.util.function.Function<Cloud, SmokeGrid.Mask> masks;
     private final Map<Integer, Cloud> clouds = new LinkedHashMap<>();
     // the clouds as they stand, replaced (never changed) whenever one comes or goes: clouds() hands it out without a copy
     private volatile List<Cloud> view = List.of();
     private int nextId = 1;
 
     private SmokeClouds(Level level) {
-        this.level = level;
+        this.masks = c -> SmokeMask.of(level, c);
+    }
+
+    // tests: clouds over a mask of their own, with no level
+    SmokeClouds(java.util.function.Function<Cloud, SmokeGrid.Mask> masks) {
+        this.masks = masks;
     }
 
     public static SmokeClouds of(Level level) {
@@ -180,10 +193,6 @@ public final class SmokeClouds {
         return serverLast;
     }
 
-    public Level level() {
-        return level;
-    }
-
     /** The clouds, oldest first. A list that never changes: one that comes or goes later is not in it. */
     public List<Cloud> clouds() {
         return view;
@@ -212,7 +221,7 @@ public final class SmokeClouds {
     public Cloud create(int id, BlockPos origin, SmokeKind kind, long seed, float dirX, float dirZ, float scale, long born) {
         SmokeGrid grid = new SmokeGrid(kind, seed, dirX, dirZ, scale);
         Cloud cloud = new Cloud(id, grid, origin.immutable(), born, dirX, dirZ, scale);
-        grid.scan(SmokeMask.of(level, cloud));
+        grid.scan(masks.apply(cloud));
         grid.place();
         return cloud;
     }
@@ -261,18 +270,44 @@ public final class SmokeClouds {
     }
 
     /**
-     * Steps one cloud up to its age at this game time, at most {@code most} steps. Before each step a twentieth of its
-     * cells is read from the world again; {@code after} sees the grid after each step.
+     * Steps one cloud up to its age at this game time, at most {@code most} steps; returns how many it took. Before each
+     * step a twentieth of its cells is read from the world again; {@code after} sees the grid after each step.
      */
-    public void step(Cloud c, long gameTime, int most, java.util.function.Consumer<SmokeGrid> after) {
+    public int step(Cloud c, long gameTime, int most, java.util.function.Consumer<SmokeGrid> after) {
         long want = gameTime - c.born;
-        SmokeMask mask = null;
-        for (int n = 0; n < most && c.grid.age() < want && !c.grid.done(); n++) {
-            if (mask == null) mask = SmokeMask.of(level, c);
+        SmokeGrid.Mask mask = null;
+        int n = 0;
+        for (; n < most && c.grid.age() < want && !c.grid.done(); n++) {
+            if (mask == null) mask = masks.apply(c);
             c.grid.refresh(mask, c.grid.age() % SmokeMask.PARTS, SmokeMask.PARTS);
             c.grid.step();
             if (after != null) after.accept(c.grid);
         }
+        return n;
+    }
+
+    /**
+     * A client's tick: every cloud takes its step for this tick first, then what is left of {@code budget} steps (all
+     * the clouds together, not each) goes to the clouds still behind, {@code burst} steps at a time in turn. A cloud that
+     * came late with hundreds of ticks to catch up therefore costs a few ticks of a small share each, not one big hitch,
+     * and several of them together cost no more than one. Returns the steps taken.
+     */
+    public int catchUp(long gameTime, int budget, int burst, java.util.function.BiConsumer<Cloud, SmokeGrid> after) {
+        List<Cloud> all = view;
+        int taken = 0;
+        for (Cloud c : all) taken += step(c, gameTime, 1, after == null ? null : g -> after.accept(c, g));
+        boolean any = true;
+        while (taken < budget && any) {
+            any = false;
+            for (Cloud c : all) {
+                if (taken >= budget) break;
+                if (c.grid.done() || c.grid.age() >= gameTime - c.born) continue;
+                int n = step(c, gameTime, Math.min(burst, budget - taken), after == null ? null : g -> after.accept(c, g));
+                taken += n;
+                if (n > 0) any = true;
+            }
+        }
+        return taken;
     }
 
     /** Drops the clouds that thinned away (or lived too long) and returns them. */
@@ -286,28 +321,6 @@ public final class SmokeClouds {
             }
         }
         return ended == null ? List.of() : ended;
-    }
-
-    /** Smoke density at a world point, all clouds together. */
-    public float density(double x, double y, double z) {
-        float sum = 0F;
-        for (Cloud c : clouds()) if (c.holds(x, y, z) && c.grid.occupied()) sum += c.density(x, y, z);
-        return sum;
-    }
-
-    /** The cloud with the most smoke at a world point, or null. */
-    public Cloud densest(double x, double y, double z) {
-        Cloud best = null;
-        float most = 0F;
-        for (Cloud c : clouds()) {
-            if (!c.holds(x, y, z)) continue;
-            float v = c.density(x, y, z);
-            if (v > most) {
-                most = v;
-                best = c;
-            }
-        }
-        return best;
     }
 
     /**

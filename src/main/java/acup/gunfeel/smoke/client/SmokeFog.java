@@ -34,13 +34,25 @@ public final class SmokeFog {
     public static void frame(Camera camera, float frameSeconds) {
         SmokeClouds all = SmokeClient.current();
         float d = 0F;
-        if (all != null && !all.isEmpty()) {
+        var level = Minecraft.getInstance().level;
+        if (all != null && !all.isEmpty() && level != null) {
             Vec3 p = camera.position();
-            d = all.density(p.x, p.y, p.z);
-            SmokeClouds.Cloud c = all.densest(p.x, p.y, p.z);
-            if (c != null) rgb = c.kind().rgb();
-            var level = Minecraft.getInstance().level;
-            if (level != null && d > 0F) light = SmokeLight.brightness(level, BlockPos.containing(p));
+            // one pass over the clouds: their smoke added up, and the colour of the one with most; a cloud still
+            // catching up is not the server's yet
+            SmokeClouds.Cloud densest = null;
+            float most = 0F;
+            long time = level.getGameTime();
+            for (SmokeClouds.Cloud c : all.clouds()) {
+                if (!c.grid.occupied() || c.catchingUp(time) || !c.holds(p.x, p.y, p.z)) continue;
+                float v = c.density(p.x, p.y, p.z);
+                d += v;
+                if (v > most) {
+                    most = v;
+                    densest = c;
+                }
+            }
+            if (densest != null) rgb = densest.kind().rgb();
+            if (d > 0F) light = SmokeLight.brightness(level, BlockPos.containing(p));
         }
         density = d;
         // in fast, out a little slower (the eye adjusts)

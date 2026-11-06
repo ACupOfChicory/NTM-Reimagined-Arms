@@ -2,7 +2,6 @@ package acup.gunfeel.smoke.client;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -111,16 +110,7 @@ public final class SmokeAtlas {
         ensure();
         Vec3 cam = mc.gameRenderer.mainCamera().position();
         long time = mc.level.getGameTime();
-        List<SmokeClouds.Cloud> near = new ArrayList<>();
-        double far = Config.smokeDistance;
-        for (SmokeClouds.Cloud c : all.clouds()) {
-            if (!c.grid.occupied() || c.grid.age() < time - c.born - 2) continue;
-            if (distance(c, cam) > far) continue;
-            near.add(c);
-        }
-        near.sort(Comparator.comparingDouble(c -> distance(c, cam)));
-        int most = Math.min(SLOTS, Config.smokeMaxClouds);
-        if (near.size() > most) near = near.subList(0, most);
+        List<SmokeClouds.Cloud> near = SmokeClient.nearest(all, cam, time, Config.smokeDistance, Math.min(SLOTS, Config.smokeMaxClouds));
         // free the slots of clouds no longer drawn, then give the new ones a slot
         java.util.Set<Integer> keep = new java.util.HashSet<>();
         for (SmokeClouds.Cloud c : near) keep.add(c.id);
@@ -163,13 +153,6 @@ public final class SmokeAtlas {
             encoder.writeToTexture(texture, upload, 0, 0, 0, s.index * TILE_H + lo, WIDTH, hi - lo + 1);
         }
         SmokeStats.add(SmokeStats.ATLAS, System.nanoTime() - t0);
-    }
-
-    private static double distance(SmokeClouds.Cloud c, Vec3 cam) {
-        int[] b = c.grid.box();
-        double x = Math.clamp(cam.x, c.baseX() + b[0], c.baseX() + b[3] + 1), y = Math.clamp(cam.y, c.baseY() + b[1], c.baseY() + b[4] + 1),
-                z = Math.clamp(cam.z, c.baseZ() + b[2], c.baseZ() + b[5] + 1);
-        return cam.distanceTo(new Vec3(x, y, z));
     }
 
     // every cell as lit as the cloud's origin, until its layer is looked up

@@ -1,7 +1,6 @@
 package acup.gunfeel.smoke.client;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,14 +55,7 @@ public final class SmokeSlices {
         Vec3 cam = e.getLevelRenderState().cameraRenderState.pos;
         var mc = Minecraft.getInstance();
         long time = mc.level == null ? 0 : mc.level.getGameTime();
-        List<SmokeClouds.Cloud> near = new ArrayList<>();
-        for (SmokeClouds.Cloud c : all.clouds()) {
-            if (!c.grid.occupied() || c.grid.age() < time - c.born - 2) continue;
-            if (distance(c, cam) > Config.smokeDistance) continue;
-            near.add(c);
-        }
-        near.sort(Comparator.comparingDouble(c -> distance(c, cam)));
-        if (near.size() > Config.smokeMaxClouds) near = near.subList(0, Config.smokeMaxClouds);
+        List<SmokeClouds.Cloud> near = SmokeClient.nearest(all, cam, time, Config.smokeDistance, Config.smokeMaxClouds);
         java.util.Set<Integer> keep = new java.util.HashSet<>();
         List<Built> draw = new ArrayList<>();
         Vec3 look = mc.player == null ? new Vec3(0, 0, 1) : mc.player.getViewVector(1F);
@@ -170,12 +162,5 @@ public final class SmokeSlices {
         out[i * 3 + ua] = u;
         out[i * 3 + va] = v;
         col[i] = Math.clamp(Math.round(a * 255F), 0, 255) << 24 | colour;
-    }
-
-    private static double distance(SmokeClouds.Cloud c, Vec3 cam) {
-        int[] b = c.grid.box();
-        double x = Math.clamp(cam.x, c.baseX() + b[0], c.baseX() + b[3] + 1), y = Math.clamp(cam.y, c.baseY() + b[1], c.baseY() + b[4] + 1),
-                z = Math.clamp(cam.z, c.baseZ() + b[2], c.baseZ() + b[5] + 1);
-        return cam.distanceTo(new Vec3(x, y, z));
     }
 }
