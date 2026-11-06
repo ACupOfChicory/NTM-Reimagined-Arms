@@ -858,8 +858,8 @@ final class ArmEditor {
         return right ? Config.armBaseRight : Config.armBaseLeft;
     }
 
-    // how much a pistol's arms take their thickness from their hands' depth on this gun (armPistolScale,
-    // Arms.pistolThickness): the weight the hold gives it, 0 = not at all
+    // how much a pistol's arms take their thickness from their hands' depth and turn on this gun (armPistolScale,
+    // Arms.pistolTarget): the weight the hold gives it, 0 = not at all
     private float pistolDepth() {
         Config.select(gun);
         return Config.armPistolScale && PistolHold.on() && !clips.scoped() ? Math.min(1F, Config.pistolHold) : 0F;
@@ -1030,7 +1030,7 @@ final class ArmEditor {
 
     // the switches of the BOTH page: key, label, hint
     private static final String[][] SWITCHES = {
-            {"armPistolScale", "Руки пистолета по глубине", "У пистолета, когда включён «пистолет у бедра», рука тем толще, чем дальше кисть от глаза: обе руки на экране одного размера у бедра и в прицеле. «Толщина» и «Толщина в прицеле» действуют поверх."},
+            {"armPistolScale", "Руки пистолета по глубине", "У пистолета, когда включён «пистолет у бедра», рука тем толще, чем дальше кисть от глаза, и тем тоньше, чем больше она видна с ребра: обе руки на экране одного размера у бедра и в прицеле. «Толщина» и «Толщина в прицеле» действуют поверх."},
             {"armSlide", "Скольжение рук", "В анимациях кисть скользит по оружию к прикладу, а не рука растягивается."},
             {"armSlideNearest", "Ближайшая точка", "Скользящая кисть останавливается в ближайшей к хвату точке, до которой достаёт рука."}};
 

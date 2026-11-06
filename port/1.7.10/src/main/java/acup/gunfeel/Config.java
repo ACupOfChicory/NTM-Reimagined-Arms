@@ -198,7 +198,7 @@ public final class Config {
             armBaseRight, armBaseLeft: arm thickness before armScale, the same on every gun (as on Maresleg); 0 = automatic (grows with the arm's length)
             armLength: arm length in vanilla arms of its thickness (1 = the whole vanilla arm, never cut or stretched, like TaCZ); 0 = stretched/squashed to armReach
             armLoadScaleRight, armLoadScaleLeft: thickness of each arm while it loads shells into the gun, on top of armScale, 1 = unchanged
-            armPistolScale: a pistol held by pistolHold gets each arm as much thicker as its hand is farther from the eye, so both hands look the same size on every pistol, from the hip and aimed; off = the arm thickness of the other guns
+            armPistolScale: a pistol held by pistolHold gets each arm as much thicker as its hand is farther from the eye and thinner as it shows more of its edge, so both hands look the same size on every pistol, from the hip and aimed; off = the arm thickness of the other guns
             armLoadRollRight, armLoadRollLeft: turn of each arm around its own axis while it loads shells, degrees, NaN = armRollRight/Left
             armAroundTopDrop: while armLeftKeys holds the left hand over the part (90), lower it toward the part by this many arm pixels; none at the side
             armAroundShift: while armLeftKeys moves the left hand round a part, move it left (out of the part) by this many arm pixels; none under the part (-90)
