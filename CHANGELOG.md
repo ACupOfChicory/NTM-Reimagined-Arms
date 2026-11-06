@@ -1,5 +1,18 @@
 # Changelog
 
+## X504.50
+
+- NTM Decentralized Edition gets the water of X488 to X498: bullets slow down,
+  skip and stop in water, explosive rounds meet it by their fuze, a blast in
+  water reaches further for mobs in it, a shot under water sounds duller, and
+  splashes, rings, foam, bubbles, the gas bubble at the muzzle, sunk rounds and
+  blasts at water show it. Punchy! Moves' third-person arm pose (X493) is not
+  on this edition yet.
+- F3+B: the outline rule of X504 is the one this edition has had since
+  X483.44 (no older than the last frame or 1/60 s), so nothing changes here.
+- ⚠ Breaks compatibility: the network protocol is now 9 (a new packet for
+  blasts at water); client and server need the same build.
+
 ## X504
 
 - F3+B: the hitbox outline of an animated mob no longer lags behind its model.
@@ -68,6 +81,7 @@
   off water, at most twice a flight, losing a third of its speed. A shot from
   under water follows the same rules and sounds duller and lower.
 - Keys in `ntm-gunfeel-server.properties`: `waterBallistics`, `waterStopFraction`, `waterRangeScale`, `waterSkipAngle`, `waterMuffle`.
+
 ## X483.44
 
 - On NTM Decentralized Edition the hitbox outlines (F3+B) no longer drag the
