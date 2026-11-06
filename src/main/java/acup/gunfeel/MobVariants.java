@@ -26,6 +26,8 @@ final class MobVariants {
             case "attack" -> ((Mob)target).setAggressive(true);
             case "celebrate" -> ((Raider)target).setCelebrating(true);
             case "spell" -> spell((SpellcasterIllager)target);
+            // Моб другого размера: scale_2, scale_0.5 — атрибут scale.
+            case String v when v.startsWith("scale_") -> target.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.SCALE).setBaseValue(Double.parseDouble(v.substring(6)));
             case "carpet" -> target.setItemSlot(EquipmentSlot.BODY,new ItemStack(Items.CARPET.red()));
             // Житель и житель-зомби: тип (одежда, шляпа) и профессия, prof_none — без профессии.
             case String v when v.startsWith("type_") -> villager(target,d->d.withType(target.level().registryAccess(),

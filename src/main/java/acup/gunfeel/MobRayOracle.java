@@ -12,9 +12,17 @@ final class MobRayOracle {
     private static final int[] FACES = {0,1,3,0,3,2, 4,6,7,4,7,5, 0,4,5,0,5,1,
             2,3,7,2,7,6, 0,2,6,0,6,4, 1,5,7,1,7,3};
 
-    static List<Triangle> surface(LivingEntity target, float anchor, List<ModelBox> boxes) {
+    // the pose turned as the game turns it (ModelHits.turnAngle): anchor is the turn it was drawn at, yRot and tick this
+    // side's when it came in
+    static List<Triangle> surface(LivingEntity target, float anchor, float yRot, long tick, List<ModelBox> boxes) {
+        return surface(target, -ModelHits.turnAngle(target, anchor, anchor, yRot, tick), boxes);
+    }
+    // the pose as it was drawn, not turned: what a player's shot takes while the player's view of it is fresh
+    static List<Triangle> drawn(LivingEntity target, List<ModelBox> boxes) {
+        return surface(target, 0, boxes);
+    }
+    private static List<Triangle> surface(LivingEntity target, double turn, List<ModelBox> boxes) {
         List<Triangle> out = new ArrayList<>();
-        double turn = -Math.toRadians(net.minecraft.util.Mth.wrapDegrees(target.yBodyRot - anchor));
         for (ModelBox box : boxes) {
             if (box.mesh() == 0) {
                 Vec3[] corners = new Vec3[8];

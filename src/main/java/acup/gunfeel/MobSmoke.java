@@ -31,7 +31,7 @@ import net.minecraft.world.phys.Vec3;
 public final class MobSmoke {
     private static final boolean ENABLED = Boolean.getBoolean("ntmgunfeel.checkMobs");
     private static volatile List<String> CASES = List.of();
-    private record Snapshot(float anchor, List<ModelBox> boxes, String source) {}
+    private record Snapshot(float anchor, float yRot, long tick, List<ModelBox> boxes, String source) {}
     private record Result(boolean ok, String text) {}
     private static final ConcurrentLinkedQueue<Result> RESULTS = new ConcurrentLinkedQueue<>();
     private static volatile int id = -1;
@@ -40,6 +40,9 @@ public final class MobSmoke {
     private static int index=-1, stage, orange, white, sameFrame, oldFrame;
     private static boolean watch;
     private static final boolean CONTOUR_SHOTS=Boolean.getBoolean("ntmgunfeel.contourShots");
+    // -PcheckTurn: a pose kept from before a turn, on the server, against the pose the player sees after it
+    private static final boolean TURN=Boolean.getBoolean("ntmgunfeel.checkTurn");
+    private static Object kept;
     private static final boolean RENDER_SWEEP=Boolean.getBoolean("ntmgunfeel.mobRenderSweep");
     private static int photographed=-1;
     private static int extraBoxesBefore;
@@ -109,10 +112,10 @@ public final class MobSmoke {
     }
 
     static void captured(LivingEntity e, float anchor, List<ModelBox> boxes, String source) {
-        if (ENABLED && e.getId()==id) client=new Snapshot(anchor,List.copyOf(boxes),source);
+        if (ENABLED && e.getId()==id) client=new Snapshot(anchor,e.getYRot(),e.level().getGameTime(),List.copyOf(boxes),source);
     }
     static void accepted(LivingEntity e, float anchor, List<ModelBox> boxes) {
-        if (ENABLED && e.getId()==id) server=new Snapshot(anchor,List.copyOf(boxes),"network");
+        if (ENABLED && e.getId()==id) server=new Snapshot(anchor,e.getYRot(),e.level().getGameTime(),List.copyOf(boxes),"network");
     }
     public static void debug(Entity e, boolean model) {
         if (ENABLED && watch && e!=null && e.getId()==id) {
@@ -317,7 +320,16 @@ public final class MobSmoke {
                 rays(target,client,CASES.get(index)+": клиент, вне кадра после движения");
                 serverRays(true);
             } else check(false,"цель пропала после движения");
-            stage=0;
+            if(TURN && target!=null) {
+                var state=mc.getEntityRenderDispatcher().getRenderer(target).createRenderState();
+                RESULTS.add(new Result(true,CASES.get(index)+": клиент, состояние рендера="+state.getClass().getSimpleName()
+                        +", живое="+(state instanceof net.minecraft.client.renderer.entity.state.LivingEntityRenderState)));
+                stage=12; since=System.nanoTime();
+            } else stage=0;
+        } else if(stage==12 && seconds()>2) {
+            turnAway(); stage=11; since=System.nanoTime();
+        } else if(stage==11 && seconds()>1.5) {
+            turnCompare(); stage=0;
         }
     }
 
@@ -359,8 +371,8 @@ public final class MobSmoke {
                 String label=current()+": размер "+slime.getSize()+", сервер";
                 checkSlimeScale(server,slime.getSize(),"сервер");
                 rays(slime,server,label);
-                var full=MobRayOracle.surface(slime,server.anchor(),server.boxes());
-                var core=MobRayOracle.surface(slime,server.anchor(),server.boxes().stream().filter(b -> !b.part().endsWith(ModelBodyGeometry.SHELL_SUFFIX)).toList());
+                var full=MobRayOracle.surface(slime,server.anchor(),server.yRot(),server.tick(),server.boxes());
+                var core=MobRayOracle.surface(slime,server.anchor(),server.yRot(),server.tick(),server.boxes().stream().filter(b -> !b.part().endsWith(ModelBodyGeometry.SHELL_SUFFIX)).toList());
                 var onlyShell=MobRayOracle.grid(full).stream().filter(ray -> ray.hit() && !MobRayOracle.hit(core,ray.from(),ray.to()) && clearRay(slime,ray)).findFirst().orElseThrow();
                 nativeRay(level,slime,onlyShell,true,label+": попадание только во внешнюю оболочку");
                 if(nextSize>0) slime.setSize(nextSize,true);
@@ -378,8 +390,8 @@ public final class MobSmoke {
                 var level=Minecraft.getInstance().getSingleplayerServer().overworld();
                 var sheep=(net.minecraft.world.entity.animal.sheep.Sheep)level.getEntity(id);
                 rays(sheep,server,current()+": с шерстью, сервер");
-                var full=MobRayOracle.surface(sheep,server.anchor(),server.boxes());
-                var bare=MobRayOracle.surface(sheep,server.anchor(),server.boxes().stream().filter(b -> !ModelWool.isWool(b)).toList());
+                var full=MobRayOracle.surface(sheep,server.anchor(),server.yRot(),server.tick(),server.boxes());
+                var bare=MobRayOracle.surface(sheep,server.anchor(),server.yRot(),server.tick(),server.boxes().stream().filter(b -> !ModelWool.isWool(b)).toList());
                 var woolOnly=MobRayOracle.grid(full).stream().filter(ray -> ray.hit() && !MobRayOracle.hit(bare,ray.from(),ray.to())).toList();
                 woolRay=woolOnly.stream().filter(ray -> clearRay(sheep,ray)).findFirst().orElse(null);
                 // a lamb's fleece is the size of the parts it covers or lies inside them: no point is on the wool alone
@@ -541,6 +553,140 @@ public final class MobSmoke {
         });
     }
 
+    @SuppressWarnings("unchecked")
+    private static java.util.Map<Integer,Object> poses(net.minecraft.world.level.Level level) throws ReflectiveOperationException {
+        var field=ModelHits.class.getDeclaredField("POSES");field.setAccessible(true);
+        return ((java.util.Map<net.minecraft.world.level.Level,java.util.Map<Integer,Object>>)field.get(null)).get(level);
+    }
+    private static Object part(Object record,String name) throws ReflectiveOperationException {
+        var method=record.getClass().getDeclaredMethod(name);method.setAccessible(true);return method.invoke(record);
+    }
+    private static void turnAway() {
+        pending=true;
+        String label=CASES.get(index)+": сервер, поворот";
+        Minecraft.getInstance().getSingleplayerServer().execute(() -> {
+            try {
+                var target=(LivingEntity)Minecraft.getInstance().getSingleplayerServer().overworld().getEntity(id);
+                var all=target==null?null:poses(target.level());
+                kept=all==null?null:all.get(id);
+                if(kept==null) RESULTS.add(new Result(false,label+": нет серверной позы до поворота"));
+                else {
+                    float body=target.yBodyRot,yaw=target.getYRot();
+                    target.setYRot(yaw+40); target.yBodyRot=body+40; target.yHeadRot=target.yHeadRot+40;
+                    RESULTS.add(new Result(true,label+": поза снята при yaw="+part(kept,"yaw")+", тело="+part(kept,"bodyYaw")
+                            +"; сервер yRot "+yaw+"→"+target.getYRot()+", тело "+body+"→"+target.yBodyRot));
+                }
+            } catch(Throwable t) { RESULTS.add(new Result(false,label+": "+t)); }
+            pending=false;
+        });
+    }
+    private static void turnCompare() {
+        pending=true;
+        String label=CASES.get(index)+": сервер, поворот";
+        Minecraft.getInstance().getSingleplayerServer().execute(() -> {
+            try {
+                var target=(LivingEntity)Minecraft.getInstance().getSingleplayerServer().overworld().getEntity(id);
+                var level=target==null?null:(ServerLevel)target.level();var all=level==null?null:poses(level);
+                var fresh=all==null?null:all.get(id);var player=level==null?null:level.getServer().getPlayerList().getPlayers().getFirst();
+                var viewsField=ModelHits.class.getDeclaredField("VIEWS");viewsField.setAccessible(true);
+                var views=player==null?null:((java.util.Map<?,java.util.Map<Integer,Object>>)viewsField.get(null)).get(player);
+                var view=views==null?null:views.get(id);
+                long age=view==null?-1:level.getGameTime()-(long)part(part(view,"pose"),"tick");
+                if(kept==null || fresh==null || server==null) RESULTS.add(new Result(false,label+": нет позы для сравнения"));
+                else if(view==null || age>ModelHits.MAX_SYNC_AGE) RESULTS.add(new Result(false,label+": нет свежей позы игрока, возраст="+age));
+                else {
+                    var grid=MobRayOracle.grid(MobRayOracle.surface(target,server.anchor(),server.yRot(),server.tick(),server.boxes()));
+                    all.put(id,kept);
+                    int seen=0,turret=0,query=0,rays=0;var truths=new java.util.ArrayList<Boolean>();String scan="";boolean fitted=false,ruleFits=false;
+                    try {
+                        for(var ray:grid) {
+                            rays++;
+                            var shot=ModelHits.beginProjectile(player,ray.from().distanceTo(ray.to()));
+                            boolean truth;
+                            try { truth=hit(level,target,ray); } finally { ModelHits.endShot(shot); }
+                            var none=ModelHits.beginProjectile(null,0);
+                            boolean plain;
+                            try { plain=hit(level,target,ray); } finally { ModelHits.endShot(none); }
+                            var bullet=new ProbeBullet(level,target,false);
+                            float speed=(float)Math.max(1,ray.from().distanceTo(ray.to())/(XFactory9mm.p9_ap.velocity*ReaimTimes.number("bulletSpeed",1.6F)));
+                            var d=ray.to().subtract(ray.from());
+                            bullet.setPos(ray.from()); bullet.setThrowableHeading(d.x,d.y,d.z,speed,0); bullet.damage=0; bullet.ticksInAir=1;
+                            bullet.tick(); bullet.discard();
+                            if(truth) seen++;
+                            if(bullet.hit!=truth) turret++;
+                            if(plain!=truth) query++;
+                            truths.add(truth);
+                        }
+                        // the turn the drawn model made: the angle that best lays the kept pose's box centres on the
+                        // fresh pose's, what stays apart (a shape that changed, not a turn), and the rays at that angle
+                        var was=(java.util.List<ModelBox>)part(kept,"boxes");var now=(java.util.List<ModelBox>)part(fresh,"boxes");
+                        float captured=(float)part(kept,"yaw"),body=target.yBodyRot;
+                        scan=", коробок "+was.size()+"/"+now.size()+", свежая поза yaw="+part(fresh,"yaw");
+                        if(was.size()==now.size()) {
+                            int bestA=0;double bestE=Double.MAX_VALUE,worstE=0;
+                            for(int deg=-180;deg<180;deg++) { double e=boxError(was,now,Math.toRadians(deg)); worstE=Math.max(worstE,e); if(e<bestE) { bestE=e;bestA=deg; } }
+                            double rule=Math.toDegrees(turnRule(target,later(kept,level.getGameTime()-(long)part(fresh,"tick"))));double ruleE=boxError(was,now,Math.toRadians(rule));
+                            // the boxes tell a turn when some angle lays them clearly worse than the best one
+                            fitted=Math.sqrt(worstE)-Math.sqrt(bestE)>.05;ruleFits=Math.abs(net.minecraft.util.Mth.wrapDegrees((float)(rule-bestA)))<=3;
+                            scan+=", поворот модели="+bestA+" (остаток "+String.format("%.3f",Math.sqrt(bestE))+"), по правилу="+String.format("%.1f",rule)
+                                    +" (остаток "+String.format("%.3f",Math.sqrt(ruleE))+(fitted?"":", коробки поворота не различают")+"), дальше всех: "+farthest(was,now,Math.toRadians(bestA));
+                        }
+                    } finally { all.put(id,fresh); }
+                    float health=target.getHealth();
+                    boolean raysAgree=turret*20<=Math.max(1,seen) && query*20<=Math.max(1,seen);
+                    // rays that part only because the model moved its limbs (or tilted) between the two poses: the turn is right
+                    String verdict=fitted?ruleFits?raysAgree?"":", поворот верный, лучи расходятся из-за формы":", поворот неверный":raysAgree?"":", поворот лучами неверный";
+                    RESULTS.add(new Result(fitted?ruleFits:raysAgree,label+verdict+": лучей="+rays+", видно попаданий="+seen
+                            +", турель расходится="+turret+", запрос без стрелка расходится="+query+", возраст позы игрока="+age
+                            +", старая поза yaw="+part(kept,"yaw")+", тело сейчас="+target.yBodyRot+", yRot сейчас="+target.getYRot()+", здоровье="+health+scan
+                            +(Minecraft.getInstance().level.getEntity(id) instanceof LivingEntity drawnBy?", клиент: тело="+drawnBy.yBodyRot+", yRot="+drawnBy.getYRot():"")));
+                }
+            } catch(Throwable t) { RESULTS.add(new Result(false,label+": "+t)); }
+            kept=null;pending=false;
+        });
+    }
+    // the pose as if it had come in dt ticks later
+    private static Object later(Object pose,long dt) throws ReflectiveOperationException {
+        var parts=pose.getClass().getRecordComponents();var values=new Object[parts.length];var types=new Class<?>[parts.length];
+        for(int i=0;i<parts.length;i++) {
+            types[i]=parts[i].getType();var accessor=parts[i].getAccessor();accessor.setAccessible(true);values[i]=accessor.invoke(pose);
+            if(parts[i].getName().equals("tick")) values[i]=(long)values[i]+dt;
+        }
+        var constructor=pose.getClass().getDeclaredConstructor(types);constructor.setAccessible(true);return constructor.newInstance(values);
+    }
+    private static double turnRule(LivingEntity target,Object pose) throws ReflectiveOperationException {
+        for(var m:ModelHits.class.getDeclaredMethods())
+            if(m.getName().equals("turnAngle") && m.getParameterCount()==2 && m.getParameterTypes()[0]==LivingEntity.class) {
+                m.setAccessible(true);return (double)m.invoke(null,target,pose);
+            }
+        return Math.toRadians(net.minecraft.util.Mth.wrapDegrees(target.yBodyRot-(float)part(pose,"yaw")));
+    }
+    // a box's corner: the origin and the ends of its three edges, turned as the server turns a pose
+    private static net.minecraft.world.phys.Vec3 corner(ModelBox b,int k,double angle) {
+        double x=b.x()+(k==1?b.ux():k==2?b.vx():k==3?b.wx():0),y=b.y()+(k==1?b.uy():k==2?b.vy():k==3?b.wy():0),z=b.z()+(k==1?b.uz():k==2?b.vz():k==3?b.wz():0);
+        double cos=Math.cos(-angle),sin=Math.sin(-angle);
+        return new net.minecraft.world.phys.Vec3(cos*x+sin*z,y,-sin*x+cos*z);
+    }
+    private static double boxError(ModelBox was,ModelBox now,double angle) {
+        double e=0;for(int k=0;k<4;k++) e+=corner(was,k,angle).distanceToSqr(corner(now,k,0));
+        return e/4;
+    }
+    // mean square distance of the corners, the kept pose turned by angle against the fresh one
+    private static double boxError(java.util.List<ModelBox> was,java.util.List<ModelBox> now,double angle) {
+        double e=0;for(int i=0;i<was.size();i++) e+=boxError(was.get(i),now.get(i),angle);
+        return e/Math.max(1,was.size());
+    }
+    private static String farthest(java.util.List<ModelBox> was,java.util.List<ModelBox> now,double angle) {
+        var order=new java.util.ArrayList<Integer>();for(int i=0;i<was.size();i++) order.add(i);
+        order.sort(java.util.Comparator.comparingDouble(i -> -boxError(was.get(i),now.get(i),angle)));
+        var out=new StringBuilder();
+        for(int i:order.subList(0,Math.min(3,order.size()))) out.append(out.isEmpty()?"":"; ").append(was.get(i).part()).append(' ').append(String.format("%.3f",Math.sqrt(boxError(was.get(i),now.get(i),angle))));
+        return out.toString();
+    }
+    private static boolean hit(net.minecraft.world.level.Level level,LivingEntity target,MobRayOracle.Ray ray) {
+        return ProjectileUtil.getEntityHitResult(level,(Entity)null,ray.from(),ray.to(),new AABB(ray.from(),ray.to()).inflate(.001),e -> e==target,.3F)!=null;
+    }
+
     private static void serverRays(boolean moved) {
         pending=true;
         String label=CASES.get(index)+": сервер"+(moved?", после движения":"");
@@ -574,7 +720,7 @@ public final class MobSmoke {
     }
 
     private static void rays(LivingEntity target,Snapshot pose,String label) {
-        var triangles=MobRayOracle.surface(target,pose.anchor(),pose.boxes());
+        var triangles=MobRayOracle.surface(target,pose.anchor(),pose.yRot(),pose.tick(),pose.boxes());
         var grid=MobRayOracle.grid(triangles);
         if(grid.stream().noneMatch(MobRayOracle.Ray::hit)) {
             grid=new java.util.ArrayList<>(grid);
@@ -602,10 +748,26 @@ public final class MobSmoke {
         RESULTS.add(new Result(hits>0 && misses>0 && mismatch==0,label+": лучи="+grid.size()+", модель="+hits+
                 ", пустота="+misses+", расхождений="+mismatch+", вне AABB="+extra+", пустота внутри AABB+0.3="+gaps));
         if(!target.level().isClientSide()) {
-            nativeRay((ServerLevel)target.level(),target,body,true,label+": тело");
-            if(gap!=null) nativeRay((ServerLevel)target.level(),target,gap,false,label+": пустота внутри AABB+0.3");
-            if(wing!=null) nativeRay((ServerLevel)target.level(),target,wing,true,label+": выступ за AABB");
+            var seen=seen((ServerLevel)target.level(),target);
+            nativeRay((ServerLevel)target.level(),target,body,true,label+": тело",seen);
+            if(gap!=null) nativeRay((ServerLevel)target.level(),target,gap,false,label+": пустота внутри AABB+0.3",seen);
+            if(wing!=null) nativeRay((ServerLevel)target.level(),target,wing,true,label+": выступ за AABB",seen);
         }
+    }
+    // The pose the player saw, while it is fresh (ModelHits.view): a player's bullet, arrow and beam take it as drawn,
+    // not turned by the rule. A spinning mob (the UFO) is drawn a few ticks back from where the rule turns it now.
+    @SuppressWarnings("unchecked")
+    private static List<MobRayOracle.Triangle> seen(ServerLevel level,LivingEntity target) {
+        try {
+            var player=level.getServer().getPlayerList().getPlayers().getFirst();
+            var field=ModelHits.class.getDeclaredField("VIEWS");field.setAccessible(true);
+            var views=((java.util.Map<?,java.util.Map<Integer,Object>>)field.get(null)).get(player);
+            var view=views==null?null:views.get(target.getId());if(view==null) return null;
+            var pose=part(view,"pose");
+            if(level.getGameTime()-(long)part(pose,"tick")>ModelHits.MAX_SYNC_AGE) return null;
+            var boxes=((List<ModelBox>)part(pose,"boxes")).stream().filter(b -> ModelWool.visible(target,b)).toList();
+            return MobRayOracle.drawn(target,boxes);
+        } catch(ReflectiveOperationException e) { throw new IllegalStateException(e); }
     }
 
     // the trace (-Dntmgunfeel.trace): the hitbox's parts as the check sees them (origin and the three edges, relative
@@ -626,7 +788,13 @@ public final class MobSmoke {
     }
 
     private static void nativeRay(ServerLevel level,LivingEntity target,MobRayOracle.Ray ray,boolean expected,String label) {
+        nativeRay(level,target,ray,expected,label,null);
+    }
+    private static void nativeRay(ServerLevel level,LivingEntity target,MobRayOracle.Ray ray,boolean wanted,String label,List<MobRayOracle.Triangle> seen) {
         if(ray==null) { RESULTS.add(new Result(false,label+": нет контрольного луча")); return; }
+        // the probes are the player's: while the player's view is fresh they go by it
+        boolean expected=seen==null?wanted:MobRayOracle.hit(seen,ray.from(),ray.to());
+        if(expected!=wanted) label+=" (по позе, которую видел игрок: "+wanted+"→"+expected+")";
         var block=level.clip(new net.minecraft.world.level.ClipContext(ray.from(),ray.to(),
                 net.minecraft.world.level.ClipContext.Block.COLLIDER,net.minecraft.world.level.ClipContext.Fluid.NONE,target));
         if(block.getType()!=HitResult.Type.MISS) {
@@ -654,9 +822,14 @@ public final class MobSmoke {
         var directBeam=target.getBoundingBox().inflate(.3).clip(ray.from(),actualBeamEnd);
         beam.performHitscanExternal(ray.from().distanceTo(ray.to())); beam.discard();
         boolean untouched=!target.isRemoved() && target.getHealth()==health;
+        // тот же луч в выстреле игрока (ModelHits берёт позу, которую видел стрелок)
+        var shot=ModelHits.beginProjectile(level.getServer().getPlayerList().getPlayers().getFirst(),ray.from().distanceTo(ray.to()));
+        boolean inShot;
+        try { inShot=ProjectileUtil.getEntityHitResult(level,(Entity)null,ray.from(),ray.to(),new AABB(ray.from(),ray.to()).inflate(.001),e -> e==target,.3F)!=null; }
+        finally { ModelHits.endShot(shot); }
         RESULTS.add(new Result(bullet.hit==expected && arrow.hit==expected && beam.hit==expected && untouched,label+": ожидание="+expected+
                 ", NTM-пуля="+bullet.hit+", стрела="+arrow.hit+", NTM-луч="+beam.hit+", цель сохранена="+untouched
-                +", pickable="+target.isPickable()+", луч попал="+beam.impact
+                +", pickable="+target.isPickable()+", в выстреле игрока="+inShot+", луч попал="+beam.impact
                 +", directBeam="+directBeam.isPresent()+", beamDelta="+actualBeamEnd.subtract(ray.to())
                 +", box="+target.getBoundingBox().getClass().getSimpleName()));
     }
@@ -664,8 +837,10 @@ public final class MobSmoke {
     private static final class ProbeBullet extends EntityBulletBaseMK4 implements CollisionProbe {
         private final Entity target;
         private boolean hit;
-        ProbeBullet(ServerLevel level,Entity target) { super(level,XFactory9mm.p9_ap,1,0,0,0); this.target=target;
-            setThrower(level.getServer().getPlayerList().getPlayers().getFirst()); }
+        ProbeBullet(ServerLevel level,Entity target) { this(level,target,true); }
+        // without a thrower: a turret's bullet
+        ProbeBullet(ServerLevel level,Entity target,boolean player) { super(level,XFactory9mm.p9_ap,1,0,0,0); this.target=target;
+            if(player) setThrower(level.getServer().getPlayerList().getPlayers().getFirst()); }
         @Override protected void onImpact(HitResult result) {
             if(result instanceof EntityHitResult entity && entity.getEntity().is(target)) hit=true;
         }

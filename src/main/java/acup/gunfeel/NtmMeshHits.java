@@ -123,9 +123,16 @@ public final class NtmMeshHits {
         frame.boxes().addAll(out); PENDING.put(frame,Boolean.TRUE);
     }
 
+    // NTM's beams (BeamPronter: the tesla and taint crabs' arcs, the UFO's and the radiation blaze's rays) are light, not
+    // the mob. Taken in, a zapping crab's arcs ran its pose past MAX_BOXES, and the whole pose was thrown away.
+    static boolean beam(net.minecraft.client.renderer.rendertype.RenderType type) {
+        return type==com.hbm.client.render.BeamRenderTypes.ADDITIVE || type==com.hbm.client.render.BeamRenderTypes.ADDITIVE_NO_FOG
+                || type==com.hbm.client.render.BeamRenderTypes.LINE;
+    }
+
     public static CustomGeometryRenderer wrap(CustomGeometryRenderer renderer,net.minecraft.client.renderer.rendertype.RenderType type) {
         Frame frame = SUBMIT.get();
-        if (frame == null) return renderer;
+        if (frame == null || beam(type)) return renderer;
         PENDING.put(frame, Boolean.TRUE);
         return (pose, buffer) -> {
             Frame previous = DRAW.get();
