@@ -15,6 +15,9 @@ https://github.com/MCModderAnchor/TACZ
   client/event/TickAnimationEvent.java; состояние возвращается, а не уходит
   в машину анимаций TaCZ.
 Изменения в каждом файле перечислены в его шапке.
+Порт 1.12.2 держит свои копии тех же четырёх файлов в
+port/1.12.2/src/main/java/acup/gunfeel/tacz; перевод на API Minecraft 1.12.2
+описан в шапке каждого файла.
 
 Ассеты TaCZ (анимации, модели, скрипты машин состояний; CC BY-NC-ND 4.0)
 не переносились.
