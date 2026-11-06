@@ -1,0 +1,29 @@
+TX-54 grenade launcher placeholder model
+========================================
+
+The placeholder 3D model of the TX-54 grenade launcher is a modified derivative of:
+
+  Title:   Low-Poly XM-29 OICW
+  Author:  TastyTony (https://sketchfab.com/TastyTony)
+  Source:  https://sketchfab.com/3d-models/low-poly-xm-29-oicw-fa6b9666bdf2411998874a35af54a3e7
+  License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+           https://creativecommons.org/licenses/by/4.0/
+
+The model has been modified and is not endorsed by the original author.
+Original authorship of the XM29 geometry remains TastyTony's.
+
+Changes:
+- Kept the XM29 upper grenade-launcher shell, 20 mm barrel, magazine, ejection-port
+  details, charging handle, fasteners and grip; removed the 5.56 mm rifle assembly,
+  its magazine and barrel, the electronic optic and its mounts.
+- Shortened and reshaped the shell and grip; closed the lower shell; added a magazine
+  well, floorplate, trigger and trigger guard.
+- Cut side openings in the shroud to show the barrel; recoloured to black and graphite
+  with a bright barrel; narrowed the magazine and added side panels and a band.
+- Added iron sights, a ribbed rubber buttpad and a laser rangefinder.
+- Split into separate parts and added a firing animation (bolt carrier, charging
+  handle, ejected case).
+
+The TX-54 name and shape follow the TerraGov Marine Corps (TGMC) Space Station 13
+server as a reference only. No TGMC artwork is included, and no claim is made to
+TGMC designs or branding.

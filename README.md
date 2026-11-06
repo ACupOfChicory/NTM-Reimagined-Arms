@@ -126,6 +126,12 @@ GPL-3.0-only, like the Superb Warfare code above. Source revision, changes and
 the license text are in [third-party/tacz.txt](third-party/tacz.txt) and
 packaged under `META-INF/licenses/`. No TaCZ assets are included.
 
+The TX-54 grenade launcher's placeholder model is a modified derivative of
+"Low-Poly XM-29 OICW" by TastyTony, licensed under CC BY 4.0. The source link,
+license link and list of changes are in
+[third-party/tx54-model.txt](third-party/tx54-model.txt), also packaged under
+`META-INF/licenses/`. The model is not endorsed by its original author.
+
 The 1.7.10 port also bundles stub classes from JvmDowngrader
 (LGPL-2.1-or-later) and a shaded copy of JOML (MIT). Their notices are in
 `port/1.7.10/third-party/` on that branch and packaged in its jar.
