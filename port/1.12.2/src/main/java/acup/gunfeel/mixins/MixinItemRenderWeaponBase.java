@@ -179,6 +179,7 @@ public abstract class MixinItemRenderWeaponBase {
         Vector3f held = new Vector3f();
         boolean hold = placing && PistolHold.on() && !PistolHold.scoped(stack);
         boolean pistol = hold && stack != null && PistolHold.hip(stack.getItem(), aX, aY, aZ, held);
+        Arms.pistolHoldFrame(placing, pistol);
         // aimHold: a pistol's aimed place moved along the eye's line, by the measurements (PistolHold.aim); the same
         // placing call only, and not through a scope
         Vector3f deeper = new Vector3f();

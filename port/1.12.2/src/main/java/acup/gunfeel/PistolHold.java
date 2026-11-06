@@ -85,7 +85,8 @@ public final class PistolHold {
      */
     public static boolean on() {
         if (!Config.enabled || Config.pistolHold <= 0F || !WalkSprint.pistol(Config.kickPreset)) return false;
-        return net.minecraft.client.Minecraft.getMinecraft().gameSettings.mainHand != EnumHandSide.LEFT;
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getMinecraft();
+        return mc == null || mc.gameSettings.mainHand != EnumHandSide.LEFT;
     }
 
     /**
@@ -94,7 +95,8 @@ public final class PistolHold {
      */
     public static boolean aimOn() {
         if (!Config.enabled || Config.aimHold <= 0F || !WalkSprint.pistol(Config.kickPreset)) return false;
-        return net.minecraft.client.Minecraft.getMinecraft().gameSettings.mainHand != EnumHandSide.LEFT;
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getMinecraft();
+        return mc == null || mc.gameSettings.mainHand != EnumHandSide.LEFT;
     }
 
     /**

@@ -12,13 +12,14 @@ import java.nio.FloatBuffer;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
+import com.hbm.items.weapon.sedna.ItemGunBaseNT;
 import com.hbm.render.anim.sedna.AnimationEnums.GunAnimation;
 import com.hbm.render.anim.sedna.HbmAnimationsSedna;
 import com.hbm.render.loader.HFRWavefrontObject;
 import com.hbm.render.loader.GroupObject;
+import com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -41,6 +42,9 @@ import net.minecraft.util.ResourceLocation;
 // with the gun drawn into a closed colour and depth mask (26.2: the NOWHERE collector). No arm animation editor, its
 // preview, ClientSmoke or the on-screen numbers of armdebug; sleeves and slim arms only with 1.8 skins (PlayerSkins).
 public final class Arms {
+    // a pistol's arm thickness per unit of its grip's distance from the eye (armPistolScale): the heavy revolver's
+    // right grip is 1.58 from the eye at the hip by its shipped grip, so its right arm keeps armBaseRight 1.70
+    static final float PISTOL_THICKNESS = 1.70F / 1.58F;
     // every variant of a gun seen so far (a weapon mod can change which parts NTM draws), and the one in hand
     private static final Map<Item, List<GunGeometry>> VARIANTS = new IdentityHashMap<>();
     private static final Map<Item, GunGeometry> CURRENT = new IdentityHashMap<>();
@@ -56,7 +60,7 @@ public final class Arms {
     // each arm at rest, per gun variant: during animations the arm keeps this length and thickness
     private static final Map<GunGeometry, ArmRest[]> ARM_REST = new IdentityHashMap<>();
 
-    private static final class ArmRest {
+    static final class ArmRest {
         boolean valid;
         float length, s;
         final Vector3f hand = new Vector3f(), shoulder = new Vector3f(), axis = new Vector3f(), center = new Vector3f();
@@ -92,6 +96,7 @@ public final class Arms {
     private static Item item;
     private static GunGeometry geometry;
     private static boolean capturing, haveCamera;
+    private static boolean pistolHoldFrame;
 
     private Arms() {
     }
@@ -121,6 +126,7 @@ public final class Arms {
     }
 
     public static void begin(ItemStack stack) {
+        resetPistolHoldFrame();
         item = stack.getItem();
         geometry = null;
         haveCamera = false;
@@ -132,8 +138,27 @@ public final class Arms {
         MachineMesh.armsCapturing = true;
     }
 
+    static void resetPistolHoldFrame() {
+        pistolHoldFrame = false;
+    }
+
+    // a standardAimingTransform call: only NTM's placing call sets it, a later one in the frame (the heavy
+    // revolver's kick) keeps what the placing call set
+    public static void pistolHoldFrame(boolean placing, boolean placed) {
+        if (placing) pistolHoldFrame = placed;
+    }
+
+    static boolean pistolHoldFrame() {
+        return pistolHoldFrame;
+    }
+
+    // BufferUtils.createFloatBuffer(16) without LWJGL at class load, so the shared tests can load Arms
+    private static FloatBuffer floats16() {
+        return java.nio.ByteBuffer.allocateDirect(64).order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer();
+    }
+
     // port: the GL modelview now, column by column (26.2: pose.last().pose())
-    private static final FloatBuffer GL_BUF = BufferUtils.createFloatBuffer(16);
+    private static final FloatBuffer GL_BUF = floats16();
 
     private static float[] modelview() {
         GL_BUF.clear();
@@ -462,6 +487,9 @@ public final class Arms {
         EntityPlayerSP player = mc.player;
         if (player == null || player.isInvisible()) return;
         drawnFrames++;
+        float aiming = ItemGunBaseNT.prevAimingProgress + (ItemGunBaseNT.aimingProgress - ItemGunBaseNT.prevAimingProgress)
+                * ItemRenderWeaponBase.interp;
+        float aimWeight = PistolHold.curve(aiming);
         float[][] grip = grips(item);
         ResourceLocation skin = TEST_SKIN == null ? player.getLocationSkin() : testSkin();
         boolean slim = slim();
@@ -516,7 +544,8 @@ public final class Arms {
             Vector3f restGrip = restHolder.transformPosition(grip[i][0], grip[i][1], grip[i][2], new Vector3f());
             Vector3f restCenter = restHolder.transformPosition(grip[i + 2][0], grip[i + 2][1], grip[i + 2][2], new Vector3f());
             restArm(r, right, slim, restGrip, restDown, restCenter, restAxis,
-                    right ? Config.armDirRight : Config.armDirLeft, right ? Config.armReachRight : Config.armReachLeft);
+                    right ? Config.armDirRight : Config.armDirLeft, right ? Config.armReachRight : Config.armReachLeft,
+                    holdScale(right, aimWeight), pistolHoldFrame && Config.armPistolScale, Config.pistolHold);
             if (!r.valid) continue;
             if (atRest) {
                 branch = "rest";
@@ -569,7 +598,8 @@ public final class Arms {
                 ArmRest there = new ArmRest();
                 restArm(there, right, slim, p, off, p, axisPoint,
                         right ? Config.armDirRight : Config.armDirLeft, right ? Config.armReachRight : Config.armReachLeft,
-                        right ? Config.armLoadScaleRight : Config.armLoadScaleLeft);
+                        right ? Config.armLoadScaleRight : Config.armLoadScaleLeft,
+                        pistolHoldFrame && Config.armPistolScale, Config.pistolHold);
                 ArmRest mix = r;
                 if (there.valid) {
                     mix = new ArmRest();
@@ -645,7 +675,8 @@ public final class Arms {
                 ArmRest there = new ArmRest();
                 restArm(there, right, slim, p, off, p, axisPoint,
                         right ? Config.armDirRight : Config.armDirLeft, right ? Config.armReachRight : Config.armReachLeft,
-                        right ? Config.armLoadScaleRight : Config.armLoadScaleLeft);
+                        right ? Config.armLoadScaleRight : Config.armLoadScaleLeft,
+                        pistolHoldFrame && Config.armPistolScale, Config.pistolHold);
                 ArmRest mix = r;
                 if (there.valid) {
                     float w = carried[0];
@@ -1274,12 +1305,29 @@ public final class Arms {
     // direction until depth `reach`. grip = point on the gun's underside; the arm's end face touches it there.
     private static void restArm(ArmRest rest, boolean right, boolean slim, Vector3f grip, Vector3f down, Vector3f center,
             Vector3f axisPoint, float[] dirCfg, float reach) {
-        restArm(rest, right, slim, grip, down, center, axisPoint, dirCfg, reach, right ? Config.armScaleRight : Config.armScaleLeft);
+        restArm(rest, right, slim, grip, down, center, axisPoint, dirCfg, reach, holdScale(right, 0F));
+    }
+
+    static float holdScale(boolean right, float w) {
+        float hip = right ? Config.armScaleRight : Config.armScaleLeft;
+        float aim = right ? Config.armAimScaleRight : Config.armAimScaleLeft;
+        if (!(aim > 0F) || w <= 0F) return hip;
+        if (w >= 1F) return aim;
+        return hip + (aim - hip) * w;
     }
 
     // holdScale: armScaleRight/Left, the thickness of an arm holding the gun (1 for a hand carrying something)
-    private static void restArm(ArmRest rest, boolean right, boolean slim, Vector3f grip, Vector3f down, Vector3f center,
+    static void restArm(ArmRest rest, boolean right, boolean slim, Vector3f grip, Vector3f down, Vector3f center,
             Vector3f axisPoint, float[] dirCfg, float reach, float holdScale) {
+        restArm(rest, right, slim, grip, down, center, axisPoint, dirCfg, reach, holdScale, false, 0F);
+    }
+
+    static float pistolThickness(float sOld, Vector3f restGrip, float wp) {
+        return sOld + (PISTOL_THICKNESS * restGrip.length() - sOld) * Math.min(1F, wp);
+    }
+
+    static void restArm(ArmRest rest, boolean right, boolean slim, Vector3f grip, Vector3f down, Vector3f center,
+            Vector3f axisPoint, float[] dirCfg, float reach, float holdScale, boolean pistolScale, float pistolWeight) {
         Vector3f dir = new Vector3f(dirCfg[0], dirCfg[1], dirCfg[2]);
         if (dir.lengthSquared() < 1e-6F) {
             rest.valid = false;
@@ -1291,7 +1339,9 @@ public final class Arms {
         length = Math.max(length, 18F / 16F);
         // thickness: fixed (armBaseRight/Left, the same on every gun) or grown with the arm's length
         float base = right ? Config.armBaseRight : Config.armBaseLeft;
-        float s = (base > 0F ? base : Math.min(length / (18F / 16F), Config.armMaxScale)) * Config.armScale * holdScale;
+        float thickness = base > 0F ? base : Math.min(length / (18F / 16F), Config.armMaxScale);
+        if (pistolScale && pistolWeight > 0F) thickness = pistolThickness(thickness, grip, pistolWeight);
+        float s = thickness * Config.armScale * holdScale;
         // Like TaCZ: an arm of fixed thickness is the whole arm, armLength x the vanilla arm of its thickness,
         // never cut at the plane in front of the eye (armReach): cut there, a hand near the screen kept only a few
         // pixels and looked tiny. It runs on out of view. Animations may still stretch it (armStretch).
@@ -1536,7 +1586,7 @@ public final class Arms {
     // the left arm is the right one mirrored, as ModelBiped has it. A 64 x 64 one (Et Futurum's 1.8 skins, PlayerSkins)
     // has both, as 26.2's PlayerModel: the left arm at (32, 48), the sleeves at (40, 32) and (48, 48), 0.25 pixels out.
     // Faces and texture corners as ModelBox / TexturedQuad.
-    private static final FloatBuffer ARM_BUF = BufferUtils.createFloatBuffer(16);
+    private static final FloatBuffer ARM_BUF = floats16();
 
     private static void drawArm(ResourceLocation skin, Matrix4f m, int n, boolean right, boolean slim) {
         Minecraft.getMinecraft().getTextureManager().bindTexture(skin);
