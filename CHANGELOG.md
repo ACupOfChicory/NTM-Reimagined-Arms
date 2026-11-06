@@ -1,5 +1,25 @@
 # Changelog
 
+## X543.138
+
+- As in 26.2 X498 and X517: bullets meeting water now splash the way it
+  moves: a crown and spray on still water, a fan downstream on a slope, a
+  burst through a waterfall, a low spray on a thin sheet. Rings lie on the
+  surface and drift with the current, foam and bubbles rise and pop at the
+  surface, and a skipping round splashes at each bounce. Nothing sinks under
+  the surface or hangs over air, and a ring goes away when its water does.
+  Rings are lit by the world's light like particles, white in daylight, and
+  the big particles of a shot fade in without blinking. Off with
+  `waterSplash = false`.
+- Under water a shot has no muzzle flash. It throws a gas bubble at the
+  muzzle that swells, shrinks and breaks into rising bubbles, its size set by
+  the calibre, and the round leaves a trail of rising bubbles. A bullet
+  stopped by lava hisses and smokes.
+- On 1.7.10 the effects are particles of their own on the vanilla particle
+  sheet; the gas bubble's pop is a simpler swelling fade. Fewer of them with
+  decreased or minimal particles. Drops and foam above the water are drawn
+  after it, as in 26.2, so the water does not tint them blue.
+
 ## X543.137
 
 - An incendiary or phosphorus rocket that hits a mob in water in its first

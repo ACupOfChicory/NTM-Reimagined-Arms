@@ -98,9 +98,14 @@ public final class ShootScenario {
         return NAME.equals("pistols");
     }
 
+    // "waterfx": the water effects on four pools, numbers and two screenshots (WaterFxScenario)
+    static boolean waterfx() {
+        return NAME.equals("waterfx");
+    }
+
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || look() || shapes() || scan() || mobs() || holes() || glass() || fences() || aimlag() || walksprint() || pistols() || TraceScenario.enabled();
+        return on() || look() || shapes() || scan() || mobs() || holes() || glass() || fences() || aimlag() || walksprint() || pistols() || waterfx() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -163,6 +168,11 @@ public final class ShootScenario {
         }
         if (pistols()) {
             PistolScenario.step(mc, ++tick);
+            return;
+        }
+        if (waterfx()) {
+            if (held) press(true);
+            WaterFxScenario.step(mc, ++tick);
             return;
         }
         if (look()) {

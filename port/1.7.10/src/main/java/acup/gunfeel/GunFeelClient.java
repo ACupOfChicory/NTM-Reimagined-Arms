@@ -87,6 +87,7 @@ public final class GunFeelClient {
         if (e.phase != TickEvent.Phase.START) return;
         partial = e.renderTickTime;
         MachineMesh.newFrame();
+        acup.gunfeel.water.WaterParticle.newFrame();
         Config.poll();
         EntityPlayer player = Minecraft.getMinecraft().thePlayer;
         ItemStack held = player == null ? null : player.getHeldItem();

@@ -72,6 +72,8 @@ ntmgunfeel-materials.txt
 ntmgunfeel-bullets.txt
 # the fence, gate and wall cells (FenceCells reads the "~family[...]" lines)
 ntmgunfeel-bullet-shapes.properties
+# the water effects' textures (WaterRings)
+assets/ntmgunfeel/textures/particle/*.png
 
 [main-phys]
 # src/main/java, compiled with net.minecraft.world.phys.Vec3 read as acup.gunfeel.phys.Vec3 (build.gradle.kts)
