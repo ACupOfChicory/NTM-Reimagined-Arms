@@ -1,5 +1,16 @@
 # Changelog
 
+## X488
+
+- F3+B: the hitbox outline of an animated mob no longer lags behind its model.
+  It now shows the pose of this frame, of the last frame, or one younger than
+  1/60 s. Before, a mob whose outline takes long to build (glyphids, mask man,
+  tesla crab and other NTM mobs) could show a pose several frames old while
+  it walked. The outline is still built in the background; a frame waits for
+  it only when the one on screen would be too old. At 60 FPS this costs
+  nothing; above it, many walking NTM mobs with F3+B on lower the frame rate:
+  10 or 30 of them at a 144 FPS cap went from 137 to about 105 FPS.
+
 ## X483
 
 - След пули на стекле, у которого нет прозрачных насквозь пикселей

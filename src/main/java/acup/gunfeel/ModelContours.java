@@ -20,16 +20,30 @@ public final class ModelContours {
     private static final java.util.LinkedHashMap<Long,ArrayList<Cached>> CACHE=new java.util.LinkedHashMap<>(64,.75F,true);
     private static int cachedShapes;
     private static long builds;
-    // Анимированный моб меняет позу каждый кадр. Кадр не ждёт новую форму:
-    // пока она строится в фоне, показывается прежний контур этого моба
-    // в текущей системе его тела. Конечности отстают не больше чем на кадр.
-    private record Shown(long key,List<Vec3[]> edges) {}
+    // Анимированный моб меняет позу каждый кадр. Пока новая форма строится
+    // в фоне, показывается прежний контур этого моба в текущей системе его
+    // тела, но только не старше правила: контур с прошлого кадра (не дольше
+    // 0,25 с) или моложе LAG. Старше — кадр ждёт фоновую сборку этого моба
+    // (не дольше 0,5 с), а если и она старая, строит контур сразу.
+    // born и frame — время и номер вызова outlines, чья поза построена.
+    private record Shown(long key,List<Vec3[]> edges,long born,long frame) {
+        Shown(long key,List<Vec3[]> edges) { this(key,edges,callAt,calls); }
+    }
     private static final class Flight {
         final Request request; final List<Object> owners=new ArrayList<>(2);
+        final long born=callAt,frame=calls;
         Flight(Request request) { this.request=request; }
     }
     private static final java.util.Map<Object,Shown> SHOWN=new java.util.WeakHashMap<>();
-    private static final java.util.Set<Object> WAITING=java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
+    // Сборки моба в пути: сколько и время и номер вызова новейшей. Следующая
+    // начинается, не дожидаясь прежней, если новейшая начата раньше STAGGER
+    // (не больше AHEAD сразу): так контур моложе сборки плюс шаг и кадр не ждёт.
+    private static final class Pending { int count; long born,frame; }
+    private static final java.util.Map<Object,Pending> WAITING=new java.util.WeakHashMap<>();
+    private static final int AHEAD=3;
+    // Мобы, чья последняя фоновая сборка упала: им показывается прежний
+    // контур, как до правила, а сборка повторяется в фоне.
+    private static final java.util.Set<Object> FAILED=java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
     private static final List<Flight> FLIGHTS=new ArrayList<>();
     private static long generation;
     // Часы контура: номер и начало каждого вызова outlines с владельцами
@@ -38,6 +52,9 @@ public final class ModelContours {
     // Насколько старым может быть показанный контур, если он не с прошлого
     // кадра: -PcontourLag=<мс>, по умолчанию 1/60 с.
     static final long LAG=(long)(Double.parseDouble(System.getProperty("ntmgunfeel.contourLag","16.667"))*1e6);
+    private static final long STAGGER=LAG/3;
+    // Сколько вызов outlines может ждать фоновые сборки, на все мобы вместе.
+    private static long deadline;
     static synchronized long builds() { return builds; }
     static synchronized long callAt() { return callAt; }
     record Frame(Vec3 origin,Vec3 u,Vec3 v,Vec3 w) {
@@ -65,7 +82,8 @@ public final class ModelContours {
     record Outline(Frame frame,List<Vec3[]> edges) {}
     public static synchronized void clear() {
         LEGACY_CACHE.clear(); CACHE.clear(); cachedShapes=0;
-        SHOWN.clear(); WAITING.clear(); FLIGHTS.clear(); generation++;
+        SHOWN.clear(); WAITING.clear(); FAILED.clear(); FLIGHTS.clear(); generation++;
+        ModelContours.class.notifyAll();
     }
     public static synchronized List<Vec3[]> edges(List<ModelBox> boxes) {
         if(boxes.isEmpty()) return List.of();
@@ -100,7 +118,7 @@ public final class ModelContours {
     // показывать нельзя.
     static synchronized List<Outline> outlines(List<List<ModelBox>> all,List<?> owners) {
         if(MobBenchMetrics.LEGACY) return all.stream().map(ModelContours::outline).toList();
-        if(owners!=null) { calls++; callAt=System.nanoTime(); }
+        if(owners!=null) { calls++; callAt=System.nanoTime(); deadline=callAt+500_000_000L; }
         var out=new Outline[all.size()];
         var frames=new Frame[all.size()];
         var refs=new int[all.size()];
@@ -118,15 +136,16 @@ public final class ModelContours {
             var edges=lookup(request);
             if(edges!=null) {
                 out[i]=new Outline(request.frame(),edges);
-                if(owner!=null) SHOWN.put(owner,new Shown(request.key(),edges));
+                if(owner!=null) show(owner,new Shown(request.key(),edges));
                 continue;
             }
             // Тот же набор частей уже показывался: прежний контур сейчас,
             // новая форма в фоне. Первый показ строится сразу, как раньше.
             var shown=owner==null?null:SHOWN.get(owner);
-            if(shown!=null && shown.key()==request.key()) {
+            if(shown!=null && shown.key()==request.key() && (shown=fresh(shown,owner,request.key()))!=null) {
                 out[i]=new Outline(request.frame(),shown.edges());
-                if(WAITING.add(owner)) later(request,owner);
+                var waiting=WAITING.get(owner);
+                if(waiting==null || waiting.count<AHEAD && callAt-waiting.born>STAGGER) later(request,owner);
                 continue;
             }
             refs[i]=pending.size(); frames[i]=request.frame(); pending.add(request);
@@ -138,31 +157,86 @@ public final class ModelContours {
         for(int i=0;i<out.length;i++) if(out[i]==null) {
             out[i]=new Outline(frames[i],stored.get(refs[i]));
             var owner=owners==null?null:owners.get(i);
-            if(owner!=null) SHOWN.put(owner,new Shown(pending.get(refs[i]).key(),stored.get(refs[i])));
+            if(owner!=null) show(owner,new Shown(pending.get(refs[i]).key(),stored.get(refs[i])));
         }
         return List.of(out);
     }
+    // Показанный контур, если он годится по правилу; иначе ждёт фоновую сборку
+    // этого моба, если в пути есть годная. null — годного нет, строить сразу.
+    private static Shown fresh(Shown shown,Object owner,long key) {
+        if(FAILED.contains(owner)) return shown;
+        for(long now;!good(shown) && WAITING.get(owner) instanceof Pending p && good(p.born,p.frame)
+                && deadline-(now=System.nanoTime())>0;) {
+            try { ModelContours.class.wait(Math.max(1,Math.min(50,(deadline-now)/1_000_000))); }
+            catch(InterruptedException e) { Thread.currentThread().interrupt(); break; }
+            var next=SHOWN.get(owner);
+            if(next==null || next.key()!=key) return null;
+            shown=next;
+        }
+        return good(shown)?shown:null;
+    }
+    private static boolean good(Shown s) { return good(s.born(),s.frame()); }
+    private static boolean good(long born,long frame) {
+        long age=callAt-born;
+        return age<=LAG || frame>=calls-1 && age<=250_000_000L;
+    }
+    // сборка кончилась: снять её с мобов
+    private static void landed(Flight flight) {
+        FLIGHTS.remove(flight);
+        for(var owner:flight.owners) {
+            var waiting=WAITING.get(owner);
+            if(waiting!=null && --waiting.count<=0) WAITING.remove(owner);
+        }
+        ModelContours.class.notifyAll();
+    }
     // Одна фоновая сборка на позу: моб с той же позой ждёт уже начатую.
     private static void later(Request request,Object owner) {
-        for(var flight:FLIGHTS)
-            if(flight.request.key()==request.key() && near(flight.request.sum(),flight.request.alt(),request)
-                    && same(flight.request.shape(),request.shape())) { flight.owners.add(owner); return; }
-        var flight=new Flight(request); flight.owners.add(owner); FLIGHTS.add(flight);
-        long started=generation;
-        java.util.concurrent.ForkJoinPool.commonPool().execute(() -> {
-            List<Vec3[]> edges=null;
+        Flight flight=null;
+        for(var candidate:FLIGHTS)
+            if(candidate.request.key()==request.key() && near(candidate.request.sum(),candidate.request.alt(),request)
+                    && same(candidate.request.shape(),request.shape())) { flight=candidate; break; }
+        if(flight!=null && flight.owners.contains(owner)) return;
+        var waiting=WAITING.computeIfAbsent(owner,k -> new Pending());
+        if(flight!=null) {
+            flight.owners.add(owner); waiting.count++;
+            if(flight.born>waiting.born) { waiting.born=flight.born; waiting.frame=flight.frame; }
+            return;
+        }
+        flight=new Flight(request); flight.owners.add(owner); FLIGHTS.add(flight);
+        waiting.count++; waiting.born=flight.born; waiting.frame=flight.frame;
+        var started=generation; var launched=flight;
+        try { java.util.concurrent.ForkJoinPool.commonPool().execute(() -> land(launched,started)); }
+        catch(java.util.concurrent.RejectedExecutionException ex) { landed(launched); }
+    }
+    // поток сборки: построить форму и показать её мобам полёта
+    private static void land(Flight flight,long started) {
+        var request=flight.request;
+        List<Vec3[]> edges=null;
+        try {
             try { edges=List.copyOf(collect(request.shape())); }
             catch(RuntimeException ex) { ModelHitLog.event("client","contour_failed",null,ex::toString); }
+        } finally {
+            // сборка снимается с мобов при любом исходе, и при Error: иначе кадр ждал бы её до срока,
+            // а моб с AHEAD такими сборками не начал бы новых
             synchronized(ModelContours.class) {
-                if(started!=generation) return;
-                FLIGHTS.remove(flight);
-                for(var waiting:flight.owners) WAITING.remove(waiting);
-                if(edges==null) return;
-                var stored=store(request,edges);
-                for(var waiting:flight.owners) SHOWN.put(waiting,new Shown(request.key(),stored));
+                if(started!=generation) ModelContours.class.notifyAll();
+                else {
+                    landed(flight);
+                    // упала последняя сборка моба: прежний контур, пока фоновая не выйдет
+                    if(edges==null) { for(var owner:flight.owners) if(!WAITING.containsKey(owner)) FAILED.add(owner); }
+                    else {
+                        var stored=store(request,edges);
+                        // сборка, начатая раньше, не затирает более свежий контур
+                        for(var owner:flight.owners) {
+                            var old=SHOWN.get(owner);
+                            if(old==null || old.born()<=flight.born) show(owner,new Shown(request.key(),stored,flight.born,flight.frame));
+                        }
+                    }
+                }
             }
-        });
+        }
     }
+    private static void show(Object owner,Shown shown) { SHOWN.put(owner,shown); FAILED.remove(owner); }
     private static Request request(List<ModelBox> boxes) {
         // Общее перемещение и поворот не меняют топологию контура. Храним
         // его в ортонормированной системе первой детали, без масштаба:
