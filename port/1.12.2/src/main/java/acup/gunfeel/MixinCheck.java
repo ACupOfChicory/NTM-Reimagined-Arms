@@ -11,7 +11,7 @@ import java.util.Map;
 public final class MixinCheck {
     // target -> handlers it should have
     private static final String[][] TARGETS = {
-            {"com.hbm.main.ModEventHandlerClient", "1"},
+            {"com.hbm.main.ModEventHandlerClient", "2"}, // MixinModEventHandlerClient, MixinSpectatorHud
             {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "16"}, // 5 + MixinSmokeNodes 2 + arms 3 + direct path 2 and its helpers 3 + walkSway 1
             {"com.hbm.render.anim.sedna.HbmAnimationsSedna", "2"},
             {"com.hbm.render.loader.HFRWavefrontObject", "8"}, // 4 + MachineMesh ends 4
@@ -30,7 +30,7 @@ public final class MixinCheck {
             {"com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase", "3"},
             {"com.hbm.items.weapon.sedna.mags.MagazineBelt", "2"},
             {"com.hbm.main.ClientProxy", "2"}, // MixinGunKeysRadial, MixinAimButton
-            {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "12"}, // 2 + MixinHoldAim 3 handlers and its 3 helpers (gunfeel$standardScope ...) + MixinSprintFireGun 4
+            {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "16"}, // MixinGunHud 2 + MixinHoldAim 3 handlers and its 3 helpers (gunfeel$standardScope ...) + MixinSprintFireGun 4 + MixinSpectatorGun 2 + MixinWaterShooter 2
             {"com.hbm.packet.toclient.GunAnimationPacketSedna$Handler", "4"},
             {"net.minecraft.client.renderer.ItemRenderer", "4"}, // ItemRendererAccess
             {"net.minecraft.client.renderer.entity.RenderLivingBase", "5"}, // begin, end, yaw, modelStart, modelEnd
@@ -45,9 +45,10 @@ public final class MixinCheck {
             {"com.hbm.render.loader.GroupHandle", "2"}, // MixinGroupHandle
             {"net.minecraft.client.renderer.entity.RenderManager", "2"}, // the model box, the box at full brightness
             {"com.hbm.items.weapon.sedna.GunConfig", "6"}, // MixinG3Inspect 4 (gunfeel$release + 3), MixinGunConfigAnims 2
-            {"com.hbm.entity.projectile.EntityThrowableNT", "10"}, // MixinThrowableClip 9 (blocks, mob, nearest, start, spread, hitboxes 4) + ThrowableAccess 1
+            {"com.hbm.entity.projectile.EntityThrowableNT", "11"}, // MixinThrowableClip 10 (blocks, mob, nearest, start, spread, hitboxes 4, the water tick's end) + ThrowableAccess 1
             {"com.hbm.entity.projectile.EntityBulletBeamBase", "4"},
             {"com.hbm.items.weapon.sedna.BulletConfig", "3"}, // MixinHeadDamage, MixinRicochetSound
+            {"net.minecraft.world.World", "2"}, // MixinWaterMuffle: volume, pitch
     };
 
     private MixinCheck() {
@@ -57,6 +58,11 @@ public final class MixinCheck {
     private static final boolean CLEANROOM = MixinCheck.class.getClassLoader().getResource("com/cleanroommc/client/input/InputHooks.class") != null;
 
     public static Map<String, Integer> report() {
+        return report(new ArrayList<String>());
+    }
+
+    // the same, and each class short of its handlers into `short` ("class has n, wants m")
+    public static Map<String, Integer> report(List<String> wrong) {
         Map<String, Integer> out = new LinkedHashMap<String, Integer>();
         for (String[] t : TARGETS) {
             int n = 0;
@@ -73,6 +79,7 @@ public final class MixinCheck {
             int want = Integer.parseInt(t[1]);
             // port: on Cleanroom MixinMouseTurnCleanroom adds one (ArmsCore queues it there only)
             if (CLEANROOM && t[0].equals("net.minecraft.client.renderer.EntityRenderer")) want++;
+            if (n != want) wrong.add(t[0] + " has " + n + ", wants " + want);
             if (n != want) GunFeel.LOGGER.warn("Mixins: {} has {} of our handlers, wants {}: {}", t[0], n, want, names);
         }
         GunFeel.LOGGER.info("Mixins applied (handlers per class): {}", out);

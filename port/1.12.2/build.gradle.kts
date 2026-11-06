@@ -294,6 +294,7 @@ listOf("runClient", "runServer").forEach { name ->
 // run/client/logs/ntm-gunfeel-trace-<scenario>.tsv for tools/trace_diff.py.
 val scenario = providers.gradleProperty("scenario")
 val scenarioGuns = providers.gradleProperty("scenarioGuns")
+val scenarioChest = providers.gradleProperty("scenarioChest")
 val scenarioMachines = providers.gradleProperty("machines")
 val scenarioMobs = providers.gradleProperty("mobs")
 val lookDoor = providers.gradleProperty("lookDoor")
@@ -308,6 +309,7 @@ tasks.withType<RunMinecraftTask>().configureEach {
         systemProperty("ntmgunfeel.traceScenario", s)
     }
     if (scenarioGuns.isPresent) systemProperty("ntmgunfeel.scenarioGuns", scenarioGuns.get())
+    if (scenarioChest.isPresent) systemProperty("ntmgunfeel.scenarioChest", scenarioChest.get())
     if (scenarioMachines.isPresent) systemProperty("ntmgunfeel.machines", scenarioMachines.get())
     if (scenarioMobs.isPresent) systemProperty("ntmgunfeel.mobs", scenarioMobs.get())
     if (lookDoor.isPresent) systemProperty("ntmgunfeel.lookDoor", lookDoor.get())

@@ -6,7 +6,6 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.items.weapon.sedna.BulletConfig;
@@ -54,10 +53,11 @@ public abstract class MixinBulletServer implements PierceSteps.Holder {
     @Unique
     private boolean gunfeel$announced;
 
-    // only real bullets (NTM's default 10 blocks a tick); slow projectiles such as grenades keep their speed
-    @Inject(method = "motionMult", at = @At("RETURN"), cancellable = true)
-    private void gunfeel$speed(CallbackInfoReturnable<Double> cir) {
-        if (config != null && config.velocity >= 5F) cir.setReturnValue(cir.getReturnValue() * ReaimTimes.number("bulletSpeed", 1.6F));
+    // only real bullets (NTM's default 10 blocks a tick); slow projectiles such as grenades keep their speed. The
+    // return value modified, not set (26.2, e574e1b): a cancelling inject would skip water's f (MixinWaterBullet)
+    @com.llamalad7.mixinextras.injector.ModifyReturnValue(method = "motionMult", at = @At("RETURN"))
+    private double gunfeel$speed(double mult) {
+        return config != null && config.velocity >= 5F ? mult * ReaimTimes.number("bulletSpeed", 1.6F) : mult;
     }
 
     // a bullet that blows up where it hits (explosive buckshot) breaks the glass it hits, as a plain bullet does (NTM
@@ -111,6 +111,9 @@ public abstract class MixinBulletServer implements PierceSteps.Holder {
 
     @Unique
     private boolean gunfeel$targetAlive;
+    // water: what is left of the damage where the creature is, × f² (WaterTick); undone after the hit
+    @Unique
+    private float gunfeel$waterK = 1F;
 
     // the test log: the bullet's damage and the creature's health as the hit begins
     @Unique
@@ -123,6 +126,8 @@ public abstract class MixinBulletServer implements PierceSteps.Holder {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
         // the damage the bullet has where the creature is, not after the blocks behind it
         if (!self.world.isRemote && entity && mop.hitVec != null) gunfeel$steps.enter(self, mop.hitVec.x, mop.hitVec.y, mop.hitVec.z);
+        gunfeel$waterK = !self.world.isRemote && entity ? acup.gunfeel.water.WaterTick.k(self, mop.hitVec) : 1F;
+        if (gunfeel$waterK != 1F) damage *= gunfeel$waterK;
         gunfeel$damageBefore = damage;
         gunfeel$healthBefore = entity && mop.entityHit instanceof EntityLivingBase ? ((EntityLivingBase) mop.entityHit).getHealth() : Float.NaN;
     }
@@ -131,6 +136,8 @@ public abstract class MixinBulletServer implements PierceSteps.Holder {
     @Inject(method = "onImpact", at = @At("RETURN"))
     private void gunfeel$entityAfter(RayTraceResult mop, CallbackInfo ci) {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
+        if (gunfeel$waterK != 1F && gunfeel$waterK > 0F) damage /= gunfeel$waterK;
+        gunfeel$waterK = 1F;
         if (self.world.isRemote || mop.typeOfHit != RayTraceResult.Type.ENTITY || mop.entityHit == null) return;
         // the bullet stopped in the creature: the clients' tracer ends there (26.2: BulletStopPayload). The fraction of
         // the tick is the model's contact time (the mob moved during the tick as its shooter saw it), else by distance

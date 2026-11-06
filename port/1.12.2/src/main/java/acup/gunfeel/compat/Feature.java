@@ -11,14 +11,17 @@ import java.util.List;
 // check every mixin into NTM is here, and the lang keys ntmgunfeel.feature.<id>.
 // Not in 26.2: TRACE, the dev trace scenario's clock (MixinClock). MACHINE_MESH has no mixins of its own:
 // it reads NTM models through ARMS's MixinWavefrontObject(VBO).
+// The water classes (acup.gunfeel.water) are in BULLETS and TRACERS, both of which call them (26.2 leaves them to
+// CORE): an NTM without what they read turns those two off, not the whole mod.
 public enum Feature {
     CORE("core", list(), list("GunFeel", "GunFeelMod", "GunFeelClient", "Config", "Net", "PortPaths", "LateMixins")),
     MODEL_HITBOXES("model_hitboxes", list("MixinHeadDamage"),
             list("ModelHits", "ModelHitHooks", "ModelHitClient", "ModelHitNet", "ModelAABB", "ModelMesh", "ModelCapture", "ModelObjParts", "HeadDamage",
                     "HeadProfiles", "ModelHeads")),
-    BULLETS("bullets", list("MixinBulletServer", "MixinThrowableClip", "ThrowableAccess", "MixinBeamHits", "MixinExplosiveBullet", "MixinExplosionContext",
+    BULLETS("bullets", list("MixinBulletServer", "MixinThrowableClip", "ThrowableAccess", "MixinWaterBullet", "MixinWaterShooter", "MixinBeamHits", "MixinExplosiveBullet", "MixinExplosionContext",
             "MixinExplosiveProcessor", "MixinExplosiveDirect"),
-            list("BulletServer", "PassableClip", "BulletFx", "BulletRules", "FenceCells", "ModelCells", "BlockRay", "PierceSteps", "ExplosiveDamage", "ExplosiveAmmo", "DoorCells")),
+            list("BulletServer", "PassableClip", "BulletFx", "BulletRules", "FenceCells", "ModelCells", "BlockRay", "PierceSteps", "ExplosiveDamage", "ExplosiveAmmo", "DoorCells",
+                    "WaterClass", "WaterPath", "WaterTick", "WaterBullet", "WaterEvents", "WaterSettings", "WaterMuffle")),
     HOLD_AIM("hold_aim", list("MixinHoldAim", "MixinAimButton"), list("ReaimCommand", "AimButton")),
     SPREAD("spread", list("MixinLegoSpread"), list("Spread")),
     RICOCHET_SOUND("ricochet_sound", list("MixinRicochetSound"), list()),
@@ -31,7 +34,7 @@ public enum Feature {
     INSTANT_SWITCH("instant_switch", list("MixinHbmAnimationPacket"), list("InstantSwitch", "SwitchPrediction")),
     CLICK_AIM("click_aim", list("MixinClickAim"), list("ClickAim")),
     MACHINE_MESH("machine_mesh", list(), list("MachineMesh")),
-    TRACERS("tracers", list("MixinLegoClient", "MixinRenderBulletMK4", "MixinSmokeNodes"), list("Tracers", "TracerNet", "TracerPath")),
+    TRACERS("tracers", list("MixinLegoClient", "MixinRenderBulletMK4", "MixinSmokeNodes"), list("Tracers", "TracerNet", "TracerPath", "WaterClass", "WaterPath", "WaterTick", "WaterBullet", "WaterEvents", "WaterSettings", "WaterMuffle")),
     MARESLEG("maresleg", list("MixinGunConfigAnims"), list()),
     SPRINT_FIRE("sprint_fire", list("MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun"), list("SprintFire")),
     SPECTATOR("spectator", list("MixinSpectatorGun", "MixinSpectatorOldGun", "MixinSpectatorKeys", "MixinSpectatorHud"), list("SpectatorGuns", "SpectatorCheck", "SpectatorScenario")),

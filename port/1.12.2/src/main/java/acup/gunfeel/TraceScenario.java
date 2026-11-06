@@ -121,6 +121,8 @@ public final class TraceScenario {
                 Item chest = Item.REGISTRY.getObject(new net.minecraft.util.ResourceLocation(CHEST.trim()));
                 if (chest == null) check(false, "сценарий: нет нагрудника " + CHEST);
                 else p.setItemStackToSlot(net.minecraft.inventory.EntityEquipmentSlot.CHEST, new ItemStack(chest));
+                // as 26.2's wear (scenarioArmor); armArmor comes with the arms' armour
+                TestLog.c(-1, "armor", "set", CHEST.trim(), "power", PowerArmor.worn(p));
             }
             p.inventoryContainer.detectAndSendChanges();
             given = true;

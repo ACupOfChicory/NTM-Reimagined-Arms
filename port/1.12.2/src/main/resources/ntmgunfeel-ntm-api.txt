@@ -127,10 +127,12 @@ BULLETS class com/hbm/entity/projectile/EntityBulletBeamBase
 BULLETS class com/hbm/entity/projectile/EntityThrowableNT
 BULLETS class com/hbm/explosion/vanillant/ExplosionVNT
 BULLETS class com/hbm/explosion/vanillant/interfaces/IEntityProcessor
+BULLETS class com/hbm/handler/HbmKeybinds$EnumKeybind
 BULLETS class com/hbm/interfaces/IDoor$DoorState
 BULLETS class com/hbm/items/weapon/sedna/BulletConfig
 BULLETS class com/hbm/items/weapon/sedna/ItemGunBaseNT
 BULLETS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo
+BULLETS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret
 BULLETS class com/hbm/tileentity/TileEntityDoorGeneric
 BULLETS class com/hbm/tileentity/machine/TileEntitySlidingBlastDoor
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -150,7 +152,11 @@ BULLETS field com/hbm/interfaces/IDoor$DoorState CLOSED Lcom/hbm/interfaces/IDoo
 BULLETS field com/hbm/interfaces/IDoor$DoorState OPEN Lcom/hbm/interfaces/IDoor$DoorState;
 BULLETS field com/hbm/inventory/RecipesCommon$ComparableStack item Lnet/minecraft/item/Item;
 BULLETS field com/hbm/inventory/RecipesCommon$ComparableStack meta I
+BULLETS field com/hbm/items/ModItems ammo_secret Lnet/minecraft/item/Item;
 BULLETS field com/hbm/items/ModItems ammo_standard Lnet/minecraft/item/Item;
+BULLETS field com/hbm/items/weapon/grenade/ItemGrenadeFilling fragmentation Lcom/hbm/items/weapon/sedna/BulletConfig;
+BULLETS field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets Lcom/hbm/items/weapon/sedna/BulletConfig;
+BULLETS field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets_heavy Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ammo Lcom/hbm/inventory/RecipesCommon$ComparableStack;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
@@ -162,8 +168,11 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig headshotMult F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig id I
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig velocity F
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 BULLETS field com/hbm/tileentity/TileEntityDoorGeneric state Lcom/hbm/interfaces/IDoor$DoorState;
 BULLETS field com/hbm/tileentity/machine/TileEntitySlidingBlastDoor state Lcom/hbm/interfaces/IDoor$DoorState;
 BULLETS method com/hbm/blocks/BlockDummyable findCore (Lnet/minecraft/world/IBlockAccess;III)[I
@@ -179,6 +188,7 @@ BULLETS method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraf
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/item/ItemStack;I)F
 BULLETS method com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo values ()[Lcom/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo;
+BULLETS method com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret values ()[Lcom/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret;
 BULLETS method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/util/DamageSource;FZZDFF)Z
 CLICK_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CLICK_AIM field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
@@ -452,17 +462,43 @@ TRACE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 TRACE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/item/ItemStack;Z)V
 TRACERS class com/hbm/entity/projectile/EntityBulletBaseMK4
 TRACERS class com/hbm/items/weapon/sedna/BulletConfig
+TRACERS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo
+TRACERS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret
 TRACERS class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
+TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 isDead Z
+TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 motionX D
+TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 motionY D
+TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 motionZ D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 prevVelocity D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 velocity D
+TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 world Lnet/minecraft/world/World;
+TRACERS field com/hbm/inventory/RecipesCommon$ComparableStack item Lnet/minecraft/item/Item;
+TRACERS field com/hbm/inventory/RecipesCommon$ComparableStack meta I
+TRACERS field com/hbm/items/ModItems ammo_secret Lnet/minecraft/item/Item;
+TRACERS field com/hbm/items/ModItems ammo_standard Lnet/minecraft/item/Item;
+TRACERS field com/hbm/items/weapon/grenade/ItemGrenadeFilling fragmentation Lcom/hbm/items/weapon/sedna/BulletConfig;
+TRACERS field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets Lcom/hbm/items/weapon/sedna/BulletConfig;
+TRACERS field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets_heavy Lcom/hbm/items/weapon/sedna/BulletConfig;
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig ammo Lcom/hbm/inventory/RecipesCommon$ComparableStack;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig armorThresholdNegation F
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig maxRicochetCount I
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig renderer Ljava/util/function/BiConsumer;
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig velocity F
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/World;)V
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 getBulletConfig ()Lcom/hbm/items/weapon/sedna/BulletConfig;
+TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 getEntityId ()I
+TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 setDead ()V
+TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 setPosition (DDD)V
+TRACERS method com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo values ()[Lcom/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo;
+TRACERS method com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret values ()[Lcom/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret;

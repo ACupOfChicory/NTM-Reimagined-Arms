@@ -21,6 +21,7 @@ import acup.gunfeel.ModelAABB;
 import acup.gunfeel.ModelHits;
 import acup.gunfeel.BulletServer;
 import acup.gunfeel.PassableClip;
+import acup.gunfeel.water.WaterTick;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.util.math.AxisAlignedBB;
@@ -75,6 +76,12 @@ public abstract class MixinThrowableClip extends Entity {
         gunfeel$hitsOn = true;
     }
 
+    // water: the bullet's new f, a stop or a skip, the tick's events (WaterTick), after NTM moved it and hit what it hit
+    @Inject(method = "onUpdate", at = @At("RETURN"), remap = true)
+    private void gunfeel$waterEnd(CallbackInfo ci) {
+        if (!world.isRemote && (Object) this instanceof EntityBulletBaseMK4) WaterTick.end((EntityBulletBaseMK4) (Object) this);
+    }
+
     @Inject(method = "onUpdate", at = @At("RETURN"), remap = true)
     private void gunfeel$endHits(CallbackInfo ci) {
         if (!gunfeel$hitsOn) return;
@@ -111,6 +118,8 @@ public abstract class MixinThrowableClip extends Entity {
         if (!((Object) this instanceof EntityBulletBaseMK4)) return original.call(world, from, to, liquids, noBox, last);
         EntityBulletBaseMK4 bullet = (EntityBulletBaseMK4) (Object) this;
         Vec3d start = gunfeel$start(from);
+        // water first: blocks past where it stops or skips the bullet are not met (WaterTick)
+        to = WaterTick.path(bullet, world, start, to);
         BlockRay.Hit hit;
         if (world.isRemote) {
             hit = PassableClip.clip(world, start, to);
@@ -118,13 +127,18 @@ public abstract class MixinThrowableClip extends Entity {
             if (gunfeel$pierced == null) gunfeel$pierced = new HashSet<Long>();
             hit = BulletServer.clip(bullet, world, start, to, gunfeel$pierced);
         }
-        return hit == null ? null : acup.gunfeel.Mc.blockHit(hit.x, hit.y, hit.z, hit.face, new Vec3d(hit.ax, hit.ay, hit.az));
+        if (hit == null) return null;
+        Vec3d at = new Vec3d(hit.ax, hit.ay, hit.az);
+        WaterTick.blocks(bullet, at, net.minecraft.util.EnumFacing.byIndex(hit.face));
+        return acup.gunfeel.Mc.blockHit(hit.x, hit.y, hit.z, hit.face, at);
     }
 
     @WrapOperation(method = "onUpdate", remap = true, at = @At(value = "INVOKE", remap = true,
             target = "Lnet/minecraft/util/math/AxisAlignedBB;calculateIntercept(Lnet/minecraft/util/math/Vec3d;Lnet/minecraft/util/math/Vec3d;)Lnet/minecraft/util/math/RayTraceResult;"))
     private RayTraceResult gunfeel$mob(AxisAlignedBB box, Vec3d from, Vec3d to, Operation<RayTraceResult> original) {
         if (!((Object) this instanceof EntityBulletBaseMK4)) return original.call(box, from, to);
+        // not past where water stopped or turned the bullet
+        to = WaterTick.mobsTo(this, to);
         Vec3d start = gunfeel$start(from);
         // 26.2's AABB.contains: min inclusive, max exclusive
         if (start.x >= box.minX && start.x < box.maxX && start.y >= box.minY && start.y < box.maxY
@@ -140,6 +154,7 @@ public abstract class MixinThrowableClip extends Entity {
     private RayTraceResult gunfeel$nearest(World world, Entity exclude, Vec3d from, Vec3d to, double inflate,
             java.util.function.Predicate<? super Entity> filter, Operation<RayTraceResult> original) {
         if (!((Object) this instanceof EntityBulletBaseMK4) || world.isRemote) return original.call(world, exclude, from, to, inflate, filter);
+        to = WaterTick.mobsTo(this, to);
         Vec3d start = gunfeel$start(from);
         double pad = World.MAX_ENTITY_RADIUS + inflate;
         AxisAlignedBB area = new AxisAlignedBB(Math.min(start.x, to.x), Math.min(start.y, to.y), Math.min(start.z, to.z),

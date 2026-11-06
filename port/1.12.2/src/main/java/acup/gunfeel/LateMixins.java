@@ -24,7 +24,7 @@ public class LateMixins implements IMixinConfigPlugin {
             "MixinSpectatorKeys", "MixinSpectatorHud");
 
     static final List<String> COMMON = Arrays.asList("MixinAmmoLock", "MixinAmmoLockBelt", "MixinBulletServer",
-            "MixinThrowableClip", "ThrowableAccess", "MixinBeamHits", "MixinGunConfigAnims", "MixinHeadDamage",
+            "MixinThrowableClip", "ThrowableAccess", "MixinWaterBullet", "MixinWaterShooter", "MixinBeamHits", "MixinGunConfigAnims", "MixinHeadDamage",
             "MixinRicochetSound", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinExplosiveDirect",
             "MixinLegoSpread", "MixinHoldAim", "MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun",
             "MixinSpectatorGun", "MixinSpectatorOldGun");

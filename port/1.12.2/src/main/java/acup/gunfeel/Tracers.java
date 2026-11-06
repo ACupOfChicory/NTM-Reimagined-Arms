@@ -119,6 +119,15 @@ public final class Tracers {
         float damage; // what is left of its damage (bullet rules "pierce")
         final Materials.Penetration penetration = new Materials.Penetration();
         final java.util.Set<Long> pierced = new java.util.HashSet<Long>(); // blocks it went through (BulletServer.key)
+        // water (acup.gunfeel.water), as 26.2's: the speed fraction this piece flies at (v already has it), skips so
+        // far, how far an expanding bullet has opened, the tick of the path tested against liquid last and that tick's
+        // walk, and where water cuts this piece (NaN: nowhere): it stops there, or a new piece goes on from there
+        double waterF = 1;
+        int waterSkips;
+        double waterOpened;
+        int waterTick = -1;
+        double waterCut = Double.NaN;
+        acup.gunfeel.water.WaterPath.Result waterPath;
 
         Shot(int id, BulletConfig config, int owner, TracerPath path, int[] colors, long lifeTicks, double born, float damage) {
             this.id = id;
@@ -150,6 +159,30 @@ public final class Tracers {
             this.penetration.restore(from.penetration.spent());
             this.pierced.addAll(from.pierced);
             this.checked = 1e-4; // not at the very face it left
+            this.waterF = from.waterF;
+            this.waterSkips = from.waterSkips;
+            this.waterOpened = from.waterOpened;
+        }
+
+        // the same bullet after water slowed or turned it: from `start` with `v` (its new speed in it), f, skips
+        Shot(Shot from, double[] start, double[] v, double born, long lifeTicks, double f, int skips, float damage) {
+            this.id = from.id;
+            this.config = from.config;
+            this.owner = from.owner;
+            this.path = new TracerPath(start, v, from.path.g);
+            this.dark = from.dark;
+            this.light = from.light;
+            this.lifeTicks = lifeTicks;
+            this.born = born;
+            this.rootBorn = from.rootBorn;
+            this.whizzed = from.whizzed;
+            this.ricochets = from.ricochets;
+            this.damage = damage;
+            this.penetration.restore(from.penetration.spent());
+            this.pierced.addAll(from.pierced);
+            this.waterF = f;
+            this.waterSkips = skips;
+            this.waterOpened = from.waterPath != null ? from.waterPath.opened : from.waterOpened;
         }
     }
 
@@ -314,7 +347,11 @@ public final class Tracers {
     private static void stop0(int shot, double age, double x, double y, double z) {
         if (!Double.isFinite(age) || age < 0 || !Double.isFinite(x + y + z)) return;
         double[] point = {x, y, z};
-        Shot recent = RECENT_SHOTS.get(shot);
+        // the piece the stop falls in: the last one begun by `age` (water makes a piece a tick, so the newest may already
+        // be past it); 26.2 takes the newest
+        Shot recent = null;
+        for (Shot s : SHOTS) if (s.id == shot && s.born - s.rootBorn <= age + 1e-9 && (recent == null || s.born > recent.born)) recent = s;
+        if (recent == null) recent = RECENT_SHOTS.get(shot);
         if (recent != null) {
             double[] v = recent.path.v;
             for (Iterator<Pending> it = PENDING.iterator(); it.hasNext();) {
@@ -325,6 +362,11 @@ public final class Tracers {
                 Hole h = it.next();
                 if (h.shot == shot && beyond(h.pos, point, v)) it.remove();
             }
+        }
+        for (Shot s : SHOTS) if (s.id == shot && recent != null && s.born > recent.born) {
+            // begun after the stop: it does not fly
+            s.path.confirmedEnd = 0;
+            s.end = 0;
         }
         for (Shot s : SHOTS) if (s.id == shot && (recent == null || s.born == recent.born)) {
             s.path.confirmedEnd = Math.max(0, age - (s.born - s.rootBorn));
@@ -589,13 +631,38 @@ public final class Tracers {
 
     // test the bullet's path up to t ticks against blocks (PassableClip: fence gaps, bars and grates by their model's
     // cells, as the server has it). It pierces them while it has the damage (PassableClip.pierced, as BulletServer.clip
-    // and 26.2's fly): a hole where it goes in and where it comes out. Stops it at the first block that holds it.
+    // and 26.2's fly): a hole where it goes in and where it comes out. Stops it at the first block that holds it. A
+    // tick at a time, as the server moves it: water changes the speed only at a tick's end (a slow frame spans several)
     private static void fly(Shot s, World world, double t) {
+        for (int i = 0; i < 64 && Double.isNaN(s.end) && s.checked < t; i++) {
+            double before = s.checked;
+            flyStep(s, world, Math.min(t, Math.floor(s.checked + 1e-9) + 1));
+            if (s.checked <= before) break;
+        }
+    }
+
+    private static void flyStep(Shot s, World world, double t) {
+        try {
+            flyTick(s, world, t);
+        } finally {
+            waterHole = 1F;
+        }
+    }
+
+    private static void flyTick(Shot s, World world, double t) {
         // a trace: the path is tested a whole tick at a time, as the server moves the bullet, and up to the whole tick
         // past the server's stop, so where it meets a block hangs neither on the frames nor on when the stop came
         if (Trace.ON) t = Double.isNaN(s.path.confirmedEnd) ? Math.floor(t) : Math.min(Math.floor(t), Math.ceil(s.path.confirmedEnd));
         else if (!Double.isNaN(s.path.confirmedEnd)) t = Math.min(t, s.path.confirmedEnd);
         if (!Double.isNaN(s.end) || t <= s.checked) return;
+        // water: not past where it cuts this piece
+        water(s, world);
+        if (!Double.isNaN(s.waterCut)) t = Math.min(t, s.waterCut);
+        if (t <= s.checked) {
+            // water cut it where the last step ended (a stop or a skip right at a tick's start)
+            waterEnd(s, s.checked);
+            return;
+        }
         // the real path, without the muzzle offset, decides what is hit
         double[] ra = s.path.tested(s.checked), rb = s.path.tested(t);
         double[] dir = {rb[0] - ra[0], rb[1] - ra[1], rb[2] - ra[2]};
@@ -618,7 +685,11 @@ public final class Tracers {
                     logStop(s, world, hit, "no_exit", Float.NaN);
                     break;
                 }
-                float left = known ? s.damage : PassableClip.pierced(world, hit, out, s.damage, s.config, s.penetration);
+                // behind water f² of the damage, as the server has it (WaterTick.k)
+                float wk = waterK(s, point(hit));
+                float left = known ? s.damage : wk == 1F ? PassableClip.pierced(world, hit, out, s.damage, s.config, s.penetration)
+                        : wk <= 0F ? -1F : PassableClip.pierced(world, hit, out, s.damage * wk, s.config, s.penetration) / wk;
+                waterHole = waterHole(s, point(hit));
                 if (left < 0F) {
                     logStop(s, world, hit, "held", (float) hit.distance(out.ax, out.ay, out.az));
                     break;
@@ -649,6 +720,7 @@ public final class Tracers {
         if (hit != null) {
             boolean window = window(hit);
             double[] at = point(hit);
+            waterHole = waterHole(s, at);
             double reach = Math.sqrt(sq(at[0] - ra[0]) + sq(at[1] - ra[1]) + sq(at[2] - ra[2]));
             s.end = s.checked + (t - s.checked) * reach / len;
             int[] pos = cell(hit);
@@ -670,7 +742,75 @@ public final class Tracers {
             }
         }
         s.checked = t;
+        waterHole = 1F;
+        waterEnd(s, t);
         if (!Double.isNaN(s.path.confirmedEnd) && t >= s.path.confirmedEnd) s.end = s.path.confirmedEnd;
+    }
+
+    // water cut this piece at t: it stops, or goes on as a new piece, slower or turned
+    private static void waterEnd(Shot s, double t) {
+        if (!Double.isNaN(s.end) || Double.isNaN(s.waterCut) || t < s.waterCut - 1e-9) return;
+        s.end = s.waterCut;
+        Shot next = waterNext(s);
+        if (next != null) BOUNCED.add(next);
+        else if (TestLog.client) TestLog.c(s.id, "end", "by", "water", "at", v(s.path.at(s.end)));
+    }
+
+    // a hole's size behind water, x (0.5 + 0.5·f) where it is (Pending takes it while fly makes one)
+    private static float waterHole = 1F;
+
+    private static float waterHole(Shot s, double[] at) {
+        double f = s.waterPath != null ? s.waterPath.fAt(vec(at)) : s.waterF;
+        return (float) acup.gunfeel.water.WaterPath.holeScale(f);
+    }
+
+    // what is left of the piece's damage at a point of this tick's path (WaterTick.k)
+    private static float waterK(Shot s, double[] at) {
+        if (s.waterPath == null || s.waterF <= 0) return 1F;
+        double q = s.waterPath.fAt(vec(at)) / s.waterF;
+        return (float) (q * q);
+    }
+
+    // the water on the piece's next tick of path, worked out as the server's bullet does it (WaterTick): a whole tick
+    // at a time, the speed changing at the tick's end, the path cut at a stop or a skip
+    private static void water(Shot s, World world) {
+        int k = (int) Math.floor(s.checked + 1e-9);
+        if (k == s.waterTick || !Double.isNaN(s.waterCut)) return;
+        s.waterTick = k;
+        s.waterPath = null;
+        acup.gunfeel.water.WaterPath.Settings settings = acup.gunfeel.water.WaterPath.Settings.current();
+        if (!settings.on() || k >= s.lifeTicks) return;
+        acup.gunfeel.water.WaterPath.Result r = acup.gunfeel.water.WaterPath.trace(world, vec(s.path.tested(k)), vec(s.path.tested(k + 1)), s.waterF,
+                acup.gunfeel.water.WaterClass.of(s.config), acup.gunfeel.water.WaterClass.Expansion.of(s.config), s.waterOpened, s.waterSkips,
+                acup.gunfeel.water.WaterTick.seed(s.id, s.waterSkips), settings, null);
+        if (r.events.isEmpty() && r.water <= 0) return;
+        s.waterPath = r;
+        if (r.cut()) s.waterCut = k + r.t(r.end());
+        else if (r.f < s.waterF - 1e-12 && k + 1 < s.lifeTicks) s.waterCut = k + 1;
+    }
+
+    // the piece that goes on after water cut this one (null: water stopped it). As on the server: after a skip it
+    // waits at the surface till the tick's end, then flies off turned
+    private static Shot waterNext(Shot s) {
+        acup.gunfeel.water.WaterPath.Result r = s.waterPath;
+        if (r == null || r.stop != null || s.waterF <= 0) return null;
+        double at = s.waterTick + 1;
+        long left = (long) Math.max(0.0, s.lifeTicks - at);
+        if (left <= 0) return null;
+        double f = r.skip != null ? r.skip.f() : r.f, ratio = f / s.waterF;
+        double[] vel = s.path.velocity(at);
+        double speed = Math.sqrt(vel[0] * vel[0] + vel[1] * vel[1] + vel[2] * vel[2]);
+        double[] from = r.skip != null ? arr(r.skip.at()) : s.path.tested(at);
+        double[] v = r.skip != null ? arr(r.skip.dir().scale(speed * ratio)) : new double[] {vel[0] * ratio, vel[1] * ratio, vel[2] * ratio};
+        return new Shot(s, from, v, s.born + at, left, f, s.waterSkips + (r.skip != null ? 1 : 0), s.damage * (float) (ratio * ratio));
+    }
+
+    private static Vec3d vec(double[] p) {
+        return new Vec3d(p[0], p[1], p[2]);
+    }
+
+    private static double[] arr(Vec3d p) {
+        return new double[] {p.x, p.y, p.z};
     }
 
     // the steel panels: a bullet goes from one straight into the next where they stand together (26.2's PANELS)
@@ -791,6 +931,8 @@ public final class Tracers {
         final int face, shot;
         final int[] pos;
         final BulletConfig config;
+        // its size behind water (waterHole while fly makes it)
+        final float water = waterHole;
 
         Pending(World world, double[] at, int face, int[] pos, BulletConfig config, double[] dir, double[] scratch, int shot) {
             this.world = world;
@@ -886,7 +1028,7 @@ public final class Tracers {
         Decals.Set set = hit.glass ? rules.decal(world, net.minecraft.init.Blocks.GLASS, 0, pos[0], pos[1], pos[2]) : rules.decal(world, b, meta, pos[0], pos[1], pos[2]);
         int kind = scorch ? Decals.scorch(set.scorch()) : Decals.hole(set.hole());
         Random r = Rng.shot(p.shot);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(p.config) * (0.8F + 0.4F * (float) r.nextDouble());
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(p.config) * p.water * (0.8F + 0.4F * (float) r.nextDouble());
         int turn = HoleMath.withVariant((int) (r.nextDouble() * 8), r.nextDouble());
         int face = dominant(n);
         Hole h = new Hole(hit.point, face, turn, GunClock.nanos(), light, kind, size, null, null, Double.NaN, false, pos.clone(), b, meta, null, p.shot);
@@ -930,7 +1072,7 @@ public final class Tracers {
         Decals.Set set = rules.decal(world, b, meta, pos[0], pos[1], pos[2]);
         int kind = scorch ? Decals.scorch(set.scorch()) : Decals.hole(set.hole());
         Random r = Rng.shot(p.shot);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(p.config) * (0.8F + 0.4F * (float) r.nextDouble());
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(p.config) * p.water * (0.8F + 0.4F * (float) r.nextDouble());
         int turn = (int) (r.nextDouble() * 8);
         if (p.scratch != null) {
             kind = Decals.scratch(set.scratch());
