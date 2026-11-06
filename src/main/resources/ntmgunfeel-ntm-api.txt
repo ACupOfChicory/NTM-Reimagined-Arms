@@ -196,6 +196,7 @@ CLICK_AIM method com/hbm/extprop/HbmPlayerProps getKeyPressed (Lcom/hbm/handler/
 CORE class com/hbm/blocks/generic/BlockWoodBarrier
 CORE class com/hbm/blocks/generic/BlockWoodStructure
 CORE class com/hbm/entity/mob/EntityFBIDrone
+CORE class com/hbm/entity/mob/EntityHunterChopper
 CORE class com/hbm/entity/mob/EntityPlasticBag
 CORE class com/hbm/entity/mob/EntityUFO
 CORE class com/hbm/entity/mob/botprime/EntityWormBaseNT
@@ -348,6 +349,58 @@ RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
 RECOIL method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 RECOIL method com/hbm/util/GameTime millis (Lnet/minecraft/world/level/Level;)J
 RICOCHET_SOUND class com/hbm/entity/projectile/EntityBulletBaseMK4
+SPECTATOR class com/hbm/client/Keybinds
+SPECTATOR class com/hbm/entity/projectile/EntityBulletBaseMK4
+SPECTATOR class com/hbm/handler/HbmKeybinds$EnumKeybind
+SPECTATOR class com/hbm/items/weapon/sedna/BulletConfig
+SPECTATOR class com/hbm/items/weapon/sedna/ItemGunBaseNT
+SPECTATOR class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
+SPECTATOR class com/hbm/packet/toserver/KeybindPayload
+SPECTATOR class com/hbm/registration/RegistryHandle
+SPECTATOR field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+SPECTATOR field com/hbm/handler/HbmKeybinds$EnumKeybind RELOAD Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+SPECTATOR field com/hbm/items/ModItems GUN_PA_MELEE Lcom/hbm/registration/RegistryHandle;
+SPECTATOR field com/hbm/items/ModItems GUN_UZI Lcom/hbm/registration/RegistryHandle;
+SPECTATOR field com/hbm/items/ModItems NCRPA_BOOTS Lcom/hbm/registration/RegistryHandle;
+SPECTATOR field com/hbm/items/ModItems NCRPA_HELMET Lcom/hbm/registration/RegistryHandle;
+SPECTATOR field com/hbm/items/ModItems NCRPA_LEGS Lcom/hbm/registration/RegistryHandle;
+SPECTATOR field com/hbm/items/ModItems NCRPA_PLATE Lcom/hbm/registration/RegistryHandle;
+SPECTATOR field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
+SPECTATOR field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
+SPECTATOR field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+SPECTATOR field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState RELOADING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+SPECTATOR field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_ap Lcom/hbm/items/weapon/sedna/BulletConfig;
+SPECTATOR field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_fmj Lcom/hbm/items/weapon/sedna/BulletConfig;
+SPECTATOR method com/hbm/client/ClientRegistry replacesCrosshair ()Z
+SPECTATOR method com/hbm/handler/HbmKeybinds$EnumKeybind name ()Ljava/lang/String;
+SPECTATOR method com/hbm/items/weapon/sedna/BulletConfig ammoStack ()Lnet/minecraft/world/item/ItemStack;
+SPECTATOR method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsEquipped (Lnet/minecraft/world/item/ItemStack;)Z
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimary (Lnet/minecraft/world/item/ItemStack;I)Z
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getReloadKey (Lnet/minecraft/world/item/ItemStack;I)Z
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getSecondary (Lnet/minecraft/world/item/ItemStack;I)Z
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getTertiary (Lnet/minecraft/world/item/ItemStack;I)Z
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsDrawn (Lnet/minecraft/world/item/ItemStack;Z)V
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsEquipped (Lnet/minecraft/world/item/ItemStack;Z)V
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT setPrimary (Lnet/minecraft/world/item/ItemStack;IZ)V
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT setReloadKey (Lnet/minecraft/world/item/ItemStack;IZ)V
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT setSecondary (Lnet/minecraft/world/item/ItemStack;IZ)V
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT setState (Lnet/minecraft/world/item/ItemStack;ILcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;)V
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT setTertiary (Lnet/minecraft/world/item/ItemStack;IZ)V
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT setTimer (Lnet/minecraft/world/item/ItemStack;II)V
+SPECTATOR method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+SPECTATOR method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
+SPECTATOR method com/hbm/items/weapon/sedna/mags/IMagazine setAmount (Lnet/minecraft/world/item/ItemStack;I)V
+SPECTATOR method com/hbm/items/weapon/sedna/mags/IMagazine setType (Lnet/minecraft/world/item/ItemStack;Ljava/lang/Object;)V
+SPECTATOR method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
+SPECTATOR method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Lcom/hbm/items/weapon/sedna/BulletConfig;
+SPECTATOR method com/hbm/packet/PacketWire sendToServer (Lcom/hbm/packet/threading/ThreadedPayload;)V
+SPECTATOR method com/hbm/packet/toserver/KeybindPayload <init> (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
+SPECTATOR method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 SPREAD class com/hbm/items/weapon/sedna/BulletConfig
 SPREAD class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 SPREAD class com/hbm/items/weapon/sedna/Receiver

@@ -8,7 +8,8 @@ import java.util.Set;
 // but they are not NTM's doing, so the compatibility warning does not list them.
 public final class Ported {
     public static final Set<Feature> DONE = EnumSet.of(Feature.CORE, Feature.RECOIL, Feature.ARMS, Feature.SPRINT_FIRE, Feature.HOLD_AIM, Feature.CLICK_AIM, Feature.BULLETS, Feature.MACHINE_MESH, Feature.TRACERS, Feature.RICOCHET_SOUND,
-            Feature.MODEL_HITBOXES, Feature.HUD, Feature.AMMO_CHOICE, Feature.SPREAD, Feature.INSTANT_SWITCH, Feature.MARESLEG);
+            Feature.MODEL_HITBOXES, Feature.HUD, Feature.AMMO_CHOICE, Feature.SPREAD, Feature.INSTANT_SWITCH, Feature.MARESLEG,
+            Feature.SPECTATOR);
 
     private Ported() {
     }

@@ -30,29 +30,49 @@ class ModelHitTurnTest {
 
     // the numbers the stand measured: a pose kept 1.5 s while the server turned the mob by 40 degrees
     @Test void keptPoseTurnsTheWayItsRendererTurnsTheMob() {
-        assertEquals(ModelHits.Turn.YAW_BACK, ModelHits.turn(com.hbm.entity.mob.botprime.EntityBOTPrimeHead.class));
-        assertEquals(ModelHits.Turn.YAW_BACK, ModelHits.turn(com.hbm.entity.mob.botprime.EntityBOTPrimeBody.class));
-        assertEquals(ModelHits.Turn.BODY_BACK, ModelHits.turn(com.hbm.entity.mob.EntityPlasticBag.class));
+        assertEquals(ModelHits.Turn.WORM, ModelHits.turn(com.hbm.entity.mob.botprime.EntityBOTPrimeHead.class));
+        assertEquals(ModelHits.Turn.WORM, ModelHits.turn(com.hbm.entity.mob.botprime.EntityBOTPrimeBody.class));
+        assertEquals(ModelHits.Turn.YAW_BACK, ModelHits.turn(com.hbm.entity.mob.EntityPlasticBag.class));
         assertEquals(ModelHits.Turn.FIXED, ModelHits.turn(com.hbm.entity.mob.EntityFBIDrone.class));
         assertEquals(ModelHits.Turn.SPIN, ModelHits.turn(com.hbm.entity.mob.EntityUFO.class));
         // the worm's head: body 90 to 130, yRot set back to 0 by its motion; drawn by yRot, it has not turned
-        assertEquals(0, ModelHits.turnAngle(ModelHits.Turn.YAW_BACK, false, 130, 0, 100, 61.65F, 90, 0, 70), 1e-9);
+        assertEquals(0, ModelHits.turnAngle(ModelHits.Turn.WORM, false, 130, 0, 100, 61.65F, 90, 0, 70), 1e-9);
         // a worm's piece that turned with yRot from 90 to 130: the model turns the other way
-        assertEquals(Math.toRadians(-40), ModelHits.turnAngle(ModelHits.Turn.YAW_BACK, false, 90, 130, 100, 90, 90, 90, 70), 1e-6);
-        assertEquals(Math.toRadians(-40), ModelHits.turnAngle(ModelHits.Turn.YAW_BACK, true, 90, 130, 100, 90, 90, 90, 70), 1e-6);
-        // the bag drawn at 239.45, now at 130: the model turned by +109.45 (the stand: +110)
-        assertEquals(Math.toRadians(109.45), ModelHits.turnAngle(ModelHits.Turn.BODY_BACK, false, 130, 130, 100, 239.45F, 90, 90, 70), 1e-5);
+        assertEquals(Math.toRadians(-40), ModelHits.turnAngle(ModelHits.Turn.WORM, false, 90, 130, 100, 90, 90, 90, 70), 1e-6);
+        assertEquals(Math.toRadians(-40), ModelHits.turnAngle(ModelHits.Turn.WORM, true, 90, 130, 100, 90, 90, 90, 70), 1e-6);
+        // the bag in water, its yRot on its body, drawn at 239.45, now at 130: the model turned by +109.45 (the stand: +110)
+        assertEquals(Math.toRadians(109.45), ModelHits.turnAngle(ModelHits.Turn.YAW_BACK, false, 130, 130, 100, 239.45F, 90, 90, 70), 1e-5);
+        // out of water the body stays: yRot +40, body -30 (the stand): the model turned by -40
+        assertEquals(Math.toRadians(-40), ModelHits.turnAngle(ModelHits.Turn.YAW_BACK, false, 60, 130, 100, 90, 90, 90, 70), 1e-6);
+        assertEquals(Math.toRadians(-40), ModelHits.turnAngle(ModelHits.Turn.YAW_BACK, true, 60, 130, 100, 90, 90, 90, 70), 1e-6);
         assertEquals(0, ModelHits.turnAngle(ModelHits.Turn.FIXED, false, 130, 130, 100, 239.45F, 90, 90, 70), 1e-9);
         // the UFO spins 5 degrees a tick: 30 ticks later the model is 150 degrees on
         assertEquals(Math.toRadians(-150), ModelHits.turnAngle(ModelHits.Turn.SPIN, false, 130, 130, 100, 90, 90, 90, 70), 1e-6);
         assertEquals(0, ModelHits.turnAngle(ModelHits.Turn.SPIN, true, 130, 130, 142, 90, 90, 90, 70), 1e-9);
     }
 
-    // the mobs whose body rule was right before stay on it: vanilla's, glyphids, Mask Man, the hunter chopper, the crabs
+    // RenderHunterChopper turns the model by yRot (YP(yRot - 90) under XP(180)); aimAt turns yRot 10 degrees a tick and
+    // the body follows yRot only while the chopper moves
+    @Test void keptChopperPoseTurnsByItsYRot() {
+        assertEquals(ModelHits.Turn.YAW, ModelHits.turn(com.hbm.entity.mob.EntityHunterChopper.class));
+        // hanging in place: the body stays at 90, yRot 90 to 130; the model turned by +40, the body rule says 0
+        assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 90, 130, 100, 90, 90, 90, 70), 1e-6);
+        assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, true, 90, 130, 100, 90, 90, 90, 70), 1e-6);
+        // yRot stood 20 degrees off the body when the pose came in (drawn at body 90): yRot then 110, now 130
+        assertEquals(Math.toRadians(20), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 90, 130, 100, 90, 90, 110, 70), 1e-6);
+        // the stand: yRot +40, body -30
+        assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 60, 130, 100, 90, 90, 90, 70), 1e-6);
+        // flying, yRot on its body: the body rule, drawn at 239.5 on the client
+        assertEquals(ModelHits.turnAngle(false, 130, 239.5F, 90),
+                ModelHits.turnAngle(ModelHits.Turn.YAW, false, 130, 130, 100, 239.5F, 90, 90, 70), 1e-6);
+    }
+
+    // the mobs whose body rule was right before stay on it: vanilla's, glyphids, Mask Man, the crabs, the ghost
     @Test void mobsTurnedByTheirBodyKeepTheBodyRule() {
         for(var type:java.util.List.of(net.minecraft.world.entity.LivingEntity.class,com.hbm.entity.mob.glyphid.EntityGlyphid.class,
-                com.hbm.entity.mob.EntityMaskMan.class,com.hbm.entity.mob.EntityHunterChopper.class,com.hbm.entity.mob.EntityTeslaCrab.class,
-                com.hbm.entity.mob.EntityTaintCrab.class,com.hbm.entity.mob.EntityGhost.class))
+                com.hbm.entity.mob.EntityMaskMan.class,com.hbm.entity.mob.EntityTeslaCrab.class,
+                com.hbm.entity.mob.EntityTaintCrab.class,com.hbm.entity.mob.EntityGhost.class,com.hbm.entity.mob.EntityBlockSpider.class,
+                com.hbm.entity.mob.EntityCyberCrab.class,com.hbm.entity.mob.EntityDummy.class,com.hbm.entity.mob.EntityPigeon.class))
             assertEquals(ModelHits.Turn.BODY, ModelHits.turn(type), type.getSimpleName());
         assertEquals(ModelHits.turnAngle(false, 130, 239.5F, 90),
                 ModelHits.turnAngle(ModelHits.Turn.BODY, false, 130, 130, 100, 239.5F, 90, 90, 70), 1e-12);

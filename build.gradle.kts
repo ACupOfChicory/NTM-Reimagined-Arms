@@ -115,6 +115,8 @@ neoForge {
             systemProperty("ntmgunfeel.fenceSeamCheck",providers.gradleProperty("fenceSeam").isPresent.toString())
             // -PfenceAir: bullets through the empty part of fences, walls, panes and bars, by what they draw (FenceAirStand)
             systemProperty("ntmgunfeel.fenceAir",providers.gradleProperty("fenceAir").isPresent.toString())
+            // -PspectatorStand: may a spectator use an NTM gun (SpectatorStand)
+            systemProperty("ntmgunfeel.spectatorStand",providers.gradleProperty("spectatorStand").isPresent.toString())
             // -PshapesStand=<file>: every NTM machine taken in turn, the jar's table of their shapes written there (ShapesStand)
             systemProperty("ntmgunfeel.shapesStand",providers.gradleProperty("shapesStand").orElse("").get())
             // -PshapesFallback: a machine in the jar's table of shapes is met from there, one left out of it is taken in
