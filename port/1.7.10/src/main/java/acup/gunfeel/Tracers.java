@@ -553,7 +553,10 @@ public final class Tracers {
     // cells, as the server has it). It pierces them while it has the damage (PassableClip.pierced, as BulletServer.clip
     // and 26.2's fly): a hole where it goes in and where it comes out. Stops it at the first block that holds it.
     private static void fly(Shot s, World world, double t) {
-        if (!Double.isNaN(s.path.confirmedEnd)) t = Math.min(t, s.path.confirmedEnd);
+        // a trace: the path is tested a whole tick at a time, as the server moves the bullet, and up to the whole tick
+        // past the server's stop, so where it meets a block hangs neither on the frames nor on when the stop came
+        if (Trace.ON) t = Double.isNaN(s.path.confirmedEnd) ? Math.floor(t) : Math.min(Math.floor(t), Math.ceil(s.path.confirmedEnd));
+        else if (!Double.isNaN(s.path.confirmedEnd)) t = Math.min(t, s.path.confirmedEnd);
         if (!Double.isNaN(s.end) || t <= s.checked) return;
         // the real path, without the muzzle offset, decides what is hit
         double[] ra = s.path.tested(s.checked), rb = s.path.tested(t);
