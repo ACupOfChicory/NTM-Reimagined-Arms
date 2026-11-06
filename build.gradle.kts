@@ -115,6 +115,8 @@ neoForge {
             systemProperty("ntmgunfeel.fenceSeamCheck",providers.gradleProperty("fenceSeam").isPresent.toString())
             // -PfenceAir: bullets through the empty part of fences, walls, panes and bars, by what they draw (FenceAirStand)
             systemProperty("ntmgunfeel.fenceAir",providers.gradleProperty("fenceAir").isPresent.toString())
+            // -PwaterFx: the water effects counted per kind per shot on four pools, the surface audit, frames (WaterFxStand)
+            systemProperty("ntmgunfeel.waterFx",providers.gradleProperty("waterFx").isPresent.toString())
             // -PglassBack[=fabulous]: glass seen through, and holes on its far side seen through it (GlassBackCheck)
             systemProperty("ntmgunfeel.glassBack",providers.gradleProperty("glassBack").map { it.ifBlank { "fancy" } }.orElse("").get())
             // -PspectatorStand: may a spectator use an NTM gun (SpectatorStand)
@@ -130,7 +132,7 @@ neoForge {
             // -PshapesResume: a stand cut short goes on from <file>.parts, the machines kept there not taken again
             systemProperty("ntmgunfeel.shapesResume",providers.gradleProperty("shapesResume").isPresent.toString())
             // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
-            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else "-Xmx2500M")
+            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("waterFx").isPresent) "-Xmx4G" else "-Xmx2500M")
             // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame
             providers.gradleProperty("gcLog").orNull?.let { jvmArgument("-Xlog:gc*:file=$it:uptime,time") }
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)

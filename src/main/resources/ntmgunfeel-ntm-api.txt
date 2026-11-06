@@ -487,6 +487,7 @@ TRACERS class com/hbm/client/render/RenderBulletMK4
 TRACERS class com/hbm/client/render/RenderBulletMK4$State
 TRACERS class com/hbm/client/render/RenderBulletMK4$Tracer
 TRACERS class com/hbm/items/weapon/sedna/BulletConfig
+TRACERS class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 TRACERS field com/hbm/client/render/RenderBulletMK4$State config Lcom/hbm/items/weapon/sedna/BulletConfig;
 TRACERS field com/hbm/client/render/RenderBulletMK4$State length D
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;

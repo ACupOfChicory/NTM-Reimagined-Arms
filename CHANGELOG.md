@@ -1,21 +1,43 @@
 # Changelog
 
-## X491
+## X500
 
 - The arms holding a gun now wear what the player wears on the arms seen from
   outside: vanilla armour with its dye, trim and enchantment glint, NTM's
   armour (its 3D suits included), the skin's sleeve layer, and what other mods
-  draw on the player's arms. It follows the arm's pose, thickness and cut, on pistols and
-  rifles, at the hip and aiming. Key `armArmor` in `ntm-gunfeel.properties`
-  (on by default).
+  draw on the player's arms. It follows the arm's pose, thickness and cut, on
+  pistols and rifles, at the hip and aiming. Key `armArmor` in
+  `ntm-gunfeel.properties` (on by default).
 - NTM's power armour (T-51, AJR, AJRO, RPA, NCRPA, BJ, Envsuit, HEV, FAU, DNS)
   halves recoil: the camera kick, the gun model's kick and NTM's own recoil
   animation. The chestplate is enough, charged or not. Key `powerArmorRecoil`
   (0.5; 1 turns it off). On a server that sets a camera recoil minimum the
   camera keeps at least half.
 
-## X490
+## X498
 
+- Bullets meeting water now splash the way it moves: a crown and spray on still
+  water, a fan downstream on a slope, a burst through a waterfall, a low spray
+  on a thin sheet. Rings lie on the surface and drift with the current, foam
+  and bubbles rise and pop at the surface, and a skipping round splashes at
+  each bounce. Nothing sinks under the surface or hangs over air, and a ring
+  goes away when its water does. Off with `waterSplash = false`.
+- Under water a shot has no muzzle flash. It throws a gas bubble at the muzzle
+  that swells, shrinks, bounces and breaks into rising bubbles, its size set by
+  the calibre. The round itself is visible in the water with a fading light
+  trail, and hollow and soft points open into a mushroom as they slow.
+- A round the water stopped sinks, tumbles and lies on the bottom for a while
+  (on your screen only; a round that hit a block is gone, as before). Keys:
+  `waterBodyMax = 400` (0 = none), `waterBodyLife = 30` (seconds).
+- A blast at water shows it: on the surface a column of water with spray, rings
+  and foam; under it a burst of bubbles that pushes sunk rounds aside.
+
+## X493
+
+- Works with Punchy! and Punchy! Moves: Punchy! no longer animates NTM guns in
+  first person, and in third person Punchy! Moves keeps the arm pose NTM gives
+  a gun (aiming, akimbo, left hand). Nothing changes without those mods or with
+  `arms` off. Thanks to irislgtm (#2).
 - Explosive NTM rounds, grenades and rockets meet water by their fuze. Hitting
   it steeper than 10° they go off on the surface; shallower they skip and go
   off at the next thing they touch. Fired under water they fly, slow down like
