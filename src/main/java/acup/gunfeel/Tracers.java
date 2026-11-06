@@ -412,7 +412,8 @@ public final class Tracers {
             PENDING.removeIf(p->p.shot()==packet.shot() && p.hit().getLocation().subtract(packet.point()).dot(recent.v)>1e-5);
             HOLES.removeIf(h->h.shot()==packet.shot() && (h.hit()==null?h.pos():h.hit()).subtract(packet.point()).dot(recent.v)>1e-5);
         }
-        if (recent != null) for (var shot : pieces) if (shot.born > recent.born) {
+        // none begun by then (the first already gone from SHOTS): all of those left are past the stop
+        if (recent != null) for (var shot : pieces) if (found < 0 || shot.born > recent.born) {
             shot.confirmedEnd = 0;
             shot.end = 0;
         }
