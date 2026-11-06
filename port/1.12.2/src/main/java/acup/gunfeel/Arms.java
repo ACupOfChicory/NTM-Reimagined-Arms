@@ -42,9 +42,9 @@ import net.minecraft.util.ResourceLocation;
 // with the gun drawn into a closed colour and depth mask (26.2: the NOWHERE collector). No arm animation editor, its
 // preview, ClientSmoke or the on-screen numbers of armdebug; sleeves and slim arms only with 1.8 skins (PlayerSkins).
 public final class Arms {
-    // a pistol's arm thickness per unit of its grip's distance from the eye (armPistolScale): the heavy revolver's
-    // right grip is 1.58 from the eye at the hip by its shipped grip, so its right arm keeps armBaseRight 1.70
-    static final float PISTOL_THICKNESS = 1.70F / 1.58F;
+    // a pistol's arm thickness per unit of the eye's distance to its hand (armPistolScale, pistolTarget): the shipped
+    // pistols' arms keep the mean width of X472 (11.9 deg by 2 atan(s 2/16 / depth), a silhouette of 16.2 deg)
+    static final float PISTOL_THICKNESS = 1.12F;
     // every variant of a gun seen so far (a weapon mod can change which parts NTM draws), and the one in hand
     private static final Map<Item, List<GunGeometry>> VARIANTS = new IdentityHashMap<>();
     private static final Map<Item, GunGeometry> CURRENT = new IdentityHashMap<>();
@@ -595,11 +595,17 @@ public final class Arms {
                 Vector3f p = new Vector3f(g).lerp(at, w);
                 Vector3f off = new Vector3f(down).lerp(side, w);
                 if (off.lengthSquared() < 1e-6F) off.set(side);
+                float holdRoll = right ? Config.armRollRight : Config.armRollLeft;
+                float loadRoll = right ? Config.armLoadRollRight : Config.armLoadRollLeft;
+                if (Float.isFinite(onPath[11])) loadRoll = holdRoll + onPath[11];
                 ArmRest there = new ArmRest();
+                // the arm at the path's point is sized as it is turned there (armPistolScale reads the turn)
+                rollNow = loadRoll;
                 restArm(there, right, slim, p, off, p, axisPoint,
                         right ? Config.armDirRight : Config.armDirLeft, right ? Config.armReachRight : Config.armReachLeft,
                         right ? Config.armLoadScaleRight : Config.armLoadScaleLeft,
                         pistolHoldFrame && Config.armPistolScale, Config.pistolHold);
+                rollNow = Float.NaN;
                 ArmRest mix = r;
                 if (there.valid) {
                     mix = new ArmRest();
@@ -629,9 +635,6 @@ public final class Arms {
                     }
                     mix.length = Math.max(mix.length, Config.armPathMinLength / 16F * mix.s);
                 }
-                float holdRoll = right ? Config.armRollRight : Config.armRollLeft;
-                float loadRoll = right ? Config.armLoadRollRight : Config.armLoadRollLeft;
-                if (Float.isFinite(onPath[11])) loadRoll = holdRoll + onPath[11];
                 rollNow = Float.isNaN(loadRoll) ? Float.NaN : holdRoll + (loadRoll - holdRoll) * w;
                 Matrix4f m = pose(right, slim, p, null, geometry.fraction(grip[i][2]), bodyInCamera, off, p, false,
                         new Quaternionf(), 0F, mix);
@@ -671,12 +674,17 @@ public final class Arms {
                 Vector3f off = new Vector3f(down).lerp(side, carried[0]);
                 if (off.lengthSquared() < 1e-6F) off.set(side);
                 // the arm sized and aimed as if it rested at the carrying spot (a hand near the camera is thinner
-                // than one reaching far forward), blended with the arm on the gun by the carry weight
+                // than one reaching far forward), blended with the arm on the gun by the carry weight; sized as it is
+                // turned there (armLoadRollRight/Left, read by armPistolScale)
+                float holdRoll = right ? Config.armRollRight : Config.armRollLeft;
+                float loadRoll = right ? Config.armLoadRollRight : Config.armLoadRollLeft;
                 ArmRest there = new ArmRest();
+                rollNow = loadRoll;
                 restArm(there, right, slim, p, off, p, axisPoint,
                         right ? Config.armDirRight : Config.armDirLeft, right ? Config.armReachRight : Config.armReachLeft,
                         right ? Config.armLoadScaleRight : Config.armLoadScaleLeft,
                         pistolHoldFrame && Config.armPistolScale, Config.pistolHold);
+                rollNow = Float.NaN;
                 ArmRest mix = r;
                 if (there.valid) {
                     float w = carried[0];
@@ -693,8 +701,6 @@ public final class Arms {
                     mix.crop = r.crop;
                 }
                 // a hand loading shells may turn differently around its own axis (armLoadRollRight/Left)
-                float holdRoll = right ? Config.armRollRight : Config.armRollLeft;
-                float loadRoll = right ? Config.armLoadRollRight : Config.armLoadRollLeft;
                 rollNow = Float.isNaN(loadRoll) ? Float.NaN : holdRoll + (loadRoll - holdRoll) * carried[0];
                 Matrix4f m = pose(right, slim, p, null, geometry.fraction(grip[i][2]), bodyInCamera, off, p, false,
                         new Quaternionf(), 0F, mix);
@@ -1322,8 +1328,63 @@ public final class Arms {
         restArm(rest, right, slim, grip, down, center, axisPoint, dirCfg, reach, holdScale, false, 0F);
     }
 
-    static float pistolThickness(float sOld, Vector3f restGrip, float wp) {
-        return sOld + (PISTOL_THICKNESS * restGrip.length() - sOld) * Math.min(1F, wp);
+    static float pistolThickness(float sOld, float target, float wp) {
+        return sOld + (target - sOld) * Math.min(1F, wp);
+    }
+
+    // armPistolScale: the thickness (before armScale x holdScale = scale) at which the arm's silhouette across the hand
+    // takes the same angle on the screen whatever the hand's depth and the arm's turn: a box shows one face seen face on,
+    // two seen on its edge, and a near face looks wider. The angle is that of a box PISTOL_THICKNESS x its depth thick, as
+    // wide as its mean over its roll. The hand hangs under the grip by half the thickness and the arm grows with it, so
+    // the slice moves away as the arm thickens: the thickness is found by halving, within half to twice
+    // PISTOL_THICKNESS x the grip's depth (an arm whose width can not reach the angle there stays at the bound).
+    static float pistolTarget(boolean right, boolean slim, Vector3f grip, Vector3f down, Vector3f dir, float scale,
+            boolean byScale, float length) {
+        float t0 = PISTOL_THICKNESS * grip.length();
+        if (!(t0 > 1e-6F)) return t0;
+        float goal = PISTOL_THICKNESS * 4F / (float) Math.PI * ((slim ? 1.5F : 2F) + 2F) / 16F * scale;
+        float lo = (float) Math.log(t0 * 0.5F), hi = (float) Math.log(t0 * 2F);
+        float wHi = sliceWidth(right, slim, grip, down, dir, t0 * 2F * scale, byScale, length);
+        if (Float.isNaN(wHi)) return t0;
+        if (wHi <= goal) return t0 * 2F;
+        float wLo = sliceWidth(right, slim, grip, down, dir, t0 * 0.5F * scale, byScale, length);
+        if (Float.isNaN(wLo)) return t0;
+        if (wLo >= goal) return t0 * 0.5F;
+        for (int k = 0; k < 20; k++) {
+            float mid = (lo + hi) * 0.5F;
+            float w = sliceWidth(right, slim, grip, down, dir, (float) Math.exp(mid) * scale, byScale, length);
+            if (Float.isNaN(w)) return t0;
+            if (w < goal) lo = mid;
+            else hi = mid;
+        }
+        return (float) Math.exp((lo + hi) * 0.5F);
+    }
+
+    // the width (tangent units) of the arm of scale s across its hand as the eye sees it, NaN when the arm points at the
+    // eye: the corners of the slice 2 px back from its end (the middle of what is drawn when less is), on the plane square
+    // to the line of sight. byScale: the arm's length grows with s (armBase and armLength set), else it is `length`.
+    static float sliceWidth(boolean right, boolean slim, Vector3f grip, Vector3f down, Vector3f dir, float s, boolean byScale,
+            float length) {
+        float l = byScale ? 12F / 16F * s * Config.armLength : length;
+        Vector3f hand = new Vector3f(down).mul(2F / 16F * s).add(grip);
+        Matrix4f m = local(hand, new Quaternionf(), dir, right, slim, s, l);
+        float cx = (right ? -1F : 1F) * (slim ? 5.5F : 6F) / 16F, y = (12F - Math.min(2F, lastCrop / 2F)) / 16F;
+        float hx = (slim ? 1.5F : 2F) / 16F, hz = 2F / 16F;
+        Vector3f slice = m.transformPosition(cx, y, 0F, new Vector3f());
+        Vector3f view = new Vector3f(slice).normalize();
+        Vector3f across = m.transformDirection(0F, 1F, 0F, new Vector3f()).cross(slice);
+        if (!(across.lengthSquared() > 1e-12F)) return Float.NaN;
+        across.normalize();
+        float lo = Float.MAX_VALUE, hi = -Float.MAX_VALUE;
+        Vector3f q = new Vector3f();
+        for (int i = -1; i <= 1; i += 2) for (int j = -1; j <= 1; j += 2) {
+            m.transformPosition(cx + i * hx, y, j * hz, q);
+            // a corner at or behind the eye counts as just in front of it, so the width does not jump there
+            float w = q.dot(across) / Math.max(q.dot(view), 1e-3F);
+            lo = Math.min(lo, w);
+            hi = Math.max(hi, w);
+        }
+        return hi - lo;
     }
 
     static void restArm(ArmRest rest, boolean right, boolean slim, Vector3f grip, Vector3f down, Vector3f center,
@@ -1340,7 +1401,9 @@ public final class Arms {
         // thickness: fixed (armBaseRight/Left, the same on every gun) or grown with the arm's length
         float base = right ? Config.armBaseRight : Config.armBaseLeft;
         float thickness = base > 0F ? base : Math.min(length / (18F / 16F), Config.armMaxScale);
-        if (pistolScale && pistolWeight > 0F) thickness = pistolThickness(thickness, grip, pistolWeight);
+        if (pistolScale && pistolWeight > 0F)
+            thickness = pistolThickness(thickness, pistolTarget(right, slim, grip, down, dir, Config.armScale * holdScale,
+                    base > 0F && Config.armLength > 0F, length), pistolWeight);
         float s = thickness * Config.armScale * holdScale;
         // Like TaCZ: an arm of fixed thickness is the whole arm, armLength x the vanilla arm of its thickness,
         // never cut at the plane in front of the eye (armReach): cut there, a hand near the screen kept only a few
@@ -1366,7 +1429,7 @@ public final class Arms {
     private static float rollNow = Float.NaN;
 
     // arm cube placed with its hand end at `hand`, built along `dir` (hand -> shoulder), then turned by `turn`
-    private static Matrix4f local(Vector3f hand, Quaternionf turn, Vector3f dir, boolean right, boolean slim, float s, float length) {
+    static Matrix4f local(Vector3f hand, Quaternionf turn, Vector3f dir, boolean right, boolean slim, float s, float length) {
         Vector3f y = new Vector3f(dir).negate().normalize();
         Vector3f x = new Vector3f(0F, 1F, 0F).cross(y);
         if (x.lengthSquared() < 1e-6F) x.set(1F, 0F, 0F);
