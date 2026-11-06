@@ -303,3 +303,10 @@ re@WaterRings.java: if \(type == null\) type = acup\.gunfeel\.HoleRender\.create
 re@WaterRings.java: ^\s*\.withTexture\("Sampler0", TextureAtlas\.LOCATION_PARTICLES\)\.useLightmap\(\)\.sortOnUpload\(\)\.createRenderSetup\(\)\);$ =>
 re@WaterFxStand.java: (teleportTo\(server\.overworld\(\), .*, 0F, 30F),$ => $1));
 re@WaterFxStand.java: ^\s*false\)\);$ =>
+# main X539, smoke: 1.21.1 has no Blocks.CONCRETE family, no Commands.hasPermission, no ChunkPos.containing and
+# ChunkPos is a class with fields; a client-bound payload takes a handler on the server too
+re@SmokeCloudStand.java: Blocks\.CONCRETE\.pick\(net\.minecraft\.world\.item\.DyeColor\.(\w+)\) => Blocks.$1_CONCRETE
+re@SmokeCommand.java: Commands\.hasPermission\(Commands\.LEVEL_GAMEMASTERS\) => s -> s.hasPermission(2)
+re@SmokeNet.java: r\.playToClient\((SmokePayloads\.\w+\.TYPE), (SmokePayloads\.\w+\.CODEC)\); => r.playToClient($1, $2, (p, ctx) -> {});
+re@SmokeNet.java: ChunkPos\.containing\(c\.origin\) => new ChunkPos(c.origin)
+re@SmokeNet.java: contains\(at\.x\(\), at\.z\(\), false\) => contains(at.x, at.z, false)

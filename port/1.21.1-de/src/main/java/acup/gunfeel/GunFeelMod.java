@@ -41,10 +41,12 @@ public final class GunFeelMod {
             // NTM DE's laminate drawn translucent (Config.ntmRenderFixes)
             acup.gunfeel.port.NtmRenderFixes.register(modBus);
             if (Feature.AMMO_CHOICE.on()) AmmoLockKey.register(modBus);
+            acup.gunfeel.smoke.client.SmokeClientSetup.init(modBus);
         }
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.RegisterCommandsEvent.class,
                 e -> {
                     if (Feature.HOLD_AIM.on()) ReaimCommand.register(e.getDispatcher());
+                    acup.gunfeel.smoke.SmokeCommand.register(e.getDispatcher());
                 });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class,
                 e -> {
@@ -52,7 +54,20 @@ public final class GunFeelMod {
                     ServerSettingsPayload.tick(e.getServer());
                 });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.LevelTickEvent.Post.class,
-                e -> ModelHits.tick(e.getLevel()));
+                e -> {
+                    ModelHits.tick(e.getLevel());
+                    if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) acup.gunfeel.smoke.SmokeClouds.serverTick(level);
+                });
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.ChunkWatchEvent.Sent.class,
+                acup.gunfeel.smoke.SmokeNet::watched);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.ChunkWatchEvent.UnWatch.class,
+                acup.gunfeel.smoke.SmokeNet::unwatched);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.LevelEvent.Unload.class,
+                e -> {
+                    if (e.getLevel() instanceof net.minecraft.world.level.Level level) acup.gunfeel.smoke.SmokeClouds.forget(level);
+                });
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent.class,
+                e -> acup.gunfeel.smoke.SmokeNet.forget(e.getEntity().getUUID()));
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent.class,
                 e -> {
                     if (e.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {
@@ -86,6 +101,7 @@ public final class GunFeelMod {
                 r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC, (p, ctx) -> ServerSettingsClient.receive(p));
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC,
                         (p, ctx) -> ctx.enqueueWork(() -> p.handle(ctx.player().level())));
+                acup.gunfeel.smoke.client.SmokeClientSetup.payloads(r);
             } else {
                 // 1.21.1 wants a handler on the server too: it never runs there
                 r.playToClient(ShotPayload.TYPE, ShotPayload.CODEC, (p, ctx) -> {});
@@ -94,7 +110,11 @@ public final class GunFeelMod {
                 r.playToClient(HelloPayload.TYPE, HelloPayload.CODEC, (p, ctx) -> {});
                 r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC, (p, ctx) -> {});
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC, (p, ctx) -> {});
+                acup.gunfeel.smoke.SmokeNet.payloads(r);
             }
+            r.playToServer(acup.gunfeel.smoke.SmokePayloads.Resync.TYPE, acup.gunfeel.smoke.SmokePayloads.Resync.CODEC, (p, ctx) -> {
+                if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) ctx.enqueueWork(() -> acup.gunfeel.smoke.SmokeNet.resync(sp, p));
+            });
             r.playToServer(AmmoSelectPayload.TYPE, AmmoSelectPayload.CODEC, (p, ctx) -> {
                 if (Feature.AMMO_CHOICE.on() && ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp && !acup.gunfeel.SpectatorGuns.blocks(sp)) AmmoLock.select(sp, p.config());
             });
