@@ -31,7 +31,7 @@ import net.minecraft.world.phys.Vec3;
 public final class MobSmoke {
     private static final boolean ENABLED = Boolean.getBoolean("ntmgunfeel.checkMobs");
     private static volatile List<String> CASES = List.of();
-    private record Snapshot(float anchor, float yRot, long tick, List<ModelBox> boxes, String source) {}
+    private record Snapshot(float anchor, float yRot, int age, List<ModelBox> boxes, String source) {}
     private record Result(boolean ok, String text) {}
     private static final ConcurrentLinkedQueue<Result> RESULTS = new ConcurrentLinkedQueue<>();
     private static volatile int id = -1;
@@ -112,10 +112,10 @@ public final class MobSmoke {
     }
 
     static void captured(LivingEntity e, float anchor, List<ModelBox> boxes, String source) {
-        if (ENABLED && e.getId()==id) client=new Snapshot(anchor,e.getYRot(),e.level().getGameTime(),List.copyOf(boxes),source);
+        if (ENABLED && e.getId()==id) client=new Snapshot(anchor,e.getYRot(),e.tickCount,List.copyOf(boxes),source);
     }
     static void accepted(LivingEntity e, float anchor, List<ModelBox> boxes) {
-        if (ENABLED && e.getId()==id) server=new Snapshot(anchor,e.getYRot(),e.level().getGameTime(),List.copyOf(boxes),"network");
+        if (ENABLED && e.getId()==id) server=new Snapshot(anchor,e.getYRot(),e.tickCount,List.copyOf(boxes),"network");
     }
     public static void debug(Entity e, boolean model) {
         if (ENABLED && watch && e!=null && e.getId()==id) {
@@ -371,8 +371,8 @@ public final class MobSmoke {
                 String label=current()+": размер "+slime.getSize()+", сервер";
                 checkSlimeScale(server,slime.getSize(),"сервер");
                 rays(slime,server,label);
-                var full=MobRayOracle.surface(slime,server.anchor(),server.yRot(),server.tick(),server.boxes());
-                var core=MobRayOracle.surface(slime,server.anchor(),server.yRot(),server.tick(),server.boxes().stream().filter(b -> !b.part().endsWith(ModelBodyGeometry.SHELL_SUFFIX)).toList());
+                var full=MobRayOracle.surface(slime,server.anchor(),server.yRot(),server.age(),server.boxes());
+                var core=MobRayOracle.surface(slime,server.anchor(),server.yRot(),server.age(),server.boxes().stream().filter(b -> !b.part().endsWith(ModelBodyGeometry.SHELL_SUFFIX)).toList());
                 var onlyShell=MobRayOracle.grid(full).stream().filter(ray -> ray.hit() && !MobRayOracle.hit(core,ray.from(),ray.to()) && clearRay(slime,ray)).findFirst().orElseThrow();
                 nativeRay(level,slime,onlyShell,true,label+": попадание только во внешнюю оболочку");
                 if(nextSize>0) slime.setSize(nextSize,true);
@@ -390,8 +390,8 @@ public final class MobSmoke {
                 var level=Minecraft.getInstance().getSingleplayerServer().overworld();
                 var sheep=(net.minecraft.world.entity.animal.sheep.Sheep)level.getEntity(id);
                 rays(sheep,server,current()+": с шерстью, сервер");
-                var full=MobRayOracle.surface(sheep,server.anchor(),server.yRot(),server.tick(),server.boxes());
-                var bare=MobRayOracle.surface(sheep,server.anchor(),server.yRot(),server.tick(),server.boxes().stream().filter(b -> !ModelWool.isWool(b)).toList());
+                var full=MobRayOracle.surface(sheep,server.anchor(),server.yRot(),server.age(),server.boxes());
+                var bare=MobRayOracle.surface(sheep,server.anchor(),server.yRot(),server.age(),server.boxes().stream().filter(b -> !ModelWool.isWool(b)).toList());
                 var woolOnly=MobRayOracle.grid(full).stream().filter(ray -> ray.hit() && !MobRayOracle.hit(bare,ray.from(),ray.to())).toList();
                 woolRay=woolOnly.stream().filter(ray -> clearRay(sheep,ray)).findFirst().orElse(null);
                 // a lamb's fleece is the size of the parts it covers or lies inside them: no point is on the wool alone
@@ -595,7 +595,7 @@ public final class MobSmoke {
                 if(kept==null || fresh==null || server==null) RESULTS.add(new Result(false,label+": нет позы для сравнения"));
                 else if(view==null || age>ModelHits.MAX_SYNC_AGE) RESULTS.add(new Result(false,label+": нет свежей позы игрока, возраст="+age));
                 else {
-                    var grid=MobRayOracle.grid(MobRayOracle.surface(target,server.anchor(),server.yRot(),server.tick(),server.boxes()));
+                    var grid=MobRayOracle.grid(MobRayOracle.surface(target,server.anchor(),server.yRot(),server.age(),server.boxes()));
                     all.put(id,kept);
                     int seen=0,turret=0,query=0,rays=0;var truths=new java.util.ArrayList<Boolean>();String scan="";boolean fitted=false,ruleFits=false;
                     try {
@@ -625,7 +625,7 @@ public final class MobSmoke {
                         if(was.size()==now.size()) {
                             int bestA=0;double bestE=Double.MAX_VALUE,worstE=0;
                             for(int deg=-180;deg<180;deg++) { double e=boxError(was,now,Math.toRadians(deg)); worstE=Math.max(worstE,e); if(e<bestE) { bestE=e;bestA=deg; } }
-                            double rule=Math.toDegrees(turnRule(target,later(kept,level.getGameTime()-(long)part(fresh,"tick"))));double ruleE=boxError(was,now,Math.toRadians(rule));
+                            double rule=Math.toDegrees(turnRule(target,later(kept,target.tickCount-(int)part(fresh,"age"))));double ruleE=boxError(was,now,Math.toRadians(rule));
                             // the boxes tell a turn when some angle lays them clearly worse than the best one
                             fitted=Math.sqrt(worstE)-Math.sqrt(bestE)>.05;ruleFits=Math.abs(net.minecraft.util.Mth.wrapDegrees((float)(rule-bestA)))<=3;
                             scan+=", поворот модели="+bestA+" (остаток "+String.format("%.3f",Math.sqrt(bestE))+"), по правилу="+String.format("%.1f",rule)
@@ -646,11 +646,11 @@ public final class MobSmoke {
         });
     }
     // the pose as if it had come in dt ticks later
-    private static Object later(Object pose,long dt) throws ReflectiveOperationException {
+    private static Object later(Object pose,int dt) throws ReflectiveOperationException {
         var parts=pose.getClass().getRecordComponents();var values=new Object[parts.length];var types=new Class<?>[parts.length];
         for(int i=0;i<parts.length;i++) {
             types[i]=parts[i].getType();var accessor=parts[i].getAccessor();accessor.setAccessible(true);values[i]=accessor.invoke(pose);
-            if(parts[i].getName().equals("tick")) values[i]=(long)values[i]+dt;
+            if(parts[i].getName().equals("age")) values[i]=(int)values[i]+dt;
         }
         var constructor=pose.getClass().getDeclaredConstructor(types);constructor.setAccessible(true);return constructor.newInstance(values);
     }
@@ -720,7 +720,7 @@ public final class MobSmoke {
     }
 
     private static void rays(LivingEntity target,Snapshot pose,String label) {
-        var triangles=MobRayOracle.surface(target,pose.anchor(),pose.yRot(),pose.tick(),pose.boxes());
+        var triangles=MobRayOracle.surface(target,pose.anchor(),pose.yRot(),pose.age(),pose.boxes());
         var grid=MobRayOracle.grid(triangles);
         if(grid.stream().noneMatch(MobRayOracle.Ray::hit)) {
             grid=new java.util.ArrayList<>(grid);

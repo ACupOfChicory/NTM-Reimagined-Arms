@@ -19,7 +19,7 @@ import net.minecraft.world.phys.Vec3;
 
 public final class ModelHits {
     public static final int RANGE = 96, MAX_UPDATES = 16, INTERVAL = 2, MAX_SYNC_AGE = 5;
-    private record PoseAt(UUID entity, Vec3 position, float yaw, float bodyYaw, float yRot, Pose pose, float width, float height, long tick, List<ModelBox> boxes, List<Object> gear) {}
+    private record PoseAt(UUID entity, Vec3 position, float yaw, float bodyYaw, float yRot, int age, Pose pose, float width, float height, long tick, List<ModelBox> boxes, List<Object> gear) {}
     private static final Map<Level, Map<Integer, PoseAt>> POSES = new WeakHashMap<>();
     private static final Map<ServerPlayer, long[]> LIMITS = new WeakHashMap<>();
     private record ViewAt(PoseAt pose,Vec3 rendered,Vec3 velocity,Level level) {}
@@ -177,7 +177,7 @@ public final class ModelHits {
     // Явная отметка захвата также позволяет воспроизвести пропуск кадров в серверном стенде.
     static synchronized void putAt(Level level, LivingEntity target, float yaw, List<ModelBox> boxes, long tick) {
         Map<Integer, PoseAt> poses = POSES.computeIfAbsent(level, k -> new HashMap<>());
-        poses.put(target.getId(), new PoseAt(target.getUUID(), target.position(), yaw, target.yBodyRot, target.getYRot(), target.getPose(),
+        poses.put(target.getId(), new PoseAt(target.getUUID(), target.position(), yaw, target.yBodyRot, target.getYRot(), target.tickCount, target.getPose(),
                 target.getBbWidth(), target.getBbHeight(), tick, List.copyOf(boxes), gear(target)));
     }
 
@@ -195,7 +195,7 @@ public final class ModelHits {
             if (!compatible(target, p)) {
                 it.remove();
             } else if (!target.position().equals(p.position())) {
-                entry.setValue(new PoseAt(p.entity(), target.position(), p.yaw(), p.bodyYaw(), p.yRot(), p.pose(),
+                entry.setValue(new PoseAt(p.entity(), target.position(), p.yaw(), p.bodyYaw(), p.yRot(), p.age(), p.pose(),
                         p.width(), p.height(), p.tick(), p.boxes(), p.gear()));
             }
         }
@@ -207,7 +207,7 @@ public final class ModelHits {
                 if(observer.getKey().level()!=level || !compatible(target,v.pose())
                         || level.getGameTime()-v.pose().tick()>MAX_SYNC_AGE)return true;
                 var p=v.pose();
-                entry.setValue(new ViewAt(new PoseAt(p.entity(),target.position(),p.yaw(),p.bodyYaw(),p.yRot(),p.pose(),
+                entry.setValue(new ViewAt(new PoseAt(p.entity(),target.position(),p.yaw(),p.bodyYaw(),p.yRot(),p.age(),p.pose(),
                         p.width(),p.height(),p.tick(),p.boxes(),p.gear()),v.rendered(),v.velocity(),level));
                 return false;
             });
@@ -490,12 +490,13 @@ public final class ModelHits {
     }
     // How far the drawn model has turned since the pose was caught, in the body's terms.
     static double turnAngle(LivingEntity target, PoseAt p) {
-        return turnAngle(target, p.yaw(), p.bodyYaw(), p.yRot(), p.tick());
+        return turnAngle(target, p.yaw(), p.bodyYaw(), p.yRot(), p.age());
     }
-    // yaw: the turn the pose was drawn at (the client's body); bodyYaw, yRot, tick: this side's when the pose came in.
-    static double turnAngle(LivingEntity target, float yaw, float bodyYaw, float yRot, long tick) {
+    // yaw: the turn the pose was drawn at (the client's body); bodyYaw, yRot, age: this side's when the pose came in.
+    // age is the mob's tickCount, which RenderUFO spins by; the client's game time jumps with the server's time packets.
+    static double turnAngle(LivingEntity target, float yaw, float bodyYaw, float yRot, int age) {
         return turnAngle(TURNS.get(target.getClass()), target.level().isClientSide(), target.yBodyRot, target.getYRot(),
-                target.level().getGameTime(), yaw, bodyYaw, yRot, tick);
+                target.tickCount, yaw, bodyYaw, yRot, age);
     }
     static double turnAngle(Turn turn, boolean client, float body, float yRotNow, long now, float yaw, float bodyYaw, float yRot, long tick) {
         return switch(turn) {
