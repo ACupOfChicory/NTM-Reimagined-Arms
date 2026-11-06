@@ -5,6 +5,10 @@
 - An incendiary or phosphorus rocket that hits a creature in water in its
   first three ticks spares it, as NTM's rocket does in the air. Before, it
   went off there; only the grenade spares just its shooter.
+- A phosphorus pellet or another round that does not set alight under water
+  now hits a creature in water as a plain round of its kind does, with the
+  damage water takes off. Before, it skipped that and hit as hard as in the
+  air. b75_inc's small blast in water now goes through the same steps.
 
 ## X555
 

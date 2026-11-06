@@ -243,9 +243,7 @@ CORE field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
 CORE field com/hbm/items/weapon/sedna/BulletConfig expires I
 CORE field com/hbm/items/weapon/sedna/BulletConfig gravity D
 CORE field com/hbm/items/weapon/sedna/BulletConfig id I
-CORE field com/hbm/items/weapon/sedna/BulletConfig onEntityHit Ljava/util/function/BiConsumer;
 CORE field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
-CORE field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
 CORE field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 CORE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
 CORE field com/hbm/items/weapon/sedna/BulletConfig spread F

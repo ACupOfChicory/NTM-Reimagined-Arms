@@ -431,19 +431,25 @@ public final class ExplosiveCheck {
         }
     }
 
-    // a phosphorus pellet on a golem in water sets it not alight; in the air NTM's 300 ticks
+    // a phosphorus pellet on a golem in water sets it not alight; in the air NTM's 300 ticks. In water it hits as a
+    // plain pellet: the damage × f² where the golem is, as a buckshot pellet's (g12) the same way
     private static void phosphorus() {
-        BulletConfig c = null;
+        BulletConfig c = null, plain = null;
         // the shotgun's own (the Shredder's shares the ammo)
-        for (BulletConfig k : BulletConfig.configs) if (c == null && k != null && ammoName(k).equals("ammo_standard_g12_phosphorus")) c = k;
-        if (c == null) {
-            lines.add("#\tno config ammo_standard_g12_phosphorus");
+        for (BulletConfig k : BulletConfig.configs) {
+            if (c == null && k != null && ammoName(k).equals("ammo_standard_g12_phosphorus")) c = k;
+            if (plain == null && k != null && ammoName(k).equals("ammo_standard_g12")) plain = k;
+        }
+        if (c == null || plain == null) {
+            lines.add("#\tno config ammo_standard_g12_phosphorus or ammo_standard_g12");
             return;
         }
         int[] got = new int[2];
-        for (int wet = 0; wet < 2; wet++) {
+        double[] took = new double[3];
+        for (int run = 0; run < 3; run++) {
+            boolean wet = run != 0;
             basin();
-            Vec3 feet = wet == 1 ? new Vec3(CX, surface - 4, CZ) : new Vec3(DRY_X, FLOOR + 1, CZ);
+            Vec3 feet = wet ? new Vec3(CX, surface - 4, CZ) : new Vec3(DRY_X, FLOOR + 1, CZ);
             IronGolem g = EntityTypes.IRON_GOLEM.create(level, EntitySpawnReason.COMMAND);
             g.setPos(feet.x, feet.y, feet.z);
             g.setNoAi(true);
@@ -452,15 +458,20 @@ public final class ExplosiveCheck {
             g.tick();
             g.setPos(feet.x, feet.y, feet.z);
             HbmLivingProps.getData(g).phosphorus = 0;
-            EntityBulletBaseMK4 b = bullet(c, feet.add(-1.2, 1.2, 0), new Vec3(1, 0, 0));
+            float before = g.getHealth();
+            EntityBulletBaseMK4 b = bullet(run == 2 ? plain : c, feet.add(-1.2, 1.2, 0), new Vec3(1, 0, 0));
             fly(b, 10);
-            got[wet] = HbmLivingProps.getData(g).phosphorus;
+            took[run] = before - g.getHealth();
+            if (run < 2) got[run] = HbmLivingProps.getData(g).phosphorus;
             g.discard();
         }
         rowFlag("g: g12_phosphorus on a golem in water: not alight", "ammo_standard_g12_phosphorus", WaterClass.of(c), "phosphorus 0",
                 "phosphorus " + got[1], got[1] == 0, "in the air: " + got[0]);
         rowFlag("g: g12_phosphorus in the air (NTM's)", "ammo_standard_g12_phosphorus", WaterClass.of(c), "phosphorus 300", "phosphorus " + got[0],
                 got[0] >= 300, "");
+        row("g: g12_phosphorus on a golem in water, damage × g12's", "ammo_standard_g12_phosphorus", WaterClass.of(c), 1.0,
+                took[2] > 0 ? took[1] / took[2] : Double.NaN, 0.01,
+                "phosphorus " + fmt(took[1]) + ", g12 " + fmt(took[2]) + ", in the air " + fmt(took[0]) + " (× f² " + fmt(took[0] > 0 ? took[1] / took[0] : Double.NaN) + ")");
     }
 
     // a sinking r762_he set off by a plain bullet that runs into it
