@@ -1,5 +1,26 @@
 # Changelog
 
+## X498
+
+- Smoke clouds: a smoke grenade lets out a dense cloud that fills the open
+  space around it, about a 6-block half sphere in the open and farther along a
+  corridor. It stays out of walls, shut doors and water, goes in through a door
+  that opens, starts to thin after about 20 seconds and is gone about 20
+  seconds later. The server and each client run the same simulation, so a
+  cloud costs little traffic, and a player who comes later sees it as it is.
+  The TX-54's smoke grenade will use it.
+- Clouds are drawn as a volume that walls and mobs cut; inside one the screen
+  goes grey. Client keys in `ntm-gunfeel.properties`: `smokeQuality` (`off`,
+  `slices`, `low`, `medium`, `high` by default, `ultra`), `smokeMaxClouds` (8)
+  and `smokeDistance` (128 blocks). With an Iris shader pack the clouds are
+  drawn as translucent slices.
+- Server keys: `smoke` (on) lets the clouds out; `smokeBlocksMobSight` (off)
+  makes mobs lose a target behind thick smoke.
+- `/gunsmoke` (operators) lets out a cloud where you look or a row of them,
+  clears them and shows how many there are and what they cost the server.
+- ⚠ Breaks compatibility: the network protocol is now 10 (smoke packets);
+  client and server need the same build.
+
 ## X493
 
 - Works with Punchy! and Punchy! Moves: Punchy! no longer animates NTM guns in
