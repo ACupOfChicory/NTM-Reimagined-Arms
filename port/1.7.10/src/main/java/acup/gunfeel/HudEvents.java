@@ -31,6 +31,7 @@ public final class HudEvents {
     @SubscribeEvent
     public void clientTick(TickEvent.ClientTickEvent e) {
         if (e.phase == TickEvent.Phase.END && acup.gunfeel.compat.Feature.AMMO_CHOICE.on()) AmmoLockKey.tick();
+        if (e.phase == TickEvent.Phase.END) WalkSprint.tick();
     }
 
     // before NTM's own handlers of the same events (HbmKeybinds, priority LOW)

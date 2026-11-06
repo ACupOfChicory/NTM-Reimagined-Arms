@@ -166,6 +166,14 @@ public final class Grips {
         save();
     }
 
+    // restore() for the editors' undo: in effect at once, written by flush()
+    static void restoreUnsaved(Map<String, String> user) {
+        USER.clear();
+        USER.putAll(user);
+        merge();
+        dirty = true;
+    }
+
     // one hand back to the jar's position (or computed from the model)
     public static void resetHand(String id, boolean right, boolean save) {
         id = canon(id);
