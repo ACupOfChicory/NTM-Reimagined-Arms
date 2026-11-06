@@ -1,6 +1,6 @@
 # Changelog
 
-## X543.164
+## X543.166
 
 - A bullet hole on see-through blocks drawn with the water and stained glass
   (NTM's reinforced laminate and its pane, ice, such glass from other mods),
@@ -9,6 +9,10 @@
   Which side the camera is on now counts from the eyes, not the feet, so a hole
   on the top of such a block in the floor is drawn over the glass too. Seen
   through the glass from behind, and on all other blocks, holes look as before.
+- Players with a slim skin (the Alex model) now hold the gun with slim arms,
+  3 pixels wide, as in 26.2 and in vanilla's third person. They were always
+  drawn 4 pixels wide: the port looked for slim arms in Et Futurum, a 1.7.10
+  mod; it now reads the skin's own model type.
 
 ## X543.163
 
