@@ -90,14 +90,15 @@ class ArmDeadSliderTest {
         }
     }
 
-    private static Pose pose(boolean right, boolean loading) {
+    private static Pose pose(boolean right, boolean loading, float w) {
         var down = new Vector3f(0F, -1F, 0F);
         var grip = new Vector3f(right ? -0.28F : 0.30F, -0.2F, 0.72F);
         var rest = new Arms.ArmRest();
         float[] dir = right ? Config.armDirRight : Config.armDirLeft;
         float reach = right ? Config.armReachRight : Config.armReachLeft;
-        float holdScale = loading ? right ? Config.armLoadScaleRight : Config.armLoadScaleLeft : right ? Config.armScaleRight : Config.armScaleLeft;
-        Arms.restArm(rest, right, false, grip, down, grip, new Vector3f(0F, 0F, 0F), dir, reach, holdScale);
+        float holdScale = loading ? right ? Config.armLoadScaleRight : Config.armLoadScaleLeft : Arms.holdScale(right, w);
+        float wp = pistolWeight();
+        Arms.restArm(rest, right, false, grip, down, grip, new Vector3f(0F, 0F, 0F), dir, reach, holdScale, wp > 0F, wp);
         Arms.rollNow = loading ? (right ? Config.armLoadRollRight : Config.armLoadRollLeft) : Float.NaN;
         Matrix4f local = Arms.local(rest.hand, new Quaternionf(), new Vector3f(dir).normalize(), right, false, rest.s, rest.length);
         float[] matrix = new float[16];
@@ -106,14 +107,25 @@ class ArmDeadSliderTest {
         return new Pose(rest.length, rest.s, new Vector3f(rest.hand), new Vector3f(rest.shoulder), rest.crop, matrix);
     }
 
+    // the weight of a pistol's arms sized by their hands' depth, as the game draws this gun from the hip
+    // (MixinItemRenderWeaponBase: pistolHold on a pistol, armPistolScale; no scope on the test guns)
+    private static float pistolWeight() {
+        return Config.enabled && Config.armPistolScale && Config.pistolHold > 0F && WalkSprint.pistol(Config.kickPreset)
+                ? Math.min(1F, Config.pistolHold) : 0F;
+    }
+
     private static boolean dead(ArmEditor editor, ArmEditor.Setting s, boolean right, boolean loading) {
-        Pose first = null;
+        Pose[] first = new Pose[3];
         boolean changed = false;
         for (int n = 0; n < 9; n++) {
             put(editor, s, s.min() + (s.max() - s.min()) * n / 8F);
-            Pose now = pose(right, loading);
-            if (first == null) first = now;
-            else changed |= !first.same(now);
+            int i = 0;
+            for (float w : new float[] {0F, 0.5F, 1F}) {
+                Pose now = pose(right, loading, w);
+                if (n == 0) first[i] = now;
+                else changed |= !first[i].same(now);
+                i++;
+            }
         }
         return !changed;
     }
@@ -133,6 +145,7 @@ class ArmDeadSliderTest {
                         for (String id : List.of("armDir" + (right ? "Right" : "Left") + ".0", "armDir" + (right ? "Right" : "Left") + ".1",
                                 "armDir" + (right ? "Right" : "Left") + ".2", "armRoll" + (right ? "Right" : "Left"),
                                 "armScale" + (right ? "Right" : "Left"), "armBase" + (right ? "Right" : "Left"),
+                                "armAimScale" + (right ? "Right" : "Left"),
                                 "armReach" + (right ? "Right" : "Left"), "armLoadRoll" + (right ? "Right" : "Left"),
                                 "armLoadScale" + (right ? "Right" : "Left"))) {
                             resetState(opened, gun, state);
@@ -171,12 +184,23 @@ class ArmDeadSliderTest {
                         Pose[] first = null;
                         for (int n = 0; n < 9; n++) {
                             put(editor, s, s.min() + (s.max() - s.min()) * n / 8F);
-                            Pose[] now = {pose(true, false), pose(false, false), pose(true, true), pose(false, true)};
+                            Pose[] now = new Pose[12];
+                            int at = 0;
+                            for (float w : new float[] {0F, 0.5F, 1F}) {
+                                now[at++] = pose(true, false, w);
+                                now[at++] = pose(false, false, w);
+                                now[at++] = pose(true, true, w);
+                                now[at++] = pose(false, true, w);
+                            }
                             if (first == null) first = now;
                             else for (int i = 0; i < now.length; i++) dead &= first[i].same(now[i]);
                         }
-                        if (state == 6 && id.equals("armLength")) assertFalse(dead, gun + ": a thick arm is cut by armLength");
-                        assertEquals(dead, s.why() != null, gun + " " + state + " " + id + " grey iff both poses are unchanged");
+                        // (by its hand's depth the arm is no thicker than the depth makes it)
+                        if (state == 6 && id.equals("armLength") && pistolWeight() == 0F) assertFalse(dead, gun + ": a thick arm is cut by armLength");
+                        // an arm sized by its hand's depth has no bound on its thickness the editor could read: there
+                        // the length is never grey, and only a grey one must be dead
+                        if (id.equals("armLength") && pistolWeight() > 0F) assertNull(s.why(), gun + " " + state + " armLength by the hands' depth");
+                        else assertEquals(dead, s.why() != null, gun + " " + state + " " + id + " grey iff both poses are unchanged");
                         if (s.why() != null) assertTrue(s.text().length() <= 34, s.text());
                     }
                     if (state == 6) {
@@ -185,12 +209,21 @@ class ArmDeadSliderTest {
                         armDirection(gun, true);
                         armDirection(gun, false);
                         set(gun, "armMaxScale", "0.5");
+                        // the arms' thickness by the hand's depth would not take armMaxScale
+                        set(gun, "armPistolScale", "false");
                         ArmEditor.Setting length = setting(editor, "armLength");
                         assertNotNull(length.why(), gun + ": armLength with a small armMaxScale");
                         Pose[] first = null;
                         for (int n = 0; n < 9; n++) {
                             put(editor, length, length.min() + (length.max() - length.min()) * n / 8F);
-                            Pose[] now = {pose(true, false), pose(false, false), pose(true, true), pose(false, true)};
+                            Pose[] now = new Pose[12];
+                            int at = 0;
+                            for (float w : new float[] {0F, 0.5F, 1F}) {
+                                now[at++] = pose(true, false, w);
+                                now[at++] = pose(false, false, w);
+                                now[at++] = pose(true, true, w);
+                                now[at++] = pose(false, true, w);
+                            }
                             if (first == null) first = now;
                             else for (int i = 0; i < now.length; i++) assertTrue(first[i].same(now[i]), gun + ": armLength moves an arm held thin");
                         }
@@ -247,6 +280,64 @@ class ArmDeadSliderTest {
             }
         } finally {
             ArmFiles.dir = oldFiles;
+            Grips.restoreUnsaved(opened);
+            Config.select(null);
+        }
+    }
+
+    @Test
+    void pistolThicknessSwitchIsOnlyActiveWhenPistolHoldCanApply() {
+        Map<String, String> opened = Grips.snapshot();
+        float hold0 = Config.pistolHold;
+        try {
+            String gun = GUNS.get(0);
+            Config.select(gun);
+            Config.kickPreset = "rifle";
+            var editor = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            editor.page = ArmEditor.Page.BOTH;
+            var row = editor.rows().stream().filter(r -> r.text() != null && r.text().startsWith("Руки пистолета по глубине:"))
+                    .findFirst().orElseThrow();
+            assertEquals("Руки пистолета по глубине: да", row.text());
+            var toggle = editor.actions().stream().filter(a -> a.id().equals("set.armPistolScale.toggle")).findFirst().orElseThrow();
+            assertFalse(toggle.active());
+            assertEquals("действует только у пистолета, когда включён «пистолет у бедра»", toggle.why());
+            assertTrue(toggle.why().length() <= 64);
+
+            // a pistol aimed through a scope keeps NTM's hold (MixinItemRenderWeaponBase), so the rule does not act
+            String pistol = GUNS.get(1);
+            Config.select(pistol);
+            assertTrue(WalkSprint.pistol(Config.kickPreset), pistol + " is a pistol");
+            var plain = ArmEditorTest.clips(List.of("RELOAD"));
+            var scoped = new ArmEditor.Clips() {
+                public List<ArmEditor.Clip> list() {
+                    return plain.list();
+                }
+
+                public boolean scoped() {
+                    return true;
+                }
+            };
+            for (boolean scope : new boolean[] {false, true}) {
+                var e = new ArmEditor(pistol, scope ? scoped : plain);
+                e.page = ArmEditor.Page.BOTH;
+                var t = e.actions().stream().filter(a -> a.id().equals("set.armPistolScale.toggle")).findFirst().orElseThrow();
+                assertEquals(!scope, t.active(), "scope " + scope);
+                if (scope) assertEquals("не действует у оружия с оптическим прицелом", t.why());
+            }
+
+            // armMaxScale with both bases 0: the hold's full weight leaves it nothing, a half weight still reads it
+            set(pistol, "armBaseRight", "0");
+            set(pistol, "armBaseLeft", "0");
+            for (float hold : new float[] {0.5F, 1F}) {
+                Config.pistolHold = hold;
+                var e = new ArmEditor(pistol, plain);
+                e.page = ArmEditor.Page.BOTH;
+                var max = setting(e, "armMaxScale");
+                assertEquals(hold >= 1F, max.why() != null, "pistolHold " + hold);
+                if (max.why() != null) assertEquals("Предел толщины: по глубине кисти", max.text());
+            }
+        } finally {
+            Config.pistolHold = hold0;
             Grips.restoreUnsaved(opened);
             Config.select(null);
         }

@@ -71,6 +71,7 @@ public final class Config {
     public static float armFollowSupport = 0.25F;
     // During animations the hands slide along the gun toward the stock instead of the arms stretching.
     public static boolean armSlide = true;
+    public static boolean armPistolScale = true;
     public static float armSlideTo = 0.05F;
     public static float armStretch = 0.1F;
     public static float armInspectDrop = 1.0F;
@@ -140,6 +141,8 @@ public final class Config {
     public static float aimHold = 1F;
     public static float armScaleRight = 1F;
     public static float armScaleLeft = 1F;
+    public static float armAimScaleRight = 0F;
+    public static float armAimScaleLeft = 0F;
 
     private static final String HEADER = """
             NTM Gun Feel. Saved values are re-read while the game runs.
@@ -195,6 +198,7 @@ public final class Config {
             armBaseRight, armBaseLeft: arm thickness before armScale, the same on every gun (as on Maresleg); 0 = automatic (grows with the arm's length)
             armLength: arm length in vanilla arms of its thickness (1 = the whole vanilla arm, never cut or stretched, like TaCZ); 0 = stretched/squashed to armReach
             armLoadScaleRight, armLoadScaleLeft: thickness of each arm while it loads shells into the gun, on top of armScale, 1 = unchanged
+            armPistolScale: a pistol held by pistolHold gets each arm as much thicker as its hand is farther from the eye, so both hands look the same size on every pistol, from the hip and aimed; off = the arm thickness of the other guns
             armLoadRollRight, armLoadRollLeft: turn of each arm around its own axis while it loads shells, degrees, NaN = armRollRight/Left
             armAroundTopDrop: while armLeftKeys holds the left hand over the part (90), lower it toward the part by this many arm pixels; none at the side
             armAroundShift: while armLeftKeys moves the left hand round a part, move it left (out of the part) by this many arm pixels; none under the part (-90)
@@ -216,6 +220,7 @@ public final class Config {
               measured pistols are, its sights staying on the middle of the screen, 1 = as measured, 0 = off (NTM's aimed place);
               not for a gun with a scope, nor for long guns
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
+            armAimScaleRight, armAimScaleLeft: thickness of each arm holding the gun when aimed, in place of armScaleRight/Left; it goes over from one to the other as the gun comes up to the sights; 0 = the same as armScaleRight/Left
             armRollRight, armRollLeft: turn of each arm around its own axis, degrees
             armDirRight, armDirLeft: direction from the hand to the shoulder: x (+ left), y (+ up), z (+ forward)
             armReachRight, armReachLeft: the arm goes back until this distance in front of the eye (- = behind); only for automatic thickness (armBase 0) or armLength 0
@@ -464,6 +469,7 @@ public final class Config {
         armFollow = num(p, "armFollow", armFollow);
         armFollowSupport = num(p, "armFollowSupport", armFollowSupport);
         armSlide = bool(p, "armSlide", armSlide);
+        armPistolScale = bool(p, "armPistolScale", armPistolScale);
         armSlideTo = num(p, "armSlideTo", armSlideTo);
         armStretch = num(p, "armStretch", armStretch);
         armInspectDrop = num(p, "armInspectDrop", armInspectDrop);
@@ -519,6 +525,8 @@ public final class Config {
         aimHold = num(p, "aimHold", aimHold);
         armScaleRight = num(p, "armScaleRight", armScaleRight);
         armScaleLeft = num(p, "armScaleLeft", armScaleLeft);
+        armAimScaleRight = num(p, "armAimScaleRight", armAimScaleRight);
+        armAimScaleLeft = num(p, "armAimScaleLeft", armAimScaleLeft);
     }
 
     private static Properties snapshot() {
@@ -585,6 +593,7 @@ public final class Config {
         p.setProperty("armFollow", Float.toString(armFollow));
         p.setProperty("armFollowSupport", Float.toString(armFollowSupport));
         p.setProperty("armSlide", Boolean.toString(armSlide));
+        p.setProperty("armPistolScale", Boolean.toString(armPistolScale));
         p.setProperty("armSlideTo", Float.toString(armSlideTo));
         p.setProperty("armStretch", Float.toString(armStretch));
         p.setProperty("armInspectDrop", Float.toString(armInspectDrop));
@@ -640,6 +649,8 @@ public final class Config {
         p.setProperty("aimHold", Float.toString(aimHold));
         p.setProperty("armScaleRight", Float.toString(armScaleRight));
         p.setProperty("armScaleLeft", Float.toString(armScaleLeft));
+        p.setProperty("armAimScaleRight", Float.toString(armAimScaleRight));
+        p.setProperty("armAimScaleLeft", Float.toString(armAimScaleLeft));
         return p;
     }
 
