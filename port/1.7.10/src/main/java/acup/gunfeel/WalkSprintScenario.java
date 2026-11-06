@@ -55,6 +55,9 @@ public final class WalkSprintScenario {
     }
 
     // the scenario's steps, at the end of each client tick (ShootScenario)
+    // the gun walked with: -Dntmgunfeel.walkGun=gun_stinger (a long gun, X511), G3 by default
+    static final String GUN = System.getProperty("ntmgunfeel.walkGun", "gun_g3");
+
     static void step(Minecraft mc, int t) {
         if (t == 0) {
             // the trace's per-frame lines (WalkSprint) need the client side of the test log on
@@ -64,7 +67,7 @@ public final class WalkSprintScenario {
             mc.thePlayer.rotationPitch = mc.thePlayer.prevRotationPitch = 0F;
             mc.thePlayer.rotationYaw = mc.thePlayer.prevRotationYaw = 0F;
         } else if (t == GIVE) {
-            ShootScenario.onServer(() -> AimLagScenario.load(0, "gun_g3"));
+            ShootScenario.onServer(() -> AimLagScenario.load(0, GUN));
             mc.thePlayer.inventory.currentItem = 0;
         } else if (t == WALK || t == AIM_WALK || t == WALK3) {
             forward = true;

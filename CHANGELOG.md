@@ -1,5 +1,197 @@
 # Changelog
 
+## X543.112
+
+- As in 26.2 X515: the walking bob and the sprint pose now work on long guns
+  too: the Panzerschreck, the Stinger, the Tesla Cannon, the Folly and the Zebra
+  Rifle used to stay still.
+- The sections X478-X543 below are 26.2's. On 1.7.10 their settings are already
+  in the config files (water, smoke, armour on the arms, power armour recoil,
+  `spectatorNoGuns` in the server file) but do nothing yet: these parts come to
+  1.7.10 one by one in the next builds. `spectatorNoGuns` never will: 1.7.10 has
+  no spectator mode.
+
+## X543
+
+- Rounds seen in water are now sized to the casings NTM drops, not six times
+  their real size: a bullet is as big next to its calibre's casing as the real
+  bullet next to its case. A .50 BMG bullet went from 0.35 to 0.08 of a block
+  (its casing is 0.135), a 5.56 mm one from 0.14 to 0.04, a 7.62 mm one from
+  0.17 to 0.05, a 9 mm one from 0.09 to 0.05, buckshot from 0.05 to 0.014. The
+  size is read from NTM's casing of each round. Rounds NTM drops no casing for
+  (.357 Magnum, stones) are twice their real size.
+- New setting `waterBodyScale` (1 by default, 0.25 to 4): the size of the
+  rounds seen in water, on top of the above.
+
+## X541
+
+- A client and a server now need the very same build of the mod to connect.
+
+## X539
+
+- Smoke clouds: the operator command `/gunsmoke` lets out a dense cloud that
+  fills the open space around it, about a 6-block half sphere in the open and
+  farther along a corridor. It stays out of walls, shut doors and water, goes
+  in through a door that opens, stays dense for about 22 seconds and is gone
+  about 7 seconds after it starts to thin. The server and each client run the
+  same simulation, so a cloud costs little traffic, and a player who comes
+  later sees it as it is. A smoke grenade that lets one out will come later.
+- Clouds are drawn as a volume that walls and mobs cut and the sky's clouds do
+  not show through; inside one the screen goes grey. Client keys in
+  `ntm-gunfeel.properties`: `smokeQuality` (`off`, `slices`, `low`, `medium`,
+  `high` by default, `ultra`), `smokeMaxClouds` (8) and `smokeDistance` (128
+  blocks). With an Iris shader pack the clouds are drawn as translucent slices.
+- Server keys: `smoke` (on) lets the clouds out; `smokeBlocksMobSight` (off)
+  makes mobs lose a target behind thick smoke.
+- `/gunsmoke` (operators) lets out a cloud where you look or a row of them,
+  clears them and shows how many there are and what they cost the server.
+- ⚠ Breaks compatibility: the network protocol is now 10 (smoke packets);
+  client and server need the same build.
+
+## X517
+
+- Water rings are white again in daylight, not grey. They were shaded like a
+  mob's skin, and from above both faces of a ring got only the dim side light;
+  now they are lit like particles, by the world's light alone. At noon a ring
+  from above went from 103 to about 200 of 255.
+- A round lying on the bottom of the water falls when the block under it is
+  broken. Before, a round that had come to rest stayed hanging in the water.
+- The big water particles of a shot no longer blink in their first ticks. The
+  water dust of a splash showed at full strength until the first game tick
+  and then dropped to a fifth of it; it now fades in smoothly. The gas bubble
+  of a shot under water now moves out from the muzzle as it swells, instead of
+  swelling in place for a tick and then catching up.
+
+## X515
+
+- Long NTM guns now bob as you walk and take the sprint pose: the
+  Panzerschreck, the FIM-92 Stinger, the Tesla Cannon, the Folly and the Zebra
+  Rifle were held still, as the mod took their size for a measuring error.
+- Explosive pellets of one shot (12 and 10 gauge HE) no longer set each other
+  off, in the air or in water. In the air bullets pass each other as in NTM:
+  an explosive goes off at the touch of another bullet only when both have
+  been through water on their way or sink in it.
+
+## X510
+
+- The arms holding a gun now wear what the player wears on the arms seen from
+  outside: vanilla armour with its dye, trim and enchantment glint, NTM's
+  armour (its 3D suits included), the skin's sleeve layer, and what other mods
+  draw on the player's arms. It follows the arm's pose, thickness and cut, on
+  pistols and rifles, at the hip and aiming. Key `armArmor` in
+  `ntm-gunfeel.properties` (on by default).
+- NTM's power armour (T-51, AJR, AJRO, RPA, NCRPA, BJ, Envsuit, HEV, FAU, DNS)
+  halves recoil: the camera kick, the gun model's kick and NTM's own recoil
+  animation. The chestplate is enough, charged or not. Key `powerArmorRecoil`
+  (0.5; 1 turns it off). On a server that sets a camera recoil minimum the
+  camera keeps at least half.
+
+## X504
+
+- F3+B: the hitbox outline of an animated mob no longer lags behind its model.
+  It now shows the pose of this frame, of the last frame, or one younger than
+  1/60 s. Before, a mob whose outline takes long to build (glyphids, mask man,
+  tesla crab and other NTM mobs) could show a pose several frames old while
+  it walked. The outline is still built in the background; a frame waits for
+  it only when the one on screen would be too old. So F3+B with walking NTM
+  mobs is now more expensive above 60 FPS: 10 or 30 of them at a 144 FPS cap
+  went from 137 to about 105 FPS. At 60 FPS, and without F3+B, nothing
+  changes.
+
+## X498
+
+- Bullets meeting water now splash the way it moves: a crown and spray on still
+  water, a fan downstream on a slope, a burst through a waterfall, a low spray
+  on a thin sheet. Rings lie on the surface and drift with the current, foam
+  and bubbles rise and pop at the surface, and a skipping round splashes at
+  each bounce. Nothing sinks under the surface or hangs over air, and a ring
+  goes away when its water does. Off with `waterSplash = false`.
+- Under water a shot has no muzzle flash. It throws a gas bubble at the muzzle
+  that swells, shrinks, bounces and breaks into rising bubbles, its size set by
+  the calibre. The round itself is visible in the water with a fading light
+  trail, and hollow and soft points open into a mushroom as they slow.
+- A round the water stopped sinks, tumbles and lies on the bottom for a while
+  (on your screen only; a round that hit a block is gone, as before). Keys:
+  `waterBodyMax = 400` (0 = none), `waterBodyLife = 30` (seconds).
+- A blast at water shows it: on the surface a column of water with spray, rings
+  and foam; under it a burst of bubbles that pushes sunk rounds aside.
+
+## X493
+
+- Works with Punchy! and Punchy! Moves: Punchy! no longer animates NTM guns in
+  first person, and in third person Punchy! Moves keeps the arm pose NTM gives
+  a gun (aiming, akimbo, left hand). Nothing changes without those mods or with
+  `arms` off. Thanks to irislgtm (#2).
+- Explosive NTM rounds, grenades and rockets meet water by their fuze. Hitting
+  it steeper than 10° they go off on the surface; shallower they skip and go
+  off at the next thing they touch. Fired under water they fly, slow down like
+  any bullet and go off on a block or a mob. One that water stopped sinks at
+  most a block a second and goes off where it lands or on NTM's timer.
+- In water an explosive round goes off at the first touch of anything, another
+  bullet or a sinking explosive included; only pellets of one shot leave each
+  other alone. In the air bullets do not touch each other.
+- A blast with its centre in water reaches 1.5 times as far for mobs in the
+  water, and a mob above it takes half. Blocks break as before.
+- Under water an incendiary 75 bolt gives a weak blast, about a quarter of the
+  explosive bolt's, and no fire; phosphorus and flares do not burn, and fire
+  grenades and rockets only explode.
+- Fast bullets (rifles, machine guns) now really slow down in water as they
+  fly; before, they kept full speed up to the point where they stopped.
+- Keys in `ntm-gunfeel-server.properties`: `waterFuze`, `waterFuzeSkipAngle`,
+  `waterBlastRadius`.
+- ⚠ Breaks compatibility: the network protocol is now 9 (a new packet for
+  blasts at water); client and server need the same build.
+
+## X488
+
+- NTM bullets slow down in water, and their damage and piercing fall with the
+  square of the speed; a hole in a block behind water comes out smaller. A
+  pistol bullet goes through about 2.4 blocks of water, a rifle bullet 1.2, an
+  armour-piercing one 1.7, a shotgun slug 2.7, buckshot 0.6, and 10 gauge DU,
+  ten uranium mini-bullets, 1.3. Hollow and soft points open in water and stop
+  sooner: a 9 mm JHP after 1.3 blocks, an SP after 1.8. A falling stream barely
+  slows a bullet; lava and a flamethrower's fire stop where they meet.
+- At a shallow angle (under 6°, 10° for grenades and rockets) a bullet skips
+  off water, at most twice a flight, losing a third of its speed. A shot from
+  under water follows the same rules and sounds duller and lower.
+- Keys in `ntm-gunfeel-server.properties`: `waterBallistics`,
+  `waterStopFraction`, `waterRangeScale`, `waterSkipAngle`, `waterMuffle`.
+
+## X483
+
+- A bullet mark on glass with no see-through pixels (NTM reinforced laminate
+  and its pane, stained and tinted glass, their panes) is now visible from the
+  other side too, through the glass, for as long as it lasts. Before, with
+  holeCache on (the default), it showed from the back only during the last 3
+  seconds while it fades. From the front, the translucent edge of such a mark
+  no longer goes twice as dark (it did with holeCache off and, with it on, in
+  the last 3 seconds).
+- New setting ntmRenderFixes (on): on NTM Decentralized Edition, reinforced
+  laminate and its pane, block and item, are drawn translucent, like their
+  texture. NTM DE itself draws them opaque. Takes effect after a resource
+  reload (F3+T); changes nothing on NTM for 26.2.
+
+## X479
+
+- A player in spectator mode no longer fires NTM guns or hurts mobs: the server
+  does not accept gun keys from them (fire, aim, reload) or ammo choice, and
+  takes the gun away as if it were removed from the hand: a reload, a burst or
+  a power armour strike begun before the mode change does not go through, and
+  held keys are released. Back in a normal mode, the player takes the gun out
+  again. The client does not send their key presses, and they have no gun HUD:
+  no NTM ammo counter (or the mod's corner panel), no NTM crosshair, no scope,
+  no ammo wheel. This is a bug in NTM itself: it lets a spectator fire even
+  without the mod. To go back to NTM's behaviour: `spectatorNoGuns = false` in
+  `ntm-gunfeel-server.properties`.
+
+## X478
+
+- The server turns the outdated pose of the Hunter Chopper and the Plastic Bag
+  by their heading (yRot), as NTM draws them, not by the body. The chopper,
+  aiming while standing still, turns its heading while the body stays put; the
+  bag's body follows the heading only in water. A turret bullet or a check
+  without a shooter looked for them where they were before the turn.
+
 ## X477.128
 
 - A client and a server now need the very same build of the mod to connect.

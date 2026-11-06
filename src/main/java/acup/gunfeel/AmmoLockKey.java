@@ -61,7 +61,8 @@ public final class AmmoLockKey {
         var mc = Minecraft.getInstance();
         var player = mc.player;
         ItemStack stack = player == null ? ItemStack.EMPTY : player.getMainHandItem();
-        boolean gun = stack.getItem() instanceof ItemGunBaseNT;
+        // no ammo wheel for a spectator, who may not use the gun (spectatorNoGuns)
+        boolean gun = stack.getItem() instanceof ItemGunBaseNT && !SpectatorGuns.blocks(player);
         boolean down = KEY.isDown() && mc.gui.screen() == null;
         long now = GunClock.millis();
 
