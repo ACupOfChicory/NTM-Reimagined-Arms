@@ -51,7 +51,7 @@ class HeadsCeTest {
 
     @Test
     void theFull26_2MarkupIsInTheJar() {
-        assertEquals(218, HeadProfiles.all().size());
+        assertEquals(264, HeadProfiles.all().size());
     }
 
     @Test
