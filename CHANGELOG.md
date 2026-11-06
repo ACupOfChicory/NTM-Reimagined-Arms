@@ -1,5 +1,12 @@
 # Changelog
 
+## X543.167
+
+- A bullet hole on iron bars and other blocks with holes on both sides, on the
+  top or bottom of such a block, now lies on the side the camera's eyes are on,
+  not the feet: on the top of bars at waist height it no longer hides under the
+  bars' own pixels.
+
 ## X543.166
 
 - A bullet hole on see-through blocks drawn with the water and stained glass

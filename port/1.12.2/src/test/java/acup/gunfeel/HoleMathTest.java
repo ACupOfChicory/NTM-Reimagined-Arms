@@ -119,6 +119,26 @@ class HoleMathTest {
         assertEquals(-1F, back[0][7], 0F);
     }
 
+    // the side counts from the eyes, the corners from the render origin (the feet): on the top of bars at the
+    // player's waist the feet are below the face, the eyes above it, and the hole lies above
+    @Test
+    void twoSidedHolesTakeTheirSideFromTheEyes() {
+        double[] pos = {0.5, 1, 0.5}, feet = {0.5, 0, -1}, eye = {0.5, 1.62, -1};
+        float[][] q = HoleMath.quad(pos, 1, 1, false, 0, 0.1F, new double[] {0, 1, 0, 1}, feet, eye);
+        assertEquals(1.002, q[0][1], 1e-6);
+        assertEquals(1F, q[0][6], 0F);
+        float[][] fromFeet = HoleMath.quad(pos, 1, 1, false, 0, 0.1F, new double[] {0, 1, 0, 1}, feet);
+        assertEquals(0.998, fromFeet[0][1], 1e-6);
+    }
+
+    @Test
+    void tracersTurnTwoSidedHolesFromTheEyes() throws java.io.IOException {
+        String src = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("src/main/java/acup/gunfeel/Tracers.java")),
+                java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(src.contains("h.size * 0.5F, clip, CAMERA, EYE)"), "flat holes take their side from the eyes");
+        assertTrue(src.contains("double side = (EYE[0] - pc[3]) * nx"), "block pieces' normals turn to the eyes");
+    }
+
     // the square cut to its clip: a hole on the corner of a face keeps only what lies on it, its texture cut likewise
     @Test
     void holesAreCutToTheFace() {

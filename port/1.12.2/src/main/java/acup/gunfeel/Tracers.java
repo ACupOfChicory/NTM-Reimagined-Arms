@@ -1133,7 +1133,7 @@ public final class Tracers {
                 int alpha = HoleMath.alpha(now - h.born, life);
                 if (alpha <= 0) continue;
                 for (double[] clip : HoleMath.cells(h.rect, h.mask)) {
-                    float[][] q = HoleMath.quad(h.pos, h.face, h.plane, h.cull, h.turn, h.size * 0.5F, clip, CAMERA);
+                    float[][] q = HoleMath.quad(h.pos, h.face, h.plane, h.cull, h.turn, h.size * 0.5F, clip, CAMERA, EYE);
                     if (q == null) continue;
                     if (!started) {
                         started = true;
@@ -1239,7 +1239,7 @@ public final class Tracers {
                     // sight (a tenth of a percent of the distance), so it stays on the same screen pixels and the pieces on
                     // two faces of an edge still meet. Lifted along each piece's normal instead, the pieces stood off their
                     // faces and an edge showed a strip of the surface between them.
-                    double side = (CAMERA[0] - pc[3]) * nx + (CAMERA[1] - pc[4]) * ny + (CAMERA[2] - pc[5]) * nz >= 0 ? 1 : -1;
+                    double side = (EYE[0] - pc[3]) * nx + (EYE[1] - pc[4]) * ny + (EYE[2] - pc[5]) * nz >= 0 ? 1 : -1;
                     t.setNormal((float) (nx * side), (float) (ny * side), (float) (nz * side));
                     // a fan of quads (the last corner twice: a triangle)
                     for (int k = 1; k + 1 < corners; k += 2) {

@@ -344,16 +344,23 @@ final class HoleMath {
 
     // The hole as a square on the face, cut to `clip` (one of cells()), turned and mirrored by its turn: four corners
     // {x, y, z (from the camera), u, v, nx, ny, nz}, counter-clockwise seen from the side it is lifted to; null when
-    // the square misses the clip. A two-sided hole (cull false: iron bars) lies on the camera's side of its plane.
+    // the square misses the clip. A two-sided hole (cull false: iron bars) lies on the eyes' side of its plane.
     // half = half the hole's size; plane = where on the face's axis (NaN: at pos).
     static float[][] quad(double[] pos, int face, double plane, boolean cull, int turn, float half, double[] clip, double[] cam) {
+        return quad(pos, face, plane, cull, turn, half, clip, cam, cam);
+    }
+
+    // the same with the corners from `cam` (1.12.2's render origin: the feet) and the side from `eye`, where the
+    // camera looks from (26.2's camera is both)
+    static float[][] quad(double[] pos, int face, double plane, boolean cull, int turn, float half, double[] clip, double[] cam,
+            double[] eye) {
         int normalAxis = axis(face);
         double base = Double.isNaN(plane) ? pos[normalAxis] : plane;
         // lifted off the face towards the camera: a two-sided hole seen from behind would otherwise lie behind the
         // block's own pixels and show only where the depth bias wins, cut off along a straight line
         int side = step(face);
         if (!cull) {
-            double d = cam[normalAxis] - base;
+            double d = eye[normalAxis] - base;
             if (d != 0) side = d > 0 ? 1 : -1;
         }
         return quadAt(pos, face, base, turn, half, clip, side, false, side != step(face), cam);
