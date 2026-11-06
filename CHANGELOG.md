@@ -5,6 +5,9 @@
 - A grenade or rocket that water stopped and that lies on the bottom now
   points the way it flew. Before, one that flew along the east-west line lay
   nose back.
+- An error while drawing the rounds in water or on the bottom is written to the
+  log once and turns them off until the world is left. Before, it could crash
+  the game.
 
 ## X560
 
