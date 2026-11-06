@@ -31,6 +31,12 @@ public interface WaterBullet {
 
     void gunfeel$shot(long shot);
 
+    // where an impact this tick ended it (WaterImpact.impact), null: none did. NTM moves a bullet the whole tick's way
+    // after its impact, also one that is gone, so its path ends here, not where it is (WaterImpact.touch)
+    net.minecraft.world.phys.@org.jspecify.annotations.Nullable Vec3 gunfeel$goneAt();
+
+    void gunfeel$goneAt(net.minecraft.world.phys.@org.jspecify.annotations.Nullable Vec3 at);
+
     // this tick's path through liquid (null: it met none), from the path test to the end of the tick
     WaterPath.@org.jspecify.annotations.Nullable Result gunfeel$waterTick();
 

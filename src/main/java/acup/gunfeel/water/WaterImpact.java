@@ -45,6 +45,7 @@ public final class WaterImpact {
         WaterBlast.BULLET.set(bullet);
         try {
             original.run();
+            if (bullet.isRemoved() && ((WaterBullet) bullet).gunfeel$goneAt() == null) ((WaterBullet) bullet).gunfeel$goneAt(hit.getLocation());
         } finally {
             if (previous == null) WaterBlast.BULLET.remove();
             else WaterBlast.BULLET.set(previous);
@@ -113,7 +114,9 @@ public final class WaterImpact {
     public static void touch(EntityBulletBaseMK4 b, Vec3 from) {
         // a bullet gone this tick (water stopped it, it hit a block) still met what lay on its path
         if (b.level().isClientSide() || b.config == null || !WaterSettings.ballistics() || !WaterSettings.fuze() || !WaterBullet.met(b)) return;
-        Vec3 to = b.position();
+        // one gone at an impact: up to where it hit (NTM has moved it on past it), not up to where it is
+        Vec3 gone = ((WaterBullet) b).gunfeel$goneAt();
+        Vec3 to = b.isRemoved() && gone != null ? gone : b.position();
         AABB area = new AABB(from, to).inflate(1.0);
         boolean mine = !b.isRemoved() && goesOff(b);
         searches++;

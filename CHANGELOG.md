@@ -9,6 +9,10 @@
   now hits a creature in water as a plain round of its kind does, with the
   damage water takes off. Before, it skipped that and hit as hard as in the
   air. b75_inc's small blast in water now goes through the same steps.
+- An explosive round that goes off on the water surface no longer sets off
+  another one sinking under the line it came down along. Before, its path was
+  counted on under the surface, where the game still moves it in the tick it
+  goes off.
 
 ## X555
 

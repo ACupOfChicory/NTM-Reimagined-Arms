@@ -120,6 +120,7 @@ public final class ExplosiveCheck {
         fire(all);
         phosphorus();
         touch(all);
+        deadPath(all);
         samePellets(all);
         life(all);
         downward(all);
@@ -499,6 +500,42 @@ public final class ExplosiveCheck {
                 str(blast), sinking && blast != null && new Vec3(blast[0], blast[1], blast[2]).distanceTo(at) < 1.0,
                 "sinking=" + sinking + " heRemoved=" + h.isRemoved());
         h.discard();
+    }
+
+    // an r762_he going off on the surface over a sinking one: NTM moves a bullet the whole tick's way after its impact,
+    // also one gone there, so its path to touch others ends where it hit the water, not under it. The one sinking under
+    // the line it came down along stays.
+    private static void deadPath(Map<String, BulletConfig> all) {
+        BulletConfig he = byAmmo(all, "ammo_standard_r762_he");
+        if (he == null) {
+            lines.add("#\tno config for the dead path");
+            return;
+        }
+        basin();
+        EntityBulletBaseMK4 h = bullet(he, new Vec3(MIN + 3.5, surface - 1.5, CZ), new Vec3(1, 0, 0));
+        for (int i = 0; i < 40 && !WaterBullet.stopped(h) && !h.isRemoved(); i++) h.tick();
+        h.tick();
+        boolean sinking = WaterBullet.stopped(h) && !h.isRemoved();
+        level.addFreshEntity(h);
+        Vec3 s = h.position();
+        // 60° down onto the surface right over it, from a block above: the tick ends past it, under the water
+        double r = Math.toRadians(60), depth = surface - s.y;
+        Vec3 dir = new Vec3(Math.cos(r), -Math.sin(r), 0);
+        Vec3 aim = new Vec3(s.x - depth / Math.tan(r), surface, s.z);
+        EntityBulletBaseMK4 p = bullet(he, aim.subtract(dir.scale(1.0)), dir);
+        // another shot: the stand makes both in one game tick, with no shooter, which WaterImpact.sameShot leaves alone
+        ((WaterBullet) p).gunfeel$shot(((WaterBullet) p).gunfeel$shot() + 1);
+        BLASTS.clear();
+        p.tick();
+        Vec3 after = p.position();
+        int blasts = BLASTS.size();
+        rowFlag("h: one going off on the surface over a sinking one: that one stays", "ammo_standard_r762_he", WaterClass.of(he),
+                "1 blast on the surface, the sinking one there", blasts + " blasts, sinking one " + (h.isRemoved() ? "gone" : "there"),
+                sinking && blasts == 1 && !BLASTS.isEmpty() && Math.abs(BLASTS.get(0)[1] - surface) < 0.35 && !h.isRemoved() && p.isRemoved()
+                        && after.y < s.y - 0.5,
+                "sinking at " + str3(s) + ", the other moved on to " + str3(after) + ", blasts at y " + heights());
+        h.discard();
+        p.discard();
     }
 
     // HE pellets as a gun fires them: one loop of NTM's bullets from the shooter's eyes, the same tick, a spread; ticked
