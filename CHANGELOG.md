@@ -1,5 +1,14 @@
 # Changelog
 
+## X555.70
+
+- NTM Decentralized Edition gets X544 to X555: the hunter chopper's and the
+  cyber crab's bullets at heads and limbs and by the block rules (`npcShots`);
+  explosive rounds in water that NTM's life of the round ends before they
+  sink to their spot are gone without a blast, and pellets fired straight down
+  in water no longer hit the shooter; leaving a world no longer keeps it in
+  memory; tracers in water stop where the server's bullet stopped.
+
 ## X555
 
 - On a client, a tracer slowed by water stops where the server's bullet
