@@ -1,5 +1,15 @@
 # Changelog
 
+## X543.67
+
+- NTM Decentralized Edition gets X505 to X543: armour and NTM's suits on the
+  arms that hold a gun, halved recoil in NTM's power armour, the walking bob
+  and sprint pose on long guns, explosive pellets that no longer set each other
+  off, the water fixes, rounds in water sized to their casings, and smoke
+  clouds with `/gunsmoke`.
+- On this edition the smoke clouds are drawn as a volume on plain OpenGL; with
+  an Iris shader pack they are drawn as translucent slices, as on 26.2.
+
 ## X543
 
 - Rounds seen in water are now sized to the casings NTM drops, not six times
