@@ -192,10 +192,18 @@ public final class NtmMeshHits {
         ModelHitLog.event("client", "prepared_geometry_incomplete", f.entity, () -> why);
     }
 
+    // NTM's beams (BeamPronter: the tesla and taint crabs' arcs, the UFO's and the radiation blaze's rays) are light, not
+    // the mob, as in 26.2 (X473). Taken in, a zapping crab's arcs ran its pose past MAX_BOXES, and the whole pose was
+    // thrown away.
+    static boolean beam(RenderType type) {
+        return type == com.hbm.client.render.BeamRenderTypes.ADDITIVE || type == com.hbm.client.render.BeamRenderTypes.ADDITIVE_NO_FOG
+                || type == com.hbm.client.render.BeamRenderTypes.LINE;
+    }
+
     // ImmediateSubmitNodeCollector.submitCustomGeometry (26.2: SubmitNodeCollection's): drawn at once, inside the frame
     public static CustomGeometryRenderer wrap(CustomGeometryRenderer renderer, RenderType type) {
         Frame f = frame;
-        if (f == null || suspended > 0 || !own()) return renderer;
+        if (f == null || suspended > 0 || !own() || beam(type)) return renderer;
         return (pose, buffer) -> {
             DRAW_TEXTURE.push(java.util.Objects.requireNonNullElse(ModelTextureMask.texture(type), MISSING));
             var captured = new SubmittedModelGeometry(buffer);

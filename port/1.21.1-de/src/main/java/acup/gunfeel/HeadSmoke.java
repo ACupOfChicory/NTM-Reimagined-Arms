@@ -78,6 +78,13 @@ final class HeadSmoke {
             java.nio.file.Files.writeString(file,new com.google.gson.Gson().toJson(Map.of("type",type,"case",key,"yaw",pose.yaw(),"parts",parts)));
         } catch(Exception ex) { check.accept(false,"снимок частей: "+ex); }
     }
+    // Стенд бьёт одну цель раз за разом. НЛО после попадания 5 тиков не принимает урон (hurtCooldown), а убывает кулдаун
+    // только в ИИ, которого у моба стенда нет (NoAi): без сброса второе попадание, после движения, давало 0.
+    private static void fresh(LivingEntity target) {
+        if(target instanceof com.hbm.entity.mob.EntityUFO ufo) ufo.hurtCooldown=0;
+        target.setHealth(1000);
+    }
+
     static void run(ServerLevel level,LivingEntity target,java.util.function.BiConsumer<Boolean,String> check) {
         var zones=ModelHits.headZones(target);var boxes=ModelHits.worldBoxes(target);
         String type=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()).toString();
@@ -117,16 +124,16 @@ final class HeadSmoke {
             config.damageFalloffByPen=false;
             var bullet=new EntityBulletBaseMK4(level,config,1,0,0,0);
             bullet.damage=10;
-            target.setHealth(1000);float before=target.getHealth();
+            fresh(target);float before=target.getHealth();
             BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,body));
             float bodyDamage=before-target.getHealth();
             check.accept(bodyDamage>0 && !HeadDamage.last(bullet,target,body).head(),"голова: настоящая NTM-пуля по телу, урон="+bodyDamage);
             if(head!=null) {
-                target.setHealth(1000);before=target.getHealth();
+                fresh(target);before=target.getHealth();
                 BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,head));
                 float headDamage=before-target.getHealth();
                 check.accept(Math.abs(headDamage-bodyDamage*1.75F)<.01 && HeadDamage.last(bullet,target,head).head(),"голова: единый множитель ×1,75 при конфиге NTM ×0, тело="+bodyDamage+", голова="+headDamage);
-                config.setHeadshot(2);target.setHealth(1000);before=target.getHealth();
+                config.setHeadshot(2);fresh(target);before=target.getHealth();
                 BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,head));
                 check.accept(Math.abs(before-target.getHealth()-headDamage)<.01,"голова: конфиг патрона ×2 не меняет единые ×1,75");
             } else {
@@ -138,19 +145,19 @@ final class HeadSmoke {
                 else check.accept(limb==null,"конечности: мелкий вид без конечностей");
             }
             if(limb!=null) {
-                target.setHealth(1000);before=target.getHealth();
+                fresh(target);before=target.getHealth();
                 BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,limb));
                 check.accept(Math.abs(before-target.getHealth()-bodyDamage*.5F)<.01,"конечности: настоящая NTM-пуля ×0,5, урон="+(before-target.getHealth()));
             }
             var beam=new com.hbm.entity.projectile.EntityBulletBeamBase(level,config,1);beam.damage=10;
             for(var handler:List.of(BulletConfig.LAMBDA_STANDARD_BEAM_HIT,BulletConfig.LAMBDA_BEAM_HIT)) {
-                target.setHealth(1000);before=target.getHealth();handler.accept(beam,new EntityHitResult(target,body));float beamBody=before-target.getHealth();
+                fresh(target);before=target.getHealth();handler.accept(beam,new EntityHitResult(target,body));float beamBody=before-target.getHealth();
                 if(head!=null) {
-                    target.setHealth(1000);before=target.getHealth();handler.accept(beam,new EntityHitResult(target,head));
+                    fresh(target);before=target.getHealth();handler.accept(beam,new EntityHitResult(target,head));
                     check.accept(beamBody>0 && Math.abs(before-target.getHealth()-beamBody*1.75F)<.01,"NTM-луч: голова ×1,75, тело="+beamBody+", голова="+(before-target.getHealth()));
                 }
                 if(limb!=null) {
-                    target.setHealth(1000);before=target.getHealth();handler.accept(beam,new EntityHitResult(target,limb));
+                    fresh(target);before=target.getHealth();handler.accept(beam,new EntityHitResult(target,limb));
                     check.accept(beamBody>0 && Math.abs(before-target.getHealth()-beamBody*.5F)<.01,"NTM-луч: конечность ×0,5, урон="+(before-target.getHealth()));
                 }
             }
