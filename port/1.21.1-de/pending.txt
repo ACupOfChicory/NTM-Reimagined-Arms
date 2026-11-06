@@ -2,6 +2,7 @@
 # only shrinks). Sections as in skip.txt.
 
 [main]
+acup/gunfeel/mixin/mc/MixinPunchyMovesEngine.java
 
 [test]
 

@@ -17,6 +17,8 @@ net.minecraft.client.model.animal.sheep.SheepFurModel -> net.minecraft.client.mo
 net.minecraft.client.model.monster.breeze.BreezeModel -> net.minecraft.client.model.BreezeModel
 net.minecraft.client.model.monster.slime.SlimeModel -> net.minecraft.client.model.SlimeModel
 net.minecraft.client.renderer.rendertype.RenderType -> net.minecraft.client.renderer.RenderType
+net.minecraft.world.entity.animal.golem.IronGolem -> net.minecraft.world.entity.animal.IronGolem
+net.minecraft.server.level.ParticleStatus -> net.minecraft.client.ParticleStatus
 
 # what NTM's renderers and HUD take and give: DE's backport of them
 net.minecraft.client.renderer.SubmitNodeCollector -> com.hbm.backport.client.core.SubmitNodeCollector
@@ -300,3 +302,11 @@ re@ModelContours.java: ^\s*for\(var waiting:flight\.owners\) WAITING\.remove\(wa
 re@ModelContours.java: ^\s*SHOWN\.clear\(\); WAITING\.clear\(\); FLIGHTS\.clear\(\); generation\+\+;$ => $0 ModelContours.class.notifyAll();
 # a build that dies of an Error (out of memory, stack) leaves its flight too, or a frame would wait the half second
 re@ModelContours.java: ^(\s*)catch\(RuntimeException ex\) \{ ModelHitLog\.event\("client","contour_failed",null,ex::toString\); \}$ => $0 catch(Error ex) { synchronized(ModelContours.class) { if(started==generation) { FLIGHTS.remove(flight); for(var waiting:flight.owners) WAITING.remove(waiting); } ModelContours.class.notifyAll(); } throw ex; }
+# main's water effects (X493): WaterParticle on DE's backport of 26.2's quad particle, its sprites from 1.21.1's
+# particle atlas (which takes textures/particle of every namespace, ours among them)
+re@WaterParticle.java: ^import net\.minecraft\.client\.particle\.SingleQuadParticle;$ => import com.hbm.backport.client.particle.SingleQuadParticle;
+re@WaterParticle.java: ^import net\.minecraft\.client\.particle\.ParticleRenderType;$ => import com.hbm.backport.client.particle.ParticleRenderType;
+re@WaterParticle.java: ^import net\.minecraft\.data\.AtlasIds;$ => import net.minecraft.client.renderer.texture.TextureAtlas;
+re@WaterParticle.java: \.getAtlasManager\(\)\.getAtlasOrThrow\(AtlasIds\.PARTICLES\)\.getSprite\((\w+)\) => .getTextureAtlas(TextureAtlas.LOCATION_PARTICLES).apply($1)
+re@MixinMuzzleFlash.java: camera\.position\(\) => camera.getPosition()
+re@ExplosiveCheck.java: ^import net\.minecraft\.world\.entity\.EntitySpawnReason;$ => 

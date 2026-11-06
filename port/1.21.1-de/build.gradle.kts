@@ -131,6 +131,22 @@ neoForge {
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkBullets", layout.buildDirectory.file("bulletcheck/result.txt").get().asFile.path)
         }
+        // the root's checkWater (bullets in water, WaterCheck) and checkBoom (the explosives in water, ExplosiveCheck):
+        // the same flat world, a tsv each
+        register("checkWater") {
+            server()
+            gameDirectory.set(projectDir.resolve("run-water"))
+            programArgument("--nogui")
+            jvmArgument("-Xmx1200M")
+            systemProperty("ntmgunfeel.checkWater", layout.buildDirectory.file("watercheck/result.tsv").get().asFile.path)
+        }
+        register("checkBoom") {
+            server()
+            gameDirectory.set(projectDir.resolve("run-boom"))
+            programArgument("--nogui")
+            jvmArgument("-Xmx1200M")
+            systemProperty("ntmgunfeel.checkBoom", layout.buildDirectory.file("boomcheck/result.tsv").get().asFile.path)
+        }
         // the root's checkClient: the smoke check, or with -Ptrace -Pscenario=arms the trace scenario
         register("checkClient") {
             client()
@@ -242,10 +258,12 @@ neoForge {
 
 neoForge.addModdingDependenciesTo(deOnly)
 
-tasks.matching { it.name == "runMakeWorld" || it.name == "runCheckBullets" }.configureEach {
-    val bullets = name == "runCheckBullets"
+val serverRuns = mapOf("runMakeWorld" to ("run-world" to 25610), "runCheckBullets" to ("run-bullets" to 25611),
+    "runCheckWater" to ("run-water" to 25614), "runCheckBoom" to ("run-boom" to 25615))
+tasks.matching { it.name in serverRuns }.configureEach {
+    val (folder, port) = serverRuns.getValue(name)
     doFirst {
-        val dir = projectDir.resolve(if (bullets) "run-bullets" else "run-world")
+        val dir = projectDir.resolve(folder)
         dir.resolve("world").deleteRecursively()
         dir.mkdirs()
         dir.resolve("eula.txt").writeText("eula=true\n")
@@ -253,7 +271,7 @@ tasks.matching { it.name == "runMakeWorld" || it.name == "runCheckBullets" }.con
         dir.resolve("server.properties").writeText(
             "level-type=minecraft\\:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\n" +
             "spawn-protection=0\nonline-mode=false\nspawn-monsters=false\nspawn-animals=false\nmax-players=1\n" +
-            "server-port=${if (bullets) 25611 else 25610}\n")
+            "server-port=$port\n")
     }
 }
 tasks.matching { it.name == "runCheckClient" }.configureEach {

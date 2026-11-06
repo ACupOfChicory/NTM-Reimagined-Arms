@@ -18,7 +18,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 public final class GunFeelMod {
     // Systems that do not fit an untested NTM are off (acup.gunfeel.compat): their listeners check Feature.on()
     // the network protocol: raise it when a payload changes, and clients and servers on different ones will not connect
-    public static final String PROTOCOL = "8";
+    public static final String PROTOCOL = "9";
 
     public GunFeelMod(IEventBus modBus, Dist dist, ModContainer container) {
         Compat.setModVersion(container.getModInfo().getVersion().toString());
@@ -67,6 +67,8 @@ public final class GunFeelMod {
         BlockDump.registerIfAsked();
         SettingsCheck.registerIfAsked();
         BulletCheck.registerIfAsked();
+        WaterCheck.registerIfAsked();
+        ExplosiveCheck.registerIfAsked();
         TraceHooks.register(dist);
         modBus.addListener(RegisterPayloadHandlersEvent.class, e -> {
             // not optional: the mod is needed on both sides, so NeoForge turns away a client without it from a server
@@ -82,6 +84,8 @@ public final class GunFeelMod {
                     if(Feature.TRACERS.on())ctx.enqueueWork(()->Tracers.impact(p));
                 });
                 r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC, (p, ctx) -> ServerSettingsClient.receive(p));
+                r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC,
+                        (p, ctx) -> ctx.enqueueWork(() -> p.handle(ctx.player().level())));
             } else {
                 // 1.21.1 wants a handler on the server too: it never runs there
                 r.playToClient(ShotPayload.TYPE, ShotPayload.CODEC, (p, ctx) -> {});
@@ -89,6 +93,7 @@ public final class GunFeelMod {
                 r.playToClient(ImpactHolePayload.TYPE, ImpactHolePayload.CODEC, (p, ctx) -> {});
                 r.playToClient(HelloPayload.TYPE, HelloPayload.CODEC, (p, ctx) -> {});
                 r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC, (p, ctx) -> {});
+                r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC, (p, ctx) -> {});
             }
             r.playToServer(AmmoSelectPayload.TYPE, AmmoSelectPayload.CODEC, (p, ctx) -> {
                 if (Feature.AMMO_CHOICE.on() && ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp && !acup.gunfeel.SpectatorGuns.blocks(sp)) AmmoLock.select(sp, p.config());

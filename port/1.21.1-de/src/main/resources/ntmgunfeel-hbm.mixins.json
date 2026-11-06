@@ -4,10 +4,10 @@
   "package": "acup.gunfeel.mixin",
   "plugin": "acup.gunfeel.compat.HbmMixinPlugin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": ["MixinG3Inspect", "MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun", "MixinHoldAim", "MixinBulletServer", "MixinThrowableHit", "MixinBeamModelQuery", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinExplosiveDirect", "MixinRicochetSound", "MixinHeadDamage", "MixinAmmoLock", "MixinAmmoLockBelt", "MixinLegoSpread", "MixinGunConfigAnims", "MixinSpectatorGun"],
+  "mixins": ["MixinG3Inspect", "MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun", "MixinHoldAim", "MixinBulletServer", "MixinThrowableHit", "MixinWaterBullet", "MixinWaterMuffle", "MixinWaterBlast", "MixinWaterBlastProcessor", "MixinWaterImpact", "MixinWaterFire", "MixinBeamModelQuery", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinExplosiveDirect", "MixinRicochetSound", "MixinHeadDamage", "MixinAmmoLock", "MixinAmmoLockBelt", "MixinLegoSpread", "MixinGunConfigAnims", "MixinSpectatorGun"],
   "client": ["MixinItemGunBaseNT", "MixinItemRenderWeaponBase", "MixinHbmAnimations", "MixinWholeModelGuns", "MixinSexyBottle", "MixinAimButton", "MixinClickAim", "MixinHbmVisual", "MixinRenderBulletMK4", "MixinLegoClient",
     "MixinNtmMeshHits", "GlyphidGeometryAccess", "MixinGlyphidModelHits", "MixinMobObjModelHits", "MixinMobModelHits", "MixinGpuEntityGeometry",
-    "MixinBackportModelHits", "MixinBackportGeometryHits", "MixinClientRegistry", "MixinHbmAnimationPayload", "MixinGunKeysRadial", "MixinSpectatorKeys", "MixinSpectatorHud"],
+    "MixinBackportModelHits", "MixinBackportGeometryHits", "MixinClientRegistry", "MixinHbmAnimationPayload", "MixinGunKeysRadial", "MixinSpectatorKeys", "MixinSpectatorHud", "MixinMuzzleFlash"],
   "injectors": {
     "defaultRequire": 0
   }
