@@ -1,5 +1,10 @@
 # Changelog
 
+## X543.135
+
+- On a client, a tracer also stops where the server's bullet stopped when the
+  stop came before the client began the piece water or a ricochet goes on in.
+
 ## X543.134
 
 - A fast bullet that came out of water flies on at the speed water left it,

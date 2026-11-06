@@ -167,6 +167,7 @@ public final class Tracers {
             this.waterF = from.waterF;
             this.waterSkips = from.waterSkips;
             this.waterOpened = from.waterOpened;
+            stopFrom(from);
         }
 
         // the same bullet after water slowed or turned it: from `start` with `v` (its new speed in it), f, skips
@@ -188,6 +189,16 @@ public final class Tracers {
             this.waterF = f;
             this.waterSkips = skips;
             this.waterOpened = from.waterPath != null ? from.waterPath.opened : from.waterOpened;
+            stopFrom(from);
+        }
+
+        // the server's stop came while the client had not begun this piece yet: it fell on the piece before, past that
+        // one's end, and this one ends there in turn
+        private void stopFrom(Shot from) {
+            if (Double.isNaN(from.path.confirmedEnd)) return;
+            path.confirmedEnd = Math.max(0, from.path.confirmedEnd - (born - from.born));
+            path.stopPoint = from.path.stopPoint;
+            if (path.confirmedEnd <= 0) end = 0;
         }
     }
 
@@ -603,7 +614,11 @@ public final class Tracers {
     private static void fly(Shot s, World world, double t) {
         for (int i = 0; i < 64 && Double.isNaN(s.end) && s.checked < t; i++) {
             double before = s.checked;
-            flyStep(s, world, Math.min(t, Math.floor(s.checked + 1e-9) + 1));
+            try {
+                flyStep(s, world, Math.min(t, Math.floor(s.checked + 1e-9) + 1));
+            } finally {
+                waterHole = 1F;
+            }
             if (s.checked <= before) break;
         }
     }
