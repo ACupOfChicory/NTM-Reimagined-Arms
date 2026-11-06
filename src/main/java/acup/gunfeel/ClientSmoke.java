@@ -92,6 +92,9 @@ public final class ClientSmoke {
     static void tracerDrawn(int count) { if (ENABLED) traces += count; }
     static void particleAdded() { if (ENABLED) particles++; }
     static void holeDrawn() { if (ENABLED) holes++; }
+    // the mod's corner HUD drawn (Hud.render), for SpectatorStand
+    static int hud;
+    static void hudDrawn() { if (ENABLED) hud++; }
 
     private static void frame() {
         if (finished) return;
@@ -141,6 +144,7 @@ public final class ClientSmoke {
                 if(FenceSeamCheck.ENABLED) { phase=17; mc.gui.setScreen(null); FenceSeamCheck.start(); return; }
                 if(FenceAirStand.ENABLED) { phase=18; mc.gui.setScreen(null); FenceAirStand.start(); return; }
                 if(GlassBackCheck.ENABLED) { phase=50; mc.gui.setScreen(null); GlassBackCheck.start(); return; }
+                if(SpectatorStand.ENABLED) { phase=19; mc.gui.setScreen(null); SpectatorStand.start(); return; }
                 if (MobSmoke.enabled()) {
                     phase = 10;
                     mc.gui.setScreen(null);
@@ -289,6 +293,7 @@ public final class ClientSmoke {
             if (phase == 17) FenceSeamCheck.frame();
             if (phase == 18) FenceAirStand.frame();
             if (phase == 50) GlassBackCheck.frame();
+            if (phase == 19) SpectatorStand.frame();
             if (phase == 15) {
                 if (ShapesStand.ENABLED) ShapesStand.frame();
                 else GlassStand.frame();

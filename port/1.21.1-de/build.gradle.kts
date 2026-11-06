@@ -171,6 +171,8 @@ neoForge {
             systemProperty("ntmgunfeel.fenceSeamCheck", providers.gradleProperty("fenceSeam").isPresent.toString())
             // -PglassBack[=fabulous]: glass seen through, and holes on its far side seen through it (GlassBackCheck)
             systemProperty("ntmgunfeel.glassBack", providers.gradleProperty("glassBack").map { it.ifBlank { "fancy" } }.orElse("").get())
+            // -PspectatorStand: may a spectator use an NTM gun (the root's SpectatorStand)
+            systemProperty("ntmgunfeel.spectatorStand", providers.gradleProperty("spectatorStand").isPresent.toString())
             // -PholeBench=<label>: the root's benchHoles in the smoke world (HoleBenchmark), its table in
             // build/holebench/<label>.tsv; -PholeBenchCheckMotion, -PholeBenchSurfaces, -PholeBenchModes,
             // -PholeBenchRepeats, -PholeBenchShells, -PholeBenchLegacy as there (no loaded world, no JFR)
