@@ -33,9 +33,9 @@ public final class GunFeelMod {
         ModelCells.preload();
     }
 
-    // not optional: the mod is needed on both sides (26.2: the registrar's protocol). A side without it is turned away;
-    // other versions of it come in, and the hello then compares their protocols (Net). Without this FML would ask for
-    // the very same version on both sides.
+    // not optional: the mod is needed on both sides (26.2: the registrar). A side without it is turned away; other
+    // builds of it come in, and the hello then kicks a player of another build with a text that names both (Net).
+    // Without this FML would ask for the very same version on both sides, with a bare "Mod rejections" for a text.
     @cpw.mods.fml.common.network.NetworkCheckHandler
     public boolean remote(java.util.Map<String, String> mods, Side side) {
         return mods.containsKey(MODID);

@@ -3,7 +3,9 @@ package acup.gunfeel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import cpw.mods.fml.common.FMLCommonHandler;
@@ -23,21 +25,20 @@ import net.minecraft.server.MinecraftServer;
 
 // The mod's network on 1.7.10 (26.2: GunFeelMod's PayloadRegistrar and the *Payload records): one Forge channel
 // "ntmgunfeel" (SimpleNetworkWrapper), a message per payload, each with its own discriminator byte:
-//   0 hello     both ways: the protocol and the versions of this mod and NTM (26.2: compat.HelloPayload)
+//   0 hello     both ways: the build and the versions of this mod and NTM (26.2: compat.HelloPayload)
 //   1 settings  server -> client: ServerSettings, packed (26.2: ServerSettingsPayload)
 //   2-4 tracers   server -> client (TracerNet)
 //   5-6 ammo      client -> server (AmmoNet)
 //   7-8 hitboxes  client -> server (ModelHitNet)
 // Further messages take the next free numbers (GunFeelMod.preInit). Handlers run on the network thread.
 //
-// The handshake. 26.2 refuses a client with another PROTOCOL at connection (NeoForge's registrar does it) and lets
-// other mod versions in. Forge 1.7.10 checks only mod lists: GunFeelMod's @NetworkCheckHandler turns away a side
-// without the mod (FML's default would ask for the very same version), and then the server says hello with its
-// PROTOCOL; the client answers with its own, and the server kicks a player whose protocol differs. The client says in
-// chat when the server's versions differ from its own (26.2: CompatClient.hello).
+// The handshake. 26.2 refuses a client of another build at connection (NeoForge's registrar, the channel's version is
+// the mod's build). Forge checks only mod lists: GunFeelMod's @NetworkCheckHandler turns away a side without the mod
+// (FML's default would ask for the very same version, with a bare "Mod rejections" for a text), and then the server
+// says hello with its build (again every two seconds until the answer comes); the client answers with its own, and
+// the server kicks a player of another build with a text that names both. Builds made without git (X0-dev) play
+// only with each other. The client says in chat when the server's NTM differs from its own (26.2: CompatClient.hello).
 public final class Net {
-    // raise it when a message changes: a client and a server with different ones do not play together
-    public static final String PROTOCOL = "1.7.10-3";
     public static final SimpleNetworkWrapper CHANNEL = NetworkRegistry.INSTANCE.newSimpleChannel(GunFeelMod.MODID);
     public static final int HELLO = 0, SETTINGS = 1;
 
@@ -55,6 +56,8 @@ public final class Net {
     // ---------------------------------------------------------------- messages
 
     public static final class Hello implements IMessage {
+        // protocol: the build too (BuildInfo.VERSION); older builds compared their hand-raised protocol here and so
+        // turn a newer side away themselves
         public String protocol = "", mod = "", hbm = "";
 
         public Hello() {
@@ -67,7 +70,7 @@ public final class Net {
         }
 
         public static Hello ours() {
-            return new Hello(PROTOCOL, BuildInfo.VERSION, PortPaths.hbmVersion());
+            return new Hello(BuildInfo.VERSION, BuildInfo.VERSION, PortPaths.hbmVersion());
         }
 
         @Override
@@ -112,20 +115,31 @@ public final class Net {
 
     // ---------------------------------------------------------------- handlers (the client's go to client classes)
 
-    // the client's answer: its protocol and versions
+    // the client's answer: its build and versions
     public static final class ServerHello implements IMessageHandler<Hello, IMessage> {
         @Override
         public IMessage onMessage(Hello m, MessageContext ctx) {
             EntityPlayerMP player = ctx.getServerHandler().playerEntity;
-            boolean same = PROTOCOL.equals(m.protocol);
-            GunFeel.LOGGER.info("{}: NTM Reimagined Arms {} (protocol {}), NTM {}{}", player.getCommandSenderName(), m.mod, m.protocol, m.hbm,
-                    same ? "" : ": another protocol than the server's " + PROTOCOL + ", turned away");
+            boolean same = BuildInfo.VERSION.equals(m.mod);
+            GunFeel.LOGGER.info("{}: NTM Reimagined Arms {}, NTM {}{}", player.getCommandSenderName(), m.mod, m.hbm,
+                    same ? "" : ": another build than the server's " + BuildInfo.VERSION + ", turned away");
             if (TestLog.server) TestLog.s(-1, "hello", "player", player.getCommandSenderName(), "clientMod", m.mod, "clientNtm", m.hbm,
-                    "protocol", m.protocol, "sameProtocol", same);
-            if (!same) KICKS.add(new Object[] {player, "NTM Reimagined Arms: this server runs " + BuildInfo.DISPLAY + " (protocol " + PROTOCOL
-                    + "), your game " + m.mod + " (protocol " + m.protocol + "). Install the server's version."});
+                    "sameMod", same);
+            UNANSWERED.remove(player);
+            if (!same) KICKS.add(new Object[] {player, "Server has NTM Reimagined Arms " + BuildInfo.DISPLAY + ", you have "
+                    + display(m.mod) + " \u2014 install the same build."});
             return null;
         }
+    }
+
+    // a build as players see it: 516.3+mc1.7.10-forge is X516.3, 0+mc… (no git) X0-dev; at most 40 characters of
+    // what a client sends
+    static String display(String version) {
+        int plus = version.indexOf('+');
+        if (version.length() > 40) version = version.substring(0, 40);
+        if (plus <= 0 || plus >= version.length()) return version;
+        String n = version.substring(0, plus);
+        return n.equals("0") ? "X0-dev" : "X" + n;
     }
 
     public static final class ClientHello implements IMessageHandler<Hello, IMessage> {
@@ -157,10 +171,21 @@ public final class Net {
     public void loggedIn(PlayerEvent.PlayerLoggedInEvent e) {
         if (!(e.player instanceof EntityPlayerMP)) return;
         EntityPlayerMP player = (EntityPlayerMP) e.player;
+        UNANSWERED.put(player, new int[2]); // before the hello: its answer may come at once
         CHANNEL.sendTo(Hello.ours(), player);
         Settings s = current();
         if (s != null) CHANNEL.sendTo(s, player);
     }
+
+    @SubscribeEvent
+    public void loggedOut(PlayerEvent.PlayerLoggedOutEvent e) {
+        UNANSWERED.remove(e.player);
+    }
+
+    // players whose answer to the hello has not come: ticks since the last hello, hellos sent again. A hello or its
+    // answer does not always arrive (a client of another build once played on the 1.12.2 stand, its answer never came
+    // in), so it goes again every two seconds, at most ten times; the answer takes the player off (ServerHello)
+    private static final Map<EntityPlayerMP, int[]> UNANSWERED = new ConcurrentHashMap<EntityPlayerMP, int[]>();
 
     private static int ticks;
 
@@ -171,6 +196,18 @@ public final class Net {
         for (Object[] k; (k = KICKS.poll()) != null;) {
             EntityPlayerMP p = (EntityPlayerMP) k[0];
             if (p.playerNetServerHandler != null) p.playerNetServerHandler.kickPlayerFromServer((String) k[1]);
+        }
+        for (Iterator<Map.Entry<EntityPlayerMP, int[]>> i = UNANSWERED.entrySet().iterator(); i.hasNext();) {
+            Map.Entry<EntityPlayerMP, int[]> w = i.next();
+            int[] c = w.getValue();
+            if (++c[0] < 40) continue;
+            c[0] = 0;
+            if (++c[1] > 10) {
+                GunFeel.LOGGER.warn("{} has not answered the hello: its build is not known", w.getKey().getCommandSenderName());
+                i.remove();
+                continue;
+            }
+            CHANNEL.sendTo(Hello.ours(), w.getKey());
         }
         // the server's files, checked every two seconds: a few file dates, nothing read until one changes
         if (++ticks < 40) return;
