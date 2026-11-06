@@ -119,7 +119,8 @@ public abstract class MixinItemRenderWeaponBase {
         // (WalkSprint.moved, taken at setupFirstPerson)
         if (Config.enabled && !Arms.measuring && player != null) WalkSprint.base();
         if (Config.enabled && !Arms.measuring && player != null) WeaponSway.apply(player);
-        if (Config.enabled && !Arms.measuring && player != null && !GunFeelClient.currentAkimbo && stack != null)
+        if (Config.enabled && !Arms.measuring && player != null && !GunFeelClient.currentAkimbo && stack != null
+                && WalkSprint.rightMain())
             WalkSprint.apply(player, stack);
     }
 

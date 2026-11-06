@@ -189,7 +189,17 @@ public final class WalkSprint {
      */
     public static boolean bobOff() {
         if (!Config.enabled || Config.walkSway <= 0F || Arms.measuring || GunFeelClient.currentAkimbo) return false;
-        return net.minecraft.client.Minecraft.getMinecraft().gameSettings.mainHand != EnumHandSide.LEFT;
+        return rightMain();
+    }
+
+    /**
+     * The main hand is the right one. With a left main hand WalkSprint leaves the gun alone and NTM keeps its bob, as
+     * 26.2 does (there NTM draws it through the other hand's pass, which WalkSprint skips; CE draws it through the same
+     * pass, so the mixin asks this).
+     */
+    public static boolean rightMain() {
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getMinecraft();
+        return mc == null || mc.gameSettings.mainHand != EnumHandSide.LEFT;
     }
 
     /** Once a client tick: run / walk / idle for the player, by its sprint and movement keys (tacz.MoveState). */
