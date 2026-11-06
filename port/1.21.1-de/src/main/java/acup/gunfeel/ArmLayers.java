@@ -74,6 +74,13 @@ public final class ArmLayers {
     private ArmLayers() {
     }
 
+    // leaving a world: the player is let go (read again in the next world); the port keeps no render state, only
+    // the renderer and its model, which outlive a world
+    public static void leave() {
+        prepared = false;
+        owner = new java.lang.ref.WeakReference<>(null);
+    }
+
     // a new frame of the gun in hand: the player's render state is read again on first use
     public static void newFrame() {
         fresh = true;

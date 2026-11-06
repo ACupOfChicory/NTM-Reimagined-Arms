@@ -58,11 +58,19 @@ public final class ArmLayers {
     private static AvatarRenderer<AbstractClientPlayer> renderer;
     private static AvatarRenderState state;
     private static boolean fresh, prepared, failed;
-    private static LocalPlayer owner;
+    // weak: a player left for the main menu does not keep its world
+    private static java.lang.ref.WeakReference<LocalPlayer> owner = new java.lang.ref.WeakReference<>(null);
     private static final boolean[] SLEEVE = new boolean[2];
     private static final Set<Class<?>> WARNED = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
 
     private ArmLayers() {
+    }
+
+    // leaving a world: the player and its render state are let go (read again in the next world)
+    public static void leave() {
+        prepared = false;
+        state = null;
+        owner = new java.lang.ref.WeakReference<>(null);
     }
 
     // a new frame of the gun in hand: the player's render state is read again on first use
@@ -79,7 +87,7 @@ public final class ArmLayers {
     private static boolean prepare() {
         if (!Config.armArmor || failed) return false;
         // read in this frame for this player (a new world brings a new one)
-        if (!fresh) return prepared && owner == Minecraft.getInstance().player;
+        if (!fresh) return prepared && owner.get() == Minecraft.getInstance().player;
         fresh = false;
         prepared = false;
         LocalPlayer player = Minecraft.getInstance().player;
@@ -96,7 +104,7 @@ public final class ArmLayers {
             SLEEVE[1] = model.leftSleeve.visible;
             renderer = r;
             state = s;
-            owner = player;
+            owner = new java.lang.ref.WeakReference<>(player);
             prepared = true;
         } catch (Throwable t) {
             failed = true;

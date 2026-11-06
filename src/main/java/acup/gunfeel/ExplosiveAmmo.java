@@ -14,5 +14,11 @@ public final class ExplosiveAmmo {
     static boolean heavyPath(String path) {
         return path.startsWith("ammo_standard_g40_") || path.startsWith("ammo_standard_rocket_");
     }
+    // the Jeremy turret's 240 mm shells (hbm:ammo_shell, ammo_shell_*): fast, but drawn by NTM as a model, not a tracer
+    public static boolean shell(BulletConfig config) {
+        if(config==null || config.ammoItem==null)return false;
+        var key=BuiltInRegistries.ITEM.getKey(config.ammoItem.get());
+        return key.getNamespace().equals("hbm") && (key.getPath().equals("ammo_shell") || key.getPath().startsWith("ammo_shell_"));
+    }
     static float holeScale(BulletConfig config) { return heavy(config)?1.5F:1F; }
 }

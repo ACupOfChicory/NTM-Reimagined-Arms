@@ -99,6 +99,7 @@ public final class GunFeel {
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> {
             ModelHitClient.clear();
             CompatClient.leave();
+            ArmLayers.leave();
             if (Feature.TRACERS.on()) Tracers.clear();
             if (Feature.TRACERS.on()) acup.gunfeel.water.WaterFx.clear();
         });

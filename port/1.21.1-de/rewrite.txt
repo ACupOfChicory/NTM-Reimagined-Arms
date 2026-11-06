@@ -313,3 +313,10 @@ re@SmokeNet.java: contains\(at\.x\(\), at\.z\(\), false\) => contains(at.x, at.z
 # main X510's armour stand dresses the player: 1.21.1's dye takes "shown in tooltip", its trims live in armortrim
 re@TraceScenario.java: new net\.minecraft\.world\.item\.component\.DyedItemColor\(0xB02E26\) => new net.minecraft.world.item.component.DyedItemColor(0xB02E26, true)
 re@TraceScenario.java: net\.minecraft\.world\.item\.equipment\.trim\. => net.minecraft.world.item.armortrim.
+# main X547, NpcShotSmoke: no EntitySpawnReason, no Blocks.CONCRETE family on 1.21.1
+re@NpcShotSmoke.java: ^import net\.minecraft\.world\.entity\.EntitySpawnReason;$ => 
+re@NpcShotSmoke.java: Blocks\.CONCRETE\.gray\(\) => Blocks.GRAY_CONCRETE
+# main X547, MixinLegacyBullet: DE's old EntityBullet hurts with 1.21.1's hurt(DamageSource, float), not hurtServer
+re@MixinLegacyBullet.java: (Entity|LivingEntity);hurtServer\(Lnet/minecraft/server/level/ServerLevel; => $1;hurt(
+re@MixinLegacyBullet.java: (gunfeel\$hurt(?:Again)?\((?:Entity|LivingEntity) target), ServerLevel level, => $1,
+re@MixinLegacyBullet.java: original\.call\(target, level, source, => original.call(target, source,

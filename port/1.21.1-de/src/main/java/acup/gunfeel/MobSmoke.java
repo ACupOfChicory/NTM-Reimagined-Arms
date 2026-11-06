@@ -169,7 +169,7 @@ public final class MobSmoke {
         var mc=Minecraft.getInstance();
         if(frozen() && mc.level!=null && mc.level.getEntity(id) instanceof LivingEntity still) hold(still);
         if(mc.player==null || pending) return;
-        if(stage==22) { if(ExplosiveSmoke.finish())ClientSmoke.finish(); return; }
+        if(stage==22) { if(ExplosiveSmoke.finish() && NpcShotSmoke.finish())ClientSmoke.finish(); return; }
         mc.player.setYRot(stage==4?180:0);
         mc.player.setXRot(0);
         if(CONTOUR_SHOTS && stage!=4 && target() instanceof LivingEntity lookingAt) {
@@ -433,7 +433,7 @@ public final class MobSmoke {
         if(index+1>=CASES.size()) {
             ClientSmoke.check(!PROBES.isEmpty() && probeTracers==0,"Контрольные пули="+PROBES.size()+", сетевые трассеры="+probeTracers);
             stage=22;
-            if(ExplosiveSmoke.finish())ClientSmoke.finish(); return;
+            if(ExplosiveSmoke.finish() && NpcShotSmoke.finish())ClientSmoke.finish(); return;
         }
         select(index+1);
     }
