@@ -55,6 +55,8 @@ public final class Config {
     // rounds the water stopped, lying on the bottom (acup.gunfeel.water.SunkBullets): how many at most, how long
     public static int waterBodyMax = 400;
     public static float waterBodyLife = 30F;
+    // size of the rounds in water (flying, sunk) on top of the size of NTM's casing of the round
+    public static float waterBodyScale = 1F;
     public static boolean cornerHud = true;
     public static String ammoMenu = "steel";
     public static int ammoMenuColor = 0xFF8C1A;
@@ -205,6 +207,7 @@ public final class Config {
             waterSplash: splashes, rings, foam and bubbles where a bullet meets water
             waterBodyMax: rounds stopped by water that sink and lie on the bottom, at most; 0 = none
             waterBodyLife: seconds such a round lies on the bottom
+            waterBodyScale: size of the rounds seen in water, 1 = matched to the casings NTM drops, 0.25..4
             cornerHud: TaCZ-style ammo counter in the bottom-right corner instead of NTM's
             ammoMenu: look of the ammo menu (hold Y): steel, petals, bubbles, ntm, glass, arc
             ammoMenuColor: accent colour of the ammo menu, hex RRGGBB
@@ -478,6 +481,8 @@ public final class Config {
         waterBodyMax = Math.clamp(Math.round(num(p, "waterBodyMax", waterBodyMax)), 0, 2000);
         float life = num(p, "waterBodyLife", waterBodyLife);
         if (Float.isFinite(life)) waterBodyLife = Math.clamp(life, 1F, 600F);
+        float bodyScale = num(p, "waterBodyScale", waterBodyScale);
+        if (Float.isFinite(bodyScale)) waterBodyScale = Math.clamp(bodyScale, 0.25F, 4F);
         cornerHud = bool(p, "cornerHud", cornerHud);
         ammoMenu = p.getProperty("ammoMenu", ammoMenu).trim().toLowerCase(java.util.Locale.ROOT);
         try {
@@ -612,6 +617,7 @@ public final class Config {
         p.setProperty("waterSplash", Boolean.toString(waterSplash));
         p.setProperty("waterBodyMax", Integer.toString(waterBodyMax));
         p.setProperty("waterBodyLife", Float.toString(waterBodyLife));
+        p.setProperty("waterBodyScale", Float.toString(waterBodyScale));
         p.setProperty("cornerHud", Boolean.toString(cornerHud));
         p.setProperty("ammoMenu", ammoMenu);
         p.setProperty("ammoMenuColor", String.format("%06x", ammoMenuColor));

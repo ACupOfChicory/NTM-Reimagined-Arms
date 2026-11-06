@@ -1,5 +1,17 @@
 # Changelog
 
+## X518
+
+- Rounds seen in water are now sized to the casings NTM drops, not six times
+  their real size: a bullet is as big next to its calibre's casing as the real
+  bullet next to its case. A .50 BMG bullet went from 0.35 to 0.08 of a block
+  (its casing is 0.135), a 5.56 mm one from 0.14 to 0.04, a 7.62 mm one from
+  0.17 to 0.05, a 9 mm one from 0.09 to 0.05, buckshot from 0.05 to 0.014. The
+  size is read from NTM's casing of each round. Rounds NTM drops no casing for
+  (.357 Magnum, stones) are twice their real size.
+- New setting `waterBodyScale` (1 by default, 0.25 to 4): the size of the
+  rounds seen in water, on top of the above.
+
 ## X517
 
 - Water rings are white again in daylight, not grey. They were shaded like a

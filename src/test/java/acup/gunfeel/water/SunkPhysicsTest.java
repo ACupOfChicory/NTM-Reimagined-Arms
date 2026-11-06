@@ -52,6 +52,31 @@ class SunkPhysicsTest {
         assertTrue(b.asleep);
     }
 
+    // short rounds sized to NTM's casings (.44, .357 with no casing, .22): r and h in blocks. They rocked on the
+    // floor for good with the old sleep test (0.3 rad/s however small the round): one .44 in 40 came to rest
+    @Test
+    void smallShortRoundsComeToRest() {
+        double[][] rounds = {{0.0141, 0.0080}, {0.0091, 0.0059}, {0.0074, 0.0054}, {0.0035, 0.0020}};
+        for (double[] rh : rounds) {
+            Random rnd = new Random(1);
+            int asleep = 0;
+            for (int t = 0; t < 40; t++) {
+                SunkPhysics p = new SunkPhysics(50, 100);
+                double dx = rnd.nextGaussian(), dy = rnd.nextGaussian(), dz = rnd.nextGaussian(), l = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                dx /= l;
+                dy /= l;
+                dz /= l;
+                Body b = p.add(null, 0.3, 3, 0.3, dx, dy, dz, rh[0], rh[1], dx * 1.5, dy * 1.5, dz * 1.5, 5 + 5 * rnd.nextDouble(), 1.2, 0, 0F,
+                        false);
+                run(p, 8);
+                if (b.asleep) asleep++;
+                assertTrue(lowest(b) > -0.005, "r " + rh[0] + " in the floor: " + lowest(b));
+            }
+            System.out.printf("r %.4f h %.4f: asleep %d/40 after 8 s%n", rh[0], rh[1], asleep);
+            assertEquals(40, asleep, "r " + rh[0] + " h " + rh[1]);
+        }
+    }
+
     @Test
     void terminalSpeed() {
         SunkPhysics p = new SunkPhysics(400, 30);

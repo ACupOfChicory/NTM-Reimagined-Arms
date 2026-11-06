@@ -27,8 +27,8 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent;
 
-// Bullets under water you can see (notes/water/bubble-demo.tpl.html): a low-poly model of the round (AmmoModels, ×6
-// real size) while it flies in water, a hollow or soft point opening into a mushroom as it goes, a light streak
+// Bullets under water you can see (notes/water/bubble-demo.tpl.html): a low-poly model of the round (AmmoModels, as
+// big next to NTM's casing of the round as the real bullet next to its case, × waterBodyScale) while it flies in water, a hollow or soft point opening into a mushroom as it goes, a light streak
 // behind it fading as it slows; and once the water stopped it, a body on the client only (SunkPhysics): it drifts
 // on, tumbles and sinks at 1.2 blocks a second, and lies on the bottom (waterBodyLife seconds, at most waterBodyMax).
 // A bullet that hit a block is gone, as in NTM. A round with an impact fuze is no body of ours: it sinks as NTM's own
@@ -67,7 +67,7 @@ public final class SunkBullets {
         String ammo = WaterFx.ammo(config);
         // an impact fuze (grenades, rockets, HE and incendiary rounds): NTM's entity sinks on, the explosives part's
         if (ammo == null || config == null || WaterClass.Fuze.of(config).any() || WaterClass.of(config).explosive) return;
-        AmmoModels.Model m = AmmoModels.of("ammo_standard_" + ammo);
+        AmmoModels.Model m = model(config);
         if (m == null) return;
         float open = m.expands ? 1F : 0F;
         double r = m.radius * (1 + 0.75 * m.expandAmount * open) * (m.capsule ? 1 : 0.9);
@@ -121,6 +121,10 @@ public final class SunkBullets {
     public static void flying(Level level, @Nullable BulletConfig config, Vec3 head, Vec3 dir, double f, double speed) {
         if (!WaterFx.on() || dir.lengthSqr() < 1e-12) return;
         if (config == null || !WaterFx.wetAt(level, head)) return;
+        if (roundsScale != Config.waterBodyScale) {
+            ROUNDS.clear();
+            roundsScale = Config.waterBodyScale;
+        }
         Round r = ROUNDS.computeIfAbsent(config, SunkBullets::round);
         AmmoModels.Model m = r.model();
         if (m == null) return;
@@ -138,11 +142,22 @@ public final class SunkBullets {
     }
 
     private static final java.util.Map<BulletConfig, Round> ROUNDS = new java.util.IdentityHashMap<>();
+    private static float roundsScale = Float.NaN;
 
     private static Round round(BulletConfig config) {
         String ammo = WaterFx.ammo(config);
-        AmmoModels.Model m = ammo == null ? null : AmmoModels.of("ammo_standard_" + ammo);
+        AmmoModels.Model m = model(config);
         return new Round(m, ammo != null && "jhp".equals(variant(ammo)), m != null && m.expands ? WaterClass.of(config).length : 0);
+    }
+
+    // the model of a round: as big next to NTM's casing of it as the real bullet next to its case, × waterBodyScale
+    public static AmmoModels.@Nullable Model model(@Nullable BulletConfig config) {
+        String ammo = WaterFx.ammo(config);
+        if (ammo == null || config == null) return null;
+        com.hbm.particle.SpentCasing c = config.casing;
+        AmmoModels.Casing casing = c == null || c.getType() == null ? null
+                : new AmmoModels.Casing(c.getType().name(), c.getScaleX(), c.getScaleY(), c.getScaleZ());
+        return AmmoModels.of("ammo_standard_" + ammo, casing, Config.waterBodyScale);
     }
 
     private static String variant(String ammo) {
@@ -250,7 +265,7 @@ public final class SunkBullets {
             Vec3 at = en.getPosition(pt);
             if (!WaterFx.wetAt(level, at)) continue;
             String ammo = WaterFx.ammo(b.config);
-            AmmoModels.Model m = ammo == null ? null : AmmoModels.of("ammo_standard_" + ammo);
+            AmmoModels.Model m = ammo == null ? null : model(b.config);
             if (m == null) continue;
             double yaw = Math.toRadians(en.getYRot());
             if (out == null) out = new ArrayList<>();

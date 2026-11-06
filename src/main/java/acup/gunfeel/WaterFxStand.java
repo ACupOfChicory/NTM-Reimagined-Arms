@@ -89,6 +89,7 @@ final class WaterFxStand {
                 case 0 -> {
                     if (mc.player == null || mc.player.position().distanceTo(EYE) > 1) return;
                     server.submit(() -> build(server.overworld())).join();
+                    sizes();
                     next();
                 }
                 // the water settles (a slope, a waterfall and a sheet flow out), the client has it
@@ -588,6 +589,22 @@ final class WaterFxStand {
         } catch (Throwable ignored) {
         }
         return WaterFx.flashHidden > before;
+    }
+
+    // the size of every round of the table in water, from NTM's casing of it (SunkBullets.model), once per round
+    private static void sizes() {
+        java.util.Map<String, String> out = new java.util.TreeMap<>();
+        for (BulletConfig c : BulletConfig.configs) {
+            String a = c == null ? null : WaterFx.ammo(c);
+            var m = a == null ? null : SunkBullets.model(c);
+            if (m == null) continue;
+            var k = c.casing;
+            out.putIfAbsent(a, String.format(java.util.Locale.ROOT, "%s len %.4f d %.4f %s", a, m.length, 2 * m.radius,
+                    k == null ? "no casing" : (m.byCasing ? "casing " : "casing not sized ") + k.getType() + " " + k.getScaleX() + "/"
+                            + k.getScaleY() + "/" + k.getScaleZ()));
+        }
+        line("sizes: " + out.size() + " rounds, by casing " + out.values().stream().filter(v -> v.contains(" casing ") && !v.contains("not sized")).count());
+        for (String v : out.values()) line("size " + v);
     }
 
     private static BulletConfig config(String ammo) {
