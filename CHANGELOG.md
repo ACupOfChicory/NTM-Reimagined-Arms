@@ -1,5 +1,76 @@
 # Changelog
 
+## X555.177
+
+- As in 26.2 X547, on NTM CE: the hunter chopper's and the cyber crab's
+  bullets hit where they meet a creature's model, 1.75 times the damage in the
+  head and half in an arm or a leg. The chopper's bullets follow the mod's
+  block rules: they break glass and fly on through it, and leave a hole with
+  sparks and sound where they stop in a block. The cyber crab's still fly
+  through blocks, as in NTM. The server setting `npcShots` (on by default)
+  turns both off. NTM CE's turrets, the taint crab and its mobs with guns fire
+  the same bullets as a player's guns, so they already followed these rules.
+- The Jeremy turret's 240 mm shells still leave no holes on 1.12.2: NTM CE
+  draws them as grenades, with no tracer to make a hole from. X547's holes from
+  those shells do not apply here.
+- X544 and X548 were already on 1.12.2: X544's explosive rounds in water came
+  with X543.174, and `armArmor` has let the player go on leaving a world since
+  X543.173. Of X555, 1.12.2 already had the tracer that ends where water stops
+  or skips it right at a tick's start, the stop at a creature before a piece
+  of the tracer that water or a ricochet began, and the late stop on the piece
+  begun by then. Not yet: when the late stop comes after the tracer's first
+  piece in water is gone, its later pieces still fly on; and a tracer that
+  ricochets off a block in water bounces at the speed and damage it had when
+  that tick began.
+
+## X555
+
+- On a client, a tracer slowed by water stops where the server's bullet
+  stopped also when the stop comes late. Before, it ran on past the bullet to
+  where the client had flown it by then.
+- A tracer that water stops or skips right at the start of a tick ends there,
+  instead of flying on through the water.
+- A tracer also stops where the server's bullet hit a creature when the stop
+  comes before the client begins the part of the tracer that water or a
+  ricochet goes on in. Before, that part flew on through the creature.
+- A tracer that ricochets off a block in water flies on at the speed and
+  damage the bullet has where it bounced, as the server's bullet does, not at
+  those it had when that tick began.
+
+## X548
+
+- Leaving a world for the main menu no longer keeps that world in memory until
+  the next one is joined: `armArmor` held on to the player of the last world.
+
+## X547
+
+- The hunter chopper's and the cyber crab's bullets now hit where they meet a
+  creature's model, as gun bullets do: 1.75 times the damage in the head, half
+  in an arm or a leg. Before they always struck the middle of the body.
+- The hunter chopper's bullets now follow the mod's block rules: they break
+  glass and fly on through it, and leave a hole with sparks and sound where
+  they stop in a block. The new server setting `npcShots` (on by default) turns
+  both changes off.
+- The Jeremy turret's 240 mm shells now leave holes where they hit a block. NTM
+  draws them as a model, not as a tracer, so the mod did not follow their path.
+- Checked: the bullets of NTM's turrets (Sentry, Chekhov, Friendly, Jeremy) and
+  of its armed mobs (the masked man's minigun, the taint crab, any mob holding
+  an NTM gun) hit heads and limbs, go through glass and iron bars and leave
+  holes exactly as the same round fired by a player.
+
+## X544
+
+- An explosive round that water stopped goes off where it sinks to only if it
+  gets there within NTM's life of the round. When that ends first, the round is
+  gone without a blast, as NTM removes any round in the air: most rifle and
+  shotgun HE rounds live 1.5 seconds and sink about 1.3 blocks in that time,
+  grenades for the 40 mm launchers live 10 seconds. The X493 notes said such a
+  round went off on NTM's timer; NTM has no timed fuze for bullets.
+- Explosive pellets fired straight down while standing in water, which water
+  stops inside the shooter, no longer hit the shooter from inside and vanish.
+  With the feet on the bottom they sink and go off on it; in deeper water they
+  are gone without a blast when NTM's life of the round ends.
+
 ## X543.176
 
 - As in 26.2 X543: rounds seen in water are sized to the casings NTM CE drops
@@ -248,7 +319,8 @@
   it steeper than 10° they go off on the surface; shallower they skip and go
   off at the next thing they touch. Fired under water they fly, slow down like
   any bullet and go off on a block or a mob. One that water stopped sinks at
-  most a block a second and goes off where it lands or on NTM's timer.
+  most a block a second and goes off where it lands, if NTM's life of the round
+  lasts that long (see X544).
 - In water an explosive round goes off at the first touch of anything, another
   bullet or a sinking explosive included; only pellets of one shot leave each
   other alone. In the air bullets do not touch each other.

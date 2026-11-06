@@ -19,7 +19,7 @@ import net.minecraft.world.phys.Vec3;
 // - what sets alight (phosphorus, flares) does not under water: it hits as a plain bullet;
 // - in water an explosive bullet goes off at the first touch of another bullet or explosive, a sinking one too;
 //   pellets of one shot do not set each other off, and in the air bullets pass each other as in NTM;
-// - one stopped by water sinks (WaterTick) and goes off where it touches.
+// - one stopped by water sinks (WaterTick) and goes off where it touches, if NTM's life of the round lasts that long.
 public final class WaterImpact {
     private WaterImpact() {
     }

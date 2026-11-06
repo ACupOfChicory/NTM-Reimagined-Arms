@@ -37,9 +37,30 @@ public abstract class MixinThrowableHit {
         var self = (net.minecraft.world.entity.Entity) (Object) this;
         if (acup.gunfeel.Trace.ON && !self.level().isClientSide()) self.getRandom().setSeed(acup.gunfeel.Rng.spread());
     }
+    // the bullet has left its shooter's box (NTM's, 0.3 wider) since it was fired. A bullet water stopped before that
+    // (a shot down while standing in water) is still there when NTM's guard (selfDamageDelay) is over; while it
+    // sinks in its shooter, the shooter is no target: NTM's own test never hits a box from inside, and the
+    // point-blank rule below is for the mobs in front. It goes off on the bottom, or NTM's life of it ends.
+    @Unique private boolean gunfeel$outOfShooter;
+
+    @Unique
+    private @org.jspecify.annotations.Nullable LivingEntity gunfeel$inShooter() {
+        if (gunfeel$outOfShooter || !((Object) this instanceof EntityBulletBaseMK4 b) || !acup.gunfeel.water.WaterBullet.stopped(b)) return null;
+        return ((EntityThrowableNT) (Object) this).getThrower();
+    }
+
+    @Unique
+    private static boolean gunfeel$ofShooter(net.minecraft.world.entity.Entity e, LivingEntity shooter) {
+        return e == shooter || acup.gunfeel.ModelPartEntities.parent(e) == shooter;
+    }
+
     @WrapMethod(method="tick")
     private void gunfeel$view(Operation<Void> original) {
         var self=(EntityThrowableNT)(Object)this;
+        if(!gunfeel$outOfShooter){
+            LivingEntity shooter=self.getThrower();
+            if(shooter==null || !shooter.getBoundingBox().inflate(0.3).contains(self.position())) gunfeel$outOfShooter=true;
+        }
         var previous=acup.gunfeel.ModelHits.beginProjectile(self.getThrower(),self.getDeltaMovement().length()*motionMult());
         Vec3 before=self.position();
         try{
@@ -63,7 +84,12 @@ public abstract class MixinThrowableHit {
     @Redirect(method = "tick", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/Level;getEntities(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/AABB;)Ljava/util/List;"))
     private java.util.List<net.minecraft.world.entity.Entity> gunfeel$modelCandidates(Level level, net.minecraft.world.entity.Entity except, AABB area) {
-        return acup.gunfeel.ModelHits.candidates(level, except, level.getEntities(except, area), area, e -> true);
+        var list = level.getEntities(except, area);
+        LivingEntity shooter = gunfeel$inShooter();
+        if (shooter == null) return acup.gunfeel.ModelHits.candidates(level, except, list, area, e -> true);
+        list = new java.util.ArrayList<>(list);
+        list.removeIf(e -> gunfeel$ofShooter(e, shooter));
+        return acup.gunfeel.ModelHits.candidates(level, except, list, area, e -> !gunfeel$ofShooter(e, shooter));
     }
 
     @Redirect(method = "tick", at = @At(value = "INVOKE",

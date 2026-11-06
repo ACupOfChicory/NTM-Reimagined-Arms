@@ -401,7 +401,8 @@ public final class Tracers {
     }
 
     // a heavy explosive round (a 40 mm grenade, a rocket) hit the block (bx, by, bz) on `face` at (px, py, pz),
-    // flying along (dx, dy, dz): the server tells, the client makes its scorch (it flies none of its own there)
+    // flying along (dx, dy, dz): the server tells, the client makes its scorch (it flies none of its own there); a
+    // plain round: NTM's old bullet stopped there (LegacyBullets), its hole and hit effects
     public static void impact(final int shot, final int config, final int bx, final int by, final int bz, final int face, final double px,
             final double py, final double pz, final double dx, final double dy, final double dz) {
         INBOX.add(() -> impact0(shot, config, bx, by, bz, face, px, py, pz, dx, dy, dz));
@@ -410,9 +411,18 @@ public final class Tracers {
     private static void impact0(int shot, int config, int bx, int by, int bz, int face, double px, double py, double pz, double dx, double dy,
             double dz) {
         World w = Minecraft.getMinecraft().world;
-        if (w == null || !Config.bulletHoles || config < 0 || config >= BulletConfig.configs.size() || face < 0 || face > 5) return;
+        if (w == null || config < 0 || config >= BulletConfig.configs.size() || face < 0 || face > 5) return;
         BulletConfig bc = BulletConfig.configs.get(config);
-        if (!ExplosiveAmmo.heavy(bc) || !Double.isFinite(px + py + pz + dx + dy + dz)) return;
+        if (!Double.isFinite(px + py + pz + dx + dy + dz)) return;
+        // a plain round: a hit of a bullet this client does not fly itself (NTM's old bullet, LegacyBullets), its hole
+        // and its particles and sound as a tracer's hit has them
+        if (!ExplosiveAmmo.heavy(bc)) {
+            double l = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (l < 1e-9) return;
+            hit(w, new double[] {px, py, pz}, face, new int[] {bx, by, bz}, bc, new double[] {dx / l, dy / l, dz / l}, false, shot, false);
+            return;
+        }
+        if (!Config.bulletHoles) return;
         PENDING.addLast(new Pending(w, new double[] {px, py, pz}, face, new int[] {bx, by, bz}, bc, new double[] {dx, dy, dz}, null, shot));
     }
 

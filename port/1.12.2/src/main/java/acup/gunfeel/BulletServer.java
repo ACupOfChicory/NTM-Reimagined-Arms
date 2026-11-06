@@ -42,6 +42,28 @@ public final class BulletServer {
     // 20 s at 20 TPS; game ticks, so a paused or slowed server does not forget it sooner
     private static final long FORGET_TICKS = 400L;
 
+    // dev (NpcShotsScenario): every block as if no bullet had hit it yet
+    static void forgetWear() {
+        WEAR.clear();
+    }
+
+    // NTM's old bullet (EntityBullet: the hunter chopper's, the cyber crab's) hit this block, as blockHit; it has no
+    // BulletConfig and no water: its damage and who fired it are given (LegacyBullets)
+    public static int blockHit(Entity bullet, Entity owner, float damage, int x, int y, int z, double ax, double ay, double az) {
+        if (!(bullet.world instanceof WorldServer)) return 0;
+        WorldServer level = (WorldServer) bullet.world;
+        Block block = Mc.block(level, x, y, z);
+        if (Mc.material(block) == Material.AIR) return 0;
+        int meta = Mc.meta(level, x, y, z);
+        BulletRules.Break rule = BulletRules.breakRule(block, meta, level, x, y, z);
+        if (rule == null || rule.mode() == 0) return 0;
+        String was = TestLog.block(level, x, y, z);
+        if (!wear(level, new Shooter(bullet.getEntityId(), owner, damage), x, y, z, block, meta, rule, 1F)) return 0;
+        if (TestLog.server) TestLog.s(bullet.getEntityId(), "end", "by", rule.pass() ? "broke_pass" : "broke", "block", was,
+                "pos", new int[] {x, y, z}, "at", TestLog.point(ax, ay, az));
+        return rule.pass() ? 2 : 1;
+    }
+
     // the bullet hit this block: 0 = nothing happened, 1 = it broke and the bullet stops, 2 = it broke and the bullet
     // flies on
     public static int blockHit(EntityBulletBaseMK4 bullet, int x, int y, int z, double ax, double ay, double az) {
@@ -159,27 +181,40 @@ public final class BulletServer {
         return hit;
     }
 
-    private static void worn(EntityBulletBaseMK4 bullet, String block, int x, int y, int z, String result, Object... more) {
+    // the bullet that hits a block, as the block's wear needs it: its entity id (the test log), who fired it (null: a
+    // turret) and its damage (the test log's; the hit's is that times the water's share)
+    private record Shooter(int id, Entity owner, float damage) {
+        static Shooter of(EntityBulletBaseMK4 bullet) {
+            return new Shooter(bullet.getEntityId(), bullet.getThrower(), bullet.damage);
+        }
+    }
+
+    private static void worn(Shooter bullet, String block, int x, int y, int z, String result, Object... more) {
         if (!TestLog.server) return;
         Object[] kv = new Object[8 + more.length];
-        Object[] head = {"block", block, "pos", new int[] {x, y, z}, "result", result, "damage", bullet.damage};
+        Object[] head = {"block", block, "pos", new int[] {x, y, z}, "result", result, "damage", bullet.damage()};
         System.arraycopy(head, 0, kv, 0, 8);
         System.arraycopy(more, 0, kv, 8, more.length);
-        TestLog.s(bullet.getEntityId(), "wear", kv);
+        TestLog.s(bullet.id(), "wear", kv);
     }
 
     // one hit on the block by its rule: true when it broke. k: the share of the bullet's damage left there (water,
     // WaterTick.k)
     private static boolean wear(WorldServer level, EntityBulletBaseMK4 bullet, int x, int y, int z, Block block, int meta, BulletRules.Break rule,
             float k) {
-        float damage = bullet.damage * k;
+        return wear(level, Shooter.of(bullet), x, y, z, block, meta, rule, k);
+    }
+
+    private static boolean wear(WorldServer level, Shooter bullet, int x, int y, int z, Block block, int meta, BulletRules.Break rule,
+            float k) {
+        float damage = bullet.damage() * k;
         String name = TestLog.server ? TestLog.block(level, x, y, z) : "";
         float hardness = PassableClip.hardness(level, block, x, y, z);
         if (hardness < 0F) { // bedrock and the like
             worn(bullet, name, x, y, z, "unbreakable");
             return false;
         }
-        Entity owner = bullet.getThrower();
+        Entity owner = bullet.owner();
         if (owner instanceof EntityPlayerMP) {
             // port: 26.2's mayBuild() and BreakBlockEvent: an adventure player or spawn protection keeps it, then the
             // event (claims)

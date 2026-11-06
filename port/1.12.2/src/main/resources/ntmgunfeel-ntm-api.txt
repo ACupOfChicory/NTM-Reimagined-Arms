@@ -122,6 +122,7 @@ BULLETS class com/hbm/blocks/generic/BlockDoorGeneric
 BULLETS class com/hbm/blocks/generic/BlockMetalFence
 BULLETS class com/hbm/blocks/generic/BlockModDoor
 BULLETS class com/hbm/blocks/machine/BlockSlidingBlastDoor
+BULLETS class com/hbm/entity/projectile/EntityBullet
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
 BULLETS class com/hbm/entity/projectile/EntityBulletBeamBase
 BULLETS class com/hbm/entity/projectile/EntityThrowableNT
@@ -140,6 +141,10 @@ BULLETS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo
 BULLETS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret
 BULLETS class com/hbm/tileentity/TileEntityDoorGeneric
 BULLETS class com/hbm/tileentity/machine/TileEntitySlidingBlastDoor
+BULLETS field com/hbm/entity/projectile/EntityBullet motionX D
+BULLETS field com/hbm/entity/projectile/EntityBullet motionY D
+BULLETS field com/hbm/entity/projectile/EntityBullet motionZ D
+BULLETS field com/hbm/entity/projectile/EntityBullet world Lnet/minecraft/world/World;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 isDead Z
@@ -184,9 +189,12 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig velocity F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
+BULLETS field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_fmj Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/tileentity/TileEntityDoorGeneric state Lcom/hbm/interfaces/IDoor$DoorState;
 BULLETS field com/hbm/tileentity/machine/TileEntitySlidingBlastDoor state Lcom/hbm/interfaces/IDoor$DoorState;
 BULLETS method com/hbm/blocks/BlockDummyable findCore (Lnet/minecraft/world/IBlockAccess;III)[I
+BULLETS method com/hbm/config/CompatibilityConfig isWarDim (Lnet/minecraft/world/World;)Z
+BULLETS method com/hbm/entity/projectile/EntityBullet getEntityId ()I
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getBulletConfig ()Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getEntityBoundingBox ()Lnet/minecraft/util/math/AxisAlignedBB;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getEntityId ()I
