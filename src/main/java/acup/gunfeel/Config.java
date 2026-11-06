@@ -157,6 +157,10 @@ public final class Config {
     public static float armScaleLeft = 1F;
     public static float armAimScaleRight = 0F;
     public static float armAimScaleLeft = 0F;
+    // smoke clouds (acup.gunfeel.smoke): how the volume is drawn, how many of the nearest clouds and how far
+    public static String smokeQuality = "high";
+    public static int smokeMaxClouds = 8;
+    public static float smokeDistance = 128F;
 
     private static final String HEADER = """
             NTM Gun Feel. Saved values are re-read while the game runs.
@@ -242,6 +246,12 @@ public final class Config {
               not for a gun with a scope, nor for long guns
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
             armAimScaleRight, armAimScaleLeft: thickness of each arm holding the gun when aimed, in place of armScaleRight/Left; it goes over from one to the other as the gun comes up to the sights; 0 = the same as armScaleRight/Left
+            smokeQuality: how smoke clouds (the operator command /gunsmoke for now) are drawn: off (not drawn; inside one the screen still
+              goes grey), low, medium, high (the default) or ultra: the volume at a quarter, a third, half or the whole
+              of the screen's resolution, with more steps along each ray the higher it is; slices: stacks of
+              translucent layers (taken by itself with an Iris shader pack)
+            smokeMaxClouds: the nearest clouds drawn at once, 1..16
+            smokeDistance: clouds farther than this many blocks are not drawn
             armRollRight, armRollLeft: turn of each arm around its own axis, degrees
             armDirRight, armDirLeft: direction from the hand to the shoulder: x (+ left), y (+ up), z (+ forward)
             armReachRight, armReachLeft: the arm goes back until this distance in front of the eye (- = behind); only for automatic thickness (armBase 0) or armLength 0
@@ -560,6 +570,9 @@ public final class Config {
         armScaleLeft = num(p, "armScaleLeft", armScaleLeft);
         armAimScaleRight = num(p, "armAimScaleRight", armAimScaleRight);
         armAimScaleLeft = num(p, "armAimScaleLeft", armAimScaleLeft);
+        smokeQuality = p.getProperty("smokeQuality", smokeQuality).trim().toLowerCase(java.util.Locale.ROOT);
+        smokeMaxClouds = Math.clamp(Math.round(num(p, "smokeMaxClouds", smokeMaxClouds)), 1, 16);
+        smokeDistance = Math.clamp(num(p, "smokeDistance", smokeDistance), 8F, 512F);
     }
 
     private static Properties snapshot() {
@@ -690,6 +703,9 @@ public final class Config {
         p.setProperty("armScaleLeft", Float.toString(armScaleLeft));
         p.setProperty("armAimScaleRight", Float.toString(armAimScaleRight));
         p.setProperty("armAimScaleLeft", Float.toString(armAimScaleLeft));
+        p.setProperty("smokeQuality", smokeQuality);
+        p.setProperty("smokeMaxClouds", Integer.toString(smokeMaxClouds));
+        p.setProperty("smokeDistance", Float.toString(smokeDistance));
         return p;
     }
 

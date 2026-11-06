@@ -1,5 +1,26 @@
 # Changelog
 
+## X539
+
+- Smoke clouds: the operator command `/gunsmoke` lets out a dense cloud that
+  fills the open space around it, about a 6-block half sphere in the open and
+  farther along a corridor. It stays out of walls, shut doors and water, goes
+  in through a door that opens, stays dense for about 22 seconds and is gone
+  about 7 seconds after it starts to thin. The server and each client run the
+  same simulation, so a cloud costs little traffic, and a player who comes
+  later sees it as it is. A smoke grenade that lets one out will come later.
+- Clouds are drawn as a volume that walls and mobs cut and the sky's clouds do
+  not show through; inside one the screen goes grey. Client keys in
+  `ntm-gunfeel.properties`: `smokeQuality` (`off`, `slices`, `low`, `medium`,
+  `high` by default, `ultra`), `smokeMaxClouds` (8) and `smokeDistance` (128
+  blocks). With an Iris shader pack the clouds are drawn as translucent slices.
+- Server keys: `smoke` (on) lets the clouds out; `smokeBlocksMobSight` (off)
+  makes mobs lose a target behind thick smoke.
+- `/gunsmoke` (operators) lets out a cloud where you look or a row of them,
+  clears them and shows how many there are and what they cost the server.
+- ⚠ Breaks compatibility: the network protocol is now 10 (smoke packets);
+  client and server need the same build.
+
 ## X517
 
 - Water rings are white again in daylight, not grey. They were shaded like a
