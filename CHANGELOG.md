@@ -1,5 +1,11 @@
 # Changelog
 
+## X511
+
+- Long NTM guns now bob as you walk and take the sprint pose: the
+  Panzerschreck, the FIM-92 Stinger, the Tesla Cannon, the Folly and the Zebra
+  Rifle were held still, as the mod took their size for a measuring error.
+
 ## X510
 
 - The arms holding a gun now wear what the player wears on the arms seen from
