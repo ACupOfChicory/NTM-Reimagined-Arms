@@ -100,6 +100,7 @@ public final class MobSmoke {
     }
 
     static void captured(LivingEntity e, float anchor, List<ModelBox> boxes, String source) {
+        OutlineDrift.captured(e, boxes);
         if (ENABLED && e.getId()==id) client=new Snapshot(anchor,List.copyOf(boxes),source);
     }
     static void accepted(LivingEntity e, float anchor, List<ModelBox> boxes) {
@@ -294,6 +295,16 @@ public final class MobSmoke {
                 serverRays(true);
             } else check(false,"цель пропала после движения");
             stage=0;
+            // -PcheckOutlineDrift: the target walks, turns and stands, F3+B and the server's zone against the model
+            // the dragon is NoAi on the server (stage 1), the client would not carry it, so there is nothing to follow
+            if(OutlineDrift.ENABLED && target instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon)
+                check(true,"F3+B на ходу: дракон без ИИ, клиент его не ведёт, пропуск");
+            else if(OutlineDrift.ENABLED && target!=null) { OutlineDrift.start(id); stage=30; since=System.nanoTime(); watch=false; }
+        } else if(stage==30) {
+            if(OutlineDrift.finished()) {
+                for(var line:OutlineDrift.report()) check(line.ok(),line.text());
+                stage=0;
+            } else if(seconds()>20) { OutlineDrift.stop(); check(false,"F3+B на ходу: стенд не закончился за 20 с"); stage=0; }
         }
     }
 

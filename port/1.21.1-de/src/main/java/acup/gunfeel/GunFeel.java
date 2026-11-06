@@ -62,6 +62,8 @@ public final class GunFeel {
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderLevelStageEvent.class, e -> {
             var stage = e.getStage();
             if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_SKY) acup.gunfeel.port.Mc.levelProjection(e.getProjectionMatrix());
+            if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_SKY) ModelHitDebug.beginLevel();
+            if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) ModelHitDebug.captureFog();
             if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES && (Feature.TRACERS.on() || GlassStand.ENABLED)) {
                 var ev = acup.gunfeel.port.StageEvent.of(e);
                 if (Feature.TRACERS.on()) Tracers.submit(ev);
@@ -75,6 +77,9 @@ public final class GunFeel {
             if (stage == net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage.AFTER_LEVEL) {
                 acup.gunfeel.port.StageEvent.endFrame();
                 ModelHitClient.finishFrame();
+                // F3+B's model outlines with the pose this frame drew, once it is published (26.2: AfterLevel too)
+                ModelHitDebug.render(e.getModelViewMatrix(), e.getCamera());
+                OutlineDrift.endFrame();
             }
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> {

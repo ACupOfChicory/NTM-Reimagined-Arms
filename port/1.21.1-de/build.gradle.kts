@@ -156,6 +156,11 @@ neoForge {
                 providers.gradleProperty("mobHealth").orNull?.let { systemProperty("ntmgunfeel.mobHealth", it) }
                 // -PdumpProfiles=<dir>: with -PcheckHeadBindings each model's parts as the label profiles hold them (HeadSmoke)
                 providers.gradleProperty("dumpProfiles").orNull?.let { systemProperty("ntmgunfeel.dumpProfiles", it) }
+                // -PcheckOutlineDrift: after the move each mob walks, turns and stands, its F3+B outline and the
+                // server's zone set against the model (OutlineDrift); -PoutlineLegacy draws F3+B as before, for the
+                // numbers it had
+                systemProperty("ntmgunfeel.checkOutlineDrift", providers.gradleProperty("checkOutlineDrift").isPresent.toString())
+                systemProperty("ntmgunfeel.outlineLegacy", providers.gradleProperty("outlineLegacy").isPresent.toString())
             }
             // -PcheckHud: the HUD part's stand (HudCheck) instead of the smoke check
             systemProperty("ntmgunfeel.checkHud", providers.gradleProperty("checkHud").isPresent.toString())
