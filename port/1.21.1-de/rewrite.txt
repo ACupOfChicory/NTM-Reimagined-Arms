@@ -240,9 +240,12 @@ re@MixinItemInHandRenderer.java: method = "submitHandsWithItems" => method = "re
 # DE's GuiGraphicsExtractor has guiRenderState public, the accessor is left out (skip.txt)
 re@GuiShapes.java: \(\(GuiGraphicsAccess\) g\)\.gunfeel\$state\(\) => g.guiRenderState
 re@GuiShapes.java: ^import acup\.gunfeel\.mixin\.mc\.GuiGraphicsAccess; => 
-# the port's HUD stand (HudCheck, -PcheckHud) in the smoke world instead of the smoke check, with the stands' 15 minutes
-re@ClientSmoke.java: if\(FenceAirStand\.ENABLED\) \{ phase=18; => if(HudCheck.ENABLED) { phase=19; mc.setScreen(null); HudCheck.start(); return; } if(FenceAirStand.ENABLED) { phase=18;
-re@ClientSmoke.java: \|\| FenceAirStand\.ENABLED\?900_000_000_000L => || FenceAirStand.ENABLED || HudCheck.ENABLED?900_000_000_000L
+# the port's HUD stand (HudCheck, -PcheckHud) in the smoke world instead of the smoke check, with the stands' 15 minutes (phase 51: 19 is the root's SpectatorStand)
+re@ClientSmoke.java: if\(FenceAirStand\.ENABLED\) \{ phase=18; => if(HudCheck.ENABLED) { phase=51; mc.setScreen(null); HudCheck.start(); return; } if(FenceAirStand.ENABLED) { phase=18;
+re@ClientSmoke.java: \|\| GlassBackCheck\.ENABLED\?900_000_000_000L => || GlassBackCheck.ENABLED || HudCheck.ENABLED?900_000_000_000L
+# the glass stand (GlassBackCheck, -PglassBack[=fabulous]): 1.21.1's "Fabulous!" graphics and its shader transparency
+re@GlassBackCheck.java: mc\.options\.improvedTransparency\(\)\.set\(true\) => mc.options.graphicsMode().set(net.minecraft.client.GraphicsStatus.FABULOUS)
+re@GlassBackCheck.java: Minecraft\.getInstance\(\)\.gameRenderer\.gameRenderState\(\)\.useShaderTransparency\(\) => Minecraft.useShaderTransparency()
 # head and limb labels: after the shared bank the port's own for the models 1.21.1 draws otherwise
 # (resources/ntmgunfeel-heads-1.21.1.json, ntmgunfeel-limbs-1.21.1.json); a type there replaces the shared one
 re@HeadProfiles.java: ^(\s*)if\(stream!=null\) read\(new InputStreamReader\(stream,StandardCharsets\.UTF_8\),out\);$ => $1if(stream!=null) read(new InputStreamReader(stream,StandardCharsets.UTF_8),out); try(var port=HeadProfiles.class.getResourceAsStream(resource.replace(".json","-1.21.1.json"))) { if(port!=null) read(new InputStreamReader(port,StandardCharsets.UTF_8),out); }

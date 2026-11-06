@@ -172,6 +172,8 @@ neoForge {
             systemProperty("ntmgunfeel.machineGlassCheck", providers.gradleProperty("machineGlass").isPresent.toString())
             // -PfenceSeam: holes where two fences, walls, panes or bars meet lie on their pixels (FenceSeamCheck)
             systemProperty("ntmgunfeel.fenceSeamCheck", providers.gradleProperty("fenceSeam").isPresent.toString())
+            // -PglassBack[=fabulous]: glass seen through, and holes on its far side seen through it (GlassBackCheck)
+            systemProperty("ntmgunfeel.glassBack", providers.gradleProperty("glassBack").map { it.ifBlank { "fancy" } }.orElse("").get())
             // -PspectatorStand: may a spectator use an NTM gun (the root's SpectatorStand)
             systemProperty("ntmgunfeel.spectatorStand", providers.gradleProperty("spectatorStand").isPresent.toString())
             // -PholeBench=<label>: the root's benchHoles in the smoke world (HoleBenchmark), its table in
@@ -279,7 +281,9 @@ tasks.matching { it.name == "runCheckClient" }.configureEach {
         dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:3\n" +
             "simulationDistance:5\ninactivityFpsLimit:minimized\nmaxFps:60\nonboardAccessibility:false\n" +
             // -Pfabulous: the "Fabulous!" graphics (shader transparency, the holes on glass after the translucent terrain)
-            (if (providers.gradleProperty("fabulous").isPresent) "graphicsMode:2\n" else ""))
+            (if (providers.gradleProperty("fabulous").isPresent) "graphicsMode:2\n" else "") +
+            // -PfastGraphics: the "Fast" graphics
+            (if (providers.gradleProperty("fastGraphics").isPresent) "graphicsMode:0\n" else ""))
         result.get().asFile.delete()
         layout.buildDirectory.dir("holebench").get().asFile.mkdirs()
     }
