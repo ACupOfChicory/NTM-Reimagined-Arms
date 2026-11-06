@@ -79,13 +79,14 @@ public final class WaterTick {
         return hit;
     }
 
-    // the surface an impact fuze meets before the block NTM found: the first entry from the air into liquid
+    // the surface an impact fuze meets before the block NTM found: the first entry from the air into liquid (where
+    // lava, or water for the Daybreaker's flame, stops it at once, the stop there)
     static @Nullable BlockHitResult fuze(EntityBulletBaseMK4 bullet, WaterPath.Result r, BlockHitResult hit) {
         if (!WaterSettings.fuze() || !WaterClass.Fuze.of(bullet.config).any()) return null;
         double block = hit.getType() == HitResult.Type.MISS ? Double.POSITIVE_INFINITY : r.t(hit.getLocation());
         for (WaterEvents.Event e : r.events) {
-            boolean entry = e.type() == WaterEvents.Type.ENTER || e.type() == WaterEvents.Type.STOP && e.liquid() == WaterEvents.Liquid.LAVA
-                    && r.events.indexOf(e) == 0 && !r.startsIn();
+            boolean entry = e.type() == WaterEvents.Type.ENTER || e.type() == WaterEvents.Type.STOP
+                    && (e.liquid() == WaterEvents.Liquid.LAVA || r.cls().length <= 0) && r.events.indexOf(e) == 0 && !r.startsIn();
             if (!entry) continue;
             if (r.t(e.at()) > block + 1e-7) return null;
             return new BlockHitResult(e.at(), e.face(), e.pos(), false);

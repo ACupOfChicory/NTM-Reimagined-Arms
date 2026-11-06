@@ -1,6 +1,6 @@
 # Changelog
 
-## XNEXT
+## X560
 
 - An incendiary or phosphorus rocket that hits a creature in water in its
   first three ticks spares it, as NTM's rocket does in the air. Before, it
@@ -17,6 +17,13 @@
   surface goes off there in the next tick. Before, it sank as if it had
   started under water: a rocket fired 30° down that met the surface after
   exactly four blocks did this.
+- Water now counts more of NTM's explosives as going off on impact: the
+  turret's shells, the Daybreaker's flame, the cluster submunition, and the
+  masked man's and the UFO's rockets and bolts. Before, water took them for
+  plain rounds. The flame of a flamethrower, the Daybreaker's too, lays no
+  lingering fire in water.
+- The 5.56 mm incendiary rounds no longer set a creature alight in water, as
+  the other incendiary rounds already did not.
 
 ## X555
 

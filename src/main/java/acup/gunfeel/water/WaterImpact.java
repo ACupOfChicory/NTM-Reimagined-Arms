@@ -140,7 +140,8 @@ public final class WaterImpact {
     }
 
     // a fire grenade's or rocket's fire (XFactory40mm / XFactoryRocket.spawnFire, MixinWaterFire / MixinWaterFireRocket):
-    // in water only its blast, no lingering fire and no fire blocks
+    // in water only its blast, no lingering fire and no fire blocks; the Daybreaker's (XFactoryFlamer.spawnFire,
+    // MixinWaterFireFlamer): no lingering fire
     public static boolean noFire(EntityBulletBaseMK4 bullet, HitResult hit) {
         return !bullet.level().isClientSide() && WaterSettings.ballistics() && wet(bullet, hit);
     }
