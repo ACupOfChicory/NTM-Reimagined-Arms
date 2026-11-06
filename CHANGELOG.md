@@ -1,905 +1,945 @@
 # Changelog
 
-## X477.126
+## X477.128
 
 - A client and a server now need the very same build of the mod to connect.
 
 ## X477.125
 
-- Как в 26.2 X477: у пистолетов при `pistolHold` правая и левая руки на экране
-  одного размера и у бедра, и в прицеле: толщина руки теперь учитывает
-  не только глубину кисти, но и то, какой стороной рука повёрнута к глазу.
-  Раньше на 1.7.10 в прицеле правая рука выходила на 9–12 % крупнее левой,
-  а тонкие руки (скин Alex с Et Futurum) — правая на 13–19 % меньше левой.
-  Выключить, как и раньше: `armPistolScale = false`.
+- As in 26.2 X477: with `pistolHold`, a pistol's right and left arms are the
+  same size on screen both at the hip and in aim: an arm's thickness now takes
+  into account not only how deep the hand is but also which side of the arm
+  faces the eye. Before, on 1.7.10 the right arm came out 9–12 % larger than
+  the left in aim, and with slim arms (Alex skin with Et Futurum) the right arm
+  came out 13–19 % smaller than the left. Turn it off as before:
+  `armPistolScale = false`.
 
 ## X472.123
 
-- На 1.7.10 то же, что в 26.2 X438–X440: качание при ходьбе и поза бега снова
-  включены по умолчанию (`walkSway = 1`, `sprintPose = 1`), с новыми кривыми,
-  снятыми по замерам. Пушка поворачивается вокруг своей середины, а сдвиги
-  считаются по её длине, поэтому в позе бега пушка остаётся на экране. Ходьба,
-  бег или покой выбираются раз в тик, как в TaCZ: в творческом полёте
-  и вприсядку пушка не качается, а в полёте с бегом держит позу бега без
-  раскачки. При прыжке и приземлении пушка слегка опускается и плавно
-  возвращается. Код прыжка, выбора ходьбы и бега и его сглаживания взят из TaCZ
-  (GPL-3.0), лицензия и список файлов в `third-party/tacz.txt`; ассеты TaCZ
-  в мод не входят. Если `config/ntm-gunfeel.properties` создан X432.114, в нём
-  уже записано `walkSway=0.0` и `sprintPose=0.0`, и качание останется
-  выключенным: удалите эти строки или поставьте 1.
-- Пистолеты и револьверы у бедра (`pistolHold`, включено) держатся дальше
-  впереди, немного правее середины и ниже, стволом вперёд почти по линии
-  прицела: на экране пистолет меньше и не закрывает пол-экрана. Место одно для
-  всех пистолетов, в долях их длины. Вход в прицел и выход из него идут
-  по одной плавной кривой.
-- Пистолеты и револьверы в прицеле (`aimHold`, включено) стоят дальше от глаза:
-  пушка отодвигается только вдоль линии прицела, поэтому мушка и целик остаются
-  на перекрестии, и пули идут туда же, куда раньше. Длинные пушки и пушки
-  с оптикой стоят в прицеле как раньше. Выключить: `aimHold = 0`
-  в `config/ntm-gunfeel.properties`, для одной пушки — `hbm\:gun_x.aimHold = 0`
-  в `config/ntm-gunfeel-guns.properties` или `/gunfeel set aimHold 0` с пушкой
-  в руке.
-- `hipX`, `hipY` и `hipZ` (в `config/ntm-gunfeel.properties`, для одной пушки —
-  в `config/ntm-gunfeel-guns.properties` или `/gunfeel set hipX …` с пушкой
-  в руке) двигают и пистолеты с револьверами при `pistolHold`. Значение
-  считается долей места этой пушки по умолчанию: при 1 пистолет стоит, где
-  стоял, `hipX = 0` ставит его на середину экрана по ширине, `hipY = 0` —
-  по высоте, меньший `hipZ` придвигает ближе. Переход к прицелу остаётся
-  плавным, а в самом прицеле эти ключи пистолет не двигают: мушка остаётся
-  на перекрестии.
-- ⚠ Ломает совместимость: `hipX`, `hipY` и `hipZ`, которые раньше при
-  `pistolHold` у пистолетов не действовали, теперь двигают их у бедра —
-  и записанные для пушки в `config/ntm-gunfeel-guns.properties`, и общие
-  в `config/ntm-gunfeel.properties`, если там не умолчание (0.6, 1.0, 0.75).
-  Чтобы вернуть место по замерам, удалите строки пушки (или
-  `/gunfeel unset hipX` с пушкой в руке) и верните общим ключам умолчания.
-- Как в 26.2 X472: у пистолетов при `pistolHold` обе руки одного размера
-  на экране, у бедра и в прицеле: рука тем толще, чем дальше кисть от глаза.
-  Раньше на 1.7.10 левая рука выходила на четверть–треть крупнее правой,
-  у длинного пистолета (LAG) обе руки были в полтора раза мельче, чем
-  у револьвера, а в прицеле руки росли. Теперь у обоих одна толщина на экране,
-  немного тоньше прежней правой руки LAG.
-  Выключить: `armPistolScale = false` в `config/ntm-gunfeel.properties`, для
-  одной пушки — `/gunfeel set armPistolScale false` с пушкой в руке. Новые
-  ключи `armAimScaleRight` и `armAimScaleLeft` задают толщину каждой руки
-  в прицеле, между бедром и прицелом она переходит плавно; 0 — как
-  `armScaleRight` и `armScaleLeft`, так по умолчанию. Редактора рук на 1.7.10
-  нет, поэтому нет и его ползунков.
-- Головы и конечности мобов на 1.7.10 и раньше шли по самим кубам модели,
-  поэтому правки 26.2 X452–X471 попадание в голову здесь не меняют: голова
-  из нескольких кубов теперь одна зона из этих кубов, засчитывается то же.
+- On 1.7.10, the same as 26.2 X438–X440: walk sway and the sprint pose are on
+  by default again (`walkSway = 1`, `sprintPose = 1`), with new curves taken
+  from measurements. The gun turns about its middle, and the offsets are
+  counted by its length, so in the sprint pose the gun stays on screen.
+  Walking, sprinting or standing still is chosen once a tick, as in TaCZ: in
+  creative flight and while sneaking the gun does not sway, and flying while
+  sprinting it holds the sprint pose without swaying. On a jump and a landing
+  the gun dips slightly and comes back smoothly. The code for the jump, for
+  choosing between walking and sprinting and for its smoothing is taken from
+  TaCZ (GPL-3.0); the licence and the list of files are in
+  `third-party/tacz.txt`; TaCZ's assets are not in the mod. If
+  `config/ntm-gunfeel.properties` was created by X432.114, it already has
+  `walkSway=0.0` and `sprintPose=0.0`, and the sway stays off: delete those
+  lines or set them to 1.
+- Pistols and revolvers at the hip (`pistolHold`, on) are held further forward,
+  a little right of the middle and lower, the barrel pointing ahead almost
+  along the line of aim: on screen the pistol is smaller and does not cover
+  half the screen. The place is one for all pistols, in fractions of their
+  length. Going into aim and out of it follows one smooth curve.
+- Pistols and revolvers in aim (`aimHold`, on) sit further from the eye: the
+  gun moves back only along the line of aim, so the front and rear sights stay
+  on the crosshair, and bullets go where they went before. Long guns and guns
+  with scopes sit in aim as before. Turn it off: `aimHold = 0` in
+  `config/ntm-gunfeel.properties`; for one gun, `hbm\:gun_x.aimHold = 0` in
+  `config/ntm-gunfeel-guns.properties` or `/gunfeel set aimHold 0` with the gun
+  in hand.
+- `hipX`, `hipY` and `hipZ` (in `config/ntm-gunfeel.properties`; for one gun,
+  in `config/ntm-gunfeel-guns.properties` or `/gunfeel set hipX …` with the gun
+  in hand) now move pistols and revolvers with `pistolHold` too. The value is a
+  fraction of that gun's default place: at 1 the pistol stays where it was,
+  `hipX = 0` puts it in the middle of the screen horizontally, `hipY = 0`
+  vertically, a smaller `hipZ` brings it closer. The move into aim stays
+  smooth, and in aim itself these keys do not move the pistol: the front sight
+  stays on the crosshair.
+- ⚠ Breaks compatibility: `hipX`, `hipY` and `hipZ`, which did nothing for
+  pistols with `pistolHold` before, now move them at the hip — both the ones
+  saved for a gun in `config/ntm-gunfeel-guns.properties` and the shared ones
+  in `config/ntm-gunfeel.properties` if they are not at the defaults (0.6, 1.0,
+  0.75). To get the measured place back, delete the gun's lines (or
+  `/gunfeel unset hipX` with the gun in hand) and set the shared keys back to
+  their defaults.
+- As in 26.2 X472: with `pistolHold`, both of a pistol's arms are the same size
+  on screen, at the hip and in aim: the further the hand is from the eye, the
+  thicker the arm. Before, on 1.7.10 the left arm came out a quarter to a third
+  larger than the right, with a long pistol (LAG) both arms were one and a half
+  times smaller than with a revolver, and in aim the arms grew. Now the LAG and
+  the revolver have the same thickness on screen, a little thinner than the
+  LAG's old right arm. Turn it off: `armPistolScale = false` in
+  `config/ntm-gunfeel.properties`; for one gun,
+  `/gunfeel set armPistolScale false` with the gun in hand. The new keys
+  `armAimScaleRight` and `armAimScaleLeft` set each arm's thickness in aim, and
+  between the hip and aim it changes smoothly; 0 (the default) means the same
+  as `armScaleRight` and `armScaleLeft`. There is no arm editor on 1.7.10, so
+  there are no sliders for this either.
+- Mob heads and limbs on 1.7.10 already went by the model's own cubes, so the
+  26.2 changes X452–X471 do not change headshots here: a head made of several
+  cubes is now one zone made of those cubes, and the same hits count.
 
 ## X477
 
-- У пистолетов («пистолет у бедра» включён) правая рука на экране теперь того
-  же размера, что и левая, у бедра и в прицеле: толщина руки учитывает не
-  только глубину кисти, но и то, какой стороной рука повёрнута к глазу. В X472
-  правая рука у бедра всё ещё выходила в 0,86–0,92 от левой.
+- On pistols ("pistol at the hip" on) the right arm on screen is now the same
+  size as the left, at the hip and in the aim: the arm's thickness takes into
+  account not only how deep the hand is, but also which side of the arm faces
+  the eye. In X472 the right arm at the hip still came out at 0.86–0.92 of the
+  left.
 
 ## X475
 
-- Устаревшую позу моба сервер поворачивает так, как моба поворачивает
-  рендерер NTM: Баллс-О-Трона (голову и сегменты) и пластиковый пакетик — в
-  обратную сторону, по их собственному повороту, дрона ФБР — никак,
-  марсианский корабль вторжения — вместе с его вращением. Раньше их
-  поворачивали по телу, как ванильных мобов, и пуля турели или проверка без
-  стрелка искала модель там, где её не было. Глифиды, Маскмен,
-  вертолёт-охотник, крабы и ванильные мобы поворачиваются по-прежнему.
-- Теслакраб и заражённый порчей теслакраб не теряют модель, пока бьют током:
-  дуги разряда (и лучи марсианского корабля вторжения и Элементаля
-  Расплавления) больше не считаются частью моба. Раньше с дугами поза
-  выходила слишком большой и отбрасывалась целиком, и в краба попадали только
-  по его общей коробке.
-- Без Flywheel голова кибер-краба (его панцирь) идёт по кубам панциря, как
-  с Flywheel: ноги под панцирем больше не засчитываются как голова (×1,75).
-  Правка X471 до него не дотягивалась: кубы панциря у старой модели NTM
-  пронумерованы по-своему.
+- The server turns a mob's outdated pose the way NTM's renderer turns the mob:
+  the Balls-O-Tron (head and segments) and the Plastic Bag the opposite way, by
+  their own turn, the FBI Drone not at all, the Martian Invasion Ship together
+  with its spin. Before, they were turned by the body, like vanilla mobs, and a
+  turret bullet or a check without a shooter looked for the model where it was
+  not. Glyphids, Mask Man, the Hunter Chopper, crabs and vanilla mobs are
+  turned as before.
+- The Tesla Crab and the Taint Crab do not lose their model while they shoot
+  lightning: the discharge arcs (and the beams of the Martian Invasion Ship and
+  the Meltdown Elemental) are no longer counted as part of the mob. Before,
+  with the arcs the pose came out too big and was thrown out whole, and the
+  crab was hit only by its overall box.
+- Without Flywheel, the Cyber Crab's head (its shell) follows the shell's
+  cubes, as with Flywheel: the legs under the shell are no longer counted as
+  the head (x1.75). The X471 fix did not reach it: the shell cubes of NTM's old
+  model are numbered in their own way.
 
 ## X472
 
-- У пистолетов («пистолет у бедра» включён) обе руки теперь одного размера
-  на экране, у бедра и в прицеле, у любого пистолета и при любом хвате: рука
-  тем толще, чем дальше кисть от глаза. Раньше правая рука выходила в 0,6–0,7
-  от левой, у длинных пистолетов (Target Pistol, LAG, перечница, лазерные
-  пистолеты) обе руки были в полтора раза мельче, чем у револьверов,
-  а в прицеле руки мельчали ещё. Теперь у всех пистолетов руки такие, как была
-  правая рука у тяжёлого револьвера у бедра; у револьверов левая рука станет
-  меньше. Выключается переключателем «Руки пистолета по глубине» на странице
-  «Обе руки» редактора рук (ключ `armPistolScale`, на оружие). Пока толщину
-  задаёт глубина кисти, «Предел толщины» серый, а «Основа толщины» серая, когда
-  «Длина руки» 0. Пистолет с оптическим прицелом NTM держит по-своему, у него
-  правило не действует. Длинных пушек это не касается.
-- Новый ползунок «Толщина в прицеле» на странице «Рука» редактора рук (ключи
-  `armAimScaleRight`, `armAimScaleLeft`, на оружие): своя толщина каждой руки,
-  когда оружие в прицеле; между бедром и прицелом толщина переходит плавно. 0 —
-  как «Толщина», так по умолчанию.
+- On pistols ("pistol at the hip" on) both arms are now the same size on
+  screen, at the hip and in the aim, on any pistol and with any grip: the
+  farther the hand is from the eye, the thicker the arm. Before, the right
+  arm came out at 0.6–0.7 of the left, on long pistols (Target Pistol, LAG,
+  pepperbox, laser pistols) both arms were one and a half times smaller than
+  on revolvers, and in the aim the arms shrank even more. Now on all pistols
+  the arms are what the right arm was on the Heavy Revolver at the hip; on
+  revolvers the left arm will get smaller. Turn it off with the "Pistol arms
+  by depth" switch on the "Both arms" page of the arm editor (key
+  `armPistolScale`, per gun). While the hand's depth sets the thickness,
+  "Thickness limit" is grey, and "Thickness base" is grey when "Arm length"
+  is 0. A pistol with an NTM scope is held in its own way, and the rule does
+  not apply to it. Long guns are not affected.
+- New slider "Aim thickness" on the "Arm" page of the arm editor (keys
+  `armAimScaleRight`, `armAimScaleLeft`, per gun): each arm's own thickness
+  when the gun is aimed; between the hip and the aim the thickness changes
+  smoothly. 0 is the same as "Thickness", which is the default.
 
 ## X471
 
-- Без Flywheel голова из нескольких кубов больше не захватывает то, что лежит
-  между ними: верх спины и груди под черепом жителя-зомби, тело у головы
-  панды, белого медведя, коровы, грибной коровы и медного голема, шипы стража
-  и древнего стража, челюсти наутилуса. Раньше выстрел туда засчитывался как в
-  голову (×1,75). Так же конечности: тело болотника, страя, поборника, ведьмы,
-  скрипуна, жителя и странствующего торговца между кубами рук и ног больше не
-  считается конечностью (×0,5). С Flywheel голова и конечности и раньше шли по
-  самим кубам.
+- Without Flywheel, a head made of several cubes no longer takes in what lies
+  between them: the top of the back and chest under the Zombie Villager's
+  skull, the body next to the head of the panda, polar bear, cow, mooshroom and
+  copper golem, the spikes of the guardian and elder guardian, the nautilus's
+  jaws. Before, a shot there counted as a head shot (x1.75). The same for
+  limbs: the body of the bogged, stray, vindicator, witch, creaking, villager
+  and wandering trader between the arm cubes and leg cubes is no longer counted
+  as a limb (x0.5). With Flywheel, the head and limbs already followed the
+  cubes themselves.
 
 ## X469
 
-- Без Flywheel голова и конечности считаются и у глифидов (всех девяти видов),
-  Mask Man (голова — и череп, когда маска слетела) и кибер-краба (голова —
-  панцирь). Раньше без Flywheel их разметка отбрасывалась: голова считалась по
-  прежней высотной зоне NTM, конечностей не было. Так же и у глифида или Mask
-  Man, увеличенного или уменьшенного атрибутом `scale`.
-- Глифид, у которого отбита пластина брони на руке, снова получает половину
-  урона по конечностям (с Flywheel и без). Раньше после первой отбитой
-  пластины руки разметка его конечностей отбрасывалась, и выстрел в ногу или
-  руку бил как в тело.
+- Without Flywheel, the head and limbs are counted for glyphids (all nine
+  kinds), Mask Man (the head, and the skull when the mask has come off) and the
+  Cyber Crab (the head is the shell) too. Before, without Flywheel their layout
+  was thrown out: the head was counted by NTM's old height zone, and there were
+  no limbs. The same for a glyphid or Mask Man made bigger or smaller by the
+  `scale` attribute.
+- A glyphid whose arm armour plate has been knocked off again takes half damage
+  on limbs (with and without Flywheel). Before, once the arm's first plate was
+  knocked off, the layout of its limbs was thrown out, and a shot at a leg or
+  arm hit like a shot at the body.
 
 ## X467
 
-- Без Flywheel голова и конечности считаются и у странствующего торговца
-  (голова вместе со шляпой; раньше выстрел ему в голову засчитывался как в
-  руку — половина урона), пиглина-громилы (конечности), древнего стража (шипы
-  и хвост), вихря (голова), скрипуна (голова и конечности), а у мобов NTM — у
-  золотого, ядерного, заражённого порчей, возгораемого и фосгенового криперов,
-  Крякоса Старшего, утки, паразитической личинки (голова и конечности, где они
-  есть) и Элементаля Расплавления (голова). Раньше без Flywheel их разметка
-  отбрасывалась: голова считалась по прежней высотной зоне NTM, конечностей не
-  было.
-- Без Flywheel у козы уши — тоже голова, а у свинозомби штаны — тоже ноги, как
-  с Flywheel.
+- Without Flywheel, the head and limbs are counted for the wandering trader
+  (the head together with the hat; before, a shot at its head counted as an arm
+  hit, half damage), the piglin brute (limbs), the elder guardian (spikes and
+  tail), the breeze (head), the creaking (head and limbs), and for NTM mobs the
+  Golden, Nuclear, Tainted, Volatile and Phosgene Creepers, Quackos The Elder
+  One, the Duck, the Parasitic Maggot (head and limbs, where they exist) and
+  the Meltdown Elemental (head) too. Before, without Flywheel their layout was
+  thrown out: the head was counted by NTM's old height zone, and there were no
+  limbs.
+- Without Flywheel, a goat's ears are also head and a zombified piglin's
+  trousers are also legs, as with Flywheel.
 
 ## X464
 
-- Без Flywheel голова и конечности считаются и у мобов со слоем поверх модели
-  или глазами: голова — у утопленника, страя, болотника, паука, пещерного
-  паука, вардена и эндермена, конечности — у тех же (кроме пещерного паука), у
-  жителя, жителя-зомби и свинозомби. Раньше без Flywheel их разметка
-  отбрасывалась: голова считалась по прежней высотной зоне NTM, конечностей не
-  было.
+- Without Flywheel, the head and limbs are counted for mobs with a layer over
+  the model or with eyes too: the head for the drowned, stray, bogged, spider,
+  cave spider, warden and enderman, the limbs for the same ones (except the
+  cave spider), the villager, zombie villager and zombified piglin. Before,
+  without Flywheel their layout was thrown out: the head was counted by NTM's
+  old height zone, and there were no limbs.
 
 ## X463
 
-- Голова и конечности считаются и при выключенном Flywheel (backend
-  `flywheel:off` в настройках CrankShaft или командой `/flywheel backend`, а
-  также когда CrankShaft сам отказывается от instancing на видеокарте): у
-  ламы, ламы с ковром, торговой ламы, козы без рогов и поборника. Раньше без
-  Flywheel их разметка отбрасывалась: голова считалась по прежней высотной
-  зоне NTM, а у поборника не было конечностей.
-- Без Flywheel тыква снеговика — тоже голова, как с Flywheel. У козы без
-  Flywheel головой считаются морда и рога, уши — телом.
+- The head and limbs are counted with Flywheel off too (backend `flywheel:off`
+  in CrankShaft's settings or with the command `/flywheel backend`, and also
+  when CrankShaft itself gives up instancing on a video card): for the llama,
+  carpeted llama, trader llama, hornless goat and vindicator. Before, without
+  Flywheel their layout was thrown out: the head was counted by NTM's old
+  height zone, and the vindicator had no limbs.
+- Without Flywheel, the snow golem's pumpkin is also head, as with Flywheel.
+  Without Flywheel, a goat's head is its snout and horns, and the ears are
+  body.
 
 ## X460
 
-- Редактор рук: ползунок, который при нынешних настройках ничего не меняет,
-  по-прежнему серый, но теперь вместо числа на нём написано, при чём он
-  заработает: «Плечо до: при основе или длине 0», «Предел толщины: при основе
-  0», «Скольжение до: при скольжении рук» и т. п. Полная причина и текущее
-  значение — во всплывающей подсказке.
-- Серыми стали и ползунки, которые раньше ничего не меняли, хотя были живыми:
-  «Длина руки», когда «Основа толщины» обеих рук 0 (тогда длину задаёт «Плечо
-  до»; у очень толстых рук ползунок остаётся живым); «Плечо до», когда рука
-  идёт от кисти к плечу вперёд, а не назад; «Поворот на зарядке» и «Толщина
-  на зарядке», когда у этой руки нет ключей пути по деталям и переноса.
+- Arm editor: a slider that changes nothing with the current settings is still
+  grey, but now instead of a number it says what it will start working with:
+  "Shoulder to: with base or length 0", "Thickness limit: with base 0", "Slide
+  to: with arm sliding" and so on. The full reason and the current value are in
+  the tooltip.
+- Sliders that used to change nothing although they were live are grey too:
+  "Arm length" when the "Thickness base" of both arms is 0 (then the length is
+  set by "Shoulder to"; with very thick arms the slider stays live); "Shoulder
+  to" when the arm runs from the hand to the shoulder forward, not back;
+  "Reload turn" and "Reload thickness" when this arm has no per-part path keys
+  and no carry.
 
 ## X457
 
-- Конечности (×0,5) жителя, жителя-зомби и вардена больше не пропадают.
-  Раньше примерно в половине случаев их разметка отбрасывалась целиком, смотря
-  по типу жителя (в шляпе или без), его профессии и тому, какие пятна вардена
-  светятся, и руки с ногами считались телом. У жителя из пустыни и с болота,
-  чья одежда короче, низ мантии считается телом, руки и ноги — конечностями.
+- The limbs (x0.5) of the villager, zombie villager and warden no longer
+  disappear. Before, in about half the cases their layout was thrown out whole,
+  depending on the villager's type (with a hat or without), its profession and
+  which spots of the warden glow, and arms and legs counted as body. On the
+  desert and swamp villager, whose clothes are shorter, the bottom of the robe
+  counts as body, and arms and legs as limbs.
 
 ## X456
 
-- Голова и конечности считаются и тогда, когда модель моба рисует не все свои
-  части: у козы без одного или обоих рогов, у снеговика без тыквы, у поборника,
-  вызывателя и иллюзиониста, когда они бьют, колдуют или целятся из лука (руки
-  не скрещены). Раньше такая разметка отбрасывалась
-  целиком: голова считалась по прежней высотной зоне NTM, а у разбойников
-  пропадали конечности (×0,5).
-- Ковёр на голове обычной ламы теперь голова, как у торговой ламы.
-- У детёнышей мобов Minecraft и NTM своя разметка головы по их собственной
-  модели (×1,75). Раньше голова детёныша бралась по высоте, и у детёнышей
-  осла, мула, жителя, странствующего торговца, утопленника, зомби-жителя
-  и зомбифицированного пиглина попадание в голову считалось попаданием
-  в конечность (×0,5). Цыплёнок — один куб с лицом, поэтому он целиком
-  голова, как пчела.
+- The head and limbs are counted when a mob's model does not draw all its parts
+  too: a goat without one or both horns, a snow golem without a pumpkin, a
+  vindicator, evoker and illusioner when they attack, cast or aim a bow (arms
+  not crossed). Before, such a layout was thrown out whole: the head was
+  counted by NTM's old height zone, and pillagers lost their limbs (x0.5).
+- A carpet on a plain llama's head is now head, as on a trader llama.
+- Baby Minecraft and NTM mobs have their own head layout, by their own model
+  (x1.75). Before, a baby's head was taken by height, and on babies of the
+  donkey, mule, villager, wandering trader, drowned, zombie villager and
+  zombified piglin a head hit counted as a limb hit (x0.5). A chick is one cube
+  with a face, so it is all head, like a bee.
 
 ## X453
 
-- Ползунки «от бедра ← →», «от бедра ↓ ↑» и «от бедра даль» в редакторе (O)
-  снова двигают пистолеты и револьверы у бедра, при `pistolHold` тоже. Значение
-  считается долей места этой пушки по умолчанию: на умолчании пистолет стоит,
-  где стоял, `hipX = 0` ставит его на середину экрана по ширине, `hipY = 0` —
-  по высоте, меньший `hipZ` придвигает ближе. Переход к прицелу остаётся
-  плавным, а в самом прицеле ползунки пистолет не двигают: мушка остаётся
-  на перекрестии.
-- ⚠ Ломает совместимость: `hipX`, `hipY` и `hipZ`, которые раньше при
-  `pistolHold` у пистолетов не действовали, теперь двигают их у бедра —
-  и записанные для пушки в `config/ntm-gunfeel-guns.properties`, и общие
-  в `config/ntm-gunfeel.properties`, если там не умолчание (0.6, 1.0, 0.75).
-  Чтобы вернуть место по замерам, удалите строки пушки (или сбросьте ползунки
-  в редакторе) и верните общим ключам умолчания.
+- The sliders "from hip ← →", "from hip ↓ ↑" and "from hip far" in the editor
+  (O) again move pistols and revolvers at the hip, with `pistolHold` too. The
+  value is taken as a share of this gun's default place: at the default the
+  pistol stands where it stood, `hipX = 0` puts it in the middle of the screen
+  by width, `hipY = 0` by height, a smaller `hipZ` brings it closer. The
+  transition to the aim stays smooth, and in the aim itself the sliders do not
+  move the pistol: the front sight stays on the crosshair.
+- ⚠ Breaks compatibility: `hipX`, `hipY` and `hipZ`, which used to have no
+  effect on pistols with `pistolHold`, now move them at the hip, both those
+  written for a gun in `config/ntm-gunfeel-guns.properties` and the shared ones
+  in `config/ntm-gunfeel.properties`, if they are not the default (0.6, 1.0,
+  0.75). To get the measured place back, delete the gun's lines (or reset the
+  sliders in the editor) and set the shared keys back to the default.
 
 ## X451
 
-- Пистолеты и револьверы в прицеле (`aimHold`, включено) стоят дальше от глаза:
-  на экране пистолет теперь узкий, от середины экрана почти до нижнего края,
-  и не закрывает обзор. Пушка отодвигается только вдоль линии прицела, поэтому
-  мушка и целик остаются на перекрестии, и пули идут туда же, куда раньше.
-  Место не зависит от того, куда смотрит камера. Длинные пушки и пушки
-  с оптикой стоят в прицеле как раньше. Выключить: `aimHold = 0`
-  в `config/ntm-gunfeel.properties`, для одной пушки — `hbm\:gun_x.aimHold = 0`
-  в `config/ntm-gunfeel-guns.properties` или `/gunfeel set aimHold 0` с пушкой
-  в руке.
+- Pistols and revolvers in the aim (`aimHold`, on) stand farther from the eye:
+  on screen the pistol is now narrow, from the middle of the screen almost to
+  the bottom edge, and does not block the view. The gun moves away only along
+  the aiming line, so the front and rear sights stay on the crosshair, and
+  bullets go where they went before. The place does not depend on where the
+  camera looks. Long guns and guns with a scope stand in the aim as before.
+  Turn it off with `aimHold = 0` in `config/ntm-gunfeel.properties`, for one
+  gun with `hbm\:gun_x.aimHold = 0` in `config/ntm-gunfeel-guns.properties` or
+  `/gunfeel set aimHold 0` with the gun in hand.
 
 ## X440
 
-- Пистолеты и револьверы у бедра (`pistolHold`, включено) теперь держатся
-  дальше впереди, немного правее середины и ниже, стволом вперёд: на экране
-  пистолет меньше и не закрывает пол-экрана. Место одно для всех пистолетов,
-  в долях их длины, поэтому короткие и длинные стоят одинаково. Вход в прицел
-  и выход из него идут по одной плавной кривой. Место у бедра больше не зависит
-  от того, куда смотрит камера: раньше при повороте пистолет немного сползал
-  по экрану, и, в отличие от других пушек, не отставал от поворота.
-- Качание при ходьбе и поза бега снова включены по умолчанию, с новыми кривыми,
-  снятыми по замерам. При ходьбе пистолет наклонён влево и раскачивается в такт
-  шагам, длинная пушка — слабее; в прицеле пушка почти не качается. При беге
-  ствол поднят и повёрнут влево. Цикл считается от первого шага, повороты идут
-  вокруг середины пушки. Выключить для всех: `walkSway = 0` и `sprintPose = 0`
-  в `config/ntm-gunfeel.properties`; для одной пушки: `hbm\:gun_x.walkSway = 0`
-  и `hbm\:gun_x.sprintPose = 0` в `config/ntm-gunfeel-guns.properties` или
-  `/gunfeel set walkSway 0` и `/gunfeel set sprintPose 0` с пушкой в руке. Если
-  файл настроек создан X432–X438, в нём уже записано `walkSway=0.0`
-  и `sprintPose=0.0`, и качание останется выключенным: удалите эти строки или
-  поставьте 1.
-- В полёте с бегом пушка держит позу бега без раскачки, в зависании стоит
-  неподвижно. Провал при прыжке и приземлении подобран под длину пушки.
+- Pistols and revolvers at the hip (`pistolHold`, on) are now held farther in
+  front, a little right of the middle and lower, muzzle forward: on screen the
+  pistol is smaller and does not block half the screen. The place is the same
+  for all pistols, in shares of their length, so short and long ones stand the
+  same. Going into the aim and out of it follows one smooth curve. The place at
+  the hip no longer depends on where the camera looks: before, when you turned,
+  the pistol slid down the screen a little and, unlike other guns, did not lag
+  behind the turn.
+- Walk sway and the sprint pose are on by default again, with new curves taken
+  from measurements. When walking, the pistol is tilted left and sways in time
+  with the steps, a long gun less; in the aim the gun barely sways. When
+  sprinting, the barrel is raised and turned left. The cycle counts from the
+  first step, and turns go around the middle of the gun. Turn them off for all:
+  `walkSway = 0` and `sprintPose = 0` in `config/ntm-gunfeel.properties`; for
+  one gun: `hbm\:gun_x.walkSway = 0` and `hbm\:gun_x.sprintPose = 0` in
+  `config/ntm-gunfeel-guns.properties` or `/gunfeel set walkSway 0` and
+  `/gunfeel set sprintPose 0` with the gun in hand. If the settings file was
+  created by X432–X438, it already has `walkSway=0.0` and `sprintPose=0.0`, and
+  the sway will stay off: delete those lines or set 1.
+- In a sprint flight the gun keeps the sprint pose without swaying, and in a
+  hover it stands still. The dip on a jump and on landing is fitted to the
+  gun's length.
 
 ## X438
 
-- Качание при ходьбе и поза бега (`walkSway`, `sprintPose`; по умолчанию
-  выключены) больше не трясут пушку в полёте. Шаг качания теперь идёт только
-  по пути, пройденному по земле, поэтому в творческом полёте и на элитрах пушка
-  стоит на месте, а поза бега в полёте с бегом неподвижна. Ходьба, бег или
-  покой выбираются раз в тик, как в TaCZ; при ходьбе вприсядку пушка
-  не качается.
-- С `walkSway` пушка слегка опускается при прыжке и при приземлении и плавно
-  возвращается. Код прыжка, выбора ходьбы и бега и его сглаживания взят из TaCZ
-  (GPL-3.0), лицензия и список файлов в `third-party/tacz.txt`. Ассеты TaCZ
-  в мод не входят.
+- Walk sway and the sprint pose (`walkSway`, `sprintPose`; off by default) no
+  longer shake the gun in flight. The sway step now follows only the distance
+  covered on the ground, so in creative flight and on an elytra the gun stays
+  in place, and the sprint pose is still in a sprint flight. Walking, sprinting
+  or standing is chosen once a tick, as in TaCZ; when walking crouched the gun
+  does not sway.
+- With `walkSway` the gun dips slightly on a jump and on landing and smoothly
+  returns. The code for the jump, for choosing walking or sprinting and for its
+  smoothing is taken from TaCZ (GPL-3.0), the licence and list of files are in
+  `third-party/tacz.txt`. TaCZ assets are not part of the mod.
 
 ## X435
 
-- Пуля больше не застревает на стыке двух соседних железных или медных
-  решёток. Игра не рисует торцы прутьев там, где решётки сходятся, но пуля
-  раньше всё равно на них натыкалась: через это место можно было попасть
-  в соседнюю решётку, но не в то, что за ней. Теперь пуля проходит стык там,
-  где нет нарисованного прута, так же как X396 перестал ставить там дырки.
+- A bullet no longer gets stuck at the joint of two neighbouring iron or copper
+  bars. The game does not draw the ends of the bars where the bars meet, but a
+  bullet used to hit them anyway: through that place you could hit the
+  neighbouring bars, but not what is behind them. Now a bullet passes the joint
+  where there is no drawn bar, just as X396 stopped putting holes there.
 
 ## X432.114
 
-- На 1.7.10 то же, что в 26.2 X432: задержка выстрела после бега включена
-  по умолчанию (`sprintFireDelay = false` в `ntm-gunfeel-server.properties`
-  выключает), а качание при ходьбе и поза бега пока выключены (`walkSway = 1`,
-  `sprintPose = 1` включают). Без них пушка качается штатным покачиванием NTM,
-  как до X431.113. Если `config/ntm-gunfeel.properties` создан X431.113, в нём
-  уже записано `walkSway = 1.0` и `sprintPose = 1.0`: чтобы выключить,
-  поставьте 0. Держание пистолетов остаётся включённым.
+- On 1.7.10, the same as 26.2 X432: the shot delay after a sprint is on by
+  default (`sprintFireDelay = false` in `ntm-gunfeel-server.properties` turns
+  it off), and walk sway and the sprint pose are off for now (`walkSway = 1`,
+  `sprintPose = 1` turn them on). Without them the gun sways with NTM's own
+  sway, as before X431.113. If `config/ntm-gunfeel.properties` was created by
+  X431.113, it already has `walkSway = 1.0` and `sprintPose = 1.0`: to turn
+  them off, set them to 0. The pistol hold stays on.
 
 ## X432
 
-- Задержка выстрела после бега теперь включена по умолчанию на всех пушках.
-  Сразу после бега пушка не стреляет, пока не пройдёт её время
-  (`hbm\:gun_x.sprintFireTime`: у пистолетов 0.08 с, у винтовок 0.15 с,
-  у тяжёлого оружия 0.19 с). Нажатый в это время выстрел сработает, когда время
-  выйдет, если кнопка ещё зажата. Пока зажат выстрел или пушка в прицеле, бег
-  снимается. Выключить на сервере: `sprintFireDelay = false`
-  в `ntm-gunfeel-server.properties`; для одной пушки:
+- The shot delay after a sprint is now on by default on all guns. Right after a
+  sprint the gun does not fire until its time has passed
+  (`hbm\:gun_x.sprintFireTime`: 0.08 s for pistols, 0.15 s for rifles, 0.19 s
+  for heavy weapons). A shot pressed during that time goes off when the time is
+  up, if the button is still held. While a shot is held or the gun is aimed,
+  the sprint is cancelled. Turn it off on the server: `sprintFireDelay = false`
+  in `ntm-gunfeel-server.properties`; for one gun:
   `hbm\:gun_x.sprintFireDelay = false`.
-- Качание пушки в такт ходьбе и поза бега (X430) пока выключены по умолчанию:
-  функция ещё сырая. Без них пушка качается штатным покачиванием NTM
-  и ванильным покачиванием руки, как до X430, в том числе с левой основной
-  рукой. Включить: `walkSway = 1` и `sprintPose = 1`
-  в `config/ntm-gunfeel.properties`. Если этот файл создан X430 или X431, в нём
-  уже записано `walkSway = 1.0` и `sprintPose = 1.0`, и качание останется
-  включённым: чтобы выключить, поставьте 0. Держание пистолетов (`pistolHold`)
-  по-прежнему включено.
-- ⚠ Ломает совместимость: клиент и сервер берут умолчание каждый из своей
-  версии мода. Если сервер X432 или новее, а клиент старше, задержка на сервере
-  есть, а бег у игрока не снимается: пока он бежит, пушка не стреляет. Если
-  наоборот, бег снимается, а задержки нет. Ставьте одну версию, или пусть
-  сервер запишет `sprintFireDelay` явно.
+- The gun sway in time with walking and the sprint pose (X430) are off by
+  default for now: the feature is still raw. Without them the gun sways with
+  NTM's own bob and the vanilla arm bob, as before X430, with a left main hand
+  too. Turn them on: `walkSway = 1` and `sprintPose = 1` in
+  `config/ntm-gunfeel.properties`. If this file was created by X430 or X431, it
+  already has `walkSway = 1.0` and `sprintPose = 1.0`, and the sway will stay
+  on: to turn it off, set 0. Pistol holding (`pistolHold`) is still on.
+- ⚠ Breaks compatibility: the client and the server each take the default from
+  their own version of the mod. If the server is X432 or newer and the client
+  is older, the delay is on the server, but the player's sprint is not
+  cancelled: while they sprint, the gun does not fire. If it is the other way
+  round, the sprint is cancelled, but there is no delay. Install one version,
+  or have the server write `sprintFireDelay` explicitly.
 
 ## X431.113
 
-- На 1.7.10 ходьба и бег теперь как в 26.2 X430: качание и поза бега идут
-  по длине пушки, у пистолетов и револьверов своя поза, и обе поворачивают
-  пушку вокруг её середины. Включено по умолчанию (`walkSway = 0`,
-  `sprintPose = 0` выключают).
-- Исправлено: на 1.7.10 наклон ствола, крен и сдвиг вбок при ходьбе и беге шли
-  зеркально 26.2.
-- Пистолеты и револьверы на 1.7.10 держатся как в 26.2 X431: у бедра почти
-  на линии прицела и поднимаются к прицелу по плавной кривой. Включено
-  по умолчанию, `pistolHold = 0` возвращает держание NTM, и тогда снова
-  действуют `hipX`, `hipY`, `hipZ`. С Shader Fixer держание остаётся как в NTM.
-- ⚠ Ломает совместимость: ключ `armModel` на 1.7.10 тоже больше не читается,
-  руки идут по скину, как в 26.2.
+- On 1.7.10 walking and sprinting are now as in 26.2 X430: the sway and the
+  sprint pose go by the gun's length, pistols and revolvers have a pose of
+  their own, and both turn the gun about its middle. On by default
+  (`walkSway = 0`, `sprintPose = 0` turn them off).
+- Fixed: on 1.7.10 the barrel's tilt, the roll and the sideways shift while
+  walking and sprinting were mirrored compared with 26.2.
+- Pistols and revolvers on 1.7.10 are held as in 26.2 X431: at the hip almost
+  on the line of aim, rising to aim along a smooth curve. On by default;
+  `pistolHold = 0` brings back NTM's hold, and then `hipX`, `hipY`, `hipZ` work
+  again. With Shader Fixer the hold stays as in NTM.
+- ⚠ Breaks compatibility: on 1.7.10 the `armModel` key is no longer read
+  either; the arms go by the skin, as in 26.2.
 
 ## X431
 
-- Пистолеты и револьверы держатся как в TaCZ (включено по умолчанию, кроме
-  парных). От бедра пистолет стоит почти на линии прицела: немного правее
-  и ниже, чем в прицеле, ближе к глазу и смотрит туда же. Раньше он стоял
-  далеко справа внизу. В прицел он входит по плавной кривой и немного быстрее
-  прежнего: 90 % пути за 0.17 с вместо 0.3 с. Точка прицела у каждого пистолета
-  осталась своей, по его мушке и целику. Револьвер с оптикой «Little Macintosh»
-  держится по-старому: в прицел он смотрит через оптику, и от бедра его
-  не к чему подводить. С левой основной рукой (настройка Minecraft) держание
-  пока прежнее.
-- Выключить для всех: `pistolHold = 0` в `config/ntm-gunfeel.properties`; для
-  одной пушки: `hbm\:gun_x.pistolHold = 0`
-  в `config/ntm-gunfeel-guns.properties` или `/gunfeel set pistolHold 0`
-  с пушкой в руке. `hipX`, `hipY` и `hipZ` у пистолетов действуют только при
-  `pistolHold = 0`, в том числе `hipZ = 1` у лазерного пистолета.
+- Pistols and revolvers are held as in TaCZ (on by default, except akimbo).
+  From the hip the pistol stands almost on the aiming line: a little right and
+  lower than in the aim, closer to the eye and looking the same way. Before, it
+  stood far at the bottom right. It goes into the aim along a smooth curve and
+  a little faster than before: 90 % of the way in 0.17 s instead of 0.3 s. Each
+  pistol's aim point stays its own, by its front and rear sights. The Little
+  Macintosh revolver with a scope is held the old way: it looks through the
+  scope in the aim, and there is nothing to bring it to from the hip. With a
+  left main hand (a Minecraft setting) the holding is still the old one for
+  now.
+- Turn it off for all: `pistolHold = 0` in `config/ntm-gunfeel.properties`; for
+  one gun: `hbm\:gun_x.pistolHold = 0` in `config/ntm-gunfeel-guns.properties`
+  or `/gunfeel set pistolHold 0` with the gun in hand. `hipX`, `hipY` and
+  `hipZ` on pistols work only with `pistolHold = 0`, `hipZ = 1` on the laser
+  pistol included.
 
 ## X430
 
-- Поза бега больше не уводит пушку с экрана: пушка поворачивается вокруг своей
-  середины, дуло поднимается и уходит влево, как в TaCZ, а сдвиг считается
-  по длине пушки, а не в пикселях модели TaCZ. Пистолеты и револьверы держатся
-  как в TaCZ: в беге повёрнуты меньше и опущены слабее, на ходьбе наклонены
-  сильнее. Качание при ходьбе тоже идёт вокруг середины пушки и не водит её
-  по экрану.
-- Качание пушки в такт ходьбе и поза бега теперь включены по умолчанию на всех
-  пушках, кроме парных. Выключить для всех: `walkSway = 0` и `sprintPose = 0`
-  в `config/ntm-gunfeel.properties`; для одной пушки: `hbm\:gun_x.walkSway = 0`
-  и `hbm\:gun_x.sprintPose = 0` в `config/ntm-gunfeel-guns.properties` или
-  `/gunfeel set walkSway 0` и `/gunfeel set sprintPose 0` с пушкой в руке. Если
-  файл настроек создал X400, в нём уже записано `walkSway=0.0`
-  и `sprintPose=0.0`: эти строки нужно удалить или поставить 1. С левой
-  основной рукой (настройка Minecraft) качание и поза бега пока не применяются,
-  пушка качается по-старому, как у NTM.
-- Только что взятая пушка не качается, пока мод не измерит её модель (обычно
-  один кадр), и потом плавно входит в качание. Раньше в первом кадре она
-  поворачивалась вокруг середины прежней пушки и могла дёрнуться.
+- The sprint pose no longer takes the gun off the screen: the gun turns around
+  its middle, the muzzle rises and goes left, as in TaCZ, and the shift is
+  counted by the gun's length, not in pixels of the TaCZ model. Pistols and
+  revolvers are held as in TaCZ: turned less and lowered less in a sprint,
+  tilted more when walking. Walk sway also goes around the middle of the gun
+  and does not move it about the screen.
+- Gun sway in time with walking and the sprint pose are now on by default on
+  all guns except akimbo. Turn them off for all: `walkSway = 0` and
+  `sprintPose = 0` in `config/ntm-gunfeel.properties`; for one gun:
+  `hbm\:gun_x.walkSway = 0` and `hbm\:gun_x.sprintPose = 0` in
+  `config/ntm-gunfeel-guns.properties` or `/gunfeel set walkSway 0` and
+  `/gunfeel set sprintPose 0` with the gun in hand. If the settings file was
+  created by X400, it already has `walkSway=0.0` and `sprintPose=0.0`: those
+  lines must be deleted or set to 1. With a left main hand (a Minecraft
+  setting) the sway and the sprint pose do not apply for now, and the gun sways
+  the old way, as in NTM.
+- A gun just taken out does not sway until the mod has measured its model
+  (usually one frame), and then smoothly enters the sway. Before, in the first
+  frame it turned around the middle of the previous gun and could jerk.
 
 ## X416
 
-- Панель «Руки пушки» занимает треть ширины экрана, но не меньше, чем нужно,
-  чтобы все подписи были видны целиком. На широком экране кнопки и ползунки
-  шире, оружие справа остаётся видно. Ряд кнопок, которому не хватает
-  ширины, переносится на вторую строку.
-- Если на низком экране (например, 1280×720 с масштабом интерфейса «Авто»)
-  настройки страницы не помещаются, внизу появляется строка «Строки 1–8 из
-  20» с кнопками ▲ ▼. Листать можно и колесом мыши. Раньше нижние настройки
-  уходили за край экрана.
-- В подсказке клавиша паузы называется Space, как на клавиатуре.
+- The "Gun arms" panel takes a third of the screen width, but not less than is
+  needed to show all the labels in full. On a wide screen the buttons and
+  sliders are wider, and the weapon on the right stays visible. A row of
+  buttons that does not have enough width wraps to a second line.
+- If on a low screen (for example 1280×720 with GUI scale "Auto") the page's
+  settings do not fit, a line "Rows 1–8 of 20" with ▲ ▼ buttons appears at the
+  bottom. You can also scroll with the mouse wheel. Before, the lower settings
+  went off the edge of the screen.
+- In the tooltip the pause key is called Space, as on the keyboard.
 
 ## X415
 
-- Поле для числа в «Руках пушки» останавливает анимацию и закрывается без
-  изменений, если сменились время, анимация, рука или страница. Раньше при
-  идущей анимации число могло попасть в следующий ключ.
-- «Взять в» у несения не принимает дробное число, например 865,5, и
-  объясняет, что здесь только целые миллисекунды. Раньше оно молча
-  округлялось.
-- Ползунок показывает число не на своём шаге как есть (−66,25°, 3,935 мс), а
-  не округлённым.
-- Время ключа, записанное от момента, игра читает ровно таким, каким его
-  задали. Если от какого-то момента это невозможно, этот момент не
-  предлагается, а время остаётся числом.
+- The number field in "Gun arms" stops the animation and closes without changes
+  if the time, animation, arm or page has changed. Before, with an animation
+  running, the number could land in the next key.
+- "Take at" of a carry does not accept a fractional number, for example 865.5,
+  and explains that only whole milliseconds are allowed here. Before, it was
+  silently rounded.
+- A slider shows a number that is off its step as it is (−66.25°, 3.935 ms),
+  not rounded.
+- A key's time written relative to a moment is read by the game exactly as it
+  was set. If this is impossible from some moment, that moment is not offered,
+  and the time stays a number.
 
 ## X414
 
-- В «Руках пушки» число можно ввести: правый щелчок по ползунку открывает
-  поле, Enter принимает, Esc закрывает. Подходит запятая и точка. Не число
-  или число вне пределов ползунка не принимается, и поле говорит почему.
-- Ползунок ставит ровно то число, которое записывается в настройки. Раньше
-  до перезапуска игры оно могло отличаться в последнем знаке (0,35000002
-  вместо 0,35). Число с пятью и больше знаками после точки (например,
-  0,42999998) записывается как есть, без округления до четырёх знаков.
-- У ключа пути на виде «Подход» появились ползунки «Подход ← →», «↓ ↑» и
-  «вдоль»: подход можно задать любым направлением, а не только одной из
-  шести сторон. Ползунки видны, когда подход задан.
-- Когда рука несёт по очереди несколько деталей (патроны Liberator),
-  строка «Деталь» и ползунки точки относятся к детали, которая движется в
-  выбранный момент. Раньше всегда к первой.
-- Хват записывается коротко (`0`, а не `0.0`). Если задать хват точкой, доли
-  этой же руки, заданные раньше игроком, убираются: точка их всё равно
-  перекрывает.
+- In "Gun arms" you can type a number: right-click on a slider opens the field,
+  Enter accepts, Esc closes. A comma and a point both work. Something that is
+  not a number, or a number outside the slider's limits, is not accepted, and
+  the field says why.
+- The slider sets exactly the number that is written to the settings. Before,
+  until the game restarted, it could differ in the last digit (0.35000002
+  instead of 0.35). A number with five or more digits after the point (for
+  example 0.42999998) is written as it is, not rounded to four digits.
+- A path key on the "Approach" view now has the sliders "Approach ← →", "↓ ↑"
+  and "along": the approach can be set in any direction, not only one of six
+  sides. The sliders are visible when an approach is set.
+- When an arm carries several parts in turn (Liberator's rounds), the "Part"
+  row and the point sliders refer to the part that moves at the selected
+  moment. Before, always to the first.
+- A grip is written short (`0`, not `0.0`). If a grip is set by a point, the
+  shares of the same arm that the player set earlier are removed: the point
+  overrides them anyway.
 
 ## X413
 
-- «Взять руки с» в «Руках пушки» на оружии, у которого обрез или вид без
-  части деталей держится своим хватом (Mare's Leg), теперь даёт и такому
-  виду хват взятого оружия. Раньше хват этого вида становился стандартным.
-- «Загрузить» не принимает файл, где у вида оружия без части деталей задано
-  что-то, кроме хвата: игра такое не читает.
-- Скрытие руки короче шага (например, 5 мс), вставленное «Вставить»,
-  остаётся той же длины, а не растягивается до шага.
+- "Take arms from" in "Gun arms" on a weapon whose sawn-off or partial-parts
+  view is held with its own grip (Mare's Leg) now gives such a view the grip of
+  the weapon taken from too. Before, this view's grip became the standard one.
+- "Load" does not accept a file in which a weapon's partial-parts view has
+  anything set except the grip: the game does not read that.
+- A hide of an arm shorter than a step (for example 5 ms) inserted with "Paste"
+  stays the same length and is not stretched to the step.
 
 ## X412
 
-- У G3 Zebra из настроек мода убраны два хвата, которые повторяли хваты G3:
-  руки Zebra и так берутся у G3, держит она так же.
+- Two grips that repeated G3's grips are removed from G3 Zebra in the mod's
+  settings: the Zebra's arms are taken from the G3 anyway, and it is held the
+  same way.
 
 ## X411
 
-- В «Руках пушки» новая вкладка «Файл». «Взять руки с»: руки другого
-  оружия (хват, дорожки, все настройки рук) копируются этому, это можно
-  отменить. «Выгрузить»: руки этого оружия записываются в файл в папке
-  `config/ntm-gunfeel-export`, а его текст сразу копируется в буфер обмена,
-  чтобы отправить его сообщением. «Загрузить»: руки этого оружия становятся
-  такими, как в выбранном файле из этой папки, новые файлы первыми. Файл
-  другого оружия или файл с ошибкой не загружается, и подсказка говорит, в
-  какой строке ошибка.
-- На вкладке «Ключ» у ключа есть «Копировать» и «Вставить» (Ctrl+C, Ctrl+V):
-  скопированный ключ вставляется в другой момент, другой руке, в другую
-  анимацию или другому оружию. Вставка поверх ключа оставляет его время.
+- "Gun arms" has a new tab "File". "Take arms from": another weapon's arms
+  (grip, tracks, all arm settings) are copied to this one; this can be undone.
+  "Export": this weapon's arms are written to a file in the folder
+  `config/ntm-gunfeel-export`, and its text is at once copied to the clipboard,
+  to send in a message. "Load": this weapon's arms become what they are in the
+  chosen file from that folder, newest files first. Another weapon's file or a
+  file with an error is not loaded, and the tooltip says which line the error
+  is in.
+- On the "Key" tab a key has "Copy" and "Paste" (Ctrl+C, Ctrl+V): a copied key
+  is pasted at another moment, to another arm, into another animation or to
+  another weapon. Pasting over a key keeps its time.
 
 ## X410
 
-- Рука, скрытая только для перезарядки из пустого магазина («Скрыта», «Ключи:
-  только при …» в «Руках пушки»), теперь и правда скрывается в этой
-  перезарядке. Раньше игра такое скрытие не находила, и редактор правил
-  общее скрытие вместо него.
-- «−» и «+» у ползунков «Рук пушки» доходят до края, даже если до него
-  меньше шага: ключ, до соседа которого 3 мс, сдвигается на эти 3 мс. Раньше
-  кнопка была активной, но ничего не двигала.
-- В подсказке «Ключи: общие / только при …» сказано, что «общие» убирает
-  свои ключи варианта анимации и он играет ключи обычной.
+- An arm hidden only for a reload from an empty magazine ("Hidden", "Keys: only
+  with …" in "Gun arms") is now really hidden in that reload. Before, the game
+  did not find such a hide, and the editor edited the general hide instead of
+  it.
+- "−" and "+" on the "Gun arms" sliders go all the way to the edge, even if it
+  is less than a step away: a key whose neighbour is 3 ms away moves those 3
+  ms. Before, the button was active but moved nothing.
+- The tooltip "Keys: shared / only with …" now says that "shared" removes the
+  animation variant's own keys and it plays the plain animation's keys.
 
 ## X409
 
-- Новый редактор «Руки пушки»: кнопка «Руки пушки» в редакторе оружия.
-  Движения рук по анимации он показывает, а на вкладке «Ключ» правит. Видны
-  только анимации, которые есть у оружия, и их длительность. Есть кнопки
-  «играть», «пауза», скорость, шаг по 10 мс и переход к соседнему ключу. Для
-  каждой руки идут дорожки «Скрыта», «По деталям», «Несёт», «Отпускает»,
-  «Обход детали» и «Поправка» с ключами. Над ними цветная полоса показывает,
-  что ведёт руку в каждый момент, в том же порядке, в каком игра выбирает
-  движение. Серым отмечено, где дорожку перекрывает другая, а под дорожками
-  видно, когда двигаются детали оружия. У оружия с общими руками (Heretic и
-  Sexy, G3 A3 и G3 и другие) написано, с кем они общие. «Свои руки» копирует
-  их этому оружию, «Общие руки» возвращает общие. Есть отмена и повтор
-  (Ctrl+Z, Ctrl+Y). У каждой кнопки есть подсказка. Кнопка, которую сейчас
-  нажать нельзя, серая, и подсказка говорит почему. Старый редактор движений
-  рук пока остаётся (кнопка «Движения рук (старый)»).
-- В «Руках пушки» правятся хват и настройки рук, пока играет анимация.
-  Вкладка «Хват»: где каждая рука держит оружие (точкой модели или в долях),
-  с какой деталью она двигается (помпа, рычаг) и свой хват у вида оружия
-  без части деталей (обрез). Вкладка «Рука»: направление к плечу, поворот,
-  толщина, основа толщины и докуда идёт рука. Вкладка «Обе руки»: общая
-  толщина, длина руки, предел толщины, насколько руки поворачиваются с
-  оружием, скольжение кисти и переход между анимациями. У каждой настройки
-  есть ползунок, кнопки «−» и «+» и «↺», которая возвращает значение мода.
-  Настройка, которая сейчас ни на что не влияет, серая с причиной: например,
-  «Предел толщины» при заданной основе толщины у обеих рук. Перетаскивание
-  ползунка отменяется одним «Отменить». Хват за краем модели нельзя
-  перевести в доли и обратно: рука бы сдвинулась, и кнопка тогда серая.
-- Вкладка «Ключ» в «Руках пушки» правит ключ выбранной дорожки в этот
-  момент. «+ Ключ» (Insert) добавляет ключ, который повторяет ключ перед
-  ним, «− Ключ» (Delete) его удаляет. У каждого ключа можно сдвинуть время,
-  не заходя за соседние; ключ, записанный от именованного момента, остаётся
-  от него. Ключ «По деталям»: деталь (или хват), первая или последняя её
-  копия, точка на детали, касание кистью и поворот кисти, а на виде «Подход»
-  — сторона подхода, сдвиг плеча и плечо за точкой. «Несёт»: насколько рука
-  на детали и где деталь (как в анимации, как в заданный момент или в своей
-  точке). «Скрыта»: с какого и до какого момента. «Обход детали»: угол.
-  «Поправка»: сдвиг кисти и три её поворота. Записи, которые не правили,
-  остаются написанными как были.
-- На вкладке «Ключ» есть виды «Ключ», «Подход», «Дорожка» и «Как держит».
-  «Дорожка» правит всю дорожку. У «По деталям» это именованные моменты:
-  «+ Момент» добавляет его, ползунок сдвигает вместе со всеми ключами,
-  записанными от него. Ключ можно записать от момента или числом, он при
-  этом остаётся на месте. Здесь же видимая длина руки у глаза и плавный
-  переход к хвату. У «Несёт» — что рука несёт: «+ Нести», «Не нести»,
-  деталь оружия, деталь анимации (их может быть несколько, рука берёт ту,
-  что движется), момент, когда рука её берёт, и точка на ней. На перезарядке
-  можно нести своё. «Как держит» задаёт сторону, с которой рука держит
-  деталь, поворот у патрона и руку без изменения угла. У «Отпускает» —
-  при вращении какой детали рука отпускает оружие и куда отходит. У «Обхода
-  детали» — сдвиг руки наружу и вниз, отдельно на перезарядке. Дорожку
-  «Отпускает» теперь можно выбрать, даже когда рука ничего не отпускает.
-- Если оружие перезаряжается из пустого магазина по-другому (SPAS-12),
-  в «Руках пушки» есть отдельная анимация «Перезарядка из пустого», и
-  предпросмотр играет именно её. На виде «Дорожка» у дорожек «Скрыта»,
-  «По деталям» и «Несёт» строка «Ключи: общие / только при <деталь>»
-  переносит ключи в вариант анимации, где движется своя деталь, или
-  возвращает их общими. Так правятся ключи SPAS-12 `RELOAD/PumpGrip`.
-- На вкладке «Рука» появились поворот и толщина руки на зарядке, а у левой
-  руки — время, до которого она держит магазин при осмотре (кнопка «Вкл»
-  или «Выкл»).
-- Вкладки «Правая», «Левая» и «Руки» убраны из редактора оружия: всё, что
-  на них было, теперь в «Руках пушки». Там остались «Отдача» и «Положение».
-- Когда оружию с общими руками дали свои руки, правка любой настройки рук
-  этого оружия пишется ему самому, а не оружию, с которым руки были общие.
-  Это касается и хвата: свои руки берут хват и хват видов оружия (обреза и
-  других), и правка хвата больше не уходит оружию, с которым руки были
-  общие. Пустое значение у такого оружия (например, снятое скрытие руки)
-  перекрывает значение общего оружия.
-- Строка «Сейчас руку ведёт» не пишет «рука идёт по деталям», если деталь
-  пути в модели сейчас не нарисована: игра тогда держит руку на хвате.
+- A new "Gun arms" editor: a "Gun arms" button in the weapon editor. It shows
+  the hand movements of an animation and edits them on the "Key" tab. It shows
+  only the animations the weapon has, and their lengths. There are buttons for
+  play, pause, speed, a 10 ms step and a jump to the neighbouring key. For each
+  hand there are tracks "Hidden", "By parts", "Carries", "Releases", "Part
+  bypass" and "Correction" with keys. Above them a coloured bar shows what
+  drives the hand at each moment, in the same order the game picks the
+  movement. Grey marks where another track overrides a track, and under the
+  tracks you can see when the weapon's parts move. For a weapon with shared
+  hands (Heretic and Sexy, G3 A3 and G3, and others) it says who shares them.
+  "Own arms" copies them to this weapon, "Shared arms" brings the shared ones
+  back. There is undo and redo (Ctrl+Z, Ctrl+Y). Every button has a tooltip. A
+  button that cannot be pressed now is grey, and the tooltip says why. The old
+  hand movement editor stays for now (the "Arm movements (old)" button).
+- In "Gun arms" you edit the grip and the hand settings while an animation
+  plays. The "Grip" tab: where each hand holds the weapon (by a point of the
+  model or in fractions), which part it moves with (pump, lever) and its own
+  grip for a weapon variant without some parts (sawn-off). The "Arm" tab: the
+  direction to the shoulder, rotation, thickness, the thickness base and how
+  far the arm goes. The "Both arms" tab: the shared thickness, arm length,
+  thickness limit, how far the arms turn with the weapon, wrist slide and the
+  transition between animations. Every setting has a slider, "−" and "+"
+  buttons and a "↺" that brings back the mod's value. A setting that affects
+  nothing now is grey with the reason, for example "Thickness limit" when both
+  hands have a thickness base set. Dragging a slider is undone with one "Undo".
+  A grip outside the model cannot be converted to fractions and back, because
+  the hand would move, and then the button is grey.
+- The "Key" tab in "Gun arms" edits the key of the selected track at this
+  moment. "+ Key" (Insert) adds a key that repeats the key before it, "− Key"
+  (Delete) removes it. You can move the time of each key without going past its
+  neighbours; a key written from a named moment stays tied to it. A "By parts"
+  key: the part (or the grip), the first or last copy of it, a point on the
+  part, the wrist touch and the wrist rotation, and on the "Approach" view the
+  approach side, the shoulder shift and the shoulder behind the point.
+  "Carries": how far the hand is on the part and where the part is (as in the
+  animation, as at a given moment or at its own point). "Hidden": from which
+  moment to which. "Part bypass": the angle. "Correction": the wrist shift and
+  its three rotations. Entries that were not edited stay written as they were.
+- The "Key" tab has the views "Key", "Approach", "Track" and "How it holds".
+  "Track" edits the whole track. For "By parts" these are named moments: "+
+  Moment" adds one, and the slider moves it together with all the keys written
+  from it. A key can be written from a moment or as a number, and it stays in
+  place either way. Here too are the visible length of the arm at the eye and
+  the smooth transition to the grip. For "Carries": what the hand carries: "+
+  Carry", "Carry nothing", a weapon part, an animation part (there can be
+  several, the hand takes the one that moves), the moment the hand takes it,
+  and a point on it. On a reload it can carry its own. "How it holds" sets the
+  side the hand holds the part from, the rotation at a cartridge and an arm
+  with no change of angle. For "Releases": the rotation of which part makes the
+  hand let go of the weapon, and where it moves to. For "Part bypass": the
+  shift of the arm outwards and down, separately on a reload. The "Releases"
+  track can now be selected even when the hand releases nothing.
+- If a weapon reloads from an empty magazine differently (SPAS-12), "Gun arms"
+  has a separate "Reload from empty" animation, and the preview plays exactly
+  that one. On the "Track" view, for the tracks "Hidden", "By parts" and
+  "Carries", the line "Keys: shared / only with <part>" moves the keys into the
+  animation variant where its own part moves, or makes them shared again. This
+  is how the SPAS-12 keys `RELOAD/PumpGrip` are edited.
+- The "Arm" tab got the arm's rotation and thickness at charging, and for the
+  left hand the time until which it holds the magazine during inspect (an "On"
+  or "Off" button).
+- The tabs "Right", "Left" and "Arms" are gone from the weapon editor:
+  everything that was on them is now in "Gun arms". "Recoil" and "Position"
+  stay there.
+- When a weapon with shared hands is given its own hands, editing any hand
+  setting of this weapon is written to the weapon itself, not to the weapon the
+  hands were shared with. This covers the grip too: own hands take the grip and
+  the grips of weapon variants (sawn-off and others), and editing the grip no
+  longer goes to the weapon the hands were shared with. An empty value on such
+  a weapon (for example, a removed hand hiding) overrides the value of the
+  shared weapon.
+- The line "The arm is now driven by" no longer says "the arm follows the
+  parts" if the path's part is not drawn in the model right now: the game then
+  keeps the hand on the grip.
 
-- Редактор движений рук больше не портит путь руки при правке. Раньше любая
-  правка переписывала все ключи анимации: время от именованного момента
-  (`release+300` у Sexy) превращалось в число `2710.0`, на каждый ключ
-  ложился текущий поворот кисти, а ключ без стороны подхода получал сторону
-  `0,-1,0`, хотя игра для него берёт `0,0,-1`. Теперь меняется только тот
-  ключ, который правили, остальные остаются как были записаны. Игра и
-  редактор читают руки пушки одним кодом, так что в игре видно ровно то, что
-  записал редактор. Если анимация в пути записана дважды, редактор открывает
-  ту запись, которую играет игра. Поправки на одно и то же время, которые не
-  правили, остаются все. Очень малые и очень большие числа пишутся без
-  экспоненты (`0.00001`, а не `1.0E-5`). Руки во всех пушках не изменились.
-- Из встроенных настроек минигана убраны два ключа для тонких рук
-  (`gun_minigun.slim.armRollLeft` и `gun_minigun-GunDual.slim.leftAt`). Мод их
-  не читает с тех пор, как тонкие и обычные руки получили общие настройки, так
-  что в игре ничего не меняется.
-- Модель рук (обычная или тонкая) теперь берётся только из скина игрока.
-  Настройка `armModel` убрана: из общих настроек, из настроек пушки и из
-  редакторов (кнопки «Руки: …» и «Модель: …»). Миниган больше не рисует
-  игроку с тонким скином обычные руки. Тонкие руки по-прежнему стоят на
-  1 пиксель ближе к середине, настройки у обеих моделей общие.
-- ⚠ Ломает совместимость: ключ `armModel` в настройках игрока и пушек больше
-  не читается, руки всегда идут по скину.
+- The hand movement editor no longer spoils the hand's path when you edit.
+  Before, any edit rewrote all the keys of the animation: a time from a named
+  moment (`release+300` on Sexy) turned into the number `2710.0`, every key got
+  the current wrist rotation, and a key without an approach side got the side
+  `0,-1,0`, although the game takes `0,0,-1` for it. Now only the key you
+  edited changes, and the others stay as they were written. The game and the
+  editor read the gun hands with the same code, so the game shows exactly what
+  the editor wrote. If an animation is written twice in a path, the editor
+  opens the entry the game plays. Corrections at the same time that were not
+  edited all stay. Very small and very large numbers are written without an
+  exponent (`0.00001`, not `1.0E-5`). The hands on all guns did not change.
+- Two keys for slim arms are removed from the minigun's built-in settings
+  (`gun_minigun.slim.armRollLeft` and `gun_minigun-GunDual.slim.leftAt`). The
+  mod has not read them since slim and normal arms got shared settings, so
+  nothing changes in the game.
+- The arm model (normal or slim) is now taken only from the player's skin. The
+  `armModel` setting is removed: from the general settings, from the gun
+  settings and from the editors (the buttons "Arms: …" and "Model: …"). The
+  minigun no longer draws normal arms for a player with a slim skin. Slim arms
+  still stand 1 pixel closer to the middle, and the settings of both models are
+  shared.
+- ⚠ Breaks compatibility: the `armModel` key in the player and gun settings is
+  no longer read, and arms always follow the skin.
 
 ## X400.110
 
-- На 1.7.10 появились покачивание пушки при ходьбе, поза бега и задержка
-  выстрела после бега, как в 26.2 (X400). Ключи те же: `walkSway`, `sprintPose`
-  в настройках клиента, `sprintFireDelay`, `sprintFireTime`
-  в `ntm-gunfeel-server.properties`. По умолчанию всё выключено. Пока
-  `walkSway` включён, собственное качание NTM на этой пушке не применяется.
-  Наклон пушки при падении и прыжке остаётся, как в NTM 1.7.10.
-- С Shader Fixer (сборки GTNH) пушку рисует ванильный рендер, и покачивание
-  с позой бега на нём не действуют. Задержка выстрела работает.
-- Для разработки: сценарий `-Pscenario=walksprint` (WalkSprintScenario): G3
-  ходит, целится, бежит и стреляет. Трасса покачивания пишется
-  в `run/client/logs`, кадры, нажатия и пули — в `run/client/aimprobe.tsv`.
-- На 1.7.10 надетое тоже входит в хитбокс, как в X400, и тоже включено по
-  умолчанию (`modelHitboxesWorn = false` выключает). Череп 1.7.10 рисует
-  в 8,5 пикселя, и голова под ним растёт до 8,5. Костюмы NTM на OBJ-моделях
-  (T51 и другие) попадают в хитбокс как нарисованная броня.
+- On 1.7.10 there are now gun sway while walking, a sprint pose and a shot
+  delay after a sprint, as in 26.2 (X400). The keys are the same: `walkSway`,
+  `sprintPose` in the client settings, `sprintFireDelay`, `sprintFireTime` in
+  `ntm-gunfeel-server.properties`. All off by default. While `walkSway` is on,
+  NTM's own sway is not applied to the gun. The gun's tilt when falling and
+  jumping stays as in NTM 1.7.10.
+- With Shader Fixer (GTNH packs) the gun is drawn by the vanilla renderer, and
+  the sway and the sprint pose do not work on it. The shot delay works.
+- For development: the scenario `-Pscenario=walksprint` (WalkSprintScenario):
+  the G3 walks, aims, sprints and fires. The sway trace is written to
+  `run/client/logs`, frames, key presses and bullets to
+  `run/client/aimprobe.tsv`.
+- On 1.7.10 worn items are part of the hitbox too, as in X400, and also on by
+  default (`modelHitboxesWorn = false` turns it off). 1.7.10 draws a skull at
+  8.5 pixels, and the head under it grows to 8.5. NTM suits on OBJ models (T51
+  and others) get into the hitbox as drawn armour.
 
 ## X400
 
-- Пушка может покачиваться в такт ходьбе и уходить вбок при беге, как в TaCZ.
-  Руки идут вместе с ней, в прицеле качание слабее, а прицел, выстрел или
-  анимация NTM быстро выводят её из позы бега. Включается на пушку:
-  `hbm\:gun_g3.walkSway = 1` и `hbm\:gun_g3.sprintPose = 1`
-  в `config/ntm-gunfeel-guns.properties` или командой `/gunfeel set walkSway 1`
-  с пушкой в руке; те же ключи без имени пушки включают для всех. По умолчанию
-  выключено. Пока качание включено, собственное качание NTM и ванильное
-  покачивание руки на этой пушке не применяются, камера качается как раньше.
-- Сервер может запретить выстрел сразу после бега, как `sprint_time` в TaCZ:
-  `sprintFireDelay = true` в `ntm-gunfeel-server.properties` (или
-  `hbm\:gun_x.sprintFireDelay = true` для одной пушки). Пока игрок бежит,
-  задержка растёт до времени пушки (`hbm\:gun_x.sprintFireTime`, у пистолетов
-  0.08 с, у винтовок 0.15 с, у тяжёлого оружия 0.19 с), после бега спадает
-  так же. Нажатый в это время выстрел не теряется: он сработает, когда задержка
-  кончится, если кнопка ещё зажата. С этой задержкой бег снимается, пока зажат
-  выстрел или пушка в прицеле. По умолчанию выключено; выключенная задержка
-  ничего не меняет, бег как в NTM.
-- Надетое входит в хитбокс. Кроме нарисованной брони, которая уже была в
-  хитбоксе, части модели под ней становятся сплошными и толще на толщину
-  брони: шлем, нагрудник и ботинки на 1 пиксель с каждой стороны, поножи на
-  0,5. Голова под черепом или блоком (тыквой) растёт до их нарисованного
-  размера, 9,5 и 10 пикселей, под головой дракона до 14,25; череп и голова
-  дракона стоят на основании головы, как нарисованы. Зона головы растёт вместе
-  с головой. Сменил броню — хитбокс перестаёт держать старую до нового кадра.
-  Включено по умолчанию; `modelHitboxesWorn = false`
-  в `ntm-gunfeel-server.properties` оставляет только нарисованную броню.
+- A gun can sway in step with walking and go to the side while sprinting, as in
+  TaCZ. The hands move with it, the sway is weaker when aiming, and aiming, a
+  shot or an NTM animation quickly takes it out of the sprint pose. It is
+  switched on per gun: `hbm\:gun_g3.walkSway = 1` and
+  `hbm\:gun_g3.sprintPose = 1` in `config/ntm-gunfeel-guns.properties`, or with
+  the command `/gunfeel set walkSway 1` with the gun in hand; the same keys
+  without a gun name switch it on for all. Off by default. While the sway is
+  on, NTM's own sway and the vanilla swing of the hand do not apply on this
+  gun, and the camera sways as before.
+- A server can forbid a shot right after sprinting, like `sprint_time` in TaCZ:
+  `sprintFireDelay = true` in `ntm-gunfeel-server.properties` (or
+  `hbm\:gun_x.sprintFireDelay = true` for one gun). While the player sprints,
+  the delay grows up to the gun's time (`hbm\:gun_x.sprintFireTime`, 0.08 s for
+  pistols, 0.15 s for rifles, 0.19 s for heavy weapons), and after the sprint
+  it falls the same way. A shot pressed in that time is not lost: it fires when
+  the delay ends, if the button is still held. With this delay the sprint is
+  cancelled while a fire button is held or the gun is aimed. Off by default;
+  with the delay off nothing changes, and the sprint is as in NTM.
+- Worn items are part of the hitbox. Besides the drawn armour, which was
+  already in the hitbox, the parts of the model under it become solid and
+  thicker by the armour's thickness: helmet, chestplate and boots by 1 pixel on
+  each side, leggings by 0.5. A head under a skull or a block (a pumpkin) grows
+  to their drawn size, 9.5 and 10 pixels, and under a dragon head to 14.25; the
+  skull and the dragon head stand on the base of the head, as they are drawn.
+  The head zone grows with the head. If you change armour, the hitbox stops
+  keeping the old one by the next frame. On by default;
+  `modelHitboxesWorn = false` in `ntm-gunfeel-server.properties` leaves only
+  the drawn armour.
 
 ## X398
 
-- Пуля летит туда, куда игрок смотрел в кадре клика. Сервер знал поворот
-  головы только с последнего тика игры, а NTM отправляет нажатие сразу.
-  Поэтому, если повернуться и выстрелить в одном кадре, пуля уходила по
-  старому направлению: SPAS-12 после рывка на 40° бил ровно на 40° мимо.
-  Очередь отставала от камеры на тик, а при `/tick rate 1` на секунду. Теперь
-  перед нажатием клиент отправляет поворот этого кадра, а пока курок зажат,
-  отправляет поворот каждого кадра. Сервер берёт его вместо поворота с
-  прошлого тика. Выключается ключом `clickAim=false`. Сетевой протокол мода не
-  менялся, пакет поворота обычный, игровой.
+- The bullet flies where the player looked in the frame of the click. The
+  server knew the head's turn only from the last game tick, and NTM sends the
+  press at once. So if you turned and fired in the same frame, the bullet went
+  in the old direction: SPAS-12 after a 40° flick hit exactly 40° off. A burst
+  lagged behind the camera by a tick, and at `/tick rate 1` by a second. Now
+  before the press the client sends the turn of that frame, and while the
+  trigger is held it sends the turn of every frame. The server takes it instead
+  of the turn from the last tick. Switch it off with the key `clickAim=false`.
+  The mod's network protocol did not change, the turn packet is an ordinary
+  game one.
 
 ## X397
 
-- С CrankShaft только что появившийся моб (яйцо, `/summon`, подгрузка чанка)
-  больше не прилетает на место издалека. До первого тика моба игра рисовала
-  его между началом координат мира и его настоящим местом: ванилла это
-  поправляет перед отрисовкой, а Vanillate из CrankShaft рисует мобов сам и
-  поправку пропускал. Теперь мод делает её, когда Vanillate берётся рисовать
-  нового моба. Без CrankShaft/Flywheel ничего не меняется; когда Vanillate
-  починят у себя, поправлять будет нечего и мод ничего не тронет.
+- With CrankShaft, a mob that has just appeared (an egg, `/summon`, a chunk
+  loading) no longer flies in to its place from far away. Until the mob's first
+  tick the game drew it between the world's origin and its real place: vanilla
+  corrects this before drawing, but Vanillate from CrankShaft draws the mobs
+  itself and skipped the correction. Now the mod makes it when Vanillate takes
+  on drawing a new mob. Without CrankShaft/Flywheel nothing changes; when
+  Vanillate is fixed on its side, there will be nothing to correct and the mod
+  will touch nothing.
 
 ## X396.108
 
-- На 1.7.10 пуля летит туда, куда игрок смотрел в момент клика, как в 26.2
-  (X397). Сервер знал поворот головы только с последнего тика игры, а NTM
-  отправляет нажатие сразу. Поэтому SPAS-12 после рывка на 40° с кликом бил
-  ровно на 40° мимо. Теперь при нажатии с оружием в руке клиент отправляет
-  пакет движения этого тика заранее, с поворотом этого кадра. Рывок с кликом: 0°.
-  Выключается ключом `clickAim=false`. Сетевой протокол мода не менялся, пакет
-  поворота обычный, игровой.
-- В отличие от 26.2 и 1.12.2, очередь на 1.7.10 следует за камерой, как в NTM,
-  с отставанием на тик. Сервер 1.7.10 на каждый пакет движения прогоняет тик
-  игрока, поэтому лишний пакет поворота ускорил бы стрельбу, голод и зелья.
-  Пакет при нажатии заменяет обычный пакет тика, и пакетов не становится больше.
-- Для разработки: сценарий `-Pscenario=aimlag` (AimLagScenario) делает четыре
-  рывка SPAS-12 с кликом и очередь M2 при повороте 90°/с. Он пишет, насколько
-  каждая пуля отстала от камеры, в `run/client/aimlag.txt`.
+- On 1.7.10 a bullet flies where the player was looking at the moment of the
+  click, as in 26.2 (X397). The server only knew the head's turn from the last
+  game tick, while NTM sends the key press at once. So a SPAS-12 after a 40°
+  flick with a click missed by exactly 40°. Now on a key press with a weapon in
+  hand the client sends this tick's movement packet early, with this frame's
+  turn. A flick with a click: 0°. Turned off with the key `clickAim=false`. The
+  mod's network protocol did not change; the turn packet is the game's usual
+  one.
+- Unlike 26.2 and 1.12.2, on 1.7.10 a burst follows the camera as in NTM, a
+  tick behind. The 1.7.10 server runs a player tick for every movement packet,
+  so an extra turn packet would speed up firing, hunger and potions. The packet
+  on a key press replaces the tick's usual packet, and there are no more
+  packets than before.
+- For development: the scenario `-Pscenario=aimlag` (AimLagScenario) makes four
+  SPAS-12 flicks with a click and an M2 burst while turning at 90°/s. It writes
+  how far each bullet lagged behind the camera to `run/client/aimlag.txt`.
 
 ## X396.107
 
-- На 1.7.10 дырки от пуль на заборах, стенах и железных решётках ложатся только
-  на сами столбы и перекладины, как в 26.2 (X396). Раньше дырка ставилась по
-  коробке коллизии, а у забора она одна на столб, перекладины и зазоры между
-  ними. Поэтому дырка вылезала за перекладину в воздух.
-- Для разработки: сценарий `-Pscenario=fences` (FencesScenario) стреляет по парам
-  и углам заборов, стен, панелей и решёток и проверяет, что каждая точка каждой
-  дырки лежит на форме блока.
+- On 1.7.10 bullet holes on fences, walls and iron bars land only on the posts
+  and bars themselves, as in 26.2 (X396). Before, a hole was placed by the
+  collision box, and a fence has one box for the post, the bars and the gaps
+  between them. So a hole stuck out past a bar into the air.
+- For development: the scenario `-Pscenario=fences` (FencesScenario) fires at
+  pairs and corners of fences, walls, panes and bars and checks that every
+  point of every hole lies on the block's shape.
 
 ## X396.106
 
-- На 1.7.10 свои строки мод, как в 26.2 (X395), пишет в отдельный файл
-  `logs/ntm-gunfeel-debug.log`: последние 8 МБ и два старых. В журнал игры идут
-  только предупреждения и ошибки мода и одна строка при запуске. Файл пишет
-  отдельный поток, кадры его не ждут.
+- On 1.7.10 the mod writes its own lines, as in 26.2 (X395), to a separate
+  file, `logs/ntm-gunfeel-debug.log`: the last 8 MB and two old ones. The game
+  log only gets the mod's warnings and errors and one line at startup. The file
+  is written by a separate thread; frames do not wait for it.
 
 ## X396
 
-- Дырки на стыке заборов больше не висят в воздухе. Пуля, летящая вдоль
-  перекладины, на стыке двух заборов ставила дырку на торец перекладины, который
-  игра не рисует: он упирается в перекладину соседа. Такая дырка пряталась в
-  соседе и повисала в воздухе, когда соседний забор ломали. Теперь на
-  нерисуемых гранях дырок нет. То же у каменных стен и железных решёток; у
-  стеклянных панелей ошибки не было.
-- У решёток и сетчатого забора NTM не ставятся пустые куски дырки нулевой
-  площади, которые ничего не рисовали.
-- Для разработки: проверка стыков `runCheckClient -PfenceSeam` (FenceSeamCheck)
-  строит пары, углы и тройники из дубовых, еловых, сетчатых заборов, стен,
-  панелей и решёток, стреляет вдоль перекладин и поперёк стыка. Каждая точка
-  каждой дырки должна лежать на нарисованном пикселе, в том числе после того,
-  как соседа убрали. На снимках проверяется, что дырки не затемнили небо.
+- Holes at the joint of fences no longer hang in the air. A bullet flying along
+  a rail put a hole on the end of the rail at the joint of two fences, an end
+  the game does not draw: it butts against the neighbour's rail. Such a hole
+  hid inside the neighbour and hung in the air when the neighbouring fence was
+  broken. Now there are no holes on undrawn faces. The same for stone walls and
+  iron bars; glass panes did not have the bug.
+- Bars and NTM's chainlink fence no longer get empty pieces of a hole with zero
+  area, which drew nothing.
+- For development: the joint check `runCheckClient -PfenceSeam`
+  (FenceSeamCheck) builds pairs, corners and T-junctions from oak, spruce and
+  chainlink fences, walls, panes and bars, and shoots along the rails and
+  across the joint. Every point of every hole must lie on a drawn pixel, also
+  after the neighbour was removed. The screenshots check that the holes did not
+  darken the sky.
 
 ## X395
 
-- Свои строки мод теперь пишет в отдельный файл `logs/ntm-gunfeel-debug.log`,
-  всегда, без ключа. В журнал игры (консоль и `latest.log`) идут только
-  предупреждения и ошибки мода и одна строка при запуске. Файл держит
-  последние 8 МБ и два старых (`ntm-gunfeel-debug.1.log`, `.2.log`). Пишет его
-  отдельный поток, кадры на это не тратятся. Встретили ошибку — приложите этот
-  файл к сообщению о ней.
-- Для разработки: в dev-запусках (runClient, проверки) все строки мода идут и
-  в консоль, как раньше, стенды читают `latest.log`. Ограничения частоты строк
-  и счётчики `ModelHitLog.count` не менялись.
+- The mod now writes its own lines to a separate file
+  `logs/ntm-gunfeel-debug.log`, always, with no key. Only the mod's warnings
+  and errors and one line at startup go to the game's log (the console and
+  `latest.log`). The file keeps the last 8 MB and two old ones
+  (`ntm-gunfeel-debug.1.log`, `.2.log`). A separate thread writes it, and
+  frames do not pay for it. If you meet an error, attach this file to your
+  report of it.
+- For development: in dev runs (runClient, checks) all the mod's lines also go
+  to the console, as before, and the stands read `latest.log`. The line rate
+  limits and the `ModelHitLog.count` counters did not change.
 
 ## X393
 
-- Кактус и бамбук ломаются пулями, как тыквы, и выпадают предметом. Кактус
-  мягче тыквы и держит две пули, пуля в нём застревает. Бамбуковый стебель
-  перебивает первая же пуля и летит дальше, верх стебля падает вместе с ним.
-  Росток бамбука и сахарный тростник пули пролетают, как и раньше: в них
-  нечему остановить пулю.
+- Cactus and bamboo break from bullets, like pumpkins, and drop as an item.
+  Cactus is softer than a pumpkin and holds two bullets, and the bullet gets
+  stuck in it. A bamboo stalk is cut by the very first bullet, which flies on,
+  and the top of the stalk falls with it. Bullets fly through a bamboo shoot
+  and sugar cane as before: there is nothing in them to stop a bullet.
 
 ## X390
 
-- Прицел на правой кнопке. У пушек с прицелом (в NTM он на средней кнопке)
-  правая и средняя кнопки поменялись местами: правая теперь прицеливает, а
-  второе действие пушки (переключение режима, заряд Tau и другие) переехало на
-  среднюю. Пушки без прицела (SPAS-12, парные) оставляют второе действие на
-  правой кнопке. Выключается ключом `aimOnRightButton=false`, в том числе для
-  отдельной пушки.
-- Голова Mask Man находится и во второй стадии, когда NTM рисует вместо неё
-  череп: выстрел в череп считается попаданием в голову.
+- Aim on the right button. For guns with a scope (in NTM it is on the middle
+  button) the right and middle buttons swapped places: the right now aims, and
+  the gun's second action (switching the mode, Tau's charge and others) moved
+  to the middle. Guns without a scope (SPAS-12, dual ones) keep the second
+  action on the right button. Switch it off with the key
+  `aimOnRightButton=false`, also for a single gun.
+- The head of Mask Man is found in the second stage too, when NTM draws a skull
+  in its place: a shot at the skull counts as a hit on the head.
 
 ## X381
 
-- Окна машин по решению владельца со стенда стекла. Пустотой (пуля пролетает)
-  стали прозрачные места ещё 28 машин и дверей, среди них cargo door, сборочная
-  машина, дуговая печь, факел, ГРП-вышка, турели Jeremy и Maxwell и башня
-  «Союза». У торуса, ICF, orbus и опоры «Союза» пустота только в отдельных
-  областях, остальное стекло. У hephaestus окно 34.1 теперь стекло, остальное
-  пустота; надписи над головками сборочного цеха теперь стекло. Непрозрачные
-  пиксели текстур по-прежнему держат пулю.
+- Machine windows by the owner's decision from the glass stand. The transparent
+  places of 28 more machines and doors became empty (the bullet flies through),
+  among them cargo door, assembly machine, arc furnace, flare stack, fracking
+  tower, the Jeremy and Maxwell turrets and the Soyuz tower. For the torus,
+  ICF, orbus and the Soyuz support, the empty part is only in some areas, and
+  the rest is glass. On hephaestus window 34.1 is now glass and the rest is
+  empty; the signs above the assembly factory's heads are now glass. Opaque
+  pixels of the textures still stop the bullet.
 
 ## X380
 
-- Для разработки: на стенде стекла правой кнопкой по подсветке машина
-  переключается между стеклом и пустотой; цвет меняется сразу, решение тут же
-  записывается в `ntmgunfeel-machine-glass.txt`. Подсветка с подномерами (12.1,
-  12.2) переключается по одной области, Shift+ПКМ переключает всю текстуру, Z
-  отменяет последнее. Подсветка рисуется только для машин в поле зрения
-  и собрана из полос пикселей, поэтому стенд больше не тормозит.
-- Список исключений понимает строку с областью: `текстура x0,y0,x1,y1
-  # причина` делает пустотой только прозрачные пиксели внутри прямоугольника
-  (края включены), остальные прозрачные пиксели текстуры остаются стеклом.
+- For development: on the glass stand, a right click on the highlight switches
+  a machine between glass and empty; the colour changes at once, and the
+  decision is written at once to `ntmgunfeel-machine-glass.txt`. A highlight
+  with sub-numbers (12.1, 12.2) is switched one area at a time,
+  Shift+right-click switches the whole texture, Z undoes the last one. The
+  highlight is drawn only for machines in the field of view and is built from
+  strips of pixels, so the stand no longer lags.
+- The exception list understands a line with an area:
+  `texture x0,y0,x1,y1 # reason` makes only the transparent pixels inside the
+  rectangle empty (edges included), and the other transparent pixels of the
+  texture stay glass.
 
 ## X379
 
-- Для разработки: стенд стекла (`runGlassStand`). Ставит в ряды все машины NTM,
-  у которых под треугольниками модели есть прозрачные пиксели, подписывает
-  каждую номером из списка и подсвечивает эти пиксели прямо на модели: голубым,
-  где пуля считает их стеклом, красным, где текстура в списке исключений
-  (пустота). Группы пикселей одной текстуры получают подномера (12.1, 12.2).
-  `-PglassStand=survey` обходит все машины и пишет список
-  в `notes/glass-stand/`. Игроков и сервер не затрагивает.
+- For development: the glass stand (`runGlassStand`). It puts in rows all NTM
+  machines that have transparent pixels under the model's triangles, labels
+  each with a number from the list and highlights those pixels right on the
+  model: light blue where the bullet counts them as glass, red where the
+  texture is in the exception list (empty). Groups of pixels of one texture get
+  sub-numbers (12.1, 12.2). `-PglassStand=survey` walks through all machines
+  and writes a list to `notes/glass-stand/`. It does not touch players or the
+  server.
 
 ## X378
 
-- Прозрачные пиксели на моделях машин NTM теперь стекло, а не воздух: пуля
-  в окно химической установки (chemical plant) больше не пролетает насквозь,
-  а пробивает стекло, немного теряет урон, звучит и крошится как стекло, дырка
-  остаётся на окне и видна с обеих сторон. Корпус за окном держит пулю как
-  раньше. Решётки и другие настоящие просветы, перечисленные
-  в `ntmgunfeel-machine-glass.txt`, по-прежнему пропускают. Ключ сервера
-  `bulletMachineGlass` по умолчанию включён; `false` возвращает прежние
-  сквозные окна.
-- ⚠ Ломает совместимость: формы пуль для машин
-  (`config/ntm-gunfeel-bullet-shapes.properties` и то, что сервер рассылает
-  игрокам) теперь несут стеклянные грани. Прежние версии мода такие формы
-  не читают и по этим машинам бьют по хитбоксу NTM.
+- Transparent pixels on NTM machine models are now glass, not air: a bullet no
+  longer flies straight through the window of a chemical plant, but pierces the
+  glass, loses a little damage, sounds and shatters like glass, and the hole
+  stays on the window and is visible from both sides. The body behind the
+  window stops the bullet as before. Grilles and other real gaps listed in
+  `ntmgunfeel-machine-glass.txt` still let bullets through. The server key
+  `bulletMachineGlass` is on by default; `false` brings back the old
+  see-through windows.
+- ⚠ Breaks compatibility: the bullet shapes for machines
+  (`config/ntm-gunfeel-bullet-shapes.properties` and what the server sends to
+  players) now carry glass faces. Earlier versions of the mod do not read such
+  shapes and hit these machines by NTM's hitbox.
 
 ## X377
 
-- Для проверки портов: в трассе рук у каждой руки теперь три точки в системе
-  камеры (хват, запястье, локоть), ветка расчёта позы и точка контакта,
-  а скрытая рука пишется отдельной строкой. Проверка мобов с трассой пишет
-  части хитбокса и маску лучей 17×19 по каждому мобу. Без `-Dntmgunfeel.trace`
-  игра не меняется.
+- For port checks: in the hand trace each hand now has three points in the
+  camera's space (grip, wrist, elbow), the pose calculation branch and the
+  contact point, and a hidden hand is written as a separate line. The mob check
+  with the trace writes the hitbox parts and a 17×19 ray mask for each mob.
+  Without `-Dntmgunfeel.trace` the game does not change.
 
 ## X375
 
-- Для проверки портов: сценарий трассы рук (`-Dntmgunfeel.scenario=arms` вместе
-  с `-Dntmgunfeel.trace`) играет на клиенте пушки по кадрам с фиксированным
-  шагом: доставание, покой, поворот взгляда, прицеливание, выстрел, очередь,
-  перезарядку и осмотр. Два прогона дают одинаковую трассу рук, покачивания
-  и отдачи. Без этих свойств игра не меняется.
+- For port checks: the hand trace scenario (`-Dntmgunfeel.scenario=arms`
+  together with `-Dntmgunfeel.trace`) plays a gun on the client frame by frame
+  with a fixed step: draw, idle, a turn of the view, aiming, a shot, a burst, a
+  reload and an inspect. Two runs give the same trace of hands, sway and
+  recoil. Without these properties the game does not change.
 
 ## X374
 
-- Отдача теперь насовсем поднимает прицел: после выстрела он остаётся выше,
-  очередь уводит его вверх, и мышь нужно вести вниз. Остающаяся часть приходит
-  вместе с рывком камеры, возвращается только остальное; упор ±90° работает как
-  раньше.
-- У автоматического оружия прицел за очередь ещё и уходит вбок: несколько
-  выстрелов в одну сторону, потом может повернуть. Подъём и увод набирают силу
-  за первые выстрелы очереди, у пулемётов дольше всего.
-- Настройки ружья: `cameraClimb` — доля вертикального рывка камеры, которая
-  остаётся (от 0 до 1); `cameraClimbDeg` — сколько градусов остаётся вверх
-  за выстрел; `cameraDriftDeg` — сколько градусов вбок; `cameraClimbRamp` —
-  за сколько выстрелов очереди они вырастают до полной силы. `cameraClimbDeg`
-  нужен ружьям, у которых отдача NTM бьёт то вверх, то вниз: G3, AM180, Bolter,
-  M2, миниганы, Sexy и Heretic. Всё это есть в редакторе ружья в строках
-  «камера: …»; нули возвращают прежнее поведение.
-- Подъём выставлен у ружей с отдачей: у пистолетов, револьверов и дробовиков он
-  небольшой, у пистолетов-пулемётов, автоматов и пулемётов набирается
-  за очередь. У энергетического оружия, огнемётов и большинства гранатомётов
-  подъёма нет.
+- Recoil now raises the aim for good: after a shot it stays higher, a burst
+  takes it up, and you have to move the mouse down. The part that stays comes
+  with the camera's kick, and only the rest returns; the ±90° stop works as
+  before.
+- With automatic weapons the aim also drifts to the side over a burst: several
+  shots to one side, then it may turn. The climb and the drift gain strength
+  over the first shots of a burst, longest on machine guns.
+- Gun settings: `cameraClimb` is the share of the vertical camera kick that
+  stays (from 0 to 1); `cameraClimbDeg` is how many degrees stay upward per
+  shot; `cameraDriftDeg` is how many degrees to the side; `cameraClimbRamp` is
+  over how many shots of a burst they grow to full strength. `cameraClimbDeg`
+  is needed by guns whose NTM recoil hits sometimes up and sometimes down: G3,
+  AM180, Bolter, M2, miniguns, Sexy and Heretic. All of this is in the gun
+  editor in the lines "camera: …"; zeros bring back the old behaviour.
+- The climb is set for guns with recoil: for pistols, revolvers and shotguns it
+  is small, and for submachine guns, rifles and machine guns it builds up over
+  a burst. Energy weapons, flamethrowers and most grenade launchers have no
+  climb.
 
 ## X373
 
-- Случайный вид следов от пуль (размер, поворот, рисунок) и случайные
-  отклонения отдачи модели и камеры берутся из одного сида, у каждого выстрела
-  свой поток. Распределения прежние. С одинаковым сидом
-  (`-Dntmgunfeel.seed=<число>`) следы и отдача повторяются от запуска
-  к запуску; без него сид новый при каждом запуске, как раньше.
-- Износ блока от пуль на сервере забывается через 400 тиков (20 с при 20 TPS),
-  а не через 20 с настоящего времени: на паузе и при замедленных тиках трещины
-  больше не пропадают раньше срока.
-- Для проверки портов: `-Dntmgunfeel.trace` пишет трассу прогона (события пуль,
-  следов, отдачи, рук и покачивания с точными числами и игровым временем),
-  `tools/trace_diff.py` сравнивает две трассы. По умолчанию выключено и на игру
-  не влияет.
+- The random look of bullet marks (size, rotation, pattern) and the random
+  deviations of the model's and camera's recoil are taken from one seed, and
+  each shot has its own stream. The distributions are the same. With the same
+  seed (`-Dntmgunfeel.seed=<number>`) marks and recoil repeat from run to run;
+  without it the seed is new at every launch, as before.
+- A block's wear from bullets on the server is forgotten after 400 ticks (20 s
+  at 20 TPS), not after 20 s of real time: on pause and with slowed ticks the
+  cracks no longer vanish before their time.
+- For port checks: `-Dntmgunfeel.trace` writes a trace of the run (events of
+  bullets, marks, recoil, hands and sway with exact numbers and game time), and
+  `tools/trace_diff.py` compares two traces. Off by default and does not affect
+  the game.
 
 ## X372
 
-- Точные хитбоксы мобов меньше нагружают игру и без F3+B: состав частей модели
-  больше не перебирается каждый кадр, а проверки поз почти не выделяют память.
-  На 64 мобах мод отнимает 0,17 мс кадра вместо 0,43 мс.
-- F3+B: обводки всех мобов рисуются одним вызовом. Новый контур анимированного
-  моба достраивается в фоне, а пока он не готов, виден прежний, поэтому обводка
-  конечностей может отставать на кадр. На 64 мобах FPS с F3+B вырос примерно
-  в полтора раза.
-- Дырки от пуль стоят меньше, когда их тысячи: дырка на движущейся части машины
-  не ищет её положение заново, пока часть не сдвинулась, а запечённые дырки
-  не перебираются второй раз за кадр. С 13 тысячами дырок кадр стал короче
-  примерно на 10%.
+- Exact mob hitboxes load the game less, even without F3+B: the set of model
+  parts is no longer walked every frame, and the pose checks hardly allocate
+  memory. With 64 mobs the mod takes 0.17 ms of a frame instead of 0.43 ms.
+- F3+B: the outlines of all mobs are drawn in one call. The new outline of an
+  animated mob is finished in the background, and until it is ready the
+  previous one is shown, so the outline of limbs may lag by a frame. With 64
+  mobs the FPS with F3+B grew about one and a half times.
+- Bullet holes cost less when there are thousands: a hole on a moving part of a
+  machine does not look for its position again until the part has moved, and
+  baked holes are not walked a second time per frame. With 13 thousand holes
+  the frame became about 10% shorter.
 
 ## X371
 
-- F3+B меньше нагружает игру при большом количестве мобов. Обводки моделей
-  кэшируются, а не строятся заново каждый кадр, и рисуются одним проходом.
-- Контуры анимированных мобов строятся быстрее и параллельно; вид обводки
-  не изменился.
-- Трещины железного голема больше не получают отдельные линии хитбокса
-  и не добавляют частей в форму попаданий.
+- F3+B loads the game less with a large number of mobs. Model outlines are
+  cached, not rebuilt every frame, and are drawn in one pass.
+- The outlines of animated mobs are built faster and in parallel; the look of
+  the outline did not change.
+- The cracks of an iron golem no longer get separate hitbox lines and do not
+  add parts to the hit shape.
 
 ## X369
 
-- Добавлено движение левой руки при осмотре G3: она вынимает магазин,
-  подбрасывает, ловит и вставляет его обратно.
-- Момент отпускания магазина настраивается в редакторе движений рук: от 350
-  до 1000 мс, по умолчанию 550. Звуки и длительность осмотра следуют за ним.
+- Added a left hand movement for the G3 inspect: it takes the magazine out,
+  tosses it, catches it and puts it back in.
+- The moment the magazine is let go can be set in the hand movement editor:
+  from 350 to 1000 ms, 550 by default. The sounds and the length of the inspect
+  follow it.
 
 ## X368
 
-- Попадания по движущимся мобам, в том числе в голову и конечности, считаются
-  по позе, которую видел стрелок. Упреждать в пустое место перед быстрым мобом
-  больше не нужно.
-- Трассер обрывается там, где сервер остановил пулю в цели, а следы за этой
-  точкой убираются.
-- ⚠ Ломает совместимость: сетевой протокол повышен до 8. Клиент и сервер
-  необходимо обновить вместе.
+- Hits on moving mobs, including to the head and limbs, are counted by the pose
+  the shooter saw. You no longer need to lead into empty space in front of a
+  fast mob.
+- The tracer ends where the server stopped the bullet in the target, and the
+  marks past that point are removed.
+- ⚠ Breaks compatibility: the network protocol is raised to 8. The client and
+  the server must be updated together.
 
 ## X366
 
-- Исправлены пролёты пуль через видимые участки медных и железных прутьев. Для
-  узких блоков с плоской маской клиент получает точные грани и UV модели; явные
-  правила пути сохраняют приоритет.
-- В мод включены серверные формы всех 288 состояний железных прутьев и восьми
-  медных вариантов, включая соединения и заполнение водой. Проверены попадания
-  в планки и пролёты через пустоты по настоящим моделям.
+- Fixed bullets flying through the visible parts of copper and iron bars. For
+  narrow blocks with a flat mask the client gets the exact faces and UV of the
+  model; explicit path rules keep priority.
+- The mod now includes the server shapes of all 288 states of iron bars and
+  eight copper variants, including connections and water filling. Hits on the
+  slats and flights through the gaps were checked against the real models.
 
 ## X365
 
-- Исправлены дополнительные следы на соседних стойках лесов. След переносится
-  через соединённые грани с развёрткой вокруг общих рёбер; пройденное
-  по поверхности расстояние учитывается в размере следа. Отдельная параллельная
-  грань больше не получает повторный центр текстуры.
-- Расчёт выполняется при создании следа. Для плотных моделей поиск соседних
-  граней использует пространственный индекс; отрисовка готовых следов остаётся
-  в кэше.
+- Fixed extra marks on neighbouring scaffold posts. A mark is carried across
+  connected faces, unfolded around the shared edges; the distance travelled
+  over the surface is counted in the mark's size. A separate parallel face no
+  longer gets a repeated texture centre.
+- The calculation is done when the mark is created. For dense models the search
+  for neighbouring faces uses a spatial index; drawing finished marks stays in
+  the cache.
 
 ## X364
 
-- Исправлена обрезка дырок на плоских сетках и заборах. Запасной путь больше
-  не выбирает обратную грань и не объединяет маски противоположных сторон. Для
-  обычных текстур используется точная сетка пикселей, как в основном пути
-  создания следов.
-- След на вырезанной текстуре виден со стороны соответствующей грани: разные UV
-  двух сторон больше не накладывают посторонний узор. Проверены обычные
-  и взрывные следы на обеих сторонах металлического забора NTM.
+- Fixed the clipping of holes on flat meshes and fences. The fallback path no
+  longer picks the back face and does not merge the masks of opposite sides.
+  For ordinary textures it uses an exact pixel grid, as in the main path of
+  making marks.
+- A mark on a cut-out texture is seen from the side of the matching face: the
+  different UV of the two sides no longer lay a foreign pattern. Ordinary and
+  explosive marks were checked on both sides of NTM's metal fence.
 
 ## X362
 
-- Сохранение форм блоков перенесено с потока отрисовки в фоновый поток.
-- Захват геометрии машин распределён между кадрами для уменьшения зависаний.
+- Saving of block shapes is moved from the render thread to a background
+  thread.
+- The capture of machine geometry is spread across frames to reduce freezes.
 
 ## X361
 
-- Прямой урон взрывных боеприпасов учитывает голову, тело и конечности.
-- Ракеты и 40-мм гранаты используют общую систему следов взрыва.
-- Сетевой протокол повышен до 6: клиент и сервер обновляются вместе.
+- The direct damage of explosive ammo counts the head, body and limbs.
+- Rockets and 40 mm grenades use the shared system of blast marks.
+- The network protocol is raised to 6: the client and the server are updated
+  together.
 
 ## X360
 
-- Исправлено изменение стороны отставания оружия при резком повороте камеры.
+- Fixed the change of the side of the weapon's lag at a sharp turn of the
+  camera.
 
 ## X359
 
-- Отставание оружия при прицеливании и стрельбе от бедра использует расчёт
-  из Superb Warfare. Авторство и условия GPL сохранены в `third-party/`.
+- The weapon's lag when aiming and firing from the hip uses the calculation
+  from Superb Warfare. The authorship and the GPL terms are kept in
+  `third-party/`.
 
 ## X358
 
-- Изменение положения руки, её поворота и контакта сохраняет выбранное время
-  предпросмотра.
+- Changing the hand's position, its rotation and its contact keeps the chosen
+  preview time.
 
 ## X357
 
-- Добавлен выбор ребра кисти для контакта с деталью оружия.
+- Added a choice of the wrist's edge for contact with a weapon part.
 
 ## X356
 
-- Добавлен контакт серединой плоскости кисти.
+- Added contact by the middle of the wrist's plane.
 
 ## X355
 
-- Редактор движений рук использует готовые действия с поправками положения
-  и поворота.
+- The hand movement editor uses ready-made actions with position and rotation
+  corrections.
