@@ -55,6 +55,7 @@ public final class GunFeelMod {
     public void serverStarted(FMLServerStartedEvent event) {
         AmmoCheck.maybeRun(); // dev: a file "ammocheck" in the run folder
         SunBurnCheck.maybeRun(); // dev: a file "sunburncheck" in the run folder
+        SpectatorCheck.maybeRun(); // dev: a file "spectatorcheck" in the run folder
         if (!net.minecraftforge.fml.common.FMLCommonHandler.instance().getMinecraftServerInstance().isDedicatedServer() || !new java.io.File("autostop").exists()) return;
         GunFeel.LOGGER.info("autostop file found: stopping the server");
         net.minecraftforge.fml.common.FMLCommonHandler.instance().getMinecraftServerInstance().initiateShutdown();

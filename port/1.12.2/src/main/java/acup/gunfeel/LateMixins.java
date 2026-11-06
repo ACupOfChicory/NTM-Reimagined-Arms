@@ -20,12 +20,14 @@ public class LateMixins implements IMixinConfigPlugin {
     static final List<String> CLIENT = Arrays.asList("MixinModEventHandlerClient", "MixinItemRenderWeaponBase",
             "MixinHbmAnimations", "MixinWavefrontObject", "MixinVaoModel", "MixinGroupHandle",
             "MixinRenderBulletMK4", "MixinLegoClient", "MixinSmokeNodes",
-            "MixinGunKeysRadial", "MixinGunHud", "MixinHbmAnimationPacket", "MixinG3Inspect", "MixinClock", "MixinAimButton", "MixinClickAim");
+            "MixinGunKeysRadial", "MixinGunHud", "MixinHbmAnimationPacket", "MixinG3Inspect", "MixinClock", "MixinAimButton", "MixinClickAim",
+            "MixinSpectatorKeys", "MixinSpectatorHud");
 
     static final List<String> COMMON = Arrays.asList("MixinAmmoLock", "MixinAmmoLockBelt", "MixinBulletServer",
             "MixinThrowableClip", "ThrowableAccess", "MixinBeamHits", "MixinGunConfigAnims", "MixinHeadDamage",
             "MixinRicochetSound", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinExplosiveDirect",
-            "MixinLegoSpread", "MixinHoldAim", "MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun");
+            "MixinLegoSpread", "MixinHoldAim", "MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun",
+            "MixinSpectatorGun", "MixinSpectatorOldGun");
 
     @Override
     public List<String> getMixins() {

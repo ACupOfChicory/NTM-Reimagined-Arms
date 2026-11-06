@@ -34,6 +34,7 @@ public enum Feature {
     TRACERS("tracers", list("MixinLegoClient", "MixinRenderBulletMK4", "MixinSmokeNodes"), list("Tracers", "TracerNet", "TracerPath")),
     MARESLEG("maresleg", list("MixinGunConfigAnims"), list()),
     SPRINT_FIRE("sprint_fire", list("MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun"), list("SprintFire")),
+    SPECTATOR("spectator", list("MixinSpectatorGun", "MixinSpectatorOldGun", "MixinSpectatorKeys", "MixinSpectatorHud"), list("SpectatorGuns", "SpectatorCheck", "SpectatorScenario")),
     TRACE("trace", list("MixinClock"), list("TraceScenario", "TraceClient", "TraceHooks", "ShootScenario", "LookScenario", "ShapesScenario", "WalkSprintScenario"));
 
     public final String id;

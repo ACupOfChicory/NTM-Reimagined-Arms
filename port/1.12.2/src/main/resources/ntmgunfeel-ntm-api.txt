@@ -359,6 +359,67 @@ RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilHorizontal F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
 RECOIL method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/item/ItemStack;)Z
 RICOCHET_SOUND class com/hbm/entity/projectile/EntityBulletBaseMK4
+SPECTATOR class com/hbm/entity/projectile/EntityBulletBase
+SPECTATOR class com/hbm/entity/projectile/EntityBulletBaseMK4
+SPECTATOR class com/hbm/handler/HbmKeybinds$EnumKeybind
+SPECTATOR class com/hbm/interfaces/IItemHUD
+SPECTATOR class com/hbm/items/weapon/ItemGunBase
+SPECTATOR class com/hbm/items/weapon/sedna/BulletConfig
+SPECTATOR class com/hbm/items/weapon/sedna/ItemGunBaseNT
+SPECTATOR class com/hbm/items/weapon/sedna/mags/IMagazine
+SPECTATOR class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
+SPECTATOR class com/hbm/main/ServerProxy
+SPECTATOR class com/hbm/packet/toserver/GunButtonPacket
+SPECTATOR class com/hbm/packet/toserver/GunButtonPacket$Handler
+SPECTATOR field com/hbm/handler/GunConfiguration ammoCap I
+SPECTATOR field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+SPECTATOR field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+SPECTATOR field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_TERTIARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+SPECTATOR field com/hbm/handler/HbmKeybinds$EnumKeybind RELOAD Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+SPECTATOR field com/hbm/inventory/RecipesCommon$ComparableStack item Lnet/minecraft/item/Item;
+SPECTATOR field com/hbm/inventory/RecipesCommon$ComparableStack meta I
+SPECTATOR field com/hbm/items/ModItems gun_pa_melee Lnet/minecraft/item/Item;
+SPECTATOR field com/hbm/items/ModItems gun_uzi Lnet/minecraft/item/Item;
+SPECTATOR field com/hbm/items/ModItems gun_vortex Lnet/minecraft/item/Item;
+SPECTATOR field com/hbm/items/ModItems ncrpa_boots Lnet/minecraft/item/Item;
+SPECTATOR field com/hbm/items/ModItems ncrpa_helmet Lnet/minecraft/item/Item;
+SPECTATOR field com/hbm/items/ModItems ncrpa_legs Lnet/minecraft/item/Item;
+SPECTATOR field com/hbm/items/ModItems ncrpa_plate Lnet/minecraft/item/Item;
+SPECTATOR field com/hbm/items/weapon/ItemGunBase mainConfig Lcom/hbm/handler/GunConfiguration;
+SPECTATOR field com/hbm/items/weapon/sedna/BulletConfig ammo Lcom/hbm/inventory/RecipesCommon$ComparableStack;
+SPECTATOR field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
+SPECTATOR field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+SPECTATOR field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState RELOADING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+SPECTATOR field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase acceptedBullets Ljava/util/List;
+SPECTATOR method com/hbm/capability/HbmCapability getData (Lnet/minecraft/entity/Entity;)Lcom/hbm/capability/HbmCapability$IHBMData;
+SPECTATOR method com/hbm/capability/HbmCapability$IHBMData getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
+SPECTATOR method com/hbm/handler/HbmKeybindsServer onPressedServer (Lnet/minecraft/entity/player/EntityPlayer;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
+SPECTATOR method com/hbm/inventory/RecipesCommon$ComparableStack toStack ()Lnet/minecraft/item/ItemStack;
+SPECTATOR method com/hbm/items/weapon/ItemGunBase getDelay (Lnet/minecraft/item/ItemStack;)I
+SPECTATOR method com/hbm/items/weapon/ItemGunBase getIsAltDown (Lnet/minecraft/item/ItemStack;)Z
+SPECTATOR method com/hbm/items/weapon/ItemGunBase getIsMouseDown (Lnet/minecraft/item/ItemStack;)Z
+SPECTATOR method com/hbm/items/weapon/ItemGunBase getMag (Lnet/minecraft/item/ItemStack;)I
+SPECTATOR method com/hbm/items/weapon/ItemGunBase setIsAltDown (Lnet/minecraft/item/ItemStack;Z)V
+SPECTATOR method com/hbm/items/weapon/ItemGunBase setIsMouseDown (Lnet/minecraft/item/ItemStack;Z)V
+SPECTATOR method com/hbm/items/weapon/ItemGunBase setMag (Lnet/minecraft/item/ItemStack;I)V
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimary (Lnet/minecraft/item/ItemStack;I)Z
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getReloadKey (Lnet/minecraft/item/ItemStack;I)Z
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getSecondary (Lnet/minecraft/item/ItemStack;I)Z
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT getTertiary (Lnet/minecraft/item/ItemStack;I)Z
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT setPrimary (Lnet/minecraft/item/ItemStack;IZ)V
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT setReloadKey (Lnet/minecraft/item/ItemStack;IZ)V
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT setSecondary (Lnet/minecraft/item/ItemStack;IZ)V
+SPECTATOR method com/hbm/items/weapon/sedna/ItemGunBaseNT setTertiary (Lnet/minecraft/item/ItemStack;IZ)V
+SPECTATOR method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/item/ItemStack;Lnet/minecraft/inventory/IInventory;)I
+SPECTATOR method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getAmount (Lnet/minecraft/item/ItemStack;Lnet/minecraft/inventory/IInventory;)I
+SPECTATOR method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getCapacity (Lnet/minecraft/item/ItemStack;)I
+SPECTATOR method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setAmount (Lnet/minecraft/item/ItemStack;I)V
+SPECTATOR method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setType (Lnet/minecraft/item/ItemStack;Lcom/hbm/items/weapon/sedna/BulletConfig;)V
+SPECTATOR method com/hbm/packet/toserver/GunButtonPacket <init> (ZBLnet/minecraft/util/EnumHand;)V
+SPECTATOR method com/hbm/packet/toserver/GunButtonPacket$Handler <init> ()V
+SPECTATOR method com/hbm/packet/toserver/GunButtonPacket$Handler onMessage (Lcom/hbm/packet/toserver/GunButtonPacket;Lnet/minecraftforge/fml/common/network/simpleimpl/MessageContext;)Lnet/minecraftforge/fml/common/network/simpleimpl/IMessage;
 SPREAD class com/hbm/items/weapon/sedna/BulletConfig
 SPREAD class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 SPREAD class com/hbm/items/weapon/sedna/Receiver
