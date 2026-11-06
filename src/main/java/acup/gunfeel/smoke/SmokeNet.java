@@ -48,7 +48,7 @@ public final class SmokeNet {
         PacketDistributor.sendToPlayersTrackingChunk(level, chunk(c), SmokePayloads.Spawn.of(c));
     }
 
-    static void ended(ServerLevel level, SmokeClouds.Cloud c) {
+    public static void ended(ServerLevel level, SmokeClouds.Cloud c) {
         PacketDistributor.sendToPlayersTrackingChunk(level, chunk(c), new SmokePayloads.End(c.id));
     }
 

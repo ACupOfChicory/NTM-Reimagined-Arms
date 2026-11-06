@@ -233,7 +233,8 @@ public final class Config {
             armAimScaleRight, armAimScaleLeft: thickness of each arm holding the gun when aimed, in place of armScaleRight/Left; it goes over from one to the other as the gun comes up to the sights; 0 = the same as armScaleRight/Left
             smokeQuality: how smoke clouds (TX-54's smoke grenade) are drawn: off (not drawn; inside one the screen still
               goes grey), low, medium, high (the default) or ultra: the volume at a quarter, a third, half or the whole
-              of the screen's resolution, with more steps along each ray the higher it is
+              of the screen's resolution, with more steps along each ray the higher it is; slices: stacks of
+              translucent layers (taken by itself with an Iris shader pack)
             smokeMaxClouds: the nearest clouds drawn at once, 1..16
             smokeDistance: clouds farther than this many blocks are not drawn
             armRollRight, armRollLeft: turn of each arm around its own axis, degrees

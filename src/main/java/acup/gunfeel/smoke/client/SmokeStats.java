@@ -7,11 +7,12 @@ import acup.gunfeel.GunFeel;
 /**
  * Client: where the smoke's time goes, to the log every 5 s while there are clouds ("Smoke cost"): the client tick
  * (simulation and catching up), the atlas built and sent, and per frame the depth copy, the raymarch and the composite
- * (time on the processor to hand them over; the graphics card's own time comes from its timestamps when it has them).
+ * (time on the processor to hand them over), and the graphics card's own time on the march and the composite from its
+ * timestamps.
  */
 public final class SmokeStats {
-    public static final int TICK = 0, ATLAS = 1, COPY = 2, MARCH = 3, COMPOSITE = 4, GPU_MARCH = 5, GPU_ALL = 6;
-    private static final String[] NAMES = {"tick", "atlas", "depth copy", "raymarch", "composite", "card raymarch", "card all"};
+    public static final int TICK = 0, ATLAS = 1, COPY = 2, MARCH = 3, COMPOSITE = 4, GPU_MARCH = 5, SLICES = 6;
+    private static final String[] NAMES = {"tick", "atlas", "depth copy", "raymarch", "composite", "card: march and composite", "slices"};
     private static final long[] NANOS = new long[NAMES.length];
     private static final int[] CALLS = new int[NAMES.length];
     private static long since, frames, ticks;
@@ -23,9 +24,16 @@ public final class SmokeStats {
     private SmokeStats() {
     }
 
+    // never reset: the card's time summed, for the stand to take differences of
+    public static long cardNanos, cardFrames;
+
     public static void add(int part, long nanos) {
         NANOS[part] += nanos;
         CALLS[part]++;
+        if (part == GPU_MARCH) {
+            cardNanos += nanos;
+            cardFrames++;
+        }
     }
 
     static void tick(long nanos) {
@@ -45,7 +53,8 @@ public final class SmokeStats {
         if (clouds > 0) {
             StringBuilder b = new StringBuilder();
             for (int i = 0; i < NAMES.length; i++) {
-                double per = i == TICK || i == ATLAS ? NANOS[i] / 1e6 / Math.max(1, ticks) : NANOS[i] / 1e6 / Math.max(1, frames);
+                // a tick's parts over all ticks, a frame's over the frames that drew clouds
+                double per = i == TICK || i == ATLAS ? NANOS[i] / 1e6 / Math.max(1, ticks) : NANOS[i] / 1e6 / Math.max(1, CALLS[i]);
                 b.append(String.format(Locale.ROOT, "%s %.3f ms%s (%d), ", NAMES[i], per, i == TICK || i == ATLAS ? " a tick" : "", CALLS[i]));
             }
             last = String.format(Locale.ROOT, "%sclouds %d, drawn %d, at the camera %.2f, %d frames (%d fps)", b, clouds, drawn, inside, frames,

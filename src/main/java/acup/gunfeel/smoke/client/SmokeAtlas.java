@@ -43,7 +43,10 @@ public final class SmokeAtlas {
         final int index;
         final byte[] now = new byte[SmokeGrid.CELLS];
         final byte[] light = new byte[SmokeGrid.CELLS];
-        int lastAge = -1, lightAge = -1000;
+        int lastAge = -1, lightLayer;
+        // tile rows (a row a z of the grid, with the border) of the box last tick and the tick before: a row the cloud
+        // left is sent twice more, its "now" and then its "a tick ago" emptied
+        int rowLo = 0, rowHi = TILE_H - 1, boxLo = 0, boxHi = TILE_H - 1;
         SmokeClouds.Cloud cloud;
 
         Slot(int index) {
@@ -141,14 +144,23 @@ public final class SmokeAtlas {
             }
             DRAWN.add(s);
             if (s.lastAge == c.grid.age()) continue;
-            if (c.grid.age() - s.lightAge >= 10 || s.lightAge > c.grid.age()) {
-                light(s, c);
-                s.lightAge = c.grid.age();
-            }
-            fill(s, c, s.lastAge < 0);
+            boolean first = s.lastAge < 0;
+            // the light: at first the origin's for every cell, then a layer of the box every 4th tick (light changes
+            // slowly, and the client's light lookups are what this costs most)
+            if (first) seedLight(s, c);
+            if (first || (c.grid.age() + s.index) % 4 == 0) light(s, c, s.lightLayer++);
+            // only the rows the cloud is in now or was in last time: the rest stay empty in the texture
+            int[] box = c.grid.box();
+            int lo = first ? 0 : Math.min(s.rowLo, box[2]), hi = first ? TILE_H - 1 : Math.max(s.rowHi, Math.min(TILE_H - 1, box[5] + 2));
+            fill(s, c, first, lo, hi);
             s.lastAge = c.grid.age();
-            upload.clear();
-            encoder.writeToTexture(texture, upload, 0, 0, 0, s.index * TILE_H, WIDTH, TILE_H);
+            int bl = box[2], bh = Math.min(TILE_H - 1, box[5] + 2);
+            s.rowLo = Math.min(bl, s.boxLo);
+            s.rowHi = Math.max(bh, s.boxHi);
+            s.boxLo = bl;
+            s.boxHi = bh;
+            upload.position(lo * WIDTH * 4).limit((hi + 1) * WIDTH * 4);
+            encoder.writeToTexture(texture, upload, 0, 0, 0, s.index * TILE_H + lo, WIDTH, hi - lo + 1);
         }
         SmokeStats.add(SmokeStats.ATLAS, System.nanoTime() - t0);
     }
@@ -160,24 +172,35 @@ public final class SmokeAtlas {
         return cam.distanceTo(new Vec3(x, y, z));
     }
 
-    // how lit each cell of the box (and one around) is
-    private static void light(Slot s, SmokeClouds.Cloud c) {
+    // every cell as lit as the cloud's origin, until its layer is looked up
+    private static void seedLight(Slot s, SmokeClouds.Cloud c) {
+        byte v = (byte) Math.round(SmokeLight.brightness(Minecraft.getInstance().level, c.origin) * 255F);
+        java.util.Arrays.fill(s.light, v);
+    }
+
+    // how lit one layer of the box (and one cell around it) is; the layers counted round the box
+    private static void light(Slot s, SmokeClouds.Cloud c, int layer) {
         var level = Minecraft.getInstance().level;
         int[] b = c.grid.box();
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
-        for (int y = Math.max(0, b[1] - 1); y <= Math.min(SmokeGrid.SY - 1, b[4] + 1); y++)
-            for (int z = Math.max(0, b[2] - 1); z <= Math.min(SmokeGrid.SZ - 1, b[5] + 1); z++)
-                for (int x = Math.max(0, b[0] - 1); x <= Math.min(SmokeGrid.SX - 1, b[3] + 1); x++) {
+        int y0 = Math.max(0, b[1] - 1), y1 = Math.min(SmokeGrid.SY - 1, b[4] + 1);
+        int z0 = Math.max(0, b[2] - 1), z1 = Math.min(SmokeGrid.SZ - 1, b[5] + 1);
+        int x0 = Math.max(0, b[0] - 1), x1 = Math.min(SmokeGrid.SX - 1, b[3] + 1);
+        y0 = y1 = y0 + Math.floorMod(layer, y1 - y0 + 1);
+        for (int y = y0; y <= y1; y++)
+            for (int z = z0; z <= z1; z++)
+                for (int x = x0; x <= x1; x++) {
                     p.set(c.baseX() + x, c.baseY() + y, c.baseZ() + z);
                     s.light[SmokeGrid.index(x, y, z)] = (byte) Math.round(SmokeLight.brightness(level, p) * 255F);
                 }
     }
 
     // the slot's texels into the upload buffer: the old "now" becomes "a tick ago"
-    private static void fill(Slot s, SmokeClouds.Cloud c, boolean first) {
+    private static void fill(Slot s, SmokeClouds.Cloud c, boolean first, int lo, int hi) {
         SmokeGrid g = c.grid;
         ByteBuffer out = upload;
-        for (int ty = 0; ty < TILE_H; ty++) {
+        out.clear();
+        for (int ty = lo; ty <= hi; ty++) {
             int z = ty - 1;
             for (int y = 0; y < SmokeGrid.SY; y++) {
                 for (int tx = 0; tx < TILE_W; tx++) {
@@ -195,7 +218,6 @@ public final class SmokeAtlas {
                 }
             }
         }
-        out.position(0).limit(SLOT_BYTES);
     }
 
     public static void close() {

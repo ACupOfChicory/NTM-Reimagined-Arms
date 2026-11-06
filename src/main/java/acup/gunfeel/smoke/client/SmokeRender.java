@@ -103,10 +103,11 @@ public final class SmokeRender {
         });
     }
 
-    /** Quality: 0 off, 1 low, 2 medium, 3 high, 4 ultra. */
+    /** Quality: 0 off, 1 low, 2 medium, 3 high, 4 ultra; {@code slices} counts as low. */
     static int quality() {
         return switch (Config.smokeQuality) {
             case "off" -> 0;
+            case "slices" -> 1;
             case "low" -> 1;
             case "medium" -> 2;
             case "ultra" -> 4;
@@ -142,9 +143,14 @@ public final class SmokeRender {
         };
     }
 
-    /** Whether the volume is drawn at all: smokeQuality not off, no shader pack in use, the pass did not fail. */
+    /** Whether the volume is marched: smokeQuality not off or slices, no shader pack in use, the pass did not fail. */
     public static boolean wanted() {
-        return quality() > 0 && !failed && !irisPack();
+        return quality() > 0 && !failed && !irisPack() && !"slices".equals(Config.smokeQuality);
+    }
+
+    /** Whether the clouds are drawn as slices ({@link SmokeSlices}) instead: asked for, or the march cannot be used. */
+    public static boolean slicesWanted() {
+        return quality() > 0 && ("slices".equals(Config.smokeQuality) || failed || irisPack());
     }
 
     /** Whether a cloud's volume was drawn in the last frame (else the screen layer stands in when inside). */
@@ -247,6 +253,7 @@ public final class SmokeRender {
             var device = RenderSystem.getDevice();
             var sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
             var nearest = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST);
+            int pair = stampStart(device);
             long tm = System.nanoTime();
             try (RenderPass pass = device.createCommandEncoder().createRenderPass(() -> "Smoke march", targetView, Optional.of(new Vector4f(0F, 0F, 0F, 0F)),
                     null, OptionalDouble.empty())) {
@@ -266,10 +273,40 @@ public final class SmokeRender {
                 pass.draw(3, 1, 0, 0);
             }
             SmokeStats.add(SmokeStats.COMPOSITE, System.nanoTime() - tc);
+            if (pair >= 0) device.createCommandEncoder().writeTimestamp(timer, pair + 1);
             ubo.rotate();
             drawnLast = order.size();
         } catch (RuntimeException ex) {
             fail("raymarch", ex);
+        }
+    }
+
+    // the card's own time on the march and the composite: two timestamps a frame in a ring of 8 frames, a pair read
+    // back the next time round (by then the card is long done with it)
+    private static final int TIMER_FRAMES = 8;
+    private static com.mojang.blaze3d.systems.GpuQueryPool timer;
+    private static final boolean[] stamped = new boolean[TIMER_FRAMES];
+    private static int timerFrame;
+    private static boolean timerOff;
+
+    private static int stampStart(com.mojang.blaze3d.systems.GpuDevice device) {
+        if (timerOff) return -1;
+        try {
+            if (timer == null) timer = device.createTimestampQueryPool(TIMER_FRAMES * 2);
+            int f = timerFrame++ % TIMER_FRAMES;
+            if (stamped[f]) {
+                var v = timer.getValues(f * 2, 2);
+                // in the card's ticks: nanoseconds on OpenGL, timestampPeriod of them on Vulkan (as TimerQuery takes them)
+                if (v[0].isPresent() && v[1].isPresent())
+                    SmokeStats.add(SmokeStats.GPU_MARCH, (long) ((v[1].getAsLong() - v[0].getAsLong()) * (double) device.getDeviceInfo().timestampPeriod()));
+            }
+            device.createCommandEncoder().writeTimestamp(timer, f * 2);
+            stamped[f] = true;
+            return f * 2;
+        } catch (RuntimeException ex) {
+            GunFeel.LOGGER.info("Smoke: no timestamps on this card ({}), its own time is not measured", ex.toString());
+            timerOff = true;
+            return -1;
         }
     }
 
@@ -302,6 +339,6 @@ public final class SmokeRender {
     /** Once a frame, after the level: the stats. */
     public static void frame() {
         SmokeClouds all = SmokeClient.current();
-        SmokeStats.frame(all == null ? 0 : all.clouds().size(), drawnLast, SmokeFog.atCamera());
+        SmokeStats.frame(all == null ? 0 : all.clouds().size(), Math.max(drawnLast, SmokeSlices.drawnLast()), SmokeFog.atCamera());
     }
 }

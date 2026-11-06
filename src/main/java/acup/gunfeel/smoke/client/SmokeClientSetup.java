@@ -41,6 +41,7 @@ public final class SmokeClientSetup {
         NeoForge.EVENT_BUS.addListener(RenderLevelStageEvent.AfterOpaqueFeatures.class, SmokeRender::afterOpaque);
         NeoForge.EVENT_BUS.addListener(RenderLevelStageEvent.AfterTranslucentParticles.class, SmokeRender::afterTranslucent);
         NeoForge.EVENT_BUS.addListener(RenderLevelStageEvent.AfterLevel.class, e -> SmokeRender.frame());
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent.class, SmokeSlices::submit);
     }
 
     public static void payloads(PayloadRegistrar r) {
