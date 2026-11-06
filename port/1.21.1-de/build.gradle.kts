@@ -163,12 +163,12 @@ neoForge {
             systemProperty("ntmgunfeel.shapesFallback", providers.gradleProperty("shapesFallback").isPresent.toString())
             if (providers.gradleProperty("shapesFallback").isPresent) systemProperty("ntmgunfeel.shapesSkip", "hbm:machine_chemical_factory")
             // -PcheckMobs: the root's checkMobs in the smoke world (MobSmoke, without its review), with -PmobCases=a,b
-            // and -PmobHealth as there; -PcheckHeads, -PcheckLimbs, -PcheckExplosives and -PcheckHeadBindings run the
+            // and -PmobHealth as there; -PcheckHeads, -PcheckLimbs, -PcheckExplosives, -PcheckNpcShots and -PcheckHeadBindings run the
             // root's damage checks on each mob (HeadSmoke, ExplosiveSmoke); -PcheckTurn, as the root's, a pose kept from
             // before a turn on the server against the pose the player sees after it
             if (providers.gradleProperty("checkMobs").isPresent) {
                 systemProperty("ntmgunfeel.checkMobs", "true")
-                for (check in listOf("checkHeads", "checkLimbs", "checkExplosives", "checkHeadBindings", "checkTurn"))
+                for (check in listOf("checkHeads", "checkLimbs", "checkExplosives", "checkNpcShots", "checkHeadBindings", "checkTurn"))
                     systemProperty("ntmgunfeel.$check", providers.gradleProperty(check).isPresent.toString())
                 providers.gradleProperty("mobCases").orNull?.let { systemProperty("ntmgunfeel.mobCases", it) }
                 providers.gradleProperty("mobHealth").orNull?.let { systemProperty("ntmgunfeel.mobHealth", it) }
