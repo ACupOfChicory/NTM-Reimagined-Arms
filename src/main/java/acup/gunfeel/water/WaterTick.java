@@ -136,6 +136,7 @@ public final class WaterTick {
             if (w.gunfeel$waterStopped() && !bullet.isRemoved()) sink(bullet);
             return;
         }
+        w.gunfeel$waterMet(true);
         Level level = bullet.level();
         boolean server = !level.isClientSide();
         double f0 = r.startF();

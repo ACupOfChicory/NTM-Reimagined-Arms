@@ -1,5 +1,12 @@
 # Changelog
 
+## X513
+
+- Explosive pellets of one shot (12 and 10 gauge HE) no longer set each other
+  off, in the air or in water. In the air bullets pass each other as in NTM:
+  an explosive goes off at the touch of another bullet only when both have
+  been through water on their way or sink in it.
+
 ## X510
 
 - The arms holding a gun now wear what the player wears on the arms seen from
@@ -55,9 +62,9 @@
   off at the next thing they touch. Fired under water they fly, slow down like
   any bullet and go off on a block or a mob. One that water stopped sinks at
   most a block a second and goes off where it lands or on NTM's timer.
-- An explosive round goes off at the first touch of anything, another bullet or
-  a sinking explosive included; only pellets of one shot leave each other
-  alone.
+- In water an explosive round goes off at the first touch of anything, another
+  bullet or a sinking explosive included; only pellets of one shot leave each
+  other alone. In the air bullets do not touch each other.
 - A blast with its centre in water reaches 1.5 times as far for mobs in the
   water, and a mob above it takes half. Blocks break as before.
 - Under water an incendiary 75 bolt gives a weak blast, about a quarter of the

@@ -241,6 +241,7 @@ CORE field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/
 CORE field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
 CORE field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 CORE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
+CORE field com/hbm/items/weapon/sedna/BulletConfig spread F
 CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
 CORE field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
@@ -253,6 +254,7 @@ CORE method com/hbm/blocks/multiblock/MultiblockSurface rigidStructureBlocks (Ln
 CORE method com/hbm/client/Keybinds isGunHeld ()Z
 CORE method com/hbm/client/Keybinds isGunKey (Lnet/minecraft/client/KeyMapping;)Z
 CORE method com/hbm/entity/effect/EntityFireLingering discard ()V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/items/weapon/sedna/BulletConfig;FFDDD)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getBoundingBox ()Lnet/minecraft/world/phys/AABB;
