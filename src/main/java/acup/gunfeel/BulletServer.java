@@ -60,7 +60,7 @@ public final class BulletServer {
         if (state.isAir()) return 0;
         BulletRules.Break rule = BulletRules.breakRule(state);
         if (rule == null || rule.mode() == 0) return 0;
-        if (!wear(level, bullet, pos, state, rule)) return 0;
+        if (!wear(level, bullet, pos, state, rule, acup.gunfeel.water.WaterTick.k(bullet, hit.getLocation()))) return 0;
         if (TestLog.server) TestLog.s(bullet.getId(), "end", "by", rule.pass() ? "broke_pass" : "broke", "block", state, "pos", pos, "at", hit.getLocation());
         return rule.pass() ? 2 : 1;
     }
@@ -98,7 +98,7 @@ public final class BulletServer {
         if (TestLog.server) TestLog.s(bullet.getId(), "through", "block", state, "pos", pos, "at", hit.getLocation());
         BulletRules.Break rule = BulletRules.breakRule(state);
         if (rule == null || rule.mode() == 0) return;
-        wear(level, bullet, pos, state, rule);
+        wear(level, bullet, pos, state, rule, acup.gunfeel.water.WaterTick.k(bullet, hit.getLocation()));
     }
 
     // the bullet's path this tick through blocks, piercing them while it has the damage (PassableClip.pierced):
@@ -124,7 +124,10 @@ public final class BulletServer {
             BlockHitResult out = PassableClip.exit(level, hit, dir);
             if (out == null) return stop(bullet, level, hit, "no_exit", Float.NaN);
             double spentBefore = steps.penetration.spent();
-            float left = known ? bullet.damage : PassableClip.pierced(level, hit, out, bullet.damage, bullet.config, steps.penetration);
+            // behind water it has f² of the damage (WaterTick.k), kept in the tick's units
+            float k = acup.gunfeel.water.WaterTick.k(bullet, hit.getLocation());
+            float left = known ? bullet.damage : k == 1F ? PassableClip.pierced(level, hit, out, bullet.damage, bullet.config, steps.penetration)
+                    : k <= 0F ? -1F : PassableClip.pierced(level, hit, out, bullet.damage * k, bullet.config, steps.penetration) / k;
             if (left < 0F) return stop(bullet, level, hit, "held", (float) hit.getLocation().distanceTo(out.getLocation()));
             if (TestLog.server && !known) TestLog.s(bullet.getId(), "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation(),
                     "material", TestLog.material(level, hit), "result", "pierce", "damage", bullet.damage, "left", left,
@@ -134,7 +137,7 @@ public final class BulletServer {
                 if (level instanceof ServerLevel server) {
                     BlockState state = level.getBlockState(pos);
                     BulletRules.Break rule = BulletRules.breakRule(state);
-                    if (rule != null && rule.mode() != 0) wear(server, bullet, pos, state, rule);
+                    if (rule != null && rule.mode() != 0) wear(server, bullet, pos, state, rule, k);
                 }
                 steps.pierced(hit, out, bullet.damage, spentBefore);
                 bullet.damage = left;
@@ -166,7 +169,9 @@ public final class BulletServer {
     }
 
     // one hit on the block by its rule: true when it broke
-    private static boolean wear(ServerLevel level, EntityBulletBaseMK4 bullet, BlockPos pos, BlockState state, BulletRules.Break rule) {
+    // k: the share of the bullet's damage left there (water, WaterTick.k)
+    private static boolean wear(ServerLevel level, EntityBulletBaseMK4 bullet, BlockPos pos, BlockState state, BulletRules.Break rule, float k) {
+        float damage = bullet.damage * k;
         float hardness = state.getDestroySpeed(level, pos);
         if (hardness < 0F) { // bedrock and the like
             worn(bullet, pos, state, "unbreakable");
@@ -185,7 +190,7 @@ public final class BulletServer {
             return false;
         }
         // too weak to harm it
-        if (rule.min() > 0F && !(bullet.damage > rule.min())) {
+        if (rule.min() > 0F && !(damage > rule.min())) {
             worn(bullet, pos, state, "too_weak", "min", rule.min());
             return false;
         }
@@ -195,7 +200,7 @@ public final class BulletServer {
             Spot spot = new Spot(level, pos);
             Wear w = WEAR.get(spot);
             if (w != null && w.state().getBlock() != state.getBlock()) w = null;
-            float add = rule.mode() == 2 ? 1F : Math.max(0F, bullet.damage - rule.min());
+            float add = rule.mode() == 2 ? 1F : Math.max(0F, damage - rule.min());
             float need = rule.mode() == 3 ? rule.amount() * hardness : rule.amount();
             float done = (w == null ? 0F : w.done()) + add;
             if (need > 0F && done < need) {

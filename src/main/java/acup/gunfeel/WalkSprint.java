@@ -407,6 +407,15 @@ public final class WalkSprint {
         pose.translate(-px, -py, -pz);
     }
 
+    // the bounds of a measure that is not taken: NTM's longest gun, the Stinger, is 30.4 long in this space and its
+    // middle 7.6 to 9.7 from the eye (the Panzerschreck 16.7 and 2.9, a G3 9.4 and 2.6); a gun not measured does not
+    // bob at all. They only keep out a broken matrix
+    static final float MAX_LENGTH = 100F, MAX_MIDDLE = 50F;
+
+    static boolean measurable(float len, Vector3f mid) {
+        return Float.isFinite(len) && len >= 1e-3F && len <= MAX_LENGTH && mid.isFinite() && mid.lengthSquared() <= MAX_MIDDLE * MAX_MIDDLE;
+    }
+
     /** After NTM placed the gun: the gun's middle in the view space before our turn, for the next frame. */
     public static void gunPlaced(Item item) {
         Vector3f hand = new Vector3f();
@@ -426,7 +435,11 @@ public final class WalkSprint {
         inv.transformPosition(front);
         inv.transformPosition(mid);
         float len = back.distance(front);
-        if (!Float.isFinite(len) || len < 1e-3F || len > 10F || mid.lengthSquared() > 25F) return;
+        if (!measurable(len, mid)) {
+            // a gun not measured stays still: say so in a trace
+            if (TestLog.frames()) TestLog.c(-1, "walkSprintSkip", "item", item, "length", len, "middle", mid);
+            return;
+        }
         PIVOT.set(mid);
         length = len;
         measuredItem = item;

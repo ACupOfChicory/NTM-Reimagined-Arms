@@ -89,6 +89,21 @@ public final class Tracers {
         final Materials.Penetration penetration = new Materials.Penetration();
         final java.util.Set<BlockPos> pierced = new java.util.HashSet<>(); // blocks it went through
         int ricochets; // times it bounced off so far (NTM's standard ricochet)
+        // water (acup.gunfeel.water): the speed fraction this piece flies at (v already has it), skips so far, the tick
+        // of the path tested against liquid last, and where water cuts this piece (NaN: nowhere): it stops there, or a
+        // new piece goes on from there (`next`, slower or turned)
+        double waterF = 1;
+        int waterSkips;
+        // how far an expanding bullet has opened (WaterPath.Result.opened)
+        double waterOpened;
+        int waterTick = -1;
+        double waterCut = Double.NaN;
+        acup.gunfeel.water.WaterPath.Result waterPath;
+        // an impact fuze went off on the water's surface (waterFuze): the shot ends at waterCut
+        boolean waterFuzed;
+        Shot waterNext;
+        // its water events for the effects, each with the tick it happens at, handed over as the head passes it
+        java.util.ArrayList<Object[]> waterFx;
 
         Shot(ShotPayload p, BulletConfig config, int[] colors) {
             this.id = p.id();
@@ -126,6 +141,33 @@ public final class Tracers {
             this.ricochets = from.ricochets + 1;
             this.whizzed = from.whizzed;
             this.checked = 1e-4; // not at the very face it left
+            this.waterF = from.waterF;
+            this.waterSkips = from.waterSkips;
+            this.waterOpened = from.waterOpened;
+        }
+
+        // the same bullet after water slowed or turned it: from `start` with `v` (its new speed in it), f, skips
+        Shot(Shot from, Vec3 start, Vec3 v, double born, long lifeTicks, double f, int skips, float damage) {
+            this.id = from.id;
+            this.config = from.config;
+            this.owner = from.owner;
+            this.start = start;
+            this.v = v;
+            this.g = from.g;
+            this.speed = Math.max(v.length(), 1e-3);
+            this.dark = from.dark;
+            this.light = from.light;
+            this.lifeTicks = lifeTicks;
+            this.damage = damage;
+            this.penetration.restore(from.penetration.spent());
+            this.born = born;
+            this.rootBorn = from.rootBorn;
+            this.pierced.addAll(from.pierced);
+            this.ricochets = from.ricochets;
+            this.whizzed = from.whizzed;
+            this.waterF = f;
+            this.waterSkips = skips;
+            this.waterOpened = from.waterPath != null ? from.waterPath.opened : from.waterOpened;
         }
 
         // where the bullet is after t ticks (as the server moves it), plus the muzzle offset fading out
@@ -385,6 +427,12 @@ public final class Tracers {
     // with their own field of view (70, or NTM's model FOV), the world with the player's (zoomed while aiming): the
     // muzzle is moved to where it shows on screen in the world's view.
     public static void muzzle(PoseStack pose) {
+        MUZZLE.set(view(pose));
+        muzzleTime = GunClock.nanos();
+    }
+
+    // the pose's origin while the hands are drawn, in the world's view space (see muzzle)
+    public static Vector3f view(PoseStack pose) {
         Vector3f p = pose.last().pose().transformPosition(0F, 0F, 0F, new Vector3f());
         Matrix4f view = new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getModelViewStack());
         view.transformPosition(p);
@@ -395,8 +443,7 @@ public final class Tracers {
             p.x *= k;
             p.y *= k;
         }
-        MUZZLE.set(p);
-        muzzleTime = GunClock.nanos();
+        return p;
     }
 
     private static java.lang.reflect.Field hudFovField;
@@ -486,6 +533,9 @@ public final class Tracers {
                 GunFeel.LOGGER.debug("tracer muzzle view {} start view {} fov {} hud {} offset {}", MUZZLE, st, camera.getFov(), hudFov(camera), s.muzzleOffset);
             }
         }
+        acup.gunfeel.water.WaterFx.traced(p.id());
+        // under water: a gas bubble at the muzzle, no flash
+        if (mc.level != null) acup.gunfeel.water.WaterFx.fired(mc.level, s.start.add(s.muzzleOffset), s.v, config);
         // fired from a gun (not spawned somewhere else): the path is tested from the shooter's eyes, as on the
         // server, so a wall right in front of the muzzle still gets its hole
         // the server's own start point (its eyes; this client's eyes of the shooter may be off by centimetres, enough to
@@ -517,7 +567,7 @@ public final class Tracers {
         int n = HOLES.size() + PENDING.size();
         HOLES.clear();
         PENDING.clear();
-        for (Batch b : BATCHES) if (b.vb != null) b.vb.close();
+        for (Batch b : BATCHES) b.close();
         BATCHES.clear();
         OPEN.clear();
         return n;
@@ -529,7 +579,7 @@ public final class Tracers {
         RECENT_SHOTS.clear();
         HOLES.clear();
         PENDING.clear();
-        for (Batch b : BATCHES) if (b.vb != null) b.vb.close();
+        for (Batch b : BATCHES) b.close();
         BATCHES.clear();
         OPEN.clear();
         RenderedMesh.clear();
@@ -562,6 +612,7 @@ public final class Tracers {
             long pf = Perf.start();
             fly(s, level, Math.min(t, s.lifeTicks));
             Perf.add(Perf.FLY, pf);
+            if (s.waterFx != null) waterFx(s, level, t);
             var segment = BulletClock.segment(t, s.end, s.lifeTicks, Math.max(Config.tracerLength / s.speed, frameTicks * 1.5));
             double head = segment.head(), tail = segment.tail();
             boolean expired = segment.expired();
@@ -571,6 +622,14 @@ public final class Tracers {
                 s.gone = true;
                 it.remove();
                 continue;
+            }
+            // in water: the round itself, seen (water effects)
+            if (Double.isNaN(s.end) || head < s.end - 1e-6) {
+                Vec3 at = s.at(head);
+                double wf = s.waterPath != null ? s.waterPath.fAt(at) : s.waterF;
+                Vec3 vel = new Vec3(s.v.x, s.v.y - s.g * head, s.v.z);
+                double k = s.waterF > 0 ? wf / s.waterF : 1;
+                acup.gunfeel.water.SunkBullets.flying(level, s.config, at, vel, wf, vel.length() * k);
             }
             if (!Config.tracers || !segment.visible()) continue;
             Vec3 h = s.at(head).subtract(cam), b = s.at(tail).subtract(cam);
@@ -595,6 +654,18 @@ public final class Tracers {
         Perf.frame(SHOTS.size(), HOLES.size());
     }
 
+    // the shot's water events up to t (and not past where it hit something), to the effects
+    private static void waterFx(Shot s, ClientLevel level, double t) {
+        double upTo = Double.isNaN(s.end) ? t : Math.min(t, s.end);
+        var it = s.waterFx.iterator();
+        while (it.hasNext()) {
+            Object[] q = it.next();
+            if ((double) q[0] > upTo + 1e-9) continue;
+            it.remove();
+            acup.gunfeel.water.WaterFx.tracerEvent(level, (acup.gunfeel.water.WaterEvents.Event) q[1], s.config);
+        }
+    }
+
     // the point of the tested path at t ticks. The first tick runs straight from the shooter's eyes to where the
     // bullet is after it, as the server tests it (a bend at the muzzle would cut corners the server's bullet passes)
     private static Vec3 tested(Shot s, double t) {
@@ -604,13 +675,26 @@ public final class Tracers {
         return s.eye.add(one.subtract(s.eye).scale(t));
     }
 
-    // test the bullet's path up to t ticks against blocks and entities; stops it at the first thing it meets
+    // test the bullet's path up to t ticks against blocks and entities; stops it at the first thing it meets. A tick
+    // at a time, as the server moves it: water changes the speed only at a tick's end (a slow frame spans several)
     private static void fly(Shot s, ClientLevel level, double t) {
+        for (int i = 0; i < 64 && Double.isNaN(s.end) && s.checked < t; i++) {
+            double before = s.checked;
+            flyStep(s, level, Math.min(t, Math.floor(s.checked + 1e-9) + 1));
+            if (s.checked <= before) break;
+        }
+    }
+
+    private static void flyStep(Shot s, ClientLevel level, double t) {
         // a trace: the path is tested a whole tick at a time, as the server moves the bullet, and up to the whole tick
         // past the server's stop, so where it meets a block hangs neither on the frames nor on when the stop came
         if (Trace.ON) t = Double.isNaN(s.confirmedEnd) ? Math.floor(t) : Math.min(Math.floor(t), Math.ceil(s.confirmedEnd));
         else if(!Double.isNaN(s.confirmedEnd))t=Math.min(t,s.confirmedEnd);
         if (!Double.isNaN(s.end) || t <= s.checked) return;
+        // water: not past where it cuts this piece
+        water(s, level);
+        if (!Double.isNaN(s.waterCut)) t = Math.min(t, s.waterCut);
+        if (t <= s.checked) return;
         TestLog.shot(s.id);
         // the real path, without the muzzle offset, decides what is hit
         Vec3 ra = tested(s, s.checked), rb = tested(s, t);
@@ -646,7 +730,11 @@ public final class Tracers {
                 logStop(s, level, block, "no_exit", Float.NaN);
                 break;
             }
-            float left = known ? s.damage : PassableClip.pierced(level, block, out, s.damage, s.config, s.penetration);
+            // behind water f² of the damage, as the server has it (WaterTick.k)
+            float wk = waterK(s, block.getLocation());
+            float left = known ? s.damage : wk == 1F ? PassableClip.pierced(level, block, out, s.damage, s.config, s.penetration)
+                    : wk <= 0F ? -1F : PassableClip.pierced(level, block, out, s.damage * wk, s.config, s.penetration) / wk;
+            waterHole = waterHole(s, block.getLocation());
             if (left < 0F) {
                 logStop(s, level, block, "held", (float) block.getLocation().distanceTo(out.getLocation()));
                 break;
@@ -672,6 +760,7 @@ public final class Tracers {
             block = PassableClip.clip(level, at, rb, through::add);
         }
         double reach = block.getType() == HitResult.Type.MISS ? rb.distanceTo(ra) : block.getLocation().distanceTo(ra);
+        if (block.getType() != HitResult.Type.MISS) waterHole = waterHole(s, block.getLocation());
         if (!Double.isNaN(hitEntity) && hitEntity >= reach) hitEntity = Double.NaN;
         Vec3 stop = rb;
         if (!Double.isNaN(hitEntity)) {
@@ -681,6 +770,14 @@ public final class Tracers {
         } else if (block.getType() != HitResult.Type.MISS) {
             s.end = s.checked + (t - s.checked) * (len > 1e-6 ? reach / len : 0.0);
             stop = block.getLocation();
+            // through shallow water into the bottom: its crumbs (WaterTick.blocks has it for the bullet)
+            if (s.waterPath != null) {
+                var bottom = s.waterPath.bottom(stop, block.getDirection());
+                if (bottom != null) {
+                    if (s.waterFx == null) s.waterFx = new java.util.ArrayList<>();
+                    s.waterFx.add(new Object[] {s.end, bottom});
+                }
+            }
             if (TestLog.client) TestLog.c(s.id, "end", "by", "block", "block", level.getBlockState(block.getBlockPos()), "pos", block.getBlockPos(), "at", stop);
             Vec3 vel = new Vec3(s.v.x, s.v.y - s.g * s.end, s.v.z);
             if (len > 1e-6 && ricochet(s, level, block, vel)) {
@@ -718,8 +815,80 @@ public final class Tracers {
             }
         }
         s.checked = t;
+        waterHole = 1F;
+        // water cut this piece here: it stops, or goes on as a new piece, slower or turned
+        if (Double.isNaN(s.end) && !Double.isNaN(s.waterCut) && t >= s.waterCut - 1e-9) {
+            s.end = s.waterCut;
+            Shot next = waterNext(s);
+            if (next != null) BOUNCED.add(next);
+            else if (TestLog.client) TestLog.c(s.id, "end", "by", "water", "at", s.at(s.end));
+        }
         if(!Double.isNaN(s.confirmedEnd) && t>=s.confirmedEnd)s.end=s.confirmedEnd;
         TestLog.shot(-1);
+    }
+
+    // a hole's size behind water, × (0.5 + 0.5·f) where it is (the hole code reads it while fly makes one)
+    private static float waterHole = 1F;
+
+    private static float waterHole(Shot s, Vec3 at) {
+        double f = s.waterPath != null ? s.waterPath.fAt(at) : s.waterF;
+        return (float) acup.gunfeel.water.WaterPath.holeScale(f);
+    }
+
+    // what is left of the piece's damage at a point of this tick's path (WaterTick.k)
+    private static float waterK(Shot s, Vec3 at) {
+        if (s.waterPath == null || s.waterF <= 0) return 1F;
+        double q = s.waterPath.fAt(at) / s.waterF;
+        return (float) (q * q);
+    }
+
+    // the water on the piece's next tick of path, worked out as the server's bullet does it (WaterTick): a whole tick
+    // at a time, the speed changing at the tick's end, the path cut at a stop or a skip
+    private static void water(Shot s, ClientLevel level) {
+        int k = (int) Math.floor(s.checked + 1e-9);
+        if (k == s.waterTick || !Double.isNaN(s.waterCut)) return;
+        s.waterTick = k;
+        s.waterPath = null;
+        var settings = acup.gunfeel.water.WaterPath.Settings.current();
+        if (!settings.on() || k >= s.lifeTicks) return;
+        var cls = acup.gunfeel.water.WaterClass.of(s.config);
+        boolean fuze = acup.gunfeel.water.WaterClass.Fuze.of(s.config).any();
+        if (fuze) settings = settings.fuzed();
+        Vec3 a = tested(s, k), b = tested(s, k + 1);
+        var r = acup.gunfeel.water.WaterPath.trace(level, a, b, s.waterF, cls, acup.gunfeel.water.WaterClass.Expansion.of(s.config),
+                s.waterOpened, s.waterSkips, acup.gunfeel.water.WaterTick.seed(s.id, s.waterSkips), settings, null);
+        if (r.events.isEmpty() && r.water <= 0) return;
+        s.waterPath = r;
+        // as the server has it (WaterTick.fuze): an impact fuze from the air goes off where it meets the surface
+        if (fuze && acup.gunfeel.water.WaterSettings.fuze()) for (var e : r.events) {
+            if (e.type() != acup.gunfeel.water.WaterEvents.Type.ENTER) continue;
+            s.waterCut = k + r.t(e.at());
+            s.waterFuzed = true;
+            return;
+        }
+        if (!r.events.isEmpty()) {
+            if (s.waterFx == null) s.waterFx = new java.util.ArrayList<>();
+            for (var e : r.events) s.waterFx.add(new Object[] {k + r.t(e.at()), e});
+        }
+        acup.gunfeel.water.WaterFx.tracerTick(level, r);
+        if (r.cut()) s.waterCut = k + r.t(r.end());
+        else if (r.f < s.waterF - 1e-12 && k + 1 < s.lifeTicks) s.waterCut = k + 1;
+    }
+
+    // the piece that goes on after water cut this one (null: water stopped it). As on the server: after a skip it
+    // waits at the surface till the tick's end, then flies off turned
+    private static Shot waterNext(Shot s) {
+        var r = s.waterPath;
+        if (r == null || r.stop != null || s.waterF <= 0 || s.waterFuzed) return null;
+        int k = s.waterTick;
+        double at = k + 1;
+        long left = (long) Math.max(0.0, s.lifeTicks - at);
+        if (left <= 0) return null;
+        double f = r.skip != null ? r.skip.f() : r.f, ratio = f / s.waterF;
+        Vec3 vel = new Vec3(s.v.x, s.v.y - s.g * at, s.v.z);
+        Vec3 from = r.skip != null ? r.skip.at() : tested(s, at);
+        Vec3 v = r.skip != null ? r.skip.dir().scale(vel.length() * ratio) : vel.scale(ratio);
+        return new Shot(s, from, v, s.born + at, left, f, s.waterSkips + (r.skip != null ? 1 : 0), s.damage * (float) (ratio * ratio));
     }
 
     // NTM's steel panels: the only blocks the two rules below hold for (any other pair keeps its holes between them:
@@ -873,6 +1042,26 @@ public final class Tracers {
             @org.jspecify.annotations.Nullable List<List<Vec3>> polys) {
     }
 
+    // dev (GlassBackCheck): the holes by the face they lie on, and how they are drawn: late (after the translucent
+    // terrain), under (once more under the glass), batched, batched under. The block's layer: translucent
+    static Map<Direction, int[]> holeFaces() {
+        Map<Direction, int[]> out = new java.util.EnumMap<>(Direction.class);
+        for (Hole h : HOLES) {
+            int[] c = out.computeIfAbsent(h.face(), d -> new int[5]);
+            Batch b = h.batch()[0];
+            c[0]++;
+            if (h.late()) c[1]++;
+            if (under(h)) c[2]++;
+            if (b != null) c[3]++;
+            if (b != null && b.under) c[4]++;
+        }
+        return out;
+    }
+
+    static boolean translucentLayer(BlockState state) {
+        return translucent(state);
+    }
+
     // dev (FenceSeamCheck): a block whose holes cover its whole face (glass), as drawnHole has it
     static boolean wholeFaces(BlockState state) {
         return hitboxOnly(state);
@@ -989,7 +1178,7 @@ public final class Tracers {
         String[] style = BulletRules.hole(state);
         TestLog.c(p.shot(), "hole", "block", state, "pos", pos, "at", at, "placed", placed, "drawn", style[0], "how", style[1],
                 "glass", glassLike(state),
-                "under", h != null && h.late() && h.block() != null && translucent(h.state()), "scratch", p.scratch() != null, "onBoard", onBoard, "machine", h != null && h.machine(),
+                "under", h != null && under(h), "scratch", p.scratch() != null, "onBoard", onBoard, "machine", h != null && h.machine(),
                 "holes", HOLES.size() - machines, "machineHoles", machines, "max", Config.holeMax, "maxMachines", Config.holeMaxMachines);
         if (Trace.ON && h != null) TestLog.c(p.shot(), "hole_made", "pos", pos, "at", h.pos(), "face", h.face(), "kind", h.kind(),
                 "turn", h.turn(), "size", h.size(), "plane", h.plane(), "rect", h.rect());
@@ -1020,7 +1209,7 @@ public final class Tracers {
         boolean scorch = config.onImpact != null;
         BlockState decalOn = Cells.ruleState(level, hit.getBlockPos(), level.getBlockState(hit.getBlockPos()));
         int kind = holeKind(decalOn, config);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * waterHole * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
         int turn = (int) (Rng.shot(makingShot).nextDouble() * 8);
         if (scratch != null) {
             int[] ax = axes(hit.getDirection());
@@ -1101,7 +1290,7 @@ public final class Tracers {
         boolean scorch = config.onImpact != null;
         BlockState decalOn = Cells.ruleState(level, pos, level.getBlockState(pos));
         int kind = holeKind(decalOn, config);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * waterHole * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
         int turn = (int) (Rng.shot(makingShot).nextDouble() * 8);
         if (scratch != null) size = scratchSize();
         double half = size * 0.5;
@@ -1381,7 +1570,7 @@ public final class Tracers {
         metWindow = met.tex() instanceof RenderedMesh.Window;
         BlockState decalOn = metWindow ? net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState() : Cells.ruleState(level, pos, hitState);
         int kind = holeKind(decalOn, config);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * waterHole * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
         int turn = (int) (Rng.shot(makingShot).nextDouble() * 8);
         if (scratch != null) size = scratchSize();
         double half = size * 0.5;
@@ -2392,10 +2581,9 @@ public final class Tracers {
             int g = h.kind() + KINDS * ((h.late() ? 1 : 0) | (h.cull() ? 2 : 0));
             if (groups[g] == null) groups[g] = new ArrayList<>();
             groups[g].add(h);
-            // on translucent glass with no clear pixels (NTM's laminate): its near face writes depth over all of it,
-            // so the late hole on its far face is hidden. A copy drawn before the translucent terrain shows through
-            // the glass laid over it; from in front the late one covers it
-            if (h.late() && h.block() != null && translucent(h.state())) {
+            // a late hole drawn early too: a copy under the translucent glass (HolePasses), as the batches have it,
+            // when the camera is behind it
+            if (h.late() && HolePasses.underCopy(under(h), towardCamera(h, cam))) {
                 int e = h.kind() + KINDS * (h.cull() ? 2 : 0);
                 if (groups[e] == null) groups[e] = new ArrayList<>();
                 groups[e].add(h);
@@ -2418,6 +2606,24 @@ public final class Tracers {
             else
                 event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), type, draw);
         }
+    }
+
+    // a late hole on a block of the translucent terrain: drawn under the glass as well (HolePasses)
+    private static boolean under(Hole h) {
+        return h.late() && h.block() != null && translucent(h.state());
+    }
+
+    // how far the camera is in front of the hole, along its normal: below 0 behind it, looking through its block
+    private static double towardCamera(Hole h, Vec3 cam) {
+        Follow f = h.follow();
+        float[] m = f != null ? f.mesh : h.mesh();
+        if (m != null) {
+            Vec3 pos = f != null ? f.pos : h.pos();
+            return (cam.x - pos.x) * m[0] + (cam.y - pos.y) * m[1] + (cam.z - pos.z) * m[2];
+        }
+        int axis = h.face().getAxis().ordinal();
+        double base = Double.isNaN(h.plane()) ? comp(h.pos(), axis) : h.plane();
+        return (comp(cam, axis) - base) * h.face().getAxisDirection().getStep();
     }
 
     private static boolean shaderTransparency() {
@@ -2648,18 +2854,30 @@ public final class Tracers {
     // moves.
     private static final class Batch {
         final int kind;
-        final boolean mesh,late;
+        final boolean mesh,late,under;
         List<Hole> holes = new ArrayList<>();
         List<Hole> now = new ArrayList<>();
         boolean dirty = true;
-        com.mojang.blaze3d.buffers.GpuBuffer vb;
-        int count;
+        // vb: every hole as drawn after the glass (late) or with the rest (early); back: an under batch's holes once
+        // more, only their backs, drawn early under the glass
+        com.mojang.blaze3d.buffers.GpuBuffer vb, back;
+        int count, backCount;
         double ox, oy, oz;
 
-        Batch(int kind, boolean mesh,boolean late) {
+        Batch(int kind, boolean mesh,boolean late,boolean under) {
             this.kind = kind;
             this.mesh = mesh;
             this.late = late;
+            this.under = under;
+        }
+
+        int key() {
+            return HolePasses.batchKey(kind, under, late, mesh);
+        }
+
+        void close() {
+            if (vb != null) vb.close();
+            if (back != null) back.close();
         }
     }
 
@@ -2682,12 +2900,15 @@ public final class Tracers {
         else for (Hole h : HOLES) {
             if (h.late() && lateApart || (now - h.born()) / 1e9 >= fadeFrom) { UNBATCHED.add(h); continue; }
             Batch b = h.batch()[0];
+            // (a hole on glass changes batch when the models loaded anew draw its block otherwise)
+            if (b != null && b.late && b.under != under(h)) b = h.batch()[0] = null;
             if (b == null) {
-                int key = h.kind() * 4 + (h.late()?2:0) + (h.mesh() != null ? 1 : 0);
+                boolean under = under(h);
+                int key = HolePasses.batchKey(h.kind(), under, h.late(), h.mesh() != null);
                 b = OPEN.get(key);
                 // (holes go in the order made: the open batch's older ones are counted already)
                 if (b == null || b.now.size() >= BATCH_HOLES) {
-                    b = new Batch(h.kind(), h.mesh() != null,h.late());
+                    b = new Batch(h.kind(), h.mesh() != null,h.late(),under);
                     BATCHES.add(b);
                     OPEN.put(key, b);
                 }
@@ -2708,15 +2929,15 @@ public final class Tracers {
             b.holes = b.now;
             b.now = was;
             if (b.holes.isEmpty()) {
-                if (b.vb != null) b.vb.close();
+                b.close();
                 it.remove();
-                OPEN.remove(b.kind * 4 + (b.late?2:0) + (b.mesh ? 1 : 0), b);
+                OPEN.remove(b.key(), b);
             }
         }
     }
 
     // the batches, drawn after the solid features (entities and the like) and before the translucent ones, where the
-    // holes sent each frame are drawn
+    // holes sent each frame are drawn. The late ones on translucent glass (under) once here as well, under the glass
     public static void afterOpaqueFeatures(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterOpaqueFeatures event) {
         if (BATCHES.isEmpty() || !Config.bulletHoles) return;
         long pd = Perf.start();
@@ -2731,20 +2952,26 @@ public final class Tracers {
         // cut holes pulled towards the camera by a tenth of a percent of the distance, as meshQuads() does
         Matrix4f mvMesh = new Matrix4f(mv).scale(0.999F);
         for (Batch b : BATCHES) {
-            if(b.late!=late) continue;
+            // early: the batches not late, and the late ones under the translucent glass once more
+            if(late ? !b.late : !HolePasses.early(b.late, b.under)) continue;
             if (b.dirty) {
                 long pb = Perf.start();
                 bake(b);
                 Perf.add(Perf.HOLE_BAKE, pb);
             }
-            if (b.count == 0 || b.vb == null) continue;
+            // under the glass only the holes' backs: from in front the late copy is enough, and the two laid on each
+            // other darken its half-clear edges twice
+            boolean back = !late && b.late;
+            com.mojang.blaze3d.buffers.GpuBuffer vb = back ? b.back : b.vb;
+            int count = back ? b.backCount : b.count;
+            if (count == 0 || vb == null) continue;
             RenderType type = HoleRender.type(TEXTURES[b.kind], b.late, true);
             net.minecraft.client.renderer.rendertype.PreparedRenderType pr = type.prepare();
             var transforms = com.mojang.blaze3d.systems.RenderSystem.getDynamicUniforms().writeTransform(b.mesh ? mvMesh : mv,
                     new org.joml.Vector4f(1F, 1F, 1F, 1F), new Vector3f((float) (b.ox - cam.x), (float) (b.oy - cam.y), (float) (b.oz - cam.z)), new Matrix4f());
             var indices = com.mojang.blaze3d.systems.RenderSystem.getSequentialBuffer(type.primitiveTopology());
             new net.minecraft.client.renderer.rendertype.PreparedRenderType(pr.pipeline(), pr.outputTarget(), transforms, pr.scissorState(), pr.textures())
-                    .drawFromBuffer(b.vb, indices.getBuffer(b.count), indices.type(), 0, 0, b.count);
+                    .drawFromBuffer(vb, indices.getBuffer(count), indices.type(), 0, 0, count);
             ClientSmoke.holeDrawn();
             Perf.batched(b.holes.size());
         }
@@ -2753,12 +2980,19 @@ public final class Tracers {
 
     private static void bake(Batch b) {
         b.dirty = false;
-        b.count = 0;
+        b.count = b.backCount = 0;
         if (b.holes.isEmpty()) return;
         Vec3 o = b.holes.get(0).pos();
         b.ox = o.x;
         b.oy = o.y;
         b.oz = o.z;
+        b.vb = bake(b, o, false, b.vb, n -> b.count = n);
+        if (b.under) b.back = bake(b, o, true, b.back, n -> b.backCount = n);
+    }
+
+    // the batch's holes into the buffer (made anew when too small), all of them or (back) only their backs
+    private static com.mojang.blaze3d.buffers.GpuBuffer bake(Batch b, Vec3 o, boolean back, com.mojang.blaze3d.buffers.GpuBuffer vb,
+            java.util.function.IntConsumer count) {
         RenderType type = HoleRender.type(TEXTURES[b.kind], b.late, true);
         int vertices = 0;
         for (Hole h : b.holes) vertices += h.mesh() != null ? h.mesh().length + 16 : 64;
@@ -2767,36 +3001,37 @@ public final class Tracers {
             PoseStack.Pose pose = new PoseStack().last();
             for (Hole h : b.holes) {
                 if (h.mesh() != null) {
-                    bakeMesh(pose, builder, h, o);
+                    bakeMesh(pose, builder, h, o, back);
                     continue;
                 }
                 float half = h.size() * 0.5F;
                 int step = h.face().getAxisDirection().getStep();
                 cells(h, cell -> {
-                    quadAt(pose, builder, h, o, half, 255, cell, step, false, false);
+                    if (!back) quadAt(pose, builder, h, o, half, 255, cell, step, false, false);
                     // two-sided (iron bars): its back as well, lifted to the back and wound the other way. The same
                     // normal on both: lit as the hole sent each frame is from either side
                     if (!h.cull()) quadAt(pose, builder, h, o, half, 255, cell, -step, true, false);
                 });
             }
             try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {
-                if (mesh == null) return;
+                if (mesh == null) return vb;
                 var device = com.mojang.blaze3d.systems.RenderSystem.getDevice();
                 java.nio.ByteBuffer data = mesh.vertexBuffer();
-                if (b.vb == null || b.vb.size() < data.remaining()) {
-                    if (b.vb != null) b.vb.close();
+                if (vb == null || vb.size() < data.remaining()) {
+                    if (vb != null) vb.close();
                     // room to grow: the open batch gets a hole at a time
-                    b.vb = device.createBuffer(() -> "Bullet hole batch", 40, data.remaining() * 3L / 2L + 1024L);
+                    vb = device.createBuffer(() -> "Bullet hole batch", 40, data.remaining() * 3L / 2L + 1024L);
                 }
-                device.createCommandEncoder().writeToBuffer(b.vb.slice(0, data.remaining()), data);
-                b.count = mesh.drawState().indexCount();
+                device.createCommandEncoder().writeToBuffer(vb.slice(0, data.remaining()), data);
+                count.accept(mesh.drawState().indexCount());
+                return vb;
             }
         }
     }
 
     // a cut hole for a batch: each polygon wound so it is seen from the side its normal points to, and (two-sided)
     // once more the other way round. The normal is turned as the polygon winds, so it is lit as meshQuads() lights it
-    private static void bakeMesh(PoseStack.Pose p, VertexConsumer vc, Hole h, Vec3 origin) {
+    private static void bakeMesh(PoseStack.Pose p, VertexConsumer vc, Hole h, Vec3 origin, boolean back) {
         Follow f = h.follow();
         float[] m = f != null ? f.mesh : h.mesh();
         if (m == null) return;
@@ -2819,7 +3054,7 @@ public final class Tracers {
                 if (Math.abs(d) > 1e-12F) sign = Math.signum(d);
             }
             if (sign == 0F) continue;
-            for (int copy = 0; copy < copies; copy++) {
+            for (int copy = back ? 1 : 0; copy < copies; copy++) {
                 boolean rev = (sign < 0F) != (copy == 1);
                 for (int i = 1; i + 1 < n; i += 2) {
                     int[] idx = {0, i, i + 1, Math.min(i + 2, n - 1)};

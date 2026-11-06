@@ -46,7 +46,9 @@ public final class ExplosiveDamage {
         try {
             callback.accept(bullet,hit);
             // Только реально сработавший взрыватель: не оставляем след при отскоке/защите стрелка.
+            // ... and not on water (the surface fuze's hit)
             if(announce && bullet.isRemoved() && ExplosiveAmmo.heavy(bullet.config) && hit instanceof BlockHitResult block
+                    && !acup.gunfeel.water.WaterTick.surfaceHit(bullet,hit)
                     && block.getType()==HitResult.Type.BLOCK && bullet.level() instanceof ServerLevel level) {
                 Vec3 dir=bullet.getDeltaMovement();
                 if(dir.lengthSqr()<1e-12)dir=new Vec3(-block.getDirection().getStepX(),-block.getDirection().getStepY(),-block.getDirection().getStepZ());
