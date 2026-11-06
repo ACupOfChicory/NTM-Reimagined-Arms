@@ -112,6 +112,11 @@ final class HeadProfiles {
     }
     static Binding bind(Profile profile,List<ModelBox> boxes,float yaw) {
         if(profile.none()) return new Binding(List.of(),0,"датасет: без головы");
+        var names=new HashMap<String,Integer>();for(var ref:profile.parts()) names.merge(name(ref.name()),1,Integer::sum);
+        // Without Flywheel NTM's OBJ mobs (glyphids, Mask Man) come under their model's group names (mesh/Body), none of
+        // them a name of the profile, which holds the Flywheel visual's (root/parts/0/base): its parts are matched by order
+        // and place below.
+        boolean foreign=!boxes.isEmpty() && boxes.stream().noneMatch(b->names.containsKey(name(b.part())));
         var ratios=new ArrayList<Double>();
         for(var ref:profile.parts()) {
             var matches=boxes.stream().filter(b->name(b.part()).equals(name(ref.name()))).toList();
@@ -186,12 +191,28 @@ final class HeadProfiles {
         // the elder guardian's fin, the creaking's twigs). The one box of the part's name, inside it or holding it on
         // every axis, is that part. A name the profile holds more than once (a part made of cubes, a camel husk's
         // head) is left to the steps above: its one box would stand for two parts.
-        var names=new HashMap<String,Integer>();for(var ref:profile.parts()) names.merge(name(ref.name()),1,Integer::sum);
         for(int i=0;i<mapping.length;i++) {
             var ref=profile.parts().get(i);if(mapping[i]>=0 || names.get(name(ref.name()))!=1) continue;
             var own=new ArrayList<Integer>();
             for(int j=0;j<boxes.size();j++) if(!boxes.get(j).part().startsWith("mesh/") && name(boxes.get(j).part()).equals(name(ref.name()))) own.add(j);
             if(own.size()==1 && nested(ref,boxes.get(own.getFirst()),scale)) mapping[i]=own.getFirst();
+        }
+        // NTM draws an OBJ mob's groups in the order of its Flywheel visual's parts (GlyphidVisual's list: a glyphid's
+        // three pairs of legs are told apart by it, not by place, as they swing while it walks), less what is not drawn
+        // (armor that fell off); a part it draws out of that order (a nuclear glyphid's mini nuke) is matched by place.
+        if(foreign) {
+            var aligned=align(profile,boxes,scale,yaw);
+            Set<ModelBox> used=Collections.newSetFromMap(new IdentityHashMap<>());
+            for(int i=0;i<mapping.length;i++) if(aligned[i]>=0) { mapping[i]=aligned[i];used.add(boxes.get(aligned[i])); }
+            var picks=new ArrayList<int[]>();var scores=new HashMap<Integer,Double>();
+            for(int i=0;i<mapping.length;i++) {
+                var ref=profile.parts().get(i);if(mapping[i]>=0 || anonymous(ref.name())) continue;
+                var pick=best(ref,boxes,scale,yaw,b->!used.contains(b));
+                if(pick.box()>=0) { picks.add(new int[]{i,pick.box()});scores.put(i,pick.score()); }
+            }
+            picks.sort(Comparator.comparingDouble(p->scores.get(p[0])));
+            var taken=new HashSet<Integer>();
+            for(var p:picks) if(taken.add(p[1])) mapping[p[0]]=p[1];
         }
         var zones=new ArrayList<Zone>();int missing=0;
         for(var zone:profile.zones()) {
@@ -206,6 +227,18 @@ final class HeadProfiles {
     // them apart. Flywheel's boxes (names from "mesh/") are left as they are.
     static List<ModelBox> unite(Profile profile,List<ModelBox> boxes) {
         var once=new HashMap<String,Integer>();for(var ref:profile.parts()) once.merge(name(ref.name()),1,Integer::sum);
+        // A legacy NTM model numbers the cubes of a part that its Flywheel visual draws as one mesh (the cyber crab's
+        // shell0..shell19, root/shell in the profile): a cube whose name the profile lacks, numbered after a name the
+        // profile holds once and no box carries, is a cube of that part.
+        var carried=new HashSet<String>();for(var box:boxes) carried.add(name(box.part()));
+        var renamed=new ArrayList<ModelBox>();
+        for(var box:boxes) {
+            var plain=name(box.part());var base=plain.replaceFirst("\\d+$","");
+            if(!box.part().startsWith("mesh/") && !base.equals(plain) && !once.containsKey(plain) && once.getOrDefault(base,0)==1 && !carried.contains(base))
+                box=new ModelBox(base,box.x(),box.y(),box.z(),box.ux(),box.uy(),box.uz(),box.vx(),box.vy(),box.vz(),box.wx(),box.wy(),box.wz(),box.mesh());
+            renamed.add(box);
+        }
+        boxes=renamed;
         var groups=new LinkedHashMap<String,List<ModelBox>>();
         for(var box:boxes) if(!box.part().startsWith("mesh/")) groups.computeIfAbsent(box.part(),k->new ArrayList<>()).add(box);
         if(groups.values().stream().allMatch(group->group.size()==1)) return boxes;
@@ -261,15 +294,43 @@ final class HeadProfiles {
         }
         return new Ref(name,new double[]{max[0]-min[0],max[1]-min[1],max[2]-min[2]},0,new Vec3((min[0]+max[0])/2,(min[1]+max[1])/2,(min[2]+max[2])/2),-1);
     }
+    // The profile's parts in its order paired with the boxes in theirs, either list skipping what the other lacks: the
+    // cheapest pairing by place (to the part's size) and size, each part or box left over costing SKIP
+    private static final double SKIP=.5;
+    private static int[] align(Profile profile,List<ModelBox> boxes,double scale,float yaw) {
+        int n=profile.parts().size(),m=boxes.size();
+        double[][] cost=new double[n+1][m+1];byte[][] step=new byte[n+1][m+1];
+        for(var row:cost) Arrays.fill(row,Double.POSITIVE_INFINITY);
+        cost[0][0]=0;
+        for(int i=0;i<=n;i++) for(int j=0;j<=m;j++) {
+            double here=cost[i][j];
+            if(i<n && here+SKIP<cost[i+1][j]) { cost[i+1][j]=here+SKIP;step[i+1][j]=1; }
+            if(j<m && here+SKIP<cost[i][j+1]) { cost[i][j+1]=here+SKIP;step[i][j+1]=2; }
+            if(i==n || j==m) continue;
+            var ref=profile.parts().get(i);double error=error(ref,boxes.get(j),scale);
+            if(error>.35 || anonymous(ref.name())) continue;
+            double largest=Arrays.stream(ref.size()).max().orElse(1);
+            double pair=here+local(boxes.get(j),scale,yaw).distanceTo(ref.center())/largest+2*error;
+            if(pair<cost[i+1][j+1]) { cost[i+1][j+1]=pair;step[i+1][j+1]=3; }
+        }
+        int[] mapping=new int[n];Arrays.fill(mapping,-1);
+        for(int i=n,j=m;i>0 || j>0;) {
+            if(step[i][j]==3) mapping[--i]=--j; else if(step[i][j]==1) i--; else j--;
+        }
+        return mapping;
+    }
+    // a box's center in the frame of the profile: the mob turned to yaw 0, at the profile's size
+    private static Vec3 local(ModelBox box,double scale,float yaw) {
+        var c=ModelContours.point(box,.5,.5,.5);double angle=Math.toRadians(yaw),cos=Math.cos(angle),sin=Math.sin(angle);
+        return new Vec3(cos*c.x+sin*c.z,c.y,-sin*c.x+cos*c.z).scale(1/scale);
+    }
     private record Pick(int box,double score) {}
     private static Pick best(Ref ref,List<ModelBox> boxes,double scale,float yaw,java.util.function.Predicate<ModelBox> candidate) {
         int best=-1;double score=Double.POSITIVE_INFINITY,second=score;
         for(int j=0;j<boxes.size();j++) {
             var box=boxes.get(j);if(!candidate.test(box)) continue;
             double mismatch=error(ref,box,scale);if(mismatch>.35 || anonymous(ref.name()) && ref.shape()!=shape(box)) continue;
-            var c=ModelContours.point(box,.5,.5,.5);double angle=Math.toRadians(yaw),cos=Math.cos(angle),sin=Math.sin(angle);
-            var relative=new Vec3(cos*c.x+sin*c.z,c.y,-sin*c.x+cos*c.z).scale(1/scale);
-            double distance=relative.distanceTo(ref.center())+mismatch*2+(ref.shape()==shape(box)?0:.2);
+            double distance=local(box,scale,yaw).distanceTo(ref.center())+mismatch*2+(ref.shape()==shape(box)?0:.2);
             if(distance<score) { second=score;score=distance;best=j; } else second=Math.min(second,distance);
         }
         // Равные варианты с разными ролями нельзя разрешать случайным порядком.

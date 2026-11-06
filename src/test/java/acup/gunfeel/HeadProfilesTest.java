@@ -447,6 +447,125 @@ class HeadProfilesTest {
                 List.of(new HeadProfiles.Zone(0,1,List.of(),0),new HeadProfiles.Zone(1,1,List.of(),0)));
         assertEquals(1,HeadProfiles.bind(layered,List.of(new ModelBox("root/head",-.5,-.5,-.5,1,0,0,0,1,0,0,0,1)),0).zones().size());
     }
+    @Test void withoutFlywheelNtmObjMobsGoByTheOrderOfTheirVisualsParts() {
+        var limbs=HeadProfiles.loadBank("/ntmgunfeel-limbs.json",java.nio.file.Path.of("build/no-local-limbs.json"),false);
+        // снимки стенда без Flywheel: глифид без брони (отвалилась), Mask Man, кибер-краб (панцирь — пронумерованные кубы)
+        var poses=Map.ofEntries(
+                Map.entry("hbm:entity_glyphid","""
+                        mesh/Body 0 0.5 -0.5625 0.625 0.625 1.625
+                        mesh/ArmLeftUpper 0.3335 0.4866 0.1762 0.125 0.125 0.375
+                        mesh/ArmLeftMid 0.395 0.4517 0.525 0.125 0.125 0.5
+                        mesh/ArmLeftLower 0.5 0.3327 1.12 0.125 0.125 0.875
+                        mesh/ArmRightUpper -0.3423 0.5626 0.2258 0.125 0.125 0.375
+                        mesh/ArmRightMid -0.4052 0.6679 0.5825 0.125 0.125 0.5
+                        mesh/ArmRightLower -0.4834 0.4878 1.027 0.125 0.125 0.875
+                        mesh/JawTop 0 0.5938 0.4375 0.375 0.1875 0.375
+                        mesh/JawLeft 0.09375 0.4062 0.4375 0.1875 0.1875 0.375
+                        mesh/JawRight -0.09375 0.4062 0.4375 0.1875 0.1875 0.375
+                        mesh/LegLeftUpper 0.2937 0.3507 0.04737 0.5 0.0625 0.0625
+                        mesh/LegLeftLower 0.6256 0.3389 0.1009 0.5 0.09375 0.125
+                        mesh/LegRightUpper -0.2435 0.2493 -0.1983 0.5 0.0625 0.0625
+                        mesh/LegRightLower -0.5283 0.161 -0.4303 0.5 0.09375 0.125
+                        mesh/LegLeftUpper 0.31 0.2493 -0.05002 0.5 0.0625 0.0625
+                        mesh/LegLeftLower 0.6727 0.161 -0.1085 0.5 0.09375 0.125
+                        mesh/LegRightUpper -0.278 0.3507 -0.1058 0.5 0.0625 0.0625
+                        mesh/LegRightLower -0.5923 0.3389 -0.2254 0.5 0.09375 0.125
+                        mesh/LegLeftUpper 0.1879 0.3507 -0.2306 0.5 0.0625 0.0625
+                        mesh/LegLeftLower 0.4002 0.3389 -0.4913 0.5 0.09375 0.125
+                        mesh/LegRightUpper -0.2935 0.2493 0.1117 0.5 0.0625 0.0625
+                        mesh/LegRightLower -0.6368 0.161 0.2424 0.5 0.09375 0.125"""),
+                Map.entry("hbm:entity_mob_mask_man","""
+                        mesh/Torso 0 2.897 -0.3029 1.943 3.044 2.5
+                        mesh/LLeg 0.5 0.9532 -0.3029 0.8758 1.906 0.5
+                        mesh/RLeg -0.5 0.9532 -0.3029 0.8758 1.906 0.5
+                        mesh/LArm 1.5 3.158 -0.04743 2.47 1.815 0.5
+                        mesh/RArm -1.5 3.095 0.2026 2.97 1.94 0.75
+                        mesh/Head 0 4.292 0.7797 1.559 1.417 1"""),
+                Map.entry("hbm:entity_cyber_crab","""
+                        root/shell4 0 0.2197 0 0.375 0.0625 0.25
+                        root/shell2 0 0.2822 0 0.1875 0.0625 0.1875
+                        root/shell3 0 0.251 0 0.25 0.0625 0.125
+                        root/shell0 0 0.1572 0 0.25 0.0625 0.25
+                        root/shell1 0 0.2197 0 0.25 0.0625 0.375
+                        root/shell17 0 0.251 0 0.125 0.0625 0.25
+                        root/leg0 -0.1485 0.1197 -0.1485 0.0625 0.0625 0.1875
+                        root/shell18 0 0.1885 0 0.3125 0.0625 0.1875
+                        root/leg1 -0.1485 0.1197 0.1485 0.0625 0.0625 0.1875
+                        root/foot1 -0.215 0.08346 0.215 0.0625 0.1875 0.0625
+                        root/foot0 -0.215 0.08346 -0.215 0.0625 0.1875 0.0625
+                        root/foot3 0.215 0.08346 -0.215 0.0625 0.1875 0.0625
+                        root/fang3 0.07667 0.1074 -0.06433 0.0625 0.0625 0.0625
+                        root/foot2 0.215 0.08346 0.215 0.0625 0.1875 0.0625
+                        root/fang2 0.06433 0.1074 0.07667 0.0625 0.0625 0.0625
+                        root/fang1 -0.06433 0.1074 -0.07667 0.0625 0.0625 0.0625
+                        root/leg2 0.1485 0.1197 0.1485 0.0625 0.0625 0.1875
+                        root/fang0 -0.07667 0.1074 0.06433 0.0625 0.0625 0.0625
+                        root/leg3 0.1485 0.1197 -0.1485 0.0625 0.0625 0.1875
+                        root/shell19 0 0.1885 0 0.1875 0.0625 0.3125"""));
+        record Case(String type,boolean limb,int zones) {}
+        for(var c:List.of(new Case("hbm:entity_glyphid",false,3),new Case("hbm:entity_glyphid",true,18),
+                new Case("hbm:entity_mob_mask_man",false,1),new Case("hbm:entity_mob_mask_man",true,4),new Case("hbm:entity_cyber_crab",false,1))) {
+            var profile=c.limb()?HeadProfiles.get(limbs,c.type()):HeadProfiles.get(c.type());
+            var binding=HeadProfiles.bind(profile,HeadProfiles.unite(profile,pose(poses.get(c.type()))),0);
+            assertEquals(0,binding.missing(),c.toString());assertEquals(c.zones(),binding.zones().size(),c.toString());
+        }
+        // ноги глифида на ходу не на своих местах: их различает порядок, каждая зона — у коробки своей группы
+        var glyphid=pose(poses.get("hbm:entity_glyphid"));var legs=HeadProfiles.get(limbs,"hbm:entity_glyphid");
+        var order=List.of("Body","ArmorFront","ArmorLeft","ArmorRight","ArmLeftUpper","ArmLeftMid","ArmLeftLower","ArmLeftArmor",
+                "ArmRightUpper","ArmRightMid","ArmRightLower","ArmRightArmor","JawTop","JawLeft","JawRight",
+                "LegLeftUpper","LegLeftLower","LegRightUpper","LegRightLower","LegLeftUpper","LegLeftLower","LegRightUpper","LegRightLower",
+                "LegLeftUpper","LegLeftLower","LegRightUpper","LegRightLower");
+        assertEquals(order.stream().filter(n->!n.contains("Armor")).map(n->"mesh/"+n).toList(),glyphid.stream().map(ModelBox::part).toList());
+        var drawn=new ArrayList<Integer>();for(int i=0;i<order.size();i++) if(!order.get(i).contains("Armor")) drawn.add(i);
+        assertEquals(expected(legs,drawn),HeadProfiles.bind(legs,glyphid,0).zones().stream().map(z->drawn.get(z.part())).toList());
+        // ядерный глифид в полной броне: мини-бомбу (голова) NTM рисует первой, в визуале она последняя — берётся по месту
+        var nuclear=HeadProfiles.get("hbm:entity_glyphid_nuclear");var full=new ArrayList<ModelBox>();var at=new ArrayList<Integer>();
+        full.add(box(nuclear.parts().get(27),"mesh/MiniNuke"));at.add(27);
+        for(int i=0;i<order.size();i++) { full.add(box(nuclear.parts().get(i),"mesh/"+order.get(i)));at.add(i); }
+        var head=HeadProfiles.bind(nuclear,full,0);assertEquals(0,head.missing());
+        assertEquals(expected(nuclear,at),head.zones().stream().map(z->at.get(z.part())).toList());
+        // броня отвалилась не вся (пластины корпуса и руки с одной стороны): пластина другой стороны не становится этой
+        var nuclearLimbs=HeadProfiles.get(limbs,"hbm:entity_glyphid_nuclear");
+        for(var fallen:List.of(List.of(2,7),List.of(3,11))) {
+            var some=new ArrayList<ModelBox>();var kept=new ArrayList<Integer>();
+            for(int i=0;i<order.size();i++) if(!fallen.contains(i)) { some.add(box(nuclearLimbs.parts().get(i),"mesh/"+order.get(i)));kept.add(i); }
+            var arms=HeadProfiles.bind(nuclearLimbs,some,0);assertEquals(0,arms.missing(),fallen.toString());
+            assertEquals(expected(nuclearLimbs,kept),arms.zones().stream().map(z->kept.get(z.part())).toList(),fallen.toString());
+        }
+        // с Flywheel пластина, которой нет, — тоже не потеря: её зону покрывает нижняя кость руки
+        var plates=new ArrayList<ModelBox>();for(int i=0;i<legs.parts().size();i++) if(i!=7 && i!=11) plates.add(box(legs.parts().get(i)));
+        var fly=HeadProfiles.bind(legs,plates,0);assertEquals(0,fly.missing());assertEquals(18,fly.zones().size());
+        // две одинаковые части подряд, нарисована одна: какая из них, говорит место
+        var pair=new HeadProfiles.Profile(false,List.of(
+                new HeadProfiles.Ref("mesh/root/parts/0/base",new double[]{.25,.25,.25},0,new Vec3(1,0,0),-1),
+                new HeadProfiles.Ref("mesh/root/parts/1/base",new double[]{.25,.25,.25},0,new Vec3(-1,0,0),-1)),
+                List.of(new HeadProfiles.Zone(0,1,List.of(),0),new HeadProfiles.Zone(1,2,List.of(),0)));
+        for(int side:new int[]{0,1}) {
+            var one=HeadProfiles.bind(pair,List.of(box(pair.parts().get(side),"mesh/Claw")),0);
+            assertEquals(1,one.missing());assertEquals(List.of(side+1),one.zones().stream().map(HeadProfiles.Zone::group).toList());
+        }
+        // одна коробка с именем профиля — позу ведут имена, порядок не берётся
+        var named=new ArrayList<>(glyphid);var b0=named.getFirst();
+        named.set(0,new ModelBox("mesh/root/parts/0/base",b0.x(),b0.y(),b0.z(),b0.ux(),b0.uy(),b0.uz(),b0.vx(),b0.vy(),b0.vz(),b0.wx(),b0.wy(),b0.wz()));
+        assertTrue(HeadProfiles.bind(legs,named,0).missing()>0);
+        // кубы панциря — части root/shell, пока коробки с таким именем нет
+        var crab=HeadProfiles.get("hbm:entity_cyber_crab");var shell=pose(poses.get("hbm:entity_cyber_crab"));
+        assertTrue(HeadProfiles.unite(crab,shell).stream().noneMatch(b->b.part().startsWith("root/shell") && !b.part().equals("root/shell")));
+        var withShell=new ArrayList<>(shell);withShell.add(box(crab.parts().getFirst(),"root/shell"));
+        assertTrue(HeadProfiles.unite(crab,withShell).stream().anyMatch(b->b.part().equals("root/shell4")));
+    }
+    // части зон профиля по порядку, которые есть среди нарисованных
+    private static List<Integer> expected(HeadProfiles.Profile profile,List<Integer> drawn) {
+        return profile.zones().stream().map(HeadProfiles.Zone::part).filter(drawn::contains).toList();
+    }
+    private static List<ModelBox> pose(String text) {
+        var boxes=new ArrayList<ModelBox>();
+        for(var line:text.strip().split("\n")) {
+            var f=line.strip().split(" ");double[] v=new double[6];for(int i=0;i<6;i++) v[i]=Double.parseDouble(f[i+1]);
+            boxes.add(new ModelBox(f[0],v[0]-v[3]/2,v[1]-v[4]/2,v[2]-v[5]/2,v[3],0,0,0,v[4],0,0,0,v[5]));
+        }
+        return boxes;
+    }
     private static ModelBox box(HeadProfiles.Ref ref) { return box(ref,ref.name()); }
     private static ModelBox box(HeadProfiles.Ref ref,String name) {
         var c=ref.center();var s=ref.size();
