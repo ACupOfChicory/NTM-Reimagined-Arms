@@ -32,7 +32,8 @@ final class ContourAge {
         boolean last=true;
         for(var it=past.descendingIterator();it.hasNext();last=false) {
             var p=it.next();
-            if(!last && at-p.at()>ModelContours.LAG) break;
+            // прошлый кадр — не дольше 0,25 с назад, как в ModelContours.good
+            if(at-p.at()>(last?250_000_000L:ModelContours.LAG)) break;
             if(p.boxes().size()==boxes.size()) allowed.add(edges(p.boxes()));
         }
         for(var edge:outline.edges())
