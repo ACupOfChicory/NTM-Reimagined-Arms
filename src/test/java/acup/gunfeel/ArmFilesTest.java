@@ -190,6 +190,10 @@ class ArmFilesTest {
         var opened = Grips.snapshot();
         String gun = "gunfeel:key_probe", from = "hbm:gun_autoshotgun_sexy";
         try {
+            Grips.put(from, "armAimScaleRight", "1.65", false);
+            Grips.put(from, "armAimScaleLeft", "0.55", false);
+            Config.select(null);
+            var before = Grips.snapshot();
             var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
             e.page = ArmEditor.Page.FILE;
             e.from = e.sources().indexOf(from);
@@ -197,9 +201,11 @@ class ArmFilesTest {
             String want = hands(from, List.of(""));
             assertTrue(e.press("copy.from.take"));
             assertEquals(want, hands(gun, List.of("")));
+            assertEquals("1.65", Grips.own(gun, "armAimScaleRight"));
+            assertEquals("0.55", Grips.own(gun, "armAimScaleLeft"));
             assertFalse(e.action("copy.from.take").active(), "already the same");
             assertTrue(e.press("undo"));
-            assertEquals(opened, Grips.snapshot());
+            assertEquals(before, Grips.snapshot());
         } finally {
             Grips.restoreUnsaved(opened);
             Config.select(null);

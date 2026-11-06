@@ -217,6 +217,12 @@ public final class ArmEditorScreen extends Screen {
         }
 
         @Override
+        public boolean scoped() {
+            var player = Minecraft.getInstance().player;
+            return player != null && PistolHold.scoped(player.getMainHandItem());
+        }
+
+        @Override
         public String gunName(String gun) {
             try {
                 Item i = BuiltInRegistries.ITEM.getValue(Identifier.parse(gun.contains("-") ? gun.substring(0, gun.indexOf('-')) : gun));
@@ -602,7 +608,8 @@ public final class ArmEditorScreen extends Screen {
             super(x, y, w, h, Component.literal(s.text()), Math.clamp((s.value() - s.min()) / (s.max() - s.min()), 0.0, 1.0));
             this.setting = s;
             active = s.why() == null;
-            setTooltip(Tooltip.create(Component.literal(hint + " Тяни или щёлкни; правой кнопкой — ввести число." + (active ? "" : "\nСейчас нельзя: " + s.why() + "."))));
+            setTooltip(Tooltip.create(Component.literal(hint + " Тяни или щёлкни; правой кнопкой — ввести число." + (active ? "" : "\nСейчас нельзя: " + s.why() + ". Значение: "
+                    + ArmEditor.number(s.value(), s.step()) + (s.unit().isEmpty() ? "" : " " + s.unit()) + "."))));
         }
 
         // a right click: type the number
@@ -623,7 +630,7 @@ public final class ArmEditorScreen extends Screen {
         protected void updateMessage() {
             float v = ArmEditor.snap(Math.clamp(target(), setting.min(), setting.max()), setting.step());
             setMessage(Component.literal(new ArmEditor.Setting(setting.id(), setting.label(), setting.hint(), setting.unit(), v, setting.min(),
-                    setting.max(), setting.step(), setting.why()).text()));
+                    setting.max(), setting.step(), setting.why(), setting.off()).text()));
         }
 
         @Override

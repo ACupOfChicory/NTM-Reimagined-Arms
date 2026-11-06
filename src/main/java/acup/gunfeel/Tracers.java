@@ -606,7 +606,10 @@ public final class Tracers {
 
     // test the bullet's path up to t ticks against blocks and entities; stops it at the first thing it meets
     private static void fly(Shot s, ClientLevel level, double t) {
-        if(!Double.isNaN(s.confirmedEnd))t=Math.min(t,s.confirmedEnd);
+        // a trace: the path is tested a whole tick at a time, as the server moves the bullet, and up to the whole tick
+        // past the server's stop, so where it meets a block hangs neither on the frames nor on when the stop came
+        if (Trace.ON) t = Double.isNaN(s.confirmedEnd) ? Math.floor(t) : Math.min(Math.floor(t), Math.ceil(s.confirmedEnd));
+        else if(!Double.isNaN(s.confirmedEnd))t=Math.min(t,s.confirmedEnd);
         if (!Double.isNaN(s.end) || t <= s.checked) return;
         TestLog.shot(s.id);
         // the real path, without the muzzle offset, decides what is hit

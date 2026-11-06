@@ -30,7 +30,9 @@ final class HoleBenchmark {
     private static final int OX=Integer.parseInt(ORIGIN[0]),OY=Integer.parseInt(ORIGIN[1]),OZ=Integer.parseInt(ORIGIN[2]);
     private static final com.sun.management.ThreadMXBean THREADS=(com.sun.management.ThreadMXBean)
             java.lang.management.ManagementFactory.getThreadMXBean();
-    private static int index=-1,samples,maxPending;
+    // the phase: written by the render thread, read by the server's too (tick, applyMode)
+    private static volatile int index=-1;
+    private static int samples,maxPending;
     private static volatile int fired,ticks;
     private static volatile boolean pending,shooting;
     private static volatile String failure;
@@ -62,20 +64,27 @@ final class HoleBenchmark {
     }
     private static BlockPos at(int x,int y,int z) { return new BlockPos(OX+x,OY+y-100,OZ+z); }
     static void applyMode() {
-        if(index<0 || index>=PLAN.size()) return;
-        int mode=PLAN.get(index).mode();
+        int at=index;
+        if(at<0 || at>=PLAN.size()) return;
+        int mode=PLAN.get(at).mode();
         Config.bulletHoles=mode!=2; Config.scorchSize=mode==4?Config.holeSize:scorch;
     }
     static boolean wantPixelProbe() {
-        return HoleBenchMetrics.CHECK_MOTION && index>=0 && PLAN.get(index).repeat()>=0 && fired>=SHELLS
+        // (after the last phase the index is past the plan, and the frames of the stopping client still come here)
+        return HoleBenchMetrics.CHECK_MOTION && index>=0 && index<PLAN.size() && PLAN.get(index).repeat()>=0 && fired>=SHELLS
                 && Tracers.pendingHoles()==0 && Minecraft.getInstance().gameRenderer.mainCamera().position().z>OZ+7;
     }
     private static void next() {
         shooting=false;
-        if(++index==PLAN.size()) { ClientSmoke.check(true,"замер дырок завершён, фаз="+PLAN.size()); ClientSmoke.finish(); return; }
+        if(++index==PLAN.size()) {
+            if(HoleBenchMetrics.CHECK_MOTION && !HoleVisualProbe.finished)
+                GunFeel.LOGGER.info("[holebench] GPU-сравнение следов не проведено: ни в одной фазе не было следов на стекле");
+            ClientSmoke.check(true,"замер дырок завершён, фаз="+PLAN.size()); ClientSmoke.finish(); return;
+        }
         var phase=PLAN.get(index); var mc=Minecraft.getInstance();
         HoleBenchMetrics.phaseLegacy=phase.mode()==5;
         HoleBenchWarmup.reset(index==0);
+        HoleVisualProbe.nextPhase();
         Config.bulletHoles=phase.mode()!=2;
         Config.scorchSize=phase.mode()==4?Config.holeSize:scorch;
         HoleBenchMetrics.omitBlast=phase.mode()==3;
@@ -123,9 +132,12 @@ final class HoleBenchmark {
         GunFeel.LOGGER.info("[holebench] фаза {}/{} {} {} повтор={}",index+1,PLAN.size(),phase.surface(),MODES[phase.mode()],phase.repeat());
     }
     static void tick() {
-        if(shooting && fired>=SHELLS && HoleBenchMetrics.CHECK_MOTION && PLAN.get(index).repeat()>=0) {
+        // the server thread: the render thread may end the last phase (index past the plan) while this runs
+        int at=index;
+        if(at<0 || at>=PLAN.size()) return;
+        if(shooting && fired>=SHELLS && HoleBenchMetrics.CHECK_MOTION && PLAN.get(at).repeat()>=0) {
             double age=(System.nanoTime()-lastShot)/1e9;
-            if(!opened && age>.5 && HoleVisualProbe.finished || opened && !closed && age>8) {
+            if(!opened && age>.5 && probeSettled(at) || opened && !closed && age>8) {
                 var level=Minecraft.getInstance().getSingleplayerServer().overworld();
                 if(level.getBlockEntity(at(0,100,12)) instanceof com.hbm.blockentity.BlockEntityDoorGeneric door) door.tryToggle(null);
                 if(!opened) opened=true; else closed=true;
@@ -140,12 +152,15 @@ final class HoleBenchmark {
             var stack=player.getMainHandItem(); var gun=(ItemGunBaseNT)stack.getItem(); var config=gun.getConfig(stack,0);
             config.getReceivers(stack)[0].getOnFire(stack).accept(stack,new ItemGunBaseNT.LambdaContext(config,player,player.getInventory(),0));
             fired++; lastShot=System.nanoTime();
-            if(HoleBenchMetrics.CHECK_MOTION && fired==SHELLS && PLAN.get(index).repeat()>=0)
+            if(HoleBenchMetrics.CHECK_MOTION && fired==SHELLS && PLAN.get(at).repeat()>=0)
                 player.teleportTo(player.level(),OX+.5,OY,OZ+8.5,Set.of(),0,0,false);
         } catch(Throwable t) { failure="стрельба: "+t; shooting=false; }
     }
+    // the GPU comparison of this phase is over, or it has nothing to compare: it is of the holes on glass, and a phase
+    // without holes has none
+    private static boolean probeSettled(int at) { return HoleVisualProbe.settled() || PLAN.get(at).mode()==2; }
     static void frame() {
-        if(pending) return;
+        if(pending || index>=PLAN.size()) return;
         if(HoleBenchMetrics.failure!=null) failure=HoleBenchMetrics.failure;
         if(failure!=null) { ClientSmoke.check(false,failure); ClientSmoke.finish(); return; }
         long now=System.nanoTime();
@@ -183,10 +198,14 @@ final class HoleBenchmark {
             row+=String.format(Locale.ROOT,"\t%.5f",(HoleBenchMetrics.nanos[part]-COSTS[part])/1e6/samples);
         ROWS.add(row); GunFeel.LOGGER.info("[holebench] {}",row);
         if(motion) {
-            ClientSmoke.check(opened && closed,"движение двери: запрошены открытие и закрытие");
-            ClientSmoke.check(HoleBenchMetrics.poseChecks>0 && HoleBenchMetrics.poseUpdates>0,"проверки пропуска="+
-                    HoleBenchMetrics.poseChecks+", обновления движущихся следов="+HoleBenchMetrics.poseUpdates);
-            ClientSmoke.check(HoleVisualProbe.finished,"GPU-сравнение прежнего и нового рисования завершено");
+            // only a door moves, and only the holes on it follow it: stone, or a door phase without holes, has nothing
+            // to check there; the old path (mode 5) does not skip unchanged poses, so it counts no checks
+            boolean door=!phase.surface().equals("stone");
+            if(door) ClientSmoke.check(opened && closed,"движение двери: запрошены открытие и закрытие");
+            if(door && phase.mode()!=2 && phase.mode()!=5)
+                ClientSmoke.check(HoleBenchMetrics.poseChecks>0 && HoleBenchMetrics.poseUpdates>0,"проверки пропуска="+
+                        HoleBenchMetrics.poseChecks+", обновления движущихся следов="+HoleBenchMetrics.poseUpdates);
+            ClientSmoke.check(probeSettled(index),"GPU-сравнение прежнего и нового рисования завершено");
         }
         try { Files.write(Path.of(System.getProperty("ntmgunfeel.holeBenchFile")),ROWS); }
         catch(Exception e) { throw new IllegalStateException(e); }

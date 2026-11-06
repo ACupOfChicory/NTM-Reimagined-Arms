@@ -71,6 +71,7 @@ public final class Config {
     public static float armFollowSupport = 0.25F;
     // During animations the hands slide along the gun toward the stock instead of the arms stretching.
     public static boolean armSlide = true;
+    public static boolean armPistolScale = true;
     public static float armSlideTo = 0.05F;
     public static float armStretch = 0.1F;
     public static float armInspectDrop = 1.0F;
@@ -129,13 +130,19 @@ public final class Config {
     public static float armAroundTopDropReload = Float.NaN;
     // width of NTM's muzzle smoke, 1 = as NTM draws it (SPAS-12's is 3x as wide as Maresleg's)
     public static float smokeWidth = 1F;
-    // the gun bobbing in step with walking and lowered to the side while sprinting (TaCZ's way), 0 = off (NTM's own bob)
-    public static float walkSway = 0F;
-    public static float sprintPose = 0F;
-    // a pistol or a revolver held from the hip and aimed as TaCZ holds them, 0 = off (NTM's hold, hipX/Y/Z)
+    // the gun bobbing in step with walking and turned to the side while sprinting (WalkSprint), 0 = off (NTM's own bob)
+    public static float walkSway = 1F;
+    public static float sprintPose = 1F;
+    // a pistol or a revolver held from the hip and aimed by the reference measurements (PistolHold), 0 = off (NTM's
+    // hold, hipX/Y/Z)
     public static float pistolHold = 1F;
+    // a pistol or a revolver aimed as far along the eye's line as the reference measurements show it (PistolHold.aim),
+    // 0 = off (NTM's aimed place)
+    public static float aimHold = 1F;
     public static float armScaleRight = 1F;
     public static float armScaleLeft = 1F;
+    public static float armAimScaleRight = 0F;
+    public static float armAimScaleLeft = 0F;
 
     private static final String HEADER = """
             NTM Gun Feel. Saved values are re-read while the game runs.
@@ -149,10 +156,11 @@ public final class Config {
             quality: low, medium, high or realism: sets holeMax, holeMaxMachines, holeLife and particleScale at once
               (realism = five times high's holes, kept five times longer); a key changed here by hand keeps its value
             particleScale: share of the particles of bullet hits, 1 = as the rules say
-            hipX: gun X position in hip fire, 1 = NTM default, 0 = centre of the screen
+            hipX: gun X position in hip fire, 1 = NTM default; with pistolHold, a pistol moves from its measured hip place
+              by this value relative to its own default (0 = screen centre)
             modelTilt: "pitch,yaw,roll" degrees, the gun turned around its hip-fire position (none when aimed), empty = none
-            hipY: gun Y position in hip fire, 1 = NTM default
-            hipZ: gun distance in hip fire, 1 = NTM default, less = closer and bigger
+            hipY: gun Y position in hip fire, 1 = NTM default; with pistolHold, 0 = screen centre
+            hipZ: gun distance in hip fire, 1 = NTM default, less = closer and bigger; with pistolHold, less = closer
             cameraScale: camera kick, degrees per unit of NTM recoil (0.55: lever shotgun ~5.5 deg)
             cameraTime: duration of the camera kick, 1 = as the preset
             cameraShake: camera roll shake on each shot, 0 = off
@@ -190,6 +198,7 @@ public final class Config {
             armBaseRight, armBaseLeft: arm thickness before armScale, the same on every gun (as on Maresleg); 0 = automatic (grows with the arm's length)
             armLength: arm length in vanilla arms of its thickness (1 = the whole vanilla arm, never cut or stretched, like TaCZ); 0 = stretched/squashed to armReach
             armLoadScaleRight, armLoadScaleLeft: thickness of each arm while it loads shells into the gun, on top of armScale, 1 = unchanged
+            armPistolScale: a pistol held by pistolHold gets each arm as much thicker as its hand is farther from the eye, so both hands look the same size on every pistol, from the hip and aimed; off = the arm thickness of the other guns
             armLoadRollRight, armLoadRollLeft: turn of each arm around its own axis while it loads shells, degrees, NaN = armRollRight/Left
             armAroundTopDrop: while armLeftKeys holds the left hand over the part (90), lower it toward the part by this many arm pixels; none at the side
             armAroundShift: while armLeftKeys moves the left hand round a part, move it left (out of the part) by this many arm pixels; none under the part (-90)
@@ -201,13 +210,17 @@ public final class Config {
             armPathBlend: near the grip a hand on its path (armLeftPath/armRightPath) turns smoothly into its usual hold
             armCarryKeepAngle: a carrying hand keeps the arm exactly as it holds the gun and only moves it (Sexy: the bottle)
             smokeWidth: width of the muzzle smoke, 1 = as NTM draws it
-            walkSway: the gun bobs in step with the player's steps instead of NTM's own bob, 1 = as TaCZ, 0 = off (NTM's, the default for now)
-            sprintPose: while sprinting the gun is lowered and turned to the side, swinging with the run, 1 = as TaCZ, 0 = off (the default for now);
+            walkSway: the gun bobs in step with the player's steps instead of NTM's own bob, 1 = as measured (the default), 0 = off (NTM's)
+            sprintPose: while sprinting the muzzle is raised and turned to the left, the gun swinging with the run, 1 = as measured (the default), 0 = off;
               aiming, a reload or a shot bring it back
-            pistolHold: a pistol or a revolver is held from the hip almost on the sight line, a little to the right and
-              lower, and comes up to its sights on a smooth curve, 1 = as TaCZ, 0 = off (NTM's hold); hipX, hipY and hipZ
-              are not used for a pistol while it is on
+            pistolHold: a pistol or a revolver is held from the hip a little right of the middle, lower and farther ahead,
+              pointing ahead, and comes up to its sights on a smooth curve, 1 = as measured, 0 = off (NTM's hold);
+              hipX, hipY and hipZ move its measured hip place relative to this gun's default
+            aimHold: a pistol or a revolver is aimed farther along the line of its sights, as small on the screen as the
+              measured pistols are, its sights staying on the middle of the screen, 1 = as measured, 0 = off (NTM's aimed place);
+              not for a gun with a scope, nor for long guns
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
+            armAimScaleRight, armAimScaleLeft: thickness of each arm holding the gun when aimed, in place of armScaleRight/Left; it goes over from one to the other as the gun comes up to the sights; 0 = the same as armScaleRight/Left
             armRollRight, armRollLeft: turn of each arm around its own axis, degrees
             armDirRight, armDirLeft: direction from the hand to the shoulder: x (+ left), y (+ up), z (+ forward)
             armReachRight, armReachLeft: the arm goes back until this distance in front of the eye (- = behind); only for automatic thickness (armBase 0) or armLength 0
@@ -301,6 +314,7 @@ public final class Config {
             long modified = Files.getLastModifiedTime(file).toMillis();
             if (modified == stamp) return;
             stamp = modified;
+            PistolHold.clearHipDefaults();
             Properties p = new Properties();
             try (Reader r = Files.newBufferedReader(file)) {
                 p.load(r);
@@ -455,6 +469,7 @@ public final class Config {
         armFollow = num(p, "armFollow", armFollow);
         armFollowSupport = num(p, "armFollowSupport", armFollowSupport);
         armSlide = bool(p, "armSlide", armSlide);
+        armPistolScale = bool(p, "armPistolScale", armPistolScale);
         armSlideTo = num(p, "armSlideTo", armSlideTo);
         armStretch = num(p, "armStretch", armStretch);
         armInspectDrop = num(p, "armInspectDrop", armInspectDrop);
@@ -507,8 +522,11 @@ public final class Config {
         walkSway = num(p, "walkSway", walkSway);
         sprintPose = num(p, "sprintPose", sprintPose);
         pistolHold = num(p, "pistolHold", pistolHold);
+        aimHold = num(p, "aimHold", aimHold);
         armScaleRight = num(p, "armScaleRight", armScaleRight);
         armScaleLeft = num(p, "armScaleLeft", armScaleLeft);
+        armAimScaleRight = num(p, "armAimScaleRight", armAimScaleRight);
+        armAimScaleLeft = num(p, "armAimScaleLeft", armAimScaleLeft);
     }
 
     private static Properties snapshot() {
@@ -575,6 +593,7 @@ public final class Config {
         p.setProperty("armFollow", Float.toString(armFollow));
         p.setProperty("armFollowSupport", Float.toString(armFollowSupport));
         p.setProperty("armSlide", Boolean.toString(armSlide));
+        p.setProperty("armPistolScale", Boolean.toString(armPistolScale));
         p.setProperty("armSlideTo", Float.toString(armSlideTo));
         p.setProperty("armStretch", Float.toString(armStretch));
         p.setProperty("armInspectDrop", Float.toString(armInspectDrop));
@@ -627,8 +646,11 @@ public final class Config {
         p.setProperty("walkSway", Float.toString(walkSway));
         p.setProperty("sprintPose", Float.toString(sprintPose));
         p.setProperty("pistolHold", Float.toString(pistolHold));
+        p.setProperty("aimHold", Float.toString(aimHold));
         p.setProperty("armScaleRight", Float.toString(armScaleRight));
         p.setProperty("armScaleLeft", Float.toString(armScaleLeft));
+        p.setProperty("armAimScaleRight", Float.toString(armAimScaleRight));
+        p.setProperty("armAimScaleLeft", Float.toString(armAimScaleLeft));
         return p;
     }
 

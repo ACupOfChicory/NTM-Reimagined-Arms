@@ -73,7 +73,9 @@ public final class WornGear {
                 out.add(z);
                 continue;
             }
-            // the zone's cuts stay where they were on the part, in its own frame
+            // the zone's cuts stay where they were on the part, in its own frame; the cubes of a part without
+            // Flywheel (HeadZone.pieces) do not: what is worn covers the whole grown box, as Flywheel's grown box
+            // drops the part's mesh
             List<HeadZone.Plane> local = new ArrayList<>(z.planes().size());
             for (HeadZone.Plane p : z.planes()) local.add(HeadZone.localPlane(z.box(), p));
             out.add(HeadZone.local(grown, local));

@@ -198,6 +198,13 @@ final class ModelSurface {
     }
 
     static @Nullable BlockHitResult hit(long[] shape, BlockPos pos, Vec3 from, Vec3 to, boolean leaving, boolean withinCell) {
+        return hit(shape, pos, from, to, leaving, withinCell, 0);
+    }
+
+    // hidden: the block's sides (bit Direction.ordinal) its neighbours hide, as the game leaves them undrawn
+    // (Block.shouldRenderFace: the end of a bar against the next bar). A face lying in such a side meets nothing:
+    // there is no pixel there, the bullet goes on into the neighbour's part, as holes are not put on it (Tracers)
+    static @Nullable BlockHitResult hit(long[] shape, BlockPos pos, Vec3 from, Vec3 to, boolean leaving, boolean withinCell, int hidden) {
         Vec3 o = from.subtract(pos.getX(), pos.getY(), pos.getZ()), d = to.subtract(from);
         double best = Double.POSITIVE_INFINITY;
         Direction face = null;
@@ -213,7 +220,7 @@ final class ModelSurface {
             int w = width(shape[at + 15]), h = (int) shape[at + 15];
             boolean glass = (shape[at + 15] & GLASS) != 0;
             if (glass && !leaving && windows < 0) windows = MachineGlass.on() ? 1 : 0;
-            if ((!glass || !leaving && windows == 1) && (leaving ? facing > 1e-12 : facing < -1e-12)) {
+            if ((!glass || !leaving && windows == 1) && (leaving ? facing > 1e-12 : facing < -1e-12) && !(hidden != 0 && inSide(shape, at, hidden))) {
                 double px = d.y * fz - d.z * fy, py = d.z * fx - d.x * fz, pz = d.x * fy - d.y * fx;
                 double det = ex * px + ey * py + ez * pz;
                 double sx = o.x - ax, sy = o.y - ay, sz = o.z - az;
@@ -240,6 +247,18 @@ final class ModelSurface {
         }
         if (face == null) return null;
         return metGlass ? new GlassHit(from.add(d.scale(best)), face, pos) : new BlockHitResult(from.add(d.scale(best)), face, pos, false);
+    }
+
+    // the face at `at` lies in one of the block's sides in `sides` (bit Direction.ordinal)
+    static boolean inSide(long[] shape, int at, int sides) {
+        for (int axis = 0; axis < 3; axis++) {
+            double a = number(shape, at + axis), b = number(shape, at + 3 + axis), c = number(shape, at + 6 + axis);
+            if (Math.max(a, Math.max(b, c)) - Math.min(a, Math.min(b, c)) > 1e-6) continue;
+            Direction.Axis ax = Direction.Axis.values()[axis];
+            if (Math.abs(a - 1) < 1e-6 && (sides >> Direction.fromAxisAndDirection(ax, Direction.AxisDirection.POSITIVE).ordinal() & 1) != 0) return true;
+            if (Math.abs(a) < 1e-6 && (sides >> Direction.fromAxisAndDirection(ax, Direction.AxisDirection.NEGATIVE).ordinal() & 1) != 0) return true;
+        }
+        return false;
     }
 
     private static double number(long[] data, int at) {
