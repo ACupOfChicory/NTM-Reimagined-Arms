@@ -267,11 +267,17 @@ public final class SunkBullets {
             String ammo = WaterFx.ammo(b.config);
             AmmoModels.Model m = ammo == null ? null : model(b.config);
             if (m == null) continue;
-            double yaw = Math.toRadians(en.getYRot());
             if (out == null) out = new ArrayList<>();
-            out.add(new Fuzed(m, at, new Vec3(-Math.sin(yaw), 0, Math.cos(yaw))));
+            out.add(new Fuzed(m, at, heading(en.getYRot())));
         }
         return out == null ? List.of() : out;
+    }
+
+    // the heading of NTM's round from its yaw: NTM sets yaw = atan2(dX, dZ) in flight (EntityBulletBaseMK4.tick), so
+    // the heading is (sin, cos), not a player's (-sin, cos)
+    static Vec3 heading(float yawDegrees) {
+        double yaw = Math.toRadians(yawDegrees);
+        return new Vec3(Math.sin(yaw), 0, Math.cos(yaw));
     }
 
     // the opened shape of each model, one buffer per model

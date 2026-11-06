@@ -1,5 +1,11 @@
 # Changelog
 
+## X563
+
+- A grenade or rocket that water stopped and that lies on the bottom now
+  points the way it flew. Before, one that flew along the east-west line lay
+  nose back.
+
 ## X560
 
 - An incendiary or phosphorus rocket that hits a creature in water in its
