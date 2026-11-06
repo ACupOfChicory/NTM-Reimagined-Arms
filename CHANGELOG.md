@@ -1,5 +1,10 @@
 # Changelog
 
+## X548
+
+- Leaving a world for the main menu no longer keeps that world in memory until
+  the next one is joined: `armArmor` held on to the player of the last world.
+
 ## X547
 
 - The hunter chopper's and the cyber crab's bullets now hit where they meet a
