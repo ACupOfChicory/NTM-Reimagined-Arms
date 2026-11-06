@@ -41,10 +41,6 @@ public record SmokeKind(int id, String name, float volume, int release, int bomb
         return null;
     }
 
-    public static List<SmokeKind> all() {
-        return ALL;
-    }
-
     /** Ticks a cloud of this kind can live at most (the release, the hold and the thinning down to nothing). */
     public int maxAge() {
         // the slowest cell (the noise keeps up to fade + 0.015) from well above fill down to SmokeGrid.GONE
