@@ -82,7 +82,8 @@ public final class SmokeRender {
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .build();
 
-    // per cloud: origin, box min, box max, colour; 16 clouds
+    // the matrix and three vec4, then per cloud (SmokeAtlas.SLOTS of them) four vec4: origin, box min, box max, colour.
+    // Clouds[] in smoke_info.glsl must be SLOTS * 4 long (SmokeShaderLinkTest checks)
     static final int UBO_SIZE = 64 + 16 * 3 + SmokeAtlas.SLOTS * 4 * 16;
     private static MappableRingBuffer ubo;
     private static GpuTexture depth, target;
@@ -323,7 +324,7 @@ public final class SmokeRender {
     private static boolean timerOff;
 
     private static int stampStart(com.mojang.blaze3d.systems.GpuDevice device) {
-        if (timerOff) return -1;
+        if (timerOff || !SmokeStats.MEASURING) return -1;
         try {
             if (timer == null) timer = device.createTimestampQueryPool(TIMER_FRAMES * 2);
             int f = timerFrame++ % TIMER_FRAMES;

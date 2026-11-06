@@ -31,9 +31,15 @@ public final class SmokeSlices {
     private SmokeSlices() {
     }
 
-    // one cloud's quads: the corners relative to the cloud's cell (0, 0, 0), x, y, z each, and their colours (ARGB)
-    private record Built(SmokeClouds.Cloud cloud, int age, int axis, float[] corners, int[] colours, int count) {
+    // one cloud's quads: the corners relative to the cloud's cell (0, 0, 0), x, y, z each, and their colours (ARGB);
+    // stamp: the grid's contentHash they were built from, age: the tick they were last found to still fit
+    private record Built(SmokeClouds.Cloud cloud, int age, int axis, long stamp, float[] corners, int[] colours, int count) {
     }
+
+    // the light the colours were built with is looked up again this often (ticks)
+    private static final int RELIGHT = 100;
+    // another axis takes over only when its share of the view direction is this much larger
+    private static final double HOLD = 1.15;
 
     /** How many clouds were drawn as slices in the last frame. */
     public static int drawnLast() {
@@ -67,10 +73,16 @@ public final class SmokeSlices {
         Vec3 look = mc.player == null ? new Vec3(0, 0, 1) : mc.player.getViewVector(1F);
         for (SmokeClouds.Cloud c : near) {
             keep.add(c.id);
-            int axis = axis(c, cam, look);
             Built b = BUILT.get(c.id);
-            if (b == null || b.cloud != c || b.age != c.grid.age() || b.axis != axis) {
+            int axis = axis(c, cam, look, b == null ? -1 : b.axis);
+            int age = c.grid.age();
+            if (b == null || b.cloud != c || b.axis != axis || b.age / RELIGHT != age / RELIGHT) {
                 b = build(c, axis);
+                BUILT.put(c.id, b);
+            } else if (b.age != age) {
+                // a tick on: rebuilt only if a density changed (a cloud holding still for its 20 s costs nothing)
+                long stamp = c.grid.contentHash();
+                b = stamp == b.stamp ? new Built(c, age, b.axis, stamp, b.corners, b.colours, b.count) : build(c, axis);
                 BUILT.put(c.id, b);
             }
             if (b.count > 0) draw.add(b);
@@ -92,8 +104,9 @@ public final class SmokeSlices {
     }
 
     // the axis (0 x, 1 y, 2 z) nearest to the view of the cloud: from the camera to its middle, or where the camera
-    // looks when it is in the box
-    private static int axis(SmokeClouds.Cloud c, Vec3 cam, Vec3 look) {
+    // looks when it is in the box; the one it had stays unless another is clearly nearer (a view along a diagonal would
+    // otherwise flip the axis and rebuild the cloud every frame)
+    private static int axis(SmokeClouds.Cloud c, Vec3 cam, Vec3 look, int had) {
         int[] b = c.grid.box();
         double minX = c.baseX() + b[0], minY = c.baseY() + b[1], minZ = c.baseZ() + b[2];
         double maxX = c.baseX() + b[3] + 1, maxY = c.baseY() + b[4] + 1, maxZ = c.baseZ() + b[5] + 1;
@@ -101,7 +114,10 @@ public final class SmokeSlices {
         if (cam.x >= minX - 1 && cam.x <= maxX + 1 && cam.y >= minY - 1 && cam.y <= maxY + 1 && cam.z >= minZ - 1 && cam.z <= maxZ + 1) d = look;
         else d = new Vec3((minX + maxX) / 2 - cam.x, (minY + maxY) / 2 - cam.y, (minZ + maxZ) / 2 - cam.z);
         double ax = Math.abs(d.x), ay = Math.abs(d.y), az = Math.abs(d.z);
-        return ax >= ay && ax >= az ? 0 : ay >= az ? 1 : 2;
+        int best = ax >= ay && ax >= az ? 0 : ay >= az ? 1 : 2;
+        if (had < 0 || had == best) return best;
+        double[] share = {ax, ay, az};
+        return share[had] * HOLD >= share[best] ? had : best;
     }
 
     private static Built build(SmokeClouds.Cloud c, int axis) {
@@ -159,7 +175,7 @@ public final class SmokeSlices {
                     count++;
                 }
         }
-        return new Built(c, g.age(), axis, out, col, count);
+        return new Built(c, g.age(), axis, g.contentHash(), out, col, count);
     }
 
     // corner i: w along the slicing axis, u and v along the other two

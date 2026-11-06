@@ -21,12 +21,15 @@ public final class SmokeSight {
     private SmokeSight() {
     }
 
-    public static boolean hides(LivingEntity looker, Entity target, Vec3 from, Vec3 to) {
+    /** {@code eyeHeight}: the y of the target's eyes, as {@code hasLineOfSight} gets it. The cheap checks come first. */
+    public static boolean hides(LivingEntity looker, Entity target, double eyeHeight) {
         if (!(looker instanceof Mob) || !(looker.level() instanceof ServerLevel level)) return false;
         SmokeClouds all = SmokeClouds.get(level);
         if (all == null || all.isEmpty()) return false;
-        if (from.distanceToSqr(to) < TOUCH * TOUCH) return false;
         if (!ReaimTimes.flag(KEY, false)) return false;
+        Vec3 from = new Vec3(looker.getX(), looker.getEyeY(), looker.getZ());
+        Vec3 to = new Vec3(target.getX(), eyeHeight, target.getZ());
+        if (from.distanceToSqr(to) < TOUCH * TOUCH) return false;
         return all.opticalDepth(from, to) > DEPTH;
     }
 }

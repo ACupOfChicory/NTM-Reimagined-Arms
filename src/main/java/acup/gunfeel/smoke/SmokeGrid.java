@@ -334,7 +334,15 @@ public final class SmokeGrid {
 
     /** The cells' densities, bit for bit, with the age: what the server and a client compare. */
     public long hash() {
-        long h = 0xCBF29CE484222325L ^ age;
+        return fold(0xCBF29CE484222325L ^ age);
+    }
+
+    /** The same without the age: changes when a density does. */
+    public long contentHash() {
+        return fold(0xCBF29CE484222325L);
+    }
+
+    private long fold(long h) {
         for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) for (int x = x0; x <= x1; x++) {
             int i = index(x, y, z);
             float v = d[i];

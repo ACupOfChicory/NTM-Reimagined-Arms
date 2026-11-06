@@ -5,7 +5,7 @@ import java.util.Locale;
 import acup.gunfeel.GunFeel;
 
 /**
- * Client: where the smoke's time goes, to the log every 5 s while there are clouds ("Smoke cost"): the client tick
+ * Client: where the smoke's time goes, to the debug log every 5 s while there are clouds ("Smoke cost"): the client tick
  * (simulation and catching up), the atlas built and sent, and per frame the depth copy, the raymarch and the composite
  * (time on the processor to hand them over), and the graphics card's own time on the march and the composite from its
  * timestamps.
@@ -20,6 +20,12 @@ public final class SmokeStats {
     private static float inside;
     // the last 5 s, for the stand
     public static volatile String last = "";
+
+    /**
+     * Whether the card's own time is polled and the stats built: only for the stand and with debug logging on. Without
+     * either nobody reads them, and polling the timestamps of every frame is a cost for nothing.
+     */
+    public static final boolean MEASURING = !System.getProperty("ntmgunfeel.smokeStand", "").isBlank() || GunFeel.LOGGER.isDebugEnabled();
 
     private SmokeStats() {
     }
@@ -59,7 +65,7 @@ public final class SmokeStats {
             }
             last = String.format(Locale.ROOT, "%sclouds %d, drawn %d, at the camera %.2f, %d frames (%d fps)", b, clouds, drawn, inside, frames,
                     Math.round(frames / ((now - since) / 1e9)));
-            GunFeel.LOGGER.info("Smoke cost: {}", last);
+            GunFeel.LOGGER.debug("Smoke cost: {}", last);
         }
         java.util.Arrays.fill(NANOS, 0L);
         java.util.Arrays.fill(CALLS, 0);
