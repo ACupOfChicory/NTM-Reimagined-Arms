@@ -77,6 +77,8 @@ acup/gunfeel/ModelContours.java
 acup/gunfeel/ContourSurface.java
 # what is worn on the hitbox (modelHitboxesWorn)
 acup/gunfeel/WornGear.java
+# the head stand's geometry: a ray's first meeting with a part (the shared HeadProfilesTest); its cube is the port's ModelDebugRender
+acup/gunfeel/HeadLabelGeometry.java
 
 [test-phys]
 # src/test/java, the same way

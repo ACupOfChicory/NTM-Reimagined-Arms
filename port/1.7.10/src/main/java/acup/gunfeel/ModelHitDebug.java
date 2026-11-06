@@ -39,7 +39,7 @@ public final class ModelHitDebug {
         GL11.glDisable(GL11.GL_CULL_FACE);
         GL11.glDisable(GL11.GL_BLEND);
         lines(outline, 0xFFFFFF);
-        for (HeadZone zone : heads) lines(ModelContours.edges(List.of(zone.box())), 0xFF3030);
+        for (HeadZone zone : heads) lines(ModelContours.edges(zone.pieces().isEmpty() ? List.of(zone.box()) : zone.pieces()), 0xFF3030); // united cubes: the cubes themselves
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glEnable(GL11.GL_LIGHTING);
         GL11.glEnable(GL11.GL_CULL_FACE);

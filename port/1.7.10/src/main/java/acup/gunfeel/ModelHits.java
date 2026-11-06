@@ -336,14 +336,18 @@ public final class ModelHits {
         var resolved=ModelHeads.resolve(type,pose.boxes(),pose.yaw());
         double angle=turnAngle(target.worldObj.isRemote,living.renderYawOffset,pose.yaw(),pose.bodyYaw());
         var out=new ArrayList<HeadZone>();
-        double cos=Math.cos(-angle),sin=Math.sin(-angle);
-        for(var zone:wornZones(target,pose,resolved.zones())) {
-            var box=zone.box();var origin=unturn(new Vec3(box.x(),box.y(),box.z()),cos,sin).add(position(target));
-            var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),cos,sin);var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),cos,sin);
-            var world=new ModelBox(box.part(),origin.x,origin.y,origin.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z,box.mesh());
-            out.add(HeadZone.local(world,zone.planes().stream().map(p->HeadZone.localPlane(box,p)).toList()));
-        }
+        for(var zone:wornZones(target,pose,resolved.zones())) out.add(world(zone,angle,position(target)));
         return List.copyOf(out);
+    }
+    // a zone to the world: its box, planes and cubes (pieces) turned by angle and moved to position
+    static HeadZone world(HeadZone zone,double angle,Vec3 position) {
+        double cos=Math.cos(-angle),sin=Math.sin(-angle);var box=zone.box();
+        return HeadZone.local(world(box,cos,sin,position),zone.planes().stream().map(p->HeadZone.localPlane(box,p)).toList(),zone.pieces().stream().map(b->world(b,cos,sin,position)).toList());
+    }
+    private static ModelBox world(ModelBox box,double cos,double sin,Vec3 position) {
+        var origin=unturn(new Vec3(box.x(),box.y(),box.z()),cos,sin).add(position);
+        var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),cos,sin);var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),cos,sin);
+        return new ModelBox(box.part(),origin.x,origin.y,origin.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z,box.mesh());
     }
     // the pose as taken (MobsScenario's dump): its boxes about the origin and its yaw; null without one
     static synchronized List<ModelBox> poseBoxes(Entity target) {
@@ -373,11 +377,7 @@ public final class ModelHits {
         double cos=Math.cos(-angle),sin=Math.sin(-angle);
         for (ModelBox box : wornBoxes(target,p)) {
             if(!target.worldObj.isRemote && !ModelWool.visible(target,box)) continue;
-            var origin=unturn(new Vec3(box.x(),box.y(),box.z()),cos,sin).add(position(target));
-            var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);
-            var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),cos,sin);
-            var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),cos,sin);
-            out.add(new ModelBox(box.part(),origin.x,origin.y,origin.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z,box.mesh()));
+            out.add(world(box,cos,sin,position(target)));
         }
         return out;
     }
