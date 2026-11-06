@@ -1,6 +1,6 @@
 # Changelog
 
-## X504.50
+## X504.54
 
 - NTM Decentralized Edition gets the water of X488 to X498: bullets slow down,
   skip and stop in water, explosive rounds meet it by their fuze, a blast in
