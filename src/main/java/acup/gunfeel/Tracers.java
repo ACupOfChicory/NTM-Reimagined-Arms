@@ -836,7 +836,19 @@ public final class Tracers {
                     Direction.Axis ax = block.getDirection().getAxis();
                     Vec3 out = new Vec3(ax == Direction.Axis.X ? -vel.x : vel.x, ax == Direction.Axis.Y ? -vel.y : vel.y, ax == Direction.Axis.Z ? -vel.z : vel.z);
                     long left = (long) Math.max(0.0, s.lifeTicks - s.end);
-                    if (left > 0) BOUNCED.add(new Shot(s, stop, out, s.born + s.end, left));
+                    if (left > 0) {
+                        // in water this tick: it bounces on at the f, damage and opening it has where it bounced, as the
+                        // server's bullet (WaterTick.end), not at the tick's start
+                        var wp = s.waterPath;
+                        double q = wp != null && s.waterF > 0 ? wp.fAt(stop) / s.waterF : 1;
+                        Shot bounced = new Shot(s, stop, out.scale(q), s.born + s.end, left);
+                        if (wp != null) {
+                            bounced.waterF = s.waterF * q;
+                            bounced.damage = s.damage * (float) (q * q);
+                            bounced.waterOpened = wp.openedAt(wp.t(stop));
+                        }
+                        BOUNCED.add(bounced);
+                    }
                 }
             } else if (len > 1e-6 && !ExplosiveAmmo.heavy(s.config)) {
                 hit(level, block, s.config, dir.scale(1.0 / len), s.config.onImpact != null);

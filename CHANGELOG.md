@@ -10,6 +10,9 @@
 - A tracer also stops where the server's bullet hit a creature when the stop
   comes before the client begins the part of the tracer that water or a
   ricochet goes on in. Before, that part flew on through the creature.
+- A tracer that ricochets off a block in water flies on at the speed and
+  damage the bullet has where it bounced, as the server's bullet does, not at
+  those it had when that tick began.
 
 ## X548
 
