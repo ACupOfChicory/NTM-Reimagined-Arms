@@ -55,18 +55,15 @@ public final class ServerSettingsClient {
 
     // the server's versions (26.2: CompatClient.hello); the answer with ours goes back from Net
     static void hello(Net.Hello p) {
+        // the server sends its hello again until our answer comes (Net.UNANSWERED): the chat line goes once
+        boolean again = server != null;
         server = p;
         String mod = BuildInfo.VERSION, hbm = PortPaths.hbmVersion();
         if (TestLog.client) TestLog.c(-1, "hello", "serverMod", p.mod, "serverNtm", p.hbm, "mod", mod, "ntm", hbm, "sameMod", p.mod.equals(mod),
-                "sameNtm", p.hbm.equals(hbm), "protocol", p.protocol, "sameProtocol", p.protocol.equals(Net.PROTOCOL));
-        GunFeel.LOGGER.info("Server: NTM Reimagined Arms {} (protocol {}), NTM {}", p.mod, p.protocol, p.hbm);
-        if (!p.protocol.equals(Net.PROTOCOL)) {
-            CHAT.add("NTM Reimagined Arms: the server's version " + p.mod + " does not play with this one (" + mod + "): protocol " + p.protocol
-                    + " here " + Net.PROTOCOL + ".");
-        } else if (!p.mod.equals(mod)) {
-            CHAT.add("NTM Reimagined Arms: the server has " + p.mod + ", this game " + mod + ".");
-        }
-        if (!p.hbm.equals(hbm)) CHAT.add("NTM Reimagined Arms: the server has NTM " + p.hbm + ", this game " + hbm + ".");
+                "sameNtm", p.hbm.equals(hbm));
+        GunFeel.LOGGER.info("Server: NTM Reimagined Arms {}, NTM {}", p.mod, p.hbm);
+        // another build of the mod: the server kicks the player on the answer to this hello (Net.ServerHello)
+        if (!again && !p.hbm.equals(hbm)) CHAT.add("NTM Reimagined Arms: the server has NTM " + p.hbm + ", this game " + hbm + ".");
     }
 
     static void receive(byte[] data) {

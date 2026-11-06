@@ -1,5 +1,9 @@
 # Changelog
 
+## X477.157
+
+- A client and a server now need the very same build of the mod to connect.
+
 ## X477.156
 
 - Как в 26.2 X477: у пистолетов при `pistolHold` правая и левая руки на экране

@@ -22,8 +22,8 @@ original NTM on Minecraft 1.7.10 are in progress; see [Ports](#ports).
 ## Installation
 
 Install the same addon jar on the client and server, together with the required
-NTM-NEXT version and its dependencies. The mod is required on both sides.
-Client and server builds must use the same network protocol.
+NTM-NEXT version and its dependencies. The mod is required on both sides. A
+client and a server need the very same build of the mod to connect.
 
 Supported NTM versions are listed in
 `src/main/resources/META-INF/neoforge.mods.toml`. With other versions,
