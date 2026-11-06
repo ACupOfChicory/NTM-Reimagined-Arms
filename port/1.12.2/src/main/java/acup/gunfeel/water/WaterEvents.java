@@ -10,8 +10,8 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
 // 26.2's WaterEvents (water, the ballistics' part): what a bullet does at a liquid, as WaterPath finds it, the same on
-// the server and the client. The client hands each event to its listeners (the effects, not in this port yet); the
-// server hands them to no one. port: NTM CE moves its bullets only on the server, so the client's events come from the
+// the server and the client. The client hands each event to its listeners (the effects, WaterFx); the server hands
+// them to no one. port: NTM CE moves its bullets only on the server, so the client's events come from the
 // tracer, not from the bullet.
 public final class WaterEvents {
     private WaterEvents() {
@@ -56,6 +56,36 @@ public final class WaterEvents {
     // every tick of a bullet whose path went through liquid, on the client: the whole path, after the tick's events
     public interface TickListener {
         void tick(World world, Entity bullet, WaterPath.Result path);
+    }
+
+    // an NTM explosion whose centre is in a liquid or within a block over its surface, on the client (the server sends
+    // WaterBlastMessage to the players near; in single player the integrated server sends it to this client too).
+    // at = the centre; size = NTM's ExplosionVNT size (the blast's range in blocks is about twice that); incendiary =
+    // the charge sets alight in air (phosphorus, napalm): under water it gives a flash and no fire; inWater = the
+    // centre is in the liquid (else it is just above the surface); surface = the point of the surface over the centre
+    // (null when no surface is within 8 blocks over it); liquid = the liquid at the centre or under it
+    public record Blast(Vec3d at, float size, boolean incendiary, boolean inWater, Vec3d surface, Liquid liquid) {
+    }
+
+    public interface BlastListener {
+        void blast(World world, Blast blast);
+    }
+
+    private static final List<BlastListener> BLASTS = new CopyOnWriteArrayList<>();
+
+    public static void listenBlasts(BlastListener l) {
+        BLASTS.add(l);
+    }
+
+    public static void blast(World world, Blast b) {
+        if (!world.isRemote) return;
+        for (BlastListener l : BLASTS) {
+            try {
+                l.blast(world, b);
+            } catch (RuntimeException e) {
+                acup.gunfeel.GunFeel.LOGGER.warn("water blast listener failed", e);
+            }
+        }
     }
 
     private static final List<Listener> LISTENERS = new CopyOnWriteArrayList<>();

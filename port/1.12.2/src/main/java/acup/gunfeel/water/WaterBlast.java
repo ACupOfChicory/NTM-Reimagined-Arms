@@ -10,13 +10,14 @@ import net.minecraft.entity.Entity;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.fml.common.network.NetworkRegistry;
 
 // 26.2's WaterBlast: an NTM explosion at water. Under water the blast goes further and harder (water hardly
 // compresses), over it weaker: with its centre in water (or on the surface) mobs in water take it out to
 // waterBlastRadius × its range, those out of the water half of what they would. Blocks break as NTM breaks them.
-// Hooked into EntityProcessorCross.process (MixinWaterBlastProcessor). port: the players near are not told yet
-// (26.2's WaterBlastPayload, for the plume and the bubble, comes with the effects); MixinWaterBlast only shows every
-// explosion to the stand (watch).
+// Hooked into EntityProcessorCross.process (MixinWaterBlastProcessor). The players near are told
+// (WaterBlastMessage → WaterEvents.blast) for the plume and the bubble.
 public final class WaterBlast {
     private WaterBlast() {
     }
@@ -162,9 +163,17 @@ public final class WaterBlast {
     // the stand's (BoomScenario): every NTM explosion as it starts
     public static volatile java.util.function.Consumer<ExplosionVNT> watch;
 
-    // ExplosionVNT.explode (HEAD, MixinWaterBlast)
+    // ExplosionVNT.explode (HEAD, MixinWaterBlast), the server: tell the players near when it is at water
     public static void announce(ExplosionVNT e) {
         java.util.function.Consumer<ExplosionVNT> w = watch;
         if (w != null) w.accept(e);
+        if (!(e.world instanceof WorldServer)) return;
+        Vec3d at = new Vec3d(e.posX, e.posY, e.posZ);
+        Place p = place(e.world, at);
+        if (p == null) return;
+        EntityBulletBaseMK4 b = BULLET.get();
+        boolean incendiary = b != null && WaterClass.incendiary(b.config);
+        WaterBlastMessage m = new WaterBlastMessage(at, e.size, incendiary, p.inWater(), p.surface(), p.liquid());
+        acup.gunfeel.Net.CHANNEL.sendToAllAround(m, new NetworkRegistry.TargetPoint(e.world.provider.getDimension(), at.x, at.y, at.z, 128 + e.size * 2));
     }
 }

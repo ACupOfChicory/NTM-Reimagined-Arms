@@ -122,6 +122,10 @@ dependencies {
     // XZ for Java (public domain, Java 8 classes): the jar's shape tables packed (ShapePack); third-party/xz.txt
     shadowImplementation("org.tukaani:xz:1.10") { isTransitive = false }
 
+    // jspecify's @Nullable in the shared water classes (AmmoModels): annotations only, never in the jar
+    compileOnly("org.jspecify:jspecify:1.0.0")
+    testCompileOnly("org.jspecify:jspecify:1.0.0")
+
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

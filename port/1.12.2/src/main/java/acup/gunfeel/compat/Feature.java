@@ -34,7 +34,7 @@ public enum Feature {
     INSTANT_SWITCH("instant_switch", list("MixinHbmAnimationPacket"), list("InstantSwitch", "SwitchPrediction")),
     CLICK_AIM("click_aim", list("MixinClickAim"), list("ClickAim")),
     MACHINE_MESH("machine_mesh", list(), list("MachineMesh")),
-    TRACERS("tracers", list("MixinLegoClient", "MixinRenderBulletMK4", "MixinSmokeNodes"), list("Tracers", "TracerNet", "TracerPath", "WaterClass", "WaterPath", "WaterTick", "WaterBullet", "WaterEvents", "WaterSettings", "WaterMuffle")),
+    TRACERS("tracers", list("MixinLegoClient", "MixinRenderBulletMK4", "MixinSmokeNodes", "MixinMuzzleFlash"), list("Tracers", "TracerNet", "TracerPath", "WaterClass", "WaterPath", "WaterTick", "WaterBullet", "WaterEvents", "WaterSettings", "WaterMuffle", "WaterFx", "SunkBullets")),
     MARESLEG("maresleg", list("MixinGunConfigAnims"), list()),
     SPRINT_FIRE("sprint_fire", list("MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun"), list("SprintFire")),
     SPECTATOR("spectator", list("MixinSpectatorGun", "MixinSpectatorOldGun", "MixinSpectatorKeys", "MixinSpectatorHud"), list("SpectatorGuns", "SpectatorCheck", "SpectatorScenario")),

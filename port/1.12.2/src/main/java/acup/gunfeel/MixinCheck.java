@@ -12,7 +12,7 @@ public final class MixinCheck {
     // target -> handlers it should have
     private static final String[][] TARGETS = {
             {"com.hbm.main.ModEventHandlerClient", "2"}, // MixinModEventHandlerClient, MixinSpectatorHud
-            {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "16"}, // 5 + MixinSmokeNodes 2 + arms 3 + direct path 2 and its helpers 3 + walkSway 1
+            {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "18"}, // 5 + MixinSmokeNodes 2 + arms 3 + direct path 2 and its helpers 3 + walkSway 1 + MixinMuzzleFlash 2
             {"com.hbm.render.anim.sedna.HbmAnimationsSedna", "2"},
             {"com.hbm.render.loader.HFRWavefrontObject", "8"}, // 4 + MachineMesh ends 4
             {"net.minecraft.client.renderer.EntityRenderer", "7"}, // 2 + MixinMousePick 2 + the world pass 2 (MixinEntityRenderer) + MixinMouseTurn 1

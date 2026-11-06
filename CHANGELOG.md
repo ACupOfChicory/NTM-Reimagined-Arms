@@ -1,5 +1,30 @@
 # Changelog
 
+## X543.175
+
+- As in 26.2 X498 and X517: bullets meeting water splash the way it moves: a
+  crown and spray on still water, a fan downstream on a slope, a burst through
+  a waterfall, a low spray on a thin sheet. Rings lie on the surface, drift
+  with the current and are lit like particles; foam and bubbles rise and pop
+  at the surface, and a skipping round splashes at each bounce. Nothing sinks
+  under the surface or hangs over air, and a ring goes away when its water
+  does. Off with `waterSplash = false`.
+- Under water a shot has no muzzle flash. It throws a gas bubble at the muzzle
+  that swells, shrinks, bounces and breaks into rising bubbles, its size set by
+  the calibre. The round itself is visible in the water with a fading light
+  trail, and hollow and soft points open into a mushroom as they slow. Rounds
+  seen in water are twice their real size: 1.12.2 does not read NTM CE's
+  casings for their size, so `waterBodyScale` does nothing yet.
+- A round the water stopped sinks, tumbles and lies on the bottom for a while
+  (on your screen only), and falls when the block under it is broken. Keys:
+  `waterBodyMax = 400` (0 = none), `waterBodyLife = 30` (seconds).
+- A blast at water shows it: on the surface a column of water with spray, rings
+  and foam; under it a burst of bubbles that pushes sunk rounds aside.
+- On 1.12.2 the splashes come from the tracer of a shot, so grenades and
+  rockets, which have none, make no splash of their own; at the surface their
+  fuze makes them a blast, and that shows. 1.12.2 has no bubble-pop particle:
+  a bubble at the surface swells and fades instead.
+
 ## X543.174
 
 - Explosive NTM rounds, grenades and rockets meet water by their fuze. Hitting

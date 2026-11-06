@@ -31,6 +31,9 @@ acup/gunfeel/SpreadModel.java
 acup/gunfeel/DecalSurface.java
 # NTM compatibility (port: Feature, Compat, MixinProbe, NtmCheck are the port's)
 acup/gunfeel/compat/ApiProbe.java
+# water effects (water 3): the sunk rounds' bodies and their models, no Minecraft classes
+acup/gunfeel/water/SunkPhysics.java
+acup/gunfeel/water/AmmoModels.java
 
 [test]
 # src/test/java: they test the port's copies with 26.2's own expectations
@@ -51,6 +54,8 @@ acup/gunfeel/SprintFireTest.java
 acup/gunfeel/WalkSprintTest.java
 acup/gunfeel/ArmPistolScaleTest.java
 acup/gunfeel/ArmAimScaleTest.java
+acup/gunfeel/water/SunkPhysicsTest.java
+# acup/gunfeel/water/AmmoModelsTest.java: the port's copy (26.2's casing mesh check reads NTM 26.2's ObjMesh)
 
 [resources]
 # src/main/resources
@@ -70,6 +75,10 @@ ntmgunfeel-materials.txt
 ntmgunfeel-bullets.txt
 # the fence, gate and wall cells (FenceCells reads the "~family[...]" lines)
 ntmgunfeel-bullet-shapes.properties
+# the water effects: the rounds' real sizes (AmmoModels), the ring and the white of the sunk rounds' models
+assets/ntmgunfeel/water/ammo.tsv
+assets/ntmgunfeel/textures/particle/water_ring.png
+assets/ntmgunfeel/textures/particle/water_white.png
 
 [main-phys]
 # src/main/java, compiled with net.minecraft.world.phys.Vec3 read as acup.gunfeel.phys.Vec3 (build.gradle.kts)

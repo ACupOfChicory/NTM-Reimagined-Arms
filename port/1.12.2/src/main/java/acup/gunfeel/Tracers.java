@@ -130,6 +130,8 @@ public final class Tracers {
         // an impact fuze went off on the water's surface (waterFuze): the shot ends at waterCut
         boolean waterFuzed;
         acup.gunfeel.water.WaterPath.Result waterPath;
+        // the water's events on this piece not yet handed to the effects: {tick, Event}, given out as the head passes
+        java.util.ArrayList<Object[]> waterFx;
 
         Shot(int id, BulletConfig config, int owner, TracerPath path, int[] colors, long lifeTicks, double born, float damage) {
             this.id = id;
@@ -343,6 +345,12 @@ public final class Tracers {
                     "look", own ? mc.player.rotationPitch + "," + mc.player.rotationYaw : "-");
         }
         Shot s = new Shot(id, bc, owner, path, c, life, flightTime(), damage);
+        acup.gunfeel.water.WaterFx.traced(id);
+        // under water: a gas bubble at the muzzle, no flash
+        if (mc.world != null) {
+            double[] st = path.at(0);
+            acup.gunfeel.water.WaterFx.fired(mc.world, vec(st), vec(path.v), bc);
+        }
         SHOTS.add(s);
         RECENT_SHOTS.put(s.id, s);
         if (RECENT_SHOTS.size() > 512) RECENT_SHOTS.remove(RECENT_SHOTS.keySet().iterator().next());
@@ -496,9 +504,23 @@ public final class Tracers {
         return new double[] {CAMERA[0] + w[0], CAMERA[1] + w[1], CAMERA[2] + w[2]};
     }
 
+    // the point GL draws at now (the model view's origin) in the world, by last frame's world view: the gun in the
+    // player's hands is drawn with the hand's projection (hand = true), a gun in the world with the world's (the water
+    // effects: a muzzle flash under water)
+    public static double[] here(boolean hand) {
+        if (worldView == null || worldScale <= 0F) return null;
+        float[] mv = matrix(GL11.GL_MODELVIEW_MATRIX);
+        float[] inv = Mat4.invertAffine(worldView);
+        if (inv == null) return null;
+        float k = hand ? matrix(GL11.GL_PROJECTION_MATRIX)[5] / worldScale : 1F;
+        float[] w = hand ? Mat4.point(inv, mv[12] * k, mv[13] * k, mv[14]) : Mat4.point(inv, mv[12], mv[13], mv[14]);
+        return new double[] {CAMERA[0] + w[0], CAMERA[1] + w[1], CAMERA[2] + w[2]};
+    }
+
     // ---- each frame
 
     public static void register() {
+        acup.gunfeel.water.WaterFx.init();
         Events e = new Events();
         MinecraftForge.EVENT_BUS.register(e);
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.register(e);
@@ -507,7 +529,11 @@ public final class Tracers {
     public static final class Events {
         @SubscribeEvent
         public void renderLast(RenderWorldLastEvent e) {
-            if (acup.gunfeel.compat.Feature.TRACERS.on()) draw(e.getPartialTicks());
+            if (!acup.gunfeel.compat.Feature.TRACERS.on()) return;
+            draw(e.getPartialTicks());
+            // the rings on the water, after the translucent terrain (the water's colour under them, not over)
+            World world = Minecraft.getMinecraft().world;
+            if (world != null) acup.gunfeel.water.WaterRings.draw(world, CAMERA[0], CAMERA[1], CAMERA[2]);
         }
 
         @SubscribeEvent
@@ -521,12 +547,18 @@ public final class Tracers {
             if (e.phase != net.minecraftforge.fml.common.gameevent.TickEvent.Phase.END) return;
             Minecraft mc = Minecraft.getMinecraft();
             if (mc.world != null && !mc.isGamePaused()) clientTicks++;
-            if (acup.gunfeel.compat.Feature.TRACERS.on()) drain();
+            if (!acup.gunfeel.compat.Feature.TRACERS.on()) return;
+            drain();
+            // the water's effects: their delayed ones, and the sunk rounds' drawer in the world's particles
+            acup.gunfeel.water.WaterFx.clientTick();
+            if (mc.world != null) acup.gunfeel.water.SunkBullets.tick(mc.world);
         }
 
         @SubscribeEvent
         public void unload(WorldEvent.Unload e) {
-            if (e.getWorld().isRemote) clear();
+            if (!e.getWorld().isRemote) return;
+            clear();
+            // the water's effects are cleared on the first tick in the next world (WaterFx.clientTick)
         }
     }
 
@@ -551,6 +583,7 @@ public final class Tracers {
             Shot s = it.next();
             double t = Math.max(0, tickNow - s.born);
             fly(s, world, Math.min(t, s.lifeTicks));
+            if (s.waterFx != null) waterFx(s, world, t);
             BulletClock.Segment segment = BulletClock.segment(t, s.end, s.lifeTicks, Math.max(Config.tracerLength / s.path.speed, frameTicks * 1.5));
             if (segment.expired()) {
                 if (TestLog.client && Double.isNaN(s.end)) TestLog.c(s.id, "end", "by", "life", "at", v(s.path.at(s.lifeTicks)));
@@ -575,6 +608,40 @@ public final class Tracers {
             holesFrame = frame;
         }
         if (lateFrame != frame) lateHoles(mc, now);
+    }
+
+    // the shot's water events up to t (and not past where it hit something), to the effects
+    private static void waterFx(Shot s, World world, double t) {
+        double upTo = Double.isNaN(s.end) ? t : Math.min(t, s.end);
+        for (Iterator<Object[]> it = s.waterFx.iterator(); it.hasNext();) {
+            Object[] q = it.next();
+            if ((Double) q[0] > upTo + 1e-9) continue;
+            it.remove();
+            acup.gunfeel.water.WaterFx.tracerEvent(world, (acup.gunfeel.water.WaterEvents.Event) q[1], s.config);
+        }
+    }
+
+    // the water effects' rounds seen in water (SunkBullets, from its drawing in the lit particles' layer, before this
+    // frame's tracers): each shot's head now, short of where it ends, with its f and speed. port: 26.2 asks in the
+    // tracers' own frame; here the head is bounded by what is known of its end (the hit, the water's cut) so far
+    public static void underWater(World world) {
+        if (SHOTS.isEmpty()) return;
+        double now = flightTime();
+        for (Shot s : SHOTS) {
+            if (s.gone) continue;
+            double head = Math.min(Math.max(0, now - s.born), s.lifeTicks);
+            if (!Double.isNaN(s.end) && head >= s.end - 1e-6) continue;
+            // past where water cuts it, before the next piece is made (this frame's tracers make it): held at the cut,
+            // not gone for a frame
+            if (Double.isNaN(s.end) && !Double.isNaN(s.waterCut)) head = Math.min(head, s.waterCut);
+            Vec3d at = vec(s.path.at(head));
+            if (!acup.gunfeel.water.WaterFx.wetAt(world, at)) continue;
+            double wf = s.waterPath != null ? s.waterPath.fAt(at) : s.waterF;
+            double[] vel = s.path.velocity(head);
+            Vec3d v = vec(vel);
+            double k = s.waterF > 0 ? wf / s.waterF : 1;
+            acup.gunfeel.water.SunkBullets.flying(world, s.config, at, v, wf, v.length() * k);
+        }
     }
 
     // the frames, the one whose holes are drawn already, before the block cracks, and the one whose holes on
@@ -739,6 +806,14 @@ public final class Tracers {
             int[] pos = cell(hit);
             int face = hit.face;
             double[] unit = {dir[0] / len, dir[1] / len, dir[2] / len};
+            // through shallow water into the bottom: its crumbs (WaterTick.blocks has it for the bullet)
+            if (s.waterPath != null && face >= 0 && face <= 5) {
+                acup.gunfeel.water.WaterEvents.Event bottom = s.waterPath.bottom(vec(at), net.minecraft.util.EnumFacing.byIndex(face));
+                if (bottom != null) {
+                    if (s.waterFx == null) s.waterFx = new java.util.ArrayList<Object[]>();
+                    s.waterFx.add(new Object[] {s.end, bottom});
+                }
+            }
             if (TestLog.client) TestLog.c(s.id, "end", "by", "block", "block", name(world, pos), "pos", v(pos), "at", v(at));
             double[] vel = s.path.velocity(s.end);
             if (ricochet(s, world, pos, face, vel)) {
@@ -807,6 +882,11 @@ public final class Tracers {
             s.waterFuzed = true;
             return;
         }
+        if (!r.events.isEmpty()) {
+            if (s.waterFx == null) s.waterFx = new java.util.ArrayList<Object[]>();
+            for (acup.gunfeel.water.WaterEvents.Event e : r.events) s.waterFx.add(new Object[] {k + r.t(e.at()), e});
+        }
+        acup.gunfeel.water.WaterFx.tracerTick(world, r);
         if (r.cut()) s.waterCut = k + r.t(r.end());
         else if (r.f < s.waterF - 1e-12 && k + 1 < s.lifeTicks) s.waterCut = k + 1;
     }

@@ -19,7 +19,7 @@ import net.minecraftforge.fml.relauncher.FMLLaunchHandler;
 public class LateMixins implements IMixinConfigPlugin {
     static final List<String> CLIENT = Arrays.asList("MixinModEventHandlerClient", "MixinItemRenderWeaponBase",
             "MixinHbmAnimations", "MixinWavefrontObject", "MixinVaoModel", "MixinGroupHandle",
-            "MixinRenderBulletMK4", "MixinLegoClient", "MixinSmokeNodes",
+            "MixinRenderBulletMK4", "MixinLegoClient", "MixinSmokeNodes", "MixinMuzzleFlash",
             "MixinGunKeysRadial", "MixinGunHud", "MixinHbmAnimationPacket", "MixinG3Inspect", "MixinClock", "MixinAimButton", "MixinClickAim",
             "MixinSpectatorKeys", "MixinSpectatorHud");
 

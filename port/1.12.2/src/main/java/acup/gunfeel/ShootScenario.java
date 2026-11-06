@@ -88,6 +88,11 @@ public final class ShootScenario {
         return NAME.equals("boom");
     }
 
+    // "waterfx": the water's effects, splashes, rings, bubbles, sunk rounds (WaterFxScenario)
+    static boolean waterfx() {
+        return NAME.equals("waterfx");
+    }
+
     // "fences": holes where two fences, walls, panes or bars join lie on their posts and rails (FencesScenario)
     static boolean fences() {
         return NAME.equals("fences");
@@ -125,7 +130,7 @@ public final class ShootScenario {
 
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || glass() || water() || boom() || fences() || aimlag() || hands() || walksprint() || pistols() || spectator() || TraceScenario.enabled();
+        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || glass() || water() || waterfx() || boom() || fences() || aimlag() || hands() || walksprint() || pistols() || spectator() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -182,6 +187,10 @@ public final class ShootScenario {
         }
         if (boom()) {
             BoomScenario.step(mc, ++tick);
+            return;
+        }
+        if (waterfx()) {
+            WaterFxScenario.step(mc, ++tick);
             return;
         }
         if (aimlag()) {
