@@ -79,7 +79,7 @@ class WaterPathTest {
     @Test
     void stopsAtLTimesLnOneOverStopStraightDown() {
         Map<WaterClass, Double> depth = Map.of(WaterClass.PISTOL, 2.4, WaterClass.RIFLE, 1.25, WaterClass.HEAVY, 1.3,
-                WaterClass.AP, 1.7, WaterClass.SLUG, 2.7, WaterClass.SHOT, 0.6, WaterClass.DART, 3.8);
+                WaterClass.AP, 1.7, WaterClass.SLUG, 2.7, WaterClass.SHOT, 0.6, WaterClass.MINI, 1.33, WaterClass.DART, 3.8);
         for (var e : depth.entrySet()) {
             var r = down(deep(), e.getKey(), 1);
             assertNotNull(r.stop, e.getKey().name());
@@ -392,6 +392,7 @@ class WaterPathTest {
         assertEquals(5.35, WaterClass.PISTOL.formulaAngle(), 0.01);
         assertEquals(6.03, WaterClass.RIFLE.formulaAngle(), 0.01);
         assertEquals(6.42, WaterClass.AP.formulaAngle(), 0.01);
+        assertEquals(4.13, WaterClass.MINI.formulaAngle(), 0.01);
         assertEquals(11.38, WaterClass.GRENADE.formulaAngle(), 0.01);
         assertEquals(12.73, WaterClass.ROCKET.formulaAngle(), 0.01);
     }

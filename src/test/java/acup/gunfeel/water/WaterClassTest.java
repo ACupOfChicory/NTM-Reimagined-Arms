@@ -49,7 +49,7 @@ class WaterClassTest {
             Map.entry("ammo_standard_ct_mortar_charge", WaterClass.GRENADE),
             Map.entry("ammo_standard_flame_balefire", WaterClass.FLAME), Map.entry("ammo_standard_flame_diesel", WaterClass.FLAME),
             Map.entry("ammo_standard_flame_gas", WaterClass.FLAME), Map.entry("ammo_standard_flame_napalm", WaterClass.FLAME),
-            Map.entry("ammo_standard_g10", WaterClass.SHOT), Map.entry("ammo_standard_g10_du", WaterClass.SHOT),
+            Map.entry("ammo_standard_g10", WaterClass.SHOT), Map.entry("ammo_standard_g10_du", WaterClass.MINI),
             Map.entry("ammo_standard_g10_explosive", WaterClass.SHOT), Map.entry("ammo_standard_g10_shrapnel", WaterClass.SHOT),
             Map.entry("ammo_standard_g10_slug", WaterClass.SLUG),
             Map.entry("ammo_standard_g12", WaterClass.SHOT), Map.entry("ammo_standard_g12_bp", WaterClass.SHOT),

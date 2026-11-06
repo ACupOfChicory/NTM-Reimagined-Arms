@@ -22,6 +22,8 @@ public enum WaterClass {
     AP(0.9, 7.85, false),
     SLUG(1.4, 11.3, false),
     SHOT(0.3, 11.3, false),
+    // 10 gauge DU: ten uranium mini-bullets 6×14 mm (~6 g, density 19), not balls: by the name
+    MINI(0.7, 19, false),
     DART(2.0, 7.85, false),
     GRENADE(3.0, 2.5, true),
     ROCKET(4.0, 2.0, true),
@@ -78,6 +80,7 @@ public enum WaterClass {
     // ammo whose class the numbers do not tell: by the ammo item's path (hbm:<path>)
     static final Map<String, WaterClass> BY_NAME = Map.ofEntries(
             Map.entry("ammo_standard_g12_flechette", DART),
+            Map.entry("ammo_standard_g10_du", MINI),
             Map.entry("ammo_standard_coil_tungsten", AP),
             Map.entry("ammo_standard_coil_ferrouranium", AP),
             Map.entry("ammo_standard_ct_hook", GRENADE),
