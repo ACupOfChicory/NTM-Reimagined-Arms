@@ -90,6 +90,14 @@ final class HoleMath {
 
     // ---- life
 
+    // whether a hole is drawn in this pass: the one before the translucent terrain or the late one after it
+    // (Tracers.drawLateHoles). A hole on a translucent block that faces the camera goes in the late pass alone: drawn
+    // before too, its half-clear edge is darkened twice (26.2's HolePasses.underCopy); one on its far face, seen
+    // through the block, only before, under the block's color. The rest only before.
+    static boolean inPass(boolean latePass, boolean lateHole, boolean facesCamera) {
+        return latePass == (lateHole && facesCamera);
+    }
+
     // a hole's alpha `age` after it was made, of holes kept `life`: full until the last three seconds, then down to 0
     static int alpha(long ageNanos, long lifeNanos) {
         double age = ageNanos / 1e9;

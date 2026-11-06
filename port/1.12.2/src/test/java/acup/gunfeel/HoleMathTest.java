@@ -2,6 +2,7 @@ package acup.gunfeel;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -300,5 +301,34 @@ class HoleMathTest {
         // with no rail beyond (the fence's last block) the end keeps its hole, all of it
         HoleMath.Shape last = (x, y, z) -> x >= 0 && x < 1 && y >= 6 / 16.0 && y < 9 / 16.0 && z >= 7 / 16.0 && z < 9 / 16.0;
         assertNull(HoleMath.onShape(end, new double[] {1, 7.5 / 16, 0.5}, 5, new int[] {0, 0, 0}, 1 / 16F, rect, last).solid);
+    }
+
+    // a hole on glass the camera faces in the late pass alone, not twice (26.2's HolePasses.underCopy)
+    @Test
+    void lateHoleInOnePass() {
+        assertTrue(HoleMath.inPass(true, true, true), "on glass, from in front: late");
+        assertFalse(HoleMath.inPass(false, true, true), "on glass, from in front: not before too");
+        assertTrue(HoleMath.inPass(false, true, false), "on glass, seen through it: before, under its color");
+        assertFalse(HoleMath.inPass(true, true, false), "on glass, seen through it: not late");
+        assertTrue(HoleMath.inPass(false, false, true), "on a plain block: before");
+        assertFalse(HoleMath.inPass(true, false, true), "on a plain block: never late");
+        assertTrue(HoleMath.inPass(false, false, false), "on a plain block's far side: before");
+        // every hole, wherever the camera is, in exactly one of the two passes
+        for (boolean lateHole : new boolean[] {false, true}) for (boolean faces : new boolean[] {false, true})
+            assertTrue(HoleMath.inPass(false, lateHole, faces) != HoleMath.inPass(true, lateHole, faces),
+                    "one pass for late " + lateHole + ", facing " + faces);
+    }
+
+    // Tracers draws a flat hole by inPass, and asks whether it faces the camera from the eyes (EYE), not from the
+    // viewer's feet (RenderManager.viewerPos)
+    @Test
+    void tracersAskInPassFromTheEyes() throws java.io.IOException {
+        String src = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("src/main/java/acup/gunfeel/Tracers.java")),
+                java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(src.contains("HoleMath.inPass(late, h.late, h.late && facesCamera(h))"), "the flat holes' loop asks inPass");
+        int at = src.indexOf("private static boolean facesCamera(Hole h)");
+        assertTrue(at >= 0, "facesCamera");
+        String body = src.substring(at, src.indexOf('}', at));
+        assertTrue(body.contains("EYE[1] - h.pos[1]") && !body.contains("CAMERA"), "facesCamera counts from the eyes");
     }
 }

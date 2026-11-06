@@ -1,5 +1,15 @@
 # Changelog
 
+## X543.164
+
+- A bullet hole on see-through blocks drawn with the water and stained glass
+  (NTM's reinforced laminate and its pane, ice, such glass from other mods),
+  seen from their side, no longer has its half-clear edge darkened twice: it
+  was drawn both under the glass and over it, now only over it, as on 26.2.
+  Which side the camera is on now counts from the eyes, not the feet, so a hole
+  on the top of such a block in the floor is drawn over the glass too. Seen
+  through the glass from behind, and on all other blocks, holes look as before.
+
 ## X543.163
 
 - As in 26.2 X510: in NTM power armour all recoil is halved: the camera kick,

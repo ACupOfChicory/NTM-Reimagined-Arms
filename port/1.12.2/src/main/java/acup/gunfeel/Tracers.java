@@ -398,6 +398,20 @@ public final class Tracers {
     private static float[] worldView;
     private static float worldScale = 1F;
     private static final double[] CAMERA = new double[3];
+    // where the camera itself is: CAMERA (RenderManager.viewerPos, the viewer's feet) plus ActiveRenderInfo's offset to
+    // the eyes, or to the camera behind or in front of them in third person
+    private static final double[] EYE = new double[3];
+
+    private static void camera() {
+        net.minecraft.client.renderer.entity.RenderManager rm = Minecraft.getMinecraft().getRenderManager();
+        CAMERA[0] = rm.viewerPosX;
+        CAMERA[1] = rm.viewerPosY;
+        CAMERA[2] = rm.viewerPosZ;
+        net.minecraft.util.math.Vec3d eye = net.minecraft.client.renderer.ActiveRenderInfo.getCameraPosition();
+        EYE[0] = CAMERA[0] + eye.x;
+        EYE[1] = CAMERA[1] + eye.y;
+        EYE[2] = CAMERA[2] + eye.z;
+    }
 
     private static float[] matrix(int which) {
         MATRIX.clear();
@@ -466,9 +480,7 @@ public final class Tracers {
         World world = mc.world;
         if (world == null) return;
         drain();
-        CAMERA[0] = Minecraft.getMinecraft().getRenderManager().viewerPosX;
-        CAMERA[1] = Minecraft.getMinecraft().getRenderManager().viewerPosY;
-        CAMERA[2] = Minecraft.getMinecraft().getRenderManager().viewerPosZ;
+        camera();
         worldView = matrix(GL11.GL_MODELVIEW_MATRIX);
         worldScale = matrix(GL11.GL_PROJECTION_MATRIX)[5];
         long now = GunClock.nanos();
@@ -525,9 +537,7 @@ public final class Tracers {
         World world = mc.world;
         if (world == null) return;
         drain();
-        CAMERA[0] = Minecraft.getMinecraft().getRenderManager().viewerPosX;
-        CAMERA[1] = Minecraft.getMinecraft().getRenderManager().viewerPosY;
-        CAMERA[2] = Minecraft.getMinecraft().getRenderManager().viewerPosZ;
+        camera();
         GL11.glPushAttrib(GL11.GL_ENABLE_BIT | GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT | GL11.GL_POLYGON_BIT | GL11.GL_CURRENT_BIT);
         try {
             makePending();
@@ -805,6 +815,8 @@ public final class Tracers {
     // a hole as a scenario sees it (HolesScenario): its block, hit face, where it is and its pieces over cube edges
     static final class HoleView {
         final int x, y, z, face;
+        // drawn in the late pass too, over the translucent terrain (drawLateHoles)
+        final boolean late;
         final double[] pos;
         final List<double[]> pieces;
         // a flat hole's quads as drawn (world coordinates, seen from 3 blocks off its face), for FencesScenario
@@ -815,6 +827,7 @@ public final class Tracers {
             y = h.y;
             z = h.z;
             face = h.face;
+            late = h.late;
             pos = h.pos.clone();
             pieces = h.blockPieces;
             if (h.mesh != null || h.blockPieces != null) return;
@@ -1090,9 +1103,9 @@ public final class Tracers {
     // Like entity_translucent but without writing depth (overlapping holes would hide each other's soft edges), with
     // a depth bias that keeps them on the face they lie on; one-sided holes (on a cube's face) culled, the others
     // not. In the order they were made, a newer hole over an older one; grouped by texture.
-    // late: only the holes on translucent blocks that face the camera (drawLateHoles). The translucent terrain does not
-    // write depth here, so one on a far face, seen through the block, is left to the copy drawn before it, under the
-    // block's color.
+    // late: only the holes on translucent blocks that face the camera (drawLateHoles), and those are left out of the
+    // pass before it. The translucent terrain does not write depth here, so one on a far face, seen through the block,
+    // is left to the copy drawn before it, under the block's color.
     private static void drawHoles(Minecraft mc, float partial, long now, long life, boolean late) {
         List<Hole> meshHoles = new ArrayList<Hole>();
         List<double[][]> meshPlaces = new ArrayList<double[][]>();
@@ -1116,7 +1129,7 @@ public final class Tracers {
             boolean started = false;
             for (Hole h : HOLES) {
                 if (h.kind != kind || h.cull != cull || h.mesh != null || h.blockPieces != null) continue;
-                if (late && !(h.late && facesCamera(h))) continue;
+                if (!HoleMath.inPass(late, h.late, h.late && facesCamera(h))) continue;
                 int alpha = HoleMath.alpha(now - h.born, life);
                 if (alpha <= 0) continue;
                 for (double[] clip : HoleMath.cells(h.rect, h.mask)) {
@@ -1146,10 +1159,11 @@ public final class Tracers {
         mc.entityRenderer.disableLightmap();
     }
 
-    // the camera is on the side its face looks to
+    // the camera (its eyes, not the viewer's feet: a hole on the top of a glass block in the floor faces it) is on the
+    // side its face looks to
     private static boolean facesCamera(Hole h) {
         int[] o = HoleMath.offset(h.face);
-        return (CAMERA[0] - h.pos[0]) * o[0] + (CAMERA[1] - h.pos[1]) * o[1] + (CAMERA[2] - h.pos[2]) * o[2] > 0;
+        return (EYE[0] - h.pos[0]) * o[0] + (EYE[1] - h.pos[1]) * o[1] + (EYE[2] - h.pos[2]) * o[2] > 0;
     }
 
     // where the holes on machines and doors (MachineMesh) are now, read before the holes' GL state is set up (reading

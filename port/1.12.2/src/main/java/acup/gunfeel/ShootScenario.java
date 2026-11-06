@@ -73,6 +73,11 @@ public final class ShootScenario {
         return NAME.equals("holes");
     }
 
+    // "glass": bullet holes on glass in front and behind, screenshots for numbers (GlassScenario)
+    static boolean glass() {
+        return NAME.equals("glass");
+    }
+
     // "fences": holes where two fences, walls, panes or bars join lie on their posts and rails (FencesScenario)
     static boolean fences() {
         return NAME.equals("fences");
@@ -110,7 +115,7 @@ public final class ShootScenario {
 
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || fences() || aimlag() || hands() || walksprint() || pistols() || spectator() || TraceScenario.enabled();
+        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || glass() || fences() || aimlag() || hands() || walksprint() || pistols() || spectator() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -155,6 +160,10 @@ public final class ShootScenario {
         }
         if (fences()) {
             FencesScenario.step(mc, ++tick);
+            return;
+        }
+        if (glass()) {
+            GlassScenario.step(mc, ++tick);
             return;
         }
         if (aimlag()) {
