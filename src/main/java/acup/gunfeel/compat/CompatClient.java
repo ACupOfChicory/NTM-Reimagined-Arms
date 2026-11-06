@@ -25,8 +25,8 @@ import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
 // Client side of Compat: the warning on the title screen when NTM is not a tested version (once a launch, unless
-// hidden for that NTM version in config/ntm-gunfeel-compat.properties), the server's versions in chat when they differ
-// (HelloPayload), and /gunfeel status.
+// hidden for that NTM version in config/ntm-gunfeel-compat.properties), the server's NTM version in chat when it
+// differs (HelloPayload), and /gunfeel status.
 public final class CompatClient {
     private static final String FILE = "ntm-gunfeel-compat.properties", HIDE = "hideWarningFor";
     private static boolean shown;
@@ -107,10 +107,6 @@ public final class CompatClient {
                 "ntm", Compat.hbmVersion(), "sameMod", p.mod().equals(Compat.modVersion()), "sameNtm", p.hbm().equals(Compat.hbmVersion()));
         var player = Minecraft.getInstance().player;
         if (player == null) return;
-        if (!p.mod().equals(Compat.modVersion())) {
-            player.sendSystemMessage(Component.translatable("ntmgunfeel.compat.server_mod", p.mod(), Compat.modVersion())
-                    .withStyle(ChatFormatting.GOLD));
-        }
         if (!p.hbm().equals(Compat.hbmVersion())) {
             player.sendSystemMessage(Component.translatable("ntmgunfeel.compat.server_hbm", p.hbm(), Compat.hbmVersion())
                     .withStyle(ChatFormatting.GOLD));

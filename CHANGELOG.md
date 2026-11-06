@@ -1,5 +1,9 @@
 # Changelog
 
+## X504.55
+
+- A client and a server now need the very same build of the mod to connect.
+
 ## X504.54
 
 - NTM Decentralized Edition gets the water of X488 to X498: bullets slow down,
