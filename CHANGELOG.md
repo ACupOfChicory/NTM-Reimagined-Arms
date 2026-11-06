@@ -1,5 +1,18 @@
 # Changelog
 
+## X544
+
+- An explosive round that water stopped goes off where it sinks to only if it
+  gets there within NTM's life of the round. When that ends first, the round is
+  gone without a blast, as NTM removes any round in the air: most rifle and
+  shotgun HE rounds live 1.5 seconds and sink about 1.3 blocks in that time,
+  grenades for the 40 mm launchers live 10 seconds. The X493 notes said such a
+  round went off on NTM's timer; NTM has no timed fuze for bullets.
+- Explosive pellets fired straight down while standing in water, which water
+  stops inside the shooter, no longer hit the shooter from inside and vanish.
+  With the feet on the bottom they sink and go off on it; in deeper water they
+  are gone without a blast when NTM's life of the round ends.
+
 ## X543
 
 - Rounds seen in water are now sized to the casings NTM drops, not six times
@@ -115,7 +128,8 @@
   it steeper than 10° they go off on the surface; shallower they skip and go
   off at the next thing they touch. Fired under water they fly, slow down like
   any bullet and go off on a block or a mob. One that water stopped sinks at
-  most a block a second and goes off where it lands or on NTM's timer.
+  most a block a second and goes off where it lands, if NTM's life of the round
+  lasts that long (see X544).
 - In water an explosive round goes off at the first touch of anything, another
   bullet or a sinking explosive included; only pellets of one shot leave each
   other alone. In the air bullets do not touch each other.

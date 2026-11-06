@@ -156,7 +156,8 @@ public final class WaterTick {
         if (r.stop != null) {
             bullet.setPos(r.stop.x, r.stop.y, r.stop.z);
             w.gunfeel$waterStopped(true);
-            // a bullet is gone where water stopped it; one with an impact fuze sinks and goes off where it touches
+            // a bullet is gone where water stopped it; one with an impact fuze sinks and goes off where it touches,
+            // or is gone without a blast when NTM's life of the round (BulletConfig.expires) ends first, as in the air
             if (!sinks(bullet)) {
                 if (server && TestLog.server) TestLog.s(bullet.getId(), "end", "by", "water", "at", r.stop, "path", r.water);
                 bullet.discard();

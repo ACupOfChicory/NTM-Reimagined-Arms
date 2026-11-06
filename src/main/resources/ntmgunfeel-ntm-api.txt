@@ -235,6 +235,7 @@ CORE field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
 CORE field com/hbm/items/weapon/sedna/BulletConfig armorThresholdNegation F
 CORE field com/hbm/items/weapon/sedna/BulletConfig casing Lcom/hbm/particle/SpentCasing;
 CORE field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
+CORE field com/hbm/items/weapon/sedna/BulletConfig expires I
 CORE field com/hbm/items/weapon/sedna/BulletConfig gravity D
 CORE field com/hbm/items/weapon/sedna/BulletConfig id I
 CORE field com/hbm/items/weapon/sedna/BulletConfig onEntityHit Ljava/util/function/BiConsumer;
