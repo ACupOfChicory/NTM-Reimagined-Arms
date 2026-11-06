@@ -1,5 +1,15 @@
 # Changelog
 
+## X483.44
+
+- On NTM Decentralized Edition the hitbox outlines (F3+B) no longer drag the
+  frame rate down. Ten NTM mobs in view used to add about 16 ms to a frame
+  with them on, thirty over 50 ms; now it is under 2 ms, close to vanilla's
+  boxes. A walking mob's outline is built in the background, so the outline of
+  its arms and legs may lag the model by one frame or 1/60 of a second, never
+  more. The head, its green zones and the pose itself are exact. While NTM mobs
+  walk, above 60 FPS the outlines can still cost up to about 10 ms a frame.
+
 ## X483
 
 - След пули на стекле, у которого нет прозрачных насквозь пикселей
