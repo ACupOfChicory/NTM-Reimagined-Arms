@@ -41,7 +41,19 @@ public abstract class MixinThrowableHit {
     private void gunfeel$view(Operation<Void> original) {
         var self=(EntityThrowableNT)(Object)this;
         var previous=acup.gunfeel.ModelHits.beginProjectile(self.getThrower(),self.getDeltaMovement().length()*motionMult());
-        try{original.call();}finally{acup.gunfeel.ModelHits.endShot(previous);}
+        try{
+            original.call();
+            // water: the bullet's new f, a stop or a skip, the tick's events (WaterTick)
+            if(self instanceof EntityBulletBaseMK4 bullet)acup.gunfeel.water.WaterTick.end(bullet);
+        }finally{acup.gunfeel.ModelHits.endShot(previous);}
+    }
+
+    // NTM's 4 vanilla bubbles a tick in water, which the water effects can turn off for their own trail
+    @Redirect(method = "tick", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/world/level/Level;addParticle(Lnet/minecraft/core/particles/ParticleOptions;DDDDDD)V"))
+    private void gunfeel$ntmBubbles(Level level, net.minecraft.core.particles.ParticleOptions particle, double x, double y, double z, double vx, double vy, double vz) {
+        if (!acup.gunfeel.water.WaterEvents.ntmBubbles && (Object) this instanceof EntityBulletBaseMK4) return;
+        level.addParticle(particle, x, y, z, vx, vy, vz);
     }
     @Redirect(method = "tick", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/Level;getEntities(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/AABB;)Ljava/util/List;"))
@@ -53,6 +65,8 @@ public abstract class MixinThrowableHit {
             target = "Lnet/minecraft/world/phys/AABB;clip(Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;)Ljava/util/Optional;"))
     private Optional<Vec3> gunfeel$clip(AABB box, Vec3 from, Vec3 to) {
         if (!((Object) this instanceof EntityBulletBaseMK4)) return box.clip(from, to);
+        // not past where water stopped or turned the bullet
+        to = acup.gunfeel.water.WaterTick.mobsTo((EntityBulletBaseMK4) (Object) this, to);
         Vec3 start = gunfeel$start(from);
         if (box.contains(start)) return Optional.of(start);
         return box.clip(start, to);
@@ -71,10 +85,17 @@ public abstract class MixinThrowableHit {
     private BlockHitResult gunfeel$blocks(Level level, ClipContext context) {
         if (!((Object) this instanceof EntityBulletBaseMK4)) return level.clip(context);
         EntityBulletBaseMK4 bullet = (EntityBulletBaseMK4) (Object) this;
-        if (level.isClientSide()) return PassableClip.clip(level, context.getFrom(), context.getTo());
-        // blocks it pierced (bullet rules "pierce"), kept between ticks: one it stopped inside of is not paid twice
-        if (gunfeel$pierced == null) gunfeel$pierced = new java.util.HashSet<>();
-        return acup.gunfeel.BulletServer.clip(bullet, level, context.getFrom(), context.getTo(), gunfeel$pierced);
+        // water first: blocks past where it stops or skips the bullet are not met (WaterTick)
+        Vec3 to = acup.gunfeel.water.WaterTick.path(bullet, level, context.getFrom(), context.getTo());
+        BlockHitResult hit;
+        if (level.isClientSide()) hit = PassableClip.clip(level, context.getFrom(), to);
+        else {
+            // blocks it pierced (bullet rules "pierce"), kept between ticks: one it stopped inside of is not paid twice
+            if (gunfeel$pierced == null) gunfeel$pierced = new java.util.HashSet<>();
+            hit = acup.gunfeel.BulletServer.clip(bullet, level, context.getFrom(), to, gunfeel$pierced);
+        }
+        acup.gunfeel.water.WaterTick.blocks(bullet, hit);
+        return hit;
     }
 
     @Unique

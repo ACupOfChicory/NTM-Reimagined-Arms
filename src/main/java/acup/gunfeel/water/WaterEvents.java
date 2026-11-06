@@ -52,7 +52,33 @@ public final class WaterEvents {
         void on(Level level, Event event);
     }
 
+    // every tick of a bullet whose path went through liquid (WaterBullet.inWater), on the client: the whole path, for
+    // bubbles along it; after the tick's events
+    public interface TickListener {
+        void tick(Level level, Entity bullet, WaterPath.Result path);
+    }
+
     private static final List<Listener> LISTENERS = new CopyOnWriteArrayList<>();
+    private static final List<TickListener> TICKS = new CopyOnWriteArrayList<>();
+
+    // NTM's own bubbles (4 vanilla BUBBLE a tick while the bullet is in water): the effects turn them off to draw
+    // their own trail instead. Read by MixinThrowableHit on the client.
+    public static volatile boolean ntmBubbles = true;
+
+    public static void listenTicks(TickListener l) {
+        TICKS.add(l);
+    }
+
+    public static void tick(Level level, Entity bullet, WaterPath.Result path) {
+        if (!level.isClientSide()) return;
+        for (TickListener l : TICKS) {
+            try {
+                l.tick(level, bullet, path);
+            } catch (RuntimeException e) {
+                acup.gunfeel.GunFeel.LOGGER.warn("water tick listener failed", e);
+            }
+        }
+    }
 
     // client listeners (effects, sounds); added once at start-up
     public static void listen(Listener l) {

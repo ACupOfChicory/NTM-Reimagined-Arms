@@ -19,8 +19,22 @@ public interface WaterBullet {
 
     void gunfeel$waterStopped(boolean stopped);
 
+    // this tick's path through liquid (null: it met none), from the path test to the end of the tick
+    WaterPath.@org.jspecify.annotations.Nullable Result gunfeel$waterTick();
+
+    void gunfeel$waterTick(WaterPath.@org.jspecify.annotations.Nullable Result tick);
+
+    WaterClass gunfeel$waterClass();
+
     static double f(Entity bullet) {
         return bullet instanceof WaterBullet w ? w.gunfeel$waterF() : 1.0;
+    }
+
+    // the bullet's path this tick went through liquid, or it is in one (for the effects: bubbles, the muzzle)
+    static boolean inWater(Entity bullet) {
+        if (!(bullet instanceof WaterBullet w)) return false;
+        WaterPath.Result r = w.gunfeel$waterTick();
+        return r != null && (r.water > 0 || r.inLiquid(r.end()));
     }
 
     static boolean stopped(Entity bullet) {

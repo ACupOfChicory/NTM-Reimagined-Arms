@@ -95,6 +95,10 @@ public final class WaterPath {
         private final Fluids fluids;
         private final WaterClass cls;
         private final @Nullable Entity bullet;
+        // where along the path NTM's test found a block this tick (NaN: none), set by WaterTick
+        double blockT = Double.NaN;
+        // the f the bullet's damage is counted at: the start's while the tick runs, the new f after it (WaterTick)
+        double unit;
 
         Result(Vec3 from, Vec3 to, double water, double f, @Nullable Vec3 stop, @Nullable Skip skip, List<Event> events, double f0,
                 double length, double len, double[] spans, int count, Fluids fluids, WaterClass cls, @Nullable Entity bullet) {
@@ -113,6 +117,30 @@ public final class WaterPath {
             this.fluids = fluids;
             this.cls = cls;
             this.bullet = bullet;
+            this.unit = f0;
+        }
+
+        // f at the start of the tick
+        public double startF() {
+            return f0;
+        }
+
+        public WaterClass cls() {
+            return cls;
+        }
+
+        // the parts of the path in liquid, in order: {from, to} each (bubbles go along them)
+        public List<Vec3[]> wet() {
+            List<Vec3[]> out = new ArrayList<>(count);
+            Vec3 d = to.subtract(from);
+            for (int i = 0; i < count; i++) if (spans[i * 4 + 1] > spans[i * 4])
+                out.add(new Vec3[] {from.add(d.scale(spans[i * 4])), from.add(d.scale(spans[i * 4 + 1]))});
+            return out;
+        }
+
+        // the point's place along the path, 0 at `from`, 1 at `to`
+        public double t(Vec3 p) {
+            return param(p);
         }
 
         // where the path ends: the stop, the skip, else `to`. Blocks and mobs past it are not hit.
