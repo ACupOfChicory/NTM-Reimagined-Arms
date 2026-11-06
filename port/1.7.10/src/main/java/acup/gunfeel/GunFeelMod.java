@@ -31,6 +31,7 @@ public final class GunFeelMod {
         ModelHitNet.register(id, client); // 7, 8: the client's poses and meshes of the model hitboxes
         BulletCheck.registerIfAsked();
         WaterCheck.registerIfAsked();
+        ExplosiveCheck.registerIfAsked();
         ModelCells.preload();
     }
 

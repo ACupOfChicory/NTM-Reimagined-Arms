@@ -216,6 +216,12 @@ if (providers.gradleProperty("checkWater").isPresent) tasks.named<JavaExec>("run
     systemProperty("ntmgunfeel.checkWater", "logs/water-check.tsv")
 }
 
+// The explosives in water on the dedicated server (ExplosiveCheck, as 26.2's runCheckBoom): -PcheckBoom on runServer;
+// the result in run/server/logs/boom-check.tsv
+if (providers.gradleProperty("checkBoom").isPresent) tasks.named<JavaExec>("runServer") {
+    systemProperty("ntmgunfeel.checkBoom", "logs/boom-check.tsv")
+}
+
 // The tests run on Java 8, as the players' game does (test), and on Java 25 (test25): the downgraded classes on both.
 // Paths to the 26.2 pins (src/test/pinned at the root) come in as a system property.
 tasks.test {

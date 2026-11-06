@@ -63,10 +63,41 @@ public abstract class MixinThrowableClip extends Entity {
     @Unique
     private boolean gunfeel$hitsOn;
 
+    // where the bullet was when its tick began: an explosive's touch of another bullet is looked for along the tick's
+    // path (WaterImpact.touch)
+    @Unique
+    private double gunfeel$beforeX, gunfeel$beforeY, gunfeel$beforeZ;
+
+    // the bullet has left its shooter's box (NTM's, 0.3 wider) since it was fired. A bullet water stopped before that
+    // (a shot down while standing in water) is still there when NTM's guard (selfDamageDelay) is over; while it
+    // sinks in its shooter, the shooter is no target: NTM's own test never hits a box from inside, and the
+    // point-blank rule (gunfeel$mob) is for the mobs in front. It goes off on the bottom, or NTM's life of it ends.
+    @Unique
+    private boolean gunfeel$outOfShooter;
+
+    @Unique
+    private EntityLivingBase gunfeel$inShooter() {
+        if (gunfeel$outOfShooter || !((Object) this instanceof EntityBulletBaseMK4 b) || !acup.gunfeel.water.WaterBullet.stopped(b)) return null;
+        return ((EntityThrowableNT) (Object) this).getThrower();
+    }
+
+    @Unique
+    private static boolean gunfeel$ofShooter(Entity e, EntityLivingBase shooter) {
+        return e == shooter || acup.gunfeel.ModelPartEntities.parent(e) == shooter;
+    }
+
     @Inject(method = "onUpdate", at = @At("HEAD"), remap = true)
     private void gunfeel$beginHits(CallbackInfo ci) {
         if (worldObj.isRemote) return;
         EntityThrowableNT self = (EntityThrowableNT) (Object) this;
+        if (!gunfeel$outOfShooter) {
+            EntityLivingBase shooter = self.getThrower();
+            if (shooter == null || !shooter.boundingBox.expand(0.3, 0.3, 0.3).isVecInside(Vec3.createVectorHelper(posX, posY, posZ)))
+                gunfeel$outOfShooter = true;
+        }
+        gunfeel$beforeX = posX;
+        gunfeel$beforeY = posY;
+        gunfeel$beforeZ = posZ;
         double travel = Math.sqrt(motionX * motionX + motionY * motionY + motionZ * motionZ) * motionMult();
         gunfeel$hitsPrevious = ModelHits.beginProjectile(self.getThrower(), travel);
         gunfeel$hitsOn = true;
@@ -77,8 +108,12 @@ public abstract class MixinThrowableClip extends Entity {
         if (!gunfeel$hitsOn) return;
         gunfeel$hitsOn = false;
         try {
-            // water: the bullet's new f, a stop or a skip, the tick's events (WaterTick)
-            if ((Object) this instanceof EntityBulletBaseMK4 bullet) WaterTick.end(bullet);
+            // water: the bullet's new f, a stop or a skip, the tick's events (WaterTick); an explosive touching another
+            // bullet (WaterImpact)
+            if ((Object) this instanceof EntityBulletBaseMK4 bullet) {
+                WaterTick.end(bullet);
+                acup.gunfeel.water.WaterImpact.touch(bullet, gunfeel$beforeX, gunfeel$beforeY, gunfeel$beforeZ);
+            }
         } finally {
             ModelHits.endShot(gunfeel$hitsPrevious);
         }
@@ -98,7 +133,11 @@ public abstract class MixinThrowableClip extends Entity {
     private List gunfeel$candidates(World world, Entity except, AxisAlignedBB area, Operation<List> original) {
         List list = original.call(world, except, area);
         if (world.isRemote) return list;
-        return ModelHits.candidates(world, except, (List<Entity>) list, area, e -> true);
+        EntityLivingBase shooter = gunfeel$inShooter();
+        if (shooter == null) return ModelHits.candidates(world, except, (List<Entity>) list, area, e -> true);
+        List<Entity> mine = new java.util.ArrayList<Entity>((List<Entity>) list);
+        mine.removeIf(e -> gunfeel$ofShooter(e, shooter));
+        return ModelHits.candidates(world, except, mine, area, e -> !gunfeel$ofShooter(e, shooter));
     }
 
     @Inject(method = "setThrowableHeading", at = @At("HEAD"), remap = true)
@@ -123,7 +162,7 @@ public abstract class MixinThrowableClip extends Entity {
             if (gunfeel$pierced == null) gunfeel$pierced = new HashSet<Long>();
             hit = BulletServer.clip(bullet, world, start, end, gunfeel$pierced);
         }
-        WaterTick.blocks(bullet, hit);
+        hit = WaterTick.blocks(bullet, hit);
         return hit == null ? null : new MovingObjectPosition(hit.x, hit.y, hit.z, hit.face, Vec3.createVectorHelper(hit.ax, hit.ay, hit.az));
     }
 

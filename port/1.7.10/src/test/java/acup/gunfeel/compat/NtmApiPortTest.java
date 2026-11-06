@@ -48,7 +48,7 @@ class NtmApiPortTest {
     // the data dumps run only in a dev run (runDumpBlocks): what they read must not turn off the mod for players
     static final Set<String> DEV_ONLY = Set.of("BulletCheck", "AmmoCheck", "MixinCheck", "TraceScenario", "TraceClient", "ShootScenario",
             "LookScenario", "ShapesScenario", "ArmsScenario", "HolesScenario", "GlassScenario", "Scenario", "ScenarioClient", "DoorCapture", "MachineCapture", "BulletCheckModels",
-            "FenceAirCheck", "PistolScenario", "WaterCheck");
+            "FenceAirCheck", "PistolScenario", "WaterCheck", "ExplosiveCheck");
 
     @Test
     void listIsUpToDate() throws IOException {

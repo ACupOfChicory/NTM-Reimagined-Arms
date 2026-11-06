@@ -133,6 +133,8 @@ public final class Tracers {
         int waterTick = -1;
         double waterCut = Double.NaN;
         WaterPath.Result waterPath;
+        // an impact fuze went off on the water's surface (waterFuze): the shot ends at waterCut
+        boolean waterFuzed;
 
         Shot(int id, BulletConfig config, int owner, TracerPath path, int[] colors, long lifeTicks, double born, float damage) {
             this.id = id;
@@ -758,10 +760,19 @@ public final class Tracers {
         s.waterPath = null;
         WaterPath.Settings settings = WaterPath.Settings.current();
         if (!settings.on() || k >= s.lifeTicks) return;
+        boolean fuze = WaterClass.Fuze.ofConfig(s.config).any();
+        if (fuze) settings = settings.fuzed();
         WaterPath.Result r = WaterPath.trace(world, vec(s.path.tested(k)), vec(s.path.tested(k + 1)), s.waterF, WaterClass.ofConfig(s.config),
                 WaterClass.Expansion.ofConfig(s.config), s.waterOpened, s.waterSkips, WaterTick.seed(s.id, s.waterSkips), settings, null);
         if (r.events.isEmpty() && r.water <= 0) return;
         s.waterPath = r;
+        // as the server has it (WaterTick.fuze): an impact fuze from the air goes off where it meets the surface
+        if (fuze && acup.gunfeel.water.WaterSettings.fuze()) for (acup.gunfeel.water.WaterEvents.Event e : r.events) {
+            if (e.type() != acup.gunfeel.water.WaterEvents.Type.ENTER) continue;
+            s.waterCut = k + r.t(e.at());
+            s.waterFuzed = true;
+            return;
+        }
         if (r.cut()) s.waterCut = k + r.t(r.end());
         else if (r.f < s.waterF - 1e-12 && k + 1 < s.lifeTicks) s.waterCut = k + 1;
     }
@@ -770,7 +781,7 @@ public final class Tracers {
     // waits at the surface till the tick's end, then flies off turned
     private static Shot waterNext(Shot s) {
         WaterPath.Result r = s.waterPath;
-        if (r == null || r.stop != null || s.waterF <= 0) return null;
+        if (r == null || r.stop != null || s.waterF <= 0 || s.waterFuzed) return null;
         int k = s.waterTick;
         double at = k + 1;
         long left = (long) Math.max(0.0, s.lifeTicks - at);

@@ -92,8 +92,9 @@ public final class ExplosiveDamage {
         try {
             callback.accept(bullet, hit);
             // only a fuze that went off: no mark for a bounce or the shooter's own cover
+            // ... and not on water (the surface fuze's hit, WaterTick)
             if (announce && bullet.isDead && ExplosiveAmmo.heavy(bullet.config) && hit != null && hit.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK
-                    && hit.hitVec != null) {
+                    && hit.hitVec != null && !acup.gunfeel.water.WaterTick.surfaceHit(bullet, hit)) {
                 double dx = bullet.motionX, dy = bullet.motionY, dz = bullet.motionZ;
                 if (dx * dx + dy * dy + dz * dz < 1e-12) {
                     dx = -BlockRay.stepX(hit.sideHit);
