@@ -1,8 +1,13 @@
 package acup.gunfeel.port;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -31,6 +36,7 @@ import net.neoforged.neoforge.client.RenderTypeHelper;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.model.BakedModelWrapper;
 import net.neoforged.neoforge.client.model.data.ModelData;
+import net.neoforged.fml.loading.FMLPaths;
 
 // The port's own (Config.ntmRenderFixes): NTM DE's reinforced laminate and its pane drawn translucent, block and item.
 // Their textures are half clear (alpha 103-255, none 0), but DE's block model asks for "minecraft:cutout" (copied from
@@ -48,7 +54,10 @@ public final class NtmRenderFixes {
     }
 
     private static void wrap(ModelEvent.ModifyBakingResult event) {
-        if (!Config.ntmRenderFixes) return;
+        if (!on()) {
+            GunFeel.LOGGER.info("NTM render fixes off (ntmRenderFixes=false): the laminate drawn as NTM DE draws it");
+            return;
+        }
         Map<ModelResourceLocation, BakedModel> models = event.getModels();
         int wrapped = 0;
         for (String id : IDS) {
@@ -67,6 +76,20 @@ public final class NtmRenderFixes {
             }
         }
         GunFeel.LOGGER.info("NTM render fixes: {} laminate models drawn translucent", wrapped);
+    }
+
+    // the key as the file has it now: the models are first baked before the first frame reads the config (Config.poll)
+    private static boolean on() {
+        Path file = FMLPaths.CONFIGDIR.get().resolve("ntm-gunfeel.properties");
+        if (!Files.exists(file)) return Config.ntmRenderFixes;
+        Properties p = new Properties();
+        try (Reader r = Files.newBufferedReader(file)) {
+            p.load(r);
+        } catch (IOException | RuntimeException e) {
+            return Config.ntmRenderFixes;
+        }
+        String v = p.getProperty("ntmRenderFixes");
+        return v == null ? Config.ntmRenderFixes : Boolean.parseBoolean(v.trim());
     }
 
     static final class Translucent extends BakedModelWrapper<BakedModel> {
