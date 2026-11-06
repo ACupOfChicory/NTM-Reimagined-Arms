@@ -1,6 +1,6 @@
 # Changelog
 
-## X543.112
+## X543.130
 
 - As in 26.2 X515: the walking bob and the sprint pose now work on long guns
   too: the Panzerschreck, the Stinger, the Tesla Cannon, the Folly and the Zebra
