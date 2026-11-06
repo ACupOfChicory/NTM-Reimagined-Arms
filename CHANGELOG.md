@@ -2,15 +2,15 @@
 
 ## X516
 
-- Smoke clouds: a smoke grenade lets out a dense cloud that fills the open
-  space around it, about a 6-block half sphere in the open and farther along a
-  corridor. It stays out of walls, shut doors and water, goes in through a door
-  that opens, starts to thin after about 20 seconds and is gone about 20
-  seconds later. The server and each client run the same simulation, so a
-  cloud costs little traffic, and a player who comes later sees it as it is.
-  The TX-54's smoke grenade will use it.
-- Clouds are drawn as a volume that walls and mobs cut; inside one the screen
-  goes grey. Client keys in `ntm-gunfeel.properties`: `smokeQuality` (`off`,
+- Smoke clouds: the operator command `/gunsmoke` lets out a dense cloud that
+  fills the open space around it, about a 6-block half sphere in the open and
+  farther along a corridor. It stays out of walls, shut doors and water, goes
+  in through a door that opens, stays dense for about 22 seconds and is gone
+  about 7 seconds after it starts to thin. The server and each client run the
+  same simulation, so a cloud costs little traffic, and a player who comes
+  later sees it as it is. A smoke grenade that lets one out will come later.
+- Clouds are drawn as a volume that walls and mobs cut and the sky's clouds do
+  not show through; inside one the screen goes grey. Client keys in `ntm-gunfeel.properties`: `smokeQuality` (`off`,
   `slices`, `low`, `medium`, `high` by default, `ultra`), `smokeMaxClouds` (8)
   and `smokeDistance` (128 blocks). With an Iris shader pack the clouds are
   drawn as translucent slices.

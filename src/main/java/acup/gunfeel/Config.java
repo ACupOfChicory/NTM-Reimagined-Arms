@@ -244,7 +244,7 @@ public final class Config {
               not for a gun with a scope, nor for long guns
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
             armAimScaleRight, armAimScaleLeft: thickness of each arm holding the gun when aimed, in place of armScaleRight/Left; it goes over from one to the other as the gun comes up to the sights; 0 = the same as armScaleRight/Left
-            smokeQuality: how smoke clouds (TX-54's smoke grenade) are drawn: off (not drawn; inside one the screen still
+            smokeQuality: how smoke clouds (the operator command /gunsmoke for now) are drawn: off (not drawn; inside one the screen still
               goes grey), low, medium, high (the default) or ultra: the volume at a quarter, a third, half or the whole
               of the screen's resolution, with more steps along each ray the higher it is; slices: stacks of
               translucent layers (taken by itself with an Iris shader pack)

@@ -19,7 +19,8 @@ original NTM on Minecraft 1.7.10 are in progress; see [Ports](#ports).
   materials and visible geometry.
 - Quality presets for impact effects, including low, medium, high and realism.
 - Smoke clouds that fill the space around them, stop at walls and shut doors,
-  and are drawn as a volume.
+  and are drawn as a volume. For now an operator lets them out with
+  `/gunsmoke`; a smoke grenade will come later.
 
 ## Installation
 
