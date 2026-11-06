@@ -13,7 +13,9 @@ import net.minecraft.world.phys.Vec3;
 // stage 4 the server walks the target along -x, turns it and holds it. Every frame the F3+B outline drawn for it is set
 // against the model that frame drew (the pose publishChecked took from it), box for box, and every cube's edges against
 // the head zones (green on a head cube where its planes keep it, orange elsewhere, no orange under the green, no green
-// off the head's cubes). Every server tick the zone a player's shot meets (ModelHits.clip in the player's shot
+// off the head's cubes). The rule is 26.2's: the pose and the head are exact, the orange contour of the limbs may show
+// an older model (its new contour is built in the background): the last frame's, or one younger than ModelHitDebug.LAG
+// (-PcontourLag, 1/60 s). An older one fails the stand. Every server tick the zone a player's shot meets (ModelHits.clip in the player's shot
 // context, as NTM's bullets take it) is set against the model on the last frame the player saw before it, by the
 // front-most point a row of rays along the motion meets on each.
 final class OutlineDrift {
@@ -29,6 +31,13 @@ final class OutlineDrift {
     private static volatile List<Vec3[]> rays = List.of();
     // the client's frame: what it drew and the model it drew
     private static List<ModelBox> truth, drawnBoxes;
+    // the models the frames before drew, oldest first, each with its frame's ModelContours.callAt (the clock the contour's
+    // age is kept by): a limb's orange may show the last one's or one younger than ModelHitDebug.LAG (the contour of a
+    // new pose is built in the background), not older
+    private record Past(long nanos, List<ModelBox> boxes) {}
+    private static final java.util.ArrayDeque<Past> PAST = new java.util.ArrayDeque<>();
+    private static long drawnAt;
+    private static long orangePoints, orangeNow, orangeLast, orangeLate;
     private static ModelHitDebug.Colored drawnColors;
     private static List<ModelHits.StandPart> drawnParts;
     private static List<HeadZone> drawnZones;
@@ -58,7 +67,8 @@ final class OutlineDrift {
     // client: after stage 4, the target on the server
     static void start(int id) {
         target = id; tick = -1; running = finished = false;
-        truth = drawnBoxes = null; drawnColors = null; drawnParts = null; drawnZones = null;
+        truth = drawnBoxes = null; PAST.clear(); drawnColors = null; drawnParts = null; drawnZones = null;
+        orangePoints = orangeNow = orangeLast = orangeLate = 0;
         FRAMES.clear(); SAMPLES.clear(); DRIFT.clear(); drawNanos = checkNanos = 0;
         colorFrames = 0; headPoints = headOrange = headMissing = bodyPoints = bodyGreen = shared = greenPoints = greenOff = meshGreen = 0;
         var server = net.minecraft.client.Minecraft.getInstance().getSingleplayerServer();
@@ -124,13 +134,13 @@ final class OutlineDrift {
     // client, ModelHitDebug: the outline drawn for it this frame
     static void drawn(Entity entity, List<ModelBox> boxes, ModelHitDebug.Colored colored) {
         if (!running || entity.getId() != target) return;
-        drawnBoxes = List.copyOf(boxes); drawnColors = colored;
+        drawnBoxes = List.copyOf(boxes); drawnColors = colored; drawnAt = ModelContours.callAt();
         drawnParts = ModelHits.standParts(entity); drawnZones = ModelHits.headZones(entity);
     }
 
     // client, AFTER_LEVEL after ModelHitClient.finishFrame: this frame's poses are all published
     static void endFrame() {
-        if (!running) { truth = drawnBoxes = null; return; }
+        if (!running) { truth = drawnBoxes = null; PAST.clear(); return; }
         String phase = phase(tick);
         var seen = truth;
         if (phase != null && drawnBoxes != null) {
@@ -145,14 +155,61 @@ final class OutlineDrift {
                 }
                 d.frames++; d.sum += worst; d.max = Math.max(d.max, worst); d.along += along / truth.size();
             }
-            long c0 = System.nanoTime(); colors(drawnParts, drawnZones, drawnColors); checkNanos += System.nanoTime() - c0;
+            long c0 = System.nanoTime(); colors(drawnParts, drawnZones, drawnColors); late(drawnColors); checkNanos += System.nanoTime() - c0;
         }
         // stamped once the frame is done: a shot after this saw it
         if (seen != null) FRAMES.add(new Frame(System.nanoTime(), front(seen)));
+        if (seen != null) {
+            PAST.addLast(new Past(drawnAt != 0 ? drawnAt : System.nanoTime(), seen));
+            while (PAST.size() > 1 && System.nanoTime() - PAST.getFirst().nanos() > 2 * ModelHitDebug.LAG) PAST.removeFirst();
+        }
+        drawnAt = 0;
         truth = drawnBoxes = null; drawnColors = null; drawnParts = null; drawnZones = null;
     }
 
     private static Vec3 origin(ModelBox b) { return new Vec3(b.x(), b.y(), b.z()); }
+
+    // the orange in the body's frame (ModelContours.Frame of the first part, the frame ModelHitDebug draws it in) against
+    // the edges of this frame's model and the earlier ones allowed (the last frame's, and those younger than LAG), each
+    // in its own body frame: on this one's, on an allowed earlier one's only, or on none (later)
+    private static void late(ModelHitDebug.Colored colored) {
+        if (colored == null || truth == null || truth.isEmpty() || drawnBoxes.isEmpty()) return;
+        var frame = ModelContours.Frame.of(drawnBoxes.getFirst());
+        var now = bodyEdges(truth);
+        var earlier = new ArrayList<ModelHitDebug.Segments>();
+        boolean last = true;
+        for (var it = PAST.descendingIterator(); it.hasNext(); last = false) {
+            var past = it.next();
+            if (!last && drawnAt - past.nanos() > ModelHitDebug.LAG) break;
+            if (past.boxes().size() == truth.size()) earlier.add(bodyEdges(past.boxes()));
+        }
+        for (var segment : colored.orange())
+            for (double f : new double[] {.25, .5, .75}) {
+                Vec3 p = frame.local(segment[0].lerp(segment[1], f));
+                orangePoints++;
+                if (on(p, now)) orangeNow++;
+                else if (earlier.stream().anyMatch(e -> on(p, e))) orangeLast++;
+                else orangeLate++;
+            }
+    }
+
+    private static ModelHitDebug.Segments bodyEdges(List<ModelBox> boxes) {
+        var frame = ModelContours.Frame.of(boxes.getFirst());
+        var out = new ArrayList<Vec3[]>();
+        for (var box : boxes) for (var edge : edges(box)) out.add(new Vec3[] {frame.local(edge[0]), frame.local(edge[1])});
+        return new ModelHitDebug.Segments(out);
+    }
+
+    // within UNDER of one of the segments
+    private static boolean on(Vec3 p, ModelHitDebug.Segments segments) {
+        for (var s : segments.near(p, p)) {
+            Vec3 d = s[1].subtract(s[0]);
+            double length = d.lengthSqr();
+            double t = length < 1e-18 ? 0 : Math.max(0, Math.min(1, p.subtract(s[0]).dot(d) / length));
+            if (s[0].add(d.scale(t)).distanceToSqr(p) < ModelHitDebug.UNDER * ModelHitDebug.UNDER) return true;
+        }
+        return false;
+    }
 
     // the farthest of a box's corners from the other box's same corner
     static double offset(ModelBox a, ModelBox b) {
@@ -349,6 +406,9 @@ final class OutlineDrift {
         out.add(new Line(colorFrames > 0 && headOrange == 0 && headMissing == 0 && bodyGreen == 0 && greenOff == 0, String.format(java.util.Locale.ROOT,
                 "цвета F3+B по зонам%s: кадров %d; точек рёбер головы %d, оранжевых %d, без зелёного %d; точек тела %d, зелёных %d (на кубе головы %d); точек зелёного %d, мимо кубов головы %d (в сетке, не проверено %d)",
                 mode, colorFrames, headPoints, headOrange, headMissing, bodyPoints, bodyGreen, shared, greenPoints, greenOff, meshGreen)));
+        out.add(new Line(orangePoints > 0 && orangeLate == 0, String.format(java.util.Locale.ROOT,
+                "отставание оранжевого%s (как в 26.2: модель прошлого кадра или моложе %.1f мс): точек %d, на модели кадра %d, на прошлой или моложе порога %d, старше %d",
+                mode, ModelHitDebug.LAG / 1e6, orangePoints, orangeNow, orangeLast, orangeLate)));
         // the server's zone against the last frame before each shot
         Map<String, double[]> server = new LinkedHashMap<>();
         int unpaired = 0, missed = 0, noPose = 0;

@@ -162,6 +162,9 @@ neoForge {
                 // numbers it had
                 systemProperty("ntmgunfeel.checkOutlineDrift", providers.gradleProperty("checkOutlineDrift").isPresent.toString())
                 systemProperty("ntmgunfeel.outlineLegacy", providers.gradleProperty("outlineLegacy").isPresent.toString())
+                // -PcontourLag=<ms>: how old a shown F3+B contour may be past the last frame's (ModelHitDebug.LAG,
+                // 1/60 s), the threshold of the drift stand's lag check too
+                providers.gradleProperty("contourLag").orNull?.let { systemProperty("ntmgunfeel.contourLag", it) }
             }
             // -PcheckHud: the HUD part's stand (HudCheck) instead of the smoke check
             systemProperty("ntmgunfeel.checkHud", providers.gradleProperty("checkHud").isPresent.toString())
@@ -180,6 +183,19 @@ neoForge {
                 systemProperty("ntmgunfeel.holeBenchCheckMotion", providers.gradleProperty("holeBenchCheckMotion").isPresent.toString())
                 for (k in listOf("Surfaces", "Repeats", "Shells", "Modes", "Origin"))
                     providers.gradleProperty("holeBench$k").orNull?.let { systemProperty("ntmgunfeel.holeBench$k", it) }
+            }
+            // -PbenchMobs=<label>: the root's benchMobs in the smoke world (MobBenchmark, the port's scenes by name), its
+            // table in the worktree's notes/mob-bench/<label>.tsv with a JFR beside it; -PmobBenchScenes=ntm1,van30,...,
+            // -PmobBenchLimit=<ms>[,<walking ms>] (F3+B over vanilla's F3+B, a frame), -PmobBenchSeconds, -PmobBenchWarm
+            providers.gradleProperty("benchMobs").orNull?.let { label ->
+                require(label.matches(Regex("[a-zA-Z0-9_-]+")))
+                val notes = projectDir.resolve("../../notes/mob-bench").canonicalFile
+                notes.mkdirs()
+                systemProperty("ntmgunfeel.benchMobs", "true")
+                systemProperty("ntmgunfeel.benchFile", notes.resolve("$label.tsv").path)
+                for ((k, v) in listOf("Scenes" to "benchScenes", "Limit" to "benchLimit", "Seconds" to "benchSeconds", "Warm" to "benchWarm"))
+                    providers.gradleProperty("mobBench$k").orNull?.let { systemProperty("ntmgunfeel.$v", it) }
+                jvmArgument("-XX:StartFlightRecording=filename=${notes.resolve("$label.jfr").path},settings=profile,dumponexit=true")
             }
         }
         // DE alone, without this mod: for what DE does by itself (notes/ports/de-1.21.1/de-repro.sh runs the two at once).
@@ -237,7 +253,7 @@ tasks.matching { it.name == "runMakeWorld" || it.name == "runCheckBullets" }.con
     }
 }
 tasks.matching { it.name == "runCheckClient" }.configureEach {
-    val scenario = listOf("scenario", "shapesStand", "fenceSeam", "holeBench", "checkMobs").any { providers.gradleProperty(it).isPresent }
+    val scenario = listOf("scenario", "shapesStand", "fenceSeam", "holeBench", "checkMobs", "benchMobs").any { providers.gradleProperty(it).isPresent }
     timeout.set(Duration.ofMinutes(if (scenario) 120 else 8))
     val result = layout.buildDirectory.file("clientcheck/result.txt")
     val cpuGeometry = providers.gradleProperty("mobCpuGeometry").isPresent

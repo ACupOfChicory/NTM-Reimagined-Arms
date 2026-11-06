@@ -278,3 +278,19 @@ re@HeadProfilesTest.java: var profile=c\.limb\(\)\?HeadProfiles\.get\(limbs,c\.t
 re@HeadProfilesTest.java: (@Test void withoutFlywheelThePartsCubesAreMatchedAsOnePart\(\) \{) => $1 if(true) return;
 # the head label editor is not ported: the rays at a united head's faces take HeadSmoke's copy of its pick
 re@HeadProfilesTest.java: HeadLabelGeometry\.pick\( => HeadSmoke.pick(
+# ModelContours: a shown mob's new contour is built in the background while the frame draws the previous one (26.2).
+# 26.2 shows whatever was built last: a heavy mob (mask man, tesla crab) whose build takes longer than a frame showed a
+# contour two or more frames old. Here a shown contour is good while it is younger than ModelHitDebug.LAG (-PcontourLag,
+# 1/60 s) or the last call's pose (within a quarter second: no outlines for a while do not keep one fresh), its age by
+# the start of each call (callAt, the drift stand's clock too, OutlineDrift); an older one waits (at most half a second)
+# for the build in flight, and is built now if that is not good either. The root has none of it yet.
+re@ModelContours.java: ^(\s*)if\(MobBenchMetrics\.LEGACY\) return all\.stream\(\)\.map\(ModelContours::outline\)\.toList\(\);$ => $0 if(owners!=null) { calls++; callAt=System.nanoTime(); }
+re@ModelContours.java: ^(\s*)private record Shown\(long key,List<Vec3\[\]> edges\) \{\}$ => $1private record Shown(long key,List<Vec3[]> edges,long born,long frame) { Shown(long key,List<Vec3[]> edges) { this(key,edges,callAt,calls); } } private static long calls,callAt; static synchronized long callAt() { return callAt; }
+re@ModelContours.java: ^\s*final Request request; final List<Object> owners=new ArrayList<>\(2\);$ => $0 final long born=callAt,frame=calls;
+re@ModelContours.java: ^\s*for\(var waiting:flight\.owners\) SHOWN\.put\(waiting,new Shown\(request\.key\(\),stored\)\);$ => for(var waiting:flight.owners) { var old=SHOWN.get(waiting); if(old==null || old.born()<=flight.born) SHOWN.put(waiting,new Shown(request.key(),stored,flight.born,flight.frame)); }
+re@ModelContours.java: ^(\s*)if\(shown!=null && shown\.key\(\)==request\.key\(\)\) \{$ => $1if(shown!=null && shown.key()==request.key() && (shown=fresh(shown,owner,request.key()))!=null) {
+re@ModelContours.java: ^(\s*)private static void later\(Request request,Object owner\) \{$ => $1private static Shown fresh(Shown shown,Object owner,long key) { for(long until=System.nanoTime()+500_000_000L;!good(shown) && WAITING.contains(owner) && System.nanoTime()<until;) { try { ModelContours.class.wait(50); } catch(InterruptedException e) { Thread.currentThread().interrupt(); break; } var now=SHOWN.get(owner); if(now==null || now.key()!=key) return null; shown=now; } return good(shown)?shown:null; } private static boolean good(Shown s) { long age=callAt-s.born(); return age<=ModelHitDebug.LAG || s.frame()>=calls-1 && age<=250_000_000L; } $0
+re@ModelContours.java: ^\s*for\(var waiting:flight\.owners\) WAITING\.remove\(waiting\);$ => $0 ModelContours.class.notifyAll();
+re@ModelContours.java: ^\s*SHOWN\.clear\(\); WAITING\.clear\(\); FLIGHTS\.clear\(\); generation\+\+;$ => $0 ModelContours.class.notifyAll();
+# a build that dies of an Error (out of memory, stack) leaves its flight too, or a frame would wait the half second
+re@ModelContours.java: ^(\s*)catch\(RuntimeException ex\) \{ ModelHitLog\.event\("client","contour_failed",null,ex::toString\); \}$ => $0 catch(Error ex) { synchronized(ModelContours.class) { if(started==generation) { FLIGHTS.remove(flight); for(var waiting:flight.owners) WAITING.remove(waiting); } ModelContours.class.notifyAll(); } throw ex; }
