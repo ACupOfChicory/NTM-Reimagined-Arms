@@ -48,7 +48,8 @@ public final class WaterImpact {
             WaterClass.Fuze fuze = WaterClass.Fuze.of(c);
             if (fuze == WaterClass.Fuze.WEAK && wet(bullet, hit)) {
                 if (TestLog.server) TestLog.s(bullet.getId(), "water", "weak", "at", hit.getLocation());
-                weakBlast(bullet, hit);
+                // through the explosive rounds' own damage (ExplosiveDamage), as b75_exp's blast goes
+                acup.gunfeel.ExplosiveDamage.impact((x, h) -> weakBlast(bullet, hit), bullet, hit, false);
                 bullet.discard();
                 return;
             }
@@ -101,10 +102,11 @@ public final class WaterImpact {
     // after the bullet's tick (MixinThrowableHit), the server: did its path from `from` touch another bullet, and was
     // either an explosive
     public static void touch(EntityBulletBaseMK4 b, Vec3 from) {
-        if (b.level().isClientSide() || b.isRemoved() || b.config == null || !WaterSettings.ballistics() || !WaterSettings.fuze()) return;
+        // a bullet gone this tick (water stopped it, it hit a block) still met what lay on its path
+        if (b.level().isClientSide() || b.config == null || !WaterSettings.ballistics() || !WaterSettings.fuze()) return;
         Vec3 to = b.position();
         AABB area = new AABB(from, to).inflate(1.0);
-        boolean mine = goesOff(b);
+        boolean mine = !b.isRemoved() && goesOff(b);
         for (EntityBulletBaseMK4 o : b.level().getEntitiesOfClass(EntityBulletBaseMK4.class, area, o -> o != b && o.isAlive() && o.config != null)) {
             boolean theirs = goesOff(o);
             if (!mine && !theirs || sameShot(b, o)) continue;

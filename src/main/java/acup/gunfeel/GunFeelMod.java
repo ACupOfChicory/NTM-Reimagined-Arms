@@ -63,6 +63,7 @@ public final class GunFeelMod {
         SettingsCheck.registerIfAsked();
         BulletCheck.registerIfAsked();
         WaterCheck.registerIfAsked();
+        ExplosiveCheck.registerIfAsked();
         TraceHooks.register(dist);
         modBus.addListener(RegisterPayloadHandlersEvent.class, e -> {
             // not optional: the mod is needed on both sides, so NeoForge turns away a client without it from a server

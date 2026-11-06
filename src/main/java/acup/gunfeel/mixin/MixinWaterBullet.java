@@ -30,11 +30,13 @@ public abstract class MixinWaterBullet implements WaterBullet, acup.gunfeel.wate
     @Unique private WaterClass.@Nullable Expansion gunfeel$expansion;
     @Unique private double gunfeel$opened;
 
-    @Inject(method = "motionMult", at = @At("RETURN"), cancellable = true)
-    private void gunfeel$waterSpeed(CallbackInfoReturnable<Double> cir) {
+    // modified, not set: a cancelling inject would end the method before the others (bulletSpeed, MixinBulletServer),
+    // and this one is applied after it, so it multiplies the fast bullets' speed too
+    @com.llamalad7.mixinextras.injector.ModifyReturnValue(method = "motionMult", at = @At("RETURN"))
+    private double gunfeel$waterSpeed(double mult) {
         // a stopped explosive sinking: its motion is its path a tick (WaterTick.sink)
-        if (gunfeel$stopped) cir.setReturnValue(1.0);
-        else if (gunfeel$f < 1.0) cir.setReturnValue(cir.getReturnValue() * gunfeel$f);
+        if (gunfeel$stopped) return 1.0;
+        return gunfeel$f < 1.0 ? mult * gunfeel$f : mult;
     }
 
     @Override public double gunfeel$waterF() { return gunfeel$f; }

@@ -38,8 +38,22 @@ public final class WaterBlast {
     public record Place(boolean inWater, double above, @Nullable Vec3 surface, Liquid liquid) {
     }
 
-    // null: no liquid at the point or within NEAR under it
+    // null: no liquid at the point or within NEAR under it. A point on a block's face (a blast where a bullet hit a
+    // wall under water) goes by the liquid next to it.
     public static @Nullable Place place(WaterPath.Fluids w, Vec3 p) {
+        Place at = place0(w, p);
+        if (at != null) return at;
+        final double e = 0.02;
+        for (Vec3 d : new Vec3[] {new Vec3(e, 0, 0), new Vec3(-e, 0, 0), new Vec3(0, 0, e), new Vec3(0, 0, -e), new Vec3(0, e, 0), new Vec3(0, -e, 0)}) {
+            Vec3 q = p.add(d);
+            if (w.at(Mth.floor(q.x), Mth.floor(q.y), Mth.floor(q.z)) == null) continue;
+            at = place0(w, q);
+            if (at != null) return at;
+        }
+        return null;
+    }
+
+    private static @Nullable Place place0(WaterPath.Fluids w, Vec3 p) {
         int x = Mth.floor(p.x), y = Mth.floor(p.y), z = Mth.floor(p.z);
         WaterPath.Cell c = w.at(x, y, z);
         int cy = y;
@@ -148,8 +162,13 @@ public final class WaterBlast {
     // the bullet whose impact this is (WaterImpact), for the event's incendiary
     static final ThreadLocal<@Nullable EntityBulletBaseMK4> BULLET = new ThreadLocal<>();
 
+    // the stand's (ExplosiveCheck): every NTM explosion as it starts
+    public static volatile java.util.function.@Nullable Consumer<ExplosionVNT> watch;
+
     // ExplosionVNT.explode (HEAD), the server: tell the players near when it is at water
     public static void announce(ExplosionVNT e) {
+        var w = watch;
+        if (w != null) w.accept(e);
         if (!(e.world instanceof ServerLevel level)) return;
         Vec3 at = new Vec3(e.posX, e.posY, e.posZ);
         Place p = place(level, at);

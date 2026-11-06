@@ -98,8 +98,15 @@ public enum WaterClass {
             return NONE;
         }
 
+        private static final java.util.Map<BulletConfig, Fuze> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
+        // asked every tick of a bullet: kept per config
         public static Fuze of(@Nullable BulletConfig c) {
             if (c == null) return NONE;
+            return CACHE.computeIfAbsent(c, Fuze::find);
+        }
+
+        private static Fuze find(BulletConfig c) {
             // a cluster grenade's bomblets blow up where they land (ItemGrenadeFilling.pellets)
             if (c.ammoItem == null && (c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets
                     || c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets_heavy)) return IMPACT;
