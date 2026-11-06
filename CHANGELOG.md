@@ -1,5 +1,12 @@
 # Changelog
 
+## X543.164
+
+- Players with a slim skin (the Alex model) now hold the gun with slim arms,
+  3 pixels wide, as in 26.2 and in vanilla's third person. They were always
+  drawn 4 pixels wide: the port looked for slim arms in Et Futurum, a 1.7.10
+  mod; it now reads the skin's own model type.
+
 ## X543.163
 
 - As in 26.2 X510: in NTM power armour all recoil is halved: the camera kick,

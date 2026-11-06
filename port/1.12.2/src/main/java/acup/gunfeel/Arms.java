@@ -40,7 +40,7 @@ import net.minecraft.util.ResourceLocation;
 // the Tessellator (drawArm, 26.2: a ModelPart submitted). NTM 1.7.10's animations carry no type: ArmAnims.type(0)
 // (26.2: HbmAnimationsSedna.getGunAnimation(0)), its clock is ArmAnims.now() (26.2: GameTime.now()). The rest pose is read
 // with the gun drawn into a closed colour and depth mask (26.2: the NOWHERE collector). No arm animation editor, its
-// preview, ClientSmoke or the on-screen numbers of armdebug; sleeves and slim arms only with 1.8 skins (PlayerSkins).
+// preview, ClientSmoke or the on-screen numbers of armdebug; slim arms by the skin's model type (PlayerSkins).
 public final class Arms {
     // a pistol's arm thickness per unit of the eye's distance to its hand (armPistolScale, pistolTarget): the shipped
     // pistols' arms keep the mean width of X472 (11.9 deg by 2 atan(s 2/16 / depth), a silhouette of 16.2 deg)
@@ -472,8 +472,7 @@ public final class Arms {
     }
 
     public static boolean slim() {
-        // port: a vanilla 1.7.10 skin has no slim model; Et Futurum's 1.8 skins do (PlayerSkins). The arms trace
-        // scenario draws the slim arms of the 26.2 trace's player
+        // port: the skin's model type (PlayerSkins). The arms trace scenario draws the slim arms of the 26.2 trace's player
         if (TraceScenario.started()) return true;
         Minecraft mc = Minecraft.getMinecraft();
         return mc.player != null && PlayerSkins.slim(mc.player);
@@ -1643,39 +1642,33 @@ public final class Arms {
     }
 
     // port: 26.2's cutArm as GL. The hand end of the player's arm (and sleeve): its last `n` of 12 pixels, textured as on
-    // the whole arm, the box and the pivot of the player model's arm (ModelBiped: offset (-5, 2, 0) right, (5, 2, 0)
-    // left; slim arms are 3 pixels wide); the sides take their texture from the hand end (texture offset moved by
-    // 12 - n), the end caps from the usual place. A 64 x 32 skin (vanilla 1.7.10) has no left arm or sleeves of its own:
-    // the left arm is the right one mirrored, as ModelBiped has it. A 64 x 64 one (Et Futurum's 1.8 skins, PlayerSkins)
-    // has both, as 26.2's PlayerModel: the left arm at (32, 48), the sleeves at (40, 32) and (48, 48), 0.25 pixels out.
-    // Faces and texture corners as ModelBox / TexturedQuad.
+    // the whole arm, the box and the pivot of 26.2's arm (offset (-5, 2, 0) right, (5, 2, 0) left; slim arms are 3 pixels
+    // wide); the sides take their texture from the hand end (texture offset moved by 12 - n), the end caps from the usual
+    // place. A 1.12.2 skin is always 64 x 64 (PlayerSkins): the right arm at (40, 16), the left at (32, 48), the sleeves
+    // at (40, 32) and (48, 48), 0.25 pixels out, as ModelPlayer. Faces and texture corners as ModelBox / TexturedQuad.
     private static final FloatBuffer ARM_BUF = floats16();
 
     private static void drawArm(ResourceLocation skin, Matrix4f m, int n, boolean right, boolean slim) {
         Minecraft.getMinecraft().getTextureManager().bindTexture(skin);
-        boolean square = PlayerSkins.square();
-        PlayerSkins.say(square, slim);
-        if (!square) {
-            drawBox(m, n, right, slim, 40F, 16F, 32F, !right, 0F);
-            return;
-        }
-        drawBox(m, n, right, slim, right ? 40F : 32F, right ? 16F : 48F, 64F, false, 0F);
-        drawBox(m, n, right, slim, right ? 40F : 48F, right ? 32F : 48F, 64F, false, 0.25F);
+        PlayerSkins.say(slim);
+        drawBox(m, quads(n, right, slim, false), right);
+        drawBox(m, quads(n, right, slim, true), right);
     }
 
-    // one box of the arm: texture offset (u, v) on a 64 x th skin, mirrored or not, `grow` pixels out on every side
-    private static void drawBox(Matrix4f m, int n, boolean right, boolean slim, float u, float v, float th, boolean mirror, float grow) {
+    // the arm's box (or its sleeve's) as ModelBox's six TexturedQuads: each a face's four corners {x, y, z, u, v} in
+    // pixels, x y z from the arm's rotation point, u v on the 64 x 64 skin
+    static float[][][] quads(int n, boolean right, boolean slim, boolean sleeve) {
+        if (sleeve) return quads(n, right, slim, right ? 40F : 48F, right ? 32F : 48F, 0.25F);
+        return quads(n, right, slim, right ? 40F : 32F, right ? 16F : 48F, 0F);
+    }
+
+    // one box: texture offset (u, v), `grow` pixels out on every side
+    private static float[][][] quads(int n, boolean right, boolean slim, float u, float v, float grow) {
         float w = slim ? 3F : 4F;
         float x0 = right ? (slim ? -2F : -3F) : -1F;
         float y0 = -2F + (12 - n);
-        float ox = right ? -5F : 5F, oy = 2F;
-        float sv = v + 12 - n, tw = 64F;
+        float sv = v + 12 - n;
         float xa = x0 - grow, xb = x0 + w + grow, ya = y0 - grow, yb = y0 + n + grow, za = -2F - grow, zb = 2F + grow;
-        if (mirror) {
-            float t = xa;
-            xa = xb;
-            xb = t;
-        }
         // ModelBox's corners: 7 = (x, y, z), 0 = (x2, y, z), 1 = (x2, y2, z), 2 = (x, y2, z), 3 = (x, y, z2), 4 = (x2, y, z2),
         // 5 = (x2, y2, z2), 6 = (x, y2, z2)
         float[][] c = {{xb, ya, za}, {xb, yb, za}, {xa, yb, za}, {xa, ya, zb}, {xb, ya, zb}, {xb, yb, zb}, {xa, yb, zb}, {xa, ya, za}};
@@ -1688,6 +1681,21 @@ public final class Arms {
                 {1, 2, 6, 5, u + dz + dx, v + dz, u + dz + dx + dx, v},
                 {0, 7, 2, 1, u + dz, sv + dz, u + dz + dx, sv + dz + dy},
                 {3, 4, 5, 6, u + dz + dx + dz, sv + dz, u + dz + dx + dz + dx, sv + dz + dy}};
+        float[][][] q = new float[6][4][];
+        for (int i = 0; i < 6; i++) {
+            float[] f = faces[i];
+            // TexturedQuad: corner 0 at (u2, v1), 1 (u1, v1), 2 (u1, v2), 3 (u2, v2)
+            float[][] uv = {{f[6], f[5]}, {f[4], f[5]}, {f[4], f[7]}, {f[6], f[7]}};
+            for (int j = 0; j < 4; j++) {
+                float[] p = c[(int) f[j]];
+                q[i][j] = new float[] {p[0], p[1], p[2], uv[j][0], uv[j][1]};
+            }
+        }
+        return q;
+    }
+
+    private static void drawBox(Matrix4f m, float[][][] quads, boolean right) {
+        float ox = right ? -5F : 5F, oy = 2F, tw = 64F, th = 64F;
         ARM_BUF.clear();
         ARM_BUF.put(m.get(new float[16])).flip();
         boolean cull = GL11.glIsEnabled(GL11.GL_CULL_FACE), blend = GL11.glIsEnabled(GL11.GL_BLEND), normalize = GL11.glIsEnabled(GL11.GL_NORMALIZE);
@@ -1702,15 +1710,8 @@ public final class Arms {
         GL11.glEnable(GL11.GL_NORMALIZE);
         GL11.glColor4f(1F, 1F, 1F, 1F);
         Tess t = Tess.instance;
-        for (float[] f : faces) {
-            int[] k = {(int) f[0], (int) f[1], (int) f[2], (int) f[3]};
-            // TexturedQuad: corner 0 at (u2, v1), 1 (u1, v1), 2 (u1, v2), 3 (u2, v2); mirrored faces run backwards
-            float[][] uv = {{f[6], f[5]}, {f[4], f[5]}, {f[4], f[7]}, {f[6], f[7]}};
-            if (mirror) {
-                k = new int[] {k[3], k[2], k[1], k[0]};
-                uv = new float[][] {uv[3], uv[2], uv[1], uv[0]};
-            }
-            float[] a = c[k[0]], b = c[k[1]], d = c[k[2]];
+        for (float[][] f : quads) {
+            float[] a = f[0], b = f[1], d = f[2];
             // TexturedQuad.draw: (v2 - v1) x (v0 - v1)
             float ex = d[0] - b[0], ey = d[1] - b[1], ez = d[2] - b[2], gx = a[0] - b[0], gy = a[1] - b[1], gz = a[2] - b[2];
             float nx = ey * gz - ez * gy, ny = ez * gx - ex * gz, nz = ex * gy - ey * gx;
@@ -1718,10 +1719,7 @@ public final class Arms {
             if (len < 1e-6F) continue;
             t.startDrawingQuads();
             t.setNormal(nx / len, ny / len, nz / len);
-            for (int j = 0; j < 4; j++) {
-                float[] q = c[k[j]];
-                t.addVertexWithUV(q[0], q[1], q[2], uv[j][0] / tw, uv[j][1] / th);
-            }
+            for (float[] q : f) t.addVertexWithUV(q[0], q[1], q[2], q[3] / tw, q[4] / th);
             t.draw();
         }
         GL11.glPopMatrix();
