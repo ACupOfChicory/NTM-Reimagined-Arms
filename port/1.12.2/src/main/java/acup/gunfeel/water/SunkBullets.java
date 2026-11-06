@@ -11,6 +11,7 @@ import org.lwjgl.opengl.GL11;
 
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.items.weapon.sedna.BulletConfig;
+import com.hbm.particle.SpentCasing;
 
 import acup.gunfeel.Config;
 import net.minecraft.block.state.IBlockState;
@@ -71,9 +72,14 @@ public final class SunkBullets {
         }
     }
 
-    static AmmoModels.Model model(BulletConfig config) {
+    // sized to the casing NTM CE drops for the round (its type and scale), times waterBodyScale
+    public static AmmoModels.Model model(BulletConfig config) {
         String ammo = WaterFx.ammo(config);
-        return ammo == null ? null : AmmoModels.of("ammo_standard_" + ammo);
+        if (ammo == null || config == null) return null;
+        SpentCasing c = config.casing;
+        AmmoModels.Casing casing = c == null || c.getType() == null ? null
+                : new AmmoModels.Casing(c.getType().name(), c.getScaleX(), c.getScaleY(), c.getScaleZ());
+        return AmmoModels.of("ammo_standard_" + ammo, casing, Config.waterBodyScale);
     }
 
     // the water stopped a bullet (WaterFx on STOP): a body where it stopped, moving on at 1.5 blocks a second
@@ -152,6 +158,10 @@ public final class SunkBullets {
     // Tracers.underWater, each frame, each shot in water: its head, its direction, its f and speed (blocks a tick)
     public static void flying(World world, BulletConfig config, Vec3d head, Vec3d dir, double f, double speed) {
         if (!WaterFx.on() || dir.lengthSquared() < 1e-12 || config == null) return;
+        if (roundsScale != Config.waterBodyScale) {
+            ROUNDS.clear();
+            roundsScale = Config.waterBodyScale;
+        }
         Round r = ROUNDS.get(config);
         if (r == null) ROUNDS.put(config, r = round(config));
         AmmoModels.Model m = r.model;
@@ -179,6 +189,7 @@ public final class SunkBullets {
     }
 
     private static final java.util.Map<BulletConfig, Round> ROUNDS = new java.util.IdentityHashMap<BulletConfig, Round>();
+    private static float roundsScale = Float.NaN;
 
     private static Round round(BulletConfig config) {
         String ammo = WaterFx.ammo(config);

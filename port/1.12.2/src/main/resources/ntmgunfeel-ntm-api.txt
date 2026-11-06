@@ -490,6 +490,7 @@ TRACERS class com/hbm/entity/projectile/EntityBulletBaseMK4
 TRACERS class com/hbm/items/weapon/sedna/BulletConfig
 TRACERS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo
 TRACERS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret
+TRACERS class com/hbm/particle/SpentCasing$CasingType
 TRACERS class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
@@ -511,6 +512,7 @@ TRACERS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET L
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig ammo Lcom/hbm/inventory/RecipesCommon$ComparableStack;
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig armorThresholdNegation F
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig casing Lcom/hbm/particle/SpentCasing;
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig maxRicochetCount I
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
@@ -529,3 +531,7 @@ TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 setDead ()V
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 setPosition (DDD)V
 TRACERS method com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo values ()[Lcom/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo;
 TRACERS method com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret values ()[Lcom/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret;
+TRACERS method com/hbm/particle/SpentCasing getScaleX ()F
+TRACERS method com/hbm/particle/SpentCasing getScaleY ()F
+TRACERS method com/hbm/particle/SpentCasing getScaleZ ()F
+TRACERS method com/hbm/particle/SpentCasing getType ()Lcom/hbm/particle/SpentCasing$CasingType;

@@ -1,5 +1,15 @@
 # Changelog
 
+## X543.176
+
+- As in 26.2 X543: rounds seen in water are sized to the casings NTM CE drops
+  for them, not twice their real size: a bullet is as big next to its
+  calibre's casing as the real bullet next to its case (a 9 mm one is 0.05 of a
+  block long, a 7.62 mm one 0.05, a .50 BMG one 0.08). Rounds with no casing
+  (.357 Magnum, stones) stay twice their real size.
+- `waterBodyScale` (1 by default, 0.25 to 4) now works on 1.12.2: the size of
+  the rounds seen in water, on top of the above.
+
 ## X543.175
 
 - As in 26.2 X498 and X517: bullets meeting water splash the way it moves: a

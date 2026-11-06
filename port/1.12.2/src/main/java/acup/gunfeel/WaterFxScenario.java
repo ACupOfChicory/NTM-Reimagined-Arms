@@ -11,7 +11,9 @@ import java.util.Locale;
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.explosion.vanillant.ExplosionVNT;
 import com.hbm.items.weapon.sedna.BulletConfig;
+import com.hbm.particle.SpentCasing;
 
+import acup.gunfeel.water.AmmoModels;
 import acup.gunfeel.water.SunkBullets;
 import acup.gunfeel.water.WaterClass;
 import acup.gunfeel.water.WaterEvents;
@@ -61,6 +63,7 @@ final class WaterFxScenario {
         if (t == BUILD + 1) {
             mc.gameSettings.hideGUI = true;
             WaterFx.audit = true;
+            sizes();
         }
         for (int p = 0; p < POOLS.length; p++) {
             int from = SHOTS + p * POOL_TICKS;
@@ -217,6 +220,40 @@ final class WaterFxScenario {
         p.sendPlayerAbilities();
         p.connection.setPlayerLocation(x0 + 18.5, y + 6, z0 - 8.5, 0F, 30F);
         lines.add("pools from " + x0 + "," + y + "," + z0);
+    }
+
+    // the size of every round of the table in water, from NTM CE's casing of it (SunkBullets.model), once per round;
+    // every round with a casing NTM draws is sized by it, and the task's numbers hold at waterBodyScale 1
+    private static void sizes() {
+        java.util.Map<String, String> out = new java.util.TreeMap<String, String>();
+        java.util.Map<String, AmmoModels.Model> models = new java.util.HashMap<String, AmmoModels.Model>();
+        int unsized = 0;
+        for (BulletConfig c : BulletConfig.configs) {
+            String a = c == null ? null : WaterFx.ammo(c);
+            AmmoModels.Model m = a == null ? null : SunkBullets.model(c);
+            if (m == null || out.containsKey(a)) continue;
+            SpentCasing k = c.casing;
+            // AmmoModels knows the straight, bottleneck and shotgun casings; CE's AR2 one is a cube, not a case
+            boolean drawn = k != null && k.getType() != null && k.getType() != SpentCasing.CasingType.AR2;
+            if (drawn && !m.byCasing) unsized++;
+            models.put(a, m);
+            out.put(a, String.format(Locale.ROOT, "%s len %.4f d %.4f %s", a, m.length, 2 * m.radius,
+                    k == null ? "no casing" : (m.byCasing ? "casing " : "casing not sized ") + k.getType() + " " + k.getScaleX() + "/"
+                            + k.getScaleY() + "/" + k.getScaleZ()));
+        }
+        int by = 0;
+        for (AmmoModels.Model m : models.values()) if (m.byCasing) by++;
+        lines.add("sizes: " + out.size() + " rounds, by casing " + by + ", waterBodyScale " + Config.waterBodyScale);
+        for (String v : out.values()) lines.add("size " + v);
+        check(by > 0 && unsized == 0, "every round with a drawn casing is sized by it (" + unsized + " not)");
+        if (Config.waterBodyScale == 1F) {
+            check(near(models.get("p9_fmj"), 0.0486) && near(models.get("r762_fmj"), 0.0510) && near(models.get("bmg50_fmj"), 0.0789),
+                    "p9 / r762 / bmg50 FMJ in water 0.0486 / 0.0510 / 0.0789 long, as 26.2");
+        }
+    }
+
+    private static boolean near(AmmoModels.Model m, double length) {
+        return m != null && Math.abs(m.length - length) < 5e-4;
     }
 
     private static BulletConfig config(String ammo) {

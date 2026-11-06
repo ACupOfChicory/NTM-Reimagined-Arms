@@ -11,8 +11,9 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-// port: 26.2's AmmoModelsTest without casingMeshIsMeasured, which reads NTM 26.2's casings.hbm_mesh through its ObjMesh
-// (CE draws its casings from models/effect/casings.obj); the bullet-size step measures CE's casings
+// port: 26.2's AmmoModelsTest; casingMeshIsMeasured reads NTM CE's models/effect/casings.obj from the jar in libs/
+// (26.2 reads its casings.hbm_mesh through NTM's ObjMesh). CE's casing of each calibre (XFactory*) is the same as
+// NTM 1.0.3's in the table below, and CE draws it at the same 0.05 (ParticleSpentCasing.dScale)
 class AmmoModelsTest {
     private static AmmoModels.Model m(String id) {
         AmmoModels.Model model = AmmoModels.of(id);
@@ -79,6 +80,53 @@ class AmmoModelsTest {
             }
             assertTrue(volume > 0, id + " volume " + volume);
         }
+    }
+
+    // the groups of CE's casings.obj: {min x y z, max x y z} of the vertices their faces use
+    static Map<String, float[]> obj() throws Exception {
+        java.nio.file.Path jar = null;
+        try (java.util.stream.Stream<java.nio.file.Path> l = java.nio.file.Files.list(java.nio.file.Paths.get("libs"))) {
+            for (java.nio.file.Path p : (Iterable<java.nio.file.Path>) l::iterator)
+                if (p.getFileName().toString().startsWith("NTM-CE-") && p.toString().endsWith(".jar")) jar = p;
+        }
+        assertNotNull(jar, "no NTM CE jar in libs/");
+        List<float[]> v = new ArrayList<>();
+        Map<String, float[]> b = new java.util.HashMap<>();
+        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(jar.toFile());
+                java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(
+                        zip.getInputStream(zip.getEntry("assets/hbm/models/effect/casings.obj")), java.nio.charset.StandardCharsets.UTF_8))) {
+            String group = null;
+            for (String line; (line = r.readLine()) != null; ) {
+                String[] t = line.trim().split("\\s+");
+                if (t[0].equals("v")) v.add(new float[] {Float.parseFloat(t[1]), Float.parseFloat(t[2]), Float.parseFloat(t[3])});
+                else if (t[0].equals("o") || t[0].equals("g")) group = t[1];
+                else if (t[0].equals("f") && group != null) {
+                    float[] g = b.computeIfAbsent(group, k -> new float[] {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE,
+                            -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE});
+                    for (int i = 1; i < t.length; i++) {
+                        int n = Integer.parseInt(t[i].split("/")[0]);
+                        float[] p = v.get(n > 0 ? n - 1 : v.size() + n);
+                        for (int a = 0; a < 3; a++) {
+                            g[a] = Math.min(g[a], p[a]);
+                            g[a + 3] = Math.max(g[a + 3], p[a]);
+                        }
+                    }
+                }
+            }
+        }
+        return b;
+    }
+
+    @Test
+    void casingMeshIsMeasured() throws Exception {
+        Map<String, float[]> b = obj();
+        // bounds: min x y z, max x y z; the casing lies along Z
+        assertEquals(b.get("Straight")[5] - b.get("Straight")[2], AmmoModels.CASING_MESH.get("STRAIGHT")[0], 1e-4);
+        assertEquals(b.get("Straight")[3] - b.get("Straight")[0], AmmoModels.CASING_MESH.get("STRAIGHT")[1], 1e-4);
+        assertEquals(b.get("Bottleneck")[5] - b.get("Bottleneck")[2], AmmoModels.CASING_MESH.get("BOTTLENECK")[0], 1e-4);
+        assertEquals(b.get("Bottleneck")[3] - b.get("Bottleneck")[0], AmmoModels.CASING_MESH.get("BOTTLENECK")[1], 1e-4);
+        assertEquals(b.get("ShotgunCase")[5] - b.get("Shotgun")[2], AmmoModels.CASING_MESH.get("SHOTGUN")[0], 1e-4);
+        assertEquals(b.get("Shotgun")[3] - b.get("Shotgun")[0], AmmoModels.CASING_MESH.get("SHOTGUN")[1], 1e-4);
     }
 
     // NTM 1.0.3's casing of each calibre (XFactory*: the base SpentCasing every round of the calibre clones);

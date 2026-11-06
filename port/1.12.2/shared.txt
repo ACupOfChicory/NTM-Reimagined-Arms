@@ -55,7 +55,8 @@ acup/gunfeel/WalkSprintTest.java
 acup/gunfeel/ArmPistolScaleTest.java
 acup/gunfeel/ArmAimScaleTest.java
 acup/gunfeel/water/SunkPhysicsTest.java
-# acup/gunfeel/water/AmmoModelsTest.java: the port's copy (26.2's casing mesh check reads NTM 26.2's ObjMesh)
+# acup/gunfeel/water/AmmoModelsTest.java: the port's copy (its casing mesh check reads NTM CE's casings.obj, 26.2's reads
+# casings.hbm_mesh through NTM's ObjMesh)
 
 [resources]
 # src/main/resources
