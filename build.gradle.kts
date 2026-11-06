@@ -205,6 +205,7 @@ neoForge {
             providers.gradleProperty("mobBenchLimit").orNull?.let { systemProperty("ntmgunfeel.benchLimit",it) }
             systemProperty("ntmgunfeel.contourAge",providers.gradleProperty("contourAge").isPresent.toString())
             providers.gradleProperty("contourLag").orNull?.let { systemProperty("ntmgunfeel.contourLag",it) }
+            providers.gradleProperty("mobBenchFps").orNull?.let { systemProperty("ntmgunfeel.benchFps",it) }
             systemProperty("ntmgunfeel.benchFile",root.resolve("notes/mob-bench/$label.tsv").path)
             systemProperty("MC_DEBUG_ENABLED","true")
             systemProperty("MC_DEBUG_PREFER_WAYLAND","true")

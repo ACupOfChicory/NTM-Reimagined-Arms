@@ -23,6 +23,7 @@ import net.minecraft.world.level.GameType;
 // туда-обратно, поза новая каждый кадр.
 // -PmobBenchLimit=<мс>[,<мс ходьбы>]: сцена падает, если наш F3+B добавляет
 // к среднему кадру больше предела сверх ванильного F3+B (оба прохода ABBA).
+// -PmobBenchFps=<n>: предел FPS (по умолчанию 260, то есть без предела).
 // -PcontourAge: на фазах «система вкл, F3+B вкл» ContourAge считает точки
 // контура старше правила; сцена падает, если такие есть. Время кадра в этом
 // прогоне не мерить.
@@ -74,7 +75,7 @@ final class MobBenchmark {
     static boolean walks(String scene) { return scene.endsWith("w"); }
     static void start() {
         var mc=Minecraft.getInstance();
-        mc.options.framerateLimit().set(260); mc.options.enableVsync().set(false);
+        mc.options.framerateLimit().set(Integer.getInteger("ntmgunfeel.benchFps",260)); mc.options.enableVsync().set(false);
         mc.options.inactivityFpsLimit().set(InactivityFpsLimit.MINIMIZED);
         mc.options.pauseOnLostFocus=false; mc.options.fov().set(70);
         for(String s:System.getProperty("ntmgunfeel.benchScenes","0,1,2,3").split(",")) {
