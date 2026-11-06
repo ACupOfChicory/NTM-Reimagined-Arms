@@ -97,12 +97,15 @@ public final class ModelHitDebug {
             all.add(boxes); owners.add(target.entity());
         }
         // Все контуры кадра одним вызовом: недостающие строятся параллельно,
-        // а у уже показанного моба — в фоне, без ожидания в кадре.
+        // а у уже показанного моба — в фоне; кадр ждёт её, только если прежний
+        // контур старше правила (ModelContours.LAG).
         List<ModelContours.Outline> outlines=null;
         if(!MobBenchMetrics.LEGACY) {
             long contour=MobBenchMetrics.start();
             outlines=ModelContours.outlines(all,owners);
             MobBenchMetrics.add(MobBenchMetrics.CONTOUR,contour);
+            if(ContourAge.ENABLED)
+                for(int i=0;i<customs.length;i++) if(customs[i]) ContourAge.check(TARGETS.get(i).entity(),all.get(i),outlines.get(i));
         }
         for(int i=0;i<customs.length;i++) {
             var target=TARGETS.get(i); var boxes=all.get(i);
