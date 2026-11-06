@@ -1,6 +1,7 @@
 package acup.gunfeel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.function.BiFunction;
@@ -295,5 +296,19 @@ class WalkSprintTest {
         assertEquals(0F, WalkSprint.phase(0F), 1e-6F);
         assertEquals(0.25F, WalkSprint.phase(0.5F), 1e-6F);
         assertEquals(0.75F, WalkSprint.phase(3.5F), 1e-6F);
+    }
+
+    @Test
+    void longGunsAreMeasured() {
+        // as the stand measured them (length, middle): a G3, the Panzerschreck, the Stinger; were left out over 10 and 5
+        assertTrue(WalkSprint.measurable(9.375F, new Vector3f(0.59F, -0.87F, -2.5F)));
+        assertTrue(WalkSprint.measurable(16.72F, new Vector3f(-1.32F, -2.9F, 2.6F)));
+        assertTrue(WalkSprint.measurable(30.42F, new Vector3f(-1.8F, -9.5F, -1.2F)));
+        // a broken matrix is not
+        assertFalse(WalkSprint.measurable(Float.NaN, new Vector3f()));
+        assertFalse(WalkSprint.measurable(0F, new Vector3f()));
+        assertFalse(WalkSprint.measurable(5F, new Vector3f(Float.POSITIVE_INFINITY, 0F, 0F)));
+        assertFalse(WalkSprint.measurable(1e4F, new Vector3f()));
+        assertFalse(WalkSprint.measurable(5F, new Vector3f(0F, 0F, 80F)));
     }
 }

@@ -29,6 +29,15 @@ public abstract class MixinWaterBullet implements WaterBullet, acup.gunfeel.wate
     @Unique private @Nullable WaterClass gunfeel$class;
     @Unique private WaterClass.@Nullable Expansion gunfeel$expansion;
     @Unique private double gunfeel$opened;
+    @Unique private boolean gunfeel$met;
+    @Unique private long gunfeel$shot;
+
+    // every constructor of NTM's comes through this one; a gun makes all pellets of a shot in one loop
+    @Inject(method = "<init>(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)V", at = @At("TAIL"))
+    private void gunfeel$born(net.minecraft.world.entity.EntityType<?> type, net.minecraft.world.level.Level level,
+            org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+        gunfeel$shot = level.getGameTime();
+    }
 
     // modified, not set: a cancelling inject would end the method before the others (bulletSpeed, MixinBulletServer),
     // and this one is applied after it, so it multiplies the fast bullets' speed too
@@ -49,6 +58,10 @@ public abstract class MixinWaterBullet implements WaterBullet, acup.gunfeel.wate
     @Override public void gunfeel$waterTick(WaterPath.@Nullable Result tick) { gunfeel$tick = tick; }
     @Override public double gunfeel$waterOpened() { return gunfeel$opened; }
     @Override public void gunfeel$waterOpened(double opened) { gunfeel$opened = opened; }
+    @Override public boolean gunfeel$waterMet() { return gunfeel$met; }
+    @Override public void gunfeel$waterMet(boolean met) { gunfeel$met = met; }
+    @Override public long gunfeel$shot() { return gunfeel$shot; }
+    @Override public void gunfeel$shot(long shot) { gunfeel$shot = shot; }
 
     @Override
     public WaterClass.@Nullable Expansion gunfeel$waterExpansion() {

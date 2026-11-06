@@ -1,6 +1,6 @@
 # Changelog
 
-## X516
+## X535
 
 - Smoke clouds: the operator command `/gunsmoke` lets out a dense cloud that
   fills the open space around it, about a 6-block half sphere in the open and
@@ -20,6 +20,30 @@
   clears them and shows how many there are and what they cost the server.
 - ⚠ Breaks compatibility: the network protocol is now 10 (smoke packets);
   client and server need the same build.
+
+## X517
+
+- Water rings are white again in daylight, not grey. They were shaded like a
+  mob's skin, and from above both faces of a ring got only the dim side light;
+  now they are lit like particles, by the world's light alone. At noon a ring
+  from above went from 103 to about 200 of 255.
+- A round lying on the bottom of the water falls when the block under it is
+  broken. Before, a round that had come to rest stayed hanging in the water.
+- The big water particles of a shot no longer blink in their first ticks. The
+  water dust of a splash showed at full strength until the first game tick
+  and then dropped to a fifth of it; it now fades in smoothly. The gas bubble
+  of a shot under water now moves out from the muzzle as it swells, instead of
+  swelling in place for a tick and then catching up.
+
+## X515
+
+- Long NTM guns now bob as you walk and take the sprint pose: the
+  Panzerschreck, the FIM-92 Stinger, the Tesla Cannon, the Folly and the Zebra
+  Rifle were held still, as the mod took their size for a measuring error.
+- Explosive pellets of one shot (12 and 10 gauge HE) no longer set each other
+  off, in the air or in water. In the air bullets pass each other as in NTM:
+  an explosive goes off at the touch of another bullet only when both have
+  been through water on their way or sink in it.
 
 ## X510
 
@@ -76,9 +100,9 @@
   off at the next thing they touch. Fired under water they fly, slow down like
   any bullet and go off on a block or a mob. One that water stopped sinks at
   most a block a second and goes off where it lands or on NTM's timer.
-- An explosive round goes off at the first touch of anything, another bullet or
-  a sinking explosive included; only pellets of one shot leave each other
-  alone.
+- In water an explosive round goes off at the first touch of anything, another
+  bullet or a sinking explosive included; only pellets of one shot leave each
+  other alone. In the air bullets do not touch each other.
 - A blast with its centre in water reaches 1.5 times as far for mobs in the
   water, and a mob above it takes half. Blocks break as before.
 - Under water an incendiary 75 bolt gives a weak blast, about a quarter of the

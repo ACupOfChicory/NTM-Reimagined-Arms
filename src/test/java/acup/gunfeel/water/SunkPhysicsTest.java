@@ -159,6 +159,95 @@ class SunkPhysicsTest {
         assertEquals(0, sf, 1e-12);
     }
 
+    /** {@link TestWorld} with some floor cells taken out; the floor below y=-3 stays. */
+    static final class HoleWorld implements SunkPhysics.World {
+        final java.util.Set<Long> gone = new java.util.HashSet<>();
+
+        static long key(int x, int y, int z) {
+            return ((long) x & 0xFFFFF) << 40 | ((long) y & 0xFFFFF) << 20 | ((long) z & 0xFFFFF);
+        }
+
+        // a fence post on the floor at (0,0,0): its box reaches half a block into the cell above it
+        boolean fence;
+
+        public double[] boxes(int x, int y, int z) {
+            if (fence && x == 0 && y == 0 && z == 0) return new double[] {0.375, 0, 0.375, 0.625, 1.5, 0.625};
+            if (y >= -3 && gone.contains(key(x, y, z))) return EMPTY;
+            return W.boxes(x, y, z);
+        }
+
+        public boolean water(int x, int y, int z) {
+            return y >= 0;
+        }
+    }
+
+    @Test
+    void sleeperFallsWhenTheBlockUnderItGoes() {
+        HoleWorld hw = new HoleWorld();
+        SunkPhysics p = new SunkPhysics(400, 30);
+        Body ball = p.add(null, 0.5, 2, 0.5, 0, 0, -1, 0.05, 0, 0, 0, 0, 0, 1.2, 0, 0, false);
+        Body rod = p.add(null, 2.5, 2, 0.5, 0, 0, -1, 0.027, 0.02, 0, 0, 0, 5, 1.2, 0, 0, false);
+        Body next = p.add(null, 4.5, 2, 0.5, 0, 0, -1, 0.05, 0, 0, 0, 0, 0, 1.2, 0, 0, false);
+        for (int i = 0; i < 12 * 60; i++) p.step(hw, 1.0 / 60);
+        System.out.printf("hole: asleep %b %b %b, rod at %.3f %.3f %.3f%n", ball.asleep, rod.asleep, next.asleep, rod.px, rod.py, rod.pz);
+        assertTrue(ball.asleep && rod.asleep && next.asleep, "all three asleep on the floor");
+        double y0 = ball.py, r0 = rod.py, n0 = next.py;
+        for (int y = -1; y >= -3; y--) {
+            hw.gone.add(HoleWorld.key(0, y, 0));
+            hw.gone.add(HoleWorld.key(2, y, 0));
+        }
+        double tBall = -1, tRod = -1;
+        for (int i = 1; i <= 60; i++) {
+            p.step(hw, 1.0 / 60);
+            if (tBall < 0 && y0 - ball.py >= 1) tBall = i / 60.0;
+            if (tRod < 0 && r0 - rod.py >= 1) tRod = i / 60.0;
+        }
+        System.out.printf("hole: ball dropped %.3f (1 block at %.3f s), rod %.3f (at %.3f s), neighbour %.4f, asleep %b%n",
+                y0 - ball.py, tBall, r0 - rod.py, tRod, n0 - next.py, next.asleep);
+        assertTrue(tBall > 0 && tBall <= 1, "ball fell a block within a second");
+        assertTrue(tRod > 0 && tRod <= 1, "rod fell a block within a second");
+        assertEquals(n0, next.py, 1e-9, "a body over an untouched block stays");
+    }
+
+    @Test
+    void sleeperOnAFenceFallsWhenItGoes() {
+        HoleWorld hw = new HoleWorld();
+        hw.fence = true;
+        SunkPhysics p = new SunkPhysics(400, 30);
+        Body ball = p.add(null, 0.5, 3, 0.5, 0, 0, -1, 0.05, 0, 0, 0, 0, 0, 1.2, 0, 0, false);
+        for (int i = 0; i < 6 * 60; i++) p.step(hw, 1.0 / 60);
+        double y0 = ball.py;
+        System.out.printf("fence: asleep %b at %.3f%n", ball.asleep, y0);
+        assertTrue(ball.asleep && y0 > 1.5 && y0 < 1.6, "asleep on the post's top");
+        hw.fence = false;
+        for (int i = 0; i < 60; i++) p.step(hw, 1.0 / 60);
+        System.out.printf("fence: gone, dropped %.3f%n", y0 - ball.py);
+        assertTrue(y0 - ball.py >= 1, "fell when the post went");
+    }
+
+    @Test
+    void sleepingCost() {
+        SunkPhysics p = new SunkPhysics(400, 1e9);
+        for (int i = 0; i < 400; i++) {
+            boolean ball = i % 3 == 0;
+            p.add(null, (i % 20) * 0.5 + 0.25, 0.3, (i / 20) * 0.5 - 3.75, 1, 0, 0, ball ? 0.05 : 0.027, ball ? 0 : 0.02,
+                    0, 0, 0, 0, 1.2, 0, 0, false);
+        }
+        run(p, 8);
+        long asleep = p.bodies().stream().filter(b -> b.asleep).count();
+        // the few still rocking are put to sleep, so the frame below is the sleeping cost alone
+        for (Body q : p.bodies()) { q.asleep = true; q.vx = q.vy = q.vz = q.wx = q.wy = q.wz = 0; }
+        for (int i = 0; i < 600; i++) p.step(W, 1.0 / 60);
+        long t0 = System.nanoTime();
+        int n = 3000;
+        for (int i = 0; i < n; i++) p.step(W, 1.0 / 60);
+        double ms = (System.nanoTime() - t0) * 1e-6 / n;
+        System.out.printf("sleeping cost: %d of %d asleep, %.4f ms per frame%n", asleep, p.bodies().size(), ms);
+        assertTrue(asleep >= 360, "asleep " + asleep);
+        assertEquals(400, p.bodies().stream().filter(b -> b.asleep).count(), "no one woke");
+        assertTrue(ms < 0.5);
+    }
+
     @Test
     void closestPoints() {
         double[] c = new double[6];

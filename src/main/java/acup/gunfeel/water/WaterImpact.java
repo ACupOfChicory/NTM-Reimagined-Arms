@@ -17,8 +17,8 @@ import net.minecraft.world.phys.Vec3;
 // The explosives' part on the server, around NTM's own impact (MixinWaterImpact):
 // - b75_inc in water gives a small blast, about a quarter of the explosive bolt's, and no fire;
 // - what sets alight (phosphorus, flares) does not under water: it hits as a plain bullet;
-// - an explosive bullet goes off at the first touch of another bullet or explosive, a sinking one too; pellets of one
-//   shot do not set each other off;
+// - in water an explosive bullet goes off at the first touch of another bullet or explosive, a sinking one too;
+//   pellets of one shot do not set each other off, and in the air bullets pass each other as in NTM;
 // - one stopped by water sinks (WaterTick) and goes off where it touches.
 public final class WaterImpact {
     private WaterImpact() {
@@ -94,25 +94,38 @@ public final class WaterImpact {
         return f == WaterClass.Fuze.IMPACT || f == WaterClass.Fuze.WEAK && wet(b, b.position());
     }
 
-    // pellets of one shot: the same shooter, the same config, fired the same tick
+    // pellets of one shot: the same shooter, the same config, made the same tick (WaterBullet.gunfeel$shot). Not the
+    // ticks they lived: one pellet's touch runs after its own tick and before the next one's, a tick apart
     public static boolean sameShot(EntityBulletBaseMK4 a, EntityBulletBaseMK4 b) {
-        return a.config == b.config && a.getThrower() == b.getThrower() && a.tickCount == b.tickCount;
+        return a.config == b.config && ((WaterBullet) a).gunfeel$shot() == ((WaterBullet) b).gunfeel$shot() && a.getThrower() == b.getThrower();
     }
 
+    // for ExplosiveCheck: the searches for other bullets, the pairs of one shot left alone and the touches that set one
+    // off, since the server started
+    public static int searches, sameShots, touches;
+
     // after the bullet's tick (MixinThrowableHit), the server: did its path from `from` touch another bullet, and was
-    // either an explosive
+    // either an explosive. Only bullets that have met water touch: in the air NTM's bullets pass each other, and the
+    // search is not made
     public static void touch(EntityBulletBaseMK4 b, Vec3 from) {
         // a bullet gone this tick (water stopped it, it hit a block) still met what lay on its path
-        if (b.level().isClientSide() || b.config == null || !WaterSettings.ballistics() || !WaterSettings.fuze()) return;
+        if (b.level().isClientSide() || b.config == null || !WaterSettings.ballistics() || !WaterSettings.fuze() || !WaterBullet.met(b)) return;
         Vec3 to = b.position();
         AABB area = new AABB(from, to).inflate(1.0);
         boolean mine = !b.isRemoved() && goesOff(b);
-        for (EntityBulletBaseMK4 o : b.level().getEntitiesOfClass(EntityBulletBaseMK4.class, area, o -> o != b && o.isAlive() && o.config != null)) {
+        searches++;
+        for (EntityBulletBaseMK4 o : b.level().getEntitiesOfClass(EntityBulletBaseMK4.class, area,
+                o -> o != b && o.isAlive() && o.config != null && WaterBullet.met(o))) {
             boolean theirs = goesOff(o);
-            if (!mine && !theirs || sameShot(b, o)) continue;
+            if (!mine && !theirs) continue;
             AABB box = o.getBoundingBox().inflate(TOUCH);
             Vec3 at = box.contains(from) ? from : box.clip(from, to).orElse(box.contains(to) ? to : null);
             if (at == null) continue;
+            if (sameShot(b, o)) {
+                sameShots++;
+                continue;
+            }
+            touches++;
             if (TestLog.server) TestLog.s(b.getId(), "water", "touch", "other", o.getId(), "at", at, "mine", mine, "theirs", theirs);
             if (mine) ((Hits) b).gunfeel$impact(new EntityHitResult(o, at));
             if (theirs && !o.isRemoved()) ((Hits) o).gunfeel$impact(new EntityHitResult(b, at));
