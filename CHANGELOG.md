@@ -1,7 +1,10 @@
 # Changelog
 
-## X513
+## X515
 
+- Long NTM guns now bob as you walk and take the sprint pose: the
+  Panzerschreck, the FIM-92 Stinger, the Tesla Cannon, the Folly and the Zebra
+  Rifle were held still, as the mod took their size for a measuring error.
 - Explosive pellets of one shot (12 and 10 gauge HE) no longer set each other
   off, in the air or in water. In the air bullets pass each other as in NTM:
   an explosive goes off at the touch of another bullet only when both have
