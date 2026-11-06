@@ -147,6 +147,7 @@ public final class Arms {
         java.util.Arrays.fill(HAVE_FOLLOW, false);
         java.util.Arrays.fill(FOLLOW_ID, -1);
         capturing = true;
+        ArmLayers.newFrame();
     }
 
     static void resetPistolHoldFrame() {
@@ -1465,8 +1466,11 @@ public final class Arms {
         }
         arm.resetPose();
         arm.visible = true;
-        sleeve.visible = sleeveShown;
+        // armArmor: the skin's second layer as the third-person model has it (NTM's suits hide it)
+        Boolean modelSleeve = ArmLayers.sleeve(right);
+        sleeve.visible = modelSleeve != null ? modelSleeve : sleeveShown;
         collector.submitModelPart(arm, pose, RenderTypes.entityTranslucent(skin), light, OverlayTexture.NO_OVERLAY, null);
+        ArmLayers.submit(collector, light, m, right, shown);
     }
 
     private static final Map<Integer, ModelPart[]> CUT = new HashMap<>();

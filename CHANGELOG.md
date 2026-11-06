@@ -1,5 +1,19 @@
 # Changelog
 
+## X510
+
+- The arms holding a gun now wear what the player wears on the arms seen from
+  outside: vanilla armour with its dye, trim and enchantment glint, NTM's
+  armour (its 3D suits included), the skin's sleeve layer, and what other mods
+  draw on the player's arms. It follows the arm's pose, thickness and cut, on
+  pistols and rifles, at the hip and aiming. Key `armArmor` in
+  `ntm-gunfeel.properties` (on by default).
+- NTM's power armour (T-51, AJR, AJRO, RPA, NCRPA, BJ, Envsuit, HEV, FAU, DNS)
+  halves recoil: the camera kick, the gun model's kick and NTM's own recoil
+  animation. The chestplate is enough, charged or not. Key `powerArmorRecoil`
+  (0.5; 1 turns it off). On a server that sets a camera recoil minimum the
+  camera keeps at least half.
+
 ## X504
 
 - F3+B: the hitbox outline of an animated mob no longer lags behind its model.
