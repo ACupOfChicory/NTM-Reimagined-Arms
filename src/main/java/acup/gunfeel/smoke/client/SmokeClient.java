@@ -58,7 +58,8 @@ public final class SmokeClient {
     public static void spawn(SmokePayloads.Spawn p) {
         SmokeClouds all = clouds();
         if (all == null) return;
-        all.add(p.id(), p.origin(), SmokeKind.byId(p.kind()), p.seed(), p.dirX(), p.dirZ(), p.scale(), p.born());
+        // a cloud past the limit pushes the oldest out, as on the server
+        all.add(p.id(), p.origin(), SmokeKind.byId(p.kind()), p.seed(), p.dirX(), p.dirZ(), p.scale(), p.born(), gone -> TRACKS.remove(gone.id));
         TRACKS.put(p.id(), new Track());
     }
 
@@ -66,13 +67,6 @@ public final class SmokeClient {
         SmokeClouds all = clouds();
         if (all != null) all.remove(p.id());
         TRACKS.remove(p.id());
-    }
-
-    public static void disturb(SmokePayloads.Disturb p) {
-        SmokeClouds all = clouds();
-        SmokeClouds.Cloud c = all == null ? null : all.cloud(p.id());
-        if (c == null) return;
-        c.grid.disturb(p.x() - c.baseX(), p.y() - c.baseY(), p.z() - c.baseZ(), p.radius());
     }
 
     public static void check(SmokePayloads.Check p) {

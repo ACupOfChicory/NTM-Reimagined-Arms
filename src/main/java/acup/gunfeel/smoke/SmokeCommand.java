@@ -51,8 +51,16 @@ public final class SmokeCommand {
         return k == null ? SmokeKind.SMOKE : k;
     }
 
+    // the server's key turns smoke off: say so, rather than blaming the spot
+    private static boolean off(CommandSourceStack src) {
+        if (SmokeClouds.enabled()) return false;
+        src.sendFailure(Component.literal("Smoke is off on this server (smoke = false in ntmgunfeel-server.properties)"));
+        return true;
+    }
+
     private static int look(CommandContext<CommandSourceStack> c, SmokeKind kind) {
         var src = c.getSource();
+        if (off(src)) return 0;
         Vec3 eye = src.getPosition(), dir = Vec3.directionFromRotation(src.getRotation());
         if (src.getEntity() != null) eye = src.getEntity().getEyePosition();
         BlockHitResult hit = src.getLevel().clip(new ClipContext(eye, eye.add(dir.scale(64)), ClipContext.Block.COLLIDER, ClipContext.Fluid.ANY,
@@ -69,6 +77,7 @@ public final class SmokeCommand {
 
     private static int at(CommandContext<CommandSourceStack> c, SmokeKind kind, int count, float step) {
         var src = c.getSource();
+        if (off(src)) return 0;
         Vec3 pos = Vec3Argument.getVec3(c, "pos");
         Vec3 dir = Vec3.directionFromRotation(src.getRotation());
         int made = 0;

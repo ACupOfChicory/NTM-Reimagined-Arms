@@ -61,30 +61,6 @@ public final class SmokePayloads {
         }
     }
 
-    /** Smoke blown out of a ball (an explosion) at the cloud's age {@code age}; world coordinates. */
-    public record Disturb(int id, float x, float y, float z, float radius, int age) implements CustomPacketPayload {
-        public static final Type<Disturb> TYPE = typeOf("smoke_disturb");
-        public static final StreamCodec<RegistryFriendlyByteBuf, Disturb> CODEC = CustomPacketPayload.codec(Disturb::write, Disturb::read);
-
-        private void write(RegistryFriendlyByteBuf b) {
-            b.writeVarInt(id);
-            b.writeFloat(x);
-            b.writeFloat(y);
-            b.writeFloat(z);
-            b.writeFloat(radius);
-            b.writeVarInt(age);
-        }
-
-        private static Disturb read(RegistryFriendlyByteBuf b) {
-            return new Disturb(b.readVarInt(), b.readFloat(), b.readFloat(), b.readFloat(), b.readFloat(), b.readVarInt());
-        }
-
-        @Override
-        public Type<? extends CustomPacketPayload> type() {
-            return TYPE;
-        }
-    }
-
     /** The server's {@link SmokeGrid#hash()} of a cloud at an age, every two seconds. */
     public record Check(int id, int age, long hash) implements CustomPacketPayload {
         public static final Type<Check> TYPE = typeOf("smoke_check");

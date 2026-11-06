@@ -63,6 +63,8 @@ public final class GunFeelMod {
                 e -> {
                     if (e.getLevel() instanceof net.minecraft.world.level.Level level) acup.gunfeel.smoke.SmokeClouds.forget(level);
                 });
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent.class,
+                e -> acup.gunfeel.smoke.SmokeNet.forget(e.getEntity().getUUID()));
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent.class,
                 e -> {
                     if (e.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {

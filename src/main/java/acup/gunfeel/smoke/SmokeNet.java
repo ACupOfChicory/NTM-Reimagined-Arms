@@ -26,6 +26,9 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public final class SmokeNet {
     /** Ticks between the hash checks of one cloud. */
     public static final int CHECK_EVERY = 40;
+    /** Ticks a player waits between two requests for a grid. */
+    private static final int RESYNC_GAP = 20;
+    // game time of each player's last request; dropped when the player leaves, so it never outgrows the players online
     private static final Map<UUID, Long> LAST_RESYNC = new HashMap<>();
 
     private SmokeNet() {
@@ -35,7 +38,6 @@ public final class SmokeNet {
     public static void payloads(net.neoforged.neoforge.network.registration.PayloadRegistrar r) {
         r.playToClient(SmokePayloads.Spawn.TYPE, SmokePayloads.Spawn.CODEC);
         r.playToClient(SmokePayloads.End.TYPE, SmokePayloads.End.CODEC);
-        r.playToClient(SmokePayloads.Disturb.TYPE, SmokePayloads.Disturb.CODEC);
         r.playToClient(SmokePayloads.Check.TYPE, SmokePayloads.Check.CODEC);
         r.playToClient(SmokePayloads.Grid.TYPE, SmokePayloads.Grid.CODEC);
     }
@@ -52,15 +54,21 @@ public final class SmokeNet {
         PacketDistributor.sendToPlayersTrackingChunk(level, chunk(c), new SmokePayloads.End(c.id));
     }
 
-    static void disturbed(ServerLevel level, SmokeClouds.Cloud c, float x, float y, float z, float radius) {
-        PacketDistributor.sendToPlayersTrackingChunk(level, chunk(c), new SmokePayloads.Disturb(c.id, x, y, z, radius, c.grid.age()));
+    /**
+     * Whether the server checks a cloud's hash at this age, the same on both sides: a client only needs its hash at those
+     * ages, not after every step. Spread over the ticks by id, so the clouds do not all send at once.
+     */
+    public static boolean checkDue(int id, int age) {
+        return (age + id * 7) % CHECK_EVERY == 0;
     }
 
-    // after the step: the hash of the clouds whose turn it is (spread over the ticks by id)
+    // after the step: the hash of the clouds whose turn it is; once an age (a frozen tick would send it every tick)
     static void checks(ServerLevel level, SmokeClouds all) {
         for (SmokeClouds.Cloud c : all.clouds()) {
-            if ((c.grid.age() + c.id * 7) % CHECK_EVERY != 0) continue;
-            PacketDistributor.sendToPlayersTrackingChunk(level, chunk(c), new SmokePayloads.Check(c.id, c.grid.age(), c.grid.hash()));
+            int age = c.grid.age();
+            if (!checkDue(c.id, age) || c.checkedAge == age) continue;
+            c.checkedAge = age;
+            PacketDistributor.sendToPlayersTrackingChunk(level, chunk(c), new SmokePayloads.Check(c.id, age, c.grid.hash()));
         }
     }
 
@@ -76,24 +84,33 @@ public final class SmokeNet {
         for (SmokeClouds.Cloud c : all.clouds()) if (chunk(c).equals(e.getPos())) PacketDistributor.sendToPlayer(e.getPlayer(), new SmokePayloads.End(c.id));
     }
 
-    /** A client asked for a cloud's grid; at most once a second a player. */
+    /**
+     * A client asked for a cloud's grid: at most once a second a player, whatever the id, and only for a cloud whose
+     * chunk the player watches. A cloud the server no longer has is answered with {@code End}.
+     */
     public static void resync(ServerPlayer player, SmokePayloads.Resync p) {
+        long now = player.level().getGameTime();
+        Long last = LAST_RESYNC.get(player.getUUID());
+        if (last != null && now - last < RESYNC_GAP && now >= last) return;
+        LAST_RESYNC.put(player.getUUID(), now);
         SmokeClouds all = SmokeClouds.get(player.level());
         SmokeClouds.Cloud c = all == null ? null : all.cloud(p.id());
         if (c == null) {
             PacketDistributor.sendToPlayer(player, new SmokePayloads.End(p.id()));
             return;
         }
-        long now = player.level().getGameTime();
-        Long last = LAST_RESYNC.get(player.getUUID());
-        if (last != null && now - last < 20 && now >= last) return;
-        LAST_RESYNC.put(player.getUUID(), now);
-        if (LAST_RESYNC.size() > 256) LAST_RESYNC.clear();
+        ChunkPos at = chunk(c);
+        if (!player.getChunkTrackingView().contains(at.x(), at.z(), false)) return;
         try {
             PacketDistributor.sendToPlayer(player, new SmokePayloads.Grid(c.id, encode(c.grid)));
         } catch (IOException ex) {
             // a grid that does not pack is not sent: the client keeps its copy
         }
+    }
+
+    /** A player left: forget when they last asked for a grid. */
+    public static void forget(UUID player) {
+        LAST_RESYNC.remove(player);
     }
 
     public static byte[] encode(SmokeGrid g) throws IOException {

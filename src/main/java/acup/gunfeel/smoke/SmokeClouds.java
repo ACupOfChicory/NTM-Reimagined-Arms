@@ -1,8 +1,6 @@
 package acup.gunfeel.smoke;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +34,8 @@ public final class SmokeClouds {
         /** The level's game time the cloud was born at; it is {@code gameTime - born} ticks old. */
         public final long born;
         public final float dirX, dirZ, scale;
+        /** The server: the age whose hash went out last, so a frozen tick does not send it again. */
+        int checkedAge = -1;
 
         Cloud(int id, SmokeGrid grid, BlockPos origin, long born, float dirX, float dirZ, float scale) {
             this.id = id;
@@ -92,7 +92,9 @@ public final class SmokeClouds {
     }
 
     private final Level level;
-    private final Map<Integer, Cloud> clouds = Collections.synchronizedMap(new LinkedHashMap<>());
+    private final Map<Integer, Cloud> clouds = new LinkedHashMap<>();
+    // the clouds as they stand, replaced (never changed) whenever one comes or goes: clouds() hands it out without a copy
+    private volatile List<Cloud> view = List.of();
     private int nextId = 1;
 
     private SmokeClouds(Level level) {
@@ -122,7 +124,7 @@ public final class SmokeClouds {
      * @param scale share of the kind's volume (1 = one grenade)
      */
     public static int spawn(ServerLevel level, Vec3 pos, Vec3 direction, SmokeKind kind, float scale) {
-        if (!acup.gunfeel.ReaimTimes.flag(SERVER_KEY, true)) return -1;
+        if (!enabled()) return -1;
         SmokeClouds all = of(level);
         int id = all.nextId();
         BlockPos origin = BlockPos.containing(pos);
@@ -131,28 +133,18 @@ public final class SmokeClouds {
         // the bomblets ring round a shot straight down or up
         if (len < 0.2F * (float) direction.length()) dx = dz = 0F;
         long seed = level.getRandom().nextLong();
-        Cloud c = all.add(id, origin, kind, seed, dx, dz, scale, level.getGameTime());
-        if (c.grid.emitters() == 0) {
-            all.remove(id);
-            return -1;
-        }
+        Cloud c = all.create(id, origin, kind, seed, dx, dz, scale, level.getGameTime());
+        // shut in: nothing comes out, and no older cloud is pushed out for it
+        if (c.grid.emitters() == 0) return -1;
+        // a cloud past the limit pushes the oldest out; the players who had it are told it is gone
+        all.insert(c, gone -> SmokeNet.ended(level, gone));
         SmokeNet.spawned(level, c);
         return id;
     }
 
-    /**
-     * Blows the smoke out of a ball in every cloud it touches (an explosion); it flows back in by itself. Nothing calls it
-     * yet: what explosions and bullets do to the smoke comes later.
-     */
-    public static void disturb(ServerLevel level, Vec3 center, float radius) {
-        SmokeClouds all = get(level);
-        if (all == null) return;
-        for (Cloud c : all.clouds()) {
-            float x = (float) (center.x - c.baseX()), y = (float) (center.y - c.baseY()), z = (float) (center.z - c.baseZ());
-            if (x < -radius || y < -radius || z < -radius || x > SmokeGrid.SX + radius || y > SmokeGrid.SY + radius || z > SmokeGrid.SZ + radius) continue;
-            c.grid.disturb(x, y, z, radius);
-            SmokeNet.disturbed(level, c, (float) center.x, (float) center.y, (float) center.z, radius);
-        }
+    /** Whether this server lets smoke out at all (the {@code smoke} key). */
+    public static boolean enabled() {
+        return acup.gunfeel.ReaimTimes.flag(SERVER_KEY, true);
     }
 
     /** Once a level tick on the server. */
@@ -160,7 +152,7 @@ public final class SmokeClouds {
         SmokeClouds all = get(level);
         if (all == null || all.isEmpty()) return;
         long t0 = System.nanoTime();
-        int n = all.clouds.size();
+        int n = all.clouds().size();
         for (Cloud c : all.tick(level.getGameTime(), 1)) SmokeNet.ended(level, c);
         SmokeNet.checks(level, all);
         long spent = System.nanoTime() - t0;
@@ -171,7 +163,7 @@ public final class SmokeClouds {
         if (serverTicks >= 100) {
             serverLast = String.format(java.util.Locale.ROOT, "%.3f ms a tick on average, %.3f at most, over %d ticks, up to %d clouds",
                     serverNanos / 1e6 / serverTicks, serverMax / 1e6, serverTicks, serverClouds);
-            org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").info("Smoke server cost: {}", serverLast);
+            org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").debug("Smoke server cost: {}", serverLast);
             serverNanos = serverMax = 0L;
             serverTicks = serverClouds = 0;
         }
@@ -192,44 +184,71 @@ public final class SmokeClouds {
         return level;
     }
 
+    /** The clouds, oldest first. A list that never changes: one that comes or goes later is not in it. */
     public List<Cloud> clouds() {
-        synchronized (clouds) {
-            return new ArrayList<>(clouds.values());
-        }
+        return view;
     }
 
     public boolean isEmpty() {
-        return clouds.isEmpty();
+        return view.isEmpty();
     }
 
     public Cloud cloud(int id) {
-        return clouds.get(id);
+        synchronized (clouds) {
+            return clouds.get(id);
+        }
+    }
+
+    // the clouds map changed: the view follows (called holding the map)
+    private void changed() {
+        view = List.copyOf(clouds.values());
     }
 
     int nextId() {
         return nextId++;
     }
 
-    /** A new cloud, its cells read from the world now. A cloud with that id is replaced. */
-    public Cloud add(int id, BlockPos origin, SmokeKind kind, long seed, float dirX, float dirZ, float scale, long born) {
+    /** A new cloud, its cells read from the world now, not kept yet ({@link #insert}). */
+    public Cloud create(int id, BlockPos origin, SmokeKind kind, long seed, float dirX, float dirZ, float scale, long born) {
         SmokeGrid grid = new SmokeGrid(kind, seed, dirX, dirZ, scale);
         Cloud cloud = new Cloud(id, grid, origin.immutable(), born, dirX, dirZ, scale);
         grid.scan(SmokeMask.of(level, cloud));
         grid.place();
+        return cloud;
+    }
+
+    /**
+     * Keeps a cloud. A cloud with that id is replaced; past {@link #LIMIT} the oldest are dropped, and {@code gone}
+     * (when given) sees each of them.
+     */
+    public void insert(Cloud cloud, java.util.function.Consumer<Cloud> gone) {
+        List<Cloud> dropped = null;
         synchronized (clouds) {
-            clouds.remove(id);
-            clouds.put(id, cloud);
-            while (clouds.size() > LIMIT) clouds.remove(clouds.keySet().iterator().next());
+            clouds.remove(cloud.id);
+            clouds.put(cloud.id, cloud);
+            while (clouds.size() > LIMIT) {
+                if (dropped == null) dropped = new ArrayList<>();
+                dropped.add(clouds.remove(clouds.keySet().iterator().next()));
+            }
+            changed();
         }
+        if (gone != null && dropped != null) for (Cloud c : dropped) gone.accept(c);
+    }
+
+    /** {@link #create} and {@link #insert}: the client's cloud from a {@code Spawn}. */
+    public Cloud add(int id, BlockPos origin, SmokeKind kind, long seed, float dirX, float dirZ, float scale, long born,
+            java.util.function.Consumer<Cloud> gone) {
+        Cloud cloud = create(id, origin, kind, seed, dirX, dirZ, scale, born);
+        insert(cloud, gone);
         return cloud;
     }
 
     public Cloud remove(int id) {
-        return clouds.remove(id);
-    }
-
-    public void clear() {
-        clouds.clear();
+        synchronized (clouds) {
+            Cloud c = clouds.remove(id);
+            if (c != null) changed();
+            return c;
+        }
     }
 
     /**
@@ -259,9 +278,9 @@ public final class SmokeClouds {
     /** Drops the clouds that thinned away (or lived too long) and returns them. */
     public List<Cloud> reap() {
         List<Cloud> ended = null;
-        for (Cloud c : clouds()) {
+        for (Cloud c : view) {
             if (c.grid.done() || c.grid.age() > c.kind().maxAge()) {
-                clouds.remove(c.id);
+                remove(c.id);
                 if (ended == null) ended = new ArrayList<>();
                 ended.add(c);
             }

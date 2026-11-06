@@ -322,16 +322,6 @@ public final class SmokeGrid {
         }
     }
 
-    /** Blows the smoke out of a ball (box coordinates, cell centres at .5); it flows back in by itself. */
-    public void disturb(float cx, float cy, float cz, float radius) {
-        float r2 = radius * radius;
-        for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) for (int x = x0; x <= x1; x++) {
-            float dx = x + 0.5F - cx, dy = y + 0.5F - cy, dz = z + 0.5F - cz;
-            if (dx * dx + dy * dy + dz * dz <= r2) d[index(x, y, z)] = 0F;
-        }
-        bounds();
-    }
-
     // a number in [0, 1) from the seed, a cell and a time slot: the same on every side
     private float unit(int cell, int slot, int salt) {
         long h = seed ^ 0x9E3779B97F4A7C15L * (cell + 1) ^ 0xC2B2AE3D27D4EB4FL * (slot + 31L * salt + 1);

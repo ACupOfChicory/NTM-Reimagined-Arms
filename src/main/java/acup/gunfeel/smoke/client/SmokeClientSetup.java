@@ -47,7 +47,6 @@ public final class SmokeClientSetup {
     public static void payloads(PayloadRegistrar r) {
         r.playToClient(SmokePayloads.Spawn.TYPE, SmokePayloads.Spawn.CODEC, (p, ctx) -> ctx.enqueueWork(() -> SmokeClient.spawn(p)));
         r.playToClient(SmokePayloads.End.TYPE, SmokePayloads.End.CODEC, (p, ctx) -> ctx.enqueueWork(() -> SmokeClient.end(p)));
-        r.playToClient(SmokePayloads.Disturb.TYPE, SmokePayloads.Disturb.CODEC, (p, ctx) -> ctx.enqueueWork(() -> SmokeClient.disturb(p)));
         r.playToClient(SmokePayloads.Check.TYPE, SmokePayloads.Check.CODEC, (p, ctx) -> ctx.enqueueWork(() -> SmokeClient.check(p)));
         r.playToClient(SmokePayloads.Grid.TYPE, SmokePayloads.Grid.CODEC, (p, ctx) -> ctx.enqueueWork(() -> SmokeClient.grid(p)));
     }
