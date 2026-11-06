@@ -5,6 +5,8 @@
 - On a client, a tracer slowed by water stops where the server's bullet
   stopped also when the stop comes late. Before, it ran on past the bullet to
   where the client had flown it by then.
+- A tracer that water stops or skips right at the start of a tick ends there,
+  instead of flying on through the water.
 
 ## X548
 

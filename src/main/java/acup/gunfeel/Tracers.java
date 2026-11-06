@@ -712,7 +712,11 @@ public final class Tracers {
         // water: not past where it cuts this piece
         water(s, level);
         if (!Double.isNaN(s.waterCut)) t = Math.min(t, s.waterCut);
-        if (t <= s.checked) return;
+        if (t <= s.checked) {
+            // water cut it where the last step ended (a stop or a skip right at a tick's start)
+            waterEnd(s, s.checked);
+            return;
+        }
         TestLog.shot(s.id);
         // the real path, without the muzzle offset, decides what is hit
         Vec3 ra = tested(s, s.checked), rb = tested(s, t);
@@ -834,15 +838,18 @@ public final class Tracers {
         }
         s.checked = t;
         waterHole = 1F;
-        // water cut this piece here: it stops, or goes on as a new piece, slower or turned
-        if (Double.isNaN(s.end) && !Double.isNaN(s.waterCut) && t >= s.waterCut - 1e-9) {
-            s.end = s.waterCut;
-            Shot next = waterNext(s);
-            if (next != null) BOUNCED.add(next);
-            else if (TestLog.client) TestLog.c(s.id, "end", "by", "water", "at", s.at(s.end));
-        }
+        waterEnd(s, t);
         if(!Double.isNaN(s.confirmedEnd) && t>=s.confirmedEnd)s.end=s.confirmedEnd;
         TestLog.shot(-1);
+    }
+
+    // water cut this piece by t: it stops, or goes on as a new piece, slower or turned
+    private static void waterEnd(Shot s, double t) {
+        if (!Double.isNaN(s.end) || Double.isNaN(s.waterCut) || t < s.waterCut - 1e-9) return;
+        s.end = s.waterCut;
+        Shot next = waterNext(s);
+        if (next != null) BOUNCED.add(next);
+        else if (TestLog.client) TestLog.c(s.id, "end", "by", "water", "at", s.at(s.end));
     }
 
     // a hole's size behind water, × (0.5 + 0.5·f) where it is (the hole code reads it while fly makes one)
