@@ -132,7 +132,7 @@ neoForge {
             // -PshapesResume: a stand cut short goes on from <file>.parts, the machines kept there not taken again
             systemProperty("ntmgunfeel.shapesResume",providers.gradleProperty("shapesResume").isPresent.toString())
             // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
-            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("waterFx").isPresent) "-Xmx4G" else "-Xmx2500M")
+            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("waterFx").isPresent) "-Xmx3G" else "-Xmx2500M")
             // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame
             providers.gradleProperty("gcLog").orNull?.let { jvmArgument("-Xlog:gc*:file=$it:uptime,time") }
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
@@ -219,7 +219,7 @@ neoForge {
         register("glassStand") {
             client()
             gameDirectory = root.resolve("run-glass-stand")
-            jvmArgument("-Xmx4000M")
+            jvmArgument("-Xmx3000M")
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("glassstand/result.txt").get().asFile.path)
             systemProperty("ntmgunfeel.glassStand", providers.gradleProperty("glassStand").orNull ?: "stand")
             systemProperty("ntmgunfeel.glassStandDir", root.resolve("notes/glass-stand").path)
