@@ -92,7 +92,7 @@ public final class WaterCheck {
             downStop(wc, c, ammo);
             golem(wc, c, ammo, 0.5);
             golem(wc, c, ammo, 1.0);
-            twoTicks(wc, c, ammo);
+            twoTicks(wc, c, ammo, true);
             skip(wc, c, ammo, 3, true);
             skip(wc, c, ammo, 10, false);
             below(wc, c, ammo);
@@ -108,7 +108,7 @@ public final class WaterCheck {
             WaterClass wc = WaterClass.of(c);
             lines.add("#\t" + wc + "\t" + name + "\texpansion " + WaterClass.Expansion.of(name));
             downStop(wc, c, name);
-            twoTicks(wc, c, name);
+            twoTicks(wc, c, name, !name.startsWith("ammo_standard_r556"));
             if (!name.startsWith("ammo_standard_r556")) {
                 golem(wc, c, name, 0.5);
                 golem(wc, c, name, 1.0);
@@ -203,7 +203,8 @@ public final class WaterCheck {
 
     // the rows a and b again with the water met 0.3 before the end of the first tick, so the stop and the golem fall
     // in the second: f, the opening and the damage scale carried over a tick (WaterTick.end, then the next path)
-    private static void twoTicks(WaterClass wc, BulletConfig c, String ammo) {
+    // golem: the b2 row too (where the b rows are)
+    private static void twoTicks(WaterClass wc, BulletConfig c, String ammo, boolean golem) {
         double above = step(c) - 0.3;
         var ex = WaterClass.Expansion.of(ammo);
         EntityBulletBaseMK4 b = bullet(c, new Vec3(CX, surface + above, CZ), new Vec3(0, -1, 0));
@@ -212,7 +213,7 @@ public final class WaterCheck {
         double want = stopDepth(wc, ex);
         rowFlag("a2: shot down, stop depth in the 2nd tick", wc, ammo, fmt(want) + ", 2 ticks", fmt(got) + ", " + ticks + " ticks",
                 ticks == 2 && Math.abs(got - want) <= .1, "from " + fmt(above) + " over");
-        if (ammo.startsWith("ammo_standard_r556")) return;
+        if (!golem) return;
         double depth = Math.min(1.0, want - 0.2);
         if (depth <= 0.3) return; // stops before a golem under 0.3 of water would be in the second tick
         var type = net.minecraft.world.entity.EntityTypes.IRON_GOLEM;
@@ -223,7 +224,7 @@ public final class WaterCheck {
         double air = bodyTook(type, c, feet, DAMAGE, false, above);
         double wet = bodyTook(type, c, feet, DAMAGE, true, above);
         double share = air > 0 ? wet / air : Double.NaN;
-        row("b2: golem share at depth " + fmt(depth) + " in the 2nd tick", wc, ammo, Math.exp(-2 * WaterPath.drag(wc.length, ex, depth)), share, .03,
+        row("b2: golem share at depth " + fmt(depth) + " in the 2nd tick", wc, ammo, Math.exp(-2 * WaterPath.drag(wc.length, ex, depth)), share, .01,
                 "air=" + fmt(air) + " wet=" + fmt(wet));
     }
 
@@ -297,7 +298,8 @@ public final class WaterCheck {
             boolean good = !b.isRemoved() && b.getY() >= surface - 1e-6 && dy > 0 && w.gunfeel$waterSkips() == 1;
             rowFlag("c: skip at " + deg + " deg: skips", wc, ammo, "1, up, f=0.7", w.gunfeel$waterSkips() + ", dy " + fmt(dy), good && Math.abs(w.gunfeel$waterF() - 0.7) < .02, note);
             // the tick after: motionMult × f, NTM's velocity, bulletSpeed (MixinBulletServer) and water's f
-            // (MixinWaterBullet) all at once, neither cancelling the other
+            // (MixinWaterBullet) all at once, neither cancelling the other. For a round without gravity (all picked
+            // here): with it the heading is no longer unit after some ticks in the air, and this length is not step × f
             if (!b.isRemoved()) {
                 double want = step(c) * w.gunfeel$waterF();
                 Vec3 from = b.position();
