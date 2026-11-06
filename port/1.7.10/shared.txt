@@ -88,5 +88,4 @@ acup/gunfeel/HeadLabelGeometry.java
 acup/gunfeel/HeadZoneTest.java
 acup/gunfeel/HeadProfilesTest.java
 acup/gunfeel/ContourIntersectionTest.java
-acup/gunfeel/ModelHitTurnTest.java
 acup/gunfeel/WornGearTest.java

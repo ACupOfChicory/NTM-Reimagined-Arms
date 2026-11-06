@@ -284,11 +284,11 @@ final class HeadProfiles {
     // part the profile holds. Where the profile has that name once, its cubes in one frame are matched as one box
     // around them all, as Flywheel draws the part; a profile made from such cubes (a name in it more than once) keeps
     // them apart. Flywheel's boxes (names from "mesh/") are left as they are.
-    static List<ModelBox> unite(Profile profile,List<ModelBox> boxes) {
+    // A legacy NTM model numbers the cubes of a part that its Flywheel visual draws as one mesh (the cyber crab's
+    // shell0..shell19, root/shell in the profile): a cube whose name the profile lacks, numbered after a name the
+    // profile holds once and no box carries, is a cube of that part. The boxes in their order, renamed so.
+    static List<ModelBox> renamed(Profile profile,List<ModelBox> boxes) {
         var once=new HashMap<String,Integer>();for(var ref:profile.parts()) once.merge(name(ref.name()),1,Integer::sum);
-        // A legacy NTM model numbers the cubes of a part that its Flywheel visual draws as one mesh (the cyber crab's
-        // shell0..shell19, root/shell in the profile): a cube whose name the profile lacks, numbered after a name the
-        // profile holds once and no box carries, is a cube of that part.
         var carried=new HashSet<String>();for(var box:boxes) carried.add(name(box.part()));
         var renamed=new ArrayList<ModelBox>();
         for(var box:boxes) {
@@ -297,7 +297,11 @@ final class HeadProfiles {
                 box=new ModelBox(base,box.x(),box.y(),box.z(),box.ux(),box.uy(),box.uz(),box.vx(),box.vy(),box.vz(),box.wx(),box.wy(),box.wz(),box.mesh());
             renamed.add(box);
         }
-        boxes=renamed;
+        return renamed;
+    }
+    static List<ModelBox> unite(Profile profile,List<ModelBox> boxes) {
+        var once=new HashMap<String,Integer>();for(var ref:profile.parts()) once.merge(name(ref.name()),1,Integer::sum);
+        boxes=renamed(profile,boxes);
         var groups=new LinkedHashMap<String,List<ModelBox>>();
         for(var box:boxes) if(!box.part().startsWith("mesh/")) groups.computeIfAbsent(box.part(),k->new ArrayList<>()).add(box);
         if(groups.values().stream().allMatch(group->group.size()==1)) return boxes;
@@ -418,13 +422,15 @@ final class HeadProfiles {
     // cubes: the boxes before unite. A zone on the box around a part's cubes is those cubes (HeadZone.pieces), as
     // Flywheel's box of the part holds their mesh: the box alone would take in what lies between them (the back
     // under a zombie villager's skull, beside its nose).
-    static List<HeadZone> zones(Binding binding,List<ModelBox> boxes,List<ModelBox> cubes) {
+    static List<HeadZone> zones(Binding binding,List<ModelBox> boxes,List<ModelBox> cubes) { return zones(binding,boxes,cubes,cubes); }
+    // names: the cubes as unite names them (renamed), in their order; the pieces are the cubes as drawn
+    static List<HeadZone> zones(Binding binding,List<ModelBox> boxes,List<ModelBox> cubes,List<ModelBox> names) {
         var out=new ArrayList<HeadZone>();
         for(var zone:binding.zones()) {
             var box=boxes.get(zone.part());if(zone.face()!=0) box=box.withMesh(zone.face());
-            var part=box.part();var pieces=zone.face()!=0 || part.startsWith("mesh/")?List.<ModelBox>of():cubes.stream().filter(b->b.part().equals(part)).toList();
-            if(pieces.size()<2 || pieces.contains(box)) pieces=List.of();
-            out.add(HeadZone.local(box,zone.planes(),pieces));
+            var part=box.part();var pieces=new ArrayList<ModelBox>();
+            if(zone.face()==0 && !part.startsWith("mesh/")) for(int i=0;i<cubes.size();i++) if(names.get(i).part().equals(part)) pieces.add(cubes.get(i));
+            out.add(HeadZone.local(box,zone.planes(),pieces.size()<2 || pieces.contains(box)?List.of():pieces));
         }
         return List.copyOf(out);
     }
