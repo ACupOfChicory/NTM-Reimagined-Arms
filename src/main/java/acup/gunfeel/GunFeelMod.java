@@ -15,8 +15,6 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 @Mod("ntmgunfeel")
 public final class GunFeelMod {
     // Systems that do not fit an untested NTM are off (acup.gunfeel.compat): their listeners check Feature.on()
-    // the network protocol: raise it when a payload changes, and clients and servers on different ones will not connect
-    public static final String PROTOCOL = "10";
 
     public GunFeelMod(IEventBus modBus, Dist dist, ModContainer container) {
         Compat.setModVersion(container.getModInfo().getVersion().toString());
@@ -82,8 +80,10 @@ public final class GunFeelMod {
         TraceHooks.register(dist);
         modBus.addListener(RegisterPayloadHandlersEvent.class, e -> {
             // not optional: the mod is needed on both sides, so NeoForge turns away a client without it from a server
-            // with it and the other way round, and a client and server with different PROTOCOLs
-            PayloadRegistrar r = e.registrar(PROTOCOL);
+            // with it and the other way round. The channel's version is the mod's build (515+mc26.2, from git), so a
+            // client and a server of different builds do not connect either; NeoForge's screen names the mod (with the
+            // server's build) and both versions. Builds made without git (0+mc26.2) connect only to each other.
+            PayloadRegistrar r = e.registrar(container.getModInfo().getVersion().toString());
             if (dist.isClient()) {
                 r.playToClient(ShotPayload.TYPE, ShotPayload.CODEC, (p, ctx) -> {
                     if (Feature.TRACERS.on()) Tracers.handle(p, ctx);

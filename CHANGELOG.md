@@ -1,5 +1,9 @@
 # Changelog
 
+## X541
+
+- A client and a server now need the very same build of the mod to connect.
+
 ## X539
 
 - Smoke clouds: the operator command `/gunsmoke` lets out a dense cloud that
