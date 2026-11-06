@@ -40,6 +40,12 @@ public final class SmokeSlices {
         return drawnLast;
     }
 
+    /** Forgets the built slices (the player left the world). */
+    public static void clear() {
+        BUILT.clear();
+        drawnLast = 0;
+    }
+
     public static void submit(SubmitCustomGeometryEvent e) {
         drawnLast = 0;
         if (!SmokeRender.slicesWanted()) {

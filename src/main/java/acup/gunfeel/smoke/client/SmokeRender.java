@@ -89,7 +89,12 @@ public final class SmokeRender {
     private static GpuTextureView depthView, targetView;
     private static int depthW, depthH, targetW, targetH;
     private static GpuFormat depthFormat;
-    private static boolean copied, failed, irisPack;
+    private static boolean copied, irisPack;
+    // passes that threw: how many times, and when last (see failedNow)
+    private static int failures;
+    private static long failedAt;
+    private static final int RETRIES = 3;
+    private static final long RETRY_NANOS = 10_000_000_000L, HEALED_NANOS = 60_000_000_000L;
     private static long irisChecked;
     private static int drawnLast;
 
@@ -145,12 +150,12 @@ public final class SmokeRender {
 
     /** Whether the volume is marched: smokeQuality not off or slices, no shader pack in use, the pass did not fail. */
     public static boolean wanted() {
-        return quality() > 0 && !failed && !irisPack() && !"slices".equals(Config.smokeQuality);
+        return quality() > 0 && !failedNow() && !irisPack() && !"slices".equals(Config.smokeQuality);
     }
 
     /** Whether the clouds are drawn as slices ({@link SmokeSlices}) instead: asked for, or the march cannot be used. */
     public static boolean slicesWanted() {
-        return quality() > 0 && ("slices".equals(Config.smokeQuality) || failed || irisPack());
+        return quality() > 0 && ("slices".equals(Config.smokeQuality) || failedNow() || irisPack());
     }
 
     /** Whether a cloud's volume was drawn in the last frame (else the screen layer stands in when inside). */
@@ -276,6 +281,8 @@ public final class SmokeRender {
             if (pair >= 0) device.createCommandEncoder().writeTimestamp(timer, pair + 1);
             ubo.rotate();
             drawnLast = order.size();
+            // a pass that failed once and has drawn well for a minute since is forgiven
+            if (failures > 0 && failures < RETRIES && System.nanoTime() - failedAt > HEALED_NANOS) failures = 0;
         } catch (RuntimeException ex) {
             fail("raymarch", ex);
         }
@@ -304,7 +311,7 @@ public final class SmokeRender {
             stamped[f] = true;
             return f * 2;
         } catch (RuntimeException ex) {
-            GunFeel.LOGGER.info("Smoke: no timestamps on this card ({}), its own time is not measured", ex.toString());
+            GunFeel.LOGGER.debug("Smoke: no timestamps on this card ({}), its own time is not measured", ex.toString());
             timerOff = true;
             return -1;
         }
@@ -316,10 +323,39 @@ public final class SmokeRender {
         return cam.distanceToSqr(x, y, z);
     }
 
-    // a pass that fails once is not tried again this game: the fog and the screen layer stand in
+    // A pass that threw: for ten seconds the slices and the screen layer stand in, then the volume is tried again with
+    // fresh targets; after the third failure it stays off until the next world. Logged once, then at debug.
     private static void fail(String what, RuntimeException ex) {
-        if (!failed) GunFeel.LOGGER.error("Smoke {} failed; smoke is drawn as fog only from now on", what, ex);
-        failed = true;
+        failures++;
+        failedAt = System.nanoTime();
+        if (failures == 1) GunFeel.LOGGER.error("Smoke {} failed; the volume is off for a few seconds and tried again (3 times at most)", what, ex);
+        else if (failures >= RETRIES) GunFeel.LOGGER.warn("Smoke {} failed again; smoke is drawn as slices and fog only until the next world", what);
+        else GunFeel.LOGGER.debug("Smoke {} failed again", what, ex);
+        // what it was drawing with may be in a bad state
+        release(false);
+    }
+
+    // whether the volume is off after a failure: for RETRY_NANOS, and for good after RETRIES of them
+    private static boolean failedNow() {
+        return failures > 0 && (failures >= RETRIES || System.nanoTime() - failedAt < RETRY_NANOS);
+    }
+
+    /**
+     * Closes what the volume draws with: the depth copy, the target, the uniform ring and the timestamp pool (they are
+     * made again when a cloud is drawn). {@code world}: the player left the world, so the failures are forgotten too.
+     */
+    public static void release(boolean world) {
+        closeDepth();
+        closeTarget();
+        if (ubo != null) ubo.close();
+        ubo = null;
+        if (timer != null) timer.close();
+        timer = null;
+        java.util.Arrays.fill(stamped, false);
+        timerFrame = 0;
+        copied = false;
+        drawnLast = 0;
+        if (world) failures = 0;
     }
 
     private static void closeDepth() {
@@ -327,6 +363,7 @@ public final class SmokeRender {
         if (depth != null) depth.close();
         depthView = null;
         depth = null;
+        depthW = depthH = 0;
     }
 
     private static void closeTarget() {
@@ -334,6 +371,7 @@ public final class SmokeRender {
         if (target != null) target.close();
         targetView = null;
         target = null;
+        targetW = targetH = 0;
     }
 
     /** Once a frame, after the level: the stats. */

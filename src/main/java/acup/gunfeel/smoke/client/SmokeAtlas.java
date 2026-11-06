@@ -82,13 +82,13 @@ public final class SmokeAtlas {
 
     private static void ensure() {
         if (texture != null && !texture.isClosed()) return;
+        // what is left of an atlas that was closed under us: the buffer and the view go too
+        close();
         var device = RenderSystem.getDevice();
         texture = device.createTexture(() -> "Smoke atlas", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING, GpuFormat.RGBA8_UNORM,
                 WIDTH, HEIGHT, 1, 1);
         view = device.createTextureView(texture);
         upload = MemoryUtil.memAlloc(SLOT_BYTES);
-        for (int i = 0; i < SLOTS; i++) SLOT[i] = null;
-        BY_CLOUD.clear();
     }
 
     /**
@@ -203,9 +203,10 @@ public final class SmokeAtlas {
         }
     }
 
+    /** Frees the atlas and its upload buffer; the next cloud to draw makes them again. */
     public static void close() {
         if (view != null) view.close();
-        if (texture != null) texture.close();
+        if (texture != null && !texture.isClosed()) texture.close();
         if (upload != null) MemoryUtil.memFree(upload);
         view = null;
         texture = null;
