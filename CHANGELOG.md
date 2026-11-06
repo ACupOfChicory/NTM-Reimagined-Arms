@@ -1,5 +1,21 @@
 # Changelog
 
+## X522
+
+- The hunter chopper's and the cyber crab's bullets now hit where they meet a
+  creature's model, as gun bullets do: 1.75 times the damage in the head, half
+  in an arm or a leg. Before they always struck the middle of the body.
+- The hunter chopper's bullets now follow the mod's block rules: they break
+  glass and fly on through it, and leave a hole with sparks and sound where
+  they stop in a block. The new server setting `npcShots` (on by default) turns
+  both changes off.
+- The Jeremy turret's 240 mm shells now leave holes where they hit a block. NTM
+  draws them as a model, not as a tracer, so the mod did not follow their path.
+- Checked: the bullets of NTM's turrets (Sentry, Chekhov, Friendly, Jeremy) and
+  of its armed mobs (the masked man's minigun, the taint crab, any mob holding
+  an NTM gun) hit heads and limbs, go through glass and iron bars and leave
+  holes exactly as the same round fired by a player.
+
 ## X517
 
 - Water rings are white again in daylight, not grey. They were shaded like a

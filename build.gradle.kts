@@ -156,6 +156,8 @@ neoForge {
             systemProperty("ntmgunfeel.checkTurn",providers.gradleProperty("checkTurn").isPresent.toString())
             systemProperty("ntmgunfeel.dumpParts",providers.gradleProperty("dumpParts").isPresent.toString())
             systemProperty("ntmgunfeel.checkExplosives",providers.gradleProperty("checkExplosives").isPresent.toString())
+            // -PcheckNpcShots: пули турелей и NPC NTM по мобу и блокам против той же пули у игрока (NpcShotSmoke)
+            systemProperty("ntmgunfeel.checkNpcShots",providers.gradleProperty("checkNpcShots").isPresent.toString())
             systemProperty("ntmgunfeel.checkAvatarLayers",providers.gradleProperty("checkAvatarLayers").isPresent.toString())
             if(providers.gradleProperty("selectionSelfTest").isPresent) {
                 systemProperty("ntmgunfeel.mobReview","true")
