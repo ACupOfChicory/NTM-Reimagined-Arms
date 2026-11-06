@@ -25,6 +25,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.animal.golem.IronGolem;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -468,24 +469,118 @@ public final class ExplosiveCheck {
         h.discard();
     }
 
-    // two pellets of one g12_explosive shot side by side: they do not set each other off
+    // HE pellets as a gun fires them: one loop of NTM's bullets from the shooter's eyes, the same tick, a spread; ticked
+    // in the world's order (its tickCount up, then its tick, one pellet after the other), so a pellet's touch runs
+    // with the next one a tick younger. In the air: no search for other bullets, no touch, no blast. In water at the
+    // muzzle and fired at the floor: no touch within the shot. A shot into another's sinking pellets: they go off.
     private static void samePellets(Map<String, BulletConfig> all) {
-        BulletConfig c = byAmmo(all, "ammo_standard_g12_explosive");
-        if (c == null) {
-            lines.add("#\tno config ammo_standard_g12_explosive");
-            return;
+        for (String ammo : new String[] {"ammo_standard_g12_explosive", "ammo_standard_g10_explosive"}) {
+            BulletConfig c = byAmmo(all, ammo);
+            if (c == null) {
+                ok = false;
+                lines.add("FAIL\tno config " + ammo);
+                continue;
+            }
+            WaterClass wc = WaterClass.of(c);
+            float spread = c.spread + 0.02F;
+            int n = Math.max(2, c.projectilesMax);
+            lines.add("#\t" + ammo + "\tpellets " + n + " spread " + fmt(spread) + " fuze " + WaterClass.Fuze.of(c));
+            for (int k = 0; k < 3; k++) {
+                basin();
+                String name = k == 0 ? "air, at the muzzle" : k == 1 ? "in water, at the muzzle" : "in water, on the floor";
+                // on the floor: the eyes half a block over it (the stand's feet in the floor), so the pellets water
+                // stops lie on the floor together a few ticks later
+                Vec3 feet = k == 0 ? new Vec3(DRY_X - 5, FLOOR + 1, CZ) : k == 1 ? new Vec3(MIN + 3.5, FLOOR + 1, CZ)
+                        : new Vec3(MIN + 3.5, FLOOR + 1.5 - EYES, CZ);
+                ArmorStand g = shooter(feet, 0F);
+                int s0 = WaterImpact.searches, t0 = WaterImpact.touches, m0 = WaterImpact.sameShots;
+                BLASTS.clear();
+                List<EntityBulletBaseMK4> shot = shoot(g, c, n, spread);
+                int ticks = ticks(shot, k == 0 ? 6 : TICKS, false);
+                int searches = WaterImpact.searches - s0, touches = WaterImpact.touches - t0, blasts = BLASTS.size();
+                // in water the pellets of the shot did meet (pairs left alone), so 0 touches is the rule, not a miss
+                int same = WaterImpact.sameShots - m0;
+                // the air: the owner's case (pellets going off at the muzzle); in water a pellet goes off on the floor
+                // a pellet in water goes off on the floor, or NTM's timer takes it (no blast) while it sinks
+                boolean pass = touches == 0 && (k == 0 ? searches == 0 && blasts == 0 : same > 0 && blasts <= n && (k == 1 || blasts > 0));
+                rowFlag("h: one shot, " + name + ": no touch", ammo, wc, k == 0 ? "0 searches, 0 touches, 0 blasts" : k == 1 ? "0 touches"
+                        : "0 touches, blasts on the floor",
+                        searches + " searches, " + same + " pairs of the shot, " + touches + " touches, " + blasts + " blasts", pass,
+                        "ticks " + ticks + ", sameShot " + WaterImpact.sameShot(shot.get(0), shot.get(n - 1)) + ", blasts at y " + heights());
+                for (var b : shot) b.discard();
+                g.discard();
+            }
+            // another shot into the sinking pellets of the first, both without spread so they meet
+            basin();
+            ArmorStand g = shooter(new Vec3(MIN + 3.5, FLOOR + 1, CZ), 0F);
+            List<EntityBulletBaseMK4> first = shoot(g, c, n, 0F);
+            ticks(first, 40, true);
+            boolean sinking = first.stream().anyMatch(b -> WaterBullet.stopped(b) && !b.isRemoved());
+            int t0 = WaterImpact.touches;
+            BLASTS.clear();
+            List<EntityBulletBaseMK4> second = shoot(g, c, n, 0F);
+            for (var b : second) ((WaterBullet) b).gunfeel$shot(((WaterBullet) b).gunfeel$shot() + 1);
+            List<EntityBulletBaseMK4> both = new ArrayList<>(second);
+            both.addAll(first);
+            ticks(both, 10, false);
+            int touches = WaterImpact.touches - t0;
+            rowFlag("h: another shot into one's sinking pellets: goes off", ammo, wc, "touches > 0, a blast", touches + " touches, "
+                    + BLASTS.size() + " blasts", sinking && touches > 0 && !BLASTS.isEmpty(), "sinking=" + sinking + ", blasts at y " + heights());
+            for (var b : both) b.discard();
+            g.discard();
         }
-        basin();
-        Vec3 a = new Vec3(MIN + 3.5, surface + 3, CZ);
-        EntityBulletBaseMK4 one = bullet(c, a, new Vec3(1, 0, 0));
-        EntityBulletBaseMK4 two = bullet(c, a.add(0, 0, 0.1), new Vec3(1, 0, 0));
-        level.addFreshEntity(two);
-        BLASTS.clear();
-        one.tick();
-        boolean same = WaterImpact.sameShot(one, two);
-        rowFlag("h: pellets of one shot touching: no blast", "ammo_standard_g12_explosive", WaterClass.of(c), "0 blasts",
-                BLASTS.size() + " blasts", same && BLASTS.isEmpty(), "sameShot=" + same);
-        two.discard();
+    }
+
+    // a shooter as narrow as a player (an armour stand, 0.5 wide, its eyes 1.78 over its feet), facing +x; a pellet
+    // water stops within 0.57 of the eyes (g10) is out of its box, as out of a player's
+    private static final double EYES = 1.7775;
+
+    private static ArmorStand shooter(Vec3 feet, float pitch) {
+        ArmorStand g = EntityTypes.ARMOR_STAND.create(level, EntitySpawnReason.COMMAND);
+        g.setPos(feet.x, feet.y, feet.z);
+        g.setNoGravity(true);
+        g.setYRot(-90F);
+        g.setXRot(pitch);
+        level.addFreshEntity(g);
+        return g;
+    }
+
+    // the pellets of one shot, made as a gun makes them (EntityBulletBaseMK4 from the shooter, in a loop)
+    private static List<EntityBulletBaseMK4> shoot(ArmorStand g, BulletConfig c, int n, float spread) {
+        List<EntityBulletBaseMK4> out = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            EntityBulletBaseMK4 b = new EntityBulletBaseMK4(g, c, DAMAGE, spread, 0, 0, 0);
+            level.addFreshEntity(b);
+            out.add(b);
+        }
+        return out;
+    }
+
+    // the world's order: each one's tickCount up, then its tick; till all are gone or `ticks` pass (or, `stopped`, till
+    // water stopped them all); the ticks it took
+    private static int ticks(List<EntityBulletBaseMK4> bullets, int ticks, boolean stopped) {
+        for (int i = 0; i < ticks; i++) {
+            boolean any = false, moving = false;
+            for (var b : bullets) {
+                if (b.isRemoved()) continue;
+                any = true;
+                b.tickCount++;
+                b.tick();
+                if (!WaterBullet.stopped(b) && !b.isRemoved()) moving = true;
+            }
+            if (!any || stopped && !moving) return i + 1;
+        }
+        return ticks;
+    }
+
+    // the blasts' heights, lowest..highest
+    private static String heights() {
+        double lo = Double.NaN, hi = Double.NaN;
+        for (double[] b : BLASTS) {
+            lo = Double.isNaN(lo) ? b[1] : Math.min(lo, b[1]);
+            hi = Double.isNaN(hi) ? b[1] : Math.max(hi, b[1]);
+        }
+        return fmt(lo) + ".." + fmt(hi);
     }
 
     private static void row(String name, String ammo, WaterClass wc, double want, double got, double tol, String note) {
