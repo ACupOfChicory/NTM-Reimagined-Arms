@@ -1,5 +1,9 @@
 # Changelog
 
+## X516
+
+- A client and a server now need the very same build of the mod to connect.
+
 ## X515
 
 - Long NTM guns now bob as you walk and take the sprint pose: the
