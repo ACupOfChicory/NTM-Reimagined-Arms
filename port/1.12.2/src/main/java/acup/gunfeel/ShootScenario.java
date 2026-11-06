@@ -98,9 +98,14 @@ public final class ShootScenario {
         return NAME.equals("walksprint");
     }
 
+    // "pistols": a revolver and a pistol at a turned camera, run, jump and aim (pistolHold, aimHold; PistolScenario)
+    static boolean pistols() {
+        return NAME.equals("pistols");
+    }
+
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || fences() || aimlag() || hands() || walksprint() || TraceScenario.enabled();
+        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || fences() || aimlag() || hands() || walksprint() || pistols() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -164,6 +169,10 @@ public final class ShootScenario {
         if (walksprint()) {
             if (held) press(true);
             WalkSprintScenario.step(mc, ++tick);
+            return;
+        }
+        if (pistols()) {
+            PistolScenario.step(mc, ++tick);
             return;
         }
         if (look()) {
