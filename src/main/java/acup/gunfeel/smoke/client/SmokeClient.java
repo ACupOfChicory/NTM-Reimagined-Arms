@@ -91,7 +91,7 @@ public final class SmokeClient {
                 remember(t, c);
             }
         } catch (java.io.IOException ex) {
-            // a broken grid: the copy stays as it was
+            // a broken grid: SmokeGrid.read changed nothing, the copy stays as it was and the next check asks again
         }
     }
 

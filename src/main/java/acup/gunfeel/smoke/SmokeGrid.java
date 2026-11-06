@@ -103,7 +103,7 @@ public final class SmokeGrid {
     }
 
     public boolean occupied() {
-        return x1 >= x0;
+        return x1 >= x0 && y1 >= y0 && z1 >= z0;
     }
 
     /** Let out and gone: nothing left to step or draw. */
@@ -158,8 +158,9 @@ public final class SmokeGrid {
         int count = 0;
         out[count++] = center;
         int cx = center % SX, cz = center / SX % SZ, cy = center / (SX * SZ);
-        double len = Math.hypot(dirX, dirZ);
-        double base = len > 0.2 ? Math.atan2(dirZ, dirX) : 0.0;
+        // StrictMath: the same bits on every JVM and CPU, as the Javadoc above promises
+        double len = StrictMath.hypot(dirX, dirZ);
+        double base = len > 0.2 ? StrictMath.atan2(dirZ, dirX) : 0.0;
         for (int b = 1; b < n; b++) {
             double angle;
             if (len > 0.2) {
@@ -171,7 +172,7 @@ public final class SmokeGrid {
             double reach = kind.reach() * (0.55 + 0.45 * unit(b, 0, 9));
             int last = center;
             for (double t = 0.25; t <= reach; t += 0.25) {
-                int x = (int) Math.floor(cx + 0.5 + Math.cos(angle) * t), z = (int) Math.floor(cz + 0.5 + Math.sin(angle) * t);
+                int x = (int) Math.floor(cx + 0.5 + StrictMath.cos(angle) * t), z = (int) Math.floor(cz + 0.5 + StrictMath.sin(angle) * t);
                 if (!inside(x, cy, z) || closedAt(index(x, cy, z))) break;
                 last = index(x, cy, z);
             }
@@ -357,15 +358,31 @@ public final class SmokeGrid {
         for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) for (int x = x0; x <= x1; x++) out.writeFloat(d[index(x, y, z)]);
     }
 
+    /**
+     * Takes a state written by {@link #write}. Everything is read and checked first and the grid is changed only when
+     * all of it is good: an {@link IOException} (a short or broken packet, a box outside the grid, an age or a density
+     * that no cloud has) leaves the grid as it was.
+     */
     public void read(DataInput in) throws IOException {
         int a = in.readUnsignedShort();
         int ax = in.readByte(), ay = in.readByte(), az = in.readByte(), bx = in.readByte(), by = in.readByte(), bz = in.readByte();
-        if (bx >= ax && (!inside(ax, ay, az) || !inside(bx, by, bz))) throw new IOException("bad box");
+        if (a > kind.maxAge() + 1) throw new IOException("bad age");
+        boolean empty = ax == SX && ay == SY && az == SZ && bx == -1 && by == -1 && bz == -1;
+        float[] cells = null;
+        if (!empty) {
+            // a box with all six corners in the grid and no side backwards
+            if (!inside(ax, ay, az) || !inside(bx, by, bz) || bx < ax || by < ay || bz < az) throw new IOException("bad box");
+            cells = new float[(bx - ax + 1) * (by - ay + 1) * (bz - az + 1)];
+            for (int i = 0; i < cells.length; i++) {
+                float v = in.readFloat();
+                if (!(v >= 0F && v < 100F)) throw new IOException("bad density");
+                cells[i] = v;
+            }
+        }
         java.util.Arrays.fill(d, 0F);
-        for (int y = ay; y <= by; y++) for (int z = az; z <= bz; z++) for (int x = ax; x <= bx; x++) {
-            float v = in.readFloat();
-            if (!(v >= 0F && v < 100F)) throw new IOException("bad density");
-            d[index(x, y, z)] = v;
+        if (!empty) {
+            int i = 0;
+            for (int y = ay; y <= by; y++) for (int z = az; z <= bz; z++) for (int x = ax; x <= bx; x++) d[index(x, y, z)] = cells[i++];
         }
         age = a;
         x0 = ax;
