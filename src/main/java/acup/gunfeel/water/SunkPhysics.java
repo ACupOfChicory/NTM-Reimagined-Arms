@@ -67,6 +67,8 @@ public final class SunkPhysics {
     /** More than the demo's 3: a resting capsule needs them to stop rocking on its two ends. */
     private static final int ITER = 5;
     private static final double SKIN = 0.002;
+    /** At rest when its far end moves under 0.018 blocks a second (0.3 rad/s at the ×6 rounds' 0.06 reach) as well. */
+    private static final double SLEEP_TIP2 = 0.018 * 0.018;
 
     private final int max;
     private final double lie;
@@ -621,7 +623,9 @@ public final class SunkPhysics {
             Body b = bodies.get(i);
             if (!b.asleep) {
                 double v2 = b.vx * b.vx + b.vy * b.vy + b.vz * b.vz, w2 = b.wx * b.wx + b.wy * b.wy + b.wz * b.wz;
-                if (v2 < 0.0025 && w2 < 0.09 && b.groundT < 0.2) {
+                // turning: by how fast its far end moves, so a small round that rocks a little still comes to rest
+                double reach = b.h + b.r;
+                if (v2 < 0.0025 && w2 < Math.max(0.09, SLEEP_TIP2 / (reach * reach)) && b.groundT < 0.2) {
                     b.sleepT += dt;
                     if (b.sleepT > 0.4) {
                         b.asleep = true;
