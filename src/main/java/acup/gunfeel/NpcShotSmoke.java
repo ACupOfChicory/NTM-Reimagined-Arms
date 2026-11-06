@@ -95,14 +95,16 @@ final class NpcShotSmoke {
         Vec3 bodyWay=way(target,body),headWay=way(target,head),limbWay=way(target,limb);
         check.accept(bodyWay!=null && headWay!=null && limbWay!=null,"NPC: пути к точкам тела, головы, конечности: "+bodyWay+", "+headWay+", "+limbWay);
         if(bodyWay==null || headWay==null || limbWay==null) return;
-        var mob=net.minecraft.world.entity.EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);mob.setPos(8.5,160,-40);
-        var player=net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);
         Vec3 home=target.position();
         BlockPos glass=BlockPos.containing(body.subtract(bodyWay.scale(1.5)));
+        // стекло за мобом: пуля, оставшаяся в мобе, его не трогает
+        BlockPos after=BlockPos.containing(body.add(bodyWay.scale(1.2)));
         var rows=new ArrayList<String>();
         rows.add("стрелок\tурон\tтело\tголова\tтело×1,75\tконечность\tтело×0,5\tза стеклом\tстекло разбито");
         var numbers=new HashMap<Integer,float[]>();
         try {
+            var mob=net.minecraft.world.entity.EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);mob.setPos(8.5,160,-40);
+            var player=net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);
             for(int i=0;i<shooters().size();i++) {
                 var s=shooters().get(i);float base=s.damage();
                 java.util.function.BiFunction<Vec3,Float,Float> shot=(at,amount)->{
@@ -120,6 +122,15 @@ final class NpcShotSmoke {
                 float behind=shot.apply(body,base);
                 boolean broke=level.getBlockState(glass).isAir();
                 level.setBlock(glass,Blocks.AIR.defaultBlockState(),3);
+                BulletServer.forgetWear();
+                level.setBlock(after,Blocks.GLASS.defaultBlockState(),3);
+                float before=shot.apply(body,base);
+                boolean whole=level.getBlockState(after).is(Blocks.GLASS);
+                level.setBlock(after,Blocks.AIR.defaultBlockState(),3);
+                // бронебойный снаряд (doesPenetrate) и старая пуля NTM (она не останавливается на мобе) проходят моба
+                // насквозь и бьют стекло за ним — как в NTM
+                boolean through=s.legacy() || s.config().doesPenetrate;
+                check.accept(whole!=through && Math.abs(before-b)<.01,"NPC "+s.name()+": стекло за мобом цело="+whole+(through?" (пробивает моба)":"")+", урон="+f(before));
                 numbers.put(i,new float[]{b,h,h2,l,l2,behind,broke?1:0});
                 rows.add(s.name()+"\t"+f(base)+"\t"+f(b)+"\t"+f(h)+"\t"+f(h2)+"\t"+f(l)+"\t"+f(l2)+"\t"+f(behind)+"\t"+broke);
                 check.accept(b>0 && Math.abs(h-h2)<.01 && Math.abs(l-l2)<.01,
@@ -136,6 +147,7 @@ final class NpcShotSmoke {
         } catch(Throwable e) { check.accept(false,"NPC: исключение "+e); }
         finally {
             level.setBlock(glass,Blocks.AIR.defaultBlockState(),3);
+            level.setBlock(after,Blocks.AIR.defaultBlockState(),3);
             target.setPos(home);target.setDeltaMovement(Vec3.ZERO);
         }
     }

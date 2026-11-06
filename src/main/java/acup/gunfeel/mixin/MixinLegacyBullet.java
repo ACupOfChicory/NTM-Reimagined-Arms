@@ -101,7 +101,8 @@ public abstract class MixinLegacyBullet {
         return LegacyBullets.damage(target, gunfeel$point, base) - base;
     }
 
-    // the bullet rules: a block it breaks and flies on through is not met; the path goes on behind it
+    // the bullet rules: a block it breaks and flies on through is not met; the path goes on behind it. NTM's old bullet
+    // flies on through the creatures it hits, so a block behind one is met as well
     @Redirect(method = "tick", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/level/Level;clip(Lnet/minecraft/world/level/ClipContext;)Lnet/minecraft/world/phys/BlockHitResult;"))
     private BlockHitResult gunfeel$blocks(Level level, ClipContext context) {
@@ -109,7 +110,11 @@ public abstract class MixinLegacyBullet {
         if (level.isClientSide() || getIsCritical() || !LegacyBullets.on()) return hit;
         Entity self = (Entity) (Object) this;
         Vec3 to = context.getTo();
-        for (int i = 0; i < 8 && hit.getType() == HitResult.Type.BLOCK; i++) {
+        for (int i = 0; hit.getType() == HitResult.Type.BLOCK; i++) {
+            if (i == 8) { // a stack of broken blocks past the limit: it stops in this one
+                gunfeel$stuck = hit;
+                return hit;
+            }
             int got = BulletServer.blockHit(self, shootingEntity, (float) damage, hit);
             if (got == 1) return hit; // broke, and stops there: no block left for a hole
             if (got == 0) {
@@ -117,11 +122,11 @@ public abstract class MixinLegacyBullet {
                 return hit;
             }
             Vec3 dir = to.subtract(hit.getLocation());
-            if (dir.lengthSqr() < 1e-12) break;
+            if (dir.lengthSqr() < 1e-12) return BlockHitResult.miss(to, hit.getDirection(), BlockPos.containing(to));
             hit = level.clip(new ClipContext(hit.getLocation().add(dir.normalize().scale(1e-3)), to, ClipContext.Block.COLLIDER,
                     ClipContext.Fluid.NONE, self));
         }
-        return hit.getType() == HitResult.Type.BLOCK ? hit : BlockHitResult.miss(to, hit.getDirection(), BlockPos.containing(to));
+        return hit;
     }
 
     @Inject(method = "tick", at = @At("RETURN"))
