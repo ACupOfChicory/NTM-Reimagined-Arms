@@ -239,6 +239,7 @@ CORE class com/hbm/explosion/vanillant/interfaces/IExplosionSFX
 CORE class com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth
 CORE class com/hbm/explosion/vanillant/standard/ExplosionEffectTiny
 CORE class com/hbm/explosion/vanillant/standard/PlayerProcessorStandard
+CORE class com/hbm/items/armor/ModArmorItem
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
@@ -278,6 +279,7 @@ CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets_heavy Lcom/hb
 CORE field com/hbm/items/weapon/sedna/BulletConfig ammoItem Ljava/util/function/Supplier;
 CORE field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
 CORE field com/hbm/items/weapon/sedna/BulletConfig armorThresholdNegation F
+CORE field com/hbm/items/weapon/sedna/BulletConfig casing Lcom/hbm/particle/SpentCasing;
 CORE field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
 CORE field com/hbm/items/weapon/sedna/BulletConfig gravity D
 CORE field com/hbm/items/weapon/sedna/BulletConfig id I
@@ -286,6 +288,7 @@ CORE field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/
 CORE field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
 CORE field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 CORE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
+CORE field com/hbm/items/weapon/sedna/BulletConfig spread F
 CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
 CORE field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
@@ -298,9 +301,11 @@ CORE field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_jhp Lcom/hbm/items/
 CORE field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/render/anim/AnimationEnums$GunAnimation CYCLE Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 CORE field com/hbm/render/anim/HbmAnimations hotbar [[Lcom/hbm/render/anim/HbmAnimations$Animation;
+CORE field com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase interp F
 CORE method com/hbm/backport/client/core/CameraRenderState of (Lnet/minecraft/client/Camera;)Lcom/hbm/backport/client/core/CameraRenderState;
 CORE method com/hbm/backport/client/core/LevelRenderState <init> ()V
 CORE method com/hbm/backport/client/core/SubmitNodeCollector immediate (Lnet/minecraft/client/renderer/MultiBufferSource;)Lcom/hbm/backport/client/core/SubmitNodeCollector;
+CORE method com/hbm/backport/client/core/SubmitNodeCollector submitCustomGeometry (Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/RenderType;Lcom/hbm/backport/client/core/SubmitNodeCollector$CustomGeometryRenderer;)V
 CORE method com/hbm/backport/client/core/SubmitNodeCollector submitItem (Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/item/ItemDisplayContext;III[ILjava/util/List;Lcom/hbm/backport/client/itemmodel/ItemStackRenderState$FoilType;)V
 CORE method com/hbm/backport/client/core/SubmitNodeCollector submitNameTag (Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/phys/Vec3;ILnet/minecraft/network/chat/Component;ZILcom/hbm/backport/client/core/CameraRenderState;)V
 CORE method com/hbm/backport/client/core/SubmitNodeCollector submitText (Lcom/mojang/blaze3d/vertex/PoseStack;FFLnet/minecraft/util/FormattedCharSequence;ZLnet/minecraft/client/gui/Font$DisplayMode;IIII)V
@@ -333,7 +338,6 @@ CORE method com/hbm/backport/client/rendertype/RenderTypeInfo pipeline (Lnet/min
 CORE method com/hbm/backport/client/rendertype/RenderTypeInfo texture (Lnet/minecraft/client/renderer/RenderType;)Lnet/minecraft/resources/ResourceLocation;
 CORE method com/hbm/backport/client/rendertype/RenderTypes debugQuads ()Lnet/minecraft/client/renderer/RenderType;
 CORE method com/hbm/backport/client/rendertype/RenderTypes entitySolid (Lnet/minecraft/resources/ResourceLocation;)Lnet/minecraft/client/renderer/RenderType;
-CORE method com/hbm/backport/client/rendertype/RenderTypes entityTranslucent (Lnet/minecraft/resources/ResourceLocation;)Lnet/minecraft/client/renderer/RenderType;
 CORE method com/hbm/blocks/generic/BlockWoodBarrier panel (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind ordinal ()I
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind values ()[Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
@@ -343,6 +347,7 @@ CORE method com/hbm/client/Keybinds isGunHeld ()Z
 CORE method com/hbm/client/Keybinds isGunKey (Lnet/minecraft/client/KeyMapping;)Z
 CORE method com/hbm/client/Keybinds$GameplayKey setDown (Z)V
 CORE method com/hbm/entity/effect/EntityFireLingering discard ()V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/items/weapon/sedna/BulletConfig;FFDDD)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getBoundingBox ()Lnet/minecraft/world/phys/AABB;
@@ -376,6 +381,7 @@ CORE method com/hbm/inventory/ItemStackContainer getContainerSize ()I
 CORE method com/hbm/inventory/ItemStackContainer getItem (I)Lnet/minecraft/world/item/ItemStack;
 CORE method com/hbm/inventory/ItemStackContainer setChanged ()V
 CORE method com/hbm/inventory/ItemStackContainer setItem (ILnet/minecraft/world/item/ItemStack;)V
+CORE method com/hbm/items/armor/ModArmorItem isPowered ()Z
 CORE method com/hbm/items/tool/ItemAmmoBag contents (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/inventory/ItemStackContainer;
 CORE method com/hbm/items/weapon/sedna/BulletConfig matchesAmmo (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/GunConfig getAnims (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiFunction;
@@ -392,6 +398,11 @@ CORE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecraft/world/item/ItemStack;)I
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getIconForHUD (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/player/Player;)Lnet/minecraft/world/item/ItemStack;
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;
+CORE method com/hbm/particle/SpentCasing getScaleX ()F
+CORE method com/hbm/particle/SpentCasing getScaleY ()F
+CORE method com/hbm/particle/SpentCasing getScaleZ ()F
+CORE method com/hbm/particle/SpentCasing getType ()Lcom/hbm/particle/SpentCasing$CasingType;
+CORE method com/hbm/particle/SpentCasing$CasingType name ()Ljava/lang/String;
 CORE method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 CORE method com/hbm/render/anim/BusAnimation getDuration ()I
 CORE method com/hbm/render/anim/BusAnimation getTimedTransformation (Ljava/lang/String;I)[D
