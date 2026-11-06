@@ -297,3 +297,9 @@ re@WaterParticle.java: \.getAtlasManager\(\)\.getAtlasOrThrow\(AtlasIds\.PARTICL
 re@WaterParticle.java: ^(\s*)private void moveBy\(double dx, double dy, double dz\) \{$ => $1@Override public net.minecraft.world.phys.AABB getRenderBoundingBox(float a) { double r = Math.max(1, getQuadSize(a)); return new net.minecraft.world.phys.AABB(x - r, y - r, z - r, x + r, y + r, z + r); } $0
 re@MixinMuzzleFlash.java: camera\.position\(\) => camera.getPosition()
 re@ExplosiveCheck.java: ^import net\.minecraft\.world\.entity\.EntitySpawnReason;$ => 
+# main X530: the water rings on 26.2's TRANSLUCENT_PARTICLE pipeline; on 1.21.1 the port's HoleRender makes the same
+# (the particle shader, atlas and light, culled)
+re@WaterRings.java: if \(type == null\) type = acup\.gunfeel\.HoleRender\.create\("ntmgunfeel_water_ring", .*$ => if (type == null) type = acup.gunfeel.HoleRender.waterRing();
+re@WaterRings.java: ^\s*\.withTexture\("Sampler0", TextureAtlas\.LOCATION_PARTICLES\)\.useLightmap\(\)\.sortOnUpload\(\)\.createRenderSetup\(\)\);$ =>
+re@WaterFxStand.java: (teleportTo\(server\.overworld\(\), .*, 0F, 30F),$ => $1));
+re@WaterFxStand.java: ^\s*false\)\);$ =>

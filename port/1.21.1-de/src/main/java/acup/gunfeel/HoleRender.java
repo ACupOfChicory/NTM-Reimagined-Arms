@@ -46,6 +46,15 @@ public final class HoleRender {
         });
     }
 
+    // main's water rings (X530) are drawn as 26.2's TRANSLUCENT_PARTICLE pipeline: the particle shader (colour times the
+    // world's light, no normal), the particle atlas, culled. 1.21.1 has no such render type, this is it
+    private static RenderType waterRing;
+
+    public static RenderType waterRing() {
+        if (waterRing == null) waterRing = Shards.particle("ntmgunfeel_water_ring");
+        return waterRing;
+    }
+
     public static boolean isLate(RenderType type) {
         return !LATE_TYPES.isEmpty() && LATE_TYPES.contains(type);
     }
@@ -54,6 +63,17 @@ public final class HoleRender {
     private static final class Shards extends RenderType {
         private Shards() {
             super("", DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 0, false, false, () -> {}, () -> {});
+        }
+
+        static RenderType particle(String name) {
+            CompositeState state = CompositeState.builder()
+                    .setShaderState(new ShaderStateShard(net.minecraft.client.renderer.GameRenderer::getParticleShader))
+                    .setTextureState(new TextureStateShard(net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_PARTICLES, false, false))
+                    .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                    .setLightmapState(LIGHTMAP)
+                    .createCompositeState(false);
+            return com.hbm.backport.client.rendertype.RenderTypeFactory.create(name, DefaultVertexFormat.PARTICLE, VertexFormat.Mode.QUADS, 1536,
+                    false, true, state);
         }
 
         static RenderType type(String name, ResourceLocation texture, boolean cull) {
