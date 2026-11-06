@@ -64,7 +64,8 @@ public final class ArmLayers {
     private static PlayerRenderer renderer;
     private static ModelPart root;
     private static boolean fresh, prepared, failed;
-    private static LocalPlayer owner;
+    // weak: a player left in the main menu does not keep its world
+    private static java.lang.ref.WeakReference<LocalPlayer> owner = new java.lang.ref.WeakReference<>(null);
     // what LivingEntityRenderer.render hands its layers
     private static float limbSwing, limbSwingAmount, partial, age, netHeadYaw, headPitch;
     private static final boolean[] SLEEVE = new boolean[2];
@@ -88,7 +89,7 @@ public final class ArmLayers {
     private static boolean prepare() {
         if (!Config.armArmor || failed) return false;
         // read in this frame for this player (a new world brings a new one)
-        if (!fresh) return prepared && owner == Minecraft.getInstance().player;
+        if (!fresh) return prepared && owner.get() == Minecraft.getInstance().player;
         fresh = false;
         prepared = false;
         LocalPlayer player = Minecraft.getInstance().player;
@@ -143,7 +144,7 @@ public final class ArmLayers {
             if (top == model.rightArm) throw new IllegalStateException("the player model's parts do not know their holder");
             root = top;
             renderer = r;
-            owner = player;
+            owner = new java.lang.ref.WeakReference<>(player);
             prepared = true;
         } catch (Throwable t) {
             failed = true;
@@ -207,6 +208,8 @@ public final class ArmLayers {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static void submitLayers(SubmitNodeCollector collector, int light, Matrix4f m, boolean right, int shown) {
         if (!prepare()) return;
+        LocalPlayer owner = ArmLayers.owner.get();
+        if (owner == null) return;
         Matrix4f toArm = new Matrix4f(m).invert();
         if (!Float.isFinite(toArm.m00() + toArm.m11() + toArm.m22() + toArm.m30() + toArm.m31() + toArm.m32())) return;
         Cut cut = new Cut(toArm, shown < 12 ? (12 - shown) / 16F : Float.NaN, right);
@@ -225,6 +228,11 @@ public final class ArmLayers {
             parent.setupAnim(owner, limbSwing, limbSwingAmount, age, netHeadYaw, headPitch);
             armPose = arm.storePose();
             arm.resetPose();
+            // hung where Arms' own arm box hangs (Arms.cutArm: x ∓5, y 2): 1.21.1's slim player model hangs its arms half a
+            // pixel lower (y 2.5) than the wide one and 26.2's armour models, and the layers follow this arm's pose
+            arm.x = right ? -5F : 5F;
+            arm.y = 2F;
+            arm.z = 0F;
             for (ModelPart p : top.values()) {
                 if (p == arm) continue;
                 movedPose.add(p.storePose());
