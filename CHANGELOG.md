@@ -7,6 +7,9 @@
   where the client had flown it by then.
 - A tracer that water stops or skips right at the start of a tick ends there,
   instead of flying on through the water.
+- A tracer also stops where the server's bullet hit a creature when the stop
+  comes before the client begins the part of the tracer that water or a
+  ricochet goes on in. Before, that part flew on through the creature.
 
 ## X548
 

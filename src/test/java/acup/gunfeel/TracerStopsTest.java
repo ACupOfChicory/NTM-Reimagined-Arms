@@ -24,4 +24,13 @@ class TracerStopsTest {
         assertEquals(2, TracerStops.piece(new double[] {2, 0.5, 1}, 1.99));
         assertEquals(-1, TracerStops.piece(new double[] {0.5, 1}, 0.2), "none begun by then");
     }
+
+    // the stop came before the client began the next piece: it fell on the one before, past that one's end (where
+    // water or a ricochet cut it); the next ends where the stop is in its own ticks, or at once
+    @Test
+    void aLaterPieceEndsWhereTheStopIs() {
+        assertEquals(0.4, TracerStops.left(1.4, 1.0), 1e-12);
+        assertEquals(0, TracerStops.left(1.4, 1.4));
+        assertEquals(0, TracerStops.left(1.4, 2.0));
+    }
 }

@@ -15,4 +15,10 @@ final class TracerStops {
             if (starts[i] <= age + 1e-9 && (found < 0 || starts[i] > starts[found])) found = i;
         return found;
     }
+
+    // a piece begun `later` ticks after the one the stop fell on, past that one's stop: where it ends in turn, in its
+    // own ticks (0: at once)
+    static double left(double stop, double later) {
+        return Math.max(0, stop - later);
+    }
 }
