@@ -293,6 +293,9 @@ public final class BulletCheck {
         s = expect("path through: stone is flown through", Want.PASS, single("minecraft:stone", 0), .5, .5, 30F, null);
         check("path through: the stone stays", "minecraft:stone", s.after);
 
+        // ---- bullets through the empty part of fences, walls, panes and bars, and their joints
+        ok &= FenceAirCheck.run(level, round, lines, 1L);
+
         // ---- port: 1.7.10's own ray (func_147447_a) gives up after 200 cells: a block 250 blocks away in one tick
         far();
         richterBulletSpeed();
