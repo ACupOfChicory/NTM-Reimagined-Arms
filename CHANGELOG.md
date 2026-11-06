@@ -1,5 +1,10 @@
 # Changelog
 
+## X543.171
+
+- On a client, a tracer also stops where the server's bullet stopped when the
+  stop came before the client began the piece water or a ricochet goes on in.
+
 ## X543.170
 
 - NTM bullets slow down in water, and their damage and piercing fall with the
