@@ -195,6 +195,10 @@ CLICK_AIM method com/hbm/extprop/HbmPlayerProps getData (Lnet/minecraft/world/en
 CLICK_AIM method com/hbm/extprop/HbmPlayerProps getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
 CORE class com/hbm/blocks/generic/BlockWoodBarrier
 CORE class com/hbm/blocks/generic/BlockWoodStructure
+CORE class com/hbm/entity/mob/EntityFBIDrone
+CORE class com/hbm/entity/mob/EntityPlasticBag
+CORE class com/hbm/entity/mob/EntityUFO
+CORE class com/hbm/entity/mob/botprime/EntityWormBaseNT
 CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
@@ -318,6 +322,9 @@ MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBeamBase
 MODEL_HITBOXES class com/hbm/items/tool/ItemPeas
 MODEL_HITBOXES class com/hbm/render/loader/GroupObject
 MODEL_HITBOXES class com/hbm/render/loader/HFRWavefrontObject
+MODEL_HITBOXES field com/hbm/client/render/BeamRenderTypes ADDITIVE Lnet/minecraft/client/renderer/rendertype/RenderType;
+MODEL_HITBOXES field com/hbm/client/render/BeamRenderTypes ADDITIVE_NO_FOG Lnet/minecraft/client/renderer/rendertype/RenderType;
+MODEL_HITBOXES field com/hbm/client/render/BeamRenderTypes LINE Lnet/minecraft/client/renderer/rendertype/RenderType;
 MODEL_HITBOXES field com/hbm/entity/mob/glyphid/EntityGlyphid yBodyRot F
 MODEL_HITBOXES field com/hbm/entity/mob/glyphid/EntityGlyphid yBodyRotO F
 MODEL_HITBOXES field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F

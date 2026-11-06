@@ -1,6 +1,6 @@
 package acup.gunfeel;
 
-// port: copy of 26.2 src/main/java/acup/gunfeel/ModelHeads.java at 0762086; changes marked "port:"
+// port: copy of 26.2 src/main/java/acup/gunfeel/ModelHeads.java at df3e9e6; changes marked "port:"
 
 import java.util.*;
 
@@ -50,7 +50,7 @@ public final class ModelHeads {
         if(bank.isEmpty()) return new Resolution(List.of(),fallback,"нет проверенной разметки",0F,0);
         var profile=profile(bank,type);
         if(profile!=null && profile.none()) return new Resolution(List.of(),"dataset","manual none",1F,0);
-        var cubes=boxes;if(profile!=null) boxes=HeadProfiles.unite(profile,boxes);
+        var cubes=boxes;var names=profile==null?boxes:HeadProfiles.renamed(profile,boxes);if(profile!=null) boxes=HeadProfiles.unite(profile,boxes);
         var key=new Key(role+":"+type,layout(boxes));var definition=CACHE.get(key);
         if(definition==null) {
             if(profile!=null) {
@@ -67,6 +67,6 @@ public final class ModelHeads {
             }
             CACHE.put(key,definition);while(CACHE.size()>256) CACHE.remove(CACHE.keySet().iterator().next());
         }
-        return new Resolution(HeadProfiles.zones(definition.binding(),boxes,cubes),definition.source(),definition.binding().reason(),definition.confidence(),definition.binding().missing());
+        return new Resolution(HeadProfiles.zones(definition.binding(),boxes,cubes,names),definition.source(),definition.binding().reason(),definition.confidence(),definition.binding().missing());
     }
 }

@@ -646,6 +646,18 @@ class HeadProfilesTest {
         assertTrue(HeadProfiles.unite(crab,shell).stream().noneMatch(b->b.part().startsWith("root/shell") && !b.part().equals("root/shell")));
         var withShell=new ArrayList<>(shell);withShell.add(box(crab.parts().getFirst(),"root/shell"));
         assertTrue(HeadProfiles.unite(crab,withShell).stream().anyMatch(b->b.part().equals("root/shell4")));
+        // зона панциря без Flywheel — его кубы, а не коробка вокруг них: нога под панцирем не голова
+        var resolved=ModelHeads.resolve("hbm:entity_cyber_crab",shell,0);assertEquals(0,resolved.missing());
+        var crabZones=resolved.zones();
+        var shellCubes=shell.stream().filter(b->b.part().startsWith("root/shell")).toList();
+        assertEquals(shellCubes,crabZones.getFirst().pieces());
+        int under=0;
+        for(var leg:shell) if(leg.part().startsWith("root/leg")) for(double a:new double[]{.1,.5,.9}) for(double b:new double[]{.1,.5,.9}) for(double c:new double[]{.1,.5,.9}) {
+            var point=new Vec3(leg.x()+a*leg.ux()+b*leg.vx()+c*leg.wx(),leg.y()+a*leg.uy()+b*leg.vy()+c*leg.wy(),leg.z()+a*leg.uz()+b*leg.vz()+c*leg.wz());
+            if(!crabZones.getFirst().box().containsPoint(point) || shellCubes.stream().anyMatch(cube->cube.containsPoint(point))) continue;
+            under++;assertFalse(HeadZone.contains(crabZones,point),leg.part()+" "+point);
+        }
+        assertTrue(under>0,"нога в коробке панциря вне его кубов");
     }
     // части зон профиля по порядку, которые есть среди нарисованных
     private static List<Integer> expected(HeadProfiles.Profile profile,List<Integer> drawn) {

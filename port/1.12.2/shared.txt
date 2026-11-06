@@ -88,4 +88,4 @@ acup/gunfeel/HeadZoneTest.java
 acup/gunfeel/HeadProfilesTest.java
 acup/gunfeel/WornGearTest.java
 acup/gunfeel/ContourIntersectionTest.java
-acup/gunfeel/ModelHitTurnTest.java
+# acup/gunfeel/ModelHitTurnTest.java: the port's copy (26.2's Turn cases are not the port's, see the copy)
