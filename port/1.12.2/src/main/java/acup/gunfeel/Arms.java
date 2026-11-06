@@ -1652,7 +1652,7 @@ public final class Arms {
         Minecraft.getMinecraft().getTextureManager().bindTexture(skin);
         PlayerSkins.say(slim);
         drawBox(m, quads(n, right, slim, false), right);
-        drawBox(m, quads(n, right, slim, true), right);
+        if (PlayerSkins.sleeve(Minecraft.getMinecraft().player, right)) drawBox(m, quads(n, right, slim, true), right);
     }
 
     // the arm's box (or its sleeve's) as ModelBox's six TexturedQuads: each a face's four corners {x, y, z, u, v} in

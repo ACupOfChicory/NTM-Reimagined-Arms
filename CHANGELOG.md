@@ -1,5 +1,11 @@
 # Changelog
 
+## X543.169
+
+- The first-person sleeves on the arms holding a gun now follow Skin
+  Customization, as in 26.2 and in vanilla's third person: a sleeve switched
+  off there is not drawn. Before both sleeves were always drawn.
+
 ## X543.167
 
 - A bullet hole on iron bars and other blocks with holes on both sides, on the
