@@ -1,5 +1,15 @@
 # Changelog
 
+## X543.170
+
+- As in 26.2 X510: the arms holding a gun now wear what the player wears on
+  the arms seen from outside: vanilla armour with its dye and enchantment
+  glint, NTM's armour (its 3D suits included), the skin's sleeve layer, and
+  what other mods draw on the player's arms. It follows the arm's pose,
+  thickness and cut, on pistols and rifles, at the hip and aiming. NTM's suits
+  hide the sleeves, as they do in third person. Key `armArmor` in
+  `ntm-gunfeel.properties` (on by default). 1.12.2 has no armour trims.
+
 ## X543.169
 
 - The first-person sleeves on the arms holding a gun now follow Skin

@@ -191,6 +191,7 @@ CORE class com/hbm/blocks/generic/BlockWoodStructure
 CORE class com/hbm/blocks/machine/BlockCargoElevator
 CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
 CORE class com/hbm/items/armor/ArmorFSBPowered
+CORE class com/hbm/items/gear/ArmorFSB
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/items/weapon/sedna/mags/MagazineBelt
