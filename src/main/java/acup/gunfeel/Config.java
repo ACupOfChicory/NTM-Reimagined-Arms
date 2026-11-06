@@ -47,6 +47,8 @@ public final class Config {
     public static float modelRotate = 1.0F;
     public static float modelSpeed = 1.0F;
     public static float ntmRecoilAnim = 0.3F;
+    // all recoil (camera, gun model, NTM's recoil animation) times this while the chestplate is NTM power armor
+    public static float powerArmorRecoil = 0.5F;
     public static boolean hideOffhand = true;
     // splashes, rings, foam and bubbles where a bullet meets water (acup.gunfeel.water, client effects)
     public static boolean waterSplash = true;
@@ -59,6 +61,8 @@ public final class Config {
     // Thickness keeps a vanilla arm's 4:18 proportion to the arm's length, so a far hand gets a
     // proportionally thicker arm, the way an arm looks when it is closer to the eye.
     public static boolean arms = true;
+    // what the player model wears on its arms (armour, NTM suits, other mods' layers) drawn on the arms holding a gun
+    public static boolean armArmor = true;
     public static float armScale = 0.8F;
     public static float armMaxScale = 4.0F;
     public static float armRollRight = -5F;
@@ -192,6 +196,8 @@ public final class Config {
             modelRotate: share of the rotation in the model kick (muzzle up, yaw, roll)
             modelSpeed: playback speed of the model kick, higher = shorter
             ntmRecoilAnim: share of NTM's own recoil animation kept, 1 = unchanged
+            powerArmorRecoil: multiplier of all recoil movements while the chestplate is NTM power armor (T-51, AJR, AJRO, RPA,
+              NCRPA, BJ, Envsuit, HEV, FAU, DNS), 0..1, 1 = off; on a server with cameraScaleMin no lower than 0.5
             hideOffhand: hide the off-hand item while holding an NTM gun
             waterSplash: splashes, rings, foam and bubbles where a bullet meets water
             cornerHud: TaCZ-style ammo counter in the bottom-right corner instead of NTM's
@@ -199,6 +205,8 @@ public final class Config {
             ammoMenuColor: accent colour of the ammo menu, hex RRGGBB
             arms: draw the player's arms holding the gun with both hands; their model follows the skin,
               slim arms share the classic arms' settings and move one pixel toward their inner side
+            armArmor: draw on those arms what the player model wears on its arms in third person (armour sleeves with
+              their dye, trims and glint, NTM's suits, other mods' layers), cut and sized with the arm
             armScale: arm thickness on top of the automatic one, 1 = vanilla arm proportions
             armMaxScale: upper limit of the automatic thickness
             armBaseRight, armBaseLeft: arm thickness before armScale, the same on every gun (as on Maresleg); 0 = automatic (grows with the arm's length)
@@ -458,6 +466,8 @@ public final class Config {
         modelRotate = num(p, "modelRotate", modelRotate);
         modelSpeed = Math.max(0.05F, num(p, "modelSpeed", modelSpeed));
         ntmRecoilAnim = num(p, "ntmRecoilAnim", ntmRecoilAnim);
+        float armorRecoil = num(p, "powerArmorRecoil", powerArmorRecoil);
+        powerArmorRecoil = Float.isNaN(armorRecoil) ? 0.5F : Math.clamp(armorRecoil, 0F, 1F);
         hideOffhand = bool(p, "hideOffhand", hideOffhand);
         waterSplash = bool(p, "waterSplash", waterSplash);
         cornerHud = bool(p, "cornerHud", cornerHud);
@@ -468,6 +478,7 @@ public final class Config {
             ammoMenuColor = 0xFF8C1A;
         }
         arms = bool(p, "arms", arms);
+        armArmor = bool(p, "armArmor", armArmor);
         armScale = num(p, "armScale", armScale);
         armRollRight = num(p, "armRollRight", armRollRight);
         armRollLeft = num(p, "armRollLeft", armRollLeft);
@@ -588,12 +599,14 @@ public final class Config {
         p.setProperty("modelRotate", Float.toString(modelRotate));
         p.setProperty("modelSpeed", Float.toString(modelSpeed));
         p.setProperty("ntmRecoilAnim", Float.toString(ntmRecoilAnim));
+        p.setProperty("powerArmorRecoil", Float.toString(powerArmorRecoil));
         p.setProperty("hideOffhand", Boolean.toString(hideOffhand));
         p.setProperty("waterSplash", Boolean.toString(waterSplash));
         p.setProperty("cornerHud", Boolean.toString(cornerHud));
         p.setProperty("ammoMenu", ammoMenu);
         p.setProperty("ammoMenuColor", String.format("%06x", ammoMenuColor));
         p.setProperty("arms", Boolean.toString(arms));
+        p.setProperty("armArmor", Boolean.toString(armArmor));
         p.setProperty("armScale", Float.toString(armScale));
         p.setProperty("armRollRight", Float.toString(armRollRight));
         p.setProperty("armRollLeft", Float.toString(armRollLeft));
