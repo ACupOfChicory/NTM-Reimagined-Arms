@@ -41,7 +41,7 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  * <ol>
  * <li>after the opaque world and its mobs ({@code AfterOpaqueFeatures}) the depth buffer is copied: the smoke ends at
  * the first solid thing, a wall cuts it, and glass and water drawn later do not hide smoke behind them;</li>
- * <li>after the translucent particles every drawn cloud's box goes into a target of its own at a part of the screen's
+ * <li>after the sky's clouds and the weather ({@code AfterWeather}, see {@link #afterWeather}) every drawn cloud's box goes into a target of its own at a part of the screen's
  * resolution in one draw (36 vertices a box, from {@code gl_VertexID}): the box's far side starts a ray from the camera
  * that gathers smoke through the cell atlas (Beer-Lambert) until the box ends, the depth copy says the world is there,
  * or it lets almost nothing through; the boxes go far to near, each over the ones behind;</li>
@@ -224,8 +224,15 @@ public final class SmokeRender {
         }
     }
 
-    /** AfterTranslucentParticles: the clouds marched and laid over the frame. */
-    public static void afterTranslucent(RenderLevelStageEvent.AfterTranslucentParticles e) {
+    /**
+     * AfterWeather: the clouds marched and laid over the frame. This late because the game draws the sky's own clouds
+     * after the whole main pass (its "clouds" pass, then "weather"): they test against the world's depth, which smoke
+     * does not write, so smoke laid down before them would have them drawn over it wherever the sky is behind it, and
+     * show them through its edges. After them the smoke covers them as it covers the sky. The price: rain in front of
+     * a cloud is covered by it too (with the transparency chain, "fabulous", the sky's clouds and the rain are laid over
+     * the frame after this and still lie over the smoke).
+     */
+    public static void afterWeather(RenderLevelStageEvent.AfterWeather e) {
         drawnLast = 0;
         if (!copied || !wanted()) return;
         copied = false;

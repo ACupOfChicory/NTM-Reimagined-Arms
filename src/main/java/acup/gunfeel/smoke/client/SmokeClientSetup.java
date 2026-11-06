@@ -45,7 +45,7 @@ public final class SmokeClientSetup {
         NeoForge.EVENT_BUS.addListener(ViewportEvent.RenderFog.class, SmokeFog::fog);
         NeoForge.EVENT_BUS.addListener(ViewportEvent.ComputeFogColor.class, SmokeFog::color);
         NeoForge.EVENT_BUS.addListener(RenderLevelStageEvent.AfterOpaqueFeatures.class, SmokeRender::afterOpaque);
-        NeoForge.EVENT_BUS.addListener(RenderLevelStageEvent.AfterTranslucentParticles.class, SmokeRender::afterTranslucent);
+        NeoForge.EVENT_BUS.addListener(RenderLevelStageEvent.AfterWeather.class, SmokeRender::afterWeather);
         NeoForge.EVENT_BUS.addListener(RenderLevelStageEvent.AfterLevel.class, e -> SmokeRender.frame());
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent.class, SmokeSlices::submit);
     }
