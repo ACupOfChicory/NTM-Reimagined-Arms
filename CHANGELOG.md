@@ -1,6 +1,6 @@
 # Changelog
 
-## X500
+## X507
 
 - The arms holding a gun now wear what the player wears on the arms seen from
   outside: vanilla armour with its dye, trim and enchantment glint, NTM's
@@ -13,6 +13,18 @@
   animation. The chestplate is enough, charged or not. Key `powerArmorRecoil`
   (0.5; 1 turns it off). On a server that sets a camera recoil minimum the
   camera keeps at least half.
+
+## X504
+
+- F3+B: the hitbox outline of an animated mob no longer lags behind its model.
+  It now shows the pose of this frame, of the last frame, or one younger than
+  1/60 s. Before, a mob whose outline takes long to build (glyphids, mask man,
+  tesla crab and other NTM mobs) could show a pose several frames old while
+  it walked. The outline is still built in the background; a frame waits for
+  it only when the one on screen would be too old. So F3+B with walking NTM
+  mobs is now more expensive above 60 FPS: 10 or 30 of them at a 144 FPS cap
+  went from 137 to about 105 FPS. At 60 FPS, and without F3+B, nothing
+  changes.
 
 ## X498
 

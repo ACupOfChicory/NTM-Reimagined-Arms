@@ -202,6 +202,12 @@ neoForge {
             systemProperty("ntmgunfeel.benchMobs","true")
             systemProperty("ntmgunfeel.benchLegacy",providers.gradleProperty("mobBenchLegacy").isPresent.toString())
             providers.gradleProperty("mobBenchScenes").orNull?.let { systemProperty("ntmgunfeel.benchScenes",it) }
+            // -PmobBenchLimit=<ms>[,<walking ms>]: fail a scene whose F3+B adds more than that over vanilla's F3+B;
+            // -PcontourAge: count the contour points older than the last frame's model or -PcontourLag=<ms> (1/60 s)
+            providers.gradleProperty("mobBenchLimit").orNull?.let { systemProperty("ntmgunfeel.benchLimit",it) }
+            systemProperty("ntmgunfeel.contourAge",providers.gradleProperty("contourAge").isPresent.toString())
+            providers.gradleProperty("contourLag").orNull?.let { systemProperty("ntmgunfeel.contourLag",it) }
+            providers.gradleProperty("mobBenchFps").orNull?.let { systemProperty("ntmgunfeel.benchFps",it) }
             systemProperty("ntmgunfeel.benchFile",root.resolve("notes/mob-bench/$label.tsv").path)
             systemProperty("MC_DEBUG_ENABLED","true")
             systemProperty("MC_DEBUG_PREFER_WAYLAND","true")
@@ -394,7 +400,7 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
     // a trace scenario on every gun (-Pscenario, -PscenarioGuns=all) plays for about half an hour; the shapes stand
     // (-PshapesStand) takes every machine in turn
     val scenario = providers.gradleProperty("scenario").isPresent || providers.gradleProperty("shapesStand").isPresent || providers.gradleProperty("fenceSeam").isPresent || providers.gradleProperty("fenceAir").isPresent
-    timeout.set(if(survey) Duration.ofMinutes(40) else if(review && !selfTest) Duration.ofDays(1) else if((mobs && !selfTest) || scenario) Duration.ofHours(if(scenario) 2 else 1) else Duration.ofMinutes(if(holes) 30 else 8))
+    timeout.set(if(survey) Duration.ofMinutes(40) else if(review && !selfTest) Duration.ofDays(1) else if((mobs && !selfTest) || scenario) Duration.ofHours(if(scenario) 2 else 1) else Duration.ofMinutes(if(holes || bench) 30 else 8))
     val result = if(stand) "glassstand/result.txt" else if(holes) "holebench/result.txt" else if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {
         if(holes || review || stand) {
@@ -412,7 +418,7 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
         // in the stand's nested kwin (notes/ports/vkwin.sh) MC_DEBUG_PREFER_WAYLAND has GLFW take its Wayland, and the
         // first mouse grab (wp_pointer_warp_v1) breaks the connection: the client closes in the first phase. The
         // stand's Xwayland works.
-        if(holes && System.getenv("XDG_RUNTIME_DIR")?.contains("/vkwin-home/")==true) (this as JavaExec).environment.remove("WAYLAND_DISPLAY")
+        if((holes || bench) && System.getenv("XDG_RUNTIME_DIR")?.contains("/vkwin-home/")==true) (this as JavaExec).environment.remove("WAYLAND_DISPLAY")
         if(bench) root.resolve("notes/mob-bench").mkdirs()
         val source = root.resolve("run-bullets/world")
         require(source.resolve("level.dat").exists()) { "Сначала выполните runCheckBullets: нужен изолированный тестовый мир" }
