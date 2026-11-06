@@ -107,6 +107,7 @@ public final class WaterFx {
         };
         WaterParticle p = new WaterParticle(cl, kind, x, y, z, vx, vy, vz, life, size, alpha, frames);
         if (kind == WaterParticle.Kind.MIST) p.frame(7);
+        if (WaterParticle.watchKind == kind && WaterParticle.watched == null) WaterParticle.watched = p;
         SPAWNED[kind.ordinal()]++;
         Minecraft.getInstance().particleEngine.add(p);
         return p;
@@ -560,6 +561,7 @@ public final class WaterFx {
         g.gasN = (int) Math.round(8 + 44 * r);
         g.origin = muzzle;
         g.forward = dir.lengthSqr() > 1e-9 ? dir.normalize() : Vec3.ZERO;
+        g.placeGas();
     }
 
     // the gas bubble's radius by calibre (the owner's numbers): p22 .15, p9 .25, m357 .3, m44 .32, r556 .3, r762 .35,
@@ -629,6 +631,7 @@ public final class WaterFx {
             g.gasN = (int) Math.round(20 + 80 * p);
             g.origin = at;
             g.still = true;
+            g.placeGas();
         }
         WaterParticle f = spawn(level, WaterParticle.Kind.FLASH, at.x, at.y, at.z, 0, 0, 0, 0.1, p * (inc ? 2.4 : 1.6), 0.9F);
         if (f != null) {

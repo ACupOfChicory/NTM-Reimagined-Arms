@@ -3,8 +3,9 @@ package acup.gunfeel.water;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
-import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.rendertype.RenderSetup;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
@@ -123,10 +124,21 @@ public final class WaterRings {
         if (alive() == 0) return;
         update(level, dt);
         TextureAtlasSprite sprite = WaterParticle.sprite("ntmgunfeel:water_ring");
-        event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), RenderTypes.entityTranslucent(TextureAtlas.LOCATION_PARTICLES),
+        event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), type(),
                 (p, vc) -> {
                     for (Ring d : RINGS) if (d.on && !d.air && d.t >= d.delay) draw(level, p, vc, d, sprite, cam);
                 });
+    }
+
+    // drawn as a particle is: the colour times the world's light only. The entity pipeline also shades by the normal,
+    // and from above both faces of the ring got its ambient 0.4 alone (the owner's grey rings, 2026-11-06). This one
+    // culls the face turned away, so each of the two faces is seen from its own side once
+    private static RenderType type;
+
+    private static RenderType type() {
+        if (type == null) type = acup.gunfeel.HoleRender.create("ntmgunfeel_water_ring", RenderSetup.builder(RenderPipelines.TRANSLUCENT_PARTICLE)
+                .withTexture("Sampler0", TextureAtlas.LOCATION_PARTICLES).useLightmap().sortOnUpload().createRenderSetup());
+        return type;
     }
 
     private static final BlockPos.MutableBlockPos CELL = new BlockPos.MutableBlockPos();
@@ -176,7 +188,7 @@ public final class WaterRings {
             n = clip(n, gz + 1, -1, false);
             if (n < 3) continue;
             int light = LightCoordsUtil.getLightCoords(level, CELL.set(gx, (int) Math.floor(c[0] + 0.5), gz));
-            // a fan of triangles as quads (the last vertex twice), both ways round: seen from above and from below
+            // a fan of triangles as quads (the last vertex twice), both ways round: one face seen from below, one from above
             for (int pass = 0; pass < 2; pass++) {
                 for (int i = 1; i + 1 < n; i++) {
                     for (int k2 = 0; k2 < 4; k2++) {
@@ -185,8 +197,7 @@ public final class WaterRings {
                         double y = WaterSurface.height(c, x - gx, z - gz) + 0.03;
                         double u = ((x - cx) * hx + (z - cz) * hz) / sc + 0.5, v = ((x - cx) * bx + (z - cz) * bz) / sc + 0.5;
                         vc.addVertex(p, (float) (x - cam.x), (float) (y - cam.y), (float) (z - cam.z)).setColor(color)
-                                .setUv(u0 + (float) u * (u1 - u0), v0 + (float) v * (v1 - v0)).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light)
-                                .setNormal(p, 0F, pass == 0 ? 1F : -1F, 0F);
+                                .setUv(u0 + (float) u * (u1 - u0), v0 + (float) v * (v1 - v0)).setLight(light);
                     }
                 }
             }

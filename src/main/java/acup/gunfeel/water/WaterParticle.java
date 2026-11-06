@@ -52,6 +52,12 @@ public final class WaterParticle extends SingleQuadParticle {
     Vec3 origin = Vec3.ZERO, forward = Vec3.ZERO;
     private final String[] frames;
 
+    // the stand's frame log (WaterFxStand): the first particle of this kind spawned, each frame drawn: the time in
+    // ticks, its size, alpha, the drawn centre and the gas bubble's origin
+    public static volatile Kind watchKind;
+    public static WaterParticle watched;
+    public static final java.util.List<double[]> WATCH = new java.util.ArrayList<>();
+
     WaterParticle(ClientLevel level, Kind kind, double x, double y, double z, double vx, double vy, double vz, double life, double size,
             float alpha, String... frames) {
         super(level, x, y, z, sprite(frames[0]));
@@ -156,14 +162,31 @@ public final class WaterParticle extends SingleQuadParticle {
     @Override
     public float getQuadSize(float a) {
         if (kind == Kind.GAS) return (float) Math.max(0, gasRadius((age + a) * DT, gasR));
-        if (kind == Kind.FLASH) return quadSize;
+        // water dust swells as it goes
+        if (kind == Kind.MIST) return quadSize + size0 * 0.35F * (float) DT * 0.5F * (age + a);
         return quadSize;
+    }
+
+    // fading in and out by the frame's time, not once a tick: set on a tick, the water dust's alpha stood at its full
+    // value until the first tick and then fell to a fifth of it (the owner's blinking at a shot, 2026-11-06)
+    private void fade(float a) {
+        float t = age + a, f = 1F - t / lifetime;
+        alpha = Math.max(0F, switch (kind) {
+            case DROP -> alpha0 * Math.min(1F, f * 5F);
+            case MIST -> alpha0 * Math.min(1F, (1 - f) * 6F) * f;
+            case FOAM -> alpha0 * Math.min(1F, f * 3F);
+            case DEBRIS -> Math.min(1F, (lifetime - t) * (float) DT * 2F) * alpha0;
+            case FLASH -> (float) (alpha0 * (1 - t * DT / 0.05));
+            default -> alpha;
+        });
     }
 
     @Override
     public void extract(QuadParticleRenderState state, Camera camera, float a) {
-        if (kind == Kind.FLASH) alpha = (float) Math.max(0, alpha0 * (1 - (age + a) * DT / 0.05));
+        fade(a);
         if (kind == Kind.GAS && gasRadius((age + a) * DT, gasR) <= 0) return;
+        if (this == watched) WATCH.add(new double[] {age + a, getQuadSize(a), alpha, xo + (x - xo) * a, yo + (y - yo) * a, zo + (z - zo) * a, origin.x,
+                origin.y, origin.z});
         super.extract(state, camera, a);
     }
 
@@ -199,7 +222,7 @@ public final class WaterParticle extends SingleQuadParticle {
         }
         float f = 1F - (float) age / lifetime;
         switch (kind) {
-            case DROP -> drop(f);
+            case DROP -> drop();
             case MIST -> mist(f);
             case BUBBLE, RISE -> bubble();
             case POP -> {
@@ -210,7 +233,7 @@ public final class WaterParticle extends SingleQuadParticle {
                 }
                 frame(Math.min(4, age * 5 / Math.max(1, lifetime)));
             }
-            case FOAM -> foam(f);
+            case FOAM -> foam();
             case GAS -> gas();
             case FLASH -> {
             }
@@ -219,21 +242,19 @@ public final class WaterParticle extends SingleQuadParticle {
                 vx *= 1 - DT;
                 vz *= 1 - DT;
                 moveBy(vx * DT, vy * DT, vz * DT);
-                alpha = Math.min(1F, (float) (lifetime - age) * (float) DT * 2F) * alpha0;
                 if (solidAt(x, y, z)) remove();
             }
         }
         if (WaterFx.audit && !removed) WaterFx.audit(this);
     }
 
-    private void drop(float f) {
+    private void drop() {
         double df = Math.max(0, 1 - drag * DT);
         vx *= df;
         vy *= df;
         vz *= df;
         vy -= grav * DT;
         moveBy(vx * DT, vy * DT, vz * DT);
-        alpha = alpha0 * Math.min(1F, f * 5F);
         if (y < level.getMinY() - 1 || solidAt(x, y, z)) {
             remove();
             return;
@@ -260,9 +281,7 @@ public final class WaterParticle extends SingleQuadParticle {
         vz *= df;
         vy += 0.25 * DT;
         moveBy(vx * DT, vy * DT, vz * DT);
-        quadSize += size0 * 0.35F * (float) DT * 0.5F;
         frame(Math.clamp(7 - (int) Math.floor(8 * (1 - f)), 0, 7));
-        alpha = alpha0 * Math.min(1F, (1 - f) * 6F) * f;
     }
 
     // bubbles under water: RISE (the muzzle's and a blast's, the trail) eases to 1.6 blocks per second and wobbles;
@@ -299,8 +318,7 @@ public final class WaterParticle extends SingleQuadParticle {
         remove();
     }
 
-    private void foam(float f) {
-        alpha = alpha0 * Math.min(1F, f * 3F);
+    private void foam() {
         if (mode == 0) {
             WaterSurface.Info s = WaterSurface.at(level, x, y + 0.4, z, false);
             if (s == null) {
@@ -359,14 +377,28 @@ public final class WaterParticle extends SingleQuadParticle {
         return false;
     }
 
+    // the gas bubble's centre at tk ticks: ahead of its origin by 0.85 of its radius (over it by 0.6 for a blast),
+    // rising slowly
+    private Vec3 gasCentre(double tk) {
+        double r = Math.max(0, gasRadius(Math.min(tk, 3.999) * DT, gasR));
+        return origin.add(still ? Vec3.ZERO : forward.scale(r * 0.85)).add(0, tk * DT * 0.4 + (still ? r * 0.6 : 0), 0);
+    }
+
+    // drawn between this tick's centre and the next one's, as its size is drawn at the frame's time: set to this
+    // tick's centre, it lagged a tick behind the size and stood still at its origin while it swelled to full
+    void placeGas() {
+        Vec3 c0 = gasCentre(age), c1 = gasCentre(age + 1);
+        xo = c0.x;
+        yo = c0.y;
+        zo = c0.z;
+        x = c1.x;
+        y = c1.y;
+        z = c1.z;
+    }
+
     private void gas() {
-        double t = age * DT;
-        double r = gasRadius(t, gasR);
-        if (r > 0) {
-            Vec3 c = origin.add(still ? Vec3.ZERO : forward.scale(r * 0.85)).add(0, t * 0.4 + (still ? r * 0.6 : 0), 0);
-            x = c.x;
-            y = c.y;
-            z = c.z;
+        if (gasRadius(age * DT, gasR) > 0) {
+            placeGas();
             return;
         }
         // breaks up into bubbles that rise and pop

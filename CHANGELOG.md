@@ -1,5 +1,19 @@
 # Changelog
 
+## X517
+
+- Water rings are white again in daylight, not grey. They were shaded like a
+  mob's skin, and from above both faces of a ring got only the dim side light;
+  now they are lit like particles, by the world's light alone. At noon a ring
+  from above went from 103 to about 200 of 255.
+- A round lying on the bottom of the water falls when the block under it is
+  broken. Before, a round that had come to rest stayed hanging in the water.
+- The big water particles of a shot no longer blink in their first ticks. The
+  water dust of a splash showed at full strength until the first game tick
+  and then dropped to a fifth of it; it now fades in smoothly. The gas bubble
+  of a shot under water now moves out from the muzzle as it swells, instead of
+  swelling in place for a tick and then catching up.
+
 ## X515
 
 - Long NTM guns now bob as you walk and take the sprint pose: the
