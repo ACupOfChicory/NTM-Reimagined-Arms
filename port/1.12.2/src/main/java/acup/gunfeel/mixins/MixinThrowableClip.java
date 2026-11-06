@@ -67,19 +67,50 @@ public abstract class MixinThrowableClip extends Entity {
     @Unique
     private boolean gunfeel$hitsOn;
 
+    // the bullet has left its shooter's box (NTM's, 0.3 wider) since it was fired. A bullet water stopped before that
+    // (a shot down while standing in water) is still there when NTM's guard (selfDamageDelay) is over; while it
+    // sinks in its shooter, the shooter is no target: NTM's own test never hits a box from inside, and the
+    // point-blank rule below is for the mobs in front. It goes off on the bottom, or NTM's life of it ends.
+    @Unique
+    private boolean gunfeel$outOfShooter;
+    // where the bullet was at the tick's start: the path WaterImpact.touch looks along
+    @Unique
+    private Vec3d gunfeel$before;
+
+    @Unique
+    private EntityLivingBase gunfeel$inShooter() {
+        if (gunfeel$outOfShooter || !((Object) this instanceof EntityBulletBaseMK4) || !acup.gunfeel.water.WaterBullet.stopped(this)) return null;
+        return ((EntityThrowableNT) (Object) this).getThrower();
+    }
+
+    @Unique
+    private static boolean gunfeel$ofShooter(Entity e, EntityLivingBase shooter) {
+        return e == shooter || acup.gunfeel.ModelPartEntities.parent(e) == shooter;
+    }
+
     @Inject(method = "onUpdate", at = @At("HEAD"), remap = true)
     private void gunfeel$beginHits(CallbackInfo ci) {
         if (world.isRemote) return;
         EntityThrowableNT self = (EntityThrowableNT) (Object) this;
+        if (!gunfeel$outOfShooter) {
+            EntityLivingBase shooter = self.getThrower();
+            if (shooter == null || !shooter.getEntityBoundingBox().grow(0.3).contains(new Vec3d(posX, posY, posZ))) gunfeel$outOfShooter = true;
+        }
+        gunfeel$before = new Vec3d(posX, posY, posZ);
         double travel = Math.sqrt(motionX * motionX + motionY * motionY + motionZ * motionZ) * motionMult();
         gunfeel$hitsPrevious = ModelHits.beginProjectile(self.getThrower(), travel);
         gunfeel$hitsOn = true;
     }
 
-    // water: the bullet's new f, a stop or a skip, the tick's events (WaterTick), after NTM moved it and hit what it hit
+    // water: the bullet's new f, a stop or a skip, the tick's events (WaterTick), after NTM moved it and hit what it
+    // hit; an explosive touching another bullet (WaterImpact)
     @Inject(method = "onUpdate", at = @At("RETURN"), remap = true)
     private void gunfeel$waterEnd(CallbackInfo ci) {
-        if (!world.isRemote && (Object) this instanceof EntityBulletBaseMK4) WaterTick.end((EntityBulletBaseMK4) (Object) this);
+        if (world.isRemote || !((Object) this instanceof EntityBulletBaseMK4)) return;
+        EntityBulletBaseMK4 bullet = (EntityBulletBaseMK4) (Object) this;
+        WaterTick.end(bullet);
+        if (gunfeel$before != null) acup.gunfeel.water.WaterImpact.touch(bullet, gunfeel$before);
+        gunfeel$before = null;
     }
 
     @Inject(method = "onUpdate", at = @At("RETURN"), remap = true)
@@ -103,7 +134,11 @@ public abstract class MixinThrowableClip extends Entity {
     private List gunfeel$candidates(World world, Entity except, AxisAlignedBB area, Operation<List> original) {
         List list = original.call(world, except, area);
         if (world.isRemote) return list;
-        return ModelHits.candidates(world, except, (List<Entity>) list, area, e -> true);
+        EntityLivingBase shooter = gunfeel$inShooter();
+        if (shooter == null) return ModelHits.candidates(world, except, (List<Entity>) list, area, e -> true);
+        List<Entity> mobs = new java.util.ArrayList<Entity>((List<Entity>) list);
+        mobs.removeIf(e -> gunfeel$ofShooter(e, shooter));
+        return ModelHits.candidates(world, except, mobs, area, e -> !gunfeel$ofShooter(e, shooter));
     }
 
     @Inject(method = "shoot", at = @At("HEAD"), remap = true)
@@ -127,10 +162,8 @@ public abstract class MixinThrowableClip extends Entity {
             if (gunfeel$pierced == null) gunfeel$pierced = new HashSet<Long>();
             hit = BulletServer.clip(bullet, world, start, to, gunfeel$pierced);
         }
-        if (hit == null) return null;
-        Vec3d at = new Vec3d(hit.ax, hit.ay, hit.az);
-        WaterTick.blocks(bullet, at, net.minecraft.util.EnumFacing.byIndex(hit.face));
-        return acup.gunfeel.Mc.blockHit(hit.x, hit.y, hit.z, hit.face, at);
+        // an impact fuze from the air goes off on the water's surface: NTM gets the surface's hit (WaterTick)
+        return WaterTick.blocks(bullet, hit == null ? null : acup.gunfeel.Mc.blockHit(hit.x, hit.y, hit.z, hit.face, new Vec3d(hit.ax, hit.ay, hit.az)));
     }
 
     @WrapOperation(method = "onUpdate", remap = true, at = @At(value = "INVOKE", remap = true,
@@ -159,7 +192,11 @@ public abstract class MixinThrowableClip extends Entity {
         double pad = World.MAX_ENTITY_RADIUS + inflate;
         AxisAlignedBB area = new AxisAlignedBB(Math.min(start.x, to.x), Math.min(start.y, to.y), Math.min(start.z, to.z),
                 Math.max(start.x, to.x), Math.max(start.y, to.y), Math.max(start.z, to.z)).grow(pad);
-        List<Entity> near = ModelHits.candidates(world, exclude, world.getEntitiesWithinAABBExcludingEntity(exclude, area), area, e -> true);
+        // a stopped round sinking inside its shooter does not hit the shooter
+        EntityLivingBase shooter = gunfeel$inShooter();
+        List<Entity> near = ModelHits.candidates(world, exclude, world.getEntitiesWithinAABBExcludingEntity(exclude, area), area,
+                e -> shooter == null || !gunfeel$ofShooter(e, shooter));
+        if (shooter != null) near.removeIf(e -> gunfeel$ofShooter(e, shooter));
         Entity best = null;
         Vec3d bestAt = null;
         double bestD = Double.MAX_VALUE;

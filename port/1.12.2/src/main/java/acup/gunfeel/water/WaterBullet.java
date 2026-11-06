@@ -15,11 +15,21 @@ public interface WaterBullet {
 
     void gunfeel$waterSkips(int skips);
 
-    // water stopped it (f under waterStopFraction): a bullet is gone, an explosive goes on at that speed till it
-    // touches something
+    // water stopped it (f under waterStopFraction): a bullet is gone, one with an impact fuze sinks
     boolean gunfeel$waterStopped();
 
     void gunfeel$waterStopped(boolean stopped);
+
+    // its path has gone through liquid this flight (WaterTick.end): only such a bullet touches another (WaterImpact)
+    boolean gunfeel$waterMet();
+
+    void gunfeel$waterMet(boolean met);
+
+    // the shot it was fired in: the server's world time when NTM made it. Pellets of one shot are made in one loop, the
+    // same tick, and share it (WaterImpact.sameShot)
+    long gunfeel$shot();
+
+    void gunfeel$shot(long shot);
 
     // this tick's path through liquid (null: it met none), from the path test to the end of the tick
     WaterPath.Result gunfeel$waterTick();
@@ -38,6 +48,11 @@ public interface WaterBullet {
 
     static double f(Entity bullet) {
         return bullet instanceof WaterBullet ? ((WaterBullet) bullet).gunfeel$waterF() : 1.0;
+    }
+
+    // it has met water this flight, or water stopped it: a bullet that touches other bullets (WaterImpact.touch)
+    static boolean met(Entity bullet) {
+        return bullet instanceof WaterBullet && (((WaterBullet) bullet).gunfeel$waterMet() || ((WaterBullet) bullet).gunfeel$waterStopped());
     }
 
     static boolean stopped(Entity bullet) {

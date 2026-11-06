@@ -19,6 +19,16 @@ public final class WaterSettings {
         return ReaimTimes.flag("waterBallistics", true);
     }
 
+    // waterFuze: an impact fuze goes off on water
+    public static boolean fuze() {
+        return ReaimTimes.flag("waterFuze", true);
+    }
+
+    // waterBlastRadius: a blast in water reaches mobs in the same water out to this × its radius
+    public static float blastRadius() {
+        return ReaimTimes.number("waterBlastRadius", 1.5F);
+    }
+
     // waterMuffle: a gun fired with the shooter's eyes in water sounds muffled (volume × 0.6, pitch × 0.7)
     public static boolean muffle() {
         return ReaimTimes.flag("waterMuffle", true);

@@ -57,6 +57,8 @@ public abstract class MixinBulletServer implements PierceSteps.Holder {
     // return value modified, not set (26.2, e574e1b): a cancelling inject would skip water's f (MixinWaterBullet)
     @com.llamalad7.mixinextras.injector.ModifyReturnValue(method = "motionMult", at = @At("RETURN"))
     private double gunfeel$speed(double mult) {
+        // a stopped explosive sinking moves its own path a tick (WaterTick.sink)
+        if (acup.gunfeel.water.WaterBullet.stopped((EntityBulletBaseMK4) (Object) this)) return mult;
         return config != null && config.velocity >= 5F ? mult * ReaimTimes.number("bulletSpeed", 1.6F) : mult;
     }
 

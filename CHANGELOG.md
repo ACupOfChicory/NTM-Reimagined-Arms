@@ -1,5 +1,26 @@
 # Changelog
 
+## X543.174
+
+- Explosive NTM rounds, grenades and rockets meet water by their fuze. Hitting
+  it steeper than 10° they go off on the surface; shallower they skip and go
+  off at the next thing they touch. Fired under water they fly, slow down like
+  any bullet and go off on a block or a mob. One that water stopped sinks at
+  most a block a second and goes off where it lands, if NTM's life of the round
+  lasts that long; when that ends first, the round is gone without a blast.
+- In water an explosive round goes off at the first touch of another bullet or
+  a sinking explosive; pellets of one shot leave each other alone. In the air
+  bullets pass each other as in NTM. Explosive pellets fired straight down
+  while standing in water, which water stops inside the shooter, do not hit
+  the shooter from inside.
+- A blast with its centre in water reaches 1.5 times as far for mobs in the
+  water, and a mob above it takes half. Blocks break as before.
+- Under water phosphorus, incendiary rounds and flares do not burn, and fire
+  grenades and rockets only explode. The Bolter's rounds stay plain bullets
+  there, as NTM CE has them everywhere.
+- Keys in `ntm-gunfeel-server.properties`: `waterFuze`, `waterFuzeSkipAngle`,
+  `waterBlastRadius`.
+
 ## X543.173
 
 - As in 26.2 X510: the arms holding a gun now wear what the player wears on

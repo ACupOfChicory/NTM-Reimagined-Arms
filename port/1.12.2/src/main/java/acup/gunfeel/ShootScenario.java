@@ -83,6 +83,11 @@ public final class ShootScenario {
         return NAME.equals("water");
     }
 
+    // "boom": NTM's explosives in water, 26.2's ExplosiveCheck on the integrated server (BoomScenario)
+    static boolean boom() {
+        return NAME.equals("boom");
+    }
+
     // "fences": holes where two fences, walls, panes or bars join lie on their posts and rails (FencesScenario)
     static boolean fences() {
         return NAME.equals("fences");
@@ -120,7 +125,7 @@ public final class ShootScenario {
 
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || glass() || water() || fences() || aimlag() || hands() || walksprint() || pistols() || spectator() || TraceScenario.enabled();
+        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || glass() || water() || boom() || fences() || aimlag() || hands() || walksprint() || pistols() || spectator() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -173,6 +178,10 @@ public final class ShootScenario {
         }
         if (water()) {
             WaterScenario.step(mc, ++tick);
+            return;
+        }
+        if (boom()) {
+            BoomScenario.step(mc, ++tick);
             return;
         }
         if (aimlag()) {

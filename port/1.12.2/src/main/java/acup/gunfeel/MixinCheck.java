@@ -33,7 +33,7 @@ public final class MixinCheck {
             {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "16"}, // MixinGunHud 2 + MixinHoldAim 3 handlers and its 3 helpers (gunfeel$standardScope ...) + MixinSprintFireGun 4 + MixinSpectatorGun 2 + MixinWaterShooter 2
             {"com.hbm.packet.toclient.GunAnimationPacketSedna$Handler", "4"},
             {"net.minecraft.client.renderer.ItemRenderer", "4"}, // ItemRendererAccess
-            {"net.minecraft.client.renderer.entity.RenderLivingBase", "5"}, // begin, end, yaw, modelStart, modelEnd
+            {"net.minecraft.client.renderer.entity.RenderLivingBase", "6"}, // begin, end, yaw, modelStart, modelEnd + RenderLivingAccess layers
             {"net.minecraft.client.entity.EntityPlayerSP", "6"}, // PlayerSPAccess 5, MixinSprintStop 1
             {"net.minecraft.client.renderer.entity.layers.LayerSheepWool", "1"}, // MixinLayerWool
             {"net.minecraft.client.renderer.entity.layers.LayerSlimeGel", "1"}, // MixinLayerGel
@@ -45,10 +45,16 @@ public final class MixinCheck {
             {"com.hbm.render.loader.GroupHandle", "2"}, // MixinGroupHandle
             {"net.minecraft.client.renderer.entity.RenderManager", "2"}, // the model box, the box at full brightness
             {"com.hbm.items.weapon.sedna.GunConfig", "6"}, // MixinG3Inspect 4 (gunfeel$release + 3), MixinGunConfigAnims 2
-            {"com.hbm.entity.projectile.EntityThrowableNT", "11"}, // MixinThrowableClip 10 (blocks, mob, nearest, start, spread, hitboxes 4, the water tick's end) + ThrowableAccess 1
+            {"com.hbm.entity.projectile.EntityThrowableNT", "13"}, // traceSpread, beginHits, endHits, blocks, nearest, candidates, modelBox, mob, the water tick's end, inShooter, ofShooter, start + ThrowableAccess ticksInAir
             {"com.hbm.entity.projectile.EntityBulletBeamBase", "4"},
             {"com.hbm.items.weapon.sedna.BulletConfig", "3"}, // MixinHeadDamage, MixinRicochetSound
             {"net.minecraft.world.World", "2"}, // MixinWaterMuffle: volume, pitch
+            {"com.hbm.entity.projectile.EntityBulletBaseMK4", "31"}, // MixinBulletServer, MixinExplosiveBullet, MixinWaterImpact, MixinWaterBullet (its 4 handlers and WaterBullet's getters and setters)
+            {"com.hbm.explosion.vanillant.ExplosionVNT", "4"}, // MixinExplosionContext 3, MixinWaterBlast 1
+            {"com.hbm.explosion.vanillant.standard.EntityProcessorCross", "6"}, // MixinWaterBlastProcessor 5 and the bridge MixinExtras makes for gunfeel$damage
+            {"com.hbm.explosion.vanillant.standard.EntityProcessorCrossSmooth", "3"}, // MixinExplosiveProcessor
+            {"com.hbm.items.weapon.sedna.factory.XFactory40mm", "1"}, // MixinWaterFire
+            {"com.hbm.items.weapon.sedna.factory.XFactoryRocket", "1"}, // MixinWaterFire
     };
 
     private MixinCheck() {
