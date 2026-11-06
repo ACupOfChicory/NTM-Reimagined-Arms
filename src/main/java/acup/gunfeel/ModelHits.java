@@ -473,19 +473,21 @@ public final class ModelHits {
     }
 
     // How a mob's renderer turns it. Vanilla's turn a mob by its body, and so do most of NTM's (glyphids, Mask Man, the
-    // hunter chopper, the crabs); four do not. NTM's worm draws each piece by its yRot the other way round, and the body
-    // does not follow (the head sets yRot from its motion every tick). The plastic bag is drawn by yRot the other way
-    // round too, and its body follows its yRot. The FBI drone is drawn at a fixed angle of its id, the UFO spins 5
-    // degrees a tick, whatever their body does.
-    enum Turn { BODY, BODY_BACK, YAW_BACK, FIXED, SPIN }
+    // crabs); five do not. The hunter chopper is drawn by its yRot, the usual way round; its body follows yRot only while
+    // it moves, so a chopper that aims from where it hangs turns its model and not its body. The plastic bag is drawn by
+    // yRot the other way round; its body follows yRot only in water (Squid.aiStep). NTM's worm draws each piece by its
+    // yRot the other way round, and the body does not follow (the head sets yRot from its motion every tick). The FBI
+    // drone is drawn at a fixed angle of its id, the UFO spins 5 degrees a tick, whatever their body does.
+    enum Turn { BODY, YAW, YAW_BACK, WORM, FIXED, SPIN }
     private static final ClassValue<Turn> TURNS=new ClassValue<>() {
         @Override protected Turn computeValue(Class<?> type) { return turn(type); }
     };
     static Turn turn(Class<?> type) {
-        if(com.hbm.entity.mob.botprime.EntityWormBaseNT.class.isAssignableFrom(type)) return Turn.YAW_BACK;
-        if(com.hbm.entity.mob.EntityPlasticBag.class.isAssignableFrom(type)) return Turn.BODY_BACK;
+        if(com.hbm.entity.mob.botprime.EntityWormBaseNT.class.isAssignableFrom(type)) return Turn.WORM;
+        if(com.hbm.entity.mob.EntityPlasticBag.class.isAssignableFrom(type)) return Turn.YAW_BACK;
         if(com.hbm.entity.mob.EntityFBIDrone.class.isAssignableFrom(type)) return Turn.FIXED;
         if(com.hbm.entity.mob.EntityUFO.class.isAssignableFrom(type)) return Turn.SPIN;
+        if(com.hbm.entity.mob.EntityHunterChopper.class.isAssignableFrom(type)) return Turn.YAW;
         return Turn.BODY;
     }
     // How far the drawn model has turned since the pose was caught, in the body's terms.
@@ -501,11 +503,20 @@ public final class ModelHits {
     static double turnAngle(Turn turn, boolean client, float body, float yRotNow, long now, float yaw, float bodyYaw, float yRot, long tick) {
         return switch(turn) {
             case BODY -> turnAngle(client, body, yaw, bodyYaw);
-            case BODY_BACK -> -turnAngle(client, body, yaw, bodyYaw);
-            case YAW_BACK -> -Math.toRadians(Mth.wrapDegrees(yRotNow - yRot));
+            case YAW -> yawTurn(client, body, yRotNow, yaw, bodyYaw, yRot);
+            case YAW_BACK -> -yawTurn(client, body, yRotNow, yaw, bodyYaw, yRot);
+            // the worm's bodies on the client and the server go each their own way: by yRot alone
+            case WORM -> -Math.toRadians(Mth.wrapDegrees(yRotNow - yRot));
             case FIXED -> 0;
             case SPIN -> -Math.toRadians(Mth.wrapDegrees((float)(5 * Math.floorMod(now - tick, 72L))));
         };
+    }
+
+    // The pose carries the client's body, not its yRot: the yRot it was drawn at is taken as that body plus how far yRot
+    // stood off the body when the pose came in. A mob with its yRot on its body (moving) turns as by the body rule; on
+    // the client this comes to yRot now less yRot then.
+    private static double yawTurn(boolean client, float body, float yRotNow, float yaw, float bodyYaw, float yRot) {
+        return turnAngle(client, body, yaw, bodyYaw) + Math.toRadians(Mth.wrapDegrees((yRotNow - body) - (yRot - bodyYaw)));
     }
 
     // Клиент сохраняет исходную интерполяцию и добавляет лишь движение корня после захвата.
