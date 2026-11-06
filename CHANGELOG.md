@@ -1,5 +1,11 @@
 # Changelog
 
+## X543.167
+
+- The first-person sleeves on the arms holding a gun now follow Skin
+  Customization, as in 26.2 and in vanilla's third person: a sleeve switched
+  off there is not drawn. Before both sleeves were always drawn.
+
 ## X543.166
 
 - A bullet hole on see-through blocks drawn with the water and stained glass

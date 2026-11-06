@@ -17,6 +17,7 @@ import net.minecraft.client.model.PositionTextureVertex;
 import net.minecraft.client.model.TexturedQuad;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EnumPlayerModelParts;
 
 // The first-person arms on 1.12.2: slim or classic by the skin's model type, and every face of the drawn box (corners
 // and texture) as vanilla's ModelPlayer has the arm and its sleeve.
@@ -31,6 +32,51 @@ class SlimArmsTest {
         // a player without a skin of their own gets Steve or Alex by the UUID's hash
         assertFalse(PlayerSkins.slim(DefaultPlayerSkin.getSkinType(new UUID(0L, 0L))));
         assertTrue(PlayerSkins.slim(DefaultPlayerSkin.getSkinType(new UUID(0L, 1L))));
+    }
+
+    // each arm's sleeve follows its own Skin Customization switch, as RenderPlayer's bipedRightArmwear / bipedLeftArmwear
+    @Test
+    void sleevesFollowTheSkinSettings() {
+        assertEquals(EnumPlayerModelParts.RIGHT_SLEEVE, PlayerSkins.sleevePart(true));
+        assertEquals(EnumPlayerModelParts.LEFT_SLEEVE, PlayerSkins.sleevePart(false));
+        // no player (the trace stand before a world): drawn, as before
+        assertTrue(PlayerSkins.sleeve(null, true));
+        assertTrue(PlayerSkins.sleeve(null, false));
+        // a player's own switches, as the server-synced flag byte isWearing reads
+        int right = EnumPlayerModelParts.RIGHT_SLEEVE.getPartMask(), left = EnumPlayerModelParts.LEFT_SLEEVE.getPartMask();
+        for (int flags : new int[] {0x7F, 0x7F & ~right, 0x7F & ~left, 0}) {
+            EntityPlayer p = playerWith((byte) flags);
+            assertEquals((flags & right) != 0, PlayerSkins.sleeve(p, true), "flags " + flags);
+            assertEquals((flags & left) != 0, PlayerSkins.sleeve(p, false), "flags " + flags);
+        }
+    }
+
+    // a client player without a world: only its data manager, holding the skin parts' flag byte
+    private static EntityPlayer playerWith(byte flags) {
+        try {
+            java.lang.reflect.Field u = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
+            u.setAccessible(true);
+            EntityPlayer p = (EntityPlayer) ((sun.misc.Unsafe) u.get(null))
+                    .allocateInstance(net.minecraft.client.entity.EntityOtherPlayerMP.class);
+            java.lang.reflect.Field key = EntityPlayer.class.getDeclaredField("PLAYER_MODEL_FLAG");
+            key.setAccessible(true);
+            net.minecraft.network.datasync.EntityDataManager data = new net.minecraft.network.datasync.EntityDataManager(p);
+            @SuppressWarnings("unchecked")
+            net.minecraft.network.datasync.DataParameter<Byte> flag =
+                    (net.minecraft.network.datasync.DataParameter<Byte>) key.get(null);
+            // put in as register would (register asks ForgeHooks, which needs a running game)
+            java.lang.reflect.Field entries = net.minecraft.network.datasync.EntityDataManager.class.getDeclaredField("entries");
+            entries.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            java.util.Map<Integer, Object> map = (java.util.Map<Integer, Object>) entries.get(data);
+            map.put(flag.getId(), new net.minecraft.network.datasync.EntityDataManager.DataEntry<Byte>(flag, flags));
+            java.lang.reflect.Field dm = net.minecraft.entity.Entity.class.getDeclaredField("dataManager");
+            dm.setAccessible(true);
+            dm.set(p, data);
+            return p;
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
     }
 
     // the whole arm and sleeve (12 of 12 pixels) are ModelPlayer's, texture offsets and all
