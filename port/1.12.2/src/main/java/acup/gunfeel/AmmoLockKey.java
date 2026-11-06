@@ -60,7 +60,8 @@ public final class AmmoLockKey {
         }
         Minecraft mc = Minecraft.getMinecraft();
         ItemStack stack = mc.player == null ? null : mc.player.getHeldItemMainhand();
-        boolean gun = stack != null && stack.getItem() instanceof ItemGunBaseNT;
+        // no ammo wheel for a spectator, who may not use guns (SpectatorGuns)
+        boolean gun = stack != null && stack.getItem() instanceof ItemGunBaseNT && !SpectatorGuns.blocks(mc.player);
         boolean down = KEY.isKeyDown() && mc.currentScreen == null;
 
         if (RadialMenu.isOpen() && (!gun || stack.getItem() != RadialMenu.gun().getItem() || mc.currentScreen != null)) RadialMenu.close();

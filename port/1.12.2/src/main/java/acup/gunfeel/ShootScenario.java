@@ -103,9 +103,14 @@ public final class ShootScenario {
         return NAME.equals("pistols");
     }
 
+    // "spectator": the gun's HUD and keys of a spectator (spectatorNoGuns; SpectatorScenario)
+    static boolean spectator() {
+        return NAME.equals("spectator");
+    }
+
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || fences() || aimlag() || hands() || walksprint() || pistols() || TraceScenario.enabled();
+        return on() || aim() || look() || shapes() || scan() || mobs() || holes() || fences() || aimlag() || hands() || walksprint() || pistols() || spectator() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -173,6 +178,11 @@ public final class ShootScenario {
         }
         if (pistols()) {
             PistolScenario.step(mc, ++tick);
+            return;
+        }
+        if (spectator()) {
+            if (held) press(true);
+            SpectatorScenario.step(mc, ++tick);
             return;
         }
         if (look()) {
