@@ -32,7 +32,14 @@ public final class ModelContours {
     private static final java.util.Set<Object> WAITING=java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
     private static final List<Flight> FLIGHTS=new ArrayList<>();
     private static long generation;
+    // Часы контура: номер и начало каждого вызова outlines с владельцами
+    // (кадра F3+B). По ним же стенд меряет возраст показанного контура.
+    private static long calls,callAt;
+    // Насколько старым может быть показанный контур, если он не с прошлого
+    // кадра: -PcontourLag=<мс>, по умолчанию 1/60 с.
+    static final long LAG=(long)(Double.parseDouble(System.getProperty("ntmgunfeel.contourLag","16.667"))*1e6);
     static synchronized long builds() { return builds; }
+    static synchronized long callAt() { return callAt; }
     record Frame(Vec3 origin,Vec3 u,Vec3 v,Vec3 w) {
         Vec3 direction(Vec3 p) { return new Vec3(p.dot(u),p.dot(v),p.dot(w)); }
         Vec3 local(Vec3 p) { return direction(p.subtract(origin)); }
@@ -93,6 +100,7 @@ public final class ModelContours {
     // показывать нельзя.
     static synchronized List<Outline> outlines(List<List<ModelBox>> all,List<?> owners) {
         if(MobBenchMetrics.LEGACY) return all.stream().map(ModelContours::outline).toList();
+        if(owners!=null) { calls++; callAt=System.nanoTime(); }
         var out=new Outline[all.size()];
         var frames=new Frame[all.size()];
         var refs=new int[all.size()];

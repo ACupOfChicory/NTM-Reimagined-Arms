@@ -103,6 +103,8 @@ public final class ModelHitDebug {
             long contour=MobBenchMetrics.start();
             outlines=ModelContours.outlines(all,owners);
             MobBenchMetrics.add(MobBenchMetrics.CONTOUR,contour);
+            if(ContourAge.ENABLED)
+                for(int i=0;i<customs.length;i++) if(customs[i]) ContourAge.check(TARGETS.get(i).entity(),all.get(i),outlines.get(i));
         }
         for(int i=0;i<customs.length;i++) {
             var target=TARGETS.get(i); var boxes=all.get(i);
