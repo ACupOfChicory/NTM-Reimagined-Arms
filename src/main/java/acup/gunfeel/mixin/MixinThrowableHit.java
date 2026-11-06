@@ -41,10 +41,15 @@ public abstract class MixinThrowableHit {
     private void gunfeel$view(Operation<Void> original) {
         var self=(EntityThrowableNT)(Object)this;
         var previous=acup.gunfeel.ModelHits.beginProjectile(self.getThrower(),self.getDeltaMovement().length()*motionMult());
+        Vec3 before=self.position();
         try{
             original.call();
-            // water: the bullet's new f, a stop or a skip, the tick's events (WaterTick)
-            if(self instanceof EntityBulletBaseMK4 bullet)acup.gunfeel.water.WaterTick.end(bullet);
+            // water: the bullet's new f, a stop or a skip, the tick's events (WaterTick); an explosive touching another
+            // bullet (WaterImpact)
+            if(self instanceof EntityBulletBaseMK4 bullet){
+                acup.gunfeel.water.WaterTick.end(bullet);
+                acup.gunfeel.water.WaterImpact.touch(bullet,before);
+            }
         }finally{acup.gunfeel.ModelHits.endShot(previous);}
     }
 
@@ -94,8 +99,7 @@ public abstract class MixinThrowableHit {
             if (gunfeel$pierced == null) gunfeel$pierced = new java.util.HashSet<>();
             hit = acup.gunfeel.BulletServer.clip(bullet, level, context.getFrom(), to, gunfeel$pierced);
         }
-        acup.gunfeel.water.WaterTick.blocks(bullet, hit);
-        return hit;
+        return acup.gunfeel.water.WaterTick.blocks(bullet, hit);
     }
 
     @Unique

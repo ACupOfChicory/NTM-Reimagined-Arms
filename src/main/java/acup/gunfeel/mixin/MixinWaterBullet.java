@@ -17,7 +17,11 @@ import acup.gunfeel.water.WaterPath;
 // server, the client's bullet and the tracer move it alike; the path in water is worked out in MixinThrowableHit
 // (WaterTick).
 @Mixin(value = EntityBulletBaseMK4.class, remap = false)
-public abstract class MixinWaterBullet implements WaterBullet {
+public abstract class MixinWaterBullet implements WaterBullet, acup.gunfeel.water.WaterImpact.Hits {
+    @org.spongepowered.asm.mixin.Shadow protected abstract void onImpact(net.minecraft.world.phys.HitResult mop);
+
+    @Override public void gunfeel$impact(net.minecraft.world.phys.HitResult hit) { onImpact(hit); }
+
     @Unique private double gunfeel$f = 1.0;
     @Unique private int gunfeel$skips;
     @Unique private boolean gunfeel$stopped;
@@ -28,7 +32,9 @@ public abstract class MixinWaterBullet implements WaterBullet {
 
     @Inject(method = "motionMult", at = @At("RETURN"), cancellable = true)
     private void gunfeel$waterSpeed(CallbackInfoReturnable<Double> cir) {
-        if (gunfeel$f < 1.0) cir.setReturnValue(cir.getReturnValue() * gunfeel$f);
+        // a stopped explosive sinking: its motion is its path a tick (WaterTick.sink)
+        if (gunfeel$stopped) cir.setReturnValue(1.0);
+        else if (gunfeel$f < 1.0) cir.setReturnValue(cir.getReturnValue() * gunfeel$f);
     }
 
     @Override public double gunfeel$waterF() { return gunfeel$f; }

@@ -77,6 +77,45 @@ public enum WaterClass {
         }
     }
 
+    // how a bullet goes off (NTM's onImpact lambdas, notes/water/README.md): IMPACT blows up where it touches
+    // anything; WEAK (b75_inc) only sets a target alight in NTM, under water it gives a small blast instead; NONE
+    // has no charge (a flare or a phosphorus pellet sets alight, it does not blow up)
+    public enum Fuze {
+        NONE, IMPACT, WEAK;
+
+        public boolean any() {
+            return this != NONE;
+        }
+
+        static final java.util.Set<String> IMPACT_NAMES = java.util.Set.of("ammo_standard_r762_he", "ammo_standard_bmg50_he",
+                "ammo_standard_b75", "ammo_standard_b75_exp", "ammo_standard_g12_explosive", "ammo_standard_g10_explosive",
+                "ammo_standard_ct_mortar", "ammo_standard_ct_mortar_charge", "ammo_secret_folly_nuke");
+
+        public static Fuze of(String ammo) {
+            if (ammo.equals("ammo_standard_b75_inc")) return WEAK;
+            if (IMPACT_NAMES.contains(ammo) || ammo.startsWith("ammo_standard_g40_") || ammo.startsWith("ammo_standard_rocket_")
+                    || ammo.startsWith("ammo_standard_nuke_")) return IMPACT;
+            return NONE;
+        }
+
+        public static Fuze of(@Nullable BulletConfig c) {
+            if (c == null) return NONE;
+            // a cluster grenade's bomblets blow up where they land (ItemGrenadeFilling.pellets)
+            if (c.ammoItem == null && (c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets
+                    || c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets_heavy)) return IMPACT;
+            return of(ammoName(c));
+        }
+    }
+
+    // sets a target alight where it hits (phosphorus, fire): under water it does not
+    public static boolean incendiary(String ammo) {
+        return ammo.endsWith("_inc") || ammo.endsWith("_phosphorus") || ammo.startsWith("ammo_standard_g26_flare");
+    }
+
+    public static boolean incendiary(@Nullable BulletConfig c) {
+        return c != null && incendiary(ammoName(c));
+    }
+
     // ammo whose class the numbers do not tell: by the ammo item's path (hbm:<path>)
     static final Map<String, WaterClass> BY_NAME = Map.ofEntries(
             Map.entry("ammo_standard_g12_flechette", DART),
@@ -99,6 +138,10 @@ public enum WaterClass {
     // the class of a bullet NTM fires
     public static WaterClass of(@Nullable BulletConfig c) {
         if (c == null) return PISTOL;
+        // a grenade's fragments and bomblets: no ammo of their own, they slow like buckshot
+        if (c.ammoItem == null && (c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.fragmentation
+                || c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets
+                || c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets_heavy)) return SHOT;
         return of(ammoName(c), c.pType == BulletConfig.ProjectileType.BEAM, c.projectilesMax, c.armorThresholdNegation,
                 c.armorPiercingPercent, c.velocity, c.onImpact != null);
     }

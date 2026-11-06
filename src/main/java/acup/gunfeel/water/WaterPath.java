@@ -73,6 +73,11 @@ public final class WaterPath {
         public double skipAngle(WaterClass cls) {
             return cls.explosive ? fuzeSkipAngle : skipAngle;
         }
+
+        // for a bullet with an impact fuze (WaterClass.Fuze): it skips by the fuze's angle whatever its class
+        public Settings fuzed() {
+            return new Settings(on, stopFraction, rangeScale, fuzeSkipAngle, fuzeSkipAngle, maxSkips);
+        }
     }
 
     // a skip off the surface: the bullet is put at `at` and goes on in `dir` (unit) with f
@@ -100,6 +105,8 @@ public final class WaterPath {
         private final @Nullable Entity bullet;
         // where along the path NTM's test found a block this tick (NaN: none), set by WaterTick
         double blockT = Double.NaN;
+        // the surface an impact fuze went off on this tick (WaterTick.blocks), null: none
+        net.minecraft.world.phys.@Nullable BlockHitResult fuzeHit;
         // the f the bullet's damage is counted at: the start's while the tick runs, the new f after it (WaterTick)
         double unit;
 
