@@ -134,8 +134,10 @@ neoForge {
             // -PsmokeStand=<dir>: smoke clouds measured, frame times and screenshots there (SmokeCloudStand);
             // -PstandSize=1920x1080 the window, -PsmokeBackend=vulkan the renderer
             systemProperty("ntmgunfeel.smokeStand",providers.gradleProperty("smokeStand").orElse("").get())
+            // -PsmokePoses=sky,wall: only the poses whose names start with one of these
+            systemProperty("ntmgunfeel.smokePoses",providers.gradleProperty("smokePoses").orElse("").get())
             // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
-            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("waterFx").isPresent) "-Xmx4G" else "-Xmx2500M")
+            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent) "-Xmx3G" else if(providers.gradleProperty("waterFx").isPresent) "-Xmx4G" else "-Xmx2500M")
             // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame
             providers.gradleProperty("gcLog").orNull?.let { jvmArgument("-Xlog:gc*:file=$it:uptime,time") }
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)

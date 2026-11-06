@@ -34,15 +34,36 @@ final class SmokeCloudStand {
     private static final int Y = 100;
     private static final String[] QUALITIES = {"off", "slices", "low", "medium", "high", "ultra"};
 
-    private record Pose(String name, double x, double y, double z, float yaw, float pitch, boolean wall) {
+    // sky: 0 the ordinary poses; 1 and 2 the clouds in the air at the height of the sky's own clouds, seen against them
+    // (1: the sky's clouds on, 2: off; same camera, so the pair tells where a sky cloud shows through the smoke)
+    private record Pose(String name, double x, double y, double z, float yaw, float pitch, boolean wall, int sky) {
+        Pose(String name, double x, double y, double z, float yaw, float pitch, boolean wall) {
+            this(name, x, y, z, yaw, pitch, wall, 0);
+        }
     }
 
-    private static final List<Pose> POSES = List.of(
+    private static final int SKY_Y = 188;
+    private static final List<Pose> POSES = poses(List.of(
             new Pose("outside", 0.5, Y + 3.2, 4.5, 0F, 8F, false),
             new Pose("inside", 6.5, Y + 1.6, 30.5, 0F, 0F, false),
             new Pose("inside-y135-p30", 6.5, Y + 1.6, 30.5, 135F, 30F, false),
             new Pose("inside-y-135-p-30", 6.5, Y + 1.6, 30.5, -135F, -30F, false),
-            new Pose("wall", -59.5, Y + 1.6, 8.5, 0F, -5F, true));
+            new Pose("wall", -59.5, Y + 1.6, 8.5, 0F, -5F, true),
+            new Pose("sky", 0.5, SKY_Y - 6, 4.5, 0F, -16F, false, 1),
+            new Pose("skyoff", 0.5, SKY_Y - 6, 4.5, 0F, -16F, false, 2),
+            new Pose("skyoff2", 0.5, SKY_Y - 6, 4.5, 0F, -16F, false, 2)));
+
+    // -PsmokePoses=a,b: only the poses whose names start with one of these
+    private static List<Pose> poses(List<Pose> all) {
+        String only = System.getProperty("ntmgunfeel.smokePoses", "");
+        if (only.isBlank()) return all;
+        List<Pose> out = new ArrayList<>();
+        for (Pose p : all) for (String s : only.split(",")) if (p.name.startsWith(s.trim())) {
+            out.add(p);
+            break;
+        }
+        return out;
+    }
 
     private static int pose, quality = -1, frames, phase;
     private static long last, spawnedAt;
@@ -52,6 +73,7 @@ final class SmokeCloudStand {
     private static final List<String> ROWS = new ArrayList<>();
     private static String savedQuality;
     private static int savedMax;
+    private static net.minecraft.client.CloudStatus savedClouds;
 
     private SmokeCloudStand() {
     }
@@ -64,6 +86,7 @@ final class SmokeCloudStand {
         if (!mc.gui.hud.isHidden()) mc.gui.hud.toggle();
         savedQuality = Config.smokeQuality;
         savedMax = Config.smokeMaxClouds;
+        savedClouds = mc.options.cloudStatus().get();
         var server = mc.getSingleplayerServer();
         server.submit(() -> {
             ServerLevel level = server.overworld();
@@ -92,14 +115,14 @@ final class SmokeCloudStand {
         last = System.nanoTime();
     }
 
-    private static void spawn(boolean wall) {
+    private static void spawn(Pose p) {
         var server = Minecraft.getInstance().getSingleplayerServer();
         server.submit(() -> {
             ServerLevel level = server.overworld();
             endAll(level);
             Vec3 dir = new Vec3(0, -0.3, 1).normalize();
-            if (wall) SmokeClouds.spawn(level, new Vec3(-59.5, Y + 0.5, 24.5), dir, SmokeKind.SMOKE, 1F);
-            else for (int i = 0; i < 8; i++) SmokeClouds.spawn(level, new Vec3(-41.5 + 12 * i, Y + 0.5, 30.5), dir, SmokeKind.SMOKE, 1F);
+            if (p.wall) SmokeClouds.spawn(level, new Vec3(-59.5, Y + 0.5, 24.5), dir, SmokeKind.SMOKE, 1F);
+            else for (int i = 0; i < 8; i++) SmokeClouds.spawn(level, new Vec3(-41.5 + 12 * i, (p.sky > 0 ? SKY_Y : Y) + 0.5, 30.5), dir, SmokeKind.SMOKE, 1F);
         }).join();
         spawnedAt = System.nanoTime();
     }
@@ -151,6 +174,8 @@ final class SmokeCloudStand {
                     return;
                 }
                 teleport(p);
+                // the sky's own clouds: on for the pose that looks for them, off for its pair
+                Minecraft.getInstance().options.cloudStatus().set(p.sky == 2 ? net.minecraft.client.CloudStatus.OFF : net.minecraft.client.CloudStatus.FANCY);
                 Config.smokeMaxClouds = 16;
                 clear();
                 reference = true;
@@ -181,12 +206,14 @@ final class SmokeCloudStand {
                 if (++frames < 10) return;
                 if (reference) {
                     reference = false;
-                    spawn(p.wall);
+                    spawn(p);
                     phase = 3;
                     frames = 0;
                     return;
                 }
                 quality++;
+                // the sky poses only at high
+                if (p.sky > 0) quality = quality <= 4 ? 4 : QUALITIES.length;
                 if (quality >= QUALITIES.length) {
                     pose++;
                     phase = 0;
@@ -201,7 +228,7 @@ final class SmokeCloudStand {
                 int n = all == null ? 0 : all.clouds().size();
                 if (n < (p.wall ? 1 : 8) && (now - spawnedAt) / 1e9 < 10) return;
                 if (n < (p.wall ? 1 : 8)) ClientSmoke.check(false, "дым: клиент получил " + n + " облаков");
-                quality = 0;
+                quality = p.sky > 0 ? 4 : 0;
                 nextQuality(p);
             }
             case 10 -> {
@@ -273,7 +300,7 @@ final class SmokeCloudStand {
     private static void nextQuality(Pose p) {
         // a cloud thins after ~22 s: a fresh set when the old one is 14 s old
         if ((System.nanoTime() - spawnedAt) / 1e9 > 14) {
-            spawn(p.wall);
+            spawn(p);
             phase = 3;
             frames = 0;
             return;
@@ -311,6 +338,7 @@ final class SmokeCloudStand {
     private static void done() {
         Config.smokeQuality = savedQuality;
         Config.smokeMaxClouds = savedMax;
+        Minecraft.getInstance().options.cloudStatus().set(savedClouds);
         clear();
         ROWS.add("# client: " + SmokeStats.last);
         ROWS.add("# server: " + SmokeClouds.serverCost());
