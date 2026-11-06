@@ -28,7 +28,8 @@ public final class GunFeelMod {
         Net.init(client);
         int id = TracerNet.register(Net.SETTINGS + 1); // 2-4: the bullets' word to the clients' tracers
         id = AmmoNet.register(Net.CHANNEL, id); // 5, 6: the ammo key's and menu's choice to the server
-        ModelHitNet.register(id, client); // 7, 8: the client's poses and meshes of the model hitboxes
+        id = ModelHitNet.register(id, client); // 7, 8: the client's poses and meshes of the model hitboxes
+        acup.gunfeel.water.WaterBlastPayload.register(id); // 9: an NTM blast at water to the players near (water 2c)
         BulletCheck.registerIfAsked();
         WaterCheck.registerIfAsked();
         ExplosiveCheck.registerIfAsked();

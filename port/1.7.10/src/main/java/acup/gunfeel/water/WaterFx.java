@@ -35,6 +35,8 @@ public final class WaterFx {
         started = true;
         WaterEvents.listen(WaterFx::on);
         WaterEvents.listenTicks(WaterFx::tick);
+        // a blast at water (WaterBlast, from the server): bubbles and a push under water, a column on the surface
+        WaterEvents.listenBlasts(WaterFx::blastAt);
         WaterEvents.ntmBubbles = !Config.waterSplash;
     }
 
@@ -544,6 +546,7 @@ public final class WaterFx {
         }
         if (mc.theWorld == null || mc.isGamePaused()) return;
         long now = ++ticks;
+        WaterEvents.drainBlasts(mc.theWorld);
         WaterParticle.sweep(now);
         int n = LATER.size();
         for (int i = 0; i < n; i++) {
@@ -556,6 +559,7 @@ public final class WaterFx {
 
     public static void clear() {
         LATER.clear();
+        WaterEvents.forgetBlasts();
         WaterRings.clear();
         SunkBullets.clear();
         WaterParticle.forget();
@@ -625,6 +629,18 @@ public final class WaterFx {
     }
 
     // ---- explosions under water and at the surface ----
+
+    // a blast at water from the server (WaterEvents.listenBlasts): on the surface (its centre within half a block of
+    // it) only the column; deeper bubbles and a push, and a column that shrinks with the depth, none past a block
+    // plus the blast's size
+    public static void blastAt(World level, WaterEvents.Blast b) {
+        if (b.liquid() == WaterEvents.Liquid.LAVA) return;
+        double depth = b.surface() == null ? Double.POSITIVE_INFINITY : b.surface().y - b.at().y;
+        if (b.inWater() && depth > 0.5) blast(level, b.at(), b.size(), b.incendiary());
+        if (b.surface() == null) return;
+        double k = depth <= 1 ? 1 : 1 - (depth - 1) / Math.max(1, b.size());
+        if (k > 0.1) blastPlume(level, b.surface(), (float) (b.size() * k));
+    }
 
     // A blast whose centre is under water: a flash (orange and weaker for an incendiary), a big pulsing gas bubble that
     // breaks into a cloud of bubbles, bits flying out. size = NTM's explosion size in blocks.

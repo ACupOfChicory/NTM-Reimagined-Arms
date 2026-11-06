@@ -16,6 +16,7 @@ import com.hbm.items.weapon.sedna.BulletConfig;
 import acup.gunfeel.water.WaterClass;
 import acup.gunfeel.water.WaterEvents;
 import acup.gunfeel.water.WaterFx;
+import acup.gunfeel.phys.Vec3;
 import acup.gunfeel.water.AmmoModels;
 import acup.gunfeel.water.SunkBullets;
 import acup.gunfeel.water.SunkPhysics;
@@ -39,8 +40,9 @@ import net.minecraft.world.World;
 // after the water and, for the control, before it (waterfx-foam-{late,early}.png), the ring taken off
 // when its water is drained, and every particle gone in the end. The rounds the water stopped (SunkBullets, 2b): their
 // size from NTM's casings (a line per round), rounds drawn in flight under water and lying on the bottom, and a round
-// asleep on the waterfall basin's bottom going down when the stone under it is broken (X517). Lines in
-// run/client/waterfx.txt and the log; quits.
+// asleep on the waterfall basin's bottom going down when the stone under it is broken (X517). Blasts at water (2c): an
+// explosive g12 into the slope pool (the server's WaterBlastPayload), then a blast of size 6 given to the listeners in
+// the shallow pool's water and one on its surface (as 26.2's stand: the surface given 0.9 over the centre). Lines in run/client/waterfx.txt and the log; quits.
 final class WaterFxScenario {
     private WaterFxScenario() {
     }
@@ -48,7 +50,7 @@ final class WaterFxScenario {
     private static final int BUILD = 20, SHOTS = 120, POOL_TICKS = 70, SHOT_GAP = 15, UNDER = 420, UNDER_CHECK = 470, FLASH_GO = 480,
             FLASH_FIRE = 520, FLASH_STOP = 540, FLASH_CHECK = 560, DRY_GO = 562, DRY_FIRE = 575, DRY_STOP = 595, DRY_CHECK = 605, LOOK = 610,
             RINGS0 = 650, RING_ADD = 655, RINGS1 = 670, FOAM = 672, FOAM_LATE = 690, FOAM_EARLY = 700, DRAIN = 730, DRAIN_CHECK = 780,
-            FLOOR = 790, FLOOR_WAIT = 240, LIVE_AFTER = 220, DONE_AFTER = 20;
+            BLAST_G12 = 785, BLAST_IN = 870, BLAST_TOP = 955, BLAST_WAIT = 80, FLOOR = 1045, FLOOR_WAIT = 240, LIVE_AFTER = 220, DONE_AFTER = 20;
     private static final String[] AMMO = {"ammo_standard_p9_fmj", "ammo_standard_r762_fmj", "ammo_standard_g12", "ammo_standard_g12_slug"};
     private static final String[] POOLS = {"still", "slope", "fall", "shallow"};
 
@@ -57,7 +59,7 @@ final class WaterFxScenario {
     private static final List<String> lines = new ArrayList<String>();
     private static final List<String> failed = new ArrayList<String>();
     private static int[] before, eventsBefore;
-    private static int ringsBefore, ringsLeft0, flash0, traced0, late0, shotEnter0;
+    private static int ringsBefore, ringsLeft0, flash0, traced0, late0, shotEnter0, blasts0, plumes0;
     private static final int[] perShot = new int[AMMO.length];
     // the sunk rounds: the most at once, the physics' worst frame; the floor test's step (0 looking, 1 falling, 3
     // done), its round, the tick the end's checks come
@@ -181,6 +183,39 @@ final class WaterFxScenario {
             int left = WaterRings.leftWater - ringsLeft0;
             lines.add("rings taken off as their water went: " + left + ", alive now " + WaterRings.alive());
             check(left > 0 && WaterRings.alive() == 0, "a ring goes when its water goes");
+        }
+        // blasts at water (2c, 26.2's stand the same): through the server, then given straight to the listeners
+        if (t == BLAST_G12) {
+            blastMark();
+            ShootScenario.onServer(() -> fire(1, "ammo_standard_g12_explosive"));
+        }
+        if (t == BLAST_G12 + BLAST_WAIT) {
+            lines.add("explosive g12 into the slope pool: blasts under water " + (WaterFx.blasts - blasts0) + ", columns " + (WaterFx.plumes - plumes0)
+                    + ", particles " + kinds() + ", widest ring reach " + WaterRings.widest + " cells");
+            check(WaterFx.plumes - plumes0 + WaterFx.blasts - blasts0 > 0, "a blast at water reaches the effects (WaterBlastPayload, listenBlasts)");
+        }
+        if (t == BLAST_IN) {
+            blastMark();
+            // the shallow pool, not the waterfall basin: its blasts would wake the rounds the floor test wants asleep
+            Vec3 at = new Vec3(x0 + 37.5, y - 1 + 0.05, z0 + 6.5);
+            WaterEvents.blast(mc.theWorld, new WaterEvents.Blast(at, 6F, false, true, new Vec3(at.x, at.y + 0.9, at.z), WaterEvents.Liquid.WATER));
+        }
+        if (t == BLAST_IN + BLAST_WAIT) {
+            lines.add("blast of size 6 given in the shallow pool: blasts under water " + (WaterFx.blasts - blasts0) + ", columns "
+                    + (WaterFx.plumes - plumes0) + ", particles " + kinds() + ", widest ring reach " + WaterRings.widest + " cells");
+            check(WaterFx.blasts - blasts0 == 1 && WaterFx.plumes - plumes0 == 1, "a blast in water: bubbles and a push, a column over it");
+            check(WaterRings.widest > 3, "a big blast's rings not cut at 3 cells");
+        }
+        // the same blast with its centre on the surface: the column only, no bubble under water
+        if (t == BLAST_TOP) {
+            blastMark();
+            Vec3 at = new Vec3(x0 + 37.5, y - 1 + 0.95, z0 + 6.5);
+            WaterEvents.blast(mc.theWorld, new WaterEvents.Blast(at, 6F, false, true, at, WaterEvents.Liquid.WATER));
+        }
+        if (t == BLAST_TOP + BLAST_WAIT) {
+            lines.add("blast of size 6 on the shallow pool's surface: blasts under water " + (WaterFx.blasts - blasts0) + ", columns "
+                    + (WaterFx.plumes - plumes0) + ", particles " + kinds());
+            check(WaterFx.blasts - blasts0 == 0 && WaterFx.plumes - plumes0 == 1, "a blast on the surface: the column only, no bubble");
         }
         if (t == FLOOR) ShootScenario.onServer(WaterFxScenario::fireFloor);
         // ShootScenario.onServer holds one task: the next one two ticks after the last
@@ -414,6 +449,13 @@ final class WaterFxScenario {
         eventsBefore = WaterFx.SPAWNED_EVENTS.clone();
         ringsBefore = WaterRings.made;
         traced0 = WaterFx.tracedCount;
+    }
+
+    private static void blastMark() {
+        mark();
+        blasts0 = WaterFx.blasts;
+        plumes0 = WaterFx.plumes;
+        WaterRings.widest = 0;
     }
 
     private static int delta(WaterParticle.Kind k) {

@@ -1,5 +1,13 @@
 # Changelog
 
+## X543.140
+
+- As in 26.2: an NTM explosion at water shows. Under water it gives a
+  flash (orange and weaker for an incendiary charge), a big gas bubble that
+  pulses and breaks into a cloud of bubbles, flying bits, and a push to the
+  rounds lying on the bottom; on the surface or close under it a column of
+  water with spray, rings and foam, smaller the deeper the blast.
+
 ## X543.139
 
 - As in 26.2: a bullet flying in water is seen as a small model of the

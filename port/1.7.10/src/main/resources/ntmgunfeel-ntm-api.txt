@@ -151,6 +151,10 @@ BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 worldObj Lnet/minecr
 BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase worldObj Lnet/minecraft/world/World;
 BULLETS field com/hbm/entity/projectile/EntityThrowableNT ticksInAir I
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT exploder Lnet/minecraft/entity/Entity;
+BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posX D
+BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posY D
+BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posZ D
+BULLETS field com/hbm/explosion/vanillant/ExplosionVNT size F
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/World;
 BULLETS field com/hbm/inventory/RecipesCommon$ComparableStack item Lnet/minecraft/item/Item;
 BULLETS field com/hbm/inventory/RecipesCommon$ComparableStack meta I

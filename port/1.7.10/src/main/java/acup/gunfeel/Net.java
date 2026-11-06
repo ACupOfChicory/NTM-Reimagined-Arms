@@ -30,6 +30,7 @@ import net.minecraft.server.MinecraftServer;
 //   2-4 tracers   server -> client (TracerNet)
 //   5-6 ammo      client -> server (AmmoNet)
 //   7-8 hitboxes  client -> server (ModelHitNet)
+//   9 water blast server -> client: an NTM blast at water (water.WaterBlastPayload)
 // Further messages take the next free numbers (GunFeelMod.preInit). Handlers run on the network thread.
 //
 // The handshake. 26.2 refuses a client of another build at connection (NeoForge's registrar, the channel's version is

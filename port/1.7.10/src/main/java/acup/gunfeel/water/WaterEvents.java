@@ -1,6 +1,7 @@
 package acup.gunfeel.water;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import acup.gunfeel.phys.Direction;
@@ -56,6 +57,53 @@ public final class WaterEvents {
     // bubbles along it; after the tick's events
     public interface TickListener {
         void tick(World level, Entity bullet, WaterPath.Result path);
+    }
+
+    // an NTM explosion whose centre is in a liquid or within a block over its surface, on the client (the server sends
+    // WaterBlastPayload to the players near; in single player the integrated server sends it to this client too).
+    // at = the centre; size = NTM's ExplosionVNT size (the blast's range in blocks is about twice that); incendiary =
+    // the charge sets alight in air (phosphorus, napalm, b75_inc): under water it gives a flash and no fire; inWater =
+    // the centre is in the liquid (else it is just above the surface); surface = the point of the surface over the
+    // centre (null when no surface is within 8 blocks over it); liquid = the liquid at the centre or under it
+    public record Blast(Vec3 at, float size, boolean incendiary, boolean inWater, Vec3 surface, Liquid liquid) {
+    }
+
+    public interface BlastListener {
+        void blast(World level, Blast blast);
+    }
+
+    private static final List<BlastListener> BLASTS = new CopyOnWriteArrayList<>();
+
+    public static void listenBlasts(BlastListener l) {
+        BLASTS.add(l);
+    }
+
+    public static void blast(World level, Blast b) {
+        if (!level.isRemote) return;
+        for (BlastListener l : BLASTS) {
+            try {
+                l.blast(level, b);
+            } catch (RuntimeException e) {
+                acup.gunfeel.GunFeel.LOGGER.warn("water blast listener failed", e);
+            }
+        }
+    }
+
+    // port: 1.7.10 hands a message to its handler on the network thread (26.2: enqueueWork); the blasts wait here
+    // for the next client tick (WaterFx.clientTick)
+    private static final ConcurrentLinkedQueue<Blast> RECEIVED = new ConcurrentLinkedQueue<>();
+
+    public static void received(Blast b) {
+        if (RECEIVED.size() < 256) RECEIVED.add(b);
+    }
+
+    public static void drainBlasts(World level) {
+        Blast b;
+        while ((b = RECEIVED.poll()) != null) blast(level, b);
+    }
+
+    public static void forgetBlasts() {
+        RECEIVED.clear();
     }
 
     private static final List<Listener> LISTENERS = new CopyOnWriteArrayList<>();

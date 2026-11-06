@@ -15,9 +15,8 @@ import net.minecraft.world.World;
 // waterBlastRadius × its range, those out of the water half of what they would. Blocks break as NTM breaks them.
 // Hooked into EntityProcessorCross.process (MixinWaterBlastProcessor); ExplosionVNT.explode (MixinWaterBlast) shows it
 // to the stand (watch).
-// port: 26.2's WaterBlast (a1f618b) on NTM 1.7.10 (the same ExplosionVNT and EntityProcessorCross). Not yet here:
-// the message to the players near (26.2's WaterBlastPayload, for the plume and the bubble): it comes with the water's
-// effects (water 2), its only reader.
+// port: 26.2's WaterBlast (a1f618b) on NTM 1.7.10 (the same ExplosionVNT and EntityProcessorCross), with the message
+// to the players near (WaterBlastPayload, for the plume and the bubble; water 2c).
 public final class WaterBlast {
     private WaterBlast() {
     }
@@ -167,9 +166,16 @@ public final class WaterBlast {
     // the stand's (ExplosiveCheck): every NTM explosion as it starts
     public static volatile java.util.function.Consumer<ExplosionVNT> watch;
 
-    // ExplosionVNT.explode (HEAD), the server
+    // ExplosionVNT.explode (HEAD), the server: the stand's watch, and the players near when it is at water
     public static void announce(ExplosionVNT e) {
         java.util.function.Consumer<ExplosionVNT> w = watch;
         if (w != null) w.accept(e);
+        if (e.world == null || e.world.isRemote) return;
+        Vec3 at = new Vec3(e.posX, e.posY, e.posZ);
+        Place p = place(e.world, at);
+        if (p == null) return;
+        EntityBulletBaseMK4 b = BULLET.get();
+        boolean incendiary = b != null && WaterClass.incendiaryConfig(b.config);
+        WaterBlastPayload.send(e.world.provider.dimensionId, at, new WaterBlastPayload(at, e.size, incendiary, p.inWater(), p.surface(), p.liquid()));
     }
 }
