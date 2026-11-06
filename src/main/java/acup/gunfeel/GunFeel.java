@@ -32,6 +32,8 @@ public final class GunFeel {
     private static final Map<Item, Long> SEEN_SHOT = new IdentityHashMap<>();
 
     static void init() {
+        acup.gunfeel.compat.PunchyCompat.install();
+        acup.gunfeel.compat.PunchyMovesCompat.install();
         ClientSmoke.init();
         NeoForge.EVENT_BUS.addListener(RenderFrameEvent.Pre.class, e -> {
             ModelHitClient.frame();
