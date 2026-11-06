@@ -1,5 +1,19 @@
 # Changelog
 
+## X482
+
+- NTM bullets slow down in water, and their damage and piercing fall with the
+  square of the speed; a hole in a block behind water comes out smaller. A
+  pistol bullet goes through about 2.4 blocks of water, a rifle bullet 1.2,
+  an armour-piercing one 1.7, a shotgun slug 2.7, buckshot 0.6. Hollow and
+  soft points open in water and stop sooner: a 9 mm JHP after 1.3 blocks, an
+  SP after 1.8. A falling stream barely slows a bullet; lava and a
+  flamethrower's fire stop where they meet.
+- At a shallow angle (under 6°, 10° for grenades and rockets) a bullet skips
+  off water, at most twice a flight, losing a third of its speed. A shot from
+  under water follows the same rules and sounds duller and lower.
+- Keys in `ntm-gunfeel-server.properties`: `waterBallistics`, `waterStopFraction`, `waterRangeScale`, `waterSkipAngle`, `waterMuffle`.
+
 ## X479
 
 - Игрок в режиме наблюдателя больше не стреляет из пушек NTM и не ранит мобов:

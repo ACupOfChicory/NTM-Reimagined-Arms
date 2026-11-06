@@ -54,6 +54,27 @@ public enum WaterClass {
         return density > 0 ? 18.0 / Math.sqrt(density) : Double.NaN;
     }
 
+    // an expanding bullet (hollow or soft point): over the first `span` blocks of water it opens and its L falls
+    // smoothly to (1 - drop)·L, L(u) = L·(1 - drop·min(1, u / span)), u = the path in water so far (× the density)
+    public record Expansion(double span, double drop) {
+        // hollow point: open within 0.12 blocks, L to 55%
+        public static final Expansion JHP = new Expansion(0.12, 0.45);
+        // soft point: within 0.2 blocks, L to 75%
+        public static final Expansion SP = new Expansion(0.2, 0.25);
+
+        // by the ammo's name: *_jhp, *_sp (not by the armour piercing: b75_exp has the JHP's -0.25 too); express is not
+        // expanding, NTM gives it the FMJ's piercing
+        public static @Nullable Expansion of(String ammo) {
+            if (ammo.endsWith("_jhp")) return JHP;
+            if (ammo.endsWith("_sp")) return SP;
+            return null;
+        }
+
+        public static @Nullable Expansion of(@Nullable BulletConfig c) {
+            return of(ammoName(c));
+        }
+    }
+
     // ammo whose class the numbers do not tell: by the ammo item's path (hbm:<path>)
     static final Map<String, WaterClass> BY_NAME = Map.ofEntries(
             Map.entry("ammo_standard_g12_flechette", DART),
@@ -75,17 +96,22 @@ public enum WaterClass {
     // the class of a bullet NTM fires
     public static WaterClass of(@Nullable BulletConfig c) {
         if (c == null) return PISTOL;
-        String name = "";
+        return of(ammoName(c), c.pType == BulletConfig.ProjectileType.BEAM, c.projectilesMax, c.armorThresholdNegation,
+                c.armorPiercingPercent, c.velocity, c.onImpact != null);
+    }
+
+    // the ammo item's path (hbm:<path>), "" when it has none
+    static String ammoName(@Nullable BulletConfig c) {
+        if (c == null) return "";
         try {
             if (c.ammoItem != null) {
                 var key = BuiltInRegistries.ITEM.getKey(c.ammoItem.get());
-                if (key.getNamespace().equals("hbm")) name = key.getPath();
+                if (key.getNamespace().equals("hbm")) return key.getPath();
             }
         } catch (RuntimeException e) {
             // no item: by the numbers alone
         }
-        return of(name, c.pType == BulletConfig.ProjectileType.BEAM, c.projectilesMax, c.armorThresholdNegation,
-                c.armorPiercingPercent, c.velocity, c.onImpact != null);
+        return "";
     }
 
     // the same on plain numbers (the tests run it on NTM's dump): ammo = the item's path without "hbm:", beam = NTM's

@@ -94,13 +94,16 @@ class WaterClassTest {
         // the README's table: ./gradlew test -Dntmgunfeel.waterTable=<file>
         String out = System.getProperty("ntmgunfeel.waterTable");
         if (out != null) {
-            StringBuilder b = new StringBuilder("| Патрон | Класс | L, бл | Остановка, бл | После 1 бл воды |\n|---|---|---|---|---|\n");
+            StringBuilder b = new StringBuilder("| Патрон | Класс | L, бл | Раскрытие | Остановка, бл | После 1 бл воды |\n|---|---|---|---|---|---|\n");
             for (var e : got.entrySet()) {
                 WaterClass c = e.getValue();
+                var ex = c.slows() ? WaterClass.Expansion.of(e.getKey()) : null;
                 String l = c.slows() ? String.format(java.util.Locale.ROOT, "%.2f", c.length) : c.length <= 0 ? "0" : "∞";
-                String stop = c.slows() ? String.format(java.util.Locale.ROOT, "%.2f", WaterPath.stopDepth(c, WaterPath.Settings.DEFAULT)) : c.length <= 0 ? "сразу" : "—";
-                String one = c.slows() ? Math.round(100 * Math.exp(-1 / c.length)) + "%" : c.length <= 0 ? "0" : "100%";
-                b.append("| `").append(e.getKey()).append("` | ").append(c).append(" | ").append(l).append(" | ").append(stop).append(" | ").append(one).append(" |\n");
+                String open = ex == null ? "—" : String.format(java.util.Locale.ROOT, "%s: L до %d%% за %.2f бл", ex == WaterClass.Expansion.JHP ? "JHP" : "SP",
+                        Math.round(100 * (1 - ex.drop())), ex.span());
+                String stop = c.slows() ? String.format(java.util.Locale.ROOT, "%.2f", WaterPath.stopDepth(c, ex, WaterPath.Settings.DEFAULT)) : c.length <= 0 ? "сразу" : "—";
+                String one = c.slows() ? Math.round(100 * Math.exp(-WaterPath.drag(c.length, ex, 1))) + "%" : c.length <= 0 ? "0" : "100%";
+                b.append("| `").append(e.getKey()).append("` | ").append(c).append(" | ").append(l).append(" | ").append(open).append(" | ").append(stop).append(" | ").append(one).append(" |\n");
             }
             Files.writeString(Path.of(out), b);
         }

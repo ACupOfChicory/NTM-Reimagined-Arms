@@ -211,11 +211,12 @@ CORE field com/hbm/blocks/generic/BlockWoodStructure$Kind SCAFFOLD Lcom/hbm/bloc
 CORE field com/hbm/blocks/multiblock/BlockMultiblockCore FACING Lnet/minecraft/world/level/block/state/properties/EnumProperty;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
-CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 tickCount I
 CORE field com/hbm/items/weapon/sedna/BulletConfig ammoItem Ljava/util/function/Supplier;
 CORE field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
 CORE field com/hbm/items/weapon/sedna/BulletConfig armorThresholdNegation F
 CORE field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
+CORE field com/hbm/items/weapon/sedna/BulletConfig gravity D
+CORE field com/hbm/items/weapon/sedna/BulletConfig id I
 CORE field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
 CORE field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 CORE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
@@ -233,6 +234,8 @@ CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getId ()I
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getX ()D
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getY ()D
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setDeltaMovement (Lnet/minecraft/world/phys/Vec3;)V

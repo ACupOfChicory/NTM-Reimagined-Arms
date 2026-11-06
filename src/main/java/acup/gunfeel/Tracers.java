@@ -94,6 +94,8 @@ public final class Tracers {
         // new piece goes on from there (`next`, slower or turned)
         double waterF = 1;
         int waterSkips;
+        // how far an expanding bullet has opened (WaterPath.Result.opened)
+        double waterOpened;
         int waterTick = -1;
         double waterCut = Double.NaN;
         acup.gunfeel.water.WaterPath.Result waterPath;
@@ -137,6 +139,7 @@ public final class Tracers {
             this.checked = 1e-4; // not at the very face it left
             this.waterF = from.waterF;
             this.waterSkips = from.waterSkips;
+            this.waterOpened = from.waterOpened;
         }
 
         // the same bullet after water slowed or turned it: from `start` with `v` (its new speed in it), f, skips
@@ -160,6 +163,7 @@ public final class Tracers {
             this.whizzed = from.whizzed;
             this.waterF = f;
             this.waterSkips = skips;
+            this.waterOpened = from.waterPath != null ? from.waterPath.opened : from.waterOpened;
         }
 
         // where the bullet is after t ticks (as the server moves it), plus the muzzle offset fading out
@@ -638,8 +642,17 @@ public final class Tracers {
         return s.eye.add(one.subtract(s.eye).scale(t));
     }
 
-    // test the bullet's path up to t ticks against blocks and entities; stops it at the first thing it meets
+    // test the bullet's path up to t ticks against blocks and entities; stops it at the first thing it meets. A tick
+    // at a time, as the server moves it: water changes the speed only at a tick's end (a slow frame spans several)
     private static void fly(Shot s, ClientLevel level, double t) {
+        for (int i = 0; i < 64 && Double.isNaN(s.end) && s.checked < t; i++) {
+            double before = s.checked;
+            flyStep(s, level, Math.min(t, Math.floor(s.checked + 1e-9) + 1));
+            if (s.checked <= before) break;
+        }
+    }
+
+    private static void flyStep(Shot s, ClientLevel level, double t) {
         // a trace: the path is tested a whole tick at a time, as the server moves the bullet, and up to the whole tick
         // past the server's stop, so where it meets a block hangs neither on the frames nor on when the stop came
         if (Trace.ON) t = Double.isNaN(s.confirmedEnd) ? Math.floor(t) : Math.min(Math.floor(t), Math.ceil(s.confirmedEnd));
@@ -799,8 +812,8 @@ public final class Tracers {
         if (!settings.on() || k >= s.lifeTicks) return;
         var cls = acup.gunfeel.water.WaterClass.of(s.config);
         Vec3 a = tested(s, k), b = tested(s, k + 1);
-        var r = acup.gunfeel.water.WaterPath.trace(level, a, b, s.waterF, cls, s.waterSkips,
-                acup.gunfeel.water.WaterTick.seed(s.id, s.waterSkips), settings, null);
+        var r = acup.gunfeel.water.WaterPath.trace(level, a, b, s.waterF, cls, acup.gunfeel.water.WaterClass.Expansion.of(s.config),
+                s.waterOpened, s.waterSkips, acup.gunfeel.water.WaterTick.seed(s.id, s.waterSkips), settings, null);
         if (r.events.isEmpty() && r.water <= 0) return;
         s.waterPath = r;
         if (r.cut()) s.waterCut = k + r.t(r.end());

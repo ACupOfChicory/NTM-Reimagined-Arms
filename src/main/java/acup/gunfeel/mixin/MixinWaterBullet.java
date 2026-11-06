@@ -23,6 +23,8 @@ public abstract class MixinWaterBullet implements WaterBullet {
     @Unique private boolean gunfeel$stopped;
     @Unique private WaterPath.@Nullable Result gunfeel$tick;
     @Unique private @Nullable WaterClass gunfeel$class;
+    @Unique private WaterClass.@Nullable Expansion gunfeel$expansion;
+    @Unique private double gunfeel$opened;
 
     @Inject(method = "motionMult", at = @At("RETURN"), cancellable = true)
     private void gunfeel$waterSpeed(CallbackInfoReturnable<Double> cir) {
@@ -37,6 +39,14 @@ public abstract class MixinWaterBullet implements WaterBullet {
     @Override public void gunfeel$waterStopped(boolean stopped) { gunfeel$stopped = stopped; }
     @Override public WaterPath.@Nullable Result gunfeel$waterTick() { return gunfeel$tick; }
     @Override public void gunfeel$waterTick(WaterPath.@Nullable Result tick) { gunfeel$tick = tick; }
+    @Override public double gunfeel$waterOpened() { return gunfeel$opened; }
+    @Override public void gunfeel$waterOpened(double opened) { gunfeel$opened = opened; }
+
+    @Override
+    public WaterClass.@Nullable Expansion gunfeel$waterExpansion() {
+        gunfeel$waterClass();
+        return gunfeel$expansion;
+    }
 
     @Override
     public WaterClass gunfeel$waterClass() {
@@ -44,6 +54,7 @@ public abstract class MixinWaterBullet implements WaterBullet {
         var config = ((EntityBulletBaseMK4) (Object) this).config;
         // NTM sets the config on the first tick
         if (config == null) return WaterClass.PISTOL;
+        gunfeel$expansion = WaterClass.Expansion.of(config);
         return gunfeel$class = WaterClass.of(config);
     }
 }

@@ -27,7 +27,9 @@ public final class WaterTick {
         WaterPath.Settings s = WaterPath.Settings.current();
         if (!s.on()) return to;
         long seed = seed(bullet.getId(), w.gunfeel$waterSkips());
-        WaterPath.Result r = WaterPath.trace(level, from, to, w.gunfeel$waterF(), w.gunfeel$waterClass(), w.gunfeel$waterSkips(), seed, s, bullet);
+        WaterClass cls = w.gunfeel$waterClass();
+        WaterPath.Result r = WaterPath.trace(level, from, to, w.gunfeel$waterF(), cls, w.gunfeel$waterExpansion(), w.gunfeel$waterOpened(),
+                w.gunfeel$waterSkips(), seed, s, bullet);
         if (r.events.isEmpty() && r.water <= 0) return to;
         w.gunfeel$waterTick(r);
         return r.end();
@@ -82,6 +84,7 @@ public final class WaterTick {
         double f1 = blocked ? r.fAt(hitT) : r.f;
         if (server && f0 > 0) bullet.damage *= (float) ((f1 / f0) * (f1 / f0));
         w.gunfeel$waterF(f1);
+        w.gunfeel$waterOpened(blocked ? r.openedAt(hitT) : r.opened);
         r.unit = f1;
         if (server && TestLog.server) for (WaterEvents.Event e : r.events)
             TestLog.s(bullet.getId(), "water", "event", e.type(), "at", e.at(), "f", e.f(), "kind", e.kind(), "liquid", e.liquid(),

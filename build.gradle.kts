@@ -272,6 +272,14 @@ neoForge {
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkBullets", layout.buildDirectory.file("bulletcheck/result.txt").get().asFile.path)
         }
+        // bullets in water: a basin in a flat world (WaterCheck), the result is a tsv
+        register("checkWater") {
+            server()
+            gameDirectory = root.resolve("run-water")
+            programArgument("--nogui")
+            jvmArgument("-Xmx1200M")
+            systemProperty("ntmgunfeel.checkWater", layout.buildDirectory.file("watercheck/result.tsv").get().asFile.path)
+        }
         // -Ptrace=<file> (relative to the run's folder) or -Ptrace=true: the run writes a trace (Trace.java) to compare
         // with tools/trace_diff.py; -PtraceScenario=<name>, -PtraceHex, -Pseed=<n> go with it
         configureEach {
@@ -343,7 +351,7 @@ val mixinCheck = tasks.register<JavaExec>("mixinCheck") {
 tasks.check { dependsOn(mixinCheck) }
 
 // the dump server needs the EULA accepted in its own folder
-val checkRuns = mapOf("runDumpBlocks" to "run-dump", "runCheckSettings" to "run-check", "runCheckBullets" to "run-bullets")
+val checkRuns = mapOf("runDumpBlocks" to "run-dump", "runCheckSettings" to "run-check", "runCheckBullets" to "run-bullets", "runCheckWater" to "run-water")
 tasks.matching { it.name in checkRuns }.configureEach {
     val dir = root.resolve(checkRuns.getValue(name))
     doFirst {
@@ -352,11 +360,12 @@ tasks.matching { it.name in checkRuns }.configureEach {
         dir.mkdirs()
         dir.resolve("eula.txt").writeText("eula=true\n")
         // the smallest world that still has one: flat, two chunks around, nothing generated on it
-        if (name == "runCheckBullets") dir.resolve("server.properties").writeText(
+        if (name == "runCheckBullets" || name == "runCheckWater") dir.resolve("server.properties").writeText(
             "level-type=minecraft\\:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\n" +
             "spawn-protection=0\nonline-mode=false\nspawn-monsters=false\nspawn-animals=false\nmax-players=1\n" +
             // -PserverPort=<n>: a port of its own, away from a real server on 25565
-            (providers.gradleProperty("serverPort").orNull?.let { "server-port=$it\n" } ?: ""))
+            (providers.gradleProperty("serverPort").orNull?.let { "server-port=$it\n" }
+                ?: if (name == "runCheckWater") "server-port=25641\n" else ""))
     }
 }
 
