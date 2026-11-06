@@ -92,10 +92,13 @@ class ArmPistolScaleTest {
         return result;
     }
 
-    // the angle (deg) the drawn arm's slice 2 px back from its end takes across the arm as the eye sees it: the slice's
-    // corners projected on the plane square to the line of sight, measured across the arm's projected axis
-    private static double silhouette(Matrix4f m, boolean right, boolean slim) {
-        float cx = (right ? -1F : 1F) * (slim ? 5.5F : 6F) / 16F, hx = (slim ? 1.5F : 2F) / 16F, y = 10F / 16F;
+    // the angle (deg) the drawn arm's slice 2 px back from its end (the middle of what is drawn when less is) takes
+    // across the arm as the eye sees it: the slice's corners projected on the plane square to the line of sight,
+    // measured across the arm's projected axis
+    private static double silhouette(Arms.ArmRest rest, boolean right, boolean slim) {
+        Matrix4f m = rest.local;
+        float cx = (right ? -1F : 1F) * (slim ? 5.5F : 6F) / 16F, hx = (slim ? 1.5F : 2F) / 16F;
+        float y = (12F - Math.min(2F, rest.crop / 2F)) / 16F;
         Vector3f c = m.transformPosition(cx, y, 0F, new Vector3f());
         Vector3f d = new Vector3f(c).normalize();
         Vector3f e1 = new Vector3f(d).cross(0F, 1F, 0F).normalize();
@@ -120,13 +123,16 @@ class ArmPistolScaleTest {
     void bothHandsOfEveryPistolShowTheSameWidthFromTheHipAndAimed() {
         ConfigState old = ConfigState.capture();
         try {
-            for (boolean slim : new boolean[] {false, true}) {
+            // armLength 0.1: only the last pixel of the arm is drawn, and that is what is measured
+            for (float length : new float[] {1F, 0.1F}) for (boolean slim : new boolean[] {false, true}) {
+                Config.armLength = length;
                 double lo = Double.MAX_VALUE, hi = 0;
                 for (float[] h : HANDS) {
                     Arms.ArmRest r = rest(true, slim, new Vector3f(h[0], h[1], h[2]), 1F);
                     Arms.ArmRest l = rest(false, slim, new Vector3f(h[3], h[4], h[5]), 1F);
-                    double sr = silhouette(r.local, true, slim), sl = silhouette(l.local, false, slim);
-                    assertEquals(1.0, sr / sl, 0.015, "R/L " + java.util.Arrays.toString(h) + " slim " + slim);
+                    if (length < 1F) assertEquals(1, r.crop);
+                    double sr = silhouette(r, true, slim), sl = silhouette(l, false, slim);
+                    assertEquals(1.0, sr / sl, 0.015, "R/L " + java.util.Arrays.toString(h) + " slim " + slim + " length " + length);
                     lo = Math.min(lo, Math.min(sr, sl));
                     hi = Math.max(hi, Math.max(sr, sl));
                 }
@@ -140,20 +146,38 @@ class ArmPistolScaleTest {
     }
 
     @Test
-    void theThicknessSettlesAndBlendsWithTheOldOne() {
+    void theWidthIsTheGoalAndHalfWeightIsHalfWay() {
         ConfigState old = ConfigState.capture();
         try {
-            for (float[] h : HANDS) for (int i = 0; i < 2; i++) {
+            for (float[] h : HANDS) for (int i = 0; i < 2; i++) for (boolean slim : new boolean[] {false, true}) {
                 boolean right = i == 0;
                 Vector3f grip = new Vector3f(h[3 * i], h[3 * i + 1], h[3 * i + 2]);
-                Arms.ArmRest full = rest(right, true, grip, 1F);
-                float dir[] = right ? Config.armDirRight : Config.armDirLeft;
-                float target = Arms.pistolTarget(right, true, grip, new Vector3f(0F, -1F, 0F),
-                        new Vector3f(dir[0], dir[1], dir[2]).normalize(), full.s, full.length);
-                assertEquals(target * Config.armScale, full.s, 1e-4F * full.s, "fixed point");
-                float none = rest(right, true, grip, 0F).s, half = rest(right, true, grip, 0.5F).s;
-                assertTrue(half > Math.min(none, full.s) && half < Math.max(none, full.s), "half weight between");
+                Arms.ArmRest full = rest(right, slim, grip, 1F);
+                // the goal: a box 1.12 x its depth thick (x armScale) seen as wide as its mean over its roll
+                double goal = 1.12 * 4 / Math.PI * ((slim ? 1.5 : 2) + 2) / 16 * Config.armScale;
+                assertEquals(goal, 2 * Math.tan(Math.toRadians(silhouette(full, right, slim)) / 2), 2e-4 * goal, "width");
+                float none = rest(right, slim, grip, 0F).s, half = rest(right, slim, grip, 0.5F).s;
+                assertEquals((none + full.s) / 2F, half, 1e-5F * full.s, "half weight");
             }
+        } finally {
+            old.restore();
+        }
+    }
+
+    @Test
+    void anArmThatCanNotReachTheWidthStopsAtTwiceTheDepthRule() {
+        ConfigState old = ConfigState.capture();
+        try {
+            // a hand at the eye's height a block ahead: still the same width
+            Arms.ArmRest near = rest(true, false, new Vector3f(0.2F, 0F, 1F), 1F);
+            assertEquals(16.23, silhouette(near, true, false), 0.05);
+            // thickness x5 and arms twice as long: the slice runs away faster than the arm widens
+            Config.armScale = 5F;
+            Config.armLength = 2F;
+            Vector3f grip = new Vector3f(-0.333F, -2.226F, 2.172F);
+            Arms.ArmRest far = rest(false, false, grip, 1F);
+            assertTrue(Float.isFinite(far.s));
+            assertEquals(2F * 1.12F * grip.length() * Config.armScale, far.s, 1e-4F * far.s);
         } finally {
             old.restore();
         }
