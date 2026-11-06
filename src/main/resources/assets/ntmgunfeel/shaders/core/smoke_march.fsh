@@ -63,8 +63,9 @@ void main() {
     vec4 hi = Clouds[at + 2];
     vec4 colour = Clouds[at + 3];
     vec3 dir = normalize(vPos);
-    vec3 safe = sign(dir) * max(abs(dir), vec3(1e-6));
-    safe = mix(safe, vec3(1e-6), equal(safe, vec3(0.0)));
+    // the direction with no component nearer zero than 1e-6, the sign kept (a zero counts as positive); mix with a
+    // float weight, as #version 330 has it (the bvec3 form is GLSL 4.50)
+    vec3 safe = max(abs(dir), vec3(1e-6)) * mix(vec3(1.0), vec3(-1.0), vec3(lessThan(dir, vec3(0.0))));
     vec3 inv = 1.0 / safe;
     vec3 ta = (origin.xyz + lo.xyz) * inv;
     vec3 tb = (origin.xyz + hi.xyz) * inv;

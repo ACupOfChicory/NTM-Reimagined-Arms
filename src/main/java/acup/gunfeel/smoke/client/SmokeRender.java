@@ -178,10 +178,29 @@ public final class SmokeRender {
         return irisPack;
     }
 
-    /** AfterOpaqueFeatures: the world's depth before glass and water. */
+    // the drawn clouds whose box is in the view this frame
+    private static final List<SmokeAtlas.Slot> VISIBLE = new ArrayList<>();
+
+    // whether any of the cloud's box (the shader's: the occupied cells and one around them) is inside the view frustum
+    private static boolean inView(SmokeClouds.Cloud c, net.minecraft.client.renderer.culling.Frustum frustum) {
+        int[] b = c.grid.box();
+        return frustum.isVisible(new net.minecraft.world.phys.AABB(c.baseX() + b[0] - 1, c.baseY() + b[1] - 1, c.baseZ() + b[2] - 1,
+                c.baseX() + b[3] + 2, c.baseY() + b[4] + 2, c.baseZ() + b[5] + 2));
+    }
+
+    /**
+     * AfterOpaqueFeatures: the world's depth before glass and water. Only when a drawn cloud is in the view: with none
+     * the depth is not copied and nothing is marched or laid over the frame.
+     */
     public static void afterOpaque(RenderLevelStageEvent.AfterOpaqueFeatures e) {
         copied = false;
+        VISIBLE.clear();
         if (!wanted() || SmokeAtlas.drawn().isEmpty()) return;
+        var camera = e.getLevelRenderState().cameraRenderState;
+        // the frustum is the camera's own unless the F4 frustum capture froze it
+        boolean cull = camera.initialized && !camera.isFrustumCaptured;
+        for (SmokeAtlas.Slot s : SmokeAtlas.drawn()) if (!cull || inView(s.cloud(), camera.cullFrustum)) VISIBLE.add(s);
+        if (VISIBLE.isEmpty()) return;
         long t0 = System.nanoTime();
         try {
             RenderTarget main = Minecraft.getInstance().gameRenderer.mainRenderTarget();
@@ -210,7 +229,7 @@ public final class SmokeRender {
         drawnLast = 0;
         if (!copied || !wanted()) return;
         copied = false;
-        List<SmokeAtlas.Slot> slots = SmokeAtlas.drawn();
+        List<SmokeAtlas.Slot> slots = VISIBLE;
         if (slots.isEmpty() || SmokeAtlas.view() == null) return;
         long t0 = System.nanoTime();
         try {
