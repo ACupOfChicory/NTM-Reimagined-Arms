@@ -873,6 +873,26 @@ public final class Tracers {
             @org.jspecify.annotations.Nullable List<List<Vec3>> polys) {
     }
 
+    // dev (GlassBackCheck): the holes by the face they lie on, and how they are drawn: late (after the translucent
+    // terrain), under (once more under the glass), batched, batched under. The block's layer: translucent
+    static Map<Direction, int[]> holeFaces() {
+        Map<Direction, int[]> out = new java.util.EnumMap<>(Direction.class);
+        for (Hole h : HOLES) {
+            int[] c = out.computeIfAbsent(h.face(), d -> new int[5]);
+            Batch b = h.batch()[0];
+            c[0]++;
+            if (h.late()) c[1]++;
+            if (under(h)) c[2]++;
+            if (b != null) c[3]++;
+            if (b != null && b.under) c[4]++;
+        }
+        return out;
+    }
+
+    static boolean translucentLayer(BlockState state) {
+        return translucent(state);
+    }
+
     // dev (FenceSeamCheck): a block whose holes cover its whole face (glass), as drawnHole has it
     static boolean wholeFaces(BlockState state) {
         return hitboxOnly(state);
@@ -989,7 +1009,7 @@ public final class Tracers {
         String[] style = BulletRules.hole(state);
         TestLog.c(p.shot(), "hole", "block", state, "pos", pos, "at", at, "placed", placed, "drawn", style[0], "how", style[1],
                 "glass", glassLike(state),
-                "under", h != null && h.late() && h.block() != null && translucent(h.state()), "scratch", p.scratch() != null, "onBoard", onBoard, "machine", h != null && h.machine(),
+                "under", h != null && under(h), "scratch", p.scratch() != null, "onBoard", onBoard, "machine", h != null && h.machine(),
                 "holes", HOLES.size() - machines, "machineHoles", machines, "max", Config.holeMax, "maxMachines", Config.holeMaxMachines);
         if (Trace.ON && h != null) TestLog.c(p.shot(), "hole_made", "pos", pos, "at", h.pos(), "face", h.face(), "kind", h.kind(),
                 "turn", h.turn(), "size", h.size(), "plane", h.plane(), "rect", h.rect());
@@ -2392,10 +2412,8 @@ public final class Tracers {
             int g = h.kind() + KINDS * ((h.late() ? 1 : 0) | (h.cull() ? 2 : 0));
             if (groups[g] == null) groups[g] = new ArrayList<>();
             groups[g].add(h);
-            // on translucent glass with no clear pixels (NTM's laminate): its near face writes depth over all of it,
-            // so the late hole on its far face is hidden. A copy drawn before the translucent terrain shows through
-            // the glass laid over it; from in front the late one covers it
-            if (h.late() && h.block() != null && translucent(h.state())) {
+            // a late hole drawn early too: a copy under the translucent glass (HolePasses), as the batches have it
+            if (h.late() && HolePasses.early(h.late(), under(h))) {
                 int e = h.kind() + KINDS * (h.cull() ? 2 : 0);
                 if (groups[e] == null) groups[e] = new ArrayList<>();
                 groups[e].add(h);
@@ -2418,6 +2436,11 @@ public final class Tracers {
             else
                 event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), type, draw);
         }
+    }
+
+    // a late hole on a block of the translucent terrain: drawn under the glass as well (HolePasses)
+    private static boolean under(Hole h) {
+        return h.late() && h.block() != null && translucent(h.state());
     }
 
     private static boolean shaderTransparency() {
@@ -2648,7 +2671,7 @@ public final class Tracers {
     // moves.
     private static final class Batch {
         final int kind;
-        final boolean mesh,late;
+        final boolean mesh,late,under;
         List<Hole> holes = new ArrayList<>();
         List<Hole> now = new ArrayList<>();
         boolean dirty = true;
@@ -2656,10 +2679,15 @@ public final class Tracers {
         int count;
         double ox, oy, oz;
 
-        Batch(int kind, boolean mesh,boolean late) {
+        Batch(int kind, boolean mesh,boolean late,boolean under) {
             this.kind = kind;
             this.mesh = mesh;
             this.late = late;
+            this.under = under;
+        }
+
+        int key() {
+            return HolePasses.batchKey(kind, under, late, mesh);
         }
     }
 
@@ -2682,12 +2710,15 @@ public final class Tracers {
         else for (Hole h : HOLES) {
             if (h.late() && lateApart || (now - h.born()) / 1e9 >= fadeFrom) { UNBATCHED.add(h); continue; }
             Batch b = h.batch()[0];
+            // (a hole on glass changes batch when the models loaded anew draw its block otherwise)
+            if (b != null && b.late && b.under != under(h)) b = h.batch()[0] = null;
             if (b == null) {
-                int key = h.kind() * 4 + (h.late()?2:0) + (h.mesh() != null ? 1 : 0);
+                boolean under = under(h);
+                int key = HolePasses.batchKey(h.kind(), under, h.late(), h.mesh() != null);
                 b = OPEN.get(key);
                 // (holes go in the order made: the open batch's older ones are counted already)
                 if (b == null || b.now.size() >= BATCH_HOLES) {
-                    b = new Batch(h.kind(), h.mesh() != null,h.late());
+                    b = new Batch(h.kind(), h.mesh() != null,h.late(),under);
                     BATCHES.add(b);
                     OPEN.put(key, b);
                 }
@@ -2710,13 +2741,13 @@ public final class Tracers {
             if (b.holes.isEmpty()) {
                 if (b.vb != null) b.vb.close();
                 it.remove();
-                OPEN.remove(b.kind * 4 + (b.late?2:0) + (b.mesh ? 1 : 0), b);
+                OPEN.remove(b.key(), b);
             }
         }
     }
 
     // the batches, drawn after the solid features (entities and the like) and before the translucent ones, where the
-    // holes sent each frame are drawn
+    // holes sent each frame are drawn. The late ones on translucent glass (under) once here as well, under the glass
     public static void afterOpaqueFeatures(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterOpaqueFeatures event) {
         if (BATCHES.isEmpty() || !Config.bulletHoles) return;
         long pd = Perf.start();
@@ -2731,7 +2762,8 @@ public final class Tracers {
         // cut holes pulled towards the camera by a tenth of a percent of the distance, as meshQuads() does
         Matrix4f mvMesh = new Matrix4f(mv).scale(0.999F);
         for (Batch b : BATCHES) {
-            if(b.late!=late) continue;
+            // early: the batches not late, and the late ones under the translucent glass once more
+            if(late ? !b.late : !HolePasses.early(b.late, b.under)) continue;
             if (b.dirty) {
                 long pb = Perf.start();
                 bake(b);
