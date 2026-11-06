@@ -133,6 +133,7 @@ BULLETS class com/hbm/blocks/generic/BlockDoorGeneric
 BULLETS class com/hbm/blocks/machine/BlockCargoElevator
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCell
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCore
+BULLETS class com/hbm/entity/projectile/EntityBullet
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
 BULLETS class com/hbm/entity/projectile/EntityBulletBeamBase
 BULLETS class com/hbm/entity/projectile/EntityThrowableNT
@@ -166,9 +167,13 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/functi
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig velocity F
+BULLETS field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_fmj Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS method com/hbm/blocks/multiblock/MultiblockSurface clientCoreOf (Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/core/BlockPos;
 BULLETS method com/hbm/blocks/multiblock/MultiblockSurface coreOfAny (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)Lnet/minecraft/core/BlockPos;
 BULLETS method com/hbm/blocks/multiblock/MultiblockSurface isSurface (Lnet/minecraft/world/level/block/state/BlockState;)Z
+BULLETS method com/hbm/entity/projectile/EntityBullet getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
+BULLETS method com/hbm/entity/projectile/EntityBullet getId ()I
+BULLETS method com/hbm/entity/projectile/EntityBullet level ()Lnet/minecraft/world/level/Level;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getBulletConfig ()Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;

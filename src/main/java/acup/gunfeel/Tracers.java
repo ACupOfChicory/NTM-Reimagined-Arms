@@ -74,6 +74,7 @@ public final class Tracers {
         final float g;
         final double speed;
         final int dark, light;
+        final boolean drawn; // false: NTM draws the round (a 240 mm shell), the path only leaves its holes
         final double born;
         final double rootBorn;
         final long lifeTicks;
@@ -113,6 +114,7 @@ public final class Tracers {
             this.v = new Vec3(p.vx(), p.vy(), p.vz());
             this.g = p.gravity();
             this.speed = Math.max(v.length(), 1e-3);
+            this.drawn = colors != UNDRAWN;
             this.dark = colors[0];
             this.light = colors[1];
             this.lifeTicks = p.life();
@@ -130,6 +132,7 @@ public final class Tracers {
             this.v = v;
             this.g = from.g;
             this.speed = Math.max(v.length(), 1e-3);
+            this.drawn = from.drawn;
             this.dark = from.dark;
             this.light = from.light;
             this.lifeTicks = lifeTicks;
@@ -155,6 +158,7 @@ public final class Tracers {
             this.v = v;
             this.g = from.g;
             this.speed = Math.max(v.length(), 1e-3);
+            this.drawn = from.drawn;
             this.dark = from.dark;
             this.light = from.light;
             this.lifeTicks = lifeTicks;
@@ -415,6 +419,9 @@ public final class Tracers {
     // NTM tracer colours per bullet type, {dark, light}; NONE = not a plain tracer (grenade, rocket...): NTM draws it
     private static final Map<BulletConfig, int[]> COLORS = new HashMap<>();
     private static final int[] NONE = new int[0];
+    // the 240 mm shells of the Jeremy turret: NTM draws them as a model (NONE), but their path is followed here for the
+    // holes they leave, as a bullet's (ExplosiveAmmo.shell)
+    private static final int[] UNDRAWN = new int[] {0, 0};
     private static boolean probing;
     private static int[] probed;
 
@@ -515,6 +522,7 @@ public final class Tracers {
         BulletConfig config = BulletConfig.configs.get(p.config());
         if (config.velocity < 5F) return;
         int[] c = colors(config);
+        if (c == NONE && ExplosiveAmmo.shell(config)) c = UNDRAWN;
         if (c == NONE) return;
         ClientSmoke.packet();
         Shot s = new Shot(p, config, c);
@@ -631,7 +639,7 @@ public final class Tracers {
                 double k = s.waterF > 0 ? wf / s.waterF : 1;
                 acup.gunfeel.water.SunkBullets.flying(level, s.config, at, vel, wf, vel.length() * k);
             }
-            if (!Config.tracers || !segment.visible()) continue;
+            if (!Config.tracers || !s.drawn || !segment.visible()) continue;
             Vec3 h = s.at(head).subtract(cam), b = s.at(tail).subtract(cam);
             streaks.add(new float[] {(float) h.x, (float) h.y, (float) h.z, (float) b.x, (float) b.y, (float) b.z,
                     Float.intBitsToFloat(s.light), Float.intBitsToFloat(s.dark), pixel});
@@ -1027,14 +1035,24 @@ public final class Tracers {
     private static int makingShot=-1;
     public static void impact(ImpactHolePayload packet) {
         var level=Minecraft.getInstance().level;
-        if(level==null || !Config.bulletHoles || packet.config()<0 || packet.config()>=BulletConfig.configs.size())return;
+        if(level==null || packet.config()<0 || packet.config()>=BulletConfig.configs.size())return;
         var config=BulletConfig.configs.get(packet.config());
-        if(!ExplosiveAmmo.heavy(config) || !Double.isFinite(packet.point().x+packet.point().y+packet.point().z+packet.direction().lengthSqr()))return;
+        if(!Double.isFinite(packet.point().x+packet.point().y+packet.point().z+packet.direction().lengthSqr()))return;
         var hit=new BlockHitResult(packet.point(),packet.face(),packet.block(),false);
+        // a plain round: a hit of a bullet this client does not fly itself (NTM's old bullet, LegacyBullets), its
+        // hole and its particles and sound as a tracer's hit has them
+        if(!ExplosiveAmmo.heavy(config)) { hit(level,hit,config,packet.direction().normalize(),false);return; }
+        if(!Config.bulletHoles)return;
         PENDING.addLast(new Pending(level,hit,config,packet.direction(),null,packet.shot(),0));
     }
     static int pendingHoles() { return PENDING.size(); }
     static int holeCount() { return HOLES.size(); }
+    // dev (NpcShotSmoke): the holes on this block
+    static int holesOn(BlockPos pos) {
+        int n = 0;
+        for (Hole h : HOLES) if (pos.equals(h.block())) n++;
+        return n;
+    }
 
     // dev (FenceSeamCheck): every hole as drawn, its polygons in world space (null: a hole with no mesh of its own),
     // with the block it goes with and that block's state when the hole was made
