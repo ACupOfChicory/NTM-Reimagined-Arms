@@ -17,9 +17,36 @@ import org.jspecify.annotations.Nullable;
 
 // Low-poly models of NTM bullets for the water effects: a lathe body with 8 sides for bullets, slugs and flechettes,
 // an icosahedron / octahedron for shot, stones and shards. Ported from the water demo; no Minecraft classes, so the
-// tests run it as is. Sizes come from assets/ntmgunfeel/water/ammo.tsv (mm) and are multiplied by SHOW.
+// tests run it as is. Real sizes come from assets/ntmgunfeel/water/ammo.tsv (mm); the size in the world follows the
+// spent casing NTM drops for the round (its BulletConfig.casing): the bullet is to NTM's casing as the real bullet is
+// to the real case, along the round and across it. A round without a casing (the .357, stones) is real size × FALLBACK.
 public final class AmmoModels {
-    public static final float SHOW = 6F;
+    // NTM's spent casing of a round: the CasingType's name and the scale NTM draws casings.hbm_mesh with
+    public record Casing(String type, float sx, float sy, float sz) {}
+
+    // CasingParticleGroup scales casings.hbm_mesh by ParticleSpentCasing.dScale, then by the casing's own scale
+    static final double CASING_DRAW = 0.05;
+    // casings.hbm_mesh, per CasingType: {length along Z, width} of what NTM draws (AmmoModelsTest reads the mesh);
+    // SHOTGUN draws the hull and the brass head, its width is the hull's
+    static final Map<String, double[]> CASING_MESH = Map.of(
+            "STRAIGHT", new double[] {1.6, 0.6},
+            "BOTTLENECK", new double[] {1.8, 0.6},
+            "SHOTGUN", new double[] {2.371375, 0.898248});
+    // the real case of a calibre, {diameter at the base mm, length mm} (the rim left out: NTM's mesh has none);
+    // a shotgun's is the hull. b75 is no real round: its case is taken in NTM's own 2:1
+    static final Map<String, double[]> CASE = Map.of(
+            "p22", new double[] {5.74, 15.6},
+            "p9", new double[] {9.93, 19.15},
+            "m357", new double[] {9.63, 32.77},
+            "m44", new double[] {11.61, 32.6},
+            "r556", new double[] {9.6, 44.7},
+            "r762", new double[] {11.95, 51.2},
+            "bmg50", new double[] {20.4, 99.3},
+            "b75", new double[] {20, 40},
+            "g12", new double[] {20.2, 70},
+            "g10", new double[] {21.2, 89});
+    // no casing to go by: real size times this (NTM's casings are 1.3 to 3.1 times their real case, 1.8 the middle)
+    static final double FALLBACK = 2;
     private static final int SIDES = 8;
 
     // calibre -> {diameter mm, length mm, nose profile}
@@ -47,6 +74,7 @@ public final class AmmoModels {
 
     private static final Map<String, Row> ROWS = load();
     private static final Map<String, Model> CACHE = new HashMap<>();
+    private static final Map<String, Model> BUILT = new HashMap<>();
 
     private AmmoModels() {}
 
@@ -57,6 +85,7 @@ public final class AmmoModels {
         public final String shape; // the table's shape column as is
         public final boolean capsule;
         public final float radius, length;
+        public final boolean byCasing; // sized by NTM's casing of the round, not by FALLBACK
         public final boolean expands;
         public final float expandAmount;
         public final int noseColor, bodyColor;
@@ -65,13 +94,15 @@ public final class AmmoModels {
         public final int[] colors;
         public final @Nullable float[] mushroom;
 
-        private Model(String id, String shape, boolean capsule, float radius, float length, float expandAmount, int noseColor,
-                int bodyColor, float[] positions, float[] normals, int[] colors, @Nullable float[] mushroom) {
+        private Model(String id, String shape, boolean capsule, float radius, float length, boolean byCasing,
+                float expandAmount, int noseColor, int bodyColor, float[] positions, float[] normals, int[] colors,
+                @Nullable float[] mushroom) {
             this.id = id;
             this.shape = shape;
             this.capsule = capsule;
             this.radius = radius;
             this.length = length;
+            this.byCasing = byCasing;
             this.expands = mushroom != null;
             this.expandAmount = expandAmount;
             this.noseColor = noseColor;
@@ -106,8 +137,30 @@ public final class AmmoModels {
         return Collections.unmodifiableCollection(ROWS.keySet());
     }
 
-    // ammoPath: an NTM item path without "hbm:", e.g. ammo_standard_m44_jhp; null when the table has no such round
+    // ammoPath: an NTM item path without "hbm:", e.g. ammo_standard_m44_jhp; casing: NTM's spent casing of that round,
+    // null when it has none; scale: waterBodyScale. Null when the table has no such round
+    public static @Nullable Model of(String ammoPath, @Nullable Casing casing, double scale) {
+        String id = id(ammoPath);
+        if (id == null) return null;
+        Row row = ROWS.get(id);
+        String key = id + '|' + casing + '|' + scale;
+        synchronized (BUILT) {
+            return BUILT.computeIfAbsent(key, k -> build(row, casing, scale));
+        }
+    }
+
+    // the model at real size × FALLBACK (no casing, scale 1)
     public static @Nullable Model of(String ammoPath) {
+        String id = id(ammoPath);
+        if (id == null) return null;
+        Row row = ROWS.get(id);
+        synchronized (CACHE) {
+            return CACHE.computeIfAbsent(id, k -> build(row, null, 1));
+        }
+    }
+
+    // the table's id of an item path, null when the table has no such round
+    private static @Nullable String id(String ammoPath) {
         String id = ammoPath;
         if (id.startsWith("ammo_")) {
             id = id.substring(5);
@@ -120,13 +173,7 @@ public final class AmmoModels {
                 }
             }
         }
-        Row row = ROWS.get(id);
-        if (row == null) {
-            return null;
-        }
-        synchronized (CACHE) {
-            return CACHE.computeIfAbsent(id, k -> build(row));
-        }
+        return ROWS.containsKey(id) ? id : null;
     }
 
     private static float[][] p(double... v) {
@@ -290,7 +337,22 @@ public final class AmmoModels {
         return new float[] {(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2};
     }
 
-    private static Model build(Row a) {
+    // blocks per real mm {across the round, along it}: NTM's casing of the round over the real case; FALLBACK without one
+    static double @Nullable [] perMm(String cal, @Nullable Casing c) {
+        double[] mesh = c == null ? null : CASING_MESH.get(c.type());
+        double[] real = CASE.get(cal);
+        if (c == null || mesh == null || real == null) return null;
+        double across = CASING_DRAW * Math.max(c.sx(), c.sy()) * mesh[1] / real[0];
+        double along = CASING_DRAW * c.sz() * mesh[0] / real[1];
+        if (!(across > 0) || !(along > 0) || !Double.isFinite(across) || !Double.isFinite(along)) return null;
+        return new double[] {across, along};
+    }
+
+    private static Model build(Row a, @Nullable Casing casing, double scale) {
+        double[] per = perMm(a.cal, casing);
+        boolean byCasing = per != null;
+        if (per == null) per = new double[] {FALLBACK / 1000, FALLBACK / 1000};
+        double across = per[0] * scale, along = per[1] * scale;
         boolean capsule = a.shape.equals("bullet") || a.shape.equals("slug") || a.shape.equals("flechette")
                 || a.shape.equals("mini");
         int count;
@@ -318,8 +380,8 @@ public final class AmmoModels {
                 l = 30;
                 base = "flechette";
             }
-            r = (float) (d / 2000) * SHOW;
-            len = (float) (l / 1000) * SHOW;
+            r = (float) (d / 2 * across);
+            len = (float) (l * along);
             boolean bullet = a.shape.equals("bullet");
             float[][] prof = noseFor(base, bullet || a.shape.equals("mini") ? a.var : "");
             if (bullet && (a.var.equals("jhp") || a.var.equals("sp"))) {
@@ -335,7 +397,7 @@ public final class AmmoModels {
             pos = lathe(prof, r, len);
             normals = smoothNormals(pos);
         } else {
-            r = (float) (a.d / 2000) * SHOW;
+            r = (float) (a.d / 2 * across);
             len = 2 * r;
             pos = sphere(a.shape);
             normals = new float[pos.length];
@@ -358,7 +420,7 @@ public final class AmmoModels {
         for (int i = 0; i < count; i++) {
             colors[i] = !capsule ? a.nose : (-pos[i * 3 + 2] > len * 0.12F ? a.nose : body);
         }
-        return new Model(a.id, a.shape, capsule, r, len, amt, a.nose, body, pos, normals, colors, mush);
+        return new Model(a.id, a.shape, capsule, r, len, byCasing, amt, a.nose, body, pos, normals, colors, mush);
     }
 
     // face normals summed (by area) over vertices that share a position, so the body looks smooth

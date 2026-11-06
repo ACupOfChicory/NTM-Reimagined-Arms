@@ -17,6 +17,16 @@ public final class SunkPhysics {
         double[] boxes(int x, int y, int z);
 
         boolean water(int x, int y, int z);
+
+        /** Something that changes when the block at (x,y,z) changes; a sleeping body wakes when one under it does. */
+        default int block(int x, int y, int z) {
+            return java.util.Arrays.hashCode(boxes(x, y, z));
+        }
+
+        /** False where the world is not there now (an unloaded chunk): a body there is left as it is. */
+        default boolean loaded(int x, int z) {
+            return true;
+        }
     }
 
     public static final class Body {
@@ -42,6 +52,9 @@ public final class SunkPhysics {
         // blocks around the ends, refreshed when an end changes its cell or on a new step
         double[] bx = new double[48];
         int bn, cacheFrame = -1, c0x, c0y, c0z, c1x, c1y, c1z;
+        // the blocks a sleeping body touches, taken on its first frame asleep
+        int support;
+        boolean supportSet;
 
         Body(int id, Object tag) {
             this.id = id;
@@ -54,6 +67,8 @@ public final class SunkPhysics {
     /** More than the demo's 3: a resting capsule needs them to stop rocking on its two ends. */
     private static final int ITER = 5;
     private static final double SKIN = 0.002;
+    /** At rest when its far end moves under 0.018 blocks a second (0.3 rad/s at the ×6 rounds' 0.06 reach) as well. */
+    private static final double SLEEP_TIP2 = 0.018 * 0.018;
 
     private final int max;
     private final double lie;
@@ -98,7 +113,10 @@ public final class SunkPhysics {
     public Body add(Object tag, double x, double y, double z, double dirX, double dirY, double dirZ,
             double r, double h, double vx, double vy, double vz, double spin, double terminal,
             int shot, float he, boolean inc) {
-        while (bodies.size() >= max) bodies.remove(0);
+        while (bodies.size() >= max) {
+            Body old = bodies.remove(0);
+            wakeNear(old.px, old.py, old.pz, 1);
+        }
         Body b = new Body(nextId++, tag);
         b.px = x;
         b.py = y;
@@ -199,6 +217,19 @@ public final class SunkPhysics {
         if (!(dt > 0)) return;
         long t0 = System.nanoTime();
         frame++;
+        // a sleeping body skips the blocks, so a block broken under it would leave it hanging in the water
+        for (int i = 0, m = bodies.size(); i < m; i++) {
+            Body b = bodies.get(i);
+            if (!b.asleep || !w.loaded((int) Math.floor(b.px), (int) Math.floor(b.pz))) continue;
+            int s = support(w, b);
+            if (!b.supportSet) {
+                b.support = s;
+                b.supportSet = true;
+            } else if (s != b.support) {
+                wake(b);
+                wakeNear(b.px, b.py, b.pz, 1);
+            }
+        }
         int n = (int) Math.ceil(dt / SUB);
         double h = dt / n;
         for (int s = 0; s < n; s++) sub(w, h);
@@ -208,6 +239,22 @@ public final class SunkPhysics {
     private static void wake(Body b) {
         b.asleep = false;
         b.sleepT = 0;
+        b.supportSet = false;
+    }
+
+    /** The cells each end's sphere reaches and one more below (a fence or a wall stands higher than its cell), a hash
+     *  of what is in them. */
+    private static int support(World w, Body b) {
+        int hash = 1;
+        double r = b.r + SKIN;
+        for (int e = 0; e < (b.h > 0 ? 2 : 1); e++) {
+            double k = e == 0 ? -b.h : b.h, ex = b.px + b.ax * k, ey = b.py + b.ay * k, ez = b.pz + b.az * k;
+            int x1 = (int) Math.floor(ex + r), y1 = (int) Math.floor(ey + r), z1 = (int) Math.floor(ez + r);
+            for (int x = (int) Math.floor(ex - r); x <= x1; x++)
+                for (int y = (int) Math.floor(ey - r) - 1; y <= y1; y++)
+                    for (int z = (int) Math.floor(ez - r); z <= z1; z++) hash = hash * 31 + w.block(x, y, z);
+        }
+        return hash;
     }
 
     private static void axis(Body b) {
@@ -576,7 +623,9 @@ public final class SunkPhysics {
             Body b = bodies.get(i);
             if (!b.asleep) {
                 double v2 = b.vx * b.vx + b.vy * b.vy + b.vz * b.vz, w2 = b.wx * b.wx + b.wy * b.wy + b.wz * b.wz;
-                if (v2 < 0.0025 && w2 < 0.09 && b.groundT < 0.2) {
+                // turning: by how fast its far end moves, so a small round that rocks a little still comes to rest
+                double reach = b.h + b.r;
+                if (v2 < 0.0025 && w2 < Math.max(0.09, SLEEP_TIP2 / (reach * reach)) && b.groundT < 0.2) {
                     b.sleepT += dt;
                     if (b.sleepT > 0.4) {
                         b.asleep = true;

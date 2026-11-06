@@ -210,6 +210,7 @@ CORE class com/hbm/explosion/vanillant/interfaces/IExplosionSFX
 CORE class com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth
 CORE class com/hbm/explosion/vanillant/standard/ExplosionEffectTiny
 CORE class com/hbm/explosion/vanillant/standard/PlayerProcessorStandard
+CORE class com/hbm/items/armor/ModArmorItem
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
@@ -232,6 +233,7 @@ CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets_heavy Lcom/hb
 CORE field com/hbm/items/weapon/sedna/BulletConfig ammoItem Ljava/util/function/Supplier;
 CORE field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
 CORE field com/hbm/items/weapon/sedna/BulletConfig armorThresholdNegation F
+CORE field com/hbm/items/weapon/sedna/BulletConfig casing Lcom/hbm/particle/SpentCasing;
 CORE field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
 CORE field com/hbm/items/weapon/sedna/BulletConfig gravity D
 CORE field com/hbm/items/weapon/sedna/BulletConfig id I
@@ -240,9 +242,11 @@ CORE field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/
 CORE field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
 CORE field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 CORE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
+CORE field com/hbm/items/weapon/sedna/BulletConfig spread F
 CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
 CORE field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
+CORE field com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase interp F
 CORE method com/hbm/blocks/generic/BlockWoodBarrier panel (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind ordinal ()I
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind values ()[Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
@@ -251,6 +255,7 @@ CORE method com/hbm/blocks/multiblock/MultiblockSurface rigidStructureBlocks (Ln
 CORE method com/hbm/client/Keybinds isGunHeld ()Z
 CORE method com/hbm/client/Keybinds isGunKey (Lnet/minecraft/client/KeyMapping;)Z
 CORE method com/hbm/entity/effect/EntityFireLingering discard ()V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/items/weapon/sedna/BulletConfig;FFDDD)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getBoundingBox ()Lnet/minecraft/world/phys/AABB;
@@ -280,8 +285,14 @@ CORE method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth setu
 CORE method com/hbm/explosion/vanillant/standard/ExplosionEffectTiny <init> ()V
 CORE method com/hbm/explosion/vanillant/standard/PlayerProcessorStandard <init> ()V
 CORE method com/hbm/extprop/HbmLivingProps getData (Lnet/minecraft/world/entity/LivingEntity;)Lcom/hbm/extprop/HbmLivingProps;
+CORE method com/hbm/items/armor/ModArmorItem isPowered ()Z
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/factory/Lego standardExplode (Lcom/hbm/entity/projectile/EntityBulletBaseMK4;Lnet/minecraft/world/phys/HitResult;F)V
+CORE method com/hbm/particle/SpentCasing getScaleX ()F
+CORE method com/hbm/particle/SpentCasing getScaleY ()F
+CORE method com/hbm/particle/SpentCasing getScaleZ ()F
+CORE method com/hbm/particle/SpentCasing getType ()Lcom/hbm/particle/SpentCasing$CasingType;
+CORE method com/hbm/particle/SpentCasing$CasingType name ()Ljava/lang/String;
 CORE method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase get (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/render/item/weapon/sedna/ItemRenderWeaponBase;
 HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT

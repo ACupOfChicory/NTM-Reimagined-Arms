@@ -47,12 +47,16 @@ public final class Config {
     public static float modelRotate = 1.0F;
     public static float modelSpeed = 1.0F;
     public static float ntmRecoilAnim = 0.3F;
+    // all recoil (camera, gun model, NTM's recoil animation) times this while the chestplate is NTM power armor
+    public static float powerArmorRecoil = 0.5F;
     public static boolean hideOffhand = true;
     // splashes, rings, foam and bubbles where a bullet meets water (acup.gunfeel.water, client effects)
     public static boolean waterSplash = true;
     // rounds the water stopped, lying on the bottom (acup.gunfeel.water.SunkBullets): how many at most, how long
     public static int waterBodyMax = 400;
     public static float waterBodyLife = 30F;
+    // size of the rounds in water (flying, sunk) on top of the size of NTM's casing of the round
+    public static float waterBodyScale = 1F;
     public static boolean cornerHud = true;
     public static String ammoMenu = "steel";
     public static int ammoMenuColor = 0xFF8C1A;
@@ -62,6 +66,8 @@ public final class Config {
     // Thickness keeps a vanilla arm's 4:18 proportion to the arm's length, so a far hand gets a
     // proportionally thicker arm, the way an arm looks when it is closer to the eye.
     public static boolean arms = true;
+    // what the player model wears on its arms (armour, NTM suits, other mods' layers) drawn on the arms holding a gun
+    public static boolean armArmor = true;
     public static float armScale = 0.8F;
     public static float armMaxScale = 4.0F;
     public static float armRollRight = -5F;
@@ -153,6 +159,10 @@ public final class Config {
     public static float armScaleLeft = 1F;
     public static float armAimScaleRight = 0F;
     public static float armAimScaleLeft = 0F;
+    // smoke clouds (acup.gunfeel.smoke): how the volume is drawn, how many of the nearest clouds and how far
+    public static String smokeQuality = "high";
+    public static int smokeMaxClouds = 8;
+    public static float smokeDistance = 128F;
 
     private static final String HEADER = """
             NTM Gun Feel. Saved values are re-read while the game runs.
@@ -197,15 +207,20 @@ public final class Config {
             modelRotate: share of the rotation in the model kick (muzzle up, yaw, roll)
             modelSpeed: playback speed of the model kick, higher = shorter
             ntmRecoilAnim: share of NTM's own recoil animation kept, 1 = unchanged
+            powerArmorRecoil: multiplier of all recoil movements while the chestplate is NTM power armor (T-51, AJR, AJRO, RPA,
+              NCRPA, BJ, Envsuit, HEV, FAU, DNS), 0..1, 1 = off; on a server with cameraScaleMin no lower than 0.5
             hideOffhand: hide the off-hand item while holding an NTM gun
             waterSplash: splashes, rings, foam and bubbles where a bullet meets water
             waterBodyMax: rounds stopped by water that sink and lie on the bottom, at most; 0 = none
             waterBodyLife: seconds such a round lies on the bottom
+            waterBodyScale: size of the rounds seen in water, 1 = matched to the casings NTM drops, 0.25..4
             cornerHud: TaCZ-style ammo counter in the bottom-right corner instead of NTM's
             ammoMenu: look of the ammo menu (hold Y): steel, petals, bubbles, ntm, glass, arc
             ammoMenuColor: accent colour of the ammo menu, hex RRGGBB
             arms: draw the player's arms holding the gun with both hands; their model follows the skin,
               slim arms share the classic arms' settings and move one pixel toward their inner side
+            armArmor: draw on those arms what the player model wears on its arms in third person (armour sleeves with
+              their dye, trims and glint, NTM's suits, other mods' layers), cut and sized with the arm
             armScale: arm thickness on top of the automatic one, 1 = vanilla arm proportions
             armMaxScale: upper limit of the automatic thickness
             armBaseRight, armBaseLeft: arm thickness before armScale, the same on every gun (as on Maresleg); 0 = automatic (grows with the arm's length)
@@ -234,6 +249,12 @@ public final class Config {
               not for a gun with a scope, nor for long guns
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
             armAimScaleRight, armAimScaleLeft: thickness of each arm holding the gun when aimed, in place of armScaleRight/Left; it goes over from one to the other as the gun comes up to the sights; 0 = the same as armScaleRight/Left
+            smokeQuality: how smoke clouds (the operator command /gunsmoke for now) are drawn: off (not drawn; inside one the screen still
+              goes grey), low, medium, high (the default) or ultra: the volume at a quarter, a third, half or the whole
+              of the screen's resolution, with more steps along each ray the higher it is; slices: stacks of
+              translucent layers (taken by itself with an Iris shader pack)
+            smokeMaxClouds: the nearest clouds drawn at once, 1..16
+            smokeDistance: clouds farther than this many blocks are not drawn
             armRollRight, armRollLeft: turn of each arm around its own axis, degrees
             armDirRight, armDirLeft: direction from the hand to the shoulder: x (+ left), y (+ up), z (+ forward)
             armReachRight, armReachLeft: the arm goes back until this distance in front of the eye (- = behind); only for automatic thickness (armBase 0) or armLength 0
@@ -466,11 +487,15 @@ public final class Config {
         modelRotate = num(p, "modelRotate", modelRotate);
         modelSpeed = Math.max(0.05F, num(p, "modelSpeed", modelSpeed));
         ntmRecoilAnim = num(p, "ntmRecoilAnim", ntmRecoilAnim);
+        float armorRecoil = num(p, "powerArmorRecoil", powerArmorRecoil);
+        powerArmorRecoil = Float.isNaN(armorRecoil) ? 0.5F : Math.clamp(armorRecoil, 0F, 1F);
         hideOffhand = bool(p, "hideOffhand", hideOffhand);
         waterSplash = bool(p, "waterSplash", waterSplash);
         waterBodyMax = Math.clamp(Math.round(num(p, "waterBodyMax", waterBodyMax)), 0, 2000);
         float life = num(p, "waterBodyLife", waterBodyLife);
         if (Float.isFinite(life)) waterBodyLife = Math.clamp(life, 1F, 600F);
+        float bodyScale = num(p, "waterBodyScale", waterBodyScale);
+        if (Float.isFinite(bodyScale)) waterBodyScale = Math.clamp(bodyScale, 0.25F, 4F);
         cornerHud = bool(p, "cornerHud", cornerHud);
         ammoMenu = p.getProperty("ammoMenu", ammoMenu).trim().toLowerCase(java.util.Locale.ROOT);
         try {
@@ -479,6 +504,7 @@ public final class Config {
             ammoMenuColor = 0xFF8C1A;
         }
         arms = bool(p, "arms", arms);
+        armArmor = bool(p, "armArmor", armArmor);
         armScale = num(p, "armScale", armScale);
         armRollRight = num(p, "armRollRight", armRollRight);
         armRollLeft = num(p, "armRollLeft", armRollLeft);
@@ -549,6 +575,9 @@ public final class Config {
         armScaleLeft = num(p, "armScaleLeft", armScaleLeft);
         armAimScaleRight = num(p, "armAimScaleRight", armAimScaleRight);
         armAimScaleLeft = num(p, "armAimScaleLeft", armAimScaleLeft);
+        smokeQuality = p.getProperty("smokeQuality", smokeQuality).trim().toLowerCase(java.util.Locale.ROOT);
+        smokeMaxClouds = Math.clamp(Math.round(num(p, "smokeMaxClouds", smokeMaxClouds)), 1, 16);
+        smokeDistance = Math.clamp(num(p, "smokeDistance", smokeDistance), 8F, 512F);
     }
 
     private static Properties snapshot() {
@@ -599,14 +628,17 @@ public final class Config {
         p.setProperty("modelRotate", Float.toString(modelRotate));
         p.setProperty("modelSpeed", Float.toString(modelSpeed));
         p.setProperty("ntmRecoilAnim", Float.toString(ntmRecoilAnim));
+        p.setProperty("powerArmorRecoil", Float.toString(powerArmorRecoil));
         p.setProperty("hideOffhand", Boolean.toString(hideOffhand));
         p.setProperty("waterSplash", Boolean.toString(waterSplash));
         p.setProperty("waterBodyMax", Integer.toString(waterBodyMax));
         p.setProperty("waterBodyLife", Float.toString(waterBodyLife));
+        p.setProperty("waterBodyScale", Float.toString(waterBodyScale));
         p.setProperty("cornerHud", Boolean.toString(cornerHud));
         p.setProperty("ammoMenu", ammoMenu);
         p.setProperty("ammoMenuColor", String.format("%06x", ammoMenuColor));
         p.setProperty("arms", Boolean.toString(arms));
+        p.setProperty("armArmor", Boolean.toString(armArmor));
         p.setProperty("armScale", Float.toString(armScale));
         p.setProperty("armRollRight", Float.toString(armRollRight));
         p.setProperty("armRollLeft", Float.toString(armRollLeft));
@@ -677,6 +709,9 @@ public final class Config {
         p.setProperty("armScaleLeft", Float.toString(armScaleLeft));
         p.setProperty("armAimScaleRight", Float.toString(armAimScaleRight));
         p.setProperty("armAimScaleLeft", Float.toString(armAimScaleLeft));
+        p.setProperty("smokeQuality", smokeQuality);
+        p.setProperty("smokeMaxClouds", Integer.toString(smokeMaxClouds));
+        p.setProperty("smokeDistance", Float.toString(smokeDistance));
         return p;
     }
 

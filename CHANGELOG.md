@@ -1,5 +1,79 @@
 # Changelog
 
+## X543
+
+- Rounds seen in water are now sized to the casings NTM drops, not six times
+  their real size: a bullet is as big next to its calibre's casing as the real
+  bullet next to its case. A .50 BMG bullet went from 0.35 to 0.08 of a block
+  (its casing is 0.135), a 5.56 mm one from 0.14 to 0.04, a 7.62 mm one from
+  0.17 to 0.05, a 9 mm one from 0.09 to 0.05, buckshot from 0.05 to 0.014. The
+  size is read from NTM's casing of each round. Rounds NTM drops no casing for
+  (.357 Magnum, stones) are twice their real size.
+- New setting `waterBodyScale` (1 by default, 0.25 to 4): the size of the
+  rounds seen in water, on top of the above.
+
+## X541
+
+- A client and a server now need the very same build of the mod to connect.
+
+## X539
+
+- Smoke clouds: the operator command `/gunsmoke` lets out a dense cloud that
+  fills the open space around it, about a 6-block half sphere in the open and
+  farther along a corridor. It stays out of walls, shut doors and water, goes
+  in through a door that opens, stays dense for about 22 seconds and is gone
+  about 7 seconds after it starts to thin. The server and each client run the
+  same simulation, so a cloud costs little traffic, and a player who comes
+  later sees it as it is. A smoke grenade that lets one out will come later.
+- Clouds are drawn as a volume that walls and mobs cut and the sky's clouds do
+  not show through; inside one the screen goes grey. Client keys in
+  `ntm-gunfeel.properties`: `smokeQuality` (`off`, `slices`, `low`, `medium`,
+  `high` by default, `ultra`), `smokeMaxClouds` (8) and `smokeDistance` (128
+  blocks). With an Iris shader pack the clouds are drawn as translucent slices.
+- Server keys: `smoke` (on) lets the clouds out; `smokeBlocksMobSight` (off)
+  makes mobs lose a target behind thick smoke.
+- `/gunsmoke` (operators) lets out a cloud where you look or a row of them,
+  clears them and shows how many there are and what they cost the server.
+- ⚠ Breaks compatibility: the network protocol is now 10 (smoke packets);
+  client and server need the same build.
+
+## X517
+
+- Water rings are white again in daylight, not grey. They were shaded like a
+  mob's skin, and from above both faces of a ring got only the dim side light;
+  now they are lit like particles, by the world's light alone. At noon a ring
+  from above went from 103 to about 200 of 255.
+- A round lying on the bottom of the water falls when the block under it is
+  broken. Before, a round that had come to rest stayed hanging in the water.
+- The big water particles of a shot no longer blink in their first ticks. The
+  water dust of a splash showed at full strength until the first game tick
+  and then dropped to a fifth of it; it now fades in smoothly. The gas bubble
+  of a shot under water now moves out from the muzzle as it swells, instead of
+  swelling in place for a tick and then catching up.
+
+## X515
+
+- Long NTM guns now bob as you walk and take the sprint pose: the
+  Panzerschreck, the FIM-92 Stinger, the Tesla Cannon, the Folly and the Zebra
+  Rifle were held still, as the mod took their size for a measuring error.
+- Explosive pellets of one shot (12 and 10 gauge HE) no longer set each other
+  off, in the air or in water. In the air bullets pass each other as in NTM:
+  an explosive goes off at the touch of another bullet only when both have
+  been through water on their way or sink in it.
+
+## X510
+
+- The arms holding a gun now wear what the player wears on the arms seen from
+  outside: vanilla armour with its dye, trim and enchantment glint, NTM's
+  armour (its 3D suits included), the skin's sleeve layer, and what other mods
+  draw on the player's arms. It follows the arm's pose, thickness and cut, on
+  pistols and rifles, at the hip and aiming. Key `armArmor` in
+  `ntm-gunfeel.properties` (on by default).
+- NTM's power armour (T-51, AJR, AJRO, RPA, NCRPA, BJ, Envsuit, HEV, FAU, DNS)
+  halves recoil: the camera kick, the gun model's kick and NTM's own recoil
+  animation. The chestplate is enough, charged or not. Key `powerArmorRecoil`
+  (0.5; 1 turns it off). On a server that sets a camera recoil minimum the
+  camera keeps at least half.
 ## X504.59
 
 - A client and a server now need the very same build of the mod to connect.
@@ -68,9 +142,9 @@
   off at the next thing they touch. Fired under water they fly, slow down like
   any bullet and go off on a block or a mob. One that water stopped sinks at
   most a block a second and goes off where it lands or on NTM's timer.
-- An explosive round goes off at the first touch of anything, another bullet
-  or a sinking explosive included; only pellets of one shot leave each other
-  alone.
+- In water an explosive round goes off at the first touch of anything, another
+  bullet or a sinking explosive included; only pellets of one shot leave each
+  other alone. In the air bullets do not touch each other.
 - A blast with its centre in water reaches 1.5 times as far for mobs in the
   water, and a mob above it takes half. Blocks break as before.
 - Under water an incendiary 75 bolt gives a weak blast, about a quarter of the
@@ -78,7 +152,8 @@
   grenades and rockets only explode.
 - Fast bullets (rifles, machine guns) now really slow down in water as they
   fly; before, they kept full speed up to the point where they stopped.
-- Keys in `ntm-gunfeel-server.properties`: `waterFuze`, `waterFuzeSkipAngle`, `waterBlastRadius`.
+- Keys in `ntm-gunfeel-server.properties`: `waterFuze`, `waterFuzeSkipAngle`,
+  `waterBlastRadius`.
 - ⚠ Breaks compatibility: the network protocol is now 9 (a new packet for
   blasts at water); client and server need the same build.
 
@@ -89,12 +164,13 @@
   pistol bullet goes through about 2.4 blocks of water, a rifle bullet 1.2, an
   armour-piercing one 1.7, a shotgun slug 2.7, buckshot 0.6, and 10 gauge DU,
   ten uranium mini-bullets, 1.3. Hollow and soft points open in water and stop
-  sooner: a 9 mm JHP after 1.3 blocks, an SP after 1.8. A falling stream
-  barely slows a bullet; lava and a flamethrower's fire stop where they meet.
+  sooner: a 9 mm JHP after 1.3 blocks, an SP after 1.8. A falling stream barely
+  slows a bullet; lava and a flamethrower's fire stop where they meet.
 - At a shallow angle (under 6°, 10° for grenades and rockets) a bullet skips
   off water, at most twice a flight, losing a third of its speed. A shot from
   under water follows the same rules and sounds duller and lower.
-- Keys in `ntm-gunfeel-server.properties`: `waterBallistics`, `waterStopFraction`, `waterRangeScale`, `waterSkipAngle`, `waterMuffle`.
+- Keys in `ntm-gunfeel-server.properties`: `waterBallistics`,
+  `waterStopFraction`, `waterRangeScale`, `waterSkipAngle`, `waterMuffle`.
 
 ## X483.44
 
