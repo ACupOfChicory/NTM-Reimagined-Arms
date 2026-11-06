@@ -221,6 +221,7 @@ CORE class com/hbm/blocks/generic/BlockWoodBarrier
 CORE class com/hbm/blocks/generic/BlockWoodStructure
 CORE class com/hbm/client/ClientRegistry
 CORE class com/hbm/entity/mob/EntityFBIDrone
+CORE class com/hbm/entity/mob/EntityHunterChopper
 CORE class com/hbm/entity/mob/EntityPlasticBag
 CORE class com/hbm/entity/mob/EntityUFO
 CORE class com/hbm/entity/mob/botprime/EntityWormBaseNT
