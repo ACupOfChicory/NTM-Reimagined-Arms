@@ -102,6 +102,11 @@ public final class SunkBullets {
         return n;
     }
 
+    // for the stand (WaterFxStand)
+    public static List<SunkPhysics.Body> list() {
+        return phys == null ? List.of() : phys.bodies();
+    }
+
     public static double physicsMs() {
         return phys == null ? 0 : phys.lastMs();
     }
@@ -174,7 +179,21 @@ public final class SunkBullets {
             Level level = Minecraft.getInstance().level;
             return level != null && WaterSurface.wet(level, x, y, z);
         }
+
+        @Override
+        public int block(int x, int y, int z) {
+            Level level = Minecraft.getInstance().level;
+            // block states are one object each, so the identity tells them apart without building the shape
+            return level == null ? 0 : System.identityHashCode(level.getBlockState(CELL.set(x, y, z)));
+        }
+
+        @Override
+        public boolean loaded(int x, int z) {
+            Level level = Minecraft.getInstance().level;
+            return level != null && level.hasChunk(x >> 4, z >> 4);
+        }
     };
+    private static final BlockPos.MutableBlockPos CELL = new BlockPos.MutableBlockPos();
     private static final double[] EMPTY = new double[0];
 
     public static void submit(SubmitCustomGeometryEvent event, Level level, Vec3 cam) {
