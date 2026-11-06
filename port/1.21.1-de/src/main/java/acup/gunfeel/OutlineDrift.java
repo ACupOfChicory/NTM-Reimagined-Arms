@@ -14,7 +14,7 @@ import net.minecraft.world.phys.Vec3;
 // against the model that frame drew (the pose publishChecked took from it), box for box, and every cube's edges against
 // the head zones (green on a head cube where its planes keep it, orange elsewhere, no orange under the green, no green
 // off the head's cubes). The rule is 26.2's: the pose and the head are exact, the orange contour of the limbs may show
-// an older model (its new contour is built in the background): the last frame's, or one younger than ModelHitDebug.LAG
+// an older model (its new contour is built in the background): the last frame's, or one younger than ModelContours.LAG
 // (-PcontourLag, 1/60 s). An older one fails the stand. Every server tick the zone a player's shot meets (ModelHits.clip in the player's shot
 // context, as NTM's bullets take it) is set against the model on the last frame the player saw before it, by the
 // front-most point a row of rays along the motion meets on each.
@@ -32,7 +32,7 @@ final class OutlineDrift {
     // the client's frame: what it drew and the model it drew
     private static List<ModelBox> truth, drawnBoxes;
     // the models the frames before drew, oldest first, each with its frame's ModelContours.callAt (the clock the contour's
-    // age is kept by): a limb's orange may show the last one's or one younger than ModelHitDebug.LAG (the contour of a
+    // age is kept by): a limb's orange may show the last one's or one younger than ModelContours.LAG (the contour of a
     // new pose is built in the background), not older
     private record Past(long nanos, List<ModelBox> boxes) {}
     private static final java.util.ArrayDeque<Past> PAST = new java.util.ArrayDeque<>();
@@ -161,7 +161,7 @@ final class OutlineDrift {
         if (seen != null) FRAMES.add(new Frame(System.nanoTime(), front(seen)));
         if (seen != null) {
             PAST.addLast(new Past(drawnAt != 0 ? drawnAt : System.nanoTime(), seen));
-            while (PAST.size() > 1 && System.nanoTime() - PAST.getFirst().nanos() > 2 * ModelHitDebug.LAG) PAST.removeFirst();
+            while (PAST.size() > 1 && System.nanoTime() - PAST.getFirst().nanos() > 2 * ModelContours.LAG) PAST.removeFirst();
         }
         drawnAt = 0;
         truth = drawnBoxes = null; drawnColors = null; drawnParts = null; drawnZones = null;
@@ -180,7 +180,8 @@ final class OutlineDrift {
         boolean last = true;
         for (var it = PAST.descendingIterator(); it.hasNext(); last = false) {
             var past = it.next();
-            if (!last && drawnAt - past.nanos() > ModelHitDebug.LAG) break;
+            // the last frame's within a quarter second, as ModelContours.good keeps it
+            if (drawnAt - past.nanos() > (last ? 250_000_000L : ModelContours.LAG)) break;
             if (past.boxes().size() == truth.size()) earlier.add(bodyEdges(past.boxes()));
         }
         for (var segment : colored.orange())
@@ -408,7 +409,7 @@ final class OutlineDrift {
                 mode, colorFrames, headPoints, headOrange, headMissing, bodyPoints, bodyGreen, shared, greenPoints, greenOff, meshGreen)));
         out.add(new Line(orangePoints > 0 && orangeLate == 0, String.format(java.util.Locale.ROOT,
                 "отставание оранжевого%s (как в 26.2: модель прошлого кадра или моложе %.1f мс): точек %d, на модели кадра %d, на прошлой или моложе порога %d, старше %d",
-                mode, ModelHitDebug.LAG / 1e6, orangePoints, orangeNow, orangeLast, orangeLate)));
+                mode, ModelContours.LAG / 1e6, orangePoints, orangeNow, orangeLast, orangeLate)));
         // the server's zone against the last frame before each shot
         Map<String, double[]> server = new LinkedHashMap<>();
         int unpaired = 0, missed = 0, noPose = 0;

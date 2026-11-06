@@ -133,9 +133,6 @@ public final class ModelHitDebug {
     // lines in a GPU buffer of their own (26.2's ModelDebugLines), in their own coordinates: built once, drawn each frame
     // under a matrix that puts them where they stand. One a frame has not drawn for SWEEP frames (its entity gone, its
     // pose changed, the level left) gives its buffer back
-    // how old a shown contour may be when it is not the last frame's (ModelContours, the port's rewrite.txt; the drift
-    // stand checks the same): -PcontourLag=<ms>, 1/60 s
-    static final long LAG = (long) (Double.parseDouble(System.getProperty("ntmgunfeel.contourLag", "16.667")) * 1e6);
     private static class Drawn {
         com.mojang.blaze3d.vertex.VertexBuffer buffer;
         boolean empty;
