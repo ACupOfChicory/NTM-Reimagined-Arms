@@ -115,9 +115,12 @@ public abstract class MixinItemRenderWeaponBase {
             target = "Lnet/minecraft/client/entity/EntityPlayerSP;prevRenderArmPitch:F", opcode = Opcodes.GETFIELD, ordinal = 0, remap = true))
     private void gunfeel$sway(ItemStack stack, CallbackInfo ci) {
         EntityPlayerSP player = Minecraft.getMinecraft().player;
+        // the modelview before our sway, WalkSprint and NTM's bob: PistolHold places the gun from the hip before them
+        // (WalkSprint.moved, taken at setupFirstPerson)
+        if (Config.enabled && !Arms.measuring && player != null) WalkSprint.base();
         if (Config.enabled && !Arms.measuring && player != null) WeaponSway.apply(player);
         if (Config.enabled && !Arms.measuring && player != null && !GunFeelClient.currentAkimbo && stack != null)
-            WalkSprint.apply(player, stack.getItem());
+            WalkSprint.apply(player, stack);
     }
 
     // NTM's own walking bob (its viewbob, by the camera's bob cameraYaw) is left out for a gun with walkSway on:
@@ -136,6 +139,7 @@ public abstract class MixinItemRenderWeaponBase {
     private void gunfeel$camera(ItemStack stack, float partialTicks, CallbackInfo ci) {
         if (GunFeelClient.current != (Object) this) return;
         Arms.cameraFrame();
+        WalkSprint.setup();
         PistolHold.setup();
     }
 
@@ -162,20 +166,32 @@ public abstract class MixinItemRenderWeaponBase {
         Arms.end(stack, Config.enabled && !Arms.measuring && !GunFeelClient.currentAkimbo);
     }
 
-    // Hip-fire position, moved toward the centre of the screen; the aimed position is unchanged (26.2's gunfeel$hip;
-    // GL turns instead of PoseStack ones). The arms are built around the gun where this puts it.
+    // Hip-fire position, moved toward the centre of the screen; the aimed position is NTM's but for a pistol in aimHold
+    // (26.2's gunfeel$hip; GL turns instead of PoseStack ones). The arms are built around the gun where this puts it.
     @Inject(method = "standardAimingTransform", at = @At("HEAD"), cancellable = true)
     private static void gunfeel$hip(ItemStack stack, double sX, double sY, double sZ, double aX, double aY, double aZ, CallbackInfo ci) {
         boolean placing = PistolHold.placing();
         if (!Config.enabled || GunFeelClient.current == null || GunFeelClient.currentAkimbo) return;
         float[] tilt = tilt();
-        // pistolHold: a pistol's hip place and aiming curve as TaCZ's; hipX/Y/Z are not used for it then
-        // (a pistol not measured yet keeps the old hold until it is measured); only NTM's placing call in
+        // pistolHold: a pistol's hip place and aiming curve by the measurements (PistolHold), hipX/Y/Z moving it from
+        // there (a pistol not measured yet keeps the old hold until it is measured); only NTM's placing call in
         // setupFirstPerson, not a later one (the heavy revolver's kick in renderFirstPerson calls it again)
         Vector3f held = new Vector3f();
         boolean hold = placing && PistolHold.on() && !PistolHold.scoped(stack);
         boolean pistol = hold && stack != null && PistolHold.hip(stack.getItem(), aX, aY, aZ, held);
-        if (!hold && Config.hipX == 1F && Config.hipY == 1F && Config.hipZ == 1F && tilt == null) return;
+        // aimHold: a pistol's aimed place moved along the eye's line, by the measurements (PistolHold.aim); the same
+        // placing call only, and not through a scope
+        Vector3f deeper = new Vector3f();
+        boolean aimHold = placing && PistolHold.aimOn() && !PistolHold.scoped(stack);
+        if (aimHold && stack != null && PistolHold.aim(stack.getItem(), aX, aY, aZ, deeper)) {
+            Vector3f a = PistolHold.blend(Config.aimHold, aX, aY, aZ, deeper);
+            if (TestLog.frames()) TestLog.c(-1, "aimHold", "aim", new float[] {a.x, a.y, a.z},
+                    "ntmAim", new float[] {(float) aX, (float) aY, (float) aZ});
+            aX = a.x;
+            aY = a.y;
+            aZ = a.z;
+        }
+        if (!hold && !aimHold && Config.hipX == 1F && Config.hipY == 1F && Config.hipZ == 1F && tilt == null) return;
         float p = ItemGunBaseNT.prevAimingProgress + (ItemGunBaseNT.aimingProgress - ItemGunBaseNT.prevAimingProgress) * ItemRenderWeaponBase.interp;
         double hx = sX * Config.hipX, hy = sY * Config.hipY;
         double hz = sZ > 0 ? sZ * Config.hipZ : sZ;
@@ -199,7 +215,7 @@ public abstract class MixinItemRenderWeaponBase {
             GL11.glRotatef(tilt[2] * w, 0F, 0F, 1F);
         }
         // the gun's ends are measured in the frame NTM draws it in from here, past the hip shift and the tilt
-        if (hold && stack != null) PistolHold.framed(stack.getItem());
+        if ((hold || aimHold) && stack != null) PistolHold.framed(stack.getItem());
         ci.cancel();
     }
 

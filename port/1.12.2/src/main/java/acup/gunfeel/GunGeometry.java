@@ -30,6 +30,9 @@ public final class GunGeometry {
     // the model parts this variant does not draw, "-Barrel-Stock" ("" = all drawn): names the variant in the grip file
     public final String missing;
     public float minX, minY, minZ, maxX, maxY, maxZ;
+    // the mean of every drawn vertex across the gun (aligned x, y): with (minZ + maxZ) / 2 the middle of the gun's
+    // cloud of vertices, which the reference measurements turn the gun around and place it by
+    public float meanX, meanY;
     // the part that carries the gun's body: the biggest one (others may move in animations)
     public int bodyPart = -1;
     // model space -> aligned frame
@@ -135,6 +138,7 @@ public final class GunGeometry {
         Vector3f v = new Vector3f();
         minX = minY = minZ = Float.MAX_VALUE;
         maxX = maxY = maxZ = -Float.MAX_VALUE;
+        double sumX = 0, sumY = 0;
         for (int p = parts.nextSetBit(0); p >= 0; p = parts.nextSetBit(p + 1)) {
             float[] q = quads[p];
             for (int i = 0; i + 2 < q.length; i += 3) {
@@ -148,13 +152,58 @@ public final class GunGeometry {
                 maxX = Math.max(maxX, v.x);
                 maxY = Math.max(maxY, v.y);
                 maxZ = Math.max(maxZ, v.z);
+                sumX += v.x;
+                sumY += v.y;
             }
         }
+        meanX = n > 0 ? (float) (sumX / n) : 0F;
+        meanY = n > 0 ? (float) (sumY / n) : 0F;
         aligned = minX <= maxX;
     }
 
     public float length() {
         return maxZ - minZ;
+    }
+
+    // the drawn vertices outermost in many directions, aligned frame: the corners of the cloud's hull, enough to find
+    // where the gun's picture ends from any side (PistolHold.aim); empty until aligned
+    private Vector3f[] extremes;
+
+    public Vector3f[] extremes() {
+        if (!aligned) return new Vector3f[0];
+        if (extremes == null) extremes = extremes(verts);
+        return extremes;
+    }
+
+    /**
+     * The points of a cloud (x, y, z after each other) farthest along 512 directions spread evenly over the sphere,
+     * each once. They are corners of its hull, though not every corner: a corner sticking out less than the spacing
+     * of the directions may be missed. The picture of the cloud placed in front of the eye ends at a corner of the
+     * hull (a point's place on the screen, x / z or y / z, is highest at one), so at one of these or close to one.
+     */
+    static Vector3f[] extremes(float[] xyz) {
+        int n = xyz.length / 3;
+        if (n == 0) return new Vector3f[0];
+        java.util.LinkedHashSet<Integer> best = new java.util.LinkedHashSet<>();
+        double golden = Math.PI * (3 - Math.sqrt(5));
+        for (int k = 0; k < 512; k++) {
+            double y = 1 - 2 * (k + 0.5) / 512, r = Math.sqrt(1 - y * y), t = golden * k;
+            float ux = (float) (Math.cos(t) * r), uy = (float) y, uz = (float) (Math.sin(t) * r);
+            int at = 0;
+            float far = -Float.MAX_VALUE;
+            for (int i = 0; i < n; i++) {
+                float d = xyz[i * 3] * ux + xyz[i * 3 + 1] * uy + xyz[i * 3 + 2] * uz;
+                if (d > far) {
+                    far = d;
+                    at = i;
+                }
+            }
+            best.add(at);
+        }
+        Vector3f[] out = new Vector3f[best.size()];
+        int o = 0;
+        for (int i : best) out[o++] = new Vector3f(xyz[i * 3], xyz[i * 3 + 1], xyz[i * 3 + 2]);
+        return out;
     }
 
     public float fraction(float z) {

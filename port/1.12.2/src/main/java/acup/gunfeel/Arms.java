@@ -273,6 +273,33 @@ public final class Arms {
         return true;
     }
 
+    // the corners of the gun's cloud of vertices (GunGeometry.extremes) as placed this frame without the model kick, in
+    // the GL modelview's space; null while the gun is not known yet
+    public static Vector3f[] gunExtremesAimed(Item held) {
+        if (!haveRel || relItem != held || geometry(held) == null) return null;
+        Vector3f[] in = geometry(held).extremes();
+        Vector3f[] out = new Vector3f[in.length];
+        for (int i = 0; i < in.length; i++) out[i] = AIMED.transformPosition(REL.transformPosition(in[i], new Vector3f()));
+        return out;
+    }
+
+    // the middle of the gun's cloud of vertices (their mean across, halfway along) as placed this frame without the
+    // model kick, in the GL modelview's space
+    public static boolean gunMiddleAimed(Item held, Vector3f out) {
+        if (!haveRel || relItem != held || geometry(held) == null) return false;
+        GunGeometry g = geometry(held);
+        AIMED.transformPosition(REL.transformPosition(g.meanX, g.meanY, (g.minZ + g.maxZ) / 2F, out));
+        return true;
+    }
+
+    // the same as drawn this frame
+    public static boolean gunMiddleRendered(Item held, Vector3f out) {
+        if (!haveRel || relItem != held || geometry(held) == null) return false;
+        GunGeometry g = geometry(held);
+        KICKED.transformPosition(REL.transformPosition(g.meanX, g.meanY, (g.minZ + g.maxZ) / 2F, out));
+        return true;
+    }
+
     // the gun's two ends along its length (model z min / max) as drawn this frame, in the GL modelview's space
     public static boolean gunEndsRendered(Item held, Vector3f back, Vector3f front) {
         if (!haveRel || relItem != held || geometry(held) == null) return false;
