@@ -31,6 +31,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
@@ -411,6 +412,22 @@ public final class ExplosiveCheck {
             rowFlag("f: fire in water: blast, no fire", name, WaterClass.of(c), "blast 1, fire 0", "blast " + blasts[1] + ", fire " + fires[1],
                     blasts[1] == 1 && fires[1] == 0, "in the air: blast " + blasts[0] + ", fire " + fires[0]);
             rowFlag("f: fire in the air (NTM's)", name, WaterClass.of(c), "fire ≥ 1", "fire " + fires[0], fires[0] >= 1, "");
+            // NTM's guard in the first 3 ticks: on a golem (not its shooter) in water the grenade goes off, the rocket
+            // spares it
+            basin();
+            IronGolem g = EntityTypes.IRON_GOLEM.create(level, EntitySpawnReason.COMMAND);
+            g.setPos(CX, surface - 4, CZ);
+            g.setNoAi(true);
+            g.setNoGravity(true);
+            level.addFreshEntity(g);
+            EntityBulletBaseMK4 b = bullet(c, new Vec3(CX - 1.5, surface - 3, CZ), new Vec3(1, 0, 0));
+            b.tickCount = 1;
+            BLASTS.clear();
+            ((WaterImpact.Hits) b).gunfeel$impact(new EntityHitResult(g, new Vec3(CX - 0.7, surface - 3, CZ)));
+            boolean rocket = name.startsWith("ammo_standard_rocket_");
+            rowFlag("f: fire in water on a mob at tick 1 (NTM's guard)", name, WaterClass.of(c), rocket ? "0 blasts" : "1 blast",
+                    BLASTS.size() + " blasts", BLASTS.size() == (rocket ? 0 : 1), "");
+            g.discard();
         }
     }
 

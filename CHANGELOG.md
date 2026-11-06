@@ -1,5 +1,11 @@
 # Changelog
 
+## XNEXT
+
+- An incendiary or phosphorus rocket that hits a creature in water in its
+  first three ticks spares it, as NTM's rocket does in the air. Before, it
+  went off there; only the grenade spares just its shooter.
+
 ## X555
 
 - On a client, a tracer slowed by water stops where the server's bullet
