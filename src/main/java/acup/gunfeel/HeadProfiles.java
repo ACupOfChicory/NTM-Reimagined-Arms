@@ -201,13 +201,28 @@ final class HeadProfiles {
         // three pairs of legs are told apart by it, not by place, as they swing while it walks), less what is not drawn
         // (armor that fell off); a part it draws out of that order (a nuclear glyphid's mini nuke) is matched by place.
         if(foreign) {
-            var aligned=align(profile,boxes,scale,yaw);
+            // a mob of another size (its scale attribute) that does not draw every part gives no scale by order above:
+            // it is guessed from the volume drawn, then taken from the parts that guess pairs, when they are at least half
+            // the profile (a box or two would fit any scale)
+            double fit=scale;
+            if(boxes.size()!=mapping.length) {
+                double drawn=0,held=0;
+                for(var box:boxes) { var s=size(box);drawn+=s[0]*s[1]*s[2]; }
+                for(var ref:profile.parts()) held+=ref.size()[0]*ref.size()[1]*ref.size()[2];
+                var guess=align(profile,boxes,drawn>0 && held>0?Math.cbrt(drawn/held):scale,yaw);var found=new ArrayList<Double>();
+                int paired=0;for(int i=0;i<guess.length;i++) if(guess[i]>=0) {
+                    paired++;
+                    var s=size(boxes.get(guess[i]));for(int k=0;k<3;k++) found.add(s[k]/profile.parts().get(i).size()[k]);
+                }
+                found.sort(Double::compare);if(paired>0 && paired*2>=mapping.length) fit=found.get(found.size()/2);
+            }
+            var aligned=align(profile,boxes,fit,yaw);
             Set<ModelBox> used=Collections.newSetFromMap(new IdentityHashMap<>());
             for(int i=0;i<mapping.length;i++) if(aligned[i]>=0) { mapping[i]=aligned[i];used.add(boxes.get(aligned[i])); }
             var picks=new ArrayList<int[]>();var scores=new HashMap<Integer,Double>();
             for(int i=0;i<mapping.length;i++) {
                 var ref=profile.parts().get(i);if(mapping[i]>=0 || anonymous(ref.name())) continue;
-                var pick=best(ref,boxes,scale,yaw,b->!used.contains(b));
+                var pick=best(ref,boxes,fit,yaw,b->!used.contains(b));
                 if(pick.box()>=0) { picks.add(new int[]{i,pick.box()});scores.put(i,pick.score()); }
             }
             picks.sort(Comparator.comparingDouble(p->scores.get(p[0])));

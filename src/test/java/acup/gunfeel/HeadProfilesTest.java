@@ -509,6 +509,30 @@ class HeadProfilesTest {
             var binding=HeadProfiles.bind(profile,HeadProfiles.unite(profile,pose(poses.get(c.type()))),0);
             assertEquals(0,binding.missing(),c.toString());assertEquals(c.zones(),binding.zones().size(),c.toString());
         }
+        // моб другого размера (атрибут scale), у которого нарисованы не все части (у глифида нет брони, у Mask Man — черепа)
+        for(double k:new double[]{.5,2,3}) for(var c:List.of(new Case("hbm:entity_glyphid",false,3),new Case("hbm:entity_glyphid",true,18),
+                new Case("hbm:entity_mob_mask_man",false,1))) {
+            var profile=c.limb()?HeadProfiles.get(limbs,c.type()):HeadProfiles.get(c.type());
+            var sized=pose(poses.get(c.type())).stream().map(b->new ModelBox(b.part(),b.x()*k,b.y()*k,b.z()*k,b.ux()*k,b.uy()*k,b.uz()*k,
+                    b.vx()*k,b.vy()*k,b.vz()*k,b.wx()*k,b.wy()*k,b.wz()*k)).toList();
+            var binding=HeadProfiles.bind(profile,HeadProfiles.unite(profile,sized),0);
+            assertEquals(0,binding.missing(),k+" "+c);assertEquals(c.zones(),binding.zones().size(),k+" "+c);
+        }
+        // масштаб по объёму сбит пропавшей частью; его поправляют пары, которые он нашёл: часть на краю допуска размера не теряется
+        var refs=new ArrayList<HeadProfiles.Ref>();var zoned=new ArrayList<HeadProfiles.Zone>();
+        double[][] at3={{0,0,0},{2,0,0},{-2,0,0},{0,2,0}};double[] edge={.6,.5,.5,.4};
+        for(int i=0;i<4;i++) {
+            refs.add(new HeadProfiles.Ref("mesh/root/parts/"+i+"/base",new double[]{edge[i],edge[i],edge[i]},0,new Vec3(at3[i][0],at3[i][1],at3[i][2]),-1));
+            if(i>0) zoned.add(new HeadProfiles.Zone(i,i,List.of(),0));
+        }
+        var lost=new HeadProfiles.Profile(false,refs,zoned);
+        for(double k:new double[]{1,2}) {
+            var drawnParts=new ArrayList<ModelBox>();
+            for(int i=1;i<4;i++) { double e=(i==3?.514:edge[i])*k;
+                drawnParts.add(new ModelBox("mesh/Part"+i,at3[i][0]*k-e/2,at3[i][1]*k-e/2,at3[i][2]*k-e/2,e,0,0,0,e,0,0,0,e)); }
+            var bound=HeadProfiles.bind(lost,drawnParts,0);
+            assertEquals(0,bound.missing(),"k="+k);assertEquals(List.of(0,1,2),bound.zones().stream().map(HeadProfiles.Zone::part).toList(),"k="+k);
+        }
         // ноги глифида на ходу не на своих местах: их различает порядок, каждая зона — у коробки своей группы
         var glyphid=pose(poses.get("hbm:entity_glyphid"));var legs=HeadProfiles.get(limbs,"hbm:entity_glyphid");
         var order=List.of("Body","ArmorFront","ArmorLeft","ArmorRight","ArmLeftUpper","ArmLeftMid","ArmLeftLower","ArmLeftArmor",
