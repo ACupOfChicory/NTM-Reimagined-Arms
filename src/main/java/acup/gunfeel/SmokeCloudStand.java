@@ -10,6 +10,7 @@ import java.util.Set;
 import acup.gunfeel.smoke.SmokeClouds;
 import acup.gunfeel.smoke.SmokeKind;
 import acup.gunfeel.smoke.SmokeNet;
+import acup.gunfeel.smoke.SmokeSight;
 import acup.gunfeel.smoke.client.SmokeClient;
 import acup.gunfeel.smoke.client.SmokeFog;
 import acup.gunfeel.smoke.client.SmokeStats;
@@ -145,7 +146,8 @@ final class SmokeCloudStand {
             case 0 -> {
                 // a pose begins: reference without clouds, then the clouds at each quality
                 if (p == null) {
-                    done();
+                    sightStart();
+                    phase = 10;
                     return;
                 }
                 teleport(p);
@@ -202,9 +204,70 @@ final class SmokeCloudStand {
                 quality = 0;
                 nextQuality(p);
             }
+            case 10 -> {
+                // the key is read from the file at most once a second
+                if ((now - sightAt) / 1e9 < 1.5) return;
+                sightEnd();
+                done();
+            }
             default -> {
             }
         }
+    }
+
+    // smokeBlocksMobSight (SmokeSight): a zombie and a villager with a dense cloud between them, the key off and on
+    private static long sightAt;
+    private static boolean seenOff, seenNear;
+    private static net.minecraft.world.entity.Mob zombie;
+    private static net.minecraft.world.entity.LivingEntity villager;
+    private static final Path SERVER_FILE = net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get().resolve(ReaimTimes.FILE);
+
+    private static void sightStart() {
+        var server = Minecraft.getInstance().getSingleplayerServer();
+        server.submit(() -> {
+            ServerLevel level = server.overworld();
+            endAll(level);
+            int id = SmokeClouds.spawn(level, new Vec3(6.5, Y + 0.5, 30.5), new Vec3(0, -0.3, 1).normalize(), SmokeKind.SMOKE, 1F);
+            SmokeClouds.Cloud c = SmokeClouds.get(level).cloud(id);
+            for (int i = 0; i < 100; i++) c.grid.step();
+            zombie = net.minecraft.world.entity.EntityTypes.ZOMBIE.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            villager = net.minecraft.world.entity.EntityTypes.VILLAGER.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            zombie.setNoAi(true);
+            ((net.minecraft.world.entity.Mob) villager).setNoAi(true);
+            zombie.setPos(6.5, Y, 18.5);
+            villager.setPos(6.5, Y, 42.5);
+            level.addFreshEntity(zombie);
+            level.addFreshEntity(villager);
+            seenOff = zombie.hasLineOfSight(villager);
+            try {
+                Files.writeString(SERVER_FILE, SmokeSight.KEY + " = true\n");
+            } catch (Exception e) {
+                ClientSmoke.check(false, "дым: файл сервера " + e);
+            }
+        }).join();
+        sightAt = System.nanoTime();
+    }
+
+    private static void sightEnd() {
+        var server = Minecraft.getInstance().getSingleplayerServer();
+        boolean[] seen = new boolean[2];
+        server.submit(() -> {
+            seen[0] = zombie.hasLineOfSight(villager);
+            villager.setPos(6.5, Y, 20.5);
+            seenNear = zombie.hasLineOfSight(villager);
+            zombie.discard();
+            villager.discard();
+            try {
+                Files.deleteIfExists(SERVER_FILE);
+            } catch (Exception e) {
+                ClientSmoke.check(false, "дым: файл сервера " + e);
+            }
+            endAll(server.overworld());
+        }).join();
+        ClientSmoke.check(seenOff, "дым: без ключа зомби видит жителя сквозь облако");
+        ClientSmoke.check(!seen[0], "дым: с smokeBlocksMobSight зомби не видит жителя сквозь облако");
+        ClientSmoke.check(seenNear, "дым: жителя в двух блоках зомби видит и в дыму");
+        ROWS.add("# sight: key off " + seenOff + ", key on " + seen[0] + ", 2 blocks away " + seenNear);
     }
 
     private static void nextQuality(Pose p) {
