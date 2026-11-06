@@ -57,6 +57,11 @@ final class ArmEditor {
         default List<String> parts() {
             return List.of();
         }
+
+        // the held gun is aimed through a scope (PistolHold.scoped): NTM keeps its own hold then
+        default boolean scoped() {
+            return false;
+        }
     }
 
     // the gun's model box and the two ways of giving a grip: a point in model units, or fractions of the model
@@ -853,6 +858,13 @@ final class ArmEditor {
         return right ? Config.armBaseRight : Config.armBaseLeft;
     }
 
+    // how much a pistol's arms take their thickness from their hands' depth on this gun (armPistolScale,
+    // Arms.pistolThickness): the weight the hold gives it, 0 = not at all
+    private float pistolDepth() {
+        Config.select(gun);
+        return Config.armPistolScale && PistolHold.on() && !clips.scoped() ? Math.min(1F, Config.pistolHold) : 0F;
+    }
+
     // the arm runs from the hand back toward the eye, so how far back it goes is read (Arms.restArm)
     private boolean back(boolean right) {
         Config.select(gun);
@@ -883,8 +895,23 @@ final class ArmEditor {
                 for (int c = 0; c < 3; c++) out.add(new ConfigKnob("armDir" + s, c, dir[c], dirHint[c], "", -1.5F, 1.5F, 0.01F));
                 out.add(new ConfigKnob("armRoll" + s, -1, "Поворот руки", "Поворот руки вокруг своей оси.", "°", -180F, 180F, 1F));
                 out.add(new ConfigKnob("armScale" + s, -1, "Толщина", "Толщина этой руки, когда она держит оружие, поверх общей толщины обеих рук.", "×", 0.3F, 2.5F, 0.01F));
+                out.add(new ConfigKnob("armAimScale" + s, -1, "Толщина в прицеле",
+                        "Толщина этой руки, когда оружие в прицеле; между бедром и прицелом переходит плавно. 0 — как «Толщина».",
+                        "×", 0F, 2.5F, 0.01F));
                 out.add(new ConfigKnob("armBase" + s, -1, "Основа толщины",
-                        "Толщина руки до общего множителя, одна на всех оружиях. 0 — толщина растёт с длиной руки.", "", 0F, 5F, 0.01F));
+                        "Толщина руки до общего множителя, одна на всех оружиях. 0 — толщина растёт с длиной руки.", "", 0F, 5F, 0.01F) {
+                    // an arm sized by its hand's depth alone reads its base only for its length (Arms.restArm)
+                    @Override
+                    String why() {
+                        return pistolDepth() >= 1F && !(Config.armLength > 0F)
+                                ? "не действует, пока толщину рук задаёт глубина кисти («Руки пистолета по глубине»), а «Длина руки» 0" : null;
+                    }
+
+                    @Override
+                    String off() {
+                        return "по глубине кисти";
+                    }
+                });
                 boolean right = hand == 0;
                 out.add(new ConfigKnob("armReach" + s, -1, "Плечо до", "Рука идёт назад до этой глубины перед глазом (минус — за глазом).", "", -2F, 2F, 0.01F) {
                     @Override
@@ -943,12 +970,17 @@ final class ArmEditor {
                 out.add(new ConfigKnob("armScale", -1, "Толщина обеих", "Множитель толщины обеих рук.", "×", 0.2F, 2F, 0.01F));
                 out.add(new ConfigKnob("armLength", -1, "Длина руки", "Длина руки в ванильных руках её толщины. 0 — рука тянется до «Плечо до».", "", 0F, 2F, 0.01F) {
                     // with both bases 0 it only lets an arm drawn shorter than 11.5 of its pixels be cut (Arms.local), and
-                    // such an arm is at least 18 / (armScale x its own thickness x min(1, armMaxScale)) pixels long
+                    // such an arm is at least 18 / (armScale x its thickest hold/load/aim scale
+                    // x min(1, armMaxScale)) pixels long; an arm sized by its hand's depth has no such bound
                     @Override
                     String why() {
+                        if (pistolDepth() > 0F) return null;
                         Config.select(gun);
-                        float thickest = Config.armScale * Math.min(1F, Config.armMaxScale) * Math.max(Math.max(Config.armScaleRight, Config.armScaleLeft),
-                                Math.max(Config.armLoadScaleRight, Config.armLoadScaleLeft));
+                        float aimRight = Config.armAimScaleRight > 0F ? Config.armAimScaleRight : 0F;
+                        float aimLeft = Config.armAimScaleLeft > 0F ? Config.armAimScaleLeft : 0F;
+                        float thickest = Config.armScale * Math.min(1F, Config.armMaxScale) * Math.max(
+                                Math.max(Math.max(Config.armScaleRight, Config.armScaleLeft), Math.max(Config.armLoadScaleRight, Config.armLoadScaleLeft)),
+                                Math.max(aimRight, aimLeft));
                         return base(true) <= 0F && base(false) <= 0F && 18F / thickest >= 11.5F
                                 ? "действует, только когда «Основа толщины» хоть одной руки больше 0 или рука вместе с «Толщиной обеих» толще "
                                         + number(18F / 11.5F, 0.01F) : null;
@@ -962,12 +994,14 @@ final class ArmEditor {
                 out.add(new ConfigKnob("armMaxScale", -1, "Предел толщины", "Наибольшая толщина, которую рука набирает с длиной.", "", 0.5F, 8F, 0.05F) {
                     @Override
                     String why() {
-                        return base(true) > 0F && base(false) > 0F ? "действует, только когда «Основа толщины» хоть одной руки 0" : null;
+                        if (base(true) > 0F && base(false) > 0F) return "действует, только когда «Основа толщины» хоть одной руки 0";
+                        // the hold's full weight takes the thickness from the hands' depth alone
+                        return pistolDepth() >= 1F ? "не действует, пока толщину рук задаёт глубина кисти: «Руки пистолета по глубине»" : null;
                     }
 
                     @Override
                     String off() {
-                        return "при основе 0";
+                        return base(true) > 0F && base(false) > 0F ? "при основе 0" : "по глубине кисти";
                     }
                 });
                 out.add(new ConfigKnob("armFollow", -1, "Руки за оружием", "Насколько руки поворачиваются вместе с оружием в анимациях: 0 — нет, 1 — полностью.", "", 0F, 1F, 0.01F));
@@ -996,6 +1030,7 @@ final class ArmEditor {
 
     // the switches of the BOTH page: key, label, hint
     private static final String[][] SWITCHES = {
+            {"armPistolScale", "Руки пистолета по глубине", "У пистолета, когда включён «пистолет у бедра», рука тем толще, чем дальше кисть от глаза: обе руки на экране одного размера у бедра и в прицеле. «Толщина» и «Толщина в прицеле» действуют поверх."},
             {"armSlide", "Скольжение рук", "В анимациях кисть скользит по оружию к прикладу, а не рука растягивается."},
             {"armSlideNearest", "Ближайшая точка", "Скользящая кисть останавливается в ближайшей к хвату точке, до которой достаёт рука."}};
 
@@ -1004,6 +1039,8 @@ final class ArmEditor {
     }
 
     private String switchWhy(String key) {
+        if (key.equals("armPistolScale") && !PistolHold.on()) return "действует только у пистолета, когда включён «пистолет у бедра»";
+        if (key.equals("armPistolScale") && clips.scoped()) return "не действует у оружия с оптическим прицелом";
         return key.equals("armSlideNearest") && !switchOn("armSlide") ? "действует, только когда включено «Скольжение рук»" : null;
     }
 
@@ -1470,8 +1507,10 @@ final class ArmEditor {
             Grips.put(gun, key, String.valueOf(!switchOn(key)), false);
             Config.select(gun);
         })));
+        String resetWhy = Grips.own(gun, key) != null ? null : "у этого оружия нет своего значения";
+        if (key.equals("armPistolScale") && why != null) resetWhy = why;
         out.add(new Action("set." + key + ".reset", "↺", "Вернуть «" + sw[1] + "», как задано в моде.", "",
-                Grips.own(gun, key) != null ? null : "у этого оружия нет своего значения", () -> change(() -> {
+                resetWhy, () -> change(() -> {
                     Grips.put(gun, key, null, false);
                     Config.select(gun);
                 })));

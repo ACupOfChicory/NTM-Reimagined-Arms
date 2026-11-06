@@ -75,7 +75,8 @@ public final class PistolHold {
      */
     public static boolean on() {
         if (!Config.enabled || Config.pistolHold <= 0F || !WalkSprint.pistol(Config.kickPreset)) return false;
-        return net.minecraft.client.Minecraft.getInstance().options.mainHand().get() != net.minecraft.world.entity.HumanoidArm.LEFT;
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        return mc == null || mc.options.mainHand().get() != net.minecraft.world.entity.HumanoidArm.LEFT;
     }
 
     /**

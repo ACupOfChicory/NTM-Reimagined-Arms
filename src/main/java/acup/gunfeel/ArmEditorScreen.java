@@ -217,6 +217,12 @@ public final class ArmEditorScreen extends Screen {
         }
 
         @Override
+        public boolean scoped() {
+            var player = Minecraft.getInstance().player;
+            return player != null && PistolHold.scoped(player.getMainHandItem());
+        }
+
+        @Override
         public String gunName(String gun) {
             try {
                 Item i = BuiltInRegistries.ITEM.getValue(Identifier.parse(gun.contains("-") ? gun.substring(0, gun.indexOf('-')) : gun));
