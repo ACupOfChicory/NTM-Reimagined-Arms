@@ -149,12 +149,17 @@ public final class CameraRecoil {
         EntityPlayerSP holder = Minecraft.getMinecraft().player;
         ItemStack held = holder == null ? null : holder.getHeldItemMainhand();
         boolean aiming = held != null && ItemGunBaseNT.getIsAiming(held);
-        addImpulse(vertical, horizontal, aiming, holder == null ? null : holder.rotationPitch, GunClock.nanos(), Rng.camera());
+        addImpulse(vertical, horizontal, aiming, holder == null ? null : holder.rotationPitch, GunClock.nanos(), Rng.camera(), PowerArmor.cameraRecoil(holder));
     }
 
     // pitch: the player's pitch now (null = no player); random: 26.2's Rng.camera(), drawn in the same order (the
     // drift's normal number, when cameraDriftDeg is on, then the shake's side)
     static void addImpulse(float vertical, float horizontal, boolean aiming, Float pitch, long now, Random random) {
+        addImpulse(vertical, horizontal, aiming, pitch, now, random, 1F);
+    }
+
+    // armor: PowerArmor.cameraRecoil of the player (1 out of power armour)
+    static void addImpulse(float vertical, float horizontal, boolean aiming, Float pitch, long now, Random random, float armor) {
         if (SHOTS.size() >= 16) {
             Shot old = SHOTS.remove(0);
             kept += old.keep();
@@ -165,7 +170,9 @@ public final class CameraRecoil {
         float min = ReaimTimes.number("cameraScaleMin", 0F);
         boolean held = min > 0F;
         float ads = aiming ? Config.adsRecoil : 1F;
-        float scale = Math.max(Config.cameraScale * ads, min);
+        // powerArmorRecoil: in NTM's power armour the whole kick is smaller, the server's minimum included
+        float scale = Math.max(Config.cameraScale * ads, min) * armor;
+        if (TestLog.client && armor != 1F) TestLog.c(-1, "power_armor", "camera", armor, "model", PowerArmor.recoil(Minecraft.getMinecraft().player));
         Recoil cPitch = held ? shipped("cameraPitch") : RecoilPresets.channel("cameraPitch");
         boolean first = !burst;
         if (pitch != null && !burst) {
@@ -178,11 +185,11 @@ public final class CameraRecoil {
         float climb = Config.cameraClimb * ramp;
         // degrees up, always: for guns whose NTM recoil is noise around 0 (G3, M2, miniguns), where a share of the kick
         // would wander up and down; lighter while aiming, like the kick
-        float deg = Config.cameraClimbDeg * ads * ramp;
+        float deg = Config.cameraClimbDeg * ads * armor * ramp;
         float side = 0F;
         if (Config.cameraDriftDeg > 0F) {
             drift = nextDrift(drift, first, (float) random.nextGaussian());
-            side = Config.cameraDriftDeg * ads * ramp * drift;
+            side = Config.cameraDriftDeg * ads * armor * ramp * drift;
         }
         float[] reach = climb > 0F || deg > 0F || side != 0F ? reachTable(cPitch) : NO_REACH;
         if (TestLog.client) TestLog.c(-1, "recoil", "phase", "kick", "scale", scale, "cameraScale", Config.cameraScale, "min", min, "held", held,
@@ -190,7 +197,7 @@ public final class CameraRecoil {
                 "cameraClimb", climb, "cameraClimbDeg", deg, "ramp", ramp, "shot", burstShots, "keep", vertical * scale * climb * reach[reach.length - 1] + deg,
                 "side", side);
         SHOTS.add(new Shot(now, vertical * scale, horizontal * scale,
-                Config.cameraShake * ads * (random.nextDouble() < 0.5 ? 1F : -1F), 1F,
+                Config.cameraShake * ads * armor * (random.nextDouble() < 0.5 ? 1F : -1F), 1F,
                 cPitch,
                 held ? shipped("cameraYaw") : RecoilPresets.channel("cameraYaw"),
                 RecoilPresets.channel("cameraRoll"), held ? Math.max(1F, Config.cameraTime) : Config.cameraTime,

@@ -1,5 +1,15 @@
 # Changelog
 
+## X543.163
+
+- As in 26.2 X510: in NTM power armour all recoil is halved: the camera kick,
+  the gun model's kick the arms follow and NTM's own recoil animation. Power
+  armour is the chestplate of a battery-powered suit: T-51, AJR, AJRO, RPA,
+  NCRPA, BJ (with or without the jetpack), Envsuit, HEV, FAU, DNS; not the steam
+  and diesel suits. The chestplate is enough, charged or not. Key
+  `powerArmorRecoil` (0.5; 1 = off). On a server that sets `cameraScaleMin`,
+  the camera kick stays at least half.
+
 ## X543.162
 
 - As in 26.2 X515: the walking bob and the sprint pose now work on long guns

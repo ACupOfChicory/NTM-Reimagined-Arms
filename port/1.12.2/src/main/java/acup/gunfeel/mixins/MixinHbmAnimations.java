@@ -29,7 +29,7 @@ public abstract class MixinHbmAnimations {
         EntityPlayer player = Minecraft.getMinecraft().player;
         ItemStack held = player == null ? null : player.getHeldItemMainhand();
         boolean aiming = held != null && ItemGunBaseNT.getIsAiming(held);
-        float strength = Config.ntmRecoilAnim * (aiming ? Config.adsRecoil : 1F);
+        float strength = Config.ntmRecoilAnim * (aiming ? Config.adsRecoil : 1F) * acup.gunfeel.PowerArmor.recoil(player);
         if (strength == 1F) return;
         double[] t = cir.getReturnValue();
         if (t == null) return;

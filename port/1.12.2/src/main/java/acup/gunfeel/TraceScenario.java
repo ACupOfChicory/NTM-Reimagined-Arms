@@ -25,6 +25,7 @@ import net.minecraft.world.WorldSettings;
 // began: two runs give the same trace (tools/trace_diff.py), and a port's run the same numbers.
 //   -Dntmgunfeel.scenario=arms            on (with -Dntmgunfeel.trace)
 //   -Dntmgunfeel.scenarioGuns=<id,...>    the guns (default: GUNS); "all": every NTM gun of the game
+//   -Dntmgunfeel.scenarioChest=<id>       the player wears this chestplate (hbm:t51_plate: power armour, PowerArmor)
 //
 // port: copied from 26.2 (0762086, notes/ports/port-1.7.10-copied.md): the parts, frames, seeds and waits are 26.2's.
 // The world comes from ShootScenario (26.2: ClientSmoke), start and frame are called from GunFeelClient's frame, a
@@ -35,6 +36,7 @@ import net.minecraft.world.WorldSettings;
 public final class TraceScenario {
     private static final String NAME = System.getProperty("ntmgunfeel.scenario");
     static final String GUNS = "hbm:gun_uzi,hbm:gun_g3,hbm:gun_henry,hbm:gun_light_revolver,hbm:gun_spas12,hbm:gun_maresleg";
+    private static final String CHEST = System.getProperty("ntmgunfeel.scenarioChest");
     private static final String[] PARTS = {"equip", "idle", "turn", "ads", "shot", "burst", "reload", "inspect"};
     private static final int MAX_FRAMES = 1500, SETTLE_FRAMES = 250;
 
@@ -115,6 +117,11 @@ public final class TraceScenario {
             ItemGunBaseNT.setTimer(stack, 0, 0);
             p.inventory.currentItem = 0;
             p.inventory.setInventorySlotContents(0, stack);
+            if (CHEST != null && !CHEST.trim().isEmpty()) {
+                Item chest = Item.REGISTRY.getObject(new net.minecraft.util.ResourceLocation(CHEST.trim()));
+                if (chest == null) check(false, "сценарий: нет нагрудника " + CHEST);
+                else p.setItemStackToSlot(net.minecraft.inventory.EntityEquipmentSlot.CHEST, new ItemStack(chest));
+            }
             p.inventoryContainer.detectAndSendChanges();
             given = true;
         });
