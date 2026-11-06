@@ -5,7 +5,7 @@
   "plugin": "acup.gunfeel.port.DeReadBounds",
   "compatibilityLevel": "JAVA_21",
   "mixins": [],
-  "client": ["RenderChunkRegionAccess", "MixinBlockReadBounds"],
+  "client": ["RenderChunkRegionAccess", "MixinBlockReadBounds", "MixinOitComposite"],
   "injectors": {
     "defaultRequire": 0
   }
