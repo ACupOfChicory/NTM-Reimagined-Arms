@@ -210,6 +210,67 @@ final class WaterFxStand {
                     int left = WaterRings.leftWater - ringsLeft0;
                     line("rings taken off as their water went: " + left + ", alive now " + WaterRings.alive());
                     check(left > 0 && WaterRings.alive() == 0, "кольцо снимается, когда уходит с воды");
+                    shots = 0;
+                    next();
+                }
+                // blasts at water (part 3's WaterBlast): an explosive round into the slope pool, its surface fuze sends
+                // the blast from the server; then one given straight to the listeners in the shallow pool's water
+                case 19 -> {
+                    if (shots == 0) {
+                        shots = 1;
+                        before = WaterFx.SPAWNED.clone();
+                        blasts0 = WaterFx.blasts;
+                        plumes0 = WaterFx.plumes;
+                        WaterRings.widest = 0;
+                        fire(server, "g12_explosive", 1);
+                        return;
+                    }
+                    if (elapsed() < 4) return;
+                    line("explosive g12 into the slope pool: blasts under water " + (WaterFx.blasts - blasts0) + ", columns " + (WaterFx.plumes - plumes0)
+                            + ", particles " + perShot(1) + ", widest ring reach " + WaterRings.widest + " cells");
+                    check(WaterFx.plumes - plumes0 + WaterFx.blasts - blasts0 > 0, "взрыв у воды доходит до эффектов (listenBlasts)");
+                    shots = 0;
+                    next();
+                }
+                case 20 -> {
+                    if (shots == 0) {
+                        shots = 1;
+                        before = WaterFx.SPAWNED.clone();
+                        blasts0 = WaterFx.blasts;
+                        plumes0 = WaterFx.plumes;
+                        WaterRings.widest = 0;
+                        Vec3 at = new Vec3(SHALLOW + 2.5, Y - 0.9, 0.5);
+                        acup.gunfeel.water.WaterEvents.blast(mc.level, new acup.gunfeel.water.WaterEvents.Blast(at, 6F, false, true,
+                                new Vec3(at.x, Y + 0.0, at.z), acup.gunfeel.water.WaterEvents.Liquid.WATER));
+                        return;
+                    }
+                    if (elapsed() < 4) return;
+                    line("blast of size 6 given in the shallow pool: blasts under water " + (WaterFx.blasts - blasts0) + ", columns "
+                            + (WaterFx.plumes - plumes0) + ", particles " + perShot(1) + ", widest ring reach " + WaterRings.widest + " cells");
+                    check(WaterFx.blasts - blasts0 == 1 && WaterFx.plumes - plumes0 == 1, "взрыв в воде — пузыри и толчок, над ним столб");
+                    check(WaterRings.widest > 3, "кольца большого взрыва не обрезаны на 3 клетках");
+                    shots = 0;
+                    next();
+                }
+                // the same blast with its centre on the surface: the column only, no bubble under water
+                case 21 -> {
+                    if (shots == 0) {
+                        shots = 1;
+                        before = WaterFx.SPAWNED.clone();
+                        blasts0 = WaterFx.blasts;
+                        plumes0 = WaterFx.plumes;
+                        Vec3 at = new Vec3(SHALLOW + 2.5, Y + 0.0, 0.5);
+                        acup.gunfeel.water.WaterEvents.blast(mc.level, new acup.gunfeel.water.WaterEvents.Blast(at, 6F, false, true, at,
+                                acup.gunfeel.water.WaterEvents.Liquid.WATER));
+                        return;
+                    }
+                    if (elapsed() < 4) return;
+                    line("blast of size 6 on the shallow pool's surface: blasts under water " + (WaterFx.blasts - blasts0) + ", columns "
+                            + (WaterFx.plumes - plumes0) + ", particles " + perShot(1));
+                    check(WaterFx.blasts - blasts0 == 0 && WaterFx.plumes - plumes0 == 1, "взрыв на поверхности — только столб, без пузыря");
+                    next();
+                }
+                case 22 -> {
                     line("surface audit: under the surface by more than 0.15: " + WaterFx.below + ", over air: " + WaterFx.overAir + ", deepest "
                             + String.format("%.3f", WaterFx.worstBelow));
                     check(WaterFx.below == 0 && WaterFx.overAir == 0, "ни одна частица не ниже поверхности на 0.15 и не над воздухом");
@@ -244,7 +305,7 @@ final class WaterFxStand {
     }
 
     private static int[] eventsBefore;
-    private static int traced0;
+    private static int traced0, blasts0, plumes0;
 
     private static String events() {
         StringBuilder b = new StringBuilder();

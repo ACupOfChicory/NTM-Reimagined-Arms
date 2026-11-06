@@ -79,7 +79,7 @@ class WaterPathTest {
     @Test
     void stopsAtLTimesLnOneOverStopStraightDown() {
         Map<WaterClass, Double> depth = Map.of(WaterClass.PISTOL, 2.4, WaterClass.RIFLE, 1.25, WaterClass.HEAVY, 1.3,
-                WaterClass.AP, 1.7, WaterClass.SLUG, 2.7, WaterClass.SHOT, 0.6, WaterClass.DART, 3.8);
+                WaterClass.AP, 1.7, WaterClass.SLUG, 2.7, WaterClass.SHOT, 0.6, WaterClass.MINI, 1.33, WaterClass.DART, 3.8);
         for (var e : depth.entrySet()) {
             var r = down(deep(), e.getKey(), 1);
             assertNotNull(r.stop, e.getKey().name());
@@ -114,6 +114,92 @@ class WaterPathTest {
         double s = 1.25 * Math.log(1 / 0.15);
         assertEquals(s / Math.sqrt(2), SURFACE - r.stop.y, 1e-9);
         assertEquals(s, r.water, 1e-9);
+    }
+
+    // notes/water/bubble-demo runPath: f <- f·exp(-ds / L(s)) in small steps; the stop depth, or f at depth d
+    private static double[] runPath(double length, WaterClass.Expansion ex, double d) {
+        double s = 0, f = 1, ds = 1e-5;
+        while (f > 0.15 && s < 10) {
+            double e = ex != null ? Math.min(1, s / ex.span()) : 0, le = length * (1 - (ex != null ? ex.drop() * e : 0));
+            f *= Math.exp(-ds / le);
+            s += ds;
+            if (s >= d) return new double[] {Double.NaN, f};
+        }
+        return new double[] {s, 0};
+    }
+
+    @Test
+    void expandingBulletsByTheirNames() {
+        assertSame(WaterClass.Expansion.JHP, WaterClass.Expansion.of("ammo_standard_p9_jhp"));
+        assertSame(WaterClass.Expansion.JHP, WaterClass.Expansion.of("ammo_standard_bmg50_jhp"));
+        assertSame(WaterClass.Expansion.SP, WaterClass.Expansion.of("ammo_standard_r556_sp"));
+        // b75_exp has the JHP's armour piercing, express the FMJ's: neither expands
+        assertNull(WaterClass.Expansion.of("ammo_standard_b75_exp"));
+        assertNull(WaterClass.Expansion.of("ammo_standard_m357_express"));
+        assertNull(WaterClass.Expansion.of("ammo_standard_p9_fmj"));
+    }
+
+    @Test
+    void dragAndItsInverseAgree() {
+        for (var ex : new WaterClass.Expansion[] {null, WaterClass.Expansion.JHP, WaterClass.Expansion.SP})
+            for (double u : new double[] {0, 0.01, 0.12, 0.2, 0.5, 2}) {
+                assertEquals(u, WaterPath.undrag(1.25, ex, WaterPath.drag(1.25, ex, u)), 1e-12);
+                // L(u) at the start is the plain L, fully open (1 - drop)·L
+                double h = 1e-7;
+                double slope = (WaterPath.drag(1.25, ex, u + h) - WaterPath.drag(1.25, ex, u)) / h;
+                double e = ex == null ? 0 : Math.min(1, (u + h / 2) / ex.span());
+                assertEquals(1 / (1.25 * (1 - (ex == null ? 0 : ex.drop() * e))), slope, 1e-4);
+            }
+    }
+
+    @Test
+    void anExpandingBulletStopsSoonerAsTheStepsSay() {
+        // 9 mm JHP stops at ~1.3 blocks against FMJ's 2.4; SP in between
+        Map<WaterClass.Expansion, Double> depth = Map.of(WaterClass.Expansion.JHP, 1.34, WaterClass.Expansion.SP, 1.81);
+        for (var e : depth.entrySet()) {
+            double steps = runPath(1.25, e.getKey(), 99)[0];
+            var r = WaterPath.trace(deep(), new Vec3(0.5, 12, 0.5), new Vec3(0.5, 0.2, 0.5), 1, WaterClass.PISTOL, e.getKey(), 0, 0, 1L, S, null);
+            assertNotNull(r.stop);
+            double d = SURFACE - r.stop.y;
+            assertEquals(steps, d, 1e-3, "as runPath's steps");
+            assertEquals(WaterPath.stopDepth(WaterClass.PISTOL, e.getKey(), S), d, 1e-9);
+            assertEquals(e.getValue(), d, 0.01);
+            assertEquals(d, r.opened, 1e-9);
+            // f and the damage share along the way
+            for (double at : new double[] {0.05, 0.12, 0.5, 1.0}) {
+                double want = runPath(1.25, e.getKey(), at)[1];
+                assertEquals(want, r.fAt(new Vec3(0.5, SURFACE - at, 0.5)), 1e-4, "f at " + at);
+            }
+        }
+        // a rifle's SP too, by the same rule on its own L
+        var rifle = WaterPath.trace(deep(), new Vec3(0.5, 12, 0.5), new Vec3(0.5, 0.2, 0.5), 1, WaterClass.RIFLE, WaterClass.Expansion.SP, 0, 0, 1L, S, null);
+        assertEquals(runPath(0.65, WaterClass.Expansion.SP, 99)[0], SURFACE - rifle.stop.y, 1e-3);
+    }
+
+    @Test
+    void theOpeningCarriesOverTicksAndWater() {
+        // the JHP's dive cut into ticks of 0.03 blocks (shorter than its opening): the same stop as in one piece
+        World w = deep();
+        double f = 1, opened = 0;
+        Vec3 at = new Vec3(0.5, SURFACE + 0.1, 0.5);
+        Vec3 stop = null;
+        for (int i = 0; i < 400 && stop == null; i++) {
+            var r = WaterPath.trace(w, at, at.add(0, -0.03, 0), f, WaterClass.PISTOL, WaterClass.Expansion.JHP, opened, 0, i, S, null);
+            f = r.f;
+            opened = r.opened;
+            stop = r.stop;
+            at = r.end();
+        }
+        assertNotNull(stop);
+        assertEquals(WaterPath.stopDepth(WaterClass.PISTOL, WaterClass.Expansion.JHP, S), SURFACE - stop.y, 1e-9);
+        // it stays open out of the water: through a block of water, the air, and into a second pool, it stops after the
+        // same path in water as in one pool
+        World two = new World().pool(0, 0, 0, 0, 0, 0).pool(3, 3, 0, 0, 0, 0);
+        double d = WaterPath.stopDepth(WaterClass.PISTOL, WaterClass.Expansion.JHP, S);
+        var r = WaterPath.trace(two, new Vec3(-1, 0.5, 0.5), new Vec3(6, 0.5, 0.5), 1, WaterClass.PISTOL, WaterClass.Expansion.JHP, 0, 0, 1L, S, null);
+        assertNotNull(r.stop);
+        assertEquals(3 + d - 1, r.stop.x, 1e-9);
+        assertEquals(d, r.opened, 1e-9);
     }
 
     @Test
@@ -306,6 +392,7 @@ class WaterPathTest {
         assertEquals(5.35, WaterClass.PISTOL.formulaAngle(), 0.01);
         assertEquals(6.03, WaterClass.RIFLE.formulaAngle(), 0.01);
         assertEquals(6.42, WaterClass.AP.formulaAngle(), 0.01);
+        assertEquals(4.13, WaterClass.MINI.formulaAngle(), 0.01);
         assertEquals(11.38, WaterClass.GRENADE.formulaAngle(), 0.01);
         assertEquals(12.73, WaterClass.ROCKET.formulaAngle(), 0.01);
     }

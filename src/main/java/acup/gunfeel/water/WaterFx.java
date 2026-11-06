@@ -65,6 +65,8 @@ public final class WaterFx {
     public static double worstBelow;
     // NTM flashes not drawn because they were under water (MixinMuzzleFlash)
     public static int flashHidden;
+    // for the stand: blasts under water and columns on the surface drawn
+    public static int blasts, plumes;
     public static volatile boolean audit;
 
     static double scale() {
@@ -199,6 +201,8 @@ public final class WaterFx {
     // ---- the events ----
     private static void on(Level level, WaterEvents.Event e) {
         if (tracedBullet(e.bullet())) return;
+        if (e.type() == WaterEvents.Type.ENTER && e.bullet() instanceof EntityBulletBaseMK4 b && WaterClass.Fuze.of(b.config).any()
+                && WaterSettings.fuze()) return;
         handle(level, e);
     }
 
@@ -598,7 +602,20 @@ public final class WaterFx {
     // A blast whose centre is under water: a flash (orange and weaker for an incendiary), a big pulsing gas bubble that
     // breaks into a cloud of bubbles, bits flying out, the bodies on the bottom pushed away. size = NTM's explosion
     // size in blocks.
+    // a blast at water from the server (WaterEvents.listenBlasts): on the surface (its centre within half a block of
+    // it) only the column; deeper bubbles and a push, and a column that shrinks with the depth, none past a block
+    // plus the blast's size
+    public static void blastAt(Level level, WaterEvents.Blast b) {
+        if (b.liquid() == WaterEvents.Liquid.LAVA) return;
+        double depth = b.surface() == null ? Double.POSITIVE_INFINITY : b.surface().y - b.at().y;
+        if (b.inWater() && depth > 0.5) blast(level, b.at(), b.size(), b.incendiary());
+        if (b.surface() == null) return;
+        double k = depth <= 1 ? 1 : 1 - (depth - 1) / Math.max(1, b.size());
+        if (k > 0.1) blastPlume(level, b.surface(), (float) (b.size() * k));
+    }
+
     public static void blast(Level level, Vec3 at, float size, boolean incendiary) {
+        blasts++;
         blastPower(level, at, Math.clamp(size * 0.25, 0.2, 2.0), incendiary);
     }
 
@@ -636,6 +653,7 @@ public final class WaterFx {
         if (!on() || !(level instanceof ClientLevel)) return;
         WaterSurface.Info s = WaterSurface.at(level, at.x, at.y + 1.2, at.z);
         if (s == null) return;
+        plumes++;
         double p = Math.clamp(size * 0.85, 0.5, 6.0);
         splashSurface(level, new Vec3(at.x, s.y(), at.z), new Vec3(0, -1, 0), s, p, true, false);
         level.playLocalSound(at.x, s.y(), at.z, SoundEvents.PLAYER_SPLASH_HIGH_SPEED, SoundSource.NEUTRAL, 1F, 0.7F, false);

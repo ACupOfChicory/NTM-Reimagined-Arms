@@ -42,9 +42,12 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
     @Unique private Vec3 gunfeel$tickStart;
 
     // only real bullets (NTM's default 10 blocks a tick); slow projectiles such as grenades keep their speed
-    @Inject(method = "motionMult", at = @At("RETURN"), cancellable = true)
-    private void gunfeel$speed(CallbackInfoReturnable<Double> cir) {
-        if (config != null && config.velocity >= 5F) cir.setReturnValue(cir.getReturnValue() * ReaimTimes.number("bulletSpeed", 1.6F));
+    // the return value modified, not set: water's f (MixinWaterBullet) multiplies it after
+    @com.llamalad7.mixinextras.injector.ModifyReturnValue(method = "motionMult", at = @At("RETURN"))
+    private double gunfeel$speed(double mult) {
+        // a stopped explosive sinking moves its own path a tick (WaterTick.sink)
+        if (acup.gunfeel.water.WaterBullet.stopped((EntityBulletBaseMK4) (Object) this)) return mult;
+        return config != null && config.velocity >= 5F ? mult * ReaimTimes.number("bulletSpeed", 1.6F) : mult;
     }
 
     // a bullet that blows up where it hits (explosive buckshot) breaks the glass it hits, as a plain bullet does (NTM

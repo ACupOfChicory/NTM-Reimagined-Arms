@@ -26,6 +26,14 @@ public interface WaterBullet {
 
     WaterClass gunfeel$waterClass();
 
+    // how it expands in water (hollow or soft point), null: it does not
+    WaterClass.@org.jspecify.annotations.Nullable Expansion gunfeel$waterExpansion();
+
+    // its path in water so far × the density: how far an expanding bullet has opened (WaterPath.Result.opened)
+    double gunfeel$waterOpened();
+
+    void gunfeel$waterOpened(double opened);
+
     static double f(Entity bullet) {
         return bullet instanceof WaterBullet w ? w.gunfeel$waterF() : 1.0;
     }

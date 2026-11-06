@@ -148,31 +148,34 @@ public final class WaterSurface {
     // edge corners shared with the neighbour in direction d (N S W E): mine a, mine b, theirs a, theirs b
     private static final int[][] EDGE = {{0, 3, 1, 2}, {1, 2, 0, 3}, {0, 1, 3, 2}, {3, 2, 0, 1}};
     private static final int[] DX = {0, 0, -1, 1}, DZ = {-1, 1, 0, 0};
-    public static final int SPAN = 3, SIDE = 2 * SPAN + 1;
+    // a ring's reach in cells around its own: as far as it grows and drifts, at most MAX_SPAN
+    public static final int MAX_SPAN = 12;
+    private static final int[] QUEUE = new int[(2 * MAX_SPAN + 1) * (2 * MAX_SPAN + 1)];
 
-    // The cells of the surface connected to (cx, cz) within SPAN cells: neighbours whose shared corners agree within
-    // 0.12. Past a step, a drop or air the ring does not go on, nor show again lower down. allow[(dz+SPAN)*SIDE +
-    // dx+SPAN] = that cell's corners (null: not connected). Returns how many.
-    public static int connected(BlockGetter level, int cx, int cz, double y, double[][] allow) {
-        java.util.Arrays.fill(allow, null);
+    // The cells of the surface connected to (cx, cz) within span cells: neighbours whose shared corners agree within
+    // 0.12. Past a step, a drop or air the ring does not go on, nor show again lower down. allow[(dz+span)*side +
+    // dx+span] = that cell's corners (null: not connected). Returns how many.
+    public static int connected(BlockGetter level, int cx, int cz, double y, double[][] allow, int span) {
+        int side = 2 * span + 1;
+        java.util.Arrays.fill(allow, 0, side * side, null);
         double[] c0 = top(level, cx, cz, y, 2);
         if (c0 == null) return 0;
         int n = 1;
-        allow[SPAN * SIDE + SPAN] = c0;
-        int[] queue = new int[SIDE * SIDE];
+        allow[span * side + span] = c0;
+        int[] queue = QUEUE;
         int head = 0, tail = 0;
-        queue[tail++] = SPAN * SIDE + SPAN;
+        queue[tail++] = span * side + span;
         while (head < tail) {
             int k = queue[head++];
-            int x = k % SIDE, z = k / SIDE;
+            int x = k % side, z = k / side;
             double[] c = allow[k];
             for (int d = 0; d < 4; d++) {
                 int nx = x + DX[d], nz = z + DZ[d];
-                if (nx < 0 || nz < 0 || nx >= SIDE || nz >= SIDE) continue;
-                int nk = nz * SIDE + nx;
+                if (nx < 0 || nz < 0 || nx >= side || nz >= side) continue;
+                int nk = nz * side + nx;
                 if (allow[nk] != null) continue;
                 int[] e = EDGE[d];
-                double[] cn = top(level, cx + nx - SPAN, cz + nz - SPAN, (c[e[0]] + c[e[1]]) / 2, 2);
+                double[] cn = top(level, cx + nx - span, cz + nz - span, (c[e[0]] + c[e[1]]) / 2, 2);
                 if (cn == null) continue;
                 if (Math.abs(c[e[0]] - cn[e[2]]) > 0.12 || Math.abs(c[e[1]] - cn[e[3]]) > 0.12) continue;
                 allow[nk] = cn;

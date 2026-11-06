@@ -29,8 +29,8 @@ public final class WaterRings {
         double t, delay, life, s0, s1, x, y, z, fx, fz, fm;
         float a;
         boolean adv, air;
-        int cx = Integer.MIN_VALUE, cz = Integer.MIN_VALUE, cells;
-        final double[][] allow = new double[WaterSurface.SIDE * WaterSurface.SIDE][];
+        int cx = Integer.MIN_VALUE, cz = Integer.MIN_VALUE, cells, span;
+        double[][] allow = new double[49][];
     }
 
     private static final Ring[] RINGS = new Ring[MAX];
@@ -38,7 +38,7 @@ public final class WaterRings {
         for (int i = 0; i < MAX; i++) RINGS[i] = new Ring();
     }
     // for the stand: made, gone because they left the water, alive now
-    public static int made, leftWater;
+    public static int made, leftWater, widest;
     private static long lastNanos;
 
     public static void add(Level level, double x, double y, double z, double delay, double life, double s0, double s1, float a, boolean adv,
@@ -60,6 +60,11 @@ public final class WaterRings {
             r.air = air;
             r.fx = r.fz = r.fm = 0;
             r.cx = r.cz = Integer.MIN_VALUE;
+            // the cells it can reach: half its last size, plus the drift downstream (half the growth) and its own cell
+            r.span = Math.min(WaterSurface.MAX_SPAN, (int) Math.ceil(s1 / 2 + (adv ? (s1 - s0) / 2 : 0)) + 1);
+            widest = Math.max(widest, r.span);
+            int side = 2 * r.span + 1;
+            if (r.allow.length < side * side) r.allow = new double[side * side][];
             made++;
             return;
         }
@@ -103,7 +108,7 @@ public final class WaterRings {
                 if (cx != d.cx || cz != d.cz) {
                     d.cx = cx;
                     d.cz = cz;
-                    d.cells = WaterSurface.connected(level, cx, cz, d.y, d.allow);
+                    d.cells = WaterSurface.connected(level, cx, cz, d.y, d.allow, d.span);
                 }
             }
             if (d.t - d.delay >= d.life) d.on = false;
@@ -145,11 +150,16 @@ public final class WaterRings {
         int color = ((int) (Math.clamp(alpha, 0, 1) * 255) << 24) | 0xFFFFFF;
         float iu = (sprite.getU1() - sprite.getU0()) / 32F, iv = (sprite.getV1() - sprite.getV0()) / 32F;
         float u0 = sprite.getU0() + iu, u1 = sprite.getU1() - iu, v0 = sprite.getV0() + iv, v1 = sprite.getV1() - iv;
-        int span = WaterSurface.SPAN, side = WaterSurface.SIDE;
-        for (int k = 0; k < side * side; k++) {
+        int span = d.span, side = 2 * span + 1;
+        // the cells under the square as it is now (it starts small)
+        double ex = h * (Math.abs(hx) + Math.abs(bx)), ez = h * (Math.abs(hz) + Math.abs(bz));
+        int x0 = Math.max(-span, (int) Math.floor(cx - ex) - d.cx), x1 = Math.min(span, (int) Math.floor(cx + ex) - d.cx);
+        int z0 = Math.max(-span, (int) Math.floor(cz - ez) - d.cz), z1 = Math.min(span, (int) Math.floor(cz + ez) - d.cz);
+        for (int dz = z0; dz <= z1; dz++) for (int dx = x0; dx <= x1; dx++) {
+            int k = (dz + span) * side + dx + span;
             double[] c = d.allow[k];
             if (c == null) continue;
-            int gx = d.cx + (k % side) - span, gz = d.cz + (k / side) - span;
+            int gx = d.cx + dx, gz = d.cz + dz;
             // the square's corners, cut to the cell
             int n = 4;
             PX[0] = cx + hx * h + bx * h;

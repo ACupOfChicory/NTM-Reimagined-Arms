@@ -121,7 +121,7 @@ public final class ClientSmoke {
                 GunFeel.LOGGER.info("[holebench] запуск phase={} screen={} world={}",phase,
                         mc.gui.screen()==null?"null":mc.gui.screen().getClass().getName(),mc.level!=null);
             }
-            if (!MobSmoke.review() && System.nanoTime() - START > (GlassStand.ENABLED?GlassStand.timeout():TraceScenario.enabled()?TraceScenario.timeout():ShapesStand.ENABLED?ShapesStand.timeout():MobBenchMetrics.ENABLED || HoleBenchMetrics.ENABLED || FenceSeamCheck.ENABLED || FenceAirStand.ENABLED || WaterFxStand.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
+            if (!MobSmoke.review() && System.nanoTime() - START > (GlassStand.ENABLED?GlassStand.timeout():TraceScenario.enabled()?TraceScenario.timeout():ShapesStand.ENABLED?ShapesStand.timeout():MobBenchMetrics.ENABLED || HoleBenchMetrics.ENABLED || FenceSeamCheck.ENABLED || FenceAirStand.ENABLED || WaterFxStand.ENABLED?900_000_000_000L:GlassBackCheck.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
                 check(false, "таймаут клиента; экран=" + mc.gui.screen());
                 finish();
                 return;
@@ -144,6 +144,7 @@ public final class ClientSmoke {
                 if(FenceSeamCheck.ENABLED) { phase=17; mc.gui.setScreen(null); FenceSeamCheck.start(); return; }
                 if(FenceAirStand.ENABLED) { phase=18; mc.gui.setScreen(null); FenceAirStand.start(); return; }
                 if(WaterFxStand.ENABLED) { phase=41; mc.gui.setScreen(null); WaterFxStand.start(); return; }
+                if(GlassBackCheck.ENABLED) { phase=50; mc.gui.setScreen(null); GlassBackCheck.start(); return; }
                 if(SpectatorStand.ENABLED) { phase=19; mc.gui.setScreen(null); SpectatorStand.start(); return; }
                 if (MobSmoke.enabled()) {
                     phase = 10;
@@ -293,6 +294,7 @@ public final class ClientSmoke {
             if (phase == 17) FenceSeamCheck.frame();
             if (phase == 18) FenceAirStand.frame();
             if (phase == 41) WaterFxStand.frame();
+            if (phase == 50) GlassBackCheck.frame();
             if (phase == 19) SpectatorStand.frame();
             if (phase == 15) {
                 if (ShapesStand.ENABLED) ShapesStand.frame();

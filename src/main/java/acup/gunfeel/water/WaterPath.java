@@ -21,8 +21,9 @@ import net.minecraft.world.phys.Vec3;
 // A bullet's path through liquid in one tick, the same on the server and the client: the segment from -> to is walked
 // cell by cell, and in each cell with a liquid it is cut against the liquid's own height (FluidState.getHeight, so
 // waterlogged blocks count). Over a path s in a liquid of density rho the speed fraction falls as
-// f <- f·exp(-rho·s / L) (WaterClass). Under waterStopFraction the bullet stops at s* = L/rho · ln(f / stop) and the
-// path is cut there; a shallow entry into still or sloped water skips (waterSkipAngle), lava stops it where it meets
+// f <- f·exp(-rho·s / L) (WaterClass); an expanding bullet's L falls over its first blocks of water (Expansion), so
+// there ln f drops by the integral of rho·ds / L(u) (drag). Under waterStopFraction the bullet stops (s* = L/rho ·
+// ln(f / stop) for a plain one) and the path is cut there; a shallow entry into still or sloped water skips (waterSkipAngle), lava stops it where it meets
 // it. No world here beyond the Fluids it is given: the tests run it on made-up cells.
 public final class WaterPath {
     private WaterPath() {
@@ -72,24 +73,31 @@ public final class WaterPath {
         public double skipAngle(WaterClass cls) {
             return cls.explosive ? fuzeSkipAngle : skipAngle;
         }
+
+        // for a bullet with an impact fuze (WaterClass.Fuze): it skips by the fuze's angle whatever its class
+        public Settings fuzed() {
+            return new Settings(on, stopFraction, rangeScale, fuzeSkipAngle, fuzeSkipAngle, maxSkips);
+        }
     }
 
     // a skip off the surface: the bullet is put at `at` and goes on in `dir` (unit) with f
     public record Skip(Vec3 at, Vec3 dir, double f) {
     }
 
-    // water = the path in liquid this tick, blocks; f = the fraction at the end (at the stop: stopFraction, after lava
+    // water = the path in liquid this tick, blocks; opened = the bullet's path in water so far × the density, at the
+    // end (how far an expanding bullet has opened); f = the fraction at the end (at the stop: stopFraction, after lava
     // or a flame going out: 0; after a skip: the f it goes on with); stop = where it stopped, or null; skip = the
     // skip, or null; events in the order along the path. fAt / inLiquid answer for any point of the path (a mob or a
     // block hit there takes f² of its damage).
     public static final class Result {
         public final Vec3 from, to;
-        public final double water, f;
+        public final double water, f, opened;
         public final @Nullable Vec3 stop;
         public final @Nullable Skip skip;
         public final List<Event> events;
         private final double f0, length, len;
-        // ta, tb, rho, f at ta: per span of liquid along the path
+        private final WaterClass.@Nullable Expansion ex;
+        // ta, tb, rho, f at ta, opened at ta: per span of liquid along the path
         private final double[] spans;
         private final int count;
         private final Fluids fluids;
@@ -97,15 +105,20 @@ public final class WaterPath {
         private final @Nullable Entity bullet;
         // where along the path NTM's test found a block this tick (NaN: none), set by WaterTick
         double blockT = Double.NaN;
+        // the surface an impact fuze went off on this tick (WaterTick.blocks), null: none
+        net.minecraft.world.phys.@Nullable BlockHitResult fuzeHit;
         // the f the bullet's damage is counted at: the start's while the tick runs, the new f after it (WaterTick)
         double unit;
 
-        Result(Vec3 from, Vec3 to, double water, double f, @Nullable Vec3 stop, @Nullable Skip skip, List<Event> events, double f0,
-                double length, double len, double[] spans, int count, Fluids fluids, WaterClass cls, @Nullable Entity bullet) {
+        Result(Vec3 from, Vec3 to, double water, double f, double opened, @Nullable Vec3 stop, @Nullable Skip skip, List<Event> events,
+                double f0, double length, WaterClass.@Nullable Expansion ex, double len, double[] spans, int count, Fluids fluids,
+                WaterClass cls, @Nullable Entity bullet) {
             this.from = from;
             this.to = to;
             this.water = water;
             this.f = f;
+            this.opened = opened;
+            this.ex = ex;
             this.stop = stop;
             this.skip = skip;
             this.events = events;
@@ -120,6 +133,9 @@ public final class WaterPath {
             this.unit = f0;
         }
 
+        // opened at the start of the tick
+        private double opened0;
+
         // f at the start of the tick
         public double startF() {
             return f0;
@@ -133,8 +149,8 @@ public final class WaterPath {
         public List<Vec3[]> wet() {
             List<Vec3[]> out = new ArrayList<>(count);
             Vec3 d = to.subtract(from);
-            for (int i = 0; i < count; i++) if (spans[i * 4 + 1] > spans[i * 4])
-                out.add(new Vec3[] {from.add(d.scale(spans[i * 4])), from.add(d.scale(spans[i * 4 + 1]))});
+            for (int i = 0; i < count; i++) if (spans[i * N + 1] > spans[i * N])
+                out.add(new Vec3[] {from.add(d.scale(spans[i * N])), from.add(d.scale(spans[i * N + 1]))});
             return out;
         }
 
@@ -160,17 +176,29 @@ public final class WaterPath {
         public double fAt(double t) {
             double out = f0;
             for (int i = 0; i < count; i++) {
-                double ta = spans[i * 4], tb = spans[i * 4 + 1], rho = spans[i * 4 + 2], fa = spans[i * 4 + 3];
+                double ta = spans[i * N], tb = spans[i * N + 1], rho = spans[i * N + 2], fa = spans[i * N + 3], ua = spans[i * N + 4];
                 if (t < ta) break;
                 double s = (Math.min(t, tb) - ta) * len;
-                out = rho <= 0 || !(length < Double.POSITIVE_INFINITY) ? fa : fa * Math.exp(-rho * s / length);
+                out = rho <= 0 || !(length < Double.POSITIVE_INFINITY) ? fa
+                        : fa * Math.exp(-(drag(length, ex, ua + rho * s) - drag(length, ex, ua)));
             }
             return Math.min(out, f0);
         }
 
+        // how far the bullet has opened at a point of the path (opened at its start and in the water up to there)
+        public double openedAt(double t) {
+            double out = opened0;
+            for (int i = 0; i < count; i++) {
+                double ta = spans[i * N], tb = spans[i * N + 1], rho = spans[i * N + 2], ua = spans[i * N + 4];
+                if (t < ta) break;
+                out = ua + rho * (Math.min(t, tb) - ta) * len;
+            }
+            return out;
+        }
+
         public boolean inLiquid(Vec3 p) {
             double t = param(p);
-            for (int i = 0; i < count; i++) if (t >= spans[i * 4] - EPS && t <= spans[i * 4 + 1] + EPS) return true;
+            for (int i = 0; i < count; i++) if (t >= spans[i * N] - EPS && t <= spans[i * N + 1] + EPS) return true;
             return false;
         }
 
@@ -194,30 +222,44 @@ public final class WaterPath {
     }
 
     private static final double EPS = 1e-7;
+    // numbers per span in Result.spans
+    private static final int N = 5;
 
     public static Result trace(BlockGetter level, Vec3 from, Vec3 to, double f, WaterClass cls, int skips, long seed,
             Settings s, @Nullable Entity bullet) {
-        return trace(of(level), from, to, f, cls, skips, seed, s, bullet);
+        return trace(of(level), from, to, f, cls, null, 0, skips, seed, s, bullet);
     }
 
-    // skips = how many times the bullet skipped already; seed = for the skip's turn (the same on both sides: the
-    // bullet's id and tick)
+    public static Result trace(BlockGetter level, Vec3 from, Vec3 to, double f, WaterClass cls, WaterClass.@Nullable Expansion ex,
+            double opened, int skips, long seed, Settings s, @Nullable Entity bullet) {
+        return trace(of(level), from, to, f, cls, ex, opened, skips, seed, s, bullet);
+    }
+
     public static Result trace(Fluids w, Vec3 from, Vec3 to, double f, WaterClass cls, int skips, long seed, Settings s,
             @Nullable Entity bullet) {
+        return trace(w, from, to, f, cls, null, 0, skips, seed, s, bullet);
+    }
+
+    // ex = how the bullet expands (null: it does not), opened = its path in water so far × the density (Result.opened
+    // of its last tick); skips = how many times the bullet skipped already; seed = for the skip's turn (the same on
+    // both sides: the bullet's id and its skips)
+    public static Result trace(Fluids w, Vec3 from, Vec3 to, double f, WaterClass cls, WaterClass.@Nullable Expansion ex,
+            double opened, int skips, long seed, Settings s, @Nullable Entity bullet) {
         Vec3 d = to.subtract(from);
         double len = d.length();
         double length = cls.length * s.rangeScale();
+        ex = scaled(ex, s);
         List<Event> events = new ArrayList<>(2);
         if (len < 1e-9 || !s.on() || cls == WaterClass.NONE)
-            return new Result(from, to, 0, f, null, null, events, f, length, len, new double[0], 0, w, cls, bullet);
+            return result(from, to, 0, f, opened, null, null, events, f, opened, length, ex, len, new double[0], 0, w, cls, bullet);
         Vec3 dir = d.scale(1 / len);
         // the spans: ta, tb, cell x, y, z, entry face, exit face
         List<double[]> raw = new ArrayList<>();
         walk(w, from, d, len, raw);
 
-        double[] spans = new double[raw.size() * 4];
+        double[] spans = new double[raw.size() * N];
         int count = 0;
-        double water = 0, fNow = f;
+        double water = 0, fNow = f, uNow = opened;
         double prevEnd = Double.NaN;
         double[] prev = null;
         Cell prevCell = null;
@@ -238,11 +280,7 @@ public final class WaterPath {
             Direction in = Direction.from3DDataValue((int) r[5]);
             if (c.liquid() == Liquid.LAVA || cls.length <= 0) {
                 // burns up / goes out where it meets it (or where it is, fired inside)
-                spans[count * 4] = ta;
-                spans[count * 4 + 1] = ta;
-                spans[count * 4 + 2] = 0;
-                spans[count * 4 + 3] = fNow;
-                count++;
+                span(spans, count++, ta, ta, 0, fNow, uNow);
                 fNow = 0;
                 stop = at;
                 events.add(event(w, Type.STOP, at, entering ? in : nearest(dir), 0, cls, c, x, y, z, dir, bullet));
@@ -263,24 +301,24 @@ public final class WaterPath {
             if (entering) events.add(event(w, Type.ENTER, at, in, fNow, cls, c, x, y, z, dir, bullet));
             double rho = density(c);
             double seg = (tb - ta) * len;
-            spans[count * 4] = ta;
-            spans[count * 4 + 1] = tb;
-            spans[count * 4 + 2] = cls.slows() ? rho : 0;
-            spans[count * 4 + 3] = fNow;
-            count++;
+            span(spans, count++, ta, tb, cls.slows() ? rho : 0, fNow, uNow);
             if (cls.slows()) {
-                double fEnd = fNow * Math.exp(-rho * seg / length);
+                double gNow = drag(length, ex, uNow);
+                double fEnd = fNow * Math.exp(-(drag(length, ex, uNow + rho * seg) - gNow));
                 if (fEnd < s.stopFraction()) {
-                    double sStar = fNow <= s.stopFraction() ? 0 : length / rho * Math.log(fNow / s.stopFraction());
-                    double ts = Math.min(tb, ta + sStar / len);
-                    spans[(count - 1) * 4 + 1] = ts;
+                    double sStar = fNow <= s.stopFraction() ? 0
+                            : (undrag(length, ex, gNow + Math.log(fNow / s.stopFraction())) - uNow) / rho;
+                    double ts = Math.min(tb, ta + Math.max(0, sStar) / len);
+                    spans[(count - 1) * N + 1] = ts;
                     water += (ts - ta) * len;
+                    uNow += rho * (ts - ta) * len;
                     fNow = s.stopFraction();
                     stop = from.add(d.scale(ts));
                     events.add(event(w, Type.STOP, stop, nearest(dir), fNow, cls, c, x, y, z, dir, bullet));
                     break;
                 }
                 fNow = fEnd;
+                uNow += rho * seg;
             }
             water += seg;
             prevEnd = tb;
@@ -291,7 +329,46 @@ public final class WaterPath {
             events.add(event(w, Type.EXIT, from.add(d.scale(prevEnd)), Direction.from3DDataValue((int) prev[6]), fNow, cls, prevCell,
                     (int) prev[2], (int) prev[3], (int) prev[4], dir, bullet));
         }
-        return new Result(from, to, water, fNow, stop, skip, events, f, length, len, spans, count, w, cls, bullet);
+        return result(from, to, water, fNow, uNow, stop, skip, events, f, opened, length, ex, len, spans, count, w, cls, bullet);
+    }
+
+    private static Result result(Vec3 from, Vec3 to, double water, double f, double opened, @Nullable Vec3 stop, @Nullable Skip skip,
+            List<Event> events, double f0, double opened0, double length, WaterClass.@Nullable Expansion ex, double len, double[] spans,
+            int count, Fluids w, WaterClass cls, @Nullable Entity bullet) {
+        Result r = new Result(from, to, water, f, opened, stop, skip, events, f0, length, ex, len, spans, count, w, cls, bullet);
+        r.opened0 = opened0;
+        return r;
+    }
+
+    private static void span(double[] spans, int i, double ta, double tb, double rho, double f, double opened) {
+        spans[i * N] = ta;
+        spans[i * N + 1] = tb;
+        spans[i * N + 2] = rho;
+        spans[i * N + 3] = f;
+        spans[i * N + 4] = opened;
+    }
+
+    // waterRangeScale stretches the opening too
+    private static WaterClass.@Nullable Expansion scaled(WaterClass.@Nullable Expansion ex, Settings s) {
+        if (ex == null || ex.span() <= 0 || ex.drop() <= 0) return null;
+        return new WaterClass.Expansion(ex.span() * s.rangeScale(), Math.min(ex.drop(), 0.99));
+    }
+
+    // how much ln f has dropped over u blocks of water (× the density) since the bullet first met water: the integral
+    // of du / L(u), L(u) = length·(1 - drop·min(1, u / span)) for an expanding bullet, else u / length
+    public static double drag(double length, WaterClass.@Nullable Expansion ex, double u) {
+        if (ex == null) return u / length;
+        double k = ex.drop(), span = ex.span();
+        if (u <= span) return -span / (k * length) * Math.log(1 - k * u / span);
+        return -span / (k * length) * Math.log(1 - k) + (u - span) / (length * (1 - k));
+    }
+
+    // the inverse: the u at which ln f has dropped by g
+    public static double undrag(double length, WaterClass.@Nullable Expansion ex, double g) {
+        if (ex == null) return g * length;
+        double k = ex.drop(), span = ex.span(), open = drag(length, ex, span);
+        if (g <= open) return span / k * (1 - Math.exp(-g * k * length / span));
+        return span + (g - open) * length * (1 - k);
     }
 
     // rho: water and other liquids 1, a falling stream 0.15 (thin, with air in it)
@@ -301,7 +378,12 @@ public final class WaterPath {
 
     // the stopping depth straight down from f = 1, blocks: L/rho · ln(1/stop)
     public static double stopDepth(WaterClass cls, Settings s) {
-        return cls.length * s.rangeScale() * Math.log(1 / s.stopFraction());
+        return stopDepth(cls, null, s);
+    }
+
+    // the same for an expanding bullet
+    public static double stopDepth(WaterClass cls, WaterClass.@Nullable Expansion ex, Settings s) {
+        return undrag(cls.length * s.rangeScale(), scaled(ex, s), Math.log(1 / s.stopFraction()));
     }
 
     // f² by energy: what is left of the damage and of the piercing at fraction f

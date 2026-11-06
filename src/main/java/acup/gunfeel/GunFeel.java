@@ -33,6 +33,8 @@ public final class GunFeel {
     private static final Map<Item, Long> SEEN_SHOT = new IdentityHashMap<>();
 
     static void init() {
+        acup.gunfeel.compat.PunchyCompat.install();
+        acup.gunfeel.compat.PunchyMovesCompat.install();
         ClientSmoke.init();
         NeoForge.EVENT_BUS.addListener(RenderFrameEvent.Pre.class, e -> {
             ModelHitClient.frame();
@@ -53,7 +55,11 @@ public final class GunFeel {
             if (Feature.ARMS.on()) GripCommand.register(e.getDispatcher());
             CompatClient.register(e.getDispatcher());
         });
-        if (Feature.TRACERS.on()) acup.gunfeel.water.WaterFx.init();
+        if (Feature.TRACERS.on()) {
+            acup.gunfeel.water.WaterFx.init();
+            // a blast at water (WaterBlast, from the server): bubbles and a push under water, a column on the surface
+            acup.gunfeel.water.WaterEvents.listenBlasts(acup.gunfeel.water.WaterFx::blastAt);
+        }
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent.class, e -> {
             if (Feature.TRACERS.on()) Tracers.submit(e);
             // after the tracers: they hand over the rounds flying in water

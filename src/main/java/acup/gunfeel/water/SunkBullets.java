@@ -66,7 +66,7 @@ public final class SunkBullets {
         BulletConfig config = WaterFx.config(e);
         String ammo = WaterFx.ammo(config);
         // an impact fuze (grenades, rockets, HE and incendiary rounds): NTM's entity sinks on, the explosives part's
-        if (ammo == null || config == null || fuzed(config, ammo) || WaterClass.of(config).explosive) return;
+        if (ammo == null || config == null || WaterClass.Fuze.of(config).any() || WaterClass.of(config).explosive) return;
         AmmoModels.Model m = AmmoModels.of("ammo_standard_" + ammo);
         if (m == null) return;
         float open = m.expands ? 1F : 0F;
@@ -221,17 +221,12 @@ public final class SunkBullets {
     private record Fuzed(AmmoModels.Model model, Vec3 at, Vec3 dir) {
     }
 
-    // a phosphorus pellet does not burn under water: shot, whatever NTM hangs on its impact
-    private static boolean fuzed(@Nullable BulletConfig config, @Nullable String ammo) {
-        return config != null && config.onImpact != null && (ammo == null || !ammo.contains("phosphorus"));
-    }
-
     private static List<Fuzed> fuzed(Level level, Vec3 cam) {
         if (!WaterFx.on() || !(level instanceof net.minecraft.client.multiplayer.ClientLevel cl)) return List.of();
         List<Fuzed> out = null;
         float pt = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
         for (Entity en : cl.entitiesForRendering()) {
-            if (!(en instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b) || !fuzed(b.config, WaterFx.ammo(b.config))) continue;
+            if (!(en instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b) || !WaterClass.Fuze.of(b.config).any()) continue;
             if (en.distanceToSqr(cam) > 48 * 48 || !WaterBullet.stopped(en)) continue;
             Vec3 at = en.getPosition(pt);
             if (!WaterFx.wetAt(level, at)) continue;

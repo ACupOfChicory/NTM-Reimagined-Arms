@@ -58,6 +58,36 @@ public final class WaterEvents {
         void tick(Level level, Entity bullet, WaterPath.Result path);
     }
 
+    // an NTM explosion whose centre is in a liquid or within a block over its surface, on the client (the server sends
+    // WaterBlastPayload to the players near; in single player the integrated server sends it to this client too).
+    // at = the centre; size = NTM's ExplosionVNT size (the blast's range in blocks is about twice that); incendiary =
+    // the charge sets alight in air (phosphorus, napalm, b75_inc): under water it gives a flash and no fire; inWater =
+    // the centre is in the liquid (else it is just above the surface); surface = the point of the surface over the
+    // centre (null when no surface is within 8 blocks over it); liquid = the liquid at the centre or under it
+    public record Blast(Vec3 at, float size, boolean incendiary, boolean inWater, @Nullable Vec3 surface, Liquid liquid) {
+    }
+
+    public interface BlastListener {
+        void blast(Level level, Blast blast);
+    }
+
+    private static final List<BlastListener> BLASTS = new CopyOnWriteArrayList<>();
+
+    public static void listenBlasts(BlastListener l) {
+        BLASTS.add(l);
+    }
+
+    public static void blast(Level level, Blast b) {
+        if (!level.isClientSide()) return;
+        for (BlastListener l : BLASTS) {
+            try {
+                l.blast(level, b);
+            } catch (RuntimeException e) {
+                acup.gunfeel.GunFeel.LOGGER.warn("water blast listener failed", e);
+            }
+        }
+    }
+
     private static final List<Listener> LISTENERS = new CopyOnWriteArrayList<>();
     private static final List<TickListener> TICKS = new CopyOnWriteArrayList<>();
 
