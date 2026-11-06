@@ -1,6 +1,6 @@
 # Changelog
 
-## X482
+## X487
 
 - NTM bullets slow down in water, and their damage and piercing fall with the
   square of the speed; a hole in a block behind water comes out smaller. A
@@ -13,6 +13,20 @@
   off water, at most twice a flight, losing a third of its speed. A shot from
   under water follows the same rules and sounds duller and lower.
 - Keys in `ntm-gunfeel-server.properties`: `waterBallistics`, `waterStopFraction`, `waterRangeScale`, `waterSkipAngle`, `waterMuffle`.
+
+## X483
+
+- След пули на стекле, у которого нет прозрачных насквозь пикселей
+  (армированный ламинат NTM и его панель, крашеное и тонированное стекло, их
+  панели), виден и с другой стороны, сквозь стекло, всё время, пока он
+  не исчезнет. Раньше с включённым holeCache (по умолчанию) с обратной стороны
+  его было видно только последние 3 секунды, пока он гаснет. Спереди
+  полупрозрачный край такого следа больше не темнеет вдвое (так было
+  с выключенным holeCache и, при включённом, в последние 3 секунды).
+- Новая настройка ntmRenderFixes (включена): на NTM Decentralized Edition
+  армированный ламинат и его панель, блок и предмет, рисуются полупрозрачными,
+  как их текстура. Сама NTM DE рисует их непрозрачными. Действует после
+  перезагрузки ресурсов (F3+T); на NTM для 26.2 ничего не меняет.
 
 ## X479
 
