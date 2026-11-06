@@ -78,12 +78,6 @@ final class HeadSmoke {
             java.nio.file.Files.writeString(file,new com.google.gson.Gson().toJson(Map.of("type",type,"case",key,"yaw",pose.yaw(),"parts",parts)));
         } catch(Exception ex) { check.accept(false,"снимок частей: "+ex); }
     }
-    // Стенд бьёт одну цель раз за разом. НЛО после попадания 5 тиков не принимает урон (hurtCooldown), а убывает кулдаун
-    // только в ИИ, которого у моба стенда нет (NoAi): без сброса второе попадание, после движения, давало 0.
-    private static void fresh(LivingEntity target) {
-        if(target instanceof com.hbm.entity.mob.EntityUFO ufo) ufo.hurtCooldown=0;
-        target.setHealth(1000);
-    }
 
     static void run(ServerLevel level,LivingEntity target,java.util.function.BiConsumer<Boolean,String> check) {
         var zones=ModelHits.headZones(target);var boxes=ModelHits.worldBoxes(target);
@@ -106,11 +100,14 @@ final class HeadSmoke {
         strip(target,surface,check);
         check.accept(!zones.isEmpty()==!profile.none(),"голова: наличие зон соответствует ручной разметке"
                 +(zones.isEmpty()==!profile.none()?", "+ModelHits.headResolution(target).reason()+", части="+boxes.stream().map(b->b.part()+java.util.Arrays.toString(HeadProfiles.size(b))+"@"+ModelContours.point(b,.5,.5,.5).subtract(target.position())+"#"+Long.toUnsignedString(HeadProfiles.shape(b),16)+"/yaw"+target.getYRot()).toList():""));
-        if(!profile.none()) check.accept(head!=null,"голова: найдена видимая точка попадания");
+        // Закрытый шалкер прячет голову под панцирем (ванилла): видимой точки головы нет и в игре.
+        boolean closed=head==null && target instanceof net.minecraft.world.entity.monster.Shulker shulker && peek(shulker)==0;
+        if(closed && !profile.none()) check.accept(true,"голова: шалкер закрыт, голова под панцирем — видимой точки нет, как в игре");
+        else if(!profile.none()) check.accept(head!=null,"голова: найдена видимая точка попадания");
         // У страйдера корпус размечен головой, а ноги — конечностями: точки без бонуса у него нет по разметке.
         if(body==null && zonedWhole(target,boxes)) { check.accept(true,"голова: точки тела без бонуса нет по разметке: каждая часть целиком голова или конечность");return; }
         check.accept(body!=null,"голова: найдена точка тела без бонуса");
-        if(body==null || !profile.none() && head==null) return;
+        if(body==null || !profile.none() && head==null && !closed) return;
         var healthAttribute=target.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH);
         double max=healthAttribute==null?20:healthAttribute.getBaseValue();
         boolean invulnerable=target.isInvulnerable();float health=target.getHealth();
@@ -119,46 +116,57 @@ final class HeadSmoke {
         if(healthAttribute!=null) healthAttribute.setBaseValue(1000);
         target.setInvulnerable(false);
         try {
-            if(target instanceof net.minecraft.world.entity.monster.EnderMan) { enderman(level,target,head,body,limb,check);return; }
+            var reason=unhurt(target);if(reason!=null) { unhurt(level,target,head,body,limb,check,reason);return; }
             var config=new BulletConfig().setDamage(10).setHeadshot(0);
             config.damageFalloffByPen=false;
             var bullet=new EntityBulletBaseMK4(level,config,1,0,0,0);
             bullet.damage=10;
-            fresh(target);float before=target.getHealth();
-            BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,body));
-            float bodyDamage=before-target.getHealth();
-            check.accept(bodyDamage>0 && !HeadDamage.last(bullet,target,body).head(),"голова: настоящая NTM-пуля по телу, урон="+bodyDamage);
+            var beam=new com.hbm.entity.projectile.EntityBulletBeamBase(level,config,1);beam.damage=10;
+            // Дракон ранится только от игрока или взрыва (EnderDragon.hurt), как в игре: стрелок — игрок.
+            if(target instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon) {
+                var shooter=net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);bullet.setThrower(shooter);beam.thrower=shooter;
+            }
+            // Множитель проверяется равенством: попадание базовым уроном в голову (конечность) равно попаданию в тело
+            // уроном базы ×1,75 (×0,5). Так сами учитываются броня цели (ванильная, DT/DR NTM) и правила вида (дракон:
+            // d/4+min(d,1) по телу), которые идут после множителя. Перед каждым выстрелом цель — как перед первым (ready).
+            var ready=ready(target);
+            java.util.function.BiFunction<Vec3,Float,Float> shot=(at,amount)->{
+                ready.run();target.setHealth(1000);float before=target.getHealth();bullet.damage=amount;
+                BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,at));bullet.damage=10;
+                return before-target.getHealth();
+            };
+            // Броня с большим DT (ядерный глифид в полной броне — около 14) съедает пулю 10 целиком: база удваивается, пока
+            // попадание в тело половиной базы не ранит.
+            float base=10;while(base<1000 && shot.apply(body,base*.5F)<=0) base*=2;
+            float bodyDamage=shot.apply(body,base);
+            check.accept(bodyDamage>0 && !HeadDamage.last(bullet,target,body).head(),"голова: настоящая NTM-пуля по телу, база "+base+", урон="+bodyDamage);
             if(head!=null) {
-                fresh(target);before=target.getHealth();
-                BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,head));
-                float headDamage=before-target.getHealth();
-                check.accept(Math.abs(headDamage-bodyDamage*1.75F)<.01 && HeadDamage.last(bullet,target,head).head(),"голова: единый множитель ×1,75 при конфиге NTM ×0, тело="+bodyDamage+", голова="+headDamage);
-                config.setHeadshot(2);fresh(target);before=target.getHealth();
-                BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,head));
-                check.accept(Math.abs(before-target.getHealth()-headDamage)<.01,"голова: конфиг патрона ×2 не меняет единые ×1,75");
-            } else {
+                float headDamage=shot.apply(head,base);boolean last=HeadDamage.last(bullet,target,head).head();float same=shot.apply(body,base*1.75F);
+                check.accept(bodyDamage>0 && Math.abs(headDamage-same)<.01 && last,"голова: единый множитель ×1,75 при конфиге NTM ×0, база "+base+": голова="+headDamage+", тело(×1,75)="+same+", тело="+bodyDamage);
+                config.setHeadshot(2);float doubled=shot.apply(head,base);config.setHeadshot(0);
+                check.accept(Math.abs(doubled-headDamage)<.01,"голова: конфиг патрона ×2 не меняет единые ×1,75");
+            } else if(!closed) {
                 check.accept(profile.none() && !HeadDamage.last(bullet,target,body).head(),"голова: ручное отсутствие запрещает хедшот");
             }
-            // Мелкий вид (LimbPolicy) штрафа за конечности не получает: точки конечности у него быть не должно.
-            if(Boolean.getBoolean("ntmgunfeel.checkLimbs")) {
-                if(LimbPolicy.eligible(target.getType())) check.accept(limb!=null,"конечности: найдена точка проверенной области");
-                else check.accept(limb==null,"конечности: мелкий вид без конечностей");
-            }
+            limbPresence(target,limb,check);
             if(limb!=null) {
-                fresh(target);before=target.getHealth();
-                BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet,new EntityHitResult(target,limb));
-                check.accept(Math.abs(before-target.getHealth()-bodyDamage*.5F)<.01,"конечности: настоящая NTM-пуля ×0,5, урон="+(before-target.getHealth()));
+                float limbDamage=shot.apply(limb,base);float same=shot.apply(body,base*.5F);
+                check.accept(bodyDamage>0 && Math.abs(limbDamage-same)<.01,"конечности: настоящая NTM-пуля ×0,5, база "+base+": конечность="+limbDamage+", тело(×0,5)="+same);
             }
-            var beam=new com.hbm.entity.projectile.EntityBulletBeamBase(level,config,1);beam.damage=10;
             for(var handler:List.of(BulletConfig.LAMBDA_STANDARD_BEAM_HIT,BulletConfig.LAMBDA_BEAM_HIT)) {
-                fresh(target);before=target.getHealth();handler.accept(beam,new EntityHitResult(target,body));float beamBody=before-target.getHealth();
+                java.util.function.BiFunction<Vec3,Float,Float> ray=(at,amount)->{
+                    ready.run();target.setHealth(1000);float before=target.getHealth();beam.damage=amount;
+                    handler.accept(beam,new EntityHitResult(target,at));beam.damage=10;
+                    return before-target.getHealth();
+                };
+                float beamBody=ray.apply(body,base);
                 if(head!=null) {
-                    fresh(target);before=target.getHealth();handler.accept(beam,new EntityHitResult(target,head));
-                    check.accept(beamBody>0 && Math.abs(before-target.getHealth()-beamBody*1.75F)<.01,"NTM-луч: голова ×1,75, тело="+beamBody+", голова="+(before-target.getHealth()));
+                    float beamHead=ray.apply(head,base);float same=ray.apply(body,base*1.75F);
+                    check.accept(beamBody>0 && Math.abs(beamHead-same)<.01,"NTM-луч: голова ×1,75, база "+base+": голова="+beamHead+", тело(×1,75)="+same+", тело="+beamBody);
                 }
                 if(limb!=null) {
-                    fresh(target);before=target.getHealth();handler.accept(beam,new EntityHitResult(target,limb));
-                    check.accept(beamBody>0 && Math.abs(before-target.getHealth()-beamBody*.5F)<.01,"NTM-луч: конечность ×0,5, урон="+(before-target.getHealth()));
+                    float beamLimb=ray.apply(limb,base);float same=ray.apply(body,base*.5F);
+                    check.accept(beamBody>0 && Math.abs(beamLimb-same)<.01,"NTM-луч: конечность ×0,5, база "+base+": конечность="+beamLimb+", тело(×0,5)="+same);
                 }
             }
             beam.discard();
@@ -201,11 +209,18 @@ final class HeadSmoke {
         if(limbs) check.accept(true,"конечности (сведения): точек тела в зоне конечностей="+inLimb.values().stream().mapToInt(Integer::intValue).sum()
                 +" из "+bodyHits+inLimb+", точек частей конечностей вне зоны="+limbOut+" из "+limbHits);
     }
-    // Эндермен снарядом не ранится (ванилла: EnderMan.hurtServer на урон IS_PROJECTILE телепортируется и урона не
-    // берёт), и пуля, и луч NTM по нему в игре дают урон 0; настоящий удар увёл бы его со стенда. Множители
-    // проверяются там, где их подставляет мод (MixinHeadDamage: damage для пули, beamDamage для луча), без удара.
-    private static void enderman(ServerLevel level,LivingEntity target,Vec3 head,Vec3 body,Vec3 limb,java.util.function.BiConsumer<Boolean,String> check) {
-        String why=" (без удара: эндермен снарядом не ранится, ванилла)";
+    // Цель, которую пуля и луч NTM в игре не ранят: удар дал бы урон 0, а эндермена увёл бы со стенда, пакет — лопнул
+    // бы. Множители проверяются там, где их подставляет мод (MixinHeadDamage: damage для пули, beamDamage для луча),
+    // без удара.
+    private static String unhurt(LivingEntity target) {
+        if(target instanceof net.minecraft.world.entity.monster.EnderMan) return "эндермен снарядом не ранится (EnderMan.hurtServer: телепорт), ванилла";
+        if(target instanceof net.minecraft.world.entity.decoration.ArmorStand) return "стойка для брони снарядом не ранится и здоровья не теряет, ванилла";
+        if(target instanceof com.hbm.entity.mob.EntityGhost) return "призрак NTM неуязвим (isInvulnerableTo всегда true)";
+        if(target instanceof com.hbm.entity.mob.EntityPlasticBag) return "пакет NTM от любого удара лопается (hurtServer: discard)";
+        return null;
+    }
+    private static void unhurt(ServerLevel level,LivingEntity target,Vec3 head,Vec3 body,Vec3 limb,java.util.function.BiConsumer<Boolean,String> check,String reason) {
+        String why=" (без удара: "+reason+")";
         var bullet=new EntityBulletBaseMK4(level,new BulletConfig().setDamage(10).setHeadshot(0),1,0,0,0);bullet.damage=10;
         try {
             float bodyDamage=HeadDamage.damage(bullet,target,new EntityHitResult(target,body),10);
@@ -215,10 +230,7 @@ final class HeadSmoke {
                 check.accept(Math.abs(headDamage-17.5F)<.01 && HeadDamage.last(bullet,target,head).head(),"голова: единый множитель ×1,75, голова="+headDamage+why);
                 check.accept(Math.abs(HeadDamage.beamDamage(10,target,new EntityHitResult(target,head))-17.5F)<.01,"NTM-луч: голова ×1,75"+why);
             }
-            if(Boolean.getBoolean("ntmgunfeel.checkLimbs")) {
-                if(LimbPolicy.eligible(target.getType())) check.accept(limb!=null,"конечности: найдена точка проверенной области");
-                else check.accept(limb==null,"конечности: мелкий вид без конечностей");
-            }
+            limbPresence(target,limb,check);
             if(limb!=null) {
                 float limbDamage=HeadDamage.damage(bullet,target,new EntityHitResult(target,limb),10);
                 check.accept(Math.abs(limbDamage-5)<.01,"конечности: NTM-пуля ×0,5, урон="+limbDamage+why);
@@ -251,4 +263,32 @@ final class HeadSmoke {
     }
     static float[] triangles(ModelBox box) { return box.mesh()==0?ModelDebugRender.CUBE:ModelMesh.get(box.mesh()).triangles(); }
     private static Vec3 point(ModelBox box,float[] data,int at) { return ModelContours.point(box,data[at],data[at+1],data[at+2]); }
+    // Точка конечности ожидается у вида, который не мелкий (LimbPolicy) и у которого конечности не отменены вручную (limbs none).
+    private static void limbPresence(LivingEntity target,Vec3 limb,java.util.function.BiConsumer<Boolean,String> check) {
+        if(!Boolean.getBoolean("ntmgunfeel.checkLimbs")) return;
+        if(!LimbPolicy.eligible(target.getType())) check.accept(limb==null,"конечности: мелкий вид без конечностей");
+        else if("manual none".equals(ModelHits.limbResolution(target).reason())) check.accept(limb==null,"конечности: ручное отсутствие (limbs none), точки конечности нет");
+        else check.accept(limb!=null,"конечности: найдена точка проверенной области");
+    }
+    // Перед каждым выстрелом цель — как перед первым: глифид теряет пластину брони от попадания (onDamageDealt, случайно),
+    // а от числа пластин зависит его DT; UFO после попадания 5 тиков урона не берёт (hurtCooldown).
+    @SuppressWarnings("unchecked")
+    private static Runnable ready(LivingEntity target) {
+        try {
+            if(target instanceof com.hbm.entity.mob.glyphid.EntityGlyphid glyphid) {
+                var field=com.hbm.entity.mob.glyphid.EntityGlyphid.class.getDeclaredField("DW_ARMOR");field.setAccessible(true);
+                var key=(net.minecraft.network.syncher.EntityDataAccessor<Byte>)field.get(null);byte armor=glyphid.getEntityData().get(key);
+                return ()->glyphid.getEntityData().set(key,armor);
+            }
+            if(target instanceof com.hbm.entity.mob.EntityUFO ufo) return ()->ufo.hurtCooldown=0;
+        } catch(ReflectiveOperationException e) { throw new IllegalStateException(e); }
+        return ()->{};
+    }
+    private static int peek(net.minecraft.world.entity.monster.Shulker shulker) {
+        try {
+            var field=net.minecraft.world.entity.monster.Shulker.class.getDeclaredField("DATA_PEEK_ID");field.setAccessible(true);
+            @SuppressWarnings("unchecked") var key=(net.minecraft.network.syncher.EntityDataAccessor<Byte>)field.get(null);
+            return shulker.getEntityData().get(key);
+        } catch(ReflectiveOperationException e) { throw new IllegalStateException(e); }
+    }
 }

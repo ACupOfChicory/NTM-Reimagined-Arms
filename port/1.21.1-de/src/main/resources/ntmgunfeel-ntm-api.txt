@@ -220,6 +220,10 @@ CORE class com/hbm/backport/client/rendertype/RenderPipeline
 CORE class com/hbm/blocks/generic/BlockWoodBarrier
 CORE class com/hbm/blocks/generic/BlockWoodStructure
 CORE class com/hbm/client/ClientRegistry
+CORE class com/hbm/entity/mob/EntityFBIDrone
+CORE class com/hbm/entity/mob/EntityPlasticBag
+CORE class com/hbm/entity/mob/EntityUFO
+CORE class com/hbm/entity/mob/botprime/EntityWormBaseNT
 CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
