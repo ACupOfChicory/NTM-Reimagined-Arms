@@ -3,9 +3,12 @@ package acup.gunfeel;
 import java.util.List;
 import net.minecraft.world.phys.Vec3;
 
-/** Область головы — настоящая геометрия части, ограниченная плоскостями. */
-public record HeadZone(ModelBox box,List<Plane> planes) {
-    public HeadZone { planes=List.copyOf(planes); }
+/** Область головы — настоящая геометрия части, ограниченная плоскостями. Часть, которую без Flywheel сопоставили
+ * коробкой вокруг её кубов (HeadProfiles.unite), — ещё и сами кубы (pieces): точка лежит хотя бы в одном из них, как
+ * с Flywheel она лежит в сетке части. Пустой список — вся коробка. */
+public record HeadZone(ModelBox box,List<Plane> planes,List<ModelBox> pieces) {
+    public HeadZone { planes=List.copyOf(planes);pieces=List.copyOf(pieces); }
+    public HeadZone(ModelBox box,List<Plane> planes) { this(box,planes,List.of()); }
     public record Plane(double x,double y,double z,double d) {
         public Plane {
             if(!Double.isFinite(x+y+z+d) || x*x+y*y+z*z<1e-16) throw new IllegalArgumentException("Неверная плоскость головы");
@@ -13,11 +16,14 @@ public record HeadZone(ModelBox box,List<Plane> planes) {
         public boolean accepts(Vec3 p) { return x*p.x+y*p.y+z*p.z+d>=-1e-8; }
     }
     public boolean contains(Vec3 point) {
-        if(planes.stream().anyMatch(plane->!plane.accepts(point))) return false;
-        return box.containsPoint(point);
+        if(planes.stream().anyMatch(plane->!plane.accepts(point)) || !box.containsPoint(point)) return false;
+        if(pieces.isEmpty()) return true;
+        for(var piece:pieces) if(piece.containsPoint(point)) return true;
+        return false;
     }
     /** Коэффициенты плоскости заданы в аффинной системе самой части. */
-    public static HeadZone local(ModelBox box,List<Plane> local) {
+    public static HeadZone local(ModelBox box,List<Plane> local) { return local(box,local,List.of()); }
+    public static HeadZone local(ModelBox box,List<Plane> local,List<ModelBox> pieces) {
         var u=new Vec3(box.ux(),box.uy(),box.uz());var v=new Vec3(box.vx(),box.vy(),box.vz());var w=new Vec3(box.wx(),box.wy(),box.wz());
         double determinant=u.dot(v.cross(w));
         if(Math.abs(determinant)<1e-12) throw new IllegalArgumentException("Вырожденная часть головы");
@@ -26,7 +32,7 @@ public record HeadZone(ModelBox box,List<Plane> planes) {
             var normal=v.cross(w).scale(p.x()).add(w.cross(u).scale(p.y())).add(u.cross(v).scale(p.z())).scale(1/determinant);
             return new Plane(normal.x,normal.y,normal.z,p.d()-normal.dot(origin));
         }).toList();
-        return new HeadZone(box,world);
+        return new HeadZone(box,world,pieces);
     }
     public static Plane localPlane(ModelBox box,Plane world) {
         return new Plane(world.x()*box.ux()+world.y()*box.uy()+world.z()*box.uz(),

@@ -370,11 +370,17 @@ final class HeadProfiles {
         }
         return false;
     }
-    static List<HeadZone> zones(Binding binding,List<ModelBox> boxes) {
+    static List<HeadZone> zones(Binding binding,List<ModelBox> boxes) { return zones(binding,boxes,boxes); }
+    // cubes: the boxes before unite. A zone on the box around a part's cubes is those cubes (HeadZone.pieces), as
+    // Flywheel's box of the part holds their mesh: the box alone would take in what lies between them (the back
+    // under a zombie villager's skull, beside its nose).
+    static List<HeadZone> zones(Binding binding,List<ModelBox> boxes,List<ModelBox> cubes) {
         var out=new ArrayList<HeadZone>();
         for(var zone:binding.zones()) {
             var box=boxes.get(zone.part());if(zone.face()!=0) box=box.withMesh(zone.face());
-            out.add(HeadZone.local(box,zone.planes()));
+            var part=box.part();var pieces=zone.face()!=0 || part.startsWith("mesh/")?List.<ModelBox>of():cubes.stream().filter(b->b.part().equals(part)).toList();
+            if(pieces.size()<2 || pieces.contains(box)) pieces=List.of();
+            out.add(HeadZone.local(box,zone.planes(),pieces));
         }
         return List.copyOf(out);
     }

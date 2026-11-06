@@ -206,10 +206,12 @@ class HeadProfilesTest {
         var resolved=ModelHeads.resolve("minecraft:llama",cubes,0);
         assertEquals("dataset",resolved.source(),resolved.reason());assertEquals(0,resolved.missing());
         int head=0;var b=whole.stream().filter(x->x.part().equals("root/head")).findFirst().orElseThrow();
+        var neck=cubes.stream().filter(x->x.part().equals("root/head")).toList();
         for(int i=0;i<=10;i++) for(int j=0;j<=10;j++) for(int k=0;k<=10;k++) {
             var point=ModelContours.point(b,i/10.,j/10.,k/10.);
             boolean in=HeadZone.contains(expected.zones(),point);if(in) head++;
-            assertEquals(in,HeadZone.contains(resolved.zones(),point),point.toString());
+            // без Flywheel зона — сами кубы, а не коробка вокруг них
+            assertEquals(in && neck.stream().anyMatch(x->x.containsPoint(point)),HeadZone.contains(resolved.zones(),point),point.toString());
         }
         assertTrue(head>100,"в голове есть точки зоны: "+head);
         // коза без рогов: голова без Flywheel — только уши (бородка плоская): голова — уши и нос, как под Flywheel
@@ -243,6 +245,73 @@ class HeadProfilesTest {
             var own=profile.parts().stream().map(r->box(r,r.name().replaceFirst("^mesh/",""))).toList();
             assertEquals(own,HeadProfiles.unite(profile,own),type);
         }
+    }
+    // Без Flywheel голова жителя-зомби — два куба одной части, череп и нос, матчатся коробкой вокруг них (unite), а
+    // нос свисает ниже черепа на пиксель и торчит вперёд на два. Зона — сами кубы, как с Flywheel сетка части: верх
+    // спины под черепом и грудь у носа лежат в коробке, но не голова; череп и нос — голова. С Flywheel сверяются
+    // точки на гранях: внутри сетки из касающихся кубов чётность пересечений ModelMesh неверна (совпавшие грани
+    // черепа и носа считаются одной), а пуля попадает в поверхность: точки — первые встречи лучей.
+    @Test void withoutFlywheelAUnitedPartsZoneIsItsCubes() {
+        var type="minecraft:zombie_villager";var profile=HeadProfiles.get(type);double px=1/16.;
+        // в осях модели, как её рисует игра: от угла x min, y max, z max по +x, -y, -z
+        java.util.function.Function<double[],ModelBox> cube=c->new ModelBox("root/head",c[0],c[1],c[2],c[3],0,0,0,-c[4],0,0,0,-c[5]);
+        var skull=cube.apply(new double[]{-.25,2.126,.25,8*px,10*px,8*px});
+        var nose=cube.apply(new double[]{-px,1.501+3*px,.25+2*px,2*px,4*px,2*px});
+        var around=cube.apply(new double[]{-.25,2.126,.25+2*px,8*px,11*px,10*px});
+        float[] mesh=new float[2*ModelDebugRender.CUBE.length];
+        for(int c=0;c<2;c++) for(int at=0;at<ModelDebugRender.CUBE.length;at+=3) {
+            var p=ModelContours.point(c==0?skull:nose,ModelDebugRender.CUBE[at],ModelDebugRender.CUBE[at+1],ModelDebugRender.CUBE[at+2]);
+            int o=c*ModelDebugRender.CUBE.length+at;
+            mesh[o]=(float)((p.x-around.x())/around.ux());mesh[o+1]=(float)((p.y-around.y())/around.vy());mesh[o+2]=(float)((p.z-around.z())/around.wz());
+        }
+        var cpu=new ArrayList<ModelBox>();var flywheel=new ArrayList<ModelBox>();
+        for(var r:profile.parts()) {
+            var name=r.name().substring("mesh/".length());
+            if(name.equals("root/head")) continue;
+            cpu.add(box(r,name));flywheel.add(box(r,r.name()));
+        }
+        var head=profile.parts().stream().filter(r->r.name().equals("mesh/root/head")).findFirst().orElseThrow();
+        assertArrayEquals(head.size(),HeadProfiles.size(around),1e-4);assertEquals(0,head.center().distanceTo(ModelContours.point(around,.5,.5,.5)),1e-4);
+        cpu.add(skull);cpu.add(nose);
+        var a=around;flywheel.add(new ModelBox("mesh/root/head",a.x(),a.y(),a.z(),a.ux(),a.uy(),a.uz(),a.vx(),a.vy(),a.vz(),a.wx(),a.wy(),a.wz()).withMesh(ModelMesh.register(new ModelMesh(mesh)).id()));
+        var without=ModelHeads.resolve(type,cpu,0);var with=ModelHeads.resolve(type,flywheel,0);
+        assertEquals("dataset",without.source(),without.reason());assertEquals(0,without.missing());
+        assertEquals("dataset",with.source(),with.reason());assertEquals(0,with.missing());
+        var united=without.zones().stream().filter(z->z.box().part().equals("root/head")).findFirst().orElseThrow();
+        assertEquals(2,united.pieces().size());
+        var back=new Vec3(0,1.501-px/2,-.1875);var chest=new Vec3(.2,1.501-px/2,.1875);
+        assertTrue(united.box().containsPoint(back) && united.box().containsPoint(chest),"коробка вокруг кубов берёт спину и грудь");
+        for(var body:List.of(back,chest)) {
+            assertFalse(HeadZone.contains(without.zones(),body),"без Flywheel: "+body);
+            assertFalse(HeadZone.contains(with.zones(),body),"с Flywheel: "+body);
+        }
+        // грани, куда приходит пуля: первая встреча луча с кубами (без Flywheel) и с сеткой части (с Flywheel) —
+        // перед черепа, низ носа, верх черепа, перед носа
+        var mesh1=flywheel.getLast();
+        for(var ray:List.of(new Vec3[]{new Vec3(.2,1.8,1),new Vec3(.2,1.8,-1),new Vec3(.2,1.8,.25)},new Vec3[]{new Vec3(0,1,.3),new Vec3(0,3,.3),new Vec3(0,1.501-px,.3)},
+                new Vec3[]{new Vec3(.1,3,0),new Vec3(.1,1,0),new Vec3(.1,2.126,0)},new Vec3[]{new Vec3(0,1.6,1),new Vec3(0,1.6,-1),new Vec3(0,1.6,.25+2*px)}))
+            for(boolean fly:new boolean[]{false,true}) {
+                var pick=HeadLabelGeometry.pick(fly?List.of(mesh1):List.of(skull,nose),ray[0],ray[1]);assertNotNull(pick);
+                var at=ray[0].add(ray[1].subtract(ray[0]).scale(pick.t()));
+                assertEquals(0,at.distanceTo(ray[2]),1e-5,at.toString());
+                assertTrue(HeadZone.contains((fly?with:without).zones(),at),(fly?"с":"без")+" Flywheel: "+at);
+            }
+        // в мире (ModelHits.world) кубы идут тем же поворотом и сдвигом, что коробка и плоскости
+        double angle=.7,c=Math.cos(-angle),s=Math.sin(-angle);var position=new Vec3(100.5,64,-30.25);
+        var world=without.zones().stream().map(z->ModelHits.world(z,angle,position)).toList();
+        assertEquals(without.zones().stream().map(z->z.pieces().size()).toList(),world.stream().map(z->z.pieces().size()).toList());
+        int in=0,out=0;
+        for(int i=0;i<13;i++) for(int j=0;j<13;j++) for(int k=0;k<13;k++) {
+            var p=ModelContours.point(around,(i+.5)/13,(j+.5)/13,(k+.5)/13);
+            boolean head1=HeadZone.contains(without.zones(),p);if(head1) in++; else out++;
+            assertEquals(skull.containsPoint(p) || nose.containsPoint(p),head1,p.toString());
+            assertEquals(head1,HeadZone.contains(world,new Vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z).add(position)),"в мире: "+p);
+        }
+        assertTrue(in>1000 && out>100,"в коробке и голова, и нет: "+in+"/"+out);
+        // надетое закрывает всю выросшую коробку, как у Flywheel: кубы в ней не режут
+        var worn=WornGear.zones(without.zones(),new WornGear.Worn(WornGear.Head.ARMOR,false,false,false),true);
+        assertTrue(worn.stream().allMatch(z->z.pieces().isEmpty()));
+        assertTrue(HeadZone.contains(worn,back));
     }
     // Без Flywheel слой поверх моба приходит под именами самой модели (root/<часть>): копией модели (утопленник,
     // страй, болотник) или никак, когда текстура слоя ничего не добавляет (глаза паука, свечение вардена). Часть слоя

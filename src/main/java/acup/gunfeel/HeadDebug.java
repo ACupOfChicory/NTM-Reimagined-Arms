@@ -11,8 +11,8 @@ final class HeadDebug {
     private static final LinkedHashMap<Key,List<Vec3[]>> CACHE=new LinkedHashMap<>(32,.75F,true);
     private HeadDebug() {}
     static void add(List<ModelDebugRender.Shape> shapes,int owner,Entity entity) {
-        for(var zone:ModelHits.headZones(entity)) {
-            var box=zone.box();var local=new ArrayList<HeadZone.Plane>();
+        for(var zone:ModelHits.headZones(entity)) for(var box:zone.pieces().isEmpty()?List.of(zone.box()):zone.pieces()) {
+            var local=new ArrayList<HeadZone.Plane>();
             for(var plane:zone.planes()) {
                 var p=HeadZone.localPlane(box,plane);double length=Math.sqrt(p.x()*p.x()+p.y()*p.y()+p.z()*p.z());
                 local.add(new HeadZone.Plane(round(p.x()/length),round(p.y()/length),round(p.z()/length),round(p.d()/length)));

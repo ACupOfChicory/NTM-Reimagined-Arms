@@ -93,6 +93,7 @@ final class HeadSmoke {
             else if(ModelHits.limb(target,hit.get())) { if(limb==null) limb=hit.get(); }
             else if(body==null) body=hit.get();
         }
+        strip(target,surface,check);
         check.accept(!zones.isEmpty()==!profile.none(),"голова: наличие зон соответствует ручной разметке"
                 +(zones.isEmpty()==!profile.none()?", "+ModelHits.headResolution(target).reason()+", части="+boxes.stream().map(b->b.part()+java.util.Arrays.toString(HeadProfiles.size(b))+"@"+ModelContours.point(b,.5,.5,.5).subtract(target.position())+"#"+Long.toUnsignedString(HeadProfiles.shape(b),16)+"/yaw"+target.getYRot()).toList():""));
         if(!profile.none()) check.accept(head!=null,"голова: найдена видимая точка попадания");
@@ -157,6 +158,38 @@ final class HeadSmoke {
             if(healthAttribute!=null) healthAttribute.setBaseValue(max);
             target.setHealth(health);target.setInvulnerable(invulnerable);
         }
+    }
+    // Точки поверхности модели (та же сетка лучей, первая встреча с настоящими гранями частей позы), которые сервер
+    // (ModelHits.head) засчитывает головой, хотя ни одна часть, чью грань луч встретил первой, не размечена головой:
+    // спина под черепом в коробке головы и подобное. Таких быть не должно. Размечена — по самой коробке
+    // (ModelHits.standParts), не по имени. Совпавшие грани (череп и нос, копия слоя) — все первые. Точки частей
+    // головы вне зоны — сведения: плоскости режут их нарочно (шея ламы). Конечности (ModelHits.limb) — тоже сведения.
+    private static void strip(LivingEntity target,List<MobRayOracle.Triangle> surface,java.util.function.BiConsumer<Boolean,String> check) {
+        // Высотная зона NTM (разметка не привязалась) — не геометрия частей: её и считать нечего.
+        if(ModelHits.headResolution(target).zones().isEmpty()) return;
+        var parts=ModelHits.standParts(target);boolean limbs=parts.stream().anyMatch(ModelHits.StandPart::limb);
+        int bodyHits=0,headHits=0,headOut=0,limbHits=0,limbOut=0;var inHead=new TreeMap<String,Integer>();var heads=new TreeMap<String,Integer>();var inLimb=new TreeMap<String,Integer>();
+        for(var side:SIDES) for(var ray:MobRayOracle.grid(surface,side)) if(ray.hit()) {
+            double epsilon=1e-5/ray.to().subtract(ray.from()).length(),best=Double.POSITIVE_INFINITY;var first=new ArrayList<ModelHits.StandPart>();
+            for(var part:parts) {
+                var pick=HeadLabelGeometry.pick(List.of(part.box()),ray.from(),ray.to());if(pick==null || pick.t()>best+epsilon) continue;
+                if(pick.t()<best-epsilon) first.clear();
+                first.add(part);best=Math.min(best,pick.t());
+            }
+            if(first.isEmpty()) continue;
+            var point=ray.from().add(ray.to().subtract(ray.from()).scale(best));var part=first.getFirst().box().part();
+            boolean head=ModelHits.head(target,point).head();if(head) heads.merge(part,1,Integer::sum);
+            if(first.stream().anyMatch(ModelHits.StandPart::head)) { headHits++;if(!head) headOut++;continue; }
+            boolean limb=!head && limbs && ModelHits.limb(target,point);
+            if(first.stream().anyMatch(ModelHits.StandPart::limb)) { limbHits++;if(!limb && !head) limbOut++; }
+            else { bodyHits++;if(limb) inLimb.merge(part,1,Integer::sum); }
+            if(head) inHead.merge(part,1,Integer::sum);
+        }
+        int strayHead=inHead.values().stream().mapToInt(Integer::intValue).sum();
+        check.accept(strayHead==0,"голова: точек поверхности не головы в зоне головы="+strayHead+" из "+(bodyHits+limbHits)+inHead
+                +", точек частей головы вне зоны="+headOut+" из "+headHits+", головой по частям "+heads);
+        if(limbs) check.accept(true,"конечности (сведения): точек тела в зоне конечностей="+inLimb.values().stream().mapToInt(Integer::intValue).sum()
+                +" из "+bodyHits+inLimb+", точек частей конечностей вне зоны="+limbOut+" из "+limbHits);
     }
     // Эндермен снарядом не ранится (ванилла: EnderMan.hurtServer на урон IS_PROJECTILE телепортируется и урона не
     // берёт), и пуля, и луч NTM по нему в игре дают урон 0; настоящий удар увёл бы его со стенда. Множители

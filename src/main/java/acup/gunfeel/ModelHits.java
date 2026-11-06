@@ -302,14 +302,41 @@ public final class ModelHits {
         var resolved=ModelHeads.resolve(type,pose.boxes(),pose.yaw());
         double angle=turnAngle(target.level().isClientSide(),living.yBodyRot,pose.yaw(),pose.bodyYaw());
         var out=new ArrayList<HeadZone>();
+        for(var zone:wornZones(target,pose,resolved.zones())) out.add(world(zone,angle,target.position()));
+        return List.copyOf(out);
+    }
+    // Зона в мир: коробка, плоскости и кубы (pieces) — одним поворотом на angle и сдвигом в position.
+    static HeadZone world(HeadZone zone,double angle,Vec3 position) {
+        double cos=Math.cos(-angle),sin=Math.sin(-angle);var box=zone.box();
+        return HeadZone.local(world(box,cos,sin,position),zone.planes().stream().map(p->HeadZone.localPlane(box,p)).toList(),zone.pieces().stream().map(b->world(b,cos,sin,position)).toList());
+    }
+    private static ModelBox world(ModelBox box,double cos,double sin,Vec3 position) {
+        var origin=unturn(new Vec3(box.x(),box.y(),box.z()),cos,sin).add(position);
+        var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),cos,sin);var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),cos,sin);
+        return new ModelBox(box.part(),origin.x,origin.y,origin.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z,box.mesh());
+    }
+    // Стенд: части позы в мире (без надетого, как worldBoxes) и размечена ли каждая головой и конечностью — сама
+    // коробка зоны или куб коробки вокруг кубов части (HeadZone.pieces). По самой коробке, не по имени: у части
+    // одного имени размечены бывают не все коробки (camel_husk: root/body/head трижды, зоны у двух).
+    record StandPart(ModelBox box,boolean head,boolean limb) {}
+    static synchronized List<StandPart> standParts(Entity target) {
+        var poses=POSES.get(target.level());var pose=poses==null?null:poses.get(target.getId());
+        if(!usable(target,pose) || !(target instanceof LivingEntity living)) return List.of();
+        String type=ModelHeads.key(target);
+        var heads=ModelHeads.resolve(type,pose.boxes(),pose.yaw()).zones();
+        var limbs=LimbPolicy.eligible(target.getType())?ModelHeads.limbs(type,pose.boxes(),pose.yaw()).zones():List.<HeadZone>of();
+        double angle=turnAngle(target.level().isClientSide(),living.yBodyRot,pose.yaw(),pose.bodyYaw());
         double cos=Math.cos(-angle),sin=Math.sin(-angle);
-        for(var zone:wornZones(target,pose,resolved.zones())) {
-            var box=zone.box();var origin=unturn(new Vec3(box.x(),box.y(),box.z()),cos,sin).add(target.position());
-            var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),cos,sin);var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),cos,sin);
-            var world=new ModelBox(box.part(),origin.x,origin.y,origin.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z,box.mesh());
-            out.add(HeadZone.local(world,zone.planes().stream().map(p->HeadZone.localPlane(box,p)).toList()));
+        var out=new ArrayList<StandPart>();
+        for(var box:pose.boxes()) {
+            if(!target.level().isClientSide() && !ModelWool.visible(target,box)) continue;
+            out.add(new StandPart(world(box,cos,sin,target.position()),zoned(heads,box),zoned(limbs,box)));
         }
         return List.copyOf(out);
+    }
+    private static boolean zoned(List<HeadZone> zones,ModelBox box) {
+        for(var zone:zones) if(zone.box().equals(box) || zone.pieces().contains(box)) return true;
+        return false;
     }
     public static synchronized ModelHeads.Resolution headResolution(Entity target) {
         var poses=POSES.get(target.level());var pose=poses==null?null:poses.get(target.getId());
@@ -353,11 +380,7 @@ public final class ModelHits {
         double cos=Math.cos(-angle),sin=Math.sin(-angle);
         for (ModelBox box : wornBoxes(target,p)) {
             if(!target.level().isClientSide() && !ModelWool.visible(target,box)) continue;
-            var origin=unturn(new Vec3(box.x(),box.y(),box.z()),cos,sin).add(target.position());
-            var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);
-            var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),cos,sin);
-            var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),cos,sin);
-            out.add(new ModelBox(box.part(),origin.x,origin.y,origin.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z,box.mesh()));
+            out.add(world(box,cos,sin,target.position()));
         }
         return out;
     }
