@@ -76,6 +76,36 @@ class WaterPathTest {
         }
     }
 
+    // a tick that ends right on the surface has no entry (a zero-length span); the next one, starting there, comes in
+    // from the air: ENTER through the top at its start. One starting on a cell's edge deep in the water does not.
+    @Test
+    void aTickStartingOnTheSurfaceComesIn() {
+        double a = Math.toRadians(30);
+        Vec3 dir = new Vec3(Math.cos(a), -Math.sin(a), 0);
+        Vec3 on = new Vec3(0.5, SURFACE, 0.5);
+        var first = WaterPath.trace(deep(), on.subtract(dir.scale(4)), on, 1, WaterClass.ROCKET, 0, 1L, S.fuzed(), null);
+        assertTrue(first.events.isEmpty(), "the first tick: nothing yet");
+        var next = WaterPath.trace(deep(), on, on.add(dir.scale(0.4)), 1, WaterClass.ROCKET, 0, 1L, S.fuzed(), null);
+        assertFalse(next.startsIn());
+        assertEquals(Type.ENTER, next.events.get(0).type());
+        assertEquals(Direction.UP, next.events.get(0).face());
+        assertEquals(0, next.events.get(0).at().distanceTo(on), 1e-9);
+        // a hair under the surface (the float sum of the motion), still from the air
+        var hair = WaterPath.trace(deep(), on.add(0, -1e-9, 0), on.add(dir.scale(0.4)), 1, WaterClass.ROCKET, 0, 1L, S.fuzed(), null);
+        assertEquals(Type.ENTER, hair.events.get(0).type());
+        // deep in the water on a cell's edge: in it already
+        Vec3 edge = new Vec3(2.0, 5.0, 0.5);
+        var deepIn = WaterPath.trace(deep(), edge, edge.add(dir.scale(0.4)), 1, WaterClass.ROCKET, 0, 1L, S.fuzed(), null);
+        assertTrue(deepIn.startsIn());
+        assertTrue(deepIn.events.stream().noneMatch(e -> e.type() == Type.ENTER));
+        // from the side, onto a pool's wall of water
+        var w = new World().pool(0, 4, 0, 3, -2, 2);
+        Vec3 wall = new Vec3(0, 2, 0.5);
+        var side = WaterPath.trace(w, wall, wall.add(1, 0, 0), 1, WaterClass.ROCKET, 0, 1L, S.fuzed(), null);
+        assertEquals(Type.ENTER, side.events.get(0).type());
+        assertEquals(Direction.WEST, side.events.get(0).face());
+    }
+
     @Test
     void stopsAtLTimesLnOneOverStopStraightDown() {
         Map<WaterClass, Double> depth = Map.of(WaterClass.PISTOL, 2.4, WaterClass.RIFLE, 1.25, WaterClass.HEAVY, 1.3,

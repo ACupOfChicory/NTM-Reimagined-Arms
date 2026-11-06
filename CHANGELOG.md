@@ -13,6 +13,10 @@
   another one sinking under the line it came down along. Before, its path was
   counted on under the surface, where the game still moves it in the tick it
   goes off.
+- A rocket, grenade or explosive round whose tick ends exactly on the water
+  surface goes off there in the next tick. Before, it sank as if it had
+  started under water: a rocket fired 30° down that met the surface after
+  exactly four blocks did this.
 
 ## X555
 

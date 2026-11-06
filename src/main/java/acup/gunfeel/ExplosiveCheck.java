@@ -116,6 +116,7 @@ public final class ExplosiveCheck {
             stopped(ammo, c, wc);
             damage(ammo, c, wc);
         }
+        onSurface(all);
         weak(all);
         fire(all);
         phosphorus();
@@ -251,6 +252,27 @@ public final class ExplosiveCheck {
             boolean good = angle < fuze + 0.5 && (weak ? blast == null && b.isRemoved() : blast != null && Math.abs(blast[0] - firstTouchX) > 0.5);
             rowFlag("a: into water at " + deg + "°: skips, goes off later", ammo, wc, "skip, blast past x " + fmt(firstTouchX),
                     blast == null ? "none" : "x " + fmt(blast[0]) + " y " + fmt(blast[1]), good, note);
+        }
+    }
+
+    // a tick that ended right on the surface (a rocket at 30°: 0 + 0.4 + 0.8 + 1.2 + 1.6 = 4 blocks in 5 ticks): the
+    // next one starts on it and comes in from the air, so it goes off there, not sinks to the floor
+    private static void onSurface(Map<String, BulletConfig> all) {
+        for (String ammo : new String[] {"ammo_standard_rocket_he", "ammo_standard_g40_he", "ammo_standard_r762_he"}) {
+            BulletConfig c = byAmmo(all, ammo);
+            if (c == null) {
+                ok = false;
+                lines.add("FAIL\tno config " + ammo);
+                continue;
+            }
+            basin();
+            double r = Math.toRadians(30);
+            Vec3 on = new Vec3(MIN + 14, surface, CZ);
+            EntityBulletBaseMK4 b = bullet(c, on, new Vec3(Math.cos(r), -Math.sin(r), 0));
+            double[] blast = fly(b, TICKS);
+            rowFlag("a: from right on the surface at 30°: goes off there", ammo, WaterClass.of(c), "blast y " + fmt(surface) + "..+0.3",
+                    blast == null ? "none" : fmt(blast[1]), blast != null && blast[1] >= surface - 0.05 && blast[1] <= surface + 0.35,
+                    "blast=" + str(blast) + " stopped=" + WaterBullet.stopped(b));
         }
     }
 
