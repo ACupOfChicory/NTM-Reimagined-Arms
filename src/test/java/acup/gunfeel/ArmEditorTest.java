@@ -133,7 +133,8 @@ class ArmEditorTest {
     }
 
     private static void ownEverything(ArmEditor e) {
-        for (String k : List.of("armBaseRight", "armBaseLeft", "armLength")) Grips.put(e.gun, k, "0", false);
+        for (String k : List.of("armBaseRight", "armBaseLeft", "armLength", "armPistolScale"))
+            Grips.put(e.gun, k, k.equals("armPistolScale") ? "true" : "0", false);
         Config.select(e.gun);
         for (var p : List.of(ArmEditor.Page.GRIP, ArmEditor.Page.ARM, ArmEditor.Page.BOTH))
             for (int h = 0; h < 2; h++) {
