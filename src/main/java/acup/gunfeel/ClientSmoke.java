@@ -140,7 +140,7 @@ public final class ClientSmoke {
                 if(ShapesFallbackCheck.ENABLED) { phase=16; mc.gui.setScreen(null); ShapesFallbackCheck.start(); return; }
                 if(FenceSeamCheck.ENABLED) { phase=17; mc.gui.setScreen(null); FenceSeamCheck.start(); return; }
                 if(FenceAirStand.ENABLED) { phase=18; mc.gui.setScreen(null); FenceAirStand.start(); return; }
-                if(GlassBackCheck.ENABLED) { phase=20; mc.gui.setScreen(null); GlassBackCheck.start(); return; }
+                if(GlassBackCheck.ENABLED) { phase=50; mc.gui.setScreen(null); GlassBackCheck.start(); return; }
                 if (MobSmoke.enabled()) {
                     phase = 10;
                     mc.gui.setScreen(null);
@@ -288,7 +288,7 @@ public final class ClientSmoke {
             if (phase == 16) ShapesFallbackCheck.frame();
             if (phase == 17) FenceSeamCheck.frame();
             if (phase == 18) FenceAirStand.frame();
-            if (phase == 20) GlassBackCheck.frame();
+            if (phase == 50) GlassBackCheck.frame();
             if (phase == 15) {
                 if (ShapesStand.ENABLED) ShapesStand.frame();
                 else GlassStand.frame();

@@ -25,7 +25,9 @@ import net.minecraft.world.phys.Vec3;
 // item in an invisible item frame on the wall beside it. With the wall white and then black: how much of the glass
 // and of its item shows the wall through it. Then bullets from behind the glass, holes on its far face: how many
 // pixels they change seen through it, with the holes kept on the graphics card (holeCache) and sent each frame; then
-// holes on the near face, the same. Lines "[glassback] ..." in the log. =fabulous: with improved transparency.
+// holes on the near face, the same. Then particles in front of the laminate pane, held still (NTM's explosion cloud,
+// vanilla campfire smoke at alpha 0.5, vanilla explosion): how much of the pane still shows under them. Lines
+// "[glassback] ..." in the log. =fabulous: with improved transparency.
 final class GlassBackCheck {
     private static final String MODE = System.getProperty("ntmgunfeel.glassBack", "");
     static final boolean ENABLED = !MODE.isBlank();
@@ -51,6 +53,82 @@ final class GlassBackCheck {
     private static int[] emptyWhite, emptyBlack, baseWhite, baseBlack, farCache, farEach, nearCache, nearEach;
     private static String faces = "";
     private static final Map<String, double[]> RESULT = new LinkedHashMap<>();
+    private static final String[] PARTICLES = {"ntm explosion", "vanilla smoke", "vanilla explosion"};
+    private static final Vec3 PARTICLE_AT = new Vec3(O.getX() + 0.5, O.getY() + 1, O.getZ() + 1.6);
+    private static int particle;
+    private static net.minecraft.client.particle.Particle held;
+    private static int[] underBoth, underOnly, paneOnly, none;
+
+    // NTM's explosion cloud (a Flywheel visual on DE) at a sixth of its life, kept there
+    private static final class Frozen extends com.hbm.particle.ParticleExplosionSmall {
+        Frozen(net.minecraft.client.multiplayer.ClientLevel level, double x, double y, double z) {
+            super(level, x, y, z, 1.5F, 0F);
+            this.lifetime = 30;
+            this.age = 5;
+        }
+
+        @Override
+        public void tick() {
+        }
+    }
+
+    private static java.lang.reflect.Field field(Class<?> c, String name) {
+        for (; c != null; c = c.getSuperclass()) try {
+            var f = c.getDeclaredField(name);
+            f.setAccessible(true);
+            return f;
+        } catch (NoSuchFieldException e) {
+            // up the classes
+        }
+        throw new IllegalStateException("no field " + name);
+    }
+
+    // a vanilla particle held where it is, at its age: set back each frame (its tick moves it on by a tick at most)
+    private static void hold(net.minecraft.client.particle.Particle p) {
+        try {
+            for (String n : new String[] {"x", "xo"}) field(p.getClass(), n).setDouble(p, PARTICLE_AT.x);
+            for (String n : new String[] {"y", "yo"}) field(p.getClass(), n).setDouble(p, PARTICLE_AT.y);
+            for (String n : new String[] {"z", "zo"}) field(p.getClass(), n).setDouble(p, PARTICLE_AT.z);
+            for (String n : new String[] {"xd", "yd", "zd"}) field(p.getClass(), n).setDouble(p, 0);
+            field(p.getClass(), "age").setInt(p, 2);
+            if (particle == 1) field(p.getClass(), "alpha").setFloat(p, 0.5F);
+        } catch (ReflectiveOperationException e) {
+            failure = "частица: " + e;
+        }
+    }
+
+    private static void spawn() {
+        Minecraft mc = Minecraft.getInstance();
+        if (particle == 0) {
+            held = new Frozen(mc.level, PARTICLE_AT.x, PARTICLE_AT.y, PARTICLE_AT.z);
+            mc.particleEngine.add(held);
+        } else {
+            held = mc.particleEngine.createParticle(particle == 1 ? net.minecraft.core.particles.ParticleTypes.CAMPFIRE_COSY_SMOKE
+                    : net.minecraft.core.particles.ParticleTypes.EXPLOSION, PARTICLE_AT.x, PARTICLE_AT.y, PARTICLE_AT.z, 0, 0, 0);
+            if (held == null) failure = "частица " + PARTICLES[particle] + " не создана";
+            else hold(held);
+        }
+    }
+
+    // where the particle shows over the bare wall and the pane shows without it: how much of the pane is left under it
+    private static void particleResult() {
+        int w = shotWidth, cut = split(w, none.length / w), region = 0, foot = 0, seen = 0;
+        double under = 0, bare = 0;
+        for (int i = 0; i < none.length; i++) {
+            if (i % w >= cut || diff(underOnly[i], none[i]) <= 12) continue;
+            foot++;
+            int b = Math.abs(light(paneOnly[i]) - light(none[i]));
+            if (b <= 8 * 3) continue;
+            region++;
+            int u = Math.abs(light(underBoth[i]) - light(underOnly[i]));
+            if (u > 8 * 3) seen++;
+            under += u;
+            bare += b;
+        }
+        GunFeel.LOGGER.info(String.format(Locale.ROOT, "[glassback] particle %s before the laminate pane: its pixels %d, of them on the pane %d; the pane "
+                + "still seen under it in %d (%.0f%%), its change there %.2f of the bare pane's", PARTICLES[particle], foot, region, seen,
+                100.0 * seen / Math.max(1, region), bare == 0 ? 0 : under / bare));
+    }
 
     private GlassBackCheck() {
     }
@@ -217,6 +295,15 @@ final class GlassBackCheck {
         return n;
     }
 
+    // how much darker a pixel the holes changed is, on average (0..255): the copy under the glass laid under the late
+    // hole seen from in front darkened its half-clear edges twice
+    private static double darkness(int[] a, int[] b) {
+        int w = shotWidth, cut = split(w, a.length / w), n = 0;
+        double sum = 0;
+        for (int i = 0; i < a.length; i++) if (i % w < cut && diff(a[i], b[i]) > 10) { n++; sum += light(b[i]) - light(a[i]); }
+        return n == 0 ? 0 : sum / n;
+    }
+
     private static String faces() {
         StringBuilder sb = new StringBuilder();
         for (var e : Tracers.holeFaces().entrySet()) {
@@ -243,6 +330,7 @@ final class GlassBackCheck {
             mc.player.yRotO = YAW;
             mc.player.xRotO = PITCH;
         }
+        if (held != null && particle > 0) hold(held);
         if (wait > 0) {
             wait--;
             return;
@@ -281,7 +369,8 @@ final class GlassBackCheck {
             case 10 -> { // the next glass, on the black wall first
                 Tracers.clearHoles();
                 if (++type >= TYPES.length) {
-                    step = 99;
+                    particle = 0;
+                    step = 30;
                     return;
                 }
                 if (block(TYPES[type]) == Blocks.AIR) {
@@ -359,12 +448,73 @@ final class GlassBackCheck {
                 GunFeel.LOGGER.info("[glassback] {}: holes from the front:{}", name(), faces);
                 double[] g = seen(false), it = seen(true);
                 double[] r = {g[0], g[1], g[2], it[0], it[1], it[2], changed(farCache, baseWhite), changed(farEach, baseWhite), changed(farCache, farEach),
-                        changed(nearCache, baseWhite), changed(nearEach, baseWhite), changed(nearCache, nearEach)};
+                        changed(nearCache, baseWhite), changed(nearEach, baseWhite), changed(nearCache, nearEach),
+                        darkness(nearCache, baseWhite), darkness(nearEach, baseWhite), darkness(farCache, baseWhite), darkness(farEach, baseWhite)};
                 RESULT.put(name(), r);
                 GunFeel.LOGGER.info(String.format(Locale.ROOT, "[glassback] %s: glass pixels %.0f, the wall seen through %.0f (%.0f%%), passing %.2f; item pixels %.0f, "
-                        + "through %.0f (%.0f%%), passing %.2f; far holes change %.0f pixels kept / %.0f sent (they differ in %.0f); near holes %.0f / %.0f (differ %.0f)",
-                        name(), r[0], r[1], 100 * r[1] / Math.max(1, r[0]), r[2], r[3], r[4], 100 * r[4] / Math.max(1, r[3]), r[5], r[6], r[7], r[8], r[9], r[10], r[11]));
+                        + "through %.0f (%.0f%%), passing %.2f; far holes change %.0f pixels kept / %.0f sent (they differ in %.0f); near holes %.0f / %.0f (differ %.0f); "
+                        + "a changed pixel darker by %.1f / %.1f near, %.1f / %.1f far",
+                        name(), r[0], r[1], 100 * r[1] / Math.max(1, r[0]), r[2], r[3], r[4], 100 * r[4] / Math.max(1, r[3]), r[5], r[6], r[7], r[8], r[9], r[10], r[11],
+                        r[12], r[13], r[14], r[15]));
                 step = 10;
+            }
+            case 30 -> { // a particle before the laminate pane
+                if (particle >= PARTICLES.length) {
+                    step = 99;
+                    return;
+                }
+                type = java.util.Arrays.asList(TYPES).indexOf("hbm:reinforced_laminate_pane");
+                build(true, true);
+                step = 31;
+            }
+            case 31 -> {
+                if (!synced(true, true)) return;
+                wait = 30;
+                step = 32;
+            }
+            case 32 -> {
+                spawn();
+                wait = 15;
+                step = 33;
+            }
+            case 33 -> {
+                if (!screenshot()) return;
+                underBoth = shot;
+                GunFeel.LOGGER.info("[glassback] particle {}: {}, alive {}", PARTICLES[particle], held == null ? "none" : held.getClass().getName(),
+                        held != null && held.isAlive());
+                build(true, false);
+                step = 34;
+            }
+            case 34 -> {
+                if (!synced(true, false)) return;
+                wait = 30;
+                step = 35;
+            }
+            case 35 -> {
+                if (!screenshot()) return;
+                underOnly = shot;
+                held.remove();
+                held = null;
+                wait = 15;
+                step = 36;
+            }
+            case 36 -> {
+                if (!screenshot()) return;
+                none = shot;
+                build(true, true);
+                step = 37;
+            }
+            case 37 -> {
+                if (!synced(true, true)) return;
+                wait = 30;
+                step = 38;
+            }
+            case 38 -> {
+                if (!screenshot()) return;
+                paneOnly = shot;
+                particleResult();
+                particle++;
+                step = 30;
             }
             case 99 -> {
                 for (var e : RESULT.entrySet()) {
@@ -376,6 +526,10 @@ final class GlassBackCheck {
                             + (int) r[7] + " каждый кадр");
                     ClientSmoke.check(r[10] < 30 || r[9] >= 0.6 * r[10], "стекло сзади " + n + ": след с этой стороны, пикселей " + (int) r[9] + " в партиях, "
                             + (int) r[10] + " каждый кадр");
+                    // from in front the holes kept on the card darken the glass as the ones sent each frame do, which
+                    // draw no copy under the glass there
+                    ClientSmoke.check(r[10] < 30 || Math.abs(r[12] - r[13]) <= 0.1 * r[13] + 2, "стекло сзади " + n + ": след спереди темнее на "
+                            + String.format(Locale.ROOT, "%.1f в партиях, %.1f каждый кадр", r[12], r[13]));
                     if (laminate) {
                         ClientSmoke.check(r[6] > 100, "стекло сзади " + n + ": след с той стороны виден сквозь ламинат, пикселей " + (int) r[6]);
                         ClientSmoke.check(r[0] > 1000 && r[1] > 0.5 * r[0], "стекло сзади " + n + ": стена видна сквозь блок, " + (int) r[1] + " из " + (int) r[0]);
