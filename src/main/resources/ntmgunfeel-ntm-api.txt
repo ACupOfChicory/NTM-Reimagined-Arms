@@ -198,6 +198,7 @@ CLICK_AIM method com/hbm/extprop/HbmPlayerProps getData (Lnet/minecraft/world/en
 CLICK_AIM method com/hbm/extprop/HbmPlayerProps getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
 CORE class com/hbm/blocks/generic/BlockWoodBarrier
 CORE class com/hbm/blocks/generic/BlockWoodStructure
+CORE class com/hbm/entity/effect/EntityFireLingering
 CORE class com/hbm/entity/mob/EntityFBIDrone
 CORE class com/hbm/entity/mob/EntityHunterChopper
 CORE class com/hbm/entity/mob/EntityPlasticBag
@@ -224,6 +225,7 @@ CORE field com/hbm/explosion/vanillant/ExplosionVNT posY D
 CORE field com/hbm/explosion/vanillant/ExplosionVNT posZ D
 CORE field com/hbm/explosion/vanillant/ExplosionVNT size F
 CORE field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/level/Level;
+CORE field com/hbm/extprop/HbmLivingProps phosphorus I
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling fragmentation Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets_heavy Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -248,6 +250,7 @@ CORE method com/hbm/blocks/multiblock/BlockMultiblockCore withoutTeardown (Ljava
 CORE method com/hbm/blocks/multiblock/MultiblockSurface rigidStructureBlocks (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Ljava/util/List;
 CORE method com/hbm/client/Keybinds isGunHeld ()Z
 CORE method com/hbm/client/Keybinds isGunKey (Lnet/minecraft/client/KeyMapping;)Z
+CORE method com/hbm/entity/effect/EntityFireLingering discard ()V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getBoundingBox ()Lnet/minecraft/world/phys/AABB;
@@ -276,6 +279,7 @@ CORE method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth setK
 CORE method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth setupPiercing (FF)Lcom/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth;
 CORE method com/hbm/explosion/vanillant/standard/ExplosionEffectTiny <init> ()V
 CORE method com/hbm/explosion/vanillant/standard/PlayerProcessorStandard <init> ()V
+CORE method com/hbm/extprop/HbmLivingProps getData (Lnet/minecraft/world/entity/LivingEntity;)Lcom/hbm/extprop/HbmLivingProps;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/factory/Lego standardExplode (Lcom/hbm/entity/projectile/EntityBulletBaseMK4;Lnet/minecraft/world/phys/HitResult;F)V
 CORE method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase get (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/render/item/weapon/sedna/ItemRenderWeaponBase;

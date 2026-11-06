@@ -1,14 +1,11 @@
 # Changelog
 
-## X492
+## X493
 
 - Works with Punchy! and Punchy! Moves: Punchy! no longer animates NTM guns in
   first person, and in third person Punchy! Moves keeps the arm pose NTM gives
   a gun (aiming, akimbo, left hand). Nothing changes without those mods or with
   `arms` off. Thanks to irislgtm (#2).
-
-## X490
-
 - Explosive NTM rounds, grenades and rockets meet water by their fuze. Hitting
   it steeper than 10° they go off on the surface; shallower they skip and go
   off at the next thing they touch. Fired under water they fly, slow down like
