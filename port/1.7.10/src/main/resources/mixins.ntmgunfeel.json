@@ -6,7 +6,7 @@
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
   "injectors": { "defaultRequire": 1 },
-  "mixins": ["MixinVanillaProjectileHits"],
+  "mixins": ["MixinVanillaProjectileHits", "MixinWorldMuffle"],
   "client": ["MixinEntityRenderer", "MixinRenderGlobal", "MixinMousePick", "MixinTimer", "MixinMouseTurn", "ItemRendererAccess", "PlayerSPAccess", "MixinClickAimMove", "MixinSprintStop", "MixinItemRendererGunSway", "MixinItemRendererGunSwing", "MixinRendererLivingEntity", "MixinModelRenderer", "MixinRenderManager", "MixinForgeWavefrontObject", "MixinTessellator"],
   "server": []
 }

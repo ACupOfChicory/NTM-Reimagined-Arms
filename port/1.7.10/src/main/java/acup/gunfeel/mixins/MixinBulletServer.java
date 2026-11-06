@@ -111,6 +111,8 @@ public abstract class MixinBulletServer implements PierceSteps.Holder {
 
     @Unique
     private boolean gunfeel$targetAlive;
+    @Unique
+    private float gunfeel$waterK = 1F;
 
     // the test log: the bullet's damage and the creature's health as the hit begins
     @Unique
@@ -123,6 +125,10 @@ public abstract class MixinBulletServer implements PierceSteps.Holder {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
         // the damage the bullet has where the creature is, not after the blocks behind it
         if (!self.worldObj.isRemote && entity && mop.hitVec != null) gunfeel$steps.enter(self, mop.hitVec.xCoord, mop.hitVec.yCoord, mop.hitVec.zCoord);
+        // water: what is left of the damage where the creature is, × f² (WaterTick); undone after the hit
+        gunfeel$waterK = !self.worldObj.isRemote && entity && mop.hitVec != null
+                ? acup.gunfeel.water.WaterTick.k(self, mop.hitVec.xCoord, mop.hitVec.yCoord, mop.hitVec.zCoord) : 1F;
+        if (gunfeel$waterK != 1F) damage *= gunfeel$waterK;
         gunfeel$damageBefore = damage;
         gunfeel$healthBefore = entity && mop.entityHit instanceof EntityLivingBase ? ((EntityLivingBase) mop.entityHit).getHealth() : Float.NaN;
     }
@@ -132,6 +138,8 @@ public abstract class MixinBulletServer implements PierceSteps.Holder {
     private void gunfeel$entityAfter(MovingObjectPosition mop, CallbackInfo ci) {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
         if (self.worldObj.isRemote || mop.typeOfHit != MovingObjectPosition.MovingObjectType.ENTITY || mop.entityHit == null) return;
+        if (gunfeel$waterK != 1F && gunfeel$waterK > 0F) damage /= gunfeel$waterK;
+        gunfeel$waterK = 1F;
         // the bullet stopped in the creature: the clients' tracer ends there (26.2: BulletStopPayload). The fraction of
         // the tick is the model's contact time (the mob moved during the tick as its shooter saw it), else by distance
         if (self.isDead && config != null && config.velocity >= 5F && mop.hitVec != null) {

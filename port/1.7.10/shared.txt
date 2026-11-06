@@ -31,6 +31,8 @@ acup/gunfeel/SpreadModel.java
 acup/gunfeel/DecalSurface.java
 # NTM compatibility (port: Feature, Compat, MixinProbe, NtmCheck are the port's)
 acup/gunfeel/compat/ApiProbe.java
+# water (notes/ports/1.7.10-water/README.md): its keys; the rest is the port's copy (WaterPath reads 1.7.10's liquids)
+acup/gunfeel/water/WaterSettings.java
 
 [test]
 # src/test/java: they test the port's copies with 26.2's own expectations

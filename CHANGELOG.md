@@ -1,5 +1,18 @@
 # Changelog
 
+## X543.133
+
+- As in 26.2 X488: NTM bullets slow down in water, and their damage and
+  piercing fall with the square of the speed; a hole in a block behind water
+  comes out smaller. A pistol bullet goes through about 2.4 blocks of water, a
+  rifle bullet 1.2, an armour-piercing one 1.7, a shotgun slug 2.7, buckshot
+  0.6, 10 gauge DU 1.3; a 9 mm JHP stops after 1.3 blocks, an SP after 1.8. At
+  a shallow angle (under 6°) a bullet skips off water, at most twice a flight.
+  The tracer follows the same path. A gun fired with the shooter's eyes in
+  water sounds duller and lower. Keys in `ntm-gunfeel-server.properties`:
+  `waterBallistics`, `waterStopFraction`, `waterRangeScale`, `waterSkipAngle`,
+  `waterMuffle`. Splashes and explosives in water come in later builds.
+
 ## X543.131
 
 - As in 26.2 X510: in NTM power armour all recoil is halved: the camera kick,

@@ -90,7 +90,9 @@ public final class PierceSteps {
         World world = bullet.worldObj;
         while (paid < k && !bullet.isDead) {
             Step s = steps.get(paid++);
-            float left = PassableClip.pierced(world, s.in, s.out, bullet.damage, bullet.config, penetration);
+            float wk = acup.gunfeel.water.WaterTick.k(bullet, s.in.ax, s.in.ay, s.in.az);
+            float left = wk == 1F ? PassableClip.pierced(world, s.in, s.out, bullet.damage, bullet.config, penetration)
+                    : wk <= 0F ? -1F : PassableClip.pierced(world, s.in, s.out, bullet.damage * wk, bullet.config, penetration) / wk;
             if (TestLog.server) TestLog.s(bullet.getEntityId(), "block", "block", TestLog.block(world, s.in.x, s.in.y, s.in.z), "pos", TestLog.pos(s.in),
                     "at", TestLog.point(s.in), "material", TestLog.material(world, s.in), "result", left < 0F ? "stop" : "pierce",
                     "why", "after_entity", "damage", bullet.damage, "left", left);

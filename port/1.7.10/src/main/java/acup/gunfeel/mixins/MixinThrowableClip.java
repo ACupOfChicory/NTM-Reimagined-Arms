@@ -21,6 +21,7 @@ import acup.gunfeel.ModelAABB;
 import acup.gunfeel.ModelHits;
 import acup.gunfeel.BulletServer;
 import acup.gunfeel.PassableClip;
+import acup.gunfeel.water.WaterTick;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.util.AxisAlignedBB;
@@ -75,7 +76,12 @@ public abstract class MixinThrowableClip extends Entity {
     private void gunfeel$endHits(CallbackInfo ci) {
         if (!gunfeel$hitsOn) return;
         gunfeel$hitsOn = false;
-        ModelHits.endShot(gunfeel$hitsPrevious);
+        try {
+            // water: the bullet's new f, a stop or a skip, the tick's events (WaterTick)
+            if ((Object) this instanceof EntityBulletBaseMK4 bullet) WaterTick.end(bullet);
+        } finally {
+            ModelHits.endShot(gunfeel$hitsPrevious);
+        }
         gunfeel$hitsPrevious = null;
     }
 
@@ -107,13 +113,17 @@ public abstract class MixinThrowableClip extends Entity {
         if (!((Object) this instanceof EntityBulletBaseMK4)) return original.call(world, from, to, liquids, noBox, last);
         EntityBulletBaseMK4 bullet = (EntityBulletBaseMK4) (Object) this;
         Vec3 start = gunfeel$start(from);
+        // water first: blocks past where it stops or skips the bullet are not met (WaterTick)
+        acup.gunfeel.phys.Vec3 cut = WaterTick.path(bullet, world, gunfeel$phys(start), gunfeel$phys(to));
+        Vec3 end = Vec3.createVectorHelper(cut.x, cut.y, cut.z);
         BlockRay.Hit hit;
         if (world.isRemote) {
-            hit = PassableClip.clip(world, start, to);
+            hit = PassableClip.clip(world, start, end);
         } else {
             if (gunfeel$pierced == null) gunfeel$pierced = new HashSet<Long>();
-            hit = BulletServer.clip(bullet, world, start, to, gunfeel$pierced);
+            hit = BulletServer.clip(bullet, world, start, end, gunfeel$pierced);
         }
+        WaterTick.blocks(bullet, hit);
         return hit == null ? null : new MovingObjectPosition(hit.x, hit.y, hit.z, hit.face, Vec3.createVectorHelper(hit.ax, hit.ay, hit.az));
     }
 
@@ -122,11 +132,19 @@ public abstract class MixinThrowableClip extends Entity {
     private MovingObjectPosition gunfeel$mob(AxisAlignedBB box, Vec3 from, Vec3 to, Operation<MovingObjectPosition> original) {
         if (!((Object) this instanceof EntityBulletBaseMK4)) return original.call(box, from, to);
         Vec3 start = gunfeel$start(from);
+        // not past where water stopped or turned the bullet
+        acup.gunfeel.phys.Vec3 cut = WaterTick.mobsTo(this, gunfeel$phys(to));
+        to = Vec3.createVectorHelper(cut.x, cut.y, cut.z);
         // 26.2's AABB.contains: min inclusive, max exclusive
         if (start.xCoord >= box.minX && start.xCoord < box.maxX && start.yCoord >= box.minY && start.yCoord < box.maxY
                 && start.zCoord >= box.minZ && start.zCoord < box.maxZ)
             return new MovingObjectPosition(0, 0, 0, -1, Vec3.createVectorHelper(start.xCoord, start.yCoord, start.zCoord));
         return original.call(box, start, to);
+    }
+
+    @Unique
+    private static acup.gunfeel.phys.Vec3 gunfeel$phys(Vec3 v) {
+        return new acup.gunfeel.phys.Vec3(v.xCoord, v.yCoord, v.zCoord);
     }
 
     // the path's start: on the bullet's first tick the shooter's eyes, when it was fired from them (a bullet spawned
