@@ -154,15 +154,18 @@ public final class WaterImpact {
                 && p.zCoord < box.maxZ;
     }
 
-    // a fire grenade's or rocket's fire (XFactory40mm / XFactoryRocket.spawnFire, MixinWaterFire): in water only its
+    // a fire grenade's or rocket's fire (XFactory40mm / XFactoryRocket.spawnFire, MixinWaterFire / MixinWaterFireRocket): in water only its
     // blast, no lingering fire and no fire blocks
     public static boolean noFire(EntityBulletBaseMK4 bullet, MovingObjectPosition hit) {
         return !bullet.worldObj.isRemote && WaterSettings.ballistics() && wet(bullet, hit);
     }
 
-    public static void fireBlast(EntityBulletBaseMK4 bullet, MovingObjectPosition hit) {
-        // NTM's own guard: not on the shooter in the first ticks
-        if (hit.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY && bullet.ticksExisted < 3 && hit.entityHit == bullet.getThrower()) return;
+    // NTM's own guard, in the first 3 ticks: the grenade's (XFactory40mm) spares only its shooter, the rocket's
+    // (XFactoryRocket, anyMob) any mob it hits
+    // port: 26.2's fireBlast spares only the shooter for both
+    public static void fireBlast(EntityBulletBaseMK4 bullet, MovingObjectPosition hit, boolean anyMob) {
+        if (hit.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY && bullet.ticksExisted < 3
+                && (anyMob || hit.entityHit == bullet.getThrower())) return;
         if (TestLog.server) TestLog.s(bullet.getEntityId(), "water", "nofire", "at", at(hit));
         com.hbm.items.weapon.sedna.factory.Lego.standardExplode(bullet, hit, 3.0F);
         bullet.setDead();

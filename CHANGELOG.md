@@ -1,5 +1,11 @@
 # Changelog
 
+## X543.137
+
+- An incendiary or phosphorus rocket that hits a mob in water in its first
+  three ticks no longer goes off, as NTM's rocket spares any mob it hits that
+  early. The grenade still spares only its shooter, as in NTM.
+
 ## X543.136
 
 - As in 26.2 X490, X507 and X544: explosive NTM rounds, grenades and rockets
