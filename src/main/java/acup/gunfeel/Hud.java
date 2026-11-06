@@ -34,6 +34,7 @@ public final class Hud {
     }
 
     public static void render(GuiGraphicsExtractor g, LocalPlayer player, ItemStack stack, ItemGunBaseNT gun) {
+        ClientSmoke.hudDrawn();
         Font font = Minecraft.getInstance().font;
         Inventory inv = player.getInventory();
         int right = g.guiWidth() - 8;

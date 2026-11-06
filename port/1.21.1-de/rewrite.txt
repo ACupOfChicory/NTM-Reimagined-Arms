@@ -7,6 +7,7 @@
 net.minecraft.resources.Identifier -> net.minecraft.resources.ResourceLocation
 net.minecraft.world.level.gamerules.GameRules -> net.minecraft.world.level.GameRules
 net.minecraft.world.entity.animal.sheep.Sheep -> net.minecraft.world.entity.animal.Sheep
+net.minecraft.world.entity.monster.zombie.Husk -> net.minecraft.world.entity.monster.Husk
 net.minecraft.world.entity.animal.golem.SnowGolem -> net.minecraft.world.entity.animal.SnowGolem
 net.minecraft.world.entity.monster.illager.SpellcasterIllager -> net.minecraft.world.entity.monster.SpellcasterIllager
 net.minecraft.world.entity.boss.enderdragon.EnderDragonPart -> net.minecraft.world.entity.boss.EnderDragonPart
@@ -203,6 +204,8 @@ re@ModelTextureMask.java: (public static (?:Identifier|ResourceLocation) texture
 re@SubmittedModelGeometry.java: ^\s*@Override public VertexConsumer setLineWidth\(float width\).*$ => 
 re@MobStageContext.java: headType\.create\(level,EntitySpawnReason\.COMMAND\) => headType.create(level)
 re@MobStageContext.java: ^import net\.minecraft\.world\.entity\.EntitySpawnReason;$ => 
+re@SpectatorStand.java: ^import net\.minecraft\.world\.entity\.EntitySpawnReason;$ => 
+re@SpectatorStand.java: \.snapTo\( => .moveTo(
 # model hitboxes: DE's own renderers are read by two mixins of the port's own (MixinBackportModelHits, MixinBackportGeometryHits)
 re@Feature.java: "MixinGpuEntityGeometry", "MixinHeadDamage"\) => "MixinGpuEntityGeometry", "MixinHeadDamage", "MixinBackportModelHits", "MixinBackportGeometryHits")
 # GpuModelHits: Flywheel 1.0.7 keeps an instance's pose on the CPU (TransformedInstance.pose), where 26.2's CrankShaft
