@@ -151,11 +151,11 @@ neoForge {
         register("checkClient") {
             client()
             gameDirectory.set(projectDir.resolve("run-client-check"))
-            jvmArgument("-Xmx4G")
+            jvmArgument("-Xmx3G")
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
             programArguments.addAll("--width", "854", "--height", "480")
             // -PshapesStand=<file>, -PshapesOnly=a,b, -PshapesResume, -PshapesFallback: as at the root (ShapesStand,
-            // ShapesFallbackCheck); the stand keeps to the -Xmx4G of every stand client here
+            // ShapesFallbackCheck); the stand keeps to the -Xmx3G of every stand client here
             systemProperty("ntmgunfeel.shapesStand", providers.gradleProperty("shapesStand").orElse("").get())
             systemProperty("ntmgunfeel.shapesOnly", providers.gradleProperty("shapesOnly").orElse("").get())
             systemProperty("ntmgunfeel.shapesResume", providers.gradleProperty("shapesResume").isPresent.toString())
