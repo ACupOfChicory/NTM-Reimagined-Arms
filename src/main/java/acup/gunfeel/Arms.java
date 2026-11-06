@@ -37,9 +37,9 @@ import net.minecraft.world.item.ItemStack;
 // arms are the player's skinned arms reaching back from the hands along directions fixed to the camera. Arm
 // orientation is built against the camera's up axis so arms don't twist when the view turns.
 public final class Arms {
-    // a pistol's arm thickness per unit of its grip's distance from the eye (armPistolScale): the heavy revolver's
-    // right grip is 1.58 from the eye at the hip by its shipped grip, so its right arm keeps armBaseRight 1.70
-    static final float PISTOL_THICKNESS = 1.70F / 1.58F;
+    // a pistol's arm thickness per unit of the eye's distance to its hand (armPistolScale, pistolTarget): the shipped
+    // pistols' arms keep the mean width of X472 (11.9 deg by 2 atan(s 2/16 / depth), a silhouette of 16.2 deg)
+    static final float PISTOL_THICKNESS = 1.12F;
     // every variant of a gun seen so far (a weapon mod can change which parts NTM draws), and the one in hand
     private static final Map<Item, List<GunGeometry>> VARIANTS = new IdentityHashMap<>();
     private static final Map<Item, GunGeometry> CURRENT = new IdentityHashMap<>();
@@ -1064,8 +1064,36 @@ public final class Arms {
         restArm(rest, right, slim, grip, down, center, axisPoint, dirCfg, reach, holdScale, false, 0F);
     }
 
-    static float pistolThickness(float sOld, Vector3f restGrip, float wp) {
-        return sOld + (PISTOL_THICKNESS * restGrip.length() - sOld) * Math.min(1F, wp);
+    static float pistolThickness(float sOld, float target, float wp) {
+        return sOld + (target - sOld) * Math.min(1F, wp);
+    }
+
+    // armPistolScale: the thickness at which the arm's silhouette across the hand takes the same angle on the screen
+    // whatever the hand's depth and the arm's turn (the box shows one face seen face on, two on its edge, and a near
+    // face looks wider): the angle of a box PISTOL_THICKNESS x its depth thick, as wide as its mean over its roll. The
+    // silhouette is the hand's slice 2 px back from the arm's end, its corners seen from the eye. s, length: the arm now.
+    static float pistolTarget(boolean right, boolean slim, Vector3f grip, Vector3f down, Vector3f dir, float s, float length) {
+        Vector3f hand = new Vector3f(down).mul(2F / 16F * s).add(grip);
+        Matrix4f m = local(hand, new Quaternionf(), dir, right, slim, s, length);
+        float cx = (right ? -1F : 1F) * (slim ? 5.5F : 6F) / 16F, y = 10F / 16F;
+        float hx = (slim ? 1.5F : 2F) / 16F, hz = 2F / 16F;
+        Vector3f slice = m.transformPosition(cx, y, 0F, new Vector3f());
+        Vector3f view = new Vector3f(slice).normalize();
+        Vector3f across = m.transformDirection(0F, 1F, 0F, new Vector3f()).cross(slice);
+        if (across.lengthSquared() < 1e-12F) return PISTOL_THICKNESS * slice.length();
+        across.normalize();
+        float lo = Float.MAX_VALUE, hi = -Float.MAX_VALUE;
+        Vector3f q = new Vector3f();
+        for (int i = -1; i <= 1; i += 2) for (int j = -1; j <= 1; j += 2) {
+            m.transformPosition(cx + i * hx, y, j * hz, q);
+            float depth = q.dot(view);
+            if (depth < 1e-3F) return PISTOL_THICKNESS * slice.length();
+            float w = q.dot(across) / depth;
+            lo = Math.min(lo, w);
+            hi = Math.max(hi, w);
+        }
+        if (!(hi - lo > 1e-6F)) return PISTOL_THICKNESS * slice.length();
+        return PISTOL_THICKNESS * 4F / (float) Math.PI * (hx + hz) * s / (hi - lo);
     }
 
     static void restArm(ArmRest rest, boolean right, boolean slim, Vector3f grip, Vector3f down, Vector3f center,
@@ -1082,7 +1110,17 @@ public final class Arms {
         // thickness: fixed (armBaseRight/Left, the same on every gun) or grown with the arm's length
         float base = right ? Config.armBaseRight : Config.armBaseLeft;
         float thickness = base > 0F ? base : Math.min(length / (18F / 16F), Config.armMaxScale);
-        if (pistolScale && pistolWeight > 0F) thickness = pistolThickness(thickness, grip, pistolWeight);
+        if (pistolScale && pistolWeight > 0F) {
+            // the slice moves with the thickness (the hand hangs under the grip by half of it): from the grip's depth,
+            // six steps settle it to 1e-5 (each leaves ~1/7 of what is left)
+            float t = pistolThickness(thickness, PISTOL_THICKNESS * grip.length(), pistolWeight);
+            for (int k = 0; k < 6; k++) {
+                float sk = t * Config.armScale * holdScale;
+                float lk = base > 0F && Config.armLength > 0F ? 12F / 16F * sk * Config.armLength : length;
+                t = pistolThickness(thickness, pistolTarget(right, slim, grip, down, dir, sk, lk), pistolWeight);
+            }
+            thickness = t;
+        }
         float s = thickness * Config.armScale * holdScale;
         // Like TaCZ: an arm of fixed thickness is the whole arm, armLength x the vanilla arm of its thickness,
         // never cut at the plane in front of the eye (armReach): cut there, a hand near the screen kept only a few

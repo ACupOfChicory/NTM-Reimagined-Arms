@@ -2,6 +2,7 @@ package acup.gunfeel;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
@@ -72,31 +73,87 @@ class ArmPistolScaleTest {
         }
     }
 
+    // the hands of the seven pistols of the 26.2 arms trace (the hand's end, camera frame), right then left: from the
+    // hip and aimed, the star_f also with a grip of its own (the right hand nearer and higher)
+    private static final float[][] HANDS = {
+            {-0.130F, -1.848F, 1.908F, -0.333F, -2.226F, 2.172F}, {0.179F, -1.486F, 3.194F, -0.091F, -1.820F, 3.443F},
+            {-0.147F, -1.812F, 1.878F, -0.341F, -2.027F, 1.999F}, {0.118F, -1.023F, 2.080F, -0.059F, -1.245F, 2.206F},
+            {-0.149F, -1.754F, 2.107F, -0.351F, -1.828F, 2.154F}, {0.140F, -0.937F, 2.559F, -0.066F, -1.005F, 2.606F},
+            {-0.061F, -2.048F, 2.374F, -0.306F, -2.656F, 2.840F}, {0.272F, -2.018F, 4.913F, -0.138F, -2.522F, 5.341F},
+            {-0.096F, -1.078F, 1.233F, -0.220F, -1.239F, 1.335F}, {0.103F, -0.836F, 1.845F, -0.051F, -0.977F, 1.941F},
+            {-0.085F, -1.272F, 1.134F, -0.211F, -1.393F, 1.248F}, {0.102F, -0.902F, 1.793F, -0.050F, -1.007F, 1.901F},
+            {-0.168F, -1.369F, 2.021F, -0.333F, -2.226F, 2.172F}, {0.148F, -1.024F, 3.305F, -0.091F, -1.820F, 3.443F}};
+
+    private static Arms.ArmRest rest(boolean right, boolean slim, Vector3f grip, float wp) {
+        var result = new Arms.ArmRest();
+        Arms.restArm(result, right, slim, grip, new Vector3f(0F, -1F, 0F), grip, new Vector3f(),
+                right ? Config.armDirRight : Config.armDirLeft, right ? Config.armReachRight : Config.armReachLeft,
+                1F, true, wp);
+        return result;
+    }
+
+    // the angle (deg) the drawn arm's slice 2 px back from its end takes across the arm as the eye sees it: the slice's
+    // corners projected on the plane square to the line of sight, measured across the arm's projected axis
+    private static double silhouette(Matrix4f m, boolean right, boolean slim) {
+        float cx = (right ? -1F : 1F) * (slim ? 5.5F : 6F) / 16F, hx = (slim ? 1.5F : 2F) / 16F, y = 10F / 16F;
+        Vector3f c = m.transformPosition(cx, y, 0F, new Vector3f());
+        Vector3f d = new Vector3f(c).normalize();
+        Vector3f e1 = new Vector3f(d).cross(0F, 1F, 0F).normalize();
+        Vector3f e2 = new Vector3f(e1).cross(d);
+        java.util.function.Function<Vector3f, double[]> g = q -> {
+            double k = q.dot(d);
+            return new double[] {q.dot(e1) / k, q.dot(e2) / k};
+        };
+        double[] p0 = g.apply(c), p1 = g.apply(m.transformPosition(cx, y + 0.5F / 16F, 0F, new Vector3f()));
+        double ax = p1[0] - p0[0], ay = p1[1] - p0[1], l = Math.hypot(ax, ay), nx = -ay / l, ny = ax / l;
+        double lo = Double.MAX_VALUE, hi = -Double.MAX_VALUE;
+        for (int a = -1; a <= 1; a += 2) for (int b = -1; b <= 1; b += 2) {
+            double[] q = g.apply(m.transformPosition(cx + a * hx, y, b * 2F / 16F, new Vector3f()));
+            double w = nx * q[0] + ny * q[1];
+            lo = Math.min(lo, w);
+            hi = Math.max(hi, w);
+        }
+        return 2 * Math.toDegrees(Math.atan((hi - lo) / 2));
+    }
+
     @Test
-    void gripDistanceSetsEqualVisibleThicknessAndBlendsAtHalfWeight() {
+    void bothHandsOfEveryPistolShowTheSameWidthFromTheHipAndAimed() {
         ConfigState old = ConfigState.capture();
         try {
-            Config.armScale = 0.8F;
-            Config.armBaseRight = 1.70F;
-            Config.armBaseLeft = 3.02F;
-            Config.armLength = 0F;
-            Vector3f[] points = {
-                    new Vector3f(0F, -0.6F, 0.8F), new Vector3f(0F, -1.023F, 1.364F),
-                    new Vector3f(0F, -2.1F, 2.8F), new Vector3f(0F, -3.6F, 4.8F)};
-            float ratio = -1F;
-            for (Vector3f grip : points) {
-                Arms.ArmRest r = rest(true, grip, 1F, true, 1F);
-                Arms.ArmRest l = rest(false, grip, 1F, true, 1F);
-                float now = r.s / grip.length();
-                if (ratio < 0F) ratio = now;
-                assertEquals(ratio, now, 1e-5F);
-                assertEquals(now, l.s / grip.length(), 1e-5F);
-                assertEquals(0.8F * 1.70F / 1.58F, now, 1e-5F);
+            for (boolean slim : new boolean[] {false, true}) {
+                double lo = Double.MAX_VALUE, hi = 0;
+                for (float[] h : HANDS) {
+                    Arms.ArmRest r = rest(true, slim, new Vector3f(h[0], h[1], h[2]), 1F);
+                    Arms.ArmRest l = rest(false, slim, new Vector3f(h[3], h[4], h[5]), 1F);
+                    double sr = silhouette(r.local, true, slim), sl = silhouette(l.local, false, slim);
+                    assertEquals(1.0, sr / sl, 0.015, "R/L " + java.util.Arrays.toString(h) + " slim " + slim);
+                    lo = Math.min(lo, Math.min(sr, sl));
+                    hi = Math.max(hi, Math.max(sr, sl));
+                }
+                // the same at every depth, near the X472 mean (16.2 deg for the wide arm, 14.2 for the slim one)
+                assertTrue(hi / lo < 1.02, "spread " + lo + ".." + hi + " slim " + slim);
+                assertEquals(slim ? 14.2 : 16.2, (lo + hi) / 2, 0.4, "mean width, slim " + slim);
             }
-            Vector3f grip = points[2];
-            float oldThickness = 1.70F;
-            float expected = (oldThickness + Arms.pistolThickness(oldThickness, grip, 1F)) / 2F * Config.armScale;
-            assertEquals(expected, rest(true, grip, 1F, true, 0.5F).s, 1e-6F);
+        } finally {
+            old.restore();
+        }
+    }
+
+    @Test
+    void theThicknessSettlesAndBlendsWithTheOldOne() {
+        ConfigState old = ConfigState.capture();
+        try {
+            for (float[] h : HANDS) for (int i = 0; i < 2; i++) {
+                boolean right = i == 0;
+                Vector3f grip = new Vector3f(h[3 * i], h[3 * i + 1], h[3 * i + 2]);
+                Arms.ArmRest full = rest(right, true, grip, 1F);
+                float dir[] = right ? Config.armDirRight : Config.armDirLeft;
+                float target = Arms.pistolTarget(right, true, grip, new Vector3f(0F, -1F, 0F),
+                        new Vector3f(dir[0], dir[1], dir[2]).normalize(), full.s, full.length);
+                assertEquals(target * Config.armScale, full.s, 1e-4F * full.s, "fixed point");
+                float none = rest(right, true, grip, 0F).s, half = rest(right, true, grip, 0.5F).s;
+                assertTrue(half > Math.min(none, full.s) && half < Math.max(none, full.s), "half weight between");
+            }
         } finally {
             old.restore();
         }
