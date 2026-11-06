@@ -211,7 +211,6 @@ CORE field com/hbm/blocks/generic/BlockWoodStructure$Kind SCAFFOLD Lcom/hbm/bloc
 CORE field com/hbm/blocks/multiblock/BlockMultiblockCore FACING Lnet/minecraft/world/level/block/state/properties/EnumProperty;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
-CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 tickCount I
 CORE field com/hbm/items/weapon/sedna/BulletConfig ammoItem Ljava/util/function/Supplier;
 CORE field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
 CORE field com/hbm/items/weapon/sedna/BulletConfig armorThresholdNegation F
@@ -222,6 +221,7 @@ CORE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
 CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
 CORE field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
+CORE field com/hbm/render/item/weapon/sedna/MuzzleFlash NORMAL Lcom/hbm/render/item/weapon/sedna/MuzzleFlash;
 CORE method com/hbm/blocks/generic/BlockWoodBarrier panel (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind ordinal ()I
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind values ()[Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
@@ -236,11 +236,14 @@ CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getId ()I
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setDeltaMovement (Lnet/minecraft/world/phys/Vec3;)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setOwner (Lnet/minecraft/world/entity/Entity;)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setThrowableHeading (DDDFF)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setThrower (Lnet/minecraft/world/entity/LivingEntity;)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 tick ()V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase get (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/render/item/weapon/sedna/ItemRenderWeaponBase;
+CORE method com/hbm/render/item/weapon/sedna/MuzzleFlash submit (Lnet/minecraft/client/renderer/SubmitNodeCollector;Lcom/mojang/blaze3d/vertex/PoseStack;JIDI)V
 HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT
 HOLD_AIM class com/hbm/items/weapon/sedna/mags/MagazineFullReload
@@ -442,6 +445,7 @@ TRACERS class com/hbm/client/render/RenderBulletMK4
 TRACERS class com/hbm/client/render/RenderBulletMK4$State
 TRACERS class com/hbm/client/render/RenderBulletMK4$Tracer
 TRACERS class com/hbm/items/weapon/sedna/BulletConfig
+TRACERS class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 TRACERS field com/hbm/client/render/RenderBulletMK4$State config Lcom/hbm/items/weapon/sedna/BulletConfig;
 TRACERS field com/hbm/client/render/RenderBulletMK4$State length D
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;

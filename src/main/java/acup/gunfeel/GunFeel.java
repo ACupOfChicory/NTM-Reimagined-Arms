@@ -16,6 +16,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import acup.gunfeel.compat.CompatClient;
 import acup.gunfeel.compat.Feature;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.event.RenderHandEvent;
@@ -52,8 +53,16 @@ public final class GunFeel {
             if (Feature.ARMS.on()) GripCommand.register(e.getDispatcher());
             CompatClient.register(e.getDispatcher());
         });
+        if (Feature.TRACERS.on()) acup.gunfeel.water.WaterFx.init();
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent.class, e -> {
             if (Feature.TRACERS.on()) Tracers.submit(e);
+            // after the tracers: they hand over the rounds flying in water
+            var level = Minecraft.getInstance().level;
+            if (level != null && Feature.TRACERS.on()) {
+                Vec3 cam = e.getLevelRenderState().cameraRenderState.pos;
+                acup.gunfeel.water.WaterRings.submit(e, level, cam);
+                acup.gunfeel.water.SunkBullets.submit(e, level, cam);
+            }
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather.class, e -> {
             if (Feature.TRACERS.on()) Tracers.afterWeather(e);
@@ -71,6 +80,7 @@ public final class GunFeel {
             ModelHitClient.clear();
             CompatClient.leave();
             if (Feature.TRACERS.on()) Tracers.clear();
+            if (Feature.TRACERS.on()) acup.gunfeel.water.WaterFx.clear();
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn.class, e -> {
             if (Feature.MACHINE_MESH.on()) MeshShapes.generate();
@@ -78,6 +88,7 @@ public final class GunFeel {
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Post.class, e -> {
             if (Feature.MACHINE_MESH.on()) MeshShapes.tick();
             WalkSprint.tick();
+            if (Feature.TRACERS.on()) acup.gunfeel.water.WaterFx.clientTick();
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderFrameEvent.Pre.class, e -> {
             if (Feature.MACHINE_MESH.on()) MeshShapes.frame();

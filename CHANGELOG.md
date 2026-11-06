@@ -1,5 +1,21 @@
 # Changelog
 
+## X485
+
+- Bullets meeting water now splash the way it moves: a crown and spray on still
+  water, a fan downstream on a slope, a burst through a waterfall, a low spray
+  on a thin sheet. Rings lie on the surface and drift with the current, foam
+  and bubbles rise and pop at the surface, and a skipping round splashes at
+  each bounce. Nothing sinks under the surface or hangs over air, and a ring
+  goes away when its water does. Off with `waterSplash = false`.
+- Under water a shot has no muzzle flash. It throws a gas bubble at the muzzle
+  that swells, shrinks, bounces and breaks into rising bubbles, its size set by
+  the calibre. The round itself is visible in the water with a fading light
+  trail, and hollow and soft points open into a mushroom as they slow.
+- A round the water stopped sinks, tumbles and lies on the bottom for a while
+  (on your screen only; a round that hit a block is gone, as before). Keys:
+  `waterBodyMax = 400` (0 = none), `waterBodyLife = 30` (seconds).
+
 ## X479
 
 - Игрок в режиме наблюдателя больше не стреляет из пушек NTM и не ранит мобов:

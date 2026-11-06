@@ -50,6 +50,9 @@ public final class Config {
     public static boolean hideOffhand = true;
     // splashes, rings, foam and bubbles where a bullet meets water (acup.gunfeel.water, client effects)
     public static boolean waterSplash = true;
+    // rounds the water stopped, lying on the bottom (acup.gunfeel.water.SunkBullets): how many at most, how long
+    public static int waterBodyMax = 400;
+    public static float waterBodyLife = 30F;
     public static boolean cornerHud = true;
     public static String ammoMenu = "steel";
     public static int ammoMenuColor = 0xFF8C1A;
@@ -191,6 +194,8 @@ public final class Config {
             ntmRecoilAnim: share of NTM's own recoil animation kept, 1 = unchanged
             hideOffhand: hide the off-hand item while holding an NTM gun
             waterSplash: splashes, rings, foam and bubbles where a bullet meets water
+            waterBodyMax: rounds stopped by water that sink and lie on the bottom, at most; 0 = none
+            waterBodyLife: seconds such a round lies on the bottom
             cornerHud: TaCZ-style ammo counter in the bottom-right corner instead of NTM's
             ammoMenu: look of the ammo menu (hold Y): steel, petals, bubbles, ntm, glass, arc
             ammoMenuColor: accent colour of the ammo menu, hex RRGGBB
@@ -454,6 +459,9 @@ public final class Config {
         ntmRecoilAnim = num(p, "ntmRecoilAnim", ntmRecoilAnim);
         hideOffhand = bool(p, "hideOffhand", hideOffhand);
         waterSplash = bool(p, "waterSplash", waterSplash);
+        waterBodyMax = Math.clamp(Math.round(num(p, "waterBodyMax", waterBodyMax)), 0, 2000);
+        float life = num(p, "waterBodyLife", waterBodyLife);
+        if (Float.isFinite(life)) waterBodyLife = Math.clamp(life, 1F, 600F);
         cornerHud = bool(p, "cornerHud", cornerHud);
         ammoMenu = p.getProperty("ammoMenu", ammoMenu).trim().toLowerCase(java.util.Locale.ROOT);
         try {
@@ -583,6 +591,8 @@ public final class Config {
         p.setProperty("ntmRecoilAnim", Float.toString(ntmRecoilAnim));
         p.setProperty("hideOffhand", Boolean.toString(hideOffhand));
         p.setProperty("waterSplash", Boolean.toString(waterSplash));
+        p.setProperty("waterBodyMax", Integer.toString(waterBodyMax));
+        p.setProperty("waterBodyLife", Float.toString(waterBodyLife));
         p.setProperty("cornerHud", Boolean.toString(cornerHud));
         p.setProperty("ammoMenu", ammoMenu);
         p.setProperty("ammoMenuColor", String.format("%06x", ammoMenuColor));
