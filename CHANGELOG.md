@@ -1,5 +1,11 @@
 # Changelog
 
+## X549
+
+- On a client, a tracer slowed by water stops where the server's bullet
+  stopped also when the stop comes late. Before, it ran on past the bullet to
+  where the client had flown it by then.
+
 ## X548
 
 - Leaving a world for the main menu no longer keeps that world in memory until

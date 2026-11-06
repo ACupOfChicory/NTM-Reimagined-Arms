@@ -390,10 +390,20 @@ public final class Tracers {
     private static final java.util.LinkedHashMap<Integer,Shot> RECENT_SHOTS=new java.util.LinkedHashMap<>();
     public static void stop(BulletStopPayload packet) {
         if(!Double.isFinite(packet.age()) || packet.age()<0 || !Double.isFinite(packet.point().lengthSqr()))return;
-        var recent=RECENT_SHOTS.get(packet.shot());
+        // the piece the stop falls on: the last one begun by its age (TracerStops.piece); the later ones do not fly
+        List<Shot> pieces = new ArrayList<>();
+        for (var s : SHOTS) if (s.id == packet.shot()) pieces.add(s);
+        double[] starts = new double[pieces.size()];
+        for (int i = 0; i < starts.length; i++) starts[i] = pieces.get(i).born - pieces.get(i).rootBorn;
+        int found = TracerStops.piece(starts, packet.age());
+        var recent = found >= 0 ? pieces.get(found) : RECENT_SHOTS.get(packet.shot());
         if(recent!=null){
             PENDING.removeIf(p->p.shot()==packet.shot() && p.hit().getLocation().subtract(packet.point()).dot(recent.v)>1e-5);
             HOLES.removeIf(h->h.shot()==packet.shot() && (h.hit()==null?h.pos():h.hit()).subtract(packet.point()).dot(recent.v)>1e-5);
+        }
+        if (recent != null) for (var shot : pieces) if (shot.born > recent.born) {
+            shot.confirmedEnd = 0;
+            shot.end = 0;
         }
         for(var shot:SHOTS)if(shot.id==packet.shot() && (recent==null || shot.born==recent.born)) {
             shot.confirmedEnd=Math.max(0,packet.age()-(shot.born-shot.rootBorn));
