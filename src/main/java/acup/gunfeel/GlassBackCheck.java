@@ -91,6 +91,8 @@ final class GlassBackCheck {
             for (String n : new String[] {"z", "zo"}) field(p.getClass(), n).setDouble(p, PARTICLE_AT.z);
             for (String n : new String[] {"xd", "yd", "zd"}) field(p.getClass(), n).setDouble(p, 0);
             field(p.getClass(), "age").setInt(p, 2);
+            // (the vanilla explosion lives 6-9 ticks: in some runs it was gone before the shots, 0 pixels)
+            field(p.getClass(), "lifetime").setInt(p, 1000);
             if (particle == 1) field(p.getClass(), "alpha").setFloat(p, 0.5F);
         } catch (ReflectiveOperationException e) {
             failure = "частица: " + e;
@@ -347,7 +349,9 @@ final class GlassBackCheck {
             }
             case 1 -> {
                 if (!synced(true, false)) return;
-                wait = 30;
+                // the first shot of the run: the light settled first (on DE, at 30 frames the wall was darker than in
+                // the later shots, and the glass seemed to pass more than all of it)
+                wait = 200;
                 step = 2;
             }
             case 2 -> {
