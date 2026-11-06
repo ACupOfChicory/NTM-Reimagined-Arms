@@ -104,6 +104,9 @@ public final class Config {
     // loudness of bullet hit sounds, times the rule's volume; above 1 the sound is doubled up (Minecraft stops at 1)
     public static float hitVolume = 2F;
     public static boolean holeCache = true;
+    // NTM's own blocks drawn as their textures are: on NTM Decentralized Edition (1.21.1) the reinforced laminate's
+    // models ask for the cutout layer, where its half-clear texture shows opaque. Read when the models are loaded
+    public static boolean ntmRenderFixes = true;
     // arm thickness before armScale, the same on every gun (Maresleg / Old Classic); 0 = grows with the arm's length
     public static float armBaseRight = 1.70F;
     public static float armBaseLeft = 3.02F;
@@ -198,7 +201,7 @@ public final class Config {
             armBaseRight, armBaseLeft: arm thickness before armScale, the same on every gun (as on Maresleg); 0 = automatic (grows with the arm's length)
             armLength: arm length in vanilla arms of its thickness (1 = the whole vanilla arm, never cut or stretched, like TaCZ); 0 = stretched/squashed to armReach
             armLoadScaleRight, armLoadScaleLeft: thickness of each arm while it loads shells into the gun, on top of armScale, 1 = unchanged
-            armPistolScale: a pistol held by pistolHold gets each arm as much thicker as its hand is farther from the eye, so both hands look the same size on every pistol, from the hip and aimed; off = the arm thickness of the other guns
+            armPistolScale: a pistol held by pistolHold gets each arm as much thicker as its hand is farther from the eye and thinner as it shows more of its edge, so both hands look the same size on every pistol, from the hip and aimed; off = the arm thickness of the other guns
             armLoadRollRight, armLoadRollLeft: turn of each arm around its own axis while it loads shells, degrees, NaN = armRollRight/Left
             armAroundTopDrop: while armLeftKeys holds the left hand over the part (90), lower it toward the part by this many arm pixels; none at the side
             armAroundShift: while armLeftKeys moves the left hand round a part, move it left (out of the part) by this many arm pixels; none under the part (-90)
@@ -274,6 +277,9 @@ public final class Config {
               no louder than 1, their blast is loud enough). /gunfeel hitvolume
             holeCache: bullet holes kept on the graphics card in batches, rebuilt only when a hole comes or goes, not
               every frame (false = the old way, every hole sent again each frame)
+            ntmRenderFixes: NTM blocks drawn as their textures are (NTM Decentralized Edition: the reinforced laminate
+              and its pane, block and item, see-through as the glass they are; off = as NTM draws them). Takes effect
+              when the resources are loaded again (F3+T)
             Every value except enabled can be overridden per gun in config/ntm-gunfeel-guns.properties
             (hbm\\:gun_maresleg.armRollLeft = -55) or with /gunfeel set <key> <value> for the held gun.
             Hand positions per gun: <gun>.right / <gun>.left there, or /gunfeel grip""";
@@ -499,6 +505,7 @@ public final class Config {
         bulletFx = bool(p, "bulletFx", bulletFx);
         hitVolume = Math.max(0F, Math.min(4F, num(p, "hitVolume", hitVolume)));
         holeCache = bool(p, "holeCache", holeCache);
+        ntmRenderFixes = bool(p, "ntmRenderFixes", ntmRenderFixes);
         armBaseRight = num(p, "armBaseRight", armBaseRight);
         armBaseLeft = num(p, "armBaseLeft", armBaseLeft);
         armLoadScaleRight = num(p, "armLoadScaleRight", armLoadScaleRight);
@@ -623,6 +630,7 @@ public final class Config {
         p.setProperty("bulletFx", Boolean.toString(bulletFx));
         p.setProperty("hitVolume", Float.toString(hitVolume));
         p.setProperty("holeCache", Boolean.toString(holeCache));
+        p.setProperty("ntmRenderFixes", Boolean.toString(ntmRenderFixes));
         p.setProperty("armBaseRight", Float.toString(armBaseRight));
         p.setProperty("armBaseLeft", Float.toString(armBaseLeft));
         p.setProperty("armLoadScaleRight", Float.toString(armLoadScaleRight));
