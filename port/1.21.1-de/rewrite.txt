@@ -292,5 +292,8 @@ re@WaterParticle.java: ^import net\.minecraft\.client\.particle\.SingleQuadParti
 re@WaterParticle.java: ^import net\.minecraft\.client\.particle\.ParticleRenderType;$ => import com.hbm.backport.client.particle.ParticleRenderType;
 re@WaterParticle.java: ^import net\.minecraft\.data\.AtlasIds;$ => import net.minecraft.client.renderer.texture.TextureAtlas;
 re@WaterParticle.java: \.getAtlasManager\(\)\.getAtlasOrThrow\(AtlasIds\.PARTICLES\)\.getSprite\((\w+)\) => .getTextureAtlas(TextureAtlas.LOCATION_PARTICLES).apply($1)
+# the particle moves its x, y, z itself, not its box: NeoForge 21.1 culls a particle by getRenderBoundingBox (the box,
+# left where it was born), 26.2 by its position. The box here is where it is now, as wide as its quad
+re@WaterParticle.java: ^(\s*)private void moveBy\(double dx, double dy, double dz\) \{$ => $1@Override public net.minecraft.world.phys.AABB getRenderBoundingBox(float a) { double r = Math.max(1, getQuadSize(a)); return new net.minecraft.world.phys.AABB(x - r, y - r, z - r, x + r, y + r, z + r); } $0
 re@MixinMuzzleFlash.java: camera\.position\(\) => camera.getPosition()
 re@ExplosiveCheck.java: ^import net\.minecraft\.world\.entity\.EntitySpawnReason;$ => 
