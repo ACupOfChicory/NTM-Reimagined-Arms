@@ -136,6 +136,7 @@ public final class Arms {
         java.util.Arrays.fill(FOLLOW_ID, -1);
         capturing = true;
         MachineMesh.armsCapturing = true;
+        ArmLayers.newFrame();
     }
 
     static void resetPistolHoldFrame() {
@@ -1652,7 +1653,10 @@ public final class Arms {
         Minecraft.getMinecraft().getTextureManager().bindTexture(skin);
         PlayerSkins.say(slim);
         drawBox(m, quads(n, right, slim, false), right);
-        if (PlayerSkins.sleeve(Minecraft.getMinecraft().player, right)) drawBox(m, quads(n, right, slim, true), right);
+        // armArmor: the skin's second layer as the third-person model has it (NTM's suits hide it)
+        Boolean modelSleeve = ArmLayers.sleeve(right);
+        if (modelSleeve != null ? modelSleeve : PlayerSkins.sleeve(Minecraft.getMinecraft().player, right)) drawBox(m, quads(n, right, slim, true), right);
+        ArmLayers.submit(m, right, n);
     }
 
     // the arm's box (or its sleeve's) as ModelBox's six TexturedQuads: each a face's four corners {x, y, z, u, v} in

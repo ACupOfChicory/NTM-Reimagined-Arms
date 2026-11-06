@@ -38,6 +38,7 @@ public final class ServerSettingsClient {
         ServerSettings.useRemote(null);
         server = null;
         CHAT.clear();
+        ArmLayers.leave(); // armArmor lets the player of the world go
         if (TestLog.client) TestLog.c(-1, "settings", "source", "own", "why", "left");
     }
 
