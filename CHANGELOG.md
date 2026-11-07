@@ -1,5 +1,13 @@
 # Changelog
 
+## X543.188
+
+- With NTM X5808, X543.186 turned the mod's whole bullet system off, so NTM's
+  rounds, old bullets and beams went back to NTM's own handling. X5808's
+  turrets lack a method X5863's have, and the beam turrets asked for it. The
+  bullet system and `beamRules` now work with X5808 too, and X5808's Tauon and
+  Maxwell keep the damage NTM gives them there.
+
 ## X543.186
 
 - As in X580 and X581: `beamRules` (server, on): NTM's beams (laser guns,
