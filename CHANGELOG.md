@@ -1,5 +1,20 @@
 # Changelog
 
+## X587
+
+- Mob AI, third part: AI mobs can be brought in, and they walk and shoot.
+  `/armsai spawn fbi|dummy [count] [gun]` (operators) brings NTM's FBI agents
+  or test dummies in round you, each with a full NTM gun and four magazines
+  besides; `/armsai clear` takes them all away, and `/armsai ammo
+  infinite|<rounds>` sets what they carry. Any mob tagged `armsai` (`/tag`) is
+  taken over the same way. They find their own way round walls (worked out
+  on the AI's background threads, and again when the way is walled up), work
+  their guns with the same keys a player does, and reload only from what they
+  carry: one that has shot it all stays empty. Far from every player
+  (`aiRadius`, server, 128 blocks, up to 256) they stand still. They do not
+  pick fights by themselves yet. FBI agents NTM brings in itself are as
+  before.
+
 ## X586
 
 - Mob AI, second part: what an AI mob notices and what it remembers. It sees

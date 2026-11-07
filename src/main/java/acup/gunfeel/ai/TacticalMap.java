@@ -28,7 +28,7 @@ import net.minecraft.world.level.chunk.LevelChunkSection;
  * chosen cover tell it was worked out on an older map ({@link #stamp}). Sections nobody wants for half a minute are
  * dropped.
  */
-public final class TacticalMap {
+public final class TacticalMap implements CellSource {
     /** how long a want keeps a section, in ticks */
     static final int WANT_TICKS = 200;
     /** a section kept as a neighbour or unwanted goes after this many ticks */
@@ -127,6 +127,7 @@ public final class TacticalMap {
     // ------------------------------------------------------------------ reading
 
     /** published cells of a section, maybe built on an older map (see stamp), or null */
+    @Override
     public @Nullable SectionCells cells(long key) {
         return cells.get(key);
     }
@@ -148,6 +149,7 @@ public final class TacticalMap {
     }
 
     /** a block's voxel from the snapshots, any thread; unknown where none is kept */
+    @Override
     public byte voxel(int x, int y, int z) {
         SectionSnapshot s = snaps.get(SectionPos.asLong(x >> 4, y >> 4, z >> 4));
         return s == null ? Voxel.UNKNOWN : s.at(x & 15, y & 15, z & 15);

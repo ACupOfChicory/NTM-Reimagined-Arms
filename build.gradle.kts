@@ -405,7 +405,9 @@ tasks.matching { it.name in checkRuns }.configureEach {
         if (name == "runCheckBullets" || name == "runCheckWater" || name == "runCheckBoom" || name == "runCheckAi") properties.writeText(
             "level-type=minecraft\\:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\n" +
             "spawn-protection=0\nonline-mode=false\nspawn-monsters=false\nspawn-animals=false\nmax-players=1\n" +
-            "server-port=$port\n")
+            "server-port=$port\n" +
+            // the AI check runs on with nobody on the server: it must not pause
+            (if (name == "runCheckAi") "pause-when-empty-seconds=0\n" else ""))
         // the dump and the settings check make no world: only the port is set, the rest of the file left as the server wrote it
         else properties.writeText((if (properties.exists()) properties.readLines().filter { !it.startsWith("server-port=") } else emptyList())
             .joinToString("") { it + "\n" } + "server-port=$port\n")

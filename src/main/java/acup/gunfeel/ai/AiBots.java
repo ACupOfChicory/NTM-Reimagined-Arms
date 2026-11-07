@@ -31,6 +31,10 @@ public final class AiBots {
     static final double OWN_SOUND = 1.5;
     /** a sound that carries this far is loud: a shot, a blast */
     static final double LOUD = 24;
+    /** the server key: the blocks from the nearest player within which AI mobs think (32 to 256) */
+    public static final String RADIUS_KEY = "aiRadius";
+    /** the cells kept built around each AI mob, blocks across */
+    static final int WANT_RADIUS = 24;
 
     private AiBots() {
     }
@@ -115,7 +119,55 @@ public final class AiBots {
     public static void tick(ServerLevel level) {
         PerLevel l = LEVELS.get(level);
         if (l == null || l.bots.isEmpty()) return;
-        if (level.getGameTime() % 20 == 0) l.bots.values().removeIf(b -> b.mob.isRemoved());
+        if (level.getGameTime() % 20 != 0) return;
+        l.bots.values().removeIf(b -> b.mob.isRemoved());
+        double r = radius(), r2 = r * r;
+        for (AiBot b : l.bots.values()) {
+            // here, between the mobs' ticks: a goal set must not change while it ticks
+            AiAdapter.strip(b);
+            // a player in any mode but spectator (an operator watching in creative too), or a stand's tagged target
+            boolean near = false;
+            for (Player p : level.players()) {
+                if (p.isSpectator()) continue;
+                double dx = p.getX() - b.mob.getX(), dz = p.getZ() - b.mob.getZ();
+                if (dx * dx + dz * dz <= r2) {
+                    near = true;
+                    break;
+                }
+            }
+            if (!near) for (LivingEntity t : targets(l, level.getGameTime())) {
+                double dx = t.getX() - b.mob.getX(), dz = t.getZ() - b.mob.getZ();
+                if (dx * dx + dz * dz <= r2) {
+                    near = true;
+                    break;
+                }
+            }
+            if (b.active && !near) {
+                b.gunner.release();
+                b.mover.pause();
+            }
+            b.active = near;
+        }
+    }
+
+    public static double radius() {
+        return Math.max(32, Math.min(256, acup.gunfeel.ReaimTimes.number(RADIUS_KEY, 128F)));
+    }
+
+    /** an AI mob's tick, from its goal: senses and memory, its brain, its legs and its gun */
+    static void tickBot(AiBot bot) {
+        if (!bot.active || !acup.gunfeel.compat.Feature.MOB_AI.on() || !(bot.mob.level() instanceof ServerLevel level)) return;
+        PerLevel l = LEVELS.get(level);
+        if (l == null) return;
+        long tick = level.getGameTime();
+        TacticalMap map = TacticalMap.of(level);
+        if ((tick + bot.mob.getId()) % 40 == 0) map.want(bot.mob.getBlockX(), bot.mob.getBlockY(), bot.mob.getBlockZ(), WANT_RADIUS, 8);
+        bot.tick(l.voxels, SmokeClouds.get(level), targets(l, tick), tick);
+        if (bot.brain != null) bot.brain.tick(bot, tick);
+        bot.mover.tick(level, map, tick);
+        int reserve = bot.gunner.ammo.reserve();
+        bot.gunner.tick(level);
+        if (bot.gunner.ammo.reserve() != reserve) AiAdapter.keep(bot);
     }
 
     public static void forget(ServerLevel level) {

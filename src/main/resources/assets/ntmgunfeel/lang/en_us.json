@@ -24,6 +24,7 @@
   "ntmgunfeel.feature.maresleg": "Maresleg animations",
   "ntmgunfeel.feature.sprint_fire": "No shot right after a sprint",
   "ntmgunfeel.feature.spectator": "No guns in spectator mode",
+  "ntmgunfeel.feature.mob_ai": "Mob AI",
   "ntmgunfeel.compat.title": "NTM version %s is not tested, the last supported one is %s",
   "ntmgunfeel.compat.all_on": "Everything checked still fits this NTM, all systems are on. Something may still behave oddly.",
   "ntmgunfeel.compat.off": "These systems do not fit this NTM and are turned off:",

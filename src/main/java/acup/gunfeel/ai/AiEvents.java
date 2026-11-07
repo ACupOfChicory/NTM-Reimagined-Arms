@@ -23,6 +23,9 @@ public final class AiEvents {
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, LivingIncomingDamageEvent.class, e -> {
             if (e.getEntity() instanceof Mob mob && !mob.level().isClientSide()) AiBots.hurt(mob, e.getSource());
         });
+        // a mob tagged for the mob AI comes into a level (spawned, or its chunk loaded): the AI takes it over
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOW, false, net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class,
+                e -> AiAdapter.joined(e.getEntity()));
     }
 
     private static void sound(PlayLevelSoundEvent e) {

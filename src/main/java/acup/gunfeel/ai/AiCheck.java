@@ -13,6 +13,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 
@@ -36,16 +37,37 @@ public final class AiCheck {
         if (file == null || file.isBlank()) return;
         NeoForge.EVENT_BUS.addListener(ServerStartedEvent.class, e -> {
             List<String> out = new ArrayList<>();
-            int code;
+            AiCheck check = new AiCheck();
             try {
-                code = new AiCheck().run(out, e.getServer()) ? 0 : 1;
+                check.run(out, e.getServer());
             } catch (Throwable t) {
-                out.add("FAIL crashed: " + t);
-                for (StackTraceElement s : t.getStackTrace()) out.add("    at " + s);
-                code = 1;
+                crashed(out, t);
+                finish(file, out, 1);
+                return;
             }
-            finish(file, out, code);
+            // the rest runs with the server ticking
+            AiCheckTicks ticks = new AiCheckTicks(check, check.level, Y);
+            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class, t -> {
+                boolean done;
+                try {
+                    done = ticks.tick();
+                } catch (Throwable x) {
+                    crashed(out, x);
+                    check.ok = false;
+                    done = true;
+                }
+                if (!done) return;
+                out.add("     " + check.map.info());
+                out.add("     senses: " + Senses.info());
+                out.add(check.ok ? "ALL OK" : "FAILED");
+                finish(file, out, check.ok ? 0 : 1);
+            });
         });
+    }
+
+    private static void crashed(List<String> out, Throwable t) {
+        out.add("FAIL crashed: " + t);
+        for (StackTraceElement s : t.getStackTrace()) out.add("    at " + s);
     }
 
     static void finish(String file, List<String> out, int code) {
@@ -62,9 +84,9 @@ public final class AiCheck {
     }
 
     private List<String> out;
-    private boolean ok = true;
-    private ServerLevel level;
-    private TacticalMap map;
+    boolean ok = true;
+    ServerLevel level;
+    TacticalMap map;
 
     private boolean run(List<String> out, MinecraftServer server) throws Exception {
         this.out = out;
@@ -167,15 +189,15 @@ public final class AiCheck {
         check("debug cells survive the codec", p.count() > 100 && back.count() == p.count()
                 && java.util.Arrays.equals(back.cover(), p.cover()) && java.util.Arrays.equals(back.offsets(), p.offsets()));
         senses();
-        out.add("     " + map.info());
-        out.add("     senses: " + Senses.info());
-        out.add(ok ? "ALL OK" : "FAILED");
+        for (var e : made) e.discard();
+        cover();
         return ok;
     }
 
     // ------------------------------------------------------------------ senses
 
     private long now = 1000;
+    private final List<net.minecraft.world.entity.Entity> made = new ArrayList<>();
 
     /** an NTM test dummy where asked, looking yaw degrees (0 south, 180 north) */
     private net.minecraft.world.entity.Mob dummy(double x, double z, float yaw, boolean target) {
@@ -186,6 +208,7 @@ public final class AiCheck {
         face(e, yaw);
         if (target) e.addTag(AiBots.TARGET_TAG);
         level.addFreshEntity(e);
+        made.add(e);
         return e;
     }
 
@@ -334,6 +357,32 @@ public final class AiCheck {
         check("a look under 20 us", us < 20 && seen == 2000);
     }
 
+    /** cover from a threat north of the stone wall, for a mob south of it, on the real map */
+    private void cover() {
+        Vec3 threat = new Vec3(22.5, Y + 1.6, 16.5), self = new Vec3(22.5, Y, 28.5);
+        map.want(22, Y, 26, 18, 6);
+        try {
+            settle();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        var voxels = AiBots.voxels(level);
+        List<CoverQuery.Spot> spots = List.of();
+        long best = Long.MAX_VALUE;
+        for (int i = 0; i < 20; i++) {
+            long t0 = System.nanoTime();
+            spots = CoverQuery.find(map, voxels, self, List.of(threat), new CoverQuery.Params(), k -> false, 4);
+            best = Math.min(best, System.nanoTime() - t0);
+        }
+        out.add(String.format(Locale.ROOT, "     cover from a threat across the wall: %d spots, best %s (peek %s), %.0f us a query",
+                spots.size(), spots.isEmpty() ? "-" : BlockPos.of(spots.get(0).cell()).toShortString(),
+                spots.isEmpty() || !spots.get(0).hasPeek() ? "-" : BlockPos.of(spots.get(0).peek()).toShortString(), best / 1000.0));
+        check("cover behind the stone wall, hidden from the threat", !spots.isEmpty() && BlockPos.getZ(spots.get(0).cell()) == 25
+                && spots.get(0).height() == 2 && !VoxelRay.clear(voxels, threat.x, threat.y, threat.z,
+                        BlockPos.getX(spots.get(0).cell()) + 0.5, Y + 1.6, BlockPos.getZ(spots.get(0).cell()) + 0.5, Voxel.SIGHT));
+        check("a cover query under 1 ms", best < 1_000_000);
+    }
+
     private void set(int x, int y, int z, BlockState st) {
         level.setBlock(new BlockPos(x, y, z), st, Block.UPDATE_CLIENTS);
     }
@@ -376,7 +425,11 @@ public final class AiCheck {
         return c.cover(i);
     }
 
-    private void check(String what, boolean good) {
+    void out(String line) {
+        out.add(line);
+    }
+
+    void check(String what, boolean good) {
         out.add((good ? "OK   " : "FAIL ") + what);
         ok &= good;
     }

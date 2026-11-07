@@ -5,7 +5,14 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
+import org.jspecify.annotations.Nullable;
+
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.commands.arguments.IdentifierArgument;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -16,6 +23,9 @@ import net.minecraft.server.level.ServerPlayer;
  * /armsai debug [radius]   show (again: hide) the tactical map's cells around you, radius 16 blocks by default
  * /armsai info             the map of this level: sections, builds, their time, block changes seen; the AI mobs and
  *                          what their looks cost
+ * /armsai spawn fbi|dummy [count] [gun]   AI mobs round you (NTM's FBI agent or test dummy), 1 by default
+ * /armsai clear            every AI mob of this level goes
+ * /armsai ammo infinite|&lt;rounds&gt;   what every AI mob of this level carries besides its gun
  * </pre>
  */
 public final class AiCommand {
@@ -28,6 +38,18 @@ public final class AiCommand {
                 .then(Commands.argument("radius", IntegerArgumentType.integer(4, 48))
                         .executes(c -> debug(c, IntegerArgumentType.getInteger(c, "radius")))));
         root.then(Commands.literal("info").executes(AiCommand::info));
+        for (AiSpawn.Kind kind : AiSpawn.Kind.values()) {
+            String name = kind.name().toLowerCase(java.util.Locale.ROOT);
+            root.then(Commands.literal("spawn").then(Commands.literal(name).executes(c -> spawn(c, kind, 1, null))
+                    .then(Commands.argument("count", IntegerArgumentType.integer(1, 200))
+                            .executes(c -> spawn(c, kind, IntegerArgumentType.getInteger(c, "count"), null))
+                            .then(Commands.argument("gun", IdentifierArgument.id()).suggests((c, b) -> SharedSuggestionProvider.suggestResource(guns(), b))
+                                    .executes(c -> spawn(c, kind, IntegerArgumentType.getInteger(c, "count"), IdentifierArgument.getId(c, "gun")))))));
+        }
+        root.then(Commands.literal("clear").executes(AiCommand::clear));
+        root.then(Commands.literal("ammo").then(Commands.literal("infinite").executes(c -> ammo(c, AiAmmo.INFINITE)))
+                .then(Commands.argument("rounds", IntegerArgumentType.integer(0, 100000))
+                        .executes(c -> ammo(c, IntegerArgumentType.getInteger(c, "rounds")))));
         d.register(root);
     }
 
@@ -38,10 +60,54 @@ public final class AiCommand {
         return 1;
     }
 
+    private static java.util.List<Identifier> guns() {
+        java.util.List<Identifier> out = new java.util.ArrayList<>();
+        for (var item : BuiltInRegistries.ITEM)
+            if (item instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT) out.add(BuiltInRegistries.ITEM.getKey(item));
+        return out;
+    }
+
+    private static int spawn(CommandContext<CommandSourceStack> c, AiSpawn.Kind kind, int count, @Nullable Identifier gunId)
+            throws CommandSyntaxException {
+        Item gun = null;
+        if (gunId != null) {
+            gun = BuiltInRegistries.ITEM.getOptional(gunId).orElse(null);
+            if (gun == null) {
+                c.getSource().sendFailure(Component.literal("no item " + gunId));
+                return 0;
+            }
+        }
+        var mobs = AiSpawn.spawn(c.getSource().getLevel(), c.getSource().getPosition(), kind, count, gun);
+        int n = mobs.size();
+        c.getSource().sendSuccess(() -> Component.literal(n + " AI " + kind.name().toLowerCase(java.util.Locale.ROOT) + (n == 1 ? "" : "s")
+                + " spawned" + (n < count ? " (no room for " + (count - n) + ")" : "")), true);
+        return n;
+    }
+
+    private static int clear(CommandContext<CommandSourceStack> c) {
+        var bots = AiBots.all(c.getSource().getLevel());
+        for (AiBot b : bots) b.mob.discard();
+        int n = bots.size();
+        c.getSource().sendSuccess(() -> Component.literal(n + " AI mobs removed"), true);
+        return n;
+    }
+
+    private static int ammo(CommandContext<CommandSourceStack> c, int rounds) {
+        var bots = AiBots.all(c.getSource().getLevel());
+        for (AiBot b : bots) {
+            if (rounds == AiAmmo.INFINITE) b.gunner.ammo.setInfinite();
+            else b.gunner.ammo.set(rounds);
+            AiAdapter.keep(b);
+        }
+        c.getSource().sendSuccess(() -> Component.literal(bots.size() + " AI mobs now carry "
+                + (rounds == AiAmmo.INFINITE ? "endless rounds" : rounds + " rounds") + " besides their guns"), true);
+        return bots.size();
+    }
+
     private static int info(CommandContext<CommandSourceStack> c) {
         TacticalMap map = TacticalMap.peek(c.getSource().getLevel());
         String text = (map == null ? "no tactical map in this level" : map.info()) + "\nAI mobs "
-                + AiBots.count(c.getSource().getLevel()) + "; senses: " + Senses.info();
+                + AiBots.count(c.getSource().getLevel()) + "; senses: " + Senses.info() + "; " + CoverQuery.info();
         c.getSource().sendSuccess(() -> Component.literal(text), false);
         return 1;
     }
