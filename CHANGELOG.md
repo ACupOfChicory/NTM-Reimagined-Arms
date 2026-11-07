@@ -1,5 +1,10 @@
 # Changelog
 
+## X543.159
+
+- `armArmor`: a chestplate model that fails while it builds its display list
+  no longer freezes the game when the arm puts the matrix stack back.
+
 ## X543.158
 
 - `armArmor`: a chestplate from another mod that fails while it is drawn on

@@ -263,7 +263,9 @@ public final class ArmLayers {
             parent.onGround = swing;
             GL11.glMatrixMode(GL11.GL_MODELVIEW);
             for (Plane c : clips) c.restore();
-            while (GL11.glGetInteger(GL11.GL_MODELVIEW_STACK_DEPTH) > depth) GL11.glPopMatrix();
+            // at most the stack's size (32 in GL's minimum, 64 here): a model that threw while it compiled its display list
+            // leaves GL recording, where a pop is recorded and not run, and the depth would never come down
+            for (int i = 0; i < 64 && GL11.glGetInteger(GL11.GL_MODELVIEW_STACK_DEPTH) > depth; i++) GL11.glPopMatrix();
             // popped below it: the caller's matrices are lost, but its pops after no longer go under the stack's bottom
             for (int i = GL11.glGetInteger(GL11.GL_MODELVIEW_STACK_DEPTH); i < depth; i++) GL11.glPushMatrix();
             gl.restore();
