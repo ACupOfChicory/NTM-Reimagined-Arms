@@ -1,5 +1,20 @@
 # Changelog
 
+## X555.186
+
+- As in 26.2 X577, on 1.12.2:
+  - `npcShots`: NTM's old bullets (the hunter chopper's and the cyber crab's,
+    and on NTM CE also the masked man's, the UFO's, BOT Prime's and the death
+    blast's) that hit a creature still recovering from a hit now count the
+    head as more than the body and a limb as less, as on a fresh creature.
+    Before, in a burst a head hit could do less than a body hit, and a limb
+    hit more. NTM CE's chopper and crab bullets hit a creature on two ticks in
+    a row: a limb hit now keeps only the first of the two.
+  - `npcShots`: when the head and limb zones fail on an old bullet's hit, it
+    hits as in NTM, with a warning in the log once.
+- 26.2 X577's fix for dedicated servers is not needed on 1.12.2: its server
+  never loaded the client's classes.
+
 ## X555.185
 
 - Fixed a rare server crash ("Ticking player") when firing NTM CE's guns:

@@ -301,6 +301,31 @@ final class NpcShotsScenario {
         return lost;
     }
 
+    // a shot at a zombie that has just taken a hit of `last` (the game's cooldown, lastDamage)
+    private static float after(World w, Shooter s, Vec3d at, float amount, float last, EntityLivingBase mob, EntityPlayerMP player) {
+        Vec3d home = new Vec3d(zombie.posX, zombie.posY, zombie.posZ);
+        zombie.setHealth(1000);
+        zombie.hurtResistantTime = 0;
+        zombie.hurtTime = 0;
+        zombie.attackEntityFrom(net.minecraft.util.DamageSource.GENERIC, last);
+        zombie.setHealth(1000);
+        Vec3d from = at.add(0, 0, s.kind == Kind.LEGACY ? -(s.critical ? 2.4 : 3.0) * 1.5 : s.kind == Kind.OLD ? -Math.max(1.5, .6 * oldConfig(s).velocity) : -3);
+        fly(bullet(w, s, from, new Vec3d(0, 0, 1), amount, mob, player), from);
+        float lost = 1000 - zombie.getHealth();
+        zombie.setPosition(home.x, home.y, home.z);
+        zombie.motionX = zombie.motionY = zombie.motionZ = 0;
+        zombie.hurtResistantTime = 0;
+        return lost;
+    }
+
+    // a limb as NTM's own damage has it (LegacyBullets.hurt): a bullet that hits once, as the body at half its damage;
+    // the old EntityBullet hits twice (its second tick, in the cooldown of its first): there NTM's damage lands its
+    // first hurt, which the limb's half does not get past, so the limb keeps only its first tick's: half of the body's
+    // at half the damage, which hits on both ticks
+    private static boolean limbAsNtm(Shooter s, float l, float l2) {
+        return s.kind == Kind.LEGACY ? Math.abs(2 * l - l2) < .01 : Math.abs(l - l2) < .01;
+    }
+
     private static BulletConfiguration oldConfig(Shooter s) {
         return BulletConfigSyncingUtil.pullConfig(s.old);
     }
@@ -334,7 +359,7 @@ final class NpcShotsScenario {
                     numbers.put(i, new float[] {b, h, h2, l, l2});
                     rows.add(s.name + "\t" + f(base) + "\t" + f(b) + "\t" + f(h) + "\t" + f(h2) + "\t" + f(l) + "\t" + f(l2) + "\t-\t-\t-");
                     expect("NPC " + s.name + how + ": damage " + f(base) + ", body=" + f(b) + ", head=" + f(h) + " (body x1.75=" + f(h2) + "), limb=" + f(l)
-                            + " (body x0.5=" + f(l2) + ")", b > 0 && Math.abs(h - h2) < .01 && Math.abs(l - l2) < .01 && h > b && l < b);
+                            + " (body x0.5=" + f(l2) + ")", b > 0 && Math.abs(h - h2) < .01 && limbAsNtm(s, l, l2) && h > b && l < b);
                     continue;
                 }
                 BulletServer.forgetWear();
@@ -355,8 +380,42 @@ final class NpcShotsScenario {
                 numbers.put(i, new float[] {b, h, h2, l, l2, behind, broke ? 1 : 0});
                 rows.add(s.name + "\t" + f(base) + "\t" + f(b) + "\t" + f(h) + "\t" + f(h2) + "\t" + f(l) + "\t" + f(l2) + "\t" + f(behind) + "\t" + broke + "\t" + whole);
                 expect("NPC " + s.name + ": damage " + f(base) + ", body=" + f(b) + ", head=" + f(h) + " (body x1.75=" + f(h2) + "), limb=" + f(l) + " (body x0.5="
-                        + f(l2) + ")", b > 0 && Math.abs(h - h2) < .01 && Math.abs(l - l2) < .01 && h > b && l < b);
+                        + f(l2) + ")", b > 0 && Math.abs(h - h2) < .01 && limbAsNtm(s, l, l2) && h > b && l < b);
                 expect("NPC " + s.name + ": behind glass " + f(behind) + " of " + f(b) + ", glass broken=" + broke, behind > 0);
+            }
+            // NTM's old bullets at a creature just hit (its cooldown, lastDamage): NTM's own damage decides whether its
+            // first hurt or its second (damage + the last hit) lands, the head's or limb's change goes to that one
+            // (LegacyBullets.hurt). The last of them hits once: as a fresh shot when its damage is no more than the last
+            // hit (NTM's second hurt lands whole), else only what it is past it by and nothing for a limb. The chopper's
+            // hits twice (its second tick): head, body, limb in that order
+            int chopper = 0, once = shooters().size() - 1;
+            while (shooters().get(chopper).kind != Kind.LEGACY || shooters().get(chopper).critical) chopper++;
+            while (shooters().get(once).kind != Kind.OLD) once--;
+            for (int li : new int[] {once, chopper}) {
+                Shooter legacy = shooters().get(li);
+                float d = legacy.damage();
+                float[] fresh = numbers.get(li);
+                for (float last : new float[] {d, d * .6F}) {
+                    float bb = after(w, legacy, body, d, last, mob, player), hh = after(w, legacy, head, d, last, mob, player), ll = after(w, legacy, limb, d, last, mob, player);
+                    String line = "NPC " + legacy.name + " after a hit of " + f(last) + ": body=" + f(bb) + ", head=" + f(hh) + ", limb=" + f(ll);
+                    rows.add(legacy.name + " after " + f(last) + "\t" + f(d) + "\t" + f(bb) + "\t" + f(hh) + "\t\t" + f(ll) + "\t\t\t\t");
+                    // the chopper's two ticks: no more than the last hit, both land as on a fresh creature (the limb's
+                    // second too, NTM's second hurt); past it, the first tick lands what it is past it by, the limb nothing
+                    if (legacy.kind == Kind.LEGACY && d <= last) expect(line + " (as fresh, the limb on both ticks: " + f(fresh[0]) + ", " + f(fresh[1]) + ", " + f(2 * fresh[3]) + ")",
+                            Math.abs(bb - fresh[0]) < .01 && Math.abs(hh - fresh[1]) < .01 && Math.abs(ll - 2 * fresh[3]) < .01);
+                    else if (legacy.kind == Kind.LEGACY) expect(line + " (fresh body=" + f(fresh[0]) + ")", bb > 0 && bb < fresh[0] && hh > bb && ll == 0);
+                    else if (d <= last) expect(line + " (as fresh: " + f(fresh[0]) + ", " + f(fresh[1]) + ", " + f(fresh[3]) + ")",
+                            Math.abs(bb - fresh[0]) < .01 && Math.abs(hh - fresh[1]) < .01 && Math.abs(ll - fresh[3]) < .01);
+                    else expect(line + " (fresh body=" + f(fresh[0]) + ")", bb > 0 && bb < fresh[0] && hh > bb && ll == 0);
+                }
+                // the zones fail: the head is hit as in NTM (the body's damage), the server goes on
+                LegacyBullets.failZones = true;
+                try {
+                    float hf = shot(w, legacy, head, d, mob, player);
+                    expect("NPC " + legacy.name + ": zones failed, head=" + f(hf) + " (body=" + f(fresh[0]) + ")", Math.abs(hf - fresh[0]) < .01);
+                } finally {
+                    LegacyBullets.failZones = false;
+                }
             }
             // the old player guns' rounds and the dart: no config in this NTM CE (ItemGunBase.fire returns on it; the
             // Vortex overrides spawnProjectile with a ray and fires no bullet at all)

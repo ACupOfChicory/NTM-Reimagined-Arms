@@ -32,8 +32,43 @@ public final class LegacyBullets {
         return XFactory762mm.r762_fmj;
     }
 
+    // NTM hurts the creature with the bullet's damage and, when that fails, again with the damage plus the creature's
+    // last hit: past a fresh hit (cooldown) the game takes only a hit harder than the last one, and only what it is
+    // harder by. Which of the two lands is NTM's to decide by its own damage, as without the zones; the change the head
+    // or a limb makes (extra) goes to the one that lands. FIRST: the first one with the change. SECOND: the first one
+    // without it (it fails), the second with it. NONE: the first one with the change, which a limb takes under the last
+    // hit, and no second one, as NTM's first one would have landed (with less than nothing).
+    public enum Hurt { FIRST, SECOND, NONE }
+
+    public static Hurt hurt(float damage, float extra, boolean cooldown, float lastHurt) {
+        if (!cooldown || extra == 0F) return Hurt.FIRST;
+        if (damage <= lastHurt) return Hurt.SECOND;
+        return damage + extra <= lastHurt ? Hurt.NONE : Hurt.FIRST;
+    }
+
+    // the game's cooldown as EntityLivingBase.attackEntityFrom has it (1.12.2: every source; 26.2 lets some bypass it)
+    public static Hurt hurt(Entity target, float damage, float extra) {
+        if (!(target instanceof EntityLivingBase)) return Hurt.FIRST;
+        EntityLivingBase living = (EntityLivingBase) target;
+        return hurt(damage, extra, living.hurtResistantTime > living.maxHurtResistantTime / 2.0F,
+                ((acup.gunfeel.mixins.early.LivingAccess) living).gunfeel$lastHurt());
+    }
+
+    // the zones failed on an old bullet's hit (MixinLegacyBullet, MixinOldBulletBase): written to the log once
+    private static volatile boolean warned;
+
+    public static void zonesFailed(RuntimeException e) {
+        if (warned) return;
+        warned = true;
+        GunFeel.LOGGER.warn("NTM's old bullet: its head and limb zones failed, it hits as in NTM", e);
+    }
+
+    // the stand (NpcShotsScenario): the zones throw, as a failure of theirs would
+    static volatile boolean failZones;
+
     // its damage on `target` hit at `point` (null: NTM's middle, unchanged)
     public static float damage(Entity target, Vec3d point, float amount) {
+        if (failZones) throw new IllegalStateException("zones failing for the stand");
         if (point == null || !(target instanceof EntityLivingBase)) return amount;
         return HeadDamage.beamDamage(amount, (EntityLivingBase) target, new RayTraceResult(target, point));
     }

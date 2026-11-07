@@ -48,12 +48,20 @@ public abstract class MixinLegacyBullet {
     @Unique private final Map<Entity, Vec3d> gunfeel$met = new IdentityHashMap<Entity, Vec3d>();
     @Unique private Vec3d gunfeel$point;
     @Unique private RayTraceResult gunfeel$stuck;
+    // NTM's hurts this tick (port: both are Entity.attackEntityFrom, 26.2 has the second on LivingEntity), which of the
+    // two takes the zone's change, and the change the first one worked out
+    @Unique private Entity gunfeel$hurtFirst;
+    @Unique private LegacyBullets.Hurt gunfeel$hurt = LegacyBullets.Hurt.FIRST;
+    @Unique private float gunfeel$extraNow;
 
     @Inject(method = "onUpdate", at = @At("HEAD"), remap = true)
     private void gunfeel$begin(CallbackInfo ci) {
         gunfeel$met.clear();
         gunfeel$point = null;
         gunfeel$stuck = null;
+        gunfeel$hurtFirst = null;
+        gunfeel$hurt = LegacyBullets.Hurt.FIRST;
+        gunfeel$extraNow = 0F;
     }
 
     // a creature whose model reaches out of its box is met too (as NTM's bullets, MixinThrowableClip)
@@ -91,11 +99,30 @@ public abstract class MixinLegacyBullet {
     }
 
     // NTM hurts with its damage, or (the creature still shielded by its last hit) that plus the last hit: the change
-    // the head or a limb makes is added to either
+    // the head or a limb makes goes to the one of the two NTM's own damage lands with (LegacyBullets.hurt)
     @WrapOperation(method = "onUpdate", remap = true, at = @At(value = "INVOKE", remap = true,
             target = "Lnet/minecraft/entity/Entity;attackEntityFrom(Lnet/minecraft/util/DamageSource;F)Z"))
     private boolean gunfeel$hurt(Entity target, DamageSource source, float amount, Operation<Boolean> original) {
-        return original.call(target, source, amount + gunfeel$extra(target));
+        // NTM's second hurt goes to the same creature right after the first
+        if (target == gunfeel$hurtFirst) {
+            if (gunfeel$hurt == LegacyBullets.Hurt.NONE) return false;
+            return original.call(target, source, amount + gunfeel$extraNow);
+        }
+        float extra = 0F;
+        LegacyBullets.Hurt hurt = LegacyBullets.Hurt.FIRST;
+        try {
+            extra = gunfeel$extra(target);
+            hurt = LegacyBullets.hurt(target, amount, extra);
+        } catch (RuntimeException e) {
+            // the zones failed: it hits as in NTM rather than take the server's tick down
+            extra = 0F;
+            hurt = LegacyBullets.Hurt.FIRST;
+            LegacyBullets.zonesFailed(e);
+        }
+        gunfeel$hurtFirst = target;
+        gunfeel$hurt = hurt;
+        gunfeel$extraNow = extra;
+        return original.call(target, source, hurt == LegacyBullets.Hurt.SECOND ? amount : amount + extra);
     }
 
     @Unique

@@ -6,7 +6,7 @@
   "target": "@env(DEFAULT)",
   "compatibilityLevel": "JAVA_8",
   "injectors": { "defaultRequire": 1 },
-  "mixins": ["MixinVanillaProjectileHits", "MixinSunBurnZombie", "MixinSunBurnAbstractSkeleton", "MixinThrowablePath", "MixinFishHookPath", "MixinArrowPath", "MixinProjectileHelperPath", "MixinWaterMuffle"],
+  "mixins": ["MixinVanillaProjectileHits", "MixinSunBurnZombie", "MixinSunBurnAbstractSkeleton", "MixinThrowablePath", "MixinFishHookPath", "MixinArrowPath", "MixinProjectileHelperPath", "MixinWaterMuffle", "LivingAccess"],
   "client": ["MixinEntityRenderer", "MixinRenderGlobal", "MixinMousePick", "MixinTimer", "MixinMouseTurn", "ItemRendererAccess", "PlayerSPAccess", "MixinSprintStop", "MixinRendererLivingEntity", "MixinLayerWool", "MixinLayerArmor", "MixinLayerGel", "MixinLayerShulkerHead", "MixinModelRenderer", "MixinRenderManager", "MixinTessellator", "MixinCallList", "RenderLivingAccess", "MixinModelBipedPose", "MixinTextureBind"],
   "server": []
 }

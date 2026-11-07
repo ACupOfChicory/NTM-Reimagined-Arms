@@ -39,13 +39,16 @@ public abstract class MixinOldBulletBase {
     // this tick: where each creature's model was met; the change the head or a limb makes to the hit
     @Unique private final Map<Entity, Vec3d> gunfeel$met = new IdentityHashMap<Entity, Vec3d>();
     @Unique private float gunfeel$extra;
-    @Unique private boolean gunfeel$counted;
+    @Unique private Entity gunfeel$counted;
+    // which of NTM's two hurts takes the change (LegacyBullets.hurt)
+    @Unique private LegacyBullets.Hurt gunfeel$hurt = LegacyBullets.Hurt.FIRST;
 
     @Inject(method = "onUpdate", at = @At("HEAD"), remap = true)
     private void gunfeel$begin(CallbackInfo ci) {
         gunfeel$met.clear();
-        gunfeel$counted = false;
+        gunfeel$counted = null;
         gunfeel$extra = 0F;
+        gunfeel$hurt = LegacyBullets.Hurt.FIRST;
     }
 
     // NTM hurts creatures only in its war dimensions; elsewhere a creature it meets is taken for a block: its box is left
@@ -79,23 +82,32 @@ public abstract class MixinOldBulletBase {
         return out;
     }
 
-    // the first hurt carries NTM's rolled damage: the change is worked out from it and added to the second too. NTM's
-    // try/catch around both would turn a throw here into no damage at all: it keeps NTM's damage instead
+    // the first hurt carries NTM's rolled damage: the change is worked out from it and goes to the one of the two NTM's
+    // own damage lands with (LegacyBullets.hurt, as MixinLegacyBullet). NTM's try/catch around both would turn a throw
+    // here into no damage at all: it keeps NTM's damage instead
     @WrapOperation(method = "onUpdate", remap = true, at = @At(value = "INVOKE", remap = true,
             target = "Lnet/minecraft/entity/Entity;attackEntityFrom(Lnet/minecraft/util/DamageSource;F)Z"))
     private boolean gunfeel$hurt(Entity target, DamageSource source, float amount, Operation<Boolean> original) {
-        if (!gunfeel$counted) {
-            gunfeel$counted = true;
-            Vec3d point = gunfeel$met.get(target);
-            if (point != null && gunfeel$on(target.world)) {
-                try {
-                    gunfeel$extra = LegacyBullets.damage(target, point, amount) - amount;
-                } catch (RuntimeException e) {
-                    gunfeel$extra = 0F;
-                }
+        // NTM's second hurt goes to the same creature right after the first
+        if (target == gunfeel$counted) {
+            if (gunfeel$hurt == LegacyBullets.Hurt.NONE) return false;
+            return original.call(target, source, amount + gunfeel$extra);
+        }
+        gunfeel$counted = target;
+        gunfeel$extra = 0F;
+        gunfeel$hurt = LegacyBullets.Hurt.FIRST;
+        Vec3d point = gunfeel$met.get(target);
+        if (point != null && gunfeel$on(target.world)) {
+            try {
+                gunfeel$extra = LegacyBullets.damage(target, point, amount) - amount;
+                gunfeel$hurt = LegacyBullets.hurt(target, amount, gunfeel$extra);
+            } catch (RuntimeException e) {
+                gunfeel$extra = 0F;
+                gunfeel$hurt = LegacyBullets.Hurt.FIRST;
+                LegacyBullets.zonesFailed(e);
             }
         }
-        return original.call(target, source, amount + gunfeel$extra);
+        return original.call(target, source, gunfeel$hurt == LegacyBullets.Hurt.SECOND ? amount : amount + gunfeel$extra);
     }
 
     @Inject(method = "onUpdate", at = @At("RETURN"), remap = true)
