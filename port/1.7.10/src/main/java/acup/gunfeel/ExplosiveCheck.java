@@ -159,7 +159,7 @@ public final class ExplosiveCheck {
             if (c == null || !WaterClass.Fuze.ofConfig(c).any()) continue;
             String field = WaterClass.Fuze.field(c);
             String ammo = field != null ? field : ammoName(c);
-            if (ammo.contains("nuke") || ammo.equals("ammo_shell_w9") || ammo.equals("ufo_rocket") || ammo.equals("debris")
+            if (ammo.contains("nuke") || ammo.equals("ammo_shell_w9") || ammo.equals("ufo_rocket") || ammo.equals("debris") || ammo.equals("pile_debris")
                     || out.containsKey(ammo)) continue;
             out.put(ammo, c);
         }

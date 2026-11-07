@@ -1,10 +1,14 @@
 # Changelog
 
+## X543.149
+
+- In water, the burning debris thrown out of a Chicago Pile now goes off
+  where it hits, as NTM's other explosive projectiles do there.
+
 ## X543.148
 
 - As in X547: the Jeremy turret's 240 mm shells now leave bullet holes where
-  they hit, as the same shell fired by a player does. NTM still draws the
-  shell itself; no tracer is added.
+  they hit. NTM still draws the shell itself; no tracer is added.
 
 ## X543.147
 

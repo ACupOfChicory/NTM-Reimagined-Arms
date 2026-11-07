@@ -144,12 +144,14 @@ public enum WaterClass {
         // the sky) nor the masked man's tracer (it calls a meteor down): those do not go off themselves. By their
         // fields, looked up by name, so one missing in another NTM leaves out only its own fuze.
         // port: NTM 1.7.10 X5863 has the Daybreaker's and the cluster submunition; the masked man and the UFO fire its
-        // old bullets there, not these, and there is no pile's debris
+        // old bullets there, not these. Its pile's debris is TileEntityPileCore.pile_debris (a full class name: not in
+        // the factories)
         static final String[][] IMPACT_FIELDS = {
                 {"XFactoryFlamer", "flame_daybreaker_diesel", "flame_daybreaker_gas", "flame_daybreaker_napalm", "flame_daybreaker_balefire"},
                 {"XFactoryCatapult", "cluster_submunition"},
                 {"XFactoryNPC", "maskman_bolt", "maskman_meteor", "maskman_rocket", "maskman_orb", "ufo_rocket"},
-                {"XFactoryPile", "debris"}};
+                {"XFactoryPile", "debris"},
+                {"com.hbm.tileentity.machine.pile.TileEntityPileCore", "pile_debris"}};
         private static volatile Map<BulletConfig, String> fields;
 
         // the IMPACT_FIELDS name of this config, or null

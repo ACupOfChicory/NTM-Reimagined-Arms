@@ -8,7 +8,8 @@ import com.hbm.items.weapon.sedna.BulletConfig;
 
 // NTM's static fields the water rules know configs by, looked up by name: optional knowledge, so a field another NTM
 // has not leaves out only what it tells (Compat would turn the whole core off for a missing direct reference).
-// port: 26.2's NtmFields (27023c4); NTM 1.7.10 X5863 has no XFactoryNPC nor XFactoryPile, so those rows find nothing
+// port: 26.2's NtmFields (27023c4); NTM 1.7.10 X5863 has no XFactoryNPC nor XFactoryPile, so those rows find nothing;
+// its pile's debris is in a tile entity's class, named in full
 final class NtmFields {
     private NtmFields() {
     }
@@ -28,9 +29,10 @@ final class NtmFields {
         return out;
     }
 
+    // factory: a class in NTM's weapon factories by its simple name, or any class by its full name
     static Object get(String factory, String field) {
         try {
-            return Class.forName(FACTORY + factory, true, BulletConfig.class.getClassLoader()).getField(field).get(null);
+            return Class.forName(factory.indexOf('.') >= 0 ? factory : FACTORY + factory, true, BulletConfig.class.getClassLoader()).getField(field).get(null);
         } catch (ReflectiveOperationException | LinkageError | RuntimeException e) {
             return null;
         }
