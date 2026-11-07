@@ -1,5 +1,16 @@
 # Changelog
 
+## X543.177
+
+- As in X560: in water the masked man's orb, bolt, rocket and meteor and the
+  UFO's rocket (NTM's old rounds on 1.7.10) now slow, skip and stop as other
+  rounds do, and go off on the surface they meet or where they come to rest.
+  Before, they flew through water as through air. Their blast hurts a
+  creature in water as other blasts in water do, the bolt's hit loses damage
+  with the speed it lost, the meteor sets nothing alight in water, and NTM's
+  random ricochet does not bounce them off the water's surface. The masked
+  man's tracer and BOT Prime's bolts stay as they were.
+
 ## X543.175
 
 - As in X555: a tracer that ricochets off a block in water flies on at the
