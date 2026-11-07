@@ -108,6 +108,10 @@ public final class GunFeelMod {
                 });
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC,
                         (p, ctx) -> ctx.enqueueWork(() -> p.handle(ctx.player().level())));
+                r.playToClient(acup.gunfeel.gl54.PressLayoutsPayload.TYPE, acup.gunfeel.gl54.PressLayoutsPayload.CODEC,
+                        (p, ctx) -> ctx.enqueueWork(() -> {
+                            if (Feature.GL54.on()) acup.gunfeel.gl54.PressSync.receive(p);
+                        }));
                 acup.gunfeel.smoke.client.SmokeClientSetup.payloads(r);
             } else {
                 r.playToClient(ShotPayload.TYPE, ShotPayload.CODEC);
@@ -116,6 +120,7 @@ public final class GunFeelMod {
                 r.playToClient(HelloPayload.TYPE, HelloPayload.CODEC);
                 r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC);
                 r.playToClient(ProneStandPayload.TYPE, ProneStandPayload.CODEC);
+                r.playToClient(acup.gunfeel.gl54.PressLayoutsPayload.TYPE, acup.gunfeel.gl54.PressLayoutsPayload.CODEC);
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC);
                 acup.gunfeel.smoke.SmokeNet.payloads(r);
             }

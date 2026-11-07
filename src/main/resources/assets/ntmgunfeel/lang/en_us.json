@@ -62,6 +62,8 @@
   "ntmgunfeel.gl54.mag_title": "20 mm magazine",
   "message.ntmgunfeel.gl54_mag": "Gave a magazine: %s",
   "message.ntmgunfeel.gl54_mag_bad": "Unknown kind: %s",
+  "message.ntmgunfeel.gl54_mag_no_room": "No free slot to take one magazine off the stack",
   "item.ntmgunfeel.gl54_grenade": "20 mm grenade (%s)",
-  "item.ntmgunfeel.gl54_mag.window": "20 mm magazine"
+  "item.ntmgunfeel.gl54_mag.window": "20 mm magazine",
+  "ntmgunfeel.gl54_press.forget": "Shift+click: forget this layout"
 }

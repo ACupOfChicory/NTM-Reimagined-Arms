@@ -11,6 +11,10 @@ import org.junit.jupiter.api.Test;
 
 // Loading a magazine in the ammo press (PressLoading): the order, the gaps, partial magazines, a taken output, a chosen recipe.
 class PressLoadingTest {
+    static List<String> rounds(String key, int n) {
+        return java.util.Collections.nCopies(n, key);
+    }
+
     static List<String> slots(String... s) {
         String[] all = new String[8];
         java.util.Arrays.fill(all, "");

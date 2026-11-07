@@ -641,6 +641,20 @@ final class Gl54Stand {
         sleep(10);
         run(Gl54Stand::pressChecks);
         run(Gl54Stand::windowChecks);
+        run(Gl54Stand::lockChecks);
+        sleep(10);
+        run(Gl54Stand::lockOutside);
+        sleep(10);
+        run(Gl54Stand::lockAfter);
+        run(Gl54Stand::memoryLoad);
+        sleep(40);
+        run(Gl54Stand::memoryOpen);
+        sleep(40);
+        run(Gl54Stand::memoryScreen);
+        sleep(30);
+        run(Gl54Stand::memoryShift);
+        sleep(30);
+        run(Gl54Stand::memoryAfter);
         run(() -> onServer(() -> {
             var p = player();
             p.getInventory().clearContent();
@@ -659,6 +673,294 @@ final class Gl54Stand {
         }));
         sleep(10);
         TODO.add(Gl54Stand::done);
+    }
+
+    // the magazine window keeps the magazine in its slot: the slot is locked, the stack holds the grenades at once, a stack of
+    // three gives one to a free slot, a full inventory refuses a stack of several (menu slot of inventory slot i: hotbar
+    // 27 + i + 8, the rest i - 9 + 8)
+    private static int menuSlot(int inv) {
+        return acup.gunfeel.gl54.MagWindow.CELLS + (inv < 9 ? 27 + inv : inv - 9);
+    }
+
+    private static String stacks(net.minecraft.world.entity.player.Inventory inv) {
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < 41; i++) {
+            ItemStack s = inv.getItem(i);
+            if (s.getItem() == Gl54Items.MAG.get()) b.append(i).append(":MAGx").append(s.getCount()).append(acup.gunfeel.gl54.MagItem.contents(s).rounds()).append(' ');
+            else if (s.getItem() == Gl54Items.MAG_EMPTY.get()) b.append(i).append(":EMPTYx").append(s.getCount()).append(' ');
+            else if (!s.isEmpty() && !(s.getItem() instanceof acup.gunfeel.gl54.GrenadeItem)) b.append(i).append(":other ");
+            else if (s.getItem() instanceof acup.gunfeel.gl54.GrenadeItem g) b.append(i).append(':').append(g.kind).append('x').append(s.getCount()).append(' ');
+        }
+        return b.toString();
+    }
+
+    private static void lockChecks() {
+        onServer(() -> {
+            ServerPlayer p = player();
+            var inv = p.getInventory();
+            inv.clearContent();
+            ItemStack three = Gl54Items.magazine(new acup.gunfeel.gl54.MagContents(java.util.List.of("he", "ap")));
+            three.setCount(3);
+            inv.setItem(4, three);
+            inv.setSelectedSlot(4);
+            inv.setItem(9, new ItemStack(Gl54Items.GRENADES.get("smoke").get(), 5));
+            p.setShiftKeyDown(false);
+            line("lock", "start (stack of 3 in the hand, slot 4)", stacks(inv));
+            p.getMainHandItem().getItem().use(p.level(), p, InteractionHand.MAIN_HAND);
+            var menu = p.containerMenu;
+            int edited = -1;
+            for (int i = 0; i < 36; i++) if (inv.getItem(i).getItem() == Gl54Items.MAG.get() && inv.getItem(i).getCount() == 1) edited = i;
+            line("lock", "opened: one split off to a free slot, edited slot", edited, stacks(inv));
+            int ms = menuSlot(edited);
+            // a grenade in: the stack has it before any close
+            menu.clicked(menuSlot(9), 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, p);
+            line("lock", "after one shift-click the stack already holds", stacks(inv));
+            // the locked slot: pick up, quick move, throw, hotbar number key, offhand swap, a click into it with the cursor
+            menu.clicked(ms, 0, net.minecraft.world.inventory.ContainerInput.PICKUP, p);
+            line("lock", "pickup on the locked slot: cursor", menu.getCarried().isEmpty() ? "empty" : "TAKEN", stacks(inv));
+            menu.clicked(ms, 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, p);
+            menu.clicked(ms, 1, net.minecraft.world.inventory.ContainerInput.THROW, p);
+            menu.clicked(ms, 7, net.minecraft.world.inventory.ContainerInput.SWAP, p);
+            menu.clicked(ms, 40, net.minecraft.world.inventory.ContainerInput.SWAP, p);
+            menu.clicked(ms, 0, net.minecraft.world.inventory.ContainerInput.PICKUP_ALL, p);
+            line("lock", "quick move, throw, number key 7, offhand swap, pickup-all on it", stacks(inv), "offhand", inv.getItem(40).isEmpty());
+            // the other way: a number key whose slot is the locked one, from another slot
+            int other = menuSlot(9);
+            if (edited < 9) menu.clicked(other, edited, net.minecraft.world.inventory.ContainerInput.SWAP, p);
+            line("lock", "number key of the locked slot from another slot", stacks(inv));
+            // the cursor holding a grenade dropped on the locked slot
+            menu.clicked(other, 0, net.minecraft.world.inventory.ContainerInput.PICKUP, p);
+            menu.clicked(ms, 0, net.minecraft.world.inventory.ContainerInput.PICKUP, p);
+            line("lock", "grenade on the cursor put on the locked slot", "carried", menu.getCarried().isEmpty() ? "empty" : "kept", stacks(inv));
+            menu.clicked(other, 0, net.minecraft.world.inventory.ContainerInput.PICKUP, p);
+            p.closeContainer();
+            line("lock", "closed (changed: stays apart)", stacks(inv));
+            // unchanged: back in the stack
+            inv.clearContent();
+            ItemStack t2 = Gl54Items.magazine(new acup.gunfeel.gl54.MagContents(java.util.List.of("he", "ap")));
+            t2.setCount(3);
+            inv.setItem(4, t2);
+            inv.setSelectedSlot(4);
+            p.getMainHandItem().getItem().use(p.level(), p, InteractionHand.MAIN_HAND);
+            // one grenade out and back in: identical again, so it merges back into the stack on close
+            p.containerMenu.clicked(acup.gunfeel.gl54.MagWindow.CELLS - 2, 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, p);
+            line("lock", "one grenade out of the edited magazine", stacks(inv));
+            p.containerMenu.clicked(p.containerMenu.slots.size() - 1, 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, p);
+            line("lock", "and back in", stacks(inv));
+            p.closeContainer();
+            line("lock", "closed identical again: merged into the stack", stacks(inv));
+            // a full inventory
+            inv.clearContent();
+            for (int i = 0; i < 36; i++) inv.setItem(i, new ItemStack(net.minecraft.world.item.Items.STONE, 1));
+            ItemStack t3 = Gl54Items.magazine(new acup.gunfeel.gl54.MagContents(java.util.List.of("he")));
+            t3.setCount(3);
+            inv.setItem(4, t3);
+            inv.setSelectedSlot(4);
+            p.getMainHandItem().getItem().use(p.level(), p, InteractionHand.MAIN_HAND);
+            line("lock", "full inventory, stack of 3", p.containerMenu instanceof acup.gunfeel.gl54.MagMenu ? "OPENED" : "refused", "count", inv.getItem(4).getCount());
+            inv.getItem(4).setCount(1);
+            p.getMainHandItem().getItem().use(p.level(), p, InteractionHand.MAIN_HAND);
+            line("lock", "full inventory, stack of 1", p.containerMenu instanceof acup.gunfeel.gl54.MagMenu ? "opened in place" : "REFUSED");
+            p.closeContainer();
+            // the window left open for the next step: the item will be taken from outside
+            inv.clearContent();
+            ItemStack t4 = Gl54Items.magazine(new acup.gunfeel.gl54.MagContents(java.util.List.of("he", "ap")));
+            inv.setItem(4, t4);
+            inv.setSelectedSlot(4);
+            p.getMainHandItem().getItem().use(p.level(), p, InteractionHand.MAIN_HAND);
+            line("lock", "window open on a single magazine", p.containerMenu instanceof acup.gunfeel.gl54.MagMenu);
+            return null;
+        });
+    }
+
+    // the magazine taken from outside (/clear, death, another mod): the game's own tick closes the window and nothing is given
+    private static void lockOutside() {
+        onServer(() -> {
+            ServerPlayer p = player();
+            p.getInventory().setItem(4, ItemStack.EMPTY);
+            line("lock", "item removed from outside, window", p.containerMenu instanceof acup.gunfeel.gl54.MagMenu ? "still open" : "closed");
+            return null;
+        });
+    }
+
+    private static void lockAfter() {
+        onServer(() -> {
+            ServerPlayer p = player();
+            line("lock", "a few ticks later: window", p.containerMenu instanceof acup.gunfeel.gl54.MagMenu ? "STILL OPEN" : "closed", "inventory", stacks(p.getInventory()), "(nothing)");
+            p.getInventory().clearContent();
+            return null;
+        });
+    }
+
+    // the press remembers the layouts it loaded freely (PressLayouts): a second press so the first one's state stays
+    private static final BlockPos MEM = O.offset(-4, 0, 4);
+
+    private static com.hbm.blockentity.machine.BlockEntityMachineAmmoPress memPress(ServerLevel level) {
+        return (com.hbm.blockentity.machine.BlockEntityMachineAmmoPress) level.getBlockEntity(MEM);
+    }
+
+    private static void memLoad(com.hbm.blockentity.machine.BlockEntityMachineAmmoPress be, String... kinds) {
+        for (int i = 0; i < 10; i++) be.setItem(i, ItemStack.EMPTY);
+        for (int i = 0; i < kinds.length; i++) be.setItem(i, new ItemStack(Gl54Items.GRENADES.get(kinds[i]).get()));
+        be.setItem(8, new ItemStack(Gl54Items.MAG_EMPTY.get()));
+        be.tickServer();
+    }
+
+    private static String memState(com.hbm.blockentity.machine.BlockEntityMachineAmmoPress be) {
+        return ((acup.gunfeel.gl54.PressMemory) be).gunfeel$layouts().size() + " " + ((acup.gunfeel.gl54.PressMemory) be).gunfeel$layouts() + " selected=" + be.selectedRecipe;
+    }
+
+    private static void memoryLoad() {
+        onServer(() -> {
+            ServerLevel level = Minecraft.getInstance().getSingleplayerServer().overworld();
+            level.setBlock(MEM, net.minecraft.core.registries.BuiltInRegistries.BLOCK.getValue(
+                    net.minecraft.resources.Identifier.fromNamespaceAndPath("hbm", "machine_ammo_press")).defaultBlockState(), 3);
+            var be = memPress(level);
+            line("memory", "new press", memState(be));
+            memLoad(be, "he", "ap", "inc");
+            line("memory", "free load he ap inc", memState(be), "made", acup.gunfeel.gl54.MagItem.contents(be.getItem(9)).rounds());
+            memLoad(be, "he", "he", "he", "he", "he", "he", "he", "he");
+            line("memory", "free load 8 x he (a preset): not stored", memState(be));
+            memLoad(be, "he", "ap", "inc");
+            line("memory", "the same layout again: no duplicate", memState(be));
+            memLoad(be, "smoke", "he");
+            memLoad(be, "acid");
+            memLoad(be, "chlorine", "ap");
+            memLoad(be, "mustard", "he", "he");
+            memLoad(be, "phosgene");
+            line("memory", "six stored", memState(be));
+            memLoad(be, "airburst", "inc");
+            line("memory", "a seventh: the oldest (he ap inc) goes", memState(be));
+            memLoad(be, "smoke", "he");
+            line("memory", "smoke he used again: the newest", memState(be));
+            for (int i = 0; i < 10; i++) be.setItem(i, ItemStack.EMPTY);
+            return null;
+        });
+    }
+
+    // the window with the selector (a few ticks after the press was placed, so the client has the press)
+    private static void memoryOpen() {
+        onServer(() -> {
+            com.hbm.inventory.IGUIProvider.openBlockMenu(player(), memPress(Minecraft.getInstance().getSingleplayerServer().overworld()), MEM);
+            return null;
+        });
+    }
+
+    private static Object field(Object o, String name) throws ReflectiveOperationException {
+        Class<?> c = o.getClass();
+        while (c != null) {
+            try {
+                var f = c.getDeclaredField(name);
+                f.setAccessible(true);
+                return f.get(o);
+            } catch (NoSuchFieldException e) {
+                c = c.getSuperclass();
+            }
+        }
+        throw new NoSuchFieldException(name);
+    }
+
+    private static void memoryScreen() {
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            var screen = mc.gui.screen();
+            if (!(screen instanceof com.hbm.client.gui.ScreenMachineAmmoPress sc)) {
+                line("memory screen", "NO SCREEN", String.valueOf(screen));
+                return;
+            }
+            var extras = (acup.gunfeel.gl54.PressScreenExtras) field(sc, "gunfeel$extras");
+            var recipes = (java.util.List<?>) field(sc, "recipes");
+            line("memory screen", "entries", extras.shown(), "recipes listed", recipes.size(), "pages", field(sc, "size"), "client press layouts",
+                    ((acup.gunfeel.gl54.PressMemory) ((com.hbm.inventory.container.MenuMachineAmmoPress) sc.getMenu()).blockEntity()).gunfeel$layouts().size());
+            // the last page, where the entries are
+            var idx = sc.getClass().getDeclaredField("index");
+            idx.setAccessible(true);
+            idx.setInt(sc, (Integer) field(sc, "size"));
+            clickEntry(sc, 0, false);
+        } catch (ReflectiveOperationException e) {
+            line("memory screen", "failed", e.toString());
+        }
+    }
+
+    // a click on the stored entry j of the selector (the last page)
+    @SuppressWarnings("removal")
+    private static void clickEntry(com.hbm.client.gui.ScreenMachineAmmoPress sc, int j, boolean shift) throws ReflectiveOperationException {
+        int index = (Integer) field(sc, "index");
+        int recipes = ((java.util.List<?>) field(sc, "recipes")).size();
+        int ind = recipes + j - index * 3;
+        if (ind < 0 || ind >= 12) {
+            line("memory screen", "entry not on this page", j, "ind", ind);
+            return;
+        }
+        double x = sc.getGuiLeft() + 16 + 18 * (ind / 3) + 9, y = sc.getGuiTop() + 17 + 18 * (ind % 3) + 9;
+        boolean r = sc.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(x, y, new net.minecraft.client.input.MouseButtonInfo(0, shift ? 1 : 0)), false);
+        line("memory screen", shift ? "shift-click on entry" : "click on entry", j, "at", x + "," + y, "handled", r, "screen selection", field(sc, "selection"));
+    }
+
+    private static void memoryShift() {
+        onServer(() -> {
+            line("memory", "after the click, server", memState(memPress(Minecraft.getInstance().getSingleplayerServer().overworld())), "recipes", acup.gunfeel.gl54.PressSync.recipes());
+            return null;
+        });
+        try {
+            if (Minecraft.getInstance().gui.screen() instanceof com.hbm.client.gui.ScreenMachineAmmoPress sc) {
+                line("memory screen", "client press selected", ((com.hbm.inventory.container.MenuMachineAmmoPress) sc.getMenu()).blockEntity() instanceof com.hbm.blockentity.machine.BlockEntityMachineAmmoPress b ? b.selectedRecipe : -2);
+                clickEntry(sc, 0, true);
+            }
+        } catch (ReflectiveOperationException e) {
+            line("memory screen", "failed", e.toString());
+        }
+    }
+
+    private static void memoryAfter() {
+        try {
+            if (Minecraft.getInstance().gui.screen() instanceof com.hbm.client.gui.ScreenMachineAmmoPress sc) {
+                var extras = (acup.gunfeel.gl54.PressScreenExtras) field(sc, "gunfeel$extras");
+                line("memory screen", "after shift-click entries", extras.shown(), "screen selection", field(sc, "selection"));
+            }
+        } catch (ReflectiveOperationException e) {
+            line("memory screen", "failed", e.toString());
+        }
+        onServer(() -> {
+            ServerLevel level = Minecraft.getInstance().getSingleplayerServer().overworld();
+            var be = memPress(level);
+            var mem = (acup.gunfeel.gl54.PressMemory) be;
+            line("memory", "after the shift-click (the first entry deleted)", memState(be));
+            player().closeContainer();
+            // select the first stored layout
+            var layouts = mem.gunfeel$layouts();
+            var want = layouts.get(0);
+            var tag = new net.minecraft.nbt.CompoundTag();
+            tag.putInt("selection", acup.gunfeel.gl54.PressSync.recipes());
+            be.receiveControl(tag);
+            line("memory", "selected the first stored", want, memState(be));
+            String[] kinds = want.toArray(new String[0]);
+            java.util.function.Function<String, ItemStack> g = k -> new ItemStack(Gl54Items.GRENADES.get(k).get());
+            line("memory", "canPlace right grenade@0", be.canPlaceItem(0, g.apply(kinds[0])), "wrong grenade@0", be.canPlaceItem(0, g.apply(kinds[0].equals("he") ? "ap" : "he")),
+                    "grenade past the layout@" + kinds.length, be.canPlaceItem(kinds.length, g.apply(kinds[0])), "mag@8", be.canPlaceItem(8, new ItemStack(Gl54Items.MAG_EMPTY.get())), "stone@0", be.canPlaceItem(0, new ItemStack(net.minecraft.world.item.Items.STONE)));
+            // fed the way a hopper does (HopperBlockEntity.addItem through the press's face)
+            for (int i = 0; i < 10; i++) be.setItem(i, ItemStack.EMPTY);
+            for (int i = 0; i < kinds.length; i++) {
+                ItemStack left = net.minecraft.world.level.block.entity.HopperBlockEntity.addItem(null, be, g.apply(kinds[i]), net.minecraft.core.Direction.UP);
+                if (!left.isEmpty()) line("memory", "hopper could not put", kinds[i]);
+            }
+            net.minecraft.world.level.block.entity.HopperBlockEntity.addItem(null, be, new ItemStack(Gl54Items.MAG_EMPTY.get()), net.minecraft.core.Direction.UP);
+            be.tickServer();
+            ItemStack res = be.getItem(9);
+            line("memory", "hopper-fed, made", res.getItem() == Gl54Items.MAG.get() ? acup.gunfeel.gl54.MagItem.contents(res).rounds() : "NOTHING", memState(be));
+            // saved with the press and read back
+            var saved = be.saveWithFullMetadata(level.registryAccess());
+            var again = net.minecraft.world.level.block.entity.BlockEntity.loadStatic(MEM, level.getBlockState(MEM), saved, level.registryAccess());
+            line("memory", "saved and read back", memState((com.hbm.blockentity.machine.BlockEntityMachineAmmoPress) again));
+            // the dropped block item carries nothing
+            line("memory", "saved tag keys", saved.keySet());
+            // broken and put again: forgotten
+            level.setBlock(MEM, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+            level.setBlock(MEM, net.minecraft.core.registries.BuiltInRegistries.BLOCK.getValue(
+                    net.minecraft.resources.Identifier.fromNamespaceAndPath("hbm", "machine_ammo_press")).defaultBlockState(), 3);
+            line("memory", "broken and put again", memState(memPress(level)));
+            return null;
+        });
     }
 
     // the magazine window on the server: clicks, one grenade per shift-click, the stack, the close, the unload

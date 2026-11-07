@@ -62,6 +62,8 @@
   "ntmgunfeel.gl54.mag_title": "Магазин 20 мм",
   "message.ntmgunfeel.gl54_mag": "Выдан магазин: %s",
   "message.ntmgunfeel.gl54_mag_bad": "Неизвестный вид: %s",
+  "message.ntmgunfeel.gl54_mag_no_room": "Нет свободного места, чтобы отделить один магазин от стопки",
   "item.ntmgunfeel.gl54_grenade": "Граната 20 мм (%s)",
-  "item.ntmgunfeel.gl54_mag.window": "Магазин 20 мм"
+  "item.ntmgunfeel.gl54_mag.window": "Магазин 20 мм",
+  "ntmgunfeel.gl54_press.forget": "Shift+клик: забыть эту раскладку"
 }
