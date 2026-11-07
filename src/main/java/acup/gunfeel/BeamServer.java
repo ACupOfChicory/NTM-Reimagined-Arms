@@ -170,10 +170,10 @@ public final class BeamServer {
             if (got != 2) return hit;
             at = hit.getLocation().add(dir.scale(1e-3));
         }
-        // the way is clear after them: a miss; more on its way: it stops where it met the last, not flies on through the
-        // rest unlooked at
-        BlockHitResult more = PassableClip.clip(level, at, to, through);
-        return more.getType() == HitResult.Type.MISS || last == null ? more : last;
+        // more on its way: it stops where it met the last, not flies on through the rest unlooked at (a look only: what it
+        // would fly through past the last is not worn); the way clear after them: a miss, through what it flies through
+        if (last != null && PassableClip.clip(level, at, to).getType() != HitResult.Type.MISS) return last;
+        return PassableClip.clip(level, at, to, through);
     }
 
     // the most times a beam meets a block on its way (pierced, its shooter's own, broken and gone through; a fence's

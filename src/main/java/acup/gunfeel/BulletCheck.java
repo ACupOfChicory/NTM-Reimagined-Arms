@@ -57,6 +57,7 @@ public final class BulletCheck {
     static final String RULES = """
             path minecraft:spruce_fence hitbox
             path minecraft:stone through
+            break minecraft:hay_block hits 3 through
             """;
 
     private static final int Y = 100, Z = 8; // the blocks; bullets start 1.5 blocks before them and fly +z
@@ -201,6 +202,7 @@ public final class BulletCheck {
         float fewer = glassRow(BeamServer.STEPS), more = glassRow(BeamServer.STEPS + 1);
         check("beam: past " + BeamServer.STEPS + " blocks in a row it gets on", 30F, fewer);
         check("beam: " + (BeamServer.STEPS + 1) + " blocks on its way stop it, not let it through the rest unlooked at", -1F, more);
+        check("beam: a shot stopped after " + BeamServer.STEPS + " blocks does not wear what lies past them", true, wearPast());
         // ---- NTM's beam turrets and Tesla arcs (BeamTurrets): a golem 7 blocks off, a 3x3 wall 3 blocks before it.
         // Stone is "through" by this stand's rules: a bullet flies through it, NTM's look along the boxes does not
         float[] tauOpen = turret("hbm:turret_tauon", null), tauGlass = turret("hbm:turret_tauon", "minecraft:glass"),
@@ -776,6 +778,25 @@ public final class BulletCheck {
         float left = BeamServer.reach(level, null, from, from.add(0, 0, n + 3), 30F, null, false, p -> true);
         for (int i = 0; i < n; i++) level.removeBlock(at.south(i), false);
         return left;
+    }
+
+    // the shot (blocks worn) along a lane of STEPS glass blocks of its shooter's own, then air, a hay block (bullets fly
+    // through it and wear it, RULES) and one more glass: it stops at the last of its STEPS, and the hay past them is left
+    // unworn (a look that starts in the hay's cell would not count it)
+    private static boolean wearPast() {
+        BlockPos at = new BlockPos(2 + 4 * (lane % 16), Y + 4 * (lane / 16), Z);
+        lane++;
+        int n = BeamServer.STEPS;
+        for (int i = 0; i < n; i++) level.setBlock(at.south(i), state("minecraft:glass"), Block.UPDATE_CLIENTS);
+        level.setBlock(at.south(n + 1), state("minecraft:hay_block"), Block.UPDATE_CLIENTS);
+        level.setBlock(at.south(n + 2), state("minecraft:glass"), Block.UPDATE_CLIENTS);
+        Object wear = BulletServer.wearNow();
+        net.minecraft.world.phys.Vec3 from = new net.minecraft.world.phys.Vec3(at.getX() + .5, at.getY() + .5, at.getZ() - 1.5);
+        float left = BeamServer.reach(level, null, from, from.add(0, 0, n + 5), 30F, null, true, p -> true);
+        boolean unworn = wear.equals(BulletServer.wearNow());
+        BulletServer.wearBack(wear);
+        for (int i = 0; i < n + 3; i++) level.removeBlock(at.south(i), false);
+        return left == -1F && unworn;
     }
 
     // a golem with glass right behind it at the beam's height, two beams of 6 at it (two would break glass): the glass

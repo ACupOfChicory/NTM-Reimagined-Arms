@@ -1,5 +1,18 @@
 # Changelog
 
+## X584.83
+
+- NTM Decentralized Edition gets X584: a beam stopped after meeting blocks 64
+  times no longer wears the blocks past where it stopped.
+
+## X584
+
+- `beamRules`: a beam (a gun's, a turret's or a Tesla arc) stopped after
+  meeting blocks 64 times no longer wears the blocks bullets fly through
+  ("through") that lie past where it stopped. This came with X582, and only
+  where the server's rules have bullets wear such blocks (the built-in rules
+  wear none of them).
+
 ## X583.82
 
 - NTM Decentralized Edition gets X583: the server turns a kept pose of NTM's
