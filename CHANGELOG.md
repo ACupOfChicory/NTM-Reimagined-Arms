@@ -1,5 +1,13 @@
 # Changelog
 
+## X555.197
+
+- On 1.12.2, a kept pose of NTM's hunter chopper and plastic bag now turns by
+  the heading they were drawn at, not by their body. The game does not send a
+  mob's body to the server, and a mob that stands keeps it up to 50 degrees
+  off its heading. Since X555.196, such a chopper's model was then turned too
+  far: up to about 2.5 blocks off where it was drawn.
+
 ## X555.196
 
 - As in 26.2 X478, on 1.12.2: bullets now hit NTM's hunter chopper and plastic

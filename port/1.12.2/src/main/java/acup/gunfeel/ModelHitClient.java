@@ -167,8 +167,9 @@ public final class ModelHitClient {
     // cubes; RenderPlasticBag: an OBJ through its VAO), which RenderLivingBase's bracket does not see: they are
     // bracketed at RenderManager.renderEntity's call of doRender (MixinRenderManager). The parts come as any model's
     // (MixinModelRenderer, MixinGroupHandle), from the GL matrix: the chopper's ×4 and its turn over X as drawn. The yaw
-    // the pose is taken at is the client's interpolated body, as RenderLivingBase's; how the renderer turns the mob
-    // from there is ModelHits.Turn. true: bracketed, endOther must follow
+    // the pose is taken at is what the renderer turns them by, their interpolated yRot (ModelHits.Turn: YAW, YAW_BACK),
+    // not the body: the client's body is not sent, a mob that stands keeps it up to 50 degrees off its yRot
+    // (EntityLivingBase.updateDistance). true: bracketed, endOther must follow
     public static boolean beginOther(Entity entity, net.minecraft.client.renderer.entity.Render<?> render, double x, double y, double z, float partial) {
         if (render instanceof net.minecraft.client.renderer.entity.RenderLivingBase || !(entity instanceof EntityLivingBase)) return false;
         if (!enabled || !acup.gunfeel.compat.Feature.MODEL_HITBOXES.on()) return false;
@@ -177,7 +178,7 @@ public final class ModelHitClient {
         EntityLivingBase e = (EntityLivingBase) entity;
         begin(e, OTHER_MODELS.get(render.getClass()).model(render), x, y, z);
         if (target != e) return false;
-        yaw(e.prevRenderYawOffset + MathHelper.wrapDegrees(e.renderYawOffset - e.prevRenderYawOffset) * partial);
+        yaw(e.prevRotationYaw + MathHelper.wrapDegrees(e.rotationYaw - e.prevRotationYaw) * partial);
         inModel(true);
         return true;
     }

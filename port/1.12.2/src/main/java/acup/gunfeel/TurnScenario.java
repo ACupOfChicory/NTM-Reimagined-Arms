@@ -27,7 +27,10 @@ import net.minecraft.world.World;
 // both sides; the bag drifts), and the chopper fires at what is near (the bag dies of any hurt): one at a time, held on
 // the server at the end of each world tick (before the tracker sends them) at their place with no motion and the yRot
 // the stand wants, and on the client at the start of each frame. The chopper's rotors spin as it is drawn: they are
-// left out of the comparison (written down apart). run/forge/turn.txt; the game quits.
+// left out of the comparison (written down apart). The client's body is not sent: a mob that stands keeps it there up
+// to 50 degrees off its yRot (EntityLivingBase.updateDistance). The stand holds the client's body 45 off the yRot
+// (LAG) to see that the pose is taken and turned by what the renderer turns the mob by, not by that body.
+// run/forge/turn.txt; the game quits.
 final class TurnScenario {
     private TurnScenario() {
     }
@@ -61,6 +64,8 @@ final class TurnScenario {
             new Mob("bag", w -> new com.hbm.entity.mob.EntityPlasticBag(w), 1, 1.2, 4)};
     private static volatile Mob current;
     private static volatile float wantYaw = -90F;
+    // the client's body held off the yRot the pose is first taken at
+    private static final float LAG = 45F;
     private static boolean registered;
 
     static void step(Minecraft mc, int t) {
@@ -149,6 +154,7 @@ final class TurnScenario {
             Entity c = client();
             if (c == null) return;
             c.rotationYaw = c.prevRotationYaw = wantYaw;
+            if (c instanceof EntityLiving) ((EntityLiving) c).renderYawOffset = ((EntityLiving) c).prevRenderYawOffset = -90F + LAG;
         }
     }
 

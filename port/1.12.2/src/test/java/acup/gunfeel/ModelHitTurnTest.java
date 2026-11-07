@@ -2,7 +2,8 @@ package acup.gunfeel;
 
 // port: copy of 26.2 src/test/java/acup/gunfeel/ModelHitTurnTest.java at 646faaa (ModelHits.Turn, X478). NTM CE
 // draws the chopper, the bag, the worm, the drone and the UFO by a plain Render; the port takes the chopper's and the
-// bag's pose (ModelHitClient.beginOther), the others' turns are tested as 26.2's all the same.
+// bag's pose (ModelHitClient.beginOther), the others' turns are tested as 26.2's all the same. The port takes a YAW
+// or YAW_BACK pose at the drawn yRot and turns it by yRot alone (ModelHits.Turn): one case differs from 26.2's.
 
 import static org.junit.jupiter.api.Assertions.*;
 import acup.gunfeel.phys.Vec3; // port: the port's Vec3
@@ -62,8 +63,14 @@ class ModelHitTurnTest {
         // hanging in place: the body stays at 90, yRot 90 to 130; the model turned by +40, the body rule says 0
         assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 90, 130, 100, 90, 90, 90, 70), 1e-6);
         assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, true, 90, 130, 100, 90, 90, 90, 70), 1e-6);
-        // yRot stood 20 degrees off the body when the pose came in (drawn at body 90): yRot then 110, now 130
-        assertEquals(Math.toRadians(20), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 90, 130, 100, 90, 90, 110, 70), 1e-6);
+        // port: the pose is drawn at yRot 90 (its yaw), the server's yRot was 110 when it came in, now 130: on the
+        // server by the drawn yRot (+40), on the client by its own yRot then (+20). 26.2 reads the yaw as the client's
+        // body and gives +20 on the server
+        assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 90, 130, 100, 90, 90, 110, 70), 1e-6);
+        assertEquals(Math.toRadians(20), ModelHits.turnAngle(ModelHits.Turn.YAW, true, 90, 130, 100, 90, 90, 110, 70), 1e-6);
+        // the client's body 45 off the yRot the pose was drawn at (a mob that stands): the body plays no part
+        assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 45, 130, 100, 90, 45, 90, 70), 1e-6);
+        assertEquals(Math.toRadians(-40), ModelHits.turnAngle(ModelHits.Turn.YAW_BACK, false, 45, 130, 100, 90, 45, 90, 70), 1e-6);
         // the stand: yRot +40, body -30
         assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 60, 130, 100, 90, 90, 90, 70), 1e-6);
         // flying, yRot on its body: the body rule, drawn at 239.5 on the client

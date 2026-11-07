@@ -487,7 +487,12 @@ public final class ModelHits {
     // head sets yRot from its motion every tick). The FBI drone is drawn at a fixed angle of its id, the UFO spins 5
     // degrees a tick, whatever their body does. port: NTM CE 2.6.1.0 turns them the same (RenderHunterChopper: X 180,
     // then Y yRot - 90; RenderPlasticBag: Y yRot + 90). The port takes the pose of the chopper and the bag only
-    // (ModelHitClient.beginOther); the worm, the drone and the UFO have none, their turns stay unused
+    // (ModelHitClient.beginOther); the worm, the drone and the UFO have none, their turns stay unused.
+    // port, unlike 26.2 (c4's 1.7.10 the same): a YAW or YAW_BACK pose is taken at the yRot it was drawn at, not at the
+    // client's body (which the server does not know: a mob that stands keeps it up to 50 degrees off its yRot, and
+    // 26.2's "body + how far yRot stood off it on this side" then turns the pose by that much more; the turn stand:
+    // 2.6 blocks off for the chopper with the client's body 45 off). It turns by yRot alone: on the server by its yRot
+    // now less the drawn one, on the client by its yRot now less its yRot when the pose came in (as BODY's anchor)
     enum Turn { BODY, YAW, YAW_BACK, WORM, FIXED, SPIN }
     private static final ClassValue<Turn> TURNS=new ClassValue<Turn>() {
         @Override protected Turn computeValue(Class<?> type) { return turn(type); }
@@ -524,8 +529,8 @@ public final class ModelHits {
     }
     static double turnAngle(Turn turn, boolean client, float body, float yRotNow, long now, float yaw, float bodyYaw, float yRot, long tick) {
         switch(turn) {
-            case YAW: return yawTurn(client, body, yRotNow, yaw, bodyYaw, yRot);
-            case YAW_BACK: return -yawTurn(client, body, yRotNow, yaw, bodyYaw, yRot);
+            case YAW: return yawTurn(client, yRotNow, yaw, yRot);
+            case YAW_BACK: return -yawTurn(client, yRotNow, yaw, yRot);
             // the worm's bodies on the client and the server go each their own way: by yRot alone
             case WORM: return -Math.toRadians(MathHelper.wrapDegrees(yRotNow - yRot));
             case FIXED: return 0;
@@ -534,11 +539,9 @@ public final class ModelHits {
         }
     }
 
-    // The pose carries the client's body, not its yRot: the yRot it was drawn at is taken as that body plus how far yRot
-    // stood off the body when the pose came in. A mob with its yRot on its body (moving) turns as by the body rule; on
-    // the client this comes to yRot now less yRot then.
-    private static double yawTurn(boolean client, float body, float yRotNow, float yaw, float bodyYaw, float yRot) {
-        return turnAngle(client, body, yaw, bodyYaw) + Math.toRadians(MathHelper.wrapDegrees((yRotNow - body) - (yRot - bodyYaw)));
+    // port: the pose's yaw is the yRot it was drawn at (ModelHitClient.beginOther); yRot: this side's when it came in
+    private static double yawTurn(boolean client, float yRotNow, float yaw, float yRot) {
+        return turnAngle(client, yRotNow, yaw, yRot);
     }
 
     static double turnAngle(boolean client, float currentYaw, float capturedYaw, float anchorYaw) {
