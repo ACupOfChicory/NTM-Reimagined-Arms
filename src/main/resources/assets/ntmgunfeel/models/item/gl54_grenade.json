@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "ntmgunfeel:item/gl54_grenade_base",
+    "layer1": "ntmgunfeel:item/gl54_grenade_mask"
+  }
+}

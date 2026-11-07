@@ -19,8 +19,10 @@ public final class Gl54Client {
     }
 
     public static void init(IEventBus modBus) {
-        modBus.addListener(RegisterColorHandlersEvent.ItemTintSources.class,
-                e -> e.register(Identifier.fromNamespaceAndPath("ntmgunfeel", "mag_tint"), MagTint.MAP_CODEC));
+        modBus.addListener(RegisterColorHandlersEvent.ItemTintSources.class, e -> {
+            e.register(Identifier.fromNamespaceAndPath("ntmgunfeel", "mag_tint"), MagTint.MAP_CODEC);
+            e.register(Identifier.fromNamespaceAndPath("ntmgunfeel", "grenade_tint"), GrenadeTint.MAP_CODEC);
+        });
         modBus.addListener(AddClientReloadListenersEvent.class, e -> {
             e.addListener(ID, (ResourceManagerReloadListener) manager -> setup());
             e.addDependency(ClientRegistry.GUN_CLIENT_SETUP_ID, ID);

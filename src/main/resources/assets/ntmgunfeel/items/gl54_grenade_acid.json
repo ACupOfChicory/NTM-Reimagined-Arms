@@ -1,0 +1,16 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "ntmgunfeel:item/gl54_grenade",
+    "tints": [
+      {
+        "type": "minecraft:constant",
+        "value": 16777215
+      },
+      {
+        "type": "ntmgunfeel:grenade_tint",
+        "kind": "acid"
+      }
+    ]
+  }
+}

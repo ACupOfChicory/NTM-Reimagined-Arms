@@ -21,6 +21,8 @@ public final class Gl54Items {
     public static RegistryHandle<ItemGunBaseNT> GUN;
     // the magazine with its grenades (stack 1) and the empty one (stack 16): the ammunition of the GL-54
     public static RegistryHandle<Item> MAG, MAG_EMPTY;
+    // the grenades, one item per kind (stack 64), by the kind's key
+    public static final java.util.Map<String, RegistryHandle<Item>> GRENADES = new java.util.LinkedHashMap<>();
     // the grenades of a magazine; on the gun what it holds (without the swap animation: a shot does not draw it again)
     public static RegistryHandle<DataComponentType<MagContents>> MAG_CONTENTS;
     public static RegistryHandle<DataComponentType<GunMag>> GUN_MAG;
@@ -36,6 +38,10 @@ public final class Gl54Items {
                 DataComponentType.<GunMag>builder().persistent(GunMag.CODEC).networkSynchronized(GunMag.STREAM_CODEC).ignoreSwapAnimation().build());
         MAG = NeoForgeRegistrar.registerItem(NAMESPACE + ":gl54_mag", props -> new MagItem(props, false), () -> new Item.Properties().stacksTo(1));
         MAG_EMPTY = NeoForgeRegistrar.registerItem(NAMESPACE + ":gl54_mag_empty", props -> new MagItem(props, true), () -> new Item.Properties().stacksTo(16));
+        for (GrenadeKind k : GrenadeKind.values()) {
+            GRENADES.put(k.key, NeoForgeRegistrar.registerItem(NAMESPACE + ":gl54_grenade_" + k.key,
+                    props -> new GrenadeItem(props, k.key), () -> new Item.Properties().stacksTo(64)));
+        }
         GUN = NeoForgeRegistrar.registerItem(NAMESPACE + ":gun_gl54",
                 props -> new ItemGunBaseNT(ItemGunBaseNT.WeaponQuality.A_SIDE, props, Gl54Gun.config()), Item.Properties::new);
         // the gun and the magazines in NTM's weapons tab: the empty one, a full one of each kind and, for trying, a mixed one
@@ -44,6 +50,7 @@ public final class Gl54Items {
             if (!e.getTabKey().equals(weapons)) return;
             e.accept(GUN.get());
             e.accept(new ItemStack(MAG_EMPTY.get()));
+            for (var g : GRENADES.values()) e.accept(new ItemStack(g.get()));
             for (GrenadeKind k : GrenadeKind.values()) e.accept(magazine(MagContents.filled(k.key, MagContents.CAPACITY)));
             e.accept(magazine(new MagContents(GrenadeKind.SAMPLE_MIX)));
         });

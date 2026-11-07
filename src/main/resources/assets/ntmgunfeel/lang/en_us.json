@@ -59,5 +59,6 @@
   "ntmgunfeel.gl54.low_ammo": "LOW AMMO",
   "ntmgunfeel.gl54.mag_title": "20 mm magazine",
   "message.ntmgunfeel.gl54_mag": "Gave a magazine: %s",
-  "message.ntmgunfeel.gl54_mag_bad": "Unknown kind: %s"
+  "message.ntmgunfeel.gl54_mag_bad": "Unknown kind: %s",
+  "item.ntmgunfeel.gl54_grenade": "20 mm grenade (%s)"
 }
