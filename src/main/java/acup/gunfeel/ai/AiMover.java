@@ -62,8 +62,13 @@ public final class AiMover {
 
     /** go to within radius blocks of a cell (a BlockPos long); the same goal again changes nothing */
     public void goTo(long cell, double radius, double speed) {
+        boolean other = speed != this.speed;
         this.speed = speed;
-        if (cell == goal && radius == this.radius) return;
+        if (cell == goal && radius == this.radius) {
+            // the same way at another pace (a run slowed to a walk to fire): the walk under way takes it
+            if (other && walking != null) mob.getNavigation().setSpeedModifier(modifier());
+            return;
+        }
         goal = cell;
         this.radius = radius;
         tries = 0;
@@ -150,6 +155,11 @@ public final class AiMover {
      */
     public boolean runs() {
         return goal != Long.MIN_VALUE && speed * slow > AiSoldier.WALK + 1e-6 && !arrived() && !failed();
+    }
+
+    /** its mind sends it to a goal faster than a walk, whatever its legs make of it now (lying, it crawls) */
+    public boolean wantsRun() {
+        return goal != Long.MIN_VALUE && speed > AiSoldier.WALK + 1e-6 && !arrived() && !failed();
     }
 
     /** the goal could not be reached after a few tries */

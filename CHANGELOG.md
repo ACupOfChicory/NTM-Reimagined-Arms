@@ -1,6 +1,6 @@
 # Changelog
 
-## X707
+## X709
 
 - Mob AI, new: mobs that fight as a player does, with NTM's guns. `/armsai
   spawn fbi|dummy [count] [gun]` (operators) brings NTM's FBI agents or test
@@ -14,30 +14,41 @@
   before.
 - Mob AI: what an AI mob notices. It sees only what is in front of it, within
   its sight, and not through walls, leaves or thick smoke (glass, bars and
-  fences hide nothing), and it takes a moment to notice someone, longer far off
-  or at the edge of its view. It hears shots, blasts and steps nearby, and
-  knows where a hit came from, but only roughly. It neither sees nor hears a
-  player in creative or spectator mode (`/armsai spawn` given in those modes
-  says so).
-- Mob AI: how an AI mob fights. One that sees you gets into cover from you (a
-  spot your eyes do not reach, run to by a way that keeps out of your sight
-  where it can), steps out to its side for a burst and back in; over low cover
-  it fires standing. It reloads in cover. Its cover seen into (you went round
-  it), a hit from where it does not look, or its way to cover blocked sends it
-  to other cover. A shot it only heard sends it into cover it can look out of,
-  and it looks out the way the shot came from every few seconds. It walks as
-  you do: walking, it keeps its gun on you and steps sideways or back; running,
-  it faces where it runs and holds fire. Out of sight, you are not followed: it
-  waits watching where you were last seen, then searches round that place,
-  slowly.
-- Mob AI: AI mobs lie down on the terms a player does (`prone`). Behind low
-  cover they go down between bursts and to reload, and get up to fire; in the
-  open with you over 30 blocks off they fire lying; pinned down by shots flying
-  past (three within a second) with no cover, they lie. Never closer than 10
-  blocks. Lying, they are a crawling player's size, crawl at a third of the
-  speed and get the crawling spread (`spreadCrawl`). They keep still for each
-  burst and crawl between bursts, as a shot while crawling is not let go
-  (`proneCrawlNoFire`).
+  fences hide nothing; sandbags and other blocks that stop bullets hide what
+  is behind them), and it takes a moment to notice someone, longer far off or
+  at the edge of its view. It hears shots, blasts and steps nearby, and knows
+  where a hit came from, but only roughly; a shot that flies close past it is
+  taken as one at it. The same noise from the same place, heard again and
+  again, soon means nothing to it. It neither sees nor hears a player in
+  creative or spectator mode, nor hears their shots land (`/armsai spawn`
+  given in those modes says so).
+- Mob AI: how an AI mob fights. One that meets you near, or sees you looking at
+  it, first answers with a burst where it stands. Then it gets into cover from
+  you (a spot your eyes do not reach, at the distance its gun is best at,
+  closer with a shotgun, run to by a way that keeps out of your sight where it
+  can; with you near it walks there firing), and steps out to one of its
+  cover's sides for a burst and back in, from another place each time where it
+  can; over low cover it fires standing. It never fires into its own cover. It
+  reloads in cover. It changes cover as a matter of course: when you see into
+  it, often when shot at, now and then after looking out from one place a few
+  times, and when a better place turns up. It keeps a few blocks from the cover
+  of its own side and does not take their places to shoot from. A shot it only
+  heard sends it into cover it can look out of; it looks out the way the shot
+  came from once and, seeing no one, creeps there to see. In a fight it picks
+  cover from everyone it knows of, not only the one it fights, and a place to
+  shoot from only where it sees you and a bullet gets through. It walks as you
+  do: walking, it keeps its gun on you and steps sideways or back; running, it
+  faces where it runs and holds fire. Out of sight after it has looked for you,
+  it goes after you within a few seconds, to where you were last seen, then
+  searches round that place.
+- Mob AI: AI mobs lie down on the terms a player does (`prone`), only to fire
+  lying or for a long reload, and stay down three seconds at least (two if they
+  must run). In the open with you over 30 blocks off they fire lying; pinned
+  down by shots flying past (three within a second) with no cover, they lie;
+  behind low cover they fire standing. Never closer than 10 blocks. Lying, they
+  are a crawling player's size, crawl at a third of the speed and get the
+  crawling spread (`spreadCrawl`). They keep still for each burst and crawl
+  between bursts, as a shot while crawling is not let go (`proneCrawlNoFire`).
 - Mob AI: AI mobs aim as a person does, and never miss on purpose. They act on
   where they saw you a moment ago, lead you by the way they saw you move,
   correct their aim every few ticks, each correction a little off, and pull the

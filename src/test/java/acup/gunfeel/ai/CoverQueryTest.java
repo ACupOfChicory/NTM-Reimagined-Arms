@@ -50,6 +50,10 @@ class CoverQueryTest {
         assertTrue(VoxelRay.clear(rays(g), NORTH.x, NORTH.y, NORTH.z, BlockPos.getX(peek) + 0.5, 1.6, BlockPos.getZ(peek) + 0.5, Voxel.SIGHT));
         int bx = BlockPos.getX(best.cell());
         assertTrue(bx == 10 || bx == 13, "at an end of the wall: " + bx);
+        // a step out and two: more than one place to look out from, each seeing the threat
+        assertTrue(best.peeks().length >= 2, "places to look out from: " + best.peeks().length);
+        for (long k : best.peeks())
+            assertTrue(VoxelRay.clear(rays(g), NORTH.x, NORTH.y, NORTH.z, BlockPos.getX(k) + 0.5, 1.6, BlockPos.getZ(k) + 0.5, Voxel.SIGHT));
     }
 
     @Test
@@ -65,6 +69,26 @@ class CoverQueryTest {
     }
 
     @Test
+    void apartFromAFriendsCoverAndNotOutOfItsPeek() {
+        PathSearchTest.Grid g = yard();
+        CoverQuery.Params p = new CoverQuery.Params();
+        // a friend behind the wall's west end, stepping out west of it
+        long friend = BlockPos.asLong(10, 0, 11), friendPeek = BlockPos.asLong(9, 0, 11);
+        p.friendCovers = new long[] {friend};
+        p.friendPeeks = new long[] {friendPeek};
+        List<CoverQuery.Spot> spots = CoverQuery.find(g, rays(g), SELF, List.of(NORTH), p, k -> k == friend, 6);
+        assertFalse(spots.isEmpty());
+        for (CoverQuery.Spot s : spots) {
+            double dx = BlockPos.getX(s.cell()) - 10, dz = BlockPos.getZ(s.cell()) - 11;
+            assertTrue(dx * dx + dz * dz >= CoverQuery.APART * CoverQuery.APART, "by the friend's cover: " + BlockPos.of(s.cell()));
+            assertTrue(s.peek() != friendPeek, "out of the friend's peek");
+        }
+        // the other end of the wall is still taken, with its own peek
+        assertEquals(13, BlockPos.getX(spots.get(0).cell()));
+        assertTrue(spots.get(0).hasPeek());
+    }
+
+    @Test
     void hiddenFromEveryThreatOrNothing() {
         PathSearchTest.Grid g = yard();
         List<CoverQuery.Spot> spots = CoverQuery.find(g, rays(g), SELF, List.of(NORTH, SOUTH), new CoverQuery.Params(), k -> false, 6);
@@ -73,6 +97,26 @@ class CoverQueryTest {
             assertFalse(VoxelRay.clear(rays(g), SOUTH.x, SOUTH.y, SOUTH.z, x + 0.5, s.height() == 2 ? 1.6 : 0.5, z + 0.5, Voxel.SIGHT));
         }
         assertTrue(spots.stream().noneMatch(s -> BlockPos.getZ(s.cell()) == 11), "the wall hides nothing from the south");
+    }
+
+    @Test
+    void inAFightTheOtherThreatsCostRatherThanRuleOut() {
+        PathSearchTest.Grid g = yard();
+        CoverQuery.Params p = new CoverQuery.Params();
+        p.othersSoft = true;
+        p.rayBudget = 48;
+        List<CoverQuery.Spot> spots = CoverQuery.find(g, rays(g), SELF, List.of(NORTH, SOUTH), p, k -> false, 6);
+        assertFalse(spots.isEmpty(), "cover from the one it fights is still to be had");
+        // hidden from the one it fights, every one
+        for (CoverQuery.Spot s : spots) {
+            int x = BlockPos.getX(s.cell()), z = BlockPos.getZ(s.cell());
+            assertFalse(VoxelRay.clear(rays(g), NORTH.x, NORTH.y, NORTH.z, x + 0.5, s.height() == 2 ? 1.6 : 0.5, z + 0.5, Voxel.SIGHT));
+        }
+        // the same spots weighed against the north alone score more: the south sees them
+        List<CoverQuery.Spot> alone = CoverQuery.find(g, rays(g), SELF, List.of(NORTH), p, k -> false, 6);
+        CoverQuery.Spot both = spots.get(0);
+        CoverQuery.Spot one = alone.stream().filter(s -> s.cell() == both.cell()).findFirst().orElseThrow();
+        assertTrue(one.score() > both.score(), "seen by the second threat costs: " + one.score() + " vs " + both.score());
     }
 
     @Test

@@ -45,6 +45,12 @@ public final class AiGunner {
     public int pulls;
     /** ticks in a row it would have shot but another AI mob was in the line; ticks of that in all (the stands) */
     public int blockedTicks, holds;
+    /** ticks it held fire with a block that stops bullets just past its gun (its own cover), and such holds (the stands) */
+    public int coverTicks, coverHolds;
+    /** a block that stops bullets this near along the line of fire is its own cover, not the target's: no shot */
+    static final double MUZZLE_CLEAR = 2.5;
+    /** the line of fire starts this far under its eyes (NTM fires from the eyes, a gun's own offset off them) */
+    static final double MUZZLE_DROP = 0.1;
     /** shots it let go, and shots that kicked its view (the stands) */
     public int shots, kicks;
     /**
@@ -52,6 +58,9 @@ public final class AiGunner {
      * was down crawling (its burst cut), and shots let go lying
      */
     public int crawlPulls, crawlHeldTicks, shotsLying;
+    /** the ticks its last reload took, from the start to ready again (0 before its first) */
+    public int lastReload;
+    private long reloadFrom = -1;
     /** a gap between shots, ticks, after which a new burst starts (its climb grows again from the first shot) */
     static final int BURST_GAP = 10;
     // the burst: shots so far, the tick of the last, where its sideways wander is
@@ -140,12 +149,56 @@ public final class AiGunner {
         return 16;
     }
 
+    /** the distance it would rather fight at with no gun to go by, blocks */
+    static final double FIGHT_AT = 20;
+
+    /**
+     * The distance its gun is best at, blocks: where its shot strays about half a block (a body's half width) from
+     * NTM's spread unaimed (the gun's, the round's, the hip's), 8 to 40; a shotgun's pellets 12 at most; a heavy single
+     * shot that fires slowly (a marksman's rifle) 32 at least.
+     */
+    @SuppressWarnings("rawtypes")
+    public double fightAt() {
+        ItemStack stack = mob.getMainHandItem();
+        ItemGunBaseNT gun = gun();
+        IMagazine mag = gun == null ? null : magazine(gun, stack);
+        try {
+            if (mag == null || !(mag.getType(stack, null) instanceof BulletConfig b)) return FIGHT_AT;
+            com.hbm.items.weapon.sedna.Receiver rec = gun.getConfig(stack, 0).getReceivers(stack)[0];
+            double spread = rec.getInnateSpread(stack) + b.spread * rec.getAmmoSpread(stack) + rec.getHipfireSpread(stack);
+            double at = spread <= 1e-4 ? 40 : Math.max(8, Math.min(40, 0.5 / spread));
+            if (b.projectilesMax > 1) return Math.min(at, 12);
+            if (rec.getBaseDamage(stack) * b.damageMult >= 25 && rec.getDelayAfterFire(stack) >= 20) return Math.max(at, 32);
+            return at;
+        } catch (RuntimeException e) {
+            return FIGHT_AT;
+        }
+    }
+
     @SuppressWarnings("rawtypes")
     public int capacity() {
         ItemStack stack = mob.getMainHandItem();
         ItemGunBaseNT gun = gun();
         IMagazine mag = gun == null ? null : magazine(gun, stack);
         return mag == null ? 0 : mag.getCapacity(stack);
+    }
+
+    /**
+     * How long a reload of its gun takes, ticks: as long as its last one took, else NTM's start and end of a reload
+     * (and the cocking an empty gun adds); a gun that loads round by round takes longer, and its first reload shows it.
+     */
+    public int reloadTicks() {
+        if (lastReload > 0) return lastReload;
+        ItemStack stack = mob.getMainHandItem();
+        ItemGunBaseNT gun = gun();
+        if (gun == null) return 0;
+        try {
+            com.hbm.items.weapon.sedna.Receiver rec = gun.getConfig(stack, 0).getReceivers(stack)[0];
+            int t = rec.getReloadBeginDuration(stack) + rec.getReloadEndDuration(stack);
+            return loaded() <= 0 ? t + rec.getReloadCockOnEmptyPre(stack) + rec.getReloadCockOnEmptyPost(stack) : t;
+        } catch (RuntimeException e) {
+            return 0;
+        }
     }
 
     public boolean reloading() {
@@ -196,6 +249,12 @@ public final class AiGunner {
             reloadHeld = false;
         }
         if (state == ItemGunBaseNT.GunState.RELOADING) wantReload = false;
+        long time = level.getGameTime();
+        if (state == ItemGunBaseNT.GunState.RELOADING && reloadFrom < 0) reloadFrom = time;
+        else if (reloadFrom >= 0 && state == ItemGunBaseNT.GunState.IDLE) {
+            lastReload = (int) (time - reloadFrom);
+            reloadFrom = -1;
+        }
         // lying, it fires only still: a pull while it crawls would be thrown away (ProneFire), so it waits until it has
         // stopped (its legs keep still meanwhile, steady)
         boolean shoot = wantFire && aim != null && aligned && loaded != 0 && !runs && !acup.gunfeel.ProneFire.blocks(mob, stack);
@@ -205,6 +264,12 @@ public final class AiGunner {
             blockedTicks++;
             holds++;
         } else if (shoot || !wantFire) blockedTicks = 0;
+        if (shoot && ownCover(level)) {
+            // its own cover in front of the gun (it sees over it, the bullet would not go over): it holds fire
+            shoot = false;
+            coverTicks++;
+            coverHolds++;
+        } else if (shoot || !wantFire) coverTicks = 0;
         if (shoot) {
             if (!held) {
                 if (acup.gunfeel.ProneFire.blocks(mob, stack)) crawlPulls++;
@@ -243,6 +308,15 @@ public final class AiGunner {
         shots += n;
         if (n > 0 && acup.gunfeel.Prone.lying(mob)) shotsLying += n;
         if (n > 0 && exact == null) recoil(n, level.getGameTime(), stack);
+    }
+
+    /** a block that stops bullets within MUZZLE_CLEAR of the gun along the line to the aim */
+    private boolean ownCover(ServerLevel level) {
+        Vec3 from = mob.getEyePosition().add(0, -MUZZLE_DROP, 0);
+        double len = from.distanceTo(aim);
+        if (len < 1e-3) return false;
+        double t = VoxelRay.blocked(AiBots.voxels(level), from.x, from.y, from.z, aim.x, aim.y, aim.z, Voxel.PROTECT_MASK);
+        return t >= 0 && t * len < MUZZLE_CLEAR;
     }
 
     /**

@@ -36,16 +36,36 @@ public final class CoverQuery {
         public int rayBudget = 32;
         /** the cell it is going to already, kept unless something is clearly better (against dithering) */
         public long current = Long.MIN_VALUE;
+        /** the cover cells and peeks its own side holds: no cover within APART of theirs, no peek of theirs */
+        public long[] friendCovers = {}, friendPeeks = {};
+        /** what a place to shoot from adds (more in a fight) */
+        public double peekBonus = PEEK;
+        /** threats after the first: each that sees its head costs SEEN_BY, instead of ruling the cell out */
+        public boolean othersSoft;
     }
 
-    public record Spot(long cell, double score, int height, boolean hard, long peek) {
+    /** peek: the best place beside it to shoot from (the cell itself over low cover); peeks: every such place, up to MAX_PEEKS */
+    public record Spot(long cell, double score, int height, boolean hard, long peek, long[] peeks) {
+        public Spot(long cell, double score, int height, boolean hard, long peek) {
+            this(cell, score, height, hard, peek, peek == Long.MIN_VALUE ? new long[0] : new long[] {peek});
+        }
+
         public boolean hasPeek() {
             return peek != Long.MIN_VALUE;
         }
     }
 
+    /** places beside high cover to shoot from, at most */
+    static final int MAX_PEEKS = 3;
+
     // the weights
-    static final double HIGH = 4, LOW = 1.5, HARD = 2, PER_BLOCK = 0.25, OFF_RANGE = 0.05, CURRENT = 2, PEEK = 1.5;
+    static final double HIGH = 4, LOW = 1.5, HARD = 2, PER_BLOCK = 0.25, OFF_RANGE = 0.05, CURRENT = 2, PEEK = 1.5, PEEK_FIGHT = 4;
+    /** no nearer a friend's cover than this, blocks across */
+    static final double APART = 3;
+    /** a threat besides the one it fights that sees its head there (othersSoft) */
+    static final double SEEN_BY = 2.5;
+    /** a place to shoot from: the target seen from it and no bullet-stopping block between (glass that stops nothing aside) */
+    static final int SHOOT_MASK = Voxel.SIGHT | Voxel.PROTECT_MASK;
     /** the most kept to be tried with rays */
     static final int KEEP = 48;
 
@@ -91,6 +111,7 @@ public final class CoverQuery {
                         if (p.hardOnly && !hard) continue;
                         long key = BlockPos.asLong(x, y, z);
                         if (held.test(key) && key != p.current) continue;
+                        if (key != p.current && nearAny(p.friendCovers, x, z, APART)) continue;
                         double s = (height == 2 ? HIGH : LOW) + (hard ? HARD : 0) - Math.sqrt(d2) * PER_BLOCK
                                 - Math.abs(td - p.fightAt) * OFF_RANGE + (key == p.current ? CURRENT : 0);
                         int worst = -1;
@@ -119,36 +140,77 @@ public final class CoverQuery {
             // hidden from every threat: its head behind high cover, its legs behind low cover (it shoots over that)
             double look = height == 2 ? 1.6 : 0.5;
             boolean hidden = true;
-            for (Vec3 t : threats) {
+            double seenBy = 0;
+            for (int ti = 0; ti < threats.size(); ti++) {
+                Vec3 t = threats.get(ti);
                 if (budget-- <= 0) break;
                 rays++;
                 if (VoxelRay.clear(voxels, t.x, t.y, t.z, x + 0.5, y + look, z + 0.5, Voxel.SIGHT)) {
-                    hidden = false;
-                    break;
+                    // the one it fights must not see it; the others, in a fight, cost it
+                    if (ti > 0 && p.othersSoft) seenBy += SEEN_BY;
+                    else {
+                        hidden = false;
+                        break;
+                    }
                 }
             }
             if (!hidden || budget < 0) continue;
             boolean hard = (info[i] & 4) != 0;
             long peek = Long.MIN_VALUE;
+            long[] peeks = new long[MAX_PEEKS];
+            int np = 0;
             if (height == 2) {
-                // the two cells beside it across the line to the threat
-                for (int side : new int[] {(dir + 2) & 7, (dir + 6) & 7}) {
-                    int px = x + Dirs.DX[side], pz = z + Dirs.DZ[side];
-                    SectionCells pc = map.cells(SectionPos.asLong(px >> 4, y >> 4, pz >> 4));
-                    if (pc == null || pc.find(px & 15, y & 15, pz & 15) < 0 || budget-- <= 0) continue;
-                    rays++;
-                    if (VoxelRay.clear(voxels, main.x, main.y, main.z, px + 0.5, y + 1.6, pz + 0.5, Voxel.SIGHT)) {
-                        peek = BlockPos.asLong(px, y, pz);
-                        break;
+                // the cells beside it across the line to the threat, one aside each way, then two aside
+                int[] sides = {(dir + 2) & 7, (dir + 6) & 7};
+                // the cell one aside sees the threat (a friend's peek or not), per side
+                boolean[] sees = new boolean[2];
+                for (int far = 1; far <= 2 && np < MAX_PEEKS; far++)
+                    for (int w = 0; w < 2; w++) {
+                        if (np >= MAX_PEEKS) break;
+                        // two aside only where one aside sees round the cover already (a step further out)
+                        if (far == 2 && !sees[w]) continue;
+                        int side = sides[w], px = x + Dirs.DX[side] * far, pz = z + Dirs.DZ[side] * far;
+                        if (!open(map, px, y, pz) || budget-- <= 0) continue;
+                        rays++;
+                        if (!VoxelRay.clear(voxels, main.x, main.y, main.z, px + 0.5, y + 1.6, pz + 0.5, SHOOT_MASK)) continue;
+                        if (far == 1) sees[w] = true;
+                        long pk = BlockPos.asLong(px, y, pz);
+                        if (!contains(p.friendPeeks, pk) && !contains(p.friendCovers, pk) && !held.test(pk)) peeks[np++] = pk;
                     }
+                if (np > 0) peek = peeks[0];
+            } else if (budget-- > 0) {
+                // low cover: it shoots over it, standing where it is, if the target is seen over it and nothing
+                // there stops a bullet (else the cell hides it, and that is all)
+                rays++;
+                if (VoxelRay.clear(voxels, main.x, main.y, main.z, x + 0.5, y + 1.6, z + 0.5, SHOOT_MASK)) {
+                    peek = key;
+                    peeks[np++] = key;
                 }
-            } else peek = key; // low cover: it shoots over it, standing where it is
+            }
             if (p.needPeek && peek == Long.MIN_VALUE) continue;
-            out.add(new Spot(key, score[i] + (peek != Long.MIN_VALUE ? PEEK : 0), height, hard, peek));
+            out.add(new Spot(key, score[i] + (peek != Long.MIN_VALUE ? p.peekBonus : 0) - seenBy, height, hard, peek, java.util.Arrays.copyOf(peeks, np)));
         }
         out.sort((a, b) -> Double.compare(b.score(), a.score()));
         nanos += System.nanoTime() - t0;
         return out;
+    }
+
+    private static boolean open(CellSource map, int x, int y, int z) {
+        SectionCells c = map.cells(SectionPos.asLong(x >> 4, y >> 4, z >> 4));
+        return c != null && c.find(x & 15, y & 15, z & 15) >= 0;
+    }
+
+    private static boolean nearAny(long[] cells, int x, int z, double d) {
+        for (long c : cells) {
+            double dx = BlockPos.getX(c) - x, dz = BlockPos.getZ(c) - z;
+            if (dx * dx + dz * dz < d * d) return true;
+        }
+        return false;
+    }
+
+    private static boolean contains(long[] cells, long k) {
+        for (long c : cells) if (c == k) return true;
+        return false;
     }
 
     static String info() {

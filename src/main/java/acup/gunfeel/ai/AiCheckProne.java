@@ -39,7 +39,7 @@ final class AiCheckProne {
     private AiBot bot;
     private int lyingTicks, pullsLying, pullsStanding, lastPulls;
     /** ticks it lay moving faster than the crawling rule's speed, ticks the target was hit while it lay; all scenes */
-    private int crawlTicks, hitsLying, crawlPullsAll, crawlHeldAll;
+    private int crawlTicks, hitsLying, crawlPullsAll, crawlHeldAll, shortLiesAll;
     private Vec3 crawlFrom;
     private double fastestLying;
     private float lyingHeight = -1, lyingEye = -1, spreadLying = -1, spreadStanding = -1;
@@ -179,14 +179,16 @@ final class AiCheckProne {
         if (bot != null) {
             crawlPullsAll += bot.gunner.crawlPulls;
             crawlHeldAll += bot.gunner.crawlHeldTicks;
+            shortLiesAll += p.shortLies;
+            what += String.format(Locale.ROOT, "; up early %d times, last reload %d ticks", p.shortLies, bot.gunner.lastReload);
             what += String.format(Locale.ROOT, "; lying: %d shots, target hit %d ticks, crawled %d ticks (at most %.2f blocks a second); pulls crawling %d, trigger held crawling %d ticks",
                     bot.gunner.shotsLying, hitsLying, crawlTicks, fastestLying, bot.gunner.crawlPulls, bot.gunner.crawlHeldTicks);
         }
         switch (phase) {
             case LOW -> {
                 check.out("     behind a wall one high, the target 19 blocks off: " + what);
-                check.check("behind low cover it goes down between bursts and to reload, and fires only standing",
-                        p != null && p.downs > 0 && pullsStanding > 0 && pullsLying == 0);
+                check.check("behind low cover it fires only standing, and goes down for no short reload (under " + AiProne.LONG_RELOAD + " ticks)",
+                        p != null && pullsStanding > 0 && pullsLying == 0 && (bot.gunner.lastReload >= AiProne.LONG_RELOAD || p.downs == 0));
                 check.out(String.format(Locale.ROOT, "     lying it is %.1f high, eyes at %.1f (a crawling player: 0.6, 0.4)", lyingHeight, lyingEye));
                 check.check("lying it is a crawling player's size", Math.abs(lyingHeight - 0.6F) < 1e-3 && Math.abs(lyingEye - 0.4F) < 1e-3);
             }
@@ -209,6 +211,8 @@ final class AiCheckProne {
                 check.out(String.format(Locale.ROOT, "     in the open, the target 41 blocks off, sent 5 blocks off lying (crawled %.1f, legs %s): %s", moved, bot.mover.state(), what));
                 check.check("lying, it crawls between bursts and fires only still: it crawls, fires lying and hits",
                         p != null && crawlTicks > 0 && moved > 3 && bot.gunner.shotsLying > 0 && hitsLying > 0);
+                check.check("once down it stays down " + AiProne.MIN_LIE / 20 + " s at least unless sent running, in any scene (" + shortLiesAll + " times up early)",
+                        shortLiesAll == 0);
                 check.check("no pull of its trigger while crawling, in any scene (" + crawlPullsAll + " pulls, held " + crawlHeldAll + " ticks)",
                         crawlPullsAll == 0 && crawlHeldAll == 0);
             }
