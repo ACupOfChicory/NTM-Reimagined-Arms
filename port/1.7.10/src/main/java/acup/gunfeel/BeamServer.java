@@ -155,10 +155,12 @@ public final class BeamServer {
         Set<Long> paid = new HashSet<>();
         float damage = path.damage;
         Vec3 at = from;
+        BlockRay.Hit last = null;
         // a bullet goes on next tick, a beam has one go: more blocks on its way than a bullet's tick
-        for (int i = 0; i < 64; i++) {
+        for (int i = 0; i < STEPS; i++) {
             BlockRay.Hit hit = PassableClip.clip(level, at, to, through);
             if (hit == null) return null;
+            last = hit;
             double dx = to.xCoord - at.xCoord, dy = to.yCoord - at.yCoord, dz = to.zCoord - at.zCoord;
             double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
             if (len < 1e-6) return hit;
@@ -196,8 +198,15 @@ public final class BeamServer {
             if (got != 2) return hit;
             at = Vec3.createVectorHelper(hit.ax + dx * 1e-3, hit.ay + dy * 1e-3, hit.az + dz * 1e-3);
         }
-        return null;
+        // the way is clear after them: a miss; more on its way: it stops where it met the last, not flies on through the
+        // rest unlooked at
+        BlockRay.Hit more = PassableClip.clip(level, at, to, through);
+        return more == null || last == null ? more : last;
     }
+
+    // the most times a beam meets a block on its way (pierced, its shooter's own, broken and gone through; a fence's
+    // post and rail are two)
+    static final int STEPS = 64;
 
     private static double dist2(double x, double y, double z, Vec3 v) {
         double dx = x - v.xCoord, dy = y - v.yCoord, dz = z - v.zCoord;
