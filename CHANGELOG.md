@@ -1,5 +1,14 @@
 # Changelog
 
+## X543.175
+
+- As in X555: a tracer that ricochets off a block in water flies on at the
+  speed and damage the bullet has where it bounced, as the server's bullet
+  does, not at those it had when that tick began.
+- The help for `ntmRenderFixes` in `config/ntm-gunfeel.properties` now says
+  that the setting does nothing on 1.7.10, where NTM already draws its
+  reinforced laminate see-through.
+
 ## X543.172
 
 - `npcShots`: an old bullet of NTM's (the hunter chopper's, the cyber crab's,
