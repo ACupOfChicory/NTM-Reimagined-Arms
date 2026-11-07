@@ -1,5 +1,12 @@
 # Changelog
 
+## X714
+
+- Mob AI: AI mobs aim at what they see of you: your head over a wall, your
+  legs under a beam, the middle of what shows over low cover; with all of you
+  in sight, your chest. Before, they aimed at your chest whatever hid it, and
+  shot the wall in front of you.
+
 ## X713
 
 - Mob AI, new: mobs that fight as a player does, with NTM's guns. `/armsai

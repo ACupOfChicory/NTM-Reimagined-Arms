@@ -38,6 +38,10 @@ public final class AiSoldier implements AiBrain {
     static final double RUN = 1.3, WALK = 1.0, CREEP = 0.7;
     /** how near a peek's middle it must stand: a peek a block aside from cover sees round it only about there */
     static final double PEEK_AT = 0.1;
+    /** where it aims, as parts of the target's height (chest, head, legs), and half a part's height */
+    static final double CHEST = 0.6, HEAD = 0.9, LEGS = 0.2, PART_HALF = 0.14;
+    /** whether it aims at the part it sees (off only for the stands' "before": the chest always) */
+    static boolean aimParts = true;
 
     Mode mode = Mode.IDLE;
     long modeSince;
@@ -203,11 +207,16 @@ public final class AiSoldier implements AiBrain {
         // in sight: its eye follows the target tick by tick (looks for it come every few ticks; once they lose it,
         // this is not run and it aims where it went)
         Entity seen = level.getEntity(c.id);
-        Vec3 chest = seen != null ? seen.position().add(0, seen.getBbHeight() * 0.6, 0) : new Vec3(c.x, c.y + 1.1, c.z);
+        Vec3 chest = seen != null ? seen.position().add(0, seen.getBbHeight() * CHEST, 0) : new Vec3(c.x, c.y + 1.1, c.z);
         watch = chest;
         AiGunner g = bot.gunner;
-        if (seen != null) g.track(c.id, chest, tick);
-        else g.aim(chest);
+        if (seen != null) {
+            // at what it saw of them at its last look: the whole body at the chest; else the middle of what shows
+            // (head and chest over a low wall, chest and legs under a beam), or the one part; less than the whole
+            // body, the trigger waits for that alone
+            int parts = c.parts == 0 || !aimParts ? Senses.WHOLE : c.parts;
+            g.track(c.id, chest, (aimAt(parts) - CHEST) * seen.getBbHeight(), parts == Senses.WHOLE ? AiAim.HALF_HEIGHT : PART_HALF * seen.getBbHeight(), tick);
+        } else g.aim(chest);
         // a new fight (nobody in sight a while): a target near, or one that looks at it, it answers with a burst where
         // it stands before it goes for cover, as a soldier answers a contact; far off and unseen, cover first
         AiSkill skill = AiSkill.current();
@@ -442,6 +451,17 @@ public final class AiSoldier implements AiBrain {
             else if (o.state == TargetMemory.State.LOST) out.add(new Vec3(o.lostX, o.lostY + 1.5, o.lostZ));
         }
         return out;
+    }
+
+    /** where on a target it aims, as a part of its height, for the parts of it seen (Senses bits) */
+    static double aimAt(int parts) {
+        return switch (parts) {
+            case Senses.HEAD | Senses.CHEST -> (HEAD + CHEST) / 2;
+            case Senses.CHEST | Senses.LEGS -> (CHEST + LEGS) / 2;
+            case Senses.HEAD, Senses.HEAD | Senses.LEGS -> HEAD;
+            case Senses.LEGS -> LEGS;
+            default -> CHEST;
+        };
     }
 
     /** a reload of its gun is one to lie down for */

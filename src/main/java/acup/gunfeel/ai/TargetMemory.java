@@ -26,6 +26,8 @@ public final class TargetMemory {
     public static final class Contact {
         public final int id;
         public State state = State.GLIMPSED;
+        /** the parts of it the last look saw (Senses.HEAD, CHEST, LEGS; 0: none yet) */
+        public int parts;
         /** where it was last seen (feet), and its motion then, blocks per tick */
         public double x, y, z, vx, vz;
         public long seenTick = Long.MIN_VALUE;
