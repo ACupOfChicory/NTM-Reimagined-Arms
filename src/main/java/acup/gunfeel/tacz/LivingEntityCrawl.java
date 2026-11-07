@@ -3,7 +3,9 @@
 // https://github.com/MCModderAnchor/TACZ, revision 19f14c8, src/main/java/com/tacz/guns/entity/shooter/LivingEntityCrawl.java.
 // Changes: the package; the crawl flag of TaCZ's ShooterDataHolder is a field here; TaCZ's settings are the mod's
 // server keys prone and proneWithoutGun (Prone); a TaCZ gun is any NTM gun, and a creature that is not a player
-// (TaCZ's data.currentGunItem) does not lie down; the protected field jumping is read through an accessor.
+// (TaCZ's data.currentGunItem) does not lie down; the protected field jumping is read through an accessor (on the
+// server it is never set for a player, so there only the client's own check gets a jumping player up); shooter() is
+// added.
 package acup.gunfeel.tacz;
 
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
@@ -21,6 +23,10 @@ public class LivingEntityCrawl {
 
     public LivingEntityCrawl(LivingEntity shooter) {
         this.shooter = shooter;
+    }
+
+    public LivingEntity shooter() {
+        return shooter;
     }
 
     public boolean isCrawling() {

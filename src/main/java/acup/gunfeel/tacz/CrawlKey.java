@@ -2,10 +2,10 @@
 // Copied from TaCZ (Timeless and Classics Zero), MCModderAnchor/TACZ and contributors, GPL-3.0.
 // https://github.com/MCModderAnchor/TACZ, revision 19f14c8, src/main/java/com/tacz/guns/client/input/CrawlKey.java,
 // with isInGame from util/InputExtraCheck.java. Changes: the package; the key's name and category are the mod's;
-// TaCZ's event subscription is a listener the mod adds (Prone.registerClient), and the press comes from the same tick
+// TaCZ's event subscription is a listener the mod adds (ProneClient.registerClient), and the press comes from the same tick
 // (TaCZ's GunInputHandler); the Controllable gamepad parts are left out; TaCZ's settings are the mod's (proneHold,
 // prone, proneWithoutGun); a TaCZ gun is any NTM gun; TaCZ's crawl on its player (IClientPlayerGunOperator) is the
-// mod's LocalPlayerCrawl kept in Prone; the key is X, not C (NTM's jetpack switch is on C).
+// mod's LocalPlayerCrawl kept in ProneClient; the key is X, not C (NTM's jetpack switch is on C).
 package acup.gunfeel.tacz;
 
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
@@ -14,6 +14,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import acup.gunfeel.AmmoLockKey;
 import acup.gunfeel.Config;
 import acup.gunfeel.Prone;
+import acup.gunfeel.ProneClient;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -41,7 +42,7 @@ public class CrawlKey {
 
     private static boolean onCrawlInput(boolean isPress) {
         LocalPlayer player = Minecraft.getInstance().player;
-        LocalPlayerCrawl operator = Prone.local(player);
+        LocalPlayerCrawl operator = ProneClient.local(player);
         if (operator == null) {
             return false;
         }

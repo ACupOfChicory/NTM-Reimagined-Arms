@@ -40,6 +40,7 @@ import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 //  - NTM's spread through Spread (base 0.025) and the recoil multipliers standing, sneaking, lying, lying crawling
 //    along; the camera's kick of three single shots each (the view's highest point after the shot);
 //  - the crawl speed against walking, the view held 45 up and 30 down (the mouse moved far);
+//  - the server getting the player up gets the client up (ProneStandPayload);
 //  - no lying in the air, with an empty hand by proneWithoutGun, nothing with prone = false;
 //  - a mannequin (a player's model and box) standing and lying 6 blocks off, shot with no spread at its chest's height
 //    and at a lying body's: what hits, by its health.
@@ -186,7 +187,7 @@ final class ProneStand {
 
     private static String clientPose() {
         var p = Minecraft.getInstance().player;
-        return p.getPose().name() + " " + f(p.getBbHeight()) + " " + f(p.getEyeHeight()) + " " + Prone.localLying();
+        return p.getPose().name() + " " + f(p.getBbHeight()) + " " + f(p.getEyeHeight()) + " " + ProneClient.localLying();
     }
 
     private static float spreadNow() {
@@ -320,7 +321,7 @@ final class ProneStand {
                     float walk = CAMERA.get("шаг стоя");
                     GunFeel.LOGGER.info("[prone] шаг стоя {}, ползком {}", f(walk), f(crawl));
                     check(crawl > 0.2 * walk && crawl < 0.45 * walk, "ползком медленнее: " + f(crawl) + " против " + f(walk) + " блока за тик");
-                    check(Prone.localLying() && mc.player.getPose() == Pose.SWIMMING, "ползком не встаёт: " + clientPose());
+                    check(ProneClient.localLying() && mc.player.getPose() == Pose.SWIMMING, "ползком не встаёт: " + clientPose());
                     until = now() + 5;
                     step = 15;
                 }
@@ -360,6 +361,29 @@ final class ProneStand {
                     String c = clientPose(), s = serverPose();
                     check(c.equals("STANDING 1.800 1.620 false") && s.equals("STANDING 1.800 1.620 false"), "встал: клиент " + c + ", сервер " + s);
                     report();
+                    until = now() + 12; // past the 10 ticks between lying downs
+                    step = 19;
+                }
+                case 19 -> { // the server alone gets the player up (its pose taken): the client gets up too (ProneStandPayload)
+                    if (now() < until) return;
+                    key();
+                    until = now() + 10;
+                    step = 20;
+                }
+                case 20 -> {
+                    if (now() < until) return;
+                    if (!ProneClient.localLying()) {
+                        fail("не лёг второй раз: " + clientPose());
+                        return;
+                    }
+                    server.submit(() -> player(server).setForcedPose(null)).join();
+                    until = now() + 10;
+                    step = 21;
+                }
+                case 21 -> {
+                    if (now() < until) return;
+                    String c = clientPose(), s = serverPose();
+                    check(c.equals("STANDING 1.800 1.620 false") && s.equals("STANDING 1.800 1.620 false"), "сервер поднял, клиент встал тоже: клиент " + c + ", сервер " + s);
                     // in the air: no lying
                     back(server);
                     server.submit(() -> player(server).teleportTo(EX, O.getY() + 6, EZ)).join();
@@ -374,7 +398,7 @@ final class ProneStand {
                 }
                 case 31 -> {
                     if (now() < until) return;
-                    check(!Prone.localLying() && mc.player.getPose() != Pose.SWIMMING, "в воздухе не ложится: " + clientPose());
+                    check(!ProneClient.localLying() && mc.player.getPose() != Pose.SWIMMING, "в воздухе не ложится: " + clientPose());
                     until = now() + 40;
                     step = 32;
                 }
@@ -392,7 +416,7 @@ final class ProneStand {
                 }
                 case 34 -> {
                     if (now() < until) return;
-                    check(Prone.localLying() && serverPose().endsWith("true"), "без пушки ложится: " + clientPose() + " / " + serverPose());
+                    check(ProneClient.localLying() && serverPose().endsWith("true"), "без пушки ложится: " + clientPose() + " / " + serverPose());
                     key();
                     keys("proneWithoutGun", "false");
                     until = now() + 30;
@@ -406,7 +430,7 @@ final class ProneStand {
                 }
                 case 36 -> {
                     if (now() < until) return;
-                    check(!Prone.localLying() && serverPose().startsWith("STANDING"), "без пушки при proneWithoutGun = false не ложится: " + clientPose());
+                    check(!ProneClient.localLying() && serverPose().startsWith("STANDING"), "без пушки при proneWithoutGun = false не ложится: " + clientPose());
                     server.submit(() -> gun(player(server))).join();
                     keys("prone", "false");
                     until = now() + 30;
@@ -420,7 +444,7 @@ final class ProneStand {
                 }
                 case 38 -> {
                     if (now() < until) return;
-                    check(!Prone.localLying() && serverPose().startsWith("STANDING"), "при prone = false не ложится: " + clientPose());
+                    check(!ProneClient.localLying() && serverPose().startsWith("STANDING"), "при prone = false не ложится: " + clientPose());
                     // the shots at the mannequin: no spread at all
                     keys("spreadStand", "0", "spreadSpeed", "0", "spreadAir", "0", "spreadBloom", "0");
                     until = now() + 30;

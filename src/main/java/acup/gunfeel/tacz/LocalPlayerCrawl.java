@@ -3,12 +3,14 @@
 // https://github.com/MCModderAnchor/TACZ, revision 19f14c8, src/main/java/com/tacz/guns/client/gameplay/LocalPlayerCrawl.java.
 // Changes: the package; TaCZ's settings (SyncConfig.ENABLE_CRAWL, ENABLE_CRAWL_WITHOUT_GUN) are the mod's server keys
 // prone and proneWithoutGun (Prone); a TaCZ gun (IGun, isCanCrawl, the gun index) is any NTM gun; the protected
-// field jumping is read through an accessor; the packet is the mod's ProneCrawlPayload.
+// field jumping is read through an accessor; the packet is the mod's ProneCrawlPayload; serverStood() is added (the
+// server's ProneStandPayload: up without telling the server back).
 package acup.gunfeel.tacz;
 
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
 
 import acup.gunfeel.Prone;
+import acup.gunfeel.ProneClient;
 import acup.gunfeel.ProneCrawlPayload;
 import acup.gunfeel.mixin.mc.LivingEntityAccess;
 import net.minecraft.client.player.LocalPlayer;
@@ -58,6 +60,16 @@ public class LocalPlayerCrawl {
         }
     }
 
+    public void serverStood() {
+        if (!isCrawling) {
+            return;
+        }
+        isCrawling = false;
+        if (player.getForcedPose() == Pose.SWIMMING) {
+            player.setForcedPose(null);
+        }
+    }
+
     public boolean isCrawling() {
         return isCrawling;
     }
@@ -88,6 +100,6 @@ public class LocalPlayerCrawl {
         if (crawling || player.getForcedPose() == Pose.SWIMMING) {
             player.setForcedPose(crawling ? Pose.SWIMMING : null);
         }
-        Prone.send(new ProneCrawlPayload(crawling));
+        ProneClient.send(new ProneCrawlPayload(crawling));
     }
 }

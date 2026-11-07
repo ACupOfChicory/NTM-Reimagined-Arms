@@ -15,7 +15,7 @@ public final class CrawlPitch {
     }
 
     public static double getCrawlPitch(LocalPlayer player, double pitch) {
-        boolean crawling = Prone.localLying() && Prone.lying(player);
+        boolean crawling = acup.gunfeel.ProneClient.localLying() && Prone.lying(player);
         if (!crawling) {
             return pitch;
         }
