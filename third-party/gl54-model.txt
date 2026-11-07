@@ -23,6 +23,9 @@ Changes:
 - Added iron sights, a ribbed rubber buttpad and a laser rangefinder.
 - Split into separate parts and added a firing animation (bolt carrier, charging
   handle, ejected case).
+- Converted by a script (tools/gl54_export.py) into NTM's model format: a mesh of separate
+  parts, a flat-colour palette texture (one colour per material) and the firing animation
+  as keyframes; the ejected case is only a set of numbers for the spent case's flight.
 
 The GL-54 name and shape follow the TX-54 of the TerraGov Marine Corps (TGMC)
 Space Station 13 server as a reference only. No TGMC artwork is included, and no claim is made to
