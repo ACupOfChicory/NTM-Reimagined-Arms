@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.ai.AiThoughts.Why;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -47,6 +48,10 @@ public final class AiSoldier implements AiBrain {
     static final int BLOCKED_MOVE = 20;
     /** lying down: never closer than NEVER blocks to the target; in the open from FAR on (or pinned down) */
     static final double PRONE_NEVER = 10, PRONE_FAR = 30;
+    /** what it decided last and why (the debug view, the journal): set where it decides, it changes nothing */
+    Why why = Why.IDLE;
+    /** what the decision journal said of it last */
+    private final AiThoughts thoughts = new AiThoughts();
 
     private void mode(Mode m, long tick) {
         if (mode != m) {
@@ -83,6 +88,16 @@ public final class AiSoldier implements AiBrain {
 
     @Override
     public void tick(AiBot bot, long tick) {
+        decide(bot, tick);
+        if (AiThoughts.on()) thoughts.note(this, bot, tick);
+    }
+
+    /** a decision of a moment, for the journal (what: a constant, so nothing is built with the journal off) */
+    private void event(AiBot bot, long tick, String what) {
+        if (AiThoughts.on()) thoughts.event(bot, tick, what);
+    }
+
+    private void decide(AiBot bot, long tick) {
         if (!(bot.mob.level() instanceof ServerLevel level)) return;
         if (tick - unreachableSince > 400) {
             unreachable.clear();
@@ -92,6 +107,7 @@ public final class AiSoldier implements AiBrain {
             unreachable.add(spot.cell());
             drop(bot);
             nextQuery = tick;
+            event(bot, tick, "cover out of reach: gives it up");
         }
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         TargetMemory.Noise n = bot.memory.noise();
@@ -120,17 +136,20 @@ public final class AiSoldier implements AiBrain {
         float yaw = (float) (net.minecraft.util.Mth.atan2(n.z - bot.mob.getZ(), n.x - bot.mob.getX()) * net.minecraft.util.Mth.RAD_TO_DEG) - 90F;
         bot.mob.setYHeadRot(yaw);
         bot.mob.setYRot(yaw);
+        why = Why.HIT;
+        event(bot, tick, "hit from out of sight: turns there");
         if (spot != null) {
             long s = spot.cell();
             if (VoxelRay.clear(AiBots.voxels(level), from.x, from.y, from.z, BlockPos.getX(s) + 0.5, BlockPos.getY(s) + 1.6, BlockPos.getZ(s) + 0.5,
                     Voxel.SIGHT)) {
                 drop(bot);
                 relocations++;
+                event(bot, tick, "cover seen into from the hit: gives it up");
             }
         }
         if (spot == null) {
             nextQuery = tick + QUERY_EVERY;
-            takeCover(bot, level, TacticalMap.of(level), List.of(from));
+            if (takeCover(bot, level, TacticalMap.of(level), List.of(from))) why = Why.HIT_COVER;
         }
     }
 
@@ -158,11 +177,12 @@ public final class AiSoldier implements AiBrain {
                 drop(bot);
                 relocations++;
                 nextQuery = tick;
+                event(bot, tick, "cover seen into: gives it up");
             }
         }
         if (spot == null && tick >= nextQuery) {
             nextQuery = tick + QUERY_EVERY + bot.mob.getRandom().nextInt(10);
-            takeCover(bot, level, map, List.of(eye));
+            if (takeCover(bot, level, map, List.of(eye))) why = Why.SEEN_COVER;
         }
         if (spot == null) {
             // no cover to be had: fight where it stands (lying, far off or pinned down by shots flying past), a step
@@ -170,10 +190,12 @@ public final class AiSoldier implements AiBrain {
             mode(Mode.COVER, tick);
             bot.prone.watchShots(level, tick);
             if (dist >= PRONE_NEVER && (dist >= PRONE_FAR || bot.prone.pinned(tick))) bot.prone.want();
+            why = dist < PRONE_NEVER ? Why.NO_COVER : dist >= PRONE_FAR ? Why.NO_COVER_FAR : bot.prone.pinned(tick) ? Why.NO_COVER_PINNED : Why.NO_COVER;
             burst(bot, tick, true);
             if (g.blockedTicks > BLOCKED_MOVE) {
                 g.blockedTicks = 0;
                 sidestep(bot, level, chest);
+                event(bot, tick, "friend in the line: a step aside");
             }
             return;
         }
@@ -185,6 +207,7 @@ public final class AiSoldier implements AiBrain {
             drop(bot);
             shifts++;
             nextQuery = tick;
+            event(bot, tick, "friend in the line too long: other cover");
             return;
         }
         if (!bot.mover.arrived() && mode == Mode.TO_COVER) {
@@ -207,13 +230,18 @@ public final class AiSoldier implements AiBrain {
                 g.fire(bot.prone.upright(tick) && !reload && burst(bot, tick, false));
             } else g.fire(false);
             if (reload) g.reload();
+            // on its way in: the reason it is coming in stays
+            if (there) why = reload || g.reloading() ? (low ? Why.LOW_RELOAD : Why.RELOAD) : g.dry() ? Why.DRY : low ? Why.LOW_FIGHT
+                    : spot.hasPeek() ? Why.HIDE : Why.NO_PEEK;
             if (!low && there && !reload && !g.reloading() && tick >= hideUntil && spot.hasPeek() && g.loaded() != 0) {
                 bot.mover.goTo(spot.peek(), 0.35, WALK);
                 mode(Mode.PEEK, tick);
                 peekSince = tick;
                 burstUntil = 0;
+                why = Why.PEEK_BURST;
             }
         } else if (mode == Mode.PEEK) {
+            why = Why.PEEK_BURST;
             boolean there = bot.mover.arrived();
             boolean fired = there && burst(bot, tick, false);
             g.fire(fired);
@@ -223,6 +251,7 @@ public final class AiSoldier implements AiBrain {
                 bot.mover.goTo(spot.cell(), 0.35, WALK);
                 mode(Mode.COVER, tick);
                 hideUntil = tick + HIDE_MIN + bot.mob.getRandom().nextInt(HIDE_MAX - HIDE_MIN);
+                why = g.loaded() == 0 ? Why.BACK_EMPTY : done ? Why.BACK_DONE : Why.BACK_LONG;
             }
         }
     }
@@ -251,8 +280,10 @@ public final class AiSoldier implements AiBrain {
             boolean low = s.peek() == s.cell() || !s.hasPeek();
             // behind low cover it hides lying, and gets up to look
             if (low && bot.mover.arrived() && (tick < hideUntil || reload || g.reloading())) bot.prone.want();
+            why = reload || g.reloading() ? Why.RELOAD : low ? Why.LOW_HIDE : Why.LOST_HIDE;
             if (bot.mover.arrived() && tick >= hideUntil && !reload && !g.reloading()) {
                 if (low) {
+                    why = Why.LOW_LOOK;
                     if (bot.prone.upright(tick)) blindLost = c.lostTick;
                     return;
                 }
@@ -261,8 +292,10 @@ public final class AiSoldier implements AiBrain {
                 peekSince = tick;
                 peekThere = 0;
                 burstUntil = 0;
+                why = Why.PEEK_LOOK;
             }
         } else if (mode == Mode.PEEK) {
+            why = Why.PEEK_LOOK;
             boolean there = bot.mover.arrived();
             if (there && peekThere == 0) peekThere = tick;
             if (there && tick - peekThere > PEEK_BLIND || tick - peekSince > PEEK_BLIND + 60) {
@@ -270,6 +303,7 @@ public final class AiSoldier implements AiBrain {
                 blindLost = c.lostTick;
                 bot.mover.goTo(s.cell(), 0.35, WALK);
                 mode(Mode.COVER, tick);
+                why = Why.BACK_GONE;
             }
         }
     }
@@ -342,6 +376,7 @@ public final class AiSoldier implements AiBrain {
         if (spot != null && bot.mover.arrived() && bot.gunner.loaded() >= 0 && bot.gunner.loaded() < bot.gunner.capacity() && bot.gunner.ammo.any())
             bot.gunner.reload();
         mode(Mode.HOLD, tick);
+        why = spot != null && !bot.mover.arrived() ? Why.HOLD_RUN : bot.gunner.reloading() ? Why.HOLD_RELOAD : Why.HOLD;
     }
 
     /** slowly through the cells round where they were lost that it cannot see, nearest first */
@@ -350,6 +385,7 @@ public final class AiSoldier implements AiBrain {
             drop(bot);
             bot.mover.stop();
             searchCell = Long.MIN_VALUE;
+            why = Why.SEARCH;
         }
         mode(Mode.SEARCH, tick);
         bot.gunner.fire(false);
@@ -369,7 +405,8 @@ public final class AiSoldier implements AiBrain {
                 searchSpots++;
                 bot.mover.costs(PathSearch.Cost.NONE);
                 bot.mover.goTo(searchCell, 0.6, CREEP);
-            }
+                why = Why.SEARCH;
+            } else why = Why.SEARCH_NONE;
         }
         if (searchCell != Long.MIN_VALUE) {
             Vec3 at = new Vec3(BlockPos.getX(searchCell) + 0.5, BlockPos.getY(searchCell) + 1.1, BlockPos.getZ(searchCell) + 0.5);
@@ -388,11 +425,15 @@ public final class AiSoldier implements AiBrain {
         watch = at;
         bot.gunner.fire(false);
         bot.gunner.aim(at);
+        boolean took = false;
         if ((n.loud || n.hurt) && spot == null && tick >= nextQuery) {
             nextQuery = tick + QUERY_EVERY * 2;
-            takeCover(bot, level, TacticalMap.of(level), List.of(new Vec3(n.x, n.y + 1.5, n.z)));
+            took = takeCover(bot, level, TacticalMap.of(level), List.of(new Vec3(n.x, n.y + 1.5, n.z)));
         }
         if (mode != Mode.TO_COVER || bot.mover.arrived()) mode(Mode.ALERT, tick);
+        // on its way to cover still: the reason it went stays
+        if (took) why = n.hurt ? Why.HIT_COVER : Why.NOISE_COVER;
+        else if (mode == Mode.ALERT) why = n.hurt ? Why.ALERT_HIT : n.loud ? Why.ALERT_LOUD : Why.ALERT_SOUND;
     }
 
     private void idle(AiBot bot, long tick) {
@@ -404,11 +445,11 @@ public final class AiSoldier implements AiBrain {
             watch = null;
         }
         mode(Mode.IDLE, tick);
+        why = Why.IDLE;
     }
 
-    /** for the debug view */
+    /** for the debug view: what it does, whom it knows of and how, what it decided and why (AiThoughts), a line each */
     public String describe(AiBot bot) {
-        String ammo = bot.gunner.loaded() < 0 ? "" : " " + bot.gunner.loaded() + "/" + (bot.gunner.ammo.infinite() ? "inf" : bot.gunner.ammo.reserve());
-        return mode.name().toLowerCase(java.util.Locale.ROOT) + ammo;
+        return AiThoughts.describe(this, bot);
     }
 }

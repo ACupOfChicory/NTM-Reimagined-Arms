@@ -10,15 +10,15 @@ import net.minecraft.resources.Identifier;
 
 /**
  * The server to a player watching /armsai debug: what the AI mobs round them have in mind. Per mob: its entity id, a
- * line of text (what it does, its rounds), where it watches (NaN: nowhere), its cover cell and peek (Long.MIN_VALUE:
- * none) and the path it walks (BlockPos longs). No mobs: none to show.
+ * few lines of text ('\n' between: what it does, whom it knows of, what it decided and why), where it watches (NaN:
+ * nowhere), its cover cell and peek (Long.MIN_VALUE: none) and the path it walks (BlockPos longs). No mobs: none to show.
  */
 public record AiBotsPayload(List<Bot> bots) implements CustomPacketPayload {
     public static final Type<AiBotsPayload> TYPE = new Type<>(Identifier.fromNamespaceAndPath("ntmgunfeel", "ai_bots"));
     public static final StreamCodec<RegistryFriendlyByteBuf, AiBotsPayload> CODEC = CustomPacketPayload.codec(AiBotsPayload::write,
             AiBotsPayload::read);
     /** the most mobs, path cells a mob and characters of its text one payload carries */
-    public static final int LIMIT = 256, PATH = 64, TEXT = 64;
+    public static final int LIMIT = 256, PATH = 64, TEXT = 256;
 
     public record Bot(int entity, String text, double wx, double wy, double wz, long spot, long peek, long[] path) {
     }

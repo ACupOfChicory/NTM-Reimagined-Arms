@@ -19,7 +19,7 @@ class AiBotsPayloadTest {
         for (int i = 0; i < path.length; i++) path[i] = net.minecraft.core.BlockPos.asLong(i, 64, -i);
         var sent = new AiBotsPayload(List.of(
                 new AiBotsPayload.Bot(7, "cover 4/24", 1.5, 65.6, -3.5, net.minecraft.core.BlockPos.asLong(2, 64, 3), Long.MIN_VALUE, path),
-                new AiBotsPayload.Bot(9, "x".repeat(100), Double.NaN, Double.NaN, Double.NaN, Long.MIN_VALUE, Long.MIN_VALUE, new long[0])));
+                new AiBotsPayload.Bot(9, "x".repeat(AiBotsPayload.TEXT + 40), Double.NaN, Double.NaN, Double.NaN, Long.MIN_VALUE, Long.MIN_VALUE, new long[0])));
         var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
         AiBotsPayload.CODEC.encode(buf, sent);
         AiBotsPayload back = AiBotsPayload.CODEC.decode(buf);

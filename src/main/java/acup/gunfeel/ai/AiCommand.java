@@ -21,7 +21,10 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * The mob AI's operator command:
  * <pre>
- * /armsai debug [radius]   show (again: hide) the tactical map's cells around you, radius 16 blocks by default
+ * /armsai debug [radius]   show (again: hide) the tactical map's cells around you, radius 16 blocks by default, and
+ *                          what the AI mobs round you think; while anyone watches, their decisions go to the journal
+ * /armsai log on|off       the AI mobs' decision journal in logs/ntm-gunfeel-debug.log with no one watching too
+ *                          (AiThoughts); off by default
  * /armsai info             the map of this level: sections, builds, their time, block changes seen; the AI mobs and
  *                          what their looks cost
  * /armsai spawn fbi|dummy [count] [gun] [team &lt;name&gt;]   AI mobs round you (NTM's FBI agent or test dummy), 1 by
@@ -31,6 +34,9 @@ import net.minecraft.server.level.ServerPlayer;
  * </pre>
  */
 public final class AiCommand {
+    /** where the decision journal goes (DebugLog's file) */
+    static final String JOURNAL = "logs/ntm-gunfeel-debug.log";
+
     private AiCommand() {
     }
 
@@ -40,6 +46,8 @@ public final class AiCommand {
                 .then(Commands.argument("radius", IntegerArgumentType.integer(4, 48))
                         .executes(c -> debug(c, IntegerArgumentType.getInteger(c, "radius")))));
         root.then(Commands.literal("info").executes(AiCommand::info));
+        root.then(Commands.literal("log").then(Commands.literal("on").executes(c -> log(c, true)))
+                .then(Commands.literal("off").executes(c -> log(c, false))));
         for (AiSpawn.Kind kind : AiSpawn.Kind.values()) {
             String name = kind.name().toLowerCase(java.util.Locale.ROOT);
             // spawn <kind> [count] [gun] [team <name>]
@@ -62,7 +70,15 @@ public final class AiCommand {
     private static int debug(CommandContext<CommandSourceStack> c, int radius) throws CommandSyntaxException {
         ServerPlayer p = c.getSource().getPlayerOrException();
         boolean on = AiDebug.toggle(p, radius);
-        c.getSource().sendSuccess(() -> Component.literal(on ? "AI cells shown, radius " + radius : "AI cells hidden"), false);
+        c.getSource().sendSuccess(() -> Component.literal(on ? "AI cells shown, radius " + radius + "; AI decisions go to " + JOURNAL : "AI cells hidden"),
+                false);
+        return 1;
+    }
+
+    private static int log(CommandContext<CommandSourceStack> c, boolean on) {
+        AiThoughts.log = on;
+        c.getSource().sendSuccess(() -> Component.literal(on ? "AI decisions go to " + JOURNAL
+                : "AI decision journal off" + (AiDebug.watching() ? " (on while anyone watches /armsai debug)" : "")), true);
         return 1;
     }
 

@@ -87,6 +87,11 @@ public final class AiGunner {
         wantFire = on;
     }
 
+    /** whether its mind wants the trigger down now (the debug view) */
+    public boolean wantsFire() {
+        return wantFire;
+    }
+
     public void reload() {
         wantReload = true;
     }

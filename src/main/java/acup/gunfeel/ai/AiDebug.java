@@ -12,7 +12,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * /armsai debug: the players who watch the tactical map. Twice a second each gets the cells around them (the map
- * keeps building them while someone watches); the client draws them ({@code AiDebugClient}).
+ * keeps building them while someone watches) and the AI mobs' thoughts ({@link AiThoughts}); the client draws them
+ * ({@code AiDebugClient}). While anyone watches, the soldiers' decision journal runs too.
  */
 public final class AiDebug {
     private AiDebug() {
@@ -36,6 +37,11 @@ public final class AiDebug {
         WATCHERS.remove(player);
     }
 
+    /** someone watches */
+    static boolean watching() {
+        return !WATCHERS.isEmpty();
+    }
+
     public static void tick(ServerLevel level) {
         if (WATCHERS.isEmpty() || level.getGameTime() % 10 != 0) return;
         for (ServerPlayer p : level.players()) {
@@ -54,8 +60,7 @@ public final class AiDebug {
         for (AiBot b : AiBots.all(level)) {
             if (out.size() >= AiBotsPayload.LIMIT) break;
             if (b.mob.blockPosition().distManhattan(at) > radius * 2) continue;
-            String text = (b.active() ? (b.brain instanceof AiSoldier s ? s.describe(b) : "driven") : "asleep")
-                    + String.format(java.util.Locale.ROOT, " %.1f/%.0f hp", b.mob.getHealth(), b.mob.getMaxHealth());
+            String text = !b.active() ? "asleep  " + AiThoughts.hp(b.mob) : b.brain instanceof AiSoldier s ? s.describe(b) : "driven  " + AiThoughts.hp(b.mob);
             net.minecraft.world.phys.Vec3 w = b.brain instanceof AiSoldier s ? s.watch() : null;
             CoverQuery.Spot spot = b.brain instanceof AiSoldier s ? s.spot() : null;
             out.add(new AiBotsPayload.Bot(b.mob.getId(), text, w == null ? Double.NaN : w.x, w == null ? Double.NaN : w.y,

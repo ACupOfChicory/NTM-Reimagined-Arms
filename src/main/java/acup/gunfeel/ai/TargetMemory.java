@@ -29,8 +29,8 @@ public final class TargetMemory {
         /** where it was last seen (feet), and its motion then, blocks per tick */
         public double x, y, z, vx, vz;
         public long seenTick = Long.MIN_VALUE;
-        /** ticks in sight while being noticed */
-        int sightTicks;
+        /** ticks in sight while being noticed, and the ticks it needed at its last look (the debug view) */
+        int sightTicks, notice;
         boolean seenThisLook;
         /** where and when it went out of sight */
         public double lostX, lostY, lostZ;
@@ -108,6 +108,7 @@ public final class TargetMemory {
             contacts.add(c);
         }
         c.seenThisLook = true;
+        c.notice = c.state == State.GLIMPSED ? notice : notice / 2;
         if (c.state == State.GLIMPSED) {
             c.sightTicks += profile.period();
             if (c.sightTicks >= notice) c.state = State.VISIBLE;

@@ -12,15 +12,17 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Draws what /armsai debug says the AI mobs round the player have in mind: a line of text over each (what it does,
- * its rounds in the gun and besides), a yellow line from its eyes to where it watches, its path in blue, its cover
- * cell in green and its peek in cyan. Per-tick gizmos, with or without F3+B.
+ * Draws what /armsai debug says the AI mobs round the player have in mind: a few lines of text over each (what it does,
+ * with its rounds and health; whom it knows of and how; what it decided and why), a yellow line from its eyes to where
+ * it watches, its path in blue, its cover cell in green and its peek in cyan. Per-tick gizmos, with or without F3+B.
  */
 public final class AiBotsClient {
     private AiBotsClient() {
     }
 
     private static @Nullable AiBotsPayload bots;
+    /** the text's lines, top down: what it does, whom it knows of, what it decided */
+    private static final int[] COLOURS = {0xFFFFE080, 0xFFF0F0F0, 0xFF90D8FF};
 
     public static void receive(AiBotsPayload p) {
         bots = p.bots().isEmpty() ? null : p;
@@ -33,7 +35,10 @@ public final class AiBotsClient {
         for (AiBotsPayload.Bot b : p.bots()) {
             Entity e = mc.level.getEntity(b.entity());
             if (e != null) {
-                Gizmos.billboardTextOverMob(e, 0, b.text(), 0xFFFFE080, 0.6F);
+                // the game's lines over a mob count up from the lowest
+                String[] lines = b.text().split("\n");
+                for (int i = 0; i < lines.length; i++)
+                    Gizmos.billboardTextOverMob(e, lines.length - 1 - i, lines[i], COLOURS[Math.min(i, COLOURS.length - 1)], 0.6F);
                 if (!Double.isNaN(b.wx())) Gizmos.line(e.getEyePosition(), new Vec3(b.wx(), b.wy(), b.wz()), 0xC0F0D020, 2F);
             }
             long[] path = b.path();
