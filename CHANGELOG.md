@@ -1,6 +1,6 @@
 # Changelog
 
-## X705
+## X707
 
 - Mob AI, new: mobs that fight as a player does, with NTM's guns. `/armsai
   spawn fbi|dummy [count] [gun]` (operators) brings NTM's FBI agents or test
@@ -72,6 +72,13 @@
   after `/armsai log on`, every AI mob's decisions go to
   `logs/ntm-gunfeel-debug.log`. `/armsai info` tells how many AI mobs there are
   and what their work costs. Whoever an AI dummy kills dies by an "AI dummy".
+
+## X684
+
+- The grenade wheel's armour line shows what a GL-54 fragment grenade does
+  against armour: the armour-piercing airburst gets through it, the
+  airburst and the incendiary do nothing. HE, smoke and the gases still
+  show a dash.
 
 ## X683
 
