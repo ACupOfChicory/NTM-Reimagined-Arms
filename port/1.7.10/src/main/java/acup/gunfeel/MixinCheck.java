@@ -39,7 +39,7 @@ public final class MixinCheck {
             {"net.minecraft.client.model.ModelRenderer", "4"}, // 2 + MachineMesh compile 2
             {"net.minecraft.client.model.ModelBiped", "1"}, // MixinModelBipedPose (armArmor)
             {"net.minecraft.client.renderer.texture.TextureManager", "1"}, // MixinTextureBind (armArmor's stand)
-            {"net.minecraft.client.renderer.Tessellator", "1"}, // MixinTessellator
+            {"net.minecraft.client.renderer.Tessellator", "2"}, // MixinTessellator: draw, drop
             {"net.minecraftforge.client.model.obj.WavefrontObject", "8"}, // MixinForgeWavefrontObject 4 + ends 4
             {"net.minecraft.client.renderer.entity.RenderManager", "2"}, // the model box, the box at full brightness
             {"com.hbm.items.weapon.sedna.GunConfig", "6"}, // MixinG3Inspect 4 (gunfeel$release + 3), MixinGunConfigAnims 2

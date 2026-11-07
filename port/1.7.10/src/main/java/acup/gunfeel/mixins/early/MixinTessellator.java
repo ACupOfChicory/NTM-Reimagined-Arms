@@ -11,8 +11,9 @@ import net.minecraft.client.renderer.Tessellator;
 
 // Client: what a machine's renderer draws straight with the Tessellator, for the holes on it (MachineMesh). Only while
 // a machine is being read; otherwise nothing.
+// port: TessellatorDrop, for ArmLayers.
 @Mixin(Tessellator.class)
-public abstract class MixinTessellator {
+public abstract class MixinTessellator implements acup.gunfeel.TessellatorDrop {
     @Shadow
     private int[] rawBuffer;
     @Shadow
@@ -23,6 +24,18 @@ public abstract class MixinTessellator {
     private boolean hasTexture;
     @Shadow
     private boolean isDrawing;
+
+    @Shadow
+    private void reset() {
+    }
+
+    @Override
+    public boolean gunfeel$drop() {
+        if (!isDrawing) return false;
+        isDrawing = false;
+        reset();
+        return true;
+    }
 
     @Inject(method = "draw", at = @At("HEAD"))
     private void gunfeel$draw(CallbackInfoReturnable<Integer> ci) {

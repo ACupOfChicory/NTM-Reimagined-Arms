@@ -1,5 +1,13 @@
 # Changelog
 
+## X543.161
+
+- `armArmor`: a chestplate model that fails while it is drawn on the arm no
+  longer breaks the drawing after it: what it began drawing is dropped, a
+  display list it was building is closed, and the matrices and state it
+  pushed are taken off. Before, the game could crash on the next frame
+  ("Already tesselating!").
+
 ## X543.160
 
 - A round that meets water on the edge of its surface and a side now comes in

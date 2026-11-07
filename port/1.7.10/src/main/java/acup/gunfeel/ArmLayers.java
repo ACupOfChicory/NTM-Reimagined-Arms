@@ -228,7 +228,9 @@ public final class ArmLayers {
         Plane[] clips = {new Plane(GL11.GL_CLIP_PLANE0), new Plane(GL11.GL_CLIP_PLANE1)};
         // a model that throws between its own push and pop (NTM's suits push at the start of render) leaves a matrix
         // on the stack, one that pops more than it pushed takes the caller's: the depth is put back as it was
-        int depth = GL11.glGetInteger(GL11.GL_MODELVIEW_STACK_DEPTH);
+        int depth = GL11.glGetInteger(GL11.GL_MODELVIEW_STACK_DEPTH), projection = GL11.glGetInteger(GL11.GL_PROJECTION_STACK_DEPTH),
+                texture = GL11.glGetInteger(GL11.GL_TEXTURE_STACK_DEPTH), attrib = GL11.glGetInteger(GL11.GL_ATTRIB_STACK_DEPTH),
+                list = GL11.glGetInteger(GL11.GL_LIST_INDEX);
         GL11.glPushMatrix();
         try {
             parent.isChild = false;
@@ -245,7 +247,7 @@ public final class ArmLayers {
             planes(cut);
             gl.passState();
             float partial = Tracers.framePartial(Minecraft.getMinecraft());
-            layer(worn, chest.getItem().getClass(), () -> run(player, chest, partial, false));
+            if (!layer(worn, chest.getItem().getClass(), () -> run(player, chest, partial, false))) undo(list);
             if (TestLog.frames()) {
                 long t0 = System.nanoTime();
                 measure(player, chest, partial, m, right, shown);
@@ -261,6 +263,10 @@ public final class ArmLayers {
             parent.isRiding = riding;
             parent.aimedBow = bow;
             parent.onGround = swing;
+            // the other stacks a model may have pushed on and not popped (NTM's suits push at the start of render)
+            popTo(GL11.GL_TEXTURE, GL11.GL_TEXTURE_STACK_DEPTH, texture);
+            popTo(GL11.GL_PROJECTION, GL11.GL_PROJECTION_STACK_DEPTH, projection);
+            for (int i = 0; i < 16 && GL11.glGetInteger(GL11.GL_ATTRIB_STACK_DEPTH) > attrib; i++) GL11.glPopAttrib();
             GL11.glMatrixMode(GL11.GL_MODELVIEW);
             for (Plane c : clips) c.restore();
             // at most the stack's size (32 in GL's minimum, 64 here): a model that threw while it compiled its display list
@@ -270,6 +276,19 @@ public final class ArmLayers {
             for (int i = GL11.glGetInteger(GL11.GL_MODELVIEW_STACK_DEPTH); i < depth; i++) GL11.glPushMatrix();
             gl.restore();
         }
+    }
+
+    // a stack back to `depth` matrices (at most 64 pops), that stack current after
+    private static void popTo(int mode, int depthOf, int depth) {
+        GL11.glMatrixMode(mode);
+        for (int i = 0; i < 64 && GL11.glGetInteger(depthOf) > depth; i++) GL11.glPopMatrix();
+    }
+
+    // After a model that threw on the arm (layer false): a display list it was compiling (ModelRenderer.compileDisplayList)
+    // is ended, so the rest is run and not recorded, and what it began on the Tessellator is dropped (1.12.2 4d04c9e)
+    static void undo(int list) {
+        if (list == 0 && GL11.glGetInteger(GL11.GL_LIST_INDEX) != 0) GL11.glEndList();
+        if (net.minecraft.client.renderer.Tessellator.instance instanceof TessellatorDrop d) d.gunfeel$drop();
     }
 
     // RenderPlayer.shouldRenderPass's pass 1 without its event, and RendererLivingEntity.doRender's draw of it: the
@@ -593,6 +612,7 @@ public final class ArmLayers {
             run(player, chest, partial, true);
         } catch (Throwable t) {
             // counted in the pass itself (layer); the stand's run only measures
+            undo(0);
         } finally {
             Feedback.stop();
             n = GL11.glRenderMode(GL11.GL_RENDER);
