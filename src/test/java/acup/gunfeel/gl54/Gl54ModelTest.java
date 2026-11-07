@@ -109,11 +109,13 @@ class Gl54ModelTest {
         Gl54Casing c = Gl54Casing.get();
         assertTrue(c.present());
         assertEquals(2, c.tick(), "frame 7 of 60 per second is 0.1 s");
-        assertTrue(c.velSide() < 0, "thrown to the right (the .blend's -Y): " + c.velSide());
-        assertTrue(c.velHeight() > 0, "up a little");
-        assertTrue(Math.abs(c.velSide()) > Math.abs(c.velFront()));
-        // 0.96 m/s sideways is 0.048 blocks a tick
-        assertEquals(-0.048, c.velSide(), 0.002);
+        double[] v = c.launch();
+        assertTrue(v[2] < 0, "thrown to the right (the .blend's -Y): " + v[2]);
+        assertTrue(v[1] > 0, "up a little");
+        assertTrue(Math.abs(v[2]) > Math.abs(v[0]));
+        // the speed is one constant, Congo Lake's; the direction is the animation's
+        assertEquals(Math.hypot(0.12, 0.18), Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]), 1e-9);
+        assertEquals(c.velSide() / c.velHeight(), v[2] / v[1], 1e-6);
     }
 
     @Test

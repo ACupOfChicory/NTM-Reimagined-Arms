@@ -57,7 +57,8 @@ public final class Gl54Orchestra {
         if (spent == null) return;
         boolean aiming = ItemGunBaseNT.getIsAiming(stack);
         double[] at = c.eyeOffset(aiming ? AIM_ORIGIN : HIP_ORIGIN, aiming ? AIM_SCALE : HIP_SCALE);
-        CasingCreator.composeEffect(entity.level(), entity, at[0], at[1], at[2], c.velFront(), c.velHeight(), c.velSide(), 0.003,
+        double[] go = c.launch();
+        CasingCreator.composeEffect(entity.level(), entity, at[0], at[1], at[2], go[0], go[1], go[2], 0.003,
                 c.pitch() + (float) entity.getRandom().nextGaussian() * 2F, c.yaw() + (float) entity.getRandom().nextGaussian() * 2F,
                 spent.getName(), true, 60, 0.5, 20);
     }
