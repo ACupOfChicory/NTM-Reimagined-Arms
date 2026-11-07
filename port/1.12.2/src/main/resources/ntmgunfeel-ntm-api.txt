@@ -126,6 +126,7 @@ BULLETS class com/hbm/entity/projectile/EntityBullet
 BULLETS class com/hbm/entity/projectile/EntityBulletBase
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
 BULLETS class com/hbm/entity/projectile/EntityBulletBeamBase
+BULLETS class com/hbm/entity/projectile/EntityCoin
 BULLETS class com/hbm/entity/projectile/EntityThrowableNT
 BULLETS class com/hbm/explosion/vanillant/ExplosionVNT
 BULLETS class com/hbm/explosion/vanillant/interfaces/IEntityProcessor
@@ -145,6 +146,9 @@ BULLETS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo
 BULLETS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret
 BULLETS class com/hbm/tileentity/TileEntityDoorGeneric
 BULLETS class com/hbm/tileentity/machine/TileEntitySlidingBlastDoor
+BULLETS class com/hbm/tileentity/machine/TileEntityTesla
+BULLETS class com/hbm/tileentity/turret/TileEntityTurretMaxwell
+BULLETS class com/hbm/tileentity/turret/TileEntityTurretTauon
 BULLETS field com/hbm/entity/projectile/EntityBullet motionX D
 BULLETS field com/hbm/entity/projectile/EntityBullet motionY D
 BULLETS field com/hbm/entity/projectile/EntityBullet motionZ D
@@ -167,6 +171,9 @@ BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 posY D
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 posZ D
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 ticksExisted I
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 world Lnet/minecraft/world/World;
+BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase config Lcom/hbm/items/weapon/sedna/BulletConfig;
+BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase damage F
+BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase thrower Lnet/minecraft/entity/EntityLivingBase;
 BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase world Lnet/minecraft/world/World;
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT exploder Lnet/minecraft/entity/Entity;
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posX D
@@ -191,6 +198,8 @@ BULLETS field com/hbm/items/ModItems ammo_standard Lnet/minecraft/item/Item;
 BULLETS field com/hbm/items/weapon/grenade/ItemGrenadeFilling fragmentation Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets_heavy Lcom/hbm/items/weapon/sedna/BulletConfig;
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_BEAM_HIT Ljava/util/function/BiConsumer;
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_BEAM_HIT Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ammo Lcom/hbm/inventory/RecipesCommon$ComparableStack;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
@@ -201,6 +210,7 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig gravity F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig headshotMult F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig id I
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig onImpactBeam Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
@@ -210,6 +220,8 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/h
 BULLETS field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_fmj Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/tileentity/TileEntityDoorGeneric state Lcom/hbm/interfaces/IDoor$DoorState;
 BULLETS field com/hbm/tileentity/machine/TileEntitySlidingBlastDoor state Lcom/hbm/interfaces/IDoor$DoorState;
+BULLETS field com/hbm/tileentity/machine/TileEntityTesla offset D
+BULLETS field com/hbm/tileentity/machine/storage/TileEntityBatterySocket discharge Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS method com/hbm/blocks/BlockDummyable findCore (Lnet/minecraft/world/IBlockAccess;III)[I
 BULLETS method com/hbm/config/CompatibilityConfig isWarDim (Lnet/minecraft/world/World;)Z
 BULLETS method com/hbm/entity/projectile/EntityBullet getEntityId ()I
@@ -223,6 +235,10 @@ BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getPositionVector (
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getThrower ()Lnet/minecraft/entity/EntityLivingBase;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 setDead ()V
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 setPosition (DDD)V
+BULLETS method com/hbm/entity/projectile/EntityBulletBeamBase doesImpactEntities ()Z
+BULLETS method com/hbm/entity/projectile/EntityBulletBeamBase doesPenetrate ()Z
+BULLETS method com/hbm/entity/projectile/EntityBulletBeamBase getEntityBoundingBox ()Lnet/minecraft/util/math/AxisAlignedBB;
+BULLETS method com/hbm/entity/projectile/EntityBulletBeamBase getEntityId ()I
 BULLETS method com/hbm/entity/projectile/EntityBulletBeamBase getThrower ()Lnet/minecraft/entity/EntityLivingBase;
 BULLETS method com/hbm/entity/projectile/EntityThrowableNT getThrower ()Lnet/minecraft/entity/EntityLivingBase;
 BULLETS method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/World;DDDFLnet/minecraft/entity/Entity;)V

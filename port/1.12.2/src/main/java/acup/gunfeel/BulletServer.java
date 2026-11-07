@@ -50,16 +50,22 @@ public final class BulletServer {
     // NTM's old bullet (EntityBullet: the hunter chopper's, the cyber crab's) hit this block, as blockHit; it has no
     // BulletConfig and no water: its damage and who fired it are given (LegacyBullets)
     public static int blockHit(Entity bullet, Entity owner, float damage, int x, int y, int z, double ax, double ay, double az) {
-        if (!(bullet.world instanceof WorldServer)) return 0;
-        WorldServer level = (WorldServer) bullet.world;
+        return blockHit(bullet.world, bullet.getEntityId(), owner, damage, x, y, z, ax, ay, az);
+    }
+
+    // the same for a shot with no entity of its own (a turret's or a Tesla coil's beam, BeamServer): id only for the
+    // test log
+    public static int blockHit(World world, int id, Entity owner, float damage, int x, int y, int z, double ax, double ay, double az) {
+        if (!(world instanceof WorldServer)) return 0;
+        WorldServer level = (WorldServer) world;
         Block block = Mc.block(level, x, y, z);
         if (Mc.material(block) == Material.AIR) return 0;
         int meta = Mc.meta(level, x, y, z);
         BulletRules.Break rule = BulletRules.breakRule(block, meta, level, x, y, z);
         if (rule == null || rule.mode() == 0) return 0;
         String was = TestLog.block(level, x, y, z);
-        if (!wear(level, new Shooter(bullet.getEntityId(), owner, damage), x, y, z, block, meta, rule, 1F)) return 0;
-        if (TestLog.server) TestLog.s(bullet.getEntityId(), "end", "by", rule.pass() ? "broke_pass" : "broke", "block", was,
+        if (!wear(level, new Shooter(id, owner, damage), x, y, z, block, meta, rule, 1F)) return 0;
+        if (TestLog.server) TestLog.s(id, "end", "by", rule.pass() ? "broke_pass" : "broke", "block", was,
                 "pos", new int[] {x, y, z}, "at", TestLog.point(ax, ay, az));
         return rule.pass() ? 2 : 1;
     }
@@ -112,6 +118,30 @@ public final class BulletServer {
         BulletRules.Break rule = BulletRules.breakRule(block, meta, level, hit.x, hit.y, hit.z);
         if (rule == null || rule.mode() == 0) return;
         wear(level, bullet, hit.x, hit.y, hit.z, block, meta, rule, acup.gunfeel.water.WaterTick.k(bullet, new Vec3d(hit.ax, hit.ay, hit.az)));
+    }
+
+    // a shot without an MK4 bullet (an NTM beam, BeamServer) pierced this block or flew through it ("through"): the
+    // block is worn as by a bullet of that damage
+    static void wearBy(World world, int id, Entity owner, float damage, BlockRay.Hit hit) {
+        if (!(world instanceof WorldServer)) return;
+        WorldServer level = (WorldServer) world;
+        Block block = Mc.block(level, hit.x, hit.y, hit.z);
+        if (Mc.material(block) == Material.AIR) return;
+        int meta = Mc.meta(level, hit.x, hit.y, hit.z);
+        BulletRules.Break rule = BulletRules.breakRule(block, meta, level, hit.x, hit.y, hit.z);
+        if (rule == null || rule.mode() == 0) return;
+        wear(level, new Shooter(id, owner, damage), hit.x, hit.y, hit.z, block, meta, rule, 1F);
+    }
+
+    // dev (BulletCheck): the wear as it is now, and back to it (a beam fired on the same block as a bullet)
+    static Object wearNow() {
+        return new HashMap<>(WEAR);
+    }
+
+    @SuppressWarnings("unchecked")
+    static void wearBack(Object was) {
+        WEAR.clear();
+        WEAR.putAll((Map<Spot, Wear>) was);
     }
 
     // port: a block's place as one number, for the blocks a bullet paid for
