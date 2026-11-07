@@ -45,7 +45,7 @@ class Gl54GrenadeTest {
     @Test
     void speedAndDropAreFortyMillimetres() {
         assertEquals(4.7F, Gl54Grenade.SPEED);
-        assertEquals(0.035, Gl54Grenade.GRAVITY);
+        assertEquals(0.0245, Gl54Grenade.GRAVITY * Gl54Grenade.SPEED, 1e-9);
     }
 
     @Test

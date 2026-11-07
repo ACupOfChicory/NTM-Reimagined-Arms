@@ -18,7 +18,7 @@ class Gl54BallisticsTest {
     @Test
     void theStepsAreTheEntitys() {
         // 45 degrees: after one tick the grenade is v/sqrt2 out and up; the drop a tick is gravity times speed
-        double a = Math.toRadians(45);
+        double a = Math.toRadians(20);
         double y1 = V * Math.sin(a), y2 = y1 + V * (Math.sin(a) - G);
         assertTrue(y2 > y1);
         // the same walk by hand, to the tick the grenade is back at the eye's height
@@ -75,11 +75,14 @@ class Gl54BallisticsTest {
     }
 
     @Test
-    void theFarthestAngleIsAboutFortyFiveDegreesAndTheRangeAboutAHundredAndThirtyBlocks() {
-        double a = Math.toDegrees(Gl54Ballistics.farthestAngle(V, G, 1.0));
-        assertEquals(45.0, a, 3.0);
-        // the drop is gravity times speed a tick: the range is about speed / gravity
-        assertEquals(V / G, Gl54Ballistics.maxRange(), 12.0);
+    void theFarthestShotIsTheSteepestOneThatLandsWithinTheGrenadesLife() {
+        // Earth's drop (0.0245 blocks a tick, a tick) at 4.7 blocks a tick: 45 degrees would carry 900 blocks but take 270 ticks of
+        // the 200 the grenade lives, so the farthest is the angle that lands as its life ends
+        double a = Gl54Ballistics.farthestAngle(V, G, 1.0);
+        assertEquals(0.0245, G * V, 1e-9);
+        assertTrue(Math.toDegrees(a) > 28 && Math.toDegrees(a) < 35, "angle " + Math.toDegrees(a));
+        assertTrue(Gl54Ballistics.maxRange() > 700 && Gl54Ballistics.maxRange() < 850, "range " + Gl54Ballistics.maxRange());
+        assertTrue(Gl54Ballistics.range(a + Math.toRadians(0.5), 0.0) == 0.0, "steeper it is gone before it lands");
     }
 
     @Test

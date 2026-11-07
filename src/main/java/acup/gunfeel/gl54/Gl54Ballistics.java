@@ -10,7 +10,7 @@ public final class Gl54Ballistics {
     public static final double AIR_DRAG = 1.0;
     // the grenade lives this long (Gl54Grenade.LIFE)
     public static final int TICKS = Gl54Grenade.LIFE;
-    // the launch angles tried, radians above the horizontal: the high arc (steeper than the farthest) is left out
+    // the launch angles tried, radians above the horizontal, at most this
     private static final double STEEPEST = Math.toRadians(80);
 
     private Gl54Ballistics() {
@@ -40,9 +40,23 @@ public final class Gl54Ballistics {
         return range(angle, Gl54Grenade.SPEED, Gl54Grenade.GRAVITY, AIR_DRAG, below);
     }
 
-    // the launch angle that gives the farthest range at the eye's height (golden-section search; the range rises, then falls)
-    public static double farthestAngle(double speed, double gravity, double drag) {
+    // The steepest angle at which the grenade is still down within its life (steeper it is gone before it lands). With a drop as
+    // light as Earth's the 45 degrees that would carry farthest take longer than that, so the farthest is this one.
+    static double steepestInLife(double speed, double gravity, double drag) {
+        if (range(STEEPEST, speed, gravity, drag, 0) > 0) return STEEPEST;
         double lo = 0, hi = STEEPEST;
+        for (int i = 0; i < 60; i++) {
+            double mid = (lo + hi) / 2;
+            if (range(mid, speed, gravity, drag, 0) > 0) lo = mid;
+            else hi = mid;
+        }
+        return lo;
+    }
+
+    // the launch angle that gives the farthest range at the eye's height (golden-section search; the range rises, then falls,
+    // or rises to the life's end)
+    public static double farthestAngle(double speed, double gravity, double drag) {
+        double lo = 0, hi = steepestInLife(speed, gravity, drag);
         double phi = (Math.sqrt(5) - 1) / 2;
         double a = hi - phi * (hi - lo), b = lo + phi * (hi - lo);
         double ra = range(a, speed, gravity, drag, 0), rb = range(b, speed, gravity, drag, 0);
