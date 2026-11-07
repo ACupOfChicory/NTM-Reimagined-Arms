@@ -245,6 +245,7 @@ public final class RadialMenu {
     }
 
     private static String count(Frame f, int i) {
+        if (HudShots.skip == 3) return "";
         int c = AmmoLock.count(f.items.get(i), Minecraft.getInstance().player.getInventory());
         return c == AmmoLock.INFINITE ? "∞" : Integer.toString(c);
     }

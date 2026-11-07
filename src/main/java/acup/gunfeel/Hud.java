@@ -59,6 +59,7 @@ public final class Hud {
 
     private static void block(GuiGraphicsExtractor g, Font font, LocalPlayer player, Inventory inv, ItemStack stack,
             IMagazine<?> mag, float health, int right, int bottom, boolean drawGun) {
+        if (HudShots.skip == 2) return;
         int top = bottom - 30;
         String big, small = null;
         boolean low;
@@ -118,7 +119,7 @@ public final class Hud {
         // separator and gun icon
         int sepX = bigX - 6;
         g.fill(sepX, top, sepX + 1, bottom, 0xCCFFFFFF);
-        if (drawGun) {
+        if (drawGun && HudShots.skip != 1) {
             Identifier silhouette = Silhouette.get(stack.getItem());
             if (silhouette != null) {
                 int w = 72, h = w * Silhouette.H / Silhouette.W;

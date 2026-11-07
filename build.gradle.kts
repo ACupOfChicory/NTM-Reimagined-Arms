@@ -121,6 +121,11 @@ neoForge {
             systemProperty("ntmgunfeel.glassBack",providers.gradleProperty("glassBack").map { it.ifBlank { "fancy" } }.orElse("").get())
             // -PspectatorStand: may a spectator use an NTM gun (SpectatorStand)
             systemProperty("ntmgunfeel.spectatorStand",providers.gradleProperty("spectatorStand").isPresent.toString())
+            // -PhudShots: real frames of the corner HUD and the ammo menu into notes/gl54/hud-real (HudShots); the window is
+            // 1920 x 1080; -PhudShotsGl54=<quads file>: that model's silhouette made with the mod's code
+            systemProperty("ntmgunfeel.hudShots",providers.gradleProperty("hudShots").isPresent.toString())
+            systemProperty("ntmgunfeel.hudShotsDir",providers.gradleProperty("hudShotsDir").orElse(root.resolve("notes/hud-shots").path).get())
+            providers.gradleProperty("hudShotsGl54").orNull?.let { systemProperty("ntmgunfeel.hudShotsGl54",it) }
             // -PshapesStand=<file>: every NTM machine taken in turn, the jar's table of their shapes written there (ShapesStand)
             systemProperty("ntmgunfeel.shapesStand",providers.gradleProperty("shapesStand").orElse("").get())
             // -PshapesFallback: a machine in the jar's table of shapes is met from there, one left out of it is taken in
@@ -132,11 +137,12 @@ neoForge {
             // -PshapesResume: a stand cut short goes on from <file>.parts, the machines kept there not taken again
             systemProperty("ntmgunfeel.shapesResume",providers.gradleProperty("shapesResume").isPresent.toString())
             // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
-            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("waterFx").isPresent) "-Xmx4G" else "-Xmx2500M")
+            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("waterFx").isPresent || providers.gradleProperty("hudShots").isPresent) "-Xmx3G" else "-Xmx2500M")
             // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame
             providers.gradleProperty("gcLog").orNull?.let { jvmArgument("-Xlog:gc*:file=$it:uptime,time") }
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
-            programArguments.addAll("--width", "854", "--height", "480")
+            if(providers.gradleProperty("hudShots").isPresent) programArguments.addAll("--width", "1920", "--height", "1080")
+            else programArguments.addAll("--width", "854", "--height", "480")
         }
         register("checkMobs") {
             client()
