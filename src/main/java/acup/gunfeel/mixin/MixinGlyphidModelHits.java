@@ -43,6 +43,6 @@ public abstract class MixinGlyphidModelHits {
                     -interpolatedPosition.y, -interpolatedPosition.z);
             if (box != null) boxes.add(box);
         }
-        NtmMeshHits.offer(glyphid, Mth.rotLerp(partial, glyphid.yBodyRotO, glyphid.yBodyRot), boxes,interpolatedPosition);
+        NtmMeshHits.offer(glyphid, acup.gunfeel.ModelHits.takenYaw(glyphid, Mth.rotLerp(partial, glyphid.yBodyRotO, glyphid.yBodyRot), partial), boxes,interpolatedPosition);
     }
 }

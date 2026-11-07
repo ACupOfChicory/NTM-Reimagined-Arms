@@ -22,6 +22,6 @@ public abstract class MixinGpuEntityGeometry {
         float partial=((dev.engine_room.flywheel.api.visual.DynamicVisual.Context)context).partialTick();
         // Положение visual определяется той же интерполяцией, что использует GPU.
         var position=living.getPosition(partial);
-        acup.gunfeel.GpuModelHits.offer(this,living,Mth.rotLerp(partial,living.yBodyRotO,living.yBodyRot),position);
+        acup.gunfeel.GpuModelHits.offer(this,living,acup.gunfeel.ModelHits.takenYaw(living,Mth.rotLerp(partial,living.yBodyRotO,living.yBodyRot),partial),position);
     }
 }

@@ -494,7 +494,8 @@ public final class ModelHits {
     static double turnAngle(LivingEntity target, PoseAt p) {
         return turnAngle(target, p.yaw(), p.bodyYaw(), p.yRot(), p.age());
     }
-    // yaw: the turn the pose was drawn at (the client's body); bodyYaw, yRot, age: this side's when the pose came in.
+    // yaw: the turn the pose was drawn at (the client's body; the drawn yRot for YAW, YAW_BACK, takenYaw); bodyYaw, yRot,
+    // age: this side's when the pose came in.
     // age is the mob's tickCount, which RenderUFO spins by; the client's game time jumps with the server's time packets.
     static double turnAngle(LivingEntity target, float yaw, float bodyYaw, float yRot, int age) {
         return turnAngle(TURNS.get(target.getClass()), target.level().isClientSide(), target.yBodyRot, target.getYRot(),
@@ -503,8 +504,9 @@ public final class ModelHits {
     static double turnAngle(Turn turn, boolean client, float body, float yRotNow, long now, float yaw, float bodyYaw, float yRot, long tick) {
         return switch(turn) {
             case BODY -> turnAngle(client, body, yaw, bodyYaw);
-            case YAW -> yawTurn(client, body, yRotNow, yaw, bodyYaw, yRot);
-            case YAW_BACK -> -yawTurn(client, body, yRotNow, yaw, bodyYaw, yRot);
+            // taken at the drawn yRot: turned by yRot alone, as the body is (the client's body is not sent)
+            case YAW -> turnAngle(client, yRotNow, yaw, yRot);
+            case YAW_BACK -> -turnAngle(client, yRotNow, yaw, yRot);
             // the worm's bodies on the client and the server go each their own way: by yRot alone
             case WORM -> -Math.toRadians(Mth.wrapDegrees(yRotNow - yRot));
             case FIXED -> 0;
@@ -512,11 +514,12 @@ public final class ModelHits {
         };
     }
 
-    // The pose carries the client's body, not its yRot: the yRot it was drawn at is taken as that body plus how far yRot
-    // stood off the body when the pose came in. A mob with its yRot on its body (moving) turns as by the body rule; on
-    // the client this comes to yRot now less yRot then.
-    private static double yawTurn(boolean client, float body, float yRotNow, float yaw, float bodyYaw, float yRot) {
-        return turnAngle(client, body, yaw, bodyYaw) + Math.toRadians(Mth.wrapDegrees((yRotNow - body) - (yRot - bodyYaw)));
+    // The angle a client takes a pose at: its body, or for a mob drawn by its yRot (YAW, YAW_BACK) the yRot its renderer
+    // turned it by. The client's body is not sent, and a mob that stands keeps it up to 50 degrees off its yRot
+    // (LivingEntity.tickHeadTurn): a pose taken at that body would be turned on the server by the gap as well.
+    public static float takenYaw(LivingEntity e, float body, float partial) {
+        Turn t = TURNS.get(e.getClass());
+        return t == Turn.YAW || t == Turn.YAW_BACK ? Mth.rotLerp(partial, e.yRotO, e.getYRot()) : body;
     }
 
     // Клиент сохраняет исходную интерполяцию и добавляет лишь движение корня после захвата.
