@@ -19,10 +19,10 @@ public final class WaterTick {
     private WaterTick() {
     }
 
-    // an impact fuze: NTM's bullet by its config, a listed old bullet always
+    // an impact fuze: NTM's bullet by its config, an old one by its list (OldBullets)
     static boolean fuzed(Entity bullet) {
         if (bullet instanceof EntityBulletBaseMK4) return WaterClass.Fuze.of(((EntityBulletBaseMK4) bullet).config).any();
-        return OldBullets.on(bullet);
+        return OldBullets.fuzed(bullet);
     }
 
     // the tick's path: the point to test blocks up to (the stop or the skip, else `to`)

@@ -1,5 +1,12 @@
 # Changelog
 
+## X555.191
+
+- As in 26.2, on 1.12.2: the masked man's tracer and the worm's bolts now slow
+  down in water and are gone where it stops them, as NTM's plain rounds are.
+  They have no fuze: they go through the surface, and their hit on a creature
+  in water loses damage as other rounds do. Before, water did not touch them.
+
 ## X555.190
 
 - As in 26.2 X560, on 1.12.2: the masked man's bolts, meteors, rockets and

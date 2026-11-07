@@ -170,6 +170,8 @@ BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posY D
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posZ D
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT size F
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/World;
+BULLETS field com/hbm/handler/BulletConfiguration bImpact Lcom/hbm/interfaces/IBulletImpactBehavior;
+BULLETS field com/hbm/handler/BulletConfiguration explosive F
 BULLETS field com/hbm/handler/BulletConfiguration gravity F
 BULLETS field com/hbm/handler/BulletConfiguration isSpectral Z
 BULLETS field com/hbm/handler/BulletConfiguration velocity F
@@ -525,6 +527,8 @@ TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 motionY D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 motionZ D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 prevVelocity D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 velocity D
+TRACERS field com/hbm/handler/BulletConfiguration bImpact Lcom/hbm/interfaces/IBulletImpactBehavior;
+TRACERS field com/hbm/handler/BulletConfiguration explosive F
 TRACERS field com/hbm/handler/BulletConfiguration gravity F
 TRACERS field com/hbm/handler/BulletConfiguration isSpectral Z
 TRACERS field com/hbm/handler/BulletConfiguration velocity F

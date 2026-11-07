@@ -47,7 +47,8 @@ import net.minecraft.world.World;
 // and pellets of one shot that do not set each other off; a round stopped high over the floor with NTM's life ticking (gone without a
 // blast when the life ends) and HE pellets shot straight down from inside the shooter's box; then the mod's handlers
 // in each mixin target (MixinCheck). The rows go to boom.tsv; the game quits.
-// port: also NTM CE's old bullets with a charge (OldBullets: the masked man's and the UFO's), rows a to c (oldBullets).
+// port: also NTM CE's old bullets with a charge (OldBullets: the masked man's and the UFO's), rows a to c and e, and
+// those with none (the masked man's tracer, the worm's bolts), rows p (oldBullets).
 // As 26.2's: tick() is onUpdate(), tickCount is ticksExisted (the world counts it before the tick in both).
 final class BoomScenario {
     private BoomScenario() {
@@ -299,6 +300,7 @@ final class BoomScenario {
                 // the UFO's rocket homes in on the nearest creature in 100 blocks (the player here): it gets one far
                 // along its line, so it flies straight as the others
                 boolean homes = c.bUpdate != null && name.equals("UFO_ROCKET");
+                boolean fuzed = acup.gunfeel.water.OldBullets.fuzed(oldBullet(id, Vec3d.ZERO, new Vec3d(1, 0, 0)));
                 Shot shot = (at, dir) -> {
                     Entity b = oldBullet(id, at, dir);
                     if (homes) {
@@ -311,6 +313,10 @@ final class BoomScenario {
                     }
                     return b;
                 };
+                if (!fuzed) {
+                    plain(ammo, shot, wc);
+                    continue;
+                }
                 entry(ammo, shot, wc, 30, false, c.doesRicochet);
                 entry(ammo, shot, wc, 5, false, c.doesRicochet);
                 for (int d : new int[] {1, 3, 6}) wall(ammo, shot, wc, d, c.gravity);
@@ -324,6 +330,38 @@ final class BoomScenario {
             vanillaBlasts = false;
             net.minecraftforge.common.MinecraftForge.EVENT_BUS.unregister(listener);
         }
+    }
+
+    // port: an old bullet with no fuze (the masked man's tracer, the worm's bolts): it slows in water and is gone where
+    // it stops, from 5 under the water along x; into the water at 30° it goes under the surface, no blast there
+    private static void plain(String ammo, Shot shot, WaterClass wc) {
+        basin();
+        double x0 = minX + 3.5;
+        Entity b = shot.at(new Vec3d(x0, surface - 5, cz), new Vec3d(1, 0, 0));
+        BLASTS.clear();
+        double path = 0;
+        for (int i = 0; i < 100 && !b.isDead; i++) {
+            double wx = b.posX, wy = b.posY, wz = b.posZ;
+            tick(b);
+            path += Math.sqrt((b.posX - wx) * (b.posX - wx) + (b.posY - wy) * (b.posY - wy) + (b.posZ - wz) * (b.posZ - wz));
+        }
+        String note = "removed=" + b.isDead + " stopped=" + WaterBullet.stopped(b) + " blast=" + str(BLASTS.isEmpty() ? null : BLASTS.get(0));
+        row("p: under water: gone where it stops, path", ammo, wc, stop(wc), b.isDead ? path : Double.NaN, 0.15, note);
+        rowFlag("p: under water: gone, no blast", ammo, wc, "removed, none", (b.isDead ? "removed" : "flies") + ", " + (BLASTS.isEmpty() ? "none" : "blast"),
+                b.isDead && BLASTS.isEmpty(), note);
+        basin();
+        double r = Math.toRadians(30);
+        Vec3d dir = new Vec3d(Math.cos(r), -Math.sin(r), 0);
+        b = shot.at(new Vec3d(minX + 14, surface, cz).subtract(dir.scale(4)), dir);
+        BLASTS.clear();
+        double low = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < 100 && !b.isDead; i++) {
+            tick(b);
+            low = Math.min(low, b.posY);
+        }
+        note = "lowest=" + fmt(low) + " removed=" + b.isDead + " blast=" + str(BLASTS.isEmpty() ? null : BLASTS.get(0));
+        rowFlag("p: into water at 30°: under the surface, no blast", ammo, wc, "y < " + fmt(surface - 0.3) + ", none", fmt(low) + ", " + (BLASTS.isEmpty() ? "none" : "blast"),
+                low < surface - 0.3 && b.isDead && BLASTS.isEmpty(), note);
     }
 
     // port: from 3 under the water along x at a golem 2 blocks off (in the water): an old bullet goes off where it met

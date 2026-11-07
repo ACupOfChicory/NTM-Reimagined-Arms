@@ -21,7 +21,8 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
 // port only (26.2 X560 fires these as NTM's bullet): water for NTM CE's old EntityBulletBase with a charge, the masked
-// man's and the UFO's (OldBullets: the same configs as 26.2's list). The same rules as NTM's bullets (MixinWaterBullet,
+// man's and the UFO's (OldBullets: the same configs as 26.2's list), and its plain ones 26.2 fires as NTM's bullet too
+// (the masked man's tracer, the worm's bolts: no fuze, gone where water stops them). The same rules as NTM's bullets (MixinWaterBullet,
 // MixinThrowableClip, WaterTick): an impact fuze on the water's surface, a skip under the fuze's angle, slowing in
 // water, sinking once stopped and going off where it touches. On both sides: the old bullet flies on the client too.
 // Its tick (2.6.1.0): the step is motion × config.velocity (read four times: the block test, the mob test, the area,

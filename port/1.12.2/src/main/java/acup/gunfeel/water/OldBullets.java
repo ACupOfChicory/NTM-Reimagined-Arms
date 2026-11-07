@@ -16,15 +16,21 @@ import net.minecraft.util.math.Vec3d;
 // so here they get the same rules as NTM's bullets (WaterTick): an impact fuze on the surface, a skip under the fuze's
 // angle, slowing in water, sinking once stopped and going off where they touch. The same configs as 26.2's list, by
 // their names in BulletConfigSyncingUtil: the UFO's rocket has no explosive of its own (its impact behaviour is its
-// blast), the masked man's tracer only calls a meteor down. Other old bullets keep NTM's way with water (none).
+// blast). The masked man's tracer (it calls a meteor down where it hits) and the worm's bolts are NTM's plain bullets on
+// 26.2 (XFactoryNPC): here too they slow in water and are gone where it stops them, with no fuze. Other old bullets keep
+// NTM's way with water (none).
 public final class OldBullets {
     static final String[] IMPACT = {"MASKMAN_BOLT", "MASKMAN_METEOR", "MASKMAN_ROCKET", "MASKMAN_ORB", "UFO_ROCKET"};
+    static final String[] PLAIN = {"MASKMAN_TRACER", "WORM_BOLT", "WORM_LASER"};
 
-    private static volatile Set<BulletConfiguration> configs;
+    // the listed configs (null: not found yet) and those of them with an impact fuze
+    private static volatile Set<BulletConfiguration> configs, fuzed;
 
     // the listed configs' names (the stand's rows)
     public static String[] names() {
-        return IMPACT.clone();
+        String[] all = java.util.Arrays.copyOf(IMPACT, IMPACT.length + PLAIN.length);
+        System.arraycopy(PLAIN, 0, all, IMPACT.length, PLAIN.length);
+        return all;
     }
 
     private OldBullets() {
@@ -34,8 +40,19 @@ public final class OldBullets {
     static Set<BulletConfiguration> configs() {
         Set<BulletConfiguration> c = configs;
         if (c != null) return c;
+        Set<BulletConfiguration> withFuze = find(IMPACT);
+        Set<BulletConfiguration> found = find(PLAIN);
+        found.addAll(withFuze);
+        if (!found.isEmpty()) {
+            fuzed = withFuze;
+            configs = found;
+        }
+        return found;
+    }
+
+    private static Set<BulletConfiguration> find(String[] names) {
         Set<BulletConfiguration> found = Collections.newSetFromMap(new IdentityHashMap<>());
-        for (String name : IMPACT) {
+        for (String name : names) {
             try {
                 int id = BulletConfigSyncingUtil.class.getField(name).getInt(null);
                 BulletConfiguration config = BulletConfigSyncingUtil.pullConfig(id);
@@ -44,8 +61,15 @@ public final class OldBullets {
                 // not in this NTM: that one keeps NTM's way
             }
         }
-        if (!found.isEmpty()) configs = found;
         return found;
+    }
+
+    // a listed old bullet with an impact fuze (the masked man's charges, the UFO's rocket): it goes off on the surface
+    // and sinks once stopped; the others are gone where water stops them
+    public static boolean fuzed(Entity e) {
+        if (!on(e)) return false;
+        Set<BulletConfiguration> f = fuzed;
+        return f != null && f.contains(((EntityBulletBase) e).getConfig());
     }
 
     public static boolean listed(BulletConfiguration config) {
@@ -57,9 +81,17 @@ public final class OldBullets {
         return e instanceof EntityBulletBase && listed(((EntityBulletBase) e).getConfig());
     }
 
-    // by the numbers, as 26.2 classes an NTM config with no ammo of its own: an impact charge, blocks a tick
+    // by the numbers, as 26.2 classes an NTM config with no ammo of its own (WaterClass.ofConfig): its speed in blocks a
+    // tick, and whether it does something on impact (a charge, or the tracer's meteor)
     public static WaterClass cls(BulletConfiguration config) {
-        return WaterClass.of("", false, 1, 0F, 0F, config.velocity, true);
+        boolean impact = config.explosive > 0 || config.bImpact != null || fuzedConfig(config);
+        return WaterClass.of("", false, 1, 0F, 0F, config.velocity, impact);
+    }
+
+    private static boolean fuzedConfig(BulletConfiguration config) {
+        configs();
+        Set<BulletConfiguration> f = fuzed;
+        return f != null && f.contains(config);
     }
 
     public static double gravity(Entity e) {
