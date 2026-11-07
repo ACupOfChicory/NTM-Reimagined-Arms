@@ -48,6 +48,8 @@ public final class Gl54Gun {
                         .canFire((stack, ctx) -> Gl54Server.enabled() && Lego.LAMBDA_STANDARD_CAN_FIRE.apply(stack, ctx))
                         .recoil(RECOIL))
                 .setupStandardConfiguration()
+                // the second key measures the range while the gun is aimed (Gl54Range)
+                .ps(Gl54Range::onKey)
                 .pr((stack, ctx) -> {
                     if (Gl54Server.enabled()) Lego.LAMBDA_STANDARD_RELOAD.accept(stack, ctx);
                 })

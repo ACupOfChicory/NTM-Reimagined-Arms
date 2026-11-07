@@ -92,10 +92,16 @@ public final class Gl54Grenade {
         return config;
     }
 
-    // every tick of the flight (server): where it began, from the first tick's old position
+    // every tick of the flight (server): where it began, from the first tick's old position; the range fuse (Gl54Fuse)
     static void update(Entity entity) {
-        if (entity.level().isClientSide() || STARTS.containsKey(entity)) return;
-        STARTS.put(entity, new Vec3(entity.xo, entity.yo, entity.zo));
+        if (entity.level().isClientSide()) return;
+        Vec3 start = STARTS.get(entity);
+        if (start == null) {
+            start = new Vec3(entity.xo, entity.yo, entity.zo);
+            STARTS.put(entity, start);
+            if (entity instanceof EntityBulletBaseMK4 bullet) Gl54Fuse.light(bullet);
+        }
+        if (entity instanceof EntityBulletBaseMK4 bullet) Gl54Fuse.step(bullet, start);
     }
 
     // blocks flown from where it was fired to `at`; 0 before the first tick is over
