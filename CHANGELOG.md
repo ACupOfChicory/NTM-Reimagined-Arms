@@ -1,5 +1,11 @@
 # Changelog
 
+## X572
+
+- A round that meets water on the edge of its surface and a side now also
+  comes in through the surface when the rounding of its flight puts the side a
+  hair after the surface. Before, such a round still came in through the side.
+
 ## X570
 
 - `armArmor`: armour from another mod that fails while it is drawn on the arm
