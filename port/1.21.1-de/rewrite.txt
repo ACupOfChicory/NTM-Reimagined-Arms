@@ -287,11 +287,13 @@ re@HeadProfilesTest.java: (@Test void withoutFlywheelThePartsCubesAreMatchedAsOn
 # the head label editor is not ported: the rays at a united head's faces take HeadSmoke's copy of its pick
 re@HeadProfilesTest.java: HeadLabelGeometry\.pick\( => HeadSmoke.pick(
 # main's water effects (X493): WaterParticle on DE's backport of 26.2's quad particle, its sprites from 1.21.1's
-# particle atlas (which takes textures/particle of every namespace, ours among them)
+# particle atlas (which takes textures/particle of every namespace, ours among them). 1.21.1's particle atlas is the
+# particle engine's, kept by the texture manager: Minecraft.getTextureAtlas asks the model manager, which has no such
+# atlas, and threw (a tracer into water ended the game)
 re@WaterParticle.java: ^import net\.minecraft\.client\.particle\.SingleQuadParticle;$ => import com.hbm.backport.client.particle.SingleQuadParticle;
 re@WaterParticle.java: ^import net\.minecraft\.client\.particle\.ParticleRenderType;$ => import com.hbm.backport.client.particle.ParticleRenderType;
 re@WaterParticle.java: ^import net\.minecraft\.data\.AtlasIds;$ => import net.minecraft.client.renderer.texture.TextureAtlas;
-re@WaterParticle.java: \.getAtlasManager\(\)\.getAtlasOrThrow\(AtlasIds\.PARTICLES\)\.getSprite\((\w+)\) => .getTextureAtlas(TextureAtlas.LOCATION_PARTICLES).apply($1)
+re@WaterParticle.java: Minecraft\.getInstance\(\)\.getAtlasManager\(\)\.getAtlasOrThrow\(AtlasIds\.PARTICLES\)\.getSprite\((\w+)\) => ((TextureAtlas) Minecraft.getInstance().getTextureManager().getTexture(TextureAtlas.LOCATION_PARTICLES)).getSprite($1)
 # the particle moves its x, y, z itself, not its box: NeoForge 21.1 culls a particle by getRenderBoundingBox (the box,
 # left where it was born), 26.2 by its position. The box here is where it is now, as wide as its quad
 re@WaterParticle.java: ^(\s*)private void moveBy\(double dx, double dy, double dz\) \{$ => $1@Override public net.minecraft.world.phys.AABB getRenderBoundingBox(float a) { double r = Math.max(1, getQuadSize(a)); return new net.minecraft.world.phys.AABB(x - r, y - r, z - r, x + r, y + r, z + r); } $0
