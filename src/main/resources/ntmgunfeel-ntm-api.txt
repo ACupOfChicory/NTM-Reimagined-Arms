@@ -391,6 +391,7 @@ GL54 field com/hbm/items/weapon/sedna/factory/Lego LAMBDA_STANDARD_RELOAD Ljava/
 GL54 field com/hbm/items/weapon/sedna/factory/LegoClient HUD_COMPONENT_AMMO Lcom/hbm/items/weapon/sedna/hud/HUDComponentAmmoCounter;
 GL54 field com/hbm/items/weapon/sedna/factory/LegoClient HUD_COMPONENT_DURABILITY Lcom/hbm/items/weapon/sedna/hud/HUDComponentDurabilityBar;
 GL54 field com/hbm/items/weapon/sedna/factory/XFactory40mm LAMBDA_SMOKE Ljava/util/function/BiConsumer;
+GL54 field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 GL54 field com/hbm/particle/SpentCasing$CasingType STRAIGHT Lcom/hbm/particle/SpentCasing$CasingType;
 GL54 field com/hbm/render/anim/AnimationEnums$GunAnimation CYCLE Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 GL54 field com/hbm/render/anim/AnimationEnums$GunAnimation EQUIP Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
@@ -423,6 +424,7 @@ GL54 method com/hbm/inventory/container/MenuMachineAmmoPress blockEntity ()Lnet/
 GL54 method com/hbm/inventory/recipes/AmmoPressRecipe output ()Lnet/minecraft/world/item/ItemStack;
 GL54 method com/hbm/inventory/recipes/AmmoPressRecipes recipes ()Ljava/util/List;
 GL54 method com/hbm/items/weapon/sedna/BulletConfig <init> ()V
+GL54 method com/hbm/items/weapon/sedna/BulletConfig setArmorPiercing (F)Lcom/hbm/items/weapon/sedna/BulletConfig;
 GL54 method com/hbm/items/weapon/sedna/BulletConfig setCasing (Lcom/hbm/particle/SpentCasing;)Lcom/hbm/items/weapon/sedna/BulletConfig;
 GL54 method com/hbm/items/weapon/sedna/BulletConfig setGrav (D)Lcom/hbm/items/weapon/sedna/BulletConfig;
 GL54 method com/hbm/items/weapon/sedna/BulletConfig setLife (I)Lcom/hbm/items/weapon/sedna/BulletConfig;
