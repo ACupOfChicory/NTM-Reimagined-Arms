@@ -1,5 +1,28 @@
 # Changelog
 
+## X592
+
+- `beamWater` (server, on; with `beamRules`): beams lose damage in water and
+  then go out. Every beam and arc `beamRules` covers (the guns', the Tauon and
+  Maxwell turrets', the Tesla arcs) keeps exp(-s / `beamWaterLength`) of its
+  damage after s blocks of water, and is gone where less than `beamWaterFade`
+  is left: it ends there and hits nothing behind. With the defaults (2 and
+  0.1), 1 block of water leaves 0.61 of the damage, 3 blocks 0.22, and a beam
+  is gone after 4.6 blocks. A falling stream counts 0.15 of its path, as for
+  bullets. A turret or a Tesla coil does not see a target its beam would not
+  reach through water. Off: beams go through water untouched, as in NTM.
+- `laserGlass` (server, on): lasers go through glass of any kind (vanilla
+  glass and panes, NTM's glass, wired glass, laminate, machine windows)
+  without breaking, wearing or holing it and without losing damage. With
+  `beamRules`, these are the beams of the Laser Pistol, Pew Pew, Laser Rifle,
+  Morning Glory and Lacunae (the infrared rounds too), the laser grenade, the
+  Shredder's plasma beam (its slow drops come out where the beam stops and
+  meet glass as bullets do) and the Maxwell turret; and always the flying laser
+  shots of NTM's mobs: the masked man's bolt, tracer and orb, BOT Prime's and
+  the UFO's bolt and laser. The Tesla Cannon and arcs, Tau, the Tauon turret,
+  the N.I.4.N.I. and the Aberrator still meet glass as bullets do. A Maxwell
+  without damage upgrades now sees and hits through glass.
+
 ## X589
 
 - NTM's power armour (T-51, AJR, AJRO, RPA, NCRPA, BJ, Envsuit, HEV, FAU, DNS)

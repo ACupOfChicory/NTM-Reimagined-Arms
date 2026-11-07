@@ -11,7 +11,6 @@ import com.hbm.items.weapon.sedna.BulletConfig;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -25,39 +24,52 @@ import net.minecraft.world.phys.Vec3;
 // with the same loss, what a bullet wears and breaks the beam wears and breaks. It leaves no hole. NTM stops it on the
 // first block with a box. The beam's end (BEAM_LENGTH) is where it stops here, and the client draws it to there. A
 // creature behind a pierced block gets the damage the beam has there; blocks behind the creature or the coin that
-// takes the beam are not touched. With beamRules off (server settings) it is NTM's beam as it is.
+// takes the beam are not touched. In water it loses damage and is gone after a few blocks (BeamWater); a laser goes
+// through glass as through air (BeamLasers). With beamRules off (server settings) it is NTM's beam as it is.
 public final class BeamServer {
     private BeamServer() {
     }
 
     public static final String KEY = "beamRules";
 
-    // NTM's beams go through water (ClipContext.Fluid.NONE); false: water stops them where they meet it, as a block
-    // with nothing behind it. The one place for that choice
-    static final boolean THROUGH_WATER = true;
-
     public static boolean on() {
         return ReaimTimes.flag(KEY, true);
     }
 
-    // the beam's way this shot: where it entered each block it pierced and its damage after it
+    // the beam's way this shot: where it entered each block it pierced and its damage after it, and the water on it
     public static final class Path {
         final Vec3 from;
         final float damage;
+        final BeamWater water;
+        // where it went out in the water: NTM's stop there, which hits nothing (MixinBeamBlocks), else null
+        @Nullable BlockHitResult gone;
+        // where it entered each block it pierced, and its damage after it as if there were no water on the way (the
+        // water's share is put on where it is asked)
         private final List<double[]> steps = new ArrayList<>();
 
-        Path(Vec3 from, float damage) {
+        Path(Vec3 from, float damage, BeamWater water) {
             this.from = from;
             this.damage = damage;
+            this.water = water;
         }
 
-        // the damage the beam has at `at` (on its way): what it had less what the blocks before took
-        public float at(Vec3 at) {
-            double d = at.distanceTo(from);
+        // the damage the beam has `d` blocks on its way: what it had less what the blocks before took, times what the
+        // water before leaves
+        float at(double d) {
             float out = damage;
             for (double[] s : steps)
                 if (s[0] < d) out = (float) s[1];
-            return out;
+            return (float) (out * water.k(d));
+        }
+
+        // the damage the beam has at `at` (on its way)
+        public float at(Vec3 at) {
+            return at(at.distanceTo(from));
+        }
+
+        // the stop where it went out in the water (no impact there)
+        public boolean gone(HitResult hit) {
+            return gone != null && hit == gone;
         }
     }
 
@@ -76,18 +88,23 @@ public final class BeamServer {
     // the first block that stops the beam on its way from `from` to `to`, else a miss at `to` (NTM's level.clip in
     // performHitscan). Blocks pierced on the way are paid for at once and worn; their places are kept in the beam's Path.
     // The way ends at the first creature or coin NTM will give the beam to (its own search after this one, the same
-    // boxes): what lies behind it is not worn, broken or paid for
+    // boxes): what lies behind it is not worn, broken or paid for. Gone in water before anything: a stop there (NTM
+    // ends the beam and looks for creatures no further), with no impact (Path.gone)
     public static BlockHitResult clip(EntityBulletBeamBase beam, Level level, Vec3 from, Vec3 to) {
-        Path path = new Path(from, beam.damage);
+        double length = from.distanceTo(to), met = met(beam, level, from, to);
+        // the water up to the creature or coin that takes it: none past it counts
+        BeamWater water = BeamWater.along(level, from, met < length ? from.add(to.subtract(from).normalize().scale(met)) : to);
+        Path path = new Path(from, beam.damage, water);
         ((Holder) beam).gunfeel$path(path);
-        BlockHitResult water = THROUGH_WATER ? null : water(level, from, to);
-        Vec3 end = water == null ? to : water.getLocation();
-        double met = met(beam, level, from, to), length = from.distanceTo(end);
-        if (met < length) end = from.add(to.subtract(from).normalize().scale(met));
+        double gone = water.gone();
+        double cut = Math.min(length, Math.min(met, gone));
+        Vec3 end = cut < length ? from.add(to.subtract(from).normalize().scale(cut)) : to;
         BlockHitResult hit = blocks(beam, level, from, end, path);
         if (hit.getType() != HitResult.Type.MISS) return hit;
-        // water stops it where nothing came before (NTM looks no further than a block it got back)
-        if (water != null && !(met < length)) return water;
+        if (gone < length && gone <= met) {
+            path.gone = new BlockHitResult(end, hit.getDirection(), BlockPos.containing(end), false);
+            return path.gone;
+        }
         return BlockHitResult.miss(to, hit.getDirection(), BlockPos.containing(to));
     }
 
@@ -109,26 +126,39 @@ public final class BeamServer {
     }
 
     private static BlockHitResult blocks(EntityBulletBeamBase beam, Level level, Vec3 from, Vec3 to, Path path) {
+        boolean laser = BeamLasers.throughGlass(beam.config);
         if (!plain(beam.config)) {
-            // it wears and breaks the block as a bullet would, and still goes off there (an explosive bullet)
-            BlockHitResult hit = PassableClip.clip(level, from, to, h -> BulletServer.wearBy(level, beam.getId(), beam.getThrower(), beam.damage, h));
-            if (hit.getType() == HitResult.Type.BLOCK) BulletServer.blockHit(beam, beam.getThrower(), beam.damage, hit);
+            // it wears and breaks the block as a bullet would, and still goes off there (an explosive bullet); a laser
+            // goes on through glass first
+            BlockHitResult hit = BeamLasers.clip(level, beam.config, from, to, through(level, beam.getId(), beam.getThrower(), path, laser));
+            if (hit.getType() == HitResult.Type.BLOCK) BulletServer.blockHit(beam, beam.getThrower(), path.at(hit.getLocation()), hit);
             return hit;
         }
-        return walk(level, beam.getId(), beam.getThrower(), from, to, beam.config, path, true, null);
+        return walk(level, beam.getId(), beam.getThrower(), from, to, beam.config, path, true, null, laser);
+    }
+
+    // what it wears of the blocks it flies through (bullet rules "through"), with the damage it has there; a laser
+    // leaves glass alone
+    private static java.util.function.Consumer<BlockHitResult> through(Level level, int id, @Nullable Entity owner, Path path, boolean laser) {
+        return hit -> {
+            if (laser && BeamLasers.glass(level, hit)) return;
+            BulletServer.wearBy(level, id, owner, path.at(hit.getLocation()), hit);
+        };
     }
 
     // a beam's way through blocks from `from` to `to` by the bullet rules, with the damage the path starts with: the
     // block that stops it, else a miss. The blocks it pierces go into the path with the damage left after each.
     // apply: blocks are worn and broken (the shot), else only looked at (who is in sight: a block that would break
-    // under it stops it). own: blocks of the shooter itself (a turret's), gone through as air
+    // under it stops it). own: blocks of the shooter itself (a turret's), gone through as air. laser: glass is gone
+    // through as air too (BeamLasers). The damage it meets a block with is less what the water before took (BeamWater)
     private static BlockHitResult walk(Level level, int id, @Nullable Entity owner, Vec3 from, Vec3 to, @Nullable BulletConfig config, Path path,
-            boolean apply, java.util.function.@Nullable Predicate<BlockPos> own) {
-        java.util.function.Consumer<BlockHitResult> through = apply ? hit -> BulletServer.wearBy(level, id, owner, path.at(hit.getLocation()), hit) : hit -> {
+            boolean apply, java.util.function.@Nullable Predicate<BlockPos> own, boolean laser) {
+        java.util.function.Consumer<BlockHitResult> through = apply ? through(level, id, owner, path, laser) : hit -> {
         };
         Materials.Penetration penetration = new Materials.Penetration();
         // blocks it already pierced (a fence's post and then its rail): paid for once, as a bullet's
         java.util.Set<BlockPos> paid = new java.util.HashSet<>();
+        // as if there were no water on the way (Path's steps)
         float damage = path.damage;
         Vec3 at = from;
         @Nullable BlockHitResult last = null;
@@ -144,29 +174,32 @@ public final class BeamServer {
             BlockHitResult out = PassableClip.exit(level, hit, dir);
             BlockPos pos = hit.getBlockPos().immutable();
             boolean once = PassableClip.paidOnce(hit);
-            if (own != null && own.test(pos) || out != null && once && paid.contains(pos)) {
+            if (own != null && own.test(pos) || out != null && once && paid.contains(pos) || laser && BeamLasers.glass(level, hit)) {
                 Vec3 past = out != null ? out.getLocation() : hit.getLocation().add(dir.scale(0.05));
                 if (past.distanceToSqr(at) >= len * len) return BlockHitResult.miss(to, hit.getDirection(), BlockPos.containing(to));
                 at = past.add(dir.scale(1e-3));
                 continue;
             }
-            float left = out == null ? -1F : PassableClip.pierced(level, hit, out, damage, config, penetration);
+            double t = hit.getLocation().distanceTo(path.from), k = path.water.k(t);
+            // what it has here, the water's share on it
+            float has = (float) (damage * k);
+            float left = out == null ? -1F : PassableClip.pierced(level, hit, out, has, config, penetration);
             if (left >= 0F) {
                 if (once) paid.add(pos);
-                if (apply) BulletServer.wearBy(level, id, owner, damage, hit);
+                if (apply) BulletServer.wearBy(level, id, owner, has, hit);
                 if (TestLog.server && apply) TestLog.s(id, "beam_block", "block", level.getBlockState(hit.getBlockPos()), "pos", hit.getBlockPos(),
-                        "at", hit.getLocation(), "result", "pierce", "damage", damage, "left", left);
-                path.steps.add(new double[] {hit.getLocation().distanceTo(path.from), left});
-                damage = left;
+                        "at", hit.getLocation(), "result", "pierce", "damage", has, "left", left);
+                damage = (float) (left / k);
+                path.steps.add(new double[] {t, damage});
                 if (out.getLocation().distanceToSqr(at) >= len * len) return BlockHitResult.miss(to, hit.getDirection(), BlockPos.containing(to));
                 at = out.getLocation().add(dir.scale(1e-3));
                 continue;
             }
             if (!apply) return hit;
             // it does not pierce it: a block whose break rule lets the shot on ("pass") breaks and the beam goes on
-            int got = BulletServer.blockHit(level, id, owner, damage, hit);
+            int got = BulletServer.blockHit(level, id, owner, has, hit);
             if (TestLog.server) TestLog.s(id, "beam_block", "block", level.getBlockState(hit.getBlockPos()), "pos", hit.getBlockPos(),
-                    "at", hit.getLocation(), "result", got == 2 ? "broke_pass" : got == 1 ? "broke" : "stop", "damage", damage);
+                    "at", hit.getLocation(), "result", got == 2 ? "broke_pass" : got == 1 ? "broke" : "stop", "damage", has);
             if (got != 2) return hit;
             at = hit.getLocation().add(dir.scale(1e-3));
         }
@@ -181,34 +214,30 @@ public final class BeamServer {
     static final int STEPS = 64;
 
     // a beam with no entity of its own, straight from `from` to its target's point `to` (a turret's, a Tesla coil's
-    // arc): the damage it has there, or -1 when a block (or water, with THROUGH_WATER off) stops it on the way. round:
-    // its threshold negation and armour piercing (a Tauon's tau round), null: none. apply: the shot (blocks on the way
-    // are worn and broken), else only whether the target is in sight
+    // arc): the damage it has there, or -1 when a block stops it on the way or it is gone in water before it gets there
+    // (BeamWater). round: its threshold negation and armour piercing (a Tauon's tau round), null: none. apply: the shot
+    // (blocks on the way are worn and broken), else only whether the target is in sight
     public static float reach(Level level, @Nullable Entity owner, Vec3 from, Vec3 to, float damage, @Nullable BulletConfig round, boolean apply,
             java.util.function.@Nullable Predicate<BlockPos> own) {
-        if (!THROUGH_WATER && water(level, from, to) != null) return -1F;
-        Path path = new Path(from, damage);
-        BlockHitResult hit = walk(level, -1, owner, from, to, round, path, apply, own);
-        return hit.getType() == HitResult.Type.MISS ? path.at(to) : -1F;
+        return reach(level, owner, from, to, damage, round, apply, own, false);
+    }
+
+    // laser: the beam goes through glass (a Maxwell's maser, BeamLasers)
+    public static float reach(Level level, @Nullable Entity owner, Vec3 from, Vec3 to, float damage, @Nullable BulletConfig round, boolean apply,
+            java.util.function.@Nullable Predicate<BlockPos> own, boolean laser) {
+        BeamWater water = BeamWater.along(level, from, to);
+        double length = from.distanceTo(to), gone = water.gone();
+        Path path = new Path(from, damage, water);
+        // gone in the water: the blocks up to there are still met (worn, with apply), the target is not reached
+        Vec3 end = gone < length ? from.add(to.subtract(from).normalize().scale(gone)) : to;
+        BlockHitResult hit = walk(level, -1, owner, from, end, round, path, apply, own, laser && BeamLasers.on());
+        return hit.getType() == HitResult.Type.MISS && !(gone < length) ? path.at(to) : -1F;
     }
 
     // the beam a coin sends on (NTM: x1.25 of this one's damage): x1.25 of what this one has at the coin
     public static void reflected(EntityBulletBeamBase beam, EntityBulletBeamBase next, Vec3 coin) {
         Path path = ((Holder) beam).gunfeel$path();
         if (path != null) next.damage = path.at(coin) * 1.25F;
-    }
-
-    // the first water on the way, else null (blocks are not looked at here)
-    private static @Nullable BlockHitResult water(Level level, Vec3 from, Vec3 to) {
-        BlockHitResult w = level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.WATER,
-                net.minecraft.world.phys.shapes.CollisionContext.empty()) {
-            @Override
-            public net.minecraft.world.phys.shapes.VoxelShape getBlockShape(net.minecraft.world.level.block.state.BlockState state,
-                    net.minecraft.world.level.BlockGetter getter, BlockPos pos) {
-                return net.minecraft.world.phys.shapes.Shapes.empty();
-            }
-        });
-        return w.getType() == HitResult.Type.MISS ? null : w;
     }
 
     // the damage the beam has where it meets `at`, else its own (no way kept: NTM's beam)
