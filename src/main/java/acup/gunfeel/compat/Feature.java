@@ -29,7 +29,7 @@ public enum Feature {
     MARESLEG("maresleg", List.of("MixinGunConfigAnims"), List.of()),
     SPRINT_FIRE("sprint_fire", List.of("MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun"), List.of("SprintFire")),
     SPECTATOR("spectator", List.of("MixinSpectatorGun", "MixinSpectatorKeys", "MixinSpectatorHud"), List.of("SpectatorGuns", "SpectatorStand")),
-    GL54("gl54", List.of("MixinAmmoPress"), List.of("PressLoading", "Gl54Items", "Gl54Gun", "Gl54Ammo", "Gl54Grenade", "GrenadeType", "GrenadeMagazine", "MagItem", "MagTint", "MagMenu", "MagScreen", "Gl54SelectPayload", "MagCommand", "Gl54Hud", "Gl54Anim", "Gl54Orchestra", "Gl54Casing", "Gl54Server", "Gl54Client", "ItemRenderGl54"));
+    GL54("gl54", List.of("MixinAmmoPress"), List.of("PressLoading", "Gl54Items", "Gl54Gun", "Gl54Ammo", "Gl54Grenade", "GrenadeType", "GrenadeMagazine", "MagItem", "MagTint", "MagMenu", "MagScreen", "Gl54SelectPayload", "MagCommand", "Gl54Hud", "Gl54Anim", "Gl54Orchestra", "Gl54Casing", "Gl54Server", "Gl54Client", "ItemRenderGl54", "Gl54Range", "Gl54Fuse", "Gl54Reflex", "ReflexDraw", "ReflexMath", "Gl54Laser", "Gl54LaserWorld", "Gl54Ballistics"));
 
     public final String id;
     // simple names: mixins in acup.gunfeel.mixin, classes in acup.gunfeel

@@ -20,7 +20,8 @@ Changes:
   well, floorplate, trigger and trigger guard.
 - Cut side openings in the shroud to show the barrel; recoloured to black and graphite
   with a bright barrel; narrowed the magazine and added side panels and a band.
-- Added iron sights, a ribbed rubber buttpad and a laser rangefinder.
+- Added a reflex sight (its housing and a clear pane), a ribbed rubber buttpad and a laser
+  rangefinder, made by the mod's author with ChatGPT as part of the same adaptation.
 - Split into separate parts and added a firing animation (bolt carrier, charging
   handle, ejected case).
 - Converted by a script (tools/gl54_export.py) into NTM's model format: a mesh of separate

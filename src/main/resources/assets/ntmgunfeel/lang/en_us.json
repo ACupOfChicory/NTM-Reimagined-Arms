@@ -26,6 +26,7 @@
   "ntmgunfeel.feature.spectator": "No guns in spectator mode",
   "ntmgunfeel.feature.gl54": "GL-54 grenade launcher",
   "item.ntmgunfeel.gun_gl54": "GL-54",
+  "ntmgunfeel.gl54.range_tooltip": "%s while aiming: measure the range",
   "ntmgunfeel.compat.title": "NTM version %s is not tested, the last supported one is %s",
   "ntmgunfeel.compat.all_on": "Everything checked still fits this NTM, all systems are on. Something may still behave oddly.",
   "ntmgunfeel.compat.off": "These systems do not fit this NTM and are turned off:",

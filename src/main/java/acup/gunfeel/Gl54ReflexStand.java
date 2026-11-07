@@ -22,6 +22,7 @@ import acup.gunfeel.gl54.Gl54Ballistics;
 import acup.gunfeel.gl54.Gl54Grenade;
 import acup.gunfeel.gl54.Gl54Items;
 import acup.gunfeel.gl54.Gl54Laser;
+import acup.gunfeel.gl54.Gl54LaserWorld;
 import acup.gunfeel.gl54.Gl54Range;
 import acup.gunfeel.gl54.ItemRenderGl54;
 import acup.gunfeel.gl54.ReflexDraw;
@@ -323,13 +324,39 @@ final class Gl54ReflexStand {
             Gl54Laser.ON = true;
             mc.options.setCameraType(CameraType.THIRD_PERSON_BACK);
         });
-        sleep(120);
-        run(() -> shot("third-on.png"));
-        TODO.add(() -> pending == 0);
-        run(() -> Gl54Laser.ON = false);
-        sleep(6);
-        run(() -> shot("third-off.png"));
-        TODO.add(() -> pending == 0);
+        for (float[] pose : new float[][] {{0, 0}, {135, 0}, {-135, 30}, {0, 0, 1}, {135, 0, 1}, {-135, 30, 1}}) {
+            String tag = (pose.length > 2 ? "front-" : "third-") + (int) pose[0] + "-" + (int) pose[1];
+            run(() -> mc.options.setCameraType(pose.length > 2 ? CameraType.THIRD_PERSON_FRONT : CameraType.THIRD_PERSON_BACK));
+            run(() -> turn(mc, pose[0], pose[1]));
+            sleep(100);
+            run(() -> {
+                shot(tag + "-on.png");
+                var cam = mc.gameRenderer.mainCamera();
+                Vec3 s = Gl54LaserWorld.lastStart;
+                if (s != null) {
+                    Vec3 d = s.subtract(cam.position());
+                    org.joml.Vector3f v = cam.rotation().conjugate(new org.joml.Quaternionf()).transform(new org.joml.Vector3f((float) d.x, (float) d.y, (float) d.z));
+                    float f = (mc.getWindow().getHeight() / 2F) / (float) Math.tan(Math.toRadians(cam.getFov() * 0.5));
+                    line("laser start", tag, "px", mc.getWindow().getWidth() / 2F + v.x / -v.z * f, mc.getWindow().getHeight() / 2F - v.y / -v.z * f, "view z", v.z);
+                    // other forward reaches, for the one that meets the lens
+                    double was = Gl54LaserWorld.forward;
+                    float partial = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
+                    for (double fw : new double[] {0.3, 0.5, 0.7, 0.9, 1.1, 1.3}) {
+                        Gl54LaserWorld.forward = fw;
+                        Vec3 c = Gl54LaserWorld.line(mc.player, partial)[0].subtract(cam.position());
+                        org.joml.Vector3f w = cam.rotation().conjugate(new org.joml.Quaternionf()).transform(new org.joml.Vector3f((float) c.x, (float) c.y, (float) c.z));
+                        line("laser candidate", tag, "forward", fw, "px", mc.getWindow().getWidth() / 2F + w.x / -w.z * f, mc.getWindow().getHeight() / 2F - w.y / -w.z * f);
+                    }
+                    Gl54LaserWorld.forward = was;
+                }
+            });
+            TODO.add(() -> pending == 0);
+            run(() -> Gl54Laser.ON = false);
+            sleep(6);
+            run(() -> shot(tag + "-off.png"));
+            TODO.add(() -> pending == 0);
+            run(() -> Gl54Laser.ON = true);
+        }
         run(() -> {
             Gl54Laser.ON = true;
             aim(mc, false);

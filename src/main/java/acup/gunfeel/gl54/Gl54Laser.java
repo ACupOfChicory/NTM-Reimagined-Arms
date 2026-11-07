@@ -19,7 +19,7 @@ import net.minecraft.world.item.ItemStack;
 public final class Gl54Laser {
     // how far the beam reaches before it is gone, blocks; its width, blocks
     public static final double LENGTH_BLOCKS = 2.0, WIDTH_BLOCKS = 0.015;
-    static final int SEGMENTS = 8;
+    public static final int SEGMENTS = 8;
     static final int RGB = (255 << 16) | (30 << 8) | 20;
     // the alpha at the lens
     static final int ALPHA = 200;
@@ -64,7 +64,7 @@ public final class Gl54Laser {
     }
 
     // the colour at a share of the beam's strength (1 at the lens, 0 at the end)
-    static int color(double strength) {
+    public static int color(double strength) {
         return ((int) Math.round(ALPHA * Math.max(0.0, strength)) << 24) | RGB;
     }
 }
