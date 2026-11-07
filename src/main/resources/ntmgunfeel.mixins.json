@@ -3,12 +3,12 @@
   "minVersion": "0.8",
   "package": "acup.gunfeel.mixin.mc",
   "compatibilityLevel": "JAVA_21",
-  "mixins": ["MixinEntityModelBox", "MixinProjectileModelQuery", "MixinSmokeSight", "LivingEntityAccess", "MixinAiBlockChange", "MobGoalsAccess", "MixinAiNavigation"],
+  "mixins": ["MixinEntityModelBox", "MixinProjectileModelQuery", "MixinSmokeSight", "LivingEntityAccess", "MixinAiBlockChange", "MobGoalsAccess", "MixinAiNavigation", "MixinAiProneSize"],
   "client": ["MixinSubmitNodeCollection", "MixinItemInHandRenderer", "MixinParticleEngine", "MixinParticlesSubmit", "MixinFlywheelFrame",
     "MixinMouseTurn", "KeyMappingAccess", "LocalPlayerAccess", "GuiGraphicsAccess", "ModelPartAccess", "LivingEntityRendererAccess", "MixinLivingModelHits", "MixinModelHitboxDebug",
     "MixinModelHitState", "MixinPreparedModelHit", "MixinVanillateModelHit", "VanillateEntityAccess", "MixinSpawnLerp", "MixinHandBob", "GameRendererAccess", "MixinSprintStop",
     "MixinEntityModelHitState", "MixinEntityMeshHits", "MixinDragonModelHit", "MixinGpuInstancerModel", "MixinGpuPoseShadow",
     "MixinAlexRenderSetup", "MixinAlexPostEffects", "MixinLegacyHitboxGizmos", "MixinSkinLayerVisualizer", "MixinDeltaTimer", "MixinTracePartialTick",
-    "MixinPunchyMovesEngine"],
+    "MixinPunchyMovesEngine", "MixinAiProneRender"],
   "injectors": { "defaultRequire": 1 }
 }

@@ -1,5 +1,14 @@
 # Changelog
 
+## X598
+
+- Mob AI: AI mobs lie down, on the terms a player does (`prone`). Behind low
+  cover they go down between bursts and to reload, and get up to fire; in the
+  open with you over 30 blocks off they fire lying; pinned down by shots
+  flying past (three within a second) with no cover, they lie. Never closer
+  than 10 blocks. Lying, they are a crawling player's size, crawl at a third
+  of the speed and get the crawling spread (`spreadCrawl`), as a player does.
+
 ## X597
 
 - Mob AI, fourth part: AI mobs fight. One that sees you gets into cover from

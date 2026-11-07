@@ -24,6 +24,7 @@ public final class AiBot {
     private long clearedLost = Long.MIN_VALUE;
     public final AiMover mover;
     public final AiGunner gunner;
+    public final AiProne prone;
     /** what it does with what it knows; null: it only senses (a stand drives it) */
     public @Nullable AiBrain brain;
     /** a player within aiRadius: it thinks; else it stands still */
@@ -35,6 +36,7 @@ public final class AiBot {
         this.memory = new TargetMemory(profile);
         this.mover = new AiMover(mob);
         this.gunner = new AiGunner(mob, new AiAmmo(0));
+        this.prone = new AiProne(mob);
     }
 
     public boolean active() {

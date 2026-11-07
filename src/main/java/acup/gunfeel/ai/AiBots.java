@@ -199,6 +199,7 @@ public final class AiBots {
         if ((tick + bot.mob.getId()) % 40 == 0) map.want(bot.mob.getBlockX(), bot.mob.getBlockY(), bot.mob.getBlockZ(), WANT_RADIUS, 8);
         bot.tick(l.voxels, SmokeClouds.get(level), targets(l, tick), tick);
         if (bot.brain != null) bot.brain.tick(bot, tick);
+        bot.prone.tick(level, bot.mover, tick);
         bot.mover.tick(level, map, tick);
         int reserve = bot.gunner.ammo.reserve();
         bot.gunner.tick(level);

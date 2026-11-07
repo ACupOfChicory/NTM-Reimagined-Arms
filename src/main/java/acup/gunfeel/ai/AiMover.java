@@ -31,6 +31,8 @@ public final class AiMover {
     private long goal = Long.MIN_VALUE;
     private double radius;
     private double speed = 1.0;
+    /** a share of the speed it walks at (lying: a third) */
+    private double slow = 1.0;
     private int tries;
     /** in the goal's cell since (the last steps, straight to its middle), and there long enough to count as arrived */
     private long inCellSince = Long.MIN_VALUE;
@@ -68,6 +70,13 @@ public final class AiMover {
         walking = null;
         searching = false;
         gen++;
+    }
+
+    /** walks at this share of its speed from now (lying down, getting up) */
+    void slow(double share) {
+        if (share == slow) return;
+        slow = share;
+        if (walking != null) mob.getNavigation().setSpeedModifier(speed * slow);
     }
 
     public void costs(PathSearch.Cost cost) {
@@ -148,7 +157,7 @@ public final class AiMover {
             walking = null;
             if (inCellSince == Long.MIN_VALUE) inCellSince = tick;
             if (tick - inCellSince > SETTLE) settled = true;
-            mob.getMoveControl().setWantedPosition(BlockPos.getX(goal) + 0.5, mob.getY(), BlockPos.getZ(goal) + 0.5, speed);
+            mob.getMoveControl().setWantedPosition(BlockPos.getX(goal) + 0.5, mob.getY(), BlockPos.getZ(goal) + 0.5, speed * slow);
             return;
         }
         inCellSince = Long.MIN_VALUE;
@@ -208,7 +217,7 @@ public final class AiMover {
         }
         long end = r.cells[r.cells.length - 1];
         Path p = new Path(nodes, BlockPos.of(end), r.reached);
-        if (mob.getNavigation().moveTo(p, speed)) walking = r;
+        if (mob.getNavigation().moveTo(p, speed * slow)) walking = r;
         else tries++;
     }
 

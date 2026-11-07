@@ -46,6 +46,8 @@ public final class AiSoldier implements AiBrain {
     public int covers, relocations, bursts, searchSpots, shifts;
     /** ticks it holds fire with one of its own in the line before it moves */
     static final int BLOCKED_MOVE = 20;
+    /** lying down: never closer than NEVER blocks to the target; in the open from FAR on (or pinned down) */
+    static final double PRONE_NEVER = 10, PRONE_FAR = 30;
 
     private void mode(Mode m, long tick) {
         if (mode != m) {
@@ -137,6 +139,7 @@ public final class AiSoldier implements AiBrain {
 
     private void combat(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
         Vec3 eye = new Vec3(c.x, c.y + 1.5, c.z), chest = new Vec3(c.x, c.y + 1.1, c.z);
+        double dist = bot.mob.position().distanceTo(new Vec3(c.x, c.y, c.z));
         watch = chest;
         AiGunner g = bot.gunner;
         g.aim(chest);
@@ -158,8 +161,11 @@ public final class AiSoldier implements AiBrain {
             takeCover(bot, level, map, List.of(eye));
         }
         if (spot == null) {
-            // no cover to be had: fight where it stands, a step aside when one of its own is in the line
+            // no cover to be had: fight where it stands (lying, far off or pinned down by shots flying past), a step
+            // aside when one of its own is in the line
             mode(Mode.COVER, tick);
+            bot.prone.watchShots(level, tick);
+            if (dist >= PRONE_NEVER && (dist >= PRONE_FAR || bot.prone.pinned(tick))) bot.prone.want();
             burst(bot, tick, true);
             if (g.blockedTicks > BLOCKED_MOVE) {
                 g.blockedTicks = 0;
@@ -189,8 +195,13 @@ public final class AiSoldier implements AiBrain {
         if (mode == Mode.COVER) {
             if (bot.mover.goal() != spot.cell()) bot.mover.goTo(spot.cell(), 0.35, WALK);
             boolean there = bot.mover.arrived();
-            g.fire(low && there && burst(bot, tick, false));
             boolean reload = g.loaded() >= 0 && g.loaded() < Math.max(1, g.capacity() / 3) && g.ammo.any();
+            if (low && there) {
+                // behind low cover: down between bursts and to reload, up a moment before the next burst
+                boolean pause = burstUntil != 0 && tick > burstUntil && tick <= burstUntil + 20 - AiProne.RISE;
+                if ((pause || reload || g.reloading()) && dist >= PRONE_NEVER) bot.prone.want();
+                g.fire(bot.prone.upright(tick) && !reload && burst(bot, tick, false));
+            } else g.fire(false);
             if (reload) g.reload();
             if (!low && there && !reload && !g.reloading() && tick >= hideUntil && spot.hasPeek() && g.loaded() != 0) {
                 bot.mover.goTo(spot.peek(), 0.35, WALK);
@@ -233,9 +244,12 @@ public final class AiSoldier implements AiBrain {
             if (bot.mover.goal() != s.cell()) bot.mover.goTo(s.cell(), 0.35, WALK);
             boolean reload = g.loaded() >= 0 && g.loaded() < g.capacity() && g.ammo.any();
             if (reload) g.reload();
+            boolean low = s.peek() == s.cell() || !s.hasPeek();
+            // behind low cover it hides lying, and gets up to look
+            if (low && bot.mover.arrived() && (tick < hideUntil || reload || g.reloading())) bot.prone.want();
             if (bot.mover.arrived() && tick >= hideUntil && !reload && !g.reloading()) {
-                if (s.peek() == s.cell() || !s.hasPeek()) {
-                    blindLost = c.lostTick;
+                if (low) {
+                    if (bot.prone.upright(tick)) blindLost = c.lostTick;
                     return;
                 }
                 bot.mover.goTo(s.peek(), 0.35, WALK);
