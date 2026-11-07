@@ -57,6 +57,8 @@ public final class CoverQuery {
 
     /** places beside high cover to shoot from, at most */
     static final int MAX_PEEKS = 3;
+    /** the spots that pass the rays before the best of them is taken */
+    static final int POOL = 4;
 
     // the weights
     static final double HIGH = 4, LOW = 1.5, HARD = 2, PER_BLOCK = 0.25, OFF_RANGE = 0.05, CURRENT = 2, PEEK = 1.5, PEEK_FIGHT = 4;
@@ -132,7 +134,9 @@ public final class CoverQuery {
         for (int i = 0; i < count; i++) order[i] = i;
         java.util.Arrays.sort(order, (a, b) -> Double.compare(score[b], score[a]));
         int budget = p.rayBudget;
-        for (int k = 0; k < count && out.size() < n && budget > 0; k++) {
+        // a few that pass, not the first: a place to shoot from and the other threats change their order
+        int pool = Math.max(n, POOL);
+        for (int k = 0; k < count && out.size() < pool && budget > 0; k++) {
             int i = order[k];
             long key = cand[i];
             int x = BlockPos.getX(key), y = BlockPos.getY(key), z = BlockPos.getZ(key);
@@ -191,6 +195,7 @@ public final class CoverQuery {
             out.add(new Spot(key, score[i] + (peek != Long.MIN_VALUE ? p.peekBonus : 0) - seenBy, height, hard, peek, java.util.Arrays.copyOf(peeks, np)));
         }
         out.sort((a, b) -> Double.compare(b.score(), a.score()));
+        if (out.size() > n) out.subList(n, out.size()).clear();
         nanos += System.nanoTime() - t0;
         return out;
     }
