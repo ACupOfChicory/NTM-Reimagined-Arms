@@ -1,5 +1,13 @@
 # Changelog
 
+## X543.195
+
+- As in X582: `beamRules`: a beam that meets blocks more than 64 times on its
+  way (pierced, broken, or a turret's own; a fence's post and rail count
+  twice) now stops where it met the last of them. Before, it flew on through
+  everything past them as if nothing were there, and a turret could see and
+  hit a target behind them.
+
 ## X543.193
 
 - As in X478: `modelHitboxes` now covers the hunter chopper, the plastic bag,
