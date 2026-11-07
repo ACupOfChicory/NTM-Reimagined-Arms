@@ -150,6 +150,8 @@ neoForge {
             systemProperty("ntmgunfeel.smokeStand",providers.gradleProperty("smokeStand").orElse("").get())
             // -PgasStand=<dir>: the GL-54's gas grenades in numbers: HP, doses, filter, K, cell counts, the pit, the server's cost (GasStand)
             systemProperty("ntmgunfeel.gasStand",providers.gradleProperty("gasStand").orElse("").get())
+            // -PgasStandVis (with -PgasStand): only the gases' looks, the scenarios are skipped
+            systemProperty("ntmgunfeel.gasVisOnly",providers.gradleProperty("gasStandVis").isPresent.toString())
             // -PsmokePoses=sky,wall: only the poses whose names start with one of these
             systemProperty("ntmgunfeel.smokePoses",providers.gradleProperty("smokePoses").orElse("").get())
             // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)

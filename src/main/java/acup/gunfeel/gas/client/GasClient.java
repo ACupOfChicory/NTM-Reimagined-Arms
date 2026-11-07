@@ -42,11 +42,37 @@ public final class GasClient {
         r.playToClient(GasPayloads.Cough.TYPE, GasPayloads.Cough.CODEC, (p, ctx) -> ctx.enqueueWork(() -> {
             cough = coughTotal = p.ticks();
             blockAim = p.blockAim();
+            if (blockAim) releaseAim();
         }));
     }
 
 
+    // NTM's third gun key (the aim) as the last gunChanged left it
+    private static boolean aimHeld;
+    private static java.lang.reflect.Method gunChanged;
+
+    /** MixinGasAim: the aim key changed (a press the cough turned away does not come here). */
+    public static void aimKey(boolean down) {
+        aimHeld = down;
+    }
+
+    // a cough knocks the aim out of the hands: NTM is told the key went up (the player presses it again after)
+    private static void releaseAim() {
+        if (!aimHeld) return;
+        try {
+            if (gunChanged == null) {
+                gunChanged = com.hbm.client.Keybinds.class.getDeclaredMethod("gunChanged", int.class, boolean.class);
+                gunChanged.setAccessible(true);
+            }
+            gunChanged.invoke(null, 2, false);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            acup.gunfeel.DebugLog.LOGGER.warn("Could not let go of the aim on a cough", e);
+        }
+        aimHeld = false;
+    }
+
     static void reset() {
+        aimHeld = false;
         java.util.Arrays.fill(DOSE, 0F);
         k = 0F;
         noSprint = false;
