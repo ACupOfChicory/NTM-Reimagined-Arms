@@ -153,6 +153,10 @@ BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 motionZ D
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 posX D
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 posY D
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 posZ D
+BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 prevPosX D
+BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 prevPosZ D
+BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 prevRotationYaw F
+BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 rotationYaw F
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 ticksExisted I
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 ticksInAir I
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 velocityChanged Z

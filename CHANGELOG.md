@@ -1,5 +1,11 @@
 # Changelog
 
+## X543.156
+
+- A grenade or rocket sinking straight down keeps the way it faced. Before,
+  NTM turned it to face south at the first straight step down, so one a
+  player first saw already sinking always lay north to south.
+
 ## X543.155
 
 - A grenade or rocket flying under water is no longer drawn as sunk for a

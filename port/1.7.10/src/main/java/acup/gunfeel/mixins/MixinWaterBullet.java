@@ -43,11 +43,31 @@ public abstract class MixinWaterBullet implements WaterBullet, WaterImpact.Hits 
     @Unique private net.minecraft.util.Vec3 gunfeel$goneAt;
     @Unique private acup.gunfeel.phys.Vec3 gunfeel$sunkHeading;
     @Unique private long gunfeel$sent;
+    @Unique private float gunfeel$yaw;
 
     // every constructor of NTM's comes through this one; a gun makes all pellets of a shot in one loop
     @Inject(method = "<init>(Lnet/minecraft/world/World;)V", at = @At("TAIL"), remap = true)
     private void gunfeel$born(World world, CallbackInfo ci) {
         if (world != null) gunfeel$shot = world.getTotalWorldTime();
+    }
+
+    // port: NTM's tick turns its yaw to atan2(dX, dZ) of its step, on the server and the client, so a step straight
+    // down (a sinking round) turns it to 0, and SunkBullets' fallback heading (the yaw) would always lie along +Z. A
+    // step with no level part keeps the yaw it had (prevRotationYaw too, so it does not swing); the server's yaw then
+    // also reaches the players who come in sight of it later
+    @Inject(method = "onUpdate", at = @At("HEAD"), remap = true)
+    private void gunfeel$yawBefore(CallbackInfo ci) {
+        gunfeel$yaw = ((EntityBulletBaseMK4) (Object) this).rotationYaw;
+    }
+
+    @Inject(method = "onUpdate", at = @At("RETURN"), remap = true)
+    private void gunfeel$yawAfter(CallbackInfo ci) {
+        EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
+        double dx = self.posX - self.prevPosX, dz = self.posZ - self.prevPosZ;
+        if (dx * dx + dz * dz < 1e-12) {
+            self.rotationYaw = gunfeel$yaw;
+            self.prevRotationYaw = gunfeel$yaw;
+        }
     }
 
     // modified, not set: a cancelling inject would end the method before the others (bulletSpeed, MixinBulletServer),
