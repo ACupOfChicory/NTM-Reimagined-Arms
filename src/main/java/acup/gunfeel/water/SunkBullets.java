@@ -62,6 +62,14 @@ public final class SunkBullets {
     // the water stopped a bullet (WaterFx on STOP): a body where it stopped, moving on at 1.5 blocks a second
     static void stopped(Level level, WaterEvents.Event e) {
         if (Config.waterBodyMax <= 0 || broken) return;
+        try {
+            body(e);
+        } catch (RuntimeException x) {
+            broke(x);
+        }
+    }
+
+    private static void body(WaterEvents.Event e) {
         Entity bullet = e.bullet();
         BulletConfig config = WaterFx.config(e);
         String ammo = WaterFx.ammo(config);
@@ -92,9 +100,9 @@ public final class SunkBullets {
         broken = false;
     }
 
-    // An exception in the bodies' physics or in a model (a block of another mod in boxes, say) would leave the world's
-    // drawing and take the frame, the game, with it: it is written to the log once, and the rounds in water are off
-    // till this world is left
+    // An exception in the bodies' physics or in a model (a block of another mod in boxes, say, or a model that does not
+    // load) would leave the world's drawing or the water's event and take the game with it: it is written to the log
+    // once, and the rounds in water are off till this world or dimension is left
     private static boolean broken;
 
     private static void broke(RuntimeException e) {
@@ -135,6 +143,14 @@ public final class SunkBullets {
     public static void flying(Level level, @Nullable BulletConfig config, Vec3 head, Vec3 dir, double f, double speed) {
         if (!WaterFx.on() || broken || dir.lengthSqr() < 1e-12) return;
         if (config == null || !WaterFx.wetAt(level, head)) return;
+        try {
+            fly(config, head, dir, f, speed);
+        } catch (RuntimeException e) {
+            broke(e);
+        }
+    }
+
+    private static void fly(BulletConfig config, Vec3 head, Vec3 dir, double f, double speed) {
         if (roundsScale != Config.waterBodyScale) {
             ROUNDS.clear();
             roundsScale = Config.waterBodyScale;
