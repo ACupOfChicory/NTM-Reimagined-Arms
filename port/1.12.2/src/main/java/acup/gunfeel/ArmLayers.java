@@ -5,7 +5,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -69,8 +68,10 @@ public final class ArmLayers {
     // weak: a player left for the main menu does not keep its world
     private static volatile WeakReference<EntityPlayerSP> owner = new WeakReference<>(null);
     private static final boolean[] SLEEVE = new boolean[2];
-    // leave() runs on the network thread
-    private static final Set<Class<?>> WARNED = Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+    private static final Set<Class<?>> WARNED = new java.util.HashSet<>();
+    // leave() runs on the network thread: it only asks, and the render thread lets the failures go (settle) before it
+    // reads them again, so a count it was writing does not come back into the next world
+    private static volatile boolean left;
     // while the layers run on an arm: the player model and its pose for that arm (MixinModelBipedPose)
     private static ModelBiped posed;
     private static Pose posedPose;
@@ -83,14 +84,22 @@ public final class ArmLayers {
     // leaving a world (FML's ClientDisconnectionFromServerEvent; 26.2: LoggingOut): the player is let go
     public static void leave() {
         prepared = false;
-        FAILED.clear();
-        WARNED.clear();
+        left = true;
         owner = new WeakReference<>(null);
     }
 
     // a new frame of the gun in hand (Arms.begin): the player is read again on first use
     public static void newFrame() {
         fresh = true;
+        frame++;
+        settle();
+    }
+
+    private static void settle() {
+        if (!left) return;
+        left = false;
+        FAILED.clear();
+        WARNED.clear();
     }
 
     // whether the skin's second layer shows on this arm the way the third-person model has it now (NTM hides it under
@@ -239,8 +248,7 @@ public final class ArmLayers {
             LayerRenderer layer = layers.get(k);
             if (skipped(layer)) continue;
             Failed key = new Failed(layer.getClass(), worn);
-            boolean counted = FAILED.containsKey(key);
-            if (counted && leftOut(key)) continue;
+            if (leftOut(key)) continue;
             if (marked) Feedback.layer(k);
             // the layers' state as draw set it, for after one that throws
             if (state == null) state = new GlSaved();
@@ -251,7 +259,6 @@ public final class ArmLayers {
             try {
                 // as RenderLivingBase.renderLayers, at the model's rest: the pose is ours (MixinModelBipedPose)
                 layer.doRenderLayer(player, 0F, 0F, partial, age, 0F, 0F, 0.0625F);
-                if (counted) drew(key);
             } catch (Throwable t) {
                 threw = true;
                 failed(key, t);
@@ -288,26 +295,36 @@ public final class ArmLayers {
         popTo(GL11.GL_MODELVIEW, GL11.GL_MODELVIEW_STACK_DEPTH, depth);
     }
 
-    // how often in a row a layer may throw with the same armour on before the arms leave it out (until the player leaves
-    // the world): a failure in the first frames, before the player's data came, is tried again, and one that draws in
-    // between starts the count anew
+    // in how many frames in a row a layer may throw with the same armour on before the arms leave it out (until the
+    // player leaves the world): a failure in the first frames, before the player's data came, is tried again, and a frame
+    // it draws in starts the count anew. A frame counts once, whether the layer threw on one arm or on both
     static final int TRIES = 3;
+
+    // the frames of the gun in hand (newFrame); the render thread's alone, as FAILED and WARNED
+    private static long frame;
+
+    // a layer's failures by the armour worn: the frames in a row it threw in and the last of them; cleared when the
+    // player leaves the world
+    private static final Map<Failed, Fails> FAILED = new java.util.HashMap<>();
+
+    private record Fails(int frames, long last) {
+    }
 
     // the layer is left out with this armour on
     static boolean leftOut(Failed key) {
-        Integer fails = FAILED.get(key);
-        return fails != null && fails >= TRIES;
-    }
-
-    // it drew: its failures before do not count
-    static void drew(Failed key) {
-        FAILED.remove(key);
+        settle();
+        Fails fails = FAILED.get(key);
+        return fails != null && fails.frames() >= TRIES;
     }
 
     static void failed(Failed key, Throwable t) {
-        int fails = FAILED.merge(key, 1, Integer::sum);
+        settle();
+        Fails fails = FAILED.get(key);
+        // this frame counted already (the other arm); the frame before it threw too; or anew
+        int n = fails == null || fails.last() < frame - 1 ? 1 : fails.last() == frame ? fails.frames() : fails.frames() + 1;
+        FAILED.put(key, new Fails(n, frame));
         if (WARNED.add(key.layer)) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm", key.layer.getName(), t);
-        if (fails == TRIES) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm {} times with this armour on, left out of the arms until the world is left",
+        if (n == TRIES) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm in {} frames in a row with this armour on, left out of the arms until the world is left",
                 key.layer.getName(), TRIES);
     }
 
@@ -336,9 +353,6 @@ public final class ArmLayers {
             return h;
         }
     }
-
-    // a layer's failures in a row by the armour worn; cleared when the player leaves the world
-    private static final Map<Failed, Integer> FAILED = new java.util.concurrent.ConcurrentHashMap<>();
 
     private static final net.minecraft.inventory.EntityEquipmentSlot[] ARMOUR = {net.minecraft.inventory.EntityEquipmentSlot.HEAD,
             net.minecraft.inventory.EntityEquipmentSlot.CHEST, net.minecraft.inventory.EntityEquipmentSlot.LEGS,

@@ -249,12 +249,8 @@ public final class Config {
               not for a gun with a scope, nor for long guns
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
             armAimScaleRight, armAimScaleLeft: thickness of each arm holding the gun when aimed, in place of armScaleRight/Left; it goes over from one to the other as the gun comes up to the sights; 0 = the same as armScaleRight/Left
-            smokeQuality: how smoke clouds (the operator command /gunsmoke for now) are drawn: off (not drawn; inside one the screen still
-              goes grey), low, medium, high (the default) or ultra: the volume at a quarter, a third, half or the whole
-              of the screen's resolution, with more steps along each ray the higher it is; slices: stacks of
-              translucent layers (taken by itself with an Iris shader pack)
-            smokeMaxClouds: the nearest clouds drawn at once, 1..16
-            smokeDistance: clouds farther than this many blocks are not drawn
+            smokeQuality, smokeMaxClouds, smokeDistance: 26.2's smoke clouds (/gunsmoke); 1.12.2 has no smoke clouds yet,
+              so these do nothing here
             armRollRight, armRollLeft: turn of each arm around its own axis, degrees
             armDirRight, armDirLeft: direction from the hand to the shoulder: x (+ left), y (+ up), z (+ forward)
             armReachRight, armReachLeft: the arm goes back until this distance in front of the eye (- = behind); only for automatic thickness (armBase 0) or armLength 0
@@ -306,12 +302,10 @@ public final class Config {
             hitVolume: loudness of bullet hit sounds, times each hit rule's volume (1 = as the rules say, 0 = silent, up to 4;
               above 1 the same sound is played several times at once, Minecraft goes no louder than 1; explosive rounds
               no louder than 1, their blast is loud enough). /gunfeel hitvolume
-            holeCache: bullet holes kept on the graphics card in batches, rebuilt only when a hole comes or goes, not
-              every frame (false = the old way, every hole sent again each frame)
-            ntmRenderFixes: NTM blocks drawn as their textures are (NTM Decentralized Edition: the reinforced laminate
-              and its pane, block and item, see-through as the glass they are, and see-through glass no longer hidden
-              behind NTM's explosion smoke; off = as NTM draws them). The laminate takes effect when the resources are
-              loaded again (F3+T), the smoke at once
+            holeCache: 26.2's bullet holes kept on the graphics card; does nothing on 1.12.2, which sends its holes
+              each frame
+            ntmRenderFixes: NTM Decentralized Edition's laminate drawn see-through; does nothing on 1.12.2, where NTM CE
+              draws the reinforced laminate see-through itself
             Every value except enabled can be overridden per gun in config/ntm-gunfeel-guns.properties
             (hbm\\:gun_maresleg.armRollLeft = -55) or with /gunfeel set <key> <value> for the held gun.
             Hand positions per gun: <gun>.right / <gun>.left there, or /gunfeel grip""";
