@@ -221,6 +221,8 @@ final class AiCheckUnseen {
         if (!r.heard) check.check("the sounds about a player in creative go unheard", !anyHeard);
         for (Mob m : dummies) m.discard();
         dummies.clear();
+        // their bullets still in the air would land in the next round, a noise its dummies hear
+        AiCheck.clearShots(level);
         level.removePlayerImmediately(player, Entity.RemovalReason.DISCARDED);
         AiBots.refreshTargets(level);
     }

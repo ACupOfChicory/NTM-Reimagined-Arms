@@ -312,6 +312,8 @@ final class AiCheckReact {
             }
             dummy.discard();
         }
+        // its bullets still in the air would land in the next round (AiCheckUnseen)
+        AiCheck.clearShots(level);
         dummy = null;
         bot = null;
         park();
