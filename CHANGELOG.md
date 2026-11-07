@@ -1,5 +1,14 @@
 # Changelog
 
+## X543.158
+
+- `armArmor`: a chestplate from another mod that fails while it is drawn on
+  the arm is now left out only after three failures in a row with the same
+  armour on, until you leave the world, with a warning in the log. Before,
+  the first failure left that chestplate out for the rest of the game. One
+  that undoes more of its placing than it did no longer leaves the drawing
+  after it short of a matrix.
+
 ## X543.157
 
 - A round that meets water exactly on the edge of its surface and a side now
