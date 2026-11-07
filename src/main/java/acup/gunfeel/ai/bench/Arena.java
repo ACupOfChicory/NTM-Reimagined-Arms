@@ -116,6 +116,35 @@ public final class Arena {
         }
     }
 
+    // n of the mod's AI mobs (FBI agents with their own NTM guns) in two teams at the west and east edges, as fbiPairs
+    // has them: the mod's AI takes them over as they come in (tagged armsai), finds the other team and fights it
+    // across the cover rows. Endless rounds (a measurement must not end with empty guns) and no damage (TAG); every
+    // AI mob thinks with no player near (AiBots.wakeAll)
+    public void aiPairs(int n) {
+        acup.gunfeel.ai.AiBots.wakeAll(true);
+        var board = level.getScoreboard();
+        EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse("hbm:entity_fbi"));
+        for (int i = 0; i < n; i++) {
+            int c = i / 2 % 5, j = i / 2 / 5, z = 6 + 12 * (j % 10) + 6 * (j / 10 % 2);
+            boolean west = i % 2 == 0;
+            int x = free(west ? 4 + 4 * c : SIZE - 5 - 4 * c, z);
+            if (!(type.create(level, EntitySpawnReason.COMMAND) instanceof Mob m)) throw new IllegalStateException("no FBI");
+            m.snapTo(x + 0.5, ground, z + 0.5, west ? -90F : 90F, 0F);
+            m.finalizeSpawn(level, level.getCurrentDifficultyAt(m.blockPosition()), EntitySpawnReason.COMMAND, null);
+            m.setPersistenceRequired();
+            m.addTag(TAG);
+            m.addTag(acup.gunfeel.ai.AiAdapter.TAG);
+            String team = west ? "bench_west" : "bench_east";
+            var t = board.getPlayerTeam(team);
+            board.addPlayerToTeam(m.getScoreboardName(), t != null ? t : board.addPlayerTeam(team));
+            level.addFreshEntity(m);
+            var bot = acup.gunfeel.ai.AiBots.get(m);
+            if (bot == null) throw new IllegalStateException("an FBI tagged armsai is not an AI mob");
+            bot.gunner.ammo.setInfinite();
+            bot.gunner.loadFree();
+        }
+    }
+
     // a command run by the server at the arena's middle, on the ground (~ ~ ~ is there), at the server's own level
     public void command(String command) {
         MinecraftServer s = server();

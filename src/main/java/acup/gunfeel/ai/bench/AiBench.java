@@ -42,9 +42,7 @@ public final class AiBench {
 
     // A phase: its name, the mobs it should have and what puts them on the cleared arena (Arena's spawn, grid,
     // fbiPairs, command); booms are the measured ticks at which an explosion goes off (Arena.BOOMS, in turn).
-    // The mod's bots are one line more in PHASES, once /armsai spawn exists, for example
-    //     new Phase("ai100", 100, a -> a.command("armsai spawn fbi 100")),
-    // the command run at the arena's middle on the ground; then -PbenchAiPhases=empty,ai100 runs just those.
+    // -PbenchAiPhases=empty,ai100 runs just those.
     public record Phase(String name, int mobs, Consumer<Arena> prep, int... booms) {
     }
 
@@ -53,7 +51,8 @@ public final class AiBench {
     // wandering; dummy100: 100 of NTM's test dummy (a Mob with no goals); boom: three explosions by fbi100's fight
     // (vanilla ServerLevel.sendBlockUpdated asks every navigating mob of the level about every block whose collision
     // changed: research §1.6); boomidle: the same by fbi100idle's wanderers (Lithium asks only mobs with a path);
-    // boom0: the same explosions on the empty arena, the explosion's own cost
+    // boom0: the same explosions on the empty arena, the explosion's own cost; ai100: the mod's AI mobs, two teams of
+    // 50 FBI going at each other as fbi100's (Arena.aiPairs); aiboom: the same with fbi100's explosions
     static final List<Phase> PHASES = List.of(
             new Phase("empty", 0, a -> {
             }),
@@ -64,7 +63,9 @@ public final class AiBench {
             new Phase("boom", 100, a -> a.fbiPairs(100), 150, 300, 450),
             new Phase("boomidle", 100, a -> a.grid("hbm:entity_fbi", 100), 150, 300, 450),
             new Phase("boom0", 0, a -> {
-            }, 150, 300, 450));
+            }, 150, 300, 450),
+            new Phase("ai100", 100, a -> a.aiPairs(100)),
+            new Phase("aiboom", 100, a -> a.aiPairs(100), 150, 300, 450));
 
     static final int WARM_TICKS = 200, MEASURE_TICKS = 600, LOOK_EVERY = 20, AFTER = 20;
     static final long WARM_NANOS = 10_000_000_000L, MEASURE_NANOS = 30_000_000_000L, STALL_NANOS = 180_000_000_000L;

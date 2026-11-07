@@ -172,6 +172,11 @@ public final class AiBots {
     /** for the stands: every AI mob thinks, players near or not */
     static boolean awake;
 
+    /** the stands (the server stand's AI phases among them): every AI mob thinks, players near or not */
+    public static void wakeAll(boolean on) {
+        awake = on;
+    }
+
     /** the stands: look the targets up now, not within the second */
     public static void refreshTargets(ServerLevel level) {
         PerLevel l = LEVELS.computeIfAbsent(level, PerLevel::new);
