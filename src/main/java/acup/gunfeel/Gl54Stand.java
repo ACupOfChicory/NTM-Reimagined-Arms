@@ -641,6 +641,11 @@ final class Gl54Stand {
         sleep(10);
         run(Gl54Stand::pressChecks);
         run(Gl54Stand::windowChecks);
+        run(Gl54Stand::unloadChecks);
+        sleep(5);
+        run(Gl54Stand::unloadClient);
+        sleep(20);
+        run(Gl54Stand::unloadClientAfter);
         run(Gl54Stand::lockChecks);
         sleep(10);
         run(Gl54Stand::lockOutside);
@@ -1028,6 +1033,120 @@ final class Gl54Stand {
             p.containerMenu.clicked(8, 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, p);
             p.closeContainer();
             line("window", "empty magazine of 3, two smoke put in", mags.get());
+            return null;
+        });
+    }
+
+    // ---- shift + right click on a magazine through the game's own use path (ServerPlayerGameMode.useItem, what the use-item
+    // packet calls), in survival and creative: nothing may be lost
+
+    // grenades by kind (loose ones and in magazines), empty magazines, filled magazines
+    private static String tally(net.minecraft.world.entity.player.Inventory inv) {
+        java.util.TreeMap<String, Integer> g = new java.util.TreeMap<>();
+        int empty = 0, filled = 0;
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack s = inv.getItem(i);
+            if (s.isEmpty()) continue;
+            if (s.getItem() == Gl54Items.MAG.get()) {
+                filled += s.getCount();
+                for (String k : acup.gunfeel.gl54.MagItem.contents(s).rounds()) g.merge(k, s.getCount(), Integer::sum);
+            } else if (s.getItem() == Gl54Items.MAG_EMPTY.get()) empty += s.getCount();
+            else if (s.getItem() instanceof acup.gunfeel.gl54.GrenadeItem gi) g.merge(gi.kind, s.getCount(), Integer::sum);
+        }
+        return "grenades=" + g + " emptyMags=" + empty + " filledMags=" + filled;
+    }
+
+    private static String loose(net.minecraft.world.entity.player.Inventory inv) {
+        java.util.TreeMap<String, Integer> g = new java.util.TreeMap<>();
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack s = inv.getItem(i);
+            if (s.getItem() instanceof acup.gunfeel.gl54.GrenadeItem gi) g.merge(gi.kind, s.getCount(), Integer::sum);
+        }
+        return g.toString();
+    }
+
+    private static final String[] UNLOAD_CASES = {"single partial HE (5)", "single partial mixed", "single full", "stack of 2 full", "stack of 2 partial", "returned by the gun on reload"};
+
+    private static ItemStack unloadStack(int c, ServerPlayer p) {
+        ItemStack s = switch (c) {
+            case 0 -> Gl54Items.magazine(acup.gunfeel.gl54.MagContents.filled("he", 5));
+            case 1 -> Gl54Items.magazine(new acup.gunfeel.gl54.MagContents(java.util.List.of("he", "smoke", "he", "inc", "airburst")));
+            case 2 -> Gl54Items.magazine(acup.gunfeel.gl54.MagContents.filled("he", 8));
+            case 3 -> Gl54Items.magazine(acup.gunfeel.gl54.MagContents.filled("smoke", 8));
+            case 4 -> Gl54Items.magazine(acup.gunfeel.gl54.MagContents.filled("inc", 3));
+            default -> null;
+        };
+        if (c == 3 || c == 4) s.setCount(2);
+        if (s != null) return s;
+        // a gun with 5 HE in it, a full smoke magazine in the inventory: R puts the smoke in and gives the 5 HE back
+        var inv = p.getInventory();
+        ItemStack gun = new ItemStack(Gl54Items.GUN.get());
+        gun.set(Gl54Items.GUN_MAG.get(), new acup.gunfeel.gl54.GunMag(java.util.List.of("he", "he", "he", "he", "he"), "", java.util.List.of(), true, false));
+        inv.setItem(20, Gl54Items.magazine(acup.gunfeel.gl54.MagContents.filled("smoke", 8)));
+        if (AmmoLock.primary(gun) instanceof acup.gunfeel.gl54.GrenadeMagazine gm) gm.reloadAction(gun, inv);
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack m = inv.getItem(i);
+            if (m.getItem() == Gl54Items.MAG.get() && "he".equals(acup.gunfeel.gl54.MagItem.contents(m).kind())) {
+                inv.setItem(i, ItemStack.EMPTY);
+                return m;
+            }
+        }
+        return Gl54Items.magazine(acup.gunfeel.gl54.MagContents.filled("he", 5));
+    }
+
+    private static void unloadChecks() {
+        onServer(() -> {
+            ServerPlayer p = player();
+            var inv = p.getInventory();
+            for (GameType mode : new GameType[] {GameType.SURVIVAL, GameType.CREATIVE}) {
+                p.setGameMode(mode);
+                for (int slot : new int[] {0, 4}) for (int c = 0; c < UNLOAD_CASES.length; c++) {
+                    inv.clearContent();
+                    inv.setSelectedSlot(slot);
+                    ItemStack held = unloadStack(c, p);
+                    inv.setItem(slot, held);
+                    String before = tally(inv);
+                    p.setShiftKeyDown(true);
+                    var r = p.gameMode.useItem(p, p.level(), p.getItemInHand(InteractionHand.MAIN_HAND), InteractionHand.MAIN_HAND);
+                    p.setShiftKeyDown(false);
+                    String after = tally(inv);
+                    // expected: same grenades, one filled magazine fewer, one empty more
+                    String sameGrenades = before.substring(0, before.indexOf(" emptyMags")).equals(after.substring(0, after.indexOf(" emptyMags")))
+                            ? "same" : "DIFFERENT";
+                    boolean ok = sameGrenades.equals("DIFFERENT") ? false : true;
+                    line("unload", mode, "slot", slot, UNLOAD_CASES[c], "result", r.getClass().getSimpleName(), "before", before, "after", after,
+                            "loose", loose(inv), "grenades " + sameGrenades, ok ? "" : "LOST");
+                }
+            }
+            p.setGameMode(GameType.CREATIVE);
+            inv.clearContent();
+            return null;
+        });
+    }
+
+    // the same through the client: MultiPlayerGameMode.useItem sends the use-item packet; the server sneaks
+    private static void unloadClient() {
+        Minecraft mc = Minecraft.getInstance();
+        onServer(() -> {
+            ServerPlayer p = player();
+            p.setGameMode(GameType.SURVIVAL);
+            p.getInventory().clearContent();
+            p.getInventory().setSelectedSlot(0);
+            p.getInventory().setItem(0, Gl54Items.magazine(acup.gunfeel.gl54.MagContents.filled("he", 5)));
+            line("unload client", "before", tally(p.getInventory()));
+            p.setShiftKeyDown(true);
+            return null;
+        });
+        mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+    }
+
+    private static void unloadClientAfter() {
+        onServer(() -> {
+            ServerPlayer p = player();
+            p.setShiftKeyDown(false);
+            line("unload client", "after", tally(p.getInventory()), "loose", loose(p.getInventory()));
+            p.setGameMode(GameType.CREATIVE);
+            p.getInventory().clearContent();
             return null;
         });
     }
