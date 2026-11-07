@@ -478,10 +478,11 @@ final class WaterFxScenario {
         }
         if (t == oldTick + 90) {
             int drained = OldWaterPayload.drained - oldDrained0;
-            lines.add("old bolt (impact fuze) into water from the air: server ticks " + drained + ", events " + events() + ", columns "
-                    + (WaterFx.plumes - plumes0) + ", blasts under water " + (WaterFx.blasts - blasts0) + ", particles " + kinds());
-            check(drained > 0 && evDelta(WaterEvents.Type.ENTER) == 0 && WaterFx.plumes - plumes0 + WaterFx.blasts - blasts0 > 0,
-                    "an old round with an impact fuze: no splash where it comes in, its blast's column");
+            int trail = WaterFx.oldTrailMade - oldTrail0;
+            lines.add("old bolt (impact fuze) into water from the air: server ticks " + drained + ", events " + events() + ", trail bubbles " + trail
+                    + ", columns " + (WaterFx.plumes - plumes0) + ", blasts under water " + (WaterFx.blasts - blasts0) + ", particles " + kinds());
+            check(drained > 0 && evDelta(WaterEvents.Type.ENTER) == 0 && trail == 0 && WaterFx.plumes - plumes0 + WaterFx.blasts - blasts0 > 0,
+                    "an old round with an impact fuze: nothing of its own where it comes in (no splash, no trail), its blast's column");
             oldStep = 99;
             liveCheck = t + LIVE_AFTER;
         }

@@ -21,8 +21,8 @@ import net.minecraft.world.World;
 // water events and the stretches of its path in water. 26.2 fires these rounds as NTM's own bullets, whose tracer
 // works the events out on the client; NTM 1.7.10's old bullet has no tracer and does not tick on the client, and the
 // UFO's rocket homes, so the server's own path is sent. The client hands them to WaterFx as a tracer's (the splash,
-// the stop, the trail of bubbles); an impact fuze's entry makes no splash, as 26.2's (its blast's column comes with
-// WaterBlastPayload).
+// the stop, the trail of bubbles); an impact fuze that goes off on the surface shows nothing of its own that tick, as
+// 26.2's (its blast's column comes with WaterBlastPayload).
 public final class OldWaterPayload implements IMessage {
     public static final int COUNT = 1;
     // at most this many events and stretches a tick (a skip and its entry, a stop: a few)
@@ -146,15 +146,21 @@ public final class OldWaterPayload implements IMessage {
         OldWaterPayload m;
         while ((m = RECEIVED.poll()) != null) {
             drained++;
+            // an impact fuze goes off on the surface it comes in through: its blast and nothing of its own that tick, no
+            // splash and no trail (the MK4 tracer's waterFuzed, Tracers.water)
+            if (m.fuzed && WaterSettings.fuze() && entered(m.events)) continue;
             Entity bullet = level.getEntityByID(m.bullet);
             for (WaterEvents.Event e : m.events) {
-                // an impact fuze goes off on the surface it comes in through: its blast, no splash (26.2's WaterFx.on)
-                if (m.fuzed && e.type() == WaterEvents.Type.ENTER && WaterSettings.fuze()) continue;
                 WaterFx.oldEvent(level, new WaterEvents.Event(e.type(), e.at(), e.face(), e.normal(), e.f(), e.cls(), e.kind(), e.liquid(), e.flow(),
                         e.depth(), e.under(), e.dir(), e.pos(), bullet));
             }
             WaterFx.oldTrail(level, m.wet);
         }
+    }
+
+    private static boolean entered(List<WaterEvents.Event> events) {
+        for (WaterEvents.Event e : events) if (e.type() == WaterEvents.Type.ENTER) return true;
+        return false;
     }
 
     public static void forget() {
