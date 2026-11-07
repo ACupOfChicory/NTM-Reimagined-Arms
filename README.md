@@ -208,6 +208,8 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `powerArmorSpread` | `0.5` | Movement and burst spread in power armour, as a share |
 | `sprintFireDelay` | `true` | No shot right after a sprint; `sprintFireTime` per gun |
 | `prone`, `proneWithoutGun` | `true` | Lying down; lying without a gun in hand |
+| `proneCrawlNoFire`, `proneCrawlSpeed` | `true`, `0.25` | No shot while crawling faster than this many blocks a second |
+| `hbm\:gun_drill.proneCrawlNoFire`, `hbm\:gun_charge_thrower.proneCrawlNoFire` | `false` | The drill and the charge thrower work while crawling |
 | `beamRules`, `beamWater`, `laserGlass` | `true` | Beams through blocks, in water, lasers through glass |
 | `bulletBreakConcrete` | `false` | Bullets wear and break concrete |
 | `bulletPierceMachines` | `false` | Bullets pierce machines |
@@ -226,9 +228,6 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 - `/gunfeel quality <preset>`: impact-effect quality.
 - `/gunfeel hitvolume <0..4>`: loudness of hit sounds.
 - `/gunfeel clearholes`: remove the bullet holes on your screen.
-- `/gunaim [reload|inspect <seconds>]`: how many seconds before the end of a
-  reload or an inspect the held aim comes back, for the gun in hand (0 to 5,
-  0.3 by default). It is a server setting, shared by all players.
 - `/gunfeel settings`: the settings of the gun in hand.
 - `/gunsmoke` (operators): let out smoke clouds, clear them, show how many
   there are.

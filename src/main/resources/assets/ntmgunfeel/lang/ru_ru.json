@@ -31,6 +31,7 @@
   "ntmgunfeel.gl54.range_tooltip": "%s в прицеле: замерить дальность",
   "ntmgunfeel.gl54.offset_tooltip": "%s в прицеле: сдвиг разрыва",
   "ntmgunfeel.gl54.wheel": "Колесо",
+  "ntmgunfeel.feature.prone_fire": "Нет выстрела ползком",
   "ntmgunfeel.compat.title": "Версия NTM %s не протестирована, последняя поддерживаемая — %s",
   "ntmgunfeel.compat.all_on": "Всё проверенное подходит к этой версии NTM, все системы включены. Что-то всё равно может работать странно.",
   "ntmgunfeel.compat.off": "Эти системы не подходят к этой версии NTM и отключены:",

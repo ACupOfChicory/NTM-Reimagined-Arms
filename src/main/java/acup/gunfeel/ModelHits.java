@@ -100,9 +100,25 @@ public final class ModelHits {
                     :skull.getType()==net.minecraft.world.level.block.SkullBlock.Types.DRAGON?WornGear.Head.DRAGON:WornGear.Head.SKULL;
         return WornGear.Head.NONE;
     }
+    // The hitbox of what is worn. Armor is caught as it is drawn, as geometry of its layer: Flywheel's armor draws
+    // (".../armor/slots/<n>/draws/<n>/...") and, without Flywheel, the layer's model (MixinEquipmentLayerModel,
+    // NtmMeshHits.ARMOR_SUFFIX); NTM's suits as their own meshes. That drawn armor is the hitbox: open where its
+    // texture is clear (a helmet's face, a chestplate's forearms), leggings 0.4 and boots 0.9 pixels off the leg.
+    // The parts under it do not grow as well, or the hitbox stands off the armor up to a pixel all round. A skull, a
+    // dragon head or a block on the head grows the head (WornGear) unless it is caught as well: Flywheel draws it as
+    // a layer (".../wornHead/draws/..."); without Flywheel, and a block always, it is not caught. The head and limb
+    // zones grow with all of it (wornZones): a shot on a helmet is a shot in the head.
     private static List<ModelBox> wornBoxes(Entity target,PoseAt p) {
-        return WornGear.boxes(p.boxes(),worn(target));
+        return WornGear.boxes(p.boxes(),drawn(worn(target),p.boxes()));
     }
+    static WornGear.Worn drawn(WornGear.Worn worn,List<ModelBox> boxes) {
+        if(!worn.any()) return worn;
+        var head=worn.head();
+        if(head==WornGear.Head.ARMOR || head!=WornGear.Head.NONE && boxes.stream().anyMatch(b->b.part().contains("/wornHead/draws/")))
+            head=WornGear.Head.NONE;
+        return head==WornGear.Head.NONE?WornGear.Worn.NOTHING:new WornGear.Worn(head,false,false,false);
+    }
+
     // zones ModelHeads found on the bare model, grown with what is worn
     private static List<HeadZone> wornZones(Entity target,PoseAt p,List<HeadZone> zones) {
         var worn=worn(target);

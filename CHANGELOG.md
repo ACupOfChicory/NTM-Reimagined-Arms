@@ -1,5 +1,57 @@
 # Changelog
 
+## X605
+
+- `proneCrawlNoFire` (server, on): no shot while crawling. A shooter lying
+  down (on the prone key, crawling under a trapdoor, a mob laid down) that
+  moves along the ground faster than `proneCrawlSpeed` (0.25 blocks a second;
+  crawling is about 1.3) does not fire: a click does nothing, not even a dry
+  fire, and spends no round; a held burst stops, and a new click fires again
+  once the shooter lies still. Lying still, or only turning the view, the gun
+  fires as before. Aiming and reloading while crawling are not touched. A Tau
+  charge let go while crawling fizzles. A gun can have its own:
+  `hbm\:gun_xxx.proneCrawlNoFire = false`. Off: guns fire while crawling, as
+  before.
+- The drill and the charge thrower work while crawling: they are tools, and
+  the mod gives them `proneCrawlNoFire = false` of their own.
+
+## X600
+
+- The hitbox follows worn armour as it is drawn. On a player, a mannequin or
+  any mob drawn without Flywheel the armour was taken for the body and grown
+  once more: the hitbox stood about a pixel off the armour all round. Under
+  armour drawn by Flywheel the parts grew by a pixel as whole cubes, so the
+  hitbox stood a pixel off a bare forearm or a helmet's open face, 0.6 pixels
+  off leggings and 0.1 off boots. Now the drawn armour is the hitbox, where
+  its texture is not clear, and the parts under it keep their size. So is a
+  skull or a dragon head drawn by Flywheel; without Flywheel, and for a block
+  (a pumpkin), the head still grows to their size. A shot on a helmet is still
+  a shot in the head. An enchanted or trimmed piece no longer adds whole cubes
+  over the armour (and over a helmet a cube 1.5 pixels off the head): its
+  glint and trim are drawn on the armour and are not taken as more of it.
+
+## X597
+
+- Precise hitboxes on a server: a client can no longer fill the server's memory
+  or its cache of model meshes. What one player may add to the cache is bounded
+  (1024 meshes, 131072 triangles, a mesh turned away counting too), and so is
+  what all players add together (3072 meshes, 1048576 triangles); a mesh over
+  the bound, or one whose id is not the hash of its triangles, is dropped
+  quietly, without an error in the log each time, and the entity whose pose
+  uses it keeps its plain box. An honest client stays far below the bound.
+- `/gunsmoke` on a server with smoke off names the server's file,
+  `config/ntm-gunfeel-server.properties`.
+
+## X594
+
+- `/gunaim` is gone. With the aim key held, the aim comes back 0.3 seconds
+  before a reload or an inspect ends (0.6 before the inspect of An Old Classic
+  and the Sacred Dragon), as it did by default; these times are fixed in the
+  mod now.
+- ⚠ Breaks compatibility: the `<gun>.reaimReload` and `<gun>.reaimInspect` keys
+  in `ntm-gunfeel-server.properties`, which `/gunaim` wrote, are no longer
+  read.
+
 ## X592
 
 - `beamWater` (server, on; with `beamRules`): beams lose damage in water and

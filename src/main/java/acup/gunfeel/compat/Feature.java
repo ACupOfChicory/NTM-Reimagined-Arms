@@ -11,7 +11,7 @@ public enum Feature {
     CORE("core", List.of(), List.of("GunFeel", "GunFeelMod", "Config", "GunDump", "BlockDump")),
     MODEL_HITBOXES("model_hitboxes", List.of("MixinNtmMeshHits", "GlyphidGeometryAccess", "MixinGlyphidModelHits", "MixinMobObjModelHits", "MixinMobModelHits", "MixinGpuEntityGeometry", "MixinHeadDamage"),
             List.of("NtmMeshHits", "MobObjPose", "ModelMeshCapture", "MobStageCleanup", "HeadDamage")),
-    HOLD_AIM("hold_aim", List.of("MixinHoldAim", "MixinAimButton"), List.of("ReaimCommand", "ReaimTimes", "AimButton")),
+    HOLD_AIM("hold_aim", List.of("MixinHoldAim", "MixinAimButton"), List.of("ReaimTimes", "AimButton")),
     BULLETS("bullets", List.of("MixinBulletServer", "MixinThrowableHit", "MixinLegacyBullet", "MixinWaterBullet", "MixinWaterMuffle", "MixinBeamModelQuery", "MixinBeamBlocks", "MixinBeamTurretSight", "MixinBeamTauon", "MixinBeamMaxwell", "MixinBeamTesla", "TurretMaxwellAccess", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinExplosiveDirect", "MixinWaterBlast", "MixinWaterBlastProcessor", "MixinWaterImpact", "MixinWaterFire", "MixinWaterFireRocket", "MixinWaterFireFlamer"),
             List.of("BulletServer", "PassableClip", "Cells", "Structures", "BulletFx", "BulletRules", "ExplosiveAmmo", "ExplosiveDamage", "LegacyBullets", "BeamServer", "BeamTurrets")),
     RICOCHET_SOUND("ricochet_sound", List.of("MixinRicochetSound"), List.of()),
@@ -30,7 +30,8 @@ public enum Feature {
     SPRINT_FIRE("sprint_fire", List.of("MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun"), List.of("SprintFire")),
     SPECTATOR("spectator", List.of("MixinSpectatorGun", "MixinSpectatorKeys", "MixinSpectatorHud"), List.of("SpectatorGuns", "SpectatorStand")),
     GL54("gl54", List.of("MixinAmmoPress", "MixinAmmoPressScreen", "MixinGasCorrosion", "MixinGasAim"), List.of("PressLoading", "PressSync", "PressScreenExtras", "PressLayoutsPayload", "Gl54Items", "Gl54Gun", "Gl54Ammo", "Gl54Grenade", "GrenadeType", "GrenadeMagazine", "MagItem", "MagTint", "MagMenu", "MagScreen", "Gl54SelectPayload", "MagCommand", "Gl54Hud", "Gl54Anim", "Gl54Orchestra", "Gl54Casing", "Gl54Server", "Gl54Client", "ItemRenderGl54", "Gl54Range", "Gl54Fuse", "Gl54Reflex", "ReflexDraw", "ReflexMath", "Gl54Laser", "Gl54LaserWorld", "Gl54Ballistics", "Gl54Aim", "Gl54OffsetPayload")),
-    PRONE("prone", List.of(), List.of("Prone", "ProneClient", "ProneCrawlPayload", "ProneStandPayload", "CrawlKey", "CrawlPitch", "LocalPlayerCrawl", "LivingEntityCrawl", "ProneStand"));
+    PRONE("prone", List.of(), List.of("Prone", "ProneClient", "ProneCrawlPayload", "ProneStandPayload", "CrawlKey", "CrawlPitch", "LocalPlayerCrawl", "LivingEntityCrawl", "ProneStand")),
+    PRONE_FIRE("prone_fire", List.of("MixinProneFireClick", "MixinProneFireDecider", "MixinProneFireKeys"), List.of("ProneFire", "ProneFireStand"));
 
     public final String id;
     // simple names: mixins in acup.gunfeel.mixin, classes in acup.gunfeel

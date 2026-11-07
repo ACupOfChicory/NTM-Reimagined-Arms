@@ -146,11 +146,12 @@ public final class ClientSmoke {
                 if(WaterFxStand.ENABLED) { phase=41; mc.gui.setScreen(null); WaterFxStand.start(); return; }
                 if(GlassBackCheck.ENABLED) { phase=50; mc.gui.setScreen(null); GlassBackCheck.start(); return; }
                 if(HudShots.ENABLED) { phase=64; mc.gui.setScreen(null); HudShots.start(); return; }
-                if(Gl54Stand.ENABLED) { phase=62; mc.gui.setScreen(null); Gl54Stand.start(); return; }
+                if(Gl54Stand.ENABLED) { phase=67; mc.gui.setScreen(null); Gl54Stand.start(); return; }
                 if(Gl54ReflexStand.ENABLED) { phase=63; mc.gui.setScreen(null); Gl54ReflexStand.start(); return; }
                 if(SpectatorStand.ENABLED) { phase=19; mc.gui.setScreen(null); SpectatorStand.start(); return; }
                 if(ProneStand.ENABLED) { phase=61; mc.gui.setScreen(null); ProneStand.start(); return; }
                 if(GasStand.ENABLED) { phase=65; mc.gui.setScreen(null); GasStand.start(); return; }
+                if(ProneFireStand.ENABLED) { phase=62; mc.gui.setScreen(null); ProneFireStand.start(); return; }
                 if(SmokeCloudStand.ENABLED) { phase=60; mc.gui.setScreen(null); SmokeCloudStand.start(); return; }
                 if (MobSmoke.enabled()) {
                     phase = 10;
@@ -303,10 +304,11 @@ public final class ClientSmoke {
             if (phase == 50) GlassBackCheck.frame();
             if (phase == 19) SpectatorStand.frame();
             if (phase == 61) ProneStand.frame();
+            if (phase == 62) ProneFireStand.frame();
             if (phase == 60) SmokeCloudStand.frame();
             if (phase == 65) GasStand.frame();
             if (phase == 64) HudShots.frame();
-            if (phase == 62) Gl54Stand.frame();
+            if (phase == 67) Gl54Stand.frame();
             if (phase == 63) Gl54ReflexStand.frame();
             if (phase == 15) {
                 if (ShapesStand.ENABLED) ShapesStand.frame();

@@ -35,6 +35,7 @@ public final class ModelHitClient {
     private static final Map<UUID, Sync> SYNC = new java.util.HashMap<>();
     private static final Map<UUID, Long> SENT = new java.util.HashMap<>();
     private static final java.util.Set<Long> MESH_SENT = new java.util.HashSet<>();
+    private static long meshTrianglesSent;
     private static volatile boolean enabled = true;
     private static Level level;
     private static long nextCheck, nextDiagnostic, sendPeriod = Long.MIN_VALUE;
@@ -185,6 +186,7 @@ public final class ModelHitClient {
             for (ModelBox box : pose.boxes()) if (box.mesh() != 0 && MESH_SENT.add(box.mesh())) {
                 ModelMesh mesh = ModelMesh.get(box.mesh());
                 ClientPacketDistributor.sendToServer(new ModelMeshPayload(mesh.id(), mesh.triangles()));
+                meshTrianglesSent += mesh.triangleData().length / 9;
             }
             sendBudget--;
             SENT.put(entity.getUUID(), tick);
@@ -201,8 +203,8 @@ public final class ModelHitClient {
         if (now < nextDiagnostic) return;
         nextDiagnostic = now + 5000;
         org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").info(
-                "[modeldebug] client heartbeat enabled={} pending={} capture_ms/frame={} capture_peak_ms={} counters={} integrated_server={}",
-                enabled, READY.size(), frames == 0 ? 0 : totalNanos / (frames * 1_000_000.0), peakNanos / 1_000_000.0,
+                "[modeldebug] client heartbeat enabled={} pending={} meshes_sent={} mesh_triangles_sent={} capture_ms/frame={} capture_peak_ms={} counters={} integrated_server={}",
+                enabled, READY.size(), MESH_SENT.size(), meshTrianglesSent, frames == 0 ? 0 : totalNanos / (frames * 1_000_000.0), peakNanos / 1_000_000.0,
                 ModelHitLog.counts("client"), Minecraft.getInstance().getSingleplayerServer() == null ? "remote" : ModelHitLog.counts("server"));
         frames = totalNanos = peakNanos = 0;
     }
@@ -213,7 +215,7 @@ public final class ModelHitClient {
         HeadDebug.clear();
         SkinLayerGeometry.clear();
         if (level != null) ModelHits.clear(level);
-        READY.clear(); SENT.clear(); MESH_SENT.clear(); SYNC.clear(); ModelTextureMask.clear();
+        READY.clear(); SENT.clear(); MESH_SENT.clear(); meshTrianglesSent = 0; SYNC.clear(); ModelTextureMask.clear();
         APPLIED_FRAME.clear(); PUBLISHED_FRAME.clear();
         NtmMeshHits.clear();
         level = null;

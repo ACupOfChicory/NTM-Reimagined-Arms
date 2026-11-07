@@ -143,4 +143,20 @@ class WornGearTest {
         assertFalse(grown.contains(neck));
         assertSame(zone, WornGear.zones(List.of(zone), HELMET, false).get(0));
     }
+
+    // 26.2 (ModelHits.wornBoxes): worn armor is in the hitbox as it is drawn, caught as its layer's geometry; the
+    // parts under it do not grow. A skull or a block on the head grows it unless Flywheel caught it as a layer.
+    @Test
+    void theHitboxTakesTheDrawnArmorAndGrowsNoPartUnderIt() {
+        var boxes = zombie(1);
+        var all = new WornGear.Worn(WornGear.Head.ARMOR, true, true, true);
+        assertSame(WornGear.Worn.NOTHING, ModelHits.drawn(all, boxes));
+        assertSame(boxes, WornGear.boxes(boxes, ModelHits.drawn(all, boxes)));
+        var skull = new WornGear.Worn(WornGear.Head.SKULL, true, false, true);
+        assertEquals(new WornGear.Worn(WornGear.Head.SKULL, false, false, false), ModelHits.drawn(skull, boxes));
+        var caught = new java.util.ArrayList<>(boxes);
+        caught.add(part("mesh/root/wornHead/draws/0/tree/head", -4.75, 24, -4.75, 9.5, 9.5, 9.5, 1));
+        assertSame(WornGear.Worn.NOTHING, ModelHits.drawn(skull, caught));
+        assertSame(WornGear.Worn.NOTHING, ModelHits.drawn(WornGear.Worn.NOTHING, boxes));
+    }
 }
