@@ -32,7 +32,7 @@ import net.minecraft.world.phys.Vec3;
 // area to a creature near the blast: 18 in the middle, 12 at a block, 6 at two. The mod counts a bullet's explosion at 0.4 of
 // the bullet's damage for the area (and 0.6 for a direct hit, ExplosiveDamage), so the bullet's damage is 45; the glass takes
 // the fall-off of the whole 45, so it breaks out to 2.3 blocks (hp 10); armed after 3 blocks of flight: nearer it is a dud that hits for 4 and goes out. Leaves are no business of
-// its own: the bullet rules (ntmgunfeel-bullets.txt) fly every bullet through them. Speed and drop are 40 mm NTM's for now.
+// its own: the bullet rules (ntmgunfeel-bullets.txt) fly every bullet through them. The speed is the owner's (4.7 blocks a tick), the drop 40 mm NTM's for now.
 public final class Gl54Grenade {
     // the blast's reach in blocks; NTM's ExplosionVNT size is half of it (the entity processor doubles it)
     public static final float RADIUS = 3F;
@@ -43,8 +43,9 @@ public final class Gl54Grenade {
     // flight before the fuze is armed, blocks
     public static final double ARM_DISTANCE = 3.0;
     public static final float DUD_DAMAGE = 4F;
-    // temporary: 40 mm NTM's
-    public static final float SPEED = 2.0F;
+    // the owner's: the real XM29 20 mm at about 180 m/s, scaled by NTM's own factor for the 40 mm (2.0 blocks a tick against a
+    // real M203's 76 m/s); the drop is 40 mm NTM's for now
+    public static final float SPEED = 4.7F;
     public static final double GRAVITY = 0.035;
     public static final int LIFE = 200;
     public static final String CASING = "gl54";
