@@ -27,7 +27,7 @@ import net.minecraft.world.phys.Vec3;
 // then with them at every smokeQuality: the frame time over 600 frames (vsync and the frame limit off) and a
 // screenshot <dir>/<pose>-<quality>.png. Poses: outside looking at the 8, inside one of them (straight, yaw +135
 // pitch +30, yaw -135 pitch -30), and at the wall. <dir>/frames.tsv has the times; the pixels are counted afterwards
-// (notes/tx54/smoke-stand.py). The server's time on the clouds goes to the log ("Smoke server cost").
+// (notes/gl54/smoke-stand.py). The server's time on the clouds goes to the log ("Smoke server cost").
 final class SmokeCloudStand {
     static final String DIR = System.getProperty("ntmgunfeel.smokeStand", "");
     static final boolean ENABLED = !DIR.isBlank();

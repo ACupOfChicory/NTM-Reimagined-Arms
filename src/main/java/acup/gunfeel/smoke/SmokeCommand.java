@@ -17,7 +17,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Server, for testing until TX-54 throws its smoke grenade (operators only):
+ * Server, for testing until GL-54 throws its smoke grenade (operators only):
  * <pre>
  * /gunsmoke                         a cloud where the player looks (the cell in front of the block hit), fanned along the look
  * /gunsmoke at x y z [count] [step] count clouds from x y z, step blocks apart along x (a stand's 8 clouds)
