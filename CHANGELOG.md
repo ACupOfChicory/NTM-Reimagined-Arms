@@ -1,5 +1,13 @@
 # Changelog
 
+## X555.179
+
+- `armArmor`: an armour model that fails while it is drawn on the arm no longer
+  leaves the matrices it pushed behind, which shifted what the game draws after
+  it, nor its drawing state for the models after it. After three failures with
+  the same armour on, the arm leaves that model out until you leave the world,
+  with a warning in the log.
+
 ## X555.178
 
 - NTM CE's other old bullet now hits where it meets a creature's model too:

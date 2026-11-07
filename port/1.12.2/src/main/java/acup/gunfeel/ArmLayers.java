@@ -69,7 +69,8 @@ public final class ArmLayers {
     // weak: a player left for the main menu does not keep its world
     private static volatile WeakReference<EntityPlayerSP> owner = new WeakReference<>(null);
     private static final boolean[] SLEEVE = new boolean[2];
-    private static final Set<Class<?>> WARNED = Collections.newSetFromMap(new IdentityHashMap<>());
+    // leave() runs on the network thread
+    private static final Set<Class<?>> WARNED = Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
     // while the layers run on an arm: the player model and its pose for that arm (MixinModelBipedPose)
     private static ModelBiped posed;
     private static Pose posedPose;
@@ -82,6 +83,8 @@ public final class ArmLayers {
     // leaving a world (FML's ClientDisconnectionFromServerEvent; 26.2: LoggingOut): the player is let go
     public static void leave() {
         prepared = false;
+        FAILED.clear();
+        WARNED.clear();
         owner = new WeakReference<>(null);
     }
 
@@ -187,6 +190,7 @@ public final class ArmLayers {
         GlSaved gl = new GlSaved();
         Plane[] clips = {new Plane(GL11.GL_CLIP_PLANE0), new Plane(GL11.GL_CLIP_PLANE1)};
         boolean sneak = player.movementInput != null && player.movementInput.sneak;
+        int depth = GL11.glGetInteger(GL11.GL_MODELVIEW_STACK_DEPTH);
         GL11.glPushMatrix();
         try {
             parent.isChild = false;
@@ -221,7 +225,7 @@ public final class ArmLayers {
             parent.swingProgress = swing;
             GL11.glMatrixMode(GL11.GL_MODELVIEW);
             for (Plane c : clips) c.restore();
-            GL11.glPopMatrix();
+            popTo(depth);
             gl.restore();
         }
     }
@@ -229,23 +233,112 @@ public final class ArmLayers {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static void run(List<LayerRenderer> layers, EntityPlayerSP player, float partial, boolean marked) {
         float age = player.ticksExisted + partial;
+        Object[] worn = worn(player);
+        GlSaved state = null;
         for (int k = 0; k < layers.size(); k++) {
             LayerRenderer layer = layers.get(k);
             if (skipped(layer)) continue;
+            Failed key = new Failed(layer.getClass(), worn);
+            Integer fails = FAILED.get(key);
+            if (fails != null && fails >= TRIES) continue;
             if (marked) Feedback.layer(k);
+            // the layers' state as draw set it, for after one that throws
+            if (state == null) state = new GlSaved();
+            int modelview = GL11.glGetInteger(GL11.GL_MODELVIEW_STACK_DEPTH), projection = GL11.glGetInteger(GL11.GL_PROJECTION_STACK_DEPTH),
+                    texture = GL11.glGetInteger(GL11.GL_TEXTURE_STACK_DEPTH), attrib = GL11.glGetInteger(GL11.GL_ATTRIB_STACK_DEPTH);
             GL11.glPushMatrix();
+            boolean threw = false;
             try {
                 // as RenderLivingBase.renderLayers, at the model's rest: the pose is ours (MixinModelBipedPose)
                 layer.doRenderLayer(player, 0F, 0F, partial, age, 0F, 0F, 0.0625F);
             } catch (Throwable t) {
-                if (WARNED.add(layer.getClass())) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm", layer.getClass().getName(), t);
+                threw = true;
+                failed(key, fails, t);
             } finally {
-                // a layer may leave another matrix stack current
-                GL11.glMatrixMode(GL11.GL_MODELVIEW);
-                GL11.glPopMatrix();
+                // a layer may leave another matrix stack current, and one that throws between its own push and pop
+                // (NTM's suits push at the start of render) leaves matrices on the stacks: each depth is put back
+                popTo(GL11.GL_TEXTURE, GL11.GL_TEXTURE_STACK_DEPTH, texture);
+                popTo(GL11.GL_PROJECTION, GL11.GL_PROJECTION_STACK_DEPTH, projection);
+                popTo(GL11.GL_MODELVIEW, GL11.GL_MODELVIEW_STACK_DEPTH, modelview);
+                for (int n = GL11.glGetInteger(GL11.GL_ATTRIB_STACK_DEPTH); n > attrib; n--) GL11.glPopAttrib();
+                if (threw) {
+                    // a buffer it began and never drew would make every later begin in the game throw
+                    try {
+                        net.minecraft.client.renderer.Tessellator.getInstance().getBuffer().finishDrawing();
+                    } catch (IllegalStateException notBuilding) {
+                        // none begun
+                    }
+                    // what it changed of the state is not left to the layers after it
+                    state.restore();
+                }
                 GlStateManager.color(1F, 1F, 1F, 1F);
             }
         }
+    }
+
+    // a stack back to `depth` matrices, that stack current after
+    private static void popTo(int mode, int depthOf, int depth) {
+        GL11.glMatrixMode(mode);
+        for (int n = GL11.glGetInteger(depthOf); n > depth; n--) GL11.glPopMatrix();
+    }
+
+    // the modelview stack back to `depth` matrices
+    private static void popTo(int depth) {
+        popTo(GL11.GL_MODELVIEW, GL11.GL_MODELVIEW_STACK_DEPTH, depth);
+    }
+
+    // how often a layer may throw with the same armour on before the arms leave it out (until the player leaves the
+    // world): a failure in the first frames, before the player's data came, is tried again
+    static final int TRIES = 3;
+
+    private static void failed(Failed key, Integer before, Throwable t) {
+        int fails = before == null ? 1 : before + 1;
+        FAILED.put(key, fails);
+        if (WARNED.add(key.layer)) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm", key.layer.getName(), t);
+        if (fails == TRIES) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm {} times with this armour on, left out of the arms until the world is left",
+                key.layer.getName(), TRIES);
+    }
+
+    // a layer and the armour worn when it threw (the items in the four armour slots): the same layer with other armour
+    // on is tried anew
+    private static final class Failed {
+        final Class<?> layer;
+        final Object[] worn;
+
+        Failed(Class<?> layer, Object[] worn) {
+            this.layer = layer;
+            this.worn = worn;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof Failed) || ((Failed) o).layer != layer) return false;
+            for (int i = 0; i < worn.length; i++) if (((Failed) o).worn[i] != worn[i]) return false;
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int h = System.identityHashCode(layer);
+            for (Object w : worn) h = h * 31 + System.identityHashCode(w);
+            return h;
+        }
+    }
+
+    // a layer's failures by the armour worn; cleared when the player leaves the world
+    private static final Map<Failed, Integer> FAILED = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static final net.minecraft.inventory.EntityEquipmentSlot[] ARMOUR = {net.minecraft.inventory.EntityEquipmentSlot.HEAD,
+            net.minecraft.inventory.EntityEquipmentSlot.CHEST, net.minecraft.inventory.EntityEquipmentSlot.LEGS,
+            net.minecraft.inventory.EntityEquipmentSlot.FEET};
+
+    private static Object[] worn(EntityPlayerSP player) {
+        Object[] out = new Object[ARMOUR.length];
+        for (int i = 0; i < ARMOUR.length; i++) {
+            ItemStack stack = player.getItemStackFromSlot(ARMOUR[i]);
+            out[i] = stack.isEmpty() ? null : stack.getItem();
+        }
+        return out;
     }
 
     // the plane at the arm's cut (y below `cut` in the arm's frame not drawn) and the one KEEP out (past it the moved

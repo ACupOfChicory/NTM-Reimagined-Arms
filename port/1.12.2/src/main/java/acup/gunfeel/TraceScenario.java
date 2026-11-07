@@ -32,7 +32,10 @@ import net.minecraft.world.WorldSettings;
 //                                         both ways, aiming, one shot. ":off": armArmor off; ":short": armLength 0.5 at
 //                                         a fixed thickness of 1, so the arm is cut. The time of each part's frames
 //                                         and of the arm layers goes to the log ("armbench"). As 26.2's; 1.12.2 has no
-//                                         armour trims.
+//                                         armour trims. ":bad" (port only): the player's renderers get a layer that
+//                                         pushes a matrix and throws (as an NTM suit that fails in its render); the
+//                                         modelview stack's depth at each frame must stay the same (ArmLayers.popTo),
+//                                         and the layer is tried ArmLayers.TRIES times, then left out.
 //
 // port: copied from 26.2 (0762086, notes/ports/port-1.7.10-copied.md): the parts, frames, seeds and waits are 26.2's.
 // The world comes from ShootScenario (26.2: ClientSmoke), start and frame are called from GunFeelClient's frame, a
@@ -153,11 +156,42 @@ public final class TraceScenario {
         wait = -1;
     }
 
+    // ":bad": the throwing layer, how often the arms called it, the modelview depth seen at the frames
+    private static final boolean BAD = ARMOR != null && ARMOR.contains(":bad");
+    private static boolean badAdded;
+    private static int badCalls, depthMin = Integer.MAX_VALUE, depthMax = Integer.MIN_VALUE;
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void badLayer(Minecraft mc) {
+        if (badAdded) return;
+        badAdded = true;
+        for (net.minecraft.client.renderer.entity.RenderPlayer r : mc.getRenderManager().getSkinMap().values())
+            r.addLayer(new net.minecraft.client.renderer.entity.layers.LayerRenderer() {
+                @Override
+                public void doRenderLayer(net.minecraft.entity.EntityLivingBase e, float a, float b, float c, float d, float f, float g, float h) {
+                    badCalls++;
+                    org.lwjgl.opengl.GL11.glPushMatrix();
+                    throw new IllegalStateException("armArmor stand: a layer that throws inside its push");
+                }
+
+                @Override
+                public boolean shouldCombineTextures() {
+                    return false;
+                }
+            });
+    }
+
     static void frame() {
         if (done || !started) return;
         Minecraft mc = Minecraft.getMinecraft();
         EntityPlayerSP player = mc.player;
         if (player == null) return;
+        if (BAD) {
+            badLayer(mc);
+            int depth = org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL11.GL_MODELVIEW_STACK_DEPTH);
+            depthMin = Math.min(depthMin, depth);
+            depthMax = Math.max(depthMax, depth);
+        }
         // a part starts on a tick's first frame, so its ticks fall on the same frames in every run
         if (next >= 0) {
             if (FixedStep.aligned()) {
@@ -341,6 +375,11 @@ public final class TraceScenario {
         FixedStep.stop();
         GunClock.use(null);
         check(!guns.isEmpty(), "сценарий " + NAME + ": пушек сыграно " + guns.size());
+        if (BAD) {
+            GunFeel.LOGGER.warn("armbench bad layer: called {} times, modelview depth {}..{}", badCalls, depthMin, depthMax);
+            check(badCalls == ArmLayers.TRIES && depthMin == depthMax, "armArmor: a layer throwing inside its push, called " + badCalls
+                    + " times: the modelview depth at the frames " + depthMin + ".." + depthMax);
+        }
         GunFeel.LOGGER.info("Scenario {} done: {} failed, trace {}", NAME, failed, TestLog.file());
         Minecraft.getMinecraft().shutdown();
     }
