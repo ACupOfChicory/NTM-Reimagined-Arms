@@ -40,7 +40,7 @@ public abstract class MixinHbmAnimations {
         if (!Config.enabled || GunFeel.current == null || !"RECOIL".equals(bus)) return;
         var player = net.minecraft.client.Minecraft.getInstance().player;
         boolean aiming = player != null && com.hbm.items.weapon.sedna.ItemGunBaseNT.getIsAiming(player.getMainHandItem());
-        float strength = Config.ntmRecoilAnim * (aiming ? Config.adsRecoil : 1F) * acup.gunfeel.PowerArmor.recoil(player);
+        float strength = Config.ntmRecoilAnim * (aiming ? Config.adsRecoil : 1F) * acup.gunfeel.Prone.recoil(player);
         if (strength == 1F) return;
         double[] t = cir.getReturnValue();
         if (t == null) return;

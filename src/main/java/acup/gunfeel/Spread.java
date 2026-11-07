@@ -13,6 +13,7 @@ import net.minecraft.world.item.ItemStack;
 // The arithmetic is in SpreadModel:
 //  - spreadStand, spreadMove, spreadSneak, spreadCrawl, spreadAim multiply NTM's spread (1 = NTM as it is);
 //    spreadMove is the walking one and grows with speed (half of it at half the walking speed, more sprinting);
+//    crawling (lying down on the prone key, or under a trapdoor) moving counts as still, as TaCZ's lie;
 //    spreadStack = 1: every state counts (sneaking and moving and aiming multiply together),
 //    spreadStack = 0: only the body state that weighs most (crawl, then sneak, then move, else stand), times aim;
 //  - spreadSpeed is added per walking speed, spreadAir while off the ground;
@@ -39,7 +40,8 @@ public final class Spread {
         boolean crawl = e.isVisuallyCrawling();
         boolean sneak = !crawl && e.isCrouching();
         var mv = e.getKnownSpeed(); // blocks moved last tick; for a player, what the client last sent
-        float pace = SpreadModel.pace((float) Math.sqrt(mv.x * mv.x + mv.z * mv.z));
+        // lying, moving adds nothing: TaCZ's lie comes before its move (InaccuracyType.getInaccuracyType)
+        float pace = crawl ? 0F : SpreadModel.pace((float) Math.sqrt(mv.x * mv.x + mv.z * mv.z));
         float armor = PowerArmor.factor(PowerArmor.worn(e), get(gun, "powerArmorSpread", 1F), false);
         float live = pace * armor; // the pace moving adds spread by; standing is still told by the pace itself
         float spreadMove = get(gun, "spreadMove", 1F);

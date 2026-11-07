@@ -17,6 +17,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.fml.loading.FMLPaths;
@@ -35,7 +36,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 public final class SpreadCheck {
     public static final String PROPERTY = "ntmgunfeel.checkSpread";
     private static final String[] GUNS = {"hbm:gun_g3", "hbm:gun_am180"};
-    private static final String[] CASES = {"stand", "walk", "sprint", "jump", "stand aim", "walk aim", "burst aim"};
+    private static final String[] CASES = {"stand", "walk", "sprint", "jump", "stand aim", "walk aim", "burst aim", "prone", "prone walk"};
     // the bloom halves every 5 ticks: 100 ticks after a shot and 200 after a burst leave none of it worth a digit
     private static final int BURST = 30, SETTLE = 100, SETTLE_BURST = 200;
 
@@ -49,6 +50,7 @@ public final class SpreadCheck {
     private static final List<Runnable> STEPS = new ArrayList<>();
     private static final Map<Key, Float> SPREAD = new HashMap<>();
     private static final Map<Key, Float> PACE = new HashMap<>();
+    private static final Map<Key, Boolean> CRAWL = new HashMap<>();
     private static final List<String> LINES = new ArrayList<>();
     private static boolean ok = true;
 
@@ -123,7 +125,10 @@ public final class SpreadCheck {
 
     private static void shot(FakePlayer p, ItemStack stack, Key k) {
         String c = k.c();
-        float speed = c.startsWith("walk") ? SpreadModel.WALK : c.equals("sprint") ? SpreadModel.SPRINT : 0F;
+        // lying down (the prone key: vanilla's crawling pose) and crawling along at a third of the walking speed
+        p.setPose(c.startsWith("prone") ? Pose.SWIMMING : Pose.STANDING);
+        float speed = c.startsWith("walk") ? SpreadModel.WALK : c.equals("sprint") ? SpreadModel.SPRINT
+                : c.equals("prone walk") ? SpreadModel.WALK / 3F : 0F;
         p.setSprinting(c.equals("sprint"));
         p.setKnownMovement(new Vec3(0, 0, speed));
         p.setDeltaMovement(new Vec3(0, 0, speed));
@@ -137,6 +142,8 @@ public final class SpreadCheck {
         SPREAD.put(k, s); // a burst keeps its last shot
         var mv = p.getKnownSpeed();
         PACE.put(k, SpreadModel.pace((float) Math.sqrt(mv.x * mv.x + mv.z * mv.z)));
+        CRAWL.put(k, p.isVisuallyCrawling());
+        p.setPose(Pose.STANDING);
     }
 
     private static String f(float v) {
@@ -157,7 +164,7 @@ public final class SpreadCheck {
         for (String setting : new String[] {"1", "mod"}) for (String gun : GUNS) for (String c : CASES) {
             float none = SPREAD.get(new Key(setting, gun, false, c)), t51 = SPREAD.get(new Key(setting, gun, true, c));
             // what the case adds over standing (aimed cases over standing aimed): moving, the air, the bloom
-            String base = c.endsWith("aim") ? "stand aim" : "stand";
+            String base = c.endsWith("aim") ? "stand aim" : c.startsWith("prone") ? "prone" : "stand";
             float b0 = SPREAD.get(new Key(setting, gun, false, base)), b1 = SPREAD.get(new Key(setting, gun, true, base));
             float extraNone = none - b0, extraT51 = t51 - b1;
             String ratio = extraNone > 1e-6F ? String.format(Locale.ROOT, "%.3f", extraT51 / extraNone) : "-";
@@ -168,14 +175,22 @@ public final class SpreadCheck {
         check(k > 0F && k < 1F, "the mod's powerArmorSpread is " + k);
         for (String gun : GUNS) for (String c : CASES) {
             float pace = PACE.get(new Key("mod", gun, false, c));
-            check(c.startsWith("walk") || c.equals("sprint") ? pace > 0.9F : pace == 0F, gun + " " + c + ": pace " + pace);
+            check(c.startsWith("walk") || c.equals("sprint") ? pace > 0.9F : c.equals("prone walk") ? pace > 0.2F : pace == 0F,
+                    gun + " " + c + ": pace " + pace);
+            check(CRAWL.get(new Key("mod", gun, true, c)) == c.startsWith("prone"), gun + " " + c + ": lying " + c.startsWith("prone"));
             float none1 = SPREAD.get(new Key("1", gun, false, c)), t511 = SPREAD.get(new Key("1", gun, true, c));
             check(Math.abs(none1 - t511) < 1e-6F, gun + " " + c + ", powerArmorSpread = 1: T-51 " + f(t511) + " = none " + f(none1));
             float none = SPREAD.get(new Key("mod", gun, false, c)), t51 = SPREAD.get(new Key("mod", gun, true, c));
             check(Math.abs(none - none1) < 1e-6F, gun + " " + c + ": without armour the mod's value changes nothing (" + f(none) + ")");
             float b = SPREAD.get(new Key("mod", gun, false, c.endsWith("aim") ? "stand aim" : "stand"));
             float want = b + k * (none - b);
-            if (c.startsWith("stand")) check(Math.abs(t51 - none) < 1e-6F, gun + " " + c + ": T-51 " + f(t51) + " = none " + f(none));
+            if (c.startsWith("prone")) {
+                // lying, crawling along adds nothing, in the armour or not; lying is spreadCrawl of standing
+                float stand = SPREAD.get(new Key("mod", gun, false, "stand"));
+                float crawl = ReaimTimes.number(gun + ".spreadCrawl", ReaimTimes.number("spreadCrawl", 1F));
+                check(Math.abs(t51 - none) < 1e-6F && Math.abs(none - stand * crawl) < 1e-6F,
+                        gun + " " + c + ": T-51 " + f(t51) + " = none " + f(none) + " = stand " + f(stand) + " x " + crawl);
+            } else if (c.startsWith("stand")) check(Math.abs(t51 - none) < 1e-6F, gun + " " + c + ": T-51 " + f(t51) + " = none " + f(none));
             else check(none - b > 1e-3F && Math.abs(t51 - want) < 1e-5F,
                     gun + " " + c + ": T-51 " + f(t51) + " = stand " + f(b) + " + " + k + " of " + f(none - b));
         }
