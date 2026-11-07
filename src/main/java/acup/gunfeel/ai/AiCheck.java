@@ -95,12 +95,13 @@ public final class AiCheck {
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
                     aim::tick, parts::tick, unseen::tick, react::tick, battle::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
-            String only = System.getProperty(STAGE_PROPERTY, "");
+            // (a,b,c: those stages, in the check's own order)
+            List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
             int[] at = {0};
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class, t -> {
                 boolean done;
                 try {
-                    while (at[0] < stages.size() && !only.isEmpty() && !only.equals(names.get(at[0]))) at[0]++;
+                    while (at[0] < stages.size() && !only.isEmpty() && !only.contains(names.get(at[0]))) at[0]++;
                     if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) at[0]++;
                     done = at[0] >= stages.size();
                 } catch (Throwable x) {

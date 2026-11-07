@@ -183,6 +183,10 @@ final class AiCheckParts {
         shooter.setYRot(180F);
         shooter.setYHeadRot(180F);
         shooter.setYBodyRot(180F);
+        // rooted behind its wall: this stage is about where it aims, not where it goes (lying to reload, it loses the
+        // target, and once it went round the target's wall to look)
+        var speed = shooter.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speed != null) speed.setBaseValue(0);
         AiBot bot = AiBots.get(shooter);
         if (bot != null) bot.gunner.ammo.setInfinite();
         AiBots.refreshTargets(level);

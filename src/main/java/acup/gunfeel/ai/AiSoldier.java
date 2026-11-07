@@ -59,6 +59,8 @@ public final class AiSoldier implements AiBrain {
     public int covers, relocations, bursts, searchSpots, shifts;
     /** ticks it holds fire with one of its own in the line before it moves */
     static final int BLOCKED_MOVE = 20;
+    /** ticks a friend may stand in the line of its answering burst before it steps aside */
+    static final int ANSWER_BLOCKED = 5;
     /** lying down: never closer than NEVER blocks to the target; in the open from FAR on (or pinned down) */
     static final double PRONE_NEVER = 10, PRONE_FAR = 30;
     /** no target in sight this long, and one seen is a new fight, ticks */
@@ -231,6 +233,15 @@ public final class AiSoldier implements AiBrain {
         }
         lastCombat = tick;
         if (tick < answerUntil) {
+            // one of its own in the line: no burst from here, a step aside at once (as fights here do, later)
+            if (g.blockedTicks > ANSWER_BLOCKED) {
+                answerUntil = 0;
+                g.blockedTicks = 0;
+                g.fire(false);
+                sidestep(bot, level, chest);
+                event(bot, tick, "friend in the line of its answer: a step aside");
+                return;
+            }
             if (bot.mover.goal() != Long.MIN_VALUE) bot.mover.stop();
             g.fire(true);
             why = Why.ANSWER;

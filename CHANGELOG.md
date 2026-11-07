@@ -1,14 +1,14 @@
 # Changelog
 
-## X715
+## X716
 
 - Mob AI: AI mobs aim at what they see of you: your head over a wall, your
   legs under a beam, the middle of what shows over low cover; with all of you
   in sight, your chest. Before, they aimed at your chest whatever hid it, and
   shot the wall in front of you.
 - Mob AI: an AI mob with one of its own in its line of fire steps to the side
-  that clears it, two steps if one does not; before, it could step back and
-  forth in the line and never fire.
+  that clears it, two steps if one does not, and at once if it is answering
+  fire; before, it could step back and forth in the line and never fire.
 
 ## X713
 
