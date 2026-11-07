@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -22,6 +23,7 @@ import acup.gunfeel.water.WaterClass;
 import acup.gunfeel.water.WaterImpact;
 import acup.gunfeel.water.WaterPath;
 import acup.gunfeel.water.WaterSettings;
+import acup.gunfeel.water.WaterTick;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
@@ -155,7 +157,8 @@ public final class ExplosiveCheck {
     // not NTM's ExplosionVNT, which the stand counts
     private static Map<String, BulletConfig> projectiles() {
         Map<String, BulletConfig> out = new LinkedHashMap<String, BulletConfig>();
-        for (BulletConfig c : BulletConfig.configs) {
+        // a copy: the first Fuze.field loads the pile's class, whose debris config NTM adds to the list then
+        for (BulletConfig c : new ArrayList<BulletConfig>(BulletConfig.configs)) {
             if (c == null || !WaterClass.Fuze.ofConfig(c).any()) continue;
             String field = WaterClass.Fuze.field(c);
             String ammo = field != null ? field : ammoName(c);
@@ -377,11 +380,16 @@ public final class ExplosiveCheck {
         EntityBulletBaseMK4 b = bullet(c, new Vec3(x0, surface - 5, CZ), new Vec3(1, 0, 0));
         BLASTS.clear();
         double fastest = 0, stopX = Double.NaN, path = 0;
-        int sinkTicks = 0;
+        int sinkTicks = 0, ticks = 0;
+        // port: the S12s the server marks for it (WaterTick.announce); the world's time goes on with the hand's ticks,
+        // as its resend goes by it
+        WaterTick.sentCount = new HashMap<Integer, Integer>();
         for (int i = 0; i < 400 && !b.isDead && BLASTS.isEmpty(); i++) {
             double wasX = b.posX, wasY = b.posY, wasZ = b.posZ;
             boolean wasStopped = WaterBullet.stopped(b);
+            level.getWorldInfo().incrementTotalWorldTime(level.getTotalWorldTime() + 1);
             tick(b);
+            ticks++;
             // the path till water stopped it (bent by NTM's gravity: longer than how far along x)
             if (!wasStopped) path += new Vec3(wasX, wasY, wasZ).distanceTo(pos(b));
             if (wasStopped && BLASTS.isEmpty() && !b.isDead) {
@@ -397,6 +405,12 @@ public final class ExplosiveCheck {
         rowFlag("c: stopped, sinks ≤ 0.05/tick", ammo, wc, "≤ 0.0500", fmt(fastest), !Double.isNaN(stopX) && fastest <= 0.05 + 1e-9 && sinkTicks > 0, note);
         rowFlag("c: stopped, goes off on the floor", ammo, wc, "y " + (FLOOR + 1), blast == null ? "none" : fmt(blast[1]),
                 blast != null && blast[1] < FLOOR + 1.4, note);
+        // the motion sent to the players: as it starts to fly in water, as it sinks, and once each RESEND ticks after
+        Integer n = WaterTick.sentCount.get(b.getEntityId());
+        WaterTick.sentCount = null;
+        int sent = n == null ? 0 : n;
+        rowFlag("c: stopped, S12 sent", ammo, wc, "2.." + (2 + sinkTicks / 20) + " in " + ticks + " ticks", sent + String.format(java.util.Locale.ROOT,
+                " (%.3f a tick)", ticks == 0 ? 0.0 : sent / (double) ticks), sent >= 2 && sent <= 2 + sinkTicks / 20 + 1 && sent <= ticks, note);
     }
 
     // a golem standing there, still, its in-water state as the world's tick sets it
@@ -535,7 +549,7 @@ public final class ExplosiveCheck {
         // the Daybreaker's flame: NTM's blast, then its fire (XFactoryFlamer.spawnFire) only out of the water
         for (String name : new String[] {"flame_daybreaker_diesel", "flame_daybreaker_napalm", "flame_daybreaker_balefire"}) {
             BulletConfig c = null;
-            for (BulletConfig k : BulletConfig.configs) if (c == null && k != null && name.equals(WaterClass.Fuze.field(k))) c = k;
+            for (BulletConfig k : new ArrayList<BulletConfig>(BulletConfig.configs)) if (c == null && k != null && name.equals(WaterClass.Fuze.field(k))) c = k;
             if (c == null) {
                 ok = false;
                 lines.add("FAIL\tno config " + name);

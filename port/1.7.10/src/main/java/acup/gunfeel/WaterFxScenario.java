@@ -22,8 +22,10 @@ import acup.gunfeel.water.SunkBullets;
 import acup.gunfeel.water.SunkPhysics;
 import acup.gunfeel.water.WaterParticle;
 import acup.gunfeel.water.WaterRings;
+import acup.gunfeel.water.WaterTick;
 import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.server.MinecraftServer;
@@ -42,7 +44,10 @@ import net.minecraft.world.World;
 // size from NTM's casings (a line per round), rounds drawn in flight under water and lying on the bottom, and a round
 // asleep on the waterfall basin's bottom going down when the stone under it is broken (X517). Blasts at water (2c): an
 // explosive g12 into the slope pool (the server's WaterBlastPayload), then a blast of size 6 given to the listeners in
-// the shallow pool's water and one on its surface (as 26.2's stand: the surface given 0.9 over the centre). Lines in run/client/waterfx.txt and the log; quits.
+// the shallow pool's water and one on its surface (as 26.2's stand: the surface given 0.9 over the centre). X566, in a
+// basin of its own: a g40 grenade and a rocket fired up from under water (one gas bubble each, through joined), a grenade
+// fired east sinking with its heading east, and the S12s the server sent it in its life (WaterTick.announce: at most one
+// a tick). Lines in run/client/waterfx.txt and the log; quits.
 final class WaterFxScenario {
     private WaterFxScenario() {
     }
@@ -220,6 +225,7 @@ final class WaterFxScenario {
         if (t == FLOOR) ShootScenario.onServer(WaterFxScenario::fireFloor);
         // ShootScenario.onServer holds one task: the next one two ticks after the last
         if (t > FLOOR + 2 && floorStep < 3) floorGone(t);
+        if (x566Step > 0 && x566Step < 99) x566(mc, t);
         if (t == liveCheck) {
             lines.add("surface audit: under the surface by more than 0.15: " + WaterFx.below + ", over air: " + WaterFx.overAir + ", deepest "
                     + String.format(Locale.ROOT, "%.3f", WaterFx.worstBelow));
@@ -293,7 +299,154 @@ final class WaterFxScenario {
 
     private static void end(int t) {
         floorStep = 3;
+        // X566 next, the end's checks after it
+        x566Step = 1;
+    }
+
+    // ---- X566: a grenade and a rocket shot from a metre and a half under water, straight up: NTM's own entity, no
+    // tracer of ours, one gas bubble each (WaterFx.joined, once the server's motion of it came). Then a grenade shot
+    // east along a channel 8 deep: water stops it, it sinks, and its model lies east (the way it moved, kept on the
+    // client), not along NTM's yaw of a fall straight down; the S12s the server sent for it (WaterTick.announce), in
+    // all and a tick ----
+    private static int x566Step, x566Tick;
+    private static volatile int sentId = -1;
+    private static volatile EntityBulletBaseMK4 sent;
+    private static int stoppedTick;
+    private static Vec3 seenAt;
+    private static final String[] GAS_AMMO = {"ammo_standard_g40_he", "ammo_standard_rocket_he"};
+
+    // the channel north of the pools: 14 long (x), 3 wide, 8 deep, the floor at y - 9
+    private static int chX() {
+        return x0 + 2;
+    }
+
+    private static int chZ() {
+        return z0 - 7;
+    }
+
+    private static void x566(Minecraft mc, int t) {
+        Vec3 from = new Vec3(chX() + 1.2, y - 3.5, chZ() + 1.5), up = new Vec3(chX() + 7.5, y - 1.5, chZ() + 1.5);
+        if (x566Step == 1) {
+            WaterTick.sentCount = new java.util.concurrent.ConcurrentHashMap<Integer, Integer>();
+            ShootScenario.onServer(() -> basin(player().worldObj, chX(), chZ(), 14, 3, y - 9, 8, 8));
+            x566Step = 2;
+            x566Tick = t;
+            return;
+        }
+        if (x566Step == 2) {
+            boolean wet = WaterFx.wetAt(mc.theWorld, from) && WaterFx.wetAt(mc.theWorld, from.add(12, 0, 0)) && WaterFx.wetAt(mc.theWorld, up);
+            if (!wet || t < x566Tick + 20) {
+                if (t > x566Tick + 200) {
+                    check(false, "the grenades' channel reached the client");
+                    x566Done(t);
+                }
+                return;
+            }
+            x566Step = 3;
+            x566Tick = t;
+        }
+        // 3, 4: the gas bubbles
+        if (x566Step == 3 || x566Step == 4) {
+            String ammo = GAS_AMMO[x566Step - 3];
+            BulletConfig c = config(ammo);
+            if (c == null) {
+                lines.add("MISSING config " + ammo);
+                check(false, "one gas bubble of " + ammo + " shot from under water");
+                x566Step++;
+                x566Tick = t;
+                return;
+            }
+            if (t == x566Tick) {
+                mark();
+                ShootScenario.onServer(() -> sent = ntmShot(c, up, 0, 1, 0));
+            }
+            // off the server before it goes off anywhere: a few ticks, for its motion to reach the client first
+            if (t == x566Tick + 8) {
+                EntityBulletBaseMK4 b = sent;
+                ShootScenario.onServer(() -> {
+                    if (b != null && !b.isDead) b.setDead();
+                });
+            }
+            if (t < x566Tick + 60) return;
+            int gas = delta(WaterParticle.Kind.GAS);
+            lines.add("from under water " + ammo + " (speed " + c.velocity + ", traced " + Tracers.traced(c) + "): gas bubbles " + gas + ", particles " + kinds());
+            check(gas == 1, "one gas bubble of " + ammo + " shot from under water");
+            x566Step++;
+            x566Tick = t;
+            return;
+        }
+        if (x566Step == 5) {
+            BulletConfig c = config(GAS_AMMO[0]);
+            if (c == null) {
+                x566Done(t);
+                return;
+            }
+            sent = null;
+            sentId = -1;
+            stoppedTick = -1;
+            seenAt = null;
+            ShootScenario.onServer(() -> {
+                sent = ntmShot(c, from, 1, 0, 0);
+                sentId = sent.getEntityId();
+            });
+            x566Step = 6;
+            x566Tick = t;
+            return;
+        }
+        if (x566Step == 6) {
+            Entity e = sentId < 0 ? null : mc.theWorld.getEntityByID(sentId);
+            if (e != null) seenAt = new Vec3(e.posX, e.posY, e.posZ);
+            if (stoppedTick < 0 && e != null && WaterFx.wetAt(mc.theWorld, seenAt) && SunkBullets.sinking(e)) stoppedTick = t;
+            // half a second after it stopped: sinking straight down by then, NTM's yaw turned
+            if (stoppedTick < 0 || t < stoppedTick + 10) {
+                if (t > x566Tick + 160) {
+                    lines.add("grenade along the channel: not seen stopped by water (on the client now: " + (e != null) + ", last seen at " + seenAt + ")");
+                    check(false, "the grenade in the channel stopped by water");
+                    x566Step = 7;
+                    x566Tick = t;
+                }
+                return;
+            }
+            Vec3 h = e == null ? Vec3.ZERO : SunkBullets.headingOf(e);
+            lines.add(String.format(Locale.ROOT, "grenade along the channel, east: sinking after %.2f s at x %.2f (from x %.2f), sunk model heading %.3f %.3f %.3f, "
+                    + "NTM yaw now %.1f, motion %.3f %.3f %.3f", (stoppedTick - x566Tick) / 20.0, e == null ? Double.NaN : e.posX, from.x, h.x, h.y, h.z,
+                    e == null ? Float.NaN : e.rotationYaw, e == null ? Double.NaN : e.motionX, e == null ? Double.NaN : e.motionY, e == null ? Double.NaN : e.motionZ));
+            check(h.x > 0.95, "the sinking grenade lies the way it flew (east)");
+            x566Step = 7;
+            x566Tick = t;
+            return;
+        }
+        if (x566Step == 7) {
+            // its S12s over its whole life: till it goes off on the floor (or 10 s)
+            EntityBulletBaseMK4 b = sent;
+            if (b != null && !b.isDead && t < x566Tick + 200) return;
+            Integer n = b == null || WaterTick.sentCount == null ? null : WaterTick.sentCount.get(b.getEntityId());
+            int sent12 = n == null ? 0 : n, lived = b == null ? 0 : b.ticksExisted;
+            lines.add(String.format(Locale.ROOT, "S12 for the sunk grenade: %d in its life of %d ticks (%.3f a tick), gone %b", sent12, lived,
+                    lived == 0 ? Double.NaN : sent12 / (double) lived, b != null && b.isDead));
+            // a start in water, a stop, and one each RESEND ticks after
+            check(sent12 >= 2 && sent12 <= 3 + lived / 20, "the sunk grenade's motion sent when it changes and once a second, not each tick");
+            ShootScenario.onServer(() -> {
+                if (b != null && !b.isDead) b.setDead();
+            });
+            x566Done(t);
+        }
+    }
+
+    private static void x566Done(int t) {
+        x566Step = 99;
+        WaterTick.sentCount = null;
         liveCheck = t + LIVE_AFTER;
+    }
+
+    // a round as NTM's gun shoots it: a motion of length 1, the speed NTM's motionMult
+    private static EntityBulletBaseMK4 ntmShot(BulletConfig c, Vec3 at, double dx, double dy, double dz) {
+        World w = player().worldObj;
+        EntityBulletBaseMK4 b = new EntityBulletBaseMK4(w, c, 10F, 0F, 0F, 0F);
+        b.setPosition(at.x, at.y, at.z);
+        b.setThrowableHeading(dx, dy, dz, 1F, 0F);
+        w.spawnEntityInWorld(b);
+        return b;
     }
 
     // three p9 rounds at the waterfall basin's west half, from the north at 60° down (clear of the falling column)
@@ -309,7 +462,7 @@ final class WaterFxScenario {
     private static void sizes() {
         Map<String, String> out = new TreeMap<String, String>();
         int byCasing = 0;
-        for (BulletConfig c : BulletConfig.configs) {
+        for (BulletConfig c : new java.util.ArrayList<BulletConfig>(BulletConfig.configs)) {
             String a = c == null ? null : WaterFx.ammo(c);
             AmmoModels.Model m = a == null ? null : SunkBullets.model(c);
             if (m == null || out.containsKey(a)) continue;
