@@ -102,7 +102,8 @@ class ArmLayersFailTest {
 
     @Test
     void aWorldLeftWhileALayerFailsStartsAnew() {
-        // leave() comes from the network thread between the count's read and its write: the count does not come back
+        // leave() from the network thread while a layer fails: the count is let go on the render thread (settle), and a
+        // failure written after it counts as the first of the next world
         ArmLayers.Failed key = new ArmLayers.Failed(Throws.class, PLAIN);
         int[] calls = {0};
         for (int frame = 0; frame < ArmLayers.TRIES - 1; frame++) {

@@ -303,6 +303,10 @@ public final class ArmLayers {
     // the frames of the gun in hand (newFrame); the render thread's alone, as FAILED and WARNED
     private static long frame;
 
+    static long frame() {
+        return frame;
+    }
+
     // a layer's failures by the armour worn: the frames in a row it threw in and the last of them; cleared when the
     // player leaves the world
     private static final Map<Failed, Fails> FAILED = new java.util.HashMap<>();

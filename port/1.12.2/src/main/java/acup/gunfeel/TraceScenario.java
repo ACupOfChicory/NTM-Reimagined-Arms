@@ -160,6 +160,8 @@ public final class TraceScenario {
     private static final boolean BAD = ARMOR != null && ARMOR.contains(":bad");
     private static boolean badAdded;
     private static int badCalls, depthMin = Integer.MAX_VALUE, depthMax = Integer.MIN_VALUE;
+    // the frames it was called in (ArmLayers counts a frame once: both arms, drawn and measured, four calls a frame)
+    private static final java.util.TreeSet<Long> BAD_FRAMES = new java.util.TreeSet<>();
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static void badLayer(Minecraft mc) {
@@ -170,6 +172,7 @@ public final class TraceScenario {
                 @Override
                 public void doRenderLayer(net.minecraft.entity.EntityLivingBase e, float a, float b, float c, float d, float f, float g, float h) {
                     badCalls++;
+                    BAD_FRAMES.add(ArmLayers.frame());
                     org.lwjgl.opengl.GL11.glPushMatrix();
                     throw new IllegalStateException("armArmor stand: a layer that throws inside its push");
                 }
@@ -376,9 +379,12 @@ public final class TraceScenario {
         GunClock.use(null);
         check(!guns.isEmpty(), "сценарий " + NAME + ": пушек сыграно " + guns.size());
         if (BAD) {
-            GunFeel.LOGGER.warn("armbench bad layer: called {} times, modelview depth {}..{}", badCalls, depthMin, depthMax);
-            check(badCalls == ArmLayers.TRIES && depthMin == depthMax, "armArmor: a layer throwing inside its push, called " + badCalls
-                    + " times: the modelview depth at the frames " + depthMin + ".." + depthMax);
+            GunFeel.LOGGER.warn("armbench bad layer: called {} times in frames {}, modelview depth {}..{}", badCalls, BAD_FRAMES, depthMin, depthMax);
+            // left out after TRIES frames in a row
+            boolean inARow = BAD_FRAMES.size() == ArmLayers.TRIES
+                    && BAD_FRAMES.last() - BAD_FRAMES.first() == ArmLayers.TRIES - 1;
+            check(inARow && depthMin == depthMax, "armArmor: a layer throwing inside its push, called " + badCalls
+                    + " times in " + BAD_FRAMES.size() + " frames: the modelview depth at the frames " + depthMin + ".." + depthMax);
         }
         GunFeel.LOGGER.info("Scenario {} done: {} failed, trace {}", NAME, failed, TestLog.file());
         Minecraft.getMinecraft().shutdown();
