@@ -1,5 +1,13 @@
 # Changelog
 
+## X543.199
+
+- As in X584: `beamRules`: a beam (a gun's, a turret's or a Tesla arc) stopped
+  after meeting blocks 64 times no longer wears the blocks bullets fly through
+  ("through") that lie past where it stopped. This came with X543.195, and only
+  where the server's rules have bullets wear such blocks (the built-in rules
+  wear none of them).
+
 ## X543.195
 
 - As in X582: `beamRules`: a beam that meets blocks more than 64 times on its
