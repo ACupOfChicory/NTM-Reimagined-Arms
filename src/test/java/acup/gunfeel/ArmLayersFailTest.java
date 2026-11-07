@@ -50,11 +50,10 @@ class ArmLayersFailTest {
 
     @Test
     void layerPoppingMoreThanItPushedDoesNotReachTheNext() {
-        ArmLayers.layer(ARM, Throws.class, PLAIN, pose -> {
+        assertFalse(ArmLayers.layer(ARM, Throws.class, PLAIN, pose -> {
             pose.translate(5F, 0F, 0F);
             pose.popPose();
-            pose.popPose();
-        });
+        }));
         assertTrue(seen(PLAIN).equals(ARM, 0F));
     }
 
@@ -80,6 +79,18 @@ class ArmLayersFailTest {
     }
 
     @Test
+    void layerFailingNowAndThenIsKept() {
+        // failures with draws between them: never TRIES in a row
+        int[] calls = {0};
+        for (int frame = 0; frame < 3 * ArmLayers.TRIES; frame++) {
+            ArmLayers.layer(ARM, Throws.class, PLAIN, pose -> {
+                if (++calls[0] % ArmLayers.TRIES != 0) throw new IllegalStateException("now and then");
+            });
+        }
+        assertEquals(3 * ArmLayers.TRIES, calls[0]);
+    }
+
+    @Test
     void layerFailingOnlyAtFirstIsKept() {
         int[] calls = {0};
         for (int frame = 0; frame < 10; frame++) {
@@ -92,10 +103,12 @@ class ArmLayersFailTest {
 
     @Test
     void stackOfItsOwn() {
-        // the pose handed over is a fresh stack at the arm, one entry deep
-        ArmLayers.layer(ARM, Draws.class, PLAIN, pose -> {
-            assertTrue(new Matrix4f(pose.last().pose()).equals(ARM, 0F));
-            assertThrows(java.util.NoSuchElementException.class, pose::popPose);
-        });
+        // the pose handed over is a fresh stack at the arm, one entry deep (checked out here: layer catches all)
+        PoseStack[] got = new PoseStack[2];
+        assertTrue(ArmLayers.layer(ARM, Draws.class, PLAIN, pose -> got[0] = pose));
+        assertTrue(ArmLayers.layer(ARM, Draws.class, PLAIN, pose -> got[1] = pose));
+        assertNotSame(got[0], got[1]);
+        assertTrue(new Matrix4f(got[0].last().pose()).equals(ARM, 0F));
+        assertThrows(java.util.NoSuchElementException.class, got[0]::popPose);
     }
 }

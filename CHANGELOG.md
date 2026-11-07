@@ -1,16 +1,17 @@
 # Changelog
 
-## X569
+## X570
 
-- `armArmor`: an armour layer that fails while it is drawn on the arm no longer
-  moves the layers after it, and one that takes off more of the pose than it
-  put on no longer crashes the game. After three failures with the same armour
-  on, the arm leaves that layer out until you leave the world, with a warning
-  in the log. An armour model that fails half drawn leaves nothing of itself
-  on the arm.
+- `armArmor`: armour from another mod that fails while it is drawn on the arm
+  no longer moves the armour drawn after it, and no longer crashes the game
+  when it undoes more of its placing than it did. After three failures in a
+  row with the same armour on, the arm leaves that armour out until you leave
+  the world, with a warning in the log. An armour model that fails half drawn
+  no longer leaves a part of itself on the arm; armour on the arms turns off
+  after it, as before.
 - A round that meets water exactly on the edge of its surface and a side now
-  comes in through the surface: a shallow one skips off and a fuze takes it
-  for a hit on the water. Before, it came in through the side, as if it had
+  comes in through the surface: a round at a shallow angle skips off, and a
+  fuze takes it for a hit on the water. Before, it came in through the side, as if it had
   hit a wall of water.
 
 ## X566

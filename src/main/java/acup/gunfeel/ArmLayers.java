@@ -184,11 +184,12 @@ public final class ArmLayers {
         }
     }
 
-    // how often a layer may throw with the same armour on before the arms leave it out (until the player leaves the
-    // world): a failure in the first frames, before the player's data came, is tried again
+    // how often in a row a layer may throw with the same armour on before the arms leave it out (until the player leaves
+    // the world): a failure in the first frames, before the player's data came, is tried again, and one that draws in
+    // between starts the count anew
     static final int TRIES = 3;
 
-    // a layer's failures by the armour worn; cleared when the player leaves the world
+    // a layer's failures in a row by the armour worn; cleared when the player leaves the world
     private static final Map<Failed, Integer> FAILED = new java.util.concurrent.ConcurrentHashMap<>();
 
     // One layer on the arm at the arm's pose m. Each layer gets a stack of its own: one that throws between its own push
@@ -202,6 +203,7 @@ public final class ArmLayers {
         pose.mulPose(m);
         try {
             submit.accept(pose);
+            if (fails != null) FAILED.remove(key);
             return true;
         } catch (Throwable t) {
             int n = fails == null ? 1 : fails + 1;
