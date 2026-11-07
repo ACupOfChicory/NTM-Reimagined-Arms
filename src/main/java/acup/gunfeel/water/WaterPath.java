@@ -435,6 +435,22 @@ public final class WaterPath {
         return 0.5 + 0.5 * f;
     }
 
+    // the water along from -> to, in order: {start, end, rho} per cell of water, in blocks from `from` (a beam in
+    // water, BeamWater). Lava and other liquids are not water here
+    public static List<double[]> water(Fluids w, Vec3 from, Vec3 to) {
+        Vec3 d = to.subtract(from);
+        double len = d.length();
+        List<double[]> out = new ArrayList<>();
+        if (len < 1e-9) return out;
+        List<double[]> raw = new ArrayList<>();
+        walk(w, from, d, len, raw);
+        for (double[] r : raw) {
+            Cell c = w.at((int) r[2], (int) r[3], (int) r[4]);
+            if (c != null && c.liquid() == Liquid.WATER) out.add(new double[] {r[0] * len, r[1] * len, density(c)});
+        }
+        return out;
+    }
+
     // walks the cells the segment goes through; for each liquid cell it cuts, a span {ta, tb, x, y, z, in, out}
     private static void walk(Fluids w, Vec3 from, Vec3 d, double len, List<double[]> out) {
         int x = Mth.floor(from.x), y = Mth.floor(from.y), z = Mth.floor(from.z);

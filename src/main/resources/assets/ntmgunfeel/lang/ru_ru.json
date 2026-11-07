@@ -1,6 +1,7 @@
 {
   "key.category.ntmgunfeel.main": "NTM Reimagined Arms",
   "key.ntmgunfeel.ammo_lock": "Закрепить тип патронов",
+  "key.ntmgunfeel.prone": "Лечь / встать",
   "key.ntmgunfeel.editor": "Редактор пушки (руки, отдача)",
   "message.ntmgunfeel.ammo_locked": "Патроны закреплены: %s",
   "message.ntmgunfeel.ammo_unlocked": "Патроны откреплены",
@@ -24,6 +25,7 @@
   "ntmgunfeel.feature.maresleg": "Анимации Maresleg",
   "ntmgunfeel.feature.sprint_fire": "Нет выстрела сразу после бега",
   "ntmgunfeel.feature.spectator": "Без пушек в режиме наблюдателя",
+  "ntmgunfeel.feature.prone": "Лёжа",
   "ntmgunfeel.feature.mob_ai": "ИИ мобов",
   "ntmgunfeel.compat.title": "Версия NTM %s не протестирована, последняя поддерживаемая — %s",
   "ntmgunfeel.compat.all_on": "Всё проверенное подходит к этой версии NTM, все системы включены. Что-то всё равно может работать странно.",

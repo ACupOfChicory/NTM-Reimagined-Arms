@@ -14,6 +14,8 @@ original NTM on Minecraft 1.7.10 are in progress; see [Ports](#ports).
 - An ammo HUD and radial ammo selection with damage information.
 - Hold-to-aim controls and spread affected by movement, stance and sustained
   fire.
+- Lying down with X (rebindable in Controls), with a gun or without: crawl
+  along, with less spread and recoil.
 - Model-based mob hitboxes, body-zone damage and debug outlines through F3+B.
 - Bullet penetration, ricochets, impact sounds and decals matched to block
   materials and visible geometry.
@@ -45,6 +47,14 @@ still move such a gun at the hip, as a share of its default place: `hipX = 0`
 puts it in the middle of the screen across, `hipY = 0` in the middle up and
 down, a smaller `hipZ` brings it closer. They do not move it when aimed, so the
 sights stay on the crosshair.
+
+X lies down and gets up again (TaCZ's crawl): the player takes the crawling
+pose, as under a trapdoor, only on the ground. Lying, the spread is halved
+(`spreadCrawl`, server) and so is the recoil (`proneRecoil`, client); the view
+turns up to 45 degrees and down to 30 (`proneMaxUp`, `proneMaxDown`, server).
+`proneHold = true` lies down only while the key is held. A server turns lying
+down off with `prone = false`, or allows it only with a gun in hand with
+`proneWithoutGun = false`.
 
 Camera climb uses four per-weapon keys, also available in the weapon editor:
 `cameraClimb` is the share of each kick that stays (0 to 1), `cameraClimbDeg`
@@ -129,7 +139,8 @@ distributed under GPL-3.0. Source revision, changes and the license text are
 included in [third-party/superb-warfare.txt](third-party/superb-warfare.txt)
 and packaged under `META-INF/licenses/`.
 
-The jumping sway, the run / walk / idle choice and their smoothing filter in
+The jumping sway, the run / walk / idle choice, their smoothing filter and the
+crawl (its key, the player's state on both sides, the view's limits) in
 `src/main/java/acup/gunfeel/tacz/` are copied from TaCZ (Timeless and Classics
 Zero) by MCModderAnchor and contributors under GPL-3.0. Those files remain
 GPL-3.0-only, like the Superb Warfare code above. Source revision, changes and

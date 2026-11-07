@@ -49,6 +49,10 @@ public final class Config {
     public static float ntmRecoilAnim = 0.3F;
     // all recoil (camera, gun model, NTM's recoil animation) times this while the chestplate is NTM power armor
     public static float powerArmorRecoil = 0.5F;
+    // all recoil times this while lying down (the prone key, or crawling under a trapdoor), as TaCZ's crawl
+    public static float proneRecoil = 0.5F;
+    // the prone key held lies down while it is held; off: a press lies down, the next gets up
+    public static boolean proneHold = false;
     public static boolean hideOffhand = true;
     // splashes, rings, foam and bubbles where a bullet meets water (acup.gunfeel.water, client effects)
     public static boolean waterSplash = true;
@@ -209,6 +213,10 @@ public final class Config {
             ntmRecoilAnim: share of NTM's own recoil animation kept, 1 = unchanged
             powerArmorRecoil: multiplier of all recoil movements while the chestplate is NTM power armor (T-51, AJR, AJRO, RPA,
               NCRPA, BJ, Envsuit, HEV, FAU, DNS), 0..1, 1 = off; on a server with cameraScaleMin no lower than 0.5
+            proneRecoil: multiplier of all recoil movements while lying down (the prone key, X; or crawling under a
+              trapdoor), 0..1, 1 = off; with power armor both count, on a server with cameraScaleMin together no lower
+              than 0.5
+            proneHold: the prone key lies down while it is held; false = a press lies down and the next one gets up
             hideOffhand: hide the off-hand item while holding an NTM gun
             waterSplash: splashes, rings, foam and bubbles where a bullet meets water
             waterBodyMax: rounds stopped by water that sink and lie on the bottom, at most; 0 = none
@@ -489,6 +497,9 @@ public final class Config {
         ntmRecoilAnim = num(p, "ntmRecoilAnim", ntmRecoilAnim);
         float armorRecoil = num(p, "powerArmorRecoil", powerArmorRecoil);
         powerArmorRecoil = Float.isNaN(armorRecoil) ? 0.5F : Math.clamp(armorRecoil, 0F, 1F);
+        float proneKick = num(p, "proneRecoil", proneRecoil);
+        proneRecoil = Float.isNaN(proneKick) ? 0.5F : Math.clamp(proneKick, 0F, 1F);
+        proneHold = bool(p, "proneHold", proneHold);
         hideOffhand = bool(p, "hideOffhand", hideOffhand);
         waterSplash = bool(p, "waterSplash", waterSplash);
         waterBodyMax = Math.clamp(Math.round(num(p, "waterBodyMax", waterBodyMax)), 0, 2000);
@@ -629,6 +640,8 @@ public final class Config {
         p.setProperty("modelSpeed", Float.toString(modelSpeed));
         p.setProperty("ntmRecoilAnim", Float.toString(ntmRecoilAnim));
         p.setProperty("powerArmorRecoil", Float.toString(powerArmorRecoil));
+        p.setProperty("proneRecoil", Float.toString(proneRecoil));
+        p.setProperty("proneHold", Boolean.toString(proneHold));
         p.setProperty("hideOffhand", Boolean.toString(hideOffhand));
         p.setProperty("waterSplash", Boolean.toString(waterSplash));
         p.setProperty("waterBodyMax", Integer.toString(waterBodyMax));

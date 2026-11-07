@@ -156,11 +156,13 @@ public final class BulletServer {
         java.util.function.Consumer<BlockHitResult> through = hit -> passed(bullet, hit);
         PierceSteps steps = PierceSteps.of(bullet);
         steps.start(from);
-        // an explosive bullet goes off on the first block it meets, never pierces
-        if (bullet.config != null && bullet.config.onImpact != null) return stop(bullet, level, PassableClip.clip(level, from, to, through), "explosive", Float.NaN);
+        // an explosive bullet goes off on the first block it meets, never pierces. A mob's laser shot goes through glass
+        // (BeamLasers)
+        if (bullet.config != null && bullet.config.onImpact != null)
+            return stop(bullet, level, BeamLasers.clip(level, bullet.config, from, to, through), "explosive", Float.NaN);
         Vec3 at = from;
         for (int i = 0; i < 16; i++) {
-            BlockHitResult hit = PassableClip.clip(level, at, to, through);
+            BlockHitResult hit = BeamLasers.clip(level, bullet.config, at, to, through);
             if (hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) return hit;
             Vec3 d = to.subtract(at);
             double len = d.length();

@@ -55,7 +55,7 @@ public abstract class MixinBeamBlocks implements BeamServer.Holder {
         if (gunfeel$path != null && next != (Object) this) BeamServer.reflected((EntityBulletBeamBase) (Object) this, next, coin);
     }
 
-    // each hit with the damage the beam has there; its own damage back after
+    // each hit with the damage the beam has there; its own damage back after. Where it went out in water: no hit
     @WrapOperation(method = "performHitscan", at = @At(value = "INVOKE",
             target = "Lcom/hbm/entity/projectile/EntityBulletBeamBase;onImpact(Lnet/minecraft/world/phys/HitResult;)V"))
     private void gunfeel$impact(EntityBulletBeamBase self, HitResult mop, Operation<Void> original) {
@@ -63,6 +63,7 @@ public abstract class MixinBeamBlocks implements BeamServer.Holder {
             original.call(self, mop);
             return;
         }
+        if (gunfeel$path.gone(mop)) return;
         float own = self.damage;
         self.damage = BeamServer.damageAt(self, mop.getLocation());
         try {

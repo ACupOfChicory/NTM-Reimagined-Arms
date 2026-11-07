@@ -1,6 +1,7 @@
 {
   "key.category.ntmgunfeel.main": "NTM Reimagined Arms",
   "key.ntmgunfeel.ammo_lock": "Lock ammo type",
+  "key.ntmgunfeel.prone": "Lie down / get up",
   "key.ntmgunfeel.editor": "Gun editor (hands, recoil)",
   "message.ntmgunfeel.ammo_locked": "Ammo locked: %s",
   "message.ntmgunfeel.ammo_unlocked": "Ammo unlocked",
@@ -24,6 +25,7 @@
   "ntmgunfeel.feature.maresleg": "Maresleg animations",
   "ntmgunfeel.feature.sprint_fire": "No shot right after a sprint",
   "ntmgunfeel.feature.spectator": "No guns in spectator mode",
+  "ntmgunfeel.feature.prone": "Lying down",
   "ntmgunfeel.feature.mob_ai": "Mob AI",
   "ntmgunfeel.compat.title": "NTM version %s is not tested, the last supported one is %s",
   "ntmgunfeel.compat.all_on": "Everything checked still fits this NTM, all systems are on. Something may still behave oddly.",
