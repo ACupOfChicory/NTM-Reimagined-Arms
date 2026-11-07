@@ -295,20 +295,34 @@ public final class SunkBullets {
         float pt = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
         for (Entity en : cl.entitiesForRendering()) {
             if (!(en instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b) || !WaterClass.Fuze.of(b.config).any()) continue;
-            if (en.distanceToSqr(cam) > 48 * 48 || !WaterBullet.stopped(en)) continue;
+            if (en.distanceToSqr(cam) > 48 * 48 || !sinking(en)) continue;
             Vec3 at = en.getPosition(pt);
             if (!WaterFx.wetAt(level, at)) continue;
             String ammo = WaterFx.ammo(b.config);
             AmmoModels.Model m = ammo == null ? null : model(b.config);
             if (m == null) continue;
             if (out == null) out = new ArrayList<>();
-            out.add(new Fuzed(m, at, heading(en.getYRot())));
+            out.add(new Fuzed(m, at, headingOf(en)));
         }
         return out == null ? List.of() : out;
     }
 
-    // the heading of NTM's round from its yaw: NTM sets yaw = atan2(dX, dZ) in flight (EntityBulletBaseMK4.tick), so
-    // the heading is (sin, cos), not a player's (-sin, cos)
+    // a round with an impact fuze that water stopped: this client's own bullet may not have seen the stop (it goes by
+    // the server's packets), but then the server's motion of it came, the sinking one (WaterTick.sink: 0, at most
+    // 0.05 down, 0), while a flying one keeps a motion of length 1 (also for the stand)
+    public static boolean sinking(Entity en) {
+        return WaterBullet.stopped(en) || en.getDeltaMovement().lengthSqr() < 0.01;
+    }
+
+    // the way a sunk round with an impact fuze lies (also for the stand)
+    public static Vec3 headingOf(Entity en) {
+        Vec3 h = en instanceof WaterBullet w ? w.gunfeel$sunkHeading() : null;
+        return h != null ? h : heading(en.getYRot());
+    }
+
+    // the heading of NTM's round from its yaw, when water did not keep the way it flew (WaterBullet.sunkHeading): NTM
+    // sets yaw = atan2(dX, dZ) in flight (EntityBulletBaseMK4.tick), so the heading is (sin, cos), not a player's
+    // (-sin, cos)
     static Vec3 heading(float yawDegrees) {
         double yaw = Math.toRadians(yawDegrees);
         return new Vec3(Math.sin(yaw), 0, Math.cos(yaw));
