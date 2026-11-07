@@ -72,15 +72,23 @@ public final class Gl54Grenade {
         return flown >= ARM_DISTANCE;
     }
 
-    public static BulletConfig create(java.util.function.Supplier<? extends net.minecraft.world.item.Item> item) {
-        return new BulletConfig()
-                .setItem(item)
-                .setLife(LIFE)
+    private static SpentCasing casing;
+
+    // one case for every kind of grenade (registered once under its name)
+    private static synchronized SpentCasing casing() {
+        if (casing == null) casing = new SpentCasing(CasingType.STRAIGHT).setColor(SpentCasing.COLOR_CASE_BRASS).setScale(1F, 1F, 1F).register(CASING);
+        return casing;
+    }
+
+    // the flight and the blast of the HE grenade put on a config; the other kinds fly as HE until stage 3 gives them their own
+    public static <T extends BulletConfig> T apply(T config) {
+        config.setLife(LIFE)
                 .setVel(SPEED)
                 .setGrav(GRAVITY)
                 .setOnUpdate(Gl54Grenade::update)
                 .setOnImpact(Gl54Grenade::impact)
-                .setCasing(new SpentCasing(CasingType.STRAIGHT).setColor(SpentCasing.COLOR_CASE_BRASS).setScale(1F, 1F, 1F).register(CASING));
+                .setCasing(casing());
+        return config;
     }
 
     // every tick of the flight (server): where it began, from the first tick's old position

@@ -32,10 +32,13 @@ class Gl54GunTest {
     @Test
     void reloadIsFortyTicksAndFiftyWhenEmpty() {
         Receiver r = config().getReceivers(null)[0];
-        assertEquals(40, r.getReloadBeginDuration(null));
-        assertEquals(10, r.getReloadCockOnEmptyPre(null));
-        assertEquals(0, r.getReloadCockOnEmptyPost(null));
-        assertEquals(50, r.getReloadBeginDuration(null) + r.getReloadCockOnEmptyPre(null));
+        // the swap is where begin ends; then end; an empty gun is cocked after it (post)
+        assertEquals(28, r.getReloadBeginDuration(null));
+        assertEquals(12, r.getReloadEndDuration(null));
+        assertEquals(0, r.getReloadCockOnEmptyPre(null));
+        assertEquals(10, r.getReloadCockOnEmptyPost(null));
+        assertEquals(40, r.getReloadBeginDuration(null) + r.getReloadEndDuration(null));
+        assertEquals(50, r.getReloadBeginDuration(null) + r.getReloadEndDuration(null) + r.getReloadCockOnEmptyPost(null));
     }
 
     @Test

@@ -47,6 +47,7 @@ public final class GunFeelMod {
                 e -> {
                     if (Feature.HOLD_AIM.on()) ReaimCommand.register(e.getDispatcher());
                     acup.gunfeel.smoke.SmokeCommand.register(e.getDispatcher());
+                    if (Feature.GL54.on()) acup.gunfeel.gl54.MagCommand.register(e.getDispatcher());
                 });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class,
                 e -> {

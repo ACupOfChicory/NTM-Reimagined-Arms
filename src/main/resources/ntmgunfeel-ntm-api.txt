@@ -338,11 +338,12 @@ GL54 class com/hbm/handler/threading/TargetPoint
 GL54 class com/hbm/items/weapon/sedna/BulletConfig
 GL54 class com/hbm/items/weapon/sedna/GunConfig
 GL54 class com/hbm/items/weapon/sedna/ItemGunBaseNT
+GL54 class com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState
 GL54 class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 GL54 class com/hbm/items/weapon/sedna/Receiver
 GL54 class com/hbm/items/weapon/sedna/hud/IHUDComponent
 GL54 class com/hbm/items/weapon/sedna/mags/IMagazine
-GL54 class com/hbm/items/weapon/sedna/mags/MagazineFullReload
+GL54 class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 GL54 class com/hbm/packet/toclient/MuzzleFlashPayload
 GL54 class com/hbm/particle/SpentCasing
 GL54 class com/hbm/registration/RegistryHandle
@@ -355,10 +356,13 @@ GL54 class com/hbm/render/item/weapon/sedna/RestBody
 GL54 class com/hbm/render/loader/HFRWavefrontObject
 GL54 field com/hbm/client/ClientRegistry GUN_CLIENT_SETUP_ID Lnet/minecraft/resources/Identifier;
 GL54 field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+GL54 field com/hbm/items/weapon/sedna/BulletConfig casing Lcom/hbm/particle/SpentCasing;
 GL54 field com/hbm/items/weapon/sedna/Crosshair L_CIRCUMFLEX Lcom/hbm/items/weapon/sedna/Crosshair;
 GL54 field com/hbm/items/weapon/sedna/GunConfig smokeNodes Ljava/util/List;
 GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
 GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT shotRand D
+GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState DRAWING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState RELOADING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT$WeaponQuality A_SIDE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$WeaponQuality;
 GL54 field com/hbm/items/weapon/sedna/factory/Lego LAMBDA_STANDARD_CAN_FIRE Ljava/util/function/BiFunction;
 GL54 field com/hbm/items/weapon/sedna/factory/Lego LAMBDA_STANDARD_RELOAD Ljava/util/function/BiConsumer;
@@ -369,6 +373,7 @@ GL54 field com/hbm/particle/SpentCasing$CasingType STRAIGHT Lcom/hbm/particle/Sp
 GL54 field com/hbm/render/anim/AnimationEnums$GunAnimation CYCLE Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 GL54 field com/hbm/render/anim/AnimationEnums$GunAnimation EQUIP Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 GL54 field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+GL54 field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD_END Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 GL54 field com/hbm/render/anim/BusAnimationKeyframe$IType LINEAR Lcom/hbm/render/anim/BusAnimationKeyframe$IType;
 GL54 field com/hbm/render/anim/BusAnimationKeyframe$IType SIN_DOWN Lcom/hbm/render/anim/BusAnimationKeyframe$IType;
 GL54 field com/hbm/render/anim/BusAnimationSequence$Dimension RX Lcom/hbm/render/anim/BusAnimationSequence$Dimension;
@@ -386,7 +391,6 @@ GL54 method com/hbm/handler/threading/TargetPoint <init> (Lnet/minecraft/server/
 GL54 method com/hbm/items/weapon/sedna/BulletConfig <init> ()V
 GL54 method com/hbm/items/weapon/sedna/BulletConfig setCasing (Lcom/hbm/particle/SpentCasing;)Lcom/hbm/items/weapon/sedna/BulletConfig;
 GL54 method com/hbm/items/weapon/sedna/BulletConfig setGrav (D)Lcom/hbm/items/weapon/sedna/BulletConfig;
-GL54 method com/hbm/items/weapon/sedna/BulletConfig setItem (Ljava/util/function/Supplier;)Lcom/hbm/items/weapon/sedna/BulletConfig;
 GL54 method com/hbm/items/weapon/sedna/BulletConfig setLife (I)Lcom/hbm/items/weapon/sedna/BulletConfig;
 GL54 method com/hbm/items/weapon/sedna/BulletConfig setOnImpact (Ljava/util/function/BiConsumer;)Lcom/hbm/items/weapon/sedna/BulletConfig;
 GL54 method com/hbm/items/weapon/sedna/BulletConfig setOnUpdate (Ljava/util/function/Consumer;)Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -428,8 +432,9 @@ GL54 method com/hbm/items/weapon/sedna/Receiver setupStandardFire ()Lcom/hbm/ite
 GL54 method com/hbm/items/weapon/sedna/Receiver sound (Ljava/util/function/Supplier;FF)Lcom/hbm/items/weapon/sedna/Receiver;
 GL54 method com/hbm/items/weapon/sedna/factory/Lego standardExplode (Lcom/hbm/entity/projectile/EntityBulletBaseMK4;Lnet/minecraft/world/phys/HitResult;F)V
 GL54 method com/hbm/items/weapon/sedna/mags/IMagazine getCasing (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Lcom/hbm/particle/SpentCasing;
-GL54 method com/hbm/items/weapon/sedna/mags/MagazineFullReload <init> (II)V
-GL54 method com/hbm/items/weapon/sedna/mags/MagazineFullReload addConfigs ([Lcom/hbm/items/weapon/sedna/BulletConfig;)Lcom/hbm/items/weapon/sedna/mags/MagazineFullReload;
+GL54 method com/hbm/items/weapon/sedna/mags/IMagazine shouldUseUpTrenchie (Lnet/minecraft/world/Container;)Z
+GL54 method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase <init> (II)V
+GL54 method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setAmountAfterReload (Lnet/minecraft/world/item/ItemStack;I)V
 GL54 method com/hbm/packet/PacketWire sendToAllAround (Lcom/hbm/packet/threading/ThreadedPayload;Lcom/hbm/handler/threading/TargetPoint;)V
 GL54 method com/hbm/packet/toclient/MuzzleFlashPayload <init> (Lnet/minecraft/world/entity/LivingEntity;)V
 GL54 method com/hbm/particle/SpentCasing <init> (Lcom/hbm/particle/SpentCasing$CasingType;)V
@@ -438,6 +443,7 @@ GL54 method com/hbm/particle/SpentCasing register (Ljava/lang/String;)Lcom/hbm/p
 GL54 method com/hbm/particle/SpentCasing setColor ([I)Lcom/hbm/particle/SpentCasing;
 GL54 method com/hbm/particle/SpentCasing setScale (FFF)Lcom/hbm/particle/SpentCasing;
 GL54 method com/hbm/particle/helper/CasingCreator composeEffect (Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/LivingEntity;DDDDDDDFFLjava/lang/String;ZIDI)V
+GL54 method com/hbm/registration/NeoForgeRegistrar registerDataComponent (Ljava/lang/String;Lnet/minecraft/core/component/DataComponentType;)Lcom/hbm/registration/RegistryHandle;
 GL54 method com/hbm/registration/NeoForgeRegistrar registerItem (Ljava/lang/String;Ljava/util/function/Function;Ljava/util/function/Supplier;)Lcom/hbm/registration/RegistryHandle;
 GL54 method com/hbm/registration/NeoForgeRegistrar subscribe (Ljava/lang/String;Lnet/neoforged/bus/api/IEventBus;)V
 GL54 method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
@@ -483,9 +489,11 @@ HOLD_AIM method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/
 HOLD_AIM method com/hbm/items/weapon/sedna/Receiver getReloadEndDuration (Lnet/minecraft/world/item/ItemStack;)I
 HUD class com/hbm/items/weapon/sedna/BulletConfig
 HUD class com/hbm/items/weapon/sedna/ItemGunBaseNT
+HUD class com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState
 HUD class com/hbm/items/weapon/sedna/mags/IMagazine
 HUD class com/hbm/items/weapon/sedna/mags/MagazineBelt
 HUD class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
+HUD class com/hbm/render/anim/AnimationEnums$GunAnimation
 HUD class com/hbm/render/loader/HFRWavefrontObject
 HUD field com/hbm/render/loader/GroupObject name Ljava/lang/String;
 HUD field com/hbm/render/loader/HFRWavefrontObject groups [Lcom/hbm/render/loader/GroupObject;
@@ -494,6 +502,7 @@ HUD method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraft/wo
 HUD method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
 HUD method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 HUD method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
+HUD method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 HUD method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/world/item/ItemStack;I)F
 HUD method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 HUD method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
@@ -503,6 +512,8 @@ HUD method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getAmount (Lne
 HUD method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getCapacity (Lnet/minecraft/world/item/ItemStack;)I
 HUD method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getFirstConfig (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Lcom/hbm/items/weapon/sedna/BulletConfig;
 HUD method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Lcom/hbm/items/weapon/sedna/BulletConfig;
+HUD method com/hbm/render/anim/HbmAnimations getGunAnimation (I)Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+HUD method com/hbm/render/anim/HbmAnimations getGunAnimationTimer (I)I
 HUD method com/hbm/render/loader/GroupObject bounds ()[F
 HUD method com/hbm/render/loader/GroupObject quads (Z)[F
 HUD method com/hbm/render/loader/HFRWavefrontObject smoothing ()Z

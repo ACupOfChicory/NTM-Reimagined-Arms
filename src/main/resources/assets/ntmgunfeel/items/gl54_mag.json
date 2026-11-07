@@ -1,0 +1,55 @@
+{
+  "model": {
+    "type": "minecraft:composite",
+    "models": [
+      {
+        "type": "minecraft:model",
+        "model": "ntmgunfeel:item/gl54_mag_a",
+        "tints": [
+          {
+            "type": "minecraft:constant",
+            "value": 16777215
+          },
+          {
+            "type": "ntmgunfeel:mag_tint",
+            "index": 0
+          },
+          {
+            "type": "ntmgunfeel:mag_tint",
+            "index": 1
+          },
+          {
+            "type": "ntmgunfeel:mag_tint",
+            "index": 2
+          },
+          {
+            "type": "ntmgunfeel:mag_tint",
+            "index": 3
+          }
+        ]
+      },
+      {
+        "type": "minecraft:model",
+        "model": "ntmgunfeel:item/gl54_mag_b",
+        "tints": [
+          {
+            "type": "ntmgunfeel:mag_tint",
+            "index": 4
+          },
+          {
+            "type": "ntmgunfeel:mag_tint",
+            "index": 5
+          },
+          {
+            "type": "ntmgunfeel:mag_tint",
+            "index": 6
+          },
+          {
+            "type": "ntmgunfeel:mag_tint",
+            "index": 7
+          }
+        ]
+      }
+    ]
+  }
+}

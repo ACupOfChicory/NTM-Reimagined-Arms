@@ -1,6 +1,6 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "hbm:item/ammo_standard_g40_he"
+    "model": "ntmgunfeel:item/gl54_mag_empty"
   }
 }

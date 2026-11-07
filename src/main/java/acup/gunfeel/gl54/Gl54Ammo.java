@@ -1,26 +1,53 @@
 package acup.gunfeel.gl54;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import com.hbm.items.weapon.sedna.BulletConfig;
 import com.hbm.items.weapon.sedna.mags.IMagazine;
-import com.hbm.items.weapon.sedna.mags.MagazineFullReload;
 
-// TEMPORARY. The GL-54 takes a grenade item that is only for trying it (gl54_grenade_test, in no creative tab): a box
-// magazine of 8 that fills all at once, as NTM's MK108 does. Stage 2 of the GL-54 (notes/gl54/mag-system.md) replaces
-// it with the 20 mm magazine as the ammunition: only this class changes then, the gun asks it for `magazine()`.
+// The GL-54's ammunition: a kind of grenade (GrenadeType) per GrenadeKind and one for mixed magazines, made once in the
+// wheel's order, and the magazine of the gun that takes them (GrenadeMagazine). Only HE has a flight of its own so far.
 public final class Gl54Ammo {
-    public static final int CAPACITY = 8;
-    private static BulletConfig he;
+    public static final int CAPACITY = MagContents.CAPACITY;
+    private static Map<String, GrenadeType> types;
 
     private Gl54Ammo() {
     }
 
-    // the high-explosive grenade, made once
-    public static synchronized BulletConfig he() {
-        if (he == null) he = Gl54Grenade.create(() -> Gl54Items.GRENADE_TEST.get());
-        return he;
+    private static synchronized Map<String, GrenadeType> types() {
+        if (types == null) {
+            Map<String, GrenadeType> m = new LinkedHashMap<>();
+            for (GrenadeKind k : GrenadeKind.values()) m.put(k.key, new GrenadeType(k.key));
+            m.put(GrenadeKind.MIXED, new GrenadeType(GrenadeKind.MIXED));
+            types = m;
+        }
+        return types;
+    }
+
+    // the type of a kind or a grenade's key; the HE grenade for a key not known
+    public static GrenadeType type(String kind) {
+        GrenadeType t = types().get(kind);
+        return t != null ? t : types().get(GrenadeKind.HE.key);
+    }
+
+    // the type of the kind or null (for "empty" and the like)
+    public static GrenadeType typeOrNull(String kind) {
+        return types().get(kind);
+    }
+
+    // the high-explosive grenade
+    public static BulletConfig he() {
+        return type(GrenadeKind.HE.key);
+    }
+
+    public static GrenadeType mixed() {
+        return type(GrenadeKind.MIXED);
     }
 
     public static IMagazine<BulletConfig> magazine() {
-        return new MagazineFullReload(0, CAPACITY).addConfigs(he());
+        GrenadeMagazine mag = new GrenadeMagazine();
+        mag.addConfigs(types().values().toArray(new BulletConfig[0]));
+        return mag;
     }
 }

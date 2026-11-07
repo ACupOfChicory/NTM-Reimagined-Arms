@@ -18,8 +18,9 @@ public final class Gl54Gun {
     public static final float DURABILITY = 800F;
     // a shot every 14 ticks (0.7 s), semi-automatic
     public static final int DELAY = 14;
-    // reloading takes 40 ticks, an empty one 50 (the gun is cocked: 10 more)
-    public static final int RELOAD = 40, RELOAD_EMPTY_EXTRA = 10;
+    // reloading takes 40 ticks (2.0 s) = begin + end; the magazine is swapped where begin ends. An empty gun is cocked at the
+    // end: the handle feeds the first grenade in (post), 10 ticks more, 50 (2.5 s)
+    public static final int RELOAD_BEGIN = 28, RELOAD_END = 12, RELOAD_EMPTY_POST = 10;
     // TEMPORARY, waiting for the owner: the draw is Congo Lake's
     public static final int DRAW = 7;
     // NTM's camera kick: 4 degrees up give or take 0.5, sideways give or take 1
@@ -38,7 +39,7 @@ public final class Gl54Gun {
                 .rec(new Receiver(0)
                         .dmg(DAMAGE)
                         .delay(DELAY)
-                        .reload(RELOAD_EMPTY_EXTRA, RELOAD, RELOAD, 0, 0)
+                        .reload(0, RELOAD_BEGIN, RELOAD_BEGIN, RELOAD_END, RELOAD_EMPTY_POST)
                         .jam(0)
                         .sound(() -> (SoundEvent) ModSounds.GUN_CONGO_FIRE.get(), 1.0F, 1.0F)
                         .mag(Gl54Ammo.magazine())
