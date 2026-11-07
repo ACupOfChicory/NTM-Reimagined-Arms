@@ -1,5 +1,13 @@
 # Changelog
 
+## X543.147
+
+- The older bullets of NTM 1.7.10's masked man (the laser's orbs, rockets
+  and tracers, the death bolt, the meteor), the UFO and BOT Prime now do
+  1.75 times the damage on the head and half on a limb, where they meet the
+  creature's model. Their hits on blocks stay NTM's. The server setting
+  `npcShots = false` turns this off too.
+
 ## X543.146
 
 - As in X547: the hunter chopper's and the cyber crab's old bullets now hit

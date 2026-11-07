@@ -122,6 +122,7 @@ BULLETS class com/hbm/blocks/generic/BlockMetalFence
 BULLETS class com/hbm/blocks/generic/BlockModDoor
 BULLETS class com/hbm/entity/projectile/EntityBullet
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
+BULLETS class com/hbm/entity/projectile/EntityBulletBaseNT
 BULLETS class com/hbm/entity/projectile/EntityBulletBeamBase
 BULLETS class com/hbm/entity/projectile/EntityThrowableNT
 BULLETS class com/hbm/explosion/vanillant/ExplosionVNT
@@ -163,6 +164,7 @@ BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posY D
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posZ D
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT size F
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/World;
+BULLETS field com/hbm/handler/BulletConfiguration headshotMult F
 BULLETS field com/hbm/inventory/RecipesCommon$ComparableStack item Lnet/minecraft/item/Item;
 BULLETS field com/hbm/inventory/RecipesCommon$ComparableStack meta I
 BULLETS field com/hbm/items/ModItems ammo_fireext Lcom/hbm/items/ItemEnumMulti;
@@ -199,6 +201,7 @@ BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getGravityVelocity 
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getThrower ()Lnet/minecraft/entity/EntityLivingBase;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 setDead ()V
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 setPosition (DDD)V
+BULLETS method com/hbm/entity/projectile/EntityBulletBaseNT getConfig ()Lcom/hbm/handler/BulletConfiguration;
 BULLETS method com/hbm/entity/projectile/EntityBulletBeamBase getThrower ()Lnet/minecraft/entity/EntityLivingBase;
 BULLETS method com/hbm/entity/projectile/EntityThrowableNT getThrower ()Lnet/minecraft/entity/EntityLivingBase;
 BULLETS method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/World;DDDFLnet/minecraft/entity/Entity;)V
