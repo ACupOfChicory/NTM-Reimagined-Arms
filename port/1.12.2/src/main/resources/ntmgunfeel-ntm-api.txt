@@ -155,6 +155,7 @@ BULLETS field com/hbm/entity/projectile/EntityBulletBase motionZ D
 BULLETS field com/hbm/entity/projectile/EntityBulletBase posX D
 BULLETS field com/hbm/entity/projectile/EntityBulletBase posY D
 BULLETS field com/hbm/entity/projectile/EntityBulletBase posZ D
+BULLETS field com/hbm/entity/projectile/EntityBulletBase world Lnet/minecraft/world/World;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 isDead Z
@@ -174,8 +175,10 @@ BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posZ D
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT size F
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/World;
 BULLETS field com/hbm/handler/BulletConfiguration bImpact Lcom/hbm/interfaces/IBulletImpactBehavior;
+BULLETS field com/hbm/handler/BulletConfiguration doesPenetrate Z
 BULLETS field com/hbm/handler/BulletConfiguration explosive F
 BULLETS field com/hbm/handler/BulletConfiguration gravity F
+BULLETS field com/hbm/handler/BulletConfiguration incendiary I
 BULLETS field com/hbm/handler/BulletConfiguration isSpectral Z
 BULLETS field com/hbm/handler/BulletConfiguration velocity F
 BULLETS field com/hbm/interfaces/IDoor$DoorState CLOSED Lcom/hbm/interfaces/IDoor$DoorState;

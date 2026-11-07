@@ -42,6 +42,18 @@ public final class WaterFx {
         if (started) return;
         started = true;
         WaterEvents.listenBlasts(WaterFx::blastAt);
+        // port: an NTM CE old bullet flies on the client and hands its own events here (OldBullets.effects); NTM's
+        // bullets' come from their tracers
+        WaterEvents.listen((world, e) -> {
+            if (old(e.bullet())) handle(world, e);
+        });
+        WaterEvents.listenTicks((world, bullet, r) -> {
+            if (old(bullet)) tracerTick(world, r);
+        });
+    }
+
+    private static boolean old(net.minecraft.entity.Entity bullet) {
+        return bullet instanceof com.hbm.entity.projectile.EntityBulletBase;
     }
 
     public static boolean on() {

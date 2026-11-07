@@ -175,7 +175,8 @@ public final class WaterTick {
         if (server && TestLog.server) for (WaterEvents.Event e : r.events)
             TestLog.s(bullet.getEntityId(), "water", "event", e.type(), "at", v(e.at()), "f", e.f(), "kind", e.kind(), "liquid", e.liquid(),
                     "class", e.cls(), "depth", e.depth(), "under", e.under(), "path", r.water);
-        // the client's effects: NTM's bullet's own come from its tracer; the old bullet has none, as NTM's grenades
+        // the client's effects: NTM's bullet's own come from its tracer; the old bullet's from MixinOldBulletWater
+        // (OldBullets.effects)
         if (bullet instanceof EntityBulletBaseMK4) {
             WaterEvents.fire(world, r.events);
             WaterEvents.tick(world, bullet, r);

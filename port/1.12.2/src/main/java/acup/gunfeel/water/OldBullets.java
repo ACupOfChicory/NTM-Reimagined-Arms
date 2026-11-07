@@ -99,6 +99,16 @@ public final class OldBullets {
         return c == null ? 0 : c.gravity;
     }
 
+    // the client's effects of an old bullet's tick in liquid (MixinOldBulletWater, after WaterTick.end): its events and
+    // its path's bubbles, to the client's listeners (WaterFx.old). NTM's bullets have theirs from their tracer; the old
+    // one flies on the client itself. One whose fuze went off on the surface shows nothing of its own that tick, as an
+    // NTM tracer's (Tracers: waterFuzed): its blast shows there (OldBlast: WaterBlastMessage)
+    public static void effects(Entity bullet, WaterPath.Result r, boolean wentOff) {
+        if (bullet.world == null || !bullet.world.isRemote || r == null || wentOff) return;
+        WaterEvents.fire(bullet.world, r.events);
+        if (!r.events.isEmpty() || r.water > 0) WaterEvents.tick(bullet.world, bullet, r);
+    }
+
     private static volatile boolean warned;
 
     // water's damage failed on a hit (MixinOldBulletBase): NTM's damage stays, written to the log once

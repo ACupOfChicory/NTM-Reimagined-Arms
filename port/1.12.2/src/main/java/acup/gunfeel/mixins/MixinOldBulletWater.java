@@ -10,6 +10,7 @@ import com.hbm.entity.projectile.EntityBulletBase;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
 
 import acup.gunfeel.water.OldBullets;
 import acup.gunfeel.water.WaterBullet;
@@ -135,7 +136,7 @@ public abstract class MixinOldBulletWater implements WaterBullet {
         }
         gunfeel$goneAt = new Vec3d(self.posX, self.posY, self.posZ);
         // its blast (the game's own) hurts creatures by water's rule (OldBlast, MixinOldBlast)
-        acup.gunfeel.water.OldBlast.impact(() -> original.call(self, pos, hit));
+        acup.gunfeel.water.OldBlast.impact(self, () -> original.call(self, pos, hit));
     }
 
     // a creature met in water: it goes off where it met it too (NTM's onEntityImpact sets it off at its position)
@@ -149,12 +150,38 @@ public abstract class MixinOldBulletWater implements WaterBullet {
         }
         if ((gunfeel$stopped || gunfeel$tick != null) && hit != null && hit.hitVec != null)
             self.setPosition(hit.hitVec.x, hit.hitVec.y, hit.hitVec.z);
-        acup.gunfeel.water.OldBlast.impact(() -> original.call(self, target, hit));
+        acup.gunfeel.water.OldBlast.impact(self, () -> original.call(self, target, hit));
     }
+
+    // a creature met: NTM hurts it on both sides, but sets the bullet off (or ends it) only on the server, which
+    // removes it a tick or so later. The client's copy flies on meanwhile: past the creature nothing of it shows, this
+    // tick or after (one that pierces creatures, the bolt, goes on on the server too). NTM's test: an entity hit and a
+    // war dimension
+    @WrapOperation(method = "onUpdate", remap = true, at = @At(value = "INVOKE", remap = false,
+            target = "Lcom/hbm/config/CompatibilityConfig;isWarDim(Lnet/minecraft/world/World;)Z"))
+    private boolean gunfeel$waterMobMet(World world, Operation<Boolean> original, @Local(ordinal = 0) RayTraceResult movement) {
+        boolean war = original.call(world);
+        EntityBulletBase self = (EntityBulletBase) (Object) this;
+        if (war && world.isRemote && gunfeel$waterOn() && movement != null && movement.hitVec != null && !self.getConfig().doesPenetrate) {
+            if (gunfeel$tick != null) gunfeel$tick.showUpTo(movement.hitVec);
+            if (gunfeel$goneAt == null) gunfeel$goneAt = movement.hitVec;
+        }
+        return war;
+    }
+
+    // the client's bullet is not set dead by its own impact (the server's removal comes a tick or so later): it shows
+    // no more water after it
+    @Unique private boolean gunfeel$quiet;
 
     @Inject(method = "onUpdate", at = @At("RETURN"), remap = true)
     private void gunfeel$waterEnd(CallbackInfo ci) {
-        if (Boolean.TRUE.equals(gunfeel$water)) WaterTick.end((EntityBulletBase) (Object) this);
+        if (!Boolean.TRUE.equals(gunfeel$water)) return;
+        EntityBulletBase self = (EntityBulletBase) (Object) this;
+        WaterPath.Result r = gunfeel$tick;
+        boolean wentOff = WaterTick.fuzedOnSurface(self);
+        WaterTick.end(self);
+        if (self.world.isRemote && !gunfeel$quiet) OldBullets.effects(self, r, wentOff);
+        if (gunfeel$goneAt != null) gunfeel$quiet = true;
     }
 
     @Override public boolean gunfeel$waterMet() { return gunfeel$metWater; }

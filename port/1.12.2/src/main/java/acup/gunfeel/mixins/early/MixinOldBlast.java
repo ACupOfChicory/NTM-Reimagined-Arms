@@ -27,7 +27,7 @@ public abstract class MixinOldBlast {
     private void gunfeel$oldBlastBegin(CallbackInfo ci) {
         Explosion e = (Explosion) (Object) this;
         net.minecraft.util.math.Vec3d at = e.getPosition();
-        gunfeel$wet = OldBlast.wet(e.world, at.x, at.y, at.z);
+        gunfeel$wet = OldBlast.wet(e.world, at.x, at.y, at.z, e.size);
     }
 
     @ModifyExpressionValue(method = "doExplosionA", at = @At(value = "FIELD", target = "Lnet/minecraft/world/Explosion;size:F", ordinal = 1))

@@ -17,28 +17,38 @@ public final class OldBlast {
     // this thread's old bullet impact (MixinOldBulletWater: onBlockImpact, onEntityImpact): [0] how deep in one, [1]
     // its blast taken already. Only its first: another blast it sets off (a barrel, a chain of TNT) is the game's
     private static final ThreadLocal<int[]> IMPACT = ThreadLocal.withInitial(() -> new int[2]);
+    private static final ThreadLocal<Entity> BULLET = new ThreadLocal<>();
 
-    public static void impact(Runnable r) {
+    public static void impact(Entity bullet, Runnable r) {
         int[] s = IMPACT.get();
         int taken = s[1];
+        Entity outer = BULLET.get();
         s[0]++;
         s[1] = 0;
+        BULLET.set(bullet);
         try {
             r.run();
         } finally {
             s[0]--;
             s[1] = taken;
+            BULLET.set(outer);
         }
     }
 
-    // the blast about to hurt creatures: waterBlastRadius when it is an old bullet's with its centre in water, else 0
-    public static float wet(World world, double x, double y, double z) {
+    // the blast about to hurt creatures: waterBlastRadius when it is an old bullet's with its centre in water, else 0.
+    // At water the players near are told, as of NTM's blasts (WaterBlast.announce): the column, the bubbles
+    public static float wet(World world, double x, double y, double z, float size) {
         int[] s = IMPACT.get();
         if (s[0] <= 0 || s[1] != 0 || world == null || world.isRemote) return 0F;
         s[1] = 1;
-        if (!WaterSettings.ballistics()) return 0F;
-        WaterBlast.Place p = WaterBlast.place(world, new Vec3d(x, y, z));
-        if (p == null || !p.inWater() || p.liquid() != WaterEvents.Liquid.WATER) return 0F;
+        Vec3d at = new Vec3d(x, y, z);
+        WaterBlast.Place p = WaterBlast.place(world, at);
+        if (p == null) return 0F;
+        Entity b = BULLET.get();
+        boolean incendiary = b instanceof com.hbm.entity.projectile.EntityBulletBase && ((com.hbm.entity.projectile.EntityBulletBase) b).getConfig() != null
+                && ((com.hbm.entity.projectile.EntityBulletBase) b).getConfig().incendiary > 0;
+        WaterBlast.tell(world, at, size, incendiary, p);
+        if (!WaterSettings.ballistics() || !p.inWater() || p.liquid() != WaterEvents.Liquid.WATER) return 0F;
         return Math.max(1F, WaterSettings.blastRadius());
     }
 

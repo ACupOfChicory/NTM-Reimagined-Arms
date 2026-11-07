@@ -51,7 +51,7 @@ public final class MixinCheck {
             {"net.minecraft.world.World", "2"}, // MixinWaterMuffle: volume, pitch
             {"net.minecraft.world.Explosion", "6"}, // MixinOldBlast
             {"com.hbm.entity.projectile.EntityBulletBaseMK4", "35"}, // MixinBulletServer, MixinExplosiveBullet, MixinWaterImpact, MixinWaterBullet (its 4 handlers and WaterBullet's getters and setters)
-            {"com.hbm.entity.projectile.EntityBulletBase", "39"}, // MixinOldBulletBase 7, MixinOldBulletWater 12 and WaterBullet's getters and setters 20
+            {"com.hbm.entity.projectile.EntityBulletBase", "41"}, // MixinOldBulletBase 7, MixinOldBulletWater 13, the bridge MixinExtras makes for gunfeel$waterMobMet and WaterBullet's getters and setters 20
             {"com.hbm.explosion.vanillant.ExplosionVNT", "4"}, // MixinExplosionContext 3, MixinWaterBlast 1
             {"com.hbm.explosion.vanillant.standard.EntityProcessorCross", "6"}, // MixinWaterBlastProcessor 5 and the bridge MixinExtras makes for gunfeel$damage
             {"com.hbm.explosion.vanillant.standard.EntityProcessorCrossSmooth", "3"}, // MixinExplosiveProcessor

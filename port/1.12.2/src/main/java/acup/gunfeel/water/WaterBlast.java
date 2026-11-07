@@ -172,8 +172,13 @@ public final class WaterBlast {
         Place p = place(e.world, at);
         if (p == null) return;
         EntityBulletBaseMK4 b = BULLET.get();
-        boolean incendiary = b != null && WaterClass.incendiary(b.config);
-        WaterBlastMessage m = new WaterBlastMessage(at, e.size, incendiary, p.inWater(), p.surface(), p.liquid());
-        acup.gunfeel.Net.CHANNEL.sendToAllAround(m, new NetworkRegistry.TargetPoint(e.world.provider.getDimension(), at.x, at.y, at.z, 128 + e.size * 2));
+        tell(e.world, at, e.size, b != null && WaterClass.incendiary(b.config), p);
+    }
+
+    // the players near a blast at water (p): also an old bullet's (OldBlast)
+    static void tell(World world, Vec3d at, float size, boolean incendiary, Place p) {
+        if (!(world instanceof WorldServer)) return;
+        WaterBlastMessage m = new WaterBlastMessage(at, size, incendiary, p.inWater(), p.surface(), p.liquid());
+        acup.gunfeel.Net.CHANNEL.sendToAllAround(m, new NetworkRegistry.TargetPoint(world.provider.getDimension(), at.x, at.y, at.z, 128 + size * 2));
     }
 }

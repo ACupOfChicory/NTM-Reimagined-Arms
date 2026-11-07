@@ -1,5 +1,15 @@
 # Changelog
 
+## X555.193
+
+- On 1.12.2, the masked man's and the UFO's rounds, the masked man's tracer and
+  the worm's bolts now show water as NTM's rounds do: a splash where they go
+  in, bubbles along their path under water, a puff of bubbles where water
+  stops them, crumbs off a shallow bottom. A round with an impact fuze makes no
+  splash where it goes off on the surface. Instead its blast throws up a column
+  of water, and under water it bubbles. Before, these rounds slowed and sank
+  in water but showed nothing.
+
 ## X555.192
 
 - On 1.12.2, the blast of the masked man's charges at water now treats

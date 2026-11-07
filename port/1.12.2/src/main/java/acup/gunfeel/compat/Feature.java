@@ -21,7 +21,7 @@ public enum Feature {
     BULLETS("bullets", list("MixinBulletServer", "MixinThrowableClip", "MixinLegacyBullet", "MixinOldBulletBase", "MixinOldBulletWater", "ThrowableAccess", "MixinWaterBullet", "MixinWaterShooter", "MixinWaterImpact", "MixinWaterFire", "MixinWaterFireFlamer", "MixinWaterBlast", "MixinWaterBlastProcessor", "MixinBeamHits", "MixinExplosiveBullet", "MixinExplosionContext",
             "MixinExplosiveProcessor", "MixinExplosiveDirect"),
             list("BulletServer", "LegacyBullets", "PassableClip", "BulletFx", "BulletRules", "FenceCells", "ModelCells", "BlockRay", "PierceSteps", "ExplosiveDamage", "ExplosiveAmmo", "DoorCells",
-                    "WaterClass", "WaterPath", "WaterTick", "WaterBullet", "WaterEvents", "WaterSettings", "WaterMuffle", "WaterImpact", "WaterBlast", "OldBullets")),
+                    "WaterClass", "WaterPath", "WaterTick", "WaterBullet", "WaterEvents", "WaterSettings", "WaterMuffle", "WaterImpact", "WaterBlast", "OldBullets", "OldBlast")),
     HOLD_AIM("hold_aim", list("MixinHoldAim", "MixinAimButton"), list("ReaimCommand", "AimButton")),
     SPREAD("spread", list("MixinLegoSpread"), list("Spread")),
     RICOCHET_SOUND("ricochet_sound", list("MixinRicochetSound"), list()),

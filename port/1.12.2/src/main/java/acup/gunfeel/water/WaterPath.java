@@ -128,6 +128,16 @@ public final class WaterPath {
         boolean ended;
         // opened at the start of the tick
         private double opened0;
+        // port: what shows of the path (its events, its bubbles), from 0 up to here: an NTM CE old bullet's client
+        // copy cut where it met a creature (MixinOldBulletWater)
+        private double shown = 1;
+
+        public void showUpTo(Vec3d at) {
+            double t = t(at);
+            if (!(t < shown)) return;
+            shown = Math.max(0, t);
+            events.removeIf(e -> t(e.at()) > shown + 1e-7);
+        }
         // the path starts in liquid (not on its surface coming in from the air)
         boolean startsIn;
 
@@ -166,8 +176,10 @@ public final class WaterPath {
         public List<Vec3d[]> wet() {
             List<Vec3d[]> out = new ArrayList<>(count);
             Vec3d d = to.subtract(from);
-            for (int i = 0; i < count; i++) if (spans[i * N + 1] > spans[i * N])
-                out.add(new Vec3d[] {from.add(d.scale(spans[i * N])), from.add(d.scale(spans[i * N + 1]))});
+            for (int i = 0; i < count; i++) {
+                double a = spans[i * N], b = Math.min(spans[i * N + 1], shown);
+                if (b > a) out.add(new Vec3d[] {from.add(d.scale(a)), from.add(d.scale(b))});
+            }
             return out;
         }
 

@@ -19,6 +19,7 @@ import com.hbm.items.weapon.sedna.BulletConfig;
 import acup.gunfeel.water.WaterBlast;
 import acup.gunfeel.water.WaterBullet;
 import acup.gunfeel.water.WaterClass;
+import acup.gunfeel.water.WaterEvents;
 import acup.gunfeel.water.WaterImpact;
 import acup.gunfeel.water.WaterPath;
 import acup.gunfeel.water.WaterSettings;
@@ -48,7 +49,8 @@ import net.minecraft.world.World;
 // blast when the life ends) and HE pellets shot straight down from inside the shooter's box; then the mod's handlers
 // in each mixin target (MixinCheck). The rows go to boom.tsv; the game quits.
 // port: also NTM CE's old bullets with a charge (OldBullets: the masked man's and the UFO's), rows a to c and e, and
-// those with none (the masked man's tracer, the worm's bolts), rows p (oldBullets).
+// those with none (the masked man's tracer, the worm's bolts), rows p (oldBullets); their effects on the client, rows w
+// (oldClient, after the rest).
 // As 26.2's: tick() is onUpdate(), tickCount is ticksExisted (the world counts it before the tick in both).
 final class BoomScenario {
     private BoomScenario() {
@@ -76,10 +78,25 @@ final class BoomScenario {
         }
         if (t == PLACE + 1) mc.gameSettings.hideGUI = true;
         if (t == RUN) ShootScenario.onServer(BoomScenario::run);
-        if (t > RUN && doneAt < 0 && (finished || t > RUN + WAIT)) {
+        if (t > RUN && doneAt < 0 && clientAt < 0 && (finished || t > RUN + WAIT)) {
             if (!finished) {
                 ok = false;
                 lines.add("FAIL\tnot finished in " + WAIT + " ticks");
+                check();
+                doneAt = t;
+            } else {
+                clientAt = t;
+                plumes0 = acup.gunfeel.water.WaterFx.plumes;
+                ShootScenario.onServer(BoomScenario::oldPlume);
+            }
+        }
+        if (clientAt > 0 && doneAt < 0 && t == clientAt + 40) {
+            try {
+                oldClient(mc);
+            } catch (Throwable e) {
+                ok = false;
+                lines.add("FAIL\tclient rows crashed: " + e);
+                for (StackTraceElement st : e.getStackTrace()) lines.add("    at " + st);
             }
             check();
             doneAt = t;
@@ -271,6 +288,132 @@ final class BoomScenario {
             Vec3d p = e.getExplosion().getPosition();
             BLASTS.add(new double[] {p.x, p.y, p.z, Double.NaN});
         }
+    }
+
+    // port: rows w, an old bullet's effects on the client (OldBullets.effects, WaterFx): NTM CE flies the old bullet on
+    // the client too, the client fires its events where they happen. First the server's rocket onto the surface (its
+    // blast's column comes to the client: WaterBlastMessage); then, on the client, bullets ticked by hand in its world
+    private static int clientAt = -1, plumes0;
+    private static volatile String plumeNote = "not run";
+    private static volatile Entity golem;
+
+    private static int oldId(String name) {
+        try {
+            return com.hbm.handler.BulletConfigSyncingUtil.class.getField(name).getInt(null);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("no " + name, e);
+        }
+    }
+
+    // 30° down onto the basin's surface, from 4 above it along the line
+    private static Vec3d thirty() {
+        double r = Math.toRadians(30);
+        return new Vec3d(Math.cos(r), -Math.sin(r), 0);
+    }
+
+    private static void oldPlume() {
+        try {
+            basin();
+            Vec3d dir = thirty();
+            Entity b = oldBullet(oldId("MASKMAN_ROCKET"), new Vec3d(minX + 8, surface, cz).subtract(dir.scale(4)), dir);
+            int i = 0;
+            while (i < 100 && !b.isDead) {
+                tick(b);
+                i++;
+            }
+            plumeNote = "removed=" + b.isDead + " ticks=" + i + " at=" + str(new double[] {b.posX, b.posY, b.posZ, 0});
+            // a golem held over the water on the line of a client's 30° shot (oldClient), 3 off the others' line, its
+            // middle 2 before the surface along it: the shot meets it in the air
+            Vec3d mid = new Vec3d(minX + 8, surface, cz + 3).subtract(dir.scale(2));
+            EntityIronGolem g = new EntityIronGolem(level);
+            g.setNoAI(true);
+            g.setNoGravity(true);
+            g.setPosition(mid.x, mid.y - g.height / 2, mid.z);
+            level.spawnEntity(g);
+            golem = g;
+        } catch (Throwable e) {
+            plumeNote = "crashed: " + e;
+        }
+    }
+
+    // a client bullet ticked by hand: the events WaterFx took (ENTER, SKIP, EXIT, STOP, BOTTOM) and, after its impact,
+    // what it showed on (it is not set dead on the client)
+    private static int[] oldClientRun(World w, String name, Vec3d at, Vec3d dir, StringBuilder note) {
+        int[] e0 = acup.gunfeel.water.WaterFx.SPAWNED_EVENTS.clone();
+        EntityBulletBase b = new EntityBulletBase(w, oldId(name));
+        b.setPosition(at.x, at.y, at.z);
+        b.motionX = dir.x;
+        b.motionY = dir.y;
+        b.motionZ = dir.z;
+        int[] after = null;
+        int i = 0, gone = -1;
+        for (; i < 100 && !b.isDead; i++) {
+            b.onUpdate();
+            if (gone < 0 && ((WaterBullet) b).gunfeel$goneAt() != null) {
+                gone = i;
+                after = acup.gunfeel.water.WaterFx.SPAWNED_EVENTS.clone();
+            }
+            if (gone >= 0 && i >= gone + 20) break;
+        }
+        int[] e1 = acup.gunfeel.water.WaterFx.SPAWNED_EVENTS;
+        int[] d = new int[e1.length + 1];
+        int late = 0;
+        for (int k = 0; k < e1.length; k++) {
+            d[k] = (after != null ? after[k] : e1[k]) - e0[k];
+            if (after != null) late += e1[k] - after[k];
+        }
+        d[e1.length] = late;
+        note.append("events ").append(java.util.Arrays.toString(java.util.Arrays.copyOf(d, e1.length))).append(" after impact ").append(late)
+                .append(" ticks ").append(i).append(" impact ").append(gone).append(" removed ").append(b.isDead).append(" stopped ")
+                .append(WaterBullet.stopped(b));
+        return d;
+    }
+
+    private static void oldClient(Minecraft mc) {
+        int pl = acup.gunfeel.water.WaterFx.plumes - plumes0;
+        WaterClass rocket = acup.gunfeel.water.OldBullets.cls(com.hbm.handler.BulletConfigSyncingUtil.pullConfig(oldId("MASKMAN_ROCKET")));
+        rowFlag("w: rocket onto the surface: its column on the client", "old:maskman_rocket", rocket, ">= 1", String.valueOf(pl), pl >= 1, plumeNote);
+        World w = mc.world;
+        if (!acup.gunfeel.water.WaterFx.on()) {
+            ok = false;
+            lines.add("FAIL\tw: waterSplash is off");
+            return;
+        }
+        int en = WaterEvents.Type.ENTER.ordinal(), st = WaterEvents.Type.STOP.ordinal(), late = WaterEvents.Type.values().length;
+        Vec3d dir = thirty();
+        String[][] fuzed = {{"MASKMAN_BOLT"}, {"MASKMAN_ROCKET"}};
+        for (String[] f : fuzed) {
+            String name = f[0], ammo = "old:" + name.toLowerCase(Locale.ROOT);
+            WaterClass wc = acup.gunfeel.water.OldBullets.cls(com.hbm.handler.BulletConfigSyncingUtil.pullConfig(oldId(name)));
+            StringBuilder n = new StringBuilder();
+            int[] d = oldClientRun(w, name, new Vec3d(minX + 8, surface, cz).subtract(dir.scale(4)), dir, n);
+            rowFlag("w: fuze onto the surface at 30°: no splash, nothing after", ammo, wc, "ENTER 0, after 0", "ENTER " + d[en] + ", after " + d[late],
+                    d[en] == 0 && d[late] == 0, n.toString());
+            n = new StringBuilder();
+            d = oldClientRun(w, name, new Vec3d(minX + 3.5, surface - 5, cz), new Vec3d(1, 0, 0), n);
+            rowFlag("w: fuze under water: stops, no splash, nothing after", ammo, wc, "STOP 1, ENTER 0, after 0",
+                    "STOP " + d[st] + ", ENTER " + d[en] + ", after " + d[late], d[st] == 1 && d[en] == 0 && d[late] == 0, n.toString());
+        }
+        // the server's golem in the air over the water: the rocket meets it; the server sets it off there, the client's
+        // copy flies on till it is removed and shows nothing past the golem
+        {
+            String ammo = "old:maskman_rocket";
+            StringBuilder n = new StringBuilder();
+            int[] d = oldClientRun(w, "MASKMAN_ROCKET", new Vec3d(minX + 8, surface, cz + 3).subtract(dir.scale(4)), dir, n);
+            boolean there = golem != null && w.getEntityByID(golem.getEntityId()) != null;
+            rowFlag("w: a creature over the water: nothing past it", ammo, rocket, "golem on the client, impact, ENTER 0, after 0",
+                    (there ? "golem" : "no golem") + ", " + (n.indexOf(" impact -1 ") >= 0 ? "no impact" : "impact") + ", ENTER " + d[en] + ", after " + d[late],
+                    there && n.indexOf(" impact -1 ") < 0 && d[en] == 0 && d[late] == 0, n.toString());
+            if (golem != null) ShootScenario.onServer(() -> golem.setDead());
+        }
+        String name = "MASKMAN_TRACER", ammo = "old:maskman_tracer";
+        WaterClass wc = acup.gunfeel.water.OldBullets.cls(com.hbm.handler.BulletConfigSyncingUtil.pullConfig(oldId(name)));
+        int trail0 = acup.gunfeel.water.WaterFx.SPAWNED[acup.gunfeel.water.WaterParticle.Kind.RISE.ordinal()];
+        StringBuilder n = new StringBuilder();
+        int[] d = oldClientRun(w, name, new Vec3d(minX + 8, surface, cz).subtract(dir.scale(4)), dir, n);
+        int trail = acup.gunfeel.water.WaterFx.SPAWNED[acup.gunfeel.water.WaterParticle.Kind.RISE.ordinal()] - trail0;
+        rowFlag("w: plain into water at 30°: splash, stop, bubbles", ammo, wc, "ENTER 1, STOP 1, bubbles > 6 (the stop's puff: 6)",
+                "ENTER " + d[en] + ", STOP " + d[st] + ", bubbles " + trail, d[en] == 1 && d[st] == 1 && trail > 6, n.toString());
     }
 
     private static void oldBullets() {
