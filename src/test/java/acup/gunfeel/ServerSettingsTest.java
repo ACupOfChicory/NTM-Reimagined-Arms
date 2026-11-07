@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 class ServerSettingsTest {
     @Test
     void whatGoesInComesOut() throws IOException {
-        Map<String, String> server = new TreeMap<>(Map.of("bulletSpeed", "1.6", "hbm:gun_maresleg.reaimReload", "0.4", "ключ", "значение"));
+        Map<String, String> server = new TreeMap<>(Map.of("bulletSpeed", "1.6", "hbm:gun_maresleg.spreadAim", "0.4", "ключ", "значение"));
         Map<String, String> shapes = new TreeMap<>(Map.of("somemod:railing[facing=north]", "z" + "A".repeat(40)));
         ServerSettings.Snapshot s = new ServerSettings.Snapshot("path somemod:railing fence\nbreak #c:glass_blocks hp 5\n", server, shapes);
         assertEquals(s, ServerSettings.decode(ServerSettings.encode(s)));
