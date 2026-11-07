@@ -64,7 +64,16 @@ public final class Hud {
         String big, small = null;
         boolean low;
         ItemStack icon = mag.getIconForHUD(stack, player);
-        if (mag instanceof MagazineSingleTypeBase single) {
+        acup.gunfeel.gl54.Gl54Hud.Model gl = null;
+        if (mag instanceof acup.gunfeel.gl54.GrenadeMagazine grenades) {
+            // the GL-54: the number is the barrel and the magazine in the colour of the next grenade, the reserve the grenades
+            // R would load, a bar for a reload; no red (gl54/Gl54Hud)
+            gl = glModel(grenades, stack, player, inv);
+            big = gl.big();
+            small = gl.small();
+            low = false;
+            if (grenades.getAmount(stack, inv) == 0) icon = acup.gunfeel.gl54.Gl54Ammo.type(grenades.wanted(stack, inv)).ammoStack();
+        } else if (mag instanceof MagazineSingleTypeBase single) {
             int amount = single.getAmount(stack, inv);
             int capacity = single.getCapacity(stack);
             big = String.format("%03d", Math.min(amount, 999));
@@ -105,16 +114,27 @@ public final class Hud {
             while (lead < big.length() - 1 && big.charAt(lead) == '0') lead++;
         }
         String zeros = big.substring(0, lead);
-        int color = low ? LOW : WHITE;
-        if (!zeros.isEmpty()) g.text(font, zeros, 0, 0, DIM, true);
+        int color = gl != null ? gl.color() : low ? LOW : WHITE;
+        int dim = DIM;
+        if (gl != null && gl.dim()) { // a reload is on: the number is faint
+            color = faint(color);
+            dim = faint(dim);
+        }
+        if (!zeros.isEmpty()) g.text(font, zeros, 0, 0, dim, true);
         g.text(font, big.substring(lead), font.width(zeros), 0, color, true);
         pose.popMatrix();
 
         // durability bar under the numbers
         int barL = bigX, barR = right, barY = top + 28;
         g.fill(barL, barY, barR, barY + 2, 0x80000000);
-        int fillR = barL + Math.round((barR - barL) * health);
-        g.fill(barL, barY, fillR, barY + 2, durabilityColor(health));
+        if (gl != null && gl.bar() >= 0F) { // reloading: the bar of the reload instead of the durability
+            g.fill(barL, barY, barL + Math.round((barR - barL) * gl.bar()), barY + 2, acup.gunfeel.gl54.Gl54Hud.BAR_COLOR);
+        } else {
+            int fillR = barL + Math.round((barR - barL) * health);
+            g.fill(barL, barY, fillR, barY + 2, durabilityColor(health));
+        }
+        // a mixed magazine: its order behind the barrel's grenade as coloured dots (2 x 2, 3 px apart)
+        if (gl != null) for (int i = 0; i < gl.dots().length; i++) g.fill(bigX + i * 3, top + 21, bigX + i * 3 + 2, top + 23, gl.dots()[i]);
 
         // separator and gun icon
         int sepX = bigX - 6;
@@ -129,6 +149,32 @@ public final class Hud {
                 g.item(stack, sepX - 6 - 16, top + 7);
             }
         }
+        // LOW AMMO blinking under the silhouette instead of the red number (this gun only)
+        if (gl != null && gl.lowAmmo() && drawGun && acup.gunfeel.gl54.Gl54Hud.blinkOn(lowClock())) {
+            String text = net.minecraft.client.resources.language.I18n.get("ntmgunfeel.gl54.low_ammo");
+            g.text(font, text, sepX - 6 - 72 + 36 - font.width(text) / 2, top + 28, acup.gunfeel.gl54.Gl54Hud.LOW_COLOR, true);
+        }
+    }
+
+    // the clock of the blink; a stand sets it (HudShots) to take a frame in a known half
+    static volatile long lowClockFixed = -1L;
+
+    private static long lowClock() {
+        return lowClockFixed >= 0 ? lowClockFixed : net.minecraft.util.Util.getMillis();
+    }
+
+    // an ARGB colour at 0.4 of its alpha
+    private static int faint(int argb) {
+        return ((int) ((argb >>> 24) * 0.4F) << 24) | (argb & 0xFFFFFF);
+    }
+
+    // the GL-54's numbers from the gun in the hand and the inventory
+    private static acup.gunfeel.gl54.Gl54Hud.Model glModel(acup.gunfeel.gl54.GrenadeMagazine mag, ItemStack stack, LocalPlayer player, Inventory inv) {
+        var gun = acup.gunfeel.gl54.GrenadeMagazine.gun(stack);
+        int reserve = acup.gunfeel.gl54.MagLogic.reserve(acup.gunfeel.gl54.GrenadeType.magazines(inv), mag.wanted(stack, inv));
+        float frac = acup.gunfeel.gl54.Gl54Hud.reloadFrac(com.hbm.render.anim.HbmAnimations.getGunAnimation(0),
+                com.hbm.render.anim.HbmAnimations.getGunAnimationTimer(0), ItemGunBaseNT.getState(stack, 0), mag.getAmountBeforeReload(stack) <= 0);
+        return acup.gunfeel.gl54.Gl54Hud.model(gun, reserve, frac);
     }
 
     // the ammo lock: a small grey padlock (5 x 7), with a shadow
