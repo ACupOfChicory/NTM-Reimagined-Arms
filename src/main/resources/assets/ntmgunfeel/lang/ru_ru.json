@@ -48,6 +48,7 @@
   "item.ntmgunfeel.gl54_mag.left": "Осталось: %s / %s",
   "item.ntmgunfeel.gl54_mag.order": "Порядок, первый выстрел слева:",
   "item.ntmgunfeel.gl54_mag.pours": "Недострелянный: ссыплется в такой же",
+  "gas.ntmgunfeel.phosgene_smell": "Пахнет свежескошенным сеном.",
   "item.ntmgunfeel.gl54_kind.airburst": "Airburst",
   "item.ntmgunfeel.gl54_kind.ap": "Бронебойная airburst",
   "item.ntmgunfeel.gl54_kind.he": "Осколочно-фугасная",

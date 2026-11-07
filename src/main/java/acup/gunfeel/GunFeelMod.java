@@ -30,6 +30,7 @@ public final class GunFeelMod {
             acup.gunfeel.gl54.Gl54Items.register(modBus);
             if (dist.isClient()) acup.gunfeel.gl54.Gl54Client.init(modBus);
         }
+        acup.gunfeel.gas.GasSetup.init(modBus, dist);
         if (dist.isClient()) {
             modBus.addListener(net.neoforged.neoforge.client.event.AddClientReloadListenersEvent.class,
                     e -> e.addListener(net.minecraft.resources.Identifier.fromNamespaceAndPath("ntmgunfeel", "model_masks"),
@@ -113,6 +114,7 @@ public final class GunFeelMod {
                             if (Feature.GL54.on()) acup.gunfeel.gl54.PressSync.receive(p);
                         }));
                 acup.gunfeel.smoke.client.SmokeClientSetup.payloads(r);
+                acup.gunfeel.gas.GasSetup.payloads(r, true);
             } else {
                 r.playToClient(ShotPayload.TYPE, ShotPayload.CODEC);
                 r.playToClient(BulletStopPayload.TYPE,BulletStopPayload.CODEC);
@@ -123,6 +125,7 @@ public final class GunFeelMod {
                 r.playToClient(acup.gunfeel.gl54.PressLayoutsPayload.TYPE, acup.gunfeel.gl54.PressLayoutsPayload.CODEC);
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC);
                 acup.gunfeel.smoke.SmokeNet.payloads(r);
+                acup.gunfeel.gas.GasSetup.payloads(r, false);
             }
             r.playToServer(acup.gunfeel.smoke.SmokePayloads.Resync.TYPE, acup.gunfeel.smoke.SmokePayloads.Resync.CODEC, (p, ctx) -> {
                 if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) ctx.enqueueWork(() -> acup.gunfeel.smoke.SmokeNet.resync(sp, p));

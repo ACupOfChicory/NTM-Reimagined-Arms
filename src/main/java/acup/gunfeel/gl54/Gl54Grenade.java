@@ -125,6 +125,11 @@ public final class Gl54Grenade {
             else bullet.discard();
             return;
         }
+        // the smoke and the gas grenades let their cloud out instead of a blast (acup.gunfeel.gas)
+        if (acup.gunfeel.gas.GasGrenades.burst(level, bullet, hit)) {
+            bullet.discard();
+            return;
+        }
         Lego.standardExplode(bullet, hit, RADIUS / 2F);
         breakGlass(level, bullet, hit.getLocation());
         bullet.discard();
