@@ -1,5 +1,20 @@
 # Changelog
 
+## X555.178
+
+- NTM CE's other old bullet now hits where it meets a creature's model too:
+  1.75 times the damage in the head, half in an arm or a leg. The masked man
+  (minigun, orbs, rockets, tracers), the UFO, BOT Prime and the death blast's
+  lasers fire it. The server setting `npcShots` turns this off along with the
+  rest. These bullets keep NTM's own way with blocks: they leave no holes, and
+  break and bounce off blocks as NTM has them do. The Arty and HIMARS turrets
+  fire shells and rockets, not bullets, and stay outside these rules, as in
+  26.2.
+- A player's Super Shotgun and Vortex do not go through this on NTM CE
+  2.6.1.0: the Super Shotgun's rounds have no config there, so it fires
+  nothing, and the Vortex hits by a ray, with no bullet. Both are as NTM CE has
+  them.
+
 ## X555.177
 
 - As in 26.2 X547, on NTM CE: the hunter chopper's and the cyber crab's

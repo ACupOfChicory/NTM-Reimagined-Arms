@@ -16,6 +16,8 @@ import net.minecraft.world.WorldServer;
 // bullet), follows the bullet rules for blocks ("break", "pass"; not "pierce": it has no BulletConfig to pierce with)
 // and leaves a hole with the hit's particles and sound where it stops in a block.
 // port: the hole goes to the players around as TracerNet.Impact (26.2: ImpactHolePayload).
+// port: NTM CE's other old bullet, EntityBulletBase (the masked man, the UFO, BOT Prime), is counted at the head and limbs
+// under the same key (MixinOldBulletBase); its blocks stay NTM's.
 public final class LegacyBullets {
     private LegacyBullets() {
     }

@@ -13,7 +13,10 @@ import java.util.Map;
 import java.util.Objects;
 
 import com.hbm.entity.projectile.EntityBullet;
+import com.hbm.entity.projectile.EntityBulletBase;
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
+import com.hbm.handler.BulletConfigSyncingUtil;
+import com.hbm.handler.BulletConfiguration;
 import com.hbm.items.weapon.sedna.BulletConfig;
 import com.hbm.items.weapon.sedna.factory.XFactory762mm;
 import com.hbm.items.weapon.sedna.factory.XFactory9mm;
@@ -41,6 +44,10 @@ import net.minecraftforge.common.util.FakePlayerFactory;
 //   where the zombie's model (its pose, sent by this client) is first met along +z, sorted by ModelHits' own head and
 //   limb zones. The same round from a player (FakePlayer) beside it: the numbers must be equal. The old bullet has no
 //   player's round: its head must take what the body takes from 1.75 times its damage, a limb from half.
+// - NTM CE's other old bullet, EntityBulletBase (the masked man, BOT Prime, the UFO; MixinOldBulletBase), at the zombie
+//   only, its damage fixed (overrideDamage): the same head and limb rule (none of them has a calibre a player's MK4 round
+//   has). The tested NTM CE has no config for the old player guns' rounds (the Super Shotgun's G12_*, the Vortex's
+//   R556_STAR) nor the trapped brick's dart (G20_CAUSTIC): checked to be missing, so no player's gun fires this bullet.
 // - down lanes of glass, iron bars (on the post and beside it) and concrete, concrete behind: the client counts the
 //   holes on each block, the server what is left of them.
 // run/client/npc.txt gets the verdicts, "NPC OK" or "NPC FAIL (n)", npc-shots.tsv and npc-lanes.tsv the numbers.
@@ -51,7 +58,7 @@ final class NpcShotsScenario {
     private static final int PLACE = 40, MEASURE = 120, FIRE = 150, AFTER = 200, CHECK = 250, DONE = 270;
     private static final double STEP = 0.04;
 
-    private enum Kind { TURRET, MOB, PLAYER, LEGACY }
+    private enum Kind { TURRET, MOB, PLAYER, LEGACY, OLD }
 
     private static final class Shooter {
         final String name;
@@ -59,13 +66,19 @@ final class NpcShotsScenario {
         final float base;
         final Kind kind;
         final boolean critical;
+        final int old; // EntityBulletBase's config (BulletConfigSyncingUtil), -1 for the others
 
         Shooter(String name, BulletConfig config, float base, Kind kind, boolean critical) {
+            this(name, config, base, kind, critical, -1);
+        }
+
+        Shooter(String name, BulletConfig config, float base, Kind kind, boolean critical, int old) {
             this.name = name;
             this.config = config;
             this.base = base;
             this.kind = kind;
             this.critical = critical;
+            this.old = old;
         }
 
         float damage() {
@@ -73,8 +86,8 @@ final class NpcShotsScenario {
         }
     }
 
-    // pairs (NPC, player) first, then the old bullets alone
-    private static final int PAIRS = 4;
+    // pairs (NPC, player) first, then the old bullets alone; from LANED on at the zombie only
+    private static final int PAIRS = 4, LANED = 10;
     private static List<Shooter> shooters;
 
     private static List<Shooter> shooters() {
@@ -84,7 +97,13 @@ final class NpcShotsScenario {
                 new Shooter("заражённый краб r762_fmj", XFactory762mm.r762_fmj, 10, Kind.MOB, false), new Shooter("игрок r762_fmj", XFactory762mm.r762_fmj, 10, Kind.PLAYER, false),
                 new Shooter("моб с пушкой p9_fmj", XFactory9mm.p9_fmj, 5, Kind.MOB, false), new Shooter("игрок p9_fmj (моб)", XFactory9mm.p9_fmj, 5, Kind.PLAYER, false),
                 // EntityHunterChopper:201: 35..45, "chopper", 3 blocks a tick; EntityCyberCrab:99: 2, critical, 2.4 a tick
-                new Shooter("вертолёт EntityBullet", null, 40, Kind.LEGACY, false), new Shooter("кибер-краб EntityBullet", null, 2, Kind.LEGACY, true));
+                new Shooter("вертолёт EntityBullet", null, 40, Kind.LEGACY, false), new Shooter("кибер-краб EntityBullet", null, 2, Kind.LEGACY, true),
+                // EntityAIMaskmanMinigun:50, EntityAIMaskmanLasergun:53, EntityBOTPrimeBase:89, EntityUFO:341 / BOT Prime:82
+                new Shooter("маскмен миниган MASKMAN_BULLET", null, 8, Kind.OLD, false, BulletConfigSyncingUtil.MASKMAN_BULLET),
+                new Shooter("маскмен орб MASKMAN_ORB", null, 100, Kind.OLD, false, BulletConfigSyncingUtil.MASKMAN_ORB),
+                new Shooter("BOT Prime WORM_BOLT", null, 20, Kind.OLD, false, BulletConfigSyncingUtil.WORM_BOLT),
+                new Shooter("НЛО / BOT Prime WORM_LASER", null, 45, Kind.OLD, false, BulletConfigSyncingUtil.WORM_LASER),
+                new Shooter("смерть с неба MASKMAN_BOLT", null, 30, Kind.OLD, false, BulletConfigSyncingUtil.MASKMAN_BOLT));
         return shooters;
     }
 
@@ -212,6 +231,17 @@ final class NpcShotsScenario {
     }
 
     private static Entity bullet(World w, Shooter s, Vec3d from, Vec3d way, float damage, EntityLivingBase mob, EntityPlayerMP player) {
+        if (s.kind == Kind.OLD) {
+            // as the mobs and ItemGunBase make it, its way a unit (NTM flies motion x velocity a tick), its damage fixed
+            EntityBulletBase b = new EntityBulletBase(w, s.old);
+            b.shooter = mob;
+            b.overrideDamage = damage;
+            b.setPosition(from.x, from.y, from.z);
+            b.motionX = way.x;
+            b.motionY = way.y;
+            b.motionZ = way.z;
+            return b;
+        }
         if (s.kind == Kind.LEGACY) {
             EntityBullet b = new EntityBullet(w, from.x, from.y, from.z);
             b.damage = damage;
@@ -240,7 +270,7 @@ final class NpcShotsScenario {
     }
 
     private static void fly(Entity bullet, Vec3d from) {
-        StringBuilder ticks = bullet instanceof EntityBullet ? new StringBuilder("legacy ticks:") : null;
+        StringBuilder ticks = bullet instanceof EntityBullet || bullet instanceof EntityBulletBase ? new StringBuilder("legacy ticks:") : null;
         for (int i = 0; i < 40 && !bullet.isDead && bullet.getDistance(from.x, from.y, from.z) < 40; i++) {
             float was = zombie.getHealth();
             double z0 = bullet.posZ;
@@ -261,12 +291,18 @@ final class NpcShotsScenario {
         // front. NTM CE 2.6.1.0's old bullet meets creatures from where it was a tick before to where it goes (pos -
         // motion to pos + motion), so it hits a creature it flies through in two ticks, the second by its own "damage +
         // lastDamage" branch: twice the damage, NTM's way, the head and limbs in both ("legacy ticks" in npc.txt)
-        Vec3d from = at.add(0, 0, s.kind == Kind.LEGACY ? -(s.critical ? 2.4 : 3.0) * 1.5 : -3);
+        // EntityBulletBase meets creatures from where it is to where it goes: it starts clear of the zombie's box and
+        // reaches the point within its first tick, or several for a slow one
+        Vec3d from = at.add(0, 0, s.kind == Kind.LEGACY ? -(s.critical ? 2.4 : 3.0) * 1.5 : s.kind == Kind.OLD ? -Math.max(1.5, .6 * oldConfig(s).velocity) : -3);
         fly(bullet(w, s, from, new Vec3d(0, 0, 1), amount, mob, player), from);
         float lost = 1000 - zombie.getHealth();
         zombie.setPosition(home.x, home.y, home.z);
         zombie.motionX = zombie.motionY = zombie.motionZ = 0;
         return lost;
+    }
+
+    private static BulletConfiguration oldConfig(Shooter s) {
+        return BulletConfigSyncingUtil.pullConfig(s.old);
     }
 
     private static void measure() {
@@ -291,6 +327,16 @@ final class NpcShotsScenario {
                 float base = s.damage();
                 float b = shot(w, s, body, base, mob, player), h = shot(w, s, head, base, mob, player), h2 = shot(w, s, body, base * 1.75F, mob, player);
                 float l = shot(w, s, limb, base, mob, player), l2 = shot(w, s, body, base * .5F, mob, player);
+                if (i >= LANED) {
+                    // at the zombie only: its blocks stay NTM's
+                    BulletConfiguration c = s.kind == Kind.OLD ? oldConfig(s) : null;
+                    String how = c == null ? "" : String.format(Locale.ROOT, " (velocity %.2f, gravity %.3f, penetrates %s)", c.velocity, c.gravity, c.doesPenetrate);
+                    numbers.put(i, new float[] {b, h, h2, l, l2});
+                    rows.add(s.name + "\t" + f(base) + "\t" + f(b) + "\t" + f(h) + "\t" + f(h2) + "\t" + f(l) + "\t" + f(l2) + "\t-\t-\t-");
+                    expect("NPC " + s.name + how + ": damage " + f(base) + ", body=" + f(b) + ", head=" + f(h) + " (body x1.75=" + f(h2) + "), limb=" + f(l)
+                            + " (body x0.5=" + f(l2) + ")", b > 0 && Math.abs(h - h2) < .01 && Math.abs(l - l2) < .01 && h > b && l < b);
+                    continue;
+                }
                 BulletServer.forgetWear();
                 Mc.setBlock(w, glass.getX(), glass.getY(), glass.getZ(), Blocks.GLASS, 0, 3);
                 float behind = shot(w, s, body, base, mob, player);
@@ -312,6 +358,14 @@ final class NpcShotsScenario {
                         + f(l2) + ")", b > 0 && Math.abs(h - h2) < .01 && Math.abs(l - l2) < .01 && h > b && l < b);
                 expect("NPC " + s.name + ": behind glass " + f(behind) + " of " + f(b) + ", glass broken=" + broke, behind > 0);
             }
+            // the old player guns' rounds and the dart: no config in this NTM CE (ItemGunBase.fire returns on it; the
+            // Vortex overrides spawnProjectile with a ray and fires no bullet at all)
+            int[] none = {BulletConfigSyncingUtil.G12_NORMAL, BulletConfigSyncingUtil.G12_INCENDIARY, BulletConfigSyncingUtil.G12_SHRAPNEL,
+                    BulletConfigSyncingUtil.G12_DU, BulletConfigSyncingUtil.G12_AM, BulletConfigSyncingUtil.G12_SLEEK, BulletConfigSyncingUtil.R556_STAR,
+                    BulletConfigSyncingUtil.G20_CAUSTIC};
+            int found = 0;
+            for (int id : none) if (BulletConfigSyncingUtil.pullConfig(id) != null) found++;
+            expect("NPC: no config for the Super Shotgun's G12_*, the Vortex's R556_STAR, the trapped brick's G20_CAUSTIC: " + found + " of " + none.length + " found", found == 0);
             for (int i = 0; i < 2 * PAIRS; i += 2) {
                 float[] npc = numbers.get(i), own = numbers.get(i + 1);
                 boolean same = true;
@@ -331,10 +385,10 @@ final class NpcShotsScenario {
     // a lane a shooter, east of the player, along +x: glass, bars (its post and beside it), concrete; concrete behind
     // the first three. Put up now, fired at later: the blocks must reach the client before the shots.
     private static void lanes(World w) {
-        int x0 = at[0] + 8, y0 = at[1] + 1, z0 = at[2] - shooters().size();
-        for (int x = x0 - 1; x <= x0 + 8; x++) for (int y = y0; y <= y0 + 8; y++) for (int z = z0 - 1; z <= z0 + 2 * shooters().size() + 1; z++)
+        int x0 = at[0] + 8, y0 = at[1] + 1, z0 = at[2] - LANED;
+        for (int x = x0 - 1; x <= x0 + 8; x++) for (int y = y0; y <= y0 + 8; y++) for (int z = z0 - 1; z <= z0 + 2 * LANED + 1; z++)
             Mc.setBlock(w, x, y, z, Blocks.AIR, 0, 3);
-        for (int i = 0; i < shooters().size(); i++) {
+        for (int i = 0; i < LANED; i++) {
             int z = z0 + 2 * i;
             for (int r = 0; r < 4; r++) {
                 int y = y0 + 2 * r;
