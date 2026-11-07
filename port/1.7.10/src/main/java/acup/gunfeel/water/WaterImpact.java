@@ -15,7 +15,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MovingObjectPosition;
 
-// The explosives' part on the server, around NTM's own impact (MixinWaterImpact):
+// The explosives' part on the server, in NTM's own impact (MixinWaterImpact, MixinExplosiveBullet):
 // - b75_inc in water gives a small blast, about a quarter of the explosive bolt's, and no fire;
 // - what sets alight (phosphorus, flares) does not under water: it hits as a plain bullet;
 // - in water an explosive bullet goes off at the first touch of another bullet or explosive, a sinking one too;
@@ -38,7 +38,7 @@ public final class WaterImpact {
     // how far apart two bullets touch: NTM's bullets are 0.5 wide, a hit is counted to the boxes' edge
     static final double TOUCH = 0.1;
 
-    // NTM's onImpact (MixinWaterImpact): `original` runs it as it is
+    // NTM's onImpact (MixinWaterImpact): `original` runs it as it is; what water changes is its onImpact lambda (lambda)
     public static void impact(EntityBulletBaseMK4 bullet, MovingObjectPosition hit, Runnable original) {
         if (bullet.worldObj.isRemote || bullet.config == null || !WaterSettings.ballistics()) {
             original.run();
@@ -47,22 +47,6 @@ public final class WaterImpact {
         EntityBulletBaseMK4 previous = WaterBlast.BULLET.get();
         WaterBlast.BULLET.set(bullet);
         try {
-            BulletConfig c = bullet.config;
-            WaterClass.Fuze fuze = WaterClass.Fuze.ofConfig(c);
-            if (fuze == WaterClass.Fuze.WEAK && wet(bullet, hit)) {
-                if (TestLog.server) TestLog.s(bullet.getEntityId(), "water", "weak", "at", at(hit));
-                // through the explosive rounds' own damage (ExplosiveDamage), as b75_exp's blast goes
-                acup.gunfeel.ExplosiveDamage.impact((x, h) -> weakBlast(bullet, hit), bullet, hit, false);
-                bullet.setDead();
-                return;
-            }
-            if (fuze == WaterClass.Fuze.NONE && WaterClass.incendiaryConfig(c) && wet(bullet, hit)) {
-                // NTM's impact without its onImpact (the one that sets alight)
-                if (TestLog.server) TestLog.s(bullet.getEntityId(), "water", "doused", "at", at(hit));
-                if (c.onRicochet != null) c.onRicochet.accept(bullet, hit);
-                if (c.onEntityHit != null) c.onEntityHit.accept(bullet, hit);
-                return;
-            }
             original.run();
             if (bullet.isDead && ((WaterBullet) bullet).gunfeel$goneAt() == null && hit.hitVec != null)
                 ((WaterBullet) bullet).gunfeel$goneAt(net.minecraft.util.Vec3.createVectorHelper(hit.hitVec.xCoord, hit.hitVec.yCoord, hit.hitVec.zCoord));
@@ -70,6 +54,25 @@ public final class WaterImpact {
             if (previous == null) WaterBlast.BULLET.remove();
             else WaterBlast.BULLET.set(previous);
         }
+    }
+
+    // NTM's onImpact calls the config's onImpact lambda (MixinExplosiveBullet): in water b75_inc's goes off as a small
+    // blast, and what sets alight does not (the rest of NTM's impact, onRicochet and onEntityHit, goes on as for a
+    // plain bullet). The lambda to call instead, or null for NTM's own. Inside NTM's onImpact, so the mod's own steps
+    // around it (the damage × f² where the creature is, the piercing, the block rules) count these too.
+    public static java.util.function.BiConsumer<Object, Object> lambda(EntityBulletBaseMK4 bullet, MovingObjectPosition hit) {
+        if (bullet.worldObj.isRemote || bullet.config == null || !WaterSettings.ballistics()) return null;
+        BulletConfig c = bullet.config;
+        WaterClass.Fuze fuze = WaterClass.Fuze.ofConfig(c);
+        if (fuze == WaterClass.Fuze.WEAK && wet(bullet, hit)) return (x, h) -> {
+            if (TestLog.server) TestLog.s(bullet.getEntityId(), "water", "weak", "at", at(hit));
+            weakBlast(bullet, hit);
+            bullet.setDead();
+        };
+        if (fuze == WaterClass.Fuze.NONE && WaterClass.incendiaryConfig(c) && wet(bullet, hit)) return (x, h) -> {
+            if (TestLog.server) TestLog.s(bullet.getEntityId(), "water", "doused", "at", at(hit));
+        };
+        return null;
     }
 
     static Vec3 at(MovingObjectPosition hit) {

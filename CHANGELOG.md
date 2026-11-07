@@ -1,5 +1,13 @@
 # Changelog
 
+## X543.144
+
+- As in X560: a phosphorus pellet or another round that does not set alight
+  under water now hits a creature in water as a plain round of its kind
+  does, with the damage water takes off. Before, it skipped that and hit as
+  hard as in the air. b75_inc's small blast in water now goes through the
+  same steps.
+
 ## X543.143
 
 - As in X560: a rocket, grenade or explosive round whose tick ends exactly on

@@ -174,7 +174,6 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig expires I
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig gravity D
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig headshotMult F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig id I
-BULLETS field com/hbm/items/weapon/sedna/BulletConfig onEntityHit Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
