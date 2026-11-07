@@ -92,4 +92,51 @@ class ReflexMathTest {
         double width = (ReflexMath.textWidth("200+3") * px + ReflexDraw.MARGIN_A * Gl54Reflex.get().uLength());
         assertTrue(width < Gl54Reflex.get().uLength() * 0.5, "the text takes " + width / Gl54Reflex.get().uLength() + " of the pane's width");
     }
+
+    @Test
+    void aSlopeIsTurnedFromTheWorldsPictureIntoTheHandsByTheirFieldsOfView() {
+        // the same field of view: the same slope; the world's narrower: the hand's slope is smaller in proportion to the tangents
+        assertEquals(0.3, ReflexMath.handSlope(0.3, 70, 70), 1e-12);
+        double k = Math.tan(Math.toRadians(35)) / Math.tan(Math.toRadians(23.45));
+        assertEquals(0.1 * k, ReflexMath.handSlope(0.1, 70, 46.9), 1e-12);
+        // the edge of the world's picture is the edge of the hand's
+        assertEquals(Math.tan(Math.toRadians(35)), ReflexMath.handSlope(Math.tan(Math.toRadians(23.45)), 70, 46.9), 1e-12);
+    }
+
+    @Test
+    void aPointInsideTheOutlineIsInsideAndOutsideIsNot() {
+        double[][] square = {{0, 0}, {2, 0}, {2, 2}, {0, 2}};
+        assertTrue(ReflexMath.inside(square, 1, 1));
+        assertTrue(ReflexMath.inside(square, 2, 1));
+        assertTrue(!ReflexMath.inside(square, 2.01, 1));
+        assertTrue(!ReflexMath.inside(square, -0.1, 1));
+    }
+
+    @Test
+    void theHalfLineLeavesTheOutlineWhereItShould() {
+        double[][] square = {{0, 0}, {2, 0}, {2, 2}, {0, 2}};
+        double[] out = ReflexMath.exitPoint(square, 1, 1, 1, 0);
+        assertEquals(2.0, out[0], 1e-12);
+        assertEquals(1.0, out[1], 1e-12);
+        double[] diagonal = ReflexMath.exitPoint(square, 1, 1, -1, -1);
+        assertEquals(0.0, diagonal[0], 1e-12);
+        assertEquals(0.0, diagonal[1], 1e-12);
+        double[] slanted = ReflexMath.exitPoint(square, 0.5, 0.5, 0, 3);
+        assertEquals(0.5, slanted[0], 1e-12);
+        assertEquals(2.0, slanted[1], 1e-12);
+    }
+
+    @Test
+    void theRingIsAnAnnulusAndTheArrowPointsWhereItIsToldTo() {
+        double sum = 0;
+        for (List<double[]> piece : ReflexMath.ring(0, 0, 1.5, 2.0, 40)) sum += area(piece);
+        assertEquals(Math.PI * (4.0 - 2.25), sum, 0.05);
+        List<double[]> arrow = ReflexMath.arrow(5, 3, 0, 1, 0.4, 0.1);
+        assertEquals(5.0, arrow.get(0)[0], 1e-12);
+        assertEquals(3.0, arrow.get(0)[1], 1e-12);
+        // pointing up (+b): the base lies below the tip
+        assertEquals(2.6, arrow.get(1)[1], 1e-12);
+        assertEquals(2.6, arrow.get(2)[1], 1e-12);
+        assertEquals(0.2, Math.abs(arrow.get(1)[0] - arrow.get(2)[0]), 1e-12);
+    }
 }

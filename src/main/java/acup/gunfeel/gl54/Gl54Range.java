@@ -29,6 +29,15 @@ public final class Gl54Range {
     public static final double NOISE = 0.5;
     // the burst's shift from the range, blocks: the most either way, and where it starts: past cover (a block hit), at a creature
     public static final int OFFSET_MAX = 3, OFFSET_BLOCK = 1, OFFSET_ENTITY = 0;
+    // dev (Gl54ReflexStand): off, the measure is exact
+    public static volatile boolean noiseOn = true;
+
+    // the point found, in the world; null when there is none (a gun measured before the point was kept has a range only)
+    public static Vec3 target(ItemStack stack) {
+        if (Gl54Items.TARGET == null) return null;
+        return stack.get(Gl54Items.TARGET.get());
+    }
+
     // the range stored on a stack, blocks; NaN when there is none
     public static float get(ItemStack stack) {
         if (Gl54Items.RANGE == null) return Float.NaN;
@@ -49,6 +58,7 @@ public final class Gl54Range {
     }
 
     public static void set(ItemStack stack, OptionalDouble range, int offset) {
+        stack.remove(Gl54Items.TARGET.get());
         if (range.isPresent()) {
             stack.set(Gl54Items.RANGE.get(), (float) range.getAsDouble());
             stack.set(Gl54Items.OFFSET.get(), clamp(offset));
@@ -56,6 +66,13 @@ public final class Gl54Range {
             stack.remove(Gl54Items.RANGE.get());
             stack.remove(Gl54Items.OFFSET.get());
         }
+    }
+
+    // the point found (the rangefinder's, noise in), its horizontal distance from the eye kept as the range, and the shift
+    public static void setTarget(ItemStack stack, Vec3 point, double range, int offset) {
+        stack.set(Gl54Items.TARGET.get(), point);
+        stack.set(Gl54Items.RANGE.get(), (float) range);
+        stack.set(Gl54Items.OFFSET.get(), clamp(offset));
     }
 
     public static int clamp(int offset) {
@@ -89,11 +106,16 @@ public final class Gl54Range {
             set(stack, OptionalDouble.empty());
             return;
         }
-        set(stack, OptionalDouble.of(noisy(hit.horizontal(), player.getRandom().nextDouble())), defaultOffset(hit.entity()));
+        // the noise is along the ray: the point is found a little nearer or farther than it is
+        Vec3 eye = player.getEyePosition();
+        double along = hit.point().distanceTo(eye);
+        double shift = noiseOn ? noisy(along, player.getRandom().nextDouble()) - along : 0.0;
+        Vec3 point = hit.point().add(player.getLookAngle().normalize().scale(shift));
+        setTarget(stack, point, horizontal(eye, point), defaultOffset(hit.entity()));
     }
 
-    // what the ray found: the true horizontal distance to it, and whether it was a creature
-    public record Hit(double horizontal, boolean entity) {
+    // what the ray found: the point, and whether it was a creature
+    public record Hit(Vec3 point, boolean entity) {
     }
 
     // the first block or creature on the look ray from the eye; null if there is none in reach.
@@ -132,7 +154,7 @@ public final class Gl54Range {
             }
         }
         if (where == null) return null;
-        return new Hit(horizontal(eye, where), entity);
+        return new Hit(where, entity);
     }
 
     public static double horizontal(Vec3 from, Vec3 to) {

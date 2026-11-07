@@ -18,6 +18,7 @@ import org.joml.Vector3f;
 import com.hbm.handler.HbmKeybinds.EnumKeybind;
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
 
+import acup.gunfeel.gl54.Gl54Aim;
 import acup.gunfeel.gl54.Gl54Ballistics;
 import acup.gunfeel.gl54.Gl54Grenade;
 import acup.gunfeel.gl54.Gl54Items;
@@ -42,7 +43,8 @@ import net.minecraft.world.phys.Vec3;
 //  - the aim: where the sight's dot is on the screen aimed, at five turns of the view (the middle is the goal), where the
 //    gun is at the hip;
 //  - the second key: outside the sight it measures nothing, in it the wall 40 blocks off, the number on the gun;
-//  - the hints: the mark below the dot against the holdover angle, the digits, none at the hip;
+//  - the hints: the aim marker (a ring fixed in the world: it moves as the view turns and as the shooter steps, by the numbers
+//    the sums give, and with the dot in it the shot lands on the measured point), the digits, none at the hip;
 //  - the fuse: a grenade fired with a stored range bursts at it (hip), with none it bursts on the wall;
 //  - the flight against Gl54Ballistics, the laser beam.
 // -Pgl54ReflexSolve: the aim pose is solved from the probe's points (the result is printed to put in ItemRenderGl54).
@@ -83,6 +85,10 @@ final class Gl54ReflexStand {
                     level.setBlock(O.offset(x, y, z), wall ? Blocks.SNOW_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 3);
                 }
             }
+            // the far wall is lit (invisible light blocks in front of it), so the sight looks at something bright and the gun, which is
+            // dark, can be told from it by the numbers
+            for (int x : new int[] {-4, 0, 4}) for (int y : new int[] {2, 7, 12}) for (int z : new int[] {WALL - 2, 20, 6})
+                level.setBlock(O.offset(x, y, z), Blocks.LIGHT.defaultBlockState(), 3);
             Gl54Grenade.watch = o -> {
                 synchronized (BLASTS) {
                     BLASTS.add(o);
@@ -182,7 +188,7 @@ final class Gl54ReflexStand {
         sleep(40);
         run(() -> {
             probeLines("hip", false);
-            ClientSmoke.check(ReflexDraw.POINTS.containsKey("dot") && !ReflexDraw.POINTS.containsKey("mark"), "gl54 reflex: от бедра нет только точки");
+            ClientSmoke.check(ReflexDraw.POINTS.containsKey("dot") && !ReflexDraw.POINTS.containsKey("marker"), "gl54 reflex: от бедра нет только точки");
         });
         run(() -> shot("hip.png"));
         TODO.add(() -> pending == 0);
@@ -257,7 +263,7 @@ final class Gl54ReflexStand {
         sleep(90);
         run(() -> {
             probeLines("hip-measured", false);
-            ClientSmoke.check(ReflexDraw.POINTS.containsKey("dot") && !ReflexDraw.POINTS.containsKey("mark") && !ReflexDraw.POINTS.containsKey("holdover"),
+            ClientSmoke.check(ReflexDraw.POINTS.containsKey("dot") && !ReflexDraw.POINTS.containsKey("marker") && !ReflexDraw.POINTS.containsKey("aim"),
                     "gl54 reflex: от бедра с замером есть подсказки");
         });
         run(() -> shot("hip-measured.png"));
@@ -307,6 +313,139 @@ final class Gl54ReflexStand {
         sleep(90);
         run(() -> fuse("fuse-1.5", 3.0));
 
+        // ---- the aim marker, fixed in the world (the measure is exact for these checks)
+        run(() -> {
+            Gl54Range.noiseOn = false;
+            wall(20, false);
+            BLASTS.clear();
+            setRange(OptionalDouble.empty());
+            aim(mc, true);
+            turn(mc, 0, 0);
+        });
+        sleep(80);
+        run(() -> key(EnumKeybind.GUN_SECONDARY));
+        sleep(30);
+        run(() -> {
+            Vec3 point = onServer(() -> Gl54Range.target(player().getMainHandItem()));
+            ClientSmoke.check(point != null, "gl54 reflex: замер не сохранил точку");
+            if (point == null) return;
+            line("point", "x", point.x, "y", point.y, "z", point.z);
+            // the wall's near face: z = O.z + WALL, the eye in the middle of the block
+            ClientSmoke.check(Math.abs(point.z - (O.getZ() + WALL)) < 1e-3 && Math.abs(point.x - (O.getX() + 0.5)) < 1e-3, "gl54 reflex: точка не на стене: " + point);
+            // with the noise on the point is off along the ray by half a block at most
+            Gl54Range.noiseOn = true;
+            double worst = 0;
+            for (int i = 0; i < 12; i++) {
+                key(EnumKeybind.GUN_SECONDARY);
+                Vec3 q = onServer(() -> Gl54Range.target(player().getMainHandItem()));
+                worst = Math.max(worst, q.distanceTo(point));
+            }
+            Gl54Range.noiseOn = false;
+            key(EnumKeybind.GUN_SECONDARY);
+            line("noise", "worst distance of 12 noisy points from the exact one", worst);
+            ClientSmoke.check(worst <= Gl54Range.NOISE + 1e-6, "gl54 reflex: шум точки больше полублока: " + worst);
+        });
+        sleep(30);
+        run(() -> markerLine(mc, "marker-0-0", 0, 0));
+        run(() -> shot("marker-0-0.png"));
+        TODO.add(() -> pending == 0);
+        for (float[] d : new float[][] {{5, 0}, {-5, 0}, {0, 3}, {0, -3}}) {
+            String tag = "marker" + (d[0] >= 0 ? "+" : "") + (int) d[0] + (d[1] >= 0 ? "+" : "") + (int) d[1];
+            run(() -> turn(mc, d[0], d[1]));
+            sleep(40);
+            run(() -> markerLine(mc, tag, d[0], d[1]));
+            run(() -> shot(tag + ".png"));
+            TODO.add(() -> pending == 0);
+        }
+        // the poses turned far, each with its own measure (the arena's walls are near there)
+        for (float[] pose : new float[][] {{135, 0}, {-135, 0}, {0, 30}, {0, -30}}) {
+            String tag = "marker-turned-" + (int) pose[0] + "-" + (int) pose[1];
+            run(() -> turn(mc, pose[0], pose[1]));
+            sleep(40);
+            run(() -> key(EnumKeybind.GUN_SECONDARY));
+            sleep(30);
+            run(() -> markerLine(mc, tag, pose[0], pose[1]));
+            run(() -> shot(tag + ".png"));
+            TODO.add(() -> pending == 0);
+        }
+        // back to the wall; the dot is put on the marker, a shot with the wall there and one with it gone
+        run(() -> {
+            turn(mc, 0, 0);
+        });
+        sleep(30);
+        run(() -> key(EnumKeybind.GUN_SECONDARY));
+        sleep(30);
+        run(() -> alignOnMarker(mc, "aligned"));
+        sleep(40);
+        run(() -> {
+            markerLine(mc, "aligned", view[0], view[1]);
+            float[] mk = pt("marker");
+            if (mk != null) {
+                float cx = mc.getWindow().getWidth() / 2F, cy = mc.getWindow().getHeight() / 2F;
+                line("aligned", "marker from the middle px", mk[3] - cx, mk[4] - cy);
+                ClientSmoke.check(Math.hypot(mk[3] - cx, mk[4] - cy) < 0.5, "gl54 reflex: точка не на метке: " + (mk[3] - cx) + ", " + (mk[4] - cy));
+            }
+        });
+        run(() -> shot("aligned.png"));
+        TODO.add(() -> pending == 0);
+        sleep(60);
+        run(() -> {
+            BLASTS.clear();
+            fire();
+        });
+        sleep(90);
+        run(() -> pointShot("aligned-wall"));
+        // the wall gone and the shift 0: the grenade flies to the point and bursts there
+        run(() -> {
+            BLASTS.clear();
+            wall(WALL, false);
+            Vec3 point = onServer(() -> Gl54Range.target(player().getMainHandItem()));
+            int offset = onServer(() -> Gl54Range.offset(player().getMainHandItem()));
+            onServer(() -> {
+                player().getMainHandItem().set(Gl54Items.OFFSET.get(), 0);
+                return null;
+            });
+            line("shift before", offset, "point", point);
+        });
+        sleep(90);
+        run(() -> {
+            BLASTS.clear();
+            fire();
+        });
+        sleep(120);
+        run(() -> pointShot("aligned-open"));
+        // the shooter steps 5 blocks aside: the marker is at another place, the shot is aimed again, the point is the same
+        run(() -> {
+            BLASTS.clear();
+            place(mc, 5, 0, 0);
+        });
+        sleep(60);
+        run(() -> alignOnMarker(mc, "after the step"));
+        sleep(40);
+        run(() -> {
+            markerLine(mc, "after the step", view[0], view[1]);
+            float[] mk = pt("marker");
+            if (mk != null) {
+                float cx = mc.getWindow().getWidth() / 2F, cy = mc.getWindow().getHeight() / 2F;
+                ClientSmoke.check(Math.hypot(mk[3] - cx, mk[4] - cy) < 0.5, "gl54 reflex: после шага точка не на метке");
+            }
+        });
+        run(() -> shot("after-step.png"));
+        TODO.add(() -> pending == 0);
+        sleep(60);
+        run(() -> {
+            BLASTS.clear();
+            fire();
+        });
+        sleep(120);
+        run(() -> pointShot("after-step"));
+        run(() -> {
+            Gl54Range.noiseOn = true;
+            place(mc, 0, 0, 0);
+            wall(WALL, true);
+        });
+        sleep(30);
+
         // the burst's shift: measure a wall 20 blocks off (the noise is within half a block, the shift starts at +1 for a block),
         // turn the wheel twice up through the payload, take the wall away, fire: it bursts at the stored range plus the shift
         run(() -> {
@@ -349,9 +488,14 @@ final class Gl54ReflexStand {
         run(() -> fire());
         sleep(90);
         run(() -> {
-            float stored = onServer(() -> Gl54Range.get(player().getMainHandItem()));
+            Vec3 point = onServer(() -> Gl54Range.target(player().getMainHandItem()));
             int offset = onServer(() -> Gl54Range.offset(player().getMainHandItem()));
-            fuse("fuse-offset", stored + offset);
+            Object[] b = lastBlast();
+            ClientSmoke.check(b != null && point != null, "gl54 reflex: сдвиг: нет взрыва или точки");
+            if (b == null || point == null) return;
+            Vec3 start = (Vec3) b[3];
+            // the burst is the distance from where the grenade began to the point, plus the shift
+            fuse("fuse-offset", Math.hypot(point.x - start.x, point.z - start.z) + offset);
         });
 
         // the laser: aimed with the beam and without it (the frames are set against each other), in the hand and in the third person
@@ -453,9 +597,9 @@ final class Gl54ReflexStand {
         }
         float[] dot = pt("dot");
         if (dot != null) line("dot", tag, "offset px", dot[3] - cx, dot[4] - cy);
-        float[] mark = pt("mark"), exp = pt("expected"), hold = pt("holdover");
-        if (mark != null && dot != null && exp != null && hold != null)
-            line("mark", tag, "below the dot px", mark[4] - dot[4], "expected px", exp[1], "theta deg", hold[0], "reachable", hold[2]);
+        float[] marker = pt("marker"), aimInfo = pt("aim");
+        if (marker != null && aimInfo != null)
+            line("marker", tag, "px", marker[3], marker[4], "from the middle", marker[3] - cx, marker[4] - cy, "elevation deg", aimInfo[0], "flat", aimInfo[1], "reachable", aimInfo[2]);
         // the gun's box (Gl54Probe: the model's bounding cube)
         float x0 = 1e9F, y0 = 1e9F, x1 = -1e9F, y1 = -1e9F;
         for (int c = 0; c < 8; c++) {
@@ -534,6 +678,88 @@ final class Gl54ReflexStand {
                 level.setBlock(O.offset(x, y, blocks), on ? Blocks.SNOW_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 3);
             return null;
         });
+    }
+
+    // the point the last shot met against the measured point: where the grenade burst or struck, and how far that is from it
+    private static void pointShot(String tag) {
+        Object[] b = lastBlast();
+        Vec3 point = onServer(() -> Gl54Range.target(player().getMainHandItem()));
+        if (b == null || point == null) {
+            ClientSmoke.check(false, "gl54 reflex: " + tag + ": нет взрыва или точки");
+            return;
+        }
+        Vec3 at = (Vec3) b[0];
+        double apart = at.distanceTo(point);
+        line(tag, "burst", at.x, at.y, at.z, "point", point.x, point.y, point.z, "apart blocks", apart);
+        ClientSmoke.check(apart <= 0.3, "gl54 reflex: " + tag + ": взрыв в " + String.format(Locale.ROOT, "%.3f", apart) + " бл. от точки");
+    }
+
+    // the eye and the view turned as the game turns them: yaw 0 looks along +z, x falls with the yaw; pitch positive is down
+    private static double[][] basis(double yaw, double pitch) {
+        double y = Math.toRadians(yaw), p = Math.toRadians(pitch);
+        double[] f = {-Math.sin(y) * Math.cos(p), -Math.sin(p), Math.cos(y) * Math.cos(p)};
+        double[] r = {-Math.cos(y), 0, -Math.sin(y)};
+        double[] u = {r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]};
+        return new double[][] {f, r, u};
+    }
+
+    // where the marker should be on the screen for this view, by the sums alone (the game's camera is not asked): the aim
+    // direction from the eye to the measured point in the view's own axes, then the world's field of view
+    private static double[] markerExpected(Minecraft mc, double yaw, double pitch, float worldFov) {
+        Vec3 point = onServer(() -> Gl54Range.target(player().getMainHandItem()));
+        if (point == null) return null;
+        Vec3 eye = mc.player.getEyePosition();
+        double[][] bs = basis(yaw, pitch);
+        Vec3 look = new Vec3(bs[0][0], bs[0][1], bs[0][2]);
+        Vec3 aim = Gl54Aim.solve(eye, look, point).direction();
+        double depth = aim.x * bs[0][0] + aim.y * bs[0][1] + aim.z * bs[0][2];
+        double side = aim.x * bs[1][0] + aim.y * bs[1][1] + aim.z * bs[1][2];
+        double up = aim.x * bs[2][0] + aim.y * bs[2][1] + aim.z * bs[2][2];
+        double f = (mc.getWindow().getHeight() / 2.0) / Math.tan(Math.toRadians(worldFov * 0.5));
+        return new double[] {mc.getWindow().getWidth() / 2.0 + f * side / depth, mc.getWindow().getHeight() / 2.0 - f * up / depth};
+    }
+
+    // the marker as drawn against the sums
+    private static void markerLine(Minecraft mc, String tag, double yaw, double pitch) {
+        float[] mk = pt("marker");
+        if (mk == null) {
+            line("marker", tag, "none drawn (off the glass or behind)");
+            return;
+        }
+        double[] want = markerExpected(mc, yaw, pitch, mk[5]);
+        if (want == null) return;
+        double apart = Math.hypot(mk[3] - want[0], mk[4] - want[1]);
+        line("marker", tag, "px", mk[3], mk[4], "expected px", want[0], want[1], "apart px", apart);
+        ClientSmoke.check(apart < 0.5, "gl54 reflex: метка " + tag + " в " + String.format(Locale.ROOT, "%.2f", apart) + " px от расчётной");
+    }
+
+    // the view turned to the aim direction, so that the dot is on the marker
+    private static void alignOnMarker(Minecraft mc, String tag) {
+        Vec3 point = onServer(() -> Gl54Range.target(player().getMainHandItem()));
+        if (point == null) {
+            ClientSmoke.check(false, "gl54 reflex: " + tag + ": нет точки");
+            return;
+        }
+        double[][] now = basis(view[0], view[1]);
+        Vec3 aim = Gl54Aim.solve(mc.player.getEyePosition(), new Vec3(now[0][0], now[0][1], now[0][2]), point).direction();
+        float yaw = (float) Math.toDegrees(Math.atan2(-aim.x, aim.z)), pitch = (float) -Math.toDegrees(Math.asin(aim.y));
+        line("align", tag, "yaw", yaw, "pitch", pitch);
+        turnAt(mc, mc.player.getX(), mc.player.getZ(), yaw, pitch);
+    }
+
+    // the player on the floor of the room dx blocks to the side of where the stand puts them, looking so
+    private static void place(Minecraft mc, double dx, float yaw, float pitch) {
+        turnAt(mc, O.getX() + 0.5 + dx, O.getZ() + 0.5, yaw, pitch);
+    }
+
+    private static void turnAt(Minecraft mc, double x, double z, float yaw, float pitch) {
+        view = new float[] {yaw, pitch};
+        var server = mc.getSingleplayerServer();
+        server.submit(() -> {
+            ServerPlayer p = server.getPlayerList().getPlayers().getFirst();
+            p.teleportTo(server.overworld(), x, O.getY(), z, Set.of(), yaw, pitch, false);
+            p.setDeltaMovement(0, 0, 0);
+        }).join();
     }
 
     private static Object[] lastBlast() {

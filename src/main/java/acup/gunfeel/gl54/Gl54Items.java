@@ -31,6 +31,8 @@ public final class Gl54Items {
     public static RegistryHandle<DataComponentType<Float>> RANGE;
     // the burst's shift from it, blocks (-3..3)
     public static RegistryHandle<DataComponentType<Integer>> OFFSET;
+    // the point the rangefinder last found, in the world (the range is its distance, kept for the digits where this is missing)
+    public static RegistryHandle<DataComponentType<net.minecraft.world.phys.Vec3>> TARGET;
 
     private Gl54Items() {
     }
@@ -45,6 +47,14 @@ public final class Gl54Items {
                 DataComponentType.<Float>builder().persistent(com.mojang.serialization.Codec.FLOAT).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.FLOAT).ignoreSwapAnimation().build());
         OFFSET = NeoForgeRegistrar.registerDataComponent(NAMESPACE + ":gl54_offset",
                 DataComponentType.<Integer>builder().persistent(com.mojang.serialization.Codec.INT).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT).ignoreSwapAnimation().build());
+        TARGET = NeoForgeRegistrar.registerDataComponent(NAMESPACE + ":gl54_target",
+                DataComponentType.<net.minecraft.world.phys.Vec3>builder().persistent(net.minecraft.world.phys.Vec3.CODEC)
+                        .networkSynchronized(net.minecraft.network.codec.StreamCodec.composite(
+                                net.minecraft.network.codec.ByteBufCodecs.DOUBLE, v -> v.x,
+                                net.minecraft.network.codec.ByteBufCodecs.DOUBLE, v -> v.y,
+                                net.minecraft.network.codec.ByteBufCodecs.DOUBLE, v -> v.z,
+                                net.minecraft.world.phys.Vec3::new))
+                        .ignoreSwapAnimation().build());
         MAG = NeoForgeRegistrar.registerItem(NAMESPACE + ":gl54_mag", props -> new MagItem(props, false), () -> new Item.Properties().stacksTo(4));
         MAG_EMPTY = NeoForgeRegistrar.registerItem(NAMESPACE + ":gl54_mag_empty", props -> new MagItem(props, true), () -> new Item.Properties().stacksTo(4));
         MAG_MENU = NeoForgeRegistrar.registerMenu(NAMESPACE + ":gl54_mag_window", MagMenu::new);

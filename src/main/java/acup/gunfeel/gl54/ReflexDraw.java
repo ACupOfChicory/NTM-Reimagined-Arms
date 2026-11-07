@@ -26,17 +26,22 @@ import net.minecraft.world.item.ItemStack;
 // pane's outline, a hair in front of it.
 //  - the dot is always there, at the point where the gun's zero line crosses the pane (DOT_U, DOT_V of the pane); the aimed
 //    pose puts that point in the middle of the screen (ItemRenderGl54.aim*);
-//  - aimed (and settled), the range of the last measurement stands in the lower right corner in pixel digits, "---" when
-//    there is none, and with one a thin mark with a gap sits below the dot by the holdover angle: put it on the target and
-//    the barrel is raised as far as the grenade needs for that range (Gl54Ballistics). Past the grenade's reach the mark
-//    blinks at the farthest angle. From the hip there is only the dot.
+//  - aimed (and settled), the distance to the point the rangefinder found, and the burst's shift, stand in the lower right
+//    corner in pixel digits ("40+1"), "---" when there is none. With a point found, a thin ring sits where the barrel's aim has
+//    to be to meet it (Gl54Aim: the heading and the launch angle from where the shooter stands now): it is fixed in the world,
+//    so it slides over the glass as the gun moves, and with the dot in the ring the barrel points where the grenade is to go.
+//    Past the grenade's reach the ring is for the farthest angle and blinks. A ring off the pane is an arrow at the pane's edge
+//    toward it. From the hip there is only the dot.
 public final class ReflexDraw {
-    // where the dot sits on the pane (fractions of its width and height): the middle across, high up so the mark has room below
+    // where the dot sits on the pane (fractions of its width and height): its middle, which is where the eye looks along the sight's
+    // axis (ItemRenderGl54.aim*: the eye, the pane's middle and the screen's middle on one line)
     public static double DOT_U = 0.5, DOT_V = 0.90;
     // the dot's width as per mille of the pane's width, and its soft edge as a share of its radius (1 pixel at 2 pixels across)
     public static double DOT_PER_MILLE = 6.2, DOT_FALL = 1.0;
-    // the mark: half length, the gap's half width and thickness, as shares of the pane's width
-    public static final double MARK_HALF = 0.075, MARK_GAP = 0.03, MARK_THICK = 0.012;
+    // the aim marker's ring: its outer width in dot widths, and its thickness in dot widths; the arrow's length and half width as
+    // shares of the pane's width, and how far inside the pane's edge its tip stands
+    public static final double RING_OUTER = 4.0, RING_THICK = 0.5;
+    public static final double ARROW_LENGTH = 0.05, ARROW_HALF = 0.02, ARROW_INSET = 0.015;
     // a pixel of the digits as a share of the pane's width, and the margin of the corner
     public static final double DIGIT_PIXEL = 0.016, MARGIN_A = 0.07, MARGIN_B = 0.06;
     // the hints show once the aim has settled this far
@@ -96,8 +101,13 @@ public final class ReflexDraw {
         }
         if (hints) {
             float range = Gl54Range.get(stack);
-            // the digits, right aligned in the lower right corner
-            String text = ReflexMath.rangeText(range, Gl54Range.offset(stack));
+            net.minecraft.world.phys.Vec3 target = Gl54Range.target(stack);
+            net.minecraft.world.phys.Vec3 eye = camera.position();
+            Vector3f lookF = camera.rotation().transform(new Vector3f(0F, 0F, -1F));
+            Gl54Aim.Aim aim = target == null ? null : Gl54Aim.solve(eye, new net.minecraft.world.phys.Vec3(lookF.x, lookF.y, lookF.z), target);
+            // the digits, right aligned in the lower right corner: the distance now, as the grenade will fly it, and the shift
+            float shown = aim != null ? (float) aim.horizontal() : range;
+            String text = ReflexMath.rangeText(shown, Gl54Range.offset(stack));
             double px = DIGIT_PIXEL * uL;
             // the pane's a runs to the gun's left, which is the screen's left seen from behind: the text reads along falling a,
             // its last column nearest the pane's right edge (a = 0)
@@ -106,19 +116,30 @@ public final class ReflexDraw {
                 double x1 = start - p[0] * px, y1 = bottom + (ReflexMath.GLYPH_H - p[1]) * px;
                 add(shapes, ReflexMath.rect(x1 - px, y1 - px, x1, y1), window, 255);
             }
-            if (!Float.isNaN(range)) {
-                Gl54Ballistics.Holdover h = Gl54Ballistics.holdover(range);
-                boolean shown = h.reachable() || (net.minecraft.util.Util.getMillis() / 250L) % 2L == 0L;
-                double[] at = mark(r, m, dView, h.angle(), world, hud);
+            if (aim != null) {
+                boolean lit = aim.reachable() || (net.minecraft.util.Util.getMillis() / 250L) % 2L == 0L;
+                // the aim in the camera's view: the world's slopes, then the hand's
+                Vector3f av = camera.rotation().conjugate(new org.joml.Quaternionf()).transform(new Vector3f((float) aim.direction().x, (float) aim.direction().y, (float) aim.direction().z));
+                double depth = Math.max(-av.z, 0.01);
+                double hx = ReflexMath.handSlope(av.x / depth, hud, world), hy = ReflexMath.handSlope(av.y / depth, hud, world);
+                double[] at = markerAt(r, m, hx, hy);
                 if (probe != null && at != null) {
-                    put(probe, "mark", m.transformPosition(point(r, at[0], at[1]), new Vector3f()), width, height, projection, world);
-                    probe.put("holdover", new float[] {(float) Math.toDegrees(h.angle()), (float) (projection * Math.tan(h.angle()) * Math.tan(Math.toRadians(hud * 0.5)) / Math.tan(Math.toRadians(world * 0.5))), h.reachable() ? 1F : 0F, 0F, 0F, world});
-                    probe.put("expected", new float[] {0F, (float) ((height / 2F) / Math.tan(Math.toRadians(world * 0.5)) * Math.tan(h.angle())), 0F, 0F, 0F, world});
+                    put(probe, "marker", m.transformPosition(point(r, at[0], at[1]), new Vector3f()), width, height, projection, world);
+                    probe.put("aim", new float[] {(float) Math.toDegrees(aim.elevation()), (float) aim.horizontal(), aim.reachable() ? 1F : 0F, av.x, av.y, av.z});
                 }
-                if (shown && at != null) {
-                    double half = MARK_HALF * uL, gap = MARK_GAP * uL, t = MARK_THICK * uL / 2.0;
-                    add(shapes, ReflexMath.rect(at[0] - half, at[1] - t, at[0] - gap, at[1] + t), window, 255);
-                    add(shapes, ReflexMath.rect(at[0] + gap, at[1] - t, at[0] + half, at[1] + t), window, 255);
+                if (lit && at != null) {
+                    if (ReflexMath.inside(window, at[0], at[1])) {
+                        for (List<double[]> piece : ReflexMath.ring(at[0], at[1], diameter * (RING_OUTER / 2.0 - RING_THICK), diameter * RING_OUTER / 2.0, 20))
+                            add(shapes, piece, window, 255);
+                    } else {
+                        // the dot's place to the ring, and the edge it leaves the pane by
+                        double[] edge = ReflexMath.exitPoint(window, aD, bD, at[0] - aD, at[1] - bD);
+                        if (edge != null) {
+                            double da = at[0] - aD, db = at[1] - bD, n = Math.hypot(da, db);
+                            double inset = ARROW_INSET * uL;
+                            add(shapes, ReflexMath.arrow(edge[0] - da / n * inset, edge[1] - db / n * inset, da / n, db / n, ARROW_LENGTH * uL, ARROW_HALF * uL), window, 255);
+                        }
+                    }
                 }
             }
         }
@@ -144,19 +165,16 @@ public final class ReflexDraw {
         });
     }
 
-    // where the mark sits on the pane (a, b in its metric frame): the pane crossed by the ray that goes from the eye through the
-    // dot and then `angle` lower in the world's picture. The hand is drawn with its own field of view, the world with the
-    // aim's zoomed one, so the angle is turned into the hand's by their tangents: the mark is as far from the dot, on the
-    // screen, as that angle is from the middle of the screen in the world.
-    static double[] mark(Gl54Reflex r, Matrix4f m, Vector3f dView, double angle, float world, float hud) {
-        if (dView.z >= -1e-4F) return null;
-        double k = Math.tan(Math.toRadians(hud * 0.5)) / Math.tan(Math.toRadians(world * 0.5));
-        double sx = dView.x / -dView.z, sy = dView.y / -dView.z - Math.tan(angle) * k;
+    // Where the aim marker sits on the pane (a, b in its metric frame): the pane crossed by the ray from the eye with the hand's
+    // slopes (sideways, upward) over a unit of depth; null when the ray is parallel to the pane or crosses it behind the eye.
+    // `m` takes the model into the hand's view space.
+    static double[] markerAt(Gl54Reflex r, Matrix4f m, double hx, double hy) {
         Vector3f n = m.transformDirection(new Vector3f((float) r.normal()[0], (float) r.normal()[1], (float) r.normal()[2])).normalize();
-        Vector3f dir = new Vector3f((float) sx, (float) sy, -1F);
+        Vector3f dir = new Vector3f((float) hx, (float) hy, -1F);
         float denom = n.dot(dir);
-        if (Math.abs(denom) < 1e-6F) return null;
-        float s = n.dot(dView) / denom;
+        if (Math.abs(denom) < 1e-9F) return null;
+        Vector3f origin = m.transformPosition(new Vector3f((float) r.origin()[0], (float) r.origin()[1], (float) r.origin()[2]), new Vector3f());
+        float s = n.dot(origin) / denom;
         if (s <= 0F) return null;
         Vector3f p = new Matrix4f(m).invert().transformPosition(dir.mul(s, new Vector3f()));
         double a = 0, b = 0;

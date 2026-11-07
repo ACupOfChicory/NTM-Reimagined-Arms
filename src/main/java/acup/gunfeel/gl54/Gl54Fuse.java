@@ -35,10 +35,20 @@ final class Gl54Fuse {
         return d1 == d0 ? 1.0 : (f - d0) / (d1 - d0);
     }
 
-    // the grenade's first tick: reads the gun in the shooter's hand
-    static void light(EntityBulletBaseMK4 bullet) {
+    // The burst for a point in the world: the horizontal distance from where the grenade begins to the point, and the shift. The
+    // distance is taken at the shot, so a shooter who has moved since the measurement still has it burst at the point.
+    static double distance(Vec3 target, Vec3 start, int offset) {
+        if (target == null) return Double.NaN;
+        return Math.max(Math.hypot(target.x - start.x, target.z - start.z) + offset, Gl54Grenade.ARM_DISTANCE);
+    }
+
+    // the grenade's first tick (it begins at `start`): reads the gun in the shooter's hand, the point it found if it kept one,
+    // else the range
+    static void light(EntityBulletBaseMK4 bullet, Vec3 start) {
         if (!Gl54Server.enabled() || !(bullet.getThrower() instanceof LivingEntity shooter)) return;
-        double f = distance(Gl54Range.get(shooter.getMainHandItem()), Gl54Range.offset(shooter.getMainHandItem()));
+        net.minecraft.world.item.ItemStack stack = shooter.getMainHandItem();
+        Vec3 target = Gl54Range.target(stack);
+        double f = target != null ? distance(target, start, Gl54Range.offset(stack)) : distance(Gl54Range.get(stack), Gl54Range.offset(stack));
         if (!Double.isNaN(f)) FUSES.put(bullet, f);
     }
 

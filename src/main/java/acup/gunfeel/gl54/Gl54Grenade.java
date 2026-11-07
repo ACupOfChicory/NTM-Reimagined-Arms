@@ -102,7 +102,7 @@ public final class Gl54Grenade {
         if (start == null) {
             start = new Vec3(entity.xo, entity.yo, entity.zo);
             STARTS.put(entity, start);
-            if (entity instanceof EntityBulletBaseMK4 bullet) Gl54Fuse.light(bullet);
+            if (entity instanceof EntityBulletBaseMK4 bullet) Gl54Fuse.light(bullet, start);
         }
         if (entity instanceof EntityBulletBaseMK4 bullet) Gl54Fuse.step(bullet, start);
     }

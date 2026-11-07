@@ -53,6 +53,54 @@ public final class Gl54Ballistics {
         return lo;
     }
 
+    // The height of the grenade, blocks above the barrel, when it has flown `distance` blocks out (horizontally) after a launch
+    // `angle` above the horizontal, by the ticks' own steps; NaN if it is gone (its life ends) or never gets out that far.
+    public static double heightAt(double angle, double speed, double gravity, double drag, double distance) {
+        double mx = Math.cos(angle), my = Math.sin(angle);
+        double x = 0, y = 0;
+        for (int tick = 0; tick < TICKS; tick++) {
+            double nx = x + mx * speed, ny = y + my * speed;
+            if (nx >= distance) {
+                double t = nx == x ? 1.0 : (distance - x) / (nx - x);
+                return y + (ny - y) * t;
+            }
+            x = nx;
+            y = ny;
+            mx *= drag;
+            my = my * drag - gravity;
+        }
+        return Double.NaN;
+    }
+
+    // The launch angle that puts the grenade through a point `distance` blocks out and `height` blocks above (or, negative,
+    // below) the barrel: the low arc, the first angle upward from straight down at which it gets as high as the point. The
+    // range is not the eye's height now but the point's, so it is a hill or a hollow. Past the grenade's reach it is the
+    // angle of the farthest range, and not reachable.
+    public static Holdover elevation(double distance, double height, double speed, double gravity, double drag) {
+        double step = Math.toRadians(0.5), from = -Math.toRadians(80);
+        double previous = from;
+        for (double a = from; a <= STEEPEST; a += step) {
+            double h = heightAt(a, speed, gravity, drag, distance);
+            if (!Double.isNaN(h) && h >= height) {
+                if (a == from) return new Holdover(a, true);
+                double lo = previous, hi = a;
+                for (int i = 0; i < 50; i++) {
+                    double mid = (lo + hi) / 2;
+                    double hm = heightAt(mid, speed, gravity, drag, distance);
+                    if (Double.isNaN(hm) || hm < height) lo = mid;
+                    else hi = mid;
+                }
+                return new Holdover((lo + hi) / 2, true);
+            }
+            previous = a;
+        }
+        return new Holdover(farthestAngle(speed, gravity, drag), false);
+    }
+
+    public static Holdover elevation(double distance, double height) {
+        return elevation(distance, height, Gl54Grenade.SPEED, Gl54Grenade.GRAVITY, AIR_DRAG);
+    }
+
     // the launch angle that gives the farthest range at the eye's height (golden-section search; the range rises, then falls,
     // or rises to the life's end)
     public static double farthestAngle(double speed, double gravity, double drag) {
