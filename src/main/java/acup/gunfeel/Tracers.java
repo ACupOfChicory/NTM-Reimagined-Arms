@@ -478,7 +478,7 @@ public final class Tracers {
     private static java.lang.reflect.Field hudFovField;
     private static boolean hudFovMissing;
 
-    private static float hudFov(Camera camera) {
+    public static float hudFov(Camera camera) {
         if (hudFovMissing) return 70F;
         try {
             if (hudFovField == null) {

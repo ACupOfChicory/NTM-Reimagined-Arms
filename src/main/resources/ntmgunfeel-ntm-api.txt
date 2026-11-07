@@ -235,6 +235,7 @@ CORE class com/hbm/explosion/vanillant/interfaces/IExplosionSFX
 CORE class com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth
 CORE class com/hbm/explosion/vanillant/standard/ExplosionEffectTiny
 CORE class com/hbm/explosion/vanillant/standard/PlayerProcessorStandard
+CORE class com/hbm/handler/HbmKeybinds$EnumKeybind
 CORE class com/hbm/items/armor/ModArmorItem
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
@@ -255,6 +256,8 @@ CORE field com/hbm/explosion/vanillant/ExplosionVNT posZ D
 CORE field com/hbm/explosion/vanillant/ExplosionVNT size F
 CORE field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/level/Level;
 CORE field com/hbm/extprop/HbmLivingProps phosphorus I
+CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling fragmentation Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets_heavy Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -272,6 +275,7 @@ CORE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
 CORE field com/hbm/items/weapon/sedna/BulletConfig spread F
 CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
 CORE field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
+CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 CORE field com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase interp F
@@ -295,6 +299,7 @@ CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getOwner ()Lnet/minecr
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getThrower ()Lnet/minecraft/world/entity/LivingEntity;
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getX ()D
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getY ()D
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getZ ()D
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 isAlive ()Z
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
@@ -318,6 +323,8 @@ CORE method com/hbm/extprop/HbmLivingProps getData (Lnet/minecraft/world/entity/
 CORE method com/hbm/items/armor/ModArmorItem isPowered ()Z
 CORE method com/hbm/items/weapon/sedna/BulletConfig ammoStack ()Lnet/minecraft/world/item/ItemStack;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/world/item/ItemStack;Z)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsDrawn (Lnet/minecraft/world/item/ItemStack;Z)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsEquipped (Lnet/minecraft/world/item/ItemStack;Z)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setState (Lnet/minecraft/world/item/ItemStack;ILcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;)V
@@ -335,11 +342,8 @@ CORE method com/hbm/particle/SpentCasing getType ()Lcom/hbm/particle/SpentCasing
 CORE method com/hbm/particle/SpentCasing$CasingType name ()Ljava/lang/String;
 CORE method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 CORE method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase get (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/render/item/weapon/sedna/ItemRenderWeaponBase;
-GL54 class com/hbm/blockentity/machine/BlockEntityMachineAmmoPress
 GL54 class com/hbm/entity/projectile/EntityBulletBaseMK4
 GL54 class com/hbm/handler/threading/TargetPoint
-GL54 class com/hbm/inventory/container/MenuMachineAmmoPress
-GL54 class com/hbm/inventory/recipes/AmmoPressRecipe
 GL54 class com/hbm/items/weapon/sedna/BulletConfig
 GL54 class com/hbm/items/weapon/sedna/GunConfig
 GL54 class com/hbm/items/weapon/sedna/ItemGunBaseNT
@@ -350,7 +354,6 @@ GL54 class com/hbm/items/weapon/sedna/hud/IHUDComponent
 GL54 class com/hbm/items/weapon/sedna/mags/IMagazine
 GL54 class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 GL54 class com/hbm/packet/toclient/MuzzleFlashPayload
-GL54 class com/hbm/packet/toserver/NbtControlPayload
 GL54 class com/hbm/particle/SpentCasing
 GL54 class com/hbm/registration/RegistryHandle
 GL54 class com/hbm/render/anim/AnimationEnums$GunAnimation
@@ -360,15 +363,20 @@ GL54 class com/hbm/render/anim/BusAnimationSequence
 GL54 class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 GL54 class com/hbm/render/item/weapon/sedna/RestBody
 GL54 class com/hbm/render/loader/HFRWavefrontObject
-GL54 field com/hbm/blockentity/machine/BlockEntityMachineAmmoPress selectedRecipe I
 GL54 field com/hbm/client/ClientRegistry GUN_CLIENT_SETUP_ID Lnet/minecraft/resources/Identifier;
+GL54 field com/hbm/client/Keybinds GUN_SECONDARY Lcom/hbm/client/Keybinds$GameplayKey;
+GL54 field com/hbm/client/Keybinds GUN_TERTIARY Lcom/hbm/client/Keybinds$GameplayKey;
+GL54 field com/hbm/client/render/RenderTextures WHITE Lnet/minecraft/resources/Identifier;
 GL54 field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+GL54 field com/hbm/entity/projectile/EntityBulletBaseMK4 xo D
+GL54 field com/hbm/entity/projectile/EntityBulletBaseMK4 yo D
+GL54 field com/hbm/entity/projectile/EntityBulletBaseMK4 zo D
 GL54 field com/hbm/handler/HbmKeybinds$EnumKeybind RELOAD Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
-GL54 field com/hbm/inventory/recipes/AmmoPressRecipes INSTANCE Lcom/hbm/inventory/recipes/AmmoPressRecipes;
 GL54 field com/hbm/items/weapon/sedna/BulletConfig casing Lcom/hbm/particle/SpentCasing;
 GL54 field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
 GL54 field com/hbm/items/weapon/sedna/Crosshair L_CIRCUMFLEX Lcom/hbm/items/weapon/sedna/Crosshair;
 GL54 field com/hbm/items/weapon/sedna/GunConfig smokeNodes Ljava/util/List;
+GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
 GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT shotRand D
 GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState DRAWING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
@@ -394,17 +402,17 @@ GL54 field com/hbm/render/loader/GroupObject name Ljava/lang/String;
 GL54 field com/hbm/render/loader/HFRWavefrontObject groups [Lcom/hbm/render/loader/GroupObject;
 GL54 field com/hbm/sound/ModSounds GUN_CONGO_FIRE Lcom/hbm/registration/RegistryHandle;
 GL54 field com/hbm/sound/ModSounds GUN_GRENADE_RELOAD Lcom/hbm/registration/RegistryHandle;
-GL54 method com/hbm/blockentity/machine/BlockEntityMachineAmmoPress getBlockPos ()Lnet/minecraft/core/BlockPos;
-GL54 method com/hbm/blockentity/machine/BlockEntityMachineAmmoPress getItem (I)Lnet/minecraft/world/item/ItemStack;
-GL54 method com/hbm/blockentity/machine/BlockEntityMachineAmmoPress getLevel ()Lnet/minecraft/world/level/Level;
+GL54 method com/hbm/client/Keybinds$GameplayKey getTranslatedKeyMessage ()Lnet/minecraft/network/chat/Component;
 GL54 method com/hbm/client/model/Meshes load (Lnet/minecraft/resources/Identifier;)Lcom/hbm/render/loader/HFRWavefrontObject;
 GL54 method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
 GL54 method com/hbm/entity/projectile/EntityBulletBaseMK4 getOwner ()Lnet/minecraft/world/entity/Entity;
+GL54 method com/hbm/entity/projectile/EntityBulletBaseMK4 getThrower ()Lnet/minecraft/world/entity/LivingEntity;
+GL54 method com/hbm/entity/projectile/EntityBulletBaseMK4 getX ()D
+GL54 method com/hbm/entity/projectile/EntityBulletBaseMK4 getZ ()D
+GL54 method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
 GL54 method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
+GL54 method com/hbm/entity/projectile/EntityBulletBaseMK4 position ()Lnet/minecraft/world/phys/Vec3;
 GL54 method com/hbm/handler/threading/TargetPoint <init> (Lnet/minecraft/server/level/ServerLevel;DDDD)V
-GL54 method com/hbm/inventory/container/MenuMachineAmmoPress blockEntity ()Lnet/minecraft/world/level/block/entity/BlockEntity;
-GL54 method com/hbm/inventory/recipes/AmmoPressRecipe output ()Lnet/minecraft/world/item/ItemStack;
-GL54 method com/hbm/inventory/recipes/AmmoPressRecipes recipes ()Ljava/util/List;
 GL54 method com/hbm/items/weapon/sedna/BulletConfig <init> ()V
 GL54 method com/hbm/items/weapon/sedna/BulletConfig setCasing (Lcom/hbm/particle/SpentCasing;)Lcom/hbm/items/weapon/sedna/BulletConfig;
 GL54 method com/hbm/items/weapon/sedna/BulletConfig setGrav (D)Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -421,6 +429,7 @@ GL54 method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/wo
 GL54 method com/hbm/items/weapon/sedna/GunConfig hud ([Lcom/hbm/items/weapon/sedna/hud/IHUDComponent;)Lcom/hbm/items/weapon/sedna/GunConfig;
 GL54 method com/hbm/items/weapon/sedna/GunConfig orchestra (Ljava/util/function/BiConsumer;)Lcom/hbm/items/weapon/sedna/GunConfig;
 GL54 method com/hbm/items/weapon/sedna/GunConfig pr (Ljava/util/function/BiConsumer;)Lcom/hbm/items/weapon/sedna/GunConfig;
+GL54 method com/hbm/items/weapon/sedna/GunConfig ps (Ljava/util/function/BiConsumer;)Lcom/hbm/items/weapon/sedna/GunConfig;
 GL54 method com/hbm/items/weapon/sedna/GunConfig rec ([Lcom/hbm/items/weapon/sedna/Receiver;)Lcom/hbm/items/weapon/sedna/GunConfig;
 GL54 method com/hbm/items/weapon/sedna/GunConfig setupStandardConfiguration ()Lcom/hbm/items/weapon/sedna/GunConfig;
 GL54 method com/hbm/items/weapon/sedna/GunConfig smoke (Ljava/util/function/BiConsumer;)Lcom/hbm/items/weapon/sedna/GunConfig;
@@ -456,9 +465,7 @@ GL54 method com/hbm/items/weapon/sedna/mags/IMagazine shouldUseUpTrenchie (Lnet/
 GL54 method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase <init> (II)V
 GL54 method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setAmountAfterReload (Lnet/minecraft/world/item/ItemStack;I)V
 GL54 method com/hbm/packet/PacketWire sendToAllAround (Lcom/hbm/packet/threading/ThreadedPayload;Lcom/hbm/handler/threading/TargetPoint;)V
-GL54 method com/hbm/packet/PacketWire sendToServer (Lcom/hbm/packet/threading/ThreadedPayload;)V
 GL54 method com/hbm/packet/toclient/MuzzleFlashPayload <init> (Lnet/minecraft/world/entity/LivingEntity;)V
-GL54 method com/hbm/packet/toserver/NbtControlPayload <init> (Lnet/minecraft/core/BlockPos;Lnet/minecraft/nbt/CompoundTag;)V
 GL54 method com/hbm/particle/SpentCasing <init> (Lcom/hbm/particle/SpentCasing$CasingType;)V
 GL54 method com/hbm/particle/SpentCasing getName ()Ljava/lang/String;
 GL54 method com/hbm/particle/SpentCasing register (Ljava/lang/String;)Lcom/hbm/particle/SpentCasing;
@@ -482,8 +489,10 @@ GL54 method com/hbm/render/anim/HbmAnimations applyRelevantTransformation (Lcom/
 GL54 method com/hbm/render/anim/HbmAnimations getRelevantTransformation (Ljava/lang/String;)[D
 GL54 method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase <init> ()V
 GL54 method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase register (Ljava/util/function/Supplier;Lcom/hbm/render/item/weapon/sedna/ItemRenderWeaponBase;)V
+GL54 method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase submitRestBody (Lnet/minecraft/world/item/ItemStack;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V
 GL54 method com/hbm/render/item/weapon/sedna/RestBody part (Lorg/joml/Matrix4fc;Lcom/hbm/render/loader/HFRWavefrontObject;ILnet/minecraft/resources/Identifier;)V
 GL54 method com/hbm/render/loader/HFRWavefrontObject boundsOfParts ([I)[F
+GL54 method com/hbm/render/util/Vertices emit (Lcom/mojang/blaze3d/vertex/VertexConsumer;Lcom/mojang/blaze3d/vertex/PoseStack$Pose;FFFIFFIFFF)V
 GL54 method com/hbm/sound/EntitySounds play (Lnet/minecraft/world/entity/Entity;DDDLnet/minecraft/sounds/SoundEvent;Lnet/minecraft/sounds/SoundSource;FF)V
 HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT
@@ -596,22 +605,6 @@ MODEL_HITBOXES method com/hbm/render/loader/GroupObject bounds ()[F
 MODEL_HITBOXES method com/hbm/render/loader/GroupObject quads (Z)[F
 MODEL_HITBOXES method com/hbm/render/loader/HFRWavefrontObject partId (Ljava/lang/String;)I
 MODEL_HITBOXES method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z
-PRONE class com/hbm/client/Keybinds
-PRONE class com/hbm/entity/projectile/EntityBulletBaseMK4
-PRONE class com/hbm/items/weapon/sedna/ItemGunBaseNT
-PRONE field com/hbm/items/ModItems GUN_UZI Lcom/hbm/registration/RegistryHandle;
-PRONE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
-PRONE field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_fmj Lcom/hbm/items/weapon/sedna/BulletConfig;
-PRONE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
-PRONE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
-PRONE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsDrawn (Lnet/minecraft/world/item/ItemStack;Z)V
-PRONE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsEquipped (Lnet/minecraft/world/item/ItemStack;Z)V
-PRONE method com/hbm/items/weapon/sedna/ItemGunBaseNT setState (Lnet/minecraft/world/item/ItemStack;ILcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;)V
-PRONE method com/hbm/items/weapon/sedna/ItemGunBaseNT setTimer (Lnet/minecraft/world/item/ItemStack;II)V
-PRONE method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
-PRONE method com/hbm/items/weapon/sedna/mags/IMagazine setAmount (Lnet/minecraft/world/item/ItemStack;I)V
-PRONE method com/hbm/items/weapon/sedna/mags/IMagazine setType (Lnet/minecraft/world/item/ItemStack;Ljava/lang/Object;)V
-PRONE method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 RECOIL class com/hbm/items/weapon/sedna/ItemGunBaseNT
 RECOIL class com/hbm/render/anim/AnimationEnums$GunAnimation
 RECOIL class com/hbm/render/anim/HbmAnimations$Animation

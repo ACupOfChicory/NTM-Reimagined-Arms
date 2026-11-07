@@ -27,6 +27,10 @@ public final class Gl54Items {
     public static RegistryHandle<DataComponentType<MagContents>> MAG_CONTENTS;
     public static RegistryHandle<DataComponentType<GunMag>> GUN_MAG;
     public static RegistryHandle<net.minecraft.world.inventory.MenuType<MagMenu>> MAG_MENU;
+    // the horizontal range the rangefinder last measured, blocks (on the gun; without the swap animation)
+    public static RegistryHandle<DataComponentType<Float>> RANGE;
+    // the burst's shift from it, blocks (-3..3)
+    public static RegistryHandle<DataComponentType<Integer>> OFFSET;
 
     private Gl54Items() {
     }
@@ -37,6 +41,10 @@ public final class Gl54Items {
                 DataComponentType.<MagContents>builder().persistent(MagContents.CODEC).networkSynchronized(MagContents.STREAM_CODEC).build());
         GUN_MAG = NeoForgeRegistrar.registerDataComponent(NAMESPACE + ":gl54_gun",
                 DataComponentType.<GunMag>builder().persistent(GunMag.CODEC).networkSynchronized(GunMag.STREAM_CODEC).ignoreSwapAnimation().build());
+        RANGE = NeoForgeRegistrar.registerDataComponent(NAMESPACE + ":gl54_range",
+                DataComponentType.<Float>builder().persistent(com.mojang.serialization.Codec.FLOAT).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.FLOAT).ignoreSwapAnimation().build());
+        OFFSET = NeoForgeRegistrar.registerDataComponent(NAMESPACE + ":gl54_offset",
+                DataComponentType.<Integer>builder().persistent(com.mojang.serialization.Codec.INT).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT).ignoreSwapAnimation().build());
         MAG = NeoForgeRegistrar.registerItem(NAMESPACE + ":gl54_mag", props -> new MagItem(props, false), () -> new Item.Properties().stacksTo(4));
         MAG_EMPTY = NeoForgeRegistrar.registerItem(NAMESPACE + ":gl54_mag_empty", props -> new MagItem(props, true), () -> new Item.Properties().stacksTo(4));
         MAG_MENU = NeoForgeRegistrar.registerMenu(NAMESPACE + ":gl54_mag_window", MagMenu::new);

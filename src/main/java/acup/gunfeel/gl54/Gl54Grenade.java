@@ -32,7 +32,7 @@ import net.minecraft.world.phys.Vec3;
 // area to a creature near the blast: 18 in the middle, 12 at a block, 6 at two. The mod counts a bullet's explosion at 0.4 of
 // the bullet's damage for the area (and 0.6 for a direct hit, ExplosiveDamage), so the bullet's damage is 45; the glass takes
 // the fall-off of the whole 45, so it breaks out to 2.3 blocks (hp 10); armed after 3 blocks of flight: nearer it is a dud that hits for 4 and goes out. Leaves are no business of
-// its own: the bullet rules (ntmgunfeel-bullets.txt) fly every bullet through them. Speed and drop are 40 mm NTM's for now.
+// its own: the bullet rules (ntmgunfeel-bullets.txt) fly every bullet through them. The speed is the owner's (4.7 blocks a tick), the drop Earth's.
 public final class Gl54Grenade {
     // the blast's reach in blocks; NTM's ExplosionVNT size is half of it (the entity processor doubles it)
     public static final float RADIUS = 3F;
@@ -43,13 +43,17 @@ public final class Gl54Grenade {
     // flight before the fuze is armed, blocks
     public static final double ARM_DISTANCE = 3.0;
     public static final float DUD_DAMAGE = 4F;
-    // temporary: 40 mm NTM's
-    public static final float SPEED = 2.0F;
-    public static final double GRAVITY = 0.035;
+    // the owner's: the real XM29 20 mm at about 180 m/s, scaled by NTM's own factor for the 40 mm (2.0 blocks a tick against a
+    // real M203's 76 m/s)
+    public static final float SPEED = 4.7F;
+    // Earth's gravity (the owner's): 9.8 m/s^2 with a block a metre and 20 ticks a second is 9.8 / 400 = 0.0245 blocks a tick,
+    // a tick. EntityThrowableNT keeps the heading as a unit vector, moves the grenade by it times the speed and takes the
+    // gravity off the vector, so the drop it makes is the gravity times the speed: the parameter is 0.0245 / 4.7 = 0.0052128.
+    public static final double GRAVITY = 0.0245 / SPEED;
     public static final int LIFE = 200;
     public static final String CASING = "gl54";
 
-    // dev (Gl54Stand): told where a grenade went off or fell as a dud (where, blocks flown, went off)
+    // dev (Gl54Stand): told where a grenade went off or fell as a dud (where, blocks flown, went off, where it was fired from)
     public static volatile java.util.function.Consumer<Object[]> watch;
 
     private static final Map<Entity, Vec3> STARTS = Collections.synchronizedMap(new WeakHashMap<>());
@@ -91,10 +95,16 @@ public final class Gl54Grenade {
         return config;
     }
 
-    // every tick of the flight (server): where it began, from the first tick's old position
+    // every tick of the flight (server): where it began, from the first tick's old position; the range fuse (Gl54Fuse)
     static void update(Entity entity) {
-        if (entity.level().isClientSide() || STARTS.containsKey(entity)) return;
-        STARTS.put(entity, new Vec3(entity.xo, entity.yo, entity.zo));
+        if (entity.level().isClientSide()) return;
+        Vec3 start = STARTS.get(entity);
+        if (start == null) {
+            start = new Vec3(entity.xo, entity.yo, entity.zo);
+            STARTS.put(entity, start);
+            if (entity instanceof EntityBulletBaseMK4 bullet) Gl54Fuse.light(bullet);
+        }
+        if (entity instanceof EntityBulletBaseMK4 bullet) Gl54Fuse.step(bullet, start);
     }
 
     // blocks flown from where it was fired to `at`; 0 before the first tick is over
@@ -106,9 +116,9 @@ public final class Gl54Grenade {
     static void impact(EntityBulletBaseMK4 bullet, HitResult hit) {
         if (!(bullet.level() instanceof ServerLevel level)) return;
         double flown = flown(bullet, hit.getLocation());
-        STARTS.remove(bullet);
+        Vec3 start = STARTS.remove(bullet);
         var watching = watch;
-        if (watching != null) watching.accept(new Object[] {hit.getLocation(), flown, Gl54Server.enabled() && armed(flown)});
+        if (watching != null) watching.accept(new Object[] {hit.getLocation(), flown, Gl54Server.enabled() && armed(flown), start});
         if (!Gl54Server.enabled() || !armed(flown)) {
             // a dud: a hit on a creature is NTM's own hit with 4, on a block it falls
             if (hit instanceof EntityHitResult) bullet.damage = DUD_DAMAGE;

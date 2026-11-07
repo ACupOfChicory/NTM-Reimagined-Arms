@@ -43,7 +43,7 @@ class Gl54ModelTest {
     void partsAreTheModelsObjectsAndEveryPartIsInTheItem() throws IOException {
         List<String> names = new ArrayList<>();
         for (GroupObject g : mesh()) names.add(g.name);
-        assertEquals(Set.of("Body", "TitaniumBarrel", "Magazine", "Trigger", "FrontIronSight", "RearIronSight", "StockButtpad",
+        assertEquals(Set.of("Body", "TitaniumBarrel", "Magazine", "Trigger", "ReflexSight", "StockButtpad",
                 "LaserRangefinder", "BoltCarrier", "ChargingHandle"), Set.copyOf(names));
         JsonArray parts = json("/assets/ntmgunfeel/items/gun_gl54.json").getAsJsonObject("model").getAsJsonArray("parts");
         List<String> listed = new ArrayList<>();
@@ -61,7 +61,7 @@ class Gl54ModelTest {
         assertTrue(stock[5] < -3.5F, "the butt is behind, on -Z: " + stock[5]);
         float[] mag = part("Magazine").bounds();
         assertTrue(mag[1] < part("Body").bounds()[4] && mag[4] < b[1] + 1F, "the magazine hangs below the barrel");
-        float[] sight = part("FrontIronSight").bounds();
+        float[] sight = part("ReflexSight").bounds();
         assertTrue(sight[4] > b[4], "the sights are above the barrel on +Y");
         // the model is centred on the middle of the gun, its barrel's axis about 1.4 units above the origin
         assertEquals(1.37F, (b[1] + b[4]) / 2F, 0.05F);
@@ -134,6 +134,30 @@ class Gl54ModelTest {
         assertTrue(c.portX() < 0, "to the right of the barrel's axis: " + c.portX());
         assertEquals(1.37, c.portY(), 0.05);
         assertEquals(1.37, c.restY(), 0.05);
+    }
+
+    @Test
+    void theReflexPaneIsNotAPartButItsNumbersAreInTheFile() throws IOException {
+        for (GroupObject g : mesh()) assertTrue(!g.name.equals("ReflexPanel"), "the pane is drawn by the renderer, not as a part");
+        Gl54Reflex r = Gl54Reflex.get();
+        assertTrue(r.present());
+        assertEquals(6, r.corners().length);
+        // 2.8 x 2.2 cm, tilted back, 12 units a metre
+        assertEquals(0.028 * 12, r.uLength(), 2e-3);
+        assertEquals(0.0226 * 12, r.vLength(), 0.01);
+        // every corner lies on the uv frame
+        for (int i = 0; i < 6; i++) {
+            double[] at = r.at(r.uv()[i][0], r.uv()[i][1]);
+            for (int k = 0; k < 3; k++) assertEquals(r.corners()[i][k], at[k], 2e-4);
+        }
+        // the normal looks forward (+Z of the model) and a little down: the pane leans back
+        assertEquals(0.992, r.normal()[2], 2e-3);
+        assertTrue(r.normal()[1] < 0);
+        // over the barrel, behind the middle; the laser leaves ahead of the muzzle's rear, under the barrel
+        float[] b = part("TitaniumBarrel").bounds();
+        assertTrue(r.at(0.5, 0.5)[1] > b[4], "the pane is above the barrel");
+        assertTrue(r.at(0.5, 0.5)[2] < 0, "behind the middle");
+        assertTrue(r.laser()[2] > 2.0 && r.laser()[1] < (b[1] + b[4]) / 2F, "the laser is ahead and lower than the bore");
     }
 
     @Test

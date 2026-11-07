@@ -51,10 +51,9 @@
       "Body",
       "BoltCarrier",
       "ChargingHandle",
-      "FrontIronSight",
       "LaserRangefinder",
       "Magazine",
-      "RearIronSight",
+      "ReflexSight",
       "StockButtpad",
       "TitaniumBarrel",
       "Trigger"
