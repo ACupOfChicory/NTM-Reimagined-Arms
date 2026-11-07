@@ -133,22 +133,66 @@ final class ReflexMath {
         return best == Double.MAX_VALUE ? null : new double[] {a + best * da, b + best * db};
     }
 
-    // a ring as quads around the arc: n pieces between the radii
-    static List<List<double[]>> ring(double cx, double cy, double inner, double outer, int n) {
-        List<List<double[]>> out = new ArrayList<>();
-        for (int i = 0; i < n; i++) {
-            double t0 = 2 * Math.PI * i / n, t1 = 2 * Math.PI * (i + 1) / n;
-            out.add(List.of(new double[] {cx + inner * Math.cos(t0), cy + inner * Math.sin(t0)}, new double[] {cx + outer * Math.cos(t0), cy + outer * Math.sin(t0)},
-                    new double[] {cx + outer * Math.cos(t1), cy + outer * Math.sin(t1)}, new double[] {cx + inner * Math.cos(t1), cy + inner * Math.sin(t1)}));
-        }
-        return out;
-    }
-
     // a small arrow whose tip is at (tipA, tipB), pointing along the unit direction (da, db): `length` long, `half` wide at the base
     static List<double[]> arrow(double tipA, double tipB, double da, double db, double length, double half) {
         double n = Math.hypot(da, db);
         double ua = da / n, ub = db / n;
         double baseA = tipA - ua * length, baseB = tipB - ub * length;
         return List.of(new double[] {tipA, tipB}, new double[] {baseA - ub * half, baseB + ua * half}, new double[] {baseA + ub * half, baseB - ua * half});
+    }
+
+    // the font's strokes: lines between the middles of lit pixels that touch (side by side, or corner to corner where no side
+    // pixel joins them), and each lit pixel as a point; {column, row, column, row}, a pixel's middle at +0.5
+    static List<double[]> strokes(String text) {
+        java.util.Set<Long> lit = new java.util.HashSet<>();
+        List<int[]> px = pixels(text);
+        for (int[] p : px) lit.add(key(p[0], p[1]));
+        List<double[]> out = new ArrayList<>();
+        for (int[] p : px) {
+            int c = p[0], r = p[1];
+            out.add(new double[] {c + 0.5, r + 0.5, c + 0.5, r + 0.5});
+            if (lit.contains(key(c + 1, r))) out.add(new double[] {c + 0.5, r + 0.5, c + 1.5, r + 0.5});
+            if (lit.contains(key(c, r + 1))) out.add(new double[] {c + 0.5, r + 0.5, c + 0.5, r + 1.5});
+            for (int dc : new int[] {-1, 1})
+                if (lit.contains(key(c + dc, r + 1)) && !lit.contains(key(c + dc, r)) && !lit.contains(key(c, r + 1)))
+                    out.add(new double[] {c + 0.5, r + 0.5, c + dc + 0.5, r + 1.5});
+        }
+        return out;
+    }
+
+    private static long key(int c, int r) {
+        return ((long) c << 32) ^ (r & 0xFFFFFFFFL);
+    }
+
+    // the distance from (a, b) to the segment {a0, b0, a1, b1}
+    static double segmentDistance(double a, double b, double[] s) {
+        double da = s[2] - s[0], db = s[3] - s[1], l = da * da + db * db;
+        double t = l < 1e-24 ? 0 : Math.max(0, Math.min(1, ((a - s[0]) * da + (b - s[1]) * db) / l));
+        return Math.hypot(a - s[0] - t * da, b - s[1] - t * db);
+    }
+
+    // How a mark of the sight shines, in screen pixels: an opaque core `half` wide on each side of its line, its edge smoothed
+    // over `edge` px (0: a hard edge), a glow beyond it that falls as a Gaussian (`peak` 0-255 at the core's edge, `sigma` px),
+    // and for the dot a white-hot middle (`hot` added to green and blue, gone at `hotRadius` px from the middle).
+    record Light(double half, double edge, double peak, double sigma, double hot, double hotRadius) {
+        // how far past the core the glow is still above one step of 255
+        double reach() {
+            return sigma * Math.sqrt(2 * Math.log(Math.max(peak, 1.0001)));
+        }
+    }
+
+    // The colour at `line` px from a mark's line (`middle` px from the dot's middle, for the hot spot), premultiplied by its
+    // alpha for the blend `src + dst * (1 - alpha)`: the core is the LED's red and covers what is behind (alpha 1, its edge
+    // smoothed over a pixel), the glow only adds red light (alpha 0), so it never darkens the view. 0 for nothing.
+    static int light(Light l, double line, double middle, int red, int green, int blue) {
+        double d = line - l.half();
+        double cover = l.edge() <= 0 ? (d <= 0 ? 1 : 0) : Math.max(0, Math.min(1, 0.5 - d / l.edge()));
+        double glow = d <= 0 ? l.peak() : l.peak() * Math.exp(-d * d / (2 * l.sigma() * l.sigma()));
+        double k = cover + (1 - cover) * glow / 255.0;
+        double hot = l.hotRadius() > 0 ? l.hot() * Math.max(0, 1 - (middle / l.hotRadius()) * (middle / l.hotRadius())) : 0;
+        int r = (int) Math.round(Math.min(255, red * k)), g = (int) Math.round(Math.min(255, green * k + hot)),
+                b = (int) Math.round(Math.min(255, blue * k + hot)), a = (int) Math.round(255 * cover);
+        if (a == 0 && r == 0 && g == 0 && b == 0) return 0;
+        return a << 24 | r << 16 | g << 8 | b;
     }
 }
