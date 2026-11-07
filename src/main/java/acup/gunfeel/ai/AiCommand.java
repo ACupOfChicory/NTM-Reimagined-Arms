@@ -94,6 +94,8 @@ public final class AiCommand {
         int n = mobs.size();
         c.getSource().sendSuccess(() -> Component.literal(n + " AI " + kind.name().toLowerCase(java.util.Locale.ROOT) + (n == 1 ? "" : "s")
                 + " spawned" + (team == null ? "" : " in team " + team) + (n < count ? " (no room for " + (count - n) + ")" : "")), true);
+        if (c.getSource().getEntity() instanceof ServerPlayer p && (p.isCreative() || p.isSpectator()))
+            c.getSource().sendSuccess(() -> Component.translatable("ntmgunfeel.armsai.unseen"), false);
         return n;
     }
 

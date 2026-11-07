@@ -103,6 +103,11 @@ final class AiCheckProne {
         health(soldier);
         bot = AiBots.get(soldier);
         if (bot != null) bot.gunner.ammo.setInfinite();
+        if (phase == Phase.LOW)
+            // whoever it shoots dies by an AI dummy, not by "12.3 / 20.0" (NTM names its dummy by its health)
+            check.check("an AI dummy is called so in death messages (" + soldier.getDisplayName().getString() + ")",
+                    soldier.getDisplayName().getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents named
+                            && named.getKey().equals("ntmgunfeel.armsai.dummy"));
         target = (Mob) net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
                 .getValue(net.minecraft.resources.Identifier.fromNamespaceAndPath("hbm", "entity_test_dummy"))
                 .create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);

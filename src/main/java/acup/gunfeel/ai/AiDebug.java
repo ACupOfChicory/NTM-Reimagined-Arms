@@ -54,7 +54,8 @@ public final class AiDebug {
         for (AiBot b : AiBots.all(level)) {
             if (out.size() >= AiBotsPayload.LIMIT) break;
             if (b.mob.blockPosition().distManhattan(at) > radius * 2) continue;
-            String text = b.active() ? (b.brain instanceof AiSoldier s ? s.describe(b) : "driven") : "asleep";
+            String text = (b.active() ? (b.brain instanceof AiSoldier s ? s.describe(b) : "driven") : "asleep")
+                    + String.format(java.util.Locale.ROOT, " %.1f/%.0f hp", b.mob.getHealth(), b.mob.getMaxHealth());
             net.minecraft.world.phys.Vec3 w = b.brain instanceof AiSoldier s ? s.watch() : null;
             CoverQuery.Spot spot = b.brain instanceof AiSoldier s ? s.spot() : null;
             out.add(new AiBotsPayload.Bot(b.mob.getId(), text, w == null ? Double.NaN : w.x, w == null ? Double.NaN : w.y,

@@ -29,6 +29,8 @@ public final class AiBots {
     public static final String TARGET_TAG = "armsai_target";
     /** sounds this close to an AI mob are its own or its fellows' (steps, shots): not news */
     static final double OWN_SOUND = 1.5;
+    /** a sound this near a player in creative or spectator (from their middle) is theirs */
+    static final double UNSEEN_SOUND = 2.0;
     /** a sound that carries this far is loud: a shot, a blast */
     static final double LOUD = 24;
     /** the server key: the blocks from the nearest player within which AI mobs think (32 to 256) */
@@ -232,6 +234,12 @@ public final class AiBots {
         }
         // a quiet sound (a step plays at 0.15) does not carry as far as the game lets players hear it
         double range = sound.value().getRange(volume) * (volume < 1 ? Math.sqrt(volume) : 1);
+        // a player in creative or spectator is not seen, nor heard: the sounds about them (steps, shots) go unheard
+        for (Player p : level.players()) {
+            if (!p.isCreative() && !p.isSpectator()) continue;
+            double dx = p.getX() - x, dy = p.getY() + 1 - y, dz = p.getZ() - z;
+            if (dx * dx + dy * dy + dz * dz < UNSEEN_SOUND * UNSEEN_SOUND) return;
+        }
         // an AI mob's own sound (its steps, its shots): heard only by those that fight it
         AiBot from = null;
         for (AiBot b : l.bots.values()) {

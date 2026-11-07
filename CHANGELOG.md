@@ -1,5 +1,12 @@
 # Changelog
 
+## X603
+
+- Mob AI: AI mobs no longer hear a player in creative or spectator mode
+  either (they did not see one already). `/armsai spawn` given in those
+  modes says so. Whoever an AI dummy kills dies by an "AI dummy", not by
+  its health; `/armsai debug` shows each AI mob's health.
+
 ## X602
 
 - Mob AI: AI mobs fight in the game's teams (`/team`). One in a team fights
