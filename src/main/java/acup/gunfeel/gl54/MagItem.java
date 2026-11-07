@@ -48,14 +48,19 @@ public final class MagItem extends Item {
         if (level.isClientSide()) return InteractionResult.SUCCESS;
         if (!(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
         if (player.isShiftKeyDown()) {
+            // The game takes the stack back from the hand after use (ItemStack.use hands it over as the "transformed" stack), and
+            // an emptied one wipes its slot: a grenade put there would be lost. So a lone magazine is never shrunk: it is
+            // replaced in the hand by the empty one.
             MagContents c = contents(held);
-            held.shrink(1);
             // one magazine unloaded: its grenades to the inventory (what does not fit falls at the feet), the empty one back
             for (String k : c.rounds()) {
                 var g = Gl54Items.GRENADES.get(k);
                 if (g != null) give(player, new ItemStack(g.get()));
             }
-            give(player, new ItemStack(Gl54Items.MAG_EMPTY.get()));
+            ItemStack empty = new ItemStack(Gl54Items.MAG_EMPTY.get());
+            if (held.getCount() == 1) return InteractionResult.SUCCESS.heldItemTransformedTo(empty);
+            held.shrink(1);
+            give(player, empty);
             return InteractionResult.SUCCESS;
         }
         // 40 is the offhand's inventory slot
