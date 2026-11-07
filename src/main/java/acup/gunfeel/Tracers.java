@@ -1187,10 +1187,66 @@ public final class Tracers {
         Perf.add(Perf.FX, px);
     }
 
+    // A fragment grenade's holes (FragFx): small ones, made by the same code as a bullet's. All the holes of one burst
+    // are born together, so they count as one hit against holeMax; they wait their turn in the queue under the same time
+    // budget as the others. `fx`: the hit's particles and sound as well.
+    private record FragHit(ClientLevel level, BlockHitResult hit, Vec3 dir, BulletConfig config, long born, float scale, boolean fx) {
+    }
+
+    private static final ArrayDeque<FragHit> FRAG = new ArrayDeque<>();
+    // the size scale and the birth time of the fragment hole being made (1 and 0: a bullet's)
+    private static float fragScale = 1F;
+    private static long fragBorn;
+
+    private static long holeBorn() {
+        return fragBorn != 0 ? fragBorn : GunClock.nanos();
+    }
+
+    public static long fragmentBurstTime() {
+        return GunClock.nanos();
+    }
+
+    public static void fragmentHit(ClientLevel level, BlockHitResult hit, Vec3 dir, BulletConfig config, long born, float scale, boolean fx) {
+        // a flood of bursts (a stand, a crowd) does not pile up holes the budget cannot make for minutes
+        if (FRAG.size() >= FRAG_QUEUE_MAX) return;
+        if (Config.bulletHoles || fx) FRAG.addLast(new FragHit(level, hit, dir, config, born, scale, fx));
+    }
+
+    static final int FRAG_QUEUE_MAX = 240;
+
+    static int pendingFragmentHits() { return FRAG.size(); }
+
+    static void clearFragmentQueue() { FRAG.clear(); }
+
+    // dev (FragStand): holes made so far, kept ones or not (at the limit, a new hit's holes push the oldest's out)
+    static int holesMadeTotal() { return holesMade; }
+
+    private static void makeFragments(long from, ClientLevel now) {
+        int made = 0;
+        while (!FRAG.isEmpty() && (made == 0 || GunClock.nanos() - from < HOLE_BUDGET_NS)) {
+            FragHit f = FRAG.pollFirst();
+            if (f.level() != now) continue;
+            if (Config.bulletHoles) {
+                fragScale = f.scale();
+                fragBorn = f.born();
+                makingShot = -1;
+                try {
+                    makeHole(f.level(), f.hit(), f.config(), f.dir());
+                } finally {
+                    fragScale = 1F;
+                    fragBorn = 0;
+                }
+            }
+            if (f.fx()) BulletFx.blockHit(f.level(), f.hit(), f.dir(), false);
+            made++;
+        }
+    }
+
     private static void makePending() {
         long from = GunClock.nanos();
         int made = 0;
         ClientLevel now = Minecraft.getInstance().level;
+        makeFragments(from, now);
         while (!PENDING.isEmpty() && (made == 0 || GunClock.nanos() - from < HOLE_BUDGET_NS)) {
             Pending p = PENDING.pollFirst();
             if (p.level() != now || !Config.bulletHoles) continue;
@@ -1288,7 +1344,7 @@ public final class Tracers {
         boolean scorch = config.onImpact != null;
         BlockState decalOn = Cells.ruleState(level, hit.getBlockPos(), level.getBlockState(hit.getBlockPos()));
         int kind = holeKind(decalOn, config);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * waterHole * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * fragScale * waterHole * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
         int turn = (int) (Rng.shot(makingShot).nextDouble() * 8);
         if (scratch != null) {
             int[] ax = axes(hit.getDirection());
@@ -1318,7 +1374,7 @@ public final class Tracers {
         double onAxis = Double.isNaN(plane) ? comp(hit.getLocation(), hit.getDirection().getAxis().ordinal()) : plane;
         boolean cull = (level.getBlockState(hit.getBlockPos()).isCollisionShapeFullBlock(level, hit.getBlockPos()) || Math.abs(onAxis - boxFace) < 1e-3)
                 && !glassLike(level.getBlockState(hit.getBlockPos()));
-        addMade(new Hole(hit.getLocation(), hit.getDirection(), turn, GunClock.nanos(), light, kind, size, rect, mask, plane,
+        addMade(new Hole(hit.getLocation(), hit.getDirection(), turn, holeBorn(), light, kind, size, rect, mask, plane,
                 translucent(level.getBlockState(hit.getBlockPos())) || glassLike(level.getBlockState(hit.getBlockPos())),
                 cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false,makingShot, new Batch[1]));
         trimHoles();
@@ -1369,7 +1425,7 @@ public final class Tracers {
         boolean scorch = config.onImpact != null;
         BlockState decalOn = Cells.ruleState(level, pos, level.getBlockState(pos));
         int kind = holeKind(decalOn, config);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * waterHole * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * fragScale * waterHole * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
         int turn = (int) (Rng.shot(makingShot).nextDouble() * 8);
         if (scratch != null) size = scratchSize();
         double half = size * 0.5;
@@ -1454,7 +1510,7 @@ public final class Tracers {
         }
         Vec3 world = new Vec3(pos.getX() + at.x, pos.getY() + at.y, pos.getZ() + at.z);
         int light = LightCoordsUtil.getLightCoords(level, pos);
-        addMade(new Hole(world, hit.getDirection(), turn, GunClock.nanos(), light, kind, size, null, null, Double.NaN,
+        addMade(new Hole(world, hit.getDirection(), turn, holeBorn(), light, kind, size, null, null, Double.NaN,
                 translucent(level.getBlockState(pos)) || glassLike(level.getBlockState(pos)), false, mesh,
                 !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false,makingShot, new Batch[1]));
         trimHoles();
@@ -1649,7 +1705,7 @@ public final class Tracers {
         metWindow = met.tex() instanceof RenderedMesh.Window;
         BlockState decalOn = metWindow ? net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState() : Cells.ruleState(level, pos, hitState);
         int kind = holeKind(decalOn, config);
-        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * waterHole * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
+        float size = (scorch ? Config.scorchSize : Config.holeSize) * ExplosiveAmmo.holeScale(config) * fragScale * waterHole * (0.8F + 0.4F * (float) Rng.shot(makingShot).nextDouble());
         int turn = (int) (Rng.shot(makingShot).nextDouble() * 8);
         if (scratch != null) size = scratchSize();
         double half = size * 0.5;
@@ -1675,7 +1731,7 @@ public final class Tracers {
         pieces=connectedPieces(pieces,met,frame,half);
         // solid faces first: a see-through face over one in the same plane (grass's side overlay) adds nothing
         pieces.sort(java.util.Comparator.comparing(pc -> pc.tri().tex().seeThrough()));
-        long born = GunClock.nanos(), st4 = System.nanoTime(), hideNs = 0;
+        long born = holeBorn(), st4 = System.nanoTime(), hideNs = 0;
         // pieces grouped by what they go with (a block, a renderer's part) and by plane: each group is one hole,
         // facing its own way
         Map<Object, Group> groups = new java.util.LinkedHashMap<>();

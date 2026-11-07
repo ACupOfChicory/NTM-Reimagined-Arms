@@ -133,6 +133,10 @@ neoForge {
             // -Pgl54StandMag (with -Pgl54Stand=<dir>): only the magazines' plan: reloads with their ticks, the pour, a change of
             // kind, a mixed magazine, the HUD's frames (with the block and without), the wheel and the turned camera
             systemProperty("ntmgunfeel.gl54StandMag",providers.gradleProperty("gl54StandMag").isPresent.toString())
+            // -PfragStand=<dir>: the GL-54's fragment grenades in numbers and frames (FragStand): hits and damage at the
+            // cases of the design, the cover, armour, the incendiary's fire, the tracers' pixels
+            systemProperty("ntmgunfeel.fragStand",providers.gradleProperty("fragStand").isPresent.toString())
+            providers.gradleProperty("fragStand").orNull?.let { systemProperty("ntmgunfeel.fragStandDir",it) }
             // -PproneStand: lying down on the prone key, its spread, recoil and hits (ProneStand)
             systemProperty("ntmgunfeel.proneStand",providers.gradleProperty("proneStand").isPresent.toString())
             // -Pgl54ReflexStand=<dir> (with -PstandSize=1920x1080): the GL-54's reflex sight, range finder, fuse and laser in numbers
@@ -163,7 +167,7 @@ neoForge {
             // -PsmokePoses=sky,wall: only the poses whose names start with one of these
             systemProperty("ntmgunfeel.smokePoses",providers.gradleProperty("smokePoses").orElse("").get())
             // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
-            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("gasStand").isPresent || providers.gradleProperty("gl54Stand").isPresent || providers.gradleProperty("gl54ReflexStand").isPresent || providers.gradleProperty("waterFx").isPresent || providers.gradleProperty("hudShots").isPresent) "-Xmx3G" else "-Xmx2500M")
+            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("gasStand").isPresent || providers.gradleProperty("gl54Stand").isPresent || providers.gradleProperty("fragStand").isPresent || providers.gradleProperty("gl54ReflexStand").isPresent || providers.gradleProperty("waterFx").isPresent || providers.gradleProperty("hudShots").isPresent) "-Xmx3G" else "-Xmx2500M")
             // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame
             providers.gradleProperty("gcLog").orNull?.let { jvmArgument("-Xlog:gc*:file=$it:uptime,time") }
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)

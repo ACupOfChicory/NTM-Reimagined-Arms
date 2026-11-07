@@ -114,6 +114,7 @@ public final class GunFeelMod {
                         }));
                 acup.gunfeel.smoke.client.SmokeClientSetup.payloads(r);
                 acup.gunfeel.gas.GasSetup.payloads(r, true);
+                acup.gunfeel.gl54.frag.FragNet.payloads(r, true);
             } else {
                 r.playToClient(ShotPayload.TYPE, ShotPayload.CODEC);
                 r.playToClient(BulletStopPayload.TYPE,BulletStopPayload.CODEC);
@@ -121,6 +122,7 @@ public final class GunFeelMod {
                 r.playToClient(HelloPayload.TYPE, HelloPayload.CODEC);
                 r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC);
                 r.playToClient(ProneStandPayload.TYPE, ProneStandPayload.CODEC);
+                acup.gunfeel.gl54.frag.FragNet.payloads(r, false);
                 r.playToClient(acup.gunfeel.gl54.PressLayoutsPayload.TYPE, acup.gunfeel.gl54.PressLayoutsPayload.CODEC);
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC);
                 acup.gunfeel.smoke.SmokeNet.payloads(r);

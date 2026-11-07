@@ -130,6 +130,8 @@ public final class Gl54Grenade {
             bullet.discard();
             return;
         }
+        // airburst, armour-piercing airburst and incendiary go off as fragments
+        if (acup.gunfeel.gl54.frag.Frag.onImpact(bullet, hit)) return;
         Lego.standardExplode(bullet, hit, RADIUS / 2F);
         breakGlass(level, bullet, hit.getLocation());
         bullet.discard();
