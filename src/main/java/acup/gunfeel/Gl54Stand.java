@@ -401,7 +401,7 @@ final class Gl54Stand {
                     inv.append(i).append('=').append(c.kind()).append('x').append(c.size()).append(' ');
                 } else if (s.getItem() == Gl54Items.MAG_EMPTY.get()) inv.append(i).append("=EMPTYx").append(s.getCount()).append(' ');
             }
-            return "mag=" + gm.mag().size() + " chamber=" + gm.chamber() + " count=" + gm.count() + " kind=" + gm.kind() + " sel=" + gm.sel()
+            return "mag=" + gm.mag().size() + " chamber=" + gm.chamber() + " count=" + gm.count() + " kind=" + gm.kind() + " want=" + gm.want()
                     + " next=" + gm.next() + " state=" + ItemGunBaseNT.getState(g, 0) + " | " + inv;
         });
         line("mag", tag, text);
@@ -489,7 +489,7 @@ final class Gl54Stand {
         });
         sleep(200);
         // 1. a new gun, no magazine: R with 13 magazines in the inventory: 8 (7 + the first fed), 50 ticks, nothing given back
-        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.List.of(), "", "airburst", false, false), MOCK_STOCK));
+        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.List.of(), "", java.util.List.of(), false, false), MOCK_STOCK));
         sleep(30);
         run(() -> snap("start"));
         reload("new-gun R");
@@ -538,19 +538,18 @@ final class Gl54Stand {
         sleep(60);
         run(() -> snap("after cut"));
         // 7. the pour: 5 left in the gun (+ barrel), the stock 8, 6, 2 of the same kind: the 5 fill the 6 to 8, 3 come out as a stub
-        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(5, "airburst"), "airburst", "airburst", true, false),
+        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(5, "airburst"), "airburst", java.util.List.of(), true, false),
                 "airburst:8", "airburst:6", "airburst:2"));
         sleep(20);
         reload("pour R");
         sleep(10);
         run(() -> snap("after pour R"));
         // 8. change of kind: HE chosen through the wheel's path; the barrel's airburst goes first
-        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(6, "airburst"), "airburst", "airburst", true, false), MOCK_STOCK));
+        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(6, "airburst"), "airburst", java.util.List.of(), true, false), MOCK_STOCK));
         sleep(20);
         run(() -> {
-            int id = acup.gunfeel.gl54.Gl54Ammo.type("he").id;
             onServer(() -> {
-                AmmoLock.select(player(), id);
+                acup.gunfeel.gl54.GrenadeMagazine.select(player(), java.util.Collections.nCopies(8, "he"));
                 return null;
             });
         });
@@ -570,9 +569,8 @@ final class Gl54Stand {
         run(() -> loadout(acup.gunfeel.gl54.GunMag.NONE, "mixed:8", "airburst:8", "he:8"));
         sleep(20);
         run(() -> {
-            int id = acup.gunfeel.gl54.Gl54Ammo.mixed().id;
             onServer(() -> {
-                AmmoLock.select(player(), id);
+                acup.gunfeel.gl54.GrenadeMagazine.select(player(), acup.gunfeel.gl54.GrenadeKind.SAMPLE_MIX);
                 return null;
             });
         });
@@ -586,7 +584,7 @@ final class Gl54Stand {
         sleep(10);
         hudShot("hud-mixed-shot1");
         // 10. a reload in progress: the bar, a frame at about a third and at the end phase
-        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(3, "he"), "he", "he", true, false), MOCK_STOCK));
+        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(3, "he"), "he", java.util.List.of(), true, false), MOCK_STOCK));
         sleep(20);
         run(() -> key(EnumKeybind.RELOAD));
         sleep(14);
@@ -595,7 +593,7 @@ final class Gl54Stand {
         hudShot("hud-reload-b");
         TODO.add(() -> idle());
         // 11. the wheel, with the mock's stock and the mixed magazine
-        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(7, "he"), "he", "he", true, false),
+        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(7, "he"), "he", java.util.List.of(), true, false),
                 "airburst:8", "airburst:8", "airburst:5", "he:8", "he:3", "inc:8", "smoke:8", "smoke:4", "ap:8", "chlorine:8", "phosgene:6", "mustard:8", "acid:8", "mixed:8"));
         sleep(30);
         run(() -> {
@@ -848,7 +846,7 @@ final class Gl54Stand {
             p.getInventory().clearContent();
             if (!empty) {
                 ItemStack stack = new ItemStack(Gl54Items.GUN.get());
-                stack.set(Gl54Items.GUN_MAG.get(), new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(7, "he"), "he", "he", true, false));
+                stack.set(Gl54Items.GUN_MAG.get(), new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(7, "he"), "he", java.util.List.of(), true, false));
                 ItemGunBaseNT.setIsDrawn(stack, true);
                 ItemGunBaseNT.setIsEquipped(stack, true);
                 ItemGunBaseNT.setState(stack, 0, ItemGunBaseNT.GunState.IDLE);

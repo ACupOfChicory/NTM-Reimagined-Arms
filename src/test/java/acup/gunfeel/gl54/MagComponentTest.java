@@ -49,7 +49,7 @@ class MagComponentTest {
 
     @Test
     void gunSavedAndNetworkForm() {
-        GunMag g = new GunMag(List.of("he", "inc", "smoke"), "airburst", "mixed", true, true);
+        GunMag g = new GunMag(List.of("he", "inc", "smoke"), "airburst", List.of("he", "inc"), true, true);
         assertEquals(g, json(GunMag.CODEC, g));
         assertEquals(GunMag.NONE, json(GunMag.CODEC, GunMag.NONE));
         RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);

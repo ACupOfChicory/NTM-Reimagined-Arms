@@ -6,8 +6,7 @@ import java.util.Map;
 import com.hbm.items.weapon.sedna.BulletConfig;
 import com.hbm.items.weapon.sedna.mags.IMagazine;
 
-// The GL-54's ammunition: a kind of grenade (GrenadeType) per GrenadeKind and one for mixed magazines, made once in the
-// wheel's order, and the magazine of the gun that takes them (GrenadeMagazine). Only HE has a flight of its own so far.
+// The GL-54's ammunition: a kind of grenade (GrenadeType) per GrenadeKind, made once in the wheel's order, and the magazine of the gun that takes them (GrenadeMagazine). Only HE has a flight of its own so far.
 public final class Gl54Ammo {
     public static final int CAPACITY = MagContents.CAPACITY;
     private static Map<String, GrenadeType> types;
@@ -19,7 +18,6 @@ public final class Gl54Ammo {
         if (types == null) {
             Map<String, GrenadeType> m = new LinkedHashMap<>();
             for (GrenadeKind k : GrenadeKind.values()) m.put(k.key, new GrenadeType(k.key));
-            m.put(GrenadeKind.MIXED, new GrenadeType(GrenadeKind.MIXED));
             types = m;
         }
         return types;
@@ -39,10 +37,6 @@ public final class Gl54Ammo {
     // the high-explosive grenade
     public static BulletConfig he() {
         return type(GrenadeKind.HE.key);
-    }
-
-    public static GrenadeType mixed() {
-        return type(GrenadeKind.MIXED);
     }
 
     public static IMagazine<BulletConfig> magazine() {

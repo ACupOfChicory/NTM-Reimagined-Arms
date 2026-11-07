@@ -2,7 +2,6 @@ package acup.gunfeel.gl54;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Predicate;
 
 // The rules of the 20 mm magazines in plain lists of keys, with no game classes (tested without the game). A magazine is a
 // list of grenade keys (GrenadeKind.key), the first one fires first. The rules are the owner's (design.md, mag-system.md
@@ -56,49 +55,74 @@ public final class MagLogic {
         return new Poured(t, new ArrayList<>(old.subList(Math.max(n, 0), old.size())));
     }
 
-    // what R loads: the selected kind if any magazine of it has a grenade; a locked gun waits for it; otherwise the first
-    // kind that is there in the wheel's order; nothing there: the selected one
-    public static String wanted(String sel, boolean locked, Predicate<String> available) {
-        if (!sel.isEmpty() && available.test(sel)) return sel;
-        if (locked && !sel.isEmpty()) return sel;
-        for (GrenadeKind k : GrenadeKind.values()) if (available.test(k.key)) return k.key;
-        if (available.test(GrenadeKind.MIXED)) return GrenadeKind.MIXED;
-        return sel;
+    // the first slot holding exactly those grenades in that order; -1 for none
+    public static int exact(List<List<String>> mags, List<String> contents) {
+        if (contents.isEmpty()) return -1;
+        for (int i = 0; i < mags.size(); i++) if (contents.equals(mags.get(i))) return i;
+        return -1;
     }
 
-    // would a reload change anything: there is a magazine of the wanted kind that holds more than the one in the gun, or
-    // the kind in the gun is another
-    public static boolean improves(String inGunKind, int inGun, String wanted, int bestOfWanted) {
-        if (bestOfWanted <= 0) return false;
-        return !inGunKind.equals(wanted) || bestOfWanted > inGun;
-    }
-
-    // "2x8 + 5": full magazines and the grenades of the unfinished ones; compact has no spaces round the plus
-    public static String label(int full, int rest, boolean compact) {
-        String sep = compact ? "+" : " + ";
-        String fulls = full + "×" + CAPACITY;
-        return full > 0 ? (rest > 0 ? fulls + sep + rest : fulls) : Integer.toString(rest);
-    }
-
-    // the grenades in all magazines of that kind and how many of them are full
-    public record Stock(int rounds, int full, int rest) {
-        public static final Stock NONE = new Stock(0, 0, 0);
-    }
-
-    public static Stock stock(List<List<String>> mags, String kind) {
-        int rounds = 0, full = 0, rest = 0;
-        for (List<String> m : mags) {
-            if (m == null || m.isEmpty() || !kind(m).equals(kind)) continue;
-            rounds += m.size();
-            if (m.size() >= CAPACITY) full++;
-            else rest += m.size();
+    // the slot R takes: a magazine with exactly the wanted contents (the first by slot), else the fullest one there is (the
+    // first among equals); -1 for none
+    public static int pick(List<List<String>> mags, List<String> wanted) {
+        int e = exact(mags, wanted);
+        if (e >= 0) return e;
+        int best = -1;
+        for (int i = 0; i < mags.size(); i++) {
+            List<String> m = mags.get(i);
+            if (m == null || m.isEmpty()) continue;
+            if (best < 0 || m.size() > mags.get(best).size()) best = i;
         }
-        return new Stock(rounds, full, rest);
+        return best;
     }
 
-    // the same, for the HUD's "reserve": the grenades of that kind in the magazines, max 9999
-    public static int reserve(List<List<String>> mags, String kind) {
-        return Math.min(stock(mags, kind).rounds(), 9999);
+    // what R loads: the contents the wheel chose if any magazine has them; a locked gun waits for them; otherwise the fullest
+    // magazine there is; nothing there: the chosen contents
+    public static List<String> wantedContents(List<String> want, boolean locked, List<List<String>> mags) {
+        if (!want.isEmpty() && exact(mags, want) >= 0) return want;
+        if (locked && !want.isEmpty()) return want;
+        // those exact grenades are gone: the fullest magazine of the same kind (the wheel's choice was HE, HE is still about),
+        // and only with none of that kind the fullest there is
+        String k = kind(want);
+        if (!k.equals(GrenadeKind.MIXED) && !k.equals(GrenadeKind.EMPTY)) {
+            int same = fullest(mags, k);
+            if (same >= 0) return mags.get(same);
+        }
+        int best = pick(mags, List.of());
+        return best >= 0 ? mags.get(best) : want;
+    }
+
+    // would taking `cand` change anything: when it is exactly what is wanted, if the gun's magazine is not; otherwise (no
+    // magazine of the wanted contents) only if it holds more or is of another kind
+    public static boolean improves(List<String> inserted, List<String> wanted, List<String> cand) {
+        if (cand.isEmpty()) return false;
+        if (cand.equals(wanted)) return !inserted.equals(wanted);
+        return cand.size() > inserted.size() || !kind(cand).equals(kind(inserted));
+    }
+
+    // the grenades in the magazines that have exactly those contents (stacks counted), max 9999: the HUD's reserve
+    public static int reserve(List<List<String>> mags, int[] counts, List<String> wanted) {
+        int n = 0;
+        for (int i = 0; i < mags.size(); i++) if (!wanted.isEmpty() && wanted.equals(mags.get(i))) n += wanted.size() * counts[i];
+        return Math.min(n, 9999);
+    }
+
+    // one wheel entry: magazines with exactly these contents and how many there are
+    public record Entry(List<String> contents, int magazines) {
+    }
+
+    // the wheel's entries: one per distinct contents, the grenades' kinds in their order, a mixed one last, the fuller first
+    public static List<Entry> entries(List<List<String>> mags, int[] counts) {
+        java.util.LinkedHashMap<List<String>, Integer> by = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < mags.size(); i++) {
+            List<String> m = mags.get(i);
+            if (m != null && !m.isEmpty()) by.merge(m, counts[i], Integer::sum);
+        }
+        List<Entry> out = new ArrayList<>();
+        by.forEach((c, n) -> out.add(new Entry(c, n)));
+        out.sort(java.util.Comparator.<Entry>comparingInt(e -> GrenadeKind.order(kind(e.contents())))
+                .thenComparing(e -> -e.contents().size()).thenComparing(e -> String.join(",", e.contents())));
+        return out;
     }
 
     // the colour (argb) of the HUD's number: the tip of the grenade that fires next, white with none

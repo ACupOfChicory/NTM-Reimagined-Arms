@@ -13,15 +13,19 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
-// The rules of the 20 mm magazines on plain lists (MagLogic, MagSwap, GunMag): kinds, the fullest, the pour, the swap with its
-// 8 + 1 and 8, the semi-automatic feed, the wheel's label and the HUD's numbers.
+// The rules of the 20 mm magazines on plain lists (MagLogic, MagSwap, GunMag): kinds, the pour, the swap with its 8 + 1 and
+// 8, the semi-automatic feed, the wheel's entries by exact contents, the HUD's numbers.
 class MagLogicTest {
     static List<String> n(String key, int count) {
         return new ArrayList<>(Collections.nCopies(count, key));
     }
 
     static GunMag gun(String key, int inMag, boolean barrel) {
-        return new GunMag(n(key, inMag), barrel ? key : "", key, true, false);
+        return new GunMag(n(key, inMag), barrel ? key : "", List.of(), true, false);
+    }
+
+    static List<List<String>> mags(List<String>... m) {
+        return new ArrayList<>(List.of(m));
     }
 
     @Test
@@ -33,30 +37,25 @@ class MagLogicTest {
     }
 
     @Test
-    void fullestTakesTheFirstAmongEquals() {
-        List<List<String>> mags = new ArrayList<>();
-        mags.add(n("he", 3));
-        mags.add(null);
-        mags.add(n("ap", 8));
-        mags.add(n("he", 8));
-        mags.add(n("he", 8));
-        mags.add(n("he", 5));
-        assertEquals(3, MagLogic.fullest(mags, "he"));
-        assertEquals(2, MagLogic.fullest(mags, "ap"));
-        assertEquals(-1, MagLogic.fullest(mags, "smoke"));
-        // mixed: one kind, the fullest of any mixed
-        mags.add(List.of("he", "inc", "inc"));
-        mags.add(List.of("he", "inc", "inc", "he", "he"));
-        assertEquals(6 + 1, MagLogic.fullest(mags, "mixed"));
+    void fullestOfAKindTakesTheFirstAmongEquals() {
+        List<List<String>> m = new ArrayList<>();
+        m.add(n("he", 3));
+        m.add(null);
+        m.add(n("ap", 8));
+        m.add(n("he", 8));
+        m.add(n("he", 8));
+        assertEquals(3, MagLogic.fullest(m, "he"));
+        assertEquals(2, MagLogic.fullest(m, "ap"));
+        assertEquals(-1, MagLogic.fullest(m, "smoke"));
     }
 
     @Test
     void pourTargetIsTheFullestUnfinishedOfTheKind() {
-        List<List<String>> mags = new ArrayList<>(List.of(n("he", 8), n("he", 2), n("he", 6), n("he", 6), n("ap", 7)));
-        assertEquals(2, MagLogic.pourTarget(mags, "he"));
-        assertEquals(4, MagLogic.pourTarget(mags, "ap"));
-        assertEquals(-1, MagLogic.pourTarget(mags, "mixed"));
-        assertEquals(-1, MagLogic.pourTarget(mags, "empty"));
+        List<List<String>> m = new ArrayList<>(List.of(n("he", 8), n("he", 2), n("he", 6), n("he", 6), n("ap", 7)));
+        assertEquals(2, MagLogic.pourTarget(m, "he"));
+        assertEquals(4, MagLogic.pourTarget(m, "ap"));
+        assertEquals(-1, MagLogic.pourTarget(m, "mixed"));
+        assertEquals(-1, MagLogic.pourTarget(m, "empty"));
         assertEquals(-1, MagLogic.pourTarget(List.of(n("he", 8)), "he"));
     }
 
@@ -72,58 +71,50 @@ class MagLogicTest {
 
     @Test
     void swapKeepsTheBarrelsGrenade() {
-        // 3 + 1 in the gun, a full magazine of the same kind: 8 + 1 = 9
-        GunMag g = gun("he", 3, true);
-        MagSwap s = MagSwap.of(g, new ArrayList<>(List.of(n("he", 8))), "he", false);
+        // 3 + 1 in the gun, a full magazine wanted: 8 + 1 = 9
+        MagSwap s = MagSwap.of(gun("he", 3, true), mags(n("he", 8)), n("he", 8), false);
         assertNotNull(s);
         assertEquals(8, s.gun().mag().size());
         assertEquals("he", s.gun().chamber());
         assertEquals(9, s.gun().count());
         assertTrue(s.gun().fresh(), "the decider asks canReload once more: no");
-        // no other magazine to pour into: the three come back as a magazine of their own
         assertEquals(3, s.back().size());
         assertEquals(-1, s.pourSlot());
+        assertEquals(n("he", 8), s.gun().want(), "the next R takes the same contents");
     }
 
     @Test
     void anEmptyGunIsFedTheFirst() {
-        GunMag g = new GunMag(List.of(), "", "he", true, false);
-        MagSwap s = MagSwap.of(g, new ArrayList<>(List.of(n("he", 8))), "he", false);
+        GunMag g = new GunMag(List.of(), "", List.of(), true, false);
+        MagSwap s = MagSwap.of(g, mags(n("he", 8)), n("he", 8), false);
         assertEquals(7, s.gun().mag().size());
         assertEquals("he", s.gun().chamber());
         assertEquals(8, s.gun().count());
-        // the empty magazine comes back empty
-        assertTrue(s.back().isEmpty());
+        assertTrue(s.back().isEmpty(), "the empty magazine comes back empty");
     }
 
     @Test
     void aGunWithNoMagazineGivesNothingBack() {
-        MagSwap s = MagSwap.of(GunMag.NONE, new ArrayList<>(List.of(n("he", 8))), "he", false);
+        MagSwap s = MagSwap.of(GunMag.NONE, mags(n("he", 8)), n("he", 8), false);
         assertNull(s.back());
         assertEquals(-1, s.pourSlot());
         assertTrue(s.gun().inserted());
     }
 
     @Test
-    void theChangeOfKindSendsTheBarrelsGrenadeFirst() {
-        GunMag g = gun("he", 6, true);
-        MagSwap s = MagSwap.of(g, new ArrayList<>(List.of(n("airburst", 8))), "airburst", false);
+    void theChangeOfContentsSendsTheBarrelsGrenadeFirst() {
+        MagSwap s = MagSwap.of(gun("he", 6, true), mags(n("airburst", 8)), n("airburst", 8), false);
         assertEquals("he", s.gun().next(), "the first shot after the change is the old kind");
-        GunMag a = s.gun().afterShot();
-        assertEquals("airburst", a.next());
-        assertEquals("airburst", s.gun().sel());
+        assertEquals("airburst", s.gun().afterShot().next());
         assertEquals(9, s.gun().count());
-        // the old six HE go back as a magazine
         assertEquals(6, s.back().size());
         assertEquals("he", MagLogic.kind(s.back()));
     }
 
     @Test
     void theOldMagazinePoursIntoTheFullestUnfinishedOfItsKind() {
-        // 5 left in the gun; inventory: 8 HE (taken), 4 HE and 6 HE: the 5 pour into the 6, 3 are left as a stub
-        GunMag g = gun("he", 5, true);
-        List<List<String>> mags = new ArrayList<>(List.of(n("he", 4), n("he", 8), n("he", 6)));
-        MagSwap s = MagSwap.of(g, mags, "he", false);
+        // 5 left in the gun; the stock 4 HE, 8 HE (taken), 6 HE: the 5 pour into the 6, 3 are left as a stub
+        MagSwap s = MagSwap.of(gun("he", 5, true), mags(n("he", 4), n("he", 8), n("he", 6)), n("he", 8), false);
         assertEquals(1, s.taken());
         assertEquals(2, s.pourSlot());
         assertEquals(8, s.pourContents().size());
@@ -132,43 +123,52 @@ class MagLogicTest {
 
     @Test
     void aPourThatFitsLeavesNothingToGiveBack() {
-        GunMag g = gun("he", 2, false);
-        List<List<String>> mags = new ArrayList<>(List.of(n("he", 8), n("he", 5)));
-        MagSwap s = MagSwap.of(g, mags, "he", false);
+        MagSwap s = MagSwap.of(gun("he", 2, false), mags(n("he", 8), n("he", 5)), n("he", 8), false);
         assertEquals(7, s.pourContents().size());
         assertNull(s.back());
     }
 
     @Test
     void aMixedMagazineIsNeverPoured() {
-        GunMag g = new GunMag(List.of("he", "inc", "inc"), "he", "mixed", true, false);
-        List<List<String>> mags = new ArrayList<>(List.of(List.of("he", "inc"), n("he", 8)));
-        MagSwap s = MagSwap.of(g, mags, "he", false);
+        GunMag g = new GunMag(List.of("he", "inc", "inc"), "he", List.of(), true, false);
+        MagSwap s = MagSwap.of(g, mags(List.of("he", "inc"), n("he", 8)), n("he", 8), false);
         assertEquals(-1, s.pourSlot());
         assertEquals(List.of("he", "inc", "inc"), s.back());
     }
 
     @Test
-    void noSwapWhenItWouldNotHoldMore() {
-        GunMag g = gun("he", 8, true);
-        assertNull(MagSwap.of(g, new ArrayList<>(List.of(n("he", 8))), "he", false));
-        assertNull(MagSwap.of(g, new ArrayList<>(List.of(n("he", 5))), "he", false));
-        assertNull(MagSwap.of(g, new ArrayList<>(List.of(n("ap", 0))), "ap", false));
-        // a fuller one is taken, and so is another kind
-        assertNotNull(MagSwap.of(gun("he", 5, true), new ArrayList<>(List.of(n("he", 6))), "he", false));
-        assertNotNull(MagSwap.of(gun("he", 8, true), new ArrayList<>(List.of(n("ap", 2))), "ap", false));
+    void noSwapWhenItWouldChangeNothing() {
+        assertNull(MagSwap.of(gun("he", 8, true), mags(n("he", 8)), n("he", 8), false), "what is in is what is wanted");
+        assertNull(MagSwap.of(gun("he", 8, true), mags(), n("he", 8), false), "none to take");
+        // not the wanted contents about: a fuller or another kind is taken, a smaller one of the same kind is not
+        assertNull(MagSwap.of(gun("he", 8, true), mags(n("he", 5)), n("he", 8), false));
+        assertNotNull(MagSwap.of(gun("he", 5, true), mags(n("he", 6)), n("he", 8), false));
+        assertNotNull(MagSwap.of(gun("he", 8, true), mags(n("ap", 2)), n("ap", 8), false));
+        // the wanted contents are there and the gun's magazine is not them: take it, even a smaller one
+        assertNotNull(MagSwap.of(gun("he", 8, true), mags(n("he", 5)), n("he", 5), false));
+    }
+
+    @Test
+    void exactlyTheChosenContentsAreTakenNotJustTheKind() {
+        List<List<String>> m = mags(n("he", 8), List.of("he", "he", "he", "he", "he", "he", "he", "ap"), n("he", 8));
+        MagSwap s = MagSwap.of(gun("ap", 1, true), m, List.of("he", "he", "he", "he", "he", "he", "he", "ap"), false);
+        assertEquals(1, s.taken(), "the mixed one with that exact order");
+        assertEquals("ap", s.gun().next(), "the barrel stays");
+        assertEquals("he", s.gun().mag().get(0));
+        // the same grenades in another order are another magazine
+        assertEquals(-1, MagLogic.exact(mags(List.of("ap", "he")), List.of("he", "ap")));
     }
 
     @Test
     void afterTheSwapTheNextAskIsNoUntilItIsCleared() {
-        MagSwap s = MagSwap.of(gun("he", 1, true), new ArrayList<>(List.of(n("he", 8))), "he", false);
+        MagSwap s = MagSwap.of(gun("he", 1, true), mags(n("he", 8)), n("he", 8), false);
         assertTrue(s.gun().fresh());
         assertFalse(s.gun().withFresh(false).fresh());
     }
 
     @Test
     void semiAutoFeedsTheNextIn() {
-        GunMag g = new GunMag(List.of("inc", "smoke"), "he", "mixed", true, false);
+        GunMag g = new GunMag(List.of("inc", "smoke"), "he", List.of(), true, false);
         g = g.afterShot();
         assertEquals("inc", g.chamber());
         assertEquals(List.of("smoke"), g.mag());
@@ -183,36 +183,42 @@ class MagLogicTest {
 
     @Test
     void theNumberHasTheColourOfTheNextGrenade() {
-        GunMag g = new GunMag(List.of("airburst"), "he", "mixed", true, false);
+        GunMag g = new GunMag(List.of("airburst"), "he", List.of(), true, false);
         assertEquals(GrenadeKind.HE.argb(), MagLogic.numberColor(g));
         assertEquals(GrenadeKind.AIRBURST.argb(), MagLogic.numberColor(g.afterShot()));
-        // with the barrel empty: the magazine's first
-        assertEquals(GrenadeKind.AIRBURST.argb(), MagLogic.numberColor(new GunMag(List.of("airburst"), "", "", true, false)));
+        assertEquals(GrenadeKind.AIRBURST.argb(), MagLogic.numberColor(new GunMag(List.of("airburst"), "", List.of(), true, false)));
     }
 
     @Test
-    void wantedKind() {
-        Set<String> there = Set.of("he", "smoke");
-        assertEquals("he", MagLogic.wanted("he", false, there::contains));
-        assertEquals("ap", MagLogic.wanted("ap", true, there::contains), "a locked gun waits for its kind");
-        assertEquals("he", MagLogic.wanted("ap", false, there::contains), "unlocked: the first found in the wheel's order");
-        assertEquals("smoke", MagLogic.wanted("ap", false, Set.of("smoke")::contains));
-        assertEquals("mixed", MagLogic.wanted("ap", false, Set.of("mixed")::contains));
-        assertEquals("ap", MagLogic.wanted("ap", false, Set.<String>of()::contains));
-        assertEquals("he", MagLogic.wanted("", false, there::contains));
+    void wantedContents() {
+        List<List<String>> m = mags(n("he", 3), n("smoke", 8), n("he", 8));
+        assertEquals(n("he", 8), MagLogic.wantedContents(n("he", 8), false, m));
+        assertEquals(n("ap", 8), MagLogic.wantedContents(n("ap", 8), true, m), "a locked gun waits for them");
+        assertEquals(n("smoke", 8), MagLogic.wantedContents(n("ap", 8), false, m), "unlocked: the fullest, the first among equals");
+        assertEquals(n("smoke", 8), MagLogic.wantedContents(List.of(), false, m));
+        assertEquals(n("ap", 8), MagLogic.wantedContents(n("ap", 8), false, mags()));
+        // the exact contents are gone: the same kind first, even a smaller one
+        assertEquals(n("he", 8), MagLogic.wantedContents(n("he", 5), false, m), "no HE x5, the fullest HE");
+        assertEquals(n("he", 3), MagLogic.wantedContents(n("he", 5), false, mags(n("he", 3), n("smoke", 8))));
     }
 
     @Test
-    void wheelLabel() {
-        assertEquals("2×8 + 5", MagLogic.label(2, 5, false));
-        assertEquals("2×8+5", MagLogic.label(2, 5, true));
-        assertEquals("2×8", MagLogic.label(2, 0, false));
-        assertEquals("5", MagLogic.label(0, 5, false));
-        List<List<String>> mags = new ArrayList<>(List.of(n("he", 8), n("he", 8), n("he", 3), n("he", 2), n("ap", 8)));
-        MagLogic.Stock st = MagLogic.stock(mags, "he");
-        assertEquals(21, st.rounds());
-        assertEquals("2×8 + 5", MagLogic.label(st.full(), st.rest(), false));
-        assertEquals(21, MagLogic.reserve(mags, "he"));
+    void reserveIsTheGrenadesInMagazinesWithTheSameContents() {
+        List<List<String>> m = mags(n("he", 8), n("he", 8), n("he", 3), n("ap", 8));
+        assertEquals(16, MagLogic.reserve(m, new int[] {1, 1, 1, 1}, n("he", 8)));
+        assertEquals(24, MagLogic.reserve(m, new int[] {2, 1, 1, 1}, n("he", 8)), "a stack of 2 counts twice");
+        assertEquals(3, MagLogic.reserve(m, new int[] {1, 1, 1, 1}, n("he", 3)));
+        assertEquals(0, MagLogic.reserve(m, new int[] {1, 1, 1, 1}, List.of()));
+    }
+
+    @Test
+    void wheelEntriesAreOnePerDistinctContents() {
+        List<List<String>> m = mags(n("he", 8), List.of("he", "ap", "he"), n("he", 8), n("airburst", 5), List.of("ap", "he", "he"), n("he", 3));
+        var e = MagLogic.entries(m, new int[] {1, 1, 2, 1, 1, 1});
+        // kinds in the wheel's order, a mixed one last; the fuller first; the same grenades in another order are another entry
+        assertEquals(List.of(n("airburst", 5), n("he", 8), n("he", 3), List.of("ap", "he", "he"), List.of("he", "ap", "he")), e.stream().map(MagLogic.Entry::contents).toList());
+        assertEquals(3, e.get(1).magazines(), "two magazines in a stack of 2 and one in a slot of its own");
+        assertEquals(1, e.get(0).magazines());
     }
 
     @Test

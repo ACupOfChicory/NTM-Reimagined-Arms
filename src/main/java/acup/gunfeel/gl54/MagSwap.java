@@ -8,11 +8,11 @@ import java.util.List;
 // as an item of its own; an empty one comes back empty; a gun that had no magazine in gives nothing back.
 public record MagSwap(GunMag gun, int taken, int pourSlot, List<String> pourContents, List<String> back) {
     // null: nothing to swap (no magazine of the wanted kind, or it would not hold more than the one in the gun)
-    public static MagSwap of(GunMag gun, List<List<String>> mags, String wanted, boolean locked) {
-        int slot = MagLogic.fullest(mags, wanted);
-        if (slot < 0 || !MagLogic.improves(gun.kind(), gun.mag().size(), wanted, mags.get(slot).size())) return null;
+    public static MagSwap of(GunMag gun, List<List<String>> mags, List<String> wanted, boolean locked) {
+        int slot = MagLogic.pick(mags, wanted);
+        if (slot < 0 || !MagLogic.improves(gun.mag(), wanted, mags.get(slot))) return null;
         List<String> take = mags.get(slot);
-        GunMag next = gun.withMagazine(take, locked && !gun.sel().isEmpty() ? gun.sel() : wanted);
+        GunMag next = gun.withMagazine(take, locked && !gun.want().isEmpty() ? gun.want() : take);
         if (!gun.inserted()) return new MagSwap(next, slot, -1, null, null);
         // the taken one is out of the inventory: it is neither a pour target nor there to be counted
         List<List<String>> left = new java.util.ArrayList<>(mags);

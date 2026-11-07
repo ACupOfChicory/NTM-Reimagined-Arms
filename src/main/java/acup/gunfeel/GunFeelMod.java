@@ -118,6 +118,10 @@ public final class GunFeelMod {
             r.playToServer(AmmoSelectPayload.TYPE, AmmoSelectPayload.CODEC, (p, ctx) -> {
                 if (Feature.AMMO_CHOICE.on() && ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp && !acup.gunfeel.SpectatorGuns.blocks(sp)) AmmoLock.select(sp, p.config());
             });
+            r.playToServer(acup.gunfeel.gl54.Gl54SelectPayload.TYPE, acup.gunfeel.gl54.Gl54SelectPayload.CODEC, (p, ctx) -> {
+                if (Feature.GL54.on() && ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp && !acup.gunfeel.SpectatorGuns.blocks(sp))
+                    ctx.enqueueWork(() -> acup.gunfeel.gl54.GrenadeMagazine.select(sp, p.contents()));
+            });
             r.playToServer(ModelPosePayload.TYPE, ModelPosePayload.CODEC, (p, ctx) -> {
                 if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) ModelHits.receive(sp, p);
             });

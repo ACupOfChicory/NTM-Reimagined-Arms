@@ -203,15 +203,8 @@ public final class AmmoLock {
         BulletConfig target = BulletConfig.configs.get(id);
         if (mag == null || !accepted(mag).contains(target) || count(target, player.getInventory()) == 0) return;
         ItemGunBaseNT.setValueInt(stack, NEXT, id + 1);
-        if (mag instanceof acup.gunfeel.gl54.GrenadeMagazine grenades && target instanceof acup.gunfeel.gl54.GrenadeType kind) {
-            // nothing to unload: the magazine in the gun goes back to the inventory when R swaps it. The same kind as the
-            // gun has now is not a reload: R takes the fullest magazine of it
-            if (grenades.choose(stack, kind.kind)) {
-                gun.handleKeybind(player, stack, EnumKeybind.RELOAD, true);
-                gun.handleKeybind(player, stack, EnumKeybind.RELOAD, false);
-            }
-            return;
-        }
+        // the GL-54's wheel sends magazines' contents (Gl54SelectPayload), not a config
+        if (mag instanceof acup.gunfeel.gl54.GrenadeMagazine) return;
         if (mag instanceof MagazineBelt) {
             MagazineBelt.setMagType(stack, id);
             return;

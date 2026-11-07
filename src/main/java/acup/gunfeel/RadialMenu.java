@@ -49,6 +49,14 @@ public final class RadialMenu {
         IMagazine<?> mag = AmmoLock.primary(stack);
         var player = Minecraft.getInstance().player;
         if (mag == null || player == null) return out;
+        // the GL-54: one entry per distinct contents of the magazines in the inventory (only magazines, not kinds)
+        if (mag instanceof acup.gunfeel.gl54.GrenadeMagazine) {
+            var inv = player.getInventory();
+            for (var e : acup.gunfeel.gl54.MagLogic.entries(acup.gunfeel.gl54.GrenadeType.magazines(inv), acup.gunfeel.gl54.GrenadeType.counts(inv))) {
+                if (out.size() < MAX) out.add(acup.gunfeel.gl54.GrenadeType.entry(e.contents(), e.magazines()));
+            }
+            return out;
+        }
         for (BulletConfig c : AmmoLock.accepted(mag)) {
             if (out.size() < MAX && !out.contains(c) && AmmoLock.count(c, player.getInventory()) != 0) out.add(c);
         }
@@ -70,8 +78,11 @@ public final class RadialMenu {
         IMagazine<?> mag = AmmoLock.primary(stack);
         Object t = mag == null ? null : mag.getType(stack, Minecraft.getInstance().player.getInventory());
         // the GL-54: the kind of the magazine in the gun (the barrel's grenade can be the old kind)
-        if (mag instanceof acup.gunfeel.gl54.GrenadeMagazine grenades)
-            t = acup.gunfeel.gl54.Gl54Ammo.typeOrNull(grenades.inGunKind(stack, Minecraft.getInstance().player.getInventory()));
+        // the entry with the contents the gun is loaded with, else what R would take
+        if (mag instanceof acup.gunfeel.gl54.GrenadeMagazine grenades) {
+            var gm = acup.gunfeel.gl54.GrenadeMagazine.gun(stack);
+            t = acup.gunfeel.gl54.GrenadeType.entry(gm.mag().isEmpty() ? grenades.wanted(stack, Minecraft.getInstance().player.getInventory()) : gm.mag(), 0);
+        }
         current = t instanceof BulletConfig b ? b : null;
         px = py = 0;
         h = new float[list.size()];
@@ -260,16 +271,26 @@ public final class RadialMenu {
         float a = f.ang(i), x = sx(r, a), y = sy(r, a);
         icon(f, i, x, y - 4 - 2 * h[i], 1 + grow * h[i]);
         text(f, prefix + count(f, i), x, y + 6 + 3 * h[i], rgb, alpha * f.in[i], 1);
+        glDots(f, i, x, y + 16 + 3 * h[i]);
         return new float[] {x, y};
     }
 
-    // the GL-54's sector label: the magazines of the kind as "2×8 + 5"; compact (no spaces) in a sector of a few, the
-    // full count only on the hovered one, a total in the many (the full one is then under the name)
+    // the GL-54's sector label: how many magazines of these contents there are, and under it a strip of dots of the grenades
     private static String glCount(Frame f, acup.gunfeel.gl54.GrenadeType g, int i) {
-        var st = g.stock(Minecraft.getInstance().player.getInventory());
-        boolean hovered = i == f.hover;
-        if (f.n >= 9 || (f.n > 6 && !hovered)) return Integer.toString(st.rounds());
-        return acup.gunfeel.gl54.MagLogic.label(st.full(), st.rest(), f.n <= 6 && !hovered);
+        return "\u00D7" + g.magazines;
+    }
+
+    // the strip of the entry's grenades in fire order: 2 x 2 dots, 3 px apart, centred under the count
+    private static void glDots(Frame f, int i, float x, float y) {
+        if (!(f.items.get(i) instanceof acup.gunfeel.gl54.GrenadeType g) || g.contents == null) return;
+        int n = g.contents.size();
+        float a = f.in[i] * f.open;
+        if (a < 0.03F) return;
+        int left = Math.round(x - (n * 3 - 1) / 2F), top = Math.round(y);
+        for (int k = 0; k < n; k++) {
+            int rgb = acup.gunfeel.gl54.GrenadeKind.argbOf(g.contents.get(k)) & 0xFFFFFF;
+            f.g.fill(left + k * 3, top, left + k * 3 + 2, top + 2, GuiShapes.argb(rgb, a));
+        }
     }
 
     // the hovered ammo's name: "Патрон 12 калибра (Пуля)" as two lines
@@ -295,27 +316,17 @@ public final class RadialMenu {
     // the GL-54's lines under the name: many sectors give the full count first; then the numbers (a dash where the kind has
     // none yet), or for the mixed magazine its order
     private static void glStats(Frame f, acup.gunfeel.gl54.GrenadeType g, float y) {
-        float extra = f.n >= 9 ? 10 : 0;
-        var inv = Minecraft.getInstance().player.getInventory();
-        if (extra > 0) {
-            var st = g.stock(inv);
-            text(f, acup.gunfeel.gl54.MagLogic.label(st.full(), st.rest(), false), 0, y + 20, f.acc, 1, 1);
-        }
-        if (g.mixed()) {
-            java.util.List<String> order = java.util.List.of();
-            var mags = acup.gunfeel.gl54.GrenadeType.magazines(inv);
-            int best = acup.gunfeel.gl54.MagLogic.fullest(mags, acup.gunfeel.gl54.GrenadeKind.MIXED);
-            if (best >= 0) order = mags.get(best);
-            text(f, I18n.get("ntmgunfeel.gl54.order") + " ", 0, y + 24 + extra, LABEL, 1, 1);
+        float extra = 0;
+        if (g.contents != null && acup.gunfeel.gl54.GrenadeKind.MIXED.equals(g.contentsKind())) {
+            text(f, I18n.get("ntmgunfeel.gl54.order") + " ", 0, y + 24, LABEL, 1, 1);
             StringBuilder codes = new StringBuilder();
-            for (int k = 0; k < order.size(); k++) {
-                codes.append(k > 0 ? " " : "").append(acup.gunfeel.gl54.GrenadeKind.codeOf(order.get(k)));
+            for (int k = 0; k < g.contents.size(); k++) {
+                codes.append(k > 0 ? " " : "").append(acup.gunfeel.gl54.GrenadeKind.codeOf(g.contents.get(k)));
                 // the order as coloured squares (5 px apart), centred
-                float cx = -(order.size() * 5 - 1) / 2F + k * 5, cy = y + 35 + extra;
-                f.g.fill(Math.round(cx), Math.round(cy), Math.round(cx) + 4, Math.round(cy) + 4,
-                        acup.gunfeel.gl54.GrenadeKind.argbOf(order.get(k)));
+                float cx = -(g.contents.size() * 5 - 1) / 2F + k * 5, cy = y + 35;
+                f.g.fill(Math.round(cx), Math.round(cy), Math.round(cx) + 4, Math.round(cy) + 4, acup.gunfeel.gl54.GrenadeKind.argbOf(g.contents.get(k)));
             }
-            text(f, codes.toString(), 0, y + 42 + extra, 0x9A9A9A, 1, 1);
+            text(f, codes.toString(), 0, y + 42, 0x9A9A9A, 1, 1);
             return;
         }
         var kind = g.grenade();
