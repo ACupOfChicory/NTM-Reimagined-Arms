@@ -19,9 +19,6 @@ public interface TurretAccess {
     @Invoker("getEntityPos")
     Vec3 gunfeel$middle(Entity e);
 
-    @Invoker("getBaseDamage")
-    float gunfeel$base();
-
     @Invoker("getFirstConfigLoaded")
     BulletConfig gunfeel$round();
 }

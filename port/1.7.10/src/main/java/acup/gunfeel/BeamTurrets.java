@@ -19,7 +19,8 @@ import net.minecraft.world.World;
 
 // port: 26.2's BeamTurrets (X581) for 1.7.10: the turrets' look is Library.isObstructedOpaque in entityInLOS (shared by
 // every turret: only the two beam turrets' goes here), the Tesla's Library.isObstructed in zap; hurtServer ->
-// attackEntityFrom; the damage is NTM 1.7.10's getBaseDamage() (a Maxwell's times its upgrades); the turret's own blocks are
+// attackEntityFrom; the damage is NTM X5863's getBaseDamage() (a Maxwell's times its upgrades), X5808's own numbers where
+// it has none; the turret's own blocks are
 // BlockDummyable's cells around its core (findCore); a turret is a TileEntity and its own methods go through
 // TurretAccess (NTM's turret implements OpenComputers' interfaces, not on the port's classpath).
 // NTM's beams with no beam entity: the Tauon and Maxwell turrets and the Tesla arcs (the coil, the Tesla and taint
@@ -37,10 +38,31 @@ public final class BeamTurrets {
     }
 
     // the damage the turret's beam has (NTM's updateFiringTick): a Maxwell's by its upgrades; a Tauon's shot is its base
-    // damage to 4/3 of it, and whether a target is in sight is judged by the least
+    // damage to 4/3 of it (X5808: 30 to 40), and whether a target is in sight is judged by the least
     public static float damage(TileEntity turret, int red, int black) {
-        float base = ((TurretAccess) turret).gunfeel$base();
+        float base = base(turret);
         return turret instanceof TileEntityTurretMaxwell ? (black * 10 + red + 1F) * base : base;
+    }
+
+    // NTM X5863's getBaseDamage(); NTM X5808 has none (a mixin into it would turn the whole bullets system off): a
+    // Tauon's least 30 and a Maxwell's 0.25 there
+    private static final java.lang.reflect.Method BASE = baseMethod();
+
+    private static java.lang.reflect.Method baseMethod() {
+        try {
+            return Class.forName("com.hbm.tileentity.turret.TileEntityTurretBaseNT").getMethod("getBaseDamage");
+        } catch (ReflectiveOperationException | LinkageError e) {
+            return null;
+        }
+    }
+
+    static float base(TileEntity turret) {
+        if (BASE != null) try {
+            return (Float) BASE.invoke(turret);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            // as X5808
+        }
+        return turret instanceof TileEntityTurretMaxwell ? 0.25F : 30F;
     }
 
     // NTM's isObstructedOpaque(target's middle, pivot) for a beam turret: true when the beam does not get there

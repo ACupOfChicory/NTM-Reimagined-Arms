@@ -987,7 +987,7 @@ public final class BulletCheck {
     }
 
     private static float maxwellBase() throws Exception {
-        return (Float) call(new com.hbm.tileentity.turret.TileEntityTurretMaxwell(), "getBaseDamage", new Class<?>[0]);
+        return BeamTurrets.base(new com.hbm.tileentity.turret.TileEntityTurretMaxwell());
     }
 
     // a beam turret on a lane (its core alone, meta 12, on, with power and a tau round) and a golem behind `wall`: {1 if

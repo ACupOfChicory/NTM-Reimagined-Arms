@@ -45,7 +45,11 @@ public final class MixinCheck {
             {"com.hbm.items.weapon.sedna.GunConfig", "6"}, // MixinG3Inspect 4 (gunfeel$release + 3), MixinGunConfigAnims 2
             {"com.hbm.entity.projectile.EntityThrowableNT", "12"}, // MixinThrowableClip: its 12 gunfeel$ methods (handlers and helpers)
             {"com.hbm.entity.projectile.EntityThrowableInterp", "1"}, // MixinThrowableMotion (client)
-            {"com.hbm.entity.projectile.EntityBulletBeamBase", "4"},
+            {"com.hbm.entity.projectile.EntityBulletBeamBase", "10"}, // MixinBeamHits 4, MixinBeamBlocks 6 (the path's getter and setter, begin, blocks, coin, impact)
+            {"com.hbm.tileentity.turret.TileEntityTurretBaseNT", "4"}, // MixinBeamTurretSight 1, TurretAccess 3
+            {"com.hbm.tileentity.turret.TileEntityTurretTauon", "1"}, // MixinBeamTauon
+            {"com.hbm.tileentity.turret.TileEntityTurretMaxwell", "3"}, // MixinBeamMaxwell 1, TurretMaxwellAccess 2
+            {"com.hbm.tileentity.machine.TileEntityTesla", "2"}, // MixinBeamTesla
             {"com.hbm.entity.projectile.EntityBullet", "9"}, // MixinLegacyBullet: 8 + gunfeel$extra
             {"com.hbm.entity.projectile.EntityBulletBaseNT", "41"}, // MixinOldBulletBase: 2 + gunfeel$ntmHead; MixinWaterOldBullet: 11 handlers + 27 of WaterBullet, Hits and helpers
             {"com.hbm.explosion.vanillant.standard.EntityProcessorCross", "5"}, // MixinWaterBlastProcessor: the blast in water
