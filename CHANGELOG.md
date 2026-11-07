@@ -1,5 +1,20 @@
 # Changelog
 
+## X583.82
+
+- NTM Decentralized Edition gets X583: the server turns a kept pose of NTM's
+  hunter chopper and plastic bag by the heading they were drawn at, not by
+  their body.
+
+## X583
+
+- The server now turns a kept pose of NTM's hunter chopper and plastic bag by
+  the heading they were drawn at, not by their body. The game does not send a
+  mob's body to the server, and a mob that stands keeps it up to 50 degrees
+  off its heading. Since X478, the model of such a mob was then turned by that
+  gap as well, and a standing chopper's ended up about 2 blocks off where it
+  was drawn.
+
 ## X582.81
 
 - NTM Decentralized Edition gets X582: a beam that meets blocks more than 64

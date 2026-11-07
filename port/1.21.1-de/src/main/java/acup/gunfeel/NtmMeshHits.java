@@ -94,7 +94,7 @@ public final class NtmMeshHits {
         Vec3 origin = new Vec3(Mth.lerp(partial, entity.xOld, entity.getX()), Mth.lerp(partial, entity.yOld, entity.getY()),
                 Mth.lerp(partial, entity.zOld, entity.getZ()));
         frame = new Frame(living, origin, new Vec3(camX, camY, camZ).subtract(origin),
-                Mth.rotLerp(partial, living.yBodyRotO, living.yBodyRot));
+                ModelHits.takenYaw(living, Mth.rotLerp(partial, living.yBodyRotO, living.yBodyRot), partial));
     }
 
     // LevelRenderer.renderEntity RETURN: published with the frame's others once the world is drawn (flush)

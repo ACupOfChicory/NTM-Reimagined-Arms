@@ -42,8 +42,8 @@ public abstract class MixinVanillateModelHit {
                 Object current=VanillatePose.published(this);
                 gunfeel$origins.keySet().removeIf(key -> key!=current && key!=gunfeel$lastApplied);
             }
-            float yaw=state instanceof LivingEntityRenderState livingState?livingState.bodyRot:
-                    net.minecraft.util.Mth.rotLerp(state.partialTick,living.yBodyRotO,living.yBodyRot);
+            float yaw=acup.gunfeel.ModelHits.takenYaw(living,state instanceof LivingEntityRenderState livingState?livingState.bodyRot:
+                    net.minecraft.util.Mth.rotLerp(state.partialTick,living.yBodyRotO,living.yBodyRot),state.partialTick);
             int wool=state instanceof net.minecraft.client.renderer.entity.state.SheepRenderState s && !s.isSheared?(s.isBaby?2:1):0;
             gunfeel$origins.put(snapshot,new double[]{state.x,state.y,state.z,yaw,wool});
         }
