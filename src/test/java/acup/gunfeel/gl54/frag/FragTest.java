@@ -35,24 +35,40 @@ class FragTest {
     }
 
     @Test
-    void thereAreAtMostEightyRaysAndTheNumbersAreTheDesigns() {
-        assertEquals(80, FragSpec.AIRBURST.rays());
-        assertEquals(40, FragSpec.AP.rays());
-        assertEquals(40, FragSpec.INCENDIARY.rays());
+    void thereAreAtMost160RaysAndTheNumbersAreTheDesigns() {
+        assertEquals(160, FragSpec.AIRBURST.rays());
+        assertEquals(80, FragSpec.AP.rays());
+        assertEquals(80, FragSpec.INCENDIARY.rays());
+        assertEquals(160, FragSpec.MAX_RAYS);
         for (GrenadeKind k : GrenadeKind.values()) {
             FragSpec s = FragSpec.of(k);
             if (s != null) assertTrue(s.rays() <= FragSpec.MAX_RAYS);
         }
         assertEquals(65.0, FragSpec.AIRBURST.coneDegrees());
         assertEquals(40, FragSpec.AIRBURST.cone());
+        assertEquals(120, FragSpec.AIRBURST.ring());
         assertEquals(1.25F, FragSpec.AIRBURST.damage());
         assertEquals(30.0, FragSpec.AP.coneDegrees());
         assertEquals(20, FragSpec.AP.cone());
-        assertEquals(20, FragSpec.AP.ring());
+        assertEquals(60, FragSpec.AP.ring());
         assertEquals(0.75F, FragSpec.INCENDIARY.damage());
+        assertEquals(20, FragSpec.INCENDIARY.cone());
+        assertEquals(60, FragSpec.INCENDIARY.ring());
         assertEquals(65.0, FragSpec.INCENDIARY.coneDegrees());
         assertEquals(6.0, FragSpec.RANGE);
         assertEquals(15.0, FragSpec.RING_DEGREES);
+    }
+
+    // the wheel shows the real counts and the damage of a whole burst
+    @Test
+    void theWheelShowsTheSpecsNumbers() {
+        for (FragSpec s : new FragSpec[] {FragSpec.AIRBURST, FragSpec.AP, FragSpec.INCENDIARY}) {
+            assertTrue(s.kind().damage.endsWith("\u00D7" + s.cone() + "+" + s.ring()), s.kind().damage);
+            assertEquals(s.rays() * s.damage(), s.kind().perShot, 1e-4);
+        }
+        assertEquals("1.3 \u00D740+120", GrenadeKind.AIRBURST.damage);
+        assertEquals("1.3 \u00D720+60", GrenadeKind.AP.damage);
+        assertEquals("0.8 \u00D720+60", GrenadeKind.INCENDIARY.damage);
     }
 
     @Test

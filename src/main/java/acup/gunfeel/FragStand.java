@@ -235,7 +235,7 @@ final class FragStand {
                 if (mine == 0) zero++;
                 double ns = (Long) w[2];
                 NANOS.add(ns);
-                NANOS_BY.computeIfAbsent(spec.kind().key, k -> new ArrayList<>()).add(ns);
+                NANOS_BY.computeIfAbsent(spec.kind().key + tag(spec).substring(spec.kind().code.length()), k -> new ArrayList<>()).add(ns);
             }
             Arrays.sort(damages);
             line(name, "kind", spec.kind().key, "cone", spec.cone(), "ring", spec.ring(), "bursts", N, "hits/burst", hitsSum / (double) N,
@@ -248,20 +248,30 @@ final class FragStand {
     private static final Vec3 B = new Vec3(O.getX() + 0.5, O.getY() + 1.0, O.getZ() + 0.5);
     private static final Vec3 AHEAD = new Vec3(0, 0, 1);
 
+    // the spec with only its cone (or only its ring)
+    private static FragSpec part(FragSpec s, boolean cone) {
+        return new FragSpec(s.kind(), s.coneDegrees(), cone ? s.cone() : 0, cone ? 0 : s.ring(), s.damage(), s.threshold(), s.piercing(), s.igniteTicks());
+    }
+
+    private static String tag(FragSpec s) {
+        FragSpec full = FragSpec.of(s.kind());
+        return s.kind().code + (full == null || s.equals(full) ? "" : s.ring() == 0 ? "-cone" : "-ring");
+    }
+
     private static void cases(Minecraft mc) {
         FragSpec ab = FragSpec.AIRBURST, ap = FragSpec.AP, inc = FragSpec.INCENDIARY;
-        FragSpec abCone = new FragSpec(GrenadeKind.AIRBURST, 65, 40, 0, 1.25F, 0F, 0F, 0), abRing = new FragSpec(GrenadeKind.AIRBURST, 65, 0, 40, 1.25F, 0F, 0F, 0);
+        FragSpec abCone = part(ab, true), abRing = part(ab, false);
         // 1-3: the husk's feet on the floor; the burst at its middle height
         for (FragSpec s : new FragSpec[] {ab, abCone, abRing, ap, inc}) {
-            String tag = s == abCone ? "AB-cone" : s == abRing ? "AB-ring" : s.kind().code;
+            String tag = tag(s);
             trial(mc, "1 ahead 1.5 " + tag, s, B, AHEAD, B.x, O.getY(), B.z + 1.5, false, false);
             trial(mc, "2 ahead 3 " + tag, s, B, AHEAD, B.x, O.getY(), B.z + 3.0, false, false);
             trial(mc, "3 side 1 at 3 " + tag, s, B, AHEAD, B.x + 1.0, O.getY(), B.z + 3.0, false, false);
         }
         // 4: the cover; the burst 0.5 over the wall's top at 21 blocks, the husk 1.3 / 1.6 / 1.9 past the wall's front face
         Vec3 over = new Vec3(O.getX() + 0.5, O.getY() + 2.5, O.getZ() + 21.0);
-        for (FragSpec s : new FragSpec[] {abCone, abRing, ab, ap, inc}) {
-            String tag = s == abCone ? "AB-cone" : s == abRing ? "AB-ring" : s.kind().code;
+        for (FragSpec s : new FragSpec[] {abCone, abRing, ab, part(ap, true), part(ap, false), ap, part(inc, true), part(inc, false), inc}) {
+            String tag = tag(s);
             for (double past : new double[] {1.3, 1.6, 1.9})
                 for (boolean baby : new boolean[] {false, true})
                     trial(mc, "4 cover " + (baby ? "baby " : "") + "past " + past + " " + tag, s, over, AHEAD, over.x, O.getY(), O.getZ() + 20.0 + past, baby, false);
