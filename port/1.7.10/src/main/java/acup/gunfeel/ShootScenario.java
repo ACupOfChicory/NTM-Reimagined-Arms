@@ -103,9 +103,15 @@ public final class ShootScenario {
         return NAME.equals("waterfx");
     }
 
+    // "npc": every NTM turret and shooting mob against the same round of a player, the old bullets at the head and
+    // limbs (npcShots; NpcShotsScenario)
+    static boolean npc() {
+        return NAME.equals("npc");
+    }
+
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || look() || shapes() || scan() || mobs() || holes() || glass() || fences() || aimlag() || walksprint() || pistols() || waterfx() || TraceScenario.enabled();
+        return on() || look() || shapes() || scan() || mobs() || holes() || glass() || fences() || aimlag() || walksprint() || pistols() || waterfx() || npc() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -168,6 +174,10 @@ public final class ShootScenario {
         }
         if (pistols()) {
             PistolScenario.step(mc, ++tick);
+            return;
+        }
+        if (npc()) {
+            NpcShotsScenario.step(mc, ++tick);
             return;
         }
         if (waterfx()) {

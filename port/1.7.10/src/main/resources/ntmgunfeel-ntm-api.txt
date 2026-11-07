@@ -229,23 +229,57 @@ CORE class com/hbm/blocks/generic/BlockBarrier
 CORE class com/hbm/blocks/generic/BlockDoorGeneric
 CORE class com/hbm/blocks/generic/BlockWoodStructure
 CORE class com/hbm/blocks/machine/BlockCargoElevator
+CORE class com/hbm/entity/projectile/EntityBullet
 CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
+CORE class com/hbm/entity/projectile/EntityBulletBaseNT
 CORE class com/hbm/items/armor/ArmorFSBPowered
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 CORE class com/hbm/tileentity/machine/TileEntityCargoElevator
+CORE field com/hbm/blocks/ModBlocks concrete_smooth Lnet/minecraft/block/Block;
+CORE field com/hbm/entity/projectile/EntityBullet damage D
+CORE field com/hbm/entity/projectile/EntityBullet motionX D
+CORE field com/hbm/entity/projectile/EntityBullet motionY D
+CORE field com/hbm/entity/projectile/EntityBullet motionZ D
+CORE field com/hbm/entity/projectile/EntityBullet shootingEntity Lnet/minecraft/entity/Entity;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 motionX D
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 motionZ D
+CORE field com/hbm/entity/projectile/EntityBulletBaseNT motionX D
+CORE field com/hbm/entity/projectile/EntityBulletBaseNT motionY D
+CORE field com/hbm/entity/projectile/EntityBulletBaseNT motionZ D
+CORE field com/hbm/entity/projectile/EntityBulletBaseNT overrideDamage F
+CORE field com/hbm/handler/BulletConfigSyncingUtil MASKMAN_TRACER I
+CORE field com/hbm/handler/BulletConfigSyncingUtil WORM_BOLT I
+CORE field com/hbm/handler/BulletConfigSyncingUtil WORM_LASER I
+CORE field com/hbm/handler/BulletConfiguration doesPenetrate Z
+CORE field com/hbm/handler/BulletConfiguration explosive F
+CORE field com/hbm/handler/BulletConfiguration gravity D
+CORE field com/hbm/handler/BulletConfiguration headshotMult F
+CORE field com/hbm/handler/BulletConfiguration velocity F
 CORE field com/hbm/items/weapon/sedna/BulletConfig ammo Lcom/hbm/inventory/RecipesCommon$ComparableStack;
+CORE field com/hbm/items/weapon/sedna/BulletConfig damageMult F
+CORE field com/hbm/items/weapon/sedna/BulletConfig doesPenetrate Z
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
+CORE field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_fmj Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_ap Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_fmj Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactoryTurret shell_ap Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/tileentity/machine/TileEntityCargoElevator extension D
 CORE method com/hbm/blocks/BlockDummyable findCore (Lnet/minecraft/world/IBlockAccess;III)[I
+CORE method com/hbm/entity/projectile/EntityBullet <init> (Lnet/minecraft/world/World;DDD)V
+CORE method com/hbm/entity/projectile/EntityBullet setChopper (Z)V
+CORE method com/hbm/entity/projectile/EntityBullet setIsCritical (Z)V
+CORE method com/hbm/entity/projectile/EntityBullet setTau (Z)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/World;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setPosition (DDD)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setThrowableHeading (DDDFF)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setThrower (Lnet/minecraft/entity/EntityLivingBase;)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseNT <init> (Lnet/minecraft/world/World;I)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseNT setPosition (DDD)V
+CORE method com/hbm/entity/projectile/EntityBulletBaseNT setThrower (Lnet/minecraft/entity/EntityLivingBase;)V
+CORE method com/hbm/handler/BulletConfigSyncingUtil pullConfig (I)Lcom/hbm/handler/BulletConfiguration;
 CORE method com/hbm/inventory/RecipesCommon$ComparableStack toStack ()Lnet/minecraft/item/ItemStack;
 CORE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
