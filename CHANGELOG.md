@@ -1,5 +1,12 @@
 # Changelog
 
+## X555.199
+
+- The client's log no longer warns at the main menu that NTM's beam, its
+  Tauon, Maxwell and turret base, and the Tesla coil have a wrong number of
+  the mod's handlers. The count it checked against was the one from before
+  X555.195; the beams themselves worked.
+
 ## X555.197
 
 - On 1.12.2, a kept pose of NTM's hunter chopper and plastic bag now turns by
