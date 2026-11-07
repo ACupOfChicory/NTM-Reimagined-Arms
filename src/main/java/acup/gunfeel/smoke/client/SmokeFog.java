@@ -44,7 +44,8 @@ public final class SmokeFog {
             long time = level.getGameTime();
             for (SmokeClouds.Cloud c : all.clouds()) {
                 if (!c.grid.occupied() || c.catchingUp(time) || !c.holds(p.x, p.y, p.z)) continue;
-                float v = c.density(p.x, p.y, p.z);
+                // a thin gas (phosgene's few per cent a block) hardly fogs the eye: by its opacity against smoke's
+                float v = c.density(p.x, p.y, p.z) * Math.min(1F, c.kind().extinction() / acup.gunfeel.smoke.SmokeKind.SMOKE.extinction());
                 d += v;
                 if (v > most) {
                     most = v;
