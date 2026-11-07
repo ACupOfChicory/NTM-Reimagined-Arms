@@ -1,5 +1,27 @@
 # Changelog
 
+## X585
+
+- Lying down on X (TaCZ's crawl): a press lies down, the next gets up
+  (`proneHold = true`: only while the key is held). The player takes vanilla's
+  crawling pose, as under a trapdoor: a box 0.6 high, a third of the walking
+  speed, the model lying, and bullets meet that model. Only on the ground; a
+  jump, water, a ride or gliding gets the player up. With an NTM gun or
+  without one. The key is in Controls ("NTM Reimagined Arms"); NTM keeps C for
+  its jetpack and Z for its magnet. X also loads a creative hotbar with a
+  number key: pressed that way it lies down too, as TaCZ's C does with its
+  save.
+- Lying, the spread is half the standing one (`spreadCrawl` 0.55 → 0.5, as
+  TaCZ's lie against its stand), and crawling along adds no walking spread;
+  this also holds crawling under a trapdoor.
+- Lying, all recoil is halved (`proneRecoil`, client, 0.5 as TaCZ's crawl;
+  1 = off): the camera, the gun model and NTM's recoil animation. With power
+  armor both count; on a server with `cameraScaleMin`, together no lower than
+  half.
+- Lying, the view turns up to 45 degrees and down to 30 (`proneMaxUp`,
+  `proneMaxDown`, server). Server keys `prone` and `proneWithoutGun` (both
+  on) turn lying down off, or allow it only with a gun in hand.
+
 ## X584
 
 - `beamRules`: a beam (a gun's, a turret's or a Tesla arc) stopped after

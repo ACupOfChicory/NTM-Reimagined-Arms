@@ -120,10 +120,11 @@ public final class CameraRecoil {
         boolean held = min > 0F;
         boolean aiming = holder != null && com.hbm.items.weapon.sedna.ItemGunBaseNT.getIsAiming(holder.getMainHandItem());
         float ads = aiming ? Config.adsRecoil : 1F;
-        // powerArmorRecoil: in NTM's power armour the whole kick is smaller, the server's minimum included
-        float armor = PowerArmor.cameraRecoil(holder);
+        // powerArmorRecoil and proneRecoil: in NTM's power armour and lying down the whole kick is smaller, the server's
+        // minimum included
+        float armor = Prone.cameraRecoil(holder);
         float scale = Math.max(Config.cameraScale * ads, min) * armor;
-        if (TestLog.client && armor != 1F) TestLog.c(-1, "power_armor", "camera", armor, "model", PowerArmor.recoil(holder));
+        if (TestLog.client && armor != 1F) TestLog.c(-1, "power_armor", "camera", armor, "model", Prone.recoil(holder), "armor", PowerArmor.recoil(holder), "lying", Prone.lying(holder));
         Recoil cPitch = held ? shipped("cameraPitch") : RecoilPresets.channel("cameraPitch");
         LocalPlayer pl = Minecraft.getInstance().player;
         boolean first = !burst;

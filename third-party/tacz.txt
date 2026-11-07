@@ -13,7 +13,14 @@ https://github.com/MCModderAnchor/TACZ
   двигает кость модели TaCZ;
 - MoveState.java — выбор бега, ходьбы и покоя из
   client/event/TickAnimationEvent.java; состояние возвращается, а не уходит
-  в машину анимаций TaCZ.
+  в машину анимаций TaCZ;
+- CrawlKey.java — client/input/CrawlKey.java с isInGame из
+  util/InputExtraCheck.java; клавиша X (у TaCZ — C), без частей геймпада;
+- LocalPlayerCrawl.java — client/gameplay/LocalPlayerCrawl.java;
+- LivingEntityCrawl.java — entity/shooter/LivingEntityCrawl.java;
+- CrawlPitch.java — метод getCrawlPitch из mixin/client/MouseHandlerMixin.java.
+Пакет ClientMessagePlayerCrawl переписан своим ProneCrawlPayload (без кода
+TaCZ, кроме комментария обработчика).
 Изменения в каждом файле перечислены в его шапке.
 
 Ассеты TaCZ (анимации, модели, скрипты машин состояний; CC BY-NC-ND 4.0)
