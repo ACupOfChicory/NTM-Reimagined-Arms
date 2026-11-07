@@ -2,7 +2,7 @@ package acup.gunfeel.water;
 
 import net.minecraft.entity.Entity;
 
-// What an NTM bullet (EntityBulletBaseMK4) keeps of water between ticks: its speed fraction f (1 in the air, NTM's
+// What an NTM bullet (EntityBulletBaseMK4, and the old EntityBulletBaseNT with an impact fuze) keeps of water between ticks: its speed fraction f (1 in the air, NTM's
 // motionMult is multiplied by it, so the tracer, the client and the server agree), how many times it skipped, and
 // whether water stopped it, whether it has met water at all, and the shot it was fired in. Mixed into the bullet
 // (MixinWaterBullet).
@@ -57,6 +57,13 @@ public interface WaterBullet {
     void gunfeel$waterTick(WaterPath.Result tick);
 
     WaterClass gunfeel$waterClass();
+
+    // its impact fuze (WaterClass.Fuze), by its config
+    WaterClass.Fuze gunfeel$waterFuze();
+
+    // its config (EntityBulletBaseMK4's BulletConfig, the old EntityBulletBaseNT's BulletConfiguration), null before
+    // NTM sets it: pellets of one shot share it (WaterImpact.sameShot)
+    Object gunfeel$waterConfig();
 
     // how it expands in water (hollow or soft point), null: it does not
     WaterClass.Expansion gunfeel$waterExpansion();

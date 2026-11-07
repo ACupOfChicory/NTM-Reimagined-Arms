@@ -104,6 +104,36 @@ public final class WaterBlast {
         PROCESS.get().push(state);
     }
 
+    // port: NTM 1.7.10's old bullets blow up through EntityProcessorStandard (EntityBulletBaseNT.onBlockImpact), as 26.2
+    // fires the same rounds through CrossSmooth: their blast takes the same rule at water (MixinWaterBlastStandard).
+    // Only theirs: NTM's other blasts through EntityProcessorStandard stay NTM's (26.2 has none of them at water)
+    private static final ThreadLocal<int[]> OLD = ThreadLocal.withInitial(() -> new int[1]);
+
+    // an old bullet's impact starts and ends (MixinWaterOldBullet)
+    public static void oldBegin() {
+        OLD.get()[0]++;
+    }
+
+    public static void oldEnd() {
+        int[] d = OLD.get();
+        if (d[0] > 0) d[0]--;
+    }
+
+    // EntityProcessorStandard.process starts: as begin, inside an old bullet's impact; else dry
+    public static void beginStandard(ExplosionVNT e, World world, double x, double y, double z) {
+        if (OLD.get()[0] > 0) begin(e, world, x, y, z);
+        else PROCESS.get().push(DRY);
+    }
+
+    // its damage (EntityProcessorStandard.calculateDamage grows with the size it is given): a mob in the water takes it
+    // by the blast's own size over the longer range, as CrossSmooth's does not grow with it; out of the water as damage
+    public static float damageStandard(float size, double knockback, Entity e, Damage calc) {
+        Wet w = wet();
+        if (w == null) return calc.of(size, knockback);
+        if (inWater(e)) return calc.of(size / w.mult, knockback);
+        return calc.of(size / w.mult, knockback / ABOVE) * ABOVE;
+    }
+
     // ... and ends (RETURN)
     public static void end() {
         ArrayDeque<Object> s = PROCESS.get();

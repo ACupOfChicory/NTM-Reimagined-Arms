@@ -43,11 +43,13 @@ public final class MixinCheck {
             {"net.minecraftforge.client.model.obj.WavefrontObject", "8"}, // MixinForgeWavefrontObject 4 + ends 4
             {"net.minecraft.client.renderer.entity.RenderManager", "2"}, // the model box, the box at full brightness
             {"com.hbm.items.weapon.sedna.GunConfig", "6"}, // MixinG3Inspect 4 (gunfeel$release + 3), MixinGunConfigAnims 2
-            {"com.hbm.entity.projectile.EntityThrowableNT", "8"}, // MixinThrowableClip: bullets 4 + hitboxes 4
+            {"com.hbm.entity.projectile.EntityThrowableNT", "12"}, // MixinThrowableClip: its 12 gunfeel$ methods (handlers and helpers)
             {"com.hbm.entity.projectile.EntityThrowableInterp", "1"}, // MixinThrowableMotion (client)
             {"com.hbm.entity.projectile.EntityBulletBeamBase", "4"},
             {"com.hbm.entity.projectile.EntityBullet", "9"}, // MixinLegacyBullet: 8 + gunfeel$extra
-            {"com.hbm.entity.projectile.EntityBulletBaseNT", "3"}, // MixinOldBulletBase: 2 + gunfeel$ntmHead
+            {"com.hbm.entity.projectile.EntityBulletBaseNT", "39"}, // MixinOldBulletBase: 2 + gunfeel$ntmHead; MixinWaterOldBullet: 10 handlers + 26 of WaterBullet, Hits and helpers
+            {"com.hbm.explosion.vanillant.standard.EntityProcessorCross", "5"}, // MixinWaterBlastProcessor: the blast in water
+            {"com.hbm.explosion.vanillant.standard.EntityProcessorStandard", "5"}, // MixinWaterBlastStandard: an old bullet's blast in water
             {"com.hbm.items.weapon.sedna.BulletConfig", "3"}, // MixinHeadDamage, MixinRicochetSound
             {"com.hbm.render.block.RenderBlockCT", "1"}, // the cracks on NTM's glass
     };
@@ -62,7 +64,7 @@ public final class MixinCheck {
             int n = 0;
             List<String> names = new ArrayList<String>();
             try {
-                for (Method m : Class.forName(t[0]).getDeclaredMethods()) if (m.getName().contains("gunfeel$") && !m.getName().contains("lambda$") && !m.getName().startsWith("mixinextras$bridge$")) { // a mixin's lambdas and MixinExtras' bridges are not handlers
+                for (Method m : Class.forName(t[0]).getDeclaredMethods()) if (m.getName().contains("gunfeel$") && !m.getName().contains("lambda$") && !m.getName().contains("mixinextras$bridge$")) { // a mixin's lambdas and MixinExtras' bridges (a @Local's, named after the handler) are not handlers
                     n++;
                     names.add(m.getName());
                 }

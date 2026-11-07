@@ -13,6 +13,10 @@ import java.util.Map;
 
 import com.hbm.entity.effect.EntityFireLingering;
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
+import com.hbm.entity.projectile.EntityBulletBaseNT;
+import com.hbm.entity.projectile.EntityThrowableNT;
+import com.hbm.handler.BulletConfigSyncingUtil;
+import com.hbm.handler.BulletConfiguration;
 import com.hbm.extprop.HbmLivingProps;
 import com.hbm.items.weapon.sedna.BulletConfig;
 
@@ -132,12 +136,14 @@ public final class ExplosiveCheck {
             WaterClass wc = WaterClass.ofConfig(c);
             lines.add("#\t" + ammo + "\t" + wc + "\tfuze " + WaterClass.Fuze.ofConfig(c) + " velocity " + c.velocity + " gravity " + c.gravity
                     + " life " + c.expires + " stop " + fmt(stop(wc)));
-            entry(ammo, c, wc, 30);
-            entry(ammo, c, wc, 5);
-            for (int d : new int[] {1, 3, 6}) wall(ammo, c, wc, d);
-            stopped(ammo, c, wc);
-            damage(ammo, c, wc);
+            Round r = mk4(c);
+            entry(ammo, r, wc, 30);
+            entry(ammo, r, wc, 5);
+            for (int d : new int[] {1, 3, 6}) wall(ammo, r, wc, d);
+            stopped(ammo, r, wc);
+            damage(ammo, r, wc);
         }
+        oldRounds();
         onSurface(all);
         weak(all);
         fire(all);
@@ -191,15 +197,15 @@ public final class ExplosiveCheck {
         AxisAlignedBB box = AxisAlignedBB.getBoundingBox(MIN - 8, FLOOR - 4, MIN - 8, DRY_X + 10, FLOOR + 24, MIN + SIZE + 8);
         List<Entity> gone = new ArrayList<Entity>();
         for (Class<?> k : new Class<?>[] {EntityItem.class, EntityFireLingering.class, EntityIronGolem.class, EntityZombie.class,
-                EntityBulletBaseMK4.class})
+                EntityBulletBaseMK4.class, EntityBulletBaseNT.class})
             for (Object e : level.getEntitiesWithinAABB(k, box)) gone.add((Entity) e);
-        for (EntityBulletBaseMK4 b : SPAWNED) if (!gone.contains(b)) gone.add(b);
+        for (Entity b : SPAWNED) if (!gone.contains(b)) gone.add(b);
         SPAWNED.clear();
         for (Entity e : gone) level.removePlayerEntityDangerously(e);
     }
 
     // bullets the stand made: wherever their chunk is, they go with the case
-    private static final List<EntityBulletBaseMK4> SPAWNED = new ArrayList<EntityBulletBaseMK4>();
+    private static final List<Entity> SPAWNED = new ArrayList<Entity>();
 
     private static String ammoName(BulletConfig c) {
         String n = WaterClass.ammoName(c);
@@ -225,13 +231,210 @@ public final class ExplosiveCheck {
         return b;
     }
 
-    private static void put(EntityBulletBaseMK4 b) {
+    // a round the cases fire: NTM's bullet by its BulletConfig, or (port) an old EntityBulletBaseNT by its config's id
+    private interface Round {
+        EntityThrowableNT make(Vec3 at, Vec3 dir);
+
+        double gravity();
+
+        WaterClass.Fuze fuze();
+
+        // its blast goes through EntityProcessorStandard (an old bullet's), not CrossSmooth
+        boolean standard();
+    }
+
+    private static Round mk4(BulletConfig c) {
+        return new Round() {
+            public EntityThrowableNT make(Vec3 at, Vec3 dir) {
+                return bullet(c, at, dir);
+            }
+
+            public double gravity() {
+                return c.gravity;
+            }
+
+            public WaterClass.Fuze fuze() {
+                return WaterClass.Fuze.ofConfig(c);
+            }
+
+            public boolean standard() {
+                return false;
+            }
+        };
+    }
+
+    // as NTM's masked man fires it (EntityBulletBaseNT(world, config), the heading at 1: its speed is the config's
+    // velocity, motionMult); its own random seeded, so a high-ricochet roll (HBRC) is the same every run
+    private static Round old(int id) {
+        BulletConfiguration c = BulletConfigSyncingUtil.pullConfig(id);
+        return new Round() {
+            public EntityThrowableNT make(Vec3 at, Vec3 dir) {
+                EntityBulletBaseNT b = new EntityBulletBaseNT(level, id);
+                b.setPosition(at.x, at.y, at.z);
+                b.setThrowableHeading(dir.x, dir.y, dir.z, 1F, 0F);
+                java.util.Random rand = cpw.mods.fml.relauncher.ReflectionHelper.getPrivateValue(Entity.class, b, "rand", "field_70146_Z");
+                rand.setSeed(7);
+                put(b);
+                return b;
+            }
+
+            public double gravity() {
+                return c.gravity;
+            }
+
+            public WaterClass.Fuze fuze() {
+                return WaterClass.Fuze.ofOld(c);
+            }
+
+            public boolean standard() {
+                return true;
+            }
+        };
+    }
+
+    // port: NTM 1.7.10's old bullets that blow up where they hit, as 26.2 X560 has these rounds (XFactoryNPC): the
+    // masked man's orb, bolt, rocket and meteor. Their life (maxAge) is lifted while they run, as the cases wait for
+    // them to land; the UFO's rocket is not here (its blast is NTM's dealDamage, not an ExplosionVNT), only its fuze
+    private static void oldRounds() {
+        String[] names = {"maskman_orb", "maskman_bolt", "maskman_rocket", "maskman_meteor"};
+        int[] ids = {BulletConfigSyncingUtil.MASKMAN_ORB, BulletConfigSyncingUtil.MASKMAN_BOLT, BulletConfigSyncingUtil.MASKMAN_ROCKET,
+                BulletConfigSyncingUtil.MASKMAN_METEOR};
+        for (int i = 0; i < ids.length; i++) {
+            BulletConfiguration c = BulletConfigSyncingUtil.pullConfig(ids[i]);
+            String ammo = names[i] + " (old)";
+            if (c == null) {
+                rowFlag("g: old config", ammo, WaterClass.PISTOL, "there", "missing", false, "");
+                continue;
+            }
+            WaterClass wc = WaterClass.ofOld(c);
+            lines.add("#	" + ammo + "	" + wc + "	fuze " + WaterClass.Fuze.ofOld(c) + " velocity " + c.velocity + " gravity " + c.gravity + " life "
+                    + c.maxAge + " explosive " + c.explosive + " stop " + fmt(stop(wc)));
+            int life = c.maxAge;
+            c.maxAge = Math.max(life, 1000);
+            try {
+                Round r = old(ids[i]);
+                entry(ammo, r, wc, 30);
+                entry(ammo, r, wc, 5);
+                for (int d : new int[] {1, 3, 6}) wall(ammo, r, wc, d);
+                stopped(ammo, r, wc);
+                damage(ammo, r, wc);
+                if (c.incendiary > 0) oldFire(ammo, r, wc);
+            } finally {
+                c.maxAge = life;
+            }
+        }
+        oldHit();
+        oldRicochet();
+        BulletConfiguration ufo = BulletConfigSyncingUtil.pullConfig(BulletConfigSyncingUtil.UFO_ROCKET),
+                tracer = BulletConfigSyncingUtil.pullConfig(BulletConfigSyncingUtil.MASKMAN_TRACER),
+                worm = BulletConfigSyncingUtil.pullConfig(BulletConfigSyncingUtil.WORM_BOLT);
+        rowFlag("g: old fuzes: the UFO's rocket yes, the tracer and BOT Prime's bolt no", "ufo_rocket, maskman_tracer, worm_bolt (old)", WaterClass.ofOld(ufo),
+                "IMPACT NONE NONE", WaterClass.Fuze.ofOld(ufo) + " " + WaterClass.Fuze.ofOld(tracer) + " " + WaterClass.Fuze.ofOld(worm),
+                WaterClass.Fuze.ofOld(ufo) == WaterClass.Fuze.IMPACT && WaterClass.Fuze.ofOld(tracer) == WaterClass.Fuze.NONE
+                        && WaterClass.Fuze.ofOld(worm) == WaterClass.Fuze.NONE, "");
+    }
+
+    // NTM's random ricochet (the bolt's HBRC, 2 in 100; the rocket, meteor and orb have none) made sure, HBRC 100: off the water's surface it does not
+    // bounce, it goes off there (MixinWaterOldBullet); in the air off a block it does (NTM's)
+    private static void oldRicochet() {
+        int id = BulletConfigSyncingUtil.MASKMAN_BOLT;
+        BulletConfiguration c = BulletConfigSyncingUtil.pullConfig(id);
+        if (c == null) return;
+        String ammo = "maskman_bolt (old, HBRC 100)";
+        WaterClass wc = WaterClass.ofOld(c);
+        int life = c.maxAge, hbrc = c.HBRC;
+        c.maxAge = Math.max(life, 1000);
+        c.HBRC = 100;
+        try {
+            entry(ammo, old(id), wc, 30);
+            basin();
+            Vec3 at = new Vec3(DRY_X, FLOOR + 1, CZ);
+            EntityThrowableNT b = old(id).make(new Vec3(at.x, at.y + 1, at.z), new Vec3(0, -1, 0));
+            BLASTS.clear();
+            ((WaterImpact.Hits) b).gunfeel$impact(hitAt(at));
+            rowFlag("a: NTM's ricochet off a block in the air (HBRC 100)", ammo, wc, "bounce, no blast", "blasts " + BLASTS.size() + ", motionY " + fmt(b.motionY) + ", gone=" + b.isDead,
+                    BLASTS.isEmpty() && !b.isDead, "doesRicochet " + c.doesRicochet);
+        } finally {
+            c.maxAge = life;
+            c.HBRC = hbrc;
+        }
+    }
+
+    // the masked man's bolt on a golem's body, in the air and under water: in water NTM's rolled damage × f² where it
+    // met the golem (MixinOldBulletBase, WaterTick.fSquared), f as the water's path works it out there. Fired 0.4 short
+    // of the golem's box, it goes through (doesPenetrate: no blast on a creature, only its hit) and water stops it past
+    // the golem; its roll is the same both times (its own random, seeded). Fired 2.5 short, water stops it inside the
+    // golem: sinking, it goes off there once (MixinWaterOldBullet), not hurt the golem every tick
+    private static void oldHit() {
+        int id = BulletConfigSyncingUtil.MASKMAN_BOLT;
+        BulletConfiguration c = BulletConfigSyncingUtil.pullConfig(id);
+        if (c == null) return;
+        String ammo = "maskman_bolt (old)";
+        WaterClass wc = WaterClass.ofOld(c);
+        double[] took = new double[3];
+        double f = Double.NaN;
+        int blasts = -1;
+        boolean gone = false;
+        for (int run = 0; run < 3; run++) {
+            boolean wet = run > 0;
+            basin();
+            Vec3 feet = wet ? new Vec3(CX, surface - 4, CZ) : new Vec3(DRY_X, FLOOR + 1, CZ);
+            EntityIronGolem g = golem(feet);
+            float before = g.getHealth();
+            double shortOf = run == 2 ? 2.5 : 0.4;
+            Vec3 from = new Vec3(g.boundingBox.minX - shortOf, feet.y + 1.2, feet.z);
+            EntityThrowableNT b = old(id).make(from, new Vec3(1, 0, 0));
+            BLASTS.clear();
+            for (int i = 0; i < 200 && !b.isDead; i++) tick(b);
+            took[run] = before - g.getHealth();
+            if (run == 1) {
+                // NTM meets a creature's box 0.3 wider
+                Vec3 hit = new Vec3(g.boundingBox.minX - 0.3, from.y, from.z);
+                WaterPath.Result r = WaterPath.trace(level, from, hit, 1.0, wc, 0, WaterTick.seed(b.getEntityId(), 0), WaterPath.Settings.current().fuzed(), b);
+                f = r.fAt(hit);
+            }
+            if (run == 2) {
+                blasts = BLASTS.size();
+                gone = b.isDead;
+            }
+            level.removePlayerEntityDangerously(g);
+        }
+        row("h: old bolt through a golem in water, × f² of the air's", ammo, wc, took[0] * f * f, took[1], 0.02,
+                "air=" + fmt(took[0]) + " water=" + fmt(took[1]) + " f at the golem=" + fmt(f));
+        rowFlag("h: old bolt on a golem in the air (NTM's roll)", ammo, wc, fmt(c.dmgMin) + ".." + fmt(c.dmgMax), fmt(took[0]),
+                took[0] >= c.dmgMin - 1e-3 && took[0] <= c.dmgMax + 1e-3, "");
+        rowFlag("h: old bolt stopped inside a golem: goes off once", ammo, wc, "1 blast, gone, less than the air's", blasts + " blasts, gone=" + gone
+                + ", took " + fmt(took[2]), blasts == 1 && gone && took[2] > 0 && took[2] < took[0], "");
+    }
+
+    // the meteor's fire (incendiary 3: fire round the block it hits and NTM's fire in its blast): none in water, NTM's
+    // in the air
+    private static void oldFire(String ammo, Round r, WaterClass wc) {
+        int[] fires = new int[2], blasts = new int[2];
+        for (int wet = 0; wet < 2; wet++) {
+            basin();
+            Vec3 at = wet == 1 ? new Vec3(CX, FLOOR + 1, CZ) : new Vec3(DRY_X, FLOOR + 1, CZ);
+            EntityThrowableNT b = r.make(new Vec3(at.x, at.y + 1, at.z), new Vec3(0, -1, 0));
+            BLASTS.clear();
+            ((WaterImpact.Hits) b).gunfeel$impact(hitAt(at));
+            blasts[wet] = BLASTS.size();
+            int n = 0;
+            for (int x = (int) at.x - 8; x <= at.x + 8; x++) for (int y = FLOOR; y <= FLOOR + DEPTH + 4; y++) for (int z = (int) at.z - 8; z <= at.z + 8; z++)
+                if (level.getBlock(x, y, z) == Blocks.fire) n++;
+            fires[wet] = n;
+        }
+        rowFlag("f: fire in water: blast, no fire", ammo, wc, "blast 1, fire 0", "blast " + blasts[1] + ", fire " + fires[1], blasts[1] == 1 && fires[1] == 0,
+                "in the air: blast " + blasts[0] + ", fire " + fires[0]);
+        rowFlag("f: fire in the air (NTM's)", ammo, wc, "fire ≥ 1", "fire " + fires[0], fires[0] >= 1, "");
+    }
+
+    private static void put(Entity b) {
         level.spawnEntityInWorld(b); // NTM's setDead tells the bullet's trackers
         SPAWNED.add(b);
     }
 
     // one tick by hand, then into the chunk it is in now, as the world's tick does (World.updateEntityWithOptionalForce)
-    private static void tick(EntityBulletBaseMK4 b) {
+    private static void tick(Entity b) {
         b.onUpdate();
         rechunk(b);
     }
@@ -287,7 +490,7 @@ public final class ExplosiveCheck {
     }
 
     // ticks it till it is gone; the first blast, or null
-    private static double[] fly(EntityBulletBaseMK4 b, int ticks) {
+    private static double[] fly(Entity b, int ticks) {
         BLASTS.clear();
         for (int i = 0; i < ticks && !b.isDead; i++) tick(b);
         return BLASTS.isEmpty() ? null : BLASTS.get(0);
@@ -295,7 +498,7 @@ public final class ExplosiveCheck {
 
     // into the water from the air at an angle: steeper than the fuze's 10° it goes off on the surface, shallower it
     // skips and goes off at its next touch. The angle is the one it meets the water at (a grenade's falls steeper).
-    private static void entry(String ammo, BulletConfig c, WaterClass wc, int deg) {
+    private static void entry(String ammo, Round c, WaterClass wc, int deg) {
         basin();
         double r = Math.toRadians(deg), run = deg >= 20 ? 4 : 10;
         Vec3 dir = new Vec3(Math.cos(r), -Math.sin(r), 0);
@@ -303,7 +506,7 @@ public final class ExplosiveCheck {
         // after a skip its next touch: a wall further on
         if (deg < 20) for (int y = FLOOR + 1; y <= FLOOR + DEPTH + 8; y++) for (int z = (int) CZ - 4; z <= CZ + 4; z++)
             level.setBlock(MIN + 30, y, z, Blocks.stone, 0, 2);
-        EntityBulletBaseMK4 b = bullet(c, new Vec3(aim.x - dir.x * run, aim.y - dir.y * run, aim.z - dir.z * run), dir);
+        EntityThrowableNT b = c.make(new Vec3(aim.x - dir.x * run, aim.y - dir.y * run, aim.z - dir.z * run), dir);
         BLASTS.clear();
         double angle = Double.NaN, firstTouchX = Double.NaN;
         int skips = 0;
@@ -334,7 +537,7 @@ public final class ExplosiveCheck {
         } else {
             // skipped where it met the water (shallower than the fuze), went off later, not there
             // b75_inc: its next touch is in the air, where it is NTM's (no blast)
-            boolean weak = WaterClass.Fuze.ofConfig(c) == WaterClass.Fuze.WEAK;
+            boolean weak = c.fuze() == WaterClass.Fuze.WEAK;
             boolean good = angle < fuze + 0.5 && (weak ? blast == null && b.isDead : blast != null && Math.abs(blast[0] - firstTouchX) > 0.5);
             rowFlag("a: into water at " + deg + "°: skips, goes off later", ammo, wc, "skip, blast past x " + fmt(firstTouchX),
                     blast == null ? "none" : "x " + fmt(blast[0]) + " y " + fmt(blast[1]), good, note);
@@ -343,12 +546,12 @@ public final class ExplosiveCheck {
 
     // from 3 under the water along x at a stone wall d blocks off: on the wall if it gets there, else it stops,
     // sinks and goes off on the floor under where it stopped
-    private static void wall(String ammo, BulletConfig c, WaterClass wc, int d) {
+    private static void wall(String ammo, Round c, WaterClass wc, int d) {
         basin();
         double x0 = MIN + 3.5;
         int wx = (int) Math.floor(x0 + d);
         for (int y = FLOOR + 1; y <= FLOOR + DEPTH; y++) for (int z = (int) CZ - 3; z <= CZ + 3; z++) level.setBlock(wx, y, z, Blocks.stone, 0, 2);
-        EntityBulletBaseMK4 b = bullet(c, new Vec3(x0, surface - 3, CZ), new Vec3(1, 0, 0));
+        EntityThrowableNT b = c.make(new Vec3(x0, surface - 3, CZ), new Vec3(1, 0, 0));
         BLASTS.clear();
         double stopX = Double.NaN;
         for (int i = 0; i < TICKS && !b.isDead; i++) {
@@ -361,7 +564,7 @@ public final class ExplosiveCheck {
         String note = "blast=" + str(blast) + " stopped=" + WaterBullet.stopped(b) + " removed=" + b.isDead + " stop=" + fmt(s) + " stopX=" + fmt(stopX);
         // straight on it reaches the wall within its stop; one NTM's gravity bends down (0.1 a tick: the masked man's
         // meteor and rocket) stops by the same path in water nearer, short of it
-        boolean reaches = c.gravity >= 0.05 ? Double.isNaN(stopX) : x0 + s > face;
+        boolean reaches = c.gravity() >= 0.05 ? Double.isNaN(stopX) : x0 + s > face;
         if (reaches) {
             boolean good = blast != null && Math.abs(blast[0] - face) < 0.45 && blast[1] > FLOOR + 1.5;
             rowFlag("b: under water, wall " + d + ": on the wall", ammo, wc, "x " + fmt(face), blast == null ? "none" : "x " + fmt(blast[0]), good, note);
@@ -374,10 +577,10 @@ public final class ExplosiveCheck {
 
     // stopped by water: from 5 under the water along x with nothing in its way; then down at no more than 0.05 a
     // tick, and off on the floor
-    private static void stopped(String ammo, BulletConfig c, WaterClass wc) {
+    private static void stopped(String ammo, Round c, WaterClass wc) {
         basin();
         double x0 = MIN + 3.5;
-        EntityBulletBaseMK4 b = bullet(c, new Vec3(x0, surface - 5, CZ), new Vec3(1, 0, 0));
+        EntityThrowableNT b = c.make(new Vec3(x0, surface - 5, CZ), new Vec3(1, 0, 0));
         BLASTS.clear();
         double fastest = 0, stopX = Double.NaN, path = 0;
         int sinkTicks = 0, ticks = 0;
@@ -405,9 +608,11 @@ public final class ExplosiveCheck {
         rowFlag("c: stopped, sinks ≤ 0.05/tick", ammo, wc, "≤ 0.0500", fmt(fastest), !Double.isNaN(stopX) && fastest <= 0.05 + 1e-9 && sinkTicks > 0, note);
         rowFlag("c: stopped, goes off on the floor", ammo, wc, "y " + (FLOOR + 1), blast == null ? "none" : fmt(blast[1]),
                 blast != null && blast[1] < FLOOR + 1.4, note);
-        // the motion sent to the players: as it starts to fly in water, as it sinks, and once each RESEND ticks after
+        // the motion sent to the players: as it starts to fly in water, as it sinks, and once each RESEND ticks after.
+        // port: NTM's bullets only; the client draws an old one by its position (NTM's own renderer)
         Integer n = WaterTick.sentCount.get(b.getEntityId());
         WaterTick.sentCount = null;
+        if (!(b instanceof EntityBulletBaseMK4)) return;
         int sent = n == null ? 0 : n;
         rowFlag("c: stopped, S12 sent", ammo, wc, "2.." + (2 + sinkTicks / 20) + " in " + ticks + " ticks", sent + String.format(java.util.Locale.ROOT,
                 " (%.3f a tick)", ticks == 0 ? 0.0 : sent / (double) ticks), sent >= 2 && sent <= 2 + sinkTicks / 20 + 1 && sent <= ticks, note);
@@ -425,14 +630,16 @@ public final class ExplosiveCheck {
     }
 
     // the health a golem 2 blocks off (box to centre) takes from the blast set off at `at`
-    private static double golemTook(BulletConfig c, Vec3 at, Vec3 golemFeet, double[] blastOut) {
+    private static double golemTook(Round c, Vec3 at, Vec3 golemFeet, double[] blastOut) {
         clear();
         EntityIronGolem g = golem(golemFeet);
         float before = g.getHealth();
-        EntityBulletBaseMK4 b = bullet(c, at, new Vec3(0, -1, 0));
+        EntityThrowableNT b = c.make(at, new Vec3(0, -1, 0));
         BLASTS.clear();
         ((WaterImpact.Hits) b).gunfeel$impact(hitAt(at));
         double took = before - g.getHealth();
+        // the golem's feet to the centre (EntityProcessorStandard counts its distance so)
+        if (!BLASTS.isEmpty()) blastOut[6] = g.getDistance(BLASTS.get(0)[0], BLASTS.get(0)[1], BLASTS.get(0)[2]);
         if (!BLASTS.isEmpty()) {
             double[] k = BLASTS.get(0);
             System.arraycopy(k, 0, blastOut, 0, 4);
@@ -449,11 +656,11 @@ public final class ExplosiveCheck {
 
     // a golem 2 blocks off: in the air, in the water by a blast in it, and over the water by a blast just under the
     // surface. CrossSmooth: fixed × (1 - d / range), range 2 × size, in water × waterBlastRadius; over it half.
-    private static void damage(String ammo, BulletConfig c, WaterClass wc) {
-        if (WaterClass.Fuze.ofConfig(c) == WaterClass.Fuze.WEAK) return; // no blast in the air: weak()
+    private static void damage(String ammo, Round c, WaterClass wc) {
+        if (c.fuze() == WaterClass.Fuze.WEAK) return; // no blast in the air: weak()
         basin();
         double half = 0.7; // the golem's half width
-        double[] air = new double[6], wet = new double[6], over = new double[6];
+        double[] air = new double[7], wet = new double[7], over = new double[7];
         Vec3 dryAt = new Vec3(DRY_X, FLOOR + 3, CZ);
         double tAir = golemTook(c, dryAt, new Vec3(DRY_X + 2 + half, FLOOR + 3 - 1.35, CZ), air);
         basin();
@@ -466,6 +673,10 @@ public final class ExplosiveCheck {
         double size = air[3];
         String note = "air=" + fmt(tAir) + " d=" + fmt(air[4]) + " | wet=" + fmt(tWet) + " d=" + fmt(wet[4]) + " golemWet=" + (int) wet[5]
                 + " | over=" + fmt(tOver) + " d=" + fmt(over[4]) + " golemWet=" + (int) over[5] + " | size=" + fmt(size);
+        if (c.standard()) {
+            standardDamage(ammo, wc, size, mult, tAir, tWet, tOver, air[6], wet[6], over[6], note);
+            return;
+        }
         if (size > 0 && 2 * size <= air[4]) {
             // a blast too small to reach the golem 2 blocks off (the masked man's bolt): CrossSmooth's range is 2 × size
             lines.add("#\t" + ammo + "\td: the blast does not reach 2 blocks\t" + note);
@@ -482,6 +693,26 @@ public final class ExplosiveCheck {
         row("d: golem over water, × the air's", ammo, wc, wantOver, tOver / tAir, 0.06, note);
     }
 
+    // port: an old bullet's blast (EntityProcessorStandard): damage (int) ((k² + k) / 2 × 8 × range + 1), k = 1 - d / range,
+    // range 2 × size, d from the golem's feet. In water the range × waterBlastRadius and the damage by the blast's own
+    // range; over it by its own range, half (WaterBlast.damageStandard)
+    private static void standardDamage(String ammo, WaterClass wc, double size, float mult, double tAir, double tWet, double tOver, double dAir,
+            double dWet, double dOver, String note) {
+        double range = 2 * size;
+        note += " | feet d air=" + fmt(dAir) + " wet=" + fmt(dWet) + " over=" + fmt(dOver);
+        if (size <= 0 || dAir >= range) {
+            lines.add("#	" + ammo + "	d: the blast does not reach 2 blocks	" + note);
+            return;
+        }
+        row("d: golem in the air (NTM's)", ammo, wc, standard(1 - dAir / range, range), tAir, 0.01, note);
+        row("d: golem in water", ammo, wc, dWet < range * mult ? standard(1 - dWet / (range * mult), range) : 0, tWet, 0.01, note);
+        row("d: golem over water", ammo, wc, dOver < range ? WaterBlast.ABOVE * standard(1 - dOver / range, range) : 0, tOver, 0.01, note);
+    }
+
+    private static double standard(double k, double range) {
+        return (int) ((k * k + k) / 2.0 * 8.0 * range + 1.0);
+    }
+
     // b75_inc under water: a small blast, about a quarter of b75_exp's there
     private static void weak(Map<String, BulletConfig> all) {
         BulletConfig inc = byAmmo(all, "ammo_standard_b75_inc"), exp = byAmmo(all, "ammo_standard_b75_exp");
@@ -490,11 +721,11 @@ public final class ExplosiveCheck {
             return;
         }
         double half = 0.7;
-        double[] a = new double[6], b = new double[6];
+        double[] a = new double[7], b = new double[7];
         basin();
-        double tInc = golemTook(inc, new Vec3(CX, surface - 5, CZ), new Vec3(CX + 2 + half, surface - 5 - 1.35, CZ), a);
+        double tInc = golemTook(mk4(inc), new Vec3(CX, surface - 5, CZ), new Vec3(CX + 2 + half, surface - 5 - 1.35, CZ), a);
         basin();
-        double tExp = golemTook(exp, new Vec3(CX, surface - 5, CZ), new Vec3(CX + 2 + half, surface - 5 - 1.35, CZ), b);
+        double tExp = golemTook(mk4(exp), new Vec3(CX, surface - 5, CZ), new Vec3(CX + 2 + half, surface - 5 - 1.35, CZ), b);
         float mult = Math.max(1F, WaterSettings.blastRadius());
         // CrossSmooth both: damage × 0.25, the range 2.5 against 5
         double want = 0.25 * (1 - a[4] / (2 * 2.5 * mult)) / (1 - b[4] / (2 * 5 * mult));

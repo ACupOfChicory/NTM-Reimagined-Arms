@@ -154,6 +154,19 @@ public enum WaterClass {
                 {"com.hbm.tileentity.machine.pile.TileEntityPileCore", "pile_debris"}};
         private static volatile Map<BulletConfig, String> fields;
 
+        // port: an old EntityBulletBaseNT's: what blows up where it hits, by name as 26.2's XFactoryNPC configs in
+        // IMPACT_FIELDS (the masked man's bolt, orb, rocket and meteor: an ExplosionVNT at the impact; the UFO's
+        // rocket: explosive 0, NTM's dealDamage in its impact). Not the masked man's tracer (it calls a meteor down)
+        // nor BOT Prime's bolts
+        public static Fuze ofOld(com.hbm.handler.BulletConfiguration c) {
+            if (c == null) return NONE;
+            for (int id : new int[] {com.hbm.handler.BulletConfigSyncingUtil.MASKMAN_BOLT, com.hbm.handler.BulletConfigSyncingUtil.MASKMAN_ORB,
+                    com.hbm.handler.BulletConfigSyncingUtil.MASKMAN_ROCKET, com.hbm.handler.BulletConfigSyncingUtil.MASKMAN_METEOR,
+                    com.hbm.handler.BulletConfigSyncingUtil.UFO_ROCKET})
+                if (c == com.hbm.handler.BulletConfigSyncingUtil.pullConfig(id)) return IMPACT;
+            return NONE;
+        }
+
         // the IMPACT_FIELDS name of this config, or null
         public static String field(BulletConfig c) {
             Map<BulletConfig, String> f = fields;
@@ -177,6 +190,14 @@ public enum WaterClass {
     }
 
     // the class of a bullet NTM fires (port: ofConfig, as Expansion.ofConfig)
+    // port: NTM 1.7.10's old EntityBulletBaseNT (the masked man's orbs, bolts, rockets and meteors, the UFO's rockets).
+    // 26.2 fires these as its own bullets (XFactoryNPC) and classes them by ofConfig: no ammo of their own, an impact
+    // fuze, so by their speed (a rocket at 0.5 or less, a grenade at 4 or less, else a pistol bullet)
+    public static WaterClass ofOld(com.hbm.handler.BulletConfiguration c) {
+        if (c == null) return PISTOL;
+        return of("", false, c.bulletsMax, 0F, 0F, c.velocity, Fuze.ofOld(c).any());
+    }
+
     public static WaterClass ofConfig(BulletConfig c) {
         if (c == null) return PISTOL;
         // a grenade's fragments and bomblets: no ammo of their own, they slow like buckshot

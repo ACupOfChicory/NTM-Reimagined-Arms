@@ -77,7 +77,7 @@ public abstract class MixinThrowableClip extends Entity {
 
     @Unique
     private EntityLivingBase gunfeel$inShooter() {
-        if (gunfeel$outOfShooter || !((Object) this instanceof EntityBulletBaseMK4 b) || !acup.gunfeel.water.WaterBullet.stopped(b)) return null;
+        if (gunfeel$outOfShooter || !WaterTick.covers(this) || !acup.gunfeel.water.WaterBullet.stopped(this)) return null;
         return ((EntityThrowableNT) (Object) this).getThrower();
     }
 
@@ -110,7 +110,9 @@ public abstract class MixinThrowableClip extends Entity {
         try {
             // water: the bullet's new f, a stop or a skip, the tick's events (WaterTick); an explosive touching another
             // bullet (WaterImpact)
-            if ((Object) this instanceof EntityBulletBaseMK4 bullet) {
+            // port: and the old bullets with an impact fuze (WaterTick.covers)
+            if (WaterTick.covers(this)) {
+                EntityThrowableNT bullet = (EntityThrowableNT) (Object) this;
                 WaterTick.end(bullet);
                 acup.gunfeel.water.WaterImpact.touch(bullet, gunfeel$beforeX, gunfeel$beforeY, gunfeel$beforeZ);
             }
@@ -149,7 +151,7 @@ public abstract class MixinThrowableClip extends Entity {
             target = "Lnet/minecraft/world/World;func_147447_a(Lnet/minecraft/util/Vec3;Lnet/minecraft/util/Vec3;ZZZ)Lnet/minecraft/util/MovingObjectPosition;"))
     private MovingObjectPosition gunfeel$blocks(World world, Vec3 from, Vec3 to, boolean liquids, boolean noBox, boolean last,
             Operation<MovingObjectPosition> original) {
-        if (!((Object) this instanceof EntityBulletBaseMK4)) return original.call(world, from, to, liquids, noBox, last);
+        if (!((Object) this instanceof EntityBulletBaseMK4)) return gunfeel$oldBlocks(world, from, to, liquids, noBox, last, original);
         EntityBulletBaseMK4 bullet = (EntityBulletBaseMK4) (Object) this;
         Vec3 start = gunfeel$start(from);
         // water first: blocks past where it stops or skips the bullet are not met (WaterTick)
@@ -166,10 +168,31 @@ public abstract class MixinThrowableClip extends Entity {
         return hit == null ? null : new MovingObjectPosition(hit.x, hit.y, hit.z, hit.face, Vec3.createVectorHelper(hit.ax, hit.ay, hit.az));
     }
 
+    // port: an old bullet with an impact fuze (the masked man's, the UFO's), on the server: its blocks stay NTM's walk,
+    // up to where water stops or skips it, and the surface is its fuze's hit (WaterTick), as for NTM's bullet
+    @Unique
+    private MovingObjectPosition gunfeel$oldBlocks(World world, Vec3 from, Vec3 to, boolean liquids, boolean noBox, boolean last,
+            Operation<MovingObjectPosition> original) {
+        if (world.isRemote || !WaterTick.covers(this)) return original.call(world, from, to, liquids, noBox, last);
+        EntityThrowableNT bullet = (EntityThrowableNT) (Object) this;
+        acup.gunfeel.phys.Vec3 cut = WaterTick.path(bullet, world, gunfeel$phys(from), gunfeel$phys(to));
+        MovingObjectPosition ntm = original.call(world, from, Vec3.createVectorHelper(cut.x, cut.y, cut.z), liquids, noBox, last);
+        BlockRay.Hit hit = ntm == null || ntm.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK || ntm.hitVec == null ? null
+                : new BlockRay.Hit(ntm.blockX, ntm.blockY, ntm.blockZ, ntm.sideHit, ntm.hitVec.xCoord, ntm.hitVec.yCoord, ntm.hitVec.zCoord, false);
+        BlockRay.Hit after = WaterTick.blocks(bullet, hit);
+        if (after == hit) return ntm;
+        return after == null ? null : new MovingObjectPosition(after.x, after.y, after.z, after.face, Vec3.createVectorHelper(after.ax, after.ay, after.az));
+    }
+
     @WrapOperation(method = "onUpdate", remap = true, at = @At(value = "INVOKE", remap = true,
             target = "Lnet/minecraft/util/AxisAlignedBB;calculateIntercept(Lnet/minecraft/util/Vec3;Lnet/minecraft/util/Vec3;)Lnet/minecraft/util/MovingObjectPosition;"))
     private MovingObjectPosition gunfeel$mob(AxisAlignedBB box, Vec3 from, Vec3 to, Operation<MovingObjectPosition> original) {
-        if (!((Object) this instanceof EntityBulletBaseMK4)) return original.call(box, from, to);
+        if (!((Object) this instanceof EntityBulletBaseMK4)) {
+            // port: an old bullet with an impact fuze, not past where water stopped or turned it
+            if (worldObj.isRemote || !WaterTick.covers(this)) return original.call(box, from, to);
+            acup.gunfeel.phys.Vec3 cut = WaterTick.mobsTo(this, gunfeel$phys(to));
+            return original.call(box, from, Vec3.createVectorHelper(cut.x, cut.y, cut.z));
+        }
         Vec3 start = gunfeel$start(from);
         // not past where water stopped or turned the bullet
         acup.gunfeel.phys.Vec3 cut = WaterTick.mobsTo(this, gunfeel$phys(to));

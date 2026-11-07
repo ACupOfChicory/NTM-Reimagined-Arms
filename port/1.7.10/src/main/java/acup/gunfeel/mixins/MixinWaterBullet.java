@@ -101,6 +101,16 @@ public abstract class MixinWaterBullet implements WaterBullet, WaterImpact.Hits 
     @Override public void gunfeel$sent(long sent) { gunfeel$sent = sent; }
 
     @Override
+    public WaterClass.Fuze gunfeel$waterFuze() {
+        return WaterClass.Fuze.ofConfig(((EntityBulletBaseMK4) (Object) this).config);
+    }
+
+    @Override
+    public Object gunfeel$waterConfig() {
+        return ((EntityBulletBaseMK4) (Object) this).config;
+    }
+
+    @Override
     public WaterClass.Expansion gunfeel$waterExpansion() {
         gunfeel$waterClass();
         return gunfeel$expansion;

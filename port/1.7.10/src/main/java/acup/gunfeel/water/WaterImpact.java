@@ -3,6 +3,7 @@ package acup.gunfeel.water;
 import java.util.List;
 
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
+import com.hbm.entity.projectile.EntityThrowableNT;
 import com.hbm.explosion.vanillant.ExplosionVNT;
 import com.hbm.explosion.vanillant.standard.EntityProcessorCrossSmooth;
 import com.hbm.explosion.vanillant.standard.ExplosionEffectTiny;
@@ -101,15 +102,16 @@ public final class WaterImpact {
     }
 
     // does this bullet go off at a touch where it is now: an explosive one always, b75_inc in water
-    static boolean goesOff(EntityBulletBaseMK4 b) {
-        WaterClass.Fuze f = WaterClass.Fuze.ofConfig(b.config);
+    static boolean goesOff(EntityThrowableNT b) {
+        WaterClass.Fuze f = ((WaterBullet) b).gunfeel$waterFuze();
         return f == WaterClass.Fuze.IMPACT || f == WaterClass.Fuze.WEAK && wet(b, new Vec3(b.posX, b.posY, b.posZ));
     }
 
     // pellets of one shot: the same shooter, the same config, made the same tick (WaterBullet.gunfeel$shot). Not the
     // ticks they lived: one pellet's touch runs after its own tick and before the next one's, a tick apart
-    public static boolean sameShot(EntityBulletBaseMK4 a, EntityBulletBaseMK4 b) {
-        return a.config == b.config && ((WaterBullet) a).gunfeel$shot() == ((WaterBullet) b).gunfeel$shot() && a.getThrower() == b.getThrower();
+    public static boolean sameShot(EntityThrowableNT a, EntityThrowableNT b) {
+        WaterBullet wa = (WaterBullet) a, wb = (WaterBullet) b;
+        return wa.gunfeel$waterConfig() == wb.gunfeel$waterConfig() && wa.gunfeel$shot() == wb.gunfeel$shot() && a.getThrower() == b.getThrower();
     }
 
     // for ExplosiveCheck: the searches for other bullets, the pairs of one shot left alone and the touches that set one
@@ -118,11 +120,13 @@ public final class WaterImpact {
 
     // after the bullet's tick (MixinThrowableClip), the server: did its path from (fx, fy, fz) touch another bullet, and
     // was either an explosive. Only bullets that have met water touch: in the air NTM's bullets pass each other, and
-    // the search is not made
+    // the search is not made. port: NTM's bullets and the old ones with an impact fuze (WaterTick.covers), each with
+    // the other
     @SuppressWarnings("unchecked")
-    public static void touch(EntityBulletBaseMK4 b, double fx, double fy, double fz) {
+    public static void touch(EntityThrowableNT b, double fx, double fy, double fz) {
         // a bullet gone this tick (water stopped it, it hit a block) still met what lay on its path
-        if (b.worldObj.isRemote || b.config == null || !WaterSettings.ballistics() || !WaterSettings.fuze() || !WaterBullet.met(b)) return;
+        if (b.worldObj.isRemote || ((WaterBullet) b).gunfeel$waterConfig() == null || !WaterSettings.ballistics() || !WaterSettings.fuze()
+                || !WaterBullet.met(b)) return;
         net.minecraft.util.Vec3 from = net.minecraft.util.Vec3.createVectorHelper(fx, fy, fz);
         // one dead at an impact: up to where it hit (NTM has moved it on past it), not up to where it is
         net.minecraft.util.Vec3 gone = ((WaterBullet) b).gunfeel$goneAt();
@@ -132,8 +136,8 @@ public final class WaterImpact {
                 Math.max(fx, to.xCoord), Math.max(fy, to.yCoord), Math.max(fz, to.zCoord)).expand(1.0, 1.0, 1.0);
         boolean mine = !b.isDead && goesOff(b);
         searches++;
-        for (EntityBulletBaseMK4 o : (List<EntityBulletBaseMK4>) b.worldObj.getEntitiesWithinAABB(EntityBulletBaseMK4.class, area)) {
-            if (o == b || o.isDead || o.config == null || !WaterBullet.met(o)) continue;
+        for (EntityThrowableNT o : (List<EntityThrowableNT>) b.worldObj.getEntitiesWithinAABB(EntityThrowableNT.class, area)) {
+            if (o == b || o.isDead || !WaterTick.covers(o) || ((WaterBullet) o).gunfeel$waterConfig() == null || !WaterBullet.met(o)) continue;
             boolean theirs = goesOff(o);
             if (!mine && !theirs) continue;
             AxisAlignedBB box = o.boundingBox.expand(TOUCH, TOUCH, TOUCH);

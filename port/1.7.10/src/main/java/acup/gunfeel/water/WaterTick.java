@@ -1,6 +1,8 @@
 package acup.gunfeel.water;
 
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
+import com.hbm.entity.projectile.EntityBulletBaseNT;
+import com.hbm.entity.projectile.EntityThrowableNT;
 
 import acup.gunfeel.BlockRay;
 import acup.gunfeel.TestLog;
@@ -18,12 +20,21 @@ import net.minecraft.world.World;
 // server's updates, EntityThrowableInterp), so the client's events come from the tracers (Tracers.water). Blocks are
 // the port's BlockRay.Hit (null: a miss); a point is the port's Vec3 or x, y, z. The explosives' part (main 7e2382c
 // to a1f618b): an impact fuze goes off on the surface (blocks gives NTM the surface's hit), a stopped one sinks.
+// port: also NTM 1.7.10's old EntityBulletBaseNT with an impact fuze (the masked man's and the UFO's, which 26.2 fires
+// as its own bullets, X560): the same path, fuze and sinking; its damage is rolled at the hit, so it is not carried
+// from tick to tick but counted from f there (fSquared)
 public final class WaterTick {
     private WaterTick() {
     }
 
+    // the bullets water acts on: NTM's bullets (EntityBulletBaseMK4), and the old ones that blow up where they hit
+    public static boolean covers(Entity bullet) {
+        if (bullet instanceof EntityBulletBaseMK4) return true;
+        return bullet instanceof EntityBulletBaseNT && bullet instanceof WaterBullet w && w.gunfeel$waterFuze().any();
+    }
+
     // the tick's path: the point to test blocks up to (the stop or the skip, else `to`)
-    public static Vec3 path(EntityBulletBaseMK4 bullet, World level, Vec3 from, Vec3 to) {
+    public static Vec3 path(EntityThrowableNT bullet, World level, Vec3 from, Vec3 to) {
         WaterBullet w = (WaterBullet) bullet;
         w.gunfeel$waterTick(null);
         if (w.gunfeel$waterStopped()) return to; // a stopped explosive sinks (sink) and goes off where it touches
@@ -32,7 +43,7 @@ public final class WaterTick {
         long seed = seed(bullet.getEntityId(), w.gunfeel$waterSkips());
         WaterClass cls = w.gunfeel$waterClass();
         // an impact fuze skips by the fuze's angle (waterFuzeSkipAngle), an explosive bullet of a rifle too
-        if (WaterClass.Fuze.ofConfig(bullet.config).any()) s = s.fuzed();
+        if (w.gunfeel$waterFuze().any()) s = s.fuzed();
         WaterPath.Result r = WaterPath.trace(level, from, to, w.gunfeel$waterF(), cls, w.gunfeel$waterExpansion(), w.gunfeel$waterOpened(),
                 w.gunfeel$waterSkips(), seed, s, bullet);
         if (r.events.isEmpty() && r.water <= 0) return to;
@@ -41,16 +52,16 @@ public final class WaterTick {
     }
 
     // a stopped bullet that sinks rather than goes: one with an impact fuze
-    public static boolean sinks(EntityBulletBaseMK4 bullet) {
-        return WaterClass.Fuze.ofConfig(bullet.config).any();
+    public static boolean sinks(EntityThrowableNT bullet) {
+        return ((WaterBullet) bullet).gunfeel$waterFuze().any();
     }
 
     // sinking: straight down by NTM's gravity (at least MIN_G a tick), no faster than SINK (1 block a second); its
     // motionMult is 1 meanwhile (MixinWaterBullet), so the motion is the path a tick
     static final double SINK = 0.05, MIN_G = 0.01;
 
-    static void sink(EntityBulletBaseMK4 bullet) {
-        double g = bullet.config == null ? 0 : bullet.getGravityVelocity();
+    static void sink(EntityThrowableNT bullet) {
+        double g = ((WaterBullet) bullet).gunfeel$waterConfig() == null ? 0 : bullet.getGravityVelocity();
         double vy = bullet.motionY;
         if (g < MIN_G) vy -= MIN_G - g;
         bullet.motionX = 0;
@@ -83,7 +94,7 @@ public final class WaterTick {
 
     // the block NTM's path test found (null: a miss): a hit under the liquid's surface is the bottom of shallow water.
     // An impact fuze coming from the air goes off on the surface (waterFuze): the hit NTM gets is the surface's
-    public static BlockRay.Hit blocks(EntityBulletBaseMK4 bullet, BlockRay.Hit hit) {
+    public static BlockRay.Hit blocks(EntityThrowableNT bullet, BlockRay.Hit hit) {
         WaterPath.Result r = ((WaterBullet) bullet).gunfeel$waterTick();
         if (r == null) return hit;
         BlockRay.Hit fuze = fuze(bullet, r, hit);
@@ -99,8 +110,8 @@ public final class WaterTick {
 
     // the surface an impact fuze meets before the block NTM found: the first entry from the air into liquid (where
     // lava, or water for the Daybreaker's flame, stops it at once, the stop there)
-    static BlockRay.Hit fuze(EntityBulletBaseMK4 bullet, WaterPath.Result r, BlockRay.Hit hit) {
-        if (!WaterSettings.fuze() || !WaterClass.Fuze.ofConfig(bullet.config).any()) return null;
+    static BlockRay.Hit fuze(EntityThrowableNT bullet, WaterPath.Result r, BlockRay.Hit hit) {
+        if (!WaterSettings.fuze() || !((WaterBullet) bullet).gunfeel$waterFuze().any()) return null;
         double block = hit == null ? Double.POSITIVE_INFINITY : r.t(new Vec3(hit.ax, hit.ay, hit.az));
         for (WaterEvents.Event e : r.events) {
             boolean entry = e.type() == WaterEvents.Type.ENTER || e.type() == WaterEvents.Type.STOP
@@ -159,9 +170,18 @@ public final class WaterTick {
     }
 
     // the end of the tick (after NTM moved the bullet and hit what it hit)
-    public static void end(EntityBulletBaseMK4 bullet) {
+    public static void end(EntityThrowableNT bullet) {
         move(bullet);
-        if (!bullet.worldObj.isRemote) announce(bullet);
+        if (!bullet.worldObj.isRemote && bullet instanceof EntityBulletBaseMK4 mk4) announce(mk4);
+    }
+
+    // an old bullet's damage at a point of its path (MixinOldBulletBase): × f² there. NTM rolls it at the hit from the
+    // config, the air's damage, so the f of the whole flight counts, not this tick's change alone
+    public static float fSquared(Entity bullet, Vec3 at) {
+        if (!(bullet instanceof WaterBullet w) || !covers(bullet)) return 1F;
+        WaterPath.Result r = w.gunfeel$waterTick();
+        double f = r != null && at != null ? r.fAt(at) : w.gunfeel$waterF();
+        return (float) (f * f);
     }
 
     // port: NTM 1.7.10 registers its bullet with no motion updates (EntityMappings: sendsVelocityUpdates false), and
@@ -204,7 +224,7 @@ public final class WaterTick {
         return (sent & 3) != kind || now - (sent >> 2) >= RESEND;
     }
 
-    private static void move(EntityBulletBaseMK4 bullet) {
+    private static void move(EntityThrowableNT bullet) {
         WaterBullet w = (WaterBullet) bullet;
         WaterPath.Result r = w.gunfeel$waterTick();
         if (r == null) {
@@ -218,7 +238,7 @@ public final class WaterTick {
         double hitT = r.blockT;
         boolean blocked = !Double.isNaN(hitT) && hitT < r.t(r.end()) - 1e-7;
         double f1 = blocked ? r.fAt(hitT) : r.f;
-        if (server && f0 > 0) bullet.damage *= (float) ((f1 / f0) * (f1 / f0));
+        if (server && f0 > 0 && bullet instanceof EntityBulletBaseMK4 mk4) mk4.damage *= (float) ((f1 / f0) * (f1 / f0));
         w.gunfeel$waterF(f1);
         w.gunfeel$waterOpened(blocked ? r.openedAt(hitT) : r.opened);
         r.unit = f1;

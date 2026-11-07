@@ -12,6 +12,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
 import acup.gunfeel.LegacyBullets;
+import acup.gunfeel.water.WaterTick;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.util.DamageSource;
@@ -27,12 +28,14 @@ import net.minecraft.util.MovingObjectPosition;
 // config's headshotMult when the hit is high enough (1.0 for every NPC's config, so off), and hurts with
 // attackEntityFrom: that damage, or (the creature still shielded by its last hit) that plus the last hit. The change
 // the head or a limb makes goes to the one of the two NTM's own damage lands with (LegacyBullets.hurt, as 26.2 X577
-// does for the old EntityBullet).
+// does for the old EntityBullet). In water one with an impact fuze hurts × f² where it met the creature (WaterTick).
 @Mixin(value = EntityBulletBaseNT.class, remap = false)
 public abstract class MixinOldBulletBase {
     // this hit: where it met the creature; the change the head or a limb makes to it
     @Unique private MovingObjectPosition gunfeel$mop;
     @Unique private float gunfeel$extra;
+    // what water took off NTM's damage (WaterTick.fSquared): the second hurt carries NTM's damage too
+    @Unique private float gunfeel$waterCut;
     @Unique private boolean gunfeel$counted;
     @Unique private LegacyBullets.Hurt gunfeel$hurtWith = LegacyBullets.Hurt.FIRST;
 
@@ -41,6 +44,7 @@ public abstract class MixinOldBulletBase {
         gunfeel$mop = mop;
         gunfeel$counted = false;
         gunfeel$extra = 0F;
+        gunfeel$waterCut = 0F;
         gunfeel$hurtWith = LegacyBullets.Hurt.FIRST;
     }
 
@@ -52,10 +56,16 @@ public abstract class MixinOldBulletBase {
     private boolean gunfeel$hurt(Entity target, DamageSource source, float amount, Operation<Boolean> original) {
         if (gunfeel$counted) {
             if (gunfeel$hurtWith == LegacyBullets.Hurt.NONE) return false;
-            return original.call(target, source, amount + gunfeel$extra);
+            return original.call(target, source, amount - gunfeel$waterCut + gunfeel$extra);
         }
         gunfeel$counted = true;
         MovingObjectPosition mop = gunfeel$mop;
+        // in water: × f² where it met the creature, as NTM's bullet's damage (one with an impact fuze, WaterTick.covers)
+        if (mop != null && mop.hitVec != null && !target.worldObj.isRemote) {
+            float k = WaterTick.fSquared((Entity) (Object) this, new acup.gunfeel.phys.Vec3(mop.hitVec.xCoord, mop.hitVec.yCoord, mop.hitVec.zCoord));
+            gunfeel$waterCut = amount * (1F - k);
+            amount -= gunfeel$waterCut;
+        }
         if (mop != null && mop.hitVec != null && !target.worldObj.isRemote && LegacyBullets.on()) {
             try {
                 float base = amount / gunfeel$ntmHead(target, mop);
