@@ -308,10 +308,8 @@ public final class Config {
               no louder than 1, their blast is loud enough). /gunfeel hitvolume
             holeCache: bullet holes kept on the graphics card in batches, rebuilt only when a hole comes or goes, not
               every frame (false = the old way, every hole sent again each frame)
-            ntmRenderFixes: NTM blocks drawn as their textures are (NTM Decentralized Edition: the reinforced laminate
-              and its pane, block and item, see-through as the glass they are, and see-through glass no longer hidden
-              behind NTM's explosion smoke; off = as NTM draws them). The laminate takes effect when the resources are
-              loaded again (F3+T), the smoke at once
+            ntmRenderFixes: does nothing on 1.7.10, where NTM already draws its blocks as their textures are (26.2: the
+              reinforced laminate of NTM Decentralized Edition drawn see-through)
             Every value except enabled can be overridden per gun in config/ntm-gunfeel-guns.properties
             (hbm\\:gun_maresleg.armRollLeft = -55) or with /gunfeel set <key> <value> for the held gun.
             Hand positions per gun: <gun>.right / <gun>.left there, or /gunfeel grip""";
