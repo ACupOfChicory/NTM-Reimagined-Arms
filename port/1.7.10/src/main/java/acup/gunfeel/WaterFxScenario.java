@@ -353,7 +353,7 @@ final class WaterFxScenario {
                 lines.add("MISSING config " + ammo);
                 check(false, "one gas bubble of " + ammo + " shot from under water");
                 x566Step++;
-                x566Tick = t;
+                x566Tick = t + 1; // the next shot fires on the next tick (t == x566Tick)
                 return;
             }
             if (t == x566Tick) {
@@ -372,7 +372,7 @@ final class WaterFxScenario {
             lines.add("from under water " + ammo + " (speed " + c.velocity + ", traced " + Tracers.traced(c) + "): gas bubbles " + gas + ", particles " + kinds());
             check(gas == 1, "one gas bubble of " + ammo + " shot from under water");
             x566Step++;
-            x566Tick = t;
+            x566Tick = t + 1; // the next shot fires on the next tick (t == x566Tick)
             return;
         }
         if (x566Step == 5) {
