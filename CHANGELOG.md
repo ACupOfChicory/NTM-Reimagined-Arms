@@ -1,5 +1,12 @@
 # Changelog
 
+## X543.157
+
+- A round that meets water exactly on the edge of its surface and a side now
+  comes in through the surface: a shallow one skips off and a fuze takes it
+  for a hit on the water. Before, it came in through the side, as if it had
+  hit a wall of water.
+
 ## X543.156
 
 - A grenade or rocket sinking straight down keeps the way it faced. Before,
