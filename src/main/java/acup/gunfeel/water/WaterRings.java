@@ -3,7 +3,12 @@ package acup.gunfeel.water;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.SubmitNodeStorage;
+import net.minecraft.client.renderer.feature.CustomFeatureRenderer;
+import net.minecraft.client.renderer.rendertype.OutputTarget;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -120,24 +125,34 @@ public final class WaterRings {
         long now = System.nanoTime();
         double dt = lastNanos == 0 ? 0 : Math.clamp((now - lastNanos) / 1e9, 0, 0.1);
         lastNanos = now;
-        if (net.minecraft.client.Minecraft.getInstance().isPaused()) dt = 0;
+        if (Minecraft.getInstance().isPaused()) dt = 0;
         if (alive() == 0) return;
         update(level, dt);
         TextureAtlasSprite sprite = WaterParticle.sprite("ntmgunfeel:water_ring");
-        event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), type(),
-                (p, vc) -> {
-                    for (Ring d : RINGS) if (d.on && !d.air && d.t >= d.delay) draw(level, p, vc, d, sprite, cam);
-                });
+        SubmitNodeCollector.CustomGeometryRenderer rings = (p, vc) -> {
+            for (Ring d : RINGS) if (d.on && !d.air && d.t >= d.delay) draw(level, p, vc, d, sprite, cam);
+        };
+        // after the translucent terrain, with the game's translucent particles. Drawn before it (with the translucent
+        // features) a ring wrote its depth over the water first, the water under it was not drawn, and as the ring
+        // faded the bottom showed through it, a hole in the water (the owner, 2026-11-07)
+        if (event.getSubmitNodeCollector() instanceof SubmitNodeStorage storage)
+            storage.order(0).afterTerrain.submit(new CustomFeatureRenderer.Submit(event.getPoseStack().last().copy(), type(), rings));
+        else
+            event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), type(), rings);
     }
 
     // drawn as a particle is: the colour times the world's light only. The entity pipeline also shades by the normal,
     // and from above both faces of the ring got its ambient 0.4 alone (the owner's grey rings, 2026-11-06). This one
     // culls the face turned away, so each of the two faces is seen from its own side once
+    // With improved transparency the translucent terrain has a target of its own: the ring goes to the particles' one,
+    // as the game's translucent particles do, and the frame lays it over the water by depth (in the main target the
+    // water would be laid over it). Without it there is no such target and this is the main one
+    private static final OutputTarget PARTICLES = new OutputTarget("ntmgunfeel_particles_target", () -> Minecraft.getInstance().levelRenderer.particlesTarget());
     private static RenderType type;
 
     private static RenderType type() {
         if (type == null) type = acup.gunfeel.HoleRender.create("ntmgunfeel_water_ring", RenderSetup.builder(RenderPipelines.TRANSLUCENT_PARTICLE)
-                .withTexture("Sampler0", TextureAtlas.LOCATION_PARTICLES).useLightmap().sortOnUpload().createRenderSetup());
+                .withTexture("Sampler0", TextureAtlas.LOCATION_PARTICLES).useLightmap().sortOnUpload().setOutputTarget(PARTICLES).createRenderSetup());
         return type;
     }
 
@@ -188,13 +203,19 @@ public final class WaterRings {
             n = clip(n, gz + 1, -1, false);
             if (n < 3) continue;
             int light = LightCoordsUtil.getLightCoords(level, CELL.set(gx, (int) Math.floor(c[0] + 0.5), gz));
-            // a fan of triangles as quads (the last vertex twice), both ways round: one face seen from below, one from above
+            // Drawn after the water and tested against its depth, each face must lie on the side of the water it is
+            // seen from: the one seen from above over it, the one seen from below under it. The water's mesh is the
+            // cell's two triangles, not this smooth surface, and stands off it by up to a quarter of the cell's twist
+            // (whichever diagonal the quad is cut along): that much more
+            double lift = 0.03 + Math.abs(c[0] + c[2] - c[1] - c[3]) / 4;
+            // a fan of triangles as quads (the last vertex twice), both ways round: the first seen from below, the
+            // second from above
             for (int pass = 0; pass < 2; pass++) {
                 for (int i = 1; i + 1 < n; i++) {
                     for (int k2 = 0; k2 < 4; k2++) {
                         int j = k2 == 0 ? 0 : pass == 0 ? (k2 == 1 ? i : i + 1) : (k2 == 1 ? i + 1 : i);
                         double x = PX[j], z = PZ[j];
-                        double y = WaterSurface.height(c, x - gx, z - gz) + 0.03;
+                        double y = WaterSurface.height(c, x - gx, z - gz) + (pass == 0 ? -lift : lift);
                         double u = ((x - cx) * hx + (z - cz) * hz) / sc + 0.5, v = ((x - cx) * bx + (z - cz) * bz) / sc + 0.5;
                         vc.addVertex(p, (float) (x - cam.x), (float) (y - cam.y), (float) (z - cam.z)).setColor(color)
                                 .setUv(u0 + (float) u * (u1 - u0), v0 + (float) v * (v1 - v0)).setLight(light);

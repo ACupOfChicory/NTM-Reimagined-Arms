@@ -473,6 +473,21 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
         dir.resolve("config/fml.toml").writeText("earlyWindowControl = false\n")
         root.resolve("libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar")
             .copyTo(dir.resolve("mods/crankshaft.jar"), overwrite = true)
+        // -PstandMods=<dir>: other mods' jars for the stand (Sodium, Iris), copied in (reflink) as stand-<name>; -PstandShader=<zip>:
+        // an Iris shader pack, turned on. What a run before brought is taken out first
+        dir.resolve("mods").listFiles()!!.filter { it.name.startsWith("stand-") }.forEach { it.delete() }
+        val standMods = providers.gradleProperty("standMods").orNull?.let { file(it) }
+        standMods?.listFiles().orEmpty().filter { it.name.endsWith(".jar") }.forEach {
+            check(ProcessBuilder("cp", "--reflink=auto", "-f", it.path, dir.resolve("mods/stand-${it.name}").path).inheritIO().start().waitFor() == 0)
+        }
+        val standShader = providers.gradleProperty("standShader").orNull?.let { file(it) }
+        require(standShader == null || standMods != null) { "-PstandShader needs -PstandMods with Iris in it" }
+        if (standShader != null) {
+            dir.resolve("shaderpacks").mkdirs()
+            standShader.copyTo(dir.resolve("shaderpacks/${standShader.name}"), overwrite = true)
+        }
+        if (standMods != null) dir.resolve("config/iris.properties").writeText(
+            if (standShader != null) "enableShaders=true\nshaderPack=${standShader.name}\n" else "enableShaders=false\n")
         dir.resolve("config/crankshaft-client.toml").writeText(
             "backend = \"${if(providers.gradleProperty("mobCpuGeometry").isPresent) "flywheel:off" else "DEFAULT"}\"\n")
         dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(stand) 10 else if(review || bench || smoke) 8 else 3}\nsimulationDistance:5\ninactivityFpsLimit:minimized\nmaxFps:${providers.gradleProperty("standMaxFps").orNull ?: if(stand && providers.gradleProperty("glassStandCheck").isPresent) 260 else 60}\n${if(stand || smoke) "tutorialStep:none\n" else ""}")

@@ -107,7 +107,8 @@ public final class ClientSmoke {
             ItemGunBaseNT.prevAimingProgress=ItemGunBaseNT.aimingProgress=phase==31||phase==34||phase==35?1:0;
         }
         try {
-            if((HoleBenchMetrics.ENABLED || MobSmoke.enabled()) && phase==0 && mc.gui.screen()!=null
+            // warnings only (Sodium and Iris on a stand: their deprecated logoFile) are passed on every stand
+            if(phase==0 && mc.gui.screen()!=null
                     && mc.gui.screen().getClass().getName().equals("net.neoforged.neoforge.client.gui.LoadingErrorScreen")) {
                 var screen=mc.gui.screen();
                 var errors=screen.getClass().getDeclaredField("modLoadErrors"); errors.setAccessible(true);
