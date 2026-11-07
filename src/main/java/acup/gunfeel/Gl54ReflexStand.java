@@ -87,8 +87,7 @@ final class Gl54ReflexStand {
             }
             // the far wall is lit (invisible light blocks in front of it), so the sight looks at something bright and the gun, which is
             // dark, can be told from it by the numbers
-            for (int x : new int[] {-4, 0, 4}) for (int y : new int[] {2, 7, 12}) for (int z : new int[] {WALL - 2, 20, 6})
-                level.setBlock(O.offset(x, y, z), Blocks.LIGHT.defaultBlockState(), 3);
+            lightsAt(level, true);
             Gl54Grenade.watch = o -> {
                 synchronized (BLASTS) {
                     BLASTS.add(o);
@@ -257,6 +256,31 @@ final class Gl54ReflexStand {
         sleep(10);
         run(() -> key(EnumKeybind.GUN_SECONDARY));
         sleep(10);
+
+        // the glow: the same marks at noon and at midnight with the lights out (the wall, then the sky above it), for the
+        // scripts to compare: the sight's light is its own, so its marks are to come out the same
+        for (boolean night : new boolean[] {false, true}) {
+            String time = night ? "night" : "day";
+            if (night) run(() -> {
+                command(mc, "time set midnight");
+                lights(mc, false);
+            });
+            sleep(night ? 60 : 10);
+            for (float[] pose : new float[][] {{0, 0}, {0, -30}}) {
+                String tag = "glow-" + time + "-" + (pose[1] == 0 ? "wall" : "sky");
+                run(() -> turn(mc, pose[0], pose[1]));
+                sleep(40);
+                run(() -> probeLines(tag, true));
+                run(() -> shot(tag + ".png"));
+                TODO.add(() -> pending == 0);
+            }
+        }
+        run(() -> {
+            noon(mc);
+            lights(mc, true);
+            turn(mc, 0, 0);
+        });
+        sleep(60);
 
         // the hip with the number stored: the dot only
         run(() -> aim(mc, false));
@@ -807,6 +831,22 @@ final class Gl54ReflexStand {
             p.teleportTo(server.overworld(), O.getX() + 0.5, O.getY(), O.getZ() + 0.5, Set.of(), yaw, pitch, false);
             p.setDeltaMovement(0, 0, 0);
         }).join();
+    }
+
+    // the invisible light blocks in front of the walls, put in or taken out
+    private static void lightsAt(ServerLevel level, boolean on) {
+        for (int x : new int[] {-4, 0, 4}) for (int y : new int[] {2, 7, 12}) for (int z : new int[] {WALL - 2, 20, 6})
+            level.setBlock(O.offset(x, y, z), on ? Blocks.LIGHT.defaultBlockState() : Blocks.AIR.defaultBlockState(), 3);
+    }
+
+    private static void lights(Minecraft mc, boolean on) {
+        var server = mc.getSingleplayerServer();
+        server.submit(() -> lightsAt(server.overworld(), on)).join();
+    }
+
+    private static void command(Minecraft mc, String c) {
+        var server = mc.getSingleplayerServer();
+        server.submit(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), c)).join();
     }
 
     private static void noon(Minecraft mc) {

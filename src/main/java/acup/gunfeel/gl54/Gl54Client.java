@@ -23,6 +23,7 @@ public final class Gl54Client {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.ItemTooltipEvent.class, Gl54Client::tooltip);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.InputEvent.MouseScrollingEvent.class, Gl54Client::wheel);
         modBus.addListener(net.neoforged.neoforge.client.event.RegisterMenuScreensEvent.class, e -> e.register(Gl54Items.MAG_MENU.get(), MagScreen::new));
+        modBus.addListener(net.neoforged.neoforge.client.event.RegisterRenderPipelinesEvent.class, e -> e.registerPipeline(ReflexDraw.PIPELINE));
         modBus.addListener(RegisterColorHandlersEvent.ItemTintSources.class, e -> {
             e.register(Identifier.fromNamespaceAndPath("ntmgunfeel", "mag_tint"), MagTint.MAP_CODEC);
             e.register(Identifier.fromNamespaceAndPath("ntmgunfeel", "grenade_tint"), GrenadeTint.MAP_CODEC);

@@ -127,10 +127,7 @@ class ReflexMathTest {
     }
 
     @Test
-    void theRingIsAnAnnulusAndTheArrowPointsWhereItIsToldTo() {
-        double sum = 0;
-        for (List<double[]> piece : ReflexMath.ring(0, 0, 1.5, 2.0, 40)) sum += area(piece);
-        assertEquals(Math.PI * (4.0 - 2.25), sum, 0.05);
+    void theArrowPointsWhereItIsToldTo() {
         List<double[]> arrow = ReflexMath.arrow(5, 3, 0, 1, 0.4, 0.1);
         assertEquals(5.0, arrow.get(0)[0], 1e-12);
         assertEquals(3.0, arrow.get(0)[1], 1e-12);
@@ -138,5 +135,40 @@ class ReflexMathTest {
         assertEquals(2.6, arrow.get(1)[1], 1e-12);
         assertEquals(2.6, arrow.get(2)[1], 1e-12);
         assertEquals(0.2, Math.abs(arrow.get(1)[0] - arrow.get(2)[0]), 1e-12);
+    }
+
+    @Test
+    void aSegmentsDistanceIsToItsNearestPoint() {
+        double[] s = {0, 0, 2, 0};
+        assertEquals(1.0, ReflexMath.segmentDistance(1, 1, s), 1e-12);
+        assertEquals(Math.hypot(1, 1), ReflexMath.segmentDistance(3, 1, s), 1e-12);
+        assertEquals(5.0, ReflexMath.segmentDistance(3, 4, new double[] {0, 0, 0, 0}), 1e-12);
+    }
+
+    @Test
+    void theStrokesJoinTouchingPixelsOnly() {
+        // "7": the top row, the right side down one, then a corner step to the middle column
+        List<double[]> seven = ReflexMath.strokes("7");
+        assertTrue(seven.stream().anyMatch(s -> s[0] == 2.5 && s[1] == 1.5 && s[2] == 1.5 && s[3] == 2.5), "the corner step");
+        // "11": nothing joins the two characters across the gap
+        assertTrue(ReflexMath.strokes("11").stream().noneMatch(s -> (s[0] < 3 && s[2] > 4) || (s[2] < 3 && s[0] > 4)));
+        // every lit pixel is a point of its own
+        assertEquals(ReflexMath.pixels("8").size(), ReflexMath.strokes("8").stream().filter(s -> s[0] == s[2] && s[1] == s[3]).count());
+    }
+
+    @Test
+    void theCoreCoversAndTheGlowOnlyAdds() {
+        ReflexMath.Light l = new ReflexMath.Light(0.5, 1, 70, 0.9, 0, 0);
+        // on the line: the LED's red, opaque
+        assertEquals(0xFF000000 | 255 << 16 | 36 << 8 | 24, ReflexMath.light(l, 0, Double.MAX_VALUE, 255, 36, 24));
+        // two pixels out: alpha 0 (nothing behind is taken), a little red
+        int glow = ReflexMath.light(l, 2.0, Double.MAX_VALUE, 255, 36, 24);
+        assertEquals(0, glow >>> 24);
+        assertTrue((glow >> 16 & 0xFF) > 0 && (glow >> 16 & 0xFF) < 70);
+        // far out: nothing
+        assertEquals(0, ReflexMath.light(l, 0.5 + l.reach() + 1, Double.MAX_VALUE, 255, 36, 24));
+        // the hot middle of a dot goes toward white
+        ReflexMath.Light dot = new ReflexMath.Light(0.9, 0, 140, 1.1, 110, 0.6);
+        assertEquals(36 + 110, ReflexMath.light(dot, 0, 0, 255, 36, 24) >> 8 & 0xFF);
     }
 }
