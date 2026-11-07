@@ -12,7 +12,7 @@ public final class MixinCheck {
     // target -> handlers it should have
     private static final String[][] TARGETS = {
             {"com.hbm.main.ModEventHandlerClient", "1"},
-            {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "14"}, // 5 + MixinSmokeNodes 1 + arms 3 + Shader Fixer path 2 and its helpers 2 + walkSway 1
+            {"com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase", "17"}, // 5 + MixinSmokeNodes 1 + arms 3 + Shader Fixer path 2 and its helpers 2 + walkSway 1 + hip, muzzle, underWater ... (counted on the obf run, X543.177)
             {"com.hbm.render.anim.HbmAnimations", "2"},
             {"com.hbm.render.loader.HFRWavefrontObject", "8"}, // 4 + MachineMesh ends 4
             {"com.hbm.render.loader.HFRWavefrontObjectVBO", "4"},
@@ -31,7 +31,7 @@ public final class MixinCheck {
             {"com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase", "3"},
             {"com.hbm.items.weapon.sedna.mags.MagazineBelt", "2"},
             {"com.hbm.main.ClientProxy", "2"}, // MixinGunKeysRadial, MixinAimButton
-            {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "12"}, // 2 + MixinHoldAim 3 handlers and its 3 helpers (gunfeel$standardScope ...) + MixinSprintFireGun 4
+            {"com.hbm.items.weapon.sedna.ItemGunBaseNT", "17"}, // 2 + MixinHoldAim 3 handlers and its 3 helpers (gunfeel$standardScope ...) + MixinSprintFireGun 4 + heldClick, hud, components ... (counted on the obf run, X543.177)
             {"com.hbm.packet.toclient.HbmAnimationPacket$Handler", "4"},
             {"net.minecraft.client.renderer.ItemRenderer", "10"}, // ItemRendererAccess 5 + MixinItemRendererGunSway 2 + MixinItemRendererGunSwing 3
             {"net.minecraft.client.renderer.entity.RendererLivingEntity", "9"}, // begin, end, yaw, modelStart, modelEnd, pass + worn: draw, overlay, glint
