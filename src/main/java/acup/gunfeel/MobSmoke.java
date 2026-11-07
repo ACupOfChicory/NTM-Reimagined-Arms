@@ -43,6 +43,12 @@ public final class MobSmoke {
     // -PcheckTurn: a pose kept from before a turn, on the server, against the pose the player sees after it
     private static final boolean TURN=Boolean.getBoolean("ntmgunfeel.checkTurn");
     private static Object kept;
+    // the client's body is not sent, and a mob that stands keeps it on the client up to 50 degrees off its yRot
+    // (LivingEntity.tickHeadTurn). A mob turned by yRot (Turn.YAW, YAW_BACK) has its client body held LAG off the yRot
+    // the kept pose is taken at, through the turn: the rule must turn that pose as the renderer turns the mob, not by
+    // that body
+    private static final float LAG=45F;
+    private static float lagBody=Float.NaN;
     // the target's poses as the client published them, with the tick and partial tick of the frame: a spin's stand
     // finds the client's frame of the kept and the fresh pose, which the server does not get
     private record Phase(List<ModelBox> boxes, double tick) {}
@@ -189,6 +195,7 @@ public final class MobSmoke {
         }
         var mc=Minecraft.getInstance();
         if(frozen() && mc.level!=null && mc.level.getEntity(id) instanceof LivingEntity still) hold(still);
+        if(!Float.isNaN(lagBody) && mc.level!=null && mc.level.getEntity(id) instanceof LivingEntity lagging) { lagging.yBodyRot=lagging.yBodyRotO=lagBody; }
         if(mc.player==null || pending) return;
         if(stage==22 && !review()) { if(ExplosiveSmoke.finish() && NpcShotSmoke.finish())ClientSmoke.finish(); return; }
         if(review()) { reviewFrame(); return; }
@@ -210,7 +217,7 @@ public final class MobSmoke {
             rotating.setYRot(rotating.yBodyRot); rotating.yHeadRot=rotating.yBodyRot;
         }
         if(stage==0) {
-            turned=false;
+            turned=false; lagBody=Float.NaN;
             next();
         } else if(stage==1) {
             if(seconds()>1 && mc.level.getEntity(id)!=null) watch=true;
@@ -336,12 +343,14 @@ public final class MobSmoke {
                 var state=mc.getEntityRenderDispatcher().getRenderer(target).createRenderState();
                 RESULTS.add(new Result(true,CASES.get(index)+": клиент, состояние рендера="+state.getClass().getSimpleName()
                         +", живое="+(state instanceof net.minecraft.client.renderer.entity.state.LivingEntityRenderState)));
+                var rule=ModelHits.turn(target.getClass());
+                if(rule==ModelHits.Turn.YAW || rule==ModelHits.Turn.YAW_BACK) lagBody=target.getYRot()+LAG;
                 stage=12; since=System.nanoTime();
             } else stage=0;
         } else if(stage==12 && seconds()>2) {
             turnAway(); stage=11; since=System.nanoTime();
         } else if(stage==11 && seconds()>1.5) {
-            turnCompare(); stage=0;
+            turnCompare(); stage=0; lagBody=Float.NaN;
         }
     }
 
@@ -583,7 +592,7 @@ public final class MobSmoke {
                 kept=all==null?null:all.get(id);
                 if(kept==null) RESULTS.add(new Result(false,label+": нет серверной позы до поворота"));
                 else {
-                    // yRot and the body turn apart (+40, -30), so a rule by the body and one by yRot give two angles;
+                    // yRot and the body turn apart (+40, -30), so a turn by the body and one by yRot give two angles;
                     // the head goes with the body, so that the body's control (it brings the body to the head) keeps it
                     float body=target.yBodyRot,yaw=target.getYRot();
                     target.setYRot(yaw+40); target.yBodyRot=body-30; target.yHeadRot=body-30;
@@ -726,7 +735,8 @@ public final class MobSmoke {
                 var target=(LivingEntity)Minecraft.getInstance().getSingleplayerServer().overworld().getEntity(id);
                 if(target==null || server==null) RESULTS.add(new Result(false,label+": нет цели или сетевой позы"));
                 else {
-                    // the angles the kept pose is turned by: the client's body it was drawn at, the server's when it came in
+                    // the angles the kept pose is turned by: the client's angle it was taken at (its body, or the drawn
+                    // yRot of a mob drawn by yRot), the server's when it came in
                     var all=poses(target.level());var pose=all==null?null:all.get(id);
                     if(moved && pose!=null) RESULTS.add(new Result(true,label+": поза снята при yaw="+part(pose,"yaw")+", тело="+part(pose,"bodyYaw")
                             +", yRot="+part(pose,"yRot")+"; сервер сейчас тело="+target.yBodyRot+", yRot="+target.getYRot()

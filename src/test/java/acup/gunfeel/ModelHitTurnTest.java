@@ -58,8 +58,18 @@ class ModelHitTurnTest {
         // hanging in place: the body stays at 90, yRot 90 to 130; the model turned by +40, the body rule says 0
         assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 90, 130, 100, 90, 90, 90, 70), 1e-6);
         assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, true, 90, 130, 100, 90, 90, 90, 70), 1e-6);
-        // yRot stood 20 degrees off the body when the pose came in (drawn at body 90): yRot then 110, now 130
-        assertEquals(Math.toRadians(20), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 90, 130, 100, 90, 90, 110, 70), 1e-6);
+        // the pose is taken at the drawn yRot 90 (ModelHits.takenYaw), this side's yRot was 110 when it came in, now 130:
+        // on the server by the drawn yRot (+40), on the client by its own yRot then (+20)
+        assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 90, 130, 100, 90, 90, 110, 70), 1e-6);
+        assertEquals(Math.toRadians(20), ModelHits.turnAngle(ModelHits.Turn.YAW, true, 90, 130, 100, 90, 90, 110, 70), 1e-6);
+        // the client's body 45 off the yRot the pose was drawn at (a mob that stands; the stand: yRot +40, the client's
+        // body held at 135): the body plays no part. A pose taken at that body (yaw 135) was turned by -5 and +5
+        assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 135, 130, 100, 90, 135, 90, 70), 1e-6);
+        assertEquals(Math.toRadians(-40), ModelHits.turnAngle(ModelHits.Turn.YAW_BACK, false, 60, 130, 100, 90, 135, 90, 70), 1e-6);
+        assertEquals(Math.toRadians(-20), ModelHits.turnAngle(ModelHits.Turn.YAW_BACK, true, 60, 130, 100, 90, 135, 110, 70), 1e-6);
+        // across 180: drawn at 350, now 10
+        assertEquals(Math.toRadians(20), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 0, 10, 100, 350, 0, 350, 70), 1e-6);
+        assertEquals(Math.toRadians(-20), ModelHits.turnAngle(ModelHits.Turn.YAW_BACK, false, 0, 10, 100, 350, 0, 350, 70), 1e-6);
         // the stand: yRot +40, body -30
         assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 60, 130, 100, 90, 90, 90, 70), 1e-6);
         // flying, yRot on its body: the body rule, drawn at 239.5 on the client

@@ -129,6 +129,10 @@ ARMS method com/hbm/render/loader/HFRWavefrontObject smoothing ()Z
 ARMS method com/hbm/util/GameTime now ()J
 BULLETS class com/hbm/blockentity/BlockEntityDoorGeneric
 BULLETS class com/hbm/blockentity/machine/BlockEntityCargoElevator
+BULLETS class com/hbm/blockentity/machine/BlockEntityTesla
+BULLETS class com/hbm/blockentity/turret/BlockEntityTurretBaseNT
+BULLETS class com/hbm/blockentity/turret/BlockEntityTurretMaxwell
+BULLETS class com/hbm/blockentity/turret/BlockEntityTurretTauon
 BULLETS class com/hbm/blocks/generic/BlockDoorGeneric
 BULLETS class com/hbm/blocks/machine/BlockCargoElevator
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCell
@@ -136,6 +140,7 @@ BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCore
 BULLETS class com/hbm/entity/projectile/EntityBullet
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
 BULLETS class com/hbm/entity/projectile/EntityBulletBeamBase
+BULLETS class com/hbm/entity/projectile/EntityCoin
 BULLETS class com/hbm/entity/projectile/EntityThrowableNT
 BULLETS class com/hbm/explosion/vanillant/ExplosionVNT
 BULLETS class com/hbm/explosion/vanillant/interfaces/IEntityProcessor
@@ -150,10 +155,14 @@ BULLETS field com/hbm/blocks/multiblock/BlockMultiblockCore FACING Lnet/minecraf
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 ticksInAir I
+BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase config Lcom/hbm/items/weapon/sedna/BulletConfig;
+BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase damage F
 BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase thrower Lnet/minecraft/world/entity/LivingEntity;
 BULLETS field com/hbm/entity/projectile/EntityThrowableNT ticksInAir I
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT exploder Lnet/minecraft/world/entity/Entity;
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/level/Level;
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_BEAM_HIT Ljava/util/function/BiConsumer;
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_BEAM_HIT Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_RICOCHET Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ammoItem Ljava/util/function/Supplier;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
@@ -164,10 +173,16 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig gravity D
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig headshotMult F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig id I
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
+BULLETS field com/hbm/items/weapon/sedna/BulletConfig onImpactBeam Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig velocity F
 BULLETS field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_fmj Lcom/hbm/items/weapon/sedna/BulletConfig;
+BULLETS method com/hbm/blockentity/turret/BlockEntityTurretBaseNT getBlockPos ()Lnet/minecraft/core/BlockPos;
+BULLETS method com/hbm/blockentity/turret/BlockEntityTurretBaseNT getEntityPos (Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/world/phys/Vec3;
+BULLETS method com/hbm/blockentity/turret/BlockEntityTurretBaseNT getFirstConfigLoaded ()Lcom/hbm/items/weapon/sedna/BulletConfig;
+BULLETS method com/hbm/blockentity/turret/BlockEntityTurretBaseNT getLevel ()Lnet/minecraft/world/level/Level;
+BULLETS method com/hbm/blockentity/turret/BlockEntityTurretBaseNT getTurretPos ()Lnet/minecraft/world/phys/Vec3;
 BULLETS method com/hbm/blocks/multiblock/MultiblockSurface clientCoreOf (Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/core/BlockPos;
 BULLETS method com/hbm/blocks/multiblock/MultiblockSurface coreOfAny (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)Lnet/minecraft/core/BlockPos;
 BULLETS method com/hbm/blocks/multiblock/MultiblockSurface isSurface (Lnet/minecraft/world/level/block/state/BlockState;)Z
@@ -187,6 +202,11 @@ BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 position ()Lnet/minecraft/world/phys/Vec3;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
+BULLETS method com/hbm/entity/projectile/EntityBulletBeamBase doesImpactEntities ()Z
+BULLETS method com/hbm/entity/projectile/EntityBulletBeamBase doesPenetrate ()Z
+BULLETS method com/hbm/entity/projectile/EntityBulletBeamBase getBoundingBox ()Lnet/minecraft/world/phys/AABB;
+BULLETS method com/hbm/entity/projectile/EntityBulletBeamBase getId ()I
+BULLETS method com/hbm/entity/projectile/EntityBulletBeamBase getThrower ()Lnet/minecraft/world/entity/LivingEntity;
 BULLETS method com/hbm/entity/projectile/EntityThrowableNT getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
 BULLETS method com/hbm/entity/projectile/EntityThrowableNT getThrower ()Lnet/minecraft/world/entity/LivingEntity;
 BULLETS method com/hbm/entity/projectile/EntityThrowableNT position ()Lnet/minecraft/world/phys/Vec3;

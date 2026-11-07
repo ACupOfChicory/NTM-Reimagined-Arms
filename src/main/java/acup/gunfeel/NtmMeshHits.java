@@ -46,7 +46,8 @@ public final class NtmMeshHits {
                 || !ModelHitClient.eligible(info.gunfeel$target())) return;
         LivingEntity entity = info.gunfeel$target();
         Frame frame = new Frame(entity, state, camera.pos.subtract(state.x, state.y, state.z),
-                Mth.rotLerp(state.partialTick, entity.yBodyRotO, entity.yBodyRot), new LinkedHashSet<>(),new boolean[1]);
+                ModelHits.takenYaw(entity, Mth.rotLerp(state.partialTick, entity.yBodyRotO, entity.yBodyRot), state.partialTick),
+                new LinkedHashSet<>(),new boolean[1]);
         SUBMIT.set(frame);
     }
 

@@ -1,5 +1,58 @@
 # Changelog
 
+## X584
+
+- `beamRules`: a beam (a gun's, a turret's or a Tesla arc) stopped after
+  meeting blocks 64 times no longer wears the blocks bullets fly through
+  ("through") that lie past where it stopped. This came with X582, and only
+  where the server's rules have bullets wear such blocks (the built-in rules
+  wear none of them).
+
+## X583
+
+- The server now turns a kept pose of NTM's hunter chopper and plastic bag by
+  the heading they were drawn at, not by their body. The game does not send a
+  mob's body to the server, and a mob that stands keeps it up to 50 degrees
+  off its heading. Since X478, the model of such a mob was then turned by that
+  gap as well, and a standing chopper's ended up about 2 blocks off where it
+  was drawn.
+
+## X582
+
+- `beamRules`: a beam that meets blocks more than 64 times on its way
+  (pierced, broken, or a turret's own; a fence's post and rail count twice)
+  now stops where it met the last of them. Before, it flew on through
+  everything past them as if nothing were there, and a turret could see and
+  hit a target behind them.
+
+## X581
+
+- `beamRules` (server, on) now also covers the Tauon and Maxwell turrets and
+  the Tesla arcs (the Tesla coil, the Tesla and taint crabs, the Tesla armor).
+  They see a target, and hit it, where their beam gets through blocks as a
+  bullet of the same damage would: through fence gaps, through glass they can
+  pierce. The target gets what is left of the damage, and blocks on the way
+  wear and break by the bullet rules. A turret's shot counts where it meets the
+  model (head x1.75, limbs x0.5). A Maxwell without damage upgrades is too weak
+  to pierce anything. Before, any block with a box hid a target from them, and
+  from the arcs even grass, flowers and torches.
+
+## X580
+
+- `beamRules` (server, on): NTM's beams (laser guns, Tesla Cannon, Lacunae,
+  Tau, N.I.4.N.I., Aberrator, shredder shells, the laser grenade) now go
+  through blocks where a bullet of the same damage would: through fence gaps
+  and the empty cells of machines, piercing glass and thin wood with the same
+  loss, and wearing and breaking what bullets wear and break. A beam stops on a
+  block's shape, not its box, and is drawn up to where it stops. A creature
+  behind a pierced block takes what is left, and blocks behind the creature a
+  beam hits are left alone. Beams leave no holes and still go through water. A
+  beam with an effect of its own (the Tesla Cannon's blast, the fire of the
+  infrared and the Aberrator's black round, the shredder's burst) pierces
+  nothing and goes off on the first block, as an explosive round. Folly's beam
+  and Tau's charged shot go through blocks as before. Before, the first block
+  with a box stopped every other beam.
+
 ## X577
 
 - Dedicated servers: rounds now meet NTM's big machines by their shape as

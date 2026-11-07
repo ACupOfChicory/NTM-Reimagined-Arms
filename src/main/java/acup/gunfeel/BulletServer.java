@@ -53,20 +53,36 @@ public final class BulletServer {
     static void forgetWear() {
         WEAR.clear();
     }
+
+    // dev (BulletCheck): the wear as it is now, and back to it (a beam fired on the same block as a bullet)
+    static Object wearNow() {
+        return new HashMap<>(WEAR);
+    }
+
+    @SuppressWarnings("unchecked")
+    static void wearBack(Object was) {
+        WEAR.clear();
+        WEAR.putAll((Map<Spot, Wear>) was);
+    }
     // 20 s at 20 TPS; game ticks, so a paused or slowed server does not forget it sooner
     private static final long FORGET_TICKS = 400L;
 
     // NTM's old bullet (EntityBullet: the hunter chopper's, the cyber crab's) hit this block, as blockHit; it has no
     // BulletConfig and no water: its damage and who fired it are given (LegacyBullets)
     public static int blockHit(Entity bullet, @Nullable Entity owner, float damage, BlockHitResult hit) {
-        if (!(bullet.level() instanceof ServerLevel level)) return 0;
+        return blockHit(bullet.level(), bullet.getId(), owner, damage, hit);
+    }
+
+    // the same for a shot with no entity of its own (a turret's or a Tesla coil's beam): id only for the test log
+    public static int blockHit(Level world, int id, @Nullable Entity owner, float damage, BlockHitResult hit) {
+        if (!(world instanceof ServerLevel level)) return 0;
         BlockPos pos = hit.getBlockPos().immutable();
         BlockState state = level.getBlockState(pos);
         if (state.isAir()) return 0;
         BulletRules.Break rule = BulletRules.breakRule(state);
         if (rule == null || rule.mode() == 0) return 0;
-        if (!wear(level, new Shooter(bullet.getId(), owner, damage), pos, state, rule, 1F)) return 0;
-        if (TestLog.server) TestLog.s(bullet.getId(), "end", "by", rule.pass() ? "broke_pass" : "broke", "block", state, "pos", pos, "at", hit.getLocation());
+        if (!wear(level, new Shooter(id, owner, damage), pos, state, rule, 1F)) return 0;
+        if (TestLog.server) TestLog.s(id, "end", "by", rule.pass() ? "broke_pass" : "broke", "block", state, "pos", pos, "at", hit.getLocation());
         return rule.pass() ? 2 : 1;
     }
 
@@ -107,6 +123,18 @@ public final class BulletServer {
         Vec3 at = hit.getLocation();
         level.playSound(null, at.x, at.y, at.z, RICOCHET_STEEL, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 0.9F + level.getRandom().nextFloat() * 0.2F);
         return true;
+    }
+
+    // a shot without an MK4 bullet (an NTM beam, BeamServer) pierced this block or flew through it ("through"): the
+    // block is worn as by a bullet of that damage
+    static void wearBy(Level world, int id, @Nullable Entity owner, float damage, BlockHitResult hit) {
+        if (!(world instanceof ServerLevel level)) return;
+        BlockPos pos = hit.getBlockPos().immutable();
+        BlockState state = level.getBlockState(pos);
+        if (state.isAir()) return;
+        BulletRules.Break rule = BulletRules.breakRule(state);
+        if (rule == null || rule.mode() == 0) return;
+        wear(level, new Shooter(id, owner, damage), pos, state, rule, 1F);
     }
 
     // the bullet flew through a block it always flies through ("through"): counts as a hit on it
