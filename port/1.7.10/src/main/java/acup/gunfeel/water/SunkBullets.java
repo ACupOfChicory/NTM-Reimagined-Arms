@@ -318,6 +318,7 @@ public final class SunkBullets {
         for (Object o : level.loadedEntityList) {
             if (!(o instanceof EntityBulletBaseMK4 b) || !WaterClass.Fuze.ofConfig(b.config).any()) continue;
             Entity en = b;
+            track(en);
             Vec3 at = new Vec3(en.lastTickPosX + (en.posX - en.lastTickPosX) * pt, en.lastTickPosY + (en.posY - en.lastTickPosY) * pt,
                     en.lastTickPosZ + (en.posZ - en.lastTickPosZ) * pt);
             if (at.distanceToSqr(cam) > 48 * 48 || !WaterBullet.stopped(en)) continue;
@@ -325,11 +326,25 @@ public final class SunkBullets {
             String ammo = WaterFx.ammo(b.config);
             AmmoModels.Model m = ammo == null ? null : model(b.config);
             if (m == null) continue;
-            double yaw = Math.toRadians(en.rotationYaw);
             if (out == null) out = new ArrayList<>();
-            out.add(new Fuzed(m, at, new Vec3(-Math.sin(yaw), 0, Math.cos(yaw))));
+            out.add(new Fuzed(m, at, headingOf(en)));
         }
         return out == null ? Collections.<Fuzed>emptyList() : out;
+    }
+
+    // port: the level way it goes while it flies, kept for its model once it sinks (26.2: WaterTick.end, from the
+    // client bullet's own motion). NTM 1.7.10's client copy does not tick: the server's moves of it come, and its last
+    // tick's move is this (sinking straight down keeps the way it flew)
+    static void track(Entity en) {
+        double dx = en.posX - en.lastTickPosX, dz = en.posZ - en.lastTickPosZ;
+        // at least a hundredth of a block a tick: the server's motion of a sinking one is (0, at most 0.05 down, 0)
+        if (dx * dx + dz * dz > 1e-4 && en instanceof WaterBullet w) w.gunfeel$sunkHeading(WaterTick.flat(dx, dz));
+    }
+
+    // the way a sunk round with an impact fuze lies (also for the stand)
+    public static Vec3 headingOf(Entity en) {
+        Vec3 h = en instanceof WaterBullet w ? w.gunfeel$sunkHeading() : null;
+        return h != null ? h : WaterTick.heading(en.rotationYaw);
     }
 
     // the opened shape of each model, one buffer per model

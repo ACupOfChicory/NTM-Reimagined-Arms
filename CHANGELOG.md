@@ -1,5 +1,11 @@
 # Changelog
 
+## X543.151
+
+- The model of a grenade or rocket that water stopped is now laid the way it
+  flew, taken from how it moved. Before, it would have been laid by NTM's yaw
+  read as a player's, nose back for one that flew east or west.
+
 ## X543.150
 
 - An old NPC bullet (the masked man's laser, the UFO, BOT Prime) that hits a

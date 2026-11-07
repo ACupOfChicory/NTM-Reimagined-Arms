@@ -41,6 +41,7 @@ public abstract class MixinWaterBullet implements WaterBullet, WaterImpact.Hits 
     @Unique private boolean gunfeel$met;
     @Unique private long gunfeel$shot;
     @Unique private net.minecraft.util.Vec3 gunfeel$goneAt;
+    @Unique private acup.gunfeel.phys.Vec3 gunfeel$sunkHeading;
 
     // every constructor of NTM's comes through this one; a gun makes all pellets of a shot in one loop
     @Inject(method = "<init>(Lnet/minecraft/world/World;)V", at = @At("TAIL"), remap = true)
@@ -73,6 +74,8 @@ public abstract class MixinWaterBullet implements WaterBullet, WaterImpact.Hits 
     @Override public void gunfeel$shot(long shot) { gunfeel$shot = shot; }
     @Override public net.minecraft.util.Vec3 gunfeel$goneAt() { return gunfeel$goneAt; }
     @Override public void gunfeel$goneAt(net.minecraft.util.Vec3 at) { gunfeel$goneAt = at; }
+    @Override public acup.gunfeel.phys.Vec3 gunfeel$sunkHeading() { return gunfeel$sunkHeading; }
+    @Override public void gunfeel$sunkHeading(acup.gunfeel.phys.Vec3 heading) { gunfeel$sunkHeading = heading; }
 
     @Override
     public WaterClass.Expansion gunfeel$waterExpansion() {

@@ -58,6 +58,20 @@ public final class WaterTick {
         bullet.motionZ = 0;
     }
 
+    // the level part of a move, of length 1; null when there is next to none (straight down or up)
+    static Vec3 flat(double dx, double dz) {
+        double h = Math.sqrt(dx * dx + dz * dz);
+        return h < 1e-4 ? null : new Vec3(dx / h, 0, dz / h);
+    }
+
+    // the heading of NTM's round from its yaw, when its level way was not kept (WaterBullet.sunkHeading): NTM sets
+    // yaw = atan2(dX, dZ) in flight (EntityBulletBaseMK4.onUpdate), so the heading is (sin, cos), not a player's
+    // (-sin, cos)
+    static Vec3 heading(float yawDegrees) {
+        double yaw = Math.toRadians(yawDegrees);
+        return new Vec3(Math.sin(yaw), 0, Math.cos(yaw));
+    }
+
     public static double sinkSpeed(double vy) {
         return Math.max(-SINK, Math.min(0, vy));
     }
