@@ -291,8 +291,45 @@ final class WaterFxStand {
                             + String.format("%.3f", WaterFx.worstBelow));
                     check(WaterFx.below == 0 && WaterFx.overAir == 0, "ни одна частица не ниже поверхности на 0.15 и не над воздухом");
                     WaterFx.audit = false;
-                    ClientSmoke.finish();
-                    step = 99;
+                    shots = 0;
+                    next();
+                }
+                // a grenade and a rocket shot from under water, straight up: NTM's own entity, no tracer of ours, one gas
+                // bubble each (WaterFx.joined). Last, as they might go off: taken off the server after two ticks
+                case 27, 28 -> {
+                    String ammo = step == 27 ? "g40_he" : "rocket_he";
+                    if (shots == 0) {
+                        before = WaterFx.SPAWNED.clone();
+                        shots = 1;
+                        BulletConfig c = config(ammo);
+                        server.submit(() -> {
+                            sent = ntmShot(server.overworld(), c, new Vec3(STILL + 1.5, Y - 1.5, 0.5), new Vec3(0, 1, 0));
+                        }).join();
+                        return;
+                    }
+                    if (shots == 1 && elapsed() > 0.1) {
+                        shots = 2;
+                        EntityBulletBaseMK4 b = sent;
+                        server.execute(() -> {
+                            if (b != null && !b.isRemoved()) b.discard();
+                        });
+                    }
+                    if (elapsed() < 3) return;
+                    int gas = WaterFx.SPAWNED[WaterParticle.Kind.GAS.ordinal()] - before[WaterParticle.Kind.GAS.ordinal()];
+                    line("from under water " + ammo + " (speed " + config(ammo).velocity + ", traced " + Tracers.traced(config(ammo)) + "): gas bubbles " + gas
+                            + ", per shot: " + perShot(1));
+                    check(gas == 1, "одна газовая каверна у " + ammo + " из-под воды");
+                    shots = 0;
+                    next();
+                }
+                // a grenade shot east along a water channel 14 long and 8 deep: water stops it, it sinks, and its model lies
+                // east (the way it flew, kept when water stopped it), not along NTM's yaw of a fall straight down.
+                // The last step: it goes off on the channel's floor
+                case 29 -> {
+                    if (sunk(mc, server)) {
+                        ClientSmoke.finish();
+                        step = 99;
+                    }
                 }
                 default -> {
                 }
@@ -638,6 +675,90 @@ final class WaterFxStand {
             int n = Math.max(1, c.projectilesMax);
             for (int i = 0; i < n; i++) spawn(server.overworld(), c, from, dir);
         });
+    }
+
+    private static @org.jspecify.annotations.Nullable EntityBulletBaseMK4 sent;
+    private static double stoppedAt = -1;
+    private static @org.jspecify.annotations.Nullable Vec3 seenAt;
+    private static boolean clientStopped;
+
+    // under the stand's eye: NTM's round farther off is out of the client's sight
+    private static final int CHANNEL = 10, CHANNEL_Z = -10;
+
+    private static boolean sunk(Minecraft mc, net.minecraft.client.server.IntegratedServer server) {
+        if (shots == 0) {
+            server.submit(() -> {
+                ServerLevel lv = server.overworld();
+                BlockState stone = Blocks.STONE.defaultBlockState(), water = Blocks.WATER.defaultBlockState();
+                for (int x = CHANNEL; x <= CHANNEL + 15; x++) for (int z = CHANNEL_Z - 2; z <= CHANNEL_Z + 2; z++) {
+                    set(lv, x, Y - 9, z, stone);
+                    for (int y = Y - 8; y <= Y - 1; y++) {
+                        boolean wall = x == CHANNEL || x == CHANNEL + 15 || z == CHANNEL_Z - 2 || z == CHANNEL_Z + 2;
+                        set(lv, x, y, z, wall ? stone : water);
+                    }
+                }
+            }).join();
+            shots = 1;
+            return false;
+        }
+        // 8 deep: water stops a grenade after 5.7 blocks (L 3, waterStopFraction 0.15), it falls 2.6 meanwhile
+        Vec3 from = new Vec3(CHANNEL + 1.2, Y - 3.5, CHANNEL_Z + 0.5);
+        if (shots == 1) {
+            if (elapsed() < 1 || !WaterFx.wetAt(mc.level, from) || !WaterFx.wetAt(mc.level, from.add(12, 0, 0))) {
+                if (elapsed() > 10) {
+                    check(false, "жёлоб для гранаты не дошёл до клиента");
+                    return true;
+                }
+                return false;
+            }
+            BulletConfig c = config("g40_he");
+            server.submit(() -> {
+                sent = ntmShot(server.overworld(), c, from, new Vec3(1, 0, 0));
+            }).join();
+            shots = 2;
+            stoppedAt = -1;
+            seenAt = null;
+            blasts0 = WaterFx.blasts;
+            since = System.nanoTime();
+            return false;
+        }
+        EntityBulletBaseMK4 s = sent;
+        var e = s == null ? null : mc.level.getEntity(s.getId());
+        if (e != null) seenAt = e.position();
+        if (stoppedAt < 0 && e != null && WaterFx.wetAt(mc.level, e.position()) && SunkBullets.sinking(e)) {
+            stoppedAt = elapsed();
+            clientStopped = e instanceof acup.gunfeel.water.WaterBullet w && w.gunfeel$waterStopped();
+        }
+        // half a second after it stopped: sinking straight down by then, NTM's yaw turned
+        if (stoppedAt < 0 || elapsed() < stoppedAt + 0.5) {
+            if (elapsed() > 8) {
+                line("grenade along the channel: not seen stopped by water (on the client now: " + (e != null) + ", last seen at " + seenAt
+                        + ", blasts under water " + (WaterFx.blasts - blasts0) + ")");
+                check(false, "граната в жёлобе остановлена водой");
+                return true;
+            }
+            return false;
+        }
+        Vec3 h = e == null ? Vec3.ZERO : SunkBullets.headingOf(e);
+        line(String.format(java.util.Locale.ROOT, "grenade along the channel, east: sinking after %.2f s at x %.2f (the client's bullet saw the stop: %s), sunk model heading %.3f %.3f %.3f, NTM yaw now %.1f",
+                stoppedAt, e == null ? Double.NaN : e.getX(), clientStopped, h.x, h.y, h.z, e == null ? Float.NaN : e.getYRot()));
+        check(h.x > 0.95, "тонущая граната лежит по курсу полёта (на восток)");
+        server.execute(() -> {
+            if (s != null && !s.isRemoved()) s.discard();
+        });
+        return true;
+    }
+
+    // a round as NTM's gun shoots it: a motion of length 1, the speed NTM's motionMult
+    private static EntityBulletBaseMK4 ntmShot(ServerLevel level, BulletConfig c, Vec3 from, Vec3 dir) {
+        EntityBulletBaseMK4 b = new EntityBulletBaseMK4(level, c, 10F, 0F, 0F, 0F);
+        var player = level.getServer().getPlayerList().getPlayers().getFirst();
+        b.setThrower(player);
+        b.setOwner(player);
+        b.setPos(from.x, from.y, from.z);
+        b.setThrowableHeading(dir.x, dir.y, dir.z, 1F, 0F);
+        level.addFreshEntity(b);
+        return b;
     }
 
     private static void spawn(ServerLevel level, BulletConfig c, Vec3 from, Vec3 dir) {

@@ -4,7 +4,6 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -61,7 +60,8 @@ public final class ArmLayers {
     // weak: a player left for the main menu does not keep its world
     private static java.lang.ref.WeakReference<LocalPlayer> owner = new java.lang.ref.WeakReference<>(null);
     private static final boolean[] SLEEVE = new boolean[2];
-    private static final Set<Class<?>> WARNED = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+    // leave() may run on the network thread
+    private static final Set<Class<?>> WARNED = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private ArmLayers() {
     }
@@ -69,6 +69,8 @@ public final class ArmLayers {
     // leaving a world: the player and its render state are let go (read again in the next world)
     public static void leave() {
         prepared = false;
+        FAILED.clear();
+        WARNED.clear();
         state = null;
         owner = new java.lang.ref.WeakReference<>(null);
     }
@@ -169,25 +171,76 @@ public final class ArmLayers {
                 p.y += AWAY;
             }
             arm.visible = true;
-            PoseStack pose = new PoseStack();
-            pose.mulPose(m);
             SubmitNodeCollector only = (SubmitNodeCollector) wrap(collector, SubmitNodeCollector.class, cut);
+            Object[] worn = worn(owner.get());
             for (RenderLayer layer : ((LivingEntityRendererAccess) renderer).gunfeel$layers()) {
                 if (skipped(layer)) continue;
-                pose.pushPose();
-                try {
-                    layer.submit(pose, only, light, state, state.yRot, state.xRot);
-                } catch (Throwable t) {
-                    if (WARNED.add(layer.getClass())) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm", layer.getClass().getName(), t);
-                } finally {
-                    pose.popPose();
-                }
+                layer(m, layer.getClass(), worn, pose -> layer.submit(pose, only, light, state, state.yRot, state.xRot));
             }
         } finally {
             for (int i = 0; i < moved.size(); i++) moved.get(i).loadPose(movedPose.get(i));
             if (armPose != null) arm.loadPose(armPose);
             for (int i = 0; i < visible.length; i++) parts.get(i).visible = visible[i];
         }
+    }
+
+    // how often in a row a layer may throw with the same armour on before the arms leave it out (until the player leaves
+    // the world): a failure in the first frames, before the player's data came, is tried again, and one that draws in
+    // between starts the count anew
+    static final int TRIES = 3;
+
+    // a layer's failures in a row by the armour worn; cleared when the player leaves the world
+    private static final Map<Failed, Integer> FAILED = new java.util.concurrent.ConcurrentHashMap<>();
+
+    // One layer on the arm at the arm's pose m. Each layer gets a stack of its own: one that throws between its own push
+    // and pop, or pops more than it pushed, leaves the layers after it their pose all the same. False: left out, or it
+    // threw.
+    static boolean layer(Matrix4f m, Class<?> type, Object[] worn, java.util.function.Consumer<PoseStack> submit) {
+        Failed key = new Failed(type, worn);
+        Integer fails = FAILED.get(key);
+        if (fails != null && fails >= TRIES) return false;
+        PoseStack pose = new PoseStack();
+        pose.mulPose(m);
+        try {
+            submit.accept(pose);
+            if (fails != null) FAILED.remove(key);
+            return true;
+        } catch (Throwable t) {
+            int n = fails == null ? 1 : fails + 1;
+            FAILED.put(key, n);
+            if (WARNED.add(type)) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm", type.getName(), t);
+            if (n == TRIES) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm {} times with this armour on, left out of the arms until the world is left",
+                    type.getName(), TRIES);
+            return false;
+        }
+    }
+
+    // a layer and the armour worn when it threw (the items in the four armour slots): the same layer with other armour
+    // on is tried anew
+    private record Failed(Class<?> layer, Object[] worn) {
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof Failed f && f.layer == layer && java.util.Arrays.equals(f.worn, worn);
+        }
+
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(layer) * 31 + java.util.Arrays.hashCode(worn);
+        }
+    }
+
+    private static final net.minecraft.world.entity.EquipmentSlot[] ARMOUR = {net.minecraft.world.entity.EquipmentSlot.HEAD,
+            net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS,
+            net.minecraft.world.entity.EquipmentSlot.FEET};
+
+    private static Object[] worn(LocalPlayer player) {
+        Object[] out = new Object[ARMOUR.length];
+        if (player == null) return out;
+        for (int i = 0; i < ARMOUR.length; i++) {
+            net.minecraft.world.item.ItemStack stack = player.getItemBySlot(ARMOUR[i]);
+            out[i] = stack.isEmpty() ? null : stack.getItem();
+        }
+        return out;
     }
 
     // A collector that passes on only what lands on the arm: models drawn by their arm alone, other geometry through
@@ -329,7 +382,8 @@ public final class ArmLayers {
             try {
                 Clip clip = new Clip(n);
                 draw.accept(clip);
-                clip.flush(buffer, this, type);
+                // a model that failed half drawn (draw) sends nothing on: no part of it, no vertex left unfinished
+                if (!failed) clip.flush(buffer, this, type);
             } catch (Throwable t) {
                 // run in the batch flush: a failure turns armArmor off instead of ending the game
                 failed = true;

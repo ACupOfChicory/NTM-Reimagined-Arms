@@ -1,5 +1,56 @@
 # Changelog
 
+## X570
+
+- `armArmor`: armour from another mod that fails while it is drawn on the arm
+  no longer moves the armour drawn after it, and no longer crashes the game
+  when it undoes more of its placing than it did. After three failures in a
+  row with the same armour on, the arm leaves that armour out until you leave
+  the world, with a warning in the log. An armour model that fails half drawn
+  no longer leaves a part of itself on the arm; armour on the arms turns off
+  after it, as before.
+- A round that meets water exactly on the edge of its surface and a side now
+  comes in through the surface: a round at a shallow angle skips off, and a
+  fuze takes it for a hit on the water. Before, it came in through the side, as if it had
+  hit a wall of water.
+
+## X566
+
+- A grenade or rocket that water stopped is now seen as it sinks and lies on
+  the bottom, pointing the way it flew. Before, the client often did not draw
+  it there at all, and when it did, one that flew east or west lay nose back.
+- An error with the rounds seen in water or on the bottom is written to the
+  log once and turns them off until the world or dimension is left. Before, it
+  could crash the game.
+- A grenade, rocket or mortar shell fired under water now leaves a gas bubble
+  at the muzzle, as a bullet does. Before, it had no bubble and, as under water
+  the muzzle flash is hidden, nothing showed the shot.
+
+## X560
+
+- An incendiary or phosphorus rocket that hits a creature in water in its
+  first three ticks spares it, as NTM's rocket does in the air. Before, it
+  went off there; only the grenade spares just its shooter.
+- A phosphorus pellet or another round that does not set alight under water
+  now hits a creature in water as a plain round of its kind does, with the
+  damage water takes off. Before, it skipped that and hit as hard as in the
+  air. b75_inc's small blast in water now goes through the same steps.
+- An explosive round that goes off on the water surface no longer sets off
+  another one sinking under the line it came down along. Before, its path was
+  counted on under the surface, where the game still moves it in the tick it
+  goes off.
+- A rocket, grenade or explosive round whose tick ends exactly on the water
+  surface goes off there in the next tick. Before, it sank as if it had
+  started under water: a rocket fired 30° down that met the surface after
+  exactly four blocks did this.
+- Water now counts more of NTM's explosives as going off on impact: the
+  turret's shells, the Daybreaker's flame, the cluster submunition, and the
+  masked man's and the UFO's rockets and bolts. Before, water took them for
+  plain rounds. The flame of a flamethrower, the Daybreaker's too, lays no
+  lingering fire in water.
+- The 5.56 mm incendiary rounds no longer set a creature alight in water, as
+  the other incendiary rounds already did not.
+
 ## X555.70
 
 - NTM Decentralized Edition gets X544 to X555: the hunter chopper's and the

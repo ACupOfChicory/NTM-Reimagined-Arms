@@ -53,6 +53,12 @@ public final class WaterTick {
         bullet.setDeltaMovement(0, sinkSpeed(vy), 0);
     }
 
+    // the level part of a motion, of length 1; null when there is next to none (straight down or up)
+    static @Nullable Vec3 flat(Vec3 v) {
+        double h = Math.sqrt(v.x * v.x + v.z * v.z);
+        return h < 1e-4 ? null : new Vec3(v.x / h, 0, v.z / h);
+    }
+
     public static double sinkSpeed(double vy) {
         return Math.clamp(vy, -SINK, 0);
     }
@@ -79,13 +85,14 @@ public final class WaterTick {
         return hit;
     }
 
-    // the surface an impact fuze meets before the block NTM found: the first entry from the air into liquid
+    // the surface an impact fuze meets before the block NTM found: the first entry from the air into liquid (where
+    // lava, or water for the Daybreaker's flame, stops it at once, the stop there)
     static @Nullable BlockHitResult fuze(EntityBulletBaseMK4 bullet, WaterPath.Result r, BlockHitResult hit) {
         if (!WaterSettings.fuze() || !WaterClass.Fuze.of(bullet.config).any()) return null;
         double block = hit.getType() == HitResult.Type.MISS ? Double.POSITIVE_INFINITY : r.t(hit.getLocation());
         for (WaterEvents.Event e : r.events) {
-            boolean entry = e.type() == WaterEvents.Type.ENTER || e.type() == WaterEvents.Type.STOP && e.liquid() == WaterEvents.Liquid.LAVA
-                    && r.events.indexOf(e) == 0 && !r.inLiquid(r.from);
+            boolean entry = e.type() == WaterEvents.Type.ENTER || e.type() == WaterEvents.Type.STOP
+                    && (e.liquid() == WaterEvents.Liquid.LAVA || r.cls().length <= 0) && r.events.indexOf(e) == 0 && !r.startsIn();
             if (!entry) continue;
             if (r.t(e.at()) > block + 1e-7) return null;
             return new BlockHitResult(e.at(), e.face(), e.pos(), false);
@@ -131,6 +138,11 @@ public final class WaterTick {
     // the end of the tick (after NTM moved the bullet and hit what it hit)
     public static void end(EntityBulletBaseMK4 bullet) {
         WaterBullet w = (WaterBullet) bullet;
+        // the level way it goes while it flies (its motion is of length 1, NTM's speed is motionMult): kept for its
+        // model once it sinks (SunkBullets.headingOf). On the client this also holds when the server stopped it and
+        // only its motion came here (0, at most 0.05 down, 0)
+        Vec3 d = bullet.getDeltaMovement();
+        if (d.x * d.x + d.z * d.z > 0.01) w.gunfeel$sunkHeading(flat(d));
         WaterPath.Result r = w.gunfeel$waterTick();
         if (r == null) {
             if (w.gunfeel$waterStopped() && !bullet.isRemoved()) sink(bullet);

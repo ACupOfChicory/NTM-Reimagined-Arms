@@ -267,7 +267,9 @@ neoForge.addModdingDependenciesTo(deOnly)
 val serverRuns = mapOf("runMakeWorld" to ("run-world" to 25610), "runCheckBullets" to ("run-bullets" to 25611),
     "runCheckWater" to ("run-water" to 25614), "runCheckBoom" to ("run-boom" to 25615))
 tasks.matching { it.name in serverRuns }.configureEach {
-    val (folder, port) = serverRuns.getValue(name)
+    // -PserverPort=<n> sets another, as at the root
+    val (folder, own) = serverRuns.getValue(name)
+    val port = providers.gradleProperty("serverPort").orNull?.takeIf { it.isNotBlank() } ?: own.toString()
     doFirst {
         val dir = projectDir.resolve(folder)
         dir.resolve("world").deleteRecursively()

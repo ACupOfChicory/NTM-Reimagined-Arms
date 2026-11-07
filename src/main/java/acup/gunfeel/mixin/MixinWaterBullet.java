@@ -31,6 +31,8 @@ public abstract class MixinWaterBullet implements WaterBullet, acup.gunfeel.wate
     @Unique private double gunfeel$opened;
     @Unique private boolean gunfeel$met;
     @Unique private long gunfeel$shot;
+    @Unique private net.minecraft.world.phys.@Nullable Vec3 gunfeel$goneAt;
+    @Unique private net.minecraft.world.phys.@Nullable Vec3 gunfeel$sunkHeading;
 
     // every constructor of NTM's comes through this one; a gun makes all pellets of a shot in one loop
     @Inject(method = "<init>(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)V", at = @At("TAIL"))
@@ -62,6 +64,10 @@ public abstract class MixinWaterBullet implements WaterBullet, acup.gunfeel.wate
     @Override public void gunfeel$waterMet(boolean met) { gunfeel$met = met; }
     @Override public long gunfeel$shot() { return gunfeel$shot; }
     @Override public void gunfeel$shot(long shot) { gunfeel$shot = shot; }
+    @Override public net.minecraft.world.phys.@Nullable Vec3 gunfeel$goneAt() { return gunfeel$goneAt; }
+    @Override public void gunfeel$goneAt(net.minecraft.world.phys.@Nullable Vec3 at) { gunfeel$goneAt = at; }
+    @Override public net.minecraft.world.phys.@Nullable Vec3 gunfeel$sunkHeading() { return gunfeel$sunkHeading; }
+    @Override public void gunfeel$sunkHeading(net.minecraft.world.phys.@Nullable Vec3 heading) { gunfeel$sunkHeading = heading; }
 
     @Override
     public WaterClass.@Nullable Expansion gunfeel$waterExpansion() {

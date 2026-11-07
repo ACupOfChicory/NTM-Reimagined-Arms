@@ -61,7 +61,15 @@ public final class SunkBullets {
 
     // the water stopped a bullet (WaterFx on STOP): a body where it stopped, moving on at 1.5 blocks a second
     static void stopped(Level level, WaterEvents.Event e) {
-        if (Config.waterBodyMax <= 0) return;
+        if (Config.waterBodyMax <= 0 || broken) return;
+        try {
+            body(e);
+        } catch (RuntimeException x) {
+            broke(x);
+        }
+    }
+
+    private static void body(WaterEvents.Event e) {
         Entity bullet = e.bullet();
         BulletConfig config = WaterFx.config(e);
         String ammo = WaterFx.ammo(config);
@@ -87,6 +95,20 @@ public final class SunkBullets {
     }
 
     static void clear() {
+        if (phys != null) phys.clear();
+        FLYING.clear();
+        broken = false;
+    }
+
+    // An exception in the bodies' physics or in a model (a block of another mod in boxes, say, or a model that does not
+    // load) would leave the world's drawing or the water's event and take the game with it: it is written to the log
+    // once, and the rounds in water are off till this world or dimension is left
+    private static boolean broken;
+
+    private static void broke(RuntimeException e) {
+        if (broken) return;
+        broken = true;
+        acup.gunfeel.GunFeel.LOGGER.error("rounds in water failed, off till the world is left", e);
         if (phys != null) phys.clear();
         FLYING.clear();
     }
@@ -119,8 +141,16 @@ public final class SunkBullets {
 
     // Tracers, each frame, each shot: its head, its direction, its f and speed (blocks a tick)
     public static void flying(Level level, @Nullable BulletConfig config, Vec3 head, Vec3 dir, double f, double speed) {
-        if (!WaterFx.on() || dir.lengthSqr() < 1e-12) return;
+        if (!WaterFx.on() || broken || dir.lengthSqr() < 1e-12) return;
         if (config == null || !WaterFx.wetAt(level, head)) return;
+        try {
+            fly(config, head, dir, f, speed);
+        } catch (RuntimeException e) {
+            broke(e);
+        }
+    }
+
+    private static void fly(BulletConfig config, Vec3 head, Vec3 dir, double f, double speed) {
         if (roundsScale != Config.waterBodyScale) {
             ROUNDS.clear();
             roundsScale = Config.waterBodyScale;
@@ -212,6 +242,15 @@ public final class SunkBullets {
     private static final double[] EMPTY = new double[0];
 
     public static void submit(SubmitCustomGeometryEvent event, Level level, Vec3 cam) {
+        if (broken) return;
+        try {
+            draw(event, level, cam);
+        } catch (RuntimeException e) {
+            broke(e);
+        }
+    }
+
+    private static void draw(SubmitCustomGeometryEvent event, Level level, Vec3 cam) {
         long now = System.nanoTime();
         double dt = lastNanos == 0 ? 0 : Math.clamp((now - lastNanos) / 1e9, 0, 0.05);
         lastNanos = now;
@@ -227,27 +266,38 @@ public final class SunkBullets {
         TextureAtlasSprite white = WaterParticle.sprite("ntmgunfeel:water_white");
         float u = (white.getU0() + white.getU1()) / 2, v = (white.getV0() + white.getV1()) / 2;
         event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), RenderTypes.entitySolid(TextureAtlas.LOCATION_PARTICLES), (p, vc) -> {
-            Quaternionf q = new Quaternionf();
-            for (Flying fl : flying) {
-                // the model's nose is -Z: turn -Z onto the direction of flight
-                q.rotationTo(0, 0, -1, (float) fl.dir.x, (float) fl.dir.y, (float) fl.dir.z);
-                // the model's centre half a length behind the head
-                Vec3 c = fl.head.subtract(fl.dir.scale(fl.model.length / 2));
-                mesh(level, p, vc, fl.model, fl.open, q, c, cam, 1F, u, v);
-            }
-            for (Fuzed z : fuzed) {
-                q.rotationTo(0, 0, -1, (float) z.dir.x, (float) z.dir.y, (float) z.dir.z);
-                mesh(level, p, vc, z.model, 0F, q, z.at, cam, 1F, u, v);
-            }
-            for (SunkPhysics.Body b : bodies) {
-                double dx = b.px - cam.x, dy = b.py - cam.y, dz = b.pz - cam.z;
-                if (dx * dx + dy * dy + dz * dz > 48 * 48) continue;
-                Tag t = (Tag) b.tag;
-                q.set(b.q[0], b.q[1], b.q[2], b.q[3]);
-                mesh(level, p, vc, t.model, t.open, q, new Vec3(b.px, b.py, b.pz), cam, Math.max(0.05F, b.fade), u, v);
+            // drawn later, with the frame: its own guard
+            if (broken) return;
+            try {
+                models(level, p, vc, flying, fuzed, bodies, cam, u, v);
+            } catch (RuntimeException e) {
+                broke(e);
             }
         });
         if (!flying.isEmpty()) streaks(event, flying, cam);
+    }
+
+    private static void models(Level level, PoseStack.Pose p, VertexConsumer vc, List<Flying> flying, List<Fuzed> fuzed, List<SunkPhysics.Body> bodies,
+            Vec3 cam, float u, float v) {
+        Quaternionf q = new Quaternionf();
+        for (Flying fl : flying) {
+            // the model's nose is -Z: turn -Z onto the direction of flight
+            q.rotationTo(0, 0, -1, (float) fl.dir.x, (float) fl.dir.y, (float) fl.dir.z);
+            // the model's centre half a length behind the head
+            Vec3 c = fl.head.subtract(fl.dir.scale(fl.model.length / 2));
+            mesh(level, p, vc, fl.model, fl.open, q, c, cam, 1F, u, v);
+        }
+        for (Fuzed z : fuzed) {
+            q.rotationTo(0, 0, -1, (float) z.dir.x, (float) z.dir.y, (float) z.dir.z);
+            mesh(level, p, vc, z.model, 0F, q, z.at, cam, 1F, u, v);
+        }
+        for (SunkPhysics.Body b : bodies) {
+            double dx = b.px - cam.x, dy = b.py - cam.y, dz = b.pz - cam.z;
+            if (dx * dx + dy * dy + dz * dz > 48 * 48) continue;
+            Tag t = (Tag) b.tag;
+            q.set(b.q[0], b.q[1], b.q[2], b.q[3]);
+            mesh(level, p, vc, t.model, t.open, q, new Vec3(b.px, b.py, b.pz), cam, Math.max(0.05F, b.fade), u, v);
+        }
     }
 
     // NTM's own sinking rounds with an impact fuze, stopped by the water: their model where the entity is, lying along
@@ -261,17 +311,37 @@ public final class SunkBullets {
         float pt = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
         for (Entity en : cl.entitiesForRendering()) {
             if (!(en instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b) || !WaterClass.Fuze.of(b.config).any()) continue;
-            if (en.distanceToSqr(cam) > 48 * 48 || !WaterBullet.stopped(en)) continue;
+            if (en.distanceToSqr(cam) > 48 * 48 || !sinking(en)) continue;
             Vec3 at = en.getPosition(pt);
             if (!WaterFx.wetAt(level, at)) continue;
             String ammo = WaterFx.ammo(b.config);
             AmmoModels.Model m = ammo == null ? null : model(b.config);
             if (m == null) continue;
-            double yaw = Math.toRadians(en.getYRot());
             if (out == null) out = new ArrayList<>();
-            out.add(new Fuzed(m, at, new Vec3(-Math.sin(yaw), 0, Math.cos(yaw))));
+            out.add(new Fuzed(m, at, headingOf(en)));
         }
         return out == null ? List.of() : out;
+    }
+
+    // a round with an impact fuze that water stopped: this client's own bullet may not have seen the stop (it goes by
+    // the server's packets), but then the server's motion of it came, the sinking one (WaterTick.sink: 0, at most
+    // 0.05 down, 0), while a flying one keeps a motion of length 1 (also for the stand)
+    public static boolean sinking(Entity en) {
+        return WaterBullet.stopped(en) || en.getDeltaMovement().lengthSqr() < 0.01;
+    }
+
+    // the way a sunk round with an impact fuze lies (also for the stand)
+    public static Vec3 headingOf(Entity en) {
+        Vec3 h = en instanceof WaterBullet w ? w.gunfeel$sunkHeading() : null;
+        return h != null ? h : heading(en.getYRot());
+    }
+
+    // the heading of NTM's round from its yaw, when water did not keep the way it flew (WaterBullet.sunkHeading): NTM
+    // sets yaw = atan2(dX, dZ) in flight (EntityBulletBaseMK4.tick), so the heading is (sin, cos), not a player's
+    // (-sin, cos)
+    static Vec3 heading(float yawDegrees) {
+        double yaw = Math.toRadians(yawDegrees);
+        return new Vec3(Math.sin(yaw), 0, Math.cos(yaw));
     }
 
     // the opened shape of each model, one buffer per model
@@ -293,6 +363,9 @@ public final class SunkBullets {
         float[] nor = m.normals;
         int[] col = m.colors;
         int verts = m.positions.length / 3;
+        // a model short of normals or colours fails here, before a corner of it is in the buffer: a half quad there
+        // would shift all that is drawn after it
+        if (pos.length < verts * 3 || nor.length < verts * 3 || col.length < verts) throw new IllegalStateException("broken model " + m.shape);
         for (int i = 0; i + 2 < verts; i += 3) {
             for (int k = 0; k < 4; k++) {
                 int j = i + Math.min(k, 2);
@@ -350,28 +423,37 @@ public final class SunkBullets {
     // the light streak behind a bullet in water, bright while it is fast, gone below a fifth of its speed
     private static void streaks(SubmitCustomGeometryEvent event, List<Flying> flying, Vec3 cam) {
         event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), RenderTypes.debugQuads(), (p, vc) -> {
-            for (Flying fl : flying) {
-                float op = (float) Math.clamp((fl.f - 0.2) / 0.6, 0, 1);
-                if (op < 0.01F) continue;
-                double vps = fl.speed * 20;
-                double sl = Math.min(1.2, vps * 0.004);
-                Vec3 b = fl.head.subtract(fl.dir.scale(fl.model.length)).subtract(cam);
-                Vec3 t = b.subtract(fl.dir.scale(sl));
-                Vec3 side = fl.dir.cross(b);
-                if (side.lengthSqr() < 1e-12) continue;
-                side = side.normalize().scale(fl.model.radius * 0.6);
-                int head = argb(0.9F * op, 0.07F + 0.8F * op, 0.25F + 0.7F * op, 0.52F + 0.48F * op);
-                int tail = argb(0F, 0.07F, 0.25F, 0.52F);
-                for (int pass = 0; pass < 2; pass++) {
-                    Vec3[] qd = {b.add(side), b.subtract(side), t.subtract(side), t.add(side)};
-                    int[] cs = {head, head, tail, tail};
-                    for (int j = 0; j < 4; j++) {
-                        int i = pass == 0 ? j : 3 - j;
-                        vc.addVertex(p, (float) qd[i].x, (float) qd[i].y, (float) qd[i].z).setColor(cs[i]);
-                    }
-                }
+            if (broken) return;
+            try {
+                streaks(p, vc, flying, cam);
+            } catch (RuntimeException e) {
+                broke(e);
             }
         });
+    }
+
+    private static void streaks(PoseStack.Pose p, VertexConsumer vc, List<Flying> flying, Vec3 cam) {
+        for (Flying fl : flying) {
+            float op = (float) Math.clamp((fl.f - 0.2) / 0.6, 0, 1);
+            if (op < 0.01F) continue;
+            double vps = fl.speed * 20;
+            double sl = Math.min(1.2, vps * 0.004);
+            Vec3 b = fl.head.subtract(fl.dir.scale(fl.model.length)).subtract(cam);
+            Vec3 t = b.subtract(fl.dir.scale(sl));
+            Vec3 side = fl.dir.cross(b);
+            if (side.lengthSqr() < 1e-12) continue;
+            side = side.normalize().scale(fl.model.radius * 0.6);
+            int head = argb(0.9F * op, 0.07F + 0.8F * op, 0.25F + 0.7F * op, 0.52F + 0.48F * op);
+            int tail = argb(0F, 0.07F, 0.25F, 0.52F);
+            for (int pass = 0; pass < 2; pass++) {
+                Vec3[] qd = {b.add(side), b.subtract(side), t.subtract(side), t.add(side)};
+                int[] cs = {head, head, tail, tail};
+                for (int j = 0; j < 4; j++) {
+                    int i = pass == 0 ? j : 3 - j;
+                    vc.addVertex(p, (float) qd[i].x, (float) qd[i].y, (float) qd[i].z).setColor(cs[i]);
+                }
+            }
+        }
     }
 
     private static int argb(float a, float r, float g, float b) {

@@ -243,9 +243,7 @@ CORE field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
 CORE field com/hbm/items/weapon/sedna/BulletConfig expires I
 CORE field com/hbm/items/weapon/sedna/BulletConfig gravity D
 CORE field com/hbm/items/weapon/sedna/BulletConfig id I
-CORE field com/hbm/items/weapon/sedna/BulletConfig onEntityHit Ljava/util/function/BiConsumer;
 CORE field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
-CORE field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
 CORE field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 CORE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
 CORE field com/hbm/items/weapon/sedna/BulletConfig spread F
@@ -265,9 +263,11 @@ CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getBoundingBox ()Lnet/minecraft/world/phys/AABB;
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getBulletConfig ()Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getGravityVelocity ()D
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getId ()I
+CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getOwner ()Lnet/minecraft/world/entity/Entity;
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getThrower ()Lnet/minecraft/world/entity/LivingEntity;
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getX ()D
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 getY ()D
