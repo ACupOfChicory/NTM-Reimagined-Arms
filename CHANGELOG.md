@@ -1,6 +1,6 @@
 # Changelog
 
-## X571
+## X574
 
 - Dedicated servers: rounds now meet NTM's big machines by their shape as
   drawn, as in single player. Before, the server never read the machine shapes
@@ -9,11 +9,9 @@
   with no longer fails to start on the warning about it, and other warnings
   of the mod's no longer throw that error on a server.
 - `npcShots`: the hunter chopper's and the cyber crab's old bullet that hits
-  a creature just hurt by a harder hit now counts the head as more than the
-  body and a limb as less, as on a fresh creature. Before, a head hit there
-  could do less than a body hit (NTM's own damage, hurting a second time,
-  went whole; the head's, past the last hit, only by what it was past it),
-  and a limb hit more.
+  a creature still recovering from a hit now counts the head as more than the
+  body and a limb as less, as on a fresh creature. Before, in a burst a head
+  hit could do less than a body hit, and a limb hit more.
 - `npcShots`: when the head and limb zones fail on the old bullet's hit, it
   hits as in NTM, with a warning in the log once. Before, the error could
   stop the server.

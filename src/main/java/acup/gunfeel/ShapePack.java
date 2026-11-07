@@ -156,8 +156,13 @@ public final class ShapePack {
         Group g = idx.groups().get(name);
         if (g == null || !UNPACKING.add(name)) return;
         THREAD.execute(() -> {
-            OPEN.put(name, open(name, g));
-            UNPACKING.remove(name);
+            try {
+                OPEN.put(name, open(name, g));
+            } finally {
+                // past an error open does not catch, the machine is met by NTM's boxes rather than waited for for good
+                OPEN.putIfAbsent(name, Map.of());
+                UNPACKING.remove(name);
+            }
         });
     }
 
