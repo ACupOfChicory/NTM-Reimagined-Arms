@@ -140,6 +140,8 @@ neoForge {
             systemProperty("ntmgunfeel.smokeStand",providers.gradleProperty("smokeStand").orElse("").get())
             // -PsmokePoses=sky,wall: only the poses whose names start with one of these
             systemProperty("ntmgunfeel.smokePoses",providers.gradleProperty("smokePoses").orElse("").get())
+            // -PsmokeFabulous: the stand runs with improved transparency (the transparency chain) on
+            systemProperty("ntmgunfeel.smokeFabulous",providers.gradleProperty("smokeFabulous").isPresent.toString())
             // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
             jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("waterFx").isPresent) "-Xmx3G" else "-Xmx2500M")
             // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame

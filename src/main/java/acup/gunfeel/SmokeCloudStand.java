@@ -31,6 +31,8 @@ import net.minecraft.world.phys.Vec3;
 final class SmokeCloudStand {
     static final String DIR = System.getProperty("ntmgunfeel.smokeStand", "");
     static final boolean ENABLED = !DIR.isBlank();
+    // -PsmokePoses=glass: the glass scenes (glassFrame) instead of the ordinary poses
+    private static final boolean GLASS = "glass".equals(System.getProperty("ntmgunfeel.smokePoses", ""));
     private static final int Y = 100;
     private static final String[] QUALITIES = {"off", "slices", "low", "medium", "high", "ultra"};
 
@@ -43,7 +45,7 @@ final class SmokeCloudStand {
     }
 
     private static final int SKY_Y = 188;
-    private static final List<Pose> POSES = poses(List.of(
+    private static final List<Pose> POSES = GLASS ? List.of() : poses(List.of(
             new Pose("outside", 0.5, Y + 3.2, 4.5, 0F, 8F, false),
             new Pose("inside", 6.5, Y + 1.6, 30.5, 0F, 0F, false),
             new Pose("inside-y135-p30", 6.5, Y + 1.6, 30.5, 135F, 30F, false),
@@ -82,6 +84,7 @@ final class SmokeCloudStand {
         Minecraft mc = Minecraft.getInstance();
         mc.options.pauseOnLostFocus = false;
         mc.options.enableVsync().set(false);
+        if (Boolean.getBoolean("ntmgunfeel.smokeFabulous")) mc.options.improvedTransparency().set(true);
         mc.options.framerateLimit().set(260);
         if (!mc.gui.hud.isHidden()) mc.gui.hud.toggle();
         savedQuality = Config.smokeQuality;
@@ -160,6 +163,10 @@ final class SmokeCloudStand {
     }
 
     static void frame() {
+        if (GLASS) {
+            glassFrame();
+            return;
+        }
         long now = System.nanoTime();
         long dt = now - last;
         last = now;
@@ -326,6 +333,142 @@ final class SmokeCloudStand {
 
     private static void shoot(Pose p, String q) {
         Path file = Path.of(DIR, p.name + "-" + q + ".png");
+        net.minecraft.client.Screenshot.takeScreenshot(Minecraft.getInstance().gameRenderer.mainRenderTarget(), image -> {
+            try (image) {
+                image.writeToFile(file);
+            } catch (Exception e) {
+                GunFeel.LOGGER.error("[smokestand] {}", file, e);
+            }
+        });
+    }
+
+
+    // ---- glass scenes (-PsmokePoses=glass): smoke seen from outside with glass, water and opaque blocks in the view.
+    // Camera (0.5, 101.6, 4.5) looking +z; 8 clouds at z 30.5. Per scene, in one life of the clouds, six shots:
+    // R0 no smoke, no blocks; A0 smoke, no blocks (twice: A0b is the noise floor); A1 smoke with the blocks; R1 no smoke
+    // with the blocks. notes: <dir>/<scene>-<shot>.png and glass-frames.tsv (frame ms per shot).
+    private record Scene(String name, int kind) {
+    }
+
+    private static final List<Scene> SCENES = List.of(new Scene("a", 0), new Scene("b", 1), new Scene("c", 2), new Scene("d", 3), new Scene("e", 4));
+    // shot: name, smoke quality ("off" draws nothing from outside), blocks on
+    private static final Object[][] SHOTS = {{"R0", "off", false}, {"A0", "high", false}, {"A0b", "high", false}, {"A1", "high", true}, {"A1b", "high", true},
+            {"R1", "off", true}};
+    private static final Pose GLASS_POSE = new Pose("glass", 0.5, 101.6, 4.5, 0F, 0F, false);
+    private static int gScene, gShot, gStage, gFrames;
+    private static final List<Long> GTIMES = new ArrayList<>();
+
+    private static void glassBlocks(int kind, boolean on) {
+        var server = Minecraft.getInstance().getSingleplayerServer();
+        server.submit(() -> {
+            ServerLevel level = server.overworld();
+            var air = Blocks.AIR.defaultBlockState();
+            // stained: a saturated tint shows against the grey smoke, where plain glass's light frame does not
+            var glass = on ? Blocks.STAINED_GLASS.pick(net.minecraft.world.item.DyeColor.BLUE).defaultBlockState() : air;
+            var red = on ? Blocks.CONCRETE.pick(net.minecraft.world.item.DyeColor.RED).defaultBlockState() : air;
+            var blue = on ? Blocks.STAINED_GLASS.pick(net.minecraft.world.item.DyeColor.BLUE).defaultBlockState() : air;
+            var water = on ? Blocks.WATER.defaultBlockState() : air;
+            var barrier = on ? Blocks.BARRIER.defaultBlockState() : air;
+            switch (kind) {
+                case 0 -> fill(level, -14, 14, Y, Y + 7, 12, 12, glass);
+                case 1 -> {
+                    fill(level, -14, -1, Y, Y + 7, 12, 12, red);
+                    fill(level, 0, 14, Y, Y + 7, 12, 12, glass);
+                }
+                case 2 -> {
+                    fill(level, -14, 14, Y, Y + 7, 8, 8, glass);
+                    fill(level, -14, -1, Y, Y + 7, 16, 16, red);
+                }
+                case 3 -> fill(level, -50, 50, Y, Y + 10, 46, 46, glass);
+                default -> {
+                    fill(level, -14, -1, Y, Y + 7, 12, 12, blue);
+                    // a tank: barriers round it keep the water in
+                    fill(level, 0, 14, Y, Y + 5, 11, 15, barrier);
+                    fill(level, 1, 13, Y, Y + 4, 12, 14, water);
+                }
+            }
+        }).join();
+    }
+
+    private static void fill(ServerLevel level, int x0, int x1, int y0, int y1, int z0, int z1, net.minecraft.world.level.block.state.BlockState s) {
+        for (int x = x0; x <= x1; x++) for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) level.setBlock(new BlockPos(x, y, z), s, 2);
+    }
+
+    private static void glassFrame() {
+        long now = System.nanoTime();
+        long dt = now - last;
+        last = now;
+        place(GLASS_POSE);
+        if (gScene >= SCENES.size()) {
+            done();
+            return;
+        }
+        Scene sc = SCENES.get(gScene);
+        switch (gStage) {
+            case 0 -> {
+                // a scene begins: no blocks, no clouds, wait for the old fog to go
+                teleport(GLASS_POSE);
+                GunFeel.LOGGER.info("[smokestand] scene {} improved transparency {}", sc.name, Minecraft.getInstance().options.improvedTransparency().get());
+                for (Scene o : SCENES) glassBlocks(o.kind, false);
+                clear();
+                Config.smokeMaxClouds = 16;
+                Config.smokeQuality = "off";
+                Minecraft.getInstance().options.cloudStatus().set(net.minecraft.client.CloudStatus.OFF);
+                gStage = 1;
+                gFrames = 0;
+            }
+            case 1 -> {
+                SmokeClouds known = SmokeClient.current();
+                if (SmokeFog.atCamera() > 0.002F || known != null && !known.clouds().isEmpty()) {
+                    gFrames = 0;
+                    return;
+                }
+                if (++gFrames < 60) return;
+                spawn(new Pose("glass", 0, 0, 0, 0, 0, false));
+                gStage = 2;
+            }
+            case 2 -> {
+                if ((now - spawnedAt) / 1e9 < 3.5) return;
+                SmokeClouds all = SmokeClient.current();
+                int n = all == null ? 0 : all.clouds().size();
+                if (n < 8 && (now - spawnedAt) / 1e9 < 10) return;
+                gShot = 0;
+                gStage = 3;
+                gFrames = -1;
+            }
+            case 3 -> {
+                // a shot: set the quality and the blocks, settle 25 frames, measure 60, shoot, 10 frames more
+                Object[] sh = SHOTS[gShot];
+                if (gFrames == -1) {
+                    Config.smokeQuality = (String) sh[1];
+                    glassBlocks(sc.kind, (Boolean) sh[2]);
+                    gFrames = 0;
+                    GTIMES.clear();
+                }
+                gFrames++;
+                if (gFrames > 25 && gFrames <= 85) GTIMES.add(dt);
+                if (gFrames == 86) {
+                    String name = sc.name + "-" + sh[0];
+                    shootNamed(name);
+                    List<Long> t = new ArrayList<>(GTIMES);
+                    ROWS.add(String.format(Locale.ROOT, "%s\t%s\t%d\t%.3f", sc.name, sh[0], SmokeClient.current() == null ? 0 : SmokeClient.current().clouds().size(),
+                            t.stream().mapToLong(Long::longValue).average().orElse(0) / 1e6));
+                }
+                if (gFrames >= 96) {
+                    if (++gShot >= SHOTS.length) {
+                        glassBlocks(sc.kind, false);
+                        gScene++;
+                        gStage = 0;
+                    } else gFrames = -1;
+                }
+            }
+            default -> {
+            }
+        }
+    }
+
+    private static void shootNamed(String name) {
+        Path file = Path.of(DIR, name + ".png");
         net.minecraft.client.Screenshot.takeScreenshot(Minecraft.getInstance().gameRenderer.mainRenderTarget(), image -> {
             try (image) {
                 image.writeToFile(file);
