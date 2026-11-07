@@ -43,7 +43,7 @@ final class RenderMobsScenario {
     private static final float YAW = 90F, TURN = 40F, BODY_TURN = -30F;
 
     private static final List<String> lines = Collections.synchronizedList(new ArrayList<String>());
-    private static volatile int failed;
+    private static volatile int failed, verdicts;
     private static int index = -1, at;
     // the server's: the mob shown, where it is held and how it is turned
     private static volatile EntityLiving mob;
@@ -84,6 +84,7 @@ final class RenderMobsScenario {
     }
 
     private static void expect(String what, boolean ok) {
+        verdicts++;
         if (!ok) failed++;
         lines.add((ok ? "OK   " : "FAIL ") + what);
     }
@@ -267,6 +268,11 @@ final class RenderMobsScenario {
     }
 
     private static void finish(Minecraft mc) {
+        // a mob gone between its pose and its check writes nothing: every mob has to have its line
+        if (verdicts < CASES.size()) {
+            failed++;
+            lines.add("FAIL строк с итогом " + verdicts + " из " + CASES.size());
+        }
         String verdict = failed == 0 ? "RENDERMOBS OK" : "RENDERMOBS FAIL (" + failed + ")";
         lines.add(verdict);
         try (PrintWriter pw = new PrintWriter(new File(mc.mcDataDir, "rendermobs.txt"), StandardCharsets.UTF_8.name())) {
