@@ -642,7 +642,94 @@ final class Gl54Stand {
         }
         sleep(10);
         run(Gl54Stand::pressChecks);
+        run(Gl54Stand::windowChecks);
+        run(() -> onServer(() -> {
+            var p = player();
+            p.getInventory().clearContent();
+            p.getInventory().setItem(0, Gl54Items.magazine(new acup.gunfeel.gl54.MagContents(java.util.List.of("he", "ap", "inc"))));
+            p.getInventory().setSelectedSlot(0);
+            p.setShiftKeyDown(false);
+            p.getMainHandItem().getItem().use(p.level(), p, InteractionHand.MAIN_HAND);
+            return null;
+        }));
+        sleep(60);
+        run(() -> shot("window.png"));
+        TODO.add(() -> pending == 0);
+        run(() -> onServer(() -> {
+            player().closeContainer();
+            return null;
+        }));
+        sleep(10);
         TODO.add(Gl54Stand::done);
+    }
+
+    // the magazine window on the server: clicks, one grenade per shift-click, the stack, the close, the unload
+    private static void windowChecks() {
+        onServer(() -> {
+            ServerPlayer p = player();
+            var inv = p.getInventory();
+            java.util.function.Supplier<String> mags = () -> {
+                StringBuilder b = new StringBuilder();
+                for (int i = 0; i < inv.getContainerSize(); i++) {
+                    ItemStack s = inv.getItem(i);
+                    if (s.getItem() == Gl54Items.MAG.get()) b.append(i).append(":MAGx").append(s.getCount()).append(acup.gunfeel.gl54.MagItem.contents(s).rounds()).append(' ');
+                    else if (s.getItem() == Gl54Items.MAG_EMPTY.get()) b.append(i).append(":EMPTYx").append(s.getCount()).append(' ');
+                    else if (s.getItem() instanceof acup.gunfeel.gl54.GrenadeItem g) b.append(i).append(':').append(g.kind).append('x').append(s.getCount()).append(' ');
+                }
+                return b.toString();
+            };
+            java.util.function.Supplier<String> window = () -> p.containerMenu instanceof acup.gunfeel.gl54.MagMenu m ? m.remaining().toString() : "(closed)";
+            inv.clearContent();
+            ItemStack two = Gl54Items.magazine(new acup.gunfeel.gl54.MagContents(java.util.List.of("he", "he", "he")));
+            two.setCount(2);
+            inv.setItem(0, two);
+            inv.setSelectedSlot(0);
+            inv.setItem(9, new ItemStack(Gl54Items.GRENADES.get("airburst").get(), 64));
+            inv.setItem(10, new ItemStack(net.minecraft.world.item.Items.STONE, 5));
+            line("window", "start", mags.get());
+            p.setShiftKeyDown(false);
+            p.getMainHandItem().getItem().use(p.level(), p, InteractionHand.MAIN_HAND);
+            line("window", "opened (one off a stack of 2)", "window", window.get(), "hand", mags.get());
+            var menu = p.containerMenu;
+            // menu slots: cells 0..7, inventory slot 9 is menu slot 8, 10 is 9
+            for (int i = 0; i < 3; i++) menu.clicked(8, 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, p);
+            line("window", "3 shift-clicks on the stack of 64", "window", window.get(), "inventory", mags.get());
+            menu.clicked(9, 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, p);
+            line("window", "shift-click on stone", "window", window.get());
+            menu.clicked(5, 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, p);
+            line("window", "shift-click on a cell that is not the leftmost", "window", window.get());
+            menu.clicked(2, 1, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, p);
+            line("window", "shift-RMB on the leftmost cell", "window", window.get(), "inventory", mags.get());
+            for (int i = 0; i < 6; i++) menu.clicked(8, 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, p);
+            line("window", "6 more clicks: full at 8", "window", window.get(), "inventory", mags.get());
+            // a grenade by hand into an empty cell slides to the stack: take 2 out, then put a he on the cursor into cell 0
+            menu.clicked(0, 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, p);
+            p.closeContainer();
+            line("window", "closed", "window", window.get(), "inventory", mags.get());
+            // close without a change: the magazine goes back into the identical stack
+            inv.clearContent();
+            ItemStack two2 = Gl54Items.magazine(new acup.gunfeel.gl54.MagContents(java.util.List.of("he", "he", "he")));
+            two2.setCount(2);
+            inv.setItem(0, two2);
+            p.getMainHandItem().getItem().use(p.level(), p, InteractionHand.MAIN_HAND);
+            p.closeContainer();
+            line("window", "opened and closed unchanged (stack of 2)", mags.get());
+            // the unload: shift + right click
+            p.setShiftKeyDown(true);
+            p.getMainHandItem().getItem().use(p.level(), p, InteractionHand.MAIN_HAND);
+            p.setShiftKeyDown(false);
+            line("window", "shift+use unloads one magazine of the stack", mags.get());
+            // an empty magazine with grenades put in becomes a magazine with grenades
+            inv.clearContent();
+            inv.setItem(0, new ItemStack(Gl54Items.MAG_EMPTY.get(), 3));
+            inv.setItem(9, new ItemStack(Gl54Items.GRENADES.get("smoke").get(), 2));
+            p.getMainHandItem().getItem().use(p.level(), p, InteractionHand.MAIN_HAND);
+            p.containerMenu.clicked(8, 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, p);
+            p.containerMenu.clicked(8, 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, p);
+            p.closeContainer();
+            line("window", "empty magazine of 3, two smoke put in", mags.get());
+            return null;
+        });
     }
 
     // the ammo press with our grenades: the order, a taken output, a chosen recipe, what the slots take

@@ -1,8 +1,16 @@
 package acup.gunfeel.gl54;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.Item;
@@ -31,6 +39,35 @@ public final class MagItem extends Item {
         return Component.translatable(GrenadeKind.MIXED.equals(kind) ? "item.ntmgunfeel.gl54_kind.mixed"
                 : GrenadeKind.EMPTY.equals(kind) ? "item.ntmgunfeel.gl54_kind.empty"
                         : GrenadeKind.of(kind) != null ? GrenadeKind.of(kind).nameKey() : "item.ntmgunfeel.gl54_kind.unknown");
+    }
+
+    // a right click: the window of the magazine (one off the stack in hand); sneaking, its grenades go to the inventory
+    @Override
+    public InteractionResult use(Level level, Player player, InteractionHand hand) {
+        ItemStack held = player.getItemInHand(hand);
+        if (level.isClientSide()) return InteractionResult.SUCCESS;
+        if (!(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
+        MagContents c = contents(held);
+        held.shrink(1);
+        if (player.isShiftKeyDown()) {
+            // one magazine unloaded: its grenades to the inventory (what does not fit falls at the feet), the empty one back
+            for (String k : c.rounds()) {
+                var g = Gl54Items.GRENADES.get(k);
+                if (g != null) give(player, new ItemStack(g.get()));
+            }
+            give(player, new ItemStack(Gl54Items.MAG_EMPTY.get()));
+            return InteractionResult.SUCCESS;
+        }
+        List<String> remaining = new ArrayList<>(c.rounds());
+        sp.openMenu(new SimpleMenuProvider((id, inv, p) -> new MagMenu(id, inv, remaining), Component.translatable("item.ntmgunfeel.gl54_mag.window")));
+        return InteractionResult.SUCCESS;
+    }
+
+    // into the inventory (merging into an identical stack), what does not fit at the player's feet
+    public static void give(Player player, ItemStack stack) {
+        if (stack.isEmpty()) return;
+        player.getInventory().add(stack);
+        if (!stack.isEmpty()) player.drop(stack, false);
     }
 
     @Override

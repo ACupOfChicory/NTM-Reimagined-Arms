@@ -26,6 +26,7 @@ public final class Gl54Items {
     // the grenades of a magazine; on the gun what it holds (without the swap animation: a shot does not draw it again)
     public static RegistryHandle<DataComponentType<MagContents>> MAG_CONTENTS;
     public static RegistryHandle<DataComponentType<GunMag>> GUN_MAG;
+    public static RegistryHandle<net.minecraft.world.inventory.MenuType<MagMenu>> MAG_MENU;
 
     private Gl54Items() {
     }
@@ -36,8 +37,9 @@ public final class Gl54Items {
                 DataComponentType.<MagContents>builder().persistent(MagContents.CODEC).networkSynchronized(MagContents.STREAM_CODEC).build());
         GUN_MAG = NeoForgeRegistrar.registerDataComponent(NAMESPACE + ":gl54_gun",
                 DataComponentType.<GunMag>builder().persistent(GunMag.CODEC).networkSynchronized(GunMag.STREAM_CODEC).ignoreSwapAnimation().build());
-        MAG = NeoForgeRegistrar.registerItem(NAMESPACE + ":gl54_mag", props -> new MagItem(props, false), () -> new Item.Properties().stacksTo(1));
-        MAG_EMPTY = NeoForgeRegistrar.registerItem(NAMESPACE + ":gl54_mag_empty", props -> new MagItem(props, true), () -> new Item.Properties().stacksTo(16));
+        MAG = NeoForgeRegistrar.registerItem(NAMESPACE + ":gl54_mag", props -> new MagItem(props, false), () -> new Item.Properties().stacksTo(4));
+        MAG_EMPTY = NeoForgeRegistrar.registerItem(NAMESPACE + ":gl54_mag_empty", props -> new MagItem(props, true), () -> new Item.Properties().stacksTo(4));
+        MAG_MENU = NeoForgeRegistrar.registerMenu(NAMESPACE + ":gl54_mag_window", MagMenu::new);
         for (GrenadeKind k : GrenadeKind.values()) {
             GRENADES.put(k.key, NeoForgeRegistrar.registerItem(NAMESPACE + ":gl54_grenade_" + k.key,
                     props -> new GrenadeItem(props, k.key), () -> new Item.Properties().stacksTo(64)));

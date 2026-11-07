@@ -60,5 +60,6 @@
   "ntmgunfeel.gl54.mag_title": "Магазин 20 мм",
   "message.ntmgunfeel.gl54_mag": "Выдан магазин: %s",
   "message.ntmgunfeel.gl54_mag_bad": "Неизвестный вид: %s",
-  "item.ntmgunfeel.gl54_grenade": "Граната 20 мм (%s)"
+  "item.ntmgunfeel.gl54_grenade": "Граната 20 мм (%s)",
+  "item.ntmgunfeel.gl54_mag.window": "Магазин 20 мм"
 }

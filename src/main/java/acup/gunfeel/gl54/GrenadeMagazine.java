@@ -146,18 +146,31 @@ public final class GrenadeMagazine extends MagazineSingleTypeBase {
         List<List<String>> mags = GrenadeType.magazines(inventory);
         MagSwap swap = MagSwap.of(g, mags, wanted(stack, inventory), AmmoLock.locked(stack));
         if (swap == null) return;
-        inventory.setItem(swap.taken(), ItemStack.EMPTY);
+        // one magazine off the stack it lay in (magazines stack to 4)
+        inventory.removeItem(swap.taken(), 1);
         set(stack, swap.gun());
-        if (swap.pourSlot() >= 0) inventory.getItem(swap.pourSlot()).set(Gl54Items.MAG_CONTENTS.get(), new MagContents(swap.pourContents()));
-        // the old magazine back: an item of its own (an empty one, a mixed one, what did not fit a pour)
-        if (swap.back() != null) {
-            ItemStack back = Gl54Items.magazine(new MagContents(swap.back()));
-            if (inventory instanceof Inventory pinv) {
-                pinv.add(back);
-                if (!back.isEmpty()) pinv.player.drop(back, false);
-            } else if (inventory instanceof net.minecraft.world.SimpleContainer sc) {
-                sc.addItem(back);
+        if (swap.pourSlot() >= 0) {
+            ItemStack target = inventory.getItem(swap.pourSlot());
+            if (target.getCount() > 1) {
+                // one of an identical stack is filled up: it leaves the stack, and merges back if another is like it
+                target.shrink(1);
+                giveBack(inventory, swap.pourContents());
+            } else {
+                target.set(Gl54Items.MAG_CONTENTS.get(), new MagContents(swap.pourContents()));
             }
+        }
+        // the old magazine back: an item of its own (an empty one, a mixed one, what did not fit a pour)
+        if (swap.back() != null) giveBack(inventory, swap.back());
+    }
+
+    // a magazine with those grenades into the inventory (an identical stack takes it), the floor if there is no room
+    private static void giveBack(Container inventory, List<String> contents) {
+        ItemStack back = Gl54Items.magazine(new MagContents(contents));
+        if (inventory instanceof Inventory pinv) {
+            pinv.add(back);
+            if (!back.isEmpty()) pinv.player.drop(back, false);
+        } else if (inventory instanceof net.minecraft.world.SimpleContainer sc) {
+            sc.addItem(back);
         }
     }
 
