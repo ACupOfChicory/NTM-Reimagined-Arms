@@ -123,6 +123,8 @@ neoForge {
             systemProperty("ntmgunfeel.spectatorStand",providers.gradleProperty("spectatorStand").isPresent.toString())
             // -PproneStand: lying down on the prone key, its spread, recoil and hits (ProneStand)
             systemProperty("ntmgunfeel.proneStand",providers.gradleProperty("proneStand").isPresent.toString())
+            // -PproneFireStand: no shot while crawling, for a player and a mannequin (ProneFireStand)
+            systemProperty("ntmgunfeel.proneFireStand",providers.gradleProperty("proneFireStand").isPresent.toString())
             // -PshapesStand=<file>: every NTM machine taken in turn, the jar's table of their shapes written there (ShapesStand)
             systemProperty("ntmgunfeel.shapesStand",providers.gradleProperty("shapesStand").orElse("").get())
             // -PshapesFallback: a machine in the jar's table of shapes is met from there, one left out of it is taken in

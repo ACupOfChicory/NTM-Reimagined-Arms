@@ -1,5 +1,18 @@
 # Changelog
 
+## X598
+
+- `proneCrawlNoFire` (server, on): no shot while crawling. A shooter lying
+  down (on the prone key, crawling under a trapdoor, a mob laid down) that
+  moves along the ground faster than `proneCrawlSpeed` (0.25 blocks a second;
+  crawling is about 1.3) does not fire: a click does nothing, not even a dry
+  fire, and spends no round; a held burst stops, and a new click fires again
+  once the shooter lies still. Lying still, or only turning the view, the gun
+  fires as before. Aiming and reloading while crawling are not touched. A Tau
+  charge let go while crawling fizzles. A gun can have its own:
+  `hbm\:gun_xxx.proneCrawlNoFire = false`. Off: guns fire while crawling, as
+  before.
+
 ## X597
 
 - Precise hitboxes on a server: a client can no longer fill the server's memory
