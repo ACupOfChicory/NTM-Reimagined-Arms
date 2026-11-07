@@ -32,6 +32,15 @@ final class MobVariants {
             // Надетая броня (ArmorFloatStand): armor_iron — весь комплект, armor_iron_hc — только шлем и нагрудник
             // (h шлем, c нагрудник, l поножи, f ботинки); ванильные наборы и наборы NTM (t51, hazmat, steel, cobalt).
             case String v when v.startsWith("armor_") -> armor(target,v.substring(6));
+            // Броня с блеском чар (glint) и с отделкой (trim: золото, «берег»): ставить после armor_.
+            case "glint" -> { for(var slot:EquipmentSlot.values()) if(slot.isArmor()) target.getItemBySlot(slot).set(net.minecraft.core.component.DataComponents.ENCHANTMENT_GLINT_OVERRIDE,true); }
+            case "trim" -> {
+                var registries=target.level().registryAccess();
+                var trim=new net.minecraft.world.item.equipment.trim.ArmorTrim(
+                        registries.lookupOrThrow(net.minecraft.core.registries.Registries.TRIM_MATERIAL).getOrThrow(net.minecraft.world.item.equipment.trim.TrimMaterials.GOLD),
+                        registries.lookupOrThrow(net.minecraft.core.registries.Registries.TRIM_PATTERN).getOrThrow(net.minecraft.world.item.equipment.trim.TrimPatterns.COAST));
+                for(var slot:EquipmentSlot.values()) if(slot.isArmor() && !target.getItemBySlot(slot).isEmpty()) target.getItemBySlot(slot).set(net.minecraft.core.component.DataComponents.TRIM,trim);
+            }
             // На голове предмет: head_skeleton_skull, head_carved_pumpkin, head_dragon_head.
             case String v when v.startsWith("head_") -> target.setItemSlot(EquipmentSlot.HEAD,new ItemStack(
                     net.minecraft.core.registries.BuiltInRegistries.ITEM.getOptional(net.minecraft.resources.Identifier.withDefaultNamespace(v.substring(5)))

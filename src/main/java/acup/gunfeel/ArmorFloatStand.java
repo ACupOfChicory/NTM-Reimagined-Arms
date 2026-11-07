@@ -48,7 +48,7 @@ final class ArmorFloatStand {
         try {
             var file = java.nio.file.Path.of(System.getProperty("ntmgunfeel.checkClient")).resolveSibling("armor.tsv");
             java.nio.file.Files.write(file, lines, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-        } catch (java.io.IOException ex) {
+        } catch (java.io.IOException | RuntimeException ex) {
             check.accept(false, "armor.tsv: " + ex);
         }
         int layers = 0, grew = 0;
