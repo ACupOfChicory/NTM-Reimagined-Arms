@@ -81,7 +81,7 @@ public final class BulletCheck {
     }
 
     // lines in the server's own rules file, to see that path rules change what bullets do
-    static final String RULES = "path minecraft:stone through\n";
+    static final String RULES = "path minecraft:stone through\nbreak minecraft:hay_block hits 3 through\n";
 
     private static final int Y = 100, Z = 8; // the blocks; bullets start 1.5 blocks before them and fly +z
     private static List<String> lines;
@@ -238,6 +238,7 @@ public final class BulletCheck {
         float fewer = glassRow(BeamServer.STEPS), more = glassRow(BeamServer.STEPS + 1);
         check("beam: past " + BeamServer.STEPS + " blocks in a row it gets on", 30F, fewer);
         check("beam: " + (BeamServer.STEPS + 1) + " blocks on its way stop it, not let it through the rest unlooked at", -1F, more);
+        check("beam: a shot stopped after " + BeamServer.STEPS + " blocks does not wear what lies past them", true, wearPast());
         // ---- NTM's beam turrets and Tesla arcs (BeamTurrets): a golem 7 blocks off, a 3x3 wall 3 blocks before it.
         // Stone is "through" by this stand's rules: a bullet flies through it, NTM's look along the boxes does not
         float[] tauOpen = turret("hbm:turret_tauon", null), tauGlass = turret("hbm:turret_tauon", "minecraft:glass"),
@@ -1021,6 +1022,26 @@ public final class BulletCheck {
         // the world stays from run to run: a block left here would stop a later run's bullets in another lane
         for (int i = 0; i < n; i++) Mc.setBlock(level, at[0], at[1], at[2] + i, Blocks.AIR, 0, 2);
         return left;
+    }
+
+    // the shot (blocks worn) along a lane of STEPS glass blocks of its shooter's own, then air, a hay block (bullets fly
+    // through it and wear it, RULES) and one more glass: it stops at the last of its STEPS, and the hay past them is left
+    // unworn (a look that starts in the hay's cell would not count it)
+    private static boolean wearPast() {
+        int[] at = {2 + 4 * (lane % 16), Y + 4 * (lane / 16), Z};
+        lane++;
+        int n = BeamServer.STEPS;
+        for (int i = 0; i < n; i++) Mc.setBlock(level, at[0], at[1], at[2] + i, Blocks.GLASS, 0, 2);
+        Mc.setBlock(level, at[0], at[1], at[2] + n + 1, Blocks.HAY_BLOCK, 0, 2);
+        Mc.setBlock(level, at[0], at[1], at[2] + n + 2, Blocks.GLASS, 0, 2);
+        Object wear = BulletServer.wearNow();
+        Vec3d from = new Vec3d(at[0] + .5, at[1] + .5, at[2] - 1.5);
+        float left = BeamServer.reach(level, null, from, from.add(0, 0, n + 5), 30F, null, true, (x, y, z) -> true);
+        boolean unworn = wear.equals(BulletServer.wearNow());
+        BulletServer.wearBack(wear);
+        // the world stays from run to run: a block left here would stop a later run's bullets in another lane
+        for (int i = 0; i < n + 3; i++) Mc.setBlock(level, at[0], at[1], at[2] + i, Blocks.AIR, 0, 2);
+        return left == -1F && unworn;
     }
 
     // a golem with glass right behind it at the beam's height, two beams of 6 at it (two would break glass): the glass
