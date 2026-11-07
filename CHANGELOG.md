@@ -1,5 +1,14 @@
 # Changelog
 
+## X569
+
+- `armArmor`: an armour layer that fails while it is drawn on the arm no longer
+  moves the layers after it, and one that takes off more of the pose than it
+  put on no longer crashes the game. After three failures with the same armour
+  on, the arm leaves that layer out until you leave the world, with a warning
+  in the log. An armour model that fails half drawn leaves nothing of itself
+  on the arm.
+
 ## X566
 
 - A grenade or rocket that water stopped is now seen as it sinks and lies on
