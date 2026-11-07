@@ -69,6 +69,9 @@ public final class RadialMenu {
         }
         IMagazine<?> mag = AmmoLock.primary(stack);
         Object t = mag == null ? null : mag.getType(stack, Minecraft.getInstance().player.getInventory());
+        // the GL-54: the kind of the magazine in the gun (the barrel's grenade can be the old kind)
+        if (mag instanceof acup.gunfeel.gl54.GrenadeMagazine grenades)
+            t = acup.gunfeel.gl54.Gl54Ammo.typeOrNull(grenades.inGunKind(stack, Minecraft.getInstance().player.getInventory()));
         current = t instanceof BulletConfig b ? b : null;
         px = py = 0;
         h = new float[list.size()];
@@ -88,6 +91,7 @@ public final class RadialMenu {
             float base = rec.getBaseDamage(stack), split = rec.getSplitProjectiles(stack);
             for (int i = 0; i < out.length; i++) {
                 BulletConfig b = list.get(i);
+                if (b instanceof acup.gunfeel.gl54.GrenadeType) continue; // its own numbers (glStats), not a bullet's
                 out[i] = AmmoStats.of(base, wear, split, b.damageMult, b.projectilesMin, b.projectilesMax, b.headshotMult,
                         b.armorThresholdNegation, b.armorPiercingPercent);
             }
@@ -246,6 +250,7 @@ public final class RadialMenu {
 
     private static String count(Frame f, int i) {
         if (HudShots.skip == 3) return "";
+        if (f.items.get(i) instanceof acup.gunfeel.gl54.GrenadeType g) return glCount(f, g, i);
         int c = AmmoLock.count(f.items.get(i), Minecraft.getInstance().player.getInventory());
         return c == AmmoLock.INFINITE ? "∞" : Integer.toString(c);
     }
@@ -256,6 +261,15 @@ public final class RadialMenu {
         icon(f, i, x, y - 4 - 2 * h[i], 1 + grow * h[i]);
         text(f, prefix + count(f, i), x, y + 6 + 3 * h[i], rgb, alpha * f.in[i], 1);
         return new float[] {x, y};
+    }
+
+    // the GL-54's sector label: the magazines of the kind as "2×8 + 5"; compact (no spaces) in a sector of a few, the
+    // full count only on the hovered one, a total in the many (the full one is then under the name)
+    private static String glCount(Frame f, acup.gunfeel.gl54.GrenadeType g, int i) {
+        var st = g.stock(Minecraft.getInstance().player.getInventory());
+        boolean hovered = i == f.hover;
+        if (f.n >= 9 || (f.n > 6 && !hovered)) return Integer.toString(st.rounds());
+        return acup.gunfeel.gl54.MagLogic.label(st.full(), st.rest(), f.n <= 6 && !hovered);
     }
 
     // the hovered ammo's name: "Патрон 12 калибра (Пуля)" as two lines
@@ -271,7 +285,46 @@ public final class RadialMenu {
         } else {
             text(f, name, 0, y + 10, main, 1, 1);
         }
+        if (f.items.get(f.hover) instanceof acup.gunfeel.gl54.GrenadeType g) {
+            glStats(f, g, y);
+            return;
+        }
         stats(f, y + 24);
+    }
+
+    // the GL-54's lines under the name: many sectors give the full count first; then the numbers (a dash where the kind has
+    // none yet), or for the mixed magazine its order
+    private static void glStats(Frame f, acup.gunfeel.gl54.GrenadeType g, float y) {
+        float extra = f.n >= 9 ? 10 : 0;
+        var inv = Minecraft.getInstance().player.getInventory();
+        if (extra > 0) {
+            var st = g.stock(inv);
+            text(f, acup.gunfeel.gl54.MagLogic.label(st.full(), st.rest(), false), 0, y + 20, f.acc, 1, 1);
+        }
+        if (g.mixed()) {
+            java.util.List<String> order = java.util.List.of();
+            var mags = acup.gunfeel.gl54.GrenadeType.magazines(inv);
+            int best = acup.gunfeel.gl54.MagLogic.fullest(mags, acup.gunfeel.gl54.GrenadeKind.MIXED);
+            if (best >= 0) order = mags.get(best);
+            text(f, I18n.get("ntmgunfeel.gl54.order") + " ", 0, y + 24 + extra, LABEL, 1, 1);
+            StringBuilder codes = new StringBuilder();
+            for (int k = 0; k < order.size(); k++) {
+                codes.append(k > 0 ? " " : "").append(acup.gunfeel.gl54.GrenadeKind.codeOf(order.get(k)));
+                // the order as coloured squares (5 px apart), centred
+                float cx = -(order.size() * 5 - 1) / 2F + k * 5, cy = y + 35 + extra;
+                f.g.fill(Math.round(cx), Math.round(cy), Math.round(cx) + 4, Math.round(cy) + 4,
+                        acup.gunfeel.gl54.GrenadeKind.argbOf(order.get(k)));
+            }
+            text(f, codes.toString(), 0, y + 42 + extra, 0x9A9A9A, 1, 1);
+            return;
+        }
+        var kind = g.grenade();
+        var now = kind != null && kind.hasNumbers() ? kind : null;
+        var cur = f.cur >= 0 && f.cur != f.hover && f.items.get(f.cur) instanceof acup.gunfeel.gl54.GrenadeType cg ? cg.grenade() : null;
+        float was = cur != null && cur.hasNumbers() && now != null ? cur.perShot : Float.NaN;
+        stat(f, "ntmgunfeel.ammo.damage", now != null ? now.damage : "\u2014", now != null ? now.perShot : Float.NaN, was, y + 24 + extra);
+        stat(f, "ntmgunfeel.ammo.head", "\u2014", Float.NaN, Float.NaN, y + 34 + extra);
+        stat(f, "ntmgunfeel.ammo.armor", "\u2014", Float.NaN, Float.NaN, y + 44 + extra);
     }
 
     private static final int BETTER = 0x7CDB6A, WORSE = 0xE5605A, LABEL = 0xAAAAAA;
