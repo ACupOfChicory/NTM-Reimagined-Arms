@@ -5,6 +5,12 @@
 - A round that meets water on the edge of its surface and a side now also
   comes in through the surface when the rounding of its flight puts the side a
   hair after the surface. Before, such a round still came in through the side.
+- `armArmor`: the three failures that leave an armour out of the arm are now
+  counted in frames. A frame counts once, whether the armour failed on one arm
+  or on both, and a frame in which it does not fail starts the count anew.
+  Before, it was left out after one and a half frames, and a draw on the
+  other arm in the same frame kept a broken armour in. Leaving the world while
+  an armour failed no longer carries its count into the next world.
 
 ## X570
 
