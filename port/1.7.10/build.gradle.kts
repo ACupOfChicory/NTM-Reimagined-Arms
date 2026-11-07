@@ -229,10 +229,17 @@ if (providers.gradleProperty("checkBoom").isPresent) tasks.named<JavaExec>("runS
 // the real servers are (one running there would leave the stand without a port). Its port is 25604, written into
 // run/server/server.properties before the start (26.2's stands take 25640..25644, so both can run at once);
 // -PserverPort=<n> sets another, 25565 included. A plain runServer keeps its server.properties as it is.
+// Each stand also starts clean: on a world of its own made anew (run/server/standcheck, --world over level-name), as
+// another world can hold what an earlier stand left (the water stands' water on the bullet lanes), and with none of the
+// mod's settings files (ntm-gunfeel-*), as BulletCheck leaves its rules there (stone a bullet flies through)
 if (listOf("checkBullets", "checkWater", "checkBoom").any { providers.gradleProperty(it).isPresent }) tasks.named<JavaExec>("runServer") {
     val port = providers.gradleProperty("serverPort").orNull?.takeIf { it.isNotBlank() } ?: "25604"
+    args("--world", "standcheck")
     doFirst {
-        val properties = (this as JavaExec).workingDir.resolve("server.properties")
+        val dir = (this as JavaExec).workingDir
+        dir.resolve("standcheck").deleteRecursively()
+        dir.resolve("config").listFiles()?.filter { it.isFile && it.name.startsWith("ntm-gunfeel") }?.forEach { it.delete() }
+        val properties = dir.resolve("server.properties")
         properties.parentFile.mkdirs()
         properties.writeText((if (properties.exists()) properties.readLines().filter { !it.startsWith("server-port=") } else emptyList())
             .joinToString("") { it + "\n" } + "server-port=$port\n")
