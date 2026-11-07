@@ -123,6 +123,7 @@ BULLETS class com/hbm/blocks/generic/BlockModDoor
 BULLETS class com/hbm/entity/projectile/EntityBullet
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseNT
+BULLETS class com/hbm/entity/projectile/EntityBulletBaseNT$IBulletUpdateBehaviorNT
 BULLETS class com/hbm/entity/projectile/EntityBulletBeamBase
 BULLETS class com/hbm/entity/projectile/EntityThrowableNT
 BULLETS class com/hbm/explosion/vanillant/ExplosionVNT
@@ -163,6 +164,9 @@ BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 ticksInAir I
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 velocityChanged Z
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 worldObj Lnet/minecraft/world/World;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseNT isDead Z
+BULLETS field com/hbm/entity/projectile/EntityBulletBaseNT motionX D
+BULLETS field com/hbm/entity/projectile/EntityBulletBaseNT motionY D
+BULLETS field com/hbm/entity/projectile/EntityBulletBaseNT motionZ D
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseNT posX D
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseNT posY D
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseNT posZ D

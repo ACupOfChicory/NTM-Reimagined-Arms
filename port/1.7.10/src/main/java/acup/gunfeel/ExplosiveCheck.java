@@ -325,6 +325,7 @@ public final class ExplosiveCheck {
         }
         oldHit(BulletConfigSyncingUtil.MASKMAN_BOLT, "maskman_bolt (old)", true);
         oldRicochet();
+        oldHoming();
         oldPlain();
         BulletConfiguration ufo = BulletConfigSyncingUtil.pullConfig(BulletConfigSyncingUtil.UFO_ROCKET),
                 tracer = BulletConfigSyncingUtil.pullConfig(BulletConfigSyncingUtil.MASKMAN_TRACER),
@@ -339,6 +340,46 @@ public final class ExplosiveCheck {
                 WaterClass.ofOld(ufo), "true true false false", WaterClass.Fuze.oldInWater(ufo) + " " + WaterClass.Fuze.oldInWater(tracer) + " "
                         + WaterClass.Fuze.oldInWater(test) + " " + WaterClass.Fuze.oldInWater(turbine),
                 WaterClass.Fuze.oldInWater(ufo) && WaterClass.Fuze.oldInWater(tracer) && !WaterClass.Fuze.oldInWater(test) && !WaterClass.Fuze.oldInWater(turbine), "");
+    }
+
+    // the UFO's rocket homes (NTM turns its motion to the target at once): once water stopped it, it is given a golem
+    // behind where it was fired (out of its search ahead, beyond NTM's blast within reach, √5) to home on. Sinking it
+    // goes straight down, not to the golem
+    private static void oldHoming() {
+        int id = BulletConfigSyncingUtil.UFO_ROCKET;
+        BulletConfiguration c = BulletConfigSyncingUtil.pullConfig(id);
+        if (c == null) return;
+        String ammo = "ufo_rocket (old)";
+        WaterClass wc = WaterClass.ofOld(c);
+        int life = c.maxAge;
+        c.maxAge = Math.max(life, 1000);
+        try {
+            basin();
+            double x0 = MIN + 3.5;
+            EntityIronGolem g = golem(new Vec3(x0 - 1, FLOOR + 1, CZ));
+            EntityThrowableNT b = old(id).make(new Vec3(x0, surface - 4, CZ), new Vec3(1, 0, 0));
+            BLASTS.clear();
+            double sx = Double.NaN, sz = Double.NaN, drift = 0;
+            int sinking = 0;
+            for (int i = 0; i < TICKS && !b.isDead; i++) {
+                tick(b);
+                if (b.isDead || !WaterBullet.stopped(b)) continue;
+                if (Double.isNaN(sx)) {
+                    sx = b.posX;
+                    sz = b.posZ;
+                    b.getEntityData().setInteger("homingTarget", g.getEntityId());
+                }
+                sinking++;
+                drift = Math.max(drift, Math.hypot(b.posX - sx, b.posZ - sz));
+            }
+            double[] blast = BLASTS.isEmpty() ? null : BLASTS.get(0);
+            rowFlag("c: old homing rocket sinking: straight down, not to its target", ammo, wc, "drift < 0.01, sinks ≥ 20 ticks",
+                    "drift " + fmt(drift) + ", sinks " + sinking + " ticks", sinking >= 20 && drift < 0.01,
+                    "stop at x " + fmt(sx) + " z " + fmt(sz) + ", golem at x " + fmt(x0 - 1) + ", y " + fmt(b.posY) + " blast=" + str(blast) + " gone=" + b.isDead);
+            level.removePlayerEntityDangerously(g);
+        } finally {
+            c.maxAge = life;
+        }
     }
 
     // the old rounds with no fuze that 26.2 fires as its own bullets (the masked man's tracer, BOT Prime's bolts):

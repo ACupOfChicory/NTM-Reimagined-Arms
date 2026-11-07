@@ -34,6 +34,7 @@ import net.minecraft.util.MovingObjectPosition;
 //   doused (WaterImpact.lambda);
 // - a stopped one goes off where it touches a creature, also one that goes through creatures in flight (the bolt);
 // - the surface its fuze meets, and the floor a sinking one touches, take no NTM ricochet: it goes off there;
+// - a sinking one is not steered by NTM's homing (the UFO's rocket);
 // - a step straight down (a sinking one) keeps the yaw it had, as MixinWaterBullet.
 @Mixin(value = EntityBulletBaseNT.class, remap = false)
 public abstract class MixinWaterOldBullet implements WaterBullet, WaterImpact.Hits {
@@ -80,6 +81,23 @@ public abstract class MixinWaterOldBullet implements WaterBullet, WaterImpact.Hi
             self.rotationYaw = gunfeel$yaw;
             self.prevRotationYaw = gunfeel$yaw;
         }
+    }
+
+    // the UFO's rocket homes (its config's bntUpdate turns the motion to the target): a sinking one would creep to the
+    // target, as its motion is the sinking step until WaterTick.sink sets it again. Sinking, its motion is kept; the
+    // rest of NTM's update (the target it picks, the blast within reach of it) stays
+    @WrapOperation(method = "onUpdate", remap = true, at = @At(value = "INVOKE", remap = false,
+            target = "Lcom/hbm/entity/projectile/EntityBulletBaseNT$IBulletUpdateBehaviorNT;behaveUpdate(Lcom/hbm/entity/projectile/EntityBulletBaseNT;)V"))
+    private void gunfeel$noHomingSinking(EntityBulletBaseNT.IBulletUpdateBehaviorNT update, EntityBulletBaseNT bullet, Operation<Void> original) {
+        if (!gunfeel$stopped) {
+            original.call(update, bullet);
+            return;
+        }
+        double mx = bullet.motionX, my = bullet.motionY, mz = bullet.motionZ;
+        original.call(update, bullet);
+        bullet.motionX = mx;
+        bullet.motionY = my;
+        bullet.motionZ = mz;
     }
 
     // its impact: the blast one with a fuze sets off is an old bullet's (WaterBlast.old), and where it ended
