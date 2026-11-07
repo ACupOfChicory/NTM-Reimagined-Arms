@@ -158,6 +158,8 @@ neoForge {
             // -PshapesStand=<file>, -PshapesOnly=a,b, -PshapesResume, -PshapesFallback: as at the root (ShapesStand,
             // ShapesFallbackCheck); the stand keeps to the -Xmx3G of every stand client here
             systemProperty("ntmgunfeel.shapesStand", providers.gradleProperty("shapesStand").orElse("").get())
+            // -PwaterFx: as at the root, the water effects per kind per shot (WaterFxStand)
+            systemProperty("ntmgunfeel.waterFx", providers.gradleProperty("waterFx").isPresent.toString())
             systemProperty("ntmgunfeel.shapesOnly", providers.gradleProperty("shapesOnly").orElse("").get())
             systemProperty("ntmgunfeel.shapesResume", providers.gradleProperty("shapesResume").isPresent.toString())
             systemProperty("ntmgunfeel.shapesFallback", providers.gradleProperty("shapesFallback").isPresent.toString())
@@ -283,7 +285,7 @@ tasks.matching { it.name in serverRuns }.configureEach {
     }
 }
 tasks.matching { it.name == "runCheckClient" }.configureEach {
-    val scenario = listOf("scenario", "shapesStand", "fenceSeam", "holeBench", "checkMobs", "benchMobs").any { providers.gradleProperty(it).isPresent }
+    val scenario = listOf("scenario", "shapesStand", "fenceSeam", "holeBench", "checkMobs", "benchMobs", "waterFx").any { providers.gradleProperty(it).isPresent }
     timeout.set(Duration.ofMinutes(if (scenario) 120 else 8))
     val result = layout.buildDirectory.file("clientcheck/result.txt")
     val cpuGeometry = providers.gradleProperty("mobCpuGeometry").isPresent
