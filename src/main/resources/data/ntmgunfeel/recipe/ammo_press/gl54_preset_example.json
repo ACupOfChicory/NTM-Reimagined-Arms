@@ -1,0 +1,46 @@
+{
+  "type": "hbm:ammo_press",
+  "order": 23100,
+  "pattern": [
+    "aah",
+    "hpp",
+    "ism"
+  ],
+  "key": {
+    "a": {
+      "ingredient": "ntmgunfeel:gl54_grenade_airburst"
+    },
+    "h": {
+      "ingredient": "ntmgunfeel:gl54_grenade_he"
+    },
+    "p": {
+      "ingredient": "ntmgunfeel:gl54_grenade_ap"
+    },
+    "i": {
+      "ingredient": "ntmgunfeel:gl54_grenade_inc"
+    },
+    "s": {
+      "ingredient": "ntmgunfeel:gl54_grenade_smoke"
+    },
+    "m": {
+      "ingredient": "ntmgunfeel:gl54_mag_empty"
+    }
+  },
+  "output_items": [
+    {
+      "id": "ntmgunfeel:gl54_mag",
+      "components": {
+        "ntmgunfeel:gl54_mag": [
+          "airburst",
+          "airburst",
+          "he",
+          "he",
+          "ap",
+          "ap",
+          "inc",
+          "smoke"
+        ]
+      }
+    }
+  ]
+}

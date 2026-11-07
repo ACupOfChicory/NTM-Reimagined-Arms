@@ -1,0 +1,34 @@
+{
+  "type": "hbm:ammo_press",
+  "order": 23003,
+  "pattern": [
+    "AAA",
+    "AAA",
+    "AAM"
+  ],
+  "key": {
+    "A": {
+      "ingredient": "ntmgunfeel:gl54_grenade_inc"
+    },
+    "M": {
+      "ingredient": "ntmgunfeel:gl54_mag_empty"
+    }
+  },
+  "output_items": [
+    {
+      "id": "ntmgunfeel:gl54_mag",
+      "components": {
+        "ntmgunfeel:gl54_mag": [
+          "inc",
+          "inc",
+          "inc",
+          "inc",
+          "inc",
+          "inc",
+          "inc",
+          "inc"
+        ]
+      }
+    }
+  ]
+}
