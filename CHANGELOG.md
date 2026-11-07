@@ -1,5 +1,20 @@
 # Changelog
 
+## X600
+
+- The hitbox follows worn armour as it is drawn. On a player, a mannequin or
+  any mob drawn without Flywheel the armour was taken for the body and grown
+  once more: the hitbox stood about a pixel off the armour all round. Under
+  armour drawn by Flywheel the parts grew by a pixel as whole cubes, so the
+  hitbox stood a pixel off a bare forearm or a helmet's open face, 0.6 pixels
+  off leggings and 0.1 off boots. Now the drawn armour is the hitbox, where
+  its texture is not clear, and the parts under it keep their size. So is a
+  skull or a dragon head drawn by Flywheel; without Flywheel, and for a block
+  (a pumpkin), the head still grows to their size. A shot on a helmet is still
+  a shot in the head. An enchanted or trimmed piece no longer adds whole cubes
+  over the armour (and over a helmet a cube 1.5 pixels off the head): its
+  glint and trim are drawn on the armour and are not taken as more of it.
+
 ## X597
 
 - Precise hitboxes on a server: a client can no longer fill the server's memory
