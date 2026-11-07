@@ -27,6 +27,7 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
  */
 public final class AiCheck {
     public static final String PROPERTY = "ntmgunfeel.checkAi";
+    static final String STAGE_PROPERTY = "ntmgunfeel.checkAiStage";
     private static final int Y = 100, X0 = 8, Z0 = 8, SIZE = 32;
 
     private AiCheck() {
@@ -59,31 +60,20 @@ public final class AiCheck {
             AiCheckProne prone = new AiCheckProne(check, check.level, Y);
             AiCheckAim aim = new AiCheckAim(check, check.level, Y);
             AiCheckTeams teams = new AiCheckTeams(check, check.level, Y);
-            // walked, fought, fought in teams, crowded, spread, lay down
-            boolean[] stage = {false, false, false, false, false, false};
+            AiCheckUnseen unseen = new AiCheckUnseen(check, check.level, Y);
+            // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, a player out of creative
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "unseen");
+            List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
+                    aim::tick, unseen::tick);
+            // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
+            String only = System.getProperty(STAGE_PROPERTY, "");
+            int[] at = {0};
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class, t -> {
                 boolean done;
                 try {
-                    if (!stage[0]) {
-                        stage[0] = ticks.tick();
-                        done = false;
-                    } else if (!stage[1]) {
-                        stage[1] = fight.tick();
-                        done = false;
-                    } else if (!stage[2]) {
-                        // on the fight's field
-                        stage[2] = teams.tick();
-                        done = false;
-                    } else if (!stage[3]) {
-                        stage[3] = crowd.tick();
-                        done = false;
-                    } else if (!stage[4]) {
-                        stage[4] = spread.tick();
-                        done = false;
-                    } else if (!stage[5]) {
-                        stage[5] = prone.tick();
-                        done = false;
-                    } else done = aim.tick();
+                    while (at[0] < stages.size() && !only.isEmpty() && !only.equals(names.get(at[0]))) at[0]++;
+                    if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) at[0]++;
+                    done = at[0] >= stages.size();
                 } catch (Throwable x) {
                     crashed(out, x);
                     check.ok = false;

@@ -11,7 +11,8 @@ import net.minecraft.world.entity.ai.goal.WrappedGoal;
  * Puts a mob under the mob AI: every mob tagged {@value #TAG} (the /armsai spawn command tags its mobs; /tag works on
  * any mob with goals), each time it comes into a level (its goals are made again when its chunk loads). Its own
  * goals but swimming go (attacks, wandering, looking about, NTM's gun and digging goals), and so do the goals that
- * pick its target; one {@link AiGoal} drives it. Doing it twice changes nothing.
+ * pick its target; one {@link AiGoal} drives it, and its legs walk as a player's ({@link AiMoveControl}). Doing it
+ * twice changes nothing.
  */
 public final class AiAdapter {
     public static final String TAG = "armsai";
@@ -36,6 +37,7 @@ public final class AiAdapter {
         for (WrappedGoal w : goals.getAvailableGoals()) has |= w.getGoal() instanceof AiGoal a && a.bot == bot;
         if (!has) goals.addGoal(1, new AiGoal(bot));
         ((AiNavigation) mob.getNavigation()).gunfeel$setAiOwned(true);
+        if (!(mob.getMoveControl() instanceof AiMoveControl)) ((MobGoalsAccess) mob).gunfeel$setMoveControl(new AiMoveControl(mob));
         mob.setTarget(null);
         if (bot.brain == null) bot.brain = new AiSoldier();
         int kept = mob.getPersistentData().getIntOr(AMMO_KEY, Integer.MIN_VALUE);
