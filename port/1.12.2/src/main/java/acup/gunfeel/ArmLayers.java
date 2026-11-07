@@ -239,8 +239,8 @@ public final class ArmLayers {
             LayerRenderer layer = layers.get(k);
             if (skipped(layer)) continue;
             Failed key = new Failed(layer.getClass(), worn);
-            Integer fails = FAILED.get(key);
-            if (fails != null && fails >= TRIES) continue;
+            boolean counted = FAILED.containsKey(key);
+            if (counted && leftOut(key)) continue;
             if (marked) Feedback.layer(k);
             // the layers' state as draw set it, for after one that throws
             if (state == null) state = new GlSaved();
@@ -251,9 +251,10 @@ public final class ArmLayers {
             try {
                 // as RenderLivingBase.renderLayers, at the model's rest: the pose is ours (MixinModelBipedPose)
                 layer.doRenderLayer(player, 0F, 0F, partial, age, 0F, 0F, 0.0625F);
+                if (counted) drew(key);
             } catch (Throwable t) {
                 threw = true;
-                failed(key, fails, t);
+                failed(key, t);
             } finally {
                 // a layer may leave another matrix stack current, and one that throws between its own push and pop
                 // (NTM's suits push at the start of render) leaves matrices on the stacks: each depth is put back
@@ -287,13 +288,24 @@ public final class ArmLayers {
         popTo(GL11.GL_MODELVIEW, GL11.GL_MODELVIEW_STACK_DEPTH, depth);
     }
 
-    // how often a layer may throw with the same armour on before the arms leave it out (until the player leaves the
-    // world): a failure in the first frames, before the player's data came, is tried again
+    // how often in a row a layer may throw with the same armour on before the arms leave it out (until the player leaves
+    // the world): a failure in the first frames, before the player's data came, is tried again, and one that draws in
+    // between starts the count anew
     static final int TRIES = 3;
 
-    private static void failed(Failed key, Integer before, Throwable t) {
-        int fails = before == null ? 1 : before + 1;
-        FAILED.put(key, fails);
+    // the layer is left out with this armour on
+    static boolean leftOut(Failed key) {
+        Integer fails = FAILED.get(key);
+        return fails != null && fails >= TRIES;
+    }
+
+    // it drew: its failures before do not count
+    static void drew(Failed key) {
+        FAILED.remove(key);
+    }
+
+    static void failed(Failed key, Throwable t) {
+        int fails = FAILED.merge(key, 1, Integer::sum);
         if (WARNED.add(key.layer)) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm", key.layer.getName(), t);
         if (fails == TRIES) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm {} times with this armour on, left out of the arms until the world is left",
                 key.layer.getName(), TRIES);
@@ -301,7 +313,7 @@ public final class ArmLayers {
 
     // a layer and the armour worn when it threw (the items in the four armour slots): the same layer with other armour
     // on is tried anew
-    private static final class Failed {
+    static final class Failed {
         final Class<?> layer;
         final Object[] worn;
 
@@ -325,7 +337,7 @@ public final class ArmLayers {
         }
     }
 
-    // a layer's failures by the armour worn; cleared when the player leaves the world
+    // a layer's failures in a row by the armour worn; cleared when the player leaves the world
     private static final Map<Failed, Integer> FAILED = new java.util.concurrent.ConcurrentHashMap<>();
 
     private static final net.minecraft.inventory.EntityEquipmentSlot[] ARMOUR = {net.minecraft.inventory.EntityEquipmentSlot.HEAD,

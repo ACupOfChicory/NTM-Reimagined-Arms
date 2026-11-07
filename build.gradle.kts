@@ -380,20 +380,27 @@ tasks.check { dependsOn(mixinCheck) }
 
 // the dump server needs the EULA accepted in its own folder
 val checkRuns = mapOf("runDumpBlocks" to "run-dump", "runCheckSettings" to "run-check", "runCheckBullets" to "run-bullets", "runCheckWater" to "run-water", "runCheckBoom" to "run-boom")
+// Every stand server opens its port before it stops or makes its world, each on one of its own: 25565 is where the real
+// servers are (one running there would leave the stand without a port, the stand would not start). -PserverPort=<n>
+// sets another, 25565 included.
+val checkPorts = mapOf("runCheckBullets" to 25640, "runCheckWater" to 25641, "runCheckBoom" to 25642, "runCheckSettings" to 25643, "runDumpBlocks" to 25644)
 tasks.matching { it.name in checkRuns }.configureEach {
     val dir = root.resolve(checkRuns.getValue(name))
+    val port = providers.gradleProperty("serverPort").orNull?.takeIf { it.isNotBlank() } ?: checkPorts.getValue(name).toString()
     doFirst {
         // the dump stops the server before any world: what a stopped run left of one would only break the next
         dir.resolve("world").deleteRecursively()
         dir.mkdirs()
         dir.resolve("eula.txt").writeText("eula=true\n")
+        val properties = dir.resolve("server.properties")
         // the smallest world that still has one: flat, two chunks around, nothing generated on it
-        if (name == "runCheckBullets" || name == "runCheckWater" || name == "runCheckBoom") dir.resolve("server.properties").writeText(
+        if (name == "runCheckBullets" || name == "runCheckWater" || name == "runCheckBoom") properties.writeText(
             "level-type=minecraft\\:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\n" +
             "spawn-protection=0\nonline-mode=false\nspawn-monsters=false\nspawn-animals=false\nmax-players=1\n" +
-            // -PserverPort=<n>: a port of its own, away from a real server on 25565
-            (providers.gradleProperty("serverPort").orNull?.let { "server-port=$it\n" }
-                ?: if (name == "runCheckWater") "server-port=25641\n" else if (name == "runCheckBoom") "server-port=25642\n" else ""))
+            "server-port=$port\n")
+        // the dump and the settings check make no world: only the port is set, the rest of the file left as the server wrote it
+        else properties.writeText((if (properties.exists()) properties.readLines().filter { !it.startsWith("server-port=") } else emptyList())
+            .joinToString("") { it + "\n" } + "server-port=$port\n")
     }
 }
 

@@ -429,4 +429,37 @@ class WaterPathTest {
         assertEquals(11.38, WaterClass.GRENADE.formulaAngle(), 0.01);
         assertEquals(12.73, WaterClass.ROCKET.formulaAngle(), 0.01);
     }
+
+    // A path that meets the water exactly on the edge of its top and a side (both planes at the same t) comes in through
+    // the top: the surface it falls on. Before, the side won any tie (WEST here), and a shallow hit there went in
+    // instead of skipping, a fuze took it for a hit on a wall, the splash had no surface.
+    @Test
+    void aPathOnTheTopEdgeComesInThroughTheTop() {
+        // a row of full cells, x 0..20 at y 0, the air west of x 0 and above y 1
+        World w = new World();
+        for (int x = 0; x <= 20; x++) put(w, x);
+        // 3.58° down: x crosses 0 and y crosses 1 both at t = 1/16, exactly
+        Vec3d from = new Vec3d(-1, 1.0625, 0.5), to = from.add(16, -1, 0);
+        var r = WaterPath.trace(w, from, to, 1, WaterClass.RIFLE, 0, 42L, S, null);
+        assertNotNull(r.skip, "a shallow hit on the edge skips: " + r.events);
+        assertEquals(new Vec3d(0, 1, 0.5), r.skip.at());
+        assertEquals(EnumFacing.UP, r.events.get(0).face());
+        // 45° down onto the same edge: in through the top
+        Vec3d steep = new Vec3d(-0.5, 1.5, 0.5);
+        var in = WaterPath.trace(w, steep, steep.add(2, -2, 0), 1, WaterClass.RIFLE, 0, 42L, S, null);
+        assertEquals(Type.ENTER, in.events.get(0).type());
+        assertEquals(EnumFacing.UP, in.events.get(0).face());
+        // up out of it through the same edge: out through the top
+        Vec3d low = new Vec3d(0.5, 0.5, 0.5);
+        var out = WaterPath.trace(w, low, low.add(-1, 1, 0), 1, WaterClass.RIFLE, 0, 42L, S, null);
+        assertEquals(Type.EXIT, out.events.get(out.events.size() - 1).type());
+        assertEquals(EnumFacing.UP, out.events.get(out.events.size() - 1).face());
+        // off the edge the sides still win where they are met first
+        Vec3d side = new Vec3d(-0.5, 0.75, 0.5);
+        assertEquals(EnumFacing.WEST, WaterPath.trace(w, side, side.add(1, -0.25, 0), 1, WaterClass.RIFLE, 0, 42L, S, null).events.get(0).face());
+    }
+
+    private static void put(World w, int x) {
+        w.put(x, 0, 0, new Cell(Liquid.WATER, 1F, false));
+    }
 }

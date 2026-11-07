@@ -481,13 +481,17 @@ public final class WaterPath {
     private static final EnumFacing[][] FACES = {{EnumFacing.WEST, EnumFacing.EAST}, {EnumFacing.DOWN, EnumFacing.UP},
             {EnumFacing.NORTH, EnumFacing.SOUTH}};
 
+    private static final int[] AXES = {1, 0, 2};
+
     // the segment against the box x..x+1, y..y+h, z..z+1: {ta, tb, x, y, z, entry face, exit face} within 0..1
     private static double[] cut(Vec3d from, Vec3d d, int x, int y, int z, double h) {
         double ta = 0, tb = 1;
         int in = -1, out = -1;
         double[] lo = {x, y, z}, hi = {x + 1, y + h, z + 1};
         double[] o = {from.x, from.y, from.z}, v = {d.x, d.y, d.z};
-        for (int a = 0; a < 3; a++) {
+        // y first: a path that meets two faces at once, on a cell's edge, goes through the top or bottom one (the
+        // surface it falls on), a tie keeping the axis met first
+        for (int a : AXES) {
             if (Math.abs(v[a]) < 1e-12) {
                 if (o[a] < lo[a] || o[a] > hi[a]) return null;
                 continue;

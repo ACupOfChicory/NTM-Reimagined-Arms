@@ -293,6 +293,18 @@ listOf("runClient", "runServer").forEach { name ->
         workingDir = projectDir.resolve(if (name == "runClient") "run/client" else "run/server")
     }
 }
+// The dev server opens a port of its own, 25661: 25565 is where the real servers are (as 26.2's stand servers).
+// -PserverPort=<n> sets another, 25565 included. Only the port is set, the rest of server.properties left as it is.
+tasks.named<RunMinecraftTask>("runServer") {
+    val dir = projectDir.resolve("run/server")
+    val port = providers.gradleProperty("serverPort").orNull?.takeIf { it.isNotBlank() } ?: "25661"
+    doFirst {
+        dir.mkdirs()
+        val properties = dir.resolve("server.properties")
+        properties.writeText((if (properties.exists()) properties.readLines().filter { !it.startsWith("server-port=") } else emptyList())
+            .joinToString("") { it + "\n" } + "server-port=$port\n")
+    }
+}
 
 // A dev scenario in the client (ShootScenario): -Pscenario=shoot on runClient, with its trace (Trace) in
 // run/client/logs/ntm-gunfeel-trace-<scenario>.tsv for tools/trace_diff.py.
