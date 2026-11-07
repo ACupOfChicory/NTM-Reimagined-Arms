@@ -64,7 +64,7 @@ final class WaterFxScenario {
     private static final List<String> lines = new ArrayList<String>();
     private static final List<String> failed = new ArrayList<String>();
     private static int[] before, eventsBefore;
-    private static int ringsBefore, ringsLeft0, flash0, traced0, late0, shotEnter0, blasts0, plumes0;
+    private static int ringsBefore, ringsLeft0, flash0, traced0, late0, shotEnter0, blasts0, plumes0, bounces0;
     private static final int[] perShot = new int[AMMO.length];
     // the sunk rounds: the most at once, the physics' worst frame; the floor test's step (0 looking, 1 falling, 3
     // done), its round, the tick the end's checks come
@@ -112,6 +112,17 @@ final class WaterFxScenario {
             // port's stand (a round from the air into a pool is under water in flight for less than a tick)
             lines.add("rounds drawn in flight under water: " + SunkBullets.flyingDrawn);
             check(SunkBullets.flyingDrawn > 0, "the rounds in flight under water drawn");
+        }
+        // a p9 round bouncing off the still pool's floor under water: the tracer goes on at the speed and damage it
+        // has where it bounced, not those of the tick's start (26.2 X555)
+        if (t == UNDER_CHECK + 1) {
+            bounces0 = Tracers.waterBounces;
+            ShootScenario.onServer(WaterFxScenario::fireBounce);
+        }
+        if (t == FLASH_GO - 1) {
+            double q = Tracers.waterBounceQ;
+            lines.add(String.format(Locale.ROOT, "tracer bounced under water: %d, speed there / at the tick's start %.3f", Tracers.waterBounces - bounces0, q));
+            check(Tracers.waterBounces > bounces0 && q > 0 && q < 0.999, "a tracer bounced off a block in water goes on at the speed it had there");
         }
         if (t == FLASH_GO) ShootScenario.onServer(() -> {
             // feet on the still pool's floor: the eyes and the muzzle under water
@@ -587,6 +598,13 @@ final class WaterFxScenario {
     private static void fireUnder() {
         BulletConfig c = config("ammo_standard_p9_fmj");
         if (c != null) spawn(c, x0 + 0.5, y - 2.0, z0 + 2.5, 1, 0, 0.1);
+    }
+
+    // a p9 round 8 cm over the still pool's floor, east and down at 2.3°: it meets the floor in 2 blocks, before the
+    // water stops it, and glances off (NTM's ricochetAngle 5°)
+    private static void fireBounce() {
+        BulletConfig c = config("ammo_standard_p9_fmj");
+        if (c != null) spawn(c, x0 + 0.5, y - 3 + 0.08, z0 + 2.5, 1, -0.04, 0);
     }
 
     private static void drain() {

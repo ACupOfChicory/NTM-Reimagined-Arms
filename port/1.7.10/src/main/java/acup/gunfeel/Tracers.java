@@ -802,7 +802,22 @@ public final class Tracers {
                 if (Config.bulletHoles) PENDING.addLast(new Pending(world, at, face, pos, s.config, unit, normalized(vel), s.id));
                 if (s.ricochets < s.config.maxRicochetCount) {
                     long left = (long) Math.max(0.0, s.lifeTicks - s.end);
-                    if (left > 0) BOUNCED.add(new Shot(s, at, TracerPath.bounce(face, vel), s.born + s.end, left));
+                    if (left > 0) {
+                        // in water this tick: it bounces on at the f, damage and opening it has where it bounced, as the
+                        // server's bullet (WaterTick.end), not at the tick's start (26.2 X555)
+                        WaterPath.Result wp = s.waterPath;
+                        double q = wp != null && s.waterF > 0 ? wp.fAt(vec(at)) / s.waterF : 1;
+                        double[] out = TracerPath.bounce(face, vel);
+                        Shot bounced = new Shot(s, at, new double[] {out[0] * q, out[1] * q, out[2] * q}, s.born + s.end, left);
+                        if (wp != null) {
+                            bounced.waterF = s.waterF * q;
+                            bounced.damage = s.damage * (float) (q * q);
+                            bounced.waterOpened = wp.openedAt(wp.t(vec(at)));
+                            waterBounces++;
+                            waterBounceQ = q;
+                        }
+                        BOUNCED.add(bounced);
+                    }
                 }
             } else if (!ExplosiveAmmo.heavy(s.config)) {
                 hit(world, at, face, pos, s.config, unit, s.config.onImpact != null, s.id, window);
@@ -939,6 +954,10 @@ public final class Tracers {
         TestLog.c(s.id, "block", "block", name(world, pos), "pos", v(pos), "at", v(point(hit)), "material", TestLog.material(world, hit),
                 "result", "stop", "why", why, "damage", s.damage, "path", Float.isNaN(path) ? null : path);
     }
+
+    // for the waterfx stand: tracers bounced in water, the last one's speed fraction where it bounced to the tick's start
+    public static int waterBounces;
+    public static double waterBounceQ;
 
     // NTM's standard ricochet (BulletConfig.LAMBDA_STANDARD_RICOCHET) as the server has it: a bullet without an impact
     // effect meeting a face at no more than its ricochetAngle bounces off; glass breaks
