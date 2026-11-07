@@ -68,17 +68,22 @@ final class AiCheckCrowd {
         m.setHealth(m.getMaxHealth());
     }
 
+    /** the open field: a stone floor with air over it, its chunks kept loaded (the stages after the crowd's stand on it) */
+    static void field(ServerLevel level, int y) {
+        for (int cx = X0 >> 4; cx <= (X0 + SIZE) >> 4; cx++)
+            for (int cz = Z0 >> 4; cz <= (Z0 + SIZE) >> 4; cz++) level.setChunkForced(cx, cz, true);
+        BlockState stone = Blocks.STONE.defaultBlockState(), air = Blocks.AIR.defaultBlockState();
+        for (int x = X0; x < X0 + SIZE; x++)
+            for (int z = Z0; z < Z0 + SIZE; z++) {
+                level.setBlock(new BlockPos(x, y - 1, z), stone, Block.UPDATE_CLIENTS);
+                for (int h = 0; h < 4; h++) level.setBlock(new BlockPos(x, y + h, z), air, Block.UPDATE_CLIENTS);
+            }
+        TacticalMap.of(level).want((int) TX, y, 20, 24, 6);
+    }
+
     private void setup() {
         if (round == 0) {
-            for (int cx = X0 >> 4; cx <= (X0 + SIZE) >> 4; cx++)
-                for (int cz = Z0 >> 4; cz <= (Z0 + SIZE) >> 4; cz++) level.setChunkForced(cx, cz, true);
-            BlockState stone = Blocks.STONE.defaultBlockState(), air = Blocks.AIR.defaultBlockState();
-            for (int x = X0; x < X0 + SIZE; x++)
-                for (int z = Z0; z < Z0 + SIZE; z++) {
-                    set(x, y - 1, z, stone);
-                    for (int h = 0; h < 4; h++) set(x, y + h, z, air);
-                }
-            TacticalMap.of(level).want((int) TX, y, 20, 24, 6);
+            field(level, y);
             target = (Mob) net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
                     .getValue(net.minecraft.resources.Identifier.fromNamespaceAndPath("hbm", "entity_test_dummy"))
                     .create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);

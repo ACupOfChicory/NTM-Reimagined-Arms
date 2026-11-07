@@ -210,6 +210,7 @@ public final class AiBots {
         bot.tick(l.voxels, SmokeClouds.get(level), targets(l, tick), tick);
         if (bot.brain != null) bot.brain.tick(bot, tick);
         bot.prone.tick(level, bot.mover, tick);
+        bot.mover.hold(bot.gunner.steady());
         bot.mover.tick(level, map, tick);
         int reserve = bot.gunner.ammo.reserve();
         bot.gunner.runs = bot.mover.runs();

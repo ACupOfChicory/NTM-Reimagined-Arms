@@ -20,14 +20,16 @@ import net.minecraft.world.phys.Vec3;
  * The AI check's lying down, on the crowd's open field: a soldier behind a wall one high goes down between bursts
  * and to reload and gets up to fire (never fires lying there); one in the open with the target 40 blocks off lies and
  * fires lying, with the crawling spread; one with the target 8 blocks off never lies; one in the open with the target
- * 20 blocks off lies when shots fly past it. Lying, it is a crawling player's size.
+ * 20 blocks off lies when shots fly past it; one lying far off sent crawling 5 blocks crawls between bursts and
+ * keeps still to fire (the server's no-shot-while-crawling rule, ProneFire: no pull of its trigger is thrown away).
+ * Lying, it is a crawling player's size.
  */
 final class AiCheckProne {
     private enum Phase {
-        LOW, FAR, NEAR, PINNED, DONE
+        LOW, FAR, NEAR, PINNED, CRAWL, DONE
     }
 
-    static final int RUN = 260, SHORT = 160;
+    static final int RUN = 260, SHORT = 160, CRAWL_AT = 50;
     private final AiCheck check;
     private final ServerLevel level;
     private final int y;
@@ -36,6 +38,10 @@ final class AiCheckProne {
     private Mob soldier, target;
     private AiBot bot;
     private int lyingTicks, pullsLying, pullsStanding, lastPulls;
+    /** ticks it lay moving faster than the crawling rule's speed, ticks the target was hit while it lay; all scenes */
+    private int crawlTicks, hitsLying, crawlPullsAll, crawlHeldAll;
+    private Vec3 crawlFrom;
+    private double fastestLying;
     private float lyingHeight = -1, lyingEye = -1, spreadLying = -1, spreadStanding = -1;
 
     AiCheckProne(AiCheck check, ServerLevel level, int y) {
@@ -51,7 +57,12 @@ final class AiCheckProne {
         if (soldier == null) return phase == Phase.DONE;
         watch();
         if (phase == Phase.PINNED && ticks % 5 == 0 && ticks <= 60) flyPast();
-        int length = phase == Phase.LOW || phase == Phase.FAR ? RUN : SHORT;
+        if (phase == Phase.CRAWL && ticks == CRAWL_AT && bot != null) {
+            // lying, firing: sent 5 blocks off, towards the target
+            crawlFrom = soldier.position();
+            bot.mover.goTo(BlockPos.asLong(97, y, 38), 0.35, AiSoldier.WALK);
+        }
+        int length = phase == Phase.LOW || phase == Phase.FAR || phase == Phase.CRAWL ? RUN : SHORT;
         if (ticks >= length) finish();
         return phase == Phase.DONE;
     }
@@ -67,6 +78,8 @@ final class AiCheckProne {
     }
 
     private void start() {
+        // run alone (-PaiStage=prone), the crowd's field is not there yet
+        if (phase == Phase.LOW && level.getBlockState(new BlockPos(AiCheckCrowd.X0, y - 1, AiCheckCrowd.Z0)).isAir()) AiCheckCrowd.field(level, y);
         // the low wall stands only for the first scene
         for (int x = 105; x <= 115; x++) set(x, y, 20, phase == Phase.LOW);
         Vec3 s, t;
@@ -75,7 +88,7 @@ final class AiCheckProne {
                 s = new Vec3(110.5, y, 24.5);
                 t = new Vec3(110.5, y, 5.5);
             }
-            case FAR -> {
+            case FAR, CRAWL -> {
                 s = new Vec3(93.5, y, 41.5);
                 t = new Vec3(122.5, y, 12.5);
             }
@@ -116,10 +129,12 @@ final class AiCheckProne {
         health(target);
         level.addFreshEntity(target);
         AiBots.refreshTargets(level);
-        lyingTicks = pullsLying = pullsStanding = lastPulls = 0;
+        lyingTicks = pullsLying = pullsStanding = lastPulls = crawlTicks = hitsLying = 0;
+        fastestLying = 0;
     }
 
     private void watch() {
+        boolean hit = target.getHealth() < target.getMaxHealth();
         soldier.setHealth(soldier.getMaxHealth());
         target.setHealth(target.getMaxHealth());
         if (bot == null) return;
@@ -132,6 +147,10 @@ final class AiCheckProne {
         lastPulls = pulls;
         if (lying) {
             lyingTicks++;
+            if (hit) hitsLying++;
+            Vec3 v = ((acup.gunfeel.mixin.mc.EntityAccess) soldier).gunfeel$lastKnownSpeed();
+            if (v != null && v.horizontalDistance() * 20 > acup.gunfeel.ProneFire.DEFAULT_SPEED) crawlTicks++;
+            if (v != null) fastestLying = Math.max(fastestLying, v.horizontalDistance() * 20);
             lyingHeight = soldier.getBbHeight();
             lyingEye = soldier.getEyeHeight();
             spreadLying = Spread.apply(soldier, soldier.getMainHandItem(), false, 1F);
@@ -157,6 +176,12 @@ final class AiCheckProne {
         String what = p == null ? "-" : String.format(Locale.ROOT, "lay %d ticks (%d times down), fired %d lying and %d standing (%d shots, %d ticks held for a friend, %s)",
                 lyingTicks, p.downs, pullsLying, pullsStanding, bot.gunner.shots, bot.gunner.holds,
                 bot.memory.contacts().stream().map(c -> c.state.toString()).toList());
+        if (bot != null) {
+            crawlPullsAll += bot.gunner.crawlPulls;
+            crawlHeldAll += bot.gunner.crawlHeldTicks;
+            what += String.format(Locale.ROOT, "; lying: %d shots, target hit %d ticks, crawled %d ticks (at most %.2f blocks a second); pulls crawling %d, trigger held crawling %d ticks",
+                    bot.gunner.shotsLying, hitsLying, crawlTicks, fastestLying, bot.gunner.crawlPulls, bot.gunner.crawlHeldTicks);
+        }
         switch (phase) {
             case LOW -> {
                 check.out("     behind a wall one high, the target 19 blocks off: " + what);
@@ -168,8 +193,8 @@ final class AiCheckProne {
             case FAR -> {
                 check.out(String.format(Locale.ROOT, "     in the open, the target 41 blocks off: %s; spread lying %.3f, standing still %.3f (NTM's x1)", what,
                         spreadLying, spreadStanding));
-                check.check("in the open with the target far off it lies and fires lying, with the crawling spread",
-                        p != null && pullsLying > 0 && spreadLying > 0 && spreadLying < spreadStanding);
+                check.check("in the open with the target far off it lies and fires lying and hits, with the crawling spread",
+                        p != null && pullsLying > 0 && hitsLying > 0 && spreadLying > 0 && spreadLying < spreadStanding);
             }
             case NEAR -> {
                 check.out("     in the open, the target 8 blocks off: " + what);
@@ -178,6 +203,14 @@ final class AiCheckProne {
             case PINNED -> {
                 check.out(String.format(Locale.ROOT, "     in the open, the target 20 blocks off, arrows past it: %d near misses; %s", p == null ? 0 : p.nearMisses, what));
                 check.check("shots flying past pin it down: it lies", p != null && p.nearMisses >= AiProne.PINNING && p.downs > 0);
+            }
+            case CRAWL -> {
+                double moved = crawlFrom == null ? 0 : crawlFrom.distanceTo(soldier.position());
+                check.out(String.format(Locale.ROOT, "     in the open, the target 41 blocks off, sent 5 blocks off lying (crawled %.1f, legs %s): %s", moved, bot.mover.state(), what));
+                check.check("lying, it crawls between bursts and fires only still: it crawls, fires lying and hits",
+                        p != null && crawlTicks > 0 && moved > 3 && bot.gunner.shotsLying > 0 && hitsLying > 0);
+                check.check("no pull of its trigger while crawling, in any scene (" + crawlPullsAll + " pulls, held " + crawlHeldAll + " ticks)",
+                        crawlPullsAll == 0 && crawlHeldAll == 0);
             }
             default -> {
             }

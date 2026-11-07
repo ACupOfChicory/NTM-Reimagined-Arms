@@ -47,6 +47,11 @@ public final class AiGunner {
     public int blockedTicks, holds;
     /** shots it let go, and shots that kicked its view (the stands) */
     public int shots, kicks;
+    /**
+     * the stands: trigger pulls the server's no-shot-while-crawling rule threw away (ProneFire), ticks a held trigger
+     * was down crawling (its burst cut), and shots let go lying
+     */
+    public int crawlPulls, crawlHeldTicks, shotsLying;
     /** a gap between shots, ticks, after which a new burst starts (its climb grows again from the first shot) */
     static final int BURST_GAP = 10;
     // the burst: shots so far, the tick of the last, where its sideways wander is
@@ -191,7 +196,9 @@ public final class AiGunner {
             reloadHeld = false;
         }
         if (state == ItemGunBaseNT.GunState.RELOADING) wantReload = false;
-        boolean shoot = wantFire && aim != null && aligned && loaded != 0 && !runs;
+        // lying, it fires only still: a pull while it crawls would be thrown away (ProneFire), so it waits until it has
+        // stopped (its legs keep still meanwhile, steady)
+        boolean shoot = wantFire && aim != null && aligned && loaded != 0 && !runs && !acup.gunfeel.ProneFire.blocks(mob, stack);
         if (shoot && checkLine && AiBots.friendInLine(level, mob, mob.getEyePosition(), aim, CLEAR_CONE)) {
             // one of its own between it and the target: it holds fire
             shoot = false;
@@ -200,6 +207,7 @@ public final class AiGunner {
         } else if (shoot || !wantFire) blockedTicks = 0;
         if (shoot) {
             if (!held) {
+                if (acup.gunfeel.ProneFire.blocks(mob, stack)) crawlPulls++;
                 key(gun, stack, EnumKeybind.GUN_PRIMARY, true);
                 held = true;
                 pulls++;
@@ -212,6 +220,7 @@ public final class AiGunner {
             key(gun, stack, EnumKeybind.GUN_PRIMARY, false);
             held = false;
         }
+        if (held && acup.gunfeel.ProneFire.blocks(mob, stack)) crawlHeldTicks++;
         if (!held && state == ItemGunBaseNT.GunState.IDLE && (wantReload || loaded == 0) && ammo.any()
                 && loaded >= 0 && loaded < capacity()) {
             key(gun, stack, EnumKeybind.RELOAD, true);
@@ -232,7 +241,17 @@ public final class AiGunner {
         int n = fresh > 0 ? fresh : Math.min(gone, 1);
         fresh = 0;
         shots += n;
+        if (n > 0 && acup.gunfeel.Prone.lying(mob)) shotsLying += n;
         if (n > 0 && exact == null) recoil(n, level.getGameTime(), stack);
+    }
+
+    /**
+     * It wants to fire lying, where the server allows no shot while crawling (ProneFire): its legs keep still this tick
+     * (AiMover.hold), so it crawls only between bursts.
+     */
+    boolean steady() {
+        if (!wantFire || aim == null || gun() == null || !acup.gunfeel.Prone.lying(mob) || loaded() == 0) return false;
+        return acup.gunfeel.ProneFire.on(mob.getMainHandItem());
     }
 
     /** NTM let a shot of its go (AiShots), counted once a tick */

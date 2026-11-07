@@ -34,6 +34,8 @@ public final class AiMover {
     /** a share of the speed it walks at (lying: a third) */
     private double slow = 1.0;
     private int tries;
+    /** keep still this tick (lying, to fire), the goal kept */
+    private boolean hold;
     /** in the goal's cell since (the last steps, straight to its middle), and there long enough to count as arrived */
     private long inCellSince = Long.MIN_VALUE;
     private boolean settled;
@@ -76,7 +78,24 @@ public final class AiMover {
     void slow(double share) {
         if (share == slow) return;
         slow = share;
-        if (walking != null) mob.getNavigation().setSpeedModifier(speed * slow);
+        if (walking != null) mob.getNavigation().setSpeedModifier(modifier());
+    }
+
+    /**
+     * Keeps still this tick, or walks on (lying, it fires only still: AiGunner.steady). The goal and a search under way
+     * stay; the walk starts over when it moves again.
+     */
+    void hold(boolean on) {
+        hold = on;
+    }
+
+    /**
+     * The speed modifier for the game's walk at its speed and share. A mob's step grows with the square of the modifier
+     * (its move control sets both its input and its speed from it, and the game's push is the two multiplied): a share
+     * of the step, as a crawling player's third of a walk, is the root of it in the modifier.
+     */
+    private double modifier() {
+        return speed * Math.sqrt(slow);
     }
 
     public void costs(PathSearch.Cost cost) {
@@ -154,6 +173,13 @@ public final class AiMover {
 
     void tick(ServerLevel level, TacticalMap map, long tick) {
         if (goal == Long.MIN_VALUE) return;
+        if (hold) {
+            if (walking != null || !mob.getNavigation().isDone()) {
+                walking = null;
+                mob.getNavigation().stop();
+            }
+            return;
+        }
         if (arrived()) {
             mob.getNavigation().stop();
             walking = null;
@@ -165,7 +191,7 @@ public final class AiMover {
             walking = null;
             if (inCellSince == Long.MIN_VALUE) inCellSince = tick;
             if (tick - inCellSince > SETTLE) settled = true;
-            mob.getMoveControl().setWantedPosition(BlockPos.getX(goal) + 0.5, mob.getY(), BlockPos.getZ(goal) + 0.5, speed * slow);
+            mob.getMoveControl().setWantedPosition(BlockPos.getX(goal) + 0.5, mob.getY(), BlockPos.getZ(goal) + 0.5, modifier());
             return;
         }
         inCellSince = Long.MIN_VALUE;
@@ -225,7 +251,7 @@ public final class AiMover {
         }
         long end = r.cells[r.cells.length - 1];
         Path p = new Path(nodes, BlockPos.of(end), r.reached);
-        if (mob.getNavigation().moveTo(p, speed * slow)) walking = r;
+        if (mob.getNavigation().moveTo(p, modifier())) walking = r;
         else tries++;
     }
 

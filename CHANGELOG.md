@@ -35,7 +35,9 @@
   open with you over 30 blocks off they fire lying; pinned down by shots flying
   past (three within a second) with no cover, they lie. Never closer than 10
   blocks. Lying, they are a crawling player's size, crawl at a third of the
-  speed and get the crawling spread (`spreadCrawl`).
+  speed and get the crawling spread (`spreadCrawl`). They keep still for each
+  burst and crawl between bursts, as a shot while crawling is not let go
+  (`proneCrawlNoFire`).
 - Mob AI: AI mobs aim as a person does, and never miss on purpose. They act on
   where they saw you a moment ago, lead you by the way they saw you move,
   correct their aim every few ticks, each correction a little off, and pull the
