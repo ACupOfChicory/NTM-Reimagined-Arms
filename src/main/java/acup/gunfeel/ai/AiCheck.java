@@ -61,10 +61,11 @@ public final class AiCheck {
             AiCheckAim aim = new AiCheckAim(check, check.level, Y);
             AiCheckTeams teams = new AiCheckTeams(check, check.level, Y);
             AiCheckUnseen unseen = new AiCheckUnseen(check, check.level, Y);
-            // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, a player out of creative
-            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "unseen");
+            AiCheckReact react = new AiCheckReact(check, check.level, Y);
+            // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, a player out of creative, a player not expected
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "unseen", "react");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
-                    aim::tick, unseen::tick);
+                    aim::tick, unseen::tick, react::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
             String only = System.getProperty(STAGE_PROPERTY, "");
             int[] at = {0};

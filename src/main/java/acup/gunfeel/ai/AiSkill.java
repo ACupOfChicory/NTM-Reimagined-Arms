@@ -36,9 +36,12 @@ public record AiSkill(String name, int lag, int period, float share, float floor
 
     private static String lastText;
     private static AiSkill last = REGULAR;
+    /** for the stands: this skill whatever the key says; null = the key */
+    static @org.jspecify.annotations.Nullable AiSkill override;
 
     /** the server's (the file is read at most once a second) */
     public static AiSkill current() {
+        if (override != null) return override;
         String t = acup.gunfeel.ReaimTimes.text(KEY, "regular");
         if (t != lastText) {
             last = of(t);

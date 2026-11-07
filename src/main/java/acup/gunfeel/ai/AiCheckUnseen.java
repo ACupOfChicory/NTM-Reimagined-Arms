@@ -126,8 +126,9 @@ final class AiCheckUnseen {
         player = new FakePlayer(level, new GameProfile(UUID.fromString("6a1b2c3d-0000-4000-8000-c7c7c7c7c7c" + round), "armsai_unseen" + round));
         player.setGameMode(GameType.CREATIVE);
         player.snapTo(PX, y, PZ0, 0F, 0F);
-        player.setHealth(player.getMaxHealth());
         level.addNewPlayer(player);
+        // one a bullet can hurt (else every hit stops at its invulnerability and is never counted)
+        AiCheckReact.hittable(player);
         dummies.clear();
         dummies.addAll(AiSpawn.spawn(level, new Vec3(PX, y, PZ0), AiSpawn.Kind.DUMMY, DUMMIES, null));
         // unheard, they turn nowhere: facing where the player will stand (north), as the player who stood in front
