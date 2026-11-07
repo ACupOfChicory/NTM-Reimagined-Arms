@@ -123,6 +123,7 @@ BULLETS class com/hbm/blocks/generic/BlockMetalFence
 BULLETS class com/hbm/blocks/generic/BlockModDoor
 BULLETS class com/hbm/blocks/machine/BlockSlidingBlastDoor
 BULLETS class com/hbm/entity/projectile/EntityBullet
+BULLETS class com/hbm/entity/projectile/EntityBulletBase
 BULLETS class com/hbm/entity/projectile/EntityBulletBaseMK4
 BULLETS class com/hbm/entity/projectile/EntityBulletBeamBase
 BULLETS class com/hbm/entity/projectile/EntityThrowableNT
@@ -133,7 +134,10 @@ BULLETS class com/hbm/explosion/vanillant/standard/EntityProcessorCross
 BULLETS class com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth
 BULLETS class com/hbm/explosion/vanillant/standard/ExplosionEffectTiny
 BULLETS class com/hbm/explosion/vanillant/standard/PlayerProcessorStandard
+BULLETS class com/hbm/handler/BulletConfigSyncingUtil
+BULLETS class com/hbm/handler/BulletConfiguration
 BULLETS class com/hbm/handler/HbmKeybinds$EnumKeybind
+BULLETS class com/hbm/interfaces/IBulletUpdateBehavior
 BULLETS class com/hbm/interfaces/IDoor$DoorState
 BULLETS class com/hbm/items/weapon/sedna/BulletConfig
 BULLETS class com/hbm/items/weapon/sedna/ItemGunBaseNT
@@ -145,6 +149,9 @@ BULLETS field com/hbm/entity/projectile/EntityBullet motionX D
 BULLETS field com/hbm/entity/projectile/EntityBullet motionY D
 BULLETS field com/hbm/entity/projectile/EntityBullet motionZ D
 BULLETS field com/hbm/entity/projectile/EntityBullet world Lnet/minecraft/world/World;
+BULLETS field com/hbm/entity/projectile/EntityBulletBase posX D
+BULLETS field com/hbm/entity/projectile/EntityBulletBase posY D
+BULLETS field com/hbm/entity/projectile/EntityBulletBase posZ D
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 isDead Z
@@ -163,6 +170,9 @@ BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posY D
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posZ D
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT size F
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/World;
+BULLETS field com/hbm/handler/BulletConfiguration gravity F
+BULLETS field com/hbm/handler/BulletConfiguration isSpectral Z
+BULLETS field com/hbm/handler/BulletConfiguration velocity F
 BULLETS field com/hbm/interfaces/IDoor$DoorState CLOSED Lcom/hbm/interfaces/IDoor$DoorState;
 BULLETS field com/hbm/interfaces/IDoor$DoorState OPEN Lcom/hbm/interfaces/IDoor$DoorState;
 BULLETS field com/hbm/inventory/RecipesCommon$ComparableStack item Lnet/minecraft/item/Item;
@@ -195,6 +205,8 @@ BULLETS field com/hbm/tileentity/machine/TileEntitySlidingBlastDoor state Lcom/h
 BULLETS method com/hbm/blocks/BlockDummyable findCore (Lnet/minecraft/world/IBlockAccess;III)[I
 BULLETS method com/hbm/config/CompatibilityConfig isWarDim (Lnet/minecraft/world/World;)Z
 BULLETS method com/hbm/entity/projectile/EntityBullet getEntityId ()I
+BULLETS method com/hbm/entity/projectile/EntityBulletBase getConfig ()Lcom/hbm/handler/BulletConfiguration;
+BULLETS method com/hbm/entity/projectile/EntityBulletBase setPosition (DDD)V
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getBulletConfig ()Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getEntityBoundingBox ()Lnet/minecraft/util/math/AxisAlignedBB;
 BULLETS method com/hbm/entity/projectile/EntityBulletBaseMK4 getEntityId ()I
@@ -215,6 +227,7 @@ BULLETS method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth s
 BULLETS method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth setupPiercing (FF)Lcom/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth;
 BULLETS method com/hbm/explosion/vanillant/standard/ExplosionEffectTiny <init> ()V
 BULLETS method com/hbm/explosion/vanillant/standard/PlayerProcessorStandard <init> ()V
+BULLETS method com/hbm/handler/BulletConfigSyncingUtil pullConfig (I)Lcom/hbm/handler/BulletConfiguration;
 BULLETS method com/hbm/items/weapon/sedna/BulletConfig getDamage (Lnet/minecraft/entity/Entity;Lnet/minecraft/entity/EntityLivingBase;Lcom/hbm/util/DamageResistanceHandler$DamageClass;)Lnet/minecraft/util/DamageSource;
 BULLETS method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraft/item/ItemStack;)F
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
@@ -495,7 +508,10 @@ SPRINT_FIRE method com/hbm/items/weapon/sedna/factory/Lego clickReceiver (Lnet/m
 TRACE class com/hbm/entity/projectile/EntityBulletBaseMK4
 TRACE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 TRACE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/item/ItemStack;Z)V
+TRACERS class com/hbm/entity/projectile/EntityBulletBase
 TRACERS class com/hbm/entity/projectile/EntityBulletBaseMK4
+TRACERS class com/hbm/handler/BulletConfigSyncingUtil
+TRACERS class com/hbm/handler/BulletConfiguration
 TRACERS class com/hbm/items/weapon/sedna/BulletConfig
 TRACERS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo
 TRACERS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret
@@ -509,7 +525,9 @@ TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 motionY D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 motionZ D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 prevVelocity D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 velocity D
-TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 world Lnet/minecraft/world/World;
+TRACERS field com/hbm/handler/BulletConfiguration gravity F
+TRACERS field com/hbm/handler/BulletConfiguration isSpectral Z
+TRACERS field com/hbm/handler/BulletConfiguration velocity F
 TRACERS field com/hbm/inventory/RecipesCommon$ComparableStack item Lnet/minecraft/item/Item;
 TRACERS field com/hbm/inventory/RecipesCommon$ComparableStack meta I
 TRACERS field com/hbm/items/ModItems ammo_secret Lnet/minecraft/item/Item;
@@ -532,13 +550,12 @@ TRACERS field com/hbm/items/weapon/sedna/BulletConfig renderer Ljava/util/functi
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig velocity F
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
+TRACERS method com/hbm/entity/projectile/EntityBulletBase getConfig ()Lcom/hbm/handler/BulletConfiguration;
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/World;)V
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 getBulletConfig ()Lcom/hbm/items/weapon/sedna/BulletConfig;
-TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 getEntityId ()I
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 getGravityVelocity ()F
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 getThrower ()Lnet/minecraft/entity/EntityLivingBase;
-TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 setDead ()V
-TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 setPosition (DDD)V
+TRACERS method com/hbm/handler/BulletConfigSyncingUtil pullConfig (I)Lcom/hbm/handler/BulletConfiguration;
 TRACERS method com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo values ()[Lcom/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo;
 TRACERS method com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret values ()[Lcom/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret;
 TRACERS method com/hbm/particle/SpentCasing getScaleX ()F

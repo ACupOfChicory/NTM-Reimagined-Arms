@@ -1,5 +1,19 @@
 # Changelog
 
+## X555.190
+
+- As in 26.2 X560, on 1.12.2: the masked man's bolts, meteors, rockets and
+  orbs and the UFO's rockets now obey water as NTM's explosive rounds do. NTM
+  CE fires them as its old bullet, which water did not touch before. Now they
+  go off on the water surface, skip off it at a shallow angle, slow down in
+  water, and stop there. A stopped one sinks straight down and goes off where
+  it touches.
+  - In water they go off where they touch a block, or a creature they do
+    not pierce. NTM sets them off where they were at the start of the tick:
+    for the masked man's bolt, that can be up to five blocks short.
+  - Their hit on a creature in water loses damage as other rounds do.
+  - Their blast is the game's own, not NTM's, so water does not widen it.
+
 ## X555.189
 
 - As in 26.2 X572, on 1.12.2: `armArmor` counts the three failures that leave

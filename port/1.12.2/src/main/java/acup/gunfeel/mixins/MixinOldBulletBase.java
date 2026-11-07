@@ -34,11 +34,15 @@ import net.minecraft.world.World;
 // The tested jar (2.6.1.0) asks World.rayTraceBlocks for blocks, meets creatures by getEntitiesWithinAABBExcludingEntity,
 // getEntityBoundingBox().grow(0.3) and calculateIntercept and takes that intercept as the hit (no new RayTraceResult),
 // and hurts with attackEntityFrom: its damage, or (the creature still shielded by its last hit) that plus the last hit.
+// Water (MixinOldBulletWater, OldBullets): the mobs' path ends where water stopped or turned the bullet, and its hit
+// keeps (f there)² of the damage, taken off both of NTM's hurts (the second one's last hit is not the bullet's).
 @Mixin(value = EntityBulletBase.class, remap = false)
 public abstract class MixinOldBulletBase {
     // this tick: where each creature's model was met; the change the head or a limb makes to the hit
     @Unique private final Map<Entity, Vec3d> gunfeel$met = new IdentityHashMap<Entity, Vec3d>();
     @Unique private float gunfeel$extra;
+    // what water took off this tick's hit (OldBullets.damage)
+    @Unique private float gunfeel$waterCut;
     @Unique private Entity gunfeel$counted;
     // which of NTM's two hurts takes the change (LegacyBullets.hurt)
     @Unique private LegacyBullets.Hurt gunfeel$hurt = LegacyBullets.Hurt.FIRST;
@@ -48,6 +52,7 @@ public abstract class MixinOldBulletBase {
         gunfeel$met.clear();
         gunfeel$counted = null;
         gunfeel$extra = 0F;
+        gunfeel$waterCut = 0F;
         gunfeel$hurt = LegacyBullets.Hurt.FIRST;
     }
 
@@ -77,6 +82,8 @@ public abstract class MixinOldBulletBase {
     @WrapOperation(method = "onUpdate", remap = true, at = @At(value = "INVOKE", remap = true,
             target = "Lnet/minecraft/util/math/AxisAlignedBB;calculateIntercept(Lnet/minecraft/util/math/Vec3d;Lnet/minecraft/util/math/Vec3d;)Lnet/minecraft/util/math/RayTraceResult;"))
     private RayTraceResult gunfeel$clip(AxisAlignedBB box, Vec3d from, Vec3d to, Operation<RayTraceResult> original) {
+        // not past where water stopped or turned the bullet
+        to = acup.gunfeel.water.WaterTick.mobsTo((Entity) (Object) this, to);
         RayTraceResult out = original.call(box, from, to);
         if (out != null && out.hitVec != null && box instanceof ModelAABB) gunfeel$met.put(((ModelAABB) box).entity(), out.hitVec);
         return out;
@@ -91,12 +98,22 @@ public abstract class MixinOldBulletBase {
         // NTM's second hurt goes to the same creature right after the first
         if (target == gunfeel$counted) {
             if (gunfeel$hurt == LegacyBullets.Hurt.NONE) return false;
-            return original.call(target, source, amount + gunfeel$extra);
+            return original.call(target, source, amount - gunfeel$waterCut + gunfeel$extra);
         }
         gunfeel$counted = target;
         gunfeel$extra = 0F;
+        gunfeel$waterCut = 0F;
         gunfeel$hurt = LegacyBullets.Hurt.FIRST;
         Vec3d point = gunfeel$met.get(target);
+        if (!target.world.isRemote) {
+            try {
+                gunfeel$waterCut = amount * (1F - acup.gunfeel.water.OldBullets.damage((Entity) (Object) this, target, point));
+            } catch (RuntimeException e) {
+                gunfeel$waterCut = 0F;
+                acup.gunfeel.water.OldBullets.failed(e);
+            }
+            amount -= gunfeel$waterCut;
+        }
         if (point != null && gunfeel$on(target.world)) {
             try {
                 gunfeel$extra = LegacyBullets.damage(target, point, amount) - amount;

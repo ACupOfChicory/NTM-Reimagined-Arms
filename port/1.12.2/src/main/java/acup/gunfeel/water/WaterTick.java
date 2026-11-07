@@ -13,13 +13,20 @@ import net.minecraft.world.World;
 // end of the tick the bullet takes its new f, stops or turns. The bullet's damage stays in the units of the tick's
 // starting f while the tick runs; a hit at a point takes (f there / f at the start)² of it (k), and the end of the
 // tick moves it to the new f. port: NTM CE moves its bullets only on the server; the client's tracer works out the
-// same path itself (Tracers.water).
+// same path itself (Tracers.water). Also NTM CE's old bullet with a charge (OldBullets, MixinOldBulletWater), on both
+// sides: it flies on the client too.
 public final class WaterTick {
     private WaterTick() {
     }
 
+    // an impact fuze: NTM's bullet by its config, a listed old bullet always
+    static boolean fuzed(Entity bullet) {
+        if (bullet instanceof EntityBulletBaseMK4) return WaterClass.Fuze.of(((EntityBulletBaseMK4) bullet).config).any();
+        return OldBullets.on(bullet);
+    }
+
     // the tick's path: the point to test blocks up to (the stop or the skip, else `to`)
-    public static Vec3d path(EntityBulletBaseMK4 bullet, World world, Vec3d from, Vec3d to) {
+    public static Vec3d path(Entity bullet, World world, Vec3d from, Vec3d to) {
         WaterBullet w = (WaterBullet) bullet;
         w.gunfeel$waterTick(null);
         // a stopped explosive sinks (sink) and goes off where it touches
@@ -28,7 +35,7 @@ public final class WaterTick {
         if (!s.on()) return to;
         long seed = seed(bullet.getEntityId(), w.gunfeel$waterSkips());
         // an impact fuze skips by the fuze's angle (waterFuzeSkipAngle), an explosive bullet of a rifle too
-        if (WaterClass.Fuze.of(bullet.config).any()) s = s.fuzed();
+        if (fuzed(bullet)) s = s.fuzed();
         WaterPath.Result r = WaterPath.trace(world, from, to, w.gunfeel$waterF(), w.gunfeel$waterClass(), w.gunfeel$waterExpansion(),
                 w.gunfeel$waterOpened(), w.gunfeel$waterSkips(), seed, s, bullet);
         if (r.events.isEmpty() && r.water <= 0) return to;
@@ -37,18 +44,24 @@ public final class WaterTick {
     }
 
     // a stopped bullet that sinks rather than goes: one with an impact fuze
-    public static boolean sinks(EntityBulletBaseMK4 bullet) {
-        return WaterClass.Fuze.of(bullet.config).any();
+    public static boolean sinks(Entity bullet) {
+        return fuzed(bullet);
     }
 
     // sinking: straight down by NTM's gravity (at least MIN_G a tick), no faster than SINK (1 block a second); its
     // motionMult is 1 meanwhile (MixinWaterBullet), so the motion is the path a tick
     static final double SINK = 0.05, MIN_G = 0.01;
 
-    static void sink(EntityBulletBaseMK4 bullet) {
-        double g = bullet.config == null ? 0 : bullet.getGravityVelocity();
+    static void sink(Entity bullet) {
         double vy = bullet.motionY;
-        if (g < MIN_G) vy -= MIN_G - g;
+        if (bullet instanceof EntityBulletBaseMK4) {
+            EntityBulletBaseMK4 b = (EntityBulletBaseMK4) bullet;
+            double g = b.config == null ? 0 : b.getGravityVelocity();
+            if (g < MIN_G) vy -= MIN_G - g;
+        } else {
+            // the old bullet's gravity is held off while it sinks (MixinOldBulletWater): it is taken here
+            vy -= Math.max(OldBullets.gravity(bullet), MIN_G);
+        }
         bullet.motionX = 0;
         bullet.motionY = sinkSpeed(vy);
         bullet.motionZ = 0;
@@ -66,7 +79,7 @@ public final class WaterTick {
     // the block NTM's path test found (null: a miss): what lies past it this tick does not happen, and a hit under the
     // liquid's surface is the bottom of shallow water. An impact fuze coming from the air goes off on the surface
     // (waterFuze): the hit NTM gets is the surface's
-    public static RayTraceResult blocks(EntityBulletBaseMK4 bullet, RayTraceResult hit) {
+    public static RayTraceResult blocks(Entity bullet, RayTraceResult hit) {
         WaterPath.Result r = ((WaterBullet) bullet).gunfeel$waterTick();
         if (r == null) return hit;
         RayTraceResult fuze = fuze(bullet, r, hit);
@@ -82,8 +95,8 @@ public final class WaterTick {
 
     // the surface an impact fuze meets before the block NTM found: the first entry from the air into liquid (where
     // lava, or water for the Daybreaker's flame, stops it at once, the stop there)
-    static RayTraceResult fuze(EntityBulletBaseMK4 bullet, WaterPath.Result r, RayTraceResult hit) {
-        if (!WaterSettings.fuze() || !WaterClass.Fuze.of(bullet.config).any()) return null;
+    static RayTraceResult fuze(Entity bullet, WaterPath.Result r, RayTraceResult hit) {
+        if (!WaterSettings.fuze() || !fuzed(bullet)) return null;
         double block = hit == null ? Double.POSITIVE_INFINITY : r.t(hit.hitVec);
         for (WaterEvents.Event e : r.events) {
             boolean entry = e.type() == WaterEvents.Type.ENTER || e.type() == WaterEvents.Type.STOP
@@ -100,6 +113,13 @@ public final class WaterTick {
         if (!(bullet instanceof WaterBullet)) return false;
         WaterPath.Result r = ((WaterBullet) bullet).gunfeel$waterTick();
         return r != null && r.fuzeHit != null && r.fuzeHit == hit;
+    }
+
+    // this tick's block hit is the surface's fuze (MixinOldBulletWater: it goes off, NTM's ricochet does not bounce it)
+    public static boolean fuzedOnSurface(Entity bullet) {
+        if (!(bullet instanceof WaterBullet)) return false;
+        WaterPath.Result r = ((WaterBullet) bullet).gunfeel$waterTick();
+        return r != null && r.fuzeHit != null;
     }
 
     private static void cut(WaterPath.Result r, RayTraceResult hit, boolean block) {
@@ -131,7 +151,7 @@ public final class WaterTick {
     }
 
     // the end of the tick (after NTM moved the bullet and hit what it hit)
-    public static void end(EntityBulletBaseMK4 bullet) {
+    public static void end(Entity bullet) {
         WaterBullet w = (WaterBullet) bullet;
         WaterPath.Result r = w.gunfeel$waterTick();
         if (r == null) {
@@ -147,15 +167,19 @@ public final class WaterTick {
         double hitT = r.blockT;
         boolean blocked = !Double.isNaN(hitT) && hitT < r.t(r.end()) - 1e-7;
         double f1 = blocked ? r.fAt(hitT) : r.f;
-        if (server && f0 > 0) bullet.damage *= (float) ((f1 / f0) * (f1 / f0));
+        // NTM's bullet carries its damage; the old one rolls it at each hit (OldBullets.damage)
+        if (server && f0 > 0 && bullet instanceof EntityBulletBaseMK4) ((EntityBulletBaseMK4) bullet).damage *= (float) ((f1 / f0) * (f1 / f0));
         w.gunfeel$waterF(f1);
         w.gunfeel$waterOpened(blocked ? r.openedAt(hitT) : r.opened);
         r.unit = f1;
         if (server && TestLog.server) for (WaterEvents.Event e : r.events)
             TestLog.s(bullet.getEntityId(), "water", "event", e.type(), "at", v(e.at()), "f", e.f(), "kind", e.kind(), "liquid", e.liquid(),
                     "class", e.cls(), "depth", e.depth(), "under", e.under(), "path", r.water);
-        WaterEvents.fire(world, r.events);
-        WaterEvents.tick(world, bullet, r);
+        // the client's effects: NTM's bullet's own come from its tracer; the old bullet has none, as NTM's grenades
+        if (bullet instanceof EntityBulletBaseMK4) {
+            WaterEvents.fire(world, r.events);
+            WaterEvents.tick(world, bullet, r);
+        }
         if (blocked || bullet.isDead) return;
         if (r.stop != null) {
             bullet.setPosition(r.stop.x, r.stop.y, r.stop.z);
@@ -177,6 +201,11 @@ public final class WaterTick {
             bullet.motionY = k.dir().y * speed;
             bullet.motionZ = k.dir().z * speed;
             w.gunfeel$waterSkips(w.gunfeel$waterSkips() + 1);
+        } else if (!(bullet instanceof EntityBulletBaseMK4) && (bullet.posX != r.from.x || bullet.posY != r.from.y || bullet.posZ != r.from.z)) {
+            // the old bullet takes its gravity off its motion between the path test and the move: in water it moves
+            // along the path tested, the gravity bends the next tick's (MixinOldBulletWater)
+            Vec3d to = r.end();
+            bullet.setPosition(to.x, to.y, to.z);
         }
     }
 
