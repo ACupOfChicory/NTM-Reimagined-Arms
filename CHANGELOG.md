@@ -1,5 +1,17 @@
 # Changelog
 
+## X555.189
+
+- As in 26.2 X572, on 1.12.2: `armArmor` counts the three failures that leave
+  an armour out of the arm in frames. A frame counts once, whether the armour
+  failed on one arm or on both, and a frame in which it does not fail starts
+  the count anew. Before, a two-handed gun left a failing armour out after one
+  and a half frames. Leaving the world while an armour failed no longer
+  carries its count into the next world.
+- The settings `smokeQuality`, `smokeMaxClouds`, `smokeDistance`, `holeCache`
+  and `ntmRenderFixes` now say in their description that they do nothing on
+  1.12.2. Before, they described what they do on 26.2.
+
 ## X555.186
 
 - As in 26.2 X577, on 1.12.2:
