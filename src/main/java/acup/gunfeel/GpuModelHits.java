@@ -169,6 +169,9 @@ public final class GpuModelHits {
                     || blend==dev.engine_room.flywheel.api.material.Transparency.ADDITIVE
                     || blend==dev.engine_room.flywheel.api.material.Transparency.ORDER_INDEPENDENT_ADDITIVE
                     || blend==dev.engine_room.flywheel.api.material.Transparency.LIGHTNING) continue;
+            // an armor's trim is drawn over the armor on its opaque pixels, with the armor's own model: taken against
+            // the trims' atlas it came out as whole cubes, the helmet's 1.5-pixel hat with them
+            if(configured.material().texture().getPath().contains("armor_trims")) continue;
             var mesh=configured.mesh(); int count=mesh.vertexCount(),indices=mesh.indexCount();
             long vertices=MemoryUtil.nmemAlloc(count*FullVertexView.STRIDE),index=MemoryUtil.nmemAlloc(indices*4L);
             try {
