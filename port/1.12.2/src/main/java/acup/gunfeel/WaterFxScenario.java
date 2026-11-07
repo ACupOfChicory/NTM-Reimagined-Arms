@@ -45,19 +45,26 @@ final class WaterFxScenario {
 
     private static final int BUILD = 20, SHOTS = 120, POOL_TICKS = 70, SHOT_GAP = 15, UNDER = 420, UNDER_CHECK = 470, FLASH_GO = 480,
             FLASH_FIRE = 520, FLASH_STOP = 540, FLASH_CHECK = 560, LOOK = 580, RINGS0 = 620, RING_ADD = 625, RINGS1 = 640, DRAIN = 650,
-            DRAIN_CHECK = 700, BLAST = 720, BLAST_CHECK = 760, LIVE_CHECK = 1000, DONE = 1020;
+            DRAIN_CHECK = 700, BLAST = 720, BLAST_CHECK = 760, CHANNEL = 765, GAS_SHOT = 780, GAS_GAP = 60, SUNK_FIRE = 905, SUNK_LAST = 990,
+            LIVE_CHECK = 1040, DONE = 1060;
     private static final String[] AMMO = {"ammo_standard_p9_fmj", "ammo_standard_r762_fmj", "ammo_standard_g12", "ammo_standard_g12_slug"};
     private static final String[] POOLS = {"still", "slope", "fall", "shallow"};
 
-    // the pools along x, twelve blocks apart, Y over the player's feet; the player hovers south of them
+    // the pools along x, twelve blocks apart, Y over the player's feet; the player hovers north of them
     private static int x0, y, z0;
     private static final List<String> lines = new ArrayList<String>();
     private static final List<String> failed = new ArrayList<String>();
     private static int[] before, eventsBefore;
     private static int ringsBefore, ringsLeft0, flash0, traced0, blasts0, plumes0, bodies0, maxFlying, maxBodies;
+    // NTM's own rounds shot by the stand (entity id, the same on the client), the gas count before, the sunk grenade
+    private static volatile int sentId = -1;
+    private static int gas0, sunkAt = -1;
+    private static boolean sunkDone;
+    private static final java.util.Set<Float> yaws = new java.util.LinkedHashSet<Float>();
+    private static net.minecraft.util.math.Vec3d heading;
 
     static void step(Minecraft mc, int t) {
-        maxFlying = Math.max(maxFlying, SunkBullets.drawnFlying);
+        maxFlying = Math.max(maxFlying, SunkBullets.mostFlying);
         maxBodies = Math.max(maxBodies, SunkBullets.drawnBodies);
         if (t == BUILD) ShootScenario.onServer(WaterFxScenario::build);
         if (t == BUILD + 1) {
@@ -151,7 +158,32 @@ final class WaterFxScenario {
             check(b == 1, "a blast under water told to the client: its bubble");
             check(pl == 1, "and its column on the surface");
         }
+        // a channel 14 long, 3 wide and 8 deep, south of the pools
+        if (t == CHANNEL) ShootScenario.onServer(() -> basin(player().world, x0 + 1, z0 + 13, 14, 3, y - 9, 8, 8));
+        // a grenade and a rocket shot from under water, straight up: NTM's own entity, no tracer of ours, one gas bubble
+        // each (WaterFx.joined). Taken off the server after two ticks, as they might go off
+        for (int i = 0; i < 2; i++) {
+            final String ammo = i == 0 ? "ammo_standard_g40_he" : "ammo_standard_rocket_he";
+            int at = GAS_SHOT + i * GAS_GAP;
+            if (t == at) {
+                gas0 = WaterFx.SPAWNED[WaterParticle.Kind.GAS.ordinal()];
+                ShootScenario.onServer(() -> shoot(ammo, x0 + 4.5, y - 2.5, z0 + 14.5, 0, 1, 0));
+            }
+            if (t == at + 2) ShootScenario.onServer(WaterFxScenario::takeOff);
+            if (t == at + GAS_GAP - 2) {
+                int gas = WaterFx.SPAWNED[WaterParticle.Kind.GAS.ordinal()] - gas0;
+                BulletConfig c = config(ammo);
+                lines.add("from under water " + ammo + " (speed " + (c == null ? "?" : c.velocity) + ", traced " + (c != null && Tracers.traced(c))
+                        + "): gas bubbles " + gas);
+                check(gas == 1, "one gas bubble for " + ammo + " shot from under water");
+            }
+        }
+        // a grenade shot east along the channel: water stops it, it sinks, and its model lies east (the way it flew,
+        // kept when water stopped it), not along NTM's yaw of a fall straight down
+        if (t == SUNK_FIRE) ShootScenario.onServer(() -> shoot("ammo_standard_g40_he", x0 + 2.2, y - 4.5, z0 + 14.5, 1, 0, 0));
+        if (t > SUNK_FIRE && t <= SUNK_LAST && !sunkDone) sunk(mc, t);
         if (t == LIVE_CHECK) {
+            check(!SunkBullets.broken(), "the rounds in water not turned off by an error");
             lines.add("surface audit: under the surface by more than 0.15: " + WaterFx.below + ", over air: " + WaterFx.overAir + ", deepest "
                     + String.format(Locale.ROOT, "%.3f", WaterFx.worstBelow));
             check(WaterFx.below == 0 && WaterFx.overAir == 0, "no particle under the surface by 0.15 or over air");
@@ -301,6 +333,51 @@ final class WaterFxScenario {
         }
         double dy = -Math.sin(Math.toRadians(60)), dz = Math.cos(Math.toRadians(60));
         spawn(c, tx, ty - dy * 4, tz - dz * 4, 0, dy, dz);
+    }
+
+    // as NTM's gun shoots it (spawn), its id kept for the client
+    private static void shoot(String ammo, double x, double yy, double z, double dx, double dy, double dz) {
+        BulletConfig c = config(ammo);
+        if (c == null) {
+            lines.add("MISSING config " + ammo);
+            return;
+        }
+        World w = player().world;
+        EntityBulletBaseMK4 b = new EntityBulletBaseMK4(w, c, 1F, 0F, 0F, 0F);
+        b.setPosition(x, yy, z);
+        b.shoot(dx, dy, dz, 1F, 0F);
+        b.damage = 10F;
+        w.spawnEntity(b);
+        sentId = b.getEntityId();
+    }
+
+    private static void takeOff() {
+        net.minecraft.entity.Entity e = player().world.getEntityByID(sentId);
+        if (e != null) e.setDead();
+    }
+
+    // the sunk grenade on the client: once it counts as sunk (SunkBullets.sunk), half a second later its heading
+    private static void sunk(Minecraft mc, int t) {
+        net.minecraft.entity.Entity e = mc.world.getEntityByID(sentId);
+        if (sunkAt < 0 && e != null && SunkBullets.sunk(mc.world, e)) sunkAt = t;
+        // NTM's yaw of it on the client while it sinks (its fallback heading, SunkBullets.heading)
+        if (sunkAt >= 0 && e != null) yaws.add(Math.round(e.rotationYaw * 10) / 10F);
+        if (sunkAt >= 0 && t == sunkAt + 10 && e != null) heading = SunkBullets.headingOf(e);
+        if (sunkAt >= 0 && t >= sunkAt + 30 && heading != null) {
+            net.minecraft.util.math.Vec3d h = heading;
+            lines.add(String.format(Locale.ROOT, "grenade along the channel, east: sunk after %d ticks at x %.2f y %.2f, sunk model heading %.3f %.3f %.3f, NTM yaw while it sank %s",
+                    sunkAt - SUNK_FIRE, e == null ? Double.NaN : e.posX - x0, e == null ? Double.NaN : e.posY - y, h.x, h.y, h.z, yaws));
+            check(h.x > 0.95, "a sunk grenade lies the way it flew (east)");
+            sunkDone = true;
+            ShootScenario.onServer(WaterFxScenario::takeOff);
+            return;
+        }
+        if (t == SUNK_LAST) {
+            lines.add("grenade along the channel: not seen sunk (on the client now: " + (e != null) + (e == null ? "" : String.format(Locale.ROOT,
+                    ", at x %.2f y %.2f, motion %.3f %.3f %.3f", e.posX - x0, e.posY - y, e.motionX, e.motionY, e.motionZ)) + ")");
+            check(false, "a grenade in the channel stopped by water");
+            ShootScenario.onServer(WaterFxScenario::takeOff);
+        }
     }
 
     // a p9 round from a metre under the still pool's surface, along it

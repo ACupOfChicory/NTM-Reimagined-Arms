@@ -2,6 +2,7 @@ package acup.gunfeel.water;
 
 import java.util.concurrent.ThreadLocalRandom;
 
+import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.items.weapon.sedna.BulletConfig;
 
 import acup.gunfeel.Config;
@@ -568,6 +569,42 @@ public final class WaterFx {
         g.origin = muzzle;
         g.forward = dir.lengthSquared() > 1e-9 ? dir.normalize() : Vec3d.ZERO;
         g.placeGas();
+    }
+
+    // NTM's entity of a round with an impact fuze that starts no tracer here (grenades, rockets, mortar shells:
+    // Tracers.traced) has come to this client: shot under water, it makes the gas bubble too. A shot leaves the gun
+    // with a motion of length 1 (its speed is NTM's motionMult); one that comes into sight sinking or lying on the
+    // bottom has next to none (WaterTick.sink) and is no shot. Its config follows the entity, so the bubble waits for
+    // the next tick.
+    // port: FML's spawn of NTM CE's bullet carries no motion (its spawn data is the thrower only; the config does come,
+    // in its data): the server's velocity packet (sendsVelocityUpdates) comes after it, so the motion is asked in the
+    // next tick, and again while it is still none (a sinking one has some: (0, at most 0.05 down, 0))
+    public static void joined(World world, net.minecraft.entity.Entity e) {
+        if (!on() || !(e instanceof EntityBulletBaseMK4) || !world.isRemote) return;
+        EntityBulletBaseMK4 b = (EntityBulletBaseMK4) e;
+        Vec3d at = new Vec3d(e.posX, e.posY, e.posZ);
+        if (!wetAt(world, at)) return;
+        Minecraft mc = Minecraft.getMinecraft();
+        boolean own = mc.player != null && b.getThrower() == mc.player;
+        later(0.05, () -> bubble(world, b, at, own, 3));
+    }
+
+    // the velocity packet may come a tick later than the spawn: asked again up to `tries` times
+    private static void bubble(World world, EntityBulletBaseMK4 b, Vec3d at, boolean own, int tries) {
+        if (Minecraft.getMinecraft().world != world || b.isDead) return;
+        BulletConfig config = b.getBulletConfig();
+        if (config == null || !WaterClass.Fuze.of(config).any()) return;
+        // a gun's round only: not a turret's shell, a flame
+        if (config.ammo == null || WaterClass.Fuze.field(config) != null || acup.gunfeel.Tracers.traced(config)) return;
+        Vec3d dir = new Vec3d(b.motionX, b.motionY, b.motionZ);
+        if (dir.lengthSquared() < 0.25) {
+            if (tries > 1 && dir.lengthSquared() < 1e-12) later(0.05, () -> bubble(world, b, at, own, tries - 1));
+            return;
+        }
+        // the player's own shot: at the muzzle drawn in their hands, as a tracer's
+        double[] m = own ? acup.gunfeel.Tracers.drawnMuzzle() : null;
+        Vec3d muzzle = m == null ? null : new Vec3d(m[0], m[1], m[2]);
+        fired(world, muzzle != null && muzzle.squareDistanceTo(at) < 9 ? muzzle : at, dir, config);
     }
 
     // the gas bubble's radius by calibre (the owner's numbers): p22 .15, p9 .25, m357 .3, m44 .32, r556 .3, r762 .35,

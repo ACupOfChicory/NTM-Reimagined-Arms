@@ -37,6 +37,14 @@ public interface WaterBullet {
 
     void gunfeel$goneAt(net.minecraft.util.math.Vec3d at);
 
+    // the level way it last flew, of length 1, for the model of a round that sinks (an impact fuze); null: it has flown
+    // straight up or down only. NTM turns its yaw to atan2(dX, dZ) of every tick's move, so sinking straight down
+    // leaves that 0 (SunkBullets.fuzed).
+    // port: kept on the client (SunkBullets.tick), from the server's motion of it
+    net.minecraft.util.math.Vec3d gunfeel$sunkHeading();
+
+    void gunfeel$sunkHeading(net.minecraft.util.math.Vec3d heading);
+
     // this tick's path through liquid (null: it met none), from the path test to the end of the tick
     WaterPath.Result gunfeel$waterTick();
 

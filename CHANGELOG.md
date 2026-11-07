@@ -1,5 +1,19 @@
 # Changelog
 
+## X555.181
+
+- As in 26.2 X566, on 1.12.2:
+  - A grenade or rocket that water stopped lies on the bottom along the way
+    it last flew, as the server moved it, no longer by NTM's yaw of it. (On
+    NTM CE 2.6.1.0 that yaw already pointed the same way in the tested case.)
+  - An error with the rounds seen in water or on the bottom is written to the
+    log once and turns them off until the world or dimension is left. Before,
+    it could crash the game.
+  - A grenade, rocket or mortar shell fired from a gun under water now leaves
+    a gas bubble at the muzzle, as a bullet does. Before, it had no bubble and,
+    as under water the muzzle flash is hidden, nothing showed the shot. A
+    turret's shell or a flame gets none.
+
 ## X555.180
 
 - As in 26.2 X555, on 1.12.2: when the server's stop comes after the first

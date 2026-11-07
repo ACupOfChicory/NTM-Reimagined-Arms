@@ -84,7 +84,15 @@ public final class SunkBullets {
 
     // the water stopped a bullet (WaterFx on STOP): a body where it stopped, moving on at 1.5 blocks a second
     static void stopped(World world, WaterEvents.Event e, BulletConfig config) {
-        if (Config.waterBodyMax <= 0) return;
+        if (Config.waterBodyMax <= 0 || broken) return;
+        try {
+            body(world, e, config);
+        } catch (RuntimeException x) {
+            broke(x);
+        }
+    }
+
+    private static void body(World world, WaterEvents.Event e, BulletConfig config) {
         String ammo = WaterFx.ammo(config);
         // an impact fuze (grenades, rockets, HE and incendiary rounds): NTM's entity sinks on
         if (ammo == null || config == null || WaterClass.Fuze.of(config).any() || WaterClass.of(config).explosive) return;
@@ -111,6 +119,25 @@ public final class SunkBullets {
         if (phys != null) phys.clear();
         FLYING.clear();
         slow.clear();
+        broken = false;
+    }
+
+    // An exception in the bodies' physics or in a model (a block of another mod in boxes, say, or a model that does not
+    // load) would leave the world's drawing or the water's event and take the game with it: it is written to the log
+    // once, and the rounds in water are off till this world or dimension is left (WaterFx.clientTick)
+    private static boolean broken;
+
+    private static void broke(RuntimeException e) {
+        if (broken) return;
+        broken = true;
+        acup.gunfeel.GunFeel.LOGGER.error("rounds in water failed, off till the world is left", e);
+        if (phys != null) phys.clear();
+        FLYING.clear();
+    }
+
+    // for the stand
+    public static boolean broken() {
+        return broken;
     }
 
     public static int bodies() {
@@ -133,8 +160,9 @@ public final class SunkBullets {
         return phys == null ? 0 : phys.lastMs();
     }
 
-    // drawn last frame: models in flight, sunk fuzed rounds, bodies (the stand)
-    public static int drawnFlying, drawnFuzed, drawnBodies;
+    // drawn last frame: models in flight, sunk fuzed rounds, bodies (the stand); the most in flight in any frame (a round
+    // flies under water for a few frames only: a look once a tick misses them)
+    public static int drawnFlying, drawnFuzed, drawnBodies, mostFlying;
 
     // ---- bullets in flight under water, collected from the tracers each frame ----
     private static final class Flying {
@@ -157,7 +185,15 @@ public final class SunkBullets {
 
     // Tracers.underWater, each frame, each shot in water: its head, its direction, its f and speed (blocks a tick)
     public static void flying(World world, BulletConfig config, Vec3d head, Vec3d dir, double f, double speed) {
-        if (!WaterFx.on() || dir.lengthSquared() < 1e-12 || config == null) return;
+        if (!WaterFx.on() || broken || dir.lengthSquared() < 1e-12 || config == null) return;
+        try {
+            fly(config, head, dir, f, speed);
+        } catch (RuntimeException e) {
+            broke(e);
+        }
+    }
+
+    private static void fly(BulletConfig config, Vec3d head, Vec3d dir, double f, double speed) {
         if (roundsScale != Config.waterBodyScale) {
             ROUNDS.clear();
             roundsScale = Config.waterBodyScale;
@@ -266,7 +302,12 @@ public final class SunkBullets {
     public static void tick(World world) {
         if (world == null || !WaterFx.on()) return;
         drawer(world);
-        if (!Minecraft.getMinecraft().isGamePaused()) countSinking(world);
+        if (Minecraft.getMinecraft().isGamePaused() || broken) return;
+        try {
+            countSinking(world);
+        } catch (RuntimeException e) {
+            broke(e);
+        }
     }
 
     static final class Drawer extends Particle {
@@ -299,7 +340,13 @@ public final class SunkBullets {
             double cx = viewer.lastTickPosX + (viewer.posX - viewer.lastTickPosX) * partial;
             double cy = viewer.lastTickPosY + (viewer.posY - viewer.lastTickPosY) * partial;
             double cz = viewer.lastTickPosZ + (viewer.posZ - viewer.lastTickPosZ) * partial;
-            render(world, partial, cx, cy, cz);
+            if (broken) return;
+            try {
+                render(world, partial, cx, cy, cz);
+            } catch (RuntimeException e) {
+                // render has put the buffer and GL back (its finally)
+                broke(e);
+            }
         }
     }
 
@@ -320,6 +367,7 @@ public final class SunkBullets {
         FLYING.clear();
         List<SunkPhysics.Body> bodies = ph == null ? Collections.<SunkPhysics.Body>emptyList() : new ArrayList<SunkPhysics.Body>(ph.bodies());
         drawnFlying = flying.size();
+        mostFlying = Math.max(mostFlying, drawnFlying);
         drawnFuzed = fuzed.size();
         drawnBodies = 0;
         if (flying.isEmpty() && fuzed.isEmpty() && bodies.isEmpty()) return;
@@ -400,11 +448,42 @@ public final class SunkBullets {
     private static void countSinking(World world) {
         java.util.Map<Integer, Integer> next = new java.util.HashMap<Integer, Integer>();
         for (Entity en : world.loadedEntityList) {
+            keepHeading(en);
             if (!sinking(world, en)) continue;
             Integer n = slow.get(en.getEntityId());
             next.put(en.getEntityId(), n == null ? 1 : Math.min(SINK_TICKS, n + 1));
         }
         slow = next;
+    }
+
+    // the level way NTM's round with an impact fuze goes while it flies: kept for its model once it sinks (headingOf).
+    // Its motion here is the server's (sendsVelocityUpdates), of length 1 in flight (NTM's speed is motionMult), and
+    // (0, at most 0.05 down, 0) once water stopped it (WaterTick.sink)
+    private static void keepHeading(Entity en) {
+        if (!(en instanceof EntityBulletBaseMK4) || !(en instanceof WaterBullet)) return;
+        BulletConfig c = ((EntityBulletBaseMK4) en).getBulletConfig();
+        if (c == null || !WaterClass.Fuze.of(c).any()) return;
+        double h = Math.sqrt(en.motionX * en.motionX + en.motionZ * en.motionZ);
+        if (h * h > 0.01) ((WaterBullet) en).gunfeel$sunkHeading(new Vec3d(en.motionX / h, 0, en.motionZ / h));
+    }
+
+    // the way a sunk round with an impact fuze lies (also for the stand)
+    public static Vec3d headingOf(Entity en) {
+        Vec3d h = en instanceof WaterBullet ? ((WaterBullet) en).gunfeel$sunkHeading() : null;
+        return h != null ? h : heading(en.rotationYaw);
+    }
+
+    // the heading of NTM's round from its yaw, when the way it flew was not kept: NTM CE sets yaw = atan2(motionX,
+    // motionZ) in flight, so the heading is (sin, cos), not a player's (-sin, cos)
+    static Vec3d heading(float yawDegrees) {
+        double yaw = Math.toRadians(yawDegrees);
+        return new Vec3d(Math.sin(yaw), 0, Math.cos(yaw));
+    }
+
+    // a fuzed round in water moving under 0.1 blocks a tick, SINK_TICKS in a row (also for the stand)
+    public static boolean sunk(World world, Entity en) {
+        Integer n = slow.get(en.getEntityId());
+        return n != null && n >= SINK_TICKS && sinking(world, en);
     }
 
     private static boolean sinking(World world, Entity en) {
@@ -425,10 +504,8 @@ public final class SunkBullets {
             if (sq(x - camX) + sq(y - camY) + sq(z - camZ) > 48 * 48) continue;
             AmmoModels.Model m = model(((EntityBulletBaseMK4) en).getBulletConfig());
             if (m == null) continue;
-            // NTM CE's yaw: atan2(motionX, motionZ)
-            double yaw = Math.toRadians(en.rotationYaw);
             if (out == null) out = new ArrayList<Fuzed>();
-            out.add(new Fuzed(m, new Vec3d(x, y, z), new Vec3d(Math.sin(yaw), 0, Math.cos(yaw))));
+            out.add(new Fuzed(m, new Vec3d(x, y, z), headingOf(en)));
         }
         return out == null ? Collections.<Fuzed>emptyList() : out;
     }
@@ -468,6 +545,8 @@ public final class SunkBullets {
         float[] nor = m.normals;
         int[] col = m.colors;
         int verts = m.positions.length / 3;
+        // a model short of normals or colours fails here, at once (the frame's models are dropped, render's finally)
+        if (pos.length < verts * 3 || nor.length < verts * 3 || col.length < verts) throw new IllegalStateException("broken model " + m.shape);
         for (int j = 0; j < verts; j++) {
             a.set(pos[j * 3], pos[j * 3 + 1], pos[j * 3 + 2]).mul(scale);
             q.transform(a);

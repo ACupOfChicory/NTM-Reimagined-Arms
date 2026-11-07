@@ -312,6 +312,21 @@ public final class Tracers {
         INBOX.add(() -> shot0(id, owner, config, x, y, z, vx, vy, vz, gravity, life, damage, ex, ey, ez));
     }
 
+    // true when a shot of this round comes here from the server and starts a tracer of ours (shot0): fast enough for
+    // the server to tell (MixinBulletServer) and drawn as a plain tracer (26.2 also follows a shell for its holes; CE's
+    // shells start none here)
+    public static boolean traced(BulletConfig config) {
+        return config.velocity >= 5F && colors(config) != NONE;
+    }
+
+    // the muzzle of the gun in this player's hands, in the world, while it is drawn in first person (in the last half
+    // second), or null
+    public static double[] drawnMuzzle() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.player == null || GunClock.nanos() - muzzleTime >= 500_000_000L || mc.gameSettings.thirdPersonView != 0) return null;
+        return muzzleWorld();
+    }
+
     private static void shot0(int id, int owner, int config, double x, double y, double z, double vx, double vy, double vz, float gravity,
             int life, float damage, double ex, double ey, double ez) {
         Rng.announce(id);
@@ -325,13 +340,10 @@ public final class Tracers {
         TracerPath path = new TracerPath(new double[] {x, y, z}, new double[] {vx, vy, vz}, gravity);
         Minecraft mc = Minecraft.getMinecraft();
         // the player's own shot leaves the muzzle drawn in their hands
-        if (mc.player != null && owner == mc.player.getEntityId() && GunClock.nanos() - muzzleTime < 500_000_000L
-                && mc.gameSettings.thirdPersonView == 0) {
-            double[] m = muzzleWorld();
-            if (m != null) {
-                double[] off = {m[0] - x, m[1] - y, m[2] - z};
-                if (off[0] * off[0] + off[1] * off[1] + off[2] * off[2] <= 9.0) path.muzzleOffset = off;
-            }
+        double[] m = mc.player != null && owner == mc.player.getEntityId() ? drawnMuzzle() : null;
+        if (m != null) {
+            double[] off = {m[0] - x, m[1] - y, m[2] - z};
+            if (off[0] * off[0] + off[1] * off[1] + off[2] * off[2] <= 9.0) path.muzzleOffset = off;
         }
         // fired from a gun: the path is tested from the shooter's eyes, as on the server, so a wall right in front
         // of the muzzle still gets its hole
@@ -564,6 +576,12 @@ public final class Tracers {
             // the water's effects: their delayed ones, and the sunk rounds' drawer in the world's particles
             acup.gunfeel.water.WaterFx.clientTick();
             if (mc.world != null) acup.gunfeel.water.SunkBullets.tick(mc.world);
+        }
+
+        // a grenade or rocket shot under water: its gas bubble (WaterFx.joined)
+        @SubscribeEvent
+        public void joined(net.minecraftforge.event.entity.EntityJoinWorldEvent e) {
+            if (e.getWorld().isRemote && acup.gunfeel.compat.Feature.TRACERS.on()) acup.gunfeel.water.WaterFx.joined(e.getWorld(), e.getEntity());
         }
 
         @SubscribeEvent
