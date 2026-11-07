@@ -447,7 +447,12 @@ PRONE_FIRE class com/hbm/entity/projectile/EntityBulletBaseMK4
 PRONE_FIRE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 PRONE_FIRE class com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState
 PRONE_FIRE class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
+PRONE_FIRE class com/hbm/items/weapon/sedna/mags/MagazineLiquidEngine
+PRONE_FIRE class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 PRONE_FIRE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+PRONE_FIRE field com/hbm/items/ModItems GUN_CHARGE_THROWER Lcom/hbm/registration/RegistryHandle;
+PRONE_FIRE field com/hbm/items/ModItems GUN_DRILL Lcom/hbm/registration/RegistryHandle;
+PRONE_FIRE field com/hbm/items/ModItems GUN_FLAMER Lcom/hbm/registration/RegistryHandle;
 PRONE_FIRE field com/hbm/items/ModItems GUN_UZI Lcom/hbm/registration/RegistryHandle;
 PRONE_FIRE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
 PRONE_FIRE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState COOLDOWN Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
@@ -459,6 +464,8 @@ PRONE_FIRE field com/hbm/items/weapon/sedna/factory/XFactoryAccelerator LAMBDA_T
 PRONE_FIRE field com/hbm/items/weapon/sedna/factory/XFactoryAccelerator LAMBDA_TAU_SECONDARY_RELEASE Ljava/util/function/BiConsumer;
 PRONE_FIRE field com/hbm/items/weapon/sedna/factory/XFactoryPA LAMBDA_CLICK_RANGED_PRIMARY Ljava/util/function/BiConsumer;
 PRONE_FIRE field com/hbm/items/weapon/sedna/factory/XFactoryPA LAMBDA_CLICK_RANGED_SENONDARY Ljava/util/function/BiConsumer;
+PRONE_FIRE field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase acceptedBullets Ljava/util/List;
+PRONE_FIRE field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase capacity I
 PRONE_FIRE field com/hbm/render/anim/AnimationEnums$GunAnimation CYCLE_DRY Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 PRONE_FIRE field com/hbm/render/anim/AnimationEnums$GunAnimation SPINUP Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 PRONE_FIRE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
@@ -482,6 +489,8 @@ PRONE_FIRE method com/hbm/items/weapon/sedna/Receiver getRefireOnHold (Lnet/mine
 PRONE_FIRE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
 PRONE_FIRE method com/hbm/items/weapon/sedna/mags/IMagazine setAmount (Lnet/minecraft/world/item/ItemStack;I)V
 PRONE_FIRE method com/hbm/items/weapon/sedna/mags/IMagazine setType (Lnet/minecraft/world/item/ItemStack;Ljava/lang/Object;)V
+PRONE_FIRE method com/hbm/items/weapon/sedna/mags/MagazineLiquidEngine accepted ()[Lnet/minecraft/world/level/material/Fluid;
+PRONE_FIRE method com/hbm/items/weapon/sedna/mags/MagazineLiquidEngine getCapacity (Lnet/minecraft/world/item/ItemStack;)I
 PRONE_FIRE method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 RECOIL class com/hbm/items/weapon/sedna/ItemGunBaseNT
 RECOIL class com/hbm/render/anim/AnimationEnums$GunAnimation
