@@ -34,8 +34,13 @@ public final class LegacyBullets {
 
     // its damage on `target` hit at `point` (null: NTM's middle, unchanged)
     public static float damage(Entity target, Vec3 point, float amount) {
-        if (point == null || !(target instanceof EntityLivingBase)) return amount;
-        return HeadDamage.beamDamage(amount, (EntityLivingBase) target, new MovingObjectPosition(target, point));
+        return damage(target, point, amount, amount);
+    }
+
+    // `base` times the zone where `point` met the model; NTM's own `ntm` when the model gives no verdict
+    public static float damage(Entity target, Vec3 point, float base, float ntm) {
+        if (point == null || !(target instanceof EntityLivingBase)) return ntm;
+        return HeadDamage.beamDamage(base, (EntityLivingBase) target, new MovingObjectPosition(target, point), ntm);
     }
 
     // it stopped in this block: its hole on the players' screens around

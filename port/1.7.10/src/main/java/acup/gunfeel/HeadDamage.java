@@ -41,8 +41,13 @@ public final class HeadDamage {
     }
 
     public static float beamDamage(float damage, EntityLivingBase target, MovingObjectPosition impact) {
+        return beamDamage(damage, target, impact, damage);
+    }
+
+    // port: as beamDamage, `none` when the model gives no verdict (NTM 1.7.10's old bullet keeps its own head rule then)
+    public static float beamDamage(float damage, EntityLivingBase target, MovingObjectPosition impact, float none) {
         ModelHeads.Hit hit = hit(target, impact);
-        return hit.applied() ? damage * ModelHeads.multiplier(hit.head(), hit.source().equals("limbs")) : damage;
+        return hit.applied() ? damage * ModelHeads.multiplier(hit.head(), hit.source().equals("limbs")) : none;
     }
 
     // NTM's damage was the bullet's, times headshotMult when its height rule said head: the bullet's, times ours

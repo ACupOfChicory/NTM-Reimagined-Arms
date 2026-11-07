@@ -132,6 +132,8 @@ final class NpcShotsScenario {
     private static final List<String> lines = Collections.synchronizedList(new ArrayList<String>());
     private static final Map<String, String> AFTER_BLOCKS = Collections.synchronizedMap(new HashMap<String, String>());
     private static volatile int failed;
+    // shooters measured at the zombie (measure)
+    private static volatile int measured;
     private static EntityZombie zombie;
     private static int[] at; // the player's block
 
@@ -367,6 +369,9 @@ final class NpcShotsScenario {
                         + f(l2) + ")", b > 0 && Math.abs(h - h2) < .01 && Math.abs(l - l2) < .01 && h > b && l < b);
                 expect("NPC " + s.name + ": behind glass " + f(behind) + " of " + f(b) + ", glass broken=" + broke, behind > 0);
             }
+            // every shooter measured: a verdict on fewer is no verdict
+            measured = numbers.size();
+            expect("NPC measured: " + measured + " of " + shooters().size(), measured == shooters().size());
             for (int i = 0; i < 2 * PAIRS; i += 2) {
                 float[] npc = numbers.get(i), own = numbers.get(i + 1);
                 boolean same = true;
@@ -444,6 +449,9 @@ final class NpcShotsScenario {
     }
 
     private static void check() {
+        // the zones measured and all lanes laid: an OK on none is no OK
+        expect("NPC zones measured before the lanes: " + measured + " of " + shooters().size(), measured == shooters().size());
+        expect("NPC lanes: " + LANES.size() + " of " + LANED * 4, LANES.size() == LANED * 4);
         List<String> rows = new ArrayList<String>();
         rows.add("стрелок\tполоса\tдырок спереди\tдырок на бетоне за\tблоки после (сервер)");
         Map<String, int[]> holes = new HashMap<String, int[]>();

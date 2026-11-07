@@ -1,5 +1,11 @@
 # Changelog
 
+## X543.150
+
+- An old NPC bullet (the masked man's laser, the UFO, BOT Prime) that hits a
+  creature whose model gives no zone now keeps NTM's own damage, its headshot
+  bonus included. Before, a config with a headshot bonus would have lost it.
+
 ## X543.149
 
 - In water, the burning debris thrown out of a Chicago Pile now goes off

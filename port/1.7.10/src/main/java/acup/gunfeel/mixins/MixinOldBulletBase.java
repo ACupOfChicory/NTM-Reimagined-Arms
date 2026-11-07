@@ -51,7 +51,8 @@ public abstract class MixinOldBulletBase {
             if (mop != null && mop.hitVec != null && !target.worldObj.isRemote && LegacyBullets.on()) {
                 try {
                     float base = amount / gunfeel$ntmHead(target, mop);
-                    gunfeel$extra = LegacyBullets.damage(target, mop.hitVec, base) - amount;
+                    // no verdict of the model: NTM's damage, its own head rule included
+                    gunfeel$extra = LegacyBullets.damage(target, mop.hitVec, base, amount) - amount;
                 } catch (RuntimeException e) {
                     gunfeel$extra = 0F;
                 }
