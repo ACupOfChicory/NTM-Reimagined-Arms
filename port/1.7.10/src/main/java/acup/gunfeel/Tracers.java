@@ -579,8 +579,8 @@ public final class Tracers {
             }
         }
 
-        // a grenade or rocket shot under water: its gas bubble. port: FML 1.7.10 spawns a mod's entity on the network
-        // thread, so it is only queued there (WaterFx.joined)
+        // a grenade or rocket shot under water: its gas bubble. port: queued here, looked at when its motion comes
+        // (WaterFx.joined)
         @SubscribeEvent
         public void joined(net.minecraftforge.event.entity.EntityJoinWorldEvent e) {
             if (e.world.isRemote && acup.gunfeel.compat.Feature.TRACERS.on()) acup.gunfeel.water.WaterFx.joined(e.world, e.entity);

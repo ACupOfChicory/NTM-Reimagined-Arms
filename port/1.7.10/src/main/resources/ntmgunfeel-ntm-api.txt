@@ -446,6 +446,9 @@ TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 isDead Z
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 motionX D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 motionY D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 motionZ D
+TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 posX D
+TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 posY D
+TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 posZ D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 prevVelocity D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 velocity D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 velocityChanged Z

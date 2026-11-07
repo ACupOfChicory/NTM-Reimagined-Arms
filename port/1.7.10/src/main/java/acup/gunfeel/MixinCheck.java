@@ -44,6 +44,7 @@ public final class MixinCheck {
             {"net.minecraft.client.renderer.entity.RenderManager", "2"}, // the model box, the box at full brightness
             {"com.hbm.items.weapon.sedna.GunConfig", "6"}, // MixinG3Inspect 4 (gunfeel$release + 3), MixinGunConfigAnims 2
             {"com.hbm.entity.projectile.EntityThrowableNT", "8"}, // MixinThrowableClip: bullets 4 + hitboxes 4
+            {"com.hbm.entity.projectile.EntityThrowableInterp", "1"}, // MixinThrowableMotion (client)
             {"com.hbm.entity.projectile.EntityBulletBeamBase", "4"},
             {"com.hbm.entity.projectile.EntityBullet", "9"}, // MixinLegacyBullet: 8 + gunfeel$extra
             {"com.hbm.entity.projectile.EntityBulletBaseNT", "3"}, // MixinOldBulletBase: 2 + gunfeel$ntmHead

@@ -602,9 +602,11 @@ public final class WaterFx {
     // Tracers.traced) has come to this client: shot under water, it makes the gas bubble too. A shot leaves the gun
     // with a motion of length 1 (its speed is NTM's motionMult); one that comes into sight sinking or lying on the
     // bottom has next to none (WaterTick.sink) and is no shot.
-    // port: FML 1.7.10 spawns it on the network thread: it is queued here and looked at on the next client ticks. Its
-    // motion is not in the spawn (NTM's bullet has no motion updates): the server sends it after (WaterTick.announce,
-    // in water only), so the shot waits for it a few ticks (JOIN_WAIT); one that never gets it is no shot.
+    // port: its motion is not in the spawn (NTM's bullet has no motion updates): the server sends it after
+    // (WaterTick.announce, in water only), so it is queued here at the join (in the client's packet pass, on the game's
+    // thread) and the shot waits for the motion a few ticks (JOIN_WAIT); one that never gets it is no shot. One that a
+    // player came in sight of mid-flight may get a resend in that time: a shot joins at its shooter's eyes (the muzzle,
+    // MK4's constructor), so one with a known shooter farther than 4 blocks off is no shot.
     private record Joined(EntityBulletBaseMK4 bullet, Vec3 at, long since) {
     }
 
@@ -636,6 +638,8 @@ public final class WaterFx {
         // (port: BulletConfig.ammo, 26.2's ammoItem)
         if (config.ammo == null || WaterClass.Fuze.field(config) != null) return true;
         if (!wetAt(level, j.at())) return true;
+        net.minecraft.entity.EntityLivingBase by = b.getThrower();
+        if (by != null && by.worldObj == level && new Vec3(by.posX, by.posY + by.getEyeHeight(), by.posZ).distanceToSqr(j.at()) > 16) return true;
         Vec3 dir = new Vec3(b.motionX, b.motionY, b.motionZ);
         if (dir.lengthSqr() < 0.25) return false;
         Minecraft mc = Minecraft.getMinecraft();

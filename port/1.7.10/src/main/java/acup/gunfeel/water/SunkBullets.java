@@ -385,10 +385,12 @@ public final class SunkBullets {
     // a round with an impact fuze that water stopped: this client's copy does not see the stop (it is moved by the
     // server's updates), but the server's motion of it comes, the sinking one (WaterTick.sink: 0, at most 0.05 down,
     // 0), while a flying one in water has one of length 1 (also for the stand). port: none comes in the air nor before
-    // its first tick there (WaterTick.announce): a copy just made, with no motion yet, is no sunk one
+    // its first tick there (WaterTick.announce), and a player who comes in sight of it waits up to RESEND ticks: a copy
+    // with no motion of the server's yet (MixinThrowableMotion) is no sunk one
     public static boolean sinking(Entity en) {
         if (WaterBullet.stopped(en)) return true;
-        return en.ticksExisted > 1 && en.motionX * en.motionX + en.motionY * en.motionY + en.motionZ * en.motionZ < 0.01;
+        return en instanceof WaterBullet w && w.gunfeel$sent() != 0
+                && en.motionX * en.motionX + en.motionY * en.motionY + en.motionZ * en.motionZ < 0.01;
     }
 
     // the way a sunk round with an impact fuze lies (also for the stand)

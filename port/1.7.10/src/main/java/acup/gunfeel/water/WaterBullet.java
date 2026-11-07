@@ -46,7 +46,7 @@ public interface WaterBullet {
     void gunfeel$sunkHeading(acup.gunfeel.phys.Vec3 heading);
 
     // port, the server: what of its motion was last sent to the players (WaterTick.announce): the world time << 2
-    // | the kind (0 none, 1 flying, 2 sinking)
+    // | the kind (0 none, 1 flying, 2 sinking). The client: not 0 once a motion of the server's came (MixinThrowableMotion)
     long gunfeel$sent();
 
     void gunfeel$sent(long sent);

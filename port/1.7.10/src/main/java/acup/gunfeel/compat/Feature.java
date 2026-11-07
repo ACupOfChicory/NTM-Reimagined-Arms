@@ -34,7 +34,7 @@ public enum Feature {
     INSTANT_SWITCH("instant_switch", list("MixinHbmAnimationPacket"), list("InstantSwitch", "SwitchPrediction")),
     CLICK_AIM("click_aim", list("MixinClickAim"), list("ClickAim")),
     MACHINE_MESH("machine_mesh", list(), list("MachineMesh")),
-    TRACERS("tracers", list("MixinLegoClient", "MixinRenderBulletMK4", "MixinSmokeNodes", "MixinRenderBlockCT", "MixinMuzzleFlash"), list("Tracers", "TracerNet", "TracerPath", "WaterPath", "WaterTick", "WaterClass", "WaterEvents", "WaterBullet", "WaterMuffle", "WaterFx", "WaterParticle", "WaterRings", "WaterSurface", "SunkBullets", "SunkPhysics", "AmmoModels")),
+    TRACERS("tracers", list("MixinLegoClient", "MixinRenderBulletMK4", "MixinSmokeNodes", "MixinRenderBlockCT", "MixinMuzzleFlash", "MixinThrowableMotion"), list("Tracers", "TracerNet", "TracerPath", "WaterPath", "WaterTick", "WaterClass", "WaterEvents", "WaterBullet", "WaterMuffle", "WaterFx", "WaterParticle", "WaterRings", "WaterSurface", "SunkBullets", "SunkPhysics", "AmmoModels")),
     MARESLEG("maresleg", list("MixinGunConfigAnims"), list()),
     SPRINT_FIRE("sprint_fire", list("MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun"), list("SprintFire")),
     TRACE("trace", list("MixinClock"), list("TraceScenario", "TraceClient", "TraceHooks", "ShootScenario", "LookScenario", "ShapesScenario", "WalkSprintScenario"));

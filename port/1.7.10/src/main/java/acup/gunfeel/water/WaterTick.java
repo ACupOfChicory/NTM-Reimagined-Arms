@@ -170,7 +170,9 @@ public final class WaterTick {
     // (SunkBullets.sinking: the server's sinking motion is (0, at most 0.05 down, 0), a flying one's is of length 1),
     // and a grenade or rocket shot under water by it (WaterFx.joined). So the server sends it (velocityChanged: the
     // tracker's S12 at the end of the tick) for such a round in water: when it starts to fly there or sinks, and again
-    // each RESEND ticks for players who came in sight of it since. In the air it sends none.
+    // each RESEND ticks for players who came in sight of it since. In the air it sends none. A flying one's resend
+    // waits while its motion is under a tenth (a grenade at the top of its climb): the client would take it for sunk.
+    // With waterBallistics off nothing stops it, but one flying in water still sends hers (the gas bubble, WaterFx).
     static final long RESEND = 20;
     // for the stand: S12s sent per round's id (null: not counted)
     public static volatile java.util.Map<Integer, Integer> sentCount;
@@ -179,14 +181,22 @@ public final class WaterTick {
         if (bullet.isDead || bullet.config == null || !sinks(bullet)) return;
         WaterBullet w = (WaterBullet) bullet;
         boolean stopped = w.gunfeel$waterStopped();
-        if (!stopped && w.gunfeel$waterTick() == null) return;
+        if (!stopped && w.gunfeel$waterTick() == null && (WaterPath.Settings.current().on() || !wet(bullet))) return;
         int kind = stopped ? 2 : 1;
         long now = bullet.worldObj.getTotalWorldTime();
         if (!due(w.gunfeel$sent(), kind, now)) return;
+        double m2 = bullet.motionX * bullet.motionX + bullet.motionY * bullet.motionY + bullet.motionZ * bullet.motionZ;
+        if (kind == 1 && (w.gunfeel$sent() & 3) == 1 && m2 < 0.01) return;
         w.gunfeel$sent(now << 2 | kind);
         bullet.velocityChanged = true;
         java.util.Map<Integer, Integer> count = sentCount;
         if (count != null) count.merge(bullet.getEntityId(), 1, Integer::sum);
+    }
+
+    // its middle in water (waterBallistics off: no path tells it)
+    private static boolean wet(EntityBulletBaseMK4 bullet) {
+        return bullet.worldObj.getBlock(net.minecraft.util.MathHelper.floor_double(bullet.posX), net.minecraft.util.MathHelper.floor_double(bullet.posY),
+                net.minecraft.util.MathHelper.floor_double(bullet.posZ)).getMaterial() == net.minecraft.block.material.Material.water;
     }
 
     // a motion of this kind is to be sent now: another kind was sent last, or this one RESEND ticks ago

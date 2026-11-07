@@ -1,5 +1,14 @@
 # Changelog
 
+## X543.155
+
+- A grenade or rocket flying under water is no longer drawn as sunk for a
+  moment: when it is fired, when a player first sees it already flying, or at
+  the top of a steep climb. A player who sees one already flying under water
+  no longer gets a gas bubble in the middle of its path. With water
+  ballistics off, a grenade or rocket fired under water still leaves its gas
+  bubble.
+
 ## X543.154
 
 - A grenade, rocket or mortar shell fired from a gun under water now leaves a
