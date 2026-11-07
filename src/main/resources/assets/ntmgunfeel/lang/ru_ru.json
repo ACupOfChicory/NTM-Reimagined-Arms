@@ -26,6 +26,7 @@
   "ntmgunfeel.feature.sprint_fire": "Нет выстрела сразу после бега",
   "ntmgunfeel.feature.spectator": "Без пушек в режиме наблюдателя",
   "ntmgunfeel.feature.prone": "Лёжа",
+  "ntmgunfeel.feature.prone_fire": "Нет выстрела ползком",
   "ntmgunfeel.compat.title": "Версия NTM %s не протестирована, последняя поддерживаемая — %s",
   "ntmgunfeel.compat.all_on": "Всё проверенное подходит к этой версии NTM, все системы включены. Что-то всё равно может работать странно.",
   "ntmgunfeel.compat.off": "Эти системы не подходят к этой версии NTM и отключены:",

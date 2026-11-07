@@ -1,5 +1,20 @@
 # Changelog
 
+## X605
+
+- `proneCrawlNoFire` (server, on): no shot while crawling. A shooter lying
+  down (on the prone key, crawling under a trapdoor, a mob laid down) that
+  moves along the ground faster than `proneCrawlSpeed` (0.25 blocks a second;
+  crawling is about 1.3) does not fire: a click does nothing, not even a dry
+  fire, and spends no round; a held burst stops, and a new click fires again
+  once the shooter lies still. Lying still, or only turning the view, the gun
+  fires as before. Aiming and reloading while crawling are not touched. A Tau
+  charge let go while crawling fizzles. A gun can have its own:
+  `hbm\:gun_xxx.proneCrawlNoFire = false`. Off: guns fire while crawling, as
+  before.
+- The drill and the charge thrower work while crawling: they are tools, and
+  the mod gives them `proneCrawlNoFire = false` of their own.
+
 ## X600
 
 - The hitbox follows worn armour as it is drawn. On a player, a mannequin or
