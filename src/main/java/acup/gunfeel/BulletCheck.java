@@ -198,6 +198,25 @@ public final class BulletCheck {
         check("beam: a golem behind a plank takes less than in the open, but some (" + behind + " of " + free + ")", true,
                 behind > 0F && behind < free);
         check("beam: glass behind the golem that takes the beam is left whole (two beams of 6)", "minecraft:glass", golemGlass());
+        // ---- NTM's beam turrets and Tesla arcs (BeamTurrets): a golem 7 blocks off, a 3x3 wall 3 blocks before it.
+        // Stone is "through" by this stand's rules: a bullet flies through it, NTM's look along the boxes does not
+        float[] tauOpen = turret("hbm:turret_tauon", null), tauGlass = turret("hbm:turret_tauon", "minecraft:glass"),
+                tauConcrete = turret("hbm:turret_tauon", "hbm:concrete_smooth");
+        check("turret: a Tauon sees a golem in the open and hurts it (" + tauOpen[1] + ")", true, tauOpen[0] > 0 && tauOpen[1] > 0);
+        check("turret: a Tauon sees a golem behind glass and hurts it through it (" + tauGlass[1] + ")", true, tauGlass[0] > 0 && tauGlass[1] > 0);
+        check("turret: a Tauon does not see a golem behind concrete, and its shot does not get there", true, tauConcrete[0] == 0 && tauConcrete[1] == 0);
+        float[] maxOpen = turret("hbm:turret_maxwell", null), maxStone = turret("hbm:turret_maxwell", "minecraft:stone"),
+                maxGlass = turret("hbm:turret_maxwell", "minecraft:glass");
+        check("turret: a Maxwell sees a golem in the open and hurts it (" + maxOpen[1] + ")", true, maxOpen[0] > 0 && maxOpen[1] > 0);
+        check("turret: a Maxwell sees a golem behind a wall bullets fly through (" + maxStone[1] + ")", true, maxStone[0] > 0 && maxStone[1] > 0);
+        check("turret: a Maxwell's 0.25 does not pierce glass: no sight, no hit", true, maxGlass[0] == 0 && maxGlass[1] == 0);
+        float arcOpen = arc(null, false), arcGlass = arc("minecraft:glass", false), arcStone = arc("minecraft:stone", false),
+                arcConcrete = arc("hbm:concrete_smooth", false), arcCoil = arc(null, true);
+        check("tesla: an arc through glass hurts less than in the open, but some (" + arcGlass + " of " + arcOpen + ")", true,
+                arcGlass > 0 && arcGlass < arcOpen);
+        check("tesla: an arc through a wall bullets fly through hurts as in the open (" + arcStone + ")", arcOpen, arcStone);
+        check("tesla: no arc through concrete", 0F, arcConcrete);
+        check("tesla: an arc from a real coil is not stopped by the coil itself (" + arcCoil + ")", true, arcCoil > 0);
         Path beamFile = FMLPaths.CONFIGDIR.get().resolve(ReaimTimes.FILE);
         Files.writeString(beamFile, BeamServer.KEY + " = false\n");
         Thread.sleep(2100);
@@ -205,6 +224,9 @@ public final class BulletCheck {
         check("beam, beamRules off: NTM's beam stops at the glass", true, beam[0] < .01F && beam[0] > -.01F);
         beam = beamShot(fenceRow("minecraft:oak_fence"), .25, .65, 30F);
         check("beam, beamRules off: NTM's beam stops at a fence's gap", true, beam[0] < 1F);
+        float[] tauOff = turret("hbm:turret_tauon", "minecraft:glass");
+        check("turret, beamRules off: a Tauon does not see a golem behind glass", 0F, tauOff[0]);
+        check("tesla, beamRules off: no arc through glass", 0F, arc("minecraft:glass", false));
         Files.writeString(beamFile, BeamServer.KEY + " = true\n");
         Thread.sleep(2100);
 
@@ -582,6 +604,9 @@ public final class BulletCheck {
         put(before);
         BulletServer.wearBack(wear);
         beam(name, want, at, fx, fy, damage);
+        put(before);
+        BulletServer.wearBack(wear);
+        reachRow(name, want, at, fx, fy, damage);
         put(left);
         BulletServer.wearBack(worn);
         boolean beyond = s.z > Z + 1;
@@ -628,6 +653,23 @@ public final class BulletCheck {
                 + (pass ? "" : ", got end z " + String.format("%.2f", b[0]) + ", damage " + left));
     }
 
+    // the same for a beam with no entity of its own (a turret's, a Tesla arc: BeamServer.reach) of the round's damage,
+    // threshold negation and armour piercing: stopped on the way (-1) or the damage it has 6 blocks on
+    private static void reachRow(String name, Want want, BlockPos at, double fx, double fy, float damage) {
+        net.minecraft.world.phys.Vec3 from = new net.minecraft.world.phys.Vec3(at.getX() + fx, at.getY() + fy, at.getZ() - 1.5);
+        float left = BeamServer.reach(level, null, from, from.add(0, 0, 6), damage, round, true, null);
+        boolean beyond = left >= 0F;
+        boolean pass = switch (want) {
+            case PASS -> beyond && left == damage;
+            case PIERCE -> beyond && left < damage;
+            case STOP -> !beyond;
+            case MEET -> !beyond || left < damage;
+        };
+        ok &= pass;
+        lines.add((pass ? "OK   " : "FAIL ") + name + ", turret beam: " + want.name().toLowerCase()
+                + (pass ? "" : ", got " + (beyond ? "damage " + left : "stopped")));
+    }
+
     // a beam from 1.5 blocks before the block along +z at (fx, fy) of it, 6 blocks long: where it ends (z from the
     // block's near face) and its damage there
     private static float[] beamShot(BlockPos at, double fx, double fy, float damage) {
@@ -668,6 +710,54 @@ public final class BulletCheck {
         level.addFreshEntity(g);
         float before = g.getHealth();
         beamShot(at.north(3), .5, 1.2, 30F);
+        float took = before - g.getHealth();
+        g.discard();
+        return took;
+    }
+
+    // a golem 7 blocks along +z from a lane's spot, with a 3x3 wall of `wall` 3 blocks along (null: none)
+    private static net.minecraft.world.entity.LivingEntity range(BlockPos at, net.minecraft.world.phys.Vec3 from, @org.jspecify.annotations.Nullable String wall) {
+        BlockPos w = BlockPos.containing(from.x, at.getY(), from.z + 3);
+        if (wall != null) for (int dx = -1; dx <= 1; dx++) for (int dy = 0; dy <= 2; dy++) level.setBlock(w.offset(dx, dy, 0), state(wall), Block.UPDATE_CLIENTS);
+        var g = net.minecraft.world.entity.EntityTypes.IRON_GOLEM.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        g.setPos(from.x, at.getY(), from.z + 7);
+        g.setNoAi(true);
+        g.setNoGravity(true);
+        level.addFreshEntity(g);
+        return g;
+    }
+
+    // a beam turret on a lane (its core alone, on, with power and a tau round) and a golem behind `wall`: {1 if it sees
+    // the golem, the health the golem lost to one shot at it}
+    private static float[] turret(String id, @org.jspecify.annotations.Nullable String wall) {
+        BlockPos at = new BlockPos(2 + 4 * (lane % 16), Y + 4 * (lane / 16), Z);
+        lane++;
+        level.setBlock(at, state(id), Block.UPDATE_CLIENTS);
+        var t = (com.hbm.blockentity.turret.BlockEntityTurretBaseNT) level.getBlockEntity(at);
+        t.isOn = true;
+        t.setPower(Long.MAX_VALUE / 4);
+        t.setItem(1, com.hbm.items.weapon.sedna.factory.XFactoryAccelerator.tau_uranium.ammoStack().copyWithCount(64));
+        var g = range(at, t.getTurretPos(), wall);
+        float sees = t.entityInLOS(g) ? 1F : 0F;
+        t.target = g;
+        float before = g.getHealth();
+        for (int i = 0; i < 5; i++) t.updateFiringTick();
+        float took = before - g.getHealth();
+        g.discard();
+        level.removeBlock(at, false);
+        return new float[] {sees, took};
+    }
+
+    // the health a golem behind `wall` loses to one Tesla arc (NTM's BlockEntityTesla.zap from a lane's spot, reach 10;
+    // coil: from a Tesla coil on the lane, 1.75 over its block, as the coil zaps)
+    private static float arc(@org.jspecify.annotations.Nullable String wall, boolean coil) {
+        BlockPos at = new BlockPos(2 + 4 * (lane % 16), Y + 4 * (lane / 16), Z);
+        lane++;
+        if (coil) level.setBlock(at, state("hbm:tesla"), Block.UPDATE_CLIENTS);
+        net.minecraft.world.phys.Vec3 from = new net.minecraft.world.phys.Vec3(at.getX() + .5, at.getY() + (coil ? 1.75 : 1.35), at.getZ() + .5);
+        var g = range(at, from, wall);
+        float before = g.getHealth();
+        com.hbm.blockentity.machine.BlockEntityTesla.zap(level, from.x, from.y, from.z, 10.0, null);
         float took = before - g.getHealth();
         g.discard();
         return took;

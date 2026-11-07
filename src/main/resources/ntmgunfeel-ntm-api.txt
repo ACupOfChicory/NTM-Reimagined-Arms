@@ -129,6 +129,10 @@ ARMS method com/hbm/render/loader/HFRWavefrontObject smoothing ()Z
 ARMS method com/hbm/util/GameTime now ()J
 BULLETS class com/hbm/blockentity/BlockEntityDoorGeneric
 BULLETS class com/hbm/blockentity/machine/BlockEntityCargoElevator
+BULLETS class com/hbm/blockentity/machine/BlockEntityTesla
+BULLETS class com/hbm/blockentity/turret/BlockEntityTurretBaseNT
+BULLETS class com/hbm/blockentity/turret/BlockEntityTurretMaxwell
+BULLETS class com/hbm/blockentity/turret/BlockEntityTurretTauon
 BULLETS class com/hbm/blocks/generic/BlockDoorGeneric
 BULLETS class com/hbm/blocks/machine/BlockCargoElevator
 BULLETS class com/hbm/blocks/multiblock/BlockMultiblockCell
@@ -174,6 +178,11 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/func
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig velocity F
 BULLETS field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_fmj Lcom/hbm/items/weapon/sedna/BulletConfig;
+BULLETS method com/hbm/blockentity/turret/BlockEntityTurretBaseNT getBlockPos ()Lnet/minecraft/core/BlockPos;
+BULLETS method com/hbm/blockentity/turret/BlockEntityTurretBaseNT getEntityPos (Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/world/phys/Vec3;
+BULLETS method com/hbm/blockentity/turret/BlockEntityTurretBaseNT getFirstConfigLoaded ()Lcom/hbm/items/weapon/sedna/BulletConfig;
+BULLETS method com/hbm/blockentity/turret/BlockEntityTurretBaseNT getLevel ()Lnet/minecraft/world/level/Level;
+BULLETS method com/hbm/blockentity/turret/BlockEntityTurretBaseNT getTurretPos ()Lnet/minecraft/world/phys/Vec3;
 BULLETS method com/hbm/blocks/multiblock/MultiblockSurface clientCoreOf (Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/core/BlockPos;
 BULLETS method com/hbm/blocks/multiblock/MultiblockSurface coreOfAny (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)Lnet/minecraft/core/BlockPos;
 BULLETS method com/hbm/blocks/multiblock/MultiblockSurface isSurface (Lnet/minecraft/world/level/block/state/BlockState;)Z

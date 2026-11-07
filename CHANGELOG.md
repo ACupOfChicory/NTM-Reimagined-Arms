@@ -1,5 +1,17 @@
 # Changelog
 
+## X581
+
+- `beamRules` (server, on) now also covers the Tauon and Maxwell turrets and
+  the Tesla arcs (the Tesla coil, the Tesla and taint crabs, the Tesla armor).
+  They see a target, and hit it, where their beam gets through blocks as a
+  bullet of the same damage would: through fence gaps, through glass they can
+  pierce. The target gets what is left of the damage, and blocks on the way
+  wear and break by the bullet rules. A turret's shot counts where it meets the
+  model (head x1.75, limbs x0.5). A Maxwell without damage upgrades is too weak
+  to pierce anything. Before, any block with a box hid a target from them, and
+  from the arcs even grass, flowers and torches.
+
 ## X580
 
 - `beamRules` (server, on): NTM's beams (laser guns, Tesla Cannon, Lacunae,
