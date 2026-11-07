@@ -38,6 +38,8 @@ public enum Feature {
     MARESLEG("maresleg", list("MixinGunConfigAnims"), list()),
     SPRINT_FIRE("sprint_fire", list("MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun"), list("SprintFire")),
     SPECTATOR("spectator", list("MixinSpectatorGun", "MixinSpectatorOldGun", "MixinSpectatorKeys", "MixinSpectatorHud"), list("SpectatorGuns", "SpectatorCheck", "SpectatorScenario")),
+    // port only: NTM CE's keys pressed on the server's thread (an NTM CE bug, see ServerKeys)
+    SERVER_KEYS("server_keys", list("MixinKeysOnServerThread"), list("ServerKeys")),
     TRACE("trace", list("MixinClock"), list("TraceScenario", "TraceClient", "TraceHooks", "ShootScenario", "LookScenario", "ShapesScenario", "WalkSprintScenario"));
 
     public final String id;

@@ -56,6 +56,7 @@ public final class MixinCheck {
             {"com.hbm.items.weapon.sedna.factory.XFactory40mm", "1"}, // MixinWaterFire
             {"com.hbm.items.weapon.sedna.factory.XFactoryRocket", "1"}, // MixinWaterFire
             {"com.hbm.items.weapon.sedna.factory.XFactoryFlamer", "1"}, // MixinWaterFireFlamer
+            {"com.hbm.packet.KeybindPacket$Handler", "1"}, // MixinKeysOnServerThread, while NTM needs it (ServerKeys.mixed)
     };
 
     private MixinCheck() {
@@ -84,6 +85,7 @@ public final class MixinCheck {
             }
             out.put(t[0].substring(t[0].lastIndexOf('.') + 1), n);
             int want = Integer.parseInt(t[1]);
+            if (t[0].equals(ServerKeys.HANDLER) && !ServerKeys.mixed) want = 0;
             // port: on Cleanroom MixinMouseTurnCleanroom adds one (ArmsCore queues it there only)
             if (CLEANROOM && t[0].equals("net.minecraft.client.renderer.EntityRenderer")) want++;
             if (n != want) wrong.add(t[0] + " has " + n + ", wants " + want);

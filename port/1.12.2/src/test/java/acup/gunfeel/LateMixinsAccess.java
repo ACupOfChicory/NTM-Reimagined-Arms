@@ -11,6 +11,7 @@ public final class LateMixinsAccess {
     public static List<String> all() {
         List<String> out = new ArrayList<String>(LateMixins.COMMON);
         out.addAll(LateMixins.CLIENT);
+        out.addAll(LateMixins.NTM_FIXES);
         return out;
     }
 }

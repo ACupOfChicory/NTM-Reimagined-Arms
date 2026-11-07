@@ -155,6 +155,25 @@ class CompatPortTest {
         assertFalse(r.skipped().containsKey("MixinGunConfigAnims"));
     }
 
+    // an NTM CE that queues the key press itself (its later sources: addScheduledTask(() -> onPressedServer(...))) has
+    // no onPressedServer in onMessage: the fix's miss is soft (require = 0), no system goes off, no warning for the player
+    @Test
+    void anNtmThatFixedItsKeysTurnsNothingOff() throws IOException {
+        MixinProbe.Classes real = classes();
+        String handler = "com/hbm/packet/KeybindPacket$Handler";
+        ClassNode fixed = NtmCheck.read(CompatPortTest.class.getClassLoader(), handler);
+        assertNotNull(fixed);
+        for (MethodNode m : fixed.methods)
+            for (org.objectweb.asm.tree.AbstractInsnNode i : m.instructions.toArray())
+                if (i instanceof org.objectweb.asm.tree.MethodInsnNode && ((org.objectweb.asm.tree.MethodInsnNode) i).name.equals("onPressedServer"))
+                    ((org.objectweb.asm.tree.MethodInsnNode) i).name = "onPressedServerLater";
+        MixinProbe.Classes doctored = n -> n.equals(handler) ? fixed : real.get(n);
+        Compat.Result r = NtmCheck.evaluate(mixins(), doctored, SAME, api());
+        assertNotNull(r);
+        assertTrue(r.off().isEmpty(), r.off().toString());
+        assertTrue(r.skipped().isEmpty(), r.skipped().toString());
+    }
+
     @Test
     void noNtmTurnsNothingOff() throws IOException {
         MixinProbe.Classes real = classes();

@@ -404,6 +404,7 @@ RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilHorizontal F
 RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
 RECOIL method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/item/ItemStack;)Z
 RICOCHET_SOUND class com/hbm/entity/projectile/EntityBulletBaseMK4
+SERVER_KEYS class com/hbm/handler/HbmKeybinds$EnumKeybind
 SPECTATOR class com/hbm/entity/projectile/EntityBulletBase
 SPECTATOR class com/hbm/entity/projectile/EntityBulletBaseMK4
 SPECTATOR class com/hbm/handler/HbmKeybinds$EnumKeybind

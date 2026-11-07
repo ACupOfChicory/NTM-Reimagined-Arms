@@ -1,5 +1,14 @@
 # Changelog
 
+## X555.185
+
+- Fixed a rare server crash ("Ticking player") when firing NTM CE's guns:
+  NTM CE 2.6.1.0 handled a player's gun keys outside the server's own tick, so
+  a shot could change the gun while the server was sending it to the players
+  around. The keys, and the mod's ammo choice and ammo lock, now act within the
+  server's tick, in order with the player's movement. If a later NTM CE does
+  this itself, the fix stays off on its own.
+
 ## X555.184
 
 - As in 26.2 X547, on 1.12.2: the Jeremy turret's 240 mm shells now leave

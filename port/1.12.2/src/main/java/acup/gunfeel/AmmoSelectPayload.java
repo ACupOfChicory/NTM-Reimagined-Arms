@@ -33,7 +33,11 @@ public final class AmmoSelectPayload implements IMessage {
     public static final class Handler implements IMessageHandler<AmmoSelectPayload, IMessage> {
         @Override
         public IMessage onMessage(AmmoSelectPayload m, MessageContext ctx) {
-            if (acup.gunfeel.compat.Feature.AMMO_CHOICE.on() && !SpectatorGuns.blocks(ctx.getServerHandler().player)) AmmoLock.select(ctx.getServerHandler().player, m.config);
+            net.minecraft.entity.player.EntityPlayerMP player = ctx.getServerHandler().player;
+            // on the server's thread, after the keys pressed before it (ServerKeys): it writes the gun's NBT
+            ServerKeys.run(player, () -> {
+                if (acup.gunfeel.compat.Feature.AMMO_CHOICE.on() && !SpectatorGuns.blocks(player)) AmmoLock.select(player, m.config);
+            });
             return null;
         }
     }

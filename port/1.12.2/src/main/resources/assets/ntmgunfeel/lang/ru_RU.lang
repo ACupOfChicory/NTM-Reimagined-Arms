@@ -22,6 +22,7 @@ ntmgunfeel.feature.instant_switch=Мгновенная смена
 ntmgunfeel.feature.tracers=Трассеры
 ntmgunfeel.feature.maresleg=Анимации Maresleg
 ntmgunfeel.feature.sprint_fire=Нет выстрела сразу после бега
+ntmgunfeel.feature.server_keys=Клавиши NTM на потоке сервера
 ntmgunfeel.feature.spectator=Без пушек в режиме наблюдателя
 ntmgunfeel.feature.trace=Часы dev-трассы
 ntmgunfeel.compat.title=Версия NTM %s не протестирована, последняя поддерживаемая — %s

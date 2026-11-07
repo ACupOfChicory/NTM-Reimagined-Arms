@@ -29,6 +29,9 @@ public class LateMixins implements IMixinConfigPlugin {
             "MixinLegoSpread", "MixinHoldAim", "MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun",
             "MixinSpectatorGun", "MixinSpectatorOldGun");
 
+    // the fix of an NTM CE bug, on both sides: put in only while the NTM at hand has the bug (ServerKeys.needed)
+    static final List<String> NTM_FIXES = Arrays.asList("MixinKeysOnServerThread");
+
     @Override
     public List<String> getMixins() {
         boolean hbm = Loader.isModLoaded("hbm");
@@ -40,9 +43,14 @@ public class LateMixins implements IMixinConfigPlugin {
         }
         List<String> list = new ArrayList<String>();
         if (hbm) list.addAll(COMMON);
+        if (hbm) {
+            if (ServerKeys.needed()) list.addAll(NTM_FIXES);
+            else GunFeel.LOGGER.info("NTM presses its keys on the server's thread itself: MixinKeysOnServerThread is left out");
+        }
         if (hbm && FMLLaunchHandler.side().isClient()) list.addAll(CLIENT);
         // an NTM not tested with this version: only the mixins that fit it (Compat, NtmCheck)
         if (!list.isEmpty()) list = acup.gunfeel.compat.NtmCheck.filter(list, PortPaths.hbmVersion());
+        ServerKeys.mixed = list.contains("MixinKeysOnServerThread");
         GunFeel.LOGGER.info("Mixins into NTM {} ({}): {}{}", PortPaths.hbmVersion(), acup.gunfeel.compat.Compat.inRange() ? "tested" : "not tested",
                 list.isEmpty() ? "none (no NTM)" : list, FMLLaunchHandler.side().isClient() ? "" : " (server)");
         return list;

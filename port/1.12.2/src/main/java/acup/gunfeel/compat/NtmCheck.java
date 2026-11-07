@@ -145,7 +145,7 @@ public final class NtmCheck {
     }
 
     // the class as it is in its jar, not loaded and not transformed
-    static ClassNode read(ClassLoader cl, String internal) {
+    public static ClassNode read(ClassLoader cl, String internal) {
         try (InputStream in = cl.getResourceAsStream(internal + ".class")) {
             if (in == null) return null;
             ByteArrayOutputStream bytes = new ByteArrayOutputStream();
