@@ -25,7 +25,8 @@ import net.minecraft.world.phys.Vec3;
 // would (BeamServer.reach), not by NTM's look along the blocks' boxes: through a fence's gap, through glass they pierce.
 // The shot wears and breaks blocks on its way by the bullet rules and the target gets what is left of the damage; a
 // turret's shot counts where it meets the model (head x1.75, limbs x0.5), an arc does not (NTM splits it between all
-// it reaches). MixinBeamTurretSight, MixinBeamTauon, MixinBeamMaxwell, MixinBeamTesla
+// it reaches). In water they lose damage and go out (BeamWater); a Maxwell's maser goes through glass (BeamLasers).
+// MixinBeamTurretSight, MixinBeamTauon, MixinBeamMaxwell, MixinBeamTesla
 public final class BeamTurrets {
     private BeamTurrets() {
     }
@@ -45,7 +46,7 @@ public final class BeamTurrets {
     // NTM's isObstructedOpaque(target's middle, pivot) for a beam turret: true when the beam does not get there
     public static boolean blocked(BlockEntityTurretBaseNT turret, Vec3 target, Vec3 pivot, float damage) {
         Level level = turret.getLevel();
-        return level == null || BeamServer.reach(level, null, pivot, target, damage, round(turret), false, own(turret)) < 0F;
+        return level == null || BeamServer.reach(level, null, pivot, target, damage, round(turret), false, own(turret), laser(turret)) < 0F;
     }
 
     // the turret's shot at its target: the damage that gets there (with the zone of the place it meets on the model), or
@@ -58,10 +59,15 @@ public final class BeamTurrets {
         Vec3 far = middle.add(middle.subtract(pivot).normalize().scale(target.getBbWidth() + target.getBbHeight()));
         var met = ModelHits.clip(target, pivot, far, target.getBoundingBox());
         Vec3 at = met.orElse(middle);
-        float left = BeamServer.reach(level, null, pivot, at, damage, round(turret), true, own(turret));
+        float left = BeamServer.reach(level, null, pivot, at, damage, round(turret), true, own(turret), laser(turret));
         if (left < 0F) return -1F;
         if (met.isPresent() && target instanceof LivingEntity living) left = HeadDamage.beamDamage(left, living, new EntityHitResult(target, at));
         return left;
+    }
+
+    // a Maxwell's maser is a laser (BeamLasers): through glass; a Tauon's tau is not
+    static boolean laser(BlockEntityTurretBaseNT turret) {
+        return turret instanceof BlockEntityTurretMaxwell;
     }
 
     // the round a Tauon fires (its threshold negation and armour piercing go into the piercing), a Maxwell none

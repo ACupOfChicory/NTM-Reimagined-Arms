@@ -1,6 +1,7 @@
 {
   "key.category.ntmgunfeel.main": "NTM Reimagined Arms",
   "key.ntmgunfeel.ammo_lock": "Lock ammo type",
+  "key.ntmgunfeel.prone": "Lie down / get up",
   "key.ntmgunfeel.editor": "Gun editor (hands, recoil)",
   "message.ntmgunfeel.ammo_locked": "Ammo locked: %s",
   "message.ntmgunfeel.ammo_unlocked": "Ammo unlocked",
@@ -26,6 +27,7 @@
   "ntmgunfeel.feature.spectator": "No guns in spectator mode",
   "ntmgunfeel.feature.gl54": "GL-54 grenade launcher",
   "item.ntmgunfeel.gun_gl54": "GL-54",
+  "ntmgunfeel.feature.prone": "Lying down",
   "ntmgunfeel.compat.title": "NTM version %s is not tested, the last supported one is %s",
   "ntmgunfeel.compat.all_on": "Everything checked still fits this NTM, all systems are on. Something may still behave oddly.",
   "ntmgunfeel.compat.off": "These systems do not fit this NTM and are turned off:",

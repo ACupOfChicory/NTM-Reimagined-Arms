@@ -1,6 +1,7 @@
 {
   "key.category.ntmgunfeel.main": "NTM Reimagined Arms",
   "key.ntmgunfeel.ammo_lock": "Закрепить тип патронов",
+  "key.ntmgunfeel.prone": "Лечь / встать",
   "key.ntmgunfeel.editor": "Редактор пушки (руки, отдача)",
   "message.ntmgunfeel.ammo_locked": "Патроны закреплены: %s",
   "message.ntmgunfeel.ammo_unlocked": "Патроны откреплены",
@@ -26,6 +27,7 @@
   "ntmgunfeel.feature.spectator": "Без пушек в режиме наблюдателя",
   "ntmgunfeel.feature.gl54": "Гранатомёт GL-54",
   "item.ntmgunfeel.gun_gl54": "GL-54",
+  "ntmgunfeel.feature.prone": "Лёжа",
   "ntmgunfeel.compat.title": "Версия NTM %s не протестирована, последняя поддерживаемая — %s",
   "ntmgunfeel.compat.all_on": "Всё проверенное подходит к этой версии NTM, все системы включены. Что-то всё равно может работать странно.",
   "ntmgunfeel.compat.off": "Эти системы не подходят к этой версии NTM и отключены:",

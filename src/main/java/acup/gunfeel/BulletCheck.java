@@ -67,6 +67,15 @@ public final class BulletCheck {
     private static BulletConfig round;
     private static BulletConfig beamRound;
     private static int lane;
+    // the lasers' and water's lanes (zombieBeam, waterReach) in rows of their own under the lanes, in the same chunks
+    // (loaded, so a zombie there is in the world): more lanes would move the later ones up into FenceAirCheck's place
+    private static int ownLane;
+
+    private static BlockPos ownLane(int dz) {
+        BlockPos at = new BlockPos(2 + 4 * (ownLane % 16), Y - 40 + 4 * (ownLane / 16), Z + dz);
+        ownLane++;
+        return at;
+    }
 
     private static boolean run(List<String> out, MinecraftServer server) throws Exception {
         lines = out;
@@ -214,7 +223,8 @@ public final class BulletCheck {
                 maxGlass = turret("hbm:turret_maxwell", "minecraft:glass");
         check("turret: a Maxwell sees a golem in the open and hurts it (" + maxOpen[1] + ")", true, maxOpen[0] > 0 && maxOpen[1] > 0);
         check("turret: a Maxwell sees a golem behind a wall bullets fly through (" + maxStone[1] + ")", true, maxStone[0] > 0 && maxStone[1] > 0);
-        check("turret: a Maxwell's 0.25 does not pierce glass: no sight, no hit", true, maxGlass[0] == 0 && maxGlass[1] == 0);
+        check("turret: a Maxwell's maser goes through glass as a laser: as in the open (" + maxGlass[1] + ")", true,
+                maxGlass[0] > 0 && maxGlass[1] == maxOpen[1]);
         float arcOpen = arc(null, false), arcGlass = arc("minecraft:glass", false), arcStone = arc("minecraft:stone", false),
                 arcConcrete = arc("hbm:concrete_smooth", false), arcCoil = arc(null, true);
         check("tesla: an arc through glass hurts less than in the open, but some (" + arcGlass + " of " + arcOpen + ")", true,
@@ -222,7 +232,74 @@ public final class BulletCheck {
         check("tesla: an arc through a wall bullets fly through hurts as in the open (" + arcStone + ")", arcOpen, arcStone);
         check("tesla: no arc through concrete", 0F, arcConcrete);
         check("tesla: an arc from a real coil is not stopped by the coil itself (" + arcCoil + ")", true, arcCoil > 0);
+        // ---- lasers through glass (BeamLasers), beams in water (BeamWater): a fresh zombie hit once at 1.2 over its feet
+        BulletConfig las = com.hbm.items.weapon.sedna.factory.XFactoryEnergy.energy_las,
+                lasIr = com.hbm.items.weapon.sedna.factory.XFactoryEnergy.energy_las_ir,
+                arcBolt = com.hbm.items.weapon.sedna.factory.XFactoryAccelerator.ni4ni_arc;
+        float[] lasOpen = zombieBeam(las, 6F, null, 0), lasGlass = zombieBeam(las, 6F, "minecraft:glass", 1),
+                lasPane = zombieBeam(las, 6F, "minecraft:glass_pane[east=true,west=true]", 1),
+                lasLaminate = zombieBeam(las, 6F, "hbm:reinforced_laminate", 1), lasBoron = zombieBeam(las, 6F, "hbm:glass_boron", 3),
+                lasConcrete = zombieBeam(las, 6F, "hbm:concrete_smooth", 1);
+        float[] arcOpen6 = zombieBeam(arcBolt, 6F, null, 0), arcGlass6 = zombieBeam(arcBolt, 6F, "minecraft:glass", 1);
+        lines.add("     zombie, one beam of 6: laser open " + lasOpen[0] + ", behind glass " + lasGlass[0] + ", pane " + lasPane[0] + ", laminate "
+                + lasLaminate[0] + ", 3 boron glass " + lasBoron[0] + ", concrete " + lasConcrete[0] + "; N.I.4.N.I. open " + arcOpen6[0]
+                + ", behind glass " + arcGlass6[0]);
+        check("laser: a zombie behind glass takes as much as in the open (" + lasGlass[0] + ")", lasOpen[0], lasGlass[0]);
+        check("laser: the glass is left whole and unworn", 1F, lasGlass[2]);
+        check("laser: a zombie behind a glass pane takes as much as in the open", lasOpen[0], lasPane[0]);
+        check("laser: a zombie behind bulletproof laminate takes as much as in the open", lasOpen[0], lasLaminate[0]);
+        check("laser: a zombie behind 3 blocks of NTM's boron glass takes as much as in the open", lasOpen[0], lasBoron[0]);
+        check("laser: concrete stops it as before", 0F, lasConcrete[0]);
+        check("not a laser (N.I.4.N.I.): a zombie behind glass takes less than in the open, but some (" + arcGlass6[0] + " of " + arcOpen6[0] + ")",
+                true, arcGlass6[0] > 0F && arcGlass6[0] < arcOpen6[0]);
+        check("not a laser: the glass is worn", 0F, arcGlass6[2]);
+        BlockPos lasPaneAt = ownLane(0);
+        level.setBlock(lasPaneAt, state("minecraft:glass"), Block.UPDATE_CLIENTS);
+        for (int i = 0; i < 4; i++) beamAt(las, lasPaneAt, .5, .5, 6F, 6);
+        check("laser: four beams of 6 (two would break it as bullets) leave the glass", "minecraft:glass", after(lasPaneAt));
+        BlockPos arcPaneAt = ownLane(0);
+        level.setBlock(arcPaneAt, state("minecraft:glass"), Block.UPDATE_CLIENTS);
+        for (int i = 0; i < 2; i++) beamAt(arcBolt, arcPaneAt, .5, .5, 6F, 6);
+        check("not a laser: two beams of 6 break the glass", "minecraft:air", after(arcPaneAt));
+        float[] irGlass = zombieBeam(lasIr, 6F, "minecraft:glass", 1);
+        check("infrared laser (its own impact): through glass, the zombie is hit and set alight (" + irGlass[0] + ")", true,
+                irGlass[0] > 0F && irGlass[3] > 0F);
+        check("infrared laser: the glass is left whole and unworn", 1F, irGlass[2]);
+        float[] w1 = zombieBeam(las, 15F, "minecraft:water", 1), w3 = zombieBeam(las, 15F, "minecraft:water", 3),
+                w8 = zombieBeam(las, 15F, "minecraft:water", 8), wOpen = zombieBeam(las, 15F, null, 0);
+        lines.add("     zombie, one laser of 15 through water: open " + wOpen[0] + ", 1 block " + w1[0] + ", 3 blocks " + w3[0] + ", 8 blocks " + w8[0]
+                + " (beam " + w8[1] + " long, from 1.5 before the water)");
+        check("water: 1 block leaves ~0.61 of the damage (" + w1[0] / wOpen[0] + ")", true, Math.abs(w1[0] / wOpen[0] - Math.exp(-0.5)) < .05);
+        check("water: 3 blocks leave ~0.22 (" + w3[0] / wOpen[0] + ")", true, Math.abs(w3[0] / wOpen[0] - Math.exp(-1.5)) < .04);
+        check("water: 8 blocks put it out, the zombie takes nothing", 0F, w8[0]);
+        check("water: the beam ends 4.6 blocks into the water (" + w8[1] + ")", true, Math.abs(w8[1] - (1.5 + 2 * Math.log(10))) < .02);
+        float reach3 = waterReach(3), reach8 = waterReach(8);
+        check("water: a turret's beam of 30 through 3 blocks has ~6.7 (" + reach3 + ")", true, Math.abs(reach3 - 30 * Math.exp(-1.5)) < .01);
+        check("water: a turret's beam does not get through 8 blocks", -1F, reach8);
+        float[] w3Arc = zombieBeam(arcBolt, 15F, "minecraft:water", 3);
+        check("water: not a laser loses the same (" + w3Arc[0] + " of " + wOpen[0] + ")", true, Math.abs(w3Arc[0] / wOpen[0] - Math.exp(-1.5)) < .04);
+
+        // the mobs' laser shots (bullets, BeamLasers): BOT Prime's laser through glass, a plain bullet for the difference
+        BulletConfig worm = com.hbm.items.weapon.sedna.factory.XFactoryNPC.worm_laser;
+        float[] wormOpen = zombieShot(worm, 6F, null), wormGlass = zombieShot(worm, 6F, "minecraft:glass"),
+                wormLaminate = zombieShot(worm, 6F, "hbm:reinforced_laminate"), plainOpen = zombieShot(round, 6F, null),
+                plainGlass = zombieShot(round, 6F, "minecraft:glass");
+        lines.add("     zombie, one shot of 6: worm_laser open " + wormOpen[0] + ", behind glass " + wormGlass[0] + ", laminate " + wormLaminate[0]
+                + "; plain bullet open " + plainOpen[0] + ", behind glass " + plainGlass[0]);
+        check("mob laser shot: a zombie behind glass takes as much as in the open (" + wormGlass[0] + ")", true, wormOpen[0] > 0F && wormGlass[0] == wormOpen[0]);
+        check("mob laser shot: the glass is left whole and unworn", 1F, wormGlass[1]);
+        check("mob laser shot: a zombie behind bulletproof laminate takes as much as in the open", wormOpen[0], wormLaminate[0]);
+        check("plain bullet: a zombie behind glass takes less than in the open (" + plainGlass[0] + " of " + plainOpen[0] + "), glass worn", true,
+                plainGlass[0] < plainOpen[0] && plainGlass[1] == 0F);
+
         Path beamFile = FMLPaths.CONFIGDIR.get().resolve(ReaimTimes.FILE);
+        Files.writeString(beamFile, BeamLasers.KEY + " = false\n" + BeamWater.KEY + " = false\n");
+        Thread.sleep(2100);
+        float[] lasOff = zombieBeam(las, 6F, "minecraft:glass", 1);
+        check("laserGlass off: a laser loses in glass and wears it as a bullet", true, lasOff[0] < lasOpen[0] && lasOff[2] == 0F);
+        float[] wormOff = zombieShot(worm, 6F, "minecraft:glass");
+        check("laserGlass off: a mob's laser shot loses in glass and wears it as a bullet", true, wormOff[0] < wormOpen[0] && wormOff[1] == 0F);
+        check("beamWater off: through 8 blocks of water as in the open", wOpen[0], zombieBeam(las, 15F, "minecraft:water", 8)[0]);
         Files.writeString(beamFile, BeamServer.KEY + " = false\n");
         Thread.sleep(2100);
         beam = beamShot(single("minecraft:glass"), .5, .5, 30F);
@@ -700,6 +777,82 @@ public final class BulletCheck {
         b.damage = damage;
         for (int i = 0; i < 3 && !b.isRemoved(); i++) b.tick();
         return new Shot(!b.isRemoved(), b.damage, b.getZ(), BuiltInRegistries.BLOCK.getKey(level.getBlockState(at).getBlock()).toString());
+    }
+
+    // a beam of NTM's round `cfg` from 1.5 blocks before the block along +z at (fx, fy) of it, `length` blocks long
+    private static com.hbm.entity.projectile.EntityBulletBeamBase beamAt(BulletConfig cfg, BlockPos at, double fx, double fy, float damage, double length) {
+        var beam = new com.hbm.entity.projectile.EntityBulletBeamBase(level, cfg, damage);
+        beam.setPos(new net.minecraft.world.phys.Vec3(at.getX() + fx, at.getY() + fy, at.getZ() - 1.5));
+        beam.setRotationsFromVector(new net.minecraft.world.phys.Vec3(0, 0, 1));
+        beam.performHitscanExternal(length);
+        beam.discard();
+        return beam;
+    }
+
+    // a fresh zombie (no AI) on a lane, `n` blocks of `wall` (null: none; minecraft:water: still water) right before it
+    // at the beam's height, one beam of `cfg` and `damage` at it 1.2 over its feet from 1.5 blocks before them: {the
+    // health it lost, how long the beam is, 1 if the blocks are left whole and unworn else 0, NTM's fire on it}
+    private static float[] zombieBeam(BulletConfig cfg, float damage, @org.jspecify.annotations.Nullable String wall, int n) {
+        BlockPos at = ownLane(8);
+        boolean water = "minecraft:water".equals(wall);
+        for (int i = 1; i <= n && wall != null; i++)
+            level.setBlock(at.north(i).above(), water ? net.minecraft.world.level.block.Blocks.WATER.defaultBlockState() : state(wall), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+        var z = net.minecraft.world.entity.EntityTypes.ZOMBIE.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        z.setPos(at.getX() + .5, at.getY(), at.getZ() + .5);
+        z.setNoAi(true);
+        z.setNoGravity(true);
+        level.addFreshEntity(z);
+        float before = z.getHealth();
+        Object wear = BulletServer.wearNow();
+        var beam = beamAt(cfg, at.north(n), .5, 1.2, damage, n + 4);
+        boolean whole = wear.equals(BulletServer.wearNow());
+        for (int i = 1; i <= n && wall != null; i++) whole &= level.getBlockState(at.north(i).above()).equals(water ? net.minecraft.world.level.block.Blocks.WATER.defaultBlockState() : state(wall));
+        BulletServer.wearBack(wear);
+        float took = before - z.getHealth();
+        float fire = com.hbm.extprop.HbmLivingProps.getData(z).fire;
+        z.discard();
+        // air, not removeBlock: that leaves water where water was
+        for (int i = 1; i <= n; i++) level.setBlock(at.north(i).above(), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+        return new float[] {took, (float) beam.getBeamLength(), whole ? 1F : 0F, fire};
+    }
+
+    // a fresh zombie (no AI) on a lane, `wall` (null: none) right before it at 1.2 over its feet, one bullet of `cfg`
+    // and `damage` at that height from 2.5 blocks before it, ticked till it is gone (20 ticks at most): {the health it
+    // lost, 1 if the block is left whole and unworn else 0}
+    private static float[] zombieShot(BulletConfig cfg, float damage, @org.jspecify.annotations.Nullable String wall) {
+        BlockPos at = ownLane(8);
+        if (wall != null) level.setBlock(at.north().above(), state(wall), Block.UPDATE_CLIENTS);
+        var z = net.minecraft.world.entity.EntityTypes.ZOMBIE.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        z.setPos(at.getX() + .5, at.getY(), at.getZ() + .5);
+        z.setNoAi(true);
+        z.setNoGravity(true);
+        level.addFreshEntity(z);
+        float before = z.getHealth();
+        Object wear = BulletServer.wearNow();
+        EntityBulletBaseMK4 b = new EntityBulletBaseMK4(level, cfg, 1F, 0F, 0F, 0F);
+        b.setPos(at.getX() + .5, at.getY() + 1.2, at.getZ() - 2.5);
+        b.setThrowableHeading(0, 0, 1, Math.max(cfg.velocity, 1F), 0F);
+        b.damage = damage;
+        level.addFreshEntity(b);
+        for (int i = 0; i < 20 && !b.isRemoved(); i++) b.tick();
+        b.discard();
+        boolean whole = wear.equals(BulletServer.wearNow()) && (wall == null || level.getBlockState(at.north().above()).equals(state(wall)));
+        BulletServer.wearBack(wear);
+        float took = before - z.getHealth();
+        z.discard();
+        level.setBlock(at.north().above(), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+        return new float[] {took, whole ? 1F : 0F};
+    }
+
+    // a beam with no entity of its own (a turret's) of 30 along a lane through `n` blocks of still water and 2 of air:
+    // the damage it has beyond them, or -1 when it is gone in them
+    private static float waterReach(int n) {
+        BlockPos at = ownLane(0);
+        for (int i = 0; i < n; i++) level.setBlock(at.south(i), net.minecraft.world.level.block.Blocks.WATER.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+        net.minecraft.world.phys.Vec3 from = new net.minecraft.world.phys.Vec3(at.getX() + .5, at.getY() + .5, at.getZ() - 1.5);
+        float left = BeamServer.reach(level, null, from, from.add(0, 0, n + 3.5), 30F, null, true, null);
+        for (int i = 0; i < n; i++) level.setBlock(at.south(i), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+        return left;
     }
 
     // the health a fresh iron golem (no AI) loses to an NTM beam of 30 at its middle, with a plank before it or not

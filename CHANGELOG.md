@@ -1,5 +1,61 @@
 # Changelog
 
+## X592
+
+- `beamWater` (server, on; with `beamRules`): beams lose damage in water and
+  then go out. Every beam and arc `beamRules` covers (the guns', the Tauon and
+  Maxwell turrets', the Tesla arcs) keeps exp(-s / `beamWaterLength`) of its
+  damage after s blocks of water, and is gone where less than `beamWaterFade`
+  is left: it ends there and hits nothing behind. With the defaults (2 and
+  0.1), 1 block of water leaves 0.61 of the damage, 3 blocks 0.22, and a beam
+  is gone after 4.6 blocks. A falling stream counts 0.15 of its path, as for
+  bullets. A turret or a Tesla coil does not see a target its beam would not
+  reach through water. Off: beams go through water untouched, as in NTM.
+- `laserGlass` (server, on): lasers go through glass of any kind (vanilla
+  glass and panes, NTM's glass, wired glass, laminate, machine windows)
+  without breaking, wearing or holing it and without losing damage. With
+  `beamRules`, these are the beams of the Laser Pistol, Pew Pew, Laser Rifle,
+  Morning Glory and Lacunae (the infrared rounds too), the laser grenade, the
+  Shredder's plasma beam (its slow drops come out where the beam stops and
+  meet glass as bullets do) and the Maxwell turret; and always the flying laser
+  shots of NTM's mobs: the masked man's bolt, tracer and orb, BOT Prime's and
+  the UFO's bolt and laser. The Tesla Cannon and arcs, Tau, the Tauon turret,
+  the N.I.4.N.I. and the Aberrator still meet glass as bullets do. A Maxwell
+  without damage upgrades now sees and hits through glass.
+
+## X589
+
+- NTM's power armour (T-51, AJR, AJRO, RPA, NCRPA, BJ, Envsuit, HEV, FAU, DNS)
+  now also halves the living spread: what walking, sprinting, jumping and a
+  held-down burst add to a shot's spread. Standing still the gun is as
+  accurate as without it; sneaking, crawling and aiming lower it as before. The
+  chestplate is enough, charged or not. Server key `powerArmorSpread` in
+  `ntm-gunfeel-server.properties` (0.5; 1 turns it off). Walking with a G3
+  from the hip, for example, now spreads 2.0 degrees instead of 2.6, and a
+  held-down burst 0.36 instead of 0.72.
+
+## X587
+
+- Lying down on X (TaCZ's crawl): a press lies down, the next gets up
+  (`proneHold = true`: only while the key is held). The player takes vanilla's
+  crawling pose, as under a trapdoor: a box 0.6 high, a third of the walking
+  speed, the model lying, and bullets meet that model. Only on the ground; a
+  jump, water, a ride or gliding gets the player up. With an NTM gun or
+  without one. The key is in Controls ("NTM Reimagined Arms"); NTM keeps C for
+  its jetpack and Z for its magnet. X also loads a creative hotbar with a
+  number key: pressed that way it lies down too, as TaCZ's C does with its
+  save.
+- Lying, the spread is half the standing one (`spreadCrawl` 0.55 → 0.5, as
+  TaCZ's lie against its stand), and crawling along adds no walking spread;
+  this also holds crawling under a trapdoor.
+- Lying, all recoil is halved (`proneRecoil`, client, 0.5 as TaCZ's crawl;
+  1 = off): the camera, the gun model and NTM's recoil animation. With power
+  armor both count; on a server with `cameraScaleMin`, together no lower than
+  half.
+- Lying, the view turns up to 45 degrees and down to 30 (`proneMaxUp`,
+  `proneMaxDown`, server). Server keys `prone` and `proneWithoutGun` (both
+  on) turn lying down off, or allow it only with a gun in hand.
+
 ## X584
 
 - `beamRules`: a beam (a gun's, a turret's or a Tesla arc) stopped after

@@ -119,7 +119,8 @@ public abstract class MixinThrowableHit {
         // water first: blocks past where it stops or skips the bullet are not met (WaterTick)
         Vec3 to = acup.gunfeel.water.WaterTick.path(bullet, level, context.getFrom(), context.getTo());
         BlockHitResult hit;
-        if (level.isClientSide()) hit = PassableClip.clip(level, context.getFrom(), to);
+        // a mob's laser shot goes through glass (BeamLasers)
+        if (level.isClientSide()) hit = acup.gunfeel.BeamLasers.clip(level, bullet.config, context.getFrom(), to);
         else {
             // blocks it pierced (bullet rules "pierce"), kept between ticks: one it stopped inside of is not paid twice
             if (gunfeel$pierced == null) gunfeel$pierced = new java.util.HashSet<>();
