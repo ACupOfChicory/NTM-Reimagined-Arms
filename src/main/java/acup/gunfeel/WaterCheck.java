@@ -24,8 +24,9 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 // How bullets behave in water, measured on a dedicated server with no client (a dev run only:
 // ./gradlew runCheckWater -PnoAssets). -Dntmgunfeel.checkWater=<file.tsv>: the server builds a stone basin with still
 // water, fires NTM bullets (no shooter, ticked by hand) of each water class and writes one tsv line per measurement:
-// how deep a shot down stops, what share of its damage a golem under the water takes, the skip at 3 and 10 degrees,
-// a shot from under the water along and up. Without the property nothing is registered.
+// how deep a shot down stops, what share of its damage a golem under the water takes, both again with the water met
+// late in the first tick (so they fall in the second), the skip at 3 and 10 degrees and the tick after it, a shot from
+// under the water along and up. Without the property nothing is registered.
 public final class WaterCheck {
     public static final String PROPERTY = "ntmgunfeel.checkWater";
 
@@ -91,6 +92,7 @@ public final class WaterCheck {
             downStop(wc, c, ammo);
             golem(wc, c, ammo, 0.5);
             golem(wc, c, ammo, 1.0);
+            twoTicks(wc, c, ammo, true);
             skip(wc, c, ammo, 3, true);
             skip(wc, c, ammo, 10, false);
             below(wc, c, ammo);
@@ -106,6 +108,7 @@ public final class WaterCheck {
             WaterClass wc = WaterClass.of(c);
             lines.add("#\t" + wc + "\t" + name + "\texpansion " + WaterClass.Expansion.of(name));
             downStop(wc, c, name);
+            twoTicks(wc, c, name, !name.startsWith("ammo_standard_r556"));
             if (!name.startsWith("ammo_standard_r556")) {
                 golem(wc, c, name, 0.5);
                 golem(wc, c, name, 1.0);
@@ -170,13 +173,59 @@ public final class WaterCheck {
     private static EntityBulletBaseMK4 bullet(BulletConfig c, Vec3 at, Vec3 dir) {
         EntityBulletBaseMK4 b = new EntityBulletBaseMK4(level, c, 1F, 0F, 0F, 0F);
         b.setPos(at.x, at.y, at.z);
-        b.setThrowableHeading(dir.x, dir.y, dir.z, c.velocity, 0F);
+        // a unit heading, as NTM fires it: the step a tick is motionMult's (the config's velocity × bulletSpeed), so
+        // the shots below run over several ticks and carry f, the stop and the damage scale from tick to tick (with
+        // the velocity here too the step was velocity² × bulletSpeed, and all of it fell in the first tick)
+        b.setThrowableHeading(dir.x, dir.y, dir.z, 1F, 0F);
         b.damage = DAMAGE;
         return b;
     }
 
-    private static void tickAll(EntityBulletBaseMK4 b) {
-        for (int i = 0; i < 40 && !b.isRemoved(); i++) b.tick();
+    // ticks until the bullet is gone (at most 40): how many it took
+    private static int tickAll(EntityBulletBaseMK4 b) {
+        int i = 0;
+        while (i < 40 && !b.isRemoved()) {
+            b.tick();
+            i++;
+        }
+        return i;
+    }
+
+    // how far the bullet goes in one tick in the air
+    private static double step(BulletConfig c) {
+        Vec3 from = new Vec3(1.5, surface + 30, CZ);
+        EntityBulletBaseMK4 b = bullet(c, from, new Vec3(1, 0, 0));
+        b.tick();
+        double d = b.position().distanceTo(from);
+        b.discard();
+        return d;
+    }
+
+    // the rows a and b again with the water met 0.3 before the end of the first tick, so the stop and the golem fall
+    // in the second: f, the opening and the damage scale carried over a tick (WaterTick.end, then the next path)
+    // golem: the b2 row too (where the b rows are)
+    private static void twoTicks(WaterClass wc, BulletConfig c, String ammo, boolean golem) {
+        double above = step(c) - 0.3;
+        var ex = WaterClass.Expansion.of(ammo);
+        EntityBulletBaseMK4 b = bullet(c, new Vec3(CX, surface + above, CZ), new Vec3(0, -1, 0));
+        int ticks = tickAll(b);
+        double got = b.isRemoved() ? surface - b.getY() : Double.NaN;
+        double want = stopDepth(wc, ex);
+        rowFlag("a2: shot down, stop depth in the 2nd tick", wc, ammo, fmt(want) + ", 2 ticks", fmt(got) + ", " + ticks + " ticks",
+                ticks == 2 && Math.abs(got - want) <= .1, "from " + fmt(above) + " over");
+        if (!golem) return;
+        double depth = Math.min(1.0, want - 0.2);
+        if (depth <= 0.3) return; // stops before a golem under 0.3 of water would be in the second tick
+        var type = net.minecraft.world.entity.EntityTypes.IRON_GOLEM;
+        var probe = type.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        double top = probe.getBbHeight() + 0.3; // NTM inflates the hitbox by 0.3
+        probe.discard();
+        double feet = surface - depth - top;
+        double air = bodyTook(type, c, feet, DAMAGE, false, above);
+        double wet = bodyTook(type, c, feet, DAMAGE, true, above);
+        double share = air > 0 ? wet / air : Double.NaN;
+        row("b2: golem share at depth " + fmt(depth) + " in the 2nd tick", wc, ammo, Math.exp(-2 * WaterPath.drag(wc.length, ex, depth)), share, .01,
+                "air=" + fmt(air) + " wet=" + fmt(wet));
     }
 
     private static double f(EntityBulletBaseMK4 b) {
@@ -202,8 +251,8 @@ public final class WaterCheck {
         double top = probe.getBbHeight() + 0.3; // NTM inflates the hitbox by 0.3
         probe.discard();
         double feet = surface - depth - top;
-        double air = bodyTook(type, c, feet, DAMAGE, false);
-        double wet = bodyTook(type, c, feet, DAMAGE, true);
+        double air = bodyTook(type, c, feet, DAMAGE, false, 3);
+        double wet = bodyTook(type, c, feet, DAMAGE, true, 3);
         double share = air > 0 ? wet / air : Double.NaN;
         var ex = WaterClass.Expansion.of(ammo);
         double want = depth < stopDepth(wc, ex) ? Math.exp(-2 * WaterPath.drag(wc.length, ex, depth)) : 0;
@@ -213,14 +262,14 @@ public final class WaterCheck {
     }
 
     private static double bodyTook(net.minecraft.world.entity.EntityType<? extends net.minecraft.world.entity.LivingEntity> type,
-            BulletConfig c, double feet, float damage, boolean water) {
+            BulletConfig c, double feet, float damage, boolean water, double above) {
         double gx = water ? CX : 1.5;
         var g = type.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
         g.setPos(gx, feet, CZ);
         if (g instanceof net.minecraft.world.entity.Mob m) m.setNoAi(true);
         g.setNoGravity(true);
         boolean added = level.addFreshEntity(g);
-        EntityBulletBaseMK4 b = bullet(c, new Vec3(gx, surface + 3, CZ), new Vec3(0, -1, 0));
+        EntityBulletBaseMK4 b = bullet(c, new Vec3(gx, surface + above, CZ), new Vec3(0, -1, 0));
         b.damage = damage;
         String where = "added=" + added + " found=" + (level.getEntity(g.getUUID()) != null) + " box=" + g.getBoundingBox();
         float before = g.getHealth();
@@ -235,16 +284,28 @@ public final class WaterCheck {
 
     // a shot at a shallow angle to the surface from the side: 3 degrees skips once with f 0.7, 10 does not
     private static void skip(WaterClass wc, BulletConfig c, String ammo, int deg, boolean skips) {
-        double r = Math.toRadians(deg), run = 10;
+        // aimed at the middle of a cell, not at its edge (CX), where the walk may meet the water by the side face of
+        // the next cell just under the surface (as the ports)
+        double r = Math.toRadians(deg), run = 10, x = CX + 0.5;
         Vec3 dir = new Vec3(Math.cos(r), -Math.sin(r), 0);
-        EntityBulletBaseMK4 b = bullet(c, new Vec3(CX - run, surface + run * Math.tan(r), CZ), dir);
-        b.tick();
+        EntityBulletBaseMK4 b = bullet(c, new Vec3(x - run, surface + run * Math.tan(r), CZ + 0.5), dir);
         WaterBullet w = (WaterBullet) b;
+        // up to the tick that meets the water: a slow bullet takes more than one to the 10 blocks
+        for (int i = 0; i < 10 && !b.isRemoved() && w.gunfeel$waterSkips() == 0 && b.getY() >= surface; i++) b.tick();
         double dy = b.getDeltaMovement().y;
         String note = "removed=" + b.isRemoved() + " y-surface=" + fmt(b.getY() - surface) + " dy=" + fmt(dy) + " f=" + fmt(w.gunfeel$waterF());
         if (skips) {
             boolean good = !b.isRemoved() && b.getY() >= surface - 1e-6 && dy > 0 && w.gunfeel$waterSkips() == 1;
             rowFlag("c: skip at " + deg + " deg: skips", wc, ammo, "1, up, f=0.7", w.gunfeel$waterSkips() + ", dy " + fmt(dy), good && Math.abs(w.gunfeel$waterF() - 0.7) < .02, note);
+            // the tick after: motionMult × f, NTM's velocity, bulletSpeed (MixinBulletServer) and water's f
+            // (MixinWaterBullet) all at once, neither cancelling the other. For a round without gravity (all picked
+            // here): with it the heading is no longer unit after some ticks in the air, and this length is not step × f
+            if (!b.isRemoved()) {
+                double want = step(c) * w.gunfeel$waterF();
+                Vec3 from = b.position();
+                b.tick();
+                row("c: skip at " + deg + " deg: the next tick's length", wc, ammo, want, b.position().distanceTo(from), 1e-3, "air step × f");
+            }
         } else {
             boolean good = w.gunfeel$waterSkips() == 0 && (b.isRemoved() || b.getY() < surface);
             rowFlag("c: no skip at " + deg + " deg", wc, ammo, "0 skips, in the water", w.gunfeel$waterSkips() + ", y-surface " + fmt(b.getY() - surface), good, note);

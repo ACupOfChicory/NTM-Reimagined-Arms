@@ -48,8 +48,27 @@ public final class BulletServer {
     }
 
     private static final Map<Spot, Wear> WEAR = new HashMap<>();
+
+    // dev (NpcShotSmoke): every block as if no bullet had hit it yet
+    static void forgetWear() {
+        WEAR.clear();
+    }
     // 20 s at 20 TPS; game ticks, so a paused or slowed server does not forget it sooner
     private static final long FORGET_TICKS = 400L;
+
+    // NTM's old bullet (EntityBullet: the hunter chopper's, the cyber crab's) hit this block, as blockHit; it has no
+    // BulletConfig and no water: its damage and who fired it are given (LegacyBullets)
+    public static int blockHit(Entity bullet, @Nullable Entity owner, float damage, BlockHitResult hit) {
+        if (!(bullet.level() instanceof ServerLevel level)) return 0;
+        BlockPos pos = hit.getBlockPos().immutable();
+        BlockState state = level.getBlockState(pos);
+        if (state.isAir()) return 0;
+        BulletRules.Break rule = BulletRules.breakRule(state);
+        if (rule == null || rule.mode() == 0) return 0;
+        if (!wear(level, new Shooter(bullet.getId(), owner, damage), pos, state, rule, 1F)) return 0;
+        if (TestLog.server) TestLog.s(bullet.getId(), "end", "by", rule.pass() ? "broke_pass" : "broke", "block", state, "pos", pos, "at", hit.getLocation());
+        return rule.pass() ? 2 : 1;
+    }
 
     // the bullet hit this block: 0 = nothing happened, 1 = it broke and the bullet stops, 2 = it broke and the bullet
     // flies on
@@ -79,7 +98,7 @@ public final class BulletServer {
         BlockState rule = Cells.ruleState(level, hit.getBlockPos(), state);
         BulletRules.Sound s = BulletRules.hit(rule).sound();
         boolean steel = s != null && (s.id().startsWith("ntmgunfeel:bullet.hit.steel") || s.id().startsWith("ntmgunfeel:bullet.hit.metal"));
-        if (debugRicochet) acup.gunfeel.GunFeel.LOGGER.info("[sounddebug] server: ricochet off {} at {} (hit sound {}): {}",
+        if (debugRicochet) acup.gunfeel.DebugLog.LOGGER.info("[sounddebug] server: ricochet off {} at {} (hit sound {}): {}",
                 BuiltInRegistries.BLOCK.getKey(rule.getBlock()), hit.getBlockPos().toShortString(), s == null ? "none" : s.id(),
                 steel ? "our steel ricochet" : "NTM's ricochet sound");
         if (TestLog.server) TestLog.s(TestLog.shot(), "ricochet", "block", rule, "pos", hit.getBlockPos(), "material", TestLog.material(level, hit.getBlockPos()),
@@ -159,25 +178,35 @@ public final class BulletServer {
         return hit;
     }
 
-    private static void worn(EntityBulletBaseMK4 bullet, BlockPos pos, BlockState state, String result, Object... more) {
+    // the bullet that hits a block, as the block's wear needs it: its entity id (the test log), who fired it (null: a
+    // turret) and its damage (the test log's; the hit's is that times the water's share)
+    private record Shooter(int id, @Nullable Entity owner, float damage) {
+        static Shooter of(EntityBulletBaseMK4 bullet) { return new Shooter(bullet.getId(), bullet.getOwner(), bullet.damage); }
+    }
+
+    private static void worn(Shooter bullet, BlockPos pos, BlockState state, String result, Object... more) {
         if (!TestLog.server) return;
         Object[] kv = new Object[8 + more.length];
-        Object[] head = {"block", state, "pos", pos, "result", result, "damage", bullet.damage};
+        Object[] head = {"block", state, "pos", pos, "result", result, "damage", bullet.damage()};
         System.arraycopy(head, 0, kv, 0, 8);
         System.arraycopy(more, 0, kv, 8, more.length);
-        TestLog.s(bullet.getId(), "wear", kv);
+        TestLog.s(bullet.id(), "wear", kv);
     }
 
     // one hit on the block by its rule: true when it broke
     // k: the share of the bullet's damage left there (water, WaterTick.k)
     private static boolean wear(ServerLevel level, EntityBulletBaseMK4 bullet, BlockPos pos, BlockState state, BulletRules.Break rule, float k) {
-        float damage = bullet.damage * k;
+        return wear(level, Shooter.of(bullet), pos, state, rule, k);
+    }
+
+    private static boolean wear(ServerLevel level, Shooter bullet, BlockPos pos, BlockState state, BulletRules.Break rule, float k) {
+        float damage = bullet.damage() * k;
         float hardness = state.getDestroySpeed(level, pos);
         if (hardness < 0F) { // bedrock and the like
             worn(bullet, pos, state, "unbreakable");
             return false;
         }
-        Entity owner = bullet.getOwner();
+        Entity owner = bullet.owner();
         if (owner instanceof ServerPlayer player) {
             BreakBlockEvent event = player.mayBuild() ? new BreakBlockEvent(level, pos, state, player) : null;
             if (event != null) NeoForge.EVENT_BUS.post(event);

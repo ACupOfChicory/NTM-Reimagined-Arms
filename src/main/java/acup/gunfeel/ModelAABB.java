@@ -16,6 +16,11 @@ public final class ModelAABB extends AABB {
         this.entity = entity;
     }
 
+    // whose box this is (MixinLegacyBullet: where a bullet met which creature)
+    public Entity entity() {
+        return entity;
+    }
+
     private AABB plain() {
         return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
     }

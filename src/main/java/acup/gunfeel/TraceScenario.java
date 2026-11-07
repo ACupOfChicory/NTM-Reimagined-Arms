@@ -24,15 +24,23 @@ import net.minecraft.world.level.GameType;
 // began: two runs give the same trace (tools/trace_diff.py), and a port's run the same numbers.
 //   -Dntmgunfeel.scenario=arms            on (with -Dntmgunfeel.trace)
 //   -Dntmgunfeel.scenarioGuns=<id,...>    the guns (default: GUNS); "all": every NTM gun of the game
+//   -Dntmgunfeel.scenarioArmor=<set>[:off][:short] the armour stand (ArmLayers, PowerArmor): the player in a set
+//                                         (none; vanilla: dyed leather, a gold trim, a glint; hazmat; trench: NTM's
+//                                         Trenchmaster; t51: power armour), held still at the hip, at a turned camera
+//                                         both ways, aiming, one shot. ":off": armArmor off; ":short": armLength 0.5 at
+//                                         a fixed thickness of 1, so the arm is cut. The time of each part's frames
+//                                         and of the arm layers goes to the log ("armbench").
 final class TraceScenario {
     private static final String NAME = System.getProperty("ntmgunfeel.scenario");
     static final String GUNS = "hbm:gun_uzi,hbm:gun_g3,hbm:gun_henry,hbm:gun_light_revolver,hbm:gun_spas12,hbm:gun_maresleg";
-    private static final String[] PARTS = {"equip", "idle", "turn", "ads", "shot", "burst", "reload", "inspect"};
+    private static final String ARMOR = System.getProperty("ntmgunfeel.scenarioArmor");
+    private static final String[] PARTS = ARMOR != null ? new String[] {"equip", "idle", "yawL", "yawR", "ads", "shot"}
+            : new String[] {"equip", "idle", "turn", "ads", "shot", "burst", "reload", "inspect"};
     private static final int MAX_FRAMES = 1500, SETTLE_FRAMES = 250;
 
     private static final List<Item> guns = new ArrayList<>();
     private static int gun, part, frame, wait, next = -1;
-    private static long origin;
+    private static long origin, last, frameNanos, layerNanos;
     private static boolean given, done;
 
     private TraceScenario() {
@@ -58,6 +66,17 @@ final class TraceScenario {
                 if (item.isPresent() && item.get().value() instanceof ItemGunBaseNT) guns.add(item.get().value());
                 else ClientSmoke.check(false, "сценарий: нет пушки " + id);
             }
+        }
+        // in the run's own settings file: the values are applied again with each gun
+        try {
+            if (ARMOR != null && ARMOR.contains(":off")) Config.setInFile("armArmor", "false");
+            if (ARMOR != null && ARMOR.contains(":short")) {
+                Config.setInFile("armLength", "0.5");
+                Config.setInFile("armBaseRight", "1.0");
+                Config.setInFile("armBaseLeft", "1.0");
+            }
+        } catch (java.io.IOException e) {
+            ClientSmoke.check(false, "сценарий: не записать настройки " + e);
         }
         Trace.scenario = true;
         Trace.recording = false;
@@ -96,6 +115,7 @@ final class TraceScenario {
             ItemGunBaseNT.setTimer(stack, 0, 0);
             p.getInventory().setSelectedSlot(0);
             p.setItemInHand(InteractionHand.MAIN_HAND, stack);
+            if (ARMOR != null) wear(server, p, ARMOR.split(":")[0]);
             given = true;
         });
         wait = -1;
@@ -128,10 +148,16 @@ final class TraceScenario {
             return;
         }
         frame++;
+        long now = System.nanoTime();
+        frameNanos += now - last;
+        last = now;
+        layerNanos += ArmLayers.takeNanos();
         play(mc, player);
         if (finished() || frame >= MAX_FRAMES) {
             if (frame >= MAX_FRAMES) ClientSmoke.check(false, "сценарий: " + id() + " " + PARTS[part] + " не кончился за " + MAX_FRAMES + " кадров");
             Trace.recording = false;
+            if (ARMOR != null) GunFeel.LOGGER.info("armbench armor={} armArmor={} gun={} part={} frames={} frameMs={} layersMs={}", ARMOR,
+                    Config.armArmor, id(), PARTS[part], frame, frameNanos / 1e6 / frame, layerNanos / 1e6 / frame);
             if (part + 1 < PARTS.length) next = part + 1;
             else if (++gun < guns.size()) give();
             else end();
@@ -149,6 +175,9 @@ final class TraceScenario {
         Rng.seed(Trace.DEFAULT_SEED + gun * 100L + p);
         origin = FixedStep.now();
         Trace.recording = true;
+        last = System.nanoTime();
+        frameNanos = layerNanos = 0L;
+        ArmLayers.takeNanos();
         TestLog.c(-1, "segment", "gun", id(), "part", PARTS[p]);
         play(Minecraft.getInstance(), player);
     }
@@ -162,6 +191,9 @@ final class TraceScenario {
                 float k = f < 30 ? f / 30F : f < 60 ? 1F : Math.max(0F, 1F - (f - 60) / 30F);
                 look(player, -30F * k, 60F * k);
             }
+            // the hand pose of 26.2 is set in the world: the arms and what they wear seen with the camera turned
+            case "yawL" -> look(player, 30F, 135F);
+            case "yawR" -> look(player, -30F, -135F);
             case "ads" -> aim(f < 20 ? f / 20F : f < 40 ? 1F : Math.max(0F, 1F - (f - 40) / 20F));
             case "shot" -> { if (f == 0) sedna(player, GunAnimation.CYCLE, 0); }
             case "burst" -> { if (f == 0 || f == 10 || f == 20) sedna(player, GunAnimation.CYCLE, f); }
@@ -175,6 +207,7 @@ final class TraceScenario {
         int f = frame;
         return switch (PARTS[part]) {
             case "idle" -> f >= 30;
+            case "yawL", "yawR" -> f >= 20;
             case "turn" -> f >= 100;
             case "ads" -> f >= 70;
             case "burst" -> f >= 30 && settled();
@@ -203,6 +236,38 @@ final class TraceScenario {
         }
         TestLog.c(-1, "anim", "type", type);
         com.hbm.packet.toclient.HbmAnimationPayload.handleSedna(player, player.getMainHandItem(), player.getInventory().getSelectedSlot(), type, 0, 0);
+    }
+
+    // the stand's armour, all four pieces
+    private static void wear(net.minecraft.server.MinecraftServer server, ServerPlayer p, String set) {
+        net.minecraft.world.entity.EquipmentSlot[] slots = {net.minecraft.world.entity.EquipmentSlot.HEAD,
+                net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS,
+                net.minecraft.world.entity.EquipmentSlot.FEET};
+        String[] ids = switch (set) {
+            case "vanilla" -> new String[] {"minecraft:leather_helmet", "minecraft:leather_chestplate", "minecraft:leather_leggings", "minecraft:leather_boots"};
+            case "hazmat" -> new String[] {"hbm:hazmat_helmet", "hbm:hazmat_plate", "hbm:hazmat_legs", "hbm:hazmat_boots"};
+            case "trench" -> new String[] {"hbm:trenchmaster_helmet", "hbm:trenchmaster_plate", "hbm:trenchmaster_legs", "hbm:trenchmaster_boots"};
+            case "t51" -> new String[] {"hbm:t51_helmet", "hbm:t51_plate", "hbm:t51_legs", "hbm:t51_boots"};
+            default -> new String[4];
+        };
+        for (int k = 0; k < 4; k++) {
+            ItemStack stack = ItemStack.EMPTY;
+            if (ids[k] != null) {
+                var item = BuiltInRegistries.ITEM.get(Identifier.parse(ids[k]));
+                if (item.isEmpty()) ClientSmoke.check(false, "сценарий: нет брони " + ids[k]);
+                else stack = new ItemStack(item.get().value());
+            }
+            if (set.equals("vanilla") && !stack.isEmpty()) {
+                stack.set(net.minecraft.core.component.DataComponents.DYED_COLOR, new net.minecraft.world.item.component.DyedItemColor(0xB02E26));
+                stack.set(net.minecraft.core.component.DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+                var reg = server.registryAccess();
+                stack.set(net.minecraft.core.component.DataComponents.TRIM, new net.minecraft.world.item.equipment.trim.ArmorTrim(
+                        reg.lookupOrThrow(net.minecraft.core.registries.Registries.TRIM_MATERIAL).getOrThrow(net.minecraft.world.item.equipment.trim.TrimMaterials.GOLD),
+                        reg.lookupOrThrow(net.minecraft.core.registries.Registries.TRIM_PATTERN).getOrThrow(net.minecraft.world.item.equipment.trim.TrimPatterns.SENTRY)));
+            }
+            p.setItemSlot(slots[k], stack);
+        }
+        TestLog.c(-1, "armor", "set", set, "power", PowerArmor.worn(p), "armArmor", Config.armArmor);
     }
 
     private static void look(net.minecraft.client.player.LocalPlayer player, float pitch, float yaw) {

@@ -27,7 +27,7 @@ final class ExitWatch {
                 out.append('"').append(th.getName()).append("\" ").append(th.getState()).append('\n');
                 for (var s : e.getValue()) out.append("    at ").append(s).append('\n');
             }
-            GunFeel.LOGGER.error("[exitwatch] {}", out);
+            DebugLog.LOGGER.error("[exitwatch] {}", out);
             try {
                 Files.writeString(Path.of("exit-threads.txt"), out);
             } catch (Exception ignored) {

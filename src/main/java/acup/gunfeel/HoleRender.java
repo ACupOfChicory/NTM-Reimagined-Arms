@@ -85,7 +85,7 @@ public final class HoleRender {
         }
     }
 
-    private static RenderType create(String name, RenderSetup setup) {
+    public static RenderType create(String name, RenderSetup setup) {
         try {
             var m = RenderType.class.getDeclaredMethod("create", String.class, RenderSetup.class);
             m.setAccessible(true);

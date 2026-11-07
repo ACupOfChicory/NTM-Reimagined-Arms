@@ -415,7 +415,7 @@ public final class Grips {
             p.load(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8));
             for (String key : p.stringPropertyNames()) out.put(key, p.getProperty(key).trim());
         } catch (IOException | RuntimeException e) {
-            GunFeel.LOGGER.warn("Could not read the built-in gun settings", e);
+            DebugLog.LOGGER.warn("Could not read the built-in gun settings", e);
         }
         return out;
     }
@@ -460,7 +460,7 @@ public final class Grips {
             }
             merge();
         } catch (IOException | RuntimeException e) {
-            GunFeel.LOGGER.warn("Could not read {}", file, e);
+            DebugLog.LOGGER.warn("Could not read {}", file, e);
         }
     }
 
@@ -480,7 +480,7 @@ public final class Grips {
             stamp = Files.getLastModifiedTime(f).toMillis();
             dirty = false;
         } catch (IOException e) {
-            GunFeel.LOGGER.warn("Could not write {}", file, e);
+            DebugLog.LOGGER.warn("Could not write {}", file, e);
         }
     }
 }

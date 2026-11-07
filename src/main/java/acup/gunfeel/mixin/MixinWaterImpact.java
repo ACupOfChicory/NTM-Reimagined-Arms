@@ -9,7 +9,8 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import acup.gunfeel.water.WaterImpact;
 import net.minecraft.world.phys.HitResult;
 
-// Server: NTM's impact of a bullet in water (WaterImpact): b75_inc's small blast, no setting alight under water
+// Server: NTM's impact of a bullet, marked for the blasts it sets off (WaterImpact.impact, WaterBlast). What water changes
+// in it (b75_inc's small blast, no setting alight) is in its onImpact lambda: MixinExplosiveBullet, WaterImpact.lambda
 @Mixin(value = EntityBulletBaseMK4.class, remap = false)
 public abstract class MixinWaterImpact {
     @WrapMethod(method = "onImpact")

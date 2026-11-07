@@ -109,6 +109,8 @@ public final class WaterPath {
         net.minecraft.world.phys.@Nullable BlockHitResult fuzeHit;
         // the f the bullet's damage is counted at: the start's while the tick runs, the new f after it (WaterTick)
         double unit;
+        // the path starts in liquid (not on its surface coming in from the air)
+        boolean startsIn;
 
         Result(Vec3 from, Vec3 to, double water, double f, double opened, @Nullable Vec3 stop, @Nullable Skip skip, List<Event> events,
                 double f0, double length, WaterClass.@Nullable Expansion ex, double len, double[] spans, int count, Fluids fluids,
@@ -143,6 +145,11 @@ public final class WaterPath {
 
         public WaterClass cls() {
             return cls;
+        }
+
+        // the path starts in liquid; one starting right on its surface (the last tick ended there) comes in from outside
+        public boolean startsIn() {
+            return startsIn;
         }
 
         // the parts of the path in liquid, in order: {from, to} each (bubbles go along them)
@@ -265,12 +272,13 @@ public final class WaterPath {
         Cell prevCell = null;
         Vec3 stop = null;
         Skip skip = null;
+        boolean startsIn = false;
         for (double[] r : raw) {
             double ta = r[0], tb = r[1];
             int x = (int) r[2], y = (int) r[3], z = (int) r[4];
             Cell c = w.at(x, y, z);
             if (c == null) continue;
-            boolean entering = Double.isNaN(prevEnd) ? ta > EPS : ta > prevEnd + EPS;
+            boolean entering = Double.isNaN(prevEnd) ? ta > EPS || !inside(w, from.subtract(dir.scale(BEHIND))) : ta > prevEnd + EPS;
             if (entering && prev != null) {
                 // left the liquid before this span: out through the previous span's exit face
                 events.add(event(w, Type.EXIT, from.add(d.scale(prevEnd)), Direction.from3DDataValue((int) prev[6]), fNow, cls,
@@ -278,6 +286,12 @@ public final class WaterPath {
             }
             Vec3 at = from.add(d.scale(ta));
             Direction in = Direction.from3DDataValue((int) r[5]);
+            // a tick that ended right on the surface (a zero-length entry is no span) starts the next one there: it
+            // comes in now, through the face it starts on
+            if (Double.isNaN(prevEnd) && ta <= EPS) {
+                if (entering) in = startFace(from, dir, x, y, z, c.height(), EPS * len);
+                else startsIn = true;
+            }
             if (c.liquid() == Liquid.LAVA || cls.length <= 0) {
                 // burns up / goes out where it meets it (or where it is, fired inside)
                 span(spans, count++, ta, ta, 0, fNow, uNow);
@@ -329,7 +343,32 @@ public final class WaterPath {
             events.add(event(w, Type.EXIT, from.add(d.scale(prevEnd)), Direction.from3DDataValue((int) prev[6]), fNow, cls, prevCell,
                     (int) prev[2], (int) prev[3], (int) prev[4], dir, bullet));
         }
-        return result(from, to, water, fNow, uNow, stop, skip, events, f, opened, length, ex, len, spans, count, w, cls, bullet);
+        Result out = result(from, to, water, fNow, uNow, stop, skip, events, f, opened, length, ex, len, spans, count, w, cls, bullet);
+        out.startsIn = startsIn;
+        return out;
+    }
+
+    // how far behind a path's start to look whether it starts in liquid, blocks
+    private static final double BEHIND = 1e-5;
+
+    // the point is in a cell's liquid (under its surface)
+    private static boolean inside(Fluids w, Vec3 p) {
+        int x = Mth.floor(p.x), y = Mth.floor(p.y), z = Mth.floor(p.z);
+        Cell c = w.at(x, y, z);
+        return c != null && c.height() > 0 && p.y - y <= c.height();
+    }
+
+    // the face of the cell's liquid (x..x+1, y..y+h, z..z+1) a path starting on it comes in through; `near` is how far
+    // off a face a start still counts as on it, the same as the span's start (ta ≤ EPS, of the path's length)
+    private static Direction startFace(Vec3 from, Vec3 dir, int x, int y, int z, double h, double near) {
+        double e = Math.max(1e-6, near + 1e-9);
+        if (dir.y < 0 && Math.abs(from.y - (y + h)) < e) return Direction.UP;
+        if (dir.y > 0 && Math.abs(from.y - y) < e) return Direction.DOWN;
+        if (dir.x > 0 && Math.abs(from.x - x) < e) return Direction.WEST;
+        if (dir.x < 0 && Math.abs(from.x - (x + 1)) < e) return Direction.EAST;
+        if (dir.z > 0 && Math.abs(from.z - z) < e) return Direction.NORTH;
+        if (dir.z < 0 && Math.abs(from.z - (z + 1)) < e) return Direction.SOUTH;
+        return Direction.UP;
     }
 
     private static Result result(Vec3 from, Vec3 to, double water, double f, double opened, @Nullable Vec3 stop, @Nullable Skip skip,
@@ -427,6 +466,10 @@ public final class WaterPath {
         }
     }
 
+    private static final int[] AXES = {1, 0, 2};
+    // two faces met at once, in t (0..1 of the segment)
+    private static final double TIE = 1e-9;
+
     // the segment against the box x..x+1, y..y+h, z..z+1: {ta, tb, x, y, z, entry face, exit face} within 0..1
     private static double @Nullable [] cut(Vec3 from, Vec3 d, int x, int y, int z, double h) {
         double ta = 0, tb = 1;
@@ -435,7 +478,10 @@ public final class WaterPath {
         double[] o = {from.x, from.y, from.z}, v = {d.x, d.y, d.z};
         // the faces: -x WEST, +x EAST, -y DOWN, +y UP, -z NORTH, +z SOUTH
         Direction[][] faces = {{Direction.WEST, Direction.EAST}, {Direction.DOWN, Direction.UP}, {Direction.NORTH, Direction.SOUTH}};
-        for (int a = 0; a < 3; a++) {
+        // y first: a path that meets two faces at once, on a cell's edge, goes through the top or bottom one (the
+        // surface it falls on), a tie keeping the axis met first. A tie is within TIE: the two planes' t differ by the
+        // rounding of to - from (a tick's motion), and a strict comparison would give the side either way
+        for (int a : AXES) {
             if (Math.abs(v[a]) < 1e-12) {
                 if (o[a] < lo[a] || o[a] > hi[a]) return null;
                 continue;
@@ -445,12 +491,12 @@ public final class WaterPath {
             Direction near = v[a] > 0 ? faces[a][0] : faces[a][1], far = v[a] > 0 ? faces[a][1] : faces[a][0];
             double tn = Math.min(t1, t2), tf = Math.max(t1, t2);
             if (tn > ta) {
+                if (in < 0 || tn - ta > TIE) in = near.get3DDataValue();
                 ta = tn;
-                in = near.get3DDataValue();
             }
             if (tf < tb) {
+                if (out < 0 || tb - tf > TIE) out = far.get3DDataValue();
                 tb = tf;
-                out = far.get3DDataValue();
             }
             if (ta > tb) return null;
         }

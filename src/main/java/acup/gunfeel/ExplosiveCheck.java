@@ -25,11 +25,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.animal.golem.IronGolem;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
@@ -42,7 +44,9 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 // - stopped by water: sinks at no more than 1 block a second, goes off on the floor;
 // - the damage a golem 2 blocks off takes from its blast in the water and over it, against the same blast in the air;
 // and b75_inc's small blast, the fire and phosphorus put out, an explosive set off by a bullet and pellets of one
-// shot that do not set each other off. Without the property nothing is registered.
+// shot that do not set each other off; a round stopped high over the floor with NTM's life ticking (gone without a
+// blast when the life ends) and HE pellets shot straight down from inside the shooter's box. Without the property
+// nothing is registered.
 public final class ExplosiveCheck {
     public static final String PROPERTY = "ntmgunfeel.checkBoom";
 
@@ -112,21 +116,30 @@ public final class ExplosiveCheck {
             stopped(ammo, c, wc);
             damage(ammo, c, wc);
         }
+        onSurface(all);
         weak(all);
         fire(all);
         phosphorus();
+        r556Incendiary();
         touch(all);
+        deadPath(all);
         samePellets(all);
+        life(all);
+        downward(all);
         return ok;
     }
 
-    // NTM's projectiles with an impact fuze, one per ammo; no nukes (they would take the basin and the chunks with them)
+    // NTM's projectiles with an impact fuze, one per ammo (or per field, for those its ammo does not tell); no nukes
+    // (they would take the basin and the chunks with them), nor the UFO's rocket and a pile's debris: their blasts are
+    // not NTM's ExplosionVNT, which the stand counts
     private static Map<String, BulletConfig> projectiles() {
         Map<String, BulletConfig> out = new LinkedHashMap<>();
         for (BulletConfig c : BulletConfig.configs) {
             if (c == null || !WaterClass.Fuze.of(c).any()) continue;
-            String ammo = ammoName(c);
-            if (ammo.contains("nuke") || out.containsKey(ammo)) continue;
+            String field = WaterClass.Fuze.field(c);
+            String ammo = field != null ? field : ammoName(c);
+            if (ammo.contains("nuke") || ammo.equals("ammo_shell_w9") || ammo.equals("ufo_rocket") || ammo.equals("debris")
+                    || out.containsKey(ammo)) continue;
             out.put(ammo, c);
         }
         return out;
@@ -233,8 +246,8 @@ public final class ExplosiveCheck {
         String note = "skips=" + skips + " angle=" + fmt(angle) + " blast=" + str(blast) + " removed=" + b.isRemoved();
         double fuze = WaterSettings.fuzeSkipAngle();
         if (skips == 0) {
-            // on the surface where it came in
-            boolean good = blast != null && blast[1] >= surface - 0.05 && blast[1] <= surface + 0.35 && !(angle < fuze - 0.5);
+            // on the surface where it came in (at any angle what does not skip: the Daybreaker's flame)
+            boolean good = blast != null && blast[1] >= surface - 0.05 && blast[1] <= surface + 0.35 && (!(angle < fuze - 0.5) || !wc.slows());
             rowFlag("a: into water at " + deg + "°: goes off on the surface", ammo, wc, "blast y " + fmt(surface) + "..+0.3",
                     blast == null ? "none" : fmt(blast[1]), good, note);
         } else {
@@ -247,6 +260,27 @@ public final class ExplosiveCheck {
         }
     }
 
+    // a tick that ended right on the surface (a rocket at 30°: 0 + 0.4 + 0.8 + 1.2 + 1.6 = 4 blocks in 5 ticks): the
+    // next one starts on it and comes in from the air, so it goes off there, not sinks to the floor
+    private static void onSurface(Map<String, BulletConfig> all) {
+        for (String ammo : new String[] {"ammo_standard_rocket_he", "ammo_standard_g40_he", "ammo_standard_r762_he"}) {
+            BulletConfig c = byAmmo(all, ammo);
+            if (c == null) {
+                ok = false;
+                lines.add("FAIL\tno config " + ammo);
+                continue;
+            }
+            basin();
+            double r = Math.toRadians(30);
+            Vec3 on = new Vec3(MIN + 14, surface, CZ);
+            EntityBulletBaseMK4 b = bullet(c, on, new Vec3(Math.cos(r), -Math.sin(r), 0));
+            double[] blast = fly(b, TICKS);
+            rowFlag("a: from right on the surface at 30°: goes off there", ammo, WaterClass.of(c), "blast y " + fmt(surface) + "..+0.3",
+                    blast == null ? "none" : fmt(blast[1]), blast != null && blast[1] >= surface - 0.05 && blast[1] <= surface + 0.35,
+                    "blast=" + str(blast) + " stopped=" + WaterBullet.stopped(b));
+        }
+    }
+
     // from 3 under the water along x at a stone wall d blocks off: on the wall if it gets there, else it stops,
     // sinks and goes off on the floor under where it stopped
     private static void wall(String ammo, BulletConfig c, WaterClass wc, int d) {
@@ -256,10 +290,20 @@ public final class ExplosiveCheck {
         for (int y = FLOOR + 1; y <= FLOOR + DEPTH; y++) for (int z = (int) CZ - 3; z <= CZ + 3; z++)
             level.setBlock(new BlockPos(wx, y, z), Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
         EntityBulletBaseMK4 b = bullet(c, new Vec3(x0, surface - 3, CZ), new Vec3(1, 0, 0));
-        double[] blast = fly(b, TICKS);
+        BLASTS.clear();
+        double stopX = Double.NaN;
+        for (int i = 0; i < TICKS && !b.isRemoved(); i++) {
+            boolean was = WaterBullet.stopped(b);
+            b.tick();
+            if (!was && WaterBullet.stopped(b)) stopX = b.getX();
+        }
+        double[] blast = BLASTS.isEmpty() ? null : BLASTS.get(0);
         double s = stop(wc), face = wx;
-        String note = "blast=" + str(blast) + " stopped=" + WaterBullet.stopped(b) + " removed=" + b.isRemoved() + " stop=" + fmt(s);
-        if (x0 + s > face) {
+        String note = "blast=" + str(blast) + " stopped=" + WaterBullet.stopped(b) + " removed=" + b.isRemoved() + " stop=" + fmt(s) + " stopX=" + fmt(stopX);
+        // straight on it reaches the wall within its stop; one NTM's gravity bends down (0.1 a tick: the masked man's
+        // meteor and rocket) stops by the same path in water nearer, short of it
+        boolean reaches = c.gravity >= 0.05 ? Double.isNaN(stopX) : x0 + s > face;
+        if (reaches) {
             boolean good = blast != null && Math.abs(blast[0] - face) < 0.45 && blast[1] > FLOOR + 1.5;
             rowFlag("b: under water, wall " + d + ": on the wall", ammo, wc, "x " + fmt(face), blast == null ? "none" : "x " + fmt(blast[0]), good, note);
         } else {
@@ -276,12 +320,14 @@ public final class ExplosiveCheck {
         double x0 = MIN + 3.5;
         EntityBulletBaseMK4 b = bullet(c, new Vec3(x0, surface - 5, CZ), new Vec3(1, 0, 0));
         BLASTS.clear();
-        double fastest = 0, stopX = Double.NaN;
+        double fastest = 0, stopX = Double.NaN, path = 0;
         int sinkTicks = 0;
         for (int i = 0; i < 400 && !b.isRemoved() && BLASTS.isEmpty(); i++) {
             Vec3 was = b.position();
             boolean wasStopped = WaterBullet.stopped(b);
             b.tick();
+            // the path till water stopped it (bent by NTM's gravity: longer than how far along x)
+            if (!wasStopped) path += was.distanceTo(b.position());
             if (wasStopped && BLASTS.isEmpty() && !b.isRemoved()) {
                 fastest = Math.max(fastest, was.y - b.getY());
                 sinkTicks++;
@@ -290,8 +336,8 @@ public final class ExplosiveCheck {
             if (!wasStopped && WaterBullet.stopped(b)) stopX = b.getX();
         }
         double[] blast = BLASTS.isEmpty() ? null : BLASTS.get(0);
-        String note = "stopX-x0=" + fmt(stopX - x0) + " sinkTicks=" + sinkTicks + " blast=" + str(blast);
-        row("c: stopped, distance", ammo, wc, stop(wc), stopX - x0, 0.15, note);
+        String note = "stopX-x0=" + fmt(stopX - x0) + " path=" + fmt(path) + " sinkTicks=" + sinkTicks + " blast=" + str(blast);
+        row("c: stopped, path in water", ammo, wc, stop(wc), Double.isNaN(stopX) ? Double.NaN : path, 0.15, note);
         rowFlag("c: stopped, sinks ≤ 0.05/tick", ammo, wc, "≤ 0.0500", fmt(fastest), !Double.isNaN(stopX) && fastest <= 0.05 + 1e-9 && sinkTicks > 0, note);
         rowFlag("c: stopped, goes off on the floor", ammo, wc, "y " + (FLOOR + 1), blast == null ? "none" : fmt(blast[1]),
                 blast != null && blast[1] < FLOOR + 1.4, note);
@@ -347,6 +393,11 @@ public final class ExplosiveCheck {
         double size = air[3];
         String note = "air=" + fmt(tAir) + " d=" + fmt(air[4]) + " | wet=" + fmt(tWet) + " d=" + fmt(wet[4]) + " golemWet=" + (int) wet[5]
                 + " | over=" + fmt(tOver) + " d=" + fmt(over[4]) + " golemWet=" + (int) over[5] + " | size=" + fmt(size);
+        if (size > 0 && 2 * size <= air[4]) {
+            // a blast too small to reach the golem 2 blocks off (the masked man's bolt): CrossSmooth's range is 2 × size
+            lines.add("#\t" + ammo + "\td: the blast does not reach 2 blocks\t" + note);
+            return;
+        }
         if (tAir <= 0 || size <= 0) {
             rowFlag("d: blast damage in the air", ammo, wc, "> 0", fmt(tAir), false, note);
             return;
@@ -406,16 +457,100 @@ public final class ExplosiveCheck {
             rowFlag("f: fire in water: blast, no fire", name, WaterClass.of(c), "blast 1, fire 0", "blast " + blasts[1] + ", fire " + fires[1],
                     blasts[1] == 1 && fires[1] == 0, "in the air: blast " + blasts[0] + ", fire " + fires[0]);
             rowFlag("f: fire in the air (NTM's)", name, WaterClass.of(c), "fire ≥ 1", "fire " + fires[0], fires[0] >= 1, "");
+            // NTM's guard in the first 3 ticks: on a golem (not its shooter) in water the grenade goes off, the rocket
+            // spares it
+            basin();
+            IronGolem g = EntityTypes.IRON_GOLEM.create(level, EntitySpawnReason.COMMAND);
+            g.setPos(CX, surface - 4, CZ);
+            g.setNoAi(true);
+            g.setNoGravity(true);
+            level.addFreshEntity(g);
+            EntityBulletBaseMK4 b = bullet(c, new Vec3(CX - 1.5, surface - 3, CZ), new Vec3(1, 0, 0));
+            b.tickCount = 1;
+            BLASTS.clear();
+            ((WaterImpact.Hits) b).gunfeel$impact(new EntityHitResult(g, new Vec3(CX - 0.7, surface - 3, CZ)));
+            boolean rocket = name.startsWith("ammo_standard_rocket_");
+            rowFlag("f: fire in water on a mob at tick 1 (NTM's guard)", name, WaterClass.of(c), rocket ? "0 blasts" : "1 blast",
+                    BLASTS.size() + " blasts", BLASTS.size() == (rocket ? 0 : 1), "");
+            g.discard();
+        }
+        // the Daybreaker's flame: NTM's blast, then its fire (XFactoryFlamer.spawnFire) only out of the water
+        for (String name : new String[] {"flame_daybreaker_diesel", "flame_daybreaker_napalm", "flame_daybreaker_balefire"}) {
+            BulletConfig c = null;
+            for (BulletConfig k : BulletConfig.configs) if (c == null && k != null && name.equals(WaterClass.Fuze.field(k))) c = k;
+            if (c == null) {
+                ok = false;
+                lines.add("FAIL\tno config " + name);
+                continue;
+            }
+            int[] fires = new int[2], blasts = new int[2];
+            for (int wet = 0; wet < 2; wet++) {
+                basin();
+                Vec3 at = wet == 1 ? new Vec3(CX, surface - 3, CZ) : new Vec3(DRY_X, FLOOR + 1, CZ);
+                EntityBulletBaseMK4 b = bullet(c, at.add(0, 1, 0), new Vec3(0, -1, 0));
+                BLASTS.clear();
+                ((WaterImpact.Hits) b).gunfeel$impact(new BlockHitResult(at, Direction.UP, BlockPos.containing(at.x, at.y - 0.5, at.z), false));
+                blasts[wet] = BLASTS.size();
+                fires[wet] = level.getEntitiesOfClass(EntityFireLingering.class, new AABB(at, at).inflate(8), x -> true).size();
+            }
+            rowFlag("f: fire in water: blast, no fire", name, WaterClass.of(c), "blast 1, fire 0", "blast " + blasts[1] + ", fire " + fires[1],
+                    blasts[1] == 1 && fires[1] == 0, "in the air: blast " + blasts[0] + ", fire " + fires[0]);
+            rowFlag("f: fire in the air (NTM's)", name, WaterClass.of(c), "fire ≥ 1", "fire " + fires[0], fires[0] >= 1, "");
         }
     }
 
-    // a phosphorus pellet on a golem in water sets it not alight; in the air NTM's 300 ticks
+    // a phosphorus pellet on a golem in water sets it not alight; in the air NTM's 300 ticks. In water it hits as a
+    // plain pellet: the damage × f² where the golem is, as a buckshot pellet's (g12) the same way
     private static void phosphorus() {
-        BulletConfig c = null;
+        BulletConfig c = null, plain = null;
         // the shotgun's own (the Shredder's shares the ammo)
-        for (BulletConfig k : BulletConfig.configs) if (c == null && k != null && ammoName(k).equals("ammo_standard_g12_phosphorus")) c = k;
+        for (BulletConfig k : BulletConfig.configs) {
+            if (c == null && k != null && ammoName(k).equals("ammo_standard_g12_phosphorus")) c = k;
+            if (plain == null && k != null && ammoName(k).equals("ammo_standard_g12")) plain = k;
+        }
+        if (c == null || plain == null) {
+            lines.add("#\tno config ammo_standard_g12_phosphorus or ammo_standard_g12");
+            return;
+        }
+        int[] got = new int[2];
+        double[] took = new double[3];
+        for (int run = 0; run < 3; run++) {
+            boolean wet = run != 0;
+            basin();
+            Vec3 feet = wet ? new Vec3(CX, surface - 4, CZ) : new Vec3(DRY_X, FLOOR + 1, CZ);
+            IronGolem g = EntityTypes.IRON_GOLEM.create(level, EntitySpawnReason.COMMAND);
+            g.setPos(feet.x, feet.y, feet.z);
+            g.setNoAi(true);
+            g.setNoGravity(true);
+            level.addFreshEntity(g);
+            g.tick();
+            g.setPos(feet.x, feet.y, feet.z);
+            HbmLivingProps.getData(g).phosphorus = 0;
+            float before = g.getHealth();
+            EntityBulletBaseMK4 b = bullet(run == 2 ? plain : c, feet.add(-1.2, 1.2, 0), new Vec3(1, 0, 0));
+            fly(b, 10);
+            took[run] = before - g.getHealth();
+            if (run < 2) got[run] = HbmLivingProps.getData(g).phosphorus;
+            g.discard();
+        }
+        rowFlag("g: g12_phosphorus on a golem in water: not alight", "ammo_standard_g12_phosphorus", WaterClass.of(c), "phosphorus 0",
+                "phosphorus " + got[1], got[1] == 0, "in the air: " + got[0]);
+        rowFlag("g: g12_phosphorus in the air (NTM's)", "ammo_standard_g12_phosphorus", WaterClass.of(c), "phosphorus 300", "phosphorus " + got[0],
+                got[0] >= 300, "");
+        row("g: g12_phosphorus on a golem in water, damage × g12's", "ammo_standard_g12_phosphorus", WaterClass.of(c), 1.0,
+                took[2] > 0 ? took[1] / took[2] : Double.NaN, 0.01,
+                "phosphorus " + fmt(took[1]) + ", g12 " + fmt(took[2]) + ", in the air " + fmt(took[0]) + " (× f² " + fmt(took[0] > 0 ? took[1] / took[0] : Double.NaN) + ")");
+    }
+
+    // the 5.56 mm incendiary rounds: clones of the plain ones with the plain ammo and NTM's INCENDIARY lambda (300
+    // ticks of phosphorus); in water not alight
+    private static void r556Incendiary() {
+        BulletConfig c = null;
+        for (BulletConfig k : BulletConfig.configs)
+            if (c == null && k != null && k.onImpact != null && ammoName(k).equals("ammo_standard_r556_fmj") && WaterClass.incendiary(k)) c = k;
         if (c == null) {
-            lines.add("#\tno config ammo_standard_g12_phosphorus");
+            ok = false;
+            lines.add("FAIL\tno incendiary config of ammo_standard_r556_fmj");
             return;
         }
         int[] got = new int[2];
@@ -435,10 +570,9 @@ public final class ExplosiveCheck {
             got[wet] = HbmLivingProps.getData(g).phosphorus;
             g.discard();
         }
-        rowFlag("g: g12_phosphorus on a golem in water: not alight", "ammo_standard_g12_phosphorus", WaterClass.of(c), "phosphorus 0",
-                "phosphorus " + got[1], got[1] == 0, "in the air: " + got[0]);
-        rowFlag("g: g12_phosphorus in the air (NTM's)", "ammo_standard_g12_phosphorus", WaterClass.of(c), "phosphorus 300", "phosphorus " + got[0],
-                got[0] >= 300, "");
+        rowFlag("g: r556_inc on a golem in water: not alight", "r556_inc_fmj", WaterClass.of(c), "phosphorus 0", "phosphorus " + got[1], got[1] == 0,
+                "in the air: " + got[0]);
+        rowFlag("g: r556_inc in the air (NTM's)", "r556_inc_fmj", WaterClass.of(c), "phosphorus 300", "phosphorus " + got[0], got[0] >= 300, "");
     }
 
     // a sinking r762_he set off by a plain bullet that runs into it
@@ -468,24 +602,265 @@ public final class ExplosiveCheck {
         h.discard();
     }
 
-    // two pellets of one g12_explosive shot side by side: they do not set each other off
-    private static void samePellets(Map<String, BulletConfig> all) {
-        BulletConfig c = byAmmo(all, "ammo_standard_g12_explosive");
-        if (c == null) {
-            lines.add("#\tno config ammo_standard_g12_explosive");
+    // an r762_he going off on the surface over a sinking one: NTM moves a bullet the whole tick's way after its impact,
+    // also one gone there, so its path to touch others ends where it hit the water, not under it. The one sinking under
+    // the line it came down along stays.
+    private static void deadPath(Map<String, BulletConfig> all) {
+        BulletConfig he = byAmmo(all, "ammo_standard_r762_he");
+        if (he == null) {
+            lines.add("#\tno config for the dead path");
             return;
         }
         basin();
-        Vec3 a = new Vec3(MIN + 3.5, surface + 3, CZ);
-        EntityBulletBaseMK4 one = bullet(c, a, new Vec3(1, 0, 0));
-        EntityBulletBaseMK4 two = bullet(c, a.add(0, 0, 0.1), new Vec3(1, 0, 0));
-        level.addFreshEntity(two);
+        EntityBulletBaseMK4 h = bullet(he, new Vec3(MIN + 3.5, surface - 1.5, CZ), new Vec3(1, 0, 0));
+        for (int i = 0; i < 40 && !WaterBullet.stopped(h) && !h.isRemoved(); i++) h.tick();
+        h.tick();
+        boolean sinking = WaterBullet.stopped(h) && !h.isRemoved();
+        level.addFreshEntity(h);
+        Vec3 s = h.position();
+        // 60° down onto the surface right over it, from a block above: the tick ends past it, under the water
+        double r = Math.toRadians(60), depth = surface - s.y;
+        Vec3 dir = new Vec3(Math.cos(r), -Math.sin(r), 0);
+        Vec3 aim = new Vec3(s.x - depth / Math.tan(r), surface, s.z);
+        EntityBulletBaseMK4 p = bullet(he, aim.subtract(dir.scale(1.0)), dir);
+        // another shot: the stand makes both in one game tick, with no shooter, which WaterImpact.sameShot leaves alone
+        ((WaterBullet) p).gunfeel$shot(((WaterBullet) p).gunfeel$shot() + 1);
         BLASTS.clear();
-        one.tick();
-        boolean same = WaterImpact.sameShot(one, two);
-        rowFlag("h: pellets of one shot touching: no blast", "ammo_standard_g12_explosive", WaterClass.of(c), "0 blasts",
-                BLASTS.size() + " blasts", same && BLASTS.isEmpty(), "sameShot=" + same);
-        two.discard();
+        p.tick();
+        Vec3 after = p.position();
+        int blasts = BLASTS.size();
+        rowFlag("h: one going off on the surface over a sinking one: that one stays", "ammo_standard_r762_he", WaterClass.of(he),
+                "1 blast on the surface, the sinking one there", blasts + " blasts, sinking one " + (h.isRemoved() ? "gone" : "there"),
+                sinking && blasts == 1 && !BLASTS.isEmpty() && Math.abs(BLASTS.get(0)[1] - surface) < 0.35 && !h.isRemoved() && p.isRemoved()
+                        && after.y < s.y - 0.5,
+                "sinking at " + str3(s) + ", the other moved on to " + str3(after) + ", blasts at y " + heights());
+        h.discard();
+        p.discard();
+    }
+
+    // HE pellets as a gun fires them: one loop of NTM's bullets from the shooter's eyes, the same tick, a spread; ticked
+    // in the world's order (its tickCount up, then its tick, one pellet after the other), so a pellet's touch runs
+    // with the next one a tick younger. In the air: no search for other bullets, no touch, no blast. In water at the
+    // muzzle and fired at the floor: no touch within the shot. A shot into another's sinking pellets: they go off.
+    private static void samePellets(Map<String, BulletConfig> all) {
+        for (String ammo : new String[] {"ammo_standard_g12_explosive", "ammo_standard_g10_explosive"}) {
+            BulletConfig c = byAmmo(all, ammo);
+            if (c == null) {
+                ok = false;
+                lines.add("FAIL\tno config " + ammo);
+                continue;
+            }
+            WaterClass wc = WaterClass.of(c);
+            float spread = c.spread + 0.02F;
+            int n = Math.max(2, c.projectilesMax);
+            lines.add("#\t" + ammo + "\tpellets " + n + " spread " + fmt(spread) + " fuze " + WaterClass.Fuze.of(c));
+            for (int k = 0; k < 3; k++) {
+                basin();
+                String name = k == 0 ? "air, at the muzzle" : k == 1 ? "in water, at the muzzle" : "in water, on the floor";
+                // on the floor: the eyes half a block over it (the stand's feet in the floor), so the pellets water
+                // stops lie on the floor together a few ticks later
+                Vec3 feet = k == 0 ? new Vec3(DRY_X - 5, FLOOR + 1, CZ) : k == 1 ? new Vec3(MIN + 3.5, FLOOR + 1, CZ)
+                        : new Vec3(MIN + 3.5, FLOOR + 1.5 - EYES, CZ);
+                ArmorStand g = shooter(feet, 0F);
+                int s0 = WaterImpact.searches, t0 = WaterImpact.touches, m0 = WaterImpact.sameShots;
+                BLASTS.clear();
+                List<EntityBulletBaseMK4> shot = shoot(g, c, n, spread);
+                int ticks = ticks(shot, k == 0 ? 6 : TICKS, false);
+                int searches = WaterImpact.searches - s0, touches = WaterImpact.touches - t0, blasts = BLASTS.size();
+                // in water the pellets of the shot did meet (pairs left alone), so 0 touches is the rule, not a miss
+                int same = WaterImpact.sameShots - m0;
+                // the air: the owner's case (pellets going off at the muzzle); in water a pellet goes off on the floor
+                // a pellet in water goes off on the floor, or NTM's life of it ends (no blast) while it sinks
+                boolean pass = touches == 0 && (k == 0 ? searches == 0 && blasts == 0 : same > 0 && blasts <= n && (k == 1 || blasts > 0));
+                rowFlag("h: one shot, " + name + ": no touch", ammo, wc, k == 0 ? "0 searches, 0 touches, 0 blasts" : k == 1 ? "0 touches"
+                        : "0 touches, blasts on the floor",
+                        searches + " searches, " + same + " pairs of the shot, " + touches + " touches, " + blasts + " blasts", pass,
+                        "ticks " + ticks + ", sameShot " + WaterImpact.sameShot(shot.get(0), shot.get(n - 1)) + ", blasts at y " + heights());
+                for (var b : shot) b.discard();
+                g.discard();
+            }
+            // another shot into the sinking pellets of the first, both without spread so they meet
+            basin();
+            ArmorStand g = shooter(new Vec3(MIN + 3.5, FLOOR + 1, CZ), 0F);
+            List<EntityBulletBaseMK4> first = shoot(g, c, n, 0F);
+            ticks(first, 40, true);
+            boolean sinking = first.stream().anyMatch(b -> WaterBullet.stopped(b) && !b.isRemoved());
+            int t0 = WaterImpact.touches;
+            BLASTS.clear();
+            List<EntityBulletBaseMK4> second = shoot(g, c, n, 0F);
+            for (var b : second) ((WaterBullet) b).gunfeel$shot(((WaterBullet) b).gunfeel$shot() + 1);
+            List<EntityBulletBaseMK4> both = new ArrayList<>(second);
+            both.addAll(first);
+            ticks(both, 10, false);
+            int touches = WaterImpact.touches - t0;
+            rowFlag("h: another shot into one's sinking pellets: goes off", ammo, wc, "touches > 0, a blast", touches + " touches, "
+                    + BLASTS.size() + " blasts", sinking && touches > 0 && !BLASTS.isEmpty(), "sinking=" + sinking + ", blasts at y " + heights());
+            for (var b : both) b.discard();
+            g.discard();
+        }
+    }
+
+    // NTM's life of a round (BulletConfig.expires): NTM removes a round older than that without a blast
+    // (EntityBulletBaseMK4.tick), in water as in the air; it has no timed fuze for bullets. Ticked as the world ticks
+    // (tickCount up, then the tick), from its first tick: stopped high in the basin, a round with a short life is gone
+    // on the way down, one with a long life reaches the floor; stopped near the floor, any goes off there.
+    private static void life(Map<String, BulletConfig> all) {
+        // ammo, and does it reach the floor from high up within its life
+        Object[][] cases = {{"ammo_standard_r762_he", false}, {"ammo_standard_g12_explosive", false}, {"ammo_standard_g40_he", true}};
+        for (Object[] k : cases) {
+            String ammo = (String) k[0];
+            BulletConfig c = byAmmo(all, ammo);
+            if (c == null) {
+                ok = false;
+                lines.add("FAIL\tno config " + ammo);
+                continue;
+            }
+            WaterClass wc = WaterClass.of(c);
+            for (boolean high : new boolean[] {true, false}) {
+                basin();
+                EntityBulletBaseMK4 b = bullet(c, new Vec3(MIN + 3.5, high ? surface - 1 : FLOOR + 1.6, CZ), new Vec3(1, 0, 0));
+                b.tickCount = 0;
+                BLASTS.clear();
+                double stopY = Double.NaN, lastY = Double.NaN;
+                int stopTick = -1, gone = -1;
+                for (int i = 0; i < c.expires + 20 && !b.isRemoved(); i++) {
+                    b.tickCount++;
+                    boolean was = WaterBullet.stopped(b);
+                    lastY = b.getY();
+                    b.tick();
+                    if (!was && WaterBullet.stopped(b)) {
+                        stopY = b.getY();
+                        stopTick = b.tickCount;
+                    }
+                    if (b.isRemoved()) gone = b.tickCount;
+                }
+                double[] blast = BLASTS.isEmpty() ? null : BLASTS.get(0);
+                boolean floor = !high || (Boolean) k[1];
+                boolean pass = stopTick > 0 && (floor ? blast != null && blast[1] < FLOOR + 1.4
+                        : blast == null && gone == c.expires + 1 && lastY > FLOOR + 1.5);
+                String note = "life " + c.expires + ", stopped tick " + stopTick + " y " + fmt(stopY) + ", gone tick " + gone + " y " + fmt(lastY)
+                        + ", blast " + str(blast);
+                rowFlag("i: stopped " + (high ? "high (" + fmt(surface - 1 - FLOOR - 1) + " over the floor)" : "near the floor") + ", NTM's life",
+                        ammo, wc, floor ? "goes off on the floor" : "gone at tick " + (c.expires + 1) + ", no blast",
+                        blast != null ? "blast at y " + fmt(blast[1]) : gone > 0 ? "gone at tick " + gone + ", no blast" : "still there", pass, note);
+                b.discard();
+            }
+        }
+    }
+
+    // HE pellets fired straight down by a shooter standing in water: water stops them within 0.57 of its eyes, inside
+    // its box. NTM tests a mob's box from the pellet's path (AABB.clip), and a path that starts inside the box meets
+    // none of its faces, so a pellet that water stopped in its shooter does not hit it from inside (MixinThrowableHit).
+    // With the feet on the floor the pellets sink and go off on it; with the floor farther than their life takes them
+    // (NTM's 30 ticks) they are gone on the way, as any round NTM's life ends.
+    private static void downward(Map<String, BulletConfig> all) {
+        String ammo = "ammo_standard_g10_explosive";
+        BulletConfig c = byAmmo(all, ammo);
+        if (c == null) {
+            ok = false;
+            lines.add("FAIL\tno config " + ammo);
+            return;
+        }
+        WaterClass wc = WaterClass.of(c);
+        int n = Math.max(2, c.projectilesMax);
+        for (boolean onFloor : new boolean[] {true, false}) {
+            basin();
+            Vec3 feet = new Vec3(MIN + 3.5, onFloor ? FLOOR + 1 : FLOOR + 4, CZ);
+            ArmorStand g = shooter(feet, 90F);
+            AABB box = g.getBoundingBox();
+            BLASTS.clear();
+            List<EntityBulletBaseMK4> shot = shoot(g, c, n, c.spread);
+            int inBox = 0, silentEarly = 0, goneLo = Integer.MAX_VALUE, goneHi = -1;
+            boolean[] seen = new boolean[n];
+            for (int t = 0; t < c.expires + 20; t++) {
+                boolean any = false;
+                for (int i = 0; i < n; i++) {
+                    EntityBulletBaseMK4 b = shot.get(i);
+                    if (b.isRemoved()) continue;
+                    any = true;
+                    int blasts = BLASTS.size();
+                    boolean was = WaterBullet.stopped(b);
+                    b.tickCount++;
+                    b.tick();
+                    if (!was && WaterBullet.stopped(b) && box.contains(b.position())) inBox++;
+                    if (b.isRemoved() && !seen[i]) {
+                        seen[i] = true;
+                        goneLo = Math.min(goneLo, b.tickCount);
+                        goneHi = Math.max(goneHi, b.tickCount);
+                        if (BLASTS.size() == blasts && b.tickCount <= c.expires) silentEarly++;
+                    }
+                }
+                if (!any) break;
+            }
+            // a blast in the shooter's box over its feet: a pellet that hit its shooter
+            int onShooter = 0, onFloorBlasts = 0;
+            for (double[] bl : BLASTS) {
+                if (bl[1] < FLOOR + 1.4) onFloorBlasts++;
+                else if (box.contains(bl[0], bl[1], bl[2])) onShooter++;
+            }
+            boolean pass = inBox == n && onShooter == 0 && silentEarly == 0
+                    && (onFloor ? onFloorBlasts == n : BLASTS.isEmpty() && goneLo == c.expires + 1 && goneHi == c.expires + 1);
+            rowFlag("j: shot straight down in water, feet " + (onFloor ? "on the floor" : "3 over the floor"), ammo, wc,
+                    n + " stop in the shooter's box, none hits it, " + (onFloor ? n + " blasts on the floor" : "all gone at tick " + (c.expires + 1) + ", no blast"),
+                    inBox + " stop in the box, " + onShooter + " on the shooter, " + onFloorBlasts + " on the floor, " + BLASTS.size() + " blasts, gone ticks "
+                            + goneLo + ".." + goneHi,
+                    pass, "life " + c.expires + ", box y " + fmt(box.minY) + ".." + fmt(box.maxY) + ", silent before the life's end " + silentEarly
+                            + ", blasts at y " + heights());
+            for (var b : shot) b.discard();
+            g.discard();
+        }
+    }
+
+    // a shooter as narrow as a player (an armour stand, 0.5 wide, its eyes 1.78 over its feet), facing +x; a pellet
+    // water stops within 0.57 of the eyes (g10) is out of its box, as out of a player's
+    private static final double EYES = 1.7775;
+
+    private static ArmorStand shooter(Vec3 feet, float pitch) {
+        ArmorStand g = EntityTypes.ARMOR_STAND.create(level, EntitySpawnReason.COMMAND);
+        g.setPos(feet.x, feet.y, feet.z);
+        g.setNoGravity(true);
+        g.setYRot(-90F);
+        g.setXRot(pitch);
+        level.addFreshEntity(g);
+        return g;
+    }
+
+    // the pellets of one shot, made as a gun makes them (EntityBulletBaseMK4 from the shooter, in a loop)
+    private static List<EntityBulletBaseMK4> shoot(ArmorStand g, BulletConfig c, int n, float spread) {
+        List<EntityBulletBaseMK4> out = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            EntityBulletBaseMK4 b = new EntityBulletBaseMK4(g, c, DAMAGE, spread, 0, 0, 0);
+            level.addFreshEntity(b);
+            out.add(b);
+        }
+        return out;
+    }
+
+    // the world's order: each one's tickCount up, then its tick; till all are gone or `ticks` pass (or, `stopped`, till
+    // water stopped them all); the ticks it took
+    private static int ticks(List<EntityBulletBaseMK4> bullets, int ticks, boolean stopped) {
+        for (int i = 0; i < ticks; i++) {
+            boolean any = false, moving = false;
+            for (var b : bullets) {
+                if (b.isRemoved()) continue;
+                any = true;
+                b.tickCount++;
+                b.tick();
+                if (!WaterBullet.stopped(b) && !b.isRemoved()) moving = true;
+            }
+            if (!any || stopped && !moving) return i + 1;
+        }
+        return ticks;
+    }
+
+    // the blasts' heights, lowest..highest
+    private static String heights() {
+        double lo = Double.NaN, hi = Double.NaN;
+        for (double[] b : BLASTS) {
+            lo = Double.isNaN(lo) ? b[1] : Math.min(lo, b[1]);
+            hi = Double.isNaN(hi) ? b[1] : Math.max(hi, b[1]);
+        }
+        return fmt(lo) + ".." + fmt(hi);
     }
 
     private static void row(String name, String ammo, WaterClass wc, double want, double got, double tol, String note) {

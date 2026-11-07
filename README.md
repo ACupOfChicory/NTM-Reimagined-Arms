@@ -18,12 +18,15 @@ original NTM on Minecraft 1.7.10 are in progress; see [Ports](#ports).
 - Bullet penetration, ricochets, impact sounds and decals matched to block
   materials and visible geometry.
 - Quality presets for impact effects, including low, medium, high and realism.
+- Smoke clouds that fill the space around them, stop at walls and shut doors,
+  and are drawn as a volume. For now an operator lets them out with
+  `/gunsmoke`; a smoke grenade will come later.
 
 ## Installation
 
 Install the same addon jar on the client and server, together with the required
-NTM-NEXT version and its dependencies. The mod is required on both sides.
-Client and server builds must use the same network protocol.
+NTM-NEXT version and its dependencies. The mod is required on both sides. A
+client and a server need the very same build of the mod to connect.
 
 Supported NTM versions are listed in
 `src/main/resources/META-INF/neoforge.mods.toml`. With other versions,
@@ -52,6 +55,13 @@ full strength. A weapon without these keys does not climb.
 `/gunfeel quality low|medium|high|realism` changes impact-effect quality. High
 is the default. Individual limits changed manually in the configuration file
 override preset values.
+
+Smoke clouds are drawn by `smokeQuality`: `high` is the default; `low` and
+`medium` draw the volume at a lower resolution and cost less, `ultra` at the
+full one; `slices` draws stacks of translucent layers (used by itself with an
+Iris shader pack); `off` does not draw them, but inside a cloud the screen
+still goes grey. `smokeMaxClouds` and `smokeDistance` limit how many clouds are
+drawn and how far away.
 
 The server controls bullet speed, spread and other gameplay settings through
 `config/ntm-gunfeel-server.properties`. Material and bullet behavior rules are

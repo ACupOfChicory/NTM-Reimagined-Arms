@@ -27,7 +27,7 @@ public final class SpawnLerp {
         e.zOld = e.getZ();
         if (!said) {
             said = true;
-            GunFeel.LOGGER.info("A Flywheel visual was made for a just-added {} before its first tick: its previous "
+            DebugLog.LOGGER.info("A Flywheel visual was made for a just-added {} before its first tick: its previous "
                     + "position is set to its place, as vanilla does, so it does not fly in", e.getType());
         }
     }

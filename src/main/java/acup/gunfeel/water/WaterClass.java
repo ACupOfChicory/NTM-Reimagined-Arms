@@ -87,9 +87,12 @@ public enum WaterClass {
             return this != NONE;
         }
 
+        // the Jeremy turret's 240 mm shells: the plain and the explosive one blow up, the W9 is a nuke; the APFSDS ones do
+        // not
         static final java.util.Set<String> IMPACT_NAMES = java.util.Set.of("ammo_standard_r762_he", "ammo_standard_bmg50_he",
                 "ammo_standard_b75", "ammo_standard_b75_exp", "ammo_standard_g12_explosive", "ammo_standard_g10_explosive",
-                "ammo_standard_ct_mortar", "ammo_standard_ct_mortar_charge", "ammo_secret_folly_nuke");
+                "ammo_standard_ct_mortar", "ammo_standard_ct_mortar_charge", "ammo_secret_folly_nuke", "ammo_shell", "ammo_shell_explosive",
+                "ammo_shell_w9");
 
         public static Fuze of(String ammo) {
             if (ammo.equals("ammo_standard_b75_inc")) return WEAK;
@@ -110,7 +113,31 @@ public enum WaterClass {
             // a cluster grenade's bomblets blow up where they land (ItemGrenadeFilling.pellets)
             if (c.ammoItem == null && (c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets
                     || c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets_heavy)) return IMPACT;
+            if (field(c) != null) return IMPACT;
             return of(ammoName(c));
+        }
+
+        // NTM's configs that blow up where they hit but whose ammo does not say so: no ammo of their own (the masked
+        // man's bolts, meteors, rockets and orbs, the UFO's rockets, the fat man's cluster bomblets, a pile's debris) or
+        // a plain flame's (the Daybreaker's). Not the equestrian rounds (they drop a boxcar, a boat, a building from
+        // the sky) nor the masked man's tracer (it calls a meteor down): those do not go off themselves. By their
+        // fields, looked up by name, so one missing in another NTM leaves out only its own fuze.
+        static final String[][] IMPACT_FIELDS = {
+                {"XFactoryFlamer", "flame_daybreaker_diesel", "flame_daybreaker_gas", "flame_daybreaker_napalm", "flame_daybreaker_balefire"},
+                {"XFactoryCatapult", "cluster_submunition"},
+                {"XFactoryNPC", "maskman_bolt", "maskman_meteor", "maskman_rocket", "maskman_orb", "ufo_rocket"},
+                {"XFactoryPile", "debris"}};
+        private static volatile @Nullable Map<BulletConfig, String> fields;
+
+        // the IMPACT_FIELDS name of this config, or null
+        public static @Nullable String field(BulletConfig c) {
+            Map<BulletConfig, String> f = fields;
+            if (f == null) {
+                f = NtmFields.configs(IMPACT_FIELDS);
+                // none found: asked before NTM made its configs, try again later
+                if (!f.isEmpty()) fields = f;
+            }
+            return f.get(c);
         }
     }
 
@@ -120,7 +147,7 @@ public enum WaterClass {
     }
 
     public static boolean incendiary(@Nullable BulletConfig c) {
-        return c != null && incendiary(ammoName(c));
+        return c != null && (incendiary(ammoName(c)) || c.onImpact != null && c.onImpact == NtmFields.R556_INCENDIARY.get());
     }
 
     // ammo whose class the numbers do not tell: by the ammo item's path (hbm:<path>)

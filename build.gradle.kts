@@ -136,13 +136,19 @@ neoForge {
             systemProperty("ntmgunfeel.shapesOnly",providers.gradleProperty("shapesOnly").orElse("").get())
             // -PshapesResume: a stand cut short goes on from <file>.parts, the machines kept there not taken again
             systemProperty("ntmgunfeel.shapesResume",providers.gradleProperty("shapesResume").isPresent.toString())
+            // -PsmokeStand=<dir>: smoke clouds measured, frame times and screenshots there (SmokeCloudStand);
+            // -PstandSize=1920x1080 the window, -PsmokeBackend=vulkan the renderer
+            systemProperty("ntmgunfeel.smokeStand",providers.gradleProperty("smokeStand").orElse("").get())
+            // -PsmokePoses=sky,wall: only the poses whose names start with one of these
+            systemProperty("ntmgunfeel.smokePoses",providers.gradleProperty("smokePoses").orElse("").get())
             // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
-            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("waterFx").isPresent || providers.gradleProperty("hudShots").isPresent) "-Xmx3G" else "-Xmx2500M")
+            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("waterFx").isPresent || providers.gradleProperty("hudShots").isPresent) "-Xmx3G" else "-Xmx2500M")
             // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame
             providers.gradleProperty("gcLog").orNull?.let { jvmArgument("-Xlog:gc*:file=$it:uptime,time") }
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
-            if(providers.gradleProperty("hudShots").isPresent) programArguments.addAll("--width", "1920", "--height", "1080")
-            else programArguments.addAll("--width", "854", "--height", "480")
+            val size = providers.gradleProperty("standSize").orElse(if(providers.gradleProperty("hudShots").isPresent) "1920x1080" else "854x480").get().split("x")
+            programArguments.addAll("--width", size[0], "--height", size[1])
+            providers.gradleProperty("smokeBackend").orNull?.let { programArguments.addAll("--graphicsBackend", it) }
         }
         register("checkMobs") {
             client()
@@ -162,6 +168,8 @@ neoForge {
             systemProperty("ntmgunfeel.checkTurn",providers.gradleProperty("checkTurn").isPresent.toString())
             systemProperty("ntmgunfeel.dumpParts",providers.gradleProperty("dumpParts").isPresent.toString())
             systemProperty("ntmgunfeel.checkExplosives",providers.gradleProperty("checkExplosives").isPresent.toString())
+            // -PcheckNpcShots: пули турелей и NPC NTM по мобу и блокам против той же пули у игрока (NpcShotSmoke)
+            systemProperty("ntmgunfeel.checkNpcShots",providers.gradleProperty("checkNpcShots").isPresent.toString())
             systemProperty("ntmgunfeel.checkAvatarLayers",providers.gradleProperty("checkAvatarLayers").isPresent.toString())
             if(providers.gradleProperty("selectionSelfTest").isPresent) {
                 systemProperty("ntmgunfeel.mobReview","true")
@@ -225,7 +233,7 @@ neoForge {
         register("glassStand") {
             client()
             gameDirectory = root.resolve("run-glass-stand")
-            jvmArgument("-Xmx4000M")
+            jvmArgument("-Xmx3000M")
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("glassstand/result.txt").get().asFile.path)
             systemProperty("ntmgunfeel.glassStand", providers.gradleProperty("glassStand").orNull ?: "stand")
             systemProperty("ntmgunfeel.glassStandDir", root.resolve("notes/glass-stand").path)
@@ -315,6 +323,7 @@ neoForge {
             // -PscenarioGuns=<id,...> or all
             providers.gradleProperty("scenario").orNull?.let { systemProperty("ntmgunfeel.scenario", it) }
             providers.gradleProperty("scenarioGuns").orNull?.let { systemProperty("ntmgunfeel.scenarioGuns", it) }
+            providers.gradleProperty("scenarioArmor").orNull?.let { systemProperty("ntmgunfeel.scenarioArmor", it) }
         }
     }
 }
@@ -376,20 +385,27 @@ tasks.check { dependsOn(mixinCheck) }
 
 // the dump server needs the EULA accepted in its own folder
 val checkRuns = mapOf("runDumpBlocks" to "run-dump", "runCheckSettings" to "run-check", "runCheckBullets" to "run-bullets", "runCheckWater" to "run-water", "runCheckBoom" to "run-boom")
+// Every stand server opens its port before it stops or makes its world, each on one of its own: 25565 is where the real
+// servers are (one running there would leave the stand without a port, the stand would not start). -PserverPort=<n>
+// sets another, 25565 included.
+val checkPorts = mapOf("runCheckBullets" to 25640, "runCheckWater" to 25641, "runCheckBoom" to 25642, "runCheckSettings" to 25643, "runDumpBlocks" to 25644)
 tasks.matching { it.name in checkRuns }.configureEach {
     val dir = root.resolve(checkRuns.getValue(name))
+    val port = providers.gradleProperty("serverPort").orNull?.takeIf { it.isNotBlank() } ?: checkPorts.getValue(name).toString()
     doFirst {
         // the dump stops the server before any world: what a stopped run left of one would only break the next
         dir.resolve("world").deleteRecursively()
         dir.mkdirs()
         dir.resolve("eula.txt").writeText("eula=true\n")
+        val properties = dir.resolve("server.properties")
         // the smallest world that still has one: flat, two chunks around, nothing generated on it
-        if (name == "runCheckBullets" || name == "runCheckWater" || name == "runCheckBoom") dir.resolve("server.properties").writeText(
+        if (name == "runCheckBullets" || name == "runCheckWater" || name == "runCheckBoom") properties.writeText(
             "level-type=minecraft\\:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\n" +
             "spawn-protection=0\nonline-mode=false\nspawn-monsters=false\nspawn-animals=false\nmax-players=1\n" +
-            // -PserverPort=<n>: a port of its own, away from a real server on 25565
-            (providers.gradleProperty("serverPort").orNull?.let { "server-port=$it\n" }
-                ?: if (name == "runCheckWater") "server-port=25641\n" else if (name == "runCheckBoom") "server-port=25642\n" else ""))
+            "server-port=$port\n")
+        // the dump and the settings check make no world: only the port is set, the rest of the file left as the server wrote it
+        else properties.writeText((if (properties.exists()) properties.readLines().filter { !it.startsWith("server-port=") } else emptyList())
+            .joinToString("") { it + "\n" } + "server-port=$port\n")
     }
 }
 
@@ -400,12 +416,13 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
     val review = name == "runReviewMobs" || (stand && !survey)
     val bench = name == "runBenchMobs"
     val holes = name == "runBenchHoles"
+    val smoke = name == "runCheckClient" && providers.gradleProperty("smokeStand").isPresent
     val mobs = name == "runCheckMobs" || review
     val selfTest = providers.gradleProperty("mobReviewSelfTest").isPresent || providers.gradleProperty("headLabelSelfTest").isPresent
     // a trace scenario on every gun (-Pscenario, -PscenarioGuns=all) plays for about half an hour; the shapes stand
     // (-PshapesStand) takes every machine in turn
     val scenario = providers.gradleProperty("scenario").isPresent || providers.gradleProperty("shapesStand").isPresent || providers.gradleProperty("fenceSeam").isPresent || providers.gradleProperty("fenceAir").isPresent
-    timeout.set(if(survey) Duration.ofMinutes(40) else if(review && !selfTest) Duration.ofDays(1) else if((mobs && !selfTest) || scenario) Duration.ofHours(if(scenario) 2 else 1) else Duration.ofMinutes(if(holes || bench) 30 else 8))
+    timeout.set(if(survey) Duration.ofMinutes(40) else if(review && !selfTest) Duration.ofDays(1) else if((mobs && !selfTest) || scenario) Duration.ofHours(if(scenario) 2 else 1) else Duration.ofMinutes(if(holes || bench || smoke) 30 else 8))
     val result = if(stand) "glassstand/result.txt" else if(holes) "holebench/result.txt" else if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {
         if(holes || review || stand) {
@@ -451,7 +468,7 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
             .copyTo(dir.resolve("mods/crankshaft.jar"), overwrite = true)
         dir.resolve("config/crankshaft-client.toml").writeText(
             "backend = \"${if(providers.gradleProperty("mobCpuGeometry").isPresent) "flywheel:off" else "DEFAULT"}\"\n")
-        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(stand) 10 else if(review || bench) 8 else 3}\nsimulationDistance:5\ninactivityFpsLimit:minimized\nmaxFps:${if(stand && providers.gradleProperty("glassStandCheck").isPresent) 260 else 60}\n${if(stand) "tutorialStep:none\n" else ""}")
+        dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(stand) 10 else if(review || bench || smoke) 8 else 3}\nsimulationDistance:5\ninactivityFpsLimit:minimized\nmaxFps:${providers.gradleProperty("standMaxFps").orNull ?: if(stand && providers.gradleProperty("glassStandCheck").isPresent) 260 else 60}\n${if(stand || smoke) "tutorialStep:none\n" else ""}")
         if(holes && providers.gradleProperty("holeBenchLoaded").isPresent) {
             val original=file(providers.gradleProperty("holeBenchInstance").get()).canonicalFile
             original.resolve("config").copyRecursively(dir.resolve("config"),overwrite=true)

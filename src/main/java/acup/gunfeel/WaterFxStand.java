@@ -89,6 +89,7 @@ final class WaterFxStand {
                 case 0 -> {
                     if (mc.player == null || mc.player.position().distanceTo(EYE) > 1) return;
                     server.submit(() -> build(server.overworld())).join();
+                    sizes();
                     next();
                 }
                 // the water settles (a slope, a waterfall and a sheet flow out), the client has it
@@ -271,22 +272,307 @@ final class WaterFxStand {
                     next();
                 }
                 case 22 -> {
+                    if (ringColour(mc, server)) next();
+                }
+                // a big particle's first ticks, frame by frame: the water dust of a splash, the gas bubble of a shot
+                // from under water
+                case 23 -> {
+                    if (firstTicks(mc, server, WaterParticle.Kind.MIST)) next();
+                }
+                case 24 -> {
+                    if (firstTicks(mc, server, WaterParticle.Kind.GAS)) next();
+                }
+                // a round asleep on the bottom, the floor under it broken: it goes down
+                case 25 -> {
+                    if (floorGone(server)) next();
+                }
+                case 26 -> {
                     line("surface audit: under the surface by more than 0.15: " + WaterFx.below + ", over air: " + WaterFx.overAir + ", deepest "
                             + String.format("%.3f", WaterFx.worstBelow));
                     check(WaterFx.below == 0 && WaterFx.overAir == 0, "ни одна частица не ниже поверхности на 0.15 и не над воздухом");
                     WaterFx.audit = false;
-                    ClientSmoke.finish();
-                    step = 99;
+                    shots = 0;
+                    next();
+                }
+                // a grenade and a rocket shot from under water, straight up: NTM's own entity, no tracer of ours, one gas
+                // bubble each (WaterFx.joined). Last, as they might go off: taken off the server after two ticks
+                case 27, 28 -> {
+                    String ammo = step == 27 ? "g40_he" : "rocket_he";
+                    if (shots == 0) {
+                        before = WaterFx.SPAWNED.clone();
+                        shots = 1;
+                        BulletConfig c = config(ammo);
+                        server.submit(() -> {
+                            sent = ntmShot(server.overworld(), c, new Vec3(STILL + 1.5, Y - 1.5, 0.5), new Vec3(0, 1, 0));
+                        }).join();
+                        return;
+                    }
+                    if (shots == 1 && elapsed() > 0.1) {
+                        shots = 2;
+                        EntityBulletBaseMK4 b = sent;
+                        server.execute(() -> {
+                            if (b != null && !b.isRemoved()) b.discard();
+                        });
+                    }
+                    if (elapsed() < 3) return;
+                    int gas = WaterFx.SPAWNED[WaterParticle.Kind.GAS.ordinal()] - before[WaterParticle.Kind.GAS.ordinal()];
+                    line("from under water " + ammo + " (speed " + config(ammo).velocity + ", traced " + Tracers.traced(config(ammo)) + "): gas bubbles " + gas
+                            + ", per shot: " + perShot(1));
+                    check(gas == 1, "одна газовая каверна у " + ammo + " из-под воды");
+                    shots = 0;
+                    next();
+                }
+                // a grenade shot east along a water channel 14 long and 8 deep: water stops it, it sinks, and its model lies
+                // east (the way it flew, kept when water stopped it), not along NTM's yaw of a fall straight down.
+                // The last step: it goes off on the channel's floor
+                case 29 -> {
+                    if (sunk(mc, server)) {
+                        ClientSmoke.finish();
+                        step = 99;
+                    }
                 }
                 default -> {
                 }
             }
         } catch (Throwable t) {
+            WaterParticle.watchKind = null;
+            WaterParticle.watched = null;
             GunFeel.LOGGER.error("[waterfx] failed", t);
             ClientSmoke.check(false, "эффекты воды: " + t);
             ClientSmoke.finish();
             step = 99;
         }
+    }
+
+    // ---- a ring's colour on the screen: at noon, the still pool filled again, the eye straight above it (and then
+    // under its surface looking up), a frame without a ring and one with a ring of alpha 1 lasting long; the pixels the
+    // ring changed are its own colour. White at noon is near 255; the owner saw grey ----
+    private static int colourStep;
+    private static int[] shotA, shot;
+    private static boolean shooting;
+    private static double ringAbove;
+
+    private static boolean ringColour(Minecraft mc, net.minecraft.client.server.IntegratedServer server) {
+        boolean below = colourStep >= 10;
+        int sub = colourStep % 10;
+        Vec3 eye = below ? new Vec3(STILL + 3.5, Y - 2.6, 0.5) : new Vec3(STILL + 3.5, Y + 5, 0.5);
+        float pitch = below ? -90F : 90F;
+        switch (sub) {
+            case 0 -> {
+                server.execute(() -> {
+                    ServerLevel level = server.overworld();
+                    for (int x = 1; x <= 5; x++) for (int z = -2; z <= 2; z++) for (int y = Y - 4; y <= Y - 1; y++)
+                        level.setBlock(new BlockPos(STILL + x, y, z), Blocks.WATER.defaultBlockState(), Block.UPDATE_ALL);
+                    server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), "time set noon");
+                    server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), "weather clear");
+                    var player = server.getPlayerList().getPlayers().getFirst();
+                    player.teleportTo(level, eye.x, eye.y, eye.z, Set.of(), 0F, pitch, false);
+                });
+                WaterRings.clear();
+                colourStep++;
+                since = System.nanoTime();
+            }
+            case 1 -> {
+                if (elapsed() < 3 || mc.player.position().distanceTo(eye) > 0.5) return false;
+                mc.player.setYRot(0F);
+                mc.player.setXRot(pitch);
+                if (!screenshot(mc)) return false;
+                shotA = shot;
+                WaterRings.add(mc.level, STILL + 3.5, Y, 0.5, 0, 1000, 3, 3, 1F, false, false);
+                colourStep++;
+                since = System.nanoTime();
+            }
+            case 2 -> {
+                if (elapsed() < 0.5) return false;
+                mc.player.setYRot(0F);
+                mc.player.setXRot(pitch);
+                if (!screenshot(mc)) return false;
+                WaterRings.clear();
+                // the ring's pixels: changed by more than 24 in some channel
+                long n = 0;
+                double[] a = new double[3], b = new double[3];
+                for (int i = 0; i < shot.length && i < shotA.length; i++) {
+                    int p = shot[i], q = shotA[i];
+                    int d = 0;
+                    for (int k = 0; k < 24; k += 8) d = Math.max(d, Math.abs((p >> k & 255) - (q >> k & 255)));
+                    if (d <= 24) continue;
+                    n++;
+                    // the screenshot's pixels are ARGB here: red in bits 16-23 (with the low byte read as red the water came out orange)
+                    for (int c = 0; c < 3; c++) {
+                        b[c] += p >> (16 - 8 * c) & 255;
+                        a[c] += q >> (16 - 8 * c) & 255;
+                    }
+                }
+                String where = below ? "from under the surface" : "from above";
+                if (n == 0) {
+                    line("ring colour " + where + ": the ring changed no pixel");
+                    check(false, "кольцо видно на кадре " + (below ? "снизу" : "сверху"));
+                } else {
+                    for (int c = 0; c < 3; c++) {
+                        a[c] /= n;
+                        b[c] /= n;
+                    }
+                    double lum = (b[0] + b[1] + b[2]) / 3;
+                    line(String.format(java.util.Locale.ROOT, "ring colour %s, noon, alpha 1: %d px, ring RGB %.0f %.0f %.0f (mean %.0f of 255), the water there %.0f %.0f %.0f",
+                            where, n, b[0], b[1], b[2], lum, a[0], a[1], a[2]));
+                    if (below) check(lum >= ringAbove * 0.3, "кольцо снизу не чёрное (" + Math.round(lum) + ")");
+                    else {
+                        ringAbove = lum;
+                        // grey was 103; white comes out near 200, not 255: the texture's soft edges are mixed with the water
+                        check(lum >= 170, "кольцо сверху в полдень белое, а не серое (среднее " + Math.round(lum) + " из 255)");
+                    }
+                }
+                if (below) {
+                    return true;
+                }
+                colourStep = 10;
+            }
+            default -> {
+            }
+        }
+        return false;
+    }
+
+    // ---- the first three ticks of one particle: the frames it was drawn in, its size, alpha and centre; a jump back
+    // (the size or the alpha going down while they grow, the centre stepping back against its way) is the blinking
+    // the owner saw. The gas bubble's centre is also measured against its size: it sits 0.85 of its radius ahead ----
+    private static int tickStep;
+
+    private static boolean firstTicks(Minecraft mc, net.minecraft.client.server.IntegratedServer server, WaterParticle.Kind kind) {
+        switch (tickStep) {
+            case 0 -> {
+                server.execute(() -> server.getPlayerList().getPlayers().getFirst().teleportTo(server.overworld(), STILL + 3.5, Y + 3, -4, Set.of(), 0F, 30F,
+                        false));
+                tickStep++;
+                since = System.nanoTime();
+            }
+            case 1 -> {
+                if (elapsed() < 2) return false;
+                WaterParticle.WATCH.clear();
+                WaterParticle.watched = null;
+                WaterParticle.watchKind = kind;
+                if (kind == WaterParticle.Kind.GAS) {
+                    BulletConfig c = config("p9_fmj");
+                    server.execute(() -> spawn(server.overworld(), c, new Vec3(STILL + 1.5, Y - 1.5, 0.5), new Vec3(1, 0, 0)));
+                } else fire(server, "p9_fmj", 0);
+                tickStep++;
+                since = System.nanoTime();
+            }
+            case 2 -> {
+                List<double[]> w = WaterParticle.WATCH;
+                if (elapsed() < 3 && (w.isEmpty() || w.getLast()[0] < 3)) return false;
+                WaterParticle.watchKind = null;
+                WaterParticle.watched = null;
+                tickStep = 0;
+                String name = kind.name().toLowerCase(java.util.Locale.ROOT);
+                List<double[]> f = new ArrayList<>();
+                for (double[] r : w) if (r[0] < 3) f.add(r);
+                if (f.size() < 3) {
+                    line(name + ": drawn in " + f.size() + " frames of its first 3 ticks");
+                    check(false, "частица " + name + " видна в первые тики");
+                    return true;
+                }
+                double[] first = f.getFirst();
+                // the gas bubble shrinks on its own from the second tick
+                double grows = kind == WaterParticle.Kind.GAS ? 2 : 3;
+                double[] end = first;
+                for (double[] r : f) if (r[0] < grows) end = r;
+                double dx = end[3] - first[3], dy = end[4] - first[4], dz = end[5] - first[5];
+                int sizeBack = 0, alphaBack = 0, posBack = 0, flat = 0;
+                double alphaDrop = 0, lead = 0;
+                StringBuilder b = new StringBuilder();
+                for (int i = 0; i < f.size(); i++) {
+                    double[] r = f.get(i);
+                    b.append(String.format(java.util.Locale.ROOT, "%s%.2f %.3f %.3f %.3f,%.3f,%.3f", i > 0 ? "; " : "", r[0], r[1], r[2], r[3], r[4], r[5]));
+                    if (kind == WaterParticle.Kind.GAS && r[0] >= 0.5 && r[1] > 1e-3) lead = Math.max(lead, Math.abs((r[3] - r[6]) / r[1] - 0.85));
+                    if (i == 0) continue;
+                    double[] q = f.get(i - 1);
+                    if (r[0] < grows && r[1] < q[1] - 1e-6) sizeBack++;
+                    if (Math.abs(r[1] - q[1]) < 1e-7) flat++;
+                    if (r[2] < q[2] - 1e-4) {
+                        alphaBack++;
+                        alphaDrop = Math.max(alphaDrop, q[2] - r[2]);
+                    }
+                    // the gas bubble's centre is ahead of its origin by its radius: it comes back as the bubble shrinks
+                    if (r[0] < grows && (r[3] - q[3]) * dx + (r[4] - q[4]) * dy + (r[5] - q[5]) * dz < -1e-9) posBack++;
+                }
+                line(String.format(java.util.Locale.ROOT, "%s, first 3 ticks: %d frames; size back %d, size unchanged frame to frame %d, alpha back %d "
+                        + "(most %.3f), centre back %d%s; frames (t size alpha centre): %s", name, f.size(), sizeBack, flat, alphaBack, alphaDrop, posBack,
+                        kind == WaterParticle.Kind.GAS ? String.format(java.util.Locale.ROOT, ", centre ahead of 0.85 radius by up to %.2f radius", lead) : "",
+                        b));
+                check(sizeBack == 0 && alphaBack == 0 && posBack == 0, name + ": в первые тики размер, альфа и центр не прыгают назад");
+                if (kind == WaterParticle.Kind.GAS) check(lead < 0.15, "газовый пузырь: центр идёт вместе с размером");
+                return true;
+            }
+            default -> {
+            }
+        }
+        return false;
+    }
+
+    // ---- a round asleep on the still pool's bottom, the stone under it (3 × 3) taken away on the server: it goes
+    // down at least a block within a second ----
+    private static int floorStep;
+    private static acup.gunfeel.water.SunkPhysics.Body sleeper;
+    private static double sleeperY;
+
+    private static boolean floorGone(net.minecraft.client.server.IntegratedServer server) {
+        switch (floorStep) {
+            case 0 -> {
+                for (int i = 0; i < 3; i++) fire(server, "p9_fmj", 0);
+                floorStep++;
+                since = System.nanoTime();
+            }
+            case 1 -> {
+                sleeper = null;
+                for (var b : SunkBullets.list())
+                    if (b.asleep && b.px > STILL + 2 && b.px < STILL + 5 && b.pz > -1 && b.pz < 2 && b.py < Y - 3) sleeper = b;
+                if (sleeper == null) {
+                    if (elapsed() < 12) return false;
+                    line("floor gone: no round asleep on the still pool's bottom");
+                    check(false, "пуля уснула на дне");
+                    floorStep = 0;
+                    return true;
+                }
+                sleeperY = sleeper.py;
+                int bx = (int) Math.floor(sleeper.px), bz = (int) Math.floor(sleeper.pz);
+                line(String.format(java.util.Locale.ROOT, "floor gone: a round asleep at %.2f %.3f %.2f; bodies %d, asleep %d, physics %.4f ms a frame", sleeper.px,
+                        sleeper.py, sleeper.pz, SunkBullets.bodies(), SunkBullets.asleep(), SunkBullets.physicsMs()));
+                server.execute(() -> {
+                    for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) set(server.overworld(), bx + x, Y - 5, bz + z, Blocks.AIR.defaultBlockState());
+                });
+                floorStep++;
+                since = System.nanoTime();
+            }
+            case 2 -> {
+                double drop = sleeperY - sleeper.py;
+                if (drop < 1 && elapsed() < 3 && SunkBullets.list().contains(sleeper)) return false;
+                double t = elapsed();
+                line(String.format(java.util.Locale.ROOT, "floor gone: the round went down %.2f blocks in %.2f s (asleep %b)", drop, t, sleeper.asleep));
+                check(drop >= 1 && t <= 1, "пуля на дне падает, когда блок под ней сломан");
+                floorStep = 0;
+                return true;
+            }
+            default -> {
+            }
+        }
+        return false;
+    }
+
+    private static boolean screenshot(Minecraft mc) {
+        if (shooting) {
+            if (shot == null) return false;
+            shooting = false;
+            return true;
+        }
+        shot = null;
+        shooting = true;
+        net.minecraft.client.Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(), image -> {
+            try (image) {
+                shot = image.getPixels();
+            }
+        });
+        return false;
     }
 
     private static void reset() {
@@ -342,6 +628,22 @@ final class WaterFxStand {
         return WaterFx.flashHidden > before;
     }
 
+    // the size of every round of the table in water, from NTM's casing of it (SunkBullets.model), once per round
+    private static void sizes() {
+        java.util.Map<String, String> out = new java.util.TreeMap<>();
+        for (BulletConfig c : BulletConfig.configs) {
+            String a = c == null ? null : WaterFx.ammo(c);
+            var m = a == null ? null : SunkBullets.model(c);
+            if (m == null) continue;
+            var k = c.casing;
+            out.putIfAbsent(a, String.format(java.util.Locale.ROOT, "%s len %.4f d %.4f %s", a, m.length, 2 * m.radius,
+                    k == null ? "no casing" : (m.byCasing ? "casing " : "casing not sized ") + k.getType() + " " + k.getScaleX() + "/"
+                            + k.getScaleY() + "/" + k.getScaleZ()));
+        }
+        line("sizes: " + out.size() + " rounds, by casing " + out.values().stream().filter(v -> v.contains(" casing ") && !v.contains("not sized")).count());
+        for (String v : out.values()) line("size " + v);
+    }
+
     private static BulletConfig config(String ammo) {
         for (BulletConfig c : BulletConfig.configs) {
             String a = c == null ? null : WaterFx.ammo(c);
@@ -373,6 +675,90 @@ final class WaterFxStand {
             int n = Math.max(1, c.projectilesMax);
             for (int i = 0; i < n; i++) spawn(server.overworld(), c, from, dir);
         });
+    }
+
+    private static @org.jspecify.annotations.Nullable EntityBulletBaseMK4 sent;
+    private static double stoppedAt = -1;
+    private static @org.jspecify.annotations.Nullable Vec3 seenAt;
+    private static boolean clientStopped;
+
+    // under the stand's eye: NTM's round farther off is out of the client's sight
+    private static final int CHANNEL = 10, CHANNEL_Z = -10;
+
+    private static boolean sunk(Minecraft mc, net.minecraft.client.server.IntegratedServer server) {
+        if (shots == 0) {
+            server.submit(() -> {
+                ServerLevel lv = server.overworld();
+                BlockState stone = Blocks.STONE.defaultBlockState(), water = Blocks.WATER.defaultBlockState();
+                for (int x = CHANNEL; x <= CHANNEL + 15; x++) for (int z = CHANNEL_Z - 2; z <= CHANNEL_Z + 2; z++) {
+                    set(lv, x, Y - 9, z, stone);
+                    for (int y = Y - 8; y <= Y - 1; y++) {
+                        boolean wall = x == CHANNEL || x == CHANNEL + 15 || z == CHANNEL_Z - 2 || z == CHANNEL_Z + 2;
+                        set(lv, x, y, z, wall ? stone : water);
+                    }
+                }
+            }).join();
+            shots = 1;
+            return false;
+        }
+        // 8 deep: water stops a grenade after 5.7 blocks (L 3, waterStopFraction 0.15), it falls 2.6 meanwhile
+        Vec3 from = new Vec3(CHANNEL + 1.2, Y - 3.5, CHANNEL_Z + 0.5);
+        if (shots == 1) {
+            if (elapsed() < 1 || !WaterFx.wetAt(mc.level, from) || !WaterFx.wetAt(mc.level, from.add(12, 0, 0))) {
+                if (elapsed() > 10) {
+                    check(false, "жёлоб для гранаты не дошёл до клиента");
+                    return true;
+                }
+                return false;
+            }
+            BulletConfig c = config("g40_he");
+            server.submit(() -> {
+                sent = ntmShot(server.overworld(), c, from, new Vec3(1, 0, 0));
+            }).join();
+            shots = 2;
+            stoppedAt = -1;
+            seenAt = null;
+            blasts0 = WaterFx.blasts;
+            since = System.nanoTime();
+            return false;
+        }
+        EntityBulletBaseMK4 s = sent;
+        var e = s == null ? null : mc.level.getEntity(s.getId());
+        if (e != null) seenAt = e.position();
+        if (stoppedAt < 0 && e != null && WaterFx.wetAt(mc.level, e.position()) && SunkBullets.sinking(e)) {
+            stoppedAt = elapsed();
+            clientStopped = e instanceof acup.gunfeel.water.WaterBullet w && w.gunfeel$waterStopped();
+        }
+        // half a second after it stopped: sinking straight down by then, NTM's yaw turned
+        if (stoppedAt < 0 || elapsed() < stoppedAt + 0.5) {
+            if (elapsed() > 8) {
+                line("grenade along the channel: not seen stopped by water (on the client now: " + (e != null) + ", last seen at " + seenAt
+                        + ", blasts under water " + (WaterFx.blasts - blasts0) + ")");
+                check(false, "граната в жёлобе остановлена водой");
+                return true;
+            }
+            return false;
+        }
+        Vec3 h = e == null ? Vec3.ZERO : SunkBullets.headingOf(e);
+        line(String.format(java.util.Locale.ROOT, "grenade along the channel, east: sinking after %.2f s at x %.2f (the client's bullet saw the stop: %s), sunk model heading %.3f %.3f %.3f, NTM yaw now %.1f",
+                stoppedAt, e == null ? Double.NaN : e.getX(), clientStopped, h.x, h.y, h.z, e == null ? Float.NaN : e.getYRot()));
+        check(h.x > 0.95, "тонущая граната лежит по курсу полёта (на восток)");
+        server.execute(() -> {
+            if (s != null && !s.isRemoved()) s.discard();
+        });
+        return true;
+    }
+
+    // a round as NTM's gun shoots it: a motion of length 1, the speed NTM's motionMult
+    private static EntityBulletBaseMK4 ntmShot(ServerLevel level, BulletConfig c, Vec3 from, Vec3 dir) {
+        EntityBulletBaseMK4 b = new EntityBulletBaseMK4(level, c, 10F, 0F, 0F, 0F);
+        var player = level.getServer().getPlayerList().getPlayers().getFirst();
+        b.setThrower(player);
+        b.setOwner(player);
+        b.setPos(from.x, from.y, from.z);
+        b.setThrowableHeading(dir.x, dir.y, dir.z, 1F, 0F);
+        level.addFreshEntity(b);
+        return b;
     }
 
     private static void spawn(ServerLevel level, BulletConfig c, Vec3 from, Vec3 dir) {

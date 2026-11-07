@@ -38,7 +38,7 @@ final class HeadProfiles {
             if(stream!=null) read(new InputStreamReader(stream,StandardCharsets.UTF_8),out);
         } catch(Exception e) { throw new IllegalStateException("Не удалось загрузить ручную разметку "+resource,e); }
         if(Files.isRegularFile(override)) try(var reader=Files.newBufferedReader(override)) { read(reader,out); }
-        catch(Exception e) { GunFeel.LOGGER.error("Не удалось прочитать локальную разметку {}; встроенная сохранена",override,e); }
+        catch(Exception e) { DebugLog.LOGGER.error("Не удалось прочитать локальную разметку {}; встроенная сохранена",override,e); }
         return Map.copyOf(out);
     }
     private static void read(Reader reader,Map<String,Profile> destination) {

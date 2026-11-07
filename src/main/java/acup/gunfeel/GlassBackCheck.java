@@ -25,9 +25,10 @@ import net.minecraft.world.phys.Vec3;
 // item in an invisible item frame on the wall beside it. With the wall white and then black: how much of the glass
 // and of its item shows the wall through it. Then bullets from behind the glass, holes on its far face: how many
 // pixels they change seen through it, with the holes kept on the graphics card (holeCache) and sent each frame; then
-// holes on the near face, the same. Then particles in front of the laminate pane, held still (NTM's explosion cloud,
-// vanilla campfire smoke at alpha 0.5, vanilla explosion): how much of the pane still shows under them. Lines
-// "[glassback] ..." in the log. =fabulous: with improved transparency.
+// holes on the near face, the same. Then particles held still (NTM's explosion cloud, vanilla campfire smoke at alpha
+// 0.5, vanilla explosion) in front of each glass of UNDER, then behind it: how much of the glass still shows with them.
+// Under the cloud and the smoke at least 0.35 of its change on the bare wall must, behind them at least half of
+// it. Lines "[glassback] ..." in the log. =fabulous: with improved transparency.
 final class GlassBackCheck {
     private static final String MODE = System.getProperty("ntmgunfeel.glassBack", "");
     static final boolean ENABLED = !MODE.isBlank();
@@ -54,8 +55,18 @@ final class GlassBackCheck {
     private static String faces = "";
     private static final Map<String, double[]> RESULT = new LinkedHashMap<>();
     private static final String[] PARTICLES = {"ntm explosion", "vanilla smoke", "vanilla explosion"};
-    private static final Vec3 PARTICLE_AT = new Vec3(O.getX() + 0.5, O.getY() + 1, O.getZ() + 1.6);
-    private static int particle;
+    // the particle between the camera and the glass, then between the glass and the wall
+    private static final String[] SIDES = {"before", "behind"};
+    private static final Vec3[] PARTICLE_AT = {new Vec3(O.getX() + 0.5, O.getY() + 1, O.getZ() + 1.6),
+            new Vec3(O.getX() + 0.5, O.getY() + 1, O.getZ() - 1.0)};
+    // the glass under the particles: vanilla's cutout and translucent, NTM's cutout block and translucent pane, the laminate
+    private static final String[] UNDER = {"minecraft:glass", "minecraft:white_stained_glass", "minecraft:glass_pane",
+            "minecraft:white_stained_glass_pane", "hbm:reinforced_glass", "hbm:reinforced_glass_pane", "hbm:reinforced_laminate",
+            "hbm:reinforced_laminate_pane"};
+    // glass | particle | side: its pixels the particle covers, how many of them still show the glass, and the glass's
+    // change there over its change on the bare wall
+    private static final Map<String, double[]> UNDER_RESULT = new LinkedHashMap<>();
+    private static int particle, under, side, missing;
     private static net.minecraft.client.particle.Particle held;
     private static int[] underBoth, underOnly, paneOnly, none;
 
@@ -86,9 +97,9 @@ final class GlassBackCheck {
     // a vanilla particle held where it is, at its age: set back each frame (its tick moves it on by a tick at most)
     private static void hold(net.minecraft.client.particle.Particle p) {
         try {
-            for (String n : new String[] {"x", "xo"}) field(p.getClass(), n).setDouble(p, PARTICLE_AT.x);
-            for (String n : new String[] {"y", "yo"}) field(p.getClass(), n).setDouble(p, PARTICLE_AT.y);
-            for (String n : new String[] {"z", "zo"}) field(p.getClass(), n).setDouble(p, PARTICLE_AT.z);
+            for (String n : new String[] {"x", "xo"}) field(p.getClass(), n).setDouble(p, PARTICLE_AT[side].x);
+            for (String n : new String[] {"y", "yo"}) field(p.getClass(), n).setDouble(p, PARTICLE_AT[side].y);
+            for (String n : new String[] {"z", "zo"}) field(p.getClass(), n).setDouble(p, PARTICLE_AT[side].z);
             for (String n : new String[] {"xd", "yd", "zd"}) field(p.getClass(), n).setDouble(p, 0);
             field(p.getClass(), "age").setInt(p, 2);
             // (the vanilla explosion lives 6-9 ticks: in some runs it was gone before the shots, 0 pixels)
@@ -102,34 +113,41 @@ final class GlassBackCheck {
     private static void spawn() {
         Minecraft mc = Minecraft.getInstance();
         if (particle == 0) {
-            held = new Frozen(mc.level, PARTICLE_AT.x, PARTICLE_AT.y, PARTICLE_AT.z);
+            Vec3 at = PARTICLE_AT[side];
+            held = new Frozen(mc.level, at.x, at.y, at.z);
             mc.particleEngine.add(held);
         } else {
             held = mc.particleEngine.createParticle(particle == 1 ? net.minecraft.core.particles.ParticleTypes.CAMPFIRE_COSY_SMOKE
-                    : net.minecraft.core.particles.ParticleTypes.EXPLOSION, PARTICLE_AT.x, PARTICLE_AT.y, PARTICLE_AT.z, 0, 0, 0);
+                    : net.minecraft.core.particles.ParticleTypes.EXPLOSION, PARTICLE_AT[side].x, PARTICLE_AT[side].y, PARTICLE_AT[side].z, 0, 0, 0);
             if (held == null) failure = "частица " + PARTICLES[particle] + " не создана";
             else hold(held);
         }
     }
 
-    // where the particle shows over the bare wall and the pane shows without it: how much of the pane is left under it
+    // where the particle shows over the bare wall and the glass shows without it: how much of the glass is left with it
     private static void particleResult() {
         int w = shotWidth, cut = split(w, none.length / w), region = 0, foot = 0, seen = 0;
-        double under = 0, bare = 0;
+        double left = 0, bare = 0;
         for (int i = 0; i < none.length; i++) {
             if (i % w >= cut || diff(underOnly[i], none[i]) <= 12) continue;
             foot++;
             int b = Math.abs(light(paneOnly[i]) - light(none[i]));
             if (b <= 8 * 3) continue;
-            region++;
             int u = Math.abs(light(underBoth[i]) - light(underOnly[i]));
-            if (u > 8 * 3) seen++;
-            under += u;
+            boolean alike = Math.abs(light(underOnly[i]) - light(paneOnly[i])) <= 8 * 3;
+            // the particle alone as bright as the glass alone: whichever shows, the frame is the same; not judged
+            if (u <= 8 * 3 && alike) continue;
+            region++;
+            // the glass shows where the frame differs from the particle alone, or is the glass alone (the particle does
+            // not show there: behind the glass, it fails the depth test of a glass that writes depth)
+            if (u > 8 * 3 || Math.abs(light(underBoth[i]) - light(paneOnly[i])) <= 8 * 3) seen++;
+            left += u;
             bare += b;
         }
-        GunFeel.LOGGER.info(String.format(Locale.ROOT, "[glassback] particle %s before the laminate pane: its pixels %d, of them on the pane %d; the pane "
-                + "still seen under it in %d (%.0f%%), its change there %.2f of the bare pane's", PARTICLES[particle], foot, region, seen,
-                100.0 * seen / Math.max(1, region), bare == 0 ? 0 : under / bare));
+        UNDER_RESULT.put(UNDER[under] + " | " + PARTICLES[particle] + " | " + SIDES[side], new double[] {region, seen, bare == 0 ? 0 : left / bare});
+        GunFeel.LOGGER.info(String.format(Locale.ROOT, "[glassback] particle %s %s %s: its pixels %d, of them on the glass %d; the glass "
+                + "still seen with it in %d (%.0f%%), its change there %.2f of the bare glass's", PARTICLES[particle], SIDES[side], UNDER[under], foot,
+                region, seen, 100.0 * seen / Math.max(1, region), bare == 0 ? 0 : left / bare));
     }
 
     private GlassBackCheck() {
@@ -462,12 +480,28 @@ final class GlassBackCheck {
                         r[12], r[13], r[14], r[15]));
                 step = 10;
             }
-            case 30 -> { // a particle before the laminate pane
+            case 30 -> { // a particle before a glass
                 if (particle >= PARTICLES.length) {
+                    particle = 0;
+                    under++;
+                }
+                if (under >= UNDER.length) {
+                    under = 0;
+                    side++;
+                }
+                if (side >= SIDES.length) {
                     step = 99;
                     return;
                 }
-                type = java.util.Arrays.asList(TYPES).indexOf("hbm:reinforced_laminate_pane");
+                if (block(UNDER[under]) == Blocks.AIR) {
+                    if (particle == 0) {
+                        GunFeel.LOGGER.info("[glassback] particles {} {}: no such block", SIDES[side], UNDER[under]);
+                        missing += PARTICLES.length;
+                    }
+                    particle = PARTICLES.length;
+                    return;
+                }
+                type = java.util.Arrays.asList(TYPES).indexOf(UNDER[under]);
                 build(true, true);
                 step = 31;
             }
@@ -541,6 +575,27 @@ final class GlassBackCheck {
                     }
                 }
                 ClientSmoke.check(RESULT.containsKey("hbm:reinforced_laminate") && RESULT.containsKey("hbm:reinforced_laminate_pane"), "стекло сзади: ламинат проверен");
+                // the glass behind the explosion cloud and the smoke (both half clear): its change under them at least 0.35
+                // of its change on the bare wall (the smoke at alpha 0.5 leaves 0.5 of it, a glass they hide 0). The glass
+                // before them shows on at least half of what they cover. Vanilla's explosion is only logged: it is opaque
+                // and hides the glass behind it, as it should, and held at its age it is now and then not drawn at all or
+                // drawn over the glass before it, run to run alike with ntmRenderFixes on or off. A glass a particle covers
+                // under 50 pixels of is not judged (vanilla's clear glass is mostly empty, the smoke's sprite is small and
+                // changes run to run), but NTM's cloud must cover 50 of every glass.
+                int cases = UNDER.length * PARTICLES.length * SIDES.length - missing;
+                ClientSmoke.check(UNDER_RESULT.size() == cases, "стекло и частицы: проверено " + UNDER_RESULT.size() + " из " + cases);
+                for (var e : UNDER_RESULT.entrySet()) {
+                    double[] r = e.getValue();
+                    if (e.getKey().contains(" | " + PARTICLES[2] + " | ")) continue;
+                    if (e.getKey().contains(" | " + PARTICLES[0] + " | "))
+                        ClientSmoke.check(r[0] >= 50, "стекло и частица " + e.getKey() + ": под частицей пикселей стекла " + (int) r[0]);
+                    if (r[0] < 50) continue;
+                    if (e.getKey().endsWith(SIDES[1]))
+                        ClientSmoke.check(r[1] * 2 >= r[0], "стекло и частица " + e.getKey() + ": видно в " + (int) r[1] + " из " + (int) r[0]);
+                    else
+                        ClientSmoke.check(r[2] >= 0.35, String.format(Locale.ROOT, "стекло и частица %s: изменение под ней %.2f от голого стекла",
+                                e.getKey(), r[2]));
+                }
                 Tracers.clearHoles();
                 ClientSmoke.finish();
             }

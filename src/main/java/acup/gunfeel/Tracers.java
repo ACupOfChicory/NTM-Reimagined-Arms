@@ -74,6 +74,7 @@ public final class Tracers {
         final float g;
         final double speed;
         final int dark, light;
+        final boolean drawn; // false: NTM draws the round (a 240 mm shell), the path only leaves its holes
         final double born;
         final double rootBorn;
         final long lifeTicks;
@@ -113,6 +114,7 @@ public final class Tracers {
             this.v = new Vec3(p.vx(), p.vy(), p.vz());
             this.g = p.gravity();
             this.speed = Math.max(v.length(), 1e-3);
+            this.drawn = colors != UNDRAWN;
             this.dark = colors[0];
             this.light = colors[1];
             this.lifeTicks = p.life();
@@ -130,6 +132,7 @@ public final class Tracers {
             this.v = v;
             this.g = from.g;
             this.speed = Math.max(v.length(), 1e-3);
+            this.drawn = from.drawn;
             this.dark = from.dark;
             this.light = from.light;
             this.lifeTicks = lifeTicks;
@@ -144,6 +147,7 @@ public final class Tracers {
             this.waterF = from.waterF;
             this.waterSkips = from.waterSkips;
             this.waterOpened = from.waterOpened;
+            stopFrom(from);
         }
 
         // the same bullet after water slowed or turned it: from `start` with `v` (its new speed in it), f, skips
@@ -155,6 +159,7 @@ public final class Tracers {
             this.v = v;
             this.g = from.g;
             this.speed = Math.max(v.length(), 1e-3);
+            this.drawn = from.drawn;
             this.dark = from.dark;
             this.light = from.light;
             this.lifeTicks = lifeTicks;
@@ -168,6 +173,16 @@ public final class Tracers {
             this.waterF = f;
             this.waterSkips = skips;
             this.waterOpened = from.waterPath != null ? from.waterPath.opened : from.waterOpened;
+            stopFrom(from);
+        }
+
+        // the server's stop came before the client began this piece: it fell on the piece before, past that one's
+        // end, and this one ends there in turn (TracerStops.left)
+        private void stopFrom(Shot from) {
+            if (Double.isNaN(from.confirmedEnd)) return;
+            confirmedEnd = TracerStops.left(from.confirmedEnd, born - from.born);
+            stopPoint = from.stopPoint;
+            if (checked >= confirmedEnd) end = confirmedEnd;
         }
 
         // where the bullet is after t ticks (as the server moves it), plus the muzzle offset fading out
@@ -386,10 +401,21 @@ public final class Tracers {
     private static final java.util.LinkedHashMap<Integer,Shot> RECENT_SHOTS=new java.util.LinkedHashMap<>();
     public static void stop(BulletStopPayload packet) {
         if(!Double.isFinite(packet.age()) || packet.age()<0 || !Double.isFinite(packet.point().lengthSqr()))return;
-        var recent=RECENT_SHOTS.get(packet.shot());
+        // the piece the stop falls on: the last one begun by its age (TracerStops.piece); the later ones do not fly
+        List<Shot> pieces = new ArrayList<>();
+        for (var s : SHOTS) if (s.id == packet.shot()) pieces.add(s);
+        double[] starts = new double[pieces.size()];
+        for (int i = 0; i < starts.length; i++) starts[i] = pieces.get(i).born - pieces.get(i).rootBorn;
+        int found = TracerStops.piece(starts, packet.age());
+        var recent = found >= 0 ? pieces.get(found) : RECENT_SHOTS.get(packet.shot());
         if(recent!=null){
             PENDING.removeIf(p->p.shot()==packet.shot() && p.hit().getLocation().subtract(packet.point()).dot(recent.v)>1e-5);
             HOLES.removeIf(h->h.shot()==packet.shot() && (h.hit()==null?h.pos():h.hit()).subtract(packet.point()).dot(recent.v)>1e-5);
+        }
+        // none begun by then (the first already gone from SHOTS): all of those left are past the stop
+        if (recent != null) for (var shot : pieces) if (found < 0 || shot.born > recent.born) {
+            shot.confirmedEnd = 0;
+            shot.end = 0;
         }
         for(var shot:SHOTS)if(shot.id==packet.shot() && (recent==null || shot.born==recent.born)) {
             shot.confirmedEnd=Math.max(0,packet.age()-(shot.born-shot.rootBorn));
@@ -415,6 +441,9 @@ public final class Tracers {
     // NTM tracer colours per bullet type, {dark, light}; NONE = not a plain tracer (grenade, rocket...): NTM draws it
     private static final Map<BulletConfig, int[]> COLORS = new HashMap<>();
     private static final int[] NONE = new int[0];
+    // the 240 mm shells of the Jeremy turret: NTM draws them as a model (NONE), but their path is followed here for the
+    // holes they leave, as a bullet's (ExplosiveAmmo.shell)
+    private static final int[] UNDRAWN = new int[] {0, 0};
     private static boolean probing;
     private static int[] probed;
 
@@ -472,6 +501,22 @@ public final class Tracers {
         probed = new int[] {dark, light};
     }
 
+    // true when a shot of this round comes here from the server and starts a tracer of ours (handle): fast enough for
+    // the server to tell (MixinBulletServer), and drawn as a plain tracer or followed for its holes
+    public static boolean traced(BulletConfig config) {
+        return config.velocity >= 5F && (colors(config) != NONE || ExplosiveAmmo.shell(config));
+    }
+
+    // the muzzle of the gun in this player's hands, in the world, while it is drawn in first person (in the last half
+    // second), or null
+    public static @org.jspecify.annotations.Nullable Vec3 drawnMuzzle() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || GunClock.nanos() - muzzleTime >= 500_000_000L || !mc.options.getCameraType().isFirstPerson()) return null;
+        Camera camera = mc.gameRenderer.mainCamera();
+        Vector3f w = camera.rotation().transform(new Vector3f(MUZZLE));
+        return camera.position().add(w.x, w.y, w.z);
+    }
+
     // true when this bullet type's tracer is drawn here instead of by NTM
     public static boolean replaces(BulletConfig config) {
         return serverAnnounces && Config.tracers && config != null && config.velocity >= 5F && colors(config) != NONE;
@@ -515,18 +560,18 @@ public final class Tracers {
         BulletConfig config = BulletConfig.configs.get(p.config());
         if (config.velocity < 5F) return;
         int[] c = colors(config);
+        if (c == NONE && ExplosiveAmmo.shell(config)) c = UNDRAWN;
         if (c == NONE) return;
         ClientSmoke.packet();
         Shot s = new Shot(p, config, c);
         Minecraft mc = Minecraft.getInstance();
         // the player's own shot leaves the muzzle drawn in their hands
-        if (mc.player != null && p.owner() == mc.player.getId() && GunClock.nanos() - muzzleTime < 500_000_000L && mc.options.getCameraType().isFirstPerson()) {
-            Camera camera = mc.gameRenderer.mainCamera();
-            Vector3f w = camera.rotation().transform(new Vector3f(MUZZLE));
-            Vec3 muzzle = camera.position().add(w.x, w.y, w.z);
+        Vec3 muzzle = mc.player != null && p.owner() == mc.player.getId() ? drawnMuzzle() : null;
+        if (muzzle != null) {
             s.muzzleOffset = muzzle.subtract(s.start);
             if (s.muzzleOffset.lengthSqr() > 9.0) s.muzzleOffset = Vec3.ZERO;
             if (GunFeel.LOGGER.isDebugEnabled()) {
+                Camera camera = mc.gameRenderer.mainCamera();
                 // both points in view space (x right, y up, -z forward), for debug.log
                 Vector3f st = new Vector3f((float) (s.start.x - camera.position().x), (float) (s.start.y - camera.position().y), (float) (s.start.z - camera.position().z));
                 camera.rotation().conjugate(new org.joml.Quaternionf()).transform(st);
@@ -631,7 +676,7 @@ public final class Tracers {
                 double k = s.waterF > 0 ? wf / s.waterF : 1;
                 acup.gunfeel.water.SunkBullets.flying(level, s.config, at, vel, wf, vel.length() * k);
             }
-            if (!Config.tracers || !segment.visible()) continue;
+            if (!Config.tracers || !s.drawn || !segment.visible()) continue;
             Vec3 h = s.at(head).subtract(cam), b = s.at(tail).subtract(cam);
             streaks.add(new float[] {(float) h.x, (float) h.y, (float) h.z, (float) b.x, (float) b.y, (float) b.z,
                     Float.intBitsToFloat(s.light), Float.intBitsToFloat(s.dark), pixel});
@@ -680,7 +725,11 @@ public final class Tracers {
     private static void fly(Shot s, ClientLevel level, double t) {
         for (int i = 0; i < 64 && Double.isNaN(s.end) && s.checked < t; i++) {
             double before = s.checked;
-            flyStep(s, level, Math.min(t, Math.floor(s.checked + 1e-9) + 1));
+            try {
+                flyStep(s, level, Math.min(t, Math.floor(s.checked + 1e-9) + 1));
+            } finally {
+                waterHole = 1F; // not left on the next shot's holes when a step throws
+            }
             if (s.checked <= before) break;
         }
     }
@@ -694,7 +743,11 @@ public final class Tracers {
         // water: not past where it cuts this piece
         water(s, level);
         if (!Double.isNaN(s.waterCut)) t = Math.min(t, s.waterCut);
-        if (t <= s.checked) return;
+        if (t <= s.checked) {
+            // water cut it where the last step ended (a stop or a skip right at a tick's start)
+            waterEnd(s, s.checked);
+            return;
+        }
         TestLog.shot(s.id);
         // the real path, without the muzzle offset, decides what is hit
         Vec3 ra = tested(s, s.checked), rb = tested(s, t);
@@ -799,7 +852,19 @@ public final class Tracers {
                     Direction.Axis ax = block.getDirection().getAxis();
                     Vec3 out = new Vec3(ax == Direction.Axis.X ? -vel.x : vel.x, ax == Direction.Axis.Y ? -vel.y : vel.y, ax == Direction.Axis.Z ? -vel.z : vel.z);
                     long left = (long) Math.max(0.0, s.lifeTicks - s.end);
-                    if (left > 0) BOUNCED.add(new Shot(s, stop, out, s.born + s.end, left));
+                    if (left > 0) {
+                        // in water this tick: it bounces on at the f, damage and opening it has where it bounced, as the
+                        // server's bullet (WaterTick.end), not at the tick's start
+                        var wp = s.waterPath;
+                        double q = wp != null && s.waterF > 0 ? wp.fAt(stop) / s.waterF : 1;
+                        Shot bounced = new Shot(s, stop, out.scale(q), s.born + s.end, left);
+                        if (wp != null) {
+                            bounced.waterF = s.waterF * q;
+                            bounced.damage = s.damage * (float) (q * q);
+                            bounced.waterOpened = wp.openedAt(wp.t(stop));
+                        }
+                        BOUNCED.add(bounced);
+                    }
                 }
             } else if (len > 1e-6 && !ExplosiveAmmo.heavy(s.config)) {
                 hit(level, block, s.config, dir.scale(1.0 / len), s.config.onImpact != null);
@@ -816,15 +881,18 @@ public final class Tracers {
         }
         s.checked = t;
         waterHole = 1F;
-        // water cut this piece here: it stops, or goes on as a new piece, slower or turned
-        if (Double.isNaN(s.end) && !Double.isNaN(s.waterCut) && t >= s.waterCut - 1e-9) {
-            s.end = s.waterCut;
-            Shot next = waterNext(s);
-            if (next != null) BOUNCED.add(next);
-            else if (TestLog.client) TestLog.c(s.id, "end", "by", "water", "at", s.at(s.end));
-        }
+        waterEnd(s, t);
         if(!Double.isNaN(s.confirmedEnd) && t>=s.confirmedEnd)s.end=s.confirmedEnd;
         TestLog.shot(-1);
+    }
+
+    // water cut this piece by t: it stops, or goes on as a new piece, slower or turned
+    private static void waterEnd(Shot s, double t) {
+        if (!Double.isNaN(s.end) || Double.isNaN(s.waterCut) || t < s.waterCut - 1e-9) return;
+        s.end = s.waterCut;
+        Shot next = waterNext(s);
+        if (next != null) BOUNCED.add(next);
+        else if (TestLog.client) TestLog.c(s.id, "end", "by", "water", "at", s.at(s.end));
     }
 
     // a hole's size behind water, × (0.5 + 0.5·f) where it is (the hole code reads it while fly makes one)
@@ -1027,14 +1095,24 @@ public final class Tracers {
     private static int makingShot=-1;
     public static void impact(ImpactHolePayload packet) {
         var level=Minecraft.getInstance().level;
-        if(level==null || !Config.bulletHoles || packet.config()<0 || packet.config()>=BulletConfig.configs.size())return;
+        if(level==null || packet.config()<0 || packet.config()>=BulletConfig.configs.size())return;
         var config=BulletConfig.configs.get(packet.config());
-        if(!ExplosiveAmmo.heavy(config) || !Double.isFinite(packet.point().x+packet.point().y+packet.point().z+packet.direction().lengthSqr()))return;
+        if(!Double.isFinite(packet.point().x+packet.point().y+packet.point().z+packet.direction().lengthSqr()))return;
         var hit=new BlockHitResult(packet.point(),packet.face(),packet.block(),false);
+        // a plain round: a hit of a bullet this client does not fly itself (NTM's old bullet, LegacyBullets), its
+        // hole and its particles and sound as a tracer's hit has them
+        if(!ExplosiveAmmo.heavy(config)) { hit(level,hit,config,packet.direction().normalize(),false);return; }
+        if(!Config.bulletHoles)return;
         PENDING.addLast(new Pending(level,hit,config,packet.direction(),null,packet.shot(),0));
     }
     static int pendingHoles() { return PENDING.size(); }
     static int holeCount() { return HOLES.size(); }
+    // dev (NpcShotSmoke): the holes on this block
+    static int holesOn(BlockPos pos) {
+        int n = 0;
+        for (Hole h : HOLES) if (pos.equals(h.block())) n++;
+        return n;
+    }
 
     // dev (FenceSeamCheck): every hole as drawn, its polygons in world space (null: a hole with no mesh of its own),
     // with the block it goes with and that block's state when the hole was made
