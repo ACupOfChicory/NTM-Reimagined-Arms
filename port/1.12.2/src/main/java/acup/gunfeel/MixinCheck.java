@@ -46,7 +46,11 @@ public final class MixinCheck {
             {"net.minecraft.client.renderer.entity.RenderManager", "3"}, // the model box, the box at full brightness, a plain Render's model (the chopper, the bag)
             {"com.hbm.items.weapon.sedna.GunConfig", "6"}, // MixinG3Inspect 4 (gunfeel$release + 3), MixinGunConfigAnims 2
             {"com.hbm.entity.projectile.EntityThrowableNT", "13"}, // traceSpread, beginHits, endHits, blocks, nearest, candidates, modelBox, mob, the water tick's end, inShooter, ofShooter, start + ThrowableAccess ticksInAir
-            {"com.hbm.entity.projectile.EntityBulletBeamBase", "4"},
+            {"com.hbm.entity.projectile.EntityBulletBeamBase", "10"}, // MixinBeamHits 4, MixinBeamBlocks 6 (the path's getter and setter, begin, blocks, coin, impact)
+            {"com.hbm.tileentity.turret.TileEntityTurretBaseNT", "4"}, // MixinBeamTurretSight 1, TurretAccess 3
+            {"com.hbm.tileentity.turret.TileEntityTurretTauon", "1"}, // MixinBeamTauon
+            {"com.hbm.tileentity.turret.TileEntityTurretMaxwell", "3"}, // MixinBeamMaxwell 1, TurretMaxwellAccess 2
+            {"com.hbm.tileentity.machine.TileEntityTesla", "4"}, // MixinBeamTesla 2 and the bridges MixinExtras makes for their @Local 2
             {"com.hbm.items.weapon.sedna.BulletConfig", "3"}, // MixinHeadDamage, MixinRicochetSound
             {"net.minecraft.world.World", "2"}, // MixinWaterMuffle: volume, pitch
             {"net.minecraft.world.Explosion", "6"}, // MixinOldBlast
