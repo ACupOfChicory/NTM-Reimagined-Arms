@@ -66,6 +66,7 @@ public final class GunFeel {
         }
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent.class, e -> {
             if (Feature.TRACERS.on()) Tracers.submit(e);
+            if (Feature.GL54.on()) acup.gunfeel.gl54.frag.FragFx.submit(e);
             // after the tracers: they hand over the rounds flying in water
             var level = Minecraft.getInstance().level;
             if (level != null && Feature.TRACERS.on()) {
@@ -91,6 +92,7 @@ public final class GunFeel {
             CompatClient.leave();
             ArmLayers.leave();
             if (Feature.TRACERS.on()) Tracers.clear();
+            acup.gunfeel.gl54.frag.FragFx.clear();
             if (Feature.TRACERS.on()) acup.gunfeel.water.WaterFx.clear();
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn.class, e -> {

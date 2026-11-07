@@ -1,0 +1,39 @@
+{
+ "present": true,
+ "tick": 2,
+ "frame": {
+  "front": "x of the .blend",
+  "height": "z of the .blend",
+  "side": "y of the .blend (left is positive)"
+ },
+ "position": {
+  "front": -0.275,
+  "height": 0.064,
+  "side": -0.036
+ },
+ "rest": {
+  "x": 0.0,
+  "y": 1.368,
+  "z": -1.668
+ },
+ "port": {
+  "x": -0.432,
+  "y": 1.368,
+  "z": -2.1
+ },
+ "origin": {
+  "front": -0.1,
+  "height": -0.05,
+  "side": 0.0
+ },
+ "velocity": {
+  "front": -0.009,
+  "height": 0.021,
+  "side": -0.048
+ },
+ "turn": {
+  "roll": 43.545,
+  "pitch": 18.335,
+  "yaw": -26.356
+ }
+}

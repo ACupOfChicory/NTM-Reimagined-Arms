@@ -37,22 +37,54 @@ public final class Silhouette {
         return id;
     }
 
-    private static NativeImage render(GunGeometry geo) {
+    static NativeImage render(GunGeometry geo) {
+        return rasterize(quads(geo));
+    }
+
+    // the drawn quads in the aligned frame, 15 floats each: 4 corners (x, y, z) and the face normal (nx, ny, nz)
+    static float[] quads(GunGeometry geo) {
+        int count = 0;
+        for (int p = geo.parts.nextSetBit(0); p >= 0; p = geo.parts.nextSetBit(p + 1))
+            count += geo.model.groups[p].quads(false).length / GroupObject.STRIDE / 4;
+        float[] out = new float[count * QUAD];
+        int o = 0;
+        for (int p = geo.parts.nextSetBit(0); p >= 0; p = geo.parts.nextSetBit(p + 1)) {
+            float[] q = geo.model.groups[p].quads(false);
+            org.joml.Matrix4f place = place(geo, p);
+            for (int f = 0; f + 4 * GroupObject.STRIDE <= q.length; f += 4 * GroupObject.STRIDE) {
+                for (int c = 0; c < 4; c++) {
+                    int v = f + c * GroupObject.STRIDE;
+                    org.joml.Vector3f a = place.transformPosition(new org.joml.Vector3f(q[v], q[v + 1], q[v + 2]));
+                    out[o++] = a.x;
+                    out[o++] = a.y;
+                    out[o++] = a.z;
+                }
+                org.joml.Vector3f n = place.transformDirection(new org.joml.Vector3f(q[f + 5], q[f + 6], q[f + 7])).normalize();
+                out[o++] = n.x;
+                out[o++] = n.y;
+                out[o++] = n.z;
+            }
+        }
+        return out;
+    }
+
+    private static final int QUAD = 15;
+
+    // the picture of quads (QUAD floats each: corners and normal, aligned frame)
+    static NativeImage rasterize(float[] quads) {
         int w = W * SS, h = H * SS;
         float[] depth = new float[w * h];
         int[] shade = new int[w * h];
         java.util.Arrays.fill(depth, -Float.MAX_VALUE);
         // bounds of the parts as placed
         float minY = Float.MAX_VALUE, maxY = -Float.MAX_VALUE, minZ = Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
-        for (int p = geo.parts.nextSetBit(0); p >= 0; p = geo.parts.nextSetBit(p + 1)) {
-            float[] q = geo.model.groups[p].quads(false);
-            org.joml.Matrix4f place = place(geo, p);
-            for (int v = 0; v + 2 < q.length; v += GroupObject.STRIDE) {
-                org.joml.Vector3f a = place.transformPosition(new org.joml.Vector3f(q[v], q[v + 1], q[v + 2]));
-                minY = Math.min(minY, a.y);
-                maxY = Math.max(maxY, a.y);
-                minZ = Math.min(minZ, a.z);
-                maxZ = Math.max(maxZ, a.z);
+        for (int f = 0; f + QUAD <= quads.length; f += QUAD) {
+            for (int c = 0; c < 4; c++) {
+                float y = quads[f + c * 3 + 1], z = quads[f + c * 3 + 2];
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y);
+                minZ = Math.min(minZ, z);
+                maxZ = Math.max(maxZ, z);
             }
         }
         if (minY > maxY) return new NativeImage(W, H, true);
@@ -63,25 +95,18 @@ public final class Silhouette {
         // light from the viewer's upper left, slightly toward the screen
         float lx = 0.55F, ly = 0.75F, lz = -0.35F;
 
-        for (int p = geo.parts.nextSetBit(0); p >= 0; p = geo.parts.nextSetBit(p + 1)) {
-            float[] q = geo.model.groups[p].quads(false);
-            org.joml.Matrix4f place = place(geo, p);
-            for (int f = 0; f + 4 * GroupObject.STRIDE <= q.length; f += 4 * GroupObject.STRIDE) {
-                org.joml.Vector3f n = place.transformDirection(new org.joml.Vector3f(q[f + 5], q[f + 6], q[f + 7])).normalize();
-                float nx = n.x, ny = n.y, nz = n.z;
-                float diffuse = Math.abs(nx * lx + ny * ly + nz * lz);
-                int grey = (int) (150 + 105 * Math.min(1F, diffuse));
-                float[] sx = new float[4], sy = new float[4], sd = new float[4];
-                for (int c = 0; c < 4; c++) {
-                    int v = f + c * GroupObject.STRIDE;
-                    org.joml.Vector3f a = place.transformPosition(new org.joml.Vector3f(q[v], q[v + 1], q[v + 2]));
-                    sx[c] = ox + (a.z - minZ) * scale;
-                    sy[c] = oy + (maxY - a.y) * scale;
-                    sd[c] = a.x;
-                }
-                tri(sx, sy, sd, 0, 1, 2, grey, depth, shade, w, h);
-                tri(sx, sy, sd, 0, 2, 3, grey, depth, shade, w, h);
+        for (int f = 0; f + QUAD <= quads.length; f += QUAD) {
+            float nx = quads[f + 12], ny = quads[f + 13], nz = quads[f + 14];
+            float diffuse = Math.abs(nx * lx + ny * ly + nz * lz);
+            int grey = (int) (150 + 105 * Math.min(1F, diffuse));
+            float[] sx = new float[4], sy = new float[4], sd = new float[4];
+            for (int c = 0; c < 4; c++) {
+                sx[c] = ox + (quads[f + c * 3 + 2] - minZ) * scale;
+                sy[c] = oy + (maxY - quads[f + c * 3 + 1]) * scale;
+                sd[c] = quads[f + c * 3];
             }
+            tri(sx, sy, sd, 0, 1, 2, grey, depth, shade, w, h);
+            tri(sx, sy, sd, 0, 2, 3, grey, depth, shade, w, h);
         }
 
         NativeImage image = new NativeImage(W, H, true);

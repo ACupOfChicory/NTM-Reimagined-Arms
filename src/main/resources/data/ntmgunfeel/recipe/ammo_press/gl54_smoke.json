@@ -1,0 +1,23 @@
+{
+  "type": "hbm:ammo_press",
+  "order": 23240,
+  "pattern": [
+    " A ",
+    " B ",
+    "   "
+  ],
+  "key": {
+    "A": {
+      "ingredient": "#c:dusts/red_phosphorus"
+    },
+    "B": {
+      "ingredient": "#hbm:dusts/any_smokeless"
+    }
+  },
+  "output_items": [
+    {
+      "id": "ntmgunfeel:gl54_grenade_smoke",
+      "count": 4
+    }
+  ]
+}

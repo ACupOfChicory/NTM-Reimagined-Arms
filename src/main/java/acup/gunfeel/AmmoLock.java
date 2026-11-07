@@ -60,6 +60,8 @@ public final class AmmoLock {
     // rounds of that ammo (items) in the inventory and its ammo bags; INFINITE when an infinite bag holds it
     public static int count(BulletConfig type, Container inv) {
         if (type == null || inv == null) return 0;
+        // the GL-54's grenades are counted, in the magazines of the inventory (not in ammo bags: those are not supported)
+        if (type instanceof acup.gunfeel.gl54.GrenadeType g) return g.count(inv);
         int n = 0;
         for (int i = 0; i < inv.getContainerSize(); i++) {
             ItemStack s = inv.getItem(i);
@@ -201,6 +203,8 @@ public final class AmmoLock {
         BulletConfig target = BulletConfig.configs.get(id);
         if (mag == null || !accepted(mag).contains(target) || count(target, player.getInventory()) == 0) return;
         ItemGunBaseNT.setValueInt(stack, NEXT, id + 1);
+        // the GL-54's wheel sends magazines' contents (Gl54SelectPayload), not a config
+        if (mag instanceof acup.gunfeel.gl54.GrenadeMagazine) return;
         if (mag instanceof MagazineBelt) {
             MagazineBelt.setMagType(stack, id);
             return;
