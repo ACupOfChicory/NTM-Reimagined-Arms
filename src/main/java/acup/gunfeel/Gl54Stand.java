@@ -641,7 +641,70 @@ final class Gl54Stand {
             hudShot("hud-turn-" + (int) pose[0] + "-" + (int) pose[1]);
         }
         sleep(10);
+        run(Gl54Stand::pressChecks);
         TODO.add(Gl54Stand::done);
+    }
+
+    // the ammo press with our grenades: the order, a taken output, a chosen recipe, what the slots take
+    private static void pressChecks() {
+        onServer(() -> {
+            ServerLevel level = Minecraft.getInstance().getSingleplayerServer().overworld();
+            BlockPos at = O.offset(4, 0, 4);
+            level.setBlock(at, net.minecraft.core.registries.BuiltInRegistries.BLOCK.getValue(
+                    net.minecraft.resources.Identifier.fromNamespaceAndPath("hbm", "machine_ammo_press")).defaultBlockState(), 3);
+            var be = (com.hbm.blockentity.machine.BlockEntityMachineAmmoPress) level.getBlockEntity(at);
+            if (be == null) {
+                line("press", "no block entity");
+                return null;
+            }
+            java.util.function.Function<String, ItemStack> g = k -> new ItemStack(Gl54Items.GRENADES.get(k).get(), 3);
+            java.util.function.Supplier<String> state = () -> {
+                StringBuilder b = new StringBuilder("selected=" + be.selectedRecipe + " slots=");
+                for (int i = 0; i < 10; i++) {
+                    ItemStack s = be.getItem(i);
+                    b.append(i).append(':');
+                    if (s.isEmpty()) b.append('-');
+                    else if (s.getItem() == Gl54Items.MAG.get()) b.append("MAG").append(acup.gunfeel.gl54.MagItem.contents(s).rounds());
+                    else b.append(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(s.getItem()).getPath()).append('x').append(s.getCount());
+                    b.append(' ');
+                }
+                return b.toString();
+            };
+            // 1. no recipe: a mix with holes
+            be.setItem(0, g.apply("he"));
+            be.setItem(2, g.apply("smoke"));
+            be.setItem(3, g.apply("airburst"));
+            be.setItem(6, g.apply("he"));
+            be.setItem(7, g.apply("acid"));
+            be.setItem(8, new ItemStack(Gl54Items.MAG_EMPTY.get(), 2));
+            line("press", "before", state.get());
+            be.tickServer();
+            line("press", "no recipe, mixed with holes", state.get());
+            // 2. the output taken: nothing more is made
+            be.tickServer();
+            line("press", "output occupied (second tick)", state.get());
+            // 3. the output emptied, the slots left (2 each), the magazine: another one is made, partial
+            be.setItem(9, ItemStack.EMPTY);
+            for (int i = 0; i < 8; i++) if (i != 5) be.setItem(i, ItemStack.EMPTY);
+            be.setItem(5, g.apply("ap"));
+            be.tickServer();
+            line("press", "one grenade in slot 5", state.get());
+            // 4. a recipe chosen: NTM's path, our parts stay and are refused
+            be.setItem(9, ItemStack.EMPTY);
+            be.setItem(1, g.apply("he"));
+            be.setItem(8, new ItemStack(Gl54Items.MAG_EMPTY.get(), 1));
+            var tag = new net.minecraft.nbt.CompoundTag();
+            tag.putInt("selection", 0);
+            be.receiveControl(tag);
+            be.tickServer();
+            line("press", "recipe 0 chosen", state.get());
+            line("press", "canPlace chosen recipe: grenade@0", be.canPlaceItem(0, g.apply("he")), "mag@8", be.canPlaceItem(8, new ItemStack(Gl54Items.MAG_EMPTY.get())));
+            be.receiveControl(tag);
+            line("press", "recipe unchosen", "selected", be.selectedRecipe);
+            line("press", "canPlace none: grenade@0", be.canPlaceItem(0, g.apply("he")), "stone@0", be.canPlaceItem(0, new ItemStack(net.minecraft.world.item.Items.STONE)),
+                    "mag@8", be.canPlaceItem(8, new ItemStack(Gl54Items.MAG_EMPTY.get())), "grenade@8", be.canPlaceItem(8, g.apply("he")), "mag@9", be.canPlaceItem(9, new ItemStack(Gl54Items.MAG_EMPTY.get())));
+            return null;
+        });
     }
 
     // ---------------------------------------------------------------- the pieces
