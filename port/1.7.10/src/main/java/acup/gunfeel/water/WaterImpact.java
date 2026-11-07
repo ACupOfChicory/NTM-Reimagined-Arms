@@ -64,6 +64,8 @@ public final class WaterImpact {
                 return;
             }
             original.run();
+            if (bullet.isDead && ((WaterBullet) bullet).gunfeel$goneAt() == null && hit.hitVec != null)
+                ((WaterBullet) bullet).gunfeel$goneAt(net.minecraft.util.Vec3.createVectorHelper(hit.hitVec.xCoord, hit.hitVec.yCoord, hit.hitVec.zCoord));
         } finally {
             if (previous == null) WaterBlast.BULLET.remove();
             else WaterBlast.BULLET.set(previous);
@@ -119,9 +121,12 @@ public final class WaterImpact {
         // a bullet gone this tick (water stopped it, it hit a block) still met what lay on its path
         if (b.worldObj.isRemote || b.config == null || !WaterSettings.ballistics() || !WaterSettings.fuze() || !WaterBullet.met(b)) return;
         net.minecraft.util.Vec3 from = net.minecraft.util.Vec3.createVectorHelper(fx, fy, fz);
-        net.minecraft.util.Vec3 to = net.minecraft.util.Vec3.createVectorHelper(b.posX, b.posY, b.posZ);
-        AxisAlignedBB area = AxisAlignedBB.getBoundingBox(Math.min(fx, b.posX), Math.min(fy, b.posY), Math.min(fz, b.posZ),
-                Math.max(fx, b.posX), Math.max(fy, b.posY), Math.max(fz, b.posZ)).expand(1.0, 1.0, 1.0);
+        // one dead at an impact: up to where it hit (NTM has moved it on past it), not up to where it is
+        net.minecraft.util.Vec3 gone = ((WaterBullet) b).gunfeel$goneAt();
+        net.minecraft.util.Vec3 to = b.isDead && gone != null ? gone
+                : net.minecraft.util.Vec3.createVectorHelper(b.posX, b.posY, b.posZ);
+        AxisAlignedBB area = AxisAlignedBB.getBoundingBox(Math.min(fx, to.xCoord), Math.min(fy, to.yCoord), Math.min(fz, to.zCoord),
+                Math.max(fx, to.xCoord), Math.max(fy, to.yCoord), Math.max(fz, to.zCoord)).expand(1.0, 1.0, 1.0);
         boolean mine = !b.isDead && goesOff(b);
         searches++;
         for (EntityBulletBaseMK4 o : (List<EntityBulletBaseMK4>) b.worldObj.getEntitiesWithinAABB(EntityBulletBaseMK4.class, area)) {

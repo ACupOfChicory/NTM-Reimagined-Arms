@@ -1,5 +1,12 @@
 # Changelog
 
+## X543.142
+
+- As in X560: an explosive round that goes off on the water surface no
+  longer sets off another one sinking under the line it came down along.
+  Before, its path was counted on under the surface, where the game still
+  moves it in the tick it goes off.
+
 ## X543.141
 
 - As in 26.2 X510: the arms holding a gun now wear what the player wears on
