@@ -113,6 +113,7 @@ public final class Tracers {
         final int owner;
         final TracerPath path;
         final int dark, light;
+        final boolean drawn; // false: NTM draws the round (a 240 mm shell), the path only leaves its holes
         final double born, rootBorn;
         final long lifeTicks;
         double checked; // ticks of path already tested against the world
@@ -144,6 +145,7 @@ public final class Tracers {
             this.config = config;
             this.owner = owner;
             this.path = path;
+            this.drawn = colors != UNDRAWN;
             this.dark = colors[0];
             this.light = colors[1];
             this.lifeTicks = lifeTicks;
@@ -157,6 +159,7 @@ public final class Tracers {
             this.config = from.config;
             this.owner = from.owner;
             this.path = new TracerPath(start, v, from.path.g);
+            this.drawn = from.drawn;
             this.dark = from.dark;
             this.light = from.light;
             this.lifeTicks = lifeTicks;
@@ -180,6 +183,7 @@ public final class Tracers {
             this.config = from.config;
             this.owner = from.owner;
             this.path = new TracerPath(start, v, from.path.g);
+            this.drawn = from.drawn;
             this.dark = from.dark;
             this.light = from.light;
             this.lifeTicks = lifeTicks;
@@ -238,6 +242,9 @@ public final class Tracers {
     // NTM tracer colours per bullet type, {dark, light}; NONE = not a plain tracer (grenade, rocket...): NTM draws it
     private static final Map<BulletConfig, int[]> COLORS = new HashMap<BulletConfig, int[]>();
     private static final int[] NONE = new int[0];
+    // the 240 mm shells of the Jeremy turret: NTM draws them as a model (NONE), but their path is followed here for the
+    // holes they leave, as a bullet's (ExplosiveAmmo.shell)
+    private static final int[] UNDRAWN = new int[] {0, 0};
     private static boolean probing;
     private static int[] probed;
 
@@ -326,6 +333,7 @@ public final class Tracers {
         BulletConfig bc = BulletConfig.configs.get(config);
         if (bc.velocity < 5F) return;
         int[] c = colors(bc);
+        if (c == NONE && ExplosiveAmmo.shell(bc)) c = UNDRAWN;
         if (c == NONE) return;
         TracerPath path = new TracerPath(new double[] {x, y, z}, new double[] {vx, vy, vz}, gravity);
         Minecraft mc = Minecraft.getMinecraft();
@@ -603,7 +611,7 @@ public final class Tracers {
                 acup.gunfeel.phys.Vec3 v = vec(vel);
                 acup.gunfeel.water.SunkBullets.flying(world, s.config, vec(at), v, wf, v.length() * k);
             }
-            if (!Config.tracers || !segment.visible()) continue;
+            if (!Config.tracers || !s.drawn || !segment.visible()) continue;
             double[] h = s.path.at(segment.head()), b = s.path.at(segment.tail());
             streaks.add(new float[] {(float) (h[0] - CAMERA[0]), (float) (h[1] - CAMERA[1]), (float) (h[2] - CAMERA[2]),
                     (float) (b[0] - CAMERA[0]), (float) (b[1] - CAMERA[1]), (float) (b[2] - CAMERA[2]),

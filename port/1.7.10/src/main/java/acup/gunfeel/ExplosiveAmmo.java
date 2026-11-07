@@ -23,6 +23,12 @@ public final class ExplosiveAmmo {
         return path.startsWith("ammo_standard_g40_") || path.startsWith("ammo_standard_rocket_");
     }
 
+    // the Jeremy turret's 240 mm shells (ModItems.ammo_shell, every kind; 26.2: hbm:ammo_shell, ammo_shell_*): fast, but
+    // drawn by NTM as a model, not a tracer
+    public static boolean shell(BulletConfig config) {
+        return config != null && config.ammo != null && config.ammo.item == ModItems.ammo_shell;
+    }
+
     static float holeScale(BulletConfig config) {
         return heavy(config) ? 1.5F : 1F;
     }

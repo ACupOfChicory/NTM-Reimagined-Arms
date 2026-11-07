@@ -1,5 +1,11 @@
 # Changelog
 
+## X543.148
+
+- As in X547: the Jeremy turret's 240 mm shells now leave bullet holes where
+  they hit, as the same shell fired by a player does. NTM still draws the
+  shell itself; no tracer is added.
+
 ## X543.147
 
 - The older bullets of NTM 1.7.10's masked man (the laser's orbs, rockets
