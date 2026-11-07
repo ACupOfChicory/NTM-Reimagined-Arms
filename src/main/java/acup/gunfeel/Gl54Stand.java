@@ -786,6 +786,35 @@ final class Gl54Stand {
             line("press", "canPlace chosen recipe: grenade@0", be.canPlaceItem(0, g.apply("he")), "mag@8", be.canPlaceItem(8, new ItemStack(Gl54Items.MAG_EMPTY.get())));
             be.receiveControl(tag);
             line("press", "recipe unchosen", "selected", be.selectedRecipe);
+            // every GL-54 recipe of the press loads and makes its output when fed what the selector shows as its ingredients
+            var all = com.hbm.inventory.recipes.AmmoPressRecipes.INSTANCE.recipes();
+            int found = 0;
+            for (int ri = 0; ri < all.size(); ri++) {
+                var recipe = all.get(ri);
+                ItemStack out = recipe.output();
+                var key = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(out.getItem());
+                if (!key.getNamespace().equals("ntmgunfeel")) continue;
+                found++;
+                for (int i = 0; i < 10; i++) be.setItem(i, ItemStack.EMPTY);
+                var sel = new net.minecraft.nbt.CompoundTag();
+                sel.putInt("selection", ri);
+                be.receiveControl(sel);
+                boolean placed = true;
+                var input = recipe.input();
+                for (int i = 0; i < 9; i++) {
+                    if (input[i] == null) continue;
+                    ItemStack ghost = input[i].extractForCyclingDisplay(20);
+                    ItemStack put = ghost.copyWithCount(input[i].count());
+                    placed &= be.canPlaceItem(i, put);
+                    be.setItem(i, put);
+                }
+                be.tickServer();
+                ItemStack res = be.getItem(9);
+                line("press recipe", key.getPath(), "index", ri, "inputs accepted", placed, "made", net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(res.getItem()).getPath() + "x" + res.getCount(),
+                        res.getItem() == Gl54Items.MAG.get() ? String.valueOf(acup.gunfeel.gl54.MagItem.contents(res).rounds()) : "");
+                be.receiveControl(sel); // unselect
+            }
+            line("press recipe", "GL-54 recipes in the press", found, "of", all.size());
             line("press", "canPlace none: grenade@0", be.canPlaceItem(0, g.apply("he")), "stone@0", be.canPlaceItem(0, new ItemStack(net.minecraft.world.item.Items.STONE)),
                     "mag@8", be.canPlaceItem(8, new ItemStack(Gl54Items.MAG_EMPTY.get())), "grenade@8", be.canPlaceItem(8, g.apply("he")), "mag@9", be.canPlaceItem(9, new ItemStack(Gl54Items.MAG_EMPTY.get())));
             return null;

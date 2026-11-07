@@ -1,0 +1,17 @@
+{
+  "type": "hbm:crafting_shaped",
+  "pattern": [
+    "B",
+    "P",
+    "S"
+  ],
+  "key": {
+    "B": "#c:bolts/steel",
+    "P": "#c:plates/gun_metal",
+    "S": "#hbm:shells/steel"
+  },
+  "result": {
+    "id": "ntmgunfeel:gl54_mag_empty",
+    "count": 2
+  }
+}

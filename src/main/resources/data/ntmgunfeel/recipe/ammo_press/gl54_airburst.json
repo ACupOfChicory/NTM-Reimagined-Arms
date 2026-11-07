@@ -1,0 +1,27 @@
+{
+  "type": "hbm:ammo_press",
+  "order": 23210,
+  "pattern": [
+    "AB ",
+    " C ",
+    "   "
+  ],
+  "key": {
+    "A": {
+      "ingredient": "#c:bolts/steel",
+      "count": 8
+    },
+    "B": {
+      "ingredient": "hbm:ball_dynamite"
+    },
+    "C": {
+      "ingredient": "#hbm:dusts/any_smokeless"
+    }
+  },
+  "output_items": [
+    {
+      "id": "ntmgunfeel:gl54_grenade_airburst",
+      "count": 4
+    }
+  ]
+}

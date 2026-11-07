@@ -98,6 +98,17 @@ class Gl54RecipesTest {
         }
     }
 
+    // the press's grid is exactly three rows of three cells (the game refuses a recipe with any other pattern)
+    @Test
+    void pressPatternsAreThreeByThree() throws IOException {
+        for (Path p : files()) {
+            JsonObject r = read(p);
+            if (!r.get("type").getAsString().equals("hbm:ammo_press")) continue;
+            assertEquals(3, r.getAsJsonArray("pattern").size(), p.toString());
+            for (JsonElement row : r.getAsJsonArray("pattern")) assertEquals(3, row.getAsString().length(), p.toString());
+        }
+    }
+
     @Test
     void patternsUseOnlyTheirKeys() throws IOException {
         for (Path p : files()) {
@@ -143,5 +154,38 @@ class Gl54RecipesTest {
         }
         assertEquals(made(ex).rounds(), order);
         assertEquals('m', cells.charAt(8));
+    }
+
+    @Test
+    void everyKindHasARecipeMakingFourGrenadesAndTheGunAndTheEmptyMagazineAreThere() throws IOException {
+        Set<String> made = new HashSet<>();
+        for (GrenadeKind k : GrenadeKind.values()) {
+            String name = switch (k) {
+                case AIRBURST, AP, HE, SMOKE -> "ammo_press/gl54_" + k.key + ".json";
+                case INCENDIARY -> "ammo_press/gl54_inc.json";
+                default -> "assembly_machine/gl54_" + k.key + ".json";
+            };
+            JsonObject r = read(RECIPES.resolve(name));
+            JsonObject out = r.getAsJsonArray("output_items").get(0).getAsJsonObject();
+            assertEquals("ntmgunfeel:gl54_grenade_" + k.key, out.get("id").getAsString(), name);
+            assertEquals(4, out.get("count").getAsInt(), name);
+            made.add(k.key);
+        }
+        assertEquals(9, made.size());
+        assertEquals("ntmgunfeel:gun_gl54", read(RECIPES.resolve("gun_gl54.json")).getAsJsonObject("result").get("id").getAsString());
+        JsonObject empty = read(RECIPES.resolve("gl54_mag_empty.json"));
+        assertEquals("ntmgunfeel:gl54_mag_empty", empty.getAsJsonObject("result").get("id").getAsString());
+        assertEquals(2, empty.getAsJsonObject("result").get("count").getAsInt());
+    }
+
+    @Test
+    void gasesGoByThePipeWithPlastic() throws IOException {
+        for (String g : new String[] {"chlorine", "phosgene", "acid", "mustard"}) {
+            JsonObject r = read(RECIPES.resolve("assembly_machine/gl54_" + g + ".json"));
+            assertTrue(r.getAsJsonArray("input_fluids").get(0).getAsJsonObject().get("amount").getAsInt() > 0, g);
+            assertTrue(r.toString().contains("#hbm:ingots/any_plastic"), g);
+        }
+        // the mustard gas costs the most
+        assertEquals(1000, read(RECIPES.resolve("assembly_machine/gl54_mustard.json")).getAsJsonArray("input_fluids").get(0).getAsJsonObject().get("amount").getAsInt());
     }
 }

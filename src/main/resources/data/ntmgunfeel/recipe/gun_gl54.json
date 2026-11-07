@@ -1,0 +1,20 @@
+{
+  "type": "hbm:crafting_shaped",
+  "pattern": [
+    "BRM",
+    "GSV",
+    "F  "
+  ],
+  "key": {
+    "B": "#hbm:barrels_light/workers_alloy",
+    "R": "#hbm:receivers_light/workers_alloy",
+    "M": "#hbm:gun_mechanisms/gun_metal",
+    "G": "#hbm:grips/workers_alloy",
+    "S": "#hbm:stocks/polymer",
+    "V": "hbm:circuit_vacuum_tube",
+    "F": "hbm:rangefinder"
+  },
+  "result": {
+    "id": "ntmgunfeel:gun_gl54"
+  }
+}

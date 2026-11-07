@@ -1,0 +1,23 @@
+{
+  "type": "hbm:assembly_machine",
+  "duration": 100,
+  "power": 1000,
+  "order": 181300,
+  "input_fluids": [
+    {
+      "type": "hbm:sulfuric_acid",
+      "amount": 500
+    }
+  ],
+  "input_items": [
+    {
+      "ingredient": "#hbm:ingots/any_plastic"
+    }
+  ],
+  "output_items": [
+    {
+      "id": "ntmgunfeel:gl54_grenade_acid",
+      "count": 4
+    }
+  ]
+}

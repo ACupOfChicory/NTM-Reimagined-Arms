@@ -1,0 +1,30 @@
+{
+  "type": "hbm:ammo_press",
+  "order": 23230,
+  "pattern": [
+    "AB ",
+    " C ",
+    "   "
+  ],
+  "key": {
+    "A": {
+      "ingredient": {
+        "neoforge:ingredient_type": "hbm:fluid_content",
+        "amount": 500,
+        "fluid": "hbm:diesel"
+      }
+    },
+    "B": {
+      "ingredient": "hbm:ball_dynamite"
+    },
+    "C": {
+      "ingredient": "#hbm:dusts/any_smokeless"
+    }
+  },
+  "output_items": [
+    {
+      "id": "ntmgunfeel:gl54_grenade_inc",
+      "count": 4
+    }
+  ]
+}

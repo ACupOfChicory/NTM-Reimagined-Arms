@@ -356,12 +356,15 @@ GL54 class com/hbm/render/item/weapon/sedna/RestBody
 GL54 class com/hbm/render/loader/HFRWavefrontObject
 GL54 field com/hbm/client/ClientRegistry GUN_CLIENT_SETUP_ID Lnet/minecraft/resources/Identifier;
 GL54 field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
+GL54 field com/hbm/handler/HbmKeybinds$EnumKeybind RELOAD Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 GL54 field com/hbm/items/weapon/sedna/BulletConfig casing Lcom/hbm/particle/SpentCasing;
+GL54 field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
 GL54 field com/hbm/items/weapon/sedna/Crosshair L_CIRCUMFLEX Lcom/hbm/items/weapon/sedna/Crosshair;
 GL54 field com/hbm/items/weapon/sedna/GunConfig smokeNodes Ljava/util/List;
 GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
 GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT shotRand D
 GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState DRAWING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState RELOADING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 GL54 field com/hbm/items/weapon/sedna/ItemGunBaseNT$WeaponQuality A_SIDE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$WeaponQuality;
 GL54 field com/hbm/items/weapon/sedna/factory/Lego LAMBDA_STANDARD_CAN_FIRE Ljava/util/function/BiFunction;
@@ -410,8 +413,11 @@ GL54 method com/hbm/items/weapon/sedna/GunConfig smoke (Ljava/util/function/BiCo
 GL54 method com/hbm/items/weapon/sedna/ItemGunBaseNT <init> (Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$WeaponQuality;Lnet/minecraft/world/item/Item$Properties;[Lcom/hbm/items/weapon/sedna/GunConfig;)V
 GL54 method com/hbm/items/weapon/sedna/ItemGunBaseNT getAnimTimer (Lnet/minecraft/world/item/ItemStack;I)I
 GL54 method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+GL54 method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
 GL54 method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 GL54 method com/hbm/items/weapon/sedna/ItemGunBaseNT getLastAnim (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+GL54 method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+GL54 method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
 GL54 method com/hbm/items/weapon/sedna/ItemGunBaseNT setupRecoil (FF)V
 GL54 method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext config ()Lcom/hbm/items/weapon/sedna/GunConfig;
 GL54 method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext configIndex ()I
@@ -445,6 +451,7 @@ GL54 method com/hbm/particle/SpentCasing setScale (FFF)Lcom/hbm/particle/SpentCa
 GL54 method com/hbm/particle/helper/CasingCreator composeEffect (Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/LivingEntity;DDDDDDDFFLjava/lang/String;ZIDI)V
 GL54 method com/hbm/registration/NeoForgeRegistrar registerDataComponent (Ljava/lang/String;Lnet/minecraft/core/component/DataComponentType;)Lcom/hbm/registration/RegistryHandle;
 GL54 method com/hbm/registration/NeoForgeRegistrar registerItem (Ljava/lang/String;Ljava/util/function/Function;Ljava/util/function/Supplier;)Lcom/hbm/registration/RegistryHandle;
+GL54 method com/hbm/registration/NeoForgeRegistrar registerMenu (Ljava/lang/String;Lnet/minecraft/world/inventory/MenuType$MenuSupplier;)Lcom/hbm/registration/RegistryHandle;
 GL54 method com/hbm/registration/NeoForgeRegistrar subscribe (Ljava/lang/String;Lnet/neoforged/bus/api/IEventBus;)V
 GL54 method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 GL54 method com/hbm/render/anim/AnimationEnums$GunAnimation ordinal ()I

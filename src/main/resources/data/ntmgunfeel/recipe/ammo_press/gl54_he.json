@@ -1,0 +1,23 @@
+{
+  "type": "hbm:ammo_press",
+  "order": 23200,
+  "pattern": [
+    " A ",
+    " B ",
+    "   "
+  ],
+  "key": {
+    "A": {
+      "ingredient": "hbm:ball_dynamite"
+    },
+    "B": {
+      "ingredient": "#hbm:dusts/any_smokeless"
+    }
+  },
+  "output_items": [
+    {
+      "id": "ntmgunfeel:gl54_grenade_he",
+      "count": 4
+    }
+  ]
+}
