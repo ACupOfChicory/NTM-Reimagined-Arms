@@ -233,6 +233,7 @@ if (listOf("checkBullets", "checkWater", "checkBoom").any { providers.gradleProp
     val port = providers.gradleProperty("serverPort").orNull?.takeIf { it.isNotBlank() } ?: "25604"
     doFirst {
         val properties = (this as JavaExec).workingDir.resolve("server.properties")
+        properties.parentFile.mkdirs()
         properties.writeText((if (properties.exists()) properties.readLines().filter { !it.startsWith("server-port=") } else emptyList())
             .joinToString("") { it + "\n" } + "server-port=$port\n")
     }
