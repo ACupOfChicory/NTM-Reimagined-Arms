@@ -567,8 +567,8 @@ public final class WaterFx {
     // NTM's entity of a round with an impact fuze that starts no tracer here (grenades, rockets, mortar shells:
     // Tracers.traced) has come to this client: shot under water, it makes the gas bubble too. A shot leaves the gun
     // with a motion of length 1 (its speed is NTM's motionMult); one that comes into sight sinking or lying on the
-    // bottom has next to none (WaterTick.sink) and is no shot. Its config follows the entity, so the bubble waits for
-    // the next tick.
+    // bottom has next to none (WaterTick.sink; the server sends NTM's bullets' motion as it changes) and is no shot.
+    // Its config follows the entity, so the bubble waits for the next tick.
     public static void joined(Level level, Entity e) {
         if (!on() || !(e instanceof EntityBulletBaseMK4 b) || !(level instanceof ClientLevel)) return;
         Vec3 at = e.position(), dir = e.getDeltaMovement();
@@ -578,6 +578,8 @@ public final class WaterFx {
         later(level, 0.05, () -> {
             BulletConfig config = b.getBulletConfig();
             if (config == null || acup.gunfeel.Tracers.traced(config) || !WaterClass.Fuze.of(config).any()) return;
+            // a gun's round only: not the NPCs' bolts and rockets, a cluster's bomblets, a pile's debris, a flame
+            if (config.ammoItem == null || WaterClass.Fuze.field(config) != null) return;
             // the player's own shot: at the muzzle drawn in their hands, as a tracer's
             Vec3 muzzle = own ? acup.gunfeel.Tracers.drawnMuzzle() : null;
             fired(level, muzzle != null && muzzle.distanceToSqr(at) < 9 ? muzzle : at, dir, config);
