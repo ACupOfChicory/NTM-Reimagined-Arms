@@ -27,7 +27,7 @@ public final class ItemRenderGl54 extends ItemRenderWeaponBase {
 
     // Where the gun is held at the hip (before NTM's 0.8) and aimed; the stand tries others (Gl54Stand)
     public static float hipX = -1.5F, hipY = -2.2F, hipZ = 1.25F;
-    public static float aimX = 0.0F, aimY = -1.35F, aimZ = 0.25F;
+    public static float aimX = 0.0F, aimY = -1.086F, aimZ = 0.25F;
 
     final HFRWavefrontObject mesh;
     final String[] names;
@@ -62,6 +62,7 @@ public final class ItemRenderGl54 extends ItemRenderWeaponBase {
         ItemGunBaseNT gun = (ItemGunBaseNT) stack.getItem();
         pose.scale(0.5F, 0.5F, 0.5F);
         HbmAnimations.applyRelevantTransformation(pose, "Gun");
+        if (acup.gunfeel.Gl54Probe.ON) acup.gunfeel.Gl54Probe.run(pose, mesh, names);
         for (int i = 0; i < names.length; i++) {
             pose.pushPose();
             HbmAnimations.applyRelevantTransformation(pose, names[i]);
