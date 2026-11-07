@@ -57,7 +57,7 @@ final class Gl54ReflexStand {
     private static final int HALF = 6, WALL = 40;
     private static final float[][] POSES = {{0, 0}, {135, 0}, {-135, 0}, {0, 30}, {0, -30}};
     // the eye relief the solver aims for: model units between the eye and the dot, along the view
-    private static final double RELIEF = Double.parseDouble(System.getProperty("ntmgunfeel.gl54ReflexRelief", "0.8"));
+    private static final double RELIEF = Double.parseDouble(System.getProperty("ntmgunfeel.gl54ReflexRelief", "1.2"));
 
     private static final Deque<BooleanSupplier> TODO = new ArrayDeque<>();
     private static final List<String> OUT = new ArrayList<>();

@@ -27,9 +27,11 @@ public final class ItemRenderGl54 extends ItemRenderWeaponBase {
 
     // Where the gun is held at the hip (before NTM's 0.8) and aimed; the stand tries others (Gl54Stand)
     public static float hipX = -1.5F, hipY = -2.2F, hipZ = 1.25F;
-    // Aimed: the reflex sight's dot (ReflexDraw.DOT_U/V on the pane) in the middle of the screen, 0.4 blocks of the hand's space
-    // (0.8 model units) from the eye, so the pane is about 320 pixels wide at 1920 x 1080; solved by the stand (Gl54ReflexStand)
-    public static float aimX = 0.0F, aimY = -1.1028F, aimZ = 0.1304F;
+    // Aimed: the eye looks along the sight's axis, through the middle of the reflex pane (ReflexDraw.DOT_U/V, 0.5 each) to the
+    // middle of the screen, level with the bore, 0.6 blocks of the hand's space (1.2 model units) from the pane. The dot is on that
+    // line, so the housing's opening is centred on the screen and the gun's body is down by the opening's lower edge (before this
+    // the eye looked through the top of the pane and the body filled most of the glass). Solved by the stand (Gl54ReflexStand).
+    public static float aimX = 0.0F, aimY = -1.05F, aimZ = 0.3373F;
 
     final HFRWavefrontObject mesh;
     final String[] names;

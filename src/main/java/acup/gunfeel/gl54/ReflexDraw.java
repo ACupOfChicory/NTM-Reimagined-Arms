@@ -35,9 +35,9 @@ import net.minecraft.world.item.ItemStack;
 public final class ReflexDraw {
     // where the dot sits on the pane (fractions of its width and height): its middle, which is where the eye looks along the sight's
     // axis (ItemRenderGl54.aim*: the eye, the pane's middle and the screen's middle on one line)
-    public static double DOT_U = 0.5, DOT_V = 0.90;
+    public static double DOT_U = 0.5, DOT_V = 0.5;
     // the dot's width as per mille of the pane's width, and its soft edge as a share of its radius (1 pixel at 2 pixels across)
-    public static double DOT_PER_MILLE = 6.2, DOT_FALL = 1.0;
+    public static double DOT_PER_MILLE = 9.3, DOT_FALL = 1.0;
     // the aim marker's ring: its outer width in dot widths, and its thickness in dot widths; the arrow's length and half width as
     // shares of the pane's width, and how far inside the pane's edge its tip stands
     public static final double RING_OUTER = 4.0, RING_THICK = 0.5;
