@@ -23,10 +23,18 @@ import java.util.List;
  * @param hold       ticks after the release before it starts to thin
  * @param fade       share kept a tick while it thins
  * @param rgb        colour, 0xRRGGBB
- * @param extinction optical depth of one block at density 1 (Beer-Lambert: 3.5 lets ~3% through)
+ * @param extinction optical depth of one block at density 1 (Beer-Lambert: 3.5 lets ~3% through); what a mob sees
+ *                   through ({@link SmokeSight})
+ * @param look       the same as drawn for the player (the volume and the fog inside); smoke: {@code extinction}
  */
 public record SmokeKind(int id, String name, float volume, int release, int bomblets, float fan, float reach, float fill, float spread,
-                        float rise, float lift, int hold, float fade, int rgb, float extinction) {
+                        float rise, float lift, int hold, float fade, int rgb, float extinction, float look) {
+    /** Drawn as dense as it stops a mob's sight. */
+    public SmokeKind(int id, String name, float volume, int release, int bomblets, float fan, float reach, float fill, float spread,
+                     float rise, float lift, int hold, float fade, int rgb, float extinction) {
+        this(id, name, volume, release, bomblets, fan, reach, fill, spread, rise, lift, hold, fade, rgb, extinction, extinction);
+    }
+
     public static final SmokeKind SMOKE = new SmokeKind(0, "smoke", 380F, 40, 5, 24F, 3.5F, 0.7F, 0.08F, 0F, 0.001F, 400, 0.968F,
             0xB4B6B8, 3.5F);
     private static final List<SmokeKind> ALL = List.of(SMOKE);

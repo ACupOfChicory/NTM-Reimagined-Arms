@@ -1,5 +1,13 @@
 # Changelog
 
+## X683
+
+- The GL-54's gas clouds are a pale haze now, not a bright, solid wall of
+  colour: chlorine faintly yellow-green, mustard gas faintly brown, acid
+  greenish grey, phosgene almost clear. Through two blocks of gas you see
+  what is behind it; through five it is hazy. Only the looks changed: what
+  a gas does, and how much it hides you from mobs, are as before.
+
 ## X682
 
 - The GL-54, the mod's first gun of its own: a 20 mm grenade launcher with a

@@ -98,6 +98,22 @@ class GasGridTest {
         assertTrue(GasKind.MUSTARD.alpha > GasKind.CHLORINE.alpha);
     }
 
+    @Test
+    void theCloudIsDrawnAsAPaleHazeThinnerThanMobsSeeIt() {
+        for (GasKind k : GasKind.values()) {
+            assertEquals(k.lookAlpha, 1F - (float) Math.exp(-k.smoke().look()), 0.001F, k.key);
+            assertTrue(k.lookAlpha < k.alpha, k.key);
+            assertEquals(k.lookRgb, k.smoke().rgb(), k.key);
+            int r = k.lookRgb >> 16 & 255, g = k.lookRgb >> 8 & 255, b = k.lookRgb & 255;
+            int max = Math.max(r, Math.max(g, b)), min = Math.min(r, Math.min(g, b));
+            assertTrue((max - min) / (float) max <= 0.3F, k.key + " too saturated");
+            assertTrue(max <= 150, k.key + " too bright");
+        }
+        assertEquals(SmokeKind.SMOKE.extinction(), SmokeKind.SMOKE.look());
+        assertTrue(GasKind.PHOSGENE.lookAlpha < GasKind.CHLORINE.lookAlpha);
+        assertTrue(GasKind.MUSTARD.lookAlpha > GasKind.CHLORINE.lookAlpha);
+    }
+
     // a pit 3 deep and 5 wide beside the burst, ground level with the burst cell
     private static final SmokeGrid.Mask PIT = (x, y, z) -> y < OY - 3 || y < OY && !(x >= OX + 3 && x <= OX + 7 && Math.abs(z - OZ) <= 2);
 

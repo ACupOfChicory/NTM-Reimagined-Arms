@@ -21,6 +21,7 @@ import acup.gunfeel.gas.client.GasClient;
 import acup.gunfeel.gl54.Gl54Ammo;
 import acup.gunfeel.gl54.Gl54Grenade;
 import acup.gunfeel.smoke.SmokeClouds;
+import acup.gunfeel.smoke.SmokeKind;
 import acup.gunfeel.smoke.SmokeNet;
 import acup.gunfeel.smoke.client.SmokeClient;
 import acup.gunfeel.smoke.client.SmokeFog;
@@ -161,7 +162,7 @@ final class GasStand {
 
     private static final String[] POSES = {"outside8", "through2", "through5", "inside"};
     private static final Vec3 BURST = new Vec3(60.5, Y + 0.5, -20.5);
-    private static int vGas, vPose, vStep, vFrames;
+    private static int vGas, vPose, vStep, vFrames, vLightWait;
     private static long vSpawnTick;
     private static double vEdge = 4;
     private static final List<String> VIS = new ArrayList<>();
@@ -222,12 +223,13 @@ final class GasStand {
                 server.getPlayerList().getPlayers().getFirst().setGameMode(GameType.SPECTATOR);
                 endAll(level);
                 var white = Blocks.CONCRETE.pick(DyeColor.WHITE).defaultBlockState();
-                // the backdrop: a white wall far behind the cloud
-                for (int x = 30; x <= 90; x++) for (int y = Y; y < Y + 14; y++) level.setBlock(new BlockPos(x, y, 24), white, 2);
+                var black = Blocks.CONCRETE.pick(DyeColor.BLACK).defaultBlockState();
+                // the backdrop: a wall of black and white stripes far behind the cloud (gas-vis.py measures their contrast)
+                for (int x = 30; x <= 90; x++) for (int y = Y; y < Y + 14; y++) level.setBlock(new BlockPos(x, y, 24), (x >> 1 & 1) == 0 ? black : white, 2);
             }).join();
             vGas = vPose = vStep = vFrames = 0;
         }
-        if (vGas >= GasKind.values().length) {
+        if (vGas >= GasKind.values().length + 1) {
             Config.smokeQuality = savedQuality;
             try {
                 Files.write(Path.of(DIR, "vis.tsv"), VIS);
@@ -237,14 +239,20 @@ final class GasStand {
             done();
             return;
         }
-        GasKind gas = GasKind.values()[vGas];
-        String name = gas.key + "-" + POSES[vPose];
+        // the gases, then plain smoke for comparison
+        SmokeKind kind = vGas < GasKind.values().length ? GasKind.values()[vGas].smoke() : SmokeKind.SMOKE;
+        String name = kind.name() + "-" + POSES[vPose];
         switch (vStep) {
             case 0 -> {
+                // the cleared field's sky light comes in late (with -PgasStandVis no scenario runs first): wait for it
+                // in the cloud along the shots' line, 4 min at most
+                boolean dark = false;
+                for (int dz = -3; dz <= 10; dz++) dark |= mc.level.getMaxLocalRawBrightness(BlockPos.containing(BURST.x, Y + 1.6, BURST.z + dz)) < 15;
+                if (dark && ++vLightWait < 14400) return;
                 // a cloud, and 2.5 s for it to fill
                 server.submit(() -> {
                     endAll(server.overworld());
-                    GasGrenades.spawn(server.overworld(), gas.smoke(), BURST, new Vec3(0, -0.3, 1).normalize());
+                    GasGrenades.spawn(server.overworld(), kind, BURST, new Vec3(0, -0.3, 1).normalize());
                     vSpawnTick = server.overworld().getGameTime();
                 }).join();
                 vStep = 1;
@@ -271,10 +279,11 @@ final class GasStand {
                 var all = SmokeClient.current();
                 var c = all == null || all.clouds().isEmpty() ? null : all.clouds().get(0);
                 double[] cam = camera(vPose);
-                VIS.add(String.format(Locale.ROOT, "%s	%s	shot	fog=%.3f	cloud_age=%d	edge=%.0f	density_at_camera=%.3f\tlight=%.3f\traw=%d", gas.key, POSES[vPose],
+                VIS.add(String.format(Locale.ROOT, "%s	%s	shot	fog=%.3f	cloud_age=%d	edge=%.0f	density_at_camera=%.3f\tlight=%.3f\traw=%d\ttop=%d\tlight_wait=%d", kind.name(), POSES[vPose],
                         SmokeFog.atCamera(), c == null ? -1 : c.grid.age(), vEdge, c == null ? -1F : c.density(cam[0], cam[1], cam[2]),
                         acup.gunfeel.smoke.client.SmokeLight.brightness(mc.level, BlockPos.containing(cam[0], cam[1], cam[2])),
-                        mc.level.getMaxLocalRawBrightness(BlockPos.containing(cam[0], cam[1], cam[2]))));
+                        mc.level.getMaxLocalRawBrightness(BlockPos.containing(cam[0], cam[1], cam[2])),
+                        mc.level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(cam[0]), (int) Math.floor(cam[2])), vLightWait));
                 shoot(name + "-cloud");
                 vFrames = 0;
                 vStep = 3;

@@ -12,11 +12,12 @@ import acup.gunfeel.smoke.SmokeKind;
  * place make a bigger and longer cloud, not a stronger one. The effects' own numbers are in {@link GasRules}.
  */
 public enum GasKind {
-    // key, smoke id, colour, opacity of one block at C = 1, heavy, charge Q, hold + release (s), fill, protection, filter wear
-    CHLORINE("chlorine", 1, 0xB9D43C, 0.50F, true, 220F, 14, 0.80F, HazardClass.GAS_LUNG, 10F),
-    PHOSGENE("phosgene", 2, 0xDDE8D2, 0.18F, true, 160F, 10, 0.80F, HazardClass.GAS_LUNG, 14F),
-    MUSTARD("mustard", 3, 0xD8B431, 0.80F, true, 120F, 8, 0.80F, HazardClass.GAS_BLISTERING, 20F),
-    ACID("acid", 4, 0x4FD66A, 0.55F, false, 200F, 12, 0.80F, HazardClass.GAS_LUNG, 0F);
+    // key, smoke id, colour (HUD), opacity of one block at C = 1 (mob sight), the drawn colour and opacity (a pale haze),
+    // heavy, charge Q, hold + release (s), fill, protection, filter wear
+    CHLORINE("chlorine", 1, 0xB9D43C, 0.50F, 0x7C8464, 0.16F, true, 220F, 14, 0.80F, HazardClass.GAS_LUNG, 10F),
+    PHOSGENE("phosgene", 2, 0xDDE8D2, 0.18F, 0x80807C, 0.08F, true, 160F, 10, 0.80F, HazardClass.GAS_LUNG, 14F),
+    MUSTARD("mustard", 3, 0xD8B431, 0.80F, 0x867A60, 0.23F, true, 120F, 8, 0.80F, HazardClass.GAS_BLISTERING, 20F),
+    ACID("acid", 4, 0x4FD66A, 0.55F, 0x707E74, 0.16F, false, 200F, 12, 0.80F, HazardClass.GAS_LUNG, 0F);
 
     /** Ticks over which a grenade lets its charge out. */
     public static final int RELEASE = 20;
@@ -28,9 +29,13 @@ public enum GasKind {
     public static final float DECAY = 0.97F;
 
     public final String key;
+    /** The HUD's colour of this gas. */
     public final int rgb;
-    /** Share of the light one block of this gas at C = 1 stops (phosgene 18%: almost clear). */
+    /** Share of the light one block of this gas at C = 1 stops for a mob's sight (phosgene 18%: almost clear). */
     public final float alpha;
+    /** The cloud as the player sees it: a pale colour and the share one block at C = 1 stops. */
+    public final int lookRgb;
+    public final float lookAlpha;
     public final boolean heavy;
     /** The charge: cells of density 1 in all. */
     public final float charge;
@@ -42,10 +47,12 @@ public enum GasKind {
     public final boolean flammable;
     private final SmokeKind smoke;
 
-    GasKind(String key, int smokeId, int rgb, float alpha, boolean heavy, float charge, int holdSeconds, float fill, HazardClass protection, float filterWear) {
+    GasKind(String key, int smokeId, int rgb, float alpha, int lookRgb, float lookAlpha, boolean heavy, float charge, int holdSeconds, float fill, HazardClass protection, float filterWear) {
         this.key = key;
         this.rgb = rgb;
         this.alpha = alpha;
+        this.lookRgb = lookRgb;
+        this.lookAlpha = lookAlpha;
         this.heavy = heavy;
         this.charge = charge;
         this.holdSeconds = holdSeconds;
@@ -55,7 +62,7 @@ public enum GasKind {
         float extinction = (float) -Math.log(1.0 - alpha);
         // one point to let it out of; the heavy ones sink and pool, the acid goes where it spreads
         this.smoke = new SmokeKind(smokeId, key, charge, RELEASE, 1, 0F, 0F, fill, 0.08F, heavy ? HEAVY_RISE : 0F, heavy ? HEAVY_SINK : 0.0005F,
-                Math.max(0, holdSeconds * 20 - RELEASE), DECAY, rgb, extinction);
+                Math.max(0, holdSeconds * 20 - RELEASE), DECAY, lookRgb, extinction, (float) -Math.log(1.0 - lookAlpha));
     }
 
     /** The cloud kind to let out. */

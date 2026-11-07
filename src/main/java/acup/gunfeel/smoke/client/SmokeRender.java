@@ -474,7 +474,7 @@ public final class SmokeRender {
                     int[] box = c.grid.box();
                     b.putVec4((float) (c.baseX() - cam.x), (float) (c.baseY() - cam.y), (float) (c.baseZ() - cam.z), s.index());
                     // one cell around the occupied box: the edge cells fade out into it, and the cloud grows into it
-                    b.putVec4(Math.max(-1, box[0] - 1), Math.max(-1, box[1] - 1), Math.max(-1, box[2] - 1), c.kind().extinction());
+                    b.putVec4(Math.max(-1, box[0] - 1), Math.max(-1, box[1] - 1), Math.max(-1, box[2] - 1), c.kind().look());
                     b.putVec4(Math.min(SmokeGrid.SX + 1, box[3] + 2), Math.min(SmokeGrid.SY + 1, box[4] + 2), Math.min(SmokeGrid.SZ + 1, box[5] + 2),
                             (c.grid.seed() & 1023) * 0.37F);
                     int rgb = c.kind().rgb();
