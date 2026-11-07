@@ -68,6 +68,11 @@ public final class ShootScenario {
         return NAME.equals("mobs");
     }
 
+    // "turn": a kept pose of the chopper and the bag turned as NTM draws them (TurnScenario)
+    static boolean turn() {
+        return NAME.equals("turn");
+    }
+
     // "npc": turrets' and NPC's shots against a player's same round (NpcShotsScenario)
     static boolean npc() {
         return NAME.equals("npc");
@@ -135,7 +140,7 @@ public final class ShootScenario {
 
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || aim() || look() || shapes() || scan() || mobs() || npc() || holes() || glass() || water() || waterfx() || boom() || fences() || aimlag() || hands() || walksprint() || pistols() || spectator() || TraceScenario.enabled();
+        return on() || aim() || look() || shapes() || scan() || mobs() || npc() || turn() || holes() || glass() || water() || waterfx() || boom() || fences() || aimlag() || hands() || walksprint() || pistols() || spectator() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -176,6 +181,10 @@ public final class ShootScenario {
         }
         if (npc()) {
             NpcShotsScenario.step(mc, ++tick);
+            return;
+        }
+        if (turn()) {
+            TurnScenario.step(mc, ++tick);
             return;
         }
         if (holes()) {

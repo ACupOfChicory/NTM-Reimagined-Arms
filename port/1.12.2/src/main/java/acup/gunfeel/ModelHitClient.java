@@ -17,7 +17,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.ModelBase;
 import net.minecraft.client.model.ModelRenderer;
 import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.World;
 
 // The client's side of model hitboxes (26.2: ModelHitClient): takes each nearby living entity's model as it is
@@ -158,6 +160,67 @@ public final class ModelHitClient {
             current = null;
             inModel = false;
             inPass = false;
+        }
+    }
+
+    // port: NTM CE's hunter chopper and plastic bag are drawn by a plain Render (RenderHunterChopper: its ModelBase's
+    // cubes; RenderPlasticBag: an OBJ through its VAO), which RenderLivingBase's bracket does not see: they are
+    // bracketed at RenderManager.renderEntity's call of doRender (MixinRenderManager). The parts come as any model's
+    // (MixinModelRenderer, MixinGroupHandle), from the GL matrix: the chopper's ×4 and its turn over X as drawn. The yaw
+    // the pose is taken at is the client's interpolated body, as RenderLivingBase's; how the renderer turns the mob
+    // from there is ModelHits.Turn. true: bracketed, endOther must follow
+    public static boolean beginOther(Entity entity, net.minecraft.client.renderer.entity.Render<?> render, double x, double y, double z, float partial) {
+        if (render instanceof net.minecraft.client.renderer.entity.RenderLivingBase || !(entity instanceof EntityLivingBase)) return false;
+        if (!enabled || !acup.gunfeel.compat.Feature.MODEL_HITBOXES.on()) return false;
+        ModelHits.Turn turn = ModelHits.turn(entity);
+        if (turn != ModelHits.Turn.YAW && turn != ModelHits.Turn.YAW_BACK) return false;
+        EntityLivingBase e = (EntityLivingBase) entity;
+        begin(e, OTHER_MODELS.get(render.getClass()).model(render), x, y, z);
+        if (target != e) return false;
+        yaw(e.prevRenderYawOffset + MathHelper.wrapDegrees(e.renderYawOffset - e.prevRenderYawOffset) * partial);
+        inModel(true);
+        return true;
+    }
+
+    public static void endOther(EntityLivingBase entity) {
+        inModel(false);
+        end(entity);
+    }
+
+    // a plain Render's model: its first ModelBase field (the chopper's), or none (an OBJ: no cubes to name)
+    private static final ModelBase NO_MODEL = new ModelBase() {
+    };
+    private static final ClassValue<OtherModel> OTHER_MODELS = new ClassValue<OtherModel>() {
+        @Override protected OtherModel computeValue(Class<?> type) {
+            for (Class<?> c = type; c != null && c != Object.class; c = c.getSuperclass())
+                for (java.lang.reflect.Field f : c.getDeclaredFields())
+                    if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && ModelBase.class.isAssignableFrom(f.getType())) {
+                        try {
+                            f.setAccessible(true);
+                            return new OtherModel(f);
+                        } catch (RuntimeException ex) {
+                            return new OtherModel(null);
+                        }
+                    }
+            return new OtherModel(null);
+        }
+    };
+
+    private static final class OtherModel {
+        private final java.lang.reflect.Field field;
+
+        OtherModel(java.lang.reflect.Field field) {
+            this.field = field;
+        }
+
+        ModelBase model(Object render) {
+            if (field == null) return NO_MODEL;
+            try {
+                Object m = field.get(render);
+                return m instanceof ModelBase ? (ModelBase) m : NO_MODEL;
+            } catch (IllegalAccessException ex) {
+                return NO_MODEL;
+            }
         }
     }
 

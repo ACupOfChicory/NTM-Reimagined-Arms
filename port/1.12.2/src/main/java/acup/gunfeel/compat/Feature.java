@@ -41,7 +41,7 @@ public enum Feature {
     SPECTATOR("spectator", list("MixinSpectatorGun", "MixinSpectatorOldGun", "MixinSpectatorKeys", "MixinSpectatorHud"), list("SpectatorGuns", "SpectatorCheck", "SpectatorScenario")),
     // port only: NTM CE's keys pressed on the server's thread (an NTM CE bug, see ServerKeys)
     SERVER_KEYS("server_keys", list("MixinKeysOnServerThread"), list("ServerKeys")),
-    TRACE("trace", list("MixinClock"), list("TraceScenario", "TraceClient", "TraceHooks", "ShootScenario", "LookScenario", "ShapesScenario", "WalkSprintScenario"));
+    TRACE("trace", list("MixinClock"), list("TraceScenario", "TraceClient", "TraceHooks", "ShootScenario", "LookScenario", "ShapesScenario", "WalkSprintScenario", "TurnScenario"));
 
     public final String id;
     // simple names: mixins in acup.gunfeel.mixins, classes in acup.gunfeel

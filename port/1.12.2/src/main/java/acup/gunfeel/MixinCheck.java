@@ -43,7 +43,7 @@ public final class MixinCheck {
             {"net.minecraft.client.model.ModelRenderer", "4"}, // 2 + MachineMesh compile 2
             {"com.hbm.render.loader.WaveFrontObjectVAO", "1"}, // MixinVaoModel
             {"com.hbm.render.loader.GroupHandle", "2"}, // MixinGroupHandle
-            {"net.minecraft.client.renderer.entity.RenderManager", "2"}, // the model box, the box at full brightness
+            {"net.minecraft.client.renderer.entity.RenderManager", "3"}, // the model box, the box at full brightness, a plain Render's model (the chopper, the bag)
             {"com.hbm.items.weapon.sedna.GunConfig", "6"}, // MixinG3Inspect 4 (gunfeel$release + 3), MixinGunConfigAnims 2
             {"com.hbm.entity.projectile.EntityThrowableNT", "13"}, // traceSpread, beginHits, endHits, blocks, nearest, candidates, modelBox, mob, the water tick's end, inShooter, ofShooter, start + ThrowableAccess ticksInAir
             {"com.hbm.entity.projectile.EntityBulletBeamBase", "4"},

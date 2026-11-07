@@ -420,6 +420,11 @@ MARESLEG method com/hbm/render/anim/sedna/BusAnimationSequenceSedna addPos (DDDI
 MARESLEG method com/hbm/render/anim/sedna/BusAnimationSequenceSedna addPos (DDDILcom/hbm/render/anim/sedna/BusAnimationKeyframeSedna$IType;)Lcom/hbm/render/anim/sedna/BusAnimationSequenceSedna;
 MARESLEG method com/hbm/render/anim/sedna/BusAnimationSequenceSedna hold (I)Lcom/hbm/render/anim/sedna/BusAnimationSequenceSedna;
 MARESLEG method com/hbm/render/anim/sedna/BusAnimationSequenceSedna setPos (DDD)Lcom/hbm/render/anim/sedna/BusAnimationSequenceSedna;
+MODEL_HITBOXES class com/hbm/entity/mob/EntityFBIDrone
+MODEL_HITBOXES class com/hbm/entity/mob/EntityHunterChopper
+MODEL_HITBOXES class com/hbm/entity/mob/EntityPlasticBag
+MODEL_HITBOXES class com/hbm/entity/mob/EntityUFO
+MODEL_HITBOXES class com/hbm/entity/mob/botprime/EntityWormBaseNT
 MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBaseMK4
 MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBeamBase
 MODEL_HITBOXES class com/hbm/render/loader/Face
@@ -529,8 +534,12 @@ SPRINT_FIRE method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minec
 SPRINT_FIRE method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext <init> (Lcom/hbm/items/weapon/sedna/GunConfig;Lnet/minecraft/entity/EntityLivingBase;Lnet/minecraft/inventory/IInventory;I)V
 SPRINT_FIRE method com/hbm/items/weapon/sedna/Receiver getRefireOnHold (Lnet/minecraft/item/ItemStack;)Z
 SPRINT_FIRE method com/hbm/items/weapon/sedna/factory/Lego clickReceiver (Lnet/minecraft/item/ItemStack;Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext;I)V
+TRACE class com/hbm/entity/mob/EntityHunterChopper
+TRACE class com/hbm/entity/mob/EntityPlasticBag
 TRACE class com/hbm/entity/projectile/EntityBulletBaseMK4
 TRACE class com/hbm/items/weapon/sedna/ItemGunBaseNT
+TRACE method com/hbm/entity/mob/EntityHunterChopper <init> (Lnet/minecraft/world/World;)V
+TRACE method com/hbm/entity/mob/EntityPlasticBag <init> (Lnet/minecraft/world/World;)V
 TRACE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/item/ItemStack;Z)V
 TRACERS class com/hbm/entity/projectile/EntityBulletBase
 TRACERS class com/hbm/entity/projectile/EntityBulletBaseMK4

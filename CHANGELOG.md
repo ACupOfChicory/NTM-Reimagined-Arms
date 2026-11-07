@@ -1,5 +1,13 @@
 # Changelog
 
+## X555.196
+
+- As in 26.2 X478, on 1.12.2: bullets now hit NTM's hunter chopper and plastic
+  bag by their models, not by their boxes. Their model is taken as the game
+  draws it. A pose the server keeps turns the way NTM draws these two, by
+  their heading, not by their body: a chopper that turns to aim while it
+  hangs in place no longer leaves its model behind.
+
 ## X555.195
 
 - As in X580 and X581: `beamRules` (server, on): NTM's beams (laser guns,
