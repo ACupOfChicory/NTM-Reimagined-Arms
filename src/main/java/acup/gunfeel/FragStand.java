@@ -398,11 +398,39 @@ final class FragStand {
         }
     }
 
+    // 8: the holes on a wall 2 blocks ahead of the burst (and on the floor 1.5 under it): the decals before and after, the
+    // client's cost of the packet and the frames the queue took to empty
+    private static int holesBefore;
+
+    private static void holes(Minecraft mc) {
+        run(() -> {
+            FragFx.puffs = false;
+            onServer(mc, () -> {
+                ServerLevel level = mc.getSingleplayerServer().overworld();
+                clearHusks(level);
+                for (int x = -8; x <= 8; x++) for (int y = 0; y < 5; y++) level.setBlock(O.offset(x, y, 26), Blocks.STONE_BRICKS.defaultBlockState(), 3);
+            });
+        });
+        sleep(20);
+        for (GrenadeKind kind : new GrenadeKind[] {GrenadeKind.AIRBURST, GrenadeKind.AP, GrenadeKind.INCENDIARY}) {
+            FragSpec s = FragSpec.of(kind);
+            run(() -> {
+                holesBefore = Tracers.holeCount();
+                onServer(mc, () -> FragBurst.burst(s, mc.getSingleplayerServer().overworld(), null, null, new Vec3(B.x, O.getY() + 1.5, O.getZ() + 24.0), AHEAD, 777L));
+            });
+            TODO.add(() -> Tracers.holeCount() > holesBefore);
+            sleep(30);
+            run(() -> line("8 holes", "kind", kind.key, "rays", s.rays(), "holes left", Tracers.holeCount() - holesBefore, "still queued", Tracers.pendingFragmentHits(),
+                    "client packet ms", FragFx.lastHandleNanos / 1e6, "handed over", FragFx.lastHoles, "holes in total", Tracers.holeCount()));
+        }
+    }
+
     private static void plan(Minecraft mc) {
         run(() -> arena(mc));
         sleep(40);
         cases(mc);
         incendiary(mc);
+        holes(mc);
         run(() -> park(mc));
         tracers(mc);
         run(FragStand::times);

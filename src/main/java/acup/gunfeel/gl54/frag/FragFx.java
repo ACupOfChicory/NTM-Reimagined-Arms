@@ -9,6 +9,7 @@ import org.joml.Matrix4f;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import acup.gunfeel.PassableClip;
+import acup.gunfeel.Tracers;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
@@ -39,13 +40,18 @@ public final class FragFx {
     public static volatile double holdAge = Double.NaN;
     public static volatile int drawn;
     public static volatile boolean puffs = true;
+    // dev: what the last packet cost on the client (casting the rays and handing the holes over), ns, and the holes handed over
+    public static volatile long lastHandleNanos;
+    public static volatile int lastHoles;
 
     public static void handle(FragPayload p) {
+        long t0 = System.nanoTime();
         ClientLevel level = Minecraft.getInstance().level;
         FragSpec spec = FragSpec.of(p.kind());
         if (level == null || spec == null) return;
         int n = Math.min(spec.rays(), FragSpec.MAX_RAYS);
         float[] dir = new float[n * 3], len = new float[n];
+        net.minecraft.world.phys.BlockHitResult[] stops = new net.minecraft.world.phys.BlockHitResult[n];
         double[] d = new double[3];
         for (int i = 0; i < n; i++) {
             FragPattern.direction(spec, p.seed(), i, p.dir().x, p.dir().y, p.dir().z, d);
@@ -55,11 +61,40 @@ public final class FragFx {
             Vec3 to = p.point().add(d[0] * FragSpec.RANGE, d[1] * FragSpec.RANGE, d[2] * FragSpec.RANGE);
             var hit = PassableClip.clip(level, p.point(), to);
             len[i] = hit.getType() == HitResult.Type.MISS ? (float) FragSpec.RANGE : (float) hit.getLocation().distanceTo(p.point());
+            if (hit.getType() == HitResult.Type.BLOCK) stops[i] = hit;
         }
+        lastHoles = holes(level, spec, p, stops, dir);
         synchronized (LIVE) {
             LIVE.add(new Burst(Math.min(p.kind().ordinal(), 255), System.nanoTime(), dir, len, p.point().x, p.point().y, p.point().z));
         }
+        lastHandleNanos = System.nanoTime() - t0;
         if (puffs) level.addParticle(ParticleTypes.EXPLOSION, p.point().x, p.point().y, p.point().z, 0, 0, 0);
+    }
+
+    // most holes one burst leaves, the scale of a bullet's hole they are made at, and every how-many-th of them has the hit's
+    // particles and sound (the cost of a burst is the holes and these few)
+    static final int MAX_HOLES = 24, FX_EVERY = 8;
+    static final float HOLE_SCALE = 0.4F;
+
+    // the holes where the rays stopped on blocks, put by the bullets' own code (Tracers.fragmentHit); the server's rays are the
+    // same, so no packet carries them. More stops than MAX_HOLES: every k-th, so cone and ring both leave marks. Returns how
+    // many were handed over.
+    static int holes(ClientLevel level, FragSpec spec, FragPayload p, net.minecraft.world.phys.BlockHitResult[] stops, float[] dir) {
+        if (!acup.gunfeel.Config.bulletHoles && !acup.gunfeel.Config.bulletFx) return 0;
+        var config = com.hbm.items.weapon.sedna.factory.XFactory9mm.p9_sp;
+        if (config == null) return 0;
+        int stopped = 0;
+        for (var h : stops) if (h != null) stopped++;
+        if (stopped == 0) return 0;
+        int every = (stopped + MAX_HOLES - 1) / MAX_HOLES, seen = 0, made = 0;
+        long born = Tracers.fragmentBurstTime();
+        for (int i = 0; i < stops.length; i++) {
+            if (stops[i] == null || seen++ % every != 0) continue;
+            Vec3 d = new Vec3(dir[i * 3], dir[i * 3 + 1], dir[i * 3 + 2]);
+            Tracers.fragmentHit(level, stops[i], d, config, born, HOLE_SCALE, made % FX_EVERY == 0);
+            made++;
+        }
+        return made;
     }
 
     public static void clear() {
