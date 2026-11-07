@@ -10,10 +10,13 @@ Writes, under the directory given (name = "gl54" by default):
     textures/models/weapons/<name>.png         a palette: one flat colour per material of the model
     models/weapons/animations/<name>.json      the actions, as AnimationLoader reads them (offset + anim)
     models/weapons/<name>_casing.json          the ejected case: where it comes out, how fast, how it turns
+    models/weapons/<name>_reflex.json          the reflex sight's pane (its corners, the UV frame, the normal) and where the
+                                               laser leaves the rangefinder, in NTM's model units
 
 A new model is put in by running this again on its .blend, no code changes, as long as it keeps the names:
 every mesh object is a part (the part's name is the object's name; EjectedCase is not a part, it only gives the
-numbers of the case), the actions are named "<Animation>_<Object>" (Fire_BoltCarrier) or are the object's one
+numbers of the case, and ReflexPanel, the sight's clear pane, is not one either: the renderer draws the red dot on it from
+the numbers of <name>_reflex.json), the actions are named "<Animation>_<Object>" (Fire_BoltCarrier) or are the object's one
 action named "<Animation>", and the barrel looks along +X with +Z up, as in the first model.
 
 Axes: the .blend has +X forward, +Z up, +Y to the gun's left; NTM's models have +Z forward, +Y up, +X to the gun's
@@ -34,6 +37,10 @@ UNITS_PER_METER = 12.0
 ORIGIN_M = (-0.10, 0.0, -0.05)
 FPS_FALLBACK = 60.0
 CASING_OBJECT = "EjectedCase"
+# the reflex sight's clear pane (one face) and the rangefinder whose front lens is where the laser leaves
+PANEL_OBJECT = "ReflexPanel"
+RANGEFINDER_OBJECT = "LaserRangefinder"
+LENS_WORD = "glass"
 # NTM's interpolation names (BusAnimationKeyframe.IType) and the .blend's that it has
 INTERPOLATIONS = {"CONSTANT", "LINEAR", "BEZIER", "SINE", "QUAD", "CUBIC", "QUART", "QUINT", "EXPO", "CIRC",
                   "BOUNCE", "ELASTIC", "BACK"}
@@ -61,6 +68,63 @@ def axis_vector(v, scale=1.0):
 # the .blend's axis (0 x, 1 y, 2 z) as NTM's (0 x, 1 y, 2 z): x -> z, y -> x, z -> y
 AXIS_TO_NTM = (2, 0, 1)
 AXIS_NAME = "xyz"
+
+
+def uv_frame(points, uvs):
+    """The affine map uv -> position that a flat face's corners lie on: (origin, u axis, v axis), the axes not unit (the
+    length of each is the face's size along that uv direction, so uv (1, 1) is origin + u axis + v axis). Fitted through
+    the three corners whose uvs span the most area."""
+    best = None
+    n = len(points)
+    for a in range(n):
+        for b in range(a + 1, n):
+            for c in range(b + 1, n):
+                det = (uvs[b][0] - uvs[a][0]) * (uvs[c][1] - uvs[a][1]) - (uvs[c][0] - uvs[a][0]) * (uvs[b][1] - uvs[a][1])
+                if best is None or abs(det) > abs(best[0]):
+                    best = (det, a, b, c)
+    det, a, b, c = best
+    if abs(det) < 1e-9:
+        raise SystemExit("the pane's uvs have no area")
+    du1, dv1 = uvs[b][0] - uvs[a][0], uvs[b][1] - uvs[a][1]
+    du2, dv2 = uvs[c][0] - uvs[a][0], uvs[c][1] - uvs[a][1]
+    ua, va = [], []
+    for k in range(3):
+        p1, p2 = points[b][k] - points[a][k], points[c][k] - points[a][k]
+        # p1 = du1 * U + dv1 * V, p2 = du2 * U + dv2 * V
+        ua.append((p1 * dv2 - p2 * dv1) / det)
+        va.append((du1 * p2 - du2 * p1) / det)
+    origin = tuple(points[a][k] - uvs[a][0] * ua[k] - uvs[a][1] * va[k] for k in range(3))
+    return origin, tuple(ua), tuple(va)
+
+
+def norm(v):
+    return math.sqrt(sum(c * c for c in v))
+
+
+def reflex_numbers(corners, uvs, normal, lens_points):
+    """The pane and the laser's exit as the json has them. corners: the pane's corners in the NTM model, in the face's
+    order; uvs: theirs (v up, 0..1); normal: the face's (as the .blend's front side, NTM axes); lens_points: points of the
+    rangefinder's front lens in the NTM model (z is forward)."""
+    origin, ua, va = uv_frame(corners, uvs)
+    ul, vl = norm(ua), norm(va)
+    lens = [p for p in lens_points]
+    front = max(p[2] for p in lens)
+    exit_point = ((min(p[0] for p in lens) + max(p[0] for p in lens)) / 2.0, (min(p[1] for p in lens) + max(p[1] for p in lens)) / 2.0, front)
+
+    def r(v):
+        return [round(c, 5) for c in v]
+    return {
+        "units": "NTM model units: x to the gun's left, y up, z forward",
+        "panel": {
+            "corners": [r(c) for c in corners],
+            "uv": [[round(c, 5) for c in uv] for uv in uvs],
+            "uvOrigin": r(origin),
+            "uAxis": r([c / ul for c in ua]), "uLength": round(ul, 5),
+            "vAxis": r([c / vl for c in va]), "vLength": round(vl, 5),
+            "normal": r(normal),
+        },
+        "laser": {"exit": r(exit_point)},
+    }
 
 
 def linear_to_srgb(c):
@@ -222,7 +286,7 @@ def export(blend_out, name):
     scene.frame_set(scene.frame_start)
     graph = bpy.context.evaluated_depsgraph_get()
 
-    objects = [o for o in bpy.data.objects if o.type == "MESH" and o.name != CASING_OBJECT]
+    objects = [o for o in bpy.data.objects if o.type == "MESH" and o.name not in (CASING_OBJECT, PANEL_OBJECT)]
     objects.sort(key=lambda o: o.name)
     materials = []
     for o in objects:
@@ -345,7 +409,36 @@ def export(blend_out, name):
     with open(path("models", "weapons", name + "_casing.json"), "w") as f:
         json.dump(casing_numbers(bpy, fps), f, indent=1)
         f.write("\n")
+    with open(path("models", "weapons", name + "_reflex.json"), "w") as f:
+        json.dump(reflex_from_blend(bpy, graph, mathutils), f, indent=1)
+        f.write("\n")
     print("exported %s: %d parts, %d materials, animations %s" % (name, len(groups), len(materials), sorted(anims)))
+
+
+def reflex_from_blend(bpy, graph, mathutils):
+    panel = bpy.data.objects.get(PANEL_OBJECT)
+    rf = bpy.data.objects.get(RANGEFINDER_OBJECT)
+    out = {"present": False}
+    lens = []
+    if rf is not None:
+        me = rf.evaluated_get(graph).to_mesh()
+        for poly in me.polygons:
+            mat = rf.material_slots[poly.material_index].material if poly.material_index < len(rf.material_slots) else None
+            if mat is not None and LENS_WORD in mat.name.lower():
+                lens += [axis_point(tuple(rf.matrix_world @ me.vertices[i].co)) for i in poly.vertices]
+        if not lens:
+            lens = [axis_point(tuple(rf.matrix_world @ v.co)) for v in me.vertices]
+    if panel is not None and len(panel.data.polygons) == 1 and lens:
+        me = panel.data
+        poly = me.polygons[0]
+        uv = me.uv_layers.active
+        corners = [axis_point(tuple(panel.matrix_world @ me.vertices[me.loops[li].vertex_index].co)) for li in poly.loop_indices]
+        uvs = [tuple(uv.data[li].uv) for li in poly.loop_indices]
+        n = panel.matrix_world.to_3x3().inverted_safe().transposed() @ poly.normal
+        n.normalize()
+        out = reflex_numbers(corners, uvs, axis_vector(tuple(n)), lens)
+        out["present"] = True
+    return out
 
 
 BARREL_PART = "TitaniumBarrel"

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Tests of gl54_export.py's parts that need no Blender: python3 tools/test_gl54_export.py"""
+import math
 import os
 import struct
 import sys
@@ -36,6 +37,42 @@ class Axes(unittest.TestCase):
 
     def test_rotation_axes(self):
         self.assertEqual(g.AXIS_TO_NTM, (2, 0, 1))
+
+
+class Reflex(unittest.TestCase):
+    # a pane 2 wide and 1 high, tilted back 30 degrees about the x axis, in the NTM axes (x left, y up, z forward)
+    def pane(self):
+        c, s = math.cos(math.radians(30)), math.sin(math.radians(30))
+        pts = [(0, 0, 0), (2, 0, 0), (2, c, -s), (0, c, -s)]
+        return pts, [(0, 0), (1, 0), (1, 1), (0, 1)]
+
+    def test_uv_frame_of_a_plain_pane(self):
+        pts, uvs = self.pane()
+        o, u, v = g.uv_frame(pts, uvs)
+        self.assertAlmostEqual(g.norm(u), 2.0)
+        self.assertAlmostEqual(g.norm(v), 1.0)
+        self.assertAlmostEqual(u[0], 2.0)
+        self.assertAlmostEqual(v[2], -math.sin(math.radians(30)))
+
+    def test_uv_frame_reproduces_every_corner(self):
+        # a hexagon with cut corners, as the pane is: any three corners give the same map
+        uvs = [(0, 0), (1, 0), (1, 0.9), (0.9, 1), (0.1, 1), (0, 0.9)]
+        pts = [(1 + 2 * a, 3 + b, 5 + 0.25 * b) for a, b in uvs]
+        o, u, v = g.uv_frame(pts, uvs)
+        for p, (a, b) in zip(pts, uvs):
+            for k in range(3):
+                self.assertAlmostEqual(o[k] + a * u[k] + b * v[k], p[k], places=6)
+
+    def test_numbers_have_the_laser_at_the_lens_front(self):
+        pts, uvs = self.pane()
+        lens = [(0.1, 0.2, 5.0), (0.3, 0.4, 5.0), (0.2, 0.3, 4.9)]
+        out = g.reflex_numbers(pts, uvs, (0, 0.5, 0.8), lens)
+        self.assertEqual(out["laser"]["exit"], [0.2, 0.3, 5.0])
+        self.assertEqual(out["panel"]["uLength"], 2.0)
+        self.assertEqual(len(out["panel"]["corners"]), 4)
+
+    def test_the_pane_is_not_a_part(self):
+        self.assertEqual(g.PANEL_OBJECT, "ReflexPanel")
 
 
 class Animation(unittest.TestCase):
