@@ -334,8 +334,21 @@ tasks.withType<RunMinecraftTask>().configureEach {
     if (tested.isPresent) systemProperty("ntmgunfeel.tested", tested.get())
     if (forceOff.isPresent) systemProperty("ntmgunfeel.forceOff", forceOff.get())
 }
-// Bullets on real blocks on the dedicated server (BulletCheck): -PcheckBullets on runServer
+// Bullets on real blocks on the dedicated server (BulletCheck): -PcheckBullets on runServer. It starts clean, as the
+// 1.7.10 port's stands: on a world of its own made anew (run/server/standcheck, --world over level-name, which the
+// sound stand shares), and with none of the mod's settings files (ntm-gunfeel-*), as BulletCheck leaves its rules there
+// (stone a bullet flies through) for the next server on run/server
 if (providers.gradleProperty("checkBullets").isPresent) tasks.named<RunMinecraftTask>("runServer") {
+    args("--world", "standcheck")
+    doFirst {
+        val dir = projectDir.resolve("run/server")
+        dir.resolve("standcheck").deleteRecursively()
+        dir.resolve("config").listFiles()?.filter { it.isFile && it.name.startsWith("ntm-gunfeel") }?.forEach { it.delete() }
+    }
+    // and leaves none of its rules to a server after it (the sound stand, a plain runServer)
+    doLast {
+        projectDir.resolve("run/server/config").listFiles()?.filter { it.isFile && it.name.startsWith("ntm-gunfeel") }?.forEach { it.delete() }
+    }
     systemProperty("ntmgunfeel.checkBullets", "logs/bullet-check.txt")
     systemProperty("ntmgunfeel.trace", "logs/ntm-gunfeel-trace-bullets.tsv")
     systemProperty("ntmgunfeel.traceScenario", "bullets")
