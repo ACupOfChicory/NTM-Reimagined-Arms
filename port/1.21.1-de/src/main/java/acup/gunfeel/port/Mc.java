@@ -67,22 +67,25 @@ public final class Mc {
         return texture.getPixels();
     }
 
-    // 26.2 !NativeImage.isClosed(): 1.21.1 frees an image by zeroing its pixels pointer, read here
-    private static final java.lang.reflect.Field IMAGE_PIXELS;
-    static {
-        java.lang.reflect.Field f = null;
-        try {
-            f = NativeImage.class.getDeclaredField("pixels");
-            f.setAccessible(true);
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            acup.gunfeel.GunFeel.LOGGER.warn("NativeImage.pixels cannot be read: every image is taken as open", e);
+    // 26.2 !NativeImage.isClosed(): 1.21.1 frees an image by zeroing its pixels pointer, read here. In a class of its
+    // own: the server runs this class too (ModelHits, HeadProfiles, Spread), and NativeImage is the client's
+    private static final class ImagePixels {
+        static final java.lang.reflect.Field FIELD;
+        static {
+            java.lang.reflect.Field f = null;
+            try {
+                f = NativeImage.class.getDeclaredField("pixels");
+                f.setAccessible(true);
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                acup.gunfeel.DebugLog.LOGGER.warn("NativeImage.pixels cannot be read: every image is taken as open", e);
+            }
+            FIELD = f;
         }
-        IMAGE_PIXELS = f;
     }
 
     public static boolean allocated(NativeImage image) {
         try {
-            return IMAGE_PIXELS == null || IMAGE_PIXELS.getLong(image) != 0;
+            return ImagePixels.FIELD == null || ImagePixels.FIELD.getLong(image) != 0;
         } catch (IllegalAccessException e) {
             return true;
         }
