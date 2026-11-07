@@ -198,6 +198,9 @@ public final class BulletCheck {
         check("beam: a golem behind a plank takes less than in the open, but some (" + behind + " of " + free + ")", true,
                 behind > 0F && behind < free);
         check("beam: glass behind the golem that takes the beam is left whole (two beams of 6)", "minecraft:glass", golemGlass());
+        float fewer = glassRow(BeamServer.STEPS), more = glassRow(BeamServer.STEPS + 1);
+        check("beam: past " + BeamServer.STEPS + " blocks in a row it gets on", 30F, fewer);
+        check("beam: " + (BeamServer.STEPS + 1) + " blocks on its way stop it, not let it through the rest unlooked at", -1F, more);
         // ---- NTM's beam turrets and Tesla arcs (BeamTurrets): a golem 7 blocks off, a 3x3 wall 3 blocks before it.
         // Stone is "through" by this stand's rules: a bullet flies through it, NTM's look along the boxes does not
         float[] tauOpen = turret("hbm:turret_tauon", null), tauGlass = turret("hbm:turret_tauon", "minecraft:glass"),
@@ -761,6 +764,18 @@ public final class BulletCheck {
         float took = before - g.getHealth();
         g.discard();
         return took;
+    }
+
+    // a beam with no entity of its own along a lane through `n` glass blocks in a row, all of them its shooter's own
+    // (gone through as air, each a step of its way), only looked at: the damage it has beyond them, or -1 when stopped
+    private static float glassRow(int n) {
+        BlockPos at = new BlockPos(2 + 4 * (lane % 16), Y + 4 * (lane / 16), Z);
+        lane++;
+        for (int i = 0; i < n; i++) level.setBlock(at.south(i), state("minecraft:glass"), Block.UPDATE_CLIENTS);
+        net.minecraft.world.phys.Vec3 from = new net.minecraft.world.phys.Vec3(at.getX() + .5, at.getY() + .5, at.getZ() - 1.5);
+        float left = BeamServer.reach(level, null, from, from.add(0, 0, n + 3), 30F, null, false, p -> true);
+        for (int i = 0; i < n; i++) level.removeBlock(at.south(i), false);
+        return left;
     }
 
     // a golem with glass right behind it at the beam's height, two beams of 6 at it (two would break glass): the glass
