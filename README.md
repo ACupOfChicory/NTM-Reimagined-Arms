@@ -1,120 +1,270 @@
 # NTM Reimagined Arms
 
-An addon for HBM's Nuclear Tech Mod (NTM-NEXT) on NeoForge 26.2. It adds
-first-person arms, recoil, weapon sway, detailed model hitboxes and
-material-based bullet effects through mixins. Ports to NTM Continuum and to the
-original NTM on Minecraft 1.7.10 are in progress; see [Ports](#ports).
+An addon for HBM's Nuclear Tech Mod (NTM-NEXT) on Minecraft 26.2, NeoForge. It
+changes how NTM's guns feel and hit: the player's arms hold the gun, recoil
+moves the camera and the gun, bullets meet mobs by their models and blocks by
+their shapes and materials, bullets and beams slow down in water and go
+through glass by their own rules, and smoke clouds fill the space around them.
+Builds for other NTM versions are listed under [Ports](#ports).
+
+Builds are on the [Releases](https://github.com/ACupOfChicory/NTM-Reimagined-Arms/releases)
+page. They are alphas: expect bugs and back up your world.
 
 ## Features
 
-- Two-handed weapon grips and configurable arm animations.
-- Camera recoil, weapon recoil and turn sway.
-- Camera climb per weapon: part of each kick stays, so sustained fire climbs,
-  drifts sideways and builds up over the first shots.
-- An ammo HUD and radial ammo selection with damage information.
-- Hold-to-aim controls and spread affected by movement, stance and sustained
-  fire.
-- Lying down with X (rebindable in Controls), with a gun or without: crawl
-  along, with less spread and recoil.
-- Model-based mob hitboxes, body-zone damage and debug outlines through F3+B.
-- Bullet penetration, ricochets, impact sounds and decals matched to block
-  materials and visible geometry.
-- Quality presets for impact effects, including low, medium, high and realism.
-- Smoke clouds that fill the space around them, stop at walls and shut doors,
-  and are drawn as a volume. For now an operator lets them out with
-  `/gunsmoke`; a smoke grenade will come later.
+### Holding and moving
+
+- Both of the player's arms hold the gun and follow NTM's animations: reloads,
+  inspects, pumps and levers. The arms follow the skin (normal or slim) and
+  wear what the player wears on the arms: armour with its dye, trim and glint,
+  NTM's suits, the skin's sleeve layer and other mods' arm models.
+- Pistols and revolvers are held from the hip a little right of the middle and
+  aimed along their sights, small on the screen.
+- The gun bobs in step with walking, takes a sprint pose while sprinting, lags
+  behind sharp turns and dips on a jump and a landing.
+- Aim with the right mouse button, for as long as it is held. NTM aims with the
+  middle button and puts the gun's second action (a mode switch, Tau's charge)
+  on the right one; the mod swaps them. Guns that do not aim (SPAS-12, akimbo
+  pairs) keep their second action on the right button.
+- Right after a sprint a gun fires only once its sprint time has passed
+  (0.08 s for pistols and revolvers, 0.1 s for submachine guns, 0.15 s for
+  rifles, 0.19 s for heavy weapons). A shot pressed in that time goes off when
+  it ends, if the button is still held. While a fire button is held or the gun
+  aims, the player stops sprinting.
+- X lies down and gets up: the player crawls as under a trapdoor, with half the
+  spread and half the recoil, and the view turns up to 45° and down to 30°.
+
+### Recoil and spread
+
+- Camera recoil, a spring kick of the gun model and a share of NTM's own recoil
+  animation, each with its own strength.
+- Camera climb: part of each kick stays, so a burst climbs and drifts to the
+  side, building up over the first shots. Set per gun.
+- Spread depends on stance and movement: standing, walking, sprinting,
+  sneaking, lying, jumping and aiming, and it grows over a held-down burst.
+- NTM's power armour (T-51, AJR, AJRO, RPA, NCRPA, BJ, Envsuit, HEV, FAU, DNS)
+  halves recoil and the spread that walking, jumping and a burst add. The
+  chestplate is enough.
+- A bullet flies where the player looked in the frame of the click, and a burst
+  follows the camera.
+
+### Ammo and HUD
+
+- An ammo counter in the bottom-right corner instead of NTM's.
+- Tap Y to lock the gun's ammo type: it keeps that type, also once empty. Hold
+  Y for an ammo wheel: point at a type with the mouse and left-click to reload
+  with it; letting go of Y without a click changes nothing. Under the type you
+  point at, the wheel shows its damage from the gun in hand, on a head hit and
+  against armour, next to the loaded one.
+
+### Hits
+
+- Mobs and players are hit by their models: a head hit does 1.75 times the
+  damage, an arm or a leg half. Worn armour, skulls and pumpkins are part of the
+  model. This covers vanilla mobs, NTM's mobs and baby mobs. F3+B shows the
+  outlines.
+- Hits on moving mobs count by the pose the shooter saw.
+- NTM's turrets and armed mobs (the hunter chopper, the cyber crab and others)
+  hit by the same rules as a player's gun.
+
+### Bullets and blocks
+
+- Tracers in the colours of NTM's rounds, and bullets that whizz past.
+- Bullets pierce, ricochet, sound and leave holes by the block's material and
+  its drawn shape: through fence gaps and the empty cells of machines, through
+  glass and thin wood with a loss, not through a solid wall.
+- Windows on NTM's machines are glass: a bullet pierces them and leaves a hole
+  visible from both sides.
+- Blocks wear and break under fire: glass, pumpkins, cactus, bamboo and
+  others. A server can let bullets break concrete and pierce machines.
+- Impact effect quality presets: low, medium, high (the default) and realism.
+
+### Beams
+
+- NTM's beams (laser guns, the Tesla Cannon, Lacunae, Tau, N.I.4.N.I., the
+  Aberrator, the Shredder, the laser grenade) and the beams of the Tauon and
+  Maxwell turrets and the Tesla arcs go through blocks as a bullet of the same
+  damage would. Turrets see and hit a target only where their beam gets
+  through.
+- Lasers go through glass of any kind without breaking it or losing damage.
+- Beams lose damage in water and go out after a few blocks of it.
+
+### Water
+
+- Bullets slow down in water and lose damage and piercing; hollow points open
+  and stop sooner. At a shallow angle a bullet skips off the surface.
+- A shot under water has no muzzle flash but a gas bubble, and sounds duller.
+  The round is seen flying, sinking and lying on the bottom.
+- Splashes follow the water: a crown on still water, a fan on a slope, a burst
+  through a waterfall, with rings, foam and bubbles.
+- Explosive rounds, grenades and rockets meet water by their fuze: they go off
+  on the surface, skip at a shallow angle, or sink and go off on the bottom. A
+  blast in water reaches farther for mobs in the water.
+
+### Smoke
+
+- Smoke clouds fill the space around them, stay out of walls, shut doors and
+  water, and go in through a door that opens. They are drawn as a volume, and
+  inside one the screen goes grey. Operators let them out with `/gunsmoke`.
+
+### Other
+
+- A player in spectator mode cannot use NTM's guns (NTM itself allows it).
+- The off-hand item is hidden while an NTM gun is held, and switching to or
+  from a gun is instant.
 
 ## Installation
 
-Install the same addon jar on the client and server, together with the required
-NTM-NEXT version and its dependencies. The mod is required on both sides. A
-client and a server need the very same build of the mod to connect.
+Put the same jar in the `mods` folder of the client and of the server. The mod
+is needed on both sides, and a client and a server connect only with the very
+same build.
 
-Supported NTM versions are listed in
-`src/main/resources/META-INF/neoforge.mods.toml`. With other versions,
-compatibility checks disable systems whose NTM interfaces no longer match.
-`/gunfeel status` lists loaded versions and disabled systems.
+Requirements for the 26.2 build:
+
+- Minecraft 26.2 with NeoForge;
+- NTM-NEXT (`hbm`), tested with 1.0.3, and what it needs (CrankShaft 1.6.0
+  or newer on the client).
+
+With another NTM version the mod loads, but parts whose NTM interfaces changed
+are turned off with a warning. `/gunfeel status` lists the loaded versions and
+what is turned off.
+
+## Controls
+
+The keys are in Controls under "NTM Reimagined Arms".
+
+| Key | Action |
+| --- | --- |
+| Right mouse button (held) | Aim |
+| Middle mouse button | The gun's second action (mode switch, Tau's charge) |
+| Y (tap) | Lock the ammo type |
+| Y (hold) | Ammo wheel; left-click takes the type pointed at |
+| X | Lie down / get up |
+| O | Gun editor for the gun in hand: recoil, position and the arms editor (labels in Russian) |
+| F3+B | Hitbox outlines |
 
 ## Settings
 
-Open the weapon editor with O while holding a gun. Client settings are stored
-in `config/ntm-gunfeel.properties`; per-weapon settings are stored in
-`config/ntm-gunfeel-guns.properties`.
+Settings are in the `config` folder:
 
-Pistols and revolvers are held and aimed by measured positions (`pistolHold`
-and `aimHold`, both on). The hip sliders in the editor (`hipX`, `hipY`, `hipZ`)
-still move such a gun at the hip, as a share of its default place: `hipX = 0`
-puts it in the middle of the screen across, `hipY = 0` in the middle up and
-down, a smaller `hipZ` brings it closer. They do not move it when aimed, so the
-sights stay on the crosshair.
+- `ntm-gunfeel.properties`: the player's own settings (recoil, sway, arms,
+  HUD, effects). The file's header describes the keys.
+- `ntm-gunfeel-guns.properties`: per-gun settings, as
+  `hbm\:gun_g3.walkSway = 0`; the same key in `ntm-gunfeel.properties`
+  applies to every gun. With a gun in hand,
+  `/gunfeel set <key> <value>`, `/gunfeel get <key>` and `/gunfeel unset <key>`
+  change its keys.
+- `ntm-gunfeel-server.properties`: the server's gameplay rules (bullets,
+  spread, beams, water, lying down, the sprint delay). They are sent to
+  connected players. The mod does not create this file: write the keys you
+  want as `key = value`. Every key and its default is described in
+  `ntmgunfeel-server.properties` inside the mod jar.
+- `ntm-gunfeel-bullets.txt`: what bullets do to blocks (breaking, piercing,
+  materials) and how hits look and sound. The server's lines decide what
+  happens; a player's own file decides how it is drawn. The file's header
+  describes the rules.
 
-X lies down and gets up again (TaCZ's crawl): the player takes the crawling
-pose, as under a trapdoor, only on the ground. Lying, the spread is halved
-(`spreadCrawl`, server) and so is the recoil (`proneRecoil`, client); the view
-turns up to 45 degrees and down to 30 (`proneMaxUp`, `proneMaxDown`, server).
-`proneHold = true` lies down only while the key is held. A server turns lying
-down off with `prone = false`, or allows it only with a gun in hand with
-`proneWithoutGun = false`.
+Often used client keys (`ntm-gunfeel.properties`):
 
-Camera climb uses four per-weapon keys, also available in the weapon editor:
-`cameraClimb` is the share of each kick that stays (0 to 1), `cameraClimbDeg`
-adds degrees that stay up, `cameraDriftDeg` sets the sideways drift, and
-`cameraClimbRamp` is the number of shots in a burst before the climb reaches
-full strength. A weapon without these keys does not climb.
+| Key | Default | What it does |
+| --- | --- | --- |
+| `arms` | `true` | Draw the arms holding the gun |
+| `armArmor` | `true` | Draw what the player wears on those arms |
+| `cameraScale` | `0.55` | Camera recoil strength |
+| `modelKick` | `1` | Gun model kick strength |
+| `adsRecoil` | `0.7` | Recoil while aiming, as a share |
+| `powerArmorRecoil` | `0.5` | Recoil in NTM's power armour, as a share |
+| `proneRecoil` | `0.5` | Recoil while lying, as a share |
+| `proneHold` | `false` | Lie only while X is held |
+| `walkSway`, `sprintPose` | `1` | Walk bob and sprint pose; `0` turns them off |
+| `pistolHold`, `aimHold` | `1` | Pistol hold at the hip and in the aim; `0` turns them off |
+| `aimOnRightButton` | `true` | Aim with the right button |
+| `clickAim` | `true` | Bullets fly where the click was aimed |
+| `cornerHud` | `true` | Corner ammo counter instead of NTM's |
+| `ammoMenu` | `steel` | Look of the ammo wheel: `steel`, `petals`, `bubbles`, `ntm`, `glass`, `arc` |
+| `quality` | `high` | Impact effects: `low`, `medium`, `high`, `realism` |
+| `hitVolume` | `2` | Loudness of hit sounds, 0 to 4 |
+| `hipX`, `hipY`, `hipZ` | `0.6`, `1`, `0.75` | Gun place at the hip; on pistols a share of their own place |
+| `tracers` | `true` | Tracers |
+| `bulletHoles` | `true` | Bullet holes and marks |
+| `waterSplash` | `true` | Splashes, rings, foam and bubbles on water |
+| `smokeQuality` | `high` | Smoke clouds: `off`, `slices`, `low`, `medium`, `high`, `ultra` |
+| `smokeMaxClouds`, `smokeDistance` | `8`, `128` | How many clouds are drawn and how far away |
+| `enabled` | `true` | The mod's client side as a whole |
 
-`/gunfeel quality low|medium|high|realism` changes impact-effect quality. High
-is the default. Individual limits changed manually in the configuration file
-override preset values.
+`/gunfeel quality <preset>` also changes the impact-effect preset; a limit set
+by hand in the file overrides the preset. With an Iris shader pack smoke is
+drawn as `slices`.
 
-Smoke clouds are drawn by `smokeQuality`: `high` is the default; `low` and
-`medium` draw the volume at a lower resolution and cost less, `ultra` at the
-full one; `slices` draws stacks of translucent layers (used by itself with an
-Iris shader pack); `off` does not draw them, but inside a cloud the screen
-still goes grey. `smokeMaxClouds` and `smokeDistance` limit how many clouds are
-drawn and how far away.
+Often used server keys (`ntm-gunfeel-server.properties`):
 
-The server controls bullet speed, spread and other gameplay settings through
-`config/ntm-gunfeel-server.properties`. Material and bullet behavior rules are
-in `config/ntm-gunfeel-bullets.txt`; its header documents the available rules.
-Gameplay settings are synchronized to connected clients, while visual
-preferences remain local.
+| Key | Default | What it does |
+| --- | --- | --- |
+| `bulletSpeed` | `1.6` | Bullet speed multiplier |
+| `modelHitboxes` | `true` | Hits by the model, with head and limb zones |
+| `modelHitboxesWorn` | `true` | Worn armour, skulls and pumpkins are part of the model |
+| `cameraScaleMin` | `0` | Camera recoil players cannot go below |
+| `spreadStand`, `spreadMove`, `spreadSneak`, `spreadCrawl`, `spreadAim` | `1`, `1.5`, `0.75`, `0.5`, `1` | Spread by stance |
+| `powerArmorSpread` | `0.5` | Movement and burst spread in power armour, as a share |
+| `sprintFireDelay` | `true` | No shot right after a sprint; `sprintFireTime` per gun |
+| `prone`, `proneWithoutGun` | `true` | Lying down; lying without a gun in hand |
+| `beamRules`, `beamWater`, `laserGlass` | `true` | Beams through blocks, in water, lasers through glass |
+| `bulletBreakConcrete` | `false` | Bullets wear and break concrete |
+| `bulletPierceMachines` | `false` | Bullets pierce machines |
+| `bulletMachineGlass` | `true` | Machine windows are glass |
+| `waterBallistics` | `true` | Bullets slow down and skip in water |
+| `waterFuze` | `true` | Explosives meet water by their fuze |
+| `npcShots` | `true` | The old bullet of the hunter chopper and the cyber crab hits by the mod's rules |
+| `spectatorNoGuns` | `true` | Spectators cannot use NTM's guns |
+| `smoke` | `true` | Smoke clouds |
+| `smokeBlocksMobSight` | `false` | Mobs lose a target behind thick smoke |
+
+## Commands
+
+- `/gunfeel status`: versions and what is turned off.
+- `/gunfeel set|get|unset <key>`: the gun-in-hand settings.
+- `/gunfeel quality <preset>`: impact-effect quality.
+- `/gunfeel hitvolume <0..4>`: loudness of hit sounds.
+- `/gunfeel clearholes`: remove the bullet holes on your screen.
+- `/gunaim [reload|inspect <seconds>]`: how many seconds before the end of a
+  reload or an inspect the held aim comes back, for the gun in hand (0 to 5,
+  0.3 by default). It is a server setting, shared by all players.
+- `/gunfeel settings`: the settings of the gun in hand.
+- `/gunsmoke` (operators): let out smoke clouds, clear them, show how many
+  there are.
+
+If something goes wrong, the mod writes its log to `logs/ntm-gunfeel-debug.log`;
+attach it to a bug report.
+
+## Compatibility
+
+- CrankShaft and Flywheel: model hits work with Flywheel on and off.
+- Iris shader packs: smoke is drawn as slices.
+- Punchy! and Punchy! Moves: they leave NTM's guns to this mod.
 
 ## Ports
 
-Ports live on their own branches. They are not released yet, do not cover every
-feature of the 26.2 version and have not been fully tested in game.
+Other builds live on their own branches and are released next to the 26.2 one.
+They do not have every feature of the 26.2 build.
 
-- `port/continuum`: NTM Continuum 1.0.3 with Golem Core 1.0.3 on Minecraft 26.1
-  (NeoForge 26.1.2). Arms, recoil, sway, camera climb, model hitboxes, bullets
-  and the ammo HUD are ported; the weapon and arm editors are not. Build it
-  with `./gradlew :26.1-neoforge:jar`.
-- `port/1.7.10-forge`: HBM's Nuclear Tech Mod on Minecraft 1.7.10 Forge. Arms,
-  recoil, sway, camera climb, server-side bullets, tracers and bullet holes,
-  model hitboxes and the ammo HUD are ported; bullet decals, ricochet sounds
-  and head damage are not yet. It builds from `port/1.7.10/` with its own
-  Gradle wrapper into one jar that runs on Java 8.
+| Branch | For | Requirements |
+| --- | --- | --- |
+| `port/1.7.10-forge` | HBM's Nuclear Tech Mod on Minecraft 1.7.10 | Forge, Java 8 or newer, UniMixins; tested with NTM 1.0.27 X5863 |
+| `port/1.12.2-ce` | NTM: Community Edition on Minecraft 1.12.2 | Forge 14.23.5.2859 (Java 8) or Cleanroom, one jar for both; MixinBooter; tested with NTM CE 2.6.1.0 |
+| `port/1.21.1-de` | NTM: Decentralized Edition on Minecraft 1.21.1 | NeoForge 21.1; tested with NTM DE 1.0.0-beta.14 |
+| `port/continuum` | NTM Continuum on Minecraft 26.1 | NeoForge 26.1.2, Golem Core; no builds released |
 
 ## Building
 
-Use JDK 25. Put the NTM dependency at the path specified by `deps.ntm` in
-`stonecutter.properties.toml`, then run `./gradlew build -PnoAssets`. Gradle
-resolves Minecraft and NeoForge dependencies. The output jar is written to
-`versions/26.2/build/libs/`.
+Use JDK 25. Put the NTM jar at the path given by `deps.ntm` in
+`stonecutter.properties.toml`, then run `./gradlew build` (`-PnoAssets` skips
+downloading the game's assets on a machine without a game client). The jar is
+written to `versions/26.2/build/libs/`. `./gradlew runClient` starts a
+development client.
 
-Build numbers are calculated from Git history in `build.gradle.kts`. On main,
-the number is the commit count plus `BUILD_OFFSET`; port branches use their
-base version and port commit count. Version numbers are not maintained
-manually.
-
-The build runs JUnit tests, resource checks, compatibility checks and mixin
-validation. `src/test/` contains the test sources and fixtures.
-`./gradlew runClient` starts a development client with the configured
-dependencies.
-
-`./gradlew runCheckClient -Pscenario=arms -Ptrace=true` plays a fixed set of
-weapon animations and records a trace of recoil, sway and arm positions;
-`tools/trace_diff.py` compares two traces. Ports are checked against this
-version the same way.
+The build number is counted from Git history in `build.gradle.kts` and is
+never set by hand. The build also runs the tests, resource checks,
+compatibility checks and mixin checks; the test sources are in `src/test/`.
 
 ## License
 
@@ -146,6 +296,10 @@ Zero) by MCModderAnchor and contributors under GPL-3.0. Those files remain
 GPL-3.0-only, like the Superb Warfare code above. Source revision, changes and
 the license text are in [third-party/tacz.txt](third-party/tacz.txt) and
 packaged under `META-INF/licenses/`. No TaCZ assets are included.
+
+The jar bundles XZ for Java 1.10 (0BSD), which unpacks the machine shapes
+shipped in the mod; its notice is in [third-party/xz.txt](third-party/xz.txt)
+and packaged under `META-INF/licenses/`.
 
 The 1.7.10 port also bundles stub classes from JvmDowngrader
 (LGPL-2.1-or-later) and a shaded copy of JOML (MIT). Their notices are in
