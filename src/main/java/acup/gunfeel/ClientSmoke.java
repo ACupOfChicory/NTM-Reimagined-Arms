@@ -121,7 +121,7 @@ public final class ClientSmoke {
                 GunFeel.LOGGER.info("[holebench] запуск phase={} screen={} world={}",phase,
                         mc.gui.screen()==null?"null":mc.gui.screen().getClass().getName(),mc.level!=null);
             }
-            if (!MobSmoke.review() && System.nanoTime() - START > (GlassStand.ENABLED?GlassStand.timeout():TraceScenario.enabled()?TraceScenario.timeout():ShapesStand.ENABLED?ShapesStand.timeout():MobBenchMetrics.ENABLED || HoleBenchMetrics.ENABLED || HudShots.ENABLED || FenceSeamCheck.ENABLED || FenceAirStand.ENABLED || WaterFxStand.ENABLED || SmokeCloudStand.ENABLED?900_000_000_000L:GlassBackCheck.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
+            if (!MobSmoke.review() && System.nanoTime() - START > (GlassStand.ENABLED?GlassStand.timeout():TraceScenario.enabled()?TraceScenario.timeout():ShapesStand.ENABLED?ShapesStand.timeout():MobBenchMetrics.ENABLED || HoleBenchMetrics.ENABLED || HudShots.ENABLED || Gl54Stand.ENABLED || FenceSeamCheck.ENABLED || FenceAirStand.ENABLED || WaterFxStand.ENABLED || SmokeCloudStand.ENABLED?900_000_000_000L:GlassBackCheck.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
                 check(false, "таймаут клиента; экран=" + mc.gui.screen());
                 finish();
                 return;
@@ -146,6 +146,7 @@ public final class ClientSmoke {
                 if(WaterFxStand.ENABLED) { phase=41; mc.gui.setScreen(null); WaterFxStand.start(); return; }
                 if(GlassBackCheck.ENABLED) { phase=50; mc.gui.setScreen(null); GlassBackCheck.start(); return; }
                 if(HudShots.ENABLED) { phase=61; mc.gui.setScreen(null); HudShots.start(); return; }
+                if(Gl54Stand.ENABLED) { phase=62; mc.gui.setScreen(null); Gl54Stand.start(); return; }
                 if(SpectatorStand.ENABLED) { phase=19; mc.gui.setScreen(null); SpectatorStand.start(); return; }
                 if(SmokeCloudStand.ENABLED) { phase=60; mc.gui.setScreen(null); SmokeCloudStand.start(); return; }
                 if (MobSmoke.enabled()) {
@@ -300,6 +301,7 @@ public final class ClientSmoke {
             if (phase == 19) SpectatorStand.frame();
             if (phase == 60) SmokeCloudStand.frame();
             if (phase == 61) HudShots.frame();
+            if (phase == 62) Gl54Stand.frame();
             if (phase == 15) {
                 if (ShapesStand.ENABLED) ShapesStand.frame();
                 else GlassStand.frame();
