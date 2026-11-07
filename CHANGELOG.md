@@ -1,5 +1,20 @@
 # Changelog
 
+## X543.193
+
+- As in X478: `modelHitboxes` now covers the hunter chopper, the plastic bag,
+  Balls-O-Tron's head and body pieces, the UFO and the FBI drone, which NTM
+  draws without the usual mob renderer. Bullets hit them where their model is,
+  not their box, and a pose the server keeps turns as NTM turns the mob: the
+  chopper and the bag by where they face, the worm by its heading, the UFO by
+  its spin; the drone does not turn. On 1.7.10 the chopper's and the bag's pose
+  is taken at the heading they were drawn at: the client keeps a standing
+  mob's body up to 50 degrees off its heading, and the rule by the body missed
+  a hanging chopper by that much.
+- An old NTM round with an impact fuze that goes off as it meets the water
+  shows nothing of its own that tick, no splash and no trail of bubbles, as
+  NTM's newer rounds; the blast's column stays.
+
 ## X543.188
 
 - With NTM X5808, X543.186 turned the mod's whole bullet system off, so NTM's
