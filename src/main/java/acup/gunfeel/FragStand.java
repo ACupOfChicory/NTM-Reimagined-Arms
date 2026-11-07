@@ -400,7 +400,7 @@ final class FragStand {
 
     // 8: the holes on a wall 2 blocks ahead of the burst (and on the floor 1.5 under it): the decals before and after, the
     // client's cost of the packet and the frames the queue took to empty
-    private static int holesBefore;
+    private static int holesBefore, waited;
 
     private static void holes(Minecraft mc) {
         run(() -> {
@@ -411,16 +411,30 @@ final class FragStand {
                 for (int x = -8; x <= 8; x++) for (int y = 0; y < 5; y++) level.setBlock(O.offset(x, y, 26), Blocks.STONE_BRICKS.defaultBlockState(), 3);
             });
         });
-        sleep(20);
+        // the player near enough that the wall is drawn: holes are put on what the client has drawn
+        run(() -> {
+            var server = mc.getSingleplayerServer();
+            view = new float[] {0F, 0F};
+            server.submit(() -> {
+                ServerPlayer p = server.getPlayerList().getPlayers().getFirst();
+                p.teleportTo(server.overworld(), B.x, O.getY(), O.getZ() + 17.0, Set.of(), 0F, 0F, false);
+            }).join();
+        });
+        sleep(120);
         for (GrenadeKind kind : new GrenadeKind[] {GrenadeKind.AIRBURST, GrenadeKind.AP, GrenadeKind.INCENDIARY}) {
             FragSpec s = FragSpec.of(kind);
             run(() -> {
-                holesBefore = Tracers.holeCount();
+                Tracers.clearFragmentQueue();
+            });
+            sleep(10);
+            run(() -> {
+                waited = 0;
+                holesBefore = Tracers.holesMadeTotal();
                 onServer(mc, () -> FragBurst.burst(s, mc.getSingleplayerServer().overworld(), null, null, new Vec3(B.x, O.getY() + 1.5, O.getZ() + 24.0), AHEAD, 777L));
             });
-            TODO.add(() -> Tracers.holeCount() > holesBefore);
+            TODO.add(() -> Tracers.holesMadeTotal() > holesBefore + 5 || waited++ > 1500);
             sleep(30);
-            run(() -> line("8 holes", "kind", kind.key, "rays", s.rays(), "holes left", Tracers.holeCount() - holesBefore, "still queued", Tracers.pendingFragmentHits(),
+            run(() -> line("8 holes", "kind", kind.key, "rays", s.rays(), "holes made", Tracers.holesMadeTotal() - holesBefore, "still queued", Tracers.pendingFragmentHits(),
                     "client packet ms", FragFx.lastHandleNanos / 1e6, "handed over", FragFx.lastHoles, "holes in total", Tracers.holeCount()));
         }
     }

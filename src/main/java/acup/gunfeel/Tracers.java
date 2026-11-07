@@ -1207,10 +1207,19 @@ public final class Tracers {
     }
 
     public static void fragmentHit(ClientLevel level, BlockHitResult hit, Vec3 dir, BulletConfig config, long born, float scale, boolean fx) {
+        // a flood of bursts (a stand, a crowd) does not pile up holes the budget cannot make for minutes
+        if (FRAG.size() >= FRAG_QUEUE_MAX) return;
         if (Config.bulletHoles || fx) FRAG.addLast(new FragHit(level, hit, dir, config, born, scale, fx));
     }
 
+    static final int FRAG_QUEUE_MAX = 240;
+
     static int pendingFragmentHits() { return FRAG.size(); }
+
+    static void clearFragmentQueue() { FRAG.clear(); }
+
+    // dev (FragStand): holes made so far, kept ones or not (at the limit, a new hit's holes push the oldest's out)
+    static int holesMadeTotal() { return holesMade; }
 
     private static void makeFragments(long from, ClientLevel now) {
         int made = 0;
