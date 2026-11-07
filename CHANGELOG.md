@@ -1,5 +1,14 @@
 # Changelog
 
+## X601
+
+- A ring on the water left by a shot no longer opens a hole in it as it fades.
+  The ring was drawn before the water and kept the water under it from being
+  drawn, so as it faded the bottom showed through it. Rings are now drawn
+  after the water, with the game's translucent particles, and fade into it.
+  Seen from under the surface a ring now lies over the water instead of
+  behind it.
+
 ## X600
 
 - The hitbox follows worn armour as it is drawn. On a player, a mannequin or
