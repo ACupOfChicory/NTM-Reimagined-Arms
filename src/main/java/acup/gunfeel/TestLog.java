@@ -128,7 +128,7 @@ public final class TestLog {
             out.write("# ntm-gunfeel testlog, mod " + mod + ", NTM " + acup.gunfeel.compat.Compat.hbmVersion() + "\n");
             out.flush();
         } catch (IOException e) {
-            GunFeel.LOGGER.warn("Could not open the test log", e);
+            DebugLog.LOGGER.warn("Could not open the test log", e);
             out = null;
         }
     }
@@ -154,7 +154,7 @@ public final class TestLog {
             out.write(b.toString());
             out.flush();
         } catch (IOException e) {
-            GunFeel.LOGGER.warn("Could not write the test log; it stops", e);
+            DebugLog.LOGGER.warn("Could not write the test log; it stops", e);
             client = server = false;
             close();
         }

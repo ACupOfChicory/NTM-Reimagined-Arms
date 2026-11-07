@@ -165,10 +165,10 @@ public final class ShapePack {
         long start = System.nanoTime();
         try {
             Map<String, long[]> out = readGroup(decompress(g.packed(), g.raw(), g.codec()));
-            GunFeel.LOGGER.debug("Bullet shapes of {} unpacked in {} ms", name, (System.nanoTime() - start) / 1_000_000);
+            DebugLog.LOGGER.debug("Bullet shapes of {} unpacked in {} ms", name, (System.nanoTime() - start) / 1_000_000);
             return out;
-        } catch (IOException | RuntimeException e) {
-            GunFeel.LOGGER.warn("Could not unpack the bullet shapes of {}", name, e);
+        } catch (IOException | RuntimeException | LinkageError e) {
+            DebugLog.LOGGER.warn("Could not unpack the bullet shapes of {}", name, e);
             return Map.of();
         }
     }
@@ -179,13 +179,15 @@ public final class ShapePack {
         try (InputStream in = ShapePack.class.getResourceAsStream("/" + FILE)) {
             if (in != null) {
                 read = readIndex(in.readAllBytes());
-                GunFeel.LOGGER.info("Bullet shapes of {} NTM machines in the jar, made with NTM {}, read in {} ms", read.groups().size(), read.ntm(),
+                DebugLog.LOGGER.info("Bullet shapes of {} NTM machines in the jar, made with NTM {}, read in {} ms", read.groups().size(), read.ntm(),
                         (System.nanoTime() - start) / 1_000_000);
             }
-        } catch (IOException | RuntimeException e) {
-            GunFeel.LOGGER.warn("Could not read {}", FILE, e);
+        } catch (IOException | RuntimeException | LinkageError e) {
+            DebugLog.LOGGER.warn("Could not read {}", FILE, e);
+        } finally {
+            // set whatever happens: unset, the machines would wait for the file for good (pending)
+            index = read;
         }
-        index = read;
     }
 
     // ---- the file: magic, format, NTM version, groups (name, codec, raw length, packed length), then their bytes

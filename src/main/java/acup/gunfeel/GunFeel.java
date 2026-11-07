@@ -4,7 +4,6 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
 import com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase;
@@ -25,7 +24,8 @@ import net.neoforged.neoforge.common.NeoForge;
 
 // Client-side state and hooks; loaded only on the client (see GunFeelMod).
 public final class GunFeel {
-    public static final Logger LOGGER = LoggerFactory.getLogger("ntm-gunfeel");
+    // the same as DebugLog.LOGGER; code a dedicated server runs takes that one (this class is client only)
+    public static final Logger LOGGER = DebugLog.LOGGER;
 
     // Renderer drawing the first-person gun right now (null outside of it).
     public static ItemRenderWeaponBase current;

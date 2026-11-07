@@ -25,7 +25,7 @@ final class MobCatalog {
                 mob.setBaby(true);
                 if(mob.isBaby()) out.add(key+"#baby");
             }
-        } catch(Exception ex) { GunFeel.LOGGER.warn("Не удалось проверить детский вариант {}",key,ex); }
+        } catch(Exception ex) { DebugLog.LOGGER.warn("Не удалось проверить детский вариант {}",key,ex); }
         return List.copyOf(out);
     }
 

@@ -38,7 +38,7 @@ public final class RecoilPresets {
         try (var in = RecoilPresets.class.getResourceAsStream("/ntmgunfeel-recoil.properties")) {
             if (in != null) p.load(new InputStreamReader(in, StandardCharsets.UTF_8));
         } catch (Exception e) {
-            GunFeel.LOGGER.warn("Could not read the recoil presets", e);
+            DebugLog.LOGGER.warn("Could not read the recoil presets", e);
         }
         return p;
     }
@@ -58,7 +58,7 @@ public final class RecoilPresets {
                 MINE.load(r);
             }
         } catch (Exception e) {
-            GunFeel.LOGGER.warn("Could not read {}", file, e);
+            DebugLog.LOGGER.warn("Could not read {}", file, e);
         }
     }
 
@@ -149,7 +149,7 @@ public final class RecoilPresets {
             }
             nextCheck = 0L;
         } catch (Exception e) {
-            GunFeel.LOGGER.warn("Could not write {}", file, e);
+            DebugLog.LOGGER.warn("Could not write {}", file, e);
         }
     }
 }

@@ -1,5 +1,14 @@
 # Changelog
 
+## X571
+
+- Dedicated servers: rounds now meet NTM's big machines by their shape as
+  drawn, as in single player. Before, the server never read the machine shapes
+  shipped in the jar (an error about `ClientLevel` in its log) and met the
+  machines by NTM's boxes. A server with an NTM version the mod is not tested
+  with no longer fails to start on the warning about it, and other warnings
+  of the mod's no longer throw that error on a server.
+
 ## X570
 
 - `armArmor`: armour from another mod that fails while it is drawn on the arm

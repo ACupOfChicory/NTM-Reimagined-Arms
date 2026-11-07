@@ -16,6 +16,6 @@ final class TraceHooks {
         });
         if (dist.isClient()) TraceClient.register();
         TestLog.set(false, true);
-        GunFeel.LOGGER.info("Trace on: seed {}, clock {}, file {}", Rng.seed(), GunClock.real() ? "real" : "game", TestLog.file());
+        DebugLog.LOGGER.info("Trace on: seed {}, clock {}, file {}", Rng.seed(), GunClock.real() ? "real" : "game", TestLog.file());
     }
 }

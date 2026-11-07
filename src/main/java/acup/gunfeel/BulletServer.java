@@ -98,7 +98,7 @@ public final class BulletServer {
         BlockState rule = Cells.ruleState(level, hit.getBlockPos(), state);
         BulletRules.Sound s = BulletRules.hit(rule).sound();
         boolean steel = s != null && (s.id().startsWith("ntmgunfeel:bullet.hit.steel") || s.id().startsWith("ntmgunfeel:bullet.hit.metal"));
-        if (debugRicochet) acup.gunfeel.GunFeel.LOGGER.info("[sounddebug] server: ricochet off {} at {} (hit sound {}): {}",
+        if (debugRicochet) acup.gunfeel.DebugLog.LOGGER.info("[sounddebug] server: ricochet off {} at {} (hit sound {}): {}",
                 BuiltInRegistries.BLOCK.getKey(rule.getBlock()), hit.getBlockPos().toShortString(), s == null ? "none" : s.id(),
                 steel ? "our steel ricochet" : "NTM's ricochet sound");
         if (TestLog.server) TestLog.s(TestLog.shot(), "ricochet", "block", rule, "pos", hit.getBlockPos(), "material", TestLog.material(level, hit.getBlockPos()),

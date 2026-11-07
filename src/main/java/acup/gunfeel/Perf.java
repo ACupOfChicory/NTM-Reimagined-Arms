@@ -102,17 +102,17 @@ public final class Perf {
                 if (i <= HOLE_BAKE) total += ms; // the total as before, for comparing
                 b.append(String.format(java.util.Locale.ROOT, "%s %.3f ms (%d calls), ", NAMES[i], ms, CALLS[i]));
             }
-            GunFeel.LOGGER.info("Bullet frame cost over {} frames ({} fps): {}total {} ms a frame; {} shots flying, {} holes",
+            DebugLog.LOGGER.info("Bullet frame cost over {} frames ({} fps): {}total {} ms a frame; {} shots flying, {} holes",
                     frames, Math.round(frames / ((now - since) / 1e9)), b, String.format(java.util.Locale.ROOT, "%.3f", total), shots, holes);
             double f = Math.max(1, frames);
-            GunFeel.LOGGER.info("Holes a frame: {} in batches; one by one {} on glass, {} fading, {} on moving parts, {} else",
+            DebugLog.LOGGER.info("Holes a frame: {} in batches; one by one {} on glass, {} fading, {} on moving parts, {} else",
                     Math.round(batched / f), Math.round(ONE_BY[ON_GLASS] / f), Math.round(ONE_BY[FADING] / f), Math.round(ONE_BY[MOVING] / f), Math.round(ONE_BY[OTHER] / f));
-            if (moved > 0) GunFeel.LOGGER.info("Holes on moving parts moved {} times on {} block entities: pose {} (largest change {}), cut {} (largest {}){}", moved,
+            if (moved > 0) DebugLog.LOGGER.info("Holes on moving parts moved {} times on {} block entities: pose {} (largest change {}), cut {} (largest {}){}", moved,
                     MOVED_ON.size(), byPose, poseMax, byCut, cutMax, nanSeen ? ", some first placed or reshaped" : "");
             StringBuilder o = new StringBuilder();
             for (int i = 0; i < OTHER_NAMES.length; i++)
                 o.append(String.format(java.util.Locale.ROOT, "%s %.3f ms (%d calls), ", OTHER_NAMES[i], OTHER_NANOS[i] / 1e6 / f, OTHER_CALLS[i]));
-            GunFeel.LOGGER.info("Outside bullet-effects timing: {}particles {} on average, {} at most; longest frame {} ms, measured bullet effects in it {} ms", o,
+            DebugLog.LOGGER.info("Outside bullet-effects timing: {}particles {} on average, {} at most; longest frame {} ms, measured bullet effects in it {} ms", o,
                     Math.round(particles / (double) Math.max(1, OTHER_CALLS[P_EXTRACT])), particlesMax,
                     String.format(java.util.Locale.ROOT, "%.1f", longest / 1e6), String.format(java.util.Locale.ROOT, "%.1f", longestOurs / 1e6));
         }

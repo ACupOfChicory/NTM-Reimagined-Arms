@@ -360,9 +360,9 @@ public final class Config {
             GLOBAL.clear();
             GLOBAL.putAll(p);
             selected = null;
-            GunFeel.LOGGER.info("Loaded {}", file);
+            DebugLog.LOGGER.info("Loaded {}", file);
         } catch (IOException | RuntimeException e) {
-            GunFeel.LOGGER.warn("Could not read {}", file, e);
+            DebugLog.LOGGER.warn("Could not read {}", file, e);
         }
     }
 
