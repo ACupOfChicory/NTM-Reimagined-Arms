@@ -8,6 +8,12 @@
   machines by NTM's boxes. A server with an NTM version the mod is not tested
   with no longer fails to start on the warning about it, and other warnings
   of the mod's no longer throw that error on a server.
+- `npcShots`: the hunter chopper's and the cyber crab's old bullet that hits
+  a creature just hurt by a harder hit now counts the head as more than the
+  body and a limb as less, as on a fresh creature. Before, a head hit there
+  could do less than a body hit (NTM's own damage, hurting a second time,
+  went whole; the head's, past the last hit, only by what it was past it),
+  and a limb hit more.
 
 ## X570
 
