@@ -50,7 +50,7 @@ public final class Gl54Grenade {
     public static final int LIFE = 200;
     public static final String CASING = "gl54";
 
-    // dev (Gl54Stand): told where a grenade went off or fell as a dud (where, blocks flown, went off)
+    // dev (Gl54Stand): told where a grenade went off or fell as a dud (where, blocks flown, went off, where it was fired from)
     public static volatile java.util.function.Consumer<Object[]> watch;
 
     private static final Map<Entity, Vec3> STARTS = Collections.synchronizedMap(new WeakHashMap<>());
@@ -113,9 +113,9 @@ public final class Gl54Grenade {
     static void impact(EntityBulletBaseMK4 bullet, HitResult hit) {
         if (!(bullet.level() instanceof ServerLevel level)) return;
         double flown = flown(bullet, hit.getLocation());
-        STARTS.remove(bullet);
+        Vec3 start = STARTS.remove(bullet);
         var watching = watch;
-        if (watching != null) watching.accept(new Object[] {hit.getLocation(), flown, Gl54Server.enabled() && armed(flown)});
+        if (watching != null) watching.accept(new Object[] {hit.getLocation(), flown, Gl54Server.enabled() && armed(flown), start});
         if (!Gl54Server.enabled() || !armed(flown)) {
             // a dud: a hit on a creature is NTM's own hit with 4, on a block it falls
             if (hit instanceof EntityHitResult) bullet.damage = DUD_DAMAGE;

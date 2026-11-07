@@ -27,7 +27,9 @@ public final class ItemRenderGl54 extends ItemRenderWeaponBase {
 
     // Where the gun is held at the hip (before NTM's 0.8) and aimed; the stand tries others (Gl54Stand)
     public static float hipX = -1.5F, hipY = -2.2F, hipZ = 1.25F;
-    public static float aimX = 0.0F, aimY = -1.086F, aimZ = 0.25F;
+    // Aimed: the reflex sight's dot (ReflexDraw.DOT_U/V on the pane) in the middle of the screen, 0.4 blocks of the hand's space
+    // (0.8 model units) from the eye, so the pane is about 320 pixels wide at 1920 x 1080; solved by the stand (Gl54ReflexStand)
+    public static float aimX = 0.0F, aimY = -1.1028F, aimZ = 0.1304F;
 
     final HFRWavefrontObject mesh;
     final String[] names;
@@ -69,6 +71,8 @@ public final class ItemRenderGl54 extends ItemRenderWeaponBase {
             submitPart(collector, pose, body, mesh, i, light);
             pose.popPose();
         }
+        ReflexDraw.render(collector, pose, stack);
+        Gl54Laser.render(collector, pose, stack);
         double smokeScale = 0.25;
         pose.pushPose();
         pose.translate(0.0, muzzleY, muzzleZ);
@@ -86,6 +90,18 @@ public final class ItemRenderGl54 extends ItemRenderWeaponBase {
         pose.mulPose(Axis.XP.rotationDegrees((float) (90.0 * gun.shotRand)));
         pose.scale(0.5F, 0.5F, 0.5F);
         renderMuzzleFlash(collector, pose, gun.lastShot[0], 150, 7.5);
+        pose.popPose();
+    }
+
+    // the gun in the world (carried, on the ground, in a frame): the same, with the laser of an aimed gun added
+    @Override
+    public void submitRestBody(ItemStack stack, PoseStack pose, SubmitNodeCollector collector, int light) {
+        super.submitRestBody(stack, pose, collector, light);
+        if (!ItemGunBaseNT.getIsAiming(stack)) return;
+        float offset = 0.8F;
+        pose.pushPose();
+        pose.mulPose(restSetup(0.875F, hipX * offset, hipY * offset, hipZ * offset).scale(0.5F));
+        Gl54Laser.render(collector, pose, stack);
         pose.popPose();
     }
 

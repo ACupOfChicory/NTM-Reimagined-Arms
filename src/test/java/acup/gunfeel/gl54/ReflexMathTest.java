@@ -66,4 +66,19 @@ class ReflexMathTest {
         assertEquals("87", ReflexMath.rangeText(86.6F));
         assertEquals("---", ReflexMath.rangeText(Float.NaN));
     }
+
+    @Test
+    void theRealPanesDotAndCornerLieInsideItsOutline() {
+        Gl54Reflex r = Gl54Reflex.get();
+        double uL = r.uLength(), vL = r.vLength();
+        double[][] window = new double[r.uv().length][];
+        for (int i = 0; i < window.length; i++) window[i] = new double[] {r.uv()[i][0] * uL, r.uv()[i][1] * vL};
+        double radius = ReflexDraw.DOT_PER_MILLE / 2000.0 * uL;
+        List<double[]> dot = ReflexMath.disk(ReflexDraw.DOT_U * uL, ReflexDraw.DOT_V * vL, radius, 20);
+        assertEquals(area(dot), area(ReflexMath.clip(dot, window)), 1e-12, "the dot is whole");
+        // the lowest digit pixel nearest the pane's right edge (the screen's right seen from behind: small a)
+        double px = ReflexDraw.DIGIT_PIXEL * uL;
+        List<double[]> pixel = ReflexMath.rect(ReflexDraw.MARGIN_A * uL, ReflexDraw.MARGIN_B * vL, ReflexDraw.MARGIN_A * uL + px, ReflexDraw.MARGIN_B * vL + px);
+        assertEquals(area(pixel), area(ReflexMath.clip(pixel, window)), 1e-12, "the digits are whole");
+    }
 }
