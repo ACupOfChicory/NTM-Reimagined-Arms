@@ -76,6 +76,7 @@ final class RenderMobsScenario {
         aim(mc);
         Case c = CASES.get(index);
         if (t - at == KEEP) ShootScenario.onServer(() -> keep(c));
+        if (t - at > KEEP && t - at < CHECK && (t - at - KEEP) % 10 == 0) ShootScenario.onServer(RenderMobsScenario::resend);
         if (t - at == CHECK) ShootScenario.onServer(() -> check(c));
     }
 
@@ -164,6 +165,16 @@ final class RenderMobsScenario {
         hold(m);
     }
 
+    // server: the mob's place and turn sent again. 1.7.10's tracker sends a bare move every 60 ticks, and the client takes
+    // its own yRot of the moment as the move's (NetHandlerPlayClient.handleEntityMovement): one that comes while the
+    // client still eases into the turn stops it there, a third or two short (rm2, rm5: the chopper drawn at 116.3 with
+    // the server at 130). That is vanilla's, not the rule's; a teleport later takes the client the rest of the way
+    private static void resend() {
+        EntityLiving m = mob;
+        if (m != null && m.worldObj instanceof net.minecraft.world.WorldServer ws)
+            ws.getEntityTracker().func_151247_a(m, new net.minecraft.network.play.server.S18PacketEntityTeleport(m));
+    }
+
     // server: the fresh pose against the kept one turned
     private static void check(Case c) {
         EntityLiving m = mob;
@@ -179,10 +190,6 @@ final class RenderMobsScenario {
             expect(c.name() + ": число коробок разное: " + was.size() + " и " + now.size(), false);
             return;
         }
-        // the chopper's rotor blades spin by the clock (ModelHunterChopper.renderAll: currentTimeMillis), whatever the
-        // mob does: long boxes at a phase of their own in each pose, they would pull the fit
-        was = still(was);
-        now = still(now);
         // the fresh pose as it was drawn: the mob has been held since, only the UFO's spin goes on (its rule counts ticks,
         // the client's own); the rule's angle for it would carry the rule's error into the reference
         double freshAngle = ModelHits.turn(m.getClass()) == ModelHits.Turn.SPIN ? ModelHits.standAngle(m, fresh, false) : 0;
@@ -205,12 +212,6 @@ final class RenderMobsScenario {
         expect(String.format(Locale.ROOT, "%s: модель повернулась на %d° (остаток %.3f), по правилу %s %.1f° (остаток %.3f), по телу %.1f°%s",
                 c.name(), best, Math.sqrt(bestE), ModelHits.turn(m.getClass()), rule, ruleE, bodyRule,
                 fitted ? "" : ", коробки поворота не различают"), fitted && ruleOff <= tolerance && bodyOff > tolerance);
-    }
-
-    private static List<ModelBox> still(List<ModelBox> boxes) {
-        List<ModelBox> out = new ArrayList<ModelBox>(boxes.size());
-        for (ModelBox b : boxes) if (!b.part().contains("RotorBlades")) out.add(b);
-        return out;
     }
 
     // the angles of a pose (the one it was taken at, the server's yRot when it came in) and of the client's mob now
