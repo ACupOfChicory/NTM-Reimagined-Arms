@@ -45,6 +45,12 @@ public final class AiCheck {
                 finish(file, out, 1);
                 return;
             }
+            try {
+                AiCheckRecoil.run(check, check.level, java.nio.file.Path.of(file).resolveSibling("ntmgunfeel-ai-recoil.tsv"));
+            } catch (Throwable t) {
+                crashed(out, t);
+                check.ok = false;
+            }
             // the rest runs with the server ticking
             AiCheckTicks ticks = new AiCheckTicks(check, check.level, Y);
             AiCheckFight fight = new AiCheckFight(check, check.level, Y);

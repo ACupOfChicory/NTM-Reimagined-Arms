@@ -20,6 +20,8 @@ public abstract class MixinLegoSpread {
     private static void gunfeel$state(ItemGunBaseNT.LambdaContext ctx, ItemStack stack, Receiver primary, BulletConfig config,
             boolean calcWear, int index, boolean aim, CallbackInfoReturnable<Float> cir) {
         if (ctx == null || ctx.entity() == null) return;
+        // a shot of an AI mob's, whatever its gun's magazine (AiShots)
+        acup.gunfeel.ai.AiShots.spread(ctx.entity());
         cir.setReturnValue(Spread.apply(ctx.entity(), stack, aim, cir.getReturnValue()));
     }
 }

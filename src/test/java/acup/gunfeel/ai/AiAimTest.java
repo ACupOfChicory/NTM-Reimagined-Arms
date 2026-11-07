@@ -126,6 +126,77 @@ class AiAimTest {
     }
 
     @Test
+    void aKickLiftsTheViewAndTheHandTakesItBackLate() {
+        // a target straight ahead at eye height, 20 blocks off; no hand error, to see the recoil alone
+        AiAim aim = new AiAim();
+        AiSkill s = AiSkill.REGULAR;
+        float yaw = 0F, pitch = 0F;
+        float[] view = new float[20], seen = new float[20];
+        for (int t = 0; t < 20; t++) {
+            aim.see(1, 0, EYE, 20, t, s, 0, 0);
+            aim.lead(t, s, 1);
+            aim.turn(t, s, 0, EYE, 0, yaw, pitch, aim.spotX, aim.spotY, aim.spotZ, aim.moveX, aim.moveY, aim.moveZ, () -> 0);
+            yaw = aim.yaw;
+            pitch = aim.pitch;
+            view[t] = pitch;
+            seen[t] = aim.seenPitch;
+            if (t == 5) {
+                float[] moved = aim.kick(4F, 0F, 0F, 0F, 0.25F, s);
+                assertTrue(Math.abs(moved[1] + 4F * (1 - s.absorb())) < 1e-4, "a regular takes back " + s.absorb() + " of it at once");
+                pitch += moved[1];
+            }
+        }
+        assertTrue(view[6] < -1.5F && Math.abs(seen[6]) < 1e-3, "the view went up, and the mob does not know yet: " + view[6]);
+        assertTrue(view[8] < -1F, "nor a tick before it notices: " + view[8]);
+        assertTrue(Math.abs(view[6 + s.lag()]) < 0.05F, "noticed, the hand takes back what is left: " + view[6 + s.lag()]);
+        assertTrue(Math.abs(view[19]) < 0.05F, "and it stays on the target: " + view[19]);
+        // a recruit takes back none of it at once
+        float[] all = new AiAim().kick(4F, 1F, 0F, 0F, 0.25F, AiSkill.RECRUIT);
+        assertTrue(all[1] == -4F && all[0] == -1F);
+    }
+
+    @Test
+    void whatStaysUpHoldsTillTheHandNotices() {
+        AiAim aim = new AiAim();
+        AiSkill s = AiSkill.REGULAR;
+        float yaw = 0F, pitch = 0F;
+        float[] view = new float[20];
+        for (int t = 0; t < 20; t++) {
+            aim.see(1, 0, EYE, 20, t, s, 0, 0);
+            aim.lead(t, s, 1);
+            aim.turn(t, s, 0, EYE, 0, yaw, pitch, aim.spotX, aim.spotY, aim.spotZ, aim.moveX, aim.moveY, aim.moveZ, () -> 0);
+            yaw = aim.yaw;
+            pitch = aim.pitch;
+            view[t] = pitch;
+            if (t == 5) pitch += aim.kick(0F, 0F, 2F, 1F, 0.25F, s)[1];
+        }
+        float keep = 2F * (1 - s.absorb());
+        for (int t = 6; t < 6 + s.lag(); t++) assertTrue(Math.abs(view[t] + keep) < 1e-3, "it does not come back by itself: " + view[t]);
+        assertTrue(Math.abs(view[6 + s.lag()]) < 0.05F && Math.abs(view[19]) < 0.05F, "the hand takes it back: " + view[6 + s.lag()]);
+        assertTrue(Math.abs(yaw) < 0.05F, "aside too: " + yaw);
+    }
+
+    @Test
+    void aLongBurstDoesNotPileUp() {
+        // a target well below, a kick that stays every tick for 200 ticks: the view never gets more off than the kicks
+        // the hand has not noticed yet, and ends on the target
+        AiAim aim = new AiAim();
+        AiSkill s = AiSkill.REGULAR;
+        double d = 20, y = EYE - d * Math.tan(Math.toRadians(60));
+        float yaw = 0F, pitch = 60F, keep = 1 - s.absorb();
+        for (int t = 0; t < 230; t++) {
+            aim.see(1, 0, y, d, t, s, 0, 0);
+            aim.lead(t, s, 1);
+            aim.turn(t, s, 0, EYE, 0, yaw, pitch, aim.spotX, aim.spotY, aim.spotZ, aim.moveX, aim.moveY, aim.moveZ, () -> 0);
+            yaw = aim.yaw;
+            pitch = aim.pitch;
+            if (t > 10) assertTrue(Math.abs(pitch - 60F) <= (s.lag() + 1) * keep + 0.05F, "tick " + t + ": " + pitch);
+            if (t < 200) pitch += aim.kick(0F, 0F, 1F, 0F, 0.25F, s)[1];
+        }
+        assertTrue(Math.abs(pitch - 60F) < 0.05F, "back on the target: " + pitch);
+    }
+
+    @Test
     void aNewTargetOrALongLookAwayStartsOver() {
         AiAim aim = new AiAim();
         assertFalse(aim.lead(0, AiSkill.REGULAR, 1), "nothing seen");

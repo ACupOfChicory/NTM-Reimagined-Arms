@@ -149,8 +149,9 @@ final class AiCheckProne {
 
     private void finish() {
         AiProne p = bot == null ? null : bot.prone;
-        String what = p == null ? "-" : String.format(Locale.ROOT, "lay %d ticks (%d times down), fired %d lying and %d standing", lyingTicks, p.downs,
-                pullsLying, pullsStanding);
+        String what = p == null ? "-" : String.format(Locale.ROOT, "lay %d ticks (%d times down), fired %d lying and %d standing (%d shots, %d ticks held for a friend, %s)",
+                lyingTicks, p.downs, pullsLying, pullsStanding, bot.gunner.shots, bot.gunner.holds,
+                bot.memory.contacts().stream().map(c -> c.state.toString()).toList());
         switch (phase) {
             case LOW -> {
                 check.out("     behind a wall one high, the target 19 blocks off: " + what);

@@ -14,8 +14,12 @@ import java.util.function.DoubleSupplier;
  *
  * <p>The hand ({@link #turn}): every {@link AiSkill#period} ticks it corrects towards that spot, and lands off by
  * {@link AiSkill#share} of how far it moved plus {@link AiSkill#floor}, at random (the one random thing in its aim);
- * in between it follows the motion it believes in, and the error stays. The trigger may be down only while the spot it expects is
- * on the barrel ({@link #onTarget}).
+ * in between it follows the motion it believes in, and the error stays. The trigger may be down only while the spot it
+ * expects is on the barrel as far as it knows ({@link #onTarget} with {@link #seenYaw}, {@link #seenPitch}).
+ *
+ * <p>Recoil ({@link #kick}): a shot throws the view off the hand; part of the offset comes back by itself a share a
+ * tick (the gun's rebound), part stays (a player's camera keeps it too). The hand learns of it lag ticks late, and then
+ * takes back what it reckons is still left of it.
  */
 public final class AiAim {
     /** ticks of places kept */
@@ -49,8 +53,14 @@ public final class AiAim {
     private long nextFix = Long.MIN_VALUE, lastTurn = Long.MIN_VALUE;
     private double gx, gy, gz;
     private float errYaw, errPitch;
-    /** {@link #turn}'s answer: where it looks now */
-    public float yaw, pitch;
+    /** {@link #turn}'s answer: where it looks now; where it thinks it looks (the recoil it has not noticed left out) */
+    public float yaw, pitch, seenYaw, seenPitch;
+
+    // recoil: the view's offset from the hand, degrees, the part that comes back (and the share a tick) and the part
+    // that stays; both each tick
+    private float offYaw, offPitch, stayYaw, stayPitch, rebound = 0.25F;
+    private final float[] offYaws = new float[KEEP], offPitches = new float[KEEP], stayYaws = new float[KEEP], stayPitches = new float[KEEP];
+    private final long[] offAt = new long[KEEP];
 
     /** starts over: a new target, or the old one after a while out of sight */
     public void forget() {
@@ -141,16 +151,47 @@ public final class AiAim {
     /**
      * Turns from where it looks (yaw0, pitch0) towards a spot moving by (mx, my, mz) a tick, from the eye at
      * (ex, ey, ez), into {@link #yaw} and {@link #pitch}: a correction every period ticks, the spot's motion followed
-     * in between, at most the skill's turn a tick. Minecraft's angles: yaw 0 looks to +z, pitch up is less.
+     * in between, at most the skill's turn a tick; the recoil comes back a share and the hand takes back what it knows
+     * of the rest. Minecraft's angles: yaw 0 looks to +z, pitch up is less.
      */
     public void turn(long tick, AiSkill skill, double ex, double ey, double ez, float yaw0, float pitch0, double sx, double sy, double sz,
             double mx, double my, double mz, DoubleSupplier gauss) {
+        // the hand is the view without the recoil; the recoil comes back a share (but for what stays), and the hand
+        // knows it as it was lag ticks ago, carried on as it comes back since
+        float handYaw = yaw0 - offYaw - stayYaw, handPitch = pitch0 - offPitch - stayPitch;
+        offYaw *= 1 - rebound;
+        offPitch *= 1 - rebound;
+        int k = slot(tick);
+        offYaws[k] = offYaw;
+        offPitches[k] = offPitch;
+        stayYaws[k] = stayYaw;
+        stayPitches[k] = stayPitch;
+        offAt[k] = tick;
+        long back = tick - skill.lag();
+        int b = slot(back);
+        float left = (float) Math.pow(1 - rebound, skill.lag());
+        boolean knows = offAt[b] == back;
+        if (knows && (stayYaws[b] != 0F || stayPitches[b] != 0F)) {
+            // what stays and the hand knows of now is just where the hand is: moved over to it, so it does not pile up
+            float y = stayYaws[b], p = stayPitches[b];
+            for (long t = back; t <= tick; t++) {
+                int j = slot(t);
+                if (offAt[j] != t) continue;
+                stayYaws[j] -= y;
+                stayPitches[j] -= p;
+            }
+            stayYaw -= y;
+            stayPitch -= p;
+            handYaw += y;
+            handPitch += p;
+        }
+        float knownYaw = knows ? offYaws[b] * left : 0F, knownPitch = knows ? offPitches[b] * left : 0F;
         if (tick >= nextFix || tick <= lastTurn || tick - lastTurn > 1) {
             nextFix = tick + skill.period();
             gx = sx;
             gy = sy;
             gz = sz;
-            float e = (float) Math.hypot(wrap(yawTo(ex, ez, sx, sz) - yaw0), pitchTo(ex, ey, ez, sx, sy, sz) - pitch0);
+            float e = (float) Math.hypot(wrap(yawTo(ex, ez, sx, sz) - handYaw - knownYaw), pitchTo(ex, ey, ez, sx, sy, sz) - handPitch - knownPitch);
             float sd = skill.share() * e + skill.floor();
             errYaw = (float) gauss.getAsDouble() * sd;
             errPitch = (float) gauss.getAsDouble() * sd * 0.6F;
@@ -160,10 +201,28 @@ public final class AiAim {
             gz += mz;
         }
         lastTurn = tick;
-        float goalYaw = yawTo(ex, ez, gx, gz) + errYaw, goalPitch = pitchTo(ex, ey, ez, gx, gy, gz) + errPitch;
+        float goalYaw = yawTo(ex, ez, gx, gz) + errYaw - knownYaw, goalPitch = pitchTo(ex, ey, ez, gx, gy, gz) + errPitch - knownPitch;
         float t = skill.turn();
-        yaw = yaw0 + clamp(wrap(goalYaw - yaw0), t);
-        pitch = Math.max(-90F, Math.min(90F, pitch0 + clamp(goalPitch - pitch0, t)));
+        float hy = handYaw + clamp(wrap(goalYaw - handYaw), t), hp = Math.max(-90F, Math.min(90F, handPitch + clamp(goalPitch - handPitch, t)));
+        yaw = hy + offYaw + stayYaw;
+        pitch = Math.max(-90F, Math.min(90F, hp + offPitch + stayPitch));
+        seenYaw = hy + knownYaw;
+        seenPitch = hp + knownPitch;
+    }
+
+    /**
+     * A shot's kick: the view jumps up by up degrees and left by side (NTM's signs), that part coming back by the gun's
+     * rebound share a tick, and by stayUp and staySide more that stay; all but the skill's absorb share. Returns how far
+     * it moved the view, {yaw, pitch}.
+     */
+    public float[] kick(float up, float side, float stayUp, float staySide, float rebound, AiSkill skill) {
+        float keep = 1 - skill.absorb();
+        offYaw -= side * keep;
+        offPitch -= up * keep;
+        stayYaw -= staySide * keep;
+        stayPitch -= stayUp * keep;
+        this.rebound = Math.max(0F, Math.min(1F, rebound));
+        return new float[] {-(side + staySide) * keep, -(up + stayUp) * keep};
     }
 
     /** a new aim: the next {@link #turn} corrects at once */

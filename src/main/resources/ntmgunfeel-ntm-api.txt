@@ -409,12 +409,17 @@ MARESLEG method com/hbm/render/anim/BusAnimationSequence setPos (DDD)Lcom/hbm/re
 MOB_AI class com/hbm/handler/HbmKeybinds$EnumKeybind
 MOB_AI class com/hbm/items/weapon/sedna/BulletConfig
 MOB_AI class com/hbm/items/weapon/sedna/ItemGunBaseNT
+MOB_AI class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 MOB_AI class com/hbm/items/weapon/sedna/mags/IMagazine
 MOB_AI class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 MOB_AI field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 MOB_AI field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_TERTIARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 MOB_AI field com/hbm/handler/HbmKeybinds$EnumKeybind RELOAD Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 MOB_AI field com/hbm/items/weapon/sedna/BulletConfig velocity F
+MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilDecay F
+MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilHorizontal F
+MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilRebound F
+MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState RELOADING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 MOB_AI method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
@@ -422,8 +427,9 @@ MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
-MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT inventoryTick (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/EquipmentSlot;)V
+MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext <init> (Lcom/hbm/items/weapon/sedna/GunConfig;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;I)V
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+MOB_AI method com/hbm/items/weapon/sedna/Receiver getRecoil (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiConsumer;
 MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
 MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecraft/world/item/ItemStack;)I
 MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;

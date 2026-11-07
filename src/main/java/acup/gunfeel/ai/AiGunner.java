@@ -9,7 +9,6 @@ import com.hbm.items.weapon.sedna.mags.IMagazine;
 import com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase;
 
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -17,9 +16,9 @@ import net.minecraft.world.phys.Vec3;
 /**
  * An AI mob's hands on its NTM gun: it turns to where it is told to aim, or follows a target it sees, with a person's
  * eye and hand ({@link AiAim}, {@link AiSkill}: the server's aiSkill), holds and lets go of the trigger as NTM's keys
- * (the same way a player's gun is worked, so the gun's own timing, recoil and our bullets all apply), reloads when told
- * or empty, and keeps the gun's clock running (a mob's held item does not tick by itself). Rounds are counted against
- * {@link AiAmmo}. Server thread, from the mob's goal.
+ * (the same way a player's gun is worked, so the gun's own timing, recoil and our bullets all apply) and reloads when
+ * told or empty. The gun's clock is the game's: it ticks a mob's held item before the mob's goals, as a player's
+ * inventory. Rounds are counted against {@link AiAmmo}. Server thread, from the mob's goal.
  */
 public final class AiGunner {
     /** a shot meets its target this much later than its flight, on average (a bullet moves a tick at a time) */
@@ -44,6 +43,17 @@ public final class AiGunner {
     public int pulls;
     /** ticks in a row it would have shot but another AI mob was in the line; ticks of that in all (the stands) */
     public int blockedTicks, holds;
+    /** shots it let go, and shots that kicked its view (the stands) */
+    public int shots, kicks;
+    /** a gap between shots, ticks, after which a new burst starts (its climb grows again from the first shot) */
+    static final int BURST_GAP = 10;
+    // the burst: shots so far, the tick of the last, where its sideways wander is
+    private int burstShots;
+    private long lastShot = Long.MIN_VALUE;
+    private float drift;
+    // shots since its last tick (AiShots: once a tick, whatever the projectiles), and the tick of the last
+    private int fresh;
+    private long shotTick = Long.MIN_VALUE;
 
     AiGunner(Mob mob, AiAmmo ammo) {
         this.mob = mob;
@@ -198,14 +208,65 @@ public final class AiGunner {
             reloadHeld = true;
         }
 
-        gun.inventoryTick(stack, level, mob, EquipmentSlot.MAINHAND);
-
         IMagazine mag = magazine(gun, stack);
+        int gone = 0;
         if (mag instanceof MagazineSingleTypeBase) {
-            int now = mag.getAmount(stack, null);
+            int now = mag.getAmount(stack, null), before = ammo.lastLoaded;
             int keep = ammo.settle(now);
             if (keep != now) mag.setAmount(stack, keep);
+            if (before > 0 && now < before) gone = before - Math.max(0, now);
         }
+        // shots since its last tick, as the gun ticked or as the trigger went down (those NTM worked out, or at least
+        // the rounds gone), each kicking the view
+        int n = Math.max(gone, fresh);
+        fresh = 0;
+        shots += n;
+        if (n > 0 && exact == null) recoil(n, level.getGameTime(), stack);
+    }
+
+    /** NTM let a shot of its go (AiShots), counted once a tick */
+    void shot(long tick) {
+        if (tick == shotTick) return;
+        shotTick = tick;
+        fresh++;
+    }
+
+    /**
+     * Each shot's kick on the view, from NTM's recoil for the gun and the part of it that stays, as on a player's camera
+     * (AiRecoil), aiming or not, lying or not; AiAim keeps it.
+     */
+    private void recoil(int shots, long tick, ItemStack stack) {
+        float strength = AiRecoil.strength();
+        if (strength <= 0F) return;
+        String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+        AiRecoil.Kick k = AiRecoil.of(id);
+        if (k == null) return;
+        AiSkill skill = AiSkill.current();
+        boolean aiming = ItemGunBaseNT.getIsAiming(stack), lying = acup.gunfeel.Prone.lying(mob);
+        boolean first = lastShot == Long.MIN_VALUE || tick - lastShot > BURST_GAP;
+        lastShot = tick;
+        if (first) burstShots = 0;
+        for (int i = 0; i < shots; i++) {
+            burstShots++;
+            drift = AiRecoil.drift(drift, first && i == 0, (float) mob.getRandom().nextGaussian());
+            float[] d = AiRecoil.degrees(k, id, strength, burstShots, drift, aiming, lying, mob.getRandom()::nextGaussian);
+            float[] moved = sight.kick(d[0], d[1], d[2], d[3], k.rebound(), skill);
+            face(mob.getYHeadRot() + moved[0], Math.max(-90F, Math.min(90F, mob.getXRot() + moved[1])), skill);
+            kicks++;
+        }
+    }
+
+    // the head, body and look control to this view; the look control turns the head after the goals, so it is given a
+    // place along the view and the hand's error and the kick stay
+    private void face(float y, float p, AiSkill skill) {
+        mob.setYHeadRot(y);
+        mob.setYRot(y);
+        mob.yBodyRot = y;
+        mob.setXRot(p);
+        Vec3 eye = mob.getEyePosition();
+        double far = aim == null ? 16 : Math.max(1, eye.distanceTo(aim));
+        Vec3 look = eye.add(Vec3.directionFromRotation(p, y).scale(far));
+        mob.getLookControl().setLookAt(look.x, look.y, look.z, skill.turn(), skill.turn());
     }
 
     /**
@@ -228,15 +289,10 @@ public final class AiGunner {
                     mob.getRandom()::nextGaussian);
             y = sight.yaw;
             p = sight.pitch;
-            on = AiAim.onTarget(skill, eye.x, eye.y, eye.z, y, p, aim.x, aim.y, aim.z);
+            // on target as far as it knows: a kick it has not noticed yet left out
+            on = AiAim.onTarget(skill, eye.x, eye.y, eye.z, sight.seenYaw, sight.seenPitch, aim.x, aim.y, aim.z);
         }
-        mob.setYHeadRot(y);
-        mob.setYRot(y);
-        mob.yBodyRot = y;
-        mob.setXRot(p);
-        // the look control turns the head after the goals: to the place it looks at now, so the hand's error stays
-        Vec3 look = eye.add(Vec3.directionFromRotation(p, y).scale(Math.max(1, eye.distanceTo(aim))));
-        mob.getLookControl().setLookAt(look.x, look.y, look.z, skill.turn(), skill.turn());
+        face(y, p, skill);
         return on;
     }
 

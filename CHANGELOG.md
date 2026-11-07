@@ -1,5 +1,21 @@
 # Changelog
 
+## X600
+
+- Mob AI: AI mobs' guns fire and reload at the guns' own pace. They went
+  twice as fast before: the game ticks a mob's held item by itself, and the
+  mob ticked it once more.
+- Mob AI: a shot kicks an AI mob's view as it kicks your camera: NTM's
+  recoil for the gun, scaled as your camera's (`cameraScale`, 0.55 or the
+  gun's own), with the gun's climb and drift that stay (`cameraClimb`,
+  `cameraClimbDeg`, `cameraDriftDeg`, growing over `cameraClimbRamp` shots
+  of a burst), less while it aims (`adsRecoil`) or lies. What does not stay
+  comes back by itself as NTM's does; the rest the mob pulls back a moment
+  after it notices, and until then it fires as if it were still on you. Far
+  off, a long burst of a climbing gun comes in slower. A veteran takes back
+  60 % of each kick at once, a regular 30 %, a recruit none. A new server
+  setting, `aiRecoil` (1 by default, 0 for none), sets how strong it is.
+
 ## X599
 
 - Mob AI: AI mobs aim as a person does, and never miss on purpose. They act
