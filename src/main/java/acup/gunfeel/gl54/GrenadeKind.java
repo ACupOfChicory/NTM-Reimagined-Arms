@@ -9,10 +9,10 @@ import java.util.List;
 public enum GrenadeKind {
     // the damage line of the wheel ("per shot" to compare kinds by); the numbers of design.md and of the first mock-up, null
     // = none yet. Only HE's are in force so far; the others are the design's, for stage 3
-    AIRBURST("airburst", "AB", 0x4FA3F7, "1.3 \u00D740", 50F),
-    AP("ap", "AP", 0x9B5CF6, "1.3 \u00D720", 25F),
+    AIRBURST("airburst", "AB", 0x4FA3F7, "1.3 \u00D740+40", 100F),
+    AP("ap", "AP", 0x9B5CF6, "1.3 \u00D720+20", 50F),
     HE("he", "HE", 0xE5483C, "18", 18F),
-    INCENDIARY("inc", "INC", 0xFF9A2E, "0.8 \u00D720", 15F),
+    INCENDIARY("inc", "INC", 0xFF9A2E, "0.8 \u00D720+20", 30F),
     SMOKE("smoke", "SMK", 0xC4C6C8, null, 0F),
     CHLORINE("chlorine", "CL", 0xC8E03C, null, 0F),
     PHOSGENE("phosgene", "PH", 0x8FD6A0, null, 0F),

@@ -67,8 +67,8 @@ class FragTest {
 
     @Test
     void apPiercesArmourAndAirburstAndIncendiaryDoNot() {
-        assertEquals(4F, FragSpec.AP.threshold());
-        assertEquals(0.1F, FragSpec.AP.piercing());
+        assertEquals(10F, FragSpec.AP.threshold());
+        assertEquals(0.15F, FragSpec.AP.piercing());
         assertTrue(FragSpec.AP.armourPiercing());
         assertFalse(FragSpec.AIRBURST.armourPiercing());
         assertEquals(0F, FragSpec.AIRBURST.threshold());

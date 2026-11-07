@@ -22,8 +22,8 @@ public record FragSpec(GrenadeKind kind, double coneDegrees, int cone, int ring,
 
     // airburst: does not beat NTM's armour thresholds (against armour there is HE)
     public static final FragSpec AIRBURST = new FragSpec(GrenadeKind.AIRBURST, 65.0, 40, 40, 1.25F, 0F, 0F, 0);
-    // armour-piercing airburst: a narrower cone, NTM's 5.56 AP piercing as the design names it
-    public static final FragSpec AP = new FragSpec(GrenadeKind.AP, 30.0, 20, 20, 1.25F, 4F, 0.1F, 0);
+    // armour-piercing airburst: a narrower cone, NTM's 5.56 AP threshold negation and armour piercing
+    public static final FragSpec AP = new FragSpec(GrenadeKind.AP, 30.0, 20, 20, 1.25F, 10F, 0.15F, 0);
     // incendiary: weak fragments that set what they hit on fire for 4 s
     public static final FragSpec INCENDIARY = new FragSpec(GrenadeKind.INCENDIARY, 65.0, 20, 20, 0.75F, 0F, 0F, 80);
 

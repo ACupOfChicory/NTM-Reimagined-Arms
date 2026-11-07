@@ -26,6 +26,13 @@ public final class GrenadeType extends BulletConfig {
         this.ammoItem = () -> Gl54Items.MAG.get();
         // stage 3: the other kinds' own flight and effect; until then they fly and blast as HE
         Gl54Grenade.apply(this);
+        piercing();
+    }
+
+    // a fragment kind's armour piercing (AP airburst: NTM's 5.56 AP), on the config for whatever reads it
+    private void piercing() {
+        var spec = acup.gunfeel.gl54.frag.FragSpec.of(grenade());
+        if (spec != null && spec.armourPiercing()) setThresholdNegation(spec.threshold()).setArmorPiercing(spec.piercing());
     }
 
     private GrenadeType(List<String> contents, int magazines) {
@@ -35,6 +42,7 @@ public final class GrenadeType extends BulletConfig {
         this.ammoItem = () -> Gl54Items.MAG.get();
         // not a config of the game's: out of the list again (the id it was given is not used, the wheel sends the contents)
         BulletConfig.configs.remove(this);
+        piercing();
     }
 
     public static GrenadeType entry(List<String> contents, int magazines) {
