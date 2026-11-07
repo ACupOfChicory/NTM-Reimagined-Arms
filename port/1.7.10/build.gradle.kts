@@ -225,6 +225,19 @@ if (providers.gradleProperty("checkBoom").isPresent) tasks.named<JavaExec>("runS
     systemProperty("ntmgunfeel.checkBoom", "logs/boom-check.tsv")
 }
 
+// Every stand on the dedicated server (-PcheckBullets, -PcheckWater, -PcheckBoom) opens its port first: 25565 is where
+// the real servers are (one running there would leave the stand without a port). Its port is 25604, written into
+// run/server/server.properties before the start (26.2's stands take 25640..25644, so both can run at once);
+// -PserverPort=<n> sets another, 25565 included. A plain runServer keeps its server.properties as it is.
+if (listOf("checkBullets", "checkWater", "checkBoom").any { providers.gradleProperty(it).isPresent }) tasks.named<JavaExec>("runServer") {
+    val port = providers.gradleProperty("serverPort").orNull?.takeIf { it.isNotBlank() } ?: "25604"
+    doFirst {
+        val properties = (this as JavaExec).workingDir.resolve("server.properties")
+        properties.writeText((if (properties.exists()) properties.readLines().filter { !it.startsWith("server-port=") } else emptyList())
+            .joinToString("") { it + "\n" } + "server-port=$port\n")
+    }
+}
+
 // The tests run on Java 8, as the players' game does (test), and on Java 25 (test25): the downgraded classes on both.
 // Paths to the 26.2 pins (src/test/pinned at the root) come in as a system property.
 tasks.test {
