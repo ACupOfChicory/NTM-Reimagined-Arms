@@ -53,6 +53,17 @@ public final class BulletServer {
     static void forgetWear() {
         WEAR.clear();
     }
+
+    // dev (BulletCheck): the wear as it is now, and back to it (a beam fired on the same block as a bullet)
+    static Object wearNow() {
+        return new HashMap<>(WEAR);
+    }
+
+    @SuppressWarnings("unchecked")
+    static void wearBack(Object was) {
+        WEAR.clear();
+        WEAR.putAll((Map<Spot, Wear>) was);
+    }
     // 20 s at 20 TPS; game ticks, so a paused or slowed server does not forget it sooner
     private static final long FORGET_TICKS = 400L;
 
@@ -107,6 +118,18 @@ public final class BulletServer {
         Vec3 at = hit.getLocation();
         level.playSound(null, at.x, at.y, at.z, RICOCHET_STEEL, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 0.9F + level.getRandom().nextFloat() * 0.2F);
         return true;
+    }
+
+    // a shot without an MK4 bullet (an NTM beam, BeamServer) pierced this block or flew through it ("through"): the
+    // block is worn as by a bullet of that damage
+    static void wearBy(Entity shot, @Nullable Entity owner, float damage, BlockHitResult hit) {
+        if (!(shot.level() instanceof ServerLevel level)) return;
+        BlockPos pos = hit.getBlockPos().immutable();
+        BlockState state = level.getBlockState(pos);
+        if (state.isAir()) return;
+        BulletRules.Break rule = BulletRules.breakRule(state);
+        if (rule == null || rule.mode() == 0) return;
+        wear(level, new Shooter(shot.getId(), owner, damage), pos, state, rule, 1F);
     }
 
     // the bullet flew through a block it always flies through ("through"): counts as a hit on it

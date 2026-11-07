@@ -64,6 +64,7 @@ public final class BulletCheck {
     private static boolean ok;
     private static ServerLevel level;
     private static BulletConfig round;
+    private static BulletConfig beamRound;
     private static int lane;
 
     private static boolean run(List<String> out, MinecraftServer server) throws Exception {
@@ -184,6 +185,28 @@ public final class BulletCheck {
             s = shoot(single(glass), .5, .5, 12F);
             check(id + ": 12 at once break it", "minecraft:air", s.after);
         }
+
+        // ---- NTM's beams (BeamServer): glass is worn by them as by bullets; a creature behind a pierced block gets
+        // what is left; beamRules off: NTM's beam, stopped by the glass
+        BlockPos pane = single("minecraft:glass");
+        float[] beam = beamShot(pane, .5, .5, 6F);
+        check("beam: 6 damage through glass, glass left", "minecraft:glass", after(pane));
+        beam = beamShot(pane, .5, .5, 6F);
+        check("beam: 6 more break the glass", "minecraft:air", after(pane));
+        check("beam: the second beam goes on beyond it", true, beam[0] > 1F);
+        float free = golemBeam(false), behind = golemBeam(true);
+        check("beam: a golem behind a plank takes less than in the open, but some (" + behind + " of " + free + ")", true,
+                behind > 0F && behind < free);
+        check("beam: glass behind the golem that takes the beam is left whole (two beams of 6)", "minecraft:glass", golemGlass());
+        Path beamFile = FMLPaths.CONFIGDIR.get().resolve(ReaimTimes.FILE);
+        Files.writeString(beamFile, BeamServer.KEY + " = false\n");
+        Thread.sleep(2100);
+        beam = beamShot(single("minecraft:glass"), .5, .5, 30F);
+        check("beam, beamRules off: NTM's beam stops at the glass", true, beam[0] < .01F && beam[0] > -.01F);
+        beam = beamShot(fenceRow("minecraft:oak_fence"), .25, .65, 30F);
+        check("beam, beamRules off: NTM's beam stops at a fence's gap", true, beam[0] < 1F);
+        Files.writeString(beamFile, BeamServer.KEY + " = true\n");
+        Thread.sleep(2100);
 
         // ---- wear with a threshold: sandbags tear only by what passes 4 damage a bullet (600 in all)
         BlockPos bags = single("hbm:sandbags");
@@ -550,7 +573,17 @@ public final class BulletCheck {
     }
 
     private static Shot expect(String name, Want want, BlockPos at, double fx, double fy, float damage) {
+        java.util.Map<BlockPos, BlockState> before = around(at);
+        Object wear = BulletServer.wearNow();
         Shot s = shoot(at, fx, fy, damage);
+        // the same shot as an NTM beam of the same damage on the blocks as they were; then back to what the bullet left
+        java.util.Map<BlockPos, BlockState> left = around(at);
+        Object worn = BulletServer.wearNow();
+        put(before);
+        BulletServer.wearBack(wear);
+        beam(name, want, at, fx, fy, damage);
+        put(left);
+        BulletServer.wearBack(worn);
         boolean beyond = s.z > Z + 1;
         boolean pass = switch (want) {
             case PASS -> s.alive && beyond && s.damage == damage;
@@ -564,6 +597,54 @@ public final class BulletCheck {
         return s;
     }
 
+    // the blocks around a lane's block (its own, a fence row's, what is set behind it)
+    private static java.util.Map<BlockPos, BlockState> around(BlockPos at) {
+        java.util.Map<BlockPos, BlockState> m = new java.util.HashMap<>();
+        for (BlockPos p : BlockPos.betweenClosed(at.offset(-1, -1, -1), at.offset(1, 1, 3))) m.put(p.immutable(), level.getBlockState(p));
+        return m;
+    }
+
+    private static void put(java.util.Map<BlockPos, BlockState> m) {
+        m.forEach((p, st) -> {
+            if (level.getBlockState(p) != st) level.setBlock(p, st, Block.UPDATE_CLIENTS);
+        });
+    }
+
+    // a beam of the round's damage, threshold negation and armour piercing (BeamServer) along the bullet's lane: the
+    // same verdict as the bullet's (its end beyond the block or at it, its damage there). beamRules off: NTM's beam,
+    // stopped by the first block with a box
+    private static void beam(String name, Want want, BlockPos at, double fx, double fy, float damage) {
+        float[] b = beamShot(at, fx, fy, damage);
+        boolean beyond = b[0] > 1;
+        float left = b[1];
+        boolean pass = switch (want) {
+            case PASS -> beyond && left == damage;
+            case PIERCE -> beyond && left < damage;
+            case STOP -> !beyond && left == damage;
+            case MEET -> !beyond || left < damage;
+        };
+        ok &= pass;
+        lines.add((pass ? "OK   " : "FAIL ") + name + ", beam: " + want.name().toLowerCase()
+                + (pass ? "" : ", got end z " + String.format("%.2f", b[0]) + ", damage " + left));
+    }
+
+    // a beam from 1.5 blocks before the block along +z at (fx, fy) of it, 6 blocks long: where it ends (z from the
+    // block's near face) and its damage there
+    private static float[] beamShot(BlockPos at, double fx, double fy, float damage) {
+        if (beamRound == null) beamRound = new BulletConfig().setBeam().setOnBeamImpact(BulletConfig.LAMBDA_STANDARD_BEAM_HIT);
+        beamRound.armorThresholdNegation = round.armorThresholdNegation;
+        beamRound.armorPiercingPercent = round.armorPiercingPercent;
+        var beam = new com.hbm.entity.projectile.EntityBulletBeamBase(level, beamRound, damage);
+        net.minecraft.world.phys.Vec3 start = new net.minecraft.world.phys.Vec3(at.getX() + fx, at.getY() + fy, at.getZ() - 1.5);
+        beam.setPos(start);
+        beam.setRotationsFromVector(new net.minecraft.world.phys.Vec3(0, 0, 1));
+        beam.performHitscanExternal(6);
+        double end = start.z + beam.getBeamLength();
+        float left = BeamServer.damageAt(beam, new net.minecraft.world.phys.Vec3(start.x, start.y, end));
+        beam.discard();
+        return new float[] {(float) (end - at.getZ()), left};
+    }
+
     // a bullet from 1.5 blocks before the block, straight along +z at (fx, fy) of it, ticked till it stops (or 3 ticks)
     private static Shot shoot(BlockPos at, double fx, double fy, float damage) {
         EntityBulletBaseMK4 b = new EntityBulletBaseMK4(level, round, 1F, 0F, 0F, 0F);
@@ -572,6 +653,40 @@ public final class BulletCheck {
         b.damage = damage;
         for (int i = 0; i < 3 && !b.isRemoved(); i++) b.tick();
         return new Shot(!b.isRemoved(), b.damage, b.getZ(), BuiltInRegistries.BLOCK.getKey(level.getBlockState(at).getBlock()).toString());
+    }
+
+    // the health a fresh iron golem (no AI) loses to an NTM beam of 30 at its middle, with a plank before it or not
+    private static float golemBeam(boolean plank) {
+        BlockPos at = new BlockPos(2 + 4 * (lane % 16), Y + 4 * (lane / 16), Z);
+        lane++;
+        // the beam goes 1.2 over the golem's feet: through the upper of two planks
+        if (plank) for (int dy = 0; dy < 2; dy++) level.setBlock(at.north(2).above(dy), state("minecraft:oak_planks"), Block.UPDATE_CLIENTS);
+        var g = net.minecraft.world.entity.EntityTypes.IRON_GOLEM.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        g.setPos(at.getX() + .5, at.getY(), at.getZ() + .5);
+        g.setNoAi(true);
+        g.setNoGravity(true);
+        level.addFreshEntity(g);
+        float before = g.getHealth();
+        beamShot(at.north(3), .5, 1.2, 30F);
+        float took = before - g.getHealth();
+        g.discard();
+        return took;
+    }
+
+    // a golem with glass right behind it at the beam's height, two beams of 6 at it (two would break glass): the glass
+    private static String golemGlass() {
+        BlockPos at = new BlockPos(2 + 4 * (lane % 16), Y + 4 * (lane / 16), Z);
+        lane++;
+        BlockPos glass = at.south().above();
+        level.setBlock(glass, state("minecraft:glass"), Block.UPDATE_CLIENTS);
+        var g = net.minecraft.world.entity.EntityTypes.IRON_GOLEM.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        g.setPos(at.getX() + .5, at.getY(), at.getZ() + .5);
+        g.setNoAi(true);
+        g.setNoGravity(true);
+        level.addFreshEntity(g);
+        for (int i = 0; i < 2; i++) beamShot(at.north(3), .5, 1.2, 6F);
+        g.discard();
+        return BuiltInRegistries.BLOCK.getKey(level.getBlockState(glass).getBlock()).toString();
     }
 
     // the health a fresh iron golem (no AI, in the open) loses to one .50 DU bullet at height fy over its feet
