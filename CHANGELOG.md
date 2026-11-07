@@ -1,6 +1,6 @@
 # Changelog
 
-## X608
+## X611
 
 - Volumetric smoke seen from outside no longer lies over glass and water.
   Smoke behind a pane of glass (plain or stained) or behind water was laid
@@ -10,6 +10,15 @@
   installed or its backend is off, the game laid the pane over all the
   smoke, the smoke in front of it too; there, too, each now lies where it
   is.
+
+## X607
+
+- A ring on the water left by a shot no longer opens a hole in it as it fades.
+  The ring was drawn before the water and kept the water under it from being
+  drawn, so as it faded the bottom showed through it. Rings are now drawn
+  after the water, with the game's translucent particles, and fade into it.
+  Seen from under the surface a ring now lies over the water instead of
+  behind it.
 
 ## X605
 

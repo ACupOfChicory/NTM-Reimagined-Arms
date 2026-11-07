@@ -346,11 +346,74 @@ final class WaterFxStand {
 
     // ---- a ring's colour on the screen: at noon, the still pool filled again, the eye straight above it (and then
     // under its surface looking up), a frame without a ring and one with a ring of alpha 1 lasting long; the pixels the
-    // ring changed are its own colour. White at noon is near 255; the owner saw grey ----
-    private static int colourStep;
-    private static int[] shotA, shot;
+    // ring changed are its own colour. White at noon is near 255; the owner saw grey.
+    // Then the hole a fading ring left in the water (the owner, 2026-11-07): a frame of the pool drained (the bottom,
+    // or the sky from below) and frames of the ring at lower alphas. A ring pixel is a hole when it is nearer (by more
+    // than 24) the segment from the drained pool's pixel to the ring's at alpha 1 than the one from the water's ----
+    private static int colourStep, holeK;
+    private static int[] shotA, shotB, shotR, shot;
     private static boolean shooting;
     private static double ringAbove;
+    private static final float[] FADING = {0.5F, 0.25F, 0.15F};
+
+    private static void pool(net.minecraft.client.server.IntegratedServer server, BlockState st) {
+        server.execute(() -> fill(server.overworld(), st));
+    }
+
+    // the ring at alpha a, lasting long, at the middle of the still pool
+    private static void ring(Minecraft mc, float a) {
+        WaterRings.clear();
+        WaterRings.add(mc.level, STILL + 3.5, Y, 0.5, 0, 1000, 3, 3, a, false, false);
+    }
+
+    // an Iris shader pack in use: the thresholds above were taken under the game's own light
+    private static boolean pack() {
+        return acup.gunfeel.smoke.client.SmokeRender.irisPack();
+    }
+
+    private static boolean differ(int p, int q) {
+        int d = 0;
+        for (int k = 0; k < 24; k += 8) d = Math.max(d, Math.abs((p >> k & 255) - (q >> k & 255)));
+        return d > 24;
+    }
+
+    // how far a pixel p is from the segment from pixel x to pixel y, in RGB
+    private static double offSegment(int p, int x, int y) {
+        double[] d = new double[3], w = new double[3];
+        double ww = 0, dw = 0;
+        for (int c = 0; c < 3; c++) {
+            double xc = x >> (16 - 8 * c) & 255;
+            d[c] = (p >> (16 - 8 * c) & 255) - xc;
+            w[c] = (y >> (16 - 8 * c) & 255) - xc;
+            ww += w[c] * w[c];
+            dw += d[c] * w[c];
+        }
+        double t = ww == 0 ? 0 : Math.clamp(dw / ww, 0, 1), r = 0;
+        for (int c = 0; c < 3; c++) r += (d[c] - t * w[c]) * (d[c] - t * w[c]);
+        return Math.sqrt(r);
+    }
+
+    private static void hole(boolean below, float a) {
+        long n = 0, holes = 0;
+        for (int i = 0; i < shot.length && i < shotA.length && i < shotB.length && i < shotR.length; i++) {
+            // the ring's pixels (at alpha 1) where the water and what is behind it differ
+            if (!differ(shotR[i], shotA[i]) || !differ(shotA[i], shotB[i])) continue;
+            n++;
+            // a ring mixed into the water lies between the water's pixel and the ring's at alpha 1 (nearer the water
+            // where its faint edge is cut away); over a hole, between what is behind the water and the ring. Clearly
+            // nearer the second: the two meet at the ring, and the water's texture moves between frames
+            if (offSegment(shot[i], shotB[i], shotR[i]) + 24 < offSegment(shot[i], shotA[i], shotR[i])) holes++;
+        }
+        String where = below ? "from under the surface" : "from above";
+        double share = n == 0 ? 1 : (double) holes / n;
+        line(String.format(java.util.Locale.ROOT, "ring hole %s, alpha %.2f: %d of %d ring px show what is behind the water (%.1f%%)",
+                where, a, holes, n, 100 * share));
+        // from below with a shader pack the ring is a few hundred pixels and the pack's water moves: 2% there is noise
+        // (the same before the ring went after the water and after, BSL 2026-11-07)
+        if (below && pack()) return;
+        check(n > 0 && share <= 0.02, "гаснущее кольцо (альфа " + a + ") не оставляет дыры в воде " + (below ? "снизу" : "сверху")
+                + " (" + holes + " из " + n + " px)");
+    }
 
     private static boolean ringColour(Minecraft mc, net.minecraft.client.server.IntegratedServer server) {
         boolean below = colourStep >= 10;
@@ -358,15 +421,14 @@ final class WaterFxStand {
         Vec3 eye = below ? new Vec3(STILL + 3.5, Y - 2.6, 0.5) : new Vec3(STILL + 3.5, Y + 5, 0.5);
         float pitch = below ? -90F : 90F;
         switch (sub) {
+            // the pool drained: what is behind its water
             case 0 -> {
+                pool(server, Blocks.AIR.defaultBlockState());
                 server.execute(() -> {
-                    ServerLevel level = server.overworld();
-                    for (int x = 1; x <= 5; x++) for (int z = -2; z <= 2; z++) for (int y = Y - 4; y <= Y - 1; y++)
-                        level.setBlock(new BlockPos(STILL + x, y, z), Blocks.WATER.defaultBlockState(), Block.UPDATE_ALL);
                     server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), "time set noon");
                     server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), "weather clear");
                     var player = server.getPlayerList().getPlayers().getFirst();
-                    player.teleportTo(level, eye.x, eye.y, eye.z, Set.of(), 0F, pitch, false);
+                    player.teleportTo(server.overworld(), eye.x, eye.y, eye.z, Set.of(), 0F, pitch, false);
                 });
                 WaterRings.clear();
                 colourStep++;
@@ -377,16 +439,27 @@ final class WaterFxStand {
                 mc.player.setYRot(0F);
                 mc.player.setXRot(pitch);
                 if (!screenshot(mc)) return false;
-                shotA = shot;
-                WaterRings.add(mc.level, STILL + 3.5, Y, 0.5, 0, 1000, 3, 3, 1F, false, false);
+                shotB = shot;
+                pool(server, Blocks.WATER.defaultBlockState());
                 colourStep++;
                 since = System.nanoTime();
             }
             case 2 -> {
+                if (elapsed() < 3 || !WaterFx.wetAt(mc.level, new Vec3(STILL + 3.5, Y - 0.5, 0.5))) return false;
+                mc.player.setYRot(0F);
+                mc.player.setXRot(pitch);
+                if (!screenshot(mc)) return false;
+                shotA = shot;
+                ring(mc, 1F);
+                colourStep++;
+                since = System.nanoTime();
+            }
+            case 3 -> {
                 if (elapsed() < 0.5) return false;
                 mc.player.setYRot(0F);
                 mc.player.setXRot(pitch);
                 if (!screenshot(mc)) return false;
+                shotR = shot;
                 WaterRings.clear();
                 // the ring's pixels: changed by more than 24 in some channel
                 long n = 0;
@@ -419,12 +492,28 @@ final class WaterFxStand {
                     else {
                         ringAbove = lum;
                         // grey was 103; white comes out near 200, not 255: the texture's soft edges are mixed with the water
-                        check(lum >= 170, "кольцо сверху в полдень белое, а не серое (среднее " + Math.round(lum) + " из 255)");
+                        // a shader pack lights it its own way (BSL: 156, the same before the ring went after the water)
+                        if (!pack()) check(lum >= 170, "кольцо сверху в полдень белое, а не серое (среднее " + Math.round(lum) + " из 255)");
                     }
                 }
-                if (below) {
-                    return true;
+                holeK = 0;
+                ring(mc, FADING[0]);
+                colourStep++;
+                since = System.nanoTime();
+            }
+            case 4 -> {
+                if (elapsed() < 0.5) return false;
+                mc.player.setYRot(0F);
+                mc.player.setXRot(pitch);
+                if (!screenshot(mc)) return false;
+                WaterRings.clear();
+                hole(below, FADING[holeK]);
+                if (++holeK < FADING.length) {
+                    ring(mc, FADING[holeK]);
+                    since = System.nanoTime();
+                    return false;
                 }
+                if (below) return true;
                 colourStep = 10;
             }
             default -> {
@@ -805,7 +894,12 @@ final class WaterFxStand {
 
     // the still pool emptied
     private static void drain(ServerLevel level) {
+        fill(level, Blocks.AIR.defaultBlockState());
+    }
+
+    // the still pool's water cells, all set to st
+    private static void fill(ServerLevel level, BlockState st) {
         for (int x = 1; x <= 5; x++) for (int z = -2; z <= 2; z++) for (int y = Y - 4; y <= Y - 1; y++)
-            level.setBlock(new BlockPos(STILL + x, y, z), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            level.setBlock(new BlockPos(STILL + x, y, z), st, Block.UPDATE_ALL);
     }
 }
