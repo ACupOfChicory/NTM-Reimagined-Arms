@@ -19,7 +19,7 @@ import org.jspecify.annotations.Nullable;
 //  - the server's own bullet rules (config/ntm-gunfeel-bullets.txt), of which the client takes the kinds the server
 //    acts on (break, material, path, ricochet, entity, kill) and keeps its own for what only it draws (hit, decal,
 //    hole, whizz, fly);
-//  - ntm-gunfeel-server.properties (bullet speed, spread, reaim times, the camera recoil minimum);
+//  - ntm-gunfeel-server.properties (bullet speed, spread, the camera recoil minimum);
 //  - the bullet shapes the server has beyond the mod jar's (config/ntm-gunfeel-bullet-shapes.properties, and on a LAN
 //    host the ones its own client made).
 // The client keeps them in memory while connected and forgets them on leaving: nothing is written, so another server's

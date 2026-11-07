@@ -11,7 +11,7 @@ public enum Feature {
     CORE("core", List.of(), List.of("GunFeel", "GunFeelMod", "Config", "GunDump", "BlockDump")),
     MODEL_HITBOXES("model_hitboxes", List.of("MixinNtmMeshHits", "GlyphidGeometryAccess", "MixinGlyphidModelHits", "MixinMobObjModelHits", "MixinMobModelHits", "MixinGpuEntityGeometry", "MixinHeadDamage"),
             List.of("NtmMeshHits", "MobObjPose", "ModelMeshCapture", "MobStageCleanup", "HeadDamage")),
-    HOLD_AIM("hold_aim", List.of("MixinHoldAim", "MixinAimButton"), List.of("ReaimCommand", "ReaimTimes", "AimButton")),
+    HOLD_AIM("hold_aim", List.of("MixinHoldAim", "MixinAimButton"), List.of("ReaimTimes", "AimButton")),
     BULLETS("bullets", List.of("MixinBulletServer", "MixinThrowableHit", "MixinLegacyBullet", "MixinWaterBullet", "MixinWaterMuffle", "MixinBeamModelQuery", "MixinBeamBlocks", "MixinBeamTurretSight", "MixinBeamTauon", "MixinBeamMaxwell", "MixinBeamTesla", "TurretMaxwellAccess", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinExplosiveDirect", "MixinWaterBlast", "MixinWaterBlastProcessor", "MixinWaterImpact", "MixinWaterFire", "MixinWaterFireRocket", "MixinWaterFireFlamer"),
             List.of("BulletServer", "PassableClip", "Cells", "Structures", "BulletFx", "BulletRules", "ExplosiveAmmo", "ExplosiveDamage", "LegacyBullets", "BeamServer", "BeamTurrets")),
     RICOCHET_SOUND("ricochet_sound", List.of("MixinRicochetSound"), List.of()),
@@ -30,6 +30,7 @@ public enum Feature {
     SPRINT_FIRE("sprint_fire", List.of("MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun"), List.of("SprintFire")),
     SPECTATOR("spectator", List.of("MixinSpectatorGun", "MixinSpectatorKeys", "MixinSpectatorHud"), List.of("SpectatorGuns", "SpectatorStand")),
     PRONE("prone", List.of(), List.of("Prone", "ProneClient", "ProneCrawlPayload", "ProneStandPayload", "CrawlKey", "CrawlPitch", "LocalPlayerCrawl", "LivingEntityCrawl", "ProneStand")),
+    PRONE_FIRE("prone_fire", List.of("MixinProneFireClick", "MixinProneFireDecider", "MixinProneFireKeys"), List.of("ProneFire", "ProneFireStand")),
     MOB_AI("mob_ai", List.of("MixinAiFbi", "MixinAiDummy"), List.of("AiGunner", "AiCommand", "AiCheckSpread", "AiCheckAim", "AiCheckRecoil"));
 
     public final String id;

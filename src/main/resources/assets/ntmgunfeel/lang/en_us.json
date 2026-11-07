@@ -26,6 +26,7 @@
   "ntmgunfeel.feature.sprint_fire": "No shot right after a sprint",
   "ntmgunfeel.feature.spectator": "No guns in spectator mode",
   "ntmgunfeel.feature.prone": "Lying down",
+  "ntmgunfeel.feature.prone_fire": "No shot while crawling",
   "ntmgunfeel.feature.mob_ai": "Mob AI",
   "ntmgunfeel.armsai.unseen": "AI mobs do not see or hear you in creative or spectator mode",
   "ntmgunfeel.armsai.dummy": "AI dummy",

@@ -1,125 +1,127 @@
 # Changelog
 
+## X619
+
+- Mob AI, new: mobs that fight as a player does, with NTM's guns. `/armsai
+  spawn fbi|dummy [count] [gun]` (operators) brings NTM's FBI agents or test
+  dummies in round you, each with a full NTM gun and four magazines besides;
+  `team <name>` at the end puts them in that team, made if there is none. Any
+  mob tagged `armsai` (`/tag`) is taken over the same way. `/armsai clear`
+  takes them all away, and `/armsai ammo infinite|<rounds>` sets what they
+  carry. They work their guns with the same keys a player does and reload only
+  from what they carry: one that has shot it all stays empty. Their guns fire
+  and reload at the guns' own pace. FBI agents NTM brings in itself are as
+  before.
+- Mob AI: what an AI mob notices. It sees only what is in front of it, within
+  its sight, and not through walls, leaves or thick smoke (glass, bars and
+  fences hide nothing), and it takes a moment to notice someone, longer far off
+  or at the edge of its view. It hears shots, blasts and steps nearby, and
+  knows where a hit came from, but only roughly. It neither sees nor hears a
+  player in creative or spectator mode (`/armsai spawn` given in those modes
+  says so).
+- Mob AI: how an AI mob fights. One that sees you gets into cover from you (a
+  spot your eyes do not reach, run to by a way that keeps out of your sight
+  where it can), steps out to its side for a burst and back in; over low cover
+  it fires standing. It reloads in cover. Its cover seen into (you went round
+  it), a hit from where it does not look, or its way to cover blocked sends it
+  to other cover. A shot it only heard sends it into cover it can look out of,
+  and it looks out the way the shot came from every few seconds. It walks as
+  you do: walking, it keeps its gun on you and steps sideways or back; running,
+  it faces where it runs and holds fire. Out of sight, you are not followed: it
+  waits watching where you were last seen, then searches round that place,
+  slowly.
+- Mob AI: AI mobs lie down on the terms a player does (`prone`). Behind low
+  cover they go down between bursts and to reload, and get up to fire; in the
+  open with you over 30 blocks off they fire lying; pinned down by shots flying
+  past (three within a second) with no cover, they lie. Never closer than 10
+  blocks. Lying, they are a crawling player's size, crawl at a third of the
+  speed and get the crawling spread (`spreadCrawl`).
+- Mob AI: AI mobs aim as a person does, and never miss on purpose. They act on
+  where they saw you a moment ago, lead you by the way they saw you move,
+  correct their aim every few ticks, each correction a little off, and pull the
+  trigger only while the spot they expect you at is on the barrel. A steady
+  strafe they learn after a few swings; an uneven one they do not. Their spread
+  is a player's. A shot kicks an AI mob's view as it kicks your camera: NTM's
+  recoil for the gun, scaled as your camera's (`cameraScale`), with the gun's
+  climb and drift that stay, less while it aims (`adsRecoil`) or lies; what is
+  left it pulls back a moment after it notices.
+- Mob AI: AI mobs fight in the game's teams (`/team`). One in a team fights the
+  players and the AI mobs of the other teams, and players with no team; one
+  with no team fights every player. Neither shoots through its own, nor takes a
+  hit from its own as a threat, nor goes after the sound of its own shots.
+  NTM's FBI agents take shots from FBI agents of another team. An AI mob holds
+  fire while another AI mob it does not fight is in its line of fire, and moves
+  when that lasts.
+- Mob AI: new server settings. `aiRadius` (128 blocks, 32 to 256): further from
+  every player AI mobs stand still, and go on when a player comes near.
+  `aiSkill` (`recruit`, `regular`, `veteran`; `regular` by default): how late
+  they see, how often and how well they correct their aim, how soon they notice
+  you and whether they read a strafe. `aiRecoil` (1 by default, 0 for none):
+  how strong their recoil is. `aiThreads` (2, 1 to 8): the background threads
+  on which the server works out where its mobs can stand and what covers them,
+  kept up to date as blocks are built, broken or blown up, so the server's own
+  thread is not held up.
+- Mob AI: `/armsai debug [radius]` (operators) shows the AI's cells around you
+  (green for high cover that stops bullets, blue for high cover that only
+  hides, yellow for low cover, grey for none; red and white bars mark the
+  covered sides) and over each AI mob what it does, whom it knows of and how
+  (sees, is noticing, remembers, hears), what it decided and why, its health
+  and rounds, where it looks, its path and its cover. While anyone watches, or
+  after `/armsai log on`, every AI mob's decisions go to
+  `logs/ntm-gunfeel-debug.log`. `/armsai info` tells how many AI mobs there are
+  and what their work costs. Whoever an AI dummy kills dies by an "AI dummy".
+
 ## X605
 
-- Mob AI: an AI mob walks as you do. Walking, it keeps its gun on whom it
-  fights and steps sideways or back; running, it faces where it runs and
-  holds fire. Before, it faced you while its way to cover led away from
-  you, and stood turning on the spot without a shot (seen with AI mobs that
-  had heard a player in creative, once the player came out of it). Its
-  shots go where it aims while it walks (they went the way it walked).
-- Mob AI: an AI mob that took cover from a shot it only heard looks out of
-  it the way the shot came from every few seconds; from what it only heard
-  it takes no cover it cannot look out of. One whose way to its cover is
-  blocked finds other cover, whatever it was doing; one in high cover with
-  no place beside it to step out to fights from it when it sees you.
-- Mob AI: `/armsai debug` shows over each AI mob what it does, whom it
-  knows of and how (sees, is noticing, remembers, hears), and what it
-  decided and why. While anyone watches, or after `/armsai log on`, every
-  AI mob's decisions go to `logs/ntm-gunfeel-debug.log`.
-
-## X603
-
-- Mob AI: AI mobs no longer hear a player in creative or spectator mode
-  either (they did not see one already). `/armsai spawn` given in those
-  modes says so. Whoever an AI dummy kills dies by an "AI dummy", not by
-  its health; `/armsai debug` shows each AI mob's health.
-
-## X602
-
-- Mob AI: AI mobs fight in the game's teams (`/team`). One in a team fights
-  the players and the AI mobs of the other teams, and players with no team;
-  one with no team fights every player, as before. Neither shoots through
-  its own, nor takes a hit from its own as a threat, nor goes after the
-  sound of its own shots. `/armsai spawn fbi 5 team red` puts the new mobs in
-  team `red`, made if there is none. NTM's FBI agents take shots from FBI
-  agents of another team.
+- `proneCrawlNoFire` (server, on): no shot while crawling. A shooter lying
+  down (on the prone key, crawling under a trapdoor, a mob laid down) that
+  moves along the ground faster than `proneCrawlSpeed` (0.25 blocks a second;
+  crawling is about 1.3) does not fire: a click does nothing, not even a dry
+  fire, and spends no round; a held burst stops, and a new click fires again
+  once the shooter lies still. Lying still, or only turning the view, the gun
+  fires as before. Aiming and reloading while crawling are not touched. A Tau
+  charge let go while crawling fizzles. A gun can have its own:
+  `hbm\:gun_xxx.proneCrawlNoFire = false`. Off: guns fire while crawling, as
+  before.
+- The drill and the charge thrower work while crawling: they are tools, and
+  the mod gives them `proneCrawlNoFire = false` of their own.
 
 ## X600
 
-- Mob AI: AI mobs' guns fire and reload at the guns' own pace. They went
-  twice as fast before: the game ticks a mob's held item by itself, and the
-  mob ticked it once more.
-- Mob AI: a shot kicks an AI mob's view as it kicks your camera: NTM's
-  recoil for the gun, scaled as your camera's (`cameraScale`, 0.55 or the
-  gun's own), with the gun's climb and drift that stay (`cameraClimb`,
-  `cameraClimbDeg`, `cameraDriftDeg`, growing over `cameraClimbRamp` shots
-  of a burst), less while it aims (`adsRecoil`) or lies. What does not stay
-  comes back by itself as NTM's does; the rest the mob pulls back a moment
-  after it notices, and until then it fires as if it were still on you. Far
-  off, a long burst of a climbing gun comes in slower. A veteran takes back
-  60 % of each kick at once, a regular 30 %, a recruit none. A new server
-  setting, `aiRecoil` (1 by default, 0 for none), sets how strong it is.
-
-## X599
-
-- Mob AI: AI mobs aim as a person does, and never miss on purpose. They act
-  on where they saw you a moment ago, lead you by the way they saw you move,
-  correct their aim every few ticks, each correction a little off, and pull
-  the trigger only while the spot they expect you at is on the barrel. A
-  steady strafe they learn after a few swings; an uneven one they do not. A
-  new server setting, `aiSkill` (`recruit`, `regular`, `veteran`; `regular`
-  by default), sets how late they see, how often and how well they correct,
-  how soon they notice you and whether they read a strafe. The old random
-  aim error is gone.
-
-## X598
-
-- Mob AI: AI mobs lie down, on the terms a player does (`prone`). Behind low
-  cover they go down between bursts and to reload, and get up to fire; in the
-  open with you over 30 blocks off they fire lying; pinned down by shots
-  flying past (three within a second) with no cover, they lie. Never closer
-  than 10 blocks. Lying, they are a crawling player's size, crawl at a third
-  of the speed and get the crawling spread (`spreadCrawl`), as a player does.
+- The hitbox follows worn armour as it is drawn. On a player, a mannequin or
+  any mob drawn without Flywheel the armour was taken for the body and grown
+  once more: the hitbox stood about a pixel off the armour all round. Under
+  armour drawn by Flywheel the parts grew by a pixel as whole cubes, so the
+  hitbox stood a pixel off a bare forearm or a helmet's open face, 0.6 pixels
+  off leggings and 0.1 off boots. Now the drawn armour is the hitbox, where
+  its texture is not clear, and the parts under it keep their size. So is a
+  skull or a dragon head drawn by Flywheel; without Flywheel, and for a block
+  (a pumpkin), the head still grows to their size. A shot on a helmet is still
+  a shot in the head. An enchanted or trimmed piece no longer adds whole cubes
+  over the armour (and over a helmet a cube 1.5 pixels off the head): its
+  glint and trim are drawn on the armour and are not taken as more of it.
 
 ## X597
 
-- Mob AI, fourth part: AI mobs fight. One that sees you gets into cover from
-  you (a spot your eyes do not reach, run to by a way that keeps out of your
-  sight where it can), steps out to its side for a burst and back in; over
-  low cover it fires standing. It reloads in cover. Its cover seen into (you
-  went round it), or a hit from where it does not look, sends it to other
-  cover. It holds fire while another AI mob is in its line of fire, and moves
-  when that lasts; a hit from another AI mob is no alarm. Out of sight, you
-  are not followed: it waits watching where you were last seen, then searches
-  round that place, slowly. Mobs brought in by `/armsai spawn` (or tagged
-  `armsai`) have this mind; `/armsai debug` now shows over each what it does
-  and its rounds, where it looks, its path and its cover.
+- Precise hitboxes on a server: a client can no longer fill the server's memory
+  or its cache of model meshes. What one player may add to the cache is bounded
+  (1024 meshes, 131072 triangles, a mesh turned away counting too), and so is
+  what all players add together (3072 meshes, 1048576 triangles); a mesh over
+  the bound, or one whose id is not the hash of its triangles, is dropped
+  quietly, without an error in the log each time, and the entity whose pose
+  uses it keeps its plain box. An honest client stays far below the bound.
+- `/gunsmoke` on a server with smoke off names the server's file,
+  `config/ntm-gunfeel-server.properties`.
 
-- Mob AI, third part: AI mobs can be brought in, and they walk and shoot.
-  `/armsai spawn fbi|dummy [count] [gun]` (operators) brings NTM's FBI agents
-  or test dummies in round you, each with a full NTM gun and four magazines
-  besides; `/armsai clear` takes them all away, and `/armsai ammo
-  infinite|<rounds>` sets what they carry. Any mob tagged `armsai` (`/tag`) is
-  taken over the same way. They find their own way round walls (worked out
-  on the AI's background threads, and again when the way is walled up), work
-  their guns with the same keys a player does, and reload only from what they
-  carry: one that has shot it all stays empty. Far from every player
-  (`aiRadius`, server, 128 blocks, up to 256) they stand still. They do not
-  pick fights by themselves yet. FBI agents NTM brings in itself are as
-  before.
+## X594
 
-- Mob AI, second part: what an AI mob notices and what it remembers. It sees
-  only what is in front of it, within its sight, and not through walls,
-  leaves or thick smoke (glass, bars and fences hide nothing), and it takes a
-  moment to notice someone, longer far off or at the edge of its view. It
-  hears shots, blasts and steps nearby, and knows where a hit came from, but
-  only roughly. When it loses sight of someone it remembers where they were
-  last seen, not where they went, waits a while, then searches the places
-  around there it cannot see. Nothing uses it yet. `/armsai info` also tells
-  how many AI mobs there are and what their looking costs.
-
-- Mob AI, first part: the server works out, from the blocks themselves, where a
-  mob can stand and what covers it in each of eight directions (a wall two high
-  or one high, whether it stops bullets or only hides), and keeps that up to
-  date as blocks are built, broken or blown up. Nothing uses it yet, and it
-  does no work until something asks for it. `/armsai debug [radius]`
-  (operators) shows these cells around you: green for high cover that stops
-  bullets, blue for high cover that only hides (leaves), yellow for low cover,
-  grey for none; the red (stops bullets) and white (only hides) bars mark the
-  covered sides. `/armsai info` tells how much work it does. `aiThreads`
-  (server, 2): the background threads it works on, so the server's own thread
-  is not held up.
+- `/gunaim` is gone. With the aim key held, the aim comes back 0.3 seconds
+  before a reload or an inspect ends (0.6 before the inspect of An Old Classic
+  and the Sacred Dragon), as it did by default; these times are fixed in the
+  mod now.
+- ⚠ Breaks compatibility: the `<gun>.reaimReload` and `<gun>.reaimInspect` keys
+  in `ntm-gunfeel-server.properties`, which `/gunaim` wrote, are no longer
+  read.
 
 ## X592
 
