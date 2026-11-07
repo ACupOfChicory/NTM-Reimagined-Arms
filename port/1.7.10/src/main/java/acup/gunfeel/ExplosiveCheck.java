@@ -395,8 +395,9 @@ public final class ExplosiveCheck {
         oldHit(BulletConfigSyncingUtil.WORM_BOLT, "worm_bolt (old)", false);
     }
 
-    // NTM's random ricochet (the bolt's HBRC, 2 in 100; the rocket, meteor and orb have none) made sure, HBRC 100: off the water's surface it does not
-    // bounce, it goes off there (MixinWaterOldBullet); in the air off a block it does (NTM's)
+    // NTM's random ricochet (the bolt's HBRC, 2 in 100; the rocket, meteor and orb have none) made sure, HBRC 100: off
+    // the water's surface it does not bounce, nor sinking off the floor (stopped): it goes off there
+    // (MixinWaterOldBullet); in the air off a block it does (NTM's)
     private static void oldRicochet() {
         int id = BulletConfigSyncingUtil.MASKMAN_BOLT;
         BulletConfiguration c = BulletConfigSyncingUtil.pullConfig(id);
@@ -408,6 +409,7 @@ public final class ExplosiveCheck {
         c.HBRC = 100;
         try {
             entry(ammo, old(id), wc, 30);
+            stopped(ammo, old(id), wc);
             basin();
             Vec3 at = new Vec3(DRY_X, FLOOR + 1, CZ);
             EntityThrowableNT b = old(id).make(new Vec3(at.x, at.y + 1, at.z), new Vec3(0, -1, 0));

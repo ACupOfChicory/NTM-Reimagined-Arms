@@ -33,7 +33,7 @@ import net.minecraft.util.MovingObjectPosition;
 // - in water it sets nothing alight (the meteor): its config's incendiary reads 0 there, as the plain bullet's fire is
 //   doused (WaterImpact.lambda);
 // - a stopped one goes off where it touches a creature, also one that goes through creatures in flight (the bolt);
-// - the surface its fuze meets takes no NTM ricochet: it goes off there;
+// - the surface its fuze meets, and the floor a sinking one touches, take no NTM ricochet: it goes off there;
 // - a step straight down (a sinking one) keeps the yaw it had, as MixinWaterBullet.
 @Mixin(value = EntityBulletBaseNT.class, remap = false)
 public abstract class MixinWaterOldBullet implements WaterBullet, WaterImpact.Hits {
@@ -118,12 +118,13 @@ public abstract class MixinWaterOldBullet implements WaterBullet, WaterImpact.Hi
                 && WaterImpact.wet(self, new acup.gunfeel.phys.Vec3(self.posX, self.posY, self.posZ));
     }
 
-    // the surface its fuze meets (WaterTick.surfaceHit) is no block to bounce off: NTM's random ricochet (doesRicochet,
-    // HBRC: the bolt's 2 in 100; the grenade-like rocket and meteor have none) does not fire there, it goes off. Off a block it is NTM's
+    // the surface its fuze meets (WaterTick.surfaceHit) is no block to bounce off, and a sinking one goes off where it
+    // touches (as 26.2's bullet with an impact fuze, and the 1.12.2 port): NTM's random ricochet (doesRicochet, HBRC:
+    // the bolt's 2 in 100; the grenade-like rocket and meteor have none) does not fire there. Else off a block it is NTM's
     @WrapOperation(method = "onImpact", at = @At(value = "FIELD", target = "Lcom/hbm/handler/BulletConfiguration;doesRicochet:Z"))
     private boolean gunfeel$noSurfaceRicochet(BulletConfiguration config, Operation<Boolean> original, @Local(argsOnly = true) MovingObjectPosition mop) {
         EntityBulletBaseNT self = (EntityBulletBaseNT) (Object) this;
-        return original.call(config) && !(WaterTick.covers(self) && WaterTick.surfaceHit(self, mop));
+        return original.call(config) && !(WaterTick.covers(self) && (gunfeel$stopped || WaterTick.surfaceHit(self, mop)));
     }
 
     // a stopped one that goes through creatures (the masked man's bolt, doesPenetrate) no longer does: sinking through
