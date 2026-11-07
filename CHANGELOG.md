@@ -1,5 +1,19 @@
 # Changelog
 
+## X585
+
+- Mob AI, first part: the server works out, from the blocks themselves, where a
+  mob can stand and what covers it in each of eight directions (a wall two high
+  or one high, whether it stops bullets or only hides), and keeps that up to
+  date as blocks are built, broken or blown up. Nothing uses it yet, and it
+  does no work until something asks for it. `/armsai debug [radius]`
+  (operators) shows these cells around you: green for high cover that stops
+  bullets, blue for high cover that only hides (leaves), yellow for low cover,
+  grey for none; the red (stops bullets) and white (only hides) bars mark the
+  covered sides. `/armsai info` tells how much work it does. `aiThreads`
+  (server, 2): the background threads it works on, so the server's own thread
+  is not held up.
+
 ## X584
 
 - `beamRules`: a beam (a gun's, a turret's or a Tesla arc) stopped after

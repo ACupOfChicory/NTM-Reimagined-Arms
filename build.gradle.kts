@@ -307,6 +307,14 @@ neoForge {
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkBoom", layout.buildDirectory.file("boomcheck/result.tsv").get().asFile.path)
         }
+        // the mob AI's tactical map on real blocks (AiMapCheck): ./gradlew runCheckAiMap -PnoAssets
+        register("checkAiMap") {
+            server()
+            gameDirectory = root.resolve("run-aimap")
+            programArgument("--nogui")
+            jvmArgument("-Xmx1200M")
+            systemProperty("ntmgunfeel.checkAiMap", layout.buildDirectory.file("aimapcheck/result.txt").get().asFile.path)
+        }
         // -Ptrace=<file> (relative to the run's folder) or -Ptrace=true: the run writes a trace (Trace.java) to compare
         // with tools/trace_diff.py; -PtraceScenario=<name>, -PtraceHex, -Pseed=<n> go with it
         configureEach {
@@ -379,11 +387,11 @@ val mixinCheck = tasks.register<JavaExec>("mixinCheck") {
 tasks.check { dependsOn(mixinCheck) }
 
 // the dump server needs the EULA accepted in its own folder
-val checkRuns = mapOf("runDumpBlocks" to "run-dump", "runCheckSettings" to "run-check", "runCheckBullets" to "run-bullets", "runCheckWater" to "run-water", "runCheckBoom" to "run-boom")
+val checkRuns = mapOf("runDumpBlocks" to "run-dump", "runCheckSettings" to "run-check", "runCheckBullets" to "run-bullets", "runCheckWater" to "run-water", "runCheckBoom" to "run-boom", "runCheckAiMap" to "run-aimap")
 // Every stand server opens its port before it stops or makes its world, each on one of its own: 25565 is where the real
 // servers are (one running there would leave the stand without a port, the stand would not start). -PserverPort=<n>
 // sets another, 25565 included.
-val checkPorts = mapOf("runCheckBullets" to 25640, "runCheckWater" to 25641, "runCheckBoom" to 25642, "runCheckSettings" to 25643, "runDumpBlocks" to 25644)
+val checkPorts = mapOf("runCheckBullets" to 25640, "runCheckWater" to 25641, "runCheckBoom" to 25642, "runCheckSettings" to 25643, "runDumpBlocks" to 25644, "runCheckAiMap" to 25662)
 tasks.matching { it.name in checkRuns }.configureEach {
     val dir = root.resolve(checkRuns.getValue(name))
     val port = providers.gradleProperty("serverPort").orNull?.takeIf { it.isNotBlank() } ?: checkPorts.getValue(name).toString()
@@ -394,7 +402,7 @@ tasks.matching { it.name in checkRuns }.configureEach {
         dir.resolve("eula.txt").writeText("eula=true\n")
         val properties = dir.resolve("server.properties")
         // the smallest world that still has one: flat, two chunks around, nothing generated on it
-        if (name == "runCheckBullets" || name == "runCheckWater" || name == "runCheckBoom") properties.writeText(
+        if (name == "runCheckBullets" || name == "runCheckWater" || name == "runCheckBoom" || name == "runCheckAiMap") properties.writeText(
             "level-type=minecraft\\:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\n" +
             "spawn-protection=0\nonline-mode=false\nspawn-monsters=false\nspawn-animals=false\nmax-players=1\n" +
             "server-port=$port\n")

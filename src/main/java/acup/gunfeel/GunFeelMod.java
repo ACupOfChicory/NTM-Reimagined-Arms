@@ -37,11 +37,13 @@ public final class GunFeelMod {
             if (Feature.AMMO_CHOICE.on()) AmmoLockKey.register(modBus);
             if (Feature.ARMS.on()) GunEditor.register(modBus);
             acup.gunfeel.smoke.client.SmokeClientSetup.init(modBus);
+            acup.gunfeel.ai.client.AiDebugClient.init();
         }
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.RegisterCommandsEvent.class,
                 e -> {
                     if (Feature.HOLD_AIM.on()) ReaimCommand.register(e.getDispatcher());
                     acup.gunfeel.smoke.SmokeCommand.register(e.getDispatcher());
+                    acup.gunfeel.ai.AiCommand.register(e.getDispatcher());
                 });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class,
                 e -> {
@@ -51,8 +53,19 @@ public final class GunFeelMod {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.LevelTickEvent.Post.class,
                 e -> {
                     ModelHits.tick(e.getLevel());
-                    if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) acup.gunfeel.smoke.SmokeClouds.serverTick(level);
+                    if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
+                        acup.gunfeel.smoke.SmokeClouds.serverTick(level);
+                        acup.gunfeel.ai.TacticalMap.tickLevel(level);
+                        acup.gunfeel.ai.AiDebug.tick(level);
+                    }
                 });
+        // the AI's tactical map: what it copied of a chunk goes with the chunk, comes back with it
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.ChunkEvent.Load.class,
+                e -> acup.gunfeel.ai.AiEvents.chunk(e.getLevel(), e.getChunk(), true));
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.ChunkEvent.Unload.class,
+                e -> acup.gunfeel.ai.AiEvents.chunk(e.getLevel(), e.getChunk(), false));
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStoppedEvent.class,
+                e -> acup.gunfeel.ai.TacticalMap.forgetAll());
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.ChunkWatchEvent.Sent.class,
                 acup.gunfeel.smoke.SmokeNet::watched);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.ChunkWatchEvent.UnWatch.class,
@@ -60,9 +73,13 @@ public final class GunFeelMod {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.LevelEvent.Unload.class,
                 e -> {
                     if (e.getLevel() instanceof net.minecraft.world.level.Level level) acup.gunfeel.smoke.SmokeClouds.forget(level);
+                    if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) acup.gunfeel.ai.TacticalMap.forget(level);
                 });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent.class,
-                e -> acup.gunfeel.smoke.SmokeNet.forget(e.getEntity().getUUID()));
+                e -> {
+                    acup.gunfeel.smoke.SmokeNet.forget(e.getEntity().getUUID());
+                    acup.gunfeel.ai.AiDebug.forget(e.getEntity().getUUID());
+                });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent.class,
                 e -> {
                     if (e.getEntity() instanceof net.minecraft.server.level.ServerPlayer sp) {
@@ -77,6 +94,7 @@ public final class GunFeelMod {
         BulletCheck.registerIfAsked();
         WaterCheck.registerIfAsked();
         ExplosiveCheck.registerIfAsked();
+        acup.gunfeel.ai.AiMapCheck.registerIfAsked();
         TraceHooks.register(dist);
         modBus.addListener(RegisterPayloadHandlersEvent.class, e -> {
             // not optional: the mod is needed on both sides, so NeoForge turns away a client without it from a server
@@ -97,6 +115,8 @@ public final class GunFeelMod {
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC,
                         (p, ctx) -> ctx.enqueueWork(() -> p.handle(ctx.player().level())));
                 acup.gunfeel.smoke.client.SmokeClientSetup.payloads(r);
+                r.playToClient(acup.gunfeel.ai.AiCellsPayload.TYPE, acup.gunfeel.ai.AiCellsPayload.CODEC,
+                        (p, ctx) -> ctx.enqueueWork(() -> acup.gunfeel.ai.client.AiDebugClient.receive(p)));
             } else {
                 r.playToClient(ShotPayload.TYPE, ShotPayload.CODEC);
                 r.playToClient(BulletStopPayload.TYPE,BulletStopPayload.CODEC);
@@ -105,6 +125,7 @@ public final class GunFeelMod {
                 r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC);
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC);
                 acup.gunfeel.smoke.SmokeNet.payloads(r);
+                r.playToClient(acup.gunfeel.ai.AiCellsPayload.TYPE, acup.gunfeel.ai.AiCellsPayload.CODEC);
             }
             r.playToServer(acup.gunfeel.smoke.SmokePayloads.Resync.TYPE, acup.gunfeel.smoke.SmokePayloads.Resync.CODEC, (p, ctx) -> {
                 if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) ctx.enqueueWork(() -> acup.gunfeel.smoke.SmokeNet.resync(sp, p));
