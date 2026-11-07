@@ -1,5 +1,26 @@
 # Changelog
 
+## X588
+
+- `beamWater` (server, on; with `beamRules`): beams lose damage in water and
+  then go out. Every beam and arc `beamRules` covers (the guns', the Tauon and
+  Maxwell turrets', the Tesla arcs) keeps exp(-s / `beamWaterLength`) of its
+  damage after s blocks of water, and is gone where less than `beamWaterFade`
+  is left: it ends there and hits nothing behind. With the defaults (2 and
+  0.1), 1 block of water leaves 0.61 of the damage, 3 blocks 0.22, and a beam
+  is gone after 4.6 blocks. A falling stream counts 0.15 of its path, as for
+  bullets. A turret or a Tesla coil does not see a target its beam would not
+  reach through water. Off: beams go through water untouched, as in NTM.
+- `beamLaserGlass` (server, on; with `beamRules`): lasers go through glass of
+  any kind (vanilla glass and panes, NTM's glass, wired glass, laminate,
+  machine windows) without breaking or wearing it and without losing damage.
+  Lasers are the Laser Pistol, Pew Pew, Laser Rifle, Morning Glory and Lacunae
+  rounds (the infrared ones too), the laser grenade's beams, the Shredder's
+  shells (their burst goes off where the beam stops), and the Maxwell turret.
+  The Tesla Cannon and arcs, Tau, the Tauon turret, the N.I.4.N.I. and the
+  Aberrator still meet glass as bullets do. A Maxwell without damage upgrades
+  now sees and hits through glass.
+
 ## X587
 
 - Lying down on X (TaCZ's crawl): a press lies down, the next gets up
