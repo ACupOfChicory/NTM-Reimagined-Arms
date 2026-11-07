@@ -131,7 +131,7 @@ public final class SmokeClouds {
 
     /**
      * Lets a cloud out at a point (the cell it is in, or the nearest open one), its bomblets fanned along the
-     * direction the grenade flew. What the TX-54 smoke grenade calls on impact. Returns the cloud's id, or -1 when
+     * direction the grenade flew. What the GL-54 smoke grenade calls on impact. Returns the cloud's id, or -1 when
      * nothing came out (smoke off on this server, or the point is shut in).
      *
      * @param scale share of the kind's volume (1 = one grenade)

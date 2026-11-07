@@ -328,3 +328,11 @@ re@ServerLoggerTest.java: Files\.walk\(SRC\) => Stream.concat(Files.walk(SRC.res
 re@MixinLegacyBullet.java: (Entity|LivingEntity);hurtServer\(Lnet/minecraft/server/level/ServerLevel; => $1;hurt(
 re@MixinLegacyBullet.java: (gunfeel\$hurt(?:Again)?\((?:Entity|LivingEntity) target), ServerLevel level, => $1,
 re@MixinLegacyBullet.java: original\.call\(target, level, source, => original.call(target, source,
+# main X581, MixinBeamTauon and MixinBeamTesla: DE's Tauon and Tesla zap hurt with 1.21.1's hurt(DamageSource, float)
+re@MixinBeamTauon.java: Entity;hurtServer\(Lnet/minecraft/server/level/ServerLevel; => Entity;hurt(
+re@MixinBeamTauon.java: gunfeel\$shot\(Entity target, ServerLevel level, => gunfeel\$shot(Entity target,
+re@MixinBeamTauon.java: original\.call\(target, level, source, => original.call(target, source,
+re@MixinBeamTesla.java: LivingEntity;hurtServer\(Lnet/minecraft/server/level/ServerLevel; => LivingEntity;hurt(
+re@MixinBeamTesla.java: gunfeel\$arc\(LivingEntity e, ServerLevel level, => gunfeel\$arc(LivingEntity e,
+re@MixinBeamTesla.java: BeamTurrets\.arcHit\(level, => BeamTurrets.arcHit(e.level(),
+re@MixinBeamTesla.java: original\.call\(e, level, source, => original.call(e, source,

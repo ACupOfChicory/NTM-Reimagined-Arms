@@ -6,7 +6,7 @@ import java.util.List;
  * What a cloud is made of: how it is let out, how it spreads, how long it stays and how it looks. Common code (server
  * and client); the id goes over the network, so a kind keeps its id for good.
  *
- * <p>Only plain smoke now. The gas grenades of TX-54 will add their kinds here (heavier than air: {@code lift} below 0,
+ * <p>Only plain smoke now. The gas grenades of GL-54 will add their kinds here (heavier than air: {@code lift} below 0,
  * {@code rise} below 0; their own colour and opacity); what a gas does to the living is not here, the simulation only
  * carries the concentration.
  *
