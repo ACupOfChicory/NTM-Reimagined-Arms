@@ -164,4 +164,14 @@ class SensesTest {
         m.update(40 + TargetMemory.HABITUATE + 1 + P.search() + 1);
         assertNull(m.noise());
     }
+
+    @Test
+    void aSoundAtOnePlaceIsOldNewsWhereverTheEarPutsIt() {
+        TargetMemory m = new TargetMemory(P);
+        assertTrue(m.heard(10.2, 64, 5.5, 12.9, 64, 3.1, 0, true, false));
+        assertFalse(m.heard(10.6, 64.2, 5.4, 7.8, 64, 8.2, 20, true, false), "made in the same block, heard elsewhere");
+        assertTrue(m.heard(14.5, 64, 5.5, 10.4, 64, 5.4, 25, true, false), "made in another block, heard in the first one");
+        m.quiet();
+        assertNull(m.noise(), "dealt with");
+    }
 }

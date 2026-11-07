@@ -52,6 +52,31 @@ public final class AiCheck {
                 crashed(out, t);
                 check.ok = false;
             }
+            // how the AI takes blocks with models of their own: sandbags and the like hide (and stop bullets), glass does not
+            {
+                StringBuilder b = new StringBuilder("     blocks as the AI takes them (in a row along x):");
+                boolean sandbagsHide = false, glassClear = true;
+                for (String id : List.of("hbm:sandbags", "hbm:barricade", "minecraft:chest", "minecraft:glass", "hbm:reinforced_glass", "minecraft:iron_bars",
+                        "minecraft:oak_fence")) {
+                    var block = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getOptional(net.minecraft.resources.Identifier.parse(id));
+                    if (block.isEmpty()) {
+                        b.append(' ').append(id).append(" (none);");
+                        continue;
+                    }
+                    // a block that joins its neighbours (sandbags, bars, fences) as in a row along x
+                    var st = joined(block.get().defaultBlockState(), true, true, false, false);
+                    int v = BlockClasses.of(st);
+                    var shape = st.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO);
+                    double vol = 0;
+                    for (var box : shape.toAabbs()) vol += box.getXsize() * box.getYsize() * box.getZsize();
+                    b.append(' ').append(id).append(' ').append(BlockClasses.describe(v)).append(String.format(java.util.Locale.ROOT, " (%s, volume %.2f, occludes %s)",
+                            acup.gunfeel.BulletRules.material(st).material(), vol, st.canOcclude())).append(';');
+                    if (id.equals("hbm:sandbags")) sandbagsHide = Voxel.sight(v) && Voxel.protect(v) >= 1;
+                    if (id.contains("glass") || id.contains("bars") || id.contains("fence")) glassClear &= !Voxel.sight(v);
+                }
+                check.out(b.toString());
+                check.check("sandbags in a row hide and stop bullets; glass, bars and fences in a row hide nothing", sandbagsHide && glassClear);
+            }
             // the rest runs with the server ticking
             AiCheckTicks ticks = new AiCheckTicks(check, check.level, Y);
             AiCheckFight fight = new AiCheckFight(check, check.level, Y);
@@ -62,10 +87,12 @@ public final class AiCheck {
             AiCheckTeams teams = new AiCheckTeams(check, check.level, Y);
             AiCheckUnseen unseen = new AiCheckUnseen(check, check.level, Y);
             AiCheckReact react = new AiCheckReact(check, check.level, Y);
-            // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, a player out of creative, a player not expected
-            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "unseen", "react");
+            AiCheckTeams battle = new AiCheckTeams(check, check.level, Y, true);
+            // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, a player out of creative, a player not expected,
+            // the battle as the owner had it
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "unseen", "react", "battle");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
-                    aim::tick, unseen::tick, react::tick);
+                    aim::tick, unseen::tick, react::tick, battle::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
             String only = System.getProperty(STAGE_PROPERTY, "");
             int[] at = {0};
@@ -87,6 +114,19 @@ public final class AiCheck {
                 finish(file, out, check.ok ? 0 : 1);
             });
         });
+    }
+
+
+    /** a block state that joins its neighbours, joined to the east and west, north and south as asked (else as it is) */
+    static net.minecraft.world.level.block.state.BlockState joined(net.minecraft.world.level.block.state.BlockState st, boolean east, boolean west,
+            boolean north, boolean south) {
+        String[] names = {"east", "west", "north", "south"};
+        boolean[] on = {east, west, north, south};
+        for (int i = 0; i < 4; i++) {
+            var prop = st.getBlock().getStateDefinition().getProperty(names[i]);
+            if (prop instanceof net.minecraft.world.level.block.state.properties.BooleanProperty b) st = st.setValue(b, on[i]);
+        }
+        return st;
     }
 
     private static void crashed(List<String> out, Throwable t) {
@@ -328,7 +368,9 @@ public final class AiCheck {
         out.add(String.format(Locale.ROOT, "     search spots: %d picked in %.0f us, %d cells seen and cleared; first %s",
                 spots.length, pickNanos / 1000.0, bot.cleared.size(), spots.length == 0 ? "-" : BlockPos.of(spots[0]).toShortString()));
         check("search spots are hidden from the bot and near the lost place", hidden && near);
-        check("cells in sight were cleared", !bot.cleared.isEmpty());
+        // a wider pick goes through more cells, some in sight (the first six may all be hidden)
+        SearchSpots.pick(map, voxels, eye, c.lostX, c.lostY, c.lostZ, 8, 40, bot.clearedFor(c), mob.getRandom(), 64);
+        check("cells in sight were cleared (" + bot.cleared.size() + ")", !bot.cleared.isEmpty());
 
         // hearing: a blast 40 blocks off is heard about where it was; a step 20 blocks off is not
         bot.memory.update(now += 2000);

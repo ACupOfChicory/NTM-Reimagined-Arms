@@ -222,12 +222,12 @@ final class AiCheckFight {
                 return;
             }
             double moved = soldier.position().distanceTo(holdStart);
-            float want = (float) (Mth.atan2(lostAt.z - soldier.getZ(), lostAt.x - soldier.getX()) * Mth.RAD_TO_DEG) - 90F;
-            float off = Math.abs(Mth.wrapDegrees(want - soldier.getYHeadRot()));
-            check.out(String.format(Locale.ROOT, "     target gone: lost at %.1f %.1f; while it waited it moved %.1f blocks, looks %.0f degrees off that place",
-                    lostAt.x, lostAt.z, moved, off));
-            verdict("waits where it is, watching where the target was last seen", c != null && c.state == TargetMemory.State.LOST
-                    && mind.mode() == AiSoldier.Mode.HOLD && moved < 2.5 && off < 25);
+            double before = Math.hypot(holdStart.x - lostAt.x, holdStart.z - lostAt.z), now = Math.hypot(soldier.getX() - lostAt.x, soldier.getZ() - lostAt.z);
+            check.out(String.format(Locale.ROOT, "     target gone: lost at %.1f %.1f; %d ticks on it is %s, moved %.1f blocks, %.1f from that place (was %.1f)",
+                    lostAt.x, lostAt.z, c == null ? -1 : level.getGameTime() - c.lostTick, mind.mode(), moved, now, before));
+            // it looks out for them once, then goes for where they were last seen (AiSoldier.PUSH_MIN..PUSH_MAX)
+            verdict("out of sight a few seconds after it looked, it goes for where the target was last seen", c != null
+                    && mind.mode() == AiSoldier.Mode.SEARCH && now < before - 1);
             next(Phase.SEARCH);
         }
     }

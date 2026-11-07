@@ -16,7 +16,8 @@ import net.minecraft.world.phys.Vec3;
  * An AI mob lying down, on the same terms as a player (Prone: the server's prone key; on the ground, out of water, not
  * riding): the crawling pose, a crawling player's size (MixinAiProneSize), laid down on the client
  * (MixinAiProneRender), a third of the speed, and the spread Spread gives anyone crawling (spreadCrawl). The mind asks
- * for it each tick it wants it ({@link #want}); getting up takes {@link #RISE} ticks before a shot standing.
+ * for it each tick it wants it ({@link #want}), and only to fire lying or for a long reload; once down it stays down
+ * {@link #MIN_LIE} ticks, unless its mind sends it running; getting up takes {@link #RISE} ticks before a shot standing.
  *
  * <p>It also counts the shots that fly past it ({@link #watchShots}): three within a second pin it down for three.
  */
@@ -25,6 +26,10 @@ public final class AiProne {
     public static final EntityDimensions SIZE = EntityDimensions.scalable(0.6F, 0.6F).withEyeHeight(0.4F);
     /** ticks from getting up to a shot standing */
     static final int RISE = 6;
+    /** once down, it stays down this long at least: no dropping for a moment and up again */
+    static final int MIN_LIE = 60;
+    /** a reload this long or longer is one to lie down for, ticks */
+    static final int LONG_RELOAD = 40;
     /** its walking speed lying, a share of standing */
     static final double CRAWL_SPEED = 0.3;
     /** a shot passing this close to its chest is a near miss, blocks */
@@ -40,8 +45,9 @@ public final class AiProne {
     private final LongArrayFIFOQueue misses = new LongArrayFIFOQueue();
     private final IntOpenHashSet seen = new IntOpenHashSet();
     private long seenSince, pinnedUntil = Long.MIN_VALUE;
-    // for the stands
-    public int downs, nearMisses;
+    /** for the stands: shortLies, up within MIN_LIE of going down, not sent running; briefLies, down less than BRIEF */
+    public int downs, nearMisses, shortLies, briefLies;
+    static final int BRIEF = 40;
 
     AiProne(Mob mob) {
         this.mob = mob;
@@ -56,6 +62,11 @@ public final class AiProne {
         want = true;
     }
 
+    /** down less than MIN_LIE: the mind lets it lie its time out rather than send it off */
+    public boolean fresh(long tick) {
+        return lying() && tick - changed < MIN_LIE;
+    }
+
     /** standing, and up long enough to shoot */
     public boolean upright(long tick) {
         return !lying() && tick - changed >= RISE;
@@ -66,11 +77,19 @@ public final class AiProne {
         return tick < pinnedUntil;
     }
 
-    /** lies down if the mind asked this tick and it may, else gets up where there is room; then the speed */
+    /**
+     * Lies down if the mind asked this tick and it may, else gets up where there is room, but not within MIN_LIE of
+     * going down unless the mind sends it running; then the speed.
+     */
     void tick(ServerLevel level, AiMover mover, long tick) {
-        boolean lie = want && may(mob);
+        // down BRIEF ticks at least whatever the mind wants (it crawls meanwhile), MIN_LIE unless sent running
+        boolean hold = lying() && (tick - changed < BRIEF || tick - changed < MIN_LIE && !mover.wantsRun());
+        // a fresh lie holds while a hit lifts it off the ground a moment
+        boolean lie = want && may(mob) || hold && mob.isAlive() && !mob.isPassenger() && !mob.isInWater();
         want = false;
         if (lie != lying() && (lie || roomToStand(level))) {
+            if (!lie && tick - changed < MIN_LIE && !mover.wantsRun()) shortLies++;
+            if (!lie && tick - changed < BRIEF) briefLies++;
             mob.setPose(lie ? Pose.SWIMMING : Pose.STANDING);
             changed = tick;
             if (lie) downs++;
@@ -88,10 +107,12 @@ public final class AiProne {
     }
 
     /**
-     * Shots in flight round it this tick (not its own, not its own side's, AiTeams): one whose step this tick passes within
-     * NEAR of its chest is a near miss, counted once.
+     * Shots in flight round it this tick (not its own, not its own side's, AiTeams, not a creative or spectating
+     * player's): one whose step this tick passes within NEAR of its chest is a near miss, counted once. Returns who
+     * fired the last new near miss this tick, or null.
      */
-    void watchShots(ServerLevel level, long tick) {
+    @org.jspecify.annotations.Nullable Entity watchShots(ServerLevel level, long tick) {
+        Entity shooter = null;
         if (tick - seenSince > 200) {
             seen.clear();
             seenSince = tick;
@@ -99,7 +120,8 @@ public final class AiProne {
         Vec3 c = mob.position().add(0, mob.getBbHeight() * 0.6, 0);
         for (Projectile p : level.getEntitiesOfClass(Projectile.class, mob.getBoundingBox().inflate(WATCH), Entity::isAlive)) {
             Entity owner = p.getOwner();
-            if (owner == mob || owner instanceof LivingEntity o && AiTeams.own(mob, o)) continue;
+            if (owner == mob || owner instanceof LivingEntity o && AiTeams.own(mob, o)
+                    || owner instanceof net.minecraft.world.entity.player.Player pl && (pl.isCreative() || pl.isSpectator())) continue;
             Vec3 a = p.position(), v = p.getDeltaMovement();
             double vv = v.lengthSqr();
             if (vv < 0.25) continue;
@@ -107,9 +129,11 @@ public final class AiProne {
             if (a.add(v.scale(t)).distanceToSqr(c) < NEAR * NEAR && seen.add(p.getId())) {
                 misses.enqueue(tick);
                 nearMisses++;
+                if (owner != null) shooter = owner;
             }
         }
         while (!misses.isEmpty() && tick - misses.firstLong() > WINDOW) misses.dequeueLong();
         if (misses.size() >= PINNING) pinnedUntil = tick + PINNED;
+        return shooter;
     }
 }

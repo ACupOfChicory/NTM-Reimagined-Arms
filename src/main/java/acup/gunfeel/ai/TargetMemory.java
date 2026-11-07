@@ -85,6 +85,11 @@ public final class TargetMemory {
         return null;
     }
 
+    /** the noise it last heard is dealt with (looked out at, nothing there): it knows of none now */
+    public void quiet() {
+        noise = null;
+    }
+
     public @Nullable Noise noise() {
         return noise;
     }
@@ -185,8 +190,17 @@ public final class TargetMemory {
      * was taken.
      */
     public boolean heard(double x, double y, double z, long tick, boolean loud, boolean hurt) {
+        return heard(x, y, z, x, y, z, tick, loud, hurt);
+    }
+
+    /**
+     * As {@link #heard(double, double, double, long, boolean, boolean)}, the sound made at atX, atY, atZ (its block
+     * is what the mob gets used to: the ear's error must not make a machine at one place new each time) and seeming to
+     * come from x, y, z.
+     */
+    public boolean heard(double atX, double atY, double atZ, double x, double y, double z, long tick, boolean loud, boolean hurt) {
         if (!hurt) {
-            long block = ((long) Math.floor(x) & 0x3FFFFFF) << 38 | ((long) Math.floor(z) & 0x3FFFFFF) << 12 | ((long) Math.floor(y) & 0xFFF);
+            long block = ((long) Math.floor(atX) & 0x3FFFFFF) << 38 | ((long) Math.floor(atZ) & 0x3FFFFFF) << 12 | ((long) Math.floor(atY) & 0xFFF);
             for (int i = 0; i < heardBlocks.length; i++)
                 if (heardBlocks[i] == block && tick - heardTicks[i] < HABITUATE) {
                     heardTicks[i] = tick;

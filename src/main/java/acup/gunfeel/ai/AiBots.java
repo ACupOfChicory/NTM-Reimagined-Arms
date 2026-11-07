@@ -51,6 +51,8 @@ public final class AiBots {
         final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap claims = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
         /** mob id -> its cell */
         final it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap claimOf = new it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap();
+        /** mob id -> the cell beside its cover it steps out to (its peek), if it has one */
+        final it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap peekOf = new it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap();
 
         PerLevel(ServerLevel level) {
             this.level = level;
@@ -105,9 +107,16 @@ public final class AiBots {
 
     /** the mob holds this cover cell now (Long.MIN_VALUE: none); the one it held before is free */
     public static void claim(AiBot bot, long cell) {
+        claim(bot, cell, Long.MIN_VALUE);
+    }
+
+    /** holds a cover cell (none: Long.MIN_VALUE) and the peek beside it */
+    public static void claim(AiBot bot, long cell, long peek) {
         PerLevel l = LEVELS.get((ServerLevel) bot.mob.level());
         if (l == null) return;
         int id = bot.mob.getId();
+        l.peekOf.remove(id);
+        if (cell != Long.MIN_VALUE && peek != Long.MIN_VALUE && peek != cell) l.peekOf.put(id, peek);
         if (l.claimOf.containsKey(id)) {
             long old = l.claimOf.remove(id);
             if (l.claims.get(old) == id) l.claims.remove(old);
@@ -116,6 +125,22 @@ public final class AiBots {
             l.claims.put(cell, id);
             l.claimOf.put(id, cell);
         }
+    }
+
+    /** the cover cells (first) and peeks (second) that the AI mobs on its side hold, not its own */
+    public static long[][] friendsSpots(AiBot bot) {
+        PerLevel l = LEVELS.get((ServerLevel) bot.mob.level());
+        if (l == null) return new long[][] {{}, {}};
+        it.unimi.dsi.fastutil.longs.LongArrayList covers = new it.unimi.dsi.fastutil.longs.LongArrayList(), peeks = new it.unimi.dsi.fastutil.longs.LongArrayList();
+        int self = bot.mob.getId();
+        for (var e : l.claimOf.int2LongEntrySet()) {
+            int id = e.getIntKey();
+            AiBot other = id == self ? null : l.bots.get(id);
+            if (other == null || !AiTeams.own(bot.mob, other.mob)) continue;
+            covers.add(e.getLongValue());
+            if (l.peekOf.containsKey(id)) peeks.add(l.peekOf.get(id));
+        }
+        return new long[][] {covers.toLongArray(), peeks.toLongArray()};
     }
 
     /** cells another mob holds */
@@ -190,6 +215,7 @@ public final class AiBots {
     }
 
     private static void claimGone(PerLevel l, int id) {
+        l.peekOf.remove(id);
         if (!l.claimOf.containsKey(id)) return;
         long cell = l.claimOf.remove(id);
         if (l.claims.get(cell) == id) l.claims.remove(cell);
@@ -208,6 +234,9 @@ public final class AiBots {
         TacticalMap map = TacticalMap.of(level);
         if ((tick + bot.mob.getId()) % 40 == 0) map.want(bot.mob.getBlockX(), bot.mob.getBlockY(), bot.mob.getBlockZ(), WANT_RADIUS, 8);
         bot.tick(l.voxels, SmokeClouds.get(level), targets(l, tick), tick);
+        // a shot that flies close past it is one at it: as a hit, from where it was fired
+        Entity shooter = bot.prone.watchShots(level, tick);
+        if (shooter != null) hear(bot, shooter.getX(), shooter.getY(), shooter.getZ(), shooter.distanceTo(bot.mob), tick, true, true, 0.15, 2);
         if (bot.brain != null) bot.brain.tick(bot, tick);
         bot.prone.tick(level, bot.mover, tick);
         bot.mover.hold(bot.gunner.steady());
@@ -223,6 +252,9 @@ public final class AiBots {
     }
 
     // ------------------------------------------------------------------ hearing
+
+    /** a shot's sound this near one in flight (it lands, it ricochets) is its shooter's, blocks */
+    static final double SHOT_SOUND = 3;
 
     public static void sound(ServerLevel level, double x, double y, double z, Holder<SoundEvent> sound, SoundSource source, float volume) {
         PerLevel l = LEVELS.get(level);
@@ -251,10 +283,39 @@ public final class AiBots {
                 break;
             }
         }
+        // a player's own sound (steps, shots): no news to the AI mobs of its team
+        Player fromPlayer = null;
+        if (from == null) for (Player p : level.players()) {
+            if (p.isSpectator() || !p.isAlive()) continue;
+            double dx = p.getX() - x, dy = p.getY() + 1 - y, dz = p.getZ() - z;
+            if (dx * dx + dy * dy + dz * dz < UNSEEN_SOUND * UNSEEN_SOUND) {
+                fromPlayer = p;
+                break;
+            }
+        }
+        // a shot landing (no mob or player by it): the one who fired it made it; a creative or spectating player's
+        // goes unheard, an AI mob's is heard by those that fight it, a player's is no news to its team
+        if (from == null && fromPlayer == null) {
+            Entity shooter = null;
+            double best = SHOT_SOUND * SHOT_SOUND;
+            for (net.minecraft.world.entity.projectile.Projectile pr : level.getEntitiesOfClass(net.minecraft.world.entity.projectile.Projectile.class,
+                    new net.minecraft.world.phys.AABB(x - SHOT_SOUND, y - SHOT_SOUND, z - SHOT_SOUND, x + SHOT_SOUND, y + SHOT_SOUND, z + SHOT_SOUND))) {
+                double d = pr.distanceToSqr(x, y, z);
+                if (pr.getOwner() != null && d < best) {
+                    best = d;
+                    shooter = pr.getOwner();
+                }
+            }
+            if (shooter instanceof Player p && (p.isCreative() || p.isSpectator())) return;
+            if (shooter instanceof Player p) fromPlayer = p;
+            else if (shooter instanceof Mob m) from = l.bots.get(m.getId());
+        }
         long tick = level.getGameTime();
         boolean loud = range >= LOUD;
+        if (soundTrace != null) soundTrace.accept(level, new SoundSeen(sound.value().location().toString(), x, y, z, volume, range, loud, from != null, fromPlayer != null));
         for (AiBot b : l.bots.values()) {
             if (from != null && !AiTeams.enemy(b.mob, from.mob)) continue;
+            if (fromPlayer != null && AiTeams.own(b.mob, fromPlayer)) continue;
             double reach = range * b.profile.hearing();
             double dx = b.mob.getX() - x, dy = b.mob.getY() - y, dz = b.mob.getZ() - z;
             double d2 = dx * dx + dy * dy + dz * dz;
@@ -262,6 +323,13 @@ public final class AiBots {
             hear(b, x, y, z, Math.sqrt(d2), tick, loud, false, 0.08, 1);
         }
     }
+
+    /** the stands: a sound that reached the AI (its name, where, how loud, whether a mob or a player made it) */
+    record SoundSeen(String name, double x, double y, double z, float volume, double range, boolean loud, boolean ofMob, boolean ofPlayer) {
+    }
+
+    /** the stands: every sound that reaches the AI, or null */
+    static java.util.function.@org.jspecify.annotations.Nullable BiConsumer<ServerLevel, SoundSeen> soundTrace;
 
     /** hits one AI mob took from another (the stands) */
     public static int friendlyHits;
@@ -316,7 +384,7 @@ public final class AiBots {
     static void hear(AiBot b, double x, double y, double z, double distance, long tick, boolean loud, boolean hurt, double error, double min) {
         double sigma = Math.max(min, error * distance);
         var rng = b.mob.getRandom();
-        b.memory.heard(x + rng.nextGaussian() * sigma, y + rng.nextGaussian() * Math.min(sigma, 2), z + rng.nextGaussian() * sigma,
+        b.memory.heard(x, y, z, x + rng.nextGaussian() * sigma, y + rng.nextGaussian() * Math.min(sigma, 2), z + rng.nextGaussian() * sigma,
                 tick, loud, hurt);
     }
 }

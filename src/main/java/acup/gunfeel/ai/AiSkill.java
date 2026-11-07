@@ -18,12 +18,15 @@ import java.util.Locale;
  * @param turn   the most it turns a tick, degrees
  * @param notice ticks a target must stay in sight close up and straight ahead before it is noticed
  * @param rhythm whether it reads a strafe's steady rhythm (a person who has watched a few swings)
+ * @param answerNear a target met this near (blocks), or one that looks at it, it answers with a burst where it stands
+ *                   before it goes to cover (a soldier's answer to a contact); further off it goes to cover first
+ * @param answerBurst that burst's ticks, about (a third either way)
  */
 public record AiSkill(String name, int lag, int period, float share, float floor, float gate, float absorb, float turn, int notice,
-        boolean rhythm) {
-    public static final AiSkill RECRUIT = new AiSkill("recruit", 4, 6, 0.30F, 0.30F, 1.5F, 0F, 20F, 10, false);
-    public static final AiSkill REGULAR = new AiSkill("regular", 3, 4, 0.20F, 0.15F, 1.0F, 0.3F, 30F, 8, true);
-    public static final AiSkill VETERAN = new AiSkill("veteran", 2, 2, 0.12F, 0.08F, 0.8F, 0.6F, 30F, 6, true);
+        boolean rhythm, double answerNear, int answerBurst) {
+    public static final AiSkill RECRUIT = new AiSkill("recruit", 4, 6, 0.30F, 0.30F, 1.5F, 0F, 20F, 10, false, 8, 8);
+    public static final AiSkill REGULAR = new AiSkill("regular", 3, 4, 0.20F, 0.15F, 1.0F, 0.3F, 30F, 8, true, 12, 11);
+    public static final AiSkill VETERAN = new AiSkill("veteran", 2, 2, 0.12F, 0.08F, 0.8F, 0.6F, 30F, 6, true, 15, 15);
     public static final String KEY = "aiSkill";
 
     public static AiSkill of(String name) {
