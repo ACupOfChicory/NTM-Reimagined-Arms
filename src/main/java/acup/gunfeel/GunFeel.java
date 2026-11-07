@@ -59,6 +59,10 @@ public final class GunFeel {
             acup.gunfeel.water.WaterFx.init();
             // a blast at water (WaterBlast, from the server): bubbles and a push under water, a column on the surface
             acup.gunfeel.water.WaterEvents.listenBlasts(acup.gunfeel.water.WaterFx::blastAt);
+            // a grenade or rocket shot under water: its gas bubble
+            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class, e -> {
+                if (e.getLevel().isClientSide()) acup.gunfeel.water.WaterFx.joined(e.getLevel(), e.getEntity());
+            });
         }
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent.class, e -> {
             if (Feature.TRACERS.on()) Tracers.submit(e);

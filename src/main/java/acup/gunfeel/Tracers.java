@@ -501,6 +501,22 @@ public final class Tracers {
         probed = new int[] {dark, light};
     }
 
+    // true when a shot of this round comes here from the server and starts a tracer of ours (handle): fast enough for
+    // the server to tell (MixinBulletServer), and drawn as a plain tracer or followed for its holes
+    public static boolean traced(BulletConfig config) {
+        return config.velocity >= 5F && (colors(config) != NONE || ExplosiveAmmo.shell(config));
+    }
+
+    // the muzzle of the gun in this player's hands, in the world, while it is drawn in first person (in the last half
+    // second), or null
+    public static @org.jspecify.annotations.Nullable Vec3 drawnMuzzle() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || GunClock.nanos() - muzzleTime >= 500_000_000L || !mc.options.getCameraType().isFirstPerson()) return null;
+        Camera camera = mc.gameRenderer.mainCamera();
+        Vector3f w = camera.rotation().transform(new Vector3f(MUZZLE));
+        return camera.position().add(w.x, w.y, w.z);
+    }
+
     // true when this bullet type's tracer is drawn here instead of by NTM
     public static boolean replaces(BulletConfig config) {
         return serverAnnounces && Config.tracers && config != null && config.velocity >= 5F && colors(config) != NONE;
@@ -550,13 +566,12 @@ public final class Tracers {
         Shot s = new Shot(p, config, c);
         Minecraft mc = Minecraft.getInstance();
         // the player's own shot leaves the muzzle drawn in their hands
-        if (mc.player != null && p.owner() == mc.player.getId() && GunClock.nanos() - muzzleTime < 500_000_000L && mc.options.getCameraType().isFirstPerson()) {
-            Camera camera = mc.gameRenderer.mainCamera();
-            Vector3f w = camera.rotation().transform(new Vector3f(MUZZLE));
-            Vec3 muzzle = camera.position().add(w.x, w.y, w.z);
+        Vec3 muzzle = mc.player != null && p.owner() == mc.player.getId() ? drawnMuzzle() : null;
+        if (muzzle != null) {
             s.muzzleOffset = muzzle.subtract(s.start);
             if (s.muzzleOffset.lengthSqr() > 9.0) s.muzzleOffset = Vec3.ZERO;
             if (GunFeel.LOGGER.isDebugEnabled()) {
+                Camera camera = mc.gameRenderer.mainCamera();
                 // both points in view space (x right, y up, -z forward), for debug.log
                 Vector3f st = new Vector3f((float) (s.start.x - camera.position().x), (float) (s.start.y - camera.position().y), (float) (s.start.z - camera.position().z));
                 camera.rotation().conjugate(new org.joml.Quaternionf()).transform(st);

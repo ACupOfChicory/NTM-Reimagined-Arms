@@ -8,6 +8,9 @@
 - An error while drawing the rounds in water or on the bottom is written to the
   log once and turns them off until the world is left. Before, it could crash
   the game.
+- A grenade, rocket or mortar shell fired under water now leaves a gas bubble
+  at the muzzle, as a bullet does. Before, it had no bubble and, as under water
+  the muzzle flash is hidden, nothing showed the shot.
 
 ## X560
 

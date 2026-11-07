@@ -291,8 +291,39 @@ final class WaterFxStand {
                             + String.format("%.3f", WaterFx.worstBelow));
                     check(WaterFx.below == 0 && WaterFx.overAir == 0, "ни одна частица не ниже поверхности на 0.15 и не над воздухом");
                     WaterFx.audit = false;
-                    ClientSmoke.finish();
-                    step = 99;
+                    shots = 0;
+                    next();
+                }
+                // a grenade and a rocket shot from under water, straight up: NTM's own entity, no tracer of ours, one gas
+                // bubble each (WaterFx.joined). Last, as they might go off: taken off the server after two ticks
+                case 27, 28 -> {
+                    String ammo = step == 27 ? "g40_he" : "rocket_he";
+                    if (shots == 0) {
+                        before = WaterFx.SPAWNED.clone();
+                        shots = 1;
+                        BulletConfig c = config(ammo);
+                        server.submit(() -> {
+                            sent = ntmShot(server.overworld(), c, new Vec3(STILL + 1.5, Y - 1.5, 0.5), new Vec3(0, 1, 0));
+                        }).join();
+                        return;
+                    }
+                    if (shots == 1 && elapsed() > 0.1) {
+                        shots = 2;
+                        EntityBulletBaseMK4 b = sent;
+                        server.execute(() -> {
+                            if (b != null && !b.isRemoved()) b.discard();
+                        });
+                    }
+                    if (elapsed() < 3) return;
+                    int gas = WaterFx.SPAWNED[WaterParticle.Kind.GAS.ordinal()] - before[WaterParticle.Kind.GAS.ordinal()];
+                    line("from under water " + ammo + " (speed " + config(ammo).velocity + ", traced " + Tracers.traced(config(ammo)) + "): gas bubbles " + gas
+                            + ", per shot: " + perShot(1));
+                    check(gas == 1, "одна газовая каверна у " + ammo + " из-под воды");
+                    shots = 0;
+                    if (step == 28) {
+                        ClientSmoke.finish();
+                        step = 99;
+                    } else next();
                 }
                 default -> {
                 }
@@ -638,6 +669,20 @@ final class WaterFxStand {
             int n = Math.max(1, c.projectilesMax);
             for (int i = 0; i < n; i++) spawn(server.overworld(), c, from, dir);
         });
+    }
+
+    private static @org.jspecify.annotations.Nullable EntityBulletBaseMK4 sent;
+
+    // a round as NTM's gun shoots it: a motion of length 1, the speed NTM's motionMult
+    private static EntityBulletBaseMK4 ntmShot(ServerLevel level, BulletConfig c, Vec3 from, Vec3 dir) {
+        EntityBulletBaseMK4 b = new EntityBulletBaseMK4(level, c, 10F, 0F, 0F, 0F);
+        var player = level.getServer().getPlayerList().getPlayers().getFirst();
+        b.setThrower(player);
+        b.setOwner(player);
+        b.setPos(from.x, from.y, from.z);
+        b.setThrowableHeading(dir.x, dir.y, dir.z, 1F, 0F);
+        level.addFreshEntity(b);
+        return b;
     }
 
     private static void spawn(ServerLevel level, BulletConfig c, Vec3 from, Vec3 dir) {
