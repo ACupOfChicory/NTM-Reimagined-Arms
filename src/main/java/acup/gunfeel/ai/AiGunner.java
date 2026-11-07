@@ -25,6 +25,10 @@ public final class AiGunner {
     static final float TURN = 30F;
     /** close enough to the aim to pull the trigger, degrees */
     static final float ALIGNED = 4F;
+    /** the cone kept clear of other AI mobs before a shot (the gun's spread and the aim's error), degrees */
+    static final double CLEAR_CONE = 3.0;
+    /** whether it holds fire with another AI mob in the line (off only for the stands' "before") */
+    static boolean checkLine = true;
 
     private final Mob mob;
     public final AiAmmo ammo;
@@ -33,6 +37,8 @@ public final class AiGunner {
     private float errYaw, errPitch;
     /** shots let go (trigger pulls), for the stands */
     public int pulls;
+    /** ticks in a row it would have shot but another AI mob was in the line; ticks of that in all (the stands) */
+    public int blockedTicks, holds;
 
     AiGunner(Mob mob, AiAmmo ammo) {
         this.mob = mob;
@@ -135,6 +141,12 @@ public final class AiGunner {
         }
         if (state == ItemGunBaseNT.GunState.RELOADING) wantReload = false;
         boolean shoot = wantFire && aim != null && aligned && loaded != 0;
+        if (shoot && checkLine && AiBots.friendInLine(level, mob, mob.getEyePosition(), aim, CLEAR_CONE)) {
+            // one of its own between it and the target: it holds fire
+            shoot = false;
+            blockedTicks++;
+            holds++;
+        } else if (shoot || !wantFire) blockedTicks = 0;
         if (shoot) {
             if (!held) {
                 key(gun, stack, EnumKeybind.GUN_PRIMARY, true);

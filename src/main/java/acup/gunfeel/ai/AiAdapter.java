@@ -37,6 +37,7 @@ public final class AiAdapter {
         if (!has) goals.addGoal(1, new AiGoal(bot));
         ((AiNavigation) mob.getNavigation()).gunfeel$setAiOwned(true);
         mob.setTarget(null);
+        if (bot.brain == null) bot.brain = new AiSoldier();
         int kept = mob.getPersistentData().getIntOr(AMMO_KEY, Integer.MIN_VALUE);
         if (kept != Integer.MIN_VALUE) {
             if (kept == AiAmmo.INFINITE) bot.gunner.ammo.setInfinite();

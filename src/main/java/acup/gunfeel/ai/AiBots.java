@@ -45,6 +45,10 @@ public final class AiBots {
         final List<LivingEntity> targets = new ArrayList<>();
         long targetsTick = Long.MIN_VALUE;
         final LiveVoxels voxels;
+        /** cover cells held: cell -> the mob's id */
+        final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap claims = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+        /** mob id -> its cell */
+        final it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap claimOf = new it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap();
 
         PerLevel(ServerLevel level) {
             this.level = level;
@@ -75,7 +79,9 @@ public final class AiBots {
     public static void detach(Mob mob) {
         if (!(mob.level() instanceof ServerLevel level)) return;
         PerLevel l = LEVELS.get(level);
-        if (l != null) l.bots.remove(mob.getId());
+        if (l == null) return;
+        l.bots.remove(mob.getId());
+        claimGone(l, mob.getId());
     }
 
     public static int count(ServerLevel level) {
@@ -93,6 +99,28 @@ public final class AiBots {
         PerLevel l = LEVELS.get((ServerLevel) bot.mob.level());
         if (l == null) return;
         bot.tick(l.voxels, SmokeClouds.get(l.level), targets(l, tick), tick);
+    }
+
+    /** the mob holds this cover cell now (Long.MIN_VALUE: none); the one it held before is free */
+    public static void claim(AiBot bot, long cell) {
+        PerLevel l = LEVELS.get((ServerLevel) bot.mob.level());
+        if (l == null) return;
+        int id = bot.mob.getId();
+        if (l.claimOf.containsKey(id)) {
+            long old = l.claimOf.remove(id);
+            if (l.claims.get(old) == id) l.claims.remove(old);
+        }
+        if (cell != Long.MIN_VALUE) {
+            l.claims.put(cell, id);
+            l.claimOf.put(id, cell);
+        }
+    }
+
+    /** cells another mob holds */
+    public static java.util.function.LongPredicate heldByOthers(AiBot bot) {
+        PerLevel l = LEVELS.get((ServerLevel) bot.mob.level());
+        int id = bot.mob.getId();
+        return l == null ? k -> false : k -> l.claims.containsKey(k) && l.claims.get(k) != id;
     }
 
     public static VoxelRay.Source voxels(ServerLevel level) {
@@ -120,6 +148,7 @@ public final class AiBots {
         PerLevel l = LEVELS.get(level);
         if (l == null || l.bots.isEmpty()) return;
         if (level.getGameTime() % 20 != 0) return;
+        for (AiBot b : l.bots.values()) if (b.mob.isRemoved()) claimGone(l, b.mob.getId());
         l.bots.values().removeIf(b -> b.mob.isRemoved());
         double r = radius(), r2 = r * r;
         for (AiBot b : l.bots.values()) {
@@ -148,6 +177,12 @@ public final class AiBots {
             }
             b.active = near;
         }
+    }
+
+    private static void claimGone(PerLevel l, int id) {
+        if (!l.claimOf.containsKey(id)) return;
+        long cell = l.claimOf.remove(id);
+        if (l.claims.get(cell) == id) l.claims.remove(cell);
     }
 
     public static double radius() {
@@ -203,11 +238,42 @@ public final class AiBots {
         }
     }
 
-    /** a hit tells where it came from, roughly */
+    /** hits one AI mob took from another (the stands) */
+    public static int friendlyHits;
+
+    /**
+     * Another AI mob in the line from from to to, or a little past it: its box, grown by the cone's width where it
+     * stands (plus 0.3), crosses the line. The line of fire a shot keeps clear.
+     */
+    static boolean friendInLine(ServerLevel level, Mob shooter, Vec3 from, Vec3 to, double coneDegrees) {
+        PerLevel l = LEVELS.get(level);
+        if (l == null) return false;
+        Vec3 d = to.subtract(from);
+        double len = d.length();
+        if (len < 1e-3) return false;
+        Vec3 u = d.scale(1 / len), end = to.add(u);
+        double tan = Math.tan(Math.toRadians(coneDegrees));
+        for (AiBot b : l.bots.values()) {
+            Mob m = b.mob;
+            if (m == shooter || m.isRemoved() || !m.isAlive()) continue;
+            net.minecraft.world.phys.AABB box = m.getBoundingBox();
+            double t = box.getCenter().subtract(from).dot(u);
+            if (t <= 0 || t > len + 1) continue;
+            net.minecraft.world.phys.AABB grown = box.inflate(0.3 + t * tan);
+            if (grown.contains(from) || grown.clip(from, end).isPresent()) return true;
+        }
+        return false;
+    }
+
+    /** a hit tells where it came from, roughly; one from another AI mob is no threat */
     public static void hurt(Mob mob, DamageSource source) {
         AiBot b = get(mob);
         if (b == null) return;
         Entity from = source.getEntity();
+        if (from instanceof Mob m && m != mob && get(m) != null) {
+            friendlyHits++;
+            return;
+        }
         Vec3 at = from != null ? from.position() : source.getSourcePosition();
         if (at == null) return;
         hear(b, at.x, at.y, at.z, at.distanceTo(mob.position()), mob.level().getGameTime(), true, true, 0.15, 2);

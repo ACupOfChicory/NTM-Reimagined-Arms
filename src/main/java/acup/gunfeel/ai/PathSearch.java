@@ -28,6 +28,11 @@ public final class PathSearch {
     public interface Cost {
         float extra(int x, int y, int z);
 
+        /** the cost one search uses (one that keeps a cache gives each search its own) */
+        default Cost forSearch() {
+            return this;
+        }
+
         Cost NONE = (x, y, z) -> 0F;
     }
 
@@ -144,6 +149,7 @@ public final class PathSearch {
      */
     public static Result find(CellSource src, long start, long goal, double goalRadius, int maxNodes, Cost cost) {
         long t0 = System.nanoTime();
+        cost = cost.forSearch();
         Reader r = new Reader(src);
         int gx = BlockPos.getX(goal), gy = BlockPos.getY(goal), gz = BlockPos.getZ(goal);
         double r2 = goalRadius * goalRadius;

@@ -32,6 +32,11 @@ public final class AiMover {
     private double radius;
     private double speed = 1.0;
     private int tries;
+    /** in the goal's cell since (the last steps, straight to its middle), and there long enough to count as arrived */
+    private long inCellSince = Long.MIN_VALUE;
+    private boolean settled;
+    /** how long the last steps may take before the mob counts as there all the same (another mob in the way) */
+    static final int SETTLE = 40;
     /** a search's answer, with the goal count it was asked for */
     private record Answer(int gen, PathSearch.Result result) {
     }
@@ -58,6 +63,8 @@ public final class AiMover {
         goal = cell;
         this.radius = radius;
         tries = 0;
+        inCellSince = Long.MIN_VALUE;
+        settled = false;
         walking = null;
         searching = false;
         gen++;
@@ -69,6 +76,8 @@ public final class AiMover {
 
     public void stop() {
         goal = Long.MIN_VALUE;
+        inCellSince = Long.MIN_VALUE;
+        settled = false;
         walking = null;
         searching = false;
         gen++;
@@ -91,11 +100,20 @@ public final class AiMover {
         return goal;
     }
 
-    /** at the goal: within its radius across and a block up or down */
+    /**
+     * At the goal: within its radius across (a quarter block at least) and a block up or down. Vanilla's walk ends up to
+     * 0.45 off a cell's middle, so the last steps go straight there ({@link #tick}): a peek a block aside from cover is
+     * out of it only at the middle. Kept from the middle that long ({@link #SETTLE}), in the cell counts.
+     */
     public boolean arrived() {
-        if (goal == Long.MIN_VALUE) return false;
+        if (goal == Long.MIN_VALUE || Math.abs(mob.getY() - BlockPos.getY(goal)) > 1.2) return false;
         double dx = mob.getX() - (BlockPos.getX(goal) + 0.5), dz = mob.getZ() - (BlockPos.getZ(goal) + 0.5);
-        return dx * dx + dz * dz <= Math.max(radius, 0.7) * Math.max(radius, 0.7) && Math.abs(mob.getY() - BlockPos.getY(goal)) <= 1.2;
+        double r = Math.max(radius, 0.25);
+        return dx * dx + dz * dz <= r * r || settled && inGoalCell();
+    }
+
+    private boolean inGoalCell() {
+        return mob.getBlockX() == BlockPos.getX(goal) && mob.getBlockZ() == BlockPos.getZ(goal) && Math.abs(mob.getY() - BlockPos.getY(goal)) <= 1.2;
     }
 
     /** the goal could not be reached after a few tries */
@@ -104,6 +122,14 @@ public final class AiMover {
     }
 
     /** the cells of the path being walked, or none */
+    /** for the stands' traces */
+    public String state() {
+        PathSearch.Result w = walking;
+        return (goal == Long.MIN_VALUE ? "-" : BlockPos.of(goal).toShortString()) + (searching ? " searching" : "") + " walk "
+                + (w == null ? "-" : w.cells.length + (w.reached ? "" : "?")) + (mob.getNavigation().isDone() ? " done" : "") + " tries " + tries
+                + " s" + searches;
+    }
+
     public long[] path() {
         PathSearch.Result w = walking;
         return w == null ? new long[0] : w.cells;
@@ -116,6 +142,16 @@ public final class AiMover {
             walking = null;
             return;
         }
+        if (inGoalCell()) {
+            // the last steps: straight to the cell's middle
+            mob.getNavigation().stop();
+            walking = null;
+            if (inCellSince == Long.MIN_VALUE) inCellSince = tick;
+            if (tick - inCellSince > SETTLE) settled = true;
+            mob.getMoveControl().setWantedPosition(BlockPos.getX(goal) + 0.5, mob.getY(), BlockPos.getZ(goal) + 0.5, speed);
+            return;
+        }
+        inCellSince = Long.MIN_VALUE;
         Answer a = answer;
         if (a != null) answer = null;
         if (a != null && a.gen == gen && searching) {

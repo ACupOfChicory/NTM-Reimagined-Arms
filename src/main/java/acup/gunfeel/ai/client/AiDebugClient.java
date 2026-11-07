@@ -26,7 +26,10 @@ public final class AiDebugClient {
     private static @Nullable AiCellsPayload cells;
 
     public static void init() {
-        NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, e -> draw());
+        NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, e -> {
+            draw();
+            AiBotsClient.draw();
+        });
     }
 
     public static void receive(AiCellsPayload p) {

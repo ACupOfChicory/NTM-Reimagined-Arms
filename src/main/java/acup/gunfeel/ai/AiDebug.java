@@ -25,6 +25,7 @@ public final class AiDebug {
     public static boolean toggle(ServerPlayer player, int radius) {
         if (WATCHERS.remove(player.getUUID()) != null) {
             PacketDistributor.sendToPlayer(player, new AiCellsPayload(player.blockPosition(), new byte[0], new int[0], new byte[0]));
+            PacketDistributor.sendToPlayer(player, new AiBotsPayload(java.util.List.of()));
             return false;
         }
         WATCHERS.put(player.getUUID(), radius);
@@ -44,7 +45,23 @@ public final class AiDebug {
             BlockPos at = p.blockPosition();
             map.want(at.getX(), at.getY(), at.getZ(), radius + 16, HEIGHT + 16);
             PacketDistributor.sendToPlayer(p, cells(map, at, radius));
+            PacketDistributor.sendToPlayer(p, bots(level, at, radius + 32));
         }
+    }
+
+    static AiBotsPayload bots(ServerLevel level, BlockPos at, int radius) {
+        java.util.List<AiBotsPayload.Bot> out = new java.util.ArrayList<>();
+        for (AiBot b : AiBots.all(level)) {
+            if (out.size() >= AiBotsPayload.LIMIT) break;
+            if (b.mob.blockPosition().distManhattan(at) > radius * 2) continue;
+            String text = b.active() ? (b.brain instanceof AiSoldier s ? s.describe(b) : "driven") : "asleep";
+            net.minecraft.world.phys.Vec3 w = b.brain instanceof AiSoldier s ? s.watch() : null;
+            CoverQuery.Spot spot = b.brain instanceof AiSoldier s ? s.spot() : null;
+            out.add(new AiBotsPayload.Bot(b.mob.getId(), text, w == null ? Double.NaN : w.x, w == null ? Double.NaN : w.y,
+                    w == null ? Double.NaN : w.z, spot == null ? Long.MIN_VALUE : spot.cell(), spot == null ? Long.MIN_VALUE : spot.peek(),
+                    b.mover.path()));
+        }
+        return new AiBotsPayload(out);
     }
 
     static AiCellsPayload cells(TacticalMap map, BlockPos at, int radius) {

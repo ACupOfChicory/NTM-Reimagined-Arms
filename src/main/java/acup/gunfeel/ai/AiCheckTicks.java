@@ -6,7 +6,6 @@ import java.util.Locale;
 import acup.gunfeel.mixin.mc.MobGoalsAccess;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -96,6 +95,8 @@ final class AiCheckTicks {
         check.check("the dummy is an AI mob with its one goal", bot != null && goals(walker, AiGoal.class) == 1);
         AiAdapter.adapt(walker);
         AiAdapter.adapt(walker);
+        // driven by hand here: no mind of its own
+        if (bot != null) bot.brain = null;
         check.check("taken over again: still one goal", goals(walker, AiGoal.class) == 1);
         check.check("its navigation keeps the AI's paths when blocks change",
                 ((AiNavigation) walker.getNavigation()).gunfeel$aiOwned() && !walker.getNavigation().shouldRecomputePath(new BlockPos(15, y, 24)));
@@ -108,6 +109,7 @@ final class AiCheckTicks {
         List<Mob> agents = AiSpawn.spawn(level, new Vec3(30.5, y, 12.5), AiSpawn.Kind.FBI, 1, null);
         if (!agents.isEmpty()) {
             fbi = agents.get(0);
+            if (AiBots.get(fbi) != null) AiBots.get(fbi).brain = null;
             check.check("and no goal of its own picks a target", ((MobGoalsAccess) fbi).gunfeel$targets().getAvailableGoals().isEmpty());
             check.check("it holds an NTM gun, loaded", AiBots.get(fbi) != null && AiBots.get(fbi).gunner.gun() != null
                     && AiBots.get(fbi).gunner.loaded() == AiBots.get(fbi).gunner.capacity());
@@ -240,7 +242,8 @@ final class AiCheckTicks {
             if (fbi != null) check.check("the FBI agent picked no target of its own", fbi.getTarget() == null);
             check.out(String.format(Locale.ROOT, "     path searches: %d, %d failed; %d server ticks in all", bot.mover.searches,
                     bot.mover.failures, total));
-            walker.setItemSlot(EquipmentSlot.MAINHAND, net.minecraft.world.item.ItemStack.EMPTY);
+            walker.discard();
+            if (fbi != null) fbi.discard();
             next(Phase.DONE);
         }
     }

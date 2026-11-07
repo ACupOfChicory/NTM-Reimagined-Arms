@@ -1,5 +1,19 @@
 # Changelog
 
+## X588
+
+- Mob AI, fourth part: AI mobs fight. One that sees you gets into cover from
+  you (a spot your eyes do not reach, run to by a way that keeps out of your
+  sight where it can), steps out to its side for a burst and back in; over
+  low cover it fires standing. It reloads in cover. Its cover seen into (you
+  went round it), or a hit from where it does not look, sends it to other
+  cover. It holds fire while another AI mob is in its line of fire, and moves
+  when that lasts; a hit from another AI mob is no alarm. Out of sight, you
+  are not followed: it waits watching where you were last seen, then searches
+  round that place, slowly. Mobs brought in by `/armsai spawn` (or tagged
+  `armsai`) have this mind; `/armsai debug` now shows over each what it does
+  and its rounds, where it looks, its path and its cover.
+
 ## X587
 
 - Mob AI, third part: AI mobs can be brought in, and they walk and shoot.
