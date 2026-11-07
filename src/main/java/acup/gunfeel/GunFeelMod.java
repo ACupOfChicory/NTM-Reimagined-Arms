@@ -42,7 +42,6 @@ public final class GunFeelMod {
         }
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.RegisterCommandsEvent.class,
                 e -> {
-                    if (Feature.HOLD_AIM.on()) ReaimCommand.register(e.getDispatcher());
                     acup.gunfeel.smoke.SmokeCommand.register(e.getDispatcher());
                     acup.gunfeel.ai.AiCommand.register(e.getDispatcher());
                 });
@@ -151,7 +150,9 @@ public final class GunFeelMod {
             r.playToServer(ModelPosePayload.TYPE, ModelPosePayload.CODEC, (p, ctx) -> {
                 if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) ModelHits.receive(sp, p);
             });
-            r.playToServer(ModelMeshPayload.TYPE, ModelMeshPayload.CODEC, (p, ctx) -> p.receive());
+            r.playToServer(ModelMeshPayload.TYPE, ModelMeshPayload.CODEC, (p, ctx) -> {
+                if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) p.receive(sp.getUUID());
+            });
             r.playToServer(TestLogPayload.TYPE, TestLogPayload.CODEC, (p, ctx) -> {
                 if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) TestLogPayload.handle(sp, p);
             });

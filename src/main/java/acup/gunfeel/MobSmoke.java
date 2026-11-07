@@ -276,6 +276,7 @@ public final class MobSmoke {
             LivingEntity target=(LivingEntity)mc.level.getEntity(id);
             if(target==null) { check(false,"цель пропала"); stage=0; return; }
             rays(target,client,CASES.get(index)+": клиент, видимый");
+            if(ArmorFloatStand.wanted(MobCatalog.variants(CASES.get(index)))) ArmorFloatStand.report(CASES.get(index),target,client.boxes(),MobSmoke::check);
             if(CASES.get(index).equals("minecraft:skeleton")) {
                 anchor(target,0,1.65,true,"голова скелета");
                 anchor(target,.125,.3,true,"нога скелета");

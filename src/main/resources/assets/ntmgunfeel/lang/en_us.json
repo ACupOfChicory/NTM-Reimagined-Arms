@@ -29,6 +29,7 @@
   "ntmgunfeel.feature.mob_ai": "Mob AI",
   "ntmgunfeel.armsai.unseen": "AI mobs do not see or hear you in creative or spectator mode",
   "ntmgunfeel.armsai.dummy": "AI dummy",
+  "ntmgunfeel.feature.prone_fire": "No shot while crawling",
   "ntmgunfeel.compat.title": "NTM version %s is not tested, the last supported one is %s",
   "ntmgunfeel.compat.all_on": "Everything checked still fits this NTM, all systems are on. Something may still behave oddly.",
   "ntmgunfeel.compat.off": "These systems do not fit this NTM and are turned off:",

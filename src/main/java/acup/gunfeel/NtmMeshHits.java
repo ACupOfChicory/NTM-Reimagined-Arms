@@ -27,7 +27,7 @@ public final class NtmMeshHits {
         public int hashCode() { return 31*(31*System.identityHashCode(model)+System.identityHashCode(state))+pose.hashCode(); }
     }
     private static final java.util.Map<ModelKey,Frame> MODELS=new java.util.HashMap<>();
-    // Models a layer draws over the mob's own: the armor (port/continuum: MixinEquipmentLayerModel). Their parts take a
+    // Models a layer draws over the mob's own: the armor (MixinEquipmentLayerModel). Their parts take a
     // layer's name, ".../armor/draws/0", so WornGear leaves them at their drawn size.
     public static final String ARMOR_SUFFIX="/armor/draws/0";
     private static final java.util.Set<Object> LAYER_MODELS=java.util.Collections.synchronizedSet(
@@ -72,6 +72,11 @@ public final class NtmMeshHits {
         if(frame==null || !(submit.model() instanceof EntityModel<?> model)) return false;
         var stack=new PoseStack(); stack.last().set(submit.pose());
         var texture=ModelTextureMask.texture(submit.renderType());
+        // The armor's glint and trim are drawn over the armor, on its opaque pixels: its model again with the glint
+        // (blended, so taken without a mask: whole cubes, the helmet's 1.5-pixel hat with them) or the trims' atlas
+        // (its UVs are the armor's, not the atlas sprite's). Neither adds to the armor.
+        if(LAYER_MODELS.contains(model) && texture!=null
+                && (texture.getPath().contains("glint") || texture.getPath().startsWith("textures/atlas/"))) return true;
         // Слой поверх основной модели (трещины голема) добавляет лишь то,
         // что прозрачно в её собственной текстуре.
         var primary=!submit.renderType().hasBlending() && submit.state() instanceof ModelHitState info

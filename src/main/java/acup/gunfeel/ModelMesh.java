@@ -62,7 +62,7 @@ public final class ModelMesh {
         }
     }
 
-    private static long hash(float[] data) {
+    static long hash(float[] data) {
         try {
             ByteBuffer bytes = ByteBuffer.allocate(data.length * 4);
             for (float x : data) bytes.putFloat(x);

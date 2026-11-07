@@ -2,7 +2,6 @@ package acup.gunfeel;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -11,15 +10,17 @@ import java.util.TreeMap;
 
 import net.neoforged.fml.loading.FMLPaths;
 
-// Server settings, config/ntm-gunfeel-server.properties: how long before the end of a reload / an inspect the held aim
-// comes back, per gun, in seconds ("hbm\:gun_double_barrel.reaimInspect = 0.6", set with /gunaim), and plain numbers
-// (bulletSpeed, spread*, cameraScaleMin). On a client connected to another game's server the server's file counts
-// (ServerSettings). Synchronized: in single player the client and the server thread share it.
+// Server settings, config/ntm-gunfeel-server.properties: plain numbers and switches (bulletSpeed, spread*,
+// cameraScaleMin). On a client connected to another game's server the server's file counts (ServerSettings).
+// Synchronized: in single player the client and the server thread share it. Also how long before the end of a reload /
+// an inspect the held aim comes back: fixed in the mod, not a setting (the file's old <gun>.reaim* keys are not read).
 public final class ReaimTimes {
     public static final float DEFAULT = 0.3F;
+    // the guns whose inspect hands the aim back earlier, in seconds before it ends
+    private static final Map<String, Float> INSPECT = Map.of("hbm:gun_double_barrel", 0.6F, "hbm:gun_double_barrel_sacred_dragon", 0.6F);
     public static final String FILE = "ntm-gunfeel-server.properties";
     private static final Map<String, String> VALUES = new TreeMap<>();
-    // the times shipped in the mod jar (ntmgunfeel-server.properties); the server's file wins over them
+    // the defaults shipped in the mod jar (ntmgunfeel-server.properties); the server's file wins over them
     private static final Map<String, String> BUILTIN = builtin();
 
     private static Map<String, String> builtin() {
@@ -42,20 +43,9 @@ public final class ReaimTimes {
 
     // kind: "reload" or "inspect"
     public static synchronized float seconds(String gun, String kind) {
-        poll();
-        String key = gun + ".reaim" + cap(kind);
-        String v = values0().get(key);
-        if (v == null) v = BUILTIN.get(key);
-        float out = DEFAULT;
-        if (v != null) {
-            try {
-                out = Math.max(0F, Float.parseFloat(v.trim()));
-            } catch (NumberFormatException e) {
-                // the default
-            }
-        }
-        // the test log: each time a gun's time changes (after /gunaim), on the side that reads it
-        if (TestLog.any() && !Float.valueOf(out).equals(LOGGED.put(key, out))) TestLog.here("reaim", "gun", gun, "kind", kind, "seconds", out);
+        float out = kind.equals("inspect") ? INSPECT.getOrDefault(gun, DEFAULT) : DEFAULT;
+        // the test log: the first time a gun's time is read, on the side that reads it
+        if (TestLog.any() && !Float.valueOf(out).equals(LOGGED.put(gun + "." + kind, out))) TestLog.here("reaim", "gun", gun, "kind", kind, "seconds", out);
         return out;
     }
 
@@ -131,16 +121,6 @@ public final class ReaimTimes {
         return Math.round(seconds(gun, kind) * 20F);
     }
 
-    public static synchronized void set(String gun, String kind, float seconds) {
-        poll();
-        VALUES.put(gun + ".reaim" + cap(kind), Float.toString(seconds));
-        save();
-    }
-
-    private static String cap(String kind) {
-        return Character.toUpperCase(kind.charAt(0)) + kind.substring(1);
-    }
-
     private static Path file() {
         return FMLPaths.CONFIGDIR.get().resolve(FILE);
     }
@@ -160,20 +140,6 @@ public final class ReaimTimes {
             for (String key : p.stringPropertyNames()) VALUES.put(key, p.getProperty(key));
         } catch (IOException | RuntimeException e) {
             LOGGER.warn("Could not read {}", FILE, e);
-        }
-    }
-
-    private static void save() {
-        try {
-            Path f = file();
-            try (Writer w = Files.newBufferedWriter(f)) {
-                w.write("# NTM Gun Feel, server side. With the aim key held, the aim comes back this many seconds before\n");
-                w.write("# a reload / an inspect ends: <gun id>.reaimReload, <gun id>.reaimInspect (default " + DEFAULT + "). /gunaim sets them.\n");
-                for (Map.Entry<String, String> e : VALUES.entrySet()) w.write(e.getKey().replace(":", "\\:") + " = " + e.getValue() + "\n");
-            }
-            stamp = Files.getLastModifiedTime(f).toMillis();
-        } catch (IOException e) {
-            LOGGER.warn("Could not write {}", FILE, e);
         }
     }
 }
