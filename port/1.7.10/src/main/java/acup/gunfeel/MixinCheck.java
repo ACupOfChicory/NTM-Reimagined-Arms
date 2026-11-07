@@ -45,6 +45,7 @@ public final class MixinCheck {
             {"com.hbm.items.weapon.sedna.GunConfig", "6"}, // MixinG3Inspect 4 (gunfeel$release + 3), MixinGunConfigAnims 2
             {"com.hbm.entity.projectile.EntityThrowableNT", "8"}, // MixinThrowableClip: bullets 4 + hitboxes 4
             {"com.hbm.entity.projectile.EntityBulletBeamBase", "4"},
+            {"com.hbm.entity.projectile.EntityBullet", "9"}, // MixinLegacyBullet: 8 + gunfeel$extra
             {"com.hbm.items.weapon.sedna.BulletConfig", "3"}, // MixinHeadDamage, MixinRicochetSound
             {"com.hbm.render.block.RenderBlockCT", "1"}, // the cracks on NTM's glass
     };

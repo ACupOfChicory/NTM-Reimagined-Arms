@@ -224,7 +224,11 @@ public final class MixinProbe {
         String target = remap.map(mixin, (String) value(at, "target", ""));
         int ordinal = (Integer) value(at, "ordinal", -1);
         if (target.isEmpty()) return; // HEAD, RETURN, TAIL, CONSTANT...
-        Member t = Member.parse(target);
+        // port: a NEW by its constructor's descriptor, (args)Lclass; (MixinLegacyBullet), is the class it makes, as in the
+        // 1.12.2 port
+        Member t = point.equals("NEW") && target.startsWith("(") && target.endsWith(";") && target.indexOf(")L") > 0
+                ? new Member(target.substring(target.indexOf(")L") + 2, target.length() - 1), null, null)
+                : Member.parse(target);
         if (t == null) return; // not understood: not checked
         // port: Minecraft's classes are not readable by their names in a player's game (obfuscated)
         // Minecraft's and the JDK's classes are always there (Java 9 and later do not hand the JDK's out as resources)

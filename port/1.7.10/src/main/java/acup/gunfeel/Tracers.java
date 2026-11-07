@@ -416,9 +416,18 @@ public final class Tracers {
     private static void impact0(int shot, int config, int bx, int by, int bz, int face, double px, double py, double pz, double dx, double dy,
             double dz) {
         World w = Minecraft.getMinecraft().theWorld;
-        if (w == null || !Config.bulletHoles || config < 0 || config >= BulletConfig.configs.size() || face < 0 || face > 5) return;
+        if (w == null || config < 0 || config >= BulletConfig.configs.size() || face < 0 || face > 5) return;
         BulletConfig bc = BulletConfig.configs.get(config);
-        if (!ExplosiveAmmo.heavy(bc) || !Double.isFinite(px + py + pz + dx + dy + dz)) return;
+        if (!Double.isFinite(px + py + pz + dx + dy + dz)) return;
+        // a plain round: a hit of a bullet this client does not fly itself (NTM's old bullet, LegacyBullets), its hole
+        // and its particles and sound as a tracer's hit has them
+        if (!ExplosiveAmmo.heavy(bc)) {
+            double l = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (l < 1e-9) return;
+            hit(w, new double[] {px, py, pz}, face, new int[] {bx, by, bz}, bc, new double[] {dx / l, dy / l, dz / l}, false, shot, false);
+            return;
+        }
+        if (!Config.bulletHoles) return;
         PENDING.addLast(new Pending(w, new double[] {px, py, pz}, face, new int[] {bx, by, bz}, bc, new double[] {dx, dy, dz}, null, shot));
     }
 
@@ -1042,6 +1051,13 @@ public final class Tracers {
 
     static int holeCount() {
         return HOLES.size();
+    }
+
+    // dev (NpcShotsScenario): the holes on this block
+    static int holesOn(int x, int y, int z) {
+        int n = 0;
+        for (Hole h : HOLES) if (h.x == x && h.y == y && h.z == z) n++;
+        return n;
     }
 
     private static void makePending() {

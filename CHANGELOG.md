@@ -1,5 +1,14 @@
 # Changelog
 
+## X543.146
+
+- As in X547: the hunter chopper's and the cyber crab's old bullets now hit
+  where they meet the creature's model, so a hit on the head does 1.75 times
+  the damage and a hit on a limb half of it, as with NTM's other bullets.
+  The chopper's bullet breaks blocks by the bullet rules and leaves a hole
+  where it stops. It can be turned off with the server setting
+  `npcShots = false`.
+
 ## X543.145
 
 - As in X560: water now counts more of NTM's explosives as going off on
