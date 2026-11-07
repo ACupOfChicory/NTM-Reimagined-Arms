@@ -249,9 +249,8 @@ final class BoomScenario {
         basin();
         double r = Math.toRadians(deg), run = deg >= 20 ? 4 : 10;
         Vec3d dir = new Vec3d(Math.cos(r), -Math.sin(r), 0);
-        // port: 14.5, not 26.2's 14: NTM CE's ticks here meet the surface exactly on the cells' edge, where
-        // WaterPath.cut takes the side face for the way in (x is asked first) and nothing skips
-        Vec3d aim = new Vec3d(minX + 14.5, surface, cz);
+        // on a cells' edge, as in 26.2: NTM CE's ticks here meet the surface exactly there (the cut takes the top)
+        Vec3d aim = new Vec3d(minX + 14, surface, cz);
         // after a skip its next touch: a wall further on
         int czi = MathHelper.floor(cz);
         if (deg < 20) stone(minX + 30, floor + 1, floor + DEPTH + 8, czi - 4, czi + 4);

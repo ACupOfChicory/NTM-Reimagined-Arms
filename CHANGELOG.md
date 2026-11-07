@@ -1,5 +1,18 @@
 # Changelog
 
+## X555.183
+
+- As in 26.2 X570, on 1.12.2:
+  - A round that meets water exactly on the edge of its surface and a side now
+    comes in through the surface: a round at a shallow angle skips off, and a
+    fuze takes it for a hit on the water. Before, it came in through the side,
+    as if it had hit a wall of water. On 1.12.2 this also holds where the
+    rounding of a round's flight puts the side a hair after the surface: NTM
+    CE's rounds met that edge so.
+  - `armArmor`: armour from another mod is left out of the arm only after
+    three failures in a row with the same armour on. One that draws in between
+    starts the count anew.
+
 ## X555.181
 
 - As in 26.2 X566, on 1.12.2:

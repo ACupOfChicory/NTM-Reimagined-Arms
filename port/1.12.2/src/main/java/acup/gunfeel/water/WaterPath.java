@@ -482,6 +482,8 @@ public final class WaterPath {
             {EnumFacing.NORTH, EnumFacing.SOUTH}};
 
     private static final int[] AXES = {1, 0, 2};
+    // two faces met at once, in t (0..1 of the segment)
+    private static final double TIE = 1e-9;
 
     // the segment against the box x..x+1, y..y+h, z..z+1: {ta, tb, x, y, z, entry face, exit face} within 0..1
     private static double[] cut(Vec3d from, Vec3d d, int x, int y, int z, double h) {
@@ -490,7 +492,8 @@ public final class WaterPath {
         double[] lo = {x, y, z}, hi = {x + 1, y + h, z + 1};
         double[] o = {from.x, from.y, from.z}, v = {d.x, d.y, d.z};
         // y first: a path that meets two faces at once, on a cell's edge, goes through the top or bottom one (the
-        // surface it falls on), a tie keeping the axis met first
+        // surface it falls on), a tie keeping the axis met first. A tie is within TIE: the two planes' t differ by the
+        // rounding of to - from (a tick's motion), and a strict comparison would give the side either way
         for (int a : AXES) {
             if (Math.abs(v[a]) < 1e-12) {
                 if (o[a] < lo[a] || o[a] > hi[a]) return null;
@@ -501,12 +504,12 @@ public final class WaterPath {
             EnumFacing near = v[a] > 0 ? FACES[a][0] : FACES[a][1], far = v[a] > 0 ? FACES[a][1] : FACES[a][0];
             double tn = Math.min(t1, t2), tf = Math.max(t1, t2);
             if (tn > ta) {
+                if (in < 0 || tn - ta > TIE) in = near.getIndex();
                 ta = tn;
-                in = near.getIndex();
             }
             if (tf < tb) {
+                if (out < 0 || tb - tf > TIE) out = far.getIndex();
                 tb = tf;
-                out = far.getIndex();
             }
             if (ta > tb) return null;
         }
