@@ -103,6 +103,29 @@ public enum WaterClass {
             return NONE;
         }
 
+        // NTM's configs that blow up where they hit but whose ammo does not say so (26.2 X560): the Jeremy turret's 240 mm
+        // shells, the plain and the explosive one and the W9 nuke (port: NTM CE gives all of its shells one item,
+        // ammo_shell, so they are known by their fields; the APFSDS ones do not go off), and the Daybreaker's flames (a
+        // plain flame's ammo). 26.2's cluster submunition, the masked man's and the UFO's rockets and bolts and a pile's
+        // debris are not in NTM CE 2.6.1.0 as such configs: its masked man and UFO fire the old EntityBulletBase, which
+        // water does not touch. By their fields, looked up by name, so one missing in another NTM leaves out only its
+        // own fuze.
+        static final String[][] IMPACT_FIELDS = {
+                {"XFactoryTurret", "shell_normal", "shell_explosive", "shell_w9"},
+                {"XFactoryFlamer", "flame_daybreaker_diesel", "flame_daybreaker_gas", "flame_daybreaker_napalm", "flame_daybreaker_balefire"}};
+        private static volatile java.util.Map<BulletConfig, String> fields;
+
+        // the IMPACT_FIELDS name of this config, or null
+        public static String field(BulletConfig c) {
+            java.util.Map<BulletConfig, String> f = fields;
+            if (f == null) {
+                f = NtmFields.configs(IMPACT_FIELDS);
+                // none found: asked before NTM made its configs, try again later
+                if (!f.isEmpty()) fields = f;
+            }
+            return f.get(c);
+        }
+
         private static final java.util.Map<BulletConfig, Fuze> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
         // asked every tick of a bullet: kept per config
@@ -115,6 +138,7 @@ public enum WaterClass {
             // a cluster grenade's bomblets blow up where they land (ItemGrenadeFilling.pellets)
             if (c.ammo == null && (c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets
                     || c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets_heavy)) return IMPACT;
+            if (field(c) != null) return IMPACT;
             // port: NTM CE's Bolter rounds (b75, b75_inc, b75_exp) are plain bullets, no blast and no fire on a hit, so
             // they have no fuze for water to set off
             if (c.onImpact == null) return NONE;

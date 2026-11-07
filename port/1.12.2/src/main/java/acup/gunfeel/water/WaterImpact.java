@@ -13,7 +13,7 @@ import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 
-// 26.2's WaterImpact: the explosives' part on the server, around NTM's own impact (MixinWaterImpact):
+// 26.2's WaterImpact: the explosives' part on the server, in NTM's own impact (MixinWaterImpact, MixinExplosiveBullet):
 // - b75_inc in water gives a small blast, about a quarter of the explosive bolt's, and no fire;
 // - what sets alight (phosphorus, flares) does not under water: it hits as a plain bullet;
 // - in water an explosive bullet goes off at the first touch of another bullet or explosive, a sinking one too;
@@ -34,7 +34,7 @@ public final class WaterImpact {
     // how far apart two bullets touch: NTM's bullets are 0.5 wide, a hit is counted to the boxes' edge
     static final double TOUCH = 0.1;
 
-    // NTM's onImpact (MixinWaterImpact): `original` runs it as it is
+    // NTM's onImpact (MixinWaterImpact): `original` runs it as it is; what water changes is its onImpact lambda (lambda)
     public static void impact(EntityBulletBaseMK4 bullet, RayTraceResult hit, Runnable original) {
         if (bullet.world.isRemote || bullet.config == null || hit == null || !WaterSettings.ballistics()) {
             original.run();
@@ -43,27 +43,31 @@ public final class WaterImpact {
         EntityBulletBaseMK4 previous = WaterBlast.BULLET.get();
         WaterBlast.BULLET.set(bullet);
         try {
-            BulletConfig c = bullet.config;
-            WaterClass.Fuze fuze = WaterClass.Fuze.of(c);
-            if (fuze == WaterClass.Fuze.WEAK && wet(bullet, hit)) {
-                if (TestLog.server) TestLog.s(bullet.getEntityId(), "water", "weak", "at", v(hit.hitVec));
-                // through the explosive rounds' own damage (ExplosiveDamage), as b75_exp's blast goes
-                acup.gunfeel.ExplosiveDamage.impact((x, h) -> weakBlast(bullet, hit), bullet, hit, false);
-                bullet.setDead();
-                return;
-            }
-            if (fuze == WaterClass.Fuze.NONE && WaterClass.incendiary(c) && wet(bullet, hit)) {
-                // NTM's impact without its onImpact (the one that sets alight)
-                if (TestLog.server) TestLog.s(bullet.getEntityId(), "water", "doused", "at", v(hit.hitVec));
-                if (c.onRicochet != null) c.onRicochet.accept(bullet, hit);
-                if (c.onEntityHit != null) c.onEntityHit.accept(bullet, hit);
-                return;
-            }
             original.run();
+            if (bullet.isDead && ((WaterBullet) bullet).gunfeel$goneAt() == null) ((WaterBullet) bullet).gunfeel$goneAt(hit.hitVec);
         } finally {
             if (previous == null) WaterBlast.BULLET.remove();
             else WaterBlast.BULLET.set(previous);
         }
+    }
+
+    // NTM's onImpact calls the config's onImpact lambda (MixinExplosiveBullet): in water b75_inc's goes off as a small
+    // blast, and what sets alight does not (the rest of NTM's impact, onRicochet and onEntityHit, goes on as for a
+    // plain bullet). The lambda to call instead, or null for NTM's own. Inside NTM's onImpact, so the mod's own steps
+    // around it (the damage x f^2 where the creature is, the piercing, the block rules) count these too.
+    public static java.util.function.BiConsumer<Object, Object> lambda(final EntityBulletBaseMK4 bullet, final RayTraceResult hit) {
+        if (bullet.world.isRemote || bullet.config == null || hit == null || !WaterSettings.ballistics()) return null;
+        BulletConfig c = bullet.config;
+        WaterClass.Fuze fuze = WaterClass.Fuze.of(c);
+        if (fuze == WaterClass.Fuze.WEAK && wet(bullet, hit)) return (x, h) -> {
+            if (TestLog.server) TestLog.s(bullet.getEntityId(), "water", "weak", "at", v(hit.hitVec));
+            weakBlast(bullet, hit);
+            bullet.setDead();
+        };
+        if (fuze == WaterClass.Fuze.NONE && WaterClass.incendiary(c) && wet(bullet, hit)) return (x, h) -> {
+            if (TestLog.server) TestLog.s(bullet.getEntityId(), "water", "doused", "at", v(hit.hitVec));
+        };
+        return null;
     }
 
     // the point hit is in water or on its surface (or the surface fuze's own hit)
@@ -109,7 +113,9 @@ public final class WaterImpact {
     public static void touch(EntityBulletBaseMK4 b, Vec3d from) {
         // a bullet gone this tick (water stopped it, it hit a block) still met what lay on its path
         if (b.world.isRemote || b.config == null || !WaterSettings.ballistics() || !WaterSettings.fuze() || !WaterBullet.met(b)) return;
-        Vec3d to = b.getPositionVector();
+        // one gone at an impact: up to where it hit (NTM has moved it on past it), not up to where it is
+        Vec3d gone = ((WaterBullet) b).gunfeel$goneAt();
+        Vec3d to = b.isDead && gone != null ? gone : b.getPositionVector();
         AxisAlignedBB area = new AxisAlignedBB(from, to).grow(1.0);
         boolean mine = !b.isDead && goesOff(b);
         searches++;
@@ -145,7 +151,8 @@ public final class WaterImpact {
     }
 
     // a fire grenade's or rocket's fire (XFactory40mm / XFactoryRocket.spawnFire, MixinWaterFire): in water only its
-    // blast, no lingering fire and no fire blocks
+    // blast, no lingering fire and no fire blocks; the Daybreaker's (XFactoryFlamer.spawnFire, MixinWaterFireFlamer): no
+    // lingering fire
     public static boolean noFire(EntityBulletBaseMK4 bullet, RayTraceResult hit) {
         return !bullet.world.isRemote && hit != null && WaterSettings.ballistics() && wet(bullet, hit);
     }

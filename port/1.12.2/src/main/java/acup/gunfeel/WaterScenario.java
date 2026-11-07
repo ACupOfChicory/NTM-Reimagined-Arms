@@ -35,7 +35,7 @@ import net.minecraft.world.World;
 //  a-d: 26.2's WaterCheck rows, bullets the server ticks by hand, never added to the world (their tracer lines reach
 //       the client all the same, TracerNet; nothing compares them): the stop depth of a shot down against
 //       L·ln(1/0.15), also of a slow one that takes several ticks in the water, the share of damage a golem under the
-//       water takes, the skip at 3 and 10 degrees and the length of the tick after it (bulletSpeed × f), a shot from
+//       water takes, both again with the water met late in the first tick (so they fall in the second), the skip at 3 and 10 degrees and the length of the tick after it (bulletSpeed × f), a shot from
 //       under the water along and up; for each plain class, then the hollow and soft points;
 //  e:   the same shots down, along and at 3 degrees as real bullets the client traces, and slow ones down: the trace
 //       (logs/ntm-gunfeel-trace-water.tsv) has the server's and the tracer's "end by water" for each id, compared
@@ -156,6 +156,7 @@ final class WaterScenario {
                 slowStop(wc, c, ammo);
                 golem(wc, c, ammo, 0.5);
                 golem(wc, c, ammo, 1.0);
+                twoTicks(wc, c, ammo);
                 skip(wc, c, ammo, 3, true);
                 skip(wc, c, ammo, 10, false);
                 below(wc, c, ammo);
@@ -170,6 +171,7 @@ final class WaterScenario {
                 WaterClass wc = WaterClass.of(c);
                 lines.add("#\t" + wc + "\t" + name + "\texpansion " + WaterClass.Expansion.of(name));
                 downStop(wc, c, name);
+                twoTicks(wc, c, name);
                 if (!name.startsWith("ammo_standard_r556")) {
                     golem(wc, c, name, 0.5);
                     golem(wc, c, name, 1.0);
@@ -222,8 +224,49 @@ final class WaterScenario {
         return b;
     }
 
-    private static void tickAll(EntityBulletBaseMK4 b) {
-        for (int i = 0; i < 40 && !b.isDead; i++) b.onUpdate();
+    // ticks until the bullet is gone (at most 40): how many it took
+    private static int tickAll(EntityBulletBaseMK4 b) {
+        int i = 0;
+        while (i < 40 && !b.isDead) {
+            b.onUpdate();
+            i++;
+        }
+        return i;
+    }
+
+    // how far the bullet goes in one tick in the air (beyond the basin's far wall, high up)
+    private static double step(BulletConfig c) {
+        double x = minX + SIZE + 4.5, y = surface + 30;
+        EntityBulletBaseMK4 b = bullet(c, x, y, cz, 1, 0, 0);
+        b.onUpdate();
+        double d = Math.sqrt(sq(b.posX - x) + sq(b.posY - y) + sq(b.posZ - cz));
+        b.setDead();
+        return d;
+    }
+
+    // 26.2's a2 and b2: rows a and b again with the water met 0.3 before the end of the first tick, so the stop and the
+    // golem fall in the second: f, the opening and the damage scale carried over a tick (WaterTick.end, then the next path)
+    private static void twoTicks(WaterClass wc, BulletConfig c, String ammo) {
+        double above = step(c) - 0.3;
+        WaterClass.Expansion ex = WaterClass.Expansion.of(ammo);
+        EntityBulletBaseMK4 b = bullet(c, cx + 2, surface + above, cz + 2, 0, -1, 0);
+        int ticks = tickAll(b);
+        double got = b.isDead ? surface - b.posY : Double.NaN;
+        double want = stopDepth(wc, ex);
+        flag("a2: shot down, stop depth in the 2nd tick", wc, ammo, fmt(want) + ", 2 ticks", fmt(got) + ", " + ticks + " ticks",
+                ticks == 2 && Math.abs(got - want) <= .1, "from " + fmt(above) + " over");
+        if (ammo.startsWith("ammo_standard_r556")) return;
+        double depth = Math.min(1.0, want - 0.2);
+        if (depth <= 0.3) return; // stops before a golem under 0.3 of water would be in the second tick
+        EntityIronGolem probe = new EntityIronGolem(level);
+        double top = probe.height + 0.3; // NTM inflates the hitbox by 0.3
+        double feetY = surface - depth - top;
+        double air = bodyTook(c, feetY, false, above);
+        String airNote = lastEnd;
+        double wet = bodyTook(c, feetY, true, above);
+        double share = air > 0 ? wet / air : Double.NaN;
+        row("b2: golem share at depth " + fmt(depth) + " in the 2nd tick", wc, ammo, Math.exp(-2 * WaterPath.drag(wc.length, ex, depth)), share, .03,
+                "air=" + fmt(air) + " wet=" + fmt(wet) + " [air " + airNote + "] [wet " + lastEnd + "]");
     }
 
     private static double f(EntityBulletBaseMK4 b) {
@@ -257,9 +300,9 @@ final class WaterScenario {
         EntityIronGolem probe = new EntityIronGolem(level);
         double top = probe.height + 0.3; // NTM inflates the hitbox by 0.3
         double feetY = surface - depth - top;
-        double air = bodyTook(c, feetY, false);
+        double air = bodyTook(c, feetY, false, 3);
         String airNote = lastEnd;
-        double wet = bodyTook(c, feetY, true);
+        double wet = bodyTook(c, feetY, true, 3);
         double share = air > 0 ? wet / air : Double.NaN;
         WaterClass.Expansion ex = WaterClass.Expansion.of(ammo);
         double want = depth < stopDepth(wc, ex) ? Math.exp(-2 * WaterPath.drag(wc.length, ex, depth)) : 0;
@@ -269,7 +312,7 @@ final class WaterScenario {
 
     private static String lastEnd = "";
 
-    private static double bodyTook(BulletConfig c, double feetY, boolean water) {
+    private static double bodyTook(BulletConfig c, double feetY, boolean water, double above) {
         // in the air beyond the basin's far wall, else in the middle of the water
         double gx = water ? cx : minX + SIZE + 4.5;
         EntityIronGolem g = new EntityIronGolem(level);
@@ -277,7 +320,7 @@ final class WaterScenario {
         g.setNoAI(true);
         g.setNoGravity(true);
         boolean added = level.spawnEntity(g);
-        EntityBulletBaseMK4 b = bullet(c, gx, surface + 3, cz, 0, -1, 0);
+        EntityBulletBaseMK4 b = bullet(c, gx, surface + above, cz, 0, -1, 0);
         float before = g.getHealth();
         tickAll(b);
         double took = before - g.getHealth();

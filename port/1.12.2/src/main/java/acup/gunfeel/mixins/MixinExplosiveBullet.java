@@ -23,6 +23,12 @@ public abstract class MixinExplosiveBullet {
     @Redirect(method = "onImpact", at = @At(value = "INVOKE", target = "Ljava/util/function/BiConsumer;accept(Ljava/lang/Object;Ljava/lang/Object;)V",
             ordinal = 0), require = 1)
     private void gunfeel$impact(BiConsumer<Object, Object> callback, Object bullet, Object hit) {
+        // in water: b75_inc's small blast, nothing set alight (WaterImpact); not a heavy round's hole
+        BiConsumer<Object, Object> water = acup.gunfeel.water.WaterImpact.lambda((EntityBulletBaseMK4) bullet, (RayTraceResult) hit);
+        if (water != null) {
+            ExplosiveDamage.impact(water, (EntityBulletBaseMK4) bullet, (RayTraceResult) hit, false);
+            return;
+        }
         gunfeel$impactSent |= ExplosiveDamage.impact(callback, (EntityBulletBaseMK4) bullet, (RayTraceResult) hit, !gunfeel$impactSent);
     }
 

@@ -128,6 +128,8 @@ public final class WaterPath {
         boolean ended;
         // opened at the start of the tick
         private double opened0;
+        // the path starts in liquid (not on its surface coming in from the air)
+        boolean startsIn;
 
         Result(Vec3d from, Vec3d to, double water, double f, double opened, Vec3d stop, Skip skip, List<Event> events, double f0,
                 double length, WaterClass.Expansion ex, double len, double[] spans, int count, Fluids fluids, WaterClass cls, Entity bullet) {
@@ -211,6 +213,11 @@ public final class WaterPath {
             return out;
         }
 
+        // the path starts in liquid; one starting right on its surface (the last tick ended there) comes in from outside
+        public boolean startsIn() {
+            return startsIn;
+        }
+
         public boolean inLiquid(Vec3d p) {
             double t = param(p);
             for (int i = 0; i < count; i++) if (t >= spans[i * N] - EPS && t <= spans[i * N + 1] + EPS) return true;
@@ -275,12 +282,13 @@ public final class WaterPath {
         Cell prevCell = null;
         Vec3d stop = null;
         Skip skip = null;
+        boolean startsIn = false;
         for (double[] r : raw) {
             double ta = r[0], tb = r[1];
             int x = (int) r[2], y = (int) r[3], z = (int) r[4];
             Cell c = w.at(x, y, z);
             if (c == null) continue;
-            boolean entering = Double.isNaN(prevEnd) ? ta > EPS : ta > prevEnd + EPS;
+            boolean entering = Double.isNaN(prevEnd) ? ta > EPS || !inside(w, from.subtract(dir.scale(BEHIND))) : ta > prevEnd + EPS;
             if (entering && prev != null) {
                 // left the liquid before this span: out through the previous span's exit face
                 events.add(event(w, Type.EXIT, from.add(d.scale(prevEnd)), EnumFacing.byIndex((int) prev[6]), fNow, cls,
@@ -288,6 +296,12 @@ public final class WaterPath {
             }
             Vec3d at = from.add(d.scale(ta));
             EnumFacing in = EnumFacing.byIndex((int) r[5]);
+            // a tick that ended right on the surface (a zero-length entry is no span) starts the next one there: it
+            // comes in now, through the face it starts on
+            if (Double.isNaN(prevEnd) && ta <= EPS) {
+                if (entering) in = startFace(from, dir, x, y, z, c.height(), EPS * len);
+                else startsIn = true;
+            }
             if (c.liquid() == Liquid.LAVA || cls.length <= 0) {
                 // burns up / goes out where it meets it (or where it is, fired inside)
                 span(spans, count++, ta, ta, 0, fNow, uNow);
@@ -339,7 +353,33 @@ public final class WaterPath {
             events.add(event(w, Type.EXIT, from.add(d.scale(prevEnd)), EnumFacing.byIndex((int) prev[6]), fNow, cls, prevCell,
                     (int) prev[2], (int) prev[3], (int) prev[4], dir, bullet));
         }
-        return result(from, to, water, fNow, uNow, stop, skip, events, f, opened, length, ex, len, spans, count, w, cls, bullet);
+        Result out = result(from, to, water, fNow, uNow, stop, skip, events, f, opened, length, ex, len, spans, count, w, cls, bullet);
+        out.startsIn = startsIn;
+        return out;
+    }
+
+    // how far behind a path's start to look whether it starts in liquid, blocks
+    private static final double BEHIND = 1e-5;
+
+    // the point is in a cell's liquid (under its surface)
+    private static boolean inside(Fluids w, Vec3d p) {
+        int x = net.minecraft.util.math.MathHelper.floor(p.x), y = net.minecraft.util.math.MathHelper.floor(p.y),
+                z = net.minecraft.util.math.MathHelper.floor(p.z);
+        Cell c = w.at(x, y, z);
+        return c != null && c.height() > 0 && p.y - y <= c.height();
+    }
+
+    // the face of the cell's liquid (x..x+1, y..y+h, z..z+1) a path starting on it comes in through; `near` is how far
+    // off a face a start still counts as on it, the same as the span's start (ta <= EPS, of the path's length)
+    private static EnumFacing startFace(Vec3d from, Vec3d dir, int x, int y, int z, double h, double near) {
+        double e = Math.max(1e-6, near + 1e-9);
+        if (dir.y < 0 && Math.abs(from.y - (y + h)) < e) return EnumFacing.UP;
+        if (dir.y > 0 && Math.abs(from.y - y) < e) return EnumFacing.DOWN;
+        if (dir.x > 0 && Math.abs(from.x - x) < e) return EnumFacing.WEST;
+        if (dir.x < 0 && Math.abs(from.x - (x + 1)) < e) return EnumFacing.EAST;
+        if (dir.z > 0 && Math.abs(from.z - z) < e) return EnumFacing.NORTH;
+        if (dir.z < 0 && Math.abs(from.z - (z + 1)) < e) return EnumFacing.SOUTH;
+        return EnumFacing.UP;
     }
 
     private static Result result(Vec3d from, Vec3d to, double water, double f, double opened, Vec3d stop, Skip skip, List<Event> events,

@@ -372,6 +372,7 @@ public final class Tracers {
         // be past it); 26.2 takes the newest
         Shot recent = null;
         for (Shot s : SHOTS) if (s.id == shot && s.born - s.rootBorn <= age + 1e-9 && (recent == null || s.born > recent.born)) recent = s;
+        boolean found = recent != null;
         if (recent == null) recent = RECENT_SHOTS.get(shot);
         if (recent != null) {
             double[] v = recent.path.v;
@@ -384,8 +385,9 @@ public final class Tracers {
                 if (h.shot == shot && beyond(h.pos, point, v)) it.remove();
             }
         }
-        for (Shot s : SHOTS) if (s.id == shot && recent != null && s.born > recent.born) {
-            // begun after the stop: it does not fly
+        // begun after the stop: it does not fly. None begun by then (the first already gone from SHOTS): all of those
+        // left are past the stop
+        for (Shot s : SHOTS) if (s.id == shot && recent != null && (!found || s.born > recent.born)) {
             s.path.confirmedEnd = 0;
             s.end = 0;
         }
@@ -833,7 +835,20 @@ public final class Tracers {
                 if (Config.bulletHoles) PENDING.addLast(new Pending(world, at, face, pos, s.config, unit, normalized(vel), s.id));
                 if (s.ricochets < s.config.maxRicochetCount) {
                     long left = (long) Math.max(0.0, s.lifeTicks - s.end);
-                    if (left > 0) BOUNCED.add(new Shot(s, at, TracerPath.bounce(face, vel), s.born + s.end, left));
+                    if (left > 0) {
+                        // in water this tick: it bounces on at the f, damage and opening it has where it bounced, as the
+                        // server's bullet (WaterTick.end), not at the tick's start
+                        acup.gunfeel.water.WaterPath.Result wp = s.waterPath;
+                        double q = wp != null && s.waterF > 0 ? wp.fAt(vec(at)) / s.waterF : 1;
+                        double[] out = TracerPath.bounce(face, vel);
+                        Shot bounced = new Shot(s, at, new double[] {out[0] * q, out[1] * q, out[2] * q}, s.born + s.end, left);
+                        if (wp != null) {
+                            bounced.waterF = s.waterF * q;
+                            bounced.damage = s.damage * (float) (q * q);
+                            bounced.waterOpened = wp.openedAt(wp.t(vec(at)));
+                        }
+                        BOUNCED.add(bounced);
+                    }
                 }
             } else if (!ExplosiveAmmo.heavy(s.config)) {
                 hit(world, at, face, pos, s.config, unit, s.config.onImpact != null, s.id, window);

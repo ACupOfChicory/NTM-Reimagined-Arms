@@ -18,7 +18,7 @@ public enum Feature {
     MODEL_HITBOXES("model_hitboxes", list("MixinHeadDamage"),
             list("ModelHits", "ModelHitHooks", "ModelHitClient", "ModelHitNet", "ModelAABB", "ModelMesh", "ModelCapture", "ModelObjParts", "HeadDamage",
                     "HeadProfiles", "ModelHeads")),
-    BULLETS("bullets", list("MixinBulletServer", "MixinThrowableClip", "MixinLegacyBullet", "MixinOldBulletBase", "ThrowableAccess", "MixinWaterBullet", "MixinWaterShooter", "MixinWaterImpact", "MixinWaterFire", "MixinWaterBlast", "MixinWaterBlastProcessor", "MixinBeamHits", "MixinExplosiveBullet", "MixinExplosionContext",
+    BULLETS("bullets", list("MixinBulletServer", "MixinThrowableClip", "MixinLegacyBullet", "MixinOldBulletBase", "ThrowableAccess", "MixinWaterBullet", "MixinWaterShooter", "MixinWaterImpact", "MixinWaterFire", "MixinWaterFireFlamer", "MixinWaterBlast", "MixinWaterBlastProcessor", "MixinBeamHits", "MixinExplosiveBullet", "MixinExplosionContext",
             "MixinExplosiveProcessor", "MixinExplosiveDirect"),
             list("BulletServer", "LegacyBullets", "PassableClip", "BulletFx", "BulletRules", "FenceCells", "ModelCells", "BlockRay", "PierceSteps", "ExplosiveDamage", "ExplosiveAmmo", "DoorCells",
                     "WaterClass", "WaterPath", "WaterTick", "WaterBullet", "WaterEvents", "WaterSettings", "WaterMuffle", "WaterImpact", "WaterBlast")),

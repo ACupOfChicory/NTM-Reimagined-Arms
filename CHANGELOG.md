@@ -1,5 +1,31 @@
 # Changelog
 
+## X555.180
+
+- As in 26.2 X555, on 1.12.2: when the server's stop comes after the first
+  piece of a tracer in water is gone, every later piece ends there too. Before,
+  those pieces flew on. A tracer that ricochets off a block in water bounces on
+  at the speed and damage it has where it bounced, not at those it had when
+  that tick began.
+- As in 26.2 X560, on 1.12.2:
+  - An explosive round that goes off on the water surface no longer sets off
+    another one sinking under the line it came down along.
+  - A phosphorus pellet or another round that does not set alight under water
+    now hits a creature in water as a plain round of its kind does, with the
+    damage water takes off. b75_inc's small blast in water goes through the
+    same steps. (On NTM CE the Bolter's rounds are plain bullets with no blast
+    or fire, so b75_inc has neither in or out of the water.)
+  - A rocket, grenade or explosive round whose tick ends exactly on the water
+    surface goes off there in the next tick. Before, it sank as if it had
+    started under water.
+  - Water now counts the Jeremy turret's plain and explosive shells and the W9
+    shell, and the Daybreaker's flame, as going off on impact. The flame of a
+    flamethrower, the Daybreaker's too, lays no lingering fire in water.
+- Of 26.2 X560's list, NTM CE 2.6.1.0 has no cluster submunition, no pile
+  debris and no 5.56 mm incendiary rounds (their fields are never set). Its
+  masked man and UFO fire NTM's old bullet, which water rules do not cover, so
+  their rockets and bolts stay as NTM has them.
+
 ## X555.179
 
 - `armArmor`: an armour model that fails while it is drawn on the arm no longer

@@ -49,12 +49,13 @@ public final class MixinCheck {
             {"com.hbm.entity.projectile.EntityBulletBeamBase", "4"},
             {"com.hbm.items.weapon.sedna.BulletConfig", "3"}, // MixinHeadDamage, MixinRicochetSound
             {"net.minecraft.world.World", "2"}, // MixinWaterMuffle: volume, pitch
-            {"com.hbm.entity.projectile.EntityBulletBaseMK4", "31"}, // MixinBulletServer, MixinExplosiveBullet, MixinWaterImpact, MixinWaterBullet (its 4 handlers and WaterBullet's getters and setters)
+            {"com.hbm.entity.projectile.EntityBulletBaseMK4", "33"}, // MixinBulletServer, MixinExplosiveBullet, MixinWaterImpact, MixinWaterBullet (its 4 handlers and WaterBullet's getters and setters)
             {"com.hbm.explosion.vanillant.ExplosionVNT", "4"}, // MixinExplosionContext 3, MixinWaterBlast 1
             {"com.hbm.explosion.vanillant.standard.EntityProcessorCross", "6"}, // MixinWaterBlastProcessor 5 and the bridge MixinExtras makes for gunfeel$damage
             {"com.hbm.explosion.vanillant.standard.EntityProcessorCrossSmooth", "3"}, // MixinExplosiveProcessor
             {"com.hbm.items.weapon.sedna.factory.XFactory40mm", "1"}, // MixinWaterFire
             {"com.hbm.items.weapon.sedna.factory.XFactoryRocket", "1"}, // MixinWaterFire
+            {"com.hbm.items.weapon.sedna.factory.XFactoryFlamer", "1"}, // MixinWaterFireFlamer
     };
 
     private MixinCheck() {
