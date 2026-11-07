@@ -335,8 +335,11 @@ public final class RadialMenu {
         float was = cur != null && cur.hasNumbers() && now != null ? cur.perShot : Float.NaN;
         stat(f, "ntmgunfeel.ammo.damage", now != null ? now.damage : "\u2014", now != null ? now.perShot : Float.NaN, was, y + 24 + extra);
         stat(f, "ntmgunfeel.ammo.head", "\u2014", Float.NaN, Float.NaN, y + 34 + extra);
-        stat(f, "ntmgunfeel.ammo.armor", "\u2014", Float.NaN, Float.NaN, y + 44 + extra);
+        float armored = acup.gunfeel.gl54.frag.FragSpec.armored(now), armoredWas = acup.gunfeel.gl54.frag.FragSpec.armored(cur);
+        stat(f, "ntmgunfeel.ammo.armor", Float.isNaN(armored) ? "\u2014" : AmmoStats.fmt(armored), armored,
+                Float.isNaN(armored) ? Float.NaN : armoredWas, y + 44 + extra);
     }
+
 
     private static final int BETTER = 0x7CDB6A, WORSE = 0xE5605A, LABEL = 0xAAAAAA;
 

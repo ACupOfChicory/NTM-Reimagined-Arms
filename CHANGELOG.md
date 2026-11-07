@@ -1,5 +1,12 @@
 # Changelog
 
+## X684
+
+- The grenade wheel's armour line shows what a GL-54 fragment grenade does
+  against armour: the armour-piercing airburst gets through it, the
+  airburst and the incendiary do nothing. HE, smoke and the gases still
+  show a dash.
+
 ## X683
 
 - The GL-54's gas clouds are a pale haze now, not a bright, solid wall of

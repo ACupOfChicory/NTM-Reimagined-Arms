@@ -202,4 +202,14 @@ class FragTest {
         assertTrue(FragBurst.crosses(0, 2.2, 2.3, 1, 0, 0, box, 0, 6));
         assertTrue(FragBurst.crosses(0, 0, 2.3, 0, 1, 0, box, 0, 6));
     }
+
+    // the wheel's armour line: AP's 80 fragments beat the reference armour (threshold 2, 15 %), the others' do not
+    @Test
+    void armourLineShowsOnlyApThrough() {
+        assertEquals(87.25F, FragSpec.armored(GrenadeKind.AP), 0.01F);
+        assertEquals(0F, FragSpec.armored(GrenadeKind.AIRBURST), 0F);
+        assertEquals(0F, FragSpec.armored(GrenadeKind.INCENDIARY), 0F);
+        assertTrue(Float.isNaN(FragSpec.armored(GrenadeKind.HE)));
+        assertTrue(Float.isNaN(FragSpec.armored(null)));
+    }
 }

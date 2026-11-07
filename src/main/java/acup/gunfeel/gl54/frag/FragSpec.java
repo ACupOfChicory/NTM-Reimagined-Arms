@@ -35,6 +35,15 @@ public record FragSpec(GrenadeKind kind, double coneDegrees, int cone, int ring,
         return threshold > 0F || piercing > 0F;
     }
 
+    // the wheel's armour line: a whole burst into the reference armour (AmmoStats.REF_DT/DR), every fragment on its own;
+    // the AP one beats it, the others do not. NaN for the kinds without fragments
+    public static float armored(@Nullable GrenadeKind kind) {
+        FragSpec spec = of(kind);
+        if (spec == null) return Float.NaN;
+        return acup.gunfeel.AmmoStats.throughArmor(spec.damage, acup.gunfeel.AmmoStats.REF_DT, acup.gunfeel.AmmoStats.REF_DR,
+                spec.threshold, spec.piercing) * spec.rays();
+    }
+
     // the spec of a fragment kind; null for the others (HE, smoke, the gases)
     public static @Nullable FragSpec of(@Nullable GrenadeKind kind) {
         if (kind == null) return null;
