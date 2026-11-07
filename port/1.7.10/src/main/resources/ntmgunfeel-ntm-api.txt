@@ -55,6 +55,7 @@ AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setAmo
 AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setType (Lnet/minecraft/item/ItemStack;Lcom/hbm/items/weapon/sedna/BulletConfig;)V
 AMMO_CHOICE method com/hbm/main/NetworkHandler sendTo (Lcpw/mods/fml/common/network/simpleimpl/IMessage;Lnet/minecraft/entity/player/EntityPlayerMP;)V
 AMMO_CHOICE method com/hbm/packet/toclient/PlayerInformPacket <init> (Lnet/minecraft/util/IChatComponent;II)V
+ARMS class com/hbm/items/armor/ArmorFSB
 ARMS class com/hbm/items/weapon/sedna/GunConfig
 ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT
 ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext

@@ -1,5 +1,15 @@
 # Changelog
 
+## X543.141
+
+- As in 26.2 X510: the arms holding a gun now wear what the player wears on
+  the arms seen from outside: vanilla armour with its dye and enchantment
+  glint, NTM's armour (its 3D suits included), and the armour models of
+  other mods. It follows the arm's pose, thickness and cut, on pistols and
+  rifles, at the hip and aiming. NTM's suits hide the sleeves of a 1.8 skin
+  (Et Futurum). Key `armArmor` in `ntm-gunfeel.properties` (on by default).
+  1.7.10 has no armour trims.
+
 ## X543.140
 
 - As in 26.2: an NTM explosion at water shows. Under water it gives a

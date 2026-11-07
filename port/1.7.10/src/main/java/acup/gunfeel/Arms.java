@@ -136,6 +136,7 @@ public final class Arms {
         java.util.Arrays.fill(FOLLOW_ID, -1);
         capturing = true;
         MachineMesh.armsCapturing = true;
+        ArmLayers.newFrame();
     }
 
     private static FloatBuffer floats16() {
@@ -1679,10 +1680,14 @@ public final class Arms {
         PlayerSkins.say(square, slim);
         if (!square) {
             drawBox(m, n, right, slim, 40F, 16F, 32F, !right, 0F);
+            ArmLayers.submit(m, right, n);
             return;
         }
         drawBox(m, n, right, slim, right ? 40F : 32F, right ? 16F : 48F, 64F, false, 0F);
-        drawBox(m, n, right, slim, right ? 40F : 48F, right ? 32F : 48F, 64F, false, 0.25F);
+        // armArmor: the skin's second layer as the third-person model has it (hidden under NTM's suits)
+        Boolean modelSleeve = ArmLayers.sleeve(right);
+        if (modelSleeve == null || modelSleeve) drawBox(m, n, right, slim, right ? 40F : 48F, right ? 32F : 48F, 64F, false, 0.25F);
+        ArmLayers.submit(m, right, n);
     }
 
     // one box of the arm: texture offset (u, v) on a 64 x th skin, mirrored or not, `grow` pixels out on every side

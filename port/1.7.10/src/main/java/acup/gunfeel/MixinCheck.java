@@ -37,6 +37,8 @@ public final class MixinCheck {
             {"net.minecraft.client.renderer.entity.RendererLivingEntity", "9"}, // begin, end, yaw, modelStart, modelEnd, pass + worn: draw, overlay, glint
             {"net.minecraft.client.entity.EntityPlayerSP", "1"}, // MixinSprintStop
             {"net.minecraft.client.model.ModelRenderer", "4"}, // 2 + MachineMesh compile 2
+            {"net.minecraft.client.model.ModelBiped", "1"}, // MixinModelBipedPose (armArmor)
+            {"net.minecraft.client.renderer.texture.TextureManager", "1"}, // MixinTextureBind (armArmor's stand)
             {"net.minecraft.client.renderer.Tessellator", "1"}, // MixinTessellator
             {"net.minecraftforge.client.model.obj.WavefrontObject", "8"}, // MixinForgeWavefrontObject 4 + ends 4
             {"net.minecraft.client.renderer.entity.RenderManager", "2"}, // the model box, the box at full brightness

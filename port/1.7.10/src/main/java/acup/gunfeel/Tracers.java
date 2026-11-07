@@ -230,7 +230,7 @@ public final class Tracers {
     // ahead of the frames.
     private static net.minecraft.util.Timer timer;
 
-    private static float framePartial(Minecraft mc) {
+    static float framePartial(Minecraft mc) {
         if (timer == null) timer = cpw.mods.fml.relauncher.ReflectionHelper.getPrivateValue(Minecraft.class, mc, "timer", "field_71428_T");
         return timer.renderPartialTicks;
     }

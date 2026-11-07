@@ -165,6 +165,7 @@ val scenario = providers.gradleProperty("scenario")
 val scenarioGuns = providers.gradleProperty("scenarioGuns")
 val scenarioMachines = providers.gradleProperty("machines")
 val scenarioMobs = providers.gradleProperty("mobs")
+val scenarioArmor = providers.gradleProperty("scenarioArmor")
 listOf("runClient", "runObfClient").forEach { name ->
     tasks.named<JavaExec>(name) {
         if (scenario.isPresent) {
@@ -180,6 +181,8 @@ listOf("runClient", "runObfClient").forEach { name ->
         if (scenarioMachines.isPresent) systemProperty("ntmgunfeel.machines", scenarioMachines.get())
         // the living types -Pscenario=mobs puts up: -Pmobs=Zombie,hbm.entity_glyphid,... (default: all)
         if (scenarioMobs.isPresent) systemProperty("ntmgunfeel.mobs", scenarioMobs.get())
+        // the armour stand of -Pscenario=arms (TraceScenario): -PscenarioArmor=<none|vanilla|hazmat|trench|t51>[:off][:short]
+        if (scenarioArmor.isPresent) systemProperty("ntmgunfeel.scenarioArmor", scenarioArmor.get())
     }
 }
 
