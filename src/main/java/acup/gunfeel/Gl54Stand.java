@@ -159,6 +159,10 @@ final class Gl54Stand {
     // ---------------------------------------------------------------- the plan
 
     private static void plan(Minecraft mc) {
+        if (Boolean.getBoolean("ntmgunfeel.gl54StandMag")) {
+            magPlan(mc);
+            return;
+        }
         run(() -> {
             noon(mc);
             Config.cornerHud = false;
@@ -337,6 +341,309 @@ final class Gl54Stand {
         TODO.add(Gl54Stand::done);
     }
 
+
+    // ---------------------------------------------------------------- the magazines (-Pgl54StandMag)
+
+    private static final String[] MOCK_STOCK = {"airburst:8", "airburst:8", "airburst:5", "he:8", "he:3", "inc:8", "smoke:8", "smoke:4",
+            "ap:8", "chlorine:8", "phosgene:6", "mustard:8", "acid:8"};
+    private static int tick0;
+
+    private static <T> T onServer(java.util.function.Supplier<T> f) {
+        var server = Minecraft.getInstance().getSingleplayerServer();
+        Object[] out = new Object[1];
+        server.submit(() -> out[0] = f.get()).join();
+        @SuppressWarnings("unchecked")
+        T t = (T) out[0];
+        return t;
+    }
+
+    private static ServerPlayer player() {
+        return Minecraft.getInstance().getSingleplayerServer().getPlayerList().getPlayers().getFirst();
+    }
+
+    // the gun in the hand with that load, the inventory with the stock (list "kind:count" or "mixed" for the sample)
+    private static void loadout(acup.gunfeel.gl54.GunMag gun, String... stock) {
+        onServer(() -> {
+            ServerPlayer p = player();
+            p.setGameMode(GameType.CREATIVE);
+            p.getInventory().clearContent();
+            ItemStack stack = new ItemStack(Gl54Items.GUN.get());
+            stack.set(Gl54Items.GUN_MAG.get(), gun);
+            ItemGunBaseNT.setIsDrawn(stack, true);
+            ItemGunBaseNT.setIsEquipped(stack, true);
+            ItemGunBaseNT.setState(stack, 0, ItemGunBaseNT.GunState.IDLE);
+            ItemGunBaseNT.setTimer(stack, 0, 0);
+            p.getInventory().setSelectedSlot(0);
+            p.setItemInHand(InteractionHand.MAIN_HAND, stack);
+            int slot = 9;
+            for (String spec : stock) {
+                String[] kn = spec.split(":");
+                ItemStack mag = kn[0].equals("mixed") ? Gl54Items.magazine(new acup.gunfeel.gl54.MagContents(acup.gunfeel.gl54.GrenadeKind.SAMPLE_MIX))
+                        : kn[0].equals("empty") ? new ItemStack(Gl54Items.MAG_EMPTY.get(), Integer.parseInt(kn[1]))
+                                : Gl54Items.magazine(acup.gunfeel.gl54.MagContents.filled(kn[0], Integer.parseInt(kn[1])));
+                p.getInventory().setItem(slot++, mag);
+            }
+            return null;
+        });
+    }
+
+    // what the gun and the inventory hold now, as one line
+    private static void snap(String tag) {
+        String text = onServer(() -> {
+            ServerPlayer p = player();
+            ItemStack g = p.getMainHandItem();
+            var gm = acup.gunfeel.gl54.GrenadeMagazine.gun(g);
+            StringBuilder inv = new StringBuilder();
+            for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+                ItemStack s = p.getInventory().getItem(i);
+                if (s.getItem() == Gl54Items.MAG.get()) {
+                    var c = acup.gunfeel.gl54.MagItem.contents(s);
+                    inv.append(i).append('=').append(c.kind()).append('x').append(c.size()).append(' ');
+                } else if (s.getItem() == Gl54Items.MAG_EMPTY.get()) inv.append(i).append("=EMPTYx").append(s.getCount()).append(' ');
+            }
+            return "mag=" + gm.mag().size() + " chamber=" + gm.chamber() + " count=" + gm.count() + " kind=" + gm.kind() + " sel=" + gm.sel()
+                    + " next=" + gm.next() + " state=" + ItemGunBaseNT.getState(g, 0) + " | " + inv;
+        });
+        line("mag", tag, text);
+    }
+
+    private static void key(EnumKeybind k) {
+        onServer(() -> {
+            ServerPlayer p = player();
+            ItemStack stack = p.getMainHandItem();
+            ItemGunBaseNT gun = (ItemGunBaseNT) stack.getItem();
+            gun.handleKeybind(p, p.getInventory(), stack, k, true);
+            gun.handleKeybind(p, p.getInventory(), stack, k, false);
+            return null;
+        });
+    }
+
+    private static int serverTick() {
+        return onServer(() -> Minecraft.getInstance().getSingleplayerServer().getTickCount());
+    }
+
+    private static boolean idle() {
+        return onServer(() -> ItemGunBaseNT.getState(player().getMainHandItem(), 0) == ItemGunBaseNT.GunState.IDLE);
+    }
+
+    private static int gunCount() {
+        return onServer(() -> acup.gunfeel.gl54.GrenadeMagazine.gun(player().getMainHandItem()).count());
+    }
+
+    // R, then the ticks to the swap (the gun's count or magazine changes) and to idle again, one line
+    private static void reload(String tag) {
+        int[] t = new int[3];
+        String[] before = new String[1];
+        run(() -> {
+            before[0] = String.valueOf(onServer(() -> acup.gunfeel.gl54.GrenadeMagazine.gun(player().getMainHandItem())));
+            t[0] = serverTick();
+            key(EnumKeybind.RELOAD);
+        });
+        TODO.add(() -> {
+            if (t[1] == 0 && !String.valueOf(onServer(() -> acup.gunfeel.gl54.GrenadeMagazine.gun(player().getMainHandItem()))).equals(before[0])) t[1] = serverTick();
+            if (t[1] != 0 && idle()) {
+                t[2] = serverTick();
+                return true;
+            }
+            return false;
+        });
+        run(() -> line("reload", tag, "swapAfterTicks", t[1] - t[0], "idleAfterTicks", t[2] - t[0]));
+    }
+
+    private static void fire(String tag, int times) {
+        for (int i = 0; i < times; i++) {
+            run(() -> fireReal(Minecraft.getInstance()));
+            TODO.add(() -> idle());
+        }
+        run(() -> snap(tag));
+    }
+
+    // a frame of the corner HUD with the block and one without (the difference is the block), by name
+    private static void hudShot(String name) {
+        run(() -> Config.cornerHud = true);
+        sleep(6);
+        run(() -> shot(name + ".png"));
+        TODO.add(() -> pending == 0);
+        run(() -> Config.cornerHud = false);
+        sleep(6);
+        run(() -> shot(name + "-bare.png"));
+        TODO.add(() -> pending == 0);
+        run(() -> Config.cornerHud = true);
+    }
+
+    private static void magPlan(Minecraft mc) {
+        run(() -> {
+            noon(mc);
+            Config.arms = false;
+            Config.cornerHud = true;
+            mc.options.guiScale().set(3);
+            hide(mc, false);
+            turn(mc, 0, 0);
+            onServer(() -> {
+                player().setGameMode(GameType.CREATIVE);
+                player().getAbilities().flying = true;
+                player().onUpdateAbilities();
+                return null;
+            });
+            Hud.lowClockFixed = 0L;
+        });
+        sleep(200);
+        // 1. a new gun, no magazine: R with 13 magazines in the inventory: 8 (7 + the first fed), 50 ticks, nothing given back
+        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.List.of(), "", "airburst", false, false), MOCK_STOCK));
+        sleep(30);
+        run(() -> snap("start"));
+        reload("new-gun R");
+        sleep(10);
+        run(() -> snap("after new-gun R"));
+        hudShot("hud-full");
+        // 2. a shot: 7, the next fed into the barrel
+        fire("1 shot", 1);
+        sleep(10);
+        hudShot("hud-shot1");
+        // 3. down to 2 left, 1 left, 0
+        fire("to 3", 4);
+        fire("to 2", 1);
+        sleep(10);
+        run(() -> Hud.lowClockFixed = 0L);
+        hudShot("hud-low-on");
+        run(() -> Hud.lowClockFixed = 500L);
+        hudShot("hud-low-off");
+        run(() -> Hud.lowClockFixed = 0L);
+        fire("to 0", 2);
+        sleep(10);
+        hudShot("hud-empty");
+        // 4. reload the empty gun: 2.5 s, 8, the empty magazine back as an item
+        reload("empty R");
+        sleep(10);
+        run(() -> snap("after empty R"));
+        // 5. not empty, a part-fired magazine: 2.0 s, 8 + 1 = 9
+        fire("4 shots", 4);
+        reload("part-fired R");
+        sleep(10);
+        run(() -> snap("after part-fired R"));
+        // 6. a reload cut short by changing the slot loses nothing
+        fire("2 shots", 2);
+        run(() -> snap("before cut"));
+        run(() -> key(EnumKeybind.RELOAD));
+        sleep(8);
+        run(() -> onServer(() -> {
+            player().getInventory().setSelectedSlot(1);
+            return null;
+        }));
+        sleep(60);
+        run(() -> onServer(() -> {
+            player().getInventory().setSelectedSlot(0);
+            return null;
+        }));
+        sleep(60);
+        run(() -> snap("after cut"));
+        // 7. the pour: 5 left in the gun (+ barrel), the stock 8, 6, 2 of the same kind: the 5 fill the 6 to 8, 3 come out as a stub
+        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(5, "airburst"), "airburst", "airburst", true, false),
+                "airburst:8", "airburst:6", "airburst:2"));
+        sleep(20);
+        reload("pour R");
+        sleep(10);
+        run(() -> snap("after pour R"));
+        // 8. change of kind: HE chosen through the wheel's path; the barrel's airburst goes first
+        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(6, "airburst"), "airburst", "airburst", true, false), MOCK_STOCK));
+        sleep(20);
+        run(() -> {
+            int id = acup.gunfeel.gl54.Gl54Ammo.type("he").id;
+            onServer(() -> {
+                AmmoLock.select(player(), id);
+                return null;
+            });
+        });
+        TODO.add(() -> !idle());
+        TODO.add(() -> idle());
+        sleep(10);
+        run(() -> snap("after change to HE"));
+        run(() -> {
+            fireReal(mc);
+        });
+        TODO.add(() -> idle());
+        run(() -> snap("first shot after the change"));
+        run(() -> fireReal(mc));
+        TODO.add(() -> idle());
+        run(() -> snap("second shot after the change"));
+        // 9. a mixed magazine
+        run(() -> loadout(acup.gunfeel.gl54.GunMag.NONE, "mixed:8", "airburst:8", "he:8"));
+        sleep(20);
+        run(() -> {
+            int id = acup.gunfeel.gl54.Gl54Ammo.mixed().id;
+            onServer(() -> {
+                AmmoLock.select(player(), id);
+                return null;
+            });
+        });
+        TODO.add(() -> !idle());
+        TODO.add(() -> idle());
+        sleep(10);
+        run(() -> snap("mixed loaded"));
+        hudShot("hud-mixed");
+        run(() -> fireReal(mc));
+        TODO.add(() -> idle());
+        sleep(10);
+        hudShot("hud-mixed-shot1");
+        // 10. a reload in progress: the bar, a frame at about a third and at the end phase
+        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(3, "he"), "he", "he", true, false), MOCK_STOCK));
+        sleep(20);
+        run(() -> key(EnumKeybind.RELOAD));
+        sleep(14);
+        hudShot("hud-reload-a");
+        sleep(10);
+        hudShot("hud-reload-b");
+        TODO.add(() -> idle());
+        // 11. the wheel, with the mock's stock and the mixed magazine
+        run(() -> loadout(new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(7, "he"), "he", "he", true, false),
+                "airburst:8", "airburst:8", "airburst:5", "he:8", "he:3", "inc:8", "smoke:8", "smoke:4", "ap:8", "chlorine:8", "phosgene:6", "mustard:8", "acid:8", "mixed:8"));
+        sleep(30);
+        run(() -> {
+            RadialMenu.open(mc.player.getMainHandItem());
+            RadialMenu.move(0, -60);
+        });
+        sleep(30);
+        run(() -> shot("wheel-up.png"));
+        TODO.add(() -> pending == 0);
+        run(() -> RadialMenu.move(40, 40));
+        sleep(30);
+        run(() -> shot("wheel-hover.png"));
+        TODO.add(() -> pending == 0);
+        run(() -> {
+            RadialMenu.close();
+            Config.cornerHud = false;
+        });
+        sleep(10);
+        run(() -> shot("wheel-bare.png"));
+        TODO.add(() -> pending == 0);
+        run(() -> {
+            Config.cornerHud = true;
+            RadialMenu.open(mc.player.getMainHandItem());
+            RadialMenu.move(0, -60);
+        });
+        sleep(30);
+        // the turned camera: the wheel and the HUD stay put
+        for (float[] pose : new float[][] {{135, 30}, {-135, -30}}) {
+            run(() -> turn(mc, pose[0], pose[1]));
+            sleep(40);
+            String n = "wheel-turn-" + (int) pose[0] + "-" + (int) pose[1];
+            run(() -> shot(n + ".png"));
+            TODO.add(() -> pending == 0);
+        }
+        run(() -> {
+            RadialMenu.close();
+            turn(mc, 0, 0);
+        });
+        sleep(20);
+        for (float[] pose : new float[][] {{135, 30}, {-135, -30}, {0, 0}}) {
+            run(() -> turn(mc, pose[0], pose[1]));
+            sleep(40);
+            hudShot("hud-turn-" + (int) pose[0] + "-" + (int) pose[1]);
+        }
+        sleep(10);
+        TODO.add(Gl54Stand::done);
+    }
+
     // ---------------------------------------------------------------- the pieces
 
     private static void turn(Minecraft mc, float yaw, float pitch) {
@@ -391,9 +698,7 @@ final class Gl54Stand {
             p.getInventory().clearContent();
             if (!empty) {
                 ItemStack stack = new ItemStack(Gl54Items.GUN.get());
-                var mag = (MagazineSingleTypeBase) Gl54Items.GUN.get().getConfig(stack, 0).getReceivers(stack)[0].getMagazine(stack);
-                mag.setType(stack, Gl54Ammo.he());
-                mag.setAmount(stack, mag.getCapacity(stack));
+                stack.set(Gl54Items.GUN_MAG.get(), new acup.gunfeel.gl54.GunMag(java.util.Collections.nCopies(7, "he"), "he", "he", true, false));
                 ItemGunBaseNT.setIsDrawn(stack, true);
                 ItemGunBaseNT.setIsEquipped(stack, true);
                 ItemGunBaseNT.setState(stack, 0, ItemGunBaseNT.GunState.IDLE);

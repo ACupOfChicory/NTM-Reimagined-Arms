@@ -130,6 +130,9 @@ neoForge {
             // the case, the grenade (damage by distance, glass, the dud, leaves)
             systemProperty("ntmgunfeel.gl54Stand",providers.gradleProperty("gl54Stand").isPresent.toString())
             providers.gradleProperty("gl54Stand").orNull?.let { systemProperty("ntmgunfeel.gl54StandDir",it) }
+            // -Pgl54StandMag (with -Pgl54Stand=<dir>): only the magazines' plan: reloads with their ticks, the pour, a change of
+            // kind, a mixed magazine, the HUD's frames (with the block and without), the wheel and the turned camera
+            systemProperty("ntmgunfeel.gl54StandMag",providers.gradleProperty("gl54StandMag").isPresent.toString())
             // -PshapesStand=<file>: every NTM machine taken in turn, the jar's table of their shapes written there (ShapesStand)
             systemProperty("ntmgunfeel.shapesStand",providers.gradleProperty("shapesStand").orElse("").get())
             // -PshapesFallback: a machine in the jar's table of shapes is met from there, one left out of it is taken in
@@ -150,7 +153,7 @@ neoForge {
             // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame
             providers.gradleProperty("gcLog").orNull?.let { jvmArgument("-Xlog:gc*:file=$it:uptime,time") }
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
-            val size = providers.gradleProperty("standSize").orElse(if(providers.gradleProperty("hudShots").isPresent) "1920x1080" else "854x480").get().split("x")
+            val size = providers.gradleProperty("standSize").orElse(if(providers.gradleProperty("hudShots").isPresent || providers.gradleProperty("gl54StandMag").isPresent) "1920x1080" else "854x480").get().split("x")
             programArguments.addAll("--width", size[0], "--height", size[1])
             providers.gradleProperty("smokeBackend").orNull?.let { programArguments.addAll("--graphicsBackend", it) }
         }
