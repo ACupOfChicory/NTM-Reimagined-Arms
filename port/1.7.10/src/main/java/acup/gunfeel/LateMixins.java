@@ -22,7 +22,8 @@ public class LateMixins implements ILateMixinLoader {
             "MixinGunKeysRadial", "MixinGunHud", "MixinHbmAnimationPacket", "MixinG3Inspect", "MixinClock", "MixinAimButton", "MixinRenderBlockCT", "MixinClickAim", "MixinMuzzleFlash", "MixinThrowableMotion");
 
     static final List<String> COMMON = Arrays.asList("MixinAmmoLock", "MixinAmmoLockBelt", "MixinBulletServer", "MixinWaterBullet", "MixinWaterMuffle",
-            "MixinThrowableClip", "MixinLegacyBullet", "MixinOldBulletBase", "MixinBeamHits", "MixinGunConfigAnims", "MixinHeadDamage",
+            "MixinThrowableClip", "MixinLegacyBullet", "MixinOldBulletBase", "MixinBeamHits", "MixinBeamBlocks", "MixinBeamTurretSight", "MixinBeamTauon", "MixinBeamMaxwell", "MixinBeamTesla", "TurretMaxwellAccess", "TurretAccess", 
+            "MixinGunConfigAnims", "MixinHeadDamage",
             "MixinRicochetSound", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinExplosiveDirect",
             "MixinWaterBlast", "MixinWaterBlastProcessor", "MixinWaterBlastStandard", "MixinWaterOldBullet", "MixinWaterImpact", "MixinWaterFire", "MixinWaterFireRocket", "MixinWaterFireFlamer",
             "MixinLegoSpread", "MixinHoldAim", "MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun");
