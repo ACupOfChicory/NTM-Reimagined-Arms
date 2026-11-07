@@ -1,5 +1,15 @@
 # Changelog
 
+## X543.184
+
+- The masked man's, the UFO's and BOT Prime's rounds (NTM's old rounds on
+  1.7.10) now splash where they come into water, leave a trail of bubbles
+  under it and puff where water stops them, as other rounds do. One that goes
+  off on the surface shows its blast's column, not a splash. Before, they
+  went into water with none of it.
+- A UFO rocket sinking in water now goes straight down. Before, its homing
+  drew it slowly through the water to its target.
+
 ## X543.181
 
 - As in X560: the masked man's tracer and BOT Prime's bolts (NTM's old
