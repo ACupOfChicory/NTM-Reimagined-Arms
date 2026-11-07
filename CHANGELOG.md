@@ -1,5 +1,22 @@
 # Changelog
 
+## X543.172
+
+- `npcShots`: an old bullet of NTM's (the hunter chopper's, the cyber crab's,
+  the masked man's, the UFO's and BOT Prime's) that hits a creature still
+  recovering from a hit now counts the head as more than the body and a limb
+  as less, as on a fresh creature. Before, in a burst a head hit could do
+  less than a body hit, and a limb hit more.
+- `npcShots`: when the head and limb zones fail on an old bullet's hit, it
+  hits as in NTM, with a warning in the log once. Before, the error could
+  stop the server.
+- `armArmor`: the three failures that leave a chestplate out of the arm are
+  now counted in frames. A frame counts once, whether it failed on one arm or
+  on both, and a frame in which it does not fail starts the count anew.
+  Before, it was left out after one and a half frames, and a draw on the
+  other arm in the same frame kept a broken chestplate in. Leaving the world
+  while a chestplate failed no longer carries its count into the next world.
+
 ## X543.169
 
 - `armArmor`: a chestplate model that fails while it is drawn on the arm no
