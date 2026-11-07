@@ -25,6 +25,11 @@ public final class GunFeelMod {
             DebugLog.LOGGER.warn("NTM {} is not tested with NTM Reimagined Arms {} (tested: {}); systems off: {}",
                     Compat.hbmVersion(), Compat.modVersion(), Compat.tested(), Compat.offList());
         }
+        // the GL-54 grenade launcher, the mod's first item of its own
+        if (Feature.GL54.on()) {
+            acup.gunfeel.gl54.Gl54Items.register(modBus);
+            if (dist.isClient()) acup.gunfeel.gl54.Gl54Client.init(modBus);
+        }
         if (dist.isClient()) {
             modBus.addListener(net.neoforged.neoforge.client.event.AddClientReloadListenersEvent.class,
                     e -> e.addListener(net.minecraft.resources.Identifier.fromNamespaceAndPath("ntmgunfeel", "model_masks"),

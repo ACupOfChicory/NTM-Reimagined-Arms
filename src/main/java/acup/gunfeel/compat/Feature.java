@@ -28,7 +28,8 @@ public enum Feature {
     MACHINE_MESH("machine_mesh", List.of("MixinHbmVisual"), List.of("MeshShapes", "RenderedMesh")),
     MARESLEG("maresleg", List.of("MixinGunConfigAnims"), List.of()),
     SPRINT_FIRE("sprint_fire", List.of("MixinSprintFireClick", "MixinSprintFireDecider", "MixinSprintFireGun"), List.of("SprintFire")),
-    SPECTATOR("spectator", List.of("MixinSpectatorGun", "MixinSpectatorKeys", "MixinSpectatorHud"), List.of("SpectatorGuns", "SpectatorStand"));
+    SPECTATOR("spectator", List.of("MixinSpectatorGun", "MixinSpectatorKeys", "MixinSpectatorHud"), List.of("SpectatorGuns", "SpectatorStand")),
+    GL54("gl54", List.of(), List.of("Gl54Items", "Gl54Gun", "Gl54Ammo", "Gl54Grenade", "Gl54Anim", "Gl54Orchestra", "Gl54Casing", "Gl54Server", "Gl54Client", "ItemRenderGl54"));
 
     public final String id;
     // simple names: mixins in acup.gunfeel.mixin, classes in acup.gunfeel
