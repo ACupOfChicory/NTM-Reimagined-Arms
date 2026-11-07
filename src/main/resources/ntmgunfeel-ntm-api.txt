@@ -235,6 +235,7 @@ CORE class com/hbm/explosion/vanillant/interfaces/IExplosionSFX
 CORE class com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth
 CORE class com/hbm/explosion/vanillant/standard/ExplosionEffectTiny
 CORE class com/hbm/explosion/vanillant/standard/PlayerProcessorStandard
+CORE class com/hbm/hazard/HazardClass
 CORE class com/hbm/items/armor/ModArmorItem
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
@@ -255,6 +256,8 @@ CORE field com/hbm/explosion/vanillant/ExplosionVNT posZ D
 CORE field com/hbm/explosion/vanillant/ExplosionVNT size F
 CORE field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/level/Level;
 CORE field com/hbm/extprop/HbmLivingProps phosphorus I
+CORE field com/hbm/hazard/HazardClass GAS_BLISTERING Lcom/hbm/hazard/HazardClass;
+CORE field com/hbm/hazard/HazardClass GAS_LUNG Lcom/hbm/hazard/HazardClass;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling fragmentation Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets_heavy Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -274,6 +277,7 @@ CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
 CORE field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+CORE field com/hbm/lib/ModDamageTypes CLOUD Lnet/minecraft/resources/ResourceKey;
 CORE field com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase interp F
 CORE method com/hbm/blocks/generic/BlockWoodBarrier panel (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind ordinal ()I
@@ -315,6 +319,11 @@ CORE method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth setu
 CORE method com/hbm/explosion/vanillant/standard/ExplosionEffectTiny <init> ()V
 CORE method com/hbm/explosion/vanillant/standard/PlayerProcessorStandard <init> ()V
 CORE method com/hbm/extprop/HbmLivingProps getData (Lnet/minecraft/world/entity/LivingEntity;)Lcom/hbm/extprop/HbmLivingProps;
+CORE method com/hbm/extprop/HbmLivingProps incrementBlackLung (Lnet/minecraft/world/entity/LivingEntity;I)V
+CORE method com/hbm/handler/ArmorUtil checkForHazmat (Lnet/minecraft/world/entity/LivingEntity;)Z
+CORE method com/hbm/handler/ArmorUtil damageGasMaskFilter (Lnet/minecraft/world/entity/LivingEntity;I)V
+CORE method com/hbm/handler/ArmorUtil getGasMaskFilter (Lnet/minecraft/world/item/ItemInstance;)Lnet/minecraft/world/item/ItemStack;
+CORE method com/hbm/handler/EquipmentProtections isMask (Lnet/minecraft/world/item/ItemInstance;)Z
 CORE method com/hbm/items/armor/ModArmorItem isPowered ()Z
 CORE method com/hbm/items/weapon/sedna/BulletConfig ammoStack ()Lnet/minecraft/world/item/ItemStack;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
@@ -335,6 +344,8 @@ CORE method com/hbm/particle/SpentCasing getType ()Lcom/hbm/particle/SpentCasing
 CORE method com/hbm/particle/SpentCasing$CasingType name ()Ljava/lang/String;
 CORE method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 CORE method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase get (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/render/item/weapon/sedna/ItemRenderWeaponBase;
+CORE method com/hbm/util/ArmorRegistry hasProtection (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/entity/EquipmentSlot;Lcom/hbm/hazard/HazardClass;)Z
+CORE method com/hbm/util/DamageResistanceHandler getSetResistanceContaining (Lnet/minecraft/world/item/Item;)Lcom/hbm/util/DamageResistanceHandler$ResistanceStats;
 GL54 class com/hbm/blockentity/machine/BlockEntityMachineAmmoPress
 GL54 class com/hbm/entity/projectile/EntityBulletBaseMK4
 GL54 class com/hbm/handler/threading/TargetPoint
