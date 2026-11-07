@@ -8,6 +8,10 @@
   on, the arm leaves that layer out until you leave the world, with a warning
   in the log. An armour model that fails half drawn leaves nothing of itself
   on the arm.
+- A round that meets water exactly on the edge of its surface and a side now
+  comes in through the surface: a shallow one skips off and a fuze takes it
+  for a hit on the water. Before, it came in through the side, as if it had
+  hit a wall of water.
 
 ## X566
 
