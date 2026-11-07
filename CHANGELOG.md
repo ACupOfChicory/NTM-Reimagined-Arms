@@ -1,5 +1,21 @@
 # Changelog
 
+## X580
+
+- `beamRules` (server, on): NTM's beams (laser guns, Tesla Cannon, Lacunae,
+  Tau, N.I.4.N.I., Aberrator, shredder shells, the laser grenade) now go
+  through blocks where a bullet of the same damage would: through fence gaps
+  and the empty cells of machines, piercing glass and thin wood with the same
+  loss, and wearing and breaking what bullets wear and break. A beam stops on a
+  block's shape, not its box, and is drawn up to where it stops. A creature
+  behind a pierced block takes what is left, and blocks behind the creature a
+  beam hits are left alone. Beams leave no holes and still go through water. A
+  beam with an effect of its own (the Tesla Cannon's blast, the fire of the
+  infrared and the Aberrator's black round, the shredder's burst) pierces
+  nothing and goes off on the first block, as an explosive round. Folly's beam
+  and Tau's charged shot go through blocks as before. Before, the first block
+  with a box stopped every other beam.
+
 ## X577
 
 - Dedicated servers: rounds now meet NTM's big machines by their shape as
