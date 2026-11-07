@@ -130,20 +130,9 @@ public final class BeamServer {
         if (!plain(beam.config)) {
             // it wears and breaks the block as a bullet would, and still goes off there (an explosive bullet); a laser
             // goes on through glass first
-            Vec3 at = from;
-            for (int i = 0; i < STEPS; i++) {
-                BlockHitResult hit = PassableClip.clip(level, at, to, through(level, beam.getId(), beam.getThrower(), path, laser));
-                if (hit.getType() != HitResult.Type.BLOCK) return hit;
-                if (laser && BeamLasers.glass(level, hit)) {
-                    Vec3 past = past(level, hit, to.subtract(at).normalize());
-                    if (past.distanceToSqr(at) >= to.distanceToSqr(at)) return BlockHitResult.miss(to, hit.getDirection(), BlockPos.containing(to));
-                    at = past;
-                    continue;
-                }
-                BulletServer.blockHit(beam, beam.getThrower(), path.at(hit.getLocation()), hit);
-                return hit;
-            }
-            return PassableClip.clip(level, at, to);
+            BlockHitResult hit = BeamLasers.clip(level, beam.config, from, to, through(level, beam.getId(), beam.getThrower(), path, laser));
+            if (hit.getType() == HitResult.Type.BLOCK) BulletServer.blockHit(beam, beam.getThrower(), path.at(hit.getLocation()), hit);
+            return hit;
         }
         return walk(level, beam.getId(), beam.getThrower(), from, to, beam.config, path, true, null, laser);
     }
@@ -155,13 +144,6 @@ public final class BeamServer {
             if (laser && BeamLasers.glass(level, hit)) return;
             BulletServer.wearBy(level, id, owner, path.at(hit.getLocation()), hit);
         };
-    }
-
-    // just past the block it hit, going along `dir` (unit): out of its shape, else a little on
-    private static Vec3 past(Level level, BlockHitResult hit, Vec3 dir) {
-        BlockHitResult out = PassableClip.exit(level, hit, dir);
-        Vec3 p = out != null ? out.getLocation() : hit.getLocation().add(dir.scale(0.05));
-        return p.add(dir.scale(1e-3));
     }
 
     // a beam's way through blocks from `from` to `to` by the bullet rules, with the damage the path starts with: the

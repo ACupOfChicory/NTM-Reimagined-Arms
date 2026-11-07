@@ -766,9 +766,10 @@ public final class Tracers {
                 }
             }
         }
-        // blocks it pierces (PassableClip.pierced, as the server has it): a hole where it goes in and where it comes out
+        // blocks it pierces (PassableClip.pierced, as the server has it): a hole where it goes in and where it comes out.
+        // A mob's laser shot goes through glass, no hole on it (BeamLasers)
         Vec3 at = ra;
-        BlockHitResult block = PassableClip.clip(level, at, rb, through::add);
+        BlockHitResult block = BeamLasers.clip(level, s.config, at, rb, through::add);
         for (int i = 0; i < 16 && len > 1e-6 && block.getType() != HitResult.Type.MISS; i++) {
             if (!Double.isNaN(hitEntity) && hitEntity < block.getLocation().distanceTo(ra)) break;
             Vec3 unit = dir.scale(1.0 / len);
@@ -810,7 +811,7 @@ public final class Tracers {
                 break;
             }
             at = out.getLocation().add(unit.scale(1e-3));
-            block = PassableClip.clip(level, at, rb, through::add);
+            block = BeamLasers.clip(level, s.config, at, rb, through::add);
         }
         double reach = block.getType() == HitResult.Type.MISS ? rb.distanceTo(ra) : block.getLocation().distanceTo(ra);
         if (block.getType() != HitResult.Type.MISS) waterHole = waterHole(s, block.getLocation());
