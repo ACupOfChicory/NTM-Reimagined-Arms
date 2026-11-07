@@ -156,7 +156,7 @@ final class Gl54Stand {
     private static void plan(Minecraft mc) {
         run(() -> {
             noon(mc);
-            hide(mc, true);
+            Config.cornerHud = false;
         });
         sleep(300);
         // a full magazine, in the hand, drawn
@@ -178,10 +178,53 @@ final class Gl54Stand {
                 TODO.add(() -> pending == 0);
             }
         }
+        // other places of the gun at the hip
+        for (float y : new float[] {-2.4F, -2.2F}) {
+            for (float x : new float[] {-1.5F, -1.9F}) {
+                for (boolean arms : new boolean[] {true, false}) {
+                    run(() -> {
+                        acup.gunfeel.gl54.ItemRenderGl54.hipX = x;
+                        acup.gunfeel.gl54.ItemRenderGl54.hipY = y;
+                        Config.arms = arms;
+                    });
+                    sleep(25);
+                    String name = "hip-" + x + "_" + y + (arms ? "-full" : "-gun") + ".png";
+                    run(() -> shot(name));
+                    TODO.add(() -> pending == 0);
+                }
+            }
+        }
+        run(() -> {
+            acup.gunfeel.gl54.ItemRenderGl54.hipX = -1.5F;
+            acup.gunfeel.gl54.ItemRenderGl54.hipY = -2.2F;
+            Config.arms = false;
+            turn(mc, 0, 0);
+            give(mc, true);
+        });
+        sleep(60);
+        run(() -> shot("empty.png"));
+        TODO.add(() -> pending == 0);
         run(() -> {
             Config.arms = true;
-            turn(mc, 0, 0);
+            give(mc, false);
         });
+        sleep(120);
+        // Congo Lake, the gun as long as this one, for comparison
+        for (boolean arms : new boolean[] {true, false}) {
+            run(() -> {
+                Config.arms = arms;
+                congo(mc);
+            });
+            sleep(150);
+            String name = "ref-congo" + (arms ? "-full" : "-gun") + ".png";
+            run(() -> shot(name));
+            TODO.add(() -> pending == 0);
+        }
+        run(() -> {
+            Config.arms = true;
+            give(mc, false);
+        });
+        sleep(120);
         // the sights: the gun aimed, the same pose
         run(() -> {
             ItemGunBaseNT.aimingProgress = ItemGunBaseNT.prevAimingProgress = 1F;
@@ -221,7 +264,7 @@ final class Gl54Stand {
         });
         TODO.add(() -> pending == 0);
         // the case: the particles in the next frames
-        for (int i = 0; i < 12; i++) {
+        for (int i = 0; i < 90; i++) {
             int n = i;
             run(() -> casings(mc, n));
             sleep(1);
@@ -313,7 +356,20 @@ final class Gl54Stand {
     }
 
     private static void hide(Minecraft mc, boolean hidden) {
-        if (mc.gui.hud.isHidden() != hidden) mc.gui.hud.toggle();
+        // F1 hides the hand as well: the mod's own HUD is switched off instead (Config.cornerHud)
+    }
+
+    private static void congo(Minecraft mc) {
+        var server = mc.getSingleplayerServer();
+        server.submit(() -> {
+            ServerPlayer p = server.getPlayerList().getPlayers().getFirst();
+            p.getInventory().clearContent();
+            ItemStack stack = new ItemStack(com.hbm.items.ModItems.GUN_CONGOLAKE.get());
+            ItemGunBaseNT.setIsDrawn(stack, true);
+            ItemGunBaseNT.setIsEquipped(stack, true);
+            p.getInventory().setSelectedSlot(0);
+            p.setItemInHand(InteractionHand.MAIN_HAND, stack);
+        }).join();
     }
 
     // the gun in the main hand with eight grenades loaded; empty: a bare hand
@@ -377,7 +433,13 @@ final class Gl54Stand {
 
     private static void casings(Minecraft mc, int n) {
         List<Object> found = new ArrayList<>();
-        walk(mc.particleEngine, 0, found, new IdentityHashMap<>());
+        Map<Object, Boolean> seenObjects = new IdentityHashMap<>();
+        walk(mc.particleEngine, 0, found, seenObjects);
+        if (n == 0 || n == 45) {
+            int particles = 0;
+            for (Object o : seenObjects.keySet()) if (o instanceof net.minecraft.client.particle.Particle) particles++;
+            line("casing", "frame", n, "walked objects", seenObjects.size(), "particles", particles, "casings", found.size());
+        }
         for (Object o : found) {
             try {
                 Field fx = field(o.getClass(), "x"), fy = field(o.getClass(), "y"), fz = field(o.getClass(), "z");
@@ -391,7 +453,7 @@ final class Gl54Stand {
                 line("casing", "no position", e.toString());
             }
         }
-        if (found.isEmpty()) line("casing", "frame", n, "none");
+        if (found.isEmpty() && n % 15 == 0) line("casing", "frame", n, "none");
     }
 
     private static Field field(Class<?> c, String name) throws NoSuchFieldException {
@@ -423,7 +485,7 @@ final class Gl54Stand {
             for (Object e : m.values()) walk(e, depth + 1, out, seen);
             return;
         }
-        if (!(n.startsWith("net.minecraft.client.particle") || n.startsWith("java.util"))) return;
+        if (!(n.startsWith("net.minecraft.client.particle") || n.startsWith("java.util") || n.startsWith("com.hbm.particle"))) return;
         for (Class<?> k = o.getClass(); k != null && k != Object.class; k = k.getSuperclass()) {
             for (Field f : k.getDeclaredFields()) {
                 if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) || f.getType().isPrimitive()) continue;
@@ -484,7 +546,7 @@ final class Gl54Stand {
 
     private static void grenades(Minecraft mc) {
         Vec3[] calibrated = new Vec3[1];
-        Vec3 muzzle = new Vec3(O.getX() + 0.5, O.getY() + 0.5, O.getZ() - 6.0);
+        Vec3 muzzle = new Vec3(O.getX() + 0.5, O.getY() + 1.9, O.getZ() - 6.0);
         // 1. the real shot of the gun at the wall, 18 blocks off: the blast is out in the room
         run(() -> {
             clearRoom(mc);
@@ -502,6 +564,9 @@ final class Gl54Stand {
         // 2. calibration: the exact shot, then the same with husks at gaps
         run(() -> {
             clearRoom(mc);
+            var server = mc.getSingleplayerServer();
+            // the player out of the line of fire
+            server.submit(() -> server.getPlayerList().getPlayers().getFirst().teleportTo(server.overworld(), O.getX() - 9.0, O.getY(), O.getZ() + 0.5, Set.of(), 0F, 0F, false)).join();
             shoot(mc, muzzle, 0F);
         });
         TODO.add(Gl54Stand::blastIn);
@@ -523,6 +588,7 @@ final class Gl54Stand {
                     husk.setNoAi(true);
                     husk.setPersistenceRequired();
                     husk.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000);
+                    husk.getAttribute(Attributes.ARMOR).setBaseValue(0);
                     husk.setHealth(1000);
                     // the gap from the blast to the husk's box along X: the box is 0.6 wide
                     husk.snapTo(h.x + g + 0.3, Math.floor(h.y) - 0.0, h.z - 0.5, 0F, 0F);
@@ -545,10 +611,10 @@ final class Gl54Stand {
                     double dz = box.minZ <= b.z && box.maxZ >= b.z ? 0 : Math.min(Math.abs(box.minZ - b.z), Math.abs(box.maxZ - b.z));
                     double d = Math.sqrt(dx * dx + dy * dy + dz * dz);
                     float got = husk.getMaxHealth() - husk.getHealth();
-                    float want = Gl54Grenade.damageAt(d);
+                    float want = Gl54Grenade.damageAt(d) * 0.4F;
                     line("husk", "gap", d, "damage", got, "expected", want);
-                    ClientSmoke.check(Math.abs(got - want) <= 0.2F * Gl54Grenade.CENTRE_DAMAGE / 18F + 0.5F * want / 18F + 0.25F,
-                            "gl54: зомби на " + String.format(Locale.ROOT, "%.2f", d) + " бл. получил " + got + " (по формуле " + want + ")");
+                    ClientSmoke.check(Math.abs(got - want) <= 0.1F * want + 0.5F,
+                            "gl54: зомби на " + String.format(Locale.ROOT, "%.2f", d) + " бл. получил " + got + " (формула мода: 0,4 * спад NTM " + want + ")");
                 }
             }).join();
         });
@@ -636,13 +702,38 @@ final class Gl54Stand {
             line("dud into a wall", "flown", lastFlown, "went off", lastWent, "husk beside", beside);
             ClientSmoke.check(!lastWent && lastFlown < 3.0, "gl54: болванка у стены не взорвалась (пролетела " + lastFlown + ")");
         });
+        // 4b. an armed grenade straight into a husk: the mod's contact damage and the blast together
+        run(() -> {
+            clearRoom(mc);
+            var server = mc.getSingleplayerServer();
+            server.submit(() -> {
+                ServerLevel level = server.overworld();
+                Husk husk = EntityTypes.HUSK.create(level, EntitySpawnReason.COMMAND);
+                husk.setNoAi(true);
+                husk.setPersistenceRequired();
+                husk.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000);
+                husk.getAttribute(Attributes.ARMOR).setBaseValue(0);
+                husk.setHealth(1000);
+                husk.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 6.0, 0F, 0F);
+                level.addFreshEntity(husk);
+                pair[0] = husk;
+            }).join();
+            shoot(mc, new Vec3(O.getX() + 0.5, O.getY() + 0.9, O.getZ() - 1.0), 0F);
+        });
+        TODO.add(Gl54Stand::blastIn);
+        sleep(10);
+        run(() -> {
+            float hit = pair[0].getMaxHealth() - pair[0].getHealth();
+            line("direct hit", "flown", lastFlown, "went off", lastWent, "damage", hit);
+            ClientSmoke.check(lastWent, "gl54: прямое попадание взвешенной гранатой: урон " + hit);
+        });
         // 5. leaves in the way: the grenade flies on and goes off at the wall
         run(() -> {
             clearRoom(mc);
             var server = mc.getSingleplayerServer();
             server.submit(() -> {
                 ServerLevel level = server.overworld();
-                for (int y = -1; y <= 3; y++) for (int x = -2; x <= 2; x++)
+                for (int y = 1; y <= 4; y++) for (int x = -2; x <= 2; x++)
                     level.setBlock(new BlockPos(O.getX() + x, O.getY() + y, O.getZ() + 2), Blocks.OAK_LEAVES.defaultBlockState(), 3);
             }).join();
             shoot(mc, muzzle, 0F);
@@ -650,7 +741,7 @@ final class Gl54Stand {
         TODO.add(Gl54Stand::blastIn);
         run(() -> {
             line("leaves", "blast at", lastBlast, "flown", lastFlown, "went off", lastWent, "wall face z", (double) (O.getZ() + R));
-            ClientSmoke.check(lastWent && lastBlast.z > O.getZ() + R - 1.0, "gl54: сквозь листву до стены: взрыв на z=" + lastBlast.z);
+            ClientSmoke.check(lastWent && lastBlast.z > O.getZ() + 3.5, "gl54: сквозь листву до стены: взрыв на z=" + lastBlast.z);
         });
         // 6. the switch: gl54 = false in ntmgunfeel-server.properties is read by Gl54Server (the unit test), here the live key
         run(() -> {

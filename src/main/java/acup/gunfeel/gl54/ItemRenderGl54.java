@@ -25,6 +25,10 @@ public final class ItemRenderGl54 extends ItemRenderWeaponBase {
     // the part that gives the muzzle (its far end); without it the whole model's
     public static final String BARREL = "TitaniumBarrel";
 
+    // Where the gun is held at the hip (before NTM's 0.8) and aimed; the stand tries others (Gl54Stand)
+    public static float hipX = -1.5F, hipY = -2.2F, hipZ = 1.25F;
+    public static float aimX = 0.0F, aimY = -1.35F, aimZ = 0.25F;
+
     final HFRWavefrontObject mesh;
     final String[] names;
     private final RenderType body = RenderTypes.entityCutout(TEXTURE);
@@ -50,7 +54,7 @@ public final class ItemRenderGl54 extends ItemRenderWeaponBase {
     public void setupFirstPerson(ItemStack stack, PoseStack pose) {
         pose.translate(0.0, 0.0, 0.875);
         float offset = 0.8F;
-        standardAimingTransform(stack, pose, -1.5F * offset, -2.0F * offset, 1.25F * offset, 0.0, -1.35, 0.25);
+        standardAimingTransform(stack, pose, hipX * offset, hipY * offset, hipZ * offset, aimX, aimY, aimZ);
     }
 
     @Override
@@ -87,7 +91,7 @@ public final class ItemRenderGl54 extends ItemRenderWeaponBase {
     @Override
     public void restBody(ItemStack stack, RestBody body) {
         float offset = 0.8F;
-        Matrix4f m = restSetup(0.875F, -1.5F * offset, -2.0F * offset, 1.25F * offset).scale(0.5F);
+        Matrix4f m = restSetup(0.875F, hipX * offset, hipY * offset, hipZ * offset).scale(0.5F);
         for (int i = 0; i < names.length; i++) body.part(m, mesh, i, TEXTURE);
     }
 }
