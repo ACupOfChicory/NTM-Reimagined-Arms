@@ -33,6 +33,8 @@ public final class GunFeel {
     public static ItemRenderWeaponBase current;
     public static boolean currentAkimbo;
     private static final Map<Item, Long> SEEN_SHOT = new IdentityHashMap<>();
+    // port: the rounds that came to the client since its last tick (the gas bubble of a shot under water)
+    private static final java.util.List<net.minecraft.world.entity.Entity> JOINED = new java.util.ArrayList<>();
 
     static void init() {
         acup.gunfeel.compat.PunchyCompat.install();
@@ -42,9 +44,16 @@ public final class GunFeel {
             acup.gunfeel.water.WaterFx.init();
             // a blast at water (WaterBlast, from the server): bubbles and a push under water, a column on the surface
             acup.gunfeel.water.WaterEvents.listenBlasts(acup.gunfeel.water.WaterFx::blastAt);
-            // a grenade or rocket shot under water: its gas bubble
+            // a grenade or rocket shot under water: its gas bubble. port: 1.21.1's packet that adds an entity carries no
+            // motion (26.2's does): it comes in the next packet of the same bundle, after this event. The round is looked
+            // at on the next client tick, before it has moved
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class, e -> {
-                if (e.getLevel().isClientSide()) acup.gunfeel.water.WaterFx.joined(e.getLevel(), e.getEntity());
+                if (e.getLevel().isClientSide() && e.getEntity() instanceof com.hbm.entity.projectile.EntityBulletBaseMK4) JOINED.add(e.getEntity());
+            });
+            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Pre.class, e -> {
+                if (JOINED.isEmpty()) return;
+                for (net.minecraft.world.entity.Entity x : JOINED) acup.gunfeel.water.WaterFx.joined(x.level(), x);
+                JOINED.clear();
             });
         }
         NeoForge.EVENT_BUS.addListener(RenderFrameEvent.Pre.class, e -> {
@@ -106,6 +115,7 @@ public final class GunFeel {
             ArmLayers.leave();
             if (Feature.TRACERS.on()) Tracers.clear();
             if (Feature.TRACERS.on()) acup.gunfeel.water.WaterFx.clear();
+            JOINED.clear();
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn.class, e -> {
             if (Feature.MACHINE_MESH.on()) MeshShapes.generate();
