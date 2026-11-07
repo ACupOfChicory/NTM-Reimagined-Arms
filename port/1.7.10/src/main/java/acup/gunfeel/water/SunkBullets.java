@@ -362,7 +362,7 @@ public final class SunkBullets {
             track(en);
             Vec3 at = new Vec3(en.lastTickPosX + (en.posX - en.lastTickPosX) * pt, en.lastTickPosY + (en.posY - en.lastTickPosY) * pt,
                     en.lastTickPosZ + (en.posZ - en.lastTickPosZ) * pt);
-            if (at.distanceToSqr(cam) > 48 * 48 || !WaterBullet.stopped(en)) continue;
+            if (at.distanceToSqr(cam) > 48 * 48 || !sinking(en)) continue;
             if (!WaterFx.wetAt(level, at)) continue;
             String ammo = WaterFx.ammo(b.config);
             AmmoModels.Model m = ammo == null ? null : model(b.config);
@@ -380,6 +380,15 @@ public final class SunkBullets {
         double dx = en.posX - en.lastTickPosX, dz = en.posZ - en.lastTickPosZ;
         // at least a hundredth of a block a tick: the server's motion of a sinking one is (0, at most 0.05 down, 0)
         if (dx * dx + dz * dz > 1e-4 && en instanceof WaterBullet w) w.gunfeel$sunkHeading(WaterTick.flat(dx, dz));
+    }
+
+    // a round with an impact fuze that water stopped: this client's copy does not see the stop (it is moved by the
+    // server's updates), but the server's motion of it comes, the sinking one (WaterTick.sink: 0, at most 0.05 down,
+    // 0), while a flying one in water has one of length 1 (also for the stand). port: none comes in the air nor before
+    // its first tick there (WaterTick.announce): a copy just made, with no motion yet, is no sunk one
+    public static boolean sinking(Entity en) {
+        if (WaterBullet.stopped(en)) return true;
+        return en.ticksExisted > 1 && en.motionX * en.motionX + en.motionY * en.motionY + en.motionZ * en.motionZ < 0.01;
     }
 
     // the way a sunk round with an impact fuze lies (also for the stand)

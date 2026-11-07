@@ -45,6 +45,12 @@ public interface WaterBullet {
 
     void gunfeel$sunkHeading(acup.gunfeel.phys.Vec3 heading);
 
+    // port, the server: what of its motion was last sent to the players (WaterTick.announce): the world time << 2
+    // | the kind (0 none, 1 flying, 2 sinking)
+    long gunfeel$sent();
+
+    void gunfeel$sent(long sent);
+
     // this tick's path through liquid (null: it met none), from the path test to the end of the tick
     WaterPath.Result gunfeel$waterTick();
 

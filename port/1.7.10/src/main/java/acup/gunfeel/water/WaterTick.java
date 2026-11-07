@@ -160,6 +160,41 @@ public final class WaterTick {
 
     // the end of the tick (after NTM moved the bullet and hit what it hit)
     public static void end(EntityBulletBaseMK4 bullet) {
+        move(bullet);
+        if (!bullet.worldObj.isRemote) announce(bullet);
+    }
+
+    // port: NTM 1.7.10 registers its bullet with no motion updates (EntityMappings: sendsVelocityUpdates false), and
+    // its client copy does not tick (EntityThrowableInterp): the client knows no motion of it, and the water's stop
+    // of it is the server's. The client tells a sunk round with an impact fuze by its motion, as 26.2's
+    // (SunkBullets.sinking: the server's sinking motion is (0, at most 0.05 down, 0), a flying one's is of length 1),
+    // and a grenade or rocket shot under water by it (WaterFx.joined). So the server sends it (velocityChanged: the
+    // tracker's S12 at the end of the tick) for such a round in water: when it starts to fly there or sinks, and again
+    // each RESEND ticks for players who came in sight of it since. In the air it sends none.
+    static final long RESEND = 20;
+    // for the stand: S12s sent per round's id (null: not counted)
+    public static volatile java.util.Map<Integer, Integer> sentCount;
+
+    static void announce(EntityBulletBaseMK4 bullet) {
+        if (bullet.isDead || bullet.config == null || !sinks(bullet)) return;
+        WaterBullet w = (WaterBullet) bullet;
+        boolean stopped = w.gunfeel$waterStopped();
+        if (!stopped && w.gunfeel$waterTick() == null) return;
+        int kind = stopped ? 2 : 1;
+        long now = bullet.worldObj.getTotalWorldTime();
+        if (!due(w.gunfeel$sent(), kind, now)) return;
+        w.gunfeel$sent(now << 2 | kind);
+        bullet.velocityChanged = true;
+        java.util.Map<Integer, Integer> count = sentCount;
+        if (count != null) count.merge(bullet.getEntityId(), 1, Integer::sum);
+    }
+
+    // a motion of this kind is to be sent now: another kind was sent last, or this one RESEND ticks ago
+    static boolean due(long sent, int kind, long now) {
+        return (sent & 3) != kind || now - (sent >> 2) >= RESEND;
+    }
+
+    private static void move(EntityBulletBaseMK4 bullet) {
         WaterBullet w = (WaterBullet) bullet;
         WaterPath.Result r = w.gunfeel$waterTick();
         if (r == null) {

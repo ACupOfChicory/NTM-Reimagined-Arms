@@ -1,5 +1,12 @@
 # Changelog
 
+## X543.153
+
+- A grenade or rocket that water stopped is now seen as it sinks and lies on
+  the bottom. Before, the client never drew it there: the server sends now
+  the motion of such a round in water, when it starts to fly there or to sink
+  and once a second after, and none in the air.
+
 ## X543.152
 
 - An error with the rounds seen in water or on the bottom, while they are

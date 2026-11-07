@@ -155,6 +155,7 @@ BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 posY D
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 posZ D
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 ticksExisted I
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 ticksInAir I
+BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 velocityChanged Z
 BULLETS field com/hbm/entity/projectile/EntityBulletBaseMK4 worldObj Lnet/minecraft/world/World;
 BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase worldObj Lnet/minecraft/world/World;
 BULLETS field com/hbm/entity/projectile/EntityThrowableNT ticksInAir I
@@ -447,6 +448,7 @@ TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 motionY D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 motionZ D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 prevVelocity D
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 velocity D
+TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 velocityChanged Z
 TRACERS field com/hbm/entity/projectile/EntityBulletBaseMK4 worldObj Lnet/minecraft/world/World;
 TRACERS field com/hbm/inventory/RecipesCommon$ComparableStack item Lnet/minecraft/item/Item;
 TRACERS field com/hbm/inventory/RecipesCommon$ComparableStack meta I
