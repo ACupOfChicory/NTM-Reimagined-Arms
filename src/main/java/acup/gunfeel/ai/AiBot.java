@@ -66,7 +66,7 @@ public final class AiBot {
     public void perceive(VoxelRay.Source voxels, @Nullable SmokeClouds smoke, List<LivingEntity> targets, long tick) {
         memory.look();
         for (LivingEntity t : targets) {
-            if (t == mob || !t.isAlive()) continue;
+            if (t == mob || !t.isAlive() || !AiTeams.enemy(mob, t)) continue;
             int notice = Senses.look(voxels, smoke, mob, t, eyes());
             if (notice >= 0) memory.seen(t.getId(), t.getX(), t.getY(), t.getZ(), tick, notice);
         }

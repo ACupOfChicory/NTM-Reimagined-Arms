@@ -1,5 +1,15 @@
 # Changelog
 
+## X602
+
+- Mob AI: AI mobs fight in the game's teams (`/team`). One in a team fights
+  the players and the AI mobs of the other teams, and players with no team;
+  one with no team fights every player, as before. Neither shoots through
+  its own, nor takes a hit from its own as a threat, nor goes after the
+  sound of its own shots. `/armsai spawn fbi 5 team red` puts the new mobs in
+  team `red`, made if there is none. NTM's FBI agents take shots from FBI
+  agents of another team.
+
 ## X600
 
 - Mob AI: AI mobs' guns fire and reload at the guns' own pace. They went

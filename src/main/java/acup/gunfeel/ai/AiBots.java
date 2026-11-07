@@ -127,7 +127,10 @@ public final class AiBots {
         return LEVELS.computeIfAbsent(level, PerLevel::new).voxels;
     }
 
-    /** the targets of a level, looked up again once a second */
+    /**
+     * whoever an AI mob of a level may fight, looked up again once a second: players, the AI mobs in a team (AiTeams
+     * says whom each fights) and the stands' tagged targets
+     */
     static List<LivingEntity> targets(PerLevel l, long tick) {
         if (l.targetsTick != Long.MIN_VALUE && tick >= l.targetsTick && tick - l.targetsTick < 20) return l.targets;
         l.targetsTick = tick;
@@ -135,8 +138,12 @@ public final class AiBots {
         for (Player p : l.level.players()) if (p.isAlive() && !p.isSpectator() && !p.isCreative()) l.targets.add(p);
         for (Entity e : l.level.getAllEntities())
             if (e instanceof LivingEntity le && !(e instanceof Player) && le.isAlive() && e.entityTags().contains(TARGET_TAG)) l.targets.add(le);
+        for (AiBot b : l.bots.values()) if (b.mob.isAlive() && b.mob.getTeam() != null && !l.targets.contains(b.mob)) l.targets.add(b.mob);
         return l.targets;
     }
+
+    /** for the stands: every AI mob thinks, players near or not */
+    static boolean awake;
 
     /** the stands: look the targets up now, not within the second */
     public static void refreshTargets(ServerLevel level) {
@@ -155,7 +162,7 @@ public final class AiBots {
             // here, between the mobs' ticks: a goal set must not change while it ticks
             AiAdapter.strip(b);
             // a player in any mode but spectator (an operator watching in creative too), or a stand's tagged target
-            boolean near = false;
+            boolean near = awake;
             for (Player p : level.players()) {
                 if (p.isSpectator()) continue;
                 double dx = p.getX() - b.mob.getX(), dz = p.getZ() - b.mob.getZ();
@@ -165,6 +172,7 @@ public final class AiBots {
                 }
             }
             if (!near) for (LivingEntity t : targets(l, level.getGameTime())) {
+                if (get(t) != null) continue;
                 double dx = t.getX() - b.mob.getX(), dz = t.getZ() - b.mob.getZ();
                 if (dx * dx + dz * dz <= r2) {
                     near = true;
@@ -224,13 +232,19 @@ public final class AiBots {
         }
         // a quiet sound (a step plays at 0.15) does not carry as far as the game lets players hear it
         double range = sound.value().getRange(volume) * (volume < 1 ? Math.sqrt(volume) : 1);
+        // an AI mob's own sound (its steps, its shots): heard only by those that fight it
+        AiBot from = null;
         for (AiBot b : l.bots.values()) {
             double dx = b.mob.getX() - x, dy = b.mob.getY() - y, dz = b.mob.getZ() - z;
-            if (dx * dx + dy * dy + dz * dz < OWN_SOUND * OWN_SOUND) return;
+            if (dx * dx + dy * dy + dz * dz < OWN_SOUND * OWN_SOUND) {
+                from = b;
+                break;
+            }
         }
         long tick = level.getGameTime();
         boolean loud = range >= LOUD;
         for (AiBot b : l.bots.values()) {
+            if (from != null && !AiTeams.enemy(b.mob, from.mob)) continue;
             double reach = range * b.profile.hearing();
             double dx = b.mob.getX() - x, dy = b.mob.getY() - y, dz = b.mob.getZ() - z;
             double d2 = dx * dx + dy * dy + dz * dz;
@@ -243,8 +257,9 @@ public final class AiBots {
     public static int friendlyHits;
 
     /**
-     * Another AI mob in the line from from to to, or a little past it: its box, grown by the cone's width where it
-     * stands (plus 0.3), crosses the line. The line of fire a shot keeps clear.
+     * One of its own (AiTeams.own: an AI mob it does not fight, a player of its team) in the line from from to to, or
+     * a little past it: its box, grown by the cone's width where it stands (plus 0.3), crosses the line. The line of
+     * fire a shot keeps clear.
      */
     static boolean friendInLine(ServerLevel level, Mob shooter, Vec3 from, Vec3 to, double coneDegrees) {
         PerLevel l = LEVELS.get(level);
@@ -256,23 +271,30 @@ public final class AiBots {
         double tan = Math.tan(Math.toRadians(coneDegrees));
         for (AiBot b : l.bots.values()) {
             Mob m = b.mob;
-            if (m == shooter || m.isRemoved() || !m.isAlive()) continue;
-            net.minecraft.world.phys.AABB box = m.getBoundingBox();
-            double t = box.getCenter().subtract(from).dot(u);
-            if (t <= 0 || t > len + 1) continue;
-            net.minecraft.world.phys.AABB grown = box.inflate(0.3 + t * tan);
-            if (grown.contains(from) || grown.clip(from, end).isPresent()) return true;
+            if (m == shooter || m.isRemoved() || !m.isAlive() || !AiTeams.own(shooter, m)) continue;
+            if (crosses(m, from, u, end, len, tan)) return true;
         }
+        if (shooter.getTeam() != null) for (Player p : level.players())
+            if (!p.isSpectator() && p.isAlive() && AiTeams.own(shooter, p) && crosses(p, from, u, end, len, tan)) return true;
         return false;
     }
 
-    /** a hit tells where it came from, roughly; one from another AI mob is no threat */
+    // whether the entity is in the cone from `from` along u (len long, widening by tan a block)
+    private static boolean crosses(LivingEntity m, Vec3 from, Vec3 u, Vec3 end, double len, double tan) {
+        net.minecraft.world.phys.AABB box = m.getBoundingBox();
+        double t = box.getCenter().subtract(from).dot(u);
+        if (t <= 0 || t > len + 1) return false;
+        net.minecraft.world.phys.AABB grown = box.inflate(0.3 + t * tan);
+        return grown.contains(from) || grown.clip(from, end).isPresent();
+    }
+
+    /** a hit tells where it came from, roughly; one from its own (an AI mob it does not fight, a player of its team) is no threat */
     public static void hurt(Mob mob, DamageSource source) {
         AiBot b = get(mob);
         if (b == null) return;
         Entity from = source.getEntity();
-        if (from instanceof Mob m && m != mob && get(m) != null) {
-            friendlyHits++;
+        if (from instanceof LivingEntity le && le != mob && AiTeams.own(mob, le)) {
+            if (get(le) != null) friendlyHits++;
             return;
         }
         Vec3 at = from != null ? from.position() : source.getSourcePosition();

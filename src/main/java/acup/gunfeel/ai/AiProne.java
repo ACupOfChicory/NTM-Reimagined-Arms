@@ -6,6 +6,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -87,7 +88,7 @@ public final class AiProne {
     }
 
     /**
-     * Shots in flight round it this tick (not its own, not another AI mob's): one whose step this tick passes within
+     * Shots in flight round it this tick (not its own, not its own side's, AiTeams): one whose step this tick passes within
      * NEAR of its chest is a near miss, counted once.
      */
     void watchShots(ServerLevel level, long tick) {
@@ -98,7 +99,7 @@ public final class AiProne {
         Vec3 c = mob.position().add(0, mob.getBbHeight() * 0.6, 0);
         for (Projectile p : level.getEntitiesOfClass(Projectile.class, mob.getBoundingBox().inflate(WATCH), Entity::isAlive)) {
             Entity owner = p.getOwner();
-            if (owner == mob || owner instanceof Mob m && AiBots.get(m) != null) continue;
+            if (owner == mob || owner instanceof LivingEntity o && AiTeams.own(mob, o)) continue;
             Vec3 a = p.position(), v = p.getDeltaMovement();
             double vv = v.lengthSqr();
             if (vv < 0.25) continue;
