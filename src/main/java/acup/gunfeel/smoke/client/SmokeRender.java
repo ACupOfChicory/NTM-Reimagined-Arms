@@ -165,7 +165,7 @@ public final class SmokeRender {
     }
 
     // Iris with a shader pack draws into its own targets: our pass would land in the wrong one (research 3.2)
-    static boolean irisPack() {
+    public static boolean irisPack() {
         long now = System.currentTimeMillis();
         if (now - irisChecked < 1000) return irisPack;
         irisChecked = now;
