@@ -443,6 +443,11 @@ MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDI)Lcom/hbm/r
 MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDILcom/hbm/render/anim/BusAnimationKeyframe$IType;)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence hold (I)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence setPos (DDD)Lcom/hbm/render/anim/BusAnimationSequence;
+MODEL_HITBOXES class com/hbm/entity/mob/EntityFBIDrone
+MODEL_HITBOXES class com/hbm/entity/mob/EntityHunterChopper
+MODEL_HITBOXES class com/hbm/entity/mob/EntityPlasticBag
+MODEL_HITBOXES class com/hbm/entity/mob/EntityUFO
+MODEL_HITBOXES class com/hbm/entity/mob/botprime/EntityWormBaseNT
 MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBaseMK4
 MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBeamBase
 MODEL_HITBOXES class com/hbm/render/loader/HFRWavefrontObject

@@ -30,7 +30,7 @@ import net.minecraft.world.World;
 
 public final class ModelHits {
     public static final int RANGE = 96, MAX_UPDATES = 16, INTERVAL = 2, MAX_SYNC_AGE = 5;
-    private record PoseAt(UUID entity, Vec3 position, float yaw, float bodyYaw, int pose, float width, float height, long tick, List<ModelBox> boxes, List<Object> gear) {}
+    private record PoseAt(UUID entity, Vec3 position, float yaw, float bodyYaw, float yRot, int age, int pose, float width, float height, long tick, List<ModelBox> boxes, List<Object> gear) {}
     private static final Map<World, Map<Integer, PoseAt>> POSES = new WeakHashMap<>();
     private static final Map<EntityPlayerMP, long[]> LIMITS = new WeakHashMap<>();
     private record ViewAt(PoseAt pose,Vec3 rendered,Vec3 velocity,World level) {}
@@ -93,7 +93,7 @@ public final class ModelHits {
         return null;
     }
     private static double angle(EntityLivingBase target,PoseAt pose) {
-        return view(target)!=null?0:turnAngle(target.worldObj.isRemote,target.renderYawOffset,pose.yaw(),pose.bodyYaw());
+        return view(target)!=null?0:turnAngle(target,pose);
     }
 
     private ModelHits() {}
@@ -171,7 +171,7 @@ public final class ModelHits {
     // Явная отметка захвата также позволяет воспроизвести пропуск кадров в серверном стенде.
     static synchronized void putAt(World level, EntityLivingBase target, float yaw, List<ModelBox> boxes, long tick) {
         Map<Integer, PoseAt> poses = POSES.computeIfAbsent(level, k -> new HashMap<>());
-        poses.put(id(target), new PoseAt(uuid(target), position(target), yaw, target.renderYawOffset, pose(target),
+        poses.put(id(target), new PoseAt(uuid(target), position(target), yaw, target.renderYawOffset, target.rotationYaw, target.ticksExisted, pose(target),
                 target.width, target.height, tick, List.copyOf(boxes), gear(target)));
     }
 
@@ -189,7 +189,7 @@ public final class ModelHits {
             if (!compatible(target, p)) {
                 it.remove();
             } else if (!position(target).equals(p.position())) {
-                entry.setValue(new PoseAt(p.entity(), position(target), p.yaw(), p.bodyYaw(), p.pose(),
+                entry.setValue(new PoseAt(p.entity(), position(target), p.yaw(), p.bodyYaw(), p.yRot(), p.age(), p.pose(),
                         p.width(), p.height(), p.tick(), p.boxes(), p.gear()));
             }
         }
@@ -201,7 +201,7 @@ public final class ModelHits {
                 if(observer.getKey().worldObj!=level || !compatible(target,v.pose())
                         || time(level)-v.pose().tick()>MAX_SYNC_AGE)return true;
                 var p=v.pose();
-                entry.setValue(new ViewAt(new PoseAt(p.entity(),position(target),p.yaw(),p.bodyYaw(),p.pose(),
+                entry.setValue(new ViewAt(new PoseAt(p.entity(),position(target),p.yaw(),p.bodyYaw(),p.yRot(),p.age(),p.pose(),
                         p.width(),p.height(),p.tick(),p.boxes(),p.gear()),v.rendered(),v.velocity(),level));
                 return false;
             });
@@ -334,7 +334,7 @@ public final class ModelHits {
         if(!usable(target,pose) || !(target instanceof EntityLivingBase living)) return List.of();
         String type=ModelHeads.key(target);
         var resolved=ModelHeads.resolve(type,pose.boxes(),pose.yaw());
-        double angle=turnAngle(target.worldObj.isRemote,living.renderYawOffset,pose.yaw(),pose.bodyYaw());
+        double angle=turnAngle(living,pose);
         var out=new ArrayList<HeadZone>();
         for(var zone:wornZones(target,pose,resolved.zones())) out.add(world(zone,angle,position(target)));
         return List.copyOf(out);
@@ -348,6 +348,19 @@ public final class ModelHits {
         var origin=unturn(new Vec3(box.x(),box.y(),box.z()),cos,sin).add(position);
         var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),cos,sin);var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),cos,sin);
         return new ModelBox(box.part(),origin.x,origin.y,origin.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z,box.mesh());
+    }
+    // the stand's (RenderMobsScenario): the pose kept for the entity now (null: none), the tick it came in, its boxes about
+    // the origin, and how far its model has turned since, by the mob's rule or by the body's alone
+    static synchronized Object standPose(Entity target) {
+        var poses=POSES.get(target.worldObj);return poses==null?null:poses.get(id(target));
+    }
+    static long standTick(Object pose) { return ((PoseAt)pose).tick(); }
+    static float standYaw(Object pose) { return ((PoseAt)pose).yaw(); }
+    static float standYRot(Object pose) { return ((PoseAt)pose).yRot(); }
+    static List<ModelBox> standBoxes(Object pose) { return ((PoseAt)pose).boxes(); }
+    static double standAngle(EntityLivingBase target, Object pose, boolean bodyRule) {
+        var p=(PoseAt)pose;
+        return bodyRule?turnAngle(target.worldObj.isRemote,target.renderYawOffset,p.yaw(),p.bodyYaw()):turnAngle(target,p);
     }
     // the pose as taken (MobsScenario's dump): its boxes about the origin and its yaw; null without one
     static synchronized List<ModelBox> poseBoxes(Entity target) {
@@ -372,7 +385,7 @@ public final class ModelHits {
         Map<Integer, PoseAt> poses = POSES.get(target.worldObj);
         PoseAt p = poses == null ? null : poses.get(id(target));
         if (!usable(target, p) || !(target instanceof EntityLivingBase living)) return List.of();
-        double angle = turnAngle(target.worldObj.isRemote, living.renderYawOffset, p.yaw(), p.bodyYaw());
+        double angle = turnAngle(living, p);
         List<ModelBox> out = new ArrayList<>(p.boxes().size());
         double cos=Math.cos(-angle),sin=Math.sin(-angle);
         for (ModelBox box : wornBoxes(target,p)) {
@@ -475,6 +488,63 @@ public final class ModelHits {
             if(contacts.size()<32)contacts.add(new Contact(point,rootOrigin.add(motion.scale(time)),duration*time));
         }
         return Optional.of(point);
+    }
+
+    // How a mob's renderer turns it. Vanilla's turn a mob by its body, and so do most of NTM's (glyphids, Mask Man, the
+    // crabs); five do not. The hunter chopper is drawn by its yRot, the usual way round; its body follows yRot only while
+    // it moves, so a chopper that aims from where it hangs turns its model and not its body. The plastic bag is drawn by
+    // yRot the other way round; its body follows yRot only in water (Squid.aiStep). NTM's worm draws each piece by its
+    // yRot the other way round, and the body does not follow (the head sets yRot from its motion every tick). The FBI
+    // drone is drawn at a fixed angle of its id, the UFO spins 5 degrees a tick, whatever their body does.
+    // port: NTM 1.7.10's renderers of these (RenderHunterChopper, RenderPlasticBag, RenderWormHead/Body, RenderUFO,
+    // RenderDrone) are Render, not RendererLivingEntity: ModelHitClient.beginRender takes their poses. The siege craft
+    // and tunneler have renderers too, but X5863 neither registers nor makes them: no rule.
+    // port: a mob drawn by its yRot (YAW, YAW_BACK) is taken at the yRot its renderer turned it by (takenYaw), not at its
+    // body, and turned by how far yRot has gone since. 1.7.10 does not send the body: the client works its own out and
+    // keeps it up to 50 degrees off yRot while the mob stands (EntityLivingBase.func_110146_f), so 26.2's yRot "the
+    // client's body plus how far the server's yRot stood off the server's body" was off by that much (the rendermobs
+    // stand: 48 degrees for a hanging chopper). yRot itself comes from the server, the chopper's and the dry bag's.
+    enum Turn { BODY, YAW, YAW_BACK, WORM, FIXED, SPIN }
+    private static final ClassValue<Turn> TURNS=new ClassValue<>() {
+        @Override protected Turn computeValue(Class<?> type) { return turn(type); }
+    };
+    static Turn turn(Class<?> type) {
+        if(com.hbm.entity.mob.botprime.EntityWormBaseNT.class.isAssignableFrom(type)) return Turn.WORM;
+        if(com.hbm.entity.mob.EntityPlasticBag.class.isAssignableFrom(type)) return Turn.YAW_BACK;
+        if(com.hbm.entity.mob.EntityFBIDrone.class.isAssignableFrom(type)) return Turn.FIXED;
+        if(com.hbm.entity.mob.EntityUFO.class.isAssignableFrom(type)) return Turn.SPIN;
+        if(com.hbm.entity.mob.EntityHunterChopper.class.isAssignableFrom(type)) return Turn.YAW;
+        return Turn.BODY;
+    }
+    // How far the drawn model has turned since the pose was caught, in the body's terms.
+    static double turnAngle(EntityLivingBase target, PoseAt p) {
+        return turnAngle(target, p.yaw(), p.bodyYaw(), p.yRot(), p.age());
+    }
+    // yaw: the turn the pose was drawn at (the client's body; port: the drawn yRot for YAW, YAW_BACK, takenYaw); bodyYaw,
+    // yRot, age: this side's when the pose came in.
+    // age is the mob's tickCount, which RenderUFO spins by; the client's game time jumps with the server's time packets.
+    // port: renderYawOffset, rotationYaw, ticksExisted are 26.2's yBodyRot, getYRot(), tickCount
+    static double turnAngle(EntityLivingBase target, float yaw, float bodyYaw, float yRot, int age) {
+        return turnAngle(TURNS.get(target.getClass()), target.worldObj.isRemote, target.renderYawOffset, target.rotationYaw,
+                target.ticksExisted, yaw, bodyYaw, yRot, age);
+    }
+    static double turnAngle(Turn turn, boolean client, float body, float yRotNow, long now, float yaw, float bodyYaw, float yRot, long tick) {
+        return switch(turn) {
+            case BODY -> turnAngle(client, body, yaw, bodyYaw);
+            case YAW -> turnAngle(client, yRotNow, yaw, yRot);
+            case YAW_BACK -> -turnAngle(client, yRotNow, yaw, yRot);
+            // the worm's bodies on the client and the server go each their own way: by yRot alone
+            case WORM -> -Math.toRadians(MathHelper.wrapAngleTo180_float(yRotNow - yRot));
+            case FIXED -> 0;
+            case SPIN -> -Math.toRadians(MathHelper.wrapAngleTo180_float((float)(5 * Math.floorMod(now - tick, 72L))));
+        };
+    }
+
+    // port: the angle a pose is taken at (ModelHitClient): the body's, as rotateCorpse turns the model by; a mob drawn by
+    // its yRot, the yRot as its renderer interpolates it (RenderHunterChopper, RenderPlasticBag: prev + (now - prev) * partial)
+    static float takenYaw(EntityLivingBase e, float body, float partial) {
+        Turn t = TURNS.get(e.getClass());
+        return t == Turn.YAW || t == Turn.YAW_BACK ? e.prevRotationYaw + (e.rotationYaw - e.prevRotationYaw) * partial : body;
     }
 
     // Клиент сохраняет исходную интерполяцию и добавляет лишь движение корня после захвата.

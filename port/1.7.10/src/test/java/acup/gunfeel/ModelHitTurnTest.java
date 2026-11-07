@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import acup.gunfeel.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
-// port: the copy of 26.2 at 028a2e2. main 3adb014 added ModelHits.Turn (how NTM renderer turns a kept pose); the
-// port keeps no pose of those mobs (their renderers are Render, not RendererLivingEntity), so it has no Turn
+// port: the copy of 26.2 at 646faaa (ModelHits.Turn: 3adb014, 93895bc, 646faaa); the mobs' base is 1.7.10's
+// EntityLivingBase, NTM's classes are taken by name. YAW and YAW_BACK turn a pose taken at the drawn yRot (ModelHits.takenYaw)
 class ModelHitTurnTest {
     @Test void renderedLimbRemainsAtItsVisiblePositionDuringAbruptTurn() {
         // Реальный случай из modeldebug: раньше клиент терял модель на этом повороте.
@@ -28,5 +28,67 @@ class ModelHitTurnTest {
     @Test void retainedClientPoseFollowsRootWithoutRepeatingInterpolationCorrection() {
         assertEquals(Math.toRadians(20), ModelHits.turnAngle(true, 23.75F, 163.59375F, 3.75F), 1e-9);
         assertEquals(Math.toRadians(2), ModelHits.turnAngle(true, 1, 270, 359), 1e-9);
+    }
+
+    // the numbers the stand measured: a pose kept 1.5 s while the server turned the mob by 40 degrees
+    @Test void keptPoseTurnsTheWayItsRendererTurnsTheMob() {
+        assertEquals(ModelHits.Turn.WORM, ModelHits.turn(type("com.hbm.entity.mob.botprime.EntityBOTPrimeHead")));
+        assertEquals(ModelHits.Turn.WORM, ModelHits.turn(type("com.hbm.entity.mob.botprime.EntityBOTPrimeBody")));
+        assertEquals(ModelHits.Turn.YAW_BACK, ModelHits.turn(type("com.hbm.entity.mob.EntityPlasticBag")));
+        assertEquals(ModelHits.Turn.FIXED, ModelHits.turn(type("com.hbm.entity.mob.EntityFBIDrone")));
+        assertEquals(ModelHits.Turn.SPIN, ModelHits.turn(type("com.hbm.entity.mob.EntityUFO")));
+        // the worm's head: body 90 to 130, yRot set back to 0 by its motion; drawn by yRot, it has not turned
+        assertEquals(0, ModelHits.turnAngle(ModelHits.Turn.WORM, false, 130, 0, 100, 61.65F, 90, 0, 70), 1e-9);
+        // a worm's piece that turned with yRot from 90 to 130: the model turns the other way
+        assertEquals(Math.toRadians(-40), ModelHits.turnAngle(ModelHits.Turn.WORM, false, 90, 130, 100, 90, 90, 90, 70), 1e-6);
+        assertEquals(Math.toRadians(-40), ModelHits.turnAngle(ModelHits.Turn.WORM, true, 90, 130, 100, 90, 90, 90, 70), 1e-6);
+        // the bag in water, its yRot on its body, drawn at 239.45, now at 130: the model turned by +109.45 (the stand: +110)
+        assertEquals(Math.toRadians(109.45), ModelHits.turnAngle(ModelHits.Turn.YAW_BACK, false, 130, 130, 100, 239.45F, 90, 90, 70), 1e-5);
+        // out of water the body stays: yRot +40, body -30 (the stand): the model turned by -40
+        assertEquals(Math.toRadians(-40), ModelHits.turnAngle(ModelHits.Turn.YAW_BACK, false, 60, 130, 100, 90, 90, 90, 70), 1e-6);
+        assertEquals(Math.toRadians(-40), ModelHits.turnAngle(ModelHits.Turn.YAW_BACK, true, 60, 130, 100, 90, 90, 90, 70), 1e-6);
+        assertEquals(0, ModelHits.turnAngle(ModelHits.Turn.FIXED, false, 130, 130, 100, 239.45F, 90, 90, 70), 1e-9);
+        // the UFO spins 5 degrees a tick: 30 ticks later the model is 150 degrees on
+        assertEquals(Math.toRadians(-150), ModelHits.turnAngle(ModelHits.Turn.SPIN, false, 130, 130, 100, 90, 90, 90, 70), 1e-6);
+        assertEquals(0, ModelHits.turnAngle(ModelHits.Turn.SPIN, true, 130, 130, 142, 90, 90, 90, 70), 1e-9);
+    }
+
+    // RenderHunterChopper turns the model by yRot (YP(yRot - 90) under XP(180)); aimAt turns yRot 10 degrees a tick and
+    // the body follows yRot only while the chopper moves
+    @Test void keptChopperPoseTurnsByItsYRot() {
+        assertEquals(ModelHits.Turn.YAW, ModelHits.turn(type("com.hbm.entity.mob.EntityHunterChopper")));
+        // hanging in place: the body stays at 90, yRot 90 to 130; the model turned by +40, the body rule says 0
+        assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 90, 130, 100, 90, 90, 90, 70), 1e-6);
+        assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, true, 90, 130, 100, 90, 90, 90, 70), 1e-6);
+        // port: the pose carries the yRot it was drawn at (90), not the body: the server's yRot when it came in (110) does
+        // not move it, the server turns it by 130 - 90; the client, by its yRot now less its yRot when it was kept
+        assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 90, 130, 100, 90, 90, 110, 70), 1e-6);
+        assertEquals(Math.toRadians(20), ModelHits.turnAngle(ModelHits.Turn.YAW, true, 90, 130, 100, 90, 90, 110, 70), 1e-6);
+        // the hanging chopper of the stand: the client's body 48 degrees behind yRot, drawn at yRot 90; yRot +40, body -30
+        assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 60, 130, 100, 90, 90, 90, 70), 1e-6);
+        // the stand: yRot +40, body -30
+        assertEquals(Math.toRadians(40), ModelHits.turnAngle(ModelHits.Turn.YAW, false, 60, 130, 100, 90, 90, 90, 70), 1e-6);
+        // flying, yRot on its body: the body rule, drawn at 239.5 on the client
+        assertEquals(ModelHits.turnAngle(false, 130, 239.5F, 90),
+                ModelHits.turnAngle(ModelHits.Turn.YAW, false, 130, 130, 100, 239.5F, 90, 90, 70), 1e-6);
+    }
+
+    // the mobs whose body rule was right before stay on it: vanilla's, glyphids, Mask Man, the crabs, the ghost
+    @Test void mobsTurnedByTheirBodyKeepTheBodyRule() {
+        for(Class<?> type:java.util.List.<Class<?>>of(net.minecraft.entity.EntityLivingBase.class,type("com.hbm.entity.mob.glyphid.EntityGlyphid"),
+                type("com.hbm.entity.mob.EntityMaskMan"),type("com.hbm.entity.mob.EntityTeslaCrab"),
+                type("com.hbm.entity.mob.EntityTaintCrab"),type("com.hbm.entity.mob.EntityGhost"),type("com.hbm.entity.mob.EntityBlockSpider"),
+                type("com.hbm.entity.mob.EntityCyberCrab"),type("com.hbm.entity.mob.EntityDummy"),type("com.hbm.entity.mob.EntityPigeon")))
+            assertEquals(ModelHits.Turn.BODY, ModelHits.turn(type), type.getSimpleName());
+        assertEquals(ModelHits.turnAngle(false, 130, 239.5F, 90),
+                ModelHits.turnAngle(ModelHits.Turn.BODY, false, 130, 130, 100, 239.5F, 90, 90, 70), 1e-12);
+        assertEquals(ModelHits.turnAngle(true, 130, 239.5F, 90),
+                ModelHits.turnAngle(ModelHits.Turn.BODY, true, 130, 130, 100, 239.5F, 90, 90, 70), 1e-12);
+    }
+
+    // port: NTM is on the tests' run classpath (devOnlyNonPublishable), not their compile one
+    private static Class<?> type(String name) {
+        try { return Class.forName(name, false, ModelHitTurnTest.class.getClassLoader()); }
+        catch (ClassNotFoundException ex) { throw new AssertionError("NTM class " + name, ex); }
     }
 }

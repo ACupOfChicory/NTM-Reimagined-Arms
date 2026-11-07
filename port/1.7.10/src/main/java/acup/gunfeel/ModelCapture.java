@@ -40,7 +40,8 @@ public final class ModelCapture {
     // interpolated yaw rotateCorpse turns the model by
     public ModelCapture(ModelBase model, float[] view, double x, double y, double z, float yaw) {
         this.model = model;
-        this.names = ModelNames.of(model);
+        // null: a renderer that draws OBJ groups only (ModelHitClient.beginRender)
+        this.names = model == null ? java.util.Map.of() : ModelNames.of(model);
         this.drawing = model;
         this.drawingNames = names;
         float[] inverse = Mat4.invertAffine(view);

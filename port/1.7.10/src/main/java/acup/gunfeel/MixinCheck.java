@@ -41,7 +41,7 @@ public final class MixinCheck {
             {"net.minecraft.client.renderer.texture.TextureManager", "1"}, // MixinTextureBind (armArmor's stand)
             {"net.minecraft.client.renderer.Tessellator", "2"}, // MixinTessellator: draw, drop
             {"net.minecraftforge.client.model.obj.WavefrontObject", "8"}, // MixinForgeWavefrontObject 4 + ends 4
-            {"net.minecraft.client.renderer.entity.RenderManager", "2"}, // the model box, the box at full brightness
+            {"net.minecraft.client.renderer.entity.RenderManager", "3"}, // the model box, the box at full brightness, a Render mob's model
             {"com.hbm.items.weapon.sedna.GunConfig", "6"}, // MixinG3Inspect 4 (gunfeel$release + 3), MixinGunConfigAnims 2
             {"com.hbm.entity.projectile.EntityThrowableNT", "12"}, // MixinThrowableClip: its 12 gunfeel$ methods (handlers and helpers)
             {"com.hbm.entity.projectile.EntityThrowableInterp", "1"}, // MixinThrowableMotion (client)

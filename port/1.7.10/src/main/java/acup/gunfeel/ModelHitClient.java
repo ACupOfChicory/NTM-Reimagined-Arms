@@ -79,12 +79,17 @@ public final class ModelHitClient {
 
     // RendererLivingEntity.doRender HEAD: x, y, z are camera-relative, as RenderManager passes them
     public static void begin(EntityLivingBase entity, ModelBase model, double x, double y, double z) {
+        start(entity, model, x, y, z, true);
+    }
+
+    // needModel: a RendererLivingEntity's main model (none: nothing to take); a plain Render's may draw OBJ groups only
+    private static boolean start(EntityLivingBase entity, ModelBase model, double x, double y, double z, boolean needModel) {
         current = null;
         target = null;
         inModel = false;
         inPass = false;
-        if (!enabled || !acup.gunfeel.compat.Feature.MODEL_HITBOXES.on() || model == null || !eligible(entity)) return;
-        if (worldSeen && worldDepth == 0) return;
+        if (!enabled || !acup.gunfeel.compat.Feature.MODEL_HITBOXES.on() || (needModel && model == null) || !eligible(entity)) return false;
+        if (worldSeen && worldDepth == 0) return false;
         target = entity;
         ModelHitClient.model = model;
         renderX = x;
@@ -92,6 +97,7 @@ public final class ModelHitClient {
         renderZ = z;
         // the capture itself starts at rotateCorpse, where the body's yaw is known
         view = modelview();
+        return true;
     }
     private static float[] view;
 
@@ -153,8 +159,61 @@ public final class ModelHitClient {
         }
     }
 
+    // RenderManager.func_147939_a around render.doRender, for a living entity whose renderer is a plain Render (NTM's
+    // hunter chopper, plastic bag, worm, UFO, drone: RenderHunterChopper and the rest draw the model
+    // themselves, turned by yRot, a spin or a fixed angle, not by rotateCorpse). The whole doRender is the model's pass:
+    // the cubes of the renderer's ModelBase (named from its field) and every OBJ group it draws; a beam drawn with the
+    // Tessellator (RenderUFO) is neither. The pose's yaw is the body's, as rotateCorpse's (26.2: the pose carries the
+    // client's body), or the drawn yRot for a mob drawn by it (ModelHits.takenYaw), and ModelHits.Turn turns it as the
+    // renderer turns the mob. Returns whether it is taking the model:
+    // then endRender must follow.
+    public static boolean beginRender(net.minecraft.entity.Entity entity, net.minecraft.client.renderer.entity.Render render,
+            double x, double y, double z, float partial) {
+        if (render instanceof net.minecraft.client.renderer.entity.RendererLivingEntity || !(entity instanceof EntityLivingBase living)) return false;
+        ModelBase m = renderModel(render);
+        if (!start(living, m, x, y, z, false)) return false;
+        current = new ModelCapture(m, view, x, y, z, ModelHits.takenYaw(living, bodyYaw(living, partial), partial));
+        inModel = true;
+        return true;
+    }
+
+    public static void endRender(net.minecraft.entity.Entity entity) {
+        if (entity instanceof EntityLivingBase living) end(living, "render");
+    }
+
+    // RendererLivingEntity.interpolateRotation(prevRenderYawOffset, renderYawOffset, partial), what doRender hands rotateCorpse
+    static float bodyYaw(EntityLivingBase e, float partial) {
+        float d = e.renderYawOffset - e.prevRenderYawOffset;
+        while (d < -180F) d += 360F;
+        while (d >= 180F) d -= 360F;
+        return e.prevRenderYawOffset + partial * d;
+    }
+
+    // the renderer's model: the first ModelBase one of its fields holds (RenderHunterChopper.chopperModel); null when it
+    // draws OBJ groups only
+    private static final ClassValue<java.lang.reflect.Field> MODEL_FIELD = new ClassValue<>() {
+        @Override protected java.lang.reflect.Field computeValue(Class<?> type) {
+            for (Class<?> c = type; c != null && c != net.minecraft.client.renderer.entity.Render.class; c = c.getSuperclass())
+                for (java.lang.reflect.Field f : c.getDeclaredFields())
+                    if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) && ModelBase.class.isAssignableFrom(f.getType())) {
+                        try { f.setAccessible(true); return f; } catch (RuntimeException ex) { return null; }
+                    }
+            return null;
+        }
+    };
+
+    private static ModelBase renderModel(net.minecraft.client.renderer.entity.Render render) {
+        java.lang.reflect.Field f = MODEL_FIELD.get(render.getClass());
+        try { return f == null ? null : (ModelBase) f.get(render); }
+        catch (ReflectiveOperationException | RuntimeException ex) { return null; }
+    }
+
     // RendererLivingEntity.doRender RETURN
     public static void end(EntityLivingBase entity) {
+        end(entity, "vanilla_rendered");
+    }
+
+    private static void end(EntityLivingBase entity, String source) {
         ModelCapture done = current;
         EntityLivingBase who = target;
         current = null;
@@ -165,7 +224,7 @@ public final class ModelHitClient {
         model = null;
         if (done == null || who != entity || !done.complete()) return;
         Vec3 origin = new Vec3(renderX + RenderManager.renderPosX, renderY + RenderManager.renderPosY, renderZ + RenderManager.renderPosZ);
-        publishAt(entity, done.yaw(), done.boxes(), "vanilla_rendered", origin);
+        publishAt(entity, done.yaw(), done.boxes(), source, origin);
     }
 
     private static float[] modelview() {

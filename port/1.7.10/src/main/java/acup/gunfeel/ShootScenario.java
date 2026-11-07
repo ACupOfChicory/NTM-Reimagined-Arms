@@ -109,9 +109,15 @@ public final class ShootScenario {
         return NAME.equals("npc");
     }
 
+    // "rendermobs": NTM's mobs drawn by a plain Render (chopper, bag, worm, UFO, drone): their model is taken, and a kept
+    // pose turns as the renderer turns the mob (ModelHits.Turn; RenderMobsScenario)
+    static boolean rendermobs() {
+        return NAME.equals("rendermobs");
+    }
+
     // a scenario that needs the flat world: this one, "look", "shapes", "scan" or a trace scenario (TraceScenario)
     static boolean world() {
-        return on() || look() || shapes() || scan() || mobs() || holes() || glass() || fences() || aimlag() || walksprint() || pistols() || waterfx() || npc() || TraceScenario.enabled();
+        return on() || look() || shapes() || scan() || mobs() || holes() || glass() || fences() || aimlag() || walksprint() || pistols() || waterfx() || npc() || rendermobs() || TraceScenario.enabled();
     }
 
     // run on the integrated server's thread at its next tick
@@ -180,6 +186,10 @@ public final class ShootScenario {
             NpcShotsScenario.step(mc, ++tick);
             return;
         }
+        if (rendermobs()) {
+            RenderMobsScenario.step(mc, ++tick);
+            return;
+        }
         if (waterfx()) {
             if (held) press(true);
             WaterFxScenario.step(mc, ++tick);
@@ -212,6 +222,12 @@ public final class ShootScenario {
         if (r == null) return;
         serverTask = null;
         r.run();
+    }
+
+    // a world's tick on the server, before the tracker sends its entities: the stand's mobs held where and as turned
+    @SubscribeEvent
+    public void worldTick(TickEvent.WorldTickEvent e) {
+        if (e.phase == TickEvent.Phase.END && !e.world.isRemote && rendermobs()) RenderMobsScenario.pin(e.world);
     }
 
     private static void start(Minecraft mc) {
