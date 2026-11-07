@@ -131,10 +131,12 @@ public final class BeamServer {
         java.util.Set<BlockPos> paid = new java.util.HashSet<>();
         float damage = path.damage;
         Vec3 at = from;
+        @Nullable BlockHitResult last = null;
         // a bullet goes on next tick, a beam has one go: more blocks on its way than a bullet's tick
-        for (int i = 0; i < 64; i++) {
+        for (int i = 0; i < STEPS; i++) {
             BlockHitResult hit = PassableClip.clip(level, at, to, through);
             if (hit.getType() == HitResult.Type.MISS) return hit;
+            last = hit;
             Vec3 d = to.subtract(at);
             double len = d.length();
             if (len < 1e-6) return hit;
@@ -168,8 +170,15 @@ public final class BeamServer {
             if (got != 2) return hit;
             at = hit.getLocation().add(dir.scale(1e-3));
         }
-        return BlockHitResult.miss(to, net.minecraft.core.Direction.UP, BlockPos.containing(to));
+        // the way is clear after them: a miss; more on its way: it stops where it met the last, not flies on through the
+        // rest unlooked at
+        BlockHitResult more = PassableClip.clip(level, at, to, through);
+        return more.getType() == HitResult.Type.MISS || last == null ? more : last;
     }
+
+    // the most times a beam meets a block on its way (pierced, its shooter's own, broken and gone through; a fence's
+    // post and rail are two)
+    static final int STEPS = 64;
 
     // a beam with no entity of its own, straight from `from` to its target's point `to` (a turret's, a Tesla coil's
     // arc): the damage it has there, or -1 when a block (or water, with THROUGH_WATER off) stops it on the way. round:
