@@ -45,7 +45,7 @@ public final class AiSoldier implements AiBrain {
     long nextQuery, nextExposedCheck, hideUntil, burstUntil, peekSince, nextSearchPick;
     long searchCell = Long.MIN_VALUE;
     /** the fight under way: since when, the last tick a target was in sight; a burst where it stands till answerUntil */
-    long engagedTick, lastCombat = Long.MIN_VALUE, answerUntil;
+    long engagedTick, lastCombat = Long.MIN_VALUE / 2, answerUntil;
     /** for the debug view: where it watches or goes */
     @Nullable
     Vec3 watch;
@@ -268,7 +268,7 @@ public final class AiSoldier implements AiBrain {
             // no cover to be had: fight where it stands (lying, far off or pinned down by shots flying past), a step
             // aside when one of its own is in the line
             mode(Mode.COVER, tick);
-            if (dist >= PRONE_NEVER && (dist >= PRONE_FAR || bot.prone.pinned(tick) || longReload(g))) bot.prone.want();
+            if (dist >= PRONE_NEVER && (dist >= PRONE_FAR || bot.prone.pinned(tick) || longReload(g) && g.reloading())) bot.prone.want();
             why = dist < PRONE_NEVER ? Why.NO_COVER : dist >= PRONE_FAR ? Why.NO_COVER_FAR : bot.prone.pinned(tick) ? Why.NO_COVER_PINNED : Why.NO_COVER;
             burst(bot, tick, true);
             if (g.blockedTicks > BLOCKED_MOVE || g.coverTicks > BLOCKED_MOVE) {
@@ -710,6 +710,8 @@ public final class AiSoldier implements AiBrain {
                 if (n != null) {
                     checkNoise = n.tick;
                     drop(bot);
+                    // the way to its peek, failed or not, is no way to the noise
+                    bot.mover.stop();
                     mode(Mode.ALERT, tick);
                     event(bot, tick, "looked out, nothing: goes to see where the noise came from");
                 } else {

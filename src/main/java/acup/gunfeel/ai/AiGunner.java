@@ -61,6 +61,8 @@ public final class AiGunner {
     /** the ticks its last reload took, from the start to ready again (0 before its first) */
     public int lastReload;
     private long reloadFrom = -1;
+    /** a reload longer than this (ticks) was not seen through: it was not ticked meanwhile */
+    static final int MAX_RELOAD = 200;
     /** a gap between shots, ticks, after which a new burst starts (its climb grows again from the first shot) */
     static final int BURST_GAP = 10;
     // the burst: shots so far, the tick of the last, where its sideways wander is
@@ -251,8 +253,9 @@ public final class AiGunner {
         if (state == ItemGunBaseNT.GunState.RELOADING) wantReload = false;
         long time = level.getGameTime();
         if (state == ItemGunBaseNT.GunState.RELOADING && reloadFrom < 0) reloadFrom = time;
-        else if (reloadFrom >= 0 && state == ItemGunBaseNT.GunState.IDLE) {
-            lastReload = (int) (time - reloadFrom);
+        else if (reloadFrom >= 0 && state != ItemGunBaseNT.GunState.RELOADING) {
+            // only a reload seen through to the end (not one cut short, nor one it was not ticked through)
+            if (state == ItemGunBaseNT.GunState.IDLE && time - reloadFrom <= MAX_RELOAD) lastReload = (int) (time - reloadFrom);
             reloadFrom = -1;
         }
         // lying, it fires only still: a pull while it crawls would be thrown away (ProneFire), so it waits until it has
