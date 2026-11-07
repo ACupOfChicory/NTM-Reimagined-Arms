@@ -1,5 +1,18 @@
 # Changelog
 
+## X570.76
+
+- NTM Decentralized Edition gets X560 to X570: rockets, grenades and
+  explosive rounds in water as on the main build (the turret's shells, the
+  Daybreaker's flame, the cluster submunition and the NPCs' rockets and bolts
+  go off on impact; incendiary rounds do not set alight under water); a
+  grenade or rocket that water stopped is seen as it sinks and lies on the
+  bottom; a grenade or rocket shot under water leaves a gas bubble; armour from
+  another mod that fails on the arm is left out after three failures in a row;
+  a round on the edge of the water surface comes in through the surface.
+- On NTM Decentralized Edition, a tracer that went into water no longer
+  crashes the game.
+
 ## X570
 
 - `armArmor`: armour from another mod that fails while it is drawn on the arm
