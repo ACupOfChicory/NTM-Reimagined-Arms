@@ -46,4 +46,15 @@ class SmokeShaderLinkTest {
         // the density byte's scale
         org.junit.jupiter.api.Assertions.assertTrue(fsh.contains("* " + SmokeAtlas.SCALE), "the shader no longer scales the density by SCALE");
     }
+
+    @Test
+    void theSamplersTheShadersDeclareAreTheOnesBound() throws Exception {
+        String composite = resource("core/smoke_composite.fsh");
+        for (String name : new String[]{"FramePost", "FrameOpaque", "SmokeFront", "SmokeFull", "Depth0", "Depth1"})
+            org.junit.jupiter.api.Assertions.assertTrue(composite.contains("uniform sampler2D " + name + ";"), name);
+        String march = resource("core/smoke_march.fsh");
+        for (String name : new String[]{"SmokeAtlas", "SceneDepth", "OpaqueDepth"})
+            org.junit.jupiter.api.Assertions.assertTrue(march.contains("uniform sampler2D " + name + ";"), name);
+        org.junit.jupiter.api.Assertions.assertTrue(march.contains("#ifdef FRONT"));
+    }
 }
