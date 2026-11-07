@@ -455,4 +455,18 @@ class WaterPathTest {
         Vec3 side = new Vec3(-0.5, 0.75, 0.5);
         assertEquals(Direction.WEST, WaterPath.trace(w, side, side.add(1, -0.25, 0), 1, WaterClass.RIFLE, 0, 42L, S, null).events.get(0).face());
     }
+
+    // The same edge as a tick's motion makes it (NTM CE's slug at 5 degrees in the 1.12.2 boom stand, 5f79765): to - from
+    // loses the last bits, the side's plane comes out 5e-16 later than the top's, and a strict comparison took the side
+    // (WEST). Within the tie it comes in through the top and skips.
+    @Test
+    void aTickOnTheTopEdgeByRoundingComesInThroughTheTop() {
+        World w = new World().pool(858, 897, 4, 11, 202, 241);
+        Vec3 from = new Vec3(862.03805301908260, 12.760446322988209, 222.5);
+        Vec3 to = from.add(new Vec3(15.939115406979253, -1.3944919047420790, 0));
+        var r = WaterPath.trace(w, from, to, 1, WaterClass.SLUG, 0, 1L, S, null);
+        assertNotNull(r.skip, "a shallow hit on the edge skips: " + r.events);
+        assertEquals(Direction.UP, r.events.get(0).face());
+        assertEquals(872, r.skip.at().x, 1e-6);
+    }
 }

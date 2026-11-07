@@ -1,5 +1,12 @@
 # Changelog
 
+## X543.160
+
+- A round that meets water on the edge of its surface and a side now comes in
+  through the surface also when the two meet only within rounding of each
+  other, as a tick's motion often makes it. Before, such a round still came in
+  through the side.
+
 ## X543.159
 
 - `armArmor`: a chestplate model that fails while it builds its display list
