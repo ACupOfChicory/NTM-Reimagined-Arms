@@ -110,7 +110,7 @@ public abstract class MixinThrowableClip extends Entity {
         try {
             // water: the bullet's new f, a stop or a skip, the tick's events (WaterTick); an explosive touching another
             // bullet (WaterImpact)
-            // port: and the old bullets with an impact fuze (WaterTick.covers)
+            // port: and the old bullets water acts on (WaterTick.covers)
             if (WaterTick.covers(this)) {
                 EntityThrowableNT bullet = (EntityThrowableNT) (Object) this;
                 WaterTick.end(bullet);
@@ -168,8 +168,9 @@ public abstract class MixinThrowableClip extends Entity {
         return hit == null ? null : new MovingObjectPosition(hit.x, hit.y, hit.z, hit.face, Vec3.createVectorHelper(hit.ax, hit.ay, hit.az));
     }
 
-    // port: an old bullet with an impact fuze (the masked man's, the UFO's), on the server: its blocks stay NTM's walk,
-    // up to where water stops or skips it, and the surface is its fuze's hit (WaterTick), as for NTM's bullet
+    // port: an old bullet water acts on (the masked man's, the UFO's, BOT Prime's), on the server: its blocks stay NTM's
+    // walk, up to where water stops or skips it, and the surface is the hit of one with a fuze (WaterTick), as for NTM's
+    // bullet
     @Unique
     private MovingObjectPosition gunfeel$oldBlocks(World world, Vec3 from, Vec3 to, boolean liquids, boolean noBox, boolean last,
             Operation<MovingObjectPosition> original) {
@@ -188,7 +189,7 @@ public abstract class MixinThrowableClip extends Entity {
             target = "Lnet/minecraft/util/AxisAlignedBB;calculateIntercept(Lnet/minecraft/util/Vec3;Lnet/minecraft/util/Vec3;)Lnet/minecraft/util/MovingObjectPosition;"))
     private MovingObjectPosition gunfeel$mob(AxisAlignedBB box, Vec3 from, Vec3 to, Operation<MovingObjectPosition> original) {
         if (!((Object) this instanceof EntityBulletBaseMK4)) {
-            // port: an old bullet with an impact fuze, not past where water stopped or turned it
+            // port: an old bullet water acts on, not past where water stopped or turned it
             if (worldObj.isRemote || !WaterTick.covers(this)) return original.call(box, from, to);
             acup.gunfeel.phys.Vec3 cut = WaterTick.mobsTo(this, gunfeel$phys(to));
             return original.call(box, from, Vec3.createVectorHelper(cut.x, cut.y, cut.z));

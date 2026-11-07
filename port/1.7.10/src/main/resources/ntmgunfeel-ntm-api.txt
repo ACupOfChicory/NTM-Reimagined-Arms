@@ -192,7 +192,10 @@ BULLETS field com/hbm/handler/BulletConfigSyncingUtil MASKMAN_BOLT I
 BULLETS field com/hbm/handler/BulletConfigSyncingUtil MASKMAN_METEOR I
 BULLETS field com/hbm/handler/BulletConfigSyncingUtil MASKMAN_ORB I
 BULLETS field com/hbm/handler/BulletConfigSyncingUtil MASKMAN_ROCKET I
+BULLETS field com/hbm/handler/BulletConfigSyncingUtil MASKMAN_TRACER I
 BULLETS field com/hbm/handler/BulletConfigSyncingUtil UFO_ROCKET I
+BULLETS field com/hbm/handler/BulletConfigSyncingUtil WORM_BOLT I
+BULLETS field com/hbm/handler/BulletConfigSyncingUtil WORM_LASER I
 BULLETS field com/hbm/handler/BulletConfiguration bulletsMax I
 BULLETS field com/hbm/handler/BulletConfiguration headshotMult F
 BULLETS field com/hbm/handler/BulletConfiguration velocity F
@@ -499,7 +502,10 @@ TRACERS field com/hbm/handler/BulletConfigSyncingUtil MASKMAN_BOLT I
 TRACERS field com/hbm/handler/BulletConfigSyncingUtil MASKMAN_METEOR I
 TRACERS field com/hbm/handler/BulletConfigSyncingUtil MASKMAN_ORB I
 TRACERS field com/hbm/handler/BulletConfigSyncingUtil MASKMAN_ROCKET I
+TRACERS field com/hbm/handler/BulletConfigSyncingUtil MASKMAN_TRACER I
 TRACERS field com/hbm/handler/BulletConfigSyncingUtil UFO_ROCKET I
+TRACERS field com/hbm/handler/BulletConfigSyncingUtil WORM_BOLT I
+TRACERS field com/hbm/handler/BulletConfigSyncingUtil WORM_LASER I
 TRACERS field com/hbm/handler/BulletConfiguration bulletsMax I
 TRACERS field com/hbm/handler/BulletConfiguration velocity F
 TRACERS field com/hbm/inventory/RecipesCommon$ComparableStack item Lnet/minecraft/item/Item;

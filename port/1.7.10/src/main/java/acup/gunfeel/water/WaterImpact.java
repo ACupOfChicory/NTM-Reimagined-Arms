@@ -120,7 +120,7 @@ public final class WaterImpact {
 
     // after the bullet's tick (MixinThrowableClip), the server: did its path from (fx, fy, fz) touch another bullet, and
     // was either an explosive. Only bullets that have met water touch: in the air NTM's bullets pass each other, and
-    // the search is not made. port: NTM's bullets and the old ones with an impact fuze (WaterTick.covers), each with
+    // the search is not made. port: NTM's bullets and the old ones water acts on (WaterTick.covers), each with
     // the other
     @SuppressWarnings("unchecked")
     public static void touch(EntityThrowableNT b, double fx, double fy, double fz) {

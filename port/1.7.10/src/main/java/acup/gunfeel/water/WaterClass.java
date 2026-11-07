@@ -154,6 +154,18 @@ public enum WaterClass {
                 {"com.hbm.tileentity.machine.pile.TileEntityPileCore", "pile_debris"}};
         private static volatile Map<BulletConfig, String> fields;
 
+        // port: the old rounds water acts on (WaterTick.covers), by name as 26.2's XFactoryNPC bullets: the five that
+        // blow up where they hit (ofOld) and the masked man's tracer and BOT Prime's bolts (worm_bolt, worm_laser),
+        // with no fuze. The rest (the masked man's bullet, the other old configs) stay NTM's
+        public static boolean oldInWater(com.hbm.handler.BulletConfiguration c) {
+            if (c == null) return false;
+            if (ofOld(c).any()) return true;
+            for (int id : new int[] {com.hbm.handler.BulletConfigSyncingUtil.MASKMAN_TRACER, com.hbm.handler.BulletConfigSyncingUtil.WORM_BOLT,
+                    com.hbm.handler.BulletConfigSyncingUtil.WORM_LASER})
+                if (c == com.hbm.handler.BulletConfigSyncingUtil.pullConfig(id)) return true;
+            return false;
+        }
+
         // port: an old EntityBulletBaseNT's: what blows up where it hits, by name as 26.2's XFactoryNPC configs in
         // IMPACT_FIELDS (the masked man's bolt, orb, rocket and meteor: an ExplosionVNT at the impact; the UFO's
         // rocket: explosive 0, NTM's dealDamage in its impact). Not the masked man's tracer (it calls a meteor down)

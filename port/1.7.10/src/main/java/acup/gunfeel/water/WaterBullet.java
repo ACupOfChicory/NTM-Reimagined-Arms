@@ -61,6 +61,9 @@ public interface WaterBullet {
     // its impact fuze (WaterClass.Fuze), by its config
     WaterClass.Fuze gunfeel$waterFuze();
 
+    // water acts on it (WaterTick.covers): NTM's bullet always, an old one by its config (WaterClass.Fuze.oldInWater)
+    boolean gunfeel$waterCovered();
+
     // its config (EntityBulletBaseMK4's BulletConfig, the old EntityBulletBaseNT's BulletConfiguration), null before
     // NTM sets it: pellets of one shot share it (WaterImpact.sameShot)
     Object gunfeel$waterConfig();

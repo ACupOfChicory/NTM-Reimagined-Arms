@@ -47,7 +47,7 @@ public final class MixinCheck {
             {"com.hbm.entity.projectile.EntityThrowableInterp", "1"}, // MixinThrowableMotion (client)
             {"com.hbm.entity.projectile.EntityBulletBeamBase", "4"},
             {"com.hbm.entity.projectile.EntityBullet", "9"}, // MixinLegacyBullet: 8 + gunfeel$extra
-            {"com.hbm.entity.projectile.EntityBulletBaseNT", "39"}, // MixinOldBulletBase: 2 + gunfeel$ntmHead; MixinWaterOldBullet: 10 handlers + 26 of WaterBullet, Hits and helpers
+            {"com.hbm.entity.projectile.EntityBulletBaseNT", "40"}, // MixinOldBulletBase: 2 + gunfeel$ntmHead; MixinWaterOldBullet: 10 handlers + 27 of WaterBullet, Hits and helpers
             {"com.hbm.explosion.vanillant.standard.EntityProcessorCross", "5"}, // MixinWaterBlastProcessor: the blast in water
             {"com.hbm.explosion.vanillant.standard.EntityProcessorStandard", "5"}, // MixinWaterBlastStandard: an old bullet's blast in water
             {"com.hbm.items.weapon.sedna.BulletConfig", "3"}, // MixinHeadDamage, MixinRicochetSound

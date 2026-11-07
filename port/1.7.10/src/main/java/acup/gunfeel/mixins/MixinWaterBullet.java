@@ -106,6 +106,11 @@ public abstract class MixinWaterBullet implements WaterBullet, WaterImpact.Hits 
     }
 
     @Override
+    public boolean gunfeel$waterCovered() {
+        return true;
+    }
+
+    @Override
     public Object gunfeel$waterConfig() {
         return ((EntityBulletBaseMK4) (Object) this).config;
     }

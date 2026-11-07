@@ -28,7 +28,7 @@ import net.minecraft.util.MovingObjectPosition;
 // config's headshotMult when the hit is high enough (1.0 for every NPC's config, so off), and hurts with
 // attackEntityFrom: that damage, or (the creature still shielded by its last hit) that plus the last hit. The change
 // the head or a limb makes goes to the one of the two NTM's own damage lands with (LegacyBullets.hurt, as 26.2 X577
-// does for the old EntityBullet). In water one with an impact fuze hurts × f² where it met the creature (WaterTick).
+// does for the old EntityBullet). In water one water acts on (WaterTick.covers) hurts × f² where it met the creature.
 @Mixin(value = EntityBulletBaseNT.class, remap = false)
 public abstract class MixinOldBulletBase {
     // this hit: where it met the creature; the change the head or a limb makes to it
@@ -60,7 +60,7 @@ public abstract class MixinOldBulletBase {
         }
         gunfeel$counted = true;
         MovingObjectPosition mop = gunfeel$mop;
-        // in water: × f² where it met the creature, as NTM's bullet's damage (one with an impact fuze, WaterTick.covers)
+        // in water: × f² where it met the creature, as NTM's bullet's damage (one water acts on, WaterTick.covers)
         if (mop != null && mop.hitVec != null && !target.worldObj.isRemote) {
             float k = WaterTick.fSquared((Entity) (Object) this, new acup.gunfeel.phys.Vec3(mop.hitVec.xCoord, mop.hitVec.yCoord, mop.hitVec.zCoord));
             gunfeel$waterCut = amount * (1F - k);

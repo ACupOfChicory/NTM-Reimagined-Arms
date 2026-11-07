@@ -323,8 +323,9 @@ public final class ExplosiveCheck {
                 c.maxAge = life;
             }
         }
-        oldHit();
+        oldHit(BulletConfigSyncingUtil.MASKMAN_BOLT, "maskman_bolt (old)", true);
         oldRicochet();
+        oldPlain();
         BulletConfiguration ufo = BulletConfigSyncingUtil.pullConfig(BulletConfigSyncingUtil.UFO_ROCKET),
                 tracer = BulletConfigSyncingUtil.pullConfig(BulletConfigSyncingUtil.MASKMAN_TRACER),
                 worm = BulletConfigSyncingUtil.pullConfig(BulletConfigSyncingUtil.WORM_BOLT);
@@ -332,6 +333,66 @@ public final class ExplosiveCheck {
                 "IMPACT NONE NONE", WaterClass.Fuze.ofOld(ufo) + " " + WaterClass.Fuze.ofOld(tracer) + " " + WaterClass.Fuze.ofOld(worm),
                 WaterClass.Fuze.ofOld(ufo) == WaterClass.Fuze.IMPACT && WaterClass.Fuze.ofOld(tracer) == WaterClass.Fuze.NONE
                         && WaterClass.Fuze.ofOld(worm) == WaterClass.Fuze.NONE, "");
+        BulletConfiguration test = BulletConfigSyncingUtil.pullConfig(BulletConfigSyncingUtil.TEST_CONFIG),
+                turbine = BulletConfigSyncingUtil.pullConfig(BulletConfigSyncingUtil.TURBINE);
+        rowFlag("g: old rounds in water: the UFO's rocket and the tracer yes, the test and turbine configs no", "ufo_rocket, maskman_tracer, test, turbine (old)",
+                WaterClass.ofOld(ufo), "true true false false", WaterClass.Fuze.oldInWater(ufo) + " " + WaterClass.Fuze.oldInWater(tracer) + " "
+                        + WaterClass.Fuze.oldInWater(test) + " " + WaterClass.Fuze.oldInWater(turbine),
+                WaterClass.Fuze.oldInWater(ufo) && WaterClass.Fuze.oldInWater(tracer) && !WaterClass.Fuze.oldInWater(test) && !WaterClass.Fuze.oldInWater(turbine), "");
+    }
+
+    // the old rounds with no fuze that 26.2 fires as its own bullets (the masked man's tracer, BOT Prime's bolts):
+    // in water they slow and are gone where water stops them, as NTM's plain bullet (no blast, no sinking, no meteor
+    // called down by the tracer); into water from the air no blast on the surface; a creature's hit × f²
+    private static void oldPlain() {
+        String[] names = {"maskman_tracer", "worm_bolt", "worm_laser"};
+        int[] ids = {BulletConfigSyncingUtil.MASKMAN_TRACER, BulletConfigSyncingUtil.WORM_BOLT, BulletConfigSyncingUtil.WORM_LASER};
+        for (int i = 0; i < ids.length; i++) {
+            BulletConfiguration c = BulletConfigSyncingUtil.pullConfig(ids[i]);
+            String ammo = names[i] + " (old)";
+            if (c == null) {
+                rowFlag("p: old config", ammo, WaterClass.PISTOL, "there", "missing", false, "");
+                continue;
+            }
+            WaterClass wc = WaterClass.ofOld(c);
+            lines.add("#	" + ammo + "	" + wc + "	fuze " + WaterClass.Fuze.ofOld(c) + " in water " + WaterClass.Fuze.oldInWater(c) + " velocity " + c.velocity
+                    + " gravity " + c.gravity + " life " + c.maxAge + " penetrates " + c.doesPenetrate + " stop " + fmt(stop(wc)));
+            rowFlag("p: plain old round: in water, no fuze, a pistol's class (v " + fmt(c.velocity) + ")", ammo, wc, "true NONE PISTOL",
+                    WaterClass.Fuze.oldInWater(c) + " " + WaterClass.Fuze.ofOld(c) + " " + wc,
+                    WaterClass.Fuze.oldInWater(c) && WaterClass.Fuze.ofOld(c) == WaterClass.Fuze.NONE && wc == WaterClass.PISTOL, "");
+            Round r = old(ids[i]);
+            // under water along x, nothing in its way: gone where it stops, about its stop distance on
+            basin();
+            double x0 = MIN + 3.5;
+            EntityThrowableNT b = r.make(new Vec3(x0, surface - 3, CZ), new Vec3(1, 0, 0));
+            BLASTS.clear();
+            int ticks = 0;
+            double lastX = x0;
+            for (; ticks < TICKS && !b.isDead; ticks++) {
+                tick(b);
+                if (!b.isDead) lastX = b.posX;
+            }
+            double s = stop(wc), went = Math.max(lastX, b.posX) - x0;
+            rowFlag("p: under water: gone where it stops, no blast, no sinking", ammo, wc, "gone, 0 blasts, ≈" + fmt(s),
+                    "gone=" + b.isDead + " blasts " + BLASTS.size() + " went " + fmt(went) + " ticks " + ticks,
+                    b.isDead && BLASTS.isEmpty() && Math.abs(went - s) <= Math.max(0.35, 0.15 * s) && ticks < c.maxAge,
+                    "y " + fmt(b.posY) + " stopped=" + WaterBullet.stopped(b));
+            // into water at 30° from the air: no blast on the surface, in, gone short of the floor
+            basin();
+            double a = Math.toRadians(30);
+            Vec3 dir = new Vec3(Math.cos(a), -Math.sin(a), 0), aim = new Vec3(MIN + 14, surface, CZ);
+            b = r.make(new Vec3(aim.x - dir.x * 4, aim.y - dir.y * 4, aim.z - dir.z * 4), dir);
+            BLASTS.clear();
+            boolean in = false;
+            for (int t = 0; t < TICKS && !b.isDead; t++) {
+                tick(b);
+                if (!b.isDead && b.posY < surface - 0.05) in = true;
+            }
+            rowFlag("p: into water at 30°: in, no blast on the surface, gone above the floor", ammo, wc, "in, 0 blasts, gone, y > " + (FLOOR + 1),
+                    "in=" + in + " blasts " + BLASTS.size() + " gone=" + b.isDead + " y " + fmt(b.posY),
+                    in && BLASTS.isEmpty() && b.isDead && b.posY > FLOOR + 1.05, "");
+        }
+        oldHit(BulletConfigSyncingUtil.WORM_BOLT, "worm_bolt (old)", false);
     }
 
     // NTM's random ricochet (the bolt's HBRC, 2 in 100; the rocket, meteor and orb have none) made sure, HBRC 100: off the water's surface it does not
@@ -365,17 +426,15 @@ public final class ExplosiveCheck {
     // of the golem's box, it goes through (doesPenetrate: no blast on a creature, only its hit) and water stops it past
     // the golem; its roll is the same both times (its own random, seeded). Fired 2.5 short, water stops it inside the
     // golem: sinking, it goes off there once (MixinWaterOldBullet), not hurt the golem every tick
-    private static void oldHit() {
-        int id = BulletConfigSyncingUtil.MASKMAN_BOLT;
+    private static void oldHit(int id, String ammo, boolean sinks) {
         BulletConfiguration c = BulletConfigSyncingUtil.pullConfig(id);
         if (c == null) return;
-        String ammo = "maskman_bolt (old)";
         WaterClass wc = WaterClass.ofOld(c);
         double[] took = new double[3];
         double f = Double.NaN;
         int blasts = -1;
         boolean gone = false;
-        for (int run = 0; run < 3; run++) {
+        for (int run = 0; run < (sinks ? 3 : 2); run++) {
             boolean wet = run > 0;
             basin();
             Vec3 feet = wet ? new Vec3(CX, surface - 4, CZ) : new Vec3(DRY_X, FLOOR + 1, CZ);
@@ -403,7 +462,7 @@ public final class ExplosiveCheck {
                 "air=" + fmt(took[0]) + " water=" + fmt(took[1]) + " f at the golem=" + fmt(f));
         rowFlag("h: old bolt on a golem in the air (NTM's roll)", ammo, wc, fmt(c.dmgMin) + ".." + fmt(c.dmgMax), fmt(took[0]),
                 took[0] >= c.dmgMin - 1e-3 && took[0] <= c.dmgMax + 1e-3, "");
-        rowFlag("h: old bolt stopped inside a golem: goes off once", ammo, wc, "1 blast, gone, less than the air's", blasts + " blasts, gone=" + gone
+        if (sinks) rowFlag("h: old bolt stopped inside a golem: goes off once", ammo, wc, "1 blast, gone, less than the air's", blasts + " blasts, gone=" + gone
                 + ", took " + fmt(took[2]), blasts == 1 && gone && took[2] > 0 && took[2] < took[0], "");
     }
 

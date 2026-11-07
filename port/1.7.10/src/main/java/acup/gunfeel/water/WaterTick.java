@@ -20,17 +20,18 @@ import net.minecraft.world.World;
 // server's updates, EntityThrowableInterp), so the client's events come from the tracers (Tracers.water). Blocks are
 // the port's BlockRay.Hit (null: a miss); a point is the port's Vec3 or x, y, z. The explosives' part (main 7e2382c
 // to a1f618b): an impact fuze goes off on the surface (blocks gives NTM the surface's hit), a stopped one sinks.
-// port: also NTM 1.7.10's old EntityBulletBaseNT with an impact fuze (the masked man's and the UFO's, which 26.2 fires
-// as its own bullets, X560): the same path, fuze and sinking; its damage is rolled at the hit, so it is not carried
+// port: also NTM 1.7.10's old EntityBulletBaseNT that 26.2 fires as its own bullets (the masked man's, the UFO's and
+// BOT Prime's, X560; WaterTick.covers): the same path, fuze and sinking; its damage is rolled at the hit, so it is not carried
 // from tick to tick but counted from f there (fSquared)
 public final class WaterTick {
     private WaterTick() {
     }
 
-    // the bullets water acts on: NTM's bullets (EntityBulletBaseMK4), and the old ones that blow up where they hit
+    // the bullets water acts on: NTM's bullets (EntityBulletBaseMK4), and the old ones 26.2 fires as its own bullets
+    // (WaterClass.Fuze.oldInWater: the masked man's, the UFO's, BOT Prime's)
     public static boolean covers(Entity bullet) {
         if (bullet instanceof EntityBulletBaseMK4) return true;
-        return bullet instanceof EntityBulletBaseNT && bullet instanceof WaterBullet w && w.gunfeel$waterFuze().any();
+        return bullet instanceof EntityBulletBaseNT && bullet instanceof WaterBullet w && w.gunfeel$waterCovered();
     }
 
     // the tick's path: the point to test blocks up to (the stop or the skip, else `to`)

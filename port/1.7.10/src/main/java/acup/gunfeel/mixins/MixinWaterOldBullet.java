@@ -23,11 +23,13 @@ import acup.gunfeel.water.WaterPath;
 import acup.gunfeel.water.WaterTick;
 import net.minecraft.util.MovingObjectPosition;
 
-// port only: NTM 1.7.10's old EntityBulletBaseNT in water, as 26.2 X560 has the masked man's and the UFO's rounds
-// (there NTM's own bullets, XFactoryNPC, with an impact fuze). Only the ones that blow up where they hit take water, by name
-// as 26.2's (WaterClass.Fuze.ofOld, WaterTick.covers: the masked man's orb, bolt, rocket and meteor, the UFO's rocket); the rest stay NTM's. What
-// MixinWaterBullet keeps for NTM's bullet, kept here: f (motionMult × f), skips, the stop, the tick's path. Besides:
-// - its impact marks the old blast (WaterBlast.old): NTM's EntityProcessorStandard counts it at water as CrossSmooth's;
+// port only: NTM 1.7.10's old EntityBulletBaseNT in water, as 26.2 has the masked man's, the UFO's and BOT Prime's
+// rounds (there NTM's own bullets, XFactoryNPC). Only those take water, by name as 26.2's (WaterClass.Fuze.oldInWater,
+// WaterTick.covers): with an impact fuze the masked man's orb, bolt, rocket and meteor and the UFO's rocket (ofOld),
+// with none the masked man's tracer and BOT Prime's bolts; the rest stay NTM's. What MixinWaterBullet keeps for NTM's
+// bullet, kept here: f (motionMult × f), skips, the stop, the tick's path. Besides:
+// - the impact of one with a fuze marks the old blast (WaterBlast.old): NTM's EntityProcessorStandard counts it at
+//   water as CrossSmooth's;
 // - in water it sets nothing alight (the meteor): its config's incendiary reads 0 there, as the plain bullet's fire is
 //   doused (WaterImpact.lambda);
 // - a stopped one goes off where it touches a creature, also one that goes through creatures in flight (the bolt);
@@ -52,6 +54,7 @@ public abstract class MixinWaterOldBullet implements WaterBullet, WaterImpact.Hi
     @Unique private WaterPath.Result gunfeel$tick;
     @Unique private WaterClass gunfeel$class;
     @Unique private WaterClass.Fuze gunfeel$fuze = WaterClass.Fuze.NONE;
+    @Unique private boolean gunfeel$covered;
     @Unique private BulletConfiguration gunfeel$classOf;
     @Unique private double gunfeel$opened;
     @Unique private boolean gunfeel$met;
@@ -79,13 +82,13 @@ public abstract class MixinWaterOldBullet implements WaterBullet, WaterImpact.Hi
         }
     }
 
-    // its impact: the blast a covered one sets off is an old bullet's (WaterBlast.old), and where it ended
+    // its impact: the blast one with a fuze sets off is an old bullet's (WaterBlast.old), and where it ended
     // (WaterImpact.touch). The mark comes off in finally: left on after a throw, it would turn every later
     // EntityProcessorStandard blast on this thread (C4, a creeper) into one in water
     @WrapMethod(method = "onImpact")
     private void gunfeel$impactMark(MovingObjectPosition mop, Operation<Void> original) {
         EntityBulletBaseNT self = (EntityBulletBaseNT) (Object) this;
-        boolean old = WaterTick.covers(self);
+        boolean old = WaterTick.covers(self) && gunfeel$waterFuze().any();
         if (old) WaterBlast.oldBegin();
         try {
             original.call(mop);
@@ -176,6 +179,11 @@ public abstract class MixinWaterOldBullet implements WaterBullet, WaterImpact.Hi
     }
 
     @Override
+    public boolean gunfeel$waterCovered() {
+        return gunfeel$known() && gunfeel$covered;
+    }
+
+    @Override
     public WaterClass.Fuze gunfeel$waterFuze() {
         return gunfeel$known() ? gunfeel$fuze : WaterClass.Fuze.NONE;
     }
@@ -187,6 +195,7 @@ public abstract class MixinWaterOldBullet implements WaterBullet, WaterImpact.Hi
         if (config == null) return false;
         if (gunfeel$classOf != config) {
             gunfeel$fuze = WaterClass.Fuze.ofOld(config);
+            gunfeel$covered = WaterClass.Fuze.oldInWater(config);
             gunfeel$class = WaterClass.ofOld(config);
             gunfeel$classOf = config;
         }
