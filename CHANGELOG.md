@@ -1,5 +1,30 @@
 # Changelog
 
+## X555.195
+
+- As in X580 and X581: `beamRules` (server, on): NTM's beams (laser guns,
+  Tesla Cannon, Lacunae, Tau, N.I.4.N.I., Aberrator, shredder shells, the
+  laser grenade) now go through blocks where a bullet of the same damage
+  would: through fence gaps and the empty cells of machines, piercing glass
+  and thin wood with the same loss, and wearing and breaking what bullets wear
+  and break. A beam stops on a block's shape, not its box, and is drawn up to
+  where it stops. A creature behind a pierced block takes what is left, and
+  blocks behind the creature a beam hits are left alone. Beams leave no holes
+  and still go through water. A beam with an effect of its own (the Tesla
+  Cannon's blast, the fire of the infrared and the Aberrator's black round,
+  the shredder's burst) pierces nothing and goes off on the first block, as an
+  explosive round. Folly's beam and Tau's charged shot go through blocks as
+  before, and a battery socket's discharge is left as it is. Before, the first
+  block with a box stopped every other beam.
+- `beamRules` also covers the Tauon and Maxwell turrets and the Tesla arcs
+  (the Tesla coil, the Tesla and taint crabs, the Tesla armor). They see a
+  target, and hit it, where their beam gets through blocks as a bullet of the
+  same damage would, and the target gets what is left of the damage; blocks on
+  the way wear and break by the bullet rules. A turret's shot counts where it
+  meets the model (head x1.75, limbs x0.5). A Maxwell without damage upgrades
+  is too weak to pierce anything. Before, any block with a box hid a target
+  from them.
+
 ## X555.193
 
 - On 1.12.2, the masked man's and the UFO's rounds, the masked man's tracer and
