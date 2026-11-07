@@ -18,6 +18,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
 import acup.gunfeel.BulletServer;
+import acup.gunfeel.DebugLog;
 import acup.gunfeel.LegacyBullets;
 import acup.gunfeel.ModelAABB;
 import acup.gunfeel.ModelHits;
@@ -53,6 +54,10 @@ public abstract class MixinLegacyBullet {
     @Unique private BlockHitResult gunfeel$stuck;
     // which of NTM's two hurts this tick's hit carries the zone's change with
     @Unique private LegacyBullets.Hurt gunfeel$hurt = LegacyBullets.Hurt.FIRST;
+    // the zone's change the first one worked out, for the second one
+    @Unique private float gunfeel$extraNow;
+    // the zones' failure is written to the log once
+    @Unique private static boolean gunfeel$warned;
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void gunfeel$begin(CallbackInfo ci) {
@@ -60,6 +65,7 @@ public abstract class MixinLegacyBullet {
         gunfeel$point = null;
         gunfeel$stuck = null;
         gunfeel$hurt = LegacyBullets.Hurt.FIRST;
+        gunfeel$extraNow = 0F;
     }
 
     // a creature whose model reaches out of its box is met too (as NTM's bullets, MixinThrowableHit)
@@ -90,20 +96,32 @@ public abstract class MixinLegacyBullet {
     @WrapOperation(method = "tick", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/entity/Entity;hurtServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)Z"))
     private boolean gunfeel$hurt(Entity target, ServerLevel level, DamageSource source, float amount, Operation<Boolean> original) {
-        float extra = gunfeel$extra(target);
-        // the game's cooldown as LivingEntity.hurtServer has it
-        gunfeel$hurt = target instanceof LivingEntity living
-                ? LegacyBullets.hurt(amount, extra, living.invulnerableTime > 10 && !source.is(DamageTypeTags.BYPASSES_COOLDOWN),
-                        ((LivingEntityAccess) living).gunfeel$lastHurt())
-                : LegacyBullets.Hurt.FIRST;
-        return original.call(target, level, source, gunfeel$hurt == LegacyBullets.Hurt.SECOND ? amount : amount + extra);
+        float extra = 0F;
+        LegacyBullets.Hurt hurt = LegacyBullets.Hurt.FIRST;
+        try {
+            extra = gunfeel$extra(target);
+            // the game's cooldown as LivingEntity.hurtServer has it
+            if (target instanceof LivingEntity living) hurt = LegacyBullets.hurt(amount, extra,
+                    living.invulnerableTime > 10 && !source.is(DamageTypeTags.BYPASSES_COOLDOWN), ((LivingEntityAccess) living).gunfeel$lastHurt());
+        } catch (RuntimeException e) {
+            // the zones failed: it hits as in NTM rather than take the server's tick down
+            extra = 0F;
+            hurt = LegacyBullets.Hurt.FIRST;
+            if (!gunfeel$warned) {
+                gunfeel$warned = true;
+                DebugLog.LOGGER.warn("NTM's old bullet: its head and limb zones failed, it hits as in NTM", e);
+            }
+        }
+        gunfeel$hurt = hurt;
+        gunfeel$extraNow = extra;
+        return original.call(target, level, source, hurt == LegacyBullets.Hurt.SECOND ? amount : amount + extra);
     }
 
     @WrapOperation(method = "tick", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/entity/LivingEntity;hurtServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)Z"))
     private boolean gunfeel$hurtAgain(LivingEntity target, ServerLevel level, DamageSource source, float amount, Operation<Boolean> original) {
         if (gunfeel$hurt == LegacyBullets.Hurt.NONE) return false;
-        return original.call(target, level, source, amount + gunfeel$extra(target));
+        return original.call(target, level, source, amount + gunfeel$extraNow);
     }
 
     @Unique

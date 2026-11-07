@@ -33,8 +33,12 @@ public final class LegacyBullets {
         return XFactory762mm.r762_fmj;
     }
 
+    // the stand (NpcShotSmoke): the zones throw, as a failure of theirs would
+    static volatile boolean failZones;
+
     // its damage on `target` hit at `point` (null: NTM's middle, unchanged)
     public static float damage(Entity target, @Nullable Vec3 point, float amount) {
+        if (failZones) throw new IllegalStateException("zones failing for the stand");
         if (point == null || !(target instanceof LivingEntity living)) return amount;
         return HeadDamage.beamDamage(amount, living, new EntityHitResult(target, point));
     }

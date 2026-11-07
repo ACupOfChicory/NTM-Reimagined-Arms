@@ -14,6 +14,9 @@
   could do less than a body hit (NTM's own damage, hurting a second time,
   went whole; the head's, past the last hit, only by what it was past it),
   and a limb hit more.
+- `npcShots`: when the head and limb zones fail on the old bullet's hit, it
+  hits as in NTM, with a warning in the log once. Before, the error could
+  stop the server.
 
 ## X570
 

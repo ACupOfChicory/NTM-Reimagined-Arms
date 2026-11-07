@@ -161,6 +161,16 @@ final class NpcShotSmoke {
                 // больше: первый удар, сверх прошлого; конечности сверх него не остаётся
                 else check.accept(b>0 && b<fresh[0] && h>b && l==0,line+" (без удара тело="+f(fresh[0])+")");
             }
+            // зоны старой пули падают: удар в голову идёт как в NTM (урон тела), сервер не падает
+            LegacyBullets.failZones=true;
+            try {
+                Vec3 from=head.subtract(headWay.scale(3));
+                target.setHealth(1000);target.invulnerableTime=0;target.hurtTime=0;
+                fly(bullet(level,legacy,from,headWay,d,mob,player),from);
+                float lost=1000-target.getHealth();
+                target.setPos(home);target.setDeltaMovement(Vec3.ZERO);
+                check.accept(Math.abs(lost-fresh[0])<.01,"NPC "+legacy.name()+": зоны упали, голова="+f(lost)+" (тело="+f(fresh[0])+")");
+            } finally { LegacyBullets.failZones=false; }
             for(int i=0;i+1<shooters().size();i+=2) {
                 var npc=numbers.get(i);var own=numbers.get(i+1);
                 boolean same=true;for(int k=0;k<npc.length;k++) same&=Math.abs(npc[k]-own[k])<.01;
