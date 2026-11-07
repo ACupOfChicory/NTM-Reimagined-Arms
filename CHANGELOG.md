@@ -1,5 +1,18 @@
 # Changelog
 
+## X555.192
+
+- On 1.12.2, the blast of the masked man's charges at water now treats
+  creatures as NTM's blasts in water do. With its centre in water, creatures
+  in water take it out to `waterBlastRadius` times its range, while the
+  strongest hit stays the same. Creatures out of the water take half of it and
+  are pushed half as far. Blocks break as before. Before, water did not change
+  their blast, which is the game's own, not NTM's.
+- A sinking UFO rocket still sinks straight down rather than steering toward
+  its target. The masked man's sinking meteor and orb again give off their
+  sparks, and the orb fires its bolts again: since X555.190 they had stopped
+  while sinking.
+
 ## X555.191
 
 - As in 26.2, on 1.12.2: the masked man's tracer and the worm's bolts now slow

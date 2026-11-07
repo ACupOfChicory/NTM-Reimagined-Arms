@@ -28,7 +28,7 @@ import net.minecraft.world.World;
 // Its tick (2.6.1.0): the step is motion × config.velocity (read four times: the block test, the mob test, the area,
 // the move), blocks by World.rayTraceBlocks, gravity off motionY when nothing was hit. So velocity is read × f here
 // (a stopped one sinking: 1, its motion is the step), its gravity is held off while it sinks (WaterTick.sink takes it),
-// NTM's update of it (bUpdate: the UFO rocket's homing) is held off while it sinks,
+// NTM's update of it (bUpdate) does not turn it while it sinks (the UFO rocket's homing),
 // and NTM's random ricochet does not turn the surface's fuze or the sinking round's touch into a bounce. NTM sets an old
 // bullet off where it was at the tick's start (the bolt: up to 5 blocks short); on a tick in water it goes off where it
 // touches (a block or a creature), as NTM's bullets do. The mobs' end of the path and the damage in water: MixinOldBulletBase.
@@ -73,11 +73,21 @@ public abstract class MixinOldBulletWater implements WaterBullet {
         return gunfeel$waterOn() && gunfeel$stopped ? 0F : gravity;
     }
 
-    // a stopped round sinks straight: NTM's own steering of it (the UFO's rocket homes in) is held off meanwhile
-    @ModifyExpressionValue(method = "onUpdate", remap = true, at = @At(value = "FIELD", remap = false,
-            target = "Lcom/hbm/handler/BulletConfiguration;bUpdate:Lcom/hbm/interfaces/IBulletUpdateBehavior;"))
-    private com.hbm.interfaces.IBulletUpdateBehavior gunfeel$waterSteer(com.hbm.interfaces.IBulletUpdateBehavior update) {
-        return gunfeel$waterOn() && gunfeel$stopped ? null : update;
+    // a stopped round sinks straight (WaterTick.sink sets its motion): NTM's update of it still runs (the meteor's
+    // sparks, the orb's bolts, the UFO rocket's nearness fuze), but its steering (the UFO's rocket homes in) does not
+    // turn it meanwhile
+    @WrapOperation(method = "onUpdate", remap = true, at = @At(value = "INVOKE", remap = false,
+            target = "Lcom/hbm/interfaces/IBulletUpdateBehavior;behaveUpdate(Lcom/hbm/entity/projectile/EntityBulletBase;)V"))
+    private void gunfeel$waterSteer(com.hbm.interfaces.IBulletUpdateBehavior update, EntityBulletBase self, Operation<Void> original) {
+        if (!gunfeel$waterOn() || !gunfeel$stopped) {
+            original.call(update, self);
+            return;
+        }
+        double mx = self.motionX, my = self.motionY, mz = self.motionZ;
+        original.call(update, self);
+        self.motionX = mx;
+        self.motionY = my;
+        self.motionZ = mz;
     }
 
     // a hit that is the surface's fuze, or the sinking round's touch: it goes off, not bounces
@@ -119,8 +129,13 @@ public abstract class MixinOldBulletWater implements WaterBullet {
         if (gunfeel$waterOn() && (gunfeel$stopped || gunfeel$tick != null) && hit != null && hit.hitVec != null)
             self.setPosition(hit.hitVec.x, hit.hitVec.y, hit.hitVec.z);
         // where it went off: NTM moves an old bullet that did not bounce a whole step on after its impact, dead or not
-        if (gunfeel$waterOn()) gunfeel$goneAt = new Vec3d(self.posX, self.posY, self.posZ);
-        original.call(self, pos, hit);
+        if (!gunfeel$waterOn()) {
+            original.call(self, pos, hit);
+            return;
+        }
+        gunfeel$goneAt = new Vec3d(self.posX, self.posY, self.posZ);
+        // its blast (the game's own) hurts creatures by water's rule (OldBlast, MixinOldBlast)
+        acup.gunfeel.water.OldBlast.impact(() -> original.call(self, pos, hit));
     }
 
     // a creature met in water: it goes off where it met it too (NTM's onEntityImpact sets it off at its position)
@@ -128,9 +143,13 @@ public abstract class MixinOldBulletWater implements WaterBullet {
             target = "Lcom/hbm/entity/projectile/EntityBulletBase;onEntityImpact(Lnet/minecraft/entity/Entity;Lnet/minecraft/util/math/RayTraceResult;)V"))
     private void gunfeel$waterMobImpact(EntityBulletBase self, net.minecraft.entity.Entity target, RayTraceResult hit,
             Operation<Void> original) {
-        if (gunfeel$waterOn() && (gunfeel$stopped || gunfeel$tick != null) && hit != null && hit.hitVec != null)
+        if (!gunfeel$waterOn()) {
+            original.call(self, target, hit);
+            return;
+        }
+        if ((gunfeel$stopped || gunfeel$tick != null) && hit != null && hit.hitVec != null)
             self.setPosition(hit.hitVec.x, hit.hitVec.y, hit.hitVec.z);
-        original.call(self, target, hit);
+        acup.gunfeel.water.OldBlast.impact(() -> original.call(self, target, hit));
     }
 
     @Inject(method = "onUpdate", at = @At("RETURN"), remap = true)

@@ -149,6 +149,9 @@ BULLETS field com/hbm/entity/projectile/EntityBullet motionX D
 BULLETS field com/hbm/entity/projectile/EntityBullet motionY D
 BULLETS field com/hbm/entity/projectile/EntityBullet motionZ D
 BULLETS field com/hbm/entity/projectile/EntityBullet world Lnet/minecraft/world/World;
+BULLETS field com/hbm/entity/projectile/EntityBulletBase motionX D
+BULLETS field com/hbm/entity/projectile/EntityBulletBase motionY D
+BULLETS field com/hbm/entity/projectile/EntityBulletBase motionZ D
 BULLETS field com/hbm/entity/projectile/EntityBulletBase posX D
 BULLETS field com/hbm/entity/projectile/EntityBulletBase posY D
 BULLETS field com/hbm/entity/projectile/EntityBulletBase posZ D

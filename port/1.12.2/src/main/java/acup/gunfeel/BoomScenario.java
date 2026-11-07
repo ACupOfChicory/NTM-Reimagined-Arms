@@ -325,6 +325,7 @@ final class BoomScenario {
                 // bolt) hurts them on its way, NTM sets it off only on blocks
                 if (c.doesPenetrate) lines.add("#\t" + ammo + "\te: pierces creatures, no blast on one");
                 else if (!homes) mob(ammo, shot, wc);
+                if (c.explosive > 0) oldDamage(ammo, shot, wc, c.explosive);
             }
         } finally {
             vanillaBlasts = false;
@@ -362,6 +363,64 @@ final class BoomScenario {
         note = "lowest=" + fmt(low) + " removed=" + b.isDead + " blast=" + str(BLASTS.isEmpty() ? null : BLASTS.get(0));
         rowFlag("p: into water at 30°: under the surface, no blast", ammo, wc, "y < " + fmt(surface - 0.3) + ", none", fmt(low) + ", " + (BLASTS.isEmpty() ? "none" : "blast"),
                 low < surface - 0.3 && b.isDead && BLASTS.isEmpty(), note);
+    }
+
+    // port: an old bullet's blast (the game's own) on a golem, by 26.2's rule (OldBlast): straight down onto the dry pad
+    // (the air), onto the basin's floor (the golem 2.7 off on the floor, in the water) and onto the surface (the golem
+    // over the water). Wanted: the game's hurt, (int)((q² + q) / 2 × 7 × range + 1), q = (1 - d / R) × the blocks'
+    // share; R = range = 2 × size in the air, R = range × waterBlastRadius in the water, R = range and half of it over it
+    private static void oldDamage(String ammo, Shot shot, WaterClass wc, float size) {
+        float mult = Math.max(1F, WaterSettings.blastRadius());
+        double range = 2 * size;
+        if (range * mult < 2.7) {
+            lines.add("#\t" + ammo + "\td: the blast does not reach a golem 2.7 off");
+            return;
+        }
+        basin();
+        double[] air = oldBlastOn(shot, new Vec3d(dryX, floor + 1.6, cz), new Vec3d(dryX + 2.7, floor + 1, cz));
+        basin();
+        double[] wet = oldBlastOn(shot, new Vec3d(cx, floor + 1.6, cz), new Vec3d(cx + 2.7, floor + 1, cz));
+        basin();
+        double[] over = oldBlastOn(shot, new Vec3d(cx, surface + 1.5, cz), new Vec3d(cx + 1.5, surface + 0.6, cz));
+        oldDamageRow("d: old blast, golem in the air", ammo, wc, air, range, 1, false);
+        oldDamageRow("d: old blast, golem in the water", ammo, wc, wet, range, mult, false);
+        oldDamageRow("d: old blast, golem over the water: half", ammo, wc, over, range, 1, true);
+    }
+
+    // took, distance, the blocks' share, the golem in water (1/0), the blast's x y z; NaN: no blast
+    private static double[] oldBlastOn(Shot shot, Vec3d from, Vec3d golemFeet) {
+        EntityIronGolem g = golem(golemFeet);
+        float before = g.getHealth();
+        Entity b = shot.at(from, new Vec3d(0, -1, 0));
+        BLASTS.clear();
+        for (int i = 0; i < 20 && !b.isDead && BLASTS.isEmpty(); i++) tick(b);
+        double[] out = {Double.NaN, Double.NaN, Double.NaN, WaterBlast.inWater(g) ? 1 : 0, Double.NaN, Double.NaN, Double.NaN};
+        if (!BLASTS.isEmpty()) {
+            double[] k = BLASTS.get(0);
+            Vec3d at = new Vec3d(k[0], k[1], k[2]);
+            out[0] = before - g.getHealth();
+            out[1] = g.getDistance(at.x, at.y, at.z);
+            out[2] = level.getBlockDensity(at, g.getEntityBoundingBox());
+            out[4] = k[0];
+            out[5] = k[1];
+            out[6] = k[2];
+        }
+        g.setDead();
+        return out;
+    }
+
+    private static void oldDamageRow(String name, String ammo, WaterClass wc, double[] m, double range, double mult, boolean half) {
+        String note = "took=" + fmt(m[0]) + " d=" + fmt(m[1]) + " share=" + fmt(m[2]) + " golemWet=" + (int) m[3] + " blast=(" + fmt(m[4]) + " "
+                + fmt(m[5]) + " " + fmt(m[6]) + ")";
+        if (Double.isNaN(m[0])) {
+            rowFlag(name, ammo, wc, "a blast", "none", false, note);
+            return;
+        }
+        double ds = m[1] / (range * mult);
+        double q = ds > 1 ? 0 : (1 - ds) * m[2];
+        double want = ds > 1 ? 0 : (int) ((q * q + q) / 2.0 * 7.0 * range + 1.0);
+        if (half) want *= WaterBlast.ABOVE;
+        row(name, ammo, wc, want, m[0], 0.01, note);
     }
 
     // port: from 3 under the water along x at a golem 2 blocks off (in the water): an old bullet goes off where it met
