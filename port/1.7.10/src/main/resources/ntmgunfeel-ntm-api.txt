@@ -478,6 +478,7 @@ TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecr
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 getBulletConfig ()Lcom/hbm/items/weapon/sedna/BulletConfig;
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 getEntityId ()I
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 getGravityVelocity ()D
+TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 getThrower ()Lnet/minecraft/entity/EntityLivingBase;
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 setDead ()V
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 setPosition (DDD)V
 TRACERS method com/hbm/items/ItemAmmoEnums$Ammo240Shell values ()[Lcom/hbm/items/ItemAmmoEnums$Ammo240Shell;

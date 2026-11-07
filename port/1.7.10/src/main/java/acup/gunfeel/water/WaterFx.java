@@ -547,6 +547,7 @@ public final class WaterFx {
         if (mc.theWorld == null || mc.isGamePaused()) return;
         long now = ++ticks;
         WaterEvents.drainBlasts(mc.theWorld);
+        drainJoined(mc.theWorld, now);
         WaterParticle.sweep(now);
         int n = LATER.size();
         for (int i = 0; i < n; i++) {
@@ -559,6 +560,7 @@ public final class WaterFx {
 
     public static void clear() {
         LATER.clear();
+        JOINED.clear();
         WaterEvents.forgetBlasts();
         WaterRings.clear();
         SunkBullets.clear();
@@ -594,6 +596,54 @@ public final class WaterFx {
         g.origin = muzzle;
         g.forward = dir.lengthSqr() > 1e-9 ? dir.normalize() : Vec3.ZERO;
         g.placeGas();
+    }
+
+    // NTM's entity of a round with an impact fuze that starts no tracer here (grenades, rockets, mortar shells:
+    // Tracers.traced) has come to this client: shot under water, it makes the gas bubble too. A shot leaves the gun
+    // with a motion of length 1 (its speed is NTM's motionMult); one that comes into sight sinking or lying on the
+    // bottom has next to none (WaterTick.sink) and is no shot.
+    // port: FML 1.7.10 spawns it on the network thread: it is queued here and looked at on the next client ticks. Its
+    // motion is not in the spawn (NTM's bullet has no motion updates): the server sends it after (WaterTick.announce,
+    // in water only), so the shot waits for it a few ticks (JOIN_WAIT); one that never gets it is no shot.
+    private record Joined(EntityBulletBaseMK4 bullet, Vec3 at, long since) {
+    }
+
+    private static final java.util.concurrent.ConcurrentLinkedQueue<Joined> JOINED = new java.util.concurrent.ConcurrentLinkedQueue<>();
+    private static final int JOIN_WAIT = 4;
+
+    public static void joined(World level, Entity e) {
+        if (!on() || !level.isRemote || !(e instanceof EntityBulletBaseMK4 b) || JOINED.size() >= 256) return;
+        JOINED.add(new Joined(b, new Vec3(e.posX, e.posY, e.posZ), -1));
+    }
+
+    private static void drainJoined(World level, long now) {
+        for (int n = JOINED.size(); n > 0; n--) {
+            Joined j = JOINED.poll();
+            if (j == null) break;
+            long since = j.since() < 0 ? now : j.since();
+            if (!joinedShot(level, j) && now - since < JOIN_WAIT) JOINED.add(new Joined(j.bullet(), j.at(), since));
+        }
+    }
+
+    // true: done with it (its bubble made, or none to make); false: its config or motion has not come yet
+    private static boolean joinedShot(World level, Joined j) {
+        EntityBulletBaseMK4 b = j.bullet();
+        if (b.isDead || b.worldObj != level) return true;
+        BulletConfig config = b.getBulletConfig();
+        if (config == null) return false;
+        if (acup.gunfeel.Tracers.traced(config) || !WaterClass.Fuze.ofConfig(config).any()) return true;
+        // a gun's round only: not the NPCs' bolts and rockets, a cluster's bomblets, a pile's debris, a flame
+        // (port: BulletConfig.ammo, 26.2's ammoItem)
+        if (config.ammo == null || WaterClass.Fuze.field(config) != null) return true;
+        if (!wetAt(level, j.at())) return true;
+        Vec3 dir = new Vec3(b.motionX, b.motionY, b.motionZ);
+        if (dir.lengthSqr() < 0.25) return false;
+        Minecraft mc = Minecraft.getMinecraft();
+        // the player's own shot: at the muzzle drawn in their hands, as a tracer's
+        double[] m = mc.thePlayer != null && b.getThrower() == mc.thePlayer ? acup.gunfeel.Tracers.drawnMuzzle() : null;
+        Vec3 muzzle = m == null ? null : new Vec3(m[0], m[1], m[2]);
+        fired(level, muzzle != null && muzzle.distanceToSqr(j.at()) < 9 ? muzzle : j.at(), dir, config);
+        return true;
     }
 
     // the gas bubble's radius by calibre (the owner's numbers): p22 .15, p9 .25, m357 .3, m44 .32, r556 .3, r762 .35,

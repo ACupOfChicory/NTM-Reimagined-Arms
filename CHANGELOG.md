@@ -1,5 +1,12 @@
 # Changelog
 
+## X543.154
+
+- A grenade, rocket or mortar shell fired from a gun under water now leaves a
+  gas bubble at the muzzle, as a bullet does. Before, it had none and, as
+  under water the muzzle flash is hidden, nothing showed the shot. The NPCs'
+  rockets, a cluster's bomblets, a pile's debris and flames make none.
+
 ## X543.153
 
 - A grenade or rocket that water stopped is now seen as it sinks and lies on

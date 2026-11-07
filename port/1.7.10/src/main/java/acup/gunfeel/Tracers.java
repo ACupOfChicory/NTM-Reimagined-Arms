@@ -266,6 +266,17 @@ public final class Tracers {
         return c != null && c != NONE;
     }
 
+    // true when a shot of this round comes here from the server and starts a tracer of ours (shot0): fast enough for
+    // the server to tell (MixinBulletServer), and drawn as a plain tracer or followed for its holes. port: a type not
+    // probed yet counts as one (the probe draws, so it is shot0's, in a frame); its first shot may then miss a gas
+    // bubble of WaterFx.joined
+    public static boolean traced(BulletConfig config) {
+        if (config.velocity < 5F) return false;
+        if (ExplosiveAmmo.shell(config)) return true;
+        int[] c = COLORS.get(config);
+        return c == null || c != NONE;
+    }
+
     // port: NTM 1.7.10 keeps the tracer as config.renderer, drawn for a bullet entity; called once for a bullet that
     // is never spawned, with a length of 1, while probing: the plain tracer (LegoClient.renderBulletStandard) tells its
     // colours to MixinLegoClient instead of drawing. Any other renderer draws for real, so it draws scaled to nothing,
@@ -338,13 +349,10 @@ public final class Tracers {
         TracerPath path = new TracerPath(new double[] {x, y, z}, new double[] {vx, vy, vz}, gravity);
         Minecraft mc = Minecraft.getMinecraft();
         // the player's own shot leaves the muzzle drawn in their hands
-        if (mc.thePlayer != null && owner == mc.thePlayer.getEntityId() && GunClock.nanos() - muzzleTime < 500_000_000L
-                && mc.gameSettings.thirdPersonView == 0) {
-            double[] m = muzzleWorld();
-            if (m != null) {
-                double[] off = {m[0] - x, m[1] - y, m[2] - z};
-                if (off[0] * off[0] + off[1] * off[1] + off[2] * off[2] <= 9.0) path.muzzleOffset = off;
-            }
+        double[] m = mc.thePlayer != null && owner == mc.thePlayer.getEntityId() ? drawnMuzzle() : null;
+        if (m != null) {
+            double[] off = {m[0] - x, m[1] - y, m[2] - z};
+            if (off[0] * off[0] + off[1] * off[1] + off[2] * off[2] <= 9.0) path.muzzleOffset = off;
         }
         // fired from a gun: the path is tested from the shooter's eyes, as on the server, so a wall right in front
         // of the muzzle still gets its hole
@@ -504,6 +512,14 @@ public final class Tracers {
         muzzleTime = GunClock.nanos();
     }
 
+    // the muzzle of the gun in this player's hands, in the world, while it is drawn in first person (in the last half
+    // second), or null
+    public static double[] drawnMuzzle() {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.thePlayer == null || GunClock.nanos() - muzzleTime >= 500_000_000L || mc.gameSettings.thirdPersonView != 0) return null;
+        return muzzleWorld();
+    }
+
     private static double[] muzzleWorld() {
         if (worldView == null || handScale <= 0F || worldScale <= 0F) return null;
         float[] inv = Mat4.invertAffine(worldView);
@@ -561,6 +577,13 @@ public final class Tracers {
                 // the water effects' delayed splashes and their particles counted
                 acup.gunfeel.water.WaterFx.clientTick();
             }
+        }
+
+        // a grenade or rocket shot under water: its gas bubble. port: FML 1.7.10 spawns a mod's entity on the network
+        // thread, so it is only queued there (WaterFx.joined)
+        @SubscribeEvent
+        public void joined(net.minecraftforge.event.entity.EntityJoinWorldEvent e) {
+            if (e.world.isRemote && acup.gunfeel.compat.Feature.TRACERS.on()) acup.gunfeel.water.WaterFx.joined(e.world, e.entity);
         }
 
         @SubscribeEvent
