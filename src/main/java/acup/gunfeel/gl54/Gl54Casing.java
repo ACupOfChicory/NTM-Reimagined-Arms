@@ -14,7 +14,7 @@ import com.google.gson.JsonParser;
 // the .blend: front, height, side, side + = the gun's left), how fast it goes (blocks a tick, the same frame) and how
 // it turns (degrees a tick). A new model with another case gives other numbers in the file, not in the code.
 public record Gl54Casing(boolean present, int tick, double front, double height, double side, double originFront, double originHeight,
-        double originSide, double velFront, double velHeight, double velSide, float pitch, float yaw) {
+        double originSide, double portX, double portY, double portZ, double restX, double restY, double restZ, double velFront, double velHeight, double velSide, float pitch, float yaw) {
     public static final String RESOURCE = "/assets/ntmgunfeel/models/weapons/gl54_casing.json";
     private static volatile Gl54Casing loaded;
 
@@ -33,25 +33,28 @@ public record Gl54Casing(boolean present, int tick, double front, double height,
     }
 
     public static Gl54Casing none() {
-        return new Gl54Casing(false, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0F, 0F);
+        return new Gl54Casing(false, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0F, 0F);
     }
 
     public static Gl54Casing parse(Reader reader) {
         JsonObject j = JsonParser.parseReader(reader).getAsJsonObject();
         if (!j.has("present") || !j.get("present").getAsBoolean()) return none();
+        JsonObject m = j.getAsJsonObject("port"), r = j.getAsJsonObject("rest");
         JsonObject p = j.getAsJsonObject("position"), o = j.getAsJsonObject("origin"), v = j.getAsJsonObject("velocity"), t = j.getAsJsonObject("turn");
         return new Gl54Casing(true, j.get("tick").getAsInt(),
                 p.get("front").getAsDouble(), p.get("height").getAsDouble(), p.get("side").getAsDouble(),
                 o.get("front").getAsDouble(), o.get("height").getAsDouble(), o.get("side").getAsDouble(),
+                m.get("x").getAsDouble(), m.get("y").getAsDouble(), m.get("z").getAsDouble(),
+                r.get("x").getAsDouble(), r.get("y").getAsDouble(), r.get("z").getAsDouble(),
                 v.get("front").getAsDouble(), v.get("height").getAsDouble(), v.get("side").getAsDouble(),
                 t.get("pitch").getAsFloat(), t.get("yaw").getAsFloat());
     }
 
-    // Where the case comes out from the eye (blocks: front, height, side with + to the left, as CasingCreator wants it):
-    // `gunOrigin` is where the model's origin is from the eye, `blocksPerMetre` how big the gun is in hand.
-    public double[] eyeOffset(double[] gunOrigin, double blocksPerMetre) {
-        return new double[] {gunOrigin[0] + (front - originFront) * blocksPerMetre,
-                gunOrigin[1] + (height - originHeight) * blocksPerMetre,
-                gunOrigin[2] + (side - originSide) * blocksPerMetre};
+    // Where the case comes out from the eye (blocks: front, height, side with + to the left, as CasingCreator wants it): the port
+    // of the model (units: x left, y up, z forward) put where the hand holds the gun. `origin` is the model's origin from the eye
+    // and `scale` the blocks a model unit comes to along front, height and side, as the stand measures the real render
+    // (Gl54Probe: the origin and the unit axes in the world's view space; aimed, the view's field of view shrinks x and y).
+    public double[] eyeOffset(double[] origin, double[] scale) {
+        return new double[] {origin[0] + portZ * scale[0], origin[1] + portY * scale[1], origin[2] + portX * scale[2]};
     }
 }

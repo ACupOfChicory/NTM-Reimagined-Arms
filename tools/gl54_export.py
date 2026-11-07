@@ -415,6 +415,7 @@ def casing_numbers(bpy, fps):
     def loc(frame):
         return tuple(at("location", i, frame, obj.location[i]) for i in range(3))
     p0, p1 = loc(appear), loc(nxt)
+    rest = loc(start)
     dt = (nxt - appear) / fps
     metres_per_s = tuple((b - a) / dt for a, b in zip(p0, p1))
     blocks_per_tick = tuple(v * TICK_S for v in metres_per_s)
@@ -427,6 +428,10 @@ def casing_numbers(bpy, fps):
         "tick": int(round((appear - start) / fps / TICK_S)),
         "frame": {"front": "x of the .blend", "height": "z of the .blend", "side": "y of the .blend (left is positive)"},
         "position": {"front": round(p0[0] - 0.0, 5), "height": round(p0[2], 5), "side": round(p0[1], 5)},
+        # the same two places in the NTM model (x to the gun's left, y up, z forward; model units): where the case rests
+        # (the ejection window, before the shot) and where it first shows
+        "rest": dict(zip("xyz", [round(v, 5) for v in axis_point(rest)])),
+        "port": dict(zip("xyz", [round(v, 5) for v in axis_point(p0)])),
         "origin": {"front": ORIGIN_M[0], "height": ORIGIN_M[2], "side": ORIGIN_M[1]},
         "velocity": {"front": round(blocks_per_tick[0], 5), "height": round(blocks_per_tick[2], 5),
                      "side": round(blocks_per_tick[1], 5)},

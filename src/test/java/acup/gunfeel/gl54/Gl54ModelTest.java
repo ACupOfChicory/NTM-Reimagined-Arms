@@ -117,12 +117,21 @@ class Gl54ModelTest {
     }
 
     @Test
-    void casingOffsetFromTheEyeIsTheGunOriginPlusTheModelOffset() {
-        Gl54Casing c = new Gl54Casing(true, 2, -0.275, 0.064, -0.036, -0.1, -0.05, 0.0, 0, 0, 0, 0F, 0F);
-        double[] at = c.eyeOffset(new double[] {0.5, -0.2, -0.3}, 2.0);
-        assertEquals(0.5 + (-0.275 + 0.1) * 2.0, at[0], 1e-9);
-        assertEquals(-0.2 + (0.064 + 0.05) * 2.0, at[1], 1e-9);
-        assertEquals(-0.3 + (-0.036) * 2.0, at[2], 1e-9);
+    void casingOffsetFromTheEyeIsTheGunOriginPlusThePortInTheModel() {
+        Gl54Casing c = new Gl54Casing(true, 2, -0.275, 0.064, -0.036, -0.1, -0.05, 0.0, -0.432, 1.368, -2.1, 0, 1.368, -1.668, 0, 0, 0, 0F, 0F);
+        double[] at = c.eyeOffset(new double[] {0.5, -0.2, -0.3}, new double[] {0.1, 0.2, 0.3});
+        assertEquals(0.5 - 0.21, at[0], 1e-9);
+        assertEquals(-0.2 + 0.2736, at[1], 1e-9);
+        assertEquals(-0.3 - 0.1296, at[2], 1e-9);
+    }
+
+    @Test
+    void thePortOfTheFileIsBehindTheMiddleOnTheRightOfTheAxis() {
+        Gl54Casing c = Gl54Casing.get();
+        assertTrue(c.portZ() < -1.5, "the ejection window is behind the middle: " + c.portZ());
+        assertTrue(c.portX() < 0, "to the right of the barrel's axis: " + c.portX());
+        assertEquals(1.37, c.portY(), 0.05);
+        assertEquals(1.37, c.restY(), 0.05);
     }
 
     @Test
