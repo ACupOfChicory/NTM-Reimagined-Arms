@@ -184,6 +184,8 @@ final class AiCheckFight {
             // the flanker shoots it: it turns to where the hit came from
             soldier.hurtServer(level, level.damageSources().mobAttack(target), 1F);
             movesBefore = mind.relocations + mind.shifts;
+            // what it makes of the flank goes to the server's log (the journal of /armsai log)
+            AiThoughts.log = true;
             next(Phase.FLANK);
         }
     }
@@ -197,6 +199,7 @@ final class AiCheckFight {
             check.out(String.format(Locale.ROOT, "     flanked: %d moves (%d relocations), now at %s, hidden %s, in %d ticks", moves, mind.relocations,
                     soldier.blockPosition().toShortString(), hidden, ticks));
             verdict("flanked and shot: runs to cover the flanker cannot see into", moves > 0 && hidden);
+            AiThoughts.log = false;
             TargetMemory.Contact c = bot.memory.contact(target.getId());
             // shut the target in a stone box far off: it is gone from sight
             int bx = (int) Math.floor(BOX.x), bz = (int) Math.floor(BOX.z);

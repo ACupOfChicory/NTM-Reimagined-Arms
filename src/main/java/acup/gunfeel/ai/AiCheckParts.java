@@ -21,9 +21,9 @@ import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 /**
  * The AI check's parts of a body: an AI dummy with a carbine, behind a low wall of its own (so it stays there and fires
  * over it), shoots at a target 15 blocks north of it that shows the whole of itself, its head alone over a wall two
- * high (standing a block up), its head and chest over a wall one high, or its legs alone under a beam. Each twice:
- * aiming at the chest always (as before) and at the part it sees. Its shots and the hits on the target are counted for
- * the same time.
+ * high, its head and chest over a wall one high, or its legs alone under a beam (the target floating as high as that
+ * takes). Each twice: aiming at the chest always (as before) and at the part it sees. Its shots and the hits on the
+ * target are counted for the same time.
  */
 final class AiCheckParts {
     static final int X0 = 240, Z0 = 4, SIZE = 40, RUN = 500, LIMIT = 200;
@@ -33,8 +33,8 @@ final class AiCheckParts {
     static final Identifier GUN = Identifier.fromNamespaceAndPath("hbm", "gun_carbine");
 
     private enum Shows {
-        WHOLE("the whole of it"), HEAD("its head over a wall two high, standing a block up"), HEAD_CHEST("its head and chest over a wall"),
-        LEGS("its legs under a beam, floating half a block up");
+        WHOLE("the whole of it"), HEAD("its head over a wall two high"), HEAD_CHEST("its head and chest over a wall one high"),
+        LEGS("its legs under a beam");
 
         final String text;
 
@@ -131,9 +131,8 @@ final class AiCheckParts {
             case WHOLE -> {
             }
             case HEAD -> {
-                // the target on a block behind a wall two high: its chest (0.55 of its height) under the wall's top,
-                // its head (0.9) over it
-                set(tx, y, tz, stone);
+                // the target floating 0.75 up behind a wall two high: its chest (0.55 of its height) well under the
+                // wall's top, its head (0.9) over it
                 for (int x = tx - WIDE; x <= tx + WIDE; x++) {
                     set(x, y, tz + 1, stone);
                     set(x, y + 1, tz + 1, stone);
@@ -164,7 +163,14 @@ final class AiCheckParts {
         build(s);
         target = (Mob) BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.fromNamespaceAndPath("hbm", "entity_test_dummy")).create(level,
                 EntitySpawnReason.COMMAND);
-        target.setPos(TX, s == Shows.HEAD ? y + 1 : s == Shows.LEGS ? y + 0.5 : y, TZ);
+        // floating (no gravity): its head alone over the wall two high, its head and chest well over the wall one high
+        // (its legs under it), its legs alone under the beam
+        target.setPos(TX, y + switch (s) {
+            case HEAD -> 0.75;
+            case HEAD_CHEST -> 0.25;
+            case LEGS -> 0.5;
+            case WHOLE -> 0.0;
+        }, TZ);
         target.setNoGravity(true);
         target.addTag(AiBots.TARGET_TAG);
         var hp = target.getAttribute(Attributes.MAX_HEALTH);
