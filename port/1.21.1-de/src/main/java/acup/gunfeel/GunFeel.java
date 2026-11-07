@@ -33,8 +33,9 @@ public final class GunFeel {
     public static ItemRenderWeaponBase current;
     public static boolean currentAkimbo;
     private static final Map<Item, Long> SEEN_SHOT = new IdentityHashMap<>();
-    // port: the rounds that came to the client since its last tick (the gas bubble of a shot under water)
-    private static final java.util.List<net.minecraft.world.entity.Entity> JOINED = new java.util.ArrayList<>();
+    // port: the rounds that came to the client since its last tick (the gas bubble of a shot under water); leaving the
+    // world may clear it from the network thread
+    private static final java.util.List<net.minecraft.world.entity.Entity> JOINED = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     static void init() {
         acup.gunfeel.compat.PunchyCompat.install();
