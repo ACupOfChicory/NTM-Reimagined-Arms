@@ -83,7 +83,7 @@ public final class WaterEvents {
             try {
                 l.blast(level, b);
             } catch (RuntimeException e) {
-                acup.gunfeel.GunFeel.LOGGER.warn("water blast listener failed", e);
+                acup.gunfeel.DebugLog.LOGGER.warn("water blast listener failed", e);
             }
         }
     }
@@ -105,7 +105,7 @@ public final class WaterEvents {
             try {
                 l.tick(level, bullet, path);
             } catch (RuntimeException e) {
-                acup.gunfeel.GunFeel.LOGGER.warn("water tick listener failed", e);
+                acup.gunfeel.DebugLog.LOGGER.warn("water tick listener failed", e);
             }
         }
     }
@@ -121,7 +121,7 @@ public final class WaterEvents {
             try {
                 l.on(level, event);
             } catch (RuntimeException e) {
-                acup.gunfeel.GunFeel.LOGGER.warn("water event listener failed on {}", event.type(), e);
+                acup.gunfeel.DebugLog.LOGGER.warn("water event listener failed on {}", event.type(), e);
             }
         }
     }

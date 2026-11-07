@@ -89,7 +89,7 @@ final class ArmFiles {
                 }
             }
         } catch (IOException e) {
-            GunFeel.LOGGER.warn("Could not list {}", d, e);
+            DebugLog.LOGGER.warn("Could not list {}", d, e);
         }
         out.sort(Comparator.comparing((Saved x) -> x.path().getFileName().toString()).reversed());
         return out;

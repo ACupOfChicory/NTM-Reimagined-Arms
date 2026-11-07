@@ -6,7 +6,7 @@ import java.util.function.Predicate;
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
 
 import acup.gunfeel.Config;
-import acup.gunfeel.GunFeel;
+import acup.gunfeel.DebugLog;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
@@ -26,9 +26,9 @@ public final class PunchyCompat {
             Method leave = api.getMethod("leaveItemsToMinecraft", String.class, Predicate.class);
             Predicate<Object> guns = value -> Config.enabled && Feature.ARMS.on() && isGun(value);
             leave.invoke(null, "ntmgunfeel", guns);
-            GunFeel.LOGGER.info("[compat] Punchy leaves NTM guns to NTM Reimagined Arms");
+            DebugLog.LOGGER.info("[compat] Punchy leaves NTM guns to NTM Reimagined Arms");
         } catch (ReflectiveOperationException | LinkageError e) {
-            GunFeel.LOGGER.warn("[compat] could not tell Punchy to leave NTM guns alone", e);
+            DebugLog.LOGGER.warn("[compat] could not tell Punchy to leave NTM guns alone", e);
         }
     }
 

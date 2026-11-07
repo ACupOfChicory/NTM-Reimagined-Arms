@@ -1,5 +1,21 @@
 # Changelog
 
+## X577
+
+- Dedicated servers: rounds now meet NTM's big machines by their shape as
+  drawn, as in single player. Before, the server never read the machine shapes
+  shipped in the jar (an error about `ClientLevel` in its log) and met the
+  machines by NTM's boxes. A server with an NTM version the mod is not tested
+  with no longer fails to start on the warning about it, and other warnings
+  of the mod's no longer throw that error on a server.
+- `npcShots`: the hunter chopper's and the cyber crab's old bullet that hits
+  a creature still recovering from a hit now counts the head as more than the
+  body and a limb as less, as on a fresh creature. Before, in a burst a head
+  hit could do less than a body hit, and a limb hit more.
+- `npcShots`: when the head and limb zones fail on the old bullet's hit, it
+  hits as in NTM, with a warning in the log once. Before, the error could
+  stop the server.
+
 ## X572
 
 - A round that meets water on the edge of its surface and a side now also

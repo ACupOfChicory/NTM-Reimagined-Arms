@@ -137,6 +137,40 @@ final class NpcShotSmoke {
                         "NPC "+s.name()+": урон "+f(base)+", тело="+f(b)+", голова="+f(h)+" (тело×1,75="+f(h2)+"), конечность="+f(l)+" (тело×0,5="+f(l2)+")");
                 check.accept(behind>0,"NPC "+s.name()+": за стеклом урон="+f(behind)+" из "+f(b)+" ("+f(behind/b*100)+" %), стекло разбито="+broke);
             }
+            // старая пуля по мобу, которого только что ударили (окно неуязвимости, lastHurt): первый удар или повтор
+            // NTM решает её урон без зоны, прибавка головы или конечности идёт в тот, что проходит (LegacyBullets.hurt)
+            int li=shooters().size()-1;var legacy=shooters().get(li);float d=legacy.damage();float[] fresh=numbers.get(li);
+            for(float last:new float[]{d,d*.6F}) {
+                java.util.function.Function<Vec3,Float> hit=at->{
+                    Vec3 way=at==head?headWay:at==limb?limbWay:bodyWay;
+                    target.setHealth(1000);target.invulnerableTime=0;target.hurtTime=0;
+                    target.hurtServer(level,level.damageSources().generic(),last);
+                    target.setHealth(1000);
+                    Vec3 from=at.subtract(way.scale(3));
+                    fly(bullet(level,legacy,from,way,d,mob,player),from);
+                    float lost=1000-target.getHealth();
+                    target.setPos(home);target.setDeltaMovement(Vec3.ZERO);target.invulnerableTime=0;
+                    return lost;
+                };
+                float b=hit.apply(body),h=hit.apply(head),l=hit.apply(limb);
+                String line="NPC "+legacy.name()+" после удара "+f(last)+": тело="+f(b)+", голова="+f(h)+", конечность="+f(l);
+                rows.add(legacy.name()+" после удара "+f(last)+"\t"+f(d)+"\t"+f(b)+"\t"+f(h)+"\t\t"+f(l)+"\t\t\t");
+                // урон не больше прошлого удара: NTM бьёт повтором целиком — как свежий выстрел в ту же точку
+                if(d<=last) check.accept(Math.abs(b-fresh[0])<.01 && Math.abs(h-fresh[1])<.01 && Math.abs(l-fresh[3])<.01,
+                        line+" (как без удара: "+f(fresh[0])+", "+f(fresh[1])+", "+f(fresh[3])+")");
+                // больше: первый удар, сверх прошлого; конечности сверх него не остаётся
+                else check.accept(b>0 && b<fresh[0] && h>b && l==0,line+" (без удара тело="+f(fresh[0])+")");
+            }
+            // зоны старой пули падают: удар в голову идёт как в NTM (урон тела), сервер не падает
+            LegacyBullets.failZones=true;
+            try {
+                Vec3 from=head.subtract(headWay.scale(3));
+                target.setHealth(1000);target.invulnerableTime=0;target.hurtTime=0;
+                fly(bullet(level,legacy,from,headWay,d,mob,player),from);
+                float lost=1000-target.getHealth();
+                target.setPos(home);target.setDeltaMovement(Vec3.ZERO);
+                check.accept(Math.abs(lost-fresh[0])<.01,"NPC "+legacy.name()+": зоны упали, голова="+f(lost)+" (тело="+f(fresh[0])+")");
+            } finally { LegacyBullets.failZones=false; }
             for(int i=0;i+1<shooters().size();i+=2) {
                 var npc=numbers.get(i);var own=numbers.get(i+1);
                 boolean same=true;for(int k=0;k<npc.length;k++) same&=Math.abs(npc[k]-own[k])<.01;
