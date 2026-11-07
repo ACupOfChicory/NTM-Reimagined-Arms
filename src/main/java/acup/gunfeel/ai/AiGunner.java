@@ -253,9 +253,9 @@ public final class AiGunner {
         if (state == ItemGunBaseNT.GunState.RELOADING) wantReload = false;
         long time = level.getGameTime();
         if (state == ItemGunBaseNT.GunState.RELOADING && reloadFrom < 0) reloadFrom = time;
-        else if (reloadFrom >= 0 && state != ItemGunBaseNT.GunState.RELOADING) {
-            // only a reload seen through to the end (not one cut short, nor one it was not ticked through)
-            if (state == ItemGunBaseNT.GunState.IDLE && time - reloadFrom <= MAX_RELOAD) lastReload = (int) (time - reloadFrom);
+        else if (reloadFrom >= 0 && state == ItemGunBaseNT.GunState.IDLE) {
+            // ready again (NTM's reload ends in DRAWING, its end animation); not one it was not ticked through
+            if (time - reloadFrom <= MAX_RELOAD) lastReload = (int) (time - reloadFrom);
             reloadFrom = -1;
         }
         // lying, it fires only still: a pull while it crawls would be thrown away (ProneFire), so it waits until it has

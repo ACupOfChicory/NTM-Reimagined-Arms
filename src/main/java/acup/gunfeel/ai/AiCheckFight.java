@@ -34,6 +34,8 @@ final class AiCheckFight {
     private final int y;
     private Phase phase = Phase.SETUP;
     private int ticks;
+    /** its moves (relocations and shifts) before the flanker shot it */
+    private int movesBefore;
     private Mob soldier, target;
     private AiBot bot;
     private AiSoldier mind;
@@ -181,6 +183,7 @@ final class AiCheckFight {
             target.setPos(f.x, f.y, f.z);
             // the flanker shoots it: it turns to where the hit came from
             soldier.hurtServer(level, level.damageSources().mobAttack(target), 1F);
+            movesBefore = mind.relocations + mind.shifts;
             next(Phase.FLANK);
         }
     }
@@ -188,10 +191,12 @@ final class AiCheckFight {
     private void flank() {
         boolean hidden = hiddenFromTarget();
         // out of the flanker's sight it has lost it (HOLD) by the time it gets there
-        if (mind.relocations > 0 && hidden && mind.spot() != null && bot.mover.arrived() || ticks > 300) {
-            check.out(String.format(Locale.ROOT, "     flanked: %d relocations, now at %s, hidden %s, in %d ticks", mind.relocations,
+        // its cover given up as seen into, or left for other cover as shot at in it: either way a move
+        int moves = mind.relocations + mind.shifts - movesBefore;
+        if (moves > 0 && hidden && mind.spot() != null && bot.mover.arrived() || ticks > 300) {
+            check.out(String.format(Locale.ROOT, "     flanked: %d moves (%d relocations), now at %s, hidden %s, in %d ticks", moves, mind.relocations,
                     soldier.blockPosition().toShortString(), hidden, ticks));
-            verdict("flanked and shot: runs to cover the flanker cannot see into", mind.relocations > 0 && hidden);
+            verdict("flanked and shot: runs to cover the flanker cannot see into", moves > 0 && hidden);
             TargetMemory.Contact c = bot.memory.contact(target.getId());
             // shut the target in a stone box far off: it is gone from sight
             int bx = (int) Math.floor(BOX.x), bz = (int) Math.floor(BOX.z);
