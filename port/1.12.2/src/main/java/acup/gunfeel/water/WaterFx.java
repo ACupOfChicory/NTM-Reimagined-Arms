@@ -594,7 +594,7 @@ public final class WaterFx {
         if (Minecraft.getMinecraft().world != world || b.isDead) return;
         BulletConfig config = b.getBulletConfig();
         if (config == null || !WaterClass.Fuze.of(config).any()) return;
-        // a gun's round only: not a turret's shell, a flame
+        // a gun's round only, not a flame; a turret's shell is traced (shot0 gives its bubble)
         if (config.ammo == null || WaterClass.Fuze.field(config) != null || acup.gunfeel.Tracers.traced(config)) return;
         Vec3d dir = new Vec3d(b.motionX, b.motionY, b.motionZ);
         if (dir.lengthSquared() < 0.25) {

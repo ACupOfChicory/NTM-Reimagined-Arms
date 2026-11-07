@@ -168,6 +168,7 @@ BULLETS field com/hbm/interfaces/IDoor$DoorState OPEN Lcom/hbm/interfaces/IDoor$
 BULLETS field com/hbm/inventory/RecipesCommon$ComparableStack item Lnet/minecraft/item/Item;
 BULLETS field com/hbm/inventory/RecipesCommon$ComparableStack meta I
 BULLETS field com/hbm/items/ModItems ammo_secret Lnet/minecraft/item/Item;
+BULLETS field com/hbm/items/ModItems ammo_shell Lcom/hbm/items/weapon/ItemAmmo;
 BULLETS field com/hbm/items/ModItems ammo_standard Lnet/minecraft/item/Item;
 BULLETS field com/hbm/items/weapon/grenade/ItemGrenadeFilling fragmentation Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets Lcom/hbm/items/weapon/sedna/BulletConfig;

@@ -459,9 +459,8 @@ final class NpcShotsScenario {
             if (lane.row.equals("бетон")) {
                 // the crab's critical bullet flies through blocks in NTM: no hole
                 if (s.critical) expect("NPC " + s.name + ": no hole in concrete, as NTM: " + front, front == 0);
-                // NTM CE draws its 240 mm shells as grenades (GunFactoryClient: RENDER_GRENADE): no tracer, so no hole,
-                // the player's as the turret's (26.2 follows the shell for them). A known gap, not counted
-                else if (s.config == XFactoryTurret.shell_ap) lines.add("GAP  NPC " + s.name + ": holes in concrete " + front + " (no tracer for a 240 mm shell on CE)");
+                // NTM CE draws its 240 mm shells as grenades (GunFactoryClient: RENDER_GRENADE), no tracer: their path is
+                // followed undrawn for the hole (Tracers.UNDRAWN), the player's as the turret's
                 else expect("NPC " + s.name + ": a hole in concrete: " + front, front > 0);
             }
         }

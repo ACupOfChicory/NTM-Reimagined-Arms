@@ -1,5 +1,12 @@
 # Changelog
 
+## X555.184
+
+- As in 26.2 X547, on 1.12.2: the Jeremy turret's 240 mm shells now leave
+  holes where they hit a block, as the same shell fired by a player does. NTM
+  CE still draws the shell itself; no tracer is added. Fired under water, such
+  a shell now throws a gas bubble at the muzzle, as a bullet does.
+
 ## X555.183
 
 - As in 26.2 X570, on 1.12.2:
