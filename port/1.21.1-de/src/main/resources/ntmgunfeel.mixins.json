@@ -3,7 +3,7 @@
   "minVersion": "0.8",
   "package": "acup.gunfeel.mixin.mc",
   "compatibilityLevel": "JAVA_21",
-  "mixins": ["MixinEntityModelBox", "MixinProjectileModelQuery", "MixinSmokeSight"],
+  "mixins": ["MixinEntityModelBox", "MixinProjectileModelQuery", "MixinSmokeSight", "LivingEntityAccess"],
   "client": ["MixinDeltaTimer", "MixinHandBob", "GameRendererAccess", "MixinSprintStop", "LocalPlayerAccess", "MixinParticleEngine",
     "ModelPartAccess", "MixinModelPartDraws", "MixinBufferTypes", "MixinOutlineBufferTypes", "MixinFoilBufferTypes", "MixinEntityMeshHits", "MixinEntityRenderDepth", "EntityRenderDispatcherAccess", "MixinItemDraws", "MixinLivingModelHits", "MixinModelHitboxDebug",
     "VanillateEntityAccess", "MixinGpuInstancerModel", "MixinGpuPoseShadow",

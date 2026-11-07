@@ -22,7 +22,7 @@ public final class GunFeelMod {
         // the one line of the mod's in the game's log at start (a logger of its own, past DebugLog's)
         org.slf4j.LoggerFactory.getLogger("NTM Reimagined Arms").info("NTM Reimagined Arms {}: its own log in {}", Compat.modVersion(), DebugLog.FILE);
         if (!Compat.inRange()) {
-            GunFeel.LOGGER.warn("NTM {} is not tested with NTM Reimagined Arms {} (tested: {}); systems off: {}",
+            DebugLog.LOGGER.warn("NTM {} is not tested with NTM Reimagined Arms {} (tested: {}); systems off: {}",
                     Compat.hbmVersion(), Compat.modVersion(), Compat.tested(), Compat.offList());
         }
         if (dist.isClient()) {

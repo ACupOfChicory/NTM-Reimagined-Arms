@@ -67,7 +67,7 @@ public final class MachineGlass {
             if (in == null) return new Rules(Set.of(), java.util.Map.of());
             return rules(new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)).lines().toList());
         } catch (Exception e) {
-            GunFeel.LOGGER.warn("Could not read {}: every machine's clear pixels count as glass", FILE, e);
+            DebugLog.LOGGER.warn("Could not read {}: every machine's clear pixels count as glass", FILE, e);
             return new Rules(Set.of(), java.util.Map.of());
         }
     }

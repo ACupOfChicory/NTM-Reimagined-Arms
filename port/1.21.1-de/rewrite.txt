@@ -318,6 +318,12 @@ re@TraceScenario.java: net\.minecraft\.world\.item\.equipment\.trim\. => net.min
 # main X547, NpcShotSmoke: no EntitySpawnReason, no Blocks.CONCRETE family on 1.21.1
 re@NpcShotSmoke.java: ^import net\.minecraft\.world\.entity\.EntitySpawnReason;$ => 
 re@NpcShotSmoke.java: Blocks\.CONCRETE\.gray\(\) => Blocks.GRAY_CONCRETE
+# main X577, NpcShotSmoke: the hit before the old bullet's is 1.21.1's hurt(DamageSource, float)
+re@NpcShotSmoke.java: target\.hurtServer\(level,(level\.damageSources\(\)\.generic\(\)),last\) => target.hurt($1,last)
+# main X577, ServerLoggerTest: the tests run from the repository's root, so it would read the root's 26.2 sources;
+# here it reads what this port builds, its own files and the shared ones as rewritten
+re@ServerLoggerTest.java: Path\.of\("src/main/java"\) => Path.of("port/1.21.1-de")
+re@ServerLoggerTest.java: Files\.walk\(SRC\) => Stream.concat(Files.walk(SRC.resolve("src/main/java")), Files.walk(SRC.resolve("build/generated/shared/main")))
 # main X547, MixinLegacyBullet: DE's old EntityBullet hurts with 1.21.1's hurt(DamageSource, float), not hurtServer
 re@MixinLegacyBullet.java: (Entity|LivingEntity);hurtServer\(Lnet/minecraft/server/level/ServerLevel; => $1;hurt(
 re@MixinLegacyBullet.java: (gunfeel\$hurt(?:Again)?\((?:Entity|LivingEntity) target), ServerLevel level, => $1,

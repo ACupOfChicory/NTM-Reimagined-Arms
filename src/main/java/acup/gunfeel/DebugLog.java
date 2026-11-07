@@ -22,6 +22,9 @@ import org.apache.logging.log4j.core.layout.PatternLayout;
 public final class DebugLog {
     static final String FILE = "logs/ntm-gunfeel-debug.log";
     static final String NAME = "ntm-gunfeel";
+    // the mod's logger, for every class: GunFeel (client only) hands out this one, and code that a dedicated server
+    // runs takes it here, as GunFeel does not load there
+    public static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(NAME);
     static final long SIZE = 8L * 1024 * 1024;
     static final int OLD = 2;
     private static boolean done;

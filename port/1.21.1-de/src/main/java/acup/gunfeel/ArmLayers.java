@@ -68,8 +68,10 @@ public final class ArmLayers {
     // what LivingEntityRenderer.render hands its layers
     private static float limbSwing, limbSwingAmount, partial, age, netHeadYaw, headPitch;
     private static final boolean[] SLEEVE = new boolean[2];
-    // leave() may run on the network thread
-    private static final Set<Class<?>> WARNED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final Set<Class<?>> WARNED = new java.util.HashSet<>();
+    // leave() runs on the network thread: it only asks, and the render thread lets the failures go (settle) before it
+    // reads them again, so a count it was writing does not come back into the next world
+    private static volatile boolean left;
 
     private ArmLayers() {
     }
@@ -78,14 +80,22 @@ public final class ArmLayers {
     // the renderer and its model, which outlive a world
     public static void leave() {
         prepared = false;
-        FAILED.clear();
-        WARNED.clear();
+        left = true;
         owner = new java.lang.ref.WeakReference<>(null);
     }
 
     // a new frame of the gun in hand: the player's render state is read again on first use
     public static void newFrame() {
         fresh = true;
+        frame++;
+        settle();
+    }
+
+    private static void settle() {
+        if (!left) return;
+        left = false;
+        FAILED.clear();
+        WARNED.clear();
     }
 
     // whether the skin's second layer shows on this arm the way the third-person model has it now (NTM hides it under
@@ -192,32 +202,40 @@ public final class ArmLayers {
         return n;
     }
 
-    // how often in a row a layer may throw with the same armour on before the arms leave it out (until the player leaves
-    // the world): a failure in the first frames, before the player's data came, is tried again, and one that draws in
-    // between starts the count anew
+    // in how many frames in a row a layer may throw with the same armour on before the arms leave it out (until the
+    // player leaves the world): a failure in the first frames, before the player's data came, is tried again, and a frame
+    // it draws in starts the count anew. A frame counts once, whether the layer threw on one arm or on both
     static final int TRIES = 3;
 
-    // a layer's failures in a row by the armour worn; cleared when the player leaves the world
-    private static final Map<Failed, Integer> FAILED = new java.util.concurrent.ConcurrentHashMap<>();
+    // the frames of the gun in hand (newFrame); the render thread's alone, as FAILED and WARNED
+    private static long frame;
+
+    // a layer's failures by the armour worn: the frames in a row it threw in and the last of them; cleared when the
+    // player leaves the world
+    private static final Map<Failed, Fails> FAILED = new java.util.HashMap<>();
+
+    private record Fails(int frames, long last) {
+    }
 
     // One layer on the arm at the arm's pose m. Each layer gets a stack of its own: one that throws between its own push
     // and pop, or pops more than it pushed, leaves the layers after it their pose all the same. False: left out, or it
     // threw.
     static boolean layer(Matrix4f m, Class<?> type, Object[] worn, java.util.function.Consumer<PoseStack> submit) {
+        settle();
         Failed key = new Failed(type, worn);
-        Integer fails = FAILED.get(key);
-        if (fails != null && fails >= TRIES) return false;
+        Fails fails = FAILED.get(key);
+        if (fails != null && fails.frames() >= TRIES) return false;
         PoseStack pose = new PoseStack();
         pose.mulPose(m);
         try {
             submit.accept(pose);
-            if (fails != null) FAILED.remove(key);
             return true;
         } catch (Throwable t) {
-            int n = fails == null ? 1 : fails + 1;
-            FAILED.put(key, n);
+            // this frame counted already (the other arm); the frame before it threw too; or anew
+            int n = fails == null || fails.last() < frame - 1 ? 1 : fails.last() == frame ? fails.frames() : fails.frames() + 1;
+            FAILED.put(key, new Fails(n, frame));
             if (WARNED.add(type)) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm", type.getName(), t);
-            if (n == TRIES) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm {} times with this armour on, left out of the arms until the world is left",
+            if (n == TRIES) GunFeel.LOGGER.warn("armArmor: layer {} failed on the arm in {} frames in a row with this armour on, left out of the arms until the world is left",
                     type.getName(), TRIES);
             return false;
         }

@@ -14,7 +14,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 // Port copy of the root's test: 1.21.1's PoseStack pops its last entry without a throw (26.2's throws), so a layer that
 // pops more than it pushed is not counted as failed here; its stack is its own all the same.
 // ArmLayers.layer: a layer that throws on the arm leaves the layers after it their pose, and one that throws with the
-// same armour on every frame is left out after ArmLayers.TRIES failures
+// same armour on every frame is left out after ArmLayers.TRIES frames of failures
 class ArmLayersFailTest {
     private static final Matrix4f ARM = new Matrix4f().translation(1F, 2F, 3F).rotateY(0.5F);
     private static final Object[] PLAIN = {null, "chest", null, null};
@@ -63,6 +63,7 @@ class ArmLayersFailTest {
     void layerFailingWithTheSameArmourIsLeftOutAfterTries() {
         int[] calls = {0};
         for (int frame = 0; frame < 10; frame++) {
+            ArmLayers.newFrame();
             ArmLayers.layer(ARM, Throws.class, PLAIN, pose -> {
                 calls[0]++;
                 throw new IllegalStateException("fails every frame");
@@ -85,6 +86,7 @@ class ArmLayersFailTest {
         // failures with draws between them: never TRIES in a row
         int[] calls = {0};
         for (int frame = 0; frame < 3 * ArmLayers.TRIES; frame++) {
+            ArmLayers.newFrame();
             ArmLayers.layer(ARM, Throws.class, PLAIN, pose -> {
                 if (++calls[0] % ArmLayers.TRIES != 0) throw new IllegalStateException("now and then");
             });
@@ -96,11 +98,68 @@ class ArmLayersFailTest {
     void layerFailingOnlyAtFirstIsKept() {
         int[] calls = {0};
         for (int frame = 0; frame < 10; frame++) {
+            ArmLayers.newFrame();
             ArmLayers.layer(ARM, Throws.class, PLAIN, pose -> {
                 if (++calls[0] < ArmLayers.TRIES) throw new IllegalStateException("before the player's data came");
             });
         }
         assertEquals(10, calls[0]);
+    }
+
+    @Test
+    void aFrameCountsOnceForBothArms() {
+        // both arms throw in each frame: left out after TRIES frames, not after TRIES calls (1.5 frames)
+        int[] calls = {0};
+        for (int frame = 0; frame < ArmLayers.TRIES + 2; frame++) {
+            ArmLayers.newFrame();
+            for (int arm = 0; arm < 2; arm++) ArmLayers.layer(ARM, Throws.class, PLAIN, pose -> {
+                calls[0]++;
+                throw new IllegalStateException("fails on both arms");
+            });
+        }
+        // the last of the TRIES frames: left out after its first arm
+        assertEquals(2 * ArmLayers.TRIES - 1, calls[0]);
+    }
+
+    @Test
+    void aDrawOnTheOtherArmInTheSameFrameKeepsTheCount() {
+        // draws on one arm and throws on the other, every frame: the frames count all the same
+        int[] calls = {0};
+        for (int frame = 0; frame < ArmLayers.TRIES + 2; frame++) {
+            ArmLayers.newFrame();
+            for (int arm = 0; arm < 2; arm++) ArmLayers.layer(ARM, Throws.class, PLAIN, pose -> {
+                if (++calls[0] % 2 == 0) throw new IllegalStateException("fails on one arm");
+            });
+        }
+        assertEquals(2 * ArmLayers.TRIES, calls[0]);
+    }
+
+    @Test
+    void aWorldLeftWhileALayerFailsStartsAnew() {
+        // leave() comes from the network thread between the count's read and its write: the count does not come back
+        int[] calls = {0};
+        for (int frame = 0; frame < ArmLayers.TRIES - 1; frame++) {
+            ArmLayers.newFrame();
+            ArmLayers.layer(ARM, Throws.class, PLAIN, pose -> {
+                calls[0]++;
+                throw new IllegalStateException("fails");
+            });
+        }
+        ArmLayers.newFrame();
+        ArmLayers.layer(ARM, Throws.class, PLAIN, pose -> {
+            calls[0]++;
+            ArmLayers.leave();
+            throw new IllegalStateException("fails as the world is left");
+        });
+        // the next world: tried in every frame again until TRIES failures of its own
+        for (int frame = 0; frame < ArmLayers.TRIES - 1; frame++) {
+            ArmLayers.newFrame();
+            ArmLayers.layer(ARM, Throws.class, PLAIN, pose -> {
+                calls[0]++;
+                throw new IllegalStateException("fails");
+            });
+        }
+        assertEquals(2 * ArmLayers.TRIES - 1, calls[0]);
     }
 
     @Test

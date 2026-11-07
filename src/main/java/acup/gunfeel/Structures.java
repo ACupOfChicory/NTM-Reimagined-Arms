@@ -56,7 +56,7 @@ public final class Structures {
                 }
             }
         } catch (Exception e) {
-            GunFeel.LOGGER.warn("Could not read the bullet structure list", e);
+            DebugLog.LOGGER.warn("Could not read the bullet structure list", e);
         }
         return listed = out;
     }
