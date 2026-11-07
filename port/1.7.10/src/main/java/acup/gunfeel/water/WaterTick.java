@@ -89,7 +89,7 @@ public final class WaterTick {
         double block = hit == null ? Double.POSITIVE_INFINITY : r.t(new Vec3(hit.ax, hit.ay, hit.az));
         for (WaterEvents.Event e : r.events) {
             boolean entry = e.type() == WaterEvents.Type.ENTER || e.type() == WaterEvents.Type.STOP && e.liquid() == WaterEvents.Liquid.LAVA
-                    && r.events.indexOf(e) == 0 && !r.inLiquid(r.from);
+                    && r.events.indexOf(e) == 0 && !r.startsIn();
             if (!entry) continue;
             if (r.t(e.at()) > block + 1e-7) return null;
             // (1.7.10's side numbers are Direction's order)

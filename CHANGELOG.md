@@ -1,5 +1,11 @@
 # Changelog
 
+## X543.143
+
+- As in X560: a rocket, grenade or explosive round whose tick ends exactly on
+  the water surface goes off there in the next tick. Before, it sank as if it
+  had started under water.
+
 ## X543.142
 
 - As in X560: an explosive round that goes off on the water surface no
