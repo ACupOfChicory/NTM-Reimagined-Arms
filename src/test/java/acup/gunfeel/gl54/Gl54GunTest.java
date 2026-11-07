@@ -26,7 +26,7 @@ class Gl54GunTest {
         Receiver r = c.getReceivers(null)[0];
         assertEquals(14, r.getDelayAfterFire(null));
         assertFalse(r.getRefireOnHold(null), "semi-automatic");
-        assertEquals(18F, r.getBaseDamage(null));
+        assertEquals(45F, r.getBaseDamage(null));
     }
 
     @Test

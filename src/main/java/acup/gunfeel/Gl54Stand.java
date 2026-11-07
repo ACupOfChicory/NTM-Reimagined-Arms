@@ -475,6 +475,15 @@ final class Gl54Stand {
                 boolean fresh = SEEN.add(o);
                 line("casing", "frame", n, "new", fresh, "front", d.dot(look), "height", d.y, "side", d.dot(left));
                 boolean first = fresh;
+                if (fresh) {
+                    // the case's own speed as the game has it (world axes at yaw 0: x left, y up, z front)
+                    double sx = field(o.getClass(), "xd").getDouble(o), sy = field(o.getClass(), "yd").getDouble(o), sz = field(o.getClass(), "zd").getDouble(o);
+                    Vec3 sv = new Vec3(sx, sy, sz);
+                    double side = sv.dot(left), front = sv.dot(look);
+                    line("case speed", "frame", n, "front", front, "height", sy, "side", side, "total", sv.length());
+                    ClientSmoke.check(Math.abs(sv.length() - acup.gunfeel.gl54.Gl54Casing.SPEED) < 0.06 && side < 0,
+                            "gl54: скорость гильзы " + String.format(Locale.ROOT, "%.3f", sv.length()) + " вправо (" + String.format(Locale.ROOT, "%.3f", side) + "), вверх " + String.format(Locale.ROOT, "%.3f", sy));
+                }
                 if (first && !spawnChecked[n < 100 ? 0 : 1]) {
                     spawnChecked[n < 100 ? 0 : 1] = true;
                     float[] rest = n < 100 ? restHip : restAim;
@@ -566,7 +575,7 @@ final class Gl54Stand {
             ServerLevel level = server.overworld();
             ServerPlayer p = server.getPlayerList().getPlayers().getFirst();
             Vec3 dir = new Vec3(0, Math.sin(Math.toRadians(pitchUp)), Math.cos(Math.toRadians(pitchUp)));
-            var bullet = new EntityBulletBaseMK4(level, p, Gl54Ammo.he(), Gl54Grenade.CENTRE_DAMAGE, 0F, from.x, from.y, from.z, dir.x, dir.y, dir.z);
+            var bullet = new EntityBulletBaseMK4(level, p, Gl54Ammo.he(), Gl54Grenade.BASE_DAMAGE, 0F, from.x, from.y, from.z, dir.x, dir.y, dir.z);
             level.addFreshEntity(bullet);
         }).join();
     }
@@ -665,28 +674,25 @@ final class Gl54Stand {
                     double dz = box.minZ <= b.z && box.maxZ >= b.z ? 0 : Math.min(Math.abs(box.minZ - b.z), Math.abs(box.maxZ - b.z));
                     double d = Math.sqrt(dx * dx + dy * dy + dz * dz);
                     float got = husk.getMaxHealth() - husk.getHealth();
-                    float want = Gl54Grenade.damageAt(d) * 0.4F;
+                    float want = Gl54Grenade.areaDamageAt(d);
                     line("husk", "gap", d, "damage", got, "expected", want);
                     ClientSmoke.check(Math.abs(got - want) <= 0.1F * want + 0.5F,
-                            "gl54: зомби на " + String.format(Locale.ROOT, "%.2f", d) + " бл. получил " + got + " (формула мода: 0,4 * спад NTM " + want + ")");
+                            "gl54: зомби на " + String.format(Locale.ROOT, "%.2f", d) + " бл. получил " + got + " (по площади " + want + ")");
                 }
             }).join();
         });
         // 3. glass at gaps from the blast
         run(() -> clearRoom(mc));
-        double[] glassGaps = {0.5, 1.2, 2.0, 2.6};
+        // panes round the blast in different directions (none in another's way), at gaps from half a block to nearly three
+        int[][] glassAt = {{1, 0, 0}, {0, 0, 2}, {0, 1, -2}, {0, 2, -1}, {-3, 0, 0}, {0, 2, -2}};
         List<BlockPos> panes = new ArrayList<>();
         run(() -> {
             var server = mc.getSingleplayerServer();
             Vec3 h = calibrated[0];
             server.submit(() -> {
                 ServerLevel level = server.overworld();
-                // along X from the blast, in the row of the blast, a block's width apart: the gap is to the nearest face
-                int y = (int) Math.floor(h.y);
-                int z = (int) Math.floor(h.z) - 1;
-                for (double g : glassGaps) {
-                    int x = (int) Math.floor(h.x + g);
-                    BlockPos pos = new BlockPos(x, y, z);
+                for (int[] o : glassAt) {
+                    BlockPos pos = new BlockPos((int) Math.floor(h.x) + o[0], (int) Math.floor(h.y) + o[1], (int) Math.floor(h.z) + o[2]);
                     level.setBlock(pos, Blocks.GLASS.defaultBlockState(), 3);
                     panes.add(pos);
                 }

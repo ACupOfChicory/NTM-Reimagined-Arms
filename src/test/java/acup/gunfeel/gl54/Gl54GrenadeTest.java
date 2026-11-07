@@ -11,12 +11,19 @@ import net.minecraft.world.phys.Vec3;
 
 class Gl54GrenadeTest {
     @Test
-    void blastFallsOffInAStraightLineFromEighteenInTheMiddle() {
-        assertEquals(18F, Gl54Grenade.damageAt(0), 1e-4);
-        assertEquals(12F, Gl54Grenade.damageAt(1), 1e-4);
-        assertEquals(6F, Gl54Grenade.damageAt(2), 1e-4);
-        assertEquals(0F, Gl54Grenade.damageAt(3), 1e-4);
-        assertEquals(0F, Gl54Grenade.damageAt(5), 1e-4);
+    void areaDamageIsEighteenInTheMiddleTwelveAtABlockSixAtTwo() {
+        assertEquals(18F, Gl54Grenade.areaDamageAt(0), 1e-4);
+        assertEquals(12F, Gl54Grenade.areaDamageAt(1), 1e-4);
+        assertEquals(6F, Gl54Grenade.areaDamageAt(2), 1e-4);
+        assertEquals(0F, Gl54Grenade.areaDamageAt(3), 1e-4);
+        assertEquals(0F, Gl54Grenade.areaDamageAt(5), 1e-4);
+    }
+
+    @Test
+    void glassTakesTheWholeFallOffAndBreaksOutToAboutTwoAndAThirdBlocks() {
+        assertEquals(45F, Gl54Grenade.damageAt(0), 1e-4);
+        assertTrue(Gl54Grenade.damageAt(2.3) >= 10F);
+        assertTrue(Gl54Grenade.damageAt(2.4) < 10F);
     }
 
     @Test

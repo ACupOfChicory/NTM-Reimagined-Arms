@@ -24,7 +24,7 @@ public final class Gl54Gun {
     public static final int DRAW = 7;
     // NTM's camera kick: 4 degrees up give or take 0.5, sideways give or take 1
     public static final float KICK_UP = 4F, KICK_UP_SPREAD = 0.5F, KICK_SIDE_SPREAD = 1F;
-    public static final float DAMAGE = Gl54Grenade.CENTRE_DAMAGE;
+    public static final float DAMAGE = Gl54Grenade.BASE_DAMAGE;
 
     private Gl54Gun() {
     }

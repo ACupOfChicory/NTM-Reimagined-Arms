@@ -28,13 +28,18 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 // The GL-54's 20 mm high-explosive grenade (design.md, 2026-11-06): a blast of 3 blocks that takes NTM's straight fall-off
-// from 18 in the middle (12 at a block, 6 at two) and does not break blocks, but hits the glass in its radius by the mod's
-// glass rules; armed after 3 blocks of flight: nearer it is a dud that hits for 4 and goes out. Leaves are no business of
+// and does not break blocks, but hits the glass in its radius by the mod's glass rules. The owner's numbers are the damage by
+// area to a creature near the blast: 18 in the middle, 12 at a block, 6 at two. The mod counts a bullet's explosion at 0.4 of
+// the bullet's damage for the area (and 0.6 for a direct hit, ExplosiveDamage), so the bullet's damage is 45; the glass takes
+// the fall-off of the whole 45, so it breaks out to 2.3 blocks (hp 10); armed after 3 blocks of flight: nearer it is a dud that hits for 4 and goes out. Leaves are no business of
 // its own: the bullet rules (ntmgunfeel-bullets.txt) fly every bullet through them. Speed and drop are 40 mm NTM's for now.
 public final class Gl54Grenade {
     // the blast's reach in blocks; NTM's ExplosionVNT size is half of it (the entity processor doubles it)
     public static final float RADIUS = 3F;
-    public static final float CENTRE_DAMAGE = 18F;
+    // the bullet's damage; a direct armed hit does about 31
+    public static final float BASE_DAMAGE = 45F;
+    // the mod's share of it that the blast does by area (ExplosiveDamage.BLAST)
+    public static final float AREA_SHARE = 0.4F;
     // flight before the fuze is armed, blocks
     public static final double ARM_DISTANCE = 3.0;
     public static final float DUD_DAMAGE = 4F;
@@ -52,9 +57,15 @@ public final class Gl54Grenade {
     private Gl54Grenade() {
     }
 
-    // NTM's blast: the straight fall-off from the middle to the edge (EntityProcessorCrossSmooth.calculateDamage)
+    // NTM's blast: the straight fall-off from the middle to the edge (EntityProcessorCrossSmooth.calculateDamage) of the bullet's
+    // damage: what the glass takes
     public static float damageAt(double distance) {
-        return distance >= RADIUS ? 0F : (float) (CENTRE_DAMAGE * (1.0 - distance / RADIUS));
+        return distance >= RADIUS ? 0F : (float) (BASE_DAMAGE * (1.0 - distance / RADIUS));
+    }
+
+    // the damage by area to a creature at this distance from the blast: 18 in the middle, 12 at a block, 6 at two
+    public static float areaDamageAt(double distance) {
+        return damageAt(distance) * AREA_SHARE;
     }
 
     public static boolean armed(double flown) {
