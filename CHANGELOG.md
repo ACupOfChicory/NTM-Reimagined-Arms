@@ -1,5 +1,16 @@
 # Changelog
 
+## X585
+
+- NTM's power armour (T-51, AJR, AJRO, RPA, NCRPA, BJ, Envsuit, HEV, FAU, DNS)
+  now also halves the living spread: what walking, sprinting, jumping and a
+  held-down burst add to a shot's spread. Standing still the gun is as
+  accurate as without it; sneaking, crawling and aiming lower it as before. The
+  chestplate is enough, charged or not. Server key `powerArmorSpread` in
+  `ntm-gunfeel-server.properties` (0.5; 1 turns it off). Walking with a G3
+  from the hip, for example, now spreads 2.0 degrees instead of 2.6, and a
+  held-down burst 0.36 instead of 0.72.
+
 ## X584
 
 - `beamRules`: a beam (a gun's, a turret's or a Tesla arc) stopped after

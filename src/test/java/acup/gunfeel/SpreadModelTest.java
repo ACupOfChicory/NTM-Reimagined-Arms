@@ -80,8 +80,34 @@ class SpreadModelTest {
         return String.format(Locale.ROOT, "%.2f", Math.toDegrees(Math.atan(spread)));
     }
 
+    // in power armour (powerArmorSpread, as Spread works it) the pace that moving adds spread by, the air part and the
+    // bloom count k times; NTM's own spread and the stances stay
+    static float armored(float ntm, float mult0, float spreadMove, float spreadSpeed, float pace, float air, float bloom, float k) {
+        float live = pace * k;
+        return SpreadModel.total(ntm, mult0 * SpreadModel.moveMult(spreadMove, spreadMove > 1F ? live : pace), spreadSpeed, live, air * k,
+                bloom * k, 1F);
+    }
+
+    @Test
+    void powerArmor() throws IOException {
+        float k = get(shipped(), "hbm:gun_g3", "powerArmorSpread", 1F);
+        assertEquals(0.5F, k);
+        // standing it is NTM's spread as it is; walking the walking multiplier grows half as much and the speed part is
+        // half; the air part and the bloom are halved
+        assertEquals(0.025F, armored(0.025F, 1F, 1.5F, 0.008F, 0F, 0F, 0F, k), E);
+        assertEquals(0.025F * 1.25F + 0.004F, armored(0.025F, 1F, 1.5F, 0.008F, 1F, 0F, 0F, k), E);
+        assertEquals(0.025F + 0.015F, armored(0.025F, 1F, 1.5F, 0.008F, 0F, 0.03F, 0F, k), E);
+        assertEquals(0.01F + 0.006F, armored(0.01F, 1F, 1.5F, 0.008F, 0F, 0F, 0.012F, k), E);
+        // a gun with spreadMove under 1 is no less steady moving in armour, and never worse than without it
+        assertEquals(0.025F * 0.8F + 0.004F, armored(0.025F, 1F, 0.8F, 0.008F, 1F, 0F, 0F, k), E);
+        assertTrue(armored(0.025F, 1F, 0.8F, 0.008F, 1F, 0F, 0F, k) <= armored(0.025F, 1F, 0.8F, 0.008F, 1F, 0F, 0F, 1F));
+        // 1 is the spread without the armour
+        assertEquals(SpreadModel.total(0.025F, 1.5F, 0.008F, 1F, 0.03F, 0.01F, 1F), armored(0.025F, 1F, 1.5F, 0.008F, 1F, 0.03F, 0.01F, 1F), E);
+    }
+
     // degrees per axis, standing and walking, hip and aimed, sprinting from the hip, a jump, a held-down burst; the
-    // gun's own spread without its ammo's (shotgun pellets add theirs)
+    // gun's own spread without its ammo's (shotgun pellets add theirs); then the same moving, in the air and in a burst
+    // in power armour
     @Test
     void everyGunPinned() throws IOException {
         Properties p = shipped();
@@ -93,7 +119,7 @@ class SpreadModelTest {
             float innate = r.n("spreadInnate"), hip = innate + r.n("spreadHipfire");
             float stand = get(p, gun, "spreadStand", 1F), aim = get(p, gun, "spreadAim", 1F);
             float move = get(p, gun, "spreadMove", 1F), speed = get(p, gun, "spreadSpeed", 0F);
-            float air = get(p, gun, "spreadAir", 0F);
+            float air = get(p, gun, "spreadAir", 0F), k = get(p, gun, "powerArmorSpread", 1F);
             float walk = SpreadModel.pace(SpreadModel.WALK), run = SpreadModel.pace(SpreadModel.SPRINT);
             int delay = Math.max(1, r.i("delayAfterFire"));
             float burst = SpreadModel.steadyBloom(delay, get(p, gun, "spreadBloom", 0F), get(p, gun, "spreadBloomMax", 0F),
@@ -105,7 +131,12 @@ class SpreadModelTest {
                     + "/" + deg(SpreadModel.total(innate, SpreadModel.moveMult(move, walk) * aim, speed, walk, 0F, 0F, 1F))
                     + "  sprint " + deg(SpreadModel.total(hip, SpreadModel.moveMult(move, run), speed, run, 0F, 0F, 1F))
                     + "  jump " + deg(SpreadModel.total(hip, stand, speed, 0F, air, 0F, 1F))
-                    + "  burst every " + delay + " " + deg(SpreadModel.total(innate, stand * aim, speed, 0F, 0F, burst, 1F)));
+                    + "  burst every " + delay + " " + deg(SpreadModel.total(innate, stand * aim, speed, 0F, 0F, burst, 1F))
+                    + "  | armour walk " + deg(armored(hip, 1F, move, speed, walk, 0F, 0F, k))
+                    + "/" + deg(armored(innate, aim, move, speed, walk, 0F, 0F, k))
+                    + "  sprint " + deg(armored(hip, 1F, move, speed, run, 0F, 0F, k))
+                    + "  jump " + deg(armored(hip, stand, move, speed, 0F, air, 0F, k))
+                    + "  burst " + deg(armored(innate, stand * aim, move, speed, 0F, 0F, burst, k)));
         }
         assertTrue(out.size() > 60, "gun parts: " + out.size());
         PinnedTest.pin("spread", out);

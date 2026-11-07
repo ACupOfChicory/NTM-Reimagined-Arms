@@ -291,6 +291,14 @@ neoForge {
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkBullets", layout.buildDirectory.file("bulletcheck/result.txt").get().asFile.path)
         }
+        // the living spread in power armour (SpreadCheck): ./gradlew runCheckSpread -PnoAssets, the result is a tsv
+        register("checkSpread") {
+            server()
+            gameDirectory = root.resolve("run-spread")
+            programArgument("--nogui")
+            jvmArgument("-Xmx1200M")
+            systemProperty("ntmgunfeel.checkSpread", layout.buildDirectory.file("spreadcheck/result.tsv").get().asFile.path)
+        }
         // bullets in water: a basin in a flat world (WaterCheck), the result is a tsv
         register("checkWater") {
             server()
@@ -379,11 +387,11 @@ val mixinCheck = tasks.register<JavaExec>("mixinCheck") {
 tasks.check { dependsOn(mixinCheck) }
 
 // the dump server needs the EULA accepted in its own folder
-val checkRuns = mapOf("runDumpBlocks" to "run-dump", "runCheckSettings" to "run-check", "runCheckBullets" to "run-bullets", "runCheckWater" to "run-water", "runCheckBoom" to "run-boom")
+val checkRuns = mapOf("runDumpBlocks" to "run-dump", "runCheckSettings" to "run-check", "runCheckBullets" to "run-bullets", "runCheckWater" to "run-water", "runCheckBoom" to "run-boom", "runCheckSpread" to "run-spread")
 // Every stand server opens its port before it stops or makes its world, each on one of its own: 25565 is where the real
 // servers are (one running there would leave the stand without a port, the stand would not start). -PserverPort=<n>
 // sets another, 25565 included.
-val checkPorts = mapOf("runCheckBullets" to 25640, "runCheckWater" to 25641, "runCheckBoom" to 25642, "runCheckSettings" to 25643, "runDumpBlocks" to 25644)
+val checkPorts = mapOf("runCheckBullets" to 25640, "runCheckWater" to 25641, "runCheckBoom" to 25642, "runCheckSettings" to 25643, "runDumpBlocks" to 25644, "runCheckSpread" to 25645)
 tasks.matching { it.name in checkRuns }.configureEach {
     val dir = root.resolve(checkRuns.getValue(name))
     val port = providers.gradleProperty("serverPort").orNull?.takeIf { it.isNotBlank() } ?: checkPorts.getValue(name).toString()
@@ -394,10 +402,10 @@ tasks.matching { it.name in checkRuns }.configureEach {
         dir.resolve("eula.txt").writeText("eula=true\n")
         val properties = dir.resolve("server.properties")
         // the smallest world that still has one: flat, two chunks around, nothing generated on it
-        if (name == "runCheckBullets" || name == "runCheckWater" || name == "runCheckBoom") properties.writeText(
+        if (name == "runCheckBullets" || name == "runCheckWater" || name == "runCheckBoom" || name == "runCheckSpread") properties.writeText(
             "level-type=minecraft\\:flat\ngenerate-structures=false\nview-distance=2\nsimulation-distance=2\n" +
             "spawn-protection=0\nonline-mode=false\nspawn-monsters=false\nspawn-animals=false\nmax-players=1\n" +
-            "server-port=$port\n")
+            "server-port=$port\n" + (if (name == "runCheckSpread") "pause-when-empty-seconds=0\n" else ""))
         // the dump and the settings check make no world: only the port is set, the rest of the file left as the server wrote it
         else properties.writeText((if (properties.exists()) properties.readLines().filter { !it.startsWith("server-port=") } else emptyList())
             .joinToString("") { it + "\n" } + "server-port=$port\n")

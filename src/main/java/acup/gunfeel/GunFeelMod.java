@@ -75,6 +75,7 @@ public final class GunFeelMod {
         BlockDump.registerIfAsked();
         SettingsCheck.registerIfAsked();
         BulletCheck.registerIfAsked();
+        SpreadCheck.registerIfAsked();
         WaterCheck.registerIfAsked();
         ExplosiveCheck.registerIfAsked();
         TraceHooks.register(dist);
