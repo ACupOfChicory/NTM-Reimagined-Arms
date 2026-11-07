@@ -1,5 +1,17 @@
 # Changelog
 
+## X597
+
+- Precise hitboxes on a server: a client can no longer fill the server's memory
+  or its cache of model meshes. What one player may add to the cache is bounded
+  (1024 meshes, 131072 triangles, a mesh turned away counting too), and so is
+  what all players add together (3072 meshes, 1048576 triangles); a mesh over
+  the bound, or one whose id is not the hash of its triangles, is dropped
+  quietly, without an error in the log each time, and the entity whose pose
+  uses it keeps its plain box. An honest client stays far below the bound.
+- `/gunsmoke` on a server with smoke off names the server's file,
+  `config/ntm-gunfeel-server.properties`.
+
 ## X594
 
 - `/gunaim` is gone. With the aim key held, the aim comes back 0.3 seconds

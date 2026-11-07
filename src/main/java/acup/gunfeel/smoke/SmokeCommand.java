@@ -54,7 +54,7 @@ public final class SmokeCommand {
     // the server's key turns smoke off: say so, rather than blaming the spot
     private static boolean off(CommandSourceStack src) {
         if (SmokeClouds.enabled()) return false;
-        src.sendFailure(Component.literal("Smoke is off on this server (smoke = false in ntmgunfeel-server.properties)"));
+        src.sendFailure(Component.literal("Smoke is off on this server (smoke = false in config/ntm-gunfeel-server.properties)"));
         return true;
     }
 

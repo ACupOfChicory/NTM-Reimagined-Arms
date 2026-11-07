@@ -42,4 +42,25 @@ class ModelMeshPayloadTest {
             } finally { buf.release(); }
         }
     }
+
+    @Test void meshWhoseIdIsNotItsHashIsDroppedWithoutThrowing() {
+        float[] data = {0,0,0, 1,0,0, 0,1,0.25F};
+        long id = ModelMesh.hash(data);
+        assertFalse(new ModelMeshPayload(id ^ 1, data).receive(java.util.UUID.randomUUID()));
+        assertNull(ModelMesh.get(id ^ 1));
+        assertNull(ModelMesh.get(id));
+        float[] outside = {0,0,0, 1,0,0, 0,1,3};
+        assertFalse(new ModelMeshPayload(ModelMesh.hash(outside), outside).receive(java.util.UUID.randomUUID()));
+    }
+
+    @Test void onePlayerAndAllTogetherAddOnlySoMuch() {
+        assertTrue(ModelMeshPayload.fits(0, 0, 0, 0, ModelMesh.MAX_TRIANGLES));
+        assertFalse(ModelMeshPayload.fits(ModelMeshPayload.PLAYER_MESHES, 0, 0, 0, 1));
+        assertTrue(ModelMeshPayload.fits(0, ModelMeshPayload.PLAYER_TRIANGLES - 12, 0, 0, 12));
+        assertFalse(ModelMeshPayload.fits(0, ModelMeshPayload.PLAYER_TRIANGLES - 11, 0, 0, 12));
+        assertFalse(ModelMeshPayload.fits(0, 0, ModelMeshPayload.SERVER_MESHES, 0, 1));
+        assertFalse(ModelMeshPayload.fits(0, 0, 0, ModelMeshPayload.SERVER_TRIANGLES - 11, 12));
+        // the players together never fill the cache's 4096 meshes: the server's own and a LAN host's still go in
+        assertTrue(ModelMeshPayload.SERVER_MESHES < 4096 && ModelMeshPayload.PLAYER_MESHES <= ModelMeshPayload.SERVER_MESHES);
+    }
 }
