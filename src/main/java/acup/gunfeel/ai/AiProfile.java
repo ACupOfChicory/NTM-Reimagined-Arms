@@ -20,6 +20,11 @@ public record AiProfile(double viewRange, double fov, double hearing, int reacti
     /** a soldier: FBI agents and NTM's test dummies */
     public static final AiProfile SOLDIER = new AiProfile(96, 140, 1.0, 8, 4, 160, 600, 1800, 4.0, 4);
 
+    /** the same with another time to notice */
+    public AiProfile withReaction(int ticks) {
+        return ticks == reaction ? this : new AiProfile(viewRange, fov, hearing, ticks, reactionFar, hold, search, forget, searchSpeed, period);
+    }
+
     public double cosHalfFov() {
         return Math.cos(Math.toRadians(fov / 2));
     }

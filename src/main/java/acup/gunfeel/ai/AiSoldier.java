@@ -6,6 +6,7 @@ import org.jspecify.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -31,8 +32,6 @@ public final class AiSoldier implements AiBrain {
     // timings, ticks
     static final int QUERY_EVERY = 20, EXPOSED_EVERY = 10, HIDE_MIN = 15, HIDE_MAX = 40, BURST_MIN = 10, BURST_MAX = 25, PEEK_BLIND = 20;
     static final double RUN = 1.3, WALK = 1.0, CREEP = 0.7;
-    /** aim error, degrees: at least, and more a block off */
-    static final float AIM_ERR = 1.5F, AIM_ERR_FAR = 0.04F;
 
     Mode mode = Mode.IDLE;
     long modeSince;
@@ -138,11 +137,16 @@ public final class AiSoldier implements AiBrain {
     // ------------------------------------------------------------------ in sight
 
     private void combat(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
-        Vec3 eye = new Vec3(c.x, c.y + 1.5, c.z), chest = new Vec3(c.x, c.y + 1.1, c.z);
+        Vec3 eye = new Vec3(c.x, c.y + 1.5, c.z);
         double dist = bot.mob.position().distanceTo(new Vec3(c.x, c.y, c.z));
+        // in sight: its eye follows the target tick by tick (looks for it come every few ticks; once they lose it,
+        // this is not run and it aims where it went)
+        Entity seen = level.getEntity(c.id);
+        Vec3 chest = seen != null ? seen.position().add(0, seen.getBbHeight() * 0.6, 0) : new Vec3(c.x, c.y + 1.1, c.z);
         watch = chest;
         AiGunner g = bot.gunner;
-        g.aim(chest);
+        if (seen != null) g.track(c.id, chest, tick);
+        else g.aim(chest);
         TacticalMap map = TacticalMap.of(level);
         // cover seen into: find another
         if (spot != null && tick >= nextExposedCheck) {
@@ -275,9 +279,6 @@ public final class AiSoldier implements AiBrain {
         if (burstUntil == 0 || tick > burstUntil + 20) {
             burstUntil = tick + BURST_MIN + bot.mob.getRandom().nextInt(BURST_MAX - BURST_MIN);
             bursts++;
-            Vec3 w = watch;
-            double d = w == null ? 16 : w.distanceTo(bot.mob.getEyePosition());
-            bot.gunner.jitter(AIM_ERR + (float) d * AIM_ERR_FAR);
         }
         boolean on = tick <= burstUntil;
         if (anywhere) bot.gunner.fire(on);

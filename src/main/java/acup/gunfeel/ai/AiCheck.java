@@ -51,8 +51,9 @@ public final class AiCheck {
             AiCheckCrowd crowd = new AiCheckCrowd(check, check.level, Y);
             AiCheckSpread spread = new AiCheckSpread(check, check.level, Y);
             AiCheckProne prone = new AiCheckProne(check, check.level, Y);
-            // walked, fought, crowded, spread
-            boolean[] stage = {false, false, false, false};
+            AiCheckAim aim = new AiCheckAim(check, check.level, Y);
+            // walked, fought, crowded, spread, lay down
+            boolean[] stage = {false, false, false, false, false};
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class, t -> {
                 boolean done;
                 try {
@@ -68,7 +69,10 @@ public final class AiCheck {
                     } else if (!stage[3]) {
                         stage[3] = spread.tick();
                         done = false;
-                    } else done = prone.tick();
+                    } else if (!stage[4]) {
+                        stage[4] = prone.tick();
+                        done = false;
+                    } else done = aim.tick();
                 } catch (Throwable x) {
                     crashed(out, x);
                     check.ok = false;

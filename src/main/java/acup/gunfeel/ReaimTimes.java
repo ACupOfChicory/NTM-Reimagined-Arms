@@ -110,6 +110,18 @@ public final class ReaimTimes {
         return out;
     }
 
+    // a word server setting (aiSkill = veteran); the file is checked at most once a second
+    public static synchronized String text(String key, String def) {
+        long now = System.currentTimeMillis();
+        if (now - lastPoll > 1000L) {
+            lastPoll = now;
+            poll();
+        }
+        String v = values0().get(key);
+        if (v == null) v = BUILTIN.get(key);
+        return v == null ? def : v;
+    }
+
     // a yes/no server setting (bulletBreakConcrete = true)
     public static boolean flag(String key, boolean def) {
         return number(key, def ? 1F : 0F) != 0F;

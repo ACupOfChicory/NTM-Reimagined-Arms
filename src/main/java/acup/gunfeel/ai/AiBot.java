@@ -34,6 +34,7 @@ public final class AiBot {
         this.mob = mob;
         this.profile = profile;
         this.memory = new TargetMemory(profile);
+        this.eyes = profile;
         this.mover = new AiMover(mob);
         this.gunner = new AiGunner(mob, new AiAmmo(0));
         this.prone = new AiProne(mob);
@@ -49,11 +50,24 @@ public final class AiBot {
         memory.update(tick);
     }
 
+    private @Nullable AiSkill eyesFor;
+    private AiProfile eyes;
+
+    /** its profile as its eyes notice with it: the skill (aiSkill) moves the time to notice from a regular's */
+    private AiProfile eyes() {
+        AiSkill skill = AiSkill.current();
+        if (skill != eyesFor) {
+            eyesFor = skill;
+            eyes = profile.withReaction(Math.max(1, profile.reaction() + skill.notice() - AiSkill.REGULAR.notice()));
+        }
+        return eyes;
+    }
+
     public void perceive(VoxelRay.Source voxels, @Nullable SmokeClouds smoke, List<LivingEntity> targets, long tick) {
         memory.look();
         for (LivingEntity t : targets) {
             if (t == mob || !t.isAlive()) continue;
-            int notice = Senses.look(voxels, smoke, mob, t, profile);
+            int notice = Senses.look(voxels, smoke, mob, t, eyes());
             if (notice >= 0) memory.seen(t.getId(), t.getX(), t.getY(), t.getZ(), tick, notice);
         }
         memory.endLook(tick);

@@ -407,12 +407,14 @@ MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDILcom/hbm/re
 MARESLEG method com/hbm/render/anim/BusAnimationSequence hold (I)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence setPos (DDD)Lcom/hbm/render/anim/BusAnimationSequence;
 MOB_AI class com/hbm/handler/HbmKeybinds$EnumKeybind
+MOB_AI class com/hbm/items/weapon/sedna/BulletConfig
 MOB_AI class com/hbm/items/weapon/sedna/ItemGunBaseNT
 MOB_AI class com/hbm/items/weapon/sedna/mags/IMagazine
 MOB_AI class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 MOB_AI field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 MOB_AI field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_TERTIARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 MOB_AI field com/hbm/handler/HbmKeybinds$EnumKeybind RELOAD Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+MOB_AI field com/hbm/items/weapon/sedna/BulletConfig velocity F
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState RELOADING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 MOB_AI method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
@@ -424,6 +426,7 @@ MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT inventoryTick (Lnet/minec
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
 MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecraft/world/item/ItemStack;)I
+MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;
 MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine reloadAction (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)V
 MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine setAmount (Lnet/minecraft/world/item/ItemStack;I)V
 MODEL_HITBOXES class com/hbm/entity/mob/EntityQuackos

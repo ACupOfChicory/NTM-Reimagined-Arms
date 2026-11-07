@@ -1,5 +1,17 @@
 # Changelog
 
+## X599
+
+- Mob AI: AI mobs aim as a person does, and never miss on purpose. They act
+  on where they saw you a moment ago, lead you by the way they saw you move,
+  correct their aim every few ticks, each correction a little off, and pull
+  the trigger only while the spot they expect you at is on the barrel. A
+  steady strafe they learn after a few swings; an uneven one they do not. A
+  new server setting, `aiSkill` (`recruit`, `regular`, `veteran`; `regular`
+  by default), sets how late they see, how often and how well they correct,
+  how soon they notice you and whether they read a strafe. The old random
+  aim error is gone.
+
 ## X598
 
 - Mob AI: AI mobs lie down, on the terms a player does (`prone`). Behind low

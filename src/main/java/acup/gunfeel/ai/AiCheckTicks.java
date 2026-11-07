@@ -186,7 +186,6 @@ final class AiCheckTicks {
         healthBefore = target.getHealth();
         reserveBefore = bot.gunner.ammo.reserve();
         loadedBefore = bot.gunner.loaded();
-        bot.gunner.jitter(0);
         next(Phase.SHOOT);
     }
 
