@@ -69,7 +69,15 @@ public final class SunkBullets {
 
     // the water stopped a bullet (WaterFx on STOP): a body where it stopped, moving on at 1.5 blocks a second
     static void stopped(World level, WaterEvents.Event e) {
-        if (Config.waterBodyMax <= 0) return;
+        if (Config.waterBodyMax <= 0 || broken) return;
+        try {
+            body(e);
+        } catch (RuntimeException x) {
+            broke(x);
+        }
+    }
+
+    private static void body(WaterEvents.Event e) {
         BulletConfig config = WaterFx.config(e);
         String ammo = WaterFx.ammo(config);
         // an impact fuze (grenades, rockets, HE and incendiary rounds): NTM's entity sinks on, the explosives part's
@@ -94,6 +102,20 @@ public final class SunkBullets {
     }
 
     static void clear() {
+        if (phys != null) phys.clear();
+        FLYING.clear();
+        broken = false;
+    }
+
+    // An exception in the bodies' physics or in a model (a block of another mod in boxes, say, or a model that does not
+    // load) would leave the world's drawing or the water's event and take the game with it: it is written to the log
+    // once, and the rounds in water are off till this world or dimension is left (WaterFx.clientTick, clear)
+    private static boolean broken;
+
+    private static void broke(RuntimeException e) {
+        if (broken) return;
+        broken = true;
+        acup.gunfeel.GunFeel.LOGGER.error("rounds in water failed, off till the world is left", e);
         if (phys != null) phys.clear();
         FLYING.clear();
     }
@@ -128,8 +150,16 @@ public final class SunkBullets {
 
     // Tracers, each frame, each shot: its head, its direction, its f and speed (blocks a tick)
     public static void flying(World level, BulletConfig config, Vec3 head, Vec3 dir, double f, double speed) {
-        if (!WaterFx.on() || dir.lengthSqr() < 1e-12) return;
+        if (!WaterFx.on() || broken || dir.lengthSqr() < 1e-12) return;
         if (config == null || !WaterFx.wetAt(level, head)) return;
+        try {
+            fly(config, head, dir, f, speed);
+        } catch (RuntimeException e) {
+            broke(e);
+        }
+    }
+
+    private static void fly(BulletConfig config, Vec3 head, Vec3 dir, double f, double speed) {
         if (roundsScale != Config.waterBodyScale) {
             ROUNDS.clear();
             roundsScale = Config.waterBodyScale;
@@ -247,6 +277,17 @@ public final class SunkBullets {
     // cam = the camera (RenderManager.renderPos), the world's view in the modelview
     public static void render(World level, double camX, double camY, double camZ, float partial) {
         drawnFrame = frame;
+        if (broken) return;
+        // port: drawn here, at once (26.2: later, with the frame, each part its own guard); the GL state is put back
+        // by draw's own finally
+        try {
+            draw(level, camX, camY, camZ, partial);
+        } catch (RuntimeException e) {
+            broke(e);
+        }
+    }
+
+    private static void draw(World level, double camX, double camY, double camZ, float partial) {
         long now = System.nanoTime();
         double dt = lastNanos == 0 ? 0 : Math.clamp((now - lastNanos) / 1e9, 0, 0.05);
         lastNanos = now;
@@ -365,6 +406,9 @@ public final class SunkBullets {
         float[] nor = m.normals;
         int[] col = m.colors;
         int verts = m.positions.length / 3;
+        // a model short of normals or colours fails here, before a corner of it is in the buffer: a part of a
+        // triangle there would shift all that is drawn after it
+        if (pos.length < verts * 3 || nor.length < verts * 3 || col.length < verts) throw new IllegalStateException("broken model " + m.shape);
         for (int j = 0; j < verts; j++) {
             a.set(pos[j * 3], pos[j * 3 + 1], pos[j * 3 + 2]).mul(scale);
             q.transform(a);

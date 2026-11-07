@@ -1,5 +1,12 @@
 # Changelog
 
+## X543.152
+
+- An error with the rounds seen in water or on the bottom, while they are
+  drawn, made in flight or laid down, is written to the log once and turns
+  them off until the world or dimension is left. Before, it could crash the
+  game.
+
 ## X543.151
 
 - The model of a grenade or rocket that water stopped is now laid the way it
