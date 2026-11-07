@@ -1,5 +1,17 @@
 # Changelog
 
+## X543.181
+
+- As in X560: the masked man's tracer and BOT Prime's bolts (NTM's old
+  rounds on 1.7.10) now slow in water and are gone where water stops them,
+  as other plain rounds are; their hit on a creature loses damage with the
+  speed they lost. Before, they flew through water as through air. They do
+  not go off or sink, and the tracer calls no meteor down where water stops
+  it.
+- A masked man's or UFO's round sinking in water now goes off on the floor it
+  touches every time. Before, NTM's random ricochet could bounce it off the
+  floor now and then.
+
 ## X543.177
 
 - As in X560: in water the masked man's orb, bolt, rocket and meteor and the
