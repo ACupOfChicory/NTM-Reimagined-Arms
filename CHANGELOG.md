@@ -1,118 +1,70 @@
 # Changelog
 
-## X543.161
+## X543.169
 
 - `armArmor`: a chestplate model that fails while it is drawn on the arm no
   longer breaks the drawing after it: what it began drawing is dropped, a
   display list it was building is closed, and the matrices and state it
   pushed are taken off. Before, the game could crash on the next frame
   ("Already tesselating!").
-
-## X543.160
-
 - A round that meets water on the edge of its surface and a side now comes in
   through the surface also when the two meet only within rounding of each
   other, as a tick's motion often makes it. Before, such a round still came in
   through the side.
-
-## X543.159
-
 - `armArmor`: a chestplate model that fails while it builds its display list
   no longer freezes the game when the arm puts the matrix stack back.
-
-## X543.158
-
 - `armArmor`: a chestplate from another mod that fails while it is drawn on
   the arm is now left out only after three failures in a row with the same
   armour on, until you leave the world, with a warning in the log. Before,
   the first failure left that chestplate out for the rest of the game. One
   that undoes more of its placing than it did no longer leaves the drawing
   after it short of a matrix.
-
-## X543.157
-
 - A round that meets water exactly on the edge of its surface and a side now
   comes in through the surface: a shallow one skips off and a fuze takes it
   for a hit on the water. Before, it came in through the side, as if it had
   hit a wall of water.
-
-## X543.156
-
 - A grenade or rocket sinking straight down keeps the way it faced. Before,
   NTM turned it to face south at the first straight step down, so one a
   player first saw already sinking always lay north to south.
-
-## X543.155
-
 - A grenade or rocket flying under water is no longer drawn as sunk for a
   moment: when it is fired, when a player first sees it already flying, or at
   the top of a steep climb. A player who sees one already flying under water
   no longer gets a gas bubble in the middle of its path. With water
   ballistics off, a grenade or rocket fired under water still leaves its gas
   bubble.
-
-## X543.154
-
 - A grenade, rocket or mortar shell fired from a gun under water now leaves a
   gas bubble at the muzzle, as a bullet does. Before, it had none and, as
   under water the muzzle flash is hidden, nothing showed the shot. The NPCs'
   rockets, a cluster's bomblets, a pile's debris and flames make none.
-
-## X543.153
-
 - A grenade or rocket that water stopped is now seen as it sinks and lies on
   the bottom. Before, the client never drew it there: the server sends now
   the motion of such a round in water, when it starts to fly there or to sink
   and once a second after, and none in the air.
-
-## X543.152
-
 - An error with the rounds seen in water or on the bottom, while they are
   drawn, made in flight or laid down, is written to the log once and turns
   them off until the world or dimension is left. Before, it could crash the
   game.
-
-## X543.151
-
 - The model of a grenade or rocket that water stopped is now laid the way it
   flew, taken from how it moved. Before, it would have been laid by NTM's yaw
   read as a player's, nose back for one that flew east or west.
-
-## X543.150
-
 - An old NPC bullet (the masked man's laser, the UFO, BOT Prime) that hits a
   creature whose model gives no zone now keeps NTM's own damage, its headshot
   bonus included. Before, a config with a headshot bonus would have lost it.
-
-## X543.149
-
 - In water, the burning debris thrown out of a Chicago Pile now goes off
   where it hits, as NTM's other explosive projectiles do there.
-
-## X543.148
-
 - As in X547: the Jeremy turret's 240 mm shells now leave bullet holes where
   they hit. NTM still draws the shell itself; no tracer is added.
-
-## X543.147
-
 - The older bullets of NTM 1.7.10's masked man (the laser's orbs, rockets
   and tracers, the death bolt, the meteor), the UFO and BOT Prime now do
   1.75 times the damage on the head and half on a limb, where they meet the
   creature's model. Their hits on blocks stay NTM's. The server setting
   `npcShots = false` turns this off too.
-
-## X543.146
-
 - As in X547: the hunter chopper's and the cyber crab's old bullets now hit
   where they meet the creature's model, so a hit on the head does 1.75 times
   the damage and a hit on a limb half of it, as with NTM's other bullets.
   The chopper's bullet breaks blocks by the bullet rules and leaves a hole
   where it stops. It can be turned off with the server setting
   `npcShots = false`.
-
-## X543.145
-
 - As in X560: water now counts more of NTM's explosives as going off on
   impact: the turret's shells, the Daybreaker's flame and the cluster
   submunition. Before, water took them for plain rounds. The flame of a
@@ -121,30 +73,18 @@
   not handle.
 - The 5.56 mm incendiary rounds no longer set a creature alight in water, as
   the other incendiary rounds already did not.
-
-## X543.144
-
 - As in X560: a phosphorus pellet or another round that does not set alight
   under water now hits a creature in water as a plain round of its kind
   does, with the damage water takes off. Before, it skipped that and hit as
   hard as in the air. b75_inc's small blast in water now goes through the
   same steps.
-
-## X543.143
-
 - As in X560: a rocket, grenade or explosive round whose tick ends exactly on
   the water surface goes off there in the next tick. Before, it sank as if it
   had started under water.
-
-## X543.142
-
 - As in X560: an explosive round that goes off on the water surface no
   longer sets off another one sinking under the line it came down along.
   Before, its path was counted on under the surface, where the game still
   moves it in the tick it goes off.
-
-## X543.141
-
 - As in 26.2 X510: the arms holding a gun now wear what the player wears on
   the arms seen from outside: vanilla armour with its dye and enchantment
   glint, NTM's armour (its 3D suits included), and the armour models of
@@ -152,17 +92,11 @@
   rifles, at the hip and aiming. NTM's suits hide the sleeves of a 1.8 skin
   (Et Futurum). Key `armArmor` in `ntm-gunfeel.properties` (on by default).
   1.7.10 has no armour trims.
-
-## X543.140
-
 - As in 26.2: an NTM explosion at water shows. Under water it gives a
   flash (orange and weaker for an incendiary charge), a big gas bubble that
   pulses and breaks into a cloud of bubbles, flying bits, and a push to the
   rounds lying on the bottom; on the surface or close under it a column of
   water with spray, rings and foam, smaller the deeper the blast.
-
-## X543.139
-
 - As in 26.2: a bullet flying in water is seen as a small model of the
   round, a hollow or soft point opening into a mushroom as it goes, with a
   light streak behind it that fades as it slows. A round the water stopped
@@ -172,9 +106,6 @@
   NTM's own projectile.
 - The rounds are as big next to the casings NTM drops as the real bullets
   next to their cases, times `waterBodyScale` (1 by default, 0.25 to 4).
-
-## X543.138
-
 - As in 26.2 X498 and X517: bullets meeting water now splash the way it
   moves: a crown and spray on still water, a fan downstream on a slope, a
   burst through a waterfall, a low spray on a thin sheet. Rings lie on the
