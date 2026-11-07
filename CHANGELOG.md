@@ -1,5 +1,16 @@
 # Changelog
 
+## X577.79
+
+- NTM Decentralized Edition gets X572 and X577: dedicated servers read the
+  machine shapes in the jar, so rounds meet NTM's big machines by their shape
+  as drawn; the old NPC bullet counts the head and limbs right on a creature
+  still recovering from a hit, and hits as in NTM when its zones fail; arm
+  armour failures are counted in frames; a round on the edge of the water
+  surface and a side comes in through the surface despite rounding.
+- On NTM Decentralized Edition, a dedicated server no longer logs an error
+  about `NativeImage` when a round meets a creature wearing gear.
+
 ## X577
 
 - Dedicated servers: rounds now meet NTM's big machines by their shape as
@@ -27,6 +38,7 @@
   Before, it was left out after one and a half frames, and a draw on the
   other arm in the same frame kept a broken armour in. Leaving the world while
   an armour failed no longer carries its count into the next world.
+
 ## X570.76
 
 - NTM Decentralized Edition gets X560 to X570: rockets, grenades and
