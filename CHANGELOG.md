@@ -1,5 +1,17 @@
 # Changelog
 
+## X586
+
+- Mob AI, second part: what an AI mob notices and what it remembers. It sees
+  only what is in front of it, within its sight, and not through walls,
+  leaves or thick smoke (glass, bars and fences hide nothing), and it takes a
+  moment to notice someone, longer far off or at the edge of its view. It
+  hears shots, blasts and steps nearby, and knows where a hit came from, but
+  only roughly. When it loses sight of someone it remembers where they were
+  last seen, not where they went, waits a while, then searches the places
+  around there it cannot see. Nothing uses it yet. `/armsai info` also tells
+  how many AI mobs there are and what their looking costs.
+
 ## X585
 
 - Mob AI, first part: the server works out, from the blocks themselves, where a

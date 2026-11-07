@@ -56,9 +56,11 @@ public final class GunFeelMod {
                     if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
                         acup.gunfeel.smoke.SmokeClouds.serverTick(level);
                         acup.gunfeel.ai.TacticalMap.tickLevel(level);
+                        acup.gunfeel.ai.AiBots.tick(level);
                         acup.gunfeel.ai.AiDebug.tick(level);
                     }
                 });
+        acup.gunfeel.ai.AiEvents.register();
         // the AI's tactical map: what it copied of a chunk goes with the chunk, comes back with it
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.ChunkEvent.Load.class,
                 e -> acup.gunfeel.ai.AiEvents.chunk(e.getLevel(), e.getChunk(), true));
@@ -73,7 +75,10 @@ public final class GunFeelMod {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.LevelEvent.Unload.class,
                 e -> {
                     if (e.getLevel() instanceof net.minecraft.world.level.Level level) acup.gunfeel.smoke.SmokeClouds.forget(level);
-                    if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) acup.gunfeel.ai.TacticalMap.forget(level);
+                    if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
+                        acup.gunfeel.ai.TacticalMap.forget(level);
+                        acup.gunfeel.ai.AiBots.forget(level);
+                    }
                 });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent.class,
                 e -> {
@@ -94,7 +99,7 @@ public final class GunFeelMod {
         BulletCheck.registerIfAsked();
         WaterCheck.registerIfAsked();
         ExplosiveCheck.registerIfAsked();
-        acup.gunfeel.ai.AiMapCheck.registerIfAsked();
+        acup.gunfeel.ai.AiCheck.registerIfAsked();
         TraceHooks.register(dist);
         modBus.addListener(RegisterPayloadHandlersEvent.class, e -> {
             // not optional: the mod is needed on both sides, so NeoForge turns away a client without it from a server

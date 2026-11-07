@@ -14,7 +14,8 @@ import net.minecraft.server.level.ServerPlayer;
  * The mob AI's operator command:
  * <pre>
  * /armsai debug [radius]   show (again: hide) the tactical map's cells around you, radius 16 blocks by default
- * /armsai info             the map of this level: sections, builds, their time, block changes seen
+ * /armsai info             the map of this level: sections, builds, their time, block changes seen; the AI mobs and
+ *                          what their looks cost
  * </pre>
  */
 public final class AiCommand {
@@ -39,7 +40,8 @@ public final class AiCommand {
 
     private static int info(CommandContext<CommandSourceStack> c) {
         TacticalMap map = TacticalMap.peek(c.getSource().getLevel());
-        String text = map == null ? "no tactical map in this level" : map.info();
+        String text = (map == null ? "no tactical map in this level" : map.info()) + "\nAI mobs "
+                + AiBots.count(c.getSource().getLevel()) + "; senses: " + Senses.info();
         c.getSource().sendSuccess(() -> Component.literal(text), false);
         return 1;
     }

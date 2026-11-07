@@ -17,18 +17,18 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 
 /**
- * The tactical map on a real server (a dev run: ./gradlew runCheckAiMap -PnoAssets). -Dntmgunfeel.checkAiMap=&lt;file&gt;:
+ * The tactical map on a real server (a dev run: ./gradlew runCheckAi -PnoAssets). -Dntmgunfeel.checkAi=&lt;file&gt;:
  * once the world is up, the server builds a yard high in the air (a stone floor, a stone wall two high, a concrete
  * wall one high, glass, leaves), has the map build its cells on the background threads (the map is ticked by hand,
  * the server's own ticks wait), checks the cover of cells by the walls, breaks a hole in the wall and blows up a
  * corner and checks the cells follow, with the time it all took. One line per check to the file; the server stops
  * (exit 1 if a check failed).
  */
-public final class AiMapCheck {
-    public static final String PROPERTY = "ntmgunfeel.checkAiMap";
+public final class AiCheck {
+    public static final String PROPERTY = "ntmgunfeel.checkAi";
     private static final int Y = 100, X0 = 8, Z0 = 8, SIZE = 32;
 
-    private AiMapCheck() {
+    private AiCheck() {
     }
 
     public static void registerIfAsked() {
@@ -38,7 +38,7 @@ public final class AiMapCheck {
             List<String> out = new ArrayList<>();
             int code;
             try {
-                code = new AiMapCheck().run(out, e.getServer()) ? 0 : 1;
+                code = new AiCheck().run(out, e.getServer()) ? 0 : 1;
             } catch (Throwable t) {
                 out.add("FAIL crashed: " + t);
                 for (StackTraceElement s : t.getStackTrace()) out.add("    at " + s);
@@ -166,9 +166,172 @@ public final class AiMapCheck {
         out.add("     debug view radius 16: " + p.count() + " cells, " + bytes + " bytes");
         check("debug cells survive the codec", p.count() > 100 && back.count() == p.count()
                 && java.util.Arrays.equals(back.cover(), p.cover()) && java.util.Arrays.equals(back.offsets(), p.offsets()));
+        senses();
         out.add("     " + map.info());
+        out.add("     senses: " + Senses.info());
         out.add(ok ? "ALL OK" : "FAILED");
         return ok;
+    }
+
+    // ------------------------------------------------------------------ senses
+
+    private long now = 1000;
+
+    /** an NTM test dummy where asked, looking yaw degrees (0 south, 180 north) */
+    private net.minecraft.world.entity.Mob dummy(double x, double z, float yaw, boolean target) {
+        var type = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(
+                net.minecraft.resources.Identifier.fromNamespaceAndPath("hbm", "entity_test_dummy"));
+        var e = (net.minecraft.world.entity.Mob) type.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        e.setPos(x, Y, z);
+        face(e, yaw);
+        if (target) e.addTag(AiBots.TARGET_TAG);
+        level.addFreshEntity(e);
+        return e;
+    }
+
+    private static void face(net.minecraft.world.entity.Mob e, float yaw) {
+        e.setYRot(yaw);
+        e.setYHeadRot(yaw);
+        e.setYBodyRot(yaw);
+        e.setXRot(0);
+    }
+
+    private void move(net.minecraft.world.entity.Entity e, double x, double z) {
+        e.setPos(x, Y, z);
+    }
+
+    /** looks until the target is known or max looks are spent; the looks it took, or -1 */
+    private int looksToNotice(AiBot bot, net.minecraft.world.entity.LivingEntity t, int max) {
+        for (int i = 1; i <= max; i++) {
+            now += bot.profile.period();
+            bot.perceive(AiBots.voxels(level), acup.gunfeel.smoke.SmokeClouds.get(level), List.of(t), now);
+            TargetMemory.Contact c = bot.memory.contact(t.getId());
+            if (c != null && c.state == TargetMemory.State.VISIBLE) return i;
+        }
+        return -1;
+    }
+
+    private void senses() {
+        var voxels = AiBots.voxels(level);
+        net.minecraft.world.entity.Mob mob = dummy(22.5, 18.5, 0, false);
+        net.minecraft.world.entity.Mob target = dummy(22.5, 21.5, 180, true);
+        AiBot bot = AiBots.attach(mob, AiProfile.SOLDIER);
+        int notice = Senses.look(voxels, null, mob, target, bot.profile);
+        int looks = looksToNotice(bot, target, 10);
+        out.add("     in the open 3 blocks ahead: noticed after " + looks + " looks (" + notice + " ticks to notice, a look every "
+                + bot.profile.period() + ")");
+        check("noticed in the open after the reaction time", notice > 0 && looks == (notice + bot.profile.period() - 1) / bot.profile.period());
+
+        // the tagged dummy is among the level's targets: the bot's own tick looks at it
+        bot.memory.contacts().clear();
+        AiBots.refreshTargets(level);
+        int period = bot.profile.period();
+        now += 20;
+        now += Math.floorMod(-(now + mob.getId()), period);
+        AiBots.think(bot, now);
+        check("a living thing tagged " + AiBots.TARGET_TAG + " is a target", bot.memory.contact(target.getId()) != null);
+
+        move(target, 22.5, 27.5);
+        check("not seen behind the stone wall", Senses.look(voxels, null, mob, target, bot.profile) < 0);
+        net.minecraft.world.entity.Mob glassBot = dummy(12.5, 10.5, 0, false), glassTarget = dummy(12.5, 17.5, 180, true);
+        check("seen through glass", Senses.look(voxels, null, glassBot, glassTarget, bot.profile) >= 0);
+        net.minecraft.world.entity.Mob leafBot = dummy(16.5, 10.5, 0, false), leafTarget = dummy(16.5, 17.5, 180, true);
+        check("not seen through leaves", Senses.look(voxels, null, leafBot, leafTarget, bot.profile) < 0);
+        face(glassBot, 180);
+        check("not seen behind its back", Senses.look(voxels, null, glassBot, glassTarget, bot.profile) < 0);
+        face(glassBot, 0);
+        int ahead = Senses.look(voxels, null, glassBot, glassTarget, bot.profile);
+        face(glassBot, 60);
+        int aside = Senses.look(voxels, null, glassBot, glassTarget, bot.profile);
+        out.add("     noticed straight ahead in " + ahead + " ticks, 60 degrees aside in " + aside);
+        check("seen in the corner of the eye 60 degrees off, slower", ahead > 0 && aside > ahead);
+
+        // lost: the memory keeps where it went out of sight, whatever the target does after
+        move(target, 23.5, 21.5);
+        bot.memory.contacts().clear();
+        check("noticed again", looksToNotice(bot, target, 10) > 0);
+        TargetMemory.Contact c = bot.memory.contact(target.getId());
+        move(target, 23.5, 27.5);
+        looksToNotice(bot, target, 1);
+        check("out of sight: lost where it was last seen", c.state == TargetMemory.State.LOST && c.lostX == 23.5 && c.lostZ == 21.5);
+        move(target, 27.5, 28.5);
+        looksToNotice(bot, target, 3);
+        check("the memory does not follow it behind the wall", c.lostX == 23.5 && c.lostZ == 21.5 && c.state == TargetMemory.State.LOST);
+        now += bot.profile.hold() + 1;
+        bot.memory.update(now);
+        check("after the hold: search", c.state == TargetMemory.State.SEARCH);
+
+        // where to search: cells near the lost place the bot cannot see from where it stands
+        map.want((int) c.lostX, Y, (int) c.lostZ, 16, 6);
+        try {
+            settle();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        var eye = mob.getEyePosition();
+        long t0 = System.nanoTime();
+        long[] spots = SearchSpots.pick(map, voxels, eye, c.lostX, c.lostY, c.lostZ, 8, 6, bot.clearedFor(c), mob.getRandom(), 64);
+        long pickNanos = System.nanoTime() - t0;
+        boolean hidden = spots.length > 0, near = true;
+        for (long k : spots) {
+            int x = BlockPos.getX(k), y = BlockPos.getY(k), z = BlockPos.getZ(k);
+            hidden &= !VoxelRay.clear(voxels, eye.x, eye.y, eye.z, x + 0.5, y + 1.0, z + 0.5, Voxel.SIGHT);
+            near &= Math.hypot(x + 0.5 - c.lostX, z + 0.5 - c.lostZ) <= 8;
+        }
+        out.add(String.format(Locale.ROOT, "     search spots: %d picked in %.0f us, %d cells seen and cleared; first %s",
+                spots.length, pickNanos / 1000.0, bot.cleared.size(), spots.length == 0 ? "-" : BlockPos.of(spots[0]).toShortString()));
+        check("search spots are hidden from the bot and near the lost place", hidden && near);
+        check("cells in sight were cleared", !bot.cleared.isEmpty());
+
+        // hearing: a blast 40 blocks off is heard about where it was; a step 20 blocks off is not
+        bot.memory.update(now += 2000);
+        level.playSound(null, 22.5, Y, 58.5, net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE.value(), net.minecraft.sounds.SoundSource.BLOCKS, 4F, 1F);
+        TargetMemory.Noise n = bot.memory.noise();
+        check("a blast 40 blocks off is heard, loud", n != null && n.loud);
+        if (n != null) out.add(String.format(Locale.ROOT, "     blast heard %.1f blocks from where it was", Math.hypot(n.x - 22.5, n.z - 58.5)));
+        check("heard about where it was", n != null && Math.hypot(n.x - 22.5, n.z - 58.5) < 16);
+        bot.memory.update(now += 4000);
+        level.playSound(null, 22.5, Y, 38.5, net.minecraft.sounds.SoundEvents.STONE_STEP, net.minecraft.sounds.SoundSource.PLAYERS, 0.15F, 1F);
+        check("a step 20 blocks off is not heard", bot.memory.noise() == null);
+        level.playSound(null, 22.5, Y, 23, net.minecraft.sounds.SoundEvents.STONE_STEP, net.minecraft.sounds.SoundSource.PLAYERS, 0.15F, 1F);
+        check("a step 4.5 blocks off is heard, quiet", bot.memory.noise() != null && !bot.memory.noise().loud);
+        bot.memory.update(now += 4000);
+        level.playSound(null, mob.getX() + 1, Y, mob.getZ(), net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE.value(), net.minecraft.sounds.SoundSource.BLOCKS, 4F, 1F);
+        check("its own sounds are not news", bot.memory.noise() == null);
+
+        // a hit tells where from, roughly
+        move(target, 22.5, 40.5);
+        mob.hurtServer(level, level.damageSources().mobAttack(target), 1F);
+        n = bot.memory.noise();
+        check("a hit is heard as coming from the shooter", n != null && n.hurt && Math.hypot(n.x - 22.5, n.z - 40.5) < 15);
+
+        // thick smoke between hides
+        move(target, 22.5, 21.5);
+        face(mob, 0);
+        int before = Senses.look(voxels, acup.gunfeel.smoke.SmokeClouds.get(level), mob, target, bot.profile);
+        if (acup.gunfeel.smoke.SmokeClouds.enabled()) {
+            acup.gunfeel.smoke.SmokeClouds.spawn(level, new net.minecraft.world.phys.Vec3(22.5, Y + 1, 20), new net.minecraft.world.phys.Vec3(0, 0, 1),
+                    acup.gunfeel.smoke.SmokeKind.SMOKE, 1F);
+            // the server does not tick while the check runs: step the cloud's clock by hand
+            for (int i = 1; i <= 60; i++) acup.gunfeel.smoke.SmokeClouds.of(level).tick(level.getGameTime() + i, 1);
+            var smoke = acup.gunfeel.smoke.SmokeClouds.get(level);
+            int after = Senses.look(voxels, smoke, mob, target, bot.profile);
+            out.add(String.format(Locale.ROOT, "     smoke between: optical depth %.1f",
+                    smoke == null ? -1F : smoke.opticalDepth(mob.getEyePosition(), target.position().add(0, target.getBbHeight() * 0.55, 0))));
+            check("thick smoke hides a target that was in sight", before >= 0 && after < 0);
+        } else out.add("     smoke is off on this server: not checked");
+
+        // what a look costs: a target 40 blocks off in the open
+        move(target, 22.5, 18.5 - 40);
+        for (int z = -22; z <= 18; z += 16) level.getChunk(22 >> 4, z >> 4);
+        face(mob, 180);
+        acup.gunfeel.smoke.SmokeClouds.forget(level);
+        long l0 = Senses.looks, n0 = Senses.nanos;
+        int seen = 0;
+        for (int i = 0; i < 2000; i++) if (Senses.look(voxels, null, mob, target, bot.profile) >= 0) seen++;
+        double us = (Senses.nanos - n0) / 1000.0 / (Senses.looks - l0);
+        out.add(String.format(Locale.ROOT, "     a look at a target 40 blocks off in the open: %.2f us (seen %d of 2000)", us, seen));
+        check("a look under 20 us", us < 20 && seen == 2000);
     }
 
     private void set(int x, int y, int z, BlockState st) {
