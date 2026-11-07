@@ -1,5 +1,16 @@
 # Changelog
 
+## X543.145
+
+- As in X560: water now counts more of NTM's explosives as going off on
+  impact: the turret's shells, the Daybreaker's flame and the cluster
+  submunition. Before, water took them for plain rounds. The flame of a
+  flamethrower, the Daybreaker's too, lays no lingering fire in water.
+  NTM 1.7.10's masked man and UFO fire its older bullets, which water does
+  not handle.
+- The 5.56 mm incendiary rounds no longer set a creature alight in water, as
+  the other incendiary rounds already did not.
+
 ## X543.144
 
 - As in X560: a phosphorus pellet or another round that does not set alight

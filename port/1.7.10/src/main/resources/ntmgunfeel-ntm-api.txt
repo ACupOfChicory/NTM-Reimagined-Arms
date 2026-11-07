@@ -131,6 +131,7 @@ BULLETS class com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth
 BULLETS class com/hbm/explosion/vanillant/standard/ExplosionEffectTiny
 BULLETS class com/hbm/explosion/vanillant/standard/PlayerProcessorStandard
 BULLETS class com/hbm/handler/HbmKeybinds$EnumKeybind
+BULLETS class com/hbm/items/ItemAmmoEnums$Ammo240Shell
 BULLETS class com/hbm/items/weapon/sedna/BulletConfig
 BULLETS class com/hbm/items/weapon/sedna/ItemGunBaseNT
 BULLETS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo
@@ -161,6 +162,7 @@ BULLETS field com/hbm/inventory/RecipesCommon$ComparableStack item Lnet/minecraf
 BULLETS field com/hbm/inventory/RecipesCommon$ComparableStack meta I
 BULLETS field com/hbm/items/ModItems ammo_fireext Lcom/hbm/items/ItemEnumMulti;
 BULLETS field com/hbm/items/ModItems ammo_secret Lnet/minecraft/item/Item;
+BULLETS field com/hbm/items/ModItems ammo_shell Lcom/hbm/items/ItemEnumMulti;
 BULLETS field com/hbm/items/ModItems ammo_standard Lnet/minecraft/item/Item;
 BULLETS field com/hbm/items/weapon/grenade/ItemGrenadeFilling fragmentation Lcom/hbm/items/weapon/sedna/BulletConfig;
 BULLETS field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -202,6 +204,7 @@ BULLETS method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth s
 BULLETS method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth setupPiercing (FF)Lcom/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth;
 BULLETS method com/hbm/explosion/vanillant/standard/ExplosionEffectTiny <init> ()V
 BULLETS method com/hbm/explosion/vanillant/standard/PlayerProcessorStandard <init> ()V
+BULLETS method com/hbm/items/ItemAmmoEnums$Ammo240Shell values ()[Lcom/hbm/items/ItemAmmoEnums$Ammo240Shell;
 BULLETS method com/hbm/items/weapon/sedna/BulletConfig getDamage (Lnet/minecraft/entity/Entity;Lnet/minecraft/entity/EntityLivingBase;Lcom/hbm/util/DamageResistanceHandler$DamageClass;)Lnet/minecraft/util/DamageSource;
 BULLETS method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraft/item/ItemStack;)F
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
@@ -385,6 +388,7 @@ TRACE class com/hbm/entity/projectile/EntityBulletBaseMK4
 TRACE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 TRACE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/item/ItemStack;Z)V
 TRACERS class com/hbm/entity/projectile/EntityBulletBaseMK4
+TRACERS class com/hbm/items/ItemAmmoEnums$Ammo240Shell
 TRACERS class com/hbm/items/weapon/sedna/BulletConfig
 TRACERS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo
 TRACERS class com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret
@@ -404,6 +408,7 @@ TRACERS field com/hbm/inventory/RecipesCommon$ComparableStack item Lnet/minecraf
 TRACERS field com/hbm/inventory/RecipesCommon$ComparableStack meta I
 TRACERS field com/hbm/items/ModItems ammo_fireext Lcom/hbm/items/ItemEnumMulti;
 TRACERS field com/hbm/items/ModItems ammo_secret Lnet/minecraft/item/Item;
+TRACERS field com/hbm/items/ModItems ammo_shell Lcom/hbm/items/ItemEnumMulti;
 TRACERS field com/hbm/items/ModItems ammo_standard Lnet/minecraft/item/Item;
 TRACERS field com/hbm/items/weapon/grenade/ItemGrenadeFilling fragmentation Lcom/hbm/items/weapon/sedna/BulletConfig;
 TRACERS field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -429,6 +434,7 @@ TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 getEntityId ()I
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 getGravityVelocity ()D
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 setDead ()V
 TRACERS method com/hbm/entity/projectile/EntityBulletBaseMK4 setPosition (DDD)V
+TRACERS method com/hbm/items/ItemAmmoEnums$Ammo240Shell values ()[Lcom/hbm/items/ItemAmmoEnums$Ammo240Shell;
 TRACERS method com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo values ()[Lcom/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmo;
 TRACERS method com/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret values ()[Lcom/hbm/items/weapon/sedna/factory/GunFactory$EnumAmmoSecret;
 TRACERS method com/hbm/particle/SpentCasing getScaleX ()F
