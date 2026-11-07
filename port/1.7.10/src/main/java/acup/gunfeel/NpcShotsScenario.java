@@ -34,6 +34,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.util.DamageSource;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.util.FakePlayerFactory;
@@ -94,7 +95,8 @@ final class NpcShotsScenario {
     }
 
     // pairs (NPC, player) first, then the old bullets alone; from LANED on at the zombie only
-    private static final int PAIRS = 4, LANED = 10;
+    // CHOPPER: the first old EntityBullet; LANED: the first EntityBulletBaseNT, past the lanes
+    private static final int PAIRS = 4, LANED = 10, CHOPPER = 8;
     private static List<Shooter> shooters;
 
     private static List<Shooter> shooters() {
@@ -300,10 +302,20 @@ final class NpcShotsScenario {
     }
 
     private static float shot(World w, Shooter s, Vec3 point, float amount, EntityLivingBase mob, EntityPlayerMP player) {
+        return shot(w, s, point, amount, 0, mob, player);
+    }
+
+    // last > 0: the zombie was just hit for last and is in its window (hurtResistantTime over half), as NTM's old
+    // bullet meets a mob something else has just struck
+    private static float shot(World w, Shooter s, Vec3 point, float amount, float last, EntityLivingBase mob, EntityPlayerMP player) {
         double hx = zombie.posX, hy = zombie.posY, hz = zombie.posZ;
         zombie.setHealth(1000);
         zombie.hurtResistantTime = 0;
         zombie.hurtTime = 0;
+        if (last > 0) {
+            zombie.attackEntityFrom(DamageSource.generic, last);
+            zombie.setHealth(1000);
+        }
         // an old bullet starts a step and a half before the point: NTM 1.7.10's EntityBullet and EntityBulletBaseNT meet
         // creatures from where they are to where they go, so the second tick reaches the point
         double back = s.kind == Kind.LEGACY || s.kind == Kind.OLD ? Math.max(1.5, 1.5 * s.speed()) : 3;
@@ -377,6 +389,31 @@ final class NpcShotsScenario {
                 boolean same = true;
                 for (int k = 0; k < npc.length; k++) same &= Math.abs(npc[k] - own[k]) < .01;
                 expect("NPC " + shooters().get(i).name + " = " + shooters().get(i + 1).name + ": " + Arrays.toString(npc) + " / " + Arrays.toString(own), same);
+            }
+            // an old bullet at a mob just hit (its window, lastDamage): NTM gives it no zone and hurts once or twice,
+            // the head's or the limb's change goes into the hurt that lands (LegacyBullets.hurt)
+            for (int i : new int[] {CHOPPER, LANED}) {
+                Shooter s = shooters().get(i);
+                float d = s.damage();
+                float[] fresh = numbers.get(i);
+                for (float last : new float[] {d, d * .6F}) {
+                    float b = shot(w, s, body, d, last, mob, player), h = shot(w, s, head, d, last, mob, player), l = shot(w, s, limb, d, last, mob, player);
+                    String line = "NPC " + s.name + " after a hit of " + f(last) + ": body=" + f(b) + ", head=" + f(h) + ", limb=" + f(l);
+                    rows.add(s.name + " после удара " + f(last) + "\t" + f(d) + "\t" + f(b) + "\t" + f(h) + "\t-\t" + f(l) + "\t-\t-\t-\t-");
+                    // no more than the last hit: NTM's second hurt takes it whole, as a fresh shot at the same point
+                    if (d <= last) expect(line + " (as unhit: " + f(fresh[0]) + ", " + f(fresh[1]) + ", " + f(fresh[3]) + ")",
+                            Math.abs(b - fresh[0]) < .01 && Math.abs(h - fresh[1]) < .01 && Math.abs(l - fresh[3]) < .01);
+                    // more: the first hurt, over the last; nothing of the limb is left over it
+                    else expect(line + " (unhit body=" + f(fresh[0]) + ")", b > 0 && b < fresh[0] && h > b && l == 0);
+                }
+                // the zones throw: the head is hit as in NTM (the body's damage), the server stands
+                LegacyBullets.failZones = true;
+                try {
+                    float h = shot(w, s, head, d, mob, player);
+                    expect("NPC " + s.name + ": zones failed, head=" + f(h) + " (body=" + f(fresh[0]) + ")", Math.abs(h - fresh[0]) < .01);
+                } finally {
+                    LegacyBullets.failZones = false;
+                }
             }
             write("npc-shots.tsv", rows);
         } catch (Throwable e) {

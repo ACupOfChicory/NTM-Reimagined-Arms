@@ -25,40 +25,50 @@ import net.minecraft.util.MovingObjectPosition;
 // It is an EntityThrowableNT: MixinThrowableClip already meets creatures by their models there, and NTM's onImpact gets
 // that point (new MovingObjectPosition(entity, hitVec)). onImpact rolls the damage (or overrideDamage), times its
 // config's headshotMult when the hit is high enough (1.0 for every NPC's config, so off), and hurts with
-// attackEntityFrom: that damage, or (the creature still shielded by its last hit) that plus the last hit.
+// attackEntityFrom: that damage, or (the creature still shielded by its last hit) that plus the last hit. The change
+// the head or a limb makes goes to the one of the two NTM's own damage lands with (LegacyBullets.hurt, as 26.2 X577
+// does for the old EntityBullet).
 @Mixin(value = EntityBulletBaseNT.class, remap = false)
 public abstract class MixinOldBulletBase {
     // this hit: where it met the creature; the change the head or a limb makes to it
     @Unique private MovingObjectPosition gunfeel$mop;
     @Unique private float gunfeel$extra;
     @Unique private boolean gunfeel$counted;
+    @Unique private LegacyBullets.Hurt gunfeel$hurtWith = LegacyBullets.Hurt.FIRST;
 
     @Inject(method = "onImpact", at = @At("HEAD"))
     private void gunfeel$begin(MovingObjectPosition mop, CallbackInfo ci) {
         gunfeel$mop = mop;
         gunfeel$counted = false;
         gunfeel$extra = 0F;
+        gunfeel$hurtWith = LegacyBullets.Hurt.FIRST;
     }
 
-    // the first hurt carries NTM's rolled damage: the change is worked out from it and added to the second too. NTM's
-    // try/catch around the second would turn a throw here into no damage at all: it keeps NTM's damage instead
+    // the first hurt carries NTM's rolled damage: the change is worked out from it, and goes to the first or the second
+    // hurt by NTM's own damage (LegacyBullets.hurt). NTM's try/catch around the second would turn a throw here into no
+    // damage at all: it keeps NTM's damage instead
     @WrapOperation(method = "onImpact", at = @At(value = "INVOKE", remap = true,
             target = "Lnet/minecraft/entity/Entity;attackEntityFrom(Lnet/minecraft/util/DamageSource;F)Z"))
     private boolean gunfeel$hurt(Entity target, DamageSource source, float amount, Operation<Boolean> original) {
-        if (!gunfeel$counted) {
-            gunfeel$counted = true;
-            MovingObjectPosition mop = gunfeel$mop;
-            if (mop != null && mop.hitVec != null && !target.worldObj.isRemote && LegacyBullets.on()) {
-                try {
-                    float base = amount / gunfeel$ntmHead(target, mop);
-                    // no verdict of the model: NTM's damage, its own head rule included
-                    gunfeel$extra = LegacyBullets.damage(target, mop.hitVec, base, amount) - amount;
-                } catch (RuntimeException e) {
-                    gunfeel$extra = 0F;
-                }
+        if (gunfeel$counted) {
+            if (gunfeel$hurtWith == LegacyBullets.Hurt.NONE) return false;
+            return original.call(target, source, amount + gunfeel$extra);
+        }
+        gunfeel$counted = true;
+        MovingObjectPosition mop = gunfeel$mop;
+        if (mop != null && mop.hitVec != null && !target.worldObj.isRemote && LegacyBullets.on()) {
+            try {
+                float base = amount / gunfeel$ntmHead(target, mop);
+                // no verdict of the model: NTM's damage, its own head rule included
+                gunfeel$extra = LegacyBullets.damage(target, mop.hitVec, base, amount) - amount;
+                gunfeel$hurtWith = LegacyBullets.hurt(target, amount, gunfeel$extra);
+            } catch (RuntimeException e) {
+                gunfeel$extra = 0F;
+                gunfeel$hurtWith = LegacyBullets.Hurt.FIRST;
+                LegacyBullets.zonesFailed("old bullet of the masked man, the UFO or BOT Prime", e);
             }
         }
-        return original.call(target, source, amount + gunfeel$extra);
+        return original.call(target, source, gunfeel$hurtWith == LegacyBullets.Hurt.SECOND ? amount : amount + gunfeel$extra);
     }
 
     // NTM's own head multiplier in this damage (its height rule): taken out, so the head is not counted twice

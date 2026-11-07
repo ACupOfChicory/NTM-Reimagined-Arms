@@ -37,10 +37,58 @@ public final class LegacyBullets {
         return damage(target, point, amount, amount);
     }
 
+    // the stand (NpcShotsScenario): the zones throw, as a failure of theirs would
+    static volatile boolean failZones;
+
     // `base` times the zone where `point` met the model; NTM's own `ntm` when the model gives no verdict
     public static float damage(Entity target, Vec3 point, float base, float ntm) {
+        if (failZones) throw new IllegalStateException("zones failing for the stand");
         if (point == null || !(target instanceof EntityLivingBase)) return ntm;
         return HeadDamage.beamDamage(base, (EntityLivingBase) target, new MovingObjectPosition(target, point), ntm);
+    }
+
+    // NTM hurts the creature with the bullet's damage and, when that fails, again with the damage plus the creature's
+    // last hit: past a fresh hit (cooldown) the game takes only a hit harder than the last one, and only what it is
+    // harder by. Which of the two lands is NTM's to decide by its own damage, as without the zones; the change the head
+    // or a limb makes (extra) goes to the one that lands. FIRST: the first one with the change. SECOND: the first one
+    // without it (it fails), the second with it. NONE: the first one with the change, which a limb takes under the last
+    // hit, and no second one, as NTM's first one would have landed (with less than nothing). (26.2 X577)
+    public enum Hurt { FIRST, SECOND, NONE }
+
+    public static Hurt hurt(float damage, float extra, boolean cooldown, float lastHurt) {
+        if (!cooldown || extra == 0F) return Hurt.FIRST;
+        if (damage <= lastHurt) return Hurt.SECOND;
+        return damage + extra <= lastHurt ? Hurt.NONE : Hurt.FIRST;
+    }
+
+    // port: the same for `target` as EntityLivingBase.attackEntityFrom has its cooldown (hurtResistantTime past half of
+    // maxHurtResistantTime) and its last hit (lastDamage, read as NTM reads it)
+    public static Hurt hurt(Entity target, float damage, float extra) {
+        if (extra == 0F || !(target instanceof EntityLivingBase)) return Hurt.FIRST;
+        EntityLivingBase living = (EntityLivingBase) target;
+        boolean cooldown = living.hurtResistantTime > living.maxHurtResistantTime / 2.0F;
+        return hurt(damage, extra, cooldown, cooldown ? lastDamage(living) : 0F);
+    }
+
+    private static java.lang.reflect.Field lastDamage;
+
+    private static float lastDamage(EntityLivingBase living) {
+        java.lang.reflect.Field f = lastDamage;
+        if (f == null) lastDamage = f = cpw.mods.fml.relauncher.ReflectionHelper.findField(EntityLivingBase.class, "lastDamage", "field_110153_bc");
+        try {
+            return f.getFloat(living);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    // its zones failed: written to the log once, the hit goes as in NTM
+    private static boolean warned;
+
+    public static void zonesFailed(String bullet, RuntimeException e) {
+        if (warned) return;
+        warned = true;
+        GunFeel.LOGGER.warn("NTM's {}: its head and limb zones failed, it hits as in NTM", bullet, e);
     }
 
     // it stopped in this block: its hole on the players' screens around
