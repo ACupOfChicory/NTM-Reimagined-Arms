@@ -97,7 +97,7 @@ public final class ReflexDraw {
         if (hints) {
             float range = Gl54Range.get(stack);
             // the digits, right aligned in the lower right corner
-            String text = ReflexMath.rangeText(range);
+            String text = ReflexMath.rangeText(range, Gl54Range.offset(stack));
             double px = DIGIT_PIXEL * uL;
             // the pane's a runs to the gun's left, which is the screen's left seen from behind: the text reads along falling a,
             // its last column nearest the pane's right edge (a = 0)

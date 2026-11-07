@@ -55,6 +55,7 @@ class ReflexMathTest {
         assertEquals(8, ReflexMath.pixels("1").size());
         assertEquals(13, ReflexMath.pixels("8").size());
         assertEquals(3, ReflexMath.pixels("-").size());
+        assertEquals(5, ReflexMath.pixels("+").size());
         assertEquals(7, ReflexMath.textWidth("87"));
         assertEquals(11, ReflexMath.textWidth("120"));
         // the second digit starts after the first and a gap
@@ -63,8 +64,10 @@ class ReflexMathTest {
 
     @Test
     void theRangeIsShownRoundedAndNoneAsDashes() {
-        assertEquals("87", ReflexMath.rangeText(86.6F));
-        assertEquals("---", ReflexMath.rangeText(Float.NaN));
+        assertEquals("87", ReflexMath.rangeText(86.6F, 0));
+        assertEquals("---", ReflexMath.rangeText(Float.NaN, 2));
+        assertEquals("40+2", ReflexMath.rangeText(40.2F, 2));
+        assertEquals("40-1", ReflexMath.rangeText(39.6F, -1));
     }
 
     @Test
@@ -80,5 +83,13 @@ class ReflexMathTest {
         double px = ReflexDraw.DIGIT_PIXEL * uL;
         List<double[]> pixel = ReflexMath.rect(ReflexDraw.MARGIN_A * uL, ReflexDraw.MARGIN_B * vL, ReflexDraw.MARGIN_A * uL + px, ReflexDraw.MARGIN_B * vL + px);
         assertEquals(area(pixel), area(ReflexMath.clip(pixel, window)), 1e-12, "the digits are whole");
+    }
+
+    @Test
+    void theLongestTextFitsTheCornerOfThePane() {
+        // "200+3": five characters, the longest the range and the shift give, with the corner's margin, within the pane's width
+        double px = ReflexDraw.DIGIT_PIXEL * Gl54Reflex.get().uLength();
+        double width = (ReflexMath.textWidth("200+3") * px + ReflexDraw.MARGIN_A * Gl54Reflex.get().uLength());
+        assertTrue(width < Gl54Reflex.get().uLength() * 0.5, "the text takes " + width / Gl54Reflex.get().uLength() + " of the pane's width");
     }
 }

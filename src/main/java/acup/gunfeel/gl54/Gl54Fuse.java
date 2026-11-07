@@ -23,9 +23,10 @@ final class Gl54Fuse {
     private Gl54Fuse() {
     }
 
-    // the horizontal distance at which a grenade for this stored range bursts; NaN for none
-    static double distance(float range) {
-        return Float.isNaN(range) ? Double.NaN : Math.max(range, Gl54Grenade.ARM_DISTANCE);
+    // the horizontal distance at which a grenade for this stored range bursts: the range and the shooter's shift (the offset);
+    // NaN for none. Not before the arming distance.
+    static double distance(float range, int offset) {
+        return Float.isNaN(range) ? Double.NaN : Math.max(range + offset, Gl54Grenade.ARM_DISTANCE);
     }
 
     // where in a step that went from horizontal distance d0 to d1 the fuse f is crossed (0..1); NaN if it is not
@@ -37,7 +38,7 @@ final class Gl54Fuse {
     // the grenade's first tick: reads the gun in the shooter's hand
     static void light(EntityBulletBaseMK4 bullet) {
         if (!Gl54Server.enabled() || !(bullet.getThrower() instanceof LivingEntity shooter)) return;
-        double f = distance(Gl54Range.get(shooter.getMainHandItem()));
+        double f = distance(Gl54Range.get(shooter.getMainHandItem()), Gl54Range.offset(shooter.getMainHandItem()));
         if (!Double.isNaN(f)) FUSES.put(bullet, f);
     }
 

@@ -8,13 +8,13 @@ import org.junit.jupiter.api.Test;
 class Gl54FuseTest {
     @Test
     void noMeasurementNoFuse() {
-        assertTrue(Double.isNaN(Gl54Fuse.distance(Float.NaN)));
+        assertTrue(Double.isNaN(Gl54Fuse.distance(Float.NaN, 2)));
     }
 
     @Test
     void theFuseIsTheMeasuredRangeButNotUnderTheArmingDistance() {
-        assertEquals(87.0, Gl54Fuse.distance(87F));
-        assertEquals(Gl54Grenade.ARM_DISTANCE, Gl54Fuse.distance(1.5F));
+        assertEquals(87.0, Gl54Fuse.distance(87F, 0));
+        assertEquals(Gl54Grenade.ARM_DISTANCE, Gl54Fuse.distance(1.5F, 0));
     }
 
     @Test
@@ -34,7 +34,7 @@ class Gl54FuseTest {
     @Test
     void aGrenadeFlownThroughTheFuseBurstsAtItsRangeToTheBlock() {
         // a flat shot walked in steps of the grenade's speed: the first step to cross the fuse is cut exactly at it
-        double f = Gl54Fuse.distance(87F), x = 0;
+        double f = Gl54Fuse.distance(87F, 0), x = 0;
         while (true) {
             double t = Gl54Fuse.crossing(x, x + Gl54Grenade.SPEED, f);
             if (!Double.isNaN(t)) {
@@ -43,5 +43,13 @@ class Gl54FuseTest {
             }
             x += Gl54Grenade.SPEED;
         }
+    }
+
+    @Test
+    void theFuseIsTheRangePlusTheShift() {
+        assertEquals(89.0, Gl54Fuse.distance(87F, 2));
+        assertEquals(84.0, Gl54Fuse.distance(87F, -3));
+        // a shift back past the arming distance is held at it
+        assertEquals(Gl54Grenade.ARM_DISTANCE, Gl54Fuse.distance(4F, -3));
     }
 }

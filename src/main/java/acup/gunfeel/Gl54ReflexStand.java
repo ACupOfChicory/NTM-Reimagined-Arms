@@ -223,7 +223,7 @@ final class Gl54ReflexStand {
             // the eye at the middle of the player's block, the wall's near face WALL blocks from the block's near face
             double expected = O.getZ() + WALL - (O.getZ() + 0.5);
             line("measured", "stored", stored, "expected", expected);
-            ClientSmoke.check(Math.abs(stored - expected) < 0.05, "gl54 reflex: замер " + stored + " вместо " + expected);
+            ClientSmoke.check(Math.abs(stored - expected) <= Gl54Range.NOISE + 1e-4, "gl54 reflex: замер (с шумом до полублока) " + stored + " вместо " + expected);
         });
         sleep(20);
         for (float[] pose : POSES) {
@@ -306,6 +306,53 @@ final class Gl54ReflexStand {
         run(() -> fire());
         sleep(90);
         run(() -> fuse("fuse-1.5", 3.0));
+
+        // the burst's shift: measure a wall 20 blocks off (the noise is within half a block, the shift starts at +1 for a block),
+        // turn the wheel twice up through the payload, take the wall away, fire: it bursts at the stored range plus the shift
+        run(() -> {
+            BLASTS.clear();
+            wall(20, true);
+            aim(mc, true);
+            turn(mc, 0, 0);
+        });
+        sleep(60);
+        run(() -> key(EnumKeybind.GUN_SECONDARY));
+        sleep(10);
+        run(() -> {
+            float stored = onServer(() -> Gl54Range.get(player().getMainHandItem()));
+            int offset = onServer(() -> Gl54Range.offset(player().getMainHandItem()));
+            line("wall 20", "stored", stored, "offset", offset);
+            ClientSmoke.check(Math.abs(stored - 19.5) <= 0.5 + 1e-4, "gl54 reflex: замер стены в 20 бл. с шумом: " + stored);
+            ClientSmoke.check(offset == 1, "gl54 reflex: сдвиг по блоку не 1: " + offset);
+            for (int i = 0; i < 2; i++) net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new acup.gunfeel.gl54.Gl54OffsetPayload(1));
+        });
+        sleep(30);
+        run(() -> {
+            int offset = onServer(() -> Gl54Range.offset(player().getMainHandItem()));
+            line("wall 20", "offset after the wheel", offset);
+            ClientSmoke.check(offset == 3, "gl54 reflex: колесо дважды вверх дало сдвиг " + offset);
+            // a third turn is held at the limit
+            net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new acup.gunfeel.gl54.Gl54OffsetPayload(1));
+        });
+        sleep(20);
+        run(() -> {
+            int offset = onServer(() -> Gl54Range.offset(player().getMainHandItem()));
+            ClientSmoke.check(offset == 3, "gl54 reflex: сдвиг вышел за предел: " + offset);
+            shot("wall20.png");
+        });
+        TODO.add(() -> pending == 0);
+        run(() -> {
+            wall(20, false);
+            // two turns down from the limit: the flat 3 minus 2 = 1 is checked first by the fire below with the shift at 3
+        });
+        sleep(90);
+        run(() -> fire());
+        sleep(90);
+        run(() -> {
+            float stored = onServer(() -> Gl54Range.get(player().getMainHandItem()));
+            int offset = onServer(() -> Gl54Range.offset(player().getMainHandItem()));
+            fuse("fuse-offset", stored + offset);
+        });
 
         // the laser: aimed with the beam and without it (the frames are set against each other), in the hand and in the third person
         run(() -> {
@@ -475,6 +522,16 @@ final class Gl54ReflexStand {
                 lastTick = e.tickCount;
                 line("path", "tick", e.tickCount, "x", e.getX(), "y", e.getY(), "z", e.getZ(), "motion", e.getDeltaMovement().x, e.getDeltaMovement().y, e.getDeltaMovement().z);
             }
+            return null;
+        });
+    }
+
+    // a wall of snow across the arena `blocks` in front of the player's block, or the air back in its place
+    private static void wall(int blocks, boolean on) {
+        onServer(() -> {
+            ServerLevel level = Minecraft.getInstance().getSingleplayerServer().overworld();
+            for (int x = -HALF + 1; x < HALF; x++) for (int y = 0; y <= 14; y++)
+                level.setBlock(O.offset(x, y, blocks), on ? Blocks.SNOW_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 3);
             return null;
         });
     }

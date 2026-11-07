@@ -65,6 +65,7 @@ final class ReflexMath {
             {"###", "#..", "###", "#.#", "###"}, {"###", "..#", ".#.", ".#.", ".#."}, {"###", "#.#", "###", "#.#", "###"},
             {"###", "#.#", "###", "..#", "###"}};
     private static final String[] DASH = {"...", "...", "###", "...", "..."};
+    private static final String[] PLUS = {"...", ".#.", "###", ".#.", "..."};
     static final int GLYPH_W = 3, GLYPH_H = 5, GLYPH_GAP = 1;
 
     // the lit pixels of the text (digits and '-') as unit squares: {column, row from the top}
@@ -72,7 +73,7 @@ final class ReflexMath {
         List<int[]> out = new ArrayList<>();
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
-            String[] g = c == '-' ? DASH : c >= '0' && c <= '9' ? GLYPHS[c - '0'] : null;
+            String[] g = c == '-' ? DASH : c == '+' ? PLUS : c >= '0' && c <= '9' ? GLYPHS[c - '0'] : null;
             if (g == null) continue;
             for (int row = 0; row < GLYPH_H; row++)
                 for (int col = 0; col < GLYPH_W; col++)
@@ -85,8 +86,10 @@ final class ReflexMath {
         return text.isEmpty() ? 0 : text.length() * (GLYPH_W + GLYPH_GAP) - GLYPH_GAP;
     }
 
-    // the range as the pane shows it: whole blocks, "---" when there is none
-    static String rangeText(float range) {
-        return Float.isNaN(range) ? "---" : Integer.toString(Math.round(range));
+    // the range as the pane shows it: whole blocks and the shift of the burst ("40+2", "40-1"; none when it is 0), "---" when
+    // there is no range
+    static String rangeText(float range, int offset) {
+        if (Float.isNaN(range)) return "---";
+        return Math.round(range) + (offset > 0 ? "+" + offset : offset < 0 ? "-" + -offset : "");
     }
 }
