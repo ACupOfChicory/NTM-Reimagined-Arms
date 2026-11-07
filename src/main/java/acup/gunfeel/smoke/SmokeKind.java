@@ -6,7 +6,7 @@ import java.util.List;
  * What a cloud is made of: how it is let out, how it spreads, how long it stays and how it looks. Common code (server
  * and client); the id goes over the network, so a kind keeps its id for good.
  *
- * <p>Only plain smoke now. The gas grenades of GL-54 will add their kinds here (heavier than air: {@code lift} below 0,
+ * <p>Only plain smoke now. The gas grenades of GL-54 will add their kinds ({@code acup.gunfeel.gas.GasKind}, heavier than air: {@code lift} below 0,
  * {@code rise} below 0; their own colour and opacity); what a gas does to the living is not here, the simulation only
  * carries the concentration.
  *
@@ -23,21 +23,31 @@ import java.util.List;
  * @param hold       ticks after the release before it starts to thin
  * @param fade       share kept a tick while it thins
  * @param rgb        colour, 0xRRGGBB
- * @param extinction optical depth of one block at density 1 (Beer-Lambert: 3.5 lets ~3% through)
+ * @param extinction optical depth of one block at density 1 (Beer-Lambert: 3.5 lets ~3% through); what a mob sees
+ *                   through ({@link SmokeSight})
+ * @param look       the same as drawn for the player (the volume and the fog inside); smoke: {@code extinction}
  */
 public record SmokeKind(int id, String name, float volume, int release, int bomblets, float fan, float reach, float fill, float spread,
-                        float rise, float lift, int hold, float fade, int rgb, float extinction) {
+                        float rise, float lift, int hold, float fade, int rgb, float extinction, float look) {
+    /** Drawn as dense as it stops a mob's sight. */
+    public SmokeKind(int id, String name, float volume, int release, int bomblets, float fan, float reach, float fill, float spread,
+                     float rise, float lift, int hold, float fade, int rgb, float extinction) {
+        this(id, name, volume, release, bomblets, fan, reach, fill, spread, rise, lift, hold, fade, rgb, extinction, extinction);
+    }
+
     public static final SmokeKind SMOKE = new SmokeKind(0, "smoke", 380F, 40, 5, 24F, 3.5F, 0.7F, 0.08F, 0F, 0.001F, 400, 0.968F,
             0xB4B6B8, 3.5F);
     private static final List<SmokeKind> ALL = List.of(SMOKE);
 
     public static SmokeKind byId(int id) {
         for (SmokeKind k : ALL) if (k.id == id) return k;
+        for (acup.gunfeel.gas.GasKind g : acup.gunfeel.gas.GasKind.values()) if (g.smoke().id == id) return g.smoke();
         return SMOKE;
     }
 
     public static SmokeKind byName(String name) {
         for (SmokeKind k : ALL) if (k.name.equalsIgnoreCase(name)) return k;
+        for (acup.gunfeel.gas.GasKind g : acup.gunfeel.gas.GasKind.values()) if (g.smoke().name.equalsIgnoreCase(name)) return g.smoke();
         return null;
     }
 

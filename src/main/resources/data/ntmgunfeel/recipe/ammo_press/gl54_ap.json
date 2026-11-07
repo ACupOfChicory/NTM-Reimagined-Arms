@@ -1,0 +1,28 @@
+{
+  "type": "hbm:ammo_press",
+  "order": 23220,
+  "pattern": [
+    "AB ",
+    " C ",
+    "   "
+  ],
+  "key": {
+    "A": {
+      "ingredient": "#c:bolts/tungsten",
+      "count": 4
+    },
+    "B": {
+      "ingredient": "#hbm:ingots/any_highexplosive"
+    },
+    "C": {
+      "ingredient": "#hbm:dusts/any_smokeless",
+      "count": 2
+    }
+  },
+  "output_items": [
+    {
+      "id": "ntmgunfeel:gl54_grenade_ap",
+      "count": 4
+    }
+  ]
+}

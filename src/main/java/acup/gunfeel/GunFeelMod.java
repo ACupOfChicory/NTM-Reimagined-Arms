@@ -25,6 +25,12 @@ public final class GunFeelMod {
             DebugLog.LOGGER.warn("NTM {} is not tested with NTM Reimagined Arms {} (tested: {}); systems off: {}",
                     Compat.hbmVersion(), Compat.modVersion(), Compat.tested(), Compat.offList());
         }
+        // the GL-54 grenade launcher, the mod's first item of its own
+        if (Feature.GL54.on()) {
+            acup.gunfeel.gl54.Gl54Items.register(modBus);
+            if (dist.isClient()) acup.gunfeel.gl54.Gl54Client.init(modBus);
+        }
+        acup.gunfeel.gas.GasSetup.init(modBus, dist);
         if (dist.isClient()) {
             modBus.addListener(net.neoforged.neoforge.client.event.AddClientReloadListenersEvent.class,
                     e -> e.addListener(net.minecraft.resources.Identifier.fromNamespaceAndPath("ntmgunfeel", "model_masks"),
@@ -43,6 +49,7 @@ public final class GunFeelMod {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.RegisterCommandsEvent.class,
                 e -> {
                     acup.gunfeel.smoke.SmokeCommand.register(e.getDispatcher());
+                    if (Feature.GL54.on()) acup.gunfeel.gl54.MagCommand.register(e.getDispatcher());
                     acup.gunfeel.ai.AiCommand.register(e.getDispatcher());
                 });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class,
@@ -124,7 +131,13 @@ public final class GunFeelMod {
                 });
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC,
                         (p, ctx) -> ctx.enqueueWork(() -> p.handle(ctx.player().level())));
+                r.playToClient(acup.gunfeel.gl54.PressLayoutsPayload.TYPE, acup.gunfeel.gl54.PressLayoutsPayload.CODEC,
+                        (p, ctx) -> ctx.enqueueWork(() -> {
+                            if (Feature.GL54.on()) acup.gunfeel.gl54.PressSync.receive(p);
+                        }));
                 acup.gunfeel.smoke.client.SmokeClientSetup.payloads(r);
+                acup.gunfeel.gas.GasSetup.payloads(r, true);
+                acup.gunfeel.gl54.frag.FragNet.payloads(r, true);
                 r.playToClient(acup.gunfeel.ai.AiCellsPayload.TYPE, acup.gunfeel.ai.AiCellsPayload.CODEC,
                         (p, ctx) -> ctx.enqueueWork(() -> acup.gunfeel.ai.client.AiDebugClient.receive(p)));
                 r.playToClient(acup.gunfeel.ai.AiBotsPayload.TYPE, acup.gunfeel.ai.AiBotsPayload.CODEC,
@@ -136,8 +149,11 @@ public final class GunFeelMod {
                 r.playToClient(HelloPayload.TYPE, HelloPayload.CODEC);
                 r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC);
                 r.playToClient(ProneStandPayload.TYPE, ProneStandPayload.CODEC);
+                acup.gunfeel.gl54.frag.FragNet.payloads(r, false);
+                r.playToClient(acup.gunfeel.gl54.PressLayoutsPayload.TYPE, acup.gunfeel.gl54.PressLayoutsPayload.CODEC);
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC);
                 acup.gunfeel.smoke.SmokeNet.payloads(r);
+                acup.gunfeel.gas.GasSetup.payloads(r, false);
                 r.playToClient(acup.gunfeel.ai.AiCellsPayload.TYPE, acup.gunfeel.ai.AiCellsPayload.CODEC);
                 r.playToClient(acup.gunfeel.ai.AiBotsPayload.TYPE, acup.gunfeel.ai.AiBotsPayload.CODEC);
             }
@@ -146,6 +162,14 @@ public final class GunFeelMod {
             });
             r.playToServer(AmmoSelectPayload.TYPE, AmmoSelectPayload.CODEC, (p, ctx) -> {
                 if (Feature.AMMO_CHOICE.on() && ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp && !acup.gunfeel.SpectatorGuns.blocks(sp)) AmmoLock.select(sp, p.config());
+            });
+            r.playToServer(acup.gunfeel.gl54.Gl54SelectPayload.TYPE, acup.gunfeel.gl54.Gl54SelectPayload.CODEC, (p, ctx) -> {
+                if (Feature.GL54.on() && ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp && !acup.gunfeel.SpectatorGuns.blocks(sp))
+                    ctx.enqueueWork(() -> acup.gunfeel.gl54.GrenadeMagazine.select(sp, p.contents()));
+            });
+            r.playToServer(acup.gunfeel.gl54.Gl54OffsetPayload.TYPE, acup.gunfeel.gl54.Gl54OffsetPayload.CODEC, (p, ctx) -> {
+                if (Feature.GL54.on() && ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp && !acup.gunfeel.SpectatorGuns.blocks(sp))
+                    ctx.enqueueWork(() -> acup.gunfeel.gl54.Gl54Range.shift(sp, p.delta()));
             });
             r.playToServer(ModelPosePayload.TYPE, ModelPosePayload.CODEC, (p, ctx) -> {
                 if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) ModelHits.receive(sp, p);

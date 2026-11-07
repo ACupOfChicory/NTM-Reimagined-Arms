@@ -52,7 +52,9 @@ public final class AmmoLockKey {
         BulletConfig c = RadialMenu.hovered();
         if (c == null) return;
         RadialMenu.close();
-        send(new AmmoSelectPayload(c.id));
+        // the GL-54's wheel entries are magazines with some contents: those go as a list, not as a config's number
+        if (c instanceof acup.gunfeel.gl54.GrenadeType g && g.contents != null) send(new acup.gunfeel.gl54.Gl54SelectPayload(g.contents));
+        else send(new AmmoSelectPayload(c.id));
     }
 
     private static void tick() {

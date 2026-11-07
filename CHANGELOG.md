@@ -1,6 +1,6 @@
 # Changelog
 
-## X626
+## X705
 
 - Mob AI, new: mobs that fight as a player does, with NTM's guns. `/armsai
   spawn fbi|dummy [count] [gun]` (operators) brings NTM's FBI agents or test
@@ -72,6 +72,101 @@
   after `/armsai log on`, every AI mob's decisions go to
   `logs/ntm-gunfeel-debug.log`. `/armsai info` tells how many AI mobs there are
   and what their work costs. Whoever an AI dummy kills dies by an "AI dummy".
+
+## X683
+
+- The GL-54's gas clouds are a pale haze now, not a bright, solid wall of
+  colour: chlorine faintly yellow-green, mustard gas faintly brown, acid
+  greenish grey, phosgene almost clear. Through two blocks of gas you see
+  what is behind it; through five it is hazy. Only the looks changed: what
+  a gas does, and how much it hides you from mobs, are as before.
+
+## X682
+
+- The GL-54, the mod's first gun of its own: a 20 mm grenade launcher with a
+  reflex sight and a rangefinder. It is crafted from a light workers' alloy
+  barrel, receiver and grip, a gun metal mechanism, a polymer stock, a vacuum
+  tube and NTM's rangefinder. `gl54` (server, on); off, the gun stays in the
+  world but does nothing, and a grenade already in flight falls as a dud.
+- Its ammunition is a 20 mm magazine of 8 grenades, which can be mixed in any
+  order:
+  - Two empty magazines are crafted from a steel bolt, a gun metal plate and a
+    steel shell.
+  - A magazine is filled in NTM's ammo press with no recipe chosen: the empty
+    magazine goes in the bottom right slot and the grenades in the others. The
+    top left grenade fires first.
+  - The press's list also offers ready layouts, one per kind and one mixed. A
+    layout you lay out by hand is remembered by that press, up to 6; Shift+click
+    one to forget it.
+  - Magazines that are alike stack to 4.
+- A magazine in hand:
+  - Right click opens it as a row of 8 cells. The leftmost cell is the mouth:
+    grenades go in and come out there, the last in comes out first.
+    Shift+click moves one grenade.
+  - Shift+right click unloads one magazine into the inventory and leaves an
+    empty one.
+  - Operators can give magazines with `/gl54mag he,he,airburst`.
+- Nine grenades:
+  - high-explosive, airburst, armour-piercing airburst, incendiary and smoke
+    are made in the ammo press;
+  - chlorine, phosgene, mustard gas and acid are made in the assembly machine,
+    from the fluid and plastic.
+  - The grenade wheel chooses which magazine the next reload takes.
+- Airburst, armour-piercing airburst and incendiary grenades burst into
+  fragments at the fuse's range: a cone along the flight and a ring across
+  it, which reaches behind low cover from a burst above it. The airburst
+  throws 40 + 120 fragments, the armour-piercing one 20 + 60 that pierce
+  armour as NTM's 5.56 AP does, the incendiary 20 + 60 that set mobs and
+  the ground on fire for a few seconds. Fragments leave small holes where
+  they hit blocks (at most 24 a burst).
+- A grenade leaves the barrel at 94 m/s and falls as it would on Earth, so it
+  carries far but has to be aimed above a target.
+- The reflex sight:
+  - The red dot sits in the middle of the sight's window and glows as a real
+    one does: the same by day, at night and in a cave. So do the ring, the
+    arrow and the range digits.
+  - The key shown in the gun's tooltip, used while aiming (the middle button
+    with the mod's right-button aim), measures the range to what the dot is
+    on. The reading may be off by up to half a block. Measuring into the sky
+    clears it.
+  - The fuse bursts the grenade at the measured range: one block past it if
+    the target is a block, at it if it is a mob.
+  - While aiming, the mouse wheel moves the burst up to 3 blocks nearer or
+    farther.
+  - A ring stays on the measured point in the world and shows where the barrel
+    has to point for the grenade to reach it.
+- The smoke grenade lets out a smoke cloud. Each gas grenade lets out a
+  coloured cloud of its gas, which drifts and thins as the smoke does:
+  - chlorine: hurts within seconds and makes you cough. A cough shakes the view
+    and lets go of the aim. `gasCoughBlocksAim` (server, on); off, the cough
+    only shakes the view;
+  - phosgene: almost clear, and does nothing for a while before it starts to
+    hurt;
+  - mustard gas: also burns the skin, so only a full suit keeps it out;
+  - acid: eats the protection of the armour worn in it.
+  - A gas mask keeps the breathed gases out and its filter wears down while
+    you breathe them. A HUD of its own shows the doses taken.
+  - One grenade does not kill, but two or three in a row will.
+
+## X611
+
+- Volumetric smoke seen from outside no longer lies over glass and water.
+  Smoke behind a pane of glass (plain or stained) or behind water was laid
+  over it, as if it were in front. Now smoke behind glass or water shows
+  through it, dimmed and tinted by it, and smoke in front of a pane covers
+  it, to its very edge. With improved transparency, when CrankShaft is not
+  installed or its backend is off, the game laid the pane over all the
+  smoke, the smoke in front of it too; there, too, each now lies where it
+  is.
+
+## X607
+
+- A ring on the water left by a shot no longer opens a hole in it as it fades.
+  The ring was drawn before the water and kept the water under it from being
+  drawn, so as it faded the bottom showed through it. Rings are now drawn
+  after the water, with the game's translucent particles, and fade into it.
+  Seen from under the surface a ring now lies over the water instead of
+  behind it.
 
 ## X605
 

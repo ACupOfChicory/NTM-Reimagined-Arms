@@ -121,8 +121,30 @@ neoForge {
             systemProperty("ntmgunfeel.glassBack",providers.gradleProperty("glassBack").map { it.ifBlank { "fancy" } }.orElse("").get())
             // -PspectatorStand: may a spectator use an NTM gun (SpectatorStand)
             systemProperty("ntmgunfeel.spectatorStand",providers.gradleProperty("spectatorStand").isPresent.toString())
+            // -PhudShots: real frames of the corner HUD and the ammo menu into notes/gl54/hud-real (HudShots); the window is
+            // 1920 x 1080; -PhudShotsGl54=<quads file>: that model's silhouette made with the mod's code
+            systemProperty("ntmgunfeel.hudShots",providers.gradleProperty("hudShots").isPresent.toString())
+            systemProperty("ntmgunfeel.hudShotsDir",providers.gradleProperty("hudShotsDir").orElse(root.resolve("notes/hud-shots").path).get())
+            providers.gradleProperty("hudShotsGl54").orNull?.let { systemProperty("ntmgunfeel.hudShotsGl54",it) }
+            // -Pgl54Stand=<dir>: the GL-54 in the game in numbers and frames (Gl54Stand): poses at five view turns, the bolt,
+            // the case, the grenade (damage by distance, glass, the dud, leaves)
+            systemProperty("ntmgunfeel.gl54Stand",providers.gradleProperty("gl54Stand").isPresent.toString())
+            providers.gradleProperty("gl54Stand").orNull?.let { systemProperty("ntmgunfeel.gl54StandDir",it) }
+            // -Pgl54StandMag (with -Pgl54Stand=<dir>): only the magazines' plan: reloads with their ticks, the pour, a change of
+            // kind, a mixed magazine, the HUD's frames (with the block and without), the wheel and the turned camera
+            systemProperty("ntmgunfeel.gl54StandMag",providers.gradleProperty("gl54StandMag").isPresent.toString())
+            // -PfragStand=<dir>: the GL-54's fragment grenades in numbers and frames (FragStand): hits and damage at the
+            // cases of the design, the cover, armour, the incendiary's fire, the tracers' pixels
+            systemProperty("ntmgunfeel.fragStand",providers.gradleProperty("fragStand").isPresent.toString())
+            providers.gradleProperty("fragStand").orNull?.let { systemProperty("ntmgunfeel.fragStandDir",it) }
             // -PproneStand: lying down on the prone key, its spread, recoil and hits (ProneStand)
             systemProperty("ntmgunfeel.proneStand",providers.gradleProperty("proneStand").isPresent.toString())
+            // -Pgl54ReflexStand=<dir> (with -PstandSize=1920x1080): the GL-54's reflex sight, range finder, fuse and laser in numbers
+            // and frames (Gl54ReflexStand); -Pgl54ReflexSolve solves the aim pose from the probe, -Pgl54ReflexRelief=<units> sets the eye relief it aims for
+            systemProperty("ntmgunfeel.gl54ReflexStand",providers.gradleProperty("gl54ReflexStand").isPresent.toString())
+            providers.gradleProperty("gl54ReflexStand").orNull?.let { systemProperty("ntmgunfeel.gl54ReflexStandDir",it) }
+            systemProperty("ntmgunfeel.gl54ReflexSolve",providers.gradleProperty("gl54ReflexSolve").isPresent.toString())
+            providers.gradleProperty("gl54ReflexRelief").orNull?.let { systemProperty("ntmgunfeel.gl54ReflexRelief",it) }
             // -PproneFireStand: no shot while crawling, for a player and a mannequin (ProneFireStand)
             systemProperty("ntmgunfeel.proneFireStand",providers.gradleProperty("proneFireStand").isPresent.toString())
             // -PshapesStand=<file>: every NTM machine taken in turn, the jar's table of their shapes written there (ShapesStand)
@@ -138,14 +160,20 @@ neoForge {
             // -PsmokeStand=<dir>: smoke clouds measured, frame times and screenshots there (SmokeCloudStand);
             // -PstandSize=1920x1080 the window, -PsmokeBackend=vulkan the renderer
             systemProperty("ntmgunfeel.smokeStand",providers.gradleProperty("smokeStand").orElse("").get())
+            // -PgasStand=<dir>: the GL-54's gas grenades in numbers: HP, doses, filter, K, cell counts, the pit, the server's cost (GasStand)
+            systemProperty("ntmgunfeel.gasStand",providers.gradleProperty("gasStand").orElse("").get())
+            // -PgasStandVis (with -PgasStand): only the gases' looks, the scenarios are skipped
+            systemProperty("ntmgunfeel.gasVisOnly",providers.gradleProperty("gasStandVis").isPresent.toString())
             // -PsmokePoses=sky,wall: only the poses whose names start with one of these
             systemProperty("ntmgunfeel.smokePoses",providers.gradleProperty("smokePoses").orElse("").get())
+            // -PsmokeFabulous: the stand runs with improved transparency (the transparency chain) on
+            systemProperty("ntmgunfeel.smokeFabulous",providers.gradleProperty("smokeFabulous").isPresent.toString())
             // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
-            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("waterFx").isPresent) "-Xmx3G" else "-Xmx2500M")
+            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("gasStand").isPresent || providers.gradleProperty("gl54Stand").isPresent || providers.gradleProperty("fragStand").isPresent || providers.gradleProperty("gl54ReflexStand").isPresent || providers.gradleProperty("waterFx").isPresent || providers.gradleProperty("hudShots").isPresent) "-Xmx3G" else "-Xmx2500M")
             // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame
             providers.gradleProperty("gcLog").orNull?.let { jvmArgument("-Xlog:gc*:file=$it:uptime,time") }
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
-            val size = providers.gradleProperty("standSize").orElse("854x480").get().split("x")
+            val size = providers.gradleProperty("standSize").orElse(if(providers.gradleProperty("hudShots").isPresent || providers.gradleProperty("gl54StandMag").isPresent) "1920x1080" else "854x480").get().split("x")
             programArguments.addAll("--width", size[0], "--height", size[1])
             providers.gradleProperty("smokeBackend").orNull?.let { programArguments.addAll("--graphicsBackend", it) }
         }
@@ -435,7 +463,7 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
     val review = name == "runReviewMobs" || (stand && !survey)
     val bench = name == "runBenchMobs"
     val holes = name == "runBenchHoles"
-    val smoke = name == "runCheckClient" && providers.gradleProperty("smokeStand").isPresent
+    val smoke = name == "runCheckClient" && (providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("gasStand").isPresent)
     val mobs = name == "runCheckMobs" || review
     val selfTest = providers.gradleProperty("mobReviewSelfTest").isPresent || providers.gradleProperty("headLabelSelfTest").isPresent
     // a trace scenario on every gun (-Pscenario, -PscenarioGuns=all) plays for about half an hour; the shapes stand
@@ -485,8 +513,25 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
         dir.resolve("config/fml.toml").writeText("earlyWindowControl = false\n")
         root.resolve("libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar")
             .copyTo(dir.resolve("mods/crankshaft.jar"), overwrite = true)
+        // -PstandMods=<dir>: other mods' jars for the stand (Sodium, Iris), copied in (reflink) as stand-<name>; -PstandShader=<zip>:
+        // an Iris shader pack, turned on. What a run before brought is taken out first
+        dir.resolve("mods").listFiles()!!.filter { it.name.startsWith("stand-") }.forEach { it.delete() }
+        val standMods = providers.gradleProperty("standMods").orNull?.let { file(it) }
+        standMods?.listFiles().orEmpty().filter { it.name.endsWith(".jar") }.forEach {
+            check(ProcessBuilder("cp", "--reflink=auto", "-f", it.path, dir.resolve("mods/stand-${it.name}").path).inheritIO().start().waitFor() == 0)
+        }
+        val standShader = providers.gradleProperty("standShader").orNull?.let { file(it) }
+        require(standShader == null || standMods != null) { "-PstandShader needs -PstandMods with Iris in it" }
+        if (standShader != null) {
+            dir.resolve("shaderpacks").mkdirs()
+            standShader.copyTo(dir.resolve("shaderpacks/${standShader.name}"), overwrite = true)
+        }
+        if (standMods != null) dir.resolve("config/iris.properties").writeText(
+            if (standShader != null) "enableShaders=true\nshaderPack=${standShader.name}\n" else "enableShaders=false\n")
+        // -PflywheelOff: CrankShaft's backend off. With it on, CrankShaft lays glass and water over the frame itself under
+        // improved transparency, and the game's transparency chain is not used (LevelRendererTransparencyMixin)
         dir.resolve("config/crankshaft-client.toml").writeText(
-            "backend = \"${if(providers.gradleProperty("mobCpuGeometry").isPresent) "flywheel:off" else "DEFAULT"}\"\n")
+            "backend = \"${if(providers.gradleProperty("mobCpuGeometry").isPresent || providers.gradleProperty("flywheelOff").isPresent) "flywheel:off" else "DEFAULT"}\"\n")
         dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(stand) 10 else if(review || bench || smoke) 8 else 3}\nsimulationDistance:5\ninactivityFpsLimit:minimized\nmaxFps:${providers.gradleProperty("standMaxFps").orNull ?: if(stand && providers.gradleProperty("glassStandCheck").isPresent) 260 else 60}\n${if(stand || smoke) "tutorialStep:none\n" else ""}")
         if(holes && providers.gradleProperty("holeBenchLoaded").isPresent) {
             val original=file(providers.gradleProperty("holeBenchInstance").get()).canonicalFile

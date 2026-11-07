@@ -296,6 +296,16 @@ GPL-3.0-only, like the Superb Warfare code above. Source revision, changes and
 the license text are in [third-party/tacz.txt](third-party/tacz.txt) and
 packaged under `META-INF/licenses/`. No TaCZ assets are included.
 
+The GL-54 grenade launcher's placeholder model is a modified derivative of
+"Low-Poly XM-29 OICW" by TastyTony, licensed under CC BY 4.0. The source link,
+license link and list of changes are in
+[third-party/gl54-model.txt](third-party/gl54-model.txt), also packaged under
+`META-INF/licenses/`. The model is not endorsed by its original author.
+
+The GL-54's grenade and magazine textures are by Nuclear GrandFather, who
+allows their use and modification in NTM Reimagined Arms and its forks with
+credit to the author; see [third-party/gl54-textures.txt](third-party/gl54-textures.txt).
+
 The jar bundles XZ for Java 1.10 (0BSD), which unpacks the machine shapes
 shipped in the mod; its notice is in [third-party/xz.txt](third-party/xz.txt)
 and packaged under `META-INF/licenses/`.

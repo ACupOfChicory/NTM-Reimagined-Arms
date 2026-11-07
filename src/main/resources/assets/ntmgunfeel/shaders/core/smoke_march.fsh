@@ -5,6 +5,7 @@
 
 uniform sampler2D SmokeAtlas;
 uniform sampler2D SceneDepth;
+uniform sampler2D OpaqueDepth;
 
 in vec3 vPos;
 flat in int vCloud;
@@ -77,7 +78,13 @@ void main() {
     if (length(vPos) < t1 - 0.02 - t1 * 1e-4) discard;
     t0 = max(t0, 0.05);
     // where the world is along this ray: the copied depth (reversed: 0 = nothing, the sky) through the projection
-    float raw = texelFetch(SceneDepth, ivec2(gl_FragCoord.xy * vec2(Screen.x, Extra.z)), 0).r;
+    ivec2 dpx = ivec2(gl_FragCoord.xy * vec2(Screen.x, Extra.z));
+    float raw = texelFetch(SceneDepth, dpx, 0).r;
+#ifdef FRONT
+    // the part in front of the nearest translucent surface (SceneDepth is the depth with them): only where one is
+    float raw0 = texelFetch(OpaqueDepth, dpx, 0).r;
+    if (raw <= raw0 + max(1e-7, raw0 * 2e-4)) discard;
+#endif
     if (raw > 0.0) {
         float s = Screen.y > 0.5 ? raw : raw * 2.0 - 1.0;
         mat4 pv = ProjMat * View;

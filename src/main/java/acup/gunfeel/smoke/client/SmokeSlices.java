@@ -127,7 +127,7 @@ public final class SmokeSlices {
         int ua = axis == 0 ? 1 : 0, va = axis == 2 ? 1 : 2;
         int[] lo = {b[0] - 1, b[1] - 1, b[2] - 1}, hi = {b[3] + 1, b[4] + 1, b[5] + 1};
         int nu = hi[ua] - lo[ua] + 1, nv = hi[va] - lo[va] + 1;
-        float ext = c.kind().extinction();
+        float ext = c.kind().look();
         int rgb = c.kind().rgb();
         float light = 0.10F + 0.90F * SmokeLight.brightness(Minecraft.getInstance().level, c.origin);
         int r = Math.round((rgb >> 16 & 255) * light), gr = Math.round((rgb >> 8 & 255) * light), bl = Math.round((rgb & 255) * light);

@@ -1,0 +1,33 @@
+GL-54 grenade launcher placeholder model
+========================================
+
+The placeholder 3D model of the GL-54 grenade launcher is a modified derivative of:
+
+  Title:   Low-Poly XM-29 OICW
+  Author:  TastyTony (https://sketchfab.com/TastyTony)
+  Source:  https://sketchfab.com/3d-models/low-poly-xm-29-oicw-fa6b9666bdf2411998874a35af54a3e7
+  License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+           https://creativecommons.org/licenses/by/4.0/
+
+The model has been modified and is not endorsed by the original author.
+Original authorship of the XM29 geometry remains TastyTony's.
+
+Changes:
+- Kept the XM29 upper grenade-launcher shell, 20 mm barrel, magazine, ejection-port
+  details, charging handle, fasteners and grip; removed the 5.56 mm rifle assembly,
+  its magazine and barrel, the electronic optic and its mounts.
+- Shortened and reshaped the shell and grip; closed the lower shell; added a magazine
+  well, floorplate, trigger and trigger guard.
+- Cut side openings in the shroud to show the barrel; recoloured to black and graphite
+  with a bright barrel; narrowed the magazine and added side panels and a band.
+- Added a reflex sight (its housing and a clear pane), a ribbed rubber buttpad and a laser
+  rangefinder, made by the mod's author with ChatGPT as part of the same adaptation.
+- Split into separate parts and added a firing animation (bolt carrier, charging
+  handle, ejected case).
+- Converted by a script (tools/gl54_export.py) into NTM's model format: a mesh of separate
+  parts, a flat-colour palette texture (one colour per material) and the firing animation
+  as keyframes; the ejected case is only a set of numbers for the spent case's flight.
+
+The GL-54 name and shape follow the TX-54 of the TerraGov Marine Corps (TGMC)
+Space Station 13 server as a reference only. No TGMC artwork is included, and no claim is made to
+TGMC designs or branding.

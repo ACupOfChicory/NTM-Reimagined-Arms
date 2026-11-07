@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "ntmgunfeel:item/gl54_mag_mask_4",
+    "layer1": "ntmgunfeel:item/gl54_mag_mask_5",
+    "layer2": "ntmgunfeel:item/gl54_mag_mask_6",
+    "layer3": "ntmgunfeel:item/gl54_mag_mask_7"
+  }
+}
