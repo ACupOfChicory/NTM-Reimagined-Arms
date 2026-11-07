@@ -57,7 +57,8 @@ public final class AiRecoil {
 
     public static float strength() {
         if (!Float.isNaN(override)) return override;
-        return Math.max(0F, acup.gunfeel.ReaimTimes.number(KEY, 1F));
+        float v = acup.gunfeel.ReaimTimes.number(KEY, 1F);
+        return Float.isFinite(v) ? Math.max(0F, v) : 1F;
     }
 
     /** the gun's recoil, or null for one NTM gives none */
@@ -118,7 +119,8 @@ public final class AiRecoil {
         String v = p.getProperty(key);
         if (v == null) return def;
         try {
-            return Float.parseFloat(v.trim());
+            float f = Float.parseFloat(v.trim());
+            return Float.isFinite(f) ? f : def;
         } catch (NumberFormatException e) {
             return def;
         }

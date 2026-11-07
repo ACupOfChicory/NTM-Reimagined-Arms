@@ -156,6 +156,11 @@ public final class AiAim {
      */
     public void turn(long tick, AiSkill skill, double ex, double ey, double ez, float yaw0, float pitch0, double sx, double sy, double sz,
             double mx, double my, double mz, DoubleSupplier gauss) {
+        if (lastTurn != Long.MIN_VALUE && (tick <= lastTurn || tick - lastTurn > 1)) {
+            // it did not hold the gun on anything for a while (the head went where the game turned it): no kick is left
+            offYaw = offPitch = stayYaw = stayPitch = 0F;
+            java.util.Arrays.fill(offAt, Long.MIN_VALUE);
+        }
         // the hand is the view without the recoil; the recoil comes back a share (but for what stays), and the hand
         // knows it as it was lag ticks ago, carried on as it comes back since
         float handYaw = yaw0 - offYaw - stayYaw, handPitch = pitch0 - offPitch - stayPitch;

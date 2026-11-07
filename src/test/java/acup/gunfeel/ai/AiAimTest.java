@@ -143,6 +143,7 @@ class AiAimTest {
             if (t == 5) {
                 float[] moved = aim.kick(4F, 0F, 0F, 0F, 0.25F, s);
                 assertTrue(Math.abs(moved[1] + 4F * (1 - s.absorb())) < 1e-4, "a regular takes back " + s.absorb() + " of it at once");
+                yaw += moved[0];
                 pitch += moved[1];
             }
         }
@@ -160,20 +161,28 @@ class AiAimTest {
         AiAim aim = new AiAim();
         AiSkill s = AiSkill.REGULAR;
         float yaw = 0F, pitch = 0F;
-        float[] view = new float[20];
+        float[] up = new float[20], aside = new float[20];
         for (int t = 0; t < 20; t++) {
             aim.see(1, 0, EYE, 20, t, s, 0, 0);
             aim.lead(t, s, 1);
             aim.turn(t, s, 0, EYE, 0, yaw, pitch, aim.spotX, aim.spotY, aim.spotZ, aim.moveX, aim.moveY, aim.moveZ, () -> 0);
             yaw = aim.yaw;
             pitch = aim.pitch;
-            view[t] = pitch;
-            if (t == 5) pitch += aim.kick(0F, 0F, 2F, 1F, 0.25F, s)[1];
+            up[t] = pitch;
+            aside[t] = yaw;
+            if (t == 5) {
+                float[] moved = aim.kick(0F, 0F, 2F, 1F, 0.25F, s);
+                yaw += moved[0];
+                pitch += moved[1];
+            }
         }
-        float keep = 2F * (1 - s.absorb());
-        for (int t = 6; t < 6 + s.lag(); t++) assertTrue(Math.abs(view[t] + keep) < 1e-3, "it does not come back by itself: " + view[t]);
-        assertTrue(Math.abs(view[6 + s.lag()]) < 0.05F && Math.abs(view[19]) < 0.05F, "the hand takes it back: " + view[6 + s.lag()]);
-        assertTrue(Math.abs(yaw) < 0.05F, "aside too: " + yaw);
+        float keep = 1 - s.absorb();
+        for (int t = 6; t < 6 + s.lag(); t++) {
+            assertTrue(Math.abs(up[t] + 2F * keep) < 1e-3, "it does not come back by itself: " + up[t]);
+            assertTrue(Math.abs(aside[t] + keep) < 1e-3, "nor aside: " + aside[t]);
+        }
+        for (int t = 6 + s.lag(); t < 20; t++)
+            assertTrue(Math.abs(up[t]) < 0.05F && Math.abs(aside[t]) < 0.05F, "the hand takes it back: tick " + t + ", " + up[t] + ", " + aside[t]);
     }
 
     @Test
@@ -190,10 +199,30 @@ class AiAimTest {
             aim.turn(t, s, 0, EYE, 0, yaw, pitch, aim.spotX, aim.spotY, aim.spotZ, aim.moveX, aim.moveY, aim.moveZ, () -> 0);
             yaw = aim.yaw;
             pitch = aim.pitch;
-            if (t > 10) assertTrue(Math.abs(pitch - 60F) <= (s.lag() + 1) * keep + 0.05F, "tick " + t + ": " + pitch);
+            if (t > 10) assertTrue(Math.abs(pitch - 60F) <= s.lag() * keep + 1e-3F, "tick " + t + ": " + pitch);
             if (t < 200) pitch += aim.kick(0F, 0F, 1F, 0F, 0.25F, s)[1];
         }
         assertTrue(Math.abs(pitch - 60F) < 0.05F, "back on the target: " + pitch);
+    }
+
+    @Test
+    void aPauseLeavesNoKickBehind() {
+        // a kick that stays, then nothing to hold the gun on for a while, the head back level: no kick comes back
+        AiAim aim = new AiAim();
+        AiSkill s = AiSkill.REGULAR;
+        float yaw = 0F, pitch = 0F;
+        for (int t = 0; t < 6; t++) {
+            aim.see(1, 0, EYE, 20, t, s, 0, 0);
+            aim.lead(t, s, 1);
+            aim.turn(t, s, 0, EYE, 0, yaw, pitch, aim.spotX, aim.spotY, aim.spotZ, aim.moveX, aim.moveY, aim.moveZ, () -> 0);
+            yaw = aim.yaw;
+            pitch = aim.pitch;
+        }
+        aim.kick(0F, 0F, 5F, 0F, 0.25F, s);
+        aim.see(1, 0, EYE, 20, 60, s, 0, 0);
+        aim.lead(60, s, 1);
+        aim.turn(60, s, 0, EYE, 0, 0F, 0F, aim.spotX, aim.spotY, aim.spotZ, aim.moveX, aim.moveY, aim.moveZ, () -> 0);
+        assertTrue(Math.abs(aim.pitch) < 0.05F, "on the target: " + aim.pitch);
     }
 
     @Test

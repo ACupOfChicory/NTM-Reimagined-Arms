@@ -170,7 +170,10 @@ public final class AiGunner {
     @SuppressWarnings({"rawtypes", "unchecked"})
     void tick(ServerLevel level) {
         ItemGunBaseNT gun = gun();
-        if (gun == null) return;
+        if (gun == null) {
+            fresh = 0;
+            return;
+        }
         ItemStack stack = mob.getMainHandItem();
         boolean aligned = turn(level.getGameTime());
 
@@ -216,9 +219,10 @@ public final class AiGunner {
             if (keep != now) mag.setAmount(stack, keep);
             if (before > 0 && now < before) gone = before - Math.max(0, now);
         }
-        // shots since its last tick, as the gun ticked or as the trigger went down (those NTM worked out, or at least
-        // the rounds gone), each kicking the view
-        int n = Math.max(gone, fresh);
+        // shots since its last tick, as the gun ticked or as the trigger went down (those NTM worked out; else rounds
+        // gone, as one: a gun fires at most once a tick, and a magazine changed by other means is no burst), each
+        // kicking the view
+        int n = fresh > 0 ? fresh : Math.min(gone, 1);
         fresh = 0;
         shots += n;
         if (n > 0 && exact == null) recoil(n, level.getGameTime(), stack);
@@ -242,7 +246,7 @@ public final class AiGunner {
         AiRecoil.Kick k = AiRecoil.of(id);
         if (k == null) return;
         AiSkill skill = AiSkill.current();
-        boolean aiming = ItemGunBaseNT.getIsAiming(stack), lying = acup.gunfeel.Prone.lying(mob);
+        boolean aiming = ItemGunBaseNT.getIsAiming(stack), lying = acup.gunfeel.compat.Feature.PRONE.on() && acup.gunfeel.Prone.lying(mob);
         boolean first = lastShot == Long.MIN_VALUE || tick - lastShot > BURST_GAP;
         lastShot = tick;
         if (first) burstShots = 0;
