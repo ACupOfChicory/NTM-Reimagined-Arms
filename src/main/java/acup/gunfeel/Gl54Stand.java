@@ -57,6 +57,8 @@ final class Gl54Stand {
     private static final BlockPos O = new BlockPos(8, 100, 8);
     // the room: walls at 12 blocks around, the target wall in front (+Z)
     private static final int R = 12;
+    // the aimed place under test (ItemRenderGl54.aimY)
+    private static final float AIM_Y = acup.gunfeel.gl54.ItemRenderGl54.aimY;
     private static final float[][] POSES = {{0, 0}, {135, 0}, {-135, 0}, {0, 30}, {0, -30}};
 
     private static final Deque<BooleanSupplier> TODO = new ArrayDeque<>();
@@ -67,6 +69,8 @@ final class Gl54Stand {
     // the view turned every frame (null: the player's own)
     private static volatile float[] view;
     private static volatile Object[] blast;
+    // the port of the model before a shot, hip and aimed (Gl54Probe): the first frame of the case is set against it
+    private static float[] restHip, restAim;
     private static final List<Object[]> BLASTS = new ArrayList<>();
 
     private Gl54Stand() {
@@ -75,6 +79,7 @@ final class Gl54Stand {
     static void start() {
         Minecraft mc = Minecraft.getInstance();
         mc.options.pauseOnLostFocus = false;
+        Gl54Probe.ON = true;
         var server = mc.getSingleplayerServer();
         server.submit(() -> {
             ServerLevel level = server.overworld();
@@ -175,28 +180,11 @@ final class Gl54Stand {
                 sleep(40);
                 String name = "pose-" + (int) pose[0] + "-" + (int) pose[1] + (arms ? "-full" : "-gun") + ".png";
                 run(() -> shot(name));
+                run(() -> probe(name.replace(".png", "")));
                 TODO.add(() -> pending == 0);
             }
         }
-        // other places of the gun at the hip
-        for (float y : new float[] {-2.4F, -2.2F}) {
-            for (float x : new float[] {-1.5F, -1.9F}) {
-                for (boolean arms : new boolean[] {true, false}) {
-                    run(() -> {
-                        acup.gunfeel.gl54.ItemRenderGl54.hipX = x;
-                        acup.gunfeel.gl54.ItemRenderGl54.hipY = y;
-                        Config.arms = arms;
-                    });
-                    sleep(25);
-                    String name = "hip-" + x + "_" + y + (arms ? "-full" : "-gun") + ".png";
-                    run(() -> shot(name));
-                    TODO.add(() -> pending == 0);
-                }
-            }
-        }
         run(() -> {
-            acup.gunfeel.gl54.ItemRenderGl54.hipX = -1.5F;
-            acup.gunfeel.gl54.ItemRenderGl54.hipY = -2.2F;
             Config.arms = false;
             turn(mc, 0, 0);
             give(mc, true);
@@ -225,29 +213,48 @@ final class Gl54Stand {
             give(mc, false);
         });
         sleep(120);
-        // the sights: the gun aimed, the same pose
+        // the sights: the gun really aimed (the stack's flag) and held, the same pose
+        for (float ay : new float[] {-1.35F, -1.0F}) {
+            run(() -> {
+                acup.gunfeel.gl54.ItemRenderGl54.aimY = ay;
+                aim(mc, true);
+            });
+            sleep(70);
+            run(() -> probe("aimY" + ay));
+        }
+        run(() -> acup.gunfeel.gl54.ItemRenderGl54.aimY = AIM_Y);
+        sleep(20);
         run(() -> {
-            ItemGunBaseNT.aimingProgress = ItemGunBaseNT.prevAimingProgress = 1F;
+            line("aiming progress", ItemGunBaseNT.aimingProgress, "stack aims", ItemGunBaseNT.getIsAiming(mc.player.getMainHandItem()));
+            probe("aim");
+            Config.arms = true;
+            shot("aimed-full.png");
         });
-        sleep(30);
-        run(() -> shot("aimed-full.png"));
         TODO.add(() -> pending == 0);
-        run(() -> {
-            Config.arms = false;
-        });
+        run(() -> Config.arms = false);
         sleep(10);
         run(() -> shot("aimed-gun.png"));
         TODO.add(() -> pending == 0);
+        // a shot while aimed: the case in its first frames
         run(() -> {
             Config.arms = true;
-            ItemGunBaseNT.aimingProgress = ItemGunBaseNT.prevAimingProgress = 0F;
+            restAim = Gl54Probe.POINTS.get("port");
+            fireReal(mc);
         });
-        sleep(30);
+        for (int i = 0; i < 5; i++) {
+            int n = 100 + i;
+            sleep(1);
+            run(() -> casings(mc, n));
+        }
+        run(() -> aim(mc, false));
+        sleep(90);
 
         // the shot: idle frame, then the real shot, the animation 110 ms in
         run(() -> shot("bolt-idle.png"));
         TODO.add(() -> pending == 0);
         run(() -> {
+            restHip = Gl54Probe.POINTS.get("port");
+            probe("rest-hip");
             fireReal(mc);
             blast = null;
         });
@@ -416,6 +423,22 @@ final class Gl54Stand {
         }).join();
     }
 
+    private static void aim(Minecraft mc, boolean on) {
+        var server = mc.getSingleplayerServer();
+        server.submit(() -> {
+            ServerPlayer p = server.getPlayerList().getPlayers().getFirst();
+            ItemGunBaseNT.setIsAiming(p.getMainHandItem(), on);
+        }).join();
+    }
+
+    // the probe's points of the last frame: view space and screen
+    private static void probe(String tag) {
+        for (var e : Gl54Probe.POINTS.entrySet()) {
+            float[] v = e.getValue();
+            line("probe", tag, e.getKey(), "view", v[0], v[1], v[2], "px", v[3], v[4], "fov", v[5]);
+        }
+    }
+
     private static void fireReal(Minecraft mc) {
         var server = mc.getSingleplayerServer();
         server.submit(() -> {
@@ -429,6 +452,7 @@ final class Gl54Stand {
 
     // ---------------------------------------------------------------- the case
 
+    private static final boolean[] spawnChecked = new boolean[2];
     private static final Set<Object> SEEN = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
 
     private static void casings(Minecraft mc, int n) {
@@ -448,7 +472,37 @@ final class Gl54Stand {
                 Vec3 look = Vec3.directionFromRotation(0, mc.player.getYRot());
                 Vec3 left = new Vec3(look.z, 0, -look.x);
                 Vec3 d = new Vec3(x, y, z).subtract(eye);
-                line("casing", "frame", n, "new", SEEN.add(o), "front", d.dot(look), "height", d.y, "side", d.dot(left));
+                boolean fresh = SEEN.add(o);
+                line("casing", "frame", n, "new", fresh, "front", d.dot(look), "height", d.y, "side", d.dot(left));
+                boolean first = fresh;
+                if (first && !spawnChecked[n < 100 ? 0 : 1]) {
+                    spawnChecked[n < 100 ? 0 : 1] = true;
+                    float[] rest = n < 100 ? restHip : restAim;
+                    if (rest != null) {
+                        if (n < 100) {
+                            // the view's own field of view effects (flying) are not the gun's: the probe taken at 70 degrees
+                            double f = Math.tan(Math.toRadians(rest[5] * 0.5)) / Math.tan(Math.toRadians(35));
+                            rest = new float[] {(float) (rest[0] / f), (float) (rest[1] / f), rest[2], 0F, 0F, 70F};
+                            rest[3] = (float) (mc.getWindow().getWidth() / 2.0 + rest[0] / -rest[2] * (mc.getWindow().getHeight() / 2.0) / Math.tan(Math.toRadians(35)));
+                            rest[4] = (float) (mc.getWindow().getHeight() / 2.0 - rest[1] / -rest[2] * (mc.getWindow().getHeight() / 2.0) / Math.tan(Math.toRadians(35)));
+                        }
+                        // the spawned case as a point of the view space, set against the port of the model before the shot
+                        double cx = -d.dot(left), cy = d.y, cz = -d.dot(look);
+                        double dBlocks = Math.sqrt(Math.pow(cx - rest[0], 2) + Math.pow(cy - rest[1], 2) + Math.pow(cz - rest[2], 2));
+                        float w = mc.getWindow().getWidth(), h = mc.getWindow().getHeight();
+                        double t = Math.tan(Math.toRadians(n < 100 ? 35 : mc.gameRenderer.mainCamera().getFov() * 0.5));
+                        double px = w / 2 + cx / -cz * (h / 2) / t, py = h / 2 - cy / -cz * (h / 2) / t;
+                        double dpx = Math.hypot(px - rest[3], py - rest[4]);
+                        line("case at the port", n < 100 ? "hip" : "aimed", "case view", cx, cy, cz, "port view", (double) rest[0], (double) rest[1], (double) rest[2],
+                                "apart blocks", dBlocks, "px", dpx, "fov now", mc.gameRenderer.mainCamera().getFov(), "fov at the probe", (double) rest[5]);
+                        ClientSmoke.check(n < 100 ? dBlocks <= 0.03 : dBlocks <= 0.01, "gl54: гильза у окна выброса (" + (n < 100 ? "от бедра" : "в прицеле") + "): "
+                                + String.format(Locale.ROOT, "%.4f бл., %.1f px", dBlocks, dpx));
+                    }
+                }
+                if (n <= 3 || (n >= 100 && n <= 104)) {
+                    float[] pt = Gl54Probe.POINTS.get("port");
+                    if (pt != null) line("port", "frame", n, "front", -pt[2], "height", pt[1], "side", -pt[0], "px", pt[3], pt[4]);
+                }
             } catch (ReflectiveOperationException e) {
                 line("casing", "no position", e.toString());
             }
