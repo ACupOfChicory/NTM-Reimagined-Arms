@@ -45,6 +45,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 //  - the ticks from letting the crawl key go to the server letting the gun fire;
 //  - a burst held lying still, then crawling along, then still again with the key held: it stops and does not go on;
 //  - crawling with proneCrawlNoFire = false, and with only the Uzi's own key off: it fires;
+//  - crawling with the drill and the charge thrower (tools, their own key false in the mod): they work; the flamer not;
 //  - a mannequin with the Uzi (NTM's handleKeybind, as a bot would) lying still, crawling along, walking: no shot only
 //    crawling.
 // Lines "[pronefire] ..." in the log, PASS/FAIL in the report.
@@ -58,6 +59,8 @@ final class ProneFireStand {
     private static int b0, c0, a0, cyclesAtLate;
     private static int cycles;
     private static long lastShotSeen;
+    private static net.minecraft.world.item.Item lastHeld;
+    private static int tool;
     private static boolean rotate, firstSample;
     private static int tick;
     private static final StringBuilder TRACE = new StringBuilder();
@@ -108,9 +111,12 @@ final class ProneFireStand {
             p.teleportTo(level, EX, O.getY(), EZ, Set.of(), 0F, 0F, false);
             gun(p);
         }).join();
-        lastShotSeen = uzi().lastShot[0];
         step = 0;
         until = now() + 40;
+    }
+
+    private static net.minecraft.world.item.Item[] tools() {
+        return new net.minecraft.world.item.Item[] {ModItems.GUN_DRILL.get(), ModItems.GUN_CHARGE_THROWER.get(), ModItems.GUN_FLAMER.get()};
     }
 
     private static ItemGunBaseNT uzi() {
@@ -126,11 +132,26 @@ final class ProneFireStand {
     }
 
     private static ItemStack loaded() {
-        ItemStack stack = new ItemStack(ModItems.GUN_UZI.get());
+        return loaded(ModItems.GUN_UZI.get());
+    }
+
+    // a gun drawn and idle, its magazine full: the Uzi with 30 FMJ, the charge thrower with a mortar (its hook would
+    // pull the player), the drill with gasoline, others with their first ammo
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static ItemStack loaded(net.minecraft.world.item.Item item) {
+        ItemStack stack = new ItemStack(item);
         ItemGunBaseNT gun = (ItemGunBaseNT) stack.getItem();
-        var magazine = gun.getConfig(stack, 0).getReceivers(stack)[0].getMagazine(stack);
-        magazine.setType(stack, XFactory9mm.p9_fmj);
-        magazine.setAmount(stack, 30);
+        com.hbm.items.weapon.sedna.mags.IMagazine magazine = gun.getConfig(stack, 0).getReceivers(stack)[0].getMagazine(stack);
+        if (item == ModItems.GUN_UZI.get()) {
+            magazine.setType(stack, XFactory9mm.p9_fmj);
+            magazine.setAmount(stack, 30);
+        } else if (magazine instanceof com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase m) {
+            magazine.setType(stack, m.acceptedBullets.get(item == ModItems.GUN_CHARGE_THROWER.get() ? 1 : 0));
+            magazine.setAmount(stack, m.capacity);
+        } else if (magazine instanceof com.hbm.items.weapon.sedna.mags.MagazineLiquidEngine m) {
+            magazine.setType(stack, m.accepted()[0]);
+            magazine.setAmount(stack, m.getCapacity(stack));
+        }
         ItemGunBaseNT.setIsDrawn(stack, true);
         ItemGunBaseNT.setIsEquipped(stack, true);
         ItemGunBaseNT.setState(stack, 0, ItemGunBaseNT.GunState.IDLE);
@@ -248,8 +269,13 @@ final class ProneFireStand {
         Minecraft mc = Minecraft.getInstance();
         var server = mc.getSingleplayerServer();
         try {
-            long shot = uzi().lastShot[0];
-            if (shot != lastShotSeen) {
+            // NTM's CYCLE reached the client: the held gun's last shot moved (another gun in hand: only noted)
+            var held = mc.player.getMainHandItem().getItem();
+            long shot = held instanceof ItemGunBaseNT g ? g.lastShot[0] : lastShotSeen;
+            if (held != lastHeld) {
+                lastHeld = held;
+                lastShotSeen = shot;
+            } else if (shot != lastShotSeen) {
                 cycles++;
                 lastShotSeen = shot;
             }
@@ -407,7 +433,25 @@ final class ProneFireStand {
                 case 23 -> {
                     mc.options.keyUp.setDown(false);
                     keys(uziKey(), null);
-                    wait(30, 24);
+                    tool = 0;
+                    wait(30, 230);
+                }
+                // ---- the drill and the charge thrower (tools: their own key false in the mod) work crawling, the
+                // flamer does not
+                case 230 -> {
+                    var item = tools()[tool];
+                    server.submit(() -> player(server).setItemInHand(InteractionHand.MAIN_HAND, loaded(item))).join();
+                    wait(10, 231);
+                }
+                case 231 -> {
+                    mc.options.keyUp.setDown(true);
+                    wait(8, 232);
+                }
+                case 232 -> click("ползком, " + BuiltInRegistries.ITEM.getKey(tools()[tool]), 233);
+                case 233 -> {
+                    mc.options.keyUp.setDown(false);
+                    tool++;
+                    wait(15, tool < tools().length ? 230 : 24);
                 }
                 case 24 -> { // up, and the mannequin: a bot's shots through NTM's handleKeybind
                     KeyMapping.click(CrawlKey.CRAWL_KEY.getKey());
@@ -454,7 +498,12 @@ final class ProneFireStand {
                     boolean lying = mc.player.getPose() == Pose.SWIMMING;
                     GunFeel.LOGGER.info("[pronefire] {}: пуль {}, патронов ушло {}, выстрелов на клиенте {}, состояние {}, поза {}, сервер видит {} блока/с",
                             name, db, spent, dc, state, mc.player.getPose(), f(knownSpeed()));
-                    if (name.equals("ползком")) {
+                    if (name.startsWith("ползком, hbm:")) {
+                        boolean works = !name.endsWith("gun_flamer");
+                        if (works) check(lying && dc > 0, name + " работает (инструмент): выстрелов на клиенте " + dc + ", патронов " + spent + ", " + state);
+                        else check(lying && db == 0 && spent == 0 && dc == 0 && state.startsWith("IDLE"),
+                                name + " не стреляет: пуль " + db + ", патронов " + spent + ", выстрелов на клиенте " + dc + ", " + state);
+                    } else if (name.equals("ползком")) {
                         check(lying && db == 0 && spent == 0 && dc == 0 && state.startsWith("IDLE"),
                                 "клик ползком не стреляет: пуль " + db + ", патронов " + spent + ", выстрелов на клиенте " + dc + ", " + state);
                     } else {

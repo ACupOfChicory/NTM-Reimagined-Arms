@@ -12,6 +12,8 @@
   charge let go while crawling fizzles. A gun can have its own:
   `hbm\:gun_xxx.proneCrawlNoFire = false`. Off: guns fire while crawling, as
   before.
+- The drill and the charge thrower work while crawling: they are tools, and
+  the mod gives them `proneCrawlNoFire = false` of their own.
 
 ## X600
 

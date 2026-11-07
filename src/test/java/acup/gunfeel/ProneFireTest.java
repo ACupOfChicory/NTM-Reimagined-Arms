@@ -11,7 +11,8 @@ import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
 class ProneFireTest {
-    // the mod ships the rule on for every gun, at 0.25 blocks a second: a server turns it off with proneCrawlNoFire = false
+    // the mod ships the rule on for every gun but the drill and the charge thrower (tools), at 0.25 blocks a second: a
+    // server turns it off with proneCrawlNoFire = false
     @Test
     void onByDefault() throws Exception {
         Properties p = new Properties();
@@ -20,8 +21,9 @@ class ProneFireTest {
         }
         assertEquals("true", p.getProperty(ProneFire.KEY));
         assertEquals(ProneFire.DEFAULT_SPEED, Float.parseFloat(p.getProperty(ProneFire.SPEED)));
-        for (String key : p.stringPropertyNames())
-            if (key.endsWith("." + ProneFire.KEY)) throw new AssertionError("a gun has its own switch in the mod: " + key);
+        java.util.Set<String> own = new java.util.TreeSet<>();
+        for (String key : p.stringPropertyNames()) if (key.endsWith("." + ProneFire.KEY)) own.add(key + " = " + p.getProperty(key));
+        assertEquals("[hbm:gun_charge_thrower.proneCrawlNoFire = false, hbm:gun_drill.proneCrawlNoFire = false]", own.toString());
     }
 
     // crawling along (about 1.3 blocks a second, 0.065 a tick) is over the line in any direction; lying still, or the
