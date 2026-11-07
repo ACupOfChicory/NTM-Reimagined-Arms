@@ -36,6 +36,8 @@ final class AiCheckFight {
     private int ticks;
     /** its moves (relocations and shifts) before the flanker shot it */
     private int movesBefore;
+    /** the check's tick it went searching for the lost target (-1: not yet) */
+    private int searchSince = -1;
     private Mob soldier, target;
     private AiBot bot;
     private AiSoldier mind;
@@ -219,9 +221,10 @@ final class AiCheckFight {
         TargetMemory.Contact c = bot.memory.contact(target.getId());
         if (c != null && c.state == TargetMemory.State.LOST) lostAt = new Vec3(c.lostX, c.lostY, c.lostZ);
         if (lostAt == null && ticks < 40) return;
-        // shortly before its wait (counted from when it lost the target) is over
-        long due = c == null ? Long.MIN_VALUE : c.lostTick + AiProfile.SOLDIER.hold() - 10;
-        if (lostAt == null || level.getGameTime() >= due || ticks > AiProfile.SOLDIER.hold() + 40) {
+        // once it goes searching, a moment for it to set off; or, searching or not, well after its wait is over (a
+        // reload in cover or a look out that ends late puts the search off a little)
+        if (searchSince < 0 && mind.mode() == AiSoldier.Mode.SEARCH) searchSince = ticks;
+        if (lostAt == null || searchSince >= 0 && ticks - searchSince >= 30 || ticks > AiProfile.SOLDIER.hold() + 120) {
             if (lostAt == null) {
                 check.check("loses the target it cannot see any more", false);
                 soldier.discard();

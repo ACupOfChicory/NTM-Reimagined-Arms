@@ -28,6 +28,17 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 public final class AiCheck {
     public static final String PROPERTY = "ntmgunfeel.checkAi";
     static final String STAGE_PROPERTY = "ntmgunfeel.checkAiStage";
+
+    /**
+     * Takes every shot still in the level away between stages: a bullet that flew past a stage's field stops in chunks
+     * that do not tick, and comes alive when a later stage loads them, landing by its field with a sound its AI mobs
+     * hear (the unseen stage's dummies turned to such a sound and never saw the player).
+     */
+    static void clearShots(ServerLevel level) {
+        List<net.minecraft.world.entity.Entity> shots = new ArrayList<>();
+        for (var e : level.getAllEntities()) if (e instanceof net.minecraft.world.entity.projectile.Projectile) shots.add(e);
+        for (var e : shots) e.discard();
+    }
     private static final int Y = 100, X0 = 8, Z0 = 8, SIZE = 32;
 
     private AiCheck() {
@@ -98,11 +109,18 @@ public final class AiCheck {
             // (a,b,c: those stages, in the check's own order)
             List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
             int[] at = {0};
+            // and one from chunks a later stage loads, saved there with its shooter long gone: kept out
+            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class, joined -> {
+                if (joined.loadedFromDisk() && joined.getEntity() instanceof net.minecraft.world.entity.projectile.Projectile shot && shot.getOwner() == null) joined.setCanceled(true);
+            });
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class, t -> {
                 boolean done;
                 try {
                     while (at[0] < stages.size() && !only.isEmpty() && !only.contains(names.get(at[0]))) at[0]++;
-                    if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) at[0]++;
+                    if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) {
+                        at[0]++;
+                        clearShots(check.level);
+                    }
                     done = at[0] >= stages.size();
                 } catch (Throwable x) {
                     crashed(out, x);
