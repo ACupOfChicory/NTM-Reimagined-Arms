@@ -89,13 +89,16 @@ public final class SettingsCheck {
 
         // ---- the server: its files, a shape its own client made (a LAN host), the payload
         Files.writeString(rules, SERVER_RULES);
-        Files.writeString(server, "bulletSpeed = 2.5\ncameraScaleMin = 0.4\n");
+        // an old reaim key (once set with /gunaim): the time is the mod's now, not read from the file
+        Files.writeString(server, "bulletSpeed = 2.5\ncameraScaleMin = 0.4\nhbm\\:gun_double_barrel.reaimInspect = 2.0\nhbm\\:gun_maresleg.reaimReload = 1.5\n");
         long[] cells = new long[65];
         for (int i = 0; i < 64; i += 3) cells[i] = 0x0F0F0F0F0F0F0F0FL;
         PassableClip.putShapes(Map.of("minecraft:oak_planks", cells));
         Thread.sleep(1100); // the files are looked at once a second
         check("server: its own path rule", "through", BulletRules.path(fence));
         check("server: its own bulletSpeed", 2.5F, ReaimTimes.number("bulletSpeed", 1.6F));
+        check("server: a reaim time is the mod's, not the file's", 0.6F, ReaimTimes.seconds("hbm:gun_double_barrel", "inspect"));
+        check("server: the reload reaim time is the mod's", 0.3F, ReaimTimes.seconds("hbm:gun_maresleg", "reload"));
 
         ServerSettingsPayload sent = ServerSettingsPayload.current();
         ByteBuf buf = Unpooled.buffer();
@@ -127,7 +130,8 @@ public final class SettingsCheck {
         check("remote: a fence's cells still the jar's", true, PassableClip.byKey(PassableClip.familyKey("fence", Map.of())) != null);
         check("remote: bulletSpeed is the server's", 2.5F, ReaimTimes.number("bulletSpeed", 1.6F));
         check("remote: cameraScaleMin is the server's", 0.4F, ReaimTimes.number("cameraScaleMin", 0F));
-        check("remote: a reaim time from the jar", 0.6F, ReaimTimes.seconds("hbm:gun_double_barrel", "inspect"));
+        check("remote: a reaim time is the mod's, not the server's", 0.6F, ReaimTimes.seconds("hbm:gun_double_barrel", "inspect"));
+        check("remote: the reload reaim time is the mod's", 0.3F, ReaimTimes.seconds("hbm:gun_maresleg", "reload"));
         // a shape this client makes meanwhile waits: the server goes by its own
         PassableClip.putShapes(Map.of("minecraft:dirt", cells));
         check("remote: a shape made now is not used", null, packed(PassableClip.shape(dirt)));

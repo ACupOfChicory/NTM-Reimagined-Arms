@@ -1,5 +1,15 @@
 # Changelog
 
+## X594
+
+- `/gunaim` is gone. With the aim key held, the aim comes back 0.3 seconds
+  before a reload or an inspect ends (0.6 before the inspect of An Old Classic
+  and the Sacred Dragon), as it did by default; these times are fixed in the
+  mod now.
+- ⚠ Breaks compatibility: the `<gun>.reaimReload` and `<gun>.reaimInspect` keys
+  in `ntm-gunfeel-server.properties`, which `/gunaim` wrote, are no longer
+  read.
+
 ## X592
 
 - `beamWater` (server, on; with `beamRules`): beams lose damage in water and

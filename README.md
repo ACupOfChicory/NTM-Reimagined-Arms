@@ -226,9 +226,6 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 - `/gunfeel quality <preset>`: impact-effect quality.
 - `/gunfeel hitvolume <0..4>`: loudness of hit sounds.
 - `/gunfeel clearholes`: remove the bullet holes on your screen.
-- `/gunaim [reload|inspect <seconds>]`: how many seconds before the end of a
-  reload or an inspect the held aim comes back, for the gun in hand (0 to 5,
-  0.3 by default). It is a server setting, shared by all players.
 - `/gunfeel settings`: the settings of the gun in hand.
 - `/gunsmoke` (operators): let out smoke clouds, clear them, show how many
   there are.
