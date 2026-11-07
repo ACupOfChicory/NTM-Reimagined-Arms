@@ -32,6 +32,8 @@ public final class AiGunner {
     public final AiAmmo ammo;
     private @Nullable Vec3 aim;
     private boolean wantFire, wantReload, held, reloadHeld;
+    /** it runs this tick (AiMover.runs): its body faces its path, it does not shoot */
+    boolean runs;
     /** the eye and the hand; whether it follows a target (and which) or looks at a place */
     final AiAim sight = new AiAim();
     private boolean tracking;
@@ -189,7 +191,7 @@ public final class AiGunner {
             reloadHeld = false;
         }
         if (state == ItemGunBaseNT.GunState.RELOADING) wantReload = false;
-        boolean shoot = wantFire && aim != null && aligned && loaded != 0;
+        boolean shoot = wantFire && aim != null && aligned && loaded != 0 && !runs;
         if (shoot && checkLine && AiBots.friendInLine(level, mob, mob.getEyePosition(), aim, CLEAR_CONE)) {
             // one of its own between it and the target: it holds fire
             shoot = false;
@@ -269,9 +271,14 @@ public final class AiGunner {
     // place along the view and the hand's error and the kick stay
     private void face(float y, float p, AiSkill skill) {
         mob.setYHeadRot(y);
-        mob.setYRot(y);
-        mob.yBodyRot = y;
         mob.setXRot(p);
+        // NTM fires a mob's bullet the way its body faces: the body faces the aim, but while running (the body
+        // follows the path then, the head turns within its neck)
+        if (!runs) {
+            mob.setYRot(y);
+            mob.yBodyRot = y;
+            if (mob.getMoveControl() instanceof AiMoveControl legs) legs.face(y);
+        }
         Vec3 eye = mob.getEyePosition();
         double far = aim == null ? 16 : Math.max(1, eye.distanceTo(aim));
         Vec3 look = eye.add(Vec3.directionFromRotation(p, y).scale(far));

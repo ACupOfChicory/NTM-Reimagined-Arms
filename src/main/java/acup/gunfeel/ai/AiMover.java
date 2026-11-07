@@ -110,19 +110,27 @@ public final class AiMover {
     }
 
     /**
-     * At the goal: within its radius across (a quarter block at least) and a block up or down. Vanilla's walk ends up to
+     * At the goal: within its radius across (a tenth of a block at least) and a block up or down. Vanilla's walk ends up to
      * 0.45 off a cell's middle, so the last steps go straight there ({@link #tick}): a peek a block aside from cover is
      * out of it only at the middle. Kept from the middle that long ({@link #SETTLE}), in the cell counts.
      */
     public boolean arrived() {
         if (goal == Long.MIN_VALUE || Math.abs(mob.getY() - BlockPos.getY(goal)) > 1.2) return false;
         double dx = mob.getX() - (BlockPos.getX(goal) + 0.5), dz = mob.getZ() - (BlockPos.getZ(goal) + 0.5);
-        double r = Math.max(radius, 0.25);
+        double r = Math.max(radius, 0.1);
         return dx * dx + dz * dz <= r * r || settled && inGoalCell();
     }
 
     private boolean inGoalCell() {
         return mob.getBlockX() == BlockPos.getX(goal) && mob.getBlockZ() == BlockPos.getZ(goal) && Math.abs(mob.getY() - BlockPos.getY(goal)) <= 1.2;
+    }
+
+    /**
+     * It runs to its goal now, faster than a walk: it faces where it goes (a player sprints only ahead), its head
+     * turning within its neck, and holds fire. Walking it may face anywhere ({@link AiMoveControl}).
+     */
+    public boolean runs() {
+        return goal != Long.MIN_VALUE && speed * slow > AiSoldier.WALK + 1e-6 && !arrived() && !failed();
     }
 
     /** the goal could not be reached after a few tries */

@@ -326,6 +326,8 @@ neoForge {
             programArgument("--nogui")
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkAi", layout.buildDirectory.file("aicheck/result.txt").get().asFile.path)
+            // -PaiStage=<name>: that stage of the check alone (AiCheck)
+            providers.gradleProperty("aiStage").orNull?.let { systemProperty("ntmgunfeel.checkAiStage", it) }
         }
         // -Ptrace=<file> (relative to the run's folder) or -Ptrace=true: the run writes a trace (Trace.java) to compare
         // with tools/trace_diff.py; -PtraceScenario=<name>, -PtraceHex, -Pseed=<n> go with it

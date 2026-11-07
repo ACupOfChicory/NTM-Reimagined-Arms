@@ -1,5 +1,23 @@
 # Changelog
 
+## X605
+
+- Mob AI: an AI mob walks as you do. Walking, it keeps its gun on whom it
+  fights and steps sideways or back; running, it faces where it runs and
+  holds fire. Before, it faced you while its way to cover led away from
+  you, and stood turning on the spot without a shot (seen with AI mobs that
+  had heard a player in creative, once the player came out of it). Its
+  shots go where it aims while it walks (they went the way it walked).
+- Mob AI: an AI mob that took cover from a shot it only heard looks out of
+  it the way the shot came from every few seconds; from what it only heard
+  it takes no cover it cannot look out of. One whose way to its cover is
+  blocked finds other cover, whatever it was doing; one in high cover with
+  no place beside it to step out to fights from it when it sees you.
+- Mob AI: `/armsai debug` shows over each AI mob what it does, whom it
+  knows of and how (sees, is noticing, remembers, hears), and what it
+  decided and why. While anyone watches, or after `/armsai log on`, every
+  AI mob's decisions go to `logs/ntm-gunfeel-debug.log`.
+
 ## X603
 
 - Mob AI: AI mobs no longer hear a player in creative or spectator mode

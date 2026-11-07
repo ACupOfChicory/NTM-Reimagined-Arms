@@ -212,6 +212,7 @@ public final class AiBots {
         bot.prone.tick(level, bot.mover, tick);
         bot.mover.tick(level, map, tick);
         int reserve = bot.gunner.ammo.reserve();
+        bot.gunner.runs = bot.mover.runs();
         bot.gunner.tick(level);
         if (bot.gunner.ammo.reserve() != reserve) AiAdapter.keep(bot);
     }
