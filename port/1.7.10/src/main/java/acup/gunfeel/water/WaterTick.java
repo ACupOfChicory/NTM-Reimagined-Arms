@@ -248,6 +248,8 @@ public final class WaterTick {
                     "class", e.cls(), "depth", e.depth(), "under", e.under(), "path", r.water);
         WaterEvents.fire(level, r.events);
         WaterEvents.tick(level, bullet, r);
+        // port: an old bullet's tick to the players near, for its splash and trail (it has no tracer)
+        if (server && bullet instanceof EntityBulletBaseNT) OldWaterPayload.send(bullet, w.gunfeel$waterFuze().any(), r);
         if (blocked || bullet.isDead) return;
         if (r.stop != null) {
             bullet.setPosition(r.stop.x, r.stop.y, r.stop.z);

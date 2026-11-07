@@ -13,6 +13,7 @@ import java.util.TreeMap;
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.items.weapon.sedna.BulletConfig;
 
+import acup.gunfeel.water.OldWaterPayload;
 import acup.gunfeel.water.WaterClass;
 import acup.gunfeel.water.WaterEvents;
 import acup.gunfeel.water.WaterFx;
@@ -239,6 +240,7 @@ final class WaterFxScenario {
         // ShootScenario.onServer holds one task: the next one two ticks after the last
         if (t > FLOOR + 2 && floorStep < 3) floorGone(t);
         if (x566Step > 0 && x566Step < 99) x566(mc, t);
+        if (oldStep > 0 && oldStep < 99) old(t);
         if (t == liveCheck) {
             lines.add("surface audit: under the surface by more than 0.15: " + WaterFx.below + ", over air: " + WaterFx.overAir + ", deepest "
                     + String.format(Locale.ROOT, "%.3f", WaterFx.worstBelow));
@@ -449,7 +451,61 @@ final class WaterFxScenario {
     private static void x566Done(int t) {
         x566Step = 99;
         WaterTick.sentCount = null;
-        liveCheck = t + LIVE_AFTER;
+        // the old rounds next, the end's checks after them
+        oldStep = 1;
+        oldTick = t + 2;
+    }
+
+    // ---- port: NTM 1.7.10's old rounds (EntityBulletBaseNT) in water, the channel filled anew: the masked man's tracer
+    // (no fuze) from the air at 30° gives the splash, the stop and the trail of bubbles from the server's ticks
+    // (OldWaterPayload); the masked man's bolt (an impact fuze) no splash, its blast's column (WaterBlastPayload) ----
+    private static int oldStep, oldTick, oldDrained0, oldTrail0;
+
+    private static void old(int t) {
+        if (t == oldTick) {
+            ShootScenario.onServer(() -> basin(player().worldObj, chX(), chZ(), 14, 3, y - 9, 8, 8));
+            // all particles (the rings' pictures left it at minimal): the trail's bubbles not scaled away
+            Minecraft.getMinecraft().gameSettings.particleSetting = 0;
+        }
+        if (t == oldTick + 5) oldShot(com.hbm.handler.BulletConfigSyncingUtil.MASKMAN_TRACER);
+        if (t == oldTick + 45) {
+            int drained = OldWaterPayload.drained - oldDrained0;
+            int trail = WaterFx.oldTrailMade - oldTrail0;
+            lines.add("old tracer into water from the air: server ticks " + drained + ", events " + events() + ", trail bubbles " + trail + ", particles " + kinds());
+            check(drained > 0 && evDelta(WaterEvents.Type.ENTER) >= 1 && evDelta(WaterEvents.Type.STOP) >= 1 && trail > 0,
+                    "an old round's splash, stop and trail come from the server (OldWaterPayload)");
+            oldShot(com.hbm.handler.BulletConfigSyncingUtil.MASKMAN_BOLT);
+        }
+        if (t == oldTick + 90) {
+            int drained = OldWaterPayload.drained - oldDrained0;
+            lines.add("old bolt (impact fuze) into water from the air: server ticks " + drained + ", events " + events() + ", columns "
+                    + (WaterFx.plumes - plumes0) + ", blasts under water " + (WaterFx.blasts - blasts0) + ", particles " + kinds());
+            check(drained > 0 && evDelta(WaterEvents.Type.ENTER) == 0 && WaterFx.plumes - plumes0 + WaterFx.blasts - blasts0 > 0,
+                    "an old round with an impact fuze: no splash where it comes in, its blast's column");
+            oldStep = 99;
+            liveCheck = t + LIVE_AFTER;
+        }
+    }
+
+    // from 3 blocks off over the channel, east and down at 30°, onto its surface 5 blocks in
+    private static void oldShot(int id) {
+        mark();
+        blastMark();
+        oldDrained0 = OldWaterPayload.drained;
+        oldTrail0 = WaterFx.oldTrailMade;
+        double a = Math.toRadians(30), dx = Math.cos(a), dy = -Math.sin(a);
+        double tx = chX() + 5.5, ty = y - 1 + 8 / 9.0, tz = chZ() + 1.5;
+        ShootScenario.onServer(() -> {
+            World w = player().worldObj;
+            com.hbm.entity.projectile.EntityBulletBaseNT b = new com.hbm.entity.projectile.EntityBulletBaseNT(w, id);
+            b.setPosition(tx - dx * 3, ty - dy * 3, tz);
+            b.setThrowableHeading(dx, dy, 0, 1F, 0F);
+            w.spawnEntityInWorld(b);
+        });
+    }
+
+    private static int evDelta(WaterEvents.Type type) {
+        return WaterFx.SPAWNED_EVENTS[type.ordinal()] - eventsBefore[type.ordinal()];
     }
 
     // a round as NTM's gun shoots it: a motion of length 1, the speed NTM's motionMult

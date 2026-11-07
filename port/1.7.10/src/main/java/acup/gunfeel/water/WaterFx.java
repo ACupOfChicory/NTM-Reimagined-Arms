@@ -213,6 +213,21 @@ public final class WaterFx {
         trail(level, r);
     }
 
+    // ---- port: from the server, an old NTM bullet's tick in water (OldWaterPayload): as a tracer's, with no config
+    // of 26.2's kind (the class comes with the event) ----
+    public static void oldEvent(World level, WaterEvents.Event e) {
+        handle(level, e);
+    }
+
+    // the stand's (WaterFxScenario): bubbles the old rounds' trails were given
+    public static int oldTrailMade;
+
+    public static void oldTrail(World level, java.util.List<Vec3[]> wet) {
+        if (!on() || !level.isRemote || wet.isEmpty()) return;
+        WaterEvents.ntmBubbles = false;
+        oldTrailMade += trail(level, wet);
+    }
+
     // ---- the events ----
     // port: the bullet's own events never reach the client (its bullet does not tick there); kept as 26.2's
     private static void on(World level, WaterEvents.Event e) {
@@ -362,8 +377,12 @@ public final class WaterFx {
     }
 
     private static void trail(World level, WaterPath.Result r) {
+        trail(level, r.wet());
+    }
+
+    private static int trail(World level, java.util.List<Vec3[]> wet) {
         int made = 0;
-        for (Vec3[] span : r.wet()) {
+        for (Vec3[] span : wet) {
             Vec3 a = span[0], b = span[1];
             double len = a.distanceTo(b);
             int n = Math.min(40 - made, scaled((int) Math.floor(len / 0.12)));
@@ -376,6 +395,7 @@ public final class WaterFx {
             made += n;
             if (made >= 40) break;
         }
+        return made;
     }
 
     // ---- the splash on a surface (still, sloped, shallow), the sandbox's splashSurface ----
@@ -547,6 +567,7 @@ public final class WaterFx {
         if (mc.theWorld == null || mc.isGamePaused()) return;
         long now = ++ticks;
         WaterEvents.drainBlasts(mc.theWorld);
+        OldWaterPayload.drain(mc.theWorld);
         drainJoined(mc.theWorld, now);
         WaterParticle.sweep(now);
         int n = LATER.size();
@@ -562,6 +583,7 @@ public final class WaterFx {
         LATER.clear();
         JOINED.clear();
         WaterEvents.forgetBlasts();
+        OldWaterPayload.forget();
         WaterRings.clear();
         SunkBullets.clear();
         WaterParticle.forget();
