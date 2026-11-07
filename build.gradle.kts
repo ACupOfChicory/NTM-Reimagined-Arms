@@ -475,8 +475,10 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
         dir.resolve("config/fml.toml").writeText("earlyWindowControl = false\n")
         root.resolve("libs/mods/crankshaft-neoforge-1.6.0+mc26.2.jar")
             .copyTo(dir.resolve("mods/crankshaft.jar"), overwrite = true)
+        // -PflywheelOff: CrankShaft's backend off. With it on, CrankShaft lays glass and water over the frame itself under
+        // improved transparency, and the game's transparency chain is not used (LevelRendererTransparencyMixin)
         dir.resolve("config/crankshaft-client.toml").writeText(
-            "backend = \"${if(providers.gradleProperty("mobCpuGeometry").isPresent) "flywheel:off" else "DEFAULT"}\"\n")
+            "backend = \"${if(providers.gradleProperty("mobCpuGeometry").isPresent || providers.gradleProperty("flywheelOff").isPresent) "flywheel:off" else "DEFAULT"}\"\n")
         dir.resolve("options.txt").writeText("pauseOnLostFocus:false\nenableVsync:false\nguiScale:2\nrenderDistance:${if(stand) 10 else if(review || bench || smoke) 8 else 3}\nsimulationDistance:5\ninactivityFpsLimit:minimized\nmaxFps:${providers.gradleProperty("standMaxFps").orNull ?: if(stand && providers.gradleProperty("glassStandCheck").isPresent) 260 else 60}\n${if(stand || smoke) "tutorialStep:none\n" else ""}")
         if(holes && providers.gradleProperty("holeBenchLoaded").isPresent) {
             val original=file(providers.gradleProperty("holeBenchInstance").get()).canonicalFile

@@ -52,6 +52,9 @@ class SmokeShaderLinkTest {
         String composite = resource("core/smoke_composite.fsh");
         for (String name : new String[]{"FramePost", "FrameOpaque", "SmokeFront", "SmokeFull", "Depth0", "Depth1"})
             org.junit.jupiter.api.Assertions.assertTrue(composite.contains("uniform sampler2D " + name + ";"), name);
+        // the two passes for the transparency chain (SmokeRender.COMPOSITE_CHAIN_MAIN / _GLASS)
+        org.junit.jupiter.api.Assertions.assertTrue(composite.contains("#if defined(CHAIN_MAIN)"));
+        org.junit.jupiter.api.Assertions.assertTrue(composite.contains("#elif defined(CHAIN_GLASS)"));
         String march = resource("core/smoke_march.fsh");
         for (String name : new String[]{"SmokeAtlas", "SceneDepth", "OpaqueDepth"})
             org.junit.jupiter.api.Assertions.assertTrue(march.contains("uniform sampler2D " + name + ";"), name);

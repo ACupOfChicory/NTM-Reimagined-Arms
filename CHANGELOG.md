@@ -1,5 +1,16 @@
 # Changelog
 
+## X608
+
+- Volumetric smoke seen from outside no longer lies over glass and water.
+  Smoke behind a pane of glass (plain or stained) or behind water was laid
+  over it, as if it were in front. Now smoke behind glass or water shows
+  through it, dimmed and tinted by it, and smoke in front of a pane covers
+  it, to its very edge. With improved transparency, when CrankShaft is not
+  installed or its backend is off, the game laid the pane over all the
+  smoke, the smoke in front of it too; there, too, each now lies where it
+  is.
+
 ## X605
 
 - `proneCrawlNoFire` (server, on): no shot while crawling. A shooter lying

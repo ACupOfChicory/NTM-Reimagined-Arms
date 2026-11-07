@@ -48,7 +48,9 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  * <li>that target is blended over the frame. Where glass or water is in front of the world, the frame is taken apart
  * first: its alpha was cleared before they were drawn (so it ends as their cover), the smoke is marched once to the world
  * and once to the nearest of them, and the smoke behind the glass goes under it (dimmed and tinted by it), the smoke in
- * front of the glass over it ({@code smoke_composite.fsh}).</li>
+ * front of the glass over it ({@code smoke_composite.fsh}). With the transparency chain (improved transparency) glass
+ * and water are drawn into a target of their own, laid over the main one after this: there the smoke behind them goes
+ * into the main target and the smoke in front of them into theirs, so the chain lays each where it is.</li>
  * </ol>
  * The hand and the gun are drawn after the level and stay in front of the smoke. 26.2 draws with the depth reversed
  * (near 1, far and the sky 0) and either depth range: the shader finds where along its ray the copied depth lies by
@@ -125,6 +127,37 @@ public final class SmokeRender {
             .withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, ColorTargetState.WRITE_ALL))
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .build();
+    // with the transparency chain (improved transparency) glass and water are in a target of their own: the smoke behind
+    // them goes into the main target, the smoke in front of them into theirs (smoke_composite.fsh, CHAIN_MAIN/CHAIN_GLASS)
+    static final BindGroupLayout CHAIN_MAIN_LAYOUT = BindGroupLayout.builder()
+            .withSampler("FrameOpaque")
+            .withSampler("SmokeFront")
+            .withSampler("SmokeFull")
+            .withSampler("Depth0")
+            .withSampler("Depth1")
+            .build();
+    static final BindGroupLayout CHAIN_GLASS_LAYOUT = BindGroupLayout.builder()
+            .withSampler("FramePost")
+            .withSampler("SmokeFront")
+            .withSampler("SmokeFull")
+            .withSampler("Depth0")
+            .withSampler("Depth1")
+            .build();
+    public static final RenderPipeline COMPOSITE_CHAIN_MAIN = chainPipeline("smoke_composite_chain_main", "CHAIN_MAIN", CHAIN_MAIN_LAYOUT);
+    public static final RenderPipeline COMPOSITE_CHAIN_GLASS = chainPipeline("smoke_composite_chain_glass", "CHAIN_GLASS", CHAIN_GLASS_LAYOUT);
+
+    private static RenderPipeline chainPipeline(String name, String define, BindGroupLayout layout) {
+        return RenderPipeline.builder()
+                .withLocation(id("pipeline/" + name))
+                .withVertexShader("core/screenquad")
+                .withFragmentShader(id("core/smoke_composite"))
+                .withShaderDefine(define)
+                .withBindGroupLayout(layout)
+                .withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, ColorTargetState.WRITE_ALL))
+                .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
+                .build();
+    }
+
     public static final RenderPipeline COMPOSITE = RenderPipeline.builder()
             .withLocation(id("pipeline/smoke_composite"))
             .withVertexShader("core/screenquad")
@@ -205,6 +238,8 @@ public final class SmokeRender {
             e.registerPipeline(ALPHA_ZERO);
             e.registerPipeline(ALPHA_ONE);
             e.registerPipeline(COMPOSITE_GLASS);
+            e.registerPipeline(COMPOSITE_CHAIN_MAIN);
+            e.registerPipeline(COMPOSITE_CHAIN_GLASS);
             e.registerPipeline(COMPOSITE);
         });
     }
@@ -289,10 +324,17 @@ public final class SmokeRender {
                 c.baseX() + b[3] + 2, c.baseY() + b[4] + 2, c.baseZ() + b[5] + 2));
     }
 
-    // Whether glass and water are told from the rest: not with the transparency chain (improved transparency), where the
-    // game keeps them in a target of their own and lays them over the frame after the smoke
-    private static boolean glassAware() {
-        return Minecraft.getInstance().levelRenderer.translucentTarget() == null;
+    // the transparency chain's target for glass and water (improved transparency), or null without the chain
+    private static RenderTarget chainTarget() {
+        return Minecraft.getInstance().levelRenderer.translucentTarget();
+    }
+
+    // how glass was told from the rest in the last frame that marched: "none" (nothing marched), "alpha" (the frame's
+    // alpha) or "chain" (the transparency chain's target); for the stand
+    private static String glassMode = "none";
+
+    public static String glassMode() {
+        return glassMode;
     }
 
     private static void alphaPass(RenderTarget main, RenderPipeline pipeline) {
@@ -332,7 +374,7 @@ public final class SmokeRender {
             }
             RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(src, depth, 0, 0, 0, 0, 0, depthW, depthH);
             copied = true;
-            if (glassAware()) {
+            if (chainTarget() == null) {
                 // the frame before glass and water, and its alpha at 0: what they draw then leaves their cover in it
                 GpuTexture color = main.getColorTexture();
                 OPAQUE_COLOR.ensure(color.getFormat(), main.width, main.height);
@@ -353,7 +395,7 @@ public final class SmokeRender {
      * does not write, so smoke laid down before them would have them drawn over it wherever the sky is behind it, and
      * show them through its edges. After them the smoke covers them as it covers the sky. The price: rain in front of
      * a cloud is covered by it too (with the transparency chain, "fabulous", the sky's clouds and the rain are laid over
-     * the frame after this and still lie over the smoke).
+     * the frame after this and still lie over the smoke; glass and water are told from the rest, see the class).
      */
     public static void afterWeather(RenderLevelStageEvent.AfterWeather e) {
         try {
@@ -373,6 +415,7 @@ public final class SmokeRender {
 
     private static void marchAndLay(RenderLevelStageEvent.AfterWeather e) {
         drawnLast = 0;
+        glassMode = "none";
         if (!copied || !wanted()) return;
         copied = false;
         List<SmokeAtlas.Slot> slots = VISIBLE;
@@ -390,15 +433,24 @@ public final class SmokeRender {
                         GpuFormat.RGBA8_UNORM, w, h, 1, 1);
                 targetView = RenderSystem.getDevice().createTextureView(target);
             }
-            // glass or water may be in the frame: the depth and the frame as they are now, and a target for the smoke in front
-            boolean glass = alphaCleared;
+            // glass or water may be in the frame: the depth and the frame as they are now, and a target for the smoke in front.
+            // Without the chain they are in the main target (its alpha their cover); with it in the chain's own target,
+            // over the opaque world in the main one
+            RenderTarget chain = alphaCleared ? null : chainTarget();
+            boolean glass = alphaCleared || chain != null;
             if (glass) {
+                RenderTarget with = chain != null ? chain : main;
                 POST_DEPTH.ensure(depthFormat, depthW, depthH);
-                RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(main.getDepthTexture(), POST_DEPTH.tex, 0, 0, 0, 0, 0, depthW, depthH);
-                POST_COLOR.ensure(main.getColorTexture().getFormat(), main.width, main.height);
-                RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(main.getColorTexture(), POST_COLOR.tex, 0, 0, 0, 0, 0, main.width, main.height);
+                RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(with.getDepthTexture(), POST_DEPTH.tex, 0, 0, 0, 0, 0, depthW, depthH);
+                POST_COLOR.ensure(with.getColorTexture().getFormat(), with.width, with.height);
+                RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(with.getColorTexture(), POST_COLOR.tex, 0, 0, 0, 0, 0, with.width, with.height);
+                if (chain != null) {
+                    OPAQUE_COLOR.ensure(main.getColorTexture().getFormat(), main.width, main.height);
+                    RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(main.getColorTexture(), OPAQUE_COLOR.tex, 0, 0, 0, 0, 0, main.width, main.height);
+                }
                 FRONT.ensure(GpuFormat.RGBA8_UNORM, w, h);
             }
+            glassMode = chain != null ? "chain" : glass ? "alpha" : "none";
             if (ubo == null) ubo = new MappableRingBuffer(() -> "Smoke info", GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_MAP_WRITE, UBO_SIZE);
             Vec3 cam = e.getLevelRenderState().cameraRenderState.pos;
             // far to near, each box over the ones behind it
@@ -458,16 +510,29 @@ public final class SmokeRender {
             }
             SmokeStats.add(SmokeStats.MARCH, System.nanoTime() - tm);
             long tc = System.nanoTime();
-            try (RenderPass pass = device.createCommandEncoder().createRenderPass(() -> "Smoke composite", main.getColorTextureView(), Optional.empty())) {
+            if (chain != null) {
+                // the main target: the world with the smoke behind the glass; the chain's: the smoke in front over the glass
+                try (RenderPass pass = device.createCommandEncoder().createRenderPass(() -> "Smoke composite behind glass", main.getColorTextureView(), Optional.empty())) {
+                    RenderSystem.bindDefaultUniforms(pass);
+                    pass.setPipeline(COMPOSITE_CHAIN_MAIN);
+                    pass.bindTexture("FrameOpaque", OPAQUE_COLOR.view, nearest);
+                    bindSmoke(pass, sampler, nearest);
+                    pass.draw(3, 1, 0, 0);
+                }
+                try (RenderPass pass = device.createCommandEncoder().createRenderPass(() -> "Smoke composite in front of glass", chain.getColorTextureView(), Optional.empty())) {
+                    RenderSystem.bindDefaultUniforms(pass);
+                    pass.setPipeline(COMPOSITE_CHAIN_GLASS);
+                    pass.bindTexture("FramePost", POST_COLOR.view, nearest);
+                    bindSmoke(pass, sampler, nearest);
+                    pass.draw(3, 1, 0, 0);
+                }
+            } else try (RenderPass pass = device.createCommandEncoder().createRenderPass(() -> "Smoke composite", main.getColorTextureView(), Optional.empty())) {
                 RenderSystem.bindDefaultUniforms(pass);
                 if (glass) {
                     pass.setPipeline(COMPOSITE_GLASS);
                     pass.bindTexture("FramePost", POST_COLOR.view, nearest);
                     pass.bindTexture("FrameOpaque", OPAQUE_COLOR.view, nearest);
-                    pass.bindTexture("SmokeFront", FRONT.view, sampler);
-                    pass.bindTexture("SmokeFull", targetView, sampler);
-                    pass.bindTexture("Depth0", depthView, nearest);
-                    pass.bindTexture("Depth1", POST_DEPTH.view, nearest);
+                    bindSmoke(pass, sampler, nearest);
                 } else {
                     pass.setPipeline(COMPOSITE);
                     pass.bindTexture("InSampler", targetView, sampler);
@@ -475,7 +540,7 @@ public final class SmokeRender {
                 pass.draw(3, 1, 0, 0);
             }
             // the glass composite wrote the alpha back as 1
-            if (glass) alphaCleared = false;
+            alphaCleared = false;
             SmokeStats.add(SmokeStats.COMPOSITE, System.nanoTime() - tc);
             if (pair >= 0) device.createCommandEncoder().writeTimestamp(timer, pair + 1);
             ubo.rotate();
@@ -485,6 +550,14 @@ public final class SmokeRender {
         } catch (RuntimeException ex) {
             fail("raymarch", ex);
         }
+    }
+
+    // the two marches and the depths the glass composites read
+    private static void bindSmoke(RenderPass pass, com.mojang.blaze3d.textures.GpuSampler linear, com.mojang.blaze3d.textures.GpuSampler nearest) {
+        pass.bindTexture("SmokeFront", FRONT.view, linear);
+        pass.bindTexture("SmokeFull", targetView, linear);
+        pass.bindTexture("Depth0", depthView, nearest);
+        pass.bindTexture("Depth1", POST_DEPTH.view, nearest);
     }
 
     // the card's own time on the march and the composite: two timestamps a frame in a ring of 8 frames, a pair read

@@ -346,16 +346,18 @@ final class SmokeCloudStand {
     // ---- glass scenes (-PsmokePoses=glass): smoke seen from outside with glass, water and opaque blocks in the view.
     // Camera (0.5, 101.6, 4.5) looking +z; 8 clouds at z 30.5. Per scene, in one life of the clouds, six shots:
     // R0 no smoke, no blocks; A0 smoke, no blocks (twice: A0b is the noise floor); A1 smoke with the blocks; R1 no smoke
-    // with the blocks. notes: <dir>/<scene>-<shot>.png and glass-frames.tsv (frame ms per shot).
+    // with the blocks. Scenes: a stained glass, b stained glass and an opaque wall, c an opaque wall behind stained glass,
+    // d stained glass behind the smoke, e stained glass and water, f plain glass. notes: <dir>/<scene>-<shot>.png and
+    // frames.tsv (frame ms per shot, and how the smoke told glass from the rest).
     private record Scene(String name, int kind) {
     }
 
-    private static final List<Scene> SCENES = List.of(new Scene("a", 0), new Scene("b", 1), new Scene("c", 2), new Scene("d", 3), new Scene("e", 4));
+    private static final List<Scene> SCENES = List.of(new Scene("a", 0), new Scene("b", 1), new Scene("c", 2), new Scene("d", 3), new Scene("e", 4), new Scene("f", 5));
     // shot: name, smoke quality ("off" draws nothing from outside), blocks on
     private static final Object[][] SHOTS = {{"R0", "off", false}, {"A0", "high", false}, {"A0b", "high", false}, {"A1", "high", true}, {"A1b", "high", true},
             {"R1", "off", true}};
     private static final Pose GLASS_POSE = new Pose("glass", 0.5, 101.6, 4.5, 0F, 0F, false);
-    private static int gScene, gShot, gStage, gFrames;
+    private static int gScene, gShot, gStage, gFrames, gWait;
     private static final List<Long> GTIMES = new ArrayList<>();
 
     private static void glassBlocks(int kind, boolean on) {
@@ -368,6 +370,7 @@ final class SmokeCloudStand {
             var red = on ? Blocks.CONCRETE.pick(net.minecraft.world.item.DyeColor.RED).defaultBlockState() : air;
             var blue = on ? Blocks.STAINED_GLASS.pick(net.minecraft.world.item.DyeColor.BLUE).defaultBlockState() : air;
             var water = on ? Blocks.WATER.defaultBlockState() : air;
+            var plain = on ? Blocks.GLASS.defaultBlockState() : air;
             var barrier = on ? Blocks.BARRIER.defaultBlockState() : air;
             switch (kind) {
                 case 0 -> fill(level, -14, 14, Y, Y + 7, 12, 12, glass);
@@ -380,6 +383,7 @@ final class SmokeCloudStand {
                     fill(level, -14, -1, Y, Y + 7, 16, 16, red);
                 }
                 case 3 -> fill(level, -50, 50, Y, Y + 10, 46, 46, glass);
+                case 5 -> fill(level, -14, 14, Y, Y + 7, 12, 12, plain);
                 default -> {
                     fill(level, -14, -1, Y, Y + 7, 12, 12, blue);
                     // a tank: barriers round it keep the water in
@@ -408,7 +412,8 @@ final class SmokeCloudStand {
             case 0 -> {
                 // a scene begins: no blocks, no clouds, wait for the old fog to go
                 teleport(GLASS_POSE);
-                GunFeel.LOGGER.info("[smokestand] scene {} improved transparency {}", sc.name, Minecraft.getInstance().options.improvedTransparency().get());
+                GunFeel.LOGGER.info("[smokestand] scene {} improved transparency {}, shader transparency {}", sc.name,
+                        Minecraft.getInstance().options.improvedTransparency().get(), Minecraft.getInstance().gameRenderer.gameRenderState().useShaderTransparency());
                 for (Scene o : SCENES) glassBlocks(o.kind, false);
                 clear();
                 Config.smokeMaxClouds = 16;
@@ -443,16 +448,24 @@ final class SmokeCloudStand {
                     Config.smokeQuality = (String) sh[1];
                     glassBlocks(sc.kind, (Boolean) sh[2]);
                     gFrames = 0;
+                    gWait = 0;
                     GTIMES.clear();
                 }
                 gFrames++;
+                // a shot with smoke waits (10 s at most) until a cloud's volume is really drawn: once the first shot
+                // of a scene found nothing marched yet
+                if (gFrames == 25 && !"off".equals(sh[1]) && !acup.gunfeel.smoke.client.SmokeRender.drawingVolume() && gWait++ < 2600) {
+                    gFrames = 24;
+                    return;
+                }
                 if (gFrames > 25 && gFrames <= 85) GTIMES.add(dt);
                 if (gFrames == 86) {
                     String name = sc.name + "-" + sh[0];
                     shootNamed(name);
                     List<Long> t = new ArrayList<>(GTIMES);
-                    ROWS.add(String.format(Locale.ROOT, "%s\t%s\t%d\t%.3f", sc.name, sh[0], SmokeClient.current() == null ? 0 : SmokeClient.current().clouds().size(),
-                            t.stream().mapToLong(Long::longValue).average().orElse(0) / 1e6));
+                    // the last column: how the smoke told glass from the rest (none, alpha, chain = the transparency chain)
+                    ROWS.add(String.format(Locale.ROOT, "%s\t%s\t%d\t%.3f\t%s", sc.name, sh[0], SmokeClient.current() == null ? 0 : SmokeClient.current().clouds().size(),
+                            t.stream().mapToLong(Long::longValue).average().orElse(0) / 1e6, acup.gunfeel.smoke.client.SmokeRender.glassMode()));
                 }
                 if (gFrames >= 96) {
                     if (++gShot >= SHOTS.length) {
