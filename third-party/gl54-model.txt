@@ -1,7 +1,7 @@
-TX-54 grenade launcher placeholder model
+GL-54 grenade launcher placeholder model
 ========================================
 
-The placeholder 3D model of the TX-54 grenade launcher is a modified derivative of:
+The placeholder 3D model of the GL-54 grenade launcher is a modified derivative of:
 
   Title:   Low-Poly XM-29 OICW
   Author:  TastyTony (https://sketchfab.com/TastyTony)
@@ -24,6 +24,6 @@ Changes:
 - Split into separate parts and added a firing animation (bolt carrier, charging
   handle, ejected case).
 
-The TX-54 name and shape follow the TerraGov Marine Corps (TGMC) Space Station 13
-server as a reference only. No TGMC artwork is included, and no claim is made to
+The GL-54 name and shape follow the TX-54 of the TerraGov Marine Corps (TGMC)
+Space Station 13 server as a reference only. No TGMC artwork is included, and no claim is made to
 TGMC designs or branding.
