@@ -96,13 +96,11 @@ final class WaterFxScenario {
             }
             if (t == from + POOL_TICKS - 2) pool(p);
         }
-        // the rounds the pools stopped lie on their bottoms (26.2's stand: the still pool's); the ones under water
-        // in flight drawn as models
+        // the rounds the pools stopped lie on their bottoms (26.2's stand: the still pool's)
         if (t == UNDER - 2) {
             lines.add(String.format(Locale.ROOT, "sunk rounds: bodies %d (most %d), asleep %d, physics most %.3f ms a frame; drawn in flight %d, lying %d",
                     SunkBullets.bodies(), bodiesMax, SunkBullets.asleep(), physMsMax, SunkBullets.flyingDrawn, SunkBullets.bodiesDrawn));
             check(bodiesMax > 0 && SunkBullets.bodiesDrawn > 0, "the rounds the water stopped lie on the bottom, drawn");
-            check(SunkBullets.flyingDrawn > 0, "the rounds in flight under water drawn");
         }
         if (t == UNDER - 1) mark();
         for (int i = 0; i < 3; i++) if (t == UNDER + i * SHOT_GAP) ShootScenario.onServer(WaterFxScenario::fireUnder);
@@ -110,6 +108,10 @@ final class WaterFxScenario {
             int gas = delta(WaterParticle.Kind.GAS);
             lines.add("under water, 3 p9 shots: gas bubbles " + gas + ", rise " + delta(WaterParticle.Kind.RISE) + ", events " + events());
             check(gas == 3, "one gas bubble a shot fired under water");
+            // the rounds in flight under water drawn as models: counted after the shots fired under water, as the 1.12.2
+            // port's stand (a round from the air into a pool is under water in flight for less than a tick)
+            lines.add("rounds drawn in flight under water: " + SunkBullets.flyingDrawn);
+            check(SunkBullets.flyingDrawn > 0, "the rounds in flight under water drawn");
         }
         if (t == FLASH_GO) ShootScenario.onServer(() -> {
             // feet on the still pool's floor: the eyes and the muzzle under water
