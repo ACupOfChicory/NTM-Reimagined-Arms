@@ -71,7 +71,10 @@ public final class ArmLayers {
     private static volatile WeakReference<EntityPlayer> owner = new WeakReference<>(null);
     private static final boolean[] SLEEVE = new boolean[2];
     // the chestplates whose model failed on the arm: warned once (until the world is left)
-    private static final Set<Class<?>> WARNED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final Set<Class<?>> WARNED = new java.util.HashSet<>();
+    // leave() runs on the network thread: it only asks, and the render thread lets the failures go (settle) before it
+    // reads them again, so a count it was writing does not come back into the next world (26.2 X572)
+    private static volatile boolean left;
     // while the pass runs on an arm: the player model and its pose for that arm (MixinModelBipedPose)
     private static ModelBiped posed;
     private static Pose posedPose;
@@ -84,14 +87,22 @@ public final class ArmLayers {
     // leaving a world (FML's ClientDisconnectionFromServerEvent; 26.2: LoggingOut): the player is let go
     public static void leave() {
         prepared = false;
-        FAILED.clear();
-        WARNED.clear();
+        left = true;
         owner = new WeakReference<>(null);
     }
 
     // a new frame of the gun in hand (Arms.begin): the player is read again on first use
     public static void newFrame() {
         fresh = true;
+        frame++;
+        settle();
+    }
+
+    private static void settle() {
+        if (!left) return;
+        left = false;
+        FAILED.clear();
+        WARNED.clear();
     }
 
     // whether the skin's second layer (Et Futurum's 64 x 64 skins) shows on this arm the way the third-person model
@@ -132,35 +143,51 @@ public final class ArmLayers {
         return !suit(chest) || leftOut(worn(player));
     }
 
-    // how often in a row the chestplate may throw on the arm with the same armour on before the arms leave it out
-    // (its sleeve then shows) until the player leaves the world: a failure in the first frames, before the player's
-    // data came, is tried again, and one that draws in between starts the count anew (26.2 X570, per layer; 1.7.10
-    // draws one layer, the chestplate, so the armour worn is the key)
+    // in how many frames in a row the chestplate may throw on the arm with the same armour on before the arms leave it
+    // out (its sleeve then shows) until the player leaves the world: a failure in the first frames, before the player's
+    // data came, is tried again, and a frame it draws in starts the count anew. A frame counts once, whether it threw on
+    // one arm or on both (26.2 X570/X572, per layer; 1.7.10 draws one layer, the chestplate, so the armour worn is the key)
     static final int TRIES = 3;
 
-    // failures in a row by the armour worn; cleared when the player leaves the world
-    private static final Map<List<Object>, Integer> FAILED = new java.util.concurrent.ConcurrentHashMap<>();
+    // the frames of the gun in hand (newFrame); the render thread's alone, as FAILED and WARNED
+    private static long frame;
+
+    // failures by the armour worn: the frames in a row the chestplate threw in and the last of them; cleared when the
+    // player leaves the world
+    private static final Map<List<Object>, Fails> FAILED = new java.util.HashMap<>();
+
+    private static final class Fails {
+        final int frames;
+        final long last;
+
+        Fails(int frames, long last) {
+            this.frames = frames;
+            this.last = last;
+        }
+    }
 
     static boolean leftOut(Object[] worn) {
-        Integer fails = FAILED.get(java.util.Arrays.asList(worn));
-        return fails != null && fails >= TRIES;
+        settle();
+        Fails fails = FAILED.get(java.util.Arrays.asList(worn));
+        return fails != null && fails.frames >= TRIES;
     }
 
     // The chestplate on the arm with this armour on (type: its item's class, for the log). False: left out, or it
     // threw. The GL matrix stack is put back by draw
     static boolean layer(Object[] worn, Class<?> type, Runnable draw) {
+        settle();
         List<Object> key = java.util.Arrays.asList(worn.clone());
-        Integer fails = FAILED.get(key);
-        if (fails != null && fails >= TRIES) return false;
+        Fails fails = FAILED.get(key);
+        if (fails != null && fails.frames >= TRIES) return false;
         try {
             draw.run();
-            if (fails != null) FAILED.remove(key);
             return true;
         } catch (Throwable t) {
-            int n = fails == null ? 1 : fails + 1;
-            FAILED.put(key, n);
+            // this frame counted already (the other arm); the frame before it threw too; or anew
+            int n = fails == null || fails.last < frame - 1 ? 1 : fails.last == frame ? fails.frames : fails.frames + 1;
+            FAILED.put(key, new Fails(n, frame));
             if (WARNED.add(type)) GunFeel.LOGGER.warn("armArmor: {} failed on the arm", type.getName(), t);
-            if (n == TRIES) GunFeel.LOGGER.warn("armArmor: {} failed on the arm {} times in a row with this armour on, left out of the arms until the world is left",
+            if (n == TRIES) GunFeel.LOGGER.warn("armArmor: {} failed on the arm in {} frames in a row with this armour on, left out of the arms until the world is left",
                     type.getName(), TRIES);
             return false;
         }
