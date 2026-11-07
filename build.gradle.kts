@@ -121,6 +121,8 @@ neoForge {
             systemProperty("ntmgunfeel.glassBack",providers.gradleProperty("glassBack").map { it.ifBlank { "fancy" } }.orElse("").get())
             // -PspectatorStand: may a spectator use an NTM gun (SpectatorStand)
             systemProperty("ntmgunfeel.spectatorStand",providers.gradleProperty("spectatorStand").isPresent.toString())
+            // -PproneStand: lying down on the prone key, its spread, recoil and hits (ProneStand)
+            systemProperty("ntmgunfeel.proneStand",providers.gradleProperty("proneStand").isPresent.toString())
             // -PshapesStand=<file>: every NTM machine taken in turn, the jar's table of their shapes written there (ShapesStand)
             systemProperty("ntmgunfeel.shapesStand",providers.gradleProperty("shapesStand").orElse("").get())
             // -PshapesFallback: a machine in the jar's table of shapes is met from there, one left out of it is taken in

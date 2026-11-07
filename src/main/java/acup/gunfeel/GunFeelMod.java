@@ -36,6 +36,7 @@ public final class GunFeelMod {
             ModelDebugRender.register(modBus);
             if (Feature.AMMO_CHOICE.on()) AmmoLockKey.register(modBus);
             if (Feature.ARMS.on()) GunEditor.register(modBus);
+            if (Feature.PRONE.on()) ProneClient.registerClient(modBus);
             acup.gunfeel.smoke.client.SmokeClientSetup.init(modBus);
         }
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.RegisterCommandsEvent.class,
@@ -70,6 +71,7 @@ public final class GunFeelMod {
                         ServerSettingsPayload.join(sp);
                     }
                 });
+        if (Feature.PRONE.on()) Prone.registerServer();
         // the machines' bullet shapes in the jar: their index read meanwhile
         ShapePack.preload();
         BlockDump.registerIfAsked();
@@ -94,6 +96,9 @@ public final class GunFeelMod {
                     if(Feature.TRACERS.on())ctx.enqueueWork(()->Tracers.impact(p));
                 });
                 r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC, (p, ctx) -> ServerSettingsClient.receive(p));
+                r.playToClient(ProneStandPayload.TYPE, ProneStandPayload.CODEC, (p, ctx) -> {
+                    if (Feature.PRONE.on()) ctx.enqueueWork(ProneClient::serverStood);
+                });
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC,
                         (p, ctx) -> ctx.enqueueWork(() -> p.handle(ctx.player().level())));
                 acup.gunfeel.smoke.client.SmokeClientSetup.payloads(r);
@@ -103,6 +108,7 @@ public final class GunFeelMod {
                 r.playToClient(ImpactHolePayload.TYPE,ImpactHolePayload.CODEC);
                 r.playToClient(HelloPayload.TYPE, HelloPayload.CODEC);
                 r.playToClient(ServerSettingsPayload.TYPE, ServerSettingsPayload.CODEC);
+                r.playToClient(ProneStandPayload.TYPE, ProneStandPayload.CODEC);
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC);
                 acup.gunfeel.smoke.SmokeNet.payloads(r);
             }
@@ -118,6 +124,9 @@ public final class GunFeelMod {
             r.playToServer(ModelMeshPayload.TYPE, ModelMeshPayload.CODEC, (p, ctx) -> p.receive());
             r.playToServer(TestLogPayload.TYPE, TestLogPayload.CODEC, (p, ctx) -> {
                 if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) TestLogPayload.handle(sp, p);
+            });
+            r.playToServer(ProneCrawlPayload.TYPE, ProneCrawlPayload.CODEC, (p, ctx) -> {
+                if (Feature.PRONE.on() && ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) ctx.enqueueWork(() -> Prone.receive(sp, p.crawl()));
             });
             r.playToServer(AmmoLockPayload.TYPE, AmmoLockPayload.CODEC, (p, ctx) -> {
                 if (Feature.AMMO_CHOICE.on() && ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp && !acup.gunfeel.SpectatorGuns.blocks(sp)) AmmoLock.toggle(sp);
