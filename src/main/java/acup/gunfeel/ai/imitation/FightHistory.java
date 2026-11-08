@@ -54,8 +54,9 @@ public final class FightHistory {
         wasExposed = exposed;
         v.ticksInCover = near ? cap(t - coverSince) : 0;
         v.peeksFromCover = near ? peeks : 0;
-        v.ticksSinceSeen = since(t, seenTick);
-        v.ticksSinceHurt = since(t, hurtTick);
+        // what the world knows is the same however often the view is taken (a bot is looked at more seldom than a player)
+        v.ticksSinceSeen = v.seenAgo >= 0 ? cap(v.seenAgo) : since(t, seenTick);
+        v.ticksSinceHurt = v.hurtAgo >= 0 ? cap(v.hurtAgo) : since(t, hurtTick);
         v.ticksExposed = exposed ? cap(t - exposedSince) : 0;
     }
 

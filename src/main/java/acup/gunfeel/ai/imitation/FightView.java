@@ -32,6 +32,8 @@ public final class FightView {
     public int friendsNear;
     /** cover where it stands from the nearest enemy: 0 none, 1 low (head seen, legs not), 2 high (head hidden) */
     public int coverHere;
+    /** ticks since it was last hurt by a mob or saw an enemy, as the world knows it (-1: not known, the history counts) */
+    public int hurtAgo = -1, seenAgo = -1;
     /** from its history (FightHistory) */
     public int ticksSinceSeen = FightHistory.LONG, ticksInCover, peeksFromCover, ticksSinceHurt = FightHistory.LONG, ticksExposed;
 

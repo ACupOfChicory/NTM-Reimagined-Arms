@@ -82,6 +82,9 @@ public final class FightLook {
         for (Player o : level.players()) if (o != p && !o.isSpectator() && o.getTeam() != null && o.getTeam() == p.getTeam() && o.distanceToSqr(p) <= FRIENDS * FRIENDS)
             friends++;
         sight.seen.values().removeIf(s -> tick - s.tick() > PLAYER_FORGETS);
+        long last = Long.MIN_VALUE;
+        for (Sight.Seen s : sight.seen.values()) last = Math.max(last, s.tick());
+        if (last != Long.MIN_VALUE) v.seenAgo = (int) Math.min(FightHistory.LONG, tick - last);
         for (Sight.Seen s : sight.seen.values()) {
             Entity e = level.getEntity(s.id());
             if (e == null || !e.isAlive()) continue;
@@ -97,11 +100,15 @@ public final class FightLook {
         LivingEntity self = bot.mob;
         FightView v = self(self, tick);
         List<FightView.Enemy> out = new ArrayList<>();
+        long last = Long.MIN_VALUE;
         for (TargetMemory.Contact c : bot.memory.contacts()) {
+            if (c.state == TargetMemory.State.VISIBLE || c.state == TargetMemory.State.LOST || c.state == TargetMemory.State.SEARCH)
+                last = Math.max(last, c.state == TargetMemory.State.VISIBLE ? tick : c.lostTick);
             if (c.state == TargetMemory.State.VISIBLE) out.add(new FightView.Enemy(c.id, c.x, c.y, c.z, true, false, false));
             else if (c.state == TargetMemory.State.LOST || c.state == TargetMemory.State.SEARCH)
                 out.add(new FightView.Enemy(c.id, c.lostX, c.lostY, c.lostZ, false, false, false));
         }
+        if (last != Long.MIN_VALUE) v.seenAgo = (int) Math.max(0, Math.min(FightHistory.LONG, tick - last));
         int friends = 0;
         for (AiBot o : AiBots.all(level))
             if (o != bot && o.mob.isAlive() && !AiTeams.enemy(self, o.mob) && o.mob.distanceToSqr(self) <= FRIENDS * FRIENDS) friends++;
@@ -121,6 +128,7 @@ public final class FightLook {
         v.yaw = e.getYHeadRot();
         v.pitch = e.getXRot();
         v.health = e.getMaxHealth() > 0 ? e.getHealth() / e.getMaxHealth() : 1;
+        if (e.getLastHurtByMobTimestamp() > 0) v.hurtAgo = Math.max(0, e.tickCount - e.getLastHurtByMobTimestamp());
         ItemStack stack = e.getMainHandItem();
         if (stack.getItem() instanceof ItemGunBaseNT gun) {
             try {
@@ -154,10 +162,12 @@ public final class FightLook {
                 continue;
             }
             Entity ent = level.getEntity(e.id());
-            // seen now: its eyes; lost: where its eyes were
-            Vec3 eye = e.visible() && ent != null ? ent.getEyePosition() : new Vec3(e.x(), e.y() + 1.6, e.z());
+            // its eyes where they are (whether it sees them or not: whether they reach it is a fact of the blocks, not of
+            // where it looks; a player's camera turned away hides nothing), else where they were
+            boolean there = ent != null && ent.isAlive();
+            Vec3 eye = there ? ent.getEyePosition() : new Vec3(e.x(), e.y() + 1.6, e.z());
             boolean headSeen = Senses.clearLine(voxels, smoke, eye, head);
-            boolean exposed = e.visible() && (headSeen || Senses.clearLine(voxels, smoke, eye, chest));
+            boolean exposed = there && (headSeen || Senses.clearLine(voxels, smoke, eye, chest));
             boolean looks = false;
             if (exposed && ent != null) {
                 Vec3 d = chest.subtract(eye);

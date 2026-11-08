@@ -74,7 +74,7 @@ def write(path, views):
 
 
 def main():
-    views = fighter(600, 1)
+    views = fighter(2400, 1)
     with tempfile.TemporaryDirectory() as d:
         path = os.path.join(d, "a.jsonl.gz")
         write(path, views)

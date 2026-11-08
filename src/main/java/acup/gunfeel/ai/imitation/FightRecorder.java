@@ -44,6 +44,10 @@ public final class FightRecorder {
     static final int COVERS = 8;
     /** a file's most (as written, before gzip), and the folder's most (gzipped) */
     static final long MAX_BYTES = 256L << 20, MAX_DIR = 2L << 30;
+    /** the bots' files together at most (as written) */
+    static final long MAX_BOTS = 1L << 30;
+    /** a bot's cover is searched every this many of its views (a player's every view) */
+    static final int BOT_COVERS_EVERY = 3;
     private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
 
     static final class Subject {
@@ -53,7 +57,7 @@ public final class FightRecorder {
         final Writer out;
         final FightHistory history = new FightHistory();
         final FightLook.Sight sight = new FightLook.Sight();
-        long bytes, lines, next;
+        long bytes, lines, next, views;
         @Nullable
         String stopped;
 
@@ -70,6 +74,9 @@ public final class FightRecorder {
     /** the level whose bots are recorded, if any */
     private static @Nullable ServerLevel botsLevel;
     private static @Nullable Path botsDir;
+    /** bots whose file could not be opened (not tried again), the bots' bytes and views of files closed already */
+    private static final java.util.Set<Integer> FAILED = new java.util.HashSet<>();
+    private static long botsBytes, botsViews, botsFiles;
 
     private FightRecorder() {
     }
@@ -122,7 +129,13 @@ public final class FightRecorder {
 
     static String startBots(ServerLevel level, Path folder) throws IOException {
         if (botsLevel != null) return "already: " + botsDir;
+        // a folder an earlier run wrote to: a new one inside, not over its files
+        if (Files.isDirectory(folder)) try (var in = Files.list(folder)) {
+            if (in.findAny().isPresent()) folder = folder.resolve(LocalDateTime.now().format(STAMP));
+        }
         botsDir = folder;
+        FAILED.clear();
+        botsBytes = botsViews = botsFiles = 0;
         Files.createDirectories(botsDir);
         botsLevel = level;
         return botsDir.toString();
@@ -130,14 +143,9 @@ public final class FightRecorder {
 
     public static String stopBots() {
         if (botsLevel == null) return "not recording bots";
-        long views = 0;
-        for (Subject s : BOTS.values()) {
-            views += s.lines;
-            close(s);
-        }
-        int n = BOTS.size();
+        for (Subject s : BOTS.values()) closeBot(s);
         BOTS.clear();
-        String out = botsDir + ": " + n + " bots, " + views + " views";
+        String out = botsDir + ": " + botsFiles + " bots, " + botsViews + " views";
         botsLevel = null;
         botsDir = null;
         return out;
@@ -154,7 +162,7 @@ public final class FightRecorder {
         b.append(PLAYERS.size()).append(" players");
         for (Subject s : PLAYERS.values()) b.append("; ").append(s.name).append(' ').append(s.lines).append(" views, ").append(s.bytes >> 10).append(" KiB")
                 .append(s.stopped != null ? " (stopped: " + s.stopped + ")" : "");
-        if (botsLevel != null) b.append("; bots: ").append(BOTS.size()).append(" in ").append(botsDir);
+        if (botsLevel != null) b.append("; bots: ").append(BOTS.size()).append(" now, ").append(botsFiles).append(" in all, in ").append(botsDir);
         return b.toString();
     }
 
@@ -179,27 +187,51 @@ public final class FightRecorder {
             view(level, s, p, v, tick);
         }
         if (botsLevel != level) return;
+        // the files of bots gone (dead, removed) are closed: no file left open for every bot there ever was
+        if (tick % 20 == 0) for (Iterator<Subject> it = BOTS.values().iterator(); it.hasNext();) {
+            Subject s = it.next();
+            if (!(level.getEntity(s.id) instanceof LivingEntity e) || !e.isAlive()) {
+                closeBot(s);
+                it.remove();
+            }
+        }
         for (AiBot b : AiBots.all(level)) {
-            Subject s = BOTS.get(b.mob.getId());
+            int id = b.mob.getId();
+            Subject s = BOTS.get(id);
             if (s == null) {
-                if (!b.mob.isAlive()) continue;
+                if (!b.mob.isAlive() || FAILED.contains(id) || botsBytes >= MAX_BOTS) continue;
                 try {
-                    s = open(botsDir.resolve(b.mob.getId() + ".jsonl.gz"), b.mob.getId(), b.mob.getName().getString(), "bot");
+                    s = open(botsDir.resolve(id + ".jsonl.gz"), id, "bot " + id, "bot");
                 } catch (IOException e) {
+                    FAILED.add(id);
                     continue;
                 }
-                BOTS.put(b.mob.getId(), s);
+                // spread over the ticks: not every bot's view on one
+                s.next = tick + id % EVERY;
+                BOTS.put(id, s);
             }
             if (tick < s.next || s.stopped != null || !b.mob.isAlive()) continue;
+            if (botsBytes + s.bytes >= MAX_BOTS) {
+                stop(s, "the bots' files are full");
+                continue;
+            }
             FightView v = FightLook.bot(level, b, s.history, tick);
             view(level, s, b.mob, v, tick);
         }
     }
 
+    private static void closeBot(Subject s) {
+        close(s);
+        botsBytes += s.bytes;
+        botsViews += s.lines;
+        botsFiles++;
+    }
+
     private static void view(ServerLevel level, Subject s, LivingEntity e, FightView v, long tick) {
         boolean fight = !v.enemies.isEmpty();
         s.next = tick + (fight ? EVERY : QUIET);
-        List<CoverQuery.Spot> covers = fight ? FightLook.covers(level, e, v, COVERS) : List.of();
+        boolean bot = !(e instanceof ServerPlayer);
+        List<CoverQuery.Spot> covers = fight && (!bot || s.views++ % BOT_COVERS_EVERY == 0) ? FightLook.covers(level, e, v, COVERS) : List.of();
         write(s, line(v, FightFeatures.of(v), covers, FightLook.spotRows(covers, v)));
     }
 
@@ -301,22 +333,25 @@ public final class FightRecorder {
             s.lines++;
             // every few seconds to the disk: a crash loses little
             if (s.lines % 100 == 0) s.out.flush();
-            if (s.bytes >= MAX_BYTES) {
-                s.stopped = "the file is full";
-                s.out.close();
-            }
+            if (s.bytes >= MAX_BYTES) stop(s, "the file is full");
         } catch (IOException e) {
-            s.stopped = e.toString();
+            stop(s, e.toString());
+        }
+    }
+
+    /** no more lines to the file: closed, the reason kept */
+    private static void stop(Subject s, String why) {
+        if (s.stopped != null) return;
+        s.stopped = why;
+        try {
+            s.out.close();
+        } catch (IOException e) {
+            // what was written is kept
         }
     }
 
     private static void close(Subject s) {
-        try {
-            if (s.stopped == null) s.out.close();
-        } catch (IOException e) {
-            // what was written is kept
-        }
-        if (s.stopped == null) s.stopped = "stopped";
+        stop(s, "stopped");
     }
 
     private static Path dir(MinecraftServer server) {

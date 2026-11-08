@@ -106,7 +106,9 @@ def cases(views):
             if w is not None:
                 moved = any(dist(x, v) > SHIFT_AWAY for x in w)
                 out["SHIFT"].append((f, moved))
-                if moved and v["c"] and (i + 1 >= len(views) or dist(views[i + 1], v) > 0.5):
+                # the start of the move: still before, off after (one choice a move, not one a step)
+                start = (i + 1 < len(views) and dist(views[i + 1], v) > 0.5) and (i == 0 or dist(views[i - 1], v) <= 0.5)
+                if moved and v["c"] and start:
                     pick = chosen(views, i)
                     if pick is not None:
                         ranks.append(([c[7] for c in v["c"]], pick))

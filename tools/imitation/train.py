@@ -18,6 +18,8 @@ import fights
 FEATURES = None  # from the recordings' header
 L2 = 1e-3
 HOLD = 0.2
+# ImitationModel.MIN_CASES: fewer, and the mod does not use the question
+MIN_CASES = 200
 
 
 def logistic(X, y, l2=L2, steps=200):
@@ -76,11 +78,12 @@ def main(argv):
     train = {q: [] for q in fights.WINDOWS}
     test = {q: [] for q in fights.WINDOWS}
     rank_train, rank_test = [], []
-    header = None
+    header, who = None, set()
     for p in fights.files(argv[2:]):
         h, views = fights.read(p)
         if h is None:
             continue
+        who.add(h.get("who", "?") + ":" + h.get("name", "?"))
         if header is None:
             header = h
         elif h["features"] != header["features"] or h["spotFeatures"] != header["spotFeatures"]:
@@ -97,18 +100,22 @@ def main(argv):
     if header is None:
         print("no recordings", file=sys.stderr)
         return 1
-    model = {"version": 1, "about": " ".join(sorted({header.get("who", "?") + ":" + header.get("name", "?")})),
+    names = sorted(who)
+    model = {"version": 1, "about": " ".join(names[:5]) + (" and %d more" % (len(names) - 5) if len(names) > 5 else ""),
              "features": header["features"], "spotFeatures": header["spotFeatures"], "questions": {}}
     report = {}
     for q, rows in train.items():
-        if len(rows) < 20 or len({y for _, y in rows}) < 2:
+        if len(rows) + len(test[q]) < MIN_CASES or len({y for _, y in rows}) < 2:
             report[q] = {"cases": len(rows), "skipped": "too few cases, or all one answer"}
             continue
         X = np.array([r for r, _ in rows], dtype=float)
         y = np.array([1.0 if d else 0.0 for _, d in rows])
         w = logistic(X, y)
-        model["questions"][q] = {"w": w.round(5).tolist(), "min": X.min(0).round(4).tolist(), "max": X.max(0).round(4).tolist(),
-                                 "window": fights.WINDOWS[q], "cases": len(rows)}
+        # scored on the held-out part with the weights from the rest; the file's weights from all of it
+        Xa = np.array([r for r, _ in rows + test[q]], dtype=float)
+        ya = np.array([1.0 if d else 0.0 for _, d in rows + test[q]])
+        model["questions"][q] = {"w": logistic(Xa, ya).round(5).tolist(), "min": Xa.min(0).round(4).tolist(), "max": Xa.max(0).round(4).tolist(),
+                                 "window": fights.WINDOWS[q], "cases": len(ya)}
         r = {"cases": len(rows), "rate": round(float(y.mean()), 4)}
         if test[q]:
             Xt = np.array([x for x, _ in test[q]], dtype=float)
@@ -117,11 +124,12 @@ def main(argv):
             r.update(held=len(yt), logloss=round(logloss(pt, yt), 4), constant=round(logloss(np.full(len(yt), y.mean()), yt), 4),
                      auc=None if auc(pt, yt) is None else round(auc(pt, yt), 3))
         report[q] = r
-    if len(rank_train) >= 20:
+    if len(rank_train) + len(rank_test) >= MIN_CASES and rank_train:
         w = softmax_fit(rank_train)
-        allrows = np.array([row for g, _ in rank_train for row in g], dtype=float)
-        model["rank"] = {"w": w.round(5).tolist(), "min": allrows.min(0).round(4).tolist(), "max": allrows.max(0).round(4).tolist(),
-                         "window": 1, "cases": len(rank_train)}
+        both = rank_train + rank_test
+        allrows = np.array([row for g, _ in both for row in g], dtype=float)
+        model["rank"] = {"w": softmax_fit(both).round(5).tolist(), "min": allrows.min(0).round(4).tolist(), "max": allrows.max(0).round(4).tolist(),
+                         "window": 1, "cases": len(both)}
         r = {"cases": len(rank_train), "firstChosen": round(sum(1 for _, c in rank_train if c == 0) / len(rank_train), 3)}
         if rank_test:
             hit = sum(1 for g, c in rank_test if int(np.argmax(np.array(g) @ w)) == c)

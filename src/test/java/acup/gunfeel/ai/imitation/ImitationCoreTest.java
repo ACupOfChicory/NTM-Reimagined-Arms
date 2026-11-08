@@ -93,6 +93,10 @@ class ImitationCoreTest {
         assertFalse(any, "the model holds it in");
         assertTrue(c.choose("a", Ask.PEEK_FIGHT, true, late, ImitationCoreTest::row), "the formula's yes, " + late + " ticks on");
         assertEquals(1, c.forced);
+        // asks a few ticks apart (a reload between) are one run: no fresh count
+        ImitationCore<String> d = new ImitationCore<>(ImitationModel.parse(model(1e-9, 500, "EXPOSE")), 1);
+        for (long t = 0; t < late; t += 10) assertFalse(d.choose("a", Ask.PEEK_FIGHT, true, t, ImitationCoreTest::row));
+        assertTrue(d.choose("a", Ask.PEEK_FIGHT, true, late, ImitationCoreTest::row));
     }
 
     @Test
@@ -118,8 +122,13 @@ class ImitationCoreTest {
     void onceIsDrawnEachTime() {
         ImitationCore<String> c = new ImitationCore<>(ImitationModel.parse(model(0.3, 500, "SHIFT")), 7);
         int yes = 0, n = 20000;
-        for (int i = 0; i < n; i++) if (c.choose("a", Ask.SHIFT_ON_HIT, false, i, ImitationCoreTest::row)) yes++;
+        for (int i = 0; i < n; i++) if (c.choose("a", Ask.SHIFT_ON_HIT, false, (long) i * ImitationCore.ONCE_GAP, ImitationCoreTest::row)) yes++;
         assertEquals(0.3, yes / (double) n, 0.02);
+        // a burst's hits: one draw, then no till the gap is over
+        ImitationCore<String> sure = new ImitationCore<>(ImitationModel.parse(model(0.999999, 500, "SHIFT")), 7);
+        assertTrue(sure.choose("a", Ask.HIT_MOVE, false, 1000, ImitationCoreTest::row));
+        for (long t = 1001; t < 1000 + ImitationCore.ONCE_GAP; t += 3) assertFalse(sure.choose("a", Ask.HIT_MOVE, true, t, ImitationCoreTest::row));
+        assertTrue(sure.choose("a", Ask.HIT_MOVE, false, 1000 + ImitationCore.ONCE_GAP, ImitationCoreTest::row));
     }
 
     @Test

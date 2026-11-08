@@ -21,7 +21,9 @@ import net.minecraft.world.level.storage.LevelResource;
  * bricks; a row of hay that hides and stops nothing) and high (two, stone); low ground, two pits and ridges; four
  * houses' walls, three high, with doors and windows, and alleys between. A strip along the right side is open field
  * all the way. It clears the air above it (seven blocks) and lays grass under it. Where it went is kept in the world's
- * folder, and /armsai course clear takes it away (air above the grass; what stood there before is not put back).
+ * folder, and /armsai course clear takes it away (air above the grass; what stood there before is not put back). It
+ * is not set down over anything built: a block with contents (a chest) or a placed block that is no ground, stone,
+ * sand, plant or tree in its room refuses it.
  */
 public final class FightCourse {
     static final int DEPTH = 64, HALF = 32, HEIGHT = 7;
@@ -32,8 +34,8 @@ public final class FightCourse {
     private FightCourse() {
     }
 
-    /** where it lies: its first row's middle at y, and the way it runs */
-    record Place(int x, int y, int z, Direction forward) {
+    /** where it lies: its level, its first row's middle at y, and the way it runs */
+    record Place(String level, int x, int y, int z, Direction forward) {
         BlockPos at(int u, int w, int dy) {
             Direction right = forward.getClockWise();
             return new BlockPos(x + forward.getStepX() * u + right.getStepX() * w, y + dy, z + forward.getStepZ() * u + right.getStepZ() * w);
@@ -44,12 +46,15 @@ public final class FightCourse {
         ServerLevel level = p.level();
         if (!p.isCreative()) return "in creative only: it changes the ground";
         Place old = read(level);
-        if (old != null) return "a course stands already at " + old.x + " " + old.y + " " + old.z + ": /armsai course clear first";
+        if (old != null) return "a course stands already in " + old.level + " at " + old.x + " " + old.y + " " + old.z + ": /armsai course clear first";
         Direction f = p.getDirection();
         BlockPos feet = p.blockPosition();
-        Place at = new Place(feet.getX() + f.getStepX() * AHEAD, feet.getY(), feet.getZ() + f.getStepZ() * AHEAD, f);
+        Place at = new Place(name(level), feet.getX() + f.getStepX() * AHEAD, feet.getY(), feet.getZ() + f.getStepZ() * AHEAD, f);
+        String built = built(level, at);
+        if (built != null) return "not here: " + built + " in the way; pick open ground";
+        // written first: whatever it lays, clear can take away
+        Files.writeString(file(level), at.level + " " + at.x + " " + at.y + " " + at.z + " " + f.getSerializedName() + "\n");
         lay(level, at);
-        Files.writeString(file(level), at.x + " " + at.y + " " + at.z + " " + f.getSerializedName() + "\n");
         return "course set down from " + at.x + " " + at.y + " " + at.z + ", " + DEPTH + " blocks " + f.getSerializedName() + ", " + 2 * HALF + " across";
     }
 
@@ -57,6 +62,8 @@ public final class FightCourse {
         ServerLevel level = p.level();
         Place at = read(level);
         if (at == null) return "no course in this world";
+        if (!p.isCreative()) return "in creative only: it changes the ground";
+        if (!at.level.equals(name(level))) return "the course is in " + at.level + ": clear it from there";
         BlockState grass = Blocks.GRASS_BLOCK.defaultBlockState(), air = Blocks.AIR.defaultBlockState();
         for (int u = 0; u < DEPTH; u++)
             for (int w = -HALF; w < HALF; w++) {
@@ -135,7 +142,32 @@ public final class FightCourse {
     }
 
     private static void set(ServerLevel level, BlockPos pos, BlockState s) {
-        level.setBlock(pos, s, Block.UPDATE_CLIENTS);
+        level.setBlock(pos, s, Block.UPDATE_ALL);
+    }
+
+    /** what is built where it would go (a block with contents, a placed block that is no ground or plant), or null */
+    static @Nullable String built(ServerLevel level, Place at) {
+        for (int u = 0; u < DEPTH; u++)
+            for (int w = -HALF; w < HALF; w++)
+                for (int dy = -2; dy < HEIGHT; dy++) {
+                    BlockPos pos = at.at(u, w, dy);
+                    if (level.getBlockEntity(pos) != null) return level.getBlockState(pos).getBlock().getName().getString() + " at " + pos.toShortString();
+                    BlockState s = level.getBlockState(pos);
+                    if (!s.isAir() && !natural(s)) return s.getBlock().getName().getString() + " at " + pos.toShortString();
+                }
+        return null;
+    }
+
+    /** ground, stone, sand, water, plants and trees: what the course may lay over */
+    static boolean natural(BlockState s) {
+        return s.is(net.minecraft.tags.BlockTags.DIRT) || s.is(net.minecraft.tags.BlockTags.BASE_STONE_OVERWORLD) || s.is(net.minecraft.tags.BlockTags.SAND)
+                || s.is(net.minecraft.tags.BlockTags.LOGS) || s.is(net.minecraft.tags.BlockTags.LEAVES) || s.is(net.minecraft.tags.BlockTags.FLOWERS)
+                || s.is(net.minecraft.tags.BlockTags.REPLACEABLE) || s.is(Blocks.GRAVEL) || s.is(Blocks.SNOW) || s.is(Blocks.CLAY) || s.is(Blocks.WATER)
+                || s.is(Blocks.SUGAR_CANE) || s.is(Blocks.CACTUS) || s.is(Blocks.BEDROCK);
+    }
+
+    private static String name(ServerLevel level) {
+        return level.dimension().identifier().toString();
     }
 
     private static Path file(ServerLevel level) {
@@ -146,8 +178,9 @@ public final class FightCourse {
         Path f = file(level);
         if (!Files.isRegularFile(f)) return null;
         String[] s = Files.readString(f).trim().split(" ");
-        Direction d = Direction.byName(s[3]);
+        if (s.length != 5) return null;
+        Direction d = Direction.byName(s[4]);
         if (d == null) return null;
-        return new Place(Integer.parseInt(s[0]), Integer.parseInt(s[1]), Integer.parseInt(s[2]), d);
+        return new Place(s[0], Integer.parseInt(s[1]), Integer.parseInt(s[2]), Integer.parseInt(s[3]), d);
     }
 }

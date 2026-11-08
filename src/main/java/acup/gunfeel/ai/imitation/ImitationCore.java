@@ -14,7 +14,8 @@ import acup.gunfeel.ai.imitation.ImitationModel.Question;
  * <li>A place it is asked at again and again (look out now? back in now?) it decides every {@link #EVERY} ticks: the
  * model's chance within its window, as a chance within EVERY ticks, drawn once; a yes is one tick's yes (the bot acts
  * on it), then no till the next decision. Asked again after a gap, it decides at once.</li>
- * <li>A place asked once (other cover after a hit, after a peek) it draws the model's chance then.</li>
+ * <li>A place asked once (other cover after a hit, after a peek) it draws the model's chance then, at most once in
+ * {@link #ONCE_GAP} ticks; asked again sooner, no.</li>
  * <li>A view the model does not know, or a question it has no part for: the formula's answer.</li>
  * <li>Never stuck: the formula saying yes longer than {@link #late} ticks running, the answer is yes.</li>
  * </ul>
@@ -22,6 +23,10 @@ import acup.gunfeel.ai.imitation.ImitationModel.Question;
 final class ImitationCore<K> {
     /** ticks between two decisions at one place */
     static final int EVERY = 12;
+    /** a place asked once is drawn at most once this often a bot (a burst's every hit is no new news), ticks */
+    static final int ONCE_GAP = 40;
+    /** asks this far apart are no longer one run of the formula's yes (a reload, a step between), ticks */
+    static final int RUN_GAP = 40;
 
     static Question question(Ask a) {
         return switch (a) {
@@ -75,23 +80,26 @@ final class ImitationCore<K> {
         Linear lin = model.question(question(a));
         if (lin == null) return formula;
         int i = a.ordinal();
+        Mind m = minds.computeIfAbsent(key, k -> new Mind());
         if (once(a)) {
+            if (tick - m.last[i] < ONCE_GAP) return false;
             double[] f = features.get();
             if (!lin.knows(f)) {
                 unknown++;
                 return formula;
             }
+            m.last[i] = tick;
             decided++;
             decisions[i]++;
             boolean y = random.nextDouble() < lin.chance(f);
             if (y) yes[i]++;
             return y;
         }
-        Mind m = minds.computeIfAbsent(key, k -> new Mind());
         boolean gap = tick - m.last[i] > 2;
+        boolean run = tick - m.last[i] <= RUN_GAP;
         m.last[i] = tick;
         if (!formula) m.formulaSince[i] = Long.MIN_VALUE;
-        else if (gap || m.formulaSince[i] == Long.MIN_VALUE) m.formulaSince[i] = tick;
+        else if (!run || m.formulaSince[i] == Long.MIN_VALUE) m.formulaSince[i] = tick;
         int late = late(a);
         if (formula && late > 0 && tick - m.formulaSince[i] >= late) {
             forced++;

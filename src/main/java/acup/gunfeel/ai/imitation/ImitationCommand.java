@@ -32,8 +32,8 @@ public final class ImitationCommand {
     public static void register(CommandDispatcher<CommandSourceStack> d) {
         var root = Commands.literal("armsai").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS));
         root.then(Commands.literal("record")
-                .then(Commands.literal("on").executes(c -> say(c, x -> FightRecorder.start(player(x)), true)))
-                .then(Commands.literal("off").executes(c -> say(c, x -> FightRecorder.stop(player(x)), true)))
+                .then(Commands.literal("on").executes(c -> say(c, x -> FightRecorder.start(player(x)), false)))
+                .then(Commands.literal("off").executes(c -> say(c, x -> FightRecorder.stop(player(x)), false)))
                 .then(Commands.literal("bots").then(Commands.literal("on").executes(c -> say(c, x -> FightRecorder.startBots(x.getSource().getLevel()), true)))
                         .then(Commands.literal("off").executes(c -> say(c, x -> FightRecorder.stopBots(), true))))
                 .executes(c -> say(c, x -> FightRecorder.info(), false)));
