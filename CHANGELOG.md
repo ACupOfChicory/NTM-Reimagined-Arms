@@ -1,5 +1,10 @@
 # Changelog
 
+## X793
+
+- GL-54 mustard gas no longer leaves oily stains on the floor. The ground it
+  poisons stays as it was.
+
 ## X790
 
 - FBI agents and test dummies bend at the elbows and the knees: each arm and
