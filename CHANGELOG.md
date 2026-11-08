@@ -1,6 +1,6 @@
 # Changelog
 
-## X753
+## X756
 
 - Mob AI: AI mobs move their bodies. They breathe as they stand, flinch when hit
   (in the chest or the head), crouch and stand up smoothly, lean out of cover to

@@ -189,7 +189,7 @@ final class BotStand {
             m.setYHeadRot(y);
             // as AiSoldier.body: the pose first, then the game's, so the crouching size finds it
             int at = (int) server.overworld().getGameTime();
-            m.setData(AiPose.TYPE, new AiPose(cc.stance(), (byte) cc.lean(), (byte) 0, at, cc.arms(), AiPose.NONE, 0, (short) 0));
+            m.setData(AiPose.Sync.TYPE, new AiPose(cc.stance(), (byte) cc.lean(), (byte) 0, at, cc.arms(), AiPose.NONE, 0, (short) 0));
             m.setPose(lying ? Pose.SWIMMING : cc.stance() == AiPose.CROUCH ? Pose.CROUCHING : Pose.STANDING);
         }).join();
         long t = now();
@@ -302,7 +302,7 @@ final class BotStand {
             m.setYRot(180F);
             m.setYBodyRot(180F);
             m.setYHeadRot(180F);
-            m.setData(AiPose.TYPE, AiPose.IDLE);
+            m.setData(AiPose.Sync.TYPE, AiPose.IDLE);
             m.setPose(Pose.STANDING);
         }).join();
         t0 = now() + 10;

@@ -20,13 +20,6 @@ import net.minecraft.world.phys.Vec3;
 // The bot player: the clips load, a leaned model puts its parts where the server puts the eye and the muzzle, and no
 // change of stance, arms, action or lean makes a part jump between two frames.
 class BotPoserTest {
-    // AiPose registers its attachment as it loads: the game's registries must be up
-    @org.junit.jupiter.api.BeforeAll
-    static void boot() {
-        net.minecraft.SharedConstants.tryDetectVersion();
-        net.minecraft.server.Bootstrap.bootStrap();
-    }
-
     static ModelPart part(float x, float y, float z) {
         ModelPart p = new ModelPart(List.of(), Map.of());
         p.setInitialPose(PartPose.offset(x, y, z));
