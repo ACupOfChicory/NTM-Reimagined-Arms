@@ -133,7 +133,7 @@ public final class SmokeClouds {
 
         private void apply(Stir st) {
             double bx = baseX(), by = baseY(), bz = baseZ();
-            if (st.blast()) grid.stirBlast(st.x0() - bx, st.y0() - by, st.z0() - bz, st.x1(), st.a());
+            if (st.blast()) grid.stirBlast(st.x0() - bx, st.y0() - by, st.z0() - bz, st.x1(), st.a(), st.b() > 0F);
             else grid.stirLine(st.x0() - bx, st.y0() - by, st.z0() - bz, st.x1() - bx, st.y1() - by, st.z1() - bz, st.a(), st.b());
         }
 
@@ -167,7 +167,8 @@ public final class SmokeClouds {
     /**
      * A cloud stirred at an age of it, world coordinates. A bullet's path ({@code blast} false): from {@code x0, y0, z0}
      * to {@code x1, y1, z1}, the cells crossed keep {@code a}, the ones next to them {@code b}. A blast: at {@code x0,
-     * y0, z0}, reach {@code x1}, {@code a} the most it takes in the middle.
+     * y0, z0}, reach {@code x1}, {@code a} the most it takes in the middle; {@code b} 0, what it takes is gone (a gas), 1,
+     * it comes back (smoke: {@link SmokeGrid#stirBlast}).
      */
     public record Stir(int age, boolean blast, double x0, double y0, double z0, double x1, double y1, double z1, float a, float b) {
         public Stir at(int age) {

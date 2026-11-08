@@ -1,6 +1,6 @@
 # Changelog
 
-## X783
+## X788
 
 - FBI agents and test dummies bend at the elbows and the knees: each arm and
   leg is two parts, and the animations carry over bone by bone, so far more of
@@ -23,6 +23,14 @@
 - FBI agents and test dummies show the armour they wear (SECURITY, PAA),
   with sleeves and leggings that bend with the limbs. The armour adds nothing
   to their hitboxes.
+
+## X786
+
+- Smoke: a blast punches a hole in a smoke cloud, and the hole closes again
+  from its edge in 2 to 3 seconds; the smoke is pushed aside, not gone.
+  Bullets leave smoke as it is. A GL-54 high-explosive grenade opens a hole
+  of 4.5 blocks (one and a half times the reach it hurts in, at most 12).
+  `smokeHole` (server, on).
 
 ## X781
 

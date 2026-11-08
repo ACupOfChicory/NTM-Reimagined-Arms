@@ -38,10 +38,13 @@ public final class GasSetup {
         bus.addListener(net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent.Finish.class, e -> {
             if (e.getItem().is(net.minecraft.world.item.Items.MILK_BUCKET) && !e.getEntity().level().isClientSide()) GasServer.milk(e.getEntity());
         });
-        // a vanilla blast (TNT, a creeper, a bed) blows the gas away too; NTM's own go through MixinExplosionContext
+        // a vanilla blast (TNT, a creeper, a bed) blows the gas away and holes the smoke too; NTM's own go through
+        // MixinExplosionContext
         bus.addListener(net.neoforged.neoforge.event.level.ExplosionEvent.Detonate.class, e -> {
-            if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level)
+            if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
                 GasStir.blast(level, e.getExplosion().center(), e.getExplosion().radius() * 2F);
+                acup.gunfeel.smoke.SmokeHole.blast(level, e.getExplosion().center(), e.getExplosion().radius() * 2F);
+            }
         });
         // bone meal does nothing on poisoned ground
         bus.addListener(net.neoforged.neoforge.event.entity.player.BonemealEvent.class, e -> {

@@ -41,7 +41,10 @@ import net.minecraft.world.phys.Vec3;
 //      and the biome at the middle every second, which biome cells turned (only those the gas lay on), the plants left on
 //      them, a sapling, grass and bone meal there and out of it; the field from above before and after;
 //   3. stir: two chlorine clouds side by side, one shot through ten times and then hit by a GL-54 HE grenade; the gas in
-//      each against the other, and the client's copies against the server's.
+//      each against the other, and the client's copies against the server's;
+//   4. smoke hole: two smoke clouds, ten shots through one (they take nothing) and then a GL-54 HE grenade in its middle;
+//      the smoke at the hole's middle against the other cloud's right after and 1, 2, 3 and 5 s on, on the server and the
+//      client, the hash checks, and the server's tick time before and while it closes.
 final class GasSoilStand {
     static final boolean ON = Boolean.getBoolean("ntmgunfeel.gasSoil");
     private static final String DIR = GasStand.DIR;
@@ -134,8 +137,9 @@ final class GasSoilStand {
         });
     }
 
+    // a gas's cloud, or smoke's for null
     private static int spawn(Vec3 at, GasKind g) {
-        return server().submit(() -> SmokeClouds.spawn(level(), at, new Vec3(0, -1, 0), g.smoke(), 1F)).join();
+        return server().submit(() -> SmokeClouds.spawn(level(), at, new Vec3(0, -1, 0), g == null ? acup.gunfeel.smoke.SmokeKind.SMOKE : g.smoke(), 1F)).join();
     }
 
     private static boolean noClouds() {
@@ -181,6 +185,12 @@ final class GasSoilStand {
                     step++;
                 }
                 case 11 -> stirStep();
+                case 12 -> {
+                    holedId = spawn(HOLED, null);
+                    plainId = spawn(PLAIN, null);
+                    step++;
+                }
+                case 13 -> holeStep();
                 default -> finish();
             }
         } catch (RuntimeException e) {
@@ -415,6 +425,132 @@ final class GasSoilStand {
                 float rel = Math.abs(s[0] - c[0]) / Math.max(1e-3F, s[0]);
                 ClientSmoke.check(rel < 0.1F, "почва: клиент и сервер сошлись после разгона " + rel);
                 sStep++;
+            }
+            default -> step++;
+        }
+    }
+
+    // ---- the smoke hole
+
+    private static final Vec3 HOLED = new Vec3(80.5, Y + 0.5, -25.5), PLAIN = new Vec3(80.5, Y + 0.5, 30.5);
+    private static int holedId = -1, plainId = -1, hStep, hTick, hShots;
+    private static float hBefore, hTotal;
+    private static double msBefore;
+    private static final double[] MS = new double[2];
+
+    // the smoke in the cells of the two blocks over the floor at a cloud's middle: {server holed, server plain, client
+    // holed, client plain, server held, server age}
+    private static float[] middles() {
+        float[] s = server().submit(() -> {
+            SmokeClouds all = SmokeClouds.get(level());
+            SmokeClouds.Cloud a = all == null ? null : all.cloud(holedId), b = all == null ? null : all.cloud(plainId);
+            return new float[] {mid(a, HOLED), mid(b, PLAIN), a == null ? 0F : a.grid.heldTotal(), a == null ? -1 : a.grid.age(), a == null ? 0F : a.grid.total()};
+        }).join();
+        SmokeClouds all = SmokeClient.current();
+        SmokeClouds.Cloud a = all == null ? null : all.cloud(holedId), b = all == null ? null : all.cloud(plainId);
+        return new float[] {s[0], s[1], mid(a, HOLED), mid(b, PLAIN), s[2], s[3], s[4]};
+    }
+
+    private static float mid(SmokeClouds.Cloud c, Vec3 at) {
+        if (c == null) return 0F;
+        int x = (int) Math.floor(at.x), z = (int) Math.floor(at.z);
+        return (c.cell(x, Y, z) + c.cell(x, Y + 1, z)) / 2F;
+    }
+
+    private static double ms() {
+        return server().getAverageTickTimeNanos() / 1e6;
+    }
+
+    private static void holeLine(String when, float[] m) {
+        float rs = m[0] / Math.max(1e-6F, m[1]), rc = m[2] / Math.max(1e-6F, m[3]);
+        line(String.format(Locale.ROOT, "hole %s: middle server %.3f (plain %.3f, %.2f of it), client %.3f (plain %.3f, %.2f), held %.1f, age %.0f",
+                when, m[0], m[1], rs, m[2], m[3], rc, m[4], m[5]));
+    }
+
+    // the times are the holed cloud's age on the server (frames come faster than ticks)
+    private static int burstAge = -1, sampled;
+    private static final int[] AFTER = {20, 40, 60, 100};
+
+    private static void holeStep() {
+        hTick++;
+        switch (hStep) {
+            case 0 -> {
+                // the cloud let out and settled: 4 s
+                float[] m = middles();
+                if (m[5] < 80) return;
+                holeLine("before", m);
+                hBefore = m[0] / Math.max(1e-6F, m[1]);
+                SmokeClient.matched = SmokeClient.apart = SmokeClient.grids = 0;
+                hStep++;
+                hTick = 0;
+            }
+            case 1 -> {
+                // ten shots through its middle a block over the floor: smoke stays as it is
+                if (hTick % 2 != 0) return;
+                BulletConfig c = rifle();
+                server().submit(() -> {
+                    ServerPlayer sp = server().getPlayerList().getPlayers().getFirst();
+                    level().addFreshEntity(new EntityBulletBaseMK4(level(), sp, c, 1F, 0F, HOLED.x - 14, Y + 1.0, HOLED.z, 1, 0, 0));
+                }).join();
+                if (++hShots >= 10) {
+                    hStep++;
+                    hTick = 0;
+                }
+            }
+            case 2 -> {
+                float[] m = middles();
+                if (hTick < 30) return;
+                holeLine("after 10 shots", m);
+                float r = m[0] / Math.max(1e-6F, m[1]) / hBefore;
+                ClientSmoke.check(Math.abs(r - 1F) < 0.03F && m[4] == 0F, "дым: пули дым не трогают " + r);
+                hBefore = m[0] / Math.max(1e-6F, m[1]);
+                hTotal = m[6];
+                msBefore = ms();
+                // a GL-54 HE grenade down onto its middle, as the gas's one (4 up, 4 back: past its arming)
+                server().submit(() -> {
+                    ServerPlayer sp = server().getPlayerList().getPlayers().getFirst();
+                    Vec3 from = new Vec3(HOLED.x, Y + 4.0, HOLED.z - 4.0), dir = new Vec3(0, -1, 1).normalize();
+                    level().addFreshEntity(new EntityBulletBaseMK4(level(), sp, Gl54Ammo.he(), Gl54Grenade.BASE_DAMAGE, 0F, from.x, from.y, from.z, dir.x, dir.y, dir.z));
+                }).join();
+                hStep++;
+                hTick = 0;
+            }
+            case 3 -> {
+                // waits for the burst: smoke held
+                float[] m = middles();
+                if (m[4] == 0F && hTick < 600) return;
+                burstAge = (int) m[5];
+                holeLine("right after", m);
+                float r = m[0] / Math.max(1e-6F, m[1]) / hBefore;
+                ClientSmoke.check(r < 0.15F, "дым: взрыв пробил дыру " + r);
+                ClientSmoke.check(m[4] > 0F, "дым: выбитое держится, не пропало " + m[4]);
+                ClientSmoke.check(Math.abs(m[6] + m[4] - hTotal) < 0.05F * hTotal, "дым: дыма столько же, сколько до взрыва " + (m[6] + m[4]) + " / " + hTotal);
+                hStep++;
+                hTick = 0;
+            }
+            case 4 -> {
+                float[] m = middles();
+                if (sampled < AFTER.length && m[5] >= burstAge + AFTER[sampled]) {
+                    int after = AFTER[sampled++];
+                    float r = m[0] / Math.max(1e-6F, m[1]) / hBefore;
+                    holeLine((after / 20) + " s", m);
+                    if (after == 20) {
+                        ClientSmoke.check(r < 0.5F, "дым: через 1 с дыра ещё есть " + r);
+                        MS[0] = ms();
+                    }
+                    if (after == 60) ClientSmoke.check(r > 0.85F, "дым: через 3 с затянулась " + r);
+                    if (after == 100) {
+                        ClientSmoke.check(r > 0.9F && m[4] < 0.01F * hTotal, "дым: через 5 с дыма как без взрыва, держится " + m[4]);
+                        float cs = Math.abs(m[0] - m[2]) / Math.max(1e-3F, m[0]);
+                        ClientSmoke.check(cs < 0.02F, "дым: клиент и сервер в середине сошлись " + cs);
+                    }
+                }
+                if (sampled < AFTER.length) return;
+                MS[1] = ms();
+                line(String.format(Locale.ROOT, "hole: server tick %.2f ms before the burst, %.2f while it closed, %.2f after; hash checks matched %d, apart %d, grids sent %d",
+                        msBefore, MS[0], MS[1], SmokeClient.matched, SmokeClient.apart, SmokeClient.grids));
+                ClientSmoke.check(SmokeClient.apart == 0 && SmokeClient.matched > 0, "дым: проверки хэша сошлись " + SmokeClient.matched + "/" + SmokeClient.apart);
+                hStep++;
             }
             default -> step++;
         }
