@@ -188,14 +188,14 @@ public final class AiSoldier implements AiBrain {
         bot.mob.setYRot(yaw);
         why = Why.HIT;
         event(bot, tick, "hit from out of sight: turns there");
+        // the one it lost shot it: it watches, looks out and searches where the shot came from, not where it lost them
+        bot.memory.shotFrom(n.x, n.y, n.z, tick);
+        // hit in its cover: whoever shot sees into it, wherever the rough guess of where from puts them (a guess a few
+        // blocks off could fall behind a wall and leave it in the cover it was shot in)
         if (spot != null) {
-            long s = spot.cell();
-            if (VoxelRay.clear(AiBots.voxels(level), from.x, from.y, from.z, BlockPos.getX(s) + 0.5, BlockPos.getY(s) + 1.6, BlockPos.getZ(s) + 0.5,
-                    Voxel.SIGHT)) {
-                drop(bot);
-                relocations++;
-                event(bot, tick, "cover seen into from the hit: gives it up");
-            }
+            drop(bot);
+            relocations++;
+            event(bot, tick, "hit in its cover: gives it up");
         }
         if (spot == null) {
             nextQuery = tick + QUERY_EVERY;

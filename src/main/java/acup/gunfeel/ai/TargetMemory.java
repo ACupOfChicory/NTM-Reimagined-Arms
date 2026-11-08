@@ -164,6 +164,27 @@ public final class TargetMemory {
         }
     }
 
+    /**
+     * Shot from out of sight with the one target it knows of out of sight too: that one shot, and is last known where
+     * the shot came from (lost there now: the wait, the look out and the search start over from there). With more
+     * than one out of sight, or one in sight, it cannot tell who, and nothing moves.
+     */
+    public void shotFrom(double x, double y, double z, long tick) {
+        Contact only = null;
+        for (Contact c : contacts) {
+            if (!c.known()) continue;
+            if (c.state == State.VISIBLE || only != null) return;
+            only = c;
+        }
+        if (only == null) return;
+        only.state = State.LOST;
+        only.x = only.lostX = x;
+        only.y = only.lostY = y;
+        only.z = only.lostZ = z;
+        only.vx = only.vz = 0;
+        only.lostTick = tick;
+    }
+
     /** a known target's state moves on with time: LOST to SEARCH to forgotten */
     public void update(long tick) {
         for (int i = contacts.size() - 1; i >= 0; i--) {
