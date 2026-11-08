@@ -10,8 +10,8 @@ import net.minecraft.world.phys.Vec3;
  *
  * <p>A lean steps the hips aside by {@link #LEAN_SHIFT} × the lean, then tips everything above the hips around the
  * body's forward line by {@link #LEAN_DEG} × the lean; + is to the mob's right. The hips are where HumanoidModel has
- * the legs' pivot: 12 px above the feet standing, 12.2 px and 4 px back crouching (vanilla's crouch). Common code
- * only, no client classes.
+ * the legs' pivot: 12 px above the feet, 4 px back crouching (26.2's crouch moves the legs back, not down: javap of
+ * HumanoidModel.setupAnim). Common code only, no client classes.
  */
 public final class AiPoseGeometry {
     /** how far the body tips at a full lean, degrees */
@@ -23,7 +23,7 @@ public final class AiPoseGeometry {
     /** HumanoidModel's feet are 1.501 blocks below the model's origin (LivingEntityRenderer) */
     static final double MODEL_FEET = 1.501;
     /** the legs' pivot, model pixels: standing, and in vanilla's crouch */
-    static final double HIP_PX = 12.0, CROUCH_HIP_PX = 12.2, CROUCH_HIP_BACK_PX = 4.0;
+    static final double HIP_PX = 12.0, CROUCH_HIP_PX = 12.0, CROUCH_HIP_BACK_PX = 4.0;
 
     private AiPoseGeometry() {
     }
