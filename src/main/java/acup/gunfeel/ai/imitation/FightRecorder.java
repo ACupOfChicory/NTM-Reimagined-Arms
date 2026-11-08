@@ -99,13 +99,30 @@ public final class FightRecorder {
         return s.file + ": " + s.lines + " views";
     }
 
+    /** the stands: -Dntmgunfeel.recordBots=<folder> records the overworld's bots from the start, into that folder */
+    static final String BOTS_PROPERTY = "ntmgunfeel.recordBots";
+
+    static void startAsked(MinecraftServer server) {
+        String asked = System.getProperty(BOTS_PROPERTY, "");
+        if (asked.isBlank()) return;
+        try {
+            startBots(server.overworld(), Path.of(asked));
+        } catch (IOException e) {
+            org.slf4j.LoggerFactory.getLogger("ntmgunfeel").warn("bots not recorded: {}", e.toString());
+        }
+    }
+
     /** the bots of this level from now on (those that come later too), a file each in a folder of their own */
     public static String startBots(ServerLevel level) throws IOException {
-        if (botsLevel != null) return "already: " + botsDir;
         Path dir = dir(level.getServer());
         String full = full(dir);
         if (full != null) return full;
-        botsDir = dir.resolve(LocalDateTime.now().format(STAMP) + "-bots");
+        return startBots(level, dir.resolve(LocalDateTime.now().format(STAMP) + "-bots"));
+    }
+
+    static String startBots(ServerLevel level, Path folder) throws IOException {
+        if (botsLevel != null) return "already: " + botsDir;
+        botsDir = folder;
         Files.createDirectories(botsDir);
         botsLevel = level;
         return botsDir.toString();

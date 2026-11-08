@@ -74,7 +74,7 @@ public final class GunFeelMod {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStartedEvent.class,
                 e -> acup.gunfeel.ai.imitation.Imitation.started(e.getServer()));
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStoppingEvent.class,
-                e -> acup.gunfeel.ai.imitation.FightRecorder.stopAll());
+                e -> acup.gunfeel.ai.imitation.Imitation.stopping());
         // the AI's tactical map: what it copied of a chunk goes with the chunk, comes back with it
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.ChunkEvent.Load.class,
                 e -> acup.gunfeel.ai.AiEvents.chunk(e.getLevel(), e.getChunk(), true));

@@ -23,6 +23,8 @@ public final class Imitation {
     public static final String KEY = "aiImitation";
     /** the model file in the server's folder */
     public static final String MODEL = "config/ntm-gunfeel-imitation.json";
+    /** the stands: -Dntmgunfeel.imitationModel=<file> reads that model instead, -Dntmgunfeel.imitation=on as the key on */
+    static final String MODEL_PROPERTY = "ntmgunfeel.imitationModel", ON_PROPERTY = "ntmgunfeel.imitation";
 
     private static @Nullable ImitationModel model;
     private static @Nullable String modelError;
@@ -78,7 +80,8 @@ public final class Imitation {
 
     /** reads the model file again; what came of it */
     public static String reload(MinecraftServer server) {
-        Path file = server.getServerDirectory().resolve(MODEL);
+        String asked = System.getProperty(MODEL_PROPERTY, "");
+        Path file = asked.isBlank() ? server.getServerDirectory().resolve(MODEL) : Path.of(asked);
         model = null;
         modelError = null;
         chooser = null;
@@ -100,7 +103,19 @@ public final class Imitation {
     }
 
     public static void started(MinecraftServer server) {
-        reload(server);
+        String said = reload(server);
+        if (!System.getProperty(MODEL_PROPERTY, "").isBlank() || keyOn()) org.slf4j.LoggerFactory.getLogger("ntmgunfeel").info("imitation: {}", said);
+        FightRecorder.startAsked(server);
+    }
+
+    /** the server stops: what the model did, to the log, for the stands */
+    public static void stopping() {
+        if (model != null) org.slf4j.LoggerFactory.getLogger("ntmgunfeel").info("imitation at the end: {}", info());
+        FightRecorder.stopAll();
+    }
+
+    private static boolean keyOn() {
+        return "on".equals(System.getProperty(ON_PROPERTY)) || acup.gunfeel.ReaimTimes.flag(KEY, false);
     }
 
     /** every second: the key's state into AiChoice */
@@ -109,7 +124,7 @@ public final class Imitation {
     }
 
     private static void check() {
-        boolean want = acup.gunfeel.ReaimTimes.flag(KEY, false) && chooser != null;
+        boolean want = keyOn() && chooser != null;
         if (want != on) {
             on = want;
             AiChoice.set(want ? chooser : null);
@@ -117,7 +132,7 @@ public final class Imitation {
     }
 
     public static String info() {
-        String key = KEY + " " + (acup.gunfeel.ReaimTimes.flag(KEY, false) ? "on" : "off");
+        String key = KEY + " " + (keyOn() ? "on" : "off");
         if (model == null) return key + "; " + (modelError == null ? "no model" : modelError) + ": the formula decides";
         Chooser c = chooser;
         ImitationCore<AiBot> k = c.core;
