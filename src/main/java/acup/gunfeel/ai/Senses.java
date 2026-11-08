@@ -22,6 +22,8 @@ public final class Senses {
     /** the parts of a target a look sees: bits of {@link #parts} */
     public static final int HEAD = 1, CHEST = 2, LEGS = 4, WHOLE = 7;
     private static final int[] PART = {HEAD, CHEST, LEGS};
+    /** the order a look that wants only whether it sees tries them: chest, head, legs (the chest the likeliest) */
+    private static final int[] FIRST = {1, 0, 2};
     /** the parts the last {@link #look} that saw its target saw (server thread) */
     static int parts;
 
@@ -31,8 +33,16 @@ public final class Senses {
     // for /armsai info: rays cast and time on them
     static long rays, looks, nanos;
 
-    /** -1: not seen; else the ticks it takes to notice the target from here */
+    /** -1: not seen; else the ticks it takes to notice the target from here; all three parts looked at */
     public static int look(VoxelRay.Source voxels, @Nullable SmokeClouds smoke, Mob mob, LivingEntity target, AiProfile p) {
+        return look(voxels, smoke, mob, target, p, true);
+    }
+
+    /**
+     * As above; with whole false (a target it does not aim at) it stops at the first part it sees, and {@link #parts}
+     * holds just that one: three rays at each of fifty foes every look cost a hundred AI mobs 4.7 ms a tick (KT5)
+     */
+    public static int look(VoxelRay.Source voxels, @Nullable SmokeClouds smoke, Mob mob, LivingEntity target, AiProfile p, boolean whole) {
         long t0 = System.nanoTime();
         looks++;
         try {
@@ -50,7 +60,9 @@ public final class Senses {
             if (cos < p.cosHalfFov()) return -1;
             boolean smoky = smoke != null && !smoke.isEmpty();
             int seen = 0;
-            for (int i = 0; i < POINTS.length; i++) {
+            for (int k = 0; k < POINTS.length; k++) {
+                int i = whole ? k : FIRST[k];
+                if (!whole && seen != 0) break;
                 double ty = target.getY() + h * POINTS[i];
                 rays++;
                 if (!VoxelRay.clear(voxels, eye.x, eye.y, eye.z, target.getX(), ty, target.getZ(), Voxel.SIGHT)) continue;

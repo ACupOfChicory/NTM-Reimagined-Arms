@@ -192,8 +192,8 @@ public final class AiSoldier implements AiBrain {
         bot.mob.setYRot(yaw);
         why = Why.HIT;
         event(bot, tick, "hit from out of sight: turns there");
-        // shot (not punched, nor caught in a blast): the one it lost did it; it watches, looks out and searches where
-        // the shot came from, not where it lost them
+        // hurt by someone (not a blast no one set off): the one it lost did it; it watches, looks out and searches
+        // where the shot came from, not where it lost them
         if (bot.memory.wasShot(n.tick)) bot.memory.shotFrom(n.x, n.y, n.z, tick);
         // hit in its cover: whoever shot sees into it, wherever the rough guess of where from puts them (a guess a few
         // blocks off could fall behind a wall and leave it in the cover it was shot in). Other cover if there is any,
@@ -205,7 +205,7 @@ public final class AiSoldier implements AiBrain {
             CoverQuery.Spot was = spot;
             long s = was.cell();
             spot = null;
-            unreachable.add(s);
+            boolean had = !unreachable.add(s);
             CoverQuery.Spot other = query(bot, level, TacticalMap.of(level), List.of(from), true, false);
             if (other != null && other.cell() != s) {
                 go(bot, level, other, List.of(from));
@@ -214,7 +214,7 @@ public final class AiSoldier implements AiBrain {
                 event(bot, tick, "hit in its cover: other cover");
             } else {
                 spot = was;
-                unreachable.remove(s);
+                if (!had) unreachable.remove(s);
             }
         }
         if (spot == null) {

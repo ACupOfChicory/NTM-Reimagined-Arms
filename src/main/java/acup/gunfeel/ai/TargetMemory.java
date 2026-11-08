@@ -164,14 +164,14 @@ public final class TargetMemory {
         }
     }
 
-    /** the tick it was last shot (by a projectile someone fired: not a punch, nor a blast) */
+    /** the tick of its last hurt that someone did (heard where they stand); every hurt sets it, MIN_VALUE for none */
     private long shotTick = Long.MIN_VALUE;
 
     public void shot(long tick) {
         shotTick = tick;
     }
 
-    /** whether the hit heard at this tick was a shot */
+    /** whether the hurt heard at this tick was someone's doing, heard where they stand (not a blast's place) */
     public boolean wasShot(long tick) {
         return shotTick == tick;
     }
@@ -253,8 +253,17 @@ public final class TargetMemory {
 
     // ------------------------------------------------------------------ what to act on
 
+    /** the id of the target {@link #focus} gave last (its looks see all its parts), -1 for none */
+    public int focusId = -1;
+
     /** the target to deal with: the nearest in sight, else the one lost last; null when it knows of none */
     public @Nullable Contact focus(double fromX, double fromZ) {
+        Contact f = pickFocus(fromX, fromZ);
+        focusId = f == null ? -1 : f.id;
+        return f;
+    }
+
+    private @Nullable Contact pickFocus(double fromX, double fromZ) {
         Contact best = null;
         double bestD = Double.MAX_VALUE;
         for (Contact c : contacts)
