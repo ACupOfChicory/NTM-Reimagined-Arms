@@ -38,6 +38,9 @@ final class AiCheckProne {
     private Mob soldier, target;
     private AiBot bot;
     private int lyingTicks, pullsLying, pullsStanding, lastPulls;
+    /** behind the wall one high: ticks down low, pulls down low, ticks standing; parts of it the target sees (sums) */
+    private int crouchTicks, pullsCrouching, standTicks, seenCrouching, seenStanding;
+    private float crouchHeight = -1, crouchEye = -1;
     /** ticks it lay moving faster than the crawling rule's speed, ticks the target was hit while it lay; all scenes */
     private int crawlTicks, hitsLying, crawlPullsAll, crawlHeldAll, shortLiesAll;
     private Vec3 crawlFrom;
@@ -130,6 +133,7 @@ final class AiCheckProne {
         level.addFreshEntity(target);
         AiBots.refreshTargets(level);
         lyingTicks = pullsLying = pullsStanding = lastPulls = crawlTicks = hitsLying = 0;
+        crouchTicks = pullsCrouching = standTicks = seenCrouching = seenStanding = 0;
         fastestLying = 0;
     }
 
@@ -140,9 +144,24 @@ final class AiCheckProne {
         if (bot == null) return;
         boolean lying = soldier.getPose() == Pose.SWIMMING;
         int pulls = bot.gunner.pulls;
+        boolean crouching = soldier.getPose() == Pose.CROUCHING;
         if (pulls > lastPulls) {
             if (lying) pullsLying += pulls - lastPulls;
             else pullsStanding += pulls - lastPulls;
+            if (crouching) pullsCrouching += pulls - lastPulls;
+        }
+        if (phase == Phase.LOW && !lying) {
+            // how much of it the target sees over the wall: its head, chest and legs as the AI looks (Senses)
+            int seen = partsSeen();
+            if (crouching) {
+                crouchTicks++;
+                seenCrouching += seen;
+                crouchHeight = soldier.getBbHeight();
+                crouchEye = soldier.getEyeHeight();
+            } else {
+                standTicks++;
+                seenStanding += seen;
+            }
         }
         lastPulls = pulls;
         if (lying) {
@@ -156,6 +175,16 @@ final class AiCheckProne {
             spreadLying = Spread.apply(soldier, soldier.getMainHandItem(), false, 1F);
         } else if (spreadStanding < 0 && soldier.onGround() && soldier.getKnownSpeed().horizontalDistanceSqr() < 1e-6)
             spreadStanding = Spread.apply(soldier, soldier.getMainHandItem(), false, 1F);
+    }
+
+    /** the parts of the soldier (head, chest, legs) in plain sight from the target's eye */
+    private int partsSeen() {
+        Vec3 eye = target.getEyePosition();
+        double h = soldier.getBbHeight();
+        int n = 0;
+        for (double part : new double[] {0.9, 0.55, 0.2})
+            if (VoxelRay.clear(AiBots.voxels(level), eye.x, eye.y, eye.z, soldier.getX(), soldier.getY() + h * part, soldier.getZ(), Voxel.SIGHT)) n++;
+        return n;
     }
 
     /** an arrow from the target's side that passes a block and a bit beside the soldier's chest */
@@ -189,6 +218,13 @@ final class AiCheckProne {
                 check.out("     behind a wall one high, the target 19 blocks off: " + what);
                 check.check("behind low cover it fires only standing, and goes down for no short reload (under " + AiProne.LONG_RELOAD + " ticks)",
                         p != null && pullsStanding > 0 && pullsLying == 0 && (bot.gunner.lastReload >= AiProne.LONG_RELOAD || p.downs == 0));
+                check.out(String.format(Locale.ROOT, "     down low %d ticks of %d up (%d pulls down low), %.2f high, eyes at %.2f (a crouching player: 1.5, 1.27);"
+                        + " parts of it the target sees: %.2f standing, %.2f down low", crouchTicks, crouchTicks + standTicks, pullsCrouching, crouchHeight, crouchEye,
+                        standTicks == 0 ? 0 : (double) seenStanding / standTicks, crouchTicks == 0 ? 0 : (double) seenCrouching / crouchTicks));
+                check.check("behind low cover it keeps low between bursts, a crouching player's size, and never fires down low",
+                        crouchTicks > 0 && pullsCrouching == 0 && Math.abs(crouchHeight - 1.5F) < 1e-3 && Math.abs(crouchEye - 1.27F) < 1e-3);
+                check.check("down low the target sees less of it than standing",
+                        crouchTicks > 0 && standTicks > 0 && (double) seenCrouching / crouchTicks < (double) seenStanding / standTicks);
                 check.out(String.format(Locale.ROOT, "     lying it is %.1f high, eyes at %.1f (a crawling player: 0.6, 0.4)", lyingHeight, lyingEye));
                 check.check("lying it is a crawling player's size", Math.abs(lyingHeight - 0.6F) < 1e-3 && Math.abs(lyingEye - 0.4F) < 1e-3);
             }

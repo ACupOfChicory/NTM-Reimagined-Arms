@@ -8,6 +8,8 @@ import acup.gunfeel.ai.AiThoughts.Why;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -139,8 +141,34 @@ public final class AiSoldier implements AiBrain {
 
     @Override
     public void tick(AiBot bot, long tick) {
+        crouch = false;
         decide(bot, tick);
+        body(bot, tick);
         if (AiThoughts.on()) thoughts.note(this, bot, tick);
+    }
+
+    /** this tick it keeps low behind low cover (the decision sets it; standing unless it does) */
+    private boolean crouch;
+    /** ticks it rises before a burst over low cover */
+    static final int RISE = 5;
+    /** the pause between bursts over low cover (burst) */
+    static final int BURST_PAUSE = 20;
+
+    /**
+     * Its body as decided this tick: down low behind low cover, else standing (lying is AiProne's); and the pose the
+     * clients draw (AiPose), set before the game's pose, so the crouching size (MixinAiProneSize) finds it.
+     */
+    private void body(AiBot bot, long tick) {
+        Mob m = bot.mob;
+        boolean lying = bot.prone.lying();
+        AiGunner g = bot.gunner;
+        boolean reloading = g.reloading();
+        AiPose.set(m, AiPose.of(m).withStance(lying ? AiPose.PRONE : crouch ? AiPose.CROUCH : AiPose.STAND)
+                .withArms(g.wantsFire() || mode == Mode.PEEK ? AiPose.AIM : AiPose.HOLD)
+                .withAction(reloading ? AiPose.RELOAD : AiPose.NONE, (int) tick, (short) (reloading ? g.reloadTicks() : 0)));
+        if (lying) return;
+        Pose want = crouch ? Pose.CROUCHING : Pose.STANDING;
+        if (m.getPose() != want) m.setPose(want);
     }
 
     /** a decision of a moment, for the journal (what: a constant, so nothing is built with the journal off) */
@@ -385,6 +413,8 @@ public final class AiSoldier implements AiBrain {
                 // behind low cover it fires standing, and goes down only for a long reload
                 if ((reload || g.reloading()) && dist >= PRONE_NEVER && longReload(g)) bot.prone.want();
                 g.fire(bot.prone.upright(tick) && !reload && burst(bot, tick, false));
+                // between bursts and through a short reload it keeps low, and rises a moment before the next burst
+                crouch = reload || g.reloading() || burstUntil != 0 && tick > burstUntil && tick < burstUntil + BURST_PAUSE - RISE;
             } else g.fire(false);
             if (reload) g.reload();
             // on its way in: the reason it is coming in stays
@@ -439,8 +469,9 @@ public final class AiSoldier implements AiBrain {
             boolean reload = g.loaded() >= 0 && g.loaded() < g.capacity() && g.ammo.any();
             if (reload) g.reload();
             boolean low = s.peek() == s.cell() || !s.hasPeek();
-            // behind low cover it lies only for a long reload, and stands to look
+            // behind low cover it lies only for a long reload, keeps low while it waits, and stands to look
             if (low && bot.mover.arrived() && (reload || g.reloading()) && longReload(g)) bot.prone.want();
+            crouch = low && bot.mover.arrived() && (reload || g.reloading() || tick < hideUntil);
             why = reload || g.reloading() ? Why.RELOAD : low ? Why.LOW_HIDE : Why.LOST_HIDE;
             if (bot.mover.arrived() && tick >= hideUntil && !reload && !g.reloading()) {
                 if (low) {
@@ -471,7 +502,7 @@ public final class AiSoldier implements AiBrain {
 
     /** fires in bursts with pauses; whether to hold the trigger now */
     private boolean burst(AiBot bot, long tick, boolean anywhere) {
-        if (burstUntil == 0 || tick > burstUntil + 20) {
+        if (burstUntil == 0 || tick > burstUntil + BURST_PAUSE) {
             burstUntil = tick + BURST_MIN + bot.mob.getRandom().nextInt(BURST_MAX - BURST_MIN);
             bursts++;
         }

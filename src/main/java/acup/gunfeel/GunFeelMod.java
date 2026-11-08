@@ -31,6 +31,7 @@ public final class GunFeelMod {
             if (dist.isClient()) acup.gunfeel.gl54.Gl54Client.init(modBus);
         }
         acup.gunfeel.gas.GasSetup.init(modBus, dist);
+        acup.gunfeel.ai.AiPose.register(modBus);
         if (dist.isClient()) {
             modBus.addListener(net.neoforged.neoforge.client.event.AddClientReloadListenersEvent.class,
                     e -> e.addListener(net.minecraft.resources.Identifier.fromNamespaceAndPath("ntmgunfeel", "model_masks"),

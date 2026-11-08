@@ -1,5 +1,13 @@
 # Changelog
 
+## X736
+
+- Mob AI: behind low cover an AI mob keeps low between bursts and through a
+  short reload, a crouching player's size, and rises a moment before it fires
+  again; it never fires crouched. Over a wall one high you see its head, not
+  its chest. Clients see its stance, lean, arms and what it does (reloading),
+  ready for poses drawn on it.
+
 ## X735
 
 - Mob AI: AI mobs aim at what they see of you: your head over a wall, your
