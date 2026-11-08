@@ -168,7 +168,8 @@ public final class FightRecorder {
 
     /** every tick of a level: the views due */
     public static void tick(ServerLevel level) {
-        if (PLAYERS.isEmpty() && botsLevel != level) return;
+        // the views read NTM's guns (FightLook): with the mob AI off for want of NTM's API, nothing is recorded
+        if (PLAYERS.isEmpty() && botsLevel != level || !acup.gunfeel.compat.Feature.MOB_AI.on()) return;
         long tick = level.getGameTime();
         for (Iterator<Subject> it = PLAYERS.values().iterator(); it.hasNext();) {
             Subject s = it.next();

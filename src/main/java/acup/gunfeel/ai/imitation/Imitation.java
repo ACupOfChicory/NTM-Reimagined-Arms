@@ -127,7 +127,7 @@ public final class Imitation {
     }
 
     private static void check() {
-        boolean want = keyOn() && chooser != null;
+        boolean want = keyOn() && chooser != null && acup.gunfeel.compat.Feature.MOB_AI.on();
         if (want != on) {
             on = want;
             AiChoice.set(want ? chooser : null);
