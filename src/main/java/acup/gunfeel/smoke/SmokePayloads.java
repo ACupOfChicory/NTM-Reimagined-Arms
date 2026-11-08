@@ -77,6 +77,32 @@ public final class SmokePayloads {
         }
     }
 
+    /** A bullet went through a cloud or a blast went off by it ({@link SmokeClouds.Stir}): the client's copy takes it at that age. */
+    public record Stirred(int id, SmokeClouds.Stir stir) implements CustomPacketPayload {
+        public static final Type<Stirred> TYPE = typeOf("smoke_stir");
+        public static final StreamCodec<RegistryFriendlyByteBuf, Stirred> CODEC = CustomPacketPayload.codec(
+                (p, b) -> {
+                    SmokeClouds.Stir s = p.stir;
+                    b.writeVarInt(p.id);
+                    b.writeVarInt(s.age());
+                    b.writeBoolean(s.blast());
+                    b.writeDouble(s.x0());
+                    b.writeDouble(s.y0());
+                    b.writeDouble(s.z0());
+                    b.writeDouble(s.x1());
+                    b.writeDouble(s.y1());
+                    b.writeDouble(s.z1());
+                    b.writeFloat(s.a());
+                    b.writeFloat(s.b());
+                }, b -> new Stirred(b.readVarInt(), new SmokeClouds.Stir(b.readVarInt(), b.readBoolean(), b.readDouble(), b.readDouble(),
+                        b.readDouble(), b.readDouble(), b.readDouble(), b.readDouble(), b.readFloat(), b.readFloat())));
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
     /** A client asks for a cloud's whole grid: its copy went apart. */
     public record Resync(int id) implements CustomPacketPayload {
         public static final Type<Resync> TYPE = typeOf("smoke_resync");

@@ -95,12 +95,22 @@ public final class SmokeClient {
         compare(c, t);
     }
 
+    /** A bullet or a blast stirred a cloud: the copy takes it at the age the server did (a broken one is dropped). */
+    public static void stirred(SmokePayloads.Stirred p) {
+        SmokeClouds all = clouds();
+        SmokeClouds.Cloud c = all == null ? null : all.cloud(p.id());
+        // one for an age far past what the cloud can live to is not the server's
+        if (c == null || !SmokeClouds.sane(p.stir()) || p.stir().age() > c.grid.age() + 600) return;
+        c.stir(p.stir());
+    }
+
     public static void grid(SmokePayloads.Grid p) {
         SmokeClouds all = clouds();
         SmokeClouds.Cloud c = all == null ? null : all.cloud(p.id());
         if (c == null) return;
         try {
             SmokeNet.decode(c.grid, p.data());
+            c.stepped();
             grids++;
             Track t = TRACKS.get(p.id());
             if (t != null) {

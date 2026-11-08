@@ -30,7 +30,12 @@ public final class GasClient {
         modBus.addListener(RegisterGuiLayersEvent.class,
                 e -> e.registerAbove(VanillaGuiLayers.CAMERA_OVERLAYS, Identifier.fromNamespaceAndPath("ntmgunfeel", "gas_hud"), GasHud::layer));
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Post.class, e -> tick());
-        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> reset());
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Post.class, e -> GasStains.tick());
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent.class, GasStains::submit);
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> {
+            reset();
+            GasStains.reset();
+        });
     }
 
     public static void payloads(PayloadRegistrar r) {

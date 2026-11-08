@@ -1,5 +1,21 @@
 # Changelog
 
+## X714
+
+- GL-54 gas grenades: a bullet that flies through a gas cloud thins the gas
+  along its path a little; a burst of fire down one line clears a channel
+  through it. A blast blows away the gas within twice its reach, all but a
+  little in the middle: a high-explosive grenade fired into a gas cloud takes
+  more than half of it. Smoke is not stirred. `gasStir` (server, on).
+- GL-54 mustard gas leaves dark oily stains on the floor it lies on; they stay
+  5 minutes after the gas is gone.
+- GL-54 mustard gas soaks the ground. Where it lies for long (two magazines of
+  it fired at one place, not a grenade now and then), the ground becomes a
+  poisoned biome for good, in patches of 4 by 4 blocks under the gas: the
+  plants on it die, nothing grows there (saplings, crops, grass spreading,
+  bone meal) and its grass and leaves turn a sick yellow-brown. `gasPoison`
+  (server, on).
+
 ## X713
 
 - Mob AI, new: mobs that fight as a player does, with NTM's guns. `/armsai
