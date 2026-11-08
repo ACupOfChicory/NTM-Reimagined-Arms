@@ -1,0 +1,444 @@
+"""Retarget Quaternius UAL clips onto the six parts of a Minecraft HumanoidModel.
+
+Run:  python3 -I tools/quaternius/retarget.py <UAL1.glb> <UAL2.glb> <animations dir> <check.json>
+
+Model space of a Minecraft ModelPart: X = the model's left, Y = down, Z = back
+(forward is -Z), pixels. A part's rotation is Rz(zRot) * Ry(yRot) * Rx(xRot)
+around its pivot (JOML rotationZYX), and the six parts are siblings: turning the
+body does not carry the head or the arms. glTF here: X = left, Y = up,
+Z = forward, metres, so a glTF vector maps to MC as (x, -y, -z).
+
+Per frame:
+- arm, leg: the part points from shoulder to wrist (hip to ankle), its twist
+  (turn around its own length) comes from the hand for an arm (the gun is in
+  the hand) and from the thigh for a leg (the knee; feet turn out much more);
+- body: points from the neck down to the middle of the hips, twist from spine_03;
+- head: the Head bone's turn from its rest pose, as is;
+- position: the hips move with the pelvis (scaled by leg length), and the
+  height is set so the lowest corner of the six boxes sits as far above the
+  ground as the lowest UAL joint does; the head, body and arms hang from the
+  neck, which is 12 px above the hips along the body.
+
+Output: Bedrock animation JSON 1.8.0, read the way PlayerAnimationLib reads it:
+rotation [x, y, z] degrees = ModelPart xRot, yRot, zRot; position = the
+pivot's shift from the default pose in pixels, with Y up (so [dx, -dy, dz]).
+Each clip is written whole and split into `_upper` (head, body, arms) and
+`_lower` (legs plus a `root` position bone that a player adds to all parts).
+"""
+import json
+import math
+import os
+import sys
+
+import numpy as np
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from gltf_skel import Glb  # noqa: E402
+
+C = np.diag([1.0, -1.0, -1.0])
+Y = np.array([0.0, 1.0, 0.0])
+
+# Default pivots of HumanoidModel (pixels, MC model space).
+PIVOT = {
+    "head": np.array([0.0, 0.0, 0.0]),
+    "body": np.array([0.0, 0.0, 0.0]),
+    "right_arm": np.array([-5.0, 2.0, 0.0]),
+    "left_arm": np.array([5.0, 2.0, 0.0]),
+    "right_leg": np.array([-1.9, 12.0, 0.0]),
+    "left_leg": np.array([1.9, 12.0, 0.0]),
+}
+# Boxes relative to the pivot (min, max), pixels.
+BOX = {
+    "head": ((-4, -8, -4), (4, 0, 4)),
+    "body": ((-4, 0, -2), (4, 12, 2)),
+    "right_arm": ((-3, -2, -2), (1, 10, 2)),
+    "left_arm": ((-1, -2, -2), (3, 10, 2)),
+    "right_leg": ((-2, 0, -2), (2, 12, 2)),
+    "left_leg": ((-2, 0, -2), (2, 12, 2)),
+}
+PIVOT_HIP = np.array([0.0, 12.0, 0.0])
+PARTS = ["head", "body", "right_arm", "left_arm", "right_leg", "left_leg"]
+UPPER = ["head", "body", "right_arm", "left_arm"]
+LOWER = ["right_leg", "left_leg"]
+LIMB = {  # part: (root joint, middle joint, end joint)
+    "right_arm": ("upperarm_r", "lowerarm_r", "hand_r"),
+    "left_arm": ("upperarm_l", "lowerarm_l", "hand_l"),
+    "right_leg": ("thigh_r", "calf_r", "foot_r"),
+    "left_leg": ("thigh_l", "calf_l", "foot_l"),
+}
+# Where the wrist and the ankle sit along an MC arm/leg, pixels from the pivot.
+LIMB_END_PX = {"right_arm": 10.0, "left_arm": 10.0, "right_leg": 12.0, "left_leg": 12.0}
+
+SELECTED = {
+    "UAL1": [
+        "Idle_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Idle_Loop", "Crouch_Fwd_Loop",
+        "Pistol_Idle_Loop", "Pistol_Aim_Neutral", "Pistol_Aim_Up", "Pistol_Aim_Down", "Pistol_Shoot",
+        "Pistol_Reload", "Death01", "Hit_Chest", "Hit_Head", "Roll", "Jump_Start", "Jump_Loop", "Jump_Land",
+        "Interact", "PickUp_Table", "Punch_Jab", "Punch_Cross", "Spell_Simple_Shoot", "Fixing_Kneeling",
+        "Idle_Talking_Loop",
+    ],
+    "UAL2": [
+        "OverhandThrow", "Hit_Knockback", "Idle_Rail_Call", "Idle_No_Loop", "Yes", "LayToIdle", "Slide_Start",
+        "Slide_Loop", "Slide_Exit", "ClimbUp_1m", "Melee_Hook", "Consume", "Walk_Carry_Loop",
+        "Idle_FoldArms_Loop",
+    ],
+}
+
+
+def unit(v):
+    n = np.linalg.norm(v)
+    return v / n if n > 1e-12 else v
+
+
+def rot_between(a, b):
+    """Smallest rotation taking unit a onto unit b."""
+    a, b = unit(a), unit(b)
+    v = np.cross(a, b)
+    c = float(np.dot(a, b))
+    if c < -0.999999:
+        axis = unit(np.cross(a, [1, 0, 0]) if abs(a[0]) < 0.9 else np.cross(a, [0, 1, 0]))
+        return 2 * np.outer(axis, axis) - np.eye(3)
+    k = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+    return np.eye(3) + k + k @ k / (1 + c)
+
+
+def frame_from(yaxis, zhint):
+    y = unit(yaxis)
+    z = unit(zhint - np.dot(zhint, y) * y)
+    x = np.cross(y, z)
+    return np.column_stack([x, y, z])
+
+
+def rx(a):
+    c, s = math.cos(a), math.sin(a)
+    return np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
+
+
+def ry(a):
+    c, s = math.cos(a), math.sin(a)
+    return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]])
+
+
+def rz(a):
+    c, s = math.cos(a), math.sin(a)
+    return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+
+
+def euler_to_mat(deg):
+    x, y, z = np.radians(deg)
+    return rz(z) @ ry(y) @ rx(x)
+
+
+def mat_to_euler(m, prev=None):
+    """M = Rz Ry Rx -> (x, y, z) degrees, the branch nearest `prev`."""
+    sy = max(-1.0, min(1.0, -m[2, 0]))
+    b = math.asin(sy)
+    if abs(math.cos(b)) < 1e-6:
+        a = math.atan2(-m[1, 2], m[1, 1])
+        c = 0.0
+        cands = [(a, b, c)]
+    else:
+        a = math.atan2(m[2, 1], m[2, 2])
+        c = math.atan2(m[1, 0], m[0, 0])
+        cands = [(a, b, c), (a + math.pi, math.pi - b, c + math.pi)]
+    best = None
+    for cand in cands:
+        d = np.degrees(cand)
+        if prev is not None:
+            d = prev + (d - prev + 180.0) % 360.0 - 180.0
+            cost = float(np.sum((d - prev) ** 2))
+        else:
+            d = (d + 180.0) % 360.0 - 180.0
+            cost = float(np.sum(d ** 2))
+        if best is None or cost < best[0]:
+            best = (cost, d)
+    return best[1]
+
+
+class Skeleton:
+    def __init__(self, glb):
+        self.g = glb
+        self.rest = self.pose(glb.rest_world())
+        r = self.rest
+        self.leg_len = np.linalg.norm(r["P"]["foot_l"] - r["P"]["thigh_l"])
+        self.scale = 12.0 / self.leg_len  # px per metre for root motion
+        self.ground0 = self.lowest(r)
+        self.A = {}
+        for part, (a, _, c) in LIMB.items():
+            self.A[part] = frame_from(r["P"][c] - r["P"][a], np.array([0.0, 0.0, 1.0]))
+        self.A["body"] = frame_from(self.hips(r) - r["P"]["neck_01"], np.array([0.0, 0.0, 1.0]))
+
+    def pose(self, world):
+        P, R = {}, {}
+        for i, n in enumerate(self.g.names):
+            m = world[i]
+            P[n] = C @ m[:3, 3]
+            r = m[:3, :3] / np.linalg.norm(m[:3, :3], axis=0)
+            R[n] = C @ r @ C
+        return {"P": P, "R": R}
+
+    @staticmethod
+    def hips(p):
+        return 0.5 * (p["P"]["thigh_l"] + p["P"]["thigh_r"])
+
+    def lowest(self, p):
+        """Height of the lowest joint above y=0 (MC frame: -y is up)."""
+        return min(-p["P"][n][1] for n in self.g.names if n not in ("Armature", "Mannequin", "root"))
+
+    def delta(self, p, bone):
+        return p["R"][bone] @ self.rest["R"][bone].T
+
+    def hip_height(self, p):
+        return -self.hips(p)[1]
+
+    def solve(self, p, legs="ankle"):
+        """One frame -> {part: (pivot px, rotation 3x3)}, hips' shift.
+
+        legs="ankle": a leg points from hip to ankle (feet in place, hips stay high
+        when the knee bends); legs="thigh": along the thigh (hips drop, the foot
+        ends where the knee is)."""
+        rot = {}
+        for part, (a, b, c) in LIMB.items():
+            twist = c if part.endswith("arm") else a  # hand for arms, thigh for legs
+            m0 = self.delta(p, twist) @ self.A[part]
+            end = b if (legs == "thigh" and part.endswith("leg")) else c
+            d = p["P"][end] - p["P"][a]
+            rot[part] = rot_between(m0 @ Y, d) @ m0
+        m0 = self.delta(p, "spine_03") @ self.A["body"]
+        rot["body"] = rot_between(m0 @ Y, self.hips(p) - p["P"]["neck_01"]) @ m0
+        rot["head"] = self.delta(p, "Head")
+        rp = self.delta(p, "pelvis")
+
+        hip = np.array([0.0, 12.0, 0.0]) + self.scale * (self.hips(p) - self.hips(self.rest))
+        hip[1] = 12.0  # height comes from the ground below
+        neck_off = rot["body"] @ np.array([0.0, -12.0, 0.0])
+        piv = {
+            "body": neck_off,
+            "head": neck_off,
+            "right_arm": neck_off + rot["body"] @ np.array([-5.0, 2.0, 0.0]),
+            "left_arm": neck_off + rot["body"] @ np.array([5.0, 2.0, 0.0]),
+            "right_leg": rp @ np.array([-1.9, 0.0, 0.0]),
+            "left_leg": rp @ np.array([1.9, 0.0, 0.0]),
+        }
+        low = -1e9
+        for part in PARTS:
+            lo, hi = BOX[part]
+            for cx in (lo[0], hi[0]):
+                for cy in (lo[1], hi[1]):
+                    for cz in (lo[2], hi[2]):
+                        low = max(low, (piv[part] + rot[part] @ np.array([cx, cy, cz]))[1])
+        lift = self.scale * (self.lowest(p) - self.ground0)
+        hip[1] = 24.0 - lift - low
+        root = hip - np.array([0.0, 12.0, 0.0])
+        out = {part: (PIVOT_HIP + root + piv[part], rot[part]) for part in PARTS}
+        return out, root
+
+
+def reduce_keys(times, vals, tol):
+    """Keep the fewest keys whose linear interpolation stays within tol of every sample."""
+    n = len(times)
+    if n <= 2:
+        return list(range(n))
+    keep = [0]
+    i = 0
+    while i < n - 1:
+        j = i + 2
+        while j < n:
+            ok = True
+            for k in range(i + 1, j):
+                u = (times[k] - times[i]) / (times[j] - times[i])
+                if np.max(np.abs(vals[i] + u * (vals[j] - vals[i]) - vals[k])) > tol:
+                    ok = False
+                    break
+            if not ok:
+                break
+            j += 1
+        keep.append(j - 1)
+        i = j - 1
+    return keep
+
+
+def interp(times, vals, keys, t):
+    ks = [times[k] for k in keys]
+    if t <= ks[0]:
+        return vals[keys[0]]
+    if t >= ks[-1]:
+        return vals[keys[-1]]
+    j = int(np.searchsorted(ks, t, side="right"))
+    a, b = keys[j - 1], keys[j]
+    u = (t - times[a]) / (times[b] - times[a])
+    return vals[a] + u * (vals[b] - vals[a])
+
+
+def angle(a, b):
+    return math.degrees(math.acos(max(-1.0, min(1.0, float(np.dot(unit(a), unit(b)))))))
+
+
+def leg_errors(sk, p, out):
+    """Hip height error and ankle position error (px) of one solved frame."""
+    hip_mc = 24.0 - (out["right_leg"][0][1] + out["left_leg"][0][1]) / 2
+    hip_err = (hip_mc - 12.0) - sk.scale * (sk.hip_height(p) - sk.hip_height(sk.rest))
+    foot = 0.0
+    for part in LOWER:
+        a, _, c = LIMB[part]
+        piv, m = out[part]
+        mc = piv + m @ np.array([0.0, 12.0, 0.0])
+        want = piv + sk.scale * (p["P"][c] - p["P"][a])
+        foot = max(foot, float(np.linalg.norm(mc - want)))
+    return abs(hip_err), foot
+
+
+def pick_legs(sk, clip):
+    """The leg mode with the smaller p95 of max(hip error, ankle error)."""
+    best = None
+    for mode in ("ankle", "thigh"):
+        errs = []
+        for t in clip.times:
+            p = sk.pose(clip.world(t))
+            out, _ = sk.solve(p, mode)
+            errs.append(max(leg_errors(sk, p, out)))
+        score = float(np.percentile(errs, 95))
+        if best is None or score < best[0] - 0.25:  # ankle unless thigh is clearly better
+            best = (score, mode)
+    return best[1]
+
+
+def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle"):
+    times = clip.times
+    frames, roots, poses, legerr = [], [], [], []
+    prev = {}
+    for t in times:
+        p = sk.pose(clip.world(t))
+        out, root = sk.solve(p, legs)
+        legerr.append(leg_errors(sk, p, out))
+        f = {}
+        for part in PARTS:
+            piv, m = out[part]
+            e = mat_to_euler(m, prev.get(part))
+            prev[part] = e
+            f[part] = (piv - PIVOT[part], e, piv - root - PIVOT[part])
+        frames.append(f)
+        roots.append(root)
+        poses.append(p)
+
+    chans = {}
+    for part in PARTS:
+        rv = np.array([f[part][1] for f in frames])
+        pv = np.array([f[part][0] * np.array([1, -1, 1]) for f in frames])
+        pr = np.array([f[part][2] * np.array([1, -1, 1]) for f in frames])
+        chans[part] = {
+            "rotation": (rv, reduce_keys(times, rv, rot_tol)),
+            "position": (pv, reduce_keys(times, pv, pos_tol)),
+            "position_rel": (pr, reduce_keys(times, pr, pos_tol)),
+        }
+    rootv = np.array([r * np.array([1, -1, 1]) for r in roots])
+    chans["root"] = {"position": (rootv, reduce_keys(times, rootv, pos_tol))}
+
+    # --- check: rebuild each part from the written keys, compare with UAL bones.
+    stats = {k: [] for k in ("rebuild", "arm_up", "arm_fore", "elbow", "leg_up", "leg_low", "knee",
+                             "hand_px", "foot_px", "body", "body_twist", "head")}
+    stats["hip_px"] = [e[0] for e in legerr]
+    stats["ankle_px"] = [e[1] for e in legerr]
+    for fi, t in enumerate(times):
+        p = poses[fi]
+        m = {}
+        for part in PARTS:
+            rv, keys = chans[part]["rotation"]
+            m[part] = euler_to_mat(interp(times, rv, keys, t))
+        for part, (a, b, c) in LIMB.items():
+            d_up = p["P"][b] - p["P"][a]
+            d_lo = p["P"][c] - p["P"][b]
+            d_all = p["P"][c] - p["P"][a]
+            axis = m[part] @ Y
+            stats["rebuild"].append(angle(axis, d_all))
+            arm = part.endswith("arm")
+            stats["arm_up" if arm else "leg_up"].append(angle(axis, d_up))
+            stats["arm_fore" if arm else "leg_low"].append(angle(axis, d_lo))
+            stats["elbow" if arm else "knee"].append(angle(d_up, d_lo))
+            full = np.linalg.norm(sk.rest["P"][c] - sk.rest["P"][a])
+            short = np.linalg.norm(d_all) / full * LIMB_END_PX[part]
+            stats["hand_px" if arm else "foot_px"].append(LIMB_END_PX[part] - short)
+        stats["body"].append(angle(m["body"] @ Y, sk.hips(p) - p["P"]["neck_01"]))
+        sh_ual = p["P"]["upperarm_l"] - p["P"]["upperarm_r"]
+        sh_mc = m["body"] @ np.array([1.0, 0.0, 0.0])
+        axis = unit(m["body"] @ Y)
+        sh_ual = sh_ual - np.dot(sh_ual, axis) * axis
+        stats["body_twist"].append(angle(sh_mc, sh_ual))
+        hf = sk.delta(p, "Head") @ np.array([0.0, 0.0, -1.0])
+        stats["head"].append(angle(m["head"] @ np.array([0.0, 0.0, -1.0]), hf))
+
+    nkeys = sum(len(ch[k][1]) for ch in chans.values() for k in ch)
+    return chans, stats, len(times), nkeys
+
+
+def bedrock(times, chans, parts, length, loop, split=False):
+    """split: positions without the hips' shift, which the `root` bone carries."""
+    bones = {}
+    for part in parts:
+        b = {}
+        for kind, (vals, keys) in chans[part].items():
+            if kind == ("position" if split else "position_rel"):
+                continue
+            if np.max(np.abs(vals)) < 1e-4:
+                continue
+            b[kind.replace("_rel", "")] = {f"{times[k]:.4f}".rstrip("0").rstrip(".") if times[k] else "0.0":
+                       {"post": [round(float(x), 3) for x in vals[k]], "lerp_mode": "linear"} for k in keys}
+        if b:
+            bones[part] = b
+    return {"loop": bool(loop), "animation_length": round(length, 4), "bones": bones}
+
+
+def grade(err, good, fair):
+    return "хорошо" if err <= good else "сносно" if err <= fair else "плохо"
+
+
+def grades(st):
+    """Upper body by how far the wrist falls short, legs by hips and ankles (p95, px)."""
+    hand = float(np.percentile(st["hand_px"], 95))
+    legs = float(np.percentile(np.maximum(st["hip_px"], st["ankle_px"]), 95))
+    return grade(hand, 1.0, 2.5), grade(legs, 1.5, 3.0), hand, legs
+
+
+def main():
+    paths, out, check = sys.argv[1:3], sys.argv[3], sys.argv[4]
+    os.makedirs(out, exist_ok=True)
+    rows = []
+    for path in paths:
+        tag = "UAL2" if "UAL2" in os.path.basename(path) else "UAL1"
+        g = Glb(path)
+        sk = Skeleton(g)
+        anims = {}
+        for name in g.anims:
+            clip = g.clip(name)
+            legs = pick_legs(sk, clip)
+            chans, st, nframes, nkeys = convert(sk, clip, legs=legs)
+            gu, gl, eu, el = grades(st)
+            q = {k: (float(np.mean(v)), float(np.percentile(v, 95)), float(np.max(v))) for k, v in st.items()}
+            rows.append({"pack": tag, "clip": name, "length": clip.length, "frames": nframes, "keys": nkeys,
+                         "selected": name in SELECTED[tag], "legs": legs, "upper": gu, "lower": gl,
+                         "hand_p95_px": eu, "legs_p95_px": el, "stats": q})
+            if name in SELECTED[tag]:
+                loop = name.endswith("_Loop")
+                key = name.lower()
+                anims[key] = bedrock(clip.times, chans, PARTS, clip.length, loop)
+                anims[key + "_upper"] = bedrock(clip.times, chans, UPPER, clip.length, loop, split=True)
+                anims[key + "_lower"] = bedrock(clip.times, chans, LOWER + ["root"], clip.length, loop, split=True)
+        doc = {"format_version": "1.8.0", "animations": anims}
+        with open(os.path.join(out, f"{tag.lower()}.animation.json"), "w") as f:
+            json.dump(doc, f, separators=(",", ":"), ensure_ascii=False)
+            f.write("\n")
+    with open(check, "w") as f:
+        json.dump(rows, f, indent=1, ensure_ascii=False)
+        f.write("\n")
+    for r in rows:
+        s = r["stats"]
+        print(f"{r['pack']} {r['clip']:24s} {'*' if r['selected'] else ' '} верх {r['upper']:7s} {r['hand_p95_px']:4.1f}px "
+              f"низ {r['lower']:7s} {r['legs_p95_px']:4.1f}px ({r['legs']:5s}) "
+              f"keys {r['keys']:5d}/{r['frames'] * 19:5d} rebuild max {s['rebuild'][2]:5.2f}° "
+              f"elbow p95 {s['elbow'][1]:5.1f}° "
+              f"knee p95 {s['knee'][1]:5.1f}° "
+              f"body {s['body'][2]:4.1f}° twist {s['body_twist'][1]:4.1f}° head {s['head'][2]:4.1f}°")
+
+
+if __name__ == "__main__":
+    main()
