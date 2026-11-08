@@ -32,7 +32,9 @@ final class ImitationCore<K> {
         return switch (a) {
             case PEEK_FIGHT, LOOK_LOST, LOOK_NOISE -> Question.EXPOSE;
             case BACK_IN -> Question.HIDE;
-            case SHIFT_AFTER_PEEK, SHIFT_ON_HIT, HIT_MOVE, BETTER_COVER -> Question.SHIFT;
+            case SHIFT_AFTER_PEEK -> Question.SHIFT_BACK;
+            case SHIFT_ON_HIT, HIT_MOVE -> Question.SHIFT_HIT;
+            case BETTER_COVER -> Question.SHIFT;
             case PUSH_NOW -> Question.PUSH;
         };
     }
@@ -77,7 +79,10 @@ final class ImitationCore<K> {
 
     boolean choose(K key, Ask a, boolean formula, long tick, Supplier<double[]> features) {
         asks++;
-        Linear lin = model.question(question(a));
+        Question q = question(a);
+        Linear lin = model.question(q);
+        // a model with no part for the moment itself: its part for being in cover
+        if (lin == null && (q == Question.SHIFT_BACK || q == Question.SHIFT_HIT)) lin = model.question(Question.SHIFT);
         if (lin == null) return formula;
         int i = a.ordinal();
         Mind m = minds.computeIfAbsent(key, k -> new Mind());

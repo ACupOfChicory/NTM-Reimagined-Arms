@@ -23,8 +23,12 @@ public final class ImitationModel {
         EXPOSE,
         /** in an enemy's sight by its cover: hidden again within the window */
         HIDE,
-        /** in cover: off to other cover within the window */
+        /** settled in cover: off to other cover within the window */
         SHIFT,
+        /** just back in from a look out: off to other cover within the window (none: SHIFT answers) */
+        SHIFT_BACK,
+        /** hit by its cover: off to other cover within the window (none: SHIFT answers) */
+        SHIFT_HIT,
         /** an enemy lost from sight: toward where it was within the window */
         PUSH
     }

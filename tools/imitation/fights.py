@@ -3,10 +3,12 @@
 A recording is a gzipped JSON-lines file: a header, then a view every 4 ticks in a fight (every 20 out of one).
 What he decided is not in it; it is worked out here from the views that follow each one:
 
-  EXPOSE  hidden in cover, not reloading: a step (STEP) out into an enemy's sight within 12 ticks
-  HIDE    in an enemy's sight by his cover: a step back, hidden again, within 12 ticks
+  EXPOSE  hidden in cover, not reloading: a step out into an enemy's sight within 12 ticks
+  HIDE    out at his peek (in sight by his cover, still): a step back, hidden again, within 12 ticks
   (a step: an enemy that moves round him changes what sees him, but that is not his decision)
-  SHIFT   by his cover (hidden, or looking out of it): more than 4 blocks off within 40 ticks
+  SHIFT       settled in cover: more than 4 blocks off within 40 ticks
+  SHIFT_BACK  just back in from a look out: the same
+  SHIFT_HIT   hit by his cover: the same
   PUSH    enemies known, none seen for 2 seconds: 2 blocks nearer where the nearest was within 20 ticks
   RANK    at the start of a SHIFT: which of the cover places the bots' search offered he was hidden in next
 
@@ -19,11 +21,13 @@ import math
 import os
 import sys
 
-WINDOWS = {"EXPOSE": 12, "HIDE": 12, "SHIFT": 40, "PUSH": 20}
+WINDOWS = {"EXPOSE": 12, "HIDE": 12, "SHIFT": 40, "SHIFT_BACK": 40, "SHIFT_HIT": 40, "PUSH": 20}
 # views further apart than this are a gap: no window runs across one, ticks
 GAP = 8
 SHIFT_AWAY = 4.0
 STEP = 0.7
+# standing still this long in cover, ticks: settled there (not on his way)
+SETTLED = 8
 PUSH_NEARER = 2.0
 PUSH_UNSEEN = 40
 
@@ -86,30 +90,50 @@ def near_cover(v):
     return v["f"][12] > 0 or v["hid"] == 1
 
 
+def still(v):
+    """ticks he has stood still (FightFeatures stillFor, index 21)"""
+    return v["f"][21] * 400 if len(v["f"]) > 21 else 0
+
+
 def cases(views):
-    """the model's cases: {question: [(row, did)]}, and the cover choices: [(rows, chosen)]"""
+    """the model's cases: {question: [(row, did)]}, and the cover choices: [(rows, chosen)]
+
+    Each question is asked where a bot asks it: a mean over moments when the decision could not be taken (on his
+    way, reloading) would be too low a chance for the moments it can.
+    """
     out = {q: [] for q in WINDOWS}
     ranks = []
     for i, v in enumerate(views):
         if not fight(v):
             continue
         f = v["f"]
+        prev = views[i - 1] if i > 0 and v["t"] - views[i - 1]["t"] <= GAP else None
+        settled = v["hid"] == 1 and v["rl"] == 0 and still(v) >= SETTLED
+        # hidden, not reloading (a new fight's first hide is short: no stillness asked)
         if v["hid"] == 1 and v["rl"] == 0:
             w = window(views, i, WINDOWS["EXPOSE"])
             if w is not None:
                 out["EXPOSE"].append((f, any(x["exp"] == 1 and dist(x, v) >= STEP for x in w)))
-        if v["exp"] == 1 and near_cover(v):
+        # out at his peek: in an enemy's sight by his cover, standing there
+        if v["exp"] == 1 and near_cover(v) and still(v) >= 4:
             w = window(views, i, WINDOWS["HIDE"])
             if w is not None:
                 out["HIDE"].append((f, any(x["hid"] == 1 and dist(x, v) >= STEP for x in w)))
-        # by his cover, hidden or looking out of it: the bots ask after a look out and when hit there too
         if near_cover(v):
             w = window(views, i, WINDOWS["SHIFT"])
             if w is not None:
                 moved = any(dist(x, v) > SHIFT_AWAY for x in w)
-                out["SHIFT"].append((f, moved))
+                # settled in cover: whether to look for a better place now
+                if settled:
+                    out["SHIFT"].append((f, moved))
+                # just back in from a look out (a step of his out of their sight)
+                if v["hid"] == 1 and prev is not None and prev["exp"] == 1 and dist(prev, v) >= STEP:
+                    out["SHIFT_BACK"].append((f, moved))
+                # hit by his cover
+                if v["hu"] == 1:
+                    out["SHIFT_HIT"].append((f, moved))
                 # the start of the move: still before, off after (one choice a move, not one a step)
-                start = (i + 1 < len(views) and dist(views[i + 1], v) > 0.5) and (i == 0 or dist(views[i - 1], v) <= 0.5)
+                start = (i + 1 < len(views) and dist(views[i + 1], v) > 0.5) and (prev is None or dist(prev, v) <= 0.5)
                 if moved and v["c"] and start:
                     pick = chosen(views, i)
                     if pick is not None:

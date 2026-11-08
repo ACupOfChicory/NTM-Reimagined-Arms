@@ -22,21 +22,21 @@ SPOTS = ["place", "score", "away", "high", "hard", "peek", "toward", "aside", "f
 
 
 def fighter(seconds, seed):
-    """hides 16 to 24 ticks, looks out 8 or 16, and every 5th time runs 8 blocks aside to the 2nd cover offered"""
+    """hides 16 to 24 ticks, looks out 8 or 24, and every 5th time runs 8 blocks aside to the 2nd cover offered"""
     rnd = random.Random(seed)
     views, t, x, cycle = [], 0, 0.0, 0
     while t < seconds * 20:
         hide = 16 + rnd.randrange(3) * 4
         for k in range(0, hide, 4):
-            views.append(view(t, x, hid=1, exp=0, in_cover=k, cover_x=x + 8))
+            views.append(view(t, x, hid=1, exp=0, in_cover=k, cover_x=x + 8, still=k))
             t += 4
-        peek = 8 + rnd.randrange(2) * 8
+        peek = 8 + rnd.randrange(2) * 16
         for k in range(0, peek, 4):
-            views.append(view(t, x + 1.5, hid=0, exp=1, in_cover=hide + k, cover_x=x + 8, fired=1))
+            views.append(view(t, x + 1.5, hid=0, exp=1, in_cover=hide + k, cover_x=x + 8, fired=1, still=k))
             t += 4
         cycle += 1
         if cycle % 5 == 0:
-            views.append(view(t, x, hid=1, exp=0, in_cover=hide, cover_x=x + 8))
+            views.append(view(t, x, hid=1, exp=0, in_cover=hide, cover_x=x + 8, still=8))
             t += 4
             for k in range(1, 4):
                 views.append(view(t, x + k * 2.5, hid=0, exp=0, in_cover=0, cover_x=x + 8))
@@ -45,7 +45,7 @@ def fighter(seconds, seed):
     return views
 
 
-def view(t, x, hid, exp, in_cover, cover_x, fired=0):
+def view(t, x, hid, exp, in_cover, cover_x, fired=0, still=0):
     f = [0.0] * 22
     f[0] = 1
     f[1] = 1
@@ -55,6 +55,7 @@ def view(t, x, hid, exp, in_cover, cover_x, fired=0):
     f[12] = min(in_cover, 400) / 400
     f[16] = hid
     f[20] = f[12] if hid else 0
+    f[21] = still / 400
     f[18] = exp
     # two cover places: straight back (the search's best) and the one he takes
     c = [[int(x) - 3, 64, 0, 9.0, 2, 1, 1, [0, 1, 0.2, 1, 1, 1, -0.2, 0, 0.6]],
@@ -82,7 +83,7 @@ def main():
         h, read = fights.read(path)
         assert h["name"] == "Test" and len(read) == len(views), (len(read), len(views))
         s = fights.stats(read)
-        assert s["peekTicks"]["median"] in (8, 16) and 10 <= s["peekTicks"]["mean"] <= 14, s["peekTicks"]
+        assert s["peekTicks"]["median"] in (8, 24) and 13 <= s["peekTicks"]["mean"] <= 19, s["peekTicks"]
         assert 16 <= s["hideTicks"]["median"] <= 28, s["hideTicks"]
         # one cover change every 5 cycles of about 32 ticks plus the run: about 6 a minute
         assert 4 <= s["shiftsPerMinute"] <= 8, s["shiftsPerMinute"]
