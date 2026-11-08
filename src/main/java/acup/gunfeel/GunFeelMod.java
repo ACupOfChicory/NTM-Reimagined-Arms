@@ -39,6 +39,7 @@ public final class GunFeelMod {
                             (net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager -> ModelHitClient.clear()));
             CompatClient.init();
             net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.ItemTooltipEvent.class, GunWeight::tooltip);
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ComputeFovModifierEvent.class, GunWeight::fov);
             ServerSettingsClient.init();
             GunFeel.init();
             HoleRender.register(modBus);

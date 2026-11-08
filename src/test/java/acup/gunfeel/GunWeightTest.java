@@ -58,6 +58,16 @@ class GunWeightTest {
         assertNull(GunWeight.line("# hbm:gun_g3 = rifle, medium"));
         assertNull(GunWeight.line("hbm:gun_g3 rifle medium"));
         assertNull(GunWeight.line("= rifle, medium"));
+        assertEquals(new GunWeight.Gun("minigun", Weight.SUPER_HEAVY), GunWeight.line("hbm:gun_x = minigun, super-heavy"));
+        assertEquals(new GunWeight.Gun("rifle", null), GunWeight.line("hbm:gun_x = rifle, hevy"), "a typo: no weight, and a warning");
+    }
+
+    @Test
+    void aShareThatIsNoNumberIsTheDefault() {
+        assertEquals(GunWeight.HEAVY, GunWeight.share(Float.NaN, GunWeight.HEAVY));
+        assertEquals(0.5F, GunWeight.share(0.1F, GunWeight.HEAVY));
+        assertEquals(1F, GunWeight.share(Float.POSITIVE_INFINITY, GunWeight.HEAVY));
+        assertEquals(0.9F, GunWeight.share(0.9F, GunWeight.HEAVY));
     }
 
     @Test

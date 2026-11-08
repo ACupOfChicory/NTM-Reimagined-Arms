@@ -50,7 +50,7 @@ final class GunWeightStand {
     private static long at, startTick;
     private static double startZ;
     private static final double[][] SPEED = new double[CASES.size()][2];
-    private static final double[] ATTR = new double[CASES.size()];
+    private static final double[] ATTR = new double[CASES.size()], FOV = new double[CASES.size()];
     private static boolean done;
 
     private GunWeightStand() {
@@ -129,7 +129,11 @@ final class GunWeightStand {
                 }
                 case 1 -> {
                     if (!mc.player.onGround()) return;
-                    if (run == 0) ATTR[c] = serverSpeed();
+                    if (run == 0) {
+                        ATTR[c] = serverSpeed();
+                        // standing: the view as wide as with nothing in hand (GunWeight.fov)
+                        FOV[c] = mc.player.getFieldOfViewModifier(true, 1F);
+                    }
                     mc.player.setYRot(0F);
                     mc.options.keyUp.setDown(true);
                     mc.options.keySprint.setDown(run == 1);
@@ -203,9 +207,10 @@ final class GunWeightStand {
         for (int i = 0; i < CASES.size(); i++) {
             Case k = CASES.get(i);
             double w = SPEED[i][0] / walk0, r = SPEED[i][1] / run0, a = ATTR[i] / attr0;
-            line(String.format(Locale.ROOT, "%s: walk %.3f b/s (%.3f), run %.3f b/s (%.3f), attribute %.4f (%.3f); want %.2f",
-                    k.name, SPEED[i][0], w, SPEED[i][1], r, ATTR[i], a, k.want));
+            line(String.format(Locale.ROOT, "%s: walk %.3f b/s (%.3f), run %.3f b/s (%.3f), attribute %.4f (%.3f); want %.2f; view standing %.4f",
+                    k.name, SPEED[i][0], w, SPEED[i][1], r, ATTR[i], a, k.want, FOV[i]));
             if (i == 0) continue;
+            ClientSmoke.check(Math.abs(FOV[i] - FOV[0]) < 0.002, "тяжесть: " + k.name + " вид не сузился " + FOV[i] + " / " + FOV[0]);
             ClientSmoke.check(Math.abs(a - k.want) < 0.002, "тяжесть: " + k.name + " атрибут " + a);
             ClientSmoke.check(Math.abs(w - k.want) < 0.02 && Math.abs(r - k.want) < 0.02, "тяжесть: " + k.name + " ходьба " + w + ", бег " + r);
         }
@@ -213,28 +218,28 @@ final class GunWeightStand {
 
     private static void tooltips(Minecraft mc) {
         int shown = 0, missing = 0, bad = 0;
-        StringBuilder wrong = new StringBuilder();
+        StringBuilder wrong = new StringBuilder(), absent = new StringBuilder();
         for (var e : GunWeight.all().entrySet()) {
             ItemStack s = stack(e.getKey());
             if (s.isEmpty()) {
                 missing++;
+                absent.append(e.getKey()).append(' ');
                 continue;
             }
-            String text = s.getTooltipLines(Item.TooltipContext.of(mc.level), mc.player, TooltipFlag.Default.NORMAL).stream()
-                    .map(Component::getString).reduce("", (x, y) -> x + "\n" + y);
-            GunWeight.Gun g = e.getValue();
-            String kind = Component.translatable("ntmgunfeel.gun_kind." + g.kind()).getString();
-            boolean ok = text.contains(kind) && (g.weight() == null || text.contains(Component.translatable("ntmgunfeel.gun_weight." + g.weight().key()).getString()));
-            float sp = GunWeight.speed(g.weight());
-            if (sp < 1F) ok &= text.contains(Math.round((1F - sp) * 100F) + "%");
+            // the very line, kind, class and slowing, among the tooltip's lines
+            List<String> lines = s.getTooltipLines(Item.TooltipContext.of(mc.level), mc.player, TooltipFlag.Default.NORMAL).stream().map(Component::getString).toList();
+            String want = GunWeight.text(e.getValue()).getString();
+            boolean ok = lines.contains(want) && (GunWeight.speed(e.getValue().weight()) == 1F || want.contains("%"));
+            if (shown == 0 && ok) line("tooltip of " + e.getKey() + ": " + want);
             if (ok) shown++;
             else {
                 bad++;
                 if (wrong.length() < 400) wrong.append(e.getKey()).append(' ');
             }
         }
-        line("tooltips: " + shown + " with their line, " + bad + " without, " + missing + " not in this NTM " + wrong);
-        ClientSmoke.check(bad == 0 && shown > 70, "тяжесть: подсказка у всех пушек из файла " + shown + "/" + bad + " " + wrong);
+        line("tooltips: " + shown + " with their line, " + bad + " without " + wrong + "; " + missing + " not in this NTM: " + absent);
+        // the file may list guns this NTM has not got (other versions): those are named, not counted against it
+        ClientSmoke.check(bad == 0 && shown > 0, "тяжесть: подсказка у всех пушек из файла, что есть в этой NTM " + shown + "/" + bad + " " + wrong);
     }
 
     private static void finish() {

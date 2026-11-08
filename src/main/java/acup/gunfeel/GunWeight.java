@@ -76,10 +76,13 @@ public final class GunWeight {
         String[] p = line.substring(eq + 1).split(",");
         String kind = p[0].strip().toLowerCase(Locale.ROOT);
         Weight w = null;
-        if (p.length > 1) try {
-            w = Weight.valueOf(p[1].strip().toUpperCase(Locale.ROOT));
+        String word = p.length > 1 ? p[1].strip() : "";
+        // "super-heavy" as the tooltip writes it is "super_heavy" too
+        if (!word.isEmpty() && !word.equalsIgnoreCase("none")) try {
+            w = Weight.valueOf(word.toUpperCase(Locale.ROOT).replace('-', '_'));
         } catch (IllegalArgumentException e) {
-            // "none" or a word that is no weight
+            // a typo would quietly take the slowing away: said in the log
+            org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").warn("{}: \"{}\" is no weight (light, medium, heavy, super_heavy, none)", FILE, line);
         }
         if (kind.isEmpty() || kind.equals("none") && w == null) return null;
         return new Gun(kind, w);
@@ -117,9 +120,14 @@ public final class GunWeight {
 
     /** The share of its speed a class leaves on this server: 1 for light and medium. */
     public static float speed(Weight w) {
-        if (w == Weight.HEAVY) return Math.clamp(ReaimTimes.number(HEAVY_KEY, HEAVY), 0.5F, 1F);
-        if (w == Weight.SUPER_HEAVY) return Math.clamp(ReaimTimes.number(SUPER_KEY, SUPER_HEAVY), 0.5F, 1F);
+        if (w == Weight.HEAVY) return share(ReaimTimes.number(HEAVY_KEY, HEAVY), HEAVY);
+        if (w == Weight.SUPER_HEAVY) return share(ReaimTimes.number(SUPER_KEY, SUPER_HEAVY), SUPER_HEAVY);
         return 1F;
+    }
+
+    // a key's share, 0.5 to 1; one that is no number (NaN) is its default
+    static float share(float v, float def) {
+        return Float.isNaN(v) ? def : Math.clamp(v, 0.5F, 1F);
     }
 
     /** The heavier of the two: null below everything. */
@@ -154,11 +162,35 @@ public final class GunWeight {
         if (now == null || now.amount() != v) speed.addOrUpdateTransientModifier(new AttributeModifier(MODIFIER, v, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
     }
 
+    /**
+     * Client: the game narrows the view as the speed falls ({@code AbstractClientPlayer.getFieldOfViewModifier}: the
+     * speed's share of the walking speed, plus 1, halved); a heavy gun is no reason for it, so its share is taken out
+     * of that factor again, and only it: running, flying and the rest stay as they were. Not while looking through a
+     * spyglass (the game's 0.1 then is no speed).
+     */
+    public static void fov(net.neoforged.neoforge.client.event.ComputeFovModifierEvent e) {
+        var p = e.getPlayer();
+        AttributeInstance speed = p.getAttribute(Attributes.MOVEMENT_SPEED);
+        AttributeModifier mod = speed == null ? null : speed.getModifier(MODIFIER);
+        float walking = p.getAbilities().getWalkingSpeed();
+        if (mod == null || walking == 0F || p.isScoping()) return;
+        double g = 1.0 + mod.amount();
+        if (!(g > 0.0)) return;
+        float r = (float) speed.getValue() / walking;
+        float m = e.getFovModifier();
+        float m0 = m * (float) ((r / g + 1.0) / (r + 1.0));
+        e.setNewFovModifier(e.getNewFovModifier() + e.getFovScale() * (m0 - m));
+    }
+
     /** Client: the tooltip's line, the class and what it costs in speed (the client key {@code gunWeightTooltip}). */
     public static void tooltip(net.neoforged.neoforge.event.entity.player.ItemTooltipEvent e) {
         if (!Config.gunWeightTooltip) return;
         Gun g = gun(e.getItemStack());
-        if (g == null) return;
+        if (g != null) e.getToolTip().add(text(g));
+    }
+
+    /** The tooltip's line of a gun: its kind, its weight class and what it costs in speed on this server. */
+    public static net.minecraft.network.chat.MutableComponent text(Gun g) {
         // a kind with no name in the language file is shown as it is in the data file
         var kind = net.minecraft.network.chat.Component.translatableWithFallback("ntmgunfeel.gun_kind." + g.kind(), g.kind().replace('_', ' '));
         Weight w = g.weight();
@@ -166,6 +198,6 @@ public final class GunWeight {
                 net.minecraft.network.chat.Component.translatable("ntmgunfeel.gun_weight." + w.key()));
         float s = enabled() ? speed(w) : 1F;
         if (s < 1F) line.append(net.minecraft.network.chat.Component.translatable("ntmgunfeel.gun_weight.slow", Math.round((1F - s) * 100F)));
-        e.getToolTip().add(line.withStyle(net.minecraft.ChatFormatting.GRAY));
+        return line.withStyle(net.minecraft.ChatFormatting.GRAY);
     }
 }
