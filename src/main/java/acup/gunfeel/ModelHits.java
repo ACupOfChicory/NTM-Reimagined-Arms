@@ -109,7 +109,15 @@ public final class ModelHits {
     // a layer (".../wornHead/draws/..."); without Flywheel, and a block always, it is not caught. The head and limb
     // zones grow with all of it (wornZones): a shot on a helmet is a shot in the head.
     private static List<ModelBox> wornBoxes(Entity target,PoseAt p) {
+        if(bodyOnly(target)) return p.boxes();
         return WornGear.boxes(p.boxes(),drawn(worn(target),p.boxes()));
+    }
+    // The mob AI's bots (NTM's FBI agent and test dummy, the model of ten parts): hit where the body is drawn, what
+    // they wear growing neither the boxes nor the head and limb zones (an agent's glass block on the head made its
+    // head 10 px instead of 8).
+    static boolean bodyOnly(Entity target) {
+        var id=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(target.getType());
+        return "hbm".equals(id.getNamespace()) && ("entity_fbi".equals(id.getPath()) || "entity_test_dummy".equals(id.getPath()));
     }
     static WornGear.Worn drawn(WornGear.Worn worn,List<ModelBox> boxes) {
         if(!worn.any()) return worn;
@@ -121,6 +129,7 @@ public final class ModelHits {
 
     // zones ModelHeads found on the bare model, grown with what is worn
     private static List<HeadZone> wornZones(Entity target,PoseAt p,List<HeadZone> zones) {
+        if(bodyOnly(target)) return zones;
         var worn=worn(target);
         return worn.any()?WornGear.zones(zones,worn,WornGear.humanoid(p.boxes())):zones;
     }

@@ -27,14 +27,15 @@ class BotPoserTest {
         return p;
     }
 
-    /** HumanoidModel's six parts at their default pivots */
+    /** BotModel's ten parts at their default pivots */
     static BotPoser.Parts parts() {
         return new BotPoser.Parts(part(0, 0, 0), part(0, 0, 0), part(-5, 2, 0), part(5, 2, 0), part(-1.9F, 12, 0),
-                part(1.9F, 12, 0));
+                part(1.9F, 12, 0), part(-1, 4, 0), part(1, 4, 0), part(0, 6, 0), part(0, 6, 0));
     }
 
     static ModelPart[] all(BotPoser.Parts p) {
-        return new ModelPart[] { p.head(), p.body(), p.rightArm(), p.leftArm(), p.rightLeg(), p.leftLeg() };
+        return new ModelPart[] { p.head(), p.body(), p.rightArm(), p.leftArm(), p.rightLeg(), p.leftLeg(),
+                p.rightForearm(), p.leftForearm(), p.rightShin(), p.leftShin() };
     }
 
     static BotAnimator.Frame still(float lean) {
@@ -88,8 +89,8 @@ class BotPoserTest {
         for (float frac : new float[] { -1F, -0.5F, 0.7F, 1F })
             for (float yaw : new float[] { 0F, 90F, -135F }) {
                 BotPoser.Parts up = parts(), lean = parts();
-                BotPoser.apply(up, still(0F), 0F, 0F);
-                BotPoser.apply(lean, still(frac), 0F, 0F);
+                BotPoser.apply(up, still(0F), 0F, 0F, 0F);
+                BotPoser.apply(lean, still(frac), 0F, 0F, 0F);
                 Vector3f m = inModel(lean.head(), eye), u = inModel(up.head(), eye);
                 Vector3f world = render(m, yaw), upright = render(u, 0F);
                 Vec3 s = AiPoseGeometry.leanPoint(-upright.x, upright.y, upright.z, AiPose.STAND, frac, yaw);
@@ -111,10 +112,13 @@ class BotPoserTest {
                     for (boolean left : new boolean[] { false, true }) {
                         BotPoser.Parts p = parts();
                         BotPoser.apply(p, new BotAnimator.Frame(stance == AiPose.CROUCH ? 1F : 0F, frac,
-                                new float[] { 0F, 0F, 1F, 0F }, null, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0), 0F, 0F);
-                        // the grip as ItemInHandLayer puts it: the arm, X -90, Y 180, (±1, 2, -10)/16
-                        ModelPart arm = left ? p.leftArm() : p.rightArm();
-                        Vector3f grip = new Matrix4f().rotateX((float) Math.toRadians(-90)).rotateY((float) Math.PI)
+                                new float[] { 0F, 0F, 1F, 0F }, null, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0), 0F, 0F, 0F);
+                        // the grip as ItemInHandLayer puts it after BotAnimation.hand: the arm, the forearm turned
+                        // about the elbow, X -90, Y 180, (±1, 2, -10)/16
+                        ModelPart arm = left ? p.leftArm() : p.rightArm(), fore = left ? p.leftForearm() : p.rightForearm();
+                        Vector3f grip = new Matrix4f().translate(fore.x, fore.y, fore.z)
+                                .rotateZYX(fore.zRot, fore.yRot, fore.xRot).translate(-fore.x, -fore.y, -fore.z)
+                                .rotateX((float) Math.toRadians(-90)).rotateY((float) Math.PI)
                                 .transformPosition(new Vector3f(left ? -1F : 1F, 2F, -10F));
                         Vector3f world = render(inModel(arm, grip), yaw);
                         Vec3 s = AiPoseGeometry.blindMuzzle(stance, frac, yaw, left);
@@ -187,7 +191,7 @@ class BotPoserTest {
             BotPoser.Parts parts = parts();
             // lying from 142 to 150: the swim amount comes and goes over 5 ticks as vanilla's does
             float swim = (float) (now < 142 ? 0 : now < 150 ? Math.min(1, (now - 142) / 5) : Math.max(0, 1 - (now - 150) / 5));
-            BotPoser.apply(parts, f, swim, 0F);
+            BotPoser.apply(parts, f, swim, 0F, 0F);
             if (prev != null) {
                 float j = jump(prev, parts);
                 max = Math.max(max, j);

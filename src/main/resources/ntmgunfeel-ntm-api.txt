@@ -274,11 +274,14 @@ CORE field com/hbm/items/ModItems TITANIUM_PLATE Lcom/hbm/registration/RegistryH
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling fragmentation Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets_heavy Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_ENTITY_HIT Ljava/util/function/BiConsumer;
 CORE field com/hbm/items/weapon/sedna/BulletConfig ammoItem Ljava/util/function/Supplier;
 CORE field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
 CORE field com/hbm/items/weapon/sedna/BulletConfig armorThresholdNegation F
 CORE field com/hbm/items/weapon/sedna/BulletConfig casing Lcom/hbm/particle/SpentCasing;
 CORE field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
+CORE field com/hbm/items/weapon/sedna/BulletConfig damageMult F
+CORE field com/hbm/items/weapon/sedna/BulletConfig dmgClass Lcom/hbm/util/DamageClass;
 CORE field com/hbm/items/weapon/sedna/BulletConfig expires I
 CORE field com/hbm/items/weapon/sedna/BulletConfig gravity D
 CORE field com/hbm/items/weapon/sedna/BulletConfig id I
@@ -345,6 +348,9 @@ CORE method com/hbm/handler/ArmorUtil installGasMaskFilter (Lnet/minecraft/world
 CORE method com/hbm/handler/EquipmentProtections isMask (Lnet/minecraft/world/item/ItemInstance;)Z
 CORE method com/hbm/items/armor/ModArmorItem isPowered ()Z
 CORE method com/hbm/items/weapon/sedna/BulletConfig ammoStack ()Lnet/minecraft/world/item/ItemStack;
+CORE method com/hbm/items/weapon/sedna/BulletConfig getDamage (Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/util/DamageClass;)Lnet/minecraft/world/damagesource/DamageSource;
+CORE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/world/item/ItemStack;Z)V
@@ -353,8 +359,11 @@ CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsEquipped (Lnet/minecra
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setState (Lnet/minecraft/world/item/ItemStack;ILcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setTimer (Lnet/minecraft/world/item/ItemStack;II)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setValueInt (Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;I)V
+CORE method com/hbm/items/weapon/sedna/Receiver getBaseDamage (Lnet/minecraft/world/item/ItemStack;)F
+CORE method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 CORE method com/hbm/items/weapon/sedna/factory/Lego standardExplode (Lcom/hbm/entity/projectile/EntityBulletBaseMK4;Lnet/minecraft/world/phys/HitResult;F)V
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;
 CORE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getCapacity (Lnet/minecraft/world/item/ItemStack;)I
 CORE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setAmount (Lnet/minecraft/world/item/ItemStack;I)V
 CORE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setType (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/BulletConfig;)V
@@ -660,6 +669,8 @@ MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilRebound F
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState RELOADING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+MOB_AI field com/hbm/main/ResourceManager dummy_tex Lnet/minecraft/resources/Identifier;
+MOB_AI field com/hbm/main/ResourceManager fbi_tex Lnet/minecraft/resources/Identifier;
 MOB_AI method com/hbm/entity/projectile/EntityThrowableNT setThrowableHeading (DDDFF)V
 MOB_AI method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;

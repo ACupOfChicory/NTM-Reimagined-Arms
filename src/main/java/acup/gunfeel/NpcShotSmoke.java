@@ -116,7 +116,8 @@ final class NpcShotSmoke {
                     target.setPos(home);target.setDeltaMovement(Vec3.ZERO);
                     return lost;
                 };
-                float b=shot.apply(body,base),h=shot.apply(head,base),h2=shot.apply(body,base*1.75F),l=shot.apply(limb,base),l2=shot.apply(body,base*.5F);
+                // the part's multiplier after the armour, on the body's damage
+                float b=shot.apply(body,base),h=shot.apply(head,base),l=shot.apply(limb,base),h2=b*1.75F,l2=b*.5F;
                 BulletServer.forgetWear();
                 level.setBlock(glass,Blocks.GLASS.defaultBlockState(),3);
                 float behind=shot.apply(body,base);
@@ -138,7 +139,7 @@ final class NpcShotSmoke {
                 check.accept(behind>0,"NPC "+s.name()+": за стеклом урон="+f(behind)+" из "+f(b)+" ("+f(behind/b*100)+" %), стекло разбито="+broke);
             }
             // старая пуля по мобу, которого только что ударили (окно неуязвимости, lastHurt): первый удар или повтор
-            // NTM решает её урон без зоны, прибавка головы или конечности идёт в тот, что проходит (LegacyBullets.hurt)
+            // NTM решает её урон без зоны, множитель головы или конечности ложится на то, что прошло (после брони)
             int li=shooters().size()-1;var legacy=shooters().get(li);float d=legacy.damage();float[] fresh=numbers.get(li);
             for(float last:new float[]{d,d*.6F}) {
                 java.util.function.Function<Vec3,Float> hit=at->{
@@ -158,8 +159,8 @@ final class NpcShotSmoke {
                 // урон не больше прошлого удара: NTM бьёт повтором целиком — как свежий выстрел в ту же точку
                 if(d<=last) check.accept(Math.abs(b-fresh[0])<.01 && Math.abs(h-fresh[1])<.01 && Math.abs(l-fresh[3])<.01,
                         line+" (как без удара: "+f(fresh[0])+", "+f(fresh[1])+", "+f(fresh[3])+")");
-                // больше: первый удар, сверх прошлого; конечности сверх него не остаётся
-                else check.accept(b>0 && b<fresh[0] && h>b && l==0,line+" (без удара тело="+f(fresh[0])+")");
+                // больше: первый удар, сверх прошлого, и множитель на нём
+                else check.accept(b>0 && b<fresh[0] && Math.abs(h-b*1.75F)<.01 && Math.abs(l-b*.5F)<.01,line+" (без удара тело="+f(fresh[0])+")");
             }
             // зоны старой пули падают: удар в голову идёт как в NTM (урон тела), сервер не падает
             LegacyBullets.failZones=true;

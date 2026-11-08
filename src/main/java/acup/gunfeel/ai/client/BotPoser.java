@@ -14,6 +14,7 @@ import org.joml.Vector3f;
  * the item's arm pose, the crawl) has run. In order:
  * <ol>
  * <li>the idle loop's breathing, added on top (UAL Idle_Loop, its change from its first frame);</li>
+ * <li>the knees as it walks, the elbows with no gun;</li>
  * <li>the arms: as vanilla left them (HOLD, NO_GUN), aimed two-handed along the look (AIM), held up over the head
  * (BLIND, firing blind over cover), or along the ground when lying with a gun;</li>
  * <li>vanilla's crouch, by its weight;</li>
@@ -22,20 +23,34 @@ import org.joml.Vector3f;
  * <li>a hit's flinch, added on top (UAL Hit_Chest, Hit_Head);</li>
  * <li>the lean: the hips step aside and everything above them tips (AiPoseGeometry, the server's own numbers).</li>
  * </ol>
- * The parts are siblings, so a part's pivot and turn are all there is: no hidden transform the hitbox would miss.
+ * Each arm and leg is two parts (BotModel): the forearm and the shin are children of the upper arm and the thigh, turned
+ * from them, so what turns an arm carries its forearm. The hitbox walks the same tree: nothing it would miss.
  */
 public final class BotPoser {
-    static final String[] UPPER = { "head", "body", "right_arm", "left_arm" };
-    static final String[] ALL = { "head", "body", "right_arm", "left_arm", "right_leg", "left_leg" };
+    static final String[] UPPER = { "head", "body", "right_arm", "right_forearm", "left_arm", "left_forearm" };
+    static final String[] ALL = { "head", "body", "right_arm", "right_forearm", "left_arm", "left_forearm", "right_leg",
+            "right_shin", "left_leg", "left_shin" };
     private static final float PI = Mth.PI;
 
     private BotPoser() {
     }
 
-    /** The six parts, by the clip's bone names; head first. */
+    /**
+     * The ten parts (BotModel), by the clip's bone names; head first. The forearms and the shins are their limb's
+     * children, so their turns are from the limb above; a model not split (none: only the bots have them) has none,
+     * and a clip's bones for them are left out.
+     */
     public record Parts(ModelPart head, ModelPart body, ModelPart rightArm, ModelPart leftArm, ModelPart rightLeg,
-            ModelPart leftLeg) {
-        ModelPart get(String bone) {
+            ModelPart leftLeg, @org.jspecify.annotations.Nullable ModelPart rightForearm,
+            @org.jspecify.annotations.Nullable ModelPart leftForearm, @org.jspecify.annotations.Nullable ModelPart rightShin,
+            @org.jspecify.annotations.Nullable ModelPart leftShin) {
+        public Parts(ModelPart head, ModelPart body, ModelPart rightArm, ModelPart leftArm, ModelPart rightLeg,
+                ModelPart leftLeg) {
+            this(head, body, rightArm, leftArm, rightLeg, leftLeg, BotModel.lower(rightArm), BotModel.lower(leftArm),
+                    BotModel.lower(rightLeg), BotModel.lower(leftLeg));
+        }
+
+        @org.jspecify.annotations.Nullable ModelPart get(String bone) {
             return switch (bone) {
                 case "head" -> head;
                 case "body" -> body;
@@ -43,16 +58,26 @@ public final class BotPoser {
                 case "left_arm" -> leftArm;
                 case "right_leg" -> rightLeg;
                 case "left_leg" -> leftLeg;
+                case "right_forearm" -> rightForearm;
+                case "left_forearm" -> leftForearm;
+                case "right_shin" -> rightShin;
+                case "left_shin" -> leftShin;
                 default -> null;
             };
         }
     }
 
+    /** how far a knee bends as the leg swings forward walking, radians at full speed */
+    static final float KNEE_WALK = 1.0F;
+    /** an elbow's bend with no gun, radians, more as it walks */
+    static final float ELBOW_FREE = 0.15F, ELBOW_WALK = 0.35F;
+
     /**
      * @param swim       the render state's swimAmount: lying (an AI mob's crawl) when above 0
      * @param walkSpeed  the render state's walkAnimationSpeed: the idle loop fades out as it walks
+     * @param walkPos    the render state's walkAnimationPos: where vanilla's legs are in their swing
      */
-    public static void apply(Parts p, BotAnimator.Frame f, float swim, float walkSpeed) {
+    public static void apply(Parts p, BotAnimator.Frame f, float swim, float walkSpeed, float walkPos) {
         float[] a = new float[3], b = new float[3];
         float lying = Mth.clamp(swim, 0F, 1F);
         float upright = 1F - lying;
@@ -92,6 +117,22 @@ public final class BotPoser {
             p.leftArm.xRot = Mth.lerp(w, p.leftArm.xRot, -PI + 0.25F);
             p.leftArm.yRot = Mth.lerp(w, p.leftArm.yRot, 0.45F);
             p.leftArm.zRot = Mth.lerp(w, p.leftArm.zRot, 0F);
+        }
+
+        // the knees: vanilla swings straight legs (xRot cos(pos 0.6662) 1.4 speed); a leg swinging forward lifts its
+        // foot. The elbows: bent a little with no gun, more as it walks; with a gun the hands stay where vanilla's
+        // straight arms put the gun (AiPoseGeometry's muzzle)
+        float walk = Mth.clamp(walkSpeed, 0F, 1F) * upright;
+        if (walk > 0F) {
+            float swing = Mth.sin(walkPos * 0.6662F);
+            if (p.rightShin != null) p.rightShin.xRot += KNEE_WALK * walk * Math.max(0F, swing);
+            if (p.leftShin != null) p.leftShin.xRot += KNEE_WALK * walk * Math.max(0F, -swing);
+        }
+        float free = f.arms()[AiPose.NO_GUN] * upright;
+        if (free > 0F) {
+            float bend = free * (ELBOW_FREE + ELBOW_WALK * walk);
+            if (p.rightForearm != null) p.rightForearm.xRot -= bend;
+            if (p.leftForearm != null) p.leftForearm.xRot -= bend;
         }
 
         // 3. vanilla's crouch (HumanoidModel.setupAnim, 26.2), by its weight
@@ -142,9 +183,12 @@ public final class BotPoser {
         switch (act.kind()) {
             case AiPose.RELOAD -> {
                 // the gun down to the chest, the left hand to the magazine and back twice (out, in), the eyes on it
+                // the elbows bent: the gun in to the chest, the left hand up to it
                 float pull = Mth.sin(PI * ((act.u() * 2F) % 1F));
-                turn(p.rightArm, -0.9F, -0.35F, 0F, w);
-                turn(p.leftArm, -0.75F - 0.45F * pull, 0.65F, 0F, w);
+                turn(p.rightArm, -0.6F, -0.35F, 0F, w);
+                turn(p.leftArm, -0.45F - 0.35F * pull, 0.65F, 0F, w);
+                if (p.rightForearm != null) turn(p.rightForearm, -0.7F, 0F, 0F, w);
+                if (p.leftForearm != null) turn(p.leftForearm, -0.9F - 0.3F * pull, 0F, 0F, w);
                 p.head.xRot = Mth.lerp(w, p.head.xRot, 0.45F);
             }
             case AiPose.SHOT -> {
@@ -162,22 +206,33 @@ public final class BotPoser {
             case AiPose.SIGNAL_COME -> {
                 // KayKit waves with the right hand; the gun is there, so the left one waves, mirrored
                 BotClip t = BotClips.get(BotClips.WAVE);
-                if (t != null) setMirrored(p.leftArm, t, "right_arm", t.local(act.t() / 20F), w, a);
+                if (t != null) {
+                    float tt = t.local(act.t() / 20F);
+                    setMirrored(p.leftArm, t, "right_arm", tt, w, a);
+                    if (p.leftForearm != null) setMirrored(p.leftForearm, t, "right_forearm", tt, w, a);
+                }
             }
             case AiPose.SIGNAL_POINT -> turn(p.leftArm, -PI / 2F + headX, headY, 0F, w);
-            case AiPose.SIGNAL_HALT -> turn(p.leftArm, -PI + 0.15F, 0F, -0.12F, w);
+            case AiPose.SIGNAL_HALT -> {
+                // the hand up, the palm out: the elbow a little bent
+                turn(p.leftArm, -PI + 0.35F, 0F, -0.12F, w);
+                if (p.leftForearm != null) turn(p.leftForearm, -0.35F, 0F, 0F, w);
+            }
             default -> {
             }
         }
     }
 
-    private static final ThreadLocal<Quaternionf[]> Q = ThreadLocal.withInitial(() -> new Quaternionf[] { new Quaternionf(), new Quaternionf() });
+    /** |q0 . q1| below which the shortest turn gives way to the straight blend of the angles, and over how much */
+    static final float FACING = 0.1F, FACING_BLEND = 0.25F;
+    private static final ThreadLocal<Quaternionf[]> Q = ThreadLocal.withInitial(() -> new Quaternionf[] { new Quaternionf(), new Quaternionf(), new Quaternionf() });
     private static final ThreadLocal<Vector3f> E = ThreadLocal.withInitial(Vector3f::new);
 
     /**
      * Turns the part w of the way to (x, y, z), along the shortest turn (a slerp: Euler angles straight across can
-     * swing the long way round near a quarter turn about Y), kept on the Euler branch nearest the straight blend so
-     * the angles added after it (crouch, flinch) act as they would.
+     * swing the long way round near a quarter turn about Y; between two turns nearly half a turn apart, the angles
+     * blended straight), kept on the Euler branch nearest the straight blend so the angles added after it (crouch,
+     * flinch) act as they would.
      */
     static void turn(ModelPart part, float x, float y, float z, float w) {
         if (w >= 1F) {
@@ -185,11 +240,21 @@ public final class BotPoser {
             return;
         }
         Quaternionf[] q = Q.get();
+        float lx = Mth.lerp(w, part.xRot, x), ly = Mth.lerp(w, part.yRot, y), lz = Mth.lerp(w, part.zRot, z);
         q[0].rotationZYX(part.zRot, part.yRot, part.xRot);
         q[1].rotationZYX(z, y, x);
+        q[2].rotationZYX(lz, ly, lx);
+        // the shortest turn, but where the two turns come to face each other (a throw fading out over a mob lying
+        // down) the shortest way flips to the other side: there it gives way, smoothly, to the angles blended
+        // straight, which move on through it
+        float k = BotAnimator.smooth((Math.abs(q[0].dot(q[1])) - FACING) / FACING_BLEND);
         q[0].slerp(q[1], w);
+        if (k < 1F) {
+            if (q[0].dot(q[2]) < 0F) q[0].set(-q[0].x, -q[0].y, -q[0].z, -q[0].w);
+            q[0].set(k * q[0].x + (1F - k) * q[2].x, k * q[0].y + (1F - k) * q[2].y, k * q[0].z + (1F - k) * q[2].z,
+                    k * q[0].w + (1F - k) * q[2].w).normalize();
+        }
         Vector3f e = q[0].getEulerAnglesZYX(E.get());
-        float lx = Mth.lerp(w, part.xRot, x), ly = Mth.lerp(w, part.yRot, y), lz = Mth.lerp(w, part.zRot, z);
         // the same turn: (x, y, z) and (x + pi, pi - y, z + pi)
         float x1 = near(e.x, lx), y1 = near(e.y, ly), z1 = near(e.z, lz);
         float x2 = near(e.x + PI, lx), y2 = near(PI - e.y, ly), z2 = near(e.z + PI, lz);
@@ -208,6 +273,7 @@ public final class BotPoser {
     static void add(Parts p, BotClip clip, float t, float w, float[] a, float[] b) {
         for (String bone : ALL) {
             ModelPart part = p.get(bone);
+            if (part == null) continue;
             if (clip.rotation(bone, t, a) && clip.rotation(bone, 0F, b)) {
                 part.xRot += w * Mth.DEG_TO_RAD * (a[0] - b[0]);
                 part.yRot += w * Mth.DEG_TO_RAD * (a[1] - b[1]);
@@ -225,6 +291,7 @@ public final class BotPoser {
     static void set(Parts p, BotClip clip, float t, float w, String[] bones, float[] a) {
         for (String bone : bones) {
             ModelPart part = p.get(bone);
+            if (part == null) continue;
             PartPose d = part.getInitialPose();
             if (clip.rotation(bone, t, a))
                 turn(part, Mth.DEG_TO_RAD * a[0], Mth.DEG_TO_RAD * a[1], Mth.DEG_TO_RAD * a[2], w);
