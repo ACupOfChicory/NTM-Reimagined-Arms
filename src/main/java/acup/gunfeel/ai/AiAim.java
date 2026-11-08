@@ -240,11 +240,17 @@ public final class AiAim {
      * the skill's gate times half its width, up and down within the gate times chest to head.
      */
     public static boolean onTarget(AiSkill skill, double ex, double ey, double ez, float yaw, float pitch, double sx, double sy, double sz) {
+        return onTarget(skill, ex, ey, ez, yaw, pitch, sx, sy, sz, HALF_HEIGHT);
+    }
+
+    /** the same for a part of a body halfHeight blocks up and down from the spot (only the head over a wall) */
+    public static boolean onTarget(AiSkill skill, double ex, double ey, double ez, float yaw, float pitch, double sx, double sy, double sz,
+            double halfHeight) {
         double dx = sx - ex, dy = sy - ey, dz = sz - ez, d = Math.sqrt(dx * dx + dy * dy + dz * dz);
         if (d < 1e-6) return true;
         double across = Math.abs(wrap(yawTo(ex, ez, sx, sz) - yaw)) * Math.cos(Math.toRadians(pitch));
         double up = Math.abs(pitchTo(ex, ey, ez, sx, sy, sz) - pitch);
-        return across <= skill.gate() * Math.toDegrees(Math.atan(HALF_WIDTH / d)) && up <= skill.gate() * Math.toDegrees(Math.atan(HALF_HEIGHT / d));
+        return across <= skill.gate() * Math.toDegrees(Math.atan(HALF_WIDTH / d)) && up <= skill.gate() * Math.toDegrees(Math.atan(halfHeight / d));
     }
 
     public static float yawTo(double ex, double ez, double x, double z) {

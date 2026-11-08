@@ -174,4 +174,40 @@ class SensesTest {
         m.quiet();
         assertNull(m.noise(), "dealt with");
     }
+
+    // seen until t, then lost at the next look
+    private static TargetMemory lostOne(int id, double x) {
+        TargetMemory m = new TargetMemory(P);
+        for (long t = 0; t <= 16; t += 4) {
+            m.look();
+            m.seen(id, x, 64, 0, t, 0);
+            m.endLook(t);
+        }
+        m.look();
+        m.endLook(20);
+        return m;
+    }
+
+    @Test
+    void aHitFromOutOfSightMovesTheOneLostTargetThere() {
+        TargetMemory m = lostOne(1, 10);
+        assertEquals(TargetMemory.State.LOST, m.contact(1).state);
+        m.shotFrom(-5, 64, 12, 30);
+        TargetMemory.Contact c = m.contact(1);
+        assertEquals(-5, c.lostX, 1e-9);
+        assertEquals(12, c.lostZ, 1e-9);
+        assertEquals(30, c.lostTick, "lost there now: the wait starts over");
+        // two lost: it cannot tell who shot
+        TargetMemory two = lostOne(1, 10);
+        for (long t = 24; t <= 40; t += 4) {
+            two.look();
+            two.seen(2, 20, 64, 0, t, 0);
+            two.endLook(t);
+        }
+        two.look();
+        two.endLook(44);
+        two.shotFrom(-5, 64, 12, 50);
+        assertEquals(10, two.contact(1).lostX, 1e-9);
+        assertEquals(20, two.contact(2).lostX, 1e-9);
+    }
 }

@@ -68,7 +68,7 @@ public final class AiBot {
         for (LivingEntity t : targets) {
             if (t == mob || !t.isAlive() || !AiTeams.enemy(mob, t)) continue;
             int notice = Senses.look(voxels, smoke, mob, t, eyes());
-            if (notice >= 0) memory.seen(t.getId(), t.getX(), t.getY(), t.getZ(), tick, notice);
+            if (notice >= 0) memory.seen(t.getId(), t.getX(), t.getY(), t.getZ(), tick, notice).parts = Senses.parts;
         }
         memory.endLook(tick);
     }

@@ -26,6 +26,8 @@ public final class TargetMemory {
     public static final class Contact {
         public final int id;
         public State state = State.GLIMPSED;
+        /** the parts of it the last look saw (Senses.HEAD, CHEST, LEGS; 0: none yet) */
+        public int parts;
         /** where it was last seen (feet), and its motion then, blocks per tick */
         public double x, y, z, vx, vz;
         public long seenTick = Long.MIN_VALUE;
@@ -160,6 +162,39 @@ public final class TargetMemory {
                 default -> c.sightTicks = Math.max(0, c.sightTicks - profile.period());
             }
         }
+    }
+
+    /** the tick it was last shot (by a projectile someone fired: not a punch, nor a blast) */
+    private long shotTick = Long.MIN_VALUE;
+
+    public void shot(long tick) {
+        shotTick = tick;
+    }
+
+    /** whether the hit heard at this tick was a shot */
+    public boolean wasShot(long tick) {
+        return shotTick == tick;
+    }
+
+    /**
+     * Shot from out of sight with the one target it knows of out of sight too: that one shot, and is last known where
+     * the shot came from (lost there now: the wait, the look out and the search start over from there). With more
+     * than one out of sight, or one in sight, it cannot tell who, and nothing moves.
+     */
+    public void shotFrom(double x, double y, double z, long tick) {
+        Contact only = null;
+        for (Contact c : contacts) {
+            if (!c.known()) continue;
+            if (c.state == State.VISIBLE || only != null) return;
+            only = c;
+        }
+        if (only == null) return;
+        only.state = State.LOST;
+        only.x = only.lostX = x;
+        only.y = only.lostY = y;
+        only.z = only.lostZ = z;
+        only.vx = only.vz = 0;
+        only.lostTick = tick;
     }
 
     /** a known target's state moves on with time: LOST to SEARCH to forgotten */

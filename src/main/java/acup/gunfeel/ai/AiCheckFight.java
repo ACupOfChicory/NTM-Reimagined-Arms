@@ -36,6 +36,10 @@ final class AiCheckFight {
     private int ticks;
     /** its moves (relocations and shifts) before the flanker shot it */
     private int movesBefore;
+    /** the check's tick it went searching for the lost target (-1: not yet) */
+    private int searchSince = -1;
+    /** where it was when it went searching (a look out may have taken it a step or two off from where it held) */
+    private Vec3 searchFrom;
     private Mob soldier, target;
     private AiBot bot;
     private AiSoldier mind;
@@ -184,6 +188,8 @@ final class AiCheckFight {
             // the flanker shoots it: it turns to where the hit came from
             soldier.hurtServer(level, level.damageSources().mobAttack(target), 1F);
             movesBefore = mind.relocations + mind.shifts;
+            // what it makes of the flank goes to the server's log (the journal of /armsai log)
+            AiThoughts.log = true;
             next(Phase.FLANK);
         }
     }
@@ -216,10 +222,15 @@ final class AiCheckFight {
         TargetMemory.Contact c = bot.memory.contact(target.getId());
         if (c != null && c.state == TargetMemory.State.LOST) lostAt = new Vec3(c.lostX, c.lostY, c.lostZ);
         if (lostAt == null && ticks < 40) return;
-        // shortly before its wait (counted from when it lost the target) is over
-        long due = c == null ? Long.MIN_VALUE : c.lostTick + AiProfile.SOLDIER.hold() - 10;
-        if (lostAt == null || level.getGameTime() >= due || ticks > AiProfile.SOLDIER.hold() + 40) {
+        // once it goes searching, a moment for it to set off; or, searching or not, well after its wait is over (a
+        // reload in cover or a look out that ends late puts the search off a little)
+        if (searchSince < 0 && mind.mode() == AiSoldier.Mode.SEARCH) {
+            searchSince = ticks;
+            searchFrom = soldier.position();
+        }
+        if (lostAt == null || searchSince >= 0 && ticks - searchSince >= 40 || ticks > AiProfile.SOLDIER.hold() + 120) {
             if (lostAt == null) {
+                AiThoughts.log = false;
                 check.check("loses the target it cannot see any more", false);
                 soldier.discard();
                 target.discard();
@@ -227,12 +238,14 @@ final class AiCheckFight {
                 return;
             }
             double moved = soldier.position().distanceTo(holdStart);
-            double before = Math.hypot(holdStart.x - lostAt.x, holdStart.z - lostAt.z), now = Math.hypot(soldier.getX() - lostAt.x, soldier.getZ() - lostAt.z);
+            Vec3 from = searchFrom != null ? searchFrom : holdStart;
+            double before = Math.hypot(from.x - lostAt.x, from.z - lostAt.z), now = Math.hypot(soldier.getX() - lostAt.x, soldier.getZ() - lostAt.z);
             check.out(String.format(Locale.ROOT, "     target gone: lost at %.1f %.1f; %d ticks on it is %s, moved %.1f blocks, %.1f from that place (was %.1f)",
                     lostAt.x, lostAt.z, c == null ? -1 : level.getGameTime() - c.lostTick, mind.mode(), moved, now, before));
             // it looks out for them once, then goes for where they were last seen (AiSoldier.PUSH_MIN..PUSH_MAX)
             verdict("out of sight a few seconds after it looked, it goes for where the target was last seen", c != null
                     && mind.mode() == AiSoldier.Mode.SEARCH && now < before - 1);
+            AiThoughts.log = false;
             next(Phase.SEARCH);
         }
     }
