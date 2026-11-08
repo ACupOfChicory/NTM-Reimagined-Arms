@@ -226,7 +226,9 @@ final class AiCheckParts {
             // is small (+0 to +30 points over eight runs) and the check only that it is no worse, give or take a few
             check.check("aims at the middle of a head and chest over a low wall: hits no fewer than at the chest (4 either way)", r[5][1] + 4 >= r[4][1]);
             check.check("aims at legs under a beam and hits them", better(r[7], r[6]));
-            check.check("the whole of it in the open: hit as before", r[1][1] >= r[0][1] * 0.7 && r[1][1] >= 3);
+            // by the share of shots that hit, as the rest: the runs fire 32 to 35 shots each
+            check.check("the whole of it in the open: hit as before (0.7 of the share at least)",
+                    r[1][0] > 0 && r[0][0] > 0 && (double) r[1][1] / r[1][0] >= 0.7 * r[0][1] / r[0][0] && r[1][1] >= 3);
         }
         return true;
     }
