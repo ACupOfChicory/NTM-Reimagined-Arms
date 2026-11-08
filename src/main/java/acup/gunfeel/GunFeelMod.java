@@ -31,12 +31,14 @@ public final class GunFeelMod {
             if (dist.isClient()) acup.gunfeel.gl54.Gl54Client.init(modBus);
         }
         acup.gunfeel.gas.GasSetup.init(modBus, dist);
+        GunWeight.register();
         acup.gunfeel.ai.AiPose.register(modBus);
         if (dist.isClient()) {
             modBus.addListener(net.neoforged.neoforge.client.event.AddClientReloadListenersEvent.class,
                     e -> e.addListener(net.minecraft.resources.Identifier.fromNamespaceAndPath("ntmgunfeel", "model_masks"),
                             (net.minecraft.server.packs.resources.ResourceManagerReloadListener) manager -> ModelHitClient.clear()));
             CompatClient.init();
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.ItemTooltipEvent.class, GunWeight::tooltip);
             ServerSettingsClient.init();
             GunFeel.init();
             HoleRender.register(modBus);

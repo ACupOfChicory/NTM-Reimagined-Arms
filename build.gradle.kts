@@ -164,8 +164,10 @@ neoForge {
             systemProperty("ntmgunfeel.gasStand",providers.gradleProperty("gasStand").orElse("").get())
             // -PgasStandVis (with -PgasStand): only the gases' looks, the scenarios are skipped
             systemProperty("ntmgunfeel.gasVisOnly",providers.gradleProperty("gasStandVis").isPresent.toString())
-            // -PgasSoil (with -PgasStand): the mustard's stains and poisoned ground and the gas stirred by bullets and a blast (GasSoilStand)
+            // -PgasSoil (with -PgasStand): poisoned ground and the gas stirred by bullets and a blast (GasSoilStand)
             systemProperty("ntmgunfeel.gasSoil",providers.gradleProperty("gasSoil").isPresent.toString())
+            // -PgunWeight (with -PgasStand): the heavy guns' slowing and their tooltips (GunWeightStand)
+            systemProperty("ntmgunfeel.gunWeight",providers.gradleProperty("gunWeight").isPresent.toString())
             // -PsmokePoses=sky,wall: only the poses whose names start with one of these
             systemProperty("ntmgunfeel.smokePoses",providers.gradleProperty("smokePoses").orElse("").get())
             // -PsmokeFabulous: the stand runs with improved transparency (the transparency chain) on

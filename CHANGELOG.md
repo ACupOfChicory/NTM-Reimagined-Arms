@@ -1,5 +1,18 @@
 # Changelog
 
+## X789
+
+- Heavy and super-heavy guns slow the player who carries them a little:
+  6% for a heavy one (the drill, the flamethrowers, the rocket launchers,
+  the anti-materiel rifle, the auto-shotgun...), 12% for a super-heavy one
+  (the minigun, the tesla cannon, the Fat Man, the Ma Deuce...), walking and
+  running alike. The heavier hand counts; two miniguns weigh as one. Not in
+  creative or spectator, and the AI's soldiers are not slowed.
+  `gunWeightSlow`, `gunWeightHeavySpeed`, `gunWeightSuperHeavySpeed` (server).
+- A gun's tooltip names its kind (pistol, SMG, rifle, minigun...), its weight
+  class and how much it slows. `gunWeightTooltip` (client, on). The kinds and
+  classes are in `ntmgunfeel-gun-weight.txt` in the mod jar.
+
 ## X788
 
 - GL-54 mustard gas no longer leaves oily stains on the floor. The ground it

@@ -113,6 +113,11 @@ final class GasStand {
             GasSoilStand.start();
             return;
         }
+        // -PgunWeight: the heavy guns' slowing instead (GunWeightStand)
+        if (GunWeightStand.ON) {
+            GunWeightStand.start();
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         mc.options.pauseOnLostFocus = false;
         if (!mc.gui.hud.isHidden()) mc.gui.hud.toggle();
@@ -156,6 +161,10 @@ final class GasStand {
     static void frame() {
         if (GasSoilStand.ON) {
             GasSoilStand.frame();
+            return;
+        }
+        if (GunWeightStand.ON) {
+            GunWeightStand.frame();
             return;
         }
         // the client's side of the player's doses and coughs: what the packets brought
