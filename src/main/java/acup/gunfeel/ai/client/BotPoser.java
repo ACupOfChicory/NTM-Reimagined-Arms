@@ -72,7 +72,8 @@ public final class BotPoser {
             // aimed: both hands on the gun along the look, as vanilla's crossbow hold
             float arx = -PI / 2F + headX, ary = -0.1F + headY, alx = arx, aly = 0.5F + headY;
             // blind: the gun held up over the head, the face down behind the cover
-            float brx = -PI + 0.2F, bry = -0.1F, blx = brx, bly = 0.1F;
+            // (AiPoseGeometry.blindMuzzle puts the shot where these put the hand)
+            float brx = AiPoseGeometry.BLIND_ARM_X, bry = -AiPoseGeometry.BLIND_ARM_Y, blx = brx, bly = AiPoseGeometry.BLIND_ARM_Y;
             p.rightArm.xRot = hold * rx + aim * arx + blind * brx;
             p.rightArm.yRot = hold * ry + aim * ary + blind * bry;
             p.rightArm.zRot = hold * rz;
@@ -104,8 +105,8 @@ public final class BotPoser {
             p.leftLeg.z += 4F * c;
             p.head.y += 4.2F * c;
             p.body.y += 3.2F * c;
-            p.rightArm.y += 3.2F * c;
-            p.leftArm.y += 3.2F * c;
+            p.rightArm.y += AiPoseGeometry.CROUCH_ARM_DROP_PX * c;
+            p.leftArm.y += AiPoseGeometry.CROUCH_ARM_DROP_PX * c;
         }
 
         // 4. the action, and the one it cut short fading out under it

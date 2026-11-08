@@ -103,6 +103,32 @@ class BotPoserTest {
             }
     }
 
+    @Test
+    void blindMuzzleIsTheDrawnHand() {
+        for (byte stance : new byte[] { AiPose.STAND, AiPose.CROUCH })
+            for (float frac : new float[] { 0F, 0.6F, -1F })
+                for (float yaw : new float[] { 0F, 90F, -135F })
+                    for (boolean left : new boolean[] { false, true }) {
+                        BotPoser.Parts p = parts();
+                        BotPoser.apply(p, new BotAnimator.Frame(stance == AiPose.CROUCH ? 1F : 0F, frac,
+                                new float[] { 0F, 0F, 1F, 0F }, null, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0), 0F, 0F);
+                        // the grip as ItemInHandLayer puts it: the arm, X -90, Y 180, (±1, 2, -10)/16
+                        ModelPart arm = left ? p.leftArm() : p.rightArm();
+                        Vector3f grip = new Matrix4f().rotateX((float) Math.toRadians(-90)).rotateY((float) Math.PI)
+                                .transformPosition(new Vector3f(left ? -1F : 1F, 2F, -10F));
+                        Vector3f world = render(inModel(arm, grip), yaw);
+                        Vec3 s = AiPoseGeometry.blindMuzzle(stance, frac, yaw, left);
+                        String at = "stance " + stance + " frac " + frac + " yaw " + yaw + " left " + left;
+                        assertEquals(s.x, world.x, 1e-4, at);
+                        assertEquals(s.y, world.y, 1e-4, at);
+                        assertEquals(s.z, world.z, 1e-4, at);
+                    }
+        // crouched behind cover: the gun over a wall a crouching mob's height (1.5), well above its eye (1.27)
+        double up = AiPoseGeometry.blindMuzzle(AiPose.CROUCH, 0F, 0F, false).y;
+        System.out.println("blind muzzle crouching " + up);
+        assertTrue(up > 1.75 && up < 1.85, "crouching " + up);
+    }
+
     /** the largest move of any part between two frames, radians or pixels/8 (a pixel counted like 1/8 rad) */
     static float jump(BotPoser.Parts a, BotPoser.Parts b) {
         float m = 0F;
