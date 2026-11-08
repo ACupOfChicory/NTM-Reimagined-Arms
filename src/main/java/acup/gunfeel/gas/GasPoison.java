@@ -26,19 +26,29 @@ import acup.gunfeel.smoke.SmokeClouds;
 import acup.gunfeel.smoke.SmokeGrid;
 
 /**
- * Ground soaked with mustard gas for long becomes a poisoned biome of its own (server key {@code gasPoison}, on by
+ * Ground under the gas for long becomes a poisoned biome of its own (server key {@code gasPoison}, on by
  * default), for good, as NTM's nuclear crater: nothing grows there, the plants on it die and the grass and leaves turn a
  * sick yellow-brown. The biome is {@code ntmgunfeel:poisoned} (its colours in its json); it is put into the chunk as NTM
  * puts its crater ({@code BiomeUtil.paintCraterBiome}): the chunk's biomes refilled with it where it goes and sent to the
  * players again.
  *
- * <p>How long is long. A biome cell is 4 by 4 blocks across; the server adds up the mustard on its floor, the density of
- * every floor cell under the gas times the ticks it lay there, averaged over the 16 columns. The cell turns at
- * {@link #THRESHOLD}, 100 s of the gas at full strength over all of it. One grenade's cloud gives its middle about 170, a
- * twelfth; a magazine of 8 fired a second apart about 1300; two magazines in a row about 2600, and that turns it
- * (GasPoisonTest). What is gathered halves every {@link #HALF_LIFE} ticks (10 minutes), so a grenade every 5 minutes at one
- * place settles at about 560 and never turns it. Only the mustard does it: the other gases are gone from the ground when
- * their cloud is. The sums are kept while the server runs (a restart forgets them, not the biome).
+ * <p>How long is long. A biome cell is 4 by 4 blocks across; the server adds up the gas on its floor, the density of
+ * every floor cell under the gas times the ticks it lay there times the gas's {@link #weight}, averaged over the 16
+ * columns. The cell turns at {@link #THRESHOLD}. What is gathered halves every {@link #HALF_LIFE} ticks (10 minutes), so
+ * a grenade now and then at one place never turns it. All four gases do it, each as hard as it is on plants and soil
+ * (one magazine is 8 grenades fired a second apart; the sums in GasPoisonTest):
+ *
+ * <ul>
+ * <li>mustard, weight 2: a persistent agent, its liquid soaks the soil and stays there for weeks. One magazine turns it
+ * (about 2650), one grenade gives a sixth;
+ * <li>chlorine, 0.6: gone with its cloud, but it bleaches and kills leaves (the 2005 Graniteville spill bleached the
+ * plants for about a kilometre). Two magazines (about 2750), one is 1380;
+ * <li>acid, 0.7: the acid mist burns the leaves and sours the soil. Two magazines (about 2410), one is 1210;
+ * <li>phosgene, 0.5: water breaks it down to carbon dioxide and a little hydrochloric acid, plants suffer it least.
+ * Three magazines (about 2480), two are 1660.
+ * </ul>
+ *
+ * Gases fired at one place add up. The sums are kept while the server runs (a restart forgets them, not the biome).
  */
 public final class GasPoison {
     public static final String KEY = "gasPoison";
@@ -70,9 +80,19 @@ public final class GasPoison {
         return acup.gunfeel.ReaimTimes.flag(KEY, true);
     }
 
-    /** Whether a gas soaks the ground (the mustard). */
+    /** Whether a gas leaves a liquid on the floor (the mustard): its stains (GasStains). */
     public static boolean soaks(GasKind g) {
         return g == GasKind.MUSTARD;
+    }
+
+    /** How hard a gas is on the ground, what its density counts for in the sum (the class's comment). */
+    public static float weight(GasKind g) {
+        return switch (g) {
+            case MUSTARD -> 2.0F;
+            case CHLORINE -> 0.6F;
+            case ACID -> 0.7F;
+            case PHOSGENE -> 0.5F;
+        };
     }
 
     static long key(int qx, int qz) {
@@ -89,7 +109,8 @@ public final class GasPoison {
             Map<Long, Dose> turned = null;
             for (SmokeClouds.Cloud c : all.clouds()) {
                 GasKind g = GasKind.of(c.kind());
-                if (g == null || !soaks(g)) continue;
+                if (g == null) continue;
+                float w = weight(g);
                 for (int i : c.grid.floorCells(LEAST)) {
                     int x = c.baseX() + i % SmokeGrid.SX, z = c.baseZ() + i / SmokeGrid.SX % SmokeGrid.SZ, y = c.baseY() + i / (SmokeGrid.SX * SmokeGrid.SZ);
                     // gas on water soaks nothing
@@ -97,7 +118,7 @@ public final class GasPoison {
                     if (doses == null) LEVELS.put(level, doses = new HashMap<>());
                     long k = key(QuartPos.fromBlock(x), QuartPos.fromBlock(z));
                     Dose d = doses.computeIfAbsent(k, q -> new Dose());
-                    add(d, Math.min(1F, c.grid.density(i)) * EVERY / 16F, now);
+                    add(d, Math.min(1F, c.grid.density(i)) * w * EVERY / 16F, now);
                     d.floorY = y;
                     if (!d.done && d.sum >= THRESHOLD) {
                         d.done = true;
