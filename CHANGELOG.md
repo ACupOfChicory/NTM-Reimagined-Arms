@@ -1,5 +1,11 @@
 # Changelog
 
+## X738
+
+- Mob AI: an AI mob running to cover along a low wall in your sight runs low
+  past it, a crouching player's size and a little slower, so only its head
+  shows over the wall; in the open it runs upright, as fast as before.
+
 ## X736
 
 - Mob AI: behind low cover an AI mob keeps low between bursts and through a

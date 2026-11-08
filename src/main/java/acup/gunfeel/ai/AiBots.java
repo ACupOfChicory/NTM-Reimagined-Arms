@@ -260,7 +260,7 @@ public final class AiBots {
         Entity shooter = bot.prone.watchShots(level, tick);
         if (shooter != null) hear(bot, shooter.getX(), shooter.getY(), shooter.getZ(), shooter.distanceTo(bot.mob), tick, true, true, 0.15, 2);
         if (bot.brain != null) bot.brain.tick(bot, tick);
-        bot.prone.tick(level, bot.mover, tick);
+        bot.prone.tick(level, bot.mover, tick, bot.brain != null && bot.stoop.down);
         bot.mover.hold(bot.gunner.steady());
         bot.mover.tick(level, map, tick);
         int reserve = bot.gunner.ammo.reserve();

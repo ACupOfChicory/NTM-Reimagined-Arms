@@ -157,19 +157,24 @@ public final class AiSoldier implements AiBrain {
     static final int BURST_PAUSE = 20;
 
     /**
-     * Its body as decided this tick: down low behind low cover, else standing (lying is AiProne's); and the pose the
-     * clients draw (AiPose), set before the game's pose, so the crouching size (MixinAiProneSize) finds it.
+     * Its body as decided this tick: down low behind low cover or running low past it (AiStoop), else standing where
+     * there is room to (lying is AiProne's); and the pose the clients draw (AiPose), set before the game's pose, so the
+     * crouching size (MixinAiProneSize) finds it.
      */
     private void body(AiBot bot, long tick) {
         Mob m = bot.mob;
         boolean lying = bot.prone.lying();
+        boolean stoop = bot.stoop.want(m, bot.mover, lying, AiBots.voxels((ServerLevel) m.level()), tick);
+        // down low under something lower than its standing height: it stays low (a player cannot stand up there either)
+        boolean low = crouch || stoop || !lying && m.getPose() == Pose.CROUCHING && !m.level().noCollision(m,
+                m.getDimensions(Pose.STANDING).makeBoundingBox(m.position()).deflate(1.0E-7));
         AiGunner g = bot.gunner;
         boolean reloading = g.reloading();
-        AiPose.set(m, AiPose.of(m).withStance(lying ? AiPose.PRONE : crouch ? AiPose.CROUCH : AiPose.STAND)
+        AiPose.set(m, AiPose.of(m).withStance(lying ? AiPose.PRONE : low ? AiPose.CROUCH : AiPose.STAND)
                 .withArms(g.wantsFire() || mode == Mode.PEEK ? AiPose.AIM : AiPose.HOLD)
                 .withAction(reloading ? AiPose.RELOAD : AiPose.NONE, (int) tick, (short) (reloading ? g.reloadTicks() : 0)));
         if (lying) return;
-        Pose want = crouch ? Pose.CROUCHING : Pose.STANDING;
+        Pose want = low ? Pose.CROUCHING : Pose.STANDING;
         if (m.getPose() != want) m.setPose(want);
     }
 
@@ -393,6 +398,7 @@ public final class AiSoldier implements AiBrain {
         if (!bot.mover.arrived() && mode == Mode.TO_COVER) {
             // on its way: near, in sight, it walks there firing (as a player backs off shooting); else it runs, holding fire
             boolean near = dist <= skill.answerNear() * NEAR_WALK;
+            bot.stoop.follow(eye);
             bot.mover.goTo(spot.cell(), 0.35, near ? WALK : RUN);
             g.fire(near && burst(bot, tick, false));
             if (near) why = Why.WALK_FIRE;
@@ -683,6 +689,7 @@ public final class AiSoldier implements AiBrain {
         AiBots.claim(bot, spot.cell(), spot.peek());
         Vec3 t = threats.get(0);
         bot.mover.costs(new ExposureCost(TacticalMap.of(level), t.x, t.y, t.z));
+        bot.stoop.from(t);
         bot.mover.goTo(spot.cell(), 0.35, RUN);
         mode(Mode.TO_COVER, level.getGameTime());
         covers++;
@@ -692,6 +699,7 @@ public final class AiSoldier implements AiBrain {
         spot = null;
         AiBots.claim(bot, Long.MIN_VALUE);
         bot.mover.costs(PathSearch.Cost.NONE);
+        bot.stoop.from(null);
     }
 
     // ------------------------------------------------------------------ out of sight

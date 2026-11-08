@@ -25,6 +25,8 @@ public final class AiBot {
     public final AiMover mover;
     public final AiGunner gunner;
     public final AiProne prone;
+    /** running low past low cover (its brain asks it each tick) */
+    public final AiStoop stoop = new AiStoop();
     /** what it does with what it knows; null: it only senses (a stand drives it) */
     public @Nullable AiBrain brain;
     /** a player within aiRadius: it thinks; else it stands still */
