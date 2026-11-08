@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Выбор анимаций</title>
+<style>
+:root {
+  --bg: #16181d; --panel: #1f2228; --cell: #262a31; --line: #343943; --text: #e4e6ea; --dim: #9aa1ad;
+  --arms: #f0a742; --legs: #5cc8e8; --skip: #e8615c; --accent: #8fd16a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font: 14px/1.4 system-ui, sans-serif; }
+body { display: grid; grid-template-columns: 250px 1fr; grid-template-rows: auto 1fr auto; height: 100vh; }
+header { grid-column: 1 / 3; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header h1 { font-size: 16px; margin: 0 0 4px; }
+header p { margin: 0; color: var(--dim); max-width: 1100px; }
+header b.a { color: var(--arms); } header b.l { color: var(--legs); }
+nav { grid-row: 2 / 4; overflow-y: auto; border-right: 1px solid var(--line); background: var(--panel); padding: 6px 0; }
+nav h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); margin: 10px 12px 4px; }
+nav button { display: flex; width: 100%; text-align: left; background: none; border: 0; color: var(--text);
+  padding: 3px 12px; font: inherit; cursor: pointer; gap: 6px; align-items: center; }
+nav button:hover { background: var(--cell); }
+nav button.on { background: #33404f; }
+nav button .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+nav button .mk { font-size: 11px; color: var(--dim); }
+nav button .mk.ch { color: var(--accent); } nav button .mk.sk { color: var(--skip); }
+main { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr);
+  gap: 6px; padding: 6px; min-height: 0; }
+canvas#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.cell { position: relative; border: 2px solid transparent; border-radius: 6px; cursor: grab; min-height: 0; }
+.cell:active { cursor: grabbing; }
+.cell .lab { position: absolute; left: 8px; top: 6px; right: 8px; pointer-events: none; }
+.cell .lab b { font-size: 14px; } .cell .lab span { display: block; color: var(--dim); font-size: 12px; }
+.cell .tags { position: absolute; left: 8px; bottom: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+.cell .tags button { font: 12px system-ui, sans-serif; border: 1px solid var(--line); background: #1c1f25cc; color: var(--text);
+  border-radius: 4px; padding: 2px 7px; cursor: pointer; }
+.cell .tags button.arms.on { border-color: var(--arms); color: var(--arms); }
+.cell .tags button.legs.on { border-color: var(--legs); color: var(--legs); }
+.cell .now { position: absolute; right: 8px; top: 6px; font-size: 11px; color: var(--accent); text-align: right; pointer-events: none; }
+footer { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line);
+  background: var(--panel); }
+footer .grp { display: flex; gap: 6px; align-items: center; }
+footer button, footer select { font: inherit; background: var(--cell); color: var(--text); border: 1px solid var(--line);
+  border-radius: 4px; padding: 3px 9px; cursor: pointer; }
+footer button:hover { border-color: var(--dim); }
+footer input[type=range] { width: 220px; }
+footer .info { color: var(--dim); font-variant-numeric: tabular-nums; min-width: 120px; }
+footer label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
+footer .choice b.a { color: var(--arms); } footer .choice b.l { color: var(--legs); }
+#skip:checked + span { color: var(--skip); }
+#msg { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Выбор анимаций для ботов: как переносить руку и ногу</h1>
+  <p>В Minecraft рука и нога — одна часть, а в исходной анимации у них по две кости. В каждом окне клип на модели MC с
+  одним способом переноса: <b>по верхней кости</b> (плечо, бедро), <b>по нижней</b> (предплечье, голень),
+  <b>от сустава до конца</b> (плечо→кисть, бедро→лодыжка) или <b>смесь</b> (между верхней костью и направлением
+  сустав→конец). Слева исходный скелет, справа внизу — выбранное сочетание. Правые части красноватые, левые синеватые.
+  Для каждого клипа выберите кнопками в окнах способ для <b class="a">рук</b> и для <b class="l">ног</b>
+  или отметьте «клип не брать». Выбор сохраняется в браузере сам; когда закончите — «Сохранить anim-choices.json»
+  и положите файл в <code>notes/ai/anim-picker/</code>.</p>
+</header>
+<nav id="list"></nav>
+<main id="cells">
+  <canvas id="gl"></canvas>
+</main>
+<footer>
+  <div class="grp">
+    <button id="play" title="Пробел">⏸ Пауза</button>
+    <button id="prev" title="←">◀ кадр</button>
+    <button id="next" title="→">кадр ▶</button>
+    <input id="scrub" type="range" min="0" max="1" step="1" value="0">
+    <span class="info" id="time"></span>
+    <select id="speed" title="Скорость">
+      <option value="0.1">×0.1</option><option value="0.25">×0.25</option><option value="0.5">×0.5</option>
+      <option value="1" selected>×1</option><option value="2">×2</option>
+    </select>
+  </div>
+  <div class="grp">
+    <button data-view="front">Спереди</button>
+    <button data-view="side">Сбоку</button>
+    <button data-view="back">Сзади</button>
+    <button data-view="three">¾</button>
+    <button data-view="top">Сверху</button>
+  </div>
+  <div class="grp choice">
+    <span id="pick"></span>
+    <label><input type="checkbox" id="skip"><span>клип не брать</span></label>
+    <button id="reset" title="Вернуть то, что сейчас стоит в конвертере">как сейчас</button>
+  </div>
+  <div class="grp">
+    <button id="save">Сохранить anim-choices.json</button>
+    <button id="load">Загрузить файл…</button>
+    <input id="file" type="file" accept=".json,application/json" hidden>
+    <span id="msg"></span>
+  </div>
+</footer>
+<script>const ANIM_DATA = [];</script>
+<!--DATA-->
+<script>
+"use strict";
+const FPS = 30;
+const MODES = ["upper", "lower", "end", "mix"];
+const MODE_NAME = { upper: "по верхней кости", lower: "по нижней кости", end: "сустав → конец", mix: "смесь" };
+const MODE_HINT = { upper: "плечо, бедро", lower: "предплечье, голень", end: "плечо→кисть, бедро→лодыжка",
+  mix: "между верхней костью и сустав→конец" };
+const STORE = "anim-picker-v1";
+// HumanoidModel's boxes from their pivots (min, max), pixels: X the model's left, Y down, Z back
+const BOX = {
+  head: [[-4, -8, -4], [4, 0, 4]], body: [[-4, 0, -2], [4, 12, 2]],
+  right_arm: [[-3, -2, -2], [1, 10, 2]], left_arm: [[-1, -2, -2], [3, 10, 2]],
+  right_leg: [[-2, 0, -2], [2, 12, 2]], left_leg: [[-2, 0, -2], [2, 12, 2]],
+};
+const COLOR = {
+  head: [0.86, 0.68, 0.52], body: [0.25, 0.30, 0.40],
+  right_arm: [0.62, 0.36, 0.32], left_arm: [0.32, 0.42, 0.66],
+  right_leg: [0.50, 0.28, 0.26], left_leg: [0.25, 0.33, 0.55],
+};
+const LIMBS = ["right_arm", "left_arm", "right_leg", "left_leg"];
+const VIEWS = {
+  front: [0, 8], side: [90, 8], back: [180, 8], three: [35, 18], top: [0, 84],
+};
+// the six windows: the rig's skeleton, each mode, the choice
+const CELLS = [{ kind: "skel" }, ...MODES.map(m => ({ kind: "mode", mode: m })), { kind: "pick" }];
+
+const clips = ANIM_DATA;
+const byKey = new Map(clips.map(c => [c.key, c]));
+
+// ------------------------------------------------------------------ the choice, kept in the browser
+let choices = {};
+const state = { clip: clips.length ? clips[0].key : null, speed: 1, view: "three" };
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE) || "null");
+    if (s && s.choices) choices = s.choices;
+    if (s && s.state) Object.assign(state, s.state);
+  } catch (e) { /* no storage: the page still works, the choice lives until reload */ }
+  if (!byKey.has(state.clip) && clips.length) state.clip = clips[0].key;
+}
+function store() {
+  try { localStorage.setItem(STORE, JSON.stringify({ choices, state })); } catch (e) { /* see load */ }
+}
+function choiceOf(c) {
+  const ch = choices[c.key] || {};
+  return {
+    arms: MODES.includes(ch.arms) ? ch.arms : c.now.arms,
+    legs: MODES.includes(ch.legs) ? ch.legs : c.now.legs,
+    take: ch.take !== false,
+  };
+}
+function setChoice(c, patch) {
+  const cur = choiceOf(c);
+  const next = Object.assign(cur, patch);
+  if (next.arms === c.now.arms && next.legs === c.now.legs && next.take) delete choices[c.key];
+  else choices[c.key] = next;
+  store();
+  renderList();
+  renderChoice();
+}
+
+// ------------------------------------------------------------------ the list and the windows' labels
+const listEl = document.getElementById("list");
+function renderList() {
+  listEl.textContent = "";
+  let pack = null;
+  for (const c of clips) {
+    if (c.pack !== pack) {
+      pack = c.pack;
+      const h = document.createElement("h2");
+      h.textContent = pack;
+      listEl.appendChild(h);
+    }
+    const b = document.createElement("button");
+    const ch = choiceOf(c);
+    b.className = c.key === state.clip ? "on" : "";
+    const nm = document.createElement("span");
+    nm.className = "nm";
+    nm.textContent = c.name;
+    const mk = document.createElement("span");
+    if (!ch.take) { mk.className = "mk sk"; mk.textContent = "не брать"; }
+    else if (choices[c.key]) { mk.className = "mk ch"; mk.textContent = "изменён"; }
+    else { mk.className = "mk"; mk.textContent = ""; }
+    b.append(nm, mk);
+    b.title = c.key;
+    b.onclick = () => selectClip(c.key);
+    listEl.appendChild(b);
+    if (c.key === state.clip) b.scrollIntoView({ block: "nearest" });
+  }
+}
+
+const cellsEl = document.getElementById("cells");
+const cellEls = CELLS.map((cell, i) => {
+  const d = document.createElement("div");
+  d.className = "cell";
+  const lab = document.createElement("div");
+  lab.className = "lab";
+  const now = document.createElement("div");
+  now.className = "now";
+  d.append(lab, now);
+  if (cell.kind === "skel") lab.innerHTML = "<b>Исходный скелет</b><span>кости клипа</span>";
+  else if (cell.kind === "pick") lab.innerHTML = "<b>Выбранное</b><span></span>";
+  else {
+    lab.innerHTML = "<b></b><span></span>";
+    lab.querySelector("b").textContent = MODE_NAME[cell.mode];
+    lab.querySelector("span").textContent = MODE_HINT[cell.mode];
+    const tags = document.createElement("div");
+    tags.className = "tags";
+    for (const limb of ["arms", "legs"]) {
+      const b = document.createElement("button");
+      b.className = limb;
+      b.textContent = limb === "arms" ? "руки отсюда" : "ноги отсюда";
+      b.onclick = e => { e.stopPropagation(); setChoice(current(), { [limb]: cell.mode }); };
+      b.onpointerdown = e => e.stopPropagation();
+      tags.appendChild(b);
+    }
+    d.appendChild(tags);
+  }
+  cellsEl.appendChild(d);
+  return d;
+});
+
+function current() { return byKey.get(state.clip); }
+
+function renderChoice() {
+  const c = current();
+  if (!c) return;
+  const ch = choiceOf(c);
+  CELLS.forEach((cell, i) => {
+    const d = cellEls[i];
+    const now = d.querySelector(".now");
+    if (cell.kind === "mode") {
+      const marks = [];
+      if (c.now.arms === cell.mode) marks.push("сейчас: руки");
+      if (c.now.legs === cell.mode) marks.push("сейчас: ноги");
+      now.textContent = marks.join(", ");
+      d.querySelector("button.arms").classList.toggle("on", ch.arms === cell.mode);
+      d.querySelector("button.legs").classList.toggle("on", ch.legs === cell.mode);
+      const a = ch.arms === cell.mode, l = ch.legs === cell.mode;
+      d.style.borderColor = a && l ? "var(--accent)" : a ? "var(--arms)" : l ? "var(--legs)" : "transparent";
+    } else if (cell.kind === "pick") {
+      d.querySelector(".lab span").textContent =
+        `руки: ${MODE_NAME[ch.arms]}, ноги: ${MODE_NAME[ch.legs]}` + (ch.take ? "" : " — клип не брать");
+      d.style.borderColor = ch.take ? "transparent" : "var(--skip)";
+    }
+  });
+  document.getElementById("pick").innerHTML = "";
+  const pick = document.getElementById("pick");
+  const ba = document.createElement("b"); ba.className = "a"; ba.textContent = "руки: " + MODE_NAME[ch.arms];
+  const bl = document.createElement("b"); bl.className = "l"; bl.textContent = "ноги: " + MODE_NAME[ch.legs];
+  pick.append(ba, document.createTextNode(" · "), bl);
+  document.getElementById("skip").checked = !ch.take;
+}
+
+// ------------------------------------------------------------------ time
+let t = 0, playing = true, hold = 0;
+const scrub = document.getElementById("scrub"), timeEl = document.getElementById("time");
+function selectClip(key) {
+  state.clip = key;
+  t = 0; hold = 0;
+  const c = current();
+  scrub.max = String(c.n - 1);
+  store();
+  renderList();
+  renderChoice();
+}
+function frameAt() {
+  const c = current();
+  return Math.min(c.n - 1, Math.max(0, t * FPS));
+}
+function setPlaying(p) {
+  playing = p;
+  document.getElementById("play").textContent = p ? "⏸ Пауза" : "▶ Пуск";
+}
+function step(d) {
+  setPlaying(false);
+  hold = 0;
+  const c = current();
+  let f = Math.round(frameAt()) + d;
+  if (c.loop) f = ((f % (c.n - 1)) + (c.n - 1)) % (c.n - 1);
+  else f = Math.min(c.n - 1, Math.max(0, f));
+  t = f / FPS;
+}
+function advance(dt) {
+  const c = current();
+  if (!c || !playing) return;
+  const len = (c.n - 1) / FPS;
+  if (hold > 0) { hold -= dt; if (hold <= 0) t = 0; return; }
+  t += dt * state.speed;
+  if (t >= len) {
+    if (c.loop) t %= len;
+    else { t = len; hold = 0.6; } // a clip played once: its last pose a moment, then again
+  }
+}
+
+// ------------------------------------------------------------------ math (column-major 4x4, MC model space)
+function mul(a, b) {
+  const o = new Float32Array(16);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+    let s = 0;
+    for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k];
+    o[c * 4 + r] = s;
+  }
+  return o;
+}
+function perspective(fovy, aspect, near, far) {
+  const f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
+  return new Float32Array([f / aspect, 0, 0, 0, 0, f, 0, 0, 0, 0, (far + near) * nf, -1, 0, 0, 2 * far * near * nf, 0]);
+}
+function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+function cross(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+function norm(a) { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }
+function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+function lookAt(eye, at, up) {
+  const z = norm(sub(eye, at)), x = norm(cross(up, z)), y = cross(z, x);
+  return new Float32Array([x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0,
+    -dot(x, eye), -dot(y, eye), -dot(z, eye), 1]);
+}
+function quatMat(q) { // (x, y, z, w) -> 3x3 rows
+  const [x, y, z, w] = q;
+  return [[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+    [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+    [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]];
+}
+// one channel of `size` numbers a frame at a fractional frame: positions straight, turns nlerp'd
+function at(arr, size, f) {
+  const i = Math.floor(f), u = f - i, j = Math.min(i + 1, arr.length / size - 1);
+  const o = new Array(size);
+  for (let k = 0; k < size; k++) o[k] = arr[i * size + k];
+  if (u === 0 || j === i) return o;
+  for (let k = 0; k < size; k++) o[k] += u * (arr[j * size + k] - o[k]);
+  return o;
+}
+function quatAt(arr, f) {
+  const i = Math.floor(f), u = f - i, j = Math.min(i + 1, arr.length / 4 - 1);
+  const a = arr.slice(i * 4, i * 4 + 4), b = arr.slice(j * 4, j * 4 + 4);
+  const s = (a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]) < 0 ? -1 : 1;
+  const q = a.map((v, k) => v + u * (s * b[k] - v));
+  const l = Math.hypot(...q) || 1;
+  return q.map(v => v / l);
+}
+// a box: the unit cube scaled to [min, max], turned by R (3x3 rows) around the pivot p
+function boxMatrix(R, p, min, max) {
+  const s = sub(max, min);
+  const col = k => [R[0][k], R[1][k], R[2][k]];
+  const x = col(0), y = col(1), z = col(2);
+  const o = [p[0] + R[0][0] * min[0] + R[0][1] * min[1] + R[0][2] * min[2],
+    p[1] + R[1][0] * min[0] + R[1][1] * min[1] + R[1][2] * min[2],
+    p[2] + R[2][0] * min[0] + R[2][1] * min[1] + R[2][2] * min[2]];
+  return new Float32Array([x[0] * s[0], x[1] * s[0], x[2] * s[0], 0, y[0] * s[1], y[1] * s[1], y[2] * s[1], 0,
+    z[0] * s[2], z[1] * s[2], z[2] * s[2], 0, o[0], o[1], o[2], 1]);
+}
+
+// ------------------------------------------------------------------ the biped and the skeleton this frame
+function biped(c, f, arms, legs) {
+  const piv = at(c.piv, 15, f), hip = at(c.hip, 2, f);
+  const hy = at(c.hipY, 16, f)[MODES.indexOf(arms) * 4 + MODES.indexOf(legs)];
+  const base = [hip[0], hy, hip[1]];
+  const P = k => [base[0] + piv[k * 3], base[1] + piv[k * 3 + 1], base[2] + piv[k * 3 + 2]];
+  const parts = [];
+  const neck = P(0);
+  parts.push(["head", quatMat(quatAt(c.head, f)), neck]);
+  parts.push(["body", quatMat(quatAt(c.body, f)), neck]);
+  parts.push(["right_arm", quatMat(quatAt(c.limb.right_arm[arms], f)), P(1)]);
+  parts.push(["left_arm", quatMat(quatAt(c.limb.left_arm[arms], f)), P(2)]);
+  parts.push(["right_leg", quatMat(quatAt(c.limb.right_leg[legs], f)), P(3)]);
+  parts.push(["left_leg", quatMat(quatAt(c.limb.left_leg[legs], f)), P(4)]);
+  return { parts, center: [hip[0], hy - 4, hip[1]] };
+}
+function skeleton(c, f) {
+  const nj = c.links.length;
+  const pos = at(c.sk, nj * 3, f);
+  const J = i => [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]];
+  const rest = c.sk; // frame 0 decides each joint's side
+  return { J, nj, side: i => rest[i * 3] > 0.5 ? 1 : rest[i * 3] < -0.5 ? -1 : 0 };
+}
+
+// ------------------------------------------------------------------ WebGL
+const canvas = document.getElementById("gl");
+const gl = canvas.getContext("webgl", { antialias: true, preserveDrawingBuffer: true });
+if (!gl) { document.querySelector("header p").textContent = "Браузер не дал WebGL: страница не может рисовать."; throw new Error("no WebGL"); }
+const VS = `attribute vec3 aPos; attribute vec3 aNrm;
+uniform mat4 uMVP; uniform mat4 uModel; uniform vec3 uColor; uniform vec3 uLight; uniform float uFlat;
+varying vec3 vCol;
+void main() {
+  vec3 n = normalize(mat3(uModel) * aNrm);
+  float d = max(dot(n, uLight), 0.0);
+  vCol = mix(uColor * (0.42 + 0.58 * d), uColor, uFlat);
+  gl_Position = uMVP * uModel * vec4(aPos, 1.0);
+}`;
+const FS = `precision mediump float; varying vec3 vCol; void main() { gl_FragColor = vec4(vCol, 1.0); }`;
+function shader(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, shader(gl.VERTEX_SHADER, VS));
+gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog);
+gl.useProgram(prog);
+const loc = n => gl.getUniformLocation(prog, n);
+const U = { mvp: loc("uMVP"), model: loc("uModel"), color: loc("uColor"), light: loc("uLight"), flat: loc("uFlat") };
+const aPos = gl.getAttribLocation(prog, "aPos"), aNrm = gl.getAttribLocation(prog, "aNrm");
+
+// the unit cube, 0..1, six faces with their normals
+const cube = [];
+const FACES = [[0, 1], [0, -1], [1, 1], [1, -1], [2, 1], [2, -1]];
+for (const [ax, sg] of FACES) {
+  const n = [0, 0, 0]; n[ax] = sg;
+  const u = (ax + 1) % 3, v = (ax + 2) % 3;
+  const c = (a, b) => { const p = [0, 0, 0]; p[ax] = sg > 0 ? 1 : 0; p[u] = a; p[v] = b; return p; };
+  const quad = sg > 0 ? [c(0, 0), c(1, 0), c(1, 1), c(0, 0), c(1, 1), c(0, 1)]
+    : [c(0, 0), c(1, 1), c(1, 0), c(0, 0), c(0, 1), c(1, 1)];
+  for (const p of quad) cube.push(...p, ...n);
+}
+const cubeBuf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, cubeBuf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cube), gl.STATIC_DRAW);
+// the ground: lines every half block over 6 blocks, at the feet (Y 24)
+const grid = [];
+for (let k = -48; k <= 48; k += 8) {
+  grid.push(k, 24, -48, 0, -1, 0, k, 24, 48, 0, -1, 0, -48, 24, k, 0, -1, 0, 48, 24, k, 0, -1, 0);
+}
+const gridBuf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, gridBuf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(grid), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(aPos);
+gl.enableVertexAttribArray(aNrm);
+gl.enable(gl.DEPTH_TEST);
+gl.enable(gl.SCISSOR_TEST);
+
+
+function bind(buf) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 24, 0);
+  gl.vertexAttribPointer(aNrm, 3, gl.FLOAT, false, 24, 12);
+}
+function drawBox(model, color) {
+  gl.uniformMatrix4fv(U.model, false, model);
+  gl.uniform3fv(U.color, color);
+  gl.drawArrays(gl.TRIANGLES, 0, 36);
+}
+// a stick from a to b, w pixels thick
+function stick(a, b, w, color) {
+  const d = sub(b, a), len = Math.hypot(...d);
+  if (len < 1e-6) return;
+  const y = d.map(v => v / len);
+  const x = norm(cross(y, Math.abs(y[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0]));
+  const z = cross(x, y);
+  const o = [a[0] - (x[0] + z[0]) * w / 2, a[1] - (x[1] + z[1]) * w / 2, a[2] - (x[2] + z[2]) * w / 2];
+  drawBox(new Float32Array([x[0] * w, x[1] * w, x[2] * w, 0, y[0] * len, y[1] * len, y[2] * len, 0,
+    z[0] * w, z[1] * w, z[2] * w, 0, o[0], o[1], o[2], 1]), color);
+}
+const ID = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+
+const cam = { yaw: VIEWS.three[0], pitch: VIEWS.three[1], dist: 92 };
+function setView(v) {
+  state.view = v;
+  [cam.yaw, cam.pitch] = VIEWS[v];
+  store();
+}
+
+function drawCell(cell, rect, c, f, center) {
+  const dpr = window.devicePixelRatio || 1;
+  const x = Math.round(rect.x * dpr), y = Math.round(rect.y * dpr), w = Math.round(rect.w * dpr), h = Math.round(rect.h * dpr);
+  const vy = canvas.height - y - h;
+  gl.viewport(x, vy, w, h);
+  gl.scissor(x, vy, w, h);
+  gl.clearColor(0.15, 0.165, 0.19, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  // the camera turns around the hips, the model faces -Z; Y is down, so the camera's up is -Y
+  const yaw = cam.yaw * Math.PI / 180, pitch = cam.pitch * Math.PI / 180;
+  const eye = [center[0] + cam.dist * Math.sin(yaw) * Math.cos(pitch), center[1] - cam.dist * Math.sin(pitch),
+    center[2] - cam.dist * Math.cos(yaw) * Math.cos(pitch)];
+  const up = [0, -1, 0]; // pitch stops at 85: never straight down
+  const vp = mul(perspective(32 * Math.PI / 180, w / h, 2, 800), lookAt(eye, center, up));
+  gl.uniformMatrix4fv(U.mvp, false, vp);
+  const toEye = norm(sub(eye, center));
+  gl.uniform3fv(U.light, norm([toEye[0] * 0.6 + 0.25, toEye[1] * 0.6 - 0.8, toEye[2] * 0.6]));
+  // ground
+  gl.uniform1f(U.flat, 1);
+  bind(gridBuf);
+  gl.uniformMatrix4fv(U.model, false, ID);
+  gl.uniform3fv(U.color, [0.30, 0.33, 0.38]);
+  gl.drawArrays(gl.LINES, 0, grid.length / 6);
+  gl.uniform1f(U.flat, 0);
+  bind(cubeBuf);
+  if (cell.kind === "skel") {
+    const s = skeleton(c, f);
+    for (let i = 0; i < s.nj; i++) {
+      const col = s.side(i) > 0 ? [0.45, 0.6, 0.95] : s.side(i) < 0 ? [0.95, 0.5, 0.45] : [0.9, 0.85, 0.7];
+      const p = s.J(i);
+      drawBox(boxMatrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]], p, [-0.8, -0.8, -0.8], [0.8, 0.8, 0.8]), col);
+      if (c.links[i] >= 0) stick(s.J(c.links[i]), p, 0.7, col);
+    }
+    return;
+  }
+  let arms, legs;
+  if (cell.kind === "mode") arms = legs = cell.mode;
+  else ({ arms, legs } = choiceOf(c));
+  const b = biped(c, f, arms, legs);
+  for (const [part, R, p] of b.parts) {
+    const [mn, mx] = BOX[part];
+    drawBox(boxMatrix(R, p, mn, mx), COLOR[part]);
+  }
+  // the face: eyes on the head's front (-Z), so you see where it looks
+  const [, R, p] = b.parts[0];
+  drawBox(boxMatrix(R, p, [-3, -5, -4.3], [-1, -4, -4]), [0.1, 0.1, 0.12]);
+  drawBox(boxMatrix(R, p, [1, -5, -4.3], [3, -4, -4]), [0.1, 0.1, 0.12]);
+}
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000);
+  last = now;
+  advance(dt);
+  const c = current();
+  const dpr = window.devicePixelRatio || 1;
+  const cw = Math.round(canvas.clientWidth * dpr), ch = Math.round(canvas.clientHeight * dpr);
+  if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+  gl.disable(gl.SCISSOR_TEST);
+  gl.clearColor(0.086, 0.094, 0.114, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.SCISSOR_TEST);
+  if (c) {
+    const f = frameAt();
+    const hip = at(c.hip, 2, f);
+    // all windows look at the same place: the hips of the "end" model, so a clip's travel shows against the ground
+    const center = [hip[0], at(c.hipY, 16, f)[10] - 4, hip[1]];
+    const base = canvas.getBoundingClientRect();
+    CELLS.forEach((cell, i) => {
+      const r = cellEls[i].getBoundingClientRect();
+      drawCell(cell, { x: r.left - base.left, y: r.top - base.top, w: r.width, h: r.height }, c, f, center);
+    });
+    scrub.value = String(Math.round(f));
+    timeEl.textContent = `кадр ${Math.round(f)} / ${c.n - 1} · ${(f / FPS).toFixed(2)} с`;
+  }
+  requestAnimationFrame(frame);
+}
+
+// ------------------------------------------------------------------ input
+let drag = null;
+cellsEl.addEventListener("pointerdown", e => {
+  drag = { x: e.clientX, y: e.clientY, yaw: cam.yaw, pitch: cam.pitch };
+  cellsEl.setPointerCapture(e.pointerId);
+});
+cellsEl.addEventListener("pointermove", e => {
+  if (!drag) return;
+  cam.yaw = drag.yaw - (e.clientX - drag.x) * 0.5;
+  cam.pitch = Math.max(-60, Math.min(85, drag.pitch + (e.clientY - drag.y) * 0.4));
+});
+cellsEl.addEventListener("pointerup", () => { drag = null; });
+cellsEl.addEventListener("wheel", e => {
+  e.preventDefault();
+  cam.dist = Math.max(30, Math.min(300, cam.dist * Math.exp(e.deltaY * 0.001)));
+}, { passive: false });
+document.getElementById("play").onclick = () => setPlaying(!playing);
+document.getElementById("prev").onclick = () => step(-1);
+document.getElementById("next").onclick = () => step(1);
+scrub.oninput = () => { setPlaying(false); hold = 0; t = Number(scrub.value) / FPS; };
+// a clicked button gives the keys back to the page (Space would press it again)
+document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("button"); if (b) b.blur(); });
+const speedEl = document.getElementById("speed");
+speedEl.onchange = () => { state.speed = Number(speedEl.value); store(); };
+document.querySelectorAll("[data-view]").forEach(b => { b.onclick = () => setView(b.dataset.view); });
+document.getElementById("skip").onchange = e => setChoice(current(), { take: !e.target.checked });
+document.getElementById("reset").onclick = () => {
+  const c = current();
+  delete choices[c.key];
+  store(); renderList(); renderChoice();
+};
+const msg = document.getElementById("msg");
+function say(s) { msg.textContent = s; setTimeout(() => { if (msg.textContent === s) msg.textContent = ""; }, 4000); }
+document.getElementById("save").onclick = () => {
+  const out = { version: 1, saved: new Date().toISOString(), clips: {} };
+  for (const c of clips) out.clips[c.key] = choiceOf(c);
+  const blob = new Blob([JSON.stringify(out, null, 1) + "\n"], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "anim-choices.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  const changed = Object.keys(choices).length;
+  say(`сохранено: ${clips.length} клипов, изменено ${changed}`);
+};
+const fileEl = document.getElementById("file");
+document.getElementById("load").onclick = () => fileEl.click();
+fileEl.onchange = async () => {
+  const f = fileEl.files[0];
+  if (!f) return;
+  try {
+    const doc = JSON.parse(await f.text());
+    if (!doc || typeof doc.clips !== "object" || !doc.clips) throw new Error("нет поля clips");
+    let n = 0;
+    const got = {};
+    for (const [key, ch] of Object.entries(doc.clips)) {
+      if (!ch || typeof ch !== "object") continue;
+      const c = byKey.get(key);
+      if (!c) continue;
+      const v = { arms: MODES.includes(ch.arms) ? ch.arms : c.now.arms, legs: MODES.includes(ch.legs) ? ch.legs : c.now.legs,
+        take: ch.take !== false };
+      if (v.arms !== c.now.arms || v.legs !== c.now.legs || !v.take) got[key] = v;
+      n++;
+    }
+    if (!n) throw new Error("ни одного клипа этой страницы");
+    choices = got;
+    store(); renderList(); renderChoice();
+    say(`загружено: ${n} клипов`);
+  } catch (e) { say("не читается: " + e.message); }
+  fileEl.value = "";
+};
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT" && e.target.type !== "range" && e.target.type !== "checkbox") return;
+  const i = clips.findIndex(c => c.key === state.clip);
+  if (e.key === " ") { e.preventDefault(); setPlaying(!playing); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
+  else if (e.key === "ArrowDown" && i < clips.length - 1) { e.preventDefault(); selectClip(clips[i + 1].key); }
+  else if (e.key === "ArrowUp" && i > 0) { e.preventDefault(); selectClip(clips[i - 1].key); }
+});
+
+load();
+speedEl.value = String(state.speed);
+if (VIEWS[state.view]) setView(state.view);
+if (clips.length) selectClip(state.clip);
+else document.querySelector("header p").textContent = "Нет данных: data/*.js не нашлись рядом со страницей.";
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

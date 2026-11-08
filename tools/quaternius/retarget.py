@@ -1,7 +1,8 @@
 """Retarget Quaternius UAL clips onto the six parts of a Minecraft HumanoidModel.
 
-Run:  python3 -I tools/quaternius/retarget.py <animations dir> <check.json> TAG=<file.glb> ...
-      (TAG: a key of PACKS — UAL1, UAL2, KK_RANGED, ..., SWAT)
+Run:  python3 -I tools/quaternius/retarget.py [--choices anim-choices.json] <animations dir> <check.json> TAG=<file.glb> ...
+      (TAG: a key of PACKS — UAL1, UAL2, KK_RANGED, ..., SWAT; --choices: the owner's pick per clip from the
+      picker page, anim_picker.py: how each clip's arms and legs are carried over, or that it is left out)
 
 Model space of a Minecraft ModelPart: X = the model's left, Y = down, Z = back
 (forward is -Z), pixels. A part's rotation is Rz(zRot) * Ry(yRot) * Rx(xRot)
@@ -10,9 +11,12 @@ body does not carry the head or the arms. glTF here: X = left, Y = up,
 Z = forward, metres, so a glTF vector maps to MC as (x, -y, -z).
 
 Per frame:
-- arm, leg: the part points from shoulder to wrist (hip to ankle), its twist
-  (turn around its own length) comes from the hand for an arm (the gun is in
-  the hand) and from the thigh for a leg (the knee; feet turn out much more);
+- arm, leg: the part points from shoulder to wrist (hip to ankle) — or, by
+  MODES, along the upper bone (shoulder to elbow, hip to knee), the lower one
+  (elbow to wrist, knee to ankle), or halfway between the upper bone and the
+  whole limb; its twist (turn around its own length) comes from the hand for an
+  arm (the gun is in the hand) and from the thigh for a leg (the knee; feet turn
+  out much more);
 - body: points from the neck down to the middle of the hips, twist from spine_03;
 - head: the Head bone's turn from its rest pose, as is;
 - position: the hips move with the pelvis (scaled by leg length), and the
@@ -67,6 +71,11 @@ LIMB = {  # part: (root joint, middle joint, end joint)
     "right_leg": ("thigh_r", "calf_r", "foot_r"),
     "left_leg": ("thigh_l", "calf_l", "foot_l"),
 }
+# How a limb's one MC part follows its two bones: along the whole limb (joint to end: shoulder to wrist, hip to
+# ankle), the upper bone, the lower one, or halfway between the upper bone and the whole limb.
+MODES = ("upper", "lower", "end", "mix")
+# the leg modes' old names (pick_legs, check.json)
+LEG_ALIAS = {"ankle": "end", "thigh": "upper"}
 # Where the wrist and the ankle sit along an MC arm/leg, pixels from the pivot.
 LIMB_END_PX = {"right_arm": 10.0, "left_arm": 10.0, "right_leg": 12.0, "left_leg": 12.0}
 
@@ -265,19 +274,41 @@ class Skeleton:
     def hip_height(self, p):
         return -self.hips(p)[1]
 
-    def solve(self, p, legs="ankle"):
+    @staticmethod
+    def limb_dir(p, part, mode):
+        """The way a limb's MC part points in one frame (MODES; the leg's old names too)."""
+        mode = LEG_ALIAS.get(mode, mode)
+        a, b, c = LIMB[part]
+        if mode == "upper":
+            return p["P"][b] - p["P"][a]
+        if mode == "lower":
+            return p["P"][c] - p["P"][b]
+        if mode == "mix":
+            return unit(p["P"][b] - p["P"][a]) + unit(p["P"][c] - p["P"][a])
+        assert mode == "end", mode
+        return p["P"][c] - p["P"][a]
+
+    def limb_rot(self, p, part, mode):
+        a, _, c = LIMB[part]
+        twist = c if part.endswith("arm") else a  # hand for arms, thigh for legs
+        m0 = self.delta(p, twist) @ self.A[part]
+        return rot_between(m0 @ Y, self.limb_dir(p, part, mode)) @ m0
+
+    def solve(self, p, legs="ankle", arms="end"):
         """One frame -> {part: (pivot px, rotation 3x3)}, hips' shift.
 
-        legs="ankle": a leg points from hip to ankle (feet in place, hips stay high
-        when the knee bends); legs="thigh": along the thigh (hips drop, the foot
-        ends where the knee is)."""
-        rot = {}
-        for part, (a, b, c) in LIMB.items():
-            twist = c if part.endswith("arm") else a  # hand for arms, thigh for legs
-            m0 = self.delta(p, twist) @ self.A[part]
-            end = b if (legs == "thigh" and part.endswith("leg")) else c
-            d = p["P"][end] - p["P"][a]
-            rot[part] = rot_between(m0 @ Y, d) @ m0
+        legs="ankle" ("end"): a leg points from hip to ankle (feet in place, hips stay high
+        when the knee bends); legs="thigh" ("upper"): along the thigh (hips drop, the foot
+        ends where the knee is); "lower": along the shin; "mix": halfway. arms: the same for an arm."""
+        rot, piv, hip = self.parts(p, legs, arms)
+        hip[1] = self.hip_y(p, self.lowest_corner(rot, piv, PARTS))
+        root = hip - np.array([0.0, 12.0, 0.0])
+        out = {part: (PIVOT_HIP + root + piv[part], rot[part]) for part in PARTS}
+        return out, root
+
+    def parts(self, p, legs="ankle", arms="end"):
+        """The parts' turns and their pivots from the hips, and the hips' place (its height still to be set)."""
+        rot = {part: self.limb_rot(p, part, arms if part.endswith("arm") else legs) for part in LIMB}
         m0 = self.delta(p, "spine_03") @ self.A["body"]
         rot["body"] = rot_between(m0 @ Y, self.hips(p) - p["P"]["neck_01"]) @ m0
         rot["head"] = self.delta(p, "Head")
@@ -294,18 +325,24 @@ class Skeleton:
             "right_leg": rp @ np.array([-1.9, 0.0, 0.0]),
             "left_leg": rp @ np.array([1.9, 0.0, 0.0]),
         }
+        return rot, piv, hip
+
+    @staticmethod
+    def lowest_corner(rot, piv, parts):
+        """How far below the hips the lowest box corner of these parts is, pixels (MC y is down)."""
         low = -1e9
-        for part in PARTS:
+        for part in parts:
             lo, hi = BOX[part]
             for cx in (lo[0], hi[0]):
                 for cy in (lo[1], hi[1]):
                     for cz in (lo[2], hi[2]):
                         low = max(low, (piv[part] + rot[part] @ np.array([cx, cy, cz]))[1])
-        lift = self.scale * (self.lowest(p) - self.ground0)
-        hip[1] = 24.0 - lift - low
-        root = hip - np.array([0.0, 12.0, 0.0])
-        out = {part: (PIVOT_HIP + root + piv[part], rot[part]) for part in PARTS}
-        return out, root
+        return low
+
+    def hip_y(self, p, low):
+        """The hips' height (MC y) that puts a lowest corner `low` below them as far over the ground as the rig's
+        lowest joint rises over its rest height."""
+        return 24.0 - self.scale * (self.lowest(p) - self.ground0) - low
 
 
 def reduce_keys(times, vals, tol):
@@ -383,10 +420,10 @@ def mat_angle(a, b):
     return math.degrees(math.acos(max(-1.0, min(1.0, c))))
 
 
-def solve_frame(sk, clip, t, legs, prev):
+def solve_frame(sk, clip, t, legs, prev, arms="end"):
     """One time -> (frame, root, pose, solved matrices); Euler angles follow `prev`."""
     p = sk.pose(clip.world(t))
-    out, root = sk.solve(p, legs)
+    out, root = sk.solve(p, legs, arms)
     f, mats = {}, {}
     for part in PARTS:
         piv, m = out[part]
@@ -396,11 +433,11 @@ def solve_frame(sk, clip, t, legs, prev):
     return {"t": t, "f": f, "root": root, "p": p, "m": mats, "legerr": leg_errors(sk, p, out)}
 
 
-def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle", mid_tol=2.0, depth=4):
+def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle", mid_tol=2.0, depth=4, arms="end"):
     """mid_tol: where Euler interpolation between two 30 fps samples strays further (a fast swing), samples
     are added in between, halving the step up to `depth` times."""
     def follow(a, t):
-        return solve_frame(sk, clip, t, legs, {k: v[1] for k, v in a["f"].items()})
+        return solve_frame(sk, clip, t, legs, {k: v[1] for k, v in a["f"].items()}, arms)
 
     def refine(a, t, d):
         """Samples after `a` up to time t, each solved from its left neighbour."""
@@ -413,7 +450,7 @@ def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle", mid_tol=2.0, dept
         left = refine(a, tm, d + 1)
         return left + refine(left[-1], t, d + 1)
 
-    dense = [solve_frame(sk, clip, clip.times[0], legs, None)]
+    dense = [solve_frame(sk, clip, clip.times[0], legs, None, arms)]
     for t in clip.times[1:]:
         dense += refine(dense[-1], t, 0)
     times = [d["t"] for d in dense]
@@ -452,7 +489,7 @@ def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle", mid_tol=2.0, dept
         if fi:
             # halfway to the previous sample: what a player sees between keys
             tm = (times[fi - 1] + t) / 2
-            pm = solve_frame(sk, clip, tm, legs, None)
+            pm = solve_frame(sk, clip, tm, legs, None, arms)
             for part in PARTS:
                 rv, keys = chans[part]["rotation"]
                 stats["mid"].append(mat_angle(euler_to_mat(interp(times, rv, keys, tm)), pm["m"][part]))
@@ -461,15 +498,20 @@ def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle", mid_tol=2.0, dept
             d_lo = p["P"][c] - p["P"][b]
             d_all = p["P"][c] - p["P"][a]
             axis = m[part] @ Y
-            target = d_up if (legs == "thigh" and part.endswith("leg")) else d_all
+            target = sk.limb_dir(p, part, arms if part.endswith("arm") else legs)
             stats["rebuild"].append(angle(axis, target))
             arm = part.endswith("arm")
             stats["arm_up" if arm else "leg_up"].append(angle(axis, d_up))
             stats["arm_fore" if arm else "leg_low"].append(angle(axis, d_lo))
             stats["elbow" if arm else "knee"].append(angle(d_up, d_lo))
             full = np.linalg.norm(sk.rest["P"][c] - sk.rest["P"][a])
-            short = np.linalg.norm(d_all) / full * LIMB_END_PX[part]
-            stats["hand_px" if arm else "foot_px"].append(LIMB_END_PX[part] - short)
+            mode = LEG_ALIAS.get(arms if arm else legs, arms if arm else legs)
+            if mode == "end":  # along the limb: the end falls short as far as the limb is shorter
+                short = np.linalg.norm(d_all) / full * LIMB_END_PX[part]
+                miss = LIMB_END_PX[part] - short
+            else:  # how far the part's end is from where the wrist (ankle) is
+                miss = float(np.linalg.norm(unit(axis) * LIMB_END_PX[part] - d_all / full * LIMB_END_PX[part]))
+            stats["hand_px" if arm else "foot_px"].append(miss)
         stats["body"].append(angle(m["body"] @ Y, sk.hips(p) - p["P"]["neck_01"]))
         sh_ual = p["P"]["upperarm_l"] - p["P"]["upperarm_r"]
         sh_mc = m["body"] @ np.array([1.0, 0.0, 0.0])
@@ -511,9 +553,31 @@ def grades(st):
     return grade(hand, 1.0, 2.5), grade(legs, 1.5, 3.0), hand, legs
 
 
+def read_choices(path):
+    """anim-choices.json (the picker page): {"clips": {"PACK/clip": {"arms": mode, "legs": mode, "take": bool}}}"""
+    with open(path) as f:
+        doc = json.load(f)
+    out = {}
+    for key, c in doc["clips"].items():
+        for limb in ("arms", "legs"):
+            if c.get(limb) not in MODES:
+                raise ValueError(f"{key}: {limb} {c.get(limb)!r} is none of {MODES}")
+        if not isinstance(c.get("take", True), bool):
+            raise ValueError(f"{key}: take {c.get('take')!r} is not true or false")
+        out[key] = c
+    return out
+
+
 def main():
-    out, check = sys.argv[1], sys.argv[2]
-    packs = [a.split("=", 1) for a in sys.argv[3:]]
+    args = sys.argv[1:]
+    choices = {}
+    if "--choices" in args:
+        i = args.index("--choices")
+        choices = read_choices(args[i + 1])
+        args = args[:i] + args[i + 2:]
+    seen = set()
+    out, check = args[0], args[1]
+    packs = [a.split("=", 1) for a in args[2:]]
     os.makedirs(out, exist_ok=True)
     rows = []
     files = {}
@@ -529,31 +593,41 @@ def main():
             if clip.zero_scale():
                 print(f"{tag} {name}: skipped, a bone is scaled to nothing")
                 continue
-            legs = pick_legs(sk, clip)
-            chans, st, nframes, nkeys, times = convert(sk, clip, legs=legs)
+            legs, arms = pick_legs(sk, clip), "end"
+            chose = choices.get(f"{tag}/{name}")
+            seen.add(f"{tag}/{name}")
+            take = name in SELECTED[tag]
+            if chose is not None:
+                legs, arms, take = chose["legs"], chose["arms"], take and chose.get("take", True)
+            chans, st, nframes, nkeys, times = convert(sk, clip, legs=legs, arms=arms)
             gu, gl, eu, el = grades(st)
             short = name.split("|")[-1]
             loop = short.endswith("_Loop") or short in LOOPS
             seam = seam_px = None
             if loop:  # a loop's last frame must be its first, turns and the hips' shift
-                a = sk.solve(sk.pose(clip.world(0.0)), legs)[0]
-                b = sk.solve(sk.pose(clip.world(clip.length)), legs)[0]
+                a = sk.solve(sk.pose(clip.world(0.0)), legs, arms)[0]
+                b = sk.solve(sk.pose(clip.world(clip.length)), legs, arms)[0]
                 seam = max(mat_angle(a[k][1], b[k][1]) for k in PARTS)
                 rv = chans["root"]["position_rel"][0]
                 seam_px = float(np.linalg.norm(rv[-1] - rv[0]))
             elif short in HOLDS:
                 loop = "hold_on_last_frame"
             q = {k: (float(np.mean(v)), float(np.percentile(v, 95)), float(np.max(v))) for k, v in st.items()}
-            rows.append({"pack": tag, "clip": name, "length": clip.length, "frames": nframes, "keys": nkeys,
-                         "selected": name in SELECTED[tag], "legs": legs, "upper": gu, "lower": gl,
+            row = {"pack": tag, "clip": name, "length": clip.length, "frames": nframes, "keys": nkeys,
+                         "selected": take, "legs": legs, "upper": gu, "lower": gl,
                          "hand_p95_px": eu, "legs_p95_px": el, "loop_seam_deg": seam, "loop_seam_px": seam_px,
-                         "stats": q})
-            if name in SELECTED[tag]:
+                         "stats": q}
+            if arms != "end":
+                row["arms"] = arms  # check.json as before for the default
+            rows.append(row)
+            if take:
                 key = short.lower()
                 assert key not in anims, key
                 anims[key] = bedrock(times, chans, PARTS, clip.length, loop)
                 anims[key + "_upper"] = bedrock(times, chans, UPPER, clip.length, loop, split=True)
                 anims[key + "_lower"] = bedrock(times, chans, LOWER + ["root"], clip.length, loop, split=True)
+    for key in sorted(set(choices) - seen):
+        print(f"--choices: no clip {key} in the packs given, left as it is")
     for outname, anims in files.items():
         doc = {"format_version": "1.8.0", "animations": anims}
         with open(os.path.join(out, f"{outname}.animation.json"), "w") as f:

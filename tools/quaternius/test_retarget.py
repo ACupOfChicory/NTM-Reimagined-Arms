@@ -50,6 +50,37 @@ class Math(unittest.TestCase):
         keys = r.reduce_keys(t, v, 0.01)
         self.assertEqual(keys, [0, 5, 10])
 
+    def test_limb_modes_point_along_their_bones(self):
+        # a bent arm: the shoulder at 0, the elbow 1 down, the wrist 1 forward of it
+        p = {"P": {"upperarm_r": np.zeros(3), "lowerarm_r": np.array([0.0, 1.0, 0.0]),
+                   "hand_r": np.array([0.0, 1.0, -1.0])}}
+        d = {m: r.unit(r.Skeleton.limb_dir(p, "right_arm", m)) for m in r.MODES}
+        self.assertTrue(np.allclose(d["upper"], [0, 1, 0]))
+        self.assertTrue(np.allclose(d["lower"], [0, 0, -1]))
+        self.assertTrue(np.allclose(d["end"], r.unit(np.array([0.0, 1.0, -1.0]))))
+        # halfway between the upper bone and the whole limb: 22.5 degrees from each
+        self.assertAlmostEqual(r.angle(d["mix"], d["upper"]), 22.5, places=6)
+        self.assertAlmostEqual(r.angle(d["mix"], d["end"]), 22.5, places=6)
+        # the leg's old names
+        self.assertTrue(np.allclose(r.Skeleton.limb_dir(p, "right_arm", "thigh"), d["upper"]))
+
+    def test_choices_are_read_and_checked(self):
+        import json
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+            json.dump({"version": 1, "clips": {"UAL1/Idle_Loop": {"arms": "upper", "legs": "lower", "take": True},
+                                               "SWAT/x": {"arms": "end", "legs": "mix", "take": False}}}, f)
+        try:
+            c = r.read_choices(f.name)
+            self.assertEqual(c["UAL1/Idle_Loop"]["arms"], "upper")
+            self.assertFalse(c["SWAT/x"]["take"])
+            with open(f.name, "w") as g:
+                json.dump({"clips": {"UAL1/Idle_Loop": {"arms": "knee", "legs": "end"}}}, g)
+            with self.assertRaises(ValueError):
+                r.read_choices(f.name)
+        finally:
+            os.unlink(f.name)
+
 
 @unittest.skipUnless(GLB and os.path.exists(GLB), "UAL1 glb not given")
 class Poses(unittest.TestCase):
@@ -110,6 +141,13 @@ class Poses(unittest.TestCase):
         clip = self.g.clip("Melee_Hook") if "Melee_Hook" in self.g.anims else self.g.clip("Punch_Cross")
         _, st, _, _, _ = r.convert(self.sk, clip)
         self.assertLess(max(st["mid"]), 3.0)
+
+    def test_arm_modes_follow_their_bone(self):
+        p = self.sk.pose(self.g.clip("Pistol_Reload").world(0.8))
+        for mode, (a, b) in (("upper", ("upperarm_l", "lowerarm_l")), ("lower", ("lowerarm_l", "hand_l")),
+                             ("end", ("upperarm_l", "hand_l"))):
+            out = self.sk.solve(p, "ankle", mode)[0]
+            self.assertLess(r.angle(out["left_arm"][1] @ r.Y, p["P"][b] - p["P"][a]), 0.01, mode)
 
     def test_death_ends_lying(self):
         clip = self.g.clip("Death01")

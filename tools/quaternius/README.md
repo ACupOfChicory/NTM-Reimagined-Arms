@@ -27,6 +27,28 @@ UAL1_GLB=<UAL1_Standard.glb> KAYKIT_GLB=<Rig_Medium_General.glb> SWAT_GLB=<swat.
 
 Python 3 and numpy only; the glb is read directly, no Blender. Each rig's bones are named in `RIGS`.
 
+## Choosing how a limb is carried over
+
+A Minecraft arm or leg is one box where the clip has two bones. `retarget.MODES` are the ways to put it: along the
+whole limb (`end`: shoulder to wrist, hip to ankle — the default), the upper bone (`upper`), the lower one (`lower`)
+or halfway between the upper bone and the whole limb (`mix`). A picker page shows every clip of `SELECTED` in each
+mode beside the rig's own skeleton:
+
+```
+python3 -I tools/quaternius/anim_picker.py <page dir> UAL1=<UAL1_Standard.glb> ...   # the same TAG=file pairs
+```
+
+It writes `<page dir>/index.html` and `<page dir>/data/*.js`; the page opens from disk with no server and no network
+(plain WebGL, no libraries). Its choice, per clip the arms' mode, the legs' mode and whether to take the clip, is
+saved as `anim-choices.json`:
+
+```json
+{"version": 1, "clips": {"UAL1/Idle_Loop": {"arms": "end", "legs": "upper", "take": true}}}
+```
+
+`retarget.py --choices anim-choices.json <animations dir> <check.json> TAG=<file.glb> ...` converts each clip in the
+modes chosen and leaves out the ones not taken; without `--choices` the output is as before.
+
 ## Output
 
 `animations/ual1.animation.json`, `ual2.animation.json`, `kaykit.animation.json`, `swat.animation.json`: Bedrock
