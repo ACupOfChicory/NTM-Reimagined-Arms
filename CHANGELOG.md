@@ -1,5 +1,13 @@
 # Changelog
 
+## X781
+
+- GL-54 gas: every gas poisons the ground now, not the mustard only. Fired at
+  one place, a magazine of mustard turns the ground into the poisoned biome,
+  two of chlorine or acid, three of phosgene (two magazines of mustard
+  before); gases fired at one place add up, and a grenade now and then still
+  never does it.
+
 ## X777
 
 - Mob AI: the pose layer tells where an AI mob firing blind over cover has its

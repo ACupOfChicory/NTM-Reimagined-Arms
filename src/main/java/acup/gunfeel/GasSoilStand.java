@@ -33,13 +33,13 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
-// runCheckClient -PgasStand=<dir> -PgasSoil: the mustard's stains and poisoned ground and the gas stirred by bullets and a
+// runCheckClient -PgasStand=<dir> -PgasSoil: the mustard's stains, poisoned ground and the gas stirred by bullets and a
 // blast, in numbers (<dir>/soil.txt; the shots stain-*.png and field-*.png for gas-soil.py):
 //   1. stains: one mustard grenade on a concrete pad; the pad seen from above before and after (the cloud gone), the
 //      client's stains then;
-//   2. poison: 16 mustard grenades a second apart on a grass field with flowers; the sum and the biome at the middle every
-//      second, which biome cells turned (only those the gas lay on), the plants left on them, a sapling, grass and bone meal
-//      there and out of it; the field from above before and after;
+//   2. poison: 16 chlorine grenades a second apart (two magazines; any gas does it) on a grass field with flowers; the sum
+//      and the biome at the middle every second, which biome cells turned (only those the gas lay on), the plants left on
+//      them, a sapling, grass and bone meal there and out of it; the field from above before and after;
 //   3. stir: two chlorine clouds side by side, one shot through ten times and then hit by a GL-54 HE grenade; the gas in
 //      each against the other, and the client's copies against the server's.
 final class GasSoilStand {
@@ -219,7 +219,7 @@ final class GasSoilStand {
         if (fired < 16 && t - lastFire >= 20) {
             lastFire = t;
             fired++;
-            spawn(FIELD, GasKind.MUSTARD);
+            spawn(FIELD, GasKind.CHLORINE);
         }
         poisonLog();
         if (fired >= 16) step++;
@@ -278,7 +278,7 @@ final class GasSoilStand {
         boolean middle = GasPoison.poisoned(level, new BlockPos(0, Y, 0)), off = GasPoison.poisoned(level, new BlockPos(24, Y, 24));
         line(String.format(Locale.ROOT, "poison: turned after grenade %d at sum %.0f; biome cells poisoned %d (16 blocks each), of them never under the gas %d; middle %s, 24 blocks off %s",
                 turnedAt, sumAtTurn, cells, dry, middle, off));
-        ClientSmoke.check(turnedAt > 8, "почва: магазина (8) мало, повернуло на гранате " + turnedAt);
+        ClientSmoke.check(turnedAt > 8, "почва: магазина хлора (8) мало, повернуло на гранате " + turnedAt);
         ClientSmoke.check(middle && !off, "почва: биом в середине, не в 24 блоках");
         ClientSmoke.check(dry == 0, "почва: биом только под газом, вне его " + dry);
         // growth: a sapling, grass on dirt and bone meal there and out of it
