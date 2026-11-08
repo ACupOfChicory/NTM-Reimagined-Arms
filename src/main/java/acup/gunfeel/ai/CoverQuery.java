@@ -42,6 +42,8 @@ public final class CoverQuery {
         public double peekBonus = PEEK;
         /** threats after the first: each that sees its head costs SEEN_BY, instead of ruling the cell out */
         public boolean othersSoft;
+        /** a flank (AiSquads): the squad's middle; seen from the threat, cells within 45 degrees of it or past 135 are no flank */
+        public @org.jspecify.annotations.Nullable Vec3 flankFrom;
     }
 
     /** peek: the best place beside it to shoot from (the cell itself over low cover); peeks: every such place, up to MAX_PEEKS */
@@ -105,6 +107,10 @@ public final class CoverQuery {
                         if (d2 > r2) continue;
                         double tx = main.x - cx, tz = main.z - cz, td = Math.sqrt(tx * tx + tz * tz);
                         if (td < p.minFromThreat || td > p.maxFromThreat) continue;
+                        if (p.flankFrom != null) {
+                            double fc = AiSquads.cos(cx - main.x, cz - main.z, p.flankFrom.x - main.x, p.flankFrom.z - main.z);
+                            if (fc > AiSquads.FLANK_COS || fc < AiSquads.BEHIND_COS) continue;
+                        }
                         int dir = Dirs.of(tx, tz);
                         int cover = c.cover(i);
                         int height = SectionCells.height(cover, dir);

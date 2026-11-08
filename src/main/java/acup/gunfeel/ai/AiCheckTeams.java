@@ -42,6 +42,10 @@ final class AiCheckTeams {
     private final ServerLevel level;
     private final int y;
     private final boolean battle;
+    /** the duel (AiCheckDuel): the team that fights without squads (AiSquads.offTeams); null: both in squads */
+    final String loners;
+    /** at the end: the fighters each team had left */
+    int redLeft = -1, blueLeft = -1;
     private int ticks;
     private final List<Mob> red = new ArrayList<>(), blue = new ArrayList<>();
     // every fighter's mind, kept past its death for the tactics' counts
@@ -50,6 +54,9 @@ final class AiCheckTeams {
     private long aliveTicks;
     // hits by red on blue, by blue on red, by either on its own
     private int redHits, blueHits, ownHits, friendlyAtStart;
+    /** the duel: the hits on the other team, red's and blue's; the damage done to it; the shots fired */
+    int redHitsOut, blueHitsOut, redShots, blueShots;
+    double redDamage, blueDamage;
     private boolean done;
     // the sounds that reached the AI in the fight: per name, how many, how many loud and made by no mob or player
     // near them, and the distance from such a loud one to the nearest fighter
@@ -61,6 +68,11 @@ final class AiCheckTeams {
     }
 
     AiCheckTeams(AiCheck check, ServerLevel level, int y, boolean battle) {
+        this(check, level, y, battle, null);
+    }
+
+    AiCheckTeams(AiCheck check, ServerLevel level, int y, boolean battle, String loners) {
+        this.loners = loners;
         this.check = check;
         this.level = level;
         this.y = y;
@@ -79,6 +91,11 @@ final class AiCheckTeams {
 
     private void start() {
         AiBots.awake = true;
+        // squads for both teams (the duel: one), made anew for this fight
+        AiSquads.on = true;
+        AiSquads.offTeams.clear();
+        if (loners != null) AiSquads.offTeams.add(loners);
+        AiSquads.forget(level);
         friendlyAtStart = AiBots.friendlyHits;
         if (battle) {
             field();
@@ -159,12 +176,14 @@ final class AiCheckTeams {
 
     private void spawn(List<Mob> into, String team, Vec3 at) {
         // the battle: the gun NTM gives an FBI agent and the rounds it comes with
-        var gun = battle ? null : BuiltInRegistries.ITEM.getValue(GUN);
+        // the duel: all with the heavy revolver (an FBI agent's own) and the rounds it comes with, so that the guns NTM
+        // hands out at random do not decide it
+        var gun = battle && loners == null ? null : BuiltInRegistries.ITEM.getValue(GUN);
         for (Mob m : AiSpawn.spawn(level, at, AiSpawn.Kind.FBI, SIDE, gun)) {
             AiTeams.join(level, m, team);
             AiBot bot = AiBots.get(m);
             if (bot != null) {
-                if (!battle) bot.gunner.ammo.setInfinite();
+                if (!battle && loners == null) bot.gunner.ammo.setInfinite();
                 bots.add(bot);
             }
             into.add(m);
@@ -196,15 +215,24 @@ final class AiCheckTeams {
         if (!fromRed && !fromBlue) return;
         boolean toRed = red.contains(e.getEntity()), toBlue = blue.contains(e.getEntity());
         if (fromRed && toRed || fromBlue && toBlue) ownHits++;
-        else if (fromRed && toBlue) redHits++;
-        else if (fromBlue && toRed) blueHits++;
+        else if (fromRed && toBlue) {
+            redHits++;
+            redDamage += e.getAmount();
+        } else if (fromBlue && toRed) {
+            blueHits++;
+            blueDamage += e.getAmount();
+        }
     }
 
     private void finish(int r, int b) {
         done = true;
+        redLeft = r;
+        blueLeft = b;
+        AiSquads.offTeams.clear();
         counting = null;
         AiBots.awake = false;
         String won = r > 0 && b == 0 ? "red won" : b > 0 && r == 0 ? "blue won" : r == 0 ? "both down" : "nobody won";
+        if (loners != null) check.out("     duel: " + (RED.equals(loners) ? "red" : "blue") + " alone, the other team in squads");
         check.out(String.format(Locale.ROOT, "     " + (battle ? "battle, %d on %d, FBI with their own guns (" + guns() + "), the rounds they come with, low and high walls"
                 : "teams, %d on %d, FBI with heavy revolvers (their own), endless rounds") + ": %s in %d ticks (%.1f s), red %d left, blue %d left; "
                 + "hits on the other team red %d, blue %d; on their own %d (AI mobs hit by AI mobs they do not fight: %d)", SIDE, SIDE, won, ticks, ticks / 20.0,
@@ -247,13 +275,21 @@ final class AiCheckTeams {
                     sorted.isEmpty() ? "" : String.format(Locale.ROOT, " (%.1f..%.1f bl, median %.1f)", sorted.get(0), sorted.get(sorted.size() - 1), sorted.get(sorted.size() / 2))));
         }
         check.out(heard.toString());
-        if (battle) {
+        if (battle && loners == null) {
             check.check("the battle: no lying down for less than " + AiProne.BRIEF / 20 + " s (" + brief + " times)", brief <= MARK_BRIEF);
             check.check("the battle: no looking out from one place more than " + MARK_PEEK_RUN + " times running (" + peekRun + ")", peekRun <= MARK_PEEK_RUN);
             check.check(String.format(Locale.ROOT, "the battle: cover changed %.0f times a fighter a minute at least (%.2f)", MARK_SHIFTS, shifts / minutes),
                     shifts / minutes >= MARK_SHIFTS);
         }
-        check.check("two teams of AI mobs fight each other", fought);
+        if (loners != null) {
+            // the duel's rounds are summed up by AiCheckDuel
+            redHitsOut = redHits;
+            blueHitsOut = blueHits;
+            for (AiBot bot : bots) {
+                if (bot.mob.getTeam() != null && RED.equals(bot.mob.getTeam().getName())) redShots += bot.gunner.shots;
+                else blueShots += bot.gunner.shots;
+            }
+        } else check.check("two teams of AI mobs fight each other", fought);
         check.check("no AI mob hits one of its own team", ownHits == 0);
         for (Mob m : red) m.discard();
         for (Mob m : blue) m.discard();

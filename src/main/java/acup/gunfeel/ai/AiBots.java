@@ -185,7 +185,12 @@ public final class AiBots {
 
     public static void tick(ServerLevel level) {
         PerLevel l = LEVELS.get(level);
-        if (l == null || l.bots.isEmpty()) return;
+        if (l == null || l.bots.isEmpty()) {
+            // none left: their squads hold none of them (nor the level) any more
+            AiSquads.forget(level);
+            return;
+        }
+        AiSquads.tick(level, l.bots.values());
         if (level.getGameTime() % 20 != 0) return;
         for (AiBot b : l.bots.values()) if (b.mob.isRemoved()) claimGone(l, b.mob.getId());
         l.bots.values().removeIf(b -> b.mob.isRemoved());

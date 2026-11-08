@@ -55,7 +55,9 @@ public final class AiThoughts {
         HOLD_RUN("to cover, watches where they went"),
         HOLD_RELOAD("reloads, watches where they went"),
         SEARCH("searches round where they went"),
-        SEARCH_NONE("nothing left to search: watches");
+        SEARCH_NONE("nothing left to search: watches"),
+        FLANK("its squad's flanker: round the side, to cover that sees where they went"),
+        SUPPRESS("one of its squad on the move: keeps where they went under fire");
 
         final String label;
 

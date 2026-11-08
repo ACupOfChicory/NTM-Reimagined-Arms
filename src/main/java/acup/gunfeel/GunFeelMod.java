@@ -93,6 +93,7 @@ public final class GunFeelMod {
                     if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
                         acup.gunfeel.ai.TacticalMap.forget(level);
                         acup.gunfeel.ai.AiBots.forget(level);
+                        acup.gunfeel.ai.AiSquads.forget(level);
                     }
                 });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent.class,

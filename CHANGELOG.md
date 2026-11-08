@@ -1,5 +1,15 @@
 # Changelog
 
+## X775
+
+- Mob AI: bots of one side near each other fight as a squad. When they lose
+  sight of you behind cover, one goes round the side to a spot that sees where
+  you went, while the others fire bursts at that spot to keep your head down.
+  A bot leaves its cover for better cover or to hunt you only while another
+  covers it, half of them move at a time at most, and no more than two come
+  after you at once; the rest watch where you went. A bot alone fights as
+  before.
+
 ## X774
 
 - Mob AI, new: bots can learn from your fights. `/armsai record on|off`

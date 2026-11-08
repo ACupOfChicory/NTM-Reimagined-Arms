@@ -178,6 +178,26 @@ public final class AiSoldier implements AiBrain {
     // for the stands: the most looks out running from one place
     public int longestPeekRun;
 
+    // ------------------------------------------------------------------ in a squad (AiSquads)
+    /** the loss (its lostTick) it went round the side for already; when it looks for flanking cover again */
+    private long flankLost = Long.MIN_VALUE, nextFlank;
+    /** none found: it looks again this many ticks on (it moved, or the others did), FLANK_TRIES times a loss at most */
+    static final int FLANK_AGAIN = 40, FLANK_TRIES = 3;
+    /** the loss it looked for flanking cover for, and how many times */
+    private long triedLost = Long.MIN_VALUE;
+    private int tried;
+    /** how far from it flanking cover may be, blocks (round the side is further than cover straight behind it) */
+    static final double FLANK_RADIUS = 24;
+    /** on its way to flanking cover: a short hide there, then a look out */
+    private boolean quickLook;
+    /** out (or up over low cover) for a burst at the place a target went out of sight, since when; the next one */
+    private boolean suppressing;
+    private long suppressSince, nextSuppress;
+    /** ticks between two bursts at the place, for those on the move */
+    static final int SUPPRESS_GAP_MIN = 40, SUPPRESS_GAP_MAX = 60;
+    // for the stands: flanks it went on, bursts at a place it fired for those on the move
+    public int flanks, flankTries, suppressions;
+
     @Override
     public void tick(AiBot bot, long tick) {
         crouch = false;
@@ -240,6 +260,9 @@ public final class AiSoldier implements AiBrain {
         }
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         TargetMemory.Noise n = bot.memory.noise();
+        // a burst at the place for those on the move goes on only while the decision below is that again
+        boolean wasSuppressing = suppressing;
+        suppressing = false;
         // shot from where it does not look: it turns there, and its cover, seen into from there, is no cover
         if (n != null && n.hurt && n.tick != hitSeen && (c == null || c.state != TargetMemory.State.VISIBLE)) {
             hitSeen = n.tick;
@@ -247,13 +270,27 @@ public final class AiSoldier implements AiBrain {
             return;
         }
         if (c != null && c.state == TargetMemory.State.VISIBLE) combat(bot, level, c, tick);
+        // its squad's flanker: round the side of the place they went out of sight, to cover that sees it
+        else if (c != null && c.state != TargetMemory.State.VISIBLE && flank(bot, level, c, tick)) {
+        }
         // out of sight a while, looked for already (or no cover to look from): it goes for them
         else if (c != null && c.state == TargetMemory.State.LOST && pushes(bot, c, tick)) search(bot, level, c, tick);
+        // one of its squad on the move: it keeps the place they went out of sight under fire, a burst every few seconds
+        else if (c != null && c.state == TargetMemory.State.LOST && spot != null && (mode == Mode.COVER || mode == Mode.PEEK || mode == Mode.HOLD)
+                && (wasSuppressing || AiSquads.suppresses(bot, c, tick))) {
+            suppressing = wasSuppressing;
+            suppress(bot, c, tick);
+        }
         // lost from sight because it went into cover itself: it goes on hiding and looking out where they were
         else if (c != null && c.state == TargetMemory.State.LOST && spot != null && c.lostTick != blindLost
                 && (mode == Mode.TO_COVER || mode == Mode.COVER || mode == Mode.PEEK)) coverCycle(bot, c, tick);
         else if (c != null && c.state == TargetMemory.State.LOST) hold(bot, level, c, tick);
-        else if (c != null && c.state == TargetMemory.State.SEARCH) search(bot, level, c, tick);
+        // its flank under way when the wait turned into a search: it gets there and looks out first
+        else if (c != null && c.state == TargetMemory.State.SEARCH && c.lostTick == flankLost && spot != null && c.lostTick != blindLost
+                && (mode == Mode.TO_COVER || mode == Mode.COVER || mode == Mode.PEEK)) coverCycle(bot, c, tick);
+        // two of a squad at most go after one target; the rest watch where it went
+        else if (c != null && c.state == TargetMemory.State.SEARCH && (mode == Mode.SEARCH || AiSquads.mayHunt(bot, c.id))) search(bot, level, c, tick);
+        else if (c != null && c.state == TargetMemory.State.SEARCH) hold(bot, level, c, tick);
         else if (n != null) alert(bot, level, n, tick);
         else idle(bot, tick);
     }
@@ -361,7 +398,8 @@ public final class AiSoldier implements AiBrain {
                     && AiChoice.ask(bot, Ask.SHIFT_ON_HIT, bot.mob.getRandom().nextFloat() < SHIFT_HIT, tick)) shift(bot, tick, "shot at in cover: other cover");
         }
         // in cover a while: a better place, if there is one now
-        if (spot != null && mode == Mode.COVER && bot.mover.arrived() && !bot.prone.fresh(tick) && AiChoice.ask(bot, Ask.BETTER_COVER, tick >= nextBetter, tick)) {
+        if (spot != null && mode == Mode.COVER && bot.mover.arrived() && !bot.prone.fresh(tick) && AiSquads.mayMove(bot)
+                && AiChoice.ask(bot, Ask.BETTER_COVER, tick >= nextBetter, tick)) {
             nextBetter = tick + BETTER_MIN + bot.mob.getRandom().nextInt(BETTER_MAX - BETTER_MIN);
             List<Vec3> all = threats(bot, c, eye);
             CoverQuery.Spot better = query(bot, level, map, all, false, true);
@@ -493,7 +531,9 @@ public final class AiSoldier implements AiBrain {
                 why = g.loaded() == 0 ? Why.BACK_EMPTY : done ? Why.BACK_DONE : Why.BACK_LONG;
                 // looked out of one cover two or three times: now and then other cover; from one place FROM_ONE
                 // times, or out of one cover FROM_COVER times: other cover for sure
-                if (tick - lastShift > SHIFT_GAP && AiChoice.ask(bot, Ask.SHIFT_AFTER_PEEK, peeksHere >= FROM_ONE || coverPeeks >= FROM_COVER
+                // one it must make (too many looks out of one place) it makes in a squad too; one it may, only covered
+                boolean must = peeksHere >= FROM_ONE || coverPeeks >= FROM_COVER;
+                if (tick - lastShift > SHIFT_GAP && (must || AiSquads.mayMove(bot)) && AiChoice.ask(bot, Ask.SHIFT_AFTER_PEEK, must
                         || coverPeeks >= 2 + bot.mob.getRandom().nextInt(2) && bot.mob.getRandom().nextFloat() < SHIFT_PEEKS, tick))
                     shift(bot, tick, "looked out of one cover " + coverPeeks + " times: other cover");
             }
@@ -515,7 +555,10 @@ public final class AiSoldier implements AiBrain {
         if (mode == Mode.TO_COVER) {
             if (!bot.mover.arrived()) return;
             mode(Mode.COVER, tick);
-            hideUntil = tick + HIDE_MIN + bot.mob.getRandom().nextInt(HIDE_MAX - HIDE_MIN);
+            // at flanking cover it looks out soon: the look round the side is what it came for
+            int min = quickLook ? FRESH_HIDE_MIN : HIDE_MIN, max = quickLook ? FRESH_HIDE_MAX : HIDE_MAX;
+            quickLook = false;
+            hideUntil = tick + min + bot.mob.getRandom().nextInt(max - min);
         }
         if (mode == Mode.COVER) {
             if (!bot.mover.goalIs(s.cell())) bot.mover.goTo(s.cell(), 0.35, WALK);
@@ -643,6 +686,8 @@ public final class AiSoldier implements AiBrain {
             pushAt = c.lostTick + PUSH_MIN + bot.mob.getRandom().nextInt(PUSH_MAX - PUSH_MIN + 1);
         }
         if (mode == Mode.SEARCH) return true;
+        // in a squad: two at most go after it, and only while one of the rest covers them
+        if (!AiSquads.mayHunt(bot, c.id) || !AiSquads.mayMove(bot)) return false;
         return AiChoice.ask(bot, Ask.PUSH_NOW, tick >= pushAt && (spot == null || blindLost == c.lostTick), tick);
     }
 
@@ -702,7 +747,15 @@ public final class AiSoldier implements AiBrain {
     }
 
     private CoverQuery.@Nullable Spot query(AiBot bot, ServerLevel level, TacticalMap map, List<Vec3> threats, boolean lookOut, boolean fight) {
+        return query(bot, level, map, threats, lookOut, fight, null);
+    }
+
+    /** flankFrom: its squad's middle, for cover off to the side of the threat from it (AiSquads); null: any */
+    private CoverQuery.@Nullable Spot query(AiBot bot, ServerLevel level, TacticalMap map, List<Vec3> threats, boolean lookOut, boolean fight,
+            @Nullable Vec3 flankFrom) {
         CoverQuery.Params p = new CoverQuery.Params();
+        p.flankFrom = flankFrom;
+        if (flankFrom != null) p.radius = FLANK_RADIUS;
         // from what it only heard: cover it can look out of (low, or high with a peek); none such, it stays and watches
         p.needPeek = lookOut;
         p.current = spot == null ? Long.MIN_VALUE : spot.cell();
@@ -728,6 +781,7 @@ public final class AiSoldier implements AiBrain {
     /** to this cover, running, out of the threat's sight where it can */
     private void go(AiBot bot, ServerLevel level, CoverQuery.Spot to, List<Vec3> threats) {
         spot = to;
+        quickLook = false;
         peeksHere = 0;
         coverPeeks = 0;
         lastPeek = Long.MIN_VALUE;
@@ -745,6 +799,98 @@ public final class AiSoldier implements AiBrain {
         AiBots.claim(bot, Long.MIN_VALUE);
         bot.mover.costs(PathSearch.Cost.NONE);
         bot.stoop.from(null);
+    }
+
+    // ------------------------------------------------------------------ in a squad
+
+    /**
+     * Its squad's flanker, a target out of sight: once a loss, while one of the rest covers it, to cover that hides it
+     * from the place the target went out of sight and looks out on it from 45 degrees or more off the line from there
+     * to the squad (the side the target does not watch). There it looks out soon (coverCycle), and the fight goes on
+     * from there. Whether it went.
+     */
+    private boolean flank(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
+        if (c.lostTick == flankLost || tick < nextFlank || !AiSquads.flanks(bot, c.id) || bot.prone.lying() || mode == Mode.SEARCH
+                || mode == Mode.TO_COVER && !bot.mover.arrived())
+            return false;
+        Vec3 middle = AiSquads.middle(bot);
+        if (middle == null || !AiSquads.mayMove(bot)) return false;
+        if (c.lostTick != triedLost) {
+            triedLost = c.lostTick;
+            tried = 0;
+        }
+        if (tried >= FLANK_TRIES) return false;
+        tried++;
+        nextFlank = tick + FLANK_AGAIN;
+        flankTries++;
+        List<Vec3> from = List.of(new Vec3(c.lostX, c.lostY + 1.5, c.lostZ));
+        CoverQuery.Spot to = query(bot, level, TacticalMap.of(level), from, true, true, middle);
+        if (to == null || spot != null && to.cell() == spot.cell()) return false;
+        flankLost = c.lostTick;
+        go(bot, level, to, from);
+        quickLook = true;
+        // a look out from there, and only then a hunt
+        blindLost = Long.MIN_VALUE;
+        flanks++;
+        why = Why.FLANK;
+        event(bot, tick, "its squad's flanker: round the side");
+        return true;
+    }
+
+    /**
+     * One of its squad on the move, a target out of sight a moment ago: from its cover, a burst at the place the
+     * target went out of sight every few seconds (out at its peek, or up over low cover), and back in; the target
+     * there keeps its head down, or shows it.
+     */
+    private void suppress(AiBot bot, TargetMemory.Contact c, long tick) {
+        CoverQuery.Spot s = spot;
+        Vec3 lost = new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
+        watch = lost;
+        AiGunner g = bot.gunner;
+        g.aim(lost);
+        boolean low = s.peek() == s.cell() || !s.hasPeek();
+        why = Why.SUPPRESS;
+        if (!suppressing) {
+            g.fire(false);
+            if (mode == Mode.PEEK || mode == Mode.HOLD) mode(Mode.COVER, tick);
+            if (!bot.mover.goalIs(s.cell())) bot.mover.goTo(s.cell(), 0.35, WALK);
+            boolean reload = g.loaded() >= 0 && g.loaded() < Math.max(1, g.capacity() / 3) && g.ammo.any();
+            if (reload) g.reload();
+            crouch = low && bot.mover.arrived();
+            if (bot.mover.arrived() && !reload && !g.reloading() && g.loaded() != 0 && tick >= nextSuppress) {
+                suppressing = true;
+                suppressSince = tick;
+                burstUntil = 0;
+                suppressions++;
+                if (!low) {
+                    // a burst for others is no look out of its own: not counted toward other cover (choosePeek)
+                    int here = peeksHere, ofCover = coverPeeks, run = longestPeekRun;
+                    long last = lastPeek;
+                    peekOut(bot, lost);
+                    peeksHere = here;
+                    coverPeeks = ofCover;
+                    longestPeekRun = run;
+                    lastPeek = last;
+                    mode(Mode.PEEK, tick);
+                    peekSince = tick;
+                }
+                event(bot, tick, "one of its squad on the move: a burst where they went");
+            }
+            return;
+        }
+        // out, or up over low cover: one burst at the place, then back in
+        boolean there = bot.mover.arrived();
+        g.fire(there && bot.prone.upright(tick) && burst(bot, tick, false));
+        boolean done = there && burstUntil != 0 && tick > burstUntil;
+        if (done || tick - suppressSince > PEEK_BLIND + 40 || g.loaded() == 0) {
+            suppressing = false;
+            g.fire(false);
+            nextSuppress = tick + SUPPRESS_GAP_MIN + bot.mob.getRandom().nextInt(SUPPRESS_GAP_MAX - SUPPRESS_GAP_MIN);
+            if (!low) {
+                bot.mover.goTo(s.cell(), 0.35, WALK);
+                mode(Mode.COVER, tick);
+            }
+        }
     }
 
     // ------------------------------------------------------------------ out of sight
