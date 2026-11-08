@@ -51,6 +51,7 @@ final class AiCheckParts {
     private int round = -1, ticks, seenAt, shotsAt, hits, firstShot, firstParts;
     private final List<String> ends = new ArrayList<>();
     private Mob shooter, target;
+    private double targetY;
     private boolean started;
     // per round: shots, hits, ticks to the first shot after it saw the target
     private final List<int[]> results = new ArrayList<>();
@@ -90,6 +91,10 @@ final class AiCheckParts {
             return finishAll();
         }
         target.setHealth(target.getMaxHealth());
+        // held where it is: hits push it back, and a target pushed a block or two off goes behind its wall or beam
+        // (its legs show under the beam by a few hundredths of a block from the shooter's eye)
+        target.setPos(TX, targetY, TZ);
+        target.setDeltaMovement(Vec3.ZERO);
         TargetMemory.Contact c = bot.memory.contact(target.getId());
         if (seenAt < 0 && c != null && c.state == TargetMemory.State.VISIBLE) {
             seenAt = ticks;
@@ -165,12 +170,13 @@ final class AiCheckParts {
                 EntitySpawnReason.COMMAND);
         // floating (no gravity): its head alone over the wall two high, its head and chest well over the wall one high
         // (its legs under it), its legs alone under the beam
-        target.setPos(TX, y + switch (s) {
+        targetY = y + switch (s) {
             case HEAD -> 0.75;
             case HEAD_CHEST -> 0.25;
             case LEGS -> 0.5;
             case WHOLE -> 0.0;
-        }, TZ);
+        };
+        target.setPos(TX, targetY, TZ);
         target.setNoGravity(true);
         target.addTag(AiBots.TARGET_TAG);
         var hp = target.getAttribute(Attributes.MAX_HEALTH);
@@ -192,6 +198,11 @@ final class AiCheckParts {
         AiBots.refreshTargets(level);
     }
 
+    /** a part aimed at: 3 hits at least, and a share of hits 15 points over aiming at the chest */
+    private static boolean better(int[] part, int[] chest) {
+        return part[1] >= 3 && (double) part[1] / Math.max(1, part[0]) > (double) chest[1] / Math.max(1, chest[0]) + 0.15;
+    }
+
     private boolean finishAll() {
         counting = null;
         AiBots.awake = false;
@@ -208,11 +219,12 @@ final class AiCheckParts {
         check.check("the parts: every round ran", r.length == Shows.values().length * 2);
         if (r.length == Shows.values().length * 2) {
             // its head alone over a wall: aiming at the chest hits the wall; at the head, the head
-            check.check("aims at a head over a wall and hits it (aiming at the chest hits the wall)", r[3][1] >= 3 && r[3][1] > r[2][1] + 2);
+            // by the share of shots that hit (the shots in a run vary a little with reloads and lying down)
+            check.check("aims at a head over a wall and hits it (aiming at the chest hits the wall)", better(r[3], r[2]));
             // its head and chest over a low wall: at the middle of them; the chest is clear of the wall too, so the gain
             // is small (+0 to +30 points over eight runs) and the check only that it is no worse, give or take a few
             check.check("aims at the middle of a head and chest over a low wall: hits no fewer than at the chest (4 either way)", r[5][1] + 4 >= r[4][1]);
-            check.check("aims at legs under a beam and hits them", r[7][1] >= 3 && r[7][1] > r[6][1] + 2);
+            check.check("aims at legs under a beam and hits them", better(r[7], r[6]));
             check.check("the whole of it in the open: hit as before", r[1][1] >= r[0][1] * 0.7 && r[1][1] >= 3);
         }
         return true;

@@ -1,6 +1,6 @@
 # Changelog
 
-## X720
+## X721
 
 - Mob AI: AI mobs aim at what they see of you: your head over a wall, your
   legs under a beam, the middle of what shows over low cover; with all of you
