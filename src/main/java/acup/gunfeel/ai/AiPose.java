@@ -24,7 +24,7 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
  * @param leanTick    the game tick {@code lean} changed
  * @param arms        {@link #HOLD}, {@link #AIM}, {@link #BLIND}, {@link #NO_GUN}
  * @param action      {@link #NONE}, {@link #RELOAD}, {@link #THROW}, {@link #SIGNAL_POINT}, {@link #SIGNAL_HALT},
- *                    {@link #SIGNAL_COME}, {@link #SHOT}
+ *                    {@link #SIGNAL_COME}, {@link #SHOT}, {@link #SLIDE}, {@link #ROLL}
  * @param actionTick  the game tick the action began
  * @param actionTicks how long it lasts (a reload: till NTM's animation ends); 0: as long as its clip
  */
@@ -33,6 +33,11 @@ public record AiPose(byte stance, byte lean, byte prevLean, int leanTick, byte a
     /** the gun at the chest, aimed where it looks, held up blind over cover, no gun (gestures) */
     public static final byte HOLD = 0, AIM = 1, BLIND = 2, NO_GUN = 3;
     public static final byte NONE = 0, RELOAD = 1, THROW = 2, SIGNAL_POINT = 3, SIGNAL_HALT = 4, SIGNAL_COME = 5, SHOT = 6;
+    /**
+     * a slide into cover, a forward roll under fire (AiDash): the whole body, crouched, no shot; only for these
+     * actions' ticks the drawn head leaves the eye the server keeps (pose-contract §4)
+     */
+    public static final byte SLIDE = 7, ROLL = 8;
 
     /** a crouching AI mob's size: a crouching player's (Avatar.CROUCHING_DIMENSIONS) */
     public static final net.minecraft.world.entity.EntityDimensions CROUCH_SIZE = net.minecraft.world.entity.EntityDimensions.scalable(0.6F, 1.5F)

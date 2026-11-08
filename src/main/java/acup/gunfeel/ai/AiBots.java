@@ -271,13 +271,15 @@ public final class AiBots {
         bot.tick(l.voxels, SmokeClouds.get(level), targets(l, tick), tick);
         // a shot that flies close past it is one at it: as a hit, from where it was fired
         Entity shooter = bot.prone.watchShots(level, tick);
+        if (shooter != null) bot.dash.nearMiss(tick);
         if (shooter != null) hear(bot, shooter.getX(), shooter.getY(), shooter.getZ(), shooter.distanceTo(bot.mob), tick, true, true, 0.15, 2);
         if (bot.brain != null) bot.brain.tick(bot, tick);
-        bot.prone.tick(level, bot.mover, tick, bot.brain != null && bot.stoop.down);
+        bot.prone.tick(level, bot.mover, tick, bot.brain != null && bot.stoop.down, bot.dash);
         bot.mover.hold(bot.gunner.steady());
         bot.mover.tick(level, map, tick);
         int reserve = bot.gunner.ammo.reserve();
-        bot.gunner.runs = bot.mover.runs();
+        // a slide's or a roll's step is under a run's, and it still goes on its way, not facing them
+        bot.gunner.runs = bot.mover.runs() || bot.dash.on(tick);
         bot.gunner.tick(level);
         if (bot.gunner.ammo.reserve() != reserve) AiAdapter.keep(bot);
     }

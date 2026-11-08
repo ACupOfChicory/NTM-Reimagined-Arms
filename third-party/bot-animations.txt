@@ -7,7 +7,8 @@ from these packs onto Minecraft's six-part humanoid model by tools/quaternius/re
   Universal Animation Library and Universal Animation Library 2 by Quaternius
     https://quaternius.itch.io/universal-animation-library
     https://quaternius.itch.io/universal-animation-library-2
-    Idle_Loop, Hit_Chest, Hit_Head, OverhandThrow, Walk_Loop, Jog_Fwd_Loop, Sprint_Loop
+    Idle_Loop, Hit_Chest, Hit_Head, OverhandThrow, Walk_Loop, Jog_Fwd_Loop, Sprint_Loop, Roll, Slide_Start,
+    Slide_Exit
   KayKit : Character Animations 1.1 by Kay Lousberg (www.kaylousberg.com)
     https://kaylousberg.itch.io/kaykit-character-animations
     Waving, Walking_Backwards, Running_Strafe_Left, Running_Strafe_Right, Ranged_2H_Reload, Death_A, Hit_B
@@ -15,4 +16,4 @@ from these packs onto Minecraft's six-part humanoid model by tools/quaternius/re
 License: Creative Commons Zero (CC0 1.0 Universal), public domain dedication
          https://creativecommons.org/publicdomain/zero/1.0/
 No credit is required; it is given here with thanks. The clips were changed: turned into Minecraft's part
-rotations, keys thinned, and split into upper and lower halves.
+rotations, keys thinned, and split into upper and lower halves; Slide_Start and Slide_Exit cut and joined into one slide.

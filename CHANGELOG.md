@@ -1,5 +1,15 @@
 # Changelog
 
+## X805
+
+- Mob AI: a bot crawls on its belly when it moves lying down: each leg in turn
+  drawn up along the ground, knee out to the side, the gun swinging a little
+  with each pull. Its arms no longer jerk as it gets up from a crawl on the
+  move.
+- Mob AI: on a run to cover, a bot may slide the last blocks into low cover,
+  and a bot running in the open may roll forward when a shot passes close.
+  Either lasts 0.8 s, crouched, without firing, at most once in 5 seconds.
+
 ## X804
 
 - Mob AI: a bot leaning out of cover where no player's game has drawn it

@@ -17,8 +17,19 @@ import net.minecraft.world.entity.HumanoidArm;
 // end of the forearm (BotModel), not at the end of a straight arm.
 @Mixin(HumanoidModel.class)
 public abstract class MixinBotPose {
+    @org.spongepowered.asm.mixin.Unique
+    private float gunfeel$swim = -1F;
+
+    // Lying, vanilla's swim stroke is not run on a bot (BotAnimation.noSwim): the pose layer lies it down itself
+    @Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/HumanoidRenderState;)V", at = @At("HEAD"))
+    private void gunfeel$noSwim(HumanoidRenderState state, CallbackInfo ci) {
+        gunfeel$swim = BotAnimation.noSwim(state);
+    }
+
     @Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/HumanoidRenderState;)V", at = @At("TAIL"))
     private void gunfeel$bot(HumanoidRenderState state, CallbackInfo ci) {
+        if (gunfeel$swim >= 0F) BotAnimation.swimBack((HumanoidModel<?>) (Object) this, state, gunfeel$swim);
+        gunfeel$swim = -1F;
         BotAnimation.pose((HumanoidModel<?>) (Object) this, state);
     }
 

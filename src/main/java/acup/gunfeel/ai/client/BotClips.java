@@ -26,6 +26,8 @@ public final class BotClips {
             STRAFE_RIGHT = "strafe_right";
     /** a rifle's reload (the arms), a fall dead (the whole body), a hit that throws it back (the arms and body) */
     public static final String RELOAD = "reload", DEATH = "death", HIT_KNOCK = "hit_knock";
+    /** a slide into cover, a forward roll (the whole body, AiPose.SLIDE, ROLL) */
+    public static final String SLIDE = "slide", ROLL = "roll";
 
     private static volatile Map<String, BotClip> clips;
 
@@ -52,7 +54,14 @@ public final class BotClips {
             }
             try (Reader r = new InputStreamReader(in, StandardCharsets.UTF_8)) {
                 JsonObject anims = JsonParser.parseReader(r).getAsJsonObject().getAsJsonObject("animations");
-                for (String name : anims.keySet()) out.put(name, BotClip.parse(anims.getAsJsonObject(name)));
+                for (String name : anims.keySet()) {
+                    // one clip unreadable leaves the others
+                    try {
+                        out.put(name, BotClip.parse(anims.getAsJsonObject(name)));
+                    } catch (RuntimeException e) {
+                        GunFeel.LOGGER.warn("AI mob clip {} unreadable: {}", name, e.toString());
+                    }
+                }
             }
         } catch (IOException | RuntimeException e) {
             GunFeel.LOGGER.warn("AI mob clips unreadable: {}", e.toString());

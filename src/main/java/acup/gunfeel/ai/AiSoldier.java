@@ -231,6 +231,8 @@ public final class AiSoldier implements AiBrain {
         crouch = false;
         bot.gunner.blind = false;
         decide(bot, tick);
+        // sliding or rolling: no shot (pose-contract §4)
+        if (bot.dash.on(tick)) bot.gunner.fire(false);
         body(bot, tick);
         if (AiThoughts.on()) thoughts.note(this, bot, tick);
     }
@@ -252,18 +254,21 @@ public final class AiSoldier implements AiBrain {
         boolean lying = bot.prone.lying();
         boolean stoop = bot.stoop.want(m, bot.mover, lying, AiBots.voxels((ServerLevel) m.level()), tick);
         // down low under something lower than its standing height: it stays low (a player cannot stand up there either)
-        boolean low = crouch || stoop || !lying && m.getPose() == Pose.CROUCHING && !m.level().noCollision(m,
+        boolean low = crouch || stoop || bot.dash.on(tick) || !lying && m.getPose() == Pose.CROUCHING && !m.level().noCollision(m,
                 m.getDimensions(Pose.STANDING).makeBoundingBox(m.position()).deflate(1.0E-7));
         AiGunner g = bot.gunner;
         boolean reloading = g.reloading();
         boolean aiming = g.wantsFire() || mode == Mode.PEEK;
         // held up over its cover with no look along it: the arms the pose layer draws for that (blind fire)
         boolean blind = g.blind && low;
+        // a slide or a roll is the action while it lasts, over all else (pose-contract §4)
+        byte dash = bot.dash.kind(tick);
         AiPose.set(m, AiPose.of(m).withStance(lying ? AiPose.PRONE : low ? AiPose.CROUCH : AiPose.STAND)
                 .withLean((byte) (lying || low || mode != Mode.PEEK ? 0 : leanSide), tick)
                 .withArms(blind ? AiPose.BLIND : aiming ? AiPose.AIM : AiPose.HOLD)
-                .withAction(tick < throwUntil ? AiPose.THROW : reloading ? AiPose.RELOAD : AiPose.NONE, (int) tick,
-                        (short) (tick < throwUntil ? THROW_TICKS : reloading ? g.reloadTicks() : 0)));
+                .withAction(dash != AiPose.NONE ? dash : tick < throwUntil ? AiPose.THROW : reloading ? AiPose.RELOAD : AiPose.NONE,
+                        (int) (dash != AiPose.NONE ? bot.dash.since() : tick),
+                        (short) (dash != AiPose.NONE ? AiDash.TICKS : tick < throwUntil ? THROW_TICKS : reloading ? g.reloadTicks() : 0)));
         if (!lying) {
             Pose want = low ? Pose.CROUCHING : Pose.STANDING;
             if (m.getPose() != want) m.setPose(want);
@@ -614,6 +619,14 @@ public final class AiSoldier implements AiBrain {
         if (!bot.mover.arrived() && mode == Mode.TO_COVER) {
             // on its way: near, in sight, it walks there firing (as a player backs off shooting); else it runs, holding fire
             boolean near = dist <= skill.answerNear() * NEAR_WALK;
+            // the last blocks at a run: a slide into low cover; a shot close past it on the way: a roll
+            if (!near) {
+                boolean lowCover = spot.peek() == spot.cell() || !spot.hasPeek();
+                net.minecraft.core.BlockPos cell = net.minecraft.core.BlockPos.of(spot.cell());
+                if (bot.dash.consider(level, bot.mob, spot.cell(), net.minecraft.world.phys.Vec3.atBottomCenterOf(cell), lowCover,
+                        g.reloading() || tick < throwUntil, tick) != AiPose.NONE)
+                    event(bot, tick, "dash: slide or roll");
+            }
             bot.stoop.follow(eye);
             bot.mover.goTo(spot.cell(), 0.35, near ? WALK : RUN);
             g.fire(near && burst(bot, tick, false));

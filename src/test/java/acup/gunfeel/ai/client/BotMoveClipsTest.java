@@ -50,6 +50,11 @@ class BotMoveClipsTest {
             "right_shin", "left_shin" };
 
     static float jumpShare(java.util.function.Function<Float, float[]> pose, float from, float to, int frames) {
+        return jumpShare(pose, from, to, frames, 6, "xyzXYZ");
+    }
+
+    /** as above, each part {@code stride} numbers named by {@code names} */
+    static float jumpShare(java.util.function.Function<Float, float[]> pose, float from, float to, int frames, int stride, String names) {
         float worst = 0F;
         where = "";
         for (int i = 0; i < frames; i++) {
@@ -72,7 +77,7 @@ class BotMoveClipsTest {
                 float share = Math.abs(vb - va) / d;
                 if (share > worst) {
                     worst = share;
-                    where = String.format(java.util.Locale.ROOT, "%s %s at %.3f: %.3f to %.3f", PARTS[k / 6], "xyzXYZ".charAt(k % 6), t0, a[k], b[k]);
+                    where = String.format(java.util.Locale.ROOT, "%s %s at %.3f: %.3f to %.3f", PARTS[k / stride], names.charAt(k % stride), t0, a[k], b[k]);
                 }
             }
         }
@@ -358,5 +363,136 @@ class BotMoveClipsTest {
                 t -> t >= 100 ? 1F : 0F, 90, 160);
         // a frame 0.01 tick long: the stand's bar (2 radians a tick) is 0.02 of a radian
         assertTrue(worst < 0.02F, "a part jumped: " + worst + " rad; " + where);
+    }
+
+    static float[] lying(float swim, float speed, float walkPos, float[] arms) {
+        BotPoser.Parts p = BotPoserTest.parts();
+        BotPoser.apply(p, new BotAnimator.Frame(0F, 0F, arms, null, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0, speed, 0F, -1F), swim,
+                Math.min(1F, speed * 4F), walkPos);
+        return angles(p);
+    }
+
+    @Test
+    void crawlingTheLegsAreDrawnUpInTurnAlongTheGroundAndTheHeadStays() {
+        // AiProne.CRAWL_SPEED of the AI's walk (0.19): a quarter of a cycle on, the right leg is drawn up, three quarters
+        // on the left one; both in the ground's plane (lying, model x-y: no turn about x), the shin along the body
+        float cycle = 4F * BotPoser.CRAWL_STRIDE;
+        float[] still = lying(1F, 0F, 0F, HOLD), right = lying(1F, 0.057F, cycle / 4F, HOLD), left = lying(1F, 0.057F, cycle * 3F / 4F, HOLD);
+        int rl = 4 * 6, ll = 5 * 6, rs = 8 * 6, ls = 9 * 6;
+        assertEquals(0.08F + BotPoser.CRAWL_HIP, right[rl + 2], 1e-3);
+        assertEquals(-0.08F, right[ll + 2], 1e-3);
+        assertEquals(-(0.08F + BotPoser.CRAWL_HIP), left[ll + 2], 1e-3);
+        assertEquals(0F, right[rl], 1e-6);
+        assertEquals(0.08F, right[rl + 2] + right[rs + 2], 1e-3);
+        assertEquals(-0.08F, left[ll + 2] + left[ls + 2], 1e-3);
+        // the head, the body and every pivot where they lie still: the eye the server keeps
+        for (int k = 0; k < 6; k++) {
+            assertEquals(still[k], right[k], 1e-6, "head " + k);
+            assertEquals(still[6 + k], right[6 + k], 1e-6, "body " + k);
+        }
+        for (int part = 0; part < 10; part++)
+            for (int k = 3; k < 6; k++) assertEquals(still[part * 6 + k], right[part * 6 + k], 1e-6, PARTS[part] + " pivot");
+        // the arms on the gun swing aside with the pull; with no gun they stay where they lie
+        assertEquals(still[2 * 6 + 2] + BotPoser.CRAWL_ARMS, right[2 * 6 + 2], 1e-3);
+        float[] free = { 0F, 0F, 0F, 1F };
+        assertEquals(lying(1F, 0F, 0F, free)[2 * 6 + 2], lying(1F, 0.057F, cycle / 4F, free)[2 * 6 + 2], 1e-6);
+        // standing it does not crawl
+        assertEquals(0F, BotPoser.crawlWeight(0F, 0.057F));
+    }
+
+    @Test
+    void crawlingComesAndGoesWithNoJump() {
+        // lying down on the move, crawling on, stopping, getting up: walkPos on by the crawl's own (4 speed a tick)
+        java.util.function.Function<Float, float[]> at = t -> {
+            float swim = BotAnimator.smooth(t / 10F) * (1F - BotAnimator.smooth((t - 150F) / 10F));
+            float speed = 0.057F * (1F - BotAnimator.smooth((t - 100F) / 20F));
+            return lying(swim, speed, 0.228F * Math.min(t, 110F), HOLD);
+        };
+        float share = jumpShare(at, 0F, 170F, 170 * 3);
+        assertTrue(share < 0.25F, "a part jumped crawling: " + share + "; " + where);
+    }
+
+    /** an agent crouched (as the server keeps it sliding or rolling) through the dash's ticks from 100, posed at now */
+    static float[] dashed(byte kind, float now) {
+        BotAnimator a = new BotAnimator();
+        AiPose crouch = new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.NONE, 0, (short) 0);
+        AiPose pose = new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0, AiPose.HOLD, kind, 100, (short) acup.gunfeel.ai.AiDash.TICKS);
+        // crouched from 90 (settled by 100), then a fifth of a tick a frame up to now
+        BotAnimator.Frame f = null;
+        for (float t = 90F; t <= now + 1e-4F; t += 0.2F)
+            f = a.step(t >= 100F - 1e-4F ? pose : crouch, (long) (t + 1e-4F), (t + 1e-4F) % 1F, 0, false, t, 1);
+        return posed(f, 0F, 0F);
+    }
+
+    @Test
+    void slidingOrRollingTheHeadLeavesTheEyeOnlyForTheActionsTicks() {
+        // pose-contract §4: crouched, the head where the crouch puts it (the eye the server keeps) but for the action's
+        // ticks; from the first tick after, back within 3 cm (0.03 blocks); a dash's clips load
+        for (byte kind : new byte[] { AiPose.SLIDE, AiPose.ROLL }) {
+            assertNotNull(BotClips.get(kind == AiPose.SLIDE ? BotClips.SLIDE : BotClips.ROLL));
+            float[] crouched = dashed(AiPose.NONE, 120F), mid = dashed(kind, 108F);
+            float[] after = dashed(kind, 100F + acup.gunfeel.ai.AiDash.TICKS);
+            float off = Math.max(Math.abs(mid[4] - crouched[4]), Math.abs(mid[5] - crouched[5]));
+            assertTrue(off > 0.25F, kind + ": the head goes with the clip: " + off);
+            for (int k = 3; k < 6; k++) assertEquals(crouched[k], after[k], 0.03F, kind + ": the head after, " + "XYZ".charAt(k - 3));
+        }
+    }
+
+    /**
+     * each part's turn as its matrix (9 numbers) and its pivot (blocks): a turn near a quarter turn about Y has angles
+     * that swing far for a small turn (two sets of angles for one turn), so a turn's jump is told by its matrix
+     */
+    static float[] turns(BotPoser.Parts p) {
+        ModelPart[] all = BotPoserTest.all(p);
+        float[] out = new float[all.length * 12];
+        org.joml.Matrix3f m = new org.joml.Matrix3f();
+        for (int i = 0; i < all.length; i++) {
+            m.rotationZYX(all[i].zRot, all[i].yRot, all[i].xRot);
+            for (int c = 0; c < 3; c++)
+                for (int r = 0; r < 3; r++) out[i * 12 + c * 3 + r] = m.get(c, r);
+            out[i * 12 + 9] = all[i].x / 16F;
+            out[i * 12 + 10] = all[i].y / 16F;
+            out[i * 12 + 11] = all[i].z / 16F;
+        }
+        return out;
+    }
+
+    @Test
+    void slidingOrRollingHasNoJump() {
+        for (byte kind : new byte[] { AiPose.SLIDE, AiPose.ROLL }) {
+            int len = acup.gunfeel.ai.AiDash.TICKS;
+            java.util.function.Function<Float, float[]> at = tick -> {
+                float in = Math.min(1F, tick / BotAnimator.DASH_IN), out = Math.min(1F, (len - tick) / BotAnimator.ACTION_FADE);
+                BotAnimator.Act act = tick < len ? new BotAnimator.Act(kind, tick / len, BotAnimator.smooth(Math.min(in, out)), tick) : null;
+                BotPoser.Parts p = BotPoserTest.parts();
+                BotPoser.apply(p, new BotAnimator.Frame(1F, 0F, HOLD, act, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0, 0.2F, 0F, -1F), 0F, 0F, 0F);
+                return turns(p);
+            };
+            float share = jumpShare(at, 0F, len + 2, (len + 2) * 3, 12, "abcdefghiXYZ");
+            assertTrue(share < 0.25F, kind + ": a part jumped: " + share + "; " + where);
+        }
+    }
+
+    @Test
+    void slidingOrRollingOverVanillasWalkingLegsHasNoJump() {
+        // the stand's case: the run's legs (vanilla's swing, as setupAnim leaves them, at 0.19 a tick) under the
+        // slide fading in and out; a slide's leg raised high is near half a turn from a leg swinging back
+        for (byte kind : new byte[] { AiPose.SLIDE, AiPose.ROLL }) for (int phase = 0; phase < 8; phase++) {
+            int len = acup.gunfeel.ai.AiDash.TICKS;
+            float start = phase * BotPoser.CYCLE / 8F;
+            java.util.function.Function<Float, float[]> at = tick -> {
+                float in = Math.min(1F, tick / BotAnimator.DASH_IN), out = Math.min(1F, (len - tick) / BotAnimator.ACTION_FADE);
+                BotAnimator.Act act = tick < len ? new BotAnimator.Act(kind, tick / len, BotAnimator.smooth(Math.min(in, out)), tick) : null;
+                BotPoser.Parts p = BotPoserTest.parts();
+                // HumanoidModel.setupAnim (26.2, javap): xRot cos(pos 0.6662) 1.4 speed, yRot and zRot +-0.005
+                float walk = 0.76F, pos = start + walk * tick;
+                p.rightLeg().setRotation(net.minecraft.util.Mth.cos(pos * 0.6662F) * 1.4F * walk, 0.005F, 0.005F);
+                p.leftLeg().setRotation(net.minecraft.util.Mth.cos(pos * 0.6662F + (float) Math.PI) * 1.4F * walk, -0.005F, -0.005F);
+                BotPoser.apply(p, new BotAnimator.Frame(1F, 0F, HOLD, act, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0, 0.19F, 0F, -1F), 0F, walk, pos);
+                return turns(p);
+            };
+            float share = jumpShare(at, 0F, len + 2, (len + 2) * 6, 12, "abcdefghiXYZ");
+            assertTrue(share < 0.25F, kind + " phase " + phase + ": a part jumped over walking legs: " + share + "; " + where);
+        }
     }
 }

@@ -84,9 +84,12 @@ public final class AiProne {
 
     /**
      * Lies down if the mind asked this tick and it may, else gets up where there is room, but not within MIN_LIE of
-     * going down unless the mind sends it running; then the speed (crawling, running low past low cover: AiStoop).
+     * going down unless the mind sends it running; then the speed (crawling, running low past low cover: AiStoop; a
+     * slide's or a roll's, AiDash.share).
      */
-    void tick(ServerLevel level, AiMover mover, long tick, boolean stooped) {
+    void tick(ServerLevel level, AiMover mover, long tick, boolean stooped, AiDash dash) {
+        // not down in the middle of a slide or a roll: it is crouched for it (pose-contract §4)
+        if (dash.on(tick)) want = false;
         // down BRIEF ticks at least whatever the mind wants (it crawls meanwhile), MIN_LIE unless sent running
         boolean hold = lying() && (tick - changed < BRIEF || tick - changed < MIN_LIE && !mover.wantsRun());
         // a fresh lie holds while a hit lifts it off the ground a moment
@@ -99,7 +102,7 @@ public final class AiProne {
             changed = tick;
             if (lie) downs++;
         }
-        mover.slow(lying() ? CRAWL_SPEED : stooped ? AiStoop.SHARE : 1.0);
+        mover.slow(lying() ? CRAWL_SPEED : (stooped ? AiStoop.SHARE : 1.0) * dash.share(tick));
     }
 
     /** on the terms a player lies down on */

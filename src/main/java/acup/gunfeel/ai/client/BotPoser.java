@@ -19,9 +19,11 @@ import org.joml.Vector3f;
  * the elbows with no gun;</li>
  * <li>the arms: as vanilla left them (HOLD, NO_GUN), aimed two-handed along the look (AIM), held up over the head
  * (BLIND, firing blind over cover), or along the ground when lying with a gun;</li>
+ * <li>lying on the move, a crawl on the belly (no clip: {@link #crawl});</li>
  * <li>vanilla's crouch, by its weight;</li>
  * <li>the action: a reload (KayKit Ranged_2H_Reload), a kick of a shot, a throw (UAL OverhandThrow), a wave with the
- * free left arm (KayKit Waving, mirrored), a point, a raised hand to halt;</li>
+ * free left arm (KayKit Waving, mirrored), a point, a raised hand to halt, a slide into cover (UAL Slide_Start and
+ * Slide_Exit) and a forward roll (UAL Roll), the whole body;</li>
  * <li>a hit's flinch, added on top (UAL Hit_Chest, Hit_Head; KayKit Hit_B when a blast throws it);</li>
  * <li>its fall dead (KayKit Death_A, the whole body: vanilla's tip onto its side is not drawn then);</li>
  * <li>the lean: the hips step aside and everything above them tips (AiPoseGeometry, the server's own numbers).</li>
@@ -135,6 +137,8 @@ public final class BotPoser {
             p.leftArm.yRot = Mth.lerp(w, p.leftArm.yRot, 0.45F);
             p.leftArm.zRot = Mth.lerp(w, p.leftArm.zRot, 0F);
         }
+        float crawl = crawlWeight(lying, f.speed());
+        if (crawl > 0F) crawl(p, walkPos, crawl, armed);
 
         // on the move: the legs from the clips (crouching: vanilla's crouched legs, the clips' would lower the hips
         // and the eye the server keeps)
@@ -256,6 +260,12 @@ public final class BotPoser {
                     if (p.leftForearm != null) setMirrored(p.leftForearm, t, "right_forearm", tt, w, a);
                 }
             }
+            case AiPose.SLIDE, AiPose.ROLL -> {
+                // the whole body, the clip squeezed into the action's ticks (UAL Slide_Start and Slide_Exit, UAL Roll):
+                // only now may the head leave the eye the server keeps (pose-contract §4); it fades into the crouch
+                BotClip c = BotClips.get(act.kind() == AiPose.SLIDE ? BotClips.SLIDE : BotClips.ROLL);
+                if (c != null) set(p, c, act.u() * c.length(), w, ALL, a);
+            }
             case AiPose.SIGNAL_POINT -> turn(p.leftArm, -PI / 2F + headX, headY, 0F, w);
             case AiPose.SIGNAL_HALT -> {
                 // the hand up, the palm out: the elbow a little bent
@@ -265,6 +275,48 @@ public final class BotPoser {
             default -> {
             }
         }
+    }
+
+    /** the crawl comes in from MOVE_FROM to this speed, blocks a tick (an AI mob crawls at 0.06: AiProne.CRAWL_SPEED) */
+    static final float CRAWL_FULL = 0.03F;
+    /** blocks gone in a crawl's full cycle (each leg drawn up once) */
+    static final float CRAWL_STRIDE = 1.2F;
+    /**
+     * a leg drawn up: the thigh out to its side, the knee folded back so the shin lies along the body; radians. And
+     * how far the arms on the gun swing aside with each pull
+     */
+    static final float CRAWL_HIP = 1.3F, CRAWL_KNEE = 1.3F, CRAWL_ARMS = 0.12F;
+
+    /** how much of the crawl shows: lying (the swim amount) and moving */
+    public static float crawlWeight(float lying, float speed) {
+        return Mth.clamp(lying, 0F, 1F) * BotAnimator.smooth((speed - MOVE_FROM) / (CRAWL_FULL - MOVE_FROM));
+    }
+
+    /**
+     * Lying on the move: a crawl on the belly, each leg in turn drawn up along the ground, its knee out to the side,
+     * and the arms on the gun swinging aside with each pull (with no gun vanilla's crawl moves them; with one vanilla's
+     * swim stroke is not run on a bot, BotAnimation.noSwim). No clip: KayKit's
+     * Crawling is on hands and knees, its head 12 px up, over the eye the server keeps lying (0.4 blocks); here the
+     * head and the hips stay where they lie. Lying, the model's x-y plane is the ground: a turn about z sweeps a limb
+     * along it (+ takes a right limb out). Moves the parts w of the way from vanilla's crawl (its legs kick up and down).
+     */
+    static void crawl(Parts p, float walkPos, float w, float armed) {
+        // its walk goes on 4 a block below a block a tick (BotAnimator.move: the swing's speed is 4 times the step)
+        float s = Mth.sin(walkPos / (4F * CRAWL_STRIDE) * Mth.TWO_PI);
+        crawlLeg(p.rightLeg, p.rightShin, Math.max(s, 0F), 1F, w);
+        crawlLeg(p.leftLeg, p.leftShin, Math.max(-s, 0F), -1F, w);
+        float arms = CRAWL_ARMS * s * w * armed;
+        p.rightArm.zRot += arms;
+        p.leftArm.zRot += arms;
+    }
+
+    private static void crawlLeg(ModelPart thigh, @org.jspecify.annotations.Nullable ModelPart shin, float drawn, float side, float w) {
+        thigh.xRot = Mth.lerp(w, thigh.xRot, 0F);
+        thigh.yRot = Mth.lerp(w, thigh.yRot, 0F);
+        thigh.zRot = Mth.lerp(w, thigh.zRot, side * (0.08F + CRAWL_HIP * drawn));
+        if (shin == null) return;
+        shin.xRot = Mth.lerp(w, shin.xRot, 0F);
+        shin.zRot = Mth.lerp(w, shin.zRot, -side * CRAWL_KNEE * drawn);
     }
 
     /** where in each clip the right leg is furthest back (vanilla's swing at walkPos 0): the clips step with vanilla */
@@ -330,16 +382,17 @@ public final class BotPoser {
         return new float[] { ahead / sum * (1F - jog), ahead / sum * jog * (1F - sprint), ahead / sum * jog * sprint, back / sum, side / sum };
     }
 
-    /** |q0 . q1| below which the shortest turn gives way to the straight blend of the angles, and over how much */
-    static final float FACING = 0.1F, FACING_BLEND = 0.25F;
-    private static final ThreadLocal<Quaternionf[]> Q = ThreadLocal.withInitial(() -> new Quaternionf[] { new Quaternionf(), new Quaternionf(), new Quaternionf() });
+    private static final ThreadLocal<Quaternionf[]> Q = ThreadLocal.withInitial(() -> new Quaternionf[] { new Quaternionf(), new Quaternionf(), new Quaternionf(),
+            new Quaternionf(), new Quaternionf() });
     private static final ThreadLocal<Vector3f> E = ThreadLocal.withInitial(Vector3f::new);
 
     /**
-     * Turns the part w of the way to (x, y, z), along the shortest turn (a slerp: Euler angles straight across can
-     * swing the long way round near a quarter turn about Y; between two turns nearly half a turn apart, the angles
-     * blended straight), kept on the Euler branch nearest the straight blend so the angles added after it (crouch,
-     * flinch) act as they would.
+     * Turns the part w of the way to (x, y, z) along a turn that keeps to the side the angles blended straight go (a
+     * slerp, not the angles themselves: Euler angles straight across can swing far for a small turn near a quarter
+     * turn about Y), kept on the Euler branch nearest the straight blend so the angles added after it (crouch,
+     * flinch) act as they would. Not the shortest turn: where the two poses are near half a turn apart (a slide's leg
+     * raised high over a leg swinging back on the walk, a throw fading out over a mob lying down) the shortest way flips
+     * from one side to the other as the pose moves, and the part with it; the straight blend's side does not.
      */
     static void turn(ModelPart part, float x, float y, float z, float w) {
         if (w >= 1F) {
@@ -347,20 +400,21 @@ public final class BotPoser {
             return;
         }
         Quaternionf[] q = Q.get();
-        float lx = Mth.lerp(w, part.xRot, x), ly = Mth.lerp(w, part.yRot, y), lz = Mth.lerp(w, part.zRot, z);
-        q[0].rotationZYX(part.zRot, part.yRot, part.xRot);
+        float fx = part.xRot, fy = part.yRot, fz = part.zRot;
+        float lx = Mth.lerp(w, fx, x), ly = Mth.lerp(w, fy, y), lz = Mth.lerp(w, fz, z);
+        q[0].rotationZYX(fz, fy, fx);
         q[1].rotationZYX(z, y, x);
-        q[2].rotationZYX(lz, ly, lx);
-        // the shortest turn, but where the two turns come to face each other (a throw fading out over a mob lying
-        // down) the shortest way flips to the other side: there it gives way, smoothly, to the angles blended
-        // straight, which move on through it
-        float k = BotAnimator.smooth((Math.abs(q[0].dot(q[1])) - FACING) / FACING_BLEND);
-        q[0].slerp(q[1], w);
-        if (k < 1F) {
-            if (q[0].dot(q[2]) < 0F) q[0].set(-q[0].x, -q[0].y, -q[0].z, -q[0].w);
-            q[0].set(k * q[0].x + (1F - k) * q[2].x, k * q[0].y + (1F - k) * q[2].y, k * q[0].z + (1F - k) * q[2].z,
-                    k * q[0].w + (1F - k) * q[2].w).normalize();
+        // the target's sign: the straight blend's path followed through its quarters, each the side of the one before
+        // (a quarter is under half a turn unless the whole is over two full turns)
+        q[3].set(q[0]);
+        for (int k = 1; k <= 3; k++) {
+            float f = k / 4F;
+            q[4].rotationZYX(Mth.lerp(f, fz, z), Mth.lerp(f, fy, y), Mth.lerp(f, fx, x));
+            if (q[3].dot(q[4]) < 0F) q[4].set(-q[4].x, -q[4].y, -q[4].z, -q[4].w);
+            q[3].set(q[4]);
         }
+        if (q[3].dot(q[1]) < 0F) q[1].set(-q[1].x, -q[1].y, -q[1].z, -q[1].w);
+        slerpAlong(q[0], q[1], w);
         Vector3f e = q[0].getEulerAnglesZYX(E.get());
         // the same turn: (x, y, z) and (x + pi, pi - y, z + pi)
         float x1 = near(e.x, lx), y1 = near(e.y, ly), z1 = near(e.z, lz);
@@ -369,6 +423,20 @@ public final class BotPoser {
         float d2 = Math.abs(x2 - lx) + Math.abs(y2 - ly) + Math.abs(z2 - lz);
         if (d1 <= d2) part.setRotation(x1, y1, z1);
         else part.setRotation(x2, y2, z2);
+    }
+
+    /** a slerp from a to b as they are (no flip to the shorter way), w of the way, into a */
+    static void slerpAlong(Quaternionf a, Quaternionf b, float w) {
+        float cos = Mth.clamp(a.dot(b), -1F, 1F), ka, kb;
+        float theta = (float) Math.acos(cos), sin = Mth.sin(theta);
+        if (Math.abs(sin) < 1e-4F) {
+            ka = 1F - w;
+            kb = w;
+        } else {
+            ka = Mth.sin((1F - w) * theta) / sin;
+            kb = Mth.sin(w * theta) / sin;
+        }
+        a.set(ka * a.x + kb * b.x, ka * a.y + kb * b.y, ka * a.z + kb * b.z, ka * a.w + kb * b.w).normalize();
     }
 
     /** the angle equal to a (mod 2 pi) nearest to ref */

@@ -42,8 +42,8 @@ import net.minecraft.world.phys.Vec3;
  * it, lying must keep it low;</li>
  * <li>no jumps on the game's own frames: one agent through a script of changes, its parts' largest turn from one
  * frame to the next;</li>
- * <li>the clips: one agent moved by the stand ahead at a walk, a jog and a sprint, back, to each side, then still as
- * it reloads, hit, hit by a blast, killed: the clip each plays (its weight), no jumps on the way; and an agent the
+ * <li>the clips: one agent moved by the stand ahead at a walk, a jog and a sprint, back, to each side, crawling,
+ * sliding and rolling, then still as it reloads, hit, hit by a blast, killed: the clip each plays (its weight), no jumps on the way; and an agent the
  * game moves at the speeds the mob AI asks for (AiSoldier.WALK, RUN), the speeds the gait's clips are set to;</li>
  * <li>the cost: 100 agents, each always changing pose, the frame time and the server's tick with the player on and
  * off (on, off, off, on).</li>
@@ -576,6 +576,8 @@ final class BotStand {
 
     /** one stretch of the clips' script: from this tick on, moving so far a tick (forward, to the right) */
     private record Leg(String name, int from, double ahead, double right, String want) {
+        /** lying, at the AI's crawl (AiProne.CRAWL_SPEED of its walk): the crawl (BotPoser.crawl), not a clip */
+        static final String CRAWL = "ползок";
     }
 
     /** facing -X: ahead is -X, its right -Z */
@@ -583,8 +585,11 @@ final class BotStand {
     private static final Leg[] LEGS = { new Leg("стоит", 0, 0, 0, null), new Leg("шаг", 20, 0.19, 0, BotClips.WALK),
             new Leg("трусца", 45, 0.27, 0, BotClips.JOG), new Leg("бег", 70, 0.33, 0, BotClips.SPRINT),
             new Leg("назад", 95, -0.10, 0, BotClips.BACK), new Leg("влево", 125, 0, -0.10, BotClips.STRAFE_LEFT),
-            new Leg("вправо", 155, 0, 0.10, BotClips.STRAFE_RIGHT), new Leg("стоит, перезарядка", 185, 0, 0, null) };
-    private static final int CLIPS_RELOAD = 205, CLIPS_HIT = 250, CLIPS_KNOCK = 275, CLIPS_DEATH = 300, CLIPS_END = 340;
+            new Leg("вправо", 155, 0, 0.10, BotClips.STRAFE_RIGHT), new Leg("ползком", 185, 0.057, 0, Leg.CRAWL),
+            new Leg("подкат", 215, 0.2, 0, BotClips.SLIDE), new Leg("кувырок", 240, 0.16, 0, BotClips.ROLL),
+            new Leg("стоит, перезарядка", 265, 0, 0, null) };
+    private static final int CLIPS_CRAWL = 185, CLIPS_UP = 215, CLIPS_SLIDE = 217, CLIPS_ROLL = 242;
+    private static final int CLIPS_RELOAD = 285, CLIPS_HIT = 330, CLIPS_KNOCK = 355, CLIPS_DEATH = 380, CLIPS_END = 420;
     /** the agent with its own AI on another line, told to walk then run as the mob AI tells it (AiSoldier.WALK, RUN) */
     private static final double[] CAL = { 1.0, 1.3 };
     private static final int CAL_EACH = 70;
@@ -652,10 +657,20 @@ final class BotStand {
             int leg = LEGS.length - 1;
             while (leg > 0 && t < LEGS[leg].from) leg--;
             int end = leg + 1 < LEGS.length ? LEGS[leg + 1].from : CLIPS_HIT;
-            if (t >= end - 10 && t < end) {
+            // a slide or a roll is measured in its middle (it starts 2 ticks into its stretch: 3 to 10 ticks in)
+            boolean dash = LEGS[leg].want == BotClips.SLIDE || LEGS[leg].want == BotClips.ROLL;
+            int from = dash ? LEGS[leg].from + 5 : end - 10, to = dash ? LEGS[leg].from + 12 : end;
+            if (t >= from && t < to) {
                 LEG_SUMS[leg][0]++;
                 LEG_SUMS[leg][2] += f.speed();
-                if (LEGS[leg].want != null) {
+                if (LEGS[leg].want == Leg.CRAWL) {
+                    if (mc().level.getEntity(id) instanceof net.minecraft.world.entity.LivingEntity e)
+                        LEG_SUMS[leg][1] += BotPoser.crawlWeight(e.getSwimAmount(1F), f.speed());
+                } else if (LEGS[leg].want == BotClips.SLIDE || LEGS[leg].want == BotClips.ROLL) {
+                    // the action's weight at its middle (3 to 10 ticks in)
+                    byte kind = LEGS[leg].want == BotClips.SLIDE ? AiPose.SLIDE : AiPose.ROLL;
+                    if (f.act() != null && f.act().kind() == kind) LEG_SUMS[leg][1] += f.act().w();
+                } else if (LEGS[leg].want != null) {
                     String[] names = BotPoser.gaitClips(f.heading());
                     float[] ws = BotPoser.gaitWeights(f.speed(), f.heading());
                     for (int i = 0; i < names.length; i++) if (names[i].equals(LEGS[leg].want)) LEG_SUMS[leg][1] += ws[i];
@@ -701,7 +716,13 @@ final class BotStand {
         if (measuring == 0) measuring = System.nanoTime();
         var server = mc().getSingleplayerServer();
         posed = t >= CLIPS_RELOAD && t < CLIPS_HIT ? new AiPose(AiPose.STAND, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.RELOAD,
-                (int) (clipsT0 + CLIPS_RELOAD), (short) 30) : AiPose.IDLE;
+                (int) (clipsT0 + CLIPS_RELOAD), (short) 30)
+                : t >= CLIPS_CRAWL && t < CLIPS_UP ? new AiPose(AiPose.PRONE, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.NONE, 0, (short) 0)
+                // a slide, a roll: crouched as the server keeps it (pose-contract §4), from a run
+                : t >= CLIPS_SLIDE && t < CLIPS_ROLL ? new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.SLIDE,
+                        (int) (clipsT0 + CLIPS_SLIDE), (short) acup.gunfeel.ai.AiDash.TICKS)
+                : t >= CLIPS_ROLL && t < CLIPS_ROLL + acup.gunfeel.ai.AiDash.TICKS + 2 ? new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0,
+                        AiPose.HOLD, AiPose.ROLL, (int) (clipsT0 + CLIPS_ROLL), (short) acup.gunfeel.ai.AiDash.TICKS) : AiPose.IDLE;
         int leg = LEGS.length - 1;
         while (leg > 0 && t < LEGS[leg].from) leg--;
         Leg l = LEGS[leg];
@@ -711,6 +732,9 @@ final class BotStand {
             Mob m = (Mob) level.getEntity(one.getId());
             if (m != null && m.isAlive() && tt < CLIPS_RELOAD && (l.ahead != 0 || l.right != 0))
                 m.setPos(m.getX() - l.ahead, m.getY(), m.getZ() - l.right);
+            // the crawl: lying as the mob AI lays it (AiProne), up again after
+            if (m != null && tt == CLIPS_CRAWL) m.setPose(Pose.SWIMMING);
+            if (m != null && tt == CLIPS_UP) m.setPose(Pose.STANDING);
             if (m != null && tt == CLIPS_HIT) m.hurtServer(level, level.damageSources().generic(), 1F);
             if (m != null && tt == CLIPS_KNOCK) {
                 // a blast: hit, then thrown back as vanilla's explosion does it (hurt, then pushed)

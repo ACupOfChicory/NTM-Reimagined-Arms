@@ -31,6 +31,8 @@ public final class BotAnimator {
     static final int SHOT_TICKS = 4;
     /** ticks a shot's kick takes to come in */
     static final float SHOT_IN = 0.5F;
+    /** ticks a slide or a roll takes to come in (it is on the run: no slow fade from the run's pose) */
+    static final float DASH_IN = 2F;
 
     private static final Map<LivingEntity, BotAnimator> ALL = Collections.synchronizedMap(new WeakHashMap<>());
 
@@ -241,7 +243,8 @@ public final class BotAnimator {
                 // a shot's kick comes in half a tick (a snap, not a jump); anything else fades in and out
                 // a reload takes the arms from wherever they are (over the head, firing blind) to its clip's:
                 // slower in (BotPoser.RELOAD_IN)
-                float in = Math.min(1F, t / (actKind == AiPose.SHOT ? SHOT_IN : actKind == AiPose.RELOAD ? BotPoser.RELOAD_IN : ACTION_FADE));
+                float in = Math.min(1F, t / (actKind == AiPose.SHOT ? SHOT_IN : actKind == AiPose.RELOAD ? BotPoser.RELOAD_IN
+                        : actKind == AiPose.SLIDE || actKind == AiPose.ROLL ? DASH_IN : ACTION_FADE));
                 actW = smooth(Math.min(in, Math.min(1F, (actLen - t) / ACTION_FADE)));
                 act = new Act(actKind, t / actLen, actW, t);
             }
