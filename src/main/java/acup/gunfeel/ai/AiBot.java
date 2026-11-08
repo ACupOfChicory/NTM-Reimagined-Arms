@@ -38,6 +38,8 @@ public final class AiBot {
         this.mover = new AiMover(mob);
         this.gunner = new AiGunner(mob, new AiAmmo(0));
         this.prone = new AiProne(mob);
+        // each its own place in the list, so a hundred do not all look at the same twelve
+        this.scanFrom = mob.getId();
     }
 
     public boolean active() {
@@ -63,12 +65,33 @@ public final class AiBot {
         return eyes;
     }
 
+    /**
+     * Foes it knows nothing of yet that one look takes in, in turn from look to look (those it knows of, at most
+     * {@link TargetMemory#MAX_CONTACTS}, it looks at every time): a person does not watch fifty at once, and fifty foes
+     * a look, three rays each, cost a hundred AI mobs 4 ms a tick (KT5). Fewer foes than this, nothing changes.
+     */
+    static final int SCAN = 12;
+    /** where in the list of targets the next look's foes it knows nothing of start (each mob its own place) */
+    private int scanFrom;
+
     public void perceive(VoxelRay.Source voxels, @Nullable SmokeClouds smoke, List<LivingEntity> targets, long tick) {
         memory.look();
-        for (LivingEntity t : targets) {
+        int n = targets.size(), start = n == 0 ? 0 : Math.floorMod(scanFrom, n), scanned = 0;
+        double range = eyes().viewRange();
+        for (int k = 0; k < n; k++) {
+            LivingEntity t = targets.get((start + k) % n);
             if (t == mob || !t.isAlive() || !AiTeams.enemy(mob, t)) continue;
-            int notice = Senses.look(voxels, smoke, mob, t, eyes());
-            if (notice >= 0) memory.seen(t.getId(), t.getX(), t.getY(), t.getZ(), tick, notice);
+            if (memory.contact(t.getId()) == null) {
+                // one out of its sight's reach is no look (and takes no place among the twelve)
+                if (scanned == SCAN || t.distanceToSqr(mob) > range * range) continue;
+                // the next look's new ones start after the last one this look took
+                if (++scanned == SCAN) scanFrom = start + k + 1;
+            }
+            boolean focus = t.getId() == memory.focusId;
+            int notice = Senses.look(voxels, smoke, mob, t, eyes(), focus);
+            // of one it does not aim at it saw one part, not which ones: all of it, as far as aiming goes (the chest,
+            // with the wide band), till it deals with them and sees them whole
+            if (notice >= 0) memory.seen(t.getId(), t.getX(), t.getY(), t.getZ(), tick, notice).parts = focus ? Senses.parts : Senses.WHOLE;
         }
         memory.endLook(tick);
     }

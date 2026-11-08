@@ -15,6 +15,26 @@
   plants on it die, nothing grows there (saplings, crops, grass spreading,
   bone meal) and its grass and leaves turn a sick yellow-brown. `gasPoison`
   (server, on).
+## X735
+
+- Mob AI: AI mobs aim at what they see of you: your head over a wall, your
+  legs under a beam, the middle of what shows over low cover; with all of you
+  in sight, your chest. Before, they aimed at your chest whatever hid it, and
+  shot the wall in front of you.
+- Mob AI: an AI mob with one of its own in its line of fire steps to the side
+  that clears it, two steps if one does not, and at once if it is answering
+  fire with no cover to run to; before, it could step back and forth in the
+  line and never fire.
+- Mob AI: an AI mob shot in its cover from where it does not look moves to
+  other cover if there is any (once in a while, not at every hit of a burst),
+  and takes the one it lost sight of for the shooter: it looks out and searches
+  where the shot came from. Before, a rough guess of where from could leave it
+  in the cover it was shot in, watching the old place. A blast that no one set
+  off does not move where it thinks they are.
+- Mob AI: in a big fight an AI mob looks over at most twelve foes it has not
+  noticed yet at a time, in turn, besides those it knows of, and sees all of
+  only the one it deals with: a hundred AI mobs fighting cost the server half
+  the time they did (3 ms a tick, from 5.6).
 
 ## X713
 
