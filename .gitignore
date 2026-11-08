@@ -18,6 +18,7 @@ run-boom/
 run-client-check/
 run-mob-check/
 run-mob-review/
+run-bot-stand/
 run-mob-bench/
 run-hole-bench/
 run-hole-bench-loaded/

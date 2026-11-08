@@ -38,7 +38,7 @@ class BotPoserTest {
     }
 
     static BotAnimator.Frame still(float lean) {
-        return new BotAnimator.Frame(0F, lean, new float[] { 1F, 0F, 0F, 0F }, null, null, null, 0F, 0F);
+        return new BotAnimator.Frame(0F, lean, new float[] { 1F, 0F, 0F, 0F }, null, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0);
     }
 
     static AiPose pose(byte stance, int lean, int prevLean, int leanTick, byte arms, byte action, int actionTick,
@@ -130,22 +130,28 @@ class BotPoserTest {
         BotPoser.Parts prev = null;
         int hurt = 0;
         long lastTick = -1;
-        for (int frame = 0; frame < perTick * 60; frame++) {
+        for (int frame = 0; frame < perTick * 70; frame++) {
             double now = 100 + frame / (double) perTick;
+            // the server sets the clock back a fifth of a tick once
+            if (now >= 125 && now < 125 + 1.0 / perTick) now -= 0.2;
             long tick = (long) Math.floor(now);
             float partial = (float) (now - tick);
             AiPose p;
-            if (now < 110) p = pose(AiPose.STAND, 0, 0, 0, AiPose.HOLD, AiPose.ACT_NONE, 0, 0);
-            else if (now < 111.5) p = pose(AiPose.CROUCH, 0, 0, 0, AiPose.AIM, AiPose.ACT_NONE, 0, 0);
-            else if (now < 120) p = pose(AiPose.STAND, 100, 0, 111, AiPose.BLIND, AiPose.ACT_NONE, 0, 0); // halfway back up
+            if (now < 110) p = pose(AiPose.STAND, 0, 0, 0, AiPose.HOLD, AiPose.NONE, 0, 0);
+            else if (now < 111.5) p = pose(AiPose.CROUCH, 0, 0, 0, AiPose.AIM, AiPose.NONE, 0, 0);
+            else if (now < 120) p = pose(AiPose.STAND, 100, 0, 111, AiPose.BLIND, AiPose.NONE, 0, 0); // halfway back up
             else if (now < 121) p = pose(AiPose.STAND, -100, 100, 120, AiPose.AIM, AiPose.RELOAD, 120, 30); // lean flips
             else if (now < 140) p = pose(AiPose.CROUCH, -100, 100, 120, AiPose.HOLD, AiPose.RELOAD, 120, 30);
-            else p = pose(AiPose.CROUCH, 0, -100, 140, AiPose.HOLD, AiPose.THROW, 140, 26); // cuts the reload short
+            else if (now < 142) p = pose(AiPose.CROUCH, 0, -100, 140, AiPose.HOLD, AiPose.THROW, 140, 26); // cuts the reload short
+            else if (now < 150) p = pose(AiPose.PRONE, 100, -50, 142, AiPose.HOLD, AiPose.SIGNAL_HALT, 142, 20); // cuts the throw, the reload still going
+            else p = pose(AiPose.STAND, 100, -50, 142, AiPose.HOLD, AiPose.THROW, 150, 26);
             if (tick != lastTick) {
-                hurt = tick == 130 ? 10 : Math.max(0, hurt - 1);
+                // a hit, another before its flinch is over, and death in the middle of a third
+                hurt = tick == 130 || tick == 132 || tick == 160 ? 10 : Math.max(0, hurt - 1);
                 lastTick = tick;
             }
-            BotAnimator.Frame f = an.step(p, tick, partial, hurt, false, (float) now);
+            BotAnimator.Frame f = an.step(p, tick, partial, hurt, now >= 161, (float) now, 0);
+            if (now >= 142 && now < 145) assertTrue(f.fading().length >= 1, "the throw fades at " + now);
             float sum = 0F;
             for (float w : f.arms()) {
                 assertTrue(w >= -1e-6F && w <= 1F + 1e-6F, "arms weight " + w);
@@ -153,8 +159,13 @@ class BotPoserTest {
             }
             assertEquals(1F, sum, 1e-5, "arms weights sum");
             BotPoser.Parts parts = parts();
-            BotPoser.apply(parts, f, 0F, 0F);
-            if (prev != null) max = Math.max(max, jump(prev, parts));
+            // lying from 142 to 150: the swim amount comes and goes over 5 ticks as vanilla's does
+            float swim = (float) (now < 142 ? 0 : now < 150 ? Math.min(1, (now - 142) / 5) : Math.max(0, 1 - (now - 150) / 5));
+            BotPoser.apply(parts, f, swim, 0F);
+            if (prev != null) {
+                float j = jump(prev, parts);
+                max = Math.max(max, j);
+            }
             prev = parts;
         }
         return max;

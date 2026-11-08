@@ -14,7 +14,7 @@ import org.joml.Vector3f;
  * the item's arm pose, the crawl) has run. In order:
  * <ol>
  * <li>the idle loop's breathing, added on top (UAL Idle_Loop, its change from its first frame);</li>
- * <li>the arms: as vanilla left them (HOLD, NONE), aimed two-handed along the look (AIM), held up over the head
+ * <li>the arms: as vanilla left them (HOLD, NO_GUN), aimed two-handed along the look (AIM), held up over the head
  * (BLIND, firing blind over cover), or along the ground when lying with a gun;</li>
  * <li>vanilla's crouch, by its weight;</li>
  * <li>the action: a reload, a kick of a shot, a throw (UAL OverhandThrow), a wave with the free left arm (KayKit
@@ -64,7 +64,7 @@ public final class BotPoser {
 
         // 2. the arms
         float headX = p.head.xRot, headY = p.head.yRot;
-        float hold = f.arms()[AiPose.HOLD] + f.arms()[AiPose.NONE];
+        float hold = f.arms()[AiPose.HOLD] + f.arms()[AiPose.NO_GUN];
         float aim = f.arms()[AiPose.AIM], blind = f.arms()[AiPose.BLIND];
         if (aim + blind > 0F) {
             float rx = p.rightArm.xRot, ry = p.rightArm.yRot, rz = p.rightArm.zRot;
@@ -72,7 +72,7 @@ public final class BotPoser {
             // aimed: both hands on the gun along the look, as vanilla's crossbow hold
             float arx = -PI / 2F + headX, ary = -0.1F + headY, alx = arx, aly = 0.5F + headY;
             // blind: the gun held up over the head, the face down behind the cover
-            float brx = -PI + 0.35F, bry = -0.1F, blx = brx, bly = 0.1F;
+            float brx = -PI + 0.2F, bry = -0.1F, blx = brx, bly = 0.1F;
             p.rightArm.xRot = hold * rx + aim * arx + blind * brx;
             p.rightArm.yRot = hold * ry + aim * ary + blind * bry;
             p.rightArm.zRot = hold * rz;
@@ -81,7 +81,7 @@ public final class BotPoser {
             p.leftArm.zRot = hold * lz;
             p.head.xRot += blind * 0.35F;
         }
-        float armed = 1F - f.arms()[AiPose.NONE];
+        float armed = 1F - f.arms()[AiPose.NO_GUN];
         if (lying > 0F && armed > 0F) {
             // lying with a gun: the arms reach along the ground (the body's up is forward when lying)
             float w = lying * armed;
@@ -97,8 +97,9 @@ public final class BotPoser {
         float c = BotAnimator.smooth(f.crouch()) * upright;
         if (c > 0F) {
             p.body.xRot += 0.5F * c;
-            p.rightArm.xRot += 0.4F * c;
-            p.leftArm.xRot += 0.4F * c;
+            // vanilla tips the arms with the body; arms aimed or held up keep their line
+            p.rightArm.xRot += 0.4F * c * hold;
+            p.leftArm.xRot += 0.4F * c * hold;
             p.rightLeg.z += 4F * c;
             p.leftLeg.z += 4F * c;
             p.head.y += 4.2F * c;
@@ -108,17 +109,13 @@ public final class BotPoser {
         }
 
         // 4. the action, and the one it cut short fading out under it
-        if (f.fading() != null) action(p, f.fading(), headX, headY, a, b);
+        for (BotAnimator.Act out : f.fading()) action(p, out, headX, headY, a, b);
         if (f.act() != null) action(p, f.act(), headX, headY, a, b);
 
-        // 5. a hit's flinch
-        if (f.hit() != null) {
-            BotClip h = BotClips.get(f.hit());
-            if (h != null) {
-                float left = h.length() - f.hitSec();
-                float hw = Math.min(1F, Math.min(f.hitSec() * 20F, left * 20F / 3F));
-                add(p, h, h.local(f.hitSec()), hw * upright, a, b);
-            }
+        // 5. a hit's flinch (and one it cut short, going)
+        for (BotAnimator.Hit hit : f.hits()) {
+            BotClip h = BotClips.get(hit.clip());
+            if (h != null) add(p, h, h.local(hit.sec()), hit.w() * upright, a, b);
         }
 
         // 6. the lean: what the server takes for the eye and the muzzle (AiPoseGeometry.leanPoint)

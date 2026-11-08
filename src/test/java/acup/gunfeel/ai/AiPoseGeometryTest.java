@@ -13,7 +13,7 @@ import net.minecraft.world.phys.Vec3;
 // point of the body in the same place, for any turn of the body, lean and stance.
 class AiPoseGeometryTest {
     static AiPose pose(int prev, int lean, int tick) {
-        return new AiPose(AiPose.STAND, (byte) lean, (byte) prev, tick, AiPose.HOLD, AiPose.ACT_NONE, 0, (short) 0);
+        return new AiPose(AiPose.STAND, (byte) lean, (byte) prev, tick, AiPose.HOLD, AiPose.NONE, 0, (short) 0);
     }
 
     @Test
