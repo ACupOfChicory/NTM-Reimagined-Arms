@@ -146,6 +146,8 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
     private void gunfeel$pierceOwed(CallbackInfo ci) {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
         if (!self.level().isClientSide()) gunfeel$steps.finish(self);
+        // the path it flew this tick stirs the gas it went through
+        if (self.level() instanceof ServerLevel server && gunfeel$tickStart != null) acup.gunfeel.gas.GasStir.bullet(server, gunfeel$tickStart, self.position());
     }
 
     @Inject(method = "tick", at = @At("HEAD"))

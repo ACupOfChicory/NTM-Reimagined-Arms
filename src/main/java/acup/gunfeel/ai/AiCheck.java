@@ -28,6 +28,17 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 public final class AiCheck {
     public static final String PROPERTY = "ntmgunfeel.checkAi";
     static final String STAGE_PROPERTY = "ntmgunfeel.checkAiStage";
+
+    /**
+     * Takes every shot still in the level away between stages: a bullet that flew past a stage's field stops in chunks
+     * that do not tick, and comes alive when a later stage loads them, landing by its field with a sound its AI mobs
+     * hear (the unseen stage's dummies turned to such a sound and never saw the player).
+     */
+    static void clearShots(ServerLevel level) {
+        List<net.minecraft.world.entity.Entity> shots = new ArrayList<>();
+        for (var e : level.getAllEntities()) if (e instanceof net.minecraft.world.entity.projectile.Projectile) shots.add(e);
+        for (var e : shots) e.discard();
+    }
     private static final int Y = 100, X0 = 8, Z0 = 8, SIZE = 32;
 
     private AiCheck() {
@@ -88,19 +99,28 @@ public final class AiCheck {
             AiCheckUnseen unseen = new AiCheckUnseen(check, check.level, Y);
             AiCheckReact react = new AiCheckReact(check, check.level, Y);
             AiCheckTeams battle = new AiCheckTeams(check, check.level, Y, true);
-            // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, a player out of creative, a player not expected,
-            // the battle as the owner had it
-            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "unseen", "react", "battle");
+            AiCheckParts parts = new AiCheckParts(check, check.level, Y);
+            // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, aimed at a part, a
+            // player out of creative, a player not expected, the battle as the owner had it
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "unseen", "react", "battle");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
-                    aim::tick, unseen::tick, react::tick, battle::tick);
+                    aim::tick, parts::tick, unseen::tick, react::tick, battle::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
-            String only = System.getProperty(STAGE_PROPERTY, "");
+            // (a,b,c: those stages, in the check's own order)
+            List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
             int[] at = {0};
+            // and one from chunks a later stage loads, saved there with its shooter long gone: kept out
+            NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class, joined -> {
+                if (joined.loadedFromDisk() && joined.getEntity() instanceof net.minecraft.world.entity.projectile.Projectile shot && shot.getOwner() == null) joined.setCanceled(true);
+            });
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class, t -> {
                 boolean done;
                 try {
-                    while (at[0] < stages.size() && !only.isEmpty() && !only.equals(names.get(at[0]))) at[0]++;
-                    if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) at[0]++;
+                    while (at[0] < stages.size() && !only.isEmpty() && !only.contains(names.get(at[0]))) at[0]++;
+                    if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) {
+                        at[0]++;
+                        clearShots(check.level);
+                    }
                     done = at[0] >= stages.size();
                 } catch (Throwable x) {
                     crashed(out, x);
@@ -155,6 +175,10 @@ public final class AiCheck {
     private boolean run(List<String> out, MinecraftServer server) throws Exception {
         this.out = out;
         level = server.overworld();
+        // no zombie or spider of the world's on the yards: the AI hears them, and the hearing checks count what it hears
+        level.getGameRules().set(net.minecraft.world.level.gamerules.GameRules.SPAWN_MOBS, false, server);
+        for (var e : level.getEntities(net.minecraft.world.level.entity.EntityTypeTest.forClass(net.minecraft.world.entity.Mob.class),
+                m -> m instanceof net.minecraft.world.entity.monster.Enemy)) e.discard();
         BlockState stone = Blocks.STONE.defaultBlockState(), concrete = Blocks.CONCRETE.pick(net.minecraft.world.item.DyeColor.GRAY).defaultBlockState();
         for (int x = X0; x < X0 + SIZE; x++)
             for (int z = Z0; z < Z0 + SIZE; z++) set(x, Y - 1, z, stone);

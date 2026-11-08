@@ -31,6 +31,7 @@ public final class GunFeelMod {
             if (dist.isClient()) acup.gunfeel.gl54.Gl54Client.init(modBus);
         }
         acup.gunfeel.gas.GasSetup.init(modBus, dist);
+        acup.gunfeel.ai.AiPose.register(modBus);
         if (dist.isClient()) {
             modBus.addListener(net.neoforged.neoforge.client.event.AddClientReloadListenersEvent.class,
                     e -> e.addListener(net.minecraft.resources.Identifier.fromNamespaceAndPath("ntmgunfeel", "model_masks"),
@@ -116,6 +117,7 @@ public final class GunFeelMod {
         WaterCheck.registerIfAsked();
         ExplosiveCheck.registerIfAsked();
         acup.gunfeel.ai.AiCheck.registerIfAsked();
+        acup.gunfeel.ai.bench.AiBench.registerIfAsked();
         TraceHooks.register(dist);
         modBus.addListener(RegisterPayloadHandlersEvent.class, e -> {
             // not optional: the mod is needed on both sides, so NeoForge turns away a client without it from a server

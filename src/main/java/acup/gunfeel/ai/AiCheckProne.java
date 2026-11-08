@@ -22,26 +22,39 @@ import net.minecraft.world.phys.Vec3;
  * fires lying, with the crawling spread; one with the target 8 blocks off never lies; one in the open with the target
  * 20 blocks off lies when shots fly past it; one lying far off sent crawling 5 blocks crawls between bursts and
  * keeps still to fire (the server's no-shot-while-crawling rule, ProneFire: no pull of its trigger is thrown away).
- * Lying, it is a crawling player's size.
+ * Lying, it is a crawling player's size. Sent running along a wall one high in the target's sight, upright and then
+ * running low (AiStoop): low, the target sees less of it a tick, and no more of it over the whole run.
  */
 final class AiCheckProne {
     private enum Phase {
-        LOW, FAR, NEAR, PINNED, CRAWL, DONE
+        LOW, FAR, NEAR, PINNED, CRAWL, RUN_UP, RUN_LOW, DONE
     }
 
-    static final int RUN = 260, SHORT = 160, CRAWL_AT = 50;
+    static final int RUN = 260, SHORT = 160, CRAWL_AT = 50, RUN_AT = 20;
+    /** the long low wall of the running scenes, along z = WALL_Z */
+    static final int WALL_X0 = 98, WALL_X1 = 122, WALL_Z = 20;
     private final AiCheck check;
     private final ServerLevel level;
     private final int y;
     private Phase phase = Phase.LOW;
     private int ticks;
     private Mob soldier, target;
+    /** running: a foe shut in a stone box in the field's corner, out of sight, so the soldier thinks (AiBots.active) */
+    private Mob keeper;
+    static final int KEEP_X = 127, KEEP_Z = 41;
     private AiBot bot;
     private int lyingTicks, pullsLying, pullsStanding, lastPulls;
+    /** behind the wall one high: ticks down low, pulls down low, ticks standing; parts of it the target sees (sums) */
+    private int crouchTicks, pullsCrouching, standTicks, seenCrouching, seenStanding;
+    private float crouchHeight = -1, crouchEye = -1;
     /** ticks it lay moving faster than the crawling rule's speed, ticks the target was hit while it lay; all scenes */
     private int crawlTicks, hitsLying, crawlPullsAll, crawlHeldAll, shortLiesAll;
     private Vec3 crawlFrom;
     private double fastestLying;
+    /** a running scene: its start tick, ticks on the way, ticks low, parts the target saw (a sum), the ticks it took */
+    private int runFrom, runTicks, runLow, runSeen, runTook;
+    /** the upright run's ticks, parts seen and ticks taken, for the low one */
+    private int upTicks = -1, upSeen, upTook, upLow;
     private float lyingHeight = -1, lyingEye = -1, spreadLying = -1, spreadStanding = -1;
 
     AiCheckProne(AiCheck check, ServerLevel level, int y) {
@@ -62,7 +75,14 @@ final class AiCheckProne {
             crawlFrom = soldier.position();
             bot.mover.goTo(BlockPos.asLong(97, y, 38), 0.35, AiSoldier.WALK);
         }
-        int length = phase == Phase.LOW || phase == Phase.FAR || phase == Phase.CRAWL ? RUN : SHORT;
+        if (running() && ticks == RUN_AT && bot != null) {
+            // the length of the wall, running, from a threat where the target stands
+            AiStoop.on = phase == Phase.RUN_LOW;
+            runFrom = ticks;
+            bot.stoop.from(target.getEyePosition());
+            bot.mover.goTo(BlockPos.asLong(WALL_X1 + 1, y, WALL_Z + 1), 0.35, AiSoldier.RUN);
+        }
+        int length = phase == Phase.LOW || phase == Phase.FAR || phase == Phase.CRAWL || running() ? RUN : SHORT;
         if (ticks >= length) finish();
         return phase == Phase.DONE;
     }
@@ -80,8 +100,9 @@ final class AiCheckProne {
     private void start() {
         // run alone (-PaiStage=prone), the crowd's field is not there yet
         if (phase == Phase.LOW && level.getBlockState(new BlockPos(AiCheckCrowd.X0, y - 1, AiCheckCrowd.Z0)).isAir()) AiCheckCrowd.field(level, y);
-        // the low wall stands only for the first scene
-        for (int x = 105; x <= 115; x++) set(x, y, 20, phase == Phase.LOW);
+        // the low wall stands only for the first scene, the long one for the running ones
+        boolean running = running();
+        for (int x = WALL_X0; x <= WALL_X1; x++) set(x, y, WALL_Z, phase == Phase.LOW ? x >= 105 && x <= 115 : running);
         Vec3 s, t;
         switch (phase) {
             case LOW -> {
@@ -91,6 +112,10 @@ final class AiCheckProne {
             case FAR, CRAWL -> {
                 s = new Vec3(93.5, y, 41.5);
                 t = new Vec3(122.5, y, 12.5);
+            }
+            case RUN_UP, RUN_LOW -> {
+                s = new Vec3(WALL_X0 - 0.5, y, WALL_Z + 1.5);
+                t = new Vec3(110.5, y, 5.5);
             }
             case NEAR -> {
                 s = new Vec3(110.5, y, 24.5);
@@ -125,12 +150,34 @@ final class AiCheckProne {
                 .getValue(net.minecraft.resources.Identifier.fromNamespaceAndPath("hbm", "entity_test_dummy"))
                 .create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
         target.setPos(t.x, t.y, t.z);
-        target.addTag(AiBots.TARGET_TAG);
+        // running, the target is no foe: nothing but the stand sends the soldier anywhere
+        if (!running) target.addTag(AiBots.TARGET_TAG);
         health(target);
         level.addFreshEntity(target);
+        keepBox(running);
+        if (running) {
+            keeper = (Mob) target.getType().create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            keeper.setPos(KEEP_X + 0.5, y, KEEP_Z + 0.5);
+            keeper.addTag(AiBots.TARGET_TAG);
+            keeper.setInvulnerable(true);
+            level.addFreshEntity(keeper);
+        }
         AiBots.refreshTargets(level);
         lyingTicks = pullsLying = pullsStanding = lastPulls = crawlTicks = hitsLying = 0;
+        crouchTicks = pullsCrouching = standTicks = seenCrouching = seenStanding = 0;
         fastestLying = 0;
+        runFrom = runTicks = runLow = runSeen = runTook = 0;
+    }
+
+    /** a stone box round the keeper's cell, 3 high */
+    private void keepBox(boolean on) {
+        for (int dx = -1; dx <= 1; dx++)
+            for (int dz = -1; dz <= 1; dz++)
+                for (int h = 0; h <= 2; h++) if (dx != 0 || dz != 0 || h == 2) set(KEEP_X + dx, y + h, KEEP_Z + dz, on);
+    }
+
+    private boolean running() {
+        return phase == Phase.RUN_UP || phase == Phase.RUN_LOW;
     }
 
     private void watch() {
@@ -140,9 +187,35 @@ final class AiCheckProne {
         if (bot == null) return;
         boolean lying = soldier.getPose() == Pose.SWIMMING;
         int pulls = bot.gunner.pulls;
+        boolean crouching = soldier.getPose() == Pose.CROUCHING;
         if (pulls > lastPulls) {
             if (lying) pullsLying += pulls - lastPulls;
             else pullsStanding += pulls - lastPulls;
+            if (crouching) pullsCrouching += pulls - lastPulls;
+        }
+        if (phase == Phase.LOW && !lying) {
+            // how much of it the target sees over the wall: its head, chest and legs as the AI looks (Senses)
+            int seen = partsSeen();
+            if (crouching) {
+                crouchTicks++;
+                seenCrouching += seen;
+                crouchHeight = soldier.getBbHeight();
+                crouchEye = soldier.getEyeHeight();
+            } else {
+                standTicks++;
+                seenStanding += seen;
+            }
+        }
+        if (running() && runFrom > 0 && runTook == 0) {
+            if (bot.mover.arrived()) runTook = ticks - runFrom;
+            else {
+                runTicks++;
+                runSeen += partsSeen();
+                if (crouching) {
+                    runLow++;
+                    crouchHeight = soldier.getBbHeight();
+                }
+            }
         }
         lastPulls = pulls;
         if (lying) {
@@ -156,6 +229,16 @@ final class AiCheckProne {
             spreadLying = Spread.apply(soldier, soldier.getMainHandItem(), false, 1F);
         } else if (spreadStanding < 0 && soldier.onGround() && soldier.getKnownSpeed().horizontalDistanceSqr() < 1e-6)
             spreadStanding = Spread.apply(soldier, soldier.getMainHandItem(), false, 1F);
+    }
+
+    /** the parts of the soldier (head, chest, legs) in plain sight from the target's eye */
+    private int partsSeen() {
+        Vec3 eye = target.getEyePosition();
+        double h = soldier.getBbHeight();
+        int n = 0;
+        for (double part : new double[] {0.9, 0.55, 0.2})
+            if (VoxelRay.clear(AiBots.voxels(level), eye.x, eye.y, eye.z, soldier.getX(), soldier.getY() + h * part, soldier.getZ(), Voxel.SIGHT)) n++;
+        return n;
     }
 
     /** an arrow from the target's side that passes a block and a bit beside the soldier's chest */
@@ -189,6 +272,13 @@ final class AiCheckProne {
                 check.out("     behind a wall one high, the target 19 blocks off: " + what);
                 check.check("behind low cover it fires only standing, and goes down for no short reload (under " + AiProne.LONG_RELOAD + " ticks)",
                         p != null && pullsStanding > 0 && pullsLying == 0 && (bot.gunner.lastReload >= AiProne.LONG_RELOAD || p.downs == 0));
+                check.out(String.format(Locale.ROOT, "     down low %d ticks of %d up (%d pulls down low), %.2f high, eyes at %.2f (a crouching player: 1.5, 1.27);"
+                        + " parts of it the target sees: %.2f standing, %.2f down low", crouchTicks, crouchTicks + standTicks, pullsCrouching, crouchHeight, crouchEye,
+                        standTicks == 0 ? 0 : (double) seenStanding / standTicks, crouchTicks == 0 ? 0 : (double) seenCrouching / crouchTicks));
+                check.check("behind low cover it keeps low between bursts, a crouching player's size, and never fires down low",
+                        crouchTicks > 0 && pullsCrouching == 0 && Math.abs(crouchHeight - 1.5F) < 1e-3 && Math.abs(crouchEye - 1.27F) < 1e-3);
+                check.check("down low the target sees less of it than standing",
+                        crouchTicks > 0 && standTicks > 0 && (double) seenCrouching / crouchTicks < (double) seenStanding / standTicks);
                 check.out(String.format(Locale.ROOT, "     lying it is %.1f high, eyes at %.1f (a crawling player: 0.6, 0.4)", lyingHeight, lyingEye));
                 check.check("lying it is a crawling player's size", Math.abs(lyingHeight - 0.6F) < 1e-3 && Math.abs(lyingEye - 0.4F) < 1e-3);
             }
@@ -216,15 +306,41 @@ final class AiCheckProne {
                 check.check("no pull of its trigger while crawling, in any scene (" + crawlPullsAll + " pulls, held " + crawlHeldAll + " ticks)",
                         crawlPullsAll == 0 && crawlHeldAll == 0);
             }
+            case RUN_UP -> {
+                AiStoop.on = true;
+                check.out("     the upright run: legs " + bot.mover.state() + ", " + (bot.brain instanceof AiSoldier so ? so.mode : "-") + " at "
+                        + soldier.blockPosition().toShortString());
+                upTicks = runTicks;
+                upSeen = runSeen;
+                upTook = runTook;
+                upLow = runLow;
+            }
+            case RUN_LOW -> {
+                AiStoop.on = true;
+                check.out(String.format(Locale.ROOT, "     running %d blocks along a wall one high, the target 16 blocks off: upright %s ticks (%d low), %.2f parts seen a tick,"
+                        + " %d in all; running low %s ticks, %d of them low (%.2f high), %.2f parts seen a tick, %d in all", WALL_X1 - WALL_X0 + 2,
+                        upTook == 0 ? "never got there in " + upTicks : String.valueOf(upTook), upLow, upTicks == 0 ? 0 : (double) upSeen / upTicks, upSeen,
+                        runTook == 0 ? "never got there in " + runTicks : String.valueOf(runTook), runLow, crouchHeight,
+                        runTicks == 0 ? 0 : (double) runSeen / runTicks, runSeen));
+                check.check("running past low cover in the target's sight it runs low most of the way, a crouching player's size, and gets there",
+                        runTook > 0 && upTook > 0 && upLow == 0 && runLow * 2 > runTicks && Math.abs(crouchHeight - 1.5F) < 1e-3);
+                check.check("running low the target sees less of it a tick, and no more of it over the whole run, than upright",
+                        upTicks > 0 && runTicks > 0 && (double) runSeen / runTicks < (double) upSeen / upTicks && runSeen <= upSeen);
+            }
             default -> {
             }
         }
         soldier.discard();
         target.discard();
+        if (keeper != null) keeper.discard();
+        keeper = null;
         for (var e : level.getEntities(net.minecraft.world.level.entity.EntityTypeTest.forClass(Arrow.class), a -> true)) e.discard();
         soldier = null;
         phase = Phase.values()[phase.ordinal() + 1];
         ticks = 0;
-        if (phase == Phase.DONE) for (int x = 105; x <= 115; x++) set(x, y, 20, false);
+        if (phase == Phase.DONE) {
+            for (int x = WALL_X0; x <= WALL_X1; x++) set(x, y, WALL_Z, false);
+            keepBox(false);
+        }
     }
 }

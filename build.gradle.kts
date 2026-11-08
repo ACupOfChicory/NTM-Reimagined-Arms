@@ -164,6 +164,8 @@ neoForge {
             systemProperty("ntmgunfeel.gasStand",providers.gradleProperty("gasStand").orElse("").get())
             // -PgasStandVis (with -PgasStand): only the gases' looks, the scenarios are skipped
             systemProperty("ntmgunfeel.gasVisOnly",providers.gradleProperty("gasStandVis").isPresent.toString())
+            // -PgasSoil (with -PgasStand): the mustard's stains and poisoned ground and the gas stirred by bullets and a blast (GasSoilStand)
+            systemProperty("ntmgunfeel.gasSoil",providers.gradleProperty("gasSoil").isPresent.toString())
             // -PsmokePoses=sky,wall: only the poses whose names start with one of these
             systemProperty("ntmgunfeel.smokePoses",providers.gradleProperty("smokePoses").orElse("").get())
             // -PsmokeFabulous: the stand runs with improved transparency (the transparency chain) on
@@ -357,6 +359,19 @@ neoForge {
             // -PaiStage=<name>: that stage of the check alone (AiCheck)
             providers.gradleProperty("aiStage").orNull?.let { systemProperty("ntmgunfeel.checkAiStage", it) }
         }
+        // the mob AI's server stand (acup.gunfeel.ai.bench.AiBench): MSPT of an arena with no player, empty and with
+        // mobs, phase by phase. ./gradlew runBenchAi -PnoAssets [-PbenchAi=<tsv>] [-PbenchAiLithium] [-PbenchAiSim=<n>]
+        // [-PbenchAiPhases=empty,fbi100] [-PbenchAiRounds=<n>] [-PserverPort=<25661..25670>]; the run's folder below
+        register("benchAi") {
+            server()
+            gameDirectory = root.resolve("run-ai")
+            programArgument("--nogui")
+            jvmArgument("-Xmx3G")
+            systemProperty("ntmgunfeel.benchAi", root.resolve(providers.gradleProperty("benchAi").orElse("run-ai/bench-ai.tsv").get()).path)
+            systemProperty("ntmgunfeel.benchAiLithium", providers.gradleProperty("benchAiLithium").isPresent.toString())
+            providers.gradleProperty("benchAiPhases").orNull?.let { systemProperty("ntmgunfeel.benchAiPhases", it) }
+            providers.gradleProperty("benchAiRounds").orNull?.let { systemProperty("ntmgunfeel.benchAiRounds", it) }
+        }
         // -Ptrace=<file> (relative to the run's folder) or -Ptrace=true: the run writes a trace (Trace.java) to compare
         // with tools/trace_diff.py; -PtraceScenario=<name>, -PtraceHex, -Pseed=<n> go with it
         configureEach {
@@ -453,6 +468,44 @@ tasks.matching { it.name in checkRuns }.configureEach {
         // the dump and the settings check make no world: only the port is set, the rest of the file left as the server wrote it
         else properties.writeText((if (properties.exists()) properties.readLines().filter { !it.startsWith("server-port=") } else emptyList())
             .joinToString("") { it + "\n" } + "server-port=$port\n")
+    }
+}
+
+// The mob AI's stand: a fresh flat world every run (bedrock, 16 dirt, grass: an explosion digs thousands of blocks),
+// no pause when empty (the server would stop ticking a minute after it started, with no player ever on it), the
+// simulation distance of -PbenchAiSim (10, as on the owner's server; with no player it changes nothing on the
+// arena, whose chunks are forced). The port is one of the mob AI's, 25661..25670. -PbenchAiLithium: the owner's
+// server's Lithium, FerriteCore and ScalableLux in the run's mods, copied by reflink from ~/ntm-neo-server/mods
+// (only read there); without it the run's mods are emptied.
+tasks.matching { it.name == "runBenchAi" }.configureEach {
+    val dir = root.resolve("run-ai")
+    val port = providers.gradleProperty("serverPort").orNull?.takeIf { it.isNotBlank() } ?: "25661"
+    val sim = providers.gradleProperty("benchAiSim").orElse("10").get()
+    val lithium = providers.gradleProperty("benchAiLithium").isPresent
+    val owner = File(System.getProperty("user.home")).resolve("ntm-neo-server/mods")
+    timeout.set(Duration.ofMinutes(90))
+    doFirst {
+        require(port.toIntOrNull() in 25661..25670) { "the mob AI's stand runs on 25661..25670, not $port" }
+        require(sim.toIntOrNull() in 2..32) { "simulation-distance 2..32, not $sim" }
+        dir.resolve("world").deleteRecursively()
+        dir.resolve("mods").deleteRecursively()
+        dir.resolve("mods").mkdirs()
+        dir.resolve("eula.txt").writeText("eula=true\n")
+        val flat = """{"biome":"minecraft:plains","features":false,"lakes":false,"layers":[""" +
+            """{"block":"minecraft:bedrock","height":1},{"block":"minecraft:dirt","height":16},""" +
+            """{"block":"minecraft:grass_block","height":1}]}"""
+        dir.resolve("server.properties").writeText(
+            "level-type=minecraft\\:flat\ngenerator-settings=$flat\ngenerate-structures=false\nview-distance=10\n" +
+            "simulation-distance=$sim\npause-when-empty-seconds=0\nspawn-protection=0\nonline-mode=false\n" +
+            "spawn-monsters=false\nmax-players=1\nserver-port=$port\n")
+        if (lithium) for (jar in listOf("lithium-neoforge-0.25.3+mc26.2.jar", "ferritecore-9.0.0-neoforge.jar",
+                "ScalableLux-neoforge-0.3.0-alpha.0.16-all.jar")) {
+            val from = owner.resolve(jar)
+            require(from.isFile) { "no $from" }
+            check(ProcessBuilder("cp", "--reflink=always", from.path, dir.resolve("mods/$jar").path).inheritIO().start().waitFor() == 0) {
+                "cp --reflink=always $from failed"
+            }
+        }
     }
 }
 

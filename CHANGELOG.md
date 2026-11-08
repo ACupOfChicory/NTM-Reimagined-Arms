@@ -21,6 +21,53 @@
   `config/ntm-gunfeel-imitation.json` and is used only with the server key
   `aiImitation=true` (off by default); `/armsai imitation info` tells what
   it decided, `/armsai imitation reload` reads the file again.
+## X742
+
+- Mob AI: an AI mob running to cover along a low wall in your sight runs low
+  past it, a crouching player's size and a little slower, so only its head
+  shows over the wall; in the open it runs upright, as fast as before.
+- Mob AI: behind low cover an AI mob keeps low between bursts and through a
+  short reload, a crouching player's size, and rises a moment before it fires
+  again; it never fires crouched. Over a wall one high you see its head, not
+  its chest. Clients see its stance, lean, arms and what it does (reloading),
+  ready for poses drawn on it.
+
+## X738
+
+- GL-54 gas grenades: a bullet that flies through a gas cloud thins the gas
+  along its path a little; a burst of fire down one line clears a channel
+  through it. A blast blows away the gas within twice its reach, all but a
+  little in the middle: a high-explosive grenade fired into a gas cloud takes
+  more than half of it. Smoke is not stirred. `gasStir` (server, on).
+- GL-54 mustard gas leaves dark oily stains on the floor it lies on; they stay
+  5 minutes after the gas is gone.
+- GL-54 mustard gas soaks the ground. Where it lies for long (two magazines of
+  it fired at one place, not a grenade now and then), the ground becomes a
+  poisoned biome for good, in patches of 4 by 4 blocks under the gas: the
+  plants on it die, nothing grows there (saplings, crops, grass spreading,
+  bone meal) and its grass and leaves turn a sick yellow-brown. `gasPoison`
+  (server, on).
+
+## X735
+
+- Mob AI: AI mobs aim at what they see of you: your head over a wall, your
+  legs under a beam, the middle of what shows over low cover; with all of you
+  in sight, your chest. Before, they aimed at your chest whatever hid it, and
+  shot the wall in front of you.
+- Mob AI: an AI mob with one of its own in its line of fire steps to the side
+  that clears it, two steps if one does not, and at once if it is answering
+  fire with no cover to run to; before, it could step back and forth in the
+  line and never fire.
+- Mob AI: an AI mob shot in its cover from where it does not look moves to
+  other cover if there is any (once in a while, not at every hit of a burst),
+  and takes the one it lost sight of for the shooter: it looks out and searches
+  where the shot came from. Before, a rough guess of where from could leave it
+  in the cover it was shot in, watching the old place. A blast that no one set
+  off does not move where it thinks they are.
+- Mob AI: in a big fight an AI mob looks over at most twelve foes it has not
+  noticed yet at a time, in turn, besides those it knows of, and sees all of
+  only the one it deals with: a hundred AI mobs fighting cost the server half
+  the time they did (3 ms a tick, from 5.6).
 
 ## X713
 

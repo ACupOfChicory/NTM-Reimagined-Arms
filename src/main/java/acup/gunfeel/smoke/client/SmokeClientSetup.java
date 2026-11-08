@@ -77,5 +77,6 @@ public final class SmokeClientSetup {
         r.playToClient(SmokePayloads.End.TYPE, SmokePayloads.End.CODEC, (p, ctx) -> ctx.enqueueWork(() -> SmokeClient.end(p)));
         r.playToClient(SmokePayloads.Check.TYPE, SmokePayloads.Check.CODEC, (p, ctx) -> ctx.enqueueWork(() -> SmokeClient.check(p)));
         r.playToClient(SmokePayloads.Grid.TYPE, SmokePayloads.Grid.CODEC, (p, ctx) -> ctx.enqueueWork(() -> SmokeClient.grid(p)));
+        r.playToClient(SmokePayloads.Stirred.TYPE, SmokePayloads.Stirred.CODEC, (p, ctx) -> ctx.enqueueWork(() -> SmokeClient.stirred(p)));
     }
 }

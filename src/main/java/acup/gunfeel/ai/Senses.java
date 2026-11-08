@@ -10,7 +10,8 @@ import net.minecraft.world.phys.Vec3;
 /**
  * Whether a mob sees a target now: within its range and field of view (around where its head looks), and a line from
  * its eyes to the target's head, chest or legs that no hiding block crosses (glass, bars and fences do not hide) and no
- * thick smoke ({@link SmokeClouds#opticalDepth} past 3, about 5% let through). Nothing else: no light level yet.
+ * thick smoke ({@link SmokeClouds#opticalDepth} past 3, about 5% let through); and which of the three it sees (it aims
+ * at what it sees). Nothing else: no light level yet.
  */
 public final class Senses {
     /** the middle of the field of view, where a target is noticed fastest: 30 degrees off the look */
@@ -18,6 +19,13 @@ public final class Senses {
     private static final float SMOKE_DEPTH = 3F;
     /** the points looked at, as parts of the target's height: head, chest, legs */
     private static final double[] POINTS = {0.9, 0.55, 0.2};
+    /** the parts of a target a look sees: bits of {@link #parts} */
+    public static final int HEAD = 1, CHEST = 2, LEGS = 4, WHOLE = 7;
+    private static final int[] PART = {HEAD, CHEST, LEGS};
+    /** the order a look that wants only whether it sees tries them: chest, head, legs (the chest the likeliest) */
+    private static final int[] FIRST = {1, 0, 2};
+    /** the parts the last {@link #look} that saw its target saw (server thread) */
+    static int parts;
 
     private Senses() {
     }
@@ -25,8 +33,16 @@ public final class Senses {
     // for /armsai info: rays cast and time on them
     static long rays, looks, nanos;
 
-    /** -1: not seen; else the ticks it takes to notice the target from here */
+    /** -1: not seen; else the ticks it takes to notice the target from here; all three parts looked at */
     public static int look(VoxelRay.Source voxels, @Nullable SmokeClouds smoke, Mob mob, LivingEntity target, AiProfile p) {
+        return look(voxels, smoke, mob, target, p, true);
+    }
+
+    /**
+     * As above; with whole false (a target it does not aim at) it stops at the first part it sees, and {@link #parts}
+     * holds just that one: three rays at each of fifty foes every look cost a hundred AI mobs 4.7 ms a tick (KT5)
+     */
+    public static int look(VoxelRay.Source voxels, @Nullable SmokeClouds smoke, Mob mob, LivingEntity target, AiProfile p, boolean whole) {
         long t0 = System.nanoTime();
         looks++;
         try {
@@ -34,20 +50,28 @@ public final class Senses {
             double h = target.getBbHeight();
             double dx = target.getX() - eye.x, dz = target.getZ() - eye.z, dy = target.getY() + h * 0.6 - eye.y;
             double d2 = dx * dx + dy * dy + dz * dz;
-            if (d2 > p.viewRange() * p.viewRange() || d2 < 1e-6) return d2 < 1e-6 ? p.reaction() : -1;
+            if (d2 > p.viewRange() * p.viewRange() || d2 < 1e-6) {
+                parts = WHOLE;
+                return d2 < 1e-6 ? p.reaction() : -1;
+            }
             double d = Math.sqrt(d2);
             Vec3 view = mob.getViewVector(1F);
             double cos = (dx * view.x + dy * view.y + dz * view.z) / d;
             if (cos < p.cosHalfFov()) return -1;
             boolean smoky = smoke != null && !smoke.isEmpty();
-            for (double part : POINTS) {
-                double ty = target.getY() + h * part;
+            int seen = 0;
+            for (int k = 0; k < POINTS.length; k++) {
+                int i = whole ? k : FIRST[k];
+                if (!whole && seen != 0) break;
+                double ty = target.getY() + h * POINTS[i];
                 rays++;
                 if (!VoxelRay.clear(voxels, eye.x, eye.y, eye.z, target.getX(), ty, target.getZ(), Voxel.SIGHT)) continue;
                 if (smoky && smoke.opticalDepth(eye, new Vec3(target.getX(), ty, target.getZ())) > SMOKE_DEPTH) continue;
-                return p.reactionTicks(d, cos < COS_CENTRE);
+                seen |= PART[i];
             }
-            return -1;
+            if (seen == 0) return -1;
+            parts = seen;
+            return p.reactionTicks(d, cos < COS_CENTRE);
         } finally {
             nanos += System.nanoTime() - t0;
         }
