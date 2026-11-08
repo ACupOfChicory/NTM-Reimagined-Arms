@@ -9,6 +9,6 @@
     "MixinModelHitState", "MixinPreparedModelHit", "MixinVanillateModelHit", "VanillateEntityAccess", "MixinSpawnLerp", "MixinHandBob", "GameRendererAccess", "MixinSprintStop",
     "MixinEntityModelHitState", "MixinEntityMeshHits", "MixinDragonModelHit", "MixinGpuInstancerModel", "MixinGpuPoseShadow",
     "MixinAlexRenderSetup", "MixinAlexPostEffects", "MixinLegacyHitboxGizmos", "MixinSkinLayerVisualizer", "MixinDeltaTimer", "MixinTracePartialTick",
-    "MixinPunchyMovesEngine", "MixinGasSprint", "MixinEquipmentLayerModel", "MixinAiProneRender"],
+    "MixinPunchyMovesEngine", "MixinGasSprint", "MixinEquipmentLayerModel", "MixinAiProneRender", "MixinBotRenderData", "MixinBotExtract", "MixinBotPose"],
   "injectors": { "defaultRequire": 1 }
 }

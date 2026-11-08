@@ -21,6 +21,20 @@
   `config/ntm-gunfeel-imitation.json` and is used only with the server key
   `aiImitation=true` (off by default); `/armsai imitation info` tells what
   it decided, `/armsai imitation reload` reads the file again.
+## X756
+
+- Mob AI: AI mobs move their bodies. They breathe as they stand, flinch when hit
+  (in the chest or the head), crouch and stand up smoothly, lean out of cover to
+  the side, lie down with the gun held out along the ground, aim with both hands
+  along their look, and hold the gun up over their head to fire blind over cover.
+  They lower the gun and reach for the magazine to reload, kick up with a shot,
+  throw overarm, and wave their free hand, point or raise it to halt to give a
+  signal. The hitbox takes the pose: a mob leaning out past a corner or crouched
+  behind a wall is hit where it is drawn, and its shot leaves from where its gun
+  is. The idle, flinch, throw and wave clips come from Quaternius' Universal
+  Animation Library and Kay Lousberg's KayKit Character Animations (both CC0);
+  the rest is posed in code.
+
 ## X742
 
 - Mob AI: an AI mob running to cover along a low wall in your sight runs low
