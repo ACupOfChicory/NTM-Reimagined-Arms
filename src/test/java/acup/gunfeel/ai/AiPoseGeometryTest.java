@@ -12,13 +12,6 @@ import net.minecraft.world.phys.Vec3;
 // The server's lean (leanPoint: the eye, the muzzle) and the client's (the model's parts turned in setupAnim) put a
 // point of the body in the same place, for any turn of the body, lean and stance.
 class AiPoseGeometryTest {
-    // AiPose registers its attachment as it loads: the game's registries must be up
-    @org.junit.jupiter.api.BeforeAll
-    static void boot() {
-        net.minecraft.SharedConstants.tryDetectVersion();
-        net.minecraft.server.Bootstrap.bootStrap();
-    }
-
     static AiPose pose(int prev, int lean, int tick) {
         return new AiPose(AiPose.STAND, (byte) lean, (byte) prev, tick, AiPose.HOLD, AiPose.NONE, 0, (short) 0);
     }

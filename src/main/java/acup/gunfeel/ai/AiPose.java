@@ -60,23 +60,33 @@ public record AiPose(byte stance, byte lean, byte prevLean, int leanTick, byte a
         }
     };
 
-    private static final DeferredRegister<AttachmentType<?>> TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, "ntmgunfeel");
-    /** not saved: a mob loaded from disk starts standing, and its brain sets the rest on its first ticks */
-    public static final Supplier<AttachmentType<AiPose>> TYPE = TYPES.register("ai_pose", () -> AttachmentType.builder(() -> IDLE).sync(STREAM_CODEC).build());
+    /**
+     * The attachment's registration, in a class of its own: loaded on first use (the game's), so a unit test that
+     * makes an AiPose needs no registries (plain JUnit has none).
+     */
+    public static final class Sync {
+        private static final DeferredRegister<AttachmentType<?>> TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, "ntmgunfeel");
+        /** not saved: a mob loaded from disk starts standing, and its brain sets the rest on its first ticks */
+        public static final Supplier<AttachmentType<AiPose>> TYPE = TYPES.register("ai_pose",
+                () -> AttachmentType.builder(() -> IDLE).sync(STREAM_CODEC).build());
+
+        private Sync() {
+        }
+    }
 
     public static void register(IEventBus modBus) {
-        TYPES.register(modBus);
+        Sync.TYPES.register(modBus);
     }
 
     /** the mob's pose; standing with nothing on for any that has none (any mob not under the AI), either side */
     public static AiPose of(LivingEntity e) {
-        AiPose p = e.getExistingDataOrNull(TYPE);
+        AiPose p = e.getExistingDataOrNull(Sync.TYPE);
         return p == null ? IDLE : p;
     }
 
     /** the server: the pose, sent on only if it changed */
     static void set(LivingEntity e, AiPose p) {
-        if (!p.equals(of(e))) e.setData(TYPE, p);
+        if (!p.equals(of(e))) e.setData(Sync.TYPE, p);
     }
 
     AiPose withStance(byte s) {
@@ -85,6 +95,16 @@ public record AiPose(byte stance, byte lean, byte prevLean, int leanTick, byte a
 
     AiPose withArms(byte a) {
         return a == arms ? this : new AiPose(stance, lean, prevLean, leanTick, a, action, actionTick, actionTicks);
+    }
+
+    /**
+     * A new lean to go to from this tick on: from where it has got to now (AiPoseGeometry.leanFrac), not from the old
+     * target, so a change halfway does not jump; the same lean stays as it was.
+     */
+    AiPose withLean(byte l, long now) {
+        if (l == lean) return this;
+        byte at = (byte) Math.round(AiPoseGeometry.leanFrac(this, now, 0F) * 100F);
+        return new AiPose(stance, l, at, (int) now, arms, action, actionTick, actionTicks);
     }
 
     /** a new action from this tick on (the same one going on stays as it was) */
