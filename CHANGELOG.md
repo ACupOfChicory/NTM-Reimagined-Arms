@@ -1,5 +1,14 @@
 # Changelog
 
+## X810
+
+- Mob AI: when a target goes out of sight, each bot decides once, at even
+  odds, whether to wait where it went or where it may come out again: the
+  first place it would step back into the bot's sight, the way it was going.
+  A bot watching for the target to come out keeps its gun there and does not
+  join in the bursts at the place it went; the rest do as before. Bots that go
+  searching try the side the target was heading first.
+
 ## X809
 
 - Mob AI: a bot running to cover picks a way that keeps out of the lines of

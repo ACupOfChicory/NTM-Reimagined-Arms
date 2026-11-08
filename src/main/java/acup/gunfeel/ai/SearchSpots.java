@@ -10,18 +10,23 @@ import net.minecraft.world.phys.Vec3;
  * Where to look for a target that went out of sight: cells of the tactical map within the search radius of where it was
  * last seen that the mob cannot see from where it stands (were it in plain sight, the mob would see it). Nearest to that
  * place first, a little shuffled so two mobs do not pick the same order, and a cell with cover towards the mob before
- * one without (where one would hide). A cell the mob has looked into goes to its cleared set and is not offered again.
+ * one without (where one would hide), and one on the way the target was going before one against it (ExitSpots: where
+ * it may come out). A cell the mob has looked into goes to its cleared set and is not offered again.
  */
 public final class SearchSpots {
     /** how much nearer a cell with cover towards the mob counts, in blocks */
     static final double COVER_BONUS = 4;
+    /** how much a cell against the way the target was going counts against it, blocks (straight behind: twice) */
+    static final double AGAINST = 2;
 
     private SearchSpots() {
     }
 
-    /** cells as BlockPos longs, best first; at most n, at most rayBudget rays spent */
-    public static long[] pick(TacticalMap map, VoxelRay.Source voxels, Vec3 eye, double cx, double cy, double cz, double radius,
-            int n, LongSet cleared, RandomSource rng, int rayBudget) {
+    /** cells as BlockPos longs, best first; at most n, at most rayBudget rays spent; (vx, vz) its motion when lost */
+    public static long[] pick(CellSource map, VoxelRay.Source voxels, Vec3 eye, double cx, double cy, double cz, double vx, double vz,
+            double radius, int n, LongSet cleared, RandomSource rng, int rayBudget) {
+        double speed = Math.sqrt(vx * vx + vz * vz);
+        double ux = speed >= ExitSpots.MOVING ? vx / speed : 0, uz = speed >= ExitSpots.MOVING ? vz / speed : 0;
         int keep = Math.max(n * 4, rayBudget);
         long[] cand = new long[keep];
         double[] score = new double[keep];
@@ -44,6 +49,8 @@ public final class SearchSpots {
                         if (cleared.contains(key)) continue;
                         double s = Math.sqrt(d2) + Math.abs(y - cy) + rng.nextDouble() * 3;
                         if (SectionCells.height(c.cover(i), Dirs.of(eye.x - x - 0.5, eye.z - z - 0.5)) > 0) s -= COVER_BONUS;
+                        double d = Math.sqrt(d2);
+                        if (speed >= ExitSpots.MOVING && d > 1e-6) s += (1 - (dx * ux + dz * uz) / d) * AGAINST;
                         if (count < keep) {
                             cand[count] = key;
                             score[count++] = s;

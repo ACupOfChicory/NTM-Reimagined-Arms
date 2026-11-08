@@ -106,11 +106,12 @@ public final class AiCheck {
             AiCheckBlind blind = new AiCheckBlind(check, check.level, Y);
             AiCheckGrenade grenade = new AiCheckGrenade(check, check.level, Y);
             AiCheckIdle idle = new AiCheckIdle(check, check.level, Y);
+            AiCheckExit exit = new AiCheckExit(check, check.level, Y);
             // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, aimed at a part, a
-            // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, a player out of creative, a player not expected, the battle as the owner had it, squads against loners
-            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "unseen", "react", "battle", "duel");
+            // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, watched where a target may come out, a player out of creative, a player not expected, the battle as the owner had it, squads against loners
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
-                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, unseen::tick, react::tick, battle::tick, duel::tick);
+                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
             // (a,b,c: those stages, in the check's own order)
             List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
@@ -393,7 +394,7 @@ public final class AiCheck {
         }
         var eye = mob.getEyePosition();
         long t0 = System.nanoTime();
-        long[] spots = SearchSpots.pick(map, voxels, eye, c.lostX, c.lostY, c.lostZ, 8, 6, bot.clearedFor(c), mob.getRandom(), 64);
+        long[] spots = SearchSpots.pick(map, voxels, eye, c.lostX, c.lostY, c.lostZ, c.vx, c.vz, 8, 6, bot.clearedFor(c), mob.getRandom(), 64);
         long pickNanos = System.nanoTime() - t0;
         boolean hidden = spots.length > 0, near = true;
         for (long k : spots) {
@@ -405,7 +406,7 @@ public final class AiCheck {
                 spots.length, pickNanos / 1000.0, bot.cleared.size(), spots.length == 0 ? "-" : BlockPos.of(spots[0]).toShortString()));
         check("search spots are hidden from the bot and near the lost place", hidden && near);
         // a wider pick goes through more cells, some in sight (the first six may all be hidden)
-        SearchSpots.pick(map, voxels, eye, c.lostX, c.lostY, c.lostZ, 8, 40, bot.clearedFor(c), mob.getRandom(), 64);
+        SearchSpots.pick(map, voxels, eye, c.lostX, c.lostY, c.lostZ, c.vx, c.vz, 8, 40, bot.clearedFor(c), mob.getRandom(), 64);
         check("cells in sight were cleared (" + bot.cleared.size() + ")", !bot.cleared.isEmpty());
 
         // hearing: a blast 40 blocks off is heard about where it was; a step 20 blocks off is not

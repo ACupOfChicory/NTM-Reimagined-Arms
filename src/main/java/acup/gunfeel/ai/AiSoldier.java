@@ -164,6 +164,23 @@ public final class AiSoldier implements AiBrain {
     private long hitSeen = Long.MIN_VALUE;
     /** the loss (its lostTick) it has looked out for already and not seen them: it waits now */
     private long blindLost = Long.MIN_VALUE;
+    /**
+     * The share of soldiers that watch where a target they lost may come out again rather than where it went (the
+     * owner: "half wait where I went, half where I may come out"; each its own chance, so all or none may)
+     */
+    static final float EXIT_SHARE = 0.5F;
+    static float exitShare = EXIT_SHARE;
+    /**
+     * The loss it chose for (the target and its lostTick), whether it chose the exit, the place it watches from that the
+     * exit was found for (its peek or cover cell; WHERE_IT_STANDS without cover), and the exit: null for where they went
+     */
+    private int exitId = Integer.MIN_VALUE;
+    private long exitFor = Long.MIN_VALUE, exitFrom = Long.MIN_VALUE;
+    private boolean exitWanted;
+    private @Nullable Vec3 exit;
+    private static final long WHERE_IT_STANDS = Long.MIN_VALUE + 1;
+    /** exits it chose to watch (the stands) */
+    public int exits;
     private long peekThere;
     /** heard only, in cover: when it looks out again */
     private long lookAgain;
@@ -335,8 +352,9 @@ public final class AiSoldier implements AiBrain {
         // out of sight a while, looked for already (or no cover to look from): it goes for them
         else if (c != null && c.state == TargetMemory.State.LOST && pushes(bot, c, tick)) search(bot, level, c, tick);
         // one of its squad on the move: it keeps the place they went out of sight under fire, a burst every few seconds
+        // (not one that watches where they may come out: it keeps watching there)
         else if (c != null && c.state == TargetMemory.State.LOST && spot != null && (mode == Mode.COVER || mode == Mode.PEEK || mode == Mode.HOLD)
-                && (wasSuppressing || AiSquads.suppresses(bot, c, tick))) {
+                && (wasSuppressing || AiSquads.suppresses(bot, c, tick)) && !watchesExit(bot, c, tick)) {
             suppressing = wasSuppressing;
             suppress(bot, c, tick);
         }
@@ -708,11 +726,11 @@ public final class AiSoldier implements AiBrain {
      */
     private void coverCycle(AiBot bot, TargetMemory.Contact c, long tick) {
         CoverQuery.Spot s = spot;
-        Vec3 lost = new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
-        watch = lost;
+        Vec3 lost = new Vec3(c.lostX, c.lostY + 1.1, c.lostZ), look = lookFor(bot, c, tick);
+        watch = look;
         AiGunner g = bot.gunner;
         g.fire(false);
-        g.aim(lost);
+        g.aim(look);
         if (mode == Mode.TO_COVER) {
             if (!bot.mover.arrived()) return;
             mode(Mode.COVER, tick);
@@ -740,7 +758,7 @@ public final class AiSoldier implements AiBrain {
                     if (bot.prone.upright(tick)) blindLost = c.lostTick;
                     return;
                 }
-                peekOut(bot, lost);
+                peekOut(bot, look);
                 mode(Mode.PEEK, tick);
                 peekSince = tick;
                 peekThere = 0;
@@ -759,6 +777,49 @@ public final class AiSoldier implements AiBrain {
                 why = Why.BACK_GONE;
             }
         }
+    }
+
+    /**
+     * Where it watches for a target it lost: where they may come out again (ExitSpots), its choice once a loss at
+     * {@link #exitShare}, or where they went. The exit is found anew when the place it watches from changes (other
+     * cover for the same loss), a few mobs a tick (ExitSpots.mayPick: the rest ask again the next tick).
+     */
+    private Vec3 lookFor(AiBot bot, TargetMemory.Contact c, long tick) {
+        if (c.id != exitId || c.lostTick != exitFor) {
+            exitId = c.id;
+            exitFor = c.lostTick;
+            exitFrom = Long.MIN_VALUE;
+            exit = null;
+            exitWanted = bot.mob.getRandom().nextFloat() < exitShare;
+        }
+        long from = spot == null ? WHERE_IT_STANDS : spot.hasPeek() ? spot.peek() : spot.cell();
+        if (exitWanted && from != exitFrom && ExitSpots.mayPick(tick)) {
+            exitFrom = from;
+            ServerLevel level = (ServerLevel) bot.mob.level();
+            long cell = ExitSpots.pick(TacticalMap.of(level), AiBots.voxels(level), watchEye(bot), c.lostX, c.lostY, c.lostZ, c.vx, c.vz,
+                    bot.mob.getRandom());
+            boolean had = exit != null;
+            exit = cell == Long.MIN_VALUE ? null : new Vec3(BlockPos.getX(cell) + 0.5, BlockPos.getY(cell) + 1.1, BlockPos.getZ(cell) + 0.5);
+            if (exit != null && !had) {
+                exits++;
+                event(bot, tick, "watches where they may come out");
+            }
+        }
+        return exit != null ? exit : new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
+    }
+
+    /** it watches where a target it lost may come out (its choice for this loss made now if not yet) */
+    private boolean watchesExit(AiBot bot, TargetMemory.Contact c, long tick) {
+        lookFor(bot, c, tick);
+        return exit != null;
+    }
+
+    /** the eye it will watch from: out at its peek (or up over its low cover), else where it stands */
+    private Vec3 watchEye(AiBot bot) {
+        Mob m = bot.mob;
+        if (spot == null) return m.getEyePosition();
+        BlockPos at = BlockPos.of(spot.hasPeek() ? spot.peek() : spot.cell());
+        return Vec3.atBottomCenterOf(at).add(0, m.getDimensions(Pose.STANDING).eyeHeight(), 0);
     }
 
     /** fires in bursts with pauses; whether to hold the trigger now */
@@ -1099,10 +1160,10 @@ public final class AiSoldier implements AiBrain {
 
     /** it stays (in cover if it has any) and watches where they were last seen */
     private void hold(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
-        Vec3 lost = new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
-        watch = lost;
+        Vec3 lost = new Vec3(c.lostX, c.lostY + 1.1, c.lostZ), look = lookFor(bot, c, tick);
+        watch = look;
         bot.gunner.fire(false);
-        bot.gunner.aim(lost);
+        bot.gunner.aim(look);
         if (mode == Mode.PEEK && spot != null) bot.mover.goTo(spot.cell(), 0.35, WALK);
         if (spot == null && tick >= nextQuery) {
             nextQuery = tick + QUERY_EVERY * 3;
@@ -1137,7 +1198,7 @@ public final class AiSoldier implements AiBrain {
         if (searchCell == Long.MIN_VALUE && tick >= nextSearchPick) {
             nextSearchPick = tick + 10;
             double r = bot.memory.searchRadius(c, tick);
-            long[] spots = SearchSpots.pick(TacticalMap.of(level), AiBots.voxels(level), bot.mob.getEyePosition(), c.lostX, c.lostY, c.lostZ, r, 1,
+            long[] spots = SearchSpots.pick(TacticalMap.of(level), AiBots.voxels(level), bot.mob.getEyePosition(), c.lostX, c.lostY, c.lostZ, c.vx, c.vz, r, 1,
                     cleared, bot.mob.getRandom(), 24);
             if (spots.length > 0) {
                 searchCell = spots[0];
