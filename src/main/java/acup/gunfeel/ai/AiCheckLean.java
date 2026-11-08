@@ -70,7 +70,8 @@ final class AiCheckLean {
             });
             NeoForge.EVENT_BUS.addListener(EntityJoinLevelEvent.class, e -> {
                 AiCheckLean c = counting;
-                if (c == null || c.soldier == null || !(e.getEntity() instanceof Projectile p) || p.getOwner() != c.soldier) return;
+                if (c == null || c.soldier == null || !(e.getEntity() instanceof Projectile p) || p.getOwner() != c.soldier
+                        || p instanceof com.hbm.entity.grenade.EntityGrenadeUniversal) return;
                 c.shots++;
                 BlockPos at = BlockPos.containing(p.position());
                 if (!c.level.getBlockState(at).getCollisionShape(c.level, at).isEmpty()) {

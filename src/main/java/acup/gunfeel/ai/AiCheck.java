@@ -104,15 +104,17 @@ public final class AiCheck {
             AiCheckSquad squad = new AiCheckSquad(check, check.level, Y);
             AiCheckDuel duel = new AiCheckDuel(check, check.level, Y);
             AiCheckBlind blind = new AiCheckBlind(check, check.level, Y);
+            AiCheckGrenade grenade = new AiCheckGrenade(check, check.level, Y);
+            AiCheckIdle idle = new AiCheckIdle(check, check.level, Y);
             // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, aimed at a part, a
-            // leaned round a corner, fought as a squad, fired blind, a player out of creative, a player not expected, the battle as the owner had it, squads against loners
-            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "unseen", "react", "battle", "duel");
+            // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, a player out of creative, a player not expected, the battle as the owner had it, squads against loners
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "unseen", "react", "battle", "duel");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
-                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, unseen::tick, react::tick, battle::tick, duel::tick);
+                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, unseen::tick, react::tick, battle::tick, duel::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
             // (a,b,c: those stages, in the check's own order)
             List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
-            int[] at = {0};
+            int[] at = {0}, grenadesFor = {-1};
             // and one from chunks a later stage loads, saved there with its shooter long gone: kept out
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class, joined -> {
                 if (joined.loadedFromDisk() && joined.getEntity() instanceof net.minecraft.world.entity.projectile.Projectile shot && shot.getOwner() == null) joined.setCanceled(true);
@@ -121,6 +123,11 @@ public final class AiCheck {
                 boolean done;
                 try {
                     while (at[0] < stages.size() && !only.isEmpty() && !only.contains(names.get(at[0]))) at[0]++;
+                    // grenades in the grenades' own stage and the battles; the other stages count what they did before
+                    if (at[0] < stages.size() && grenadesFor[0] != at[0]) {
+                        grenadesFor[0] = at[0];
+                        AiGrenades.on = AiGrenades.dodgeOn = List.of("grenade", "battle", "duel").contains(names.get(at[0]));
+                    }
                     if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) {
                         at[0]++;
                         clearShots(check.level);

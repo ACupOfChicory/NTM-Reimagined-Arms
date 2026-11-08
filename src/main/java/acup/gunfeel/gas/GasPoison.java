@@ -80,11 +80,6 @@ public final class GasPoison {
         return acup.gunfeel.ReaimTimes.flag(KEY, true);
     }
 
-    /** Whether a gas leaves a liquid on the floor (the mustard): its stains (GasStains). */
-    public static boolean soaks(GasKind g) {
-        return g == GasKind.MUSTARD;
-    }
-
     /** How hard a gas is on the ground, what its density counts for in the sum (the class's comment). */
     public static float weight(GasKind g) {
         return switch (g) {

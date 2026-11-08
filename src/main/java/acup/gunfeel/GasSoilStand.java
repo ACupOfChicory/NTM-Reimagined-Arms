@@ -13,7 +13,6 @@ import com.hbm.items.weapon.sedna.BulletConfig;
 
 import acup.gunfeel.gas.GasKind;
 import acup.gunfeel.gas.GasPoison;
-import acup.gunfeel.gas.client.GasStains;
 import acup.gunfeel.gl54.Gl54Ammo;
 import acup.gunfeel.gl54.Gl54Grenade;
 import acup.gunfeel.smoke.SmokeClouds;
@@ -33,28 +32,26 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
-// runCheckClient -PgasStand=<dir> -PgasSoil: the mustard's stains, poisoned ground and the gas stirred by bullets and a
-// blast, in numbers (<dir>/soil.txt; the shots stain-*.png and field-*.png for gas-soil.py):
-//   1. stains: one mustard grenade on a concrete pad; the pad seen from above before and after (the cloud gone), the
-//      client's stains then;
-//   2. poison: 16 chlorine grenades a second apart (two magazines; any gas does it) on a grass field with flowers; the sum
+// runCheckClient -PgasStand=<dir> -PgasSoil: poisoned ground and the gas stirred by bullets and a blast, in numbers
+// (<dir>/soil.txt; the shots field-*.png):
+//   1. poison: 16 chlorine grenades a second apart (two magazines; any gas does it) on a grass field with flowers; the sum
 //      and the biome at the middle every second, which biome cells turned (only those the gas lay on), the plants left on
 //      them, a sapling, grass and bone meal there and out of it; the field from above before and after;
-//   3. stir: two chlorine clouds side by side, one shot through ten times and then hit by a GL-54 HE grenade; the gas in
+//   2. stir: two chlorine clouds side by side, one shot through ten times and then hit by a GL-54 HE grenade; the gas in
 //      each against the other, and the client's copies against the server's;
-//   4. smoke hole: two smoke clouds, ten shots through one (they take nothing) and then a GL-54 HE grenade in its middle;
+//   3. smoke hole: two smoke clouds, ten shots through one (they take nothing) and then a GL-54 HE grenade in its middle;
 //      the smoke at the hole's middle against the other cloud's right after and 1, 2, 3 and 5 s on, on the server and the
 //      client, the hash checks, and the server's tick time before and while it closes;
-//   5. overlap (once the clouds before are gone): a smoke and a chlorine cloud 4 blocks apart, their boxes overlapping; the
+//   4. overlap (once the clouds before are gone): a smoke and a chlorine cloud 4 blocks apart, their boxes overlapping; the
 //      camera passes across where the two are as far from it, 21 shots overlap-NN.png (the frames' colour counted
 //      afterwards: no jump where the far-to-near order of two boxes would flip), the clouds and groups marched;
-//   6. feed: two smoke clouds' worth 2 s apart at one place 3 blocks off: one cloud, fed once, as dense as one at its
+//   5. feed: two smoke clouds' worth 2 s apart at one place 3 blocks off: one cloud, fed once, as dense as one at its
 //      fill and wider, the client's copy on the server's hash.
 final class GasSoilStand {
     static final boolean ON = Boolean.getBoolean("ntmgunfeel.gasSoil");
     private static final String DIR = GasStand.DIR;
     private static final int Y = 100;
-    private static final Vec3 PAD = new Vec3(50.5, Y + 0.5, 0.5), FIELD = new Vec3(0.5, Y + 0.5, 0.5);
+    private static final Vec3 FIELD = new Vec3(0.5, Y + 0.5, 0.5);
     private static final Vec3 STIRRED = new Vec3(60.5, Y + 0.5, 0.5), CONTROL = new Vec3(60.5, Y + 0.5, 36.5);
     private static final List<String> OUT = new ArrayList<>();
     private static int step, wait, frames, fired, turnedAt = -1, stirredId = -1, controlId = -1;
@@ -163,15 +160,7 @@ final class GasSoilStand {
         }
         try {
             switch (step) {
-                case 0 -> { above(PAD, 6); wait = 60; step++; }
-                case 1 -> { shot("stain-before"); wait = 10; step++; }
-                case 2 -> { line("stain: mustard cloud " + spawn(PAD, GasKind.MUSTARD)); step++; }
-                case 3 -> {
-                    if (!noClouds()) return;
-                    wait = 40;
-                    step++;
-                }
-                case 4 -> { stains("stain", PAD); shot("stain-after"); wait = 10; step++; }
+                case 0, 1, 2, 3, 4 -> step = 5;
                 case 5 -> { above(FIELD, 8); wait = 60; step++; }
                 case 6 -> { shot("field-before"); plants("before"); step++; }
                 case 7 -> poisonStep();
@@ -182,7 +171,7 @@ final class GasSoilStand {
                     wait = 80;
                     step++;
                 }
-                case 9 -> { shot("field-after"); stains("field", FIELD); step++; }
+                case 9 -> { shot("field-after"); step++; }
                 case 10 -> {
                     stirredId = spawn(STIRRED, GasKind.CHLORINE);
                     controlId = spawn(CONTROL, GasKind.CHLORINE);
@@ -216,25 +205,6 @@ final class GasSoilStand {
             GunFeel.LOGGER.error("[gassoil]", e);
             ClientSmoke.check(false, "почва: " + e);
             finish();
-        }
-    }
-
-    // the client's stains near a point: how many and how strong
-    private static void stains(String what, Vec3 at) {
-        int n = 0, near = 0, far = 0;
-        float most = 0F;
-        for (float[] s : GasStains.snapshot()) {
-            if (s[3] <= 0F) continue;
-            n++;
-            double d = Math.hypot(s[0] + 0.5 - at.x, s[2] + 0.5 - at.z);
-            if (d < 6) near++;
-            if (d > 14) far++;
-            most = Math.max(most, s[3]);
-        }
-        line(String.format(Locale.ROOT, "%s: stains shown %d, within 6 blocks %d, past 14 %d, strongest %.2f", what, n, near, far, most));
-        if (what.equals("stain")) {
-            ClientSmoke.check(near >= 9, "почва: пятна иприта под облаком " + near);
-            ClientSmoke.check(far == 0, "почва: пятен вдали от облака нет " + far);
         }
     }
 

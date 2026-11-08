@@ -244,6 +244,7 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `tracers` | `true` | Tracers |
 | `bulletHoles` | `true` | Bullet holes and marks |
 | `waterSplash` | `true` | Splashes, rings, foam and bubbles on water |
+| `gunWeightTooltip` | `true` | A gun's tooltip names its weight class and how much it slows |
 | `smokeQuality` | `high` | Smoke clouds: `off`, `slices`, `low`, `medium`, `high`, `ultra` |
 | `smokeMaxClouds`, `smokeDistance` | `8`, `128` | How many clouds are drawn and how far away |
 | `enabled` | `true` | The mod's client side as a whole |
@@ -286,6 +287,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `aiRecoil` | `1` | Recoil of AI soldiers' guns; `0` for none |
 | `aiThreads` | `2` | Background threads that work out where AI soldiers can hide, 1 to 8 |
 | `aiImitation` | `false` | AI soldiers decide with a model trained on recorded fights |
+| `gunWeightSlow`, `gunWeightHeavySpeed`, `gunWeightSuperHeavySpeed` | `true`, `0.94`, `0.88` | Heavy and super-heavy guns in hand slow the player a little |
 
 ## Commands
 
