@@ -230,6 +230,20 @@ public final class ModelHits {
         }
     }
 
+    /** the game tick the pose kept for this entity was caught, or Long.MIN_VALUE: none */
+    public static synchronized long caught(Level level, Entity target) {
+        Map<Integer, PoseAt> poses = POSES.get(level);
+        PoseAt p = poses == null ? null : poses.get(target.getId());
+        return p == null ? Long.MIN_VALUE : p.tick();
+    }
+
+    /** drops the pose kept for this entity if it is the one caught at this tick (a server's own: AiLean) */
+    public static synchronized void forget(Level level, Entity target, long tick) {
+        Map<Integer, PoseAt> poses = POSES.get(level);
+        PoseAt p = poses == null ? null : poses.get(target.getId());
+        if (p != null && p.tick() == tick) poses.remove(target.getId());
+    }
+
     public static synchronized void clear(Level level) {
         POSES.remove(level);
         VIEWS.values().forEach(views->views.values().removeIf(v->v.level()==level));

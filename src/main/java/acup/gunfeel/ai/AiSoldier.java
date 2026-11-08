@@ -100,7 +100,44 @@ public final class AiSoldier implements AiBrain {
         if (mode != m) {
             mode = m;
             modeSince = tick;
+            if (m != Mode.PEEK) leanSide = 0;
         }
+    }
+
+    /** out at its peek: the way it leans round the corner (AiPose lean), 0: a step aside instead */
+    private byte leanSide;
+    /** the tick it last put its own leaned boxes for shots at it (AiLean.boxes) */
+    private long leanBoxes = Long.MIN_VALUE;
+    // for the stands: looks out leaning, and stepping aside
+    public int leans, steps;
+
+    /**
+     * Out to look or fire round its cover: a step toward the corner and a lean round it, if its eye out there sees the
+     * place it looks at (and a leaned head can be shot: AiLean.may); else, as before, a step to its peek.
+     */
+    private void peekOut(AiBot bot, Vec3 at) {
+        long pick = choosePeek(bot);
+        long cell = spot.cell();
+        leanSide = 0;
+        int px = BlockPos.getX(pick) - BlockPos.getX(cell), pz = BlockPos.getZ(pick) - BlockPos.getZ(cell);
+        if (AiLean.may() && !bot.prone.lying() && (px != 0 || pz != 0) && BlockPos.getY(pick) == BlockPos.getY(cell)
+                && bot.mob.level() instanceof ServerLevel level) {
+            double l = Math.sqrt(px * px + pz * pz), ox = px / l * AiLean.STEP, oz = pz / l * AiLean.STEP;
+            double x = BlockPos.getX(cell) + 0.5 + ox, z = BlockPos.getZ(cell) + 0.5 + oz, fx = at.x - x, fz = at.z - z;
+            float yaw = (float) (net.minecraft.util.Mth.atan2(fz, fx) * net.minecraft.util.Mth.RAD_TO_DEG) - 90F;
+            // the corner on its right, facing the place (its right: (-fz, fx)), or on its left
+            byte side = -px * fz + pz * fx > 0 ? AiLean.FULL : (byte) -AiLean.FULL;
+            Vec3 eye = new Vec3(x, BlockPos.getY(cell), z)
+                    .add(AiPoseGeometry.eyeOffset(AiPose.STAND, side / 100F, yaw, bot.mob.getDimensions(Pose.STANDING).eyeHeight()));
+            if (Senses.clearLine(AiBots.voxels(level), null, eye, at)) {
+                leanSide = side;
+                leans++;
+                bot.mover.goTo(cell, PEEK_AT, WALK, ox, oz);
+                return;
+            }
+        }
+        steps++;
+        bot.mover.goTo(pick, PEEK_AT, WALK);
     }
 
     public Mode mode() {
@@ -170,12 +207,17 @@ public final class AiSoldier implements AiBrain {
                 m.getDimensions(Pose.STANDING).makeBoundingBox(m.position()).deflate(1.0E-7));
         AiGunner g = bot.gunner;
         boolean reloading = g.reloading();
+        boolean aiming = g.wantsFire() || mode == Mode.PEEK;
         AiPose.set(m, AiPose.of(m).withStance(lying ? AiPose.PRONE : low ? AiPose.CROUCH : AiPose.STAND)
-                .withArms(g.wantsFire() || mode == Mode.PEEK ? AiPose.AIM : AiPose.HOLD)
+                .withLean((byte) (lying || low || mode != Mode.PEEK ? 0 : leanSide), tick)
+                .withArms(aiming ? AiPose.AIM : AiPose.HOLD)
                 .withAction(reloading ? AiPose.RELOAD : AiPose.NONE, (int) tick, (short) (reloading ? g.reloadTicks() : 0)));
-        if (lying) return;
-        Pose want = low ? Pose.CROUCHING : Pose.STANDING;
-        if (m.getPose() != want) m.setPose(want);
+        if (!lying) {
+            Pose want = low ? Pose.CROUCHING : Pose.STANDING;
+            if (m.getPose() != want) m.setPose(want);
+        }
+        // after the game's pose: the boxes are kept for this pose and size
+        leanBoxes = AiLean.boxes((ServerLevel) m.level(), m, aiming, leanBoxes, tick);
     }
 
     /** a decision of a moment, for the journal (what: a constant, so nothing is built with the journal off) */
@@ -274,8 +316,11 @@ public final class AiSoldier implements AiBrain {
             // (head and chest over a low wall, chest and legs under a beam), or the one part; less than the whole
             // body, the trigger waits for that alone
             int parts = c.parts == 0 || !aimParts ? Senses.WHOLE : c.parts;
-            g.track(c.id, chest, (aimAt(parts) - CHEST) * seen.getBbHeight(), parts == Senses.WHOLE ? AiAim.HALF_HEIGHT
-                    : Math.max(PART_HALF_MIN, PART_HALF * seen.getBbHeight()), tick);
+            double half = parts == Senses.WHOLE ? AiAim.HALF_HEIGHT : Math.max(PART_HALF_MIN, PART_HALF * seen.getBbHeight());
+            // one leaning round a corner: the part where the lean has it (its head out past the corner)
+            if (seen instanceof net.minecraft.world.entity.LivingEntity le && AiLean.frac(le) != 0F)
+                g.track(c.id, AiLean.point(le, aimAt(parts) * seen.getBbHeight()), 0, half, tick);
+            else g.track(c.id, chest, (aimAt(parts) - CHEST) * seen.getBbHeight(), half, tick);
         } else g.aim(chest);
         // a new fight (nobody in sight a while): a target near, or one that looks at it, it answers with a burst where
         // it stands before it goes for cover, as a soldier answers a contact; far off and unseen, cover first
@@ -369,7 +414,7 @@ public final class AiSoldier implements AiBrain {
             g.coverTicks = 0;
             g.fire(false);
             if (mode == Mode.COVER && spot.hasPeek() && spot.peek() != spot.cell()) {
-                bot.mover.goTo(choosePeek(bot), PEEK_AT, WALK);
+                peekOut(bot, eye);
                 mode(Mode.PEEK, tick);
                 peekSince = tick;
                 burstUntil = 0;
@@ -414,7 +459,7 @@ public final class AiSoldier implements AiBrain {
             hideUntil = tick + (low ? 0 : min + bot.mob.getRandom().nextInt(max - min));
         }
         if (mode == Mode.COVER) {
-            if (bot.mover.goal() != spot.cell()) bot.mover.goTo(spot.cell(), 0.35, WALK);
+            if (!bot.mover.goalIs(spot.cell())) bot.mover.goTo(spot.cell(), 0.35, WALK);
             boolean there = bot.mover.arrived();
             boolean reload = g.loaded() >= 0 && g.loaded() < Math.max(1, g.capacity() / 3) && g.ammo.any();
             if (low && there) {
@@ -428,7 +473,7 @@ public final class AiSoldier implements AiBrain {
             // on its way in: the reason it is coming in stays
             if (there) why = reload || g.reloading() ? (low ? Why.LOW_RELOAD : Why.RELOAD) : g.dry() ? Why.DRY : low ? Why.LOW_FIGHT : Why.HIDE;
             if (!low && there && !reload && !g.reloading() && spot.hasPeek() && g.loaded() != 0 && AiChoice.ask(bot, Ask.PEEK_FIGHT, tick >= hideUntil, tick)) {
-                bot.mover.goTo(choosePeek(bot), PEEK_AT, WALK);
+                peekOut(bot, eye);
                 mode(Mode.PEEK, tick);
                 peekSince = tick;
                 burstUntil = 0;
@@ -473,7 +518,7 @@ public final class AiSoldier implements AiBrain {
             hideUntil = tick + HIDE_MIN + bot.mob.getRandom().nextInt(HIDE_MAX - HIDE_MIN);
         }
         if (mode == Mode.COVER) {
-            if (bot.mover.goal() != s.cell()) bot.mover.goTo(s.cell(), 0.35, WALK);
+            if (!bot.mover.goalIs(s.cell())) bot.mover.goTo(s.cell(), 0.35, WALK);
             boolean reload = g.loaded() >= 0 && g.loaded() < g.capacity() && g.ammo.any();
             if (reload) g.reload();
             boolean low = s.peek() == s.cell() || !s.hasPeek();
@@ -487,7 +532,7 @@ public final class AiSoldier implements AiBrain {
                     if (bot.prone.upright(tick)) blindLost = c.lostTick;
                     return;
                 }
-                bot.mover.goTo(choosePeek(bot), PEEK_AT, WALK);
+                peekOut(bot, lost);
                 mode(Mode.PEEK, tick);
                 peekSince = tick;
                 peekThere = 0;
@@ -603,7 +648,7 @@ public final class AiSoldier implements AiBrain {
 
     /** whether a looks at b: b's eyes within 20 degrees of where a's eyes point */
     static boolean watches(Entity a, Entity b) {
-        Vec3 v = a.getViewVector(1F), d = b.getEyePosition().subtract(a.getEyePosition());
+        Vec3 v = a.getViewVector(1F), d = AiLean.eye(b).subtract(AiLean.eye(a));
         double len = d.length();
         return len > 1e-3 && v.dot(d) / len >= WATCHED_COS;
     }
@@ -800,12 +845,12 @@ public final class AiSoldier implements AiBrain {
         }
         if (mode == Mode.COVER) {
             why = Why.ALERT_HIDE;
-            if (bot.mover.goal() != s.cell()) bot.mover.goTo(s.cell(), 0.35, WALK);
+            if (!bot.mover.goalIs(s.cell())) bot.mover.goTo(s.cell(), 0.35, WALK);
             AiGunner g = bot.gunner;
             boolean reload = g.loaded() >= 0 && g.loaded() < g.capacity() && g.ammo.any();
             if (reload) g.reload();
             if (bot.mover.arrived() && !reload && !g.reloading() && AiChoice.ask(bot, Ask.LOOK_NOISE, tick >= hideUntil && tick >= lookAgain, tick)) {
-                bot.mover.goTo(choosePeek(bot), PEEK_AT, WALK);
+                peekOut(bot, watch != null ? watch : AiLean.eye(bot.mob).add(bot.mob.getLookAngle().scale(16)));
                 mode(Mode.PEEK, tick);
                 peekSince = tick;
                 peekThere = 0;

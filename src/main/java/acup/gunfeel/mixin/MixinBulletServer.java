@@ -166,7 +166,7 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
         Entity owner = self.getOwner();
         // the start of the path the server tests on the first tick (MixinThrowableHit): the thrower's eyes when near
         LivingEntity thrower = self.getThrower();
-        Vec3 eye = thrower == null ? null : thrower.getEyePosition();
+        Vec3 eye = thrower == null ? null : acup.gunfeel.ai.AiLean.eye(thrower);
         if (eye != null && eye.distanceToSqr(self.position()) >= 9.0) eye = null;
         ShotPayload p = new ShotPayload(config.id, owner == null ? -1 : owner.getId(), self.getX(), self.getY(), self.getZ(),
                 (float) v.x, (float) v.y, (float) v.z, (float) (config.gravity * mult), config.expires, self.damage,

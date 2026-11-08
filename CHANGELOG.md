@@ -21,6 +21,16 @@
   `config/ntm-gunfeel-imitation.json` and is used only with the server key
   `aiImitation=true` (off by default); `/armsai imitation info` tells what
   it decided, `/armsai imitation reload` reads the file again.
+
+## X758
+
+- Mob AI: to look or fire round a corner an AI mob takes a short step to it
+  and leans out, so you see its head and a shoulder, not all of it; its shots
+  leave from round the corner where its gun is, and its leaned head can be
+  hit with no player near. Where a lean shows it nothing it steps out as
+  before, and with model hitboxes off it never leans.
+- Mob AI: an AI mob's shot no longer starts inside the wall it stands at.
+
 ## X756
 
 - Mob AI: AI mobs move their bodies. They breathe as they stand, flinch when hit
