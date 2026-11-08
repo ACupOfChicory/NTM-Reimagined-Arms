@@ -377,7 +377,10 @@ public final class AiBots {
         }
         Vec3 at = from != null ? from.position() : source.getSourcePosition();
         if (at == null) return;
-        hear(b, at.x, at.y, at.z, at.distanceTo(mob.position()), mob.level().getGameTime(), true, true, 0.15, 2);
+        long tick = mob.level().getGameTime();
+        hear(b, at.x, at.y, at.z, at.distanceTo(mob.position()), tick, true, true, 0.15, 2);
+        // shot by someone with a gun or a bow (not a punch, nor a blast): the one who did it may be a target it lost
+        if (from != null && source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.Projectile) b.memory.shot(tick);
     }
 
     /** error: the ear's error as a part of the distance (at least min blocks), across */

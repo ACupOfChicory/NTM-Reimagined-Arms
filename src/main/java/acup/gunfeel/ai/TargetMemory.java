@@ -164,6 +164,18 @@ public final class TargetMemory {
         }
     }
 
+    /** the tick it was last shot (by a projectile someone fired: not a punch, nor a blast) */
+    private long shotTick = Long.MIN_VALUE;
+
+    public void shot(long tick) {
+        shotTick = tick;
+    }
+
+    /** whether the hit heard at this tick was a shot */
+    public boolean wasShot(long tick) {
+        return shotTick == tick;
+    }
+
     /**
      * Shot from out of sight with the one target it knows of out of sight too: that one shot, and is last known where
      * the shot came from (lost there now: the wait, the look out and the search start over from there). With more

@@ -82,6 +82,7 @@ final class AiCheckUnseen {
         if (ticks >= END || ticks > SWITCH + 40 && allPulled()) {
             finish();
             if (++round >= ROUNDS.size()) {
+                AiBots.soundTrace = null;
                 writeTrace();
                 return true;
             }
@@ -150,6 +151,13 @@ final class AiCheckUnseen {
             lastHead[i] = dummies.get(i).getYHeadRot();
         }
         trace.add("== round " + round + ": " + r.name);
+        // every sound the AI takes in on this field, with what made it: a sound the dummies hear in the unheard round
+        // is then found by name
+        AiBots.soundTrace = (lvl, snd) -> {
+            if (lvl == level && snd.x() >= X0 - 8 && snd.x() <= X0 + SIZE + 8 && snd.z() >= Z0 - 8 && snd.z() <= Z0 + SIZE + 8)
+                trace.add(String.format(Locale.ROOT, "t%4d sound %s at %.1f %.1f %.1f vol %.1f%s%s", ticks - SWITCH, snd.name(), snd.x(), snd.y(), snd.z(), snd.volume(),
+                        snd.ofMob() ? " of a mob" : "", snd.ofPlayer() ? " of a player" : ""));
+        };
     }
 
     private void step() {

@@ -61,6 +61,8 @@ public final class AiSoldier implements AiBrain {
     static final int BLOCKED_MOVE = 20;
     /** ticks a friend may stand in the line of its answering burst before it steps aside */
     static final int ANSWER_BLOCKED = 5;
+    /** ticks between moves to other cover for hits in cover (a burst hits many times) */
+    static final int HIT_MOVE_GAP = 40;
     /** lying down: never closer than NEVER blocks to the target; in the open from FAR on (or pinned down) */
     static final double PRONE_NEVER = 10, PRONE_FAR = 30;
     /** no target in sight this long, and one seen is a new fight, ticks */
@@ -129,6 +131,8 @@ public final class AiSoldier implements AiBrain {
     private int peeksHere, coverPeeks;
     /** the noise (its tick) it goes to see after a look out found nothing */
     private long checkNoise = Long.MIN_VALUE;
+    /** the last tick a hit in cover sent it to other cover */
+    private long lastHitMove = Long.MIN_VALUE / 2;
     private long lastShift = Long.MIN_VALUE / 2, nextBetter, pushLost = Long.MIN_VALUE, pushAt;
     // for the stands: the most looks out running from one place
     public int longestPeekRun;
@@ -188,14 +192,30 @@ public final class AiSoldier implements AiBrain {
         bot.mob.setYRot(yaw);
         why = Why.HIT;
         event(bot, tick, "hit from out of sight: turns there");
-        // the one it lost shot it: it watches, looks out and searches where the shot came from, not where it lost them
-        bot.memory.shotFrom(n.x, n.y, n.z, tick);
+        // shot (not punched, nor caught in a blast): the one it lost did it; it watches, looks out and searches where
+        // the shot came from, not where it lost them
+        if (bot.memory.wasShot(n.tick)) bot.memory.shotFrom(n.x, n.y, n.z, tick);
         // hit in its cover: whoever shot sees into it, wherever the rough guess of where from puts them (a guess a few
-        // blocks off could fall behind a wall and leave it in the cover it was shot in)
-        if (spot != null) {
-            drop(bot);
-            relocations++;
-            event(bot, tick, "hit in its cover: gives it up");
+        // blocks off could fall behind a wall and leave it in the cover it was shot in). Other cover if there is any,
+        // once in a while (a burst's every hit is no new news), and not while on its way to cover already
+        if (spot != null && mode != Mode.TO_COVER && tick - lastHitMove > HIT_MOVE_GAP) {
+            lastHitMove = tick;
+            // asked as if it had none: the query keeps the current place (past the cells it is not to take, with a
+            // bonus) and would send it back where it was shot
+            CoverQuery.Spot was = spot;
+            long s = was.cell();
+            spot = null;
+            unreachable.add(s);
+            CoverQuery.Spot other = query(bot, level, TacticalMap.of(level), List.of(from), true, false);
+            if (other != null && other.cell() != s) {
+                go(bot, level, other, List.of(from));
+                relocations++;
+                why = Why.HIT_COVER;
+                event(bot, tick, "hit in its cover: other cover");
+            } else {
+                spot = was;
+                unreachable.remove(s);
+            }
         }
         if (spot == null) {
             nextQuery = tick + QUERY_EVERY;
@@ -238,8 +258,13 @@ public final class AiSoldier implements AiBrain {
                 answerUntil = 0;
                 g.blockedTicks = 0;
                 g.fire(false);
-                sidestep(bot, level, chest);
-                event(bot, tick, "friend in the line of its answer: a step aside");
+                // on its way to cover: on to it (out of the line as well); with none, a step aside, and no cover query
+                // to take it back before it gets there
+                if (spot == null) {
+                    sidestep(bot, level, chest);
+                    nextQuery = tick + QUERY_EVERY;
+                    event(bot, tick, "friend in the line of its answer: a step aside");
+                } else event(bot, tick, "friend in the line of its answer: on to cover");
                 return;
             }
             if (bot.mover.goal() != Long.MIN_VALUE) bot.mover.stop();

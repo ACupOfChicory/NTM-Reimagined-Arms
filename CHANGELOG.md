@@ -1,6 +1,6 @@
 # Changelog
 
-## X719
+## X720
 
 - Mob AI: AI mobs aim at what they see of you: your head over a wall, your
   legs under a beam, the middle of what shows over low cover; with all of you
@@ -8,11 +8,14 @@
   shot the wall in front of you.
 - Mob AI: an AI mob with one of its own in its line of fire steps to the side
   that clears it, two steps if one does not, and at once if it is answering
-  fire; before, it could step back and forth in the line and never fire.
-- Mob AI: an AI mob hit in its cover from where it does not look always leaves
-  that cover, and takes the one it lost sight of for the shooter: it looks out
-  and searches where the shot came from. Before, a rough guess of where from
-  could leave it in the cover it was shot in, watching the old place.
+  fire with no cover to run to; before, it could step back and forth in the
+  line and never fire.
+- Mob AI: an AI mob shot in its cover from where it does not look moves to
+  other cover if there is any (once in a while, not at every hit of a burst),
+  and takes the one it lost sight of for the shooter: it looks out and searches
+  where the shot came from. Before, a rough guess of where from could leave it
+  in the cover it was shot in, watching the old place. A punch or a blast does
+  not move where it thinks they are.
 
 ## X713
 
