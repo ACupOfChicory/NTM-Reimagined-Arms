@@ -232,6 +232,23 @@ public final class AiBots {
 
     /** an AI mob's tick, from its goal: senses and memory, its brain, its legs and its gun */
     static void tickBot(AiBot bot) {
+        long t0 = System.nanoTime();
+        tickBot0(bot);
+        tickNanos += System.nanoTime() - t0;
+    }
+
+    /** the server stand: time in AI mobs' ticks (their guns' NTM work too), and in their looks; server thread */
+    public static long tickNanos;
+
+    public static long lookNanos() {
+        return Senses.nanos;
+    }
+
+    public static long looks() {
+        return Senses.looks;
+    }
+
+    private static void tickBot0(AiBot bot) {
         if (!bot.active || !acup.gunfeel.compat.Feature.MOB_AI.on() || !(bot.mob.level() instanceof ServerLevel level)) return;
         PerLevel l = LEVELS.get(level);
         if (l == null) return;

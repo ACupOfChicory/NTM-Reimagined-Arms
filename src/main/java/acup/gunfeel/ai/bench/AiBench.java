@@ -283,11 +283,17 @@ public final class AiBench {
         boomAfter = new int[b];
         boomPaths = new int[b];
         n = 0;
+        aiNanos = acup.gunfeel.ai.AiBots.tickNanos;
+        lookNanos = acup.gunfeel.ai.AiBots.lookNanos();
+        looksAt = acup.gunfeel.ai.AiBots.looks();
         PathCount.on = true;
         step(Step.MEASURE);
     }
 
     // after tick n of the measurement (its explosion, if any, went off before it)
+    // the mod's AI's counters at the measurement's start
+    private static long aiNanos, lookNanos, looksAt;
+
     private static void record(long tick) {
         nanos[n] = tick;
         asked[n] = PathCount.asked;
@@ -334,6 +340,11 @@ public final class AiBench {
         for (var ignored : level.getAllEntities()) entities++;
         double seconds = (System.nanoTime() - stepStart) / 1e9;
         List<String> notes = new ArrayList<>();
+        // the mod's AI: its mobs' ticks (senses, brain, legs, guns) and of that its looks, per server tick
+        long ai = acup.gunfeel.ai.AiBots.tickNanos - aiNanos, look = acup.gunfeel.ai.AiBots.lookNanos() - lookNanos,
+                lookCount = acup.gunfeel.ai.AiBots.looks() - looksAt;
+        if (ai > 0) notes.add(String.format(Locale.ROOT, "ИИ %.2f мс/тик, из них взгляды %.2f мс/тик (%.1f мкс взгляд, %.0f взглядов/тик)", ai / 1e6 / n,
+                look / 1e6 / n, lookCount == 0 ? 0 : look / 1e3 / lookCount, (double) lookCount / n));
         if (mobs.size() != p.mobs()) notes.add("WARN мобов " + mobs.size() + " из " + p.mobs());
         if (alive != mobs.size()) notes.add("WARN к концу осталось " + alive);
         double mobRatio = alive == 0 ? Double.NaN : (double) mobTicked / alive / n;

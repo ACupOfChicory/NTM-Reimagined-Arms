@@ -124,10 +124,13 @@ public final class Arena {
         acup.gunfeel.ai.AiBots.wakeAll(true);
         var board = level.getScoreboard();
         EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse("hbm:entity_fbi"));
+        List<Mob> made = new java.util.ArrayList<>();
         for (int i = 0; i < n; i++) {
             int c = i / 2 % 5, j = i / 2 / 5, z = 6 + 12 * (j % 10) + 6 * (j / 10 % 2);
             boolean west = i % 2 == 0;
-            int x = free(west ? 4 + 4 * c : SIZE - 5 - 4 * c, z);
+            // nearer than fbiPairs' edges: between the rows at x 28 and 44 and at 84 and 100, 45 to 65 blocks apart,
+            // in sight of each other through the gaps in the rows between (a fight, not a long search)
+            int x = free(west ? 31 + 2 * c : SIZE - 32 - 2 * c, z);
             if (!(type.create(level, EntitySpawnReason.COMMAND) instanceof Mob m)) throw new IllegalStateException("no FBI");
             m.snapTo(x + 0.5, ground, z + 0.5, west ? -90F : 90F, 0F);
             m.finalizeSpawn(level, level.getCurrentDifficultyAt(m.blockPosition()), EntitySpawnReason.COMMAND, null);
@@ -142,6 +145,15 @@ public final class Arena {
             if (bot == null) throw new IllegalStateException("an FBI tagged armsai is not an AI mob");
             bot.gunner.ammo.setInfinite();
             bot.gunner.loadFree();
+            made.add(m);
+        }
+        // behind the rows they may see nothing of each other at first: each hears the one across from it fire, as
+        // fbiPairs gives each FBI the one across as its target, and goes to find them
+        long tick = level.getGameTime();
+        for (int i = 0; i + 1 < made.size(); i += 2) {
+            Mob w = made.get(i), e = made.get(i + 1);
+            acup.gunfeel.ai.AiBots.get(w).memory.heard(e.getX(), e.getY(), e.getZ(), tick, true, false);
+            acup.gunfeel.ai.AiBots.get(e).memory.heard(w.getX(), w.getY(), w.getZ(), tick, true, false);
         }
     }
 
