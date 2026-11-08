@@ -126,6 +126,7 @@ public final class AiCheck {
                     // grenades in the grenades' own stage and the battles; the other stages count what they did before
                     if (at[0] < stages.size() && grenadesFor[0] != at[0]) {
                         grenadesFor[0] = at[0];
+                        AiGrenades.trace = true;
                         AiGrenades.on = AiGrenades.dodgeOn = List.of("grenade", "battle", "duel").contains(names.get(at[0]));
                     }
                     if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) {

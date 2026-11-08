@@ -1,5 +1,13 @@
 # Changelog
 
+## X803
+
+- Mob AI: a bot's grenade no longer hurts the bot or its own side. It throws
+  only where it knows how the grenade will fly: no flat throw that skids along
+  the ground, none that would catch a block's edge on the way. Its own side
+  keeps out of the blast's reach and no longer takes a low wall for cover
+  from it.
+
 ## X801
 
 - Mob AI: FBI agents and dummies move their legs in step with how fast and

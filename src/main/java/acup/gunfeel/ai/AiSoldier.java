@@ -373,9 +373,10 @@ public final class AiSoldier implements AiBrain {
     }
 
     /**
-     * A grenade it knows of to burst within 10 blocks of it (13 once it runs; one of its own side's: 15): it runs to
-     * the nearest place out of its reach or behind a block from it, and stays there till it bursts; then back to the fight, cover sought anew.
-     * Behind a block from it already, or with nowhere to run, it fights on where it is. Whether it runs.
+     * A grenade it knows of to burst within 10 blocks of it (13 once it runs; one of its own side's: 17, 19, and no
+     * block keeps that one off): it runs to the nearest place out of its reach or behind a block from it, and stays
+     * there till it bursts; then back to the fight, cover sought anew. Behind a block from it already, or with nowhere
+     * to run, it fights on where it is. Whether it runs.
      */
     private boolean dodge(AiBot bot, ServerLevel level, long tick) {
         AiGrenades.Danger dg = AiGrenades.any(level) ? AiGrenades.danger(level, bot, dodgeFrom == null ? AiGrenades.DANGER : AiGrenades.DANGER + 3) : null;
@@ -392,8 +393,8 @@ public final class AiSoldier implements AiBrain {
             return false;
         }
         Vec3 b = dg.burst();
-        // behind a block from it where it is: it stays and fights on
-        if (dodgeFrom == null && AiGrenades.behind(AiBots.voxels(level), b, bot.mob.getX(), bot.mob.getY(), bot.mob.getZ())) return false;
+        // behind a block from it where it is (not its own side's: AiGrenades.cover): it stays and fights on
+        if (dodgeFrom == null && AiGrenades.cover(AiBots.voxels(level), b, bot.mob.getX(), bot.mob.getY(), bot.mob.getZ(), dg.own())) return false;
         boolean first = dodgeFrom == null;
         if (first) {
             dodges++;
@@ -404,14 +405,14 @@ public final class AiSoldier implements AiBrain {
             dodgeCell = Long.MIN_VALUE;
         }
         // sought again once the burst has gone 2 blocks from where the refuge was sought from, or the refuge is in its
-        // reach now (not behind a block from it)
-        boolean moved = refugeFrom != null && refugeFrom.distanceToSqr(b) > 4
-                || dodgeCell != Long.MIN_VALUE && !AiGrenades.safe(AiBots.voxels(level), b, dodgeCell, dg.clear());
+        // reach now (not behind a block from it; its own side's: a block short of where it was sought, not at once)
+        boolean moved = refugeFrom != null && refugeFrom.distanceToSqr(b) > 4 || dodgeCell != Long.MIN_VALUE
+                && !AiGrenades.safe(AiBots.voxels(level), b, dodgeCell, dg.own() ? dg.clear() - 1 : dg.clear(), dg.own());
         dodgeFrom = b;
         if ((dodgeCell == Long.MIN_VALUE || moved) && tick >= nextRefuge && AiGrenades.mayRefuge(level, tick)) {
             nextRefuge = tick + REFUGE_AGAIN;
             refugeFrom = b;
-            long cell = AiGrenades.refuge(level, bot.mob, b, dg.clear(), dodgeTried);
+            long cell = AiGrenades.refuge(level, bot.mob, b, dg.clear(), dg.own(), dodgeTried);
             if (cell != Long.MIN_VALUE) {
                 dodgeCell = cell;
                 if (spot != null) drop(bot);

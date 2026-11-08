@@ -15,6 +15,7 @@ import com.hbm.items.weapon.grenade.ItemGrenadeUniversal;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
@@ -51,6 +52,11 @@ public final class AiGrenades {
      * from 13 and 15 blocks off where they stood, the battles)
      */
     static final double OWN_MARGIN = 2;
+    /**
+     * a mob running from its own side's grenade: to this far off it, blocks (no block keeps that one off: cover); a
+     * block past where it starts to run, so that the burst worked out again a little nearer does not send it on
+     */
+    static final double OWN_CLEAR = SAFE + OWN_MARGIN + 1;
     /** a mob running from a burst: to this far off it, or behind a block (2 of the blast's damage there), blocks */
     static final double CLEAR = 12;
     /** a burst this near: it runs (8 and more of the blast's damage), to CLEAR off or behind a block; blocks */
@@ -100,6 +106,15 @@ public final class AiGrenades {
         return !VoxelRay.clear(src, burst.x, burst.y + 0.3, burst.z, x, y + 0.9, z, Voxel.MOVE_MASK);
     }
 
+    /**
+     * Out of this burst's reach behind blocks: behind, but never from its own side's grenade, which must do it no harm
+     * at all (behind a low wall, the head hidden too, NTM's blast still hurt them a little: 0.3 at 15 blocks, 0.5 at
+     * 14.7, the battles); it keeps out of that one's reach instead
+     */
+    static boolean cover(VoxelRay.Source src, Vec3 burst, double x, double y, double z, boolean own) {
+        return !own && behind(src, burst, x, y, z);
+    }
+
         /** grenades a mob new to the AI carries */
     static int stock() {
         return Math.max(0, Math.min(8, Math.round(acup.gunfeel.ReaimTimes.number(KEY, 2F))));
@@ -131,8 +146,9 @@ public final class AiGrenades {
         float best = Float.NaN;
         double bestD = Double.MAX_VALUE;
         List<Throw> near = new ArrayList<>();
+        double[] land = new double[3];
         for (float p = PITCH_UP; p <= PITCH_DOWN; p += PITCH_STEP) {
-            Vec3 b = from(src, m, yaw, p, force, bounce, minY);
+            Vec3 b = rolled(src, m, yaw, p, force, bounce, minY, land);
             if (b == null) continue;
             near.add(new Throw(yaw, p, b));
             if (b.distanceTo(at) < bestD) {
@@ -144,7 +160,7 @@ public final class AiGrenades {
         for (float step = PITCH_STEP / 2; step >= PITCH_STEP / 4; step /= 2) {
             float mid = best;
             for (float p : new float[] {mid - step, mid + step}) {
-                Vec3 b = from(src, m, yaw, p, force, bounce, minY);
+                Vec3 b = rolled(src, m, yaw, p, force, bounce, minY, land);
                 if (b == null) continue;
                 near.add(new Throw(yaw, p, b));
                 if (b.distanceTo(at) < bestD) {
@@ -162,34 +178,64 @@ public final class AiGrenades {
         return null;
     }
 
-    /** a start this far off NTM's each way: the grenade's box, not its middle, bumps into a block's edge */
-    static final double BOX = 0.3;
+    /**
+     * NTM's grenade box: half its width, and its height over where it is (0.25 by 0.25), and a little more round it;
+     * blocks
+     */
+    static final double BOX_HALF = 0.125, BOX_HIGH = 0.25, BOX_MORE = 0.05;
+
+    /** the box's corners (and BOX_MORE) as starts off NTM's: the box, not its middle, bumps into a block's edge */
+    private static final double[][] CORNERS = new double[8][];
+
+    static {
+        int i = 0;
+        for (int sx = -1; sx <= 1; sx += 2)
+            for (int sz = -1; sz <= 1; sz += 2)
+                for (double y : new double[] {-BOX_MORE, BOX_HIGH + BOX_MORE})
+                    CORNERS[i++] = new double[] {sx * (BOX_HALF + BOX_MORE), y, sz * (BOX_HALF + BOX_MORE)};
+    }
 
     /**
-     * Whether the throw holds started a box's width off each way (the grenade's box clips a corner its middle passes:
-     * the battles, one burst 22 blocks short, among the thrower's own): each such flight bursts near the place too
+     * Whether the throw holds started from each of the box's corners (the grenade's box clips a corner its middle
+     * passes: the battles, one burst 22 blocks short, among the thrower's own; its box's corner caught a wall's top
+     * edge on its second tick, one off it each way alone passed over it): each such flight bursts near the place too
      * (LAND and 2 more), none near its own.
      */
     private static boolean steady(ServerLevel level, VoxelRay.Source src, Mob m, Throw t, Vec3 at, double force, double bounce, int minY) {
-        double[][] off = {{BOX, 0, 0}, {-BOX, 0, 0}, {0, BOX, 0}, {0, -BOX, 0}, {0, 0, BOX}, {0, 0, -BOX}};
-        for (double[] o : off) {
+        for (double[] o : CORNERS) {
             Vec3 b = from(src, m, t.yaw(), t.pitch(), force, bounce, minY, o[0], o[1], o[2]);
             if (b == null || b.distanceTo(at) > LAND + 2 || ownNear(level, m, b)) return false;
         }
         return true;
     }
 
-    private static @Nullable Vec3 from(VoxelRay.Source src, Mob m, float yaw, float pitch, double force, double bounce, int minY) {
-        return from(src, m, yaw, pitch, force, bounce, minY, 0, 0, 0);
+    /**
+     * A grenade that comes down rolls only so far past where it first hits a block before it bursts, blocks: past that
+     * its flight is not known (a flat throw sinks into the ground where it lands and stops dead or bounces back off
+     * the next block's side, NTM's box against the ground: bursts 5 and 19 blocks short, its own hit, the battles;
+     * a high one rolls on as worked out)
+     */
+    static final double ROLL = 2.5;
+
+    /** where a grenade thrown so bursts; null if it rolls more than ROLL past where it first hits a block */
+    private static @Nullable Vec3 rolled(VoxelRay.Source src, Mob m, float yaw, float pitch, double force, double bounce, int minY, double[] land) {
+        Vec3 b = from(src, m, yaw, pitch, force, bounce, minY, 0, 0, 0, null, land);
+        return b == null || !Double.isNaN(land[0]) && Math.hypot(b.x - land[0], b.z - land[2]) > ROLL ? null : b;
     }
 
     /** where a grenade thrown by the mob with this turn bursts (NTM's start: by its eye, a quarter block off; moved by o) */
     private static @Nullable Vec3 from(VoxelRay.Source src, Mob m, float yaw, float pitch, double force, double bounce, int minY, double ox, double oy,
             double oz) {
+        return from(src, m, yaw, pitch, force, bounce, minY, ox, oy, oz, null, null);
+    }
+
+    private static @Nullable Vec3 from(VoxelRay.Source src, Mob m, float yaw, float pitch, double force, double bounce, int minY, double ox, double oy,
+            double oz, @Nullable List<double[]> path, double @Nullable [] land) {
         double r = Math.toRadians(180F - yaw);
         double x = m.getX() + 0.25 * Math.cos(r) + ox, y = m.getY() + m.getEyeHeight() - 0.25 + oy, z = m.getZ() - 0.25 * Math.sin(r) + oz;
         double f = Math.toRadians(pitch), g = Math.toRadians(-yaw);
-        return burst(src, x, y, z, Math.sin(g) * Math.cos(f) * force, -Math.sin(f) * force, Math.cos(g) * Math.cos(f) * force, FUSE, -1, bounce, minY);
+        return burst(src, x, y, z, Math.sin(g) * Math.cos(f) * force, -Math.sin(f) * force, Math.cos(g) * Math.cos(f) * force, FUSE, -1, bounce, minY,
+                GRAVITY, DRAG, path, land);
     }
 
     /**
@@ -231,14 +277,30 @@ public final class AiGrenades {
     /** the same with other gravity and air (a tick's speed taken off, a tick's speed left) */
     static @Nullable Vec3 burst(VoxelRay.Source src, double x, double y, double z, double vx, double vy, double vz, int ticks, int armedAfter,
             double bounce, int minY, double gravity, double drag) {
+        return burst(src, x, y, z, vx, vy, vz, ticks, armedAfter, bounce, minY, gravity, drag, null, null);
+    }
+
+    /**
+     * The same, each tick's start put down in path (x y z, its speed: the stands), where it first hits a block in land
+     * (x y z; NaN if it never does)
+     */
+    static @Nullable Vec3 burst(VoxelRay.Source src, double x, double y, double z, double vx, double vy, double vz, int ticks, int armedAfter,
+            double bounce, int minY, double gravity, double drag, @Nullable List<double[]> path, double @Nullable [] land) {
         double[] hit = new double[2];
         boolean landed = false;
+        if (land != null) java.util.Arrays.fill(land, Double.NaN);
         for (int t = 0; t < ticks; t++) {
+            if (path != null) path.add(new double[] {x, y, z, vx, vy, vz});
             if (y < minY) return null;
             if (first(src, x, y, z, x + vx, y + vy, z + vz, hit)) {
                 double s = hit[0];
                 int axis = (int) hit[1];
                 double hx = x + vx * s, hy = y + vy * s, hz = z + vz * s;
+                if (land != null && !landed) {
+                    land[0] = hx;
+                    land[1] = hy;
+                    land[2] = hz;
+                }
                 if (armedAfter >= 0 && t + 1 >= armedAfter) return new Vec3(hx, hy, hz);
                 double[] p = {hx, hy, hz}, v = {vx, vy, vz};
                 for (int a = 0; a < 3; a++) {
@@ -331,6 +393,59 @@ public final class AiGrenades {
         m.setXRot(t.pitch());
         EntityGrenadeUniversal g = new EntityGrenadeUniversal(level, m, ItemGrenadeUniversal.make(EnumGrenadeShell.FRAG, EnumGrenadeFilling.HE, EnumGrenadeFuze.S3));
         level.addFreshEntity(g);
+        if (!trace) return;
+        // the stands: the flight it was planned to take, to set against the one it takes
+        traced++;
+        joined(level, g);
+        List<double[]> path = new ArrayList<>();
+        from(AiBots.voxels(level), m, t.yaw(), t.pitch(), EnumGrenadeShell.FRAG.getYeetForce(), EnumGrenadeShell.FRAG.getBounce(), level.getMinY(), 0, 0, 0, path, null);
+        for (Live l : LEVELS.get(level))
+            if (l.e == g) {
+                l.path = path;
+                l.start = String.format(java.util.Locale.ROOT, "thrown from %.2f %.2f %.2f (%s, eye %.2f), grenade at %.2f %.2f %.2f moving %.3f %.3f %.3f, planned %.2f %.2f %.2f"
+                        + " moving %.3f %.3f %.3f", m.getX(), m.getY(), m.getZ(), m.getPose(), m.getEyeHeight(), g.getX(), g.getY(), g.getZ(), g.getDeltaMovement().x,
+                        g.getDeltaMovement().y, g.getDeltaMovement().z, path.get(0)[0], path.get(0)[1], path.get(0)[2], path.get(0)[3], path.get(0)[4], path.get(0)[5]);
+            }
+    }
+
+    /** the stands: thrown grenades' planned flights set against the ones they take */
+    static boolean trace;
+    /** the stands: grenades thrown so far, and how each one that left its planned flight was thrown and left it */
+    static int traced;
+    static final List<String> partings = new ArrayList<>();
+
+    /** the stands: how the thrower's grenade going off left its planned flight; null if it is not known */
+    static @Nullable String parted(ServerLevel level, net.minecraft.world.entity.Entity owner) {
+        List<Live> l = LEVELS.get(level);
+        Live best = null;
+        if (l != null) for (Live g : l) if (g.e.getOwner() == owner && (best == null || g.e.tickCount > best.e.tickCount)) best = g;
+        return best == null || best.start == null ? null : best.start + "; " + (best.parted == null ? "kept to it" : best.parted);
+    }
+
+    /** the stands: the first tick the grenade is half a block off its planned flight, and what is there */
+    private static void follow(ServerLevel level, Live g) {
+        if (g.path == null || g.parted != null) return;
+        int k = g.e.tickCount;
+        if (k <= 0 || k >= g.path.size()) return;
+        double[] p = g.path.get(k), q = g.path.get(k - 1);
+        Vec3 at = g.e.position(), v = g.e.getDeltaMovement();
+        // a tick either way: when in the server's tick its own ticks are counted is not asked
+        for (int j = Math.max(0, k - 1); j <= Math.min(g.path.size() - 1, k + 1); j++) {
+            double[] o = g.path.get(j);
+            if (at.distanceToSqr(o[0], o[1], o[2]) < 0.25) return;
+        }
+        StringBuilder near = new StringBuilder();
+        BlockPos c = BlockPos.containing(at);
+        for (BlockPos b : BlockPos.betweenClosed(c.offset(-1, -1, -1), c.offset(1, 1, 1))) {
+            var st = level.getBlockState(b);
+            if (st.isAir()) continue;
+            near.append(String.format(java.util.Locale.ROOT, " %d %d %d %s%s", b.getX(), b.getY(), b.getZ(), BuiltInRegistries.BLOCK.getKey(st.getBlock()).getPath(),
+                    st.getCollisionShape(level, b).isEmpty() ? "(no box)" : Voxel.open(AiBots.voxels(level).voxel(b.getX(), b.getY(), b.getZ())) ? "(open to us)" : ""));
+        }
+        g.parted = String.format(java.util.Locale.ROOT, "tick %d it is at %.2f %.2f %.2f moving %.3f %.3f %.3f, planned at %.2f %.2f %.2f moving %.3f %.3f %.3f"
+                + " (a tick before %.2f %.2f %.2f); blocks round it:%s", k, at.x, at.y, at.z, v.x, v.y, v.z, p[0], p[1], p[2], p[3], p[4], p[5], q[0], q[1], q[2],
+                near.length() == 0 ? " none" : near);
+        partings.add(g.start + "; " + g.parted);
     }
 
     // ------------------------------------------------------------------ grenades in the air
@@ -345,6 +460,9 @@ public final class AiGrenades {
         @Nullable Vec3 burst;
         long at = Long.MIN_VALUE;
         final IntOpenHashSet known = new IntOpenHashSet();
+        /** the stands: its planned flight (each tick's start), how it was thrown, where it first left that flight */
+        @Nullable List<double[]> path;
+        @Nullable String start, parted;
 
         Live(net.minecraft.world.entity.projectile.Projectile e) {
             this.e = e;
@@ -405,6 +523,7 @@ public final class AiGrenades {
             return;
         }
         long now = level.getGameTime();
+        if (trace) for (Live g : l) follow(level, g);
         for (Live g : l) if (g.at == Long.MIN_VALUE || now - g.at >= (g.e instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 ? 1 : AGAIN)) {
             g.at = now;
             g.burst = burstOf(level, g.e);
@@ -444,14 +563,14 @@ public final class AiGrenades {
                 f == EnumGrenadeFuze.IMPACT ? Math.max(0, IMPACT_ARMED - e.getTimer()) : -1, e.getShell().getBounce(), level.getMinY());
     }
 
-    /** a burst to run from, and how far off it is out of its reach */
-    record Danger(Vec3 burst, double clear) {
+    /** a burst to run from, how far off it is out of its reach, and whether it is its own side's (no harm at all) */
+    record Danger(Vec3 burst, double clear, boolean own) {
     }
 
     /**
      * The burst nearest this mob within so many blocks of it, of a grenade it knows of: one it has seen (in plain sight
      * within SEE of its eye) or heard land (within HEAR), or one of its own side's (it saw it thrown; its own come
-     * near the place it was thrown at, so it keeps out of all its reach: SAFE); null if none.
+     * near the place it was thrown at, so it keeps out of all its reach: SAFE and OWN_MARGIN); null if none.
      */
     static @Nullable Danger danger(ServerLevel level, AiBot bot, double within) {
         long t0 = System.nanoTime();
@@ -474,9 +593,15 @@ public final class AiGrenades {
         for (Live g : l) {
             if (g.burst == null || g.e.isRemoved()) continue;
             boolean own = g.e.getOwner() instanceof net.minecraft.world.entity.LivingEntity o && (o == m || AiTeams.own(m, o));
-            // its own side's: out to a block past SAFE (the blast's edge), 2 more once it runs (no back and forth)
-            double r = own ? SAFE + 1 + (within > DANGER ? 2 : 0) : within;
+            // its own side's: out to SAFE and OWN_MARGIN (as far as a throw keeps it from its own), 2 more once it runs
+            // (no back and forth); it runs to a block past that (OWN_CLEAR)
+            double r = own ? SAFE + OWN_MARGIN + (within > DANGER ? 2 : 0) : within;
             double d = m.distanceToSqr(g.burst);
+            // its own side's: where it is on its way to as well (one went to other cover there after the throw and was
+            // hit, too late to turn back: the battles)
+            long goal = bot.mover.goal();
+            if (own && goal != Long.MIN_VALUE && !bot.mover.arrived())
+                d = Math.min(d, g.burst.distanceToSqr(BlockPos.getX(goal) + 0.5, BlockPos.getY(goal), BlockPos.getZ(goal) + 0.5));
             if (d >= r * r || d >= best) continue;
             int id = m.getId();
             if (!own && !g.known.contains(id)) {
@@ -486,7 +611,7 @@ public final class AiGrenades {
                 g.known.add(id);
             }
             best = d;
-            near = new Danger(g.burst, own ? SAFE + 2 : CLEAR);
+            near = new Danger(g.burst, own ? OWN_CLEAR : CLEAR, own);
         }
         return near;
     }
@@ -497,32 +622,36 @@ public final class AiGrenades {
         return l != null && !l.isEmpty();
     }
 
-    /**
-     * Where to run from a burst here: the nearest cell (up to 17 blocks off, round it) clear off it or behind a
-     * block from it, none tried already (out of reach); Long.MIN_VALUE if none is.
-     */
     /** whether this cell is out of the burst's reach (clear) or behind a block from it */
-    static boolean safe(VoxelRay.Source src, Vec3 burst, long cell, double clear) {
+    static boolean safe(VoxelRay.Source src, Vec3 burst, long cell, double clear, boolean own) {
         double cx = BlockPos.getX(cell) + 0.5, cy = BlockPos.getY(cell), cz = BlockPos.getZ(cell) + 0.5;
-        return burst.distanceToSqr(cx, cy, cz) >= clear * clear || behind(src, burst, cx, cy, cz);
+        return burst.distanceToSqr(cx, cy, cz) >= clear * clear || cover(src, burst, cx, cy, cz, own);
     }
 
-    static long refuge(ServerLevel level, Mob m, Vec3 burst, double clear, it.unimi.dsi.fastutil.longs.LongSet tried) {
+    /**
+     * Where to run from a burst here: the nearest cell (up to 17 blocks off, round it; 20 from its own side's) clear
+     * off it or behind a block from it (cover), none tried already, none nearer the burst unless behind a block;
+     * Long.MIN_VALUE if none is.
+     */
+    static long refuge(ServerLevel level, Mob m, Vec3 burst, double clear, boolean own, it.unimi.dsi.fastutil.longs.LongSet tried) {
         long t0 = System.nanoTime();
         try {
-            return refugeNow(level, m, burst, clear, tried);
+            return refugeNow(level, m, burst, clear, own, tried);
         } finally {
             liveNanos += System.nanoTime() - t0;
         }
     }
 
-    private static long refugeNow(ServerLevel level, Mob m, Vec3 burst, double clear, it.unimi.dsi.fastutil.longs.LongSet tried) {
+    private static final double[] RINGS = {2.5, 4.5, 6.5, 9, 11.5, 14, 17}, OWN_RINGS = {2.5, 4.5, 6.5, 9, 11.5, 14, 17, 20};
+
+    private static long refugeNow(ServerLevel level, Mob m, Vec3 burst, double clear, boolean own, it.unimi.dsi.fastutil.longs.LongSet tried) {
         TacticalMap map = TacticalMap.of(level);
         VoxelRay.Source src = AiBots.voxels(level);
         long here = m.blockPosition().asLong(), best = Long.MIN_VALUE;
         double bestScore = Double.MAX_VALUE;
         double away = Math.atan2(m.getZ() - burst.z, m.getX() - burst.x);
-        for (double far : new double[] {2.5, 4.5, 6.5, 9, 11.5, 14, 17}) {
+        // its own side's: one more ring, OWN_CLEAR off the burst being past the last from a place by it
+        for (double far : own ? OWN_RINGS : RINGS) {
             for (int k = 0; k < 16; k++) {
                 double a = away + Math.PI * 2 * k / 16;
                 long cell = PathSearch.snap(map, m.getX() + Math.cos(a) * far, m.getY(), m.getZ() + Math.sin(a) * far);
@@ -531,7 +660,7 @@ public final class AiGrenades {
                 double dx = cx - burst.x, dy = cy - burst.y, dz = cz - burst.z;
                 double d2 = dx * dx + dy * dy + dz * dz;
                 boolean out = d2 >= clear * clear;
-                boolean behind = behind(src, burst, cx, cy, cz);
+                boolean behind = cover(src, burst, cx, cy, cz, own);
                 if (!out && !behind) continue;
                 // not past the burst to get there: no nearer to it than it is now unless behind a block from it
                 if (!behind && d2 < m.distanceToSqr(burst)) continue;
