@@ -29,6 +29,8 @@ public final class AiBot {
     public final AiStoop stoop = new AiStoop();
     /** what it does with what it knows; null: it only senses (a stand drives it) */
     public @Nullable AiBrain brain;
+    /** grenades it has left (AiGrenades) */
+    public int grenades;
     /** a player within aiRadius: it thinks; else it stands still */
     boolean active = true;
 
