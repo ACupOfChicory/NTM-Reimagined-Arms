@@ -31,6 +31,8 @@ public final class AiGunner {
     private final Mob mob;
     public final AiAmmo ammo;
     private @Nullable Vec3 aim;
+    /** how far up and down from the aim the part it aims at reaches (the trigger's gate), blocks */
+    private double halfHeight = AiAim.HALF_HEIGHT;
     private boolean wantFire, wantReload, held, reloadHeld;
     /** it runs this tick (AiMover.runs): its body faces its path, it does not shoot */
     boolean runs;
@@ -85,6 +87,7 @@ public final class AiGunner {
             sight.retarget();
         }
         aim = at;
+        halfHeight = AiAim.HALF_HEIGHT;
     }
 
     /**
@@ -92,13 +95,23 @@ public final class AiGunner {
      * its skill's lag ago (AiAim).
      */
     public void track(int id, Vec3 chest, long tick) {
+        track(id, chest, 0, AiAim.HALF_HEIGHT, tick);
+    }
+
+    /**
+     * The same, aiming up blocks above the chest (minus: below) at a part of the body halfHeight blocks up and down
+     * (its head over a wall, its legs under a beam). The eye follows the chest still; a new part is a new spot, which
+     * the hand turns to at its next correction, a little off as ever.
+     */
+    public void track(int id, Vec3 chest, double up, double halfHeight, long tick) {
         AiSkill skill = AiSkill.current();
         if (!tracking || id != tracked) sight.retarget();
         tracking = true;
         tracked = id;
         sight.see(id, chest.x, chest.y, chest.z, tick, skill, mob.getX(), mob.getZ());
         double flight = LEAVES + chest.distanceTo(mob.getEyePosition()) / bulletSpeed();
-        aim = sight.lead(tick, skill, flight) ? new Vec3(sight.spotX, sight.spotY, sight.spotZ) : chest;
+        aim = (sight.lead(tick, skill, flight) ? new Vec3(sight.spotX, sight.spotY, sight.spotZ) : chest).add(0, up, 0);
+        this.halfHeight = halfHeight;
     }
 
     public void fire(boolean on) {
@@ -402,7 +415,7 @@ public final class AiGunner {
             y = sight.yaw;
             p = sight.pitch;
             // on target as far as it knows: a kick it has not noticed yet left out
-            on = AiAim.onTarget(skill, eye.x, eye.y, eye.z, sight.seenYaw, sight.seenPitch, aim.x, aim.y, aim.z);
+            on = AiAim.onTarget(skill, eye.x, eye.y, eye.z, sight.seenYaw, sight.seenPitch, aim.x, aim.y, aim.z, halfHeight);
         }
         face(y, p, skill);
         return on;

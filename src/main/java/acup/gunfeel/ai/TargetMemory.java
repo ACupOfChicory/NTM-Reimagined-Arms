@@ -26,6 +26,8 @@ public final class TargetMemory {
     public static final class Contact {
         public final int id;
         public State state = State.GLIMPSED;
+        /** the parts of it the last look saw (Senses.HEAD, CHEST, LEGS; 0: none yet) */
+        public int parts;
         /** where it was last seen (feet), and its motion then, blocks per tick */
         public double x, y, z, vx, vz;
         public long seenTick = Long.MIN_VALUE;
@@ -162,6 +164,39 @@ public final class TargetMemory {
         }
     }
 
+    /** the tick of its last hurt that someone did (heard where they stand); every hurt sets it, MIN_VALUE for none */
+    private long shotTick = Long.MIN_VALUE;
+
+    public void shot(long tick) {
+        shotTick = tick;
+    }
+
+    /** whether the hurt heard at this tick was someone's doing, heard where they stand (not a blast's place) */
+    public boolean wasShot(long tick) {
+        return shotTick == tick;
+    }
+
+    /**
+     * Shot from out of sight with the one target it knows of out of sight too: that one shot, and is last known where
+     * the shot came from (lost there now: the wait, the look out and the search start over from there). With more
+     * than one out of sight, or one in sight, it cannot tell who, and nothing moves.
+     */
+    public void shotFrom(double x, double y, double z, long tick) {
+        Contact only = null;
+        for (Contact c : contacts) {
+            if (!c.known()) continue;
+            if (c.state == State.VISIBLE || only != null) return;
+            only = c;
+        }
+        if (only == null) return;
+        only.state = State.LOST;
+        only.x = only.lostX = x;
+        only.y = only.lostY = y;
+        only.z = only.lostZ = z;
+        only.vx = only.vz = 0;
+        only.lostTick = tick;
+    }
+
     /** a known target's state moves on with time: LOST to SEARCH to forgotten */
     public void update(long tick) {
         for (int i = contacts.size() - 1; i >= 0; i--) {
@@ -218,8 +253,17 @@ public final class TargetMemory {
 
     // ------------------------------------------------------------------ what to act on
 
+    /** the id of the target {@link #focus} gave last (its looks see all its parts), -1 for none */
+    public int focusId = -1;
+
     /** the target to deal with: the nearest in sight, else the one lost last; null when it knows of none */
     public @Nullable Contact focus(double fromX, double fromZ) {
+        Contact f = pickFocus(fromX, fromZ);
+        focusId = f == null ? -1 : f.id;
+        return f;
+    }
+
+    private @Nullable Contact pickFocus(double fromX, double fromZ) {
         Contact best = null;
         double bestD = Double.MAX_VALUE;
         for (Contact c : contacts)

@@ -172,6 +172,11 @@ public final class AiBots {
     /** for the stands: every AI mob thinks, players near or not */
     static boolean awake;
 
+    /** the stands (the server stand's AI phases among them): every AI mob thinks, players near or not */
+    public static void wakeAll(boolean on) {
+        awake = on;
+    }
+
     /** the stands: look the targets up now, not within the second */
     public static void refreshTargets(ServerLevel level) {
         PerLevel l = LEVELS.computeIfAbsent(level, PerLevel::new);
@@ -227,6 +232,23 @@ public final class AiBots {
 
     /** an AI mob's tick, from its goal: senses and memory, its brain, its legs and its gun */
     static void tickBot(AiBot bot) {
+        long t0 = System.nanoTime();
+        tickBot0(bot);
+        tickNanos += System.nanoTime() - t0;
+    }
+
+    /** the server stand: time in AI mobs' ticks (their guns' NTM work too), and in their looks; server thread */
+    public static long tickNanos;
+
+    public static long lookNanos() {
+        return Senses.nanos;
+    }
+
+    public static long looks() {
+        return Senses.looks;
+    }
+
+    private static void tickBot0(AiBot bot) {
         if (!bot.active || !acup.gunfeel.compat.Feature.MOB_AI.on() || !(bot.mob.level() instanceof ServerLevel level)) return;
         PerLevel l = LEVELS.get(level);
         if (l == null) return;
@@ -377,7 +399,11 @@ public final class AiBots {
         }
         Vec3 at = from != null ? from.position() : source.getSourcePosition();
         if (at == null) return;
-        hear(b, at.x, at.y, at.z, at.distanceTo(mob.position()), mob.level().getGameTime(), true, true, 0.15, 2);
+        long tick = mob.level().getGameTime();
+        hear(b, at.x, at.y, at.z, at.distanceTo(mob.position()), tick, true, true, 0.15, 2);
+        // hurt by someone (a bullet, a beam, an arrow, a punch, their grenade): heard where they stand, and they may be
+        // a target it lost; a blast no one set off is heard where it went off, and is not them
+        b.memory.shot(from != null ? tick : Long.MIN_VALUE);
     }
 
     /** error: the ear's error as a part of the distance (at least min blocks), across */
