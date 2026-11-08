@@ -45,19 +45,23 @@ Values are read the way PlayerAnimationLib reads them:
 - The hips move with UAL's pelvis, scaled by leg length (12 px per UAL leg). Their height comes from the ground:
   the lowest corner of the six boxes rises above the ground as far as UAL's lowest joint rises above its rest
   height.
-- Keys are dropped where linear interpolation stays within 0.5° and 0.05 px of every 30 fps frame.
+- Where straight interpolation of the Euler angles between two 30 fps frames strays more than 2° from the pose
+  halfway (a fast swing), frames are added in between, halving the step up to 4 times. Then keys are dropped where
+  linear interpolation stays within 0.5° and 0.05 px of every frame.
 
 ## The check
 
 For every frame the parts are rebuilt from the written keys and compared with the UAL bones:
 
-- `rebuild`: the part's direction against shoulder→wrist (hip→ankle), the target itself. At most 0.85° over all
-  86 clips: what the Euler angles and dropped keys cost.
+- `rebuild`: the part's direction against shoulder→wrist (hip→ankle), the target itself; `rebuild_turn`: the whole
+  turn, twist included, against the solved one; `mid`: the same halfway between two frames, where a player
+  interpolates. Together: what the Euler angles and dropped keys cost.
 - `arm_up`, `arm_fore`, `elbow` (and `leg_*`, `knee`): the part against the upper and lower bones, and the bend
   between them. Minecraft limbs do not bend, so this is what is lost.
 - `hand_px`: how much shorter shoulder→wrist is than a straight arm, in pixels of a 10 px arm. The hand ends up this
-  far beyond where UAL has it.
-- `hip_px`, `ankle_px`: the hips' height and the ankle's place against UAL's, in pixels.
+  far beyond where UAL has it. Only the arm's length: the clavicle's shift is not counted.
+- `hip_px`, `ankle_px`: the hips' height and the ankle's place against UAL's, in pixels, taken from the solved
+  pose before the keys are written (dropping keys moves it by at most 0.05 px).
 
 A clip's upper half is graded by `hand_px` (p95 ≤ 1 px good, ≤ 2.5 px fair), its lower half by the larger of
 `hip_px` and `ankle_px` (≤ 1.5 px, ≤ 3 px).

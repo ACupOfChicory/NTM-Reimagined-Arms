@@ -35,7 +35,8 @@ def slerp(a, b, t):
 
 class Glb:
     def __init__(self, path):
-        raw = open(path, "rb").read()
+        with open(path, "rb") as f:
+            raw = f.read()
         magic, _, _ = struct.unpack("<III", raw[:12])
         assert magic == 0x46546C67, "not a glb"
         off = 12
@@ -122,8 +123,8 @@ class Clip:
             ts = glb.accessor(sm["input"])[:, 0]
             vs = glb.accessor(sm["output"])
             interp = sm.get("interpolation", "LINEAR")
-            if interp == "CUBICSPLINE":
-                vs = vs[1::3]
+            if interp not in ("LINEAR", "STEP"):
+                raise ValueError(f"{anim['name']}: {interp} samplers are not read")
             self.channels.append((ch["target"]["node"], ch["target"]["path"], ts, vs, interp))
             self.length = max(self.length, float(ts[-1]))
             self.times.update(np.round(ts, 5).tolist())

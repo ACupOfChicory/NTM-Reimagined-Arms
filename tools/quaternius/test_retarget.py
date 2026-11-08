@@ -80,6 +80,34 @@ class Poses(unittest.TestCase):
         self.assertAlmostEqual(e[0], -90.0, delta=5.0)
         self.assertLess(abs(e[2]), 10.0)  # no roll: palm faces in, as vanilla's held-out arm
 
+    def test_split_halves_add_up_to_the_whole(self):
+        # _lower carries `root`; a part's position in a half plus root is its position in the whole clip
+        clip = self.g.clip("Crouch_Idle_Loop")
+        chans, _, _, _, times = r.convert(self.sk, clip)
+        whole = r.bedrock(times, chans, r.PARTS, clip.length, True)
+        upper = r.bedrock(times, chans, r.UPPER, clip.length, True, split=True)
+        lower = r.bedrock(times, chans, r.LOWER + ["root"], clip.length, True, split=True)
+        self.assertIn("root", lower["bones"])
+        self.assertEqual(set(upper["bones"]) | set(lower["bones"]) - {"root"}, set(whole["bones"]))
+
+        def at(track, t):
+            ks = sorted(track, key=float)
+            ts = [float(k) for k in ks]
+            vs = np.array([track[k]["post"] for k in ks])
+            return np.array([np.interp(t, ts, vs[:, i]) for i in range(3)])
+
+        root = lower["bones"]["root"]["position"]
+        for part, half in (("body", upper), ("right_arm", upper), ("left_leg", lower)):
+            for t in np.linspace(0, clip.length, 17):
+                got = at(half["bones"][part]["position"], t) + at(root, t)
+                want = at(whole["bones"][part]["position"], t)
+                self.assertLess(np.max(np.abs(got - want)), 0.15, (part, t))
+
+    def test_fast_swing_follows_between_samples(self):
+        clip = self.g.clip("Melee_Hook") if "Melee_Hook" in self.g.anims else self.g.clip("Punch_Cross")
+        _, st, _, _, _ = r.convert(self.sk, clip)
+        self.assertLess(max(st["mid"]), 3.0)
+
     def test_death_ends_lying(self):
         clip = self.g.clip("Death01")
         out = self.solve("Death01", clip.length)

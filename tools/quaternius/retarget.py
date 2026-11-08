@@ -303,23 +303,51 @@ def pick_legs(sk, clip):
     return best[1]
 
 
-def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle"):
-    times = clip.times
-    frames, roots, poses, legerr = [], [], [], []
-    prev = {}
-    for t in times:
-        p = sk.pose(clip.world(t))
-        out, root = sk.solve(p, legs)
-        legerr.append(leg_errors(sk, p, out))
-        f = {}
-        for part in PARTS:
-            piv, m = out[part]
-            e = mat_to_euler(m, prev.get(part))
-            prev[part] = e
-            f[part] = (piv - PIVOT[part], e, piv - root - PIVOT[part])
-        frames.append(f)
-        roots.append(root)
-        poses.append(p)
+def mat_angle(a, b):
+    """Angle of the rotation taking a onto b, degrees."""
+    c = (np.trace(a.T @ b) - 1.0) / 2.0
+    return math.degrees(math.acos(max(-1.0, min(1.0, c))))
+
+
+def solve_frame(sk, clip, t, legs, prev):
+    """One time -> (frame, root, pose, solved matrices); Euler angles follow `prev`."""
+    p = sk.pose(clip.world(t))
+    out, root = sk.solve(p, legs)
+    f, mats = {}, {}
+    for part in PARTS:
+        piv, m = out[part]
+        e = mat_to_euler(m, prev.get(part) if prev else None)
+        f[part] = (piv - PIVOT[part], e, piv - root - PIVOT[part])
+        mats[part] = m
+    return {"t": t, "f": f, "root": root, "p": p, "m": mats, "legerr": leg_errors(sk, p, out)}
+
+
+def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle", mid_tol=2.0, depth=4):
+    """mid_tol: where Euler interpolation between two 30 fps samples strays further (a fast swing), samples
+    are added in between, halving the step up to `depth` times."""
+    def follow(a, t):
+        return solve_frame(sk, clip, t, legs, {k: v[1] for k, v in a["f"].items()})
+
+    def refine(a, t, d):
+        """Samples after `a` up to time t, each solved from its left neighbour."""
+        b = follow(a, t)
+        tm = (a["t"] + t) / 2
+        mid = follow(a, tm)
+        err = max(mat_angle(euler_to_mat((a["f"][k][1] + b["f"][k][1]) / 2), mid["m"][k]) for k in PARTS)
+        if err <= mid_tol or d >= depth:
+            return [b]
+        left = refine(a, tm, d + 1)
+        return left + refine(left[-1], t, d + 1)
+
+    dense = [solve_frame(sk, clip, clip.times[0], legs, None)]
+    for t in clip.times[1:]:
+        dense += refine(dense[-1], t, 0)
+    times = [d["t"] for d in dense]
+    frames = [d["f"] for d in dense]
+    roots = [d["root"] for d in dense]
+    poses = [d["p"] for d in dense]
+    legerr = [d["legerr"] for d in dense]
+    solved = [d["m"] for d in dense]
 
     chans = {}
     for part in PARTS:
@@ -332,10 +360,11 @@ def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle"):
             "position_rel": (pr, reduce_keys(times, pr, pos_tol)),
         }
     rootv = np.array([r * np.array([1, -1, 1]) for r in roots])
-    chans["root"] = {"position": (rootv, reduce_keys(times, rootv, pos_tol))}
+    # only the split halves carry it (the whole clip has the shift in each part)
+    chans["root"] = {"position_rel": (rootv, reduce_keys(times, rootv, pos_tol))}
 
     # --- check: rebuild each part from the written keys, compare with UAL bones.
-    stats = {k: [] for k in ("rebuild", "arm_up", "arm_fore", "elbow", "leg_up", "leg_low", "knee",
+    stats = {k: [] for k in ("rebuild", "rebuild_turn", "mid", "arm_up", "arm_fore", "elbow", "leg_up", "leg_low", "knee",
                              "hand_px", "foot_px", "body", "body_twist", "head")}
     stats["hip_px"] = [e[0] for e in legerr]
     stats["ankle_px"] = [e[1] for e in legerr]
@@ -345,12 +374,21 @@ def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle"):
         for part in PARTS:
             rv, keys = chans[part]["rotation"]
             m[part] = euler_to_mat(interp(times, rv, keys, t))
+            stats["rebuild_turn"].append(mat_angle(m[part], solved[fi][part]))
+        if fi:
+            # halfway to the previous sample: what a player sees between keys
+            tm = (times[fi - 1] + t) / 2
+            pm = solve_frame(sk, clip, tm, legs, None)
+            for part in PARTS:
+                rv, keys = chans[part]["rotation"]
+                stats["mid"].append(mat_angle(euler_to_mat(interp(times, rv, keys, tm)), pm["m"][part]))
         for part, (a, b, c) in LIMB.items():
             d_up = p["P"][b] - p["P"][a]
             d_lo = p["P"][c] - p["P"][b]
             d_all = p["P"][c] - p["P"][a]
             axis = m[part] @ Y
-            stats["rebuild"].append(angle(axis, d_all))
+            target = d_up if (legs == "thigh" and part.endswith("leg")) else d_all
+            stats["rebuild"].append(angle(axis, target))
             arm = part.endswith("arm")
             stats["arm_up" if arm else "leg_up"].append(angle(axis, d_up))
             stats["arm_fore" if arm else "leg_low"].append(angle(axis, d_lo))
@@ -367,8 +405,8 @@ def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle"):
         hf = sk.delta(p, "Head") @ np.array([0.0, 0.0, -1.0])
         stats["head"].append(angle(m["head"] @ np.array([0.0, 0.0, -1.0]), hf))
 
-    nkeys = sum(len(ch[k][1]) for ch in chans.values() for k in ch)
-    return chans, stats, len(times), nkeys
+    nkeys = sum(len(chans[part][k][1]) for part in PARTS for k in ("rotation", "position"))
+    return chans, stats, len(times), nkeys, times
 
 
 def bedrock(times, chans, parts, length, loop, split=False):
@@ -411,7 +449,7 @@ def main():
         for name in g.anims:
             clip = g.clip(name)
             legs = pick_legs(sk, clip)
-            chans, st, nframes, nkeys = convert(sk, clip, legs=legs)
+            chans, st, nframes, nkeys, times = convert(sk, clip, legs=legs)
             gu, gl, eu, el = grades(st)
             q = {k: (float(np.mean(v)), float(np.percentile(v, 95)), float(np.max(v))) for k, v in st.items()}
             rows.append({"pack": tag, "clip": name, "length": clip.length, "frames": nframes, "keys": nkeys,
@@ -420,9 +458,9 @@ def main():
             if name in SELECTED[tag]:
                 loop = name.endswith("_Loop")
                 key = name.lower()
-                anims[key] = bedrock(clip.times, chans, PARTS, clip.length, loop)
-                anims[key + "_upper"] = bedrock(clip.times, chans, UPPER, clip.length, loop, split=True)
-                anims[key + "_lower"] = bedrock(clip.times, chans, LOWER + ["root"], clip.length, loop, split=True)
+                anims[key] = bedrock(times, chans, PARTS, clip.length, loop)
+                anims[key + "_upper"] = bedrock(times, chans, UPPER, clip.length, loop, split=True)
+                anims[key + "_lower"] = bedrock(times, chans, LOWER + ["root"], clip.length, loop, split=True)
         doc = {"format_version": "1.8.0", "animations": anims}
         with open(os.path.join(out, f"{tag.lower()}.animation.json"), "w") as f:
             json.dump(doc, f, separators=(",", ":"), ensure_ascii=False)
@@ -434,7 +472,7 @@ def main():
         s = r["stats"]
         print(f"{r['pack']} {r['clip']:24s} {'*' if r['selected'] else ' '} верх {r['upper']:7s} {r['hand_p95_px']:4.1f}px "
               f"низ {r['lower']:7s} {r['legs_p95_px']:4.1f}px ({r['legs']:5s}) "
-              f"keys {r['keys']:5d}/{r['frames'] * 19:5d} rebuild max {s['rebuild'][2]:5.2f}° "
+              f"keys {r['keys']:5d}/{r['frames'] * 12:5d} rebuild max {s['rebuild'][2]:5.2f}° turn {s['rebuild_turn'][2]:5.2f}° mid {s['mid'][2]:5.2f}° "
               f"elbow p95 {s['elbow'][1]:5.1f}° "
               f"knee p95 {s['knee'][1]:5.1f}° "
               f"body {s['body'][2]:4.1f}° twist {s['body_twist'][1]:4.1f}° head {s['head'][2]:4.1f}°")
