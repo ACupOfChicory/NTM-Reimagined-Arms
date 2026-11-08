@@ -353,6 +353,83 @@ public final class SmokeGrid {
         return h;
     }
 
+    // ---- stirred: a bullet through the cloud, a blast near it (SmokeClouds.stirLine, stirBlast)
+
+    /**
+     * A bullet's path through the cloud, box coordinates in blocks: every cell it crosses keeps {@code keep} of what it
+     * has and the cells next to them {@code keepNear}, each once however the path runs. The same on every side.
+     */
+    public void stirLine(double ax, double ay, double az, double bx, double by, double bz, float keep, float keepNear) {
+        double dx = bx - ax, dy = by - ay, dz = bz - az;
+        double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        int n = (int) Math.min(256, Math.ceil(len * 4.0));
+        long[] hit = new long[closed.length];
+        for (int s = 0; s <= n; s++) {
+            double t = n == 0 ? 0.0 : s / (double) n;
+            int x = (int) Math.floor(ax + dx * t), y = (int) Math.floor(ay + dy * t), z = (int) Math.floor(az + dz * t);
+            if (inside(x, y, z)) {
+                int i = index(x, y, z);
+                hit[i >>> 6] |= 1L << i;
+            }
+        }
+        long[] near = new long[closed.length];
+        for (int i = 0; i < CELLS; i++) {
+            if ((hit[i >>> 6] & 1L << i) == 0L) continue;
+            int x = i % SX, z = i / SX % SZ, y = i / (SX * SZ);
+            for (int f = 0; f < 6; f++) {
+                int nx = x + (f == 0 ? 1 : f == 1 ? -1 : 0), ny = y + (f == 2 ? 1 : f == 3 ? -1 : 0), nz = z + (f == 4 ? 1 : f == 5 ? -1 : 0);
+                if (!inside(nx, ny, nz)) continue;
+                int j = index(nx, ny, nz);
+                if ((hit[j >>> 6] & 1L << j) == 0L) near[j >>> 6] |= 1L << j;
+            }
+        }
+        for (int i = 0; i < CELLS; i++) {
+            if (d[i] == 0F) continue;
+            if ((hit[i >>> 6] & 1L << i) != 0L) d[i] = cut(d[i] * keep);
+            else if ((near[i >>> 6] & 1L << i) != 0L) d[i] = cut(d[i] * keepNear);
+        }
+    }
+
+    /**
+     * A blast at a point, box coordinates: a cell whose centre is {@code r} from it keeps {@code 1 - most * (1 - (r /
+     * reach)^2)} of what it has (in the middle {@code 1 - most}, at {@code reach} and past it all).
+     */
+    public void stirBlast(double cx, double cy, double cz, double reach, float most) {
+        if (!(reach > 0)) return;
+        int ax = Math.max(0, (int) Math.floor(cx - reach)), ay = Math.max(0, (int) Math.floor(cy - reach)), az = Math.max(0, (int) Math.floor(cz - reach));
+        int bx = Math.min(SX - 1, (int) Math.floor(cx + reach)), by = Math.min(SY - 1, (int) Math.floor(cy + reach)), bz = Math.min(SZ - 1, (int) Math.floor(cz + reach));
+        double r2 = reach * reach;
+        for (int y = ay; y <= by; y++) for (int z = az; z <= bz; z++) for (int x = ax; x <= bx; x++) {
+            int i = index(x, y, z);
+            if (d[i] == 0F) continue;
+            double ex = x + 0.5 - cx, ey = y + 0.5 - cy, ez = z + 0.5 - cz;
+            double q = (ex * ex + ey * ey + ez * ez) / r2;
+            if (q >= 1.0) continue;
+            d[i] = cut(d[i] * (float) (1.0 - most * (1.0 - q)));
+        }
+    }
+
+    private static float cut(float v) {
+        return v < GONE ? 0F : v;
+    }
+
+    /**
+     * The cells that lie on a floor (open, a closed cell under them) with this much or more in them, as box indices,
+     * lowest first: where a heavy gas wets the ground.
+     */
+    public int[] floorCells(float least) {
+        if (!occupied()) return new int[0];
+        int[] out = new int[64];
+        int n = 0;
+        for (int y = Math.max(1, y0); y <= y1; y++) for (int z = z0; z <= z1; z++) for (int x = x0; x <= x1; x++) {
+            int i = index(x, y, z);
+            if (d[i] < least || closedAt(i) || !closedAt(i - SX * SZ)) continue;
+            if (n == out.length) out = java.util.Arrays.copyOf(out, n * 2);
+            out[n++] = i;
+        }
+        return java.util.Arrays.copyOf(out, n);
+    }
+
     // ---- the whole state, for a client that went apart from the server
 
     public void write(DataOutput out) throws IOException {
