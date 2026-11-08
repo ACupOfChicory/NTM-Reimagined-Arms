@@ -379,8 +379,9 @@ public final class AiBots {
         if (at == null) return;
         long tick = mob.level().getGameTime();
         hear(b, at.x, at.y, at.z, at.distanceTo(mob.position()), tick, true, true, 0.15, 2);
-        // shot by someone with a gun or a bow (not a punch, nor a blast): the one who did it may be a target it lost
-        if (from != null && source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.Projectile) b.memory.shot(tick);
+        // hurt by someone (a bullet, a beam, an arrow, a punch, their grenade): heard where they stand, and they may be
+        // a target it lost; a blast no one set off is heard where it went off, and is not them
+        b.memory.shot(from != null ? tick : Long.MIN_VALUE);
     }
 
     /** error: the ear's error as a part of the distance (at least min blocks), across */

@@ -214,6 +214,12 @@ final class AiCheckFight {
             target.setPos(b.x, b.y, b.z);
             lostAt = c == null ? null : new Vec3(c.x, c.y, c.z);
             holdStart = soldier.position();
+            // hit by the flanker from out of sight: it takes the one it lost for them, where they stand (the hit heard
+            // within a couple of blocks), not where it saw them last
+            Vec3 f = at(FLANK);
+            double off = lostAt == null ? -1 : Math.hypot(lostAt.x - f.x, lostAt.z - f.z);
+            check.out(String.format(Locale.ROOT, "     it takes the flanker for being %.1f blocks off where they are", off));
+            check.check("hit from the flank: it takes the target it lost for the shooter, there", lostAt != null && off < 4);
             next(Phase.HOLD);
         }
     }

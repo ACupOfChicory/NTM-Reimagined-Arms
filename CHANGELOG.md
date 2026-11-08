@@ -14,8 +14,8 @@
   other cover if there is any (once in a while, not at every hit of a burst),
   and takes the one it lost sight of for the shooter: it looks out and searches
   where the shot came from. Before, a rough guess of where from could leave it
-  in the cover it was shot in, watching the old place. A punch or a blast does
-  not move where it thinks they are.
+  in the cover it was shot in, watching the old place. A blast that no one set
+  off does not move where it thinks they are.
 
 ## X713
 

@@ -198,9 +198,10 @@ final class AiCheckParts {
         AiBots.refreshTargets(level);
     }
 
-    /** a part aimed at: 3 hits at least, and a share of hits 15 points over aiming at the chest */
+    /** a part aimed at: 3 hits at least, a quarter of its shots at least, and 15 points over aiming at the chest */
     private static boolean better(int[] part, int[] chest) {
-        return part[1] >= 3 && (double) part[1] / Math.max(1, part[0]) > (double) chest[1] / Math.max(1, chest[0]) + 0.15;
+        double share = (double) part[1] / Math.max(1, part[0]);
+        return part[1] >= 3 && share >= 0.25 && share > (double) chest[1] / Math.max(1, chest[0]) + 0.15;
     }
 
     private boolean finishAll() {
