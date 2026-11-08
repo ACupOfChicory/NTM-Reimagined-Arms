@@ -31,8 +31,16 @@ class SmokeShaderLinkTest {
         Matcher m = Pattern.compile("vec4 Clouds\\[(\\d+)\\];").matcher(resource("include/smoke_info.glsl"));
         if (!m.find()) throw new AssertionError("no Clouds[] in smoke_info.glsl");
         assertEquals(SmokeAtlas.SLOTS * 4, Integer.parseInt(m.group(1)));
-        // the matrix, three vectors, the clouds
-        assertEquals(64 + 3 * 16 + SmokeAtlas.SLOTS * 4 * 16, SmokeRender.UBO_SIZE);
+        Matcher g = Pattern.compile("vec4 Groups\\[(\\d+)\\];").matcher(resource("include/smoke_info.glsl"));
+        if (!g.find()) throw new AssertionError("no Groups[] in smoke_info.glsl");
+        assertEquals(SmokeAtlas.SLOTS * 2, Integer.parseInt(g.group(1)));
+        // the matrix, four vectors, the clouds, the groups
+        assertEquals(64 + 4 * 16 + SmokeAtlas.SLOTS * 4 * 16 + SmokeAtlas.SLOTS * 2 * 16, SmokeRender.UBO_SIZE);
+        // the noise's lattice repeats where the anchor steps
+        assertEquals(SmokeRender.ANCHOR * 0.9F, constant(resource("core/smoke_march.fsh"), "PERIOD"), 1e-3F);
+        // and every octave's scale is a whole number, so its jump is a whole number of periods
+        Matcher o = Pattern.compile("valueNoise\\(q \\* ([0-9.]+)").matcher(resource("core/smoke_march.fsh"));
+        while (o.find()) assertEquals(Math.rint(Double.parseDouble(o.group(1))), Double.parseDouble(o.group(1)), 0.0, "octave scale " + o.group(1));
     }
 
     @Test

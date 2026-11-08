@@ -1,5 +1,16 @@
 # Changelog
 
+## X787
+
+- Smoke: clouds that overlap are drawn as one smoke. Before, each cloud was
+  drawn on its own and laid over the others in an order that could be wrong
+  inside the overlap and flicker as the camera moved; the swirls are now the
+  same in every cloud.
+- Smoke: a smoke grenade that bursts in a smoke cloud adds its smoke to that
+  cloud instead of making a second one inside it. The cloud grows outward at
+  its usual density and starts to thin later. Gas grenades still add up:
+  twice the gas in the same air is twice as strong.
+
 ## X786
 
 - Smoke: a blast punches a hole in a smoke cloud, and the hole closes again

@@ -44,7 +44,12 @@ import net.minecraft.world.phys.Vec3;
 //      each against the other, and the client's copies against the server's;
 //   4. smoke hole: two smoke clouds, ten shots through one (they take nothing) and then a GL-54 HE grenade in its middle;
 //      the smoke at the hole's middle against the other cloud's right after and 1, 2, 3 and 5 s on, on the server and the
-//      client, the hash checks, and the server's tick time before and while it closes.
+//      client, the hash checks, and the server's tick time before and while it closes;
+//   5. overlap (once the clouds before are gone): a smoke and a chlorine cloud 4 blocks apart, their boxes overlapping; the
+//      camera passes across where the two are as far from it, 21 shots overlap-NN.png (the frames' colour counted
+//      afterwards: no jump where the far-to-near order of two boxes would flip), the clouds and groups marched;
+//   6. feed: two smoke clouds' worth 2 s apart at one place 3 blocks off: one cloud, fed once, as dense as one at its
+//      fill and wider, the client's copy on the server's hash.
 final class GasSoilStand {
     static final boolean ON = Boolean.getBoolean("ntmgunfeel.gasSoil");
     private static final String DIR = GasStand.DIR;
@@ -191,6 +196,20 @@ final class GasSoilStand {
                     step++;
                 }
                 case 13 -> holeStep();
+                case 14 -> {
+                    // the clouds before gone, so nothing else is in the view or in a group
+                    if (!noClouds() && overWait++ < 4000) return;
+                    overId = new int[] {spawn(OVER, null), spawn(OVER.add(4, 0, 0), GasKind.CHLORINE)};
+                    step++;
+                }
+                case 15 -> overlapStep();
+                case 16 -> {
+                    if (!noClouds() && frames - overEnd < 2400) return;
+                    feedId = spawn(FED, null);
+                    feedT = level().getGameTime();
+                    step++;
+                }
+                case 17 -> feedStep();
                 default -> finish();
             }
         } catch (RuntimeException e) {
@@ -551,6 +570,120 @@ final class GasSoilStand {
                         msBefore, MS[0], MS[1], SmokeClient.matched, SmokeClient.apart, SmokeClient.grids));
                 ClientSmoke.check(SmokeClient.apart == 0 && SmokeClient.matched > 0, "дым: проверки хэша сошлись " + SmokeClient.matched + "/" + SmokeClient.apart);
                 hStep++;
+            }
+            default -> step++;
+        }
+    }
+
+    // ---- two clouds that overlap, drawn as one
+
+    private static final Vec3 OVER = new Vec3(-25.5, Y + 0.5, -20.5);
+    private static int[] overId;
+    private static int overShot = -1, overTick, overEnd, overGroups = -1, overDrawn = -1, overWait;
+
+    private static void overlapStep() {
+        overTick++;
+        if (overShot < 0) {
+            // let out and settled
+            if (overTick < 100) return;
+            overShot = 0;
+            overTick = 0;
+        }
+        // the camera 16 blocks back looking at them (toward -z: yaw 180), across x from 4 left of the smoke's middle to
+        // 4 right of the chlorine's, a step of 0.6: both middles as far at x + 2
+        double x = OVER.x - 4 + overShot * 0.6;
+        if (overTick == 1) look(x, Y + 3.5, OVER.z + 16, 180F, 8F);
+        if (overTick == 12) {
+            int[] d = acup.gunfeel.smoke.client.SmokeRender.drawnLast();
+            overDrawn = Math.max(overDrawn, d[0]);
+            if (d[0] == 2) overGroups = Math.max(overGroups, d[1]);
+            shot(String.format(Locale.ROOT, "overlap-%02d", overShot));
+        }
+        if (overTick < 16) return;
+        overTick = 0;
+        if (++overShot < 21) return;
+        line(String.format(Locale.ROOT, "overlap: clouds %d and %d, drawn %d, groups %d; volume %s", overId[0], overId[1], overDrawn, overGroups,
+                acup.gunfeel.smoke.client.SmokeRender.drawingVolume()));
+        ClientSmoke.check(overDrawn == 2 && overGroups == 1, "дым: два облака внахлёст рисуются одной группой " + overDrawn + "/" + overGroups);
+        overEnd = frames;
+        server().submit(() -> {
+            SmokeClouds all = SmokeClouds.get(level());
+            if (all != null) for (int id : overId) {
+                SmokeClouds.Cloud c = all.remove(id);
+                if (c != null) acup.gunfeel.smoke.SmokeNet.ended(level(), c);
+            }
+        }).join();
+        step++;
+    }
+
+    // the camera at a point, turned
+    private static void look(double x, double y, double z, float yaw, float pitch) {
+        Minecraft mc = Minecraft.getInstance();
+        server().submit(() -> server().getPlayerList().getPlayers().getFirst().teleportTo(level(), x, y, z, Set.of(), yaw, pitch, false)).join();
+        if (mc.player != null) {
+            mc.player.setPos(x, y, z);
+            mc.player.setYRot(yaw);
+            mc.player.setXRot(pitch);
+            mc.player.yRotO = yaw;
+            mc.player.xRotO = pitch;
+            mc.player.xo = mc.player.xOld = x;
+            mc.player.yo = mc.player.yOld = y;
+            mc.player.zo = mc.player.zOld = z;
+        }
+    }
+
+    // ---- a smoke grenade into a smoke cloud feeds it
+
+    private static final Vec3 FED = new Vec3(40.5, Y + 0.5, -25.5);
+    private static int feedId = -1, feedStep, feedClouds;
+    private static long feedT;
+    private static float feedCells;
+
+    // on the server: {clouds, feeds of the fed one, its densest cell, cells at half its fill or more, its age}
+    private static float[] fedNow() {
+        return server().submit(() -> {
+            SmokeClouds all = SmokeClouds.get(level());
+            SmokeClouds.Cloud c = all == null ? null : all.cloud(feedId);
+            if (c == null) return new float[] {all == null ? 0 : all.clouds().size(), -1, 0, 0, -1};
+            float most = 0F;
+            int n = 0;
+            for (int i = 0; i < SmokeGrid.CELLS; i++) {
+                most = Math.max(most, c.grid.density(i));
+                if (c.grid.density(i) >= c.kind().fill() * 0.5F) n++;
+            }
+            return new float[] {all.clouds().size(), c.grid.feeds(), most, n, c.grid.age()};
+        }).join();
+    }
+
+    private static void feedStep() {
+        long t = level().getGameTime() - feedT;
+        switch (feedStep) {
+            case 0 -> {
+                if (t < 40) return;
+                float[] f = fedNow();
+                feedCells = f[3];
+                int id = spawn(FED.add(3, 0, 0), null);
+                feedClouds = (int) fedNow()[0];
+                line(String.format(Locale.ROOT, "feed: first cloud %d at 2 s: densest %.3f, cells at half fill %.0f; the second grenade -> cloud %d, clouds %d",
+                        feedId, f[2], f[3], id, feedClouds));
+                ClientSmoke.check(id == feedId && feedClouds == 1, "дым: вторая шашка в облаке подпитала его, не новое " + id + "/" + feedClouds);
+                SmokeClient.matched = SmokeClient.apart = SmokeClient.grids = 0;
+                feedStep++;
+            }
+            case 1 -> {
+                // 12 s after the second
+                if (t < 40 + 240) return;
+                float[] f = fedNow();
+                SmokeClouds all = SmokeClient.current();
+                SmokeClouds.Cloud k = all == null ? null : all.cloud(feedId);
+                float fill = acup.gunfeel.smoke.SmokeKind.SMOKE.fill();
+                line(String.format(Locale.ROOT, "feed: at 14 s fed %.0f times, densest %.3f (fill %.2f), cells at half fill %.0f (%.0f at 2 s), client feeds %d; hash checks matched %d, apart %d, grids sent %d",
+                        f[1], f[2], fill, f[3], feedCells, k == null ? -1 : k.grid.feeds(), SmokeClient.matched, SmokeClient.apart, SmokeClient.grids));
+                ClientSmoke.check(f[1] == 1 && k != null && k.grid.feeds() == 1, "дым: подпитка одна, у клиента тоже");
+                ClientSmoke.check(f[2] < fill * 1.15F, "дым: подпитанное облако не гуще обычного " + f[2]);
+                ClientSmoke.check(f[3] > feedCells * 2.2F, "дым: подпитанное облако шире " + f[3] + " / " + feedCells);
+                ClientSmoke.check(SmokeClient.apart == 0 && SmokeClient.matched > 0, "дым: подпитка — проверки хэша сошлись " + SmokeClient.matched + "/" + SmokeClient.apart);
+                feedStep++;
             }
             default -> step++;
         }

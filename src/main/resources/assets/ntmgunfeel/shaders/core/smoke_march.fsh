@@ -8,7 +8,7 @@ uniform sampler2D SceneDepth;
 uniform sampler2D OpaqueDepth;
 
 in vec3 vPos;
-flat in int vCloud;
+flat in int vGroup;
 
 out vec4 fragColor;
 
@@ -40,7 +40,13 @@ vec2 smokeAt(vec3 g, float slot) {
     return vec2(d, light);
 }
 
+// the noise's lattice repeats every PERIOD cells: 0.9 a block, so every 1000 blocks, the step of the Anchor's lattice,
+// and the noise does not jump when the camera takes the Anchor to its next point (the second octave's scale is a whole
+// number for the same reason: its jump is then a whole number of periods too)
+const float PERIOD = 900.0;
+
 float hash(vec3 p) {
+    p = mod(p, PERIOD);
     p = fract(p * vec3(0.1031, 0.1030, 0.0973));
     p += dot(p, p.yxz + 33.33);
     return fract((p.x + p.y) * p.z);
@@ -58,18 +64,17 @@ float valueNoise(vec3 x) {
 }
 
 void main() {
-    int at = vCloud * 4;
-    vec4 origin = Clouds[at];
-    vec4 lo = Clouds[at + 1];
-    vec4 hi = Clouds[at + 2];
-    vec4 colour = Clouds[at + 3];
+    vec4 glo = Groups[vGroup * 2];
+    vec4 ghi = Groups[vGroup * 2 + 1];
+    int first = int(glo.w + 0.5);
+    int count = int(ghi.w + 0.5);
     vec3 dir = normalize(vPos);
     // the direction with no component nearer zero than 1e-6, the sign kept (a zero counts as positive); mix with a
     // float weight, as #version 330 has it (the bvec3 form is GLSL 4.50)
     vec3 safe = max(abs(dir), vec3(1e-6)) * mix(vec3(1.0), vec3(-1.0), vec3(lessThan(dir, vec3(0.0))));
     vec3 inv = 1.0 / safe;
-    vec3 ta = (origin.xyz + lo.xyz) * inv;
-    vec3 tb = (origin.xyz + hi.xyz) * inv;
+    vec3 ta = glo.xyz * inv;
+    vec3 tb = ghi.xyz * inv;
     vec3 tNear = min(ta, tb);
     vec3 tFar = max(ta, tb);
     float t0 = max(max(tNear.x, tNear.y), tNear.z);
@@ -107,16 +112,34 @@ void main() {
     vec3 light = vec3(0.0);
     for (int i = 0; i < 128; i++) {
         if (i >= steps || through < 0.01) break;
-        vec3 g = dir * t - origin.xyz;
-        vec2 dl = smokeAt(g, origin.w);
-        if (dl.x > 0.004) {
-            vec3 q = g * 0.9 + vec3(hi.w, Screen.z * 0.12, hi.w * 0.7 - Screen.z * 0.05);
-            float n = valueNoise(q);
-            if (Extra.y > 0.5) n = n * 0.65 + valueNoise(q * 2.3 + 17.0) * 0.35;
-            float d = max(0.0, dl.x * (0.45 + 1.1 * n) - 0.04);
-            float a = 1.0 - exp(-lo.w * d * dt);
-            vec3 c = colour.rgb * (0.10 + 0.90 * dl.y) * (0.88 + 0.24 * n);
-            light += through * a * c;
+        vec3 p = dir * t;
+        // every cloud of the group at this point: their smoke is one smoke, its extinctions add up and its colour is
+        // theirs by how much each puts in
+        float sigma = 0.0;
+        vec3 tint = vec3(0.0);
+        float noise = -1.0;
+        for (int k = 0; k < 16; k++) {
+            if (k >= count) break;
+            int at = (first + k) * 4;
+            vec4 origin = Clouds[at];
+            vec4 lo = Clouds[at + 1];
+            vec3 g = p - origin.xyz;
+            if (any(lessThan(g, lo.xyz)) || any(greaterThan(g, Clouds[at + 2].xyz))) continue;
+            vec2 dl = smokeAt(g, origin.w);
+            if (dl.x <= 0.004) continue;
+            if (noise < 0.0) {
+                vec3 q = (p - Anchor.xyz) * 0.9 + vec3(0.0, Screen.z * 0.12, -Screen.z * 0.05);
+                noise = valueNoise(q);
+                if (Extra.y > 0.5) noise = noise * 0.65 + valueNoise(q * 2.0 + 17.0) * 0.35;
+            }
+            float d = max(0.0, dl.x * (0.45 + 1.1 * noise) - 0.04);
+            float e = lo.w * d;
+            sigma += e;
+            tint += e * Clouds[at + 3].rgb * (0.10 + 0.90 * dl.y);
+        }
+        if (sigma > 0.0) {
+            float a = 1.0 - exp(-sigma * dt);
+            light += through * a * (tint / sigma) * (0.88 + 0.24 * noise);
             through *= 1.0 - a;
         }
         t += dt;

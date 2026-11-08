@@ -23,6 +23,11 @@ import java.io.IOException;
  * {@link #BACK_DELAY} ticks later, each an eighth of what it holds a tick. The hole closes from its edge in 2 to 3 s
  * and the cloud loses nothing; what is held thins as the rest does.
  *
+ * <p>A smoke grenade that bursts inside a cloud of its kind feeds it ({@link #feed}) instead of making a cloud of its
+ * own (a gas does not: {@link SmokeClouds#feeds}): its smoke comes out of its cells over the release as the first one's did and spreads in what is there, so the
+ * cloud grows outward at its {@code fill} and does not stack a second cloud on the first, twice as dense. The cloud
+ * thins {@code hold} ticks after the last feed's release. At most {@link #FEEDS_MAX} feeds.
+ *
  * <p>Only the box of occupied cells and one cell around it is stepped.
  */
 public final class SmokeGrid {
@@ -35,6 +40,12 @@ public final class SmokeGrid {
     public static final int BACK_DELAY = 30;
     /** Share of what a cell holds that comes back a tick once its time came. */
     public static final float BACK_RATE = 1F / 8F;
+    /** Grenades that can feed one cloud after the first. */
+    public static final int FEEDS_MAX = 8;
+
+    // a later grenade's smoke: from this age over the release, a share a tick out of each of its cells
+    private record Feed(int from, int[] cells, float each) {
+    }
 
     /** Whether the cell at box coordinates x, y, z is closed to smoke (a full block, a liquid, an unloaded chunk). */
     public interface Mask {
@@ -51,6 +62,7 @@ public final class SmokeGrid {
     private int[] back;
     private final float dirX, dirZ;
     private int[] emitters = new int[0];
+    private final java.util.List<Feed> feeds = new java.util.ArrayList<>();
     private int age;
     // the occupied cells, inclusive; empty while x1 < x0
     private int x0 = SX, y0 = SY, z0 = SZ, x1 = -1, y1 = -1, z1 = -1;
@@ -120,7 +132,21 @@ public final class SmokeGrid {
 
     /** Let out and gone: nothing left to step or draw. */
     public boolean done() {
-        return age >= kind.release() && !occupied();
+        return age >= lastFeed() + kind.release() && !occupied();
+    }
+
+    // the age the last grenade began to let its smoke out at: 0, the first, or the last feed's
+    private int lastFeed() {
+        return feeds.isEmpty() ? 0 : feeds.getLast().from;
+    }
+
+    /** Ticks the cloud can live at most: its kind's, from the last feed on. */
+    public int maxAge() {
+        return lastFeed() + kind.maxAge();
+    }
+
+    public int feeds() {
+        return feeds.size();
     }
 
     public float total() {
@@ -174,12 +200,27 @@ public final class SmokeGrid {
      * and the bomblets fanned out along the flight, each as far as it gets before a closed cell.
      */
     public void place() {
+        emitters = cellsAt(OX, OY, OZ, dirX, dirZ, 0);
+    }
+
+    /**
+     * A grenade of this kind burst at box cell x, y, z at this age (before its step), flying along dirX, dirZ:
+     * its smoke ({@code scale} of the kind's volume) comes out of its own cells, placed as {@link #place} places the
+     * first's, over the release from now. False (nothing done) past {@link #FEEDS_MAX} or with no open cell there.
+     */
+    public boolean feed(int x, int y, int z, float dirX, float dirZ, float scale) {
+        if (feeds.size() >= FEEDS_MAX || !inside(x, y, z) || !(scale > 0F)) return false;
+        int[] cells = cellsAt(x, y, z, dirX, dirZ, feeds.size() + 1);
+        if (cells.length == 0) return false;
+        feeds.add(new Feed(age, cells, kind.volume() * scale / (kind.release() * (float) cells.length)));
+        return true;
+    }
+
+    // the cells a grenade's smoke comes out of; salt: which grenade of the cloud (the noise of its fan)
+    private int[] cellsAt(int ox, int oy, int oz, float dirX, float dirZ, int salt) {
         int center = -1;
-        for (int r = 0; r <= 2 && center < 0; r++) center = nearestOpen(r);
-        if (center < 0) {
-            emitters = new int[0];
-            return;
-        }
+        for (int r = 0; r <= 2 && center < 0; r++) center = nearestOpen(ox, oy, oz, r);
+        if (center < 0) return new int[0];
         int n = Math.max(1, kind.bomblets());
         int[] out = new int[n];
         int count = 0;
@@ -192,11 +233,11 @@ public final class SmokeGrid {
             double angle;
             if (len > 0.2) {
                 double share = n > 2 ? (b - 1) / (double) (n - 2) * 2.0 - 1.0 : 0.0;
-                angle = base + Math.toRadians(kind.fan()) * share + (unit(b, 0, 7) - 0.5) * 0.2;
+                angle = base + Math.toRadians(kind.fan()) * share + (unit(b, salt, 7) - 0.5) * 0.2;
             } else {
-                angle = 2.0 * Math.PI * (b - 1) / (n - 1) + unit(b, 0, 8) * 0.5;
+                angle = 2.0 * Math.PI * (b - 1) / (n - 1) + unit(b, salt, 8) * 0.5;
             }
-            double reach = kind.reach() * (0.55 + 0.45 * unit(b, 0, 9));
+            double reach = kind.reach() * (0.55 + 0.45 * unit(b, salt, 9));
             int last = center;
             for (double t = 0.25; t <= reach; t += 0.25) {
                 int x = (int) Math.floor(cx + 0.5 + StrictMath.cos(angle) * t), z = (int) Math.floor(cz + 0.5 + StrictMath.sin(angle) * t);
@@ -205,14 +246,14 @@ public final class SmokeGrid {
             }
             out[count++] = last;
         }
-        emitters = out;
+        return out;
     }
 
-    private int nearestOpen(int r) {
+    private int nearestOpen(int ox, int oy, int oz, int r) {
         // shells of growing size, upward first: a grenade in the floor lets its smoke out above it
         for (int dy = r; dy >= -r; dy--) for (int dz = -r; dz <= r; dz++) for (int dx = -r; dx <= r; dx++) {
             if (Math.max(Math.abs(dx), Math.max(Math.abs(dy), Math.abs(dz))) != r) continue;
-            int x = OX + dx, y = OY + dy, z = OZ + dz;
+            int x = ox + dx, y = oy + dy, z = oz + dz;
             if (inside(x, y, z) && !closedAt(index(x, y, z))) return index(x, y, z);
         }
         return -1;
@@ -226,10 +267,15 @@ public final class SmokeGrid {
             for (int e : emitters) if (!closedAt(e)) d[e] += each;
             grow(emitters);
         }
+        for (Feed f : feeds) {
+            if (age < f.from || age >= f.from + kind.release()) continue;
+            for (int e : f.cells) if (!closedAt(e)) d[e] += f.each;
+            grow(f.cells);
+        }
         if (occupied()) {
             if (held != null) giveBack();
             spread();
-            if (age >= kind.release() + kind.hold()) thin();
+            if (age >= lastFeed() + kind.release() + kind.hold()) thin();
         }
         age++;
         bounds();
@@ -405,6 +451,11 @@ public final class SmokeGrid {
             h = (h ^ Float.floatToRawIntBits(held[i])) * 0x100000001B3L;
             h = (h ^ back[i]) * 0x100000001B3L;
         }
+        for (Feed f : feeds) {
+            h = (h ^ f.from) * 0x100000001B3L;
+            h = (h ^ Float.floatToRawIntBits(f.each)) * 0x100000001B3L;
+            for (int c : f.cells) h = (h ^ c) * 0x100000001B3L;
+        }
         return h;
     }
 
@@ -508,6 +559,14 @@ public final class SmokeGrid {
         out.writeByte(y1);
         out.writeByte(z1);
         for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) for (int x = x0; x <= x1; x++) out.writeFloat(d[index(x, y, z)]);
+        // the feeds, with the cells they come out of
+        out.writeByte(feeds.size());
+        for (Feed f : feeds) {
+            out.writeShort(f.from);
+            out.writeFloat(f.each);
+            out.writeByte(f.cells.length);
+            for (int c : f.cells) out.writeShort(c);
+        }
         // what blasts hold, with the age it comes back from (an empty grid has no cells and nothing more)
         if (!occupied()) return;
         boolean any = false;
@@ -528,7 +587,6 @@ public final class SmokeGrid {
     public void read(DataInput in) throws IOException {
         int a = in.readUnsignedShort();
         int ax = in.readByte(), ay = in.readByte(), az = in.readByte(), bx = in.readByte(), by = in.readByte(), bz = in.readByte();
-        if (a > kind.maxAge() + 1) throw new IOException("bad age");
         boolean empty = ax == SX && ay == SY && az == SZ && bx == -1 && by == -1 && bz == -1;
         float[] cells = null, keep = null;
         int[] when = null;
@@ -541,6 +599,27 @@ public final class SmokeGrid {
                 if (!(v >= 0F && v < 100F)) throw new IOException("bad density");
                 cells[i] = v;
             }
+        }
+        int nf = in.readUnsignedByte();
+        if (nf > FEEDS_MAX) throw new IOException("bad feeds");
+        java.util.List<Feed> fed = new java.util.ArrayList<>(nf);
+        for (int k = 0; k < nf; k++) {
+            int from = in.readUnsignedShort();
+            float each = in.readFloat();
+            int n = in.readUnsignedByte();
+            if (from > a || !(each > 0F && each < 100F) || n == 0 || n > Math.max(1, kind.bomblets())) throw new IOException("bad feed");
+            if (k > 0 && from < fed.getLast().from) throw new IOException("bad feed order");
+            int[] at = new int[n];
+            for (int j = 0; j < n; j++) {
+                at[j] = in.readUnsignedShort();
+                if (at[j] >= CELLS) throw new IOException("bad feed cell");
+            }
+            fed.add(new Feed(from, at, each));
+        }
+        // no older than the cloud can live from its last feed
+        int last = fed.isEmpty() ? 0 : fed.getLast().from;
+        if (a > last + kind.maxAge() + 1) throw new IOException("bad age");
+        if (!empty) {
             if (in.readBoolean()) {
                 keep = new float[cells.length];
                 when = new int[cells.length];
@@ -548,12 +627,14 @@ public final class SmokeGrid {
                     float v = in.readFloat();
                     int w = in.readUnsignedShort();
                     if (!(v >= 0F && v < 100F)) throw new IOException("bad held");
-                    if (w > kind.maxAge() + 1 + BACK_DELAY) throw new IOException("bad back");
+                    if (w > last + kind.maxAge() + 1 + BACK_DELAY) throw new IOException("bad back");
                     keep[i] = v;
                     when[i] = w;
                 }
             }
         }
+        feeds.clear();
+        feeds.addAll(fed);
         java.util.Arrays.fill(d, 0F);
         if (held != null) {
             java.util.Arrays.fill(held, 0F);

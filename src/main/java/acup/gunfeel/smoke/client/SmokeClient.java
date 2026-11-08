@@ -104,6 +104,14 @@ public final class SmokeClient {
         c.stir(p.stir());
     }
 
+    /** A grenade of a cloud's kind burst in it: the copy takes it at the age the server did. */
+    public static void fed(SmokePayloads.Fed p) {
+        SmokeClouds all = clouds();
+        SmokeClouds.Cloud c = all == null ? null : all.cloud(p.id());
+        if (c == null || !SmokeClouds.sane(p.feed()) || p.feed().age() > c.grid.age() + 600) return;
+        c.stir(p.feed());
+    }
+
     public static void grid(SmokePayloads.Grid p) {
         SmokeClouds all = clouds();
         SmokeClouds.Cloud c = all == null ? null : all.cloud(p.id());

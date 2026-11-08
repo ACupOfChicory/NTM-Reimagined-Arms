@@ -214,7 +214,8 @@ class SmokeGridTest {
         out.writeShort(age);
         for (int v : new int[] {ax, ay, az, bx, by, bz}) out.writeByte(v);
         for (float c : cells) out.writeFloat(c);
-        // a grid with cells says whether a blast holds smoke in them: none here
+        // no feeds; a grid with cells says whether a blast holds smoke in them: none here
+        out.writeByte(0);
         if (ax != SX) out.writeBoolean(false);
         return bytes.toByteArray();
     }

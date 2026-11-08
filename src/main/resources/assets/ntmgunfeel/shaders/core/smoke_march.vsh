@@ -4,7 +4,7 @@
 #moj_import <ntmgunfeel:smoke_info.glsl>
 
 out vec3 vPos;
-flat out int vCloud;
+flat out int vGroup;
 
 // a box's 12 triangles; a corner's bits are x, y, z
 const int CORNERS[36] = int[36](
@@ -17,12 +17,11 @@ const int CORNERS[36] = int[36](
 );
 
 void main() {
-    int cloud = gl_VertexID / 36;
+    int group = gl_VertexID / 36;
     int corner = CORNERS[gl_VertexID % 36];
     vec3 at = vec3(float(corner & 1), float((corner >> 1) & 1), float((corner >> 2) & 1));
-    vec4 origin = Clouds[cloud * 4];
-    vec3 pos = origin.xyz + mix(Clouds[cloud * 4 + 1].xyz, Clouds[cloud * 4 + 2].xyz, at);
+    vec3 pos = mix(Groups[group * 2].xyz, Groups[group * 2 + 1].xyz, at);
     vPos = pos;
-    vCloud = cloud;
+    vGroup = group;
     gl_Position = ProjMat * View * vec4(pos, 1.0);
 }

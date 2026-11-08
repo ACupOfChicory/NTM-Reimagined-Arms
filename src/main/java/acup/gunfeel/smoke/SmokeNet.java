@@ -41,6 +41,7 @@ public final class SmokeNet {
         r.playToClient(SmokePayloads.Check.TYPE, SmokePayloads.Check.CODEC);
         r.playToClient(SmokePayloads.Grid.TYPE, SmokePayloads.Grid.CODEC);
         r.playToClient(SmokePayloads.Stirred.TYPE, SmokePayloads.Stirred.CODEC);
+        r.playToClient(SmokePayloads.Fed.TYPE, SmokePayloads.Fed.CODEC);
     }
 
     static ChunkPos chunk(SmokeClouds.Cloud c) {
@@ -53,6 +54,10 @@ public final class SmokeNet {
 
     static void stirred(ServerLevel level, SmokeClouds.Cloud c, SmokeClouds.Stir st) {
         PacketDistributor.sendToPlayersTrackingChunk(level, chunk(c), new SmokePayloads.Stirred(c.id, st));
+    }
+
+    static void fed(ServerLevel level, SmokeClouds.Cloud c, SmokeClouds.Feed f) {
+        PacketDistributor.sendToPlayersTrackingChunk(level, chunk(c), new SmokePayloads.Fed(c.id, f));
     }
 
     public static void ended(ServerLevel level, SmokeClouds.Cloud c) {
@@ -80,7 +85,17 @@ public final class SmokeNet {
     public static void watched(ChunkWatchEvent.Sent e) {
         SmokeClouds all = SmokeClouds.get(e.getLevel());
         if (all == null || all.isEmpty()) return;
-        for (SmokeClouds.Cloud c : all.clouds()) if (chunk(c).equals(e.getPos())) PacketDistributor.sendToPlayer(e.getPlayer(), SmokePayloads.Spawn.of(c));
+        for (SmokeClouds.Cloud c : all.clouds()) {
+            if (!chunk(c).equals(e.getPos())) continue;
+            PacketDistributor.sendToPlayer(e.getPlayer(), SmokePayloads.Spawn.of(c));
+            // a fed cloud lives past its kind's age: a copy caught up from its birth without the feeds would end on the way
+            // and never be checked again, so it gets the grid, feeds and all, at once
+            if (c.grid.feeds() > 0) try {
+                PacketDistributor.sendToPlayer(e.getPlayer(), new SmokePayloads.Grid(c.id, encode(c.grid)));
+            } catch (IOException ex) {
+                // not sent: the copy catches up and the hash check asks for it while it lives
+            }
+        }
     }
 
     public static void unwatched(ChunkWatchEvent.UnWatch e) {

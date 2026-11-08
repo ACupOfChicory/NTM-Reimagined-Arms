@@ -36,8 +36,8 @@ public final class SmokeClouds {
         public final float dirX, dirZ, scale;
         /** The server: the age whose hash went out last, so a frozen tick does not send it again. */
         int checkedAge = -1;
-        // stirs for an age the grid has not got to yet, by age (the order they came in within one age)
-        private final java.util.ArrayList<Stir> pending = new java.util.ArrayList<>();
+        // stirs and feeds for an age the grid has not got to yet, by age (the order they came in within one age)
+        private final java.util.ArrayList<Event> pending = new java.util.ArrayList<>();
 
         Cloud(int id, SmokeGrid grid, BlockPos origin, long born, float dirX, float dirZ, float scale) {
             this.id = id;
@@ -101,7 +101,7 @@ public final class SmokeClouds {
          * {@link #STIR_AHEAD}) is taken at once: that copy is a step off and the next hash check asks for the grid.
          * Returns false (nothing done) when {@link #PENDING_MAX} wait already.
          */
-        public boolean stir(Stir st) {
+        public boolean stir(Event st) {
             synchronized (pending) {
                 due();
                 if (st.age() <= grid.age() && pending.isEmpty()) {
@@ -131,10 +131,24 @@ public final class SmokeClouds {
             }
         }
 
-        private void apply(Stir st) {
+        private void apply(Event e) {
+            if (e instanceof Feed f) {
+                grid.feed(f.x() - baseX(), f.y() - baseY(), f.z() - baseZ(), f.dirX(), f.dirZ(), f.scale());
+                return;
+            }
+            Stir st = (Stir) e;
             double bx = baseX(), by = baseY(), bz = baseZ();
             if (st.blast()) grid.stirBlast(st.x0() - bx, st.y0() - by, st.z0() - bz, st.x1(), st.a(), st.b() > 0F);
             else grid.stirLine(st.x0() - bx, st.y0() - by, st.z0() - bz, st.x1() - bx, st.y1() - by, st.z1() - bz, st.a(), st.b());
+        }
+
+        // feeds taken and waiting
+        int feedsAll() {
+            synchronized (pending) {
+                int n = grid.feeds();
+                for (Event e : pending) if (e instanceof Feed) n++;
+                return n;
+            }
         }
 
         /** Whether a world segment comes within a block of the smoke in the cloud. */
@@ -170,10 +184,68 @@ public final class SmokeClouds {
      * y0, z0}, reach {@code x1}, {@code a} the most it takes in the middle; {@code b} 0, what it takes is gone (a gas), 1,
      * it comes back (smoke: {@link SmokeGrid#stirBlast}).
      */
-    public record Stir(int age, boolean blast, double x0, double y0, double z0, double x1, double y1, double z1, float a, float b) {
+    public record Stir(int age, boolean blast, double x0, double y0, double z0, double x1, double y1, double z1, float a, float b) implements Event {
         public Stir at(int age) {
             return new Stir(age, blast, x0, y0, z0, x1, y1, z1, a, b);
         }
+    }
+
+    /** What happens to a cloud at an age of it, the same on every side: a {@link Stir} or a {@link Feed}. */
+    public sealed interface Event permits Stir, Feed {
+        int age();
+    }
+
+    /**
+     * A grenade of the cloud's kind burst in it at an age of it ({@link SmokeGrid#feed}): at world block x, y, z, flying
+     * along dirX, dirZ, {@code scale} of a grenade's smoke.
+     */
+    public record Feed(int age, int x, int y, int z, float dirX, float dirZ, float scale) implements Event {
+    }
+
+    /** Whether a feed from the network is one a server makes. */
+    public static boolean sane(Feed f) {
+        return f.age() >= 0 && Math.abs(f.x()) <= 30_000_000 && Math.abs(f.z()) <= 30_000_000 && Math.abs(f.y()) <= 4096
+                && Math.abs(f.dirX()) <= 1.01F && Math.abs(f.dirZ()) <= 1.01F && f.scale() > 0F && f.scale() <= 4F;
+    }
+
+    /**
+     * How far from a cloud's burst cell (across, in cells) a grenade of its kind still feeds it: there its bomblets
+     * (3.5 blocks at most) still land in the grid. Farther it makes a cloud of its own.
+     */
+    public static final int FEED_REACH = 8;
+
+    /**
+     * Whether a grenade of this kind feeds a cloud of its kind it bursts in: smoke does, it fills the air up to its
+     * {@code fill} and a second grenade's smoke goes on outward. A gas does not: a second grenade is twice the gas in
+     * the same air, the clouds' densities add up (as what they do to the living and the ground counts them,
+     * {@code GasPoison}); they are drawn as one smoke all the same.
+     */
+    public static boolean feeds(SmokeKind kind) {
+        return acup.gunfeel.gas.GasKind.of(kind) == null;
+    }
+
+    /**
+     * The cloud a grenade of this kind bursting at this block feeds, or null: none for a gas ({@link #feeds}); one of
+     * its kind with smoke on that block or next to it, the burst within {@link #FEED_REACH} across of its own and its
+     * grid's height, with feeds to spare; of those the densest there.
+     */
+    public Cloud host(BlockPos at, SmokeKind kind) {
+        if (!feeds(kind)) return null;
+        Cloud best = null;
+        float most = 0F;
+        for (Cloud c : clouds()) {
+            // the feed is taken STIR_AHEAD ticks on: the cloud must still be there then
+            if (c.kind() != kind || c.grid.age() + STIR_AHEAD > c.grid.maxAge()) continue;
+            int x = at.getX() - c.baseX(), y = at.getY() - c.baseY(), z = at.getZ() - c.baseZ();
+            if (Math.abs(x - SmokeGrid.OX) > FEED_REACH || Math.abs(z - SmokeGrid.OZ) > FEED_REACH || y < 0 || y >= SmokeGrid.SY) continue;
+            float there = 0F;
+            for (int dy = -1; dy <= 1; dy++) for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++)
+                there = Math.max(there, c.grid.density(x + dx, y + dy, z + dz));
+            if (there < SmokeGrid.GONE || there <= most || c.feedsAll() >= SmokeGrid.FEEDS_MAX) continue;
+            best = c;
+            most = there;
+        }
+        return best;
     }
 
     /**
@@ -253,12 +325,22 @@ public final class SmokeClouds {
     public static int spawn(ServerLevel level, Vec3 pos, Vec3 direction, SmokeKind kind, float scale) {
         if (!enabled()) return -1;
         SmokeClouds all = of(level);
-        int id = all.nextId();
         BlockPos origin = BlockPos.containing(pos);
         float len = (float) Math.hypot(direction.x, direction.z);
         float dx = len > 1e-4F ? (float) direction.x / len : 0F, dz = len > 1e-4F ? (float) direction.z / len : 0F;
         // the bomblets ring round a shot straight down or up
         if (len < 0.2F * (float) direction.length()) dx = dz = 0F;
+        // in a cloud of its kind: it feeds that one
+        Cloud host = all.host(origin, kind);
+        if (host != null) {
+            Feed f = new Feed(host.grid.age() + STIR_AHEAD, origin.getX(), origin.getY(), origin.getZ(), dx, dz, scale);
+            // a host whose queue is full takes it nowhere: the grenade makes a cloud of its own after all
+            if (host.stir(f)) {
+                SmokeNet.fed(level, host, f);
+                return host.id;
+            }
+        }
+        int id = all.nextId();
         long seed = level.getRandom().nextLong();
         Cloud c = all.create(id, origin, kind, seed, dx, dz, scale, level.getGameTime());
         // shut in: nothing comes out, and no older cloud is pushed out for it
@@ -429,7 +511,7 @@ public final class SmokeClouds {
     public List<Cloud> reap() {
         List<Cloud> ended = null;
         for (Cloud c : view) {
-            if (c.grid.done() || c.grid.age() > c.kind().maxAge()) {
+            if (c.grid.done() || c.grid.age() > c.grid.maxAge()) {
                 remove(c.id);
                 if (ended == null) ended = new ArrayList<>();
                 ended.add(c);

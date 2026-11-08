@@ -103,6 +103,29 @@ public final class SmokePayloads {
         }
     }
 
+    /** A grenade of a cloud's kind burst in it ({@link SmokeClouds.Feed}): the client's copy takes it at that age. */
+    public record Fed(int id, SmokeClouds.Feed feed) implements CustomPacketPayload {
+        public static final Type<Fed> TYPE = typeOf("smoke_feed");
+        public static final StreamCodec<RegistryFriendlyByteBuf, Fed> CODEC = CustomPacketPayload.codec(
+                (p, b) -> {
+                    SmokeClouds.Feed f = p.feed;
+                    b.writeVarInt(p.id);
+                    b.writeVarInt(f.age());
+                    b.writeInt(f.x());
+                    b.writeInt(f.y());
+                    b.writeInt(f.z());
+                    b.writeFloat(f.dirX());
+                    b.writeFloat(f.dirZ());
+                    b.writeFloat(f.scale());
+                }, b -> new Fed(b.readVarInt(), new SmokeClouds.Feed(b.readVarInt(), b.readInt(), b.readInt(), b.readInt(), b.readFloat(),
+                        b.readFloat(), b.readFloat())));
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+    }
+
     /** A client asks for a cloud's whole grid: its copy went apart. */
     public record Resync(int id) implements CustomPacketPayload {
         public static final Type<Resync> TYPE = typeOf("smoke_resync");
