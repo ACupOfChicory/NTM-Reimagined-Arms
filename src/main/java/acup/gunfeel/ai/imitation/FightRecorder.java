@@ -249,6 +249,7 @@ public final class FightRecorder {
         b.append(",\"rl\":").append(v.reloading ? 1 : 0).append(",\"cr\":").append(v.crouching ? 1 : 0).append(",\"pr\":").append(v.prone ? 1 : 0)
                 .append(",\"sp\":").append(v.sprinting ? 1 : 0).append(",\"fi\":").append(v.fired ? 1 : 0).append(",\"hu\":").append(v.hurt ? 1 : 0)
                 .append(",\"ch\":").append(v.coverHere).append(",\"hid\":").append(v.hidden() ? 1 : 0).append(",\"exp\":").append(v.exposed() ? 1 : 0);
+        if (v.mode != null) b.append(",\"m\":\"").append(v.mode).append('"');
         b.append(",\"f\":");
         row(b, f);
         b.append(",\"e\":[");

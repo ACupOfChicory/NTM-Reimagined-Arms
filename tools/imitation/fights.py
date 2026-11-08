@@ -109,13 +109,16 @@ def cases(views):
         f = v["f"]
         prev = views[i - 1] if i > 0 and v["t"] - views[i - 1]["t"] <= GAP else None
         settled = v["hid"] == 1 and v["rl"] == 0 and still(v) >= SETTLED
+        # a bot's recording says its mind's mode: only where it could decide (in cover, out at its peek), so a
+        # chance learned from bots is not watered down by moments it could not
+        mode = v.get("m")
         # hidden, not reloading (a new fight's first hide is short: no stillness asked)
-        if v["hid"] == 1 and v["rl"] == 0:
+        if v["hid"] == 1 and v["rl"] == 0 and mode in (None, "COVER"):
             w = window(views, i, WINDOWS["EXPOSE"])
             if w is not None:
                 out["EXPOSE"].append((f, any(x["exp"] == 1 and dist(x, v) >= STEP for x in w)))
         # out at his peek: in an enemy's sight by his cover, standing there
-        if v["exp"] == 1 and near_cover(v) and still(v) >= 4:
+        if v["exp"] == 1 and near_cover(v) and still(v) >= 4 and mode in (None, "PEEK"):
             w = window(views, i, WINDOWS["HIDE"])
             if w is not None:
                 out["HIDE"].append((f, any(x["hid"] == 1 and dist(x, v) >= STEP for x in w)))

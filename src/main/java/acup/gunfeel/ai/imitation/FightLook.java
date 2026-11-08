@@ -99,6 +99,7 @@ public final class FightLook {
     public static FightView bot(ServerLevel level, AiBot bot, FightHistory h, long tick) {
         LivingEntity self = bot.mob;
         FightView v = self(self, tick);
+        if (bot.brain instanceof acup.gunfeel.ai.AiSoldier s) v.mode = s.mode().name();
         List<FightView.Enemy> out = new ArrayList<>();
         long last = Long.MIN_VALUE;
         for (TargetMemory.Contact c : bot.memory.contacts()) {

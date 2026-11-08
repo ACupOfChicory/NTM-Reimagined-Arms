@@ -27,6 +27,8 @@ public final class FightView {
     public boolean fired;
     /** it was hurt since the last view (its health went down) */
     public boolean hurt;
+    /** a bot's mind's mode (AiSoldier.Mode) for the stands, null for a player */
+    public @org.jspecify.annotations.Nullable String mode;
     /** the nearest first */
     public List<Enemy> enemies = List.of();
     public int friendsNear;
