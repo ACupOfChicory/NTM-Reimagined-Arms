@@ -130,6 +130,10 @@ class Clip:
             self.times.update(np.round(ts, 5).tolist())
         self.times = sorted(self.times)
 
+    def zero_scale(self):
+        """True when a bone is scaled to nothing in some key (KayKit's Spawn_*): its turn is undefined there."""
+        return any(path == "scale" and float(np.min(np.abs(vs))) < 1e-6 for _, path, _, vs, _ in self.channels)
+
     def local(self, t):
         g = self.glb
         local = [list(g.rest_trs(i)) for i in range(len(g.nodes))]

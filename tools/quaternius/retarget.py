@@ -146,6 +146,9 @@ SELECTED = {
 LOOPS = {"Idle_A", "Idle_B", "Crawling", "Crouching", "Sneaking", "Running_HoldingRifle", "Running_Strafe_Left",
          "Running_Strafe_Right", "Walking_Backwards", "Walking_A", "Running_A", "Lie_Idle", "Ranged_2H_Shooting", "Ranged_1H_Shooting", "Idle_Gun", "Idle_Gun_Pointing",
          "Run_Shoot", "Waving", "Wave"}
+# Clips played once that end in a pose to keep: written with Bedrock's "loop": "hold_on_last_frame".
+HOLDS = {"Ranged_2H_Aiming", "Ranged_1H_Aiming", "Pistol_Aim_Neutral", "Pistol_Aim_Up", "Pistol_Aim_Down",
+         "Death_A", "Death_B", "Death01", "Lie_Down"}
 
 
 def unit(v):
@@ -222,7 +225,8 @@ class Skeleton:
     def __init__(self, glb, rig="ual"):
         self.g = glb
         self.bones = RIGS[rig]["bones"]
-        joints = glb.j["skins"][0]["joints"] if glb.j.get("skins") else range(len(glb.nodes))
+        skins = glb.j.get("skins")
+        joints = sorted({i for sk in skins for i in sk["joints"]}) if skins else range(len(glb.nodes))
         skip = set(RIGS[rig]["not_ground"])
         self.ground_nodes = [i for i in joints if glb.names[i] not in skip]
         self.rest = self.pose(glb.rest_world())
@@ -493,7 +497,7 @@ def bedrock(times, chans, parts, length, loop, split=False):
                        {"post": [round(float(x), 3) for x in vals[k]], "lerp_mode": "linear"} for k in keys}
         if b:
             bones[part] = b
-    return {"loop": bool(loop), "animation_length": round(length, 4), "bones": bones}
+    return {"loop": loop if loop == "hold_on_last_frame" else bool(loop), "animation_length": round(length, 4), "bones": bones}
 
 
 def grade(err, good, fair):
@@ -522,20 +526,28 @@ def main():
             clip = g.clip(name)
             if clip.length <= 0:
                 continue  # a single pose
+            if clip.zero_scale():
+                print(f"{tag} {name}: skipped, a bone is scaled to nothing")
+                continue
             legs = pick_legs(sk, clip)
             chans, st, nframes, nkeys, times = convert(sk, clip, legs=legs)
             gu, gl, eu, el = grades(st)
             short = name.split("|")[-1]
             loop = short.endswith("_Loop") or short in LOOPS
-            seam = None
-            if loop:  # a loop's last frame must be its first
+            seam = seam_px = None
+            if loop:  # a loop's last frame must be its first, turns and the hips' shift
                 a = sk.solve(sk.pose(clip.world(0.0)), legs)[0]
                 b = sk.solve(sk.pose(clip.world(clip.length)), legs)[0]
                 seam = max(mat_angle(a[k][1], b[k][1]) for k in PARTS)
+                rv = chans["root"]["position_rel"][0]
+                seam_px = float(np.linalg.norm(rv[-1] - rv[0]))
+            elif short in HOLDS:
+                loop = "hold_on_last_frame"
             q = {k: (float(np.mean(v)), float(np.percentile(v, 95)), float(np.max(v))) for k, v in st.items()}
             rows.append({"pack": tag, "clip": name, "length": clip.length, "frames": nframes, "keys": nkeys,
                          "selected": name in SELECTED[tag], "legs": legs, "upper": gu, "lower": gl,
-                         "hand_p95_px": eu, "legs_p95_px": el, "loop_seam_deg": seam, "stats": q})
+                         "hand_p95_px": eu, "legs_p95_px": el, "loop_seam_deg": seam, "loop_seam_px": seam_px,
+                         "stats": q})
             if name in SELECTED[tag]:
                 key = short.lower()
                 assert key not in anims, key
@@ -545,10 +557,10 @@ def main():
     for outname, anims in files.items():
         doc = {"format_version": "1.8.0", "animations": anims}
         with open(os.path.join(out, f"{outname}.animation.json"), "w") as f:
-            json.dump(doc, f, separators=(",", ":"), ensure_ascii=False)
+            json.dump(doc, f, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
             f.write("\n")
     with open(check, "w") as f:
-        json.dump(rows, f, indent=1, ensure_ascii=False)
+        json.dump(rows, f, indent=1, ensure_ascii=False, allow_nan=False)
         f.write("\n")
     for r in rows:
         s = r["stats"]

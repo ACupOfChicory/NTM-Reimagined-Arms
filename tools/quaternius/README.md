@@ -21,7 +21,8 @@ python3 -I tools/quaternius/retarget.py tools/quaternius/animations tools/quater
   KK_RANGED=<Rig_Medium_CombatRanged.glb> KK_GENERAL=<Rig_Medium_General.glb> \
   KK_MOVE_ADV=<Rig_Medium_MovementAdvanced.glb> KK_MOVE_BASIC=<Rig_Medium_MovementBasic.glb> \
   KK_SIM=<Rig_Medium_Simulation.glb> SWAT=<swat.glb>
-UAL1_GLB=<UAL1_Standard.glb> python3 -I tools/quaternius/test_retarget.py
+UAL1_GLB=<UAL1_Standard.glb> KAYKIT_GLB=<Rig_Medium_General.glb> SWAT_GLB=<swat.glb> \
+  python3 -I tools/quaternius/test_retarget.py
 ```
 
 Python 3 and numpy only; the glb is read directly, no Blender. Each rig's bones are named in `RIGS`.
@@ -58,6 +59,10 @@ Values are read the way PlayerAnimationLib reads them:
   linear interpolation stays within 0.5° and 0.05 px of every frame.
 - A loop's seam is checked: `loop_seam_deg` in `check.json` is how far its last frame is from its first. KayKit's
   `Ranged_*_Aiming` raise the gun from the idle pose and then hold it, so they are written as played once.
+  `loop_seam_px` is how far the hips' shift (`root`) moves between the two.
+- Clips that end in a pose to keep (the aims, deaths, `Lie_Down`) are written with
+  `"loop": "hold_on_last_frame"`: a player keeps their last frame until it plays something else.
+- Clips that scale a bone to nothing (KayKit's `Spawn_*`) are skipped: a bone's turn is not defined there.
 
 ## The check
 
@@ -69,7 +74,9 @@ For every frame the parts are rebuilt from the written keys and compared with th
 - `arm_up`, `arm_fore`, `elbow` (and `leg_*`, `knee`): the part against the upper and lower bones, and the bend
   between them. Minecraft limbs do not bend, so this is what is lost.
 - `hand_px`: how much shorter shoulder→wrist is than a straight arm, in pixels of a 10 px arm. The hand ends up this
-  far beyond where UAL has it. Only the arm's length: the clavicle's shift is not counted.
+  far beyond where UAL has it. Only the arm's length: the clavicle's shift is not counted. It is measured against
+  the rest pose's arm: SWAT rests with bent elbows (26° and 46°), so there `hand_px` reads low and `elbow` is the
+  honest number.
 - `hip_px`, `ankle_px`: the hips' height and the ankle's place against UAL's, in pixels, taken from the solved
   pose before the keys are written (dropping keys moves it by at most 0.05 px).
 

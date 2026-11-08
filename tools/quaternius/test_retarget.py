@@ -2,7 +2,8 @@
 """Tests of retarget.py: python3 -I tools/quaternius/test_retarget.py [UAL1.glb]
 
 The math runs alone; the pose checks need the UAL1 glb (path argument or
-UAL1_GLB in the environment) and are skipped without it.
+UAL1_GLB in the environment) and are skipped without it; KAYKIT_GLB
+(Rig_Medium_General.glb) and SWAT_GLB do the same for those rigs.
 """
 import math
 import os
@@ -15,6 +16,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import retarget as r  # noqa: E402
 
 GLB = os.environ.get("UAL1_GLB") or (sys.argv.pop(1) if len(sys.argv) > 1 else None)
+KAYKIT = os.environ.get("KAYKIT_GLB")  # Rig_Medium_General.glb
+SWAT = os.environ.get("SWAT_GLB")
 
 
 class Math(unittest.TestCase):
@@ -113,6 +116,41 @@ class Poses(unittest.TestCase):
         out = self.solve("Death01", clip.length)
         down = out["body"][1] @ r.Y
         self.assertLess(abs(down[1]), 0.3, down)  # the body's length is level
+
+
+@unittest.skipUnless(KAYKIT and os.path.exists(KAYKIT), "KayKit glb not given")
+class KayKitRest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.g = r.Glb(KAYKIT)
+        cls.sk = r.Skeleton(cls.g, "kaykit")
+
+    def test_rest_is_a_t_pose_on_the_ground(self):
+        out = self.sk.solve(self.sk.rest)[0]
+        self.assertAlmostEqual(r.mat_to_euler(out["right_arm"][1])[2], 90.0, delta=1.0)
+        self.assertAlmostEqual(r.mat_to_euler(out["left_arm"][1])[2], -90.0, delta=1.0)
+        self.assertTrue(np.allclose(out["head"][1], np.eye(3), atol=1e-6))
+        self.assertLess(np.max(np.abs(r.mat_to_euler(out["body"][1]))), 1.0)
+        for leg in ("right_leg", "left_leg"):
+            self.assertAlmostEqual(out[leg][0][1], 12.0, delta=0.3)
+
+    def test_spawn_scaled_from_nothing_is_seen(self):
+        self.assertTrue(self.g.clip("Spawn_Air").zero_scale())
+        self.assertFalse(self.g.clip("Idle_A").zero_scale())
+
+
+@unittest.skipUnless(SWAT and os.path.exists(SWAT), "SWAT glb not given")
+class SwatRest(unittest.TestCase):
+    def test_rest_hangs_the_arms_and_stands(self):
+        g = r.Glb(SWAT)
+        sk = r.Skeleton(g, "qmodular")
+        out = sk.solve(sk.rest)[0]
+        # the rest hangs the arms about 15 deg out, the right one out to the right (+Z turn), the left to the left
+        rz, lz = r.mat_to_euler(out["right_arm"][1])[2], r.mat_to_euler(out["left_arm"][1])[2]
+        self.assertTrue(5.0 < rz < 25.0, rz)
+        self.assertTrue(-25.0 < lz < -5.0, lz)
+        for leg in ("right_leg", "left_leg"):
+            self.assertAlmostEqual(out[leg][0][1], 12.0, delta=0.4)
 
 
 if __name__ == "__main__":
