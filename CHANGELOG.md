@@ -1,5 +1,14 @@
 # Changelog
 
+## X744
+
+- Mob AI: to look or fire round a corner an AI mob takes a short step to it
+  and leans out, so you see its head and a shoulder, not all of it; its shots
+  leave from round the corner where its gun is, and its leaned head can be
+  hit with no player near. Where a lean shows it nothing it steps out as
+  before, and with model hitboxes off it never leans.
+- Mob AI: an AI mob's shot no longer starts inside the wall it stands at.
+
 ## X742
 
 - Mob AI: an AI mob running to cover along a low wall in your sight runs low

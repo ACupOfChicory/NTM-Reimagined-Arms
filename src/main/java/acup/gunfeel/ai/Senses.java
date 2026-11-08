@@ -46,8 +46,10 @@ public final class Senses {
         long t0 = System.nanoTime();
         looks++;
         try {
-            Vec3 eye = mob.getEyePosition();
+            // its eye and the target's parts where a lean round a corner has them (AiLean)
+            Vec3 eye = AiLean.eye(mob);
             double h = target.getBbHeight();
+            boolean leaned = AiLean.frac(target) != 0F;
             double dx = target.getX() - eye.x, dz = target.getZ() - eye.z, dy = target.getY() + h * 0.6 - eye.y;
             double d2 = dx * dx + dy * dy + dz * dz;
             if (d2 > p.viewRange() * p.viewRange() || d2 < 1e-6) {
@@ -63,10 +65,10 @@ public final class Senses {
             for (int k = 0; k < POINTS.length; k++) {
                 int i = whole ? k : FIRST[k];
                 if (!whole && seen != 0) break;
-                double ty = target.getY() + h * POINTS[i];
+                Vec3 at = leaned ? AiLean.point(target, h * POINTS[i]) : new Vec3(target.getX(), target.getY() + h * POINTS[i], target.getZ());
                 rays++;
-                if (!VoxelRay.clear(voxels, eye.x, eye.y, eye.z, target.getX(), ty, target.getZ(), Voxel.SIGHT)) continue;
-                if (smoky && smoke.opticalDepth(eye, new Vec3(target.getX(), ty, target.getZ())) > SMOKE_DEPTH) continue;
+                if (!VoxelRay.clear(voxels, eye.x, eye.y, eye.z, at.x, at.y, at.z, Voxel.SIGHT)) continue;
+                if (smoky && smoke.opticalDepth(eye, at) > SMOKE_DEPTH) continue;
                 seen |= PART[i];
             }
             if (seen == 0) return -1;

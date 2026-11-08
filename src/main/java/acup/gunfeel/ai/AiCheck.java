@@ -100,11 +100,12 @@ public final class AiCheck {
             AiCheckReact react = new AiCheckReact(check, check.level, Y);
             AiCheckTeams battle = new AiCheckTeams(check, check.level, Y, true);
             AiCheckParts parts = new AiCheckParts(check, check.level, Y);
+            AiCheckLean lean = new AiCheckLean(check, check.level, Y);
             // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, aimed at a part, a
-            // player out of creative, a player not expected, the battle as the owner had it
-            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "unseen", "react", "battle");
+            // leaned round a corner, a player out of creative, a player not expected, the battle as the owner had it
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "unseen", "react", "battle");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
-                    aim::tick, parts::tick, unseen::tick, react::tick, battle::tick);
+                    aim::tick, parts::tick, lean::tick, unseen::tick, react::tick, battle::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
             // (a,b,c: those stages, in the check's own order)
             List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();

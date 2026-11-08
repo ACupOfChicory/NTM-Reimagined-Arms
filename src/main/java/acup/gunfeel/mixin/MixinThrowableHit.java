@@ -139,8 +139,9 @@ public abstract class MixinThrowableHit {
         LivingEntity shooter = self.getThrower();
         if (shooter == null) return from;
         // only a bullet fired from the shooter's gun; one spawned elsewhere (Shredder's plasma drops at the beam's
-        // end) starts where it is
-        Vec3 eye = shooter.getEyePosition();
+        // end) starts where it is. An AI mob leaning round a corner: its leaned eye (from its upright one the path
+        // runs into the corner it leans past, and the bullet dies in it)
+        Vec3 eye = acup.gunfeel.ai.AiLean.eye(shooter);
         return eye.distanceToSqr(from) < 9.0 ? eye : from;
     }
 }

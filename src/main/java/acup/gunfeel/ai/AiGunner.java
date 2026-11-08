@@ -109,7 +109,7 @@ public final class AiGunner {
         tracking = true;
         tracked = id;
         sight.see(id, chest.x, chest.y, chest.z, tick, skill, mob.getX(), mob.getZ());
-        double flight = LEAVES + chest.distanceTo(mob.getEyePosition()) / bulletSpeed();
+        double flight = LEAVES + chest.distanceTo(AiLean.eye(mob)) / bulletSpeed();
         aim = (sight.lead(tick, skill, flight) ? new Vec3(sight.spotX, sight.spotY, sight.spotZ) : chest).add(0, up, 0);
         this.halfHeight = halfHeight;
     }
@@ -274,7 +274,7 @@ public final class AiGunner {
         // lying, it fires only still: a pull while it crawls would be thrown away (ProneFire), so it waits until it has
         // stopped (its legs keep still meanwhile, steady)
         boolean shoot = wantFire && aim != null && aligned && loaded != 0 && !runs && !acup.gunfeel.ProneFire.blocks(mob, stack);
-        if (shoot && checkLine && AiBots.friendInLine(level, mob, mob.getEyePosition(), aim, CLEAR_CONE)) {
+        if (shoot && checkLine && AiBots.friendInLine(level, mob, AiLean.eye(mob), aim, CLEAR_CONE)) {
             // one of its own between it and the target: it holds fire
             shoot = false;
             blockedTicks++;
@@ -328,7 +328,7 @@ public final class AiGunner {
 
     /** a block that stops bullets within MUZZLE_CLEAR of the gun along the line to the aim */
     private boolean ownCover(ServerLevel level) {
-        Vec3 from = mob.getEyePosition().add(0, -MUZZLE_DROP, 0);
+        Vec3 from = AiLean.eye(mob).add(0, -MUZZLE_DROP, 0);
         double len = from.distanceTo(aim);
         if (len < 1e-3) return false;
         double t = VoxelRay.blocked(AiBots.voxels(level), from.x, from.y, from.z, aim.x, aim.y, aim.z, Voxel.PROTECT_MASK);
@@ -388,6 +388,7 @@ public final class AiGunner {
             mob.yBodyRot = y;
             if (mob.getMoveControl() instanceof AiMoveControl legs) legs.face(y);
         }
+        // from the upright eye: the look control turns the head from the mob's own place, not a leaned eye's
         Vec3 eye = mob.getEyePosition();
         double far = aim == null ? 16 : Math.max(1, eye.distanceTo(aim));
         Vec3 look = eye.add(Vec3.directionFromRotation(p, y).scale(far));
@@ -400,7 +401,7 @@ public final class AiGunner {
      */
     private boolean turn(long tick) {
         if (aim == null) return false;
-        Vec3 eye = mob.getEyePosition();
+        Vec3 eye = AiLean.eye(mob);
         AiSkill skill = AiSkill.current();
         float y, p;
         boolean on;
