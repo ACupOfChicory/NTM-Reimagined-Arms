@@ -77,6 +77,11 @@ public final class AiProne {
         return tick < pinnedUntil;
     }
 
+    /** the stands: pinned down from now, as by shots close past it */
+    void pin(long tick) {
+        pinnedUntil = tick + PINNED;
+    }
+
     /**
      * Lies down if the mind asked this tick and it may, else gets up where there is room, but not within MIN_LIE of
      * going down unless the mind sends it running; then the speed (crawling, running low past low cover: AiStoop).

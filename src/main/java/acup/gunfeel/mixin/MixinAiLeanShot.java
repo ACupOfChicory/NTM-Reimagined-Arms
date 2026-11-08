@@ -19,14 +19,25 @@ import net.minecraft.world.phys.Vec3;
 // NTM starts a shooter's bullet at its upright eye, then about a block ahead and a little to its gun hand. An AI mob's
 // starts from its eye where it is: leaning round a corner (AiLean), out past the corner, where its gun is drawn. And
 // a block ahead of an eye just past a corner is in the wall (stand: 11 shots of 14 leaning, standing at a peek's edge
-// too): with a block between its eye and that start, the bullet starts at the eye.
+// too): with a block between its eye and that start, the bullet starts at the eye. Fired blind over its cover (no look
+// along the gun: AiGunner.blind), its heading is NTM's again with three times the gun's spread.
 @Mixin(value = EntityBulletBaseMK4.class, remap = false)
 public abstract class MixinAiLeanShot {
+    /** a blind shot's spread, times the gun's; the gun's taken as this at least (NTM's units: radians, near enough) */
+    private static final float BLIND = 3F, BLIND_LEAST = 0.01F;
+
     @Inject(method = "<init>(Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/items/weapon/sedna/BulletConfig;FFDDD)V", at = @At("TAIL"))
     private void gunfeel$fromLeanedEye(LivingEntity shooter, BulletConfig config, float baseDamage, float gunSpread, double sideOffset,
             double heightOffset, double frontOffset, CallbackInfo ci) {
-        if (shooter == null || AiBots.get(shooter) == null) return;
+        acup.gunfeel.ai.AiBot bot = shooter == null ? null : AiBots.get(shooter);
+        if (bot == null) return;
         Entity bullet = (Entity) (Object) this;
+        if (bot.gunner.blind) {
+            // the heading NTM gave it (the shooter's look), spread anew: three times the gun's, a little at least
+            double yaw = Math.toRadians(shooter.getYRot()), pitch = Math.toRadians(shooter.getXRot());
+            ((com.hbm.entity.projectile.EntityThrowableNT) (Object) this).setThrowableHeading(-Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch),
+                    Math.cos(yaw) * Math.cos(pitch), 1F, BLIND * Math.max(gunSpread, BLIND_LEAST));
+        }
         Vec3 at = bullet.position().add(AiLean.eyeShift(shooter)), eye = AiLean.eye(shooter);
         if (bullet.level().clip(new ClipContext(eye, at, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, bullet)).getType() != HitResult.Type.MISS)
             at = eye;

@@ -34,8 +34,9 @@ public final class AiSquads {
      * back (135 degrees): no way past it (cosines)
      */
     static final double FLANK_COS = 0.7071, BEHIND_COS = -0.7071;
-    /** the most that go after one lost target */
+    /** the most of a side that go after one lost target, within HUNT_NEAR blocks of one another */
     static final int HUNTERS = 2;
+    static final double HUNT_NEAR = 32;
     /** off only for the stands' "before"; teams named here fight as before (the stands' squads against loners) */
     static boolean on = true;
     static final java.util.Set<String> offTeams = new java.util.HashSet<>();
@@ -232,14 +233,22 @@ public final class AiSquads {
         return cover && movers < Math.max(1, s.bots.size() / 2);
     }
 
-    /** whether it may go after this lost target: fewer than HUNTERS of its squad do already */
+    /**
+     * Whether it may go after this lost target: fewer than HUNTERS of its side within HUNT_NEAR do already, whatever
+     * squad each is in now (a hunt spreads them out past a squad's reach, and the squads made again would let two
+     * more go each).
+     */
     static boolean mayHunt(AiBot bot, int target) {
-        Squad s = of(bot);
-        if (s == null) return true;
+        if (!on || !(bot.mob.level() instanceof ServerLevel level)) return true;
+        String team = team(bot);
+        if (offTeams.contains(team)) return true;
         int n = 0;
-        for (AiBot b : s.bots)
-            if (b != bot && live(b) && b.brain instanceof AiSoldier o && o.mode() == AiSoldier.Mode.SEARCH && b.memory.focusId == target) n++;
-        return n < HUNTERS;
+        for (AiBot b : AiBots.bots(level)) {
+            if (b == bot || !live(b) || b.memory.focusId != target || !(b.brain instanceof AiSoldier o) || o.mode() != AiSoldier.Mode.SEARCH) continue;
+            if (b.mob.distanceToSqr(bot.mob) > HUNT_NEAR * HUNT_NEAR || !team.equals(team(b))) continue;
+            if (++n >= HUNTERS) return false;
+        }
+        return true;
     }
 
     /**

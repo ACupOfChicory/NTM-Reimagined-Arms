@@ -57,7 +57,8 @@ public final class AiThoughts {
         SEARCH("searches round where they went"),
         SEARCH_NONE("nothing left to search: watches"),
         FLANK("its squad's flanker: round the side, to cover that sees where they went"),
-        SUPPRESS("one of its squad on the move: keeps where they went under fire");
+        SUPPRESS("one of its squad on the move: keeps where they went under fire"),
+        BLIND("pinned down behind low cover: fires blind over it");
 
         final String label;
 

@@ -201,6 +201,7 @@ public final class AiSoldier implements AiBrain {
     @Override
     public void tick(AiBot bot, long tick) {
         crouch = false;
+        bot.gunner.blind = false;
         decide(bot, tick);
         body(bot, tick);
         if (AiThoughts.on()) thoughts.note(this, bot, tick);
@@ -228,9 +229,11 @@ public final class AiSoldier implements AiBrain {
         AiGunner g = bot.gunner;
         boolean reloading = g.reloading();
         boolean aiming = g.wantsFire() || mode == Mode.PEEK;
+        // held up over its cover with no look along it: the arms the pose layer draws for that (blind fire)
+        boolean blind = g.blind && low;
         AiPose.set(m, AiPose.of(m).withStance(lying ? AiPose.PRONE : low ? AiPose.CROUCH : AiPose.STAND)
                 .withLean((byte) (lying || low || mode != Mode.PEEK ? 0 : leanSide), tick)
-                .withArms(aiming ? AiPose.AIM : AiPose.HOLD)
+                .withArms(blind ? AiPose.BLIND : aiming ? AiPose.AIM : AiPose.HOLD)
                 .withAction(reloading ? AiPose.RELOAD : AiPose.NONE, (int) tick, (short) (reloading ? g.reloadTicks() : 0)));
         if (!lying) {
             Pose want = low ? Pose.CROUCHING : Pose.STANDING;
@@ -503,13 +506,16 @@ public final class AiSoldier implements AiBrain {
             if (low && there) {
                 // behind low cover it fires standing, and goes down only for a long reload
                 if ((reload || g.reloading()) && dist >= PRONE_NEVER && longReload(g)) bot.prone.want();
-                g.fire(bot.prone.upright(tick) && !reload && burst(bot, tick, false));
-                // between bursts and through a short reload it keeps low, and rises a moment before the next burst
-                crouch = reload || g.reloading() || burstUntil != 0 && tick > burstUntil && tick < burstUntil + BURST_PAUSE - RISE;
+                // pinned down there: it does not rise into the fire, it fires blind over the cover where they were seen
+                if (reload || dist < BLIND_NEAR || !blindFire(bot, level, new Vec3(c.x, c.y + 1.1, c.z), false, tick)) {
+                    g.fire(bot.prone.upright(tick) && !reload && burst(bot, tick, false));
+                    // between bursts and through a short reload it keeps low, and rises a moment before the next burst
+                    crouch = reload || g.reloading() || burstUntil != 0 && tick > burstUntil && tick < burstUntil + BURST_PAUSE - RISE;
+                }
             } else g.fire(false);
             if (reload) g.reload();
             // on its way in: the reason it is coming in stays
-            if (there) why = reload || g.reloading() ? (low ? Why.LOW_RELOAD : Why.RELOAD) : g.dry() ? Why.DRY : low ? Why.LOW_FIGHT : Why.HIDE;
+            if (there) why = reload || g.reloading() ? (low ? Why.LOW_RELOAD : Why.RELOAD) : g.dry() ? Why.DRY : g.blind ? Why.BLIND : low ? Why.LOW_FIGHT : Why.HIDE;
             if (!low && there && !reload && !g.reloading() && spot.hasPeek() && g.loaded() != 0 && AiChoice.ask(bot, Ask.PEEK_FIGHT, tick >= hideUntil, tick)) {
                 peekOut(bot, eye);
                 mode(Mode.PEEK, tick);
@@ -562,9 +568,13 @@ public final class AiSoldier implements AiBrain {
         }
         if (mode == Mode.COVER) {
             if (!bot.mover.goalIs(s.cell())) bot.mover.goTo(s.cell(), 0.35, WALK);
+            boolean low = s.peek() == s.cell() || !s.hasPeek();
+            // pinned down behind low cover: no look over it into the fire, a burst blind over it where they went (a
+            // reload only when a third or less is left, as in a fight: not after its first blind shot)
+            if (low && bot.mover.arrived() && !(g.loaded() >= 0 && g.loaded() < Math.max(1, g.capacity() / 3) && g.ammo.any())
+                    && lost.distanceTo(bot.mob.position()) >= BLIND_NEAR && blindFire(bot, (ServerLevel) bot.mob.level(), lost, true, tick)) return;
             boolean reload = g.loaded() >= 0 && g.loaded() < g.capacity() && g.ammo.any();
             if (reload) g.reload();
-            boolean low = s.peek() == s.cell() || !s.hasPeek();
             // behind low cover it lies only for a long reload, keeps low while it waits, and stands to look
             if (low && bot.mover.arrived() && (reload || g.reloading()) && longReload(g)) bot.prone.want();
             crouch = low && bot.mover.arrived() && (reload || g.reloading() || tick < hideUntil);
@@ -628,6 +638,38 @@ public final class AiSoldier implements AiBrain {
             case Senses.LEGS -> LEGS;
             default -> CHEST;
         };
+    }
+
+    /** whether it fires blind when pinned down behind low cover (off only for the stands' "before") */
+    static boolean blindOn = true;
+    /** nearer than this, blocks, it rises and aims: blind fire is for a foe it cannot look at, not one at arm's length */
+    static final double BLIND_NEAR = 6;
+    // for the stands: ticks it fired blind, and ticks it held it back for a wall between it and there
+    public int blindTicks, blindWalled;
+
+    /**
+     * Pinned down behind low cover (shots close past it: AiProne.pinned), the place they are known to be in the open:
+     * it stays down and holds its gun up over the cover, with no look along it, for bursts at that place (its shots
+     * spread three times the gun's: AiGunner.blind). Not into a wall: a block that stops bullets between its gun and
+     * there (past its own cover, which the gun is held up over), and it holds fire. aimThere: it aims at that place
+     * (a target lost); else its aim stays as it is (a target it follows, in a fight: no new spot each tick for its
+     * hand). Whether it fires blind this tick.
+     */
+    private boolean blindFire(AiBot bot, ServerLevel level, Vec3 at, boolean aimThere, long tick) {
+        AiGunner g = bot.gunner;
+        if (!blindOn || bot.prone.lying() || !bot.prone.pinned(tick) || g.reloading() || g.loaded() == 0) return false;
+        Vec3 gun = bot.mob.position().add(0, AiPose.CROUCH_SIZE.eyeHeight() - AiGunner.MUZZLE_DROP, 0);
+        if (VoxelRay.blocked(AiBots.voxels(level), gun.x, gun.y, gun.z, at.x, at.y, at.z, Voxel.PROTECT_MASK) >= 0) {
+            blindWalled++;
+            return false;
+        }
+        crouch = true;
+        g.blind = true;
+        if (aimThere) g.aim(at);
+        g.fire(burst(bot, tick, false));
+        blindTicks++;
+        why = Why.BLIND;
+        return true;
     }
 
     /** a reload of its gun is one to lie down for */
@@ -906,10 +948,14 @@ public final class AiSoldier implements AiBrain {
             nextQuery = tick + QUERY_EVERY * 3;
             takeCover(bot, level, TacticalMap.of(level), List.of(new Vec3(c.lostX, c.lostY + 1.5, c.lostZ)), false);
         }
-        if (spot != null && bot.mover.arrived() && bot.gunner.loaded() >= 0 && bot.gunner.loaded() < bot.gunner.capacity() && bot.gunner.ammo.any())
-            bot.gunner.reload();
         mode(Mode.HOLD, tick);
         why = spot != null && !bot.mover.arrived() ? Why.HOLD_RUN : bot.gunner.reloading() ? Why.HOLD_RELOAD : Why.HOLD;
+        // pinned down behind low cover while it waits: bursts blind over it where they went, as in coverCycle
+        AiGunner g = bot.gunner;
+        if (spot != null && bot.mover.arrived() && (spot.peek() == spot.cell() || !spot.hasPeek())
+                && !(g.loaded() >= 0 && g.loaded() < Math.max(1, g.capacity() / 3) && g.ammo.any()) && lost.distanceTo(bot.mob.position()) >= BLIND_NEAR
+                && blindFire(bot, level, lost, true, tick)) return;
+        if (spot != null && bot.mover.arrived() && g.loaded() >= 0 && g.loaded() < g.capacity() && g.ammo.any()) g.reload();
     }
 
     /** slowly through the cells round where they were lost that it cannot see, nearest first */

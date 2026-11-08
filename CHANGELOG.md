@@ -1,5 +1,15 @@
 # Changelog
 
+## X776
+
+- Mob AI: a bot pinned down behind low cover by shots close past it no longer
+  stands up into the fire: it stays down and fires blind over the cover at
+  where it last saw you, the gun held up, its shots spread three times wider
+  than its aimed shots from there. It does not fire blind into a wall, nor at
+  you closer than 6 blocks.
+- Mob AI: no more than two bots of a side come after you at once, also when
+  the hunt spreads their squad out (a third could join before).
+
 ## X775
 
 - Mob AI: bots of one side near each other fight as a squad. When they lose

@@ -45,6 +45,14 @@ public final class AiGunner {
     Vec3 exact;
     /** shots let go (trigger pulls), for the stands */
     public int pulls;
+    /**
+     * this tick it fires blind, the gun held up over its cover with no look along it (its mind sets it each tick): its
+     * bullets spread three times the gun's (MixinAiLeanShot)
+     */
+    public boolean blind;
+    /** for the stands: shots let go blind, and the tick of the last */
+    public int blindShots;
+    public long lastBlind = Long.MIN_VALUE;
     /** ticks in a row it would have shot but another AI mob was in the line; ticks of that in all (the stands) */
     public int blockedTicks, holds;
     /** ticks it held fire with a block that stops bullets just past its gun (its own cover), and such holds (the stands) */
@@ -322,6 +330,10 @@ public final class AiGunner {
         int n = fresh > 0 ? fresh : Math.min(gone, 1);
         fresh = 0;
         shots += n;
+        if (n > 0 && blind) {
+            blindShots += n;
+            lastBlind = level.getGameTime();
+        }
         if (n > 0 && acup.gunfeel.Prone.lying(mob)) shotsLying += n;
         if (n > 0 && exact == null) recoil(n, level.getGameTime(), stack);
     }

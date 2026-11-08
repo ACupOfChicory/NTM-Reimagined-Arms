@@ -93,6 +93,12 @@ public final class AiBots {
         return l == null ? 0 : l.bots.size();
     }
 
+    /** the level's AI mobs as they are (no copy): read only, on the server thread, not while one is added or let go */
+    static java.util.Collection<AiBot> bots(ServerLevel level) {
+        PerLevel l = LEVELS.get(level);
+        return l == null ? List.of() : l.bots.values();
+    }
+
     public static List<AiBot> all(ServerLevel level) {
         PerLevel l = LEVELS.get(level);
         return l == null ? List.of() : new ArrayList<>(l.bots.values());

@@ -640,6 +640,7 @@ MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDI)Lcom/hbm/r
 MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDILcom/hbm/render/anim/BusAnimationKeyframe$IType;)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence hold (I)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence setPos (DDD)Lcom/hbm/render/anim/BusAnimationSequence;
+MOB_AI class com/hbm/entity/projectile/EntityThrowableNT
 MOB_AI class com/hbm/handler/HbmKeybinds$EnumKeybind
 MOB_AI class com/hbm/items/weapon/sedna/BulletConfig
 MOB_AI class com/hbm/items/weapon/sedna/ItemGunBaseNT
@@ -659,6 +660,7 @@ MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilRebound F
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState RELOADING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+MOB_AI method com/hbm/entity/projectile/EntityThrowableNT setThrowableHeading (DDDFF)V
 MOB_AI method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z

@@ -103,11 +103,12 @@ public final class AiCheck {
             AiCheckLean lean = new AiCheckLean(check, check.level, Y);
             AiCheckSquad squad = new AiCheckSquad(check, check.level, Y);
             AiCheckDuel duel = new AiCheckDuel(check, check.level, Y);
+            AiCheckBlind blind = new AiCheckBlind(check, check.level, Y);
             // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, aimed at a part, a
-            // leaned round a corner, fought as a squad, a player out of creative, a player not expected, the battle as the owner had it, squads against loners
-            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "unseen", "react", "battle", "duel");
+            // leaned round a corner, fought as a squad, fired blind, a player out of creative, a player not expected, the battle as the owner had it, squads against loners
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "unseen", "react", "battle", "duel");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
-                    aim::tick, parts::tick, lean::tick, squad::tick, unseen::tick, react::tick, battle::tick, duel::tick);
+                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, unseen::tick, react::tick, battle::tick, duel::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
             // (a,b,c: those stages, in the check's own order)
             List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
