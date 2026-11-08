@@ -1,27 +1,35 @@
-# Quaternius UAL → Minecraft biped
+# Free humanoid clips → Minecraft biped
 
-Puts clips of Quaternius' Universal Animation Library 1 and 2 (CC0,
-`animations/LICENSE-Quaternius-UAL.txt`) on the six parts of a Minecraft
-`HumanoidModel`: head, body, both arms, both legs. Nothing in the mod plays
-them yet.
+Puts clips of free (CC0) humanoid animation packs on the six parts of a Minecraft `HumanoidModel`: head, body, both
+arms, both legs. Nothing in the mod plays them yet.
+
+| Pack | Author | License | Where | What we take |
+|---|---|---|---|---|
+| Universal Animation Library 1 and 2, `[Standard]` | Quaternius | CC0 (`animations/LICENSE-Quaternius-UAL.txt`) | https://quaternius.itch.io/universal-animation-library, https://quaternius.itch.io/universal-animation-library-2 | idle, walk, pistol, crouch, throw, hits, death, signals |
+| KayKit Character Animations 1.1, Free | Kay Lousberg | CC0 (`animations/LICENSE-KayKit-Character-Animations.txt`) | https://kaylousberg.itch.io/kaykit-character-animations | rifle (aim, shoot, reload), crawl, crouch, sneak, lie down, throw, dodges |
+| SWAT | Quaternius | CC0 (`animations/LICENSE-Quaternius-SWAT.txt`) | https://poly.pizza/m/Btfn3G5Xv4 | one-handed gun: hold, point, shoot, run and shoot |
 
 ## Run
 
-Get the free `[Standard]` zips from https://quaternius.itch.io/universal-animation-library and
-https://quaternius.itch.io/universal-animation-library-2, unpack each into its own empty folder, then:
+Unpack each download into its own empty folder (glTF/glb files: UAL `Unreal-Godot/UAL?_Standard.glb`, KayKit
+`Animations/gltf/Rig_Medium/*.glb`, SWAT the poly.pizza glb), then name each file by its pack (`PACKS` in
+`retarget.py`):
 
 ```
-python3 -I tools/quaternius/retarget.py \
-  <UAL1>/Unreal-Godot/UAL1_Standard.glb <UAL2>/Unreal-Godot/UAL2_Standard.glb \
-  tools/quaternius/animations tools/quaternius/check.json
-UAL1_GLB=<UAL1>/Unreal-Godot/UAL1_Standard.glb python3 -I tools/quaternius/test_retarget.py
+python3 -I tools/quaternius/retarget.py tools/quaternius/animations tools/quaternius/check.json \
+  UAL1=<UAL1_Standard.glb> UAL2=<UAL2_Standard.glb> \
+  KK_RANGED=<Rig_Medium_CombatRanged.glb> KK_GENERAL=<Rig_Medium_General.glb> \
+  KK_MOVE_ADV=<Rig_Medium_MovementAdvanced.glb> KK_MOVE_BASIC=<Rig_Medium_MovementBasic.glb> \
+  KK_SIM=<Rig_Medium_Simulation.glb> SWAT=<swat.glb>
+UAL1_GLB=<UAL1_Standard.glb> python3 -I tools/quaternius/test_retarget.py
 ```
 
-Python 3 and numpy only; the glb is read directly, no Blender.
+Python 3 and numpy only; the glb is read directly, no Blender. Each rig's bones are named in `RIGS`.
 
 ## Output
 
-`animations/ual1.animation.json`, `ual2.animation.json`: Bedrock animation JSON 1.8.0, linear keys.
+`animations/ual1.animation.json`, `ual2.animation.json`, `kaykit.animation.json`, `swat.animation.json`: Bedrock
+animation JSON 1.8.0, linear keys.
 Each clip listed in `SELECTED` (`retarget.py`) comes three times: `<clip>` (all six parts), `<clip>_upper`
 (head, body, arms) and `<clip>_lower` (legs and a `root` bone). In the split halves the parts' positions leave out
 the hips' shift and `root` carries it, so a player adds `root`'s position to every part.
@@ -38,8 +46,8 @@ Values are read the way PlayerAnimationLib reads them:
 
 - An arm points from shoulder to wrist, a leg from hip to ankle. The twist around the limb's length comes from the
   hand for an arm (it holds the gun) and from the thigh for a leg.
-- The body points from the neck to the middle of the hips; its twist comes from `spine_03`. The head takes the
-  `Head` bone's turn as it is.
+- The body points from the neck to the middle of the hips; its twist comes from the chest bone (UAL `spine_03`).
+  The head takes the head bone's turn as it is.
 - The parts are siblings in Minecraft, so each one gets its own full turn. The head, body and arms hang from the
   neck, 12 px above the hips along the body; the legs hang from the hips, turned with the pelvis.
 - The hips move with UAL's pelvis, scaled by leg length (12 px per UAL leg). Their height comes from the ground:
@@ -48,6 +56,8 @@ Values are read the way PlayerAnimationLib reads them:
 - Where straight interpolation of the Euler angles between two 30 fps frames strays more than 2° from the pose
   halfway (a fast swing), frames are added in between, halving the step up to 4 times. Then keys are dropped where
   linear interpolation stays within 0.5° and 0.05 px of every frame.
+- A loop's seam is checked: `loop_seam_deg` in `check.json` is how far its last frame is from its first. KayKit's
+  `Ranged_*_Aiming` raise the gun from the idle pose and then hold it, so they are written as played once.
 
 ## The check
 

@@ -1,6 +1,7 @@
 """Retarget Quaternius UAL clips onto the six parts of a Minecraft HumanoidModel.
 
-Run:  python3 -I tools/quaternius/retarget.py <UAL1.glb> <UAL2.glb> <animations dir> <check.json>
+Run:  python3 -I tools/quaternius/retarget.py <animations dir> <check.json> TAG=<file.glb> ...
+      (TAG: a key of PACKS — UAL1, UAL2, KK_RANGED, ..., SWAT)
 
 Model space of a Minecraft ModelPart: X = the model's left, Y = down, Z = back
 (forward is -Z), pixels. A part's rotation is Rz(zRot) * Ry(yRot) * Rx(xRot)
@@ -69,7 +70,62 @@ LIMB = {  # part: (root joint, middle joint, end joint)
 # Where the wrist and the ankle sit along an MC arm/leg, pixels from the pivot.
 LIMB_END_PX = {"right_arm": 10.0, "left_arm": 10.0, "right_leg": 12.0, "left_leg": 12.0}
 
+def _sided(r_names, l_names):
+    out = {}
+    for canon, (r, l) in zip(("upperarm", "lowerarm", "hand", "thigh", "calf", "foot"), zip(r_names, l_names)):
+        out[canon + "_r"], out[canon + "_l"] = r, l
+    return out
+
+
+# Each rig: the canonical bones the retarget reads -> the rig's own names, and the joints the ground ignores.
+RIGS = {
+    "ual": {
+        "bones": {**_sided(["upperarm_r", "lowerarm_r", "hand_r", "thigh_r", "calf_r", "foot_r"],
+                           ["upperarm_l", "lowerarm_l", "hand_l", "thigh_l", "calf_l", "foot_l"]),
+                  "neck_01": "neck_01", "spine_03": "spine_03", "pelvis": "pelvis", "Head": "Head"},
+        "not_ground": ("root",),
+    },
+    # KayKit Rig_Medium: no neck, the head grows from the chest; `wrist` is the wrist, `hand` the palm
+    "kaykit": {
+        "bones": {**_sided(["upperarm.r", "lowerarm.r", "wrist.r", "upperleg.r", "lowerleg.r", "foot.r"],
+                           ["upperarm.l", "lowerarm.l", "wrist.l", "upperleg.l", "lowerleg.l", "foot.l"]),
+                  "neck_01": "head", "spine_03": "chest", "pelvis": "hips", "Head": "head"},
+        "not_ground": ("root",),
+    },
+    # Quaternius' modular characters (poly.pizza SWAT): the feet are IK bones off Root, the ankle is LowerLeg's end
+    "qmodular": {
+        "bones": {**_sided(["UpperArm.R", "LowerArm.R", "Wrist.R", "UpperLeg.R", "LowerLeg.R", "LowerLeg.R_end"],
+                           ["UpperArm.L", "LowerArm.L", "Wrist.L", "UpperLeg.L", "LowerLeg.L", "LowerLeg.L_end"]),
+                  "neck_01": "Neck", "spine_03": "Chest", "pelvis": "Hips", "Head": "Head"},
+        "not_ground": ("Root", "Body", "PT.L", "PT.L_end", "PT.R", "PT.R_end"),
+    },
+}
+# A pack: its rig and the output file it goes to.
+PACKS = {
+    "UAL1": ("ual", "ual1"),
+    "UAL2": ("ual", "ual2"),
+    "KK_RANGED": ("kaykit", "kaykit"),
+    "KK_GENERAL": ("kaykit", "kaykit"),
+    "KK_MOVE_ADV": ("kaykit", "kaykit"),
+    "KK_MOVE_BASIC": ("kaykit", "kaykit"),
+    "KK_SIM": ("kaykit", "kaykit"),
+    "SWAT": ("qmodular", "swat"),
+}
+
 SELECTED = {
+    "KK_RANGED": [
+        "Ranged_2H_Aiming", "Ranged_2H_Shoot", "Ranged_2H_Shooting", "Ranged_2H_Reload",
+        "Ranged_1H_Aiming", "Ranged_1H_Shoot", "Ranged_1H_Shooting", "Ranged_1H_Reload",
+    ],
+    "KK_GENERAL": ["Idle_A", "Idle_B", "Death_A", "Death_B", "Hit_A", "Hit_B", "Throw", "Interact", "PickUp",
+                   "Use_Item"],
+    "KK_MOVE_ADV": ["Crawling", "Crouching", "Sneaking", "Running_HoldingRifle", "Running_Strafe_Left",
+                    "Running_Strafe_Right", "Walking_Backwards", "Dodge_Forward", "Dodge_Backward", "Dodge_Left",
+                    "Dodge_Right"],
+    "KK_MOVE_BASIC": ["Walking_A", "Running_A"],
+    "KK_SIM": ["Lie_Down", "Lie_Idle", "Lie_StandUp", "Waving"],
+    "SWAT": ["CharacterArmature|Idle_Gun", "CharacterArmature|Idle_Gun_Pointing", "CharacterArmature|Idle_Gun_Shoot",
+             "CharacterArmature|Gun_Shoot", "CharacterArmature|Run_Shoot", "CharacterArmature|Wave"],
     "UAL1": [
         "Idle_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Idle_Loop", "Crouch_Fwd_Loop",
         "Pistol_Idle_Loop", "Pistol_Aim_Neutral", "Pistol_Aim_Up", "Pistol_Aim_Down", "Pistol_Shoot",
@@ -83,6 +139,13 @@ SELECTED = {
         "Idle_FoldArms_Loop",
     ],
 }
+
+
+# Clips that loop though their names do not say so. (KayKit's Ranged_*_Aiming raise the gun from the idle pose
+# in 0.3 s and then hold it: played once, the last frame held.)
+LOOPS = {"Idle_A", "Idle_B", "Crawling", "Crouching", "Sneaking", "Running_HoldingRifle", "Running_Strafe_Left",
+         "Running_Strafe_Right", "Walking_Backwards", "Walking_A", "Running_A", "Lie_Idle", "Ranged_2H_Shooting", "Ranged_1H_Shooting", "Idle_Gun", "Idle_Gun_Pointing",
+         "Run_Shoot", "Waving", "Wave"}
 
 
 def unit(v):
@@ -156,8 +219,12 @@ def mat_to_euler(m, prev=None):
 
 
 class Skeleton:
-    def __init__(self, glb):
+    def __init__(self, glb, rig="ual"):
         self.g = glb
+        self.bones = RIGS[rig]["bones"]
+        joints = glb.j["skins"][0]["joints"] if glb.j.get("skins") else range(len(glb.nodes))
+        skip = set(RIGS[rig]["not_ground"])
+        self.ground_nodes = [i for i in joints if glb.names[i] not in skip]
         self.rest = self.pose(glb.rest_world())
         r = self.rest
         self.leg_len = np.linalg.norm(r["P"]["foot_l"] - r["P"]["thigh_l"])
@@ -169,21 +236,24 @@ class Skeleton:
         self.A["body"] = frame_from(self.hips(r) - r["P"]["neck_01"], np.array([0.0, 0.0, 1.0]))
 
     def pose(self, world):
+        """World matrices -> MC-frame positions and turns of the canonical bones, and the lowest joint's height."""
         P, R = {}, {}
-        for i, n in enumerate(self.g.names):
-            m = world[i]
-            P[n] = C @ m[:3, 3]
+        for canon, name in self.bones.items():
+            m = world[self.g.index[name]]
+            P[canon] = C @ m[:3, 3]
             r = m[:3, :3] / np.linalg.norm(m[:3, :3], axis=0)
-            R[n] = C @ r @ C
-        return {"P": P, "R": R}
+            R[canon] = C @ r @ C
+        low = min(float(world[i][1, 3]) for i in self.ground_nodes)
+        return {"P": P, "R": R, "low": low}
 
     @staticmethod
     def hips(p):
         return 0.5 * (p["P"]["thigh_l"] + p["P"]["thigh_r"])
 
-    def lowest(self, p):
-        """Height of the lowest joint above y=0 (MC frame: -y is up)."""
-        return min(-p["P"][n][1] for n in self.g.names if n not in ("Armature", "Mannequin", "root"))
+    @staticmethod
+    def lowest(p):
+        """Height of the lowest joint above y=0."""
+        return p["low"]
 
     def delta(self, p, bone):
         return p["R"][bone] @ self.rest["R"][bone].T
@@ -438,31 +508,43 @@ def grades(st):
 
 
 def main():
-    paths, out, check = sys.argv[1:3], sys.argv[3], sys.argv[4]
+    out, check = sys.argv[1], sys.argv[2]
+    packs = [a.split("=", 1) for a in sys.argv[3:]]
     os.makedirs(out, exist_ok=True)
     rows = []
-    for path in paths:
-        tag = "UAL2" if "UAL2" in os.path.basename(path) else "UAL1"
+    files = {}
+    for tag, path in packs:
+        rig, outname = PACKS[tag]
         g = Glb(path)
-        sk = Skeleton(g)
-        anims = {}
+        sk = Skeleton(g, rig)
+        anims = files.setdefault(outname, {})
         for name in g.anims:
             clip = g.clip(name)
+            if clip.length <= 0:
+                continue  # a single pose
             legs = pick_legs(sk, clip)
             chans, st, nframes, nkeys, times = convert(sk, clip, legs=legs)
             gu, gl, eu, el = grades(st)
+            short = name.split("|")[-1]
+            loop = short.endswith("_Loop") or short in LOOPS
+            seam = None
+            if loop:  # a loop's last frame must be its first
+                a = sk.solve(sk.pose(clip.world(0.0)), legs)[0]
+                b = sk.solve(sk.pose(clip.world(clip.length)), legs)[0]
+                seam = max(mat_angle(a[k][1], b[k][1]) for k in PARTS)
             q = {k: (float(np.mean(v)), float(np.percentile(v, 95)), float(np.max(v))) for k, v in st.items()}
             rows.append({"pack": tag, "clip": name, "length": clip.length, "frames": nframes, "keys": nkeys,
                          "selected": name in SELECTED[tag], "legs": legs, "upper": gu, "lower": gl,
-                         "hand_p95_px": eu, "legs_p95_px": el, "stats": q})
+                         "hand_p95_px": eu, "legs_p95_px": el, "loop_seam_deg": seam, "stats": q})
             if name in SELECTED[tag]:
-                loop = name.endswith("_Loop")
-                key = name.lower()
+                key = short.lower()
+                assert key not in anims, key
                 anims[key] = bedrock(times, chans, PARTS, clip.length, loop)
                 anims[key + "_upper"] = bedrock(times, chans, UPPER, clip.length, loop, split=True)
                 anims[key + "_lower"] = bedrock(times, chans, LOWER + ["root"], clip.length, loop, split=True)
+    for outname, anims in files.items():
         doc = {"format_version": "1.8.0", "animations": anims}
-        with open(os.path.join(out, f"{tag.lower()}.animation.json"), "w") as f:
+        with open(os.path.join(out, f"{outname}.animation.json"), "w") as f:
             json.dump(doc, f, separators=(",", ":"), ensure_ascii=False)
             f.write("\n")
     with open(check, "w") as f:
