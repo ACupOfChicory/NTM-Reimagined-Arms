@@ -124,6 +124,8 @@ public final class AiProne {
         }
         Vec3 c = mob.position().add(0, mob.getBbHeight() * 0.6, 0);
         for (Projectile p : level.getEntitiesOfClass(Projectile.class, mob.getBoundingBox().inflate(WATCH), Entity::isAlive)) {
+            // a grenade is no shot past it: it runs from where that bursts (AiGrenades)
+            if (p instanceof com.hbm.entity.grenade.EntityGrenadeUniversal || p instanceof com.hbm.entity.grenade.EntityGrenadeBouncyGeneric) continue;
             Entity owner = p.getOwner();
             if (owner == mob || owner instanceof LivingEntity o && AiTeams.own(mob, o)
                     || owner instanceof net.minecraft.world.entity.player.Player pl && (pl.isCreative() || pl.isSpectator())) continue;

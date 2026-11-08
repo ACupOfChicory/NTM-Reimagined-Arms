@@ -58,7 +58,9 @@ public final class AiThoughts {
         SEARCH_NONE("nothing left to search: watches"),
         FLANK("its squad's flanker: round the side, to cover that sees where they went"),
         SUPPRESS("one of its squad on the move: keeps where they went under fire"),
-        BLIND("pinned down behind low cover: fires blind over it");
+        BLIND("pinned down behind low cover: fires blind over it"),
+        THROW("throws a grenade where they went out of sight"),
+        GRENADE("a grenade near: runs from where it bursts");
 
         final String label;
 

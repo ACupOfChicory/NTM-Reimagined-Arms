@@ -95,6 +95,7 @@ public final class GunFeelMod {
                         acup.gunfeel.ai.TacticalMap.forget(level);
                         acup.gunfeel.ai.AiBots.forget(level);
                         acup.gunfeel.ai.AiSquads.forget(level);
+                        acup.gunfeel.ai.AiGrenades.forget(level);
                     }
                 });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent.class,

@@ -76,7 +76,8 @@ final class AiCheckBlind {
                 });
                 NeoForge.EVENT_BUS.addListener(EntityJoinLevelEvent.class, e -> {
                     AiCheckBlind c = counting;
-                    if (c == null || c.soldier == null || !(e.getEntity() instanceof Projectile p) || p.getOwner() != c.soldier) return;
+                    if (c == null || c.soldier == null || !(e.getEntity() instanceof Projectile p) || p.getOwner() != c.soldier
+                        || p instanceof com.hbm.entity.grenade.EntityGrenadeUniversal) return;
                     AiBot b = AiBots.get(c.soldier);
                     if (b == null || !b.gunner.blind) return;
                     // a blind shot: its way to the foe's chest past the soldier's own wall, cut by a block?

@@ -284,6 +284,9 @@ public final class AiBench {
         boomPaths = new int[b];
         n = 0;
         aiNanos = acup.gunfeel.ai.AiBots.tickNanos;
+        planAt = acup.gunfeel.ai.AiGrenades.planNanos;
+        liveAt = acup.gunfeel.ai.AiGrenades.liveNanos;
+        byAt = acup.gunfeel.ai.AiBots.bystanderNanos;
         lookNanos = acup.gunfeel.ai.AiBots.lookNanos();
         looksAt = acup.gunfeel.ai.AiBots.looks();
         PathCount.on = true;
@@ -292,7 +295,7 @@ public final class AiBench {
 
     // after tick n of the measurement (its explosion, if any, went off before it)
     // the mod's AI's counters at the measurement's start
-    private static long aiNanos, lookNanos, looksAt;
+    private static long aiNanos, lookNanos, looksAt, planAt, liveAt, byAt;
 
     private static void record(long tick) {
         nanos[n] = tick;
@@ -345,6 +348,9 @@ public final class AiBench {
                 lookCount = acup.gunfeel.ai.AiBots.looks() - looksAt;
         if (ai > 0) notes.add(String.format(Locale.ROOT, "ИИ %.2f мс/тик, из них взгляды %.2f мс/тик (%.1f мкс взгляд, %.0f взглядов/тик)", ai / 1e6 / n,
                 look / 1e6 / n, lookCount == 0 ? 0 : look / 1e3 / lookCount, (double) lookCount / n));
+        notes.add(String.format(Locale.ROOT, "гранаты: броски %.3f мс/тик, в воздухе %.3f мс/тик; звуки посторонних %.3f мс/тик",
+                (acup.gunfeel.ai.AiGrenades.planNanos - planAt) / 1e6 / n, (acup.gunfeel.ai.AiGrenades.liveNanos - liveAt) / 1e6 / n,
+                (acup.gunfeel.ai.AiBots.bystanderNanos - byAt) / 1e6 / n));
         if (mobs.size() != p.mobs()) notes.add("WARN мобов " + mobs.size() + " из " + p.mobs());
         if (alive != mobs.size()) notes.add("WARN к концу осталось " + alive);
         double mobRatio = alive == 0 ? Double.NaN : (double) mobTicked / alive / n;

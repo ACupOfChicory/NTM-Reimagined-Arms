@@ -1,5 +1,27 @@
 # Changelog
 
+## X794
+
+- Mob AI: bots throw NTM's frag grenades (HE, three seconds' fuze). When you
+  go behind cover, a bot in cover 15 to 26 blocks away lobs one over it to
+  burst within 3 blocks of where you went out of sight, working out the arc,
+  the bounces and the roll as NTM flies it. It never throws one that would
+  burst within 17 blocks (the blast reaches 15) of itself or of its own side
+  where they stand, go or look out, and one of a squad throws at a time.
+  Each bot carries a few: new server setting `aiGrenades` (2 by default, 0
+  to 8), kept on the bot.
+- Mob AI: a bot that sees a grenade coming or hears one land nearby runs from
+  where it is going to burst: 12 blocks off or behind a block, and back to the
+  fight once it has gone off. Anyone's, yours too: NTM's hand grenades and
+  dynamite, 40 mm grenades (GL-54, Congo Lake, MK108) and rockets. A bot
+  behind a block from it already stays and fights on.
+- Mob AI: blind fire leaves from the gun held up over the bot's head, and the
+  bot holds it back when a block is in the way from there.
+- Mob AI: bots no longer take the sounds of animals and other creatures they
+  do not fight (a cow's call, a chicken's steps, a zombie's groan) for you.
+  Near a farm they turned to each one, and with no one to fight their heads
+  spun all the time.
+
 ## X793
 
 - GL-54 mustard gas no longer leaves oily stains on the floor. The ground it

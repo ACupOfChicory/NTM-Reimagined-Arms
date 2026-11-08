@@ -26,6 +26,11 @@ public final class AiEvents {
         // a mob tagged for the mob AI comes into a level (spawned, or its chunk loaded): the AI takes it over
         NeoForge.EVENT_BUS.addListener(EventPriority.LOW, false, net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class,
                 e -> AiAdapter.joined(e.getEntity()));
+        // a grenade thrown or fired (anyone's: a player's, an AI mob's): AI mobs near run from where it bursts
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOW, false, net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class, e -> {
+            if (e.getEntity() instanceof net.minecraft.world.entity.projectile.Projectile g && e.getLevel() instanceof ServerLevel level
+                    && acup.gunfeel.compat.Feature.MOB_AI.on() && AiGrenades.threat(g)) AiGrenades.joined(level, g);
+        });
     }
 
     private static void sound(PlayLevelSoundEvent e) {
