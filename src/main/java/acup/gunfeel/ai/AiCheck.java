@@ -175,6 +175,10 @@ public final class AiCheck {
     private boolean run(List<String> out, MinecraftServer server) throws Exception {
         this.out = out;
         level = server.overworld();
+        // no zombie or spider of the world's on the yards: the AI hears them, and the hearing checks count what it hears
+        level.getGameRules().set(net.minecraft.world.level.gamerules.GameRules.SPAWN_MOBS, false, server);
+        for (var e : level.getEntities(net.minecraft.world.level.entity.EntityTypeTest.forClass(net.minecraft.world.entity.Mob.class),
+                m -> m instanceof net.minecraft.world.entity.monster.Enemy)) e.discard();
         BlockState stone = Blocks.STONE.defaultBlockState(), concrete = Blocks.CONCRETE.pick(net.minecraft.world.item.DyeColor.GRAY).defaultBlockState();
         for (int x = X0; x < X0 + SIZE; x++)
             for (int z = Z0; z < Z0 + SIZE; z++) set(x, Y - 1, z, stone);

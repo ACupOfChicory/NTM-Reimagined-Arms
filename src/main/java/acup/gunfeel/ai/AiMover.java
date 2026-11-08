@@ -150,11 +150,11 @@ public final class AiMover {
     }
 
     /**
-     * It runs to its goal now, faster than a walk: it faces where it goes (a player sprints only ahead), its head
+     * It runs to its goal now, faster than a walk (running low too; crawling is slower): it faces where it goes (a player sprints only ahead), its head
      * turning within its neck, and holds fire. Walking it may face anywhere ({@link AiMoveControl}).
      */
     public boolean runs() {
-        return goal != Long.MIN_VALUE && speed * slow > AiSoldier.WALK + 1e-6 && !arrived() && !failed();
+        return goal != Long.MIN_VALUE && modifier() > AiSoldier.WALK + 1e-6 && !arrived() && !failed();
     }
 
     /** its mind sends it to a goal faster than a walk, whatever its legs make of it now (lying, it crawls) */
