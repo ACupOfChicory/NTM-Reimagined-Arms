@@ -439,6 +439,219 @@ def adjusted(out, adjust):
     return out
 
 
+# ------------------------------------------------------------------ ten parts: each arm and leg of two boxes
+# The bots' model (BotModel in the mod): the upper arm and the thigh are vanilla's arm and leg cut at half length, the
+# forearm and the shin hang from them as children, hinged at the elbow and the knee. Each box follows its own bone.
+CHILD = {"right_forearm": "right_arm", "left_forearm": "left_arm", "right_shin": "right_leg", "left_shin": "left_leg"}
+PARTS10 = ["head", "body", "right_arm", "right_forearm", "left_arm", "left_forearm",
+           "right_leg", "right_shin", "left_leg", "left_shin"]
+UPPER10 = ["head", "body", "right_arm", "right_forearm", "left_arm", "left_forearm"]
+LOWER10 = ["right_leg", "right_shin", "left_leg", "left_shin"]
+# a child's pivot in its parent, px: the elbow on the arm's middle line 6 px below the arm's top, the knee 6 px down
+JOINT = {"right_forearm": np.array([-1.0, 4.0, 0.0]), "left_forearm": np.array([1.0, 4.0, 0.0]),
+         "right_shin": np.array([0.0, 6.0, 0.0]), "left_shin": np.array([0.0, 6.0, 0.0])}
+BOX10 = {
+    "head": BOX["head"], "body": BOX["body"],
+    "right_arm": ((-3, -2, -2), (1, 4, 2)), "left_arm": ((-1, -2, -2), (3, 4, 2)),
+    "right_forearm": ((-2, 0, -2), (2, 6, 2)), "left_forearm": ((-2, 0, -2), (2, 6, 2)),
+    "right_leg": ((-2, 0, -2), (2, 6, 2)), "left_leg": ((-2, 0, -2), (2, 6, 2)),
+    "right_shin": ((-2, 0, -2), (2, 6, 2)), "left_shin": ((-2, 0, -2), (2, 6, 2)),
+}
+# each limb box's bone: from, to, and the bone its twist (turn about its own length) comes from: the hand for the
+# forearm (it holds the gun), each other bone its own
+BONE10 = {
+    "right_arm": ("upperarm_r", "lowerarm_r", "upperarm_r"), "right_forearm": ("lowerarm_r", "hand_r", "hand_r"),
+    "left_arm": ("upperarm_l", "lowerarm_l", "upperarm_l"), "left_forearm": ("lowerarm_l", "hand_l", "hand_l"),
+    "right_leg": ("thigh_r", "calf_r", "thigh_r"), "right_shin": ("calf_r", "foot_r", "calf_r"),
+    "left_leg": ("thigh_l", "calf_l", "thigh_l"), "left_shin": ("calf_l", "foot_l", "calf_l"),
+}
+# the wrist and the ankle: the end of the forearm and of the shin, px from its pivot
+END10_PX = 6.0
+# how far the wrist (ankle) is from the top of the limb's middle line with the limb straight, px (the arm's pivot is
+# 1 px in from its middle line)
+REACH_PX = {part: float(JOINT[child][1] + END10_PX) for child, part in CHILD.items()}
+
+
+def frames10(sk):
+    """Each limb box's rest frame: its Y along its bone at rest."""
+    r = sk.rest
+    return {part: frame_from(r["P"][b] - r["P"][a], np.array([0.0, 0.0, 1.0])) for part, (a, b, _) in BONE10.items()}
+
+
+def parts10(sk, p):
+    """One frame on ten parts: the world turns, the pivots from the hips, the hips' place (height still to be set)."""
+    a10 = sk.__dict__.setdefault("A10", frames10(sk))
+    rot, piv, hip = sk.parts(p, "end", "end")
+    for part, (a, b, tw) in BONE10.items():
+        m0 = sk.delta(p, tw) @ a10[part]
+        rot[part] = rot_between(m0 @ Y, p["P"][b] - p["P"][a]) @ m0
+    for child, parent in CHILD.items():
+        piv[child] = piv[parent] + rot[parent] @ JOINT[child]
+    return rot, piv, hip
+
+
+def lowest_corner10(rot, piv, parts=PARTS10):
+    low = -1e9
+    for part in parts:
+        lo, hi = BOX10[part]
+        for cx in (lo[0], hi[0]):
+            for cy in (lo[1], hi[1]):
+                for cz in (lo[2], hi[2]):
+                    low = max(low, (piv[part] + rot[part] @ np.array([cx, cy, cz]))[1])
+    return low
+
+
+def hip_y10(sk, p, low):
+    """The hips' height (MC y): the rig's pelvis height, scaled; lifted only so no box goes into the ground (`low`:
+    how far the lowest box corner is below the hips). The limbs are the rig's bones now, so the feet land where its
+    feet do; a box's corner is not a joint, so the rule of the six parts (the lowest corner as high as the lowest
+    joint) put the hips off by up to 8 px lying, rolling or running."""
+    return min(12.0 - sk.scale * (sk.hip_height(p) - sk.hip_height(sk.rest)), 24.0 - low)
+
+
+def solve10(sk, p):
+    """One frame -> {part: (pivot px, world turn)}, the hips' shift (hip_y10)."""
+    rot, piv, hip = parts10(sk, p)
+    hip[1] = hip_y10(sk, p, lowest_corner10(rot, piv))
+    root = hip - np.array([0.0, 12.0, 0.0])
+    return {part: (PIVOT_HIP + root + piv[part], rot[part]) for part in PARTS10}, root
+
+
+def adjusted10(out, adjust):
+    """`adjusted` on ten parts: a correction names one of the six (an arm is the upper arm, a leg the thigh); its
+    child goes along with it."""
+    if not adjust:
+        return out
+    out = dict(out)
+    for part, a in adjust.items():
+        piv, m = out[part]
+        d = np.array(a.get("pos", (0, 0, 0)), float) * np.array([1.0, -1.0, 1.0])
+        e = euler_to_mat(a.get("rot", (0, 0, 0)))
+        out[part] = (piv + d, e @ m)
+        for child, parent in CHILD.items():
+            if parent == part:
+                cp, cm = out[child]
+                out[child] = (piv + d + e @ (cp - piv), e @ cm)
+    return out
+
+
+def local10(world):
+    """World turns -> each part's own: a child's from its parent."""
+    return {part: world[CHILD[part]].T @ m if part in CHILD else m for part, m in world.items()}
+
+
+def world10(local):
+    return {part: local[CHILD[part]] @ m if part in CHILD else m for part, m in local.items()}
+
+
+def limb_errors10(sk, p, out):
+    """How far the MC wrists and ankles are from the rig's, from the top of the limb's middle line with the rig's
+    limb scaled to the MC one straight; and the hips' height error, px."""
+    hip_mc = 24.0 - (out["right_leg"][0][1] + out["left_leg"][0][1]) / 2
+    hip_err = abs((hip_mc - 12.0) - sk.scale * (sk.hip_height(p) - sk.hip_height(sk.rest)))
+    miss = {}
+    for part, (a, _, c) in LIMB.items():
+        child = next(k for k, v in CHILD.items() if v == part)
+        end = out[child][0] + out[child][1] @ np.array([0.0, END10_PX, 0.0])
+        full = np.linalg.norm(sk.rest["P"][c] - sk.rest["P"][a])
+        top = out[part][0] + out[part][1] @ (JOINT[child] * np.array([1.0, 0.0, 1.0]))
+        want = top + (p["P"][c] - p["P"][a]) / full * REACH_PX[part]
+        miss[part] = float(np.linalg.norm(end - want))
+    return hip_err, miss
+
+
+def solve_frame10(sk, clip, t, prev, adjust=None):
+    p = sk.pose(clip.world(t))
+    out, root = solve10(sk, p)
+    out = adjusted10(out, adjust)
+    world = {part: out[part][1] for part in PARTS10}
+    local = local10(world)
+    f = {}
+    for part in PARTS10:
+        e = mat_to_euler(local[part], prev.get(part) if prev else None)
+        if part in CHILD:  # hinged where it is: no move of its own
+            f[part] = (np.zeros(3), e, np.zeros(3))
+        else:
+            piv = out[part][0]
+            f[part] = (piv - PIVOT[part], e, piv - root - PIVOT[part])
+    return {"t": t, "f": f, "root": root, "p": p, "m": local, "w": world, "out": out, "err": limb_errors10(sk, p, out)}
+
+
+def convert10(sk, clip, rot_tol=0.5, pos_tol=0.05, mid_tol=2.0, depth=4, adjust=None):
+    """`convert` on ten parts, each box along its own bone."""
+    def follow(a, t):
+        return solve_frame10(sk, clip, t, {k: v[1] for k, v in a["f"].items()}, adjust)
+
+    def refine(a, t, d):
+        b = follow(a, t)
+        tm = (a["t"] + t) / 2
+        mid = follow(a, tm)
+        err = max(mat_angle(euler_to_mat((a["f"][k][1] + b["f"][k][1]) / 2), mid["m"][k]) for k in PARTS10)
+        if err <= mid_tol or d >= depth:
+            return [b]
+        left = refine(a, tm, d + 1)
+        return left + refine(left[-1], t, d + 1)
+
+    dense = [solve_frame10(sk, clip, clip.times[0], None, adjust)]
+    for t in clip.times[1:]:
+        dense += refine(dense[-1], t, 0)
+    times = [d["t"] for d in dense]
+
+    chans = {}
+    for part in PARTS10:
+        rv = np.array([d["f"][part][1] for d in dense])
+        pv = np.array([d["f"][part][0] * np.array([1, -1, 1]) for d in dense])
+        pr = np.array([d["f"][part][2] * np.array([1, -1, 1]) for d in dense])
+        chans[part] = {
+            "rotation": (rv, reduce_keys(times, rv, rot_tol)),
+            "position": (pv, reduce_keys(times, pv, pos_tol)),
+            "position_rel": (pr, reduce_keys(times, pr, pos_tol)),
+        }
+    rootv = np.array([d["root"] * np.array([1, -1, 1]) for d in dense])
+    chans["root"] = {"position_rel": (rootv, reduce_keys(times, rootv, pos_tol))}
+
+    # --- check: rebuild each part from the written keys, each limb box against its own bone
+    stats = {k: [] for k in ("rebuild", "rebuild_turn", "mid", "arm_up", "arm_fore", "elbow", "leg_up", "leg_low",
+                             "knee", "hand_px", "foot_px", "hip_px", "ankle_px", "body", "body_twist", "head")}
+    for fi, t in enumerate(times):
+        d = dense[fi]
+        p = d["p"]
+        local = {part: euler_to_mat(interp(times, chans[part]["rotation"][0], chans[part]["rotation"][1], t))
+                 for part in PARTS10}
+        m = world10(local)
+        for part in PARTS10:
+            stats["rebuild_turn"].append(mat_angle(local[part], d["m"][part]))
+        if fi:
+            tm = (times[fi - 1] + t) / 2
+            pm = solve_frame10(sk, clip, tm, None, adjust)
+            for part in PARTS10:
+                rv, keys = chans[part]["rotation"]
+                stats["mid"].append(mat_angle(euler_to_mat(interp(times, rv, keys, tm)), pm["m"][part]))
+        for part, (a, b, _) in BONE10.items():
+            dev = angle(m[part] @ Y, p["P"][b] - p["P"][a])
+            stats["rebuild"].append(dev)
+            arm = "arm" in part
+            stats[("arm_fore" if part in CHILD else "arm_up") if arm else ("leg_low" if part in CHILD else "leg_up")].append(dev)
+        for part, (a, b, c) in LIMB.items():
+            stats["elbow" if part.endswith("arm") else "knee"].append(angle(p["P"][b] - p["P"][a], p["P"][c] - p["P"][b]))
+        hip_err, miss = d["err"]
+        stats["hip_px"].append(hip_err)
+        stats["hand_px"].append(max(miss["right_arm"], miss["left_arm"]))
+        stats["foot_px"].append(max(miss["right_leg"], miss["left_leg"]))
+        stats["ankle_px"].append(max(miss["right_leg"], miss["left_leg"]))
+        stats["body"].append(angle(m["body"] @ Y, sk.hips(p) - p["P"]["neck_01"]))
+        sh_ual = p["P"]["upperarm_l"] - p["P"]["upperarm_r"]
+        sh_mc = m["body"] @ np.array([1.0, 0.0, 0.0])
+        axis = unit(m["body"] @ Y)
+        sh_ual = sh_ual - np.dot(sh_ual, axis) * axis
+        stats["body_twist"].append(angle(sh_mc, sh_ual))
+        hf = sk.delta(p, "Head") @ np.array([0.0, 0.0, -1.0])
+        stats["head"].append(angle(m["head"] @ np.array([0.0, 0.0, -1.0]), hf))
+
+    nkeys = sum(len(chans[part][k][1]) for part in PARTS10 for k in ("rotation", "position"))
+    return chans, stats, len(times), nkeys, times
+
+
 def solve_frame(sk, clip, t, legs, prev, arms="end", adjust=None):
     """One time -> (frame, root, pose, solved matrices); Euler angles follow `prev`."""
     p = sk.pose(clip.world(t))
@@ -627,42 +840,42 @@ def main():
             if clip.zero_scale():
                 print(f"{tag} {name}: skipped, a bone is scaled to nothing")
                 continue
-            legs, arms, adjust = pick_legs(sk, clip), "end", None
+            adjust = None
             chose = choices.get(f"{tag}/{name}")
             seen.add(f"{tag}/{name}")
             take = name in SELECTED[tag]
             if chose is not None:
-                legs, arms, take = chose["legs"], chose["arms"], take and chose.get("take", True)
+                take = take and chose.get("take", True)
                 adjust = chose.get("adjust") or None
-            chans, st, nframes, nkeys, times = convert(sk, clip, legs=legs, arms=arms, adjust=adjust)
+            chans, st, nframes, nkeys, times = convert10(sk, clip, adjust=adjust)
             gu, gl, eu, el = grades(st)
             short = name.split("|")[-1]
             loop = short.endswith("_Loop") or short in LOOPS
             seam = seam_px = None
             if loop:  # a loop's last frame must be its first, turns and the hips' shift
-                a = sk.solve(sk.pose(clip.world(0.0)), legs, arms)[0]
-                b = sk.solve(sk.pose(clip.world(clip.length)), legs, arms)[0]
-                seam = max(mat_angle(a[k][1], b[k][1]) for k in PARTS)
+                a = solve10(sk, sk.pose(clip.world(0.0)))[0]
+                b = solve10(sk, sk.pose(clip.world(clip.length)))[0]
+                seam = max(mat_angle(a[k][1], b[k][1]) for k in PARTS10)
                 rv = chans["root"]["position_rel"][0]
                 seam_px = float(np.linalg.norm(rv[-1] - rv[0]))
             elif short in HOLDS:
                 loop = "hold_on_last_frame"
             q = {k: (float(np.mean(v)), float(np.percentile(v, 95)), float(np.max(v))) for k, v in st.items()}
             row = {"pack": tag, "clip": name, "length": clip.length, "frames": nframes, "keys": nkeys,
-                         "selected": take, "legs": legs, "upper": gu, "lower": gl,
-                         "hand_p95_px": eu, "legs_p95_px": el, "loop_seam_deg": seam, "loop_seam_px": seam_px,
-                         "stats": q}
-            if arms != "end":
-                row["arms"] = arms  # check.json as before for the default
+                   "selected": take, "upper": gu, "lower": gl,
+                   "hand_p95_px": eu, "legs_p95_px": el, "loop_seam_deg": seam, "loop_seam_px": seam_px,
+                   "stats": q}
             if adjust:
                 row["adjust"] = adjust
             rows.append(row)
             if take:
                 key = short.lower()
                 assert key not in anims, key
-                anims[key] = bedrock(times, chans, PARTS, clip.length, loop)
-                anims[key + "_upper"] = bedrock(times, chans, UPPER, clip.length, loop, split=True)
-                anims[key + "_lower"] = bedrock(times, chans, LOWER + ["root"], clip.length, loop, split=True)
+                anims[key] = bedrock(times, chans, PARTS10, clip.length, loop)
+                anims[key + "_upper"] = bedrock(times, chans, UPPER10, clip.length, loop, split=True)
+                anims[key + "_lower"] = bedrock(times, chans, LOWER10 + ["root"], clip.length, loop, split=True)
+    if any(c.get("arms") != "end" or c.get("legs") != "end" for c in choices.values()):
+        print("--choices: the arms' and legs' modes are left aside, each box follows its own bone")
     for key in sorted(set(choices) - seen):
         print(f"--choices: no clip {key} in the packs given, left as it is")
     for outname, anims in files.items():
@@ -676,10 +889,9 @@ def main():
     for r in rows:
         s = r["stats"]
         print(f"{r['pack']} {r['clip']:24s} {'*' if r['selected'] else ' '} верх {r['upper']:7s} {r['hand_p95_px']:4.1f}px "
-              f"низ {r['lower']:7s} {r['legs_p95_px']:4.1f}px ({r['legs']:5s}) "
+              f"низ {r['lower']:7s} {r['legs_p95_px']:4.1f}px "
               f"keys {r['keys']:5d}/{r['frames'] * 12:5d} rebuild max {s['rebuild'][2]:5.2f}° turn {s['rebuild_turn'][2]:5.2f}° mid {s['mid'][2]:5.2f}° "
-              f"elbow p95 {s['elbow'][1]:5.1f}° "
-              f"knee p95 {s['knee'][1]:5.1f}° "
+              f"bones p95 {max(s[k][1] for k in ('arm_up', 'arm_fore', 'leg_up', 'leg_low')):5.2f}° "
               f"body {s['body'][2]:4.1f}° twist {s['body_twist'][1]:4.1f}° head {s['head'][2]:4.1f}°")
 
 

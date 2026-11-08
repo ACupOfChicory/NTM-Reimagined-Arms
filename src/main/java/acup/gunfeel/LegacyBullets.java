@@ -36,25 +36,12 @@ public final class LegacyBullets {
     // the stand (NpcShotSmoke): the zones throw, as a failure of theirs would
     static volatile boolean failZones;
 
-    // its damage on `target` hit at `point` (null: NTM's middle, unchanged)
-    public static float damage(Entity target, @Nullable Vec3 point, float amount) {
+    // the head's or a limb's multiplier of `target` hit at `point` (null: NTM's middle, none), taken after the armour
+    // (HeadDamage.attack)
+    public static float multiplier(Entity target, @Nullable Vec3 point) {
         if (failZones) throw new IllegalStateException("zones failing for the stand");
-        if (point == null || !(target instanceof LivingEntity living)) return amount;
-        return HeadDamage.beamDamage(amount, living, new EntityHitResult(target, point));
-    }
-
-    // NTM hurts the creature with the bullet's damage and, when that fails, again with the damage plus the creature's
-    // last hit: past a fresh hit (cooldown) the game takes only a hit harder than the last one, and only what it is
-    // harder by. Which of the two lands is NTM's to decide by its own damage, as without the zones; the change the head
-    // or a limb makes (extra) goes to the one that lands. FIRST: the first one with the change. SECOND: the first one
-    // without it (it fails), the second with it. NONE: the first one with the change, which a limb takes under the last
-    // hit, and no second one, as NTM's first one would have landed (with less than nothing).
-    public enum Hurt { FIRST, SECOND, NONE }
-
-    public static Hurt hurt(float damage, float extra, boolean cooldown, float lastHurt) {
-        if (!cooldown || extra == 0F) return Hurt.FIRST;
-        if (damage <= lastHurt) return Hurt.SECOND;
-        return damage + extra <= lastHurt ? Hurt.NONE : Hurt.FIRST;
+        if (point == null || !(target instanceof LivingEntity living)) return 1F;
+        return HeadDamage.beamMultiplier(living, new EntityHitResult(target, point));
     }
 
     // it stopped in this block: its hole on the players' screens around

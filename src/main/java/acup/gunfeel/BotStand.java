@@ -44,6 +44,12 @@ import net.minecraft.world.phys.Vec3;
  * <li>the cost: 100 agents, each always changing pose, the frame time and the server's tick with the player on and
  * off (on, off, off, on).</li>
  * </ol>
+ * With the first part, in each pose: a grid of rays over the model the client draws, against what the server takes
+ * for a hit (BotStandHits: hits on the model, past it, the zone; the plain box's for the model hitboxes off), and how
+ * long the server is left with no pose it can use while the pose changes. After it, before the jumps: a carbine's
+ * shots to kill the agent by the part hit, in each of its loadouts, the part's multiplier before the armour and after.
+ * <ol>
+ * </ol>
  * In the first part the server sets each pose as the mob AI does (AiPose's attachment, synced to the client, and the
  * game's crouching pose with it); the jumps and the cost give theirs in the stand (BotAnimation.standPose), changing
  * them more often than a sync could.
@@ -76,7 +82,7 @@ final class BotStand {
     private static volatile AiPose posed = AiPose.IDLE;
     private static final Map<String, double[]> BASE = new HashMap<>();
     // the jump watch: the parts' turns on the last frame seen, and the largest move between two frames
-    private static final float[] seen = new float[18], prev = new float[18];
+    private static final float[] seen = new float[30], prev = new float[30];
     private static int seenFrame = -1, prevFrame = -1;
     private static float maxMove, maxMoveAt, maxSpeed, seenTime, t0Age;
     private static int moveFrames;
@@ -147,6 +153,7 @@ final class BotStand {
                 case 0 -> poses();
                 case 1 -> jumps();
                 case 2 -> cost();
+                case 3 -> damage();
                 default -> {
                 }
             }
@@ -160,7 +167,10 @@ final class BotStand {
     // ---------------------------------------------------------------- 1. the hitbox takes the pose
 
     private static void poses() {
-        if (now() < until) return;
+        if (now() < until) {
+            if (phase == 1) watchPose();
+            return;
+        }
         Case c = CASES[caseIndex];
         float yaw = YAWS[yawIndex];
         if (until > 0 && phase == 1) {
@@ -170,7 +180,7 @@ final class BotStand {
                 caseIndex = 0;
                 if (++yawIndex == YAWS.length) {
                     write();
-                    startJumps();
+                    startDamage();
                     return;
                 }
             }
@@ -195,6 +205,25 @@ final class BotStand {
         long t = now();
         until = t + 30;
         phase = 1;
+        watchFrames = watchGaps = 0;
+        watchAge = 0;
+        watchFrom = t;
+    }
+
+    // H3: from the change on, on each frame, the pose the server keeps for the agent: none it can use (a bullet then
+    // takes the plain box), and how old the one it has is
+    private static int watchFrames, watchGaps;
+    private static long watchAge, watchFrom, watchLastGap;
+
+    private static void watchPose() {
+        var level = mc().getSingleplayerServer().overworld();
+        watchFrames++;
+        if (!ModelHits.hasPose(one)) {
+            watchGaps++;
+            watchLastGap = now() - watchFrom;
+        }
+        long caught = ModelHits.caught(level, one);
+        if (caught != Long.MIN_VALUE) watchAge = Math.max(watchAge, level.getGameTime() - caught);
     }
 
     private static void measure(Case c, float yaw) {
@@ -205,6 +234,7 @@ final class BotStand {
             got[0] = numbers(m, ModelHits.worldBoxes(m), yaw);
         }).join();
         double[] n = got[0];
+        grid(c, yaw);
         // the pose came to the client by the attachment's sync, and a crouch took a crouching player's size
         var seenBy = mc().level.getEntity(one.getId());
         AiPose synced = seenBy instanceof Mob sm ? AiPose.of(sm) : null;
@@ -249,6 +279,32 @@ final class BotStand {
 
     private static String topPart = "";
 
+    /** the grid of shots over the drawn model, and the server's pose while it changed */
+    private static void grid(Case c, float yaw) {
+        var seenBy = mc().level.getEntity(one.getId());
+        var drawn = seenBy == null ? List.<ModelBox>of() : ModelHits.worldBoxes(seenBy);
+        if (drawn.isEmpty()) {
+            ClientSmoke.check(false, c.name() + " поворот " + yaw + ": клиент не нарисовал модель");
+            return;
+        }
+        var rays = BotStandHits.grid(drawn, one.getBoundingBox(), yaw);
+        var server = mc().getSingleplayerServer();
+        BotStandHits.Grid[] got = new BotStandHits.Grid[1];
+        server.submit(() -> got[0] = BotStandHits.server((Mob) server.overworld().getEntity(one.getId()), rays)).join();
+        var g = got[0];
+        ClientSmoke.check(g.inHit() >= 0.99 && g.outHit() <= 0.01 && g.zoneSame() >= 0.99, String.format(Locale.ROOT,
+                "сетка %s поворот %.0f: по модели попаданий %.2f%% из %d, мимо модели %.2f%% из %d, та же зона %.2f%% %s;"
+                        + " без точных хитбоксов (коробка): %.1f%% и %.1f%%",
+                c.name(), yaw, g.inHit() * 100, g.in(), g.outHit() * 100, g.out(), g.zoneSame() * 100, g.wrong(), g.boxIn() * 100, g.boxOut() * 100));
+        // H3, written down: after a change of stance the server has no pose it can use until the client's next one
+        // comes (a bullet then takes the plain box), and how old the one it has gets
+        ClientSmoke.check(true, String.format(Locale.ROOT, "%s поворот %.0f (сведения): поза сервера после смены — без годной позы %d кадров из %d"
+                + " (последний на тике %d), самая старая %d тиков", c.name(), yaw, watchGaps, watchFrames, watchLastGap, watchAge));
+        ROWS.add(String.format(Locale.ROOT, "сетка\t%s\t%.0f\tпо модели %.2f%%\tмимо %.2f%%\tзона %.2f%%\tкоробка %.1f%%/%.1f%%\tбез позы %d/%d\tвозраст %d\t%s",
+                c.name(), yaw, g.inHit() * 100, g.outHit() * 100, g.zoneSame() * 100, g.boxIn() * 100, g.boxOut() * 100, watchGaps, watchFrames,
+                watchAge, g.wrong()));
+    }
+
     private static double sq(double x) {
         return x * x;
     }
@@ -290,6 +346,102 @@ final class BotStand {
         return new double[] { head[0], head[1], head[2], top, right, left, fwd };
     }
 
+    // ---------------------------------------------------------------- the carbine's shots to kill
+
+    private static int loadout;
+    private static double agentHealth;
+
+    private static void startDamage() {
+        step = 3;
+        var server = mc().getSingleplayerServer();
+        server.submit(() -> {
+            Mob m = (Mob) server.overworld().getEntity(one.getId());
+            m.setYRot(180F);
+            m.setYBodyRot(180F);
+            m.setYHeadRot(180F);
+            m.setData(AiPose.Sync.TYPE, AiPose.IDLE);
+            m.setPose(Pose.STANDING);
+            agentHealth = BotStandHits.maxHealth(m);
+            m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(1000);
+            m.setInvulnerable(false);
+            BotStandHits.wear(m, BotStandHits.LOADOUTS[0]);
+        }).join();
+        loadout = 0;
+        until = now() + 30;
+        ROWS.add("урон\tнабор\tпорядок\tчасть\tзона\tурон_выстрела\tвыстрелов_до_смерти\tDT/DR\tброня\tкарабин");
+    }
+
+    private static void damage() {
+        if (now() < until) return;
+        var server = mc().getSingleplayerServer();
+        var l = BotStandHits.LOADOUTS[loadout];
+        // the agent in this loadout as the player sees it: the armour drawn (compared by its pixels after the stand)
+        int shotIndex = loadout;
+        net.minecraft.client.Screenshot.takeScreenshot(mc().gameRenderer.mainRenderTarget(), image -> {
+            try (image) {
+                Path f = Path.of(System.getProperty("ntmgunfeel.botStandFile"));
+                image.writeToFile(f.resolveSibling(f.getFileName().toString().replace(".tsv", "") + "-armour-" + shotIndex + ".png"));
+            } catch (java.io.IOException e) {
+                ClientSmoke.check(false, "снимок брони: " + e);
+            }
+        });
+        server.submit(() -> {
+            ServerLevel level = server.overworld();
+            Mob m = (Mob) level.getEntity(one.getId());
+            var round = BotStandHits.carbine();
+            var boxes = ModelHits.worldBoxes(m);
+            String dtdr = BotStandHits.dtdr(m, round);
+            String carbine = String.format(Locale.ROOT, "%.1f (DT-%.1f, DR-%.0f%%)", round.damage(), round.config().armorThresholdNegation,
+                    round.config().armorPiercingPercent * 100);
+            String armor = m.getArmorValue() + "/" + String.format(Locale.ROOT, "%.1f",
+                    m.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS));
+            for (boolean before : new boolean[] { true, false }) {
+                HeadDamage.standBeforeArmor = before;
+                float body = 0F;
+                try {
+                    for (String[] part : BotStandHits.PARTS) {
+                        Vec3 at = BotStandHits.centre(boxes, part[1]);
+                        if (at == null) {
+                            ClientSmoke.check(false, "урон: у сервера нет части " + part[1]);
+                            continue;
+                        }
+                        String zone = ModelHits.head(m, at).head() ? "голова" : ModelHits.limb(m, at) ? "конечность" : "тело";
+                        float hit = (BotStandHits.shot(level, m, round, at) + BotStandHits.shot(level, m, round, at)) / 2;
+                        if (part[1].equals("root/body")) body = hit;
+                        int kill = hit <= 0 ? -1 : (int) Math.ceil(agentHealth / hit - 1e-4);
+                        String order = before ? "до брони" : "после брони";
+                        ROWS.add(String.format(Locale.ROOT, "урон\t%s\t%s\t%s\t%s\t%.2f\t%s\t%s\t%s\t%s", l.name(), order, part[0], zone, hit,
+                                kill < 0 ? "∞" : String.valueOf(kill), dtdr, armor, carbine));
+                        ClientSmoke.check(true, String.format(Locale.ROOT, "урон %s, %s, %s (%s): %.2f за выстрел, до смерти %s (здоровье %.0f)", l.name(),
+                                order, part[0], zone, hit, kill < 0 ? "∞" : String.valueOf(kill), agentHealth));
+                        if (!before && !part[1].equals("root/body")) {
+                            double want = body * (zone.equals("голова") ? 1.75 : zone.equals("конечность") ? 0.5 : 1);
+                            ClientSmoke.check(Math.abs(hit - want) < 0.02, String.format(Locale.ROOT,
+                                    "урон %s после брони: %s = тело × множитель: %.2f против %.2f", l.name(), part[0], hit, want));
+                        }
+                    }
+                } finally {
+                    HeadDamage.standBeforeArmor = false;
+                }
+            }
+            ClientSmoke.check(true, "урон " + l.name() + ": DT/DR " + dtdr + ", ванильная броня/прочность " + armor + ", карабин " + carbine);
+            m.setHealth(1000);
+            if (loadout + 1 < BotStandHits.LOADOUTS.length) BotStandHits.wear(m, BotStandHits.LOADOUTS[loadout + 1]);
+            else {
+                BotStandHits.wear(m, BotStandHits.LOADOUTS[0]);
+                m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(agentHealth);
+                m.setHealth((float) agentHealth);
+                m.setInvulnerable(true);
+            }
+        }).join();
+        write();
+        if (++loadout < BotStandHits.LOADOUTS.length) {
+            until = now() + 20;
+            return;
+        }
+        startJumps();
+    }
+
     // ---------------------------------------------------------------- 2. no jumps on the game's frames
 
     private static long t0;
@@ -326,7 +478,7 @@ final class BotStand {
                     maxMoveAt = time - t0Age;
                 }
             } else t0Age = time;
-            System.arraycopy(seen, 0, prev, 0, 18);
+            System.arraycopy(seen, 0, prev, 0, seen.length);
             seenFrame = 1;
             seenTime = time;
         };
@@ -335,8 +487,10 @@ final class BotStand {
     }
 
     private static void store(BotPoser.Parts p) {
-        ModelPart[] all = { p.head(), p.body(), p.rightArm(), p.leftArm(), p.rightLeg(), p.leftLeg() };
-        for (int i = 0; i < 6; i++) {
+        ModelPart[] all = { p.head(), p.body(), p.rightArm(), p.leftArm(), p.rightLeg(), p.leftLeg(), p.rightForearm(),
+                p.leftForearm(), p.rightShin(), p.leftShin() };
+        for (int i = 0; i < all.length; i++) {
+            if (all[i] == null) throw new IllegalStateException("the bot's model has no forearm or shin");
             seen[i * 3] = all[i].xRot;
             seen[i * 3 + 1] = all[i].yRot;
             seen[i * 3 + 2] = all[i].zRot;
@@ -346,7 +500,7 @@ final class BotStand {
     private static float move(float[] a, float[] b) {
         float m = 0F;
         Quaternionf qa = new Quaternionf(), qb = new Quaternionf();
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < a.length / 3; i++) {
             qa.rotationZYX(a[i * 3 + 2], a[i * 3 + 1], a[i * 3]);
             qb.rotationZYX(b[i * 3 + 2], b[i * 3 + 1], b[i * 3]);
             m = Math.max(m, 2F * (float) Math.acos(Math.min(1F, Math.abs(qa.dot(qb)))));

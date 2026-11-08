@@ -122,9 +122,9 @@ final class HeadSmoke {
             if(target instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon) {
                 var shooter=net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);bullet.setThrower(shooter);beam.thrower=shooter;
             }
-            // Множитель проверяется равенством: попадание базовым уроном в голову (конечность) равно попаданию в тело
-            // уроном базы ×1,75 (×0,5). Так сами учитываются броня цели (ванильная, DT/DR NTM) и правила вида (дракон:
-            // d/4+min(d,1) по телу), которые идут после множителя. Перед каждым выстрелом цель — как перед первым (ready).
+            // Множитель NTM-пули и луча идёт после брони (DT/DR NTM, ванильная) и правил вида (дракон: d/4+min(d,1) по
+            // телу): попадание в голову (конечность) снимает урон тела ×1,75 (×0,5). Перед каждым выстрелом цель — как
+            // перед первым (ready).
             var ready=ready(target);
             java.util.function.BiFunction<Vec3,Float,Float> shot=(at,amount)->{
                 ready.run();target.setHealth(1000);float before=target.getHealth();bullet.damage=amount;
@@ -137,8 +137,8 @@ final class HeadSmoke {
             float bodyDamage=shot.apply(body,base);
             check.accept(bodyDamage>0 && !HeadDamage.last(bullet,target,body).head(),"голова: настоящая NTM-пуля по телу, база "+base+", урон="+bodyDamage);
             if(head!=null) {
-                float headDamage=shot.apply(head,base);boolean last=HeadDamage.last(bullet,target,head).head();float same=shot.apply(body,base*1.75F);
-                check.accept(bodyDamage>0 && Math.abs(headDamage-same)<.01 && last,"голова: единый множитель ×1,75 при конфиге NTM ×0, база "+base+": голова="+headDamage+", тело(×1,75)="+same+", тело="+bodyDamage);
+                float headDamage=shot.apply(head,base);boolean last=HeadDamage.last(bullet,target,head).head();float same=bodyDamage*1.75F;
+                check.accept(bodyDamage>0 && Math.abs(headDamage-same)<.01 && last,"голова: единый множитель ×1,75 после брони при конфиге NTM ×0, база "+base+": голова="+headDamage+", тело×1,75="+same+", тело="+bodyDamage);
                 config.setHeadshot(2);float doubled=shot.apply(head,base);config.setHeadshot(0);
                 check.accept(Math.abs(doubled-headDamage)<.01,"голова: конфиг патрона ×2 не меняет единые ×1,75");
             } else if(!closed) {
@@ -146,8 +146,8 @@ final class HeadSmoke {
             }
             limbPresence(target,limb,check);
             if(limb!=null) {
-                float limbDamage=shot.apply(limb,base);float same=shot.apply(body,base*.5F);
-                check.accept(bodyDamage>0 && Math.abs(limbDamage-same)<.01,"конечности: настоящая NTM-пуля ×0,5, база "+base+": конечность="+limbDamage+", тело(×0,5)="+same);
+                float limbDamage=shot.apply(limb,base);float same=bodyDamage*.5F;
+                check.accept(bodyDamage>0 && Math.abs(limbDamage-same)<.01,"конечности: настоящая NTM-пуля ×0,5 после брони, база "+base+": конечность="+limbDamage+", тело×0,5="+same);
             }
             for(var handler:List.of(BulletConfig.LAMBDA_STANDARD_BEAM_HIT,BulletConfig.LAMBDA_BEAM_HIT)) {
                 java.util.function.BiFunction<Vec3,Float,Float> ray=(at,amount)->{
@@ -157,12 +157,12 @@ final class HeadSmoke {
                 };
                 float beamBody=ray.apply(body,base);
                 if(head!=null) {
-                    float beamHead=ray.apply(head,base);float same=ray.apply(body,base*1.75F);
-                    check.accept(beamBody>0 && Math.abs(beamHead-same)<.01,"NTM-луч: голова ×1,75, база "+base+": голова="+beamHead+", тело(×1,75)="+same+", тело="+beamBody);
+                    float beamHead=ray.apply(head,base);float same=beamBody*1.75F;
+                    check.accept(beamBody>0 && Math.abs(beamHead-same)<.01,"NTM-луч: голова ×1,75 после брони, база "+base+": голова="+beamHead+", тело×1,75="+same+", тело="+beamBody);
                 }
                 if(limb!=null) {
-                    float beamLimb=ray.apply(limb,base);float same=ray.apply(body,base*.5F);
-                    check.accept(beamBody>0 && Math.abs(beamLimb-same)<.01,"NTM-луч: конечность ×0,5, база "+base+": конечность="+beamLimb+", тело(×0,5)="+same);
+                    float beamLimb=ray.apply(limb,base);float same=beamBody*.5F;
+                    check.accept(beamBody>0 && Math.abs(beamLimb-same)<.01,"NTM-луч: конечность ×0,5 после брони, база "+base+": конечность="+beamLimb+", тело×0,5="+same);
                 }
             }
             beam.discard();
@@ -207,7 +207,7 @@ final class HeadSmoke {
                 +" из "+bodyHits+inLimb+", точек частей конечностей вне зоны="+limbOut+" из "+limbHits);
     }
     // Цель, которую пуля и луч NTM в игре не ранят: удар дал бы урон 0, а эндермена увёл бы со стенда, пакет — лопнул
-    // бы. Множители проверяются там, где их подставляет мод (MixinHeadDamage: damage для пули, beamDamage для луча),
+    // бы. Множители проверяются там, где их подставляет мод (MixinHeadDamage: base и multiplier для пули, beamMultiplier для луча),
     // без удара.
     private static String unhurt(LivingEntity target) {
         if(target instanceof net.minecraft.world.entity.monster.EnderMan) return "эндермен снарядом не ранится (EnderMan.hurtServer: телепорт), ванилла";
@@ -220,20 +220,20 @@ final class HeadSmoke {
         String why=" (без удара: "+reason+")";
         var bullet=new EntityBulletBaseMK4(level,new BulletConfig().setDamage(10).setHeadshot(0),1,0,0,0);bullet.damage=10;
         try {
-            float bodyDamage=HeadDamage.damage(bullet,target,new EntityHitResult(target,body),10);
+            float bodyDamage=HeadDamage.base(bullet,target,new EntityHitResult(target,body),10)*HeadDamage.multiplier(bullet,target);
             check.accept(bodyDamage==10 && !HeadDamage.last(bullet,target,body).head(),"голова: NTM-пуля по телу ×1, урон="+bodyDamage+why);
             if(head!=null) {
-                float headDamage=HeadDamage.damage(bullet,target,new EntityHitResult(target,head),10);
+                float headDamage=HeadDamage.base(bullet,target,new EntityHitResult(target,head),10)*HeadDamage.multiplier(bullet,target);
                 check.accept(Math.abs(headDamage-17.5F)<.01 && HeadDamage.last(bullet,target,head).head(),"голова: единый множитель ×1,75, голова="+headDamage+why);
-                check.accept(Math.abs(HeadDamage.beamDamage(10,target,new EntityHitResult(target,head))-17.5F)<.01,"NTM-луч: голова ×1,75"+why);
+                check.accept(Math.abs(10*HeadDamage.beamMultiplier(target,new EntityHitResult(target,head))-17.5F)<.01,"NTM-луч: голова ×1,75"+why);
             }
             limbPresence(target,limb,check);
             if(limb!=null) {
-                float limbDamage=HeadDamage.damage(bullet,target,new EntityHitResult(target,limb),10);
+                float limbDamage=HeadDamage.base(bullet,target,new EntityHitResult(target,limb),10)*HeadDamage.multiplier(bullet,target);
                 check.accept(Math.abs(limbDamage-5)<.01,"конечности: NTM-пуля ×0,5, урон="+limbDamage+why);
-                check.accept(Math.abs(HeadDamage.beamDamage(10,target,new EntityHitResult(target,limb))-5)<.01,"NTM-луч: конечность ×0,5"+why);
+                check.accept(Math.abs(10*HeadDamage.beamMultiplier(target,new EntityHitResult(target,limb))-5)<.01,"NTM-луч: конечность ×0,5"+why);
             }
-            check.accept(Math.abs(HeadDamage.beamDamage(10,target,new EntityHitResult(target,body))-10)<.01,"NTM-луч: тело ×1"+why);
+            check.accept(Math.abs(10*HeadDamage.beamMultiplier(target,new EntityHitResult(target,body))-10)<.01,"NTM-луч: тело ×1"+why);
         } finally { bullet.discard(); }
     }
     // Точка конечности ожидается у вида, который не мелкий (LimbPolicy) и у которого конечности не отменены вручную (limbs none).
