@@ -25,6 +25,16 @@ public final class AiPoseGeometry {
     /** the legs' pivot, model pixels: standing, and in vanilla's crouch */
     static final double HIP_PX = 12.0, CROUCH_HIP_PX = 12.0, CROUCH_HIP_BACK_PX = 4.0;
 
+    /** blind fire's arms (BotPoser): both straight up over the head, each turned in toward the middle by this */
+    public static final float BLIND_ARM_X = (float) (-Math.PI + 0.2), BLIND_ARM_Y = 0.1F;
+    /** the arms' pivot (HumanoidModel), and how far vanilla's crouch lowers it, model pixels */
+    public static final float ARM_PIVOT_X = 5F, ARM_PIVOT_Y = 2F, CROUCH_ARM_DROP_PX = 3.2F;
+    /**
+     * Where the item in a hand sits, in the arm's own pixels: ItemInHandLayer (26.2) turns X −90°, Y 180° from the arm
+     * and moves (±1, 2, −10)/16, so the grip is 10 px down the arm, 2 px in front, 1 px to the outside (right arm)
+     */
+    static final double GRIP_OUT_PX = 1.0, GRIP_DOWN_PX = 10.0, GRIP_FRONT_PX = 2.0;
+
     private AiPoseGeometry() {
     }
 
@@ -69,6 +79,28 @@ public final class AiPoseGeometry {
      */
     public static Vec3 muzzleOffset(byte stance, float frac, float yBodyRot, Vec3 muzzle) {
         return leanPoint(muzzle.x, muzzle.y, muzzle.z, stance, frac, yBodyRot);
+    }
+
+    /**
+     * Where a mob firing blind over cover ({@link AiPose#BLIND}) has its gun, as the model draws it once the arms are
+     * up: the hand holding it, high over its head (1.81 blocks crouching, against 1.27 for its eye), moved with the
+     * lean. An offset from the mob's position, as {@link #muzzleOffset}. Not the barrel's end: each gun's model is
+     * its own, the grip is where every gun is. The drawn hand also breathes (up to ~4 cm, standing still) and kicks
+     * back with each shot (up to 0.14 blocks, for a moment): this is the pose they move around.
+     *
+     * @param leftHanded the mob's main hand is its left (Mob.isLeftHanded): the gun is in the left hand
+     */
+    public static Vec3 blindMuzzle(byte stance, float frac, float yBodyRot, boolean leftHanded) {
+        // the right arm in model pixels (x to the mob's left, y down, z back); the left one is its mirror
+        double side = leftHanded ? -1 : 1;
+        double ax = BLIND_ARM_X, ay = -BLIND_ARM_Y * side;
+        double gx = -GRIP_OUT_PX * side, gy = GRIP_DOWN_PX, gz = -GRIP_FRONT_PX;
+        // ModelPart: the arm's pivot, then Rz (none) Ry Rx on the point
+        double y1 = gy * Math.cos(ax) - gz * Math.sin(ax), z1 = gy * Math.sin(ax) + gz * Math.cos(ax);
+        double x2 = gx * Math.cos(ay) + z1 * Math.sin(ay), z2 = -gx * Math.sin(ay) + z1 * Math.cos(ay);
+        double px = -ARM_PIVOT_X * side + x2;
+        double py = ARM_PIVOT_Y + (stance == AiPose.CROUCH ? CROUCH_ARM_DROP_PX : 0) + y1;
+        return leanPoint(-px / 16.0, MODEL_FEET - py / 16.0, -z2 / 16.0, stance, frac, yBodyRot);
     }
 
     /** The mob's frame (right, up, forward) to the world's axes for a body turned yBodyRot (Minecraft yaw). */

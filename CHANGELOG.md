@@ -1,5 +1,12 @@
 # Changelog
 
+## X777
+
+- Mob AI: the pose layer tells where an AI mob firing blind over cover has its
+  gun: in its hand held up over its head, 1.81 blocks up when it crouches (its
+  eye is at 1.27), with its lean. The blind shot can leave from there, so a mob
+  whose gun shows over a wall can fire over it.
+
 ## X776
 
 - Mob AI: a bot pinned down behind low cover by shots close past it no longer
