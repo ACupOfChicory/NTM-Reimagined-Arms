@@ -18,6 +18,11 @@ import java.io.IOException;
  * turn both round. After {@code hold} ticks every cell thins by {@code fade} a tick, with a little noise per cell so the edge
  * breaks up; below {@link #GONE} a cell is empty. What spreads out of the box is lost.
  *
+ * <p>A blast can push smoke out of its cells for a while ({@link #stirBlast} with {@code back}): what it took is held in
+ * the cell, out of sight, and comes back into it when its time comes, the cells at the hole's edge first and its middle
+ * {@link #BACK_DELAY} ticks later, each an eighth of what it holds a tick. The hole closes from its edge in 2 to 3 s
+ * and the cloud loses nothing; what is held thins as the rest does.
+ *
  * <p>Only the box of occupied cells and one cell around it is stepped.
  */
 public final class SmokeGrid {
@@ -26,6 +31,10 @@ public final class SmokeGrid {
     public static final int OX = 12, OY = 4, OZ = 12;
     /** Below this a thinning cell is empty. */
     public static final float GONE = 0.02F;
+    /** Ticks the middle of a blast's hole waits before its smoke comes back (its edge: none). */
+    public static final int BACK_DELAY = 30;
+    /** Share of what a cell holds that comes back a tick once its time came. */
+    public static final float BACK_RATE = 1F / 8F;
 
     /** Whether the cell at box coordinates x, y, z is closed to smoke (a full block, a liquid, an unloaded chunk). */
     public interface Mask {
@@ -37,6 +46,9 @@ public final class SmokeGrid {
     private final float amount;
     private final float[] d = new float[CELLS], next = new float[CELLS];
     private final long[] closed = new long[(CELLS + 63) >>> 6];
+    // smoke a blast pushed out of a cell, and the age from which it comes back; made at the first such blast
+    private float[] held;
+    private int[] back;
     private final float dirX, dirZ;
     private int[] emitters = new int[0];
     private int age;
@@ -117,6 +129,18 @@ public final class SmokeGrid {
         return (float) sum;
     }
 
+    /** What blasts hold out of the cells, to come back. */
+    public float heldTotal() {
+        if (held == null) return 0F;
+        double sum = 0;
+        for (float v : held) sum += v;
+        return (float) sum;
+    }
+
+    private boolean holds(int i) {
+        return held != null && held[i] > 0F;
+    }
+
     public int emitters() {
         return emitters.length;
     }
@@ -137,7 +161,10 @@ public final class SmokeGrid {
         for (int i = from; i < to; i++) {
             int x = i % SX, z = i / SX % SZ, y = i / (SX * SZ);
             boolean c = mask.closed(x, y, z);
-            if (c) d[i] = 0F;
+            if (c) {
+                d[i] = 0F;
+                if (held != null) held[i] = 0F;
+            }
             setClosed(i, c);
         }
     }
@@ -200,6 +227,7 @@ public final class SmokeGrid {
             grow(emitters);
         }
         if (occupied()) {
+            if (held != null) giveBack();
             spread();
             if (age >= kind.release() + kind.hold()) thin();
         }
@@ -216,6 +244,21 @@ public final class SmokeGrid {
             x1 = Math.max(x1, x);
             y1 = Math.max(y1, y);
             z1 = Math.max(z1, z);
+        }
+    }
+
+    // the held smoke whose time came goes back into its cells
+    private void giveBack() {
+        for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) {
+            int row = (y * SZ + z) * SX;
+            for (int x = x0; x <= x1; x++) {
+                int i = row + x;
+                float h = held[i];
+                if (h == 0F || age < back[i]) continue;
+                float g = h < GONE ? h : h * BACK_RATE;
+                d[i] += g;
+                held[i] = h - g;
+            }
         }
     }
 
@@ -290,10 +333,15 @@ public final class SmokeGrid {
             int row = (y * SZ + z) * SX;
             for (int x = x0; x <= x1; x++) {
                 int i = row + x;
-                float v = d[i];
-                if (v == 0F) continue;
-                v *= base + (unit(i, slot, 1) - 0.5F) * 0.03F;
+                float v = d[i], h = held != null ? held[i] : 0F;
+                if (v == 0F && h == 0F) continue;
+                float f = base + (unit(i, slot, 1) - 0.5F) * 0.03F;
+                v *= f;
                 d[i] = v < GONE ? 0F : v;
+                if (h != 0F) {
+                    h *= f;
+                    held[i] = h < GONE ? 0F : h;
+                }
             }
         }
     }
@@ -311,7 +359,7 @@ public final class SmokeGrid {
             for (int x = ax; x <= bx; x++) {
                 if (d[row + x] <= 0F) {
                     d[row + x] = 0F;
-                    continue;
+                    if (!holds(row + x)) continue;
                 }
                 if (x < x0) x0 = x;
                 if (x > x1) x1 = x;
@@ -349,6 +397,13 @@ public final class SmokeGrid {
             if (v == 0F) continue;
             h = (h ^ i) * 0x100000001B3L;
             h = (h ^ Float.floatToRawIntBits(v)) * 0x100000001B3L;
+        }
+        if (held != null) for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) for (int x = x0; x <= x1; x++) {
+            int i = index(x, y, z);
+            if (held[i] == 0F) continue;
+            h = (h ^ ~i) * 0x100000001B3L;
+            h = (h ^ Float.floatToRawIntBits(held[i])) * 0x100000001B3L;
+            h = (h ^ back[i]) * 0x100000001B3L;
         }
         return h;
     }
@@ -392,9 +447,10 @@ public final class SmokeGrid {
 
     /**
      * A blast at a point, box coordinates: a cell whose centre is {@code r} from it keeps {@code 1 - most * (1 - (r /
-     * reach)^2)} of what it has (in the middle {@code 1 - most}, at {@code reach} and past it all).
+     * reach)^2)} of what it has (in the middle {@code 1 - most}, at {@code reach} and past it all). The rest is gone, or
+     * with {@code back} held to come back: from {@code BACK_DELAY * (1 - r / reach)} ticks on.
      */
-    public void stirBlast(double cx, double cy, double cz, double reach, float most) {
+    public void stirBlast(double cx, double cy, double cz, double reach, float most, boolean back) {
         if (!(reach > 0)) return;
         int ax = Math.max(0, (int) Math.floor(cx - reach)), ay = Math.max(0, (int) Math.floor(cy - reach)), az = Math.max(0, (int) Math.floor(cz - reach));
         int bx = Math.min(SX - 1, (int) Math.floor(cx + reach)), by = Math.min(SY - 1, (int) Math.floor(cy + reach)), bz = Math.min(SZ - 1, (int) Math.floor(cz + reach));
@@ -405,7 +461,15 @@ public final class SmokeGrid {
             double ex = x + 0.5 - cx, ey = y + 0.5 - cy, ez = z + 0.5 - cz;
             double q = (ex * ex + ey * ey + ez * ez) / r2;
             if (q >= 1.0) continue;
-            d[i] = cut(d[i] * (float) (1.0 - most * (1.0 - q)));
+            float was = d[i], left = cut(was * (float) (1.0 - most * (1.0 - q)));
+            d[i] = left;
+            if (!back) continue;
+            if (held == null) {
+                held = new float[CELLS];
+                this.back = new int[CELLS];
+            }
+            held[i] += was - left;
+            this.back[i] = Math.max(this.back[i], age + (int) Math.round(BACK_DELAY * (1.0 - Math.sqrt(q))));
         }
     }
 
@@ -441,6 +505,16 @@ public final class SmokeGrid {
         out.writeByte(y1);
         out.writeByte(z1);
         for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) for (int x = x0; x <= x1; x++) out.writeFloat(d[index(x, y, z)]);
+        // what blasts hold, with the age it comes back from (an empty grid has no cells and nothing more)
+        if (!occupied()) return;
+        boolean any = false;
+        if (held != null) for (int y = y0; y <= y1 && !any; y++) for (int z = z0; z <= z1 && !any; z++) for (int x = x0; x <= x1 && !any; x++) any = held[index(x, y, z)] != 0F;
+        out.writeBoolean(any);
+        if (any) for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) for (int x = x0; x <= x1; x++) {
+            int i = index(x, y, z);
+            out.writeFloat(held[i]);
+            out.writeShort(held[i] != 0F ? back[i] : 0);
+        }
     }
 
     /**
@@ -453,7 +527,8 @@ public final class SmokeGrid {
         int ax = in.readByte(), ay = in.readByte(), az = in.readByte(), bx = in.readByte(), by = in.readByte(), bz = in.readByte();
         if (a > kind.maxAge() + 1) throw new IOException("bad age");
         boolean empty = ax == SX && ay == SY && az == SZ && bx == -1 && by == -1 && bz == -1;
-        float[] cells = null;
+        float[] cells = null, keep = null;
+        int[] when = null;
         if (!empty) {
             // a box with all six corners in the grid and no side backwards
             if (!inside(ax, ay, az) || !inside(bx, by, bz) || bx < ax || by < ay || bz < az) throw new IOException("bad box");
@@ -463,11 +538,39 @@ public final class SmokeGrid {
                 if (!(v >= 0F && v < 100F)) throw new IOException("bad density");
                 cells[i] = v;
             }
+            if (in.readBoolean()) {
+                keep = new float[cells.length];
+                when = new int[cells.length];
+                for (int i = 0; i < cells.length; i++) {
+                    float v = in.readFloat();
+                    int w = in.readUnsignedShort();
+                    if (!(v >= 0F && v < 100F)) throw new IOException("bad held");
+                    if (w > kind.maxAge() + 1 + BACK_DELAY) throw new IOException("bad back");
+                    keep[i] = v;
+                    when[i] = w;
+                }
+            }
         }
         java.util.Arrays.fill(d, 0F);
+        if (held != null) {
+            java.util.Arrays.fill(held, 0F);
+            java.util.Arrays.fill(back, 0);
+        }
         if (!empty) {
+            if (keep != null && held == null) {
+                held = new float[CELLS];
+                back = new int[CELLS];
+            }
             int i = 0;
-            for (int y = ay; y <= by; y++) for (int z = az; z <= bz; z++) for (int x = ax; x <= bx; x++) d[index(x, y, z)] = cells[i++];
+            for (int y = ay; y <= by; y++) for (int z = az; z <= bz; z++) for (int x = ax; x <= bx; x++) {
+                int c = index(x, y, z);
+                d[c] = cells[i];
+                if (keep != null) {
+                    held[c] = keep[i];
+                    back[c] = when[i];
+                }
+                i++;
+            }
         }
         age = a;
         x0 = ax;

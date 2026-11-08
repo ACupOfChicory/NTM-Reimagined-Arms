@@ -1,5 +1,13 @@
 # Changelog
 
+## X782
+
+- Smoke: a blast punches a hole in a smoke cloud, and the hole closes again
+  from its edge in 2 to 3 seconds; the smoke is pushed aside, not gone.
+  Bullets leave smoke as it is. A GL-54 high-explosive grenade opens a hole
+  of 4.5 blocks (one and a half times the reach it hurts in, at most 12).
+  `smokeHole` (server, on).
+
 ## X781
 
 - GL-54 gas: every gas poisons the ground now, not the mustard only. Fired at
