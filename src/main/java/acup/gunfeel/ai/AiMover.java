@@ -30,6 +30,8 @@ public final class AiMover {
     private final Mob mob;
     private long goal = Long.MIN_VALUE;
     private double radius;
+    /** where in the goal's cell it stands, from its middle, blocks (a step toward a corner to lean round it) */
+    private double offX, offZ;
     private double speed = 1.0;
     /** a share of the speed it walks at (lying: a third) */
     private double slow = 1.0;
@@ -62,15 +64,22 @@ public final class AiMover {
 
     /** go to within radius blocks of a cell (a BlockPos long); the same goal again changes nothing */
     public void goTo(long cell, double radius, double speed) {
+        goTo(cell, radius, speed, 0, 0);
+    }
+
+    /** as above, to a point off the cell's middle by (ox, oz) blocks */
+    public void goTo(long cell, double radius, double speed, double ox, double oz) {
         boolean other = speed != this.speed;
         this.speed = speed;
-        if (cell == goal && radius == this.radius) {
+        if (cell == goal && radius == this.radius && ox == offX && oz == offZ) {
             // the same way at another pace (a run slowed to a walk to fire): the walk under way takes it
             if (other && walking != null) mob.getNavigation().setSpeedModifier(modifier());
             return;
         }
         goal = cell;
         this.radius = radius;
+        offX = ox;
+        offZ = oz;
         tries = 0;
         inCellSince = Long.MIN_VALUE;
         settled = false;
@@ -133,6 +142,11 @@ public final class AiMover {
         return goal;
     }
 
+    /** whether it goes to the middle of this cell (not to a point off it: a step toward a corner to lean round it) */
+    public boolean goalIs(long cell) {
+        return goal == cell && offX == 0 && offZ == 0;
+    }
+
     /**
      * At the goal: within its radius across (a tenth of a block at least) and a block up or down. Vanilla's walk ends up to
      * 0.45 off a cell's middle, so the last steps go straight there ({@link #tick}): a peek a block aside from cover is
@@ -140,7 +154,7 @@ public final class AiMover {
      */
     public boolean arrived() {
         if (goal == Long.MIN_VALUE || Math.abs(mob.getY() - BlockPos.getY(goal)) > 1.2) return false;
-        double dx = mob.getX() - (BlockPos.getX(goal) + 0.5), dz = mob.getZ() - (BlockPos.getZ(goal) + 0.5);
+        double dx = mob.getX() - (BlockPos.getX(goal) + 0.5 + offX), dz = mob.getZ() - (BlockPos.getZ(goal) + 0.5 + offZ);
         double r = Math.max(radius, 0.1);
         return dx * dx + dz * dz <= r * r || settled && inGoalCell();
     }
@@ -196,12 +210,12 @@ public final class AiMover {
             return;
         }
         if (inGoalCell()) {
-            // the last steps: straight to the cell's middle
+            // the last steps: straight to the cell's middle (or the point off it asked for)
             mob.getNavigation().stop();
             walking = null;
             if (inCellSince == Long.MIN_VALUE) inCellSince = tick;
             if (tick - inCellSince > SETTLE) settled = true;
-            mob.getMoveControl().setWantedPosition(BlockPos.getX(goal) + 0.5, mob.getY(), BlockPos.getZ(goal) + 0.5, modifier());
+            mob.getMoveControl().setWantedPosition(BlockPos.getX(goal) + 0.5 + offX, mob.getY(), BlockPos.getZ(goal) + 0.5 + offZ, modifier());
             return;
         }
         inCellSince = Long.MIN_VALUE;

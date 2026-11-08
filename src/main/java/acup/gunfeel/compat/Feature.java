@@ -32,7 +32,7 @@ public enum Feature {
     GL54("gl54", List.of("MixinAmmoPress", "MixinAmmoPressScreen", "MixinGasCorrosion", "MixinGasAim"), List.of("PressLoading", "PressSync", "PressScreenExtras", "PressLayoutsPayload", "Gl54Items", "Gl54Gun", "Gl54Ammo", "Gl54Grenade", "FragBurst", "FragFx", "GrenadeType", "GrenadeMagazine", "MagItem", "MagTint", "MagMenu", "MagScreen", "Gl54SelectPayload", "MagCommand", "Gl54Hud", "Gl54Anim", "Gl54Orchestra", "Gl54Casing", "Gl54Server", "Gl54Client", "ItemRenderGl54", "Gl54Range", "Gl54Fuse", "Gl54Reflex", "ReflexDraw", "ReflexMath", "Gl54Laser", "Gl54LaserWorld", "Gl54Ballistics", "Gl54Aim", "Gl54OffsetPayload")),
     PRONE("prone", List.of(), List.of("Prone", "ProneClient", "ProneCrawlPayload", "ProneStandPayload", "CrawlKey", "CrawlPitch", "LocalPlayerCrawl", "LivingEntityCrawl", "ProneStand")),
     PRONE_FIRE("prone_fire", List.of("MixinProneFireClick", "MixinProneFireDecider", "MixinProneFireKeys"), List.of("ProneFire", "ProneFireStand")),
-    MOB_AI("mob_ai", List.of("MixinAiFbi", "MixinAiDummy"), List.of("AiGunner", "AiCommand", "AiCheckSpread", "AiCheckAim", "AiCheckRecoil"));
+    MOB_AI("mob_ai", List.of("MixinAiFbi", "MixinAiDummy", "MixinAiLeanShot"), List.of("AiGunner", "AiCommand", "AiCheckSpread", "AiCheckAim", "AiCheckRecoil"));
 
     public final String id;
     // simple names: mixins in acup.gunfeel.mixin, classes in acup.gunfeel
