@@ -6,8 +6,8 @@ import net.minecraft.world.phys.Vec3;
 import acup.gunfeel.smoke.SmokeClouds;
 
 /**
- * Bullets and blasts stir the gas clouds (server key {@code gasStir}, on by default). Smoke is left as it is: its cover is
- * the grenade's job. The numbers:
+ * Bullets and blasts stir the gas clouds (server key {@code gasStir}, on by default); smoke has its own rule
+ * ({@link acup.gunfeel.smoke.SmokeHole}: a blast's hole that closes, bullets nothing). The numbers:
  *
  * <ul>
  * <li>a bullet's path through a cloud: the cells it crosses keep 80% of their gas, the cells next to them 94%. One shot
