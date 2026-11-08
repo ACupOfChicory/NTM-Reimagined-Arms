@@ -4,4 +4,8 @@ package acup.gunfeel.ai;
 @FunctionalInterface
 public interface AiBrain {
     void tick(AiBot bot, long tick);
+
+    /** it stops thinking (no one near: AiBots.active), its body left as it would stand there; nothing by default */
+    default void sleep(AiBot bot, long tick) {
+    }
 }

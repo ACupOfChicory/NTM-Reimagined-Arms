@@ -1,5 +1,16 @@
 # Changelog
 
+## X808
+
+- Mob AI: bots now slide into low cover and roll under fire in real fights
+  too, not only on the test stand: a bot's run was taken for standing still,
+  so neither ever began. A roll now follows a shot that passed close within
+  the last second (before: a fifth of a second). In six test battles of 5 on 5:
+  6 slides and 3 rolls, no more hits on their own side.
+- Mob AI: a bot left with nobody near stops leaning round its corner and
+  lowers its gun, instead of staying leaned and aiming until someone comes
+  back; shots no longer hit its leaned-out head in that time.
+
 ## X807
 
 - NTM's blasts hit each part of the body on its own. Grenades, 40 mm shells

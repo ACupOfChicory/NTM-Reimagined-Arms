@@ -3,6 +3,8 @@ package acup.gunfeel.ai;
 import java.util.List;
 import java.util.Locale;
 
+import acup.gunfeel.ModelHits;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -48,6 +50,12 @@ final class AiCheckLean {
     /** leaned all the way once: its head out of its upright hitbox, and a shot through the head hits it (its boxes) */
     private boolean probed, headOut, headHit;
     private String headWhere = "-";
+    /** after the leaning round: no one near while it leans (AiBots.active off), tries; then its pose and boxes asleep */
+    private int sleepFrom = -1, asleepAt = -1, sleepTries;
+    private byte lastLean, lastArms;
+    private long lastBoxes = Long.MIN_VALUE;
+    private boolean sleepOk;
+    private String sleepWhat = "-";
 
     AiCheckLean(AiCheck check, ServerLevel level, int y) {
         this.check = check;
@@ -115,7 +123,9 @@ final class AiCheckLean {
         }
         if (ticks >= RUN) {
             int leans = bot.brain instanceof AiSoldier s ? s.leans : 0, steps = bot.brain instanceof AiSoldier s ? s.steps : 0;
-            results[phase] = new int[] {out, seen, hitsOn, hitsOnLeaned, hitsBy, shots, inBlock, leans, steps};
+            // the round's counts at its end; the leaning round then goes on to its sleep (asleep)
+            if (results[phase] == null) results[phase] = new int[] {out, seen, hitsOn, hitsOnLeaned, hitsBy, shots, inBlock, leans, steps};
+            if (phase == 1 && !asleep(bot)) return false;
             soldier.discard();
             foe.discard();
             soldier = foe = null;
@@ -123,6 +133,54 @@ final class AiCheckLean {
             start(phase + 1);
         }
         return false;
+    }
+
+    /**
+     * After the leaning round: no one near once it leans all the way (AiBots.awake off; the stand has no players).
+     * AiBots looks who is near every 20 ticks: the pose seen the tick before it went to sleep is the one it slept in
+     * (its brain ticks no more after). Some ticks asleep: its lean undone, its arms held, its own boxes gone. Again if
+     * it unleaned on its own just before.
+     */
+    private boolean asleep(AiBot bot) {
+        if (sleepFrom < 0) {
+            // awake (again), waiting for a full lean
+            if (!bot.active || Math.abs(AiLean.frac(soldier)) != 1F) {
+                if (ticks < RUN + 1200) return false;
+                sleepWhat = "it leaned no more, tries " + (sleepTries + 1);
+                AiBots.awake = true;
+                return true;
+            }
+            sleepFrom = ticks;
+            AiBots.awake = false;
+        }
+        if (asleepAt < 0) {
+            if (bot.active) {
+                AiPose p = AiPose.of(soldier);
+                lastLean = p.lean();
+                lastArms = p.arms();
+                lastBoxes = ModelHits.caught(level, soldier);
+                if (ticks < sleepFrom + 60) return false;
+                // never went to sleep (someone near: a player on the stand's server)
+                sleepWhat = "it never went to sleep";
+                AiBots.awake = true;
+                return true;
+            }
+            asleepAt = ticks;
+            if (lastLean == 0 && ++sleepTries < 3) {
+                AiBots.awake = true;
+                sleepFrom = asleepAt = -1;
+                return false;
+            }
+        }
+        if (ticks < asleepAt + 30) return false;
+        AiPose p = AiPose.of(soldier);
+        long caught = ModelHits.caught(level, soldier);
+        sleepOk = lastLean != 0 && lastBoxes != Long.MIN_VALUE && p.lean() == 0 && AiLean.frac(soldier) == 0F && p.arms() == AiPose.HOLD
+                && caught == Long.MIN_VALUE;
+        sleepWhat = String.format(Locale.ROOT, "slept leaned %d, arms %d, own boxes of tick %d (now %d); 30 ticks asleep: lean %d (%.2f), arms %d, boxes of %d (tries %d)",
+                lastLean, lastArms, lastBoxes, level.getGameTime(), p.lean(), AiLean.frac(soldier), p.arms(), caught, sleepTries + 1);
+        AiBots.awake = true;
+        return true;
     }
 
     /** the parts of the soldier (head, chest, legs) in plain sight from the foe's eye, where its lean has them */
@@ -190,6 +248,7 @@ final class AiCheckLean {
 
     private boolean finishAll() {
         AiLean.on = true;
+        AiBots.awake = true;
         counting = null;
         if (soldier != null) soldier.discard();
         if (foe != null) foe.discard();
@@ -214,6 +273,8 @@ final class AiCheckLean {
         check.check("no shot of its starts inside a block, stepping or leaning", st[6] == 0 && le[6] == 0);
         check.out("     leaned all the way, its head " + headWhere + ": out of its hitbox " + headOut + ", a shot through it hits " + headHit);
         check.check("leaned, its head is out of its upright hitbox and a shot through it hits (its own boxes, no client)", probed && headOut && headHit);
+        check.out("     no one near: " + sleepWhat);
+        check.check("no one near, a leaned soldier stands up straight, its gun held, its own boxes gone", sleepOk);
         return true;
     }
 }

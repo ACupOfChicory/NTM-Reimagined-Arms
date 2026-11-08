@@ -227,6 +227,7 @@ public final class AiBots {
             if (b.active && !near) {
                 b.gunner.release();
                 b.mover.pause();
+                if (b.brain != null) b.brain.sleep(b, level.getGameTime());
             }
             b.active = near;
         }

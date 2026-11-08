@@ -277,6 +277,18 @@ public final class AiSoldier implements AiBrain {
         leanBoxes = AiLean.boxes((ServerLevel) m.level(), m, aiming, leanBoxes, tick);
     }
 
+    /**
+     * No one near: it stops thinking where it stands, and its body is not left leaned out or aiming for as long as it
+     * sleeps (the clients would draw it so, and its own boxes for shots would stay leaned). An action ends by itself
+     * (the clients play it its ticks); the stance stays the game's pose (lying, crouching).
+     */
+    @Override
+    public void sleep(AiBot bot, long tick) {
+        Mob m = bot.mob;
+        AiPose.set(m, AiPose.of(m).withLean((byte) 0, tick).withArms(AiPose.HOLD));
+        leanBoxes = AiLean.drop((ServerLevel) m.level(), m, leanBoxes);
+    }
+
     /** a decision of a moment, for the journal (what: a constant, so nothing is built with the journal off) */
     private void event(AiBot bot, long tick, String what) {
         if (AiThoughts.on()) thoughts.event(bot, tick, what);

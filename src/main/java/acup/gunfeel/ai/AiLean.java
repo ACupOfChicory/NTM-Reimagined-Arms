@@ -139,6 +139,12 @@ public final class AiLean {
         return b.subtract(a).scale(1e3);
     }
 
+    /** its own boxes taken back, if they are still the ones kept (a client's newer pose stays); returns none */
+    static long drop(ServerLevel level, LivingEntity e, long put) {
+        if (put != Long.MIN_VALUE && ModelHits.caught(level, e) == put) ModelHits.forget(level, e, put);
+        return Long.MIN_VALUE;
+    }
+
     /** a client's pose this new or newer is the client's to keep, ticks */
     static final int CLIENT_FRESH = 5;
 

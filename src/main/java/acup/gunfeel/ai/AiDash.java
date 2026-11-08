@@ -22,10 +22,10 @@ public final class AiDash {
     static final double SLIDE_NEAR = 2.4, SLIDE_FAR = 3.0;
     /** the roll wants this much flat straight ground ahead, blocks (half a run's step for TICKS: 2.6) */
     static final double ROLL_AHEAD = 3.0;
-    /** only at a run: its step, blocks a tick (the AI's run is 0.32, its walk 0.19) */
-    static final double FAST = 0.25;
-    /** a shot past it within this many ticks may make it roll */
-    static final int NEAR_MISS = 4;
+    /** only at a run: its step, blocks a tick (the AI's run is 0.32, run low past low cover 0.24: AiStoop; its walk 0.19) */
+    static final double FAST = 0.22;
+    /** a shot past it within this many ticks may make it roll (a second, as AiProne's pinning window) */
+    static final int NEAR_MISS = AiProne.WINDOW;
     /** the share of the chances it takes (a slide, a roll), so not every run ends in one */
     static final float SLIDE_SHARE = 0.6F, ROLL_SHARE = 0.5F;
     /** the roll's step, a share of the run's (AiMover.slow) */
@@ -35,6 +35,9 @@ public final class AiDash {
 
     private byte kind = AiPose.NONE;
     private long since = Long.MIN_VALUE / 2, nearMiss = Long.MIN_VALUE / 2;
+    /** where it was when last seen on a run, and when */
+    private double lastX, lastZ;
+    private long lastAt = Long.MIN_VALUE;
     /** the cover and the near miss its chance was last taken for: one chance an approach, one a shot */
     private long slideChanceFor = Long.MIN_VALUE, rollChanceFor = Long.MIN_VALUE;
     /** for the stands */
@@ -80,14 +83,14 @@ public final class AiDash {
         Vec3 at = mob.position();
         // away from the cover again: the next approach has its chance
         if (Math.hypot(goal.x - at.x, goal.z - at.z) > SLIDE_FAR + 0.5) slideChanceFor = Long.MIN_VALUE;
+        // its step from where it was the tick before (its motion is not the game's: the mob's own deltaMovement and
+        // xo are no use to the brain), none if not seen then
+        Vec3 step = lastAt == tick - 1 ? new Vec3(at.x - lastX, 0, at.z - lastZ) : Vec3.ZERO;
+        lastX = at.x;
+        lastZ = at.z;
+        lastAt = tick;
         if (!on || busy || on(tick) || tick - since < AGAIN || !mob.onGround() || mob.isInWater() || mob.isPassenger()) return AiPose.NONE;
-        Vec3 step = mob.getDeltaMovement();
-        double speed = Math.sqrt(step.x * step.x + step.z * step.z);
-        if (speed < FAST) {
-            Vec3 moved = new Vec3(mob.getX() - mob.xo, 0, mob.getZ() - mob.zo);
-            speed = moved.horizontalDistance();
-            step = moved;
-        }
+        double speed = step.horizontalDistance();
         if (speed < FAST) return AiPose.NONE;
         double dx = goal.x - at.x, dz = goal.z - at.z, dist = Math.sqrt(dx * dx + dz * dz);
         byte k = AiPose.NONE;
