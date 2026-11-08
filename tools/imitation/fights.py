@@ -5,7 +5,7 @@ What he decided is not in it; it is worked out here from the views that follow e
 
   EXPOSE  hidden in cover, not reloading: out into an enemy's sight within 12 ticks
   HIDE    in an enemy's sight by his cover: hidden again within 12 ticks
-  SHIFT   hidden in cover: more than 4 blocks off within 40 ticks
+  SHIFT   by his cover (hidden, or looking out of it): more than 4 blocks off within 40 ticks
   PUSH    enemies known, none seen for 2 seconds: 2 blocks nearer where the nearest was within 20 ticks
   RANK    at the start of a SHIFT: which of the cover places the bots' search offered he was hidden in next
 
@@ -100,7 +100,8 @@ def cases(views):
             w = window(views, i, WINDOWS["HIDE"])
             if w is not None:
                 out["HIDE"].append((f, any(x["hid"] == 1 for x in w)))
-        if v["hid"] == 1:
+        # by his cover, hidden or looking out of it: the bots ask after a look out and when hit there too
+        if near_cover(v):
             w = window(views, i, WINDOWS["SHIFT"])
             if w is not None:
                 moved = any(dist(x, v) > SHIFT_AWAY for x in w)
