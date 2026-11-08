@@ -121,6 +121,9 @@ public final class Imitation {
     /** every second: the key's state into AiChoice */
     public static void tick(MinecraftServer server) {
         if (server.getTickCount() % 20 == 0) check();
+        // the stands stop their server with no clean stop: what the model did, every half minute
+        if (model != null && "on".equals(System.getProperty(ON_PROPERTY)) && server.getTickCount() % 600 == 0)
+            org.slf4j.LoggerFactory.getLogger("ntmgunfeel").info("imitation so far: {}", info());
     }
 
     private static void check() {
