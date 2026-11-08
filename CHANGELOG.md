@@ -1,6 +1,6 @@
 # Changelog
 
-## X721
+## X725
 
 - Mob AI: AI mobs aim at what they see of you: your head over a wall, your
   legs under a beam, the middle of what shows over low cover; with all of you
@@ -16,6 +16,10 @@
   where the shot came from. Before, a rough guess of where from could leave it
   in the cover it was shot in, watching the old place. A blast that no one set
   off does not move where it thinks they are.
+- Mob AI: in a big fight an AI mob looks over at most twelve foes it has not
+  noticed yet at a time, in turn, besides those it knows of, and sees all of
+  only the one it deals with: a hundred AI mobs fighting cost the server half
+  the time they did (3 ms a tick, from 5.6).
 
 ## X713
 
