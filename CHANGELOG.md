@@ -1,5 +1,10 @@
 # Changelog
 
+## X788
+
+- GL-54 mustard gas no longer leaves oily stains on the floor. The ground it
+  poisons stays as it was.
+
 ## X787
 
 - Smoke: clouds that overlap are drawn as one smoke. Before, each cloud was

@@ -108,7 +108,7 @@ final class GasStand {
     }
 
     static void start() {
-        // -PgasSoil: the mustard's stains and poisoned ground and the stirred gas instead (GasSoilStand)
+        // -PgasSoil: poisoned ground and the stirred gas instead (GasSoilStand)
         if (GasSoilStand.ON) {
             GasSoilStand.start();
             return;
