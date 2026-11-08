@@ -45,7 +45,15 @@ public final class BotAnimation {
         }
         Function<Mob, AiPose> stand = standPose;
         AiPose pose = stand != null ? stand.apply(mob) : AiPose.of(mob);
-        data.gunfeel$setBot(BotAnimator.frame(mob, pose, mob.level().getGameTime(), partial, state.isCrouching));
+        BotAnimator.Frame frame = BotAnimator.frame(mob, pose, mob.level().getGameTime(), partial, state.isCrouching);
+        data.gunfeel$setBot(frame);
+        // its own walk for vanilla's swing as well (HumanoidModel.setupAnim): vanilla's kicks as it is hit
+        if (!standStill) {
+            state.walkAnimationSpeed = frame.walk();
+            state.walkAnimationPos = frame.walkPos();
+        }
+        // falling dead it plays its own fall (BotPoser): not vanilla's tip onto its side as well
+        if (frame.deathSec() >= 0F && BotClips.get(BotClips.DEATH) != null) state.deathTime = 0F;
         // the crouch (the AI's, or the mob's own) is posed here by its weight, so it comes and goes smoothly:
         // vanilla's would snap
         state.isCrouching = false;

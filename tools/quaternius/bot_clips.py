@@ -19,7 +19,21 @@ BOT = {
     "hit_head": ("ual1", "hit_head"),            # UAL Hit_Head: good, good
     "throw": ("ual2", "overhandthrow_upper"),    # UAL OverhandThrow: upper fair (legs poor: not used)
     "wave": ("kaykit", "waving_upper"),          # KayKit Waving: upper fair, the right arm waves
+    # on the move: the legs only (the arms keep the gun); ten parts' grades
+    "walk": ("ual1", "walk_loop_lower"),         # UAL Walk_Loop: lower good
+    "jog": ("ual1", "jog_fwd_loop_lower"),       # UAL Jog_Fwd_Loop: lower good
+    "sprint": ("ual1", "sprint_loop_lower"),     # UAL Sprint_Loop: lower good
+    "back": ("kaykit", "walking_backwards_lower"),          # KayKit Walking_Backwards: lower fair
+    "strafe_left": ("kaykit", "running_strafe_left_lower"),  # KayKit Running_Strafe_Left: lower fair
+    "strafe_right": ("kaykit", "running_strafe_right_lower"),  # KayKit Running_Strafe_Right: lower fair
+    "reload": ("kaykit", "ranged_2h_reload_upper"),  # KayKit Ranged_2H_Reload: upper fair (a rifle's reload)
+    "death": ("kaykit", "death_a"),              # KayKit Death_A: upper good, lower poor (it falls: the legs fold)
+    # KayKit Hit_B: thrown back and up on its feet again, first and last frame the rest pose (added as a flinch).
+    # UAL Hit_Knockback is a fall onto the back (the body to -88 degrees and lying there): no flinch over standing legs
+    "hit_knock": ("kaykit", "hit_b"),
 }
+# turns only: the game moves the mob itself as it is thrown, and the head stays at the eye the server keeps
+TURNS_ONLY = {"hit_knock"}
 
 
 def main():
@@ -30,6 +44,9 @@ def main():
             with open(os.path.join(HERE, "animations", f + ".animation.json")) as fh:
                 cache[f] = json.load(fh)["animations"]
         out[name] = cache[f][clip]
+        if name in TURNS_ONLY:
+            out[name] = dict(out[name], bones={b: {k: v for k, v in ch.items() if k != "position"}
+                                               for b, ch in out[name]["bones"].items()})
     with open(OUT, "w") as fh:
         json.dump({"format_version": "1.8.0", "animations": out}, fh, separators=(",", ":"), allow_nan=False)
         fh.write("\n")

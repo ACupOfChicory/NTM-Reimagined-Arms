@@ -1,5 +1,14 @@
 # Changelog
 
+## X801
+
+- Mob AI: FBI agents and dummies move their legs in step with how fast and
+  which way they go: a walk, a jog or a sprint going forward, a walk going
+  back and a side step going sideways, blended as they turn. They reload with
+  a rifle's two-handed reload, fall dead in a fall of their own rather than
+  tipping onto their side, and are thrown back by a hit that sends them
+  flying (a blast, a heavy round).
+
 ## X798
 
 - Mob AI: bots throw NTM's frag grenades (HE, three seconds' fuze). When you

@@ -45,10 +45,40 @@ public final class BotAnimator {
      * @param hits    the flinches showing: the last, and any it cut short fading out
      * @param idleSec seconds into the idle loop
      * @param entity  the mob's id
+     * @param speed   how fast it goes over the ground, blocks a tick (smoothed)
+     * @param heading which way it goes, from where its body faces: radians, 0 ahead, + to its right
+     * @param deathSec seconds since it fell dead, or below 0 alive
      */
     public record Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits,
-            float idleSec, int entity) {
+            float idleSec, int entity, float speed, float heading, float deathSec, float walk, float walkPos) {
+        /** standing where it is, alive */
+        public Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits, float idleSec,
+                int entity) {
+            this(crouch, lean, arms, act, fading, hits, idleSec, entity, 0F, 0F, -1F);
+        }
+
+        /** with no walk of its own (the stands and tests give vanilla's) */
+        public Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits, float idleSec,
+                int entity, float speed, float heading, float deathSec) {
+            this(crouch, lean, arms, act, fading, hits, idleSec, entity, speed, heading, deathSec, 0F, 0F);
+        }
     }
+
+    /** how fast the speed it is drawn at follows its own, a share a tick (a step's jolt smoothed out) */
+    static final float SPEED_FOLLOW = 0.2F;
+    /** vanilla's walk follows its step by this share a tick (LivingEntity.updateWalkAnimation) */
+    static final float WALK_FOLLOW = 0.4F;
+    /**
+     * a hit as the game throws it this fast or more, blocks a tick (the motion it is sent: a blast's push): the
+     * flinch that throws it back. A hit's own knockback sends 0.2 to 0.4, a bot running 0.2: neither is thrown
+     */
+    static final float KNOCK_PUSH = 0.45F;
+    /** a step this long in a tick is no step: it was put there (a teleport), blocks */
+    static final float TELEPORT = 1.5F;
+    /** ticks after a hit its push may still come in (the motion is sent after the hit, with the tick's moves) */
+    static final float KNOCK_WAIT = 2F;
+    /** the most the heading it is drawn at turns, radians a tick */
+    static final float HEADING_TURN = 0.3F;
 
     /**
      * A flinch this frame.
@@ -97,14 +127,67 @@ public final class BotAnimator {
     private float hitW;
     private int hits;
 
+    /** the speed and heading it is drawn at (Frame) */
+    float speed, heading;
+    /**
+     * Its walk: vanilla's (the swing's speed follows 4 times the step, a block a tick at most, by 0.4 a tick; its
+     * place goes on by that speed), worked out frame by frame. Not vanilla's own: a hit sets that to 1.5 at once, in
+     * the middle of a tick, and the legs and arms would kick; the flinch is the hit's clip.
+     */
+    float walk, walkPos;
+    private double movedAt = Double.NaN;
+
     /** @param crouching vanilla's crouch (the mob's own pose), taken as a crouch too */
     public static Frame frame(LivingEntity e, AiPose pose, long gameTime, float partial, boolean crouching) {
         BotAnimator a = ALL.computeIfAbsent(e, k -> new BotAnimator());
         synchronized (a) {
-            return a.step(pose, gameTime, partial, e.hurtTime, e.deathTime > 0, e.tickCount + partial, e.getId(),
+            a.move(e.getX() - e.xo, e.getZ() - e.zo, e.yBodyRot, gameTime + (double) partial);
+            // the push a hit gives it comes as its motion before it shows as steps
+            a.push = (float) e.getDeltaMovement().horizontalDistance();
+            Frame f = a.step(pose, gameTime, partial, e.hurtTime, e.deathTime > 0, e.tickCount + partial, e.getId(),
                     crouching);
+            float death = e.deathTime > 0 ? (e.deathTime - 1 + partial) / 20F : -1F;
+            return new Frame(f.crouch(), f.lean(), f.arms(), f.act(), f.fading(), f.hits(), f.idleSec(), f.entity(),
+                    a.speed, a.heading, death, a.walk, a.walkPos);
         }
     }
+
+    /**
+     * Its step since the last tick (the client moves it a tick at a time): the speed it is drawn at follows it by
+     * SPEED_FOLLOW a tick, the heading (from where the body faces) turns to it while it moves.
+     */
+    void move(double dx, double dz, float bodyYaw, double now) {
+        float dt = Double.isNaN(movedAt) ? Float.POSITIVE_INFINITY : (float) Math.max(0.0, now - movedAt);
+        movedAt = now;
+        float s = (float) Math.sqrt(dx * dx + dz * dz);
+        if (s > TELEPORT) {
+            // put somewhere (a teleport, a ride): it stands where it is now
+            speed = walk = 0F;
+            return;
+        }
+        float k = dt > 20F ? 1F : 1F - (float) Math.pow(1F - SPEED_FOLLOW, dt);
+        speed += (s - speed) * k;
+        float kw = dt > 20F ? 1F : 1F - (float) Math.pow(1F - WALK_FOLLOW, dt);
+        float walkWas = walk;
+        walk += (Math.min(s * 4F, 1F) - walk) * kw;
+        if (dt <= 20F) walkPos += (walkWas + walk) / 2F * dt;
+        if (s > 1e-3F) {
+            // the game's yaw: 0 is +z, 90 is -x; the mob's right is 90 more than where it faces
+            float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+            float to = Mth.wrapDegrees(yaw - bodyYaw) * Mth.DEG_TO_RAD;
+            // and no faster than HEADING_TURN: turned right round (a sprint ahead, then back) the legs go from one
+            // clip to the next over half a second, not in a tick
+            float turn = Mth.wrapDegrees((to - heading) * Mth.RAD_TO_DEG) * Mth.DEG_TO_RAD * k, most = HEADING_TURN * dt;
+            heading = Mth.wrapDegrees((heading + Mth.clamp(turn, -most, most)) * Mth.RAD_TO_DEG) * Mth.DEG_TO_RAD;
+        }
+    }
+
+    /** the flinch showing (the last hit's) */
+    private String hitClip = clip(0);
+    /** till when a push may yet make the flinch begun the knockback */
+    private double knockUntil = Double.NEGATIVE_INFINITY;
+    /** the motion the game sends it now, blocks a tick (a hit's push) */
+    float push;
 
     Frame step(AiPose pose, long gameTime, float partial, int hurtTime, boolean dead, float age, int entity) {
         return step(pose, gameTime, partial, hurtTime, dead, age, entity, false);
@@ -156,7 +239,9 @@ public final class BotAnimator {
             float t = (float) (now - actTick);
             if (t >= 0F && t < actLen) {
                 // a shot's kick comes in half a tick (a snap, not a jump); anything else fades in and out
-                float in = Math.min(1F, t / (actKind == AiPose.SHOT ? SHOT_IN : ACTION_FADE));
+                // a reload takes the arms from wherever they are (over the head, firing blind) to its clip's:
+                // slower in (BotPoser.RELOAD_IN)
+                float in = Math.min(1F, t / (actKind == AiPose.SHOT ? SHOT_IN : actKind == AiPose.RELOAD ? BotPoser.RELOAD_IN : ACTION_FADE));
                 actW = smooth(Math.min(in, Math.min(1F, (actLen - t) / ACTION_FADE)));
                 act = new Act(actKind, t / actLen, actW, t);
             }
@@ -177,18 +262,29 @@ public final class BotAnimator {
         // a flinch: a new hit, or death, lets the one showing go from where it is
         boolean struck = hurtTime > lastHurt && !dead;
         lastHurt = hurtTime;
-        if ((struck || dead) && hitW > 0F) outHits.add(new OutHit(clip(hits), hitAt, hitW, now));
+        if ((struck || dead) && hitW > 0F) outHits.add(new OutHit(hitClip, hitAt, hitW, now));
         if (struck) {
             hitAt = now;
             hits++;
+            // thrown fast as it is hit (a blast, a heavy round): it is thrown back; else head and chest by turns
+            hitClip = push >= KNOCK_PUSH ? BotClips.HIT_KNOCK : clip(hits);
+            knockUntil = now + KNOCK_WAIT;
         } else if (dead) hitAt = Double.NEGATIVE_INFINITY;
+        else if (now < knockUntil && !hitClip.equals(BotClips.HIT_KNOCK) && push >= KNOCK_PUSH) {
+            // the push comes after the hit (the game sends the hit at once, the motion with the tick's moves): the
+            // flinch begun gives way to the knockback
+            if (hitW > 0F) outHits.add(new OutHit(hitClip, hitAt, hitW, now));
+            hitAt = now;
+            hitClip = BotClips.HIT_KNOCK;
+            knockUntil = Double.NEGATIVE_INFINITY;
+        }
         hitW = 0F;
         java.util.ArrayList<Hit> shown = new java.util.ArrayList<>(2);
         float sec = (float) (now - hitAt) / 20F;
-        BotClip c = BotClips.get(clip(hits));
+        BotClip c = BotClips.get(hitClip);
         if (c != null && sec >= 0F && sec < c.length()) {
             hitW = Math.min(1F, Math.min(sec * 20F / HIT_IN, (c.length() - sec) * 20F / HIT_OUT));
-            shown.add(new Hit(clip(hits), sec, hitW));
+            shown.add(new Hit(hitClip, sec, hitW));
         }
         for (java.util.Iterator<OutHit> it = outHits.iterator(); it.hasNext();) {
             OutHit o = it.next();

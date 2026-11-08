@@ -21,6 +21,11 @@ public final class BotClips {
     static final String PATH = "/assets/ntmgunfeel/animations/bot.animation.json";
     public static final String IDLE = "idle", HIT_CHEST = "hit_chest", HIT_HEAD = "hit_head", THROW = "throw",
             WAVE = "wave";
+    /** on the move, the legs only: walking, jogging, sprinting forward, walking back, sideways left and right */
+    public static final String WALK = "walk", JOG = "jog", SPRINT = "sprint", BACK = "back", STRAFE_LEFT = "strafe_left",
+            STRAFE_RIGHT = "strafe_right";
+    /** a rifle's reload (the arms), a fall dead (the whole body), a hit that throws it back (the arms and body) */
+    public static final String RELOAD = "reload", DEATH = "death", HIT_KNOCK = "hit_knock";
 
     private static volatile Map<String, BotClip> clips;
 
