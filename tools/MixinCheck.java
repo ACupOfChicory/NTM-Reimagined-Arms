@@ -51,7 +51,8 @@ import static acup.gunfeel.compat.MixinProbe.value;
  * - @At INVOKE / FIELD / NEW targets really occur inside that method, and an ordinal is in range;
  * - @Inject handlers take CallbackInfo or CallbackInfoReturnable as the target returns, after either no target
  *   arguments or all of them with the same types, and are static when the target is;
- * - @Redirect and @ModifyArg handlers fit the call they replace;
+ * - @Redirect and @ModifyArg handlers fit the call they replace (a @ModifyArg's MixinExtras sugar, @Local and the
+ *   like, after its own arguments);
  * - @Shadow and @Accessor members exist in the target class with the same type.
  * A miss on an injector with require = 0 is a warning, everything else an error (exit code 1).
  */
@@ -369,6 +370,18 @@ public class MixinCheck {
         }
     }
 
+    // MixinExtras' sugar (@Local, @Share, @Cancellable) comes after the handler's own arguments and is filled in by it:
+    // how many arguments come before the first of them
+    static int plain(MethodNode handler) {
+        int n = Type.getArgumentTypes(handler.desc).length;
+        for (int i = 0; i < n; i++)
+            for (var annotations : java.util.Arrays.asList(handler.visibleParameterAnnotations, handler.invisibleParameterAnnotations)) {
+                if (annotations == null || i >= annotations.length || annotations[i] == null) continue;
+                for (var a : annotations[i]) if (a.desc.startsWith("Lcom/llamalad7/mixinextras/sugar/")) return i;
+            }
+        return n;
+    }
+
     // @Coerce Object позволяет принять недоступный private record снимка.
     // Без аннотации типы по-прежнему должны совпадать; примитивы не ослабляем.
     static boolean parameterFits(MethodNode handler,int index,Type target) {
@@ -401,7 +414,7 @@ public class MixinCheck {
             if (same != 1) errors.add(where + ": @ModifyArg without index needs exactly one " + ret.getClassName()
                     + " argument, the call has " + same);
         }
-        Type[] hp = Type.getArgumentTypes(h.desc);
+        Type[] hp = java.util.Arrays.copyOf(Type.getArgumentTypes(h.desc), plain(h));
         boolean single = hp.length == 1 && hp[0].equals(ret);
         boolean all = java.util.Arrays.equals(hp, args);
         if (!single && !all) {
