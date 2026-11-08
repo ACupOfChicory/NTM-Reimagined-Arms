@@ -1,5 +1,19 @@
 # Changelog
 
+## X721
+
+- Mob AI: AI mobs move their bodies. They breathe as they stand, flinch when hit
+  (in the chest or the head), crouch and stand up smoothly, lean out of cover to
+  the side, lie down with the gun held out along the ground, aim with both hands
+  along their look, and hold the gun up over their head to fire blind over cover.
+  They lower the gun and reach for the magazine to reload, kick up with a shot,
+  throw overarm, and wave their free hand, point or raise it to halt to give a
+  signal. The hitbox takes the pose: a mob leaning out past a corner or crouched
+  behind a wall is hit where it is drawn, and its shot leaves from where its gun
+  is. The idle, flinch, throw and wave clips come from Quaternius' Universal
+  Animation Library and Kay Lousberg's KayKit Character Animations (both CC0);
+  the rest is posed in code.
+
 ## X713
 
 - Mob AI, new: mobs that fight as a player does, with NTM's guns. `/armsai

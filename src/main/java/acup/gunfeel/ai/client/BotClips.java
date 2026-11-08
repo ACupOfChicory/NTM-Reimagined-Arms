@@ -1,0 +1,57 @@
+package acup.gunfeel.ai.client;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import acup.gunfeel.GunFeel;
+
+/**
+ * The clips AI mobs play, from assets/ntmgunfeel/animations/bot.animation.json (tools/quaternius/bot_clips.py):
+ * Quaternius' Universal Animation Library and KayKit's Character Animations, both CC0. Read from the jar once.
+ */
+public final class BotClips {
+    static final String PATH = "/assets/ntmgunfeel/animations/bot.animation.json";
+    public static final String IDLE = "idle", HIT_CHEST = "hit_chest", HIT_HEAD = "hit_head", THROW = "throw",
+            WAVE = "wave";
+
+    private static volatile Map<String, BotClip> clips;
+
+    private BotClips() {
+    }
+
+    public static BotClip get(String name) {
+        Map<String, BotClip> c = clips;
+        if (c == null) {
+            synchronized (BotClips.class) {
+                if (clips == null) clips = load();
+                c = clips;
+            }
+        }
+        return c.get(name);
+    }
+
+    static Map<String, BotClip> load() {
+        Map<String, BotClip> out = new HashMap<>();
+        try (InputStream in = BotClips.class.getResourceAsStream(PATH)) {
+            if (in == null) {
+                GunFeel.LOGGER.warn("AI mob clips missing: {}", PATH);
+                return out;
+            }
+            try (Reader r = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+                JsonObject anims = JsonParser.parseReader(r).getAsJsonObject().getAsJsonObject("animations");
+                for (String name : anims.keySet()) out.put(name, BotClip.parse(anims.getAsJsonObject(name)));
+            }
+        } catch (IOException | RuntimeException e) {
+            GunFeel.LOGGER.warn("AI mob clips unreadable: {}", e.toString());
+        }
+        return out;
+    }
+}

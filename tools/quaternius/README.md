@@ -1,7 +1,7 @@
 # Free humanoid clips → Minecraft biped
 
 Puts clips of free (CC0) humanoid animation packs on the six parts of a Minecraft `HumanoidModel`: head, body, both
-arms, both legs. Nothing in the mod plays them yet.
+arms, both legs. AI mobs play a few of them: `bot_clips.py` copies those into the mod.
 
 | Pack | Author | License | Where | What we take |
 |---|---|---|---|---|

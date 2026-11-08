@@ -306,6 +306,10 @@ The GL-54's grenade and magazine textures are by Nuclear GrandFather, who
 allows their use and modification in NTM Reimagined Arms and its forks with
 credit to the author; see [third-party/gl54-textures.txt](third-party/gl54-textures.txt).
 
+AI mobs' idle, flinch, throw and wave clips are carried over from Quaternius'
+Universal Animation Library 1 and 2 and Kay Lousberg's KayKit Character
+Animations, both CC0; see [third-party/bot-animations.txt](third-party/bot-animations.txt).
+
 The jar bundles XZ for Java 1.10 (0BSD), which unpacks the machine shapes
 shipped in the mod; its notice is in [third-party/xz.txt](third-party/xz.txt)
 and packaged under `META-INF/licenses/`.
