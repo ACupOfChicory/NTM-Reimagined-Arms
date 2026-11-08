@@ -86,6 +86,22 @@ class SmokeHoleTest {
     }
 
     @Test
+    void aSecondBlastWhileItClosesAgreesAfterAResync() throws java.io.IOException {
+        SmokeClouds server = new SmokeClouds(c -> FIELD), fresh = new SmokeClouds(c -> FIELD);
+        SmokeClouds.Cloud s = cloud(server), f = cloud(fresh);
+        steps(server, s, 80);
+        s.stir(blast(80));
+        steps(server, s, 100);
+        steps(fresh, f, 10);
+        SmokeNet.decode(f.grid, SmokeNet.encode(s.grid));
+        s.stir(blast(100));
+        f.stir(blast(100));
+        steps(server, s, 200);
+        steps(fresh, f, 200);
+        assertEquals(s.grid.hash(), f.grid.hash());
+    }
+
+    @Test
     void anEmptyGridStillGoesOver() throws java.io.IOException {
         SmokeGrid g = new SmokeGrid(SmokeKind.SMOKE, 1L, 1F, 0F, 1F), h = new SmokeGrid(SmokeKind.SMOKE, 1L, 1F, 0F, 1F);
         SmokeNet.decode(h, SmokeNet.encode(g));

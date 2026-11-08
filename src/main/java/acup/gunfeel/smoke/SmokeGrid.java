@@ -457,7 +457,8 @@ public final class SmokeGrid {
         double r2 = reach * reach;
         for (int y = ay; y <= by; y++) for (int z = az; z <= bz; z++) for (int x = ax; x <= bx; x++) {
             int i = index(x, y, z);
-            if (d[i] == 0F) continue;
+            // an emptied cell still holding from a blast before waits again
+            if (d[i] == 0F && !(back && holds(i))) continue;
             double ex = x + 0.5 - cx, ey = y + 0.5 - cy, ez = z + 0.5 - cz;
             double q = (ex * ex + ey * ey + ez * ez) / r2;
             if (q >= 1.0) continue;
@@ -468,8 +469,10 @@ public final class SmokeGrid {
                 held = new float[CELLS];
                 this.back = new int[CELLS];
             }
+            int from = age + (int) Math.round(BACK_DELAY * (1.0 - Math.sqrt(q)));
+            // a back age left from held smoke that thinned away counts no more (it is in no hash nor packet)
+            this.back[i] = held[i] > 0F ? Math.max(this.back[i], from) : from;
             held[i] += was - left;
-            this.back[i] = Math.max(this.back[i], age + (int) Math.round(BACK_DELAY * (1.0 - Math.sqrt(q))));
         }
     }
 
