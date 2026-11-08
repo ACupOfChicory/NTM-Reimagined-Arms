@@ -980,7 +980,7 @@ public final class AiSoldier implements AiBrain {
         return found.isEmpty() ? null : found.get(AiChoice.rank(bot, found, level.getGameTime()));
     }
 
-    /** to this cover, running, out of the threat's sight where it can */
+    /** to this cover, running, out of the threat's sight and its own side's lines of fire where it can */
     private void go(AiBot bot, ServerLevel level, CoverQuery.Spot to, List<Vec3> threats) {
         spot = to;
         quickLook = false;
@@ -989,7 +989,7 @@ public final class AiSoldier implements AiBrain {
         lastPeek = Long.MIN_VALUE;
         AiBots.claim(bot, spot.cell(), spot.peek());
         Vec3 t = threats.get(0);
-        bot.mover.costs(new ExposureCost(TacticalMap.of(level), t.x, t.y, t.z));
+        bot.mover.costs(PathSearch.Cost.sum(new ExposureCost(TacticalMap.of(level), t.x, t.y, t.z), FireLines.of(level, bot.mob)));
         bot.stoop.from(t);
         bot.mover.goTo(spot.cell(), 0.35, RUN);
         mode(Mode.TO_COVER, level.getGameTime());

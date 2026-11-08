@@ -131,6 +131,11 @@ public final class AiGunner {
         return wantFire;
     }
 
+    /** where it fires: its aim while its mind wants the trigger down, else null (FireLines) */
+    @Nullable Vec3 firingAt() {
+        return wantFire ? aim : null;
+    }
+
     public void reload() {
         wantReload = true;
     }

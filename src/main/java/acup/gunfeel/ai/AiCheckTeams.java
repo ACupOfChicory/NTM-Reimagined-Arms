@@ -52,6 +52,8 @@ final class AiCheckTeams {
     private final List<AiBot> bots = new ArrayList<>();
     // the ticks the fighters were alive, all together
     private long aliveTicks;
+    /** ticks a fighter ran in a line of fire of its own side's */
+    private int runInLine;
     // hits by red on blue, by blue on red, by either on its own
     private int redHits, blueHits, ownHits, friendlyAtStart;
     /** of the hits on their own, those by a blast (a grenade), and what each was doing */
@@ -90,6 +92,8 @@ final class AiCheckTeams {
         ticks++;
         int r = alive(red), b = alive(blue);
         aliveTicks += r + b;
+        for (AiBot bot : bots)
+            if (bot.mob.isAlive() && bot.mover.runs() && FireLines.standsIn(level, bot.mob)) runInLine++;
         if (r == 0 || b == 0 || ticks >= LIMIT) finish(r, b);
         return done;
     }
@@ -329,8 +333,8 @@ final class AiCheckTeams {
         double minutes = Math.max(1, aliveTicks) / 1200.0;
         check.out(String.format(Locale.ROOT, "     tactics: %d times down, %d of them under %d ticks, %d up within %d ticks not sent running; ticks held for a friend in the line %d,"
                 + " for its own cover %d; cover changes %d (%.2f a fighter a minute); most looks out running from one place %d; ticks run low past low cover %d;"
-                + " slides into cover %d, rolls under fire %d", downs, brief, AiProne.BRIEF, early, AiProne.MIN_LIE, friendHolds, coverHolds, shifts, shifts / minutes,
-                peekRun, low, slides, rolls));
+                + " slides into cover %d, rolls under fire %d; ticks run in a friend's line of fire %d", downs, brief, AiProne.BRIEF, early, AiProne.MIN_LIE, friendHolds, coverHolds, shifts, shifts / minutes,
+                peekRun, low, slides, rolls, runInLine));
         AiBots.soundTrace = null;
         StringBuilder heard = new StringBuilder("     sounds that reached the AI in the fight (count, loud, loud and made by no mob or player near: distance to the nearest fighter):");
         for (var e : sounds.entrySet()) {

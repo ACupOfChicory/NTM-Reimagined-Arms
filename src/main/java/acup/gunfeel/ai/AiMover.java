@@ -262,7 +262,8 @@ public final class AiMover {
         long g = goal;
         double rad = radius;
         int asked = gen;
-        PathSearch.Cost c = cost;
+        // the cost as things are now (its own side's lines of fire move every tick), here on the server thread
+        PathSearch.Cost c = cost.now();
         AiThreads.submit(() -> answer = new Answer(asked, PathSearch.find(map, start, g, rad, MAX_NODES, c)));
     }
 

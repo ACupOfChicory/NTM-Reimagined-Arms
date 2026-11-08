@@ -1,5 +1,11 @@
 # Changelog
 
+## X809
+
+- Mob AI: a bot running to cover picks a way that keeps out of the lines of
+  fire of its own side's bots that are shooting, where it can, instead of
+  running down or along them (a friend holds fire while it is in the way).
+
 ## X808
 
 - Mob AI: bots now slide into low cover and roll under fire in real fights

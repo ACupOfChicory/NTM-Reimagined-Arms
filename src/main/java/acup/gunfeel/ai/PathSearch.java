@@ -33,7 +33,34 @@ public final class PathSearch {
             return this;
         }
 
+        /** the cost as things are now, taken on the server thread before each search (one that follows the world) */
+        default Cost now() {
+            return this;
+        }
+
         Cost NONE = (x, y, z) -> 0F;
+
+        /** both on a step (each search its own of each) */
+        static Cost sum(Cost a, Cost b) {
+            if (a == NONE) return b;
+            if (b == NONE) return a;
+            return new Cost() {
+                @Override
+                public float extra(int x, int y, int z) {
+                    return a.extra(x, y, z) + b.extra(x, y, z);
+                }
+
+                @Override
+                public Cost forSearch() {
+                    return sum(a.forSearch(), b.forSearch());
+                }
+
+                @Override
+                public Cost now() {
+                    return sum(a.now(), b.now());
+                }
+            };
+        }
     }
 
     public static final class Result {
