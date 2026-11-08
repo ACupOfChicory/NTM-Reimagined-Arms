@@ -420,10 +420,30 @@ def mat_angle(a, b):
     return math.degrees(math.acos(max(-1.0, min(1.0, c))))
 
 
-def solve_frame(sk, clip, t, legs, prev, arms="end"):
+# the page's limits of a correction: degrees, pixels
+ADJUST_LIMIT = {"rot": 180, "pos": 12}
+
+
+def adjusted(out, adjust):
+    """The owner's correction of a clip (anim-choices.json `adjust`), the same in every frame: each part named is
+    turned by Rz Ry Rx of `rot` (degrees, as ModelPart's xRot, yRot, zRot) around the model's axes at its pivot, after
+    the pose, and its pivot moved by `pos` (pixels, as Bedrock's position: X the model's left, Y up, Z back). The
+    picker page does the same to its "chosen" window."""
+    if not adjust:
+        return out
+    out = dict(out)
+    for part, a in adjust.items():
+        piv, m = out[part]
+        d = np.array(a.get("pos", (0, 0, 0)), float) * np.array([1.0, -1.0, 1.0])
+        out[part] = (piv + d, euler_to_mat(a.get("rot", (0, 0, 0))) @ m)
+    return out
+
+
+def solve_frame(sk, clip, t, legs, prev, arms="end", adjust=None):
     """One time -> (frame, root, pose, solved matrices); Euler angles follow `prev`."""
     p = sk.pose(clip.world(t))
     out, root = sk.solve(p, legs, arms)
+    out = adjusted(out, adjust)
     f, mats = {}, {}
     for part in PARTS:
         piv, m = out[part]
@@ -433,11 +453,11 @@ def solve_frame(sk, clip, t, legs, prev, arms="end"):
     return {"t": t, "f": f, "root": root, "p": p, "m": mats, "legerr": leg_errors(sk, p, out)}
 
 
-def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle", mid_tol=2.0, depth=4, arms="end"):
+def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle", mid_tol=2.0, depth=4, arms="end", adjust=None):
     """mid_tol: where Euler interpolation between two 30 fps samples strays further (a fast swing), samples
     are added in between, halving the step up to `depth` times."""
     def follow(a, t):
-        return solve_frame(sk, clip, t, legs, {k: v[1] for k, v in a["f"].items()}, arms)
+        return solve_frame(sk, clip, t, legs, {k: v[1] for k, v in a["f"].items()}, arms, adjust)
 
     def refine(a, t, d):
         """Samples after `a` up to time t, each solved from its left neighbour."""
@@ -450,7 +470,7 @@ def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle", mid_tol=2.0, dept
         left = refine(a, tm, d + 1)
         return left + refine(left[-1], t, d + 1)
 
-    dense = [solve_frame(sk, clip, clip.times[0], legs, None, arms)]
+    dense = [solve_frame(sk, clip, clip.times[0], legs, None, arms, adjust)]
     for t in clip.times[1:]:
         dense += refine(dense[-1], t, 0)
     times = [d["t"] for d in dense]
@@ -489,7 +509,7 @@ def convert(sk, clip, rot_tol=0.5, pos_tol=0.05, legs="ankle", mid_tol=2.0, dept
         if fi:
             # halfway to the previous sample: what a player sees between keys
             tm = (times[fi - 1] + t) / 2
-            pm = solve_frame(sk, clip, tm, legs, None, arms)
+            pm = solve_frame(sk, clip, tm, legs, None, arms, adjust)
             for part in PARTS:
                 rv, keys = chans[part]["rotation"]
                 stats["mid"].append(mat_angle(euler_to_mat(interp(times, rv, keys, tm)), pm["m"][part]))
@@ -554,7 +574,8 @@ def grades(st):
 
 
 def read_choices(path):
-    """anim-choices.json (the picker page): {"clips": {"PACK/clip": {"arms": mode, "legs": mode, "take": bool}}}"""
+    """anim-choices.json (the picker page): {"clips": {"PACK/clip": {"arms": mode, "legs": mode, "take": bool,
+    "adjust": {part: {"rot": [x, y, z] degrees, "pos": [x, y, z] px}}}}} (adjust: see `adjusted`)"""
     with open(path) as f:
         doc = json.load(f)
     out = {}
@@ -564,6 +585,19 @@ def read_choices(path):
                 raise ValueError(f"{key}: {limb} {c.get(limb)!r} is none of {MODES}")
         if not isinstance(c.get("take", True), bool):
             raise ValueError(f"{key}: take {c.get('take')!r} is not true or false")
+        adjust = c.get("adjust") or {}
+        if not isinstance(adjust, dict):
+            raise ValueError(f"{key}: adjust {adjust!r} is not parts by name")
+        for part, a in adjust.items():
+            if part not in PARTS:
+                raise ValueError(f"{key}: adjust {part!r} is none of {PARTS}")
+            if not isinstance(a, dict) or set(a) - set(ADJUST_LIMIT):
+                raise ValueError(f"{key}: adjust {part} {a!r} has other than rot and pos")
+            for k, limit in ADJUST_LIMIT.items():
+                v = a.get(k, [0, 0, 0])
+                if not (isinstance(v, list) and len(v) == 3 and all(
+                        isinstance(x, (int, float)) and not isinstance(x, bool) and abs(x) <= limit for x in v)):
+                    raise ValueError(f"{key}: adjust {part} {k} {v!r} is not three numbers within ±{limit}")
         out[key] = c
     return out
 
@@ -593,13 +627,14 @@ def main():
             if clip.zero_scale():
                 print(f"{tag} {name}: skipped, a bone is scaled to nothing")
                 continue
-            legs, arms = pick_legs(sk, clip), "end"
+            legs, arms, adjust = pick_legs(sk, clip), "end", None
             chose = choices.get(f"{tag}/{name}")
             seen.add(f"{tag}/{name}")
             take = name in SELECTED[tag]
             if chose is not None:
                 legs, arms, take = chose["legs"], chose["arms"], take and chose.get("take", True)
-            chans, st, nframes, nkeys, times = convert(sk, clip, legs=legs, arms=arms)
+                adjust = chose.get("adjust") or None
+            chans, st, nframes, nkeys, times = convert(sk, clip, legs=legs, arms=arms, adjust=adjust)
             gu, gl, eu, el = grades(st)
             short = name.split("|")[-1]
             loop = short.endswith("_Loop") or short in LOOPS
@@ -619,6 +654,8 @@ def main():
                          "stats": q}
             if arms != "end":
                 row["arms"] = arms  # check.json as before for the default
+            if adjust:
+                row["adjust"] = adjust
             rows.append(row)
             if take:
                 key = short.lower()

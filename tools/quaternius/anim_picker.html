@@ -51,6 +51,15 @@ footer label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
 footer .choice b.a { color: var(--arms); } footer .choice b.l { color: var(--legs); }
 #skip:checked + span { color: var(--skip); }
 #msg { color: var(--accent); }
+#adj { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; border-top: 1px solid var(--line);
+  padding-top: 8px; }
+#adj .parts button.on { border-color: var(--accent); color: var(--accent); }
+#adj .parts button.has::after { content: " •"; color: var(--arms); }
+#adj .ax { display: flex; gap: 4px; align-items: center; }
+#adj .ax input[type=range] { width: 120px; }
+#adj .ax input[type=number] { width: 64px; font: inherit; background: var(--cell); color: var(--text);
+  border: 1px solid var(--line); border-radius: 4px; padding: 1px 4px; }
+#adj .ax span { color: var(--dim); font-size: 12px; }
 </style>
 </head>
 <body>
@@ -59,7 +68,8 @@ footer .choice b.a { color: var(--arms); } footer .choice b.l { color: var(--leg
   <p>В Minecraft рука и нога — одна часть, а в исходной анимации у них по две кости. В каждом окне клип на модели MC с
   одним способом переноса: <b>по верхней кости</b> (плечо, бедро), <b>по нижней</b> (предплечье, голень),
   <b>от сустава до конца</b> (плечо→кисть, бедро→лодыжка) или <b>смесь</b> (между верхней костью и направлением
-  сустав→конец). Слева исходный скелет, справа внизу — выбранное сочетание. Правые части красноватые, левые синеватые.
+  сустав→конец). Слева исходный скелет, справа внизу — выбранное сочетание. Если не подходит ни один способ, внизу
+  «Поправка клипа»: поворот и сдвиг любой части на весь клип, сразу видно в окне «Выбранное». Правые части красноватые, левые синеватые.
   Для каждого клипа выберите кнопками в окнах способ для <b class="a">рук</b> и для <b class="l">ног</b>
   или отметьте «клип не брать». Выбор сохраняется в браузере сам; когда закончите — «Сохранить anim-choices.json»
   и положите файл в <code>notes/ai/anim-picker/</code>.</p>
@@ -98,6 +108,15 @@ footer .choice b.a { color: var(--arms); } footer .choice b.l { color: var(--leg
     <input id="file" type="file" accept=".json,application/json" hidden>
     <span id="msg"></span>
   </div>
+  <div id="adj">
+    <b title="Одна поправка на весь клип поверх выбранного способа; видна в окне «Выбранное»">Поправка клипа:</b>
+    <div class="grp parts" id="adjParts"></div>
+    <div class="grp" id="adjAxes"></div>
+    <div class="grp">
+      <button id="adjResetPart">сбросить часть</button>
+      <button id="adjResetClip">сбросить клип</button>
+    </div>
+  </div>
 </footer>
 <script>const ANIM_DATA = [];</script>
 <!--DATA-->
@@ -121,6 +140,9 @@ const COLOR = {
   right_leg: [0.50, 0.28, 0.26], left_leg: [0.25, 0.33, 0.55],
 };
 const LIMBS = ["right_arm", "left_arm", "right_leg", "left_leg"];
+const PARTS = ["head", "body", "right_arm", "left_arm", "right_leg", "left_leg"];
+const PART_NAME = { head: "голова", body: "тело", right_arm: "правая рука", left_arm: "левая рука",
+  right_leg: "правая нога", left_leg: "левая нога" };
 const VIEWS = {
   front: [0, 8], side: [90, 8], back: [180, 8], three: [35, 18], top: [0, 84],
 };
@@ -144,18 +166,38 @@ function load() {
 function store() {
   try { localStorage.setItem(STORE, JSON.stringify({ choices, state })); } catch (e) { /* see load */ }
 }
+// the owner's correction of a clip: {part: {rot: [x, y, z] degrees, pos: [x, y, z] px}}, parts and axes at 0 left out
+function cleanAdjust(adj) {
+  const out = {};
+  for (const part of PARTS) {
+    const a = adj && adj[part];
+    if (!a) continue;
+    const v = {};
+    for (const k of ["rot", "pos"]) {
+      const xs = Array.isArray(a[k]) && a[k].length === 3 ? a[k].map(Number) : [0, 0, 0];
+      if (xs.every(Number.isFinite) && xs.some(x => x !== 0)) v[k] = xs;
+    }
+    if (v.rot || v.pos) out[part] = v;
+  }
+  return out;
+}
 function choiceOf(c) {
   const ch = choices[c.key] || {};
   return {
     arms: MODES.includes(ch.arms) ? ch.arms : c.now.arms,
     legs: MODES.includes(ch.legs) ? ch.legs : c.now.legs,
     take: ch.take !== false,
+    adjust: cleanAdjust(ch.adjust),
   };
+}
+function isDefault(c, v) {
+  return v.arms === c.now.arms && v.legs === c.now.legs && v.take && !Object.keys(v.adjust).length;
 }
 function setChoice(c, patch) {
   const cur = choiceOf(c);
   const next = Object.assign(cur, patch);
-  if (next.arms === c.now.arms && next.legs === c.now.legs && next.take) delete choices[c.key];
+  next.adjust = cleanAdjust(next.adjust);
+  if (isDefault(c, next)) delete choices[c.key];
   else choices[c.key] = next;
   store();
   renderList();
@@ -242,8 +284,9 @@ function renderChoice() {
       const a = ch.arms === cell.mode, l = ch.legs === cell.mode;
       d.style.borderColor = a && l ? "var(--accent)" : a ? "var(--arms)" : l ? "var(--legs)" : "transparent";
     } else if (cell.kind === "pick") {
-      d.querySelector(".lab span").textContent =
-        `руки: ${MODE_NAME[ch.arms]}, ноги: ${MODE_NAME[ch.legs]}` + (ch.take ? "" : " — клип не брать");
+      const fixed = Object.keys(ch.adjust).map(p => PART_NAME[p]);
+      d.querySelector(".lab span").textContent = `руки: ${MODE_NAME[ch.arms]}, ноги: ${MODE_NAME[ch.legs]}`
+        + (fixed.length ? `; поправка: ${fixed.join(", ")}` : "") + (ch.take ? "" : " — клип не брать");
       d.style.borderColor = ch.take ? "transparent" : "var(--skip)";
     }
   });
@@ -253,7 +296,70 @@ function renderChoice() {
   const bl = document.createElement("b"); bl.className = "l"; bl.textContent = "ноги: " + MODE_NAME[ch.legs];
   pick.append(ba, document.createTextNode(" · "), bl);
   document.getElementById("skip").checked = !ch.take;
+  renderAdjust();
 }
+
+// ------------------------------------------------------------------ the correction panel
+let adjPart = "right_arm";
+const AXES = [["rot", 0, "поворот X", -180, 180, 1], ["rot", 1, "поворот Y", -180, 180, 1], ["rot", 2, "поворот Z", -180, 180, 1],
+  ["pos", 0, "сдвиг X (влево +)", -12, 12, 0.25], ["pos", 1, "сдвиг Y (вверх +)", -12, 12, 0.25],
+  ["pos", 2, "сдвиг Z (назад +)", -12, 12, 0.25]];
+const adjPartsEl = document.getElementById("adjParts"), adjAxesEl = document.getElementById("adjAxes");
+const partBtn = {};
+for (const part of PARTS) {
+  const b = document.createElement("button");
+  b.textContent = PART_NAME[part];
+  b.onclick = () => { adjPart = part; renderAdjust(); };
+  adjPartsEl.appendChild(b);
+  partBtn[part] = b;
+}
+const axisEls = AXES.map(([k, i, name, lo, hi, st]) => {
+  const w = document.createElement("label");
+  w.className = "ax";
+  const sp = document.createElement("span"); sp.textContent = name;
+  const r = document.createElement("input"); r.type = "range"; r.min = lo; r.max = hi; r.step = st;
+  const n = document.createElement("input"); n.type = "number"; n.min = lo; n.max = hi; n.step = st;
+  const set = v => {
+    if (String(v).trim() === "") return; // "-" or "1e" half typed: nothing yet
+    v = Number(v);
+    if (!Number.isFinite(v)) return;
+    v = Math.min(hi, Math.max(lo, v)); // the same limits as retarget.ADJUST_LIMIT
+    const c = current();
+    const adj = choiceOf(c).adjust;
+    const a = adj[adjPart] || {};
+    const xs = (a[k] || [0, 0, 0]).slice();
+    xs[i] = v;
+    adj[adjPart] = Object.assign({}, a, { [k]: xs });
+    setChoice(c, { adjust: adj });
+  };
+  r.oninput = () => set(r.value);
+  n.oninput = () => set(n.value);
+  w.append(sp, r, n);
+  adjAxesEl.appendChild(w);
+  return { k, i, r, n };
+});
+function renderAdjust() {
+  const c = current();
+  if (!c) return;
+  const adj = choiceOf(c).adjust;
+  for (const part of PARTS) {
+    partBtn[part].classList.toggle("on", part === adjPart);
+    partBtn[part].classList.toggle("has", !!adj[part]);
+  }
+  const a = adj[adjPart] || {};
+  for (const e of axisEls) {
+    const v = (a[e.k] || [0, 0, 0])[e.i];
+    if (document.activeElement !== e.r) e.r.value = String(v);
+    if (document.activeElement !== e.n) e.n.value = String(v);
+  }
+}
+document.getElementById("adjResetPart").onclick = () => {
+  const c = current();
+  const adj = choiceOf(c).adjust;
+  delete adj[adjPart];
+  setChoice(c, { adjust: adj });
+};
+document.getElementById("adjResetClip").onclick = () => setChoice(current(), { adjust: {} });
 
 // ------------------------------------------------------------------ time
 let t = 0, playing = true, hold = 0;
@@ -355,7 +461,24 @@ function boxMatrix(R, p, min, max) {
 }
 
 // ------------------------------------------------------------------ the biped and the skeleton this frame
-function biped(c, f, arms, legs) {
+// Rz(z) Ry(y) Rx(x), degrees, as ModelPart's turn (rows)
+function eulerMat(e) {
+  const [x, y, z] = e.map(v => v * Math.PI / 180);
+  const cx = Math.cos(x), sx = Math.sin(x), cy = Math.cos(y), sy = Math.sin(y), cz = Math.cos(z), sz = Math.sin(z);
+  return [[cz * cy, cz * sy * sx - sz * cx, cz * sy * cx + sz * sx],
+    [sz * cy, sz * sy * sx + cz * cx, sz * sy * cx - cz * sx],
+    [-sy, cy * sx, cy * cx]];
+}
+function mat3(a, b) {
+  return a.map((row, r) => [0, 1, 2].map(k => row[0] * b[0][k] + row[1] * b[1][k] + row[2] * b[2][k]));
+}
+// the correction on a posed part (retarget.adjusted): turned around the model's axes at its pivot, the pivot moved
+function adjustPart(R, p, a) {
+  if (!a) return [R, p];
+  const d = a.pos || [0, 0, 0];
+  return [a.rot ? mat3(eulerMat(a.rot), R) : R, [p[0] + d[0], p[1] - d[1], p[2] + d[2]]];
+}
+function biped(c, f, arms, legs, adjust) {
   const piv = at(c.piv, 15, f), hip = at(c.hip, 2, f);
   const hy = at(c.hipY, 16, f)[MODES.indexOf(arms) * 4 + MODES.indexOf(legs)];
   const base = [hip[0], hy, hip[1]];
@@ -368,6 +491,7 @@ function biped(c, f, arms, legs) {
   parts.push(["left_arm", quatMat(quatAt(c.limb.left_arm[arms], f)), P(2)]);
   parts.push(["right_leg", quatMat(quatAt(c.limb.right_leg[legs], f)), P(3)]);
   parts.push(["left_leg", quatMat(quatAt(c.limb.left_leg[legs], f)), P(4)]);
+  if (adjust) for (const q of parts) [q[1], q[2]] = adjustPart(q[1], q[2], adjust[q[0]]);
   return { parts, center: [hip[0], hy - 4, hip[1]] };
 }
 function skeleton(c, f) {
@@ -501,10 +625,10 @@ function drawCell(cell, rect, c, f, center) {
     }
     return;
   }
-  let arms, legs;
+  let arms, legs, adjust = null;
   if (cell.kind === "mode") arms = legs = cell.mode;
-  else ({ arms, legs } = choiceOf(c));
-  const b = biped(c, f, arms, legs);
+  else ({ arms, legs, adjust } = choiceOf(c));
+  const b = biped(c, f, arms, legs, adjust);
   for (const [part, R, p] of b.parts) {
     const [mn, mx] = BOX[part];
     drawBox(boxMatrix(R, p, mn, mx), COLOR[part]);
@@ -579,7 +703,11 @@ const msg = document.getElementById("msg");
 function say(s) { msg.textContent = s; setTimeout(() => { if (msg.textContent === s) msg.textContent = ""; }, 4000); }
 document.getElementById("save").onclick = () => {
   const out = { version: 1, saved: new Date().toISOString(), clips: {} };
-  for (const c of clips) out.clips[c.key] = choiceOf(c);
+  for (const c of clips) {
+    const v = choiceOf(c);
+    if (!Object.keys(v.adjust).length) delete v.adjust;
+    out.clips[c.key] = v;
+  }
   const blob = new Blob([JSON.stringify(out, null, 1) + "\n"], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -606,8 +734,8 @@ fileEl.onchange = async () => {
       const c = byKey.get(key);
       if (!c) continue;
       const v = { arms: MODES.includes(ch.arms) ? ch.arms : c.now.arms, legs: MODES.includes(ch.legs) ? ch.legs : c.now.legs,
-        take: ch.take !== false };
-      if (v.arms !== c.now.arms || v.legs !== c.now.legs || !v.take) got[key] = v;
+        take: ch.take !== false, adjust: cleanAdjust(ch.adjust) };
+      if (!isDefault(c, v)) got[key] = v;
       n++;
     }
     if (!n) throw new Error("ни одного клипа этой страницы");
@@ -618,7 +746,8 @@ fileEl.onchange = async () => {
   fileEl.value = "";
 };
 document.addEventListener("keydown", e => {
-  if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT" && e.target.type !== "range" && e.target.type !== "checkbox") return;
+  // the keys stay with a list, a number field or a correction slider; the time slider and the checkbox give them up
+  if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT" && e.target !== scrub && e.target.type !== "checkbox") return;
   const i = clips.findIndex(c => c.key === state.clip);
   if (e.key === " ") { e.preventDefault(); setPlaying(!playing); }
   else if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }

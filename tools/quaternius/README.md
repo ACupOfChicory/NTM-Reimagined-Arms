@@ -43,8 +43,17 @@ It writes `<page dir>/index.html` and `<page dir>/data/*.js`; the page opens fro
 saved as `anim-choices.json`:
 
 ```json
-{"version": 1, "clips": {"UAL1/Idle_Loop": {"arms": "end", "legs": "upper", "take": true}}}
+{"version": 1, "clips": {"UAL1/Idle_Loop": {"arms": "end", "legs": "upper", "take": true,
+  "adjust": {"right_arm": {"rot": [-20, 0, 5], "pos": [0, 1, 0]}}}}}
 ```
+
+`adjust` is the owner's correction where no mode looks right: one for the whole clip, on top of the modes. A part
+named is turned by `rot` (degrees, Rz · Ry · Rx as ModelPart's xRot, yRot, zRot) around the model's axes at its pivot,
+after its pose, and its pivot moved by `pos` (pixels, as Bedrock's position: X the model's left, Y up, Z back). On a
+part in its default pose that is just adding to its angles. It comes after the clip is put on the ground, so a
+leg moved down goes into the ground. Limits: ±180° and ±12 px. The page shows it in its "chosen" window as it is set.
+`check.json`'s grades of a corrected clip measure it with the correction against the rig, as they would any other
+difference.
 
 `retarget.py --choices anim-choices.json <animations dir> <check.json> TAG=<file.glb> ...` converts each clip in the
 modes chosen and leaves out the ones not taken; without `--choices` the output is as before.

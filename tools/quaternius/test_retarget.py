@@ -64,6 +64,20 @@ class Math(unittest.TestCase):
         # the leg's old names
         self.assertTrue(np.allclose(r.Skeleton.limb_dir(p, "right_arm", "thigh"), d["upper"]))
 
+    def test_adjust_turns_around_the_model_axes_and_moves_the_pivot(self):
+        m = r.euler_to_mat([0.0, 0.0, 90.0])  # an arm held out
+        out = r.adjusted({"right_arm": (np.array([-5.0, 2.0, 0.0]), m), "head": (np.zeros(3), np.eye(3))},
+                         {"right_arm": {"rot": [-30.0, 0.0, 0.0], "pos": [1.0, 2.0, -3.0]}})
+        piv, got = out["right_arm"]
+        self.assertTrue(np.allclose(got, r.euler_to_mat([-30.0, 0.0, 0.0]) @ m))
+        # Bedrock's position: Y up, so the MC pivot (Y down) goes up by 2
+        self.assertTrue(np.allclose(piv, [-4.0, 0.0, -3.0]))
+        self.assertTrue(np.allclose(out["head"][1], np.eye(3)))
+        # a part that only stood still in its default pose: the correction is ModelPart's own angles
+        e = r.mat_to_euler(r.adjusted({"left_leg": (np.zeros(3), np.eye(3))},
+                                      {"left_leg": {"rot": [20.0, -10.0, 5.0]}})["left_leg"][1])
+        self.assertTrue(np.allclose(e, [20.0, -10.0, 5.0]))
+
     def test_choices_are_read_and_checked(self):
         import json
         import tempfile
@@ -78,6 +92,13 @@ class Math(unittest.TestCase):
                 json.dump({"clips": {"UAL1/Idle_Loop": {"arms": "knee", "legs": "end"}}}, g)
             with self.assertRaises(ValueError):
                 r.read_choices(f.name)
+            for bad in ({"tail": {"rot": [1, 2, 3]}}, {"head": {"rot": [1, 2]}}, {"head": {"pos": ["1", 0, 0]}},
+                        {"head": {"rot": [True, 0, 0]}}, {"head": None}, {"head": {"rotate": [1, 0, 0]}},
+                        {"head": {"pos": [13, 0, 0]}}, [1]):
+                with open(f.name, "w") as g:
+                    json.dump({"clips": {"UAL1/Idle_Loop": {"arms": "end", "legs": "end", "adjust": bad}}}, g)
+                with self.assertRaises(ValueError, msg=bad):
+                    r.read_choices(f.name)
         finally:
             os.unlink(f.name)
 
@@ -148,6 +169,19 @@ class Poses(unittest.TestCase):
                              ("end", ("upperarm_l", "hand_l"))):
             out = self.sk.solve(p, "ankle", mode)[0]
             self.assertLess(r.angle(out["left_arm"][1] @ r.Y, p["P"][b] - p["P"][a]), 0.01, mode)
+
+    def test_adjust_reaches_the_written_keys(self):
+        clip = self.g.clip("Idle_Loop")
+        adj = {"left_arm": {"rot": [-40.0, 0.0, 0.0]}}
+        plain = r.convert(self.sk, clip)
+        fixed = r.convert(self.sk, clip, adjust=adj)
+        self.assertEqual(plain[4], fixed[4])  # the same samples, so frame k is frame k
+        for (vals, keys), (vals0, _) in ((fixed[0]["left_arm"]["rotation"], plain[0]["left_arm"]["rotation"]),):
+            for k in range(0, len(vals), 7):
+                m = r.euler_to_mat(vals[k])
+                want = r.euler_to_mat([-40.0, 0.0, 0.0]) @ r.euler_to_mat(vals0[k])
+                self.assertLess(r.mat_angle(m, want), 0.01)
+        self.assertEqual(plain[0]["right_arm"]["rotation"][0].tolist(), fixed[0]["right_arm"]["rotation"][0].tolist())
 
     def test_death_ends_lying(self):
         clip = self.g.clip("Death01")
