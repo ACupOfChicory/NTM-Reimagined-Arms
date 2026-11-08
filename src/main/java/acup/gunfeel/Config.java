@@ -56,6 +56,7 @@ public final class Config {
     public static boolean hideOffhand = true;
     // splashes, rings, foam and bubbles where a bullet meets water (acup.gunfeel.water, client effects)
     public static boolean waterSplash = true;
+    public static boolean gunWeightTooltip = true;
     // rounds the water stopped, lying on the bottom (acup.gunfeel.water.SunkBullets): how many at most, how long
     public static int waterBodyMax = 400;
     public static float waterBodyLife = 30F;
@@ -219,6 +220,8 @@ public final class Config {
             proneHold: the prone key lies down while it is held; false = a press lies down and the next one gets up
             hideOffhand: hide the off-hand item while holding an NTM gun
             waterSplash: splashes, rings, foam and bubbles where a bullet meets water
+            gunWeightTooltip: a gun's tooltip names its weight class (light, medium, heavy, super-heavy) and how much
+              it slows its carrier
             waterBodyMax: rounds stopped by water that sink and lie on the bottom, at most; 0 = none
             waterBodyLife: seconds such a round lies on the bottom
             waterBodyScale: size of the rounds seen in water, 1 = matched to the casings NTM drops, 0.25..4
@@ -502,6 +505,7 @@ public final class Config {
         proneHold = bool(p, "proneHold", proneHold);
         hideOffhand = bool(p, "hideOffhand", hideOffhand);
         waterSplash = bool(p, "waterSplash", waterSplash);
+        gunWeightTooltip = bool(p, "gunWeightTooltip", gunWeightTooltip);
         waterBodyMax = Math.clamp(Math.round(num(p, "waterBodyMax", waterBodyMax)), 0, 2000);
         float life = num(p, "waterBodyLife", waterBodyLife);
         if (Float.isFinite(life)) waterBodyLife = Math.clamp(life, 1F, 600F);
@@ -644,6 +648,7 @@ public final class Config {
         p.setProperty("proneHold", Boolean.toString(proneHold));
         p.setProperty("hideOffhand", Boolean.toString(hideOffhand));
         p.setProperty("waterSplash", Boolean.toString(waterSplash));
+        p.setProperty("gunWeightTooltip", Boolean.toString(gunWeightTooltip));
         p.setProperty("waterBodyMax", Integer.toString(waterBodyMax));
         p.setProperty("waterBodyLife", Float.toString(waterBodyLife));
         p.setProperty("waterBodyScale", Float.toString(waterBodyScale));

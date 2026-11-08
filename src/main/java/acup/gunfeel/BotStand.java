@@ -16,6 +16,7 @@ import org.joml.Quaternionf;
 import acup.gunfeel.ai.AiPose;
 import acup.gunfeel.ai.AiPoseGeometry;
 import acup.gunfeel.ai.client.BotAnimation;
+import acup.gunfeel.ai.client.BotClips;
 import acup.gunfeel.ai.client.BotPoser;
 import net.minecraft.client.InactivityFpsLimit;
 import net.minecraft.client.Minecraft;
@@ -41,6 +42,9 @@ import net.minecraft.world.phys.Vec3;
  * it, lying must keep it low;</li>
  * <li>no jumps on the game's own frames: one agent through a script of changes, its parts' largest turn from one
  * frame to the next;</li>
+ * <li>the clips: one agent moved by the stand ahead at a walk, a jog and a sprint, back, to each side, crawling,
+ * sliding and rolling, then still as it reloads, hit, hit by a blast, killed: the clip each plays (its weight), no jumps on the way; and an agent the
+ * game moves at the speeds the mob AI asks for (AiSoldier.WALK, RUN), the speeds the gait's clips are set to;</li>
  * <li>the cost: 100 agents, each always changing pose, the frame time and the server's tick with the player on and
  * off (on, off, off, on).</li>
  * </ol>
@@ -154,6 +158,7 @@ final class BotStand {
                 case 1 -> jumps();
                 case 2 -> cost();
                 case 3 -> damage();
+                case 4 -> clips();
                 default -> {
                 }
             }
@@ -476,6 +481,7 @@ final class BotStand {
                 if (speed > maxSpeed) {
                     maxSpeed = speed;
                     maxMoveAt = time - t0Age;
+                    maxWhat = what(f);
                 }
             } else t0Age = time;
             System.arraycopy(seen, 0, prev, 0, seen.length);
@@ -497,15 +503,39 @@ final class BotStand {
         }
     }
 
+    private static final String[] PART_NAMES = { "голова", "тело", "правая рука", "левая рука", "правая нога", "левая нога",
+            "правое предплечье", "левое предплечье", "правая голень", "левая голень" };
+    /** the part move() last found turning the most */
+    private static int movePart;
+    /** the part, and the frame, of the fastest change so far */
+    private static String maxWhat = "";
+
     private static float move(float[] a, float[] b) {
         float m = 0F;
         Quaternionf qa = new Quaternionf(), qb = new Quaternionf();
         for (int i = 0; i < a.length / 3; i++) {
             qa.rotationZYX(a[i * 3 + 2], a[i * 3 + 1], a[i * 3]);
             qb.rotationZYX(b[i * 3 + 2], b[i * 3 + 1], b[i * 3]);
-            m = Math.max(m, 2F * (float) Math.acos(Math.min(1F, Math.abs(qa.dot(qb)))));
+            float d = 2F * (float) Math.acos(Math.min(1F, Math.abs(qa.dot(qb))));
+            if (d > m) {
+                m = d;
+                movePart = i;
+            }
         }
         return m;
+    }
+
+    private static String what(acup.gunfeel.ai.client.BotAnimator.Frame f) {
+        StringBuilder sb = new StringBuilder(PART_NAMES[movePart]);
+        int i = movePart * 3;
+        sb.append(String.format(Locale.ROOT, " (%.2f %.2f %.2f → %.2f %.2f %.2f)", prev[i], prev[i + 1], prev[i + 2], seen[i], seen[i + 1], seen[i + 2]));
+        sb.append(String.format(Locale.ROOT, "; присед %.2f, скорость %.3f, смерть %.3f с", f.crouch(), f.speed(), f.deathSec()));
+        if (f.act() != null) sb.append(String.format(Locale.ROOT, ", действие %d u %.2f w %.2f", f.act().kind(), f.act().u(), f.act().w()));
+        for (var a : f.fading()) sb.append(String.format(Locale.ROOT, ", гаснет %d w %.2f", a.kind(), a.w()));
+        for (var h : f.hits()) sb.append(String.format(Locale.ROOT, ", удар %s %.2f с w %.2f", h.clip(), h.sec(), h.w()));
+        sb.append(", руки");
+        for (float a : f.arms()) sb.append(String.format(Locale.ROOT, " %.2f", a));
+        return sb.toString();
     }
 
     private static void jumps() {
@@ -530,16 +560,237 @@ final class BotStand {
         // the fastest change of the script, the arms from over the head to the hip in 4 ticks eased in, is about
         // 1 rad a tick; a jump is a turn in no time
         ClientSmoke.check(moveFrames > 60 && maxSpeed < 2F, String.format(Locale.ROOT,
-                "переходы на кадрах игры: самая быстрая часть %.2f рад/тик (тик %.1f сценария), самый большой шаг %.3f рад, поз %d, %.0f в секунду",
-                maxSpeed, maxMoveAt, maxMove, moveFrames, moveFrames / seconds));
+                "переходы на кадрах игры: самая быстрая часть %.2f рад/тик (тик %.1f сценария: %s), самый большой шаг %.3f рад, поз %d, %.0f в секунду",
+                maxSpeed, maxMoveAt, maxWhat, maxMove, moveFrames, moveFrames / seconds));
         ROWS.add(String.format(Locale.ROOT, "переходы\tсценарий\t\t\t\t\t%.4f рад/тик\t\t\t\t\t%d\t%.1f", maxSpeed, moveFrames, moveFrames / seconds));
         write();
-        startCost();
+        startClips();
     }
 
     private static AiPose pose(byte stance, int lean, int prevLean, int leanTick, byte arms, byte action, int actionTick,
             int actionTicks) {
         return new AiPose(stance, (byte) lean, (byte) prevLean, leanTick, arms, action, actionTick, (short) actionTicks);
+    }
+
+    // ---------------------------------------------------------------- 2b. the clips on the move, a hit, death
+
+    /** one stretch of the clips' script: from this tick on, moving so far a tick (forward, to the right) */
+    private record Leg(String name, int from, double ahead, double right, String want) {
+        /** lying, at the AI's crawl (AiProne.CRAWL_SPEED of its walk): the crawl (BotPoser.crawl), not a clip */
+        static final String CRAWL = "ползок";
+    }
+
+    /** facing -X: ahead is -X, its right -Z */
+    /** the walk and the run at the speeds the stand's agent goes at as the mob AI tells it (0.194, 0.327 blocks a tick) */
+    private static final Leg[] LEGS = { new Leg("стоит", 0, 0, 0, null), new Leg("шаг", 20, 0.19, 0, BotClips.WALK),
+            new Leg("трусца", 45, 0.27, 0, BotClips.JOG), new Leg("бег", 70, 0.33, 0, BotClips.SPRINT),
+            new Leg("назад", 95, -0.10, 0, BotClips.BACK), new Leg("влево", 125, 0, -0.10, BotClips.STRAFE_LEFT),
+            new Leg("вправо", 155, 0, 0.10, BotClips.STRAFE_RIGHT), new Leg("ползком", 185, 0.057, 0, Leg.CRAWL),
+            new Leg("подкат", 215, 0.2, 0, BotClips.SLIDE), new Leg("кувырок", 240, 0.16, 0, BotClips.ROLL),
+            new Leg("стоит, перезарядка", 265, 0, 0, null) };
+    private static final int CLIPS_CRAWL = 185, CLIPS_UP = 215, CLIPS_SLIDE = 217, CLIPS_ROLL = 242;
+    private static final int CLIPS_RELOAD = 285, CLIPS_HIT = 330, CLIPS_KNOCK = 355, CLIPS_DEATH = 380, CLIPS_END = 420;
+    /** the agent with its own AI on another line, told to walk then run as the mob AI tells it (AiSoldier.WALK, RUN) */
+    private static final double[] CAL = { 1.0, 1.3 };
+    private static final int CAL_EACH = 70;
+    private static volatile Mob cal;
+    private static long clipsT0, lastServerTick;
+    // per stretch: frames in its last 10 ticks, the wanted clip's weight summed, the speed summed
+    private static final double[][] LEG_SUMS = new double[LEGS.length][3];
+    private static final double[][] CAL_SUMS = new double[CAL.length][2];
+    private static boolean reloadSeen, hitSeen, knockSeen, knockWrong, deathSeen;
+    private static String hitClip = "-";
+    private static double knockPush, knockSpeed;
+    private static final java.util.Set<String> knockClips = new java.util.TreeSet<>();
+
+    private static void startClips() {
+        step = 4;
+        var server = mc().getSingleplayerServer();
+        server.submit(() -> {
+            ServerLevel level = server.overworld();
+            Mob m = (Mob) level.getEntity(one.getId());
+            m.snapTo(10.5, O.getY(), 8.5, 90F, 0F);
+            m.setYBodyRot(90F);
+            m.setYHeadRot(90F);
+            m.setData(AiPose.Sync.TYPE, AiPose.IDLE);
+            m.setPose(Pose.STANDING);
+            m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(1000);
+            m.setHealth(1000);
+            m.setInvulnerable(false);
+            // an agent with its own legs: the game moves it at the speed the mob AI asks for
+            var created = BuiltInRegistries.ENTITY_TYPE.getValue(FBI).create(level, EntitySpawnReason.COMMAND);
+            if (!(created instanceof Mob c)) throw new IllegalStateException("no FBI agent");
+            c.snapTo(8.5, O.getY(), 16.5, 90F, 0F);
+            c.setInvulnerable(true);
+            c.setPersistenceRequired();
+            level.addFreshEntity(c);
+            c.goalSelector.removeAllGoals(g -> true);
+            c.targetSelector.removeAllGoals(g -> true);
+            cal = c;
+            var p = server.getPlayerList().getPlayers().getFirst();
+            p.teleportTo(level, 0.5, O.getY() + 18, 11.5, Set.of(), 0F, 90F, false);
+        }).join();
+        int id = one.getId(), calId = cal.getId();
+        clipsT0 = now() + 20;
+        lastServerTick = Long.MIN_VALUE;
+        posed = AiPose.IDLE;
+        BotAnimation.standPose = m -> m.getId() == id ? posed : AiPose.IDLE;
+        BotAnimation.standStill = false;
+        seenFrame = -1;
+        maxMove = maxSpeed = maxMoveAt = 0F;
+        moveFrames = 0;
+        maxWhat = "";
+        BotAnimation.standWatch = (f, parts) -> {
+            long t = now() - clipsT0;
+            if (t < 0) return;
+            if (f.entity() == calId) {
+                int k = (int) (t / CAL_EACH);
+                if (k < CAL.length && t % CAL_EACH >= CAL_EACH - 25) {
+                    CAL_SUMS[k][0]++;
+                    CAL_SUMS[k][1] += f.speed();
+                }
+                return;
+            }
+            if (f.entity() != id) return;
+            float time = f.idleSec() * 20F;
+            if (seenFrame >= 0 && time <= seenTime + 1e-4F) return;
+            int leg = LEGS.length - 1;
+            while (leg > 0 && t < LEGS[leg].from) leg--;
+            int end = leg + 1 < LEGS.length ? LEGS[leg + 1].from : CLIPS_HIT;
+            // a slide or a roll is measured in its middle (it starts 2 ticks into its stretch: 3 to 10 ticks in)
+            boolean dash = LEGS[leg].want == BotClips.SLIDE || LEGS[leg].want == BotClips.ROLL;
+            int from = dash ? LEGS[leg].from + 5 : end - 10, to = dash ? LEGS[leg].from + 12 : end;
+            if (t >= from && t < to) {
+                LEG_SUMS[leg][0]++;
+                LEG_SUMS[leg][2] += f.speed();
+                if (LEGS[leg].want == Leg.CRAWL) {
+                    if (mc().level.getEntity(id) instanceof net.minecraft.world.entity.LivingEntity e)
+                        LEG_SUMS[leg][1] += BotPoser.crawlWeight(e.getSwimAmount(1F), f.speed());
+                } else if (LEGS[leg].want == BotClips.SLIDE || LEGS[leg].want == BotClips.ROLL) {
+                    // the action's weight at its middle (3 to 10 ticks in)
+                    byte kind = LEGS[leg].want == BotClips.SLIDE ? AiPose.SLIDE : AiPose.ROLL;
+                    if (f.act() != null && f.act().kind() == kind) LEG_SUMS[leg][1] += f.act().w();
+                } else if (LEGS[leg].want != null) {
+                    String[] names = BotPoser.gaitClips(f.heading());
+                    float[] ws = BotPoser.gaitWeights(f.speed(), f.heading());
+                    for (int i = 0; i < names.length; i++) if (names[i].equals(LEGS[leg].want)) LEG_SUMS[leg][1] += ws[i];
+                }
+            }
+            if (f.act() != null && f.act().kind() == AiPose.RELOAD) reloadSeen = true;
+            for (var h : f.hits()) {
+                if (t >= CLIPS_HIT && t < CLIPS_KNOCK) {
+                    hitSeen = true;
+                    hitClip = h.clip();
+                    knockWrong |= h.clip().equals(BotClips.HIT_KNOCK);
+                } else if (t >= CLIPS_KNOCK && t < CLIPS_DEATH && h.sec() < 0.3F) knockSeen |= h.clip().equals(BotClips.HIT_KNOCK);
+            }
+            if (f.deathSec() >= 0F) deathSeen = true;
+            if (t >= CLIPS_KNOCK && t < CLIPS_KNOCK + 5) {
+                var e = mc().level.getEntity(id);
+                if (e != null) knockPush = Math.max(knockPush, e.getDeltaMovement().horizontalDistance());
+                knockSpeed = Math.max(knockSpeed, f.speed());
+                for (var h : f.hits()) knockClips.add(h.clip());
+            }
+            store(parts);
+            if (seenFrame >= 0) {
+                float m = move(prev, seen), speed = m / (time - seenTime);
+                moveFrames++;
+                maxMove = Math.max(maxMove, m);
+                if (speed > maxSpeed) {
+                    maxSpeed = speed;
+                    maxMoveAt = t;
+                    maxWhat = what(f);
+                }
+            }
+            System.arraycopy(seen, 0, prev, 0, seen.length);
+            seenFrame = 1;
+            seenTime = time;
+        };
+        measuring = 0;
+    }
+
+    private static void clips() {
+        long t = now() - clipsT0;
+        if (t < 0 || now() == lastServerTick) return;
+        lastServerTick = now();
+        if (measuring == 0) measuring = System.nanoTime();
+        var server = mc().getSingleplayerServer();
+        posed = t >= CLIPS_RELOAD && t < CLIPS_HIT ? new AiPose(AiPose.STAND, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.RELOAD,
+                (int) (clipsT0 + CLIPS_RELOAD), (short) 30)
+                : t >= CLIPS_CRAWL && t < CLIPS_UP ? new AiPose(AiPose.PRONE, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.NONE, 0, (short) 0)
+                // a slide, a roll: crouched as the server keeps it (pose-contract §4), from a run
+                : t >= CLIPS_SLIDE && t < CLIPS_ROLL ? new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.SLIDE,
+                        (int) (clipsT0 + CLIPS_SLIDE), (short) acup.gunfeel.ai.AiDash.TICKS)
+                : t >= CLIPS_ROLL && t < CLIPS_ROLL + acup.gunfeel.ai.AiDash.TICKS + 2 ? new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0,
+                        AiPose.HOLD, AiPose.ROLL, (int) (clipsT0 + CLIPS_ROLL), (short) acup.gunfeel.ai.AiDash.TICKS) : AiPose.IDLE;
+        int leg = LEGS.length - 1;
+        while (leg > 0 && t < LEGS[leg].from) leg--;
+        Leg l = LEGS[leg];
+        long tt = t;
+        server.submit(() -> {
+            ServerLevel level = server.overworld();
+            Mob m = (Mob) level.getEntity(one.getId());
+            if (m != null && m.isAlive() && tt < CLIPS_RELOAD && (l.ahead != 0 || l.right != 0))
+                m.setPos(m.getX() - l.ahead, m.getY(), m.getZ() - l.right);
+            // the crawl: lying as the mob AI lays it (AiProne), up again after
+            if (m != null && tt == CLIPS_CRAWL) m.setPose(Pose.SWIMMING);
+            if (m != null && tt == CLIPS_UP) m.setPose(Pose.STANDING);
+            if (m != null && tt == CLIPS_HIT) m.hurtServer(level, level.damageSources().generic(), 1F);
+            if (m != null && tt == CLIPS_KNOCK) {
+                // a blast: hit, then thrown back as vanilla's explosion does it (hurt, then pushed)
+                m.hurtServer(level, level.damageSources().generic(), 1F);
+                m.setDeltaMovement(1.0, 0.4, 0);
+                m.hurtMarked = true;
+            }
+            if (m != null && tt == CLIPS_DEATH) m.kill(level);
+            Mob c = cal;
+            int k = (int) (tt / CAL_EACH);
+            if (c != null && k < CAL.length) {
+                // to and fro along its line, at the AI's speed for this stretch
+                double goal = (tt / 35) % 2 == 0 ? -8.5 : 8.5;
+                c.getMoveControl().setWantedPosition(goal, c.getY(), 16.5, CAL[k]);
+            }
+        });
+        if (t < CLIPS_END) return;
+        BotAnimation.standWatch = null;
+        server.submit(() -> {
+            if (cal != null) cal.discard();
+        }).join();
+        double seconds = (System.nanoTime() - measuring) / 1e9;
+        for (int i = 0; i < LEGS.length; i++) {
+            double[] sm = LEG_SUMS[i];
+            double n = Math.max(1, sm[0]), w = sm[1] / n, v = sm[2] / n;
+            Leg g = LEGS[i];
+            ROWS.add(String.format(Locale.ROOT, "клипы	%s	%s	вес %.2f	скорость %.3f бл/тик							%d", g.name, g.want == null ? "-" : g.want, w, v,
+                    (long) sm[0]));
+            if (g.want == null) ClientSmoke.check(sm[0] > 0 && v < 0.01, String.format(Locale.ROOT, "клипы: %s, ноги не идут (скорость %.3f, кадров %d)", g.name, v, (long) sm[0]));
+            else ClientSmoke.check(sm[0] > 0 && w >= 0.7, String.format(Locale.ROOT, "клипы: %s играет %s (вес %.2f, скорость %.3f, кадров %d)", g.name, g.want, w, v,
+                    (long) sm[0]));
+        }
+        for (int i = 0; i < CAL.length; i++) {
+            double n = Math.max(1, CAL_SUMS[i][0]);
+            float v = (float) (CAL_SUMS[i][1] / n);
+            float[] ws = BotPoser.gaitWeights(v, 0F);
+            ROWS.add(String.format(Locale.ROOT, "клипы	агент ×%.1f		скорость %.3f бл/тик	шаг %.2f трусца %.2f бег %.2f							%d", CAL[i], v, ws[0], ws[1], ws[2],
+                    (long) CAL_SUMS[i][0]));
+            // the AI's walk is a walk, its run a run (a jog or a sprint)
+            boolean right = i == 0 ? ws[0] >= 0.9F : ws[1] + ws[2] >= 0.9F;
+            ClientSmoke.check(CAL_SUMS[i][0] > 0 && right, String.format(Locale.ROOT, "клипы: агент на скорости ИИ ×%.1f идёт %.3f бл/тик: шаг %.2f, трусца %.2f, бег %.2f",
+                    CAL[i], v, ws[0], ws[1], ws[2]));
+        }
+        ClientSmoke.check(reloadSeen && BotClips.get(BotClips.RELOAD) != null, "клипы: перезарядка идёт клипом");
+        ClientSmoke.check(hitSeen && !knockWrong, "клипы: попадание на месте — вздрагивание (" + hitClip + "), не отброс");
+        ClientSmoke.check(knockSeen, String.format(Locale.ROOT, "клипы: попадание с отбросом — клип отброса (в первые 5 тиков: скорость в пакете до %.3f,"
+                + " по ходу до %.3f бл/тик, клипы %s)", knockPush, knockSpeed, knockClips));
+        ClientSmoke.check(deathSeen && BotClips.get(BotClips.DEATH) != null, "клипы: смерть идёт клипом");
+        // the clips move faster than the script's changes: the sprint's shin swings 2.5 radians a tick at full speed
+        // (BotMoveClipsTest); a jump in a frame (a thousandth of a second) is 7 and more
+        ClientSmoke.check(moveFrames > 200 && maxSpeed < 4F, String.format(Locale.ROOT,
+                "клипы без рывков (меньше 4 рад/тик): самая быстрая часть %.2f рад/тик (тик %.0f сценария: %s), самый большой шаг %.3f рад, поз %d, %.0f в секунду",
+                maxSpeed, maxMoveAt, maxWhat, maxMove, moveFrames, moveFrames / seconds));
+        ROWS.add(String.format(Locale.ROOT, "переходы	клипы					%.4f рад/тик					%d	%.1f", maxSpeed, moveFrames, moveFrames / seconds));
+        write();
+        startCost();
     }
 
     // ---------------------------------------------------------------- 3. the cost of 100

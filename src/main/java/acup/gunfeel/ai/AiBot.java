@@ -27,8 +27,12 @@ public final class AiBot {
     public final AiProne prone;
     /** running low past low cover (its brain asks it each tick) */
     public final AiStoop stoop = new AiStoop();
+    /** a slide into cover, a roll under fire */
+    public final AiDash dash = new AiDash();
     /** what it does with what it knows; null: it only senses (a stand drives it) */
     public @Nullable AiBrain brain;
+    /** grenades it has left (AiGrenades) */
+    public int grenades;
     /** a player within aiRadius: it thinks; else it stands still */
     boolean active = true;
 

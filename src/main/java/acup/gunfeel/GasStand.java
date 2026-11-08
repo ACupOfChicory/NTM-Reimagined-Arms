@@ -108,9 +108,14 @@ final class GasStand {
     }
 
     static void start() {
-        // -PgasSoil: the mustard's stains and poisoned ground and the stirred gas instead (GasSoilStand)
+        // -PgasSoil: poisoned ground and the stirred gas instead (GasSoilStand)
         if (GasSoilStand.ON) {
             GasSoilStand.start();
+            return;
+        }
+        // -PgunWeight: the heavy guns' slowing instead (GunWeightStand)
+        if (GunWeightStand.ON) {
+            GunWeightStand.start();
             return;
         }
         Minecraft mc = Minecraft.getInstance();
@@ -156,6 +161,10 @@ final class GasStand {
     static void frame() {
         if (GasSoilStand.ON) {
             GasSoilStand.frame();
+            return;
+        }
+        if (GunWeightStand.ON) {
+            GunWeightStand.frame();
             return;
         }
         // the client's side of the player's doses and coughs: what the packets brought

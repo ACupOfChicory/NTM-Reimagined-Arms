@@ -198,11 +198,41 @@ public final class AiSoldier implements AiBrain {
     // for the stands: flanks it went on, bursts at a place it fired for those on the move
     public int flanks, flankTries, suppressions;
 
+    /** a grenade: it stands this long while its arm goes over (the pose's throw), ticks */
+    static final int THROW_TICKS = 12;
+    /** a grenade at most this often, ticks; one of its squad's this long before: none */
+    static final int THROW_GAP = 200, SQUAD_THROW_GAP = 100;
+    /** a throw tried at most this often (one that fell short of the place: none), ticks */
+    static final int TRY_GAP = 40;
+    /** thrown at a target lost this long ago at least (gone behind cover, not out for a moment) and at most, ticks */
+    static final int LOST_FIRST = 20, LOST_RECENT = 140;
+    private long throwUntil = Long.MIN_VALUE, lastThrow = Long.MIN_VALUE / 2, nextTry = Long.MIN_VALUE;
+    /** running from a grenade: the burst it runs from (null: it does not), where to */
+    private @Nullable Vec3 dodgeFrom;
+    /** the burst its refuge was sought from (the burst is worked out again as the grenade flies, hops off a mob, rolls) */
+    private @Nullable Vec3 refugeFrom;
+    private long dodgeCell = Long.MIN_VALUE, nextRefuge = Long.MIN_VALUE;
+
+    /** the stands: the cell it runs to from a grenade (Long.MIN_VALUE: none) */
+    long dodgeCell() {
+        return dodgeCell;
+    }
+    /** refuges it could not get to, this run */
+    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet dodgeTried = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+    /** a refuge looked for again at most this often, ticks */
+    static final int REFUGE_AGAIN = 10;
+    // for the stands: grenades it threw, grenades it ran from
+    public int thrown, dodges;
+    /** where its last grenade was to burst (the stands) */
+    public @Nullable Vec3 planned;
+
     @Override
     public void tick(AiBot bot, long tick) {
         crouch = false;
         bot.gunner.blind = false;
         decide(bot, tick);
+        // sliding or rolling: no shot (pose-contract §4)
+        if (bot.dash.on(tick)) bot.gunner.fire(false);
         body(bot, tick);
         if (AiThoughts.on()) thoughts.note(this, bot, tick);
     }
@@ -224,17 +254,21 @@ public final class AiSoldier implements AiBrain {
         boolean lying = bot.prone.lying();
         boolean stoop = bot.stoop.want(m, bot.mover, lying, AiBots.voxels((ServerLevel) m.level()), tick);
         // down low under something lower than its standing height: it stays low (a player cannot stand up there either)
-        boolean low = crouch || stoop || !lying && m.getPose() == Pose.CROUCHING && !m.level().noCollision(m,
+        boolean low = crouch || stoop || bot.dash.on(tick) || !lying && m.getPose() == Pose.CROUCHING && !m.level().noCollision(m,
                 m.getDimensions(Pose.STANDING).makeBoundingBox(m.position()).deflate(1.0E-7));
         AiGunner g = bot.gunner;
         boolean reloading = g.reloading();
         boolean aiming = g.wantsFire() || mode == Mode.PEEK;
         // held up over its cover with no look along it: the arms the pose layer draws for that (blind fire)
         boolean blind = g.blind && low;
+        // a slide or a roll is the action while it lasts, over all else (pose-contract §4)
+        byte dash = bot.dash.kind(tick);
         AiPose.set(m, AiPose.of(m).withStance(lying ? AiPose.PRONE : low ? AiPose.CROUCH : AiPose.STAND)
                 .withLean((byte) (lying || low || mode != Mode.PEEK ? 0 : leanSide), tick)
                 .withArms(blind ? AiPose.BLIND : aiming ? AiPose.AIM : AiPose.HOLD)
-                .withAction(reloading ? AiPose.RELOAD : AiPose.NONE, (int) tick, (short) (reloading ? g.reloadTicks() : 0)));
+                .withAction(dash != AiPose.NONE ? dash : tick < throwUntil ? AiPose.THROW : reloading ? AiPose.RELOAD : AiPose.NONE,
+                        (int) (dash != AiPose.NONE ? bot.dash.since() : tick),
+                        (short) (dash != AiPose.NONE ? AiDash.TICKS : tick < throwUntil ? THROW_TICKS : reloading ? g.reloadTicks() : 0)));
         if (!lying) {
             Pose want = low ? Pose.CROUCHING : Pose.STANDING;
             if (m.getPose() != want) m.setPose(want);
@@ -261,6 +295,13 @@ public final class AiSoldier implements AiBrain {
             nextQuery = tick;
             event(bot, tick, "cover out of reach: gives it up");
         }
+        // a grenade it knows of to burst near it: it runs, whatever it was doing
+        if (dodge(bot, level, tick)) return;
+        // throwing: it stands while its arm goes over
+        if (tick < throwUntil) {
+            bot.gunner.fire(false);
+            return;
+        }
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         TargetMemory.Noise n = bot.memory.noise();
         // a burst at the place for those on the move goes on only while the decision below is that again
@@ -275,6 +316,9 @@ public final class AiSoldier implements AiBrain {
         if (c != null && c.state == TargetMemory.State.VISIBLE) combat(bot, level, c, tick);
         // its squad's flanker: round the side of the place they went out of sight, to cover that sees it
         else if (c != null && c.state != TargetMemory.State.VISIBLE && flank(bot, level, c, tick)) {
+        }
+        // gone behind cover a moment ago: a grenade over it
+        else if (c != null && c.state == TargetMemory.State.LOST && grenade(bot, level, c, tick)) {
         }
         // out of sight a while, looked for already (or no cover to look from): it goes for them
         else if (c != null && c.state == TargetMemory.State.LOST && pushes(bot, c, tick)) search(bot, level, c, tick);
@@ -296,6 +340,97 @@ public final class AiSoldier implements AiBrain {
         else if (c != null && c.state == TargetMemory.State.SEARCH) hold(bot, level, c, tick);
         else if (n != null) alert(bot, level, n, tick);
         else idle(bot, tick);
+    }
+
+    // ------------------------------------------------------------------ grenades
+
+    /**
+     * A grenade at a target it lost behind cover a moment ago: from its cover, the target 15 to 26 blocks off, one of
+     * its own left, none thrown by it or its squad a short while; thrown if one bursts within 3 blocks of where the
+     * target went out of sight and none of its own near the burst (AiGrenades.plan). Whether it threw.
+     */
+    private boolean grenade(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
+        if (!AiGrenades.on || bot.grenades <= 0 || spot == null || tick < nextTry || tick - lastThrow < THROW_GAP) return false;
+        if (mode != Mode.COVER && mode != Mode.PEEK && mode != Mode.HOLD || !bot.mover.arrived() || bot.prone.lying() || bot.gunner.reloading()) return false;
+        long since = tick - c.lostTick;
+        if (since < LOST_FIRST || since > LOST_RECENT) return false;
+        Vec3 at = new Vec3(c.lostX, c.lostY, c.lostZ);
+        double d = bot.mob.position().distanceTo(at);
+        if (d < AiGrenades.NEAR || d > AiGrenades.FAR) return false;
+        AiSquads.Squad s = AiSquads.of(bot);
+        if (s != null) for (AiBot o : s.bots)
+            if (o != bot && o.brain instanceof AiSoldier os && tick - os.lastThrow < SQUAD_THROW_GAP) return false;
+        if (!AiGrenades.mayPlan(level, tick)) return false;
+        nextTry = tick + TRY_GAP;
+        AiGrenades.Throw t = AiGrenades.plan(level, bot.mob, at);
+        if (t == null) return false;
+        planned = t.burst();
+        AiGrenades.toss(level, bot.mob, t);
+        bot.grenades--;
+        AiAdapter.keepGrenades(bot);
+        lastThrow = tick;
+        throwUntil = tick + THROW_TICKS;
+        thrown++;
+        bot.gunner.fire(false);
+        why = Why.THROW;
+        event(bot, tick, "a grenade where they went out of sight");
+        return true;
+    }
+
+    /**
+     * A grenade it knows of to burst within 10 blocks of it (13 once it runs; one of its own side's: 17, 19, and no
+     * block keeps that one off): it runs to the nearest place out of its reach or behind a block from it, and stays
+     * there till it bursts; then back to the fight, cover sought anew. Behind a block from it already, or with nowhere
+     * to run, it fights on where it is. Whether it runs.
+     */
+    private boolean dodge(AiBot bot, ServerLevel level, long tick) {
+        AiGrenades.Danger dg = AiGrenades.any(level) ? AiGrenades.danger(level, bot, dodgeFrom == null ? AiGrenades.DANGER : AiGrenades.DANGER + 3) : null;
+        if (dg == null) {
+            if (dodgeFrom != null) {
+                dodgeFrom = null;
+                refugeFrom = null;
+                dodgeCell = Long.MIN_VALUE;
+                dodgeTried.clear();
+                // no cover to go back to: it stops where it ran to, and seeks some (not all who ran at once)
+                if (spot == null) bot.mover.stop();
+                nextQuery = tick + bot.mob.getRandom().nextInt(10);
+            }
+            return false;
+        }
+        Vec3 b = dg.burst();
+        // behind a block from it where it is (not its own side's: AiGrenades.cover): it stays and fights on
+        if (dodgeFrom == null && AiGrenades.cover(AiBots.voxels(level), b, bot.mob.getX(), bot.mob.getY(), bot.mob.getZ(), dg.own())) return false;
+        boolean first = dodgeFrom == null;
+        if (first) {
+            dodges++;
+            event(bot, tick, "a grenade near: runs from it");
+        }
+        if (dodgeCell != Long.MIN_VALUE && bot.mover.failed()) {
+            dodgeTried.add(dodgeCell);
+            dodgeCell = Long.MIN_VALUE;
+        }
+        // sought again once the burst has gone 2 blocks from where the refuge was sought from, or the refuge is in its
+        // reach now (not behind a block from it; its own side's: a block short of where it was sought, not at once)
+        boolean moved = refugeFrom != null && refugeFrom.distanceToSqr(b) > 4 || dodgeCell != Long.MIN_VALUE
+                && !AiGrenades.safe(AiBots.voxels(level), b, dodgeCell, dg.own() ? dg.clear() - 1 : dg.clear(), dg.own());
+        dodgeFrom = b;
+        if ((dodgeCell == Long.MIN_VALUE || moved) && tick >= nextRefuge && AiGrenades.mayRefuge(level, tick)) {
+            nextRefuge = tick + REFUGE_AGAIN;
+            refugeFrom = b;
+            long cell = AiGrenades.refuge(level, bot.mob, b, dg.clear(), dg.own(), dodgeTried);
+            if (cell != Long.MIN_VALUE) {
+                dodgeCell = cell;
+                if (spot != null) drop(bot);
+                bot.mover.goTo(cell, 0.5, RUN);
+                mode(Mode.TO_COVER, tick);
+            }
+        }
+        // nowhere to run to (yet): it fights on where it is
+        if (dodgeCell == Long.MIN_VALUE) return false;
+        bot.gunner.fire(false);
+        throwUntil = Long.MIN_VALUE;
+        why = Why.GRENADE;
+        return true;
     }
 
     private void hit(AiBot bot, ServerLevel level, TargetMemory.Noise n, long tick) {
@@ -484,6 +619,14 @@ public final class AiSoldier implements AiBrain {
         if (!bot.mover.arrived() && mode == Mode.TO_COVER) {
             // on its way: near, in sight, it walks there firing (as a player backs off shooting); else it runs, holding fire
             boolean near = dist <= skill.answerNear() * NEAR_WALK;
+            // the last blocks at a run: a slide into low cover; a shot close past it on the way: a roll
+            if (!near) {
+                boolean lowCover = spot.peek() == spot.cell() || !spot.hasPeek();
+                net.minecraft.core.BlockPos cell = net.minecraft.core.BlockPos.of(spot.cell());
+                if (bot.dash.consider(level, bot.mob, spot.cell(), net.minecraft.world.phys.Vec3.atBottomCenterOf(cell), lowCover,
+                        g.reloading() || tick < throwUntil, tick) != AiPose.NONE)
+                    event(bot, tick, "dash: slide or roll");
+            }
             bot.stoop.follow(eye);
             bot.mover.goTo(spot.cell(), 0.35, near ? WALK : RUN);
             g.fire(near && burst(bot, tick, false));
@@ -658,7 +801,12 @@ public final class AiSoldier implements AiBrain {
     private boolean blindFire(AiBot bot, ServerLevel level, Vec3 at, boolean aimThere, long tick) {
         AiGunner g = bot.gunner;
         if (!blindOn || bot.prone.lying() || !bot.prone.pinned(tick) || g.reloading() || g.loaded() == 0) return false;
-        Vec3 gun = bot.mob.position().add(0, AiPose.CROUCH_SIZE.eyeHeight() - AiGunner.MUZZLE_DROP, 0);
+        // from where its gun will be: in its raised hand over its head, turned to the place (the bullet starts there)
+        float yaw = (float) Math.toDegrees(Math.atan2(at.z - bot.mob.getZ(), at.x - bot.mob.getX())) - 90F;
+        Vec3 gun = bot.mob.position().add(AiPoseGeometry.blindMuzzle(AiPose.CROUCH, 0F, yaw, bot.mob.isLeftHanded()));
+        // a block over it in the way of its hand: the shot starts at its eye (MixinAiLeanShot), and is checked from there
+        Vec3 eye = bot.mob.position().add(0, AiPose.CROUCH_SIZE.eyeHeight(), 0);
+        if (!VoxelRay.clear(AiBots.voxels(level), eye.x, eye.y, eye.z, gun.x, gun.y, gun.z, Voxel.MOVE_MASK)) gun = eye;
         if (VoxelRay.blocked(AiBots.voxels(level), gun.x, gun.y, gun.z, at.x, at.y, at.z, Voxel.PROTECT_MASK) >= 0) {
             blindWalled++;
             return false;

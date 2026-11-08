@@ -45,7 +45,15 @@ public final class BotAnimation {
         }
         Function<Mob, AiPose> stand = standPose;
         AiPose pose = stand != null ? stand.apply(mob) : AiPose.of(mob);
-        data.gunfeel$setBot(BotAnimator.frame(mob, pose, mob.level().getGameTime(), partial, state.isCrouching));
+        BotAnimator.Frame frame = BotAnimator.frame(mob, pose, mob.level().getGameTime(), partial, state.isCrouching);
+        data.gunfeel$setBot(frame);
+        // its own walk for vanilla's swing as well (HumanoidModel.setupAnim): vanilla's kicks as it is hit
+        if (!standStill) {
+            state.walkAnimationSpeed = frame.walk();
+            state.walkAnimationPos = frame.walkPos();
+        }
+        // falling dead it plays its own fall (BotPoser): not vanilla's tip onto its side as well
+        if (frame.deathSec() >= 0F && BotClips.get(BotClips.DEATH) != null) state.deathTime = 0F;
         // the crouch (the AI's, or the mob's own) is posed here by its weight, so it comes and goes smoothly:
         // vanilla's would snap
         state.isCrouching = false;
@@ -61,6 +69,31 @@ public final class BotAnimation {
         if (lower == null) return;
         lower.translateAndRotate(pose);
         pose.translate(-lower.x / 16F, -lower.y / 16F, -lower.z / 16F);
+    }
+
+    /**
+     * Before HumanoidModel.setupAnim: a bot lying is set to no swim for vanilla's pose, and its swim amount returned
+     * to be put back after (the renderer lies it down by it, BotPoser poses it lying); -1 for any other. Vanilla's
+     * crawl stroke turns the left arm by rotlerpRad, which wraps the angle it goes through: while the swim amount is
+     * between 0 and 1 (lying down or getting up on the move) the arm jumped across. The bot's arms lying are
+     * BotPoser's; its legs crawling too; its head vanilla's ({@link #swimBack}). A bot with no gun keeps vanilla's
+     * crawl (its arms have nothing of BotPoser's lying).
+     */
+    public static float noSwim(HumanoidRenderState state) {
+        BotAnimator.Frame f = ((BotRenderData) state).gunfeel$bot();
+        if (state.swimAmount <= 0F || f == null || f.arms()[acup.gunfeel.ai.AiPose.NO_GUN] >= 0.5F) return -1F;
+        float swim = state.swimAmount;
+        state.swimAmount = 0F;
+        return swim;
+    }
+
+    /**
+     * After HumanoidModel.setupAnim, a bot set to no swim: its swim amount back, and the one thing of vanilla's swim it
+     * keeps, the head tipped toward the ground's forward (HumanoidModel 26.2: rotLerpRad(swim, xRot, -pi/4)).
+     */
+    public static void swimBack(HumanoidModel<?> model, HumanoidRenderState state, float swim) {
+        state.swimAmount = swim;
+        model.head.xRot = net.minecraft.util.Mth.rotLerpRad(swim, model.head.xRot, -net.minecraft.util.Mth.PI / 4F);
     }
 
     /** After HumanoidModel.setupAnim. */

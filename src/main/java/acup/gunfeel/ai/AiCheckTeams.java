@@ -54,6 +54,11 @@ final class AiCheckTeams {
     private long aliveTicks;
     // hits by red on blue, by blue on red, by either on its own
     private int redHits, blueHits, ownHits, friendlyAtStart;
+    /** of the hits on their own, those by a blast (a grenade), and what each was doing */
+    private int ownBlasts, selfBlasts;
+    private final List<String> blasts = new java.util.ArrayList<>();
+    /** the grenades thrown and those that left their planned flight before this fight */
+    private int tracedAtStart, partedAtStart;
     /** the duel: the hits on the other team, red's and blue's; the damage done to it; the shots fired */
     int redHitsOut, blueHitsOut, redShots, blueShots;
     double redDamage, blueDamage;
@@ -97,6 +102,8 @@ final class AiCheckTeams {
         if (loners != null) AiSquads.offTeams.add(loners);
         AiSquads.forget(level);
         friendlyAtStart = AiBots.friendlyHits;
+        tracedAtStart = AiGrenades.traced;
+        partedAtStart = AiGrenades.partings.size();
         if (battle) {
             field();
             spawn(red, RED, new Vec3(BX0 + BSIZE / 2 + 0.5, y, BZ0 + 3.5));
@@ -203,18 +210,64 @@ final class AiCheckTeams {
         return all;
     }
 
+    private static String cell(long c) {
+        net.minecraft.core.BlockPos p = net.minecraft.core.BlockPos.of(c);
+        return p.getX() + " " + p.getY() + " " + p.getZ();
+    }
+
     private static int alive(List<Mob> side) {
         int n = 0;
         for (Mob m : side) if (m.isAlive() && !m.isRemoved()) n++;
         return n;
     }
 
+    /** the thrower's grenade going off: how it was thrown and where it left its planned flight */
+    private String flight(LivingEntity from) {
+        String f = AiGrenades.parted(level, from);
+        return f == null ? "" : "\n         its flight: " + f;
+    }
+
     private void hurt(LivingIncomingDamageEvent e) {
-        if (!(e.getSource().getEntity() instanceof LivingEntity from) || from == e.getEntity()) return;
+        if (!(e.getSource().getEntity() instanceof LivingEntity from)) return;
+        if (from == e.getEntity()) {
+            // its own grenade
+            if (e.getSource().is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION) && (red.contains(from) || blue.contains(from))) {
+                selfBlasts++;
+                // where its grenade burst and was meant to, where it stood, and what it was doing
+                Vec3[] last = AiGrenades.bursting(level, from);
+                Vec3 at = last == null ? null : last[0];
+                AiBot t = from instanceof Mob fm ? AiBots.get(fm) : null;
+                AiSoldier ts = t != null && t.brain instanceof AiSoldier x ? x : null;
+                Vec3 planned = ts != null ? ts.planned : null;
+                Long dodge = ts != null ? ts.dodgeCell() : null;
+                if (blasts.size() < 6) blasts.add(String.format(Locale.ROOT, "its own: %.1f damage at %.1f %.1f %.1f, %.1f from the burst %s (%.1f from where it was to,"
+                        + " %.1f as it flew); %s, going to %s, run to %s", e.getAmount(), from.getX(), from.getY(), from.getZ(),
+                        at == null ? -1 : at.distanceTo(from.position()), at == null ? "-" : String.format(Locale.ROOT, "%.1f %.1f %.1f", at.x, at.y, at.z),
+                        at == null || planned == null ? -1 : at.distanceTo(planned), at == null || last[1] == null ? -1 : at.distanceTo(last[1]),
+                        ts != null ? ts.mode() + " (" + ts.why.label + ")" : "-", t == null || t.mover.goal() == Long.MIN_VALUE ? "-" : cell(t.mover.goal()),
+                        dodge == null || dodge == Long.MIN_VALUE ? "-" : cell(dodge)) + flight(from));
+            }
+            return;
+        }
         boolean fromRed = red.contains(from), fromBlue = blue.contains(from);
         if (!fromRed && !fromBlue) return;
         boolean toRed = red.contains(e.getEntity()), toBlue = blue.contains(e.getEntity());
-        if (fromRed && toRed || fromBlue && toBlue) ownHits++;
+        if (fromRed && toRed || fromBlue && toBlue) {
+            ownHits++;
+            if (e.getSource().is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)) {
+                ownBlasts++;
+                AiBot v = AiBots.get((Mob) e.getEntity());
+                // where the thrower's grenade was last (the damage's own position is the thrower's)
+                Vec3[] last = AiGrenades.bursting(level, from);
+                Vec3 at = last == null ? null : last[0];
+                AiBot t = from instanceof Mob fm ? AiBots.get(fm) : null;
+                Vec3 planned = t != null && t.brain instanceof AiSoldier ts ? ts.planned : null;
+                boolean behind = at != null && AiGrenades.behind(AiBots.voxels(level), at, e.getEntity().getX(), e.getEntity().getY(), e.getEntity().getZ());
+                if (blasts.size() < 6) blasts.add(String.format(Locale.ROOT, "%.1f damage, %.1f from the thrower, %.1f from the burst%s, the burst %.1f from where it"
+                        + " was to (%.1f as it flew); %s", e.getAmount(), from.distanceTo(e.getEntity()), at == null ? -1 : at.distanceTo(e.getEntity().position()), behind ? " (behind a block)" : "",
+                        at == null || planned == null ? -1 : at.distanceTo(planned), at == null || last[1] == null ? -1 : at.distanceTo(last[1]), v != null && v.brain instanceof AiSoldier s ? s.mode() + " (" + s.why.label + ")" : "-") + flight(from));
+            }
+        }
         else if (fromRed && toBlue) {
             redHits++;
             redDamage += e.getAmount();
@@ -235,8 +288,19 @@ final class AiCheckTeams {
         if (loners != null) check.out("     duel: " + (RED.equals(loners) ? "red" : "blue") + " alone, the other team in squads");
         check.out(String.format(Locale.ROOT, "     " + (battle ? "battle, %d on %d, FBI with their own guns (" + guns() + "), the rounds they come with, low and high walls"
                 : "teams, %d on %d, FBI with heavy revolvers (their own), endless rounds") + ": %s in %d ticks (%.1f s), red %d left, blue %d left; "
-                + "hits on the other team red %d, blue %d; on their own %d (AI mobs hit by AI mobs they do not fight: %d)", SIDE, SIDE, won, ticks, ticks / 20.0,
-                r, b, redHits, blueHits, ownHits, AiBots.friendlyHits - friendlyAtStart));
+                + "hits on the other team red %d, blue %d; on their own %d, %d by a blast (AI mobs hit by AI mobs they do not fight: %d)", SIDE, SIDE, won, ticks, ticks / 20.0,
+                r, b, redHits, blueHits, ownHits, ownBlasts, AiBots.friendlyHits - friendlyAtStart));
+        for (String s : blasts) check.out("       own blast: " + s);
+        int thrown = 0, dodges = 0;
+        for (AiBot bot : bots)
+            if (bot.brain instanceof AiSoldier s) {
+                thrown += s.thrown;
+                dodges += s.dodges;
+            }
+        check.out(String.format(Locale.ROOT, "       grenades thrown %d, run from %d times; throwers hit by their own %d times", thrown, dodges, selfBlasts));
+        List<String> parted = AiGrenades.partings.subList(partedAtStart, AiGrenades.partings.size());
+        check.out(String.format(Locale.ROOT, "       planned flights: %d of %d grenades left them", parted.size(), AiGrenades.traced - tracedAtStart));
+        for (int i = 0; i < Math.min(6, parted.size()); i++) check.out("         " + parted.get(i));
         boolean fought = redHits + blueHits >= 10 && (r < SIDE || b < SIDE);
         if (!fought) for (Mob m : red.size() + blue.size() == 0 ? List.<Mob>of() : concat()) {
             AiBot bot = AiBots.get(m);
@@ -291,6 +355,7 @@ final class AiCheckTeams {
             }
         } else check.check("two teams of AI mobs fight each other", fought);
         check.check("no AI mob hits one of its own team", ownHits == 0);
+        check.check("no AI mob is hit by its own grenade", selfBlasts == 0);
         for (Mob m : red) m.discard();
         for (Mob m : blue) m.discard();
         var board = level.getScoreboard();

@@ -20,7 +20,8 @@ import net.minecraft.world.phys.Vec3;
 // starts from its eye where it is: leaning round a corner (AiLean), out past the corner, where its gun is drawn. And
 // a block ahead of an eye just past a corner is in the wall (stand: 11 shots of 14 leaning, standing at a peek's edge
 // too): with a block between its eye and that start, the bullet starts at the eye. Fired blind over its cover (no look
-// along the gun: AiGunner.blind), its heading is NTM's again with three times the gun's spread.
+// along the gun: AiGunner.blind), it starts where the gun is drawn, in the raised hand over its head
+// (AiPoseGeometry.blindMuzzle), and its heading is NTM's again with three times the gun's spread.
 @Mixin(value = EntityBulletBaseMK4.class, remap = false)
 public abstract class MixinAiLeanShot {
     /** a blind shot's spread, times the gun's; the gun's taken as this at least (NTM's units: radians, near enough) */
@@ -38,7 +39,9 @@ public abstract class MixinAiLeanShot {
             ((com.hbm.entity.projectile.EntityThrowableNT) (Object) this).setThrowableHeading(-Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch),
                     Math.cos(yaw) * Math.cos(pitch), 1F, BLIND * Math.max(gunSpread, BLIND_LEAST));
         }
-        Vec3 at = bullet.position().add(AiLean.eyeShift(shooter)), eye = AiLean.eye(shooter);
+        Vec3 eye = AiLean.eye(shooter);
+        Vec3 at = bot.gunner.blind ? shooter.position().add(acup.gunfeel.ai.AiPoseGeometry.blindMuzzle(acup.gunfeel.ai.AiPose.of(shooter).stance(),
+                AiLean.frac(shooter), shooter.yBodyRot, bot.mob.isLeftHanded())) : bullet.position().add(AiLean.eyeShift(shooter));
         if (bullet.level().clip(new ClipContext(eye, at, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, bullet)).getType() != HitResult.Type.MISS)
             at = eye;
         if (at.equals(bullet.position())) return;

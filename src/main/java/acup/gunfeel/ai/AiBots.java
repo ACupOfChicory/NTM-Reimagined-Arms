@@ -194,9 +194,11 @@ public final class AiBots {
         if (l == null || l.bots.isEmpty()) {
             // none left: their squads hold none of them (nor the level) any more
             AiSquads.forget(level);
+            AiGrenades.forget(level);
             return;
         }
         AiSquads.tick(level, l.bots.values());
+        AiGrenades.tick(level);
         if (level.getGameTime() % 20 != 0) return;
         for (AiBot b : l.bots.values()) if (b.mob.isRemoved()) claimGone(l, b.mob.getId());
         l.bots.values().removeIf(b -> b.mob.isRemoved());
@@ -269,13 +271,15 @@ public final class AiBots {
         bot.tick(l.voxels, SmokeClouds.get(level), targets(l, tick), tick);
         // a shot that flies close past it is one at it: as a hit, from where it was fired
         Entity shooter = bot.prone.watchShots(level, tick);
+        if (shooter != null) bot.dash.nearMiss(tick);
         if (shooter != null) hear(bot, shooter.getX(), shooter.getY(), shooter.getZ(), shooter.distanceTo(bot.mob), tick, true, true, 0.15, 2);
         if (bot.brain != null) bot.brain.tick(bot, tick);
-        bot.prone.tick(level, bot.mover, tick, bot.brain != null && bot.stoop.down);
+        bot.prone.tick(level, bot.mover, tick, bot.brain != null && bot.stoop.down, bot.dash);
         bot.mover.hold(bot.gunner.steady());
         bot.mover.tick(level, map, tick);
         int reserve = bot.gunner.ammo.reserve();
-        bot.gunner.runs = bot.mover.runs();
+        // a slide's or a roll's step is under a run's, and it still goes on its way, not facing them
+        bot.gunner.runs = bot.mover.runs() || bot.dash.on(tick);
         bot.gunner.tick(level);
         if (bot.gunner.ammo.reserve() != reserve) AiAdapter.keep(bot);
     }
@@ -343,6 +347,15 @@ public final class AiBots {
             if (shooter instanceof Player p) fromPlayer = p;
             else if (shooter instanceof Mob m) from = l.bots.get(m.getId());
         }
+        // made by a creature nobody fights (a cow's call, a chicken's steps, a zombie's groan: a creature's sound, not
+        // a blast's or a block's): no news. Heard, they
+        // turned to each, all the time, by a farm (stand: up to 30 degrees a tick, 4 a tick on average)
+        if (from == null && fromPlayer == null && (source == SoundSource.NEUTRAL || source == SoundSource.HOSTILE)) {
+            long t0 = System.nanoTime();
+            boolean by = bystander(level, x, y, z);
+            bystanderNanos += System.nanoTime() - t0;
+            if (by) return;
+        }
         long tick = level.getGameTime();
         boolean loud = range >= LOUD;
         if (soundTrace != null) soundTrace.accept(level, new SoundSeen(sound.value().location().toString(), x, y, z, volume, range, loud, from != null, fromPlayer != null));
@@ -357,12 +370,23 @@ public final class AiBots {
         }
     }
 
+    /** a living thing by the sound (OWN_SOUND) that is no player, no AI mob and no stand's target: it made it */
+    private static boolean bystander(ServerLevel level, double x, double y, double z) {
+        double r = OWN_SOUND;
+        for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, new net.minecraft.world.phys.AABB(x - r, y - r, z - r, x + r, y + r, z + r)))
+            if (!(e instanceof Player) && get(e) == null && !e.entityTags().contains(TARGET_TAG) && e.distanceToSqr(x, y, z) < r * r) return true;
+        return false;
+    }
+
     /** the stands: a sound that reached the AI (its name, where, how loud, whether a mob or a player made it) */
     record SoundSeen(String name, double x, double y, double z, float volume, double range, boolean loud, boolean ofMob, boolean ofPlayer) {
     }
 
     /** the stands: every sound that reaches the AI, or null */
     static java.util.function.@org.jspecify.annotations.Nullable BiConsumer<ServerLevel, SoundSeen> soundTrace;
+
+    /** the bench: time spent finding whether a creature nobody fights made a sound, ns */
+    public static long bystanderNanos;
 
     /** hits one AI mob took from another (the stands) */
     public static int friendlyHits;

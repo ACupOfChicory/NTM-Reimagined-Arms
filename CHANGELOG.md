@@ -1,6 +1,6 @@
 # Changelog
 
-## X792
+## X807
 
 - NTM's blasts hit each part of the body on its own. Grenades, 40 mm shells
   (MK108, Congo Lake), rockets, GL-54 HE, mines, charges, missiles,
@@ -25,6 +25,77 @@
     than before.
   - Server keys `blastParts` (on) and `blastPartRays` (rays from each part,
     1 to 9, 3).
+
+## X805
+
+- Mob AI: a bot crawls on its belly when it moves lying down: each leg in turn
+  drawn up along the ground, knee out to the side, the gun swinging a little
+  with each pull. Its arms no longer jerk as it gets up from a crawl on the
+  move.
+- Mob AI: on a run to cover, a bot may slide the last blocks into low cover,
+  and a bot running in the open may roll forward when a shot passes close.
+  Either lasts 0.8 s, crouched, without firing, at most once in 5 seconds.
+
+## X804
+
+- Mob AI: a bot leaning out of cover where no player's game has drawn it
+  lately is hit by its model's own head, arms and legs, so a shot to its
+  head or a limb does what it does to a bot standing upright.
+
+## X803
+
+- Mob AI: a bot's grenade no longer hurts the bot or its own side. It throws
+  only where it knows how the grenade will fly: no flat throw that skids along
+  the ground, none that would catch a block's edge on the way. Its own side
+  keeps out of the blast's reach and no longer takes a low wall for cover
+  from it.
+
+## X801
+
+- Mob AI: FBI agents and dummies move their legs in step with how fast and
+  which way they go: a walk, a jog or a sprint going forward, a walk going
+  back and a side step going sideways, blended as they turn. They reload with
+  a rifle's two-handed reload, fall dead in a fall of their own rather than
+  tipping onto their side, and are thrown back by a hit that sends them
+  flying (a blast, a heavy round).
+
+## X798
+
+- Mob AI: bots throw NTM's frag grenades (HE, three seconds' fuze). When you
+  go behind cover, a bot in cover 15 to 26 blocks away lobs one over it to
+  burst within 3 blocks of where you went out of sight, working out the arc,
+  the bounces and the roll as NTM flies it. It never throws one that would
+  burst within 17 blocks (the blast reaches 15) of itself or of its own side
+  where they stand, go or look out, and one of a squad throws at a time.
+  Each bot carries a few: new server setting `aiGrenades` (2 by default, 0
+  to 8), kept on the bot.
+- Mob AI: a bot that sees a grenade coming or hears one land nearby runs from
+  where it is going to burst: 12 blocks off or behind a block, and back to the
+  fight once it has gone off. Anyone's, yours too: NTM's hand grenades and
+  dynamite, 40 mm grenades (GL-54, Congo Lake, MK108) and rockets. A bot
+  behind a block from it already stays and fights on.
+- Mob AI: blind fire leaves from the gun held up over the bot's head, and the
+  bot holds it back when a block is in the way from there.
+- Mob AI: bots no longer take the sounds of animals and other creatures they
+  do not fight (a cow's call, a chicken's steps, a zombie's groan) for you.
+  Near a farm they turned to each one, and with no one to fight their heads
+  spun all the time.
+
+- Heavy and super-heavy guns slow the player who carries them a little:
+  6% for a heavy one (the drill, the flamethrowers, the rocket launchers,
+  the anti-materiel rifle, the auto-shotgun...), 12% for a super-heavy one
+  (the minigun, the tesla cannon, the Fat Man, the Ma Deuce...), walking and
+  running alike. The heavier hand counts; two miniguns weigh as one. Not in
+  creative or spectator, and the AI's soldiers are not slowed.
+  `gunWeightSlow`, `gunWeightHeavySpeed`, `gunWeightSuperHeavySpeed` (server).
+- A gun's tooltip names its kind (pistol, SMG, rifle, minigun...), its weight
+  class and how much it slows. `gunWeightTooltip` (client, on). The kinds and
+  classes are in `ntmgunfeel-gun-weight.txt` in the mod jar.
+
+## X793
+
+- GL-54 mustard gas no longer leaves oily stains on the floor. The ground it
+  poisons stays as it was.
 
 ## X790
 

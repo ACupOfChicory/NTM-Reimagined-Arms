@@ -5,6 +5,8 @@ changes how NTM's guns feel and hit: the player's arms hold the gun, recoil
 moves the camera and the gun, bullets meet mobs by their models and blocks by
 their shapes and materials, bullets and beams slow down in water and go
 through glass by their own rules, and smoke clouds fill the space around them.
+It also adds the GL-54 grenade launcher with its gas grenades, and AI soldiers
+that fight from cover.
 Builds for other NTM versions are listed under [Ports](#ports).
 
 Builds are on the [Releases](https://github.com/ACupOfChicory/NTM-Reimagined-Arms/releases)
@@ -66,6 +68,15 @@ page. They are alphas: expect bugs and back up your world.
 - Hits on moving mobs count by the pose the shooter saw.
 - NTM's turrets and armed mobs (the hunter chopper, the cyber crab and others)
   hit by the same rules as a player's gun.
+- FBI agents and test dummies have ten hitbox parts: head, body, upper arms,
+  forearms, thighs and shins, each where it is drawn, in whatever pose the
+  mob is in (crouched, leaning out, lying).
+- The head and limb multipliers come after armour: armour takes its share of
+  the whole bullet first, then the part hit scales what gets through.
+- An explosion hurts each body part by itself: rays go from the blast to every
+  part, so behind a low wall only what sticks out is hit, and a player lying
+  with the feet to a grenade takes most of it on the legs. This works for
+  hand grenades, grenade-launcher rounds and rockets.
 
 ### Bullets and blocks
 
@@ -106,9 +117,54 @@ page. They are alphas: expect bugs and back up your world.
 - Smoke clouds fill the space around them, stay out of walls, shut doors and
   water, and go in through a door that opens. They are drawn as a volume, and
   inside one the screen goes grey. Operators let them out with `/gunsmoke`.
+- A blast punches a hole in a smoke cloud that closes again in 2 to 3 seconds;
+  bullets do not disturb smoke.
+- Overlapping clouds are drawn as one smoke, without flicker, and a smoke
+  grenade that bursts inside a cloud feeds that cloud.
+
+### GL-54 and gas
+
+- The GL-54 is a grenade launcher of the mod's own, with high-explosive,
+  fragment, smoke and gas grenades (mustard, chlorine, acid, phosgene).
+- Bullets that fly through a gas cloud thin it along their path, and a blast
+  blows the gas around it away.
+- Gas that lies for long at one place poisons the ground for good: nothing
+  grows there, grass and leaves turn a sick yellow-brown and mobs do not spawn
+  on it. A magazine of mustard fired at one place is enough; chlorine and acid
+  need two, phosgene three.
+
+### AI soldiers
+
+- NTM's FBI agents and test dummies fight as a player does, with NTM's guns.
+  Operators bring them in with `/armsai spawn fbi|dummy [count] [gun]` (and
+  `team <name>` at the end); `/armsai clear` removes them. They fight in the
+  game's teams.
+- They see and hear as a person does, run to cover, crouch behind low walls,
+  run low past them, lean out round a corner, fire blind over cover and lie
+  down in the open. They aim at what they see of you, never miss on purpose
+  and take the gun's recoil.
+- Bots of one side fight as a squad: when you vanish behind cover one goes
+  round the side while the others fire to keep your head down, and a bot
+  leaves cover only while another covers it. They throw grenades, run from
+  grenades thrown at them, including a player's, and do not turn their heads
+  to the sounds of animals.
+- They move their bodies: breathing, flinching at hits, aiming, reloading,
+  throwing, signalling with a hand, crouching, leaning and lying with the gun.
+  Arms and legs bend at the elbows and knees, and the armour they wear is
+  drawn on them.
+- Bots can learn from your fights: `/armsai record on|off` (operators) records
+  how you fight, and `/armsai course` lays out a ground to fight on
+  (`/armsai course clear` removes it). Recording is off by default.
+- `/armsai debug` shows what the bots think; `/armsai info` shows how many
+  there are and what they cost.
 
 ### Other
 
+- Heavy guns slow the player down: 6 % with a heavy gun in hand and 12 % with
+  a super-heavy one (miniguns, the Fat Man, the Tesla Cannon, the Ma Deuce,
+  the MK108, the Quad and others). A gun's description shows its kind (pistol,
+  submachine gun, rifle, shotgun, minigun, launcher...), its weight class and
+  the slowdown.
 - A player in spectator mode cannot use NTM's guns (NTM itself allows it).
 - The off-hand item is hidden while an NTM gun is held, and switching to or
   from a gun is instant.
@@ -155,7 +211,7 @@ Settings are in the `config` folder:
   `/gunfeel set <key> <value>`, `/gunfeel get <key>` and `/gunfeel unset <key>`
   change its keys.
 - `ntm-gunfeel-server.properties`: the server's gameplay rules (bullets,
-  spread, beams, water, lying down, the sprint delay). They are sent to
+  spread, beams, water, lying down, the sprint delay, gas, AI soldiers). They are sent to
   connected players. The mod does not create this file: write the keys you
   want as `key = value`. Every key and its default is described in
   `ntmgunfeel-server.properties` inside the mod jar.
@@ -188,6 +244,7 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `tracers` | `true` | Tracers |
 | `bulletHoles` | `true` | Bullet holes and marks |
 | `waterSplash` | `true` | Splashes, rings, foam and bubbles on water |
+| `gunWeightTooltip` | `true` | A gun's tooltip names its weight class and how much it slows |
 | `smokeQuality` | `high` | Smoke clouds: `off`, `slices`, `low`, `medium`, `high`, `ultra` |
 | `smokeMaxClouds`, `smokeDistance` | `8`, `128` | How many clouds are drawn and how far away |
 | `enabled` | `true` | The mod's client side as a whole |
@@ -222,6 +279,17 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `spectatorNoGuns` | `true` | Spectators cannot use NTM's guns |
 | `smoke` | `true` | Smoke clouds |
 | `smokeBlocksMobSight` | `false` | Mobs lose a target behind thick smoke |
+| `smokeHole` | `true` | A blast punches a hole in a smoke cloud |
+| `gl54` | `true` | The GL-54 works |
+| `gasStir` | `true` | Bullets and blasts stir gas clouds |
+| `gasPoison` | `true` | Gas that lies for long poisons the ground |
+| `gasCoughBlocksAim` | `true` | Aiming is shut while chlorine makes the player cough |
+| `aiSkill` | `regular` | How well AI soldiers shoot: `recruit`, `regular`, `veteran` |
+| `aiRadius` | `128` | AI soldiers think only this far from a player, 32 to 256 |
+| `aiRecoil` | `1` | Recoil of AI soldiers' guns; `0` for none |
+| `aiThreads` | `2` | Background threads that work out where AI soldiers can hide, 1 to 8 |
+| `aiImitation` | `false` | AI soldiers decide with a model trained on recorded fights |
+| `gunWeightSlow`, `gunWeightHeavySpeed`, `gunWeightSuperHeavySpeed` | `true`, `0.94`, `0.88` | Heavy and super-heavy guns in hand slow the player a little |
 
 ## Commands
 
@@ -233,6 +301,9 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 - `/gunfeel settings`: the settings of the gun in hand.
 - `/gunsmoke` (operators): let out smoke clouds, clear them, show how many
   there are.
+- `/armsai` (operators): bring in, remove and inspect AI soldiers (`spawn`,
+  `clear`, `ammo`, `info`, `debug`), record fights (`record on|off`), lay out a
+  practice ground (`course`).
 
 If something goes wrong, the mod writes its log to `logs/ntm-gunfeel-debug.log`;
 attach it to a bug report.
