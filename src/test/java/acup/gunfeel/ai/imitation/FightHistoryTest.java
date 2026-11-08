@@ -29,6 +29,7 @@ class FightHistoryTest {
         v = view(40, 0.5, 2, false, false);
         h.update(v);
         assertEquals(40, v.ticksInCover, "a step within the cover is the same cover");
+        assertEquals(40, v.ticksHidden);
         // out a block aside into its sight: a look out
         v = view(44, 1.5, 0, true, true);
         h.update(v);
@@ -40,6 +41,8 @@ class FightHistoryTest {
         assertEquals(1, v.peeksFromCover, "still out: the same look");
         v = view(56, 0, 2, false, false);
         h.update(v);
+        assertEquals(0, v.ticksHidden, "hidden again: counted from now");
+        assertEquals(56, v.ticksInCover, "the cover's own time goes on");
         v = view(60, 1.5, 0, true, true);
         h.update(v);
         assertEquals(2, v.peeksFromCover);

@@ -9,7 +9,7 @@ What he decided is not in it; it is worked out here from the views that follow e
   PUSH    enemies known, none seen for 2 seconds: 2 blocks nearer where the nearest was within 20 ticks
   RANK    at the start of a SHIFT: which of the cover places the bots' search offered he was hidden in next
 
-Usage: python3 tools/imitation/fights.py stats FILE_OR_DIR...
+Usage: python3 tools/imitation/fights.py stats|pool FILE_OR_DIR...   (pool: all of them as one fighter's numbers)
 """
 
 import gzip
@@ -213,8 +213,25 @@ def summary(xs):
     return {"n": len(s), "median": s[len(s) // 2], "mean": round(sum(s) / len(s), 1)}
 
 
+def pool(all_stats):
+    """many fighters' numbers as one: rates weighted by fight time, lengths by how many there were"""
+    secs = sum(x["fightSeconds"] for x in all_stats)
+    out = {"fighters": len(all_stats), "fightSeconds": round(secs, 1)}
+    if secs <= 0:
+        return out
+    out["shiftsPerMinute"] = round(sum(x["shiftsPerMinute"] * x["fightSeconds"] for x in all_stats if x["fightSeconds"]) / secs, 2)
+    out["inCoverShare"] = round(sum(x["inCoverShare"] * x["fightSeconds"] for x in all_stats if x["fightSeconds"]) / secs, 3)
+    for k in ("peekTicks", "hideTicks", "reactionTicks", "fightDistance"):
+        xs = [x[k] for x in all_stats if x.get(k)]
+        n = sum(x["n"] for x in xs)
+        out[k] = {"n": n, "mean": round(sum(x["mean"] * x["n"] for x in xs) / n, 1)} if n else None
+    rl = [x["reloadsInCoverShare"] for x in all_stats if x.get("reloadsInCoverShare") is not None]
+    out["reloadsInCoverShare"] = round(sum(rl) / len(rl), 3) if rl else None
+    return out
+
+
 def main(argv):
-    if len(argv) < 3 or argv[1] != "stats":
+    if len(argv) < 3 or argv[1] not in ("stats", "pool"):
         print(__doc__)
         return 2
     every = []
@@ -225,7 +242,10 @@ def main(argv):
             continue
         s = stats(views)
         every.append(s)
-        print(json.dumps({"file": p, "who": h.get("who"), "name": h.get("name"), **s}))
+        if argv[1] == "stats":
+            print(json.dumps({"file": p, "who": h.get("who"), "name": h.get("name"), **s}))
+    if argv[1] == "pool":
+        print(json.dumps(pool([x for x in every if x["fightSeconds"] > 0])))
     return 0
 
 

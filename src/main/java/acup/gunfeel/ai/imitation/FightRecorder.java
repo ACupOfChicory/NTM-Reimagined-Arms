@@ -331,8 +331,8 @@ public final class FightRecorder {
             s.out.write(line);
             s.bytes += line.length();
             s.lines++;
-            // every few seconds to the disk: a crash loses little
-            if (s.lines % 100 == 0) s.out.flush();
+            // the header at once, then every few seconds to the disk: a crash (a stand's halt) loses little
+            if (s.lines % 20 == 1) s.out.flush();
             if (s.bytes >= MAX_BYTES) stop(s, "the file is full");
         } catch (IOException e) {
             stop(s, e.toString());

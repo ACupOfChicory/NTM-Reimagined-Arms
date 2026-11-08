@@ -14,9 +14,10 @@ public final class FightFeatures {
 
     /** the view's numbers, in order (the recordings' header and the model file name them) */
     public static final List<String> NAMES = List.of("bias", "health", "loaded", "reloading", "crouching", "prone", "visible", "known", "nearest",
-            "nearestSeesMe", "seeingMe", "sinceSeen", "inCover", "peeks", "sinceHurt", "coverLow", "coverHigh", "friends", "exposed", "exposedFor");
+            "nearestSeesMe", "seeingMe", "sinceSeen", "inCover", "peeks", "sinceHurt", "coverLow", "coverHigh", "friends", "exposed", "exposedFor",
+            "hiddenFor");
 
-    public static final int SIZE = 20;
+    public static final int SIZE = 21;
 
     /** blocks a distance is counted in */
     static final double FAR = 64;
@@ -46,6 +47,8 @@ public final class FightFeatures {
         f[17] = Math.min(4, v.friendsNear) / 4.0;
         f[18] = v.exposed() ? 1 : 0;
         f[19] = v.ticksExposed / (double) FightHistory.LONG;
+        // hidden this long running: a look out comes after a while hidden, whatever came before in that cover
+        f[20] = v.ticksHidden / (double) FightHistory.LONG;
         return f;
     }
 

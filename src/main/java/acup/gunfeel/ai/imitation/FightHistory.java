@@ -16,7 +16,7 @@ public final class FightHistory {
 
     private boolean anchored;
     private double ax, az;
-    private long coverSince, seenTick = Long.MIN_VALUE, hurtTick = Long.MIN_VALUE, exposedSince = Long.MIN_VALUE;
+    private long coverSince, seenTick = Long.MIN_VALUE, hurtTick = Long.MIN_VALUE, exposedSince = Long.MIN_VALUE, hiddenSince = Long.MIN_VALUE;
     private int peeks;
     private boolean wasHidden, wasExposed;
     private float lastHealth = Float.NaN;
@@ -50,6 +50,7 @@ public final class FightHistory {
         // out of that cover into an enemy's sight and still by it: a look out
         if (near && wasHidden && exposed) peeks++;
         if (exposed && !wasExposed) exposedSince = t;
+        if (hidden && !wasHidden) hiddenSince = t;
         wasHidden = hidden;
         wasExposed = exposed;
         v.ticksInCover = near ? cap(t - coverSince) : 0;
@@ -58,6 +59,7 @@ public final class FightHistory {
         v.ticksSinceSeen = v.seenAgo >= 0 ? cap(v.seenAgo) : since(t, seenTick);
         v.ticksSinceHurt = v.hurtAgo >= 0 ? cap(v.hurtAgo) : since(t, hurtTick);
         v.ticksExposed = exposed ? cap(t - exposedSince) : 0;
+        v.ticksHidden = hidden ? cap(t - hiddenSince) : 0;
     }
 
     private static int since(long t, long at) {

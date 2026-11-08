@@ -35,7 +35,8 @@ public final class FightView {
     /** ticks since it was last hurt by a mob or saw an enemy, as the world knows it (-1: not known, the history counts) */
     public int hurtAgo = -1, seenAgo = -1;
     /** from its history (FightHistory) */
-    public int ticksSinceSeen = FightHistory.LONG, ticksInCover, peeksFromCover, ticksSinceHurt = FightHistory.LONG, ticksExposed;
+    public int ticksSinceSeen = FightHistory.LONG, ticksInCover, peeksFromCover, ticksSinceHurt = FightHistory.LONG, ticksExposed,
+            ticksHidden;
 
     public boolean exposed() {
         for (Enemy e : enemies) if (e.exposedTo) return true;
