@@ -1,5 +1,27 @@
 # Changelog
 
+## X<N>
+
+- Mob AI, new: bots can learn from your fights. `/armsai record on|off`
+  (operators) records how you fight: where you stand and look, what you
+  carry, the enemies you have seen, the cover the bots' own search finds round
+  you. The files go to `logs/ntm-gunfeel-fights/`, gzipped, about 5 to 10 MB
+  an hour of fighting, each at most 256 MB, and no new one is started once the
+  folder holds 2 GB. Off by default; it records only the player who turns it
+  on. `/armsai course` (in creative) lays a 64 by 64 ground to fight on in
+  front of you: a field with low and high cover, low ground with pits, the
+  walls of four houses with doors and windows, and an open strip along one
+  side; `/armsai course clear` takes it away again (grass is left, not what
+  stood there before).
+- Mob AI: a model trained on those recordings (`tools/imitation/`) decides
+  for the bots when to look out of cover, when to get back in, when to move
+  to other cover and which, and when to go after someone they lost; their
+  own code still finds the paths, aims and shoots. Where the model has seen
+  nothing like the fight at hand, the bots decide as before. It reads
+  `config/ntm-gunfeel-imitation.json` and is used only with the server key
+  `aiImitation=true` (off by default); `/armsai imitation info` tells what
+  it decided, `/armsai imitation reload` reads the file again.
+
 ## X713
 
 - Mob AI, new: mobs that fight as a player does, with NTM's guns. `/armsai
