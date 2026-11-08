@@ -23,6 +23,6 @@ public abstract class MixinBeamTauon {
     private boolean gunfeel$shot(Entity target, ServerLevel level, DamageSource source, float damage, Operation<Boolean> original) {
         if (!BeamServer.on()) return original.call(target, level, source, damage);
         float left = BeamTurrets.hit((BlockEntityTurretBaseNT) (Object) this, target, damage);
-        return left > 0F && original.call(target, level, source, left);
+        return left > 0F && BeamTurrets.hurt(target, left, d -> original.call(target, level, source, d));
     }
 }

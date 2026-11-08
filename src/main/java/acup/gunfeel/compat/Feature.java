@@ -12,7 +12,7 @@ public enum Feature {
     MODEL_HITBOXES("model_hitboxes", List.of("MixinNtmMeshHits", "GlyphidGeometryAccess", "MixinGlyphidModelHits", "MixinMobObjModelHits", "MixinMobModelHits", "MixinGpuEntityGeometry", "MixinHeadDamage"),
             List.of("NtmMeshHits", "MobObjPose", "ModelMeshCapture", "MobStageCleanup", "HeadDamage")),
     HOLD_AIM("hold_aim", List.of("MixinHoldAim", "MixinAimButton"), List.of("ReaimTimes", "AimButton")),
-    BULLETS("bullets", List.of("MixinBulletServer", "MixinThrowableHit", "MixinLegacyBullet", "MixinWaterBullet", "MixinWaterMuffle", "MixinBeamModelQuery", "MixinBeamBlocks", "MixinBeamTurretSight", "MixinBeamTauon", "MixinBeamMaxwell", "MixinBeamTesla", "TurretMaxwellAccess", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinExplosiveDirect", "MixinWaterBlast", "MixinWaterBlastProcessor", "MixinWaterImpact", "MixinWaterFire", "MixinWaterFireRocket", "MixinWaterFireFlamer"),
+    BULLETS("bullets", List.of("MixinBulletServer", "MixinThrowableHit", "MixinLegacyBullet", "MixinWaterBullet", "MixinWaterMuffle", "MixinBeamModelQuery", "MixinBeamBlocks", "MixinBeamTurretSight", "MixinBeamTauon", "MixinBeamMaxwell", "MixinBeamTesla", "TurretMaxwellAccess", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinWaterBlast", "MixinWaterBlastProcessor", "MixinWaterImpact", "MixinWaterFire", "MixinWaterFireRocket", "MixinWaterFireFlamer"),
             List.of("BulletServer", "PassableClip", "Cells", "Structures", "BulletFx", "BulletRules", "ExplosiveAmmo", "ExplosiveDamage", "LegacyBullets", "BeamServer", "BeamTurrets")),
     RICOCHET_SOUND("ricochet_sound", List.of("MixinRicochetSound"), List.of()),
     SPREAD("spread", List.of("MixinLegoSpread"), List.of("Spread")),
@@ -32,7 +32,7 @@ public enum Feature {
     GL54("gl54", List.of("MixinAmmoPress", "MixinAmmoPressScreen", "MixinGasCorrosion", "MixinGasAim"), List.of("PressLoading", "PressSync", "PressScreenExtras", "PressLayoutsPayload", "Gl54Items", "Gl54Gun", "Gl54Ammo", "Gl54Grenade", "FragBurst", "FragFx", "GrenadeType", "GrenadeMagazine", "MagItem", "MagTint", "MagMenu", "MagScreen", "Gl54SelectPayload", "MagCommand", "Gl54Hud", "Gl54Anim", "Gl54Orchestra", "Gl54Casing", "Gl54Server", "Gl54Client", "ItemRenderGl54", "Gl54Range", "Gl54Fuse", "Gl54Reflex", "ReflexDraw", "ReflexMath", "Gl54Laser", "Gl54LaserWorld", "Gl54Ballistics", "Gl54Aim", "Gl54OffsetPayload")),
     PRONE("prone", List.of(), List.of("Prone", "ProneClient", "ProneCrawlPayload", "ProneStandPayload", "CrawlKey", "CrawlPitch", "LocalPlayerCrawl", "LivingEntityCrawl", "ProneStand")),
     PRONE_FIRE("prone_fire", List.of("MixinProneFireClick", "MixinProneFireDecider", "MixinProneFireKeys"), List.of("ProneFire", "ProneFireStand")),
-    MOB_AI("mob_ai", List.of("MixinAiFbi", "MixinAiDummy", "MixinAiLeanShot"), List.of("AiGunner", "AiCommand", "AiCheckSpread", "AiCheckAim", "AiCheckRecoil", "FightLook"));
+    MOB_AI("mob_ai", List.of("MixinAiFbi", "MixinAiDummy", "MixinAiLeanShot", "MixinBotModel"), List.of("AiGunner", "AiCommand", "AiCheckSpread", "AiCheckAim", "AiCheckRecoil", "FightLook"));
 
     public final String id;
     // simple names: mixins in acup.gunfeel.mixin, classes in acup.gunfeel

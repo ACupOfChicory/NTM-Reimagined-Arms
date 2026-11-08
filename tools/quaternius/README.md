@@ -1,7 +1,8 @@
 # Free humanoid clips → Minecraft biped
 
-Puts clips of free (CC0) humanoid animation packs on the six parts of a Minecraft `HumanoidModel`: head, body, both
-arms, both legs. AI mobs play a few of them: `bot_clips.py` copies those into the mod.
+Puts clips of free (CC0) humanoid animation packs on the AI mobs' model of ten parts (`BotModel` in the mod): head,
+body, and each arm and leg in two, upper arm and forearm, thigh and shin, as vanilla's biped cut at the elbow and the
+knee. AI mobs play a few of the clips: `bot_clips.py` copies those into the mod.
 
 | Pack | Author | License | Where | What we take |
 |---|---|---|---|---|
@@ -27,9 +28,10 @@ UAL1_GLB=<UAL1_Standard.glb> KAYKIT_GLB=<Rig_Medium_General.glb> SWAT_GLB=<swat.
 
 Python 3 and numpy only; the glb is read directly, no Blender. Each rig's bones are named in `RIGS`.
 
-## Choosing how a limb is carried over
+## The picker page (six parts)
 
-A Minecraft arm or leg is one box where the clip has two bones. `retarget.MODES` are the ways to put it: along the
+Kept from the model of six parts and no longer developed: there a Minecraft arm or leg was one box where the clip has
+two bones. `retarget.MODES` are the ways to put it: along the
 whole limb (`end`: shoulder to wrist, hip to ankle — the default), the upper bone (`upper`), the lower one (`lower`)
 or halfway between the upper bone and the whole limb (`mix`). A picker page shows every clip of `SELECTED` in each
 mode beside the rig's own skeleton:
@@ -55,15 +57,18 @@ leg moved down goes into the ground. Limits: ±180° and ±12 px. The page shows
 `check.json`'s grades of a corrected clip measure it with the correction against the rig, as they would any other
 difference.
 
-`retarget.py --choices anim-choices.json <animations dir> <check.json> TAG=<file.glb> ...` converts each clip in the
-modes chosen and leaves out the ones not taken; without `--choices` the output is as before.
+`retarget.py --choices anim-choices.json <animations dir> <check.json> TAG=<file.glb> ...` leaves out the clips not
+taken and applies `adjust`; the modes are not used any more (each bone has its part now), and it says so when a file
+gives them.
 
 ## Output
 
 `animations/ual1.animation.json`, `ual2.animation.json`, `kaykit.animation.json`, `swat.animation.json`: Bedrock
 animation JSON 1.8.0, linear keys.
-Each clip listed in `SELECTED` (`retarget.py`) comes three times: `<clip>` (all six parts), `<clip>_upper`
-(head, body, arms) and `<clip>_lower` (legs and a `root` bone). In the split halves the parts' positions leave out
+Each clip listed in `SELECTED` (`retarget.py`) comes three times: `<clip>` (all ten parts), `<clip>_upper`
+(head, body, arms and forearms) and `<clip>_lower` (thighs, shins and a `root` bone). The forearm and the shin are
+`right_forearm`, `left_forearm`, `right_shin`, `left_shin`: their turn is their own, from their upper part (the
+model has them as its children), and they have no position. In the split halves the parts' positions leave out
 the hips' shift and `root` carries it, so a player adds `root`'s position to every part.
 
 Values are read the way PlayerAnimationLib reads them:
@@ -76,15 +81,17 @@ Values are read the way PlayerAnimationLib reads them:
 
 ## How a clip is carried over
 
-- An arm points from shoulder to wrist, a leg from hip to ankle. The twist around the limb's length comes from the
-  hand for an arm (it holds the gun) and from the thigh for a leg.
+- Bone by bone: the upper arm takes the upper arm bone (shoulder to elbow), the forearm the lower one (elbow to
+  wrist), the thigh and the shin the same. The twist of an arm comes from the hand (it holds the gun), of a leg from
+  the thigh.
 - The body points from the neck to the middle of the hips; its twist comes from the chest bone (UAL `spine_03`).
   The head takes the head bone's turn as it is.
-- The parts are siblings in Minecraft, so each one gets its own full turn. The head, body and arms hang from the
-  neck, 12 px above the hips along the body; the legs hang from the hips, turned with the pelvis.
-- The hips move with UAL's pelvis, scaled by leg length (12 px per UAL leg). Their height comes from the ground:
-  the lowest corner of the six boxes rises above the ground as far as UAL's lowest joint rises above its rest
-  height.
+- The head, body and upper parts are siblings in Minecraft, so each one gets its own full turn; a forearm or a shin
+  turns from its upper part. The head, body and arms hang from the neck, 12 px above the hips along the body; the
+  legs hang from the hips, turned with the pelvis. The elbow is 4 px below the arm's pivot and 1 px in from it (on
+  the arm's middle line, 6 px below its top), the knee 6 px below the hip.
+- The hips move with UAL's pelvis, scaled by leg length (12 px per UAL leg), their height too; they are lifted only
+  where a box would go into the ground.
 - Where straight interpolation of the Euler angles between two 30 fps frames strays more than 2° from the pose
   halfway (a fast swing), frames are added in between, halving the step up to 4 times. Then keys are dropped where
   linear interpolation stays within 0.5° and 0.05 px of every frame.
@@ -102,12 +109,9 @@ For every frame the parts are rebuilt from the written keys and compared with th
 - `rebuild`: the part's direction against shoulder→wrist (hip→ankle), the target itself; `rebuild_turn`: the whole
   turn, twist included, against the solved one; `mid`: the same halfway between two frames, where a player
   interpolates. Together: what the Euler angles and dropped keys cost.
-- `arm_up`, `arm_fore`, `elbow` (and `leg_*`, `knee`): the part against the upper and lower bones, and the bend
-  between them. Minecraft limbs do not bend, so this is what is lost.
-- `hand_px`: how much shorter shoulder→wrist is than a straight arm, in pixels of a 10 px arm. The hand ends up this
-  far beyond where UAL has it. Only the arm's length: the clavicle's shift is not counted. It is measured against
-  the rest pose's arm: SWAT rests with bent elbows (26° and 46°), so there `hand_px` reads low and `elbow` is the
-  honest number.
+- `arm_up`, `arm_fore` (and `leg_up`, `leg_low`): each part against its bone; `elbow`, `knee`: the bend there.
+- `hand_px`, `foot_px`: how far the end of the forearm (shin) is from where the rig's wrist (ankle) would be on a
+  model of its proportions, pixels.
 - `hip_px`, `ankle_px`: the hips' height and the ankle's place against UAL's, in pixels, taken from the solved
   pose before the keys are written (dropping keys moves it by at most 0.05 px).
 

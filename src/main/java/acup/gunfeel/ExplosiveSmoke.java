@@ -57,7 +57,8 @@ final class ExplosiveSmoke {
             for(var config:configs) {
                 String name=net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(config.ammoItem.get()).toString();
                 float extra=name.endsWith("_heat")?30:0;
-                Vec3[] points={body,head,limb};float[] multipliers={1,1.75F,.5F};
+                // a blast hits no part of the body: the head and a limb as the body (no multiplier)
+                Vec3[] points={body,head,limb};float[] multipliers={1,1,1};
                 for(int i=0;i<3;i++) {
                     float old=measure(level,target,config,points[i],true);
                     float actual=measure(level,target,config,points[i],false);

@@ -49,8 +49,10 @@ public final class BeamTurrets {
         return level == null || BeamServer.reach(level, null, pivot, target, damage, round(turret), false, own(turret), laser(turret)) < 0F;
     }
 
-    // the turret's shot at its target: the damage that gets there (with the zone of the place it meets on the model), or
-    // -1 when blocks stop it
+    // the zone's multiplier of the place the last shot met on the model (1: none), for HeadDamage.attack: after the armour
+    private static float lastMultiplier = 1F;
+
+    // the turret's shot at its target: the damage that gets there, or -1 when blocks stop it; then {@link #hurt}
     public static float hit(BlockEntityTurretBaseNT turret, Entity target, float damage) {
         Level level = turret.getLevel();
         if (level == null) return damage;
@@ -60,9 +62,17 @@ public final class BeamTurrets {
         var met = ModelHits.clip(target, pivot, far, target.getBoundingBox());
         Vec3 at = met.orElse(middle);
         float left = BeamServer.reach(level, null, pivot, at, damage, round(turret), true, own(turret), laser(turret));
+        lastMultiplier = 1F;
         if (left < 0F) return -1F;
-        if (met.isPresent() && target instanceof LivingEntity living) left = HeadDamage.beamDamage(left, living, new EntityHitResult(target, at));
+        if (met.isPresent() && target instanceof LivingEntity living) lastMultiplier = HeadDamage.beamMultiplier(living, new EntityHitResult(target, at));
         return left;
+    }
+
+    // NTM's hurt of the shot {@link #hit} worked out, its zone's multiplier after the armour
+    public static boolean hurt(Entity target, float left, HeadDamage.Hurt hurt) {
+        float multiplier = lastMultiplier;
+        lastMultiplier = 1F;
+        return target instanceof LivingEntity living ? HeadDamage.attack(living, left, multiplier, hurt) : hurt.hurt(left);
     }
 
     // a Maxwell's maser is a laser (BeamLasers): through glass; a Tauon's tau is not

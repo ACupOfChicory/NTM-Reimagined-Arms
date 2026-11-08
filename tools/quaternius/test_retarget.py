@@ -102,6 +102,31 @@ class Math(unittest.TestCase):
         finally:
             os.unlink(f.name)
 
+    def test_ten_parts_local_world_round_trip(self):
+        rng = np.random.default_rng(2)
+        world = {part: r.euler_to_mat(rng.uniform(-170, 170, 3)) for part in r.PARTS10}
+        back = r.world10(r.local10(world))
+        for part in r.PARTS10:
+            self.assertLess(r.mat_angle(back[part], world[part]), 1e-4, part)  # acos near 1: 1e-6 is noise
+
+    def test_ten_parts_adjust_carries_the_child(self):
+        out = {part: (np.array([float(i), 2.0, 0.0]), np.eye(3)) for i, part in enumerate(r.PARTS10)}
+        out["right_forearm"] = (out["right_arm"][0] + r.JOINT["right_forearm"], np.eye(3))
+        adj = r.adjusted10(out, {"right_arm": {"rot": [-90.0, 0.0, 0.0], "pos": [0.0, 1.0, 0.0]}})
+        piv, m = adj["right_forearm"]
+        e = r.euler_to_mat([-90.0, 0.0, 0.0])
+        self.assertTrue(np.allclose(piv, out["right_arm"][0] + [0, -1, 0] + e @ r.JOINT["right_forearm"]))
+        self.assertLess(r.mat_angle(m, e), 1e-9)
+        self.assertLess(r.mat_angle(r.local10({k: v[1] for k, v in adj.items()})["right_forearm"], np.eye(3)), 1e-9)
+
+    def test_ten_parts_halves_make_the_vanilla_limb(self):
+        # the upper arm and the forearm straight are vanilla's arm box, cut 6 px below its top
+        lo, hi = r.BOX10["right_arm"]
+        flo, fhi = r.BOX10["right_forearm"]
+        j = r.JOINT["right_forearm"]
+        self.assertEqual((lo[1], hi[1], j[1] + flo[1], j[1] + fhi[1]), (-2, 4, 4, 10))
+        self.assertEqual((j[0] + flo[0], j[0] + fhi[0]), r.BOX["right_arm"][0][0:1] + r.BOX["right_arm"][1][0:1])
+
 
 @unittest.skipUnless(GLB and os.path.exists(GLB), "UAL1 glb not given")
 class Poses(unittest.TestCase):
@@ -188,6 +213,34 @@ class Poses(unittest.TestCase):
         out = self.solve("Death01", clip.length)
         down = out["body"][1] @ r.Y
         self.assertLess(abs(down[1]), 0.3, down)  # the body's length is level
+
+    def test_ten_parts_follow_their_bones(self):
+        clip = self.g.clip("Pistol_Reload")
+        _, st, _, _, _ = r.convert10(self.sk, clip)
+        for k in ("arm_up", "arm_fore", "leg_up", "leg_low"):
+            self.assertLess(np.percentile(st[k], 95), 1.0, k)
+        self.assertLess(np.percentile(st["hand_px"], 95), 2.5)  # the MC elbow sits higher than the rig's
+
+    def test_ten_parts_t_pose(self):
+        out, _ = r.solve10(self.sk, self.sk.pose(self.g.clip("A_TPose").world(0.0)))
+        local = r.local10({k: v[1] for k, v in out.items()})
+        for child in r.CHILD:  # straight limbs: a child barely turns on its parent
+            self.assertLess(abs(r.mat_to_euler(local[child])[0]), 5.0, child)
+        for leg in ("right_leg", "left_leg"):
+            self.assertAlmostEqual(out[leg][0][1], 12.0, delta=0.3)
+        self.assertTrue(np.allclose(out["right_arm"][1] @ r.Y, [-1, 0, 0], atol=0.03))
+
+    def test_ten_parts_elbow_bends_on_reload(self):
+        out, _ = r.solve10(self.sk, self.sk.pose(self.g.clip("Pistol_Reload").world(0.8)))
+        local = r.local10({k: v[1] for k, v in out.items()})
+        self.assertGreater(r.mat_angle(local["left_forearm"], np.eye(3)), 30.0)
+
+    def test_ten_parts_no_box_in_the_ground(self):
+        clip = self.g.clip("Death01")
+        for t in np.linspace(0, clip.length, 9):
+            out, _ = r.solve10(self.sk, self.sk.pose(clip.world(t)))
+            low = r.lowest_corner10({k: v[1] for k, v in out.items()}, {k: v[0] for k, v in out.items()})
+            self.assertLessEqual(low, 24.0 + 1e-6, t)
 
 
 @unittest.skipUnless(KAYKIT and os.path.exists(KAYKIT), "KayKit glb not given")

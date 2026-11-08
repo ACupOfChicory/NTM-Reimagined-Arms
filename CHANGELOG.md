@@ -1,5 +1,29 @@
 # Changelog
 
+## X783
+
+- FBI agents and test dummies bend at the elbows and the knees: each arm and
+  leg is two parts, and the animations carry over bone by bone, so far more of
+  them keep their look (67 of 81 clips fit, 26 before). A straight limb looks
+  as before, the skin is the same, and the gun sits in the hand at the end of
+  the forearm.
+- Their hitboxes follow the ten parts: head, body, upper arms, forearms,
+  thighs and shins, each where it is drawn.
+- The head and limb multipliers (head ×1.75, limb ×0.5) now come after the
+  armour: NTM's damage threshold and resistance and vanilla's armour take
+  their share of the whole bullet first, then the part hit scales what gets
+  through. This goes for NTM's bullets and beams, its old bullets and the
+  Maxwell and Tauon turrets. Before, the threshold was taken off a limb's half
+  of a bullet and the armour let more of a headshot through: an FBI agent in
+  SECURITY armour took a carbine 20 shots to the body, 10 to the head and 80
+  to an arm or a leg; now 20, 12 and 40. Explosions no longer use the head and
+  limb multipliers: a blast hits no part of the body.
+- A glass block worn on the head no longer makes an agent's head hitbox
+  bigger.
+- FBI agents and test dummies show the armour they wear (SECURITY, PAA),
+  with sleeves and leggings that bend with the limbs. The armour adds nothing
+  to their hitboxes.
+
 ## X781
 
 - GL-54 gas: every gas poisons the ground now, not the mustard only. Fired at

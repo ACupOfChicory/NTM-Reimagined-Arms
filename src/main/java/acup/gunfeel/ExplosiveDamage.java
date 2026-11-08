@@ -77,13 +77,10 @@ public final class ExplosiveDamage {
     public static float damage(Blast blast,Entity target,float original){
         if(blast==null)return original;
         boolean direct=blast.context.impact instanceof EntityHitResult hit && hit.getEntity()==target && !blast.contactPaid;
-        float multiplier=1;
-        if(direct){
-            blast.contactPaid=true;
-            if(target instanceof LivingEntity living)multiplier=HeadDamage.contactDamage(1,blast.context.bullet,living,blast.context.impact);
-        }
+        // a blast hits no part of the body: no head's or limb's multiplier
+        if(direct)blast.contactPaid=true;
         float base=blast.base*(target==blast.explosion.exploder?.5F:1);
-        return total(original,base,multiplier,direct);
+        return total(original,base,1,direct);
     }
     public static boolean attack(LivingEntity target,net.minecraft.world.damagesource.DamageSource source,float damage,
             boolean first,boolean second,double knockback,float threshold,float piercing){
@@ -91,18 +88,12 @@ public final class ExplosiveDamage {
         try{return EntityDamageUtil.attackEntityFromNT(target,source,damage,first,second,knockback,threshold,piercing);}
         finally{SUPPRESS.set(previous);}
     }
-    public static float extra(LivingEntity target,float damage){
-        var context=CURRENT.get();
-        if(suppressed() || context==null || DEPTH.get()!=context.depth || !context.exploded
-                || !(context.impact instanceof EntityHitResult hit) || hit.getEntity()!=target)return damage;
-        return HeadDamage.contactDamage(damage,context.bullet,target,context.impact);
-    }
     public static void finish(Blast blast){
         if(blast==null || blast.contactPaid || !(blast.context.impact instanceof EntityHitResult hit)
                 || !(hit.getEntity() instanceof LivingEntity target) || !target.isAlive())return;
         // Видимая часть крупной модели может находиться за пределами ванильной коробки взрыва.
         blast.contactPaid=true;var bullet=blast.context.bullet;
-        float damage=HeadDamage.contactDamage(blast.base*CONTACT,bullet,target,hit);
+        float damage=blast.base*CONTACT;
         attack(target,BulletConfig.getDamage(bullet,bullet.getThrower(),bullet.config.dmgClass),damage,true,true,0,
                 bullet.config.armorThresholdNegation,bullet.config.armorPiercingPercent);
     }

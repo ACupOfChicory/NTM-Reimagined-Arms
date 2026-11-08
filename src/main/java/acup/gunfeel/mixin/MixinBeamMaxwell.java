@@ -22,6 +22,6 @@ public abstract class MixinBeamMaxwell {
     private boolean gunfeel$shot(Entity target, DamageSource source, float damage, Operation<Boolean> original) {
         if (!BeamServer.on()) return original.call(target, source, damage);
         float left = BeamTurrets.hit((BlockEntityTurretBaseNT) (Object) this, target, damage);
-        return left > 0F && original.call(target, source, left);
+        return left > 0F && BeamTurrets.hurt(target, left, d -> original.call(target, source, d));
     }
 }

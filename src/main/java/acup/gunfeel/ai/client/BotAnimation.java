@@ -51,13 +51,26 @@ public final class BotAnimation {
         state.isCrouching = false;
     }
 
+    /**
+     * After HumanoidModel.translateToHand: a bot's item goes to the end of its forearm, turned with it about the
+     * elbow (the item layer's own shift from there is from the arm's pivot, as vanilla's).
+     */
+    public static void hand(HumanoidModel<?> model, net.minecraft.world.entity.HumanoidArm arm,
+            com.mojang.blaze3d.vertex.PoseStack pose) {
+        net.minecraft.client.model.geom.ModelPart lower = BotModel.lower(model.getArm(arm));
+        if (lower == null) return;
+        lower.translateAndRotate(pose);
+        pose.translate(-lower.x / 16F, -lower.y / 16F, -lower.z / 16F);
+    }
+
     /** After HumanoidModel.setupAnim. */
     public static void pose(HumanoidModel<?> model, HumanoidRenderState state) {
         BotAnimator.Frame f = ((BotRenderData) state).gunfeel$bot();
         if (f == null) return;
         BotPoser.Parts parts = new BotPoser.Parts(model.head, model.body, model.rightArm, model.leftArm, model.rightLeg,
                 model.leftLeg);
-        BotPoser.apply(parts, f, state.swimAmount, standStill ? 1F : state.walkAnimationSpeed);
+        BotPoser.apply(parts, f, state.swimAmount, standStill ? 1F : state.walkAnimationSpeed,
+                standStill ? 0F : state.walkAnimationPos);
         BiConsumer<BotAnimator.Frame, BotPoser.Parts> watch = standWatch;
         if (watch != null) watch.accept(f, parts);
     }
