@@ -13,6 +13,8 @@ public final class FightHistory {
     static final double SAME_COVER = 2.5;
     /** further than this from it, it has left that cover */
     static final double LEFT = 4;
+    /** moved less than this between two views, blocks: standing still */
+    static final double STILL = 0.3;
 
     private boolean anchored;
     private double ax, az;
@@ -20,6 +22,8 @@ public final class FightHistory {
     private int peeks;
     private boolean wasHidden, wasExposed;
     private float lastHealth = Float.NaN;
+    private double lastX = Double.NaN, lastZ;
+    private long stillSince;
     private int lastLoaded = -1;
 
     /**
@@ -51,6 +55,10 @@ public final class FightHistory {
         if (near && wasHidden && exposed) peeks++;
         if (exposed && !wasExposed) exposedSince = t;
         if (hidden && !wasHidden) hiddenSince = t;
+        // standing still: moved no more than STILL since the last view
+        if (Double.isNaN(lastX) || Math.hypot(v.x - lastX, v.z - lastZ) > STILL) stillSince = t;
+        lastX = v.x;
+        lastZ = v.z;
         wasHidden = hidden;
         wasExposed = exposed;
         v.ticksInCover = near ? cap(t - coverSince) : 0;
@@ -60,6 +68,7 @@ public final class FightHistory {
         v.ticksSinceHurt = v.hurtAgo >= 0 ? cap(v.hurtAgo) : since(t, hurtTick);
         v.ticksExposed = exposed ? cap(t - exposedSince) : 0;
         v.ticksHidden = hidden ? cap(t - hiddenSince) : 0;
+        v.ticksStill = cap(t - stillSince);
     }
 
     private static int since(long t, long at) {

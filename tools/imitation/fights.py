@@ -3,8 +3,9 @@
 A recording is a gzipped JSON-lines file: a header, then a view every 4 ticks in a fight (every 20 out of one).
 What he decided is not in it; it is worked out here from the views that follow each one:
 
-  EXPOSE  hidden in cover, not reloading: out into an enemy's sight within 12 ticks
-  HIDE    in an enemy's sight by his cover: hidden again within 12 ticks
+  EXPOSE  hidden in cover, not reloading: a step (STEP) out into an enemy's sight within 12 ticks
+  HIDE    in an enemy's sight by his cover: a step back, hidden again, within 12 ticks
+  (a step: an enemy that moves round him changes what sees him, but that is not his decision)
   SHIFT   by his cover (hidden, or looking out of it): more than 4 blocks off within 40 ticks
   PUSH    enemies known, none seen for 2 seconds: 2 blocks nearer where the nearest was within 20 ticks
   RANK    at the start of a SHIFT: which of the cover places the bots' search offered he was hidden in next
@@ -22,6 +23,7 @@ WINDOWS = {"EXPOSE": 12, "HIDE": 12, "SHIFT": 40, "PUSH": 20}
 # views further apart than this are a gap: no window runs across one, ticks
 GAP = 8
 SHIFT_AWAY = 4.0
+STEP = 0.7
 PUSH_NEARER = 2.0
 PUSH_UNSEEN = 40
 
@@ -95,11 +97,11 @@ def cases(views):
         if v["hid"] == 1 and v["rl"] == 0:
             w = window(views, i, WINDOWS["EXPOSE"])
             if w is not None:
-                out["EXPOSE"].append((f, any(x["exp"] == 1 for x in w)))
+                out["EXPOSE"].append((f, any(x["exp"] == 1 and dist(x, v) >= STEP for x in w)))
         if v["exp"] == 1 and near_cover(v):
             w = window(views, i, WINDOWS["HIDE"])
             if w is not None:
-                out["HIDE"].append((f, any(x["hid"] == 1 for x in w)))
+                out["HIDE"].append((f, any(x["hid"] == 1 and dist(x, v) >= STEP for x in w)))
         # by his cover, hidden or looking out of it: the bots ask after a look out and when hit there too
         if near_cover(v):
             w = window(views, i, WINDOWS["SHIFT"])

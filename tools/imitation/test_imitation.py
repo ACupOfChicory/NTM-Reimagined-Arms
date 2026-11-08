@@ -17,7 +17,7 @@ sys.path.insert(0, HERE)
 import fights  # noqa: E402
 
 NAMES = ["bias", "health", "loaded", "reloading", "crouching", "prone", "visible", "known", "nearest", "nearestSeesMe", "seeingMe",
-         "sinceSeen", "inCover", "peeks", "sinceHurt", "coverLow", "coverHigh", "friends", "exposed", "exposedFor", "hiddenFor"]
+         "sinceSeen", "inCover", "peeks", "sinceHurt", "coverLow", "coverHigh", "friends", "exposed", "exposedFor", "hiddenFor", "stillFor"]
 SPOTS = ["place", "score", "away", "high", "hard", "peek", "toward", "aside", "fromThreat"]
 
 
@@ -46,7 +46,7 @@ def fighter(seconds, seed):
 
 
 def view(t, x, hid, exp, in_cover, cover_x, fired=0):
-    f = [0.0] * 21
+    f = [0.0] * 22
     f[0] = 1
     f[1] = 1
     f[6] = 0.25 if exp else 0
@@ -98,7 +98,7 @@ def main():
         assert report["EXPOSE"]["logloss"] < report["EXPOSE"]["constant"], report["EXPOSE"]
         assert report["RANK"]["modelTop"] > report["RANK"]["formulaTop"], report["RANK"]
         for q in m["questions"].values():
-            assert len(q["w"]) == len(q["min"]) == len(q["max"]) == 21 and q["cases"] > 0
+            assert len(q["w"]) == len(q["min"]) == len(q["max"]) == 22 and q["cases"] > 0
         print("ok", json.dumps({"stats": {k: s[k] for k in ("shiftsPerMinute", "peekTicks", "hideTicks")}, "EXPOSE": report["EXPOSE"],
                                 "RANK": report["RANK"]}))
 

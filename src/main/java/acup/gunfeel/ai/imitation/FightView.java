@@ -36,7 +36,7 @@ public final class FightView {
     public int hurtAgo = -1, seenAgo = -1;
     /** from its history (FightHistory) */
     public int ticksSinceSeen = FightHistory.LONG, ticksInCover, peeksFromCover, ticksSinceHurt = FightHistory.LONG, ticksExposed,
-            ticksHidden;
+            ticksHidden, ticksStill;
 
     public boolean exposed() {
         for (Enemy e : enemies) if (e.exposedTo) return true;
