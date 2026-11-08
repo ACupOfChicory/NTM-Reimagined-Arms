@@ -5,9 +5,13 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 import acup.gunfeel.ai.AiThoughts.Why;
+import acup.gunfeel.ai.imitation.AiChoice;
+import acup.gunfeel.ai.imitation.AiChoice.Ask;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -139,8 +143,39 @@ public final class AiSoldier implements AiBrain {
 
     @Override
     public void tick(AiBot bot, long tick) {
+        crouch = false;
         decide(bot, tick);
+        body(bot, tick);
         if (AiThoughts.on()) thoughts.note(this, bot, tick);
+    }
+
+    /** this tick it keeps low behind low cover (the decision sets it; standing unless it does) */
+    private boolean crouch;
+    /** ticks it rises before a burst over low cover */
+    static final int RISE = 5;
+    /** the pause between bursts over low cover (burst) */
+    static final int BURST_PAUSE = 20;
+
+    /**
+     * Its body as decided this tick: down low behind low cover or running low past it (AiStoop), else standing where
+     * there is room to (lying is AiProne's); and the pose the clients draw (AiPose), set before the game's pose, so the
+     * crouching size (MixinAiProneSize) finds it.
+     */
+    private void body(AiBot bot, long tick) {
+        Mob m = bot.mob;
+        boolean lying = bot.prone.lying();
+        boolean stoop = bot.stoop.want(m, bot.mover, lying, AiBots.voxels((ServerLevel) m.level()), tick);
+        // down low under something lower than its standing height: it stays low (a player cannot stand up there either)
+        boolean low = crouch || stoop || !lying && m.getPose() == Pose.CROUCHING && !m.level().noCollision(m,
+                m.getDimensions(Pose.STANDING).makeBoundingBox(m.position()).deflate(1.0E-7));
+        AiGunner g = bot.gunner;
+        boolean reloading = g.reloading();
+        AiPose.set(m, AiPose.of(m).withStance(lying ? AiPose.PRONE : low ? AiPose.CROUCH : AiPose.STAND)
+                .withArms(g.wantsFire() || mode == Mode.PEEK ? AiPose.AIM : AiPose.HOLD)
+                .withAction(reloading ? AiPose.RELOAD : AiPose.NONE, (int) tick, (short) (reloading ? g.reloadTicks() : 0)));
+        if (lying) return;
+        Pose want = low ? Pose.CROUCHING : Pose.STANDING;
+        if (m.getPose() != want) m.setPose(want);
     }
 
     /** a decision of a moment, for the journal (what: a constant, so nothing is built with the journal off) */
@@ -198,7 +233,7 @@ public final class AiSoldier implements AiBrain {
         // hit in its cover: whoever shot sees into it, wherever the rough guess of where from puts them (a guess a few
         // blocks off could fall behind a wall and leave it in the cover it was shot in). Other cover if there is any,
         // once in a while (a burst's every hit is no new news), and not while on its way to cover already
-        if (spot != null && mode != Mode.TO_COVER && tick - lastHitMove > HIT_MOVE_GAP) {
+        if (spot != null && mode != Mode.TO_COVER && AiChoice.ask(bot, Ask.HIT_MOVE, tick - lastHitMove > HIT_MOVE_GAP, tick)) {
             lastHitMove = tick;
             // asked as if it had none: the query keeps the current place (past the cells it is not to take, with a
             // bonus) and would send it back where it was shot
@@ -278,10 +313,10 @@ public final class AiSoldier implements AiBrain {
         if (hurt != null && hurt.hurt && hurt.tick != hitSeen) {
             hitSeen = hurt.tick;
             if (spot != null && (mode == Mode.COVER || mode == Mode.PEEK) && tick - lastShift > SHIFT_GAP && !bot.prone.fresh(tick)
-                    && bot.mob.getRandom().nextFloat() < SHIFT_HIT) shift(bot, tick, "shot at in cover: other cover");
+                    && AiChoice.ask(bot, Ask.SHIFT_ON_HIT, bot.mob.getRandom().nextFloat() < SHIFT_HIT, tick)) shift(bot, tick, "shot at in cover: other cover");
         }
         // in cover a while: a better place, if there is one now
-        if (spot != null && mode == Mode.COVER && bot.mover.arrived() && tick >= nextBetter && !bot.prone.fresh(tick)) {
+        if (spot != null && mode == Mode.COVER && bot.mover.arrived() && !bot.prone.fresh(tick) && AiChoice.ask(bot, Ask.BETTER_COVER, tick >= nextBetter, tick)) {
             nextBetter = tick + BETTER_MIN + bot.mob.getRandom().nextInt(BETTER_MAX - BETTER_MIN);
             List<Vec3> all = threats(bot, c, eye);
             CoverQuery.Spot better = query(bot, level, map, all, false, true);
@@ -363,6 +398,7 @@ public final class AiSoldier implements AiBrain {
         if (!bot.mover.arrived() && mode == Mode.TO_COVER) {
             // on its way: near, in sight, it walks there firing (as a player backs off shooting); else it runs, holding fire
             boolean near = dist <= skill.answerNear() * NEAR_WALK;
+            bot.stoop.follow(eye);
             bot.mover.goTo(spot.cell(), 0.35, near ? WALK : RUN);
             g.fire(near && burst(bot, tick, false));
             if (near) why = Why.WALK_FIRE;
@@ -385,11 +421,13 @@ public final class AiSoldier implements AiBrain {
                 // behind low cover it fires standing, and goes down only for a long reload
                 if ((reload || g.reloading()) && dist >= PRONE_NEVER && longReload(g)) bot.prone.want();
                 g.fire(bot.prone.upright(tick) && !reload && burst(bot, tick, false));
+                // between bursts and through a short reload it keeps low, and rises a moment before the next burst
+                crouch = reload || g.reloading() || burstUntil != 0 && tick > burstUntil && tick < burstUntil + BURST_PAUSE - RISE;
             } else g.fire(false);
             if (reload) g.reload();
             // on its way in: the reason it is coming in stays
             if (there) why = reload || g.reloading() ? (low ? Why.LOW_RELOAD : Why.RELOAD) : g.dry() ? Why.DRY : low ? Why.LOW_FIGHT : Why.HIDE;
-            if (!low && there && !reload && !g.reloading() && tick >= hideUntil && spot.hasPeek() && g.loaded() != 0) {
+            if (!low && there && !reload && !g.reloading() && spot.hasPeek() && g.loaded() != 0 && AiChoice.ask(bot, Ask.PEEK_FIGHT, tick >= hideUntil, tick)) {
                 bot.mover.goTo(choosePeek(bot), PEEK_AT, WALK);
                 mode(Mode.PEEK, tick);
                 peekSince = tick;
@@ -402,7 +440,7 @@ public final class AiSoldier implements AiBrain {
             boolean fired = there && burst(bot, tick, false);
             g.fire(fired);
             boolean done = there && burstUntil != 0 && tick >= burstUntil;
-            if (done || tick - peekSince > PEEK_BLIND + 40 || g.loaded() == 0) {
+            if (tick - peekSince > PEEK_BLIND + 40 || g.loaded() == 0 || there && AiChoice.ask(bot, Ask.BACK_IN, done, tick)) {
                 g.fire(false);
                 bot.mover.goTo(spot.cell(), 0.35, WALK);
                 mode(Mode.COVER, tick);
@@ -410,8 +448,8 @@ public final class AiSoldier implements AiBrain {
                 why = g.loaded() == 0 ? Why.BACK_EMPTY : done ? Why.BACK_DONE : Why.BACK_LONG;
                 // looked out of one cover two or three times: now and then other cover; from one place FROM_ONE
                 // times, or out of one cover FROM_COVER times: other cover for sure
-                if (tick - lastShift > SHIFT_GAP && (peeksHere >= FROM_ONE || coverPeeks >= FROM_COVER
-                        || coverPeeks >= 2 + bot.mob.getRandom().nextInt(2) && bot.mob.getRandom().nextFloat() < SHIFT_PEEKS))
+                if (tick - lastShift > SHIFT_GAP && AiChoice.ask(bot, Ask.SHIFT_AFTER_PEEK, peeksHere >= FROM_ONE || coverPeeks >= FROM_COVER
+                        || coverPeeks >= 2 + bot.mob.getRandom().nextInt(2) && bot.mob.getRandom().nextFloat() < SHIFT_PEEKS, tick))
                     shift(bot, tick, "looked out of one cover " + coverPeeks + " times: other cover");
             }
         }
@@ -439,10 +477,11 @@ public final class AiSoldier implements AiBrain {
             boolean reload = g.loaded() >= 0 && g.loaded() < g.capacity() && g.ammo.any();
             if (reload) g.reload();
             boolean low = s.peek() == s.cell() || !s.hasPeek();
-            // behind low cover it lies only for a long reload, and stands to look
+            // behind low cover it lies only for a long reload, keeps low while it waits, and stands to look
             if (low && bot.mover.arrived() && (reload || g.reloading()) && longReload(g)) bot.prone.want();
+            crouch = low && bot.mover.arrived() && (reload || g.reloading() || tick < hideUntil);
             why = reload || g.reloading() ? Why.RELOAD : low ? Why.LOW_HIDE : Why.LOST_HIDE;
-            if (bot.mover.arrived() && tick >= hideUntil && !reload && !g.reloading()) {
+            if (bot.mover.arrived() && !reload && !g.reloading() && AiChoice.ask(bot, Ask.LOOK_LOST, tick >= hideUntil, tick)) {
                 if (low) {
                     why = Why.LOW_LOOK;
                     if (bot.prone.upright(tick)) blindLost = c.lostTick;
@@ -471,7 +510,7 @@ public final class AiSoldier implements AiBrain {
 
     /** fires in bursts with pauses; whether to hold the trigger now */
     private boolean burst(AiBot bot, long tick, boolean anywhere) {
-        if (burstUntil == 0 || tick > burstUntil + 20) {
+        if (burstUntil == 0 || tick > burstUntil + BURST_PAUSE) {
             burstUntil = tick + BURST_MIN + bot.mob.getRandom().nextInt(BURST_MAX - BURST_MIN);
             bursts++;
         }
@@ -559,7 +598,7 @@ public final class AiSoldier implements AiBrain {
             pushAt = c.lostTick + PUSH_MIN + bot.mob.getRandom().nextInt(PUSH_MAX - PUSH_MIN + 1);
         }
         if (mode == Mode.SEARCH) return true;
-        return tick >= pushAt && (spot == null || blindLost == c.lostTick);
+        return AiChoice.ask(bot, Ask.PUSH_NOW, tick >= pushAt && (spot == null || blindLost == c.lostTick), tick);
     }
 
     /** whether a looks at b: b's eyes within 20 degrees of where a's eyes point */
@@ -636,8 +675,9 @@ public final class AiSoldier implements AiBrain {
         p.fightAt = bot.gunner.fightAt();
         var held = AiBots.heldByOthers(bot);
         List<CoverQuery.Spot> found = CoverQuery.find(map, AiBots.voxels(level), bot.mob.position(), threats, p,
-                k -> held.test(k) || unreachable.contains(k), 1);
-        return found.isEmpty() ? null : found.get(0);
+                k -> held.test(k) || unreachable.contains(k), CoverQuery.POOL);
+        // the pool is found whatever is asked for; which of it: the formula's best, or the imitation's pick (AiChoice)
+        return found.isEmpty() ? null : found.get(AiChoice.rank(bot, found, level.getGameTime()));
     }
 
     /** to this cover, running, out of the threat's sight where it can */
@@ -649,6 +689,7 @@ public final class AiSoldier implements AiBrain {
         AiBots.claim(bot, spot.cell(), spot.peek());
         Vec3 t = threats.get(0);
         bot.mover.costs(new ExposureCost(TacticalMap.of(level), t.x, t.y, t.z));
+        bot.stoop.from(t);
         bot.mover.goTo(spot.cell(), 0.35, RUN);
         mode(Mode.TO_COVER, level.getGameTime());
         covers++;
@@ -658,6 +699,7 @@ public final class AiSoldier implements AiBrain {
         spot = null;
         AiBots.claim(bot, Long.MIN_VALUE);
         bot.mover.costs(PathSearch.Cost.NONE);
+        bot.stoop.from(null);
     }
 
     // ------------------------------------------------------------------ out of sight
@@ -762,7 +804,7 @@ public final class AiSoldier implements AiBrain {
             AiGunner g = bot.gunner;
             boolean reload = g.loaded() >= 0 && g.loaded() < g.capacity() && g.ammo.any();
             if (reload) g.reload();
-            if (bot.mover.arrived() && tick >= hideUntil && tick >= lookAgain && !reload && !g.reloading()) {
+            if (bot.mover.arrived() && !reload && !g.reloading() && AiChoice.ask(bot, Ask.LOOK_NOISE, tick >= hideUntil && tick >= lookAgain, tick)) {
                 bot.mover.goTo(choosePeek(bot), PEEK_AT, WALK);
                 mode(Mode.PEEK, tick);
                 peekSince = tick;

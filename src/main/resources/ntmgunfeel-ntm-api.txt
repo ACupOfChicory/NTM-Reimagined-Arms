@@ -160,6 +160,10 @@ BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase damage F
 BULLETS field com/hbm/entity/projectile/EntityBulletBeamBase thrower Lnet/minecraft/world/entity/LivingEntity;
 BULLETS field com/hbm/entity/projectile/EntityThrowableNT ticksInAir I
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT exploder Lnet/minecraft/world/entity/Entity;
+BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posX D
+BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posY D
+BULLETS field com/hbm/explosion/vanillant/ExplosionVNT posZ D
+BULLETS field com/hbm/explosion/vanillant/ExplosionVNT size F
 BULLETS field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/level/Level;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_BEAM_HIT Ljava/util/function/BiConsumer;
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_BEAM_HIT Ljava/util/function/BiConsumer;

@@ -1,6 +1,6 @@
 # Changelog
 
-## X745
+## X753
 
 - Mob AI: AI mobs move their bodies. They breathe as they stand, flinch when hit
   (in the chest or the head), crouch and stand up smoothly, lean out of cover to
@@ -13,6 +13,33 @@
   is. The idle, flinch, throw and wave clips come from Quaternius' Universal
   Animation Library and Kay Lousberg's KayKit Character Animations (both CC0);
   the rest is posed in code.
+
+## X742
+
+- Mob AI: an AI mob running to cover along a low wall in your sight runs low
+  past it, a crouching player's size and a little slower, so only its head
+  shows over the wall; in the open it runs upright, as fast as before.
+- Mob AI: behind low cover an AI mob keeps low between bursts and through a
+  short reload, a crouching player's size, and rises a moment before it fires
+  again; it never fires crouched. Over a wall one high you see its head, not
+  its chest. Clients see its stance, lean, arms and what it does (reloading),
+  ready for poses drawn on it.
+
+## X738
+
+- GL-54 gas grenades: a bullet that flies through a gas cloud thins the gas
+  along its path a little; a burst of fire down one line clears a channel
+  through it. A blast blows away the gas within twice its reach, all but a
+  little in the middle: a high-explosive grenade fired into a gas cloud takes
+  more than half of it. Smoke is not stirred. `gasStir` (server, on).
+- GL-54 mustard gas leaves dark oily stains on the floor it lies on; they stay
+  5 minutes after the gas is gone.
+- GL-54 mustard gas soaks the ground. Where it lies for long (two magazines of
+  it fired at one place, not a grenade now and then), the ground becomes a
+  poisoned biome for good, in patches of 4 by 4 blocks under the gas: the
+  plants on it die, nothing grows there (saplings, crops, grass spreading,
+  bone meal) and its grass and leaves turn a sick yellow-brown. `gasPoison`
+  (server, on).
 
 ## X735
 

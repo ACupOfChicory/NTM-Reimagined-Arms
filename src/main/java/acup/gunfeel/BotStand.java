@@ -44,7 +44,9 @@ import net.minecraft.world.phys.Vec3;
  * <li>the cost: 100 agents, each always changing pose, the frame time and the server's tick with the player on and
  * off (on, off, off, on).</li>
  * </ol>
- * The poses are given in the stand (BotAnimation.standPose): the mob AI's AiPose is not on this branch yet.
+ * In the first part the server sets each pose as the mob AI does (AiPose's attachment, synced to the client, and the
+ * game's crouching pose with it); the jumps and the cost give theirs in the stand (BotAnimation.standPose), changing
+ * them more often than a sync could.
  */
 final class BotStand {
     static final boolean ENABLED = Boolean.getBoolean("ntmgunfeel.botStand");
@@ -118,7 +120,7 @@ final class BotStand {
             p.teleportTo(level, 0.5, O.getY() + 0.6, -0.5, Set.of(), 0F, 12F, false);
             one = spawn(level, 0.5, 4.5, 180F);
         }).join();
-        BotAnimation.standPose = m -> m == one || one != null && m.getId() == one.getId() ? posed : AiPose.IDLE;
+        BotAnimation.standPose = null;
         BotAnimation.standStill = true;
         step = 0;
         caseIndex = yawIndex = 0;
@@ -178,16 +180,19 @@ final class BotStand {
         // set the case: the mob turned, lying or not, the pose from now (a lean takes 4 ticks, a crouch 4, the arms 4)
         float y = yaw;
         boolean lying = c.lying();
+        Case cc = c;
         var server = mc().getSingleplayerServer();
         server.submit(() -> {
             Mob m = (Mob) server.overworld().getEntity(one.getId());
             m.setYRot(y);
             m.setYBodyRot(y);
             m.setYHeadRot(y);
-            m.setPose(lying ? Pose.SWIMMING : Pose.STANDING);
+            // as AiSoldier.body: the pose first, then the game's, so the crouching size finds it
+            int at = (int) server.overworld().getGameTime();
+            m.setData(AiPose.TYPE, new AiPose(cc.stance(), (byte) cc.lean(), (byte) 0, at, cc.arms(), AiPose.NONE, 0, (short) 0));
+            m.setPose(lying ? Pose.SWIMMING : cc.stance() == AiPose.CROUCH ? Pose.CROUCHING : Pose.STANDING);
         }).join();
         long t = now();
-        posed = new AiPose(c.stance(), (byte) c.lean(), (byte) 0, (int) t, c.arms(), AiPose.NONE, 0, (short) 0);
         until = t + 30;
         phase = 1;
     }
@@ -200,6 +205,14 @@ final class BotStand {
             got[0] = numbers(m, ModelHits.worldBoxes(m), yaw);
         }).join();
         double[] n = got[0];
+        // the pose came to the client by the attachment's sync, and a crouch took a crouching player's size
+        var seenBy = mc().level.getEntity(one.getId());
+        AiPose synced = seenBy instanceof Mob sm ? AiPose.of(sm) : null;
+        ClientSmoke.check(synced != null && synced.stance() == c.stance() && synced.lean() == c.lean()
+                && synced.arms() == c.arms(), c.name() + " поворот " + yaw + ": клиент получил позу " + synced);
+        if (c.stance() == AiPose.CROUCH && seenBy != null)
+            ClientSmoke.check(Math.abs(seenBy.getBbHeight() - AiPose.CROUCH_SIZE.height()) < 1e-4,
+                    c.name() + ": рост присевшего " + seenBy.getBbHeight());
         String key = yaw + "/" + c.stance();
         if (n == null) {
             ClientSmoke.check(false, c.name() + " поворот " + yaw + ": у сервера нет позы модели");
@@ -289,10 +302,12 @@ final class BotStand {
             m.setYRot(180F);
             m.setYBodyRot(180F);
             m.setYHeadRot(180F);
+            m.setData(AiPose.TYPE, AiPose.IDLE);
             m.setPose(Pose.STANDING);
         }).join();
         t0 = now() + 10;
         posed = AiPose.IDLE;
+        BotAnimation.standPose = m -> m == one || one != null && m.getId() == one.getId() ? posed : AiPose.IDLE;
         int id = one.getId();
         BotAnimation.standStill = false;
         // setupAnim runs more than once a frame (the render, the hit capture, the armour), not always on the newest

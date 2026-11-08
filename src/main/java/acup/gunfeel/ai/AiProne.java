@@ -79,9 +79,9 @@ public final class AiProne {
 
     /**
      * Lies down if the mind asked this tick and it may, else gets up where there is room, but not within MIN_LIE of
-     * going down unless the mind sends it running; then the speed.
+     * going down unless the mind sends it running; then the speed (crawling, running low past low cover: AiStoop).
      */
-    void tick(ServerLevel level, AiMover mover, long tick) {
+    void tick(ServerLevel level, AiMover mover, long tick, boolean stooped) {
         // down BRIEF ticks at least whatever the mind wants (it crawls meanwhile), MIN_LIE unless sent running
         boolean hold = lying() && (tick - changed < BRIEF || tick - changed < MIN_LIE && !mover.wantsRun());
         // a fresh lie holds while a hit lifts it off the ground a moment
@@ -94,7 +94,7 @@ public final class AiProne {
             changed = tick;
             if (lie) downs++;
         }
-        mover.slow(lying() ? CRAWL_SPEED : 1.0);
+        mover.slow(lying() ? CRAWL_SPEED : stooped ? AiStoop.SHARE : 1.0);
     }
 
     /** on the terms a player lies down on */

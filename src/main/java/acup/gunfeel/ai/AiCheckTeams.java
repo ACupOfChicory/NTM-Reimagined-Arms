@@ -217,13 +217,14 @@ final class AiCheckTeams {
                             + ", brain " + (bot.brain == null ? "-" : bot.brain.getClass().getSimpleName()) + ", pulls " + bot.gunner.pulls + ", shots " + bot.gunner.shots
                             + ", gun " + m.getMainHandItem().getItem()));
         }
-        int downs = 0, brief = 0, early = 0, friendHolds = 0, coverHolds = 0, shifts = 0, peekRun = 0;
+        int downs = 0, brief = 0, early = 0, friendHolds = 0, coverHolds = 0, shifts = 0, peekRun = 0, low = 0;
         for (AiBot bot : bots) {
             downs += bot.prone.downs;
             brief += bot.prone.briefLies;
             early += bot.prone.shortLies;
             friendHolds += bot.gunner.holds;
             coverHolds += bot.gunner.coverHolds;
+            low += bot.stoop.ticks;
             if (bot.brain instanceof AiSoldier s) {
                 // its own changes and the ones forced on it (cover seen into), as the owner's log counts them
                 shifts += s.shifts + s.relocations;
@@ -233,8 +234,8 @@ final class AiCheckTeams {
         // per fighter a minute: over the minutes each fighter was alive
         double minutes = Math.max(1, aliveTicks) / 1200.0;
         check.out(String.format(Locale.ROOT, "     tactics: %d times down, %d of them under %d ticks, %d up within %d ticks not sent running; ticks held for a friend in the line %d,"
-                + " for its own cover %d; cover changes %d (%.2f a fighter a minute); most looks out running from one place %d", downs, brief, AiProne.BRIEF, early,
-                AiProne.MIN_LIE, friendHolds, coverHolds, shifts, shifts / minutes, peekRun));
+                + " for its own cover %d; cover changes %d (%.2f a fighter a minute); most looks out running from one place %d; ticks run low past low cover %d", downs,
+                brief, AiProne.BRIEF, early, AiProne.MIN_LIE, friendHolds, coverHolds, shifts, shifts / minutes, peekRun, low));
         AiBots.soundTrace = null;
         StringBuilder heard = new StringBuilder("     sounds that reached the AI in the fight (count, loud, loud and made by no mob or player near: distance to the nearest fighter):");
         for (var e : sounds.entrySet()) {

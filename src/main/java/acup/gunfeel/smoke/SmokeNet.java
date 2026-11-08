@@ -40,6 +40,7 @@ public final class SmokeNet {
         r.playToClient(SmokePayloads.End.TYPE, SmokePayloads.End.CODEC);
         r.playToClient(SmokePayloads.Check.TYPE, SmokePayloads.Check.CODEC);
         r.playToClient(SmokePayloads.Grid.TYPE, SmokePayloads.Grid.CODEC);
+        r.playToClient(SmokePayloads.Stirred.TYPE, SmokePayloads.Stirred.CODEC);
     }
 
     static ChunkPos chunk(SmokeClouds.Cloud c) {
@@ -48,6 +49,10 @@ public final class SmokeNet {
 
     static void spawned(ServerLevel level, SmokeClouds.Cloud c) {
         PacketDistributor.sendToPlayersTrackingChunk(level, chunk(c), SmokePayloads.Spawn.of(c));
+    }
+
+    static void stirred(ServerLevel level, SmokeClouds.Cloud c, SmokeClouds.Stir st) {
+        PacketDistributor.sendToPlayersTrackingChunk(level, chunk(c), new SmokePayloads.Stirred(c.id, st));
     }
 
     public static void ended(ServerLevel level, SmokeClouds.Cloud c) {

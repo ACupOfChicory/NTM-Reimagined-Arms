@@ -36,6 +36,8 @@ public final class SmokeClouds {
         public final float dirX, dirZ, scale;
         /** The server: the age whose hash went out last, so a frozen tick does not send it again. */
         int checkedAge = -1;
+        // stirs for an age the grid has not got to yet, by age (the order they came in within one age)
+        private final java.util.ArrayList<Stir> pending = new java.util.ArrayList<>();
 
         Cloud(int id, SmokeGrid grid, BlockPos origin, long born, float dirX, float dirZ, float scale) {
             this.id = id;
@@ -93,10 +95,121 @@ public final class SmokeClouds {
             return weight > 0F ? sum / weight : 0F;
         }
 
+        /**
+         * A stir for an age of the grid: kept until the grid gets there and taken before that age's step, after the ones
+         * for that age that came before it. One for an age already stepped past (a client further behind the server than
+         * {@link #STIR_AHEAD}) is taken at once: that copy is a step off and the next hash check asks for the grid.
+         * Returns false (nothing done) when {@link #PENDING_MAX} wait already.
+         */
+        public boolean stir(Stir st) {
+            synchronized (pending) {
+                due();
+                if (st.age() <= grid.age() && pending.isEmpty()) {
+                    apply(st);
+                    return true;
+                }
+                if (pending.size() >= PENDING_MAX) return false;
+                int at = pending.size();
+                while (at > 0 && pending.get(at - 1).age() > st.age()) at--;
+                pending.add(at, st);
+                due();
+                return true;
+            }
+        }
+
+        // the stirs due before the step from this age
+        void due() {
+            synchronized (pending) {
+                while (!pending.isEmpty() && pending.getFirst().age() <= grid.age()) apply(pending.removeFirst());
+            }
+        }
+
+        /** A grid from the server came: the stirs for the ages it has already been through are in it. */
+        public void stepped() {
+            synchronized (pending) {
+                pending.removeIf(s -> s.age() < grid.age());
+            }
+        }
+
+        private void apply(Stir st) {
+            double bx = baseX(), by = baseY(), bz = baseZ();
+            if (st.blast()) grid.stirBlast(st.x0() - bx, st.y0() - by, st.z0() - bz, st.x1(), st.a());
+            else grid.stirLine(st.x0() - bx, st.y0() - by, st.z0() - bz, st.x1() - bx, st.y1() - by, st.z1() - bz, st.a(), st.b());
+        }
+
+        /** Whether a world segment comes within a block of the smoke in the cloud. */
+        public boolean near(double ax, double ay, double az, double bx, double by, double bz, double margin) {
+            if (!grid.occupied()) return false;
+            int[] b = grid.box();
+            double[] lo = {baseX() + b[0] - margin, baseY() + b[1] - margin, baseZ() + b[2] - margin};
+            double[] hi = {baseX() + b[3] + 1 + margin, baseY() + b[4] + 1 + margin, baseZ() + b[5] + 1 + margin};
+            double[] o = {ax, ay, az}, d = {bx - ax, by - ay, bz - az};
+            double t0 = 0, t1 = 1;
+            for (int k = 0; k < 3; k++) {
+                if (Math.abs(d[k]) < 1e-12) {
+                    if (o[k] < lo[k] || o[k] > hi[k]) return false;
+                    continue;
+                }
+                double ta = (lo[k] - o[k]) / d[k], tb = (hi[k] - o[k]) / d[k];
+                t0 = Math.max(t0, Math.min(ta, tb));
+                t1 = Math.min(t1, Math.max(ta, tb));
+                if (t0 > t1) return false;
+            }
+            return true;
+        }
+
         /** Density of the cell a world block is in (0 outside). */
         public float cell(int x, int y, int z) {
             return grid.density(x - baseX(), y - baseY(), z - baseZ());
         }
+    }
+
+    /**
+     * A cloud stirred at an age of it, world coordinates. A bullet's path ({@code blast} false): from {@code x0, y0, z0}
+     * to {@code x1, y1, z1}, the cells crossed keep {@code a}, the ones next to them {@code b}. A blast: at {@code x0,
+     * y0, z0}, reach {@code x1}, {@code a} the most it takes in the middle.
+     */
+    public record Stir(int age, boolean blast, double x0, double y0, double z0, double x1, double y1, double z1, float a, float b) {
+        public Stir at(int age) {
+            return new Stir(age, blast, x0, y0, z0, x1, y1, z1, a, b);
+        }
+    }
+
+    /**
+     * Ticks ahead of a cloud's age a server's stir is for: both sides take it at that age, a client up to that far behind
+     * included (a client is behind the server by its ping).
+     */
+    public static final int STIR_AHEAD = 3;
+    /** Stirs a cloud keeps waiting at most. */
+    public static final int PENDING_MAX = 256;
+
+    /** Whether a stir from the network is one a server makes: finite, a reach of at most 32, shares in [0, 1]. */
+    public static boolean sane(Stir s) {
+        double[] v = {s.x0(), s.y0(), s.z0(), s.x1(), s.y1(), s.z1()};
+        for (double x : v) if (!Double.isFinite(x) || Math.abs(x) > 3.0E7) return false;
+        if (s.blast() && !(s.x1() > 0 && s.x1() <= 32)) return false;
+        return s.age() >= 0 && s.a() >= 0F && s.a() <= 1F && s.b() >= 0F && s.b() <= 1F;
+    }
+
+    /**
+     * The server: stirs the clouds the path or the blast comes near that {@code which} takes, now, and tells the players
+     * who have them. Returns how many.
+     */
+    public static int stir(ServerLevel level, Stir st, java.util.function.Predicate<SmokeKind> which) {
+        SmokeClouds all = get(level);
+        if (all == null || all.isEmpty()) return 0;
+        int n = 0;
+        for (Cloud c : all.clouds()) {
+            if (!which.test(c.kind())) continue;
+            boolean near = st.blast() ? c.near(st.x0(), st.y0(), st.z0(), st.x0(), st.y0(), st.z0(), st.x1())
+                    : c.near(st.x0(), st.y0(), st.z0(), st.x1(), st.y1(), st.z1(), 1.0);
+            if (!near) continue;
+            Stir now = st.at(c.grid.age() + STIR_AHEAD);
+            c.stir(now);
+            SmokeNet.stirred(level, c, now);
+            n++;
+        }
+        return n;
     }
 
     private final java.util.function.Function<Cloud, SmokeGrid.Mask> masks;
@@ -280,6 +393,7 @@ public final class SmokeClouds {
         for (; n < most && c.grid.age() < want && !c.grid.done(); n++) {
             if (mask == null) mask = masks.apply(c);
             c.grid.refresh(mask, c.grid.age() % SmokeMask.PARTS, SmokeMask.PARTS);
+            c.due();
             c.grid.step();
             if (after != null) after.accept(c.grid);
         }

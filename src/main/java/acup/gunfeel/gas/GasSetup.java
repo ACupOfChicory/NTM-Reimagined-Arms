@@ -14,10 +14,17 @@ public final class GasSetup {
         GasAttach.register(modBus);
         var bus = NeoForge.EVENT_BUS;
         bus.addListener(net.neoforged.neoforge.event.tick.LevelTickEvent.Post.class, e -> {
-            if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) GasServer.tick(level);
+            if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
+                GasServer.tick(level);
+                GasPoison.tick(level);
+            }
         });
         bus.addListener(net.neoforged.neoforge.event.level.LevelEvent.Unload.class, e -> {
-            if (e.getLevel() instanceof net.minecraft.world.level.Level level) GasServer.forget(level);
+            if (e.getLevel() instanceof net.minecraft.world.level.Level level) {
+                GasServer.forget(level);
+                // the server's thread only: the sums are the server's
+                if (level instanceof net.minecraft.server.level.ServerLevel) GasPoison.forget(level);
+            }
         });
         bus.addListener(net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class, e -> {
             if (e.getEntity() instanceof net.minecraft.world.entity.LivingEntity living) GasServer.joined(living);
@@ -30,6 +37,15 @@ public final class GasSetup {
         // vanilla milk halves the phosgene dose
         bus.addListener(net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent.Finish.class, e -> {
             if (e.getItem().is(net.minecraft.world.item.Items.MILK_BUCKET) && !e.getEntity().level().isClientSide()) GasServer.milk(e.getEntity());
+        });
+        // a vanilla blast (TNT, a creeper, a bed) blows the gas away too; NTM's own go through MixinExplosionContext
+        bus.addListener(net.neoforged.neoforge.event.level.ExplosionEvent.Detonate.class, e -> {
+            if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level)
+                GasStir.blast(level, e.getExplosion().center(), e.getExplosion().radius() * 2F);
+        });
+        // bone meal does nothing on poisoned ground
+        bus.addListener(net.neoforged.neoforge.event.entity.player.BonemealEvent.class, e -> {
+            if (GasPoison.grows(e.getState()) && GasPoison.enabled() && GasPoison.poisoned(e.getLevel(), e.getPos())) e.setCanceled(true);
         });
         if (dist.isClient()) acup.gunfeel.gas.client.GasClient.init(modBus);
     }

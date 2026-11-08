@@ -108,6 +108,11 @@ final class GasStand {
     }
 
     static void start() {
+        // -PgasSoil: the mustard's stains and poisoned ground and the stirred gas instead (GasSoilStand)
+        if (GasSoilStand.ON) {
+            GasSoilStand.start();
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         mc.options.pauseOnLostFocus = false;
         if (!mc.gui.hud.isHidden()) mc.gui.hud.toggle();
@@ -149,6 +154,10 @@ final class GasStand {
     }
 
     static void frame() {
+        if (GasSoilStand.ON) {
+            GasSoilStand.frame();
+            return;
+        }
         // the client's side of the player's doses and coughs: what the packets brought
         clientMaxChlorine = Math.max(clientMaxChlorine, GasClient.dose(GasState.CHLORINE));
         clientMaxK = Math.max(clientMaxK, GasClient.k());
