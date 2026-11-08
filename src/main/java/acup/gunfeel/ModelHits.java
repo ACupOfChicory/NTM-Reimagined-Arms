@@ -354,7 +354,7 @@ public final class ModelHits {
         var u=unturn(new Vec3(box.ux(),box.uy(),box.uz()),cos,sin);var v=unturn(new Vec3(box.vx(),box.vy(),box.vz()),cos,sin);var w=unturn(new Vec3(box.wx(),box.wy(),box.wz()),cos,sin);
         return new ModelBox(box.part(),origin.x,origin.y,origin.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z,box.mesh());
     }
-    // Стенд: части позы в мире (без надетого, как worldBoxes) и размечена ли каждая головой и конечностью — сама
+    // Стенд и взрыв по частям (BlastParts): части позы в мире (без надетого, как worldBoxes) и размечена ли каждая головой и конечностью — сама
     // коробка зоны или куб коробки вокруг кубов части (HeadZone.pieces). По самой коробке, не по имени: у части
     // одного имени размечены бывают не все коробки (camel_husk: root/body/head трижды, зоны у двух).
     record StandPart(ModelBox box,boolean head,boolean limb) {}

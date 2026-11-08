@@ -145,8 +145,10 @@ BULLETS class com/hbm/entity/projectile/EntityThrowableNT
 BULLETS class com/hbm/explosion/vanillant/ExplosionVNT
 BULLETS class com/hbm/explosion/vanillant/interfaces/IEntityProcessor
 BULLETS class com/hbm/explosion/vanillant/standard/EntityProcessorCross
+BULLETS class com/hbm/explosion/vanillant/standard/EntityProcessorStandard
 BULLETS class com/hbm/items/weapon/sedna/BulletConfig
 BULLETS class com/hbm/items/weapon/sedna/ItemGunBaseNT
+BULLETS class com/hbm/util/DamageClass
 BULLETS field com/hbm/blockentity/BlockEntityDoorGeneric state B
 BULLETS field com/hbm/blockentity/machine/BlockEntityCargoElevator extension D
 BULLETS field com/hbm/blockentity/machine/BlockEntityCargoElevator height I
@@ -182,6 +184,7 @@ BULLETS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/func
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
 BULLETS field com/hbm/items/weapon/sedna/BulletConfig velocity F
 BULLETS field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_fmj Lcom/hbm/items/weapon/sedna/BulletConfig;
+BULLETS field com/hbm/util/DamageClass EXPLOSIVE Lcom/hbm/util/DamageClass;
 BULLETS method com/hbm/blockentity/turret/BlockEntityTurretBaseNT getBlockPos ()Lnet/minecraft/core/BlockPos;
 BULLETS method com/hbm/blockentity/turret/BlockEntityTurretBaseNT getEntityPos (Lnet/minecraft/world/entity/Entity;)Lnet/minecraft/world/phys/Vec3;
 BULLETS method com/hbm/blockentity/turret/BlockEntityTurretBaseNT getFirstConfigLoaded ()Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -238,6 +241,7 @@ CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
 CORE class com/hbm/explosion/vanillant/ExplosionVNT
 CORE class com/hbm/explosion/vanillant/interfaces/IExplosionSFX
 CORE class com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth
+CORE class com/hbm/explosion/vanillant/standard/EntityProcessorStandard
 CORE class com/hbm/explosion/vanillant/standard/ExplosionEffectTiny
 CORE class com/hbm/explosion/vanillant/standard/PlayerProcessorStandard
 CORE class com/hbm/handler/HbmKeybinds$EnumKeybind
@@ -329,6 +333,7 @@ CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setDeltaMovement (Lnet
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setThrowableHeading (DDDFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 tick ()V
+CORE method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/level/Level;DDDF)V
 CORE method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/level/Level;DDDFLnet/minecraft/world/entity/Entity;)V
 CORE method com/hbm/explosion/vanillant/ExplosionVNT explode ()V
 CORE method com/hbm/explosion/vanillant/ExplosionVNT setEntityProcessor (Lcom/hbm/explosion/vanillant/interfaces/IEntityProcessor;)Lcom/hbm/explosion/vanillant/ExplosionVNT;
@@ -337,6 +342,7 @@ CORE method com/hbm/explosion/vanillant/ExplosionVNT setSFX ([Lcom/hbm/explosion
 CORE method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth <init> (DF)V
 CORE method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth setKnockback (D)Lcom/hbm/explosion/vanillant/standard/EntityProcessorCross;
 CORE method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth setupPiercing (FF)Lcom/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth;
+CORE method com/hbm/explosion/vanillant/standard/EntityProcessorStandard <init> ()V
 CORE method com/hbm/explosion/vanillant/standard/ExplosionEffectTiny <init> ()V
 CORE method com/hbm/explosion/vanillant/standard/PlayerProcessorStandard <init> ()V
 CORE method com/hbm/extprop/HbmLivingProps getData (Lnet/minecraft/world/entity/LivingEntity;)Lcom/hbm/extprop/HbmLivingProps;

@@ -13,6 +13,9 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 
+import acup.gunfeel.BlastParts;
+import acup.gunfeel.ExplosiveDamage;
+import acup.gunfeel.HeadDamage;
 import acup.gunfeel.water.WaterBlast;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -28,9 +31,12 @@ public abstract class MixinWaterBlastProcessor {
     private HashMap<Player, Vec3> gunfeel$water(ExplosionVNT explosion, Level world, double x, double y, double z, float size,
             Operation<HashMap<Player, Vec3>> original) {
         WaterBlast.begin(explosion, world, x, y, z);
+        // the blast by the body's parts (BlastParts): a CrossSmooth of another damage class than the explosive not
         try {
+            BlastParts.begin(!((Object) this instanceof ExplosiveDamage.Processor p) || p.gunfeel$explosive());
             return original.call(explosion, world, x, y, z, size);
         } finally {
+            BlastParts.end();
             WaterBlast.end();
         }
     }
@@ -51,10 +57,33 @@ public abstract class MixinWaterBlastProcessor {
         return WaterBlast.knockback(knockback, entity);
     }
 
+    // the damage: the whole mob's (in water as WaterBlast counts it), or its parts' (BlastParts), each with its own
+    // distance, visibility and push, the water's changes on them as on the whole mob's
     @WrapOperation(method = "process", at = @At(value = "INVOKE",
             target = "Lcom/hbm/explosion/vanillant/standard/EntityProcessorCross;calculateDamage(DDDF)F"), require = 1)
     private float gunfeel$damage(EntityProcessorCross self, double scaled, double density, double knockback, float size,
-            Operation<Float> original, @Local(name = "entity") Entity entity) {
-        return WaterBlast.damage(size, knockback, entity, (s, k) -> original.call(self, scaled, density, k, s));
+            Operation<Float> original, @Local(name = "entity") Entity entity, @Local(argsOnly = true) Level world,
+            @Local(argsOnly = true, ordinal = 0) double x, @Local(argsOnly = true, ordinal = 1) double y,
+            @Local(argsOnly = true, ordinal = 2) double z, @Local(name = "nodes") Vec3[] nodes) {
+        float whole = WaterBlast.damage(size, knockback, entity, (s, k) -> original.call(self, scaled, density, k, s));
+        return BlastParts.damage(entity, world, new Vec3(x, y, z), nodes, size, whole,
+                (ds, seen, push) -> WaterBlast.damage(size, push, entity, (s, k) -> original.call(self, ds, seen, k, s)),
+                ds -> WaterBlast.distance(ds, entity), k -> WaterBlast.knockback(k, entity));
+    }
+
+    // the hurt: the parts' mean multiplier after the armour (HeadDamage)
+    @WrapOperation(method = "process", at = @At(value = "INVOKE",
+            target = "Lcom/hbm/explosion/vanillant/standard/EntityProcessorCross;attackEntity(Lnet/minecraft/world/entity/Entity;Lcom/hbm/explosion/vanillant/ExplosionVNT;F)V"),
+            require = 1)
+    private void gunfeel$hurt(EntityProcessorCross self, Entity entity, ExplosionVNT explosion, float amount, Operation<Void> original) {
+        float m = BlastParts.multiplier(entity);
+        if (m == 1F || !(entity instanceof net.minecraft.world.entity.LivingEntity living)) {
+            original.call(self, entity, explosion, amount);
+            return;
+        }
+        HeadDamage.attack(living, amount, m, d -> {
+            original.call(self, entity, explosion, d);
+            return true;
+        });
     }
 }

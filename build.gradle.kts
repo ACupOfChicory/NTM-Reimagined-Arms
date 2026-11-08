@@ -273,6 +273,23 @@ neoForge {
             systemProperty("MC_DEBUG_PREFER_WAYLAND","true")
             programArguments.addAll("--width","1280","--height","800")
         }
+        // the blast stand (BlastStand): NTM's blasts by the body's parts against NTM's own, and their cost;
+        // -PblastStandLabel=<name> writes notes/blast-stand/<name>.tsv
+        register("blastStand") {
+            client()
+            gameDirectory = root.resolve("run-blast-stand")
+            jvmArgument("-Xmx3G")
+            val label=providers.gradleProperty("blastStandLabel").orElse("stand").get()
+            require(label.matches(Regex("[a-zA-Z0-9_-]+")))
+            systemProperty("ntmgunfeel.checkClient",layout.buildDirectory.file("blaststand/result.txt").get().asFile.path)
+            systemProperty("ntmgunfeel.blastStand","true")
+            systemProperty("ntmgunfeel.blastStandFile",root.resolve("notes/blast-stand/$label.tsv").path)
+            // -PblastStandBoxes=<file>: only the agent's boxes crouching and lying, for the mob AI
+            providers.gradleProperty("blastStandBoxes").orNull?.let { systemProperty("ntmgunfeel.blastStandBoxes",it) }
+            systemProperty("MC_DEBUG_ENABLED","true")
+            systemProperty("MC_DEBUG_PREFER_WAYLAND","true")
+            programArguments.addAll("--width","1280","--height","800")
+        }
         // the glass stand (GlassStand): NTM machines with clear pixels in rows, for the owner to say glass or empty;
         // -PglassStand=survey finds them and writes notes/glass-stand/list.tsv
         register("glassStand") {
@@ -526,12 +543,13 @@ tasks.matching { it.name == "runBenchAi" }.configureEach {
 }
 
 // Настоящий клиент использует только копию тестового мира и отдельную папку запуска.
-tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs","runBenchMobs","runBenchHoles","runGlassStand","runBenchBots") }.configureEach {
+tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs","runBenchMobs","runBenchHoles","runGlassStand","runBenchBots","runBlastStand") }.configureEach {
     val stand = name == "runGlassStand"
     val survey = stand && (providers.gradleProperty("glassStand").orNull == "survey" || providers.gradleProperty("glassStandCheck").isPresent)
     val review = name == "runReviewMobs" || (stand && !survey)
     val bench = name == "runBenchMobs"
     val bots = name == "runBenchBots"
+    val blast = name == "runBlastStand"
     val holes = name == "runBenchHoles"
     val smoke = name == "runCheckClient" && (providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("gasStand").isPresent)
     val mobs = name == "runCheckMobs" || review
@@ -539,8 +557,8 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
     // a trace scenario on every gun (-Pscenario, -PscenarioGuns=all) plays for about half an hour; the shapes stand
     // (-PshapesStand) takes every machine in turn
     val scenario = providers.gradleProperty("scenario").isPresent || providers.gradleProperty("shapesStand").isPresent || providers.gradleProperty("fenceSeam").isPresent || providers.gradleProperty("fenceAir").isPresent
-    timeout.set(if(survey) Duration.ofMinutes(40) else if(review && !selfTest) Duration.ofDays(1) else if((mobs && !selfTest) || scenario) Duration.ofHours(if(scenario) 2 else 1) else Duration.ofMinutes(if(holes || bench || bots || smoke) 30 else 8))
-    val result = if(bots) "botstand/result.txt" else if(stand) "glassstand/result.txt" else if(holes) "holebench/result.txt" else if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
+    timeout.set(if(survey) Duration.ofMinutes(40) else if(review && !selfTest) Duration.ofDays(1) else if((mobs && !selfTest) || scenario) Duration.ofHours(if(scenario) 2 else 1) else Duration.ofMinutes(if(holes || bench || bots || blast || smoke) 30 else 8))
+    val result = if(bots) "botstand/result.txt" else if(blast) "blaststand/result.txt" else if(stand) "glassstand/result.txt" else if(holes) "holebench/result.txt" else if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {
         if(holes || review || stand) {
             val runName=if(stand) "glassStand" else if(review) "reviewMobs" else "benchHoles"
@@ -552,12 +570,12 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
         }
         if(review && providers.gradleProperty("mobReviewSelfTest").isPresent) root.resolve("notes/mob-review/self-test").deleteRecursively()
         if(review && providers.gradleProperty("headLabelSelfTest").isPresent) root.resolve("notes/head-labels/self-test").deleteRecursively()
-        val dir = root.resolve(if(bots) "run-bot-stand" else if(stand) "run-glass-stand" else if(holes) { if(providers.gradleProperty("holeBenchLoaded").isPresent) "run-hole-bench-loaded" else "run-hole-bench" } else if(bench) "run-mob-bench" else if(review) "run-mob-review" else if (mobs) "run-mob-check" else "run-client-check")
+        val dir = root.resolve(if(bots) "run-bot-stand" else if(blast) "run-blast-stand" else if(stand) "run-glass-stand" else if(holes) { if(providers.gradleProperty("holeBenchLoaded").isPresent) "run-hole-bench-loaded" else "run-hole-bench" } else if(bench) "run-mob-bench" else if(review) "run-mob-review" else if (mobs) "run-mob-check" else "run-client-check")
         if(holes) root.resolve("notes/hole-bench").mkdirs()
         // in the stand's nested kwin (notes/ports/vkwin.sh) MC_DEBUG_PREFER_WAYLAND has GLFW take its Wayland, and the
         // first mouse grab (wp_pointer_warp_v1) breaks the connection: the client closes in the first phase. The
         // stand's Xwayland works.
-        if((holes || bench || bots) && System.getenv("XDG_RUNTIME_DIR")?.contains("/vkwin-home/")==true) (this as JavaExec).environment.remove("WAYLAND_DISPLAY")
+        if((holes || bench || bots || blast) && System.getenv("XDG_RUNTIME_DIR")?.contains("/vkwin-home/")==true) (this as JavaExec).environment.remove("WAYLAND_DISPLAY")
         if(bench) root.resolve("notes/mob-bench").mkdirs()
         val source = root.resolve("run-bullets/world")
         require(source.resolve("level.dat").exists()) { "Сначала выполните runCheckBullets: нужен изолированный тестовый мир" }

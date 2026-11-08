@@ -1,5 +1,31 @@
 # Changelog
 
+## X792
+
+- NTM's blasts hit each part of the body on its own. Grenades, 40 mm shells
+  (MK108, Congo Lake), rockets, GL-54 HE, mines, charges, missiles,
+  artillery, C4 and dynamite: each part of a creature takes the blast by its
+  own distance to it and by what it sees of it (a wall shields what it
+  covers), with a share of the damage by its size. The head (×1.75) and the
+  limbs (×0.5) scale their shares after the armour, as with bullets.
+  - In the open an HE grenade 1–3 blocks away now takes about 20% less from a
+    standing or crouching creature and 10–16% less from a lying one (10%
+    with the head towards it, 16% with the feet); dynamite next to a head
+    lying towards it hits as hard as before.
+  - Standing behind a one-block wall an HE grenade takes about half (8.2
+    instead of 16.0 from an FBI agent): only the head and shoulders show.
+  - It costs the server about 0.09 ms per creature in range per blast (50
+    FBI agents: 10.5 ms a grenade instead of 5.9; one MK108 shell a tick into
+    100 agents: 20.4 ms a shell instead of 15.0).
+  - For the creatures whose model has a marked head or limbs (FBI agents,
+    test dummies, players, most mobs), while `modelHitboxes` is on and the
+    server has the creature's pose from a client nearby; the others, nuclear
+    blasts and fire, plasma and electric blasts are as before. A creature
+    with a marked head and no marked limbs (a pig, a chicken) takes no more
+    than before.
+  - Server keys `blastParts` (on) and `blastPartRays` (rays from each part,
+    1 to 9, 3).
+
 ## X790
 
 - FBI agents and test dummies bend at the elbows and the knees: each arm and
