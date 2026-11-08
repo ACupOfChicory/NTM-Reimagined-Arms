@@ -38,3 +38,4 @@ pi-sessions/
 /tools/ingame_report.py
 /tools/review_mobs.fish
 /tools/glass_stand.fish
+__pycache__/
