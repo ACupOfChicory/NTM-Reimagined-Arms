@@ -63,10 +63,26 @@ public final class AiBot {
         return eyes;
     }
 
+    /**
+     * Foes it knows nothing of yet that one look takes in, in turn from look to look (those it knows of, at most
+     * {@link TargetMemory#MAX_CONTACTS}, it looks at every time): a person does not watch fifty at once, and fifty foes
+     * a look, three rays each, cost a hundred AI mobs 4 ms a tick (KT5). Fewer foes than this, nothing changes.
+     */
+    static final int SCAN = 12;
+    /** where in the list of targets the next look's foes it knows nothing of start */
+    private int scanFrom;
+
     public void perceive(VoxelRay.Source voxels, @Nullable SmokeClouds smoke, List<LivingEntity> targets, long tick) {
         memory.look();
-        for (LivingEntity t : targets) {
+        int n = targets.size(), start = n == 0 ? 0 : Math.floorMod(scanFrom, n), scanned = 0;
+        for (int k = 0; k < n; k++) {
+            LivingEntity t = targets.get((start + k) % n);
             if (t == mob || !t.isAlive() || !AiTeams.enemy(mob, t)) continue;
+            if (memory.contact(t.getId()) == null) {
+                if (scanned == SCAN) continue;
+                // the next look's new ones start after the last one this look took
+                if (++scanned == SCAN) scanFrom = start + k + 1;
+            }
             int notice = Senses.look(voxels, smoke, mob, t, eyes(), t.getId() == memory.focusId);
             if (notice >= 0) memory.seen(t.getId(), t.getX(), t.getY(), t.getZ(), tick, notice).parts = Senses.parts;
         }
