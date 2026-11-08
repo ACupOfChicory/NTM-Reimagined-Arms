@@ -1,5 +1,11 @@
 # Changelog
 
+## X804
+
+- Mob AI: a bot leaning out of cover where no player's game has drawn it
+  lately is hit by its model's own head, arms and legs, so a shot to its
+  head or a limb does what it does to a bot standing upright.
+
 ## X803
 
 - Mob AI: a bot's grenade no longer hurts the bot or its own side. It throws
