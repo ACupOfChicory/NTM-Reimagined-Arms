@@ -1,6 +1,6 @@
 # Changelog
 
-## X782
+## X784
 
 - Smoke: a blast punches a hole in a smoke cloud, and the hole closes again
   from its edge in 2 to 3 seconds; the smoke is pushed aside, not gone.
