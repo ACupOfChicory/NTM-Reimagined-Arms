@@ -1,5 +1,16 @@
 # Changelog
 
+## X814
+
+- A blast by the body's parts costs the server about what NTM's own does:
+  which parts count, their marks and shares are worked out once for each pose
+  a creature takes (a client sends a new one every dozen ticks or so in a
+  crowd), not for each blast, and a creature NTM's blast sees whole needs no
+  rays from its parts. One MK108 shell a tick into 100 FBI agents stepping
+  about: 15.3 ms a shell (NTM's 14.8, 20.2 before); an HE grenade into 50:
+  6.4 ms (NTM's 6.2, 10.1 before). The damage in the open and behind a wall
+  is as before, within 0.15.
+
 ## X813
 
 - A blast by the body's parts takes about NTM's damage again from a creature

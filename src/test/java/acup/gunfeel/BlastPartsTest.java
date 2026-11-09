@@ -78,6 +78,18 @@ class BlastPartsTest {
     }
 
     @Test
+    void aPoseIsTakenInTheModelsFrame() {
+        // the agent from its feet: all ten parts; a box past the reach at any turn, or too many boxes: none
+        assertEquals(10, BlastParts.shape(agent(), 0.6, 1.95).size());
+        var far = new ArrayList<>(agent());
+        far.add(new ModelHits.StandPart(new ModelBox("x", 2.5, 0, 0, 0.1, 0, 0, 0, 0.1, 0, 0, 0, 0.1), false, false));
+        assertTrue(BlastParts.shape(far, 0.6, 1.95).isEmpty());
+        var many = new ArrayList<ModelHits.StandPart>();
+        while (many.size() <= BlastParts.MAX_PARTS) many.addAll(agent());
+        assertTrue(BlastParts.shape(many, 0.6, 1.95).isEmpty());
+    }
+
+    @Test
     void aBoxOffTheMobIsNotTaken() {
         var near = new net.minecraft.world.phys.AABB(0, 0, 0, 1, 2, 1).inflate(BlastParts.REACH);
         assertTrue(BlastParts.inside(new ModelBox("b", 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0.5), near));

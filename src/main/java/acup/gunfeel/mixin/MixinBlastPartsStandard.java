@@ -43,7 +43,7 @@ public abstract class MixinBlastPartsStandard {
             Operation<Float> original, @Local(name = "entity") Entity entity, @Local(argsOnly = true) Level world,
             @Local(name = "center") Vec3 center) {
         float whole = original.call(self, scaled, density, knockback, size);
-        return BlastParts.damage(entity, world, center, new Vec3[] { center }, size, whole,
+        return BlastParts.damage(entity, world, center, new Vec3[] { center }, size, whole, density,
                 (ds, seen, push) -> original.call(self, ds, seen, push, size), ds -> ds, k -> k);
     }
 

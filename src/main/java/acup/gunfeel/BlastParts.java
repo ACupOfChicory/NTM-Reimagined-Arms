@@ -105,18 +105,18 @@ public final class BlastParts {
      * The mob's damage from the blast at {@code centre} with its range {@code size}; {@code whole} is NTM's for the
      * whole mob. {@code scale} and {@code push} are the water's (WaterBlast) changes to the distance and the push.
      */
-    public static float damage(Entity entity, Level level, Vec3 centre, Vec3[] nodes, float size, float whole, Damage calc,
-            DoubleUnaryOperator scale, DoubleUnaryOperator push) {
+    public static float damage(Entity entity, Level level, Vec3 centre, Vec3[] nodes, float size, float whole, double density,
+            Damage calc, DoubleUnaryOperator scale, DoubleUnaryOperator push) {
         try {
-            return split(entity, level, centre, nodes, size, whole, calc, scale, push);
+            return split(entity, level, centre, nodes, size, whole, density, calc, scale, push);
         } catch (RuntimeException e) {
             // a bad box must not stop NTM's blast for everyone else in it
             return whole;
         }
     }
 
-    private static float split(Entity entity, Level level, Vec3 centre, Vec3[] nodes, float size, float whole, Damage calc,
-            DoubleUnaryOperator scale, DoubleUnaryOperator push) {
+    private static float split(Entity entity, Level level, Vec3 centre, Vec3[] nodes, float size, float whole, double density,
+            Damage calc, DoubleUnaryOperator scale, DoubleUnaryOperator push) {
         var runs = RUNS.get();
         Run run = runs.peek();
         if (run == null || !run.plain || level.isClientSide() || !(entity instanceof LivingEntity living) || size <= 0) return whole;
@@ -138,7 +138,8 @@ public final class BlastParts {
                 if (counted != null) counted.add(new Counted(p.box().part(), p.multiplier(), p.share(), scaled, 0, 0));
                 continue;
             }
-            double seen = visibility(level, p.box(), nodes, entity, rays);
+            // NTM sees the whole mob from a node (density 1): every part is in sight, no rays
+            double seen = density >= 1 ? 1 : visibility(level, p.box(), nodes, entity, rays);
             float raw = Math.max(0F, calc.of(scaled, seen, push.applyAsDouble((1 - scaled) * seen)));
             total += p.share() * raw;
             weighted += p.share() * raw * p.multiplier();
@@ -167,10 +168,27 @@ public final class BlastParts {
     /** the mob's parts as the blast takes them */
     static List<Part> parts(LivingEntity living) {
         if (!ModelHits.enabled()) return List.of();
-        var drawn = ModelHits.standParts(living);
-        // the pose comes from a client: too many boxes, or one far off the mob, and the blast is NTM's
+        var at = ModelHits.standPose(living);
+        if (at == null) return List.of();
+        // which parts count and their shares, once per pose (in the model's frame); then only put in the world
+        List<Part> model;
+        if (at.cache().memo instanceof Shape shape) model = shape.parts();
+        else at.cache().memo = new Shape(model = shape(at.parts(), living.getBbWidth(), living.getBbHeight()));
+        if (model.isEmpty()) return model;
+        List<Part> out = new ArrayList<>(model.size());
+        for (Part p : model) out.add(new Part(at.world(p.box()), p.multiplier(), p.share()));
+        return out;
+    }
+
+    /** a pose's parts as the blast takes them, in the model's frame (from the feet, not turned) */
+    private record Shape(List<Part> parts) {
+    }
+
+    static List<Part> shape(List<ModelHits.StandPart> drawn, double width, double height) {
+        // the pose comes from a client: too many boxes, or one far off the mob (at any turn), and the blast is NTM's
         if (drawn.size() > MAX_PARTS) return List.of();
-        var near = living.getBoundingBox().inflate(REACH);
+        double r = width / 2 * Math.sqrt(2) + REACH;
+        var near = new net.minecraft.world.phys.AABB(-r, -REACH, -r, r, height + REACH, r);
         for (var d : drawn) if (!inside(d.box(), near)) return List.of();
         return of(drawn);
     }

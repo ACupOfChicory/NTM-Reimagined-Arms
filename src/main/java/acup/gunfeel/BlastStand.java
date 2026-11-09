@@ -453,7 +453,7 @@ final class BlastStand {
     private static final double[] MK_MEAN = new double[2], MK_TICK = new double[2];
     private static final Random MK_RANDOM = new Random(108);
 
-    /** MK108's 40 mm HE shells, one a tick for 10 s into the crowd, NTM's then by the parts */
+    /** MK108's 40 mm HE shells, one a tick for 10 s into the crowd stepping to and fro, NTM's then by the parts */
     private static void mk108() {
         mkMode = 0;
         startMk();
@@ -472,7 +472,9 @@ final class BlastStand {
         BlastParts.stand = mkMode == 1;
         BlastParts.standQuiet = true;
         try {
-            for (int j = 0; j < crowd.size(); j++) reset(crowd.get(j), homes.get(j));
+            // the crowd steps 0.05 block each tick, as a moving one would: the server's pose of each is made anew
+            double step = (level.getGameTime() & 1) == 0 ? 0 : 0.05;
+            for (int j = 0; j < crowd.size(); j++) reset(crowd.get(j), homes.get(j).add(step, 0, 0));
             Vec3 h = homes.get(MK_RANDOM.nextInt(homes.size()));
             Vec3 g = new Vec3(h.x + MK_RANDOM.nextDouble() - 0.5, O.getY() + GROUND, h.z + MK_RANDOM.nextDouble() - 0.5);
             long s = System.nanoTime();
