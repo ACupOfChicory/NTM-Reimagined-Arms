@@ -19,8 +19,9 @@ import net.minecraft.world.item.ItemStack;
 //  - spreadSpeed is added per walking speed, spreadAir while off the ground;
 //  - spreadBloom is added per shot, at most spreadBloomMax, halving every spreadBloomHalfLife seconds; sneaking and
 //    crawling hold it down by their multipliers;
-//  - powerArmorSpread: in NTM's power armour (PowerArmor) what moving, the air and the bloom add counts that many times
-//    (the pace for spreadMove and spreadSpeed, spreadAir, the bloom); NTM's own spread, the stances and aiming stay.
+//  - powerArmorSpread.<set>: in NTM's power armour and Trenchmaster (PowerArmor.spread, by the chestplate's set) what
+//    moving, the air and the bloom add counts that many times (the pace for spreadMove and spreadSpeed, spreadAir, the
+//    bloom); NTM's own spread, the stances and aiming stay. powerArmorSpread in the server's file: one for every set.
 public final class Spread {
     // per shooter: the game tick of the last shot, the bloom that shot met, and the bloom it left
     private static final class Bloom {
@@ -42,7 +43,7 @@ public final class Spread {
         var mv = e.getKnownSpeed(); // blocks moved last tick; for a player, what the client last sent
         // lying, moving adds nothing: TaCZ's lie comes before its move (InaccuracyType.getInaccuracyType)
         float pace = crawl ? 0F : SpreadModel.pace((float) Math.sqrt(mv.x * mv.x + mv.z * mv.z));
-        float armor = PowerArmor.factor(PowerArmor.worn(e), get(gun, "powerArmorSpread", 1F), false);
+        float armor = PowerArmor.spread(e, gun);
         float live = pace * armor; // the pace moving adds spread by; standing is still told by the pace itself
         float spreadMove = get(gun, "spreadMove", 1F);
         // a gun steadier moving than standing (spreadMove < 1) keeps that in armour: the armour only takes off what is added

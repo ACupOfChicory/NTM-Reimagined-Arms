@@ -1,0 +1,23 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "ntmgunfeel:balance_recipes",
+      "on": true
+    }
+  ],
+  "type": "hbm:crafting_shaped",
+  "key": {
+    "H": "#hbm:plates_cast/dura_steel",
+    "M": "hbm:motor",
+    "S": "#c:ingots/steel",
+    "W": "minecraft:red_wool"
+  },
+  "pattern": [
+    "MHM",
+    "S S",
+    "WHW"
+  ],
+  "result": {
+    "id": "hbm:dieselsuit_legs"
+  }
+}

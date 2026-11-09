@@ -1,0 +1,24 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "ntmgunfeel:balance_recipes",
+      "on": true
+    }
+  ],
+  "type": "hbm:crafting_shaped",
+  "key": {
+    "C": "hbm:circuit_basic",
+    "D": "hbm:machine_diesel",
+    "H": "#hbm:plates_cast/dura_steel",
+    "S": "#c:ingots/steel",
+    "W": "minecraft:red_wool"
+  },
+  "pattern": [
+    "WHW",
+    "CDC",
+    "SHS"
+  ],
+  "result": {
+    "id": "hbm:dieselsuit_plate"
+  }
+}

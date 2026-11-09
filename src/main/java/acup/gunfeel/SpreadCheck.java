@@ -28,22 +28,31 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 // The living spread in power armour, on a dedicated server (./gradlew runCheckSpread -PnoAssets): a player without
-// armour and in a T-51 chestplate asks NTM for a shot's spread (Lego.calcSpread, through MixinLegoSpread and Spread)
-// standing, walking, sprinting, in the air and in a held-down burst, once with powerArmorSpread = 1 (the armour does
-// nothing, the spread as before it) and once with the mod's own value. A tsv goes to the file and the server stops
-// (exit 1 if a check failed): with 1 the armour changes nothing; with the mod's value standing is the same and what
-// moving, the air and the bloom add is powerArmorSpread times as much.
+// armour and in each set's chestplate asks NTM for a shot's spread (Lego.calcSpread, through MixinLegoSpread and
+// Spread). No armour and T-51 go through every case (standing, walking, sprinting, in the air, aimed, a held-down
+// burst, lying), the other sets through standing, walking, sprinting and the air with the G3, three times: the file
+// holding powerArmorSpread = 1 (the key of before the table: every set does nothing), the mod's own values (the table
+// powerArmorSpread.<set>), and a file with powerArmorSpread = 0.3 and powerArmorSpread.fau = 0.9 (the file's one
+// number for every set, a set's own line over it). A tsv goes to the file and the server stops (exit 1 if a check
+// failed): standing is the same in any armour; what moving, the air and the bloom add is the set's share of it.
 public final class SpreadCheck {
     public static final String PROPERTY = "ntmgunfeel.checkSpread";
     private static final String[] GUNS = {"hbm:gun_g3", "hbm:gun_am180"};
     private static final String[] CASES = {"stand", "walk", "sprint", "jump", "stand aim", "walk aim", "burst aim", "prone", "prone walk"};
-    // the bloom halves every 5 ticks: 100 ticks after a shot and 200 after a burst leave none of it worth a digit
-    private static final int BURST = 30, SETTLE = 100, SETTLE_BURST = 200;
+    private static final String[] SHORT = {"stand", "walk", "sprint", "jump"};
+    private static final String[] SETTINGS = {"1", "mod", "file"};
+    // every set the table has, the BJ with wings, and three with no bonus
+    private static final String[] SETS = {"hev", "ajr", "ajro", "envsuit", "trenchmaster", "bj", "bj_jetpack", "ncrpa", "rpa", "fau", "dns",
+            "security", "steamsuit", "dieselsuit"};
+    // the bloom halves every 5 ticks: 100 ticks after a shot and 200 after a burst leave none of it worth a digit (60
+    // between single shots: a 4000th of a shot's bloom)
+    private static final int BURST = 30, SETTLE = 100, SETTLE_BURST = 200, SETTLE_SHORT = 60;
 
     private SpreadCheck() {
     }
 
-    private record Key(String setting, String gun, boolean armour, String c) {
+    // set: "" for no armour
+    private record Key(String setting, String gun, String set, String c) {
     }
 
     // one tick's work; a shot is one call of NTM's spread, at most one a tick (the bloom counts a tick's first call)
@@ -84,25 +93,45 @@ public final class SpreadCheck {
         });
     }
 
+    private static String chest(String set) {
+        return set.equals("bj_jetpack") ? "hbm:bj_plate_jetpack" : "hbm:" + set + "_plate";
+    }
+
+    /** the share the check expects for the set under the setting */
+    static float expected(String setting, String set) {
+        String s = set.equals("bj_jetpack") ? "bj" : set;
+        Float table = PowerArmor.SPREAD.get(s);
+        if (table == null) return 1F; // Security, the steam and diesel suits
+        return switch (setting) {
+            case "1" -> 1F;
+            case "file" -> s.equals("fau") ? 0.9F : 0.3F;
+            default -> table;
+        };
+    }
+
     private static void plan(FakePlayer p) {
-        for (String setting : new String[] {"1", "mod"}) {
+        for (String setting : SETTINGS) {
             STEPS.add(() -> settings(setting));
             wait(30); // the server's file is looked at once a second
-            STEPS.add(() -> LINES.add("#\tpowerArmorSpread = " + ReaimTimes.number("powerArmorSpread", 1F)));
-            for (String gun : GUNS) for (boolean armour : new boolean[] {false, true}) {
-                STEPS.add(() -> p.setItemSlot(EquipmentSlot.CHEST, armour ? new ItemStack(item("hbm:t51_plate")) : ItemStack.EMPTY));
-                for (String c : CASES) {
-                    Key k = new Key(setting, gun, armour, c);
-                    ItemStack stack = new ItemStack(item(gun));
-                    int shots = c.startsWith("burst") ? BURST : 1;
-                    int every = Math.max(1, ((ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getReceivers(stack)[0].getDelayAfterFire(stack));
-                    for (int i = 0; i < shots; i++) {
-                        STEPS.add(() -> shot(p, stack, k));
-                        if (i < shots - 1) wait(every - 1);
-                    }
-                    wait(shots > 1 ? SETTLE_BURST : SETTLE); // the bloom gone before the next case
-                }
+            STEPS.add(() -> LINES.add("#\tsetting " + setting + ": powerArmorSpread = " + ReaimTimes.number("powerArmorSpread", 1F)
+                    + ", in the file " + ReaimTimes.inFile("powerArmorSpread")));
+            for (String gun : GUNS) for (String set : new String[] {"", "t51"}) cases(p, setting, gun, set, CASES, SETTLE);
+            for (String set : SETS) cases(p, setting, GUNS[0], set, SHORT, SETTLE_SHORT);
+        }
+    }
+
+    private static void cases(FakePlayer p, String setting, String gun, String set, String[] cases, int settle) {
+        STEPS.add(() -> p.setItemSlot(EquipmentSlot.CHEST, set.isEmpty() ? ItemStack.EMPTY : new ItemStack(item(chest(set)))));
+        for (String c : cases) {
+            Key k = new Key(setting, gun, set, c);
+            ItemStack stack = new ItemStack(item(gun));
+            int shots = c.startsWith("burst") ? BURST : 1;
+            int every = Math.max(1, ((ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getReceivers(stack)[0].getDelayAfterFire(stack));
+            for (int i = 0; i < shots; i++) {
+                STEPS.add(() -> shot(p, stack, k));
+                if (i < shots - 1) wait(every - 1);
             }
+            wait(shots > 1 ? SETTLE_BURST : settle); // the bloom gone before the next case
         }
     }
 
@@ -113,7 +142,11 @@ public final class SpreadCheck {
 
     private static void settings(String setting) {
         try {
-            Files.writeString(FMLPaths.CONFIGDIR.get().resolve(ReaimTimes.FILE), setting.equals("1") ? "powerArmorSpread = 1\n" : "# the mod's own values\n");
+            Files.writeString(FMLPaths.CONFIGDIR.get().resolve(ReaimTimes.FILE), switch (setting) {
+                case "1" -> "powerArmorSpread = 1\n";
+                case "file" -> "powerArmorSpread = 0.3\npowerArmorSpread.fau = 0.9\n";
+                default -> "# the mod's own values\n";
+            });
         } catch (java.io.IOException e) {
             throw new java.io.UncheckedIOException(e);
         }
@@ -160,39 +193,52 @@ public final class SpreadCheck {
     }
 
     private static void report() {
-        LINES.add(String.join("\t", "powerArmorSpread", "gun", "case", "pace", "none", "t51", "none°", "t51°", "t51 extra / none extra"));
-        for (String setting : new String[] {"1", "mod"}) for (String gun : GUNS) for (String c : CASES) {
-            float none = SPREAD.get(new Key(setting, gun, false, c)), t51 = SPREAD.get(new Key(setting, gun, true, c));
+        LINES.add(String.join("\t", "setting", "gun", "set", "case", "pace", "none", "armour", "none°", "armour°", "armour extra / none extra", "expected"));
+        for (String setting : SETTINGS) for (String gun : GUNS) for (String set : all()) for (String c : CASES) {
+            Float armour = SPREAD.get(new Key(setting, gun, set, c));
+            if (armour == null) continue;
+            float none = SPREAD.get(new Key(setting, gun, "", c));
             // what the case adds over standing (aimed cases over standing aimed): moving, the air, the bloom
             String base = c.endsWith("aim") ? "stand aim" : c.startsWith("prone") ? "prone" : "stand";
-            float b0 = SPREAD.get(new Key(setting, gun, false, base)), b1 = SPREAD.get(new Key(setting, gun, true, base));
-            float extraNone = none - b0, extraT51 = t51 - b1;
-            String ratio = extraNone > 1e-6F ? String.format(Locale.ROOT, "%.3f", extraT51 / extraNone) : "-";
-            LINES.add(String.join("\t", setting, gun, c, String.format(Locale.ROOT, "%.3f", PACE.get(new Key(setting, gun, false, c))),
-                    f(none), f(t51), deg(none), deg(t51), ratio));
+            float b0 = SPREAD.get(new Key(setting, gun, "", base)), b1 = SPREAD.get(new Key(setting, gun, set, base));
+            float extraNone = none - b0, extraArmour = armour - b1;
+            String ratio = extraNone > 1e-6F ? String.format(Locale.ROOT, "%.3f", extraArmour / extraNone) : "-";
+            LINES.add(String.join("\t", setting, gun, set, c, String.format(Locale.ROOT, "%.3f", PACE.get(new Key(setting, gun, "", c))),
+                    f(none), f(armour), deg(none), deg(armour), ratio, String.format(Locale.ROOT, "%.2f", expected(setting, set))));
         }
-        float k = ReaimTimes.number("powerArmorSpread", 1F); // the mod's own value, the file now holds none
-        check(k > 0F && k < 1F, "the mod's powerArmorSpread is " + k);
+        float k = ReaimTimes.number("powerArmorSpread", 1F); // the mod's own value, the file now holds the third setting's
+        check(Math.abs(k - 0.3F) < 1e-6F, "the file's powerArmorSpread is read: " + k);
         for (String gun : GUNS) for (String c : CASES) {
-            float pace = PACE.get(new Key("mod", gun, false, c));
+            float pace = PACE.get(new Key("mod", gun, "", c));
             check(c.startsWith("walk") || c.equals("sprint") ? pace > 0.9F : c.equals("prone walk") ? pace > 0.2F : pace == 0F,
                     gun + " " + c + ": pace " + pace);
-            check(CRAWL.get(new Key("mod", gun, true, c)) == c.startsWith("prone"), gun + " " + c + ": lying " + c.startsWith("prone"));
-            float none1 = SPREAD.get(new Key("1", gun, false, c)), t511 = SPREAD.get(new Key("1", gun, true, c));
-            check(Math.abs(none1 - t511) < 1e-6F, gun + " " + c + ", powerArmorSpread = 1: T-51 " + f(t511) + " = none " + f(none1));
-            float none = SPREAD.get(new Key("mod", gun, false, c)), t51 = SPREAD.get(new Key("mod", gun, true, c));
-            check(Math.abs(none - none1) < 1e-6F, gun + " " + c + ": without armour the mod's value changes nothing (" + f(none) + ")");
-            float b = SPREAD.get(new Key("mod", gun, false, c.endsWith("aim") ? "stand aim" : "stand"));
-            float want = b + k * (none - b);
+            check(CRAWL.get(new Key("mod", gun, "t51", c)) == c.startsWith("prone"), gun + " " + c + ": lying " + c.startsWith("prone"));
+            float none1 = SPREAD.get(new Key("1", gun, "", c)), none = SPREAD.get(new Key("mod", gun, "", c));
+            check(Math.abs(none - none1) < 1e-6F, gun + " " + c + ": without armour the setting changes nothing (" + f(none) + ")");
+        }
+        for (String setting : SETTINGS) for (String gun : GUNS) for (String set : all()) for (String c : CASES) {
+            if (set.isEmpty()) continue;
+            Float armour = SPREAD.get(new Key(setting, gun, set, c));
+            if (armour == null) continue;
+            float want = expected(setting, set);
+            String what = setting + " " + gun + " " + set + " " + c;
+            float none = SPREAD.get(new Key(setting, gun, "", c));
+            float b = SPREAD.get(new Key(setting, gun, "", c.endsWith("aim") ? "stand aim" : "stand"));
             if (c.startsWith("prone")) {
                 // lying, crawling along adds nothing, in the armour or not; lying is spreadCrawl of standing
-                float stand = SPREAD.get(new Key("mod", gun, false, "stand"));
+                float stand = SPREAD.get(new Key(setting, gun, "", "stand"));
                 float crawl = ReaimTimes.number(gun + ".spreadCrawl", ReaimTimes.number("spreadCrawl", 1F));
-                check(Math.abs(t51 - none) < 1e-6F && Math.abs(none - stand * crawl) < 1e-6F,
-                        gun + " " + c + ": T-51 " + f(t51) + " = none " + f(none) + " = stand " + f(stand) + " x " + crawl);
-            } else if (c.startsWith("stand")) check(Math.abs(t51 - none) < 1e-6F, gun + " " + c + ": T-51 " + f(t51) + " = none " + f(none));
-            else check(none - b > 1e-3F && Math.abs(t51 - want) < 1e-5F,
-                    gun + " " + c + ": T-51 " + f(t51) + " = stand " + f(b) + " + " + k + " of " + f(none - b));
+                check(Math.abs(armour - none) < 1e-6F && Math.abs(none - stand * crawl) < 1e-6F,
+                        what + ": " + f(armour) + " = none " + f(none) + " = stand " + f(stand) + " x " + crawl);
+            } else if (c.startsWith("stand")) check(Math.abs(armour - none) < 1e-6F, what + ": " + f(armour) + " = none " + f(none));
+            else check(none - b > 1e-3F && Math.abs(armour - (b + want * (none - b))) < 1e-5F,
+                    what + ": " + f(armour) + " = stand " + f(b) + " + " + want + " of " + f(none - b));
         }
+    }
+
+    private static List<String> all() {
+        List<String> out = new ArrayList<>(List.of("", "t51"));
+        out.addAll(List.of(SETS));
+        return out;
     }
 }

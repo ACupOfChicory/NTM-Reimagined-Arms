@@ -33,6 +33,7 @@ public final class GunFeelMod {
         acup.gunfeel.gas.GasSetup.init(modBus, dist);
         GunWeight.register();
         acup.gunfeel.ai.AiPose.register(modBus);
+        BalanceRecipes.register(modBus);
         if (dist.isClient()) {
             modBus.addListener(net.neoforged.neoforge.client.event.AddClientReloadListenersEvent.class,
                     e -> e.addListener(net.minecraft.resources.Identifier.fromNamespaceAndPath("ntmgunfeel", "model_masks"),

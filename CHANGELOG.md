@@ -1,5 +1,31 @@
 # Changelog
 
+## X831
+
+- Power armour holds the gun steadier the later its tier: what moving,
+  jumping and a held-down burst add to the spread counts T-51b x0.8; HEV,
+  AJR, AJRO and Envsuit x0.7; BJ and NCRPA x0.6; RPA x0.5; FAU and DNS x0.4
+  (all were x0.5). Trenchmaster now counts too, x0.7. Security, the steam
+  suit and the diesel suit give no bonus, as before. New server keys
+  `powerArmorSpread.<set>`; `powerArmorSpread` (0.5) is for a power armour
+  chestplate with no line of its own, and a server that sets it in its file
+  keeps one number for every set it gives no line, as before. Recoil in
+  power armour is the players' own setting and stays as it was.
+- New recipes for later tiers. The diesel suit needs oil: its helmet takes
+  an integrated circuit board instead of the analog one, its chestplate two
+  of them and two cast high-speed steel plates (one red wool less), its
+  leggings two cast high-speed steel plates more; the boots are as they
+  were. Tesla Cannon: a quantum processing unit instead of the military
+  grade circuit board and two welded combine steel plates instead of two of
+  the three copper coils. Lasrifle: a quantum processing unit instead of the
+  versatile circuit board and schraranium crystals instead of redstone
+  crystals. Tau: a quantum processing unit instead of the versatile circuit
+  board, two 4000K coils instead of the copper tori and two dineutronium
+  compound plates instead of the copper pipe. The recipe book and JEI show
+  only the new recipe. Coilgun and Liberator are as they were. New server
+  key `balanceRecipes` (on; off: NTM's recipes, after `/reload` or a
+  restart).
+
 ## X830
 
 - NTM's combat armour sets take bullets, beams and blasts by one formula

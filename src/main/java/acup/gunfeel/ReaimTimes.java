@@ -112,6 +112,16 @@ public final class ReaimTimes {
         return v == null ? def : v;
     }
 
+    // the key is in the server's file (or the server's while connected to one), not only among the mod's defaults
+    public static synchronized boolean inFile(String key) {
+        long now = System.currentTimeMillis();
+        if (now - lastPoll > 1000L) {
+            lastPoll = now;
+            poll();
+        }
+        return values0().containsKey(key);
+    }
+
     // a yes/no server setting (bulletBreakConcrete = true)
     public static boolean flag(String key, boolean def) {
         return number(key, def ? 1F : 0F) != 0F;

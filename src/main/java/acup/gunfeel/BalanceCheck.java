@@ -190,7 +190,89 @@ public final class BalanceCheck {
     private static final String MODEL = "C как в модели (ваниль 0, щит 0)";
     private static final String[] MODES = {"NTM", "C", MODEL};
 
+    // ---------------------------------------------------------------- stage 1v: the recipes
+
+    /** a recipe of stage 1v: its name (NTM's id), the items the balance's takes, the ones NTM's takes and it does not */
+    private record Recipe1v(String name, List<String> balance, List<String> ntm) {
+    }
+
+    private static final List<Recipe1v> RECIPES = List.of(
+            new Recipe1v("dieselsuit_helmet", List.of("circuit_basic"), List.of("circuit_analog")),
+            new Recipe1v("dieselsuit_plate", List.of("circuit_basic", "plate_cast_dura_steel", "machine_diesel"), List.of("circuit_analog")),
+            new Recipe1v("dieselsuit_legs", List.of("plate_cast_dura_steel", "motor"), List.of()),
+            new Recipe1v("gun_tesla_cannon", List.of("circuit_quantum", "plate_welded_cmbsteel", "coil_copper"), List.of("circuit_advanced")),
+            new Recipe1v("gun_lasrifle", List.of("circuit_quantum", "crystal_schraranium"), List.of("circuit_bismoid", "crystal_redstone")),
+            new Recipe1v("gun_tau", List.of("circuit_quantum", "coil_magnetized_tungsten", "plate_dineutronium"), List.of("circuit_bismoid", "coil_copper_torus")));
+
+    private static java.util.concurrent.CompletableFuture<Void> reload;
+
+    private static void planRecipes() {
+        for (boolean on : new boolean[] {true, false, true}) {
+            STEPS.add(() -> {
+                keys("balanceRecipes", Boolean.toString(on));
+                ReaimTimes.inFile("balanceRecipes"); // the file read now, before the data packs ask
+            });
+            wait(30);
+            STEPS.add(() -> {
+                var server = level.getServer();
+                reload = server.reloadResources(server.getPackRepository().getSelectedIds());
+            });
+            int[] after = {0};
+            for (int i = 0; i < 1200; i++) STEPS.add(() -> {
+                if (reload != null && reload.isDone()) skipTo = Math.max(skipTo, after[0]);
+            });
+            after[0] = STEPS.size();
+            STEPS.add(() -> recipes(on));
+        }
+    }
+
+    private static void recipes(boolean on) {
+        check(reload != null && reload.isDone() && !reload.isCompletedExceptionally(), "1в: /reload с balanceRecipes = " + on);
+        var manager = level.getServer().getRecipeManager();
+        for (Recipe1v r : RECIPES) {
+            var balance = manager.byKey(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, Identifier.fromNamespaceAndPath("hbm", r.name())));
+            var ntm = manager.byKey(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, Identifier.fromNamespaceAndPath("ntmgunfeel", "ntm/" + r.name())));
+            // every recipe making the item: one, whichever the setting
+            var item = item(r.name());
+            long making = manager.getRecipes().stream().filter(h -> makes(h.value(), item)).count();
+            var held = on ? balance : ntm;
+            List<String> takes = held.map(h -> takes(h.value())).orElse(List.of());
+            boolean right = held.isPresent() && (on ? ntm : balance).isEmpty() && making == 1
+                    && (on ? r.balance() : r.ntm()).stream().allMatch(takes::contains) && (on ? r.ntm().stream().noneMatch(takes::contains) : true);
+            check(right, "1в: " + r.name() + (on ? " рецепт баланса hbm:" : " рецепт NTM ntmgunfeel:ntm/") + r.name() + ", рецептов предмета " + making
+                    + ", берёт " + takes);
+        }
+    }
+
+    private static Item item(String name) {
+        return BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", name));
+    }
+
+    private static boolean makes(net.minecraft.world.item.crafting.Recipe<?> recipe, Item item) {
+        try {
+            for (var d : recipe.display()) {
+                var stacks = d.result().resolveForStacks(net.minecraft.world.item.crafting.display.SlotDisplayContext.fromLevel(level));
+                for (ItemStack st : stacks) if (st.is(item)) return true;
+            }
+        } catch (RuntimeException e) {
+            // a recipe that cannot show itself without a level of its own: not one of ours
+        }
+        return false;
+    }
+
+    /** the item names (hbm's path, or the full id) the recipe's ingredients accept */
+    private static List<String> takes(net.minecraft.world.item.crafting.Recipe<?> recipe) {
+        List<String> out = new ArrayList<>();
+        for (var ing : recipe.placementInfo().ingredients()) ing.items().forEach(h -> {
+            Identifier id = BuiltInRegistries.ITEM.getKey(h.value());
+            String n = id.getNamespace().equals("hbm") ? id.getPath() : id.toString();
+            if (!out.contains(n)) out.add(n);
+        });
+        return out;
+    }
+
     private static void plan() {
+        planRecipes();
         LINES.add("#\tрежим\tнабор\tпушка\tкликов до смерти\tснято первым кликом\tударов\tD за удар\tNTM за удар\tC за удар\tмодель: за удар / кликов");
         for (String mode : MODES) {
             STEPS.add(() -> keys("balanceArmor", mode.equals("NTM") ? "false" : "true", "balanceGuns", "false", "damageCap", "true", "damageCapMobs", "false"));

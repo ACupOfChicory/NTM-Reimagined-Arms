@@ -33,7 +33,8 @@ class Gl54RecipesTest {
 
     static List<Path> files() throws IOException {
         try (Stream<Path> s = Files.walk(RECIPES)) {
-            return s.filter(p -> p.toString().endsWith(".json")).sorted().toList();
+            // ntm/: NTM's own recipes the balance's replace (BalanceStage1vTest checks them against NTM's jar)
+            return s.filter(p -> p.toString().endsWith(".json") && !RECIPES.relativize(p).startsWith("ntm")).sorted().toList();
         }
     }
 

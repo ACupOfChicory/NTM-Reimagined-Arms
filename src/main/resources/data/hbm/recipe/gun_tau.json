@@ -1,0 +1,26 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "ntmgunfeel:balance_recipes",
+      "on": true
+    }
+  ],
+  "type": "hbm:crafting_shaped",
+  "key": {
+    "D": "hbm:circuit_quantum",
+    "G": "#hbm:grips/any_hard_plastic",
+    "M": "#hbm:gun_mechanisms/saturnite",
+    "P": "hbm:plate_dineutronium",
+    "R": "#hbm:receivers_light/saturnite",
+    "S": "#hbm:stocks/any_hard_plastic",
+    "T": "hbm:coil_magnetized_tungsten"
+  },
+  "pattern": [
+    "PRD",
+    "PTT",
+    "GMS"
+  ],
+  "result": {
+    "id": "hbm:gun_tau"
+  }
+}

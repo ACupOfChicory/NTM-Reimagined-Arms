@@ -1,0 +1,22 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "ntmgunfeel:balance_recipes",
+      "on": true
+    }
+  ],
+  "type": "hbm:crafting_shaped",
+  "key": {
+    "C": "hbm:circuit_basic",
+    "S": "#c:ingots/steel",
+    "W": "minecraft:red_wool"
+  },
+  "pattern": [
+    "W W",
+    "W W",
+    "SCS"
+  ],
+  "result": {
+    "id": "hbm:dieselsuit_helmet"
+  }
+}

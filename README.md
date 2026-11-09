@@ -278,7 +278,8 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `clientHits` | `true` | A player's bullet hits what that player's game saw it hit; off: the server's view decides |
 | `cameraScaleMin` | `0` | Camera recoil players cannot go below |
 | `spreadStand`, `spreadMove`, `spreadSneak`, `spreadCrawl`, `spreadAim` | `1`, `1.5`, `0.75`, `0.5`, `1` | Spread by stance |
-| `powerArmorSpread` | `0.5` | Movement and burst spread in power armour, as a share |
+| `powerArmorSpread.<set>` | from `0.8` (T-51b) to `0.4` (FAU, DNS) | Movement and burst spread in power armour and Trenchmaster, as a share, by the chestplate's set |
+| `powerArmorSpread` | `0.5` | The same for a power armour chestplate with no line; set in the server's file, it stands for every set with no line there |
 | `sprintFireDelay` | `true` | No shot right after a sprint; `sprintFireTime` per gun |
 | `prone`, `proneWithoutGun` | `true` | Lying down; lying without a gun in hand |
 | `proneCrawlNoFire`, `proneCrawlSpeed` | `true`, `0.25` | No shot while crawling faster than this many blocks a second |
@@ -305,6 +306,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balanceExplRawLimit` | `60` | A blast of more raw damage (a mine, C4) is not squeezed |
 | `balanceRoflFloor` | `0.18` | The least share of a hit starmetal and the dineutronium ingot set leave |
 | `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's); off: NTM's damage and guns |
+| `balanceRecipes` | `true` | The balance's recipes for the diesel suit, Tesla Cannon, Lasrifle and Tau; off: NTM's (after `/reload` or a restart) |
 | `spectatorNoGuns` | `true` | Spectators cannot use NTM's guns |
 | `smoke` | `true` | Smoke clouds |
 | `smokeBlocksMobSight` | `false` | Mobs lose a target behind thick smoke |
