@@ -122,6 +122,7 @@ public final class GunFeelMod {
         BulletCheck.registerIfAsked();
         SpreadCheck.registerIfAsked();
         DamageCapCheck.registerIfAsked();
+        BalanceCheck.registerIfAsked();
         WaterCheck.registerIfAsked();
         ExplosiveCheck.registerIfAsked();
         acup.gunfeel.ai.AiCheck.registerIfAsked();

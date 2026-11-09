@@ -1,5 +1,35 @@
 # Changelog
 
+## X828
+
+- NTM's combat armour sets take bullets, beams and blasts by one formula
+  instead of NTM's threshold and resistance. A set has a rating; a hit
+  whose damage (with its ammo's threshold negation and armour piercing) is
+  well under the rating loses most of itself, one well over it gets nearly
+  all through. No hit is ever stopped to 0, so every gun can hurt every set
+  in the table, and none gets all through. One hit's damage on a set is also
+  squeezed past 8 towards 14. Beams and lasers meet three quarters of the
+  rating, blasts the full one (sets that had no blast armour, as steel,
+  titanium, cobalt and schrabidium, now have it). The ratings, from the
+  balance model: steel, cobalt, Advanced Alloy, titanium and Taurun 8,
+  diesel suit 13, T-51b 18, steam suit and HEV 26, AJR and AJRO 25,
+  Security 22, Trenchmaster and bismuth 48, BJ 63, NCRPA 54, CMB and
+  schrabidium 91, RPA 90, FAU 148, DNS 186, euphemium 280. So an AMAT .50 SM
+  round now kills FAU in 4 body shots (was 12, with the damage cap), the
+  laser pistol takes 8 shots to kill BJ (was 2), MAS-36 DU kills RPA in 5
+  (as before, from 4.4 to 4.9 a hit). A piece alone protects its share of
+  the body (helmet 3, chestplate 8, leggings 6, boots 3 of 20) with its
+  set's numbers. The sets protect whoever wears them, FBI agents too. Fire,
+  radiation, gas, nuclear blasts and falling are as before, and so are
+  euphemium's and DNS's invulnerability, Trenchmaster's blocks and the
+  sets' abilities. Starmetal and the dineutronium ingot set keep NTM's
+  numbers, but a hit keeps at least 18 % of itself. The GL-54's acid
+  corrodes the rating as it corroded NTM's numbers. Guns' damage is not
+  changed yet.
+  New server keys `balanceArmor` (on), `balanceS.<set>` (the ratings),
+  `balanceEnShare` (0.75), `balanceFleshKnee` (8), `balanceFleshMax` (14),
+  `balanceExplRawLimit` (60), `balanceRoflFloor` (0.18).
+
 ## X827
 
 - A damage cap against players: one click of a gun takes at most 60 % of a

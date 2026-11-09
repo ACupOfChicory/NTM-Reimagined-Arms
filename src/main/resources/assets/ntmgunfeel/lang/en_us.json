@@ -33,6 +33,7 @@
   "ntmgunfeel.gl54.wheel": "Wheel",
   "ntmgunfeel.feature.prone_fire": "No shot while crawling",
   "ntmgunfeel.feature.mob_ai": "Mob AI",
+  "ntmgunfeel.feature.balance": "Armour balance",
   "ntmgunfeel.armsai.unseen": "AI mobs do not see or hear you in creative or spectator mode",
   "ntmgunfeel.armsai.dummy": "AI dummy",
   "ntmgunfeel.compat.title": "NTM version %s is not tested, the last supported one is %s",
