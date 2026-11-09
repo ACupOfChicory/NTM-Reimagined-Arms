@@ -27,7 +27,7 @@ import com.google.gson.JsonParser;
 class BalanceStage1vTest {
     private static final Path HBM = Path.of("src/main/resources/data/hbm/recipe");
     private static final Path NTM = Path.of("src/main/resources/data/ntmgunfeel/recipe/ntm");
-    private static final List<String> RECIPES = List.of("dieselsuit_helmet", "dieselsuit_plate", "dieselsuit_legs", "gun_tesla_cannon", "gun_lasrifle", "gun_tau");
+    private static final List<String> RECIPES = List.of("dieselsuit_helmet", "dieselsuit_plate", "dieselsuit_legs", "gun_tesla_cannon", "gun_lasrifle", "gun_tau", "syringe_metal_medx");
 
     // the shipped keys powerArmorSpread.<set> are the table's, and the table is the owner's
     @Test
@@ -68,7 +68,7 @@ class BalanceStage1vTest {
                 && c.get(0).getAsJsonObject().get("on").getAsBoolean() == on;
     }
 
-    // our files are these six, the balance's under NTM's ids with on = true, NTM's own as they are in its jar with on =
+    // our files are these seven (stage 2: Med-X), the balance's under NTM's ids with on = true, NTM's own as they are in its jar with on =
     // false; every key used, every item and tag in NTM's jar
     @Test
     void recipes() throws IOException {

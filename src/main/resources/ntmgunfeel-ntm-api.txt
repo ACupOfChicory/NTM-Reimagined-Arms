@@ -129,15 +129,21 @@ ARMS method com/hbm/render/loader/HFRWavefrontObject smoothing ()Z
 ARMS method com/hbm/util/GameTime now ()J
 BALANCE class com/hbm/entity/projectile/EntityBulletBaseMK4
 BALANCE class com/hbm/entity/projectile/EntityBulletBeamBase
+BALANCE class com/hbm/interfaces/NtmDamageContext
 BALANCE class com/hbm/items/armor/ArmorFullSetBonus
 BALANCE class com/hbm/items/armor/ArmorFullSetBonus$EffectBonus
+BALANCE class com/hbm/items/armor/ItemModShield
 BALANCE class com/hbm/items/armor/ModArmorItem$Suit
+BALANCE class com/hbm/items/food/MedicalSyringeItem$Type
 BALANCE class com/hbm/items/weapon/sedna/BulletConfig
 BALANCE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 BALANCE class com/hbm/items/weapon/sedna/mags/IMagazine
 BALANCE class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 BALANCE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 BALANCE field com/hbm/entity/projectile/EntityBulletBeamBase damage F
+BALANCE field com/hbm/items/armor/ItemModShield shield F
+BALANCE field com/hbm/items/food/MedicalSyringeItem$Type MEDX Lcom/hbm/items/food/MedicalSyringeItem$Type;
+BALANCE field com/hbm/items/food/MedicalSyringeItem$Type SUPER_STIMPAK Lcom/hbm/items/food/MedicalSyringeItem$Type;
 BALANCE field com/hbm/items/weapon/sedna/BulletConfig ammoItem Ljava/util/function/Supplier;
 BALANCE field com/hbm/items/weapon/sedna/BulletConfig damageMult F
 BALANCE field com/hbm/items/weapon/sedna/BulletConfig id I
@@ -147,6 +153,9 @@ BALANCE field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase capacity I
 BALANCE field com/hbm/lib/ModDamageTypes DIGAMMA Lnet/minecraft/resources/ResourceKey;
 BALANCE field com/hbm/lib/ModDamageTypes NUCLEAR_BLAST Lnet/minecraft/resources/ResourceKey;
 BALANCE field com/hbm/lib/ModDamageTypes RADIATION Lnet/minecraft/resources/ResourceKey;
+BALANCE method com/hbm/handler/ArmorModHandler modItem (Lnet/minecraft/world/item/ItemStack;I)Lnet/minecraft/world/item/Item;
+BALANCE method com/hbm/interfaces/NtmDamageContext hbm$pierceDR ()F
+BALANCE method com/hbm/interfaces/NtmDamageContext hbm$pierceDT ()F
 BALANCE method com/hbm/items/armor/ArmorFullSetBonus get (Lcom/hbm/items/armor/ModArmorItem$Suit;)Lcom/hbm/items/armor/ArmorFullSetBonus;
 BALANCE method com/hbm/items/armor/ArmorFullSetBonus$EffectBonus <init> (Lnet/minecraft/core/Holder;I)V
 BALANCE method com/hbm/items/armor/ArmorFullSetBonus$EffectBonus amplifier ()I
@@ -313,6 +322,7 @@ CORE field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/l
 CORE field com/hbm/extprop/HbmLivingProps fire I
 CORE field com/hbm/extprop/HbmLivingProps phosphorus I
 CORE field com/hbm/extprop/HbmPlayerProps dashCount I
+CORE field com/hbm/extprop/HbmPlayerProps lastDamage I
 CORE field com/hbm/extprop/HbmPlayerProps maxShield F
 CORE field com/hbm/extprop/HbmPlayerProps shield F
 CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
@@ -480,11 +490,14 @@ CORE method com/hbm/extprop/HbmLivingProps getData (Lnet/minecraft/world/entity/
 CORE method com/hbm/extprop/HbmLivingProps incrementBlackLung (Lnet/minecraft/world/entity/LivingEntity;I)V
 CORE method com/hbm/extprop/HbmPlayerProps getData (Lnet/minecraft/world/entity/player/Player;)Lcom/hbm/extprop/HbmPlayerProps;
 CORE method com/hbm/extprop/HbmPlayerProps getEffectiveMaxShield (Lnet/minecraft/world/entity/player/Player;)F
+CORE method com/hbm/handler/ArmorModHandler applyMod (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemStack;)V
+CORE method com/hbm/handler/ArmorModHandler modifyDamage (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;F)F
 CORE method com/hbm/handler/ArmorUtil checkForHazmat (Lnet/minecraft/world/entity/LivingEntity;)Z
 CORE method com/hbm/handler/ArmorUtil damageGasMaskFilter (Lnet/minecraft/world/entity/LivingEntity;I)V
 CORE method com/hbm/handler/ArmorUtil getGasMaskFilter (Lnet/minecraft/world/item/ItemInstance;)Lnet/minecraft/world/item/ItemStack;
 CORE method com/hbm/handler/ArmorUtil installGasMaskFilter (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemStack;)V
 CORE method com/hbm/handler/EquipmentProtections isMask (Lnet/minecraft/world/item/ItemInstance;)Z
+CORE method com/hbm/handler/PlayerShield tick (Lnet/minecraft/server/level/ServerPlayer;)V
 CORE method com/hbm/items/armor/ArmorDash tick (Lnet/minecraft/world/entity/player/Player;FF)V
 CORE method com/hbm/items/armor/ModArmorItem isPowered ()Z
 CORE method com/hbm/items/armor/ModArmorItem maxPower (Lnet/minecraft/world/item/ItemStack;)J

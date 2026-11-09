@@ -1,0 +1,22 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "ntmgunfeel:balance_recipes",
+      "on": true
+    }
+  ],
+  "type": "hbm:crafting_shaped",
+  "key": {
+    "N": "minecraft:quartz",
+    "P": "hbm:plate_polymer",
+    "S": "hbm:syringe_metal_empty"
+  },
+  "pattern": [
+    " N ",
+    "PSP",
+    " N "
+  ],
+  "result": {
+    "id": "hbm:syringe_metal_medx"
+  }
+}

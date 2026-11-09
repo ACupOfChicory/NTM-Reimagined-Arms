@@ -104,5 +104,6 @@
   "subtitles.ntmgunfeel.ai.voice.flanking": "Soldier: flanking",
   "subtitles.ntmgunfeel.ai.voice.man_down": "Soldier: man down",
   "subtitles.ntmgunfeel.ai.voice.moving": "Soldier: moving",
-  "subtitles.ntmgunfeel.ai.voice.hit": "Soldier: hit"
+  "subtitles.ntmgunfeel.ai.voice.hit": "Soldier: hit",
+  "ntmgunfeel.euph.window": "Euphemium overwhelmed: open to hits for %s s"
 }

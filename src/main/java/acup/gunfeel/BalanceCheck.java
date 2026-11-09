@@ -272,6 +272,7 @@ public final class BalanceCheck {
     }
 
     private static void plan() {
+        plan2();
         planAbilities();
         planRecipes();
         LINES.add("#\tрежим\tнабор\tпушка\tкликов до смерти\tснято первым кликом\tударов\tD за удар\tNTM за удар\tC за удар\tмодель: за удар / кликов");
@@ -283,6 +284,374 @@ public final class BalanceCheck {
             rocket(mode);
         }
         plan1b();
+    }
+
+    // ---------------------------------------------------------------- stage 2: the kit, vanilla 0, euphemium
+
+    private static final String[] KIT_KEYS = {"balance.shield", "balance.medx", "balance.superStimpak", "balance.inserts", "balance.vanilla0"};
+
+    private static void kitKeys(boolean on) {
+        List<String> kv = new ArrayList<>();
+        for (String k : KIT_KEYS) {
+            kv.add(k);
+            kv.add(Boolean.toString(on));
+        }
+        kv.addAll(List.of("balance.immune.mode", on ? "pool" : "ntm", "balance.immune.pool", "2000", "balance.immune.window", "15", "balance.immune.recover", "60",
+                "balanceArmor", "true", "balanceGuns", "false", "damageCap", "true", "damageCapMobs", "false"));
+        keys(kv.toArray(new String[0]));
+    }
+
+    private static ItemStack hbm(String name) {
+        ItemStack st = new ItemStack(item(name));
+        if (st.isEmpty()) throw new IllegalStateException("no hbm:" + name);
+        return st;
+    }
+
+    private static void plan2() {
+        LINES.add("#\t--- этап 2: щит, Med-X, супер-стимпак, вставки, ваниль 0, евфемий");
+        for (boolean on : new boolean[] {true, false}) {
+            String m = on ? "баланс" : "NTM";
+            STEPS.add(() -> kitKeys(on));
+            wait(30);
+            STEPS.add(() -> shield2(on, m));
+            STEPS.add(() -> medicine2(on, m));
+            STEPS.add(() -> inserts2(on, m));
+            STEPS.add(() -> vanilla2(on, m));
+            kitFight(on, 0);
+            kitFight(on, 1);
+            kitFight(on, 2);
+        }
+        STEPS.add(() -> kitKeys(true));
+        wait(30);
+        euph2();
+        // the rest of the stand with the shipped keys
+        STEPS.add(() -> {
+            kitKeys(true);
+            for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
+            target.removeAllEffects();
+            var props = com.hbm.extprop.HbmPlayerProps.getData(target);
+            props.maxShield = 0F;
+            props.shield = 0F;
+        });
+        wait(30);
+    }
+
+    private static void shield2(boolean on, String m) {
+        var props = com.hbm.extprop.HbmPlayerProps.getData(target);
+        dress(target, "hev", true);
+        ItemStack chest = target.getItemBySlot(EquipmentSlot.CHEST);
+        com.hbm.handler.ArmorModHandler.applyMod(chest, hbm("australium_iii"));
+        props.maxShield = 0F;
+        float mod = props.getEffectiveMaxShield(target);
+        props.maxShield = 100F;
+        float all = props.getEffectiveMaxShield(target);
+        check(on ? near(mod, 10F) && near(all, 30F) : near(mod, 25F) && near(all, 125F),
+                "2: " + m + ": щит: мод " + f(mod) + ", мод и 20 фляг " + f(all) + (on ? " (ждали 10 и потолок 30)" : " (NTM: 25 и 125)"));
+        // the shield comes back: 150 and 200 ticks after a hit, the mod alone
+        props.maxShield = 0F;
+        props.shield = 0F;
+        props.lastDamage = target.tickCount;
+        float at150 = 0F;
+        for (int t = 1; t <= 200; t++) {
+            target.tickCount++;
+            com.hbm.handler.PlayerShield.tick(target);
+            if (t == 150) at150 = props.shield;
+        }
+        check(on ? near(at150, 2.55F) && near(props.shield, 10F) : near(at150, 20.48F) && near(props.shield, 25F),
+                "2: " + m + ": щит после удара: через 150 тиков " + f(at150) + ", через 200 " + f(props.shield)
+                        + (on ? " (ждали 2,55 и 10: пауза 100, 0,002·t)" : " (NTM: 20,48 и 25: пауза 60, 0,005·t)"));
+        // a flask: NTM's count +5, the shield's most +2 (NTM +5); no more once the flasks alone reach the cap
+        dress(target, "hev", true);
+        props.maxShield = 70F;
+        props.shield = 0F;
+        ItemStack flask = hbm("flask_infusion_shield");
+        target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, flask);
+        flask.getItem().finishUsingItem(flask, level, target);
+        float max = props.getEffectiveMaxShield(target), top = props.shield;
+        ItemStack again = hbm("flask_infusion_shield");
+        target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, again);
+        var use = again.getItem().use(level, target, net.minecraft.world.InteractionHand.MAIN_HAND);
+        target.stopUsingItem();
+        boolean refused = use == net.minecraft.world.InteractionResult.PASS;
+        check(on ? near(props.maxShield, 75F) && near(max, 30F) && near(top, 2F) && refused : near(props.maxShield, 75F) && near(max, 75F) && near(top, 5F) && !refused,
+                "2: " + m + ": фляга: счёт NTM " + f(props.maxShield) + ", щит до " + f(max) + ", сразу +" + f(top) + ", ещё одну " + (refused ? "нельзя" : "можно")
+                        + (on ? " (ждали 75, 30, +2, нельзя)" : " (NTM: 75, 75, +5, можно)"));
+        target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        props.maxShield = 0F;
+        props.shield = 0F;
+    }
+
+    private static boolean near(float a, float b) {
+        return Math.abs(a - b) <= 0.02F + 0.002F * Math.abs(b);
+    }
+
+    private static void medicine2(boolean on, String m) {
+        for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
+        target.removeAllEffects();
+        ItemStack medx = hbm("syringe_metal_medx");
+        target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, medx);
+        medx.getItem().use(level, target, net.minecraft.world.InteractionHand.MAIN_HAND);
+        var res = target.getEffect(net.minecraft.world.effect.MobEffects.RESISTANCE);
+        check(res != null && (on ? res.getAmplifier() == 0 && res.getDuration() == 1200 : res.getAmplifier() == 2 && res.getDuration() == 4800),
+                "2: " + m + ": Med-X: " + (res == null ? "нет Сопротивления" : "Сопротивление " + (res.getAmplifier() + 1) + ", " + res.getDuration() / 20 + " с")
+                        + (on ? " (ждали I, 60 с)" : " (NTM: III, 240 с)"));
+        target.removeAllEffects();
+        target.setHealth(5F);
+        ItemStack sup = hbm("syringe_metal_super");
+        target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, sup);
+        sup.getItem().use(level, target, net.minecraft.world.InteractionHand.MAIN_HAND);
+        float now = target.getHealth();
+        boolean slow = target.hasEffect(net.minecraft.world.effect.MobEffects.SLOWNESS);
+        for (int t = 0; t < 120; t++) BalanceKit.tickHeal(target);
+        float half = target.getHealth();
+        for (int t = 0; t < 130; t++) BalanceKit.tickHeal(target);
+        float end = target.getHealth();
+        check(slow && (on ? near(now, 5F) && near(half, 17.5F) && near(end, 20F) && BalanceKit.healLeft(target) == 0F : near(now, 20F) && near(end, 20F)),
+                "2: " + m + ": супер-стимпак с 5 HP: сразу " + f(now) + ", через 6 с " + f(half) + ", через 12,5 с " + f(end) + (slow ? ", Замедление есть" : ", НЕТ Замедления")
+                        + (on ? " (ждали 5, 17,5, 20)" : " (NTM: 20 сразу)"));
+        target.removeAllEffects();
+        target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        target.setHealth(target.getMaxHealth());
+    }
+
+    private static void inserts2(boolean on, String m) {
+        var bullet = level.damageSources().source(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DAMAGE_TYPE, Identifier.fromNamespaceAndPath("hbm", "physical")));
+        String[][] cases = {{"insert_kevlar", "9.00", "9.00"}, {"insert_sapi", "9.00", "8.50"}, {"insert_esapi", "8.55", "7.60"}, {"insert_xsapi", "8.10", "6.75"},
+                {"insert_du", "8.10", "7.65"}, {"insert_ghiorsium", "7.20", "6.00"}, {"insert_steel", "9.50", "9.50"}};
+        for (String[] c : cases) {
+            dress(target, "hev", true);
+            com.hbm.handler.ArmorModHandler.applyMod(target.getItemBySlot(EquipmentSlot.CHEST), hbm(c[0]));
+            float out = com.hbm.handler.ArmorModHandler.modifyDamage(target, bullet, 10F);
+            float want = Float.parseFloat(on ? c[1] : c[2]);
+            check(near(out, want), "2: " + m + ": " + c[0] + ": пуля 10 → " + f(out) + " (ждали " + f(want) + ")");
+        }
+    }
+
+    private static float vanillaArmor(ItemStack stack, EquipmentSlot slot) {
+        float[] sum = {0F};
+        stack.forEachModifier(slot, (attr, mod) -> {
+            if (attr.is(Attributes.ARMOR) || attr.is(Attributes.ARMOR_TOUGHNESS)) sum[0] += (float) mod.amount();
+        });
+        return sum[0];
+    }
+
+    private static void vanilla2(boolean on, String m) {
+        for (String set : new String[] {"steel", "dieselsuit", "hev", "bj", "fau", "dns", "euphemium", "starmetal", "dnt"}) {
+            float sum = 0F;
+            for (int i = 0; i < 4; i++) sum += vanillaArmor(hbm(set + SUFFIX[i]), SLOTS[i]);
+            boolean combat = !set.equals("starmetal") && !set.equals("dnt");
+            check(on && combat ? sum == 0F : sum > 0F, "2: " + m + ": ваниль-броня и прочность набора " + set + ": " + f(sum)
+                    + (on && combat ? " (ждали 0)" : " (NTM: своя)"));
+        }
+    }
+
+    /** the kit on HEV against Star-F JHP: clicks to kill without and with it (the shield mod, Med-X) */
+    private static int kitBase;
+
+    private static void kitFight(boolean on, int kind) {
+        boolean kit = kind > 0;
+        String m = on ? "баланс" : "NTM";
+        STEPS.add(() -> {
+            begin(target);
+            target.removeAllEffects();
+            dress(target, "hev", true);
+            var props = com.hbm.extprop.HbmPlayerProps.getData(target);
+            props.maxShield = 0F;
+            props.shield = 0F;
+            if (kit) {
+                ItemStack chest = target.getItemBySlot(EquipmentSlot.CHEST);
+                // 1: the shield mod; 2: the mod and every flask (NTM's count 100): the cap
+                com.hbm.handler.ArmorModHandler.applyMod(chest, hbm("australium_iii"));
+                if (kind == 2) props.maxShield = 100F;
+                ItemStack medx = hbm("syringe_metal_medx");
+                target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, medx);
+                medx.getItem().use(level, target, net.minecraft.world.InteractionHand.MAIN_HAND);
+                target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                props.shield = props.getEffectiveMaxShield(target);
+            }
+            target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+        });
+        // an insert takes the chestplate's socket 6, the shield mod's too: a kit has one of them, here the mod
+        clicks(shooter, ModItems.GUN_STAR_F::get, XFactory22lr.p22_jhp, EnumKeybind.GUN_PRIMARY);
+        STEPS.add(() -> {
+            String what = kind == 0 ? "hev" : "hev + Med-X + щит " + f(com.hbm.extprop.HbmPlayerProps.getData(target).getEffectiveMaxShield(target));
+            String r = row(m, what, "star_f · p22_jhp");
+            if (!kit) {
+                kitBase = deathClick;
+                return;
+            }
+            float x = kitBase > 0 && deathClick > 0 ? (float) deathClick / kitBase : Float.NaN;
+            // the numbers for the owner (the task: write them, not fit them); the balance's kit must kill at all
+            LINES.add("#\t2: " + m + ": " + what + " против Star-F JHP: кликов " + kitBase + " → "
+                    + (deathClick > 0 ? deathClick : "> " + clicks) + " (×" + (Float.isNaN(x) ? "?" : f(x)) + ")" + r);
+            if (on) check(deathClick > 0, "2: баланс: " + what + ": убит за " + deathClick + " кликов (без комплекта " + kitBase + ", ×" + f(x) + ")");
+            target.removeAllEffects();
+        });
+    }
+
+    private static java.lang.reflect.Method activeBonus2, applyEffects2;
+
+    /** what NTM's tick gives a player in the full set (the effects), as in 1g */
+    private static void suitTick(net.minecraft.server.level.ServerPlayer p) {
+        try {
+            if (activeBonus2 == null) {
+                activeBonus2 = com.hbm.items.armor.ArmorSuitEffects.class.getDeclaredMethod("activeBonus", net.minecraft.server.level.ServerPlayer.class);
+                applyEffects2 = com.hbm.items.armor.ArmorSuitEffects.class.getDeclaredMethod("applyEffects", net.minecraft.server.level.ServerPlayer.class, com.hbm.items.armor.ArmorFullSetBonus.class);
+                activeBonus2.setAccessible(true);
+                applyEffects2.setAccessible(true);
+            }
+            Object bonus = activeBonus2.invoke(null, p);
+            if (bonus != null) applyEffects2.invoke(null, p, bonus);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static boolean has128(net.minecraft.server.level.ServerPlayer p) {
+        var res = p.getEffect(net.minecraft.world.effect.MobEffects.RESISTANCE);
+        var reg = p.getEffect(net.minecraft.world.effect.MobEffects.REGENERATION);
+        return res != null && res.getAmplifier() >= 100 && reg != null && reg.getAmplifier() >= 100;
+    }
+
+    private static final java.util.List<String> EUPH_LOG = new ArrayList<>();
+    private static float euphLostPool, euphLostWindow, euphLostRecover;
+    private static boolean euph128Pool, euph128Window;
+
+    /** one AMAT SM click on the euphemium wearer, the HP it took booked by the phase it met */
+    private static void euphClick(String tag) {
+        STEPS.add(() -> {
+            pendingTag = null;
+            if (target.getHealth() <= 0F || euphStop) return;
+            String phase = EuphImmunity.describe(target);
+            if (stopAtRecover && phase.startsWith("RECOVER")) euphStop = true;
+            suitTick(target);
+            boolean full128 = has128(target);
+            if (phase.startsWith("POOL") || phase.equals("нет")) euph128Pool |= full128;
+            if (phase.startsWith("WINDOW")) euph128Window |= full128;
+            pendingHp = target.getHealth();
+            pendingPhase = phase;
+            pendingTag = tag;
+            fire(shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
+            clicks++;
+        });
+        wait(SPACING - 1);
+        STEPS.add(() -> {
+            if (pendingTag == null) return;
+            float took = Math.max(0F, pendingHp - target.getHealth());
+            if (pendingPhase.startsWith("WINDOW")) euphLostWindow += took;
+            else if (pendingPhase.startsWith("RECOVER")) euphLostRecover += took;
+            else euphLostPool += took;
+            EUPH_LOG.add(pendingTag + ", " + pendingPhase + ": −" + f(took) + " HP → " + f(target.getHealth()));
+            pendingTag = null;
+        });
+    }
+
+    private static float pendingHp;
+    private static String pendingPhase, pendingTag;
+    private static boolean euphStop, stopAtRecover;
+
+    private static void euph2() {
+        // a small pool for the stand: 4 (AMAT SM takes about 1 of it a shot), a window of 3 s, a recovery of 3 s
+        STEPS.add(() -> {
+            keys("balance.immune.pool", "4", "balance.immune.window", "3", "balance.immune.recover", "3");
+            begin(target);
+            dress(target, "euphemium", true);
+            target.removeAllEffects();
+            EuphImmunity.forget(target);
+            target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+            EUPH_LOG.clear();
+            euphLostPool = euphLostWindow = euphLostRecover = 0F;
+            euph128Pool = euph128Window = false;
+            euphStop = false;
+            stopAtRecover = false;
+        });
+        wait(30);
+        // through the pool and the window into the recovery (a shot in it), then no more
+        for (int i = 0; i < 24; i++) {
+            if (i == 0) STEPS.add(() -> stopAtRecover = true);
+            euphClick("пул/окно/восст.");
+        }
+        STEPS.add(() -> {
+            for (String l : EUPH_LOG) LINES.add("#\t2: евфемий: " + l);
+            check(euphLostPool == 0F && euphLostRecover == 0F && euphLostWindow > 0F && euph128Pool && !euph128Window,
+                    "2: евфемий, пул 4: в пуле снято " + f(euphLostPool) + " HP, в окне " + f(euphLostWindow) + ", в восстановлении " + f(euphLostRecover)
+                            + "; эффекты 128 в пуле " + (euph128Pool ? "есть" : "НЕТ") + ", в окне " + (euph128Window ? "ЕСТЬ" : "нет")
+                            + " (ждали: 0, > 0, 0; есть, нет)");
+            target.setHealth(target.getMaxHealth());
+            euphStop = false;
+            stopAtRecover = false;
+        });
+        // the recovery (3 s) runs out: poll until the pool is the pool's again, 200 ticks at most
+        int[] polled = {0};
+        for (int t = 0; t < 200; t++) STEPS.add(() -> {
+            if (polled[0] == 0 && EuphImmunity.describe(target).startsWith("POOL")) polled[0] = 1;
+        });
+        STEPS.add(() -> check(EuphImmunity.describe(target).equals("POOL 4"), "2: евфемий: после восстановления пул полон: " + EuphImmunity.describe(target) + " (ждали POOL 4)"));
+        // the tomb's radon: invulnerable no more while in it, the full pool notwithstanding
+        STEPS.add(() -> {
+            keys("balance.immune.pool", "2000", "balance.immune.window", "15", "balance.immune.recover", "60");
+            EuphImmunity.forget(target);
+            begin(target);
+            EUPH_LOG.clear();
+            euphLostPool = euphLostWindow = euphLostRecover = 0F;
+        });
+        wait(30);
+        for (int i = 0; i < 2; i++) {
+            STEPS.add(() -> {
+                var gas = BuiltInRegistries.BLOCK.getValue(Identifier.fromNamespaceAndPath("hbm", "gas_radon_tomb")).defaultBlockState();
+                net.minecraft.core.BlockPos at = target.blockPosition();
+                gas.entityInside(level, at, target, net.minecraft.world.entity.InsideBlockEffectApplier.NOOP, false);
+            });
+            euphClickInGas();
+        }
+        STEPS.add(() -> {
+            float inGas = euphLostPool;
+            String pool = EuphImmunity.describe(target);
+            check(inGas > 0F && (pool.equals("нет") || pool.equals("POOL 2000")), "2: евфемий в могильном газе (пул 2000 полон): снято " + f(inGas)
+                    + " HP за 2 выстрела AMAT, пул " + pool + " (ждали > 0, пул не тронут)");
+            target.setHealth(target.getMaxHealth());
+            euphLostPool = 0F;
+        });
+        wait(5);
+        for (int i = 0; i < 2; i++) euphClick("после газа");
+        STEPS.add(() -> {
+            String pool = EuphImmunity.describe(target);
+            check(euphLostPool == 0F && pool.startsWith("POOL ") && !pool.equals("POOL 2000"),
+                    "2: евфемий вне газа снова неуязвим, пул тратится: снято " + f(euphLostPool) + " HP, " + pool + " (ждали 0, пул меньше 2000)");
+            for (String l : EUPH_LOG) LINES.add("#\t2: евфемий: " + l);
+        });
+        // NTM's mode: nothing gets through, nothing counted
+        STEPS.add(() -> {
+            keys("balance.immune.mode", "ntm");
+            EuphImmunity.forget(target);
+            begin(target);
+            euphLostPool = euphLostWindow = euphLostRecover = 0F;
+        });
+        wait(30);
+        for (int i = 0; i < 3; i++) euphClick("ntm");
+        STEPS.add(() -> check(euphLostPool + euphLostWindow + euphLostRecover == 0F && EuphImmunity.describe(target).equals("нет"),
+                "2: евфемий, balance.immune.mode = ntm: снято " + f(euphLostPool) + " HP, пул " + EuphImmunity.describe(target) + " (ждали 0, нет)"));
+    }
+
+    /** a click while the gas marks the wearer (the mark lasts a tick: put it again just before the shot) */
+    private static void euphClickInGas() {
+        STEPS.add(() -> {
+            float hp = target.getHealth();
+            var gas = BuiltInRegistries.BLOCK.getValue(Identifier.fromNamespaceAndPath("hbm", "gas_radon_tomb")).defaultBlockState();
+            gas.entityInside(level, target.blockPosition(), target, net.minecraft.world.entity.InsideBlockEffectApplier.NOOP, false);
+            fire(shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
+            pendingHp = hp;
+        });
+        // the bullet flies a tick or two: keep the mark on meanwhile
+        for (int t = 0; t < 6; t++) STEPS.add(() -> {
+            var gas = BuiltInRegistries.BLOCK.getValue(Identifier.fromNamespaceAndPath("hbm", "gas_radon_tomb")).defaultBlockState();
+            gas.entityInside(level, target.blockPosition(), target, net.minecraft.world.entity.InsideBlockEffectApplier.NOOP, false);
+        });
+        STEPS.add(() -> {
+            euphLostPool += Math.max(0F, pendingHp - target.getHealth());
+            EUPH_LOG.add("в газе: −" + f(Math.max(0F, pendingHp - target.getHealth())) + " HP");
+        });
+        wait(14);
     }
 
     // ---------------------------------------------------------------- stage 1g: the sets' abilities

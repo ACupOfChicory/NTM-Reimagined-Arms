@@ -1,7 +1,38 @@
 # Changelog
 
-## X841
+## X843
 
+- What a player carries on top of the armour makes a fight about twice as
+  long at most, not ten times. The shield mod (australium III) gives 10
+  shield (was 25), a shield flask 2 (was 5), and the shield is at most 30 in
+  all (was up to 125); no more flasks can be drunk once they alone are at
+  30. The shield comes back 5 s after the last hit (was 3 s) and slower:
+  10 in the next 5 s (was 25). Med-X gives Resistance I for 60 s (was III
+  for 4 minutes) and needs two plastic plates and two quartz (was four
+  quartz). The super stimpak heals its 25 HP over 12 s instead of at once.
+  An armour insert takes at most 10 % off a bullet (SAPI, ESAPI, XSAPI, DU
+  and ghiorsium took 15–25 %); their damage and blast shares are as
+  before. The shield mod and an insert share the chestplate's socket, so a
+  kit has one of them. New server keys `balance.shield` (`.mod`, `.flask`,
+  `.cap`, `.delay`, `.rate`), `balance.medx`, `balance.superStimpak`,
+  `balance.inserts` (`balance.inserts.bullets` 0.9); off: as before.
+- NTM's combat armour sets of the balance's table have no vanilla armour
+  points and toughness any more: vanilla's armour came on top of the
+  armour formula (a player in steel or HEV had 20 points against a
+  zombie's claws and bullets alike). FBI agents in Security armour keep
+  their own 20. The joke sets (starmetal, the dineutronium ingot set) and
+  the rest keep theirs. New server key `balance.vanilla0`; a worn set
+  changes when a piece is put on again.
+- Euphemium is still invulnerable, but bullets, beams and blasts wear down
+  a pool of 2000: each takes from it what it would do to a DNS-class set.
+  The emptied pool leaves the wearer open to every hit for 15 s, by the
+  set's armour rating, without its Regeneration and Resistance 128 ("Euphemium
+  overwhelmed" over the hotbar); then the pool fills back over 60 s, the set
+  invulnerable meanwhile. A worn-down pool comes back as fast after 5 s
+  without a hit. The tomb's radon gas takes the invulnerability off while
+  the wearer is in it, its radiation too. New server keys
+  `balance.immune.mode` (`pool`; `ntm`: as before), `balance.immune.pool`,
+  `balance.immune.window` and `balance.immune.recover` (seconds).
 - AMAT Penance's thermal sight shows players as FAU and DNS thermal vision
   does: only within 16 blocks and only those in its line of sight (was:
   every player through walls within 64 blocks). Mobs as before. The same

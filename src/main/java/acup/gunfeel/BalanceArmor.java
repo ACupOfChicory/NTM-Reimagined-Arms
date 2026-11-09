@@ -82,7 +82,7 @@ public final class BalanceArmor {
     }
 
     /** the category the formula takes (PHYS, EN, EXPL), or null when the hit is NTM's */
-    private static String category(DamageSource source) {
+    static String category(DamageSource source) {
         if (source.is(DamageTypeTags.BYPASSES_EFFECTS)) return null;
         if (source.is(ModDamageTypes.NUCLEAR_BLAST) || source.is(ModDamageTypes.DIGAMMA) || source.is(ModDamageTypes.RADIATION)) return null;
         String cat = DamageResistanceHandler.typeToCategory(source);

@@ -104,5 +104,6 @@
   "subtitles.ntmgunfeel.ai.voice.flanking": "Солдат: обходит",
   "subtitles.ntmgunfeel.ai.voice.man_down": "Солдат: потеря",
   "subtitles.ntmgunfeel.ai.voice.moving": "Солдат: меняет позицию",
-  "subtitles.ntmgunfeel.ai.voice.hit": "Солдат: ранен"
+  "subtitles.ntmgunfeel.ai.voice.hit": "Солдат: ранен",
+  "ntmgunfeel.euph.window": "Евфемий пробит: %s с уязвимости"
 }
