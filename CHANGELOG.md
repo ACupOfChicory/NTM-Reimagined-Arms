@@ -24,11 +24,28 @@
   euphemium's and DNS's invulnerability, Trenchmaster's blocks and the
   sets' abilities. Starmetal and the dineutronium ingot set keep NTM's
   numbers, but a hit keeps at least 18 % of itself. The GL-54's acid
-  corrodes the rating as it corroded NTM's numbers. Guns' damage is not
-  changed yet.
+  corrodes the rating as it corroded NTM's numbers.
   New server keys `balanceArmor` (on), `balanceS.<set>` (the ratings),
   `balanceEnShare` (0.75), `balanceFleshKnee` (8), `balanceFleshMax` (14),
   `balanceExplRawLimit` (60), `balanceRoflFloor` (0.18).
+- Guns' damage goes with the armour: each gun and ammo pair has a
+  multiplier from the balance model, fitted so that a gun kills armour of its
+  own tier in about the same time at its range (shotguns 7 blocks, pistols
+  and SMGs 12, rifles and machine guns 20, snipers 30). Guns that miss a lot
+  at their range hit harder (Maresleg buckshot x4.2, Greasegun x2.65),
+  strong ones less (the auto shotgun's explosive shells x0.175, carbine HE
+  x0.54). An ammo with no pair of its own takes the gun's nearest pair of
+  the same kind (piercing, blast or soft). The table is one line a pair, and
+  a server can put its own `config/ntm-gunfeel-balance-guns.tsv` in its
+  place. The pedestal guns get at most x2, +50 threshold negation and +0.5
+  piercing; the Tau x2 and +30. Some guns change: Heretic is a
+  semi-automatic heavy shotgun (one shot in 12 ticks, 24 rounds, x0.2);
+  AM180 fires one in 3 ticks with 60 rounds at x3.5; the AMAT Penance fires
+  one in 15 ticks, the Subtlety and MAS-36 one in 17 (were 25); Morning
+  Glory's base damage is 40 (was 20). Liberator and Coilgun are as they
+  were. A gun's tooltip shows the new damage. The multipliers count for
+  everyone's shots, NTM's mobs too, so FBI agents with a Greasegun or an
+  AM180 hit harder. New server key `balanceGuns` (on).
 
 ## X827
 

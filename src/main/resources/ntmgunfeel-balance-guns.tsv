@@ -1,0 +1,87 @@
+# The balance's damage by gun and ammo (stage 1b): NTM's damage of a shot times mult; neg is added to the ammo's
+# armour threshold negation, pen to its armour piercing. One line a pair; ammo * is the gun's own line: mult for all
+# its ammo (over the pairs) and its receiver's changes (delay = ticks after a shot, auto, mag = rounds, dmg = base
+# damage). An ammo of a gun not here: the gun's nearest pair (BalanceGunsRule). A file of the same name in config/
+# (ntm-gunfeel-balance-guns.tsv) is read instead of this one. Source: notes/balance/gun-multipliers-v3.md, section 21.5.
+# gun	ammo	mult	neg	pen	tier (for reading)	extra
+pepperbox	stone_ap	1.68	0	0	0	
+am180	p22_sp	3.5	0	0	2	
+greasegun	p9_sp	2.65	0	0	2	
+henry	m44_express	0.955	0	0	2	
+light_revolver_dani	m357_express	0.308	0	0	2	
+light_revolver	m357_express	0.955	0	0	2	
+maresleg	g12_bp	4.17	0	0	2	
+maresleg	g12_flechette	2.37	0	0	3	
+am180	p22_ap	3.11	0	0	4	
+amat	bmg50_he	0.762	0	0	4	
+autoshotgun	g12_explosive	0.175	0	0	4	
+bolter	b75_exp	0.386	0	0	4	
+carbine	r762_du	0.308	0	0	4	
+carbine	r762_he	0.542	0	0	4	
+double_barrel	g10_du	0.762	0	0	4	
+g3	r556_ap	0.68	0	0	4	
+g3	r556_jhp	0.853	0	0	4	
+greasegun	p9_ap	2.37	0	0	4	
+heavy_revolver_lilmac	m44_express	0.607	0	0	4	
+heavy_revolver	m44_ap	1.07	0	0	4	
+heavy_revolver	m44_express	1.2	0	0	4	
+henry_lincoln	m44_ap	0.853	0	0	4	
+henry_lincoln	m44_express	0.853	0	0	4	
+henry	m44_ap	1.68	0	0	4	
+light_revolver_atlas	m357_ap	1.5	0	0	4	
+light_revolver_atlas	m357_express	1.5	0	0	4	
+light_revolver_dani	m357_ap	0.762	0	0	4	
+light_revolver	m357_ap	2.37	0	0	4	
+m2	bmg50_du	0.245	0	0	4	
+m2	bmg50_he	0.542	0	0	4	
+maresleg_akimbo	g12_explosive	0.542	0	0	4	
+maresleg_akimbo	g12_flechette	1.5	0	0	4	
+maresleg_broken	g12_explosive	0.386	0	0	4	
+maresleg_broken	g12_flechette	1.34	0	0	4	
+spas12	g12_explosive	0.386	0	0	4	
+spas12	g12_flechette	1.07	0	0	4	
+star_f	p22_ap	0.762	0	0	4	
+star_f	p22_jhp	0.955	0	0	4	
+uzi_akimbo	p9_ap	0.853	0	0	4	
+uzi_akimbo	p9_jhp	0.762	0	0	4	
+uzi	p9_ap	1.5	0	0	4	
+uzi	p9_jhp	1.5	0	0	4	
+heavy_revolver_protege	m44_express	1.2	0	0	5	
+lag	p9_ap	0.386	0	0	5	
+lag	p9_jhp	0.542	0	0	5	
+minigun_dual	r762_du	0.275	0	0	5	
+minigun_dual	r762_he	0.432	0	0	5	
+minigun	r762_du	0.484	0	0	5	
+minigun	r762_he	0.853	0	0	5	
+amat_penance	bmg50_sm	0.955	0	0	6	
+amat_subtlety	bmg50_sm	0.607	0	0	6	
+amat	bmg50_sm	0.853	0	0	6	
+autoshotgun_shredder	g12_explosive	0.386	0	0	6	
+double_barrel_sacred_dragon	g10_du	2.97	0	0	6	
+g3_zebra	r556_ap	1.07	0	0	6	
+g3_zebra	r556_jhp	1.34	0	0	6	
+hangman	m44_express	2.11	0	0	6	
+laser_pistol_pew_pew	capacitor	1.2	0	0	6	
+laser_pistol	capacitor	1.07	0	0	6	
+lasrifle	capacitor	0.762	0	0	6	
+mas36	r762_du	2.11	0	0	6	
+star_f_akimbo	p22_ap	1.07	0	0	6	
+star_f_akimbo	p22_jhp	1.5	0	0	6	
+stg77	r556_ap	0.853	0	0	6	
+stg77	r556_jhp	0.955	0	0	6	
+lasrifle	capacitor_overcharge	1	10	0.15	7	
+tesla_cannon	capacitor_overcharge	2	30	0	7	
+minigun_lacunae	capacitor	2	50	0.15	8	
+tau	tau_uranium	2	30	0	8	
+aberrator_eott	secret_p35_800	1	0	0	9	
+aberrator	secret_p35_800	2	0	0	9	
+autoshotgun_sexy	g12_magnum	2	30	0.5	9	
+autoshotgun_sexy	g12_slug	2	30	0.25	9	
+laser_pistol_morning_glory	capacitor	2	30	0	9	
+# owner's decisions (section 21.5, end of balance-by-progression.md)
+autoshotgun_heretic	*	0.2	0	0	4	delay=12 auto=false mag=24
+am180	*	-	0	0	2	delay=3 mag=60
+amat_penance	*	-	0	0	6	delay=15
+amat_subtlety	*	-	0	0	6	delay=17
+mas36	*	-	0	0	6	delay=17
+laser_pistol_morning_glory	*	-	0	0	9	dmg=40

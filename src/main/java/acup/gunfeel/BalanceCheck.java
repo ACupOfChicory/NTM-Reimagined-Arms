@@ -13,12 +13,16 @@ import com.hbm.items.ModItems;
 import com.hbm.items.armor.ModArmorItem;
 import com.hbm.items.weapon.sedna.BulletConfig;
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
+import com.hbm.items.weapon.sedna.factory.XFactory10ga;
 import com.hbm.items.weapon.sedna.factory.XFactory12ga;
 import com.hbm.items.weapon.sedna.factory.XFactory22lr;
 import com.hbm.items.weapon.sedna.factory.XFactory357;
 import com.hbm.items.weapon.sedna.factory.XFactory44;
 import com.hbm.items.weapon.sedna.factory.XFactory50;
+import com.hbm.items.weapon.sedna.factory.XFactory556mm;
 import com.hbm.items.weapon.sedna.factory.XFactory762mm;
+import com.hbm.items.weapon.sedna.factory.XFactory9mm;
+import com.hbm.items.weapon.sedna.factory.XFactoryAccelerator;
 import com.hbm.items.weapon.sedna.factory.XFactoryEnergy;
 import com.hbm.items.weapon.sedna.factory.XFactoryRocket;
 import com.mojang.authlib.GameProfile;
@@ -189,12 +193,162 @@ public final class BalanceCheck {
     private static void plan() {
         LINES.add("#\tрежим\tнабор\tпушка\tкликов до смерти\tснято первым кликом\tударов\tD за удар\tNTM за удар\tC за удар\tмодель: за удар / кликов");
         for (String mode : MODES) {
-            STEPS.add(() -> keys("balanceArmor", mode.equals("NTM") ? "false" : "true", "damageCap", "true", "damageCapMobs", "false"));
+            STEPS.add(() -> keys("balanceArmor", mode.equals("NTM") ? "false" : "true", "balanceGuns", "false", "damageCap", "true", "damageCapMobs", "false"));
             wait(30);
             for (Pair p : PAIRS) pair(p, mode);
             fbiCase(mode);
             rocket(mode);
         }
+        plan1b();
+    }
+
+    // ---------------------------------------------------------------- stage 1b: the guns' damage
+
+    /**
+     * a pair of stage 1b: the model's hit after the armour and clicks to kill with the armour of 1a and NTM's gun
+     * ({@code hit1a}), then with the gun's mult ({@code hit1b}); {@code d1b} the hit's damage before the armour (0: a
+     * blast, not checked), {@code ntmD} NTM's (0: a blast); {@code fbi}: the FBI agent fires it; {@code info}: no check
+     */
+    private record Pair1b(String set, String gunName, Supplier<Item> gun, Supplier<BulletConfig> ammo, float hit1a, int clicks1a,
+            float hit1b, int clicks1b, float d1b, float ntmD, boolean fbi, boolean info) {
+    }
+
+    // notes/balance/work: variants.det_pellet with fit4's S, the pair's mult/neg/pen as BalanceGuns has them (the
+    // script work/scripts/pairs1b.py, the numbers in notes/balance/stage1b-guns.md)
+    private static final List<Pair1b> PAIRS_1B = List.of(
+            new Pair1b("steel", "henry · m44_express ×0,955", ModItems.GUN_HENRY::get, () -> XFactory44.m44_express, 10.873F, 2, 10.614F, 2, 14.33F, 15F, false, false),
+            new Pair1b("dieselsuit", "greasegun · p9_sp ×2,65", ModItems.GUN_GREASEGUN::get, () -> XFactory9mm.p9_sp, 0.775F, 26, 3.009F, 7, 7.95F, 3F, false, false),
+            new Pair1b("dieselsuit", "am180 · p22_sp ×3,5 (A2)", ModItems.GUN_AM180::get, () -> XFactory22lr.p22_sp, 0.505F, 40, 2.402F, 9, 7.0F, 2F, false, false),
+            // NTM's blast of 116 is over balanceExplRawLimit (60): 1a does not squeeze it (the formula's m alone, 0.917)
+            new Pair1b("t51", "autoshotgun · g12_explosive ×0,175", ModItems.GUN_AUTOSHOTGUN::get, () -> XFactory12ga.g12_explosive, 106.8F, 2, 8.429F, 3, 0F, 0F, false, false),
+            new Pair1b("hev", "carbine · r762_he ×0,542", ModItems.GUN_CARBINE::get, () -> XFactory762mm.r762_he, 7.451F, 3, 3.272F, 7, 0F, 0F, false, false),
+            new Pair1b("hev", "autoshotgun_heretic · g10_du ×0,2 (H2)", ModItems.GUN_AUTOSHOTGUN_HERETIC::get, () -> XFactory10ga.g10_du, 10.511F, 2, 1.769F, 2, 5.0F, 25F, false, false),
+            new Pair1b("security", "star_f · p22_jhp ×0,955", ModItems.GUN_STAR_F::get, () -> XFactory22lr.p22_jhp, 3.685F, 6, 3.434F, 6, 17.91F, 18.75F, false, false),
+            new Pair1b("bj", "hangman · m44_express ×2 (пьед.)", ModItems.GUN_HANGMAN::get, () -> XFactory44.m44_express, 4.247F, 5, 9.231F, 3, 75F, 37.5F, false, false),
+            new Pair1b("rpa", "g3_zebra · r556_inc_ap ×1,07", ModItems.GUN_G3_ZEBRA::get, () -> XFactory556mm.r556_inc_ap, 0.663F, 31, 0.710F, 29, 10.03F, 9.375F, false, false),
+            new Pair1b("fau", "tau · tau_uranium ×2 +30", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 0.700F, 29, 3.575F, 6, 50F, 25F, false, false),
+            // NTM's full DNS set is immune to all but blasts (ArmorDamageHandler.filterAttack) when it is charged and
+            // on (ArmorSuitEffects.hasFullSet asks isEnabled): the stand's set is not on, so the formula's numbers show
+            // (10 clicks, as the model); in a game the charged set takes none of the Tau's. Not checked
+            new Pair1b("dns", "tau · tau_uranium ×2 +30 (DNS неуязвим в NTM)", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 0.470F, 43, 2.143F, 10, 50F, 25F, false, true),
+            // N.I.4.N.I.'s arc has no ammo item: the shot must go on (no check of numbers)
+            new Pair1b("hev", "ni4ni · arc (нет предмета патрона)", ModItems.GUN_N_I_4_N_I::get, () -> XFactoryAccelerator.ni4ni_arc, 0F, 0, 0F, 0, 0F, 0F, false, true),
+            new Pair1b("security", "FBI → игрок: greasegun · p9_sp ×2,65", ModItems.GUN_GREASEGUN::get, () -> XFactory9mm.p9_sp, 0.396F, 51, 1.297F, 16, 7.95F, 3F, true, false));
+
+    private static final String[] MODES_1B = {"NTM", "1а", "1а+1б"};
+
+    private static void plan1b() {
+        LINES.add("#	--- этап 1б: урон пушек; секунды = (кликов − 1) × пауза ствола / 20");
+        for (String mode : MODES_1B) {
+            boolean guns = mode.equals("1а+1б");
+            STEPS.add(() -> keys("balanceArmor", mode.equals("NTM") ? "false" : "true", "balanceGuns", guns ? "true" : "false"));
+            wait(45);
+            STEPS.add(() -> receivers(mode, guns));
+            for (Pair1b p : PAIRS_1B) pair1b(p, mode, guns);
+            fbiCase(mode);
+        }
+    }
+
+    private static int delay(Item item) {
+        ItemStack stack = new ItemStack(item);
+        return ((ItemGunBaseNT) item).getConfig(stack, 0).getReceivers(stack)[0].getDelayAfterFire(stack);
+    }
+
+    /** the gun lines' receivers: changed with the setting on, NTM's with it off */
+    private static void receivers(String mode, boolean on) {
+        ItemStack h = new ItemStack(ModItems.GUN_AUTOSHOTGUN_HERETIC.get()), a = new ItemStack(ModItems.GUN_AM180.get()), g = new ItemStack(ModItems.GUN_LASER_PISTOL_MORNING_GLORY.get());
+        var hr = ((ItemGunBaseNT) h.getItem()).getConfig(h, 0).getReceivers(h)[0];
+        var ar = ((ItemGunBaseNT) a.getItem()).getConfig(a, 0).getReceivers(a)[0];
+        var gr = ((ItemGunBaseNT) g.getItem()).getConfig(g, 0).getReceivers(g)[0];
+        int hm = ((com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase) hr.getMagazine(h)).capacity;
+        int am = ((com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase) ar.getMagazine(a)).capacity;
+        String seen = "Heretic пауза " + hr.getDelayAfterFire(h) + ", авто " + hr.getRefireOnHold(h) + ", магазин " + hm + "; AM180 пауза "
+                + ar.getDelayAfterFire(a) + ", магазин " + am + "; Penance " + delay(ModItems.GUN_AMAT_PENANCE.get()) + ", Subtlety "
+                + delay(ModItems.GUN_AMAT_SUBTLETY.get()) + ", MAS-36 " + delay(ModItems.GUN_MAS36.get()) + "; Morning Glory база " + f(gr.getBaseDamage(g));
+        boolean want = on
+                ? hr.getDelayAfterFire(h) == 12 && !hr.getRefireOnHold(h) && hm == 24 && ar.getDelayAfterFire(a) == 3 && am == 60
+                        && delay(ModItems.GUN_AMAT_PENANCE.get()) == 15 && delay(ModItems.GUN_AMAT_SUBTLETY.get()) == 17 && delay(ModItems.GUN_MAS36.get()) == 17
+                        && gr.getBaseDamage(g) == 40F
+                : hr.getDelayAfterFire(h) == 3 && hr.getRefireOnHold(h) && hm == 250 && ar.getDelayAfterFire(a) == 1 && am == 177
+                        && delay(ModItems.GUN_AMAT_PENANCE.get()) == 25 && delay(ModItems.GUN_AMAT_SUBTLETY.get()) == 25 && delay(ModItems.GUN_MAS36.get()) == 25
+                        && gr.getBaseDamage(g) == 20F;
+        check(want, mode + ", стволы " + (on ? "по таблице" : "как в NTM") + ": " + seen);
+    }
+
+    private static void pair1b(Pair1b p, String mode, boolean guns) {
+        STEPS.add(() -> {
+            begin(target);
+            dress(target, p.set(), true);
+            target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+            if (p.fbi()) {
+                var created = BuiltInRegistries.ENTITY_TYPE.getValue(FBI).create(level, EntitySpawnReason.COMMAND);
+                if (!(created instanceof Mob mob)) throw new IllegalStateException("no FBI agent");
+                fbi = mob;
+                fbi.setNoAi(true);
+                fbi.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
+                level.addFreshEntity(fbi);
+                fbiShooter = fbi;
+                shooter.snapTo(O.getX() + 2.5, O.getY(), O.getZ() - 3.5, 0F, 0F);
+            }
+        });
+        clicks1b(p);
+        STEPS.add(() -> {
+            float modelHit = guns ? p.hit1b() : p.hit1a();
+            int modelClicks = guns ? p.clicks1b() : p.clicks1a();
+            int dl = delay(p.gun().get());
+            String secs = deathClick > 0 ? f((deathClick - 1) * dl / 20F) : "-";
+            String r = row(mode, p.set(), p.gunName()) + "	с до смерти " + secs + "	модель: " + f(modelHit) + " / " + modelClicks + " кл., "
+                    + f((modelClicks - 1) * dl / 20F) + " с";
+            if (p.fbi()) {
+                fbi.discard();
+                fbi = null;
+                fbiShooter = null;
+                shooter.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
+            }
+            if (mode.equals("NTM")) return;
+            if (p.info()) {
+                LINES.add("#	" + p.set() + ": " + p.gunName() + ": ударов " + BalanceArmor.seenHits + ", снято " + f(lost) + " (неуязвимость NTM, не проверка)");
+                return;
+            }
+            float hit = BalanceArmor.seenHits > 0 ? BalanceArmor.seenOut / BalanceArmor.seenHits : 0F;
+            float off = Math.abs(hit - modelHit) / modelHit;
+            check(BalanceArmor.seenHits > 0 && off <= 0.15F, mode + ", " + p.set() + ", " + p.gunName() + ": урон за удар после брони "
+                    + f(hit) + " против модели " + f(modelHit) + " (" + Math.round(off * 100) + " %)" + r);
+            if (!guns && p.ntmD() > 0F && BalanceArmor.seenHits > 0) {
+                float d = BalanceArmor.seenIn / BalanceArmor.seenHits, offD = Math.abs(d - p.ntmD()) / p.ntmD();
+                check(offD <= 0.02F, mode + ", " + p.gunName() + ": урон удара до брони " + f(d) + " = NTM " + f(p.ntmD()) + " (balanceGuns выкл)");
+            }
+            if (guns && p.d1b() > 0F && BalanceArmor.seenHits > 0) {
+                float d = BalanceArmor.seenIn / BalanceArmor.seenHits, offD = Math.abs(d - p.d1b()) / p.d1b();
+                check(offD <= 0.02F, mode + ", " + p.gunName() + ": урон удара до брони " + f(d) + " = NTM × множитель " + f(p.d1b()));
+            }
+            if (deathClick > 0) LINES.add("#	" + p.set() + ", " + p.gunName() + ": кликов " + deathClick + " против модели " + modelClicks + " ("
+                    + Math.round(100F * (deathClick - modelClicks) / modelClicks) + " %)");
+            else LINES.add("#	" + p.set() + ", " + p.gunName() + ": жив после " + clicks + " кликов, модель " + modelClicks);
+        });
+    }
+
+    /** the FBI agent firing in a pair of 1b (null: the mannequin) */
+    private static LivingEntity fbiShooter;
+
+    private static void clicks1b(Pair1b p) {
+        int[] end = {0};
+        for (int i = 0; i < MAX_CLICKS + 25; i++) {
+            STEPS.add(() -> {
+                if (deathClick > 0 || victim.getHealth() <= 0F) return;
+                fire(fbiShooter != null ? fbiShooter : shooter, p.gun().get(), p.ammo().get(), EnumKeybind.GUN_PRIMARY);
+                clicks++;
+            });
+            for (int t = 0; t < SPACING; t++) STEPS.add(() -> {
+                if (deathClick <= 0 && clicks > 0 && victim.getHealth() <= 0F) {
+                    deathClick = clicks;
+                    skipTo = end[0];
+                }
+            });
+            if (i == 0) STEPS.add(() -> firstClick = lost);
+        }
+        end[0] = STEPS.size();
+        wait(20);
     }
 
     // ---------------------------------------------------------------- the cases
@@ -343,8 +497,11 @@ public final class BalanceCheck {
         from.setItemSlot(EquipmentSlot.MAINHAND, stack);
         aim(from, victim);
         var gun = (ItemGunBaseNT) stack.getItem();
-        gun.handleKeybind(from, new SimpleContainer(1), stack, key, true);
-        gun.handleKeybind(from, new SimpleContainer(1), stack, key, false);
+        // a belt-fed gun (the Tau, Lacunae) takes its rounds from the inventory
+        SimpleContainer inv = new SimpleContainer(1);
+        if (ammo.ammoItem != null) inv.setItem(0, new ItemStack(ammo.ammoItem.get(), 64));
+        gun.handleKeybind(from, inv, stack, key, true);
+        gun.handleKeybind(from, inv, stack, key, false);
     }
 
     private static void aim(LivingEntity from, LivingEntity at) {
