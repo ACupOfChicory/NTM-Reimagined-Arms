@@ -76,6 +76,7 @@ public final class GunFeelMod {
                 });
         acup.gunfeel.ai.AiEvents.register();
         HeadDamage.register();
+        DamageCap.register();
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStartedEvent.class,
                 e -> acup.gunfeel.ai.imitation.Imitation.started(e.getServer()));
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStoppingEvent.class,
@@ -120,6 +121,7 @@ public final class GunFeelMod {
         SettingsCheck.registerIfAsked();
         BulletCheck.registerIfAsked();
         SpreadCheck.registerIfAsked();
+        DamageCapCheck.registerIfAsked();
         WaterCheck.registerIfAsked();
         ExplosiveCheck.registerIfAsked();
         acup.gunfeel.ai.AiCheck.registerIfAsked();

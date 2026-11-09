@@ -240,6 +240,8 @@ CORE class com/hbm/entity/mob/EntityPlasticBag
 CORE class com/hbm/entity/mob/EntityUFO
 CORE class com/hbm/entity/mob/botprime/EntityWormBaseNT
 CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
+CORE class com/hbm/entity/projectile/EntityBulletBeamBase
+CORE class com/hbm/entity/projectile/EntityThrowableNT
 CORE class com/hbm/explosion/vanillant/ExplosionVNT
 CORE class com/hbm/explosion/vanillant/interfaces/IExplosionSFX
 CORE class com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth
@@ -249,6 +251,7 @@ CORE class com/hbm/explosion/vanillant/standard/PlayerProcessorStandard
 CORE class com/hbm/handler/HbmKeybinds$EnumKeybind
 CORE class com/hbm/hazard/HazardClass
 CORE class com/hbm/items/armor/ModArmorItem
+CORE class com/hbm/items/armor/ModArmorItemPowered
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/items/weapon/sedna/mags/IMagazine
@@ -272,10 +275,20 @@ CORE field com/hbm/explosion/vanillant/ExplosionVNT size F
 CORE field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/level/Level;
 CORE field com/hbm/extprop/HbmLivingProps fire I
 CORE field com/hbm/extprop/HbmLivingProps phosphorus I
+CORE field com/hbm/extprop/HbmPlayerProps maxShield F
+CORE field com/hbm/extprop/HbmPlayerProps shield F
 CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 CORE field com/hbm/hazard/HazardClass GAS_BLISTERING Lcom/hbm/hazard/HazardClass;
 CORE field com/hbm/hazard/HazardClass GAS_LUNG Lcom/hbm/hazard/HazardClass;
+CORE field com/hbm/items/ModItems GUN_AMAT Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems GUN_DOUBLE_BARREL Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems GUN_MINIGUN Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems GUN_SPAS12 Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems HEV_BOOTS Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems HEV_HELMET Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems HEV_LEGS Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems HEV_PLATE Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems TITANIUM_BOOTS Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems TITANIUM_HELMET Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems TITANIUM_LEGS Lcom/hbm/registration/RegistryHandle;
@@ -311,7 +324,16 @@ CORE field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory10ga g10_du Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory12ga g12_explosive Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory12ga g12_slug Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory50 bmg50_sm Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_du Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase capacity I
 CORE field com/hbm/lib/ModDamageTypes CLOUD Lnet/minecraft/resources/ResourceKey;
+CORE field com/hbm/lib/ModDamageTypes DIGAMMA Lnet/minecraft/resources/ResourceKey;
+CORE field com/hbm/lib/ModDamageTypes NUCLEAR_BLAST Lnet/minecraft/resources/ResourceKey;
+CORE field com/hbm/lib/ModDamageTypes RADIATION Lnet/minecraft/resources/ResourceKey;
 CORE field com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase interp F
 CORE field com/hbm/util/DamageClass PHYSICAL Lcom/hbm/util/DamageClass;
 CORE method com/hbm/blocks/generic/BlockWoodBarrier panel (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z
@@ -370,6 +392,8 @@ CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setDeltaMovement (Lnet
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setThrowableHeading (DDDFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 tick ()V
+CORE method com/hbm/entity/projectile/EntityBulletBeamBase getThrower ()Lnet/minecraft/world/entity/LivingEntity;
+CORE method com/hbm/entity/projectile/EntityThrowableNT getThrower ()Lnet/minecraft/world/entity/LivingEntity;
 CORE method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/level/Level;DDDF)V
 CORE method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/level/Level;DDDFLnet/minecraft/world/entity/Entity;)V
 CORE method com/hbm/explosion/vanillant/ExplosionVNT explode ()V
@@ -384,12 +408,15 @@ CORE method com/hbm/explosion/vanillant/standard/ExplosionEffectTiny <init> ()V
 CORE method com/hbm/explosion/vanillant/standard/PlayerProcessorStandard <init> ()V
 CORE method com/hbm/extprop/HbmLivingProps getData (Lnet/minecraft/world/entity/LivingEntity;)Lcom/hbm/extprop/HbmLivingProps;
 CORE method com/hbm/extprop/HbmLivingProps incrementBlackLung (Lnet/minecraft/world/entity/LivingEntity;I)V
+CORE method com/hbm/extprop/HbmPlayerProps getData (Lnet/minecraft/world/entity/player/Player;)Lcom/hbm/extprop/HbmPlayerProps;
 CORE method com/hbm/handler/ArmorUtil checkForHazmat (Lnet/minecraft/world/entity/LivingEntity;)Z
 CORE method com/hbm/handler/ArmorUtil damageGasMaskFilter (Lnet/minecraft/world/entity/LivingEntity;I)V
 CORE method com/hbm/handler/ArmorUtil getGasMaskFilter (Lnet/minecraft/world/item/ItemInstance;)Lnet/minecraft/world/item/ItemStack;
 CORE method com/hbm/handler/ArmorUtil installGasMaskFilter (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemStack;)V
 CORE method com/hbm/handler/EquipmentProtections isMask (Lnet/minecraft/world/item/ItemInstance;)Z
 CORE method com/hbm/items/armor/ModArmorItem isPowered ()Z
+CORE method com/hbm/items/armor/ModArmorItem maxPower (Lnet/minecraft/world/item/ItemStack;)J
+CORE method com/hbm/items/armor/ModArmorItem setCharge (Lnet/minecraft/world/item/ItemStack;J)V
 CORE method com/hbm/items/weapon/ItemGenericGrenade getBounceMod ()D
 CORE method com/hbm/items/weapon/ItemGenericGrenade getMaxTimer ()I
 CORE method com/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze ordinal ()I
@@ -401,8 +428,12 @@ CORE method com/hbm/items/weapon/sedna/BulletConfig ammoStack ()Lnet/minecraft/w
 CORE method com/hbm/items/weapon/sedna/BulletConfig getDamage (Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/util/DamageClass;)Lnet/minecraft/world/damagesource/DamageSource;
 CORE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimary (Lnet/minecraft/world/item/ItemStack;I)Z
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
+CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT inventoryTick (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/EquipmentSlot;)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/world/item/ItemStack;Z)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsDrawn (Lnet/minecraft/world/item/ItemStack;Z)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsEquipped (Lnet/minecraft/world/item/ItemStack;Z)V
@@ -410,10 +441,13 @@ CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setState (Lnet/minecraft/wo
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setTimer (Lnet/minecraft/world/item/ItemStack;II)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setValueInt (Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;I)V
 CORE method com/hbm/items/weapon/sedna/Receiver getBaseDamage (Lnet/minecraft/world/item/ItemStack;)F
+CORE method com/hbm/items/weapon/sedna/Receiver getDelayAfterFire (Lnet/minecraft/world/item/ItemStack;)I
 CORE method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 CORE method com/hbm/items/weapon/sedna/factory/Lego standardExplode (Lcom/hbm/entity/projectile/EntityBulletBaseMK4;Lnet/minecraft/world/phys/HitResult;F)V
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine setAmount (Lnet/minecraft/world/item/ItemStack;I)V
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine setType (Lnet/minecraft/world/item/ItemStack;Ljava/lang/Object;)V
 CORE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getCapacity (Lnet/minecraft/world/item/ItemStack;)I
 CORE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setAmount (Lnet/minecraft/world/item/ItemStack;I)V
 CORE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setType (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/BulletConfig;)V
