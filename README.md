@@ -275,6 +275,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `waterFuze` | `true` | Explosives meet water by their fuze |
 | `npcShots` | `true` | The old bullet of the hunter chopper and the cyber crab hits by the mod's rules |
 | `blastParts` | `true` | NTM's blasts hit each body part by its own distance and line of sight, head and limb multipliers after the armour |
+| `blastPartsEven` | `true` | A blast's part multipliers divided by the creature's mean, so a creature in the open takes about NTM's damage |
 | `blastPartRays` | `3` | Rays from each part for a blast's line of sight, 1 to 9 |
 | `spectatorNoGuns` | `true` | Spectators cannot use NTM's guns |
 | `smoke` | `true` | Smoke clouds |

@@ -1,5 +1,25 @@
 # Changelog
 
+## X816
+
+- A blast by the body's parts costs the server about what NTM's own does:
+  which parts count, their marks and shares are worked out once for each pose
+  a creature takes (a client sends a new one every dozen ticks or so in a
+  crowd), not for each blast, and a creature NTM's blast sees whole needs no
+  rays from its parts. One MK108 shell a tick into 100 FBI agents stepping
+  about: 15.3 ms a shell (NTM's 14.8, 20.2 before); an HE grenade into 50:
+  6.4 ms (NTM's 6.2, 10.1 before). The damage in the open and behind a wall
+  is as before, within 0.15.
+
+- A blast by the body's parts takes about NTM's damage again from a creature
+  in the open: each part's multiplier is divided by the creature's mean one
+  (its parts' shares times their multipliers). An HE grenade 1–3 blocks away
+  does 2–6% less than NTM's to a standing or crouching FBI agent or test dummy
+  (20% less before), about NTM's to a lying one; dynamite next to the head of
+  a lying one does 16% more. Behind a one-block wall a standing agent takes
+  39% less, a test dummy 22% less. Server key `blastPartsEven` (on); off, it
+  is as in X807.
+
 ## X813
 
 - Mob AI: a bot running from a grenade no longer runs into the reach of

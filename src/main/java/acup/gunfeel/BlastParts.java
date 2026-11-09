@@ -55,6 +55,14 @@ public final class BlastParts {
     record Counted(String part, float multiplier, double share, double scaled, double seen, float raw) {
     }
 
+    /**
+     * blastPartsEven: the parts' multipliers divided by their mean over the whole mob (each part's share times its
+     * multiplier), so a mob in the open takes about NTM's damage and a head still hurts more than a limb
+     */
+    static boolean even() {
+        return ReaimTimes.flag("blastPartsEven", true);
+    }
+
     /** blastPartRays: the rays from each part (its middle, then points along its length), 1 to 9 */
     static int rays() {
         return Math.clamp(Math.round(ReaimTimes.number("blastPartRays", 3F)), 1, 9);
@@ -97,18 +105,18 @@ public final class BlastParts {
      * The mob's damage from the blast at {@code centre} with its range {@code size}; {@code whole} is NTM's for the
      * whole mob. {@code scale} and {@code push} are the water's (WaterBlast) changes to the distance and the push.
      */
-    public static float damage(Entity entity, Level level, Vec3 centre, Vec3[] nodes, float size, float whole, Damage calc,
-            DoubleUnaryOperator scale, DoubleUnaryOperator push) {
+    public static float damage(Entity entity, Level level, Vec3 centre, Vec3[] nodes, float size, float whole, double density,
+            Damage calc, DoubleUnaryOperator scale, DoubleUnaryOperator push) {
         try {
-            return split(entity, level, centre, nodes, size, whole, calc, scale, push);
+            return split(entity, level, centre, nodes, size, whole, density, calc, scale, push);
         } catch (RuntimeException e) {
             // a bad box must not stop NTM's blast for everyone else in it
             return whole;
         }
     }
 
-    private static float split(Entity entity, Level level, Vec3 centre, Vec3[] nodes, float size, float whole, Damage calc,
-            DoubleUnaryOperator scale, DoubleUnaryOperator push) {
+    private static float split(Entity entity, Level level, Vec3 centre, Vec3[] nodes, float size, float whole, double density,
+            Damage calc, DoubleUnaryOperator scale, DoubleUnaryOperator push) {
         var runs = RUNS.get();
         Run run = runs.peek();
         if (run == null || !run.plain || level.isClientSide() || !(entity instanceof LivingEntity living) || size <= 0) return whole;
@@ -120,15 +128,18 @@ public final class BlastParts {
         double total = 0, weighted = 0;
         List<Counted> counted = stand != null && !standQuiet ? new ArrayList<>() : null;
         boolean reached = false, limbs = false;
+        double mean = 0;
         for (Part p : parts) {
             limbs |= p.multiplier() < 1;
+            mean += p.share() * p.multiplier();
             double scaled = scale.applyAsDouble(nearest(p.box(), centre).distanceTo(centre) / size);
             reached |= scaled <= 1;
             if (!(scaled <= 1)) {
                 if (counted != null) counted.add(new Counted(p.box().part(), p.multiplier(), p.share(), scaled, 0, 0));
                 continue;
             }
-            double seen = visibility(level, p.box(), nodes, entity, rays);
+            // NTM sees the whole mob from a node (density 1): every part is in sight, no rays
+            double seen = density >= 1 ? 1 : visibility(level, p.box(), nodes, entity, rays);
             float raw = Math.max(0F, calc.of(scaled, seen, push.applyAsDouble((1 - scaled) * seen)));
             total += p.share() * raw;
             weighted += p.share() * raw * p.multiplier();
@@ -138,8 +149,11 @@ public final class BlastParts {
         // at the range's edge NTM's box is in it and no part is: NTM's damage, no part's multiplier
         if (!reached || !Double.isFinite(total) || !Double.isFinite(weighted)) return whole;
         float m = total > 0 ? (float) (weighted / total) : 1F;
-        // a mob with a marked head and no marked limbs (a pig, a chicken) takes no more than NTM's damage
-        run.multiplier.put(entity, limbs ? m : Math.min(m, 1F));
+        // even: by the whole mob's mean (a mob seen whole takes about NTM's); else a mob with a marked head and no
+        // marked limbs (a pig, a chicken) takes no more than NTM's
+        if (even() && mean > 0) m = (float) (m / mean);
+        else if (!limbs) m = Math.min(m, 1F);
+        run.multiplier.put(entity, m);
         return (float) total;
     }
 
@@ -154,10 +168,27 @@ public final class BlastParts {
     /** the mob's parts as the blast takes them */
     static List<Part> parts(LivingEntity living) {
         if (!ModelHits.enabled()) return List.of();
-        var drawn = ModelHits.standParts(living);
-        // the pose comes from a client: too many boxes, or one far off the mob, and the blast is NTM's
+        var at = ModelHits.standPose(living);
+        if (at == null) return List.of();
+        // which parts count and their shares, once per pose (in the model's frame); then only put in the world
+        List<Part> model;
+        if (at.cache().memo instanceof Shape shape) model = shape.parts();
+        else at.cache().memo = new Shape(model = shape(at.parts(), living.getBbWidth(), living.getBbHeight()));
+        if (model.isEmpty()) return model;
+        List<Part> out = new ArrayList<>(model.size());
+        for (Part p : model) out.add(new Part(at.world(p.box()), p.multiplier(), p.share()));
+        return out;
+    }
+
+    /** a pose's parts as the blast takes them, in the model's frame (from the feet, not turned) */
+    private record Shape(List<Part> parts) {
+    }
+
+    static List<Part> shape(List<ModelHits.StandPart> drawn, double width, double height) {
+        // the pose comes from a client: too many boxes, or one far off the mob (at any turn), and the blast is NTM's
         if (drawn.size() > MAX_PARTS) return List.of();
-        var near = living.getBoundingBox().inflate(REACH);
+        double r = width / 2 * Math.sqrt(2) + REACH;
+        var near = new net.minecraft.world.phys.AABB(-r, -REACH, -r, r, height + REACH, r);
         for (var d : drawn) if (!inside(d.box(), near)) return List.of();
         return of(drawn);
     }

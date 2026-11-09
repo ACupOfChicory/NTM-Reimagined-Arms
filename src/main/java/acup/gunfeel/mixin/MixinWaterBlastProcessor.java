@@ -66,7 +66,7 @@ public abstract class MixinWaterBlastProcessor {
             @Local(argsOnly = true, ordinal = 0) double x, @Local(argsOnly = true, ordinal = 1) double y,
             @Local(argsOnly = true, ordinal = 2) double z, @Local(name = "nodes") Vec3[] nodes) {
         float whole = WaterBlast.damage(size, knockback, entity, (s, k) -> original.call(self, scaled, density, k, s));
-        return BlastParts.damage(entity, world, new Vec3(x, y, z), nodes, size, whole,
+        return BlastParts.damage(entity, world, new Vec3(x, y, z), nodes, size, whole, density,
                 (ds, seen, push) -> WaterBlast.damage(size, push, entity, (s, k) -> original.call(self, ds, seen, k, s)),
                 ds -> WaterBlast.distance(ds, entity), k -> WaterBlast.knockback(k, entity));
     }

@@ -255,6 +255,7 @@ public final class ModelHits {
 
     public static synchronized void clear(Level level) {
         POSES.remove(level);
+        STAND.remove(level);
         VIEWS.values().forEach(views->views.values().removeIf(v->v.level()==level));
     }
 
@@ -359,19 +360,52 @@ public final class ModelHits {
     // одного имени размечены бывают не все коробки (camel_husk: root/body/head трижды, зоны у двух).
     record StandPart(ModelBox box,boolean head,boolean limb) {}
     static synchronized List<StandPart> standParts(Entity target) {
-        var poses=POSES.get(target.level());var pose=poses==null?null:poses.get(target.getId());
-        if(!usable(target,pose) || !(target instanceof LivingEntity living)) return List.of();
-        String type=ModelHeads.key(target);
-        var heads=ModelHeads.resolve(type,pose.boxes(),pose.yaw()).zones();
-        var limbs=LimbPolicy.eligible(target.getType())?ModelHeads.limbs(type,pose.boxes(),pose.yaw()).zones():List.<HeadZone>of();
-        double angle=turnAngle(living,pose);
-        double cos=Math.cos(-angle),sin=Math.sin(-angle);
-        var out=new ArrayList<StandPart>();
-        for(var box:pose.boxes()) {
-            if(!target.level().isClientSide() && !ModelWool.visible(target,box)) continue;
-            out.add(new StandPart(world(box,cos,sin,target.position()),zoned(heads,box),zoned(limbs,box)));
-        }
+        var at=standPose(target);
+        if(at==null) return List.of();
+        var out=new ArrayList<StandPart>(at.parts().size());
+        for(var part:at.parts()) out.add(new StandPart(at.world(part.box()),part.head(),part.limb()));
         return List.copyOf(out);
+    }
+    // The parts of a mob's pose in the model's frame with their head and limb marks (ModelHeads finds them slowly), kept
+    // while its boxes and turn are the same: a client sends a mob's new pose every dozen ticks or so in a crowd, a
+    // leaning bot puts the same boxes each tick, the mob moves and turns every tick. memo: what a caller works out of the
+    // parts once per pose (BlastParts: which count and their shares).
+    static final class StandCache {
+        final List<ModelBox> boxes;final float yaw;final boolean sheared;final List<StandPart> parts;
+        volatile Object memo;
+        StandCache(List<ModelBox> boxes,float yaw,boolean sheared,List<StandPart> parts) {this.boxes=boxes;this.yaw=yaw;this.sheared=sheared;this.parts=parts;}
+        boolean same(PoseAt p,boolean sheared) {
+            return this.sheared==sheared && Float.compare(yaw,p.yaw())==0 && (boxes==p.boxes() || boxes.equals(p.boxes()));
+        }
+    }
+    // a pose's parts and the turn and place that put them in the world now
+    record StandPose(StandCache cache,double cos,double sin,Vec3 position) {
+        List<StandPart> parts() {return cache.parts;}
+        ModelBox world(ModelBox box) {return ModelHits.world(box,cos,sin,position);}
+    }
+    private static final Map<Level,Map<Integer,StandCache>> STAND=new WeakHashMap<>();
+    static synchronized StandPose standPose(Entity target) {
+        var poses=POSES.get(target.level());var pose=poses==null?null:poses.get(target.getId());
+        if(!usable(target,pose) || !(target instanceof LivingEntity living)) return null;
+        boolean sheared=!target.level().isClientSide() && target instanceof net.minecraft.world.entity.animal.sheep.Sheep sheep && sheep.isSheared();
+        var cached=STAND.computeIfAbsent(target.level(),l->new HashMap<>());
+        var cache=cached.get(target.getId());
+        if(cache==null || !cache.same(pose,sheared)) {
+            String type=ModelHeads.key(target);
+            var heads=ModelHeads.resolve(type,pose.boxes(),pose.yaw()).zones();
+            var limbs=LimbPolicy.eligible(target.getType())?ModelHeads.limbs(type,pose.boxes(),pose.yaw()).zones():List.<HeadZone>of();
+            var parts=new ArrayList<StandPart>(pose.boxes().size());
+            for(var box:pose.boxes()) {
+                if(!target.level().isClientSide() && !ModelWool.visible(target,box)) continue;
+                parts.add(new StandPart(box,zoned(heads,box),zoned(limbs,box)));
+            }
+            // the ids of mobs gone stay behind: let the map go now and then
+            if(cached.size()>4096) cached.clear();
+            cache=new StandCache(pose.boxes(),pose.yaw(),sheared,List.copyOf(parts));
+            cached.put(target.getId(),cache);
+        }
+        double angle=turnAngle(living,pose);
+        return new StandPose(cache,Math.cos(-angle),Math.sin(-angle),target.position());
     }
     private static boolean zoned(List<HeadZone> zones,ModelBox box) {
         for(var zone:zones) if(zone.box().equals(box) || zone.pieces().contains(box)) return true;
