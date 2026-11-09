@@ -1,5 +1,23 @@
 # Changelog
 
+## X832
+
+- Armour sets' abilities fit their tier. Speed and Jump Boost: up to tier 6
+  at most Speed II and Jump Boost I, from tier 7 Speed III and Jump Boost
+  II. The diesel suit goes from Speed III and Jump Boost III to II and I,
+  Trenchmaster's Jump Boost from II to I, DNS's from III to II. Strength is
+  at most II on every set: NCRPA and RPA had IV, CMB V, DNS X, Trenchmaster
+  and schrabidium III. Bismuth is a tier 6 set now, not a joke: Speed III,
+  Jump Boost II, Regeneration I, night vision and two dashes (were VII, VII,
+  II and three). VATS and the sets' thermal vision no longer show players:
+  mobs, bosses, items and experience as before. Only FAU and DNS (tier 8)
+  see players with thermal vision, within 16 blocks and only those in their
+  line of sight. A gun's thermal sight is as it was. Haste, fire
+  resistance, step height, hard landing and immunity are untouched. New
+  server keys `abilities.mobilityCap`, `abilities.strengthCap` (2; 0:
+  NTM's), `abilities.bismuth`, `abilities.esp.players` (`tier8`; `off`: no
+  players; `all`: NTM's) and `abilities.esp.playerRange` (16).
+
 ## X831
 
 - Power armour holds the gun steadier the later its tier: what moving,
