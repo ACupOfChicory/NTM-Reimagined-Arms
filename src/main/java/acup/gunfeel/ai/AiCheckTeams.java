@@ -59,6 +59,8 @@ final class AiCheckTeams {
     private int foeDistanceTicks;
     /** falling back (AiSoldier.fallBack): a squad's fighters' ticks on the way, of them with one of its side near firing, hit and down on the way */
     int backTicks, backCovered, backDowns, backHits;
+    /** of a squad's fighters' ticks on the way back, those a foe saw it in (AiSmoke: smoke hides it) */
+    int backSeen;
     /**
      * The retreat (AiCheckRetreat): the team shaken at once (its confidence to SHAKEN) when SHAKE_HITS hits have been
      * made either way, the round over AFTER_SHAKE ticks later; null: none. At the shake and at the end: its fighters,
@@ -110,8 +112,12 @@ final class AiCheckTeams {
 
     boolean tick() {
         if (done) return true;
-        if (ticks == 0) start();
+        if (ticks == 0) {
+            start();
+            AiLegsLog.begin();
+        }
         ticks++;
+        AiLegsLog.tick(level, bots);
         int r = alive(red), b = alive(blue);
         aliveTicks += r + b;
         for (AiBot bot : bots)
@@ -146,6 +152,13 @@ final class AiCheckTeams {
             backHealth.put(id, bot.mob.getHealth());
             backing.add(id);
             backTicks++;
+            for (AiBot o : bots) {
+                TargetMemory.Contact seen = o.mob.isAlive() && !AiTeams.own(bot.mob, o.mob) ? o.memory.contact(id) : null;
+                if (seen != null && seen.state == TargetMemory.State.VISIBLE) {
+                    backSeen++;
+                    break;
+                }
+            }
             for (AiBot o : bots)
                 if (o != bot && o.mob.isAlive() && AiTeams.own(bot.mob, o.mob) && o.mob.distanceToSqr(bot.mob) < 24 * 24 && o.gunner.firingAt() != null) {
                     backCovered++;
@@ -174,6 +187,11 @@ final class AiCheckTeams {
 
     private void start() {
         AiBots.awake = true;
+        // no smoke left from a fight before (AiSmoke): its clouds, its grenades still on their way
+        acup.gunfeel.smoke.SmokeClouds.forget(level);
+        List<net.minecraft.world.entity.Entity> smokes = new java.util.ArrayList<>();
+        for (var e : level.getAllEntities()) if (AiSmoke.smoke(e)) smokes.add(e);
+        for (var e : smokes) e.discard();
         // squads for both teams (the duel: one), made anew for this fight
         AiSquads.on = true;
         AiSquads.offTeams.clear();
@@ -390,6 +408,7 @@ final class AiCheckTeams {
 
     private void finish(int r, int b) {
         done = true;
+        AiLegsLog.flush();
         // the retreat: where the shaken team got to, what it has left, how many times it fell back since the shake
         if (shaken != null && shakenAt >= 0) {
             shakenFarEnd = far(shaken);
@@ -454,8 +473,8 @@ final class AiCheckTeams {
         check.out(String.format(Locale.ROOT, "     tactics: %d times down, %d of them under %d ticks, %d up within %d ticks not sent running; ticks held for a friend in the line %d,"
                 + " for its own cover %d; cover changes %d (%.2f a fighter a minute); most looks out running from one place %d; ticks run low past low cover %d;"
                 + " slides into cover %d, rolls under fire %d; ticks run in a friend's line of fire %d; confidence: ticks pressing on %d, holding back %d,"
-                + " a fighter's nearest foe %.1f blocks off on average; falling back: ticks %d, falls back %d, a squad's ticks on the way %d, of them covered %d, hit on the way %d, down on the way %d", downs, brief, AiProne.BRIEF, early, AiProne.MIN_LIE, friendHolds, coverHolds, shifts, shifts / minutes,
-                peekRun, low, slides, rolls, runInLine, press, hold, foeDistanceTicks == 0 ? 0 : foeDistance / foeDistanceTicks, fall, backs, backTicks, backCovered, backHits, backDowns));
+                + " a fighter's nearest foe %.1f blocks off on average; falling back: ticks %d, falls back %d, a squad's ticks on the way %d, of them covered %d, seen by a foe %d, hit on the way %d, down on the way %d", downs, brief, AiProne.BRIEF, early, AiProne.MIN_LIE, friendHolds, coverHolds, shifts, shifts / minutes,
+                peekRun, low, slides, rolls, runInLine, press, hold, foeDistanceTicks == 0 ? 0 : foeDistance / foeDistanceTicks, fall, backs, backTicks, backCovered, backSeen, backHits, backDowns));
         AiBots.soundTrace = null;
         StringBuilder heard = new StringBuilder("     sounds that reached the AI in the fight (count, loud, loud and made by no mob or player near: distance to the nearest fighter):");
         for (var e : sounds.entrySet()) {

@@ -50,7 +50,15 @@ public final class AiAdapter {
         int nades = mob.getPersistentData().getIntOr(AiGrenades.STOCK_KEY, Integer.MIN_VALUE);
         bot.grenades = nades != Integer.MIN_VALUE ? nades : AiGrenades.stock();
         if (nades == Integer.MIN_VALUE) keepGrenades(bot);
+        int smokes = mob.getPersistentData().getIntOr(AiSmoke.STOCK_KEY, Integer.MIN_VALUE);
+        bot.smokes = smokes != Integer.MIN_VALUE ? smokes : AiSmoke.stock();
+        if (smokes == Integer.MIN_VALUE) keepSmokes(bot);
         return bot;
+    }
+
+    /** the smoke grenades it has left, on the mob */
+    static void keepSmokes(AiBot bot) {
+        bot.mob.getPersistentData().putInt(AiSmoke.STOCK_KEY, bot.smokes);
     }
 
     /** the grenades it has left, on the mob */

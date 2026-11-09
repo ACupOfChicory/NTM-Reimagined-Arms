@@ -135,18 +135,25 @@ public final class AiGrenades {
      * nearest it, within LAND of it; null if none does, or one of its own (or it) would be within SAFE of the burst.
      */
     static @Nullable Throw plan(ServerLevel level, Mob m, Vec3 at) {
+        return plan(level, m, at, false);
+    }
+
+    /** the same; a smoke grenade (AiSmoke) bursts near its own as it will */
+    static @Nullable Throw plan(ServerLevel level, Mob m, Vec3 at, boolean smoke) {
         long t0 = System.nanoTime();
         try {
-            return planNow(level, m, at);
+            return planNow(level, m, at, smoke);
         } finally {
             planNanos += System.nanoTime() - t0;
         }
     }
 
-    private static @Nullable Throw planNow(ServerLevel level, Mob m, Vec3 at) {
+    private static @Nullable Throw planNow(ServerLevel level, Mob m, Vec3 at, boolean smoke) {
         double dx = at.x - m.getX(), dz = at.z - m.getZ();
         float yaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90F;
-        double force = EnumGrenadeShell.FRAG.getYeetForce(), bounce = EnumGrenadeShell.FRAG.getBounce();
+        // a smoke grenade: thrown softer, going off where it first hits once armed (AiSmoke), for the near throws it wants
+        double force = smoke ? AiSmoke.FORCE : EnumGrenadeShell.FRAG.getYeetForce(), bounce = EnumGrenadeShell.FRAG.getBounce();
+        int armed = smoke ? IMPACT_ARMED : -1;
         VoxelRay.Source src = AiBots.voxels(level);
         int minY = level.getMinY();
         float best = Float.NaN;
@@ -154,7 +161,7 @@ public final class AiGrenades {
         List<Throw> near = new ArrayList<>();
         double[] land = new double[3];
         for (float p = PITCH_UP; p <= PITCH_DOWN; p += PITCH_STEP) {
-            Vec3 b = rolled(src, m, yaw, p, force, bounce, minY, land);
+            Vec3 b = rolled(src, m, yaw, p, force, bounce, minY, land, armed);
             if (b == null) continue;
             near.add(new Throw(yaw, p, b));
             if (b.distanceTo(at) < bestD) {
@@ -166,7 +173,7 @@ public final class AiGrenades {
         for (float step = PITCH_STEP / 2; step >= PITCH_STEP / 4; step /= 2) {
             float mid = best;
             for (float p : new float[] {mid - step, mid + step}) {
-                Vec3 b = rolled(src, m, yaw, p, force, bounce, minY, land);
+                Vec3 b = rolled(src, m, yaw, p, force, bounce, minY, land, armed);
                 if (b == null) continue;
                 near.add(new Throw(yaw, p, b));
                 if (b.distanceTo(at) < bestD) {
@@ -179,7 +186,7 @@ public final class AiGrenades {
         near.sort(java.util.Comparator.comparingDouble(t -> t.burst().distanceToSqr(at)));
         for (Throw t : near) {
             if (t.burst().distanceTo(at) > LAND) break;
-            if (!ownNear(level, m, t.burst()) && steady(level, src, m, t, at, force, bounce, minY)) return t;
+            if ((smoke || !ownNear(level, m, t.burst())) && steady(level, src, m, t, at, force, bounce, minY, armed, smoke)) return t;
         }
         return null;
     }
@@ -207,10 +214,11 @@ public final class AiGrenades {
      * edge on its second tick, one off it each way alone passed over it): each such flight bursts near the place too
      * (LAND and 2 more), none near its own.
      */
-    private static boolean steady(ServerLevel level, VoxelRay.Source src, Mob m, Throw t, Vec3 at, double force, double bounce, int minY) {
+    private static boolean steady(ServerLevel level, VoxelRay.Source src, Mob m, Throw t, Vec3 at, double force, double bounce, int minY, int armed,
+            boolean smoke) {
         for (double[] o : CORNERS) {
-            Vec3 b = from(src, m, t.yaw(), t.pitch(), force, bounce, minY, o[0], o[1], o[2]);
-            if (b == null || b.distanceTo(at) > LAND + 2 || ownNear(level, m, b)) return false;
+            Vec3 b = from(src, m, t.yaw(), t.pitch(), force, bounce, minY, o[0], o[1], o[2], null, null, armed);
+            if (b == null || b.distanceTo(at) > LAND + 2 || !smoke && ownNear(level, m, b)) return false;
         }
         return true;
     }
@@ -224,23 +232,21 @@ public final class AiGrenades {
     static final double ROLL = 2.5;
 
     /** where a grenade thrown so bursts; null if it rolls more than ROLL past where it first hits a block */
-    private static @Nullable Vec3 rolled(VoxelRay.Source src, Mob m, float yaw, float pitch, double force, double bounce, int minY, double[] land) {
-        Vec3 b = from(src, m, yaw, pitch, force, bounce, minY, 0, 0, 0, null, land);
+    private static @Nullable Vec3 rolled(VoxelRay.Source src, Mob m, float yaw, float pitch, double force, double bounce, int minY, double[] land, int armed) {
+        Vec3 b = from(src, m, yaw, pitch, force, bounce, minY, 0, 0, 0, null, land, armed);
         return b == null || !Double.isNaN(land[0]) && Math.hypot(b.x - land[0], b.z - land[2]) > ROLL ? null : b;
     }
 
     /** where a grenade thrown by the mob with this turn bursts (NTM's start: by its eye, a quarter block off; moved by o) */
-    private static @Nullable Vec3 from(VoxelRay.Source src, Mob m, float yaw, float pitch, double force, double bounce, int minY, double ox, double oy,
-            double oz) {
-        return from(src, m, yaw, pitch, force, bounce, minY, ox, oy, oz, null, null);
-    }
+    /** an impact fuze's flight is followed this far at most, ticks */
+    static final int IMPACT_TICKS = 100;
 
     private static @Nullable Vec3 from(VoxelRay.Source src, Mob m, float yaw, float pitch, double force, double bounce, int minY, double ox, double oy,
-            double oz, @Nullable List<double[]> path, double @Nullable [] land) {
+            double oz, @Nullable List<double[]> path, double @Nullable [] land, int armed) {
         double r = Math.toRadians(180F - yaw);
         double x = m.getX() + 0.25 * Math.cos(r) + ox, y = m.getY() + m.getEyeHeight() - 0.25 + oy, z = m.getZ() - 0.25 * Math.sin(r) + oz;
         double f = Math.toRadians(pitch), g = Math.toRadians(-yaw);
-        return burst(src, x, y, z, Math.sin(g) * Math.cos(f) * force, -Math.sin(f) * force, Math.cos(g) * Math.cos(f) * force, FUSE, -1, bounce, minY,
+        return burst(src, x, y, z, Math.sin(g) * Math.cos(f) * force, -Math.sin(f) * force, Math.cos(g) * Math.cos(f) * force, armed >= 0 ? IMPACT_TICKS : FUSE, armed, bounce, minY,
                 GRAVITY, DRAG, path, land);
     }
 
@@ -393,18 +399,13 @@ public final class AiGrenades {
 
     /** NTM's frag with HE and a three seconds' fuze, thrown by the mob with this turn */
     static void toss(ServerLevel level, Mob m, Throw t) {
-        m.setYRot(t.yaw());
-        m.setYHeadRot(t.yaw());
-        m.setYBodyRot(t.yaw());
-        m.setXRot(t.pitch());
-        EntityGrenadeUniversal g = new EntityGrenadeUniversal(level, m, ItemGrenadeUniversal.make(EnumGrenadeShell.FRAG, EnumGrenadeFilling.HE, EnumGrenadeFuze.S3));
-        level.addFreshEntity(g);
+        EntityGrenadeUniversal g = launch(level, m, t, ItemGrenadeUniversal.make(EnumGrenadeShell.FRAG, EnumGrenadeFilling.HE, EnumGrenadeFuze.S3), 1);
         if (!trace) return;
         // the stands: the flight it was planned to take, to set against the one it takes
         traced++;
         joined(level, g);
         List<double[]> path = new ArrayList<>();
-        from(AiBots.voxels(level), m, t.yaw(), t.pitch(), EnumGrenadeShell.FRAG.getYeetForce(), EnumGrenadeShell.FRAG.getBounce(), level.getMinY(), 0, 0, 0, path, null);
+        from(AiBots.voxels(level), m, t.yaw(), t.pitch(), EnumGrenadeShell.FRAG.getYeetForce(), EnumGrenadeShell.FRAG.getBounce(), level.getMinY(), 0, 0, 0, path, null, -1);
         for (Live l : LEVELS.get(level))
             if (l.e == g) {
                 l.path = path;
@@ -475,13 +476,25 @@ public final class AiGrenades {
         }
     }
 
+    /** this grenade (a frag's shell: its flight) thrown by the mob with this turn, this share of a frag's force */
+    static EntityGrenadeUniversal launch(ServerLevel level, Mob m, Throw t, net.minecraft.world.item.ItemStack item, double force) {
+        m.setYRot(t.yaw());
+        m.setYHeadRot(t.yaw());
+        m.setYBodyRot(t.yaw());
+        m.setXRot(t.pitch());
+        EntityGrenadeUniversal g = new EntityGrenadeUniversal(level, m, item);
+        if (force != 1) g.setDeltaMovement(g.getDeltaMovement().scale(force));
+        level.addFreshEntity(g);
+        return g;
+    }
+
     /**
      * Whether this is a grenade to run from: NTM's grenade (any shell and filling), its bouncing ones (dynamite, the
      * old grenades), a 40 mm grenade or a rocket fired from a gun (the GL-54, Congo Lake, MK108, rocket launchers). Not
-     * a nuke's: no running from that.
+     * a nuke's: no running from that; not the AI's smoke grenade (AiSmoke).
      */
     public static boolean threat(net.minecraft.world.entity.Entity e) {
-        return e instanceof EntityGrenadeUniversal || e instanceof com.hbm.entity.grenade.EntityGrenadeBouncyGeneric
+        return e instanceof EntityGrenadeUniversal && !AiSmoke.smoke(e) || e instanceof com.hbm.entity.grenade.EntityGrenadeBouncyGeneric
                 || e instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b
                         && (b.config instanceof acup.gunfeel.gl54.GrenadeType || acup.gunfeel.ExplosiveAmmo.heavy(b.config));
     }

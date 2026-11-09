@@ -395,6 +395,8 @@ neoForge {
             systemProperty("ntmgunfeel.checkAi", layout.buildDirectory.file("aicheck/result.txt").get().asFile.path)
             // -PaiStage=<name>: that stage of the check alone (AiCheck)
             providers.gradleProperty("aiStage").orNull?.let { systemProperty("ntmgunfeel.checkAiStage", it) }
+            // -PaiLegs=<file>: the fighters' moves, tick by tick, for the legs' replay (AiLegsLog, BotLegsReplayTest)
+            providers.gradleProperty("aiLegs").orNull?.let { systemProperty("ntmgunfeel.checkAiLegs", it) }
         }
         // the mob AI's server stand (acup.gunfeel.ai.bench.AiBench): MSPT of an arena with no player, empty and with
         // mobs, phase by phase. ./gradlew runBenchAi -PnoAssets [-PbenchAi=<tsv>] [-PbenchAiLithium] [-PbenchAiSim=<n>]

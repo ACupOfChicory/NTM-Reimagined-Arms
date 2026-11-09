@@ -283,6 +283,7 @@ CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling fragmentation Lcom/hb
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets_heavy Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling HE Lcom/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling;
+CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling POWDER Lcom/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze IMPACT Lcom/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze S15 Lcom/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze S3 Lcom/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze;
@@ -329,6 +330,7 @@ CORE method com/hbm/entity/grenade/EntityGrenadeUniversal <init> (Lnet/minecraft
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal discard ()V
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getFuze ()Lcom/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze;
+CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getGrenadeItem ()Lnet/minecraft/world/item/ItemStack;
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getOwner ()Lnet/minecraft/world/entity/Entity;
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getShell ()Lcom/hbm/items/weapon/grenade/ItemGrenadeShell$EnumGrenadeShell;
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getTimer ()I
@@ -336,6 +338,7 @@ CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getX ()D
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getY ()D
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getZ ()D
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal isRemoved ()Z
+CORE method com/hbm/entity/grenade/EntityGrenadeUniversal level ()Lnet/minecraft/world/level/Level;
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal onGround ()Z
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal position ()Lnet/minecraft/world/phys/Vec3;
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal setDeltaMovement (Lnet/minecraft/world/phys/Vec3;)V
@@ -693,6 +696,7 @@ MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDI)Lcom/hbm/r
 MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDILcom/hbm/render/anim/BusAnimationKeyframe$IType;)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence hold (I)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence setPos (DDD)Lcom/hbm/render/anim/BusAnimationSequence;
+MOB_AI class com/hbm/entity/grenade/EntityGrenadeUniversal
 MOB_AI class com/hbm/entity/projectile/EntityThrowableNT
 MOB_AI class com/hbm/handler/HbmKeybinds$EnumKeybind
 MOB_AI class com/hbm/items/weapon/sedna/BulletConfig
