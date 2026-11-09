@@ -91,6 +91,16 @@ public final class AiSoldier implements AiBrain {
     static final int CHECK_FOR = 600;
     /** other threats a cover is weighed against in a fight, at most */
     static final int MORE = 3;
+    /** falling back (AiConfidence.fallsBack): cover at least this much farther from the threat than it is, blocks */
+    static final double BACK_STEP = 6;
+    /** a moment in each cover it falls back to, firing, before the next; a fall back asked for at most this often, ticks */
+    static final int BACK_GAP = 30;
+    /** falling back: hit within this many ticks, it goes without waiting for cover */
+    static final int BACK_HIT = 20;
+    /** cover fire for one of its squad falling back: out again at most this soon after it was back in, ticks */
+    static final int COVER_FIRE_GAP = 20;
+    /** off only for the stands' "before": falling back, none waits for one of its squad to cover it; none looks out early to cover it */
+    static boolean waves = true, coverFire = true;
     /** what it decided last and why (the debug view, the journal): set where it decides, it changes nothing */
     Why why = Why.IDLE;
     /** what the decision journal said of it last */
@@ -181,6 +191,9 @@ public final class AiSoldier implements AiBrain {
     private static final long WHERE_IT_STANDS = Long.MIN_VALUE + 1;
     /** exits it chose to watch (the stands) */
     public int exits;
+    /** when it may ask for a fall back again; the cover it falls back to (Long.MIN_VALUE: none); falls back so far (the stands) */
+    private long nextBack, backTo = Long.MIN_VALUE, backAt = Long.MIN_VALUE, backIn = Long.MIN_VALUE;
+    public int fallBacks;
     private long peekThere;
     /** heard only, in cover: when it looks out again */
     private long lookAgain;
@@ -560,15 +573,17 @@ public final class AiSoldier implements AiBrain {
             return;
         }
         TacticalMap map = TacticalMap.of(level);
+        // shaken: back to cover farther off, one wave of its squad at a time
+        if (fallBack(bot, level, map, c, eye, tick)) return;
         // hit, or a shot close past it: often other cover
         TargetMemory.Noise hurt = bot.memory.noise();
         if (hurt != null && hurt.hurt && hurt.tick != hitSeen) {
             hitSeen = hurt.tick;
             if (spot != null && (mode == Mode.COVER || mode == Mode.PEEK) && tick - lastShift > SHIFT_GAP && !bot.prone.fresh(tick)
-                    && AiChoice.ask(bot, Ask.SHIFT_ON_HIT, bot.mob.getRandom().nextFloat() < SHIFT_HIT, tick)) shift(bot, tick, "shot at in cover: other cover");
+                    && !bot.confidence.fallsBack(tick) && AiChoice.ask(bot, Ask.SHIFT_ON_HIT, bot.mob.getRandom().nextFloat() < SHIFT_HIT, tick)) shift(bot, tick, "shot at in cover: other cover");
         }
         // in cover a while: a better place, if there is one now
-        if (spot != null && mode == Mode.COVER && bot.mover.arrived() && !bot.prone.fresh(tick) && AiSquads.mayMove(bot)
+        if (spot != null && mode == Mode.COVER && bot.mover.arrived() && !bot.prone.fresh(tick) && AiSquads.mayMove(bot) && !bot.confidence.fallsBack(tick)
                 && AiChoice.ask(bot, Ask.BETTER_COVER, tick >= nextBetter, tick)) {
             nextBetter = tick + BETTER_MIN + bot.mob.getRandom().nextInt(BETTER_MAX - BETTER_MIN);
             List<Vec3> all = threats(bot, c, eye);
@@ -691,7 +706,10 @@ public final class AiSoldier implements AiBrain {
             if (reload) g.reload();
             // on its way in: the reason it is coming in stays
             if (there) why = reload || g.reloading() ? (low ? Why.LOW_RELOAD : Why.RELOAD) : g.dry() ? Why.DRY : g.blind ? Why.BLIND : low ? Why.LOW_FIGHT : Why.HIDE;
-            if (!low && there && !reload && !g.reloading() && spot.hasPeek() && g.loaded() != 0 && AiChoice.ask(bot, Ask.PEEK_FIGHT, tick >= hideUntil, tick)) {
+            // out to fire before its time when one of its squad falls back (cover fire for it), a moment after it was
+            // back in; not one falling back itself
+            if (!low && there && !reload && !g.reloading() && spot.hasPeek() && g.loaded() != 0
+                    && AiChoice.ask(bot, Ask.PEEK_FIGHT, tick >= hideUntil || coversNow(bot, tick), tick)) {
                 peekOut(bot, eye);
                 mode(Mode.PEEK, tick);
                 peekSince = tick;
@@ -708,12 +726,14 @@ public final class AiSoldier implements AiBrain {
                 g.fire(false);
                 bot.mover.goTo(spot.cell(), 0.35, WALK);
                 mode(Mode.COVER, tick);
+                backIn = tick;
                 hideUntil = tick + HIDE_MIN + bot.mob.getRandom().nextInt(HIDE_MAX - HIDE_MIN);
                 why = g.loaded() == 0 ? Why.BACK_EMPTY : done ? Why.BACK_DONE : Why.BACK_LONG;
                 // looked out of one cover two or three times: now and then other cover; from one place FROM_ONE
                 // times, or out of one cover FROM_COVER times: other cover for sure
                 // one it must make (too many looks out of one place) it makes in a squad too; one it may, only covered
-                boolean must = peeksHere >= FROM_ONE || coverPeeks >= FROM_COVER;
+                // (not while it covers one of its squad falling back: it stays for it)
+                boolean must = (peeksHere >= FROM_ONE || coverPeeks >= FROM_COVER) && !AiSquads.coversFallBack(bot);
                 if (tick - lastShift > SHIFT_GAP && (must || AiSquads.mayMove(bot)) && AiChoice.ask(bot, Ask.SHIFT_AFTER_PEEK, must
                         || coverPeeks >= 2 + bot.mob.getRandom().nextInt(2) && bot.mob.getRandom().nextFloat() < SHIFT_PEEKS, tick))
                     shift(bot, tick, "looked out of one cover " + coverPeeks + " times: other cover");
@@ -1021,6 +1041,12 @@ public final class AiSoldier implements AiBrain {
     /** flankFrom: its squad's middle, for cover off to the side of the threat from it (AiSquads); null: any */
     private CoverQuery.@Nullable Spot query(AiBot bot, ServerLevel level, TacticalMap map, List<Vec3> threats, boolean lookOut, boolean fight,
             @Nullable Vec3 flankFrom) {
+        return query(bot, level, map, threats, lookOut, fight, flankFrom, 0);
+    }
+
+    /** back: falling back, no nearer the threat than this, blocks (0: as ever) */
+    private CoverQuery.@Nullable Spot query(AiBot bot, ServerLevel level, TacticalMap map, List<Vec3> threats, boolean lookOut, boolean fight,
+            @Nullable Vec3 flankFrom, double back) {
         CoverQuery.Params p = new CoverQuery.Params();
         p.flankFrom = flankFrom;
         if (flankFrom != null) p.radius = FLANK_RADIUS;
@@ -1039,6 +1065,10 @@ public final class AiSoldier implements AiBrain {
         }
         // as far from the threat as its gun is best at: nearer pressing on, farther holding back (AiConfidence)
         p.fightAt = bot.gunner.fightAt() * bot.confidence.range(level.getGameTime());
+        if (back > 0) {
+            p.minFromThreat = back;
+            p.fightAt = Math.max(p.fightAt, back + BACK_STEP);
+        }
         var held = AiBots.heldByOthers(bot);
         List<CoverQuery.Spot> found = CoverQuery.find(map, AiBots.voxels(level), bot.mob.position(), threats, p,
                 k -> held.test(k) || unreachable.contains(k), CoverQuery.POOL);
@@ -1046,8 +1076,47 @@ public final class AiSoldier implements AiBrain {
         return found.isEmpty() ? null : found.get(AiChoice.rank(bot, found, level.getGameTime()));
     }
 
+    /**
+     * Shaken (AiConfidence.fallsBack; FM 3-21.8's bounding back): to cover at least BACK_STEP farther from the threat,
+     * from cover it has got to, a moment there between two (BACK_GAP); in a squad only while one of the rest covers
+     * it and fewer than half are on the move (AiSquads.mayMove): the squad goes back in waves. Whether it went.
+     */
+    private boolean fallBack(AiBot bot, ServerLevel level, TacticalMap map, TargetMemory.Contact c, Vec3 eye, long tick) {
+        // a moment in the cover it fell back to before the next (from when it got there)
+        if (backTo != Long.MIN_VALUE && spot != null && spot.cell() == backTo && bot.mover.arrived() && backAt == Long.MIN_VALUE) backAt = tick;
+        if (backAt != Long.MIN_VALUE && tick < backAt + BACK_GAP) return false;
+        if (!bot.confidence.fallsBack(tick) || tick < nextBack || bot.prone.lying() || mode == Mode.TO_COVER && !bot.mover.arrived()) return false;
+        // hit a moment ago where it waits: it goes at once, covered or not (FM 3-21.8: under effective fire, move)
+        long shot = bot.memory.shotTick();
+        boolean hit = shot != Long.MIN_VALUE && tick - shot < BACK_HIT;
+        if (waves && !hit && !AiSquads.mayMove(bot)) return false;
+        nextBack = tick + BACK_GAP;
+        List<Vec3> all = threats(bot, c, eye);
+        Vec3 t = all.get(0);
+        CoverQuery.Spot to = query(bot, level, map, all, false, true, null, Math.hypot(bot.mob.getX() - t.x, bot.mob.getZ() - t.z) + BACK_STEP);
+        if (to == null || spot != null && to.cell() == spot.cell()) return false;
+        go(bot, level, to, all);
+        backTo = to.cell();
+        fallBacks++;
+        event(bot, tick, "shaken: falls back");
+        why = Why.FALL_BACK;
+        return true;
+    }
+
+    /** it looks out early now to cover one of its squad falling back */
+    private boolean coversNow(AiBot bot, long tick) {
+        return waves && coverFire && (backIn == Long.MIN_VALUE || tick >= backIn + COVER_FIRE_GAP) && !bot.confidence.fallsBack(tick)
+                && AiSquads.coversFallBack(bot);
+    }
+
+    /** on its way back to cover farther off (the stands) */
+    public boolean fallingBack() {
+        return backTo != Long.MIN_VALUE && spot != null && spot.cell() == backTo && mode == Mode.TO_COVER;
+    }
+
     /** to this cover, running, out of the threat's sight and its own side's lines of fire where it can */
     private void go(AiBot bot, ServerLevel level, CoverQuery.Spot to, List<Vec3> threats) {
+        backTo = backAt = Long.MIN_VALUE;
         spot = to;
         quickLook = false;
         peeksHere = 0;

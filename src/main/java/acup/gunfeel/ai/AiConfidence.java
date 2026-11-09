@@ -11,8 +11,8 @@ import net.minecraft.util.Mth;
  */
 public final class AiConfidence {
     static final float BASE = 0.5F;
-    /** pressing on from HIGH, holding back from LOW down */
-    static final float HIGH = 0.7F, LOW = 0.3F;
+    /** pressing on from HIGH, holding back from LOW down, falling back from BREAK down until it is back at LOW */
+    static final float HIGH = 0.7F, LOW = 0.3F, BREAK = 0.15F;
     /** the hits taken in a tick (a shotgun's pellets, a burst): this times their share of its health, at least HURT_MIN */
     static final float HURT = 0.3F, HURT_MIN = 0.03F;
     /** pinned down (AiProne), one of its own down near, a foe down near, a tick it hit a foe in */
@@ -30,12 +30,12 @@ public final class AiConfidence {
 
     private float value = BASE;
     private long at = Long.MIN_VALUE;
-    private boolean wasPinned;
+    private boolean wasPinned, falling;
     /** the tick of the last hits taken, their share of its health so far and what they took off; the tick of its last hit */
     private long hurtTick = Long.MIN_VALUE, hitTick = Long.MIN_VALUE;
     private float hurtShare, hurtTaken;
-    /** ticks pressing on and holding back (the stands) */
-    public int pressTicks, holdTicks;
+    /** ticks pressing on, holding back, falling back (the stands) */
+    public int pressTicks, holdTicks, fallTicks;
 
     /** its confidence this tick */
     public float value(long tick) {
@@ -72,7 +72,14 @@ public final class AiConfidence {
         if (pinned && !wasPinned) add(-PINNED, tick);
         wasPinned = pinned;
         if (presses(tick)) pressTicks++;
+        else if (fallsBack(tick)) fallTicks++;
         else if (holdsBack(tick)) holdTicks++;
+    }
+
+    /** set to this (the stands: a squad shaken at once) */
+    void set(float v, long tick) {
+        drift(tick);
+        value = Mth.clamp(v, 0F, 1F);
     }
 
     /** a share of the way to its squad's mean */
@@ -97,6 +104,13 @@ public final class AiConfidence {
     /** holding back this tick */
     public boolean holdsBack(long tick) {
         return on && value(tick) <= LOW;
+    }
+
+    /** falling back this tick (AiSoldier: to cover farther off, a squad in waves): from BREAK down, until back at LOW */
+    public boolean fallsBack(long tick) {
+        float v = value(tick);
+        falling = on && (v <= BREAK || falling && v < LOW);
+        return falling;
     }
 
     /** its cover's range from the target, a share of its gun's best (CoverQuery.fightAt) */

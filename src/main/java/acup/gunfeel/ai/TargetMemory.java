@@ -171,6 +171,11 @@ public final class TargetMemory {
         shotTick = tick;
     }
 
+    /** the tick of its last hurt that someone did, MIN_VALUE for none */
+    public long shotTick() {
+        return shotTick;
+    }
+
     /** whether the hurt heard at this tick was someone's doing, heard where they stand (not a blast's place) */
     public boolean wasShot(long tick) {
         return shotTick == tick;

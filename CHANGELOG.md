@@ -1,5 +1,14 @@
 # Changelog
 
+## X812
+
+- Mob AI: a badly shaken bot (confidence at its lowest, after losses) falls
+  back: to cover at least six blocks farther from the enemy, a moment in each
+  before the next, until it calms down. A squad falls back in waves: a bot
+  goes while another of its squad is in cover ready to fire and fewer than
+  half are on the move, or at once if it is hit where it waits; the ones in
+  cover lean out early to fire for it.
+
 ## X811
 
 - Mob AI: each bot has a confidence that falls when it is hit, pinned down or

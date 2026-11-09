@@ -255,6 +255,14 @@ public final class AiSquads {
         return true;
     }
 
+    /** one of the rest of its squad falls back now (AiSoldier.fallBack): it looks out and fires to cover it */
+    static boolean coversFallBack(AiBot bot) {
+        Squad s = of(bot);
+        if (s == null) return false;
+        for (AiBot b : s.bots) if (b != bot && live(b) && b.brain instanceof AiSoldier o && o.fallingBack()) return true;
+        return false;
+    }
+
     /**
      * Whether it keeps the place where it lost this target under fire now: one of its squad is on the move (round
      * the side, to other cover, after the target), not it (asked while the target is lost and not yet searched for:

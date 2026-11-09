@@ -40,6 +40,7 @@ public final class AiThoughts {
         RELOAD("reloads in cover"),
         INVESTIGATE("looked out for a noise, saw nothing: creeps to where it came from"),
         BETTER_COVER("in cover a while: a better place found, goes there"),
+        FALL_BACK("shaken: falls back to cover farther off, while its squad covers it"),
         LOW_FIGHT("low cover (or none to peek from): bursts from it"),
         LOW_RELOAD("low cover: reloads, down for a long reload"),
         PEEK_BURST("out to its peek for a burst"),

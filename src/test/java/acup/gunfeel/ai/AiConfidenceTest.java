@@ -70,11 +70,33 @@ class AiConfidenceTest {
     }
 
     @Test
+    void itFallsBackFromBreakUntilBackAtLow() {
+        AiConfidence c = new AiConfidence();
+        c.add(-(AiConfidence.BASE - AiConfidence.BREAK) - 0.01F, 0);
+        assertTrue(c.fallsBack(0));
+        // past BREAK on its way back up, still falling back; at LOW it stops
+        long past = (long) Math.ceil(0.03F / AiConfidence.BACK);
+        assertTrue(c.value(past) > AiConfidence.BREAK);
+        assertTrue(c.fallsBack(past));
+        float start = AiConfidence.BREAK - 0.01F;
+        long under = (long) ((AiConfidence.LOW - 0.002F - start) / AiConfidence.BACK), over = (long) ((AiConfidence.LOW + 0.002F - start) / AiConfidence.BACK);
+        assertTrue(c.fallsBack(under));
+        assertTrue(c.holdsBack(under));
+        assertFalse(c.fallsBack(over));
+        // above BREAK from the start: no fall back
+        AiConfidence d = new AiConfidence();
+        d.add(-(AiConfidence.BASE - AiConfidence.BREAK) + 0.02F, 0);
+        assertFalse(d.fallsBack(0));
+        assertTrue(d.holdsBack(0));
+    }
+
+    @Test
     void offItNeitherPressesNorHoldsBack() {
         AiConfidence c = new AiConfidence();
         AiConfidence.on = false;
         c.add(-1F, 0);
         assertFalse(c.holdsBack(0));
+        assertFalse(c.fallsBack(0));
         assertEquals(1.0, c.range(0), 1e-9);
     }
 }

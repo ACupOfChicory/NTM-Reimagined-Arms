@@ -57,6 +57,20 @@ final class AiCheckTeams {
     /** the distance from each fighter to its nearest foe, summed over the fighters' ticks */
     private double foeDistance;
     private int foeDistanceTicks;
+    /** falling back (AiSoldier.fallBack): a squad's fighters' ticks on the way, of them with one of its side near firing, hit and down on the way */
+    int backTicks, backCovered, backDowns, backHits;
+    /**
+     * The retreat (AiCheckRetreat): the team shaken at once (its confidence to SHAKEN) when SHAKE_HITS hits have been
+     * made either way, the round over AFTER_SHAKE ticks later; null: none. At the shake and at the end: its fighters,
+     * their mean distance to their nearest foe; its falls back after it
+     */
+    final String shaken;
+    static final int SHAKE_HITS = 4, AFTER_SHAKE = 400;
+    static final float SHAKEN = 0.05F;
+    int shakenAt = -1, shakenThen, shakenLeft, shakenBacks;
+    double shakenFar, shakenFarEnd;
+    private final it.unimi.dsi.fastutil.ints.Int2FloatOpenHashMap backHealth = new it.unimi.dsi.fastutil.ints.Int2FloatOpenHashMap();
+    private final it.unimi.dsi.fastutil.ints.IntOpenHashSet backing = new it.unimi.dsi.fastutil.ints.IntOpenHashSet();
     // hits by red on blue, by blue on red, by either on its own
     private int redHits, blueHits, ownHits, friendlyAtStart;
     /** of the hits on their own, those by a blast (a grenade), and what each was doing */
@@ -82,6 +96,11 @@ final class AiCheckTeams {
     }
 
     AiCheckTeams(AiCheck check, ServerLevel level, int y, boolean battle, String loners) {
+        this(check, level, y, battle, loners, null);
+    }
+
+    AiCheckTeams(AiCheck check, ServerLevel level, int y, boolean battle, String loners, String shaken) {
+        this.shaken = shaken;
         this.loners = loners;
         this.check = check;
         this.level = level;
@@ -106,6 +125,47 @@ final class AiCheckTeams {
             if (near < Double.MAX_VALUE) {
                 foeDistance += near;
                 foeDistanceTicks++;
+            }
+        }
+        // falling back: is one of its side near firing, does it go down on the way
+        for (AiBot bot : bots) {
+            int id = bot.mob.getId();
+            boolean was = backing.contains(id);
+            if (!bot.mob.isAlive()) {
+                if (was) backDowns++;
+                backing.remove(id);
+                continue;
+            }
+            // in a squad only: those alone have none to cover them
+            if (!(bot.brain instanceof AiSoldier s) || !s.fallingBack() || AiSquads.of(bot) == null) {
+                backing.remove(id);
+                continue;
+            }
+            // hit on the way: its health down since the tick before
+            if (was && bot.mob.getHealth() < backHealth.get(id)) backHits++;
+            backHealth.put(id, bot.mob.getHealth());
+            backing.add(id);
+            backTicks++;
+            for (AiBot o : bots)
+                if (o != bot && o.mob.isAlive() && AiTeams.own(bot.mob, o.mob) && o.mob.distanceToSqr(bot.mob) < 24 * 24 && o.gunner.firingAt() != null) {
+                    backCovered++;
+                    break;
+                }
+        }
+        if (shaken != null) {
+            if (shakenAt < 0 && redHits + blueHits >= SHAKE_HITS) {
+                shakenAt = ticks;
+                for (AiBot bot : bots)
+                    if (bot.mob.isAlive() && onTeam(bot, shaken)) {
+                        bot.confidence.set(SHAKEN, level.getGameTime());
+                        shakenThen++;
+                        if (bot.brain instanceof AiSoldier s) shakenBacks -= s.fallBacks;
+                    }
+                shakenFar = far(shaken);
+            }
+            if (shakenAt >= 0 && ticks - shakenAt >= AFTER_SHAKE) {
+                finish(r, b);
+                return done;
             }
         }
         if (r == 0 || b == 0 || ticks >= LIMIT) finish(r, b);
@@ -295,8 +355,38 @@ final class AiCheckTeams {
         }
     }
 
+    private static boolean onTeam(AiBot bot, String team) {
+        return bot.mob.getTeam() != null && team.equals(bot.mob.getTeam().getName());
+    }
+
+    /** the mean distance from the team's fighters alive to their nearest foe (0: none) */
+    private double far(String team) {
+        double sum = 0;
+        int n = 0;
+        for (AiBot bot : bots) {
+            if (!bot.mob.isAlive() || !onTeam(bot, team)) continue;
+            double near = Double.MAX_VALUE;
+            for (AiBot o : bots)
+                if (o != bot && o.mob.isAlive() && !AiTeams.own(bot.mob, o.mob)) near = Math.min(near, bot.mob.distanceTo(o.mob));
+            if (near < Double.MAX_VALUE) {
+                sum += near;
+                n++;
+            }
+        }
+        return n == 0 ? 0 : sum / n;
+    }
+
     private void finish(int r, int b) {
         done = true;
+        // the retreat: where the shaken team got to, what it has left, how many times it fell back since the shake
+        if (shaken != null && shakenAt >= 0) {
+            shakenFarEnd = far(shaken);
+            for (AiBot bot : bots)
+                if (onTeam(bot, shaken)) {
+                    if (bot.mob.isAlive()) shakenLeft++;
+                    if (bot.brain instanceof AiSoldier s) shakenBacks += s.fallBacks;
+                }
+        }
         redLeft = r;
         blueLeft = b;
         AiSquads.offTeams.clear();
@@ -327,7 +417,7 @@ final class AiCheckTeams {
                             + ", brain " + (bot.brain == null ? "-" : bot.brain.getClass().getSimpleName()) + ", pulls " + bot.gunner.pulls + ", shots " + bot.gunner.shots
                             + ", gun " + m.getMainHandItem().getItem()));
         }
-        int downs = 0, brief = 0, early = 0, friendHolds = 0, coverHolds = 0, shifts = 0, peekRun = 0, low = 0, slides = 0, rolls = 0, press = 0, hold = 0;
+        int downs = 0, brief = 0, early = 0, friendHolds = 0, coverHolds = 0, shifts = 0, peekRun = 0, low = 0, slides = 0, rolls = 0, press = 0, hold = 0, fall = 0, backs = 0;
         for (AiBot bot : bots) {
             downs += bot.prone.downs;
             brief += bot.prone.briefLies;
@@ -339,10 +429,12 @@ final class AiCheckTeams {
             rolls += bot.dash.rolls;
             press += bot.confidence.pressTicks;
             hold += bot.confidence.holdTicks;
+            fall += bot.confidence.fallTicks;
             if (bot.brain instanceof AiSoldier s) {
                 // its own changes and the ones forced on it (cover seen into), as the owner's log counts them
                 shifts += s.shifts + s.relocations;
                 peekRun = Math.max(peekRun, s.longestPeekRun);
+                backs += s.fallBacks;
             }
         }
         // per fighter a minute: over the minutes each fighter was alive
@@ -350,8 +442,8 @@ final class AiCheckTeams {
         check.out(String.format(Locale.ROOT, "     tactics: %d times down, %d of them under %d ticks, %d up within %d ticks not sent running; ticks held for a friend in the line %d,"
                 + " for its own cover %d; cover changes %d (%.2f a fighter a minute); most looks out running from one place %d; ticks run low past low cover %d;"
                 + " slides into cover %d, rolls under fire %d; ticks run in a friend's line of fire %d; confidence: ticks pressing on %d, holding back %d,"
-                + " a fighter's nearest foe %.1f blocks off on average", downs, brief, AiProne.BRIEF, early, AiProne.MIN_LIE, friendHolds, coverHolds, shifts, shifts / minutes,
-                peekRun, low, slides, rolls, runInLine, press, hold, foeDistanceTicks == 0 ? 0 : foeDistance / foeDistanceTicks));
+                + " a fighter's nearest foe %.1f blocks off on average; falling back: ticks %d, falls back %d, a squad's ticks on the way %d, of them covered %d, hit on the way %d, down on the way %d", downs, brief, AiProne.BRIEF, early, AiProne.MIN_LIE, friendHolds, coverHolds, shifts, shifts / minutes,
+                peekRun, low, slides, rolls, runInLine, press, hold, foeDistanceTicks == 0 ? 0 : foeDistance / foeDistanceTicks, fall, backs, backTicks, backCovered, backHits, backDowns));
         AiBots.soundTrace = null;
         StringBuilder heard = new StringBuilder("     sounds that reached the AI in the fight (count, loud, loud and made by no mob or player near: distance to the nearest fighter):");
         for (var e : sounds.entrySet()) {
