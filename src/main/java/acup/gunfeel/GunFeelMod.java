@@ -41,6 +41,11 @@ public final class GunFeelMod {
             net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.ItemTooltipEvent.class, GunWeight::tooltip);
             net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ComputeFovModifierEvent.class, GunWeight::fov);
             ServerSettingsClient.init();
+            // the balance's gun lines on this side's receivers too, by the server's setting while connected to one
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Post.class,
+                    e -> {
+                        if (Feature.BALANCE.on()) BalanceGuns.sync();
+                    });
             GunFeel.init();
             HoleRender.register(modBus);
             ModelDebugRender.register(modBus);
@@ -61,6 +66,7 @@ public final class GunFeelMod {
                 e -> {
                     if (Feature.BULLETS.on()) BulletServer.tick();
                     ServerSettingsPayload.tick(e.getServer());
+                    if (Feature.BALANCE.on()) BalanceGuns.sync();
                     acup.gunfeel.ai.imitation.Imitation.tick(e.getServer());
                 });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.LevelTickEvent.Post.class,
@@ -122,6 +128,7 @@ public final class GunFeelMod {
         BulletCheck.registerIfAsked();
         SpreadCheck.registerIfAsked();
         DamageCapCheck.registerIfAsked();
+        BalanceCheck.registerIfAsked();
         WaterCheck.registerIfAsked();
         ExplosiveCheck.registerIfAsked();
         acup.gunfeel.ai.AiCheck.registerIfAsked();
