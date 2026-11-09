@@ -80,7 +80,20 @@ public final class BotAnimator {
     /** ticks after a hit its push may still come in (the motion is sent after the hit, with the tick's moves) */
     static final float KNOCK_WAIT = 2F;
     /** the most the heading it is drawn at turns, radians a tick */
-    static final float HEADING_TURN = 0.3F;
+    static final float HEADING_TURN = 0.5F;
+    /**
+     * how fast the heading follows the way it goes, a share a tick: a peek's dash aside is some 6 to 20 ticks, and
+     * the legs step aside from its start
+     */
+    static final float HEADING_FOLLOW = 0.5F;
+    /**
+     * stopped mid-step (or creeping, slower than the clips come in at), the legs go on this fast (vanilla's walkPos a
+     * tick) to where they pass each other (vanilla's swing at nought): it ends its step and stands, not held mid-stride
+     * while the clips fade
+     */
+    static final float SETTLE = 0.5F;
+    /** and slowing down to it: this share of the way left a tick, this much at least */
+    static final float SETTLE_EASE = 0.3F, SETTLE_LEAST = 0.05F;
 
     /**
      * A flinch this frame.
@@ -168,18 +181,30 @@ public final class BotAnimator {
             return;
         }
         float k = dt > 20F ? 1F : 1F - (float) Math.pow(1F - SPEED_FOLLOW, dt);
+        // from a stand (the clips hardly in yet) the heading takes the way it goes at once
+        float stand = dt > 20F ? 1F : 1F - smooth((speed - BotPoser.MOVE_FROM) / (BotPoser.MOVE_FULL - BotPoser.MOVE_FROM));
         speed += (s - speed) * k;
         float kw = dt > 20F ? 1F : 1F - (float) Math.pow(1F - WALK_FOLLOW, dt);
         float walkWas = walk;
         walk += (Math.min(s * 4F, 1F) - walk) * kw;
-        if (dt <= 20F) walkPos += (walkWas + walk) / 2F * dt;
+        if (dt <= 20F) {
+            float on = (walkWas + walk) / 2F * dt;
+            if (s < BotPoser.MOVE_FROM) {
+                // only where it goes on faster than its fading walk would: a tick with no step in a run (a late
+                // packet) leaves the run's pace as it was
+                float rest = toRest(walkPos), settle = Math.min(SETTLE, Math.max(rest * SETTLE_EASE, SETTLE_LEAST)) * dt;
+                if (settle > on) on = Math.min(rest, settle);
+            }
+            walkPos += on;
+        }
         if (s > 1e-3F) {
             // the game's yaw: 0 is +z, 90 is -x; the mob's right is 90 more than where it faces
             float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
             float to = Mth.wrapDegrees(yaw - bodyYaw) * Mth.DEG_TO_RAD;
             // and no faster than HEADING_TURN: turned right round (a sprint ahead, then back) the legs go from one
-            // clip to the next over half a second, not in a tick
-            float turn = Mth.wrapDegrees((to - heading) * Mth.RAD_TO_DEG) * Mth.DEG_TO_RAD * k, most = HEADING_TURN * dt;
+            // clip to the next over a third of a second, not in a tick; from a stand at once
+            float kh = Math.max(stand, 1F - (float) Math.pow(1F - HEADING_FOLLOW, Math.min(dt, 20F)));
+            float turn = Mth.wrapDegrees((to - heading) * Mth.RAD_TO_DEG) * Mth.DEG_TO_RAD * kh, most = Mth.lerp(stand, Math.min(HEADING_TURN * dt, Mth.PI), Mth.PI);
             heading = Mth.wrapDegrees((heading + Mth.clamp(turn, -most, most)) * Mth.RAD_TO_DEG) * Mth.DEG_TO_RAD;
         }
     }
@@ -304,6 +329,14 @@ public final class BotAnimator {
     /** the flinch of the n-th hit: head and chest by turns */
     private static String clip(int n) {
         return (n & 1) == 0 ? BotClips.HIT_HEAD : BotClips.HIT_CHEST;
+    }
+
+    /** how much more walkPos to where the legs pass each other (vanilla's swing, cos(walkPos 0.6662), at nought) */
+    static float toRest(float walkPos) {
+        float half = BotPoser.CYCLE / 2F, at = BotPoser.CYCLE / 4F;
+        float r = ((at - walkPos) % half + half) % half;
+        // there already (a float's rounding just past it): not on for another half a step
+        return r > half - Math.max(1e-3F, 4F * Math.ulp(walkPos)) ? 0F : r;
     }
 
     static float approach(float from, float to, float step) {

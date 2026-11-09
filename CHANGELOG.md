@@ -1,5 +1,13 @@
 # Changelog
 
+## X820
+
+- AI mobs' legs: the foot a bot stands on stays on the ground, its shin
+  upright, walking, running, sideways and crouched; a stop ends the step
+  instead of freezing the legs mid-stride, and a quick dash aside steps aside
+  from its start rather than playing the walk ahead. A crouched walk no longer
+  swings the thighs up level.
+
 ## X819
 - Mob AI: a shaken bot falling back first throws a smoke grenade half the way
   to the enemy, one of its squad at a time: the GL-54 smoke grenade's cloud,

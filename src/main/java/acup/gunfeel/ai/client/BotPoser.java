@@ -86,6 +86,18 @@ public final class BotPoser {
     static final float DEATH_IN = 2F;
     static final String[] LEGS = { "right_leg", "right_shin", "left_leg", "left_shin" };
 
+    /** vanilla's swing at most, radians (its own: 1.4 at a full walk) */
+    static final float SWING_MOST = 0.5F;
+    /**
+     * a leg stands till its step's swing forward begins (the sine of its phase at nought), and is left as it was from
+     * this far into it
+     */
+    static final float PLANT_SWING = 0.5F;
+    /** a knee bends this far at most, radians */
+    static final float KNEE_MOST = 2.2F;
+    /** under this walk (vanilla's walk speed) both feet stand, as at a stand */
+    static final float PLANT_WALK = 0.25F;
+
     /** how far a knee bends as the leg swings forward walking, radians at full speed */
     static final float KNEE_WALK = 1.0F;
     /** an elbow's bend with no gun, radians, more as it walks */
@@ -137,6 +149,14 @@ public final class BotPoser {
             p.leftArm.yRot = Mth.lerp(w, p.leftArm.yRot, 0.45F);
             p.leftArm.zRot = Mth.lerp(w, p.leftArm.zRot, 0F);
         }
+        // vanilla's swing (1.4 walk radians at most) no wider than SWING_MOST: crouched it is the legs' only step,
+        // and a thigh swung near level hangs its foot in the air
+        float wide = 1.4F * Mth.clamp(walkSpeed, 0F, 1F);
+        if (wide > SWING_MOST) {
+            float narrow = Mth.lerp(upright, 1F, SWING_MOST / wide);
+            p.rightLeg.xRot *= narrow;
+            p.leftLeg.xRot *= narrow;
+        }
         float crawl = crawlWeight(lying, f.speed());
         if (crawl > 0F) crawl(p, walkPos, crawl, armed);
 
@@ -155,6 +175,8 @@ public final class BotPoser {
             if (p.rightShin != null) p.rightShin.xRot += k * Math.max(0F, swing);
             if (p.leftShin != null) p.leftShin.xRot += k * Math.max(0F, -swing);
         }
+        // the foot it stands on, on the ground (walking back, the leg going forward)
+        plant(p, upright * (1F - crawl), walkPos, move * gaitWeights(f.speed(), f.heading())[3], walk);
         float free = f.arms()[AiPose.NO_GUN] * upright;
         if (free > 0F) {
             float bend = free * (ELBOW_FREE + ELBOW_WALK * walk);
@@ -319,21 +341,41 @@ public final class BotPoser {
         shin.zRot = Mth.lerp(w, shin.zRot, -side * CRAWL_KNEE * drawn);
     }
 
-    /** where in each clip the right leg is furthest back (vanilla's swing at walkPos 0): the clips step with vanilla */
+    /**
+     * where in each clip (a share of its length) to be at walkPos 0: its legs pass each other where vanilla's do, a
+     * quarter of a step on (cos(walkPos 0.6662) at nought, the right leg going forward), so the clips and vanilla's
+     * swing stand together where a stop ends its step (BotAnimator.toRest). Its legs pass where the right leg's xRot
+     * comes down through the left's, the pass nearest a quarter on from the right leg furthest back.
+     */
     private static final java.util.Map<String, Float> PHASE = new java.util.concurrent.ConcurrentHashMap<>();
 
     static float phase(String name, BotClip c) {
         return PHASE.computeIfAbsent(name, k -> {
-            float[] r = new float[3];
-            float best = -Float.MAX_VALUE, at = 0F;
-            for (int i = 0; i < 120; i++) {
-                float t = c.length() * i / 120F;
-                if (c.rotation("right_leg", t, r) && r[0] > best) {
+            int n = 240;
+            float[] r = new float[3], l = new float[3], d = new float[n];
+            float best = -Float.MAX_VALUE, back = 0F;
+            for (int i = 0; i < n; i++) {
+                float t = c.length() * i / n;
+                if (!c.rotation("right_leg", t, r)) return 0F;
+                if (!c.rotation("left_leg", t, l)) l[0] = 0F;
+                d[i] = r[0] - l[0];
+                if (r[0] > best) {
                     best = r[0];
-                    at = i / 120F;
+                    back = i / (float) n;
                 }
             }
-            return at;
+            float pass = back + 0.25F, near = Float.MAX_VALUE;
+            for (int i = 0; i < n; i++) {
+                float a = d[i], b = d[(i + 1) % n];
+                if (a <= 0F || b > 0F) continue;
+                float at = (i + a / (a - b)) / n;
+                float off = Math.abs(((at - back - 0.25F) % 1F + 1.5F) % 1F - 0.5F);
+                if (off < near) {
+                    near = off;
+                    pass = at;
+                }
+            }
+            return ((pass - 0.25F) % 1F + 1F) % 1F;
         });
     }
 
@@ -365,6 +407,43 @@ public final class BotPoser {
             part.yRot = Mth.lerp(w, part.yRot, Mth.DEG_TO_RAD * acc[b][1] / total);
             part.zRot = Mth.lerp(w, part.zRot, Mth.DEG_TO_RAD * acc[b][2] / total);
         }
+    }
+
+    /**
+     * The foot it stands on, on the ground, w of the way: its shin is turned at the knee to hang straight down (a
+     * thigh ahead) or to go on straight from the thigh (one behind: a knee bends only back), whatever the clips and
+     * vanilla's swing gave it; its foot is then under its knee or the hip, a pixel or so up at most for the thigh's
+     * swing, where blended clips and slow steps left it hanging. Which foot by the step's phase, the same for the
+     * clips and vanilla's swing (phase): the right leg swings forward from walkPos 0 to half a step, and stands from
+     * there on; walking back (back, the back clip's share) the other way round. Both stand where the legs are
+     * furthest apart, half back and half aside, and standing still (walk, vanilla's walk speed, near nought); the one
+     * in its step is left as it was.
+     */
+    static void plant(Parts p, float w, float walkPos, float back, float walk) {
+        if (w <= 0F || p.rightShin == null || p.leftShin == null) return;
+        // walking back the legs step the other way round; half back, half aside (the two clips' steps at odds) both
+        // stand
+        float swing = Mth.sin(walkPos * 0.6662F) * (1F - 2F * back), stepping = BotAnimator.smooth(walk / PLANT_WALK);
+        float right = BotAnimator.smooth((PLANT_SWING - swing) / PLANT_SWING), left = BotAnimator.smooth((PLANT_SWING + swing) / PLANT_SWING);
+        plantLeg(p.rightLeg, p.rightShin, w * Mth.lerp(stepping, 1F, right));
+        plantLeg(p.leftLeg, p.leftShin, w * Mth.lerp(stepping, 1F, left));
+    }
+
+    private static final ThreadLocal<org.joml.Matrix3f> M = ThreadLocal.withInitial(org.joml.Matrix3f::new);
+
+    private static void plantLeg(ModelPart thigh, ModelPart shin, float w) {
+        if (w <= 0F) return;
+        org.joml.Matrix3f t = M.get().rotationZYX(thigh.zRot, thigh.yRot, thigh.xRot);
+        // the shin straight in the thigh's turn, then bent k at the knee: (0, cos k, sin k); most down where
+        // m11 cos k + m21 sin k is most. With the knee's plane near level (a thigh swung up or twisted) no k hangs
+        // it down, and it is left as it was
+        float down = (float) Math.hypot(t.m11(), t.m21());
+        w *= BotAnimator.smooth((down - 0.2F) / 0.3F);
+        if (w <= 0F) return;
+        float k = Mth.clamp((float) Math.atan2(t.m21(), t.m11()), 0F, KNEE_MOST);
+        shin.xRot = Mth.lerp(w, shin.xRot, k);
+        shin.yRot = Mth.lerp(w, shin.yRot, 0F);
+        shin.zRot = Mth.lerp(w, shin.zRot, 0F);
     }
 
     /** the clips gait blends: walk, jog, sprint, back, and the strafe to the side it goes */
