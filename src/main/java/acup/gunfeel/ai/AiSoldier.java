@@ -366,7 +366,9 @@ public final class AiSoldier implements AiBrain {
         else if (c != null && c.state == TargetMemory.State.SEARCH && c.lostTick == flankLost && spot != null && c.lostTick != blindLost
                 && (mode == Mode.TO_COVER || mode == Mode.COVER || mode == Mode.PEEK)) coverCycle(bot, c, tick);
         // two of a squad at most go after one target; the rest watch where it went
-        else if (c != null && c.state == TargetMemory.State.SEARCH && (mode == Mode.SEARCH || AiSquads.mayHunt(bot, c.id))) search(bot, level, c, tick);
+        // holding back (AiConfidence): it does not go after it, it watches; one already on its way goes on
+        else if (c != null && c.state == TargetMemory.State.SEARCH && (mode == Mode.SEARCH || AiSquads.mayHunt(bot, c.id) && !bot.confidence.holdsBack(tick)))
+            search(bot, level, c, tick);
         else if (c != null && c.state == TargetMemory.State.SEARCH) hold(bot, level, c, tick);
         else if (n != null) alert(bot, level, n, tick);
         else idle(bot, tick);
@@ -949,9 +951,12 @@ public final class AiSoldier implements AiBrain {
             pushAt = c.lostTick + PUSH_MIN + bot.mob.getRandom().nextInt(PUSH_MAX - PUSH_MIN + 1);
         }
         if (mode == Mode.SEARCH) return true;
+        // holding back (AiConfidence): it waits for them; pressing on: it goes in half the time
+        if (bot.confidence.holdsBack(tick)) return false;
+        long at = bot.confidence.presses(tick) ? c.lostTick + (pushAt - c.lostTick) / 2 : pushAt;
         // in a squad: two at most go after it, and only while one of the rest covers them
         if (!AiSquads.mayHunt(bot, c.id) || !AiSquads.mayMove(bot)) return false;
-        return AiChoice.ask(bot, Ask.PUSH_NOW, tick >= pushAt && (spot == null || blindLost == c.lostTick), tick);
+        return AiChoice.ask(bot, Ask.PUSH_NOW, tick >= at && (spot == null || blindLost == c.lostTick), tick);
     }
 
     /** whether a looks at b: b's eyes within 20 degrees of where a's eyes point */
@@ -1032,8 +1037,8 @@ public final class AiSoldier implements AiBrain {
             // rays for the other threats and the places to shoot from
             p.rayBudget = 48;
         }
-        // as far from the threat as its gun is best at
-        p.fightAt = bot.gunner.fightAt();
+        // as far from the threat as its gun is best at: nearer pressing on, farther holding back (AiConfidence)
+        p.fightAt = bot.gunner.fightAt() * bot.confidence.range(level.getGameTime());
         var held = AiBots.heldByOthers(bot);
         List<CoverQuery.Spot> found = CoverQuery.find(map, AiBots.voxels(level), bot.mob.position(), threats, p,
                 k -> held.test(k) || unreachable.contains(k), CoverQuery.POOL);
@@ -1073,8 +1078,9 @@ public final class AiSoldier implements AiBrain {
      * from there. Whether it went.
      */
     private boolean flank(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
+        // holding back (AiConfidence): no way round the side
         if (c.lostTick == flankLost || tick < nextFlank || !AiSquads.flanks(bot, c.id) || bot.prone.lying() || mode == Mode.SEARCH
-                || mode == Mode.TO_COVER && !bot.mover.arrived())
+                || mode == Mode.TO_COVER && !bot.mover.arrived() || bot.confidence.holdsBack(tick))
             return false;
         Vec3 middle = AiSquads.middle(bot);
         if (middle == null || !AiSquads.mayMove(bot)) return false;

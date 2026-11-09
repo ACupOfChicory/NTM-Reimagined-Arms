@@ -115,6 +115,10 @@ public final class AiSquads {
             }
             if (s.bots.size() < 2) continue;
             roles(s, flankers);
+            // its confidence shared a little (AiConfidence: panic spreads, so does dash)
+            float mean = 0;
+            for (AiBot b : s.bots) mean += b.confidence.value(now) / s.bots.size();
+            for (AiBot b : s.bots) b.confidence.share(mean, now);
             l.squads.add(s);
             for (AiBot b : s.bots) l.of.put(b.mob.getId(), s);
         }

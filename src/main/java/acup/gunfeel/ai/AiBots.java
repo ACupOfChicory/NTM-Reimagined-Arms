@@ -273,6 +273,7 @@ public final class AiBots {
         // a shot that flies close past it is one at it: as a hit, from where it was fired
         Entity shooter = bot.prone.watchShots(level, tick);
         if (shooter != null) bot.dash.nearMiss(tick);
+        bot.confidence.tick(bot.prone.pinned(tick), tick);
         if (shooter != null) hear(bot, shooter.getX(), shooter.getY(), shooter.getZ(), shooter.distanceTo(bot.mob), tick, true, true, 0.15, 2);
         if (bot.brain != null) bot.brain.tick(bot, tick);
         bot.prone.tick(level, bot.mover, tick, bot.brain != null && bot.stoop.down, bot.dash);
@@ -425,7 +426,7 @@ public final class AiBots {
     }
 
     /** a hit tells where it came from, roughly; one from its own (an AI mob it does not fight, a player of its team) is no threat */
-    public static void hurt(Mob mob, DamageSource source) {
+    public static void hurt(Mob mob, DamageSource source, float amount) {
         AiBot b = get(mob);
         if (b == null) return;
         Entity from = source.getEntity();
@@ -433,13 +434,46 @@ public final class AiBots {
             if (get(le) != null) friendlyHits++;
             return;
         }
+        long tick = mob.level().getGameTime();
+        // hurt by someone or something that went off, not by fire or a fall
+        if (from != null || source.getDirectEntity() != null || source.getSourcePosition() != null)
+            b.confidence.hurt(amount / Math.max(1F, mob.getMaxHealth()), tick);
         Vec3 at = from != null ? from.position() : source.getSourcePosition();
         if (at == null) return;
-        long tick = mob.level().getGameTime();
         hear(b, at.x, at.y, at.z, at.distanceTo(mob.position()), tick, true, true, 0.15, 2);
         // hurt by someone (a bullet, a beam, an arrow, a punch, their grenade): heard where they stand, and they may be
         // a target it lost; a blast no one set off is heard where it went off, and is not them
         b.memory.shot(from != null ? tick : Long.MIN_VALUE);
+    }
+
+    /** any living thing hurt: an AI mob that hit a fighter not of its own side is the surer for it (AiConfidence) */
+    public static void landed(LivingEntity victim, DamageSource source, float amount) {
+        if (amount <= 0 || !(source.getEntity() instanceof Mob m) || m == victim || !fighter(victim) || AiTeams.own(m, victim)) return;
+        AiBot b = get(m);
+        if (b != null) b.confidence.hit(m.level().getGameTime());
+    }
+
+    /**
+     * Any living thing down: the AI mobs near it of its side lose heart, those it fought take it (an AI mob, a player
+     * or a stand's target down near them, not of their side: AiConfidence)
+     */
+    public static void died(LivingEntity victim) {
+        if (!(victim.level() instanceof ServerLevel level)) return;
+        PerLevel l = LEVELS.get(level);
+        if (l == null) return;
+        if (!fighter(victim)) return;
+        long tick = level.getGameTime();
+        double r2 = AiConfidence.NEAR * AiConfidence.NEAR;
+        for (AiBot b : l.bots.values()) {
+            Mob m = b.mob;
+            if (m == victim || !m.isAlive() || m.distanceToSqr(victim) > r2) continue;
+            b.confidence.add(AiTeams.own(m, victim) ? -AiConfidence.FRIEND_DOWN : AiConfidence.FOE_DOWN, tick);
+        }
+    }
+
+    /** one that fights: an AI mob, a player, a stand's target (not a cow) */
+    private static boolean fighter(LivingEntity e) {
+        return get(e) != null || e instanceof Player || e.entityTags().contains(TARGET_TAG);
     }
 
     /** error: the ear's error as a part of the distance (at least min blocks), across */

@@ -21,7 +21,13 @@ public final class AiEvents {
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, PlayLevelSoundEvent.AtPosition.class, AiEvents::sound);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, PlayLevelSoundEvent.AtEntity.class, AiEvents::sound);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, LivingIncomingDamageEvent.class, e -> {
-            if (e.getEntity() instanceof Mob mob && !mob.level().isClientSide()) AiBots.hurt(mob, e.getSource());
+            if (e.getEntity().level().isClientSide()) return;
+            if (e.getEntity() instanceof Mob mob) AiBots.hurt(mob, e.getSource(), e.getAmount());
+            AiBots.landed(e.getEntity(), e.getSource(), e.getAmount());
+        });
+        // one down: those near it of its side lose heart, those it fought take it (AiConfidence)
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, net.neoforged.neoforge.event.entity.living.LivingDeathEvent.class, e -> {
+            if (!e.getEntity().level().isClientSide()) AiBots.died(e.getEntity());
         });
         // a mob tagged for the mob AI comes into a level (spawned, or its chunk loaded): the AI takes it over
         NeoForge.EVENT_BUS.addListener(EventPriority.LOW, false, net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class,

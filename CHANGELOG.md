@@ -1,5 +1,14 @@
 # Changelog
 
+## X811
+
+- Mob AI: each bot has a confidence that falls when it is hit, pinned down or
+  sees one of its own side go down near it, and rises when it lands hits or
+  sees an enemy go down; it drifts back to normal within a minute once the
+  fight goes quiet, and a squad shares it a little. A confident bot takes
+  cover nearer the enemy and goes after a lost target sooner; a shaken one
+  takes cover farther back and does not hunt or flank until it calms.
+
 ## X810
 
 - Mob AI: when a target goes out of sight, each bot decides once, at even
