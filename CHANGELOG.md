@@ -1,6 +1,6 @@
 # Changelog
 
-## X824
+## X825
 
 - An AI mob walking backwards or sideways, as when it falls back firing
   ahead, gets up a step one block high. Before, its jump pushed it the way it

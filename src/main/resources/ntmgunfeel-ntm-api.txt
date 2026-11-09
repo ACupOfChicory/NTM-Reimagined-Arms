@@ -333,6 +333,7 @@ CORE method com/hbm/entity/grenade/EntityGrenadeUniversal discard ()V
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getFuze ()Lcom/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze;
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getGrenadeItem ()Lnet/minecraft/world/item/ItemStack;
+CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getId ()I
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getOwner ()Lnet/minecraft/world/entity/Entity;
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getShell ()Lcom/hbm/items/weapon/grenade/ItemGrenadeShell$EnumGrenadeShell;
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getTimer ()I
