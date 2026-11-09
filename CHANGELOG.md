@@ -1,5 +1,27 @@
 # Changelog
 
+## X822
+
+- A player's bullet hits what that player's game saw it hit. Your game tests
+  your own bullet against the models it draws and tells the server which mob
+  or player it hit, where and on which part; the server takes that hit, with
+  the same damage, armour, part multiplier and piercing as before, and no
+  longer tests the bullet against its own, older view of the models. Running
+  and jumping mobs in a crowd are no longer missed where you see a hit.
+  The server checks only for mistakes, not for cheats: the target is alive
+  and in reach, the bullet is yours and still flies, one hit per target per
+  bullet (each buckshot pellet is its own bullet). A bullet near mobs waits
+  for the report up to your ping and 3 ticks; AI bots' bullets and late
+  reports go by the server's view, as before. New server key `clientHits`
+  (on by default); off, every bullet goes by the server's view.
+  Sixty FBI agents in a crowd, 3000 carbine rounds at each kind of movement
+  (standing, running across or at the shooter, jumping, leaning out,
+  crawling): every hit the shooter's game saw is the server's, on the same
+  part, and the server hit nothing else. The bullets past the crowd went
+  through the same wool and stopped in the same wall on both sides, all
+  but a few in a hundred that grazed the floor: the shooter's tracer
+  bounced them on, the server's bullet stopped in the floor.
+
 ## X820
 
 - AI mobs' legs: the foot a bot stands on stays on the ground, its shin

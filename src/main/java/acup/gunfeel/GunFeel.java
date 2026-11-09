@@ -102,6 +102,7 @@ public final class GunFeel {
             if (Feature.MACHINE_MESH.on()) MeshShapes.tick();
             WalkSprint.tick();
             if (Feature.TRACERS.on()) acup.gunfeel.water.WaterFx.clientTick();
+            HitReports.tick();
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderFrameEvent.Pre.class, e -> {
             if (Feature.MACHINE_MESH.on()) MeshShapes.frame();

@@ -264,6 +264,7 @@ CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 accel D
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 tickCount I
+CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 ticksInAir I
 CORE field com/hbm/explosion/vanillant/ExplosionVNT posX D
 CORE field com/hbm/explosion/vanillant/ExplosionVNT posY D
 CORE field com/hbm/explosion/vanillant/ExplosionVNT posZ D
@@ -303,6 +304,7 @@ CORE field com/hbm/items/weapon/sedna/BulletConfig id I
 CORE field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
 CORE field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
 CORE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
+CORE field com/hbm/items/weapon/sedna/BulletConfig selfDamageDelay I
 CORE field com/hbm/items/weapon/sedna/BulletConfig spread F
 CORE field com/hbm/items/weapon/sedna/BulletConfig velocity F
 CORE field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
@@ -934,6 +936,7 @@ TRACERS field com/hbm/items/weapon/sedna/BulletConfig maxRicochetCount I
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/function/BiConsumer;
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
+TRACERS field com/hbm/items/weapon/sedna/BulletConfig selfDamageDelay I
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig velocity F
 TRACERS method com/hbm/client/render/RenderBulletMK4$State <init> ()V
 TRACERS method com/hbm/client/render/RenderBulletMK4$Tracer draw (Lcom/hbm/client/render/RenderBulletMK4$State;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;)V

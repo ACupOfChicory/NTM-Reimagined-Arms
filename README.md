@@ -260,6 +260,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `bulletSpeed` | `1.6` | Bullet speed multiplier |
 | `modelHitboxes` | `true` | Hits by the model, with head and limb zones |
 | `modelHitboxesWorn` | `true` | Worn armour, skulls and pumpkins are part of the model |
+| `clientHits` | `true` | A player's bullet hits what that player's game saw it hit; off: the server's view decides |
 | `cameraScaleMin` | `0` | Camera recoil players cannot go below |
 | `spreadStand`, `spreadMove`, `spreadSneak`, `spreadCrawl`, `spreadAim` | `1`, `1.5`, `0.75`, `0.5`, `1` | Spread by stance |
 | `powerArmorSpread` | `0.5` | Movement and burst spread in power armour, as a share |

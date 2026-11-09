@@ -85,6 +85,7 @@ public final class Tracers {
         double confirmedEnd=Double.NaN;
         Vec3 stopPoint;
         boolean whizzed; // already whizzed past the player
+        boolean reports; // this player's own: its hits on the drawn models go to the server (HitReports)
         volatile boolean gone; // no longer flown (its in-flight sound stops)
         float damage; // what is left of its damage (bullet rules "pierce")
         final Materials.Penetration penetration = new Materials.Penetration();
@@ -143,6 +144,7 @@ public final class Tracers {
             this.pierced.addAll(from.pierced);
             this.ricochets = from.ricochets + 1;
             this.whizzed = from.whizzed;
+            this.reports = from.reports;
             this.checked = 1e-4; // not at the very face it left
             this.waterF = from.waterF;
             this.waterSkips = from.waterSkips;
@@ -170,6 +172,7 @@ public final class Tracers {
             this.pierced.addAll(from.pierced);
             this.ricochets = from.ricochets;
             this.whizzed = from.whizzed;
+            this.reports = from.reports;
             this.waterF = f;
             this.waterSkips = skips;
             this.waterOpened = from.waterPath != null ? from.waterPath.opened : from.waterOpened;
@@ -555,13 +558,19 @@ public final class Tracers {
         MobSmoke.tracer(p.id());
         Rng.announce(p.id());
         serverAnnounces = true;
-        if (!Config.tracers && !Config.bulletHoles && !Config.bulletFx) return;
+        if (!Config.tracers && !Config.bulletHoles && !Config.bulletFx) {
+            HitReports.untracked(p);
+            return;
+        }
         if (p.config() < 0 || p.config() >= BulletConfig.configs.size()) return;
         BulletConfig config = BulletConfig.configs.get(p.config());
         if (config.velocity < 5F) return;
         int[] c = colors(config);
         if (c == NONE && ExplosiveAmmo.shell(config)) c = UNDRAWN;
-        if (c == NONE) return;
+        if (c == NONE) {
+            HitReports.untracked(p);
+            return;
+        }
         ClientSmoke.packet();
         Shot s = new Shot(p, config, c);
         Minecraft mc = Minecraft.getInstance();
@@ -599,6 +608,8 @@ public final class Tracers {
                 TestLog.c(s.id, "fire", "ammo", p.config(), "own", false, "at", s.start, "v", s.v, "damage", p.damage());
             }
         }
+        // this player's own: what it hits on the models drawn here goes to the server (ClientHits)
+        s.reports = HitReports.follow(p);
         SHOTS.add(s);
         RECENT_SHOTS.put(s.id,s);
         if(RECENT_SHOTS.size()>512)RECENT_SHOTS.remove(RECENT_SHOTS.keySet().iterator().next());
@@ -622,6 +633,7 @@ public final class Tracers {
         for (Shot s : SHOTS) s.gone = true;
         SHOTS.clear();
         RECENT_SHOTS.clear();
+        HitReports.clear();
         HOLES.clear();
         PENDING.clear();
         for (Batch b : BATCHES) b.close();
@@ -664,6 +676,7 @@ public final class Tracers {
             ClientSmoke.segment(t, expired);
             if (expired) {
                 if (TestLog.client && Double.isNaN(s.end)) TestLog.c(s.id, "end", "by", "life", "at", s.at(s.lifeTicks));
+                if (s.reports && Double.isNaN(s.end)) HitReports.tested(s.id, Double.POSITIVE_INFINITY);
                 s.gone = true;
                 it.remove();
                 continue;
@@ -766,6 +779,10 @@ public final class Tracers {
                 }
             }
         }
+        // this player's own bullet: the models drawn here decide what it hits, and the server takes it (ClientHits)
+        List<HitReports.Met> met = len > 1e-6 && s.reports ? HitReports.meet(level, s.owner,
+                s.born - s.rootBorn + s.checked >= s.config.selfDamageDelay, s.checked <= 0 && s.born == s.rootBorn, ra, rb) : List.of();
+        if (!met.isEmpty() && !s.config.doesPenetrate) hitEntity = met.getFirst().distance();
         // blocks it pierces (PassableClip.pierced, as the server has it): a hole where it goes in and where it comes out.
         // A mob's laser shot goes through glass, no hole on it (BeamLasers)
         Vec3 at = ra;
@@ -796,6 +813,7 @@ public final class Tracers {
             if (TestLog.client && !known) TestLog.c(s.id, "block", "block", level.getBlockState(pos), "pos", pos, "at", block.getLocation(),
                     "material", TestLog.material(level, block), "result", "pierce", "damage", s.damage, "left", left,
                     "path", block.getLocation().distanceTo(out.getLocation()));
+            standBlock(s, pos);
             if (!known) {
                 if (once) s.pierced.add(pos);
                 s.damage = left;
@@ -816,6 +834,13 @@ public final class Tracers {
         double reach = block.getType() == HitResult.Type.MISS ? rb.distanceTo(ra) : block.getLocation().distanceTo(ra);
         if (block.getType() != HitResult.Type.MISS) waterHole = waterHole(s, block.getLocation());
         if (!Double.isNaN(hitEntity) && hitEntity >= reach) hitEntity = Double.NaN;
+        // the hits before what stops it (the first one, unless it goes through mobs)
+        for (var m : met) {
+            if (m.distance() >= reach) break;
+            HitReports.hit(s.id, m, s.born - s.rootBorn + s.checked + (t - s.checked) * m.distance() / len);
+            if (TestLog.client) TestLog.c(s.id, "client_hit", "target", m.entity().getId(), "zone", m.zone(), "at", m.point());
+            if (!s.config.doesPenetrate) break;
+        }
         Vec3 stop = rb;
         if (!Double.isNaN(hitEntity)) {
             s.end = s.checked + (t - s.checked) * hitEntity / len;
@@ -824,6 +849,7 @@ public final class Tracers {
         } else if (block.getType() != HitResult.Type.MISS) {
             s.end = s.checked + (t - s.checked) * (len > 1e-6 ? reach / len : 0.0);
             stop = block.getLocation();
+            standBlock(s, block.getBlockPos());
             // through shallow water into the bottom: its crumbs (WaterTick.blocks has it for the bullet)
             if (s.waterPath != null) {
                 var bottom = s.waterPath.bottom(stop, block.getDirection());
@@ -884,7 +910,16 @@ public final class Tracers {
         waterHole = 1F;
         waterEnd(s, t);
         if(!Double.isNaN(s.confirmedEnd) && t>=s.confirmedEnd)s.end=s.confirmedEnd;
+        // how far its path is tested: done when it stopped and goes on as no other piece
+        if (s.reports) HitReports.tested(s.id, Double.isNaN(s.end) ? s.born - s.rootBorn + t
+                : goesOn(s) ? s.born - s.rootBorn + s.end : Double.POSITIVE_INFINITY);
         TestLog.shot(-1);
+    }
+
+    // a piece of the same bullet begun after this one (a bounce, water's turn)
+    private static boolean goesOn(Shot s) {
+        for (Shot b : BOUNCED) if (b.id == s.id && b != s && b.born >= s.born) return true;
+        return false;
     }
 
     // water cut this piece by t: it stops, or goes on as a new piece, slower or turned
@@ -1285,6 +1320,13 @@ public final class Tracers {
     private static int holesMade;
     // the last hole made went on a machine's window (MachineGlass): its sound and crumbs are glass's
     private static boolean metWindow;
+
+    // the blast stand's bullets (BlastStand): the blocks each shot went through or stopped in, as its holes are made
+    static java.util.Map<Integer, java.util.Set<BlockPos>> standHoles;
+
+    private static void standBlock(Shot s, BlockPos pos) {
+        if (standHoles != null && s.id >= 0) standHoles.computeIfAbsent(s.id, k -> new java.util.HashSet<>()).add(pos.immutable());
+    }
 
     private static void addMade(Hole h) {
         holesMade++;
