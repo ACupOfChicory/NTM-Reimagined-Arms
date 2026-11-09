@@ -77,6 +77,12 @@ page. They are alphas: expect bugs and back up your world.
   part, so behind a low wall only what sticks out is hit, and a player lying
   with the feet to a grenade takes most of it on the legs. This works for
   hand grenades, grenade-launcher rounds and rockets.
+- A damage cap keeps a player from dying to one click: a click (all the
+  pellets and rounds a shooter fires in one tick) takes at most 60 % of max
+  health, 80 % on the head, and one shooter at most 80 % in any 14 ticks.
+  Slow sniper rifles (25 ticks or more between shots) still kill with a head
+  shot. Nuclear blasts, digamma, fire, falling, radiation, gas, melee and
+  vanilla blasts are not capped. Mobs as targets only with `damageCapMobs`.
 
 ### Bullets and blocks
 
@@ -278,6 +284,11 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `blastParts` | `true` | NTM's blasts hit each body part by its own distance and line of sight, head and limb multipliers after the armour |
 | `blastPartsEven` | `true` | A blast's part multipliers divided by the creature's mean, so a creature in the open takes about NTM's damage |
 | `blastPartRays` | `3` | Rays from each part for a blast's line of sight, 1 to 9 |
+| `damageCap` | `true` | The damage cap against players: one click and any 14 ticks of one shooter |
+| `damageCapClick`, `damageCapHead` | `0.6`, `0.8` | The most of a player's max health one click takes, on the body and on the head |
+| `damageCapWindow`, `damageCapWindowTicks` | `0.8`, `14` | The most one shooter takes in any so many ticks |
+| `damageCapSniperDelay`, `damageCapSniperHead` | `25`, `1.0` | A gun that waits this many ticks between shots takes up to this much with a head click |
+| `damageCapMobs` | `false` | Mobs and AI bots are capped too |
 | `spectatorNoGuns` | `true` | Spectators cannot use NTM's guns |
 | `smoke` | `true` | Smoke clouds |
 | `smokeBlocksMobSight` | `false` | Mobs lose a target behind thick smoke |

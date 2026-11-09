@@ -21,6 +21,8 @@ public final class HeadDamage {
     private static final ThreadLocal<Last> LAST=new ThreadLocal<>();
     private record Pending(LivingEntity target,float multiplier) {}
     private static final ThreadLocal<Pending> PENDING=new ThreadLocal<>();
+    /** the target of the hurt under way when the hit is on its head (DamageCap: the head's cap) */
+    private static final ThreadLocal<LivingEntity> HEAD=new ThreadLocal<>();
     private HeadDamage() {}
 
     public static void register() {
@@ -39,12 +41,18 @@ public final class HeadDamage {
     public static volatile boolean standBeforeArmor=false;
     /** the bullet's hit on {@code target}: {@code hurt} with {@code damage}, its part's multiplier taken after the armour */
     public static boolean attack(LivingEntity target,float damage,float multiplier,Hurt hurt) {
-        if(standBeforeArmor) return hurt.hurt(damage*multiplier);
-        var previous=PENDING.get();
-        if(multiplier!=1F) PENDING.set(new Pending(target,multiplier)); else PENDING.remove();
-        try { return hurt.hurt(damage); }
-        finally { if(previous!=null) PENDING.set(previous); else PENDING.remove(); }
+        var head=HEAD.get();
+        if(multiplier>=ModelHeads.multiplier(true,false)-1e-3F) HEAD.set(target); else HEAD.remove();
+        try {
+            if(standBeforeArmor) return hurt.hurt(damage*multiplier);
+            var previous=PENDING.get();
+            if(multiplier!=1F) PENDING.set(new Pending(target,multiplier)); else PENDING.remove();
+            try { return hurt.hurt(damage); }
+            finally { if(previous!=null) PENDING.set(previous); else PENDING.remove(); }
+        } finally { if(head!=null) HEAD.set(head); else HEAD.remove(); }
     }
+    /** the hurt under way on {@code target} is a hit on its head (through {@link #attack}) */
+    public static boolean onHead(LivingEntity target) { return HEAD.get()==target; }
     /** an MK4 bullet's damage on {@code target} before the armour; its part's multiplier: {@link #multiplier} */
     public static float base(EntityBulletBaseMK4 bullet,LivingEntity target,HitResult impact,float original) {
         // a player's bullet: the part its client saw it hit (ClientHits)

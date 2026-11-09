@@ -1,5 +1,30 @@
 # Changelog
 
+## X823
+
+- A damage cap against players: one click of a gun takes at most 60 % of a
+  player's max health (80 % on the head), and one shooter takes at most 80 %
+  in any 14 ticks. A click is everything one shooter fires in one tick: a
+  shotgun's pellets, SPAS-12's double shot, both barrels of the double
+  barrel, Liberator's four rounds, both akimbo guns; pellets that land a tick
+  later still count with their click. So SPAS-12's double slug, the double
+  barrel's DU and explosive shells no longer kill an HEV suit with one click,
+  and a minigun takes no less than 0.7 s to kill. Guns that wait 25 ticks or
+  more between shots (AMAT, MAS-36, Penance, Subtlety) still kill with one
+  head shot; on the body they take two. Health, absorption and NTM's shield
+  count together, and the shield's share over the cap is given back.
+  Whatever a shooter fires is capped (bullets, beams, grenades, arrows, and
+  NTM's blasts); nuclear blasts, digamma, fire, falling, radiation, gas,
+  melee and vanilla blasts (a creeper's) are not. The shooter can be a player,
+  an AI bot or any mob. Each shooter has their own cap on each target, so two
+  shooters still kill twice as fast. A head shot right after other hits from
+  the same shooter is still held by the 14-tick share. Mobs and AI bots as
+  targets are capped only with `damageCapMobs` on.
+  New server keys `damageCap` (on), `damageCapClick` (0.6), `damageCapHead`
+  (0.8), `damageCapWindow` (0.8), `damageCapWindowTicks` (14),
+  `damageCapSniperDelay` (25), `damageCapSniperHead` (1.0), `damageCapMobs`
+  (off).
+
 ## X822
 
 - A player's bullet hits what that player's game saw it hit. Your game tests
