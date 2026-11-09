@@ -57,6 +57,12 @@ public final class AiGrenades {
      * block past where it starts to run, so that the burst worked out again a little nearer does not send it on
      */
     static final double OWN_CLEAR = SAFE + OWN_MARGIN + 1;
+    /**
+     * a refuge from one burst keeps out of the others' reach too: its own side's this far (all of its reach, NTM counting
+     * from the mob's box, and the burst worked out within 1.5: a stand, its own grenade 15 blocks off where running from
+     * another led; as far as it keeps from its own anyway, so it does not run again once the first has gone), blocks
+     */
+    static final double OTHER_OWN = SAFE + OWN_MARGIN;
     /** a mob running from a burst: to this far off it, or behind a block (2 of the blast's damage there), blocks */
     static final double CLEAR = 12;
     /** a burst this near: it runs (8 and more of the blast's damage), to CLEAR off or behind a block; blocks */
@@ -592,7 +598,7 @@ public final class AiGrenades {
         VoxelRay.Source src = AiBots.voxels(level);
         for (Live g : l) {
             if (g.burst == null || g.e.isRemoved()) continue;
-            boolean own = g.e.getOwner() instanceof net.minecraft.world.entity.LivingEntity o && (o == m || AiTeams.own(m, o));
+            boolean own = ownSide(m, g);
             // its own side's: out to SAFE and OWN_MARGIN (as far as a throw keeps it from its own), 2 more once it runs
             // (no back and forth); it runs to a block past that (OWN_CLEAR)
             double r = own ? SAFE + OWN_MARGIN + (within > DANGER ? 2 : 0) : within;
@@ -616,6 +622,21 @@ public final class AiGrenades {
         return near;
     }
 
+    /** its own side's grenade (it threw it, or one of its side) */
+    private static boolean ownSide(Mob m, Live g) {
+        return g.e.getOwner() instanceof net.minecraft.world.entity.LivingEntity o && (o == m || AiTeams.own(m, o));
+    }
+
+    /** a place in the reach of one of these bursts: its own side's out to OTHER_OWN, others' out to CLEAR unless behind a block */
+    private static boolean inOthers(VoxelRay.Source src, Mob m, List<Live> others, double x, double y, double z) {
+        for (Live g : others) {
+            boolean own = ownSide(m, g);
+            double r = own ? OTHER_OWN : CLEAR;
+            if (g.burst.distanceToSqr(x, y, z) < r * r && !cover(src, g.burst, x, y, z, own)) return true;
+        }
+        return false;
+    }
+
     /** whether any grenade is in the level (cheap: most ticks there is none) */
     static boolean any(ServerLevel level) {
         List<Live> l = LEVELS.get(level);
@@ -630,8 +651,9 @@ public final class AiGrenades {
 
     /**
      * Where to run from a burst here: the nearest cell (up to 17 blocks off, round it; 20 from its own side's) clear
-     * off it or behind a block from it (cover), none tried already, none nearer the burst unless behind a block;
-     * Long.MIN_VALUE if none is.
+     * off it or behind a block from it (cover), none tried already, none nearer the burst unless behind a block, none in
+     * the reach of another burst it knows of (its own side's: OTHER_OWN; others': CLEAR, unless behind a block from it)
+     * if there is one such; Long.MIN_VALUE if none is.
      */
     static long refuge(ServerLevel level, Mob m, Vec3 burst, double clear, boolean own, it.unimi.dsi.fastutil.longs.LongSet tried) {
         long t0 = System.nanoTime();
@@ -647,6 +669,43 @@ public final class AiGrenades {
     private static long refugeNow(ServerLevel level, Mob m, Vec3 burst, double clear, boolean own, it.unimi.dsi.fastutil.longs.LongSet tried) {
         TacticalMap map = TacticalMap.of(level);
         VoxelRay.Source src = AiBots.voxels(level);
+        List<Live> others = others(level, src, m, burst);
+        long cell = rings(map, src, m, burst, clear, own, tried, others);
+        // none out of the others' reach as well: out of this one's, as if there were no others
+        return cell == Long.MIN_VALUE && !others.isEmpty() ? rings(map, src, m, burst, clear, own, tried, List.of()) : cell;
+    }
+
+    /** the bursts other than this one it knows of: its own side's (all of them), others' it sees or hears now or did */
+    private static List<Live> others(ServerLevel level, VoxelRay.Source src, Mob m, Vec3 burst) {
+        List<Live> others = new ArrayList<>();
+        List<Live> l = LEVELS.get(level);
+        if (l != null) for (Live g : l) {
+            if (g.burst == null || g.e.isRemoved() || g.burst == burst) continue;
+            if (ownSide(m, g) || knows(src, m, g)) others.add(g);
+        }
+        return others;
+    }
+
+    /** whether the refuge it runs to from this burst is in the reach of another it knows of now (one thrown since) */
+    static boolean othersReach(ServerLevel level, Mob m, Vec3 burst, long cell) {
+        VoxelRay.Source src = AiBots.voxels(level);
+        List<Live> others = others(level, src, m, burst);
+        return !others.isEmpty() && inOthers(src, m, others, BlockPos.getX(cell) + 0.5, BlockPos.getY(cell), BlockPos.getZ(cell) + 0.5);
+    }
+
+    /** whether the mob knows of this grenade: seen (in plain sight within SEE) or heard (within HEAR) now or before */
+    private static boolean knows(VoxelRay.Source src, Mob m, Live g) {
+        int id = m.getId();
+        if (g.known.contains(id)) return true;
+        Vec3 eye = m.getEyePosition();
+        double e2 = g.e.position().distanceToSqr(eye);
+        if (e2 > HEAR * HEAR && (e2 > SEE * SEE || !VoxelRay.clear(src, eye.x, eye.y, eye.z, g.e.getX(), g.e.getY(), g.e.getZ(), Voxel.SIGHT))) return false;
+        g.known.add(id);
+        return true;
+    }
+
+    private static long rings(TacticalMap map, VoxelRay.Source src, Mob m, Vec3 burst, double clear, boolean own, it.unimi.dsi.fastutil.longs.LongSet tried,
+            List<Live> others) {
         long here = m.blockPosition().asLong(), best = Long.MIN_VALUE;
         double bestScore = Double.MAX_VALUE;
         double away = Math.atan2(m.getZ() - burst.z, m.getX() - burst.x);
@@ -662,6 +721,7 @@ public final class AiGrenades {
                 boolean out = d2 >= clear * clear;
                 boolean behind = cover(src, burst, cx, cy, cz, own);
                 if (!out && !behind) continue;
+                if (inOthers(src, m, others, cx, cy, cz)) continue;
                 // not past the burst to get there: no nearer to it than it is now unless behind a block from it
                 if (!behind && d2 < m.distanceToSqr(burst)) continue;
                 // the way there: the shorter the better; behind a block a little better still

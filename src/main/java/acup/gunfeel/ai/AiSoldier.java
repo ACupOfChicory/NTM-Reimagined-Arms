@@ -247,6 +247,11 @@ public final class AiSoldier implements AiBrain {
     long dodgeCell() {
         return dodgeCell;
     }
+
+    /** the stands: the burst it runs from (null: none) */
+    @Nullable Vec3 dodgeFrom() {
+        return dodgeFrom;
+    }
     /** refuges it could not get to, this run */
     private final it.unimi.dsi.fastutil.longs.LongOpenHashSet dodgeTried = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
     /** a refuge looked for again at most this often, ticks */
@@ -455,9 +460,11 @@ public final class AiSoldier implements AiBrain {
             dodgeCell = Long.MIN_VALUE;
         }
         // sought again once the burst has gone 2 blocks from where the refuge was sought from, or the refuge is in its
-        // reach now (not behind a block from it; its own side's: a block short of where it was sought, not at once)
+        // reach now (not behind a block from it; its own side's: a block short of where it was sought, not at once), or
+        // in another's it knows of (one thrown since it chose it)
         boolean moved = refugeFrom != null && refugeFrom.distanceToSqr(b) > 4 || dodgeCell != Long.MIN_VALUE
-                && !AiGrenades.safe(AiBots.voxels(level), b, dodgeCell, dg.own() ? dg.clear() - 1 : dg.clear(), dg.own());
+                && (!AiGrenades.safe(AiBots.voxels(level), b, dodgeCell, dg.own() ? dg.clear() - 1 : dg.clear(), dg.own())
+                        || AiGrenades.othersReach(level, bot.mob, b, dodgeCell));
         dodgeFrom = b;
         if ((dodgeCell == Long.MIN_VALUE || moved) && tick >= nextRefuge && AiGrenades.mayRefuge(level, tick)) {
             nextRefuge = tick + REFUGE_AGAIN;

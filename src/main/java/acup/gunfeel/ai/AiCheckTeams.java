@@ -299,6 +299,15 @@ final class AiCheckTeams {
         return n;
     }
 
+    /** the stands: where a mob hurt by a blast at `at` was running from a grenade to, and from which */
+    private static String ran(@org.jspecify.annotations.Nullable AiBot v, @org.jspecify.annotations.Nullable Vec3 at) {
+        if (v == null || at == null || !(v.brain instanceof AiSoldier s) || s.dodgeFrom() == null) return "";
+        long c = s.dodgeCell();
+        return String.format(Locale.ROOT, ", running from a burst %.1f off this one to a place %s off this one%s", s.dodgeFrom().distanceTo(at),
+                c == Long.MIN_VALUE ? "-" : String.format(Locale.ROOT, "%.1f", at.distanceTo(new Vec3(net.minecraft.core.BlockPos.getX(c) + 0.5,
+                        net.minecraft.core.BlockPos.getY(c), net.minecraft.core.BlockPos.getZ(c) + 0.5))), v.mover.arrived() ? ", there" : "");
+    }
+
     /** the thrower's grenade going off: how it was thrown and where it left its planned flight */
     private String flight(LivingEntity from) {
         String f = AiGrenades.parted(level, from);
@@ -318,12 +327,14 @@ final class AiCheckTeams {
                 AiSoldier ts = t != null && t.brain instanceof AiSoldier x ? x : null;
                 Vec3 planned = ts != null ? ts.planned : null;
                 Long dodge = ts != null ? ts.dodgeCell() : null;
+                Vec3 fled = ts != null ? ts.dodgeFrom() : null;
                 if (blasts.size() < 6) blasts.add(String.format(Locale.ROOT, "its own: %.1f damage at %.1f %.1f %.1f, %.1f from the burst %s (%.1f from where it was to,"
-                        + " %.1f as it flew); %s, going to %s, run to %s", e.getAmount(), from.getX(), from.getY(), from.getZ(),
+                        + " %.1f as it flew); %s, going to %s, run to %s from a burst %s", e.getAmount(), from.getX(), from.getY(), from.getZ(),
                         at == null ? -1 : at.distanceTo(from.position()), at == null ? "-" : String.format(Locale.ROOT, "%.1f %.1f %.1f", at.x, at.y, at.z),
                         at == null || planned == null ? -1 : at.distanceTo(planned), at == null || last[1] == null ? -1 : at.distanceTo(last[1]),
                         ts != null ? ts.mode() + " (" + ts.why.label + ")" : "-", t == null || t.mover.goal() == Long.MIN_VALUE ? "-" : cell(t.mover.goal()),
-                        dodge == null || dodge == Long.MIN_VALUE ? "-" : cell(dodge)) + flight(from));
+                        dodge == null || dodge == Long.MIN_VALUE ? "-" : cell(dodge),
+                        fled == null ? "-" : at == null ? "?" : String.format(Locale.ROOT, "%.1f off its own", fled.distanceTo(at))) + flight(from));
             }
             return;
         }
@@ -342,8 +353,9 @@ final class AiCheckTeams {
                 Vec3 planned = t != null && t.brain instanceof AiSoldier ts ? ts.planned : null;
                 boolean behind = at != null && AiGrenades.behind(AiBots.voxels(level), at, e.getEntity().getX(), e.getEntity().getY(), e.getEntity().getZ());
                 if (blasts.size() < 6) blasts.add(String.format(Locale.ROOT, "%.1f damage, %.1f from the thrower, %.1f from the burst%s, the burst %.1f from where it"
-                        + " was to (%.1f as it flew); %s", e.getAmount(), from.distanceTo(e.getEntity()), at == null ? -1 : at.distanceTo(e.getEntity().position()), behind ? " (behind a block)" : "",
-                        at == null || planned == null ? -1 : at.distanceTo(planned), at == null || last[1] == null ? -1 : at.distanceTo(last[1]), v != null && v.brain instanceof AiSoldier s ? s.mode() + " (" + s.why.label + ")" : "-") + flight(from));
+                        + " was to (%.1f as it flew); %s%s", e.getAmount(), from.distanceTo(e.getEntity()), at == null ? -1 : at.distanceTo(e.getEntity().position()), behind ? " (behind a block)" : "",
+                        at == null || planned == null ? -1 : at.distanceTo(planned), at == null || last[1] == null ? -1 : at.distanceTo(last[1]), v != null && v.brain instanceof AiSoldier s ? s.mode() + " (" + s.why.label + ")" : "-",
+                        ran(v, at)) + flight(from));
             }
         }
         else if (fromRed && toBlue) {

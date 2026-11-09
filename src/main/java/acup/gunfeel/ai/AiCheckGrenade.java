@@ -33,10 +33,17 @@ import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
  * (no one's): three times with running from grenades off, three times on, the third time each with a wall two high
  * three blocks off on its other side. Counted: how far it was from the burst, whether behind a block from it, the
  * blast's damage to it. Then a player 8 blocks off throws NTM's hand grenade at the mob's feet, the mob fighting it: once
- * with running from grenades off, three times on (from a different side each time). Counted the same.
+ * with running from grenades off, three times on (from a different side each time). Counted the same. Last, two grenades
+ * at once: no one's a block and a half from the mob, its own 15.5 blocks off on the other side, just out of its reach,
+ * where running from the first leads; then its own set down late, at the place it is running to from the first;
+ * counted the blast's damage from its own (none: it runs some other way).
  */
 final class AiCheckGrenade {
-    static final int X0 = 520, Z0 = 4, SIZE = 44, RUN = 300, DODGE_RUN = 100, THROW_ROUNDS = 4, DODGE_ROUNDS = 6, PLAYER_ROUNDS = 4;
+    static final int X0 = 520, Z0 = 4, SIZE = 44, RUN = 300, DODGE_RUN = 100, THROW_ROUNDS = 4, DODGE_ROUNDS = 6, PLAYER_ROUNDS = 4, TWO_ROUNDS = 3;
+    /** two grenades: its own this far off, on the side away from the one by it */
+    static final double OWN_OFF = 15.5;
+    /** two grenades, the third round: its own set down this tick of the round, at the place it runs to */
+    static final int LATE = 20;
     /** how far off the player throws from */
     static final double PLAYER_OFF = 8;
     /** the foe and its wall three high; the soldier and its low wall */
@@ -64,7 +71,14 @@ final class AiCheckGrenade {
     private Vec3 setAt, dodgerAt;
     /** this round: thrown, blast hits on the foe, on the soldier, damage to the runner */
     private int thrown, blastFoe, blastSoldier;
-    private float dodgeDamage;
+    private float dodgeDamage, ownDamage;
+    /** two grenades: its own, where it was */
+    private EntityGrenadeUniversal ownSet;
+    private Vec3 ownAt;
+    /** two grenades: the last place it ran to before the first burst (Long.MIN_VALUE: none) */
+    private long lastCell = Long.MIN_VALUE;
+    /** two grenades, per round: off the one by it, the damage, the damage from its own, behind a block, off its own */
+    private final List<double[]> twoRounds = new ArrayList<>();
     /** throw rounds: {on, thrown, blast on foe, blast on soldier, grenades left} */
     private final List<int[]> throwRounds = new ArrayList<>();
     /** every burst of the on rounds: from the foe, from the soldier, from where it was to burst */
@@ -94,7 +108,10 @@ final class AiCheckGrenade {
                     if (c == null || !e.getSource().is(DamageTypeTags.IS_EXPLOSION)) return;
                     if (c.foe != null && e.getEntity() == c.foe) c.blastFoe++;
                     else if (c.soldier != null && e.getEntity() == c.soldier) c.blastSoldier++;
-                    else if (c.dodger != null && e.getEntity() == c.dodger) c.dodgeDamage += e.getAmount();
+                    else if (c.dodger != null && e.getEntity() == c.dodger) {
+                        c.dodgeDamage += e.getAmount();
+                        if (e.getSource().getEntity() == c.dodger) c.ownDamage += e.getAmount();
+                    }
                 });
                 NeoForge.EVENT_BUS.addListener(EntityJoinLevelEvent.class, e -> {
                     AiCheckGrenade c = counting;
@@ -155,7 +172,7 @@ final class AiCheckGrenade {
             check.check("grenades: the runner is an AI mob", false);
             return finishAll();
         }
-        boolean byPlayer = round >= THROW_ROUNDS + DODGE_ROUNDS;
+        boolean two = round >= THROW_ROUNDS + DODGE_ROUNDS + PLAYER_ROUNDS, byPlayer = !two && round >= THROW_ROUNDS + DODGE_ROUNDS;
         if (byPlayer) {
             player.setHealth(player.getMaxHealth());
         }
@@ -185,6 +202,23 @@ final class AiCheckGrenade {
             aimOff = best;
             setAt = set.position();
             dodgerAt = dodger.position();
+        } else if (ticks == 5 && two) {
+            // no one's a block and a half from it, its own OWN_OFF off the other way (west and east, then north and south)
+            int k = round - THROW_ROUNDS - DODGE_ROUNDS - PLAYER_ROUNDS;
+            double ax = k % 2 == 0 ? 1 : 0, az = 1 - ax;
+            var stack = ItemGrenadeUniversal.make(EnumGrenadeShell.FRAG, EnumGrenadeFilling.HE, EnumGrenadeFuze.S3);
+            set = new EntityGrenadeUniversal(level, stack);
+            set.setPos(dodger.getX() - ax * 1.5, y + 0.1, dodger.getZ() - az * 1.5);
+            set.setDeltaMovement(Vec3.ZERO);
+            level.addFreshEntity(set);
+            // the third: its own comes later, where it runs to
+            if (k < 2) placeOwn(new Vec3(dodger.getX() + ax * OWN_OFF, y + 0.1, dodger.getZ() + az * OWN_OFF));
+            setAt = set.position();
+            dodgerAt = dodger.position();
+        } else if (ticks == LATE && two && ownSet == null) {
+            AiBot tb = AiBots.get(dodger);
+            long dc = tb != null && tb.brain instanceof AiSoldier s ? s.dodgeCell() : Long.MIN_VALUE;
+            placeOwn(dc == Long.MIN_VALUE ? new Vec3(DX + 12, y + 0.1, DZ) : new Vec3(BlockPos.getX(dc) + 0.5, y + 0.1, BlockPos.getZ(dc) + 0.5));
         } else if (ticks == 5) {
             // set down a block and a half from it, still, no one's; a different side each round
             double a = Math.PI * 2 * (round - THROW_ROUNDS) / 3;
@@ -195,15 +229,20 @@ final class AiCheckGrenade {
             setAt = set.position();
             dodgerAt = dodger.position();
         }
+        if (ownSet != null && !ownSet.isRemoved()) ownAt = ownSet.position();
+        // the place it runs to while both are there
+        if (two && set != null && !set.isRemoved() && AiBots.get(dodger) instanceof AiBot lb && lb.brain instanceof AiSoldier ls && ls.dodgeCell() != Long.MIN_VALUE) lastCell = ls.dodgeCell();
         if (set != null && !set.isRemoved()) {
             setAt = set.position();
             dodgerAt = dodger.position();
             AiBot tb = AiBots.get(dodger);
-            if (byPlayer && AiGrenades.dodgeOn && ticks % 5 == 0 && tb != null && tb.brain instanceof AiSoldier s && trace.size() < 60) {
+            if ((byPlayer || two) && AiGrenades.dodgeOn && ticks % 5 == 0 && tb != null && tb.brain instanceof AiSoldier s && trace.size() < 100) {
                 long dc = s.dodgeCell(), g = tb.mover.goal();
                 Vec3 pr = AiGrenades.predicted(level, set);
-                trace.add(String.format(Locale.ROOT, "r%d t%d: off the grenade %.1f (on the ground %s, v %.2f; to burst %.1f from where it is); %s (%s), dodge cell %s, mover goal %s arrived %s failed %s, speed %.2f; pose %s stance %s lying %s runs %s stoop %s yaw %.0f to the goal %.0f",
-                        round, ticks, setAt.distanceTo(dodgerAt), set.onGround(), set.getDeltaMovement().length(), pr == null ? -1 : pr.distanceTo(setAt), s.mode(), s.why.label,
+                trace.add(String.format(Locale.ROOT, "r%d t%d: off its own %s, off the grenade %.1f (on the ground %s, v %.2f; to burst %.1f from where it is); %s (%s), dodge cell %s, mover goal %s arrived %s failed %s, speed %.2f; pose %s stance %s lying %s runs %s stoop %s yaw %.0f to the goal %.0f",
+                        round, ticks, ownAt == null ? "-" : String.format(Locale.ROOT, "%.1f (dodge cell %s)", ownAt.distanceTo(dodgerAt), s.dodgeCell() == Long.MIN_VALUE ? "-"
+                                : String.format(Locale.ROOT, "%.1f off it", ownAt.distanceTo(new Vec3(BlockPos.getX(s.dodgeCell()) + 0.5, BlockPos.getY(s.dodgeCell()), BlockPos.getZ(s.dodgeCell()) + 0.5)))),
+                        setAt.distanceTo(dodgerAt), set.onGround(), set.getDeltaMovement().length(), pr == null ? -1 : pr.distanceTo(setAt), s.mode(), s.why.label,
                         dc == Long.MIN_VALUE ? "-" : String.format(Locale.ROOT, "%.1f off it", setAt.distanceTo(new Vec3(BlockPos.getX(dc) + 0.5, BlockPos.getY(dc), BlockPos.getZ(dc) + 0.5))),
                         g == Long.MIN_VALUE ? "-" : String.format(Locale.ROOT, "%.1f off it", setAt.distanceTo(new Vec3(BlockPos.getX(g) + 0.5, BlockPos.getY(g), BlockPos.getZ(g) + 0.5))),
                         tb.mover.arrived(), tb.mover.failed(), dodger.getDeltaMovement().horizontalDistance(), dodger.getPose(), AiPose.of(dodger).stance(), tb.prone.lying(),
@@ -213,18 +252,33 @@ final class AiCheckGrenade {
         }
         if (ticks < DODGE_RUN) return false;
         boolean hid = setAt != null && AiGrenades.behind(AiBots.voxels(level), setAt, dodgerAt.x, dodgerAt.y, dodgerAt.z);
-        (byPlayer ? playerRounds : dodgeRounds).add(new double[] {AiGrenades.dodgeOn ? 1 : 0, setAt == null ? -1 : setAt.distanceTo(dodgerAt), dodgeDamage, hid ? 1 : 0, aimOff});
+        Vec3 lc = lastCell == Long.MIN_VALUE ? null : new Vec3(BlockPos.getX(lastCell) + 0.5, BlockPos.getY(lastCell), BlockPos.getZ(lastCell) + 0.5);
+        if (two) twoRounds.add(new double[] {setAt == null ? -1 : setAt.distanceTo(dodgerAt), dodgeDamage, ownDamage, hid ? 1 : 0, ownAt == null ? -1 : ownAt.distanceTo(dodgerAt),
+                lc == null || setAt == null ? -1 : lc.distanceTo(setAt), lc == null || ownAt == null ? -1 : lc.distanceTo(ownAt),
+                lc != null && setAt != null && AiGrenades.behind(AiBots.voxels(level), setAt, lc.x, lc.y, lc.z) ? 1 : 0});
+        else (byPlayer ? playerRounds : dodgeRounds).add(new double[] {AiGrenades.dodgeOn ? 1 : 0, setAt == null ? -1 : setAt.distanceTo(dodgerAt), dodgeDamage, hid ? 1 : 0, aimOff});
+        lastCell = Long.MIN_VALUE;
         dodger.discard();
         dodger = null;
         if (player != null) player.discard();
         player = null;
         aimOff = -1;
         if (set != null && !set.isRemoved()) set.discard();
-        set = null;
-        setAt = dodgerAt = null;
-        if (round + 1 >= THROW_ROUNDS + DODGE_ROUNDS + PLAYER_ROUNDS) return finishAll();
+        if (ownSet != null && !ownSet.isRemoved()) ownSet.discard();
+        set = ownSet = null;
+        setAt = dodgerAt = ownAt = null;
+        if (round + 1 >= THROW_ROUNDS + DODGE_ROUNDS + PLAYER_ROUNDS + TWO_ROUNDS) return finishAll();
         start(round + 1);
         return false;
+    }
+
+    /** two grenades: its own, still, here */
+    private void placeOwn(Vec3 at) {
+        ownSet = new EntityGrenadeUniversal(level, dodger, ItemGrenadeUniversal.make(EnumGrenadeShell.FRAG, EnumGrenadeFilling.HE, EnumGrenadeFuze.S3));
+        ownSet.setPos(at.x, at.y, at.z);
+        ownSet.setDeltaMovement(Vec3.ZERO);
+        level.addFreshEntity(ownSet);
+        ownAt = ownSet.position();
     }
 
     private void set(int x, int yy, int z, BlockState st) {
@@ -269,7 +323,7 @@ final class AiCheckGrenade {
     private void start(int r) {
         round = r;
         ticks = thrown = blastFoe = blastSoldier = 0;
-        dodgeDamage = 0;
+        dodgeDamage = ownDamage = 0;
         if (r < THROW_ROUNDS) {
             // the foe rooted where it went behind its wall: where each grenade bursts from it is what is counted
             AiGrenades.on = r > 0;
@@ -284,6 +338,12 @@ final class AiCheckGrenade {
             AiBot s = AiBots.get(soldier), f = AiBots.get(foe);
             if (s != null) s.memory.seen(foe.getId(), FX, y, FZ, now, 0);
             if (f != null) f.memory.seen(soldier.getId(), SX, y, SZ, now, 0);
+        } else if (r >= THROW_ROUNDS + DODGE_ROUNDS + PLAYER_ROUNDS) {
+            // two grenades: running on
+            AiGrenades.on = true;
+            AiGrenades.dodgeOn = true;
+            build(false);
+            dodger = spawn(DX, DZ, "grenade_runner", 0F, 0);
         } else if (r >= THROW_ROUNDS + DODGE_ROUNDS) {
             // the player's: off once, then on; from a different side each time, the mob fighting it
             int k = r - THROW_ROUNDS - DODGE_ROUNDS;
@@ -325,6 +385,7 @@ final class AiCheckGrenade {
         AiGrenades.dodgeOn = true;
         counting = null;
         for (Mob m : new Mob[] {soldier, foe, dodger}) if (m != null) m.discard();
+        for (EntityGrenadeUniversal g : new EntityGrenadeUniversal[] {set, ownSet}) if (g != null && !g.isRemoved()) g.discard();
         if (player != null) player.discard();
         boolean offNone = true, eachThrew = true, finite = true;
         int foeHits = 0, soldierHits = 0;
@@ -374,7 +435,7 @@ final class AiCheckGrenade {
             pDmg[on] += d[2];
             pn[on]++;
         }
-        if (throwRounds.size() < THROW_ROUNDS || dodgeRounds.size() < DODGE_ROUNDS || playerRounds.size() < PLAYER_ROUNDS) {
+        if (throwRounds.size() < THROW_ROUNDS || dodgeRounds.size() < DODGE_ROUNDS || playerRounds.size() < PLAYER_ROUNDS || twoRounds.size() < TWO_ROUNDS) {
             check.check("grenades: all rounds ran", false);
             return true;
         }
@@ -396,6 +457,18 @@ final class AiCheckGrenade {
         // what it did meanwhile, every 5 ticks: only when it failed
         if (!playerOk) for (String t : trace) check.out("       " + t);
         check.check("a player's grenade at its feet (it fighting the player): it runs each time and takes a third of the blast it would standing at most", playerOk);
+        boolean twoOk = true;
+        for (int i = 0; i < twoRounds.size(); i++) {
+            double[] d = twoRounds.get(i);
+            boolean late = i == 2;
+            check.out(String.format(Locale.ROOT, "     grenades, two at once%s: %.2f from the one by it%s, %.2f from its own; blast damage %.1f, of it from its own %.1f;"
+                    + " the last place it ran to %.2f from the one by it%s, %.2f from its own", late ? " (its own later, where it ran to)" : "", d[0],
+                    d[3] == 1 ? ", behind a block" : "", d[4], d[1], d[2], d[5], d[7] == 1 ? ", behind a block" : "", d[6]));
+            // its own later: no time to get out of the first's reach after it has to turn (a mob runs 0.13 a tick); the place it chose is held to
+            twoOk &= d[2] == 0 && (late ? (d[5] >= AiGrenades.CLEAR || d[7] == 1) && d[6] >= AiGrenades.OTHER_OWN : d[0] >= AiGrenades.CLEAR - 1 || d[3] == 1);
+        }
+        if (!twoOk) for (String t : trace) if (Integer.parseInt(t.substring(1, t.indexOf(' '))) >= THROW_ROUNDS + DODGE_ROUNDS + PLAYER_ROUNDS) check.out("       " + t);
+        check.check("two grenades: it runs from the one by it (12 blocks off, or behind a block), not into its own's reach", twoOk);
         return true;
     }
 }

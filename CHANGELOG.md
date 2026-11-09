@@ -1,5 +1,11 @@
 # Changelog
 
+## X813
+
+- Mob AI: a bot running from a grenade no longer runs into the reach of
+  another grenade it knows of, its own side's above all: running from one at
+  its feet, it could end up at the edge of its own grenade's blast.
+
 ## X812
 
 - Mob AI: a badly shaken bot (confidence at its lowest, after losses) falls
