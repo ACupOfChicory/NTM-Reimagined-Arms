@@ -1,4 +1,6 @@
 field adsRecoil = 0.7/3f333333
+field aiVoice = true
+field aiVoiceVolume = 1.0/3f800000
 field aimHold = 1.0/3f800000
 field aimOnRightButton = true
 field ammoMenu = steel
@@ -124,6 +126,8 @@ field waterBodyMax = 400
 field waterBodyScale = 1.0/3f800000
 field waterSplash = true
 key adsRecoil = 0.7
+key aiVoice = true
+key aiVoiceVolume = 1.0
 key aimHold = 1.0
 key aimOnRightButton = true
 key ammoMenu = steel

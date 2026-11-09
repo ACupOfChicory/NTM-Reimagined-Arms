@@ -1,6 +1,6 @@
 # Changelog
 
-## X828
+## X832
 
 - AI mobs call out what they do: "Contact!" on a new enemy, "Frag out!" and
   "Smoke out!" on a throw, "Grenade!" on one coming, "Reloading!",
@@ -24,6 +24,53 @@
   off the blast as NTM works it out: from the burst and from the points a
   block round it the blast reaches out from, and with its head and feet
   either way it may lie. Lying at a wall's end it took some of its own blast.
+
+## X830
+
+- NTM's combat armour sets take bullets, beams and blasts by one formula
+  instead of NTM's threshold and resistance. A set has a rating; a hit
+  whose damage (with its ammo's threshold negation and armour piercing) is
+  well under the rating loses most of itself, one well over it gets nearly
+  all through. No hit is ever stopped to 0, so every gun can hurt every set
+  in the table, and none gets all through. One hit's damage on a set is also
+  squeezed past 8 towards 14. Beams and lasers meet three quarters of the
+  rating, blasts the full one (sets that had no blast armour, as steel,
+  titanium, cobalt and schrabidium, now have it). The ratings, from the
+  balance model: steel, cobalt, Advanced Alloy, titanium and Taurun 8,
+  diesel suit 13, T-51b 18, steam suit and HEV 26, AJR and AJRO 25,
+  Security 22, Trenchmaster and bismuth 48, BJ 63, NCRPA 54, CMB and
+  schrabidium 91, RPA 90, FAU 148, DNS 186, euphemium 280. So an AMAT .50 SM
+  round now kills FAU in 4 body shots (was 12, with the damage cap), the
+  laser pistol takes 8 shots to kill BJ (was 2), MAS-36 DU kills RPA in 5
+  (as before, from 4.4 to 4.9 a hit). A piece alone protects its share of
+  the body (helmet 3, chestplate 8, leggings 6, boots 3 of 20) with its
+  set's numbers. The sets protect whoever wears them, FBI agents too. Fire,
+  radiation, gas, nuclear blasts and falling are as before, and so are
+  euphemium's and DNS's invulnerability, Trenchmaster's blocks and the
+  sets' abilities. Starmetal and the dineutronium ingot set keep NTM's
+  numbers, but a hit keeps at least 18 % of itself. The GL-54's acid
+  corrodes the rating as it corroded NTM's numbers.
+  New server keys `balanceArmor` (on), `balanceS.<set>` (the ratings),
+  `balanceEnShare` (0.75), `balanceFleshKnee` (8), `balanceFleshMax` (14),
+  `balanceExplRawLimit` (60), `balanceRoflFloor` (0.18).
+- Guns' damage goes with the armour: each gun and ammo pair has a
+  multiplier from the balance model, fitted so that a gun kills armour of its
+  own tier in about the same time at its range (shotguns 7 blocks, pistols
+  and SMGs 12, rifles and machine guns 20, snipers 30). Guns that miss a lot
+  at their range hit harder (Maresleg buckshot x4.2, Greasegun x2.65),
+  strong ones less (the auto shotgun's explosive shells x0.175, carbine HE
+  x0.54). An ammo with no pair of its own takes the gun's nearest pair of
+  the same kind (piercing, blast or soft). The table is one line a pair, and
+  a server can put its own `config/ntm-gunfeel-balance-guns.tsv` in its
+  place. The pedestal guns get at most x2, +50 threshold negation and +0.5
+  piercing; the Tau x2 and +30. Some guns change: Heretic is a
+  semi-automatic heavy shotgun (one shot in 12 ticks, 24 rounds, x0.2);
+  AM180 fires one in 3 ticks with 60 rounds at x3.5; the AMAT Penance fires
+  one in 15 ticks, the Subtlety and MAS-36 one in 17 (were 25); Morning
+  Glory's base damage is 40 (was 20). Liberator and Coilgun are as they
+  were. A gun's tooltip shows the new damage. The multipliers count for
+  everyone's shots, NTM's mobs too, so FBI agents with a Greasegun or an
+  AM180 hit harder. New server key `balanceGuns` (on).
 
 ## X827
 
