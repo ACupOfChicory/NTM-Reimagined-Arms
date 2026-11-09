@@ -1,0 +1,25 @@
+AI mob call-outs
+================
+
+The lines AI mobs call out (src/main/resources/assets/ntmgunfeel/sounds/ai/voice/) were spoken by the Kokoro-82M
+v1.0 text-to-speech model, run by sherpa-onnx, and put through a radio-like filter by tools/voice/make_voices.py.
+Neither the model nor sherpa-onnx is part of the mod; only the recorded lines are.
+
+  Kokoro-82M by hexgrad, Apache License 2.0 (the model's weights and its voices alike)
+    https://huggingface.co/hexgrad/Kokoro-82M
+  its export for sherpa-onnx (kokoro-multi-lang-v1_0), Apache License 2.0
+    https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models
+  sherpa-onnx by k2-fsa (Next-gen Kaldi), Apache License 2.0
+    https://github.com/k2-fsa/sherpa-onnx
+  with ONNX Runtime by Microsoft, MIT License
+    https://github.com/microsoft/onnxruntime
+  English text was turned into sounds with the US English lexicon of that export.
+
+Kokoro-82M's training data, as its authors describe it: public domain audio, audio under Apache, MIT and other
+permissive licenses, and synthetic audio from closed text-to-speech models; among its sources, Koniwa tnc
+(CC BY 3.0, Japanese) and SIWIS (CC BY 4.0, French). The voices used here are its English men's voices.
+
+License: Apache License 2.0, https://www.apache.org/licenses/LICENSE-2.0
+
+Changes: the lines were synthesized in a few of the model's voices, band-limited, compressed and lightly
+overdriven, with a hiss and a radio key's click added.

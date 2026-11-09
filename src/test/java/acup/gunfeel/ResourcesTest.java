@@ -107,17 +107,18 @@ class ResourcesTest {
 
     @Test
     void soundCreditsCoverEverySound() throws IOException {
-        // CC BY sounds must name their author; CREDITS.txt lines start with the files: "wood2, wood3  ..." or "whizz3-6 ..."
+        // CC BY sounds must name their author; CREDITS.txt lines (any under sounds/) start with the files: "wood2, wood3  ..."
+        // or "whizz3-6 ..."
         Set<String> credited = new HashSet<>();
-        Pattern range = Pattern.compile("([a-z]+)(\\d+)-(\\d+)");
-        for (String line : Files.readAllLines(ASSETS.resolve("sounds/bullet/CREDITS.txt"))) {
+        Pattern range = Pattern.compile("([a-z_]+)(\\d+)-(\\d+)");
+        for (Path credits : files(ASSETS.resolve("sounds"), "CREDITS.txt")) for (String line : Files.readAllLines(credits)) {
             int quote = line.indexOf('"');
             if (quote <= 0) continue;
             for (String token : line.substring(0, quote).trim().split("[,\\s]+")) {
                 Matcher r = range.matcher(token);
                 if (r.matches()) {
                     for (int i = Integer.parseInt(r.group(2)); i <= Integer.parseInt(r.group(3)); i++) credited.add(r.group(1) + i);
-                } else if (token.matches("[a-z]+\\d+")) {
+                } else if (token.matches("[a-z_]+\\d+")) {
                     credited.add(token);
                 }
             }

@@ -127,15 +127,20 @@ public final class AiGrenades {
         return !own && behind(src, burst, x, y, z);
     }
 
-    /** a shield's rays: from the burst and round it this far (it is worked out within a block or so), blocks */
-    static final double SHIELD_ROUND = 0.6;
+    /**
+     * a shield's rays: from the burst and from NTM's nodes round it (EntityProcessorCrossSmooth, a frag's: a block off
+     * each way; the one below is in the ground), each a little farther (the burst is worked out within a fraction of
+     * a block), blocks
+     */
+    static final double NODE = 1, SHIELD_MORE = 0.3;
 
     /**
      * A mob down at x, y, z, this high (lying: AiProne.SIZE; crouching), all of it off a burst here: every ray from the
-     * burst, and from round it (SHIELD_ROUND aside and up), to its box's corners, the middle of its top and a lying
-     * body's head and feet (drawn longer than its box, BlastParts takes them) meets a block that hides what is behind
-     * it (an opaque block, sandbags; not glass, bars, a fence or a slab). NTM's blast, and a blast by parts, do no harm
-     * there (BlastParts' stand: lying behind a block's wall 2 blocks from the burst, 0).
+     * burst, and from NTM's nodes round it (NODE aside and up, SHIELD_MORE farther), to its box's corners, the middle
+     * of its top and a lying body's head and feet (drawn longer than its box, BlastParts takes them; along the burst's
+     * way and across it, whichever way it lies) meets a block that hides what is behind it (an opaque block, sandbags;
+     * not glass, bars, a fence or a slab). NTM's blast, and a blast by parts, do no harm there (BlastParts' stand:
+     * lying behind a block's wall 2 blocks from the burst, 0).
      */
     static boolean shielded(VoxelRay.Source src, double x, double y, double z, double height, Vec3 burst) {
         double hx = burst.x - x, hz = burst.z - z, h = Math.sqrt(hx * hx + hz * hz);
@@ -143,8 +148,9 @@ public final class AiGrenades {
         double ux = hx / h, uz = hz / h, half = 0.3, low = y + 0.05, top = y + height - 0.05;
         double[][] to = { { x - half, low, z - half }, { x + half, low, z - half }, { x - half, low, z + half }, { x + half, low, z + half },
                 { x - half, top, z - half }, { x + half, top, z - half }, { x - half, top, z + half }, { x + half, top, z + half },
-                { x, top, z }, { x + ux * 0.9, y + 0.35, z + uz * 0.9 }, { x - ux * 0.9, y + 0.35, z - uz * 0.9 } };
-        double r = SHIELD_ROUND;
+                { x, top, z }, { x + ux * 0.9, y + 0.35, z + uz * 0.9 }, { x - ux * 0.9, y + 0.35, z - uz * 0.9 },
+                { x - uz * 0.9, y + 0.35, z + ux * 0.9 }, { x + uz * 0.9, y + 0.35, z - ux * 0.9 } };
+        double r = NODE + SHIELD_MORE;
         double[][] from = { { 0, 0.3, 0 }, { r, 0.3, 0 }, { -r, 0.3, 0 }, { 0, 0.3, r }, { 0, 0.3, -r }, { 0, 0.3 + r, 0 } };
         for (double[] f : from)
             for (double[] t : to)
@@ -670,6 +676,8 @@ public final class AiGrenades {
             // off the burst (worked out again as the grenade flies); else it runs as from any of its own side's
             if (own && g.e.getOwner() == m && bot.brain instanceof AiSoldier s && s.downFor(g.e) && s.downShield(bot, level.getGameTime()) > 0
                     && shielded(src, m.getX(), m.getY(), m.getZ(), s.downShield(bot, level.getGameTime()), g.burst)) continue;
+            if (trace && own && g.e.getOwner() == m && bot.brain instanceof AiSoldier s && s.downFor(g.e) && !s.throwNote.contains("; runs"))
+                s.throwNote += s.downShield(bot, level.getGameTime()) > 0 ? "; runs: not hidden from the burst" : "; runs: not down";
             // its own side's: out to SAFE and OWN_MARGIN (as far as a throw keeps it from its own), 2 more once it runs
             // (no back and forth); it runs to a block past that (OWN_CLEAR)
             double r = own ? SAFE + OWN_MARGIN + (within > DANGER ? 2 : 0) : within;

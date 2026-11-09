@@ -570,5 +570,395 @@
         "attenuation_distance": 32
       }
     ]
+  },
+  "ai.voice.v1.contact": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v1/contact1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v1/contact2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.contact"
+  },
+  "ai.voice.v1.frag_out": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v1/frag_out1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v1/frag_out2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.frag_out"
+  },
+  "ai.voice.v1.smoke_out": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v1/smoke_out1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v1/smoke_out2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.smoke_out"
+  },
+  "ai.voice.v1.grenade": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v1/grenade1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v1/grenade2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.grenade"
+  },
+  "ai.voice.v1.reloading": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v1/reloading1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v1/reloading2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.reloading"
+  },
+  "ai.voice.v1.falling_back": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v1/falling_back1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v1/falling_back2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.falling_back"
+  },
+  "ai.voice.v1.flanking": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v1/flanking1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v1/flanking2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.flanking"
+  },
+  "ai.voice.v1.man_down": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v1/man_down1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v1/man_down2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.man_down"
+  },
+  "ai.voice.v1.moving": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v1/moving1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v1/moving2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.moving"
+  },
+  "ai.voice.v1.hit": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v1/hit1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v1/hit2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.hit"
+  },
+  "ai.voice.v2.contact": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v2/contact1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v2/contact2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.contact"
+  },
+  "ai.voice.v2.frag_out": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v2/frag_out1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v2/frag_out2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.frag_out"
+  },
+  "ai.voice.v2.smoke_out": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v2/smoke_out1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v2/smoke_out2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.smoke_out"
+  },
+  "ai.voice.v2.grenade": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v2/grenade1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v2/grenade2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.grenade"
+  },
+  "ai.voice.v2.reloading": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v2/reloading1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v2/reloading2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.reloading"
+  },
+  "ai.voice.v2.falling_back": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v2/falling_back1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v2/falling_back2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.falling_back"
+  },
+  "ai.voice.v2.flanking": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v2/flanking1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v2/flanking2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.flanking"
+  },
+  "ai.voice.v2.man_down": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v2/man_down1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v2/man_down2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.man_down"
+  },
+  "ai.voice.v2.moving": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v2/moving1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v2/moving2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.moving"
+  },
+  "ai.voice.v2.hit": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v2/hit1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v2/hit2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.hit"
+  },
+  "ai.voice.v3.contact": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v3/contact1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v3/contact2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.contact"
+  },
+  "ai.voice.v3.frag_out": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v3/frag_out1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v3/frag_out2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.frag_out"
+  },
+  "ai.voice.v3.smoke_out": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v3/smoke_out1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v3/smoke_out2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.smoke_out"
+  },
+  "ai.voice.v3.grenade": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v3/grenade1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v3/grenade2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.grenade"
+  },
+  "ai.voice.v3.reloading": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v3/reloading1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v3/reloading2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.reloading"
+  },
+  "ai.voice.v3.falling_back": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v3/falling_back1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v3/falling_back2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.falling_back"
+  },
+  "ai.voice.v3.flanking": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v3/flanking1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v3/flanking2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.flanking"
+  },
+  "ai.voice.v3.man_down": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v3/man_down1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v3/man_down2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.man_down"
+  },
+  "ai.voice.v3.moving": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v3/moving1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v3/moving2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.moving"
+  },
+  "ai.voice.v3.hit": {
+    "sounds": [
+      {
+        "name": "ntmgunfeel:ai/voice/v3/hit1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ntmgunfeel:ai/voice/v3/hit2",
+        "attenuation_distance": 32
+      }
+    ],
+    "subtitle": "subtitles.ntmgunfeel.ai.voice.hit"
   }
 }

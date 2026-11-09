@@ -250,6 +250,11 @@ public final class AiSoldier implements AiBrain {
     static final int DOWN_AFTER = 10;
     /** ticks from its arm's end till it is down (the mind asks, the legs lie down after it), and one more */
     static final int DOWN_GETS = 2;
+    /**
+     * ticks: shot or one near in sight, it gets up only while its grenade is this far from going off (time to run out
+     * of the blast's reach from a near throw); later it keeps down till it has
+     */
+    static final int UP_BEFORE = 40;
 
     /** this is its near throw's grenade, and it is down behind its cover for it (AiGrenades: it does not run from it) */
     boolean downFor(Entity g) {
@@ -292,6 +297,8 @@ public final class AiSoldier implements AiBrain {
     public int thrown, dodges, smoked;
     /** where its last grenade was to burst (the stands) */
     public @Nullable Vec3 planned;
+    /** the stands: its last throw, near or not, and how it got up from it */
+    String throwNote = "-";
 
     @Override
     public void tick(AiBot bot, long tick) {
@@ -306,6 +313,8 @@ public final class AiSoldier implements AiBrain {
 
     /** this tick it keeps low behind low cover (the decision sets it; standing unless it does) */
     private boolean crouch;
+    /** reloading the last tick (a reload begun calls out) */
+    private boolean wasReloading;
     /** ticks it rises before a burst over low cover */
     static final int RISE = 5;
     /** the pause between bursts over low cover (burst) */
@@ -325,6 +334,8 @@ public final class AiSoldier implements AiBrain {
                 m.getDimensions(Pose.STANDING).makeBoundingBox(m.position()).deflate(1.0E-7));
         AiGunner g = bot.gunner;
         boolean reloading = g.reloading();
+        if (reloading && !wasReloading) AiVoice.say((ServerLevel) m.level(), bot, AiVoice.Line.RELOADING, tick);
+        wasReloading = reloading;
         boolean aiming = g.wantsFire() || mode == Mode.PEEK;
         // held up over its cover with no look along it: the arms the pose layer draws for that (blind fire)
         boolean blind = g.blind && low;
@@ -384,11 +395,15 @@ public final class AiSoldier implements AiBrain {
         // its near throw: down behind its cover till that has gone off (it lies if it may, else it crouches)
         if (downGrenade != -1) {
             Entity g = level.getEntity(downGrenade);
-            // shot, or one of them in sight near: it is up to that (and runs from its grenade as from any)
+            // shot, or one of them in sight near: it is up to that (and runs from its grenade as from any) while it can
             TargetMemory.Noise hn = bot.memory.noise();
             TargetMemory.Contact near = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
             boolean roused = hn != null && hn.hurt && hn.tick != hitSeen || near != null && near.state == TargetMemory.State.VISIBLE
                     && bot.mob.distanceToSqr(near.x, near.y, near.z) < BLIND_NEAR * BLIND_NEAR;
+            // too late to run: down it stays
+            if (roused && downUntil - DOWN_AFTER - tick < UP_BEFORE) roused = false;
+            if (roused && AiGrenades.trace) throwNote += String.format(java.util.Locale.ROOT, "; up %d ticks before its burst (%s)", downUntil - DOWN_AFTER - tick,
+                    hn != null && hn.hurt && hn.tick != hitSeen ? "shot" : "one near in sight");
             if (g != null && !g.isRemoved() && tick < downUntil && !roused) {
                 bot.gunner.fire(false);
                 if (downLying) bot.prone.want();
@@ -480,6 +495,7 @@ public final class AiSoldier implements AiBrain {
         lastThrow = tick;
         throwUntil = tick + THROW_TICKS;
         thrown++;
+        if (AiGrenades.trace) throwNote = String.format(java.util.Locale.ROOT, "%s throw at %.1f blocks", close ? lie ? "a near (lying)" : "a near (crouched)" : "a", d);
         if (close) {
             downGrenade = g.getId();
             downHeight = down;
@@ -487,6 +503,7 @@ public final class AiSoldier implements AiBrain {
             downUntil = tick + AiGrenades.FUSE + DOWN_AFTER;
             closeThrows++;
         }
+        AiVoice.say(level, bot, AiVoice.Line.FRAG_OUT, tick);
         bot.gunner.fire(false);
         why = Why.THROW;
         if (close) event(bot, tick, lost ? "a near grenade where they went out of sight, then down" : "a near grenade at one behind cover, then down");
@@ -520,6 +537,7 @@ public final class AiSoldier implements AiBrain {
         boolean first = dodgeFrom == null;
         if (first) {
             dodges++;
+            AiVoice.say(level, bot, AiVoice.Line.GRENADE, tick);
             event(bot, tick, "a grenade near: runs from it");
         }
         if (dodgeCell != Long.MIN_VALUE && bot.mover.failed()) {
@@ -562,6 +580,7 @@ public final class AiSoldier implements AiBrain {
         bot.mob.setYHeadRot(yaw);
         bot.mob.setYRot(yaw);
         why = Why.HIT;
+        AiVoice.say(level, bot, AiVoice.Line.HIT, tick);
         event(bot, tick, "hit from out of sight: turns there");
         // hurt by someone (not a blast no one set off): the one it lost did it; it watches, looks out and searches
         // where the shot came from, not where it lost them
@@ -582,6 +601,7 @@ public final class AiSoldier implements AiBrain {
                 go(bot, level, other, List.of(from));
                 relocations++;
                 why = Why.HIT_COVER;
+                AiVoice.say(level, bot, AiVoice.Line.MOVING, tick);
                 event(bot, tick, "hit in its cover: other cover");
             } else {
                 spot = was;
@@ -621,6 +641,7 @@ public final class AiSoldier implements AiBrain {
         AiSkill skill = AiSkill.current();
         if (tick - lastCombat > ENGAGE_GAP) {
             engagedTick = tick;
+            if (seen != null) AiVoice.say(level, bot, AiVoice.Line.CONTACT, tick);
             boolean onTheWay = spot == null || mode == Mode.TO_COVER && !bot.mover.arrived();
             boolean watched = seen != null && watches(seen, bot.mob);
             answerUntil = onTheWay && (dist <= skill.answerNear() || watched) ? tick + answerTicks(bot, skill) : 0;
@@ -1174,6 +1195,7 @@ public final class AiSoldier implements AiBrain {
         go(bot, level, to, all);
         backTo = to.cell();
         fallBacks++;
+        if (!smoked) AiVoice.say(level, bot, AiVoice.Line.FALLING_BACK, tick);
         event(bot, tick, smoked ? "shaken: smoke, falls back" : "shaken: falls back");
         why = Why.FALL_BACK;
         return true;
@@ -1202,6 +1224,7 @@ public final class AiSoldier implements AiBrain {
         lastSmoke = tick;
         throwUntil = tick + THROW_TICKS;
         smoked++;
+        AiVoice.say(level, bot, AiVoice.Line.SMOKE_OUT, tick);
         return true;
     }
 
@@ -1278,6 +1301,7 @@ public final class AiSoldier implements AiBrain {
         blindLost = Long.MIN_VALUE;
         flanks++;
         why = Why.FLANK;
+        AiVoice.say(level, bot, AiVoice.Line.FLANKING, tick);
         event(bot, tick, "its squad's flanker: round the side");
         return true;
     }

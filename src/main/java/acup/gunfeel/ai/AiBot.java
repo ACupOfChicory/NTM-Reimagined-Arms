@@ -36,6 +36,8 @@ public final class AiBot {
     public int grenades;
     /** smoke grenades it has left (AiSmoke) */
     public int smokes;
+    /** when it last called out (AiVoice) */
+    public long saidAt = Long.MIN_VALUE / 2;
     /** a player within aiRadius: it thinks; else it stands still */
     boolean active = true;
 
