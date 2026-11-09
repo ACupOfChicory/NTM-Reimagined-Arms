@@ -1,5 +1,16 @@
 # Changelog
 
+## X813
+
+- A blast by the body's parts takes about NTM's damage again from a creature
+  in the open: each part's multiplier is divided by the creature's mean one
+  (its parts' shares times their multipliers). An HE grenade 1–3 blocks away
+  does 2–6% less than NTM's to a standing or crouching FBI agent or test dummy
+  (20% less before), about NTM's to a lying one; dynamite next to the head of
+  a lying one does 16% more. Behind a one-block wall a standing agent takes
+  39% less, a test dummy 22% less. Server key `blastPartsEven` (on); off, it
+  is as in X807.
+
 ## X812
 
 - Mob AI: a badly shaken bot (confidence at its lowest, after losses) falls

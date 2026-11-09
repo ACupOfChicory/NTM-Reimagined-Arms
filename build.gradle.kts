@@ -288,6 +288,8 @@ neoForge {
             systemProperty("ntmgunfeel.blastStandFile",root.resolve("notes/blast-stand/$label.tsv").path)
             // -PblastStandBoxes=<file>: only the agent's boxes crouching and lying, for the mob AI
             providers.gradleProperty("blastStandBoxes").orNull?.let { systemProperty("ntmgunfeel.blastStandBoxes",it) }
+            // -PblastStandJfr=<file>: a flight recording of the run, for where the blasts' time goes
+            providers.gradleProperty("blastStandJfr").orNull?.let { jvmArgument("-XX:StartFlightRecording=filename=$it,settings=profile,dumponexit=true") }
             systemProperty("MC_DEBUG_ENABLED","true")
             systemProperty("MC_DEBUG_PREFER_WAYLAND","true")
             programArguments.addAll("--width","1280","--height","800")

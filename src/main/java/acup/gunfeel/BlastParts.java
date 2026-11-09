@@ -55,6 +55,14 @@ public final class BlastParts {
     record Counted(String part, float multiplier, double share, double scaled, double seen, float raw) {
     }
 
+    /**
+     * blastPartsEven: the parts' multipliers divided by their mean over the whole mob (each part's share times its
+     * multiplier), so a mob in the open takes about NTM's damage and a head still hurts more than a limb
+     */
+    static boolean even() {
+        return ReaimTimes.flag("blastPartsEven", true);
+    }
+
     /** blastPartRays: the rays from each part (its middle, then points along its length), 1 to 9 */
     static int rays() {
         return Math.clamp(Math.round(ReaimTimes.number("blastPartRays", 3F)), 1, 9);
@@ -120,8 +128,10 @@ public final class BlastParts {
         double total = 0, weighted = 0;
         List<Counted> counted = stand != null && !standQuiet ? new ArrayList<>() : null;
         boolean reached = false, limbs = false;
+        double mean = 0;
         for (Part p : parts) {
             limbs |= p.multiplier() < 1;
+            mean += p.share() * p.multiplier();
             double scaled = scale.applyAsDouble(nearest(p.box(), centre).distanceTo(centre) / size);
             reached |= scaled <= 1;
             if (!(scaled <= 1)) {
@@ -138,8 +148,11 @@ public final class BlastParts {
         // at the range's edge NTM's box is in it and no part is: NTM's damage, no part's multiplier
         if (!reached || !Double.isFinite(total) || !Double.isFinite(weighted)) return whole;
         float m = total > 0 ? (float) (weighted / total) : 1F;
-        // a mob with a marked head and no marked limbs (a pig, a chicken) takes no more than NTM's damage
-        run.multiplier.put(entity, limbs ? m : Math.min(m, 1F));
+        // even: by the whole mob's mean (a mob seen whole takes about NTM's); else a mob with a marked head and no
+        // marked limbs (a pig, a chicken) takes no more than NTM's
+        if (even() && mean > 0) m = (float) (m / mean);
+        else if (!limbs) m = Math.min(m, 1F);
+        run.multiplier.put(entity, m);
         return (float) total;
     }
 
