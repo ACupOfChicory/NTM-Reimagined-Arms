@@ -1,5 +1,24 @@
 # Changelog
 
+## X817
+
+- Shots hit a mob in a crowd again where the shooter sees it. The server
+  moves each mob's model on from the shooter's last view of it, and took a
+  mob standing on the ground for falling (the game's leftover gravity), so
+  between a crowd's views, which come every few ticks, its model sank up to
+  0.4 block and shots at the head and arms went over it. Now a mob goes on
+  by its last step: none standing, the whole step walking (the stored motion
+  is after the ground's friction), its rise or fall in the air, its mount's
+  way riding.
+  Sixty FBI agents in a crowd, a player's shots at the head and arms
+  (bodies and legs were hit before too):
+  - standing, leaning out, crawling: 99–100% hits (63–94% before), with or
+    without armour;
+  - running at the shooter: 90–94% (69% before); jumping: 57–69% (46–54%);
+    running across: 58% at the head (39%). A mob running across or jumping
+    is still missed some: the model the server finds is about half a block
+    from where the shooter sees it, as before.
+
 ## X816
 
 - A blast by the body's parts costs the server about what NTM's own does:

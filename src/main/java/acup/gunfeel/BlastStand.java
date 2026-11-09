@@ -27,6 +27,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -154,6 +155,11 @@ final class BlastStand {
             boxes(Path.of(boxes));
             return;
         }
+        String hits = System.getProperty("ntmgunfeel.blastStandHits");
+        if (hits != null && !hits.isEmpty()) {
+            hits(Path.of(hits));
+            return;
+        }
         for (Identifier type : new Identifier[] { FBI, DUMMY }) {
             String mob = type == FBI ? "агент" : "манекен";
             PLAN.add(new Step(5, () -> {
@@ -231,6 +237,249 @@ final class BlastStand {
                     ClientSmoke.check(false, "коробки: " + e);
                 }
             }));
+        }
+    }
+
+    // ---------------------------------------------------------------- a player's shots at a crowd
+
+    /** the loadouts the crowd wears in turn: none, SECURITY, GLASS+PAA, and what an agent puts on when it spawns */
+    private static final String[] HIT_LOADOUTS = { "без брони", "SECURITY", "GLASS+PAA", "своя" };
+    private static final String[][] HIT_PARTS = { { "голова", "root/head" }, { "тело", "root/body" }, { "рука", "root/right_arm" },
+            { "нога", "root/right_leg" } };
+
+    /** what the crowd does: stands, runs across or at the shooter, jumps, leans out, crawls */
+    private enum Moves {
+        STAND("стоит"), ACROSS("бежит поперёк"), TOWARD("бежит на стрелка"), JUMP("прыгает"), LEAN("выглядывает"), CRAWL("ползёт");
+
+        final String name;
+
+        Moves(String name) {
+            this.name = name;
+        }
+    }
+
+    /** a jump's heights and its way up each tick (the game's: 0.42 up, 0.08 a tick down, 2% drag), then four on the ground */
+    private static final List<double[]> JUMP = new ArrayList<>();
+    static {
+        double y = 0, vy = 0.42;
+        while (true) {
+            JUMP.add(new double[] { y, vy });
+            y += vy;
+            vy = (vy - 0.08) * 0.98;
+            if (y <= 0) break;
+        }
+        for (int k = 0; k < 4; k++) JUMP.add(new double[] { 0, -0.0784000015258789 });
+    }
+
+    /** [moves][mode][loadout][part]: shots, hits on the server */
+    private static final int[][][][] HIT_SHOTS = new int[Moves.values().length][2][4][4], HIT_HITS = new int[Moves.values().length][2][4][4];
+    private static final double[][] HIT_AGE = new double[Moves.values().length][2];
+    private static final int[][] HIT_AGES = new int[Moves.values().length][2];
+    private static int hitTick;
+    /** [moves][mode]: the server's place of the model against the client's place of the mob, across, up, count */
+    private static final double[][][] HIT_ERR = new double[Moves.values().length][2][3];
+
+    /**
+     * Sixty FBI agents in rows (a client sends each one's pose every few ticks, as in a crowd), in four loadouts, standing,
+     * running across or at the shooter, jumping, leaning out or crawling; a player ten blocks off shoots at each one's
+     * head, body, arm and leg every tick where the client draws them, the server's ModelHits.clip as for its bullets:
+     * hits with the pose's way on as it was (a grounded mob's fall and an old way kept) and as now.
+     */
+    private static void hits(Path out) {
+        List<String> lines = new ArrayList<>();
+        PLAN.add(new Step(5, () -> {
+            ServerLevel level = level();
+            clearCrowd();
+            for (int i = 0; i < 60; i++) {
+                Vec3 h = new Vec3(A.x + (i % 10 - 4.5) * 1.5, A.y, A.z + (i / 10) * 1.5);
+                Mob m = spawn(level, FBI, h, 180F);
+                int k = i % 4;
+                if (k == 1) BotStandHits.wear(m, BotStandHits.LOADOUTS[1]);
+                else if (k == 2) BotStandHits.wear(m, BotStandHits.LOADOUTS[2]);
+                else if (k == 3) m.finalizeSpawn(level, level.getCurrentDifficultyAt(m.blockPosition()), EntitySpawnReason.NATURAL, null);
+                crowd.add(m);
+                homes.add(h);
+            }
+            var p = level.getServer().getPlayerList().getPlayers().getFirst();
+            Vec3 eye = new Vec3(A.x, A.y + 1.62, A.z - 10);
+            Vec3 mid = new Vec3(A.x, A.y + 1.2, A.z + 3.75);
+            double dx = mid.x - eye.x, dy = mid.y - eye.y, dz = mid.z - eye.z;
+            p.teleportTo(level, eye.x, eye.y - p.getEyeHeight(), eye.z, Set.of(), (float) Math.toDegrees(Math.atan2(-dx, dz)),
+                    (float) Math.toDegrees(-Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))), false);
+            for (int k = 0; k < 4; k++) {
+                Mob m = crowd.get(k);
+                lines.add("# " + HIT_LOADOUTS[k] + ": " + m.getItemBySlot(EquipmentSlot.HEAD).getItem() + " "
+                        + m.getItemBySlot(EquipmentSlot.CHEST).getItem() + " " + m.getItemBySlot(EquipmentSlot.LEGS).getItem() + " "
+                        + m.getItemBySlot(EquipmentSlot.FEET).getItem());
+            }
+        }));
+        for (Moves mv : Moves.values()) for (int mode = 0; mode < 2; mode++) {
+            int md = mode;
+            // the stance, fresh poses under the mode while moving, then a hundred ticks of shots
+            PLAN.add(new Step(1, () -> {
+                ModelHits.standOldVelocity = md == 0;
+                hitTick = 0;
+                int t = (int) level().getGameTime();
+                for (Mob m : crowd) {
+                    byte stance = mv == Moves.CRAWL ? AiPose.PRONE : AiPose.STAND;
+                    byte lean = mv == Moves.LEAN ? (byte) 70 : 0;
+                    m.setData(AiPose.Sync.TYPE, new AiPose(stance, lean, lean, t - 40, AiPose.HOLD, AiPose.NONE, 0, (short) 0));
+                    m.setPose(mv == Moves.CRAWL ? Pose.SWIMMING : Pose.STANDING);
+                }
+            }));
+            for (int t = 0; t < 60; t++) PLAN.add(new Step(1, () -> move(mv)));
+            for (int t = 0; t < 100; t++) PLAN.add(new Step(1, () -> {
+                move(mv);
+                shoot(mv, md);
+            }));
+        }
+        PLAN.add(new Step(1, () -> {
+            ModelHits.standOldVelocity = false;
+            hitMoves = null;
+            lines.add("строка\tдвижение\tскорость позы\tброня\tчасть\tвыстрелов\tпопаданий\tдоля");
+            int after = 0, all = 0;
+            for (Moves mv : Moves.values()) for (int md = 0; md < 2; md++) {
+                for (int j = 0; j < 4; j++) {
+                    int n = 0, h = 0;
+                    for (int k = 0; k < 4; k++) {
+                        n += HIT_SHOTS[mv.ordinal()][md][k][j];
+                        h += HIT_HITS[mv.ordinal()][md][k][j];
+                    }
+                    lines.add(String.format(Locale.ROOT, "попадания\t%s\t%s\tвсе\t%s\t%d\t%d\t%.3f", mv.name, md == 0 ? "до" : "после",
+                            HIT_PARTS[j][0], n, h, n == 0 ? 0 : h / (double) n));
+                    if (md == 1) {
+                        after += h;
+                        all += n;
+                    }
+                }
+                if (mv == Moves.STAND) for (int k = 0; k < 4; k++) for (int j = 0; j < 4; j++) {
+                    int n = HIT_SHOTS[mv.ordinal()][md][k][j], h = HIT_HITS[mv.ordinal()][md][k][j];
+                    lines.add(String.format(Locale.ROOT, "попадания\t%s\t%s\t%s\t%s\t%d\t%d\t%.3f", mv.name, md == 0 ? "до" : "после",
+                            HIT_LOADOUTS[k], HIT_PARTS[j][0], n, h, n == 0 ? 0 : h / (double) n));
+                }
+                double[] er = HIT_ERR[mv.ordinal()][md];
+                lines.add(String.format(Locale.ROOT, "# %s, %s: средний возраст позы при выстреле %.1f тика; модель на сервере от места моба на клиенте: вбок %.3f, вверх %.3f бл",
+                        mv.name, md == 0 ? "до" : "после",
+                        HIT_AGES[mv.ordinal()][md] == 0 ? 0 : HIT_AGE[mv.ordinal()][md] / HIT_AGES[mv.ordinal()][md], er[2] == 0 ? 0 : er[0] / er[2],
+                        er[2] == 0 ? 0 : er[1] / er[2]));
+            }
+            ClientSmoke.check(all > 0, "попадания после: " + after + " из " + all);
+            try {
+                Files.write(out, lines);
+            } catch (java.io.IOException e) {
+                ClientSmoke.check(false, "попадания: " + e);
+            }
+        }));
+    }
+
+    /** the crowd's next tick: it steps in its own tick (as an AI mob does, after the game keeps its old place) */
+    private static volatile Moves hitMoves;
+    private static final java.util.Map<Mob, Integer> HIT_INDEX = new java.util.IdentityHashMap<>();
+    private static boolean hitListening;
+
+    private static void move(Moves mv) {
+        hitMoves = mv;
+        hitTick++;
+        if (!hitListening) {
+            hitListening = true;
+            for (int i = 0; i < crowd.size(); i++) HIT_INDEX.put(crowd.get(i), i);
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+                    (net.neoforged.neoforge.event.tick.EntityTickEvent.Post e) -> {
+                        Moves now = hitMoves;
+                        if (now == null || !(e.getEntity() instanceof Mob m) || m.level().isClientSide()) return;
+                        Integer i = HIT_INDEX.get(m);
+                        if (i != null) place(now, i, m);
+                    });
+        }
+    }
+
+    /** where the crowd's {@code i}-th one is this tick, its way on as the game would have it, on the ground or not */
+    private static void place(Moves mv, int i, Mob m) {
+        int t = hitTick;
+        {
+            Vec3 h = homes.get(i);
+            int phase = t + i * 3;
+            double x = 0, y = 0, z = 0, vx = 0, vy = -0.0784000015258789, vz = 0;
+            boolean ground = true;
+            switch (mv) {
+                case ACROSS, TOWARD, CRAWL -> {
+                    // to and fro over 20 ticks each way: a sprint (0.28 a tick), a crawl (0.05)
+                    double speed = mv == Moves.CRAWL ? 0.05 : 0.28;
+                    int k = phase % 40;
+                    double s = (k < 20 ? k : 40 - k) * speed - 10 * speed, v = k < 20 ? speed : -speed;
+                    if (mv == Moves.TOWARD) {
+                        z = -s;
+                        vz = -v;
+                    } else {
+                        x = s;
+                        vx = v;
+                    }
+                }
+                case JUMP -> {
+                    double[] j = JUMP.get(phase % JUMP.size());
+                    y = j[0];
+                    vy = j[1];
+                    ground = y <= 0 && vy < 0;
+                }
+                default -> {
+                }
+            }
+            // setPos keeps the tick's old place (snapTo would make it the new one): its last step is the way it went
+            m.setPos(h.x + x, h.y + y, h.z + z);
+            m.setYRot(180F);
+            m.setYBodyRot(180F);
+            m.setOnGround(ground);
+            m.setDeltaMovement(vx, vy, vz);
+        }
+    }
+
+    private static void shoot(Moves mv, int mode) {
+        ServerLevel level = level();
+        var p = level.getServer().getPlayerList().getPlayers().getFirst();
+        Vec3 eye = p.getEyePosition();
+        var client = mc().level;
+        for (int i = 0; i < crowd.size(); i++) {
+            Mob m = crowd.get(i);
+            // where the client draws it now: the pose's boxes at the mob's place on the server, moved to its place on the client
+            var boxes = ModelHits.worldBoxes(m);
+            var drawn = client == null ? null : client.getEntity(m.getId());
+            if (boxes.isEmpty() || drawn == null) {
+                // no pose or not drawn: its shots count as misses
+                for (int j = 0; j < HIT_PARTS.length; j++) HIT_SHOTS[mv.ordinal()][mode][i % 4][j]++;
+                continue;
+            }
+            Vec3 shift = drawn.position().subtract(m.position());
+            {
+                var previous = ModelHits.beginShot(p);
+                try {
+                    Vec3 e = ModelHits.standOrigin(m).subtract(drawn.position());
+                    HIT_ERR[mv.ordinal()][mode][0] += Math.sqrt(e.x * e.x + e.z * e.z);
+                    HIT_ERR[mv.ordinal()][mode][1] += Math.abs(e.y);
+                    HIT_ERR[mv.ordinal()][mode][2]++;
+                } finally {
+                    ModelHits.endShot(previous);
+                }
+            }
+            long age = ModelHits.poseAge(m);
+            if (age >= 0) {
+                HIT_AGE[mv.ordinal()][mode] += age;
+                HIT_AGES[mv.ordinal()][mode]++;
+            }
+            for (int j = 0; j < HIT_PARTS.length; j++) {
+                Vec3 aim = BotStandHits.centre(boxes, HIT_PARTS[j][1]);
+                if (aim == null) continue;
+                aim = aim.add(shift);
+                Vec3 to = eye.add(aim.subtract(eye).scale(1.5));
+                var previous = ModelHits.beginShot(p);
+                boolean hit;
+                try {
+                    hit = ModelHits.clip(m, eye, to, m.getBoundingBox()).isPresent();
+                } finally {
+                    ModelHits.endShot(previous);
+                }
+                HIT_SHOTS[mv.ordinal()][mode][i % 4][j]++;
+                if (hit) HIT_HITS[mv.ordinal()][mode][i % 4][j]++;
+            }
         }
     }
 

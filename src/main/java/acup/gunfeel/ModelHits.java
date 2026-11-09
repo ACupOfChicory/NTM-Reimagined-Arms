@@ -41,6 +41,30 @@ public final class ModelHits {
     }
     public static void endShot(ShotContext previous){if(previous==null)SHOOTER.remove();else SHOOTER.set(previous);}
 
+    /** the stand: ticks since the server's pose of {@code target} was caught, -1 for none */
+    static synchronized long poseAge(Entity target) {
+        var poses=POSES.get(target.level());var p=poses==null?null:poses.get(target.getId());
+        return p==null?-1:target.level().getGameTime()-p.tick();
+    }
+
+    /** the stand: where a shot of the running shooter finds the mob's model (its place moved on from the shooter's view) */
+    static synchronized Vec3 standOrigin(Entity target) {
+        return origin(target);
+    }
+
+    /** the stand (BlastStand's hits): the mob's way on from a pose as it was before (a grounded mob's gravity, an old way kept) */
+    static volatile boolean standOldVelocity;
+
+    /**
+     * the mob's last step, the way it goes on: none standing (its stored motion holds the game's leftover gravity), the
+     * whole step walking (the stored one is after the ground's friction), its rise or fall in the air, its mount's way
+     * riding; a jump of more than two blocks is a teleport, no way on
+     */
+    static Vec3 moving(Entity target) {
+        var step=target.position().subtract(target.xo,target.yo,target.zo);
+        return step.lengthSqr()>4?Vec3.ZERO:step;
+    }
+
     private static ViewAt view(Entity target) {
         var context=SHOOTER.get();ServerPlayer player=context==null?null:context.player;
         var views=player==null?null:VIEWS.get(player);
@@ -178,10 +202,14 @@ public final class ModelHits {
         var saved=POSES.get(observer.level()).get(target.getId());
         var views=VIEWS.computeIfAbsent(observer,k->new HashMap<>());
         var previous=views.get(target.getId());var rendered=new Vec3(p.x(),p.y(),p.z());
-        var velocity=target.getDeltaMovement();
+        // how the mob moves on from the pose: from the last two poses when they are close, else its last step. Its stored
+        // motion (as before) holds a standing mob's leftover gravity (-0.0784 a tick): kept between a crowd's poses, the
+        // model sank up to 0.4 block in the 5 ticks a view lasts, and shots went over a standing bot's head
+        var velocity=standOldVelocity?target.getDeltaMovement():moving(target);
         if(previous!=null && compatible(target,previous.pose())) {
             long elapsed=tick-previous.pose().tick();
-            velocity=elapsed>0 && elapsed<=MAX_SYNC_AGE?rendered.subtract(previous.rendered()).scale(1.0/elapsed):previous.velocity();
+            if(elapsed>0 && elapsed<=MAX_SYNC_AGE) velocity=rendered.subtract(previous.rendered()).scale(1.0/elapsed);
+            else if(standOldVelocity) velocity=previous.velocity();
         }
         views.put(target.getId(),new ViewAt(saved,rendered,velocity,observer.level()));
         MobSmoke.accepted(living, p.yaw(), filtered.stream().filter(b -> ModelWool.visible(living,b)).toList());
