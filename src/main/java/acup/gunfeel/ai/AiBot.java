@@ -34,6 +34,8 @@ public final class AiBot {
     public @Nullable AiBrain brain;
     /** grenades it has left (AiGrenades) */
     public int grenades;
+    /** smoke grenades it has left (AiSmoke) */
+    public int smokes;
     /** a player within aiRadius: it thinks; else it stands still */
     boolean active = true;
 

@@ -194,6 +194,8 @@ public final class AiSoldier implements AiBrain {
     /** when it may ask for a fall back again; the cover it falls back to (Long.MIN_VALUE: none); falls back so far (the stands) */
     private long nextBack, backTo = Long.MIN_VALUE, backAt = Long.MIN_VALUE, backIn = Long.MIN_VALUE;
     public int fallBacks;
+    /** its last smoke grenade (AiSmoke), the tick */
+    private long lastSmoke = Long.MIN_VALUE / 2;
     private long peekThere;
     /** heard only, in cover: when it looks out again */
     private long lookAgain;
@@ -257,7 +259,7 @@ public final class AiSoldier implements AiBrain {
     /** a refuge looked for again at most this often, ticks */
     static final int REFUGE_AGAIN = 10;
     // for the stands: grenades it threw, grenades it ran from
-    public int thrown, dodges;
+    public int thrown, dodges, smoked;
     /** where its last grenade was to burst (the stands) */
     public @Nullable Vec3 planned;
 
@@ -1102,12 +1104,45 @@ public final class AiSoldier implements AiBrain {
         Vec3 t = all.get(0);
         CoverQuery.Spot to = query(bot, level, map, all, false, true, null, Math.hypot(bot.mob.getX() - t.x, bot.mob.getZ() - t.z) + BACK_STEP);
         if (to == null || spot != null && to.cell() == spot.cell()) return false;
+        // smoke between it and the threat first, one of its squad at a time; it is off at once, the arm going over on the way
+        boolean smoked = smoke(bot, level, t, tick);
         go(bot, level, to, all);
         backTo = to.cell();
         fallBacks++;
-        event(bot, tick, "shaken: falls back");
+        event(bot, tick, smoked ? "shaken: smoke, falls back" : "shaken: falls back");
         why = Why.FALL_BACK;
         return true;
+    }
+
+    /**
+     * A smoke grenade half the way to the threat (AiSmoke), as it falls back: one left, the threat not too near, none by
+     * it or its squad a while, the throw bursting within AiGrenades.LAND of the place. Whether it threw.
+     */
+    private boolean smoke(AiBot bot, ServerLevel level, Vec3 threat, long tick) {
+        if (!AiSmoke.on || bot.smokes <= 0) return noSmoke(0);
+        if (!AiSmoke.ready()) return noSmoke(1);
+        if (!acup.gunfeel.smoke.SmokeClouds.enabled()) return noSmoke(2);
+        double dx = threat.x - bot.mob.getX(), dz = threat.z - bot.mob.getZ(), d = Math.hypot(dx, dz);
+        if (d < AiSmoke.NEAR || tick - lastSmoke < AiSmoke.GAP) return noSmoke(3);
+        AiSquads.Squad s = AiSquads.of(bot);
+        if (s != null) for (AiBot o : s.bots)
+            if (o != bot && o.brain instanceof AiSoldier os && tick - os.lastSmoke < AiSmoke.GAP) return noSmoke(3);
+        if (!AiGrenades.mayPlan(level, tick)) return noSmoke(4);
+        double r = AiSmoke.aim(d);
+        AiGrenades.Throw th = AiGrenades.plan(level, bot.mob, new Vec3(bot.mob.getX() + dx / d * r, bot.mob.getY(), bot.mob.getZ() + dz / d * r), true);
+        if (th == null) return noSmoke(5);
+        AiSmoke.toss(level, bot.mob, th);
+        bot.smokes--;
+        AiAdapter.keepSmokes(bot);
+        lastSmoke = tick;
+        throwUntil = tick + THROW_TICKS;
+        smoked++;
+        return true;
+    }
+
+    private static boolean noSmoke(int why) {
+        AiSmoke.skipped[why]++;
+        return false;
     }
 
     /** it looks out early now to cover one of its squad falling back */

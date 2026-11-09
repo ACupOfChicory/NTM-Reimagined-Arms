@@ -1,5 +1,12 @@
 # Changelog
 
+## X819
+- Mob AI: a shaken bot falling back first throws a smoke grenade half the way
+  to the enemy, one of its squad at a time: the GL-54 smoke grenade's cloud,
+  which AI mobs do not see through either. New server setting `aiSmokes`
+  (smoke grenades a bot carries, 1 by default, 0 to 4; 0: none); needs smoke
+  on (`smoke`).
+
 ## X817
 
 - Shots hit a mob in a crowd again where the shooter sees it. The server
