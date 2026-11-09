@@ -138,12 +138,15 @@ class BotMoveClipsTest {
         float[] alive = posed(moving(0F, 0F, -1F, null), 0F, 0F), last = posed(moving(0F, 0F, 1F, null), 0F, 0F);
         float share = jumpShare(s -> posed(moving(0F, 0F, s, null), 0F, 0F), 0F, 1F, 60);
         assertTrue(share < 0.25F, "a part jumped falling dead: " + share + "; " + where);
-        // at its end: the clip's last frame, not the pose it had
+        // halfway: the clip's frame, not the pose it had; at its end: settled flat on its back (BotPoser.settle)
         BotPoser.Parts p = BotPoserTest.parts();
-        BotPoser.apply(p, moving(0F, 0F, 1F, null), 0F, 0F, 0F);
+        float half = death.length() * BotPoser.SETTLE_FROM;
+        BotPoser.apply(p, moving(0F, 0F, half, null), 0F, 0F, 0F);
         float[] r = new float[3];
-        death.rotation("body", death.length(), r);
+        death.rotation("body", half, r);
         assertEquals(r[0] * net.minecraft.util.Mth.DEG_TO_RAD, p.body().xRot, 1e-3);
+        BotPoser.apply(p, moving(0F, 0F, 1F, null), 0F, 0F, 0F);
+        assertEquals(BotPoser.FLAT, p.body().xRot, 0.01);
         assertTrue(most(alive, last) > 0.5F);
     }
 

@@ -37,7 +37,7 @@ public final class BotPoser {
     static final String[] RELOAD_BONES = { "head", "right_arm", "right_forearm", "left_arm", "left_forearm" };
     static final String[] ALL = { "head", "body", "right_arm", "right_forearm", "left_arm", "left_forearm", "right_leg",
             "right_shin", "left_leg", "left_shin" };
-    private static final float PI = Mth.PI;
+    private static final float PI = Mth.PI, PI_HALF = Mth.HALF_PI;
 
     private BotPoser() {
     }
@@ -84,6 +84,15 @@ public final class BotPoser {
     static final float RELOAD_IN = 8F;
     /** ticks for the fall dead to come in over the pose it had */
     static final float DEATH_IN = 2F;
+    /**
+     * from this share of the fall dead on, it settles: the clip (KayKit Death_A, put on our rig) ends with the trunk
+     * 12 degrees short of flat and the knees folded down, so it lies on its feet with its back half a block up
+     */
+    static final float SETTLE_FROM = 0.5F;
+    /** lying on its back: the trunk's and the thighs' turn */
+    static final float FLAT = -PI_HALF;
+    /** where the feet stand in the model, pixels down from its pivot (vanilla's: 24) */
+    static final float GROUND = 24F;
     static final String[] LEGS = { "right_leg", "right_shin", "left_leg", "left_shin" };
 
     /** vanilla's swing at most, radians (its own: 1.4 at a full walk) */
@@ -214,7 +223,11 @@ public final class BotPoser {
         float dead = 0F;
         if (death != null) {
             dead = upright * BotAnimator.smooth(f.deathSec() * 20F / DEATH_IN);
-            if (dead > 0F) set(p, death, Math.min(f.deathSec(), death.length()), dead, ALL, a);
+            if (dead > 0F) {
+                set(p, death, Math.min(f.deathSec(), death.length()), dead, ALL, a);
+                settle(p, dead * BotAnimator.smooth((f.deathSec() - SETTLE_FROM * death.length()) / ((1F - SETTLE_FROM) * death.length())));
+                down(p, dead);
+            }
         }
 
         // 6. the lean: what the server takes for the eye and the muzzle (AiPoseGeometry.leanPoint); falling dead it
@@ -494,13 +507,16 @@ public final class BotPoser {
         }
         if (q[3].dot(q[1]) < 0F) q[1].set(-q[1].x, -q[1].y, -q[1].z, -q[1].w);
         slerpAlong(q[0], q[1], w);
-        Vector3f e = q[0].getEulerAnglesZYX(E.get());
-        // the same turn: (x, y, z) and (x + pi, pi - y, z + pi)
+        setNear(part, q[0], lx, ly, lz);
+    }
+
+    /** Sets the part to the turn q, in the angles nearest (lx, ly, lz): (x, y, z) or the same turn (x + pi, pi - y, z + pi). */
+    static void setNear(ModelPart part, Quaternionf q, float lx, float ly, float lz) {
+        Vector3f e = q.getEulerAnglesZYX(E.get());
         float x1 = near(e.x, lx), y1 = near(e.y, ly), z1 = near(e.z, lz);
         float x2 = near(e.x + PI, lx), y2 = near(PI - e.y, ly), z2 = near(e.z + PI, lz);
-        float d1 = Math.abs(x1 - lx) + Math.abs(y1 - ly) + Math.abs(z1 - lz);
-        float d2 = Math.abs(x2 - lx) + Math.abs(y2 - ly) + Math.abs(z2 - lz);
-        if (d1 <= d2) part.setRotation(x1, y1, z1);
+        if (Math.abs(x1 - lx) + Math.abs(y1 - ly) + Math.abs(z1 - lz) <= Math.abs(x2 - lx) + Math.abs(y2 - ly) + Math.abs(z2 - lz))
+            part.setRotation(x1, y1, z1);
         else part.setRotation(x2, y2, z2);
     }
 
@@ -543,12 +559,7 @@ public final class BotPoser {
                 // kept on the branch nearest the angles added straight (what the flinches did before, where it holds)
                 float lx = part.xRot + w * Mth.DEG_TO_RAD * (a[0] - b[0]), ly = part.yRot + w * Mth.DEG_TO_RAD * (a[1] - b[1]),
                         lz = part.zRot + w * Mth.DEG_TO_RAD * (a[2] - b[2]);
-                Vector3f e = q[0].getEulerAnglesZYX(E.get());
-                float x1 = near(e.x, lx), y1 = near(e.y, ly), z1 = near(e.z, lz);
-                float x2 = near(e.x + PI, lx), y2 = near(PI - e.y, ly), z2 = near(e.z + PI, lz);
-                if (Math.abs(x1 - lx) + Math.abs(y1 - ly) + Math.abs(z1 - lz) <= Math.abs(x2 - lx) + Math.abs(y2 - ly) + Math.abs(z2 - lz))
-                    part.setRotation(x1, y1, z1);
-                else part.setRotation(x2, y2, z2);
+                setNear(part, q[0], lx, ly, lz);
             }
             if (clip.position(bone, t, a) && clip.position(bone, 0F, b)) {
                 part.x += w * (a[0] - b[0]);
@@ -573,6 +584,93 @@ public final class BotPoser {
             }
         }
     }
+
+    /**
+     * Settles a body fallen dead, by s: the trunk flat on its back with no roll (the head and the arms turned with it
+     * about the hips, as one), the thighs flat and the knees straight, the arms down along it a little out on the
+     * ground, the head face up and a little aside, on the back of the skull: the clip's own end does none of it.
+     */
+    static void settle(Parts p, float s) {
+        if (s <= 0F) return;
+        for (ModelPart shin : new ModelPart[] { p.rightShin, p.leftShin })
+            if (shin != null) shin.xRot = Mth.lerp(s, shin.xRot, 0F);
+        turn(p.rightLeg, FLAT, p.rightLeg.yRot, p.rightLeg.zRot, s);
+        turn(p.leftLeg, FLAT, p.leftLeg.yRot, p.leftLeg.zRot, s);
+        org.joml.Matrix4f m = M4.get();
+        // hips is the scratch V: read it at once, before V is used again
+        Vector3f hips = frame(p.body, m).transformPosition(V.get().set(0F, 12F, 0F));
+        float hx = hips.x, hy = hips.y, hz = hips.z;
+        Quaternionf[] q = Q.get();
+        // the turn from the trunk as it is to flat, s of it
+        q[0].rotationZYX(p.body.zRot, p.body.yRot, p.body.xRot).conjugate();
+        q[1].rotationZYX(0F, p.body.yRot, FLAT).mul(q[0]);
+        q[3].identity().slerp(q[1], s);
+        for (ModelPart part : new ModelPart[] { p.head, p.body, p.rightArm, p.leftArm }) {
+            Vector3f v = q[3].transform(V.get().set(part.x - hx, part.y - hy, part.z - hz));
+            part.setPos(hx + v.x, hy + v.y, hz + v.z);
+            q[4].set(q[3]).mul(q[2].rotationZYX(part.zRot, part.yRot, part.xRot));
+            setNear(part, q[4], part.xRot, part.yRot, part.zRot);
+        }
+        turn(p.rightArm, FLAT, ARM_OUT, 0F, s);
+        turn(p.leftArm, FLAT, -ARM_OUT, 0F, s);
+        for (ModelPart fore : new ModelPart[] { p.rightForearm, p.leftForearm })
+            if (fore != null) fore.xRot = Mth.lerp(s, fore.xRot, -ELBOW_LYING);
+        // the head face up with the trunk, turned a little aside the way the clip turned it; 8 px through where the
+        // trunk is 4, it would hold the back up off the ground: it rests on the back of the skull
+        turn(p.head, FLAT, 0F, Math.copySign(HEAD_ASIDE, p.head.zRot), s);
+        float head = lowest(frame(p.head, m), -4F, -8F, -4F, 8F, 8F, 8F), trunk = lowest(frame(p.body, m), -4F, 0F, -2F, 8F, 12F, 4F);
+        if (head > trunk) p.head.y -= s * (head - trunk);
+    }
+
+    /** lying dead: the arms out from the trunk on the ground, the elbows bent a little, radians */
+    static final float ARM_OUT = 0.3F, ELBOW_LYING = 0.25F;
+    /** lying dead: the head turned aside, radians */
+    static final float HEAD_ASIDE = 0.3F;
+
+    /**
+     * Puts a body fallen dead on the ground, by w: all of it moved up or down so its lowest point is where the feet
+     * stand (vanilla's boxes: the head 8 px, the trunk 12 by 4, each limb's half 6, a limb not split 12). Armour
+     * grows the boxes by 0.5 to 1 px: it goes that far into the ground.
+     */
+    static void down(Parts p, float w) {
+        if (w <= 0F) return;
+        float low = -Float.MAX_VALUE;
+        org.joml.Matrix4f m = M4.get();
+        low = Math.max(low, lowest(frame(p.head, m), -4F, -8F, -4F, 8F, 8F, 8F));
+        low = Math.max(low, lowest(frame(p.body, m), -4F, 0F, -2F, 8F, 12F, 4F));
+        low = Math.max(low, limb(p.rightArm, p.rightForearm, -3F, -2F, m));
+        low = Math.max(low, limb(p.leftArm, p.leftForearm, -1F, -2F, m));
+        low = Math.max(low, limb(p.rightLeg, p.rightShin, -2F, 0F, m));
+        low = Math.max(low, limb(p.leftLeg, p.leftShin, -2F, 0F, m));
+        float by = w * (GROUND - low);
+        for (ModelPart part : new ModelPart[] { p.head, p.body, p.rightArm, p.leftArm, p.rightLeg, p.leftLeg }) part.y += by;
+    }
+
+    private static float limb(ModelPart upper, @org.jspecify.annotations.Nullable ModelPart lower, float x0, float y0, org.joml.Matrix4f m) {
+        frame(upper, m);
+        if (lower == null) return lowest(m, x0, y0, -2F, 4F, 12F, 4F);
+        float low = lowest(m, x0, y0, -2F, 4F, BotModel.HALF, 4F);
+        m.translate(lower.x, lower.y, lower.z).rotateZYX(lower.zRot, lower.yRot, lower.xRot);
+        return Math.max(low, lowest(m, -2F, 0F, -2F, 4F, BotModel.HALF, 4F));
+    }
+
+    private static org.joml.Matrix4f frame(ModelPart part, org.joml.Matrix4f m) {
+        return m.translation(part.x, part.y, part.z).rotateZYX(part.zRot, part.yRot, part.xRot);
+    }
+
+    /** the box's lowest corner in the model (its largest y) */
+    private static float lowest(org.joml.Matrix4f m, float x0, float y0, float z0, float w, float h, float d) {
+        float low = -Float.MAX_VALUE;
+        Vector3f v = V.get();
+        for (int i = 0; i < 8; i++) {
+            m.transformPosition(v.set(x0 + (i & 1) * w, y0 + (i >> 1 & 1) * h, z0 + (i >> 2 & 1) * d));
+            low = Math.max(low, v.y);
+        }
+        return low;
+    }
+
+    private static final ThreadLocal<org.joml.Matrix4f> M4 = ThreadLocal.withInitial(org.joml.Matrix4f::new);
+    private static final ThreadLocal<Vector3f> V = ThreadLocal.withInitial(Vector3f::new);
 
     /** The other side's bone onto this part, mirrored left for right: turns about Y and Z flip, X moves flip. */
     static void setMirrored(ModelPart part, BotClip clip, String bone, float t, float w, float[] a) {

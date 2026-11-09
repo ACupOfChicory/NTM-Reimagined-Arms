@@ -1,5 +1,14 @@
 # Changelog
 
+## X846
+
+- An AI mob that falls dead now lies on the ground. Its fall used to end with
+  the knees folded under it and the trunk short of flat, so its back and
+  hips stayed up to half a block above the ground. Now, as the fall ends, it
+  settles flat on its back: legs straight, arms by its sides a little out,
+  the head face up and turned a little aside. On the way down it stays on
+  the ground too.
+
 ## X843
 
 - What a player carries on top of the armour makes a fight about twice as
