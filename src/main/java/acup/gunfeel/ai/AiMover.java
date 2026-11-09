@@ -55,7 +55,7 @@ public final class AiMover {
     private long lastCheck;
     private PathSearch.Cost cost = PathSearch.Cost.NONE;
     // for /armsai info and the stands
-    public int searches, failures;
+    public int searches, failures, stuckJumps;
     public long searchNanos;
 
     AiMover(Mob mob) {
@@ -196,6 +196,8 @@ public final class AiMover {
     }
 
     void tick(ServerLevel level, TacticalMap map, long tick) {
+        // jumping where it stood (AiMoveControl): taken this tick whatever follows, so none is left for another goal
+        boolean stuck = mob.getMoveControl() instanceof AiMoveControl legs && legs.stuck();
         if (goal == Long.MIN_VALUE) return;
         if (hold) {
             if (walking != null || !mob.getNavigation().isDone()) {
@@ -235,6 +237,13 @@ public final class AiMover {
         }
         // a search that never answered (a failed job): ask again
         if (searching && tick - searchStarted > 100) searching = false;
+        // jumping where it stood (a step it could not get up, AiMoveControl): another way, from where it is now
+        if (stuck && !searching) {
+            stuckJumps++;
+            tries++;
+            mob.getNavigation().stop();
+            walking = null;
+        }
         if (searching || failed()) return;
         boolean done = mob.getNavigation().isDone();
         if (walking != null && !done && tick - lastCheck >= CHECK_EVERY) {

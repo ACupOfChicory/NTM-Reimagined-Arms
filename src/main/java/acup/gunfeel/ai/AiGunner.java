@@ -286,7 +286,9 @@ public final class AiGunner {
         }
         // lying, it fires only still: a pull while it crawls would be thrown away (ProneFire), so it waits until it has
         // stopped (its legs keep still meanwhile, steady)
-        boolean shoot = wantFire && aim != null && aligned && loaded != 0 && !runs && !acup.gunfeel.ProneFire.blocks(mob, stack);
+        // stuck at a step, turned to its path a moment (AiMoveControl): its body does not face the aim, no shot
+        boolean turned = mob.getMoveControl() instanceof AiMoveControl legs && legs.turned();
+        boolean shoot = wantFire && aim != null && aligned && loaded != 0 && !runs && !turned && !acup.gunfeel.ProneFire.blocks(mob, stack);
         if (shoot && checkLine && AiBots.friendInLine(level, mob, AiLean.eye(mob), aim, CLEAR_CONE)) {
             // one of its own between it and the target: it holds fire
             shoot = false;
@@ -400,7 +402,7 @@ public final class AiGunner {
         mob.setXRot(p);
         // NTM fires a mob's bullet the way its body faces: the body faces the aim, but while running (the body
         // follows the path then, the head turns within its neck)
-        if (!runs) {
+        if (!runs && !(mob.getMoveControl() instanceof AiMoveControl legs && legs.turned())) {
             mob.setYRot(y);
             mob.yBodyRot = y;
             if (mob.getMoveControl() instanceof AiMoveControl legs) legs.face(y);

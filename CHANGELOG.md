@@ -1,5 +1,15 @@
 # Changelog
 
+## X824
+
+- An AI mob walking backwards or sideways, as when it falls back firing
+  ahead, gets up a step one block high. Before, its jump pushed it the way it
+  faced, off the step, and it jumped on the spot without end. Should it still
+  jump three times without getting anywhere, it turns to its path for a
+  moment, holds its fire and looks for another way.
+- In the AI check a mob aiming ahead walks back, aside, and back and aside up
+  a ledge a block high: it is up at its first jump, within 3 seconds.
+
 ## X823
 
 - AI soldiers throw frags more often. Besides a target that went behind
