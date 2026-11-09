@@ -13,6 +13,10 @@
   held out. Walking in a fight they lean a little forward with the gun
   ready. Calm, they stroll with the gun lowered in front of them. They
   switch over half a second as a fight starts or ends.
+- An AI mob behind low cover now fires from a crouch where its line of fire
+  from there is clear (over cover lower than its gun, through a gap), a
+  smaller mark. Where the cover would stop its shots it still rises to fire
+  and keeps low between bursts. It never fires into its own cover.
 
 ## X843
 

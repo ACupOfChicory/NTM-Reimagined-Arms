@@ -63,6 +63,12 @@ public final class AiGunner {
     static final double MUZZLE_DROP = 0.1;
     /** shots it let go, and shots that kicked its view (the stands) */
     public int shots, kicks;
+    /** the stands: shots let go from a crouch it chose for its clear line, and shots with a block that stops bullets just past the gun (none) */
+    public int shotsLow, coverShots;
+    /** this tick it fires from a crouch, its line from there clear (AiSoldier sets it; the stands count its shots) */
+    public boolean low;
+    /** this tick's own cover just past the gun, as the pull was decided */
+    private boolean covered;
     /**
      * the stands: trigger pulls the server's no-shot-while-crawling rule threw away (ProneFire), ticks a held trigger
      * was down crawling (its burst cut), and shots let go lying
@@ -295,7 +301,8 @@ public final class AiGunner {
             blockedTicks++;
             holds++;
         } else if (shoot || !wantFire) blockedTicks = 0;
-        if (shoot && ownCover(level)) {
+        covered = shoot && ownCover(level);
+        if (covered) {
             // its own cover in front of the gun (it sees over it, the bullet would not go over): it holds fire
             shoot = false;
             coverTicks++;
@@ -342,7 +349,19 @@ public final class AiGunner {
             lastBlind = level.getGameTime();
         }
         if (n > 0 && acup.gunfeel.Prone.lying(mob)) shotsLying += n;
+        if (n > 0 && low && mob.getPose() == net.minecraft.world.entity.Pose.CROUCHING) shotsLow += n;
+        if (n > 0 && covered) coverShots += n;
         if (n > 0 && exact == null) recoil(n, level.getGameTime(), stack);
+    }
+
+    /**
+     * From a crouch where it stands, its line of fire to the aim is clear of every block that stops bullets: it may
+     * fire down low (over cover lower than its gun, through a gap, in the open), not into its cover.
+     */
+    boolean clearCrouched(ServerLevel level) {
+        if (aim == null) return false;
+        Vec3 from = mob.position().add(0, AiPose.CROUCH_SIZE.eyeHeight() - MUZZLE_DROP, 0);
+        return VoxelRay.blocked(AiBots.voxels(level), from.x, from.y, from.z, aim.x, aim.y, aim.z, Voxel.PROTECT_MASK) < 0;
     }
 
     /** a block that stops bullets within MUZZLE_CLEAR of the gun along the line to the aim */

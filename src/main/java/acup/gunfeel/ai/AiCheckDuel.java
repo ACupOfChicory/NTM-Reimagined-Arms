@@ -21,6 +21,8 @@ final class AiCheckDuel {
     /** squads, alone: rounds won, fighters left, hits on the other side, shots; damage done */
     private final int[] won = new int[2], left = new int[2], hits = new int[2], shots = new int[2];
     private final double[] damage = new double[2];
+    /** every round's shots, from a crouch, with its own cover just past the gun */
+    private int shotsAll, shotsLow, coverShots;
 
     AiCheckDuel(AiCheck check, ServerLevel level, int y) {
         this.check = check;
@@ -44,6 +46,9 @@ final class AiCheckDuel {
         shots[1] += redAlone ? now.redShots : now.blueShots;
         damage[0] += redAlone ? now.blueDamage : now.redDamage;
         damage[1] += redAlone ? now.redDamage : now.blueDamage;
+        shotsAll += now.shotsAll;
+        shotsLow += now.shotsLow;
+        coverShots += now.coverShots;
         if (sq > 0 && al == 0) won[0]++;
         else if (al > 0 && sq == 0) won[1]++;
         now = null;
@@ -54,6 +59,8 @@ final class AiCheckDuel {
         // the wins are told, not held to: six rounds of a battle are too few to tell squads from loners for sure (the
         // squad stage does, on a field made for it); that both sides fought is
         check.check("the duel: squads and those alone both fought", hits[0] > 0 && hits[1] > 0);
+        check.check(String.format(Locale.ROOT, "the duel: fires from a crouch where its line is clear (%d of %d shots, %.1f%%), never into its own cover (%d)",
+                shotsLow, shotsAll, shotsAll == 0 ? 0 : 100.0 * shotsLow / shotsAll, coverShots), shotsLow > 0 && coverShots == 0);
         return true;
     }
 }

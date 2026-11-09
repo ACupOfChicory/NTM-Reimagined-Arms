@@ -270,13 +270,16 @@ final class AiCheckProne {
         switch (phase) {
             case LOW -> {
                 check.out("     behind a wall one high, the target 19 blocks off: " + what);
-                check.check("behind low cover it fires only standing, and goes down for no short reload (under " + AiProne.LONG_RELOAD + " ticks)",
+                check.check("behind low cover it never fires lying, and goes down for no short reload (under " + AiProne.LONG_RELOAD + " ticks)",
                         p != null && pullsStanding > 0 && pullsLying == 0 && (bot.gunner.lastReload >= AiProne.LONG_RELOAD || p.downs == 0));
                 check.out(String.format(Locale.ROOT, "     down low %d ticks of %d up (%d pulls down low), %.2f high, eyes at %.2f (a crouching player: 1.5, 1.27);"
                         + " parts of it the target sees: %.2f standing, %.2f down low", crouchTicks, crouchTicks + standTicks, pullsCrouching, crouchHeight, crouchEye,
                         standTicks == 0 ? 0 : (double) seenStanding / standTicks, crouchTicks == 0 ? 0 : (double) seenCrouching / crouchTicks));
-                check.check("behind low cover it keeps low between bursts, a crouching player's size, and never fires down low",
-                        crouchTicks > 0 && pullsCrouching == 0 && Math.abs(crouchHeight - 1.5F) < 1e-3 && Math.abs(crouchEye - 1.27F) < 1e-3);
+                // over a wall one high its line from down low is clear (its gun 1.17 high): it fires from there too
+                int intoCover = bot == null ? -1 : bot.gunner.coverShots;
+                check.check("behind low cover it keeps low, a crouching player's size, fires down low over it (" + pullsCrouching
+                        + " pulls) and never into it (" + intoCover + " shots)",
+                        crouchTicks > 0 && pullsCrouching > 0 && intoCover == 0 && Math.abs(crouchHeight - 1.5F) < 1e-3 && Math.abs(crouchEye - 1.27F) < 1e-3);
                 check.check("down low the target sees less of it than standing",
                         crouchTicks > 0 && standTicks > 0 && (double) seenCrouching / crouchTicks < (double) seenStanding / standTicks);
                 check.out(String.format(Locale.ROOT, "     lying it is %.1f high, eyes at %.1f (a crawling player: 0.6, 0.4)", lyingHeight, lyingEye));

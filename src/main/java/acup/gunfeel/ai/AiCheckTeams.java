@@ -82,6 +82,8 @@ final class AiCheckTeams {
     private int tracedAtStart, partedAtStart;
     /** the duel: the hits on the other team, red's and blue's; the damage done to it; the shots fired */
     int redHitsOut, blueHitsOut, redShots, blueShots;
+    /** all the fighters' shots, those from a crouch, those with a block that stops bullets just past the gun */
+    int shotsAll, shotsLow, coverShots;
     double redDamage, blueDamage;
     private boolean done;
     // the sounds that reached the AI in the fight: per name, how many, how many loud and made by no mob or player
@@ -460,6 +462,9 @@ final class AiCheckTeams {
             early += bot.prone.shortLies;
             friendHolds += bot.gunner.holds;
             coverHolds += bot.gunner.coverHolds;
+            shotsAll += bot.gunner.shots;
+            shotsLow += bot.gunner.shotsLow;
+            coverShots += bot.gunner.coverShots;
             low += bot.stoop.ticks;
             slides += bot.dash.slides;
             rolls += bot.dash.rolls;
@@ -480,6 +485,8 @@ final class AiCheckTeams {
                 + " slides into cover %d, rolls under fire %d; ticks run in a friend's line of fire %d; confidence: ticks pressing on %d, holding back %d,"
                 + " a fighter's nearest foe %.1f blocks off on average; falling back: ticks %d, falls back %d, a squad's ticks on the way %d, of them covered %d, seen by a foe %d, hit on the way %d, down on the way %d", downs, brief, AiProne.BRIEF, early, AiProne.MIN_LIE, friendHolds, coverHolds, shifts, shifts / minutes,
                 peekRun, low, slides, rolls, runInLine, press, hold, foeDistanceTicks == 0 ? 0 : foeDistance / foeDistanceTicks, fall, backs, backTicks, backCovered, backSeen, backHits, backDowns));
+        check.out(String.format(Locale.ROOT, "     shots %d, from a crouch %d (%.1f%%), with its own cover just past the gun %d", shotsAll, shotsLow,
+                shotsAll == 0 ? 0 : 100.0 * shotsLow / shotsAll, coverShots));
         AiBots.soundTrace = null;
         StringBuilder heard = new StringBuilder("     sounds that reached the AI in the fight (count, loud, loud and made by no mob or player near: distance to the nearest fighter):");
         for (var e : sounds.entrySet()) {
@@ -496,6 +503,8 @@ final class AiCheckTeams {
             check.check("the battle: no looking out from one place more than " + MARK_PEEK_RUN + " times running (" + peekRun + ")", peekRun <= MARK_PEEK_RUN);
             check.check(String.format(Locale.ROOT, "the battle: cover changed %.0f times a fighter a minute at least (%.2f)", MARK_SHIFTS, shifts / minutes),
                     shifts / minutes >= MARK_SHIFTS);
+            check.check("the battle: fires from a crouch where its line is clear (" + shotsLow + " of " + shotsAll + " shots), never into its own cover ("
+                    + coverShots + ")", shotsLow > 0 && coverShots == 0);
         }
         if (loners != null) {
             // the duel's rounds are summed up by AiCheckDuel

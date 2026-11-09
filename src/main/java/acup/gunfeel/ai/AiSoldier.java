@@ -304,6 +304,7 @@ public final class AiSoldier implements AiBrain {
     public void tick(AiBot bot, long tick) {
         crouch = false;
         bot.gunner.blind = false;
+        bot.gunner.low = false;
         decide(bot, tick);
         // sliding or rolling: no shot (pose-contract §4)
         if (bot.dash.on(tick)) bot.gunner.fire(false);
@@ -317,6 +318,8 @@ public final class AiSoldier implements AiBrain {
     private boolean wasReloading;
     /** ticks it rises before a burst over low cover */
     static final int RISE = 5;
+    /** behind low cover: it fires from down low, its line from there clear */
+    private boolean lowFire;
     /** the pause between bursts over low cover (burst) */
     static final int BURST_PAUSE = 20;
 
@@ -364,7 +367,7 @@ public final class AiSoldier implements AiBrain {
     @Override
     public void sleep(AiBot bot, long tick) {
         Mob m = bot.mob;
-        AiPose.set(m, AiPose.of(m).withLean((byte) 0, tick).withArms(AiPose.HOLD));
+        AiPose.set(m, AiPose.of(m).withLean((byte) 0, tick).withArms(AiPose.HOLD).withAlert(AiPose.CALM));
         leanBoxes = AiLean.drop((ServerLevel) m.level(), m, leanBoxes);
     }
 
@@ -795,8 +798,16 @@ public final class AiSoldier implements AiBrain {
                 // pinned down there: it does not rise into the fire, it fires blind over the cover where they were seen
                 if (reload || dist < BLIND_NEAR || !blindFire(bot, level, new Vec3(c.x, c.y + 1.1, c.z), false, tick)) {
                     g.fire(bot.prone.upright(tick) && !reload && burst(bot, tick, false));
-                    // between bursts and through a short reload it keeps low, and rises a moment before the next burst
-                    crouch = reload || g.reloading() || burstUntil != 0 && tick > burstUntil && tick < burstUntil + BURST_PAUSE - RISE;
+                    // where its line of fire from down low is clear (the cover lower than its gun, a gap, none in
+                    // the way) it fires down low, a smaller mark: it takes that between bursts, not halfway through
+                    // one, and leaves it the tick the line is shut
+                    boolean clear = g.clearCrouched(level);
+                    if (!clear) lowFire = false;
+                    else if (burstUntil == 0 || tick > burstUntil) lowFire = true;
+                    g.low = lowFire;
+                    // else between bursts and through a short reload it keeps low, and rises a moment before the next
+                    // burst
+                    crouch = lowFire || reload || g.reloading() || burstUntil != 0 && tick > burstUntil && tick < burstUntil + BURST_PAUSE - RISE;
                 }
             } else g.fire(false);
             if (reload) g.reload();
