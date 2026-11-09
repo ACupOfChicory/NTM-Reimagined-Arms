@@ -93,5 +93,15 @@
   "ntmgunfeel.gun_kind.rocket_launcher": "Ракетница",
   "ntmgunfeel.gun_kind.flamethrower": "Огнемёт / распылитель",
   "ntmgunfeel.gun_kind.energy": "Энергетическое оружие",
-  "ntmgunfeel.gun_kind.special": "Особое"
+  "ntmgunfeel.gun_kind.special": "Особое",
+  "subtitles.ntmgunfeel.ai.voice.contact": "Солдат: контакт",
+  "subtitles.ntmgunfeel.ai.voice.frag_out": "Солдат: бросает гранату",
+  "subtitles.ntmgunfeel.ai.voice.smoke_out": "Солдат: бросает дым",
+  "subtitles.ntmgunfeel.ai.voice.grenade": "Солдат: граната!",
+  "subtitles.ntmgunfeel.ai.voice.reloading": "Солдат: перезаряжается",
+  "subtitles.ntmgunfeel.ai.voice.falling_back": "Солдат: отходит",
+  "subtitles.ntmgunfeel.ai.voice.flanking": "Солдат: обходит",
+  "subtitles.ntmgunfeel.ai.voice.man_down": "Солдат: потеря",
+  "subtitles.ntmgunfeel.ai.voice.moving": "Солдат: меняет позицию",
+  "subtitles.ntmgunfeel.ai.voice.hit": "Солдат: ранен"
 }

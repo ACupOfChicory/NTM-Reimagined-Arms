@@ -93,5 +93,15 @@
   "ntmgunfeel.gun_kind.rocket_launcher": "Rocket launcher",
   "ntmgunfeel.gun_kind.flamethrower": "Flamethrower",
   "ntmgunfeel.gun_kind.energy": "Energy weapon",
-  "ntmgunfeel.gun_kind.special": "Special"
+  "ntmgunfeel.gun_kind.special": "Special",
+  "subtitles.ntmgunfeel.ai.voice.contact": "Soldier: contact",
+  "subtitles.ntmgunfeel.ai.voice.frag_out": "Soldier: frag out",
+  "subtitles.ntmgunfeel.ai.voice.smoke_out": "Soldier: smoke out",
+  "subtitles.ntmgunfeel.ai.voice.grenade": "Soldier: grenade!",
+  "subtitles.ntmgunfeel.ai.voice.reloading": "Soldier: reloading",
+  "subtitles.ntmgunfeel.ai.voice.falling_back": "Soldier: falling back",
+  "subtitles.ntmgunfeel.ai.voice.flanking": "Soldier: flanking",
+  "subtitles.ntmgunfeel.ai.voice.man_down": "Soldier: man down",
+  "subtitles.ntmgunfeel.ai.voice.moving": "Soldier: moving",
+  "subtitles.ntmgunfeel.ai.voice.hit": "Soldier: hit"
 }

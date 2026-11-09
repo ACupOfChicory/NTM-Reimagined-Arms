@@ -464,11 +464,22 @@ public final class AiBots {
         if (!fighter(victim)) return;
         long tick = level.getGameTime();
         double r2 = AiConfidence.NEAR * AiConfidence.NEAR;
+        AiBot nearest = null;
+        double best = Double.MAX_VALUE;
         for (AiBot b : l.bots.values()) {
             Mob m = b.mob;
-            if (m == victim || !m.isAlive() || m.distanceToSqr(victim) > r2) continue;
-            b.confidence.add(AiTeams.own(m, victim) ? -AiConfidence.FRIEND_DOWN : AiConfidence.FOE_DOWN, tick);
+            if (m == victim || !m.isAlive()) continue;
+            double d2 = m.distanceToSqr(victim);
+            if (d2 > r2) continue;
+            boolean own = AiTeams.own(m, victim);
+            b.confidence.add(own ? -AiConfidence.FRIEND_DOWN : AiConfidence.FOE_DOWN, tick);
+            if (own && d2 < best) {
+                best = d2;
+                nearest = b;
+            }
         }
+        // the nearest of its side calls it out
+        if (nearest != null) AiVoice.say(level, nearest, AiVoice.Line.MAN_DOWN, tick);
     }
 
     /** one that fights: an AI mob, a player, a stand's target (not a cow) */

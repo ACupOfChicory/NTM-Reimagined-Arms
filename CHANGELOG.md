@@ -1,5 +1,30 @@
 # Changelog
 
+## X828
+
+- AI mobs call out what they do: "Contact!" on a new enemy, "Frag out!" and
+  "Smoke out!" on a throw, "Grenade!" on one coming, "Reloading!",
+  "Falling back!", "Flanking!", "Moving!" on a run to new cover, "I'm hit!",
+  and "Man down!" from the nearest of a fallen mob's side. Each line has two
+  takes, over a radio, in one of three men's voices; a mob keeps its own
+  voice, a little higher or lower than the next. Not too often: a mob speaks
+  at most once in 4 seconds, no one within 8 blocks of one who spoke in the
+  last 1.5 seconds, and the same line not again within 16 blocks for 10 seconds;
+  "Frag out!", "Grenade!" and "Man down!" are said over the first two, and
+  again near after 3 seconds; and a squad says two lines a second at most. Heard up to 32 blocks, as
+  the game's voice sounds (the Voice/Speech slider); AI mobs do not hear
+  them. New server key `aiVoices` (on); new client settings `aiVoice` (on)
+  and `aiVoiceVolume` (1). The lines were made with the Kokoro-82M speech
+  model (Apache 2.0, see `third-party/ai-voices.txt`).
+- An AI mob down behind its cover after a near grenade throw no longer gets
+  up and runs, when shot or with an enemy in sight within 6 blocks, once its
+  grenade is less than 2 seconds from going off: it could not get out of the
+  blast by then, and took some of it.
+- An AI mob throws a near grenade only from where its cover keeps all of it
+  off the blast as NTM works it out: from the burst and from the points a
+  block round it the blast reaches out from, and with its head and feet
+  either way it may lie. Lying at a wall's end it took some of its own blast.
+
 ## X827
 
 - A damage cap against players: one click of a gun takes at most 60 % of a

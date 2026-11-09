@@ -47,4 +47,13 @@ class AiGrenadesShieldTest {
         // in the open
         assertFalse(AiGrenades.shielded((x, y, z) -> y < 64 ? STONE : Voxel.OPEN, 0.5, 64, 0.5, LIE, new Vec3(8.5, 64, 0.5)));
     }
+
+    @Test
+    void lyingAtTheWallsEndItsHeadOrFeetMayBeOut() {
+        // its box behind the wall's last block (z 3 to 4), its body lying either way: across the burst's way its head
+        // or feet reach past the wall's end, in sight of the burst and of NTM's nodes beside it
+        assertFalse(AiGrenades.shielded(wall(1, STONE), 0.5, 64, 3.5, LIE, new Vec3(8.5, 64, 3.5)));
+        // two blocks in from the end it is hidden
+        assertTrue(AiGrenades.shielded(wall(1, STONE), 0.5, 64, 1.5, LIE, new Vec3(8.5, 64, 1.5)));
+    }
 }
