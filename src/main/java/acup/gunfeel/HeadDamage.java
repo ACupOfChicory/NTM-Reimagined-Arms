@@ -47,7 +47,8 @@ public final class HeadDamage {
     }
     /** an MK4 bullet's damage on {@code target} before the armour; its part's multiplier: {@link #multiplier} */
     public static float base(EntityBulletBaseMK4 bullet,LivingEntity target,HitResult impact,float original) {
-        var hit=hit(target,impact);LAST.set(new Last(new WeakReference<>(bullet),target.getUUID(),hit));
+        // a player's bullet: the part its client saw it hit (ClientHits)
+        var hit=ClientHits.part(bullet,target);if(hit==null)hit=hit(target,impact);LAST.set(new Last(new WeakReference<>(bullet),target.getUUID(),hit));
         return hit.applied()?bullet.damage:original;
     }
     /** the multiplier of the part the last {@link #base} or {@link #beamMultiplier} found */

@@ -22,9 +22,22 @@ import net.neoforged.neoforge.network.PacketDistributor;
 // Server: explosive bullets shatter glass; bullets fly faster (bulletSpeed in ntm-gunfeel-server.properties, TaCZ-like) and every new bullet is
 // announced to the players around, who draw its tracer and hole themselves.
 @Mixin(value = EntityBulletBaseMK4.class, remap = false)
-public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Holder {
+public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Holder, acup.gunfeel.ClientHits.Holder, acup.gunfeel.ClientHits.MotionMult {
     @Unique
     private final acup.gunfeel.PierceSteps gunfeel$steps = new acup.gunfeel.PierceSteps();
+    // its hits as its shooter's client saw them (ClientHits)
+    @Unique
+    private final acup.gunfeel.ClientHits.State gunfeel$hits = new acup.gunfeel.ClientHits.State();
+
+    @Override
+    public acup.gunfeel.ClientHits.State gunfeel$hits() {
+        return gunfeel$hits;
+    }
+
+    @Override
+    public double gunfeel$motionMult() {
+        return motionMult();
+    }
 
     @Override
     public acup.gunfeel.PierceSteps gunfeel$steps() {
@@ -48,6 +61,14 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
         // a stopped explosive sinking moves its own path a tick (WaterTick.sink)
         if (acup.gunfeel.water.WaterBullet.stopped((EntityBulletBaseMK4) (Object) this)) return mult;
         return config != null && config.velocity >= 5F ? mult * ReaimTimes.number("bulletSpeed", 1.6F) : mult;
+    }
+
+    // the blast stand (BlastStand): the block a player's bullet stopped in
+    @Inject(method = "onImpact", at = @At("HEAD"))
+    private void gunfeel$standBlock(net.minecraft.world.phys.HitResult mop, CallbackInfo ci) {
+        if (acup.gunfeel.ClientHits.standLog && mop instanceof net.minecraft.world.phys.BlockHitResult hit
+                && hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK)
+            acup.gunfeel.ClientHits.standBlock((EntityBulletBaseMK4) (Object) this, hit.getBlockPos());
     }
 
     // a bullet that blows up where it hits (explosive buckshot) breaks the glass it hits, as a plain bullet does (NTM
@@ -116,6 +137,8 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
         // the damage the bullet has where the creature is, not after the blocks behind it
         if (!self.level().isClientSide() && mop instanceof net.minecraft.world.phys.EntityHitResult && mop.getLocation() != null)
             gunfeel$steps.enter(self, mop.getLocation());
+        // the client's hit this is: its part (HeadDamage); the mob is hit once by this bullet
+        if (!self.level().isClientSide() && mop instanceof net.minecraft.world.phys.EntityHitResult hit) acup.gunfeel.ClientHits.impact(self, hit.getEntity());
         // water: what is left of the damage where the creature is, × f² (WaterTick); undone after the hit
         gunfeel$waterK = !self.level().isClientSide() && mop instanceof net.minecraft.world.phys.EntityHitResult
                 ? acup.gunfeel.water.WaterTick.k(self, mop.getLocation()) : 1F;
@@ -139,6 +162,7 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
                     new acup.gunfeel.BulletStopPayload(self.getId(),Math.max(0,self.ticksInAir-1)+fraction,e.getLocation()));
         }
         acup.gunfeel.BulletServer.entityHit(self, e.getEntity(), e.getLocation(), gunfeel$targetAlive, gunfeel$damageBefore, gunfeel$healthBefore);
+        acup.gunfeel.ClientHits.impactEnd(self);
     }
 
     // the blocks still owed after the creatures this tick were hit (PierceSteps)
@@ -146,13 +170,25 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
     private void gunfeel$pierceOwed(CallbackInfo ci) {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
         if (!self.level().isClientSide()) gunfeel$steps.finish(self);
+        acup.gunfeel.ClientHits.tickEnd(self);
         // the path it flew this tick stirs the gas it went through
         if (self.level() instanceof ServerLevel server && gunfeel$tickStart != null) acup.gunfeel.gas.GasStir.bullet(server, gunfeel$tickStart, self.position());
     }
 
-    @Inject(method = "tick", at = @At("HEAD"))
-    private void gunfeel$announce(CallbackInfo ci) {
+    // announced first, then a player's bullet near mobs waits for its client's report of this tick's path (ClientHits):
+    // the tick is not run, and does not count toward the bullet's life
+    @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
+    private void gunfeel$announceOrWait(CallbackInfo ci) {
         EntityBulletBaseMK4 self = (EntityBulletBaseMK4) (Object) this;
+        gunfeel$announce(self);
+        if (!self.level().isClientSide() && acup.gunfeel.ClientHits.hold(self)) {
+            ((Entity) self).tickCount--;
+            ci.cancel();
+        }
+    }
+
+    @Unique
+    private void gunfeel$announce(EntityBulletBaseMK4 self) {
         gunfeel$tickStart=self.position();
         // the test log's lines during this bullet's tick (its hits, breaking, ricochets) are this bullet's
         if (acup.gunfeel.TestLog.server && !self.level().isClientSide()) acup.gunfeel.TestLog.shot(self.getId());
@@ -172,6 +208,7 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
                 (float) v.x, (float) v.y, (float) v.z, (float) (config.gravity * mult), config.expires, self.damage,
                 eye == null ? Double.NaN : eye.x, eye == null ? Double.NaN : eye.y, eye == null ? Double.NaN : eye.z, self.getId());
         PacketDistributor.sendToPlayersNear(server, null, self.getX(), self.getY(), self.getZ(), 256.0, p);
+        acup.gunfeel.ClientHits.announced(self);
         if (acup.gunfeel.TestLog.server) acup.gunfeel.TestLog.s(self.getId(), "fire", "ammo", config.id, "owner", owner == null ? -1 : owner.getId(),
                 "gun", owner instanceof LivingEntity le ? net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(le.getMainHandItem().getItem()) : "-",
                 "at", self.position(), "v", v, "damage", self.damage, "speedMult", ReaimTimes.number("bulletSpeed", 1.6F),

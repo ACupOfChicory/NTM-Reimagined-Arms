@@ -300,6 +300,12 @@ final class BlastStand {
                 crowd.add(m);
                 homes.add(h);
             }
+            // behind the crowd a stone wall, and in front of its left half a row of wool: where the bullets past the
+            // crowd go through, stop and leave their holes
+            for (int x = -12; x <= 12; x++) for (int y = 0; y <= 6; y++) {
+                level.setBlock(O.offset(x, y, 21), Blocks.STONE.defaultBlockState(), 3);
+                if (x <= 0) level.setBlock(O.offset(x, y, 19), BuiltInRegistries.BLOCK.getValue(Identifier.withDefaultNamespace("white_wool")).defaultBlockState(), 3);
+            }
             var p = level.getServer().getPlayerList().getPlayers().getFirst();
             Vec3 eye = new Vec3(A.x, A.y + 1.62, A.z - 10);
             Vec3 mid = new Vec3(A.x, A.y + 1.2, A.z + 3.75);
@@ -333,9 +339,48 @@ final class BlastStand {
                 shoot(mv, md);
             }));
         }
+        // the same with the player's bullets: what the client saw them hit is what the server took (ClientHits)
+        List<String> bullets = new ArrayList<>();
+        for (Moves mv : Moves.values()) {
+            PLAN.add(new Step(1, () -> {
+                ModelHits.standOldVelocity = false;
+                hitTick = 0;
+                int t = (int) level().getGameTime();
+                for (Mob m : crowd) {
+                    byte stance = mv == Moves.CRAWL ? AiPose.PRONE : AiPose.STAND;
+                    byte lean = mv == Moves.LEAN ? (byte) 70 : 0;
+                    m.setData(AiPose.Sync.TYPE, new AiPose(stance, lean, lean, t - 40, AiPose.HOLD, AiPose.NONE, 0, (short) 0));
+                    m.setPose(mv == Moves.CRAWL ? Pose.SWIMMING : Pose.STANDING);
+                }
+            }));
+            // the first shots unlogged (the client's first tracers and holes take it a moment), then a pause
+            for (int t = 0; t < 60; t++) {
+                boolean warm = t >= 30 && t < 45;
+                PLAN.add(new Step(1, () -> {
+                    move(mv);
+                    if (warm) fire();
+                }));
+            }
+            PLAN.add(new Step(1, () -> {
+                move(mv);
+                standLog(true);
+            }));
+            for (int t = 0; t < 100; t++) PLAN.add(new Step(1, () -> {
+                move(mv);
+                fire();
+            }));
+            // the last bullets land, then both sides' counts
+            for (int t = 0; t < 40; t++) PLAN.add(new Step(1, () -> move(mv)));
+            PLAN.add(new Step(1, () -> mc().execute(() -> bullets.add(compare(mv)))));
+        }
         PLAN.add(new Step(1, () -> {
+            standLog(false);
             ModelHits.standOldVelocity = false;
             hitMoves = null;
+            lines.add("строка\tдвижение\tпуль\tпопаданий клиента\tпопаданий сервера\tсовпало\tдоля\tпо позам сервера\tпуль у блоков\tблоки совпали\tдоля блоков");
+            lines.addAll(bullets);
+            lines.add(String.format(Locale.ROOT, "# заявки: взято %d, отклонено %d, поздно %d; тиков ожидания %d, по позам сервера %d",
+                    ClientHits.taken, ClientHits.refused, ClientHits.late, ClientHits.held, ClientHits.timedOut));
             lines.add("строка\tдвижение\tскорость позы\tброня\tчасть\tвыстрелов\tпопаданий\tдоля");
             int after = 0, all = 0;
             for (Moves mv : Moves.values()) for (int md = 0; md < 2; md++) {
@@ -430,6 +475,8 @@ final class BlastStand {
             m.setYBodyRot(180F);
             m.setOnGround(ground);
             m.setDeltaMovement(vx, vy, vz);
+            // the crowd never dies of the shots (a dead mob's hits the server refuses)
+            m.setHealth(m.getMaxHealth());
         }
     }
 
@@ -481,6 +528,104 @@ final class BlastStand {
                 if (hit) HIT_HITS[mv.ordinal()][mode][i % 4][j]++;
             }
         }
+    }
+
+    /** the bullets fired in this phase, by their ids */
+    private static final java.util.Set<Integer> FIRED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    private static void standLog(boolean on) {
+        ClientHits.STAND_LOG.clear();
+        ClientHits.STAND_BLOCKS.clear();
+        FIRED.clear();
+        ClientHits.standLog = on;
+        mc().execute(() -> {
+            HitReports.STAND_LOG.clear();
+            HitReports.standLog = on;
+            Tracers.standHoles = on ? new java.util.HashMap<>() : null;
+        });
+    }
+
+    /**
+     * six of the crowd a tick, each at its head, body, arm and leg where the client draws them, and one past its side
+     * (through the crowd's gaps to the wool and the wall): a carbine round each
+     */
+    private static void fire() {
+        ServerLevel level = level();
+        var p = level.getServer().getPlayerList().getPlayers().getFirst();
+        Vec3 eye = p.getEyePosition();
+        var client = mc().level;
+        var round = BotStandHits.carbine();
+        for (int k = 0; k < 6; k++) {
+            int i = (hitTick * 6 + k) % crowd.size();
+            Mob m = crowd.get(i);
+            var boxes = ModelHits.worldBoxes(m);
+            var drawn = client == null ? null : client.getEntity(m.getId());
+            if (boxes.isEmpty() || drawn == null) continue;
+            Vec3 shift = drawn.position().subtract(m.position());
+            for (int j = 0; j <= HIT_PARTS.length; j++) {
+                Vec3 aim = BotStandHits.centre(boxes, HIT_PARTS[j == HIT_PARTS.length ? 1 : j][1]);
+                if (aim == null) continue;
+                if (j == HIT_PARTS.length) aim = aim.add(0.75, 0, 0);
+                Vec3 d = aim.add(shift).subtract(eye).normalize();
+                var b = new EntityBulletBaseMK4(level, p, round.config(), round.damage(), -round.config().spread, eye.x, eye.y, eye.z, d.x, d.y, d.z);
+                level.addFreshEntity(b);
+                FIRED.add(b.getId());
+            }
+        }
+    }
+
+    /** on the client thread: the client's hits against the server's, and each bullet's blocks on both sides */
+    private static String compare(Moves mv) {
+        java.util.Set<List<Integer>> client = new java.util.HashSet<>(), server = new java.util.HashSet<>();
+        for (int[] h : HitReports.STAND_LOG) client.add(List.of(h[0], h[1], h[2]));
+        int byServer = 0;
+        synchronized (ClientHits.STAND_LOG) {
+            for (int[] h : ClientHits.STAND_LOG) {
+                if (h[2] < 0) byServer++;
+                server.add(List.of(h[0], h[1], h[2]));
+            }
+        }
+        java.util.Set<List<Integer>> same = new java.util.HashSet<>(client);
+        same.retainAll(server);
+        int blocks = 0, blocksSame = 0;
+        var holes = Tracers.standHoles == null ? java.util.Map.<Integer, java.util.Set<net.minecraft.core.BlockPos>>of() : Tracers.standHoles;
+        for (int id : FIRED) {
+            var a = ClientHits.STAND_BLOCKS.getOrDefault(id, java.util.Set.of());
+            var c = holes.getOrDefault(id, java.util.Set.of());
+            if (a.isEmpty() && c.isEmpty()) continue;
+            blocks++;
+            if (a.equals(c)) blocksSame++;
+        }
+        int most = Math.max(client.size(), server.size()), shown = 0;
+        for (int id : FIRED) {
+            var a = ClientHits.STAND_BLOCKS.getOrDefault(id, java.util.Set.of());
+            var c = holes.getOrDefault(id, java.util.Set.of());
+            if (!a.equals(c) && shown++ < 5) GunFeel.LOGGER.info("[client-hits] bullet {} server blocks {} client holes {}", id, a, c);
+        }
+        int odd = 0;
+        for (var c : client) if (!server.contains(c) && odd++ < 6) {
+            var e = mc().level.getEntity(c.get(1));
+            List<List<Integer>> there = new ArrayList<>();
+            for (var v : server) if (v.get(0).equals(c.get(0))) there.add(v);
+            GunFeel.LOGGER.info("[client-hits] client only {} ({}) server has {} blocks {}", c, e == null ? "none" : e.getType() + " " + e.position(), there,
+                    ClientHits.STAND_BLOCKS.get(c.get(0)));
+        }
+        for (var v : server) if (!client.contains(v) && odd++ < 10) GunFeel.LOGGER.info("[client-hits] server only {}", v);
+        GunFeel.LOGGER.info("[client-hits] {} timeouts so far {} held {}", mv.name, ClientHits.timedOut, ClientHits.held);
+        GunFeel.LOGGER.info("[client-hits] {} refused {} holes keys {} fired sample {}", mv.name, ClientHits.WHY, holes.keySet().stream().limit(5).toList(),
+                FIRED.stream().limit(5).toList());
+        ClientHits.WHY.clear();
+        String row = String.format(Locale.ROOT, "пули\t%s\t%d\t%d\t%d\t%d\t%.4f\t%d\t%d\t%d\t%.4f", mv.name, FIRED.size(), client.size(), server.size(),
+                same.size(), most == 0 ? 0 : same.size() / (double) most, byServer, blocks, blocksSame, blocks == 0 ? 0 : blocksSame / (double) blocks);
+        // the blocks: a bullet grazing the floor may bounce on the client (its tracer's ricochet) where the server's stops
+        ClientSmoke.check(most > 0 && same.size() >= 0.99 * most && (blocks == 0 || blocksSame >= 0.9 * blocks), "пули " + mv.name + ": " + row);
+        // the next phase's counts start from nothing
+        HitReports.STAND_LOG.clear();
+        if (Tracers.standHoles != null) Tracers.standHoles.clear();
+        ClientHits.STAND_LOG.clear();
+        ClientHits.STAND_BLOCKS.clear();
+        FIRED.clear();
+        return row;
     }
 
     private static ServerLevel level() {

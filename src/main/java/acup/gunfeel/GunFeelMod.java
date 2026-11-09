@@ -134,6 +134,7 @@ public final class GunFeelMod {
             if (dist.isClient()) {
                 r.playToClient(ShotPayload.TYPE, ShotPayload.CODEC, (p, ctx) -> {
                     if (Feature.TRACERS.on()) Tracers.handle(p, ctx);
+                    else HitReports.untracked(p);
                 });
                 r.playToClient(BulletStopPayload.TYPE,BulletStopPayload.CODEC,(p,ctx)->ctx.enqueueWork(()->Tracers.stop(p)));
                 r.playToClient(HelloPayload.TYPE, HelloPayload.CODEC, (p, ctx) -> CompatClient.hello(p));
@@ -185,6 +186,9 @@ public final class GunFeelMod {
             r.playToServer(acup.gunfeel.gl54.Gl54OffsetPayload.TYPE, acup.gunfeel.gl54.Gl54OffsetPayload.CODEC, (p, ctx) -> {
                 if (Feature.GL54.on() && ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp && !acup.gunfeel.SpectatorGuns.blocks(sp))
                     ctx.enqueueWork(() -> acup.gunfeel.gl54.Gl54Range.shift(sp, p.delta()));
+            });
+            r.playToServer(HitReportPayload.TYPE, HitReportPayload.CODEC, (p, ctx) -> {
+                if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) ctx.enqueueWork(() -> ClientHits.receive(sp, p));
             });
             r.playToServer(ModelPosePayload.TYPE, ModelPosePayload.CODEC, (p, ctx) -> {
                 if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) ModelHits.receive(sp, p);

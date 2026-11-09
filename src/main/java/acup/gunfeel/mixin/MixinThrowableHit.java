@@ -85,6 +85,8 @@ public abstract class MixinThrowableHit {
             target = "Lnet/minecraft/world/level/Level;getEntities(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/AABB;)Ljava/util/List;"))
     private java.util.List<net.minecraft.world.entity.Entity> gunfeel$modelCandidates(Level level, net.minecraft.world.entity.Entity except, AABB area) {
         var list = level.getEntities(except, area);
+        // a player's bullet: the mobs its client hit too, wherever they are here (ClientHits)
+        if (acup.gunfeel.ClientHits.decides(this)) list = acup.gunfeel.ClientHits.candidates((EntityBulletBaseMK4) (Object) this, list);
         LivingEntity shooter = gunfeel$inShooter();
         if (shooter == null) return acup.gunfeel.ModelHits.candidates(level, except, list, area, e -> true);
         list = new java.util.ArrayList<>(list);
@@ -96,6 +98,9 @@ public abstract class MixinThrowableHit {
             target = "Lnet/minecraft/world/phys/AABB;clip(Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;)Ljava/util/Optional;"))
     private Optional<Vec3> gunfeel$clip(AABB box, Vec3 from, Vec3 to) {
         if (!((Object) this instanceof EntityBulletBaseMK4)) return box.clip(from, to);
+        // a player's bullet meets a mob or player where its client saw it do so, and no other (ClientHits)
+        if (box instanceof acup.gunfeel.ModelAABB model && acup.gunfeel.ClientHits.decides(this))
+            return acup.gunfeel.ClientHits.clip((EntityBulletBaseMK4) (Object) this, model.entity());
         // not past where water stopped or turned the bullet
         to = acup.gunfeel.water.WaterTick.mobsTo((EntityBulletBaseMK4) (Object) this, to);
         Vec3 start = gunfeel$start(from);
@@ -125,6 +130,8 @@ public abstract class MixinThrowableHit {
             // blocks it pierced (bullet rules "pierce"), kept between ticks: one it stopped inside of is not paid twice
             if (gunfeel$pierced == null) gunfeel$pierced = new java.util.HashSet<>();
             hit = acup.gunfeel.BulletServer.clip(bullet, level, context.getFrom(), to, gunfeel$pierced);
+            // the blast stand: the blocks a player's bullet went through
+            if (acup.gunfeel.ClientHits.standLog) for (var pos : gunfeel$pierced) acup.gunfeel.ClientHits.standPierced(bullet, pos, context.getFrom());
         }
         return acup.gunfeel.water.WaterTick.blocks(bullet, hit);
     }
