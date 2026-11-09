@@ -87,6 +87,10 @@ page. They are alphas: expect bugs and back up your world.
   with a rating per set: a hit far under the rating loses most of itself, one
   far over it gets nearly all through, and none is ever stopped to 0. A piece
   alone protects its share of the body.
+- Armour sets' abilities fit their tier: Speed, Jump Boost and Strength are
+  capped by the set's tier, bismuth is a tier 6 set, and VATS and thermal
+  vision show no players (FAU and DNS thermal: the ones in sight within 16
+  blocks).
 - Guns' damage by gun and ammo (the balance's table, one line a pair, which a
   server can replace with its own file): each pair's shot does NTM's damage
   times its multiplier. A few guns change: Heretic is a semi-automatic
@@ -307,6 +311,11 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balanceRoflFloor` | `0.18` | The least share of a hit starmetal and the dineutronium ingot set leave |
 | `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's); off: NTM's damage and guns |
 | `balanceRecipes` | `true` | The balance's recipes for the diesel suit, Tesla Cannon, Lasrifle and Tau; off: NTM's (after `/reload` or a restart) |
+| `abilities.mobilityCap` | `true` | A full set's Speed and Jump Boost by its tier: up to tier 6 II and I at most, from tier 7 III and II |
+| `abilities.strengthCap` | `2` | A full set's Strength at most this level; `0`: NTM's |
+| `abilities.bismuth` | `true` | Bismuth as a tier 6 set: Speed III, Jump Boost II, Regeneration I, night vision, two dashes; off: NTM's |
+| `abilities.esp.players` | `tier8` | VATS and the sets' thermal vision show no players, FAU and DNS thermal the ones they see within the range; `off`: none; `all`: NTM's |
+| `abilities.esp.playerRange` | `16` | How far FAU and DNS thermal vision shows players |
 | `spectatorNoGuns` | `true` | Spectators cannot use NTM's guns |
 | `smoke` | `true` | Smoke clouds |
 | `smokeBlocksMobSight` | `false` | Mobs lose a target behind thick smoke |

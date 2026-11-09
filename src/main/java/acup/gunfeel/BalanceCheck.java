@@ -272,6 +272,7 @@ public final class BalanceCheck {
     }
 
     private static void plan() {
+        planAbilities();
         planRecipes();
         LINES.add("#\tрежим\tнабор\tпушка\tкликов до смерти\tснято первым кликом\tударов\tD за удар\tNTM за удар\tC за удар\tмодель: за удар / кликов");
         for (String mode : MODES) {
@@ -282,6 +283,79 @@ public final class BalanceCheck {
             rocket(mode);
         }
         plan1b();
+    }
+
+    // ---------------------------------------------------------------- stage 1g: the sets' abilities
+
+    /** a set: its items' name, NTM's effect levels and the balance's (balance-by-progression.md 6.3-6.5), its dashes */
+    private record Ab(String set, String ntm, String balance, int dashesNtm, int dashes) {
+    }
+
+    private static final List<Ab> ABILITIES = List.of(
+            new Ab("dieselsuit", "jump_boost 3, speed 3", "jump_boost 1, speed 2", 0, 0),
+            new Ab("taurun", "strength 1", "strength 1", 0, 0),
+            new Ab("t51", "strength 1", "strength 1", 0, 0),
+            new Ab("steamsuit", "haste 5", "haste 5", 0, 0),
+            new Ab("hev", "jump_boost 1, speed 2", "jump_boost 1, speed 2", 0, 0),
+            new Ab("envsuit", "jump_boost 1, speed 2", "jump_boost 1, speed 2", 0, 0),
+            new Ab("ajr", "jump_boost 1, strength 1", "jump_boost 1, strength 1", 0, 0),
+            new Ab("ajro", "jump_boost 1, strength 1", "jump_boost 1, strength 1", 0, 0),
+            new Ab("trenchmaster", "haste 2, jump_boost 2, speed 1, strength 3", "haste 2, jump_boost 1, speed 1, strength 2", 0, 0),
+            new Ab("bj", "jump_boost 1, speed 2", "jump_boost 1, speed 2", 0, 0),
+            new Ab("ncrpa", "strength 4", "strength 2", 0, 0),
+            new Ab("bismuth", "jump_boost 7, night_vision 1, regeneration 2, speed 7", "jump_boost 2, night_vision 1, regeneration 1, speed 3", 3, 2),
+            new Ab("schrabidium", "haste 3, jump_boost 2, speed 3, strength 3", "haste 3, jump_boost 2, speed 3, strength 2", 0, 0),
+            new Ab("cmb", "haste 3, speed 3, strength 5", "haste 3, speed 3, strength 2", 0, 0),
+            new Ab("rpa", "strength 4", "strength 2", 0, 0),
+            new Ab("fau", "jump_boost 2", "jump_boost 2", 0, 0),
+            new Ab("dns", "haste 8, jump_boost 3, strength 10", "haste 8, jump_boost 2, strength 2", 0, 0),
+            new Ab("euphemium", "fire_resistance 128, haste 128, regeneration 128, resistance 128", "fire_resistance 128, haste 128, regeneration 128, resistance 128", 0, 0),
+            new Ab("steel", "", "", 0, 0));
+
+    private static void planAbilities() {
+        LINES.add("#\t--- этап 1г: способности наборов (уровни эффектов полного набора, рывки)");
+        for (boolean on : new boolean[] {true, false}) {
+            STEPS.add(() -> keys("abilities.mobilityCap", Boolean.toString(on), "abilities.strengthCap", on ? "2" : "0", "abilities.bismuth", Boolean.toString(on)));
+            wait(30);
+            for (Ab a : ABILITIES) STEPS.add(() -> abilities(a, on));
+            STEPS.add(() -> {
+                for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
+                target.removeAllEffects();
+            });
+        }
+        // the rest of the stand with the shipped abilities
+        STEPS.add(() -> keys("abilities.mobilityCap", "true", "abilities.strengthCap", "2", "abilities.bismuth", "true"));
+    }
+
+    private static java.lang.reflect.Method activeBonus, applyEffects;
+
+    private static void abilities(Ab a, boolean on) {
+        try {
+            if (activeBonus == null) {
+                activeBonus = com.hbm.items.armor.ArmorSuitEffects.class.getDeclaredMethod("activeBonus", net.minecraft.server.level.ServerPlayer.class);
+                applyEffects = com.hbm.items.armor.ArmorSuitEffects.class.getDeclaredMethod("applyEffects", net.minecraft.server.level.ServerPlayer.class, com.hbm.items.armor.ArmorFullSetBonus.class);
+                activeBonus.setAccessible(true);
+                applyEffects.setAccessible(true);
+            }
+            target.removeAllEffects();
+            dress(target, a.set(), true);
+            // what NTM's tick does for a player in a full set
+            Object bonus = activeBonus.invoke(null, target);
+            if (bonus != null) applyEffects.invoke(null, target, bonus);
+            com.hbm.items.armor.ArmorDash.tick(target, 0F, 0F);
+            java.util.TreeMap<String, Integer> got = new java.util.TreeMap<>();
+            for (var e : target.getActiveEffects()) got.put(BuiltInRegistries.MOB_EFFECT.getKey(e.getEffect().value()).getPath(), e.getAmplifier() + 1);
+            StringBuilder s = new StringBuilder();
+            got.forEach((k, v) -> s.append(s.isEmpty() ? "" : ", ").append(k).append(' ').append(v));
+            int dashes = com.hbm.extprop.HbmPlayerProps.getData(target).dashCount;
+            String want = on ? a.balance() : a.ntm();
+            int wantDashes = on ? a.dashes() : a.dashesNtm();
+            check(s.toString().equals(want) && dashes == wantDashes && (bonus != null || a.ntm().isEmpty()),
+                    "1г: " + (on ? "баланс" : "NTM") + " " + a.set() + ": " + (s.isEmpty() ? "нет эффектов" : s) + (dashes > 0 ? ", рывков " + dashes : "")
+                            + (s.toString().equals(want) ? "" : " (ждали " + want + ")") + (dashes == wantDashes ? "" : " (рывков ждали " + wantDashes + ")"));
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     // ---------------------------------------------------------------- stage 1b: the guns' damage

@@ -129,6 +129,9 @@ ARMS method com/hbm/render/loader/HFRWavefrontObject smoothing ()Z
 ARMS method com/hbm/util/GameTime now ()J
 BALANCE class com/hbm/entity/projectile/EntityBulletBaseMK4
 BALANCE class com/hbm/entity/projectile/EntityBulletBeamBase
+BALANCE class com/hbm/items/armor/ArmorFullSetBonus
+BALANCE class com/hbm/items/armor/ArmorFullSetBonus$EffectBonus
+BALANCE class com/hbm/items/armor/ModArmorItem$Suit
 BALANCE class com/hbm/items/weapon/sedna/BulletConfig
 BALANCE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 BALANCE class com/hbm/items/weapon/sedna/mags/IMagazine
@@ -144,6 +147,12 @@ BALANCE field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase capacity I
 BALANCE field com/hbm/lib/ModDamageTypes DIGAMMA Lnet/minecraft/resources/ResourceKey;
 BALANCE field com/hbm/lib/ModDamageTypes NUCLEAR_BLAST Lnet/minecraft/resources/ResourceKey;
 BALANCE field com/hbm/lib/ModDamageTypes RADIATION Lnet/minecraft/resources/ResourceKey;
+BALANCE method com/hbm/items/armor/ArmorFullSetBonus get (Lcom/hbm/items/armor/ModArmorItem$Suit;)Lcom/hbm/items/armor/ArmorFullSetBonus;
+BALANCE method com/hbm/items/armor/ArmorFullSetBonus$EffectBonus <init> (Lnet/minecraft/core/Holder;I)V
+BALANCE method com/hbm/items/armor/ArmorFullSetBonus$EffectBonus amplifier ()I
+BALANCE method com/hbm/items/armor/ArmorFullSetBonus$EffectBonus effect ()Lnet/minecraft/core/Holder;
+BALANCE method com/hbm/items/armor/ModArmorItem$Suit name ()Ljava/lang/String;
+BALANCE method com/hbm/items/armor/ModArmorItem$Suit values ()[Lcom/hbm/items/armor/ModArmorItem$Suit;
 BALANCE method com/hbm/items/weapon/sedna/BulletConfig ammoStack ()Lnet/minecraft/world/item/ItemStack;
 BALANCE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
 BALANCE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
@@ -276,6 +285,8 @@ CORE class com/hbm/explosion/vanillant/standard/ExplosionEffectTiny
 CORE class com/hbm/explosion/vanillant/standard/PlayerProcessorStandard
 CORE class com/hbm/handler/HbmKeybinds$EnumKeybind
 CORE class com/hbm/hazard/HazardClass
+CORE class com/hbm/items/armor/ArmorFullSetBonus
+CORE class com/hbm/items/armor/ArmorSuitEffects
 CORE class com/hbm/items/armor/ModArmorItem
 CORE class com/hbm/items/armor/ModArmorItemPowered
 CORE class com/hbm/items/weapon/sedna/BulletConfig
@@ -301,6 +312,7 @@ CORE field com/hbm/explosion/vanillant/ExplosionVNT size F
 CORE field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/level/Level;
 CORE field com/hbm/extprop/HbmLivingProps fire I
 CORE field com/hbm/extprop/HbmLivingProps phosphorus I
+CORE field com/hbm/extprop/HbmPlayerProps dashCount I
 CORE field com/hbm/extprop/HbmPlayerProps maxShield F
 CORE field com/hbm/extprop/HbmPlayerProps shield F
 CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
@@ -473,6 +485,7 @@ CORE method com/hbm/handler/ArmorUtil damageGasMaskFilter (Lnet/minecraft/world/
 CORE method com/hbm/handler/ArmorUtil getGasMaskFilter (Lnet/minecraft/world/item/ItemInstance;)Lnet/minecraft/world/item/ItemStack;
 CORE method com/hbm/handler/ArmorUtil installGasMaskFilter (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemStack;)V
 CORE method com/hbm/handler/EquipmentProtections isMask (Lnet/minecraft/world/item/ItemInstance;)Z
+CORE method com/hbm/items/armor/ArmorDash tick (Lnet/minecraft/world/entity/player/Player;FF)V
 CORE method com/hbm/items/armor/ModArmorItem isPowered ()Z
 CORE method com/hbm/items/armor/ModArmorItem maxPower (Lnet/minecraft/world/item/ItemStack;)J
 CORE method com/hbm/items/armor/ModArmorItem setCharge (Lnet/minecraft/world/item/ItemStack;J)V
