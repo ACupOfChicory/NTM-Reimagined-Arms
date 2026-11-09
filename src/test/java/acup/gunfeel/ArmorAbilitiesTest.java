@@ -85,6 +85,10 @@ class ArmorAbilitiesTest {
         assertFalse(ArmorAbilities.thermalShows("tier8", 3, 5, 16, true));
         assertFalse(ArmorAbilities.thermalShows("off", 8, 5, 16, true));
         assertTrue(ArmorAbilities.thermalShows("all", 3, 60, 16, false));
+        // AMAT Penance's thermal sight: as a tier 8 set
+        assertTrue(ArmorAbilities.thermalShows("tier8", ArmorAbilities.GUN_SIGHT_TIER, 15.9, 16, true));
+        assertFalse(ArmorAbilities.thermalShows("tier8", ArmorAbilities.GUN_SIGHT_TIER, 40, 16, true));
+        assertFalse(ArmorAbilities.thermalShows("tier8", ArmorAbilities.GUN_SIGHT_TIER, 5, 16, false));
         assertFalse(ArmorAbilities.vatsShows("tier8"));
         assertFalse(ArmorAbilities.vatsShows("off"));
         assertTrue(ArmorAbilities.vatsShows("all"));

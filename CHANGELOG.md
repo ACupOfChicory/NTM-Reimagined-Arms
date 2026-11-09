@@ -1,5 +1,13 @@
 # Changelog
 
+## X841
+
+- AMAT Penance's thermal sight shows players as FAU and DNS thermal vision
+  does: only within 16 blocks and only those in its line of sight (was:
+  every player through walls within 64 blocks). Mobs as before. The same
+  server keys `abilities.esp.players` (`off`: no players; `all`: as before)
+  and `abilities.esp.playerRange`.
+
 ## X838
 
 - Armour sets' abilities fit their tier. Speed and Jump Boost: up to tier 6

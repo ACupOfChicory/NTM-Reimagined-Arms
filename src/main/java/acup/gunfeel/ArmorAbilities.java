@@ -23,7 +23,8 @@ import net.minecraft.resources.Identifier;
  * vision and two dashes (NTM: VII, VII, II, three); off — NTM's bismuth, not cut by the other two;
  * <li>{@code abilities.esp.players} (tier8 | off | all) and {@code abilities.esp.playerRange} (16): VATS and the
  * thermal vision of the sets show no players; with tier8 a tier 8 set's thermal vision (FAU, DNS) shows the ones it
- * sees within the range; all — NTM's (everyone through walls within 64 blocks). A gun's thermal sight is NTM's.
+ * sees within the range; all — NTM's (everyone through walls within 64 blocks). A gun's thermal sight (AMAT Penance)
+ * shows players as a tier 8 set: within the range and in sight (off — none, all — NTM's).
  * </ul>
  * Everything else of the sets (haste, fire resistance, step, hard landing, DNS and euphemium immunity) is NTM's.
  */
@@ -79,6 +80,9 @@ public final class ArmorAbilities {
     }
 
     /** the thermal vision of a set of {@code tier} shows a player {@code dist} blocks away it {@code sees} or not */
+    /** a gun's thermal sight sees players as this tier's sets do */
+    public static final int GUN_SIGHT_TIER = 8;
+
     public static boolean thermalShows(String mode, int tier, double dist, double range, boolean sees) {
         if (mode.equals("all")) return true;
         if (mode.equals("off")) return false;
