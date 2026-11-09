@@ -253,14 +253,19 @@ public final class BalanceGuns {
         boolean want = on();
         BalanceGunsRule.Table t = table();
         if (want == applied && (!want || t == appliedTable)) return;
-        restore();
+        Map<ItemGunBaseNT, BalanceGunsRule.GunLine> guns = new java.util.LinkedHashMap<>();
         if (want) {
             for (Map.Entry<String, BalanceGunsRule.GunLine> e : t.guns().entrySet()) {
                 Item item = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + e.getKey()));
                 if (!(item instanceof ItemGunBaseNT gun)) continue;
-                change(gun, e.getValue());
+                // a gun's stack needs the items' components: on the client's loading screen they are not bound yet
+                // (new ItemStack throws), so the lines wait for a later tick
+                if (!item.builtInRegistryHolder().areComponentsBound()) return;
+                guns.put(gun, e.getValue());
             }
         }
+        restore();
+        guns.forEach(BalanceGuns::change);
         applied = want;
         appliedTable = t;
     }

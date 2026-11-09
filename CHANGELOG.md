@@ -1,5 +1,9 @@
 # Changelog
 
+## X840
+
+- Fixed: the client could crash while loading ("Components not bound yet") with the guns' balance table on; the table now waits until the game's items are ready.
+
 ## X838
 
 - Armour sets' abilities fit their tier. Speed and Jump Boost: up to tier 6
