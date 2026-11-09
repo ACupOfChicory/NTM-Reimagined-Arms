@@ -119,6 +119,9 @@ public final class Config {
     public static boolean bulletFx = true;
     // loudness of bullet hit sounds, times the rule's volume; above 1 the sound is doubled up (Minecraft stops at 1)
     public static float hitVolume = 2F;
+    // AI mobs' call-outs (AiVoice): heard or not, and how loud, times the game's Voice/Speech slider
+    public static boolean aiVoice = true;
+    public static float aiVoiceVolume = 1F;
     public static boolean holeCache = true;
     // NTM's own blocks drawn as their textures are: on NTM Decentralized Edition (1.21.1) the reinforced laminate's
     // models ask for the cutout layer, where its half-clear texture shows opaque. Read when the models are loaded. There
@@ -317,6 +320,9 @@ public final class Config {
             hitVolume: loudness of bullet hit sounds, times each hit rule's volume (1 = as the rules say, 0 = silent, up to 4;
               above 1 the same sound is played several times at once, Minecraft goes no louder than 1; explosive rounds
               no louder than 1, their blast is loud enough). /gunfeel hitvolume
+            aiVoice: AI mobs' call-outs heard (contact, a grenade, a reload, falling back...; the server may turn them
+              off, aiVoices)
+            aiVoiceVolume: how loud they are, 0 to 1, times the game's Voice/Speech slider
             holeCache: bullet holes kept on the graphics card in batches, rebuilt only when a hole comes or goes, not
               every frame (false = the old way, every hole sent again each frame)
             ntmRenderFixes: NTM blocks drawn as their textures are (NTM Decentralized Edition: the reinforced laminate
@@ -560,6 +566,8 @@ public final class Config {
         clickAim = bool(p, "clickAim", clickAim);
         bulletFx = bool(p, "bulletFx", bulletFx);
         hitVolume = Math.max(0F, Math.min(4F, num(p, "hitVolume", hitVolume)));
+        aiVoice = bool(p, "aiVoice", aiVoice);
+        aiVoiceVolume = Math.max(0F, Math.min(1F, num(p, "aiVoiceVolume", aiVoiceVolume)));
         holeCache = bool(p, "holeCache", holeCache);
         ntmRenderFixes = bool(p, "ntmRenderFixes", ntmRenderFixes);
         armBaseRight = num(p, "armBaseRight", armBaseRight);
@@ -697,6 +705,8 @@ public final class Config {
         p.setProperty("clickAim", Boolean.toString(clickAim));
         p.setProperty("bulletFx", Boolean.toString(bulletFx));
         p.setProperty("hitVolume", Float.toString(hitVolume));
+        p.setProperty("aiVoice", Boolean.toString(aiVoice));
+        p.setProperty("aiVoiceVolume", Float.toString(aiVoiceVolume));
         p.setProperty("holeCache", Boolean.toString(holeCache));
         p.setProperty("ntmRenderFixes", Boolean.toString(ntmRenderFixes));
         p.setProperty("armBaseRight", Float.toString(armBaseRight));

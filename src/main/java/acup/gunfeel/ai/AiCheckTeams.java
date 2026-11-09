@@ -352,7 +352,12 @@ final class AiCheckTeams {
                         at == null || planned == null ? -1 : at.distanceTo(planned), at == null || last[1] == null ? -1 : at.distanceTo(last[1]),
                         ts != null ? ts.mode() + " (" + ts.why.label + ")" : "-", t == null || t.mover.goal() == Long.MIN_VALUE ? "-" : cell(t.mover.goal()),
                         dodge == null || dodge == Long.MIN_VALUE ? "-" : cell(dodge),
-                        fled == null ? "-" : at == null ? "?" : String.format(Locale.ROOT, "%.1f off its own", fled.distanceTo(at))) + flight(from));
+                        fled == null ? "-" : at == null ? "?" : String.format(Locale.ROOT, "%.1f off its own", fled.distanceTo(at)))
+                        + (ts != null ? "; " + ts.throwNote : "")
+                        // as it was hit: its pose, its height, and whether blocks keep all of it off the burst as the throw reckons
+                        + String.format(Locale.ROOT, "; hit %s %.2f high, %s", from.getPose(), from.getBbHeight(), at == null ? "-"
+                                : AiGrenades.shielded(AiBots.voxels(level), from.getX(), from.getY(), from.getZ(), from.getBbHeight(), at) ? "hidden from it" : "in its sight")
+                        + flight(from));
             }
             return;
         }

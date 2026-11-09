@@ -55,6 +55,7 @@ public final class GunFeelMod {
             if (Feature.PRONE.on()) ProneClient.registerClient(modBus);
             acup.gunfeel.smoke.client.SmokeClientSetup.init(modBus);
             acup.gunfeel.ai.client.AiDebugClient.init();
+            if (Feature.MOB_AI.on()) acup.gunfeel.ai.client.AiVoiceClient.init();
         }
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.RegisterCommandsEvent.class,
                 e -> {

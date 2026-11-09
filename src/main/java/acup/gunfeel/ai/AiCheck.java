@@ -40,6 +40,8 @@ public final class AiCheck {
         for (var e : shots) e.discard();
     }
     private static final int Y = 100, X0 = 8, Z0 = 8, SIZE = 32;
+    /** the battle's call-outs: at most this many lines a second by one squad */
+    static final int VOICE_SECOND = AiVoice.SQUAD_SECOND;
 
     private AiCheck() {
     }
@@ -131,8 +133,16 @@ public final class AiCheck {
                         grenadesFor[0] = at[0];
                         AiGrenades.trace = true;
                         AiGrenades.on = AiGrenades.dodgeOn = List.of("grenade", "battle", "duel").contains(names.get(at[0]));
+                        AiVoice.reset();
+                        AiVoice.counting = true;
                     }
                     if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) {
+                        // the call-outs of the stage; in the battle some, and no squad talking over itself
+                        check.out("     call-outs in " + names.get(at[0]) + ": " + AiVoice.info());
+                        if (names.get(at[0]).equals("battle")) {
+                            check.check("the battle: the mobs call out, no squad more than " + VOICE_SECOND + " lines a second",
+                                    AiVoice.total() > 0 && AiVoice.mostASecond(AiVoice.heard) <= VOICE_SECOND);
+                        }
                         at[0]++;
                         clearShots(check.level);
                     }
@@ -143,6 +153,7 @@ public final class AiCheck {
                     done = true;
                 }
                 if (!done) return;
+                AiVoice.counting = false;
                 out.add("     " + check.map.info());
                 out.add("     senses: " + Senses.info());
                 out.add(check.ok ? "ALL OK" : "FAILED");

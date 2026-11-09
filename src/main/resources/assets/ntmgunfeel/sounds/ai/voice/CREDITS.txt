@@ -1,0 +1,12 @@
+AI mob call-outs (v1-v3: three voices), spoken by the Kokoro-82M text-to-speech model, Apache License 2.0, and put
+through a radio-like filter (see third-party/ai-voices.txt):
+contact1-2       "Kokoro-82M" by hexgrad (Apache 2.0)  https://huggingface.co/hexgrad/Kokoro-82M
+falling_back1-2  "Kokoro-82M" by hexgrad (Apache 2.0)  https://huggingface.co/hexgrad/Kokoro-82M
+flanking1-2      "Kokoro-82M" by hexgrad (Apache 2.0)  https://huggingface.co/hexgrad/Kokoro-82M
+frag_out1-2      "Kokoro-82M" by hexgrad (Apache 2.0)  https://huggingface.co/hexgrad/Kokoro-82M
+grenade1-2       "Kokoro-82M" by hexgrad (Apache 2.0)  https://huggingface.co/hexgrad/Kokoro-82M
+hit1-2           "Kokoro-82M" by hexgrad (Apache 2.0)  https://huggingface.co/hexgrad/Kokoro-82M
+man_down1-2      "Kokoro-82M" by hexgrad (Apache 2.0)  https://huggingface.co/hexgrad/Kokoro-82M
+moving1-2        "Kokoro-82M" by hexgrad (Apache 2.0)  https://huggingface.co/hexgrad/Kokoro-82M
+reloading1-2     "Kokoro-82M" by hexgrad (Apache 2.0)  https://huggingface.co/hexgrad/Kokoro-82M
+smoke_out1-2     "Kokoro-82M" by hexgrad (Apache 2.0)  https://huggingface.co/hexgrad/Kokoro-82M
