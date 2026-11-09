@@ -1,5 +1,23 @@
 # Changelog
 
+## X823
+
+- AI soldiers throw frags more often. Besides a target that went behind
+  cover 15 to 26 blocks off, they throw at one that sits behind low cover in
+  sight (only its head and chest show and it stays put), and at a lost one
+  for as long as they wait for it (it was 7 seconds at most). They throw from
+  8 blocks off as well, a softer lob, but only from where blocks would hide
+  all of the thrower from the burst once it is down: right after the throw it
+  lies down behind its cover (crouches where lying down is off) and stays
+  there till the grenade has gone off, without running from it. It is up at
+  once if it is shot or an enemy shows within 6 blocks. Its own side is kept
+  out of the blast's reach as before.
+- AI soldiers throw smoke less often: one smoke grenade per squad every 35
+  seconds (it was every 15).
+- In the AI check a foe 10 blocks off behind a wall gets a grenade within a
+  block of it each time; the thrower lies down behind its wall and is never
+  hit. In the battles and duels no AI mob was hit by its own grenade.
+
 ## X822
 
 - A player's bullet hits what that player's game saw it hit. Your game tests

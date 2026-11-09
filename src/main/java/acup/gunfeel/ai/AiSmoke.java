@@ -42,8 +42,8 @@ public final class AiSmoke {
     static final double FORCE = 0.55;
     /** none with the threat nearer than this, blocks (no time for the cloud) */
     static final double NEAR = 8;
-    /** none again by it or its squad for this many ticks (about as long as a cloud holds) */
-    static final int GAP = 300;
+    /** none again by it or its squad for this many ticks (35 seconds: a cloud now and then, the frags the more) */
+    static final int GAP = 700;
     /** the stands: smoke grenades thrown, and of them those that let smoke out (a cloud, or more to one there) */
     static int thrown, clouds;
     /** the stands: falls back with no smoke, by why (WHY) */

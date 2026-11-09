@@ -28,7 +28,8 @@ import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 /**
  * The AI check's grenades, on a field of their own. First a soldier at a low wall, a foe of the other team rooted 20
  * blocks off behind a stone wall three high, which the soldier saw it go behind: a round with throws off, then three
- * with them on. Counted: grenades thrown, where each burst (from the foe, from the soldier, from where it was to burst),
+ * with them on; then twice the foe 10 blocks off behind a wall of its own, a near throw: the soldier (its wall two
+ * high now, a fence across the field between them) lies down behind it till the burst. Counted: grenades thrown, where each burst (from the foe, from the soldier, from where it was to burst),
  * blast hits on the foe and on the soldier. Then a mob in the open with a grenade set down a block and a half from it
  * (no one's): three times with running from grenades off, three times on, the third time each with a wall two high
  * three blocks off on its other side. Counted: how far it was from the burst, whether behind a block from it, the
@@ -39,7 +40,7 @@ import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
  * counted the blast's damage from its own (none: it runs some other way).
  */
 final class AiCheckGrenade {
-    static final int X0 = 520, Z0 = 4, SIZE = 44, RUN = 300, DODGE_RUN = 100, THROW_ROUNDS = 4, DODGE_ROUNDS = 6, PLAYER_ROUNDS = 4, TWO_ROUNDS = 3;
+    static final int X0 = 520, Z0 = 4, SIZE = 44, RUN = 300, DODGE_RUN = 100, FAR_ROUNDS = 4, NEAR_ROUNDS = 2, THROW_ROUNDS = FAR_ROUNDS + NEAR_ROUNDS, DODGE_ROUNDS = 6, PLAYER_ROUNDS = 4, TWO_ROUNDS = 3;
     /** two grenades: its own this far off, on the side away from the one by it */
     static final double OWN_OFF = 15.5;
     /** two grenades, the third round: its own set down this tick of the round, at the place it runs to */
@@ -49,6 +50,9 @@ final class AiCheckGrenade {
     /** the foe and its wall three high; the soldier and its low wall */
     static final double FX = 540.5, FZ = 14.5, SX = 540.5, SZ = 35.5;
     static final int WALL_X0 = 537, WALL_X1 = 543, WALL_Z = 17, LOW_X0 = 538, LOW_X1 = 542, LOW_Z = 34;
+    /** a near throw's foe and its wall three high */
+    static final double NEAR_FZ = 25.5;
+    static final int NEAR_WALL_Z = 28, NEAR_FENCE_Z = 31;
     /** the mob that runs */
     static final double DX = 528.5, DZ = 24.5;
     static final Identifier GUN = Identifier.fromNamespaceAndPath("hbm", "gun_carbine");
@@ -79,10 +83,12 @@ final class AiCheckGrenade {
     private long lastCell = Long.MIN_VALUE;
     /** two grenades, per round: off the one by it, the damage, the damage from its own, behind a block, off its own */
     private final List<double[]> twoRounds = new ArrayList<>();
-    /** throw rounds: {on, thrown, blast on foe, blast on soldier, grenades left} */
+    /** throw rounds: {on, thrown, blast on foe, blast on soldier, grenades left, near, it lay down, it ran from a grenade} */
     private final List<int[]> throwRounds = new ArrayList<>();
-    /** every burst of the on rounds: from the foe, from the soldier, from where it was to burst */
-    private final List<double[]> bursts = new ArrayList<>();
+    /** every burst of the on rounds (the near ones apart): from the foe, from the soldier, from where it was to burst */
+    private final List<double[]> bursts = new ArrayList<>(), nearBursts = new ArrayList<>();
+    /** this round, the soldier lay down */
+    private boolean lay;
     /** runner rounds: {on, distance at the burst, damage, behind a block from it (1)} */
     private final List<double[]> dodgeRounds = new ArrayList<>();
     /** the player's rounds: the same as the runner's; the player, how far from the mob's feet its throw was to burst */
@@ -140,6 +146,19 @@ final class AiCheckGrenade {
         }
         soldier.setHealth(soldier.getMaxHealth());
         foe.setHealth(foe.getMaxHealth());
+        boolean near = round >= FAR_ROUNDS;
+        lay |= soldier.getPose() == net.minecraft.world.entity.Pose.SWIMMING;
+        if (near && ticks % 30 == 0 && trace.size() < 100 && AiBots.get(soldier) instanceof AiBot sb && sb.brain instanceof AiSoldier ss) {
+            // why a near throw is not: where it is, what it does, its shield from the foe's place, the throw planned there
+            Vec3 at = foe.position();
+            AiGrenades.Throw t = ticks == 30 ? AiGrenades.plan(level, soldier, at, false, AiProne.SIZE.height()) : null;
+            var c = sb.memory.focus(soldier.getX(), soldier.getZ());
+            trace.add(String.format(Locale.ROOT, "r%d t%d: at %.2f %.2f %.2f %s, %s (%s), arrived %s, contact %s, %.1f off the foe; shielded lying from the foe's place %s;"
+                    + " a throw planned there %s; prone may %s; grenades %d", round, ticks, soldier.getX(), soldier.getY(), soldier.getZ(), soldier.getPose(), ss.mode(), ss.why.label,
+                    sb.mover.arrived(), c == null ? "-" : c.state, soldier.position().distanceTo(at),
+                    AiGrenades.shielded(AiBots.voxels(level), soldier.getX(), soldier.getY(), soldier.getZ(), AiProne.SIZE.height(), at),
+                    ticks != 30 ? "-" : t == null ? "none" : String.format(Locale.ROOT, "to %.2f %.2f %.2f", t.burst().x, t.burst().y, t.burst().z), AiProne.may(soldier), sb.grenades));
+        }
         for (int i = live.size() - 1; i >= 0; i--) {
             EntityGrenadeUniversal g = live.get(i);
             if (!g.isRemoved()) {
@@ -147,14 +166,15 @@ final class AiCheckGrenade {
                 continue;
             }
             Vec3 b = lastAt.get(i);
-            bursts.add(new double[] {b.distanceTo(foe.position()), b.distanceTo(soldier.position()), b.distanceTo(plannedAt.get(i))});
+            (near ? nearBursts : bursts).add(new double[] {b.distanceTo(foe.position()), b.distanceTo(soldier.position()), b.distanceTo(plannedAt.get(i))});
             live.remove(i);
             lastAt.remove(i);
             plannedAt.remove(i);
         }
         if (ticks < RUN) return false;
         AiBot b = AiBots.get(soldier);
-        throwRounds.add(new int[] {AiGrenades.on ? 1 : 0, thrown, blastFoe, blastSoldier, b == null ? -1 : b.grenades});
+        throwRounds.add(new int[] {AiGrenades.on ? 1 : 0, thrown, blastFoe, blastSoldier, b == null ? -1 : b.grenades, near ? 1 : 0, lay ? 1 : 0,
+                b != null && b.brain instanceof AiSoldier s ? s.dodges : -1});
         soldier.discard();
         foe.discard();
         soldier = foe = null;
@@ -286,6 +306,10 @@ final class AiCheckGrenade {
     }
 
     private void build(boolean walls) {
+        build(walls, false);
+    }
+
+    private void build(boolean walls, boolean near) {
         BlockState stone = Blocks.STONE.defaultBlockState(), air = Blocks.AIR.defaultBlockState();
         for (int x = X0; x < X0 + SIZE; x++)
             for (int z = Z0; z < Z0 + SIZE; z++) {
@@ -297,6 +321,14 @@ final class AiCheckGrenade {
         if (walls) {
             for (int x = WALL_X0; x <= WALL_X1; x++) for (int h = 0; h < 3; h++) set(x, y + h, WALL_Z, stone);
             for (int x = LOW_X0; x <= LOW_X1; x++) set(x, y, LOW_Z, stone);
+            if (near) {
+                for (int x = WALL_X0; x <= WALL_X1; x++) for (int h = 0; h < 3; h++) set(x, y + h, NEAR_WALL_Z, stone);
+                // its wall two high (as high cover as the foe's wall's back, 3 blocks from the foe, which it went off to
+                // with a low one), and a fence across the field (no cover: it hides nothing) on the way there
+                for (int x = LOW_X0; x <= LOW_X1; x++) set(x, y + 1, LOW_Z, stone);
+                BlockState fence = Blocks.OAK_FENCE.defaultBlockState();
+                for (int x = X0; x < X0 + SIZE; x++) set(x, y, NEAR_FENCE_Z, fence);
+            }
         }
         TacticalMap.of(level).want(X0 + SIZE / 2, y, Z0 + SIZE / 2, SIZE / 2 + 4, 6);
     }
@@ -323,20 +355,24 @@ final class AiCheckGrenade {
     private void start(int r) {
         round = r;
         ticks = thrown = blastFoe = blastSoldier = 0;
+        lay = false;
         dodgeDamage = ownDamage = 0;
         if (r < THROW_ROUNDS) {
             // the foe rooted where it went behind its wall: where each grenade bursts from it is what is counted
+            // the near rounds: running from grenades on, as in a fight (it must not run from its own, nor need to)
+            boolean near = r >= FAR_ROUNDS;
+            double fz = near ? NEAR_FZ : FZ;
             AiGrenades.on = r > 0;
-            AiGrenades.dodgeOn = false;
-            build(true);
+            AiGrenades.dodgeOn = near;
+            build(true, near);
             soldier = spawn(SX, SZ, "grenade_side", 180F, 2);
-            foe = spawn(FX, FZ, "grenade_foe", 0F, 0);
+            foe = spawn(FX, fz, "grenade_foe", 0F, 0);
             var speed = foe.getAttribute(Attributes.MOVEMENT_SPEED);
             if (speed != null) speed.setBaseValue(0);
             AiBots.refreshTargets(level);
             long now = level.getGameTime();
             AiBot s = AiBots.get(soldier), f = AiBots.get(foe);
-            if (s != null) s.memory.seen(foe.getId(), FX, y, FZ, now, 0);
+            if (s != null) s.memory.seen(foe.getId(), FX, y, fz, now, 0);
             if (f != null) f.memory.seen(soldier.getId(), SX, y, SZ, now, 0);
         } else if (r >= THROW_ROUNDS + DODGE_ROUNDS + PLAYER_ROUNDS) {
             // two grenades: running on
@@ -389,10 +425,16 @@ final class AiCheckGrenade {
         if (player != null) player.discard();
         boolean offNone = true, eachThrew = true, finite = true;
         int foeHits = 0, soldierHits = 0;
+        boolean nearOk = true;
         for (int i = 0; i < throwRounds.size(); i++) {
             int[] r = throwRounds.get(i);
-            check.out(String.format(Locale.ROOT, "     grenades, round %d %s: thrown %d, blast hits on the foe %d, on the soldier %d, grenades left %d", i + 1,
-                    r[0] == 1 ? "throws on" : "throws off", r[1], r[2], r[3], r[4]));
+            check.out(String.format(Locale.ROOT, "     grenades, round %d %s: thrown %d, blast hits on the foe %d, on the soldier %d, grenades left %d%s", i + 1,
+                    r[5] == 1 ? "near (10 blocks)" : r[0] == 1 ? "throws on" : "throws off", r[1], r[2], r[3], r[4],
+                    r[5] == 1 ? String.format(Locale.ROOT, ", it lay down %s, ran from a grenade %d times", r[6] == 1 ? "yes" : "no", r[7]) : ""));
+            if (r[5] == 1) {
+                nearOk &= r[1] > 0 && r[1] <= 2 && r[2] > 0 && r[3] == 0 && r[6] == 1 && r[7] == 0;
+                continue;
+            }
             if (r[0] == 0) offNone &= r[1] == 0;
             else {
                 eachThrew &= r[1] > 0;
@@ -409,6 +451,12 @@ final class AiCheckGrenade {
             sumFoe += b[0];
             sumPlan += b[2];
             check.out(String.format(Locale.ROOT, "       burst %.2f from the foe, %.2f from the soldier, %.2f from where it was to burst", b[0], b[1], b[2]));
+        }
+        double worstNear = 0, nearestNear = Double.MAX_VALUE;
+        for (double[] b : nearBursts) {
+            worstNear = Math.max(worstNear, b[0]);
+            nearestNear = Math.min(nearestNear, b[1]);
+            check.out(String.format(Locale.ROOT, "       near: burst %.2f from the foe, %.2f from the soldier, %.2f from where it was to burst", b[0], b[1], b[2]));
         }
         double[] dist = new double[2], dmg = new double[2];
         int[] n = new int[2];
@@ -448,6 +496,9 @@ final class AiCheckGrenade {
         check.check("each grenade bursts within 3 blocks of the foe behind its wall", !bursts.isEmpty() && worstFoe <= AiGrenades.LAND);
         check.check("each bursts within 1.5 blocks of where it was to (NTM's flight, worked out)", !bursts.isEmpty() && worstPlan <= 1.5);
         check.check("the blast hits the foe, never the soldier (15 blocks off at least)", foeHits > 0 && soldierHits == 0 && nearestSoldier >= AiGrenades.SAFE);
+        if (!nearOk) for (String t : trace) if (t.startsWith("r" + FAR_ROUNDS) || t.startsWith("r" + (FAR_ROUNDS + 1))) check.out("       " + t);
+        check.check("a foe 10 blocks off behind a wall: a near throw each round, bursting within 3 blocks of it, the blast on it; the soldier lies down behind its"
+                + " wall, never hit, never runs", nearOk && !nearBursts.isEmpty() && worstNear <= AiGrenades.LAND && nearestNear >= AiGrenades.CLOSE_BURST);
         // the blast hurts out to 15 blocks: 12 off, a fifth of it at the most (standing a block and a half off: 23)
         check.check("a grenade by it: it runs (12 blocks off, or behind a block) and takes a third of the blast standing there would at most",
                 n[1] > 0 && n[0] > 0 && eachSafe && dmg[1] <= dmg[0] / 3);
