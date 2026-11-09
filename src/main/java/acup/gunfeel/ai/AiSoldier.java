@@ -344,6 +344,7 @@ public final class AiSoldier implements AiBrain {
         AiPose.set(m, AiPose.of(m).withStance(lying ? AiPose.PRONE : low ? AiPose.CROUCH : AiPose.STAND)
                 .withLean((byte) (lying || low || mode != Mode.PEEK ? 0 : leanSide), tick)
                 .withArms(blind ? AiPose.BLIND : aiming ? AiPose.AIM : AiPose.HOLD)
+                .withAlert(mode == Mode.IDLE ? AiPose.CALM : AiPose.FIGHT)
                 .withAction(dash != AiPose.NONE ? dash : tick < throwUntil ? AiPose.THROW : reloading ? AiPose.RELOAD : AiPose.NONE,
                         (int) (dash != AiPose.NONE ? bot.dash.since() : tick),
                         (short) (dash != AiPose.NONE ? AiDash.TICKS : tick < throwUntil ? THROW_TICKS : reloading ? g.reloadTicks() : 0)));

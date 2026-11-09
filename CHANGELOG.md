@@ -8,6 +8,11 @@
   settles flat on its back: legs straight, arms by its sides a little out,
   the head face up and turned a little aside. On the way down it stays on
   the ground too.
+- AI mobs move differently in a fight and out of one. Running, they sprint
+  leaned into it with the gun held across the chest, not jogging with it
+  held out. Walking in a fight they lean a little forward with the gun
+  ready. Calm, they stroll with the gun lowered in front of them. They
+  switch over half a second as a fight starts or ends.
 
 ## X843
 

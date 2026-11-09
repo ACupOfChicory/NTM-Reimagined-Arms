@@ -204,7 +204,7 @@ final class BotStand {
             m.setYHeadRot(y);
             // as AiSoldier.body: the pose first, then the game's, so the crouching size finds it
             int at = (int) server.overworld().getGameTime();
-            m.setData(AiPose.Sync.TYPE, new AiPose(cc.stance(), (byte) cc.lean(), (byte) 0, at, cc.arms(), AiPose.NONE, 0, (short) 0));
+            m.setData(AiPose.Sync.TYPE, new AiPose(cc.stance(), (byte) cc.lean(), (byte) 0, at, cc.arms(), AiPose.NONE, 0, (short) 0, AiPose.FIGHT));
             m.setPose(lying ? Pose.SWIMMING : cc.stance() == AiPose.CROUCH ? Pose.CROUCHING : Pose.STANDING);
         }).join();
         long t = now();
@@ -569,7 +569,7 @@ final class BotStand {
 
     private static AiPose pose(byte stance, int lean, int prevLean, int leanTick, byte arms, byte action, int actionTick,
             int actionTicks) {
-        return new AiPose(stance, (byte) lean, (byte) prevLean, leanTick, arms, action, actionTick, (short) actionTicks);
+        return new AiPose(stance, (byte) lean, (byte) prevLean, leanTick, arms, action, actionTick, (short) actionTicks, AiPose.FIGHT);
     }
 
     // ---------------------------------------------------------------- 2b. the clips on the move, a hit, death
@@ -716,13 +716,13 @@ final class BotStand {
         if (measuring == 0) measuring = System.nanoTime();
         var server = mc().getSingleplayerServer();
         posed = t >= CLIPS_RELOAD && t < CLIPS_HIT ? new AiPose(AiPose.STAND, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.RELOAD,
-                (int) (clipsT0 + CLIPS_RELOAD), (short) 30)
-                : t >= CLIPS_CRAWL && t < CLIPS_UP ? new AiPose(AiPose.PRONE, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.NONE, 0, (short) 0)
+                (int) (clipsT0 + CLIPS_RELOAD), (short) 30, AiPose.FIGHT)
+                : t >= CLIPS_CRAWL && t < CLIPS_UP ? new AiPose(AiPose.PRONE, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.NONE, 0, (short) 0, AiPose.FIGHT)
                 // a slide, a roll: crouched as the server keeps it (pose-contract §4), from a run
                 : t >= CLIPS_SLIDE && t < CLIPS_ROLL ? new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.SLIDE,
-                        (int) (clipsT0 + CLIPS_SLIDE), (short) acup.gunfeel.ai.AiDash.TICKS)
+                        (int) (clipsT0 + CLIPS_SLIDE), (short) acup.gunfeel.ai.AiDash.TICKS, AiPose.FIGHT)
                 : t >= CLIPS_ROLL && t < CLIPS_ROLL + acup.gunfeel.ai.AiDash.TICKS + 2 ? new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0,
-                        AiPose.HOLD, AiPose.ROLL, (int) (clipsT0 + CLIPS_ROLL), (short) acup.gunfeel.ai.AiDash.TICKS) : AiPose.IDLE;
+                        AiPose.HOLD, AiPose.ROLL, (int) (clipsT0 + CLIPS_ROLL), (short) acup.gunfeel.ai.AiDash.TICKS, AiPose.FIGHT) : AiPose.IDLE;
         int leg = LEGS.length - 1;
         while (leg > 0 && t < LEGS[leg].from) leg--;
         Leg l = LEGS[leg];
@@ -816,7 +816,7 @@ final class BotStand {
             byte stance = (c & 2) == 0 ? AiPose.STAND : AiPose.CROUCH;
             byte arms = (c % 3) == 0 ? AiPose.AIM : AiPose.HOLD;
             int actTick = (int) (t - (t + k) % 60);
-            return new AiPose(stance, lean, prevLean, leanTick, arms, AiPose.RELOAD, actTick, (short) 30);
+            return new AiPose(stance, lean, prevLean, leanTick, arms, AiPose.RELOAD, actTick, (short) 30, AiPose.FIGHT);
         };
         BotAnimation.standPose = busy;
         planIndex = -1;

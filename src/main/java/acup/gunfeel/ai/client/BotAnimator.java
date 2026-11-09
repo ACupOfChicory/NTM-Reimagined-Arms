@@ -23,6 +23,8 @@ import net.minecraft.world.entity.LivingEntity;
 public final class BotAnimator {
     /** ticks for a full crouch or stand up */
     static final float CROUCH_TICKS = 4F;
+    /** ticks from a stroll to the gun ready, or back */
+    static final float ALERT_TICKS = 10F;
     /** ticks for the arms to go from one way to another */
     static final float ARMS_TICKS = 4F;
     /** ticks an action fades in and out */
@@ -50,9 +52,16 @@ public final class BotAnimator {
      * @param speed   how fast it goes over the ground, blocks a tick (smoothed)
      * @param heading which way it goes, from where its body faces: radians, 0 ahead, + to its right
      * @param deathSec seconds since it fell dead, or below 0 alive
+     * @param alert   0 calm (the gun lowered, a stroll) .. 1 in a fight (the gun ready, a tactical walk)
      */
     public record Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits,
-            float idleSec, int entity, float speed, float heading, float deathSec, float walk, float walkPos) {
+            float idleSec, int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert) {
+        /** in a fight */
+        public Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits, float idleSec,
+                int entity, float speed, float heading, float deathSec, float walk, float walkPos) {
+            this(crouch, lean, arms, act, fading, hits, idleSec, entity, speed, heading, deathSec, walk, walkPos, 1F);
+        }
+
         /** standing where it is, alive */
         public Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits, float idleSec,
                 int entity) {
@@ -123,6 +132,8 @@ public final class BotAnimator {
 
     private double last = Double.NaN;
     private float crouch;
+    /** in a fight, by weight: comes and goes over ALERT_TICKS; a first look takes it at once */
+    private float alert;
     private final float[] arms = { 1F, 0F, 0F, 0F };
     private byte actKind = AiPose.NONE;
     private int actTick, actLen;
@@ -163,7 +174,7 @@ public final class BotAnimator {
                     crouching);
             float death = e.deathTime > 0 ? (e.deathTime - 1 + partial) / 20F : -1F;
             return new Frame(f.crouch(), f.lean(), f.arms(), f.act(), f.fading(), f.hits(), f.idleSec(), f.entity(),
-                    a.speed, a.heading, death, a.walk, a.walkPos);
+                    a.speed, a.heading, death, a.walk, a.walkPos, f.alert());
         }
     }
 
@@ -323,7 +334,8 @@ public final class BotAnimator {
         }
         Hit[] hitList = shown.isEmpty() ? NO_HITS : shown.toArray(NO_HITS);
 
-        return new Frame(crouch, lean, arms.clone(), act, fading, hitList, age / 20F, entity);
+        alert = approach(alert, pose.alert() == AiPose.FIGHT ? 1F : 0F, dt / ALERT_TICKS);
+        return new Frame(crouch, lean, arms.clone(), act, fading, hitList, age / 20F, entity, 0F, 0F, -1F, 0F, 0F, alert);
     }
 
     /** the flinch of the n-th hit: head and chest by turns */

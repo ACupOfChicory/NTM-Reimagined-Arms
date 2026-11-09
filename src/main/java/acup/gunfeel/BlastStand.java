@@ -217,7 +217,7 @@ final class BlastStand {
             int k = i;
             PLAN.add(new Step(40, () -> {
                 int t = (int) one.level().getGameTime();
-                one.setData(AiPose.Sync.TYPE, new AiPose(stances[k], (byte) 0, (byte) 0, t, arms[k], AiPose.NONE, 0, (short) 0));
+                one.setData(AiPose.Sync.TYPE, new AiPose(stances[k], (byte) 0, (byte) 0, t, arms[k], AiPose.NONE, 0, (short) 0, AiPose.FIGHT));
                 one.setPose(stances[k] == AiPose.PRONE ? Pose.SWIMMING : Pose.CROUCHING);
             }));
             PLAN.add(new Step(1, () -> {
@@ -329,7 +329,7 @@ final class BlastStand {
                 for (Mob m : crowd) {
                     byte stance = mv == Moves.CRAWL ? AiPose.PRONE : AiPose.STAND;
                     byte lean = mv == Moves.LEAN ? (byte) 70 : 0;
-                    m.setData(AiPose.Sync.TYPE, new AiPose(stance, lean, lean, t - 40, AiPose.HOLD, AiPose.NONE, 0, (short) 0));
+                    m.setData(AiPose.Sync.TYPE, new AiPose(stance, lean, lean, t - 40, AiPose.HOLD, AiPose.NONE, 0, (short) 0, AiPose.FIGHT));
                     m.setPose(mv == Moves.CRAWL ? Pose.SWIMMING : Pose.STANDING);
                 }
             }));
@@ -349,7 +349,7 @@ final class BlastStand {
                 for (Mob m : crowd) {
                     byte stance = mv == Moves.CRAWL ? AiPose.PRONE : AiPose.STAND;
                     byte lean = mv == Moves.LEAN ? (byte) 70 : 0;
-                    m.setData(AiPose.Sync.TYPE, new AiPose(stance, lean, lean, t - 40, AiPose.HOLD, AiPose.NONE, 0, (short) 0));
+                    m.setData(AiPose.Sync.TYPE, new AiPose(stance, lean, lean, t - 40, AiPose.HOLD, AiPose.NONE, 0, (short) 0, AiPose.FIGHT));
                     m.setPose(mv == Moves.CRAWL ? Pose.SWIMMING : Pose.STANDING);
                 }
             }));
@@ -658,7 +658,7 @@ final class BlastStand {
     private static void pose(Mob m, Stance st) {
         byte stance = st == Stance.CROUCH ? AiPose.CROUCH : st == Stance.STAND ? AiPose.STAND : AiPose.PRONE;
         int t = (int) m.level().getGameTime();
-        m.setData(AiPose.Sync.TYPE, new AiPose(stance, (byte) 0, (byte) 0, t, AiPose.HOLD, AiPose.NONE, 0, (short) 0));
+        m.setData(AiPose.Sync.TYPE, new AiPose(stance, (byte) 0, (byte) 0, t, AiPose.HOLD, AiPose.NONE, 0, (short) 0, AiPose.FIGHT));
         m.setPose(stance == AiPose.PRONE ? Pose.SWIMMING : stance == AiPose.CROUCH ? Pose.CROUCHING : Pose.STANDING);
     }
 

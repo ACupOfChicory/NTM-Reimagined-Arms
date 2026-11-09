@@ -27,8 +27,18 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
  *                    {@link #SIGNAL_COME}, {@link #SHOT}, {@link #SLIDE}, {@link #ROLL}
  * @param actionTick  the game tick the action began
  * @param actionTicks how long it lasts (a reload: till NTM's animation ends); 0: as long as its clip
+ * @param alert       {@link #CALM} or {@link #FIGHT}: whether it is in a fight (its brain out of its idle mode); the
+ *                    pose layer walks it with its gun ready, or strolls with it lowered (pose-contract §5)
  */
-public record AiPose(byte stance, byte lean, byte prevLean, int leanTick, byte arms, byte action, int actionTick, short actionTicks) {
+public record AiPose(byte stance, byte lean, byte prevLean, int leanTick, byte arms, byte action, int actionTick, short actionTicks,
+        byte alert) {
+    public static final byte CALM = 0, FIGHT = 1;
+
+    /** calm */
+    public AiPose(byte stance, byte lean, byte prevLean, int leanTick, byte arms, byte action, int actionTick, short actionTicks) {
+        this(stance, lean, prevLean, leanTick, arms, action, actionTick, actionTicks, CALM);
+    }
+
     public static final byte STAND = 0, CROUCH = 1, PRONE = 2;
     /** the gun at the chest, aimed where it looks, held up blind over cover, no gun (gestures) */
     public static final byte HOLD = 0, AIM = 1, BLIND = 2, NO_GUN = 3;
@@ -49,7 +59,7 @@ public record AiPose(byte stance, byte lean, byte prevLean, int leanTick, byte a
         @Override
         public AiPose decode(ByteBuf b) {
             return new AiPose(b.readByte(), b.readByte(), b.readByte(), ByteBufCodecs.VAR_INT.decode(b), b.readByte(), b.readByte(),
-                    ByteBufCodecs.VAR_INT.decode(b), b.readShort());
+                    ByteBufCodecs.VAR_INT.decode(b), b.readShort(), b.readByte());
         }
 
         @Override
@@ -62,6 +72,7 @@ public record AiPose(byte stance, byte lean, byte prevLean, int leanTick, byte a
             b.writeByte(p.action);
             ByteBufCodecs.VAR_INT.encode(b, p.actionTick);
             b.writeShort(p.actionTicks);
+            b.writeByte(p.alert);
         }
     };
 
@@ -95,11 +106,11 @@ public record AiPose(byte stance, byte lean, byte prevLean, int leanTick, byte a
     }
 
     AiPose withStance(byte s) {
-        return s == stance ? this : new AiPose(s, lean, prevLean, leanTick, arms, action, actionTick, actionTicks);
+        return s == stance ? this : new AiPose(s, lean, prevLean, leanTick, arms, action, actionTick, actionTicks, alert);
     }
 
     AiPose withArms(byte a) {
-        return a == arms ? this : new AiPose(stance, lean, prevLean, leanTick, a, action, actionTick, actionTicks);
+        return a == arms ? this : new AiPose(stance, lean, prevLean, leanTick, a, action, actionTick, actionTicks, alert);
     }
 
     /**
@@ -109,11 +120,16 @@ public record AiPose(byte stance, byte lean, byte prevLean, int leanTick, byte a
     AiPose withLean(byte l, long now) {
         if (l == lean) return this;
         byte at = (byte) Math.round(AiPoseGeometry.leanFrac(this, now, 0F) * 100F);
-        return new AiPose(stance, l, at, (int) now, arms, action, actionTick, actionTicks);
+        return new AiPose(stance, l, at, (int) now, arms, action, actionTick, actionTicks, alert);
+    }
+
+    /** in a fight or calm (CALM, FIGHT) */
+    public AiPose withAlert(byte a) {
+        return a == alert ? this : new AiPose(stance, lean, prevLean, leanTick, arms, action, actionTick, actionTicks, a);
     }
 
     /** a new action from this tick on (the same one going on stays as it was) */
     AiPose withAction(byte a, int tick, short ticks) {
-        return a == action ? this : new AiPose(stance, lean, prevLean, leanTick, arms, a, tick, ticks);
+        return a == action ? this : new AiPose(stance, lean, prevLean, leanTick, arms, a, tick, ticks, alert);
     }
 }

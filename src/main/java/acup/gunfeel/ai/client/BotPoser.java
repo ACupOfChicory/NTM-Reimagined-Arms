@@ -82,6 +82,24 @@ public final class BotPoser {
     static final float JOG_FROM = 0.20F, JOG_FULL = 0.26F, SPRINT_FROM = 0.27F, SPRINT_FULL = 0.33F;
     /** ticks for the reload's clip to come in over the arms */
     static final float RELOAD_IN = 8F;
+    /**
+     * the gun held, by the arms' turns (x, y, z) and the forearms' bend, right then left: calm, lowered in front of
+     * it, the right hand at the hip, the left under the barrel; on the run, across the chest, the right hand at the
+     * chest, the left on the handguard (worked out for the hands' places: notes, c7 anims 2026-11-10)
+     */
+    static final float[] CARRY = { -0.2F, -0.7F, 0F, -0.9F, -0.8F, 0.65F, 0F, -0.05F },
+            CHEST = { -0.25F, -0.7F, 0F, -1.2F, -1.1F, 0.45F, 0F, 0F };
+    /** a jog's share of the run's pose (a sprint's is all of it) */
+    static final float JOG_RUN = 0.6F;
+    /**
+     * the trunk forward and the knees' bend (both thighs forward, each shin as it was), radians: on the run, walking
+     * in a fight. Walking, no bend: with the head within 3 cm of the eye, a bend that shows (0.1 rad and more) lifts
+     * the foot it comes down on over a pixel
+     */
+    static final float RUN_LEAN = 0.35F, RUN_BEND = 0.1F, TAC_LEAN = 0.12F, TAC_BEND = 0F;
+    /** the most the bent knees take it all down, pixels (2.8 cm: pose-contract's head within 3 cm of the eye) */
+    static final float DOWN_MOST = 0.45F;
+
     /** ticks for the fall dead to come in over the pose it had */
     static final float DEATH_IN = 2F;
     /**
@@ -147,6 +165,17 @@ public final class BotPoser {
             p.leftArm.zRot = hold * lz;
             p.head.xRot += blind * 0.35F;
         }
+        // the gun held (HOLD; vanilla's is NTM's bow pose, along the look): calm, lowered in front of it; on the run,
+        // across the chest; in a fight walking or standing, ready along the look as vanilla has it
+        float move = upright * (1F - BotAnimator.smooth(f.crouch()))
+                * BotAnimator.smooth((f.speed() - MOVE_FROM) / (MOVE_FULL - MOVE_FROM));
+        float[] gw = gaitWeights(f.speed(), f.heading());
+        float run = move * (gw[1] * JOG_RUN + gw[2]), alert = BotAnimator.smooth(f.alert());
+        float gun = f.arms()[AiPose.HOLD] * upright;
+        if (gun > 0F) {
+            carry(p, CARRY, gun * (1F - alert));
+            carry(p, CHEST, gun * run);
+        }
         float armed = 1F - f.arms()[AiPose.NO_GUN];
         if (lying > 0F && armed > 0F) {
             // lying with a gun: the arms reach along the ground (the body's up is forward when lying)
@@ -171,8 +200,6 @@ public final class BotPoser {
 
         // on the move: the legs from the clips (crouching: vanilla's crouched legs, the clips' would lower the hips
         // and the eye the server keeps)
-        float move = upright * (1F - BotAnimator.smooth(f.crouch()))
-                * BotAnimator.smooth((f.speed() - MOVE_FROM) / (MOVE_FULL - MOVE_FROM));
         if (move > 0F) gait(p, f.speed(), f.heading(), walkPos, move, a);
 
         // the knees, slower than the clips: vanilla swings straight legs (xRot cos(pos 0.6662) 1.4 speed); a leg
@@ -184,14 +211,21 @@ public final class BotPoser {
             if (p.rightShin != null) p.rightShin.xRot += k * Math.max(0F, swing);
             if (p.leftShin != null) p.leftShin.xRot += k * Math.max(0F, -swing);
         }
-        // the foot it stands on, on the ground (walking back, the leg going forward)
-        plant(p, upright * (1F - crawl), walkPos, move * gaitWeights(f.speed(), f.heading())[3], walk);
+        // the foot it stands on, on the ground (walking back, the leg going forward); on the run and walking in a
+        // fight its knee bent (stoop)
+        float tac = alert * move * (1F - run), knees = RUN_BEND * run + TAC_BEND * tac;
+        plant(p, upright * (1F - crawl), walkPos, move * gw[3], walk, knees);
         float free = f.arms()[AiPose.NO_GUN] * upright;
         if (free > 0F) {
             float bend = free * (ELBOW_FREE + ELBOW_WALK * walk);
             if (p.rightForearm != null) p.rightForearm.xRot -= bend;
             if (p.leftForearm != null) p.leftForearm.xRot -= bend;
         }
+
+        // the body on the move: a run leans the trunk into it, the knees a little bent, the gun at the chest going
+        // with the trunk (a combat sprint, not a light-footed jog); a walk in a fight a little forward (a tactical
+        // walk); calm, a stroll as the clips have it
+        stoop(p, RUN_LEAN * run + TAC_LEAN * tac, knees, gun * run);
 
         // 3. vanilla's crouch (HumanoidModel.setupAnim, 26.2), by its weight
         float c = BotAnimator.smooth(f.crouch()) * upright;
@@ -433,11 +467,22 @@ public final class BotPoser {
      * in its step is left as it was.
      */
     static void plant(Parts p, float w, float walkPos, float back, float walk) {
+        plant(p, w, walkPos, back, walk, 0F);
+    }
+
+    /** ... and the knees bent this far (both thighs forward, each shin as it was: the one it stands on hung under its knee) */
+    static void plant(Parts p, float w, float walkPos, float back, float walk, float knees) {
         if (w <= 0F || p.rightShin == null || p.leftShin == null) return;
         // walking back the legs step the other way round; half back, half aside (the two clips' steps at odds) both
         // stand
         float swing = Mth.sin(walkPos * 0.6662F) * (1F - 2F * back), stepping = BotAnimator.smooth(walk / PLANT_WALK);
         float right = BotAnimator.smooth((PLANT_SWING - swing) / PLANT_SWING), left = BotAnimator.smooth((PLANT_SWING + swing) / PLANT_SWING);
+        if (knees > 0F) {
+            p.rightLeg.xRot -= w * knees;
+            p.leftLeg.xRot -= w * knees;
+            p.rightShin.xRot += w * knees;
+            p.leftShin.xRot += w * knees;
+        }
         plantLeg(p.rightLeg, p.rightShin, w * Mth.lerp(stepping, 1F, right));
         plantLeg(p.leftLeg, p.leftShin, w * Mth.lerp(stepping, 1F, left));
     }
@@ -583,6 +628,39 @@ public final class BotPoser {
                 part.z = Mth.lerp(w, part.z, d.z() + a[2]);
             }
         }
+    }
+
+    /** The arms to a way of holding the gun (CARRY, CHEST), w of the way. */
+    static void carry(Parts p, float[] c, float w) {
+        if (w <= 0F) return;
+        turn(p.rightArm, c[0], c[1], c[2], w);
+        turn(p.leftArm, c[4], c[5], c[6], w);
+        if (p.rightForearm != null) p.rightForearm.xRot = Mth.lerp(w, p.rightForearm.xRot, c[3]);
+        if (p.leftForearm != null) p.leftForearm.xRot = Mth.lerp(w, p.leftForearm.xRot, c[7]);
+    }
+
+    /**
+     * The trunk leaned forward (about the neck, as vanilla's crouch: the hips go back and the legs with them), and all
+     * of it down till the lower foot is on the ground again after the knees' bend (a thigh forward by bend, the foot
+     * it stands on put under its knee lifts it), DOWN_MOST at most: the head within pose-contract's 3 cm of the eye.
+     * The arms holding the gun (armsWith) go with the trunk.
+     */
+    static void stoop(Parts p, float lean, float bend, float armsWith) {
+        if (lean <= 0F && bend <= 0F) return;
+        p.body.xRot += lean;
+        float back = 12F * Mth.sin(lean);
+        p.rightLeg.z += back;
+        p.leftLeg.z += back;
+        float shoulder = 2F * Mth.sin(lean);
+        p.rightArm.z += shoulder;
+        p.leftArm.z += shoulder;
+        p.rightArm.xRot += lean * armsWith;
+        p.leftArm.xRot += lean * armsWith;
+        // the lower foot back on the ground, as far as the head may go down with it
+        org.joml.Matrix4f m = M4.get();
+        float low = Math.max(limb(p.rightLeg, p.rightShin, -2F, 0F, m), limb(p.leftLeg, p.leftShin, -2F, 0F, m));
+        float down = Mth.clamp(GROUND - low, 0F, DOWN_MOST * Math.min(1F, bend / RUN_BEND));
+        for (ModelPart part : new ModelPart[] { p.head, p.body, p.rightArm, p.leftArm, p.rightLeg, p.leftLeg }) part.y += down;
     }
 
     /**

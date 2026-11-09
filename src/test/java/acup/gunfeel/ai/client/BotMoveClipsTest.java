@@ -18,6 +18,11 @@ class BotMoveClipsTest {
         return new BotAnimator.Frame(0F, 0F, HOLD, act, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0, speed, heading, deathSec);
     }
 
+    /** calm: a stroll, the clips' legs as they are (no tactical walk's bend) */
+    static BotAnimator.Frame calm(float speed, float heading) {
+        return new BotAnimator.Frame(0F, 0F, HOLD, null, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0, speed, heading, -1F, 0F, 0F, 0F);
+    }
+
     static float[] angles(BotPoser.Parts p) {
         ModelPart[] all = BotPoserTest.all(p);
         float[] out = new float[all.length * 6];
@@ -103,7 +108,7 @@ class BotMoveClipsTest {
         // vanilla's is (walkPos 0)
         float[] still = posed(moving(0F, 0F, -1F, null), 0F, 0F);
         BotPoser.Parts p = BotPoserTest.parts();
-        BotPoser.apply(p, moving(0.1F, 0F, -1F, null), 0F, 0.5F, 0F);
+        BotPoser.apply(p, calm(0.1F, 0F), 0F, 0.5F, 0F);
         BotClip walk = BotClips.get(BotClips.WALK);
         float[] r = new float[3];
         walk.rotation("right_leg", BotPoser.phase(BotClips.WALK, walk) * walk.length(), r);
@@ -111,7 +116,7 @@ class BotMoveClipsTest {
         assertEquals(0F, still[4 * 6], 1e-6);
         // half a step on, the legs have changed sides
         BotPoser.Parts q = BotPoserTest.parts();
-        BotPoser.apply(q, moving(0.1F, 0F, -1F, null), 0F, 0.5F, BotPoser.CYCLE / 2F);
+        BotPoser.apply(q, calm(0.1F, 0F), 0F, 0.5F, BotPoser.CYCLE / 2F);
         assertTrue(p.rightLeg().xRot > p.leftLeg().xRot && q.rightLeg().xRot < q.leftLeg().xRot,
                 p.rightLeg().xRot + " " + p.leftLeg().xRot + " / " + q.rightLeg().xRot + " " + q.leftLeg().xRot);
     }
