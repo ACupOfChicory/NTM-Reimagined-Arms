@@ -1,6 +1,7 @@
 package acup.gunfeel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -69,5 +70,22 @@ class BalanceArmorRuleTest {
         assertEquals(0.4F * 4F + 0.6F * 10F, BalanceArmorRule.blend(new float[] {n, 4F, n, n}, 10F), 1e-5);
         // two sets mixed
         assertEquals(0.15F * 2F + 0.4F * 4F + 0.3F * 4F + 0.15F * 2F, BalanceArmorRule.blend(new float[] {2F, 4F, 4F, 2F}, 10F), 1e-5);
+    }
+
+    @Test
+    void shotsOnly() {
+        // NTM's rounds and beams: the formula's
+        for (String t : new String[] {"physical", "laser", "plasma", "microwave", "subatomic", "electric", "tau", "revolver_bullet", "shrapnel"})
+            assertTrue(BalanceArmorRule.shotType("hbm", t, false), t);
+        // the Tesla Cannon's blast names its shooter: still a shot
+        assertTrue(BalanceArmorRule.shotType("hbm", "electric", true));
+        // a gun's own blow, Lag's suicide: physical from the player, NTM's numbers
+        assertFalse(BalanceArmorRule.shotType("hbm", "physical", true));
+        // melee, a mob's blow, vanilla's arrow, NTM's fire, flamethrower, electricity, spikes: NTM's numbers
+        assertFalse(BalanceArmorRule.shotType("minecraft", "player_attack", true));
+        assertFalse(BalanceArmorRule.shotType("minecraft", "mob_attack", true));
+        assertFalse(BalanceArmorRule.shotType("minecraft", "arrow", false));
+        for (String t : new String[] {"fire", "flamethrower", "electricity", "electrified", "spikes", "acid_player", "suicide", "rubble"})
+            assertFalse(BalanceArmorRule.shotType("hbm", t, false), t);
     }
 }

@@ -90,4 +90,19 @@ public final class BalanceArmorRule {
         out += Math.max(0.0, 1.0 - covered) * rest;
         return (float) out;
     }
+
+    /** the damage types of NTM's shots (BulletConfig.getDamage by the round's class, the older projectiles' own) */
+    static final java.util.Set<String> SHOT_TYPES = java.util.Set.of("physical", "laser", "plasma", "microwave", "subatomic", "electric", "tau",
+            "revolver_bullet", "shrapnel", "combine", "emplacer");
+
+    /**
+     * A hit of damage type {@code namespace:path} is an NTM shot's, the formula's: one of a shot's types, and a physical
+     * one not dealt by a creature itself (NTM calls a gun's own blow and Lag's suicide physical from the player; a
+     * bullet's comes from the bullet). An energy one may come from the shooter: the Tesla Cannon's blast names its
+     * exploder. Melee, a mob's blow, vanilla's arrows, fire and the rest are NTM's numbers.
+     */
+    public static boolean shotType(String namespace, String path, boolean byCreature) {
+        if (!"hbm".equals(namespace) || !SHOT_TYPES.contains(path)) return false;
+        return !path.equals("physical") || !byCreature;
+    }
 }

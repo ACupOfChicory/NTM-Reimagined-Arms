@@ -287,7 +287,7 @@ public final class BalanceCheck {
     private static void plan() {
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         STEPS.add(() -> keys("balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula"));
         wait(30);
@@ -304,6 +304,192 @@ public final class BalanceCheck {
         if (only("esp")) planEsp();
         if (only("pool")) planPool();
         if (only("pep")) planPep();
+        if (only("hot")) planHot();
+    }
+
+    // ---------------------------------------------------------------- melee and the flamethrower (hotfix X866)
+
+    /** a target of the pass hot: an FBI agent, a zombie or the player, bare or in Security */
+    private static LivingEntity hotTarget(String who, String set) {
+        LivingEntity v;
+        if (who.equals("player")) v = target;
+        else {
+            var created = who.equals("fbi") ? BuiltInRegistries.ENTITY_TYPE.getValue(FBI).create(level, EntitySpawnReason.COMMAND)
+                    : EntityTypes.ZOMBIE.create(level, EntitySpawnReason.COMMAND);
+            if (!(created instanceof Mob mob)) throw new IllegalStateException("no " + who);
+            mob.setNoAi(true);
+            level.addFreshEntity(mob);
+            v = mob;
+            // the stand's player out of the way: it stood where the mob stands and took its shots
+            for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
+            wearAttributes(target);
+            target.snapTo(O.getX() + 6.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+        }
+        for (EquipmentSlot slot : SLOTS) v.setItemSlot(slot, ItemStack.EMPTY);
+        v.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+        if (!set.isEmpty()) dress(v, set, true);
+        if (v == target) wearAttributes(v);
+        v.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+        v.setHealth(v.getMaxHealth());
+        v.clearFire();
+        com.hbm.extprop.HbmLivingProps.getData(v).fire = 0;
+        return v;
+    }
+
+    /** the modifiers wearAttributes put on the stand's player, taken off before the next */
+    private static final List<Runnable> WORN = new ArrayList<>();
+
+    /**
+     * The stand's player does not tick, so vanilla never puts its pieces' armour on it: the pieces' modifiers (after
+     * balance.vanilla0's event) put on by hand, as a worn set has them in the game.
+     */
+    private static void wearAttributes(LivingEntity v) {
+        WORN.forEach(Runnable::run);
+        WORN.clear();
+        for (EquipmentSlot slot : SLOTS) v.getItemBySlot(slot).forEachModifier(slot, (attr, mod) -> {
+            var inst = v.getAttribute(attr);
+            if (inst == null || inst.hasModifier(mod.id())) return;
+            inst.addTransientModifier(mod);
+            WORN.add(() -> inst.removeModifier(mod.id()));
+        });
+    }
+
+    /** the hits of no shot the hot pass deals the player: the source's name and the damage */
+    private static final String[][] HOT_HURTS = {{"удар_игрока", "10"}, {"crucible", "5001"}, {"удар_моба", "10"}, {"стрела", "9"}, {"лава", "4"},
+            {"огонь", "1"}, {"горение", "1"}, {"падение", "10"}, {"tnt", "30"}, {"молния", "5"}, {"магия", "5"}, {"hbm:radiation", "5"},
+            {"hbm:electricity", "5"}, {"hbm:electrified", "5"}, {"hbm:flamethrower", "3"}, {"hbm:acid_player", "3"}, {"hbm:monoxide", "3"},
+            {"hbm:cloud", "3"}, {"hbm:physical_игрок", "10"}};
+
+    private static net.minecraft.world.damagesource.DamageSource hotSource(String name) {
+        var ds = level.damageSources();
+        return switch (name) {
+            case "удар_игрока", "crucible" -> ds.playerAttack(gunner);
+            case "удар_моба" -> ds.mobAttack(shooter);
+            case "стрела" -> {
+                var arrow = (net.minecraft.world.entity.projectile.arrow.AbstractArrow) EntityTypes.ARROW.create(level, EntitySpawnReason.COMMAND);
+                yield ds.arrow(arrow, shooter);
+            }
+            case "лава" -> ds.lava();
+            case "огонь" -> ds.inFire();
+            case "горение" -> ds.onFire();
+            case "падение" -> ds.fall();
+            case "tnt" -> ds.explosion(null, null);
+            case "молния" -> ds.lightningBolt();
+            case "магия" -> ds.magic();
+            // a gun's own blow: NTM's physical from the player
+            case "hbm:physical_игрок" -> new net.minecraft.world.damagesource.DamageSource(level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.DAMAGE_TYPE)
+                    .getOrThrow(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DAMAGE_TYPE, Identifier.fromNamespaceAndPath("hbm", "physical"))), gunner, gunner);
+            default -> ds.source(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DAMAGE_TYPE, Identifier.parse(name)));
+        };
+    }
+
+    private static final String[] HOT_GUNS = {"огнемёт flame_diesel", "topaz flame_topaz_diesel", "daybreaker flame_daybreaker_diesel",
+            "laser_pistol capacitor", "henry m44_express"};
+
+    private static final String[][] HOT_MODES = {{"NTM", "balanceArmor", "false", "balanceGuns", "false", "damageCap", "false"}, {"баланс"},
+            {"баланс без modelHitboxes", "modelHitboxes", "false"}};
+
+    /**
+     * The owner: the Crucible took one heart off a player in Security, the flamethrower nothing off an FBI agent. Melee
+     * and a mob's blow by NTM's numbers (as with the balance off); the flamethrower, a laser and a bullet on an agent,
+     * a zombie and the player, bare and in Security: what they lost and whether they burn.
+     */
+    private static void planHot() {
+        LINES.add("#\t--- hot: ближний бой и огнемёт по наборам (баланс / NTM)");
+        String[] sets = {"", "security", "t51", "bj", "dns"};
+        float[] ntmHurt = new float[sets.length * HOT_HURTS.length];
+        for (String[] mode : HOT_MODES) {
+            boolean ntm = mode[0].equals("NTM");
+            STEPS.add(() -> {
+                keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "modelHitboxes", "true");
+                for (int i = 1; i < mode.length; i += 2) keys(mode[i], mode[i + 1]);
+                shooter.setInvulnerable(true);
+            });
+            wait(30);
+            // the hits of no shot (a blow, a mob's, an arrow, fire, a fall, gas...) on the player, by set: NTM's numbers
+            for (int si = 0; si < sets.length; si++) {
+                String set = sets[si];
+                for (int ci = 0; ci < HOT_HURTS.length; ci++) {
+                    int idx = si * HOT_HURTS.length + ci;
+                    String[] hurt = HOT_HURTS[ci];
+                    STEPS.add(() -> hotTarget("player", set));
+                    wait(3);
+                    STEPS.add(() -> {
+                        LivingEntity v = target;
+                        begin(v);
+                        v.invulnerableTime = 0;
+                        float hp = v.getHealth();
+                        float amount = Float.parseFloat(hurt[1]);
+                        v.hurtServer(level, hotSource(hurt[0]), amount);
+                        float took = hp - v.getHealth();
+                        String what = hurt[0] + " " + hurt[1] + " по игроку " + (set.isEmpty() ? "без брони" : "в " + set);
+                        LINES.add("#\thot\t" + mode[0] + "\t" + what + "\t" + f(took) + "\tваниль " + v.getArmorValue());
+                        if (ntm) ntmHurt[idx] = took;
+                        // a big blast (TNT) is the formula's by the balance's notes (balanceArmorBlasts): logged only
+                        else if (mode.length == 1 && !hurt[0].equals("tnt")) check(Math.abs(took - ntmHurt[idx]) <= 0.05F + 0.02F * ntmHurt[idx],
+                                "hot: " + what + ": " + f(took) + " = NTM " + f(ntmHurt[idx]));
+                        v.clearFire();
+                    });
+                    wait(2);
+                }
+            }
+            for (String who : new String[] {"fbi", "zombie", "player"})
+                for (String set : new String[] {"", "security"})
+                    for (int g = 0; g < HOT_GUNS.length; g++) {
+                        int gi = g;
+                        LivingEntity[] v = {null};
+                        float[] hp = {0F};
+                        STEPS.add(() -> {
+                            // Daybreaker's flames go off: the floor and the air back, the shooter home
+                            for (int x = -6; x <= 8; x++) for (int z = -4; z <= 12; z++) {
+                                level.setBlockAndUpdate(O.offset(x, -1, z), Blocks.BEDROCK.defaultBlockState());
+                                for (int y = 0; y <= 3; y++) level.setBlockAndUpdate(O.offset(x, y, z), Blocks.AIR.defaultBlockState());
+                            }
+                            v[0] = hotTarget(who, set);
+                            begin(v[0]);
+                            hp[0] = v[0].getHealth();
+                        });
+                        wait(3);
+                        for (int c = 0; c < 6; c++) {
+                            STEPS.add(() -> {
+                                shooter.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
+                                shooter.setDeltaMovement(Vec3.ZERO);
+                                if (v[0] != target) v[0].snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+                                v[0].setDeltaMovement(Vec3.ZERO);
+                                switch (gi) {
+                                    case 0 -> fire(shooter, ModItems.GUN_FLAMER.get(), com.hbm.items.weapon.sedna.factory.XFactoryFlamer.flame_diesel, EnumKeybind.GUN_PRIMARY);
+                                    case 1 -> fire(shooter, ModItems.GUN_FLAMER_TOPAZ.get(), com.hbm.items.weapon.sedna.factory.XFactoryFlamer.flame_topaz_diesel, EnumKeybind.GUN_PRIMARY);
+                                    case 2 -> fire(shooter, ModItems.GUN_FLAMER_DAYBREAKER.get(), com.hbm.items.weapon.sedna.factory.XFactoryFlamer.flame_daybreaker_diesel, EnumKeybind.GUN_PRIMARY);
+                                    case 3 -> fire(shooter, ModItems.GUN_LASER_PISTOL.get(), XFactoryEnergy.energy_las, EnumKeybind.GUN_PRIMARY);
+                                    default -> fire(shooter, ModItems.GUN_HENRY.get(), XFactory44.m44_express, EnumKeybind.GUN_PRIMARY);
+                                }
+                            });
+                            wait(4);
+                        }
+                        wait(40);
+                        STEPS.add(() -> {
+                            String gun = HOT_GUNS[gi];
+                            float took = hp[0] - Math.max(0F, v[0].getHealth());
+                            int fire = com.hbm.extprop.HbmLivingProps.getData(v[0]).fire;
+                            String what = gun + " ×6 по " + who + (set.isEmpty() ? " без брони" : " в " + set);
+                            LINES.add("#\thot\t" + mode[0] + "\t" + what + "\tснято " + f(took) + (v[0].isAlive() ? "" : " (умер)") + ", огонь NTM " + fire
+                                    + ", горит " + v[0].getRemainingFireTicks() + ", входящих " + f(incoming) + " (" + incomingNote + "), ваниль " + v[0].getArmorValue());
+                            // the agent: NTM registers it fireImmune, a flame takes nothing off it there either
+                            if (!mode[0].equals("NTM") && gi <= 2 && !who.equals("fbi")) check(took > 0F, "hot, " + mode[0] + ": " + what + ": урон есть (" + f(took) + ")");
+                            if (v[0] != target) v[0].discard();
+                            else target.clearFire();
+                        });
+                        wait(5);
+                    }
+        }
+        STEPS.add(() -> {
+            keys("modelHitboxes", "true");
+            shooter.setInvulnerable(false);
+            for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
+            wearAttributes(target);
+            target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+        });
+        wait(20);
     }
 
     // ---------------------------------------------------------------- Pepperbox: 13th-century tech

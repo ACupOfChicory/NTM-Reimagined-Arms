@@ -83,12 +83,31 @@ public final class BalanceArmor {
 
     /** the category the formula takes (PHYS, EN, EXPL), or null when the hit is NTM's */
     static String category(DamageSource source) {
+        String cat = categoryAny(source);
+        // bullets and beams only: an NTM shot's damage type. Melee (a sword, the Crucible, a mob's blow), vanilla's
+        // arrows, spikes and the rest are NTM's numbers, as before the balance
+        return cat == null || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) || shot(source) ? cat : null;
+    }
+
+    /**
+     * NTM's category of the hit as the balance reads it (PHYS, EN, EXPL), shot or not, or null: euphemium's pool is
+     * drained by any such hit (melee too), as the formula would take it
+     */
+    static String categoryAny(DamageSource source) {
         if (source.is(DamageTypeTags.BYPASSES_EFFECTS)) return null;
         if (source.is(ModDamageTypes.NUCLEAR_BLAST) || source.is(ModDamageTypes.DIGAMMA) || source.is(ModDamageTypes.RADIATION)) return null;
         String cat = DamageResistanceHandler.typeToCategory(source);
         // balanceArmorBlasts off: blasts take NTM's numbers, bullets and beams the formula's
         if (DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) return ReaimTimes.flag("balanceArmorBlasts", true) ? cat : null;
         return DamageResistanceHandler.CATEGORY_ENERGY.equals(cat) || DamageResistanceHandler.CATEGORY_PHYSICAL.equals(cat) ? cat : null;
+    }
+
+    /**
+     * the hit is an NTM shot's (BalanceArmorRule.shotType): its damage type and whether a creature dealt it itself
+     */
+    static boolean shot(DamageSource source) {
+        var key = source.typeHolder().unwrapKey().orElse(null);
+        return key != null && BalanceArmorRule.shotType(key.identifier().getNamespace(), key.identifier().getPath(), source.getDirectEntity() instanceof LivingEntity);
     }
 
     /**

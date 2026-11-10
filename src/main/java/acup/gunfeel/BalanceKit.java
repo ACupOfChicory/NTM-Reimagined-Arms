@@ -7,7 +7,9 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.NeoForge;
@@ -191,6 +193,33 @@ public final class BalanceKit {
         if (add > 0F) armor.addTransientModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(FBI_ARMOR, add,
                 net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE));
     }
+
+    /**
+     * A hit the formula does not take (melee, arrows, fire and the rest: NTM's numbers) on a combat set that
+     * balance.vanilla0 left with no vanilla armour: the armour and toughness of the set's pieces worn, for vanilla's
+     * armour to take them as before the balance (the FBI agent has its share back already: balance.fbiArmor). {0, 0}
+     * for a hit of the formula.
+     */
+    public static float[] vanillaBack(LivingEntity target, net.minecraft.world.damagesource.DamageSource source) {
+        if (!vanilla0On() || target.level().isClientSide() || BalanceArmor.category(source) != null) return NO_ARMOR;
+        double armor = 0, tough = 0;
+        for (EquipmentSlot slot : new EquipmentSlot[] {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
+            ItemStack stack = target.getItemBySlot(slot);
+            if (stack.isEmpty() || !combatPiece(stack)) continue;
+            var mods = stack.getPrototype().get(net.minecraft.core.component.DataComponents.ATTRIBUTE_MODIFIERS);
+            if (mods == null) continue;
+            for (var m : mods.modifiers()) {
+                // as vanilla puts it on: for the slot it is worn in
+                if (m.modifier().operation() != AttributeModifier.Operation.ADD_VALUE || !m.slot().test(slot)) continue;
+                if (m.attribute().is(Attributes.ARMOR)) armor += m.modifier().amount();
+                else if (m.attribute().is(Attributes.ARMOR_TOUGHNESS)) tough += m.modifier().amount();
+            }
+        }
+        if (FBI.equals(BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()))) armor = Math.max(0, armor - fbiArmor());
+        return armor <= 0 && tough <= 0 ? NO_ARMOR : new float[] {(float) armor, (float) tough};
+    }
+
+    private static final float[] NO_ARMOR = {0F, 0F};
 
     private static void attributes(ItemAttributeModifierEvent e) {
         ItemStack stack = e.getItemStack();

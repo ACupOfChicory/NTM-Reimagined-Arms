@@ -350,6 +350,9 @@ CORE field com/hbm/items/ModItems GUN_CARBINE Lcom/hbm/registration/RegistryHand
 CORE field com/hbm/items/ModItems GUN_CONGOLAKE Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_DOUBLE_BARREL Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_DOUBLE_BARREL_SACRED_DRAGON Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems GUN_FLAMER Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems GUN_FLAMER_DAYBREAKER Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems GUN_FLAMER_TOPAZ Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_G3_ZEBRA Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_GREASEGUN Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_HANGMAN Lcom/hbm/registration/RegistryHandle;
@@ -444,6 +447,9 @@ CORE field com/hbm/items/weapon/sedna/factory/XFactoryBlackPowder shot Lcom/hbm/
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryBlackPowder stone Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryEnergy energy_las Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryEnergy energy_tesla_overcharge Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactoryFlamer flame_daybreaker_diesel Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactoryFlamer flame_diesel Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactoryFlamer flame_topaz_diesel Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryRocket rocket_ml [Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryRocket rocket_rpzb [Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase capacity I

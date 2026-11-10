@@ -1,5 +1,20 @@
 # Changelog
 
+## X867
+
+- Melee is NTM's again on armour: the balance's armour formula and its flesh
+  squeeze take only NTM's shots (bullets, beams and their blasts) and weapons'
+  blasts. A sword, the Crucible, a chainsaw, a mob's blow, vanilla's arrows,
+  fire, lava, electricity, gas and the rest take NTM's numbers on every set, as
+  before the balance; the Crucible no longer does one heart to a player in
+  Security. DNS's and FAU's pool no longer takes melee either (euphemium's
+  still does, drained as before). The combat sets' vanilla armour, which the
+  balance takes off for the formula's hits, is back for these hits, so they
+  meet the same armour as in NTM; the GL-54's acid eats it too.
+- The flamethrowers (the Flamethrower, Topaz, Daybreaker) hit and set on fire
+  as in NTM. NTM's FBI agent is immune to fire by NTM's own design, so flames
+  do nothing to it there too; Daybreaker's blasts still hurt it.
+
 ## X865
 
 - DNS and FAU get euphemium's invulnerability with a pool, with their own
