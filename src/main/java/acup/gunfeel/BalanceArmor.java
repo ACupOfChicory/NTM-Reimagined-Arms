@@ -153,9 +153,10 @@ public final class BalanceArmor {
      * table multiplier) and big charges do not.
      */
     public static <T> T withBlastPower(boolean weapon, float amount, java.util.function.Supplier<T> hurt) {
-        if (!weapon || !on() || amount > explRawLimit()) return hurt.get();
+        // not a weapon's: 1, also when it goes off inside a weapon's blast's hurt
+        float power = !weapon || !on() || amount > explRawLimit() ? 1F : blastPower();
         Float before = BLAST_POWER.get();
-        BLAST_POWER.set(blastPower());
+        BLAST_POWER.set(power);
         try {
             return hurt.get();
         } finally {

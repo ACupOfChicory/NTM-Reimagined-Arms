@@ -273,14 +273,18 @@ public final class EuphImmunity {
         return null;
     }
 
-    // the last decision on a hit of DNS or FAU (NTM's early check), for the same hit's actuallyHurt: one drain a hit
-    private static final Map<Entity, Object[]> DECIDED = new WeakHashMap<>();
+    /** the last decision on a hit of DNS or FAU: the hit's source (by identity, not held), its tick, called off */
+    private record Decided(int source, long tick, boolean off) {
+    }
+
+    // by the player's id, for the same hit's actuallyHurt: one drain a hit (the source not held: it holds its attacker)
+    private static final Map<UUID, Decided> DECIDED = new HashMap<>();
 
     /** NTM's early check (allowsAttack) of a hit on DNS or FAU: true calls it off */
     public static boolean early(Kit kit, Player player, DamageSource source, float amount) {
         boolean off = absorbs(kit, player, source, amount);
         synchronized (EuphImmunity.class) {
-            DECIDED.put(player, new Object[] {source, player.level().getGameTime(), off});
+            DECIDED.put(player.getUUID(), new Decided(System.identityHashCode(source), player.level().getGameTime(), off));
         }
         return off;
     }
@@ -290,11 +294,11 @@ public final class EuphImmunity {
      * calling off does not stop them): true takes it to 0. The early check's decision on the same hit, or a new one.
      */
     public static boolean accepted(Kit kit, Player player, DamageSource source, float amount) {
-        Object[] d;
+        Decided d;
         synchronized (EuphImmunity.class) {
-            d = DECIDED.get(player);
+            d = DECIDED.get(player.getUUID());
         }
-        if (d != null && d[0] == source && ((Long) d[1]) == player.level().getGameTime()) return (Boolean) d[2];
+        if (d != null && d.source() == System.identityHashCode(source) && d.tick() == player.level().getGameTime()) return d.off();
         return absorbs(kit, player, source, amount);
     }
 
@@ -339,7 +343,7 @@ public final class EuphImmunity {
 
     static synchronized void forget(Player player) {
         for (Map<UUID, State> m : STATES.values()) m.remove(player.getUUID());
-        DECIDED.remove(player);
+        DECIDED.remove(player.getUUID());
     }
 
     public static synchronized void clear() {

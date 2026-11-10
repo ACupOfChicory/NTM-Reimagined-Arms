@@ -1671,8 +1671,9 @@ public final class BalanceCheck {
                         float drain = POOL_DRAIN.getOrDefault(id, 0F) / 3F, hp = POOL_HP.getOrDefault(id, 0F);
                         LINES.add("#\tпул: " + id + ": пул " + f(full) + ": снято " + f(lost) + " HP за 3 клика, из пула по " + f(drain) + " за клик (по рейтингу "
                                 + f(hp) + " HP), " + EuphImmunity.describe(kit, target));
-                        // a pellet's head multiplier comes after the armour (HeadDamage): the pool takes the body's share
-                        float tol = g.name().startsWith("double_barrel") ? 0.3F : 0.15F;
+                        // a click of several hits (pellets; Tesla's chained beams, 3 or 4 a click): the damage cap takes the
+                        // click whole, the pool each hit on its own; a pellet's head multiplier (after the armour) not at all
+                        float tol = g.name().startsWith("double_barrel") || g.name().startsWith("tesla") ? 0.3F : 0.15F;
                         check(lost == 0F && drain > 0F && Math.abs(drain - hp) <= Math.max(tol * hp, 0.3F), "пул: " + id + ": набор неуязвим (снято " + f(lost)
                                 + "), пул берёт за клик " + f(drain) + " ≈ урону по рейтингу " + f(hp));
                     });
