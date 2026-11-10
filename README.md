@@ -340,6 +340,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.inserts` | `true` | An armour insert takes at most 1 − `balance.inserts.bullets` off a bullet; off: NTM's |
 | `balance.inserts.bullets` | `0.9` | The least share of a bullet an insert leaves |
 | `balance.vanilla0` | `true` | The combat sets of `balanceS.*` have no vanilla armour points and toughness (counts when a piece is put on again); off: theirs |
+| `balance.fbiArmor` | `10` | With `balance.vanilla0`, NTM's FBI agent's own vanilla armour on top (it wears Security) |
 | `balance.immune.mode` | `pool` | Euphemium's invulnerability with a pool; `ntm`: every hit called off |
 | `balance.immune.pool` | `2000` | What bullets, beams and blasts on the set wear down before it opens (each as much as on a DNS-class set) |
 | `balance.immune.window` | `15` | Seconds the emptied pool leaves the wearer open, without the set's Regeneration and Resistance |

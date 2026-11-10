@@ -30,6 +30,10 @@
   takes a hit's raw damage before the armour, and what it takes counts to
   the damage cap first, so with Med-X and a super stimpak a fight takes about
   twice as long at most (was up to 2.7 times).
+- NTM's FBI agents have 10 vanilla armour points of their own again, as they
+  had with Security's before the combat sets lost theirs: a .44 Heavy
+  Revolver takes 10-11 clicks on one again, not 5. New server key
+  `balance.fbiArmor` (0: none).
 
 ## X846
 
