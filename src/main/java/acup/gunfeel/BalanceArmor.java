@@ -32,22 +32,25 @@ public final class BalanceArmor {
     private BalanceArmor() {
     }
 
-    /** a set of the table: its rating by default and its tier (the model's tau, for b and d) */
-    record SetOf(float s, float tau) {
+    /**
+     * a set of the table: its rating by default, its tau (for b and d; balanceTau.<set>) by default and its tier on the
+     * ladder (the blast power by tier: balanceBlastPowerLow, balanceBlastPowerRocketHigh)
+     */
+    record SetOf(float s, float tau, int tier) {
     }
 
     /** by the items' name before _helmet/_plate/_legs/_boots (S: fit4_result.json of the balance model, rounded) */
     static final Map<String, SetOf> SETS = Map.ofEntries(
-            Map.entry("steel", new SetOf(8, 1.0F)), Map.entry("cobalt", new SetOf(8, 1.0F)), Map.entry("alloy", new SetOf(8, 1.0F)),
-            Map.entry("titanium", new SetOf(8, 1.3F)), Map.entry("taurun", new SetOf(8, 1.2F)),
-            Map.entry("dieselsuit", new SetOf(13, 1.0F)), Map.entry("t51", new SetOf(18, 2.0F)),
-            Map.entry("steamsuit", new SetOf(26, 2.0F)), Map.entry("hev", new SetOf(26, 2.1F)),
-            Map.entry("ajr", new SetOf(25, 2.3F)), Map.entry("ajro", new SetOf(25, 2.3F)),
-            Map.entry("security", new SetOf(22, 3.0F)), Map.entry("trenchmaster", new SetOf(48, 3.0F)), Map.entry("bismuth", new SetOf(48, 3.0F)),
-            Map.entry("bj", new SetOf(63, 4.0F)), Map.entry("ncrpa", new SetOf(54, 4.5F)),
-            Map.entry("cmb", new SetOf(91, 5.0F)), Map.entry("schrabidium", new SetOf(91, 5.0F)),
-            Map.entry("rpa", new SetOf(90, 5.5F)), Map.entry("fau", new SetOf(148, 6.5F)),
-            Map.entry("dns", new SetOf(186, 7.5F)), Map.entry("euphemium", new SetOf(280, 8.5F)));
+            Map.entry("steel", new SetOf(8, 1.0F, 1)), Map.entry("cobalt", new SetOf(8, 1.0F, 1)), Map.entry("alloy", new SetOf(8, 1.0F, 1)),
+            Map.entry("titanium", new SetOf(8, 1.3F, 1)), Map.entry("taurun", new SetOf(8, 1.2F, 1)),
+            Map.entry("dieselsuit", new SetOf(13, 1.0F, 2)), Map.entry("t51", new SetOf(18, 2.0F, 3)),
+            Map.entry("steamsuit", new SetOf(26, 2.0F, 4)), Map.entry("hev", new SetOf(26, 2.1F, 4)),
+            Map.entry("ajr", new SetOf(25, 2.3F, 4)), Map.entry("ajro", new SetOf(25, 2.3F, 4)),
+            Map.entry("security", new SetOf(22, 3.0F, 4)), Map.entry("trenchmaster", new SetOf(48, 3.0F, 6)), Map.entry("bismuth", new SetOf(48, 3.0F, 6)),
+            Map.entry("bj", new SetOf(63, 4.0F, 6)), Map.entry("ncrpa", new SetOf(54, 4.5F, 6)),
+            Map.entry("cmb", new SetOf(91, 5.0F, 7)), Map.entry("schrabidium", new SetOf(91, 5.0F, 7)),
+            Map.entry("rpa", new SetOf(90, 5.5F, 7)), Map.entry("fau", new SetOf(148, 6.5F, 8)),
+            Map.entry("dns", new SetOf(186, 7.5F, 8)), Map.entry("euphemium", new SetOf(280, 8.5F, 9)));
     /** the joke sets: NTM's numbers, with a floor */
     static final java.util.Set<String> ROFL = java.util.Set.of("starmetal", "dnt");
     private static final String[] SUFFIX = {"_helmet", "_plate", "_legs", "_boots"};
@@ -67,6 +70,14 @@ public final class BalanceArmor {
         if (i == 1 && path.endsWith("_plate_jetpack")) path = path.substring(0, path.length() - "_jetpack".length());
         if (!path.endsWith(SUFFIX[i])) return null;
         return path.substring(0, path.length() - SUFFIX[i].length());
+    }
+
+    /** the set's tau (balanceTau.<set>; its b and d), the table's by default */
+    static float tau(String set) {
+        SetOf def = SETS.get(set);
+        if (def == null) return 1F;
+        float v = ReaimTimes.number("balanceTau." + set, def.tau());
+        return Float.isFinite(v) && v > 0F ? v : def.tau();
     }
 
     static float rating(String set) {
@@ -97,6 +108,10 @@ public final class BalanceArmor {
         if (source.is(DamageTypeTags.BYPASSES_EFFECTS)) return null;
         if (source.is(ModDamageTypes.NUCLEAR_BLAST) || source.is(ModDamageTypes.DIGAMMA) || source.is(ModDamageTypes.RADIATION)) return null;
         String cat = DamageResistanceHandler.typeToCategory(source);
+        // an infrared beam (a gun's beam of NTM's fire class: the IR capacitors of the laser guns and Lacunae) is the
+        // formula's as a beam (EN; balanceIrBeams), not NTM's fire numbers: they let it through the combat sets and the pool
+        if (DamageResistanceHandler.CATEGORY_FIRE.equals(cat) && source.getDirectEntity() instanceof com.hbm.entity.projectile.EntityBulletBeamBase
+                && ReaimTimes.flag("balanceIrBeams", true)) return DamageResistanceHandler.CATEGORY_ENERGY;
         // balanceArmorBlasts off: blasts take NTM's numbers, bullets and beams the formula's
         if (DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) return ReaimTimes.flag("balanceArmorBlasts", true) ? cat : null;
         return DamageResistanceHandler.CATEGORY_ENERGY.equals(cat) || DamageResistanceHandler.CATEGORY_PHYSICAL.equals(cat) ? cat : null;
@@ -160,6 +175,25 @@ public final class BalanceArmor {
     /** the power of the weapon's blast being dealt now (1: none, or not a weapon's), set around NTM's blast's hurt */
     static final ThreadLocal<Float> BLAST_POWER = ThreadLocal.withInitial(() -> 1F);
 
+    /** the weapon's blast being dealt now is a rocket's on the creature it struck (set around NTM's blast's hurt) */
+    static final ThreadLocal<Boolean> ROCKET_DIRECT = ThreadLocal.withInitial(() -> false);
+
+    /**
+     * the power a weapon's blast of {@code power} (balanceBlastPower) hits a set of {@code tier} with: up to tier 4
+     * balanceBlastPowerLow, a rocket's direct hit on tier 7 and up balanceBlastPowerRocketHigh (each at most the power,
+     * at least 1)
+     */
+    static float pieceBlastPower(int tier, float power) {
+        if (tier <= 4) return clampPower("balanceBlastPowerLow", power);
+        if (tier >= 7 && ROCKET_DIRECT.get()) return clampPower("balanceBlastPowerRocketHigh", power);
+        return power;
+    }
+
+    private static float clampPower(String key, float power) {
+        float v = ReaimTimes.number(key, power);
+        return Float.isFinite(v) ? Math.max(1F, Math.min(power, v)) : power;
+    }
+
     /** balanceBlastPower (2.7; 1: X858): how much stronger a weapon's blast hits a combat set */
     public static float blastPower() {
         float v = ReaimTimes.number("balanceBlastPower", 2.7F);
@@ -172,14 +206,22 @@ public final class BalanceArmor {
      * table multiplier) and big charges do not.
      */
     public static <T> T withBlastPower(boolean weapon, float amount, java.util.function.Supplier<T> hurt) {
+        return withBlastPower(weapon, false, amount, hurt);
+    }
+
+    /** the same; {@code rocketDirect}: a rocket's blast on the creature it struck */
+    public static <T> T withBlastPower(boolean weapon, boolean rocketDirect, float amount, java.util.function.Supplier<T> hurt) {
         // not a weapon's: 1, also when it goes off inside a weapon's blast's hurt
         float power = !weapon || !on() || amount > explRawLimit() ? 1F : blastPower();
         Float before = BLAST_POWER.get();
+        Boolean direct = ROCKET_DIRECT.get();
         BLAST_POWER.set(power);
+        ROCKET_DIRECT.set(weapon && rocketDirect);
         try {
             return hurt.get();
         } finally {
             BLAST_POWER.set(before);
+            ROCKET_DIRECT.set(direct);
         }
     }
 
@@ -220,7 +262,10 @@ public final class BalanceArmor {
             if (en) s *= enShare;
             if (k > 0F) s = acup.gunfeel.gas.GasModel.corrode(s, k);
             if (!(s > 0F)) s = 1e-3F;
-            byPiece[i] = Math.min(amount, BalanceArmorRule.full(hit, s, SETS.get(set).tau(), tune));
+            // the weapon's blast's power by the set's tier (balanceBlastPowerLow, balanceBlastPowerRocketHigh)
+            float pk = power > 1F ? pieceBlastPower(SETS.get(set).tier(), power) : 1F;
+            var pieceHit = pk == power ? hit : new BalanceArmorRule.Hit(amount * pk, neg, pen, squeeze);
+            byPiece[i] = Math.min(amount, BalanceArmorRule.full(pieceHit, s, tau(set), tune));
             any = true;
         }
         float rest = ntm;

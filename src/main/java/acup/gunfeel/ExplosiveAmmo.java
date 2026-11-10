@@ -11,6 +11,11 @@ public final class ExplosiveAmmo {
         var key=BuiltInRegistries.ITEM.getKey(config.ammoItem.get());
         return key.getNamespace().equals("hbm") && heavyPath(key.getPath());
     }
+    /** a rocket (Panzerschreck, Stinger, Quadro, the missile launcher), not a 40 mm shell */
+    public static boolean rocket(BulletConfig config) {
+        if(!heavy(config))return false;
+        return BuiltInRegistries.ITEM.getKey(config.ammoItem.get()).getPath().startsWith("ammo_standard_rocket_");
+    }
     static boolean heavyPath(String path) {
         return path.startsWith("ammo_standard_g40_") || path.startsWith("ammo_standard_rocket_");
     }

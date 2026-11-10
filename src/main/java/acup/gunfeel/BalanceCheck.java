@@ -287,7 +287,7 @@ public final class BalanceCheck {
     private static void plan() {
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         STEPS.add(() -> keys("balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula"));
         wait(30);
@@ -307,7 +307,7 @@ public final class BalanceCheck {
         if (only("hot")) planHot();
     }
 
-    // ---------------------------------------------------------------- melee and the flamethrower (hotfix X866)
+    // ---------------------------------------------------------------- melee and the flamethrower (hotfix X867)
 
     /** a target of the pass hot: an FBI agent, a zombie or the player, bare or in Security */
     private static LivingEntity hotTarget(String who, String set) {
@@ -490,6 +490,105 @@ public final class BalanceCheck {
             target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
         });
         wait(20);
+        if (only("mx")) planMatrix();
+    }
+
+    // ---------------------------------------------------------------- the model's cells, one by one
+
+    /** a cell of the model: the set (empty: none), the gun (no gun_), its ammo (BalanceGuns.ammoName), the head or not */
+    private record Cell(String set, String gun, String ammo, boolean head) {
+    }
+
+    /** the gun's ammo of that name, from every receiver's magazine */
+    private static BulletConfig ammoNamed(Item item, String name) {
+        if (!(item instanceof ItemGunBaseNT gun)) return null;
+        ItemStack stack = new ItemStack(item);
+        for (int c = 0; c < gun.getConfigCount(); c++)
+            for (com.hbm.items.weapon.sedna.Receiver rec : gun.getConfig(stack, c).getReceivers(stack))
+                for (BulletConfig b : AmmoLock.accepted(rec.getMagazine(stack))) if (BalanceGuns.ammoName(b).equals(name)) return b;
+        return null;
+    }
+
+    /**
+     * The model's cells (ntmgunfeel.checkBalance.cells: a file of lines "set gun ammo body|head", tabs; set "-" for no
+     * armour): three primary clicks, each from full health and an empty damage cap, what a click took and how many hits
+     * it was. DNS and FAU by their rating (formula); euphemium in its window (a pool of 0.01 emptied by a first click).
+     * No checks: the lines "mx" go to the model (notes/balance/review-fixes-2026-11-10.md).
+     */
+    private static void planMatrix() {
+        String file = System.getProperty("ntmgunfeel.checkBalance.cells", "").trim();
+        if (file.isEmpty()) return;
+        List<Cell> cells = new ArrayList<>();
+        try {
+            for (String l : Files.readAllLines(Path.of(file))) {
+                String[] p = l.trim().split("\t");
+                if (p.length < 4 || l.startsWith("#")) continue;
+                cells.add(new Cell(p[0].equals("-") ? "" : p[0], p[1], p[2], p[3].equals("head")));
+            }
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        LINES.add("#\t--- матрица модели: " + cells.size() + " клеток, по 3 клика с полного здоровья, 4 бл");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", "formula",
+                    "balance.immune.fau.mode", "formula", "balance.immune.mode", "pool", "balance.immune.pool", "0.01", "balance.immune.window", "600",
+                    "balance.immune.recover", "1");
+            shooter.setInvulnerable(true);
+        });
+        wait(30);
+        float[] took = {0F};
+        int[] hitsSeen = {0};
+        for (Cell cell : cells) {
+            Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + cell.gun()));
+            BulletConfig ammo = ammoNamed(gun, cell.ammo());
+            String id = (cell.set().isEmpty() ? "-" : cell.set()) + "\t" + cell.gun() + "\t" + cell.ammo() + "\t" + (cell.head() ? "head" : "body");
+            if (ammo == null) {
+                LINES.add("mx\t" + id + "\tнет патрона");
+                continue;
+            }
+            boolean euph = cell.set().equals("euphemium");
+            STEPS.add(() -> {
+                begin(target);
+                for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
+                if (!cell.set().isEmpty()) dress(target, cell.set(), false);
+                EuphImmunity.forget(target);
+                homePool();
+                aimHead = cell.head();
+                took[0] = 0F;
+                hitsSeen[0] = 0;
+            });
+            wait(5);
+            // euphemium: the first click empties the pool of 0.01, the window is open from the next tick
+            for (int c = euph ? -1 : 0; c < 3; c++) {
+                boolean count = c >= 0;
+                float[] hp = {0F};
+                int[] seen = {0};
+                STEPS.add(() -> {
+                    target.setHealth(target.getMaxHealth());
+                    target.setAbsorptionAmount(0F);
+                    DamageCap.forget();
+                    homePool();
+                    hp[0] = target.getHealth();
+                    seen[0] = BalanceArmor.seenHits;
+                    fire(shooter, gun, ammo, EnumKeybind.GUN_PRIMARY);
+                });
+                wait(SPACING + 10);
+                STEPS.add(() -> {
+                    if (!count) return;
+                    took[0] += hp[0] - Math.max(0F, target.getHealth());
+                    hitsSeen[0] += BalanceArmor.seenHits - seen[0];
+                });
+            }
+            STEPS.add(() -> {
+                aimHead = false;
+                LINES.add("mx\t" + id + "\t" + f(took[0] / 3F) + "\t" + f(hitsSeen[0] / 3F));
+            });
+        }
+        STEPS.add(() -> {
+            keys("balance.immune.pool", "2000", "balance.immune.window", "15", "balance.immune.recover", "60");
+            shooter.setInvulnerable(false);
+        });
+        wait(30);
     }
 
     // ---------------------------------------------------------------- Pepperbox: 13th-century tech

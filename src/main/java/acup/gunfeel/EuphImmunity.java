@@ -204,7 +204,7 @@ public final class EuphImmunity {
         if (kit == Kit.EUPHEMIUM) return new float[] {POOL_S, POOL_TAU};
         BalanceArmor.SetOf def = BalanceArmor.SETS.get(kit.set);
         float s = BalanceArmor.rating(kit.set);
-        return new float[] {s > 0F ? s : def.s(), def.tau()};
+        return new float[] {s > 0F ? s : def.s(), BalanceArmor.tau(kit.set)};
     }
 
     /** what the hit would do to the kit's drain set (formula C; one hit at most damageCapClick of the health), or 0 */
@@ -220,6 +220,8 @@ public final class EuphImmunity {
         boolean squeeze = !DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) || amount <= ReaimTimes.number("balanceExplRawLimit", 60F);
         // a weapon's blast as BalanceArmor takes it (balanceBlastPower, set around the blast's hurt)
         float power = DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) && squeeze ? BalanceArmor.BLAST_POWER.get() : 1F;
+        // by the kit's tier (8, 9): a rocket's direct hit balanceBlastPowerRocketHigh
+        if (power > 1F) power = BalanceArmor.pieceBlastPower(kit == Kit.EUPHEMIUM ? 9 : 8, power);
         float drain = Math.min(amount, BalanceArmorRule.full(new BalanceArmorRule.Hit(amount * power, ctx.hbm$pierceDT(), ctx.hbm$pierceDR(), squeeze), s, st[1],
                 BalanceArmorRule.Tune.DEFAULT));
         float click = ReaimTimes.number("damageCapClick", 0.6F);

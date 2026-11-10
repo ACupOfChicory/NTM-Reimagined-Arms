@@ -389,6 +389,8 @@ neoForge {
             systemProperty("ntmgunfeel.checkBalance", layout.buildDirectory.file("balancecheck/result.txt").get().asFile.path)
             // -PbalanceOnly=dns,1b: only these passes (BalanceCheck.only)
             providers.gradleProperty("balanceOnly").orNull?.let { systemProperty("ntmgunfeel.checkBalance.only", it) }
+            // -PbalanceCells=<file>: the pass "mx", the model's cells (BalanceCheck.planMatrix)
+            providers.gradleProperty("balanceCells").orNull?.let { systemProperty("ntmgunfeel.checkBalance.cells", it) }
         }
         // the new gun mechanisms and their recipes (MechanismCheck): ./gradlew runCheckMechanisms -PnoAssets
         register("checkMechanisms") {
