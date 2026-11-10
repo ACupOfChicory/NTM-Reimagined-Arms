@@ -18,6 +18,34 @@
   went past the balance's armour, the cap and DNS's pool: a laser pistol IR
   shot killed an unarmoured player at once and Lacunae IR took 10.4 off BJ
   past its rating. New server key `balanceIrBeams` (false: as X865).
+- Armour holds longer against guns of lower tiers, so the hours put into a set
+  pay: the ratings and their tiers (the curve's steepness) are now diesel 13/3,
+  T-51 23/4, the steam suit 66/3, HEV 46/3, AJR 38/4, Security 56/3,
+  Trenchmaster 72/4, bismuth 96/5, BJ and NCRPA 120/5, CMB and Schrabidium
+  159/6, RPA 158/6, FAU 168/7. A tier 2 gun now needs about 6 s on AJR (was
+  2.9), 12 s on BJ (5.1) and 16 s on RPA (8.6). The server keys
+  `balanceS.<set>` and the new `balanceTau.<set>` hold them (X865's numbers: as
+  X865).
+- DNS, FAU and euphemium are no longer all but invulnerable to the guns of
+  tiers 5 to 8: their pools are 40, 45 and 150 (were 500, 450 and 2000), the
+  owner's choice. The best gun of tier 7 now takes DNS in about 10 s (was 82),
+  of tier 8 in 6 s; guns of tiers 2 and 3 still need minutes. Keys
+  `balance.immune.dns.pool`, `balance.immune.fau.pool`, `balance.immune.pool`:
+  500, 450 and 2000 as X865, 120, 100 and 400 a middle way.
+- The guns' table is evened out by tier: the lever rifles and revolvers of
+  tiers 2 to 4 (Henry, Lincoln, the light and heavy revolvers, the Mare's Leg,
+  the double barrel) hit harder, as do the guns of tier 6; Lacunae (x0.3), the
+  Sexy (x0.55) and the AM180 (x0.8-0.9) less, the Penance's black round more.
+  Each tier now kills DNS faster than the one below it.
+- The Tesla Cannon's electric hit counts 1.5 times on a powered chestplate, not
+  NTM's 5 times: one click took 12 of 20 HP through BJ and RPA. New server key
+  `balanceElectricPowered` (5: as X865).
+- Weapons' blasts are a little stronger on the high sets (`balanceBlastPower`
+  3, was 2.7) and weaker on the sets of tier 4 and below
+  (`balanceBlastPowerLow` 1.7: a hand grenade needs 3-4 hits on AJR, not 2),
+  and a rocket's direct hit on RPA, CMB and Schrabidium takes
+  `balanceBlastPowerRocketHigh` 2.2: the Missile Launcher needs 6 rockets on
+  RPA (was 3), 13 on FAU and 15 on DNS. All three keys 2.7: as X865.
 
 ## X867
 

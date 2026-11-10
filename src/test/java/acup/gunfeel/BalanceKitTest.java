@@ -76,8 +76,8 @@ class BalanceKitTest {
     void poolWindowRecover() {
         State s = new State(P.size(), 0);
         assertEquals(Phase.POOL, EuphImmunity.phase(s, 0));
-        // 1999 taken: still invulnerable
-        assertTrue(EuphImmunity.hit(s, 10, 1999F, true, P));
+        // all but 1 taken (the pool 150): still invulnerable
+        assertTrue(EuphImmunity.hit(s, 10, P.size() - 1F, true, P));
         assertEquals(1F, EuphImmunity.poolAt(s, 10, P), 1e-3F);
         // other damage takes nothing
         assertTrue(EuphImmunity.hit(s, 11, 500F, false, P));
@@ -95,23 +95,24 @@ class BalanceKitTest {
         assertEquals(Phase.RECOVER, EuphImmunity.phase(s, 13 + 300));
         // the recovery: invulnerable, nothing taken, the pool filling over 60 s
         assertTrue(EuphImmunity.hit(s, 13 + 300 + 600, 5000F, true, P));
-        assertEquals(1000F, EuphImmunity.poolAt(s, 13 + 300 + 600, P), 1F);
+        assertEquals(P.size() / 2F, EuphImmunity.poolAt(s, 13 + 300 + 600, P), 1F);
         assertEquals(Phase.POOL, EuphImmunity.phase(s, 13 + 300 + 1200));
-        assertEquals(2000F, EuphImmunity.poolAt(s, 13 + 300 + 1200, P), 1e-3F);
+        assertEquals(P.size(), EuphImmunity.poolAt(s, 13 + 300 + 1200, P), 1e-3F);
         // and again
         assertTrue(EuphImmunity.hit(s, 13 + 300 + 1200, 100F, true, P));
-        assertEquals(1900F, EuphImmunity.poolAt(s, 13 + 300 + 1200, P), 1e-3F);
+        assertEquals(P.size() - 100F, EuphImmunity.poolAt(s, 13 + 300 + 1200, P), 1e-3F);
     }
 
     @Test
     void poolRefillsAfterAPause() {
         State s = new State(P.size(), 0);
-        EuphImmunity.hit(s, 0, 1000F, true, P);
+        float half = P.size() / 2F;
+        EuphImmunity.hit(s, 0, half, true, P);
         // under fire nothing comes back
-        assertEquals(1000F, EuphImmunity.poolAt(s, EuphImmunity.REFILL_PAUSE, P), 1e-3F);
-        // after the pause: the whole pool over 60 s, 1000 in 30 s
-        assertEquals(1000F + 2000F * 200 / 1200, EuphImmunity.poolAt(s, EuphImmunity.REFILL_PAUSE + 200, P), 1e-2F);
-        assertEquals(2000F, EuphImmunity.poolAt(s, EuphImmunity.REFILL_PAUSE + 600, P), 1e-3F);
+        assertEquals(half, EuphImmunity.poolAt(s, EuphImmunity.REFILL_PAUSE, P), 1e-3F);
+        // after the pause: the whole pool over 60 s, half of it in 30 s
+        assertEquals(half + P.size() * 200 / 1200, EuphImmunity.poolAt(s, EuphImmunity.REFILL_PAUSE + 200, P), 1e-2F);
+        assertEquals(P.size(), EuphImmunity.poolAt(s, EuphImmunity.REFILL_PAUSE + 600, P), 1e-3F);
     }
 
     @Test
@@ -136,30 +137,30 @@ class BalanceKitTest {
         assertEquals("0.9", p.getProperty("balance.inserts.bullets"));
         assertEquals("true", p.getProperty("balance.vanilla0"));
         assertEquals("pool", p.getProperty("balance.immune.mode"));
-        assertEquals("2000", p.getProperty("balance.immune.pool"));
+        assertEquals("150", p.getProperty("balance.immune.pool"));
         assertEquals("15", p.getProperty("balance.immune.window"));
         assertEquals("60", p.getProperty("balance.immune.recover"));
         assertEquals("pool", p.getProperty("balance.immune.dns.mode"));
-        assertEquals("500", p.getProperty("balance.immune.dns.pool"));
+        assertEquals("40", p.getProperty("balance.immune.dns.pool"));
         assertEquals("15", p.getProperty("balance.immune.dns.window"));
         assertEquals("60", p.getProperty("balance.immune.dns.recover"));
         assertEquals("pool", p.getProperty("balance.immune.fau.mode"));
-        assertEquals("450", p.getProperty("balance.immune.fau.pool"));
+        assertEquals("45", p.getProperty("balance.immune.fau.pool"));
         assertEquals("15", p.getProperty("balance.immune.fau.window"));
         assertEquals("60", p.getProperty("balance.immune.fau.recover"));
         assertEquals(null, p.getProperty("balance.immune.dns"), "the old DNS switch is balance.immune.dns.mode now");
         // the kits' defaults are the shipped keys' and their drain sets the table's
-        assertEquals(500F, EuphImmunity.Kit.DNS.size);
-        assertEquals(450F, EuphImmunity.Kit.FAU.size);
+        assertEquals(40F, EuphImmunity.Kit.DNS.size);
+        assertEquals(45F, EuphImmunity.Kit.FAU.size);
         assertEquals(186F, BalanceArmor.SETS.get(EuphImmunity.Kit.DNS.set).s());
-        assertEquals(148F, BalanceArmor.SETS.get(EuphImmunity.Kit.FAU.set).s());
+        assertEquals(168F, BalanceArmor.SETS.get(EuphImmunity.Kit.FAU.set).s());
     }
 
     @Test
     void fauPoolOfItsOwnSet() {
-        // FAU's pool takes what FAU (S 148) would let through: more than the DNS-class pool of euphemium takes
+        // FAU's pool takes what FAU (S 168) would let through: more than the DNS-class pool of euphemium takes
         var hit = new BalanceArmorRule.Hit(75F, 0F, 0F, true);
-        float fau = BalanceArmorRule.full(hit, 148F, 6.5F, BalanceArmorRule.Tune.DEFAULT), dns = BalanceArmorRule.full(hit, 186F, 7.5F, BalanceArmorRule.Tune.DEFAULT);
+        float fau = BalanceArmorRule.full(hit, 168F, 7F, BalanceArmorRule.Tune.DEFAULT), dns = BalanceArmorRule.full(hit, 186F, 7.5F, BalanceArmorRule.Tune.DEFAULT);
         assertTrue(fau > dns, "FAU " + fau + " DNS " + dns);
     }
 }

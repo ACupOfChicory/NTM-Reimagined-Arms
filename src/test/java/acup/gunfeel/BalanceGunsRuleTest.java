@@ -83,8 +83,8 @@ class BalanceGunsRuleTest {
         assertEquals(false, h.auto());
         assertEquals(24, h.mag());
         // AM180 A2
-        assertEquals(3.5F, r("am180", "p22_sp").shot().mult());
-        assertEquals(3.32F, r("am180", "p22_fmj").shot().mult());
+        assertEquals(2.8F, r("am180", "p22_sp").shot().mult());
+        assertEquals(2.66F, r("am180", "p22_fmj").shot().mult());
         assertEquals(2.97F, r("am180", "p22_ap").shot().mult());
         assertEquals(3, t.guns().get("am180").delay());
         assertEquals(60, t.guns().get("am180").mag());

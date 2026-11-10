@@ -21,7 +21,7 @@ public abstract class MixinExplosiveProcessor implements ExplosiveDamage.Process
     @Override public ExplosiveDamage.Blast gunfeel$blast(){return gunfeel$blast;}
     @Redirect(method="attackEntity",at=@At(value="INVOKE",target="Lcom/hbm/util/EntityDamageUtil;attackEntityFromNT(Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z"),require=1)
     private boolean gunfeel$damage(LivingEntity target,DamageSource source,float amount,boolean first,boolean second,double knockback,float threshold,float piercing){
-        // a rocket's direct hit (before damage() pays its contact share): its power on the high sets (balanceBlastPowerRocketHigh)
+        // a rocket's direct hit (before damage() pays its contact share): its power on tier 7 (balanceBlastPowerRocketHigh)
         boolean rocketDirect=ExplosiveDamage.rocketDirect(gunfeel$blast,target);
         float total=ExplosiveDamage.damage(gunfeel$blast,target,amount);
         // the blast's parts' multiplier (BlastParts, armed by the hurt around this call) on the blast's share alone, not

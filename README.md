@@ -96,7 +96,7 @@ page. They are alphas: expect bugs and back up your world.
   I for 60 s and needs plastic; the super stimpak heals its 25 HP over 12 s;
   an armour insert takes at most a tenth off a bullet.
 - Euphemium stays invulnerable, but every bullet, beam and blast wears down
-  a pool of 2000 (as much as it would do to a DNS-class set). The emptied
+  a pool of 150 (as much as it would do to a DNS-class set). The emptied
   pool leaves the wearer open to hits for 15 s, without the set's
   Regeneration and Resistance; then the pool fills back over 60 s. The
   tomb's radon gas takes the invulnerability off while the wearer is in it.
@@ -341,13 +341,16 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `damageCapAnyBlast` | `true` | Any NTM blast's hit counts in its click, whatever its class (the Tesla Cannon's electric blast); false: as X865 |
 | `balanceArmor` | `true` | NTM's combat sets take bullets, beams and blasts by the balance's formula; off: NTM's threshold and resistance |
 | `balanceS.<set>` | from `8` (steel) to `280` (euphemium) | Each set's rating; `0`: NTM's numbers for that set |
+| `balanceTau.<set>` | from `1` (steel) to `8.5` (euphemium) | Each set's tier in the formula: how much of a weak hit still gets through and how much of a strong one is stopped |
 | `balanceEnShare` | `0.75` | The share of the rating beams and lasers meet |
 | `balanceFleshKnee`, `balanceFleshMax` | `8`, `14` | One hit's damage on a set is squeezed past the first towards the second |
 | `balanceArmorBlasts` | `true` | Blasts go by the formula too; off: blasts by NTM's threshold and resistance |
 | `balanceExplRawLimit` | `60` | A blast of more raw damage (a mine, C4) is not squeezed and not capped |
-| `balanceBlastPower` | `2.7` | A weapon's blast (grenade, 40 mm, rocket) hits a combat set as this many times its damage, never more than with no armour; 1: as before |
+| `balanceBlastPower` | `3` | A weapon's blast (grenade, 40 mm, rocket) hits a combat set as this many times its damage, never more than with no armour; 2.7: as X865, 1: as X858 |
+| `balanceBlastPowerLow`, `balanceBlastPowerRocketHigh` | `1.7`, `2.2` | The power on sets of tier 4 and below, and of a rocket's direct hit on tier 7 (RPA, CMB, Schrabidium); at most `balanceBlastPower`; all three `2.7`: as X865 |
 | `balanceBulletBlastCap` | `true` | An explosive bullet's blast is squeezed and capped at any damage, not taken for a mine past `balanceExplRawLimit`; false: as X865 |
 | `balanceIrBeams` | `true` | An infrared beam (IR capacitors) is a beam: the armour formula's and the cap's; false: NTM's fire numbers, as X865 |
+| `balanceElectricPowered` | `1.5` | An electric hit (Tesla Cannon) on a powered chestplate counts this many times; 5: NTM's, as X865 |
 | `balanceRoflFloor` | `0.18` | The least share of a hit starmetal and the dineutronium ingot set leave |
 | `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's; the players get the server's); off: NTM's damage and guns |
 | `balanceRecipes` | `true` | The balance's recipes for the diesel suit, Tesla Cannon, Lasrifle, Tau and Med-X; off: NTM's (after `/reload` or a restart) |
@@ -370,15 +373,15 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.vanilla0` | `true` | The combat sets of `balanceS.*` have no vanilla armour points and toughness (counts when a piece is put on again); off: theirs |
 | `balance.fbiArmor` | `10` | With `balance.vanilla0`, NTM's FBI agent's own vanilla armour on top (it wears Security) |
 | `balance.immune.mode` | `pool` | Euphemium's invulnerability with a pool; `ntm`: every hit called off |
-| `balance.immune.pool` | `2000` | What bullets, beams and blasts on the set wear down before it opens (each as much as on a DNS-class set) |
+| `balance.immune.pool` | `150` | What bullets, beams and blasts on the set wear down before it opens (each as much as on a DNS-class set); the owner's choice, `2000`: as X865 |
 | `balance.immune.window` | `15` | Seconds the emptied pool leaves the wearer open, without the set's Regeneration and Resistance |
 | `balance.immune.recover` | `60` | Seconds the pool takes to fill back after the window (the set invulnerable meanwhile), or a worn-down pool after 5 s without a hit |
 | `balance.immune.dns.mode` | `pool` | DNS with euphemium's round: bullets, beams and blasts on the full charged set called off while its pool holds; `formula`: by its rating only; `ntm`: every hit but a blast called off, blasts down to 0.001 |
-| `balance.immune.dns.pool` | `500` | What hits wear down before DNS opens (each as much as it would do to DNS itself, S 186) |
+| `balance.immune.dns.pool` | `40` | What hits wear down before DNS opens (each as much as it would do to DNS itself, S 186); the owner's choice, `500`: as X865, `120`: a middle way |
 | `balance.immune.dns.window` | `15` | Seconds the emptied pool leaves DNS open to its rating |
 | `balance.immune.dns.recover` | `60` | Seconds DNS's pool takes to fill back after the window, or a worn-down pool after 5 s without a hit |
 | `balance.immune.fau.mode` | `pool` | FAU the same; `formula`: by its rating only (NTM gives FAU no invulnerability) |
-| `balance.immune.fau.pool` | `450` | FAU's pool (each hit as much as on FAU itself, S 148) |
+| `balance.immune.fau.pool` | `45` | FAU's pool (each hit as much as on FAU itself, S 168); the owner's choice, `450`: as X865, `100`: a middle way |
 | `balance.immune.fau.window` | `15` | Seconds the emptied pool leaves FAU open |
 | `balance.immune.fau.recover` | `60` | Seconds FAU's pool takes to fill back |
 | `spectatorNoGuns` | `true` | Spectators cannot use NTM's guns |

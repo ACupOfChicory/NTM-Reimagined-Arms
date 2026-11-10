@@ -43,13 +43,13 @@ public final class BalanceArmor {
     static final Map<String, SetOf> SETS = Map.ofEntries(
             Map.entry("steel", new SetOf(8, 1.0F, 1)), Map.entry("cobalt", new SetOf(8, 1.0F, 1)), Map.entry("alloy", new SetOf(8, 1.0F, 1)),
             Map.entry("titanium", new SetOf(8, 1.3F, 1)), Map.entry("taurun", new SetOf(8, 1.2F, 1)),
-            Map.entry("dieselsuit", new SetOf(13, 1.0F, 2)), Map.entry("t51", new SetOf(18, 2.0F, 3)),
-            Map.entry("steamsuit", new SetOf(26, 2.0F, 4)), Map.entry("hev", new SetOf(26, 2.1F, 4)),
-            Map.entry("ajr", new SetOf(25, 2.3F, 4)), Map.entry("ajro", new SetOf(25, 2.3F, 4)),
-            Map.entry("security", new SetOf(22, 3.0F, 4)), Map.entry("trenchmaster", new SetOf(48, 3.0F, 6)), Map.entry("bismuth", new SetOf(48, 3.0F, 6)),
-            Map.entry("bj", new SetOf(63, 4.0F, 6)), Map.entry("ncrpa", new SetOf(54, 4.5F, 6)),
-            Map.entry("cmb", new SetOf(91, 5.0F, 7)), Map.entry("schrabidium", new SetOf(91, 5.0F, 7)),
-            Map.entry("rpa", new SetOf(90, 5.5F, 7)), Map.entry("fau", new SetOf(148, 6.5F, 8)),
+            Map.entry("dieselsuit", new SetOf(13, 3.0F, 2)), Map.entry("t51", new SetOf(23, 4.0F, 3)),
+            Map.entry("steamsuit", new SetOf(66, 3.0F, 4)), Map.entry("hev", new SetOf(46, 3.0F, 4)),
+            Map.entry("ajr", new SetOf(38, 4.0F, 4)), Map.entry("ajro", new SetOf(38, 4.0F, 4)),
+            Map.entry("security", new SetOf(56, 3.0F, 4)), Map.entry("trenchmaster", new SetOf(72, 4.0F, 6)), Map.entry("bismuth", new SetOf(96, 5.0F, 6)),
+            Map.entry("bj", new SetOf(120, 5.0F, 6)), Map.entry("ncrpa", new SetOf(120, 5.0F, 6)),
+            Map.entry("cmb", new SetOf(159, 6.0F, 7)), Map.entry("schrabidium", new SetOf(159, 6.0F, 7)),
+            Map.entry("rpa", new SetOf(158, 6.0F, 7)), Map.entry("fau", new SetOf(168, 7.0F, 8)),
             Map.entry("dns", new SetOf(186, 7.5F, 8)), Map.entry("euphemium", new SetOf(280, 8.5F, 9)));
     /** the joke sets: NTM's numbers, with a floor */
     static final java.util.Set<String> ROFL = java.util.Set.of("starmetal", "dnt");
@@ -185,23 +185,28 @@ public final class BalanceArmor {
 
     /**
      * the power a weapon's blast of {@code power} (balanceBlastPower) hits a set of {@code tier} with: up to tier 4
-     * balanceBlastPowerLow, a rocket's direct hit on tier 7 and up balanceBlastPowerRocketHigh (each at most the power,
-     * at least 1)
+     * balanceBlastPowerLow, a rocket's direct hit on tier 7 balanceBlastPowerRocketHigh (each at most the power, at
+     * least 1; DNS, FAU and euphemium the power itself)
      */
     static float pieceBlastPower(int tier, float power) {
-        if (tier <= 4) return clampPower("balanceBlastPowerLow", power);
-        if (tier >= 7 && ROCKET_DIRECT.get()) return clampPower("balanceBlastPowerRocketHigh", power);
+        return blastPowerFor(tier, ROCKET_DIRECT.get(), power);
+    }
+
+    /** the same for a rocket's direct hit or not ({@code rocketDirect}), as the stand's model takes it */
+    static float blastPowerFor(int tier, boolean rocketDirect, float power) {
+        if (tier <= 4) return clampPower("balanceBlastPowerLow", 1.7F, power);
+        if (tier == 7 && rocketDirect) return clampPower("balanceBlastPowerRocketHigh", 2.2F, power);
         return power;
     }
 
-    private static float clampPower(String key, float power) {
-        float v = ReaimTimes.number(key, power);
+    private static float clampPower(String key, float def, float power) {
+        float v = ReaimTimes.number(key, def);
         return Float.isFinite(v) ? Math.max(1F, Math.min(power, v)) : power;
     }
 
-    /** balanceBlastPower (2.7; 1: X858): how much stronger a weapon's blast hits a combat set */
+    /** balanceBlastPower (3; 2.7: X865, 1: X858): how much stronger a weapon's blast hits a combat set */
     public static float blastPower() {
-        float v = ReaimTimes.number("balanceBlastPower", 2.7F);
+        float v = ReaimTimes.number("balanceBlastPower", 3F);
         return Float.isFinite(v) && v >= 1F ? v : 1F;
     }
 
@@ -257,6 +262,16 @@ public final class BalanceArmor {
             BULLET_BLAST.set(wasBullet);
             VNT_BLAST.set(wasVnt);
         }
+    }
+
+    /**
+     * balanceElectricPowered (1.5; 5: NTM's, X865): how many times an electric hit (the Tesla Cannon's) counts on a
+     * powered chestplate, with the balance's armour on; {@code ntm} (NTM's 5) with it off
+     */
+    public static float electricPowered(float ntm) {
+        if (!on()) return ntm;
+        float v = ReaimTimes.number("balanceElectricPowered", 1.5F);
+        return Float.isFinite(v) && v >= 1F ? v : ntm;
     }
 
     /** balanceExplRawLimit: a blast of more raw damage is not squeezed, nor capped (DamageCap) */

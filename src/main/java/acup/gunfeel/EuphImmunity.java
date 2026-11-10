@@ -22,7 +22,7 @@ import net.minecraft.world.entity.player.Player;
  * <ul>
  * <li>{@code balance.immune.mode}: {@code pool} (the balance's) or {@code ntm} (every hit on a full euphemium set is
  * called off, as NTM does);
- * <li>{@code balance.immune.pool} (2000): bullets, beams and blasts (PHYS, EN, EXPL) on the full set are still called
+ * <li>{@code balance.immune.pool} (150; X865: 2000): bullets, beams and blasts (PHYS, EN, EXPL) on the full set are still called
  * off, but each takes from the pool what it would have done to a DNS-class set (formula C at S 186, tier 7.5; one hit
  * at most damageCapClick of the wearer's health). The pool comes back over {@code balance.immune.recover} once no
  * hit took from it for 5 s. Other damage (fire, falling, gas, radiation, nuclear blasts) is called off as NTM does and
@@ -39,7 +39,7 @@ import net.minecraft.world.entity.player.Player;
  *
  * <p>DNS and FAU (the 240-hour sets) get the same round with their own numbers ({@link Kit}; keys
  * balance.immune.dns.* and balance.immune.fau.*: mode, pool, window, recover): the pool takes what the hit would do to the
- * set itself (its rating, balanceS.dns 186 and balanceS.fau 148), the window lets hits through to that rating. They
+ * set itself (its rating, balanceS.dns 186 and balanceS.fau 168), the window lets hits through to that rating. They
  * have no Regeneration or Resistance of their own to drop. Other damage (fire, falling, gas, radiation, nuclear) is not
  * touched by their pool: NTM's own numbers of the set, as without it. The tomb's radon takes their pool off too.
  */
@@ -49,7 +49,7 @@ public final class EuphImmunity {
 
     /** the pool's numbers */
     public record Pool(float size, int window, int recover) {
-        public static final Pool DEFAULT = new Pool(2000F, 300, 1200);
+        public static final Pool DEFAULT = new Pool(150F, 300, 1200);
     }
 
     /** ticks after the last hit that took from the pool before it comes back */
@@ -127,9 +127,9 @@ public final class EuphImmunity {
 
     /** a set with the pool: its keys' prefix, its table name (the drain's rating), its pool by default, its message */
     public enum Kit {
-        EUPHEMIUM("balance.immune", "euphemium", 2000F, "ntmgunfeel.euph.window"),
-        DNS("balance.immune.dns", "dns", 500F, "ntmgunfeel.dns.window"),
-        FAU("balance.immune.fau", "fau", 450F, "ntmgunfeel.fau.window");
+        EUPHEMIUM("balance.immune", "euphemium", 150F, "ntmgunfeel.euph.window"),
+        DNS("balance.immune.dns", "dns", 40F, "ntmgunfeel.dns.window"),
+        FAU("balance.immune.fau", "fau", 45F, "ntmgunfeel.fau.window");
 
         public final String key, set, message;
         public final float size;
@@ -214,13 +214,13 @@ public final class EuphImmunity {
         // NTM's accepted damage takes an electric hit on a powered chestplate five times (EntityDamageUtil)
         if (kit != Kit.EUPHEMIUM && source.is(com.hbm.lib.ModDamageTypes.ELECTRIC)
                 && player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getItem() instanceof com.hbm.items.armor.ModArmorItem armor && armor.maxPower() > 0L)
-            amount *= 5F;
+            amount *= BalanceArmor.electricPowered(5F);
         NtmDamageContext ctx = (NtmDamageContext) player;
         float s = DamageResistanceHandler.CATEGORY_ENERGY.equals(cat) ? st[0] * Math.min(1F, ReaimTimes.number("balanceEnShare", 0.75F)) : st[0];
         boolean squeeze = !DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) || amount <= ReaimTimes.number("balanceExplRawLimit", 60F) || BalanceArmor.bulletBlastNow();
         // a weapon's blast as BalanceArmor takes it (balanceBlastPower, set around the blast's hurt)
         float power = DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) && squeeze ? BalanceArmor.BLAST_POWER.get() : 1F;
-        // by the kit's tier (8, 9): a rocket's direct hit balanceBlastPowerRocketHigh
+        // by the kit's tier (8, 9): the power itself, a rocket's direct hit too
         if (power > 1F) power = BalanceArmor.pieceBlastPower(kit == Kit.EUPHEMIUM ? 9 : 8, power);
         float drain = Math.min(amount, BalanceArmorRule.full(new BalanceArmorRule.Hit(amount * power, ctx.hbm$pierceDT(), ctx.hbm$pierceDR(), squeeze), s, st[1],
                 BalanceArmorRule.Tune.DEFAULT));
