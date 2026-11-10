@@ -33,13 +33,17 @@ class BalanceStage1vTest {
     @Test
     void spreadTable() throws IOException {
         Properties p = SpreadModelTest.shipped();
-        Map<String, Float> shipped = new TreeMap<>();
+        Map<String, Float> shipped = new TreeMap<>(), recoil = new TreeMap<>();
         for (String k : p.stringPropertyNames()) if (k.startsWith("powerArmorSpread.")) shipped.put(k.substring(17), Float.parseFloat(p.getProperty(k).trim()));
-        assertEquals(new TreeMap<>(PowerArmor.SPREAD), shipped);
+        for (String k : p.stringPropertyNames()) if (k.startsWith("powerArmorRecoil.")) recoil.put(k.substring(17), Float.parseFloat(p.getProperty(k).trim()));
+        assertEquals(new TreeMap<>(PowerArmor.TIERS), shipped);
+        // the recoil by the same tiers (the owner, 2026-11-10: the mod's balance, the server's)
+        assertEquals(new TreeMap<>(PowerArmor.TIERS), recoil);
+        assertEquals("0.5", p.getProperty("powerArmorRecoil"));
         assertEquals(Map.ofEntries(Map.entry("t51", 0.8F), Map.entry("hev", 0.7F), Map.entry("ajr", 0.7F), Map.entry("ajro", 0.7F),
                 Map.entry("envsuit", 0.7F), Map.entry("trenchmaster", 0.7F), Map.entry("bj", 0.6F), Map.entry("ncrpa", 0.6F),
-                Map.entry("rpa", 0.5F), Map.entry("fau", 0.4F), Map.entry("dns", 0.4F)), PowerArmor.SPREAD);
-        for (String none : List.of("security", "steamsuit", "dieselsuit")) assertTrue(!PowerArmor.SPREAD.containsKey(none), none);
+                Map.entry("rpa", 0.5F), Map.entry("fau", 0.4F), Map.entry("dns", 0.4F)), PowerArmor.TIERS);
+        for (String none : List.of("security", "steamsuit", "dieselsuit")) assertTrue(!PowerArmor.TIERS.containsKey(none), none);
         assertEquals("true", p.getProperty("balanceRecipes"));
     }
 

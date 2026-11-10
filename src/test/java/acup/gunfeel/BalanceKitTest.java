@@ -23,13 +23,15 @@ class BalanceKitTest {
         assertEquals(10F, BalanceKit.maxShield(0F, 25F, S), 1e-4F);
         // one flask: NTM's count 5 -> 2
         assertEquals(2F, BalanceKit.maxShield(5F, 0F, S), 1e-4F);
-        // 7 flasks and the mod: 14 + 10 = 24
-        assertEquals(24F, BalanceKit.maxShield(35F, 25F, S), 1e-4F);
-        // NTM's 100 of flasks and the mod: the cap 30
-        assertEquals(30F, BalanceKit.maxShield(100F, 25F, S), 1e-4F);
-        // flasks stop at 15 (NTM's count 75): they alone are at the cap
-        assertEquals(75F, BalanceKit.flaskLimit(S), 1e-4F);
-        assertEquals(30F, BalanceKit.maxShield(BalanceKit.flaskLimit(S), 0F, S), 1e-4F);
+        // 3 flasks and the mod: 6 + 10 = 16, the cap
+        assertEquals(16F, BalanceKit.maxShield(15F, 25F, S), 1e-4F);
+        // 2 flasks and the mod: 14
+        assertEquals(14F, BalanceKit.maxShield(10F, 25F, S), 1e-4F);
+        // NTM's 100 of flasks and the mod: the cap 16
+        assertEquals(16F, BalanceKit.maxShield(100F, 25F, S), 1e-4F);
+        // flasks stop at 8 (NTM's count 40): they alone are at the cap
+        assertEquals(40F, BalanceKit.flaskLimit(S), 1e-4F);
+        assertEquals(16F, BalanceKit.maxShield(BalanceKit.flaskLimit(S), 0F, S), 1e-4F);
         // NTM's own numbers through the same rule
         BalanceKit.Shield ntm = new BalanceKit.Shield(25F, 5F, 1000F, 60, 0.005F);
         assertEquals(125F, BalanceKit.maxShield(100F, 25F, ntm), 1e-4F);
@@ -125,7 +127,7 @@ class BalanceKitTest {
         assertEquals("true", p.getProperty("balance.shield"));
         assertEquals("10", p.getProperty("balance.shield.mod"));
         assertEquals("2", p.getProperty("balance.shield.flask"));
-        assertEquals("30", p.getProperty("balance.shield.cap"));
+        assertEquals("16", p.getProperty("balance.shield.cap"));
         assertEquals("100", p.getProperty("balance.shield.delay"));
         assertEquals("0.002", p.getProperty("balance.shield.rate"));
         assertEquals("true", p.getProperty("balance.medx"));

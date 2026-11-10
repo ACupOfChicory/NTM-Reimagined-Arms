@@ -87,12 +87,13 @@ page. They are alphas: expect bugs and back up your world.
   with a rating per set: a hit far under the rating loses most of itself, one
   far over it gets nearly all through, and none is ever stopped to 0. A piece
   alone protects its share of the body. These sets have no vanilla armour
-  points, so vanilla's armour does not come on top.
-- What a player carries on top of the armour is cut down: the shield mod
-  gives 10 and a shield flask 2 (at most 30 in all), and the shield comes
-  back slower; Med-X gives Resistance I for 60 s and needs plastic; the super
-  stimpak heals its 25 HP over 12 s; an armour insert takes at most a tenth
-  off a bullet.
+  points, so vanilla's armour does not come on top. DNS is not invulnerable:
+  it takes hits by its rating like the rest.
+- What a player carries on top of the armour is cut down to about twice as
+  long a fight at most: the shield mod gives 10 and a shield flask 2 (at
+  most 16 in all), and the shield comes back slower; Med-X gives Resistance
+  I for 60 s and needs plastic; the super stimpak heals its 25 HP over 12 s;
+  an armour insert takes at most a tenth off a bullet.
 - Euphemium stays invulnerable, but every bullet, beam and blast wears down
   a pool of 2000 (as much as it would do to a DNS-class set). The emptied
   pool leaves the wearer open to hits for 15 s, without the set's
@@ -259,7 +260,6 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `cameraScale` | `0.55` | Camera recoil strength |
 | `modelKick` | `1` | Gun model kick strength |
 | `adsRecoil` | `0.7` | Recoil while aiming, as a share |
-| `powerArmorRecoil` | `0.5` | Recoil in NTM's power armour, as a share |
 | `proneRecoil` | `0.5` | Recoil while lying, as a share |
 | `proneHold` | `false` | Lie only while X is held |
 | `walkSway`, `sprintPose` | `1` | Walk bob and sprint pose; `0` turns them off |
@@ -294,7 +294,9 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `cameraScaleMin` | `0` | Camera recoil players cannot go below |
 | `spreadStand`, `spreadMove`, `spreadSneak`, `spreadCrawl`, `spreadAim` | `1`, `1.5`, `0.75`, `0.5`, `1` | Spread by stance |
 | `powerArmorSpread.<set>` | from `0.8` (T-51b) to `0.4` (FAU, DNS) | Movement and burst spread in power armour and Trenchmaster, as a share, by the chestplate's set |
-| `powerArmorSpread` | `0.5` | The same for a power armour chestplate with no line; set in the server's file, it stands for every set with no line there |
+| `powerArmorSpread` | `0.5` | The same for a power armour chestplate with no line of its own |
+| `powerArmorRecoil.<set>` | from `0.8` (T-51b) to `0.4` (FAU, DNS) | Recoil in power armour and Trenchmaster, as a share, by the chestplate's set; the players' clients go by the server's |
+| `powerArmorRecoil` | `0.5` | The same for a power armour chestplate with no line of its own |
 | `sprintFireDelay` | `true` | No shot right after a sprint; `sprintFireTime` per gun |
 | `prone`, `proneWithoutGun` | `true` | Lying down; lying without a gun in hand |
 | `proneCrawlNoFire`, `proneCrawlSpeed` | `true`, `0.25` | No shot while crawling faster than this many blocks a second |
@@ -320,7 +322,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balanceFleshKnee`, `balanceFleshMax` | `8`, `14` | One hit's damage on a set is squeezed past the first towards the second |
 | `balanceExplRawLimit` | `60` | A blast of more raw damage (a mine, C4) is not squeezed |
 | `balanceRoflFloor` | `0.18` | The least share of a hit starmetal and the dineutronium ingot set leave |
-| `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's); off: NTM's damage and guns |
+| `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's; the players get the server's); off: NTM's damage and guns |
 | `balanceRecipes` | `true` | The balance's recipes for the diesel suit, Tesla Cannon, Lasrifle, Tau and Med-X; off: NTM's (after `/reload` or a restart) |
 | `abilities.mobilityCap` | `true` | A full set's Speed and Jump Boost by its tier: up to tier 6 II and I at most, from tier 7 III and II |
 | `abilities.strengthCap` | `2` | A full set's Strength at most this level; `0`: NTM's |
@@ -330,7 +332,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.shield` | `true` | The player's shield by the keys below; off: NTM's (the mod 25, a flask 5, up to 100 of flasks, back after 60 ticks at 0.005·t) |
 | `balance.shield.mod` | `10` | What the shield mod (australium III) gives |
 | `balance.shield.flask` | `2` | What a shield flask gives; no more flasks once they alone reach the cap |
-| `balance.shield.cap` | `30` | The most shield of flasks and the mod together |
+| `balance.shield.cap` | `16` | The most shield of flasks and the mod together |
 | `balance.shield.delay` | `100` | Ticks after the last hit before the shield comes back |
 | `balance.shield.rate` | `0.002` | Then rate·t a tick, t the ticks since |
 | `balance.medx` | `true` | Med-X gives Resistance I for 60 s; off: III for 4 min |
@@ -338,10 +340,12 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.inserts` | `true` | An armour insert takes at most 1 − `balance.inserts.bullets` off a bullet; off: NTM's |
 | `balance.inserts.bullets` | `0.9` | The least share of a bullet an insert leaves |
 | `balance.vanilla0` | `true` | The combat sets of `balanceS.*` have no vanilla armour points and toughness (counts when a piece is put on again); off: theirs |
+| `balance.fbiArmor` | `10` | With `balance.vanilla0`, NTM's FBI agent's own vanilla armour on top (it wears Security) |
 | `balance.immune.mode` | `pool` | Euphemium's invulnerability with a pool; `ntm`: every hit called off |
 | `balance.immune.pool` | `2000` | What bullets, beams and blasts on the set wear down before it opens (each as much as on a DNS-class set) |
 | `balance.immune.window` | `15` | Seconds the emptied pool leaves the wearer open, without the set's Regeneration and Resistance |
 | `balance.immune.recover` | `60` | Seconds the pool takes to fill back after the window (the set invulnerable meanwhile), or a worn-down pool after 5 s without a hit |
+| `balance.immune.dns` | `formula` | DNS takes hits by its rating; `ntm`: every hit but a blast called off, blasts down to 0.001 |
 | `spectatorNoGuns` | `true` | Spectators cannot use NTM's guns |
 | `smoke` | `true` | Smoke clouds |
 | `smokeBlocksMobSight` | `false` | Mobs lose a target behind thick smoke |

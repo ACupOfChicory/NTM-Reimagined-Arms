@@ -31,10 +31,11 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 // armour and in each set's chestplate asks NTM for a shot's spread (Lego.calcSpread, through MixinLegoSpread and
 // Spread). No armour and T-51 go through every case (standing, walking, sprinting, in the air, aimed, a held-down
 // burst, lying), the other sets through standing, walking, sprinting and the air with the G3, three times: the file
-// holding powerArmorSpread = 1 (the key of before the table: every set does nothing), the mod's own values (the table
-// powerArmorSpread.<set>), and a file with powerArmorSpread = 0.3 and powerArmorSpread.fau = 0.9 (the file's one
-// number for every set, a set's own line over it). A tsv goes to the file and the server stops (exit 1 if a check
-// failed): standing is the same in any armour; what moving, the air and the bloom add is the set's share of it.
+// holding powerArmorSpread = 1 (the key of before the table: now only for a power armour chestplate with no line, the
+// table stays), the mod's own values (the table powerArmorSpread.<set>), and a file with powerArmorSpread = 0.3 and
+// powerArmorSpread.fau = 0.9 (a set's own line over the table). The recoil's share (powerArmorRecoil, the same keys)
+// by the same settings. A tsv goes to the file and the server stops (exit 1 if a check failed): standing is the same
+// in any armour; what moving, the air and the bloom add is the set's share of it.
 public final class SpreadCheck {
     public static final String PROPERTY = "ntmgunfeel.checkSpread";
     private static final String[] GUNS = {"hbm:gun_g3", "hbm:gun_am180"};
@@ -100,13 +101,10 @@ public final class SpreadCheck {
     /** the share the check expects for the set under the setting */
     static float expected(String setting, String set) {
         String s = set.equals("bj_jetpack") ? "bj" : set;
-        Float table = PowerArmor.SPREAD.get(s);
+        Float table = PowerArmor.TIERS.get(s);
         if (table == null) return 1F; // Security, the steam and diesel suits
-        return switch (setting) {
-            case "1" -> 1F;
-            case "file" -> s.equals("fau") ? 0.9F : 0.3F;
-            default -> table;
-        };
+        // the old one number is for a chestplate with no line only: every set here has one
+        return setting.equals("file") && s.equals("fau") ? 0.9F : table;
     }
 
     private static void plan(FakePlayer p) {
@@ -115,9 +113,24 @@ public final class SpreadCheck {
             wait(30); // the server's file is looked at once a second
             STEPS.add(() -> LINES.add("#\tsetting " + setting + ": powerArmorSpread = " + ReaimTimes.number("powerArmorSpread", 1F)
                     + ", in the file " + ReaimTimes.inFile("powerArmorSpread")));
+            STEPS.add(() -> recoil(p, setting));
             for (String gun : GUNS) for (String set : new String[] {"", "t51"}) cases(p, setting, gun, set, CASES, SETTLE);
             for (String set : SETS) cases(p, setting, GUNS[0], set, SHORT, SETTLE_SHORT);
         }
+    }
+
+    /** the recoil's share (PowerArmor.recoil) in each set under the setting: the same tiers as the spread */
+    private static void recoil(FakePlayer p, String setting) {
+        StringBuilder got = new StringBuilder();
+        boolean pass = true;
+        for (String set : all()) {
+            p.setItemSlot(EquipmentSlot.CHEST, set.isEmpty() ? ItemStack.EMPTY : new ItemStack(item(chest(set))));
+            float r = PowerArmor.recoil(p), want = set.isEmpty() ? 1F : expected(setting, set);
+            pass &= Math.abs(r - want) < 1e-6F;
+            got.append(set.isEmpty() ? "none" : set).append(' ').append(String.format(Locale.ROOT, "%.2f", r)).append(Math.abs(r - want) < 1e-6F ? "" : " (want " + want + ")").append("; ");
+        }
+        p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
+        check(pass, "setting " + setting + ": recoil share by set: " + got);
     }
 
     private static void cases(FakePlayer p, String setting, String gun, String set, String[] cases, int settle) {
@@ -143,8 +156,8 @@ public final class SpreadCheck {
     private static void settings(String setting) {
         try {
             Files.writeString(FMLPaths.CONFIGDIR.get().resolve(ReaimTimes.FILE), switch (setting) {
-                case "1" -> "powerArmorSpread = 1\n";
-                case "file" -> "powerArmorSpread = 0.3\npowerArmorSpread.fau = 0.9\n";
+                case "1" -> "powerArmorSpread = 1\npowerArmorRecoil = 1\n";
+                case "file" -> "powerArmorSpread = 0.3\npowerArmorSpread.fau = 0.9\npowerArmorRecoil = 0.3\npowerArmorRecoil.fau = 0.9\n";
                 default -> "# the mod's own values\n";
             });
         } catch (java.io.IOException e) {

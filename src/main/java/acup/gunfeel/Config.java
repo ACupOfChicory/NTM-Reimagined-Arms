@@ -48,7 +48,6 @@ public final class Config {
     public static float modelSpeed = 1.0F;
     public static float ntmRecoilAnim = 0.3F;
     // all recoil (camera, gun model, NTM's recoil animation) times this while the chestplate is NTM power armor
-    public static float powerArmorRecoil = 0.5F;
     // all recoil times this while lying down (the prone key, or crawling under a trapdoor), as TaCZ's crawl
     public static float proneRecoil = 0.5F;
     // the prone key held lies down while it is held; off: a press lies down, the next gets up
@@ -215,8 +214,6 @@ public final class Config {
             modelRotate: share of the rotation in the model kick (muzzle up, yaw, roll)
             modelSpeed: playback speed of the model kick, higher = shorter
             ntmRecoilAnim: share of NTM's own recoil animation kept, 1 = unchanged
-            powerArmorRecoil: multiplier of all recoil movements while the chestplate is NTM power armor (T-51, AJR, AJRO, RPA,
-              NCRPA, BJ, Envsuit, HEV, FAU, DNS), 0..1, 1 = off; on a server with cameraScaleMin no lower than 0.5
             proneRecoil: multiplier of all recoil movements while lying down (the prone key, X; or crawling under a
               trapdoor), 0..1, 1 = off; with power armor both count, on a server with cameraScaleMin together no lower
               than 0.5
@@ -504,8 +501,6 @@ public final class Config {
         modelRotate = num(p, "modelRotate", modelRotate);
         modelSpeed = Math.max(0.05F, num(p, "modelSpeed", modelSpeed));
         ntmRecoilAnim = num(p, "ntmRecoilAnim", ntmRecoilAnim);
-        float armorRecoil = num(p, "powerArmorRecoil", powerArmorRecoil);
-        powerArmorRecoil = Float.isNaN(armorRecoil) ? 0.5F : Math.clamp(armorRecoil, 0F, 1F);
         float proneKick = num(p, "proneRecoil", proneRecoil);
         proneRecoil = Float.isNaN(proneKick) ? 0.5F : Math.clamp(proneKick, 0F, 1F);
         proneHold = bool(p, "proneHold", proneHold);
@@ -651,7 +646,6 @@ public final class Config {
         p.setProperty("modelRotate", Float.toString(modelRotate));
         p.setProperty("modelSpeed", Float.toString(modelSpeed));
         p.setProperty("ntmRecoilAnim", Float.toString(ntmRecoilAnim));
-        p.setProperty("powerArmorRecoil", Float.toString(powerArmorRecoil));
         p.setProperty("proneRecoil", Float.toString(proneRecoil));
         p.setProperty("proneHold", Boolean.toString(proneHold));
         p.setProperty("hideOffhand", Boolean.toString(hideOffhand));

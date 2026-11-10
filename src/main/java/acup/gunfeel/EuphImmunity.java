@@ -126,6 +126,11 @@ public final class EuphImmunity {
         return acup.gunfeel.compat.Feature.BALANCE.on() && !ReaimTimes.text("balance.immune.mode", "pool").trim().equalsIgnoreCase("ntm");
     }
 
+    /** balance.immune.dns: formula (the balance's: no invulnerability, the set's rating) or ntm (all but blasts called off) */
+    public static boolean dnsFormula() {
+        return acup.gunfeel.compat.Feature.BALANCE.on() && !ReaimTimes.text("balance.immune.dns", "formula").trim().equalsIgnoreCase("ntm");
+    }
+
     public static Pool pool() {
         Pool d = Pool.DEFAULT;
         float size = ReaimTimes.number("balance.immune.pool", d.size());

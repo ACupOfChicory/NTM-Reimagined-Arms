@@ -387,6 +387,8 @@ neoForge {
             programArgument("--nogui")
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkBalance", layout.buildDirectory.file("balancecheck/result.txt").get().asFile.path)
+            // -PbalanceOnly=dns,1b: only these passes (BalanceCheck.only)
+            providers.gradleProperty("balanceOnly").orNull?.let { systemProperty("ntmgunfeel.checkBalance.only", it) }
         }
         // bullets in water: a basin in a flat world (WaterCheck), the result is a tsv
         register("checkWater") {

@@ -39,7 +39,8 @@ class BalanceGunsRuleTest {
                     * Float.parseFloat(f[head.indexOf("split")]);
             List<BalanceGunsRule.Ammo> list = out.computeIfAbsent(gun, g -> new ArrayList<>());
             String a = ammo;
-            if (list.stream().noneMatch(x -> x.name().equals(a))) list.add(new BalanceGunsRule.Ammo(ammo, click));
+            float pellets = (Integer.parseInt(f[head.indexOf("projectilesMin")]) + Integer.parseInt(f[head.indexOf("projectilesMax")])) / 2F;
+            if (list.stream().noneMatch(x -> x.name().equals(a))) list.add(new BalanceGunsRule.Ammo(ammo, click, pellets));
         }
         return out;
     }
@@ -60,8 +61,10 @@ class BalanceGunsRuleTest {
                 assertTrue(guns.get(e.getKey()).stream().anyMatch(a -> a.name().equals(ammo)), e.getKey() + " takes no " + ammo);
         }
         for (String g : t.guns().keySet()) assertTrue(guns.containsKey(g), "no gun " + g);
-        // v3's 78, less Liberator's two, Coilgun's and Heretic DU (its gun line instead)
-        assertEquals(74, t.pairs().values().stream().mapToInt(Map::size).sum());
+        // v4: every ammo of a gun in the table has its own pair, none made up (the coordinator, 2026-11-10)
+        assertEquals(256, t.pairs().values().stream().mapToInt(Map::size).sum());
+        for (String g : t.pairs().keySet())
+            for (var a : guns.get(g)) assertEquals("table", r(g, a.name()).from(), g + " " + a.name());
     }
 
     @Test
@@ -70,16 +73,19 @@ class BalanceGunsRuleTest {
         // Liberator and Coilgun not touched
         assertEquals("none", r("liberator", "g12_bp").from());
         assertEquals(1F, r("coilgun", "coil_ferrouranium").shot().mult());
-        // Heretic H2: x0.2 on every ammo, one shot in 12 ticks, not auto, 24 rounds
-        for (var a : guns().get("autoshotgun_heretic")) assertEquals(0.2F, r("autoshotgun_heretic", a.name()).shot().mult());
+        // Heretic H2: DU x0.2, each other ammo its own; one shot in 12 ticks, not auto, 24 rounds, no mult of the gun
+        assertEquals(0.2F, r("autoshotgun_heretic", "g10_du").shot().mult());
+        assertEquals(0.484F, r("autoshotgun_heretic", "g10_shrapnel").shot().mult());
+        assertEquals(0.156F, r("autoshotgun_heretic", "g10_slug").shot().mult());
         var h = t.guns().get("autoshotgun_heretic");
+        assertTrue(Float.isNaN(h.mult()));
         assertEquals(12, h.delay());
         assertEquals(false, h.auto());
         assertEquals(24, h.mag());
         // AM180 A2
         assertEquals(3.5F, r("am180", "p22_sp").shot().mult());
-        assertEquals(3.5F, r("am180", "p22_fmj").shot().mult());
-        assertEquals(3.11F, r("am180", "p22_ap").shot().mult());
+        assertEquals(3.32F, r("am180", "p22_fmj").shot().mult());
+        assertEquals(2.97F, r("am180", "p22_ap").shot().mult());
         assertEquals(3, t.guns().get("am180").delay());
         assertEquals(60, t.guns().get("am180").mag());
         assertEquals(15, t.guns().get("amat_penance").delay());
@@ -90,16 +96,42 @@ class BalanceGunsRuleTest {
         assertEquals(new BalanceGunsRule.Shot(2F, 30F, 0F), r("tau", "tau_uranium").shot());
     }
 
+    // the rule for an ammo of no line, on a table of a few pairs (the shipped one has every pair of its guns)
+    private static final List<String> FEW = List.of("g3\tr556_jhp\t0.853\t0\t0", "amat\tbmg50_sm\t0.853\t0\t0",
+            "amat\tbmg50_he\t0.762\t0\t0", "double_barrel\tg10_du\t0.762\t0\t0", "autoshotgun\tg12_explosive\t0.175\t0\t0",
+            "autoshotgun_shredder\tg12_explosive\t0.386\t0\t0", "spas12\tg12_flechette\t1.07\t0\t0",
+            "spas12\tg12_explosive\t0.386\t0\t0", "maresleg\tg12_bp\t4.17\t0\t0", "maresleg\tg12_flechette\t2.37\t0\t0",
+            "laser_pistol_morning_glory\tcapacitor\t2\t30\t0");
+
+    private static BalanceGunsRule.Resolved few(String gun, String ammo) throws IOException {
+        List<String> bad = new ArrayList<>();
+        var t = BalanceGunsRule.parse(FEW, bad);
+        assertTrue(bad.isEmpty(), "lines not read: " + bad);
+        return BalanceGunsRule.resolve(t, gun, guns().get(gun)).get(ammo);
+    }
+
     @Test
     void theRule() throws IOException {
         // the same family: FMJ is soft as JHP is; DU and AP pierce as SM does
-        assertEquals("family r556_jhp", r("g3", "r556_fmj").from());
-        assertEquals(0.853F, r("g3", "r556_fmj").shot().mult());
-        assertEquals("family bmg50_sm", r("amat", "bmg50_du").from());
-        // no soft pair of its gun: the nearest by the damage of a click (45 against HE 52.5 and SM 75)
-        assertEquals("nearest bmg50_he", r("amat", "bmg50_jhp").from());
+        assertEquals("family r556_jhp", few("g3", "r556_fmj").from());
+        assertEquals(0.853F, few("g3", "r556_fmj").shot().mult());
+        assertEquals("family bmg50_sm", few("amat", "bmg50_du").from());
+        // no soft pair of its gun: no mult from another family (SM, HE), NTM's
+        assertEquals("none", few("amat", "bmg50_jhp").from());
+        assertEquals("none", few("double_barrel", "g10_shrapnel").from());
+        assertEquals("none", few("double_barrel", "g10_explosive").from());
+        // a blast's mult stays with blasts: Autoshotgun's only pair is its explosive one, the rest NTM's
+        assertEquals("none", few("autoshotgun", "g12_slug").from());
+        assertEquals("none", few("autoshotgun", "g12").from());
+        assertEquals("none", few("autoshotgun_shredder", "g12_phosphorus").from());
+        assertEquals("none", few("spas12", "g12_phosphorus").from());
+        // buckshot and a slug or magnum shot do not share a mult (Maresleg's buckshot x4.17)
+        assertEquals("family g12_bp", few("maresleg", "g12").from());
+        assertEquals("none", few("maresleg", "g12_slug").from());
+        assertEquals("none", few("maresleg", "g12_magnum").from());
+        assertEquals("none", few("maresleg", "g12_bp_slug").from());
         // the pedestal's additions go with it
-        assertEquals(new BalanceGunsRule.Shot(2F, 30F, 0F), r("laser_pistol_morning_glory", "capacitor_ir").shot());
+        assertEquals(new BalanceGunsRule.Shot(2F, 30F, 0F), few("laser_pistol_morning_glory", "capacitor_ir").shot());
         // a gun of no line: NTM's
         assertEquals(BalanceGunsRule.Shot.NONE, r("panzerschreck", guns().get("panzerschreck").get(0).name()).shot());
         assertEquals("piercing", BalanceGunsRule.family("g12_flechette"));
@@ -131,6 +163,6 @@ class BalanceGunsRuleTest {
         }
         Files.createDirectories(Path.of("build"));
         Files.write(Path.of("build/balance-guns-resolved.tsv"), out);
-        assertTrue(out.size() > 50);
+        assertEquals(1, out.size(), "made up: " + out);
     }
 }

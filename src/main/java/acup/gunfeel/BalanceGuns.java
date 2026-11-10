@@ -32,6 +32,7 @@ import net.neoforged.fml.loading.FMLPaths;
  * The balance's gun damage (stage 1b, server setting balanceGuns): a shot of an NTM gun does NTM's damage times its
  * gun and ammo's mult, and its ammo's armour threshold negation and piercing get the pair's additions
  * (BalanceGunsRule, the table {@code ntmgunfeel-balance-guns.tsv}; a file of the same name in config/ is read instead).
+ * On another game's server the client goes by that server's table (ServerSettings), its own file aside.
  *
  * <p>Put where a gun's shot is made (the bullet's and the beam's shot constructors: NTM's standard fire, the Tau's
  * charged shot, the accelerators'): the shooter's gun is the one in its hand. Everything NTM works out of the shot's
@@ -64,7 +65,26 @@ public final class BalanceGuns {
     /** where each ammo's numbers came from (the stand and the notes) */
     private static final Map<Item, Map<String, BalanceGunsRule.Resolved>> FROM = new IdentityHashMap<>();
 
+    /** the server's settings the table was last read from (null: this game's file or the jar) */
+    private static ServerSettings.Snapshot tableRemote;
+
     static synchronized BalanceGunsRule.Table table() {
+        ServerSettings.Snapshot remote = ServerSettings.remote();
+        if (remote != null) {
+            if (remote != tableRemote) {
+                tableRemote = remote;
+                // an empty one: a server of before the gun table, it went by the jar's
+                table = remote.guns().isBlank() ? read(null) : parse(remote.guns().lines().toList(), "the server's");
+                SHOTS.clear();
+                FROM.clear();
+            }
+            return table;
+        }
+        if (tableRemote != null) {
+            // left the server: this game's own table again
+            tableRemote = null;
+            table = null;
+        }
         long now = System.currentTimeMillis();
         if (table == null || now - lastPoll > 2000L) {
             lastPoll = now;
@@ -97,10 +117,23 @@ public final class BalanceGuns {
             LOGGER.warn("Could not read the balance's gun table {}", f, e);
             return BalanceGunsRule.Table.EMPTY;
         }
+        return parse(lines, f != null ? f.toString() : "the jar's");
+    }
+
+    private static BalanceGunsRule.Table parse(List<String> lines, String where) {
         List<String> bad = new ArrayList<>();
         BalanceGunsRule.Table t = BalanceGunsRule.parse(lines, bad);
-        for (String b : bad) LOGGER.warn("The balance's gun table{}: a line not read: {}", f != null ? " " + f : "", b);
+        for (String b : bad) LOGGER.warn("The balance's gun table ({}): a line not read: {}", where, b);
         return t;
+    }
+
+    /** the table as this game's server has it (its file, else the jar's), for the players */
+    static String text() throws IOException {
+        Path f = FMLPaths.CONFIGDIR.get().resolve(FILE);
+        if (Files.exists(f)) return Files.readString(f, StandardCharsets.UTF_8);
+        try (InputStream in = BalanceGuns.class.getResourceAsStream(RESOURCE)) {
+            return in == null ? "" : new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 
     static String gunName(Item item) {
@@ -158,7 +191,7 @@ public final class BalanceGuns {
                     click.put(ammo, ammo.damageMult * (ammo.projectilesMin + ammo.projectilesMax) / 2F);
                 }
                 List<BalanceGunsRule.Ammo> named = new ArrayList<>();
-                for (BulletConfig b : all) named.add(new BalanceGunsRule.Ammo(ammoName(b), click.get(b)));
+                for (BulletConfig b : all) named.add(new BalanceGunsRule.Ammo(ammoName(b), click.get(b), (b.projectilesMin + b.projectilesMax) / 2F));
                 Map<String, BalanceGunsRule.Resolved> r = BalanceGunsRule.resolve(t, name, named);
                 for (BulletConfig b : all) m.put(b, r.get(ammoName(b)).shot());
                 FROM.put(gunItem, r);

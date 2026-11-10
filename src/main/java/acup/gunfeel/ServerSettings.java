@@ -21,13 +21,17 @@ import org.jspecify.annotations.Nullable;
 //    hole, whizz, fly);
 //  - ntm-gunfeel-server.properties (bullet speed, spread, the camera recoil minimum);
 //  - the bullet shapes the server has beyond the mod jar's (config/ntm-gunfeel-bullet-shapes.properties, and on a LAN
-//    host the ones its own client made).
+//    host the ones its own client made);
+//  - the balance's gun table (config/ntm-gunfeel-balance-guns.tsv, or the jar's): the guns' receivers and tooltips.
 // The client keeps them in memory while connected and forgets them on leaving: nothing is written, so another server's
 // settings and the player's own files are never touched. In single player and on a LAN host the server is this game
 // itself and reads the same files: the client uses its files as they are (see ServerSettingsClient).
 public final class ServerSettings {
     // the server's settings as received; null: this game's own files count
-    public record Snapshot(String bullets, Map<String, String> server, Map<String, String> shapes) {
+    public record Snapshot(String bullets, Map<String, String> server, Map<String, String> shapes, String guns) {
+        public Snapshot(String bullets, Map<String, String> server, Map<String, String> shapes) {
+            this(bullets, server, shapes, "");
+        }
     }
 
     // rule kinds the server acts on; every other kind is what the client alone draws
@@ -55,7 +59,7 @@ public final class ServerSettings {
         PassableClip.useRemoteShapes(s == null ? null : s.shapes());
     }
 
-    // ---- the payload: gzip of the three parts
+    // ---- the payload: gzip of the four parts
 
     public static byte[] encode(Snapshot s) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -63,6 +67,7 @@ public final class ServerSettings {
             string(out, s.bullets());
             map(out, s.server());
             map(out, s.shapes());
+            string(out, s.guns());
         }
         return bytes.toByteArray();
     }
@@ -72,7 +77,14 @@ public final class ServerSettings {
             String bullets = string(in);
             Map<String, String> server = map(in);
             Map<String, String> shapes = map(in);
-            return new Snapshot(bullets, server, shapes);
+            // a server of before the gun table sends three parts: the client goes by the jar's table
+            String guns;
+            try {
+                guns = string(in);
+            } catch (java.io.EOFException e) {
+                guns = "";
+            }
+            return new Snapshot(bullets, server, shapes, guns);
         }
     }
 
@@ -81,7 +93,7 @@ public final class ServerSettings {
         byte[] all = encode(s);
         if (all.length <= MAX_BYTES || s.shapes().isEmpty()) return all;
         org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").warn("The server's bullet shapes are too many to send ({} bytes): players go by the mod's own", all.length);
-        return encode(new Snapshot(s.bullets(), s.server(), Map.of()));
+        return encode(new Snapshot(s.bullets(), s.server(), Map.of(), s.guns()));
     }
 
     private static void string(DataOutputStream out, String s) throws IOException {

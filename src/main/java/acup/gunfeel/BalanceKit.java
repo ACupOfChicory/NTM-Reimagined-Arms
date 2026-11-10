@@ -21,7 +21,9 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
  * <ul>
  * <li>{@code balance.shield}: the player's shield. The shield mod (australium III) gives
  * {@code balance.shield.mod} (10) instead of NTM's 25, a shield flask {@code balance.shield.flask} (2) instead of 5,
- * all of it at most {@code balance.shield.cap} (30; NTM: 100 of flasks and the mod on top). It comes back
+ * all of it at most {@code balance.shield.cap} (16: the mod and three flasks; NTM: 100 of flasks and the mod on top).
+ * The shield takes a hit's raw damage before the armour, and what it takes counts to the damage cap first: with Med-X
+ * and a super stimpak this makes a fight about twice as long (notes/balance/work/scripts/kit_shield.py, the stand). It comes back
  * {@code balance.shield.delay} (100) ticks after the last hit, then {@code balance.shield.rate} (0.002)·t a tick, t the
  * ticks since (NTM: 60 and 0.005). NTM keeps its own count (5 a flask): with the key off its numbers come back.
  * <li>{@code balance.medx}: Med-X gives Resistance I for 60 s (NTM: III for 4 min); its recipe (balanceRecipes)
@@ -32,7 +34,9 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
  * shares are NTM's.
  * <li>{@code balance.vanilla0}: the combat sets of the balance's table (BalanceArmor, those with a rating) have no
  * vanilla armour points and toughness, so vanilla's armour does not come on top of formula C (the mob's claws, a
- * skeleton's arrow). The joke sets (starmetal, the dineutronium ingot set) and the rest keep theirs.
+ * skeleton's arrow). The joke sets (starmetal, the dineutronium ingot set) and the rest keep theirs. NTM's FBI agent
+ * wears Security: it gets {@code balance.fbiArmor} (10) vanilla armour of its own instead, when it joins the world, so
+ * it holds as before (the owner, 2026-11-10: a player's .44 takes 10-11 clicks, not 5).
  * </ul>
  */
 public final class BalanceKit {
@@ -44,7 +48,7 @@ public final class BalanceKit {
 
     /** the shield's numbers */
     public record Shield(float mod, float flask, float cap, int delay, float rate) {
-        public static final Shield DEFAULT = new Shield(10F, 2F, 30F, 100, 0.002F);
+        public static final Shield DEFAULT = new Shield(10F, 2F, 16F, 100, 0.002F);
     }
 
     private static boolean on(String key) {
@@ -130,6 +134,11 @@ public final class BalanceKit {
         if (!(h[0] > 1e-4F) || !(h[1] > 0F)) HEALS.remove(entity);
     }
 
+    /** the heal still to come is called off (the stand between its fights) */
+    static synchronized void clearHeal(LivingEntity entity) {
+        HEALS.remove(entity);
+    }
+
     static synchronized float healLeft(LivingEntity entity) {
         float[] h = HEALS.get(entity);
         return h == null ? 0F : h[0];
@@ -164,6 +173,25 @@ public final class BalanceKit {
         return false;
     }
 
+    static final Identifier FBI = Identifier.fromNamespaceAndPath("hbm", "entity_fbi");
+    static final Identifier FBI_ARMOR = Identifier.fromNamespaceAndPath("ntmgunfeel", "balance_fbi_armor");
+
+    /** the FBI agent's own vanilla armour on top of NTM's while the combat sets have none (0: none) */
+    public static float fbiArmor() {
+        return vanilla0On() ? number("balance.fbiArmor", 10F, 0F, 30F) : 0F;
+    }
+
+    private static void fbiJoins(net.neoforged.neoforge.event.entity.EntityJoinLevelEvent e) {
+        if (e.getLevel().isClientSide() || !(e.getEntity() instanceof LivingEntity agent) || !FBI.equals(BuiltInRegistries.ENTITY_TYPE.getKey(agent.getType())))
+            return;
+        var armor = agent.getAttribute(Attributes.ARMOR);
+        if (armor == null) return;
+        armor.removeModifier(FBI_ARMOR);
+        float add = fbiArmor();
+        if (add > 0F) armor.addTransientModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(FBI_ARMOR, add,
+                net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_VALUE));
+    }
+
     private static void attributes(ItemAttributeModifierEvent e) {
         ItemStack stack = e.getItemStack();
         if (stack.isEmpty() || !combatPiece(stack) || !vanilla0On()) return;
@@ -173,6 +201,7 @@ public final class BalanceKit {
 
     public static void register() {
         NeoForge.EVENT_BUS.addListener(ItemAttributeModifierEvent.class, BalanceKit::attributes);
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class, BalanceKit::fbiJoins);
         NeoForge.EVENT_BUS.addListener(EntityTickEvent.Post.class, e -> {
             if (e.getEntity() instanceof LivingEntity living && !living.level().isClientSide() && !HEALS.isEmpty()) tickHeal(living);
         });

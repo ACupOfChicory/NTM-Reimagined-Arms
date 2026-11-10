@@ -1,5 +1,41 @@
 # Changelog
 
+## X857
+
+- DNS is no longer invulnerable: it takes bullets, beams and blasts by its
+  armour rating (186), like the rest of the sets (was: every hit but a blast
+  called off, blasts down to a thousandth). A Tau now takes 10 clicks on it,
+  an AMAT SM round 7, Lacunae 9 (were 0 for the AMAT and Lacunae; NTM's beams
+  got through it already). New server key `balance.immune.dns` (`formula`;
+  `ntm`: as before).
+- The balance's gun table gives every ammo of a gun in it a pair of its
+  own (256 pairs, were 74): the double barrel's buckshot and shrapnel x2.37,
+  slugs x0.96 (all took DU's x0.76), Autoshotgun's buckshot x0.96-1.34 (took
+  the explosive round's x0.175), Heretic's buckshot x0.48 and slugs x0.16
+  (were all x0.2). An ammo still with no pair takes only a pair of its own
+  family (soft, piercing, blast; buckshot and slugs apart), else hits as
+  before the balance; never another family's multiplier.
+- On a server, players' tooltips and guns' receivers (pause, magazine, auto
+  fire) go by the server's gun table (`config/ntm-gunfeel-balance-guns.tsv`
+  or the mod's), not by a file of their own.
+- Power armour takes up recoil by its tier, as it does spread: T-51b 0.8,
+  HEV, AJR, AJRO, Envsuit and Trenchmaster 0.7, BJ and NCRPA 0.6, RPA 0.5,
+  FAU and DNS 0.4 (was 0.5 for every set); Security, the steam and diesel
+  suits none. It is the server's (`powerArmorRecoil.<set>`,
+  `powerArmorRecoil` for a chestplate with no line); the players' own
+  `powerArmorRecoil` setting is gone. The old one-number `powerArmorSpread`
+  and `powerArmorRecoil` in a server's file now count only for a power
+  armour chestplate with no line of its own: the tiers count on servers
+  with an old file too.
+- The shield is at most 16 (the mod and three flasks; was 30). The shield
+  takes a hit's raw damage before the armour, and what it takes counts to
+  the damage cap first, so with Med-X and a super stimpak a fight takes about
+  twice as long at most (was up to 2.7 times).
+- NTM's FBI agents have 10 vanilla armour points of their own again, as they
+  had with Security's before the combat sets lost theirs: a .44 Heavy
+  Revolver takes 10-11 clicks on one again, not 5. New server key
+  `balance.fbiArmor` (0: none).
+
 ## X847
 
 - A shot on the armour an FBI agent or a test dummy wears now hits the part
