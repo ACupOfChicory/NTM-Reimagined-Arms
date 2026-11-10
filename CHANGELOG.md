@@ -1,5 +1,20 @@
 # Changelog
 
+## X847
+
+- A shot on the armour an FBI agent or a test dummy wears now hits the part
+  under that piece: a helmet is the head, a chestplate the body, a sleeve, a
+  legging or a boot the limb. Their helmet stands 1 to 1.5 pixels out of the
+  8-pixel head, and a shot on it counted as a body shot, without the head
+  multiplier; a shot on a sleeve, a legging or a boot counted as a body shot
+  instead of a limb. The server and the shooter's client count it the same.
+  A glass block on the head is still no part of the hitbox: shots go through
+  it to the head.
+- Other mobs and players: under a helmet the head zone now takes in the
+  helmet's outer layer as well (1.5 pixels out of the head, was 1), and the
+  head and limb zones under armour reach a tenth of a pixel past it, so a
+  shot on the very face of a piece is not lost to rounding.
+
 ## X846
 
 - An AI mob that falls dead now lies on the ground. Its fall used to end with
