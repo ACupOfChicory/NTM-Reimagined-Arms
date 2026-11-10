@@ -218,7 +218,10 @@ public final class EuphImmunity {
         NtmDamageContext ctx = (NtmDamageContext) player;
         float s = DamageResistanceHandler.CATEGORY_ENERGY.equals(cat) ? st[0] * Math.min(1F, ReaimTimes.number("balanceEnShare", 0.75F)) : st[0];
         boolean squeeze = !DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) || amount <= ReaimTimes.number("balanceExplRawLimit", 60F);
-        float drain = BalanceArmorRule.full(new BalanceArmorRule.Hit(amount, ctx.hbm$pierceDT(), ctx.hbm$pierceDR(), squeeze), s, st[1], BalanceArmorRule.Tune.DEFAULT);
+        // a weapon's blast as BalanceArmor takes it (balanceBlastPower, set around the blast's hurt)
+        float power = DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) && squeeze ? BalanceArmor.BLAST_POWER.get() : 1F;
+        float drain = Math.min(amount, BalanceArmorRule.full(new BalanceArmorRule.Hit(amount * power, ctx.hbm$pierceDT(), ctx.hbm$pierceDR(), squeeze), s, st[1],
+                BalanceArmorRule.Tune.DEFAULT));
         float click = ReaimTimes.number("damageCapClick", 0.6F);
         if (Float.isFinite(click) && click > 0F) drain = Math.min(drain, click * player.getMaxHealth());
         return drain;

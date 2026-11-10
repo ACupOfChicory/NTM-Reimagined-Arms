@@ -548,7 +548,8 @@ public final class BalanceCheck {
         int game = BalanceBlasts.hits(mean);
         String name = set.isEmpty() ? "без брони" : set;
         BalanceArmor.SetOf def = set.isEmpty() ? null : BalanceArmor.SETS.get(set);
-        float model = BalanceBlasts.damage(b.boom(), r, set.isEmpty() ? null : set, set.isEmpty() ? 0F : BalanceArmor.rating(set), def == null ? 0F : def.tau());
+        float model = BalanceBlasts.damage(b.boom(), r, set.isEmpty() ? null : set, set.isEmpty() ? 0F : BalanceArmor.rating(set), def == null ? 0F : def.tau(),
+                BalanceArmor.blastPower());
         int modelHits = BalanceBlasts.hits(model);
         Float shot = SHOT_DAMAGE.get(b.boom().name());
         TSV3.add(b.boom().name() + "\t" + where3(r) + "\t" + name + "\t" + CELL.size() + "\t" + blocked + "\t" + f(mean) + "\t" + hits3(game) + "\t" + f(model)
@@ -658,13 +659,13 @@ public final class BalanceCheck {
             ready3("hev");
             LINES.add("#\tпоза игрока-цели (как от клиента): " + (ModelHits.hasPose(target) ? "есть, взрыв по частям" : "нет (урон NTM целиком)"));
         });
-        rule3("hev", () -> boom3(he, 2F), 3, () -> stood = took());
+        rule3("bj", () -> boom3(he, 2F), 3, () -> stood = took());
         // lying (the head to -z): the grenade 2 blocks from its side, from its head's end, from its feet's end
         double[][] lyingAt = {{2, 0}, {0, -0.9 - 2}, {0, 1.1 + 2}};
         String[] lyingName = {"боком", "головой к гранате", "ногами к гранате"};
         for (int k = 0; k < 3; k++) {
             int kk = k;
-            rule3("hev", () -> {
+            rule3("bj", () -> {
                 target.setForcedPose(net.minecraft.world.entity.Pose.SWIMMING);
                 target.refreshDimensions();
                 pose3(true);
@@ -676,7 +677,7 @@ public final class BalanceCheck {
                 target.refreshDimensions();
             });
         }
-        rule3("hev", () -> {
+        rule3("bj", () -> {
             // a row of stone one high between the grenade (2 blocks to the side) and the target
             Vec3 t = spot3();
             for (int z = -3; z <= 3; z++) level.setBlockAndUpdate(BlockPos.containing(t.x + 1, t.y, t.z + z), Blocks.STONE.defaultBlockState());
@@ -685,10 +686,10 @@ public final class BalanceCheck {
             walled = took();
             Vec3 t = spot3();
             for (int z = -3; z <= 3; z++) level.setBlockAndUpdate(BlockPos.containing(t.x + 1, t.y, t.z + z), Blocks.AIR.defaultBlockState());
-            for (int k = 0; k < 3; k++) LINES.add("#\tграната HE в 2 бл, HEV, лёжа " + lyingName[k] + ": " + f(LYING[k]) + " (стоя " + f(stood) + ")");
-            check(stood > 0F && LYING[1] < stood && LYING[2] < stood, "лёжа головой и ногами к гранате меньше, чем стоя: граната HE в 2 бл, HEV: стоя " + f(stood)
+            for (int k = 0; k < 3; k++) LINES.add("#\tграната HE в 2 бл, BJ, лёжа " + lyingName[k] + ": " + f(LYING[k]) + " (стоя " + f(stood) + ")");
+            check(stood > 0F && LYING[1] < stood && LYING[2] < stood, "лёжа головой и ногами к гранате меньше, чем стоя: граната HE в 2 бл, BJ: стоя " + f(stood)
                     + ", лёжа головой " + f(LYING[1]) + ", ногами " + f(LYING[2]) + " (боком " + f(LYING[0]) + ")");
-            check(stood > 0F && walled < stood, "за стеной меньше, чем стоя: граната HE в 2 бл, стена в 1 блок высотой, HEV: стоя " + f(stood) + ", за стеной " + f(walled));
+            check(stood > 0F && walled < stood, "за стеной меньше, чем стоя: граната HE в 2 бл, стена в 1 блок высотой, BJ: стоя " + f(stood) + ", за стеной " + f(walled));
         });
         // the keys off: NTM's
         STEPS.add(() -> keys("damageCapBlasts", "false"));

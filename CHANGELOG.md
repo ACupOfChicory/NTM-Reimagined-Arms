@@ -21,6 +21,14 @@
 - A pellet of a round of several (buckshot, Pepperbox's stone shot) never
   takes a sniper's head cap, whatever its gun waits between shots: the stone
   shot no longer kills with one click from full health.
+- Grenades, 40 mm shells and rockets hit armour harder: the combat sets take
+  a weapon's blast as 2.7 times its damage, never more than it does with no
+  armour; the damage cap is as before. A Panzerschreck rocket on target now
+  takes 3 hits on BJ (was 11), 5 on RPA (20), 14 on FAU (32), 23 on DNS (47);
+  the Missile Launcher's 4 on FAU (21) and 6 on DNS (33); a HE grenade at a
+  block 10 on FAU (28). Nothing takes longer than before; no armour is as
+  before. Explosive bullets' blasts are not touched. New server key
+  `balanceBlastPower` (`2.7`; `1`: as before).
 
 ## X858
 

@@ -25,9 +25,14 @@ public abstract class MixinExplosiveProcessor implements ExplosiveDamage.Process
         // the blast's parts' multiplier (BlastParts, armed by the hurt around this call) on the blast's share alone, not
         // on an explosive bullet's hit on the target (ExplosiveDamage: its contact share)
         float area=gunfeel$blast==null?total:ExplosiveDamage.area(amount),m=acup.gunfeel.BlastParts.multiplier(target);
-        if(m!=1F && total>area && total>0)
-            return acup.gunfeel.HeadDamage.attack(target,total,(area*m+total-area)/total,
-                    d->ExplosiveDamage.attack(target,source,d,first,second,knockback,threshold,piercing));
-        return ExplosiveDamage.attack(target,source,total,first,second,knockback,threshold,piercing);
+        // a weapon's blast hits the combat sets stronger (BalanceArmor.blastPower): a launcher's round or a blast of
+        // no bullet (hand grenades); not an explosive bullet's
+        boolean weapon=clazz==com.hbm.util.DamageClass.EXPLOSIVE && (gunfeel$blast==null || ExplosiveDamage.launched(gunfeel$blast));
+        return acup.gunfeel.BalanceArmor.withBlastPower(weapon,total,()->{
+            if(m!=1F && total>area && total>0)
+                return acup.gunfeel.HeadDamage.attack(target,total,(area*m+total-area)/total,
+                        d->ExplosiveDamage.attack(target,source,d,first,second,knockback,threshold,piercing));
+            return ExplosiveDamage.attack(target,source,total,first,second,knockback,threshold,piercing);
+        });
     }
 }
