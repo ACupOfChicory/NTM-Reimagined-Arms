@@ -137,7 +137,17 @@ public final class DamageCap {
         if (!(entity instanceof Projectile || entity instanceof EntityBulletBeamBase)) return;
         LivingEntity shooter = shooter(entity);
         if (shooter == null) return;
-        SHOTS.put(entity, new Shot(level.getGameTime(), gunDelay(shooter) >= limits().sniperDelay()));
+        SHOTS.put(entity, new Shot(level.getGameTime(), gunDelay(shooter) >= limits().sniperDelay() && !pellet(entity)));
+    }
+
+    /**
+     * a pellet of a round of several (buckshot, Pepperbox's stone shot): never a sniper's, whatever its gun waits, or
+     * one pellet in the head would lift the whole click's cap to the sniper's
+     */
+    static boolean pellet(Entity entity) {
+        com.hbm.items.weapon.sedna.BulletConfig c = entity instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b ? b.config
+                : entity instanceof EntityBulletBeamBase beam ? beam.config : null;
+        return c != null && c.projectilesMax > 1;
     }
 
     // ---------------------------------------------------------------- the hurt
@@ -191,7 +201,8 @@ public final class DamageCap {
         float raw = BalanceArmor.takeAmount(target, e.getOriginalDamage());
         if (blast && blastFree(raw)) return;
         Shot shot = projectile == null ? null : SHOTS.get(projectile);
-        if (shot == null) shot = new Shot(projectile == null ? now : now - projectile.tickCount, gunDelay(shooter) >= limits().sniperDelay());
+        if (shot == null) shot = new Shot(projectile == null ? now : now - projectile.tickCount,
+                gunDelay(shooter) >= limits().sniperDelay() && (projectile == null || !pellet(projectile)));
         boolean head = HeadDamage.onHead(target);
         float shield = 0F;
         HbmPlayerProps props = null;

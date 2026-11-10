@@ -285,7 +285,7 @@ public final class BalanceCheck {
     private static void plan() {
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         STEPS.add(() -> keys("balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula"));
         wait(30);
@@ -301,6 +301,86 @@ public final class BalanceCheck {
         if (only("expl")) planExpl();
         if (only("esp")) planEsp();
         if (only("pool")) planPool();
+        if (only("pep")) planPep();
+    }
+
+    // ---------------------------------------------------------------- Pepperbox: 13th-century tech
+
+    private static final String[] PEP_SETS = {"", "steel", "dieselsuit", "t51", "hev", "security"};
+    private static final String[] PEP_AMMO = {"stone", "stone_ap", "stone_iron", "stone_shot"};
+    private static float pepMaxClick;
+    /** a click killed from full health */
+    private static boolean pepFromFull;
+
+    private static BulletConfig pepAmmo(String a) {
+        return switch (a) {
+            case "stone" -> com.hbm.items.weapon.sedna.factory.XFactoryBlackPowder.stone;
+            case "stone_ap" -> com.hbm.items.weapon.sedna.factory.XFactoryBlackPowder.flint;
+            case "stone_iron" -> com.hbm.items.weapon.sedna.factory.XFactoryBlackPowder.iron;
+            default -> com.hbm.items.weapon.sedna.factory.XFactoryBlackPowder.shot;
+        };
+    }
+
+    /**
+     * Pepperbox against the low ladder, 4 blocks: clicks to death on the body, and on the head (the most a click took:
+     * a pellet round has no sniper's head cap, so no click kills from full health). Seconds = the gun's cycle: a click
+     * every 27 ticks, 6 to a cylinder, 67 to reload.
+     */
+    private static void planPep() {
+        LINES.add("#\t--- Pepperbox: кликов до смерти по наборам (тело / голова), 4 бл; секунды — 27 тиков клик, 6 в барабане, 67 перезарядка");
+        STEPS.add(() -> keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false"));
+        wait(30);
+        for (String a : PEP_AMMO) for (String set : PEP_SETS) for (boolean head : new boolean[] {false, true}) {
+            STEPS.add(() -> {
+                begin(target);
+                for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
+                if (!set.isEmpty()) dress(target, set, false);
+                target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+                aimHead = head;
+                pepMaxClick = 0F;
+                pepFromFull = false;
+            });
+            wait(3);
+            int[] end = {0};
+            for (int i = 0; i < 40; i++) {
+                float[] hp = {0F};
+                STEPS.add(() -> {
+                    if (deathClick > 0 || target.getHealth() <= 0F) return;
+                    hp[0] = target.getHealth();
+                    fire(shooter, ModItems.GUN_PEPPERBOX.get(), pepAmmo(a), EnumKeybind.GUN_PRIMARY);
+                    clicks++;
+                });
+                for (int t = 0; t < SPACING; t++) STEPS.add(() -> {
+                    if (deathClick <= 0 && clicks > 0 && target.getHealth() <= 0F) {
+                        // the killing click took all that was left
+                        pepMaxClick = Math.max(pepMaxClick, hp[0]);
+                        pepFromFull |= hp[0] >= target.getMaxHealth() - 0.01F;
+                        deathClick = clicks;
+                        skipTo = end[0];
+                    }
+                });
+                STEPS.add(() -> pepMaxClick = Math.max(pepMaxClick, hp[0] - Math.max(0F, target.getHealth())));
+            }
+            end[0] = STEPS.size();
+            STEPS.add(() -> {
+                aimHead = false;
+                int n = deathClick;
+                String secs = n > 0 ? f(pepSeconds(n)) : "-";
+                LINES.add("#\tpep\t" + a + "\t" + (set.isEmpty() ? "без брони" : set) + "\t" + (head ? "голова" : "тело") + "\t" + (n > 0 ? n : "> " + clicks)
+                        + "\t" + secs + " с\tбольше всего за клик " + f(pepMaxClick));
+                // no click from full health kills: a pellet round is no sniper's
+                if (a.equals("stone_shot")) check(!pepFromFull && pepMaxClick <= 0.8F * target.getMaxHealth() + 0.05F, "pep: stone_shot " + (head ? "в голову" : "в тело") + ", "
+                        + (set.isEmpty() ? "без брони" : set) + ": клик снял не больше 16 (взял " + f(pepMaxClick) + ")");
+            });
+            wait(10);
+        }
+    }
+
+    /** seconds to the n-th click: a click every 27 ticks, after each 6 a reload of 67 */
+    private static float pepSeconds(int n) {
+        int t = 0;
+        for (int i = 1; i < n; i++) t += i % 6 == 0 ? 67 : 27;
+        return t / 20F;
     }
 
     // ---------------------------------------------------------------- stage 3: NTM's blasts on the ladder
@@ -747,7 +827,7 @@ public final class BalanceCheck {
     private static final List<High> HIGH = List.of(
             new High("double_barrel_sacred_dragon · g10 ×10,3, 1 ствол", ModItems.GUN_DOUBLE_BARREL_SACRED_DRAGON::get, () -> XFactory10ga.g10, EnumKeybind.GUN_SECONDARY),
             new High("double_barrel_sacred_dragon · g10_shrapnel ×10,3, 2 ствола", ModItems.GUN_DOUBLE_BARREL_SACRED_DRAGON::get, () -> XFactory10ga.g10_shrapnel, EnumKeybind.GUN_PRIMARY),
-            new High("pepperbox · stone_shot ×10,3", ModItems.GUN_PEPPERBOX::get, () -> com.hbm.items.weapon.sedna.factory.XFactoryBlackPowder.shot, EnumKeybind.GUN_PRIMARY),
+            new High("pepperbox · stone_shot ×2,5", ModItems.GUN_PEPPERBOX::get, () -> com.hbm.items.weapon.sedna.factory.XFactoryBlackPowder.shot, EnumKeybind.GUN_PRIMARY),
             new High("maresleg · g12_bp ×4,17", ModItems.GUN_MARESLEG::get, () -> XFactory12ga.g12_bp, EnumKeybind.GUN_PRIMARY),
             new High("light_revolver_atlas · m357_bp ×3,32", ModItems.GUN_LIGHT_REVOLVER_ATLAS::get, () -> XFactory357.m357_bp, EnumKeybind.GUN_PRIMARY));
 

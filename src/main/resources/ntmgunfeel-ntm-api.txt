@@ -324,6 +324,7 @@ CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 config Lcom/hbm/items/w
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 tickCount I
 CORE field com/hbm/entity/projectile/EntityBulletBaseMK4 ticksInAir I
+CORE field com/hbm/entity/projectile/EntityBulletBeamBase config Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/explosion/vanillant/ExplosionVNT posX D
 CORE field com/hbm/explosion/vanillant/ExplosionVNT posY D
 CORE field com/hbm/explosion/vanillant/ExplosionVNT posZ D
@@ -437,7 +438,10 @@ CORE field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_he Lcom/hbm/ite
 CORE field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryAccelerator ni4ni_arc Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryAccelerator tau_uranium Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactoryBlackPowder flint Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactoryBlackPowder iron Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryBlackPowder shot Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactoryBlackPowder stone Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryEnergy energy_las Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryEnergy energy_tesla_overcharge Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryRocket rocket_ml [Lcom/hbm/items/weapon/sedna/BulletConfig;

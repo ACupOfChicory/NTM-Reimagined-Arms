@@ -14,6 +14,13 @@
   / `.recover` and `balance.immune.fau.*` (`mode`: `pool`; `formula`: by the
   rating only, as in X858; DNS also `ntm`). `balance.immune.dns` is now
   `balance.immune.dns.mode` (an old `ntm` still counts).
+- Pepperbox, 13th-century tech, is a gun against no armour and steel only:
+  stone x1.59 (was x2.65), flint x1.0 (x1.68), iron x0.9 (x1.5), stone shot
+  x2.5 (x10.3). Against steel 5 clicks (was 3), the diesel suit 7 (3), T-51b
+  11 (5), HEV 13 (7); the stone shot against the diesel suit 8 clicks (was 2).
+- A pellet of a round of several (buckshot, Pepperbox's stone shot) never
+  takes a sniper's head cap, whatever its gun waits between shots: the stone
+  shot no longer kills with one click from full health.
 
 ## X858
 

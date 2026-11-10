@@ -315,7 +315,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `damageCap` | `true` | The damage cap against players: one click and any 14 ticks of one shooter |
 | `damageCapClick`, `damageCapHead` | `0.6`, `0.8` | The most of a player's max health one click takes, on the body and on the head |
 | `damageCapWindow`, `damageCapWindowTicks` | `0.8`, `14` | The most one shooter takes in any so many ticks |
-| `damageCapSniperDelay`, `damageCapSniperHead` | `25`, `1.0` | A gun that waits this many ticks between shots takes up to this much with a head click |
+| `damageCapSniperDelay`, `damageCapSniperHead` | `25`, `1.0` | A gun that waits this many ticks between shots takes up to this much with a head click (not a pellet of buckshot or stone shot) |
 | `damageCapMobs` | `false` | Mobs and AI bots are capped too |
 | `damageCapBlasts` | `true` | NTM's blasts are capped (not those over `balanceExplRawLimit` raw damage); off: none of them is |
 | `balanceArmor` | `true` | NTM's combat sets take bullets, beams and blasts by the balance's formula; off: NTM's threshold and resistance |
