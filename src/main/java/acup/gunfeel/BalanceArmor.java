@@ -138,6 +138,32 @@ public final class BalanceArmor {
         return out;
     }
 
+    /** the power of the weapon's blast being dealt now (1: none, or not a weapon's), set around NTM's blast's hurt */
+    static final ThreadLocal<Float> BLAST_POWER = ThreadLocal.withInitial(() -> 1F);
+
+    /** balanceBlastPower (2.7; 1: X858): how much stronger a weapon's blast hits a combat set */
+    public static float blastPower() {
+        float v = ReaimTimes.number("balanceBlastPower", 2.7F);
+        return Float.isFinite(v) && v >= 1F ? v : 1F;
+    }
+
+    /**
+     * NTM's blast hurts {@code target} with {@code amount}: a weapon's (a round of a launcher, or a blast of no bullet
+     * of at most balanceExplRawLimit: hand grenades) takes the blast power; an explosive bullet's blast (its gun's
+     * table multiplier) and big charges do not.
+     */
+    public static <T> T withBlastPower(boolean weapon, float amount, java.util.function.Supplier<T> hurt) {
+        // not a weapon's: 1, also when it goes off inside a weapon's blast's hurt
+        float power = !weapon || !on() || amount > explRawLimit() ? 1F : blastPower();
+        Float before = BLAST_POWER.get();
+        BLAST_POWER.set(power);
+        try {
+            return hurt.get();
+        } finally {
+            BLAST_POWER.set(before);
+        }
+    }
+
     /** balanceExplRawLimit: a blast of more raw damage is not squeezed, nor capped (DamageCap) */
     static float explRawLimit() {
         return positive("balanceExplRawLimit", 60F);
@@ -160,7 +186,10 @@ public final class BalanceArmor {
         var tune = most > knee ? new BalanceArmorRule.Tune(knee, most) : BalanceArmorRule.Tune.DEFAULT;
         // a blast of more than this raw damage (a mine, C4, a block of TNT: building, not a weapon) is not squeezed
         boolean squeeze = !expl || amount <= explRawLimit();
-        var hit = new BalanceArmorRule.Hit(amount, neg, pen, squeeze);
+        // a weapon's blast (a grenade, a 40 mm shell, a rocket) hits the set stronger (balanceBlastPower): its damage
+        // times the power into the formula, the limit above and the cap by its own; never more than with no armour
+        float power = expl && squeeze ? BLAST_POWER.get() : 1F;
+        var hit = new BalanceArmorRule.Hit(amount * power, neg, pen, squeeze);
         float enShare = Math.min(1F, positive("balanceEnShare", 0.75F));
         for (int i = 0; i < 4; i++) {
             byPiece[i] = Float.NaN;
@@ -172,7 +201,7 @@ public final class BalanceArmor {
             if (en) s *= enShare;
             if (k > 0F) s = acup.gunfeel.gas.GasModel.corrode(s, k);
             if (!(s > 0F)) s = 1e-3F;
-            byPiece[i] = BalanceArmorRule.full(hit, s, SETS.get(set).tau(), tune);
+            byPiece[i] = Math.min(amount, BalanceArmorRule.full(hit, s, SETS.get(set).tau(), tune));
             any = true;
         }
         float rest = ntm;

@@ -33,4 +33,23 @@ class BalanceBlastsTest {
         }
         assertEquals(Integer.MAX_VALUE, BalanceBlasts.hits(0F));
     }
+
+    @Test
+    void blastPower() throws java.io.IOException {
+        // the power 2.7 (shipped): never weaker than X858, never more than with no armour; DNS against a direct
+        // rocket of the Missile Launcher about five times faster (32 → 6 hits, the model's table)
+        assertEquals("2.7", SpreadModelTest.shipped().getProperty("balanceBlastPower"));
+        for (String set : new String[] {"steel", "hev", "bj", "rpa", "fau", "dns"}) {
+            var def = BalanceArmor.SETS.get(set);
+            for (float r : new float[] {-1F, 1F, 3F}) {
+                float now = BalanceBlasts.damage(ML, r, set, def.s(), def.tau()), after = BalanceBlasts.damage(ML, r, set, def.s(), def.tau(), 2.7F);
+                assertTrue(after >= now && after <= BalanceBlasts.damage(ML, r, null, 0, 0, 2.7F) + 1e-4F, set + " " + r + ": " + now + " → " + after);
+            }
+        }
+        var dns = BalanceArmor.SETS.get("dns");
+        assertEquals(32, BalanceBlasts.hits(BalanceBlasts.damage(ML, -1, "dns", dns.s(), dns.tau())));
+        assertEquals(6, BalanceBlasts.hits(BalanceBlasts.damage(ML, -1, "dns", dns.s(), dns.tau(), 2.7F)));
+        // no armour: the power does nothing
+        assertEquals(BalanceBlasts.damage(HE, 3, null, 0, 0), BalanceBlasts.damage(HE, 3, null, 0, 0, 2.7F), 1e-6F);
+    }
 }

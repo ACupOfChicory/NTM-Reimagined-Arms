@@ -75,6 +75,10 @@ public final class ExplosiveDamage {
                 || context.bullet.level()!=explosion.world || context.bullet.getThrower()!=explosion.exploder)return null;
         context.exploded=true;return new Blast(context,base,explosion);
     }
+    /** the blast is a launcher's round's (40 mm, rocket), not an explosive bullet's */
+    public static boolean launched(Blast blast){return blast!=null && ExplosiveAmmo.heavy(blast.context.bullet.config);}
+    /** a blast with no bound bullet: none being dealt (a hand grenade), or the bullet now is a launcher's round */
+    public static boolean launchedNow(){var c=CURRENT.get();return c==null || ExplosiveAmmo.heavy(c.bullet.config);}
     /** the blast's share of an explosive bullet's damage, out of NTM's {@code original} */
     public static float area(float original){return original*BLAST;}
     static float total(float area,float base,float multiplier,boolean direct){return area*BLAST+(direct?base*CONTACT*multiplier:0);}

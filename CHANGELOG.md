@@ -1,5 +1,34 @@
 # Changelog
 
+## X865
+
+- DNS and FAU get euphemium's invulnerability with a pool, with their own
+  numbers: while the pool holds, bullets, beams and blasts on the full
+  charged set are called off, each taking from the pool what it would have
+  done to the set (DNS's rating 186, FAU's 148). The emptied pool opens 15 s
+  of hits by the set's rating, then the pool fills back over 60 s, the set
+  invulnerable meanwhile. Pools: DNS 500, FAU 450. A Tau now takes about
+  50 s to kill DNS (26 s FAU), Lacunae 12 s (7 s), an AMAT SM round 4.6 min
+  (2.6 min). Other damage is NTM's as before; the tomb's radon gas takes the
+  pool off. New server keys `balance.immune.dns.mode` / `.pool` / `.window`
+  / `.recover` and `balance.immune.fau.*` (`mode`: `pool`; `formula`: by the
+  rating only, as in X858; DNS also `ntm`). `balance.immune.dns` is now
+  `balance.immune.dns.mode` (an old `ntm` still counts).
+- Pepperbox, 13th-century tech, is a gun against no armour and steel only:
+  stone x1.59 (was x2.65), flint x1.0 (x1.68), iron x0.9 (x1.5), stone shot
+  x2.5 (x10.3). Against steel 5 clicks (was 3), the diesel suit 7 (3), T-51b
+  11 (5), HEV 13 (7); the stone shot against the diesel suit 8 clicks (was 2).
+- A pellet of a round of several (buckshot, Pepperbox's stone shot) never
+  takes a sniper's head cap, whatever its gun waits between shots: the stone
+  shot no longer kills with one click from full health.
+- Grenades, 40 mm shells and rockets hit armour harder: the combat sets take
+  a weapon's blast as 2.7 times its damage, never more than it does with no
+  armour; the damage cap is as before. A Panzerschreck rocket on target now
+  takes 3 hits on BJ (was 11), 5 on RPA (20), 14 on FAU (32), 23 on DNS (47);
+  the Missile Launcher's 4 on FAU (21) and 6 on DNS (33); a HE grenade at a
+  block 10 on FAU (28). Nothing takes longer than before; no armour is as
+  before. Explosive bullets' blasts are not touched. New server key
+  `balanceBlastPower` (`2.7`; `1`: as before).
 ## X859
 
 - Five new gun mechanisms, the parts NTM's guns and their B-side upgrades

@@ -335,7 +335,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `damageCap` | `true` | The damage cap against players: one click and any 14 ticks of one shooter |
 | `damageCapClick`, `damageCapHead` | `0.6`, `0.8` | The most of a player's max health one click takes, on the body and on the head |
 | `damageCapWindow`, `damageCapWindowTicks` | `0.8`, `14` | The most one shooter takes in any so many ticks |
-| `damageCapSniperDelay`, `damageCapSniperHead` | `25`, `1.0` | A gun that waits this many ticks between shots takes up to this much with a head click |
+| `damageCapSniperDelay`, `damageCapSniperHead` | `25`, `1.0` | A gun that waits this many ticks between shots takes up to this much with a head click (not a pellet of buckshot or stone shot) |
 | `damageCapMobs` | `false` | Mobs and AI bots are capped too |
 | `damageCapBlasts` | `true` | NTM's blasts are capped (not those over `balanceExplRawLimit` raw damage); off: none of them is |
 | `balanceArmor` | `true` | NTM's combat sets take bullets, beams and blasts by the balance's formula; off: NTM's threshold and resistance |
@@ -344,6 +344,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balanceFleshKnee`, `balanceFleshMax` | `8`, `14` | One hit's damage on a set is squeezed past the first towards the second |
 | `balanceArmorBlasts` | `true` | Blasts go by the formula too; off: blasts by NTM's threshold and resistance |
 | `balanceExplRawLimit` | `60` | A blast of more raw damage (a mine, C4) is not squeezed and not capped |
+| `balanceBlastPower` | `2.7` | A weapon's blast (grenade, 40 mm, rocket) hits a combat set as this many times its damage, never more than with no armour; 1: as before |
 | `balanceRoflFloor` | `0.18` | The least share of a hit starmetal and the dineutronium ingot set leave |
 | `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's; the players get the server's); off: NTM's damage and guns |
 | `balanceRecipes` | `true` | The balance's recipes for the diesel suit, Tesla Cannon, Lasrifle, Tau and Med-X; off: NTM's (after `/reload` or a restart) |
@@ -369,7 +370,14 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.immune.pool` | `2000` | What bullets, beams and blasts on the set wear down before it opens (each as much as on a DNS-class set) |
 | `balance.immune.window` | `15` | Seconds the emptied pool leaves the wearer open, without the set's Regeneration and Resistance |
 | `balance.immune.recover` | `60` | Seconds the pool takes to fill back after the window (the set invulnerable meanwhile), or a worn-down pool after 5 s without a hit |
-| `balance.immune.dns` | `formula` | DNS takes hits by its rating; `ntm`: every hit but a blast called off, blasts down to 0.001 |
+| `balance.immune.dns.mode` | `pool` | DNS with euphemium's round: bullets, beams and blasts on the full charged set called off while its pool holds; `formula`: by its rating only; `ntm`: every hit but a blast called off, blasts down to 0.001 |
+| `balance.immune.dns.pool` | `500` | What hits wear down before DNS opens (each as much as it would do to DNS itself, S 186) |
+| `balance.immune.dns.window` | `15` | Seconds the emptied pool leaves DNS open to its rating |
+| `balance.immune.dns.recover` | `60` | Seconds DNS's pool takes to fill back after the window, or a worn-down pool after 5 s without a hit |
+| `balance.immune.fau.mode` | `pool` | FAU the same; `formula`: by its rating only (NTM gives FAU no invulnerability) |
+| `balance.immune.fau.pool` | `450` | FAU's pool (each hit as much as on FAU itself, S 148) |
+| `balance.immune.fau.window` | `15` | Seconds the emptied pool leaves FAU open |
+| `balance.immune.fau.recover` | `60` | Seconds FAU's pool takes to fill back |
 | `spectatorNoGuns` | `true` | Spectators cannot use NTM's guns |
 | `smoke` | `true` | Smoke clouds |
 | `smokeBlocksMobSight` | `false` | Mobs lose a target behind thick smoke |

@@ -111,5 +111,7 @@
   "subtitles.ntmgunfeel.ai.voice.man_down": "Soldier: man down",
   "subtitles.ntmgunfeel.ai.voice.moving": "Soldier: moving",
   "subtitles.ntmgunfeel.ai.voice.hit": "Soldier: hit",
-  "ntmgunfeel.euph.window": "Euphemium overwhelmed: open to hits for %s s"
+  "ntmgunfeel.euph.window": "Euphemium overwhelmed: open to hits for %s s",
+  "ntmgunfeel.dns.window": "DNS overwhelmed: open to hits for %s s",
+  "ntmgunfeel.fau.window": "FAU overwhelmed: open to hits for %s s"
 }

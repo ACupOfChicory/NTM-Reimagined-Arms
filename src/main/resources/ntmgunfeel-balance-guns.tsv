@@ -4,10 +4,10 @@
 # damage). An ammo of a gun not here: the gun's pair of the same family, else NTM's (BalanceGunsRule). A file of the
 # same name in config/ (ntm-gunfeel-balance-guns.tsv) is read instead of this one. Source: gun-multipliers-v4.md.
 # gun	ammo	mult	neg	pen	tier (for reading)	extra
-pepperbox	stone	2.65	0	0	0	
-pepperbox	stone_ap	1.68	0	0	0	
-pepperbox	stone_iron	1.5	0	0	0	
-pepperbox	stone_shot	10.3	0	0	0	
+pepperbox	stone	1.59	0	0	0	
+pepperbox	stone_ap	1.0	0	0	0	
+pepperbox	stone_iron	0.9	0	0	0	
+pepperbox	stone_shot	2.5	0	0	0	
 am180	p22_fmj	3.32	0	0	2	
 am180	p22_sp	3.5	0	0	2	
 greasegun	p9_fmj	2.65	0	0	2	
