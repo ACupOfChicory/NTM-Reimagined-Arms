@@ -1,5 +1,14 @@
 # Changelog
 
+## X847
+
+- DNS is no longer invulnerable: it takes bullets, beams and blasts by its
+  armour rating (186), like the rest of the sets (was: every hit but a blast
+  called off, blasts down to a thousandth). A Tau now takes 10 clicks on it,
+  an AMAT SM round 7, Lacunae 9 (were 0 for the AMAT and Lacunae; NTM's beams
+  got through it already). New server key `balance.immune.dns` (`formula`;
+  `ntm`: as before).
+
 ## X846
 
 - An AI mob that falls dead now lies on the ground. Its fall used to end with

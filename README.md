@@ -342,6 +342,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.immune.pool` | `2000` | What bullets, beams and blasts on the set wear down before it opens (each as much as on a DNS-class set) |
 | `balance.immune.window` | `15` | Seconds the emptied pool leaves the wearer open, without the set's Regeneration and Resistance |
 | `balance.immune.recover` | `60` | Seconds the pool takes to fill back after the window (the set invulnerable meanwhile), or a worn-down pool after 5 s without a hit |
+| `balance.immune.dns` | `formula` | DNS takes hits by its rating; `ntm`: every hit but a blast called off, blasts down to 0.001 |
 | `spectatorNoGuns` | `true` | Spectators cannot use NTM's guns |
 | `smoke` | `true` | Smoke clouds |
 | `smokeBlocksMobSight` | `false` | Mobs lose a target behind thick smoke |
