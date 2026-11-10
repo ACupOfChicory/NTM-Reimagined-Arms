@@ -259,7 +259,6 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `cameraScale` | `0.55` | Camera recoil strength |
 | `modelKick` | `1` | Gun model kick strength |
 | `adsRecoil` | `0.7` | Recoil while aiming, as a share |
-| `powerArmorRecoil` | `0.5` | Recoil in NTM's power armour, as a share |
 | `proneRecoil` | `0.5` | Recoil while lying, as a share |
 | `proneHold` | `false` | Lie only while X is held |
 | `walkSway`, `sprintPose` | `1` | Walk bob and sprint pose; `0` turns them off |
@@ -294,7 +293,9 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `cameraScaleMin` | `0` | Camera recoil players cannot go below |
 | `spreadStand`, `spreadMove`, `spreadSneak`, `spreadCrawl`, `spreadAim` | `1`, `1.5`, `0.75`, `0.5`, `1` | Spread by stance |
 | `powerArmorSpread.<set>` | from `0.8` (T-51b) to `0.4` (FAU, DNS) | Movement and burst spread in power armour and Trenchmaster, as a share, by the chestplate's set |
-| `powerArmorSpread` | `0.5` | The same for a power armour chestplate with no line; set in the server's file, it stands for every set with no line there |
+| `powerArmorSpread` | `0.5` | The same for a power armour chestplate with no line of its own |
+| `powerArmorRecoil.<set>` | from `0.8` (T-51b) to `0.4` (FAU, DNS) | Recoil in power armour and Trenchmaster, as a share, by the chestplate's set; the players' clients go by the server's |
+| `powerArmorRecoil` | `0.5` | The same for a power armour chestplate with no line of its own |
 | `sprintFireDelay` | `true` | No shot right after a sprint; `sprintFireTime` per gun |
 | `prone`, `proneWithoutGun` | `true` | Lying down; lying without a gun in hand |
 | `proneCrawlNoFire`, `proneCrawlSpeed` | `true`, `0.25` | No shot while crawling faster than this many blocks a second |

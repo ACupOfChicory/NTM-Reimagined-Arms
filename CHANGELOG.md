@@ -18,6 +18,14 @@
 - On a server, players' tooltips and guns' receivers (pause, magazine, auto
   fire) go by the server's gun table (`config/ntm-gunfeel-balance-guns.tsv`
   or the mod's), not by a file of their own.
+- Power armour takes up recoil by its tier, as it does spread: T-51b 0.8,
+  HEV, AJR, Envsuit and Trenchmaster 0.7, BJ and NCRPA 0.6, RPA 0.5, FAU and
+  DNS 0.4 (was 0.5 for every set); Security, the steam and diesel suits
+  none. It is the server's (`powerArmorRecoil.<set>`, `powerArmorRecoil` for
+  a chestplate with no line); the players' own `powerArmorRecoil` setting is
+  gone. The old one-number `powerArmorSpread` and `powerArmorRecoil` in a
+  server's file now count only for a power armour chestplate with no line
+  of its own: the tiers count on servers with an old file too.
 
 ## X846
 
