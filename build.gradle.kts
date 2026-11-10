@@ -390,6 +390,14 @@ neoForge {
             // -PbalanceOnly=dns,1b: only these passes (BalanceCheck.only)
             providers.gradleProperty("balanceOnly").orNull?.let { systemProperty("ntmgunfeel.checkBalance.only", it) }
         }
+        // the new gun mechanisms and their recipes (MechanismCheck): ./gradlew runCheckMechanisms -PnoAssets
+        register("checkMechanisms") {
+            server()
+            gameDirectory = root.resolve("run-mechanisms")
+            programArgument("--nogui")
+            jvmArgument("-Xmx1200M")
+            systemProperty("ntmgunfeel.checkMechanisms", layout.buildDirectory.file("mechanismcheck/result.txt").get().asFile.path)
+        }
         // bullets in water: a basin in a flat world (WaterCheck), the result is a tsv
         register("checkWater") {
             server()

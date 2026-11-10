@@ -236,7 +236,9 @@ public final class BalanceCheck {
         var manager = level.getServer().getRecipeManager();
         for (Recipe1v r : RECIPES) {
             var balance = manager.byKey(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, Identifier.fromNamespaceAndPath("hbm", r.name())));
-            var ntm = manager.byKey(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, Identifier.fromNamespaceAndPath("ntmgunfeel", "ntm/" + r.name())));
+            // Tesla Cannon's NTM recipe with the new mechanism is a file of its own (GunMechanismRecipes)
+            String ntmPath = (r.name().equals("gun_tesla_cannon") && GunMechanismRecipes.on() ? "mechanisms/" : "ntm/") + r.name();
+            var ntm = manager.byKey(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.RECIPE, Identifier.fromNamespaceAndPath("ntmgunfeel", ntmPath)));
             // every recipe making the item: one, whichever the setting
             var item = item(r.name());
             long making = manager.getRecipes().stream().filter(h -> makes(h.value(), item)).count();
@@ -244,7 +246,7 @@ public final class BalanceCheck {
             List<String> takes = held.map(h -> takes(h.value())).orElse(List.of());
             boolean right = held.isPresent() && (on ? ntm : balance).isEmpty() && making == 1
                     && (on ? r.balance() : r.ntm()).stream().allMatch(takes::contains) && (on ? r.ntm().stream().noneMatch(takes::contains) : true);
-            check(right, "1в: " + r.name() + (on ? " рецепт баланса hbm:" : " рецепт NTM ntmgunfeel:ntm/") + r.name() + ", рецептов предмета " + making
+            check(right, "1в: " + r.name() + (on ? " рецепт баланса hbm:" + r.name() : " рецепт NTM ntmgunfeel:" + ntmPath) + ", рецептов предмета " + making
                     + ", берёт " + takes);
         }
     }

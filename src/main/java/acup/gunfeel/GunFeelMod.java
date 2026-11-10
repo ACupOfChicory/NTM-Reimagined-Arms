@@ -34,6 +34,7 @@ public final class GunFeelMod {
         GunWeight.register();
         acup.gunfeel.ai.AiPose.register(modBus);
         BalanceRecipes.register(modBus);
+        GunMechanismRecipes.register(modBus);
         if (dist.isClient()) {
             modBus.addListener(net.neoforged.neoforge.client.event.AddClientReloadListenersEvent.class,
                     e -> e.addListener(net.minecraft.resources.Identifier.fromNamespaceAndPath("ntmgunfeel", "model_masks"),
@@ -132,6 +133,7 @@ public final class GunFeelMod {
         SpreadCheck.registerIfAsked();
         DamageCapCheck.registerIfAsked();
         BalanceCheck.registerIfAsked();
+        MechanismCheck.registerIfAsked();
         WaterCheck.registerIfAsked();
         ExplosiveCheck.registerIfAsked();
         acup.gunfeel.ai.AiCheck.registerIfAsked();

@@ -27,7 +27,7 @@ import com.google.gson.JsonParser;
 class BalanceStage1vTest {
     private static final Path HBM = Path.of("src/main/resources/data/hbm/recipe");
     private static final Path NTM = Path.of("src/main/resources/data/ntmgunfeel/recipe/ntm");
-    private static final List<String> RECIPES = List.of("dieselsuit_helmet", "dieselsuit_plate", "dieselsuit_legs", "gun_tesla_cannon", "gun_lasrifle", "gun_tau", "syringe_metal_medx");
+    static final List<String> RECIPES = List.of("dieselsuit_helmet", "dieselsuit_plate", "dieselsuit_legs", "gun_tesla_cannon", "gun_lasrifle", "gun_tau", "syringe_metal_medx");
 
     // the shipped keys powerArmorSpread.<set> are the table's, and the table is the owner's
     @Test
@@ -66,13 +66,14 @@ class BalanceStage1vTest {
         return BalanceStage1vTest.class.getClassLoader().getResource(path) != null;
     }
 
+    // the file's balance condition; a recipe that also takes a new gun mechanism (GunMechanismRecipes) has that one too
     private static boolean condition(JsonObject o, boolean on) {
         var c = o.getAsJsonArray("neoforge:conditions");
-        return c != null && c.size() == 1 && c.get(0).getAsJsonObject().get("type").getAsString().equals("ntmgunfeel:balance_recipes")
-                && c.get(0).getAsJsonObject().get("on").getAsBoolean() == on;
+        if (c == null || c.size() != (GunMechanismRecipes.BALANCE.containsKey(o.getAsJsonObject("result").get("id").getAsString().replace("hbm:", "")) ? 2 : 1)) return false;
+        return c.get(0).getAsJsonObject().get("type").getAsString().equals("ntmgunfeel:balance_recipes") && c.get(0).getAsJsonObject().get("on").getAsBoolean() == on;
     }
 
-    // our files are these seven (stage 2: Med-X), the balance's under NTM's ids with on = true, NTM's own as they are in its jar with on =
+    // our files are these seven (stage 2: Med-X) and the ones of GunMechanismRecipes, the balance's under NTM's ids with on = true, NTM's own as they are in its jar with on =
     // false; every key used, every item and tag in NTM's jar
     @Test
     void recipes() throws IOException {
@@ -80,7 +81,9 @@ class BalanceStage1vTest {
         try (var s = Files.list(HBM)) {
             s.forEach(f -> ours.add(f.getFileName().toString().replace(".json", "")));
         }
-        assertEquals(new HashSet<>(RECIPES), ours);
+        Set<String> want = new HashSet<>(RECIPES);
+        want.addAll(GunMechanismRecipes.RECIPES.keySet());
+        assertEquals(want, ours);
         for (String name : RECIPES) {
             JsonObject balance = read(HBM.resolve(name + ".json")), ntm = read(NTM.resolve(name + ".json"));
             assertTrue(condition(balance, true), name);

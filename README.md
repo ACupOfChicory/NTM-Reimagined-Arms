@@ -165,6 +165,26 @@ page. They are alphas: expect bugs and back up your world.
   on it. A magazine of mustard fired at one place is enough; chlorine and acid
   need two, phosgene three.
 
+### Gun mechanisms
+
+- Five gun mechanisms NTM has no item for: steel, high-speed steel, desh,
+  ferrouranium and technetium steel. They are cast in the crucible's mechanism
+  mold like NTM's gunmetal, weapon steel and saturnite ones, melt back down,
+  and show in JEI and NTM's parts tab.
+- A mechanism stands for a gun's tier, as in NTM, on eight steps: steel,
+  gunmetal, high-speed steel, desh, ferrouranium, weapon steel, technetium
+  steel, saturnite. A gun takes the step of its tier and material: steel for
+  the flare gun, Grease Gun, light revolver, Maresleg and Charge Thrower;
+  high-speed steel for AM180, Congo Lake, the flamethrower and Liberator;
+  desh for the carbine, heavy revolver, Panzerschreck, SPAS-12 and UZI;
+  ferrouranium for AMAT, the auto-shotgun, M2 and Quadro; technetium steel
+  for Lag, the minigun, the missile launcher and Tesla Cannon (saturnite with
+  the balance's recipe).
+- A B-side takes the step above its base gun's: desh for Atlas, Henry
+  Lincoln, the Maresleg pair and Topaz, ferrouranium for the UZI pair.
+  Gunmetal and weapon steel mechanisms no longer fit these recipes; the
+  server key `gunMechanismRecipes` turns NTM's recipes back on.
+
 ### AI soldiers
 
 - NTM's FBI agents and test dummies fight as a player does, with NTM's guns.
@@ -328,6 +348,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balanceRoflFloor` | `0.18` | The least share of a hit starmetal and the dineutronium ingot set leave |
 | `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's; the players get the server's); off: NTM's damage and guns |
 | `balanceRecipes` | `true` | The balance's recipes for the diesel suit, Tesla Cannon, Lasrifle, Tau and Med-X; off: NTM's (after `/reload` or a restart) |
+| `gunMechanismRecipes` | `true` | Guns take the gun mechanism of their tier, on eight steps: the mod adds steel, high-speed steel, desh, ferrouranium and technetium steel mechanisms, cast in NTM's mechanism mold; off: NTM's recipes (after `/reload` or a restart) |
 | `abilities.mobilityCap` | `true` | A full set's Speed and Jump Boost by its tier: up to tier 6 II and I at most, from tier 7 III and II |
 | `abilities.strengthCap` | `2` | A full set's Strength at most this level; `0`: NTM's |
 | `abilities.bismuth` | `true` | Bismuth as a tier 6 set: Speed III, Jump Boost II, Regeneration I, night vision, two dashes; off: NTM's |

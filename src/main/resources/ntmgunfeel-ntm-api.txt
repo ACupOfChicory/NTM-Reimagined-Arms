@@ -777,6 +777,30 @@ GL54 method com/hbm/render/loader/HFRWavefrontObject boundsOfParts ([I)[F
 GL54 method com/hbm/render/util/Vertices emit (Lcom/mojang/blaze3d/vertex/VertexConsumer;Lcom/mojang/blaze3d/vertex/PoseStack$Pose;FFFIFFIFFF)V
 GL54 method com/hbm/sound/EntitySounds play (Lnet/minecraft/world/entity/Entity;DDDLnet/minecraft/sounds/SoundEvent;Lnet/minecraft/sounds/SoundSource;FF)V
 GL54 method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z
+GUN_MECHANISMS class com/hbm/inventory/material/Mats$MaterialStack
+GUN_MECHANISMS class com/hbm/inventory/material/NTMMaterial
+GUN_MECHANISMS class com/hbm/inventory/recipes/CrucibleRecipes$Cast
+GUN_MECHANISMS class com/hbm/items/special/MaterialShapeItem
+GUN_MECHANISMS field com/hbm/inventory/material/MaterialShapes MECHANISM Lcom/hbm/inventory/material/MaterialShapes;
+GUN_MECHANISMS field com/hbm/inventory/material/Mats MAT_DESH Lcom/hbm/inventory/material/NTMMaterial;
+GUN_MECHANISMS field com/hbm/inventory/material/Mats MAT_DURA Lcom/hbm/inventory/material/NTMMaterial;
+GUN_MECHANISMS field com/hbm/inventory/material/Mats MAT_FERRO Lcom/hbm/inventory/material/NTMMaterial;
+GUN_MECHANISMS field com/hbm/inventory/material/Mats MAT_STEEL Lcom/hbm/inventory/material/NTMMaterial;
+GUN_MECHANISMS field com/hbm/inventory/material/Mats MAT_TCALLOY Lcom/hbm/inventory/material/NTMMaterial;
+GUN_MECHANISMS field com/hbm/inventory/material/Mats$MaterialStack amount I
+GUN_MECHANISMS field com/hbm/inventory/material/Mats$MaterialStack material Lcom/hbm/inventory/material/NTMMaterial;
+GUN_MECHANISMS field com/hbm/inventory/material/NTMMaterial autogen Ljava/util/Set;
+GUN_MECHANISMS field com/hbm/inventory/material/NTMMaterial tagPath Ljava/lang/String;
+GUN_MECHANISMS field com/hbm/items/CreativeContents$Tab PARTS Lcom/hbm/items/CreativeContents$Tab;
+GUN_MECHANISMS method com/hbm/inventory/material/Mats getMaterialsFromItem (Lnet/minecraft/world/item/ItemStack;)Ljava/util/List;
+GUN_MECHANISMS method com/hbm/inventory/material/NTMMaterial tag (Lcom/hbm/inventory/material/MaterialShapes;)Lnet/minecraft/tags/TagKey;
+GUN_MECHANISMS method com/hbm/inventory/recipes/CrucibleRecipes moldRecipes ()Ljava/util/List;
+GUN_MECHANISMS method com/hbm/inventory/recipes/CrucibleRecipes$Cast mold ()Lnet/minecraft/world/item/ItemStack;
+GUN_MECHANISMS method com/hbm/inventory/recipes/CrucibleRecipes$Cast result ()Lnet/minecraft/world/item/ItemStack;
+GUN_MECHANISMS method com/hbm/items/CreativeContents accept (Lcom/hbm/items/CreativeContents$Tab;Ljava/util/function/Consumer;)V
+GUN_MECHANISMS method com/hbm/items/CreativeContents insertAfter (Lcom/hbm/items/CreativeContents$Tab;Lnet/minecraft/resources/Identifier;Ljava/util/function/Supplier;)V
+GUN_MECHANISMS method com/hbm/items/special/Autogen find (Lcom/hbm/inventory/material/MaterialShapes;Lcom/hbm/inventory/material/NTMMaterial;)Lcom/hbm/items/special/MaterialShapeItem;
+GUN_MECHANISMS method com/hbm/items/special/Autogen require (Lcom/hbm/inventory/material/MaterialShapes;Lcom/hbm/inventory/material/NTMMaterial;)Lcom/hbm/items/special/MaterialShapeItem;
 HOLD_AIM class com/hbm/handler/HbmKeybinds$EnumKeybind
 HOLD_AIM class com/hbm/items/weapon/sedna/ItemGunBaseNT
 HOLD_AIM class com/hbm/items/weapon/sedna/mags/MagazineFullReload

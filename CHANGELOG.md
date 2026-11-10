@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## X860
 
 - DNS and FAU get euphemium's invulnerability with a pool, with their own
   numbers: while the pool holds, bullets, beams and blasts on the full
@@ -29,6 +29,29 @@
   block 10 on FAU (28). Nothing takes longer than before; no armour is as
   before. Explosive bullets' blasts are not touched. New server key
   `balanceBlastPower` (`2.7`; `1`: as before).
+## X859
+
+- Five new gun mechanisms, the parts NTM's guns and their B-side upgrades
+  are built with: steel, high-speed steel, desh, ferrouranium and technetium
+  steel (NTM had gunmetal, weapon steel and saturnite). They look like NTM's,
+  in the colours of the material's other gun parts, are cast in the
+  crucible's mechanism mold, melt back down, and are in JEI and NTM's parts
+  tab.
+- A mechanism stands for a gun's tier, as in NTM, now on eight steps:
+  steel, gunmetal, high-speed steel (crucible tier), desh, ferrouranium,
+  weapon steel (desh tier), technetium steel, saturnite. A gun takes the step
+  of its tier and material: steel for the flare gun, Grease Gun, light
+  revolver, Maresleg and Charge Thrower; high-speed steel for AM180, Congo
+  Lake, the flamethrower and Liberator; desh for the carbine, heavy revolver,
+  Panzerschreck, SPAS-12 and UZI (all were gunmetal); ferrouranium for AMAT,
+  the auto-shotgun, M2 and Quadro; technetium steel for Lag, the minigun, the
+  missile launcher and Tesla Cannon (all were weapon steel; Tesla Cannon with
+  the balance's recipe takes saturnite).
+- A B-side takes the step above its base gun's, at its own tier: Atlas,
+  Henry Lincoln, the Maresleg pair and Topaz desh, the UZI pair ferrouranium
+  (were weapon steel). Gunmetal and weapon steel mechanisms no longer fit
+  these recipes. New server key `gunMechanismRecipes` (`true`; off: NTM's
+  recipes).
 
 ## X858
 
