@@ -276,7 +276,7 @@ public final class BalanceCheck {
         return out;
     }
 
-    /** the passes to run (ntmgunfeel.checkBalance.only, by commas: 2, 1g, 1v, 1a, 1b, dns, kit, db, hi, expl, esp; none: all) */
+    /** the passes to run (ntmgunfeel.checkBalance.only, by commas: 2, 1g, 1v, 1a, 1b, dns, kit, db, hi, expl, esp, pool; none: all) */
     private static boolean only(String pass) {
         String only = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         return only.isEmpty() || java.util.Arrays.asList(only.split("\\s*,\\s*")).contains(pass);
@@ -285,7 +285,10 @@ public final class BalanceCheck {
     private static void plan() {
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool").contains(p)) throw new IllegalArgumentException("no pass " + p);
+        // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
+        STEPS.add(() -> keys("balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula"));
+        wait(30);
         if (only("2")) plan2();
         if (only("1g")) planAbilities();
         if (only("1v")) planRecipes();
@@ -297,6 +300,7 @@ public final class BalanceCheck {
         if (only("hi")) planHigh();
         if (only("expl")) planExpl();
         if (only("esp")) planEsp();
+        if (only("pool")) planPool();
     }
 
     // ---------------------------------------------------------------- stage 3: NTM's blasts on the ladder
@@ -1495,7 +1499,7 @@ public final class BalanceCheck {
         LINES.add("#\t--- DNS: неуязвимость снята (balance.immune.dns), формула C по S 186");
         for (String key : new String[] {"formula", "ntm"}) {
             String mode = key.equals("formula") ? "DNS формула" : "DNS как NTM";
-            STEPS.add(() -> keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns", key));
+            STEPS.add(() -> keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", key));
             wait(45);
             for (Pair1b p : PAIRS_DNS) {
                 Pair1b q = key.equals("formula") ? p : new Pair1b(p.set(), p.gunName(), p.gun(), p.ammo(), 0F, 0, 0F, 0, 0F, 0F, false, true);
@@ -1506,7 +1510,181 @@ public final class BalanceCheck {
                         mode + ": пуля AMAT по заряженному DNS: снято " + f(lost) + " за " + clicks + " кликов (NTM: неуязвим, ждали 0)"));
             }
         }
-        STEPS.add(() -> keys("balance.immune.dns", "formula"));
+        STEPS.add(() -> keys("balance.immune.dns.mode", "formula"));
+    }
+
+    // ---------------------------------------------------------------- the pool of DNS and FAU
+
+    /** a gun of the pool's pass: its name, the gun, the round */
+    private record PoolGun(String name, Supplier<Item> gun, Supplier<BulletConfig> ammo) {
+    }
+
+    private static final List<PoolGun> POOL_GUNS = List.of(
+            new PoolGun("amat · bmg50_sm", ModItems.GUN_AMAT::get, () -> XFactory50.bmg50_sm),
+            new PoolGun("tau · tau_uranium", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium),
+            new PoolGun("tesla_cannon · capacitor_overcharge", ModItems.GUN_TESLA_CANNON::get, () -> XFactoryEnergy.energy_tesla_overcharge),
+            new PoolGun("minigun_lacunae · capacitor", ModItems.GUN_MINIGUN_LACUNAE::get, () -> XFactory762mm.energy_lacunae),
+            new PoolGun("double_barrel · g10", ModItems.GUN_DOUBLE_BARREL::get, () -> XFactory10ga.g10),
+            new PoolGun("missile_launcher · rocket_ml", ModItems.GUN_MISSILE_LAUNCHER::get, () -> XFactoryRocket.rocket_ml[0]));
+
+    /** what one click took in HP (formula) and from the pool (pool), by kit and gun */
+    private static final java.util.Map<String, Float> POOL_HP = new java.util.HashMap<>(), POOL_DRAIN = new java.util.HashMap<>();
+    private static final java.util.Map<String, Integer> POOL_HITS = new java.util.HashMap<>();
+    private static float poolBefore;
+
+    private static float poolNow(EuphImmunity.Kit kit) {
+        return EuphImmunity.poolOf(kit, target);
+    }
+
+    /**
+     * DNS and FAU with euphemium's round: (1) each gun's click by the set's rating (formula, X858) and on the full pool
+     * (nothing through, the pool takes about the same: beams and blasts too, they come with ignoreEarlyCancellation);
+     * (2) a small pool: pool → window → recovery → full pool, by AMAT; (3) the radon gas takes the pool off.
+     */
+    private static void planPool() {
+        LINES.add("#\t--- пул DNS и FAU (balance.immune.dns.*, balance.immune.fau.*)");
+        // the rocket bursts 4 blocks off: the mannequin must not die of it
+        STEPS.add(() -> {
+            shooter.setInvulnerable(true);
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 12; z++) level.setBlockAndUpdate(O.offset(x, -1, z), Blocks.BEDROCK.defaultBlockState());
+        });
+        for (EuphImmunity.Kit kit : new EuphImmunity.Kit[] {EuphImmunity.Kit.DNS, EuphImmunity.Kit.FAU}) {
+            String set = kit.set, k = kit.key;
+            float full = kit.size;
+            for (String mode : new String[] {"formula", "pool"}) {
+                STEPS.add(() -> keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", k + ".mode", mode,
+                        k + ".pool", String.valueOf(full), k + ".window", "15", k + ".recover", "60"));
+                wait(30);
+                for (PoolGun g : POOL_GUNS) {
+                    String id = set + " " + g.name();
+                    STEPS.add(() -> {
+                        begin(target);
+                        dress(target, set, false);
+                        EuphImmunity.forget(target);
+                        homePool();
+                    });
+                    wait(5);
+                    for (int c = 0; c < 3; c++) {
+                        STEPS.add(() -> {
+                            target.setHealth(target.getMaxHealth());
+                            homePool();
+                            float p = poolNow(kit);
+                            poolBefore = Float.isNaN(p) ? full : p;
+                            fire(shooter, g.gun().get(), g.ammo().get(), EnumKeybind.GUN_PRIMARY);
+                            clicks++;
+                        });
+                        wait(SPACING + 10);
+                        STEPS.add(() -> {
+                            float p = poolNow(kit);
+                            if (mode.equals("pool")) POOL_DRAIN.merge(id, poolBefore - (Float.isNaN(p) ? full : p), Float::sum);
+                        });
+                    }
+                    STEPS.add(() -> {
+                        if (mode.equals("formula")) {
+                            POOL_HP.put(id, lost / 3F);
+                            POOL_HITS.put(id, BalanceArmor.seenHits);
+                            LINES.add("#\tпул: " + id + ": формула (X858): по " + f(lost / 3F) + " HP за клик, ударов " + BalanceArmor.seenHits + " за 3 клика");
+                            check(lost > 0F, "пул: " + id + ": по рейтингу набора проходит (снято " + f(lost) + " за 3 клика)");
+                            return;
+                        }
+                        float drain = POOL_DRAIN.getOrDefault(id, 0F) / 3F, hp = POOL_HP.getOrDefault(id, 0F);
+                        LINES.add("#\tпул: " + id + ": пул " + f(full) + ": снято " + f(lost) + " HP за 3 клика, из пула по " + f(drain) + " за клик (по рейтингу "
+                                + f(hp) + " HP), " + EuphImmunity.describe(kit, target));
+                        // a pellet's head multiplier comes after the armour (HeadDamage): the pool takes the body's share
+                        float tol = g.name().startsWith("double_barrel") ? 0.3F : 0.15F;
+                        check(lost == 0F && drain > 0F && Math.abs(drain - hp) <= Math.max(tol * hp, 0.3F), "пул: " + id + ": набор неуязвим (снято " + f(lost)
+                                + "), пул берёт за клик " + f(drain) + " ≈ урону по рейтингу " + f(hp));
+                    });
+                }
+            }
+            poolRound(kit);
+        }
+        STEPS.add(() -> keys("balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula", "balance.immune.dns.pool", "500",
+                "balance.immune.fau.pool", "450", "balance.immune.dns.window", "15", "balance.immune.fau.window", "15", "balance.immune.dns.recover", "60",
+                "balance.immune.fau.recover", "60"));
+        STEPS.add(() -> shooter.setInvulnerable(false));
+        wait(30);
+    }
+
+    /** the mannequin and the target back in their places (a rocket throws both), the air between them clear */
+    private static void homePool() {
+        for (int x = -2; x <= 2; x++) for (int y = 0; y <= 3; y++) for (int z = -1; z <= 6; z++) level.setBlockAndUpdate(O.offset(x, y, z), Blocks.AIR.defaultBlockState());
+        shooter.setHealth(shooter.getMaxHealth());
+        shooter.setDeltaMovement(Vec3.ZERO);
+        shooter.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
+        target.setDeltaMovement(Vec3.ZERO);
+        target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+    }
+
+    private static float roundPool, roundWindow, roundRecover;
+    private static final java.util.List<String> ROUND_LOG = new ArrayList<>();
+
+    /** a small pool (4; AMAT takes about 3 of it a shot), a window of 3 s, a recovery of 3 s; then the radon gas */
+    private static void poolRound(EuphImmunity.Kit kit) {
+        String set = kit.set, k = kit.key;
+        STEPS.add(() -> {
+            keys(k + ".mode", "pool", k + ".pool", "4", k + ".window", "3", k + ".recover", "3");
+            begin(target);
+            dress(target, set, false);
+            EuphImmunity.forget(target);
+            homePool();
+            roundPool = roundWindow = roundRecover = 0F;
+            ROUND_LOG.clear();
+            euphStop = false;
+        });
+        wait(30);
+        for (int i = 0; i < 24; i++) {
+            STEPS.add(() -> {
+                pendingTag = null;
+                if (target.getHealth() <= 0F || euphStop) return;
+                String phase = EuphImmunity.describe(kit, target);
+                if (phase.startsWith("RECOVER")) euphStop = true;
+                // the window must not kill: what it takes is booked, the health put back
+                target.setHealth(target.getMaxHealth());
+                pendingHp = target.getHealth();
+                pendingPhase = phase;
+                pendingTag = "клик";
+                fire(shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
+            });
+            wait(SPACING - 1);
+            STEPS.add(() -> {
+                if (pendingTag == null) return;
+                float took = Math.max(0F, pendingHp - target.getHealth());
+                if (pendingPhase.startsWith("WINDOW")) roundWindow += took;
+                else if (pendingPhase.startsWith("RECOVER")) roundRecover += took;
+                else roundPool += took;
+                ROUND_LOG.add(pendingPhase + ": −" + f(took));
+                pendingTag = null;
+            });
+        }
+        STEPS.add(() -> {
+            LINES.add("#\tпул: " + set + ", пул 4: " + String.join("; ", ROUND_LOG));
+            check(roundPool == 0F && roundRecover == 0F && roundWindow > 0F && euphStop, "пул: " + set + ", пул 4 / окно 3 с / восст. 3 с: в пуле снято " + f(roundPool)
+                    + ", в окне " + f(roundWindow) + ", в восстановлении " + f(roundRecover) + " (ждали 0, > 0, 0; дошли до восстановления: " + euphStop + ")");
+            euphStop = false;
+        });
+        int[] seen = {0};
+        for (int t = 0; t < 120; t++) STEPS.add(() -> {
+            if (seen[0] == 0 && EuphImmunity.describe(kit, target).startsWith("POOL")) seen[0] = 1;
+        });
+        STEPS.add(() -> check(EuphImmunity.describe(kit, target).equals("POOL 4"), "пул: " + set + ": после восстановления пул полон: " + EuphImmunity.describe(kit, target)
+                + " (ждали POOL 4)"));
+        // the radon gas: the pool takes nothing, the hits go through
+        STEPS.add(() -> {
+            keys(k + ".pool", "450", k + ".window", "15", k + ".recover", "60");
+            EuphImmunity.forget(target);
+            begin(target);
+            euphLostPool = 0F;
+        });
+        wait(30);
+        for (int i = 0; i < 2; i++) euphClickInGas();
+        STEPS.add(() -> {
+            String pool = EuphImmunity.describe(kit, target);
+            check(euphLostPool > 0F && (pool.equals("нет") || pool.equals("POOL 450")), "пул: " + set + " в могильном газе: снято " + f(euphLostPool)
+                    + " HP за 2 выстрела AMAT, пул " + pool + " (ждали > 0, пул не тронут)");
+            euphLostPool = 0F;
+            target.setHealth(target.getMaxHealth());
+        });
     }
 
     private static void plan1b() {

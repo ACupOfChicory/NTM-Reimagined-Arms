@@ -139,5 +139,27 @@ class BalanceKitTest {
         assertEquals("2000", p.getProperty("balance.immune.pool"));
         assertEquals("15", p.getProperty("balance.immune.window"));
         assertEquals("60", p.getProperty("balance.immune.recover"));
+        assertEquals("pool", p.getProperty("balance.immune.dns.mode"));
+        assertEquals("500", p.getProperty("balance.immune.dns.pool"));
+        assertEquals("15", p.getProperty("balance.immune.dns.window"));
+        assertEquals("60", p.getProperty("balance.immune.dns.recover"));
+        assertEquals("pool", p.getProperty("balance.immune.fau.mode"));
+        assertEquals("450", p.getProperty("balance.immune.fau.pool"));
+        assertEquals("15", p.getProperty("balance.immune.fau.window"));
+        assertEquals("60", p.getProperty("balance.immune.fau.recover"));
+        assertEquals(null, p.getProperty("balance.immune.dns"), "the old DNS switch is balance.immune.dns.mode now");
+        // the kits' defaults are the shipped keys' and their drain sets the table's
+        assertEquals(500F, EuphImmunity.Kit.DNS.size);
+        assertEquals(450F, EuphImmunity.Kit.FAU.size);
+        assertEquals(186F, BalanceArmor.SETS.get(EuphImmunity.Kit.DNS.set).s());
+        assertEquals(148F, BalanceArmor.SETS.get(EuphImmunity.Kit.FAU.set).s());
+    }
+
+    @Test
+    void fauPoolOfItsOwnSet() {
+        // FAU's pool takes what FAU (S 148) would let through: more than the DNS-class pool of euphemium takes
+        var hit = new BalanceArmorRule.Hit(75F, 0F, 0F, true);
+        float fau = BalanceArmorRule.full(hit, 148F, 6.5F, BalanceArmorRule.Tune.DEFAULT), dns = BalanceArmorRule.full(hit, 186F, 7.5F, BalanceArmorRule.Tune.DEFAULT);
+        assertTrue(fau > dns, "FAU " + fau + " DNS " + dns);
     }
 }

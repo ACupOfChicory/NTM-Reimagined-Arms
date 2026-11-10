@@ -133,6 +133,7 @@ BALANCE class com/hbm/interfaces/NtmDamageContext
 BALANCE class com/hbm/items/armor/ArmorFullSetBonus
 BALANCE class com/hbm/items/armor/ArmorFullSetBonus$EffectBonus
 BALANCE class com/hbm/items/armor/ItemModShield
+BALANCE class com/hbm/items/armor/ModArmorItem
 BALANCE class com/hbm/items/armor/ModArmorItem$Suit
 BALANCE class com/hbm/items/food/MedicalSyringeItem$Type
 BALANCE class com/hbm/items/weapon/sedna/BulletConfig
@@ -142,6 +143,7 @@ BALANCE class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 BALANCE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 BALANCE field com/hbm/entity/projectile/EntityBulletBeamBase damage F
 BALANCE field com/hbm/items/armor/ItemModShield shield F
+BALANCE field com/hbm/items/armor/ModArmorItem$Suit DIGAMMA Lcom/hbm/items/armor/ModArmorItem$Suit;
 BALANCE field com/hbm/items/armor/ModArmorItem$Suit DNS Lcom/hbm/items/armor/ModArmorItem$Suit;
 BALANCE field com/hbm/items/food/MedicalSyringeItem$Type MEDX Lcom/hbm/items/food/MedicalSyringeItem$Type;
 BALANCE field com/hbm/items/food/MedicalSyringeItem$Type SUPER_STIMPAK Lcom/hbm/items/food/MedicalSyringeItem$Type;
@@ -152,6 +154,7 @@ BALANCE field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
 BALANCE field com/hbm/items/weapon/sedna/BulletConfig projectilesMin I
 BALANCE field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase capacity I
 BALANCE field com/hbm/lib/ModDamageTypes DIGAMMA Lnet/minecraft/resources/ResourceKey;
+BALANCE field com/hbm/lib/ModDamageTypes ELECTRIC Lnet/minecraft/resources/ResourceKey;
 BALANCE field com/hbm/lib/ModDamageTypes NUCLEAR_BLAST Lnet/minecraft/resources/ResourceKey;
 BALANCE field com/hbm/lib/ModDamageTypes RADIATION Lnet/minecraft/resources/ResourceKey;
 BALANCE method com/hbm/handler/ArmorModHandler modItem (Lnet/minecraft/world/item/ItemStack;I)Lnet/minecraft/world/item/Item;
@@ -164,6 +167,7 @@ BALANCE method com/hbm/items/armor/ArmorFullSetBonus$EffectBonus <init> (Lnet/mi
 BALANCE method com/hbm/items/armor/ArmorFullSetBonus$EffectBonus amplifier ()I
 BALANCE method com/hbm/items/armor/ArmorFullSetBonus$EffectBonus effect ()Lnet/minecraft/core/Holder;
 BALANCE method com/hbm/items/armor/ArmorSuitEffects hasFullSet (Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/items/armor/ModArmorItem$Suit;)Z
+BALANCE method com/hbm/items/armor/ModArmorItem maxPower ()J
 BALANCE method com/hbm/items/armor/ModArmorItem$Suit name ()Ljava/lang/String;
 BALANCE method com/hbm/items/armor/ModArmorItem$Suit values ()[Lcom/hbm/items/armor/ModArmorItem$Suit;
 BALANCE method com/hbm/items/weapon/sedna/BulletConfig ammoStack ()Lnet/minecraft/world/item/ItemStack;

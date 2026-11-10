@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- DNS and FAU get euphemium's invulnerability with a pool, with their own
+  numbers: while the pool holds, bullets, beams and blasts on the full
+  charged set are called off, each taking from the pool what it would have
+  done to the set (DNS's rating 186, FAU's 148). The emptied pool opens 15 s
+  of hits by the set's rating, then the pool fills back over 60 s, the set
+  invulnerable meanwhile. Pools: DNS 500, FAU 450. A Tau now takes about
+  50 s to kill DNS (26 s FAU), Lacunae 12 s (7 s), an AMAT SM round 4.6 min
+  (2.6 min). Other damage is NTM's as before; the tomb's radon gas takes the
+  pool off. New server keys `balance.immune.dns.mode` / `.pool` / `.window`
+  / `.recover` and `balance.immune.fau.*` (`mode`: `pool`; `formula`: by the
+  rating only, as in X858; DNS also `ntm`). `balance.immune.dns` is now
+  `balance.immune.dns.mode` (an old `ntm` still counts).
+
 ## X858
 
 - The damage cap no longer holds NTM's blasts of more than 60 raw damage (a

@@ -348,7 +348,14 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.immune.pool` | `2000` | What bullets, beams and blasts on the set wear down before it opens (each as much as on a DNS-class set) |
 | `balance.immune.window` | `15` | Seconds the emptied pool leaves the wearer open, without the set's Regeneration and Resistance |
 | `balance.immune.recover` | `60` | Seconds the pool takes to fill back after the window (the set invulnerable meanwhile), or a worn-down pool after 5 s without a hit |
-| `balance.immune.dns` | `formula` | DNS takes hits by its rating; `ntm`: every hit but a blast called off, blasts down to 0.001 |
+| `balance.immune.dns.mode` | `pool` | DNS with euphemium's round: bullets, beams and blasts on the full charged set called off while its pool holds; `formula`: by its rating only; `ntm`: every hit but a blast called off, blasts down to 0.001 |
+| `balance.immune.dns.pool` | `500` | What hits wear down before DNS opens (each as much as it would do to DNS itself, S 186) |
+| `balance.immune.dns.window` | `15` | Seconds the emptied pool leaves DNS open to its rating |
+| `balance.immune.dns.recover` | `60` | Seconds DNS's pool takes to fill back after the window, or a worn-down pool after 5 s without a hit |
+| `balance.immune.fau.mode` | `pool` | FAU the same; `formula`: by its rating only (NTM gives FAU no invulnerability) |
+| `balance.immune.fau.pool` | `450` | FAU's pool (each hit as much as on FAU itself, S 148) |
+| `balance.immune.fau.window` | `15` | Seconds the emptied pool leaves FAU open |
+| `balance.immune.fau.recover` | `60` | Seconds FAU's pool takes to fill back |
 | `spectatorNoGuns` | `true` | Spectators cannot use NTM's guns |
 | `smoke` | `true` | Smoke clouds |
 | `smokeBlocksMobSight` | `false` | Mobs lose a target behind thick smoke |
