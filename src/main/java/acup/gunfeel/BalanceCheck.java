@@ -330,18 +330,24 @@ public final class BalanceCheck {
                 props.shield = 0F;
                 target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + 2, 180F, 0F);
                 headHit = 0;
+                DamageCap.last = "";
                 fire(shooter, h.gun().get(), h.ammo().get(), h.key());
                 clicks = 1;
             });
             wait(20);
             STEPS.add(() -> {
                 float took = target.getMaxHealth() - Math.max(0F, target.getHealth());
-                // a pellet in the head has the head's room of a click (0.8), a sniper's (a gun of 25 ticks and more) all of it
-                float cap = headHit == 2 ? 1F : headHit == 1 ? 0.8F : 0.6F;
-                check((cap >= 1F || target.getHealth() > 0F) && took <= cap * target.getMaxHealth() + 0.01F, "один клик, 2 бл, "
-                        + (set.isEmpty() ? "без брони" : set) + " ← " + h.gunName() + ": снято " + f(took) + " HP из " + f(target.getMaxHealth())
-                        + " (ждали не больше " + f(cap * target.getMaxHealth()) + (headHit == 2 ? ", дробина в голову, пушка — снайперская по паузе"
-                                : headHit == 1 ? ", дробина в голову, жив" : ", жив") + "), ударов " + BalanceArmor.seenHits);
+                // a pellet in the head has the head's room of a click (0.8); a sniper's (a gun of 25 ticks and more) all of
+                // it, so there a click may kill: written down, not checked (a question to the owner)
+                String what = "один клик, 2 бл, " + (set.isEmpty() ? "без брони" : set) + " ← " + h.gunName() + ": снято " + f(took) + " HP из "
+                        + f(target.getMaxHealth());
+                if (headHit == 2) LINES.add("#\t" + what + ", дробина в голову, пушка снайперская по паузе (потолок 1,0): "
+                        + (target.getHealth() > 0F ? "жив" : "убит") + ", ударов " + BalanceArmor.seenHits);
+                else {
+                    float cap = headHit == 1 ? 0.8F : 0.6F;
+                    check(target.getHealth() > 0F && took <= cap * target.getMaxHealth() + 0.01F, what + " (ждали не больше " + f(cap * target.getMaxHealth())
+                            + (headHit == 1 ? ", дробина в голову" : "") + ", жив), ударов " + BalanceArmor.seenHits);
+                }
                 target.setHealth(target.getMaxHealth());
             });
         }
