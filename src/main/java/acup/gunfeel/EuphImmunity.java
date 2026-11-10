@@ -247,7 +247,8 @@ public final class EuphImmunity {
             if (kit == Kit.EUPHEMIUM) dropEffects(player);
             return false;
         }
-        String cat = BalanceArmor.category(source);
+        // DNS and FAU: shots and blasts only; euphemium calls off every hit, its pool drained by melee as before
+        String cat = kit == Kit.EUPHEMIUM ? BalanceArmor.categoryAny(source) : BalanceArmor.category(source);
         if (kit != Kit.EUPHEMIUM && cat == null) return false;
         State s = state(kit, player, now);
         Pool p = pool(kit);
