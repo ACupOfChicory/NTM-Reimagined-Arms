@@ -32,22 +32,25 @@ public final class BalanceArmor {
     private BalanceArmor() {
     }
 
-    /** a set of the table: its rating by default and its tier (the model's tau, for b and d) */
-    record SetOf(float s, float tau) {
+    /**
+     * a set of the table: its rating by default, its tau (for b and d; balanceTau.<set>) by default and its tier on the
+     * ladder (the blast power by tier: balanceBlastPowerLow, balanceBlastPowerRocketHigh)
+     */
+    record SetOf(float s, float tau, int tier) {
     }
 
     /** by the items' name before _helmet/_plate/_legs/_boots (S: fit4_result.json of the balance model, rounded) */
     static final Map<String, SetOf> SETS = Map.ofEntries(
-            Map.entry("steel", new SetOf(8, 1.0F)), Map.entry("cobalt", new SetOf(8, 1.0F)), Map.entry("alloy", new SetOf(8, 1.0F)),
-            Map.entry("titanium", new SetOf(8, 1.3F)), Map.entry("taurun", new SetOf(8, 1.2F)),
-            Map.entry("dieselsuit", new SetOf(13, 1.0F)), Map.entry("t51", new SetOf(18, 2.0F)),
-            Map.entry("steamsuit", new SetOf(26, 2.0F)), Map.entry("hev", new SetOf(26, 2.1F)),
-            Map.entry("ajr", new SetOf(25, 2.3F)), Map.entry("ajro", new SetOf(25, 2.3F)),
-            Map.entry("security", new SetOf(22, 3.0F)), Map.entry("trenchmaster", new SetOf(48, 3.0F)), Map.entry("bismuth", new SetOf(48, 3.0F)),
-            Map.entry("bj", new SetOf(63, 4.0F)), Map.entry("ncrpa", new SetOf(54, 4.5F)),
-            Map.entry("cmb", new SetOf(91, 5.0F)), Map.entry("schrabidium", new SetOf(91, 5.0F)),
-            Map.entry("rpa", new SetOf(90, 5.5F)), Map.entry("fau", new SetOf(148, 6.5F)),
-            Map.entry("dns", new SetOf(186, 7.5F)), Map.entry("euphemium", new SetOf(280, 8.5F)));
+            Map.entry("steel", new SetOf(8, 1.0F, 1)), Map.entry("cobalt", new SetOf(8, 1.0F, 1)), Map.entry("alloy", new SetOf(8, 1.0F, 1)),
+            Map.entry("titanium", new SetOf(8, 1.3F, 1)), Map.entry("taurun", new SetOf(8, 1.2F, 1)),
+            Map.entry("dieselsuit", new SetOf(13, 3.0F, 2)), Map.entry("t51", new SetOf(23, 4.0F, 3)),
+            Map.entry("steamsuit", new SetOf(66, 3.0F, 4)), Map.entry("hev", new SetOf(46, 3.0F, 4)),
+            Map.entry("ajr", new SetOf(38, 4.0F, 4)), Map.entry("ajro", new SetOf(38, 4.0F, 4)),
+            Map.entry("security", new SetOf(56, 3.0F, 4)), Map.entry("trenchmaster", new SetOf(72, 4.0F, 6)), Map.entry("bismuth", new SetOf(96, 5.0F, 6)),
+            Map.entry("bj", new SetOf(120, 5.0F, 6)), Map.entry("ncrpa", new SetOf(120, 5.0F, 6)),
+            Map.entry("cmb", new SetOf(159, 6.0F, 7)), Map.entry("schrabidium", new SetOf(159, 6.0F, 7)),
+            Map.entry("rpa", new SetOf(158, 6.0F, 7)), Map.entry("fau", new SetOf(168, 7.0F, 8)),
+            Map.entry("dns", new SetOf(186, 7.5F, 8)), Map.entry("euphemium", new SetOf(280, 8.5F, 9)));
     /** the joke sets: NTM's numbers, with a floor */
     static final java.util.Set<String> ROFL = java.util.Set.of("starmetal", "dnt");
     private static final String[] SUFFIX = {"_helmet", "_plate", "_legs", "_boots"};
@@ -69,6 +72,14 @@ public final class BalanceArmor {
         return path.substring(0, path.length() - SUFFIX[i].length());
     }
 
+    /** the set's tau (balanceTau.<set>; its b and d), the table's by default */
+    static float tau(String set) {
+        SetOf def = SETS.get(set);
+        if (def == null) return 1F;
+        float v = ReaimTimes.number("balanceTau." + set, def.tau());
+        return Float.isFinite(v) && v > 0F ? v : def.tau();
+    }
+
     static float rating(String set) {
         SetOf def = SETS.get(set);
         if (def == null) return 0F;
@@ -86,7 +97,13 @@ public final class BalanceArmor {
         String cat = categoryAny(source);
         // bullets and beams only: an NTM shot's damage type. Melee (a sword, the Crucible, a mob's blow), vanilla's
         // arrows, spikes and the rest are NTM's numbers, as before the balance
-        return cat == null || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) || shot(source) ? cat : null;
+        return cat == null || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) || shot(source) || irBeam(source) ? cat : null;
+    }
+
+    /** an infrared beam: a gun's beam of NTM's fire class, the formula's and the cap's as a beam (balanceIrBeams) */
+    public static boolean irBeam(DamageSource source) {
+        return source.getDirectEntity() instanceof com.hbm.entity.projectile.EntityBulletBeamBase && source.is(ModDamageTypes.FIRE)
+                && ReaimTimes.flag("balanceIrBeams", true);
     }
 
     /**
@@ -97,6 +114,9 @@ public final class BalanceArmor {
         if (source.is(DamageTypeTags.BYPASSES_EFFECTS)) return null;
         if (source.is(ModDamageTypes.NUCLEAR_BLAST) || source.is(ModDamageTypes.DIGAMMA) || source.is(ModDamageTypes.RADIATION)) return null;
         String cat = DamageResistanceHandler.typeToCategory(source);
+        // an infrared beam (a gun's beam of NTM's fire class: the IR capacitors of the laser guns and Lacunae) is the
+        // formula's as a beam (EN; balanceIrBeams), not NTM's fire numbers: they let it through the combat sets and the pool
+        if (DamageResistanceHandler.CATEGORY_FIRE.equals(cat) && irBeam(source)) return DamageResistanceHandler.CATEGORY_ENERGY;
         // balanceArmorBlasts off: blasts take NTM's numbers, bullets and beams the formula's
         if (DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) return ReaimTimes.flag("balanceArmorBlasts", true) ? cat : null;
         return DamageResistanceHandler.CATEGORY_ENERGY.equals(cat) || DamageResistanceHandler.CATEGORY_PHYSICAL.equals(cat) ? cat : null;
@@ -160,9 +180,33 @@ public final class BalanceArmor {
     /** the power of the weapon's blast being dealt now (1: none, or not a weapon's), set around NTM's blast's hurt */
     static final ThreadLocal<Float> BLAST_POWER = ThreadLocal.withInitial(() -> 1F);
 
-    /** balanceBlastPower (2.7; 1: X858): how much stronger a weapon's blast hits a combat set */
+    /** the weapon's blast being dealt now is a rocket's on the creature it struck (set around NTM's blast's hurt) */
+    static final ThreadLocal<Boolean> ROCKET_DIRECT = ThreadLocal.withInitial(() -> false);
+
+    /**
+     * the power a weapon's blast of {@code power} (balanceBlastPower) hits a set of {@code tier} with: up to tier 4
+     * balanceBlastPowerLow, a rocket's direct hit on tier 7 balanceBlastPowerRocketHigh (each at most the power, at
+     * least 1; DNS, FAU and euphemium the power itself)
+     */
+    static float pieceBlastPower(int tier, float power) {
+        return blastPowerFor(tier, ROCKET_DIRECT.get(), power);
+    }
+
+    /** the same for a rocket's direct hit or not ({@code rocketDirect}), as the stand's model takes it */
+    static float blastPowerFor(int tier, boolean rocketDirect, float power) {
+        if (tier <= 4) return clampPower("balanceBlastPowerLow", 1.7F, power);
+        if (tier == 7 && rocketDirect) return clampPower("balanceBlastPowerRocketHigh", 2.2F, power);
+        return power;
+    }
+
+    private static float clampPower(String key, float def, float power) {
+        float v = ReaimTimes.number(key, def);
+        return Float.isFinite(v) ? Math.max(1F, Math.min(power, v)) : power;
+    }
+
+    /** balanceBlastPower (3; 2.7: X865, 1: X858): how much stronger a weapon's blast hits a combat set */
     public static float blastPower() {
-        float v = ReaimTimes.number("balanceBlastPower", 2.7F);
+        float v = ReaimTimes.number("balanceBlastPower", 3F);
         return Float.isFinite(v) && v >= 1F ? v : 1F;
     }
 
@@ -172,15 +216,62 @@ public final class BalanceArmor {
      * table multiplier) and big charges do not.
      */
     public static <T> T withBlastPower(boolean weapon, float amount, java.util.function.Supplier<T> hurt) {
+        return withBlastPower(weapon, false, amount, hurt);
+    }
+
+    /** the same; {@code rocketDirect}: a rocket's blast on the creature it struck */
+    public static <T> T withBlastPower(boolean weapon, boolean rocketDirect, float amount, java.util.function.Supplier<T> hurt) {
+        return withBlastPower(weapon, rocketDirect, false, amount, hurt);
+    }
+
+    /** an NTM blast (ExplosionVNT's EntityProcessorCrossSmooth) being dealt now, of any damage class */
+    static final ThreadLocal<Boolean> VNT_BLAST = ThreadLocal.withInitial(() -> false);
+
+    static boolean vntBlastNow() {
+        return VNT_BLAST.get();
+    }
+
+    /** an explosive bullet's blast being dealt now (not a launcher's round): squeezed and capped at any raw damage */
+    static final ThreadLocal<Boolean> BULLET_BLAST = ThreadLocal.withInitial(() -> false);
+
+    /**
+     * balanceBulletBlastCap (true; false: X865): an explosive bullet's blast is the formula's and the cap's at any raw
+     * damage. Its blast is the bullet's whole damage (NTM's EntityProcessorCrossSmooth): a heavy gun's HE round came
+     * past balanceExplRawLimit and killed any set from full health with one click.
+     */
+    static boolean bulletBlastNow() {
+        return BULLET_BLAST.get() && ReaimTimes.flag("balanceBulletBlastCap", true);
+    }
+
+    /** the same; {@code bullet}: the blast is an explosive bullet's (bound to a bullet, not a launcher's round) */
+    public static <T> T withBlastPower(boolean weapon, boolean rocketDirect, boolean bullet, float amount, java.util.function.Supplier<T> hurt) {
         // not a weapon's: 1, also when it goes off inside a weapon's blast's hurt
         float power = !weapon || !on() || amount > explRawLimit() ? 1F : blastPower();
         Float before = BLAST_POWER.get();
+        Boolean direct = ROCKET_DIRECT.get();
+        Boolean wasBullet = BULLET_BLAST.get(), wasVnt = VNT_BLAST.get();
+        VNT_BLAST.set(true);
         BLAST_POWER.set(power);
+        ROCKET_DIRECT.set(weapon && rocketDirect);
+        BULLET_BLAST.set(!weapon && bullet);
         try {
             return hurt.get();
         } finally {
             BLAST_POWER.set(before);
+            ROCKET_DIRECT.set(direct);
+            BULLET_BLAST.set(wasBullet);
+            VNT_BLAST.set(wasVnt);
         }
+    }
+
+    /**
+     * balanceElectricPowered (1.5; 5: NTM's, X865): how many times an electric hit (the Tesla Cannon's) counts on a
+     * powered chestplate, with the balance's armour on; {@code ntm} (NTM's 5) with it off
+     */
+    public static float electricPowered(float ntm) {
+        if (!on()) return ntm;
+        float v = ReaimTimes.number("balanceElectricPowered", 1.5F);
+        return Float.isFinite(v) && v >= 1F ? v : ntm;
     }
 
     /** balanceExplRawLimit: a blast of more raw damage is not squeezed, nor capped (DamageCap) */
@@ -204,7 +295,7 @@ public final class BalanceArmor {
         // a most not above the knee: the defaults
         var tune = most > knee ? new BalanceArmorRule.Tune(knee, most) : BalanceArmorRule.Tune.DEFAULT;
         // a blast of more than this raw damage (a mine, C4, a block of TNT: building, not a weapon) is not squeezed
-        boolean squeeze = !expl || amount <= explRawLimit();
+        boolean squeeze = !expl || amount <= explRawLimit() || bulletBlastNow();
         // a weapon's blast (a grenade, a 40 mm shell, a rocket) hits the set stronger (balanceBlastPower): its damage
         // times the power into the formula, the limit above and the cap by its own; never more than with no armour
         float power = expl && squeeze ? BLAST_POWER.get() : 1F;
@@ -220,7 +311,10 @@ public final class BalanceArmor {
             if (en) s *= enShare;
             if (k > 0F) s = acup.gunfeel.gas.GasModel.corrode(s, k);
             if (!(s > 0F)) s = 1e-3F;
-            byPiece[i] = Math.min(amount, BalanceArmorRule.full(hit, s, SETS.get(set).tau(), tune));
+            // the weapon's blast's power by the set's tier (balanceBlastPowerLow, balanceBlastPowerRocketHigh)
+            float pk = power > 1F ? pieceBlastPower(SETS.get(set).tier(), power) : 1F;
+            var pieceHit = pk == power ? hit : new BalanceArmorRule.Hit(amount * pk, neg, pen, squeeze);
+            byPiece[i] = Math.min(amount, BalanceArmorRule.full(pieceHit, s, tau(set), tune));
             any = true;
         }
         float rest = ntm;

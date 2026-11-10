@@ -77,6 +77,11 @@ public final class ExplosiveDamage {
     }
     /** the blast is a launcher's round's (40 mm, rocket), not an explosive bullet's */
     public static boolean launched(Blast blast){return blast!=null && ExplosiveAmmo.heavy(blast.context.bullet.config);}
+    /** a rocket's blast on the creature the rocket struck, before its contact share is paid (BalanceArmor's power by tier) */
+    public static boolean rocketDirect(Blast blast,Entity target){
+        return blast!=null && !blast.contactPaid && ExplosiveAmmo.rocket(blast.context.bullet.config)
+                && blast.context.impact instanceof EntityHitResult hit && hit.getEntity()==target;
+    }
     /** a blast with no bound bullet: none being dealt (a hand grenade), or the bullet now is a launcher's round */
     public static boolean launchedNow(){var c=CURRENT.get();return c==null || ExplosiveAmmo.heavy(c.bullet.config);}
     /** the blast's share of an explosive bullet's damage, out of NTM's {@code original} */

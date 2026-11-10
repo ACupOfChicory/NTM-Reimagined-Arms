@@ -155,6 +155,7 @@ BALANCE field com/hbm/items/weapon/sedna/BulletConfig projectilesMin I
 BALANCE field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase capacity I
 BALANCE field com/hbm/lib/ModDamageTypes DIGAMMA Lnet/minecraft/resources/ResourceKey;
 BALANCE field com/hbm/lib/ModDamageTypes ELECTRIC Lnet/minecraft/resources/ResourceKey;
+BALANCE field com/hbm/lib/ModDamageTypes FIRE Lnet/minecraft/resources/ResourceKey;
 BALANCE field com/hbm/lib/ModDamageTypes NUCLEAR_BLAST Lnet/minecraft/resources/ResourceKey;
 BALANCE field com/hbm/lib/ModDamageTypes RADIATION Lnet/minecraft/resources/ResourceKey;
 BALANCE method com/hbm/handler/ArmorModHandler modItem (Lnet/minecraft/world/item/ItemStack;I)Lnet/minecraft/world/item/Item;

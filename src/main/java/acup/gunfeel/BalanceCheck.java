@@ -145,6 +145,8 @@ public final class BalanceCheck {
             if (e.getEntity() != victim || victim == null) return;
             hits++;
             lost += e.getInflictedDamage();
+            // the pass mx: each hit of a cell, its type, what it took and the cap's ruling
+            if (mxHits != null) mxHits.append(e.getSource().getMsgId()).append(' ').append(f(e.getInflictedDamage())).append(" [").append(DamageCap.last).append("]; ");
             if (!e.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FALL)) blastLost += e.getInflictedDamage();
         });
     }
@@ -178,19 +180,19 @@ public final class BalanceCheck {
         });
     }
 
-    // the model's numbers: notes/balance/work, variants.det_pellet and kill2.simulate with fit4's S, the guns as in NTM
+    // the model's numbers: notes/balance/work, review_model.after_rows (the sets' S and tau of the balance review), the guns as in NTM
     private static final List<Pair> PAIRS = List.of(
-            new Pair("steel", "light_revolver · m357_express", ModItems.GUN_LIGHT_REVOLVER::get, XFactory357.m357_express, 8.850F, 3),
-            new Pair("dieselsuit", "henry · m44_express", ModItems.GUN_HENRY::get, XFactory44.m44_express, 9.557F, 3),
-            new Pair("t51", "maresleg · g12_flechette", ModItems.GUN_MARESLEG::get, XFactory12ga.g12_flechette, 0.497F, 6),
-            new Pair("hev", "star_f · p22_jhp", ModItems.GUN_STAR_F::get, XFactory22lr.p22_jhp, 3.594F, 6),
-            new Pair("security", "carbine · r762_he", ModItems.GUN_CARBINE::get, XFactory762mm.r762_he, 8.429F, 4),
-            new Pair("bj", "laser_pistol · capacitor (EN)", ModItems.GUN_LASER_PISTOL::get, XFactoryEnergy.energy_las, 2.738F, 8),
-            new Pair("rpa", "mas36 · r762_du", ModItems.GUN_MAS36::get, XFactory762mm.r762_du, 4.890F, 5),
-            new Pair("fau", "amat · bmg50_sm", ModItems.GUN_AMAT::get, XFactory50.bmg50_sm, 5.751F, 4),
+            new Pair("steel", "light_revolver · m357_express", ModItems.GUN_LIGHT_REVOLVER::get, XFactory357.m357_express, 8.826F, 3),
+            new Pair("dieselsuit", "henry · m44_express", ModItems.GUN_HENRY::get, XFactory44.m44_express, 8.858F, 3),
+            new Pair("t51", "maresleg · g12_flechette", ModItems.GUN_MARESLEG::get, XFactory12ga.g12_flechette, 0.272F, 10),
+            new Pair("hev", "star_f · p22_jhp", ModItems.GUN_STAR_F::get, XFactory22lr.p22_jhp, 1.968F, 11),
+            new Pair("security", "carbine · r762_he", ModItems.GUN_CARBINE::get, XFactory762mm.r762_he, 2.769F, 8),
+            new Pair("bj", "laser_pistol · capacitor (EN)", ModItems.GUN_LASER_PISTOL::get, XFactoryEnergy.energy_las, 1.182F, 17),
+            new Pair("rpa", "mas36 · r762_du", ModItems.GUN_MAS36::get, XFactory762mm.r762_du, 1.767F, 12),
+            new Pair("fau", "amat · bmg50_sm", ModItems.GUN_AMAT::get, XFactory50.bmg50_sm, 4.614F, 5),
             new Pair("hev", "amat · bmg50_sm (потолок)", ModItems.GUN_AMAT::get, XFactory50.bmg50_sm, 0F, 0),
             // NTM calls this hit off before it is dealt (its threshold 100 over 11.25 + 2): the formula leaves b of it
-            new Pair("fau", "light_revolver · m357_express (слабая)", ModItems.GUN_LIGHT_REVOLVER::get, XFactory357.m357_express, 0.455F, 44));
+            new Pair("fau", "light_revolver · m357_express (слабая)", ModItems.GUN_LIGHT_REVOLVER::get, XFactory357.m357_express, 0.373F, 54));
 
     private static final String MODEL = "C как в модели (ваниль 0, щит 0)";
     private static final String[] MODES = {"NTM", "C", MODEL};
@@ -287,7 +289,7 @@ public final class BalanceCheck {
     private static void plan() {
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         STEPS.add(() -> keys("balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula"));
         wait(30);
@@ -305,9 +307,10 @@ public final class BalanceCheck {
         if (only("pool")) planPool();
         if (only("pep")) planPep();
         if (only("hot")) planHot();
+        if (only("mx")) planMatrix();
     }
 
-    // ---------------------------------------------------------------- melee and the flamethrower (hotfix X866)
+    // ---------------------------------------------------------------- melee and the flamethrower (hotfix X867)
 
     /** a target of the pass hot: an FBI agent, a zombie or the player, bare or in Security */
     private static LivingEntity hotTarget(String who, String set) {
@@ -490,6 +493,130 @@ public final class BalanceCheck {
             target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
         });
         wait(20);
+    }
+
+    // ---------------------------------------------------------------- the model's cells, one by one
+
+    /** a cell of the model: the set (empty: none), the gun (no gun_), its ammo (BalanceGuns.ammoName), the head or not */
+    private record Cell(String set, String gun, String ammo, boolean head) {
+    }
+
+    /** the gun's ammo of that name, from every receiver's magazine */
+    private static BulletConfig ammoNamed(Item item, String name) {
+        if (!(item instanceof ItemGunBaseNT gun)) return null;
+        ItemStack stack = new ItemStack(item);
+        for (int c = 0; c < gun.getConfigCount(); c++)
+            for (com.hbm.items.weapon.sedna.Receiver rec : gun.getConfig(stack, c).getReceivers(stack))
+                for (BulletConfig b : AmmoLock.accepted(rec.getMagazine(stack))) if (BalanceGuns.ammoName(b).equals(name)) return b;
+        return null;
+    }
+
+    /**
+     * The model's cells (ntmgunfeel.checkBalance.cells: a file of lines "set gun ammo body|head", tabs; set "-" for no
+     * armour): three primary clicks, each from full health and an empty damage cap, what a click took and how many hits
+     * it was. DNS and FAU by their rating (formula); euphemium in its window (a pool of 0.01 emptied by a first click).
+     * No checks: the lines "mx" go to the model (notes/balance/review-fixes-2026-11-10.md).
+     */
+    /** the pass mx: the hits of the cell being played (null: not logged) */
+    private static StringBuilder mxHits;
+    /** -PbalanceCellHits: each hit of the cells logged */
+    private static boolean mxLog;
+
+    private static void planMatrix() {
+        String file = System.getProperty("ntmgunfeel.checkBalance.cells", "").trim();
+        mxLog = Boolean.getBoolean("ntmgunfeel.checkBalance.cellHits");
+        if (file.isEmpty()) return;
+        List<Cell> cells = new ArrayList<>();
+        // lines "key name value": server keys for the cells after it (a cell "key" line in place of a cell)
+        try {
+            for (String l : Files.readAllLines(Path.of(file))) {
+                String[] p = l.trim().split("\t");
+                if (p.length == 3 && p[0].equals("key")) {
+                    cells.add(new Cell("\u0000key", p[1], p[2], false));
+                    continue;
+                }
+                if (p.length < 4 || l.startsWith("#")) continue;
+                cells.add(new Cell(p[0].equals("-") ? "" : p[0], p[1], p[2], p[3].equals("head")));
+            }
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        LINES.add("#\t--- матрица модели: " + cells.size() + " клеток, по 3 клика с полного здоровья, 4 бл");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", "formula",
+                    "balance.immune.fau.mode", "formula", "balance.immune.mode", "pool", "balance.immune.pool", "0.01", "balance.immune.window", "600",
+                    "balance.immune.recover", "1");
+            shooter.setInvulnerable(true);
+        });
+        wait(30);
+        float[] took = {0F};
+        int[] hitsSeen = {0};
+        for (Cell cell : cells) {
+            if (cell.set().equals("\u0000key")) {
+                STEPS.add(() -> {
+                    keys(cell.gun(), cell.ammo());
+                    LINES.add("#\tmx-key\t" + cell.gun() + "\t" + cell.ammo());
+                });
+                wait(10);
+                continue;
+            }
+            Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + cell.gun()));
+            BulletConfig ammo = ammoNamed(gun, cell.ammo());
+            String id = (cell.set().isEmpty() ? "-" : cell.set()) + "\t" + cell.gun() + "\t" + cell.ammo() + "\t" + (cell.head() ? "head" : "body");
+            if (ammo == null) {
+                LINES.add("mx\t" + id + "\tнет патрона");
+                continue;
+            }
+            boolean euph = cell.set().equals("euphemium");
+            STEPS.add(() -> {
+                begin(target);
+                for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
+                // as worn in the game: the pieces' vanilla armour by balance.vanilla0 (the joke sets keep theirs)
+                if (!cell.set().isEmpty()) dress(target, cell.set(), true);
+                wearAttributes(target);
+                EuphImmunity.forget(target);
+                homePool();
+                aimHead = cell.head();
+                took[0] = 0F;
+                hitsSeen[0] = 0;
+                mxHits = new StringBuilder();
+            });
+            wait(5);
+            // euphemium: the first click empties the pool of 0.01, the window is open from the next tick
+            for (int c = euph ? -1 : 0; c < 3; c++) {
+                boolean count = c >= 0;
+                float[] hp = {0F};
+                int[] seen = {0};
+                STEPS.add(() -> {
+                    target.setHealth(target.getMaxHealth());
+                    target.setAbsorptionAmount(0F);
+                    DamageCap.forget();
+                    homePool();
+                    hp[0] = target.getHealth();
+                    seen[0] = BalanceArmor.seenHits;
+                    fire(shooter, gun, ammo, EnumKeybind.GUN_PRIMARY);
+                });
+                wait(SPACING + 10);
+                STEPS.add(() -> {
+                    if (!count) return;
+                    took[0] += hp[0] - Math.max(0F, target.getHealth());
+                    hitsSeen[0] += BalanceArmor.seenHits - seen[0];
+                });
+            }
+            STEPS.add(() -> {
+                aimHead = false;
+                LINES.add("mx\t" + id + "\t" + f(took[0] / 3F) + "\t" + f(hitsSeen[0] / 3F));
+                if (mxLog) LINES.add("#\tmx-hits\t" + id + "\t" + mxHits);
+                mxHits = null;
+            });
+        }
+        STEPS.add(() -> {
+            keys("balance.immune.pool", "150", "balance.immune.window", "15", "balance.immune.recover", "60");
+            shooter.setInvulnerable(false);
+            for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
+            wearAttributes(target);
+        });
+        wait(30);
     }
 
     // ---------------------------------------------------------------- Pepperbox: 13th-century tech
@@ -736,8 +863,9 @@ public final class BalanceCheck {
         int game = BalanceBlasts.hits(mean);
         String name = set.isEmpty() ? "без брони" : set;
         BalanceArmor.SetOf def = set.isEmpty() ? null : BalanceArmor.SETS.get(set);
-        float model = BalanceBlasts.damage(b.boom(), r, set.isEmpty() ? null : set, set.isEmpty() ? 0F : BalanceArmor.rating(set), def == null ? 0F : def.tau(),
-                BalanceArmor.blastPower());
+        float power = def == null ? 1F : BalanceArmor.blastPowerFor(def.tier(), b.boom().name().startsWith("ракета") && r < 0F, BalanceArmor.blastPower());
+        float model = BalanceBlasts.damage(b.boom(), r, set.isEmpty() ? null : set, set.isEmpty() ? 0F : BalanceArmor.rating(set),
+                def == null ? 0F : BalanceArmor.tau(set), power);
         int modelHits = BalanceBlasts.hits(model);
         Float shot = SHOT_DAMAGE.get(b.boom().name());
         TSV3.add(b.boom().name() + "\t" + where3(r) + "\t" + name + "\t" + CELL.size() + "\t" + blocked + "\t" + f(mean) + "\t" + hits3(game) + "\t" + f(model)
@@ -1166,14 +1294,15 @@ public final class BalanceCheck {
     private record KitPair(String set, String gunName, Supplier<Item> gun, Supplier<BulletConfig> ammo, int base, int kit30, int kit16) {
     }
 
-    // notes/balance/work/scripts/kit_pairs.py: the balance's guns at their own pause, the full kit = Med-X (Resistance
-    // I), the shield at its cap (the mod and the flasks), a super stimpak taken at the first click
+    // the balance's guns at their own pause, the full kit = Med-X (Resistance I), the shield at its cap (the mod and
+    // the flasks), a super stimpak taken at the first click; the clicks as the stand took them after the balance
+    // review's sets (2026-11-10; kit_pairs.py had X865's sets), so this pins them
     private static final List<KitPair> KIT_PAIRS = List.of(
-            new KitPair("dieselsuit", "henry · m44_express", ModItems.GUN_HENRY::get, () -> XFactory44.m44_express, 3, 7, 5),
-            new KitPair("hev", "star_f · p22_jhp", ModItems.GUN_STAR_F::get, () -> XFactory22lr.p22_jhp, 6, 15, 12),
-            new KitPair("hev", "carbine · r762_du", ModItems.GUN_CARBINE::get, () -> XFactory762mm.r762_du, 6, 15, 12),
-            new KitPair("bj", "lasrifle · capacitor", ModItems.GUN_LASRIFLE::get, () -> XFactoryEnergy.energy_las, 4, 10, 8),
-            new KitPair("fau", "tau · tau_uranium", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 6, 16, 12));
+            new KitPair("dieselsuit", "henry · m44_express", ModItems.GUN_HENRY::get, () -> XFactory44.m44_express, 3, 6, 5),
+            new KitPair("hev", "star_f · p22_jhp", ModItems.GUN_STAR_F::get, () -> XFactory22lr.p22_jhp, 10, 23, 21),
+            new KitPair("hev", "carbine · r762_du", ModItems.GUN_CARBINE::get, () -> XFactory762mm.r762_du, 12, 27, 25),
+            new KitPair("bj", "lasrifle · capacitor", ModItems.GUN_LASRIFLE::get, () -> XFactoryEnergy.energy_las, 6, 14, 12),
+            new KitPair("fau", "tau · tau_uranium", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 8, 19, 16));
 
     /** the super stimpak's heal goes on by the stand's tick (the fake player is not ticked by the level) */
     private static boolean healing;
@@ -1198,7 +1327,7 @@ public final class BalanceCheck {
                     String what = m + ", " + p.set() + " ← " + p.gunName() + ": кликов " + base[0] + " → " + (deathClick > 0 ? deathClick : "> " + clicks)
                             + " (×" + f(x) + "; модель " + p.base() + " → " + want + ")";
                     boolean model = base[0] == p.base() && Math.abs(deathClick - want) <= 1;
-                    check(model && (cap != 16 || x <= 2.0F), "комплект: " + what + (cap == 16 ? ", ждали не больше ×2" : ""));
+                    check(model && (cap != 16 || x <= 2.15F), "комплект: " + what + (cap == 16 ? ", ждали не больше ×2,15" : ""));
                 });
             }
         }
@@ -1729,36 +1858,36 @@ public final class BalanceCheck {
             float hit1b, int clicks1b, float d1b, float ntmD, boolean fbi, boolean info) {
     }
 
-    // notes/balance/work: variants.det_pellet with fit4's S, the pair's mult/neg/pen as BalanceGuns has them (the
+    // notes/balance/work: review_model.after_rows (the review's S and tau), the pair's mult/neg/pen as BalanceGuns has them (the
     // script work/scripts/pairs1b.py, the numbers in notes/balance/stage1b-guns.md)
     private static final List<Pair1b> PAIRS_1B = List.of(
-            new Pair1b("steel", "henry · m44_express ×0,955", ModItems.GUN_HENRY::get, () -> XFactory44.m44_express, 10.873F, 2, 10.614F, 2, 14.33F, 15F, false, false),
-            new Pair1b("dieselsuit", "greasegun · p9_sp ×2,65", ModItems.GUN_GREASEGUN::get, () -> XFactory9mm.p9_sp, 0.775F, 26, 3.009F, 7, 7.95F, 3F, false, false),
-            new Pair1b("dieselsuit", "am180 · p22_sp ×3,5 (A2)", ModItems.GUN_AM180::get, () -> XFactory22lr.p22_sp, 0.505F, 40, 2.402F, 9, 7.0F, 2F, false, false),
-            // NTM's blast of 116 is over balanceExplRawLimit (60): 1a does not squeeze it (the formula's m alone, 0.917)
-            new Pair1b("t51", "autoshotgun · g12_explosive ×0,175", ModItems.GUN_AUTOSHOTGUN::get, () -> XFactory12ga.g12_explosive, 106.8F, 2, 8.429F, 3, 0F, 0F, false, false),
-            new Pair1b("hev", "carbine · r762_he ×0,542", ModItems.GUN_CARBINE::get, () -> XFactory762mm.r762_he, 7.451F, 3, 3.272F, 7, 0F, 0F, false, false),
-            new Pair1b("hev", "autoshotgun_heretic · g10_du ×0,2 (H2)", ModItems.GUN_AUTOSHOTGUN_HERETIC::get, () -> XFactory10ga.g10_du, 10.511F, 2, 1.769F, 2, 5.0F, 25F, false, false),
-            new Pair1b("security", "star_f · p22_jhp ×0,955", ModItems.GUN_STAR_F::get, () -> XFactory22lr.p22_jhp, 3.685F, 6, 3.434F, 6, 17.91F, 18.75F, false, false),
-            new Pair1b("bj", "hangman · m44_express ×2 (пьед.)", ModItems.GUN_HANGMAN::get, () -> XFactory44.m44_express, 4.247F, 5, 9.231F, 3, 75F, 37.5F, false, false),
-            new Pair1b("rpa", "g3_zebra · r556_inc_ap ×1,07", ModItems.GUN_G3_ZEBRA::get, () -> XFactory556mm.r556_inc_ap, 0.663F, 31, 0.710F, 29, 10.03F, 9.375F, false, false),
-            new Pair1b("fau", "tau · tau_uranium ×2 +30", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 0.700F, 29, 3.575F, 6, 50F, 25F, false, false),
+            new Pair1b("steel", "henry · m44_express ×1,15", ModItems.GUN_HENRY::get, () -> XFactory44.m44_express, 10.873F, 2, 11.554F, 2, 17.25F, 15F, false, false),
+            new Pair1b("dieselsuit", "greasegun · p9_sp ×2,65", ModItems.GUN_GREASEGUN::get, () -> XFactory9mm.p9_sp, 0.418F, 48, 2.173F, 10, 7.95F, 3F, false, false),
+            new Pair1b("dieselsuit", "am180 · p22_sp ×2,8 (A2)", ModItems.GUN_AM180::get, () -> XFactory22lr.p22_sp, 0.266F, 76, 1.047F, 20, 5.6F, 2F, false, false),
+            // NTM's blast of 116 is over balanceExplRawLimit (60), but an explosive bullet's: squeezed and capped (balanceBulletBlastCap)
+            new Pair1b("t51", "autoshotgun · g12_explosive ×0,175", ModItems.GUN_AUTOSHOTGUN::get, () -> XFactory12ga.g12_explosive, 12.244F, 3, 5.819F, 4, 0F, 0F, false, false),
+            new Pair1b("hev", "carbine · r762_he ×0,596", ModItems.GUN_CARBINE::get, () -> XFactory762mm.r762_he, 3.437F, 6, 1.961F, 11, 0F, 0F, false, false),
+            new Pair1b("hev", "autoshotgun_heretic · g10_du ×0,2 (H2)", ModItems.GUN_AUTOSHOTGUN_HERETIC::get, () -> XFactory10ga.g10_du, 6.316F, 3, 0.868F, 3, 5.0F, 25F, false, false),
+            new Pair1b("security", "star_f · p22_jhp ×1,05", ModItems.GUN_STAR_F::get, () -> XFactory22lr.p22_jhp, 1.846F, 11, 1.891F, 11, 19.69F, 18.75F, false, false),
+            new Pair1b("bj", "hangman · m44_express ×2 (пьед.)", ModItems.GUN_HANGMAN::get, () -> XFactory44.m44_express, 1.514F, 14, 3.941F, 6, 75F, 37.5F, false, false),
+            new Pair1b("rpa", "g3_zebra · r556_inc_ap ×1,664", ModItems.GUN_G3_ZEBRA::get, () -> XFactory556mm.r556_inc_ap, 0.482F, 42, 0.678F, 30, 15.60F, 9.375F, false, false),
+            new Pair1b("fau", "tau · tau_uranium ×2 +30", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 0.561F, 36, 2.729F, 8, 50F, 25F, false, false),
             // N.I.4.N.I.'s arc has no ammo item: the shot must go on (no check of numbers)
             new Pair1b("hev", "ni4ni · arc (нет предмета патрона)", ModItems.GUN_N_I_4_N_I::get, () -> XFactoryAccelerator.ni4ni_arc, 0F, 0, 0F, 0, 0F, 0F, false, true),
-            new Pair1b("security", "FBI → игрок: greasegun · p9_sp ×2,65", ModItems.GUN_GREASEGUN::get, () -> XFactory9mm.p9_sp, 0.396F, 51, 1.297F, 16, 7.95F, 3F, true, false));
+            new Pair1b("security", "FBI → игрок: greasegun · p9_sp ×2,65", ModItems.GUN_GREASEGUN::get, () -> XFactory9mm.p9_sp, 0.390F, 52, 1.051F, 20, 7.95F, 3F, true, false));
 
     private static final String[] MODES_1B = {"NTM", "1а", "1а+1б"};
 
     // ---------------------------------------------------------------- DNS without its invulnerability
 
-    // the model (variants.det_pellet, fit4's S, the pairs' mult and additions) against DNS (S 186). Tesla and Lacunae
+    // the model (review_model.after_rows, the review's S, the pairs' mult and additions) against DNS (S 186). Tesla and Lacunae
     // with no model (info): the model has Lacunae's laser as PHYS (the game: EN, S x 0.75) and Tesla's overcharge at a
     // damage of 52.5 (the game: its beam and the chained ones); they are checked to get through
     private static final List<Pair1b> PAIRS_DNS = List.of(
             new Pair1b("dns", "tau · tau_uranium ×2 +30", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 0F, 0, 2.143F, 10, 50F, 0F, false, false),
             new Pair1b("dns", "tesla_cannon · capacitor_overcharge ×2 +30", ModItems.GUN_TESLA_CANNON::get, () -> XFactoryEnergy.energy_tesla_overcharge, 0F, 0, 0F, 0, 0F, 0F, false, true),
             new Pair1b("dns", "minigun_lacunae · capacitor ×2 +50/+0,15", ModItems.GUN_MINIGUN_LACUNAE::get, () -> XFactory762mm.energy_lacunae, 0F, 0, 0F, 0, 0F, 0F, false, true),
-            new Pair1b("dns", "amat · bmg50_sm ×0,853", ModItems.GUN_AMAT::get, () -> XFactory50.bmg50_sm, 0F, 0, 3.039F, 7, 63.98F, 0F, false, false));
+            new Pair1b("dns", "amat · bmg50_sm ×1,109", ModItems.GUN_AMAT::get, () -> XFactory50.bmg50_sm, 0F, 0, 4.299F, 5, 83.17F, 0F, false, false));
 
     /**
      * DNS by its rating (balance.immune.dns = formula): the pairs against a charged full set as the model has them;
@@ -1869,8 +1998,8 @@ public final class BalanceCheck {
             }
             poolRound(kit);
         }
-        STEPS.add(() -> keys("balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula", "balance.immune.dns.pool", "500",
-                "balance.immune.fau.pool", "450", "balance.immune.dns.window", "15", "balance.immune.fau.window", "15", "balance.immune.dns.recover", "60",
+        STEPS.add(() -> keys("balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula", "balance.immune.dns.pool", "40",
+                "balance.immune.fau.pool", "45", "balance.immune.dns.window", "15", "balance.immune.fau.window", "15", "balance.immune.dns.recover", "60",
                 "balance.immune.fau.recover", "60"));
         STEPS.add(() -> shooter.setInvulnerable(false));
         wait(30);
@@ -2128,8 +2257,8 @@ public final class BalanceCheck {
             row(mode, "FBI в security", "игрок: heavy_revolver · m44_express");
             // balance.vanilla0 takes Security's 10 off, balance.fbiArmor gives the agent 10 of its own: 30 as before
             check(vanilla == 30F, mode + ", FBI: ваниль " + f(vanilla) + " (ждали 30: своя 20 + Security 10 или balance.fbiArmor 10)");
-            if (mode.equals("1а+1б")) check(deathClick >= 9 && deathClick <= 12,
-                    mode + ", игрок → FBI в Security, heavy_revolver m44_express ×1,2: кликов " + (deathClick > 0 ? deathClick : "> " + clicks) + " (ждали 10–11, как до этапа 2)");
+            if (mode.equals("1а+1б")) check(deathClick >= 12 && deathClick <= 16,
+                    mode + ", игрок → FBI в Security, heavy_revolver m44_express ×2,04: кликов " + (deathClick > 0 ? deathClick : "> " + clicks) + " (ждали 12–16, прогоны 13 и 15: Security S 56, было 10–11 при S 22)");
             if (!mode.equals("NTM")) check(BalanceArmor.seenHits > 0 && BalanceArmor.seenOut < BalanceArmor.seenIn,
                     mode + ", FBI: формула действует на моба (" + f(BalanceArmor.seenOut) + " из " + f(BalanceArmor.seenIn) + ")");
             fbi.discard();

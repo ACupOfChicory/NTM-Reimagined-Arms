@@ -155,7 +155,7 @@ public final class DamageCap {
     /** not capped: no shooter's gun behind it (nuclear, digamma, fire, falling, radiation) */
     static boolean exempt(DamageSource source) {
         return source.is(ModDamageTypes.NUCLEAR_BLAST) || source.is(ModDamageTypes.RADIATION) || source.is(ModDamageTypes.DIGAMMA)
-                || source.is(DamageTypeTags.IS_FIRE) || source.is(DamageTypeTags.IS_FALL);
+                || (source.is(DamageTypeTags.IS_FIRE) && !BalanceArmor.irBeam(source)) || source.is(DamageTypeTags.IS_FALL);
     }
 
     /** the projectile between the shooter and the target, or null for none (melee, no shooter) */
@@ -180,7 +180,9 @@ public final class DamageCap {
      * squeeze by the same limit) takes it, after NTM's shield.
      */
     static boolean blastFree(float raw) {
-        return !ReaimTimes.flag("damageCapBlasts", true) || raw > BalanceArmor.explRawLimit();
+        if (!ReaimTimes.flag("damageCapBlasts", true)) return true;
+        // an explosive bullet's blast is capped at any raw damage (balanceBulletBlastCap)
+        return raw > BalanceArmor.explRawLimit() && !BalanceArmor.bulletBlastNow();
     }
 
     private static void damage(LivingDamageEvent.Pre e) {
@@ -194,7 +196,9 @@ public final class DamageCap {
         Entity projectile = projectile(source, shooter);
         // NTM's blasts from a bullet or a grenade name the shooter alone (ExplosionVNT's exploder): NTM's blast is capped
         // with no projectile, as a click of this tick (a creeper's, vanilla's, is not)
-        boolean blast = source.is(DamageTypeTags.IS_EXPLOSION) && source.typeHolder().unwrapKey().map(k -> k.identifier().getNamespace().equals("hbm")).orElse(false);
+        // and any NTM blast's hit whatever its class: the Tesla Cannon's is electric (BalanceArmor.vntBlastNow)
+        boolean blast = (source.is(DamageTypeTags.IS_EXPLOSION) && source.typeHolder().unwrapKey().map(k -> k.identifier().getNamespace().equals("hbm")).orElse(false))
+                || (BalanceArmor.vntBlastNow() && ReaimTimes.flag("damageCapAnyBlast", true));
         if (projectile == null && !blast) return;
         long now = level.getGameTime();
         // the hurt's raw damage as NTM's armour took it (after NTM's shield), else the hurt's own

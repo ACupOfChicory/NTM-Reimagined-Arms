@@ -36,20 +36,38 @@ class BalanceBlastsTest {
 
     @Test
     void blastPower() throws java.io.IOException {
-        // the power 2.7 (shipped): never weaker than X858, never more than with no armour; DNS against a direct
-        // rocket of the Missile Launcher about five times faster (32 → 6 hits, the model's table)
-        assertEquals("2.7", SpreadModelTest.shipped().getProperty("balanceBlastPower"));
+        // the power 3 (shipped): never weaker than X858, never more than with no armour; DNS against a direct rocket of
+        // the Missile Launcher, its window after the pool (32 → 5 hits, the model's table)
+        var shipped = SpreadModelTest.shipped();
+        assertEquals("3", shipped.getProperty("balanceBlastPower"));
+        assertEquals("1.7", shipped.getProperty("balanceBlastPowerLow"));
+        assertEquals("2.2", shipped.getProperty("balanceBlastPowerRocketHigh"));
         for (String set : new String[] {"steel", "hev", "bj", "rpa", "fau", "dns"}) {
             var def = BalanceArmor.SETS.get(set);
             for (float r : new float[] {-1F, 1F, 3F}) {
-                float now = BalanceBlasts.damage(ML, r, set, def.s(), def.tau()), after = BalanceBlasts.damage(ML, r, set, def.s(), def.tau(), 2.7F);
-                assertTrue(after >= now && after <= BalanceBlasts.damage(ML, r, null, 0, 0, 2.7F) + 1e-4F, set + " " + r + ": " + now + " → " + after);
+                float now = BalanceBlasts.damage(ML, r, set, def.s(), def.tau()), after = BalanceBlasts.damage(ML, r, set, def.s(), def.tau(), 3F);
+                assertTrue(after >= now && after <= BalanceBlasts.damage(ML, r, null, 0, 0, 3F) + 1e-4F, set + " " + r + ": " + now + " → " + after);
             }
         }
         var dns = BalanceArmor.SETS.get("dns");
         assertEquals(32, BalanceBlasts.hits(BalanceBlasts.damage(ML, -1, "dns", dns.s(), dns.tau())));
-        assertEquals(6, BalanceBlasts.hits(BalanceBlasts.damage(ML, -1, "dns", dns.s(), dns.tau(), 2.7F)));
+        assertEquals(5, BalanceBlasts.hits(BalanceBlasts.damage(ML, -1, "dns", dns.s(), dns.tau(), 3F)));
+        // RPA: a rocket's direct hit at balanceBlastPowerRocketHigh, 6 hits
+        var rpa = BalanceArmor.SETS.get("rpa");
+        assertEquals(6, BalanceBlasts.hits(BalanceBlasts.damage(ML, -1, "rpa", rpa.s(), rpa.tau(), 2.2F)));
+        // by tier: up to 4 the low power, a rocket's direct hit on tier 7 the rocket's, the rest (and DNS) the power
+        assertEquals(1.7F, BalanceArmor.pieceBlastPower(4, 3F), 1e-6F);
+        assertEquals(3F, BalanceArmor.pieceBlastPower(7, 3F), 1e-6F);
+        assertEquals(3F, BalanceArmor.pieceBlastPower(8, 3F), 1e-6F);
+        assertEquals(1.5F, BalanceArmor.pieceBlastPower(4, 1.5F), 1e-6F);
+        // a rocket's direct hit: tier 7 its own power, tier 8 (DNS, FAU) the power itself
+        assertEquals(2.2F, BalanceArmor.blastPowerFor(7, true, 3F), 1e-6F);
+        assertEquals(3F, BalanceArmor.blastPowerFor(8, true, 3F), 1e-6F);
+        assertEquals(1.7F, BalanceArmor.blastPowerFor(4, true, 3F), 1e-6F);
+        // never more than the power
+        assertEquals(2F, BalanceArmor.blastPowerFor(7, true, 2F), 1e-6F);
+        assertEquals("1.5", shipped.getProperty("balanceElectricPowered"));
         // no armour: the power does nothing
-        assertEquals(BalanceBlasts.damage(HE, 3, null, 0, 0), BalanceBlasts.damage(HE, 3, null, 0, 0, 2.7F), 1e-6F);
+        assertEquals(BalanceBlasts.damage(HE, 3, null, 0, 0), BalanceBlasts.damage(HE, 3, null, 0, 0, 3F), 1e-6F);
     }
 }
