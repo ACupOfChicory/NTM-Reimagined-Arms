@@ -8,6 +8,13 @@
   an AMAT SM round 7, Lacunae 9 (were 0 for the AMAT and Lacunae; NTM's beams
   got through it already). New server key `balance.immune.dns` (`formula`;
   `ntm`: as before).
+- The balance's gun table gives every ammo of a gun in it a pair of its
+  own (256 pairs, were 74): the double barrel's buckshot and shrapnel x2.37,
+  slugs x0.96 (all took DU's x0.76), Autoshotgun's buckshot x0.96-1.34 (took
+  the explosive round's x0.175), Heretic's buckshot x0.48 and slugs x0.16
+  (were all x0.2). An ammo still with no pair takes only a pair of its own
+  family (soft, piercing, blast; buckshot and slugs apart), else hits as
+  before the balance; never another family's multiplier.
 
 ## X846
 

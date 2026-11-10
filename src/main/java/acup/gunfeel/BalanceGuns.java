@@ -158,7 +158,7 @@ public final class BalanceGuns {
                     click.put(ammo, ammo.damageMult * (ammo.projectilesMin + ammo.projectilesMax) / 2F);
                 }
                 List<BalanceGunsRule.Ammo> named = new ArrayList<>();
-                for (BulletConfig b : all) named.add(new BalanceGunsRule.Ammo(ammoName(b), click.get(b)));
+                for (BulletConfig b : all) named.add(new BalanceGunsRule.Ammo(ammoName(b), click.get(b), (b.projectilesMin + b.projectilesMax) / 2F));
                 Map<String, BalanceGunsRule.Resolved> r = BalanceGunsRule.resolve(t, name, named);
                 for (BulletConfig b : all) m.put(b, r.get(ammoName(b)).shot());
                 FROM.put(gunItem, r);

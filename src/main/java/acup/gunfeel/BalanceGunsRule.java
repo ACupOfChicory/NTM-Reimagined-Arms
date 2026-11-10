@@ -16,13 +16,16 @@ import java.util.Set;
  * mult for all its ammo (over its pairs; {@code -} for none) and the receiver's changes ({@code delay=}, {@code auto=},
  * {@code mag=}, {@code dmg=}).
  *
- * <p>An ammo with no line, of a gun with lines:
+ * <p>An ammo with no line, of a gun with lines, takes a pair it may take from:
  * <ol>
  * <li>the gun's pair of the same family (piercing: AP, DU, SM, flechette, coil slugs; blast: HE, explosive, phosphorus;
  * the rest soft: SP, FMJ, JHP, express, shot, slugs), the nearest by NTM's damage of a click if more than one;</li>
- * <li>no pair of that family: the gun's pair nearest by NTM's damage of a click.</li>
+ * <li>no pair of that family it may take from: NTM's (x1). A mult never goes from one family to another (the owner,
+ * 2026-11-10: DU's x0.762 made the double barrel's shrapnel weak); such an ammo needs a line of its own.</li>
  * </ol>
- * Its neg and pen go with the mult. A gun with no line at all: NTM as it is.
+ * It may not take from an explosive pair (HE, explosive, exp) unless it is an explosive ammo itself (the owner,
+ * 2026-11-10: an explosive's mult is not for the rest; phosphorus burns, it is not one), and buckshot ({@link #SHOT} pellets and more) and a slug, a bullet or magnum shot (fewer) do not share a
+ * mult (buckshot's was raised for its misses). Its neg and pen go with the mult. A gun with no line at all: NTM as it is.
  */
 public final class BalanceGunsRule {
     private BalanceGunsRule() {
@@ -41,11 +44,17 @@ public final class BalanceGunsRule {
     public record GunLine(float mult, Integer delay, Boolean auto, Integer mag, Float dmg) {
     }
 
-    /** a gun's ammo as NTM has it: its name (the item's path less ammo_standard_ or ammo_) and the damage of a click */
-    public record Ammo(String name, float clickDamage) {
+    /**
+     * a gun's ammo as NTM has it: its name (the item's path less ammo_standard_ or ammo_), the damage of a click and the
+     * projectiles of a shot (the mean of NTM's least and most)
+     */
+    public record Ammo(String name, float clickDamage, float pellets) {
     }
 
-    /** what an ammo gets and where it came from: "table", "gun", "family &lt;ammo&gt;", "nearest &lt;ammo&gt;" or "none" */
+    /** buckshot: a shot of this many projectiles or more (g12 8, g10 10, stone_shot 6; magnum 4 is not) */
+    static final float SHOT = 6F;
+
+    /** what an ammo gets and where it came from: "table", "gun", "family &lt;ammo&gt;" or "none" */
     public record Resolved(Shot shot, String from) {
     }
 
@@ -124,6 +133,12 @@ public final class BalanceGunsRule {
         };
     }
 
+    /** an ammo that blows up: its mult (an explosive's damage is its blast's) is not for the rest */
+    static boolean explosive(String ammo) {
+        String last = ammo.substring(ammo.lastIndexOf('_') + 1);
+        return last.equals("he") || last.equals("explosive") || last.equals("exp");
+    }
+
     /** every ammo of a gun: its own line, its gun's mult, or the rule */
     public static Map<String, Resolved> resolve(Table t, String gun, List<Ammo> ammo) {
         Map<String, Resolved> out = new LinkedHashMap<>();
@@ -137,7 +152,11 @@ public final class BalanceGunsRule {
             return out;
         }
         Map<String, Float> click = new HashMap<>();
-        for (Ammo a : ammo) click.put(a.name(), a.clickDamage());
+        Map<String, Boolean> shot = new HashMap<>();
+        for (Ammo a : ammo) {
+            click.put(a.name(), a.clickDamage());
+            shot.put(a.name(), a.pellets() >= SHOT);
+        }
         for (Ammo a : ammo) {
             Shot s = own.get(a.name());
             if (s != null) {
@@ -146,16 +165,25 @@ public final class BalanceGunsRule {
             }
             // the gun's pairs whose ammo it takes (a pair of an ammo it does not take is a typo of the file's)
             List<String> known = new ArrayList<>();
-            for (String k : own.keySet()) if (click.containsKey(k)) known.add(k);
+            String fam = family(a.name());
+            for (String k : own.keySet()) {
+                if (!click.containsKey(k)) continue;
+                if (explosive(k) && !explosive(a.name())) continue;
+                if (!shot.get(k).equals(shot.get(a.name()))) continue;
+                known.add(k);
+            }
             if (known.isEmpty()) {
                 out.put(a.name(), new Resolved(Shot.NONE, "none"));
                 continue;
             }
-            String fam = family(a.name());
             List<String> same = new ArrayList<>();
             for (String k : known) if (family(k).equals(fam)) same.add(k);
-            String pick = nearest(same.isEmpty() ? known : same, click, a.clickDamage());
-            out.put(a.name(), new Resolved(own.get(pick), (same.isEmpty() ? "nearest " : "family ") + pick));
+            if (same.isEmpty()) {
+                out.put(a.name(), new Resolved(Shot.NONE, "none"));
+                continue;
+            }
+            String pick = nearest(same, click, a.clickDamage());
+            out.put(a.name(), new Resolved(own.get(pick), "family " + pick));
         }
         return out;
     }
