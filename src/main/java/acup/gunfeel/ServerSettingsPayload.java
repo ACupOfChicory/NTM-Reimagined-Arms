@@ -51,7 +51,7 @@ public record ServerSettingsPayload(byte[] data) implements CustomPacketPayload 
             Path rules = FMLPaths.CONFIGDIR.get().resolve(BulletRules.FILE);
             String bullets = Files.exists(rules) ? Files.readString(rules) : "";
             sent = new ServerSettingsPayload(ServerSettings.encodeFitting(
-                    new ServerSettings.Snapshot(bullets, ReaimTimes.values(), PassableClip.extraShapes())));
+                    new ServerSettings.Snapshot(bullets, ReaimTimes.values(), PassableClip.extraShapes(), BalanceGuns.text())));
             sentStamp = now;
             return sent;
         } catch (Exception e) {
@@ -62,7 +62,8 @@ public record ServerSettingsPayload(byte[] data) implements CustomPacketPayload 
 
     private static String stamp() {
         Path dir = FMLPaths.CONFIGDIR.get();
-        return modified(dir.resolve(BulletRules.FILE)) + "|" + modified(dir.resolve(ReaimTimes.FILE)) + "|" + PassableClip.localVersion();
+        return modified(dir.resolve(BulletRules.FILE)) + "|" + modified(dir.resolve(ReaimTimes.FILE)) + "|" + modified(dir.resolve(BalanceGuns.FILE)) + "|"
+                + PassableClip.localVersion();
     }
 
     private static long modified(Path f) {

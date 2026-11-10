@@ -320,7 +320,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balanceFleshKnee`, `balanceFleshMax` | `8`, `14` | One hit's damage on a set is squeezed past the first towards the second |
 | `balanceExplRawLimit` | `60` | A blast of more raw damage (a mine, C4) is not squeezed |
 | `balanceRoflFloor` | `0.18` | The least share of a hit starmetal and the dineutronium ingot set leave |
-| `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's); off: NTM's damage and guns |
+| `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's; the players get the server's); off: NTM's damage and guns |
 | `balanceRecipes` | `true` | The balance's recipes for the diesel suit, Tesla Cannon, Lasrifle, Tau and Med-X; off: NTM's (after `/reload` or a restart) |
 | `abilities.mobilityCap` | `true` | A full set's Speed and Jump Boost by its tier: up to tier 6 II and I at most, from tier 7 III and II |
 | `abilities.strengthCap` | `2` | A full set's Strength at most this level; `0`: NTM's |

@@ -25,7 +25,8 @@ class ServerSettingsTest {
     void whatGoesInComesOut() throws IOException {
         Map<String, String> server = new TreeMap<>(Map.of("bulletSpeed", "1.6", "hbm:gun_maresleg.spreadAim", "0.4", "ключ", "значение"));
         Map<String, String> shapes = new TreeMap<>(Map.of("somemod:railing[facing=north]", "z" + "A".repeat(40)));
-        ServerSettings.Snapshot s = new ServerSettings.Snapshot("path somemod:railing fence\nbreak #c:glass_blocks hp 5\n", server, shapes);
+        ServerSettings.Snapshot s = new ServerSettings.Snapshot("path somemod:railing fence\nbreak #c:glass_blocks hp 5\n", server, shapes,
+                "henry\tm44_express\t3.33\t0\t0\t2\n");
         assertEquals(s, ServerSettings.decode(ServerSettings.encode(s)));
         ServerSettings.Snapshot empty = new ServerSettings.Snapshot("", Map.of(), Map.of());
         assertEquals(empty, ServerSettings.decode(ServerSettings.encode(empty)));

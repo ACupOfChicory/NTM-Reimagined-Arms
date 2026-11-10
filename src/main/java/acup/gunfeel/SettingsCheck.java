@@ -82,7 +82,9 @@ public final class SettingsCheck {
         lines = out;
         ok = true;
         Path dir = FMLPaths.CONFIGDIR.get();
-        Path rules = dir.resolve(BulletRules.FILE), server = dir.resolve(ReaimTimes.FILE);
+        Path rules = dir.resolve(BulletRules.FILE), server = dir.resolve(ReaimTimes.FILE), guns = dir.resolve(BalanceGuns.FILE);
+        net.minecraft.world.item.Item henry = com.hbm.items.ModItems.GUN_HENRY.get(), heretic = com.hbm.items.ModItems.GUN_AUTOSHOTGUN_HERETIC.get();
+        var express = com.hbm.items.weapon.sedna.factory.XFactory44.m44_express;
         BlockState fence = Blocks.OAK_FENCE.defaultBlockState(), shelf = Blocks.BOOKSHELF.defaultBlockState();
         BlockState planks = Blocks.OAK_PLANKS.defaultBlockState(), bars = Blocks.IRON_BARS.defaultBlockState();
         BlockState dirt = Blocks.DIRT.defaultBlockState();
@@ -94,11 +96,14 @@ public final class SettingsCheck {
         long[] cells = new long[65];
         for (int i = 0; i < 64; i += 3) cells[i] = 0x0F0F0F0F0F0F0F0FL;
         PassableClip.putShapes(Map.of("minecraft:oak_planks", cells));
-        Thread.sleep(1100); // the files are looked at once a second
+        // the balance's gun table of the server's own: Henry with .44 express x3.33, Heretic's pause 7
+        Files.writeString(guns, "henry\tm44_express\t3.33\t0\t0\t2\nautoshotgun_heretic\t*\t0.2\t0\t0\t5\tdelay=7\n");
+        Thread.sleep(2100); // the files are looked at once a second, the gun table every two
         check("server: its own path rule", "through", BulletRules.path(fence));
         check("server: its own bulletSpeed", 2.5F, ReaimTimes.number("bulletSpeed", 1.6F));
         check("server: a reaim time is the mod's, not the file's", 0.6F, ReaimTimes.seconds("hbm:gun_double_barrel", "inspect"));
         check("server: the reload reaim time is the mod's", 0.3F, ReaimTimes.seconds("hbm:gun_maresleg", "reload"));
+        check("server: its own gun table (Henry .44 express)", 3.33F, BalanceGuns.pair(henry, express).mult());
 
         ServerSettingsPayload sent = ServerSettingsPayload.current();
         ByteBuf buf = Unpooled.buffer();
@@ -113,11 +118,13 @@ public final class SettingsCheck {
         check("payload: cameraScaleMin", "0.4", s.server().get("cameraScaleMin"));
         check("payload: the made shape", PassableClip.pack(cells), s.shapes().get("minecraft:oak_planks"));
         check("payload: no shape the jar has", false, s.shapes().keySet().stream().anyMatch(k -> k.startsWith("~fence[")));
+        check("payload: the gun table file", Files.readString(guns), s.guns());
 
         // ---- the player, on another game's server: files of its own, then the server's settings
         Files.writeString(rules, PLAYER_RULES);
         Files.writeString(server, "bulletSpeed = 1.0\n");
-        Thread.sleep(1100);
+        Files.writeString(guns, "henry\tm44_express\t0.5\t0\t0\t2\n");
+        Thread.sleep(2100);
         check("files changed: packed anew", false, ServerSettingsPayload.current() == sent);
         ServerSettings.useRemote(s);
         check("remote: path is the server's", "through", BulletRules.path(fence));
@@ -132,13 +139,16 @@ public final class SettingsCheck {
         check("remote: cameraScaleMin is the server's", 0.4F, ReaimTimes.number("cameraScaleMin", 0F));
         check("remote: a reaim time is the mod's, not the server's", 0.6F, ReaimTimes.seconds("hbm:gun_double_barrel", "inspect"));
         check("remote: the reload reaim time is the mod's", 0.3F, ReaimTimes.seconds("hbm:gun_maresleg", "reload"));
+        check("remote: the server's gun table, not the player's file", 3.33F, BalanceGuns.pair(henry, express).mult());
+        check("remote: the server's gun line (Heretic's pause)", 7, BalanceGuns.table().guns().get("autoshotgun_heretic").delay());
+        check("remote: the server's mult on Heretic", 0.2F, BalanceGuns.pair(heretic, com.hbm.items.weapon.sedna.factory.XFactory10ga.g10_du).mult());
         // a shape this client makes meanwhile waits: the server goes by its own
         PassableClip.putShapes(Map.of("minecraft:dirt", cells));
         check("remote: a shape made now is not used", null, packed(PassableClip.shape(dirt)));
 
         // ---- the player leaves: its own files again
         ServerSettings.useRemote(null);
-        Thread.sleep(1100);
+        Thread.sleep(2100);
         check("left: path is the player's", "hitbox", BulletRules.path(fence));
         check("left: through is the player's", false, BulletRules.through(fence));
         check("left: break is the player's (never: no rule)", null, mode(shelf));
@@ -147,6 +157,9 @@ public final class SettingsCheck {
         check("left: bulletSpeed is the player's", 1.0F, ReaimTimes.number("bulletSpeed", 1.6F));
         check("left: cameraScaleMin from the jar", 0F, ReaimTimes.number("cameraScaleMin", 0F));
         check("left: the shape made meanwhile is used", PassableClip.pack(cells), packed(PassableClip.shape(dirt)));
+        check("left: the player's gun table", 0.5F, BalanceGuns.pair(henry, express).mult());
+        check("left: no Heretic line in the player's table", null, BalanceGuns.table().guns().get("autoshotgun_heretic"));
+        Files.deleteIfExists(guns);
         lines.add(ok ? "ALL OK" : "SOME FAILED");
         return ok;
     }

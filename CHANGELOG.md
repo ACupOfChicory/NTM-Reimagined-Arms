@@ -15,6 +15,9 @@
   (were all x0.2). An ammo still with no pair takes only a pair of its own
   family (soft, piercing, blast; buckshot and slugs apart), else hits as
   before the balance; never another family's multiplier.
+- On a server, players' tooltips and guns' receivers (pause, magazine, auto
+  fire) go by the server's gun table (`config/ntm-gunfeel-balance-guns.tsv`
+  or the mod's), not by a file of their own.
 
 ## X846
 
