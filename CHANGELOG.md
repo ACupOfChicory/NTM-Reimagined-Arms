@@ -26,6 +26,10 @@
   gone. The old one-number `powerArmorSpread` and `powerArmorRecoil` in a
   server's file now count only for a power armour chestplate with no line
   of its own: the tiers count on servers with an old file too.
+- The shield is at most 16 (the mod and three flasks; was 30). The shield
+  takes a hit's raw damage before the armour, and what it takes counts to
+  the damage cap first, so with Med-X and a super stimpak a fight takes about
+  twice as long at most (was up to 2.7 times).
 
 ## X846
 

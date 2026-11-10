@@ -21,7 +21,9 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
  * <ul>
  * <li>{@code balance.shield}: the player's shield. The shield mod (australium III) gives
  * {@code balance.shield.mod} (10) instead of NTM's 25, a shield flask {@code balance.shield.flask} (2) instead of 5,
- * all of it at most {@code balance.shield.cap} (30; NTM: 100 of flasks and the mod on top). It comes back
+ * all of it at most {@code balance.shield.cap} (16: the mod and three flasks; NTM: 100 of flasks and the mod on top).
+ * The shield takes a hit's raw damage before the armour, and what it takes counts to the damage cap first: with Med-X
+ * and a super stimpak this makes a fight about twice as long (notes/balance/work/scripts/kit_shield.py, the stand). It comes back
  * {@code balance.shield.delay} (100) ticks after the last hit, then {@code balance.shield.rate} (0.002)·t a tick, t the
  * ticks since (NTM: 60 and 0.005). NTM keeps its own count (5 a flask): with the key off its numbers come back.
  * <li>{@code balance.medx}: Med-X gives Resistance I for 60 s (NTM: III for 4 min); its recipe (balanceRecipes)
@@ -44,7 +46,7 @@ public final class BalanceKit {
 
     /** the shield's numbers */
     public record Shield(float mod, float flask, float cap, int delay, float rate) {
-        public static final Shield DEFAULT = new Shield(10F, 2F, 30F, 100, 0.002F);
+        public static final Shield DEFAULT = new Shield(10F, 2F, 16F, 100, 0.002F);
     }
 
     private static boolean on(String key) {
@@ -128,6 +130,11 @@ public final class BalanceKit {
         float now = healStep(h);
         if (now > 0F) entity.heal(now);
         if (!(h[0] > 1e-4F) || !(h[1] > 0F)) HEALS.remove(entity);
+    }
+
+    /** the heal still to come is called off (the stand between its fights) */
+    static synchronized void clearHeal(LivingEntity entity) {
+        HEALS.remove(entity);
     }
 
     static synchronized float healLeft(LivingEntity entity) {

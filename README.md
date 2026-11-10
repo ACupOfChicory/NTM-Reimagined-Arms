@@ -87,12 +87,13 @@ page. They are alphas: expect bugs and back up your world.
   with a rating per set: a hit far under the rating loses most of itself, one
   far over it gets nearly all through, and none is ever stopped to 0. A piece
   alone protects its share of the body. These sets have no vanilla armour
-  points, so vanilla's armour does not come on top.
-- What a player carries on top of the armour is cut down: the shield mod
-  gives 10 and a shield flask 2 (at most 30 in all), and the shield comes
-  back slower; Med-X gives Resistance I for 60 s and needs plastic; the super
-  stimpak heals its 25 HP over 12 s; an armour insert takes at most a tenth
-  off a bullet.
+  points, so vanilla's armour does not come on top. DNS is not invulnerable:
+  it takes hits by its rating like the rest.
+- What a player carries on top of the armour is cut down to about twice as
+  long a fight at most: the shield mod gives 10 and a shield flask 2 (at
+  most 16 in all), and the shield comes back slower; Med-X gives Resistance
+  I for 60 s and needs plastic; the super stimpak heals its 25 HP over 12 s;
+  an armour insert takes at most a tenth off a bullet.
 - Euphemium stays invulnerable, but every bullet, beam and blast wears down
   a pool of 2000 (as much as it would do to a DNS-class set). The emptied
   pool leaves the wearer open to hits for 15 s, without the set's
@@ -331,7 +332,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.shield` | `true` | The player's shield by the keys below; off: NTM's (the mod 25, a flask 5, up to 100 of flasks, back after 60 ticks at 0.005·t) |
 | `balance.shield.mod` | `10` | What the shield mod (australium III) gives |
 | `balance.shield.flask` | `2` | What a shield flask gives; no more flasks once they alone reach the cap |
-| `balance.shield.cap` | `30` | The most shield of flasks and the mod together |
+| `balance.shield.cap` | `16` | The most shield of flasks and the mod together |
 | `balance.shield.delay` | `100` | Ticks after the last hit before the shield comes back |
 | `balance.shield.rate` | `0.002` | Then rate·t a tick, t the ticks since |
 | `balance.medx` | `true` | Med-X gives Resistance I for 60 s; off: III for 4 min |
