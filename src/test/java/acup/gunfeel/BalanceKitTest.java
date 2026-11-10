@@ -104,6 +104,33 @@ class BalanceKitTest {
     }
 
     @Test
+    void windowHold() {
+        // balance.immune.hold 10 s: a weapon's hit in the window keeps it open 10 s after it, the recovery after that
+        Pool p = new Pool(40F, 300, 1200, 200);
+        State s = new State(p.size(), 0);
+        EuphImmunity.hit(s, 0, 40F, true, p);
+        assertEquals(Phase.WINDOW, EuphImmunity.phase(s, 1));
+        assertFalse(EuphImmunity.hit(s, 290, 1F, true, p));
+        assertEquals(Phase.WINDOW, EuphImmunity.phase(s, 400));
+        assertEquals(Phase.RECOVER, EuphImmunity.phase(s, 490));
+        // what is not a weapon's (fall, fire) does not keep it
+        assertFalse(EuphImmunity.hit(s, 480, 1F, false, p));
+        assertEquals(Phase.RECOVER, EuphImmunity.phase(s, 490));
+        assertEquals(Phase.POOL, EuphImmunity.phase(s, 490 + 1200));
+        // euphemium: melee is a hit of its pool, but does not hold its window
+        State m = new State(p.size(), 0);
+        EuphImmunity.hit(m, 0, 40F, true, p);
+        assertFalse(EuphImmunity.hit(m, 290, 1F, true, false, p));
+        assertEquals(Phase.RECOVER, EuphImmunity.phase(m, 301));
+        // 0: the window its own 15 s, as X873
+        Pool off = new Pool(40F, 300, 1200, 0);
+        State o = new State(off.size(), 0);
+        EuphImmunity.hit(o, 0, 40F, true, off);
+        EuphImmunity.hit(o, 290, 1F, true, off);
+        assertEquals(Phase.RECOVER, EuphImmunity.phase(o, 301));
+    }
+
+    @Test
     void poolRefillsAfterAPause() {
         State s = new State(P.size(), 0);
         float half = P.size() / 2F;
@@ -140,6 +167,8 @@ class BalanceKitTest {
         assertEquals("150", p.getProperty("balance.immune.pool"));
         assertEquals("15", p.getProperty("balance.immune.window"));
         assertEquals("60", p.getProperty("balance.immune.recover"));
+        assertEquals("10", p.getProperty("balance.immune.hold"));
+        assertEquals(200, Pool.DEFAULT.hold());
         assertEquals("pool", p.getProperty("balance.immune.dns.mode"));
         assertEquals("40", p.getProperty("balance.immune.dns.pool"));
         assertEquals("15", p.getProperty("balance.immune.dns.window"));

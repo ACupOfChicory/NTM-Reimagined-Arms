@@ -149,6 +149,31 @@ class BalanceGunsRuleTest {
     }
 
     @Test
+    void floors() throws IOException {
+        List<String> bad = new ArrayList<>();
+        var t = BalanceGunsRule.parse(List.of("m2\tbmg50_ap\t0.345\t0\t0\t4\tfloor=2.3", "m2\tbmg50_jhp\t0.68\t0\t0\t4\tfloor=0.66 from=6",
+                "m2\tbmg50_sp\t0.955\t0\t0\t4\tfloor=0", "m2\tbmg50_fmj\t0.853\t0\t0\t4\tfloor=99", "m2\tbmg50_he\t0.5\t0\t0\t4\tdelay=2 a note",
+                "uzi\t*\t1.2\t0\t0\t4", "uzi\tp9_ap\t0.9\t0\t0\t4\tfloor=1.5"), bad);
+        assertEquals(new BalanceGunsRule.Shot(0.345F, 0F, 0F, 2.3F, 4), t.pairs().get("m2").get("bmg50_ap"));
+        assertEquals(new BalanceGunsRule.Shot(0.68F, 0F, 0F, 0.66F, 6), t.pairs().get("m2").get("bmg50_jhp"));
+        assertEquals(BalanceGunsRule.MOST_FLOOR, t.pairs().get("m2").get("bmg50_fmj").floor());
+        // floor=0 is not read; other words in a pair's column 7 are left alone, as before floor=
+        assertEquals(1, bad.size(), bad.toString());
+        assertEquals(1F, t.pairs().get("m2").get("bmg50_he").floor());
+        assertTrue(!new BalanceGunsRule.Shot(1F, 0F, 0F, 2F, 4).none());
+        // a gun's own line over its pairs keeps a pair's floor
+        var r = BalanceGunsRule.resolve(t, "uzi", guns().get("uzi")).get("p9_ap").shot();
+        assertEquals(1.2F, r.mult());
+        assertEquals(1.5F, r.floor());
+        // the shipped table: the Ma Deuce's piercing rounds keep more against armour, its soft ones less from tier 6
+        var shipped = table(new ArrayList<>());
+        assertTrue(shipped.pairs().get("m2").get("bmg50_ap").floor() > 1.5F);
+        assertEquals(6, shipped.pairs().get("m2").get("bmg50_jhp").from());
+        assertTrue(shipped.pairs().get("m2").get("bmg50_jhp").floor() < 1F);
+        assertEquals(0.2F, shipped.pairs().get("pepperbox").get("stone").floor(), 1e-6F);
+    }
+
+    @Test
     void writeTheMadeUpPairs() throws IOException {
         BalanceGunsRule.Table t = table(new ArrayList<>());
         List<String> out = new ArrayList<>();

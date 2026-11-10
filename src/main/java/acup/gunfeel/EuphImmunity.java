@@ -30,6 +30,9 @@ import net.minecraft.world.entity.player.Player;
  * <li>{@code balance.immune.window} (15 s): the emptied pool opens a window: every hit goes through, to the set's
  * rating (balanceS.euphemium, 280) and the damage cap, and the set's Regeneration and Resistance (NTM: 128) are gone
  * for it, or the window would give nothing;
+ * <li>{@code balance.immune.hold} (10 s; 0: X873): a weapon's hit in the window keeps it open at least this long
+ * after it, for the three sets (DNS and FAU too): a gun that does not kill in 15 s goes on as long as it keeps hitting,
+ * instead of a whole round of invulnerability and a new pool (the TTK had no pair between 60 and 120 s);
  * <li>{@code balance.immune.recover} (60 s): after the window the pool fills back from 0 over this time, the set
  * invulnerable meanwhile; then it is full and the round starts again.
  * <li>the tomb's radon gas (BlockGasRadonTomb) takes the invulnerability off entirely while the wearer is in it, with
@@ -47,9 +50,16 @@ public final class EuphImmunity {
     private EuphImmunity() {
     }
 
-    /** the pool's numbers */
-    public record Pool(float size, int window, int recover) {
-        public static final Pool DEFAULT = new Pool(150F, 300, 1200);
+    /**
+     * the pool's numbers; {@code hold}: ticks a weapon's hit in the window keeps it open for (0: the window is its own
+     * length, X873)
+     */
+    public record Pool(float size, int window, int recover, int hold) {
+        public static final Pool DEFAULT = new Pool(150F, 300, 1200, 200);
+
+        public Pool(float size, int window, int recover) {
+            this(size, window, recover, 0);
+        }
     }
 
     /** ticks after the last hit that took from the pool before it comes back */
@@ -106,8 +116,21 @@ public final class EuphImmunity {
      * pool opens the window from the next tick, the hit itself is still called off.
      */
     public static boolean hit(State s, long now, float drain, boolean weapon, Pool p) {
+        return hit(s, now, drain, weapon, weapon, p);
+    }
+
+    /** the same; {@code keeps}: a shot, beam or blast, which holds the window open (euphemium's melee drains, not holds) */
+    public static boolean hit(State s, long now, float drain, boolean weapon, boolean keeps, Pool p) {
         Phase ph = phase(s, now);
-        if (ph == Phase.WINDOW) return false;
+        if (ph == Phase.WINDOW) {
+            // a weapon's hit keeps the window open (balance.immune.hold): a gun too weak to kill in 15 s does not pay
+            // a whole round of invulnerability and a new pool for it, as long as it keeps hitting
+            if (keeps && p.hold() > 0 && now + p.hold() > s.windowEnd) {
+                s.windowEnd = now + p.hold();
+                s.recoverEnd = s.windowEnd + p.recover();
+            }
+            return false;
+        }
         if (ph == Phase.RECOVER || !weapon) return true;
         float pool = poolAt(s, now, p) - Math.max(0F, drain);
         s.at = now;
@@ -177,12 +200,15 @@ public final class EuphImmunity {
     }
 
     public static Pool pool(Kit kit) {
-        Pool d = new Pool(kit.size, Pool.DEFAULT.window(), Pool.DEFAULT.recover());
+        Pool d = new Pool(kit.size, Pool.DEFAULT.window(), Pool.DEFAULT.recover(), Pool.DEFAULT.hold());
         float size = ReaimTimes.number(kit.key + ".pool", d.size());
         float window = ReaimTimes.number(kit.key + ".window", d.window() / 20F);
         float recover = ReaimTimes.number(kit.key + ".recover", d.recover() / 20F);
+        // one key for the three sets
+        float hold = ReaimTimes.number("balance.immune.hold", d.hold() / 20F);
         return new Pool(Float.isFinite(size) && size > 0F ? size : d.size(), Float.isFinite(window) && window >= 0F ? Math.round(window * 20F) : d.window(),
-                Float.isFinite(recover) && recover >= 0F ? Math.round(recover * 20F) : d.recover());
+                Float.isFinite(recover) && recover >= 0F ? Math.round(recover * 20F) : d.recover(),
+                Float.isFinite(hold) && hold >= 0F ? Math.round(hold * 20F) : d.hold());
     }
 
     static synchronized State state(Kit kit, Player player, long now) {
@@ -221,9 +247,13 @@ public final class EuphImmunity {
         // a weapon's blast as BalanceArmor takes it (balanceBlastPower, set around the blast's hurt)
         float power = DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) && squeeze ? BalanceArmor.BLAST_POWER.get() : 1F;
         // by the kit's tier (8, 9): the power itself, a rocket's direct hit too
-        if (power > 1F) power = BalanceArmor.pieceBlastPower(kit == Kit.EUPHEMIUM ? 9 : 8, power);
+        int tier = kit == Kit.EUPHEMIUM ? 9 : 8;
+        if (power > 1F) power = BalanceArmor.pieceBlastPower(tier, amount, power);
+        // the gun table's floor of the shot's pair (balanceArmorFloor), as BalanceArmor takes it
+        boolean expl = DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat);
+        float floor = !expl || BalanceArmor.bulletBlastNow() ? BalanceGuns.floorOf(BalanceArmor.floorShot(source, expl), tier) : 1F;
         float drain = Math.min(amount, BalanceArmorRule.full(new BalanceArmorRule.Hit(amount * power, ctx.hbm$pierceDT(), ctx.hbm$pierceDR(), squeeze), s, st[1],
-                BalanceArmorRule.Tune.DEFAULT));
+                BalanceArmorRule.Tune.DEFAULT, floor));
         float click = ReaimTimes.number("damageCapClick", 0.6F);
         if (Float.isFinite(click) && click > 0F) drain = Math.min(drain, click * player.getMaxHealth());
         return drain;
@@ -255,11 +285,13 @@ public final class EuphImmunity {
         State s = state(kit, player, now);
         Pool p = pool(kit);
         float drain = drain(kit, player, source, amount, cat);
+        // only a shot, an IR beam or a blast holds the window: for euphemium cat takes melee and the rest too
+        boolean keeps = kit == Kit.EUPHEMIUM ? BalanceArmor.category(source) != null : cat != null;
         Phase before;
         boolean off;
         synchronized (EuphImmunity.class) {
             before = phase(s, now);
-            off = hit(s, now, drain, cat != null, p);
+            off = hit(s, now, drain, cat != null, keeps, p);
         }
         if (before == Phase.POOL && phase(s, now + 1) == Phase.WINDOW) {
             if (kit == Kit.EUPHEMIUM) dropEffects(player);

@@ -863,9 +863,11 @@ public final class BalanceCheck {
         int game = BalanceBlasts.hits(mean);
         String name = set.isEmpty() ? "без брони" : set;
         BalanceArmor.SetOf def = set.isEmpty() ? null : BalanceArmor.SETS.get(set);
-        float power = def == null ? 1F : BalanceArmor.blastPowerFor(def.tier(), b.boom().name().startsWith("ракета") && r < 0F, BalanceArmor.blastPower());
+        float raw = BalanceBlasts.raw(b.boom(), r);
+        float power = def == null ? 1F : BalanceArmor.blastPowerFor(def.tier(), b.boom().name().startsWith("ракета") && r < 0F, raw, BalanceArmor.blastPower());
+        float lowFloor = def != null && def.tier() <= 4 ? BalanceArmor.blastLowFloor() : 0F;
         float model = BalanceBlasts.damage(b.boom(), r, set.isEmpty() ? null : set, set.isEmpty() ? 0F : BalanceArmor.rating(set),
-                def == null ? 0F : BalanceArmor.tau(set), power);
+                def == null ? 0F : BalanceArmor.tau(set), power, lowFloor);
         int modelHits = BalanceBlasts.hits(model);
         Float shot = SHOT_DAMAGE.get(b.boom().name());
         TSV3.add(b.boom().name() + "\t" + where3(r) + "\t" + name + "\t" + CELL.size() + "\t" + blocked + "\t" + f(mean) + "\t" + hits3(game) + "\t" + f(model)
@@ -1300,7 +1302,8 @@ public final class BalanceCheck {
     private static final List<KitPair> KIT_PAIRS = List.of(
             new KitPair("dieselsuit", "henry · m44_express", ModItems.GUN_HENRY::get, () -> XFactory44.m44_express, 3, 6, 5),
             new KitPair("hev", "star_f · p22_jhp", ModItems.GUN_STAR_F::get, () -> XFactory22lr.p22_jhp, 10, 23, 21),
-            new KitPair("hev", "carbine · r762_du", ModItems.GUN_CARBINE::get, () -> XFactory762mm.r762_du, 12, 27, 25),
+            // the pair's floor 1.9 from tier 4 (balanceArmorFloor, the second review): 12 / 27 / 25 → 9 / 19 / 17 (stand 2026-11-11)
+            new KitPair("hev", "carbine · r762_du", ModItems.GUN_CARBINE::get, () -> XFactory762mm.r762_du, 9, 19, 17),
             new KitPair("bj", "lasrifle · capacitor", ModItems.GUN_LASRIFLE::get, () -> XFactoryEnergy.energy_las, 6, 14, 12),
             new KitPair("fau", "tau · tau_uranium", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 8, 19, 16));
 
@@ -1673,7 +1676,7 @@ public final class BalanceCheck {
     private static void euph2() {
         // a small pool for the stand: 4 (AMAT SM takes about 1 of it a shot), a window of 3 s, a recovery of 3 s
         STEPS.add(() -> {
-            keys("balance.immune.pool", "4", "balance.immune.window", "3", "balance.immune.recover", "3");
+            keys("balance.immune.pool", "4", "balance.immune.window", "3", "balance.immune.recover", "3", "balance.immune.hold", "0");
             begin(target);
             dress(target, "euphemium", true);
             target.removeAllEffects();
@@ -1709,7 +1712,7 @@ public final class BalanceCheck {
         STEPS.add(() -> check(EuphImmunity.describe(target).equals("POOL 4"), "2: евфемий: после восстановления пул полон: " + EuphImmunity.describe(target) + " (ждали POOL 4)"));
         // the tomb's radon: invulnerable no more while in it, the full pool notwithstanding
         STEPS.add(() -> {
-            keys("balance.immune.pool", "2000", "balance.immune.window", "15", "balance.immune.recover", "60");
+            keys("balance.immune.pool", "2000", "balance.immune.window", "15", "balance.immune.recover", "60", "balance.immune.hold", "10");
             EuphImmunity.forget(target);
             begin(target);
             EUPH_LOG.clear();
@@ -1867,7 +1870,8 @@ public final class BalanceCheck {
             // NTM's blast of 116 is over balanceExplRawLimit (60), but an explosive bullet's: squeezed and capped (balanceBulletBlastCap)
             new Pair1b("t51", "autoshotgun · g12_explosive ×0,175", ModItems.GUN_AUTOSHOTGUN::get, () -> XFactory12ga.g12_explosive, 12.244F, 3, 5.819F, 4, 0F, 0F, false, false),
             new Pair1b("hev", "carbine · r762_he ×0,596", ModItems.GUN_CARBINE::get, () -> XFactory762mm.r762_he, 3.437F, 6, 1.961F, 11, 0F, 0F, false, false),
-            new Pair1b("hev", "autoshotgun_heretic · g10_du ×0,2 (H2)", ModItems.GUN_AUTOSHOTGUN_HERETIC::get, () -> XFactory10ga.g10_du, 6.316F, 3, 0.868F, 3, 5.0F, 25F, false, false),
+            // 1b with the pair's floor 1.3 (balanceArmorFloor, the second review): 0.868 → 1.05, as the stand took it 2026-11-11
+            new Pair1b("hev", "autoshotgun_heretic · g10_du ×0,2 (H2)", ModItems.GUN_AUTOSHOTGUN_HERETIC::get, () -> XFactory10ga.g10_du, 6.316F, 3, 1.05F, 3, 5.0F, 25F, false, false),
             new Pair1b("security", "star_f · p22_jhp ×1,05", ModItems.GUN_STAR_F::get, () -> XFactory22lr.p22_jhp, 1.846F, 11, 1.891F, 11, 19.69F, 18.75F, false, false),
             new Pair1b("bj", "hangman · m44_express ×2 (пьед.)", ModItems.GUN_HANGMAN::get, () -> XFactory44.m44_express, 1.514F, 14, 3.941F, 6, 75F, 37.5F, false, false),
             new Pair1b("rpa", "g3_zebra · r556_inc_ap ×1,664", ModItems.GUN_G3_ZEBRA::get, () -> XFactory556mm.r556_inc_ap, 0.482F, 42, 0.678F, 30, 15.60F, 9.375F, false, false),
@@ -2022,7 +2026,8 @@ public final class BalanceCheck {
     private static void poolRound(EuphImmunity.Kit kit) {
         String set = kit.set, k = kit.key;
         STEPS.add(() -> {
-            keys(k + ".mode", "pool", k + ".pool", "4", k + ".window", "3", k + ".recover", "3");
+            // the window its own 3 s (balance.immune.hold 0): AMAT's clicks every second would hold it open
+            keys(k + ".mode", "pool", k + ".pool", "4", k + ".window", "3", k + ".recover", "3", "balance.immune.hold", "0");
             begin(target);
             dress(target, set, false);
             EuphImmunity.forget(target);
@@ -2070,7 +2075,7 @@ public final class BalanceCheck {
                 + " (ждали POOL 4)"));
         // the radon gas: the pool takes nothing, the hits go through
         STEPS.add(() -> {
-            keys(k + ".pool", "450", k + ".window", "15", k + ".recover", "60");
+            keys(k + ".pool", "450", k + ".window", "15", k + ".recover", "60", "balance.immune.hold", "10");
             EuphImmunity.forget(target);
             begin(target);
             euphLostPool = 0F;

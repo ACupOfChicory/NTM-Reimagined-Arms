@@ -52,6 +52,24 @@ class BalanceArmorRuleTest {
     }
 
     @Test
+    void floor() {
+        // the gun table's floor (balanceArmorFloor): 1 is the formula's own
+        var ap = new BalanceArmorRule.Hit(3.23F, 17.5F, 0.15F, true);
+        assertEquals(BalanceArmorRule.full(ap, 159, 6.0, T), BalanceArmorRule.full(ap, 159, 6.0, T, 1.0), 1e-6F);
+        // a weak hit on CMB is all floor: the floor times it (the Ma Deuce's AP, its mult x0.345)
+        float one = BalanceArmorRule.full(ap, 159, 6.0, T, 1.0), three = BalanceArmorRule.full(ap, 159, 6.0, T, 3.0);
+        assertEquals(3.0, three / one, 0.15);
+        // a soft round's floor below 1 takes it down the same way
+        var jhp = new BalanceArmorRule.Hit(7.65F, 0F, -0.25F, true);
+        assertEquals(0.66, BalanceArmorRule.full(jhp, 159, 6.0, T, 0.66) / BalanceArmorRule.full(jhp, 159, 6.0, T, 1.0), 0.02);
+        // never more than 1 − d of the squeezed hit, never past the formula's top
+        assertTrue(BalanceArmorRule.full(ap, 159, 6.0, T, 1000.0) <= 3.23F * (1 - BalanceArmorRule.d(6.0)) + 1e-5F);
+        // a strong hit on a weak set: the floor hardly matters
+        var big = new BalanceArmorRule.Hit(40F, 0F, 0F, true);
+        assertEquals(BalanceArmorRule.full(big, 8, 1.0, T, 1.0), BalanceArmorRule.full(big, 8, 1.0, T, 2.0), 0.05);
+    }
+
+    @Test
     void flesh() {
         assertEquals(5.0, BalanceArmorRule.flesh(5, 8, 14), 1e-9);
         assertEquals(8.0, BalanceArmorRule.flesh(8, 8, 14), 1e-9);
