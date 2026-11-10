@@ -9,6 +9,15 @@
   from full health with one shot; now the AMAT Penance's HE round takes 9.7
   off RPA, the MAS-36's 7.3. New server key `balanceBulletBlastCap` (false:
   as X865).
+- The Tesla Cannon's click is capped like any other: its blast (electric, the
+  beam's damage again around the target) went past the damage cap, so one click
+  took 20 HP through RPA and BJ. Now a click takes at most 60 % of the health,
+  blast and beam together. New server key `damageCapAnyBlast` (false: as X865).
+- The IR capacitors of the laser guns and Lacunae fire beams the armour takes
+  as beams (energy), under the damage cap. They are NTM's fire class, so they
+  went past the balance's armour, the cap and DNS's pool: a laser pistol IR
+  shot killed an unarmoured player at once and Lacunae IR took 10.4 off BJ
+  past its rating. New server key `balanceIrBeams` (false: as X865).
 
 ## X867
 

@@ -97,7 +97,13 @@ public final class BalanceArmor {
         String cat = categoryAny(source);
         // bullets and beams only: an NTM shot's damage type. Melee (a sword, the Crucible, a mob's blow), vanilla's
         // arrows, spikes and the rest are NTM's numbers, as before the balance
-        return cat == null || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) || shot(source) ? cat : null;
+        return cat == null || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) || shot(source) || irBeam(source) ? cat : null;
+    }
+
+    /** an infrared beam: a gun's beam of NTM's fire class, the formula's and the cap's as a beam (balanceIrBeams) */
+    public static boolean irBeam(DamageSource source) {
+        return source.getDirectEntity() instanceof com.hbm.entity.projectile.EntityBulletBeamBase && source.is(ModDamageTypes.FIRE)
+                && ReaimTimes.flag("balanceIrBeams", true);
     }
 
     /**
@@ -110,8 +116,7 @@ public final class BalanceArmor {
         String cat = DamageResistanceHandler.typeToCategory(source);
         // an infrared beam (a gun's beam of NTM's fire class: the IR capacitors of the laser guns and Lacunae) is the
         // formula's as a beam (EN; balanceIrBeams), not NTM's fire numbers: they let it through the combat sets and the pool
-        if (DamageResistanceHandler.CATEGORY_FIRE.equals(cat) && source.getDirectEntity() instanceof com.hbm.entity.projectile.EntityBulletBeamBase
-                && ReaimTimes.flag("balanceIrBeams", true)) return DamageResistanceHandler.CATEGORY_ENERGY;
+        if (DamageResistanceHandler.CATEGORY_FIRE.equals(cat) && irBeam(source)) return DamageResistanceHandler.CATEGORY_ENERGY;
         // balanceArmorBlasts off: blasts take NTM's numbers, bullets and beams the formula's
         if (DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) return ReaimTimes.flag("balanceArmorBlasts", true) ? cat : null;
         return DamageResistanceHandler.CATEGORY_ENERGY.equals(cat) || DamageResistanceHandler.CATEGORY_PHYSICAL.equals(cat) ? cat : null;
@@ -214,6 +219,13 @@ public final class BalanceArmor {
         return withBlastPower(weapon, rocketDirect, false, amount, hurt);
     }
 
+    /** an NTM blast (ExplosionVNT's EntityProcessorCrossSmooth) being dealt now, of any damage class */
+    static final ThreadLocal<Boolean> VNT_BLAST = ThreadLocal.withInitial(() -> false);
+
+    static boolean vntBlastNow() {
+        return VNT_BLAST.get();
+    }
+
     /** an explosive bullet's blast being dealt now (not a launcher's round): squeezed and capped at any raw damage */
     static final ThreadLocal<Boolean> BULLET_BLAST = ThreadLocal.withInitial(() -> false);
 
@@ -232,7 +244,8 @@ public final class BalanceArmor {
         float power = !weapon || !on() || amount > explRawLimit() ? 1F : blastPower();
         Float before = BLAST_POWER.get();
         Boolean direct = ROCKET_DIRECT.get();
-        Boolean wasBullet = BULLET_BLAST.get();
+        Boolean wasBullet = BULLET_BLAST.get(), wasVnt = VNT_BLAST.get();
+        VNT_BLAST.set(true);
         BLAST_POWER.set(power);
         ROCKET_DIRECT.set(weapon && rocketDirect);
         BULLET_BLAST.set(!weapon && bullet);
@@ -242,6 +255,7 @@ public final class BalanceArmor {
             BLAST_POWER.set(before);
             ROCKET_DIRECT.set(direct);
             BULLET_BLAST.set(wasBullet);
+            VNT_BLAST.set(wasVnt);
         }
     }
 
