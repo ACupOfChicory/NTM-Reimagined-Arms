@@ -1,5 +1,38 @@
 # Changelog
 
+## X875
+
+- Armour-piercing and uranium rounds, slugs, explosive and flechette shells beat
+  the same gun's soft rounds against armour of tier 4 and up: against heavy
+  armour the formula let every round through by the same least share of its
+  flesh damage, so the softer round, with more of it, won (the Ma Deuce's AP
+  needed 14.8 s on CMB, its JHP 6.5; a 12 gauge slug three times the
+  buckshot's). The gun table's pairs now give that least share a floor
+  (`floor=`, `from=`): a piercing round about the gun's best time of before, its
+  soft rounds two thirds as fast from tier 6 (the Ma Deuce: AP 6.6 s on CMB,
+  JHP 9.9). Unarmoured and up to tier 3 nothing changes, and each tier's best
+  gun stays where it was. New server key `balanceArmorFloor` (false: as X873).
+- The double Lever Action Shotguns no longer beat the miniguns of tier 5 and the
+  Shredder against armour of tier 6 and up (BJ 3 s → 5, CMB 5 → 11); up to
+  tier 4 as before. The Shredder reaches its tier's middle (BJ 4 s → 2.5, CMB
+  6 → 4). The Pepperbox's stones do a fifth against tier 6 and up (BJ 110 s →
+  560): a starting gun is no answer to an 80-hour set.
+- DNS, FAU and euphemium: a shot, beam or blast in the window keeps it open for
+  10 s more (melee does not), so a gun too weak to kill in the 15 s no longer pays a whole minute of
+  invulnerability and a new pool for it while it keeps hitting. No gun took
+  between 60 and 120 s on DNS, and one gun could take DNS in 45 s and FAU in
+  134; now the times run on without that gap and a gun's FAU and DNS times are
+  within 20 % of each other. Weak guns get there sooner: a tier 2 gun takes DNS
+  in about 90 s (was 206). New server key `balance.immune.hold` (0: as X873).
+- Weak blasts on tier 4 armour: a gunpowder or DEMO grenade and a 40 mm shell's
+  splash took 9 to 15 hits on HEV, AJR, Security and the steam suit (3 with no
+  armour); now 3 to 4, the HE grenade's 3 as it was. A blast's far edge (under
+  7 raw damage) gets less of this, so armour still takes some off it. New server key
+  `balanceBlastLowFloor` (0: as X873).
+- Panzerschreck's rocket hits RPA, CMB and Schrabidium as a 40 mm shell of its
+  damage (12 hits, was 18): the weaker power on tier 7 is for the big rockets
+  only. New server key `balanceBlastRocketHighFrom` (0: as X873).
+
 ## X873
 
 - An explosive bullet's blast (HE rounds of rifles, the AMAT's HE, explosive

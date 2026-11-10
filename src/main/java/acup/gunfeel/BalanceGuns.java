@@ -238,7 +238,7 @@ public final class BalanceGuns {
         if (gun == null) return damage;
         BalanceGunsRule.Shot s = safePair(gun, ammo);
         if (s.none()) return damage;
-        if (s.neg() != 0F || s.pen() != 0F) EXTRA.put(projectile, new float[] {s.neg(), s.pen()});
+        if (s.neg() != 0F || s.pen() != 0F || s.floor() != 1F) EXTRA.put(projectile, new float[] {s.neg(), s.pen(), s.floor(), s.from()});
         if (watch != null) watch.accept(s);
         return damage * s.mult();
     }
@@ -246,9 +246,22 @@ public final class BalanceGuns {
     /** the stand: every shot that got the balance's numbers */
     static volatile java.util.function.Consumer<BalanceGunsRule.Shot> watch;
 
-    /** a hit's additions to its threshold negation and piercing (the projectile's, when it is a balanced shot) */
+    /**
+     * a hit's additions to its threshold negation and piercing, its floor and the tier the floor counts from (the
+     * projectile's, when it is a balanced shot)
+     */
     public static float[] extra(Entity direct) {
         return direct == null ? null : EXTRA.get(direct);
+    }
+
+    /**
+     * balanceArmorFloor (true; false: X873): the table's floor of the hit's shot on a set of {@code tier} (1: none, or
+     * a tier below the pair's)
+     */
+    public static float floorOf(Entity direct, int tier) {
+        float[] e = extra(direct);
+        if (e == null || e.length < 4 || e[2] == 1F || tier < e[3]) return 1F;
+        return ReaimTimes.flag("balanceArmorFloor", true) ? e[2] : 1F;
     }
 
     /** the tooltip's mult of an ammo in a gun (1 with the setting off) */

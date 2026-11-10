@@ -188,15 +188,49 @@ public final class BalanceArmor {
      * balanceBlastPowerLow, a rocket's direct hit on tier 7 balanceBlastPowerRocketHigh (each at most the power, at
      * least 1; DNS, FAU and euphemium the power itself)
      */
-    static float pieceBlastPower(int tier, float power) {
-        return blastPowerFor(tier, ROCKET_DIRECT.get(), power);
+    static float pieceBlastPower(int tier, float raw, float power) {
+        return blastPowerFor(tier, ROCKET_DIRECT.get(), raw, power);
     }
 
-    /** the same for a rocket's direct hit or not ({@code rocketDirect}), as the stand's model takes it */
-    static float blastPowerFor(int tier, boolean rocketDirect, float power) {
+    /**
+     * the same for a rocket's direct hit or not ({@code rocketDirect}) of {@code raw} damage, as the stand's model takes
+     * it: balanceBlastPowerRocketHigh only for a rocket of more raw damage than balanceBlastRocketHighFrom (30; 0: X873,
+     * every rocket; Panzerschreck's 25 hit tier 7 weaker than a 40 mm shell of the same damage)
+     */
+    static float blastPowerFor(int tier, boolean rocketDirect, float raw, float power) {
         if (tier <= 4) return clampPower("balanceBlastPowerLow", 1.7F, power);
-        if (tier == 7 && rocketDirect) return clampPower("balanceBlastPowerRocketHigh", 2.2F, power);
+        if (tier == 7 && rocketDirect && raw > rocketHighFrom()) return clampPower("balanceBlastPowerRocketHigh", 2.2F, power);
         return power;
+    }
+
+    static float rocketHighFrom() {
+        float v = ReaimTimes.number("balanceBlastRocketHighFrom", 30F);
+        return Float.isFinite(v) && v > 0F ? v : 0F;
+    }
+
+    /**
+     * balanceBlastLowFloor (0.83; 0: X873): a weapon's blast on a set of tier 4 and below hits it with at least this
+     * share of its rating as its power (damage times blast power): a weak blast (a gunpowder or DEMO grenade, a 40 mm
+     * shell's splash) took 9 to 15 hits on tier 4 against 3 bare; with it 3 to 4, the HE grenade's 3 as it was. A blast
+     * weaker than 7 raw (a blast's far edge) gets the floor in its share, so the set still takes some off it
+     */
+    static float blastLowFloor() {
+        float v = ReaimTimes.number("balanceBlastLowFloor", 0.83F);
+        return Float.isFinite(v) && v > 0F ? Math.min(v, 3F) : 0F;
+    }
+
+    /** a weapon's blast's damage times its power into the formula on a set of {@code tier}, rating {@code s} */
+    static float blastInto(int tier, float amount, float pk, float s) {
+        float y = amount * pk;
+        return pk > 1F && tier <= 4 ? Math.max(y, lowFloorPower(blastLowFloor(), s, amount)) : y;
+    }
+
+    /** a weak blast's power floor reaches c·S at this raw damage; a blast's tail below it gets a share as small */
+    static final float BLAST_LOW_REF = 7F;
+
+    /** the power floor of balanceBlastLowFloor {@code c}: c·S, less for a blast weaker than {@link #BLAST_LOW_REF} */
+    static float lowFloorPower(float c, float s, float raw) {
+        return c * s * Math.min(1F, Math.max(0F, raw) / BLAST_LOW_REF);
     }
 
     private static float clampPower(String key, float def, float power) {
@@ -239,6 +273,15 @@ public final class BalanceArmor {
      * damage. Its blast is the bullet's whole damage (NTM's EntityProcessorCrossSmooth): a heavy gun's HE round came
      * past balanceExplRawLimit and killed any set from full health with one click.
      */
+    /**
+     * the shot whose pair's floor (balanceArmorFloor) a hit takes: the bullet itself, or for an explosive bullet's blast
+     * the bullet whose impact set it off (the blast's source has the shooter, not the bullet)
+     */
+    static net.minecraft.world.entity.Entity floorShot(DamageSource source, boolean blast) {
+        var bullet = blast ? ExplosiveDamage.bulletNow() : null;
+        return bullet != null ? bullet : source.getDirectEntity();
+    }
+
     static boolean bulletBlastNow() {
         return BULLET_BLAST.get() && ReaimTimes.flag("balanceBulletBlastCap", true);
     }
@@ -311,10 +354,15 @@ public final class BalanceArmor {
             if (en) s *= enShare;
             if (k > 0F) s = acup.gunfeel.gas.GasModel.corrode(s, k);
             if (!(s > 0F)) s = 1e-3F;
-            // the weapon's blast's power by the set's tier (balanceBlastPowerLow, balanceBlastPowerRocketHigh)
-            float pk = power > 1F ? pieceBlastPower(SETS.get(set).tier(), power) : 1F;
-            var pieceHit = pk == power ? hit : new BalanceArmorRule.Hit(amount * pk, neg, pen, squeeze);
-            byPiece[i] = Math.min(amount, BalanceArmorRule.full(pieceHit, s, tau(set), tune));
+            int tier = SETS.get(set).tier();
+            // the weapon's blast's power by the set's tier (balanceBlastPowerLow, balanceBlastPowerRocketHigh,
+            // balanceBlastLowFloor)
+            float pk = power > 1F ? pieceBlastPower(tier, amount, power) : 1F;
+            float into = power > 1F ? blastInto(tier, amount, pk, s) : amount * power;
+            var pieceHit = into == amount * power ? hit : new BalanceArmorRule.Hit(into, neg, pen, squeeze);
+            // the gun table's floor of the shot's pair (balanceArmorFloor): its bullet's hit, an explosive bullet's blast
+            float floor = !expl || bulletBlastNow() ? BalanceGuns.floorOf(floorShot(source, expl), tier) : 1F;
+            byPiece[i] = Math.min(amount, BalanceArmorRule.full(pieceHit, s, tau(set), tune, floor));
             any = true;
         }
         float rest = ntm;

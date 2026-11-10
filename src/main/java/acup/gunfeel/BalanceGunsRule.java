@@ -12,7 +12,9 @@ import java.util.Set;
  * {@code ntmgunfeel-balance-guns.tsv} and the rule for an ammo of a gun that has no line of its own.
  *
  * <p>A pair's line: {@code gun ammo mult neg pen}. The shot's damage is NTM's times {@code mult}; {@code neg} is added
- * to the ammo's armour threshold negation, {@code pen} to its armour piercing. A gun's own line (ammo {@code *}): a
+ * to the ammo's armour threshold negation, {@code pen} to its armour piercing. Its extra column may give
+ * {@code floor=} (the armour formula's least share b times this, on the sets of tier {@code from=}, 4 when not given, and
+ * up: an armour-piercing round keeps more of itself against heavy armour, a soft one less; balanceArmorFloor). A gun's own line (ammo {@code *}): a
  * mult for all its ammo (over its pairs; {@code -} for none) and the receiver's changes ({@code delay=}, {@code auto=},
  * {@code mag=}, {@code dmg=}).
  *
@@ -25,20 +27,37 @@ import java.util.Set;
  * </ol>
  * It may not take from an explosive pair (HE, explosive, exp) unless it is an explosive ammo itself (the owner,
  * 2026-11-10: an explosive's mult is not for the rest; phosphorus burns, it is not one), and buckshot ({@link #SHOT} pellets and more) and a slug, a bullet or magnum shot (fewer) do not share a
- * mult (buckshot's was raised for its misses). Its neg and pen go with the mult. A gun with no line at all: NTM as it is.
+ * mult (buckshot's was raised for its misses). Its neg, pen and floor go with the mult. A gun with no line at all: NTM as it is.
  */
 public final class BalanceGunsRule {
     private BalanceGunsRule() {
     }
 
-    /** what a pair does to a shot */
-    public record Shot(float mult, float neg, float pen) {
+    /**
+     * what a pair does to a shot; {@code floor}: the armour formula's least share b times this on the sets of tier
+     * {@code from} and up (balanceArmorFloor; 1: the formula's own)
+     */
+    public record Shot(float mult, float neg, float pen, float floor, int from) {
         public static final Shot NONE = new Shot(1F, 0F, 0F);
 
+        public Shot(float mult, float neg, float pen) {
+            this(mult, neg, pen, 1F, FLOOR_FROM);
+        }
+
         public boolean none() {
-            return mult == 1F && neg == 0F && pen == 0F;
+            return mult == 1F && neg == 0F && pen == 0F && floor == 1F;
+        }
+
+        /** the same with another mult (a gun's own line over its pairs) */
+        Shot withMult(float m) {
+            return new Shot(m, neg, pen, floor, from);
         }
     }
+
+    /** the tier a pair's floor counts from when its line names none */
+    static final int FLOOR_FROM = 4;
+    /** a pair's floor: no less, no more than this */
+    static final float LEAST_FLOOR = 0.05F, MOST_FLOOR = 10F;
 
     /** a gun's own line: its mult for every ammo (NaN: none) and its receiver's changes (null: as NTM has it) */
     public record GunLine(float mult, Integer delay, Boolean auto, Integer mag, Float dmg) {
@@ -109,7 +128,24 @@ public final class BalanceGunsRule {
                     guns.put(gun, new GunLine(mult, delay, auto, mag, dmg));
                 } else {
                     if (Float.isNaN(mult)) throw new IllegalArgumentException("a pair with no mult");
-                    pairs.computeIfAbsent(gun, g -> new LinkedHashMap<>()).put(ammo, new Shot(mult, neg, pen));
+                    float floor = 1F;
+                    int from = FLOOR_FROM;
+                    String extra = f.length > 6 ? f[6].strip() : "";
+                    // a pair's column 7 was free text before floor=/from=: other words in it are left as they are
+                    for (String kv : extra.isEmpty() ? new String[0] : extra.split("\\s+")) {
+                        String[] p = kv.split("=", 2);
+                        if (p.length != 2) continue;
+                        switch (p[0]) {
+                            case "floor" -> {
+                                float v = Float.parseFloat(p[1]);
+                                if (!(v > 0F && Float.isFinite(v))) throw new IllegalArgumentException(kv);
+                                floor = Math.max(LEAST_FLOOR, Math.min(MOST_FLOOR, v));
+                            }
+                            case "from" -> from = positive(Integer.parseInt(p[1]), kv);
+                            default -> { }
+                        }
+                    }
+                    pairs.computeIfAbsent(gun, g -> new LinkedHashMap<>()).put(ammo, new Shot(mult, neg, pen, floor, from));
                 }
             } catch (RuntimeException e) {
                 bad.add(raw + "  (" + e.getMessage() + ")");
@@ -147,7 +183,7 @@ public final class BalanceGunsRule {
         if (line != null && !Float.isNaN(line.mult())) {
             for (Ammo a : ammo) {
                 Shot s = own.get(a.name());
-                out.put(a.name(), new Resolved(new Shot(line.mult(), s != null ? s.neg() : 0F, s != null ? s.pen() : 0F), "gun"));
+                out.put(a.name(), new Resolved(s != null ? s.withMult(line.mult()) : new Shot(line.mult(), 0F, 0F), "gun"));
             }
             return out;
         }

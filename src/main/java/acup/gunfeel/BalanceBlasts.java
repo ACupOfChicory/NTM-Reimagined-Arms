@@ -18,7 +18,8 @@ package acup.gunfeel;
  * <li>Trenchmaster's block of one in three (NTM's filterAttack) stops none of these: NTM's blasts are dealt past that
  * early check ({@code allowSpecialCancel} false), the contact with them (10.3: × 1.5 hits);</li>
  * <li>the blast power {@code k} (balanceBlastPower): the set's formula takes {@code k·x} (its power and its flesh),
- * at most {@code x}; the raw limit and the cap by {@code x} itself; no set: {@code x};</li>
+ * at most {@code x}; the raw limit and the cap by {@code x} itself; no set: {@code x}; on tier 4 and below at least
+ * {@code balanceBlastLowFloor·S} (BalanceArmor.blastInto);</li>
  * <li>hits to die {@code ⌈HP / damage⌉}.</li>
  * </ul>
  */
@@ -39,8 +40,14 @@ final class BalanceBlasts {
 
     /** the same with the blast power {@code k} */
     static float hit(float x, float neg, float pen, String set, float s, float tau, float k) {
+        return hit(x, neg, pen, set, s, tau, k, 0F);
+    }
+
+    /** the same, the power at least {@code floor·s} (balanceBlastLowFloor on tier 4 and below; 0: none) */
+    static float hit(float x, float neg, float pen, String set, float s, float tau, float k, float floor) {
         if (!(x > 0F)) return 0F;
         float kx = x <= RAW_LIMIT ? x * k : x;
+        if (x <= RAW_LIMIT && k > 1F && floor > 0F) kx = Math.max(kx, BalanceArmor.lowFloorPower(floor, s, x));
         float out = set == null ? x
                 : Math.min(x, BalanceArmorRule.full(new BalanceArmorRule.Hit(kx, neg, pen, x <= RAW_LIMIT), s, tau, BalanceArmorRule.Tune.DEFAULT));
         // more raw damage than the limit is not capped either
@@ -66,7 +73,12 @@ final class BalanceBlasts {
 
     /** the same with the blast power {@code k} */
     static float damage(Boom b, float r, String set, float s, float tau, float k) {
-        return hit(raw(b, r), b.neg(), b.pen(), set, s, tau, k);
+        return damage(b, r, set, s, tau, k, 0F);
+    }
+
+    /** the same with the power's floor (balanceBlastLowFloor) */
+    static float damage(Boom b, float r, String set, float s, float tau, float k, float floor) {
+        return hit(raw(b, r), b.neg(), b.pen(), set, s, tau, k, floor);
     }
 
     /** blasts to die (Integer.MAX_VALUE: none ever kills) */

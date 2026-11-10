@@ -348,11 +348,14 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balanceExplRawLimit` | `60` | A blast of more raw damage (a mine, C4) is not squeezed and not capped |
 | `balanceBlastPower` | `3` | A weapon's blast (grenade, 40 mm, rocket) hits a combat set as this many times its damage, never more than with no armour; 2.7: as X865, 1: as X858 |
 | `balanceBlastPowerLow`, `balanceBlastPowerRocketHigh` | `1.7`, `2.2` | The power on sets of tier 4 and below, and of a rocket's direct hit on tier 7 (RPA, CMB, Schrabidium); at most `balanceBlastPower`; all three `2.7`: as X865 |
+| `balanceBlastRocketHighFrom` | `30` | `balanceBlastPowerRocketHigh` only for a rocket of more raw damage than this (Missile Launcher, Stinger); Panzerschreck's round hits tier 7 as a 40 mm shell of its damage; `0`: every rocket, as X873 |
+| `balanceBlastLowFloor` | `0.83` | A weapon's blast on a set of tier 4 and below hits it with at least this share of the set's rating as its power: a gunpowder or DEMO grenade and a 40 mm shell's splash take 3 to 4 hits on tier 4; a blast under 7 raw damage (its far edge) gets the floor in its share of 7; `0`: as X873 |
 | `balanceBulletBlastCap` | `true` | An explosive bullet's blast is squeezed and capped at any damage, not taken for a mine past `balanceExplRawLimit`; false: as X865 |
 | `balanceIrBeams` | `true` | An infrared beam (IR capacitors) is a beam: the armour formula's and the cap's; false: NTM's fire numbers, as X865 |
 | `balanceElectricPowered` | `1.5` | An electric hit (Tesla Cannon) on a powered chestplate counts this many times; 5: NTM's, as X865 |
 | `balanceRoflFloor` | `0.18` | The least share of a hit starmetal and the dineutronium ingot set leave |
 | `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's; the players get the server's); off: NTM's damage and guns |
+| `balanceArmorFloor` | `true` | The table's floors (`floor=`, `from=` in a pair's extra column): the armour formula's least share times the floor on sets of that tier and up, so armour-piercing rounds, slugs, explosive and flechette shells beat the same gun's soft rounds against heavy armour; false: no floors, as X873 |
 | `balanceRecipes` | `true` | The balance's recipes for the diesel suit, Tesla Cannon, Lasrifle, Tau and Med-X; off: NTM's (after `/reload` or a restart) |
 | `gunMechanismRecipes` | `true` | Guns take the gun mechanism of their tier, on eight steps: the mod adds steel, high-speed steel, desh, ferrouranium and technetium steel mechanisms, cast in NTM's mechanism mold; off: NTM's recipes (after `/reload` or a restart) |
 | `abilities.mobilityCap` | `true` | A full set's Speed and Jump Boost by its tier: up to tier 6 II and I at most, from tier 7 III and II |
@@ -375,6 +378,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.immune.mode` | `pool` | Euphemium's invulnerability with a pool; `ntm`: every hit called off |
 | `balance.immune.pool` | `150` | What bullets, beams and blasts on the set wear down before it opens (each as much as on a DNS-class set); the owner's choice, `2000`: as X865 |
 | `balance.immune.window` | `15` | Seconds the emptied pool leaves the wearer open, without the set's Regeneration and Resistance |
+| `balance.immune.hold` | `10` | For euphemium, DNS and FAU: a shot, IR beam or blast in the window (not melee) keeps it open at least this many seconds after it, so a gun that keeps hitting is not sent back to a full pool; `0`: the window is its own length, as X873 |
 | `balance.immune.recover` | `60` | Seconds the pool takes to fill back after the window (the set invulnerable meanwhile), or a worn-down pool after 5 s without a hit |
 | `balance.immune.dns.mode` | `pool` | DNS with euphemium's round: bullets, beams and blasts on the full charged set called off while its pool holds; `formula`: by its rating only; `ntm`: every hit but a blast called off, blasts down to 0.001 |
 | `balance.immune.dns.pool` | `40` | What hits wear down before DNS opens (each as much as it would do to DNS itself, S 186); the owner's choice, `500`: as X865, `120`: a middle way |
