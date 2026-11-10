@@ -29,9 +29,9 @@ import net.minecraft.world.entity.player.Player;
 // set does: within the range and in sight.
 @Mixin(value = ArmorOverheadRenderer.class, remap = false)
 public abstract class MixinArmorEsp {
-    @Unique private static boolean gunfeel$gunSight;
     @Unique private static int gunfeel$tier;
     @Unique private static String gunfeel$mode = "all";
+    @Unique private static double gunfeel$range = 16;
 
     @Shadow
     private static boolean aimsThermalSights(LocalPlayer player) {
@@ -48,16 +48,14 @@ public abstract class MixinArmorEsp {
         LocalPlayer player = Minecraft.getInstance().player;
         gunfeel$mode = ArmorAbilities.espModeNow();
         if (player == null) return;
-        gunfeel$gunSight = aimsThermalSights(player);
-        gunfeel$tier = ArmorAbilities.tierOf(activeChestBonus(player));
+        gunfeel$tier = aimsThermalSights(player) ? ArmorAbilities.GUN_SIGHT_TIER : ArmorAbilities.tierOf(activeChestBonus(player));
+        gunfeel$range = ArmorAbilities.espRangeNow();
     }
 
     @Inject(method = "colorFor", at = @At("RETURN"), cancellable = true, require = 1)
     private static void gunfeel$thermal(Entity ent, LocalPlayer viewer, CallbackInfoReturnable<Integer> cir) {
         if (cir.getReturnValueI() < 0 || !(ent instanceof Player)) return;
-        if (gunfeel$mode.equals("all")) return;
-        int tier = gunfeel$gunSight ? ArmorAbilities.GUN_SIGHT_TIER : gunfeel$tier;
-        if (!ArmorAbilities.thermalShows(gunfeel$mode, tier, viewer.distanceTo(ent), ArmorAbilities.espRangeNow(), viewer.hasLineOfSight(ent))) cir.setReturnValue(-1);
+        if (!ArmorAbilities.thermalKeeps(gunfeel$mode, gunfeel$range, gunfeel$tier, viewer, ent)) cir.setReturnValue(-1);
     }
 
     @WrapOperation(method = "submitHealthBars", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/ClientLevel;entitiesForRendering()Ljava/lang/Iterable;"), require = 1)
@@ -65,7 +63,7 @@ public abstract class MixinArmorEsp {
         Iterable<Entity> all = original.call(level);
         if (ArmorAbilities.vatsShows(gunfeel$mode)) return all;
         java.util.List<Entity> out = new java.util.ArrayList<>();
-        for (Entity e : all) if (!(e instanceof Player)) out.add(e);
+        for (Entity e : all) if (ArmorAbilities.vatsKeeps(gunfeel$mode, e)) out.add(e);
         return out;
     }
 }

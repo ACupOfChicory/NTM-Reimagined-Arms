@@ -158,9 +158,12 @@ BALANCE method com/hbm/handler/ArmorModHandler modItem (Lnet/minecraft/world/ite
 BALANCE method com/hbm/interfaces/NtmDamageContext hbm$pierceDR ()F
 BALANCE method com/hbm/interfaces/NtmDamageContext hbm$pierceDT ()F
 BALANCE method com/hbm/items/armor/ArmorFullSetBonus get (Lcom/hbm/items/armor/ModArmorItem$Suit;)Lcom/hbm/items/armor/ArmorFullSetBonus;
+BALANCE method com/hbm/items/armor/ArmorFullSetBonus thermal ()Z
+BALANCE method com/hbm/items/armor/ArmorFullSetBonus vats ()Z
 BALANCE method com/hbm/items/armor/ArmorFullSetBonus$EffectBonus <init> (Lnet/minecraft/core/Holder;I)V
 BALANCE method com/hbm/items/armor/ArmorFullSetBonus$EffectBonus amplifier ()I
 BALANCE method com/hbm/items/armor/ArmorFullSetBonus$EffectBonus effect ()Lnet/minecraft/core/Holder;
+BALANCE method com/hbm/items/armor/ArmorSuitEffects hasFullSet (Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/items/armor/ModArmorItem$Suit;)Z
 BALANCE method com/hbm/items/armor/ModArmorItem$Suit name ()Ljava/lang/String;
 BALANCE method com/hbm/items/armor/ModArmorItem$Suit values ()[Lcom/hbm/items/armor/ModArmorItem$Suit;
 BALANCE method com/hbm/items/weapon/sedna/BulletConfig ammoStack ()Lnet/minecraft/world/item/ItemStack;
@@ -298,7 +301,9 @@ CORE class com/hbm/hazard/HazardClass
 CORE class com/hbm/items/armor/ArmorFullSetBonus
 CORE class com/hbm/items/armor/ArmorSuitEffects
 CORE class com/hbm/items/armor/ModArmorItem
+CORE class com/hbm/items/armor/ModArmorItem$Suit
 CORE class com/hbm/items/armor/ModArmorItemPowered
+CORE class com/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/items/weapon/sedna/mags/IMagazine
@@ -337,6 +342,7 @@ CORE field com/hbm/items/ModItems GUN_AMAT_SUBTLETY Lcom/hbm/registration/Regist
 CORE field com/hbm/items/ModItems GUN_AUTOSHOTGUN Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_AUTOSHOTGUN_HERETIC Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_CARBINE Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems GUN_CONGOLAKE Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_DOUBLE_BARREL Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_DOUBLE_BARREL_SACRED_DRAGON Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_G3_ZEBRA Lcom/hbm/registration/RegistryHandle;
@@ -353,11 +359,14 @@ CORE field com/hbm/items/ModItems GUN_MARESLEG Lcom/hbm/registration/RegistryHan
 CORE field com/hbm/items/ModItems GUN_MAS36 Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_MINIGUN Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_MINIGUN_LACUNAE Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems GUN_MISSILE_LAUNCHER Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems GUN_MK108 Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_N_I_4_N_I Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_PANZERSCHRECK Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_PEPPERBOX Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_SPAS12 Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_STAR_F Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems GUN_STINGER Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_TAU Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_TESLA_CANNON Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems HEV_BOOTS Lcom/hbm/registration/RegistryHandle;
@@ -371,6 +380,7 @@ CORE field com/hbm/items/ModItems TITANIUM_PLATE Lcom/hbm/registration/RegistryH
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling fragmentation Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling pellets_heavy Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling DEMO Lcom/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling HE Lcom/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling POWDER Lcom/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze IMPACT Lcom/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze;
@@ -378,6 +388,7 @@ CORE field com/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze S15 Lcom
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze S3 Lcom/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze S7 Lcom/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze;
 CORE field com/hbm/items/weapon/grenade/ItemGrenadeShell$EnumGrenadeShell FRAG Lcom/hbm/items/weapon/grenade/ItemGrenadeShell$EnumGrenadeShell;
+CORE field com/hbm/items/weapon/grenade/ItemGrenadeShell$EnumGrenadeShell STICK Lcom/hbm/items/weapon/grenade/ItemGrenadeShell$EnumGrenadeShell;
 CORE field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_ENTITY_HIT Ljava/util/function/BiConsumer;
 CORE field com/hbm/items/weapon/sedna/BulletConfig ammoItem Ljava/util/function/Supplier;
 CORE field com/hbm/items/weapon/sedna/BulletConfig armorPiercingPercent F
@@ -412,6 +423,7 @@ CORE field com/hbm/items/weapon/sedna/factory/XFactory22lr p22_jhp Lcom/hbm/item
 CORE field com/hbm/items/weapon/sedna/factory/XFactory22lr p22_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory357 m357_bp Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory357 m357_express Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory40mm g40_he Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory44 m44_express Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory50 bmg50_sm Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory556mm r556_inc_ap Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -424,10 +436,12 @@ CORE field com/hbm/items/weapon/sedna/factory/XFactoryAccelerator tau_uranium Lc
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryBlackPowder shot Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryEnergy energy_las Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryEnergy energy_tesla_overcharge Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactoryRocket rocket_ml [Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryRocket rocket_rpzb [Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase capacity I
 CORE field com/hbm/lib/ModDamageTypes CLOUD Lnet/minecraft/resources/ResourceKey;
 CORE field com/hbm/lib/ModDamageTypes DIGAMMA Lnet/minecraft/resources/ResourceKey;
+CORE field com/hbm/lib/ModDamageTypes EXPLOSIVE Lnet/minecraft/resources/ResourceKey;
 CORE field com/hbm/lib/ModDamageTypes NUCLEAR_BLAST Lnet/minecraft/resources/ResourceKey;
 CORE field com/hbm/lib/ModDamageTypes RADIATION Lnet/minecraft/resources/ResourceKey;
 CORE field com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase interp F
@@ -448,6 +462,7 @@ CORE method com/hbm/entity/grenade/EntityGrenadeBouncyGeneric position ()Lnet/mi
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal <init> (Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;)V
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal <init> (Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;)V
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal discard ()V
+CORE method com/hbm/entity/grenade/EntityGrenadeUniversal explode ()V
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getFuze ()Lcom/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze;
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal getGrenadeItem ()Lnet/minecraft/world/item/ItemStack;
@@ -464,6 +479,7 @@ CORE method com/hbm/entity/grenade/EntityGrenadeUniversal onGround ()Z
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal position ()Lnet/minecraft/world/phys/Vec3;
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal setDeltaMovement (Lnet/minecraft/world/phys/Vec3;)V
 CORE method com/hbm/entity/grenade/EntityGrenadeUniversal setPos (DDD)V
+CORE method com/hbm/entity/grenade/EntityGrenadeUniversal setThrower (Lnet/minecraft/world/entity/LivingEntity;)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/items/weapon/sedna/BulletConfig;FFDDD)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/items/weapon/sedna/BulletConfig;FFDDDDDD)V
@@ -490,6 +506,7 @@ CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 setThrowableHeading (D
 CORE method com/hbm/entity/projectile/EntityBulletBaseMK4 tick ()V
 CORE method com/hbm/entity/projectile/EntityBulletBeamBase getThrower ()Lnet/minecraft/world/entity/LivingEntity;
 CORE method com/hbm/entity/projectile/EntityThrowableNT getThrower ()Lnet/minecraft/world/entity/LivingEntity;
+CORE method com/hbm/explosion/ExplosionNukeGeneric dealDamage (Lnet/minecraft/world/level/Level;DDDD)V
 CORE method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/level/Level;DDDF)V
 CORE method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/level/Level;DDDFLnet/minecraft/world/entity/Entity;)V
 CORE method com/hbm/explosion/vanillant/ExplosionVNT explode ()V
@@ -515,9 +532,14 @@ CORE method com/hbm/handler/ArmorUtil installGasMaskFilter (Lnet/minecraft/world
 CORE method com/hbm/handler/EquipmentProtections isMask (Lnet/minecraft/world/item/ItemInstance;)Z
 CORE method com/hbm/handler/PlayerShield tick (Lnet/minecraft/server/level/ServerPlayer;)V
 CORE method com/hbm/items/armor/ArmorDash tick (Lnet/minecraft/world/entity/player/Player;FF)V
+CORE method com/hbm/items/armor/ArmorFullSetBonus get (Lcom/hbm/items/armor/ModArmorItem$Suit;)Lcom/hbm/items/armor/ArmorFullSetBonus;
+CORE method com/hbm/items/armor/ArmorFullSetBonus thermal ()Z
+CORE method com/hbm/items/armor/ArmorFullSetBonus vats ()Z
 CORE method com/hbm/items/armor/ModArmorItem isPowered ()Z
 CORE method com/hbm/items/armor/ModArmorItem maxPower (Lnet/minecraft/world/item/ItemStack;)J
 CORE method com/hbm/items/armor/ModArmorItem setCharge (Lnet/minecraft/world/item/ItemStack;J)V
+CORE method com/hbm/items/armor/ModArmorItem$Suit name ()Ljava/lang/String;
+CORE method com/hbm/items/armor/ModArmorItem$Suit values ()[Lcom/hbm/items/armor/ModArmorItem$Suit;
 CORE method com/hbm/items/weapon/ItemGenericGrenade getBounceMod ()D
 CORE method com/hbm/items/weapon/ItemGenericGrenade getMaxTimer ()I
 CORE method com/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze ordinal ()I
@@ -528,6 +550,7 @@ CORE method com/hbm/items/weapon/grenade/ItemGrenadeUniversal make (Lcom/hbm/ite
 CORE method com/hbm/items/weapon/sedna/BulletConfig ammoStack ()Lnet/minecraft/world/item/ItemStack;
 CORE method com/hbm/items/weapon/sedna/BulletConfig getDamage (Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/util/DamageClass;)Lnet/minecraft/world/damagesource/DamageSource;
 CORE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+CORE method com/hbm/items/weapon/sedna/GunConfig hasThermalSights (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
@@ -565,6 +588,7 @@ CORE method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase get (Lnet/mine
 CORE method com/hbm/util/ArmorRegistry hasProtection (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/entity/EquipmentSlot;Lcom/hbm/hazard/HazardClass;)Z
 CORE method com/hbm/util/DamageResistanceHandler getDTDR (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FFF)[F
 CORE method com/hbm/util/DamageResistanceHandler getSetResistanceContaining (Lnet/minecraft/world/item/Item;)Lcom/hbm/util/DamageResistanceHandler$ResistanceStats;
+CORE method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z
 CORE method com/hbm/util/EntityDamageUtil getDTDR (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FFF)[F
 GL54 class com/hbm/blockentity/machine/BlockEntityMachineAmmoPress
 GL54 class com/hbm/entity/effect/EntityFireLingering

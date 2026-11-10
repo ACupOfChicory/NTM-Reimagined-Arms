@@ -1,5 +1,20 @@
 # Changelog
 
+## X858
+
+- The damage cap no longer holds NTM's blasts of more than 60 raw damage (a
+  mine, C4, TNT), as it already did not hold nuclear ones
+  (`balanceExplRawLimit`, 60, now counts for the cap too). Grenades, 40 mm
+  shells and rockets stay capped: a click takes at most 60 % of a player's
+  health, 80 % on the head.
+- New server keys: `damageCapBlasts` (`true`; off: no NTM blast is capped) and
+  `balanceArmorBlasts` (`true`; off: blasts go through NTM's threshold and
+  resistance, bullets and beams still through the balance's formula).
+- VATS and thermal vision show players as before: VATS none, thermal vision
+  none but FAU's, DNS's and AMAT Penance's sight within 16 blocks and in
+  sight. The decision is now in one place shared by the client and the
+  server's checks.
+
 ## X857
 
 - DNS is no longer invulnerable: it takes bullets, beams and blasts by its

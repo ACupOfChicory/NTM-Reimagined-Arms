@@ -40,7 +40,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * cause ({@code BulletConfig.getDamage}: the projectile direct, the shooter causing); NTM's blasts name the exploding
  * projectile, whose thrower is the shooter, or the shooter alone (a blast with no projectile is a click of its tick).
  * Damage with no projectile between the shooter and the target and no blast (melee) and
- * damage with no shooter (fire, falling, radiation, gas) is not capped, nor are nuclear blasts and digamma.
+ * damage with no shooter (fire, falling, radiation, gas) is not capped, nor are nuclear blasts and digamma, nor an NTM
+ * blast of more raw damage than balanceExplRawLimit (a mine, C4, TNT), nor any NTM blast with damageCapBlasts off.
  *
  * <p>The click is the game tick the projectile came into the world: NTM fires all the rounds of one click in one call
  * (Lego: {@code roundsPerCycle}, SPAS-12's secondary one more, akimbo guns in the same tick), so pellets that land in
@@ -163,6 +164,15 @@ public final class DamageCap {
         if (e.getEntity() instanceof Player p && !p.level().isClientSide() && on()) SHIELD_BEFORE.put(p, new Before(p.level().getGameTime(), HbmPlayerProps.getData(p).shield));
     }
 
+    /**
+     * an NTM blast of more raw damage than balanceExplRawLimit (a mine, C4, a block of TNT: building, not a weapon) is
+     * not capped, nor any NTM blast with damageCapBlasts off. Raw: as NTM's armour (and the balance's formula, its
+     * squeeze by the same limit) takes it, after NTM's shield.
+     */
+    static boolean blastFree(float raw) {
+        return !ReaimTimes.flag("damageCapBlasts", true) || raw > BalanceArmor.explRawLimit();
+    }
+
     private static void damage(LivingDamageEvent.Pre e) {
         LivingEntity target = e.getEntity();
         Before shieldBefore = SHIELD_BEFORE.remove(target);
@@ -177,6 +187,9 @@ public final class DamageCap {
         boolean blast = source.is(DamageTypeTags.IS_EXPLOSION) && source.typeHolder().unwrapKey().map(k -> k.identifier().getNamespace().equals("hbm")).orElse(false);
         if (projectile == null && !blast) return;
         long now = level.getGameTime();
+        // the hurt's raw damage as NTM's armour took it (after NTM's shield), else the hurt's own
+        float raw = BalanceArmor.takeAmount(target, e.getOriginalDamage());
+        if (blast && blastFree(raw)) return;
         Shot shot = projectile == null ? null : SHOTS.get(projectile);
         if (shot == null) shot = new Shot(projectile == null ? now : now - projectile.tickCount, gunDelay(shooter) >= limits().sniperDelay());
         boolean head = HeadDamage.onHead(target);

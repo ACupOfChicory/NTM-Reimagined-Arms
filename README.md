@@ -81,8 +81,9 @@ page. They are alphas: expect bugs and back up your world.
   pellets and rounds a shooter fires in one tick) takes at most 60 % of max
   health, 80 % on the head, and one shooter at most 80 % in any 14 ticks.
   Slow sniper rifles (25 ticks or more between shots) still kill with a head
-  shot. Nuclear blasts, digamma, fire, falling, radiation, gas, melee and
-  vanilla blasts are not capped. Mobs as targets only with `damageCapMobs`.
+  shot. Nuclear blasts, digamma, fire, falling, radiation, gas, melee,
+  vanilla blasts and blasts of more than 60 raw damage (a mine, C4, TNT) are
+  not capped. Mobs as targets only with `damageCapMobs`.
 - NTM's combat armour sets take bullets, beams and blasts by one formula
   with a rating per set: a hit far under the rating loses most of itself, one
   far over it gets nearly all through, and none is ever stopped to 0. A piece
@@ -316,11 +317,13 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `damageCapWindow`, `damageCapWindowTicks` | `0.8`, `14` | The most one shooter takes in any so many ticks |
 | `damageCapSniperDelay`, `damageCapSniperHead` | `25`, `1.0` | A gun that waits this many ticks between shots takes up to this much with a head click |
 | `damageCapMobs` | `false` | Mobs and AI bots are capped too |
+| `damageCapBlasts` | `true` | NTM's blasts are capped (not those over `balanceExplRawLimit` raw damage); off: none of them is |
 | `balanceArmor` | `true` | NTM's combat sets take bullets, beams and blasts by the balance's formula; off: NTM's threshold and resistance |
 | `balanceS.<set>` | from `8` (steel) to `280` (euphemium) | Each set's rating; `0`: NTM's numbers for that set |
 | `balanceEnShare` | `0.75` | The share of the rating beams and lasers meet |
 | `balanceFleshKnee`, `balanceFleshMax` | `8`, `14` | One hit's damage on a set is squeezed past the first towards the second |
-| `balanceExplRawLimit` | `60` | A blast of more raw damage (a mine, C4) is not squeezed |
+| `balanceArmorBlasts` | `true` | Blasts go by the formula too; off: blasts by NTM's threshold and resistance |
+| `balanceExplRawLimit` | `60` | A blast of more raw damage (a mine, C4) is not squeezed and not capped |
 | `balanceRoflFloor` | `0.18` | The least share of a hit starmetal and the dineutronium ingot set leave |
 | `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's; the players get the server's); off: NTM's damage and guns |
 | `balanceRecipes` | `true` | The balance's recipes for the diesel suit, Tesla Cannon, Lasrifle, Tau and Med-X; off: NTM's (after `/reload` or a restart) |

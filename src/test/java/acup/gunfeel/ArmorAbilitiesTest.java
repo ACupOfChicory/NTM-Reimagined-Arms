@@ -92,6 +92,13 @@ class ArmorAbilitiesTest {
         assertFalse(ArmorAbilities.vatsShows("tier8"));
         assertFalse(ArmorAbilities.vatsShows("off"));
         assertTrue(ArmorAbilities.vatsShows("all"));
+        // stage 3's three cases, by the default keys (tier8, 16 blocks): behind a wall at 10 no one sees the player, in
+        // the open at 20 no one, in the open at 10 FAU and DNS (tier 8) and Penance's sight only
+        for (int tier = 0; tier <= 9; tier++) {
+            assertFalse(ArmorAbilities.thermalShows("tier8", tier, 10, 16, false), "wall 10, tier " + tier);
+            assertFalse(ArmorAbilities.thermalShows("tier8", tier, 20, 16, true), "open 20, tier " + tier);
+            assertEquals(tier >= 8, ArmorAbilities.thermalShows("tier8", tier, 10, 16, true), "open 10, tier " + tier);
+        }
         assertEquals(8, ArmorAbilities.tier("DIGAMMA"));
         assertEquals(8, ArmorAbilities.tier("DNS"));
         assertEquals(3, ArmorAbilities.tier("DIESEL"));

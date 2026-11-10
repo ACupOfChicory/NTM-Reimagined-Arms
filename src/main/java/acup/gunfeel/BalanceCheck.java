@@ -145,6 +145,7 @@ public final class BalanceCheck {
             if (e.getEntity() != victim || victim == null) return;
             hits++;
             lost += e.getInflictedDamage();
+            if (!e.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FALL)) blastLost += e.getInflictedDamage();
         });
     }
 
@@ -275,7 +276,7 @@ public final class BalanceCheck {
         return out;
     }
 
-    /** the passes to run (ntmgunfeel.checkBalance.only, by commas: 2, 1g, 1v, 1a, 1b, dns, kit; none: all) */
+    /** the passes to run (ntmgunfeel.checkBalance.only, by commas: 2, 1g, 1v, 1a, 1b, dns, kit, db, hi, expl, esp; none: all) */
     private static boolean only(String pass) {
         String only = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         return only.isEmpty() || java.util.Arrays.asList(only.split("\\s*,\\s*")).contains(pass);
@@ -284,7 +285,7 @@ public final class BalanceCheck {
     private static void plan() {
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp").contains(p)) throw new IllegalArgumentException("no pass " + p);
         if (only("2")) plan2();
         if (only("1g")) planAbilities();
         if (only("1v")) planRecipes();
@@ -294,6 +295,443 @@ public final class BalanceCheck {
         if (only("kit")) planKit();
         if (only("db")) planDb();
         if (only("hi")) planHigh();
+        if (only("expl")) planExpl();
+        if (only("esp")) planEsp();
+    }
+
+    // ---------------------------------------------------------------- stage 3: NTM's blasts on the ladder
+
+    /** an explosive of stage 3: the model's numbers, and the hand grenade's filling or the launcher and its round */
+    private record Blast3(BalanceBlasts.Boom boom, com.hbm.items.weapon.grenade.ItemGrenadeFilling.EnumGrenadeFilling filling, Supplier<Item> gun,
+            Supplier<BulletConfig> ammo) {
+    }
+
+    private static final List<Blast3> BLASTS = List.of(
+            new Blast3(new BalanceBlasts.Boom("граната порох", false, 10, 5, 5, 0), com.hbm.items.weapon.grenade.ItemGrenadeFilling.EnumGrenadeFilling.POWDER, null, null),
+            new Blast3(new BalanceBlasts.Boom("граната HE", false, 25, 7.5F, 10, 0.1F), com.hbm.items.weapon.grenade.ItemGrenadeFilling.EnumGrenadeFilling.HE, null, null),
+            new Blast3(new BalanceBlasts.Boom("граната DEMO", false, 10, 5, 0, 0), com.hbm.items.weapon.grenade.ItemGrenadeFilling.EnumGrenadeFilling.DEMO, null, null),
+            new Blast3(new BalanceBlasts.Boom("40 мм HE Congo Lake", true, 20, 5, 0, 0), null, ModItems.GUN_CONGOLAKE::get,
+                    () -> com.hbm.items.weapon.sedna.factory.XFactory40mm.g40_he),
+            new Blast3(new BalanceBlasts.Boom("40 мм HE MK108", true, 25, 5, 0, 0), null, ModItems.GUN_MK108::get,
+                    () -> com.hbm.items.weapon.sedna.factory.XFactory40mm.g40_he),
+            new Blast3(new BalanceBlasts.Boom("ракета Panzerschreck", true, 25, 5, 0, 0), null, ModItems.GUN_PANZERSCHRECK::get, () -> XFactoryRocket.rocket_rpzb[0]),
+            new Blast3(new BalanceBlasts.Boom("ракета Stinger", true, 35, 5, 0, 0), null, ModItems.GUN_STINGER::get, () -> XFactoryRocket.rocket_rpzb[0]),
+            new Blast3(new BalanceBlasts.Boom("ракета Missile Launcher", true, 50, 5, 0, 0), null, ModItems.GUN_MISSILE_LAUNCHER::get, () -> XFactoryRocket.rocket_ml[0]));
+
+    /** the sets of 10.4: no armour, then the ladder from tier 1 to 8 */
+    private static final String[] SETS3 = {"", "steel", "dieselsuit", "t51", "steamsuit", "hev", "ajr", "security", "trenchmaster", "bj", "ncrpa",
+            "schrabidium", "rpa", "fau", "dns"};
+    /** where the target stands: straight in front of the mannequin, 6 blocks off */
+    private static final double EXPL_DIST = 6;
+    /** the damage of a launcher's round as the gun fired it (its first shot at the target), by its name */
+    private static final java.util.Map<String, Float> SHOT_DAMAGE = new java.util.HashMap<>();
+    /** what the target lost since ready3, but its falls (a big blast throws it up) */
+    private static float blastLost;
+    private static final List<Float> CELL = new ArrayList<>();
+    private static final List<String> TSV3 = new ArrayList<>();
+
+    private static Vec3 spot3() {
+        return new Vec3(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + EXPL_DIST);
+    }
+
+    /** the target in a set (or bare), its shield emptied (the model counts none), standing on its spot */
+    private static void ready3(String set) {
+        begin(target);
+        target.removeAllEffects();
+        target.setForcedPose(null);
+        for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
+        if (!set.isEmpty()) dress(target, set, true);
+        var props = com.hbm.extprop.HbmPlayerProps.getData(target);
+        props.maxShield = 0F;
+        props.shield = 0F;
+        Vec3 t = spot3();
+        target.snapTo(t.x, t.y, t.z, 180F, 0F);
+        target.setDeltaMovement(Vec3.ZERO);
+        target.fallDistance = 0;
+        shooter.setHealth(shooter.getMaxHealth());
+        blastLost = 0F;
+        pose3(false);
+    }
+
+    /**
+     * The target's posed model, as a player's client sends it (ModelPosePayload → ModelHits): a dedicated server with
+     * no client has none, and blastParts goes by the parts only with one. A player's parts in blocks (the model's 1/16):
+     * standing, or lying along z (the crawling pose, the head to -z).
+     */
+    private static void pose3(boolean lying) {
+        List<ModelBox> boxes = lying ? List.of(
+                new ModelBox("head", -.25, 0, -.9, .5, 0, 0, 0, .5, 0, 0, 0, .5),
+                new ModelBox("body", -.25, 0, -.4, .5, 0, 0, 0, .25, 0, 0, 0, .75),
+                new ModelBox("right_arm", -.5, 0, -.4, .25, 0, 0, 0, .25, 0, 0, 0, .75),
+                new ModelBox("left_arm", .25, 0, -.4, .25, 0, 0, 0, .25, 0, 0, 0, .75),
+                new ModelBox("right_leg", -.25, 0, .35, .25, 0, 0, 0, .25, 0, 0, 0, .75),
+                new ModelBox("left_leg", 0, 0, .35, .25, 0, 0, 0, .25, 0, 0, 0, .75))
+                : List.of(
+                new ModelBox("head", -.25, 1.5, -.25, .5, 0, 0, 0, .5, 0, 0, 0, .5),
+                new ModelBox("body", -.25, .75, -.125, .5, 0, 0, 0, .75, 0, 0, 0, .25),
+                new ModelBox("right_arm", -.5, .75, -.125, .25, 0, 0, 0, .75, 0, 0, 0, .25),
+                new ModelBox("left_arm", .25, .75, -.125, .25, 0, 0, 0, .75, 0, 0, 0, .25),
+                new ModelBox("right_leg", -.25, 0, -.125, .25, 0, 0, 0, .75, 0, 0, 0, .25),
+                new ModelBox("left_leg", 0, 0, -.125, .25, 0, 0, 0, .75, 0, 0, 0, .25));
+        ModelHits.put(level, target, 0F, boxes);
+    }
+
+    /** one blast of {@code b} at {@code r} blocks to the target's side ({@code r} &lt; 0: a launcher's round on it) */
+    private static void boom3(Blast3 b, float r) {
+        Vec3 t = spot3();
+        if (!b.boom().launched()) {
+            grenadeAt(b, t.x + r, t.z);
+            return;
+        }
+        // the gun's own round, its damage as the gun's receiver gives it, with the mannequin its shooter: on the target
+        // from 15 blocks (NTM's rockets pass through anyone in their first 3 ticks), or falling onto the ground near it
+        // (its own impact, our contact and blast shares, NTM's blast). Some launchers will not fire for a stand
+        // (Stinger's lock-on), so the round is the stand's, its path the game's.
+        BulletConfig c = b.ammo().get();
+        float dmg = roundDamage(b);
+        com.hbm.entity.projectile.EntityBulletBaseMK4 round;
+        if (r < 0F) {
+            double dist = 15, drop = c.velocity > 0 ? c.gravity * Math.pow(dist / c.velocity, 2) / 2 : 0;
+            Vec3 from = new Vec3(t.x, t.y + 1.2, t.z - dist), d = new Vec3(t.x, t.y + 1.0 + drop, t.z).subtract(from).normalize();
+            round = new com.hbm.entity.projectile.EntityBulletBaseMK4(level, shooter, c, dmg, -c.spread, from.x, from.y, from.z, d.x, d.y, d.z);
+        } else round = new com.hbm.entity.projectile.EntityBulletBaseMK4(level, shooter, c, dmg, -c.spread, t.x + r, t.y + 1.2, t.z, 0, -1, 0);
+        level.addFreshEntity(round);
+    }
+
+    /** a launcher's round's damage: its receiver's base damage times the round's multiplier (Lego.calcDamage, new gun) */
+    private static float roundDamage(Blast3 b) {
+        ItemStack stack = loaded(b.gun().get(), b.ammo().get());
+        var receiver = ((ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getReceivers(stack)[0];
+        float d = receiver.getBaseDamage(stack) * b.ammo().get().damageMult;
+        SHOT_DAMAGE.put(b.boom().name(), d);
+        return d;
+    }
+
+    private static void planExpl() {
+        LINES.add("#\t--- этап 3: взрывы NTM по лестнице брони, стоя, blastParts и blastPartsEven; урон за взрыв (среднее) и взрывов до смерти, стенд / модель");
+        TSV3.add("взрывчатка\tгде\tнабор\tвзрывов\tблок\tурон за взрыв\tстенд, до смерти\tмодель, урон\tмодель, до смерти\tD снаряда");
+        STEPS.add(() -> {
+            kitKeys(true);
+            keys("blastParts", "true", "blastPartsEven", "true", "damageCapBlasts", "true", "balanceArmorBlasts", "true", "balanceExplRawLimit", "60");
+            // the mannequin (the rounds' and grenades' shooter) out of the rounds' way and the blasts' reach
+            shooter.snapTo(O.getX() + 8.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
+            // DEMO breaks blocks: bedrock under the target's side
+            for (int x = -6; x <= 6; x++) for (int z = 0; z <= 12; z++) level.setBlockAndUpdate(O.offset(x, -1, z), Blocks.BEDROCK.defaultBlockState());
+        });
+        wait(45);
+        for (Blast3 b : BLASTS) {
+            float[] where = b.boom().launched() ? new float[] {-1F, 1F, 3F} : new float[] {1F, 3F};
+            for (float r : where) for (String set : SETS3) {
+                boolean trench = set.equals("trenchmaster");
+                int n = trench ? 9 : 2;
+                int wait = !b.boom().launched() ? 3 : r < 0F ? 25 : 10;
+                STEPS.add(CELL::clear);
+                for (int i = 0; i < n; i++) {
+                    STEPS.add(() -> {
+                        ready3(set);
+                        boom3(b, r);
+                    });
+                    wait(wait);
+                    STEPS.add(() -> {
+                        CELL.add(blastLost);
+                        target.setHealth(target.getMaxHealth());
+                    });
+                }
+                STEPS.add(() -> cell3(b, r, set));
+            }
+        }
+        STEPS.add(BalanceCheck::writeTsv3);
+        planExplRules();
+    }
+
+    private static String where3(float r) {
+        return r < 0F ? "прямое" : Math.round(r) + " бл";
+    }
+
+    private static String hits3(int n) {
+        return n == Integer.MAX_VALUE ? "∞" : String.valueOf(n);
+    }
+
+    private static void cell3(Blast3 b, float r, String set) {
+        boolean trench = set.equals("trenchmaster");
+        int blocked = 0;
+        float sum = 0F;
+        for (float l : CELL) {
+            sum += l;
+            if (trench && l <= 0F) blocked++;
+        }
+        float mean = CELL.isEmpty() ? 0F : sum / CELL.size();
+        int game = BalanceBlasts.hits(mean);
+        String name = set.isEmpty() ? "без брони" : set;
+        BalanceArmor.SetOf def = set.isEmpty() ? null : BalanceArmor.SETS.get(set);
+        float model = BalanceBlasts.damage(b.boom(), r, set.isEmpty() ? null : set, set.isEmpty() ? 0F : BalanceArmor.rating(set), def == null ? 0F : def.tau());
+        int modelHits = BalanceBlasts.hits(model);
+        Float shot = SHOT_DAMAGE.get(b.boom().name());
+        TSV3.add(b.boom().name() + "\t" + where3(r) + "\t" + name + "\t" + CELL.size() + "\t" + blocked + "\t" + f(mean) + "\t" + hits3(game) + "\t" + f(model)
+                + "\t" + hits3(modelHits) + "\t" + (b.boom().launched() ? (shot == null ? "-" : f(shot)) : f(b.boom().d())) + "\t" + CELL);
+        String what = b.boom().name() + ", " + where3(r) + ", " + name + ": урон за взрыв " + f(mean) + ", до смерти " + hits3(game) + " (модель " + f(model) + " / "
+                + hits3(modelHits) + (trench ? ", блок " + blocked + " из " + CELL.size() : "") + ")";
+        // a blast that takes nothing where the model has a number: the hole of 10.2 again
+        if (game == Integer.MAX_VALUE && modelHits != Integer.MAX_VALUE) {
+            check(false, what + ": ∞ на стенде");
+            return;
+        }
+        // the damage of a blast against the model's; the hits differ by more on a rounding edge (9.8 and 10.0: 3 and 2)
+        float off = model > 0F ? Math.abs(mean - model) / model : 0F;
+        String line = what + ", урон " + (mean >= model ? "+" : "−") + Math.round(off * 100) + " %";
+        if (off > 0.15F) check(false, line + " (больше 15 %)");
+        else LINES.add("#\t" + line);
+    }
+
+    private static void writeTsv3() {
+        try {
+            Path out = Path.of(System.getProperty(PROPERTY)).resolveSibling("explosions.tsv");
+            Files.createDirectories(out.getParent());
+            Files.write(out, TSV3);
+            LINES.add("#\tтаблица взрывов: " + out);
+        } catch (java.io.IOException e) {
+            check(false, "запись explosions.tsv: " + e);
+        }
+    }
+
+    /** a blast of NTM's EXPLOSIVE class from the mannequin at {@code r} blocks to the target's side, of {@code damage} */
+    private static void plainBlast(float r, float damage) {
+        Vec3 t = spot3();
+        var v = new com.hbm.explosion.vanillant.ExplosionVNT(level, t.x + r, t.y + 0.15, t.z, 5F, shooter);
+        v.setEntityProcessor(new com.hbm.explosion.vanillant.standard.EntityProcessorCrossSmooth(1, damage));
+        v.setPlayerProcessor(new com.hbm.explosion.vanillant.standard.PlayerProcessorStandard());
+        v.explode();
+    }
+
+    private static float took() {
+        return blastLost;
+    }
+
+    /** a step of the rules: the target made ready in {@code set}, {@code act}, then after {@code ticks} {@code then} */
+    private static void rule3(String set, Runnable act, int ticks, Runnable then) {
+        STEPS.add(() -> {
+            ready3(set);
+            act.run();
+        });
+        wait(ticks);
+        STEPS.add(() -> {
+            then.run();
+            target.setHealth(target.getMaxHealth());
+        });
+    }
+
+    private static float stood, walled;
+    private static final float[] LYING = new float[3];
+
+    /** a hand grenade of {@code b} gone off on the ground at x, z, the mannequin its thrower */
+    private static void grenadeAt(Blast3 b, double x, double z) {
+        var grenade = new com.hbm.entity.grenade.EntityGrenadeUniversal(level, com.hbm.items.weapon.grenade.ItemGrenadeUniversal.make(
+                com.hbm.items.weapon.grenade.ItemGrenadeShell.EnumGrenadeShell.STICK, b.filling(), com.hbm.items.weapon.grenade.ItemGrenadeFuze.EnumGrenadeFuze.IMPACT));
+        grenade.setThrower(shooter);
+        grenade.setPos(x, spot3().y + 0.15, z);
+        grenade.explode();
+    }
+
+    /** the cap on blasts, the raw limit, the nuclear ones, lying and a wall; the keys off */
+    private static void planExplRules() {
+        LINES.add("#\t--- этап 3: правила взрывов (потолок, сырой урон, ядерные, лёжа, за стеной, ключи)");
+        Blast3 he = BLASTS.get(1);
+        // the click's cap on a blast: 60 % of 20
+        rule3("", () -> boom3(he, 1F), 3, () -> check(took() > 11.9F && took() <= 12.01F,
+                "потолок 60 % на EXPLOSIVE: граната HE в 1 бл, без брони (сырой ~23,8): снято " + f(took()) + " (ждали 12)"));
+        // the head's cap: a blast's hurt through HeadDamage with the head's multiplier, as MixinExplosiveProcessor does it
+        for (float m : new float[] {1.75F, 1F}) rule3("", () -> HeadDamage.attack(target, 30F, m,
+                d -> com.hbm.util.EntityDamageUtil.attackEntityFromNT(target, level.damageSources().source(com.hbm.lib.ModDamageTypes.EXPLOSIVE, shooter), d, true,
+                        false, 0, 0, 0)),
+                3, () -> {
+                    float want = m > 1F ? 16F : 12F;
+                    check(Math.abs(took() - want) < 0.05F, "потолок на EXPLOSIVE" + (m > 1F ? " в голову 80 %" : " в тело 60 %") + ": удар взрыва 30 × " + f(m)
+                            + " от стрелка, без брони: снято " + f(took()) + " (ждали " + f(want) + ")");
+                });
+        // the window: a rocket's contact and blast in two clicks, together at most 80 %
+        // a round on the target: its contact and blast one hurt (ExplosiveDamage), one click; raw about 50 (the blast a hair off the box)
+        rule3("", () -> boom3(BLASTS.get(7), -1F), 25, () -> check(took() > 11.9F && took() <= 12.01F,
+                "потолок 60 %: ракета Missile Launcher прямое, без брони (контакт 30 + взрыв 20): снято " + f(took()) + " (ждали 12)"));
+        rule3("hev", () -> boom3(BLASTS.get(7), -1F), 25, () -> check(BalanceArmor.seenHits == 1 && Math.abs(BalanceArmor.seenIn - 50F) < 2F,
+                "ракета Missile Launcher прямое, HEV: контакт и взрыв одним ударом (ударов через броню " + BalanceArmor.seenHits + ", сырой "
+                        + f(BalanceArmor.seenIn) + ", ждали 1 и ≈50)"));
+        // a blast of more raw damage than balanceExplRawLimit: not capped (100 at 1 of 5: 80 raw)
+        rule3("", () -> plainBlast(1F, 100F), 3, () -> check(took() > 12.5F,
+                "сырой урон > 60 мимо потолка: взрыв 100 в 1 бл (сырой ~93), без брони: снято " + f(took()) + " (ждали больше 12)"));
+        rule3("", () -> plainBlast(1F, 60F), 3, () -> check(took() <= 12.01F && took() > 11.9F,
+                "сырой урон ≤ 60 под потолком: взрыв 60 в 1 бл (сырой ~56), без брони: снято " + f(took()) + " (ждали 12)"));
+        // just over the limit raw, well under it after HEV: the cap looks at the raw damage
+        rule3("hev", () -> plainBlast(1F, 70F), 3, () -> check(took() > 12.5F && BalanceArmor.seenIn > 60F && BalanceArmor.seenOut < 60F,
+                "сырой урон > 60 мимо потолка: взрыв 70 в 1 бл, HEV: сырой " + f(BalanceArmor.seenIn) + ", после брони " + f(BalanceArmor.seenOut) + ", снято "
+                        + f(took()) + " (ждали больше 12)"));
+        // nuclear: NTM's ExplosionNukeGeneric.dealDamage (NUCLEAR_BLAST, no shooter), and a nuclear hit from the mannequin
+        rule3("", () -> com.hbm.explosion.ExplosionNukeGeneric.dealDamage(level, spot3().x + 1, spot3().y, spot3().z, 6), 3,
+                () -> check(took() > 12.5F, "ядерный взрыв (ExplosionNukeGeneric.dealDamage, 1 бл): снято " + f(took()) + " (ждали больше 12)"));
+        rule3("", () -> target.hurtServer(level, level.damageSources().source(com.hbm.lib.ModDamageTypes.NUCLEAR_BLAST, shooter), 30F), 3,
+                () -> check(took() > 12.5F, "ядерный удар 30 от стрелка мимо потолка: снято " + f(took()) + " (ждали больше 12)"));
+        // standing, lying, behind a wall: HE at 2 blocks on HEV (no cap in the way)
+        STEPS.add(() -> {
+            ready3("hev");
+            LINES.add("#\tпоза игрока-цели (как от клиента): " + (ModelHits.hasPose(target) ? "есть, взрыв по частям" : "нет (урон NTM целиком)"));
+        });
+        rule3("hev", () -> boom3(he, 2F), 3, () -> stood = took());
+        // lying (the head to -z): the grenade 2 blocks from its side, from its head's end, from its feet's end
+        double[][] lyingAt = {{2, 0}, {0, -0.9 - 2}, {0, 1.1 + 2}};
+        String[] lyingName = {"боком", "головой к гранате", "ногами к гранате"};
+        for (int k = 0; k < 3; k++) {
+            int kk = k;
+            rule3("hev", () -> {
+                target.setForcedPose(net.minecraft.world.entity.Pose.SWIMMING);
+                target.refreshDimensions();
+                pose3(true);
+                Vec3 t = spot3();
+                grenadeAt(he, t.x + lyingAt[kk][0], t.z + lyingAt[kk][1]);
+            }, 3, () -> {
+                LYING[kk] = took();
+                target.setForcedPose(null);
+                target.refreshDimensions();
+            });
+        }
+        rule3("hev", () -> {
+            // a row of stone one high between the grenade (2 blocks to the side) and the target
+            Vec3 t = spot3();
+            for (int z = -3; z <= 3; z++) level.setBlockAndUpdate(BlockPos.containing(t.x + 1, t.y, t.z + z), Blocks.STONE.defaultBlockState());
+            boom3(he, 2F);
+        }, 3, () -> {
+            walled = took();
+            Vec3 t = spot3();
+            for (int z = -3; z <= 3; z++) level.setBlockAndUpdate(BlockPos.containing(t.x + 1, t.y, t.z + z), Blocks.AIR.defaultBlockState());
+            for (int k = 0; k < 3; k++) LINES.add("#\tграната HE в 2 бл, HEV, лёжа " + lyingName[k] + ": " + f(LYING[k]) + " (стоя " + f(stood) + ")");
+            check(stood > 0F && LYING[1] < stood && LYING[2] < stood, "лёжа головой и ногами к гранате меньше, чем стоя: граната HE в 2 бл, HEV: стоя " + f(stood)
+                    + ", лёжа головой " + f(LYING[1]) + ", ногами " + f(LYING[2]) + " (боком " + f(LYING[0]) + ")");
+            check(stood > 0F && walled < stood, "за стеной меньше, чем стоя: граната HE в 2 бл, стена в 1 блок высотой, HEV: стоя " + f(stood) + ", за стеной " + f(walled));
+        });
+        // the keys off: NTM's
+        STEPS.add(() -> keys("damageCapBlasts", "false"));
+        wait(30);
+        rule3("", () -> boom3(he, 1F), 3, () -> check(took() > 20F,
+                "damageCapBlasts = false: граната HE в 1 бл без брони мимо потолка: снято " + f(took()) + " (сырой ~23,8)"));
+        STEPS.add(() -> keys("damageCapBlasts", "true", "balanceArmorBlasts", "false"));
+        wait(30);
+        rule3("hev", () -> boom3(he, 1F), 3, () -> check(BalanceArmor.seenHits > 0 && BalanceArmor.seenOut == BalanceArmor.seenNtm,
+                "balanceArmorBlasts = false: граната HE по HEV числами NTM (после брони " + f(BalanceArmor.seenOut) + " = NTM " + f(BalanceArmor.seenNtm)
+                        + "), снято " + f(took())));
+        STEPS.add(() -> keys("balanceArmorBlasts", "true"));
+        wait(30);
+        rule3("hev", () -> boom3(he, 1F), 3, () -> check(BalanceArmor.seenHits > 0 && BalanceArmor.seenOut != BalanceArmor.seenNtm,
+                "balanceArmorBlasts = true: граната HE по HEV формулой C (после брони " + f(BalanceArmor.seenOut) + ", NTM " + f(BalanceArmor.seenNtm)
+                        + "), снято " + f(took())));
+        STEPS.add(() -> shooter.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5, 0F, 0F));
+    }
+
+    // ---------------------------------------------------------------- stage 3: ESP (no players in VATS and thermal)
+
+    /** NTM's suits whose bonus has VATS or thermal vision, and the item name of each */
+    private static String espItems(com.hbm.items.armor.ModArmorItem.Suit s) {
+        return switch (s.name()) {
+            case "DIGAMMA" -> "fau";
+            case "DIESEL" -> "dieselsuit";
+            case "DESH" -> "steamsuit";
+            default -> s.name().toLowerCase(Locale.ROOT);
+        };
+    }
+
+    private static Mob espMob;
+
+    /**
+     * The viewer (a player) in each set with VATS or thermal vision asks the same decision as the client's renderer
+     * (ArmorAbilities.thermalKeeps / vatsKeeps; MixinArmorEsp) about a player behind a wall 10 blocks off, in the open
+     * 20 blocks off and in the open 10 blocks off, and about a zombie behind the wall; then AMAT Penance's sight, then
+     * the keys off and all.
+     */
+    private static void planEsp() {
+        LINES.add("#\t--- этап 3: ESP: VATS и термо не показывают игроков, кроме ступени 8 (16 бл, по прямой видимости)");
+        BlockPos v = O.offset(-12, 0, 0);
+        STEPS.add(() -> {
+            keys("abilities.esp.players", "tier8", "abilities.esp.playerRange", "16");
+            for (int x = -3; x <= 3; x++) for (int y = 0; y <= 3; y++) level.setBlockAndUpdate(v.offset(x, y, 5), Blocks.STONE.defaultBlockState());
+            var zombie = EntityTypes.ZOMBIE.create(level, EntitySpawnReason.COMMAND);
+            zombie.setNoAi(true);
+            zombie.snapTo(v.getX() + 0.5, v.getY(), v.getZ() + 10.5, 180F, 0F);
+            level.addFreshEntity(zombie);
+            espMob = zombie;
+        });
+        wait(30);
+        STEPS.add(() -> {
+            List<String> seen = new ArrayList<>();
+            for (var s : com.hbm.items.armor.ModArmorItem.Suit.values()) {
+                var bonus = com.hbm.items.armor.ArmorFullSetBonus.get(s);
+                if (bonus == null || !(bonus.vats() || bonus.thermal())) continue;
+                String name = espItems(s);
+                for (EquipmentSlot slot : SLOTS) gunner.setItemSlot(slot, ItemStack.EMPTY);
+                try {
+                    dress(gunner, name, true);
+                } catch (IllegalStateException e) {
+                    check(false, "ESP: набор " + s.name() + " (" + name + "): нет предметов");
+                    continue;
+                }
+                int tier = ArmorAbilities.espTier(gunner);
+                seen.add(s.name() + " " + tier);
+                esp(s.name() + " (ступень " + tier + ", " + (bonus.thermal() ? "термо" : "") + (bonus.vats() ? " VATS" : "") + ")", tier, tier >= 8);
+            }
+            LINES.add("#\tESP: наборы с VATS/термо: " + seen);
+            check(seen.stream().anyMatch(x -> x.startsWith("DIGAMMA 8")) && seen.stream().anyMatch(x -> x.startsWith("DNS 8")),
+                    "ESP: FAU и DNS среди наборов с термо, ступень 8");
+            for (EquipmentSlot slot : SLOTS) gunner.setItemSlot(slot, ItemStack.EMPTY);
+            ItemStack penance = new ItemStack(ModItems.GUN_AMAT_PENANCE.get());
+            var gun = (ItemGunBaseNT) penance.getItem();
+            boolean sights = false;
+            for (int i = 0; i < gun.getConfigCount(); i++) sights |= gun.getConfig(penance, i).hasThermalSights(penance);
+            check(sights, "ESP: у AMAT Penance тепловой прицел (hasThermalSights)");
+            esp("прицел AMAT Penance, без брони", ArmorAbilities.GUN_SIGHT_TIER, true);
+            dress(gunner, "fau", true);
+            keys("abilities.esp.players", "off");
+        });
+        wait(30);
+        STEPS.add(() -> {
+            String mode = ArmorAbilities.espModeNow();
+            espCase("off, FAU", ArmorAbilities.espTier(gunner), mode, 10, false, false);
+            keys("abilities.esp.players", "all");
+            for (EquipmentSlot slot : SLOTS) gunner.setItemSlot(slot, ItemStack.EMPTY);
+            dress(gunner, "t51", true);
+        });
+        wait(30);
+        STEPS.add(() -> {
+            String mode = ArmorAbilities.espModeNow();
+            espCase("all (NTM), T-51b", ArmorAbilities.espTier(gunner), mode, 10, true, true);
+            espCase("all (NTM), T-51b", ArmorAbilities.espTier(gunner), mode, 20, false, true);
+            check(ArmorAbilities.vatsKeeps(mode, target), "ESP all (NTM): VATS показывает игрока");
+            keys("abilities.esp.players", "tier8");
+            for (EquipmentSlot slot : SLOTS) gunner.setItemSlot(slot, ItemStack.EMPTY);
+            gunner.snapTo(O.getX() + 4.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
+            if (espMob != null) espMob.discard();
+            for (int x = -3; x <= 3; x++) for (int y = 0; y <= 3; y++) level.setBlockAndUpdate(v.offset(x, y, 5), Blocks.AIR.defaultBlockState());
+        });
+        wait(30);
+    }
+
+    /** the three cases of stage 3 for a viewer of {@code tier}; {@code tier8}: only the open 10 blocks shows the player */
+    private static void esp(String what, int tier, boolean tier8) {
+        String mode = ArmorAbilities.espModeNow();
+        espCase(what, tier, mode, 10, true, false);
+        espCase(what, tier, mode, 20, false, false);
+        espCase(what, tier, mode, 10, false, tier8);
+        check(!ArmorAbilities.vatsKeeps(mode, target), "ESP " + what + ": VATS не показывает игрока");
+        check(ArmorAbilities.vatsKeeps(mode, espMob) && ArmorAbilities.thermalKeeps(mode, ArmorAbilities.espRangeNow(), tier, gunner, espMob),
+                "ESP " + what + ": зомби за стеной в 10 бл виден в термо и VATS, как в NTM");
+    }
+
+    /** the viewer at its spot, the target {@code dist} blocks in front ({@code wall}: behind the wall at 5) */
+    private static void espCase(String what, int tier, String mode, int dist, boolean wall, boolean want) {
+        BlockPos v = O.offset(-12, 0, 0);
+        gunner.snapTo(v.getX() + 0.5, v.getY(), v.getZ() + 0.5, 0F, 0F);
+        // behind the wall: straight on, the wall at +5; in the open: the other way (-z), nothing between
+        double x = v.getX() + 0.5;
+        double z = v.getZ() + 0.5 + (wall ? dist : -dist);
+        target.snapTo(x, v.getY(), z, 180F, 0F);
+        boolean keeps = ArmorAbilities.thermalKeeps(mode, ArmorAbilities.espRangeNow(), tier, gunner, target);
+        check(keeps == want, "ESP " + what + ": игрок " + (wall ? "за стеной" : "на открытом месте") + " в " + f(gunner.distanceTo(target)) + " бл, видимость "
+                + gunner.hasLineOfSight(target) + ": " + (keeps ? "виден" : "не виден") + " (ждали " + (want ? "виден" : "не виден") + ")");
     }
 
     // ---------------------------------------------------------------- big mults on weak ammo against low armour
@@ -1194,6 +1632,8 @@ public final class BalanceCheck {
             begin(target);
             noShield = !vanilla;
             dress(target, p.set(), vanilla);
+            headHit = 0;
+            DamageCap.last = "";
             target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
         });
         clicks(shooter, p.gun(), p.ammo(), EnumKeybind.GUN_PRIMARY);
@@ -1201,6 +1641,11 @@ public final class BalanceCheck {
             String r = row(mode, p.set(), p.gunName()) + "\t" + f(p.modelHit()) + " / " + p.modelClicks();
             if (mode.equals("NTM")) return;
             if (p.modelHit() <= 0F) {
+                // a sniper's bullet in the head has all of a click (cap 1.0): written down, not checked
+                if (headHit == 2) {
+                    LINES.add("#\t" + mode + ", " + p.set() + ", " + p.gunName() + ": клик снял " + f(firstClick) + ", пуля в голову, пушка снайперская (потолок 1,0)" + r);
+                    return;
+                }
                 check(firstClick <= 12.01F && firstClick > 11F, mode + ", " + p.set() + ", " + p.gunName() + ": клик снял " + f(firstClick) + " ≤ 12 (потолок)" + r);
                 return;
             }

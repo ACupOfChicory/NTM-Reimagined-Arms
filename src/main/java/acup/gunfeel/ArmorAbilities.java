@@ -79,10 +79,10 @@ public final class ArmorAbilities {
         return suit.equals("BISMUTH") && k.bismuth() ? Math.min(ntm, BISMUTH_DASHES) : ntm;
     }
 
-    /** the thermal vision of a set of {@code tier} shows a player {@code dist} blocks away it {@code sees} or not */
     /** a gun's thermal sight sees players as this tier's sets do */
     public static final int GUN_SIGHT_TIER = 8;
 
+    /** the thermal vision of a set of {@code tier} shows a player {@code dist} blocks away it {@code sees} or not */
     public static boolean thermalShows(String mode, int tier, double dist, double range, boolean sees) {
         if (mode.equals("all")) return true;
         if (mode.equals("off")) return false;
@@ -92,6 +92,37 @@ public final class ArmorAbilities {
     /** VATS shows players' health bars only as in NTM */
     public static boolean vatsShows(String mode) {
         return mode.equals("all");
+    }
+
+    /**
+     * The thermal vision (or a gun's thermal sight, {@code tier} {@link #GUN_SIGHT_TIER}) of {@code viewer} keeps the
+     * outline of {@code ent}: anything but a player as in NTM, a player by {@link #thermalShows} (its distance and the
+     * viewer's line of sight, vanilla's: from eyes to eyes, blocks stop it). The client's renderer (MixinArmorEsp) asks
+     * this, and so does the stand.
+     */
+    public static boolean thermalKeeps(String mode, double range, int tier, net.minecraft.world.entity.LivingEntity viewer,
+            net.minecraft.world.entity.Entity ent) {
+        if (!(ent instanceof net.minecraft.world.entity.player.Player) || mode.equals("all")) return true;
+        if (mode.equals("off") || tier < 8) return false;
+        double dist = viewer.distanceTo(ent);
+        return thermalShows(mode, tier, dist, range, dist <= range && viewer.hasLineOfSight(ent));
+    }
+
+    /** VATS keeps the health bar of {@code ent}: anything but a player as in NTM, a player only with {@code mode} all */
+    public static boolean vatsKeeps(String mode, net.minecraft.world.entity.Entity ent) {
+        return !(ent instanceof net.minecraft.world.entity.player.Player) || vatsShows(mode);
+    }
+
+    /**
+     * the tier of the full set whose VATS or thermal vision {@code viewer} has on, as NTM's renderer finds it
+     * ({@code ArmorOverheadRenderer.activeChestBonus}: the first suit with either), 0 for none
+     */
+    public static int espTier(net.minecraft.world.entity.LivingEntity viewer) {
+        for (Suit s : Suit.values()) {
+            ArmorFullSetBonus b = ArmorFullSetBonus.get(s);
+            if (b != null && (b.vats() || b.thermal()) && com.hbm.items.armor.ArmorSuitEffects.hasFullSet(viewer, s)) return tierOf(b);
+        }
+        return 0;
     }
 
     public static String espModeNow() {

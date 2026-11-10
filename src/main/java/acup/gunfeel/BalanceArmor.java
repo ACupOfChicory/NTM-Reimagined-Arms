@@ -86,8 +86,9 @@ public final class BalanceArmor {
         if (source.is(DamageTypeTags.BYPASSES_EFFECTS)) return null;
         if (source.is(ModDamageTypes.NUCLEAR_BLAST) || source.is(ModDamageTypes.DIGAMMA) || source.is(ModDamageTypes.RADIATION)) return null;
         String cat = DamageResistanceHandler.typeToCategory(source);
-        return DamageResistanceHandler.CATEGORY_ENERGY.equals(cat) || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)
-                || DamageResistanceHandler.CATEGORY_PHYSICAL.equals(cat) ? cat : null;
+        // balanceArmorBlasts off: blasts take NTM's numbers, bullets and beams the formula's
+        if (DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) return ReaimTimes.flag("balanceArmorBlasts", true) ? cat : null;
+        return DamageResistanceHandler.CATEGORY_ENERGY.equals(cat) || DamageResistanceHandler.CATEGORY_PHYSICAL.equals(cat) ? cat : null;
     }
 
     /**
@@ -123,7 +124,30 @@ public final class BalanceArmor {
     static int seenHits;
     static float seenIn, seenNtm, seenOut;
 
+    /** the hit's damage NTM's calculateDamage took last, and on whom (after NTM's shield: what the formula sees) */
+    private static LivingEntity amountOf;
+    private static float amount;
+
+    /**
+     * the damage this hurt on {@code target} came to NTM's armour with (after NTM's shield and armour mods), read once;
+     * {@code fallback} when NTM's armour did not see it
+     */
+    static float takeAmount(LivingEntity target, float fallback) {
+        float out = amountOf == target ? amount : fallback;
+        amountOf = null;
+        return out;
+    }
+
+    /** balanceExplRawLimit: a blast of more raw damage is not squeezed, nor capped (DamageCap) */
+    static float explRawLimit() {
+        return positive("balanceExplRawLimit", 60F);
+    }
+
     private static float apply0(LivingEntity target, DamageSource source, float amount, float neg, float pen, float ntm) {
+        if (!target.level().isClientSide()) {
+            amountOf = target;
+            BalanceArmor.amount = amount;
+        }
         if (!on() || !(amount > 0F)) return ntm;
         String cat = category(source);
         if (cat == null) return ntm;
@@ -135,7 +159,7 @@ public final class BalanceArmor {
         // a most not above the knee: the defaults
         var tune = most > knee ? new BalanceArmorRule.Tune(knee, most) : BalanceArmorRule.Tune.DEFAULT;
         // a blast of more than this raw damage (a mine, C4, a block of TNT: building, not a weapon) is not squeezed
-        boolean squeeze = !expl || amount <= positive("balanceExplRawLimit", 60F);
+        boolean squeeze = !expl || amount <= explRawLimit();
         var hit = new BalanceArmorRule.Hit(amount, neg, pen, squeeze);
         float enShare = Math.min(1F, positive("balanceEnShare", 0.75F));
         for (int i = 0; i < 4; i++) {
