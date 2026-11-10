@@ -145,6 +145,8 @@ public final class BalanceCheck {
             if (e.getEntity() != victim || victim == null) return;
             hits++;
             lost += e.getInflictedDamage();
+            // the pass mx: each hit of a cell, its type, what it took and the cap's ruling
+            if (mxHits != null) mxHits.append(e.getSource().getMsgId()).append(' ').append(f(e.getInflictedDamage())).append(" [").append(DamageCap.last).append("]; ");
             if (!e.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FALL)) blastLost += e.getInflictedDamage();
         });
     }
@@ -305,6 +307,7 @@ public final class BalanceCheck {
         if (only("pool")) planPool();
         if (only("pep")) planPep();
         if (only("hot")) planHot();
+        if (only("mx")) planMatrix();
     }
 
     // ---------------------------------------------------------------- melee and the flamethrower (hotfix X867)
@@ -490,7 +493,6 @@ public final class BalanceCheck {
             target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
         });
         wait(20);
-        if (only("mx")) planMatrix();
     }
 
     // ---------------------------------------------------------------- the model's cells, one by one
@@ -515,8 +517,14 @@ public final class BalanceCheck {
      * it was. DNS and FAU by their rating (formula); euphemium in its window (a pool of 0.01 emptied by a first click).
      * No checks: the lines "mx" go to the model (notes/balance/review-fixes-2026-11-10.md).
      */
+    /** the pass mx: the hits of the cell being played (null: not logged) */
+    private static StringBuilder mxHits;
+    /** -PbalanceCellHits: each hit of the cells logged */
+    private static boolean mxLog;
+
     private static void planMatrix() {
         String file = System.getProperty("ntmgunfeel.checkBalance.cells", "").trim();
+        mxLog = Boolean.getBoolean("ntmgunfeel.checkBalance.cellHits");
         if (file.isEmpty()) return;
         List<Cell> cells = new ArrayList<>();
         try {
@@ -550,12 +558,15 @@ public final class BalanceCheck {
             STEPS.add(() -> {
                 begin(target);
                 for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
-                if (!cell.set().isEmpty()) dress(target, cell.set(), false);
+                // as worn in the game: the pieces' vanilla armour by balance.vanilla0 (the joke sets keep theirs)
+                if (!cell.set().isEmpty()) dress(target, cell.set(), true);
+                wearAttributes(target);
                 EuphImmunity.forget(target);
                 homePool();
                 aimHead = cell.head();
                 took[0] = 0F;
                 hitsSeen[0] = 0;
+                mxHits = new StringBuilder();
             });
             wait(5);
             // euphemium: the first click empties the pool of 0.01, the window is open from the next tick
@@ -582,11 +593,15 @@ public final class BalanceCheck {
             STEPS.add(() -> {
                 aimHead = false;
                 LINES.add("mx\t" + id + "\t" + f(took[0] / 3F) + "\t" + f(hitsSeen[0] / 3F));
+                if (mxLog) LINES.add("#\tmx-hits\t" + id + "\t" + mxHits);
+                mxHits = null;
             });
         }
         STEPS.add(() -> {
             keys("balance.immune.pool", "2000", "balance.immune.window", "15", "balance.immune.recover", "60");
             shooter.setInvulnerable(false);
+            for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
+            wearAttributes(target);
         });
         wait(30);
     }

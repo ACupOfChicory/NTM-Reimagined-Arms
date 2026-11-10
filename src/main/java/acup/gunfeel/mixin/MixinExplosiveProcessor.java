@@ -31,7 +31,9 @@ public abstract class MixinExplosiveProcessor implements ExplosiveDamage.Process
         // no bullet (hand grenades); not an explosive bullet's
         // (a blast with no bound bullet inside a bullet's impact is that bullet's: a launcher's round's or not)
         boolean weapon=clazz==com.hbm.util.DamageClass.EXPLOSIVE && (gunfeel$blast!=null ? ExplosiveDamage.launched(gunfeel$blast) : ExplosiveDamage.launchedNow());
-        return acup.gunfeel.BalanceArmor.withBlastPower(weapon,rocketDirect,total,()->{
+        // an explosive bullet's blast (inside a bullet's impact, not a launcher's round): squeezed and capped at any raw
+        boolean bullet=clazz==com.hbm.util.DamageClass.EXPLOSIVE && (gunfeel$blast!=null || ExplosiveDamage.current()!=null);
+        return acup.gunfeel.BalanceArmor.withBlastPower(weapon,rocketDirect,bullet,total,()->{
             if(m!=1F && total>area && total>0)
                 return acup.gunfeel.HeadDamage.attack(target,total,(area*m+total-area)/total,
                         d->ExplosiveDamage.attack(target,source,d,first,second,knockback,threshold,piercing));

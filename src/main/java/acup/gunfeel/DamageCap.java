@@ -180,7 +180,9 @@ public final class DamageCap {
      * squeeze by the same limit) takes it, after NTM's shield.
      */
     static boolean blastFree(float raw) {
-        return !ReaimTimes.flag("damageCapBlasts", true) || raw > BalanceArmor.explRawLimit();
+        if (!ReaimTimes.flag("damageCapBlasts", true)) return true;
+        // an explosive bullet's blast is capped at any raw damage (balanceBulletBlastCap)
+        return raw > BalanceArmor.explRawLimit() && !BalanceArmor.bulletBlastNow();
     }
 
     private static void damage(LivingDamageEvent.Pre e) {

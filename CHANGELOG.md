@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- An explosive bullet's blast (HE rounds of rifles, the AMAT's HE, explosive
+  buckshot) is taken by the armour formula and the damage cap at any damage.
+  NTM deals such a blast with the bullet's whole damage, so a heavy gun's HE
+  round came past the limit meant for mines and charges and killed any armour
+  from full health with one shot; now the AMAT Penance's HE round takes 9.7
+  off RPA, the MAS-36's 7.3. New server key `balanceBulletBlastCap` (false:
+  as X865).
+
+## X867
+
 - Melee is NTM's again on armour: the balance's armour formula and its flesh
   squeeze take only NTM's shots (bullets, beams and their blasts) and weapons'
   blasts. A sword, the Crucible, a chainsaw, a mob's blow, vanilla's arrows,

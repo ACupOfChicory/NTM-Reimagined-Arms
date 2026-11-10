@@ -217,7 +217,7 @@ public final class EuphImmunity {
             amount *= 5F;
         NtmDamageContext ctx = (NtmDamageContext) player;
         float s = DamageResistanceHandler.CATEGORY_ENERGY.equals(cat) ? st[0] * Math.min(1F, ReaimTimes.number("balanceEnShare", 0.75F)) : st[0];
-        boolean squeeze = !DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) || amount <= ReaimTimes.number("balanceExplRawLimit", 60F);
+        boolean squeeze = !DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) || amount <= ReaimTimes.number("balanceExplRawLimit", 60F) || BalanceArmor.bulletBlastNow();
         // a weapon's blast as BalanceArmor takes it (balanceBlastPower, set around the blast's hurt)
         float power = DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) && squeeze ? BalanceArmor.BLAST_POWER.get() : 1F;
         // by the kit's tier (8, 9): a rocket's direct hit balanceBlastPowerRocketHigh

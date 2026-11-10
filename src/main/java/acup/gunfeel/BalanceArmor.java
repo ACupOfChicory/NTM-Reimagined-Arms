@@ -211,17 +211,37 @@ public final class BalanceArmor {
 
     /** the same; {@code rocketDirect}: a rocket's blast on the creature it struck */
     public static <T> T withBlastPower(boolean weapon, boolean rocketDirect, float amount, java.util.function.Supplier<T> hurt) {
+        return withBlastPower(weapon, rocketDirect, false, amount, hurt);
+    }
+
+    /** an explosive bullet's blast being dealt now (not a launcher's round): squeezed and capped at any raw damage */
+    static final ThreadLocal<Boolean> BULLET_BLAST = ThreadLocal.withInitial(() -> false);
+
+    /**
+     * balanceBulletBlastCap (true; false: X865): an explosive bullet's blast is the formula's and the cap's at any raw
+     * damage. Its blast is the bullet's whole damage (NTM's EntityProcessorCrossSmooth): a heavy gun's HE round came
+     * past balanceExplRawLimit and killed any set from full health with one click.
+     */
+    static boolean bulletBlastNow() {
+        return BULLET_BLAST.get() && ReaimTimes.flag("balanceBulletBlastCap", true);
+    }
+
+    /** the same; {@code bullet}: the blast is an explosive bullet's (bound to a bullet, not a launcher's round) */
+    public static <T> T withBlastPower(boolean weapon, boolean rocketDirect, boolean bullet, float amount, java.util.function.Supplier<T> hurt) {
         // not a weapon's: 1, also when it goes off inside a weapon's blast's hurt
         float power = !weapon || !on() || amount > explRawLimit() ? 1F : blastPower();
         Float before = BLAST_POWER.get();
         Boolean direct = ROCKET_DIRECT.get();
+        Boolean wasBullet = BULLET_BLAST.get();
         BLAST_POWER.set(power);
         ROCKET_DIRECT.set(weapon && rocketDirect);
+        BULLET_BLAST.set(!weapon && bullet);
         try {
             return hurt.get();
         } finally {
             BLAST_POWER.set(before);
             ROCKET_DIRECT.set(direct);
+            BULLET_BLAST.set(wasBullet);
         }
     }
 
@@ -246,7 +266,7 @@ public final class BalanceArmor {
         // a most not above the knee: the defaults
         var tune = most > knee ? new BalanceArmorRule.Tune(knee, most) : BalanceArmorRule.Tune.DEFAULT;
         // a blast of more than this raw damage (a mine, C4, a block of TNT: building, not a weapon) is not squeezed
-        boolean squeeze = !expl || amount <= explRawLimit();
+        boolean squeeze = !expl || amount <= explRawLimit() || bulletBlastNow();
         // a weapon's blast (a grenade, a 40 mm shell, a rocket) hits the set stronger (balanceBlastPower): its damage
         // times the power into the formula, the limit above and the cap by its own; never more than with no armour
         float power = expl && squeeze ? BLAST_POWER.get() : 1F;
