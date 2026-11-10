@@ -33,8 +33,8 @@ final class BotStandHits {
     private BotStandHits() {
     }
 
-    /** a ray from {@code from} to {@code to}: what the drawn model shows there ("" for nothing) */
-    record Ray(Vec3 from, Vec3 to, String drawn) {
+    /** a ray from {@code from} to {@code to}: what the drawn model shows there ("" for nothing), the part it meets */
+    record Ray(Vec3 from, Vec3 to, String drawn, String part) {
     }
 
     /** where a part's name puts it: the head, a limb or the body */
@@ -77,7 +77,7 @@ final class BotStandHits {
                         part = b.part();
                     }
                 }
-                out.add(new Ray(from, to, zone(part)));
+                out.add(new Ray(from, to, zone(part), part));
             }
         }
         return out;
@@ -109,11 +109,120 @@ final class BotStandHits {
             Vec3 p = hit.get();
             String zone = ModelHits.head(m, p).head() ? "head" : ModelHits.limb(m, p) ? "limb" : "body";
             if (zone.equals(r.drawn())) same++;
-            else wrong.merge(r.drawn() + "→" + zone, 1, Integer::sum);
+            else {
+                wrong.merge(r.drawn() + "→" + zone + " " + r.part(), 1, Integer::sum);
+                // a limb's piece taken for the body: the limb zone nearest, how far out
+                if (r.drawn().equals("limb") && zone.equals("body")) wrong.merge("  вне " + outside(ModelHits.standLimbZones(m), p), 1, Integer::sum);
+            }
         }
         return new Grid(in, out, in == 0 ? 0 : inHit / (double) in, out == 0 ? 0 : outHit / (double) out,
                 inHit == 0 ? 0 : same / (double) inHit, in == 0 ? 0 : boxIn / (double) in, out == 0 ? 0 : boxOut / (double) out,
                 wrong.toString());
+    }
+
+    /** a part's box in the agent's frame, px: across, up, along its facing; at its centre */
+    record Size(String part, double across, double up, double along) {
+        @Override
+        public String toString() {
+            return String.format(Locale.ROOT, "%s %.2f×%.2f×%.2f", part, across, up, along);
+        }
+    }
+
+    /** the boxes' sizes in px (the agent turned {@code yaw}): the parts shot and every layer drawn over the body */
+    static List<Size> sizes(List<ModelBox> boxes, float yaw) {
+        double a = Math.toRadians(yaw);
+        Vec3 fwd = new Vec3(-Math.sin(a), 0, Math.cos(a)), right = new Vec3(-Math.cos(a), 0, -Math.sin(a)), up = new Vec3(0, 1, 0);
+        List<Size> out = new ArrayList<>();
+        for (ModelBox b : boxes) {
+            if (!b.part().contains("/draws/") && java.util.Arrays.stream(PARTS).noneMatch(p -> p[1].equals(b.part()))) continue;
+            out.add(new Size(b.part(), extent(b, right) * 16, extent(b, up) * 16, extent(b, fwd) * 16));
+        }
+        return out;
+    }
+
+    /**
+     * Each piece of armour against the part under it (the same name without the layer's, in the same order): how far
+     * its centre is from the part's, px, and the largest angle between their edges, degrees. Armour posed as the part
+     * shows 0 and 0.
+     */
+    static List<String> fit(List<ModelBox> boxes) {
+        List<String> out = new ArrayList<>();
+        java.util.Map<String, Integer> seen = new java.util.HashMap<>();
+        for (ModelBox armour : boxes) {
+            int at = armour.part().indexOf("/armor/draws/");
+            if (at < 0) continue;
+            String part = armour.part().substring(0, at);
+            int index = seen.merge(part, 1, Integer::sum) - 1;
+            ModelBox bare = null;
+            int n = 0;
+            for (ModelBox b : boxes) if (b.part().equals(part) && n++ == index) bare = b;
+            if (bare == null) continue;
+            double angle = Math.max(angle(bare.ux(), bare.uy(), bare.uz(), armour.ux(), armour.uy(), armour.uz()),
+                    Math.max(angle(bare.vx(), bare.vy(), bare.vz(), armour.vx(), armour.vy(), armour.vz()),
+                            angle(bare.wx(), bare.wy(), bare.wz(), armour.wx(), armour.wy(), armour.wz())));
+            out.add(String.format(Locale.ROOT, "%s#%d %.2f px %.1f°", part, index, centreOf(bare).distanceTo(centreOf(armour)) * 16, angle));
+        }
+        return out;
+    }
+
+    private static Vec3 centreOf(ModelBox b) {
+        return new Vec3(b.x() + (b.ux() + b.vx() + b.wx()) / 2, b.y() + (b.uy() + b.vy() + b.wy()) / 2, b.z() + (b.uz() + b.vz() + b.wz()) / 2);
+    }
+
+    private static double angle(double ax, double ay, double az, double bx, double by, double bz) {
+        double la = Math.sqrt(ax * ax + ay * ay + az * az), lb = Math.sqrt(bx * bx + by * by + bz * bz);
+        if (la < 1e-9 || lb < 1e-9) return 0;
+        return Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, Math.abs(ax * bx + ay * by + az * bz) / la / lb))));
+    }
+
+    private static double extent(ModelBox b, Vec3 axis) {
+        return Math.abs(b.ux() * axis.x + b.uy() * axis.y + b.uz() * axis.z) + Math.abs(b.vx() * axis.x + b.vy() * axis.y + b.vz() * axis.z)
+                + Math.abs(b.wx() * axis.x + b.wy() * axis.y + b.wz() * axis.z);
+    }
+
+    /** a shot that meets the helmet alone: from the front, half a pixel past the head (over its top, past its side) */
+    record Edge(String name, Vec3 from, Vec3 to) {
+    }
+
+    static List<Edge> helmetEdges(List<ModelBox> boxes, float yaw) {
+        ModelBox head = null;
+        for (ModelBox b : boxes) if (b.part().equals("root/head")) head = b;
+        if (head == null) return List.of();
+        double a = Math.toRadians(yaw);
+        Vec3 fwd = new Vec3(-Math.sin(a), 0, Math.cos(a)), right = new Vec3(-Math.cos(a), 0, -Math.sin(a));
+        Vec3 c = new Vec3(head.x() + (head.ux() + head.vx() + head.wx()) / 2, head.y() + (head.uy() + head.vy() + head.wy()) / 2,
+                head.z() + (head.uz() + head.vz() + head.wz()) / 2);
+        double px = 1.0 / 16, top = extent(head, new Vec3(0, 1, 0)) / 2, side = extent(head, right) / 2;
+        Vec3 over = c.add(0, top + px / 2, 0), past = c.add(right.scale(side + px / 2));
+        return List.of(new Edge("над головой", over.add(fwd.scale(2)), over.subtract(fwd.scale(2))),
+                new Edge("сбоку головы", past.add(fwd.scale(2)), past.subtract(fwd.scale(2))));
+    }
+
+    /** the zone nearest the point: its part, its size and how far out the point is along each edge, px (0.01 steps) */
+    static String outside(List<HeadZone> zones, Vec3 p) {
+        String best = "нет зон";
+        double least = Double.POSITIVE_INFINITY;
+        for (HeadZone z : zones) {
+            ModelBox b = z.box();
+            Vec3 u = new Vec3(b.ux(), b.uy(), b.uz()), v = new Vec3(b.vx(), b.vy(), b.vz()), w = new Vec3(b.wx(), b.wy(), b.wz());
+            Vec3 d = p.subtract(b.x(), b.y(), b.z());
+            double det = u.dot(v.cross(w));
+            if (Math.abs(det) < 1e-12) continue;
+            double[] f = { d.dot(v.cross(w)) / det, u.dot(d.cross(w)) / det, u.dot(v.cross(d)) / det };
+            double[] len = { u.length() * 16, v.length() * 16, w.length() * 16 };
+            double[] out = new double[3];
+            double sum = 0;
+            for (int i = 0; i < 3; i++) {
+                out[i] = Math.max(0, Math.max(-f[i], f[i] - 1)) * len[i];
+                sum += out[i] * out[i];
+            }
+            if (sum < least) {
+                least = sum;
+                best = String.format(Locale.ROOT, "%s %.1f×%.1f×%.1f: %.2f/%.2f/%.2f", b.part(), len[0], len[1], len[2],
+                        Math.round(out[0] * 100) / 100.0, Math.round(out[1] * 100) / 100.0, Math.round(out[2] * 100) / 100.0);
+            }
+        }
+        return best;
     }
 
     // ---------------------------------------------------------------- the carbine

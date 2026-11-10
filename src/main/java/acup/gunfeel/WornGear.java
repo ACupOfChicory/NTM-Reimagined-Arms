@@ -17,8 +17,9 @@ import java.util.List;
 //   middle. The head grows to at least that on each axis. On any model
 //   with a head part. The base is the head's lower face, found by the world's up.
 // The model's pixel is read off the part itself (a head is 8 pixels across, a body, arm or leg 12 tall), so a baby or
-// a giant gets its own. The outer layers (hat, jacket, sleeves, trousers) already stand off their part by 0.5 or 0.25
-// and grow by the rest.
+// a giant gets its own. A limb in two parts (the mob AI's bots: an upper arm and a forearm, a thigh and a shin, each
+// about half of it) takes it off its thickness, 4 pixels, and both halves grow as the whole limb does. The outer
+// layers (hat, jacket, sleeves, trousers) already stand off their part by 0.5 or 0.25 and grow by the rest.
 // Only the model's own parts grow: the armor (both platforms) and head items (26.2) caught as geometry of their layers
 // are left as they are drawn.
 // Pure: the platforms say what is worn (ModelHits.worn); the boxes grow for the hitbox, the head and limb zones after
@@ -36,6 +37,8 @@ public final class WornGear {
 
     static final double SKULL_PIXELS = 8 * 1.1875, OLD_SKULL_PIXELS = 8 * 1.0625, DRAGON_PIXELS = 16 * 0.75 * 1.1875, BLOCK_PIXELS = 16 * 0.625;
     private static final String[] HUMANOID = {"head", "body", "right_arm", "left_arm"};
+    /** the lower halves of a limb in two parts (BotModel.FOREARM, SHIN) */
+    static final String FOREARM = "forearm", SHIN = "shin";
 
     private WornGear() {
     }
@@ -63,12 +66,26 @@ public final class WornGear {
         return out;
     }
 
+    /** the model's arms and legs are in two parts each (a forearm, a shin) */
+    public static boolean split(List<ModelBox> boxes) {
+        for (ModelBox b : boxes) {
+            String name = name(b.part());
+            if (name.equals(FOREARM) || name.equals(SHIN)) return true;
+        }
+        return false;
+    }
+
     // humanoid: of the model the zones were found on (humanoid(its boxes))
     public static List<HeadZone> zones(List<HeadZone> zones, Worn worn, boolean humanoid) {
+        return zones(zones, worn, humanoid, false);
+    }
+
+    // split: the model's limbs are in two parts (split(its boxes))
+    public static List<HeadZone> zones(List<HeadZone> zones, Worn worn, boolean humanoid, boolean split) {
         if (!worn.any()) return zones;
         List<HeadZone> out = new ArrayList<>(zones.size());
         for (HeadZone z : zones) {
-            ModelBox grown = grow(z.box(), worn, humanoid);
+            ModelBox grown = grow(z.box(), worn, humanoid, split, true);
             if (grown == z.box()) {
                 out.add(z);
                 continue;
@@ -85,6 +102,20 @@ public final class WornGear {
 
     // the part grown by what is worn over it; the same box when nothing is
     static ModelBox grow(ModelBox b, Worn worn, boolean humanoid) {
+        return grow(b, worn, humanoid, false);
+    }
+
+    static ModelBox grow(ModelBox b, Worn worn, boolean humanoid, boolean split) {
+        return grow(b, worn, humanoid, split, false);
+    }
+
+    // zone: a head zone under a helmet covers its hat as well, 1.5 pixels out of the head (vanilla's armor head has
+    // it, drawn where its texture's hat is opaque: SECURITY's is); the hitbox's boxes take the helmet's 1. A zone grows
+    // ZONE_MARGIN past the armor: the armor's faces, drawn in floats, lie on the grown face, and a shot on them came
+    // out of the zone by up to a quarter of a pixel (the bots' sleeves on the stand)
+    static final double ZONE_MARGIN = 0.1;
+
+    static ModelBox grow(ModelBox b, Worn worn, boolean humanoid, boolean split, boolean zone) {
         // a layer's own draw (26.2 names it ".../draws/<n>/tree/<part>"): the armor or head item caught as geometry
         // is already the size it is drawn at
         if (b.part().contains("/draws/")) return b;
@@ -96,7 +127,7 @@ public final class WornGear {
                 outer = name.equals("hat") ? 0.5 : 0;
                 base = 8 + 2 * outer;
                 byLeast = true;
-                if (worn.head() == Head.ARMOR && humanoid) side = 1;
+                if (worn.head() == Head.ARMOR && humanoid) side = zone ? 1.5 : 1;
                 else if (worn.head() == Head.SKULL || worn.head() == Head.OLD_SKULL || worn.head() == Head.DRAGON) {
                     least = worn.head() == Head.SKULL ? SKULL_PIXELS : worn.head() == Head.OLD_SKULL ? OLD_SKULL_PIXELS : DRAGON_PIXELS;
                     standing = true;
@@ -108,22 +139,23 @@ public final class WornGear {
                 byLeast = false;
                 if (humanoid) side = worn.chest() ? 1 : worn.legs() ? 0.5 : 0;
             }
-            case "right_arm", "left_arm", "right_sleeve", "left_sleeve" -> {
+            case "right_arm", "left_arm", "right_sleeve", "left_sleeve", FOREARM -> {
                 outer = name.endsWith("sleeve") ? 0.25 : 0;
-                base = 12 + 2 * outer;
-                byLeast = false;
+                base = split ? 4 : 12 + 2 * outer;
+                byLeast = split;
                 if (humanoid && worn.chest()) side = 1;
             }
-            case "right_leg", "left_leg", "right_pants", "left_pants" -> {
+            case "right_leg", "left_leg", "right_pants", "left_pants", SHIN -> {
                 outer = name.endsWith("pants") ? 0.25 : 0;
-                base = 12 + 2 * outer;
-                byLeast = false;
+                base = split ? 4 : 12 + 2 * outer;
+                byLeast = split;
                 if (humanoid) side = worn.feet() ? 1 : worn.legs() ? 0.5 : 0;
             }
             default -> {
                 return b;
             }
         }
+        if (zone && side > 0) side += ZONE_MARGIN;
         double[][] e = {{b.ux(), b.uy(), b.uz()}, {b.vx(), b.vy(), b.vz()}, {b.wx(), b.wy(), b.wz()}};
         double[] len = new double[3];
         for (int i = 0; i < 3; i++) len[i] = Math.sqrt(e[i][0] * e[i][0] + e[i][1] * e[i][1] + e[i][2] * e[i][2]);

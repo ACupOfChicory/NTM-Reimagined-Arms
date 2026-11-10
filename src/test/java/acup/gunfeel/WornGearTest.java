@@ -159,4 +159,93 @@ class WornGearTest {
         assertSame(WornGear.Worn.NOTHING, ModelHits.drawn(skull, caught));
         assertSame(WornGear.Worn.NOTHING, ModelHits.drawn(WornGear.Worn.NOTHING, boxes));
     }
+
+    // the mob AI's bots (BotModel): each arm and leg in two parts, the lower one with 2 px of overlap into the upper
+    private static List<ModelBox> bot() {
+        return List.of(part("root/head", -4, 24, -4, 8, 8, 8, 1), part("root/body", -4, 12, -2, 8, 12, 4, 1),
+                part("root/right_arm", -8, 18, -2, 4, 6, 4, 1), part("root/right_arm/forearm", -8, 12, -2, 4, 8, 4, 1),
+                part("root/left_arm", 4, 18, -2, 4, 6, 4, 1), part("root/left_arm/forearm", 4, 12, -2, 4, 8, 4, 1),
+                part("root/right_leg", -4, 6, -2, 4, 6, 4, 1), part("root/right_leg/shin", -4, 0, -2, 4, 8, 4, 1),
+                part("root/left_leg", 0, 6, -2, 4, 6, 4, 1), part("root/left_leg/shin", 0, 0, -2, 4, 8, 4, 1));
+    }
+
+    private static ModelBox zone(List<ModelBox> boxes, String part, WornGear.Worn worn) {
+        var zone = new HeadZone(find(boxes, part), List.of());
+        return WornGear.zones(List.of(zone), worn, WornGear.humanoid(boxes), WornGear.split(boxes)).get(0).box();
+    }
+
+    @Test
+    void aBotsLimbsInTwoPartsGrowByTheirThicknessAsTheWholeLimbDoes() {
+        var bot = bot();
+        assertTrue(WornGear.split(bot));
+        assertFalse(WornGear.split(zombie(1)));
+        var chest = new WornGear.Worn(WornGear.Head.NONE, true, false, false);
+        // a sleeve is the arm's box 1 px larger on each side: its upper half and its forearm alike (not by half a
+        // pixel, as the upper arm's 6 px length taken for the whole arm's 12 would give)
+        assertBox(zone(bot, "root/right_arm", chest), 1, -9.1, 16.9, -3.1, 6.2, 8.2, 6.2);
+        assertBox(zone(bot, "root/right_arm/forearm", chest), 1, -9.1, 10.9, -3.1, 6.2, 10.2, 6.2);
+        var legs = new WornGear.Worn(WornGear.Head.NONE, false, true, false);
+        assertBox(zone(bot, "root/left_leg", legs), 1, -0.6, 5.4, -2.6, 5.2, 7.2, 5.2);
+        assertBox(zone(bot, "root/left_leg/shin", legs), 1, -0.6, -0.6, -2.6, 5.2, 9.2, 5.2);
+        var boots = new WornGear.Worn(WornGear.Head.NONE, false, true, true);
+        assertBox(zone(bot, "root/right_leg/shin", boots), 1, -5.1, -1.1, -3.1, 6.2, 10.2, 6.2);
+        // the helmet's hat, 1.5 px out of the head (SECURITY's 11 px on the stand), in the head zone too; every zone
+        // a tenth of a pixel past the armor drawn
+        assertBox(zone(bot, "root/head", HELMET), 1, -5.6, 22.4, -5.6, 11.2, 11.2, 11.2);
+    }
+
+    // the owner, 2026-11-10: a shot on an FBI agent's helmet was not a headshot. The helmet is drawn 1 px out of the
+    // 8 px head, and the bot's head zone was the bare head's
+    @Test
+    void aShotOnABotsHelmetIsInItsHead() {
+        var bot = bot();
+        var zone = new HeadZone(find(bot, "root/head"), List.of());
+        var grown = WornGear.zones(List.of(zone), ModelHits.armour(HELMET), true, true);
+        // on the helmet's face, its top and its side: half a pixel past the head, the helmet's face, its hat's
+        for (Vec3 p : new Vec3[] { new Vec3(0, 28 * PX, -4.5 * PX), new Vec3(0, 33 * PX, 0), new Vec3(5 * PX, 28 * PX, 0),
+                new Vec3(0, 28 * PX, -5.5 * PX), new Vec3(5.5 * PX, 33.5 * PX, 0) }) {
+            assertFalse(zone.contains(p), "bare " + p);
+            assertTrue(HeadZone.contains(grown, p), "helmet " + p);
+        }
+        // two pixels past the head is past the helmet
+        assertFalse(HeadZone.contains(grown, new Vec3(0, 28 * PX, -6 * PX)));
+    }
+
+    // a glass block on a bot's head (the GLASS+PAA loadout) is no armour: it grows neither its boxes nor its zones
+    @Test
+    void aBotsZonesGrowWithItsArmourAlone() {
+        assertSame(HELMET, ModelHits.armour(HELMET));
+        var glass = new WornGear.Worn(WornGear.Head.BLOCK, true, true, true);
+        assertEquals(new WornGear.Worn(WornGear.Head.NONE, true, true, true), ModelHits.armour(glass));
+        assertSame(WornGear.Worn.NOTHING, ModelHits.armour(WornGear.Worn.NOTHING));
+        assertEquals(new WornGear.Worn(WornGear.Head.NONE, false, false, false),
+                ModelHits.armour(new WornGear.Worn(WornGear.Head.SKULL, false, false, false)));
+    }
+
+    // the bots' armour caught as its layer's draws (NtmMeshHits: "<part>/armor/draws/0"): a shot on a piece is in the
+    // part under it, told by the face it lies on, where grown zones would overlap (a chestplate's lower edge and the
+    // thigh's zone grown up a pixel)
+    @Test
+    void aShotOnABotsArmourIsInThePartUnderThePiece() {
+        var boxes = new java.util.ArrayList<>(bot());
+        boxes.add(part("root/head/armor/draws/0", -5, 23, -5, 10, 10, 10, 1));
+        boxes.add(part("root/body/armor/draws/0", -5, 11, -3, 10, 14, 6, 1));
+        boxes.add(part("root/right_leg/armor/draws/0", -4.5, 6, -2.5, 5, 6.5, 5, 1));
+        boxes.add(part("root/right_arm/armor/draws/0", -9, 18, -3, 6, 7, 6, 1));
+        assertEquals(ModelHits.Zone.HEAD, ModelHits.armourZone(boxes, new Vec3(0, 28 * PX, -5 * PX)));
+        assertEquals(ModelHits.Zone.HEAD, ModelHits.armourZone(boxes, new Vec3(5 * PX, 32 * PX, 2 * PX)));
+        // through the helmet's open face onto the head: the head's own zone decides
+        assertNull(ModelHits.armourZone(boxes, new Vec3(0, 28 * PX, -4 * PX)));
+        // the chestplate's lower edge over the thigh, and its side by the shoulder
+        assertEquals(ModelHits.Zone.BODY, ModelHits.armourZone(boxes, new Vec3(-2 * PX, 11.5 * PX, -3 * PX)));
+        assertEquals(ModelHits.Zone.BODY, ModelHits.armourZone(boxes, new Vec3(-5 * PX, 20 * PX, 2.5 * PX)));
+        assertEquals(ModelHits.Zone.LIMB, ModelHits.armourZone(boxes, new Vec3(-9 * PX, 21 * PX, 0)));
+        assertEquals(ModelHits.Zone.LIMB, ModelHits.armourZone(boxes, new Vec3(-2 * PX, 9 * PX, -2.5 * PX)));
+        assertNull(ModelHits.armourZone(boxes, new Vec3(1, 1, 1)));
+        // Flywheel's draws name the part after "tree"
+        assertEquals(ModelHits.Zone.LIMB, ModelHits.armourPartZone("mesh/root/armor/slots/1/draws/0/tree/right_arm/forearm"));
+        assertEquals(ModelHits.Zone.HEAD, ModelHits.armourPartZone("mesh/root/armor/slots/0/draws/0/tree/head/hat"));
+        assertEquals(ModelHits.Zone.BODY, ModelHits.armourPartZone("mesh/root/armor/slots/1/draws/0/tree/body"));
+        assertFalse(ModelHits.armourPiece("root/head/hat"));
+    }
 }

@@ -136,9 +136,12 @@ public final class ModelHits {
         if(bodyOnly(target)) return p.boxes();
         return WornGear.boxes(p.boxes(),drawn(worn(target),p.boxes()));
     }
-    // The mob AI's bots (NTM's FBI agent and test dummy, the model of ten parts): hit where the body is drawn, what
-    // they wear growing neither the boxes nor the head and limb zones (an agent's glass block on the head made its
-    // head 10 px instead of 8).
+    // The mob AI's bots (NTM's FBI agent and test dummy, the model of ten parts): hit where the body and the armour are
+    // drawn, what they wear growing no box (an agent's glass block on the head made its head 10 px instead of 8). A
+    // shot on a piece of armour is a shot in the part under it (armourZone): a helmet the head, a sleeve, a legging or
+    // a boot the limb, a chestplate the body. The head and limb zones grown by the armour (not by a block or a skull on
+    // the head) are for armour not caught as a layer's draw: grown, the zones of neighbouring parts overlap a pixel or
+    // two (a chestplate's lower edge in the thigh's), where the piece hit tells them apart.
     static boolean bodyOnly(Entity target) {
         var id=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(target.getType());
         return "hbm".equals(id.getNamespace()) && ("entity_fbi".equals(id.getPath()) || "entity_test_dummy".equals(id.getPath()));
@@ -153,9 +156,64 @@ public final class ModelHits {
 
     // zones ModelHeads found on the bare model, grown with what is worn
     private static List<HeadZone> wornZones(Entity target,PoseAt p,List<HeadZone> zones) {
-        if(bodyOnly(target)) return zones;
         var worn=worn(target);
-        return worn.any()?WornGear.zones(zones,worn,WornGear.humanoid(p.boxes())):zones;
+        if(bodyOnly(target)) {
+            // the armour caught as its draws: armourZone tells a shot on it; the bare parts' zones stay their own
+            for(var b:p.boxes()) if(armourPiece(b.part())) return zones;
+            worn=armour(worn);
+        }
+        return worn.any()?WornGear.zones(zones,worn,WornGear.humanoid(p.boxes()),WornGear.split(p.boxes())):zones;
+    }
+    enum Zone { HEAD, LIMB, BODY }
+
+    // a piece of armour as a layer's draw: NtmMeshHits' "<part>/armor/draws/0", Flywheel's ".../armor/slots/<n>/draws/<n>/tree/<part>"
+    static boolean armourPiece(String name) {
+        return name.contains("/armor/") && name.contains("/draws/");
+    }
+
+    // the part under a piece of armour, by its last name
+    static Zone armourPartZone(String piece) {
+        int tree=piece.indexOf("/tree/");
+        String part=tree>=0?piece.substring(tree+6):piece.substring(0,piece.indexOf("/armor/"));
+        return switch(WornGear.name(part)) {
+            case "head","hat" -> Zone.HEAD;
+            case "right_arm","left_arm","right_leg","left_leg",WornGear.FOREARM,WornGear.SHIN -> Zone.LIMB;
+            default -> Zone.BODY;
+        };
+    }
+
+    /** how far a point lies off a box's surface, blocks: out of it, or in from its nearest face */
+    static double surface(ModelBox b,Vec3 p) {
+        Vec3 u=new Vec3(b.ux(),b.uy(),b.uz()),v=new Vec3(b.vx(),b.vy(),b.vz()),w=new Vec3(b.wx(),b.wy(),b.wz());
+        double det=u.dot(v.cross(w));if(!Double.isFinite(det) || Math.abs(det)<1e-12) return Double.POSITIVE_INFINITY;
+        var d=p.subtract(b.x(),b.y(),b.z());
+        double[] f={d.dot(v.cross(w))/det,u.dot(d.cross(w))/det,u.dot(v.cross(d))/det},len={u.length(),v.length(),w.length()};
+        double out=0,in=Double.POSITIVE_INFINITY;
+        for(int i=0;i<3;i++) {
+            double o=Math.max(0,Math.max(-f[i],f[i]-1))*len[i];out+=o*o;
+            in=Math.min(in,Math.min(f[i],1-f[i])*len[i]);
+        }
+        return out>0?Math.sqrt(out):in;
+    }
+
+    /** a shot lies on the face of the box it hit: further off any face than this, it lies on none (blocks, 1/50 px) */
+    static final double ON_FACE=1.0/16/50;
+
+    /**
+     * The bots: the part of the piece of armour a shot (in the model's frame) lies on, or null when the box whose face
+     * it lies on is no armour (the bare model: its own zones) or it lies on none. The nearest face of all the boxes is
+     * the one hit: a shot through a helmet's open face onto the head lies on the head's face, within the helmet.
+     */
+    static Zone armourZone(List<ModelBox> boxes,Vec3 local) {
+        ModelBox best=null;double least=ON_FACE;
+        for(var b:boxes) { double d=surface(b,local);if(d<least) { least=d;best=b; } }
+        return best==null || !armourPiece(best.part())?null:armourPartZone(best.part());
+    }
+
+    // what is worn, the armour of it: a helmet stays, a block or a skull on the head does not
+    static WornGear.Worn armour(WornGear.Worn worn) {
+        return worn.head()==WornGear.Head.ARMOR || worn.head()==WornGear.Head.NONE?worn
+                :new WornGear.Worn(WornGear.Head.NONE,worn.chest(),worn.legs(),worn.feet());
     }
 
     public static boolean enabled() {
@@ -345,7 +403,10 @@ public final class ModelHits {
         var resolved=ModelHeads.resolve(type,pose.boxes(),pose.yaw());
         if(resolved.source().equals("height")) return heightHead(living,point);
         double angle=angle(living,pose);
-        boolean head=HeadZone.contains(wornZones(root,pose,resolved.zones()),unturn(point.subtract(impactOrigin(root,point)),angle));
+        var local=unturn(point.subtract(impactOrigin(root,point)),angle);
+        var piece=bodyOnly(root)?armourZone(pose.boxes(),local):null;
+        if(piece!=null) return new ModelHeads.Hit(true,piece==Zone.HEAD,resolved.source(),"броня: часть под ней",resolved.confidence());
+        boolean head=HeadZone.contains(wornZones(root,pose,resolved.zones()),local);
         return new ModelHeads.Hit(true,head,resolved.source(),resolved.reason(),resolved.confidence());
     }
     private static ModelHeads.Hit heightHead(LivingEntity living,Vec3 point) {
@@ -359,9 +420,12 @@ public final class ModelHits {
         if(!(root instanceof LivingEntity living) || !LimbPolicy.eligible(root.getType())) return false;
         var poses=POSES.get(root.level());var pose=pose(root,poses);
         if(!usable(root,pose)) return false;
-        var zones=wornZones(root,pose,ModelHeads.limbs(ModelHeads.key(root),pose.boxes(),pose.yaw()).zones());
         double angle=angle(living,pose);
-        return HeadZone.contains(zones,unturn(point.subtract(impactOrigin(root,point)),angle));
+        var local=unturn(point.subtract(impactOrigin(root,point)),angle);
+        var piece=bodyOnly(root)?armourZone(pose.boxes(),local):null;
+        if(piece!=null) return piece==Zone.LIMB;
+        var zones=wornZones(root,pose,ModelHeads.limbs(ModelHeads.key(root),pose.boxes(),pose.yaw()).zones());
+        return HeadZone.contains(zones,local);
     }
     public static synchronized List<HeadZone> headZones(Entity target) {
         var poses=POSES.get(target.level());var pose=poses==null?null:poses.get(target.getId());
@@ -371,6 +435,16 @@ public final class ModelHits {
         double angle=turnAngle(living,pose);
         var out=new ArrayList<HeadZone>();
         for(var zone:wornZones(target,pose,resolved.zones())) out.add(world(zone,angle,target.position()));
+        return List.copyOf(out);
+    }
+    /** the stand (BotStand): the limb zones in the world, as limb() takes them (grown with what is worn) */
+    static synchronized List<HeadZone> standLimbZones(Entity target) {
+        var poses=POSES.get(target.level());var pose=poses==null?null:poses.get(target.getId());
+        if(!usable(target,pose) || !(target instanceof LivingEntity living)) return List.of();
+        var zones=wornZones(target,pose,ModelHeads.limbs(ModelHeads.key(target),pose.boxes(),pose.yaw()).zones());
+        double angle=turnAngle(living,pose);
+        var out=new ArrayList<HeadZone>();
+        for(var zone:zones) out.add(world(zone,angle,target.position()));
         return List.copyOf(out);
     }
     // Зона в мир: коробка, плоскости и кубы (pieces) — одним поворотом на angle и сдвигом в position.

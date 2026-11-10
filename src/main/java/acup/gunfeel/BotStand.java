@@ -30,6 +30,7 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -51,7 +52,9 @@ import net.minecraft.world.phys.Vec3;
  * With the first part, in each pose: a grid of rays over the model the client draws, against what the server takes
  * for a hit (BotStandHits: hits on the model, past it, the zone; the plain box's for the model hitboxes off), and how
  * long the server is left with no pose it can use while the pose changes. After it, before the jumps: a carbine's
- * shots to kill the agent by the part hit, in each of its loadouts, the part's multiplier before the armour and after.
+ * shots to kill the agent by the part hit, in each of its loadouts, the part's multiplier before the armour and after;
+ * in each loadout first the grid over the agent as drawn, its armour too (a shot on a helmet is in the head), and two
+ * shots through the helmet alone, half a pixel past the head, as the server and the shooter's client take them.
  * <ol>
  * </ol>
  * In the first part the server sets each pose as the mob AI does (AiPose's attachment, synced to the client, and the
@@ -286,10 +289,15 @@ final class BotStand {
 
     /** the grid of shots over the drawn model, and the server's pose while it changed */
     private static void grid(Case c, float yaw) {
+        grid(c.name(), yaw, true);
+    }
+
+    /** the grid over the agent as the client draws it (its armour too); {@code watched}: with the H3 line */
+    private static void grid(String name, float yaw, boolean watched) {
         var seenBy = mc().level.getEntity(one.getId());
         var drawn = seenBy == null ? List.<ModelBox>of() : ModelHits.worldBoxes(seenBy);
         if (drawn.isEmpty()) {
-            ClientSmoke.check(false, c.name() + " поворот " + yaw + ": клиент не нарисовал модель");
+            ClientSmoke.check(false, name + " поворот " + yaw + ": клиент не нарисовал модель");
             return;
         }
         var rays = BotStandHits.grid(drawn, one.getBoundingBox(), yaw);
@@ -300,13 +308,13 @@ final class BotStand {
         ClientSmoke.check(g.inHit() >= 0.99 && g.outHit() <= 0.01 && g.zoneSame() >= 0.99, String.format(Locale.ROOT,
                 "сетка %s поворот %.0f: по модели попаданий %.2f%% из %d, мимо модели %.2f%% из %d, та же зона %.2f%% %s;"
                         + " без точных хитбоксов (коробка): %.1f%% и %.1f%%",
-                c.name(), yaw, g.inHit() * 100, g.in(), g.outHit() * 100, g.out(), g.zoneSame() * 100, g.wrong(), g.boxIn() * 100, g.boxOut() * 100));
+                name, yaw, g.inHit() * 100, g.in(), g.outHit() * 100, g.out(), g.zoneSame() * 100, g.wrong(), g.boxIn() * 100, g.boxOut() * 100));
         // H3, written down: after a change of stance the server has no pose it can use until the client's next one
         // comes (a bullet then takes the plain box), and how old the one it has gets
-        ClientSmoke.check(true, String.format(Locale.ROOT, "%s поворот %.0f (сведения): поза сервера после смены — без годной позы %d кадров из %d"
-                + " (последний на тике %d), самая старая %d тиков", c.name(), yaw, watchGaps, watchFrames, watchLastGap, watchAge));
+        if (watched) ClientSmoke.check(true, String.format(Locale.ROOT, "%s поворот %.0f (сведения): поза сервера после смены — без годной позы %d кадров из %d"
+                + " (последний на тике %d), самая старая %d тиков", name, yaw, watchGaps, watchFrames, watchLastGap, watchAge));
         ROWS.add(String.format(Locale.ROOT, "сетка\t%s\t%.0f\tпо модели %.2f%%\tмимо %.2f%%\tзона %.2f%%\tкоробка %.1f%%/%.1f%%\tбез позы %d/%d\tвозраст %d\t%s",
-                c.name(), yaw, g.inHit() * 100, g.outHit() * 100, g.zoneSame() * 100, g.boxIn() * 100, g.boxOut() * 100, watchGaps, watchFrames,
+                name, yaw, g.inHit() * 100, g.outHit() * 100, g.zoneSame() * 100, g.boxIn() * 100, g.boxOut() * 100, watchGaps, watchFrames,
                 watchAge, g.wrong()));
     }
 
@@ -380,6 +388,7 @@ final class BotStand {
         if (now() < until) return;
         var server = mc().getSingleplayerServer();
         var l = BotStandHits.LOADOUTS[loadout];
+        armour(l);
         // the agent in this loadout as the player sees it: the armour drawn (compared by its pixels after the stand)
         int shotIndex = loadout;
         net.minecraft.client.Screenshot.takeScreenshot(mc().gameRenderer.mainRenderTarget(), image -> {
@@ -441,10 +450,57 @@ final class BotStand {
         }).join();
         write();
         if (++loadout < BotStandHits.LOADOUTS.length) {
-            until = now() + 20;
+            until = now() + 30;
             return;
         }
         startJumps();
+    }
+
+    /**
+     * The agent in this loadout: the grid over it as the client draws it, the armour too (a shot on a piece of armour
+     * is in the part under it); the sizes of the parts and of what is drawn over them; two shots through the helmet
+     * alone, half a pixel past the head, as the server and the shooter's client take them.
+     */
+    private static void armour(BotStandHits.Loadout l) {
+        grid("броня " + l.name(), 180F, false);
+        var server = mc().getSingleplayerServer();
+        List<BotStandHits.Edge> edges = new ArrayList<>();
+        String[][] zones = new String[2][];
+        server.submit(() -> {
+            Mob m = (Mob) server.overworld().getEntity(one.getId());
+            var boxes = ModelHits.worldBoxes(m);
+            var sizes = BotStandHits.sizes(boxes, 180F);
+            ClientSmoke.check(true, "броня " + l.name() + " (сведения), px поперёк×вверх×вдоль: " + sizes);
+            ROWS.add("размеры\t" + l.name() + "\t" + sizes);
+            var fit = BotStandHits.fit(boxes);
+            if (!fit.isEmpty()) {
+                ClientSmoke.check(true, "броня " + l.name() + " (сведения), броня против части: " + fit);
+                ROWS.add("посадка\t" + l.name() + "\t" + fit);
+            }
+            edges.addAll(BotStandHits.helmetEdges(boxes, 180F));
+            for (int i = 0; i < edges.size(); i++) zones[i] = edgeZone(m, edges.get(i));
+        }).join();
+        var seenBy = mc().level.getEntity(one.getId());
+        for (int i = 0; i < edges.size(); i++) {
+            var e = edges.get(i);
+            String[] client = seenBy == null ? new String[] { "нет моба", "" } : edgeZone(seenBy, e), at = zones[i];
+            // a helmet: the head; nothing worn: past the head; a glass block: written down
+            boolean helmet = l.head() != null && !l.head().getPath().equals("glass");
+            boolean ok = client[0].equals(at[0]) && (helmet ? at[0].equals("head") : l.head() == null ? at[0].equals("мимо") : true);
+            ClientSmoke.check(ok, String.format(Locale.ROOT, "шлем %s, выстрел %s: сервер %s%s, клиент %s%s", l.name(), e.name(), at[0], at[1],
+                    client[0], client[1]));
+            ROWS.add(String.format(Locale.ROOT, "шлем\t%s\t%s\tсервер %s%s\tклиент %s%s", l.name(), e.name(), at[0], at[1], client[0], client[1]));
+        }
+    }
+
+    /** where a shot along {@code e} hits the mob, and the part it takes: head, limb, body or past ("мимо") */
+    private static String[] edgeZone(net.minecraft.world.entity.Entity m, BotStandHits.Edge e) {
+        AABB model = m.getBoundingBox(), box = new AABB(model.minX, model.minY, model.minZ, model.maxX, model.maxY, model.maxZ);
+        var hit = ModelHits.clip(m, e.from(), e.to(), box);
+        if (hit.isEmpty()) return new String[] { "мимо", "" };
+        Vec3 p = hit.get();
+        return new String[] { ModelHits.head(m, p).head() ? "head" : ModelHits.limb(m, p) ? "limb" : "body",
+                String.format(Locale.ROOT, " (%.3f %.3f %.3f)", p.x, p.y, p.z) };
     }
 
     // ---------------------------------------------------------------- 2. no jumps on the game's frames
