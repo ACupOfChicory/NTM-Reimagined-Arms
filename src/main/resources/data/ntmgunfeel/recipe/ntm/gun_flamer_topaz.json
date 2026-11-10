@@ -1,0 +1,21 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "ntmgunfeel:gun_mechanism_recipes",
+      "on": false
+    }
+  ],
+  "type": "hbm:crafting_shaped",
+  "key": {
+    "A": "hbm:gun_flamer",
+    "M": "#hbm:gun_mechanisms/weapon_steel"
+  },
+  "pattern": [
+    " M ",
+    "MAM",
+    " M "
+  ],
+  "result": {
+    "id": "hbm:gun_flamer_topaz"
+  }
+}

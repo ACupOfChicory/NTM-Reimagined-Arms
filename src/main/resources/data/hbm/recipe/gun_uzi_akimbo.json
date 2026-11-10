@@ -1,0 +1,19 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "ntmgunfeel:gun_mechanism_recipes",
+      "on": true
+    }
+  ],
+  "type": "hbm:crafting_shaped",
+  "key": {
+    "M": "#hbm:gun_mechanisms/ferrouranium",
+    "U": "hbm:gun_uzi"
+  },
+  "pattern": [
+    "UMU"
+  ],
+  "result": {
+    "id": "hbm:gun_uzi_akimbo"
+  }
+}

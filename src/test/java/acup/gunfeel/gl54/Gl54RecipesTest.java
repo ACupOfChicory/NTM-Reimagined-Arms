@@ -33,8 +33,9 @@ class Gl54RecipesTest {
 
     static List<Path> files() throws IOException {
         try (Stream<Path> s = Files.walk(RECIPES)) {
-            // ntm/: NTM's own recipes the balance's replace (BalanceStage1vTest checks them against NTM's jar)
-            return s.filter(p -> p.toString().endsWith(".json") && !RECIPES.relativize(p).startsWith("ntm")).sorted().toList();
+            // ntm/: NTM's own recipes the balance's and the mechanisms' replace, balance/ and mechanisms/: Tesla Cannon's
+            // other two (BalanceStage1vTest and GunMechanismsTest check them against NTM's jar)
+            return s.filter(p -> p.toString().endsWith(".json") && java.util.stream.Stream.of("ntm", "balance", "mechanisms").noneMatch(RECIPES.relativize(p)::startsWith)).sorted().toList();
         }
     }
 

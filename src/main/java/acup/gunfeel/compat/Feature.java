@@ -33,6 +33,7 @@ public enum Feature {
     PRONE("prone", List.of(), List.of("Prone", "ProneClient", "ProneCrawlPayload", "ProneStandPayload", "CrawlKey", "CrawlPitch", "LocalPlayerCrawl", "LivingEntityCrawl", "ProneStand")),
     PRONE_FIRE("prone_fire", List.of("MixinProneFireClick", "MixinProneFireDecider", "MixinProneFireKeys"), List.of("ProneFire", "ProneFireStand")),
     BALANCE("balance", List.of("MixinBalanceArmor", "MixinBalanceGunShot", "MixinBalanceGunBeam", "MixinBalanceGunHit", "ReceiverAccess", "MixinBalanceGunTooltip", "MixinArmorAbilities", "MixinArmorEsp", "MixinBalanceShield", "MixinBalanceShieldTick", "MixinBalanceShieldFlask", "MixinBalanceSyringe", "MixinBalanceInsert", "MixinEuphImmunity", "MixinEuphEffects", "MixinRadonTomb", "MixinBalanceDns"), List.of("BalanceArmor", "BalanceGuns", "ArmorAbilities", "BalanceKit", "EuphImmunity")),
+    GUN_MECHANISMS("gun_mechanisms", List.of("MixinMechanismAutogen"), List.of("GunMechanisms", "MechanismCheck")),
     MOB_AI("mob_ai", List.of("MixinAiFbi", "MixinAiDummy", "MixinAiSmoke", "MixinAiLeanShot", "MixinBotModel"), List.of("AiGunner", "AiCommand", "AiCheckSpread", "AiCheckAim", "AiCheckRecoil", "FightLook"));
 
     public final String id;

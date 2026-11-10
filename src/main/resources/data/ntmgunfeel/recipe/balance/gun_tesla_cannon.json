@@ -1,0 +1,30 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "ntmgunfeel:balance_recipes",
+      "on": true
+    },
+    {
+      "type": "ntmgunfeel:gun_mechanism_recipes",
+      "on": false
+    }
+  ],
+  "type": "hbm:crafting_shaped",
+  "key": {
+    "B": "#hbm:barrels_heavy/any_resistant_alloy",
+    "C": "hbm:coil_copper",
+    "E": "hbm:circuit_quantum",
+    "G": "#hbm:grips/any_plastic",
+    "M": "#hbm:gun_mechanisms/weapon_steel",
+    "P": "hbm:plate_welded_cmbsteel",
+    "R": "#hbm:receivers_heavy/any_resistant_alloy"
+  },
+  "pattern": [
+    "PCP",
+    "BRB",
+    "MGE"
+  ],
+  "result": {
+    "id": "hbm:gun_tesla_cannon"
+  }
+}

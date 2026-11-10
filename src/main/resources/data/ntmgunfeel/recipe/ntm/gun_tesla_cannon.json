@@ -3,6 +3,10 @@
     {
       "type": "ntmgunfeel:balance_recipes",
       "on": false
+    },
+    {
+      "type": "ntmgunfeel:gun_mechanism_recipes",
+      "on": false
     }
   ],
   "type": "hbm:crafting_shaped",

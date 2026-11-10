@@ -1,0 +1,22 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "ntmgunfeel:gun_mechanism_recipes",
+      "on": false
+    }
+  ],
+  "type": "hbm:crafting_shaped",
+  "key": {
+    "B": "#hbm:barrels_heavy/ferrouranium",
+    "G": "#hbm:grips/any_plastic",
+    "M": "#hbm:gun_mechanisms/weapon_steel",
+    "R": "#hbm:receivers_heavy/ferrouranium"
+  },
+  "pattern": [
+    "BRM",
+    "G G"
+  ],
+  "result": {
+    "id": "hbm:gun_autoshotgun"
+  }
+}

@@ -3,6 +3,10 @@
     {
       "type": "ntmgunfeel:balance_recipes",
       "on": true
+    },
+    {
+      "type": "ntmgunfeel:gun_mechanism_recipes",
+      "on": true
     }
   ],
   "type": "hbm:crafting_shaped",
@@ -11,7 +15,7 @@
     "C": "hbm:coil_copper",
     "E": "hbm:circuit_quantum",
     "G": "#hbm:grips/any_plastic",
-    "M": "#hbm:gun_mechanisms/weapon_steel",
+    "M": "#hbm:gun_mechanisms/saturnite",
     "P": "hbm:plate_welded_cmbsteel",
     "R": "#hbm:receivers_heavy/any_resistant_alloy"
   },

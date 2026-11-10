@@ -1,0 +1,24 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "ntmgunfeel:gun_mechanism_recipes",
+      "on": true
+    }
+  ],
+  "type": "hbm:crafting_shaped",
+  "key": {
+    "B": "#hbm:barrels_light/any_resistant_alloy",
+    "E": "hbm:motor_desh",
+    "G": "#hbm:grips/any_plastic",
+    "M": "#hbm:gun_mechanisms/tc_alloy",
+    "R": "#hbm:receivers_heavy/any_resistant_alloy"
+  },
+  "pattern": [
+    "BMG",
+    "BRE",
+    "BGM"
+  ],
+  "result": {
+    "id": "hbm:gun_minigun"
+  }
+}

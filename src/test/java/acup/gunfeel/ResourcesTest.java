@@ -226,7 +226,10 @@ class ResourcesTest {
     @Test
     void namespaceFolderIsTheOnlyOne() throws IOException {
         try (Stream<Path> s = Files.list(RES.resolve("assets"))) {
-            assertEquals(List.of("ntmgunfeel"), s.map(p -> p.getFileName().toString()).toList());
+            assertEquals(java.util.Set.of("ntmgunfeel", "hbm"), s.map(p -> p.getFileName().toString()).collect(java.util.stream.Collectors.toSet()));
         }
+        // in NTM's only the new gun mechanisms (GunMechanisms), which NTM has no files of
+        for (Path p : files(RES.resolve("assets/hbm"), ""))
+            if (Files.isRegularFile(p)) assertTrue(p.getFileName().toString().startsWith("part_mechanism_"), p.toString());
     }
 }
