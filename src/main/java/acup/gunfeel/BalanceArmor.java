@@ -217,6 +217,18 @@ public final class BalanceArmor {
         return power;
     }
 
+    /**
+     * the tier a set of {@code set} takes a weapon's blast at (its power and balanceBlastLowFloor): its own, but
+     * Trenchmaster's balanceBlastTrenchTier (4; 6: X877). NTM gives it HEV's explosion resistance (DT 5, 25 %); at its
+     * tier 6 it took the full blast power with no floor, three hits of MK108's or a rocket's direct blast against HEV's
+     * four and nine to fifteen of a weak blast against HEV's four (notes: review 4, item 5)
+     */
+    static int blastTier(String set, int tier) {
+        if (!"trenchmaster".equals(set)) return tier;
+        float v = ReaimTimes.number("balanceBlastTrenchTier", 4F);
+        return Float.isFinite(v) && v >= 1F ? Math.round(v) : tier;
+    }
+
     static float rocketHighFrom() {
         float v = ReaimTimes.number("balanceBlastRocketHighFrom", 30F);
         return Float.isFinite(v) && v > 0F ? v : 0F;
@@ -380,9 +392,10 @@ public final class BalanceArmor {
             if (!(s > 0F)) s = 1e-3F;
             int tier = SETS.get(set).tier();
             // the weapon's blast's power by the set's tier (balanceBlastPowerLow, balanceBlastPowerRocketHigh,
-            // balanceBlastLowFloor)
-            float pk = power > 1F ? pieceBlastPower(tier, amount, power) : 1F;
-            float into = power > 1F ? blastInto(tier, amount, pk, s) : amount * power;
+            // balanceBlastLowFloor; Trenchmaster by balanceBlastTrenchTier)
+            int bt = blastTier(set, tier);
+            float pk = power > 1F ? pieceBlastPower(bt, amount, power) : 1F;
+            float into = power > 1F ? blastInto(bt, amount, pk, s) : amount * power;
             // balanceBlastFloorShare: the floor lifts rho, the flesh is the blast's damage times its power on the set
             boolean share = power > 1F && into > amount * pk && blastFloorShare();
             float fleshOf = share ? amount * pk : into;

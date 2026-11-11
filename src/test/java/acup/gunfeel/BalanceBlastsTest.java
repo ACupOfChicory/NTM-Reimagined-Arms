@@ -108,6 +108,21 @@ class BalanceBlastsTest {
             int hits = BalanceBlasts.hits(BalanceBlasts.damage(congo, 3, set, def.s(), def.tau(), 1.7F, 0.9F));
             assertTrue(hits >= onT51, set + ": " + hits + " against T-51b " + onT51);
         }
+        // balanceBlastTrenchTier 4: Trenchmaster (NTM: HEV's explosion resistance) takes the blasts by tier 4's rules, never
+        // fewer hits than HEV (X877 at tier 6: MK108's direct hit 3 against 4); the other sets keep their own tier
+        assertEquals("4", shipped.getProperty("balanceBlastTrenchTier"));
+        assertEquals(4, BalanceArmor.blastTier("trenchmaster", 6));
+        assertEquals(6, BalanceArmor.blastTier("bj", 6));
+        var trench = BalanceArmor.SETS.get("trenchmaster");
+        var mk108Direct = new BalanceBlasts.Boom("40 мм HE MK108", true, 25, 5, 0, 0);
+        for (BalanceBlasts.Boom b : new BalanceBlasts.Boom[] {mk108Direct, ML, powder, congo}) for (float r : new float[] {-1F, 1F, 3F}) {
+            if (!b.launched() && r < 0F) continue;
+            float raw = BalanceBlasts.raw(b, r);
+            int onTrench = BalanceBlasts.hits(BalanceBlasts.damage(b, r, "trenchmaster", trench.s(), trench.tau(),
+                    BalanceArmor.blastPowerFor(BalanceArmor.blastTier("trenchmaster", trench.tier()), r < 0F, raw, 3F), 0.9F));
+            int onHev = BalanceBlasts.hits(BalanceBlasts.damage(b, r, "hev", hev.s(), hev.tau(), BalanceArmor.blastPowerFor(4, r < 0F, raw, 3F), 0.9F));
+            assertTrue(onTrench >= onHev, b.name() + " " + r + ": Trenchmaster " + onTrench + " against HEV " + onHev);
+        }
         assertEquals("1.5", shipped.getProperty("balanceElectricPowered"));
         // no armour: the power does nothing
         assertEquals(BalanceBlasts.damage(HE, 3, null, 0, 0), BalanceBlasts.damage(HE, 3, null, 0, 0, 3F), 1e-6F);
