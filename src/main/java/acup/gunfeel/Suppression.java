@@ -35,6 +35,10 @@ public final class Suppression {
     private static long lastBlastTick = Long.MIN_VALUE / 2;
     // /gunfeel suppression debug: each event and the scale each tick to the log ("[suppression]")
     public static volatile boolean debug;
+    // the stand (SuppressionStand): events counted, the last flinch in degrees, the scale held still
+    static int events, flinches;
+    static float lastFlinch;
+    static boolean frozen;
 
     public static void init(net.neoforged.bus.api.IEventBus modBus) {
         modBus.addListener(net.neoforged.neoforge.client.event.RegisterGuiLayersEvent.class,
@@ -51,6 +55,13 @@ public final class Suppression {
 
     public static float target() {
         return SCALE.target();
+    }
+
+    // the stand: the scale at this level, still
+    static void set(float level) {
+        SCALE.clear();
+        SCALE.add(level, false, tick);
+        while (SCALE.level() < SCALE.target()) SCALE.tick(0F);
     }
 
     public static void clear() {
@@ -101,6 +112,7 @@ public final class Suppression {
 
     private static void event(String what, float force, boolean burst, double d) {
         float added = SCALE.add(force, burst, tick);
+        events++;
         if (debug || TestLog.client) GunFeel.LOGGER.info("[suppression] {} d={} force={} added={} target={} level={}", what,
                 String.format(java.util.Locale.ROOT, "%.2f", d), String.format(java.util.Locale.ROOT, "%.1f", force),
                 String.format(java.util.Locale.ROOT, "%.1f", added), String.format(java.util.Locale.ROOT, "%.1f", SCALE.target()),
@@ -112,6 +124,8 @@ public final class Suppression {
             double t = p.getRandom().nextDouble() * Math.PI * 2.0;
             p.setYRot(p.getYRot() + (float) Math.cos(t) * a);
             p.setXRot(Math.clamp(p.getXRot() + (float) Math.sin(t) * a, -90F, 90F));
+            flinches++;
+            lastFlinch = a;
             if (debug) GunFeel.LOGGER.info("[suppression] flinch {} deg", a);
         }
     }
@@ -120,7 +134,7 @@ public final class Suppression {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) {
             if (SCALE.level() > 0F || SCALE.target() > 0F) clear();
-        } else if (!mc.isPaused()) {
+        } else if (!mc.isPaused() && !frozen) {
             tick++;
             SCALE.tick(SuppressionScale.MAX / (SuppressionServer.recoverySeconds() * 20F));
             if (!SuppressionServer.on()) SCALE.clear();

@@ -16,13 +16,13 @@ class SuppressionScaleTest {
         assertEquals(60F, SuppressionScale.impact(0, 10, 8), 1e-3F);
         assertEquals(12F, SuppressionScale.impact(8, 10, 8), 1e-3F);
         assertEquals(0F, SuppressionScale.impact(8.1, 10, 8));
-        // a grenade (size 4) at 4, 10, 14 blocks: less and less, none at the range
-        float b4 = SuppressionScale.blast(4, 4F, 14), b10 = SuppressionScale.blast(10, 4F, 14), b14 = SuppressionScale.blast(14, 4F, 14);
+        // NTM's hand grenade (size 7.5) at 4, 10, 14 blocks: less and less, none at the range
+        float b4 = SuppressionScale.blast(4, 7.5F, 14), b10 = SuppressionScale.blast(10, 7.5F, 14), b14 = SuppressionScale.blast(14, 7.5F, 14);
         assertTrue(b4 > b10 && b10 > 0F && b14 == 0F, b4 + " " + b10 + " " + b14);
-        assertTrue(SuppressionScale.blast(0, 8F, 14) <= 58F);
+        assertTrue(SuppressionScale.blast(0, 16F, 14) <= 58F);
         // a big blast reaches farther, at most three times
-        assertEquals(42.0, SuppressionScale.blastRange(40F, 14), 1e-9);
-        assertTrue(SuppressionScale.blast(20, 12F, 14) > 0F);
+        assertEquals(42.0, SuppressionScale.blastRange(80F, 14), 1e-9);
+        assertTrue(SuppressionScale.blast(20, 24F, 14) > 0F);
     }
 
     @Test

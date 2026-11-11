@@ -74,6 +74,7 @@ public final class SuppressionServer {
 
     // ---- blasts
 
+    // size: how far it hurts (NTM's ExplosionVNT size)
     public static void blast(ServerLevel level, Vec3 at, float size, @Nullable LivingEntity by) {
         if (!on() || blastShare() <= 0F) return;
         double reach = SuppressionScale.blastRange(size, blastRange());
@@ -88,7 +89,8 @@ public final class SuppressionServer {
     // a vanilla blast or anything else that implements the game's Explosion
     public static void blast(net.minecraft.world.level.Explosion e) {
         if (!(e.level() instanceof ServerLevel level)) return;
-        blast(level, e.center(), e.radius(), owner(e));
+        // vanilla's radius is its power: it hurts out to twice that
+        blast(level, e.center(), e.radius() * 2F, owner(e));
     }
 
     private static @Nullable LivingEntity owner(net.minecraft.world.level.Explosion e) {

@@ -263,7 +263,7 @@ Settings are in the `config` folder:
   `/gunfeel set <key> <value>`, `/gunfeel get <key>` and `/gunfeel unset <key>`
   change its keys.
 - `ntm-gunfeel-server.properties`: the server's gameplay rules (bullets,
-  spread, beams, water, lying down, the sprint delay, gas, AI soldiers). They are sent to
+  spread, beams, water, lying down, the sprint delay, gas, suppression, AI soldiers). They are sent to
   connected players. The mod does not create this file: write the keys you
   want as `key = value`. Every key and its default is described in
   `ntmgunfeel-server.properties` inside the mod jar.
@@ -296,6 +296,7 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `bulletHoles` | `true` | Bullet holes and marks |
 | `waterSplash` | `true` | Splashes, rings, foam and bubbles on water |
 | `gunWeightTooltip` | `true` | A gun's tooltip names its weight class and how much it slows |
+| `suppressionDarken`, `suppressionMuffle` | `1` | How much the screen darkens and the other sounds go down under fire, 0 to 1 (the server sets the most) |
 | `smokeQuality` | `high` | Smoke clouds: `off`, `slices`, `low`, `medium`, `high`, `ultra` |
 | `smokeMaxClouds`, `smokeDistance` | `8`, `128` | How many clouds are drawn and how far away |
 | `enabled` | `true` | The mod's client side as a whole |
@@ -323,6 +324,12 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `proneCrawlNoFire`, `proneCrawlSpeed` | `true`, `0.25` | No shot while crawling faster than this many blocks a second |
 | `hbm\:gun_drill.proneCrawlNoFire`, `hbm\:gun_charge_thrower.proneCrawlNoFire` | `false` | The drill and the charge thrower work while crawling |
 | `beamRules`, `beamWater`, `laserGlass` | `true` | Beams through blocks, in water, lasers through glass |
+| `suppression` | `true` | Suppression under fire: bullets past and hitting near and blasts near darken the screen and muffle the other sounds |
+| `suppressionPass`, `suppressionImpact`, `suppressionBlast` | `1` | Each source's force; `0` leaves it out |
+| `suppressionPassRange`, `suppressionImpactRange`, `suppressionBlastRange` | `3.5`, `8`, `14` | How far from the head each counts, blocks (a big blast farther, up to three times) |
+| `suppressionRecovery` | `5` | Seconds from full suppression to none |
+| `suppressionDarken`, `suppressionMuffle` | `1` | The most darkening (40 % at the edges) and muffling (the world's sounds to 40 %) players get |
+| `suppressionFlinch`, `suppressionFlinchDeg` | `false`, `0.22` | A jolt of the view at each event, 0.11 to 0.66 degrees at the default |
 | `bulletBreakConcrete` | `false` | Bullets wear and break concrete |
 | `bulletPierceMachines` | `false` | Bullets pierce machines |
 | `bulletMachineGlass` | `true` | Machine windows are glass |

@@ -32,16 +32,17 @@ public final class SuppressionScale {
         return (float) (24.0 * near * (1.0 + Math.min(1.5, 3.2 * speed)));
     }
 
-    // how far a blast of this size reaches, by the server's range for a usual one (TNT is 4, a creeper 3)
+    // how far a blast reaches, by the server's range for a usual one; size: how far it hurts (NTM's hand grenade 7.5,
+    // TNT 8: twice vanilla's power), a bigger one is felt farther, up to three times
     public static double blastRange(float size, double range) {
-        return range * Math.clamp(size / 4.0, 1.0, 3.0);
+        return range * Math.clamp(size / 8.0, 1.0, 3.0);
     }
 
     // a blast of `size` went off `d` blocks from the eyes
     public static float blast(double d, float size, double range) {
         double r = blastRange(size, range);
         if (d >= r || r <= 0) return 0F;
-        double power = 1.3 + 0.225 * Math.clamp(size / 8.0, 0.0, 1.0);
+        double power = 1.3 + 0.225 * Math.clamp(size / 16.0, 0.0, 1.0);
         return (float) (38.0 * Math.pow(1.0 - d / r, 1.35) * power);
     }
 
