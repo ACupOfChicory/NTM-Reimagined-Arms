@@ -35,23 +35,66 @@ public final class BalanceGunsRule {
 
     /**
      * what a pair does to a shot; {@code floor}: the armour formula's least share b times this on the sets of tier
-     * {@code from} and up (balanceArmorFloor; 1: the formula's own)
+     * {@code from} and up (balanceArmorFloor; 1: the formula's own); {@code tier}: the pair's tier, the table's sixth
+     * column (-1: none given), which balanceArmorTierFloor goes by
      */
-    public record Shot(float mult, float neg, float pen, float floor, int from) {
+    public record Shot(float mult, float neg, float pen, float floor, int from, int tier) {
         public static final Shot NONE = new Shot(1F, 0F, 0F);
 
         public Shot(float mult, float neg, float pen) {
-            this(mult, neg, pen, 1F, FLOOR_FROM);
+            this(mult, neg, pen, 1F, FLOOR_FROM, -1);
+        }
+
+        public Shot(float mult, float neg, float pen, float floor, int from) {
+            this(mult, neg, pen, floor, from, -1);
         }
 
         public boolean none() {
-            return mult == 1F && neg == 0F && pen == 0F && floor == 1F;
+            return mult == 1F && neg == 0F && pen == 0F && floor == 1F && tier < 0;
         }
 
         /** the same with another mult (a gun's own line over its pairs) */
         Shot withMult(float m) {
-            return new Shot(m, neg, pen, floor, from);
+            return new Shot(m, neg, pen, floor, from, tier);
         }
+    }
+
+    /**
+     * balanceArmorTierFloor's rules, by spaces: {@code pair:set:share}, the armour formula's least share b times
+     * {@code share} for a pair of tier {@code pair} or below on a set of tier {@code set} or above (a cheap gun's round
+     * does not get through armour two tiers and more above it; the owner, 2026-11-11: "a man in HEV smashes three in
+     * steel"). Of several rules the least share; 1 for none. It multiplies the pair's own floor. A word that is no rule
+     * is skipped.
+     */
+    public static float tierFloor(String rules, int pairTier, int setTier) {
+        if (rules == null || pairTier < 0) return 1F;
+        float out = 1F;
+        for (float[] r : tierRules(rules)) if (pairTier <= r[0] && setTier >= r[1]) out = Math.min(out, r[2]);
+        return out;
+    }
+
+    private static String lastRules;
+    private static float[][] lastParsed = new float[0][];
+
+    /** the rules of the key's text (pair, set, share), the last text's kept */
+    static synchronized float[][] tierRules(String rules) {
+        if (rules.equals(lastRules)) return lastParsed;
+        List<float[]> out = new ArrayList<>();
+        for (String w : rules.strip().split("[\\s,;]+")) {
+            String[] p = w.split(":");
+            if (p.length != 3) continue;
+            try {
+                int pair = Integer.parseInt(p[0].strip()), set = Integer.parseInt(p[1].strip());
+                float share = Float.parseFloat(p[2].strip());
+                if (!(share > 0F) || !Float.isFinite(share)) continue;
+                out.add(new float[] {pair, set, Math.max(LEAST_FLOOR, Math.min(1F, share))});
+            } catch (NumberFormatException e) {
+                // not a rule
+            }
+        }
+        lastParsed = out.toArray(new float[0][]);
+        lastRules = rules;
+        return lastParsed;
     }
 
     /** the tier a pair's floor counts from when its line names none */
@@ -145,7 +188,14 @@ public final class BalanceGunsRule {
                             default -> { }
                         }
                     }
-                    pairs.computeIfAbsent(gun, g -> new LinkedHashMap<>()).put(ammo, new Shot(mult, neg, pen, floor, from));
+                    int tier = -1;
+                    // the tier column was for reading only before balanceArmorTierFloor: a word there is no tier
+                    if (f.length > 5) try {
+                        tier = Math.max(-1, Integer.parseInt(f[5].strip()));
+                    } catch (NumberFormatException e) {
+                        tier = -1;
+                    }
+                    pairs.computeIfAbsent(gun, g -> new LinkedHashMap<>()).put(ammo, new Shot(mult, neg, pen, floor, from, tier));
                 }
             } catch (RuntimeException e) {
                 bad.add(raw + "  (" + e.getMessage() + ")");

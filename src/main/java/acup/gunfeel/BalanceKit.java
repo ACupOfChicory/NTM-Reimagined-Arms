@@ -30,7 +30,8 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
  * ticks since (NTM: 60 and 0.005). NTM keeps its own count (5 a flask): with the key off its numbers come back.
  * <li>{@code balance.medx}: Med-X gives Resistance I for 60 s (NTM: III for 4 min); its recipe (balanceRecipes)
  * takes two plastic plates of the oil tier and two quartz instead of four quartz.
- * <li>{@code balance.superStimpak}: the super stimpak heals its 25 HP over 12 s, not at once (the Slowness stays).
+ * <li>{@code balance.superStimpak}: the super stimpak heals its 25 HP over 12 s, not at once (the Slowness stays);
+ * another one on the same player starts it again, the more of the two left, not on top (balance.healStack).
  * <li>{@code balance.inserts} ({@code balance.inserts.bullets} 0.9): an armour insert takes at most a tenth off a
  * bullet (kevlar 0.9, SAPI 0.85, ESAPI 0.8, XSAPI 0.75, DU 0.85, ghiorsium 0.75 all become 0.9); its damage and blast
  * shares are NTM's.
@@ -109,10 +110,17 @@ public final class BalanceKit {
     /** what is left to heal of each, and the ticks left */
     private static final Map<LivingEntity, float[]> HEALS = new WeakHashMap<>();
 
-    /** heal {@code amount} over {@code STIMPAK_TICKS}, on top of what is left of an earlier one */
+    /**
+     * heal {@code amount} over {@code STIMPAK_TICKS}: balance.healStack off (the default), the more of it and what is
+     * left of an earlier one; on (X884), on top of it
+     */
     public static synchronized void healOverTime(LivingEntity entity, float amount) {
-        float[] h = HEALS.computeIfAbsent(entity, e -> new float[2]);
-        h[0] += amount;
+        addHeal(HEALS.computeIfAbsent(entity, e -> new float[2]), amount, ReaimTimes.flag("balance.healStack", false));
+    }
+
+    /** one more heal of {@code amount} on {@code h} (left, ticks): added, or the more of the two ({@code stack} off) */
+    public static void addHeal(float[] h, float amount, boolean stack) {
+        h[0] = stack ? h[0] + amount : Math.max(h[0], amount);
         h[1] = STIMPAK_TICKS;
     }
 

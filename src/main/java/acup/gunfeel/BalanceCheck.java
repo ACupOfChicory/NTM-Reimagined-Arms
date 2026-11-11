@@ -97,6 +97,8 @@ public final class BalanceCheck {
         /** the step asks to run again next tick (a wait in real time: a reload) */
         boolean hold;
         Mannequin shooter;
+        /** the pass team: more shooters beside the mannequin, each its own damage cap on the target */
+        final List<Mannequin> team = new ArrayList<>();
         FakePlayer target, gunner;
         Mob fbi;
         /** the FBI agent firing in a pair of 1b (null: the mannequin) */
@@ -454,6 +456,10 @@ public final class BalanceCheck {
             new Recipe1v("dieselsuit_helmet", List.of("circuit_basic"), List.of("circuit_analog")),
             new Recipe1v("dieselsuit_plate", List.of("circuit_basic", "plate_cast_dura_steel", "machine_diesel"), List.of("circuit_analog")),
             new Recipe1v("dieselsuit_legs", List.of("plate_cast_dura_steel", "motor"), List.of()),
+            // cheese 2026-11-11 §3.4: the T-51 parts take the helmet's circuit (tier 3), so three of them are not tier-1 work
+            new Recipe1v("t51_plate", List.of("circuit_basic", "motor", "gas_tank"), List.of()),
+            new Recipe1v("t51_legs", List.of("circuit_basic", "motor"), List.of()),
+            new Recipe1v("t51_boots", List.of("circuit_basic", "titanium_boots"), List.of()),
             new Recipe1v("gun_tesla_cannon", List.of("circuit_quantum", "plate_welded_cmbsteel", "coil_copper"), List.of("circuit_advanced")),
             new Recipe1v("gun_lasrifle", List.of("circuit_quantum", "crystal_schraranium"), List.of("circuit_bismoid", "crystal_redstone")),
             new Recipe1v("gun_tau", List.of("circuit_quantum", "coil_magnetized_tungsten", "plate_dineutronium"), List.of("circuit_bismoid", "coil_copper_torus")));
@@ -528,7 +534,7 @@ public final class BalanceCheck {
         return out;
     }
 
-    /** the passes to run (ntmgunfeel.checkBalance.only, by commas: 2, 1g, 1v, 1a, 1b, dns, kit, db, hi, expl, esp, pool, pep, hot, mx; none: all) */
+    /** the passes to run (ntmgunfeel.checkBalance.only, by commas: 2, 1g, 1v, 1a, 1b, dns, kit, db, hi, expl, esp, pool, pep, hot, mx, team, cheese; none: all) */
     private static boolean only(String pass) {
         String only = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         return only.isEmpty() || java.util.Arrays.asList(only.split("\\s*,\\s*")).contains(pass);
@@ -537,7 +543,7 @@ public final class BalanceCheck {
     private static void plan() {
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         STEPS.add(() -> keys("balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula"));
         wait(30);
@@ -556,6 +562,9 @@ public final class BalanceCheck {
         if (only("pep")) planPep();
         if (only("hot")) planHot();
         if (only("mx")) planMatrix();
+        if (only("team")) planTeam();
+        if (only("cheese")) planCheese();
+        if (only("frag")) planFrag();
     }
 
     // ---------------------------------------------------------------- melee and the flamethrower (hotfix X867)
@@ -881,6 +890,326 @@ public final class BalanceCheck {
             if (mxLog) line("#\tmx-hits\t" + id + "\t" + L.mxHits);
             L.mxHits = null;
         });
+    }
+
+    // ---------------------------------------------------------------- the cheese review: several on one (item A, B)
+
+    /** a cell of the pass team: n shooters of one pair on the target in the set, a click each {@code iv} ticks, {@code mag} to a reload of {@code reload} */
+    private record TeamCell(int n, String set, String gun, String ammo, int iv, int mag, int reload, int limit) {
+    }
+
+    /** the lane's mannequin and {@code n - 1} more beside it, out of the line of fire, each a shooter of its own */
+    private static List<LivingEntity> teamOf(int n) {
+        while (L.team.size() < n - 1) {
+            Mannequin m = EntityTypes.MANNEQUIN.create(level, EntitySpawnReason.COMMAND);
+            m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000);
+            m.setHealth(1000);
+            m.setInvulnerable(true);
+            level.addFreshEntity(m);
+            L.team.add(m);
+        }
+        List<LivingEntity> out = new ArrayList<>();
+        out.add(L.shooter);
+        for (int i = 0; i < n - 1; i++) {
+            Mannequin m = L.team.get(i);
+            // two to a row, a block and a half apart, behind the lane's mannequin
+            double x = L.o.getX() + 0.5 + (i % 2 == 0 ? -1.5 : 1.5), z = L.o.getZ() + 0.5 - 1.5 * (i / 2);
+            m.setDeltaMovement(Vec3.ZERO);
+            m.snapTo(x, L.o.getY(), z, 0F, 0F);
+            out.add(m);
+        }
+        return out;
+    }
+
+    /**
+     * The pass team (ntmgunfeel.checkBalance.team: a file of lines "n set gun ammo iv mag reload [limit]", tabs, or
+     * "key name value"): n shooters of the same pair on the target from full health, each firing on the model's
+     * schedule (a click each iv ticks, after mag clicks a reload of reload ticks; all start together), until it dies or
+     * the limit (ticks, 2400 when not given). Each shooter has its own damage cap on the target (DamageCap). The pools
+     * of DNS, FAU and euphemium as in the game (pool, window 15 s, recovery 60, hold 10). No checks: the lines "team"
+     * go to the model (notes/balance/cheese-fixes-2026-11-11.md).
+     */
+    private static void planTeam() {
+        String file = System.getProperty(PROPERTY + ".team", "").trim();
+        if (file.isEmpty()) return;
+        List<Object> cells = new ArrayList<>();
+        try {
+            for (String l : Files.readAllLines(Path.of(file))) {
+                if (l.startsWith("#") || l.isBlank()) continue;
+                String[] p = l.trim().split("\t");
+                if (p.length == 3 && p[0].equals("key")) {
+                    cells.add(new String[] {p[1], p[2]});
+                    continue;
+                }
+                if (p.length < 7) continue;
+                cells.add(new TeamCell(Integer.parseInt(p[0]), p[1].equals("-") ? "" : p[1], p[2], p[3], Math.max(1, Integer.parseInt(p[4])),
+                        Math.max(1, Integer.parseInt(p[5])), Math.max(0, Integer.parseInt(p[6])), p.length > 7 ? Integer.parseInt(p[7]) : 2400));
+            }
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        line("#\t--- команда: " + cells.size() + " строк, n стрелков одной парой по одной цели, 4 бл");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.mode", "pool",
+                    "balance.immune.dns.mode", "pool", "balance.immune.fau.mode", "pool", "balance.immune.pool", "150", "balance.immune.dns.pool", "40",
+                    "balance.immune.fau.pool", "45", "balance.immune.window", "15", "balance.immune.dns.window", "15", "balance.immune.fau.window", "15",
+                    "balance.immune.recover", "60", "balance.immune.dns.recover", "60", "balance.immune.fau.recover", "60", "balance.immune.hold", "10",
+                    "balance.immune.refillPause", "5");
+            eachLane(() -> L.shooter.setInvulnerable(true));
+        });
+        wait(30);
+        List<Runnable> run = new ArrayList<>();
+        for (Object o : cells) {
+            if (o instanceof String[] kv) {
+                parallel(run);
+                run = new ArrayList<>();
+                STEPS.add(() -> {
+                    keys(kv[0], kv[1]);
+                    line("#\tteam-key\t" + kv[0] + "\t" + kv[1]);
+                });
+                wait(10);
+                continue;
+            }
+            TeamCell c = (TeamCell) o;
+            Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + c.gun()));
+            BulletConfig ammo = ammoNamed(gun, c.ammo());
+            String id = c.n() + "\t" + (c.set().isEmpty() ? "-" : c.set()) + "\t" + c.gun() + "\t" + c.ammo();
+            if (ammo == null) {
+                line("team\t" + id + "\tнет патрона");
+                continue;
+            }
+            run.add(() -> teamCell(c, gun, ammo, id));
+        }
+        parallel(run);
+        STEPS.add(() -> eachLane(() -> {
+            for (Mannequin m : L.team) m.discard();
+            L.team.clear();
+            L.shooter.setInvulnerable(false);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            wearAttributes(L.target);
+        }));
+        wait(10);
+    }
+
+    private static void teamCell(TeamCell c, Item gun, BulletConfig ammo, String id) {
+        int[] next = new int[c.n()], mag = new int[c.n()], clicks = {0}, died = {-1};
+        @SuppressWarnings("unchecked")
+        List<LivingEntity>[] who = new List[1];
+        int[] end = {0};
+        STEPS.add(() -> {
+            begin(L.target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            if (!c.set().isEmpty()) dress(L.target, c.set(), true);
+            wearAttributes(L.target);
+            EuphImmunity.forget(L.target);
+            homePool();
+            L.aimHead = false;
+            who[0] = teamOf(c.n());
+            java.util.Arrays.fill(next, 0);
+            java.util.Arrays.fill(mag, c.mag());
+        });
+        wait(5);
+        for (int t = 0; t < c.limit(); t++) {
+            int tick = t;
+            STEPS.add(() -> {
+                if (L.target.getHealth() <= 0F || L.target.isDeadOrDying()) {
+                    died[0] = tick;
+                    L.skipTo = end[0];
+                    return;
+                }
+                for (int i = 0; i < c.n(); i++) {
+                    if (tick < next[i]) continue;
+                    if (mag[i] < 1) {
+                        next[i] = tick + c.reload();
+                        mag[i] = c.mag();
+                        if (c.reload() > 0) continue;
+                    }
+                    fire(who[0].get(i), gun, ammo, EnumKeybind.GUN_PRIMARY);
+                    clicks[0]++;
+                    mag[i]--;
+                    next[i] = tick + c.iv();
+                }
+            });
+        }
+        end[0] = STEPS.size();
+        STEPS.add(() -> {
+            if (died[0] < 0 && (L.target.getHealth() <= 0F || L.target.isDeadOrDying())) died[0] = c.limit();
+            // the tick of the killing click: death is seen the tick after
+            line("team\t" + id + "\t" + (died[0] >= 0 ? String.valueOf(Math.max(0, died[0] - 1)) : "> " + c.limit()) + "\t" + clicks[0] + "\t" + L.seen.hits
+                    + "\t" + f(L.lost) + "\t" + EuphImmunity.describe(L.target));
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+        });
+        wait(5);
+    }
+
+    /**
+     * The cheese review's checks: (1) DNS emptied to its window, then FAU put on: with balance.immune.shared the window
+     * goes on (the hit gets through), without it a fresh pool calls it off; (2) two super stimpaks at once: 25 HP over
+     * 12 s, not 50 (balance.healStack off), 50 with it on.
+     */
+    private static void planCheese() {
+        line("#\t--- разбор cheese: смена DNS на FAU, два супер-стимпака");
+        for (boolean shared : new boolean[] {true, false}) {
+            STEPS.add(() -> {
+                keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", "pool",
+                        "balance.immune.fau.mode", "pool", "balance.immune.dns.pool", "4", "balance.immune.fau.pool", "45", "balance.immune.dns.window", "15",
+                        "balance.immune.fau.window", "15", "balance.immune.dns.recover", "60", "balance.immune.fau.recover", "60", "balance.immune.hold", "10",
+                        "balance.immune.shared", Boolean.toString(shared));
+                L.shooter.setInvulnerable(true);
+                begin(L.target);
+                dress(L.target, "dns", false);
+                EuphImmunity.forget(L.target);
+                homePool();
+            });
+            wait(10);
+            // AMAT takes about 3 of the pool a shot: two empty DNS's 4
+            for (int i = 0; i < 2; i++) {
+                STEPS.add(() -> {
+                    L.target.setHealth(L.target.getMaxHealth());
+                    homePool();
+                    fire(L.shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
+                });
+                wait(SPACING + 10);
+            }
+            float[] lost = {0F};
+            String[] dns = {""};
+            STEPS.add(() -> {
+                dns[0] = EuphImmunity.describe(EuphImmunity.Kit.DNS, L.target);
+                dress(L.target, "fau", false);
+                L.target.setHealth(L.target.getMaxHealth());
+                homePool();
+                lost[0] = L.target.getHealth();
+                fire(L.shooter, ModItems.GUN_LIGHT_REVOLVER.get(), XFactory357.m357_express, EnumKeybind.GUN_PRIMARY);
+            });
+            wait(SPACING + 10);
+            STEPS.add(() -> {
+                float took = lost[0] - L.target.getHealth();
+                String fau = EuphImmunity.describe(EuphImmunity.Kit.FAU, L.target);
+                line("#\tcheese: смена dns→fau, shared " + shared + ": DNS " + dns[0] + ", FAU " + fau + ", снято " + f(took));
+                check(dns[0].startsWith("WINDOW") && (shared ? took > 0F && fau.startsWith("WINDOW") : took == 0F && fau.startsWith("POOL")),
+                        "cheese: DNS опустошён, надет FAU, balance.immune.shared = " + shared + ": " + (shared ? "окно идёт дальше" : "свежий запас FAU") + " (снято "
+                                + f(took) + ", FAU " + fau + ")");
+                for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+                EuphImmunity.forget(L.target);
+            });
+        }
+        for (boolean stack : new boolean[] {false, true}) {
+            float[] hp = {0F};
+            STEPS.add(() -> {
+                keys("balance.healStack", Boolean.toString(stack));
+                begin(L.target);
+                L.target.setHealth(1F);
+                hp[0] = L.target.getHealth();
+                BalanceKit.healOverTime(L.target, 25F);
+                BalanceKit.healOverTime(L.target, 25F);
+                L.healing = true;
+            });
+            wait(60);
+            STEPS.add(() -> {
+                float got = L.target.getHealth() - hp[0];
+                // 60 of 240 ticks: a quarter of 25 or of 50
+                float want = (stack ? 50F : 25F) * 60F / BalanceKit.STIMPAK_TICKS;
+                line("#\tcheese: два супер-стимпака, healStack " + stack + ": за 3 с +" + f(got));
+                check(Math.abs(got - want) <= 1F, "cheese: два супер-стимпака сразу, balance.healStack = " + stack + ": за 3 с +" + f(got) + " ≈ " + f(want));
+            });
+            // the heal runs out before the next case
+            wait(BalanceKit.STIMPAK_TICKS);
+            STEPS.add(() -> {
+                L.healing = false;
+                L.target.setHealth(L.target.getMaxHealth());
+            });
+        }
+        STEPS.add(() -> {
+            keys("balance.immune.dns.pool", "40", "balance.immune.shared", "true", "balance.healStack", "false");
+            L.shooter.setInvulnerable(false);
+        });
+        wait(10);
+    }
+
+    // ---------------------------------------------------------------- GL-54: the fragment grenades by set (cheese §2.4)
+
+    private static final String[] FRAG_SETS = {"", "steel", "t51", "hev", "bj", "rpa", "fau", "dns"};
+    private static final acup.gunfeel.gl54.frag.FragSpec[] FRAG_SPECS = {acup.gunfeel.gl54.frag.FragSpec.AIRBURST, acup.gunfeel.gl54.frag.FragSpec.AP,
+            acup.gunfeel.gl54.frag.FragSpec.INCENDIARY};
+    private static final int FRAG_N = 20, FRAG_LIMIT = 20 * 60;
+
+    // the burst `d` blocks before the target's chest on the line from the shooter, flying at it
+    private static void fragAt(acup.gunfeel.gl54.frag.FragSpec spec, double d, long seed) {
+        Vec3 chest = new Vec3(L.target.getX(), L.target.getY() + 1.2, L.target.getZ());
+        L.target.invulnerableTime = 0;
+        acup.gunfeel.gl54.frag.FragBurst.burst(spec, level, L.shooter, null, chest.add(0, 0, -d), new Vec3(0, 0, 1), seed);
+    }
+
+    // the incendiary's burning patches and the target's fire out, so the next case starts clean
+    private static void fragFireOff() {
+        for (var e : level.getEntitiesOfClass(com.hbm.entity.effect.EntityFireLingering.class, new net.minecraft.world.phys.AABB(L.o).inflate(16))) e.discard();
+        L.target.clearFire();
+    }
+
+    /** the GL-54's airburst, armour-piercing and incendiary grenades on each set: the damage of one burst from a fresh
+     * target (2, 4 and 6 blocks, FRAG_N seeds) and the time to kill at 3 blocks, a burst every Gl54Gun.DELAY ticks and
+     * the empty reload after 8. Numbers only (the formula's lot; no rule of the owner's for it yet). */
+    private static void planFrag() {
+        line("#\t--- frag: GL-54 по наборам: урон выстрела на 2/4/6 бл (среднее " + FRAG_N + "), время убийства на 3 бл");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", "pool",
+                    "balance.immune.fau.mode", "pool");
+            L.shooter.setInvulnerable(true);
+        });
+        wait(10);
+        int empty = acup.gunfeel.gl54.Gl54Gun.RELOAD_BEGIN + acup.gunfeel.gl54.Gl54Gun.RELOAD_END + acup.gunfeel.gl54.Gl54Gun.RELOAD_EMPTY_POST;
+        for (String set : FRAG_SETS)
+            for (var spec : FRAG_SPECS) {
+                String name = (set.isEmpty() ? "голый" : set) + " · " + spec.kind().key;
+                StringBuilder per = new StringBuilder();
+                STEPS.add(() -> {
+                    homePool();
+                    for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+                    if (!set.isEmpty()) dress(L.target, set, false);
+                    for (double d : new double[] {2, 4, 6}) {
+                        double sum = 0;
+                        for (int i = 0; i < FRAG_N; i++) {
+                            begin(L.target);
+                            EuphImmunity.forget(L.target);
+                            float hp = L.target.getHealth();
+                            fragAt(spec, d, 0x5EED_0000L + i * 7919L);
+                            sum += hp - L.target.getHealth();
+                            L.target.clearFire();
+                        }
+                        per.append(' ').append(f((float) (sum / FRAG_N)));
+                    }
+                    fragFireOff();
+                    begin(L.target);
+                    EuphImmunity.forget(L.target);
+                });
+                int[] t = {0}, shots = {0}, next = {0};
+                STEPS.add(() -> {
+                    if (t[0] >= next[0] && L.target.isAlive() && L.target.getHealth() > 0F) {
+                        fragAt(spec, 3, 0xF4A6_0000L + shots[0] * 104729L);
+                        shots[0]++;
+                        next[0] = t[0] + (shots[0] % 8 == 0 ? empty : acup.gunfeel.gl54.Gl54Gun.DELAY);
+                    }
+                    boolean dead = !L.target.isAlive() || L.target.getHealth() <= 0F;
+                    if (!dead && t[0] < FRAG_LIMIT) {
+                        t[0]++;
+                        L.hold = true;
+                        return;
+                    }
+                    String kill = dead ? f(t[0] / 20F) + " с, выстрелов " + shots[0] : "не убил за " + FRAG_LIMIT / 20 + " с (" + shots[0] + " выстрелов, осталось "
+                            + f(L.target.getHealth()) + ")";
+                    line("#\tfrag\t" + name + "\tурон 2/4/6 бл" + per + "\tна 3 бл: " + kill);
+                    check(true, "frag: " + name);
+                    L.target.clearFire();
+                    fragFireOff();
+                });
+                wait(5);
+            }
+        STEPS.add(() -> {
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            L.shooter.setInvulnerable(false);
+            begin(L.target);
+        });
+        wait(10);
     }
 
     // ---------------------------------------------------------------- Pepperbox: 13th-century tech

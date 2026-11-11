@@ -400,6 +400,8 @@ neoForge {
             // -PbalanceCells=<file>: the pass "mx", the model's cells (BalanceCheck.planMatrix)
             providers.gradleProperty("balanceCells").orNull?.let { systemProperty("ntmgunfeel.checkBalance.cells", it) }
             providers.gradleProperty("balanceCellHits").orNull?.let { systemProperty("ntmgunfeel.checkBalance.cellHits", "true") }
+            // -PbalanceTeam=<file>: the pass "team", n shooters on one target (BalanceCheck.planTeam)
+            providers.gradleProperty("balanceTeam").orNull?.let { systemProperty("ntmgunfeel.checkBalance.team", it) }
             // -PbalanceLanes=<n>: n pairs of shooter and target at once, the cases of a pass shared out (8; 1: one pair)
             providers.gradleProperty("balanceLanes").orNull?.let { systemProperty("ntmgunfeel.checkBalance.lanes", it) }
         }
