@@ -94,10 +94,15 @@ public final class ShockServer {
         return config != null && config.pType == BulletConfig.ProjectileType.BEAM ? (float) Math.toDegrees(s) : s;
     }
 
-    /** the shell hit something (its config's entity hit, after NTM's damage) */
-    static void hit(EntityBulletBaseMK4 bullet, HitResult hit) {
-        if (!(hit instanceof EntityHitResult eh) || !(eh.getEntity() instanceof LivingEntity target)) return;
+    /**
+     * The shell hit something (its config's entity hit, after NTM's damage); {@code before}: the target's health and
+     * absorption before that damage. A hit that took nothing off shocks no one; with {@code shock} off the shell only
+     * does its damage.
+     */
+    static void hit(EntityBulletBaseMK4 bullet, HitResult hit, float before) {
+        if (!on() || !(hit instanceof EntityHitResult eh) || !(eh.getEntity() instanceof LivingEntity target)) return;
         if (!(target.level() instanceof ServerLevel level)) return;
+        if (!(target.getHealth() + target.getAbsorptionAmount() < before)) return;
         zap(level, target);
         LivingEntity shooter = bullet.getThrower();
         boolean took = shock(target);

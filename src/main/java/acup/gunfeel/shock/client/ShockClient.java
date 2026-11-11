@@ -58,7 +58,12 @@ public final class ShockClient {
         });
         bus.addListener(net.neoforged.neoforge.client.event.RenderFrameEvent.Pre.class, e -> turn(e.getPartialTick()));
         bus.addListener(net.neoforged.neoforge.client.event.ViewportEvent.ComputeCameraAngles.class, ShockClient::shake);
-        bus.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> clear());
+        bus.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> {
+            clear();
+            ShockHud.release();
+        });
+        // a respawn is a new player: the server's shock went with the old one
+        bus.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.Clone.class, e -> clear());
     }
 
     public static void clear() {
@@ -103,7 +108,8 @@ public final class ShockClient {
 
     /** seconds into the shock (partial ticks counted), or -1 when there is none */
     private static float age(float partial) {
-        if (start == Long.MIN_VALUE || Minecraft.getInstance().player == null) return -1F;
+        var player = Minecraft.getInstance().player;
+        if (start == Long.MIN_VALUE || player == null || !player.isAlive()) return -1F;
         float t = (tick - start + partial) / 20F;
         return t >= length / 20F ? -1F : t;
     }

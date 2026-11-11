@@ -61,7 +61,7 @@ public final class ShockHud {
 
     /** the layers drawn as ever, not glitched */
     private static final Set<Identifier> KEEP = Set.of(VanillaGuiLayers.CHAT, VanillaGuiLayers.SUBTITLE_OVERLAY, VanillaGuiLayers.CAMERA_OVERLAYS,
-            VanillaGuiLayers.SLEEP_OVERLAY, id("suppression"));
+            VanillaGuiLayers.SLEEP_OVERLAY, id("suppression"), id("gas_hud"), id("smoke"));
 
     static final BindGroupLayout LAYOUT = BindGroupLayout.builder()
             .withUniform("ShockInfo", UniformType.UNIFORM_BUFFER)
@@ -109,7 +109,8 @@ public final class ShockHud {
             return;
         }
         if (state == null) state = new GuiRenderState();
-        if (!extracted) state.reset();
+        // anew each time: a frame extracted and never drawn (a panorama shot) leaves nothing behind
+        state.reset();
         int mx = (int) mc.mouseHandler.getScaledXPos(mc.getWindow()), my = (int) mc.mouseHandler.getScaledYPos(mc.getWindow());
         GuiGraphicsExtractor glitch = new GuiGraphicsExtractor(mc, state, mx, my);
         // GuiLayerManager.render, with the HUD's own layers (and what mods draw at its events) into the glitch
@@ -143,6 +144,22 @@ public final class ShockHud {
             GunFeel.LOGGER.error("The shock's HUD glitch failed; the HUD is drawn as ever from now on", e);
             if (state != null) state.reset();
         }
+    }
+
+    /** lets go of the glitch's renderer, texture and buffer (logging out): made anew at the next shock */
+    public static void release() {
+        extracted = false;
+        if (state != null) state.reset();
+        try {
+            if (renderer != null) renderer.close();
+            if (target != null) target.destroyBuffers();
+            if (ubo != null) ubo.close();
+        } catch (RuntimeException e) {
+            GunFeel.LOGGER.warn("The shock's HUD glitch: letting go of its renderer", e);
+        }
+        renderer = null;
+        target = null;
+        ubo = null;
     }
 
     private static void draw() {

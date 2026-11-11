@@ -29,7 +29,7 @@ import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
  * The 12 gauge electroshock shell (a Taser XREP of NTM's shotguns): one round, little damage, and a hit on someone
  * shocks them (ShockServer). An item of the mod's own; its NTM config is made once at the common setup, on both sides
  * in the same order, and goes into every magazine that takes NTM's 12 gauge buckshot (the Maresleg and its kin, the
- * Liberator, the SPAS-12, the Auto-Shotgun, the Sexy and Heretic ones): not the Shredder's, whose rounds are beams.
+ * SPAS-12, the Auto-Shotgun and the Sexy one): not the Shredder's, whose rounds are beams.
  */
 public final class ShockAmmo {
     public static RegistryHandle<Item> ITEM;
@@ -71,8 +71,11 @@ public final class ShockAmmo {
                 .setHeadshot(1F)
                 .setCasing(new SpentCasing(SpentCasing.CasingType.SHOTGUN).setColor(0x2F6FD8, SpentCasing.COLOR_CASE_12GA).setScale(0.75F).register("12GA_SHOCK"));
         config.onEntityHit = (bullet, hit) -> {
+            // what the target had before NTM's damage: a hit that did no harm (no PvP, a claim, invulnerable) does not shock
+            float before = hit instanceof net.minecraft.world.phys.EntityHitResult eh && eh.getEntity() instanceof net.minecraft.world.entity.LivingEntity l
+                    ? l.getHealth() + l.getAbsorptionAmount() : Float.NaN;
             BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet, hit);
-            ShockServer.hit(bullet, hit);
+            ShockServer.hit(bullet, hit, before);
         };
         int mags = 0;
         for (Item item : BuiltInRegistries.ITEM) {
