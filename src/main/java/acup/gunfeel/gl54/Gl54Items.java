@@ -38,7 +38,7 @@ public final class Gl54Items {
     }
 
     public static void register(IEventBus modBus) {
-        NeoForgeRegistrar.subscribe(NAMESPACE, modBus);
+        acup.gunfeel.ModRegistrar.subscribe(modBus);
         MAG_CONTENTS = NeoForgeRegistrar.registerDataComponent(NAMESPACE + ":gl54_mag",
                 DataComponentType.<MagContents>builder().persistent(MagContents.CODEC).networkSynchronized(MagContents.STREAM_CODEC).build());
         GUN_MAG = NeoForgeRegistrar.registerDataComponent(NAMESPACE + ":gl54_gun",

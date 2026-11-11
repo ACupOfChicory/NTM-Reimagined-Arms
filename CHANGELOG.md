@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- New ammo: the 12 Gauge Electroshock Shell, for every NTM 12 gauge shotgun but
+  the Shredder (in the ammo wheel and the HUD like the rest). NTM's ammo press
+  makes six from a copper capacitor, four fine copper wires and an advanced
+  buckshot casing. One round of about 2 damage. A hit shocks for 2 seconds:
+  the whole HUD, other mods' too, glitches hard and shakes (not the chat or the
+  menus), the view shakes a little and drifts on its own, and the shots of
+  whoever was hit spread wide (the server decides, for players and AI soldiers
+  alike). After a shock, 3 seconds of immunity. The shot is heard as a zap, and
+  the shooter sees a spark at the crosshair. Server keys `shock`,
+  `shockSeconds`, `shockImmunity`, `shockSpread`, `shockGlitch`,
+  `shockGlitchMin`, `shockCamera`, `shockShake`; client key `shockGlitch`.
+
 ## X884
 
 - Atlas beats the Break-Action Revolver on the .357 AP round: it took tier 6 and

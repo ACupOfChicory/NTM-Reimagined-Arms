@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "ntmgunfeel:item/ammo_g12_shock"
+  }
+}

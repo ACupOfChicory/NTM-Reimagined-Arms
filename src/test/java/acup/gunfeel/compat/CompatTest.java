@@ -118,7 +118,7 @@ class CompatTest {
         assertTrue(r.off().isEmpty(), r.off().toString());
     }
 
-    // NTM renames the method the spread mixin changes: only the spread goes
+    // NTM renames the method the spread mixin changes: only the spread goes, and the shock (its shots' spread is there too)
     @Test
     void renamedMethodTurnsOffOnlyItsSystem() throws IOException {
         MixinProbe.Classes real = classes();
@@ -128,8 +128,8 @@ class CompatTest {
         MixinProbe.Classes doctored = n -> n.equals(LEGO) ? lego : real.get(n);
         Compat.Result r = HbmMixinPlugin.evaluate(mixins(), doctored, api());
         assertNotNull(r);
-        assertEquals(Set.of(Feature.SPREAD), r.off().keySet(), r.off().toString());
-        assertEquals(Set.of("MixinLegoSpread"), r.skipped().keySet());
+        assertEquals(Set.of(Feature.SPREAD, Feature.SHOCK), r.off().keySet(), r.off().toString());
+        assertEquals(Set.of("MixinLegoSpread", "MixinShockSpread"), r.skipped().keySet());
     }
 
     @Test

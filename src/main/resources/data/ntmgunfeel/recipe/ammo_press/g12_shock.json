@@ -1,0 +1,27 @@
+{
+  "type": "hbm:ammo_press",
+  "order": 12040,
+  "pattern": [
+    " A ",
+    " B ",
+    " C "
+  ],
+  "key": {
+    "A": {
+      "ingredient": "hbm:capacitor_copper"
+    },
+    "B": {
+      "ingredient": "#c:fine_wires/copper",
+      "count": 4
+    },
+    "C": {
+      "ingredient": "hbm:casing_buckshot_advanced"
+    }
+  },
+  "output_items": [
+    {
+      "id": "ntmgunfeel:ammo_g12_shock",
+      "count": 6
+    }
+  ]
+}

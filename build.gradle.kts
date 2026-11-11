@@ -147,6 +147,8 @@ neoForge {
             providers.gradleProperty("gl54ReflexRelief").orNull?.let { systemProperty("ntmgunfeel.gl54ReflexRelief",it) }
             // -PsuppressionStand: suppression under fire, its sources, sounds, screen and flinch (SuppressionStand)
             systemProperty("ntmgunfeel.suppressionStand",providers.gradleProperty("suppressionStand").isPresent.toString())
+            // -PshockStand: the 12 gauge shock shell, its window, spread, immunity, the AI bot and the HUD's glitch (ShockStand)
+            systemProperty("ntmgunfeel.shockStand",providers.gradleProperty("shockStand").isPresent.toString())
             // -PproneFireStand: no shot while crawling, for a player and a mannequin (ProneFireStand)
             systemProperty("ntmgunfeel.proneFireStand",providers.gradleProperty("proneFireStand").isPresent.toString())
             // -PshapesStand=<file>: every NTM machine taken in turn, the jar's table of their shapes written there (ShapesStand)
