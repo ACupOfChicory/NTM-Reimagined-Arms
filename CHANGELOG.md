@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+- The Lever Action Rifle and Lincoln's Repeater now take DNS, FAU and
+  euphemium like other guns of their tier: their reload from empty and a shot
+  (10.5 s) ran past the 10 s a hit holds the window open, so every reload shut
+  the window, gave the full pool back and cost a minute of invulnerability.
+  A gun whose shot and reload take longer than `balance.immune.hold` now holds
+  the window, and the pool's refill pause, that long and a second more after
+  its hit. AP on DNS: 1050 s → 200 (Lever Action) and 1120 s → 215 (Lincoln),
+  the other rounds 270–500 s, where they did not kill in two hours before;
+  euphemium 650–1460 s, never before. Every other gun is as it was. New server
+  key `balance.immune.reloadHold` (`true`; `false`: as before).
+- Heavy Revolver's AP round is no longer slower than the cheaper revolvers'
+  against armour of tier 6 and up (BJ 9.3 s → 7.2, CMB 15.8 → 10, DNS 140 →
+  101, euphemium 432 → 308); against no armour and armour of tier 4 as before.
+- Aberrator holds 9 rounds (5 before) and Eyes of the Tempest 8 a gun (5), so
+  the tier 9 secret guns take DNS and FAU in 3.9 s (5.8) and euphemium in
+  13 s (17.4), not slower than the tier 8 guns. Their click was already at the
+  damage cap, so a bigger multiplier could not do it; against no armour they
+  take 1.3 s, as before.
+- Tesla Cannon's and Lasrifle's tier in the gun table follows their recipes
+  (tier 7 with `balanceRecipes`, for every round, not only the overcharged
+  capacitor): Tesla's plain and IR capacitors no longer get the half floor of
+  tier 5 guns against DNS and FAU (DNS 91 s → 61 and 62 → 41). Lacunae is
+  tier 9 in the table, as its pedestal recipe; nothing changes in play.
+
 ## X896
 
 - One player in HEV now beats three in steel armour: guns of tier 2 and below

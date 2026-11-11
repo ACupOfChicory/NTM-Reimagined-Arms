@@ -132,6 +132,39 @@ class BalanceKitTest {
     }
 
     @Test
+    void reloadHold() {
+        // balance.immune.reloadHold: a gun whose shot and reload from empty are longer than the hold (Henry: 210 ticks)
+        // holds the window for that and a second more; a shorter one (Heavy Revolver: 60) the hold's own 10 s
+        Pool p = new Pool(40F, 300, 1200, 200);
+        assertEquals(200, EuphImmunity.holdOf(p, 60));
+        assertEquals(200, EuphImmunity.holdOf(p, 200));
+        assertEquals(210 + EuphImmunity.RELOAD_SLACK, EuphImmunity.holdOf(p, 210));
+        assertEquals(0, EuphImmunity.holdOf(new Pool(40F, 300, 1200, 0), 210));
+        State s = new State(p.size(), 0);
+        EuphImmunity.hit(s, 0, 40F, true, true, p, 210);
+        assertFalse(EuphImmunity.hit(s, 290, 1F, true, true, p, 210));
+        // the reload's 10.5 s after the last shot: still the window
+        assertEquals(Phase.WINDOW, EuphImmunity.phase(s, 290 + 210));
+        assertEquals(Phase.RECOVER, EuphImmunity.phase(s, 290 + 230));
+        // the same hits of a gun with a short reload: the window ends 10 s after the last
+        State r = new State(p.size(), 0);
+        EuphImmunity.hit(r, 0, 40F, true, true, p, 60);
+        EuphImmunity.hit(r, 290, 1F, true, true, p, 60);
+        assertEquals(Phase.RECOVER, EuphImmunity.phase(r, 490));
+        // in the pool: no refill over such a gun's reload, then the pool's own rate
+        State q = new State(p.size(), 0);
+        EuphImmunity.hit(q, 0, 10F, true, true, p, 210);
+        assertEquals(30F, EuphImmunity.poolAt(q, 230, p), 1e-3F);
+        assertEquals(30F + 40F * 120 / 1200, EuphImmunity.poolAt(q, 350, p), 1e-2F);
+        // a short gun's hit: the refill pause as before
+        EuphImmunity.hit(q, 400, 0F, true, true, p, 60);
+        assertEquals(0, q.pause);
+        // the pause goes with the pool to another kit (balance.immune.shared)
+        q.pause = 230;
+        assertEquals(230, EuphImmunity.carry(q, p, new Pool(45F, 300, 1200, 200), 400).pause);
+    }
+
+    @Test
     void poolRefillsAfterAPause() {
         State s = new State(P.size(), 0);
         float half = P.size() / 2F;
@@ -169,9 +202,12 @@ class BalanceKitTest {
         assertEquals("15", p.getProperty("balance.immune.window"));
         assertEquals("60", p.getProperty("balance.immune.recover"));
         assertEquals("10", p.getProperty("balance.immune.hold"));
-        // balance.immune.refillPause 5 s, as X875 (Henry and Lincoln: both keys at 11 in the notes, not shipped)
+        // balance.immune.refillPause 5 s, as X875 (Henry and Lincoln: balance.immune.reloadHold)
         assertEquals("5", p.getProperty("balance.immune.refillPause"));
         assertEquals(EuphImmunity.REFILL_PAUSE, EuphImmunity.refillPause());
+        // balance.immune.reloadHold: Henry and Lincoln hold the window and the refill through their reload
+        assertEquals("true", p.getProperty("balance.immune.reloadHold"));
+        assertTrue(EuphImmunity.reloadHold());
         assertEquals(200, Pool.DEFAULT.hold());
         assertEquals("pool", p.getProperty("balance.immune.dns.mode"));
         assertEquals("40", p.getProperty("balance.immune.dns.pool"));

@@ -33,6 +33,9 @@ import net.minecraft.world.entity.player.Player;
  * <li>{@code balance.immune.hold} (10 s; 0: X873): a weapon's hit in the window keeps it open at least this long
  * after it, for the three sets (DNS and FAU too): a gun that does not kill in 15 s goes on as long as it keeps hitting,
  * instead of a whole round of invulnerability and a new pool (the TTK had no pair between 60 and 120 s);
+ * <li>{@code balance.immune.reloadHold} (true; false: X896): a gun whose shot and reload from empty take longer than
+ * the hold (Henry and Lincoln: 10.5 s) holds the window, and the pool's refill pause, for that and a second more, so
+ * the reload does not close the window or give the pool back (DNS 1000-4800 s, euphemium never, before);
  * <li>{@code balance.immune.recover} (60 s): after the window the pool fills back from 0 over this time, the set
  * invulnerable meanwhile; then it is full and the round starts again.
  * <li>the tomb's radon gas (BlockGasRadonTomb) takes the invulnerability off entirely while the wearer is in it, with
@@ -68,9 +71,7 @@ public final class EuphImmunity {
 
     /**
      * balance.immune.refillPause (5 s, as X875): seconds after the last hit that took from the pool before it comes back,
-     * for the three sets. A gun whose reload is longer (Henry and Lincoln: 9.5 s) gets part of the pool back on each
-     * reload; with balance.immune.hold at least as long as its reload and a shot (11 s) the two take DNS in 140–260 s,
-     * not 400–3500 (notes: review 3, item 15)
+     * for the three sets. Henry and Lincoln, whose reload is longer, wait it out by balance.immune.reloadHold instead
      */
     static int refillPause() {
         float v = ReaimTimes.number("balance.immune.refillPause", REFILL_PAUSE / 20F);
@@ -83,6 +84,8 @@ public final class EuphImmunity {
     public static final class State {
         public float pool;
         public long at, lastHit = Long.MIN_VALUE / 2, windowStart = Long.MIN_VALUE / 2, windowEnd = Long.MIN_VALUE / 2, recoverEnd = Long.MIN_VALUE / 2;
+        /** the last hit's own refill pause, ticks (balance.immune.reloadHold; 0: balance.immune.refillPause's) */
+        public int pause;
 
         public State(float pool, long now) {
             this.pool = pool;
@@ -117,7 +120,7 @@ public final class EuphImmunity {
             pool = p.size();
             return pool;
         }
-        long from = Math.max(s.at, s.lastHit + refillPause());
+        long from = Math.max(s.at, s.lastHit + Math.max(refillPause(), s.pause));
         if (now > from && p.recover() > 0) pool = Math.min(p.size(), pool + p.size() * (now - from) / p.recover());
         else if (p.recover() <= 0) pool = p.size();
         return Math.min(p.size(), pool);
@@ -133,12 +136,30 @@ public final class EuphImmunity {
 
     /** the same; {@code keeps}: a shot, beam or blast, which holds the window open (euphemium's melee drains, not holds) */
     public static boolean hit(State s, long now, float drain, boolean weapon, boolean keeps, Pool p) {
+        return hit(s, now, drain, weapon, keeps, p, 0);
+    }
+
+    /** ticks a gun's hit holds the window and the refill pause past the hold (balance.immune.reloadHold) */
+    public static final int RELOAD_SLACK = 20;
+
+    /**
+     * the hold of a hit whose gun takes {@code reach} ticks from a shot to the next one after a reload from empty (0:
+     * not a gun's): the pool's hold, or the reach and {@link #RELOAD_SLACK} when that is longer (0 when the hold is 0)
+     */
+    public static int holdOf(Pool p, int reach) {
+        if (p.hold() <= 0) return 0;
+        return reach > p.hold() ? reach + RELOAD_SLACK : p.hold();
+    }
+
+    /** the same; {@code reach}: the gun's shot and reload from empty, ticks ({@link #holdOf}) */
+    public static boolean hit(State s, long now, float drain, boolean weapon, boolean keeps, Pool p, int reach) {
         Phase ph = phase(s, now);
+        int hold = keeps ? holdOf(p, reach) : 0;
         if (ph == Phase.WINDOW) {
             // a weapon's hit keeps the window open (balance.immune.hold): a gun too weak to kill in 15 s does not pay
             // a whole round of invulnerability and a new pool for it, as long as it keeps hitting
-            if (keeps && p.hold() > 0 && now + p.hold() > s.windowEnd) {
-                s.windowEnd = now + p.hold();
+            if (hold > 0 && now + hold > s.windowEnd) {
+                s.windowEnd = now + hold;
                 s.recoverEnd = s.windowEnd + p.recover();
             }
             return false;
@@ -147,6 +168,8 @@ public final class EuphImmunity {
         float pool = poolAt(s, now, p) - Math.max(0F, drain);
         s.at = now;
         s.lastHit = now;
+        // a gun the hold does not wait out: its reload does not give the pool back either
+        s.pause = hold > p.hold() ? hold : 0;
         if (pool <= 0F) {
             s.pool = 0F;
             s.windowStart = now + 1;
@@ -256,6 +279,7 @@ public final class EuphImmunity {
         float share = a.size() > 0F ? poolAt(from, now, a) / a.size() : 1F;
         State s = new State(Math.max(0F, Math.min(1F, share)) * b.size(), now);
         s.lastHit = from.lastHit;
+        s.pause = from.pause;
         s.windowStart = from.windowStart;
         s.windowEnd = from.windowEnd;
         s.recoverEnd = from.recoverEnd;
@@ -338,13 +362,45 @@ public final class EuphImmunity {
         boolean off;
         synchronized (EuphImmunity.class) {
             before = phase(s, now);
-            off = hit(s, now, drain, cat != null, keeps, p);
+            off = hit(s, now, drain, cat != null, keeps, p, keeps ? reach(source) : 0);
         }
         if (before == Phase.POOL && phase(s, now + 1) == Phase.WINDOW) {
             if (kit == Kit.EUPHEMIUM) dropEffects(player);
             if (player instanceof net.minecraft.server.level.ServerPlayer sp) sp.sendSystemMessage(Component.translatable(kit.message, p.window() / 20), true);
         }
         return off;
+    }
+
+    /** balance.immune.reloadHold (true; false: X896) */
+    static boolean reloadHold() {
+        return ReaimTimes.flag("balance.immune.reloadHold", true);
+    }
+
+    /**
+     * ticks the gun in the hitter's hand takes from a shot to the next one after a reload from empty (NTM's reload: the
+     * begin, a cycle for each round after the first of a magazine loaded a round at a time, the end, and the empty
+     * gun's cocking), the longest of its configs (akimbo); 0: no gun, or balance.immune.reloadHold off
+     */
+    static int reach(DamageSource source) {
+        if (!reloadHold() || !(source.getEntity() instanceof net.minecraft.world.entity.LivingEntity hitter)) return 0;
+        return reachOf(hitter.getMainHandItem());
+    }
+
+    /** the same of a gun's stack (0: not an NTM gun) */
+    static int reachOf(net.minecraft.world.item.ItemStack stack) {
+        if (!(stack.getItem() instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)) return 0;
+        int most = 0;
+        for (int c = 0; c < gun.getConfigCount(); c++) {
+            com.hbm.items.weapon.sedna.Receiver[] recs = gun.getConfig(stack, c).getReceivers(stack);
+            if (recs.length == 0) continue;
+            com.hbm.items.weapon.sedna.Receiver rec = recs[0];
+            com.hbm.items.weapon.sedna.mags.IMagazine<?> mag = rec.getMagazine(stack);
+            int cycles = mag instanceof com.hbm.items.weapon.sedna.mags.MagazineSingleReload ? Math.max(0, mag.getCapacity(stack) - 1) : 0;
+            int t = rec.getDelayAfterFire(stack) + rec.getReloadCockOnEmptyPre(stack) + rec.getReloadBeginDuration(stack)
+                    + cycles * rec.getReloadCycleDuration(stack) + rec.getReloadEndDuration(stack) + rec.getReloadCockOnEmptyPost(stack);
+            most = Math.max(most, t);
+        }
+        return most;
     }
 
     /** the full set of DNS or FAU (charged, as NTM counts it) with its pool on, or null */

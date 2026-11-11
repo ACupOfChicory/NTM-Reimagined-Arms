@@ -139,6 +139,7 @@ BALANCE class com/hbm/items/food/MedicalSyringeItem$Type
 BALANCE class com/hbm/items/weapon/sedna/BulletConfig
 BALANCE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 BALANCE class com/hbm/items/weapon/sedna/mags/IMagazine
+BALANCE class com/hbm/items/weapon/sedna/mags/MagazineSingleReload
 BALANCE class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 BALANCE field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 BALANCE field com/hbm/entity/projectile/EntityBulletBeamBase damage F
@@ -176,8 +177,15 @@ BALANCE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft
 BALANCE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 BALANCE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
 BALANCE method com/hbm/items/weapon/sedna/Receiver getBaseDamage (Lnet/minecraft/world/item/ItemStack;)F
+BALANCE method com/hbm/items/weapon/sedna/Receiver getDelayAfterFire (Lnet/minecraft/world/item/ItemStack;)I
 BALANCE method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+BALANCE method com/hbm/items/weapon/sedna/Receiver getReloadBeginDuration (Lnet/minecraft/world/item/ItemStack;)I
+BALANCE method com/hbm/items/weapon/sedna/Receiver getReloadCockOnEmptyPost (Lnet/minecraft/world/item/ItemStack;)I
+BALANCE method com/hbm/items/weapon/sedna/Receiver getReloadCockOnEmptyPre (Lnet/minecraft/world/item/ItemStack;)I
+BALANCE method com/hbm/items/weapon/sedna/Receiver getReloadCycleDuration (Lnet/minecraft/world/item/ItemStack;)I
+BALANCE method com/hbm/items/weapon/sedna/Receiver getReloadEndDuration (Lnet/minecraft/world/item/ItemStack;)I
 BALANCE method com/hbm/items/weapon/sedna/Receiver getSplitProjectiles (Lnet/minecraft/world/item/ItemStack;)F
+BALANCE method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecraft/world/item/ItemStack;)I
 BALANCE method com/hbm/util/DamageResistanceHandler typeToCategory (Lnet/minecraft/world/damagesource/DamageSource;)Ljava/lang/String;
 BALANCE method com/hbm/util/EntityDamageUtil getDTDR (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FFF)[F
 BULLETS class com/hbm/blockentity/BlockEntityDoorGeneric
@@ -342,6 +350,8 @@ CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/
 CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 CORE field com/hbm/hazard/HazardClass GAS_BLISTERING Lcom/hbm/hazard/HazardClass;
 CORE field com/hbm/hazard/HazardClass GAS_LUNG Lcom/hbm/hazard/HazardClass;
+CORE field com/hbm/items/ModItems GUN_ABERRATOR Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems GUN_ABERRATOR_EOTT Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_AM180 Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_AMAT Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_AMAT_PENANCE Lcom/hbm/registration/RegistryHandle;
@@ -360,6 +370,7 @@ CORE field com/hbm/items/ModItems GUN_GREASEGUN Lcom/hbm/registration/RegistryHa
 CORE field com/hbm/items/ModItems GUN_HANGMAN Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_HEAVY_REVOLVER Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_HENRY Lcom/hbm/registration/RegistryHandle;
+CORE field com/hbm/items/ModItems GUN_HENRY_LINCOLN Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_LASER_PISTOL Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_LASER_PISTOL_MORNING_GLORY Lcom/hbm/registration/RegistryHandle;
 CORE field com/hbm/items/ModItems GUN_LASRIFLE Lcom/hbm/registration/RegistryHandle;
@@ -588,6 +599,7 @@ CORE method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/worl
 CORE method com/hbm/items/weapon/sedna/Receiver getRefireOnHold (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/factory/Lego standardExplode (Lcom/hbm/entity/projectile/EntityBulletBaseMK4;Lnet/minecraft/world/phys/HitResult;F)V
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
+CORE method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecraft/world/item/ItemStack;)I
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine setAmount (Lnet/minecraft/world/item/ItemStack;I)V
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine setType (Lnet/minecraft/world/item/ItemStack;Ljava/lang/Object;)V

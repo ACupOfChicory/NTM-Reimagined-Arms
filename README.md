@@ -112,7 +112,8 @@ page. They are alphas: expect bugs and back up your world.
   server can replace with its own file): each pair's shot does NTM's damage
   times its multiplier. A few guns change: Heretic is a semi-automatic
   shotgun with 24 rounds, AM180 fires slower with 60, the AMAT Penance,
-  Subtlety and MAS-36 fire faster, Morning Glory hits twice as hard.
+  Subtlety and MAS-36 fire faster, Morning Glory hits twice as hard,
+  Aberrator holds 9 rounds and Eyes of the Tempest 8 a gun.
 
 ### Bullets and blocks
 
@@ -395,7 +396,8 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.immune.pool` | `150` | What bullets, beams and blasts on the set wear down before it opens (each as much as on a DNS-class set); the owner's choice, `2000`: as X865 |
 | `balance.immune.window` | `15` | Seconds the emptied pool leaves the wearer open, without the set's Regeneration and Resistance |
 | `balance.immune.hold` | `10` | For euphemium, DNS and FAU: a shot, IR beam or blast in the window (not melee) keeps it open at least this many seconds after it, so a gun that keeps hitting is not sent back to a full pool; `0`: the window is its own length, as X873 |
-| `balance.immune.refillPause` | `5` | For euphemium, DNS and FAU: seconds after the last hit on the pool before a worn-down pool starts to come back; with it and `balance.immune.hold` at `11` the Lever Action Rifle and Lincoln's Repeater (reload 9.5 s) take DNS in 140 to 260 s, not 400 to 3500 |
+| `balance.immune.refillPause` | `5` | For euphemium, DNS and FAU: seconds after the last hit on the pool before a worn-down pool starts to come back |
+| `balance.immune.reloadHold` | `true` | For euphemium, DNS and FAU: a gun whose shot and reload from empty take longer than `balance.immune.hold` (the Lever Action Rifle and Lincoln's Repeater, 10.5 s) holds the window and the refill pause that long and a second more, so its reload neither closes the window nor gives the pool back (DNS with AP in 200 s, the other rounds up to 500 s, where it was 1000 s to never; not with `balance.immune.hold` at `0`); every other gun goes by the two keys above; `false`: as X896 |
 | `balance.immune.recover` | `60` | Seconds the pool takes to fill back after the window (the set invulnerable meanwhile), or a worn-down pool after `balance.immune.refillPause` without a hit |
 | `balance.immune.dns.mode` | `pool` | DNS with euphemium's round: bullets, beams and blasts on the full charged set called off while its pool holds; `formula`: by its rating only; `ntm`: every hit but a blast called off, blasts down to 0.001 |
 | `balance.immune.dns.pool` | `40` | What hits wear down before DNS opens (each as much as it would do to DNS itself, S 186); the owner's choice, `500`: as X865, `120`: a middle way |
