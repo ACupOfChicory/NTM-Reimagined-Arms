@@ -97,7 +97,10 @@ class BalanceGunsRuleTest {
         assertEquals(17, t.guns().get("mas36").delay());
         assertEquals(40F, t.guns().get("laser_pistol_morning_glory").dmg());
         // Tau as v3 has it
-        assertEquals(new BalanceGunsRule.Shot(2F, 30F, 0F), r("tau", "tau_uranium").shot());
+        var tau = r("tau", "tau_uranium").shot();
+        assertEquals(2F, tau.mult());
+        assertEquals(30F, tau.neg());
+        assertEquals(0F, tau.pen());
     }
 
     // the rule for an ammo of no line, on a table of a few pairs (the shipped one has every pair of its guns)
@@ -158,8 +161,8 @@ class BalanceGunsRuleTest {
         var t = BalanceGunsRule.parse(List.of("m2\tbmg50_ap\t0.345\t0\t0\t4\tfloor=2.3", "m2\tbmg50_jhp\t0.68\t0\t0\t4\tfloor=0.66 from=6",
                 "m2\tbmg50_sp\t0.955\t0\t0\t4\tfloor=0", "m2\tbmg50_fmj\t0.853\t0\t0\t4\tfloor=99", "m2\tbmg50_he\t0.5\t0\t0\t4\tdelay=2 a note",
                 "uzi\t*\t1.2\t0\t0\t4", "uzi\tp9_ap\t0.9\t0\t0\t4\tfloor=1.5"), bad);
-        assertEquals(new BalanceGunsRule.Shot(0.345F, 0F, 0F, 2.3F, 4), t.pairs().get("m2").get("bmg50_ap"));
-        assertEquals(new BalanceGunsRule.Shot(0.68F, 0F, 0F, 0.66F, 6), t.pairs().get("m2").get("bmg50_jhp"));
+        assertEquals(new BalanceGunsRule.Shot(0.345F, 0F, 0F, 2.3F, 4, 4), t.pairs().get("m2").get("bmg50_ap"));
+        assertEquals(new BalanceGunsRule.Shot(0.68F, 0F, 0F, 0.66F, 6, 4), t.pairs().get("m2").get("bmg50_jhp"));
         assertEquals(BalanceGunsRule.MOST_FLOOR, t.pairs().get("m2").get("bmg50_fmj").floor());
         // floor=0 is not read; other words in a pair's column 7 are left alone, as before floor=
         assertEquals(1, bad.size(), bad.toString());
@@ -175,6 +178,40 @@ class BalanceGunsRuleTest {
         assertEquals(6, shipped.pairs().get("m2").get("bmg50_jhp").from());
         assertTrue(shipped.pairs().get("m2").get("bmg50_jhp").floor() < 1F);
         assertEquals(0.2F, shipped.pairs().get("pepperbox").get("stone").floor(), 1e-6F);
+    }
+
+    @Test
+    void tierFloors() throws IOException {
+        // the sixth column is the pair's tier; a word there (or none) is no tier
+        List<String> bad = new ArrayList<>();
+        var t = BalanceGunsRule.parse(List.of("am180\tp22_sp\t2.8\t0\t0\t2", "am180\tp22_fmj\t2.66\t0\t0\ttwo", "am180\tp22_ap\t2.97\t0\t0"), bad);
+        assertTrue(bad.isEmpty(), bad.toString());
+        assertEquals(2, t.pairs().get("am180").get("p22_sp").tier());
+        assertEquals(-1, t.pairs().get("am180").get("p22_fmj").tier());
+        assertEquals(-1, t.pairs().get("am180").get("p22_ap").tier());
+        // a pair with nothing but its tier still counts (its shot keeps the tier for the rules)
+        assertTrue(!new BalanceGunsRule.Shot(1F, 0F, 0F, 1F, 4, 2).none());
+        // the shipped rules: tier 2 and below on tier 4 and up, tier 5 and below on tier 8 and up, half the floor
+        String rules = BalanceGuns.TIER_FLOOR;
+        assertEquals(0.5F, BalanceGunsRule.tierFloor(rules, 2, 4));
+        assertEquals(0.5F, BalanceGunsRule.tierFloor(rules, 0, 9));
+        assertEquals(1F, BalanceGunsRule.tierFloor(rules, 2, 3));
+        assertEquals(1F, BalanceGunsRule.tierFloor(rules, 3, 7));
+        assertEquals(0.5F, BalanceGunsRule.tierFloor(rules, 5, 8));
+        assertEquals(1F, BalanceGunsRule.tierFloor(rules, 6, 9));
+        // no tier, no rules, words that are no rules
+        assertEquals(1F, BalanceGunsRule.tierFloor(rules, -1, 9));
+        assertEquals(1F, BalanceGunsRule.tierFloor("", 0, 9));
+        assertEquals(1F, BalanceGunsRule.tierFloor("off 2:4 a:b:c 2:4:0", 0, 9));
+        // of several the least; a share is at least the least floor, at most 1
+        assertEquals(0.3F, BalanceGunsRule.tierFloor("2:4:0.5, 3:6:0.3", 1, 7), 1e-6F);
+        assertEquals(BalanceGunsRule.LEAST_FLOOR, BalanceGunsRule.tierFloor("2:4:0.001", 1, 7));
+        assertEquals(1F, BalanceGunsRule.tierFloor("2:4:3", 1, 7));
+        // the shipped table gives the tier of every pair
+        var shipped = table(new ArrayList<>());
+        assertEquals(2, shipped.pairs().get("maresleg").get("g12_bp").tier());
+        assertEquals(4, shipped.pairs().get("m2").get("bmg50_du").tier());
+        for (var g : shipped.pairs().entrySet()) for (var a : g.getValue().entrySet()) assertTrue(a.getValue().tier() >= 0, g.getKey() + " " + a.getKey());
     }
 
     @Test

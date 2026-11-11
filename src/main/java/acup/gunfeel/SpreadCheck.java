@@ -69,6 +69,7 @@ public final class SpreadCheck {
         if (file == null || file.isBlank()) return;
         NeoForge.EVENT_BUS.addListener(ServerStartedEvent.class, started -> {
             ServerLevel level = started.getServer().overworld();
+            StandSprint.start(started.getServer());
             FakePlayer p = FakePlayerFactory.getMinecraft(level);
             p.setPos(0.5, 200, 0.5);
             plan(p);
@@ -81,11 +82,13 @@ public final class SpreadCheck {
                         return;
                     }
                     at[0] = -1;
+                    StandSprint.stop(level.getServer());
                     report();
                     LINES.add(ok ? "ALL OK" : "SOME FAILED");
                     BulletCheck.finish(file, LINES, ok ? 0 : 1);
                 } catch (Throwable t) {
                     at[0] = -1;
+                    StandSprint.stop(level.getServer());
                     LINES.add("FAIL\tcrashed: " + t);
                     for (StackTraceElement s : t.getStackTrace()) LINES.add("    at " + s);
                     BulletCheck.finish(file, LINES, 1);
@@ -163,6 +166,8 @@ public final class SpreadCheck {
         } catch (java.io.IOException e) {
             throw new java.io.UncheckedIOException(e);
         }
+        // read now: the sprint's ticks go faster than the second ReaimTimes waits between two looks at the file
+        ReaimTimes.reloadNow();
     }
 
     private static net.minecraft.world.item.Item item(String id) {

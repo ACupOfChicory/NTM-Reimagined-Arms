@@ -63,7 +63,6 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 // Security (the blast's path), before and after. A tsv of the cases and OK/FAIL lines go to the file.
 public final class BalanceCheck {
     public static final String PROPERTY = "ntmgunfeel.checkBalance";
-    private static final BlockPos O = new BlockPos(0, 120, 0);
     private static final double DIST = 4;
     private static final int SPACING = 20, MAX_CLICKS = 30;
     private static final Identifier FBI = Identifier.fromNamespaceAndPath("hbm", "entity_fbi");
@@ -75,104 +74,353 @@ public final class BalanceCheck {
     private record Pair(String set, String gunName, Supplier<Item> gun, BulletConfig ammo, float modelHit, int modelClicks) {
     }
 
-    private static final List<Runnable> STEPS = new ArrayList<>();
     private static final List<String> LINES = new ArrayList<>();
     private static boolean ok = true;
     private static ServerLevel level;
-    private static Mannequin shooter;
-    private static FakePlayer target, gunner;
-    private static Mob fbi;
-    /** the steps of a case after its victim died are skipped up to this one */
-    private static int skipTo;
-    private static boolean noShield;
 
-    // the case under way
-    private static LivingEntity victim;
-    private static int clicks, hits, deathClick;
-    private static float lost, firstClick, incoming;
-    private static String incomingNote = "";
+    // ---------------------------------------------------------------- the lanes
+
+    /**
+     * A lane: a mannequin, a player to shoot at and one more (the gunner), with its own queue of steps, one a tick, and
+     * the case under way. The cases of a pass go to the lanes (the one with the fewest steps of the pass so far), each
+     * lane LANE_GAP blocks along x from the last; what the whole server shares (the keys, the gun table, a reload) is
+     * set between two passes, every lane waiting at the barrier (Barrier) for the last. Lane 0 stands where the stand
+     * stood before the lanes (0, 120, 0) and plays the serial parts.
+     */
+    private static final class Lane {
+        final int index;
+        final BlockPos o;
+        final List<Runnable> steps = new Queue();
+        int at;
+        /** the steps of a case after its victim died are skipped up to this one */
+        int skipTo;
+        /** the step asks to run again next tick (a wait in real time: a reload) */
+        boolean hold;
+        Mannequin shooter;
+        /** the pass team: more shooters beside the mannequin, each its own damage cap on the target */
+        final List<Mannequin> team = new ArrayList<>();
+        FakePlayer target, gunner;
+        Mob fbi;
+        /** the FBI agent firing in a pair of 1b (null: the mannequin) */
+        LivingEntity fbiShooter;
+        // the case under way
+        LivingEntity victim;
+        BalanceArmor.Seen seen = new BalanceArmor.Seen();
+        boolean noShield;
+        int clicks, hits, deathClick;
+        float lost, firstClick, incoming;
+        String incomingNote = "";
+        /** the pass mx: the hits of the cell being played (null: not logged) */
+        StringBuilder mxHits;
+        float pepMaxClick;
+        /** a click killed from full health */
+        boolean pepFromFull;
+        /** what the target lost since ready3, but its falls (a big blast throws it up) */
+        float blastLost;
+        final List<Float> blastCell = new ArrayList<>();
+        /** the hi pass: a hit of this click went to the head (1), a sniper's (2) */
+        int headHit;
+        /** the stand aims at the victim's eyes, not its chest */
+        boolean aimHead;
+        /** the super stimpak's heal goes on by the stand's tick (the fake player is not ticked by the level) */
+        boolean healing;
+        int targetTicks = Integer.MIN_VALUE;
+        float poolBefore;
+        /** the modifiers wearAttributes put on the lane's player, taken off before the next */
+        final List<Runnable> worn = new ArrayList<>();
+        /** the lines of the case running now, written out in the plan's order at the next barrier */
+        List<Out> buf;
+
+        Lane(int index) {
+            this.index = index;
+            o = new BlockPos(index * LANE_GAP, 120, 0);
+        }
+
+        /** every tick, before the lane's step: what the level does not do for the fake player and the agent */
+        void pre() {
+            if (target != null) target.invulnerableTime = 0;
+            if (healing && target != null && target.tickCount == targetTicks) BalanceKit.tickHeal(target);
+            if (target != null) targetTicks = target.tickCount;
+            if (fbi != null) fbi.invulnerableTime = 0;
+        }
+    }
+
+    /**
+     * Blocks between two lanes along x. The farthest the stand reaches from a lane's origin: ESP's viewer 12 to -x, its
+     * target 20 along z; a blast's hurt (the Missile Launcher's, ExplosionNukeGeneric 6) under 10. Shots go along +z.
+     */
+    private static final int LANE_GAP = 64;
+    private static Lane[] LANES;
+    /** the lane whose step runs now (or whose steps the plan writes, or whose creature an event is about) */
+    private static Lane L;
+    /** where the plan writes its steps now: L's queue */
+    private static List<Runnable> STEPS;
+
+    /** a line of a case: the list it goes to (LINES, TSV3) and the line */
+    private record Out(List<String> to, String s) {
+    }
+
+    /** every case's lines, in the plan's order; a barrier writes out all those before it */
+    private static final List<List<Out>> BUFS = new ArrayList<>();
+    private static int flushed;
+    /** the lines of the case being planned (null: a serial part, its lines written as they come) */
+    private static List<Out> planBuf;
+
+    /** all lanes wait here for the last; then the cases' lines before it are written out */
+    private static final class Barrier implements Runnable {
+        final int upTo;
+
+        Barrier(int upTo) {
+            this.upTo = upTo;
+        }
+
+        @Override
+        public void run() {
+        }
+    }
+
+    /** a lane's steps: each step of a case keeps the case's lines apart while it runs */
+    private static final class Queue extends ArrayList<Runnable> {
+        @Override
+        public boolean add(Runnable r) {
+            List<Out> b = planBuf;
+            if (b == null || r instanceof Barrier) return super.add(r);
+            return super.add(() -> {
+                L.buf = b;
+                try {
+                    r.run();
+                } finally {
+                    L.buf = null;
+                }
+            });
+        }
+    }
+
+    private static void line(String s) {
+        out(LINES, s);
+    }
+
+    private static void out(List<String> to, String s) {
+        if (L != null && L.buf != null) L.buf.add(new Out(to, s));
+        else to.add(s);
+    }
+
+    private static void flush(int upTo) {
+        for (; flushed < upTo; flushed++) for (Out o : BUFS.get(flushed)) o.to().add(o.s());
+    }
+
+    private static void barrier() {
+        Barrier b = new Barrier(BUFS.size());
+        for (Lane l : LANES) l.steps.add(b);
+    }
+
+    /**
+     * The cases of a pass, each planned on a lane (the one with the fewest steps of this pass so far); the keys are the
+     * pass's, set before by the serial part. A case's steps read the lane's creatures as they run (L).
+     */
+    private static void parallel(List<Runnable> cases) {
+        barrier();
+        int[] start = new int[LANES.length];
+        for (Lane l : LANES) start[l.index] = l.steps.size();
+        for (Runnable c : cases) {
+            Lane best = LANES[0];
+            for (Lane l : LANES) if (l.steps.size() - start[l.index] < best.steps.size() - start[best.index]) best = l;
+            List<Out> buf = new ArrayList<>();
+            BUFS.add(buf);
+            L = best;
+            STEPS = best.steps;
+            planBuf = buf;
+            c.run();
+        }
+        planBuf = null;
+        L = LANES[0];
+        STEPS = L.steps;
+        barrier();
+    }
+
+    /** in a serial step (the other lanes at the barrier): {@code r} on every lane, each its own L */
+    private static void eachLane(Runnable r) {
+        Lane was = L;
+        try {
+            for (Lane l : LANES) {
+                L = l;
+                r.run();
+            }
+        } finally {
+            L = was;
+        }
+    }
+
+    /** the lane whose victim or target {@code e} is */
+    private static Lane laneOf(net.minecraft.world.entity.Entity e) {
+        if (LANES == null || e == null) return null;
+        for (Lane l : LANES) if (l.victim == e || l.target == e) return l;
+        return null;
+    }
+
+    /**
+     * One tick: each lane's step; lanes at a barrier wait, and when all are there they go on at once (the lanes that
+     * have not run a step this tick run their next). False: all done.
+     */
+    private static boolean tick() {
+        boolean[] ran = new boolean[LANES.length];
+        for (Lane l : LANES) {
+            L = l;
+            l.pre();
+        }
+        while (true) {
+            for (Lane l : LANES) {
+                if (ran[l.index]) continue;
+                L = l;
+                if (l.skipTo > l.at) l.at = Math.min(l.skipTo, l.steps.size());
+                if (l.at < l.steps.size() && !(l.steps.get(l.at) instanceof Barrier)) {
+                    ran[l.index] = true;
+                    l.steps.get(l.at++).run();
+                    if (l.hold) {
+                        l.hold = false;
+                        l.at--;
+                    }
+                }
+            }
+            Barrier b = null;
+            boolean done = true;
+            for (Lane l : LANES) {
+                if (l.at >= l.steps.size()) continue;
+                done = false;
+                if (!(l.steps.get(l.at) instanceof Barrier at)) return true;
+                b = at;
+            }
+            if (done) return false;
+            flush(b.upTo);
+            for (Lane l : LANES) if (l.at < l.steps.size()) l.at++;
+        }
+    }
+
+    /** -PbalanceLanes (ntmgunfeel.checkBalance.lanes): 8 by default, 1 as the stand was before the lanes */
+    static int lanes() {
+        return Math.max(1, Math.min(32, Integer.getInteger(PROPERTY + ".lanes", 8)));
+    }
 
     public static void registerIfAsked() {
         String file = System.getProperty(PROPERTY);
         if (file == null || file.isBlank()) return;
         NeoForge.EVENT_BUS.addListener(ServerStartedEvent.class, started -> {
-            level = started.getServer().overworld();
+            var server = started.getServer();
+            level = server.overworld();
+            long began = System.nanoTime();
             try {
                 setup();
                 plan();
+                line("#\tдорожек " + LANES.length + ", ускорение тактов " + (StandSprint.on() ? "да" : "нет") + ", шагов по дорожкам " + java.util.Arrays.stream(LANES)
+                        .map(l -> String.valueOf(l.steps.size())).toList());
             } catch (Throwable t) {
-                LINES.add("FAIL\tsetup crashed: " + t);
-                for (StackTraceElement s : t.getStackTrace()) LINES.add("    at " + s);
+                line("FAIL\tsetup crashed: " + t);
+                for (StackTraceElement s : t.getStackTrace()) line("    at " + s);
                 BulletCheck.finish(file, LINES, 1);
+                return;
             }
-            int[] at = {0};
+            StandSprint.start(server);
+            boolean[] over = {false};
+            long[] ticks = {0};
             NeoForge.EVENT_BUS.addListener(ServerTickEvent.Post.class, e -> {
-                if (at[0] < 0) return;
+                if (over[0]) return;
                 try {
-                    if (target != null) target.invulnerableTime = 0;
-                    if (healing && target != null && target.tickCount == targetTicks) BalanceKit.tickHeal(target);
-                    if (target != null) targetTicks = target.tickCount;
-                    if (fbi != null) fbi.invulnerableTime = 0;
-                    if (skipTo > at[0]) at[0] = Math.min(skipTo, STEPS.size());
-                    if (at[0] < STEPS.size()) {
-                        STEPS.get(at[0]++).run();
-                        return;
-                    }
-                    at[0] = -1;
-                    keys();
-                    LINES.add(ok ? "ALL OK" : "SOME FAILED");
-                    BulletCheck.finish(file, LINES, ok ? 0 : 1);
+                    ticks[0]++;
+                    if (tick()) return;
+                    over[0] = true;
+                    end(server, file, ok, ticks[0], began);
                 } catch (Throwable t) {
-                    at[0] = -1;
-                    LINES.add("FAIL\tcrashed: " + t);
-                    for (StackTraceElement s : t.getStackTrace()) LINES.add("    at " + s);
-                    keys();
-                    BulletCheck.finish(file, LINES, 1);
+                    over[0] = true;
+                    if (L != null) L.buf = null;
+                    line("FAIL\tcrashed: " + t);
+                    for (StackTraceElement s : t.getStackTrace()) line("    at " + s);
+                    end(server, file, false, ticks[0], began);
                 }
             });
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.HIGHEST, false, net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent.class, e -> {
-            if (e.getEntity() == victim && victim != null) {
-                incoming += e.getAmount();
-                if (incomingNote.isEmpty()) incomingNote = e.getSource().getMsgId() + " " + f(e.getAmount())
-                        + (victim instanceof net.minecraft.world.entity.player.Player p ? ", щит " + f(com.hbm.extprop.HbmPlayerProps.getData(p).shield) + "/"
-                                + f(com.hbm.extprop.HbmPlayerProps.getData(p).getEffectiveMaxShield(p)) : "");
+            Lane was = L, l = laneOf(e.getEntity());
+            if (l == null) return;
+            L = l;
+            try {
+                if (e.getEntity() == L.victim && L.victim != null) {
+                    L.incoming += e.getAmount();
+                    if (L.incomingNote.isEmpty()) L.incomingNote = e.getSource().getMsgId() + " " + f(e.getAmount())
+                            + (L.victim instanceof net.minecraft.world.entity.player.Player p ? ", щит " + f(com.hbm.extprop.HbmPlayerProps.getData(p).shield) + "/"
+                                    + f(com.hbm.extprop.HbmPlayerProps.getData(p).getEffectiveMaxShield(p)) : "");
+                }
+            } finally {
+                L = was;
             }
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST, false, LivingDamageEvent.Post.class, e -> {
-            if (e.getEntity() == target && DamageCap.last.contains(" head=true"))
-                headHit = Math.max(headHit, DamageCap.last.contains(" sniper=true") ? 2 : 1);
-            if (e.getEntity() != victim || victim == null) return;
-            hits++;
-            lost += e.getInflictedDamage();
-            // the pass mx: each hit of a cell, its type, what it took and the cap's ruling
-            if (mxHits != null) mxHits.append(e.getSource().getMsgId()).append(' ').append(f(e.getInflictedDamage())).append(" [").append(DamageCap.last).append("]; ");
-            if (!e.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FALL)) blastLost += e.getInflictedDamage();
+            Lane was = L, l = laneOf(e.getEntity());
+            if (l == null) return;
+            L = l;
+            try {
+                if (e.getEntity() == L.target && DamageCap.last.contains(" head=true"))
+                    L.headHit = Math.max(L.headHit, DamageCap.last.contains(" sniper=true") ? 2 : 1);
+                if (e.getEntity() != L.victim || L.victim == null) return;
+                L.hits++;
+                L.lost += e.getInflictedDamage();
+                // the pass mx: each hit of a cell, its type, what it took and the cap's ruling
+                if (L.mxHits != null) L.mxHits.append(e.getSource().getMsgId()).append(' ').append(f(e.getInflictedDamage())).append(" [").append(DamageCap.last).append("]; ");
+                if (!e.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FALL)) L.blastLost += e.getInflictedDamage();
+            } finally {
+                L = was;
+            }
         });
     }
 
+    /** the keys back, the sprint stopped, the lines written; the run's ticks and its real time in the file */
+    private static void end(net.minecraft.server.MinecraftServer server, String file, boolean pass, long ticks, long began) {
+        StandSprint.stop(server);
+        if (L != null) L.buf = null;
+        flush(BUFS.size());
+        L = null;
+        keys();
+        line("#\tтактов " + ticks + ", " + String.format(Locale.ROOT, "%.1f", (System.nanoTime() - began) / 1e9) + " с");
+        line(pass ? "ALL OK" : "SOME FAILED");
+        BulletCheck.finish(file, LINES, pass ? 0 : 1);
+    }
+
     private static void setup() {
-        for (int x = -4; x <= 6; x++) for (int z = -4; z <= 10; z++) level.setBlockAndUpdate(O.offset(x, -1, z), Blocks.STONE.defaultBlockState());
-        shooter = EntityTypes.MANNEQUIN.create(level, EntitySpawnReason.COMMAND);
-        shooter.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000);
-        shooter.setHealth(1000);
-        shooter.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
-        level.addFreshEntity(shooter);
-        target = new FakePlayer(level, new GameProfile(UUID.nameUUIDFromBytes("balanceTarget".getBytes()), "balanceTarget")) {
+        LANES = new Lane[lanes()];
+        for (int i = 0; i < LANES.length; i++) {
+            LANES[i] = new Lane(i);
+            L = LANES[i];
+            setupLane();
+        }
+        L = LANES[0];
+        STEPS = L.steps;
+    }
+
+    private static void setupLane() {
+        // the lane's ground kept loaded: the stand's reach (LANE_GAP) about the origin
+        for (int cx = (L.o.getX() - 24) >> 4; cx <= (L.o.getX() + 24) >> 4; cx++)
+            for (int cz = (L.o.getZ() - 24) >> 4; cz <= (L.o.getZ() + 24) >> 4; cz++) level.setChunkForced(cx, cz, true);
+        String suffix = L.index == 0 ? "" : String.valueOf(L.index);
+        for (int x = -4; x <= 6; x++) for (int z = -4; z <= 10; z++) level.setBlockAndUpdate(L.o.offset(x, -1, z), Blocks.STONE.defaultBlockState());
+        L.shooter = EntityTypes.MANNEQUIN.create(level, EntitySpawnReason.COMMAND);
+        L.shooter.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000);
+        L.shooter.setHealth(1000);
+        L.shooter.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
+        level.addFreshEntity(L.shooter);
+        L.target = new FakePlayer(level, new GameProfile(UUID.nameUUIDFromBytes(("balanceTarget" + suffix).getBytes()), "balanceTarget" + suffix)) {
             @Override
             public boolean canHarmPlayer(net.minecraft.world.entity.player.Player other) {
                 return true;
             }
         };
-        target.setGameMode(GameType.SURVIVAL);
-        target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
-        level.addNewPlayer(target);
-        target.connection.markClientLoaded();
-        target.setInvulnerable(false);
-        gunner = FakePlayerFactory.get(level, new GameProfile(UUID.nameUUIDFromBytes("balanceGunner".getBytes()), "balanceGunner"));
-        gunner.setGameMode(GameType.SURVIVAL);
-        gunner.snapTo(O.getX() + 4.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
-        level.addNewPlayer(gunner);
+        L.target.setGameMode(GameType.SURVIVAL);
+        L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+        level.addNewPlayer(L.target);
+        L.target.connection.markClientLoaded();
+        L.target.setInvulnerable(false);
+        L.gunner = FakePlayerFactory.get(level, new GameProfile(UUID.nameUUIDFromBytes(("balanceGunner" + suffix).getBytes()), "balanceGunner" + suffix));
+        L.gunner.setGameMode(GameType.SURVIVAL);
+        L.gunner.snapTo(L.o.getX() + 4.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
+        level.addNewPlayer(L.gunner);
     }
 
     private static void wait(int ticks) {
@@ -208,6 +456,10 @@ public final class BalanceCheck {
             new Recipe1v("dieselsuit_helmet", List.of("circuit_basic"), List.of("circuit_analog")),
             new Recipe1v("dieselsuit_plate", List.of("circuit_basic", "plate_cast_dura_steel", "machine_diesel"), List.of("circuit_analog")),
             new Recipe1v("dieselsuit_legs", List.of("plate_cast_dura_steel", "motor"), List.of()),
+            // cheese 2026-11-11 §3.4: the T-51 parts take the helmet's circuit (tier 3), so three of them are not tier-1 work
+            new Recipe1v("t51_plate", List.of("circuit_basic", "motor", "gas_tank"), List.of()),
+            new Recipe1v("t51_legs", List.of("circuit_basic", "motor"), List.of()),
+            new Recipe1v("t51_boots", List.of("circuit_basic", "titanium_boots"), List.of()),
             new Recipe1v("gun_tesla_cannon", List.of("circuit_quantum", "plate_welded_cmbsteel", "coil_copper"), List.of("circuit_advanced")),
             new Recipe1v("gun_lasrifle", List.of("circuit_quantum", "crystal_schraranium"), List.of("circuit_bismoid", "crystal_redstone")),
             new Recipe1v("gun_tau", List.of("circuit_quantum", "coil_magnetized_tungsten", "plate_dineutronium"), List.of("circuit_bismoid", "coil_copper_torus")));
@@ -225,11 +477,12 @@ public final class BalanceCheck {
                 var server = level.getServer();
                 reload = server.reloadResources(server.getPackRepository().getSelectedIds());
             });
-            int[] after = {0};
-            for (int i = 0; i < 1200; i++) STEPS.add(() -> {
-                if (reload != null && reload.isDone()) skipTo = Math.max(skipTo, after[0]);
+            // the reload in real time (a minute at most), however fast the ticks go
+            long[] since = {0};
+            STEPS.add(() -> {
+                if (since[0] == 0) since[0] = System.nanoTime();
+                if ((reload == null || !reload.isDone()) && System.nanoTime() - since[0] < 60_000_000_000L) L.hold = true;
             });
-            after[0] = STEPS.size();
             STEPS.add(() -> recipes(on));
         }
     }
@@ -281,7 +534,7 @@ public final class BalanceCheck {
         return out;
     }
 
-    /** the passes to run (ntmgunfeel.checkBalance.only, by commas: 2, 1g, 1v, 1a, 1b, dns, kit, db, hi, expl, esp, pool; none: all) */
+    /** the passes to run (ntmgunfeel.checkBalance.only, by commas: 2, 1g, 1v, 1a, 1b, dns, kit, db, hi, expl, esp, pool, pep, hot, mx, team, cheese; none: all) */
     private static boolean only(String pass) {
         String only = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         return only.isEmpty() || java.util.Arrays.asList(only.split("\\s*,\\s*")).contains(pass);
@@ -290,7 +543,7 @@ public final class BalanceCheck {
     private static void plan() {
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         STEPS.add(() -> keys("balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula"));
         wait(30);
@@ -309,6 +562,9 @@ public final class BalanceCheck {
         if (only("pep")) planPep();
         if (only("hot")) planHot();
         if (only("mx")) planMatrix();
+        if (only("team")) planTeam();
+        if (only("cheese")) planCheese();
+        if (only("frag")) planFrag();
     }
 
     // ---------------------------------------------------------------- melee and the flamethrower (hotfix X867)
@@ -316,7 +572,7 @@ public final class BalanceCheck {
     /** a target of the pass hot: an FBI agent, a zombie or the player, bare or in Security */
     private static LivingEntity hotTarget(String who, String set) {
         LivingEntity v;
-        if (who.equals("player")) v = target;
+        if (who.equals("player")) v = L.target;
         else {
             var created = who.equals("fbi") ? BuiltInRegistries.ENTITY_TYPE.getValue(FBI).create(level, EntitySpawnReason.COMMAND)
                     : EntityTypes.ZOMBIE.create(level, EntitySpawnReason.COMMAND);
@@ -325,36 +581,33 @@ public final class BalanceCheck {
             level.addFreshEntity(mob);
             v = mob;
             // the stand's player out of the way: it stood where the mob stands and took its shots
-            for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
-            wearAttributes(target);
-            target.snapTo(O.getX() + 6.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            wearAttributes(L.target);
+            L.target.snapTo(L.o.getX() + 6.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
         }
         for (EquipmentSlot slot : SLOTS) v.setItemSlot(slot, ItemStack.EMPTY);
         v.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
         if (!set.isEmpty()) dress(v, set, true);
-        if (v == target) wearAttributes(v);
-        v.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+        if (v == L.target) wearAttributes(v);
+        v.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
         v.setHealth(v.getMaxHealth());
         v.clearFire();
         com.hbm.extprop.HbmLivingProps.getData(v).fire = 0;
         return v;
     }
 
-    /** the modifiers wearAttributes put on the stand's player, taken off before the next */
-    private static final List<Runnable> WORN = new ArrayList<>();
-
     /**
      * The stand's player does not tick, so vanilla never puts its pieces' armour on it: the pieces' modifiers (after
      * balance.vanilla0's event) put on by hand, as a worn set has them in the game.
      */
     private static void wearAttributes(LivingEntity v) {
-        WORN.forEach(Runnable::run);
-        WORN.clear();
+        L.worn.forEach(Runnable::run);
+        L.worn.clear();
         for (EquipmentSlot slot : SLOTS) v.getItemBySlot(slot).forEachModifier(slot, (attr, mod) -> {
             var inst = v.getAttribute(attr);
             if (inst == null || inst.hasModifier(mod.id())) return;
             inst.addTransientModifier(mod);
-            WORN.add(() -> inst.removeModifier(mod.id()));
+            L.worn.add(() -> inst.removeModifier(mod.id()));
         });
     }
 
@@ -367,11 +620,11 @@ public final class BalanceCheck {
     private static net.minecraft.world.damagesource.DamageSource hotSource(String name) {
         var ds = level.damageSources();
         return switch (name) {
-            case "удар_игрока", "crucible" -> ds.playerAttack(gunner);
-            case "удар_моба" -> ds.mobAttack(shooter);
+            case "удар_игрока", "crucible" -> ds.playerAttack(L.gunner);
+            case "удар_моба" -> ds.mobAttack(L.shooter);
             case "стрела" -> {
                 var arrow = (net.minecraft.world.entity.projectile.arrow.AbstractArrow) EntityTypes.ARROW.create(level, EntitySpawnReason.COMMAND);
-                yield ds.arrow(arrow, shooter);
+                yield ds.arrow(arrow, L.shooter);
             }
             case "лава" -> ds.lava();
             case "огонь" -> ds.inFire();
@@ -382,7 +635,7 @@ public final class BalanceCheck {
             case "магия" -> ds.magic();
             // a gun's own blow: NTM's physical from the player
             case "hbm:physical_игрок" -> new net.minecraft.world.damagesource.DamageSource(level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.DAMAGE_TYPE)
-                    .getOrThrow(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DAMAGE_TYPE, Identifier.fromNamespaceAndPath("hbm", "physical"))), gunner, gunner);
+                    .getOrThrow(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DAMAGE_TYPE, Identifier.fromNamespaceAndPath("hbm", "physical"))), L.gunner, L.gunner);
             default -> ds.source(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DAMAGE_TYPE, Identifier.parse(name)));
         };
     }
@@ -399,7 +652,7 @@ public final class BalanceCheck {
      * a zombie and the player, bare and in Security: what they lost and whether they burn.
      */
     private static void planHot() {
-        LINES.add("#\t--- hot: ближний бой и огнемёт по наборам (баланс / NTM)");
+        line("#\t--- hot: ближний бой и огнемёт по наборам (баланс / NTM)");
         String[] sets = {"", "security", "t51", "bj", "dns"};
         float[] ntmHurt = new float[sets.length * HOT_HURTS.length];
         for (String[] mode : HOT_MODES) {
@@ -407,19 +660,22 @@ public final class BalanceCheck {
             STEPS.add(() -> {
                 keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "modelHitboxes", "true");
                 for (int i = 1; i < mode.length; i += 2) keys(mode[i], mode[i + 1]);
-                shooter.setInvulnerable(true);
+                eachLane(() -> L.shooter.setInvulnerable(true));
             });
             wait(30);
             // the hits of no shot (a blow, a mob's, an arrow, fire, a fall, gas...) on the player, by set: NTM's numbers
+            List<Runnable> cases = new ArrayList<>();
             for (int si = 0; si < sets.length; si++) {
                 String set = sets[si];
+                int sj = si;
+                cases.add(() -> {
                 for (int ci = 0; ci < HOT_HURTS.length; ci++) {
-                    int idx = si * HOT_HURTS.length + ci;
+                    int idx = sj * HOT_HURTS.length + ci;
                     String[] hurt = HOT_HURTS[ci];
                     STEPS.add(() -> hotTarget("player", set));
                     wait(3);
                     STEPS.add(() -> {
-                        LivingEntity v = target;
+                        LivingEntity v = L.target;
                         begin(v);
                         v.invulnerableTime = 0;
                         float hp = v.getHealth();
@@ -427,7 +683,7 @@ public final class BalanceCheck {
                         v.hurtServer(level, hotSource(hurt[0]), amount);
                         float took = hp - v.getHealth();
                         String what = hurt[0] + " " + hurt[1] + " по игроку " + (set.isEmpty() ? "без брони" : "в " + set);
-                        LINES.add("#\thot\t" + mode[0] + "\t" + what + "\t" + f(took) + "\tваниль " + v.getArmorValue());
+                        line("#\thot\t" + mode[0] + "\t" + what + "\t" + f(took) + "\tваниль " + v.getArmorValue());
                         if (ntm) ntmHurt[idx] = took;
                         // a big blast (TNT) is the formula's by the balance's notes (balanceArmorBlasts): logged only
                         else if (mode.length == 1 && !hurt[0].equals("tnt")) check(Math.abs(took - ntmHurt[idx]) <= 0.05F + 0.02F * ntmHurt[idx],
@@ -436,18 +692,20 @@ public final class BalanceCheck {
                     });
                     wait(2);
                 }
+                });
             }
             for (String who : new String[] {"fbi", "zombie", "player"})
                 for (String set : new String[] {"", "security"})
                     for (int g = 0; g < HOT_GUNS.length; g++) {
                         int gi = g;
+                        cases.add(() -> {
                         LivingEntity[] v = {null};
                         float[] hp = {0F};
                         STEPS.add(() -> {
                             // Daybreaker's flames go off: the floor and the air back, the shooter home
                             for (int x = -6; x <= 8; x++) for (int z = -4; z <= 12; z++) {
-                                level.setBlockAndUpdate(O.offset(x, -1, z), Blocks.BEDROCK.defaultBlockState());
-                                for (int y = 0; y <= 3; y++) level.setBlockAndUpdate(O.offset(x, y, z), Blocks.AIR.defaultBlockState());
+                                level.setBlockAndUpdate(L.o.offset(x, -1, z), Blocks.BEDROCK.defaultBlockState());
+                                for (int y = 0; y <= 3; y++) level.setBlockAndUpdate(L.o.offset(x, y, z), Blocks.AIR.defaultBlockState());
                             }
                             v[0] = hotTarget(who, set);
                             begin(v[0]);
@@ -456,16 +714,16 @@ public final class BalanceCheck {
                         wait(3);
                         for (int c = 0; c < 6; c++) {
                             STEPS.add(() -> {
-                                shooter.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
-                                shooter.setDeltaMovement(Vec3.ZERO);
-                                if (v[0] != target) v[0].snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+                                L.shooter.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
+                                L.shooter.setDeltaMovement(Vec3.ZERO);
+                                if (v[0] != L.target) v[0].snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
                                 v[0].setDeltaMovement(Vec3.ZERO);
                                 switch (gi) {
-                                    case 0 -> fire(shooter, ModItems.GUN_FLAMER.get(), com.hbm.items.weapon.sedna.factory.XFactoryFlamer.flame_diesel, EnumKeybind.GUN_PRIMARY);
-                                    case 1 -> fire(shooter, ModItems.GUN_FLAMER_TOPAZ.get(), com.hbm.items.weapon.sedna.factory.XFactoryFlamer.flame_topaz_diesel, EnumKeybind.GUN_PRIMARY);
-                                    case 2 -> fire(shooter, ModItems.GUN_FLAMER_DAYBREAKER.get(), com.hbm.items.weapon.sedna.factory.XFactoryFlamer.flame_daybreaker_diesel, EnumKeybind.GUN_PRIMARY);
-                                    case 3 -> fire(shooter, ModItems.GUN_LASER_PISTOL.get(), XFactoryEnergy.energy_las, EnumKeybind.GUN_PRIMARY);
-                                    default -> fire(shooter, ModItems.GUN_HENRY.get(), XFactory44.m44_express, EnumKeybind.GUN_PRIMARY);
+                                    case 0 -> fire(L.shooter, ModItems.GUN_FLAMER.get(), com.hbm.items.weapon.sedna.factory.XFactoryFlamer.flame_diesel, EnumKeybind.GUN_PRIMARY);
+                                    case 1 -> fire(L.shooter, ModItems.GUN_FLAMER_TOPAZ.get(), com.hbm.items.weapon.sedna.factory.XFactoryFlamer.flame_topaz_diesel, EnumKeybind.GUN_PRIMARY);
+                                    case 2 -> fire(L.shooter, ModItems.GUN_FLAMER_DAYBREAKER.get(), com.hbm.items.weapon.sedna.factory.XFactoryFlamer.flame_daybreaker_diesel, EnumKeybind.GUN_PRIMARY);
+                                    case 3 -> fire(L.shooter, ModItems.GUN_LASER_PISTOL.get(), XFactoryEnergy.energy_las, EnumKeybind.GUN_PRIMARY);
+                                    default -> fire(L.shooter, ModItems.GUN_HENRY.get(), XFactory44.m44_express, EnumKeybind.GUN_PRIMARY);
                                 }
                             });
                             wait(4);
@@ -476,22 +734,26 @@ public final class BalanceCheck {
                             float took = hp[0] - Math.max(0F, v[0].getHealth());
                             int fire = com.hbm.extprop.HbmLivingProps.getData(v[0]).fire;
                             String what = gun + " ×6 по " + who + (set.isEmpty() ? " без брони" : " в " + set);
-                            LINES.add("#\thot\t" + mode[0] + "\t" + what + "\tснято " + f(took) + (v[0].isAlive() ? "" : " (умер)") + ", огонь NTM " + fire
-                                    + ", горит " + v[0].getRemainingFireTicks() + ", входящих " + f(incoming) + " (" + incomingNote + "), ваниль " + v[0].getArmorValue());
+                            line("#\thot\t" + mode[0] + "\t" + what + "\tснято " + f(took) + (v[0].isAlive() ? "" : " (умер)") + ", огонь NTM " + fire
+                                    + ", горит " + v[0].getRemainingFireTicks() + ", входящих " + f(L.incoming) + " (" + L.incomingNote + "), ваниль " + v[0].getArmorValue());
                             // the agent: NTM registers it fireImmune, a flame takes nothing off it there either
                             if (!mode[0].equals("NTM") && gi <= 2 && !who.equals("fbi")) check(took > 0F, "hot, " + mode[0] + ": " + what + ": урон есть (" + f(took) + ")");
-                            if (v[0] != target) v[0].discard();
-                            else target.clearFire();
+                            if (v[0] != L.target) v[0].discard();
+                            else L.target.clearFire();
                         });
                         wait(5);
+                        });
                     }
+            parallel(cases);
         }
         STEPS.add(() -> {
             keys("modelHitboxes", "true");
-            shooter.setInvulnerable(false);
-            for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
-            wearAttributes(target);
-            target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+            eachLane(() -> {
+                L.shooter.setInvulnerable(false);
+                for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+                wearAttributes(L.target);
+                L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+            });
         });
         wait(20);
     }
@@ -518,8 +780,6 @@ public final class BalanceCheck {
      * it was. DNS and FAU by their rating (formula); euphemium in its window (a pool of 0.01 emptied by a first click).
      * No checks: the lines "mx" go to the model (notes/balance/review-fixes-2026-11-10.md).
      */
-    /** the pass mx: the hits of the cell being played (null: not logged) */
-    private static StringBuilder mxHits;
     /** -PbalanceCellHits: each hit of the cells logged */
     private static boolean mxLog;
 
@@ -542,21 +802,23 @@ public final class BalanceCheck {
         } catch (java.io.IOException e) {
             throw new java.io.UncheckedIOException(e);
         }
-        LINES.add("#\t--- матрица модели: " + cells.size() + " клеток, по 3 клика с полного здоровья, 4 бл");
+        line("#\t--- матрица модели: " + cells.size() + " клеток, по 3 клика с полного здоровья, 4 бл");
         STEPS.add(() -> {
             keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", "formula",
                     "balance.immune.fau.mode", "formula", "balance.immune.mode", "pool", "balance.immune.pool", "0.01", "balance.immune.window", "600",
                     "balance.immune.recover", "1");
-            shooter.setInvulnerable(true);
+            eachLane(() -> L.shooter.setInvulnerable(true));
         });
         wait(30);
-        float[] took = {0F};
-        int[] hitsSeen = {0};
+        // the cells between two key lines go to the lanes; a key line is the server's: all lanes wait for it
+        List<Runnable> run = new ArrayList<>();
         for (Cell cell : cells) {
             if (cell.set().equals("\u0000key")) {
+                parallel(run);
+                run = new ArrayList<>();
                 STEPS.add(() -> {
                     keys(cell.gun(), cell.ammo());
-                    LINES.add("#\tmx-key\t" + cell.gun() + "\t" + cell.ammo());
+                    line("#\tmx-key\t" + cell.gun() + "\t" + cell.ammo());
                 });
                 wait(10);
                 continue;
@@ -565,68 +827,395 @@ public final class BalanceCheck {
             BulletConfig ammo = ammoNamed(gun, cell.ammo());
             String id = (cell.set().isEmpty() ? "-" : cell.set()) + "\t" + cell.gun() + "\t" + cell.ammo() + "\t" + (cell.head() ? "head" : "body");
             if (ammo == null) {
-                LINES.add("mx\t" + id + "\tнет патрона");
+                line("mx\t" + id + "\tнет патрона");
                 continue;
             }
-            boolean euph = cell.set().equals("euphemium");
-            STEPS.add(() -> {
-                begin(target);
-                for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
-                // as worn in the game: the pieces' vanilla armour by balance.vanilla0 (the joke sets keep theirs)
-                if (!cell.set().isEmpty()) dress(target, cell.set(), true);
-                wearAttributes(target);
-                EuphImmunity.forget(target);
-                homePool();
-                aimHead = cell.head();
-                took[0] = 0F;
-                hitsSeen[0] = 0;
-                mxHits = new StringBuilder();
+            run.add(() -> matrixCell(cell, gun, ammo, id));
+        }
+        parallel(run);
+        STEPS.add(() -> {
+            keys("balance.immune.pool", "150", "balance.immune.window", "15", "balance.immune.recover", "60");
+            eachLane(() -> {
+                L.shooter.setInvulnerable(false);
+                for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+                wearAttributes(L.target);
             });
-            wait(5);
-            // euphemium: the first click empties the pool of 0.01, the window is open from the next tick
-            for (int c = euph ? -1 : 0; c < 3; c++) {
-                boolean count = c >= 0;
-                float[] hp = {0F};
-                int[] seen = {0};
-                STEPS.add(() -> {
-                    target.setHealth(target.getMaxHealth());
-                    target.setAbsorptionAmount(0F);
-                    DamageCap.forget();
-                    homePool();
-                    hp[0] = target.getHealth();
-                    seen[0] = BalanceArmor.seenHits;
-                    fire(shooter, gun, ammo, EnumKeybind.GUN_PRIMARY);
-                });
-                wait(SPACING + 10);
-                STEPS.add(() -> {
-                    if (!count) return;
-                    took[0] += hp[0] - Math.max(0F, target.getHealth());
-                    hitsSeen[0] += BalanceArmor.seenHits - seen[0];
-                });
-            }
+        });
+        wait(30);
+    }
+
+    /** a cell of the pass mx: three clicks from full health, what a click took and its hits */
+    private static void matrixCell(Cell cell, Item gun, BulletConfig ammo, String id) {
+        float[] took = {0F};
+        int[] hitsSeen = {0};
+        boolean euph = cell.set().equals("euphemium");
+        STEPS.add(() -> {
+            begin(L.target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            // as worn in the game: the pieces' vanilla armour by balance.vanilla0 (the joke sets keep theirs)
+            if (!cell.set().isEmpty()) dress(L.target, cell.set(), true);
+            wearAttributes(L.target);
+            EuphImmunity.forget(L.target);
+            homePool();
+            L.aimHead = cell.head();
+            took[0] = 0F;
+            hitsSeen[0] = 0;
+            L.mxHits = new StringBuilder();
+        });
+        wait(5);
+        // euphemium: the first click empties the pool of 0.01, the window is open from the next tick
+        for (int c = euph ? -1 : 0; c < 3; c++) {
+            boolean count = c >= 0;
+            float[] hp = {0F};
+            int[] seen = {0};
             STEPS.add(() -> {
-                aimHead = false;
-                LINES.add("mx\t" + id + "\t" + f(took[0] / 3F) + "\t" + f(hitsSeen[0] / 3F));
-                if (mxLog) LINES.add("#\tmx-hits\t" + id + "\t" + mxHits);
-                mxHits = null;
+                L.target.setHealth(L.target.getMaxHealth());
+                L.target.setAbsorptionAmount(0F);
+                DamageCap.forget(L.target);
+                homePool();
+                hp[0] = L.target.getHealth();
+                seen[0] = L.seen.hits;
+                fire(L.shooter, gun, ammo, EnumKeybind.GUN_PRIMARY);
+            });
+            wait(SPACING + 10);
+            STEPS.add(() -> {
+                if (!count) return;
+                took[0] += hp[0] - Math.max(0F, L.target.getHealth());
+                hitsSeen[0] += L.seen.hits - seen[0];
             });
         }
         STEPS.add(() -> {
-            keys("balance.immune.pool", "150", "balance.immune.window", "15", "balance.immune.recover", "60");
-            shooter.setInvulnerable(false);
-            for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
-            wearAttributes(target);
+            L.aimHead = false;
+            line("mx\t" + id + "\t" + f(took[0] / 3F) + "\t" + f(hitsSeen[0] / 3F));
+            if (mxLog) line("#\tmx-hits\t" + id + "\t" + L.mxHits);
+            L.mxHits = null;
+        });
+    }
+
+    // ---------------------------------------------------------------- the cheese review: several on one (item A, B)
+
+    /** a cell of the pass team: n shooters of one pair on the target in the set, a click each {@code iv} ticks, {@code mag} to a reload of {@code reload} */
+    private record TeamCell(int n, String set, String gun, String ammo, int iv, int mag, int reload, int limit) {
+    }
+
+    /** the lane's mannequin and {@code n - 1} more beside it, out of the line of fire, each a shooter of its own */
+    private static List<LivingEntity> teamOf(int n) {
+        while (L.team.size() < n - 1) {
+            Mannequin m = EntityTypes.MANNEQUIN.create(level, EntitySpawnReason.COMMAND);
+            m.getAttribute(Attributes.MAX_HEALTH).setBaseValue(1000);
+            m.setHealth(1000);
+            m.setInvulnerable(true);
+            level.addFreshEntity(m);
+            L.team.add(m);
+        }
+        List<LivingEntity> out = new ArrayList<>();
+        out.add(L.shooter);
+        for (int i = 0; i < n - 1; i++) {
+            Mannequin m = L.team.get(i);
+            // two to a row, a block and a half apart, behind the lane's mannequin
+            double x = L.o.getX() + 0.5 + (i % 2 == 0 ? -1.5 : 1.5), z = L.o.getZ() + 0.5 - 1.5 * (i / 2);
+            m.setDeltaMovement(Vec3.ZERO);
+            m.snapTo(x, L.o.getY(), z, 0F, 0F);
+            out.add(m);
+        }
+        return out;
+    }
+
+    /**
+     * The pass team (ntmgunfeel.checkBalance.team: a file of lines "n set gun ammo iv mag reload [limit]", tabs, or
+     * "key name value"): n shooters of the same pair on the target from full health, each firing on the model's
+     * schedule (a click each iv ticks, after mag clicks a reload of reload ticks; all start together), until it dies or
+     * the limit (ticks, 2400 when not given). Each shooter has its own damage cap on the target (DamageCap). The pools
+     * of DNS, FAU and euphemium as in the game (pool, window 15 s, recovery 60, hold 10). No checks: the lines "team"
+     * go to the model (notes/balance/cheese-fixes-2026-11-11.md).
+     */
+    private static void planTeam() {
+        String file = System.getProperty(PROPERTY + ".team", "").trim();
+        if (file.isEmpty()) return;
+        List<Object> cells = new ArrayList<>();
+        try {
+            for (String l : Files.readAllLines(Path.of(file))) {
+                if (l.startsWith("#") || l.isBlank()) continue;
+                String[] p = l.trim().split("\t");
+                if (p.length == 3 && p[0].equals("key")) {
+                    cells.add(new String[] {p[1], p[2]});
+                    continue;
+                }
+                if (p.length < 7) continue;
+                cells.add(new TeamCell(Integer.parseInt(p[0]), p[1].equals("-") ? "" : p[1], p[2], p[3], Math.max(1, Integer.parseInt(p[4])),
+                        Math.max(1, Integer.parseInt(p[5])), Math.max(0, Integer.parseInt(p[6])), p.length > 7 ? Integer.parseInt(p[7]) : 2400));
+            }
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        line("#\t--- команда: " + cells.size() + " строк, n стрелков одной парой по одной цели, 4 бл");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.mode", "pool",
+                    "balance.immune.dns.mode", "pool", "balance.immune.fau.mode", "pool", "balance.immune.pool", "150", "balance.immune.dns.pool", "40",
+                    "balance.immune.fau.pool", "45", "balance.immune.window", "15", "balance.immune.dns.window", "15", "balance.immune.fau.window", "15",
+                    "balance.immune.recover", "60", "balance.immune.dns.recover", "60", "balance.immune.fau.recover", "60", "balance.immune.hold", "10",
+                    "balance.immune.refillPause", "5");
+            eachLane(() -> L.shooter.setInvulnerable(true));
         });
         wait(30);
+        List<Runnable> run = new ArrayList<>();
+        for (Object o : cells) {
+            if (o instanceof String[] kv) {
+                parallel(run);
+                run = new ArrayList<>();
+                STEPS.add(() -> {
+                    keys(kv[0], kv[1]);
+                    line("#\tteam-key\t" + kv[0] + "\t" + kv[1]);
+                });
+                wait(10);
+                continue;
+            }
+            TeamCell c = (TeamCell) o;
+            Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + c.gun()));
+            BulletConfig ammo = ammoNamed(gun, c.ammo());
+            String id = c.n() + "\t" + (c.set().isEmpty() ? "-" : c.set()) + "\t" + c.gun() + "\t" + c.ammo();
+            if (ammo == null) {
+                line("team\t" + id + "\tнет патрона");
+                continue;
+            }
+            run.add(() -> teamCell(c, gun, ammo, id));
+        }
+        parallel(run);
+        STEPS.add(() -> eachLane(() -> {
+            for (Mannequin m : L.team) m.discard();
+            L.team.clear();
+            L.shooter.setInvulnerable(false);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            wearAttributes(L.target);
+        }));
+        wait(10);
+    }
+
+    private static void teamCell(TeamCell c, Item gun, BulletConfig ammo, String id) {
+        int[] next = new int[c.n()], mag = new int[c.n()], clicks = {0}, died = {-1};
+        @SuppressWarnings("unchecked")
+        List<LivingEntity>[] who = new List[1];
+        int[] end = {0};
+        STEPS.add(() -> {
+            begin(L.target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            if (!c.set().isEmpty()) dress(L.target, c.set(), true);
+            wearAttributes(L.target);
+            EuphImmunity.forget(L.target);
+            homePool();
+            L.aimHead = false;
+            who[0] = teamOf(c.n());
+            java.util.Arrays.fill(next, 0);
+            java.util.Arrays.fill(mag, c.mag());
+        });
+        wait(5);
+        for (int t = 0; t < c.limit(); t++) {
+            int tick = t;
+            STEPS.add(() -> {
+                if (L.target.getHealth() <= 0F || L.target.isDeadOrDying()) {
+                    died[0] = tick;
+                    L.skipTo = end[0];
+                    return;
+                }
+                for (int i = 0; i < c.n(); i++) {
+                    if (tick < next[i]) continue;
+                    if (mag[i] < 1) {
+                        next[i] = tick + c.reload();
+                        mag[i] = c.mag();
+                        if (c.reload() > 0) continue;
+                    }
+                    fire(who[0].get(i), gun, ammo, EnumKeybind.GUN_PRIMARY);
+                    clicks[0]++;
+                    mag[i]--;
+                    next[i] = tick + c.iv();
+                }
+            });
+        }
+        end[0] = STEPS.size();
+        STEPS.add(() -> {
+            if (died[0] < 0 && (L.target.getHealth() <= 0F || L.target.isDeadOrDying())) died[0] = c.limit();
+            // the tick of the killing click: death is seen the tick after
+            line("team\t" + id + "\t" + (died[0] >= 0 ? String.valueOf(Math.max(0, died[0] - 1)) : "> " + c.limit()) + "\t" + clicks[0] + "\t" + L.seen.hits
+                    + "\t" + f(L.lost) + "\t" + EuphImmunity.describe(L.target));
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+        });
+        wait(5);
+    }
+
+    /**
+     * The cheese review's checks: (1) DNS emptied to its window, then FAU put on: with balance.immune.shared the window
+     * goes on (the hit gets through), without it a fresh pool calls it off; (2) two super stimpaks at once: 25 HP over
+     * 12 s, not 50 (balance.healStack off), 50 with it on.
+     */
+    private static void planCheese() {
+        line("#\t--- разбор cheese: смена DNS на FAU, два супер-стимпака");
+        for (boolean shared : new boolean[] {true, false}) {
+            STEPS.add(() -> {
+                keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", "pool",
+                        "balance.immune.fau.mode", "pool", "balance.immune.dns.pool", "4", "balance.immune.fau.pool", "45", "balance.immune.dns.window", "15",
+                        "balance.immune.fau.window", "15", "balance.immune.dns.recover", "60", "balance.immune.fau.recover", "60", "balance.immune.hold", "10",
+                        "balance.immune.shared", Boolean.toString(shared));
+                L.shooter.setInvulnerable(true);
+                begin(L.target);
+                dress(L.target, "dns", false);
+                EuphImmunity.forget(L.target);
+                homePool();
+            });
+            wait(10);
+            // AMAT takes about 3 of the pool a shot: two empty DNS's 4
+            for (int i = 0; i < 2; i++) {
+                STEPS.add(() -> {
+                    L.target.setHealth(L.target.getMaxHealth());
+                    homePool();
+                    fire(L.shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
+                });
+                wait(SPACING + 10);
+            }
+            float[] lost = {0F};
+            String[] dns = {""};
+            STEPS.add(() -> {
+                dns[0] = EuphImmunity.describe(EuphImmunity.Kit.DNS, L.target);
+                dress(L.target, "fau", false);
+                L.target.setHealth(L.target.getMaxHealth());
+                homePool();
+                lost[0] = L.target.getHealth();
+                fire(L.shooter, ModItems.GUN_LIGHT_REVOLVER.get(), XFactory357.m357_express, EnumKeybind.GUN_PRIMARY);
+            });
+            wait(SPACING + 10);
+            STEPS.add(() -> {
+                float took = lost[0] - L.target.getHealth();
+                String fau = EuphImmunity.describe(EuphImmunity.Kit.FAU, L.target);
+                line("#\tcheese: смена dns→fau, shared " + shared + ": DNS " + dns[0] + ", FAU " + fau + ", снято " + f(took));
+                check(dns[0].startsWith("WINDOW") && (shared ? took > 0F && fau.startsWith("WINDOW") : took == 0F && fau.startsWith("POOL")),
+                        "cheese: DNS опустошён, надет FAU, balance.immune.shared = " + shared + ": " + (shared ? "окно идёт дальше" : "свежий запас FAU") + " (снято "
+                                + f(took) + ", FAU " + fau + ")");
+                for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+                EuphImmunity.forget(L.target);
+            });
+        }
+        for (boolean stack : new boolean[] {false, true}) {
+            float[] hp = {0F};
+            STEPS.add(() -> {
+                keys("balance.healStack", Boolean.toString(stack));
+                begin(L.target);
+                L.target.setHealth(1F);
+                hp[0] = L.target.getHealth();
+                BalanceKit.healOverTime(L.target, 25F);
+                BalanceKit.healOverTime(L.target, 25F);
+                L.healing = true;
+            });
+            wait(60);
+            STEPS.add(() -> {
+                float got = L.target.getHealth() - hp[0];
+                // 60 of 240 ticks: a quarter of 25 or of 50
+                float want = (stack ? 50F : 25F) * 60F / BalanceKit.STIMPAK_TICKS;
+                line("#\tcheese: два супер-стимпака, healStack " + stack + ": за 3 с +" + f(got));
+                check(Math.abs(got - want) <= 1F, "cheese: два супер-стимпака сразу, balance.healStack = " + stack + ": за 3 с +" + f(got) + " ≈ " + f(want));
+            });
+            // the heal runs out before the next case
+            wait(BalanceKit.STIMPAK_TICKS);
+            STEPS.add(() -> {
+                L.healing = false;
+                L.target.setHealth(L.target.getMaxHealth());
+            });
+        }
+        STEPS.add(() -> {
+            keys("balance.immune.dns.pool", "40", "balance.immune.shared", "true", "balance.healStack", "false");
+            L.shooter.setInvulnerable(false);
+        });
+        wait(10);
+    }
+
+    // ---------------------------------------------------------------- GL-54: the fragment grenades by set (cheese §2.4)
+
+    private static final String[] FRAG_SETS = {"", "steel", "t51", "hev", "bj", "rpa", "fau", "dns"};
+    private static final acup.gunfeel.gl54.frag.FragSpec[] FRAG_SPECS = {acup.gunfeel.gl54.frag.FragSpec.AIRBURST, acup.gunfeel.gl54.frag.FragSpec.AP,
+            acup.gunfeel.gl54.frag.FragSpec.INCENDIARY};
+    private static final int FRAG_N = 20, FRAG_LIMIT = 20 * 60;
+
+    // the burst `d` blocks before the target's chest on the line from the shooter, flying at it
+    private static void fragAt(acup.gunfeel.gl54.frag.FragSpec spec, double d, long seed) {
+        Vec3 chest = new Vec3(L.target.getX(), L.target.getY() + 1.2, L.target.getZ());
+        L.target.invulnerableTime = 0;
+        acup.gunfeel.gl54.frag.FragBurst.burst(spec, level, L.shooter, null, chest.add(0, 0, -d), new Vec3(0, 0, 1), seed);
+    }
+
+    // the incendiary's burning patches and the target's fire out, so the next case starts clean
+    private static void fragFireOff() {
+        for (var e : level.getEntitiesOfClass(com.hbm.entity.effect.EntityFireLingering.class, new net.minecraft.world.phys.AABB(L.o).inflate(16))) e.discard();
+        L.target.clearFire();
+    }
+
+    /** the GL-54's airburst, armour-piercing and incendiary grenades on each set: the damage of one burst from a fresh
+     * target (2, 4 and 6 blocks, FRAG_N seeds) and the time to kill at 3 blocks, a burst every Gl54Gun.DELAY ticks and
+     * the empty reload after 8. Numbers only (the formula's lot; no rule of the owner's for it yet). */
+    private static void planFrag() {
+        line("#\t--- frag: GL-54 по наборам: урон выстрела на 2/4/6 бл (среднее " + FRAG_N + "), время убийства на 3 бл");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", "pool",
+                    "balance.immune.fau.mode", "pool");
+            L.shooter.setInvulnerable(true);
+        });
+        wait(10);
+        int empty = acup.gunfeel.gl54.Gl54Gun.RELOAD_BEGIN + acup.gunfeel.gl54.Gl54Gun.RELOAD_END + acup.gunfeel.gl54.Gl54Gun.RELOAD_EMPTY_POST;
+        for (String set : FRAG_SETS)
+            for (var spec : FRAG_SPECS) {
+                String name = (set.isEmpty() ? "голый" : set) + " · " + spec.kind().key;
+                StringBuilder per = new StringBuilder();
+                STEPS.add(() -> {
+                    homePool();
+                    for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+                    if (!set.isEmpty()) dress(L.target, set, false);
+                    for (double d : new double[] {2, 4, 6}) {
+                        double sum = 0;
+                        for (int i = 0; i < FRAG_N; i++) {
+                            begin(L.target);
+                            EuphImmunity.forget(L.target);
+                            float hp = L.target.getHealth();
+                            fragAt(spec, d, 0x5EED_0000L + i * 7919L);
+                            sum += hp - L.target.getHealth();
+                            L.target.clearFire();
+                        }
+                        per.append(' ').append(f((float) (sum / FRAG_N)));
+                    }
+                    fragFireOff();
+                    begin(L.target);
+                    EuphImmunity.forget(L.target);
+                });
+                int[] t = {0}, shots = {0}, next = {0};
+                STEPS.add(() -> {
+                    if (t[0] >= next[0] && L.target.isAlive() && L.target.getHealth() > 0F) {
+                        fragAt(spec, 3, 0xF4A6_0000L + shots[0] * 104729L);
+                        shots[0]++;
+                        next[0] = t[0] + (shots[0] % 8 == 0 ? empty : acup.gunfeel.gl54.Gl54Gun.DELAY);
+                    }
+                    boolean dead = !L.target.isAlive() || L.target.getHealth() <= 0F;
+                    if (!dead && t[0] < FRAG_LIMIT) {
+                        t[0]++;
+                        L.hold = true;
+                        return;
+                    }
+                    String kill = dead ? f(t[0] / 20F) + " с, выстрелов " + shots[0] : "не убил за " + FRAG_LIMIT / 20 + " с (" + shots[0] + " выстрелов, осталось "
+                            + f(L.target.getHealth()) + ")";
+                    line("#\tfrag\t" + name + "\tурон 2/4/6 бл" + per + "\tна 3 бл: " + kill);
+                    check(true, "frag: " + name);
+                    L.target.clearFire();
+                    fragFireOff();
+                });
+                wait(5);
+            }
+        STEPS.add(() -> {
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            L.shooter.setInvulnerable(false);
+            begin(L.target);
+        });
+        wait(10);
     }
 
     // ---------------------------------------------------------------- Pepperbox: 13th-century tech
 
     private static final String[] PEP_SETS = {"", "steel", "dieselsuit", "t51", "hev", "security"};
     private static final String[] PEP_AMMO = {"stone", "stone_ap", "stone_iron", "stone_shot"};
-    private static float pepMaxClick;
-    /** a click killed from full health */
-    private static boolean pepFromFull;
 
     private static BulletConfig pepAmmo(String a) {
         return switch (a) {
@@ -643,53 +1232,55 @@ public final class BalanceCheck {
      * every 27 ticks, 6 to a cylinder, 67 to reload.
      */
     private static void planPep() {
-        LINES.add("#\t--- Pepperbox: кликов до смерти по наборам (тело / голова), 4 бл; секунды — 27 тиков клик, 6 в барабане, 67 перезарядка");
+        line("#\t--- Pepperbox: кликов до смерти по наборам (тело / голова), 4 бл; секунды — 27 тиков клик, 6 в барабане, 67 перезарядка");
         STEPS.add(() -> keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false"));
         wait(30);
-        for (String a : PEP_AMMO) for (String set : PEP_SETS) for (boolean head : new boolean[] {false, true}) {
+        List<Runnable> cases = new ArrayList<>();
+        for (String a : PEP_AMMO) for (String set : PEP_SETS) for (boolean head : new boolean[] {false, true}) cases.add(() -> {
             STEPS.add(() -> {
-                begin(target);
-                for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
-                if (!set.isEmpty()) dress(target, set, false);
-                target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
-                aimHead = head;
-                pepMaxClick = 0F;
-                pepFromFull = false;
+                begin(L.target);
+                for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+                if (!set.isEmpty()) dress(L.target, set, false);
+                L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+                L.aimHead = head;
+                L.pepMaxClick = 0F;
+                L.pepFromFull = false;
             });
             wait(3);
             int[] end = {0};
             for (int i = 0; i < 40; i++) {
                 float[] hp = {0F};
                 STEPS.add(() -> {
-                    if (deathClick > 0 || target.getHealth() <= 0F) return;
-                    hp[0] = target.getHealth();
-                    fire(shooter, ModItems.GUN_PEPPERBOX.get(), pepAmmo(a), EnumKeybind.GUN_PRIMARY);
-                    clicks++;
+                    if (L.deathClick > 0 || L.target.getHealth() <= 0F) return;
+                    hp[0] = L.target.getHealth();
+                    fire(L.shooter, ModItems.GUN_PEPPERBOX.get(), pepAmmo(a), EnumKeybind.GUN_PRIMARY);
+                    L.clicks++;
                 });
                 for (int t = 0; t < SPACING; t++) STEPS.add(() -> {
-                    if (deathClick <= 0 && clicks > 0 && target.getHealth() <= 0F) {
+                    if (L.deathClick <= 0 && L.clicks > 0 && L.target.getHealth() <= 0F) {
                         // the killing click took all that was left
-                        pepMaxClick = Math.max(pepMaxClick, hp[0]);
-                        pepFromFull |= hp[0] >= target.getMaxHealth() - 0.01F;
-                        deathClick = clicks;
-                        skipTo = end[0];
+                        L.pepMaxClick = Math.max(L.pepMaxClick, hp[0]);
+                        L.pepFromFull |= hp[0] >= L.target.getMaxHealth() - 0.01F;
+                        L.deathClick = L.clicks;
+                        L.skipTo = end[0];
                     }
                 });
-                STEPS.add(() -> pepMaxClick = Math.max(pepMaxClick, hp[0] - Math.max(0F, target.getHealth())));
+                STEPS.add(() -> L.pepMaxClick = Math.max(L.pepMaxClick, hp[0] - Math.max(0F, L.target.getHealth())));
             }
             end[0] = STEPS.size();
             STEPS.add(() -> {
-                aimHead = false;
-                int n = deathClick;
+                L.aimHead = false;
+                int n = L.deathClick;
                 String secs = n > 0 ? f(pepSeconds(n)) : "-";
-                LINES.add("#\tpep\t" + a + "\t" + (set.isEmpty() ? "без брони" : set) + "\t" + (head ? "голова" : "тело") + "\t" + (n > 0 ? n : "> " + clicks)
-                        + "\t" + secs + " с\tбольше всего за клик " + f(pepMaxClick));
+                line("#\tpep\t" + a + "\t" + (set.isEmpty() ? "без брони" : set) + "\t" + (head ? "голова" : "тело") + "\t" + (n > 0 ? n : "> " + L.clicks)
+                        + "\t" + secs + " с\tбольше всего за клик " + f(L.pepMaxClick));
                 // no click from full health kills: a pellet round is no sniper's
-                if (a.equals("stone_shot")) check(!pepFromFull && pepMaxClick <= 0.8F * target.getMaxHealth() + 0.05F, "pep: stone_shot " + (head ? "в голову" : "в тело") + ", "
-                        + (set.isEmpty() ? "без брони" : set) + ": клик снял не больше 16 (взял " + f(pepMaxClick) + ")");
+                if (a.equals("stone_shot")) check(!L.pepFromFull && L.pepMaxClick <= 0.8F * L.target.getMaxHealth() + 0.05F, "pep: stone_shot " + (head ? "в голову" : "в тело") + ", "
+                        + (set.isEmpty() ? "без брони" : set) + ": клик снял не больше 16 (взял " + f(L.pepMaxClick) + ")");
             });
             wait(10);
-        }
+        });
+        parallel(cases);
     }
 
     /** seconds to the n-th click: a click every 27 ticks, after each 6 a reload of 67 */
@@ -725,31 +1316,28 @@ public final class BalanceCheck {
     private static final double EXPL_DIST = 6;
     /** the damage of a launcher's round as the gun fired it (its first shot at the target), by its name */
     private static final java.util.Map<String, Float> SHOT_DAMAGE = new java.util.HashMap<>();
-    /** what the target lost since ready3, but its falls (a big blast throws it up) */
-    private static float blastLost;
-    private static final List<Float> CELL = new ArrayList<>();
     private static final List<String> TSV3 = new ArrayList<>();
 
     private static Vec3 spot3() {
-        return new Vec3(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + EXPL_DIST);
+        return new Vec3(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + EXPL_DIST);
     }
 
     /** the target in a set (or bare), its shield emptied (the model counts none), standing on its spot */
     private static void ready3(String set) {
-        begin(target);
-        target.removeAllEffects();
-        target.setForcedPose(null);
-        for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
-        if (!set.isEmpty()) dress(target, set, true);
-        var props = com.hbm.extprop.HbmPlayerProps.getData(target);
+        begin(L.target);
+        L.target.removeAllEffects();
+        L.target.setForcedPose(null);
+        for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+        if (!set.isEmpty()) dress(L.target, set, true);
+        var props = com.hbm.extprop.HbmPlayerProps.getData(L.target);
         props.maxShield = 0F;
         props.shield = 0F;
         Vec3 t = spot3();
-        target.snapTo(t.x, t.y, t.z, 180F, 0F);
-        target.setDeltaMovement(Vec3.ZERO);
-        target.fallDistance = 0;
-        shooter.setHealth(shooter.getMaxHealth());
-        blastLost = 0F;
+        L.target.snapTo(t.x, t.y, t.z, 180F, 0F);
+        L.target.setDeltaMovement(Vec3.ZERO);
+        L.target.fallDistance = 0;
+        L.shooter.setHealth(L.shooter.getMaxHealth());
+        L.blastLost = 0F;
         pose3(false);
     }
 
@@ -773,7 +1361,7 @@ public final class BalanceCheck {
                 new ModelBox("left_arm", .25, .75, -.125, .25, 0, 0, 0, .75, 0, 0, 0, .25),
                 new ModelBox("right_leg", -.25, 0, -.125, .25, 0, 0, 0, .75, 0, 0, 0, .25),
                 new ModelBox("left_leg", 0, 0, -.125, .25, 0, 0, 0, .75, 0, 0, 0, .25));
-        ModelHits.put(level, target, 0F, boxes);
+        ModelHits.put(level, L.target, 0F, boxes);
     }
 
     /** one blast of {@code b} at {@code r} blocks to the target's side ({@code r} &lt; 0: a launcher's round on it) */
@@ -793,8 +1381,8 @@ public final class BalanceCheck {
         if (r < 0F) {
             double dist = 15, drop = c.velocity > 0 ? c.gravity * Math.pow(dist / c.velocity, 2) / 2 : 0;
             Vec3 from = new Vec3(t.x, t.y + 1.2, t.z - dist), d = new Vec3(t.x, t.y + 1.0 + drop, t.z).subtract(from).normalize();
-            round = new com.hbm.entity.projectile.EntityBulletBaseMK4(level, shooter, c, dmg, -c.spread, from.x, from.y, from.z, d.x, d.y, d.z);
-        } else round = new com.hbm.entity.projectile.EntityBulletBaseMK4(level, shooter, c, dmg, -c.spread, t.x + r, t.y + 1.2, t.z, 0, -1, 0);
+            round = new com.hbm.entity.projectile.EntityBulletBaseMK4(level, L.shooter, c, dmg, -c.spread, from.x, from.y, from.z, d.x, d.y, d.z);
+        } else round = new com.hbm.entity.projectile.EntityBulletBaseMK4(level, L.shooter, c, dmg, -c.spread, t.x + r, t.y + 1.2, t.z, 0, -1, 0);
         level.addFreshEntity(round);
     }
 
@@ -808,24 +1396,27 @@ public final class BalanceCheck {
     }
 
     private static void planExpl() {
-        LINES.add("#\t--- этап 3: взрывы NTM по лестнице брони, стоя, blastParts и blastPartsEven; урон за взрыв (среднее) и взрывов до смерти, стенд / модель");
-        TSV3.add("взрывчатка\tгде\tнабор\tвзрывов\tблок\tурон за взрыв\tстенд, до смерти\tмодель, урон\tмодель, до смерти\tD снаряда");
+        line("#\t--- этап 3: взрывы NTM по лестнице брони, стоя, blastParts и blastPartsEven; урон за взрыв (среднее) и взрывов до смерти, стенд / модель");
+        out(TSV3, "взрывчатка\tгде\tнабор\tвзрывов\tблок\tурон за взрыв\tстенд, до смерти\tмодель, урон\tмодель, до смерти\tD снаряда");
         STEPS.add(() -> {
             kitKeys(true);
             keys("blastParts", "true", "blastPartsEven", "true", "damageCapBlasts", "true", "balanceArmorBlasts", "true", "balanceExplRawLimit", "60");
-            // the mannequin (the rounds' and grenades' shooter) out of the rounds' way and the blasts' reach
-            shooter.snapTo(O.getX() + 8.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
-            // DEMO breaks blocks: bedrock under the target's side
-            for (int x = -6; x <= 6; x++) for (int z = 0; z <= 12; z++) level.setBlockAndUpdate(O.offset(x, -1, z), Blocks.BEDROCK.defaultBlockState());
+            eachLane(() -> {
+                // the mannequin (the rounds' and grenades' shooter) out of the rounds' way and the blasts' reach
+                L.shooter.snapTo(L.o.getX() + 8.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
+                // DEMO breaks blocks: bedrock under the target's side
+                for (int x = -6; x <= 6; x++) for (int z = 0; z <= 12; z++) level.setBlockAndUpdate(L.o.offset(x, -1, z), Blocks.BEDROCK.defaultBlockState());
+            });
         });
         wait(45);
+        List<Runnable> cases = new ArrayList<>();
         for (Blast3 b : BLASTS) {
             float[] where = b.boom().launched() ? new float[] {-1F, 1F, 3F} : new float[] {1F, 3F};
-            for (float r : where) for (String set : SETS3) {
+            for (float r : where) for (String set : SETS3) cases.add(() -> {
                 boolean trench = set.equals("trenchmaster");
                 int n = trench ? 9 : 2;
                 int wait = !b.boom().launched() ? 3 : r < 0F ? 25 : 10;
-                STEPS.add(CELL::clear);
+                STEPS.add(L.blastCell::clear);
                 for (int i = 0; i < n; i++) {
                     STEPS.add(() -> {
                         ready3(set);
@@ -833,13 +1424,14 @@ public final class BalanceCheck {
                     });
                     wait(wait);
                     STEPS.add(() -> {
-                        CELL.add(blastLost);
-                        target.setHealth(target.getMaxHealth());
+                        L.blastCell.add(L.blastLost);
+                        L.target.setHealth(L.target.getMaxHealth());
                     });
                 }
                 STEPS.add(() -> cell3(b, r, set));
-            }
+            });
         }
+        parallel(cases);
         STEPS.add(BalanceCheck::writeTsv3);
         planExplRules();
     }
@@ -856,11 +1448,11 @@ public final class BalanceCheck {
         boolean trench = set.equals("trenchmaster");
         int blocked = 0;
         float sum = 0F;
-        for (float l : CELL) {
+        for (float l : L.blastCell) {
             sum += l;
             if (trench && l <= 0F) blocked++;
         }
-        float mean = CELL.isEmpty() ? 0F : sum / CELL.size();
+        float mean = L.blastCell.isEmpty() ? 0F : sum / L.blastCell.size();
         int game = BalanceBlasts.hits(mean);
         String name = set.isEmpty() ? "без брони" : set;
         BalanceArmor.SetOf def = set.isEmpty() ? null : BalanceArmor.SETS.get(set);
@@ -872,10 +1464,10 @@ public final class BalanceCheck {
                 def == null ? 0F : BalanceArmor.tau(set), power, lowFloor);
         int modelHits = BalanceBlasts.hits(model);
         Float shot = SHOT_DAMAGE.get(b.boom().name());
-        TSV3.add(b.boom().name() + "\t" + where3(r) + "\t" + name + "\t" + CELL.size() + "\t" + blocked + "\t" + f(mean) + "\t" + hits3(game) + "\t" + f(model)
-                + "\t" + hits3(modelHits) + "\t" + (b.boom().launched() ? (shot == null ? "-" : f(shot)) : f(b.boom().d())) + "\t" + CELL);
+        out(TSV3, b.boom().name() + "\t" + where3(r) + "\t" + name + "\t" + L.blastCell.size() + "\t" + blocked + "\t" + f(mean) + "\t" + hits3(game) + "\t" + f(model)
+                + "\t" + hits3(modelHits) + "\t" + (b.boom().launched() ? (shot == null ? "-" : f(shot)) : f(b.boom().d())) + "\t" + L.blastCell);
         String what = b.boom().name() + ", " + where3(r) + ", " + name + ": урон за взрыв " + f(mean) + ", до смерти " + hits3(game) + " (модель " + f(model) + " / "
-                + hits3(modelHits) + (trench ? ", блок " + blocked + " из " + CELL.size() : "") + ")";
+                + hits3(modelHits) + (trench ? ", блок " + blocked + " из " + L.blastCell.size() : "") + ")";
         // a blast that takes nothing where the model has a number: the hole of 10.2 again
         if (game == Integer.MAX_VALUE && modelHits != Integer.MAX_VALUE) {
             check(false, what + ": ∞ на стенде");
@@ -885,7 +1477,7 @@ public final class BalanceCheck {
         float off = model > 0F ? Math.abs(mean - model) / model : 0F;
         String line = what + ", урон " + (mean >= model ? "+" : "−") + Math.round(off * 100) + " %";
         if (off > 0.15F) check(false, line + " (больше 15 %)");
-        else LINES.add("#\t" + line);
+        else line("#\t" + line);
     }
 
     private static void writeTsv3() {
@@ -893,7 +1485,7 @@ public final class BalanceCheck {
             Path out = Path.of(System.getProperty(PROPERTY)).resolveSibling("explosions.tsv");
             Files.createDirectories(out.getParent());
             Files.write(out, TSV3);
-            LINES.add("#\tтаблица взрывов: " + out);
+            line("#\tтаблица взрывов: " + out);
         } catch (java.io.IOException e) {
             check(false, "запись explosions.tsv: " + e);
         }
@@ -902,14 +1494,14 @@ public final class BalanceCheck {
     /** a blast of NTM's EXPLOSIVE class from the mannequin at {@code r} blocks to the target's side, of {@code damage} */
     private static void plainBlast(float r, float damage) {
         Vec3 t = spot3();
-        var v = new com.hbm.explosion.vanillant.ExplosionVNT(level, t.x + r, t.y + 0.15, t.z, 5F, shooter);
+        var v = new com.hbm.explosion.vanillant.ExplosionVNT(level, t.x + r, t.y + 0.15, t.z, 5F, L.shooter);
         v.setEntityProcessor(new com.hbm.explosion.vanillant.standard.EntityProcessorCrossSmooth(1, damage));
         v.setPlayerProcessor(new com.hbm.explosion.vanillant.standard.PlayerProcessorStandard());
         v.explode();
     }
 
     private static float took() {
-        return blastLost;
+        return L.blastLost;
     }
 
     /** a step of the rules: the target made ready in {@code set}, {@code act}, then after {@code ticks} {@code then} */
@@ -921,7 +1513,7 @@ public final class BalanceCheck {
         wait(ticks);
         STEPS.add(() -> {
             then.run();
-            target.setHealth(target.getMaxHealth());
+            L.target.setHealth(L.target.getMaxHealth());
         });
     }
 
@@ -932,21 +1524,21 @@ public final class BalanceCheck {
     private static void grenadeAt(Blast3 b, double x, double z) {
         var grenade = new com.hbm.entity.grenade.EntityGrenadeUniversal(level, com.hbm.items.weapon.grenade.ItemGrenadeUniversal.make(
                 com.hbm.items.weapon.grenade.ItemGrenadeShell.EnumGrenadeShell.STICK, b.filling(), com.hbm.items.weapon.grenade.ItemGrenadeFuze.EnumGrenadeFuze.IMPACT));
-        grenade.setThrower(shooter);
+        grenade.setThrower(L.shooter);
         grenade.setPos(x, spot3().y + 0.15, z);
         grenade.explode();
     }
 
     /** the cap on blasts, the raw limit, the nuclear ones, lying and a wall; the keys off */
     private static void planExplRules() {
-        LINES.add("#\t--- этап 3: правила взрывов (потолок, сырой урон, ядерные, лёжа, за стеной, ключи)");
+        line("#\t--- этап 3: правила взрывов (потолок, сырой урон, ядерные, лёжа, за стеной, ключи)");
         Blast3 he = BLASTS.get(1);
         // the click's cap on a blast: 60 % of 20
         rule3("", () -> boom3(he, 1F), 3, () -> check(took() > 11.9F && took() <= 12.01F,
                 "потолок 60 % на EXPLOSIVE: граната HE в 1 бл, без брони (сырой ~23,8): снято " + f(took()) + " (ждали 12)"));
         // the head's cap: a blast's hurt through HeadDamage with the head's multiplier, as MixinExplosiveProcessor does it
-        for (float m : new float[] {1.75F, 1F}) rule3("", () -> HeadDamage.attack(target, 30F, m,
-                d -> com.hbm.util.EntityDamageUtil.attackEntityFromNT(target, level.damageSources().source(com.hbm.lib.ModDamageTypes.EXPLOSIVE, shooter), d, true,
+        for (float m : new float[] {1.75F, 1F}) rule3("", () -> HeadDamage.attack(L.target, 30F, m,
+                d -> com.hbm.util.EntityDamageUtil.attackEntityFromNT(L.target, level.damageSources().source(com.hbm.lib.ModDamageTypes.EXPLOSIVE, L.shooter), d, true,
                         false, 0, 0, 0)),
                 3, () -> {
                     float want = m > 1F ? 16F : 12F;
@@ -957,27 +1549,27 @@ public final class BalanceCheck {
         // a round on the target: its contact and blast one hurt (ExplosiveDamage), one click; raw about 50 (the blast a hair off the box)
         rule3("", () -> boom3(BLASTS.get(7), -1F), 25, () -> check(took() > 11.9F && took() <= 12.01F,
                 "потолок 60 %: ракета Missile Launcher прямое, без брони (контакт 30 + взрыв 20): снято " + f(took()) + " (ждали 12)"));
-        rule3("hev", () -> boom3(BLASTS.get(7), -1F), 25, () -> check(BalanceArmor.seenHits == 1 && Math.abs(BalanceArmor.seenIn - 50F) < 2F,
-                "ракета Missile Launcher прямое, HEV: контакт и взрыв одним ударом (ударов через броню " + BalanceArmor.seenHits + ", сырой "
-                        + f(BalanceArmor.seenIn) + ", ждали 1 и ≈50)"));
+        rule3("hev", () -> boom3(BLASTS.get(7), -1F), 25, () -> check(L.seen.hits == 1 && Math.abs(L.seen.in - 50F) < 2F,
+                "ракета Missile Launcher прямое, HEV: контакт и взрыв одним ударом (ударов через броню " + L.seen.hits + ", сырой "
+                        + f(L.seen.in) + ", ждали 1 и ≈50)"));
         // a blast of more raw damage than balanceExplRawLimit: not capped (100 at 1 of 5: 80 raw)
         rule3("", () -> plainBlast(1F, 100F), 3, () -> check(took() > 12.5F,
                 "сырой урон > 60 мимо потолка: взрыв 100 в 1 бл (сырой ~93), без брони: снято " + f(took()) + " (ждали больше 12)"));
         rule3("", () -> plainBlast(1F, 60F), 3, () -> check(took() <= 12.01F && took() > 11.9F,
                 "сырой урон ≤ 60 под потолком: взрыв 60 в 1 бл (сырой ~56), без брони: снято " + f(took()) + " (ждали 12)"));
         // just over the limit raw, well under it after HEV: the cap looks at the raw damage
-        rule3("hev", () -> plainBlast(1F, 70F), 3, () -> check(took() > 12.5F && BalanceArmor.seenIn > 60F && BalanceArmor.seenOut < 60F,
-                "сырой урон > 60 мимо потолка: взрыв 70 в 1 бл, HEV: сырой " + f(BalanceArmor.seenIn) + ", после брони " + f(BalanceArmor.seenOut) + ", снято "
+        rule3("hev", () -> plainBlast(1F, 70F), 3, () -> check(took() > 12.5F && L.seen.in > 60F && L.seen.out < 60F,
+                "сырой урон > 60 мимо потолка: взрыв 70 в 1 бл, HEV: сырой " + f(L.seen.in) + ", после брони " + f(L.seen.out) + ", снято "
                         + f(took()) + " (ждали больше 12)"));
         // nuclear: NTM's ExplosionNukeGeneric.dealDamage (NUCLEAR_BLAST, no shooter), and a nuclear hit from the mannequin
         rule3("", () -> com.hbm.explosion.ExplosionNukeGeneric.dealDamage(level, spot3().x + 1, spot3().y, spot3().z, 6), 3,
                 () -> check(took() > 12.5F, "ядерный взрыв (ExplosionNukeGeneric.dealDamage, 1 бл): снято " + f(took()) + " (ждали больше 12)"));
-        rule3("", () -> target.hurtServer(level, level.damageSources().source(com.hbm.lib.ModDamageTypes.NUCLEAR_BLAST, shooter), 30F), 3,
+        rule3("", () -> L.target.hurtServer(level, level.damageSources().source(com.hbm.lib.ModDamageTypes.NUCLEAR_BLAST, L.shooter), 30F), 3,
                 () -> check(took() > 12.5F, "ядерный удар 30 от стрелка мимо потолка: снято " + f(took()) + " (ждали больше 12)"));
         // standing, lying, behind a wall: HE at 2 blocks on HEV (no cap in the way)
         STEPS.add(() -> {
             ready3("hev");
-            LINES.add("#\tпоза игрока-цели (как от клиента): " + (ModelHits.hasPose(target) ? "есть, взрыв по частям" : "нет (урон NTM целиком)"));
+            line("#\tпоза игрока-цели (как от клиента): " + (ModelHits.hasPose(L.target) ? "есть, взрыв по частям" : "нет (урон NTM целиком)"));
         });
         rule3("bj", () -> boom3(he, 2F), 3, () -> stood = took());
         // lying (the head to -z): the grenade 2 blocks from its side, from its head's end, from its feet's end
@@ -986,15 +1578,15 @@ public final class BalanceCheck {
         for (int k = 0; k < 3; k++) {
             int kk = k;
             rule3("bj", () -> {
-                target.setForcedPose(net.minecraft.world.entity.Pose.SWIMMING);
-                target.refreshDimensions();
+                L.target.setForcedPose(net.minecraft.world.entity.Pose.SWIMMING);
+                L.target.refreshDimensions();
                 pose3(true);
                 Vec3 t = spot3();
                 grenadeAt(he, t.x + lyingAt[kk][0], t.z + lyingAt[kk][1]);
             }, 3, () -> {
                 LYING[kk] = took();
-                target.setForcedPose(null);
-                target.refreshDimensions();
+                L.target.setForcedPose(null);
+                L.target.refreshDimensions();
             });
         }
         rule3("bj", () -> {
@@ -1006,7 +1598,7 @@ public final class BalanceCheck {
             walled = took();
             Vec3 t = spot3();
             for (int z = -3; z <= 3; z++) level.setBlockAndUpdate(BlockPos.containing(t.x + 1, t.y, t.z + z), Blocks.AIR.defaultBlockState());
-            for (int k = 0; k < 3; k++) LINES.add("#\tграната HE в 2 бл, BJ, лёжа " + lyingName[k] + ": " + f(LYING[k]) + " (стоя " + f(stood) + ")");
+            for (int k = 0; k < 3; k++) line("#\tграната HE в 2 бл, BJ, лёжа " + lyingName[k] + ": " + f(LYING[k]) + " (стоя " + f(stood) + ")");
             check(stood > 0F && LYING[1] < stood && LYING[2] < stood, "лёжа головой и ногами к гранате меньше, чем стоя: граната HE в 2 бл, BJ: стоя " + f(stood)
                     + ", лёжа головой " + f(LYING[1]) + ", ногами " + f(LYING[2]) + " (боком " + f(LYING[0]) + ")");
             check(stood > 0F && walled < stood, "за стеной меньше, чем стоя: граната HE в 2 бл, стена в 1 блок высотой, BJ: стоя " + f(stood) + ", за стеной " + f(walled));
@@ -1018,15 +1610,15 @@ public final class BalanceCheck {
                 "damageCapBlasts = false: граната HE в 1 бл без брони мимо потолка: снято " + f(took()) + " (сырой ~23,8)"));
         STEPS.add(() -> keys("damageCapBlasts", "true", "balanceArmorBlasts", "false"));
         wait(30);
-        rule3("hev", () -> boom3(he, 1F), 3, () -> check(BalanceArmor.seenHits > 0 && BalanceArmor.seenOut == BalanceArmor.seenNtm,
-                "balanceArmorBlasts = false: граната HE по HEV числами NTM (после брони " + f(BalanceArmor.seenOut) + " = NTM " + f(BalanceArmor.seenNtm)
+        rule3("hev", () -> boom3(he, 1F), 3, () -> check(L.seen.hits > 0 && L.seen.out == L.seen.ntm,
+                "balanceArmorBlasts = false: граната HE по HEV числами NTM (после брони " + f(L.seen.out) + " = NTM " + f(L.seen.ntm)
                         + "), снято " + f(took())));
         STEPS.add(() -> keys("balanceArmorBlasts", "true"));
         wait(30);
-        rule3("hev", () -> boom3(he, 1F), 3, () -> check(BalanceArmor.seenHits > 0 && BalanceArmor.seenOut != BalanceArmor.seenNtm,
-                "balanceArmorBlasts = true: граната HE по HEV формулой C (после брони " + f(BalanceArmor.seenOut) + ", NTM " + f(BalanceArmor.seenNtm)
+        rule3("hev", () -> boom3(he, 1F), 3, () -> check(L.seen.hits > 0 && L.seen.out != L.seen.ntm,
+                "balanceArmorBlasts = true: граната HE по HEV формулой C (после брони " + f(L.seen.out) + ", NTM " + f(L.seen.ntm)
                         + "), снято " + f(took())));
-        STEPS.add(() -> shooter.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5, 0F, 0F));
+        STEPS.add(() -> eachLane(() -> L.shooter.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F)));
     }
 
     // ---------------------------------------------------------------- stage 3: ESP (no players in VATS and thermal)
@@ -1050,8 +1642,8 @@ public final class BalanceCheck {
      * the keys off and all.
      */
     private static void planEsp() {
-        LINES.add("#\t--- этап 3: ESP: VATS и термо не показывают игроков, кроме ступени 8 (16 бл, по прямой видимости)");
-        BlockPos v = O.offset(-12, 0, 0);
+        line("#\t--- этап 3: ESP: VATS и термо не показывают игроков, кроме ступени 8 (16 бл, по прямой видимости)");
+        BlockPos v = L.o.offset(-12, 0, 0);
         STEPS.add(() -> {
             keys("abilities.esp.players", "tier8", "abilities.esp.playerRange", "16");
             for (int x = -3; x <= 3; x++) for (int y = 0; y <= 3; y++) level.setBlockAndUpdate(v.offset(x, y, 5), Blocks.STONE.defaultBlockState());
@@ -1068,47 +1660,47 @@ public final class BalanceCheck {
                 var bonus = com.hbm.items.armor.ArmorFullSetBonus.get(s);
                 if (bonus == null || !(bonus.vats() || bonus.thermal())) continue;
                 String name = espItems(s);
-                for (EquipmentSlot slot : SLOTS) gunner.setItemSlot(slot, ItemStack.EMPTY);
+                for (EquipmentSlot slot : SLOTS) L.gunner.setItemSlot(slot, ItemStack.EMPTY);
                 try {
-                    dress(gunner, name, true);
+                    dress(L.gunner, name, true);
                 } catch (IllegalStateException e) {
                     check(false, "ESP: набор " + s.name() + " (" + name + "): нет предметов");
                     continue;
                 }
-                int tier = ArmorAbilities.espTier(gunner);
+                int tier = ArmorAbilities.espTier(L.gunner);
                 seen.add(s.name() + " " + tier);
                 esp(s.name() + " (ступень " + tier + ", " + (bonus.thermal() ? "термо" : "") + (bonus.vats() ? " VATS" : "") + ")", tier, tier >= 8);
             }
-            LINES.add("#\tESP: наборы с VATS/термо: " + seen);
+            line("#\tESP: наборы с VATS/термо: " + seen);
             check(seen.stream().anyMatch(x -> x.startsWith("DIGAMMA 8")) && seen.stream().anyMatch(x -> x.startsWith("DNS 8")),
                     "ESP: FAU и DNS среди наборов с термо, ступень 8");
-            for (EquipmentSlot slot : SLOTS) gunner.setItemSlot(slot, ItemStack.EMPTY);
+            for (EquipmentSlot slot : SLOTS) L.gunner.setItemSlot(slot, ItemStack.EMPTY);
             ItemStack penance = new ItemStack(ModItems.GUN_AMAT_PENANCE.get());
             var gun = (ItemGunBaseNT) penance.getItem();
             boolean sights = false;
             for (int i = 0; i < gun.getConfigCount(); i++) sights |= gun.getConfig(penance, i).hasThermalSights(penance);
             check(sights, "ESP: у AMAT Penance тепловой прицел (hasThermalSights)");
             esp("прицел AMAT Penance, без брони", ArmorAbilities.GUN_SIGHT_TIER, true);
-            dress(gunner, "fau", true);
+            dress(L.gunner, "fau", true);
             keys("abilities.esp.players", "off");
         });
         wait(30);
         STEPS.add(() -> {
             String mode = ArmorAbilities.espModeNow();
-            espCase("off, FAU", ArmorAbilities.espTier(gunner), mode, 10, false, false);
+            espCase("off, FAU", ArmorAbilities.espTier(L.gunner), mode, 10, false, false);
             keys("abilities.esp.players", "all");
-            for (EquipmentSlot slot : SLOTS) gunner.setItemSlot(slot, ItemStack.EMPTY);
-            dress(gunner, "t51", true);
+            for (EquipmentSlot slot : SLOTS) L.gunner.setItemSlot(slot, ItemStack.EMPTY);
+            dress(L.gunner, "t51", true);
         });
         wait(30);
         STEPS.add(() -> {
             String mode = ArmorAbilities.espModeNow();
-            espCase("all (NTM), T-51b", ArmorAbilities.espTier(gunner), mode, 10, true, true);
-            espCase("all (NTM), T-51b", ArmorAbilities.espTier(gunner), mode, 20, false, true);
-            check(ArmorAbilities.vatsKeeps(mode, target), "ESP all (NTM): VATS показывает игрока");
+            espCase("all (NTM), T-51b", ArmorAbilities.espTier(L.gunner), mode, 10, true, true);
+            espCase("all (NTM), T-51b", ArmorAbilities.espTier(L.gunner), mode, 20, false, true);
+            check(ArmorAbilities.vatsKeeps(mode, L.target), "ESP all (NTM): VATS показывает игрока");
             keys("abilities.esp.players", "tier8");
-            for (EquipmentSlot slot : SLOTS) gunner.setItemSlot(slot, ItemStack.EMPTY);
-            gunner.snapTo(O.getX() + 4.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
+            for (EquipmentSlot slot : SLOTS) L.gunner.setItemSlot(slot, ItemStack.EMPTY);
+            L.gunner.snapTo(L.o.getX() + 4.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
             if (espMob != null) espMob.discard();
             for (int x = -3; x <= 3; x++) for (int y = 0; y <= 3; y++) level.setBlockAndUpdate(v.offset(x, y, 5), Blocks.AIR.defaultBlockState());
         });
@@ -1121,22 +1713,22 @@ public final class BalanceCheck {
         espCase(what, tier, mode, 10, true, false);
         espCase(what, tier, mode, 20, false, false);
         espCase(what, tier, mode, 10, false, tier8);
-        check(!ArmorAbilities.vatsKeeps(mode, target), "ESP " + what + ": VATS не показывает игрока");
-        check(ArmorAbilities.vatsKeeps(mode, espMob) && ArmorAbilities.thermalKeeps(mode, ArmorAbilities.espRangeNow(), tier, gunner, espMob),
+        check(!ArmorAbilities.vatsKeeps(mode, L.target), "ESP " + what + ": VATS не показывает игрока");
+        check(ArmorAbilities.vatsKeeps(mode, espMob) && ArmorAbilities.thermalKeeps(mode, ArmorAbilities.espRangeNow(), tier, L.gunner, espMob),
                 "ESP " + what + ": зомби за стеной в 10 бл виден в термо и VATS, как в NTM");
     }
 
     /** the viewer at its spot, the target {@code dist} blocks in front ({@code wall}: behind the wall at 5) */
     private static void espCase(String what, int tier, String mode, int dist, boolean wall, boolean want) {
-        BlockPos v = O.offset(-12, 0, 0);
-        gunner.snapTo(v.getX() + 0.5, v.getY(), v.getZ() + 0.5, 0F, 0F);
+        BlockPos v = L.o.offset(-12, 0, 0);
+        L.gunner.snapTo(v.getX() + 0.5, v.getY(), v.getZ() + 0.5, 0F, 0F);
         // behind the wall: straight on, the wall at +5; in the open: the other way (-z), nothing between
         double x = v.getX() + 0.5;
         double z = v.getZ() + 0.5 + (wall ? dist : -dist);
-        target.snapTo(x, v.getY(), z, 180F, 0F);
-        boolean keeps = ArmorAbilities.thermalKeeps(mode, ArmorAbilities.espRangeNow(), tier, gunner, target);
-        check(keeps == want, "ESP " + what + ": игрок " + (wall ? "за стеной" : "на открытом месте") + " в " + f(gunner.distanceTo(target)) + " бл, видимость "
-                + gunner.hasLineOfSight(target) + ": " + (keeps ? "виден" : "не виден") + " (ждали " + (want ? "виден" : "не виден") + ")");
+        L.target.snapTo(x, v.getY(), z, 180F, 0F);
+        boolean keeps = ArmorAbilities.thermalKeeps(mode, ArmorAbilities.espRangeNow(), tier, L.gunner, L.target);
+        check(keeps == want, "ESP " + what + ": игрок " + (wall ? "за стеной" : "на открытом месте") + " в " + f(L.gunner.distanceTo(L.target)) + " бл, видимость "
+                + L.gunner.hasLineOfSight(L.target) + ": " + (keeps ? "виден" : "не виден") + " (ждали " + (want ? "виден" : "не виден") + ")");
     }
 
     // ---------------------------------------------------------------- big mults on weak ammo against low armour
@@ -1152,48 +1744,48 @@ public final class BalanceCheck {
             new High("maresleg · g12_bp ×4,17", ModItems.GUN_MARESLEG::get, () -> XFactory12ga.g12_bp, EnumKeybind.GUN_PRIMARY),
             new High("light_revolver_atlas · m357_bp ×3,32", ModItems.GUN_LIGHT_REVOLVER_ATLAS::get, () -> XFactory357.m357_bp, EnumKeybind.GUN_PRIMARY));
 
-    /** the hi pass: a hit of this click went to the head (1), a sniper's (2) */
-    private static int headHit;
 
     private static void planHigh() {
-        LINES.add("#\t--- большие множители слабых патронов против брони ниже: один клик не убивает (потолок 60 %, с головой 80 %)");
+        line("#\t--- большие множители слабых патронов против брони ниже: один клик не убивает (потолок 60 %, с головой 80 %)");
         STEPS.add(() -> {
             kitKeys(true);
             keys("balanceGuns", "true");
         });
         wait(45);
-        for (High h : HIGH) for (String set : new String[] {"", "steel", "dieselsuit", "hev"}) {
+        List<Runnable> cases = new ArrayList<>();
+        for (High h : HIGH) for (String set : new String[] {"", "steel", "dieselsuit", "hev"}) cases.add(() -> {
             STEPS.add(() -> {
-                begin(target);
-                target.removeAllEffects();
-                for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
-                if (!set.isEmpty()) dress(target, set, true);
-                var props = com.hbm.extprop.HbmPlayerProps.getData(target);
+                begin(L.target);
+                L.target.removeAllEffects();
+                for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+                if (!set.isEmpty()) dress(L.target, set, true);
+                var props = com.hbm.extprop.HbmPlayerProps.getData(L.target);
                 props.maxShield = 0F;
                 props.shield = 0F;
-                target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + 2, 180F, 0F);
-                headHit = 0;
+                L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + 2, 180F, 0F);
+                L.headHit = 0;
                 DamageCap.last = "";
-                fire(shooter, h.gun().get(), h.ammo().get(), h.key());
-                clicks = 1;
+                fire(L.shooter, h.gun().get(), h.ammo().get(), h.key());
+                L.clicks = 1;
             });
             wait(20);
             STEPS.add(() -> {
-                float took = target.getMaxHealth() - Math.max(0F, target.getHealth());
+                float took = L.target.getMaxHealth() - Math.max(0F, L.target.getHealth());
                 // a pellet in the head has the head's room of a click (0.8); a sniper's (a gun of 25 ticks and more) all of
                 // it, so there a click may kill: written down, not checked (a question to the owner)
                 String what = "один клик, 2 бл, " + (set.isEmpty() ? "без брони" : set) + " ← " + h.gunName() + ": снято " + f(took) + " HP из "
-                        + f(target.getMaxHealth());
-                if (headHit == 2) LINES.add("#\t" + what + ", дробина в голову, пушка снайперская по паузе (потолок 1,0): "
-                        + (target.getHealth() > 0F ? "жив" : "убит") + ", ударов " + BalanceArmor.seenHits);
+                        + f(L.target.getMaxHealth());
+                if (L.headHit == 2) line("#\t" + what + ", дробина в голову, пушка снайперская по паузе (потолок 1,0): "
+                        + (L.target.getHealth() > 0F ? "жив" : "убит") + ", ударов " + L.seen.hits);
                 else {
-                    float cap = headHit == 1 ? 0.8F : 0.6F;
-                    check(target.getHealth() > 0F && took <= cap * target.getMaxHealth() + 0.01F, what + " (ждали не больше " + f(cap * target.getMaxHealth())
-                            + (headHit == 1 ? ", дробина в голову" : "") + ", жив), ударов " + BalanceArmor.seenHits);
+                    float cap = L.headHit == 1 ? 0.8F : 0.6F;
+                    check(L.target.getHealth() > 0F && took <= cap * L.target.getMaxHealth() + 0.01F, what + " (ждали не больше " + f(cap * L.target.getMaxHealth())
+                            + (L.headHit == 1 ? ", дробина в голову" : "") + ", жив), ударов " + L.seen.hits);
                 }
-                target.setHealth(target.getMaxHealth());
+                L.target.setHealth(L.target.getMaxHealth());
             });
-        }
+        });
+        parallel(cases);
         STEPS.add(() -> keys("balanceGuns", "false"));
         wait(30);
     }
@@ -1201,8 +1793,6 @@ public final class BalanceCheck {
     // ---------------------------------------------------------------- the double barrel (the owner: "too little damage")
 
     private static final String[] DB_AMMO = {"g10", "g10_shrapnel", "g10_slug", "g10_explosive"};
-    /** the stand aims at the victim's eyes, not its chest */
-    private static boolean aimHead;
 
     private static BulletConfig dbAmmo(String name) {
         return switch (name) {
@@ -1215,7 +1805,7 @@ public final class BalanceCheck {
 
     /** NTM, as main has it (every ammo x0.762 of g10_du's, the agent's vanilla 20), and after the owner's answers */
     private static void planDb() {
-        LINES.add("#\t--- двустволка: игрок и FBI в Security, NTM / сейчас (main) / после");
+        line("#\t--- двустволка: игрок и FBI в Security, NTM / сейчас (main) / после");
         Path guns = FMLPaths.CONFIGDIR.get().resolve(BalanceGuns.FILE);
         // сейчас: main's table (every ammo of the double barrel took g10_du's x0.762), the agent's vanilla 20
         for (String mode : new String[] {"NTM", "сейчас", "после"}) {
@@ -1235,50 +1825,54 @@ public final class BalanceCheck {
                 keys("balanceArmor", Boolean.toString(on), "balanceGuns", Boolean.toString(on), "balance.fbiArmor", mode.equals("сейчас") ? "0" : "10");
             });
             wait(60);
+            List<Runnable> cases = new ArrayList<>();
             for (String a : DB_AMMO) for (EnumKeybind key : new EnumKeybind[] {EnumKeybind.GUN_PRIMARY, EnumKeybind.GUN_SECONDARY}) for (int kind = 0; kind < 3; kind++) {
                 // NTM's primary fires both barrels (rounds 2), the secondary one; 0: the player, 1: the agent, 2: the agent at the head (shrapnel only: the owner's "one heart")
                 if (kind == 2 && !a.equals("g10_shrapnel")) continue;
                 boolean agent = kind > 0, head = kind == 2;
                 String barrels = (key == EnumKeybind.GUN_PRIMARY ? "2 ствола" : "1 ствол") + (head ? ", в голову" : "");
+                cases.add(() -> {
                 STEPS.add(() -> {
-                    aimHead = head;
+                    L.aimHead = head;
                     if (agent) {
                         var created = BuiltInRegistries.ENTITY_TYPE.getValue(FBI).create(level, EntitySpawnReason.COMMAND);
                         if (!(created instanceof Mob mob)) throw new IllegalStateException("no FBI agent");
-                        fbi = mob;
-                        fbi.setNoAi(true);
-                        fbi.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
-                        level.addFreshEntity(fbi);
-                        dress(fbi, "security", true);
-                        fbi.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
-                        begin(fbi);
+                        L.fbi = mob;
+                        L.fbi.setNoAi(true);
+                        L.fbi.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+                        level.addFreshEntity(L.fbi);
+                        dress(L.fbi, "security", true);
+                        L.fbi.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+                        begin(L.fbi);
                     } else {
-                        begin(target);
-                        target.removeAllEffects();
-                        dress(target, "security", true);
-                        var props = com.hbm.extprop.HbmPlayerProps.getData(target);
+                        begin(L.target);
+                        L.target.removeAllEffects();
+                        dress(L.target, "security", true);
+                        var props = com.hbm.extprop.HbmPlayerProps.getData(L.target);
                         props.maxShield = 0F;
                         props.shield = 0F;
-                        target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+                        L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
                     }
                 });
-                clicks(shooter, ModItems.GUN_DOUBLE_BARREL::get, dbAmmo(a), key);
+                clicks(L.shooter, ModItems.GUN_DOUBLE_BARREL::get, dbAmmo(a), key);
                 STEPS.add(() -> {
-                    String who = agent ? "FBI в security (ваниль " + f((float) fbi.getAttributeValue(Attributes.ARMOR)) + ")" : "игрок в security";
+                    String who = agent ? "FBI в security (ваниль " + f((float) L.fbi.getAttributeValue(Attributes.ARMOR)) + ")" : "игрок в security";
                     row("двустволка " + mode, who, a + ", " + barrels);
-                    LINES.add("#\tдвустволка\t" + mode + "\t" + who + "\t" + a + "\t" + barrels + "\tкликов " + (deathClick > 0 ? deathClick : "> " + clicks)
-                            + "\tснято первым " + f(Math.max(0F, firstClick)) + "\tмножитель " + f(BalanceGuns.pair(ModItems.GUN_DOUBLE_BARREL.get(), dbAmmo(a)).mult()));
+                    line("#\tдвустволка\t" + mode + "\t" + who + "\t" + a + "\t" + barrels + "\tкликов " + (L.deathClick > 0 ? L.deathClick : "> " + L.clicks)
+                            + "\tснято первым " + f(Math.max(0F, L.firstClick)) + "\tмножитель " + f(BalanceGuns.pair(ModItems.GUN_DOUBLE_BARREL.get(), dbAmmo(a)).mult()));
                     if (mode.equals("после")) check("table".equals(BalanceGuns.from(ModItems.GUN_DOUBLE_BARREL.get()).get(a).from()),
                             "двустволка после: " + a + " — своя строка таблицы v4 (×" + f(BalanceGuns.pair(ModItems.GUN_DOUBLE_BARREL.get(), dbAmmo(a)).mult()) + ")");
-                    if (head) LINES.add("#\tдвустволка " + mode + ", шрапнель в голову FBI, " + barrels + ": первый клик снял " + f(Math.max(0F, firstClick))
-                            + " HP, ударов по броне " + BalanceArmor.seenHits + " (до брони " + f(BalanceArmor.seenIn) + ", после " + f(BalanceArmor.seenOut) + ", NTM " + f(BalanceArmor.seenNtm) + ")");
-                    aimHead = false;
+                    if (head) line("#\tдвустволка " + mode + ", шрапнель в голову FBI, " + barrels + ": первый клик снял " + f(Math.max(0F, L.firstClick))
+                            + " HP, ударов по броне " + L.seen.hits + " (до брони " + f(L.seen.in) + ", после " + f(L.seen.out) + ", NTM " + f(L.seen.ntm) + ")");
+                    L.aimHead = false;
                     if (agent) {
-                        fbi.discard();
-                        fbi = null;
+                        L.fbi.discard();
+                        L.fbi = null;
                     }
                 });
+                });
             }
+            parallel(cases);
         }
         STEPS.add(() -> {
             try {
@@ -1310,12 +1904,9 @@ public final class BalanceCheck {
             new KitPair("bj", "lasrifle · capacitor", ModItems.GUN_LASRIFLE::get, () -> XFactoryEnergy.energy_las, 6, 14, 12),
             new KitPair("fau", "tau · tau_uranium", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 8, 19, 16));
 
-    /** the super stimpak's heal goes on by the stand's tick (the fake player is not ticked by the level) */
-    private static boolean healing;
-    private static int targetTicks = Integer.MIN_VALUE;
 
     private static void planKit() {
-        LINES.add("#\t--- комплект в парах ступеней: Med-X I + щит до потолка + супер-стимпак, клики с паузой пушки");
+        line("#\t--- комплект в парах ступеней: Med-X I + щит до потолка + супер-стимпак, клики с паузой пушки");
         for (int cap : new int[] {30, 16}) {
             String m = "потолок щита " + cap;
             STEPS.add(() -> {
@@ -1323,7 +1914,8 @@ public final class BalanceCheck {
                 keys("balanceGuns", "true", "balance.shield.cap", Integer.toString(cap));
             });
             wait(45);
-            for (KitPair p : KIT_PAIRS) {
+            List<Runnable> cases = new ArrayList<>();
+            for (KitPair p : KIT_PAIRS) cases.add(() -> {
                 int[] base = {0};
                 kitPairFight(p, false, m, base);
                 kitPairFight(p, true, m, base);
@@ -1331,86 +1923,91 @@ public final class BalanceCheck {
                     int want = cap == 30 ? p.kit30() : p.kit16();
                     // the stand's clicks move by one from run to run (HEV ← Star-F's base 13 or 14): they must be the pinned ones
                     // ±1, and the limit at cap 16 is the pinned ones' ratio
-                    float x = base[0] > 0 && deathClick > 0 ? (float) deathClick / base[0] : Float.NaN;
-                    String what = m + ", " + p.set() + " ← " + p.gunName() + ": кликов " + base[0] + " → " + (deathClick > 0 ? deathClick : "> " + clicks)
+                    float x = base[0] > 0 && L.deathClick > 0 ? (float) L.deathClick / base[0] : Float.NaN;
+                    String what = m + ", " + p.set() + " ← " + p.gunName() + ": кликов " + base[0] + " → " + (L.deathClick > 0 ? L.deathClick : "> " + L.clicks)
                             + " (×" + f(x) + "; модель " + p.base() + " → " + want + ")";
-                    boolean model = Math.abs(base[0] - p.base()) <= 1 && Math.abs(deathClick - want) <= 1;
+                    boolean model = Math.abs(base[0] - p.base()) <= 1 && Math.abs(L.deathClick - want) <= 1;
                     check(model && (cap != 16 || (float) want / p.base() <= 2.4F), "комплект: " + what + (cap == 16 ? ", ждали не больше ×2,4" : ""));
                 });
-            }
+            });
+            parallel(cases);
         }
         STEPS.add(() -> {
             keys("balance.shield.cap", "16", "balanceGuns", "false");
-            target.removeAllEffects();
-            var props = com.hbm.extprop.HbmPlayerProps.getData(target);
-            props.maxShield = 0F;
-            props.shield = 0F;
+            eachLane(() -> {
+                L.target.removeAllEffects();
+                var props = com.hbm.extprop.HbmPlayerProps.getData(L.target);
+                props.maxShield = 0F;
+                props.shield = 0F;
+            });
         });
         wait(30);
     }
 
     private static void kitPairFight(KitPair p, boolean kit, String m, int[] base) {
         STEPS.add(() -> {
-            begin(target);
-            target.removeAllEffects();
-            dress(target, p.set(), true);
-            var props = com.hbm.extprop.HbmPlayerProps.getData(target);
+            begin(L.target);
+            L.target.removeAllEffects();
+            dress(L.target, p.set(), true);
+            var props = com.hbm.extprop.HbmPlayerProps.getData(L.target);
             props.maxShield = 0F;
             props.shield = 0F;
             if (kit) {
-                com.hbm.handler.ArmorModHandler.applyMod(target.getItemBySlot(EquipmentSlot.CHEST), hbm("australium_iii"));
+                com.hbm.handler.ArmorModHandler.applyMod(L.target.getItemBySlot(EquipmentSlot.CHEST), hbm("australium_iii"));
                 props.maxShield = 100F;
                 // Med-X 5 s before the fight (its potion sickness over), the super stimpak at the first click
                 for (String used : new String[] {"syringe_metal_medx", "syringe_metal_super"}) {
-                    target.removeEffect(com.hbm.potion.HbmPotion.potionsickness());
+                    L.target.removeEffect(com.hbm.potion.HbmPotion.potionsickness());
                     ItemStack st = hbm(used);
-                    target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, st);
-                    st.getItem().use(level, target, net.minecraft.world.InteractionHand.MAIN_HAND);
+                    L.target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, st);
+                    st.getItem().use(level, L.target, net.minecraft.world.InteractionHand.MAIN_HAND);
                 }
-                if (BalanceKit.healLeft(target) <= 0F || !target.hasEffect(net.minecraft.world.effect.MobEffects.RESISTANCE))
-                    throw new IllegalStateException("the kit did not take: heal " + BalanceKit.healLeft(target));
-                target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-                props.shield = props.getEffectiveMaxShield(target);
-                healing = true;
+                if (BalanceKit.healLeft(L.target) <= 0F || !L.target.hasEffect(net.minecraft.world.effect.MobEffects.RESISTANCE))
+                    throw new IllegalStateException("the kit did not take: heal " + BalanceKit.healLeft(L.target));
+                L.target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                props.shield = props.getEffectiveMaxShield(L.target);
+                L.healing = true;
             }
-            target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
         });
         int every = Math.max(2, delay(p.gun().get()));
         int[] end = {0};
         for (int i = 0; i < 60; i++) {
             STEPS.add(() -> {
-                if (deathClick > 0 || victim.getHealth() <= 0F) return;
-                fire(shooter, p.gun().get(), p.ammo().get(), EnumKeybind.GUN_PRIMARY);
-                clicks++;
+                if (L.deathClick > 0 || L.victim.getHealth() <= 0F) return;
+                fire(L.shooter, p.gun().get(), p.ammo().get(), EnumKeybind.GUN_PRIMARY);
+                L.clicks++;
             });
             // a click every {@code every} ticks: the click's step, the empty ones, the check
             for (int t = 0; t < every - 2; t++) STEPS.add(() -> {
             });
             STEPS.add(() -> {
-                if (deathClick <= 0 && clicks > 0 && victim.getHealth() <= 0F) {
-                    deathClick = clicks;
-                    skipTo = end[0];
+                if (L.deathClick <= 0 && L.clicks > 0 && L.victim.getHealth() <= 0F) {
+                    L.deathClick = L.clicks;
+                    L.skipTo = end[0];
                 }
             });
         }
         end[0] = STEPS.size();
         STEPS.add(() -> {
-            healing = false;
-            BalanceKit.clearHeal(target);
+            L.healing = false;
+            BalanceKit.clearHeal(L.target);
             row(m, p.set() + (kit ? " + комплект" : ""), p.gunName());
-            if (!kit) base[0] = deathClick;
+            if (!kit) base[0] = L.deathClick;
         });
         wait(20);
     }
 
     private static void plan1a() {
-        LINES.add("#\tрежим\tнабор\tпушка\tкликов до смерти\tснято первым кликом\tударов\tD за удар\tNTM за удар\tC за удар\tмодель: за удар / кликов");
+        line("#\tрежим\tнабор\tпушка\tкликов до смерти\tснято первым кликом\tударов\tD за удар\tNTM за удар\tC за удар\tмодель: за удар / кликов");
         for (String mode : MODES) {
             STEPS.add(() -> keys("balanceArmor", mode.equals("NTM") ? "false" : "true", "balanceGuns", "false", "damageCap", "true", "damageCapMobs", "false"));
             wait(30);
-            for (Pair p : PAIRS) pair(p, mode);
-            fbiCase(mode);
-            rocket(mode);
+            List<Runnable> cases = new ArrayList<>();
+            for (Pair p : PAIRS) cases.add(() -> pair(p, mode));
+            cases.add(() -> fbiCase(mode));
+            cases.add(() -> rocket(mode));
+            parallel(cases);
         }
     }
 
@@ -1436,7 +2033,7 @@ public final class BalanceCheck {
     }
 
     private static void plan2() {
-        LINES.add("#\t--- этап 2: щит, Med-X, супер-стимпак, вставки, ваниль 0, евфемий");
+        line("#\t--- этап 2: щит, Med-X, супер-стимпак, вставки, ваниль 0, евфемий");
         for (boolean on : new boolean[] {true, false}) {
             String m = on ? "баланс" : "NTM";
             STEPS.add(() -> kitKeys(on));
@@ -1455,9 +2052,9 @@ public final class BalanceCheck {
         // the rest of the stand with the shipped keys
         STEPS.add(() -> {
             kitKeys(true);
-            for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
-            target.removeAllEffects();
-            var props = com.hbm.extprop.HbmPlayerProps.getData(target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            L.target.removeAllEffects();
+            var props = com.hbm.extprop.HbmPlayerProps.getData(L.target);
             props.maxShield = 0F;
             props.shield = 0F;
         });
@@ -1465,46 +2062,46 @@ public final class BalanceCheck {
     }
 
     private static void shield2(boolean on, String m) {
-        var props = com.hbm.extprop.HbmPlayerProps.getData(target);
-        dress(target, "hev", true);
-        ItemStack chest = target.getItemBySlot(EquipmentSlot.CHEST);
+        var props = com.hbm.extprop.HbmPlayerProps.getData(L.target);
+        dress(L.target, "hev", true);
+        ItemStack chest = L.target.getItemBySlot(EquipmentSlot.CHEST);
         com.hbm.handler.ArmorModHandler.applyMod(chest, hbm("australium_iii"));
         props.maxShield = 0F;
-        float mod = props.getEffectiveMaxShield(target);
+        float mod = props.getEffectiveMaxShield(L.target);
         props.maxShield = 100F;
-        float all = props.getEffectiveMaxShield(target);
+        float all = props.getEffectiveMaxShield(L.target);
         check(on ? near(mod, 10F) && near(all, 16F) : near(mod, 25F) && near(all, 125F),
                 "2: " + m + ": щит: мод " + f(mod) + ", мод и 20 фляг " + f(all) + (on ? " (ждали 10 и потолок 16)" : " (NTM: 25 и 125)"));
         // the shield comes back: 150 and 200 ticks after a hit, the mod alone
         props.maxShield = 0F;
         props.shield = 0F;
-        props.lastDamage = target.tickCount;
+        props.lastDamage = L.target.tickCount;
         float at150 = 0F;
         for (int t = 1; t <= 200; t++) {
-            target.tickCount++;
-            com.hbm.handler.PlayerShield.tick(target);
+            L.target.tickCount++;
+            com.hbm.handler.PlayerShield.tick(L.target);
             if (t == 150) at150 = props.shield;
         }
         check(on ? near(at150, 2.55F) && near(props.shield, 10F) : near(at150, 20.48F) && near(props.shield, 25F),
                 "2: " + m + ": щит после удара: через 150 тиков " + f(at150) + ", через 200 " + f(props.shield)
                         + (on ? " (ждали 2,55 и 10: пауза 100, 0,002·t)" : " (NTM: 20,48 и 25: пауза 60, 0,005·t)"));
         // a flask: NTM's count +5, the shield's most +2 (NTM +5); no more once the flasks alone reach the cap
-        dress(target, "hev", true);
+        dress(L.target, "hev", true);
         props.maxShield = 70F;
         props.shield = 0F;
         ItemStack flask = hbm("flask_infusion_shield");
-        target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, flask);
-        flask.getItem().finishUsingItem(flask, level, target);
-        float max = props.getEffectiveMaxShield(target), top = props.shield;
+        L.target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, flask);
+        flask.getItem().finishUsingItem(flask, level, L.target);
+        float max = props.getEffectiveMaxShield(L.target), top = props.shield;
         ItemStack again = hbm("flask_infusion_shield");
-        target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, again);
-        var use = again.getItem().use(level, target, net.minecraft.world.InteractionHand.MAIN_HAND);
-        target.stopUsingItem();
+        L.target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, again);
+        var use = again.getItem().use(level, L.target, net.minecraft.world.InteractionHand.MAIN_HAND);
+        L.target.stopUsingItem();
         boolean refused = use == net.minecraft.world.InteractionResult.PASS;
         check(on ? near(props.maxShield, 75F) && near(max, 16F) && near(top, 2F) && refused : near(props.maxShield, 75F) && near(max, 75F) && near(top, 5F) && !refused,
                 "2: " + m + ": фляга: счёт NTM " + f(props.maxShield) + ", щит до " + f(max) + ", сразу +" + f(top) + ", ещё одну " + (refused ? "нельзя" : "можно")
                         + (on ? " (ждали 75, 16, +2, нельзя)" : " (NTM: 75, 75, +5, можно)"));
-        target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        L.target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
         props.maxShield = 0F;
         props.shield = 0F;
     }
@@ -1514,32 +2111,32 @@ public final class BalanceCheck {
     }
 
     private static void medicine2(boolean on, String m) {
-        for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
-        target.removeAllEffects();
+        for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+        L.target.removeAllEffects();
         ItemStack medx = hbm("syringe_metal_medx");
-        target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, medx);
-        medx.getItem().use(level, target, net.minecraft.world.InteractionHand.MAIN_HAND);
-        var res = target.getEffect(net.minecraft.world.effect.MobEffects.RESISTANCE);
+        L.target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, medx);
+        medx.getItem().use(level, L.target, net.minecraft.world.InteractionHand.MAIN_HAND);
+        var res = L.target.getEffect(net.minecraft.world.effect.MobEffects.RESISTANCE);
         check(res != null && (on ? res.getAmplifier() == 0 && res.getDuration() == 1200 : res.getAmplifier() == 2 && res.getDuration() == 4800),
                 "2: " + m + ": Med-X: " + (res == null ? "нет Сопротивления" : "Сопротивление " + (res.getAmplifier() + 1) + ", " + res.getDuration() / 20 + " с")
                         + (on ? " (ждали I, 60 с)" : " (NTM: III, 240 с)"));
-        target.removeAllEffects();
-        target.setHealth(5F);
+        L.target.removeAllEffects();
+        L.target.setHealth(5F);
         ItemStack sup = hbm("syringe_metal_super");
-        target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, sup);
-        sup.getItem().use(level, target, net.minecraft.world.InteractionHand.MAIN_HAND);
-        float now = target.getHealth();
-        boolean slow = target.hasEffect(net.minecraft.world.effect.MobEffects.SLOWNESS);
-        for (int t = 0; t < 120; t++) BalanceKit.tickHeal(target);
-        float half = target.getHealth();
-        for (int t = 0; t < 130; t++) BalanceKit.tickHeal(target);
-        float end = target.getHealth();
-        check(slow && (on ? near(now, 5F) && near(half, 17.5F) && near(end, 20F) && BalanceKit.healLeft(target) == 0F : near(now, 20F) && near(end, 20F)),
+        L.target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, sup);
+        sup.getItem().use(level, L.target, net.minecraft.world.InteractionHand.MAIN_HAND);
+        float now = L.target.getHealth();
+        boolean slow = L.target.hasEffect(net.minecraft.world.effect.MobEffects.SLOWNESS);
+        for (int t = 0; t < 120; t++) BalanceKit.tickHeal(L.target);
+        float half = L.target.getHealth();
+        for (int t = 0; t < 130; t++) BalanceKit.tickHeal(L.target);
+        float end = L.target.getHealth();
+        check(slow && (on ? near(now, 5F) && near(half, 17.5F) && near(end, 20F) && BalanceKit.healLeft(L.target) == 0F : near(now, 20F) && near(end, 20F)),
                 "2: " + m + ": супер-стимпак с 5 HP: сразу " + f(now) + ", через 6 с " + f(half) + ", через 12,5 с " + f(end) + (slow ? ", Замедление есть" : ", НЕТ Замедления")
                         + (on ? " (ждали 5, 17,5, 20)" : " (NTM: 20 сразу)"));
-        target.removeAllEffects();
-        target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-        target.setHealth(target.getMaxHealth());
+        L.target.removeAllEffects();
+        L.target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        L.target.setHealth(L.target.getMaxHealth());
     }
 
     private static void inserts2(boolean on, String m) {
@@ -1547,9 +2144,9 @@ public final class BalanceCheck {
         String[][] cases = {{"insert_kevlar", "9.00", "9.00"}, {"insert_sapi", "9.00", "8.50"}, {"insert_esapi", "8.55", "7.60"}, {"insert_xsapi", "8.10", "6.75"},
                 {"insert_du", "8.10", "7.65"}, {"insert_ghiorsium", "7.20", "6.00"}, {"insert_steel", "9.50", "9.50"}};
         for (String[] c : cases) {
-            dress(target, "hev", true);
-            com.hbm.handler.ArmorModHandler.applyMod(target.getItemBySlot(EquipmentSlot.CHEST), hbm(c[0]));
-            float out = com.hbm.handler.ArmorModHandler.modifyDamage(target, bullet, 10F);
+            dress(L.target, "hev", true);
+            com.hbm.handler.ArmorModHandler.applyMod(L.target.getItemBySlot(EquipmentSlot.CHEST), hbm(c[0]));
+            float out = com.hbm.handler.ArmorModHandler.modifyDamage(L.target, bullet, 10F);
             float want = Float.parseFloat(on ? c[1] : c[2]);
             check(near(out, want), "2: " + m + ": " + c[0] + ": пуля 10 → " + f(out) + " (ждали " + f(want) + ")");
         }
@@ -1581,40 +2178,40 @@ public final class BalanceCheck {
         boolean kit = kind > 0;
         String m = on ? "баланс" : "NTM";
         STEPS.add(() -> {
-            begin(target);
-            target.removeAllEffects();
-            dress(target, "hev", true);
-            var props = com.hbm.extprop.HbmPlayerProps.getData(target);
+            begin(L.target);
+            L.target.removeAllEffects();
+            dress(L.target, "hev", true);
+            var props = com.hbm.extprop.HbmPlayerProps.getData(L.target);
             props.maxShield = 0F;
             props.shield = 0F;
             if (kit) {
-                ItemStack chest = target.getItemBySlot(EquipmentSlot.CHEST);
+                ItemStack chest = L.target.getItemBySlot(EquipmentSlot.CHEST);
                 // 1: the shield mod; 2: the mod and every flask (NTM's count 100): the cap
                 com.hbm.handler.ArmorModHandler.applyMod(chest, hbm("australium_iii"));
                 if (kind == 2) props.maxShield = 100F;
                 ItemStack medx = hbm("syringe_metal_medx");
-                target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, medx);
-                medx.getItem().use(level, target, net.minecraft.world.InteractionHand.MAIN_HAND);
-                target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-                props.shield = props.getEffectiveMaxShield(target);
+                L.target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, medx);
+                medx.getItem().use(level, L.target, net.minecraft.world.InteractionHand.MAIN_HAND);
+                L.target.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                props.shield = props.getEffectiveMaxShield(L.target);
             }
-            target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
         });
         // an insert takes the chestplate's socket 6, the shield mod's too: a kit has one of them, here the mod
-        clicks(shooter, ModItems.GUN_STAR_F::get, XFactory22lr.p22_jhp, EnumKeybind.GUN_PRIMARY);
+        clicks(L.shooter, ModItems.GUN_STAR_F::get, XFactory22lr.p22_jhp, EnumKeybind.GUN_PRIMARY);
         STEPS.add(() -> {
-            String what = kind == 0 ? "hev" : "hev + Med-X + щит " + f(com.hbm.extprop.HbmPlayerProps.getData(target).getEffectiveMaxShield(target));
+            String what = kind == 0 ? "hev" : "hev + Med-X + щит " + f(com.hbm.extprop.HbmPlayerProps.getData(L.target).getEffectiveMaxShield(L.target));
             String r = row(m, what, "star_f · p22_jhp");
             if (!kit) {
-                kitBase = deathClick;
+                kitBase = L.deathClick;
                 return;
             }
-            float x = kitBase > 0 && deathClick > 0 ? (float) deathClick / kitBase : Float.NaN;
+            float x = kitBase > 0 && L.deathClick > 0 ? (float) L.deathClick / kitBase : Float.NaN;
             // the numbers for the owner (the task: write them, not fit them); the balance's kit must kill at all
-            LINES.add("#\t2: " + m + ": " + what + " против Star-F JHP: кликов " + kitBase + " → "
-                    + (deathClick > 0 ? deathClick : "> " + clicks) + " (×" + (Float.isNaN(x) ? "?" : f(x)) + ")" + r);
-            if (on) check(deathClick > 0, "2: баланс: " + what + ": убит за " + deathClick + " кликов (без комплекта " + kitBase + ", ×" + f(x) + ")");
-            target.removeAllEffects();
+            line("#\t2: " + m + ": " + what + " против Star-F JHP: кликов " + kitBase + " → "
+                    + (L.deathClick > 0 ? L.deathClick : "> " + L.clicks) + " (×" + (Float.isNaN(x) ? "?" : f(x)) + ")" + r);
+            if (on) check(L.deathClick > 0, "2: баланс: " + what + ": убит за " + L.deathClick + " кликов (без комплекта " + kitBase + ", ×" + f(x) + ")");
+            L.target.removeAllEffects();
         });
     }
 
@@ -1650,27 +2247,27 @@ public final class BalanceCheck {
     private static void euphClick(String tag) {
         STEPS.add(() -> {
             pendingTag = null;
-            if (target.getHealth() <= 0F || euphStop) return;
-            String phase = EuphImmunity.describe(target);
+            if (L.target.getHealth() <= 0F || euphStop) return;
+            String phase = EuphImmunity.describe(L.target);
             if (stopAtRecover && phase.startsWith("RECOVER")) euphStop = true;
-            suitTick(target);
-            boolean full128 = has128(target);
+            suitTick(L.target);
+            boolean full128 = has128(L.target);
             if (phase.startsWith("POOL") || phase.equals("нет")) euph128Pool |= full128;
             if (phase.startsWith("WINDOW")) euph128Window |= full128;
-            pendingHp = target.getHealth();
+            pendingHp = L.target.getHealth();
             pendingPhase = phase;
             pendingTag = tag;
-            fire(shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
-            clicks++;
+            fire(L.shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
+            L.clicks++;
         });
         wait(SPACING - 1);
         STEPS.add(() -> {
             if (pendingTag == null) return;
-            float took = Math.max(0F, pendingHp - target.getHealth());
+            float took = Math.max(0F, pendingHp - L.target.getHealth());
             if (pendingPhase.startsWith("WINDOW")) euphLostWindow += took;
             else if (pendingPhase.startsWith("RECOVER")) euphLostRecover += took;
             else euphLostPool += took;
-            EUPH_LOG.add(pendingTag + ", " + pendingPhase + ": −" + f(took) + " HP → " + f(target.getHealth()));
+            EUPH_LOG.add(pendingTag + ", " + pendingPhase + ": −" + f(took) + " HP → " + f(L.target.getHealth()));
             pendingTag = null;
         });
     }
@@ -1683,11 +2280,11 @@ public final class BalanceCheck {
         // a small pool for the stand: 4 (AMAT SM takes about 1 of it a shot), a window of 3 s, a recovery of 3 s
         STEPS.add(() -> {
             keys("balance.immune.pool", "4", "balance.immune.window", "3", "balance.immune.recover", "3", "balance.immune.hold", "0");
-            begin(target);
-            dress(target, "euphemium", true);
-            target.removeAllEffects();
-            EuphImmunity.forget(target);
-            target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+            begin(L.target);
+            dress(L.target, "euphemium", true);
+            L.target.removeAllEffects();
+            EuphImmunity.forget(L.target);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
             EUPH_LOG.clear();
             euphLostPool = euphLostWindow = euphLostRecover = 0F;
             euph128Pool = euph128Window = false;
@@ -1701,26 +2298,26 @@ public final class BalanceCheck {
             euphClick("пул/окно/восст.");
         }
         STEPS.add(() -> {
-            for (String l : EUPH_LOG) LINES.add("#\t2: евфемий: " + l);
+            for (String l : EUPH_LOG) line("#\t2: евфемий: " + l);
             check(euphLostPool == 0F && euphLostRecover == 0F && euphLostWindow > 0F && euph128Pool && !euph128Window,
                     "2: евфемий, пул 4: в пуле снято " + f(euphLostPool) + " HP, в окне " + f(euphLostWindow) + ", в восстановлении " + f(euphLostRecover)
                             + "; эффекты 128 в пуле " + (euph128Pool ? "есть" : "НЕТ") + ", в окне " + (euph128Window ? "ЕСТЬ" : "нет")
                             + " (ждали: 0, > 0, 0; есть, нет)");
-            target.setHealth(target.getMaxHealth());
+            L.target.setHealth(L.target.getMaxHealth());
             euphStop = false;
             stopAtRecover = false;
         });
         // the recovery (3 s) runs out: poll until the pool is the pool's again, 200 ticks at most
         int[] polled = {0};
         for (int t = 0; t < 200; t++) STEPS.add(() -> {
-            if (polled[0] == 0 && EuphImmunity.describe(target).startsWith("POOL")) polled[0] = 1;
+            if (polled[0] == 0 && EuphImmunity.describe(L.target).startsWith("POOL")) polled[0] = 1;
         });
-        STEPS.add(() -> check(EuphImmunity.describe(target).equals("POOL 4"), "2: евфемий: после восстановления пул полон: " + EuphImmunity.describe(target) + " (ждали POOL 4)"));
+        STEPS.add(() -> check(EuphImmunity.describe(L.target).equals("POOL 4"), "2: евфемий: после восстановления пул полон: " + EuphImmunity.describe(L.target) + " (ждали POOL 4)"));
         // the tomb's radon: invulnerable no more while in it, the full pool notwithstanding
         STEPS.add(() -> {
             keys("balance.immune.pool", "2000", "balance.immune.window", "15", "balance.immune.recover", "60", "balance.immune.hold", "10");
-            EuphImmunity.forget(target);
-            begin(target);
+            EuphImmunity.forget(L.target);
+            begin(L.target);
             EUPH_LOG.clear();
             euphLostPool = euphLostWindow = euphLostRecover = 0F;
         });
@@ -1728,57 +2325,57 @@ public final class BalanceCheck {
         for (int i = 0; i < 2; i++) {
             STEPS.add(() -> {
                 var gas = BuiltInRegistries.BLOCK.getValue(Identifier.fromNamespaceAndPath("hbm", "gas_radon_tomb")).defaultBlockState();
-                net.minecraft.core.BlockPos at = target.blockPosition();
-                gas.entityInside(level, at, target, net.minecraft.world.entity.InsideBlockEffectApplier.NOOP, false);
+                net.minecraft.core.BlockPos at = L.target.blockPosition();
+                gas.entityInside(level, at, L.target, net.minecraft.world.entity.InsideBlockEffectApplier.NOOP, false);
             });
             euphClickInGas();
         }
         STEPS.add(() -> {
             float inGas = euphLostPool;
-            String pool = EuphImmunity.describe(target);
+            String pool = EuphImmunity.describe(L.target);
             check(inGas > 0F && (pool.equals("нет") || pool.equals("POOL 2000")), "2: евфемий в могильном газе (пул 2000 полон): снято " + f(inGas)
                     + " HP за 2 выстрела AMAT, пул " + pool + " (ждали > 0, пул не тронут)");
-            target.setHealth(target.getMaxHealth());
+            L.target.setHealth(L.target.getMaxHealth());
             euphLostPool = 0F;
         });
         wait(5);
         for (int i = 0; i < 2; i++) euphClick("после газа");
         STEPS.add(() -> {
-            String pool = EuphImmunity.describe(target);
+            String pool = EuphImmunity.describe(L.target);
             check(euphLostPool == 0F && pool.startsWith("POOL ") && !pool.equals("POOL 2000"),
                     "2: евфемий вне газа снова неуязвим, пул тратится: снято " + f(euphLostPool) + " HP, " + pool + " (ждали 0, пул меньше 2000)");
-            for (String l : EUPH_LOG) LINES.add("#\t2: евфемий: " + l);
+            for (String l : EUPH_LOG) line("#\t2: евфемий: " + l);
         });
         // NTM's mode: nothing gets through, nothing counted
         STEPS.add(() -> {
             keys("balance.immune.mode", "ntm");
-            EuphImmunity.forget(target);
-            begin(target);
+            EuphImmunity.forget(L.target);
+            begin(L.target);
             euphLostPool = euphLostWindow = euphLostRecover = 0F;
         });
         wait(30);
         for (int i = 0; i < 3; i++) euphClick("ntm");
-        STEPS.add(() -> check(euphLostPool + euphLostWindow + euphLostRecover == 0F && EuphImmunity.describe(target).equals("нет"),
-                "2: евфемий, balance.immune.mode = ntm: снято " + f(euphLostPool) + " HP, пул " + EuphImmunity.describe(target) + " (ждали 0, нет)"));
+        STEPS.add(() -> check(euphLostPool + euphLostWindow + euphLostRecover == 0F && EuphImmunity.describe(L.target).equals("нет"),
+                "2: евфемий, balance.immune.mode = ntm: снято " + f(euphLostPool) + " HP, пул " + EuphImmunity.describe(L.target) + " (ждали 0, нет)"));
     }
 
     /** a click while the gas marks the wearer (the mark lasts a tick: put it again just before the shot) */
     private static void euphClickInGas() {
         STEPS.add(() -> {
-            float hp = target.getHealth();
+            float hp = L.target.getHealth();
             var gas = BuiltInRegistries.BLOCK.getValue(Identifier.fromNamespaceAndPath("hbm", "gas_radon_tomb")).defaultBlockState();
-            gas.entityInside(level, target.blockPosition(), target, net.minecraft.world.entity.InsideBlockEffectApplier.NOOP, false);
-            fire(shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
+            gas.entityInside(level, L.target.blockPosition(), L.target, net.minecraft.world.entity.InsideBlockEffectApplier.NOOP, false);
+            fire(L.shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
             pendingHp = hp;
         });
         // the bullet flies a tick or two: keep the mark on meanwhile
         for (int t = 0; t < 6; t++) STEPS.add(() -> {
             var gas = BuiltInRegistries.BLOCK.getValue(Identifier.fromNamespaceAndPath("hbm", "gas_radon_tomb")).defaultBlockState();
-            gas.entityInside(level, target.blockPosition(), target, net.minecraft.world.entity.InsideBlockEffectApplier.NOOP, false);
+            gas.entityInside(level, L.target.blockPosition(), L.target, net.minecraft.world.entity.InsideBlockEffectApplier.NOOP, false);
         });
         STEPS.add(() -> {
-            euphLostPool += Math.max(0F, pendingHp - target.getHealth());
-            EUPH_LOG.add("в газе: −" + f(Math.max(0F, pendingHp - target.getHealth())) + " HP");
+            euphLostPool += Math.max(0F, pendingHp - L.target.getHealth());
+            EUPH_LOG.add("в газе: −" + f(Math.max(0F, pendingHp - L.target.getHealth())) + " HP");
         });
         wait(14);
     }
@@ -1811,14 +2408,14 @@ public final class BalanceCheck {
             new Ab("steel", "", "", 0, 0));
 
     private static void planAbilities() {
-        LINES.add("#\t--- этап 1г: способности наборов (уровни эффектов полного набора, рывки)");
+        line("#\t--- этап 1г: способности наборов (уровни эффектов полного набора, рывки)");
         for (boolean on : new boolean[] {true, false}) {
             STEPS.add(() -> keys("abilities.mobilityCap", Boolean.toString(on), "abilities.strengthCap", on ? "2" : "0", "abilities.bismuth", Boolean.toString(on)));
             wait(30);
             for (Ab a : ABILITIES) STEPS.add(() -> abilities(a, on));
             STEPS.add(() -> {
-                for (EquipmentSlot slot : SLOTS) target.setItemSlot(slot, ItemStack.EMPTY);
-                target.removeAllEffects();
+                for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+                L.target.removeAllEffects();
             });
         }
         // the rest of the stand with the shipped abilities
@@ -1835,17 +2432,17 @@ public final class BalanceCheck {
                 activeBonus.setAccessible(true);
                 applyEffects.setAccessible(true);
             }
-            target.removeAllEffects();
-            dress(target, a.set(), true);
+            L.target.removeAllEffects();
+            dress(L.target, a.set(), true);
             // what NTM's tick does for a player in a full set
-            Object bonus = activeBonus.invoke(null, target);
-            if (bonus != null) applyEffects.invoke(null, target, bonus);
-            com.hbm.items.armor.ArmorDash.tick(target, 0F, 0F);
+            Object bonus = activeBonus.invoke(null, L.target);
+            if (bonus != null) applyEffects.invoke(null, L.target, bonus);
+            com.hbm.items.armor.ArmorDash.tick(L.target, 0F, 0F);
             java.util.TreeMap<String, Integer> got = new java.util.TreeMap<>();
-            for (var e : target.getActiveEffects()) got.put(BuiltInRegistries.MOB_EFFECT.getKey(e.getEffect().value()).getPath(), e.getAmplifier() + 1);
+            for (var e : L.target.getActiveEffects()) got.put(BuiltInRegistries.MOB_EFFECT.getKey(e.getEffect().value()).getPath(), e.getAmplifier() + 1);
             StringBuilder s = new StringBuilder();
             got.forEach((k, v) -> s.append(s.isEmpty() ? "" : ", ").append(k).append(' ').append(v));
-            int dashes = com.hbm.extprop.HbmPlayerProps.getData(target).dashCount;
+            int dashes = com.hbm.extprop.HbmPlayerProps.getData(L.target).dashCount;
             String want = on ? a.balance() : a.ntm();
             int wantDashes = on ? a.dashes() : a.dashesNtm();
             check(s.toString().equals(want) && dashes == wantDashes && (bonus != null || a.ntm().isEmpty()),
@@ -1885,7 +2482,8 @@ public final class BalanceCheck {
             new Pair1b("fau", "tau · tau_uranium ×2 +30", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 0.561F, 36, 2.729F, 8, 50F, 25F, false, false),
             // N.I.4.N.I.'s arc has no ammo item: the shot must go on (no check of numbers)
             new Pair1b("hev", "ni4ni · arc (нет предмета патрона)", ModItems.GUN_N_I_4_N_I::get, () -> XFactoryAccelerator.ni4ni_arc, 0F, 0, 0F, 0, 0F, 0F, false, true),
-            new Pair1b("security", "FBI → игрок: greasegun · p9_sp ×2,65", ModItems.GUN_GREASEGUN::get, () -> XFactory9mm.p9_sp, 0.300F, 67, 0.813F, 25, 7.95F, 3F, true, false));
+            // cheese 2026-11-11: a tier 2 gun on a tier 4 set, its floor halved (balanceArmorTierFloor 2:4:0.5): 0.813 → 0.407
+            new Pair1b("security", "FBI → игрок: greasegun · p9_sp ×2,65", ModItems.GUN_GREASEGUN::get, () -> XFactory9mm.p9_sp, 0.300F, 67, 0.407F, 50, 7.95F, 3F, true, false));
 
     private static final String[] MODES_1B = {"NTM", "1а", "1а+1б"};
 
@@ -1905,19 +2503,21 @@ public final class BalanceCheck {
      * with ntm what NTM's invulnerability lets through (a bullet nothing; beams come with ignoreEarlyCancellation)
      */
     private static void planDns() {
-        LINES.add("#\t--- DNS: неуязвимость снята (balance.immune.dns), формула C по S 186");
+        line("#\t--- DNS: неуязвимость снята (balance.immune.dns), формула C по S 186");
         for (String key : new String[] {"formula", "ntm"}) {
             String mode = key.equals("formula") ? "DNS формула" : "DNS как NTM";
             STEPS.add(() -> keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", key));
             wait(45);
-            for (Pair1b p : PAIRS_DNS) {
+            List<Runnable> cases = new ArrayList<>();
+            for (Pair1b p : PAIRS_DNS) cases.add(() -> {
                 Pair1b q = key.equals("formula") ? p : new Pair1b(p.set(), p.gunName(), p.gun(), p.ammo(), 0F, 0, 0F, 0, 0F, 0F, false, true);
                 pair1b(q, mode, true);
-                if (key.equals("formula")) STEPS.add(() -> check(lost > 0F && deathClick > 0,
-                        mode + ": " + p.gunName() + " по заряженному DNS проходит: снято " + f(lost) + ", кликов " + (deathClick > 0 ? deathClick : "> " + clicks)));
-                if (key.equals("ntm") && p.gunName().startsWith("amat")) STEPS.add(() -> check(lost == 0F && deathClick == 0,
-                        mode + ": пуля AMAT по заряженному DNS: снято " + f(lost) + " за " + clicks + " кликов (NTM: неуязвим, ждали 0)"));
-            }
+                if (key.equals("formula")) STEPS.add(() -> check(L.lost > 0F && L.deathClick > 0,
+                        mode + ": " + p.gunName() + " по заряженному DNS проходит: снято " + f(L.lost) + ", кликов " + (L.deathClick > 0 ? L.deathClick : "> " + L.clicks)));
+                if (key.equals("ntm") && p.gunName().startsWith("amat")) STEPS.add(() -> check(L.lost == 0F && L.deathClick == 0,
+                        mode + ": пуля AMAT по заряженному DNS: снято " + f(L.lost) + " за " + L.clicks + " кликов (NTM: неуязвим, ждали 0)"));
+            });
+            parallel(cases);
         }
         STEPS.add(() -> keys("balance.immune.dns.mode", "formula"));
     }
@@ -1939,10 +2539,9 @@ public final class BalanceCheck {
     /** what one click took in HP (formula) and from the pool (pool), by kit and gun */
     private static final java.util.Map<String, Float> POOL_HP = new java.util.HashMap<>(), POOL_DRAIN = new java.util.HashMap<>();
     private static final java.util.Map<String, Integer> POOL_HITS = new java.util.HashMap<>();
-    private static float poolBefore;
 
     private static float poolNow(EuphImmunity.Kit kit) {
-        return EuphImmunity.poolOf(kit, target);
+        return EuphImmunity.poolOf(kit, L.target);
     }
 
     /**
@@ -1951,12 +2550,12 @@ public final class BalanceCheck {
      * (2) a small pool: pool → window → recovery → full pool, by AMAT; (3) the radon gas takes the pool off.
      */
     private static void planPool() {
-        LINES.add("#\t--- пул DNS и FAU (balance.immune.dns.*, balance.immune.fau.*)");
+        line("#\t--- пул DNS и FAU (balance.immune.dns.*, balance.immune.fau.*)");
         // the rocket bursts 4 blocks off: the mannequin must not die of it
-        STEPS.add(() -> {
-            shooter.setInvulnerable(true);
-            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 12; z++) level.setBlockAndUpdate(O.offset(x, -1, z), Blocks.BEDROCK.defaultBlockState());
-        });
+        STEPS.add(() -> eachLane(() -> {
+            L.shooter.setInvulnerable(true);
+            for (int x = -6; x <= 6; x++) for (int z = -4; z <= 12; z++) level.setBlockAndUpdate(L.o.offset(x, -1, z), Blocks.BEDROCK.defaultBlockState());
+        }));
         for (EuphImmunity.Kit kit : new EuphImmunity.Kit[] {EuphImmunity.Kit.DNS, EuphImmunity.Kit.FAU}) {
             String set = kit.set, k = kit.key;
             float full = kit.size;
@@ -1964,66 +2563,68 @@ public final class BalanceCheck {
                 STEPS.add(() -> keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", k + ".mode", mode,
                         k + ".pool", String.valueOf(full), k + ".window", "15", k + ".recover", "60"));
                 wait(30);
-                for (PoolGun g : POOL_GUNS) {
+                List<Runnable> cases = new ArrayList<>();
+                for (PoolGun g : POOL_GUNS) cases.add(() -> {
                     String id = set + " " + g.name();
                     STEPS.add(() -> {
-                        begin(target);
-                        dress(target, set, false);
-                        EuphImmunity.forget(target);
+                        begin(L.target);
+                        dress(L.target, set, false);
+                        EuphImmunity.forget(L.target);
                         homePool();
                     });
                     wait(5);
                     for (int c = 0; c < 3; c++) {
                         STEPS.add(() -> {
-                            target.setHealth(target.getMaxHealth());
+                            L.target.setHealth(L.target.getMaxHealth());
                             homePool();
                             float p = poolNow(kit);
-                            poolBefore = Float.isNaN(p) ? full : p;
-                            fire(shooter, g.gun().get(), g.ammo().get(), EnumKeybind.GUN_PRIMARY);
-                            clicks++;
+                            L.poolBefore = Float.isNaN(p) ? full : p;
+                            fire(L.shooter, g.gun().get(), g.ammo().get(), EnumKeybind.GUN_PRIMARY);
+                            L.clicks++;
                         });
                         wait(SPACING + 10);
                         STEPS.add(() -> {
                             float p = poolNow(kit);
-                            if (mode.equals("pool")) POOL_DRAIN.merge(id, poolBefore - (Float.isNaN(p) ? full : p), Float::sum);
+                            if (mode.equals("pool")) POOL_DRAIN.merge(id, L.poolBefore - (Float.isNaN(p) ? full : p), Float::sum);
                         });
                     }
                     STEPS.add(() -> {
                         if (mode.equals("formula")) {
-                            POOL_HP.put(id, lost / 3F);
-                            POOL_HITS.put(id, BalanceArmor.seenHits);
-                            LINES.add("#\tпул: " + id + ": формула (X858): по " + f(lost / 3F) + " HP за клик, ударов " + BalanceArmor.seenHits + " за 3 клика");
-                            check(lost > 0F, "пул: " + id + ": по рейтингу набора проходит (снято " + f(lost) + " за 3 клика)");
+                            POOL_HP.put(id, L.lost / 3F);
+                            POOL_HITS.put(id, L.seen.hits);
+                            line("#\tпул: " + id + ": формула (X858): по " + f(L.lost / 3F) + " HP за клик, ударов " + L.seen.hits + " за 3 клика");
+                            check(L.lost > 0F, "пул: " + id + ": по рейтингу набора проходит (снято " + f(L.lost) + " за 3 клика)");
                             return;
                         }
                         float drain = POOL_DRAIN.getOrDefault(id, 0F) / 3F, hp = POOL_HP.getOrDefault(id, 0F);
-                        LINES.add("#\tпул: " + id + ": пул " + f(full) + ": снято " + f(lost) + " HP за 3 клика, из пула по " + f(drain) + " за клик (по рейтингу "
-                                + f(hp) + " HP), " + EuphImmunity.describe(kit, target));
+                        line("#\tпул: " + id + ": пул " + f(full) + ": снято " + f(L.lost) + " HP за 3 клика, из пула по " + f(drain) + " за клик (по рейтингу "
+                                + f(hp) + " HP), " + EuphImmunity.describe(kit, L.target));
                         // a click of several hits (pellets; Tesla's chained beams, 3 or 4 a click): the damage cap takes the
                         // click whole, the pool each hit on its own; a pellet's head multiplier (after the armour) not at all
                         float tol = g.name().startsWith("double_barrel") || g.name().startsWith("tesla") ? 0.3F : 0.15F;
-                        check(lost == 0F && drain > 0F && Math.abs(drain - hp) <= Math.max(tol * hp, 0.3F), "пул: " + id + ": набор неуязвим (снято " + f(lost)
+                        check(L.lost == 0F && drain > 0F && Math.abs(drain - hp) <= Math.max(tol * hp, 0.3F), "пул: " + id + ": набор неуязвим (снято " + f(L.lost)
                                 + "), пул берёт за клик " + f(drain) + " ≈ урону по рейтингу " + f(hp));
                     });
-                }
+                });
+                parallel(cases);
             }
             poolRound(kit);
         }
         STEPS.add(() -> keys("balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula", "balance.immune.dns.pool", "40",
                 "balance.immune.fau.pool", "45", "balance.immune.dns.window", "15", "balance.immune.fau.window", "15", "balance.immune.dns.recover", "60",
                 "balance.immune.fau.recover", "60"));
-        STEPS.add(() -> shooter.setInvulnerable(false));
+        STEPS.add(() -> eachLane(() -> L.shooter.setInvulnerable(false)));
         wait(30);
     }
 
     /** the mannequin and the target back in their places (a rocket throws both), the air between them clear */
     private static void homePool() {
-        for (int x = -2; x <= 2; x++) for (int y = 0; y <= 3; y++) for (int z = -1; z <= 6; z++) level.setBlockAndUpdate(O.offset(x, y, z), Blocks.AIR.defaultBlockState());
-        shooter.setHealth(shooter.getMaxHealth());
-        shooter.setDeltaMovement(Vec3.ZERO);
-        shooter.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
-        target.setDeltaMovement(Vec3.ZERO);
-        target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+        for (int x = -2; x <= 2; x++) for (int y = 0; y <= 3; y++) for (int z = -1; z <= 6; z++) level.setBlockAndUpdate(L.o.offset(x, y, z), Blocks.AIR.defaultBlockState());
+        L.shooter.setHealth(L.shooter.getMaxHealth());
+        L.shooter.setDeltaMovement(Vec3.ZERO);
+        L.shooter.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
+        L.target.setDeltaMovement(Vec3.ZERO);
+        L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
     }
 
     private static float roundPool, roundWindow, roundRecover;
@@ -2035,9 +2636,9 @@ public final class BalanceCheck {
         STEPS.add(() -> {
             // the window its own 3 s (balance.immune.hold 0): AMAT's clicks every second would hold it open
             keys(k + ".mode", "pool", k + ".pool", "4", k + ".window", "3", k + ".recover", "3", "balance.immune.hold", "0");
-            begin(target);
-            dress(target, set, false);
-            EuphImmunity.forget(target);
+            begin(L.target);
+            dress(L.target, set, false);
+            EuphImmunity.forget(L.target);
             homePool();
             roundPool = roundWindow = roundRecover = 0F;
             ROUND_LOG.clear();
@@ -2047,20 +2648,20 @@ public final class BalanceCheck {
         for (int i = 0; i < 24; i++) {
             STEPS.add(() -> {
                 pendingTag = null;
-                if (target.getHealth() <= 0F || euphStop) return;
-                String phase = EuphImmunity.describe(kit, target);
+                if (L.target.getHealth() <= 0F || euphStop) return;
+                String phase = EuphImmunity.describe(kit, L.target);
                 if (phase.startsWith("RECOVER")) euphStop = true;
                 // the window must not kill: what it takes is booked, the health put back
-                target.setHealth(target.getMaxHealth());
-                pendingHp = target.getHealth();
+                L.target.setHealth(L.target.getMaxHealth());
+                pendingHp = L.target.getHealth();
                 pendingPhase = phase;
                 pendingTag = "клик";
-                fire(shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
+                fire(L.shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
             });
             wait(SPACING - 1);
             STEPS.add(() -> {
                 if (pendingTag == null) return;
-                float took = Math.max(0F, pendingHp - target.getHealth());
+                float took = Math.max(0F, pendingHp - L.target.getHealth());
                 if (pendingPhase.startsWith("WINDOW")) roundWindow += took;
                 else if (pendingPhase.startsWith("RECOVER")) roundRecover += took;
                 else roundPool += took;
@@ -2069,44 +2670,46 @@ public final class BalanceCheck {
             });
         }
         STEPS.add(() -> {
-            LINES.add("#\tпул: " + set + ", пул 4: " + String.join("; ", ROUND_LOG));
+            line("#\tпул: " + set + ", пул 4: " + String.join("; ", ROUND_LOG));
             check(roundPool == 0F && roundRecover == 0F && roundWindow > 0F && euphStop, "пул: " + set + ", пул 4 / окно 3 с / восст. 3 с: в пуле снято " + f(roundPool)
                     + ", в окне " + f(roundWindow) + ", в восстановлении " + f(roundRecover) + " (ждали 0, > 0, 0; дошли до восстановления: " + euphStop + ")");
             euphStop = false;
         });
         int[] seen = {0};
         for (int t = 0; t < 120; t++) STEPS.add(() -> {
-            if (seen[0] == 0 && EuphImmunity.describe(kit, target).startsWith("POOL")) seen[0] = 1;
+            if (seen[0] == 0 && EuphImmunity.describe(kit, L.target).startsWith("POOL")) seen[0] = 1;
         });
-        STEPS.add(() -> check(EuphImmunity.describe(kit, target).equals("POOL 4"), "пул: " + set + ": после восстановления пул полон: " + EuphImmunity.describe(kit, target)
+        STEPS.add(() -> check(EuphImmunity.describe(kit, L.target).equals("POOL 4"), "пул: " + set + ": после восстановления пул полон: " + EuphImmunity.describe(kit, L.target)
                 + " (ждали POOL 4)"));
         // the radon gas: the pool takes nothing, the hits go through
         STEPS.add(() -> {
             keys(k + ".pool", "450", k + ".window", "15", k + ".recover", "60", "balance.immune.hold", "10");
-            EuphImmunity.forget(target);
-            begin(target);
+            EuphImmunity.forget(L.target);
+            begin(L.target);
             euphLostPool = 0F;
         });
         wait(30);
         for (int i = 0; i < 2; i++) euphClickInGas();
         STEPS.add(() -> {
-            String pool = EuphImmunity.describe(kit, target);
+            String pool = EuphImmunity.describe(kit, L.target);
             check(euphLostPool > 0F && (pool.equals("нет") || pool.equals("POOL 450")), "пул: " + set + " в могильном газе: снято " + f(euphLostPool)
                     + " HP за 2 выстрела AMAT, пул " + pool + " (ждали > 0, пул не тронут)");
             euphLostPool = 0F;
-            target.setHealth(target.getMaxHealth());
+            L.target.setHealth(L.target.getMaxHealth());
         });
     }
 
     private static void plan1b() {
-        LINES.add("#	--- этап 1б: урон пушек; секунды = (кликов − 1) × пауза ствола / 20");
+        line("#	--- этап 1б: урон пушек; секунды = (кликов − 1) × пауза ствола / 20");
         for (String mode : MODES_1B) {
             boolean guns = mode.equals("1а+1б");
             STEPS.add(() -> keys("balanceArmor", mode.equals("NTM") ? "false" : "true", "balanceGuns", guns ? "true" : "false"));
             wait(45);
             STEPS.add(() -> receivers(mode, guns));
-            for (Pair1b p : PAIRS_1B) pair1b(p, mode, guns);
-            fbiCase(mode);
+            List<Runnable> cases = new ArrayList<>();
+            for (Pair1b p : PAIRS_1B) cases.add(() -> pair1b(p, mode, guns));
+            cases.add(() -> fbiCase(mode));
+            parallel(cases);
         }
     }
 
@@ -2138,18 +2741,18 @@ public final class BalanceCheck {
 
     private static void pair1b(Pair1b p, String mode, boolean guns) {
         STEPS.add(() -> {
-            begin(target);
-            dress(target, p.set(), true);
-            target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+            begin(L.target);
+            dress(L.target, p.set(), true);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
             if (p.fbi()) {
                 var created = BuiltInRegistries.ENTITY_TYPE.getValue(FBI).create(level, EntitySpawnReason.COMMAND);
                 if (!(created instanceof Mob mob)) throw new IllegalStateException("no FBI agent");
-                fbi = mob;
-                fbi.setNoAi(true);
-                fbi.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
-                level.addFreshEntity(fbi);
-                fbiShooter = fbi;
-                shooter.snapTo(O.getX() + 2.5, O.getY(), O.getZ() - 3.5, 0F, 0F);
+                L.fbi = mob;
+                L.fbi.setNoAi(true);
+                L.fbi.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
+                level.addFreshEntity(L.fbi);
+                L.fbiShooter = L.fbi;
+                L.shooter.snapTo(L.o.getX() + 2.5, L.o.getY(), L.o.getZ() - 3.5, 0F, 0F);
             }
         });
         clicks1b(p);
@@ -2157,57 +2760,55 @@ public final class BalanceCheck {
             float modelHit = guns ? p.hit1b() : p.hit1a();
             int modelClicks = guns ? p.clicks1b() : p.clicks1a();
             int dl = delay(p.gun().get());
-            String secs = deathClick > 0 ? f((deathClick - 1) * dl / 20F) : "-";
+            String secs = L.deathClick > 0 ? f((L.deathClick - 1) * dl / 20F) : "-";
             String r = row(mode, p.set(), p.gunName()) + "	с до смерти " + secs + "	модель: " + f(modelHit) + " / " + modelClicks + " кл., "
                     + f((modelClicks - 1) * dl / 20F) + " с";
             if (p.fbi()) {
-                fbi.discard();
-                fbi = null;
-                fbiShooter = null;
-                shooter.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
+                L.fbi.discard();
+                L.fbi = null;
+                L.fbiShooter = null;
+                L.shooter.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
             }
             if (mode.equals("NTM")) return;
             if (p.info()) {
-                LINES.add("#	" + p.set() + ": " + p.gunName() + ": ударов " + BalanceArmor.seenHits + ", снято " + f(lost) + ", кликов "
-                        + (deathClick > 0 ? deathClick : "> " + clicks) + " (" + mode + ", без сверки с моделью)");
+                line("#	" + p.set() + ": " + p.gunName() + ": ударов " + L.seen.hits + ", снято " + f(L.lost) + ", кликов "
+                        + (L.deathClick > 0 ? L.deathClick : "> " + L.clicks) + " (" + mode + ", без сверки с моделью)");
                 return;
             }
-            float hit = BalanceArmor.seenHits > 0 ? BalanceArmor.seenOut / BalanceArmor.seenHits : 0F;
+            float hit = L.seen.hits > 0 ? L.seen.out / L.seen.hits : 0F;
             float off = Math.abs(hit - modelHit) / modelHit;
-            check(BalanceArmor.seenHits > 0 && off <= 0.15F, mode + ", " + p.set() + ", " + p.gunName() + ": урон за удар после брони "
+            check(L.seen.hits > 0 && off <= 0.15F, mode + ", " + p.set() + ", " + p.gunName() + ": урон за удар после брони "
                     + f(hit) + " против модели " + f(modelHit) + " (" + Math.round(off * 100) + " %)" + r);
-            if (!guns && p.ntmD() > 0F && BalanceArmor.seenHits > 0) {
-                float d = BalanceArmor.seenIn / BalanceArmor.seenHits, offD = Math.abs(d - p.ntmD()) / p.ntmD();
+            if (!guns && p.ntmD() > 0F && L.seen.hits > 0) {
+                float d = L.seen.in / L.seen.hits, offD = Math.abs(d - p.ntmD()) / p.ntmD();
                 check(offD <= 0.02F, mode + ", " + p.gunName() + ": урон удара до брони " + f(d) + " = NTM " + f(p.ntmD()) + " (balanceGuns выкл)");
             }
-            if (guns && p.d1b() > 0F && BalanceArmor.seenHits > 0) {
-                float d = BalanceArmor.seenIn / BalanceArmor.seenHits, offD = Math.abs(d - p.d1b()) / p.d1b();
+            if (guns && p.d1b() > 0F && L.seen.hits > 0) {
+                float d = L.seen.in / L.seen.hits, offD = Math.abs(d - p.d1b()) / p.d1b();
                 check(offD <= 0.02F, mode + ", " + p.gunName() + ": урон удара до брони " + f(d) + " = NTM × множитель " + f(p.d1b()));
             }
-            if (deathClick > 0) LINES.add("#	" + p.set() + ", " + p.gunName() + ": кликов " + deathClick + " против модели " + modelClicks + " ("
-                    + Math.round(100F * (deathClick - modelClicks) / modelClicks) + " %)");
-            else LINES.add("#	" + p.set() + ", " + p.gunName() + ": жив после " + clicks + " кликов, модель " + modelClicks);
+            if (L.deathClick > 0) line("#	" + p.set() + ", " + p.gunName() + ": кликов " + L.deathClick + " против модели " + modelClicks + " ("
+                    + Math.round(100F * (L.deathClick - modelClicks) / modelClicks) + " %)");
+            else line("#	" + p.set() + ", " + p.gunName() + ": жив после " + L.clicks + " кликов, модель " + modelClicks);
         });
     }
 
-    /** the FBI agent firing in a pair of 1b (null: the mannequin) */
-    private static LivingEntity fbiShooter;
 
     private static void clicks1b(Pair1b p) {
         int[] end = {0};
         for (int i = 0; i < MAX_CLICKS + 25; i++) {
             STEPS.add(() -> {
-                if (deathClick > 0 || victim.getHealth() <= 0F) return;
-                fire(fbiShooter != null ? fbiShooter : shooter, p.gun().get(), p.ammo().get(), EnumKeybind.GUN_PRIMARY);
-                clicks++;
+                if (L.deathClick > 0 || L.victim.getHealth() <= 0F) return;
+                fire(L.fbiShooter != null ? L.fbiShooter : L.shooter, p.gun().get(), p.ammo().get(), EnumKeybind.GUN_PRIMARY);
+                L.clicks++;
             });
             for (int t = 0; t < SPACING; t++) STEPS.add(() -> {
-                if (deathClick <= 0 && clicks > 0 && victim.getHealth() <= 0F) {
-                    deathClick = clicks;
-                    skipTo = end[0];
+                if (L.deathClick <= 0 && L.clicks > 0 && L.victim.getHealth() <= 0F) {
+                    L.deathClick = L.clicks;
+                    L.skipTo = end[0];
                 }
             });
-            if (i == 0) STEPS.add(() -> firstClick = lost);
+            if (i == 0) STEPS.add(() -> L.firstClick = L.lost);
         }
         end[0] = STEPS.size();
         wait(20);
@@ -2218,34 +2819,34 @@ public final class BalanceCheck {
     private static void pair(Pair p, String mode) {
         boolean vanilla = !mode.equals(MODEL);
         STEPS.add(() -> {
-            begin(target);
-            noShield = !vanilla;
-            dress(target, p.set(), vanilla);
-            headHit = 0;
+            begin(L.target);
+            L.noShield = !vanilla;
+            dress(L.target, p.set(), vanilla);
+            L.headHit = 0;
             DamageCap.last = "";
-            target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
         });
-        clicks(shooter, p.gun(), p.ammo(), EnumKeybind.GUN_PRIMARY);
+        clicks(L.shooter, p.gun(), p.ammo(), EnumKeybind.GUN_PRIMARY);
         STEPS.add(() -> {
             String r = row(mode, p.set(), p.gunName()) + "\t" + f(p.modelHit()) + " / " + p.modelClicks();
             if (mode.equals("NTM")) return;
             if (p.modelHit() <= 0F) {
                 // a sniper's bullet in the head has all of a click (cap 1.0): written down, not checked
-                if (headHit == 2) {
-                    LINES.add("#\t" + mode + ", " + p.set() + ", " + p.gunName() + ": клик снял " + f(firstClick) + ", пуля в голову, пушка снайперская (потолок 1,0)" + r);
+                if (L.headHit == 2) {
+                    line("#\t" + mode + ", " + p.set() + ", " + p.gunName() + ": клик снял " + f(L.firstClick) + ", пуля в голову, пушка снайперская (потолок 1,0)" + r);
                     return;
                 }
-                check(firstClick <= 12.01F && firstClick > 11F, mode + ", " + p.set() + ", " + p.gunName() + ": клик снял " + f(firstClick) + " ≤ 12 (потолок)" + r);
+                check(L.firstClick <= 12.01F && L.firstClick > 11F, mode + ", " + p.set() + ", " + p.gunName() + ": клик снял " + f(L.firstClick) + " ≤ 12 (потолок)" + r);
                 return;
             }
-            float hit = BalanceArmor.seenHits > 0 ? BalanceArmor.seenOut / BalanceArmor.seenHits : 0F;
+            float hit = L.seen.hits > 0 ? L.seen.out / L.seen.hits : 0F;
             float off = Math.abs(hit - p.modelHit()) / p.modelHit();
-            check(BalanceArmor.seenHits > 0 && off <= 0.15F, mode + ", " + p.set() + ", " + p.gunName() + ": урон за удар после брони "
+            check(L.seen.hits > 0 && off <= 0.15F, mode + ", " + p.set() + ", " + p.gunName() + ": урон за удар после брони "
                     + f(hit) + " против модели " + f(p.modelHit()) + " (" + Math.round(off * 100) + " %)" + r);
             if (!vanilla) {
-                if (deathClick > 0) LINES.add("#\t" + p.set() + ": кликов " + deathClick + " против модели " + p.modelClicks() + " ("
-                        + Math.round(100F * (deathClick - p.modelClicks()) / p.modelClicks()) + " %)");
-                else LINES.add("#\t" + p.set() + ": жив после " + clicks + " кликов, модель " + p.modelClicks());
+                if (L.deathClick > 0) line("#\t" + p.set() + ": кликов " + L.deathClick + " против модели " + p.modelClicks() + " ("
+                        + Math.round(100F * (L.deathClick - p.modelClicks()) / p.modelClicks()) + " %)");
+                else line("#\t" + p.set() + ": жив после " + L.clicks + " кликов, модель " + p.modelClicks());
             }
         });
     }
@@ -2254,38 +2855,38 @@ public final class BalanceCheck {
         STEPS.add(() -> {
             var created = BuiltInRegistries.ENTITY_TYPE.getValue(FBI).create(level, EntitySpawnReason.COMMAND);
             if (!(created instanceof Mob mob)) throw new IllegalStateException("no FBI agent");
-            fbi = mob;
-            fbi.setNoAi(true);
-            fbi.snapTo(O.getX() + 4.5, O.getY(), O.getZ() + 0.5 + DIST, 180F, 0F);
-            level.addFreshEntity(fbi);
-            dress(fbi, "security", true);
-            fbi.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
-            begin(fbi);
+            L.fbi = mob;
+            L.fbi.setNoAi(true);
+            L.fbi.snapTo(L.o.getX() + 4.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+            level.addFreshEntity(L.fbi);
+            dress(L.fbi, "security", true);
+            L.fbi.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+            begin(L.fbi);
         });
-        clicks(gunner, ModItems.GUN_HEAVY_REVOLVER::get, XFactory44.m44_express, EnumKeybind.GUN_PRIMARY);
+        clicks(L.gunner, ModItems.GUN_HEAVY_REVOLVER::get, XFactory44.m44_express, EnumKeybind.GUN_PRIMARY);
         STEPS.add(() -> {
-            float vanilla = (float) fbi.getAttributeValue(Attributes.ARMOR);
-            LINES.add("#\tFBI: " + f(fbi.getMaxHealth()) + " HP, броня ванили " + f(vanilla));
+            float vanilla = (float) L.fbi.getAttributeValue(Attributes.ARMOR);
+            line("#\tFBI: " + f(L.fbi.getMaxHealth()) + " HP, броня ванили " + f(vanilla));
             row(mode, "FBI в security", "игрок: heavy_revolver · m44_express");
             // balance.vanilla0 takes Security's 10 off, balance.fbiArmor gives the agent 10 of its own: 30 as before
             check(vanilla == 30F, mode + ", FBI: ваниль " + f(vanilla) + " (ждали 30: своя 20 + Security 10 или balance.fbiArmor 10)");
-            if (mode.equals("1а+1б")) check(deathClick >= 12 && deathClick <= 16,
-                    mode + ", игрок → FBI в Security, heavy_revolver m44_express ×2,04: кликов " + (deathClick > 0 ? deathClick : "> " + clicks) + " (ждали 12–16, прогоны 13 и 15: Security S 56, было 10–11 при S 22)");
-            if (!mode.equals("NTM")) check(BalanceArmor.seenHits > 0 && BalanceArmor.seenOut < BalanceArmor.seenIn,
-                    mode + ", FBI: формула действует на моба (" + f(BalanceArmor.seenOut) + " из " + f(BalanceArmor.seenIn) + ")");
-            fbi.discard();
-            fbi = null;
+            if (mode.equals("1а+1б")) check(L.deathClick >= 12 && L.deathClick <= 16,
+                    mode + ", игрок → FBI в Security, heavy_revolver m44_express ×2,04: кликов " + (L.deathClick > 0 ? L.deathClick : "> " + L.clicks) + " (ждали 12–16, прогоны 13 и 15: Security S 56, было 10–11 при S 22)");
+            if (!mode.equals("NTM")) check(L.seen.hits > 0 && L.seen.out < L.seen.in,
+                    mode + ", FBI: формула действует на моба (" + f(L.seen.out) + " из " + f(L.seen.in) + ")");
+            L.fbi.discard();
+            L.fbi = null;
         });
     }
 
     private static void rocket(String mode) {
         STEPS.add(() -> {
-            begin(target);
-            noShield = mode.equals(MODEL);
-            dress(target, "security", !noShield);
-            target.snapTo(O.getX() + 0.5, O.getY(), O.getZ() + 0.5 + DIST + 2, 180F, 0F);
+            begin(L.target);
+            L.noShield = mode.equals(MODEL);
+            dress(L.target, "security", !L.noShield);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST + 2, 180F, 0F);
         });
-        clicks(shooter, ModItems.GUN_PANZERSCHRECK::get, XFactoryRocket.rocket_rpzb[0], EnumKeybind.GUN_PRIMARY);
+        clicks(L.shooter, ModItems.GUN_PANZERSCHRECK::get, XFactoryRocket.rocket_rpzb[0], EnumKeybind.GUN_PRIMARY);
         STEPS.add(() -> row(mode, "security", "panzerschreck · rocket_rpzb HE, прямое, 6 бл"));
     }
 
@@ -2294,21 +2895,21 @@ public final class BalanceCheck {
         int[] end = {0};
         for (int i = 0; i < MAX_CLICKS; i++) {
             STEPS.add(() -> {
-                if (deathClick > 0 || victim.getHealth() <= 0F) return;
+                if (L.deathClick > 0 || L.victim.getHealth() <= 0F) return;
                 // the model counts no shield: NTM's shield of a full set takes its share before the armour
-                if (noShield && victim instanceof net.minecraft.world.entity.player.Player p) com.hbm.extprop.HbmPlayerProps.getData(p).shield = 0F;
+                if (L.noShield && L.victim instanceof net.minecraft.world.entity.player.Player p) com.hbm.extprop.HbmPlayerProps.getData(p).shield = 0F;
                 fire(from, gun.get(), ammo, key);
-                clicks++;
+                L.clicks++;
             });
             for (int t = 0; t < SPACING; t++) STEPS.add(() -> {
-                if (deathClick <= 0 && clicks > 0 && victim.getHealth() <= 0F) {
-                    deathClick = clicks;
-                    if (clicks > 1) skipTo = end[0];
+                if (L.deathClick <= 0 && L.clicks > 0 && L.victim.getHealth() <= 0F) {
+                    L.deathClick = L.clicks;
+                    if (L.clicks > 1) L.skipTo = end[0];
                 }
             });
             if (i == 0) STEPS.add(() -> {
-                firstClick = lost;
-                if (deathClick > 0) skipTo = end[0];
+                L.firstClick = L.lost;
+                if (L.deathClick > 0) L.skipTo = end[0];
             });
         }
         end[0] = STEPS.size();
@@ -2318,16 +2919,14 @@ public final class BalanceCheck {
     // ---------------------------------------------------------------- the parts
 
     private static void begin(LivingEntity v) {
-        victim = v;
-        noShield = false;
-        clicks = hits = deathClick = 0;
-        lost = incoming = 0F;
-        incomingNote = "";
-        firstClick = -1F;
-        BalanceArmor.watch = v;
-        BalanceArmor.seenHits = 0;
-        BalanceArmor.seenIn = BalanceArmor.seenNtm = BalanceArmor.seenOut = 0F;
-        DamageCap.forget();
+        L.seen = BalanceArmor.watch(L.victim, v);
+        L.victim = v;
+        L.noShield = false;
+        L.clicks = L.hits = L.deathClick = 0;
+        L.lost = L.incoming = 0F;
+        L.incomingNote = "";
+        L.firstClick = -1F;
+        DamageCap.forget(v);
         v.setHealth(v.getMaxHealth());
         v.setAbsorptionAmount(0);
         v.setDeltaMovement(Vec3.ZERO);
@@ -2369,7 +2968,7 @@ public final class BalanceCheck {
     private static void fire(LivingEntity from, Item item, BulletConfig ammo, EnumKeybind key) {
         ItemStack stack = loaded(item, ammo);
         from.setItemSlot(EquipmentSlot.MAINHAND, stack);
-        aim(from, victim);
+        aim(from, L.victim);
         var gun = (ItemGunBaseNT) stack.getItem();
         // a belt-fed gun (the Tau, Lacunae) takes its rounds from the inventory
         SimpleContainer inv = new SimpleContainer(1);
@@ -2380,7 +2979,7 @@ public final class BalanceCheck {
 
     private static void aim(LivingEntity from, LivingEntity at) {
         Vec3 eye = from.getEyePosition();
-        Vec3 to = new Vec3(at.getX(), aimHead ? at.getEyeY() : at.getY() + 0.9, at.getZ());
+        Vec3 to = new Vec3(at.getX(), L.aimHead ? at.getEyeY() : at.getY() + 0.9, at.getZ());
         Vec3 d = to.subtract(eye);
         float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
         float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
@@ -2390,12 +2989,12 @@ public final class BalanceCheck {
     }
 
     private static String row(String mode, String set, String gun) {
-        int n = BalanceArmor.seenHits;
-        String r = "\t" + mode + "\t" + set + "\t" + gun + "\t" + (deathClick > 0 ? String.valueOf(deathClick) : "> " + clicks) + "\t"
-                + f(Math.max(0F, firstClick)) + "\t" + n + "\t" + (n > 0 ? f(BalanceArmor.seenIn / n) : "-") + "\t"
-                + (n > 0 ? f(BalanceArmor.seenNtm / n) : "-") + "\t" + (n > 0 ? f(BalanceArmor.seenOut / n) : "-") + "\tвход " + f(incoming / Math.max(1, hits))
-                + " (" + incomingNote + ")";
-        LINES.add("#" + r);
+        int n = L.seen.hits;
+        String r = "\t" + mode + "\t" + set + "\t" + gun + "\t" + (L.deathClick > 0 ? String.valueOf(L.deathClick) : "> " + L.clicks) + "\t"
+                + f(Math.max(0F, L.firstClick)) + "\t" + n + "\t" + (n > 0 ? f(L.seen.in / n) : "-") + "\t"
+                + (n > 0 ? f(L.seen.ntm / n) : "-") + "\t" + (n > 0 ? f(L.seen.out / n) : "-") + "\tвход " + f(L.incoming / Math.max(1, L.hits))
+                + " (" + L.incomingNote + ")";
+        line("#" + r);
         return r;
     }
 
@@ -2408,17 +3007,18 @@ public final class BalanceCheck {
     private static void keys(String... kv) {
         for (int i = 0; i < kv.length; i += 2) KEYS.put(kv[i], kv[i + 1]);
         try {
-            if (kv.length == 0) {
-                Files.deleteIfExists(file());
-                return;
+            if (kv.length == 0) Files.deleteIfExists(file());
+            else {
+                StringBuilder s = new StringBuilder();
+                KEYS.forEach((k, v) -> s.append(k).append(" = ").append(v).append('\n'));
+                Files.writeString(file(), s);
+                Files.setLastModifiedTime(file(), java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis()));
             }
-            StringBuilder s = new StringBuilder();
-            KEYS.forEach((k, v) -> s.append(k).append(" = ").append(v).append('\n'));
-            Files.writeString(file(), s);
-            Files.setLastModifiedTime(file(), java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis()));
         } catch (java.io.IOException e) {
             throw new java.io.UncheckedIOException(e);
         }
+        // read now: the run's ticks may go faster than the second ReaimTimes waits between two looks at the file
+        ReaimTimes.reloadNow();
     }
 
     private static String f(float v) {
@@ -2427,6 +3027,6 @@ public final class BalanceCheck {
 
     private static void check(boolean pass, String what) {
         if (!pass) ok = false;
-        LINES.add((pass ? "OK" : "FAIL") + "\t" + what);
+        line((pass ? "OK" : "FAIL") + "\t" + what);
     }
 }

@@ -10,7 +10,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
 
 /**
- * The balance's recipes (server setting balanceRecipes): the diesel suit's helmet, chestplate and leggings, Tesla Cannon,
+ * The balance's recipes (server setting balanceRecipes): the diesel suit's helmet, chestplate and leggings, the T-51
+ * chestplate, leggings and boots (the helmet's basic circuit, so the set is tier 3 work as a whole), Tesla Cannon,
  * Lasrifle and Tau get the balance's recipes, under NTM's own recipe ids (data/hbm/recipe), so the recipe book and JEI
  * show one recipe of each. NTM's recipes stay in the mod as data/ntmgunfeel/recipe/ntm/*, loaded only with the
  * setting off. A recipe file says which with the condition {@code ntmgunfeel:balance_recipes} and {@code on}: true

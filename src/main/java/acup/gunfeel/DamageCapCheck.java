@@ -85,6 +85,7 @@ public final class DamageCapCheck {
         if (file == null || file.isBlank()) return;
         NeoForge.EVENT_BUS.addListener(ServerStartedEvent.class, started -> {
             level = started.getServer().overworld();
+            StandSprint.start(started.getServer());
             try {
                 setup();
                 plan();
@@ -105,11 +106,13 @@ public final class DamageCapCheck {
                         return;
                     }
                     at[0] = -1;
+                    StandSprint.stop(level.getServer());
                     keys();
                     LINES.add(ok ? "ALL OK" : "SOME FAILED");
                     BulletCheck.finish(file, LINES, ok ? 0 : 1);
                 } catch (Throwable t) {
                     at[0] = -1;
+                    StandSprint.stop(level.getServer());
                     LINES.add("FAIL\tcrashed: " + t);
                     for (StackTraceElement s : t.getStackTrace()) LINES.add("    at " + s);
                     keys();
@@ -429,6 +432,9 @@ public final class DamageCapCheck {
             Files.setLastModifiedTime(file(), java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis()));
         } catch (java.io.IOException e) {
             throw new java.io.UncheckedIOException(e);
+        } finally {
+            // read now: the sprint's ticks go faster than the second ReaimTimes waits between two looks at the file
+            ReaimTimes.reloadNow();
         }
     }
 

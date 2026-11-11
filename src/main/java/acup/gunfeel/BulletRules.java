@@ -100,6 +100,11 @@ public final class BulletRules {
     static final String CONCRETE_RULE = "break $concrete damage 550 min=20";
     private static boolean concreteOf;
 
+    /** the file and the concrete key looked at again at the next use, whatever the clock (ReaimTimes.reloadNow) */
+    static synchronized void reloadNow() {
+        lastPoll = 0;
+    }
+
     private static synchronized List<Rule> rules() {
         long now = System.currentTimeMillis();
         if (!builtinRead) {

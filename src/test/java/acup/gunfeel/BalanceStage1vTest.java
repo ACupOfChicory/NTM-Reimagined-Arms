@@ -27,7 +27,7 @@ import com.google.gson.JsonParser;
 class BalanceStage1vTest {
     private static final Path HBM = Path.of("src/main/resources/data/hbm/recipe");
     private static final Path NTM = Path.of("src/main/resources/data/ntmgunfeel/recipe/ntm");
-    static final List<String> RECIPES = List.of("dieselsuit_helmet", "dieselsuit_plate", "dieselsuit_legs", "gun_tesla_cannon", "gun_lasrifle", "gun_tau", "syringe_metal_medx");
+    static final List<String> RECIPES = List.of("dieselsuit_helmet", "dieselsuit_plate", "dieselsuit_legs", "t51_plate", "t51_legs", "t51_boots", "gun_tesla_cannon", "gun_lasrifle", "gun_tau", "syringe_metal_medx");
 
     // the shipped keys powerArmorSpread.<set> are the table's, and the table is the owner's
     @Test
@@ -73,7 +73,7 @@ class BalanceStage1vTest {
         return c.get(0).getAsJsonObject().get("type").getAsString().equals("ntmgunfeel:balance_recipes") && c.get(0).getAsJsonObject().get("on").getAsBoolean() == on;
     }
 
-    // our files are these seven (stage 2: Med-X) and the ones of GunMechanismRecipes, the balance's under NTM's ids with on = true, NTM's own as they are in its jar with on =
+    // our files are these ten (stage 2: Med-X; cheese 2026-11-11: the T-51 parts) and the ones of GunMechanismRecipes, the balance's under NTM's ids with on = true, NTM's own as they are in its jar with on =
     // false; every key used, every item and tag in NTM's jar
     @Test
     void recipes() throws IOException {
@@ -97,7 +97,8 @@ class BalanceStage1vTest {
             for (JsonElement row : balance.getAsJsonArray("pattern")) for (char c : row.getAsString().toCharArray()) if (c != ' ') used.add(String.valueOf(c));
             assertEquals(balance.getAsJsonObject("key").keySet(), used, name);
             for (var e : balance.getAsJsonObject("key").entrySet()) {
-                String id = e.getValue().getAsString();
+                // an item with components (NTM's T-51: an undamaged titanium part) names it in "items"
+                String id = e.getValue().isJsonObject() ? e.getValue().getAsJsonObject().get("items").getAsString() : e.getValue().getAsString();
                 boolean tag = id.startsWith("#");
                 String[] ns = (tag ? id.substring(1) : id).split(":");
                 String path = tag ? "data/" + ns[0] + "/tags/item/" + ns[1] + ".json" : "assets/" + ns[0] + "/items/" + ns[1] + ".json";

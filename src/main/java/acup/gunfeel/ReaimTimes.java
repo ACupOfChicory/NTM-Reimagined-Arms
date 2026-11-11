@@ -122,6 +122,22 @@ public final class ReaimTimes {
         return values0().containsKey(key);
     }
 
+    /**
+     * the file read again now, whatever the clock: a stand that runs its ticks faster than real time (the balance's
+     * /tick sprint) writes its keys and must not wait out the second between two looks at the file
+     */
+    static void reloadNow() {
+        synchronized (ReaimTimes.class) {
+            lastPoll = System.currentTimeMillis();
+            stamp = Long.MIN_VALUE;
+            numbersStamp = Long.MIN_VALUE;
+            poll();
+        }
+        // outside ReaimTimes' lock: BulletRules reads ReaimTimes under its own
+        BalanceGuns.reloadNow();
+        BulletRules.reloadNow();
+    }
+
     // a yes/no server setting (bulletBreakConcrete = true)
     public static boolean flag(String key, boolean def) {
         return number(key, def ? 1F : 0F) != 0F;

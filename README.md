@@ -73,6 +73,10 @@ page. They are alphas: expect bugs and back up your world.
   model. This covers vanilla mobs, NTM's mobs and baby mobs. F3+B shows the
   outlines.
 - Hits on moving mobs count by the pose the shooter saw.
+- A player hit by an NTM gun's bullet, pellet or beam is neither thrown back
+  nor stopped short, and their view does not tilt: the damage, the hurt
+  sound and the red of the hit stay. Blasts, melee hits, mobs, arrows and
+  falls push and tilt as ever. The server may give both back.
 - NTM's turrets and armed mobs (the hunter chopper, the cyber crab and others)
   hit by the same rules as a player's gun.
 - FBI agents and test dummies have ten hitbox parts: head, body, upper arms,
@@ -343,6 +347,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `shockSpread` | `0.12` | The spread added to a shocked one's shots (NTM's units: buckshot's is 0.035; about 7 degrees) |
 | `shockGlitch`, `shockGlitchMin` | `1`, `0.5` | The most the HUD glitches, and the least share of it a player may turn their own down to |
 | `shockCamera`, `shockShake` | `45`, `0.6` | How fast the view drifts on its own at most (degrees a second), and how much it shakes (degrees) |
+| `gunHitKnockback`, `gunHitTilt` | `false` | `true`: a player hit by an NTM gun's bullet or beam is thrown back as in vanilla; their view tilts with the hit |
 | `bulletBreakConcrete` | `false` | Bullets wear and break concrete |
 | `bulletPierceMachines` | `false` | Bullets pierce machines |
 | `bulletMachineGlass` | `true` | Machine windows are glass |
@@ -372,13 +377,14 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balanceBlastLowFloor` | `0.9` | A weapon's blast on a set of tier 4 and below passes it as if its power were at least this share of the set's rating: a gunpowder grenade takes 4 hits on tier 4 at 1 block, a DEMO grenade or a 40 mm shell's splash 5 to 7, never fewer than on T-51b; a blast under 7 raw damage (its far edge) gets the floor in its share of 7; `0.83` with `balanceBlastFloorShare` false: as X875; `0`: as X873 |
 | `balanceBlastFloorShare` | `true` | That floor lifts only the share of the blast that passes, its flesh stays the blast's own, so no tier 4 set holds a weak blast worse than T-51b; false: the floor's flesh too, as X875 |
 | `balanceBlastTrenchTier` | `4` | The tier Trenchmaster takes a weapon's blast at (its power and the floor above): NTM gives it HEV's explosion resistance, so it holds a blast like HEV; `6`: as X877 (3 hits of MK108's or a rocket's direct blast against HEV's 4) |
+| `balanceArmorTierFloor` | `2:4:0.5 5:8:0.5` | Rules `gun tier:set tier:factor`: the per-click floor of a gun of that tier or below, on a set of that tier or up, times the factor (the least factor of the rules that fit). So three guns of tier 2 do not outrun the damage cap on HEV, nor three of tier 5 on DNS and FAU; `off`: no rules, as X884 |
 | `balanceBulletBlastCap` | `true` | An explosive bullet's blast is squeezed and capped at any damage, not taken for a mine past `balanceExplRawLimit`; false: as X865 |
 | `balanceIrBeams` | `true` | An infrared beam (IR capacitors) is a beam: the armour formula's and the cap's; false: NTM's fire numbers, as X865 |
 | `balanceElectricPowered` | `1.5` | An electric hit (Tesla Cannon) on a powered chestplate counts this many times; 5: NTM's, as X865 |
 | `balanceRoflFloor` | `0.18` | The least share of a hit the dineutronium ingot set (and starmetal with `balanceS.starmetal` `0`) leaves |
 | `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's; the players get the server's); off: NTM's damage and guns |
 | `balanceArmorFloor` | `true` | The table's floors (`floor=`, `from=` in a pair's extra column): the armour formula's least share times the floor on sets of that tier and up, so armour-piercing rounds, slugs, explosive and flechette shells beat the same gun's soft rounds against heavy armour; false: no floors, as X873 |
-| `balanceRecipes` | `true` | The balance's recipes for the diesel suit, Tesla Cannon, Lasrifle, Tau and Med-X; off: NTM's (after `/reload` or a restart) |
+| `balanceRecipes` | `true` | The balance's recipes for the diesel suit, the T-51 parts (a basic circuit each, as the helmet), Tesla Cannon, Lasrifle, Tau and Med-X; off: NTM's (after `/reload` or a restart) |
 | `gunMechanismRecipes` | `true` | Guns take the gun mechanism of their tier, on eight steps: the mod adds steel, high-speed steel, desh, ferrouranium and technetium steel mechanisms, cast in NTM's mechanism mold; off: NTM's recipes (after `/reload` or a restart) |
 | `abilities.mobilityCap` | `true` | A full set's Speed and Jump Boost by its tier: up to tier 6 II and I at most, from tier 7 III and II |
 | `abilities.strengthCap` | `2` | A full set's Strength at most this level; `0`: NTM's |
@@ -393,6 +399,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.shield.rate` | `0.002` | Then rate·t a tick, t the ticks since |
 | `balance.medx` | `true` | Med-X gives Resistance I for 60 s; off: III for 4 min |
 | `balance.superStimpak` | `true` | The super stimpak heals its 25 HP over 12 s; off: at once |
+| `balance.healStack` | `false` | A second stimpak while one heals: the bigger of the two heals, not their sum; `true`: they add up, as X884 |
 | `balance.inserts` | `true` | An armour insert takes at most 1 − `balance.inserts.bullets` off a bullet; off: NTM's |
 | `balance.inserts.bullets` | `0.9` | The least share of a bullet an insert leaves |
 | `balance.vanilla0` | `true` | The combat sets of `balanceS.*` have no vanilla armour points and toughness (counts when a piece is put on again); off: theirs |
@@ -411,6 +418,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.immune.fau.pool` | `45` | FAU's pool (each hit as much as on FAU itself, S 168); the owner's choice, `450`: as X865, `100`: a middle way |
 | `balance.immune.fau.window` | `15` | Seconds the emptied pool leaves FAU open |
 | `balance.immune.fau.recover` | `60` | Seconds FAU's pool takes to fill back |
+| `balance.immune.shared` | `true` | Euphemium, DNS and FAU share one pool: a suit put on in place of another takes over its pool and window, so swapping DNS for FAU gives no fresh pool; `false`: a pool a suit, as X884 |
 | `spectatorNoGuns` | `true` | Spectators cannot use NTM's guns |
 | `smoke` | `true` | Smoke clouds |
 | `smokeBlocksMobSight` | `false` | Mobs lose a target behind thick smoke |

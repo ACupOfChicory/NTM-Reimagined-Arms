@@ -68,6 +68,12 @@ public final class BalanceGuns {
     /** the server's settings the table was last read from (null: this game's file or the jar) */
     private static ServerSettings.Snapshot tableRemote;
 
+    /** the table read again at the next look, whatever the clock (ReaimTimes.reloadNow) */
+    static synchronized void reloadNow() {
+        lastPoll = Long.MIN_VALUE / 2;
+        tableStamp = Long.MIN_VALUE;
+    }
+
     static synchronized BalanceGunsRule.Table table() {
         ServerSettings.Snapshot remote = ServerSettings.remote();
         if (remote != null) {
@@ -238,7 +244,8 @@ public final class BalanceGuns {
         if (gun == null) return damage;
         BalanceGunsRule.Shot s = safePair(gun, ammo);
         if (s.none()) return damage;
-        if (s.neg() != 0F || s.pen() != 0F || s.floor() != 1F) EXTRA.put(projectile, new float[] {s.neg(), s.pen(), s.floor(), s.from()});
+        if (s.neg() != 0F || s.pen() != 0F || s.floor() != 1F || s.tier() >= 0)
+            EXTRA.put(projectile, new float[] {s.neg(), s.pen(), s.floor(), s.from(), s.tier()});
         if (watch != null) watch.accept(s);
         return damage * s.mult();
     }
@@ -256,13 +263,28 @@ public final class BalanceGuns {
 
     /**
      * balanceArmorFloor (true; false: X873): the table's floor of the hit's shot on a set of {@code tier} (1: none, or
-     * a tier below the pair's)
+     * a tier below the pair's), times balanceArmorTierFloor's share for the pair's tier on that set's (no less than the
+     * table's least floor)
      */
     public static float floorOf(Entity direct, int tier) {
         float[] e = extra(direct);
-        if (e == null || e.length < 4 || e[2] == 1F || tier < e[3]) return 1F;
-        return ReaimTimes.flag("balanceArmorFloor", true) ? e[2] : 1F;
+        if (e == null || e.length < 4) return 1F;
+        float own = e[2] == 1F || tier < e[3] || !ReaimTimes.flag("balanceArmorFloor", true) ? 1F : e[2];
+        float k = e.length > 4 ? BalanceGunsRule.tierFloor(tierFloorRules(), (int) e[4], tier) : 1F;
+        return k < 1F ? Math.max(BalanceGunsRule.LEAST_FLOOR, own * k) : own;
     }
+
+    /**
+     * balanceArmorTierFloor ("2:4:0.5 5:8:0.5"; "" or off: X884): a pair of tier 2 or below hits a set of tier 4 and
+     * up with half the formula's floor, a pair of tier 5 or below a set of tier 8 and up (DNS, FAU, euphemium, their
+     * pools too) the same (notes: the cheese review, item A)
+     */
+    static String tierFloorRules() {
+        String v = ReaimTimes.text("balanceArmorTierFloor", TIER_FLOOR).strip();
+        return v.equalsIgnoreCase("off") || v.equalsIgnoreCase("none") ? "" : v;
+    }
+
+    static final String TIER_FLOOR = "2:4:0.5 5:8:0.5";
 
     /** the tooltip's mult of an ammo in a gun (1 with the setting off) */
     public static float tooltipMult(Item gun, BulletConfig ammo) {

@@ -38,7 +38,8 @@ import net.minecraft.world.entity.player.Player;
  * <li>the tomb's radon gas (BlockGasRadonTomb) takes the invulnerability off entirely while the wearer is in it, with
  * the Regeneration and Resistance: its radiation then counts (NTM: 0.5 RAD a tick inside, 1000 RAD hurt for 1000).
  * </ul>
- * The state is kept by the player's id for the server's run (a relog does not refill the pool).
+ * The state is kept by the player's id for the server's run (a relog does not refill the pool); with
+ * balance.immune.shared one pool a player for the three kits (another kit put on keeps where the pool is).
  *
  * <p>DNS and FAU (the 240-hour sets) get the same round with their own numbers ({@link Kit}; keys
  * balance.immune.dns.* and balance.immune.fau.*: mode, pool, window, recover): the pool takes what the hit would do to the
@@ -222,8 +223,43 @@ public final class EuphImmunity {
                 Float.isFinite(hold) && hold >= 0F ? Math.round(hold * 20F) : d.hold());
     }
 
+    /** the kit each player's pool was last of (balance.immune.shared) */
+    private static final Map<UUID, Kit> LAST_KIT = new HashMap<>();
+
+    /**
+     * balance.immune.shared (true; false: X884): one pool a player for the three kits. The kit put on takes where the
+     * last one was (carry), not a fresh pool of its own: DNS emptied, then FAU on, was a full pool of 45 at once.
+     */
+    static boolean shared() {
+        return ReaimTimes.flag("balance.immune.shared", true);
+    }
+
     static synchronized State state(Kit kit, Player player, long now) {
-        return STATES.get(kit).computeIfAbsent(player.getUUID(), u -> new State(pool(kit).size(), now));
+        UUID id = player.getUUID();
+        Map<UUID, State> own = STATES.get(kit);
+        if (shared()) {
+            Kit was = LAST_KIT.put(id, kit);
+            State from = was == null || was == kit ? null : STATES.get(was).get(id);
+            if (from != null) own.put(id, carry(from, pool(was), pool(kit), now));
+        } else {
+            // off: no kit remembered, so turning it back on carries nothing stale
+            LAST_KIT.remove(id);
+        }
+        return own.computeIfAbsent(id, u -> new State(pool(kit).size(), now));
+    }
+
+    /**
+     * the state of another kit's pool {@code from} (its numbers {@code a}) as kit {@code b}'s at {@code now}: the same
+     * share of the full pool, the same window and recovery
+     */
+    public static State carry(State from, Pool a, Pool b, long now) {
+        float share = a.size() > 0F ? poolAt(from, now, a) / a.size() : 1F;
+        State s = new State(Math.max(0F, Math.min(1F, share)) * b.size(), now);
+        s.lastHit = from.lastHit;
+        s.windowStart = from.windowStart;
+        s.windowEnd = from.windowEnd;
+        s.recoverEnd = from.recoverEnd;
+        return s;
     }
 
     /** the tomb's radon gas touched the entity this tick */
@@ -390,11 +426,13 @@ public final class EuphImmunity {
     static synchronized void forget(Player player) {
         for (Map<UUID, State> m : STATES.values()) m.remove(player.getUUID());
         DECIDED.remove(player.getUUID());
+        LAST_KIT.remove(player.getUUID());
     }
 
     public static synchronized void clear() {
         for (Map<UUID, State> m : STATES.values()) m.clear();
         IN_RADON.clear();
         DECIDED.clear();
+        LAST_KIT.clear();
     }
 }
