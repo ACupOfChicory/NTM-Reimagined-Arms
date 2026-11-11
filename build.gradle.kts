@@ -145,6 +145,8 @@ neoForge {
             providers.gradleProperty("gl54ReflexStand").orNull?.let { systemProperty("ntmgunfeel.gl54ReflexStandDir",it) }
             systemProperty("ntmgunfeel.gl54ReflexSolve",providers.gradleProperty("gl54ReflexSolve").isPresent.toString())
             providers.gradleProperty("gl54ReflexRelief").orNull?.let { systemProperty("ntmgunfeel.gl54ReflexRelief",it) }
+            // -PsuppressionStand: suppression under fire, its sources, sounds, screen and flinch (SuppressionStand)
+            systemProperty("ntmgunfeel.suppressionStand",providers.gradleProperty("suppressionStand").isPresent.toString())
             // -PproneFireStand: no shot while crawling, for a player and a mannequin (ProneFireStand)
             systemProperty("ntmgunfeel.proneFireStand",providers.gradleProperty("proneFireStand").isPresent.toString())
             // -PshapesStand=<file>: every NTM machine taken in turn, the jar's table of their shapes written there (ShapesStand)

@@ -1,5 +1,30 @@
 # Changelog
 
+## X881
+
+- Suppression under fire (`suppression`, server, on): someone else's bullet
+  passing within 3.5 blocks of the head, a bullet stopping within 8 blocks (in
+  a wall, a creature, water) and a blast within 14 blocks (NTM's grenades,
+  rounds, rockets and bombs, TNT, creepers, not a wind charge's gust; a big
+  blast farther, up to 42) fill a scale of 0 to 100. It climbs in a few ticks,
+  a burst of shots counts up to 3.3 times more, and it falls from full to none
+  in 5 s. Under it the screen darkens, more at the edges: at a full scale 40 %
+  at the edges and 22 % in the middle, never more. The other sounds go down, the world's to
+  40 %, shots, blasts and bullets only to 79 %, so the fight is still heard.
+  The player's own bullets and blasts, lasers and beams do not count; nor does a
+  grenade before it goes off. Each bullet is counted once, on the player's own
+  game, from the same pass the whizz sound plays on.
+- A jolt of the view at each of those events, as in Squad
+  (`suppressionFlinch`, server, off): 0.11 to 0.66 degrees to a random side,
+  and the view stays there; not while riding.
+- Server keys: the forces (`suppressionPass`, `suppressionImpact`,
+  `suppressionBlast`), the ranges (`suppressionPassRange`,
+  `suppressionImpactRange`, `suppressionBlastRange`), the fall
+  (`suppressionRecovery`), the most darkening and muffling the players get
+  (`suppressionDarken`, `suppressionMuffle`), the jolt's size
+  (`suppressionFlinchDeg`). Client keys: `suppressionDarken` and
+  `suppressionMuffle`, 0 to 1, take less for oneself.
+
 ## X877
 
 - Tier 4 armour (HEV, Security, the steam suit, AJR) is never weaker than T-51b:
