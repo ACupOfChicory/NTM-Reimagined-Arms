@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+- Atlas beats the Break-Action Revolver on the .357 AP round: it took tier 6 and
+  up armour in half again the time of the tier 2 gun (CMB 20 s against 14, DNS
+  116 against 74). Atlas's AP now matches it on bismuth and beats it elsewhere
+  (CMB 12 s, DNS 62), and the Break-Action Revolver's AP round loses a little
+  on armour of tier 6 and up (DNS 74 → 85 s); against tier 4 and below it is as
+  it was.
+- The pedestal guns are no weaker than the median plain gun of their tier: Little
+  Macintosh's AP round (bismuth 14 s → 3.5, DNS 125 → 42), Broken's explosive
+  shells (CMB 11 s → 5, DNS 65 → 46), Day And Night's AP round (DNS 80 s → 63,
+  never ahead of Atlas) and Hangman's AP round (CMB 6.3 s → 3.5, DNS 32 → 26).
+- Aberrator's rounds pierce more: it takes FAU in 5.8 s like DNS (7.1 before)
+  and euphemium in 17 s (19), as Eyes of the Tempest.
+- The Lever Action Rifle's JHP and Lincoln's Repeater's FMJ rounds: a slight
+  change of their damage keeps them from the pool's worst timing on DNS (3300 s
+  and 3500 s → 1100 and 1500, like their gun's other rounds).
+- Trenchmaster holds a weapon's blast like HEV, as NTM gives it HEV's explosion
+  resistance: it took MK108's, Panzerschreck's and the rockets' direct hits in
+  one hit fewer than HEV. It now takes blasts by tier 4's rules (weak blasts
+  too: a gunpowder grenade 4 hits, not 9). New server key
+  `balanceBlastTrenchTier` (`6`: as before).
+
 ## X877
 
 - Tier 4 armour (HEV, Security, the steam suit, AJR) is never weaker than T-51b:

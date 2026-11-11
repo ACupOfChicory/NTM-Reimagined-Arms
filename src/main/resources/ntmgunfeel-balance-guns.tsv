@@ -31,7 +31,7 @@ maresleg	g12_bp_magnum	3.72	0	0	2
 maresleg	g12_bp_slug	1.5	0	0	2	
 am180	p22_jhp	2.38	0	0	3	
 greasegun	p9_jhp	2.37	0	0	3	
-henry	m44_jhp	2.86	0	0	3	
+henry	m44_jhp	2.82	0	0	3	
 light_revolver	m357_jhp	2.52	0	0	3	
 light_revolver_dani	m357_jhp	0.484	0	0	3	
 maresleg	g12	5.02	0	0	3	
@@ -83,7 +83,7 @@ heavy_revolver	m44_express	2.04	0	0	4	floor=0.56 from=6
 heavy_revolver	m44_fmj	3.59	0	0	4	floor=0.56 from=6
 heavy_revolver	m44_jhp	3.21	0	0	4	floor=0.56 from=6
 heavy_revolver	m44_sp	3.59	0	0	4	floor=0.56 from=6
-heavy_revolver_lilmac	m44_ap	0.607	0	0	4	floor=1.1
+heavy_revolver_lilmac	m44_ap	0.668	0	0	4	floor=3.5
 heavy_revolver_lilmac	m44_bp	1.34	0	0	4	floor=0.6 from=6
 heavy_revolver_lilmac	m44_express	0.607	0	0	4	floor=0.6 from=6
 heavy_revolver_lilmac	m44_fmj	1.07	0	0	4	floor=0.6 from=6
@@ -94,17 +94,17 @@ henry	m44_ap	3.19	0	0	4
 henry_lincoln	m44_ap	1.45	0	0	4	floor=1.2
 henry_lincoln	m44_bp	3.59	0	0	4	floor=0.48 from=6
 henry_lincoln	m44_express	1.45	0	0	4	floor=0.48 from=6
-henry_lincoln	m44_fmj	2.86	0	0	4	floor=0.48 from=6
+henry_lincoln	m44_fmj	2.87	0	0	4	floor=0.48 from=6
 henry_lincoln	m44_jhp	2.28	0	0	4	floor=0.48 from=6
 henry_lincoln	m44_sp	2.55	0	0	4	floor=0.48 from=6
-light_revolver	m357_ap	5.21	0	0	4	
-light_revolver_atlas	m357_ap	1.65	0	0	4	floor=1.1
+light_revolver	m357_ap	5.21	0	0	4	floor=0.75 from=6
+light_revolver_atlas	m357_ap	2.805	0	0	4	floor=1.6
 light_revolver_atlas	m357_bp	3.65	0	0	4	floor=0.6 from=6
 light_revolver_atlas	m357_express	1.65	0	0	4	floor=0.6 from=6
 light_revolver_atlas	m357_fmj	2.92	0	0	4	floor=0.6 from=6
 light_revolver_atlas	m357_jhp	2.61	0	0	4	floor=0.6 from=6
 light_revolver_atlas	m357_sp	2.92	0	0	4	floor=0.6 from=6
-light_revolver_dani	m357_ap	0.762	0	0	4	
+light_revolver_dani	m357_ap	1.257	0	0	4	
 m2	bmg50_ap	0.345	0	0	4	floor=2.3
 m2	bmg50_du	0.245	0	0	4	floor=2.7
 m2	bmg50_fmj	0.853	0	0	4	floor=0.66 from=6
@@ -127,7 +127,7 @@ maresleg_broken	g12	1.68	0	0	4	floor=0.82 from=6
 maresleg_broken	g12_bp	2	10	0	4	floor=0.82 from=6
 maresleg_broken	g12_bp_magnum	1.89	0	0	4	floor=0.82 from=6
 maresleg_broken	g12_bp_slug	1.34	0	0	4	floor=4.4
-maresleg_broken	g12_explosive	0.386	0	0	4	floor=3.7
+maresleg_broken	g12_explosive	0.396	0	0	4	floor=5
 maresleg_broken	g12_flechette	1.34	0	0	4	floor=1.4
 maresleg_broken	g12_magnum	0.607	0	0	4	floor=0.82 from=6
 maresleg_broken	g12_phosphorus	1.68	0	0	4	floor=0.82 from=6
@@ -210,7 +210,7 @@ g3_zebra	r556_ap	1.664	0	0	6	floor=1.1
 g3_zebra	r556_fmj	3.289	0	0	6	floor=0.8 from=6
 g3_zebra	r556_jhp	2.093	0	0	6	floor=0.8 from=6
 g3_zebra	r556_sp	2.951	0	0	6	floor=0.8 from=6
-hangman	m44_ap	2	0	0	6	floor=1.7
+hangman	m44_ap	2	0	0	6	floor=2.3
 hangman	m44_bp	1.5	50	0.15	6	floor=0.38 from=6
 hangman	m44_express	2	0	0	6	floor=0.38 from=6
 hangman	m44_fmj	2	30	0.15	6	floor=0.38 from=6
@@ -244,8 +244,8 @@ minigun_lacunae	capacitor	0.6	50	0.15	8
 minigun_lacunae	capacitor_ir	0.6	50	0.15	8	
 minigun_lacunae	capacitor_overcharge	0.6	50	0.15	8	
 tau	tau_uranium	2	30	0	8	
-aberrator	secret_p35_800	2	0	0	9	
-aberrator	secret_p35_800_bl	2	0	0	9	
+aberrator	secret_p35_800	2	50	0.5	9	floor=5 from=8
+aberrator	secret_p35_800_bl	2	50	0.5	9	floor=5 from=8
 aberrator_eott	secret_p35_800	1	0	0	9	
 aberrator_eott	secret_p35_800_bl	1	0	0	9	
 amat_penance	secret_bmg50_black	3	20	0.15	9	

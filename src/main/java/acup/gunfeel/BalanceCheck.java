@@ -865,8 +865,9 @@ public final class BalanceCheck {
         String name = set.isEmpty() ? "без брони" : set;
         BalanceArmor.SetOf def = set.isEmpty() ? null : BalanceArmor.SETS.get(set);
         float raw = BalanceBlasts.raw(b.boom(), r);
-        float power = def == null ? 1F : BalanceArmor.blastPowerFor(def.tier(), b.boom().name().startsWith("ракета") && r < 0F, raw, BalanceArmor.blastPower());
-        float lowFloor = def != null && def.tier() <= 4 ? BalanceArmor.blastLowFloor() : 0F;
+        int bt = def == null ? 0 : BalanceArmor.blastTier(set, def.tier());
+        float power = def == null ? 1F : BalanceArmor.blastPowerFor(bt, b.boom().name().startsWith("ракета") && r < 0F, raw, BalanceArmor.blastPower());
+        float lowFloor = def != null && bt <= 4 ? BalanceArmor.blastLowFloor() : 0F;
         float model = BalanceBlasts.damage(b.boom(), r, set.isEmpty() ? null : set, set.isEmpty() ? 0F : BalanceArmor.rating(set),
                 def == null ? 0F : BalanceArmor.tau(set), power, lowFloor);
         int modelHits = BalanceBlasts.hits(model);
