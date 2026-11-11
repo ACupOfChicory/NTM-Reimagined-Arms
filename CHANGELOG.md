@@ -1,5 +1,13 @@
 # Changelog
 
+## X891
+
+- A player hit by an NTM gun's bullet, pellet or beam is no longer thrown back
+  or stopped short, and their view no longer tilts with the hit, so a hit does
+  not throw off the aim. The damage, the hurt sound and the red of the hit
+  stay; blasts, melee hits, mobs, arrows and falls push and tilt as before.
+  Server keys `gunHitKnockback` and `gunHitTilt` (both `false`) give them back.
+
 ## X885
 
 - The 20 mm grenades' coloured nose is shaded anew: even bands along the round, in the same six shades.

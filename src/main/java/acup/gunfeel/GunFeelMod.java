@@ -58,6 +58,8 @@ public final class GunFeelMod {
             acup.gunfeel.ai.client.AiDebugClient.init();
             if (Feature.MOB_AI.on()) acup.gunfeel.ai.client.AiVoiceClient.init();
             if (Feature.SUPPRESSION.on()) Suppression.init(modBus);
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+                    net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> GunHitClient.clear());
         }
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.RegisterCommandsEvent.class,
                 e -> {
@@ -170,6 +172,7 @@ public final class GunFeelMod {
                 r.playToClient(SuppressionBlastPayload.TYPE, SuppressionBlastPayload.CODEC, (p, ctx) -> {
                     if (Feature.SUPPRESSION.on()) ctx.enqueueWork(() -> Suppression.blast(p));
                 });
+                r.playToClient(GunHitPayload.TYPE, GunHitPayload.CODEC, (p, ctx) -> ctx.enqueueWork(GunHitClient::receive));
                 r.playToClient(acup.gunfeel.gl54.PressLayoutsPayload.TYPE, acup.gunfeel.gl54.PressLayoutsPayload.CODEC,
                         (p, ctx) -> ctx.enqueueWork(() -> {
                             if (Feature.GL54.on()) acup.gunfeel.gl54.PressSync.receive(p);
@@ -192,6 +195,7 @@ public final class GunFeelMod {
                 r.playToClient(acup.gunfeel.gl54.PressLayoutsPayload.TYPE, acup.gunfeel.gl54.PressLayoutsPayload.CODEC);
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC);
                 r.playToClient(SuppressionBlastPayload.TYPE, SuppressionBlastPayload.CODEC);
+                r.playToClient(GunHitPayload.TYPE, GunHitPayload.CODEC);
                 acup.gunfeel.smoke.SmokeNet.payloads(r);
                 acup.gunfeel.gas.GasSetup.payloads(r, false);
                 r.playToClient(acup.gunfeel.ai.AiCellsPayload.TYPE, acup.gunfeel.ai.AiCellsPayload.CODEC);
