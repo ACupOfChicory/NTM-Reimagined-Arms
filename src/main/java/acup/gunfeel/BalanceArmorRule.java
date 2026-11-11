@@ -74,10 +74,18 @@ public final class BalanceArmorRule {
      * {@code m = fl + (1 − d − fl)·rho³/(1 + rho³)}, {@code fl = min(1 − d, b·floor)}
      */
     public static float full(Hit hit, double s, double tau, Tune tune, double floor) {
+        return full(hit, s, tau, tune, floor, hit.damage());
+    }
+
+    /**
+     * the same with the power {@code rho} counts by ({@code into}, at least the hit's damage): a weak blast's floor
+     * (balanceBlastLowFloor) lifts how much of it passes, its flesh stays the hit's own
+     */
+    public static float full(Hit hit, double s, double tau, Tune tune, double floor, double into) {
         double dmg = hit.damage();
         if (!(dmg > 0)) return hit.damage();
         if (!(s > 0)) return hit.damage();
-        double power = (dmg + Math.max(0F, hit.neg())) * Math.max(0.0, 1.0 + hit.pen());
+        double power = (Math.max(dmg, into) + Math.max(0F, hit.neg())) * Math.max(0.0, 1.0 + hit.pen());
         double dd = d(tau);
         double fl = floor > 0 && Double.isFinite(floor) ? Math.min(1 - dd, b(tau) * floor) : b(tau);
         double m = share(power / s, fl, dd);

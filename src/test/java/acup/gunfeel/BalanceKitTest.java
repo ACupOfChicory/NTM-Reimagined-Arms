@@ -168,6 +168,9 @@ class BalanceKitTest {
         assertEquals("15", p.getProperty("balance.immune.window"));
         assertEquals("60", p.getProperty("balance.immune.recover"));
         assertEquals("10", p.getProperty("balance.immune.hold"));
+        // balance.immune.refillPause 5 s, as X875 (Henry and Lincoln: both keys at 11 in the notes, not shipped)
+        assertEquals("5", p.getProperty("balance.immune.refillPause"));
+        assertEquals(EuphImmunity.REFILL_PAUSE, EuphImmunity.refillPause());
         assertEquals(200, Pool.DEFAULT.hold());
         assertEquals("pool", p.getProperty("balance.immune.dns.mode"));
         assertEquals("40", p.getProperty("balance.immune.dns.pool"));

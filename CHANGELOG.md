@@ -1,5 +1,45 @@
 # Changelog
 
+## X877
+
+- Tier 4 armour (HEV, Security, the steam suit, AJR) is never weaker than T-51b:
+  HEV, Security and the steam suit let small rounds through more than T-51b in
+  about one cell of six (a .22 SMG's JHP: 33 clicks on HEV, 39 on T-51b). They
+  now take the formula at T-51b's tier or above, HEV's rating 46 → 60, AJR's
+  38 → 55; tier 4 needs a third more clicks than T-51b at the median. The best
+  tier 3 gun takes them in 4 s, not 3. The FBI agent wears Security: the Heavy
+  Revolver's express rounds take it in about 16 clicks (13 to 15 before).
+- Starmetal is a combat set of tier 6 with bismuth's numbers: it held like
+  T-51b (a Target Pistol's FMJ: 5 clicks, bismuth 35). `balanceS.starmetal` `0`
+  makes it NTM's joke set again, as X875.
+- The paired guns fire two barrels a click and now do about 1.85 times the
+  single gun's damage a click (Uzis and Uzi, Dual Miniguns and Minigun, the
+  Lever Action Shotguns and the Lever Action Shotgun were within 3 to 16 %, the
+  Target Pistols already twice), short of the next tier's best gun: the Dual
+  Miniguns' AP and DU rounds stay as they were, at the edge of their tier, and
+  the Lever Action Shotguns gain 1.4 to 1.7 times on most shells (their black
+  powder shells as before) and their explosive shells catch up with the single
+  gun's.
+- A later gun on the same round beats the earlier one by about a third:
+  Protège over the Heavy Revolver, the Comically Long Pistol over the Uzi, South
+  Star over the Minigun against DNS, FAU and euphemium (its AP and DU only by a
+  tenth to a fifth: more would beat tier 7 against CMB).
+- The 7.62 mm and .50 BMG high-explosive rounds count as armour-piercing ones
+  against armour of tier 4 and up (the carbine's, Ma Deuce's, Minigun's and
+  South Star's): they took two to three times their gun's AP time on heavy
+  armour, South Star's 8.1 s on CMB against 3.4. Subtlety's soft-point and
+  Penance's hollow-point rounds now follow their sister's (Subtlety SP on DNS
+  37 s → 22, Penance 20).
+- Weak blasts on armour up to tier 4: the floor of `balanceBlastLowFloor` lifts
+  only the share of the blast that passes, its flesh stays the blast's own, so
+  no set of tier 4 holds a weak blast worse than T-51b (Congo Lake's splash at
+  3 blocks: 5 hits on tier 4, 6 on T-51b; now 7 and 7). `balanceBlastLowFloor`
+  0.83 → 0.9 keeps a gunpowder grenade at 4 hits on tier 4. New server key
+  `balanceBlastFloorShare` (false, with `balanceBlastLowFloor` 0.83: as X875).
+- New server key `balance.immune.refillPause` (5 s, as before): how long a
+  worn-down DNS, FAU or euphemium pool waits after the last hit before it comes
+  back.
+
 ## X875
 
 - Armour-piercing and uranium rounds, slugs, explosive and flechette shells beat
