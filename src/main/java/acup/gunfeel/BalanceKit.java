@@ -120,7 +120,9 @@ public final class BalanceKit {
 
     /** one more heal of {@code amount} on {@code h} (left, ticks): added, or the more of the two ({@code stack} off) */
     public static void addHeal(float[] h, float amount, boolean stack) {
-        h[0] = stack ? h[0] + amount : Math.max(h[0], amount);
+        // without stacking a weaker heal changes nothing (nor stretches what is left over a fresh 12 s)
+        if (!stack && amount <= h[0]) return;
+        h[0] = stack ? h[0] + amount : amount;
         h[1] = STIMPAK_TICKS;
     }
 

@@ -241,6 +241,9 @@ public final class EuphImmunity {
             Kit was = LAST_KIT.put(id, kit);
             State from = was == null || was == kit ? null : STATES.get(was).get(id);
             if (from != null) own.put(id, carry(from, pool(was), pool(kit), now));
+        } else {
+            // off: no kit remembered, so turning it back on carries nothing stale
+            LAST_KIT.remove(id);
         }
         return own.computeIfAbsent(id, u -> new State(pool(kit).size(), now));
     }

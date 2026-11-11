@@ -1,5 +1,6 @@
 package acup.gunfeel;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -211,6 +212,11 @@ class BalanceKitTest {
         BalanceKit.addHeal(two, 25F, false);
         BalanceKit.addHeal(two, 25F, false);
         assertEquals(25F, two[0], 1e-4F);
+        // a weaker one later changes nothing: not the heal left, not its time
+        for (int i = 0; i < 100; i++) BalanceKit.healStep(two);
+        float[] was = two.clone();
+        BalanceKit.addHeal(two, 5F, false);
+        assertArrayEquals(was, two, 0F);
         // on: on top, as X884
         float[] old = {0F, 0F};
         BalanceKit.addHeal(old, 25F, true);
