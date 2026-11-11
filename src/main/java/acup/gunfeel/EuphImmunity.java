@@ -25,7 +25,7 @@ import net.minecraft.world.entity.player.Player;
  * <li>{@code balance.immune.pool} (150; X865: 2000): bullets, beams and blasts (PHYS, EN, EXPL) on the full set are still called
  * off, but each takes from the pool what it would have done to a DNS-class set (formula C at S 186, tier 7.5; one hit
  * at most damageCapClick of the wearer's health). The pool comes back over {@code balance.immune.recover} once no
- * hit took from it for 5 s. Other damage (fire, falling, gas, radiation, nuclear blasts) is called off as NTM does and
+ * hit took from it for {@code balance.immune.refillPause} (5 s). Other damage (fire, falling, gas, radiation, nuclear blasts) is called off as NTM does and
  * takes nothing;
  * <li>{@code balance.immune.window} (15 s): the emptied pool opens a window: every hit goes through, to the set's
  * rating (balanceS.euphemium, 280) and the damage cap, and the set's Regeneration and Resistance (NTM: 128) are gone
@@ -62,8 +62,19 @@ public final class EuphImmunity {
         }
     }
 
-    /** ticks after the last hit that took from the pool before it comes back */
+    /** ticks after the last hit that took from the pool before it comes back (balance.immune.refillPause's default) */
     public static final int REFILL_PAUSE = 100;
+
+    /**
+     * balance.immune.refillPause (5 s, as X875): seconds after the last hit that took from the pool before it comes back,
+     * for the three sets. A gun whose reload is longer (Henry and Lincoln: 9.5 s) gets part of the pool back on each
+     * reload; with balance.immune.hold at least as long as its reload and a shot (11 s) the two take DNS in 140–260 s,
+     * not 400–3500 (notes: review 3, item 15)
+     */
+    static int refillPause() {
+        float v = ReaimTimes.number("balance.immune.refillPause", REFILL_PAUSE / 20F);
+        return Float.isFinite(v) && v >= 0F ? Math.round(v * 20F) : REFILL_PAUSE;
+    }
     /** the DNS-class set the pool counts by */
     public static final float POOL_S = 186F, POOL_TAU = 7.5F;
 
@@ -105,7 +116,7 @@ public final class EuphImmunity {
             pool = p.size();
             return pool;
         }
-        long from = Math.max(s.at, s.lastHit + REFILL_PAUSE);
+        long from = Math.max(s.at, s.lastHit + refillPause());
         if (now > from && p.recover() > 0) pool = Math.min(p.size(), pool + p.size() * (now - from) / p.recover());
         else if (p.recover() <= 0) pool = p.size();
         return Math.min(p.size(), pool);

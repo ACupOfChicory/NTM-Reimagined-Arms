@@ -64,7 +64,7 @@ bolter	b75_inc	0.748	0	0	4
 carbine	r762_ap	0.425	0	0	4	floor=1.8
 carbine	r762_du	0.303	0	0	4	floor=1.9
 carbine	r762_fmj	0.938	0	0	4	floor=0.68 from=6
-carbine	r762_he	0.596	0	0	4	floor=0.68 from=6
+carbine	r762_he	0.596	0	0	4	floor=1.2
 carbine	r762_jhp	0.838	0	0	4	floor=0.68 from=6
 carbine	r762_sp	1.05	0	0	4	floor=0.68 from=6
 double_barrel	g10	3.2	0	0	4	floor=0.82 from=6
@@ -108,21 +108,21 @@ light_revolver_dani	m357_ap	0.762	0	0	4
 m2	bmg50_ap	0.345	0	0	4	floor=2.3
 m2	bmg50_du	0.245	0	0	4	floor=2.7
 m2	bmg50_fmj	0.853	0	0	4	floor=0.66 from=6
-m2	bmg50_he	0.542	0	0	4	floor=0.66 from=6
+m2	bmg50_he	0.542	0	0	4	floor=1.1
 m2	bmg50_jhp	0.68	0	0	4	floor=0.66 from=6
 m2	bmg50_sp	0.955	0	0	4	floor=0.66 from=6
 maresleg	g12_explosive	1.43	0	0	4	floor=4.4
 maresleg	g12_magnum	2.25	0	0	4	floor=0.82 from=6
 maresleg	g12_phosphorus	5.58	0	0	4	floor=0.82 from=6
-maresleg_akimbo	g12	3.56	0	0	4	floor=0.6 from=6
+maresleg_akimbo	g12	4.267	0	0	4	floor=0.8
 maresleg_akimbo	g12_bp	3.97	0	0	4	floor=0.6 from=6
 maresleg_akimbo	g12_bp_magnum	4.46	0	0	4	floor=0.6 from=6
 maresleg_akimbo	g12_bp_slug	2.01	0	0	4	floor=1.9 from=6
-maresleg_akimbo	g12_explosive	0.648	0	0	4	floor=1.9 from=6
-maresleg_akimbo	g12_flechette	2.25	0	0	4	floor=0.98 from=6
-maresleg_akimbo	g12_magnum	1.02	0	0	4	floor=0.6 from=6
-maresleg_akimbo	g12_phosphorus	2.01	0	0	4	floor=0.6 from=6
-maresleg_akimbo	g12_slug	1.14	0	0	4	floor=1.9 from=6
+maresleg_akimbo	g12_explosive	0.5	0	0	4	floor=2.6
+maresleg_akimbo	g12_flechette	2.48	0	0	4	floor=1.1
+maresleg_akimbo	g12_magnum	1.125	0	0	4	
+maresleg_akimbo	g12_phosphorus	3.767	0	0	4	floor=0.6 from=6
+maresleg_akimbo	g12_slug	0.891	0	0	4	floor=2.1
 maresleg_broken	g12	1.68	0	0	4	floor=0.82 from=6
 maresleg_broken	g12_bp	2	10	0	4	floor=0.82 from=6
 maresleg_broken	g12_bp_magnum	1.89	0	0	4	floor=0.82 from=6
@@ -150,33 +150,33 @@ uzi	p9_ap	1.65	0	0	4	floor=1.4
 uzi	p9_fmj	2.92	0	0	4	floor=0.66 from=6
 uzi	p9_jhp	1.65	0	0	4	floor=0.66 from=6
 uzi	p9_sp	2.32	0	0	4	floor=0.66 from=6
-uzi_akimbo	p9_ap	0.938	0	0	4	floor=1.3
-uzi_akimbo	p9_fmj	1.47	0	0	4	floor=0.66 from=6
-uzi_akimbo	p9_jhp	0.838	0	0	4	floor=0.66 from=6
-uzi_akimbo	p9_sp	1.18	0	0	4	floor=0.66 from=6
-heavy_revolver_protege	m44_ap	1.2	0	0	5	floor=1.1
-heavy_revolver_protege	m44_bp	2	20	0	5	floor=0.3 from=6
-heavy_revolver_protege	m44_express	1.2	0	0	5	floor=0.3 from=6
-heavy_revolver_protege	m44_fmj	2	0	0	5	floor=0.3 from=6
-heavy_revolver_protege	m44_jhp	1.89	0	0	5	floor=0.3 from=6
-heavy_revolver_protege	m44_sp	2	0	0	5	floor=0.3 from=6
+uzi_akimbo	p9_ap	1.444	0	0	4	floor=0.9 from=6
+uzi_akimbo	p9_fmj	2.701	0	0	4	floor=0.66 from=6
+uzi_akimbo	p9_jhp	1.526	0	0	4	floor=0.66 from=6
+uzi_akimbo	p9_sp	2.146	0	0	4	floor=0.66 from=6
+heavy_revolver_protege	m44_ap	1.2	0	0	5	floor=1.6
+heavy_revolver_protege	m44_bp	2	20	0	5	floor=0.4 from=6
+heavy_revolver_protege	m44_express	1.2	0	0	5	floor=0.6
+heavy_revolver_protege	m44_fmj	2	0	0	5	floor=0.7 from=6
+heavy_revolver_protege	m44_jhp	2	0	0	5	floor=0.4
+heavy_revolver_protege	m44_sp	2	0	0	5	floor=0.7 from=6
 heavy_revolver_protege	secret_m44_equestrian	1	0	0	5	
-lag	p9_ap	0.463	0	0	5	floor=1.2
-lag	p9_fmj	1.02	0	0	5	floor=0.6 from=6
-lag	p9_jhp	0.65	0	0	5	floor=0.6 from=6
-lag	p9_sp	0.816	0	0	5	floor=0.6 from=6
+lag	p9_ap	0.463	0	0	5	floor=1.6
+lag	p9_fmj	1.071	0	0	5	floor=0.8 from=6
+lag	p9_jhp	0.715	0	0	5	floor=0.9 from=6
+lag	p9_sp	0.898	0	0	5	floor=0.8 from=6
 minigun	r762_ap	0.68	0	0	5	floor=1.9
 minigun	r762_du	0.484	0	0	5	floor=2.2
 minigun	r762_fmj	1.5	0	0	5	floor=0.64 from=6
-minigun	r762_he	0.853	0	0	5	floor=0.64 from=6
+minigun	r762_he	0.853	0	0	5	floor=1.1
 minigun	r762_jhp	1.07	0	0	5	floor=0.64 from=6
 minigun	r762_sp	1.5	0	0	5	floor=0.64 from=6
 minigun_dual	r762_ap	0.386	0	0	5	floor=1.8
-minigun_dual	r762_du	0.275	0	0	5	floor=2
-minigun_dual	r762_fmj	0.853	0	0	5	floor=0.66 from=6
-minigun_dual	r762_he	0.432	0	0	5	floor=0.66 from=6
-minigun_dual	r762_jhp	0.542	0	0	5	floor=0.66 from=6
-minigun_dual	r762_sp	0.762	0	0	5	floor=0.66 from=6
+minigun_dual	r762_du	0.278	0	0	5	floor=2
+minigun_dual	r762_fmj	1.35	0	0	5	floor=0.66 from=6
+minigun_dual	r762_he	0.746	0	0	5	floor=0.66 from=6
+minigun_dual	r762_jhp	0.99	0	0	5	floor=0.6 from=6
+minigun_dual	r762_sp	1.312	0	0	5	floor=0.66 from=6
 tesla_cannon	capacitor	1.07	0	0	5	
 tesla_cannon	capacitor_ir	1.34	0	0	5	
 amat	bmg50_sm	1.109	0	0	6	
@@ -184,7 +184,7 @@ amat_penance	bmg50_ap	1.68	0	0	6	floor=2.1
 amat_penance	bmg50_du	1.2	0	0	6	floor=2.2
 amat_penance	bmg50_fmj	2	20	0.15	6	
 amat_penance	bmg50_he	1.89	0	0	6	
-amat_penance	bmg50_jhp	2	0	0	6	
+amat_penance	bmg50_jhp	2	5	0.05	6	
 amat_penance	bmg50_sm	0.68	0	0	6	
 amat_penance	bmg50_sp	2	20	0.15	6	
 amat_subtlety	bmg50_ap	1.5	0	0	6	floor=2.2
@@ -193,7 +193,7 @@ amat_subtlety	bmg50_fmj	2	30	0	6
 amat_subtlety	bmg50_he	1.68	0	0	6	
 amat_subtlety	bmg50_jhp	2	0	0	6	
 amat_subtlety	bmg50_sm	0.607	0	0	6	
-amat_subtlety	bmg50_sp	2	0	0	6	
+amat_subtlety	bmg50_sp	2	10	0.15	6	
 amat_subtlety	secret_bmg50_equestrian	1	0	0	6	
 autoshotgun_shredder	g12	0.793	0	0	6	floor=1.66 from=6
 autoshotgun_shredder	g12_explosive	0.32	0	0	6	floor=2.68
@@ -224,10 +224,10 @@ laser_pistol_pew_pew	capacitor_ir	1.56	0	0	6
 laser_pistol_pew_pew	capacitor_overcharge	1.56	0	0	6	
 lasrifle	capacitor	1.188	0	0	6	
 lasrifle	capacitor_ir	1.188	0	0	6	
-mas36	r762_ap	2	0	0	6	floor=3.6
-mas36	r762_du	1.89	0	0	6	
-mas36	r762_fmj	2	30	0.25	6	floor=0.38 from=6
-mas36	r762_he	2	0	0	6	floor=0.38 from=6
+mas36	r762_ap	2	0	0	6	floor=4.6
+mas36	r762_du	2	0	0	6	floor=1.6
+mas36	r762_fmj	2	30	0.25	6	floor=0.5
+mas36	r762_he	2	0	0	6	floor=2.4
 mas36	r762_jhp	2	50	0.15	6	floor=0.38 from=6
 mas36	r762_sp	2	50	0.15	6	floor=0.38 from=6
 star_f_akimbo	p22_ap	1.252	0	0	6	

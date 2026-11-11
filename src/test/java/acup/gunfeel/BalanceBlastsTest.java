@@ -74,27 +74,40 @@ class BalanceBlastsTest {
         BalanceBlasts.Boom panzer = new BalanceBlasts.Boom("ракета Panzerschreck", true, 25, 5, 0, 0), mk108 = new BalanceBlasts.Boom("40 мм HE MK108", true, 25, 5, 0, 0);
         assertEquals(BalanceBlasts.hits(BalanceBlasts.damage(mk108, -1, "rpa", rpa.s(), rpa.tau(), 3F)),
                 BalanceBlasts.hits(BalanceBlasts.damage(panzer, -1, "rpa", rpa.s(), rpa.tau(), BalanceArmor.blastPowerFor(7, true, 25F, 3F))));
-        // balanceBlastLowFloor 0.83: a gunpowder grenade 1 block off on tier 4, 3 to 4 hits (9 to 11 without), bare 3;
-        // the HE grenade's 3 on HEV as it was
-        assertEquals("0.83", shipped.getProperty("balanceBlastLowFloor"));
-        assertEquals(0.83F, BalanceArmor.blastLowFloor(), 1e-6F);
+        // balanceBlastLowFloor 0.9 (X875 0.83): a gunpowder grenade 1 block off on tier 4, 3 to 4 hits (9 to 11 without),
+        // bare 3; the HE grenade's 3 on HEV as it was
+        assertEquals("0.9", shipped.getProperty("balanceBlastLowFloor"));
+        assertEquals(0.9F, BalanceArmor.blastLowFloor(), 1e-6F);
+        assertEquals("true", shipped.getProperty("balanceBlastFloorShare"));
+        assertTrue(BalanceArmor.blastFloorShare());
         var powder = new BalanceBlasts.Boom("граната порох", false, 10, 5, 5, 0);
         assertEquals(3, BalanceBlasts.hits(BalanceBlasts.damage(powder, 1, null, 0, 0)));
         for (String set : new String[] {"steamsuit", "hev", "ajr", "security"}) {
             var def = BalanceArmor.SETS.get(set);
-            int with = BalanceBlasts.hits(BalanceBlasts.damage(powder, 1, set, def.s(), def.tau(), 1.7F, 0.83F));
+            int with = BalanceBlasts.hits(BalanceBlasts.damage(powder, 1, set, def.s(), def.tau(), 1.7F, 0.9F));
             int without = BalanceBlasts.hits(BalanceBlasts.damage(powder, 1, set, def.s(), def.tau(), 1.7F));
             assertTrue(with >= 3 && with <= 4 && without >= 8, set + ": " + without + " → " + with);
         }
         var hev = BalanceArmor.SETS.get("hev");
-        assertEquals(BalanceBlasts.hits(BalanceBlasts.damage(HE, 1, "hev", hev.s(), hev.tau(), 1.7F)),
-                BalanceBlasts.hits(BalanceBlasts.damage(HE, 1, "hev", hev.s(), hev.tau(), 1.7F, 0.83F)));
+        // HEV at S 60: without the floor the HE grenade takes 4, with it 3 as in X875 (S 46)
+        assertEquals(3, BalanceBlasts.hits(BalanceBlasts.damage(HE, 1, "hev", hev.s(), hev.tau(), 1.7F, 0.9F)));
         // the floor is the power's: no more than with no armour
-        assertTrue(BalanceBlasts.damage(powder, 1, "steel", 8F, 1F, 1.7F, 0.83F) <= BalanceBlasts.damage(powder, 1, null, 0, 0) + 1e-5F);
+        assertTrue(BalanceBlasts.damage(powder, 1, "steel", 8F, 1F, 1.7F, 0.9F) <= BalanceBlasts.damage(powder, 1, null, 0, 0) + 1e-5F);
         // a blast's far edge (5 raw) gets less of the floor: HEV still takes some off it
-        float edge = BalanceBlasts.hit(5F, 0F, 0F, "hev", hev.s(), hev.tau(), 1.7F, 0.83F);
+        float edge = BalanceBlasts.hit(5F, 0F, 0F, "hev", hev.s(), hev.tau(), 1.7F, 0.9F);
         assertTrue(edge < 4.5F && edge > BalanceBlasts.hit(5F, 0F, 0F, "hev", hev.s(), hev.tau(), 1.7F), "edge " + edge);
         assertEquals(0.83F * 46F, BalanceArmor.lowFloorPower(0.83F, 46F, 9.3F), 1e-4F);
+        // balanceBlastFloorShare: the floor lifts rho only, so tier 4 takes at least T-51b's hits; Congo Lake's splash at
+        // 3 blocks: 7 on every set of tier 4, as on T-51b (X875: 5 against 6)
+        var congo = new BalanceBlasts.Boom("40 мм HE Congo Lake", true, 20, 5, 0, 0);
+        var t51 = BalanceArmor.SETS.get("t51");
+        int onT51 = BalanceBlasts.hits(BalanceBlasts.damage(congo, 3, "t51", t51.s(), t51.tau(), 1.7F, 0.9F));
+        assertEquals(7, onT51);
+        for (String set : new String[] {"steamsuit", "hev", "ajr", "security"}) {
+            var def = BalanceArmor.SETS.get(set);
+            int hits = BalanceBlasts.hits(BalanceBlasts.damage(congo, 3, set, def.s(), def.tau(), 1.7F, 0.9F));
+            assertTrue(hits >= onT51, set + ": " + hits + " against T-51b " + onT51);
+        }
         assertEquals("1.5", shipped.getProperty("balanceElectricPowered"));
         // no armour: the power does nothing
         assertEquals(BalanceBlasts.damage(HE, 3, null, 0, 0), BalanceBlasts.damage(HE, 3, null, 0, 0, 3F), 1e-6F);

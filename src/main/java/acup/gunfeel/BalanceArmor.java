@@ -24,8 +24,9 @@ import net.minecraft.world.item.ItemStack;
  * NTM's mobs (FBI agents in Security armour), AI bots.
  *
  * <p>A piece from the table takes its share of the body (diamond's 3/8/6/3 of 20) with its own set's result; the rest
- * of the body what NTM leaves (for a body with no piece from the table, NTM's result alone). The joke sets (starmetal,
- * the dineutronium ingot set) keep NTM's numbers, but a hit keeps at least balanceRoflFloor of itself. The
+ * of the body what NTM leaves (for a body with no piece from the table, NTM's result alone). The joke set (the
+ * dineutronium ingot set; starmetal with balanceS.starmetal 0) keeps NTM's numbers, but a hit keeps at least
+ * balanceRoflFloor of itself. Starmetal is a combat set of tier 6 by default (bismuth's numbers). The
  * GL-54's acid corrodes the rating as it does NTM's numbers: (1 − K) of S is left.
  */
 public final class BalanceArmor {
@@ -44,15 +45,28 @@ public final class BalanceArmor {
             Map.entry("steel", new SetOf(8, 1.0F, 1)), Map.entry("cobalt", new SetOf(8, 1.0F, 1)), Map.entry("alloy", new SetOf(8, 1.0F, 1)),
             Map.entry("titanium", new SetOf(8, 1.3F, 1)), Map.entry("taurun", new SetOf(8, 1.2F, 1)),
             Map.entry("dieselsuit", new SetOf(13, 3.0F, 2)), Map.entry("t51", new SetOf(23, 4.0F, 3)),
-            Map.entry("steamsuit", new SetOf(66, 3.0F, 4)), Map.entry("hev", new SetOf(46, 3.0F, 4)),
-            Map.entry("ajr", new SetOf(38, 4.0F, 4)), Map.entry("ajro", new SetOf(38, 4.0F, 4)),
-            Map.entry("security", new SetOf(56, 3.0F, 4)), Map.entry("trenchmaster", new SetOf(72, 4.0F, 6)), Map.entry("bismuth", new SetOf(96, 5.0F, 6)),
+            // tier 4 (review 3, X875: steam 66/3, HEV 46/3, AJR 38/4, Security 56/3): tau 4 as T-51b's, or the least
+            // share b of tau 3 (0.13 against T-51b's 0.10) let small rounds through more than T-51b; no cell is weaker
+            // than T-51b, the median clicks against it ×1.33
+            Map.entry("steamsuit", new SetOf(66, 4.0F, 4)), Map.entry("hev", new SetOf(60, 4.0F, 4)),
+            Map.entry("ajr", new SetOf(55, 4.0F, 4)), Map.entry("ajro", new SetOf(55, 4.0F, 4)),
+            Map.entry("security", new SetOf(56, 4.0F, 4)), Map.entry("trenchmaster", new SetOf(72, 4.0F, 6)), Map.entry("bismuth", new SetOf(96, 5.0F, 6)),
+            // starmetal (review 3): a combat set of tier 6 as bismuth; balanceS.starmetal 0 makes it NTM's joke set again
+            Map.entry("starmetal", new SetOf(96, 5.0F, 6)),
             Map.entry("bj", new SetOf(120, 5.0F, 6)), Map.entry("ncrpa", new SetOf(120, 5.0F, 6)),
             Map.entry("cmb", new SetOf(159, 6.0F, 7)), Map.entry("schrabidium", new SetOf(159, 6.0F, 7)),
             Map.entry("rpa", new SetOf(158, 6.0F, 7)), Map.entry("fau", new SetOf(168, 7.0F, 8)),
             Map.entry("dns", new SetOf(186, 7.5F, 8)), Map.entry("euphemium", new SetOf(280, 8.5F, 9)));
-    /** the joke sets: NTM's numbers, with a floor */
+    /**
+     * the joke sets: NTM's numbers, with a floor (starmetal only with balanceS.starmetal 0: it is a combat set of the
+     * table by default)
+     */
     static final java.util.Set<String> ROFL = java.util.Set.of("starmetal", "dnt");
+
+    /** a joke set as worn now: one of ROFL with no rating of its own */
+    static boolean rofl(String set) {
+        return ROFL.contains(set) && !(rating(set) > 0F);
+    }
     private static final String[] SUFFIX = {"_helmet", "_plate", "_legs", "_boots"};
     private static final EquipmentSlot[] SLOTS = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
 
@@ -138,7 +152,7 @@ public final class BalanceArmor {
         if (!on() || category(source) == null) return false;
         for (int i = 0; i < 4; i++) {
             String set = setOf(target.getItemBySlot(SLOTS[i]), i);
-            if (set != null && (ROFL.contains(set) || rating(set) > 0F)) return true;
+            if (set != null && (rofl(set) || rating(set) > 0F)) return true;
         }
         return false;
     }
@@ -209,13 +223,13 @@ public final class BalanceArmor {
     }
 
     /**
-     * balanceBlastLowFloor (0.83; 0: X873): a weapon's blast on a set of tier 4 and below hits it with at least this
-     * share of its rating as its power (damage times blast power): a weak blast (a gunpowder or DEMO grenade, a 40 mm
-     * shell's splash) took 9 to 15 hits on tier 4 against 3 bare; with it 3 to 4, the HE grenade's 3 as it was. A blast
-     * weaker than 7 raw (a blast's far edge) gets the floor in its share, so the set still takes some off it
+     * balanceBlastLowFloor (0.9; X875 0.83; 0: X873): a weapon's blast on a set of tier 4 and below hits it with at
+     * least this share of its rating as its power (damage times blast power): a weak blast (a gunpowder or DEMO grenade,
+     * a 40 mm shell's splash) took 9 to 15 hits on tier 4 against 3 bare; with it 3 to 4, the HE grenade's 3 as it was.
+     * A blast weaker than 7 raw (a blast's far edge) gets the floor in its share, so the set still takes some off it
      */
     static float blastLowFloor() {
-        float v = ReaimTimes.number("balanceBlastLowFloor", 0.83F);
+        float v = ReaimTimes.number("balanceBlastLowFloor", 0.9F);
         return Float.isFinite(v) && v > 0F ? Math.min(v, 3F) : 0F;
     }
 
@@ -223,6 +237,16 @@ public final class BalanceArmor {
     static float blastInto(int tier, float amount, float pk, float s) {
         float y = amount * pk;
         return pk > 1F && tier <= 4 ? Math.max(y, lowFloorPower(blastLowFloor(), s, amount)) : y;
+    }
+
+    /**
+     * balanceBlastFloorShare (true; false: X875): the floor of balanceBlastLowFloor lifts only the share that passes
+     * (rho), the flesh is the blast's own damage times its power. With the flesh of the floor too, a set of a greater
+     * rating took more of a weak blast (the floor grows with S): Congo Lake's splash at 3 blocks took 5 hits on tier 4
+     * against T-51b's 6
+     */
+    static boolean blastFloorShare() {
+        return ReaimTimes.flag("balanceBlastFloorShare", true);
     }
 
     /** a weak blast's power floor reaches c·S at this raw damage; a blast's tail below it gets a share as small */
@@ -348,7 +372,7 @@ public final class BalanceArmor {
             byPiece[i] = Float.NaN;
             String set = setOf(target.getItemBySlot(SLOTS[i]), i);
             if (set == null) continue;
-            if (ROFL.contains(set)) rofl = true;
+            if (rofl(set)) rofl = true;
             float s = rating(set);
             if (!(s > 0F)) continue;
             if (en) s *= enShare;
@@ -359,10 +383,13 @@ public final class BalanceArmor {
             // balanceBlastLowFloor)
             float pk = power > 1F ? pieceBlastPower(tier, amount, power) : 1F;
             float into = power > 1F ? blastInto(tier, amount, pk, s) : amount * power;
-            var pieceHit = into == amount * power ? hit : new BalanceArmorRule.Hit(into, neg, pen, squeeze);
+            // balanceBlastFloorShare: the floor lifts rho, the flesh is the blast's damage times its power on the set
+            boolean share = power > 1F && into > amount * pk && blastFloorShare();
+            float fleshOf = share ? amount * pk : into;
+            var pieceHit = fleshOf == amount * power ? hit : new BalanceArmorRule.Hit(fleshOf, neg, pen, squeeze);
             // the gun table's floor of the shot's pair (balanceArmorFloor): its bullet's hit, an explosive bullet's blast
             float floor = !expl || bulletBlastNow() ? BalanceGuns.floorOf(floorShot(source, expl), tier) : 1F;
-            byPiece[i] = Math.min(amount, BalanceArmorRule.full(pieceHit, s, tau(set), tune, floor));
+            byPiece[i] = Math.min(amount, BalanceArmorRule.full(pieceHit, s, tau(set), tune, floor, into));
             any = true;
         }
         float rest = ntm;

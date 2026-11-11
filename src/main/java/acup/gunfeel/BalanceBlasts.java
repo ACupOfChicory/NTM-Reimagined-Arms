@@ -19,7 +19,8 @@ package acup.gunfeel;
  * early check ({@code allowSpecialCancel} false), the contact with them (10.3: × 1.5 hits);</li>
  * <li>the blast power {@code k} (balanceBlastPower): the set's formula takes {@code k·x} (its power and its flesh),
  * at most {@code x}; the raw limit and the cap by {@code x} itself; no set: {@code x}; on tier 4 and below at least
- * {@code balanceBlastLowFloor·S} (BalanceArmor.blastInto);</li>
+ * {@code balanceBlastLowFloor·S} for its share (rho), the flesh its own (BalanceArmor.blastInto,
+ * balanceBlastFloorShare);</li>
  * <li>hits to die {@code ⌈HP / damage⌉}.</li>
  * </ul>
  */
@@ -46,10 +47,12 @@ final class BalanceBlasts {
     /** the same, the power at least {@code floor·s} (balanceBlastLowFloor on tier 4 and below; 0: none) */
     static float hit(float x, float neg, float pen, String set, float s, float tau, float k, float floor) {
         if (!(x > 0F)) return 0F;
-        float kx = x <= RAW_LIMIT ? x * k : x;
-        if (x <= RAW_LIMIT && k > 1F && floor > 0F) kx = Math.max(kx, BalanceArmor.lowFloorPower(floor, s, x));
+        float kx = x <= RAW_LIMIT ? x * k : x, into = kx;
+        if (x <= RAW_LIMIT && k > 1F && floor > 0F) into = Math.max(kx, BalanceArmor.lowFloorPower(floor, s, x));
+        // balanceBlastFloorShare: the floor lifts rho only (X875: its flesh too)
+        if (!BalanceArmor.blastFloorShare()) kx = into;
         float out = set == null ? x
-                : Math.min(x, BalanceArmorRule.full(new BalanceArmorRule.Hit(kx, neg, pen, x <= RAW_LIMIT), s, tau, BalanceArmorRule.Tune.DEFAULT));
+                : Math.min(x, BalanceArmorRule.full(new BalanceArmorRule.Hit(kx, neg, pen, x <= RAW_LIMIT), s, tau, BalanceArmorRule.Tune.DEFAULT, 1.0, into));
         // more raw damage than the limit is not capped either
         return x > RAW_LIMIT ? out : Math.min(out, CLICK * HP);
     }

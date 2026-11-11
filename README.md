@@ -340,7 +340,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `damageCapBlasts` | `true` | NTM's blasts are capped (not those over `balanceExplRawLimit` raw damage); off: none of them is |
 | `damageCapAnyBlast` | `true` | Any NTM blast's hit counts in its click, whatever its class (the Tesla Cannon's electric blast); false: as X865 |
 | `balanceArmor` | `true` | NTM's combat sets take bullets, beams and blasts by the balance's formula; off: NTM's threshold and resistance |
-| `balanceS.<set>` | from `8` (steel) to `280` (euphemium) | Each set's rating; `0`: NTM's numbers for that set |
+| `balanceS.<set>` | from `8` (steel) to `280` (euphemium) | Each set's rating; `0`: NTM's numbers for that set. Starmetal is a combat set of tier 6 with bismuth's `96` (`balanceS.starmetal` `0`: NTM's joke set, as X875) |
 | `balanceTau.<set>` | from `1` (steel) to `8.5` (euphemium) | Each set's tier in the formula: how much of a weak hit still gets through and how much of a strong one is stopped |
 | `balanceEnShare` | `0.75` | The share of the rating beams and lasers meet |
 | `balanceFleshKnee`, `balanceFleshMax` | `8`, `14` | One hit's damage on a set is squeezed past the first towards the second |
@@ -349,11 +349,12 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balanceBlastPower` | `3` | A weapon's blast (grenade, 40 mm, rocket) hits a combat set as this many times its damage, never more than with no armour; 2.7: as X865, 1: as X858 |
 | `balanceBlastPowerLow`, `balanceBlastPowerRocketHigh` | `1.7`, `2.2` | The power on sets of tier 4 and below, and of a rocket's direct hit on tier 7 (RPA, CMB, Schrabidium); at most `balanceBlastPower`; all three `2.7`: as X865 |
 | `balanceBlastRocketHighFrom` | `30` | `balanceBlastPowerRocketHigh` only for a rocket of more raw damage than this (Missile Launcher, Stinger); Panzerschreck's round hits tier 7 as a 40 mm shell of its damage; `0`: every rocket, as X873 |
-| `balanceBlastLowFloor` | `0.83` | A weapon's blast on a set of tier 4 and below hits it with at least this share of the set's rating as its power: a gunpowder or DEMO grenade and a 40 mm shell's splash take 3 to 4 hits on tier 4; a blast under 7 raw damage (its far edge) gets the floor in its share of 7; `0`: as X873 |
+| `balanceBlastLowFloor` | `0.9` | A weapon's blast on a set of tier 4 and below passes it as if its power were at least this share of the set's rating: a gunpowder grenade takes 4 hits on tier 4 at 1 block, a DEMO grenade or a 40 mm shell's splash 5 to 7, never fewer than on T-51b; a blast under 7 raw damage (its far edge) gets the floor in its share of 7; `0.83` with `balanceBlastFloorShare` false: as X875; `0`: as X873 |
+| `balanceBlastFloorShare` | `true` | That floor lifts only the share of the blast that passes, its flesh stays the blast's own, so no tier 4 set holds a weak blast worse than T-51b; false: the floor's flesh too, as X875 |
 | `balanceBulletBlastCap` | `true` | An explosive bullet's blast is squeezed and capped at any damage, not taken for a mine past `balanceExplRawLimit`; false: as X865 |
 | `balanceIrBeams` | `true` | An infrared beam (IR capacitors) is a beam: the armour formula's and the cap's; false: NTM's fire numbers, as X865 |
 | `balanceElectricPowered` | `1.5` | An electric hit (Tesla Cannon) on a powered chestplate counts this many times; 5: NTM's, as X865 |
-| `balanceRoflFloor` | `0.18` | The least share of a hit starmetal and the dineutronium ingot set leave |
+| `balanceRoflFloor` | `0.18` | The least share of a hit the dineutronium ingot set (and starmetal with `balanceS.starmetal` `0`) leaves |
 | `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's; the players get the server's); off: NTM's damage and guns |
 | `balanceArmorFloor` | `true` | The table's floors (`floor=`, `from=` in a pair's extra column): the armour formula's least share times the floor on sets of that tier and up, so armour-piercing rounds, slugs, explosive and flechette shells beat the same gun's soft rounds against heavy armour; false: no floors, as X873 |
 | `balanceRecipes` | `true` | The balance's recipes for the diesel suit, Tesla Cannon, Lasrifle, Tau and Med-X; off: NTM's (after `/reload` or a restart) |
@@ -379,11 +380,12 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.immune.pool` | `150` | What bullets, beams and blasts on the set wear down before it opens (each as much as on a DNS-class set); the owner's choice, `2000`: as X865 |
 | `balance.immune.window` | `15` | Seconds the emptied pool leaves the wearer open, without the set's Regeneration and Resistance |
 | `balance.immune.hold` | `10` | For euphemium, DNS and FAU: a shot, IR beam or blast in the window (not melee) keeps it open at least this many seconds after it, so a gun that keeps hitting is not sent back to a full pool; `0`: the window is its own length, as X873 |
-| `balance.immune.recover` | `60` | Seconds the pool takes to fill back after the window (the set invulnerable meanwhile), or a worn-down pool after 5 s without a hit |
+| `balance.immune.refillPause` | `5` | For euphemium, DNS and FAU: seconds after the last hit on the pool before a worn-down pool starts to come back; with it and `balance.immune.hold` at `11` the Lever Action Rifle and Lincoln's Repeater (reload 9.5 s) take DNS in 140 to 260 s, not 400 to 3500 |
+| `balance.immune.recover` | `60` | Seconds the pool takes to fill back after the window (the set invulnerable meanwhile), or a worn-down pool after `balance.immune.refillPause` without a hit |
 | `balance.immune.dns.mode` | `pool` | DNS with euphemium's round: bullets, beams and blasts on the full charged set called off while its pool holds; `formula`: by its rating only; `ntm`: every hit but a blast called off, blasts down to 0.001 |
 | `balance.immune.dns.pool` | `40` | What hits wear down before DNS opens (each as much as it would do to DNS itself, S 186); the owner's choice, `500`: as X865, `120`: a middle way |
 | `balance.immune.dns.window` | `15` | Seconds the emptied pool leaves DNS open to its rating |
-| `balance.immune.dns.recover` | `60` | Seconds DNS's pool takes to fill back after the window, or a worn-down pool after 5 s without a hit |
+| `balance.immune.dns.recover` | `60` | Seconds DNS's pool takes to fill back after the window, or a worn-down pool after `balance.immune.refillPause` without a hit |
 | `balance.immune.fau.mode` | `pool` | FAU the same; `formula`: by its rating only (NTM gives FAU no invulnerability) |
 | `balance.immune.fau.pool` | `45` | FAU's pool (each hit as much as on FAU itself, S 168); the owner's choice, `450`: as X865, `100`: a middle way |
 | `balance.immune.fau.window` | `15` | Seconds the emptied pool leaves FAU open |
