@@ -66,6 +66,10 @@ page. They are alphas: expect bugs and back up your world.
   model. This covers vanilla mobs, NTM's mobs and baby mobs. F3+B shows the
   outlines.
 - Hits on moving mobs count by the pose the shooter saw.
+- A player hit by an NTM gun's bullet, pellet or beam is neither thrown back
+  nor stopped short, and their view does not tilt: the damage, the hurt
+  sound and the red of the hit stay. Blasts, melee hits, mobs, arrows and
+  falls push and tilt as ever. The server may give both back.
 - NTM's turrets and armed mobs (the hunter chopper, the cyber crab and others)
   hit by the same rules as a player's gun.
 - FBI agents and test dummies have ten hitbox parts: head, body, upper arms,
@@ -330,6 +334,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `suppressionRecovery` | `5` | Seconds from full suppression to none |
 | `suppressionDarken`, `suppressionMuffle` | `1` | The most darkening (40 % at the edges) and muffling (the world's sounds to 40 %) players get |
 | `suppressionFlinch`, `suppressionFlinchDeg` | `false`, `0.22` | A jolt of the view at each event, 0.11 to 0.66 degrees at the default |
+| `gunHitKnockback`, `gunHitTilt` | `false` | `true`: a player hit by an NTM gun's bullet or beam is thrown back as in vanilla; their view tilts with the hit |
 | `bulletBreakConcrete` | `false` | Bullets wear and break concrete |
 | `bulletPierceMachines` | `false` | Bullets pierce machines |
 | `bulletMachineGlass` | `true` | Machine windows are glass |
