@@ -1,5 +1,6 @@
 package acup.gunfeel;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -194,5 +195,53 @@ class BalanceKitTest {
         var hit = new BalanceArmorRule.Hit(75F, 0F, 0F, true);
         float fau = BalanceArmorRule.full(hit, 168F, 7F, BalanceArmorRule.Tune.DEFAULT), dns = BalanceArmorRule.full(hit, 186F, 7.5F, BalanceArmorRule.Tune.DEFAULT);
         assertTrue(fau > dns, "FAU " + fau + " DNS " + dns);
+    }
+
+    @Test
+    void healsDoNotStack() {
+        // balance.healStack off: a second super stimpak starts the heal again, the more of the two left
+        float[] h = {0F, 0F};
+        BalanceKit.addHeal(h, 25F, false);
+        for (int i = 0; i < 120; i++) BalanceKit.healStep(h);
+        assertEquals(12.5F, h[0], 1e-3F);
+        BalanceKit.addHeal(h, 25F, false);
+        assertEquals(25F, h[0], 1e-4F);
+        assertEquals(BalanceKit.STIMPAK_TICKS, h[1], 0F);
+        // two at once from two hands: 25, not 50
+        float[] two = {0F, 0F};
+        BalanceKit.addHeal(two, 25F, false);
+        BalanceKit.addHeal(two, 25F, false);
+        assertEquals(25F, two[0], 1e-4F);
+        // a weaker one later changes nothing: not the heal left, not its time
+        for (int i = 0; i < 100; i++) BalanceKit.healStep(two);
+        float[] was = two.clone();
+        BalanceKit.addHeal(two, 5F, false);
+        assertArrayEquals(was, two, 0F);
+        // on: on top, as X884
+        float[] old = {0F, 0F};
+        BalanceKit.addHeal(old, 25F, true);
+        BalanceKit.addHeal(old, 25F, true);
+        assertEquals(50F, old[0], 1e-4F);
+    }
+
+    @Test
+    void poolCarriedToAnotherKit() {
+        // DNS (40) half drained, FAU (45) put on: half of 45; the window and the recovery as they were
+        Pool dns = new Pool(40F, 300, 1200, 200), fau = new Pool(45F, 300, 1200, 200);
+        State s = new State(40F, 0L);
+        EuphImmunity.hit(s, 10L, 20F, true, dns);
+        State f = EuphImmunity.carry(s, dns, fau, 20L);
+        assertEquals(22.5F, EuphImmunity.poolAt(f, 20L, fau), 1e-3F);
+        // emptied: the window goes on in the other kit
+        EuphImmunity.hit(s, 30L, 25F, true, dns);
+        assertEquals(Phase.WINDOW, EuphImmunity.phase(s, 31L));
+        State w = EuphImmunity.carry(s, dns, fau, 40L);
+        assertEquals(Phase.WINDOW, EuphImmunity.phase(w, 40L));
+        assertEquals(s.windowEnd, w.windowEnd);
+        assertEquals(0F, EuphImmunity.poolAt(w, 40L, fau), 0F);
+        // in the recovery: invulnerable, and full once it is over
+        State r = EuphImmunity.carry(s, dns, fau, s.windowEnd + 100L);
+        assertEquals(Phase.RECOVER, EuphImmunity.phase(r, s.windowEnd + 100L));
+        assertEquals(45F, EuphImmunity.poolAt(r, s.recoverEnd + 1L, fau), 1e-3F);
     }
 }

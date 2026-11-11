@@ -1,5 +1,36 @@
 # Changelog
 
+## X896
+
+- One player in HEV now beats three in steel armour: guns of tier 2 and below
+  had the same per-click floor against HEV as against steel, so three cheap guns
+  at once outran the damage cap. Against armour of tier 4 and up those guns'
+  floor is halved (HEV wins 97 % of the pairs of tier 1–2 guns, 66 % before;
+  median health left 10.7, was 3). Guns of tier 5 and below against DNS and FAU
+  likewise: three tier 4 guns take DNS in 21 s at the quickest (11 before).
+  New server key `balanceArmorTierFloor` (`2:4:0.5 5:8:0.5`; `off`: as before).
+- The cheap round no longer beats the dear one on armour of tier 4 and up:
+  AMAT's SP and JHP (BJ 5 s → 7.5 and 6.2) while its AP is quicker (HEV
+  2.5 s → 1.2), SPAS-12's and the Auto Shotgun's black powder slugs, the Uzi
+  akimbo's FMJ, JHP and SP (HEV 1.5 s → 2.9); the explosive shells of both
+  shotguns take HEV in 2 s (3). Against no armour and armour of tier 3 and below
+  they are as they were; AMAT's one-shot head stays.
+- The .357 AP round of Light Revolver and Atlas and the Maresleg akimbo's
+  phosphorus shells no longer take HEV in a second (2.2, 2.8 and 2 s).
+- Little Macintosh's AP round came down to its tier's median on heavy armour
+  (BJ 3.5 s → 7.2, RPA 7.2 → 9.3); HEV as before.
+- Swapping DNS for FAU no longer hands out a fresh pool: the pool and its
+  window carry over to the new suit. New server key `balance.immune.shared`
+  (`true`; `false`: a pool per suit, as before).
+- Super stimpaks no longer stack: a second one while the first heals keeps the
+  bigger heal, not the sum. New server key `balance.healStack`
+  (`false`; `true`: as before).
+- The T-51 chestplate, leggings and boots take a basic circuit, as the helmet
+  does (the chestplate one titanium armour plate less, for room), so three T-51 parts with a steel helmet are no longer tier 1 work for
+  85–95 % of the full suit's protection (with `balanceRecipes`).
+- The balance stand covers the GL-54's fragment grenades, Quadro's rockets and
+  the Charge Thrower's mortars, and fights of one against three.
+
 ## X891
 
 - A player hit by an NTM gun's bullet, pellet or beam is no longer thrown back
