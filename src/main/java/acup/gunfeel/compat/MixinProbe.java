@@ -25,6 +25,11 @@ public final class MixinProbe {
     public static final String MIXIN = "Lorg/spongepowered/asm/mixin/";
     public static final List<String> INJECTORS = List.of("Inject", "Redirect", "ModifyArg", "ModifyArgs", "ModifyVariable",
             "ModifyConstant");
+    // MixinExtras' injectors, by path under its injector package: their method selectors and @At targets are checked the
+    // same way (not their handlers' signatures, which tools/MixinCheck leaves to Mixin)
+    public static final String EXTRAS = "Lcom/llamalad7/mixinextras/injector/";
+    public static final List<String> EXTRA_INJECTORS = List.of("ModifyReturnValue", "ModifyExpressionValue", "ModifyReceiver",
+            "v2/WrapWithCondition", "WrapWithCondition", "wrapoperation/WrapOperation", "wrapmethod/WrapMethod");
 
     // a class by internal name, null when there is none
     public interface Classes {
@@ -130,6 +135,13 @@ public final class MixinProbe {
                 return;
             }
         }
+        for (String kind : EXTRA_INJECTORS) {
+            a = annotation(m.invisibleAnnotations, m.visibleAnnotations, EXTRAS + kind + ";");
+            if (a != null) {
+                checkInjector(out, where + "." + m.name, kind.substring(kind.lastIndexOf('/') + 1), a, target, pseudo, defaultRequire);
+                return;
+            }
+        }
     }
 
     private void checkAccessor(List<Problem> out, String where, MethodNode m, AnnotationNode a, ClassNode target) {
@@ -207,7 +219,7 @@ public final class MixinProbe {
                 }
                 case "NEW" -> {
                     if (i instanceof TypeInsnNode ti && i.getOpcode() == Opcodes.NEW
-                            && (ti.desc.equals(t.name()) || ti.desc.equals(t.owner()))) count++;
+                            && (ti.desc.equals(t.name()) || ti.desc.equals(t.owner()) || ti.desc.equals(t.made()))) count++;
                 }
                 default -> {
                     return;
@@ -292,6 +304,13 @@ public final class MixinProbe {
             if (p >= 0) return new Member(owner, s.substring(0, p), s.substring(p));
             if (c >= 0) return new Member(owner, s.substring(0, c), s.substring(c + 1));
             return new Member(owner, s, null);
+        }
+
+        // the type a NEW target in the constructor's form, (args)Ltype;, makes; null for any other target
+        public String made() {
+            if (owner != null || !name.isEmpty() || desc == null || !desc.startsWith("(")) return null;
+            Type r = Type.getReturnType(desc);
+            return r.getSort() == Type.OBJECT ? r.getInternalName() : null;
         }
 
         public boolean matches(String o, String n, String d) {

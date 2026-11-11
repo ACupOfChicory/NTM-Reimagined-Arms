@@ -41,6 +41,10 @@ class BalanceGunsRuleTest {
             String a = ammo;
             float pellets = (Integer.parseInt(f[head.indexOf("projectilesMin")]) + Integer.parseInt(f[head.indexOf("projectilesMax")])) / 2F;
             if (list.stream().noneMatch(x -> x.name().equals(a))) list.add(new BalanceGunsRule.Ammo(ammo, click, pellets));
+            // the mod's shock shell goes where NTM's 12 gauge buckshot goes (ShockAmmo): one pellet of it, the beams aside
+            if (ammo.equals("g12") && f[head.indexOf("type")].equals("BULLET") && list.stream().noneMatch(x -> x.name().equals("g12_shock")))
+                list.add(new BalanceGunsRule.Ammo("g12_shock", Float.parseFloat(f[head.indexOf("baseDamage")]) * acup.gunfeel.shock.ShockAmmo.DAMAGE_MULT
+                        * Float.parseFloat(f[head.indexOf("split")]), 1F));
         }
         return out;
     }
@@ -62,7 +66,7 @@ class BalanceGunsRuleTest {
         }
         for (String g : t.guns().keySet()) assertTrue(guns.containsKey(g), "no gun " + g);
         // v4: every ammo of a gun in the table has its own pair, none made up (the coordinator, 2026-11-10)
-        assertEquals(256, t.pairs().values().stream().mapToInt(Map::size).sum());
+        assertEquals(262, t.pairs().values().stream().mapToInt(Map::size).sum());
         for (String g : t.pairs().keySet())
             for (var a : guns.get(g)) assertEquals("table", r(g, a.name()).from(), g + " " + a.name());
     }

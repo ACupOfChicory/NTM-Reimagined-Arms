@@ -26,6 +26,20 @@
   tier 5 guns against DNS and FAU (DNS 91 s → 61 and 62 → 41). Lacunae is
   tier 9 in the table, as its pedestal recipe; nothing changes in play.
 
+## X900
+
+- New ammo: the 12 Gauge Electroshock Shell, for every NTM 12 gauge shotgun but
+  the Shredder (in the ammo wheel and the HUD like the rest). NTM's ammo press
+  makes six from a copper capacitor, four fine copper wires and an advanced
+  buckshot casing. One round of about 2 damage. A hit shocks for 2 seconds:
+  the whole HUD, other mods' too, glitches hard and shakes (not the chat or the
+  menus), the view shakes a little and drifts on its own, and the shots of
+  whoever was hit spread wide (the server decides, for players and AI soldiers
+  alike). After a shock, 3 seconds of immunity. The shot is heard as a zap, and
+  the shooter sees a spark at the crosshair. Server keys `shock`,
+  `shockSeconds`, `shockImmunity`, `shockSpread`, `shockGlitch`,
+  `shockGlitchMin`, `shockCamera`, `shockShake`; client key `shockGlitch`.
+
 ## X896
 
 - One player in HEV now beats three in steel armour: guns of tier 2 and below

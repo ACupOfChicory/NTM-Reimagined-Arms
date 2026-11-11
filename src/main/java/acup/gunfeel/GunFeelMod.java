@@ -31,6 +31,11 @@ public final class GunFeelMod {
             if (dist.isClient()) acup.gunfeel.gl54.Gl54Client.init(modBus);
         }
         acup.gunfeel.gas.GasSetup.init(modBus, dist);
+        // the 12 gauge electroshock shell
+        if (Feature.SHOCK.on()) {
+            acup.gunfeel.shock.ShockAmmo.register(modBus);
+            if (dist.isClient()) acup.gunfeel.shock.client.ShockClient.init(modBus);
+        }
         GunWeight.register();
         acup.gunfeel.ai.AiPose.register(modBus);
         BalanceRecipes.register(modBus);
@@ -172,6 +177,12 @@ public final class GunFeelMod {
                 r.playToClient(SuppressionBlastPayload.TYPE, SuppressionBlastPayload.CODEC, (p, ctx) -> {
                     if (Feature.SUPPRESSION.on()) ctx.enqueueWork(() -> Suppression.blast(p));
                 });
+                r.playToClient(acup.gunfeel.shock.ShockPayloads.Shock.TYPE, acup.gunfeel.shock.ShockPayloads.Shock.CODEC, (p, ctx) -> {
+                    if (Feature.SHOCK.on()) ctx.enqueueWork(() -> acup.gunfeel.shock.client.ShockClient.shock(p));
+                });
+                r.playToClient(acup.gunfeel.shock.ShockPayloads.Mark.TYPE, acup.gunfeel.shock.ShockPayloads.Mark.CODEC, (p, ctx) -> {
+                    if (Feature.SHOCK.on()) ctx.enqueueWork(() -> acup.gunfeel.shock.client.ShockClient.mark(p));
+                });
                 r.playToClient(GunHitPayload.TYPE, GunHitPayload.CODEC, (p, ctx) -> ctx.enqueueWork(GunHitClient::receive));
                 r.playToClient(acup.gunfeel.gl54.PressLayoutsPayload.TYPE, acup.gunfeel.gl54.PressLayoutsPayload.CODEC,
                         (p, ctx) -> ctx.enqueueWork(() -> {
@@ -195,6 +206,8 @@ public final class GunFeelMod {
                 r.playToClient(acup.gunfeel.gl54.PressLayoutsPayload.TYPE, acup.gunfeel.gl54.PressLayoutsPayload.CODEC);
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC);
                 r.playToClient(SuppressionBlastPayload.TYPE, SuppressionBlastPayload.CODEC);
+                r.playToClient(acup.gunfeel.shock.ShockPayloads.Shock.TYPE, acup.gunfeel.shock.ShockPayloads.Shock.CODEC);
+                r.playToClient(acup.gunfeel.shock.ShockPayloads.Mark.TYPE, acup.gunfeel.shock.ShockPayloads.Mark.CODEC);
                 r.playToClient(GunHitPayload.TYPE, GunHitPayload.CODEC);
                 acup.gunfeel.smoke.SmokeNet.payloads(r);
                 acup.gunfeel.gas.GasSetup.payloads(r, false);

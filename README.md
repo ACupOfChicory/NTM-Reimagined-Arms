@@ -58,6 +58,13 @@ page. They are alphas: expect bugs and back up your world.
   with it; letting go of Y without a click changes nothing. Under the type you
   point at, the wheel shows its damage from the gun in hand, on a head hit and
   against armour, next to the loaded one.
+- A 12 Gauge Electroshock Shell for NTM's 12 gauge shotguns (all but the
+  Shredder), made in NTM's ammo press: a copper capacitor, four fine copper
+  wires and an advanced buckshot casing give six. One round, about 2 damage. A
+  hit shocks for 2 seconds: the HUD (other mods' too, not the chat or menus)
+  glitches and shakes, the view shakes and drifts on its own, and the shots of
+  whoever was hit, an AI soldier too, spread wide. Then 3 seconds of
+  immunity. The shooter sees a spark at the crosshair.
 
 ### Hits
 
@@ -302,6 +309,7 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `waterSplash` | `true` | Splashes, rings, foam and bubbles on water |
 | `gunWeightTooltip` | `true` | A gun's tooltip names its weight class and how much it slows |
 | `suppressionDarken`, `suppressionMuffle` | `1` | How much the screen darkens and the other sounds go down under fire, 0 to 1 (the server sets the most) |
+| `shockGlitch` | `1` | How much the HUD glitches and shakes when a shock shell hits you, 0 to 1 (the server sets the most and the least) |
 | `smokeQuality` | `high` | Smoke clouds: `off`, `slices`, `low`, `medium`, `high`, `ultra` |
 | `smokeMaxClouds`, `smokeDistance` | `8`, `128` | How many clouds are drawn and how far away |
 | `enabled` | `true` | The mod's client side as a whole |
@@ -335,6 +343,11 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `suppressionRecovery` | `5` | Seconds from full suppression to none |
 | `suppressionDarken`, `suppressionMuffle` | `1` | The most darkening (40 % at the edges) and muffling (the world's sounds to 40 %) players get |
 | `suppressionFlinch`, `suppressionFlinchDeg` | `false`, `0.22` | A jolt of the view at each event, 0.11 to 0.66 degrees at the default |
+| `shock` | `true` | A shock shell's hit shocks (`false`: it only does its damage) |
+| `shockSeconds`, `shockImmunity` | `2`, `3` | How long a shock lasts, and the seconds after it when another shell does not shock |
+| `shockSpread` | `0.12` | The spread added to a shocked one's shots (NTM's units: buckshot's is 0.035; about 7 degrees) |
+| `shockGlitch`, `shockGlitchMin` | `1`, `0.5` | The most the HUD glitches, and the least share of it a player may turn their own down to |
+| `shockCamera`, `shockShake` | `45`, `0.6` | How fast the view drifts on its own at most (degrees a second), and how much it shakes (degrees) |
 | `gunHitKnockback`, `gunHitTilt` | `false` | `true`: a player hit by an NTM gun's bullet or beam is thrown back as in vanilla; their view tilts with the hit |
 | `bulletBreakConcrete` | `false` | Bullets wear and break concrete |
 | `bulletPierceMachines` | `false` | Bullets pierce machines |

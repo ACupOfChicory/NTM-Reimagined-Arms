@@ -613,6 +613,7 @@ CORE method com/hbm/particle/SpentCasing getScaleZ ()F
 CORE method com/hbm/particle/SpentCasing getType ()Lcom/hbm/particle/SpentCasing$CasingType;
 CORE method com/hbm/particle/SpentCasing$CasingType name ()Ljava/lang/String;
 CORE method com/hbm/potion/HbmPotion potionsickness ()Lnet/minecraft/core/Holder;
+CORE method com/hbm/registration/NeoForgeRegistrar subscribe (Ljava/lang/String;Lnet/neoforged/bus/api/IEventBus;)V
 CORE method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 CORE method com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase get (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/render/item/weapon/sedna/ItemRenderWeaponBase;
 CORE method com/hbm/util/ArmorRegistry hasProtection (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/entity/EquipmentSlot;Lcom/hbm/hazard/HazardClass;)Z
@@ -779,7 +780,6 @@ GL54 method com/hbm/particle/helper/CasingCreator composeEffect (Lnet/minecraft/
 GL54 method com/hbm/registration/NeoForgeRegistrar registerDataComponent (Ljava/lang/String;Lnet/minecraft/core/component/DataComponentType;)Lcom/hbm/registration/RegistryHandle;
 GL54 method com/hbm/registration/NeoForgeRegistrar registerItem (Ljava/lang/String;Ljava/util/function/Function;Ljava/util/function/Supplier;)Lcom/hbm/registration/RegistryHandle;
 GL54 method com/hbm/registration/NeoForgeRegistrar registerMenu (Ljava/lang/String;Lnet/minecraft/world/inventory/MenuType$MenuSupplier;)Lcom/hbm/registration/RegistryHandle;
-GL54 method com/hbm/registration/NeoForgeRegistrar subscribe (Ljava/lang/String;Lnet/neoforged/bus/api/IEventBus;)V
 GL54 method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 GL54 method com/hbm/render/anim/AnimationEnums$GunAnimation ordinal ()I
 GL54 method com/hbm/render/anim/AnimationEnums$GunAnimation values ()[Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
@@ -1059,6 +1059,54 @@ RECOIL field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
 RECOIL method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 RECOIL method com/hbm/util/GameTime millis (Lnet/minecraft/world/level/Level;)J
 RICOCHET_SOUND class com/hbm/entity/projectile/EntityBulletBaseMK4
+SHOCK class com/hbm/entity/projectile/EntityBulletBaseMK4
+SHOCK class com/hbm/items/weapon/sedna/BulletConfig
+SHOCK class com/hbm/items/weapon/sedna/ItemGunBaseNT
+SHOCK class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
+SHOCK class com/hbm/items/weapon/sedna/Receiver
+SHOCK class com/hbm/items/weapon/sedna/mags/IMagazine
+SHOCK class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
+SHOCK class com/hbm/particle/SpentCasing
+SHOCK class com/hbm/registration/RegistryHandle
+SHOCK field com/hbm/items/EnumCasingType BUCKSHOT_ADVANCED Lcom/hbm/items/EnumCasingType;
+SHOCK field com/hbm/items/ModItems GUN_AUTOSHOTGUN Lcom/hbm/registration/RegistryHandle;
+SHOCK field com/hbm/items/ModItems GUN_AUTOSHOTGUN_SHREDDER Lcom/hbm/registration/RegistryHandle;
+SHOCK field com/hbm/items/ModItems GUN_MARESLEG Lcom/hbm/registration/RegistryHandle;
+SHOCK field com/hbm/items/ModItems GUN_SPAS12 Lcom/hbm/registration/RegistryHandle;
+SHOCK field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_ENTITY_HIT Ljava/util/function/BiConsumer;
+SHOCK field com/hbm/items/weapon/sedna/BulletConfig id I
+SHOCK field com/hbm/items/weapon/sedna/BulletConfig onEntityHit Ljava/util/function/BiConsumer;
+SHOCK field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
+SHOCK field com/hbm/items/weapon/sedna/BulletConfig spread F
+SHOCK field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
+SHOCK field com/hbm/items/weapon/sedna/factory/XFactory12ga g12 Lcom/hbm/items/weapon/sedna/BulletConfig;
+SHOCK field com/hbm/items/weapon/sedna/factory/XFactory12ga g12_slug Lcom/hbm/items/weapon/sedna/BulletConfig;
+SHOCK field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase acceptedBullets Ljava/util/List;
+SHOCK field com/hbm/particle/SpentCasing$CasingType SHOTGUN Lcom/hbm/particle/SpentCasing$CasingType;
+SHOCK method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/items/weapon/sedna/BulletConfig;FFDDDDDD)V
+SHOCK method com/hbm/entity/projectile/EntityBulletBaseMK4 getThrower ()Lnet/minecraft/world/entity/LivingEntity;
+SHOCK method com/hbm/items/weapon/sedna/BulletConfig <init> ()V
+SHOCK method com/hbm/items/weapon/sedna/BulletConfig setCasing (Lcom/hbm/items/EnumCasingType;I)Lcom/hbm/items/weapon/sedna/BulletConfig;
+SHOCK method com/hbm/items/weapon/sedna/BulletConfig setCasing (Lcom/hbm/particle/SpentCasing;)Lcom/hbm/items/weapon/sedna/BulletConfig;
+SHOCK method com/hbm/items/weapon/sedna/BulletConfig setDamage (F)Lcom/hbm/items/weapon/sedna/BulletConfig;
+SHOCK method com/hbm/items/weapon/sedna/BulletConfig setHeadshot (F)Lcom/hbm/items/weapon/sedna/BulletConfig;
+SHOCK method com/hbm/items/weapon/sedna/BulletConfig setItem (Ljava/util/function/Supplier;)Lcom/hbm/items/weapon/sedna/BulletConfig;
+SHOCK method com/hbm/items/weapon/sedna/BulletConfig setKnockback (F)Lcom/hbm/items/weapon/sedna/BulletConfig;
+SHOCK method com/hbm/items/weapon/sedna/BulletConfig setRicochetAngle (F)Lcom/hbm/items/weapon/sedna/BulletConfig;
+SHOCK method com/hbm/items/weapon/sedna/BulletConfig setSpread (F)Lcom/hbm/items/weapon/sedna/BulletConfig;
+SHOCK method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+SHOCK method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+SHOCK method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
+SHOCK method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext <init> (Lcom/hbm/items/weapon/sedna/GunConfig;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;I)V
+SHOCK method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext entity ()Lnet/minecraft/world/entity/LivingEntity;
+SHOCK method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+SHOCK method com/hbm/items/weapon/sedna/factory/Lego calcSpread (Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/Receiver;Lcom/hbm/items/weapon/sedna/BulletConfig;ZIZ)F
+SHOCK method com/hbm/particle/SpentCasing <init> (Lcom/hbm/particle/SpentCasing$CasingType;)V
+SHOCK method com/hbm/particle/SpentCasing register (Ljava/lang/String;)Lcom/hbm/particle/SpentCasing;
+SHOCK method com/hbm/particle/SpentCasing setColor ([I)Lcom/hbm/particle/SpentCasing;
+SHOCK method com/hbm/particle/SpentCasing setScale (F)Lcom/hbm/particle/SpentCasing;
+SHOCK method com/hbm/registration/NeoForgeRegistrar registerItem (Ljava/lang/String;Ljava/util/function/Function;Ljava/util/function/Supplier;)Lcom/hbm/registration/RegistryHandle;
+SHOCK method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 SPECTATOR class com/hbm/client/Keybinds
 SPECTATOR class com/hbm/entity/projectile/EntityBulletBaseMK4
 SPECTATOR class com/hbm/handler/HbmKeybinds$EnumKeybind
