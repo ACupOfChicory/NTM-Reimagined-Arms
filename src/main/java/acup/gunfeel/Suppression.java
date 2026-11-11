@@ -70,7 +70,7 @@ public final class Suppression {
     }
 
     private static boolean on() {
-        return acup.gunfeel.compat.Feature.SUPPRESSION.on() && SuppressionServer.on() && Minecraft.getInstance().player != null;
+        return Config.enabled && acup.gunfeel.compat.Feature.SUPPRESSION.on() && SuppressionServer.on() && Minecraft.getInstance().player != null;
     }
 
     // not a bullet that counts: the player's own, a laser's
@@ -137,7 +137,7 @@ public final class Suppression {
         } else if (!mc.isPaused() && !frozen) {
             tick++;
             SCALE.tick(SuppressionScale.MAX / (SuppressionServer.recoverySeconds() * 20F));
-            if (!SuppressionServer.on()) SCALE.clear();
+            if (!SuppressionServer.on() || !Config.enabled) SCALE.clear();
         }
         // the sounds already playing follow the muffling as it changes
         float m = SuppressionScale.muffle(SCALE.share(), muffleStrength(), false);

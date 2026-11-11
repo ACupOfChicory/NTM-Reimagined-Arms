@@ -86,19 +86,12 @@ public final class SuppressionServer {
         }
     }
 
-    // a vanilla blast or anything else that implements the game's Explosion
+    // a vanilla blast or anything else that implements the game's Explosion; not a wind charge's gust
     public static void blast(net.minecraft.world.level.Explosion e) {
         if (!(e.level() instanceof ServerLevel level)) return;
+        Entity direct = e.getDirectSourceEntity();
+        if (direct instanceof net.minecraft.world.entity.projectile.hurtingprojectile.windcharge.AbstractWindCharge || e.radius() < 1F) return;
         // vanilla's radius is its power: it hurts out to twice that
-        blast(level, e.center(), e.radius() * 2F, owner(e));
-    }
-
-    private static @Nullable LivingEntity owner(net.minecraft.world.level.Explosion e) {
-        try {
-            return e.getIndirectSourceEntity();
-        } catch (RuntimeException ex) {
-            Entity d = e.getDirectSourceEntity();
-            return d instanceof LivingEntity l ? l : null;
-        }
+        blast(level, e.center(), e.radius() * 2F, e.getIndirectSourceEntity());
     }
 }

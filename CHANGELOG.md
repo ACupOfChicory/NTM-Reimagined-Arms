@@ -5,11 +5,11 @@
 - Suppression under fire (`suppression`, server, on): someone else's bullet
   passing within 3.5 blocks of the head, a bullet stopping within 8 blocks (in
   a wall, a creature, water) and a blast within 14 blocks (NTM's grenades,
-  rounds, rockets and bombs, TNT, creepers; a big blast farther, up to 42)
-  fill a scale of 0 to 100. It climbs in a few ticks, a burst of shots counts
-  up to 3.3 times more, and it falls from full to none in 5 s. Under it the
-  screen darkens, more at the edges: at a full scale 40 % at the edges and
-  22 % in the middle, never more. The other sounds go down, the world's to
+  rounds, rockets and bombs, TNT, creepers, not a wind charge's gust; a big
+  blast farther, up to 42) fill a scale of 0 to 100. It climbs in a few ticks,
+  a burst of shots counts up to 3.3 times more, and it falls from full to none
+  in 5 s. Under it the screen darkens, more at the edges: at a full scale 40 %
+  at the edges and 22 % in the middle, never more. The other sounds go down, the world's to
   40 %, shots, blasts and bullets only to 79 %, so the fight is still heard.
   The player's own bullets and blasts, lasers and beams do not count; nor does a
   grenade before it goes off. Each bullet is counted once, on the player's own

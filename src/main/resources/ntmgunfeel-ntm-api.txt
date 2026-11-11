@@ -1122,6 +1122,8 @@ SPRINT_FIRE method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext config
 SPRINT_FIRE method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext entity ()Lnet/minecraft/world/entity/LivingEntity;
 SPRINT_FIRE method com/hbm/items/weapon/sedna/Receiver getRefireOnHold (Lnet/minecraft/world/item/ItemStack;)Z
 SPRINT_FIRE method com/hbm/items/weapon/sedna/factory/Lego clickReceiver (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext;I)V
+SUPPRESSION class com/hbm/entity/projectile/EntityBulletBaseMK4
+SUPPRESSION class com/hbm/entity/projectile/EntityBulletBeamBase
 SUPPRESSION class com/hbm/entity/projectile/EntityThrowableNT
 SUPPRESSION class com/hbm/explosion/vanillant/ExplosionVNT
 SUPPRESSION class com/hbm/items/weapon/sedna/BulletConfig
@@ -1132,7 +1134,15 @@ SUPPRESSION field com/hbm/explosion/vanillant/ExplosionVNT posZ D
 SUPPRESSION field com/hbm/explosion/vanillant/ExplosionVNT size F
 SUPPRESSION field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/level/Level;
 SUPPRESSION field com/hbm/items/weapon/sedna/BulletConfig onImpact Ljava/util/function/BiConsumer;
+SUPPRESSION field com/hbm/items/weapon/sedna/BulletConfig spread F
+SUPPRESSION field com/hbm/items/weapon/sedna/factory/XFactory9mm p9_fmj Lcom/hbm/items/weapon/sedna/BulletConfig;
+SUPPRESSION field com/hbm/items/weapon/sedna/factory/XFactoryEnergy energy_las Lcom/hbm/items/weapon/sedna/BulletConfig;
+SUPPRESSION field com/hbm/items/weapon/sedna/factory/XFactoryNPC maskman_bolt Lcom/hbm/items/weapon/sedna/BulletConfig;
+SUPPRESSION method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/items/weapon/sedna/BulletConfig;FFDDDDDD)V
+SUPPRESSION method com/hbm/entity/projectile/EntityBulletBeamBase <init> (Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/items/weapon/sedna/BulletConfig;F)V
 SUPPRESSION method com/hbm/entity/projectile/EntityThrowableNT getThrower ()Lnet/minecraft/world/entity/LivingEntity;
+SUPPRESSION method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/level/Level;DDDFLnet/minecraft/world/entity/Entity;)V
+SUPPRESSION method com/hbm/explosion/vanillant/ExplosionVNT explode ()V
 SUPPRESSION method com/hbm/explosion/vanillant/ExplosionVNT getIndirectSourceEntity ()Lnet/minecraft/world/entity/LivingEntity;
 TRACERS class com/hbm/client/render/RenderBulletMK4
 TRACERS class com/hbm/client/render/RenderBulletMK4$State
