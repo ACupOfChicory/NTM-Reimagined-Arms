@@ -373,6 +373,8 @@ neoForge {
             programArgument("--nogui")
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkSpread", layout.buildDirectory.file("spreadcheck/result.tsv").get().asFile.path)
+            // -PstandSprint=false: the ticks in real time (by default /tick sprint: the same ticks, the clock not waited for)
+            providers.gradleProperty("standSprint").orNull?.let { systemProperty("ntmgunfeel.standSprint", it) }
         }
         // the damage cap with NTM's real guns (DamageCapCheck): ./gradlew runCheckCap -PnoAssets
         register("checkCap") {
@@ -381,6 +383,8 @@ neoForge {
             programArgument("--nogui")
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkCap", layout.buildDirectory.file("capcheck/result.txt").get().asFile.path)
+            // -PstandSprint=false: the ticks in real time (by default /tick sprint: the same ticks, the clock not waited for)
+            providers.gradleProperty("standSprint").orNull?.let { systemProperty("ntmgunfeel.standSprint", it) }
         }
         // the balance's armour with NTM's real guns (BalanceCheck): ./gradlew runCheckBalance -PnoAssets
         register("checkBalance") {
@@ -389,11 +393,15 @@ neoForge {
             programArgument("--nogui")
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkBalance", layout.buildDirectory.file("balancecheck/result.txt").get().asFile.path)
+            // -PstandSprint=false: the ticks in real time (by default /tick sprint: the same ticks, the clock not waited for)
+            providers.gradleProperty("standSprint").orNull?.let { systemProperty("ntmgunfeel.standSprint", it) }
             // -PbalanceOnly=dns,1b: only these passes (BalanceCheck.only)
             providers.gradleProperty("balanceOnly").orNull?.let { systemProperty("ntmgunfeel.checkBalance.only", it) }
             // -PbalanceCells=<file>: the pass "mx", the model's cells (BalanceCheck.planMatrix)
             providers.gradleProperty("balanceCells").orNull?.let { systemProperty("ntmgunfeel.checkBalance.cells", it) }
             providers.gradleProperty("balanceCellHits").orNull?.let { systemProperty("ntmgunfeel.checkBalance.cellHits", "true") }
+            // -PbalanceLanes=<n>: n pairs of shooter and target at once, the cases of a pass shared out (8; 1: one pair)
+            providers.gradleProperty("balanceLanes").orNull?.let { systemProperty("ntmgunfeel.checkBalance.lanes", it) }
         }
         // the new gun mechanisms and their recipes (MechanismCheck): ./gradlew runCheckMechanisms -PnoAssets
         register("checkMechanisms") {

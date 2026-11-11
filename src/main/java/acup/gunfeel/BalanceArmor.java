@@ -163,19 +163,32 @@ public final class BalanceArmor {
      */
     public static float apply(LivingEntity target, DamageSource source, float amount, float neg, float pen, float ntm) {
         float out = apply0(target, source, amount, neg, pen, ntm);
-        if (watch == target) {
-            seenHits++;
-            seenIn += amount;
-            seenNtm += ntm;
-            seenOut += out;
+        Seen seen = WATCHED.isEmpty() ? null : WATCHED.get(target);
+        if (seen != null) {
+            seen.hits++;
+            seen.in += amount;
+            seen.ntm += ntm;
+            seen.out += out;
         }
         return out;
     }
 
-    /** the stand: the hits on {@code watch} NTM's calculateDamage saw, their damage before, NTM's and ours */
-    static volatile LivingEntity watch;
-    static int seenHits;
-    static float seenIn, seenNtm, seenOut;
+    /** the stand: the hits on a watched creature NTM's calculateDamage saw, their damage before, NTM's and ours */
+    static final class Seen {
+        int hits;
+        float in, ntm, out;
+    }
+
+    /** the creatures the stand watches, each with its own count (the balance stand's lanes: one each) */
+    private static final java.util.Map<LivingEntity, Seen> WATCHED = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /** the stand: {@code target}'s count from naught, {@code previous} (the lane's last victim) watched no more */
+    static Seen watch(LivingEntity previous, LivingEntity target) {
+        if (previous != null) WATCHED.remove(previous);
+        Seen seen = new Seen();
+        WATCHED.put(target, seen);
+        return seen;
+    }
 
     /** the hit's damage NTM's calculateDamage took last, and on whom (after NTM's shield: what the formula sees) */
     private static LivingEntity amountOf;
