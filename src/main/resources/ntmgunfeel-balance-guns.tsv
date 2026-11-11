@@ -264,6 +264,13 @@ autoshotgun_sexy	secret_g12_equestrian	0.55	0	0	9
 laser_pistol_morning_glory	capacitor	2	30	0	9	
 laser_pistol_morning_glory	capacitor_ir	2	30	0	9	
 laser_pistol_morning_glory	capacitor_overcharge	2	20	0	9	
+# the 12 gauge electroshock shell (the mod's own): about 2 damage a hit whatever the gun (NTM's click times this)
+maresleg	g12_shock	1.0	0	0	6	
+maresleg_akimbo	g12_shock	1.0	0	0	6	
+maresleg_broken	g12_shock	0.333	0	0	6	
+spas12	g12_shock	0.5	0	0	6	
+autoshotgun	g12_shock	0.333	0	0	6	
+autoshotgun_sexy	g12_shock	0.25	0	0	6	
 # owner's decisions (section 21.5, end of balance-by-progression.md)
 autoshotgun_heretic	*	-	0	0	4	delay=12 auto=false mag=24
 am180	*	-	0	0	2	delay=3 mag=60
