@@ -309,7 +309,7 @@ public final class BalanceCheck {
             try {
                 setup();
                 plan();
-                line("#\tдорожек " + LANES.length + ", ускорение тактов " + "нет" + ", шагов по дорожкам " + java.util.Arrays.stream(LANES)
+                line("#\tдорожек " + LANES.length + ", ускорение тактов " + (StandSprint.on() ? "да" : "нет") + ", шагов по дорожкам " + java.util.Arrays.stream(LANES)
                         .map(l -> String.valueOf(l.steps.size())).toList());
             } catch (Throwable t) {
                 line("FAIL\tsetup crashed: " + t);
@@ -317,6 +317,7 @@ public final class BalanceCheck {
                 BulletCheck.finish(file, LINES, 1);
                 return;
             }
+            StandSprint.start(server);
             boolean[] over = {false};
             long[] ticks = {0};
             NeoForge.EVENT_BUS.addListener(ServerTickEvent.Post.class, e -> {
@@ -369,8 +370,9 @@ public final class BalanceCheck {
         });
     }
 
-    /** the keys back, the lines written; the run's ticks and its real time in the file */
+    /** the keys back, the sprint stopped, the lines written; the run's ticks and its real time in the file */
     private static void end(net.minecraft.server.MinecraftServer server, String file, boolean pass, long ticks, long began) {
+        StandSprint.stop(server);
         if (L != null) L.buf = null;
         flush(BUFS.size());
         L = null;
