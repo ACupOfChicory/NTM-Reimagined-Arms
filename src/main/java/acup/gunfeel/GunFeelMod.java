@@ -57,6 +57,7 @@ public final class GunFeelMod {
             acup.gunfeel.smoke.client.SmokeClientSetup.init(modBus);
             acup.gunfeel.ai.client.AiDebugClient.init();
             if (Feature.MOB_AI.on()) acup.gunfeel.ai.client.AiVoiceClient.init();
+            if (Feature.SUPPRESSION.on()) Suppression.init(modBus);
         }
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.RegisterCommandsEvent.class,
                 e -> {
@@ -64,6 +65,11 @@ public final class GunFeelMod {
                     if (Feature.GL54.on()) acup.gunfeel.gl54.MagCommand.register(e.getDispatcher());
                     acup.gunfeel.ai.AiCommand.register(e.getDispatcher());
                     acup.gunfeel.ai.imitation.ImitationCommand.register(e.getDispatcher());
+                });
+        // a vanilla blast (TNT, a creeper, a bed) near players: their suppression scale (NTM's: MixinSuppressionBlast)
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.ExplosionEvent.Detonate.class,
+                e -> {
+                    if (Feature.SUPPRESSION.on()) SuppressionServer.blast(e.getExplosion());
                 });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class,
                 e -> {
@@ -161,6 +167,9 @@ public final class GunFeelMod {
                 });
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC,
                         (p, ctx) -> ctx.enqueueWork(() -> p.handle(ctx.player().level())));
+                r.playToClient(SuppressionBlastPayload.TYPE, SuppressionBlastPayload.CODEC, (p, ctx) -> {
+                    if (Feature.SUPPRESSION.on()) ctx.enqueueWork(() -> Suppression.blast(p));
+                });
                 r.playToClient(acup.gunfeel.gl54.PressLayoutsPayload.TYPE, acup.gunfeel.gl54.PressLayoutsPayload.CODEC,
                         (p, ctx) -> ctx.enqueueWork(() -> {
                             if (Feature.GL54.on()) acup.gunfeel.gl54.PressSync.receive(p);
@@ -182,6 +191,7 @@ public final class GunFeelMod {
                 acup.gunfeel.gl54.frag.FragNet.payloads(r, false);
                 r.playToClient(acup.gunfeel.gl54.PressLayoutsPayload.TYPE, acup.gunfeel.gl54.PressLayoutsPayload.CODEC);
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC);
+                r.playToClient(SuppressionBlastPayload.TYPE, SuppressionBlastPayload.CODEC);
                 acup.gunfeel.smoke.SmokeNet.payloads(r);
                 acup.gunfeel.gas.GasSetup.payloads(r, false);
                 r.playToClient(acup.gunfeel.ai.AiCellsPayload.TYPE, acup.gunfeel.ai.AiCellsPayload.CODEC);

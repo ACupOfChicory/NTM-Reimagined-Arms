@@ -121,6 +121,9 @@ public final class Config {
     // AI mobs' call-outs (AiVoice): heard or not, and how loud, times the game's Voice/Speech slider
     public static boolean aiVoice = true;
     public static float aiVoiceVolume = 1F;
+    // suppression (Suppression): how much the screen darkens and the sounds go down for this player, 0 to 1, times the
+    // server's
+    public static float suppressionDarken = 1F, suppressionMuffle = 1F;
     public static boolean holeCache = true;
     // NTM's own blocks drawn as their textures are: on NTM Decentralized Edition (1.21.1) the reinforced laminate's
     // models ask for the cutout layer, where its half-clear texture shows opaque. Read when the models are loaded. There
@@ -320,6 +323,10 @@ public final class Config {
             aiVoice: AI mobs' call-outs heard (contact, a grenade, a reload, falling back...; the server may turn them
               off, aiVoices)
             aiVoiceVolume: how loud they are, 0 to 1, times the game's Voice/Speech slider
+            suppressionDarken: how much the screen darkens under fire (bullets past and hitting near, blasts near), 0 to 1,
+              times the server's (at most 40 % darker at the edges, 22 % in the middle)
+            suppressionMuffle: how much the other sounds go down under fire, 0 to 1, times the server's (the world's down to
+              40 %, shots, blasts and bullets down to 79 % at most)
             holeCache: bullet holes kept on the graphics card in batches, rebuilt only when a hole comes or goes, not
               every frame (false = the old way, every hole sent again each frame)
             ntmRenderFixes: NTM blocks drawn as their textures are (NTM Decentralized Edition: the reinforced laminate
@@ -563,6 +570,8 @@ public final class Config {
         hitVolume = Math.max(0F, Math.min(4F, num(p, "hitVolume", hitVolume)));
         aiVoice = bool(p, "aiVoice", aiVoice);
         aiVoiceVolume = Math.max(0F, Math.min(1F, num(p, "aiVoiceVolume", aiVoiceVolume)));
+        suppressionDarken = Math.max(0F, Math.min(1F, num(p, "suppressionDarken", suppressionDarken)));
+        suppressionMuffle = Math.max(0F, Math.min(1F, num(p, "suppressionMuffle", suppressionMuffle)));
         holeCache = bool(p, "holeCache", holeCache);
         ntmRenderFixes = bool(p, "ntmRenderFixes", ntmRenderFixes);
         armBaseRight = num(p, "armBaseRight", armBaseRight);
@@ -701,6 +710,8 @@ public final class Config {
         p.setProperty("hitVolume", Float.toString(hitVolume));
         p.setProperty("aiVoice", Boolean.toString(aiVoice));
         p.setProperty("aiVoiceVolume", Float.toString(aiVoiceVolume));
+        p.setProperty("suppressionDarken", Float.toString(suppressionDarken));
+        p.setProperty("suppressionMuffle", Float.toString(suppressionMuffle));
         p.setProperty("holeCache", Boolean.toString(holeCache));
         p.setProperty("ntmRenderFixes", Boolean.toString(ntmRenderFixes));
         p.setProperty("armBaseRight", Float.toString(armBaseRight));

@@ -85,6 +85,8 @@ public final class Tracers {
         double confirmedEnd=Double.NaN;
         Vec3 stopPoint;
         boolean whizzed; // already whizzed past the player
+        boolean suppressed; // already counted as passing the player (Suppression)
+        boolean struck; // its stop already counted near the player (Suppression)
         boolean reports; // this player's own: its hits on the drawn models go to the server (HitReports)
         volatile boolean gone; // no longer flown (its in-flight sound stops)
         float damage; // what is left of its damage (bullet rules "pierce")
@@ -144,6 +146,7 @@ public final class Tracers {
             this.pierced.addAll(from.pierced);
             this.ricochets = from.ricochets + 1;
             this.whizzed = from.whizzed;
+            this.suppressed = from.suppressed;
             this.reports = from.reports;
             this.checked = 1e-4; // not at the very face it left
             this.waterF = from.waterF;
@@ -172,6 +175,7 @@ public final class Tracers {
             this.pierced.addAll(from.pierced);
             this.ricochets = from.ricochets;
             this.whizzed = from.whizzed;
+            this.suppressed = from.suppressed;
             this.reports = from.reports;
             this.waterF = f;
             this.waterSkips = skips;
@@ -419,11 +423,13 @@ public final class Tracers {
         if (recent != null) for (var shot : pieces) if (found < 0 || shot.born > recent.born) {
             shot.confirmedEnd = 0;
             shot.end = 0;
+            shot.struck = true; // never flown: no stop of its own
         }
         for(var shot:SHOTS)if(shot.id==packet.shot() && (recent==null || shot.born==recent.born)) {
             shot.confirmedEnd=Math.max(0,packet.age()-(shot.born-shot.rootBorn));
             shot.end=shot.checked>=shot.confirmedEnd?shot.confirmedEnd:Double.NaN;
             shot.stopPoint=packet.point();
+            strike(shot);
         }
     }
     private static final List<Shot> BOUNCED = new ArrayList<>(); // bullets that bounced off this frame, flown from the next
@@ -897,7 +903,13 @@ public final class Tracers {
                 hit(level, block, s.config, dir.scale(1.0 / len), s.config.onImpact != null);
             }
         }
-        if (!s.whizzed) s.whizzed = BulletFx.whizz(level, s.owner, ra, stop, s.speed);
+        if (!s.whizzed || !s.suppressed) {
+            BulletFx.Pass pass = BulletFx.pass(s.owner, ra, stop);
+            if (pass != null) {
+                if (!s.whizzed) s.whizzed = BulletFx.whizz(level, pass, s.speed);
+                if (!s.suppressed) s.suppressed = Suppression.pass(s.owner, s.config, pass.d(), s.speed);
+            }
+        }
         // blocks it flew through on the way (leaves): their crumbs, no hole
         if (len > 1e-6) {
             double far = stop.distanceToSqr(ra);
@@ -913,7 +925,15 @@ public final class Tracers {
         // how far its path is tested: done when it stopped and goes on as no other piece
         if (s.reports) HitReports.tested(s.id, Double.isNaN(s.end) ? s.born - s.rootBorn + t
                 : goesOn(s) ? s.born - s.rootBorn + s.end : Double.POSITIVE_INFINITY);
+        strike(s);
         TestLog.shot(-1);
+    }
+
+    // the piece stopped and goes on as no other (a bounce, water's turn): where it stopped counts near the player once
+    private static void strike(Shot s) {
+        if (s.struck || Double.isNaN(s.end) || goesOn(s)) return;
+        s.struck = true;
+        Suppression.impact(s.owner, s.config, s.at(s.end), s.speed);
     }
 
     // a piece of the same bullet begun after this one (a bounce, water's turn)
