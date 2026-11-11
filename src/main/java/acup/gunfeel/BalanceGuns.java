@@ -68,6 +68,12 @@ public final class BalanceGuns {
     /** the server's settings the table was last read from (null: this game's file or the jar) */
     private static ServerSettings.Snapshot tableRemote;
 
+    /** the table read again at the next look, whatever the clock (ReaimTimes.reloadNow) */
+    static synchronized void reloadNow() {
+        lastPoll = Long.MIN_VALUE / 2;
+        tableStamp = Long.MIN_VALUE;
+    }
+
     static synchronized BalanceGunsRule.Table table() {
         ServerSettings.Snapshot remote = ServerSettings.remote();
         if (remote != null) {

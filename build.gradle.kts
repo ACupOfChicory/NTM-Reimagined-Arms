@@ -394,6 +394,8 @@ neoForge {
             // -PbalanceCells=<file>: the pass "mx", the model's cells (BalanceCheck.planMatrix)
             providers.gradleProperty("balanceCells").orNull?.let { systemProperty("ntmgunfeel.checkBalance.cells", it) }
             providers.gradleProperty("balanceCellHits").orNull?.let { systemProperty("ntmgunfeel.checkBalance.cellHits", "true") }
+            // -PbalanceLanes=<n>: n pairs of shooter and target at once, the cases of a pass shared out (8; 1: one pair)
+            providers.gradleProperty("balanceLanes").orNull?.let { systemProperty("ntmgunfeel.checkBalance.lanes", it) }
         }
         // the new gun mechanisms and their recipes (MechanismCheck): ./gradlew runCheckMechanisms -PnoAssets
         register("checkMechanisms") {

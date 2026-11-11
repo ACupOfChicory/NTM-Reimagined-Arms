@@ -237,6 +237,12 @@ public final class DamageCap {
         }
     }
 
+    /** the stand: what was taken off {@code target} forgotten (its ledgers, by every shooter) */
+    static void forget(LivingEntity target) {
+        LEDGERS.remove(target.getUUID());
+        SHIELD_BEFORE.remove(target);
+    }
+
     /** the stand: everything forgotten */
     static void forget() {
         LEDGERS.clear();
