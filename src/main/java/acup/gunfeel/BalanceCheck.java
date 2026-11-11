@@ -2728,15 +2728,34 @@ public final class BalanceCheck {
         int am = ((com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase) ar.getMagazine(a)).capacity;
         String seen = "Heretic пауза " + hr.getDelayAfterFire(h) + ", авто " + hr.getRefireOnHold(h) + ", магазин " + hm + "; AM180 пауза "
                 + ar.getDelayAfterFire(a) + ", магазин " + am + "; Penance " + delay(ModItems.GUN_AMAT_PENANCE.get()) + ", Subtlety "
-                + delay(ModItems.GUN_AMAT_SUBTLETY.get()) + ", MAS-36 " + delay(ModItems.GUN_MAS36.get()) + "; Morning Glory база " + f(gr.getBaseDamage(g));
+                + delay(ModItems.GUN_AMAT_SUBTLETY.get()) + ", MAS-36 " + delay(ModItems.GUN_MAS36.get()) + "; Morning Glory база " + f(gr.getBaseDamage(g))
+                + "; Aberrator магазин " + mags(ModItems.GUN_ABERRATOR.get()) + ", Eyes of the Tempest " + mags(ModItems.GUN_ABERRATOR_EOTT.get());
         boolean want = on
                 ? hr.getDelayAfterFire(h) == 12 && !hr.getRefireOnHold(h) && hm == 24 && ar.getDelayAfterFire(a) == 3 && am == 60
                         && delay(ModItems.GUN_AMAT_PENANCE.get()) == 15 && delay(ModItems.GUN_AMAT_SUBTLETY.get()) == 17 && delay(ModItems.GUN_MAS36.get()) == 17
-                        && gr.getBaseDamage(g) == 40F
+                        && gr.getBaseDamage(g) == 40F && mags(ModItems.GUN_ABERRATOR.get()).equals("9") && mags(ModItems.GUN_ABERRATOR_EOTT.get()).equals("8 8")
                 : hr.getDelayAfterFire(h) == 3 && hr.getRefireOnHold(h) && hm == 250 && ar.getDelayAfterFire(a) == 1 && am == 177
                         && delay(ModItems.GUN_AMAT_PENANCE.get()) == 25 && delay(ModItems.GUN_AMAT_SUBTLETY.get()) == 25 && delay(ModItems.GUN_MAS36.get()) == 25
-                        && gr.getBaseDamage(g) == 20F;
+                        && gr.getBaseDamage(g) == 20F && mags(ModItems.GUN_ABERRATOR.get()).equals("5") && mags(ModItems.GUN_ABERRATOR_EOTT.get()).equals("5 5");
         check(want, mode + ", стволы " + (on ? "по таблице" : "как в NTM") + ": " + seen);
+        // balance.immune.reloadHold: a shot and the reload from empty, ticks, as the model has them (Henry and Lincoln
+        // past the hold's 200, the rest under it)
+        int henry = EuphImmunity.reachOf(new ItemStack(ModItems.GUN_HENRY.get())), lincoln = EuphImmunity.reachOf(new ItemStack(ModItems.GUN_HENRY_LINCOLN.get())),
+                heavy = EuphImmunity.reachOf(new ItemStack(ModItems.GUN_HEAVY_REVOLVER.get())), light = EuphImmunity.reachOf(new ItemStack(ModItems.GUN_LIGHT_REVOLVER.get()));
+        check(henry == 210 && lincoln == 210 && heavy == 60 && light == 66, mode + ", выстрел и перезарядка с пустого: Henry " + henry + ", Lincoln " + lincoln
+                + ", Heavy Revolver " + heavy + ", Break-Action " + light + " тиков (ждали 210, 210, 60, 66)");
+    }
+
+    /** the magazines of a gun's configs (akimbo: both), by spaces */
+    private static String mags(Item item) {
+        ItemStack stack = new ItemStack(item);
+        ItemGunBaseNT gun = (ItemGunBaseNT) item;
+        StringBuilder out = new StringBuilder();
+        for (int c = 0; c < gun.getConfigCount(); c++) {
+            if (c > 0) out.append(' ');
+            out.append(gun.getConfig(stack, c).getReceivers(stack)[0].getMagazine(stack).getCapacity(stack));
+        }
+        return out.toString();
     }
 
     private static void pair1b(Pair1b p, String mode, boolean guns) {
