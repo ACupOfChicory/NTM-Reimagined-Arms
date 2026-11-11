@@ -1,5 +1,9 @@
 # Changelog
 
+## X885
+
+- The 20 mm grenades' coloured nose is shaded anew: even bands along the round, in the same six shades.
+
 ## X884
 
 - Atlas beats the Break-Action Revolver on the .357 AP round: it took tier 6 and
