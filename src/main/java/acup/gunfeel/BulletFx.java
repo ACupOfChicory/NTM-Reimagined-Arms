@@ -439,22 +439,32 @@ public final class BulletFx {
                 net.minecraft.world.level.block.Blocks.IRON_BLOCK.defaultBlockState());
     }
 
-    // a stretch a bullet flew this frame, a..b: it whizzes when it passed within the rule's radius of the player's eyes
-    // (not the player's own bullets); true when it did, so it whizzes once
-    public static boolean whizz(ClientLevel level, int owner, Vec3 a, Vec3 b, double speed) {
-        if (!Config.bulletFx) return false;
+    // a bullet passing the player: the nearest point of its stretch to the eyes, and how far
+    public record Pass(Vec3 near, double d) {
+    }
+
+    // a stretch a bullet flew this frame, a..b, as it passes the player's eyes: the nearest point is along the stretch,
+    // not its end (else it is still coming or already gone); null when it is not, or it is the player's own bullet.
+    // The one pass both the whizz and the suppression go by (Tracers)
+    public static @Nullable Pass pass(int owner, Vec3 a, Vec3 b) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || owner == mc.player.getId()) return false;
-        BulletRules.Whizz w = BulletRules.whizz();
-        if (w.sound() == null || w.radius() <= 0F) return false;
+        if (mc.player == null || owner == mc.player.getId()) return null;
         Vec3 eye = mc.player.getEyePosition();
         Vec3 ab = b.subtract(a);
         double l2 = ab.lengthSqr();
         double k = l2 < 1e-9 ? 0.0 : Math.clamp(eye.subtract(a).dot(ab) / l2, 0.0, 1.0);
-        // the nearest point must be along the stretch, not its end: else it is still coming or already gone
-        if (l2 >= 1e-9 && (k <= 0.0 || k >= 1.0)) return false;
+        if (l2 >= 1e-9 && (k <= 0.0 || k >= 1.0)) return null;
         Vec3 near = a.add(ab.scale(k));
-        double d = near.distanceTo(eye);
+        return new Pass(near, near.distanceTo(eye));
+    }
+
+    // the bullet whizzes when it passed within the rule's radius of the player's eyes; true when it did, so it whizzes once
+    public static boolean whizz(ClientLevel level, Pass p, double speed) {
+        if (!Config.bulletFx) return false;
+        BulletRules.Whizz w = BulletRules.whizz();
+        if (w.sound() == null || w.radius() <= 0F) return false;
+        Vec3 near = p.near();
+        double d = p.d();
         if (d > w.radius()) return false;
         SoundEvent e = event(w.sound().id());
         if (e == null) return false;

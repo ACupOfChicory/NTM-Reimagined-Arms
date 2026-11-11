@@ -31,6 +31,7 @@
   "ntmgunfeel.gl54.range_tooltip": "%s while aiming: measure the range",
   "ntmgunfeel.gl54.offset_tooltip": "%s while aiming: burst offset",
   "ntmgunfeel.gl54.wheel": "Wheel",
+  "ntmgunfeel.feature.suppression": "Suppression under fire",
   "ntmgunfeel.feature.prone_fire": "No shot while crawling",
   "ntmgunfeel.feature.mob_ai": "Mob AI",
   "ntmgunfeel.feature.balance": "Armour balance",

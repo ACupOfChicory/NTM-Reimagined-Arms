@@ -31,6 +31,7 @@
   "ntmgunfeel.gl54.range_tooltip": "%s в прицеле: замерить дальность",
   "ntmgunfeel.gl54.offset_tooltip": "%s в прицеле: сдвиг разрыва",
   "ntmgunfeel.gl54.wheel": "Колесо",
+  "ntmgunfeel.feature.suppression": "Подавление огнём",
   "ntmgunfeel.feature.prone_fire": "Нет выстрела ползком",
   "ntmgunfeel.feature.mob_ai": "ИИ мобов",
   "ntmgunfeel.feature.balance": "Баланс брони",
