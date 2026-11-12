@@ -81,6 +81,8 @@ public final class BalanceFinal {
         }
         PAIR.put(projectile, id);
         LAST.put(shooter, new Last(id, shooter.level().getGameTime()));
+        var count = standShots;
+        if (count != null) count.merge(shooter, 1, Integer::sum);
         if (BalanceLog.on()) BalanceLog.shot(projectile, shooter, gunItem);
     }
 
@@ -100,6 +102,9 @@ public final class BalanceFinal {
         }
         return BalanceGuns.ammoName(ammo);
     }
+
+    /** the stand (pass ps): the projectiles each shooter fired, counted while not null */
+    static volatile Map<Entity, Integer> standShots;
 
     /** a submunition of {@code thrower}'s (made from a shot of its, the Shredder's plasma): the pair it has just fired */
     public static void submunition(Entity projectile, LivingEntity thrower) {
@@ -695,6 +700,11 @@ public final class BalanceFinal {
         Double round = r.rounds().get(pair.substring(dot + 1));
         if (l == null || round == null) return Double.NaN;
         return BalanceBlastRule.nearLauncher(l, BalanceBlastRule.target(BalanceBlastRule.pairTier(l, round, r.cap()), a, s.params(), r));
+    }
+
+    /** the stand: the scheme's pairs by id (gun.ammo) */
+    static Map<String, BalanceFinalRule.Pair> pairs() {
+        return state().pairs();
     }
 
     /** the stand: the hit clicks of a pair on a set by the model's or NTM's names (NaN: no such pair or set) */

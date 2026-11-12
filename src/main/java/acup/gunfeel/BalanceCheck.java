@@ -545,7 +545,7 @@ public final class BalanceCheck {
     private static void plan() {
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg", "ps", "tb").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         // the passes check the machine of X908 (formula C, the gun table): the final scheme off, its cells and team lines
         // turn it on by a key line (balance.final true)
@@ -572,6 +572,8 @@ public final class BalanceCheck {
         if (only("bx")) planBlastLadder();
         if (only("rg")) planRange();
         if (only("lg")) planLog();
+        if (only("ps")) planShare();
+        if (only("tb")) planTrenchBlock();
     }
 
     // ---------------------------------------------------------------- melee and the flamethrower (hotfix X867)
@@ -1496,6 +1498,191 @@ public final class BalanceCheck {
         }
         STEPS.add(() -> line("rg\t" + p[0] + "\t" + p[1] + "\t" + p[2] + "\t" + d + "\t" + String.format(Locale.ROOT, "%.5f", took[0] / RG_CLICKS) + "\t"
                 + f(hits[0] / (float) RG_CLICKS) + "\t" + String.format(Locale.ROOT, "%.4f", BalanceFinal.hitClicks(p[0] + "." + p[1], p[2]))));
+    }
+
+    // ---------------------------------------------------------------- the share of hits by one measure (Fable 2026-11-12 №2, pass ps)
+
+    /** the role's working distance the share of hits is measured at (Fable №2, 1): shot and slug 7, pistol, SMG, MG 12, rifle and beam 20, sniper 30 */
+    static int homeOf(BalanceFinalRule.Pair pr) {
+        if (pr.gun().equals("autoshotgun_shredder")) return 7;
+        return switch (pr.role()) {
+            case "shotgun", "slug" -> 7;
+            case "pistol", "smg", "mg" -> 12;
+            case "sniper" -> 30;
+            default -> 20;
+        };
+    }
+
+    /**
+     * The pass ps: every pair of the scheme's file, the shooter standing (aimed, then from the hip), the target bare and
+     * standing at the role's working distance; an automatic fires a held burst of at least 3 s (a click every interval:
+     * the bloom as held), the rest clicks at the gun's pace; at least 200 projectiles (a shotgun's shot: 25 clicks). The
+     * spread's settings are the server's defaults. A line: the projectiles fired (clicks × pellets × rounds × hands),
+     * the hits the target took, their share.
+     */
+    private static void planShare() {
+        line("#\t--- ps: доля попаданий единой меркой (Fable №2), стрелок стоит, цель на рабочей дистанции роли, без брони");
+        line("#\tps\tgun\tammo\trole\thome\tmode\tclicks\tprojectiles\thits\tshare");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "false", "damageCapMobs", "false", "balance.final.range", "off");
+            // -PbalanceShareKeys="key=value ...": server keys of this run of the pass (the spread's, to take a part of it apart)
+            for (String kv : System.getProperty("ntmgunfeel.checkBalance.shareKeys", "").trim().split("\\s+")) {
+                int eq = kv.indexOf('=');
+                if (eq > 0) keys(kv.substring(0, eq), kv.substring(eq + 1));
+            }
+            BalanceFinal.standShots = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+            eachLane(() -> {
+                L.shooter.setInvulnerable(true);
+                for (int cx = (L.o.getX() - 8) >> 4; cx <= (L.o.getX() + 8) >> 4; cx++)
+                    for (int cz = (L.o.getZ() - 8) >> 4; cz <= (L.o.getZ() + 40) >> 4; cz++) level.setChunkForced(cx, cz, true);
+            });
+        });
+        wait(40);
+        String onlyPairs = System.getProperty("ntmgunfeel.checkBalance.share", "").trim();
+        java.util.Set<String> want = onlyPairs.isEmpty() ? null : java.util.Set.of(onlyPairs.split("\\s*,\\s*"));
+        List<Runnable> run = new ArrayList<>();
+        for (var pr : BalanceFinal.pairs().values()) {
+            if (want != null && !want.contains(pr.id()) && !want.contains(pr.gun())) continue;
+            Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + pr.gun()));
+            BulletConfig ammo = ammoNamed(gun, pr.ammo());
+            if (ammo == null) {
+                line("ps\t" + pr.gun() + "\t" + pr.ammo() + "\tнет патрона");
+                continue;
+            }
+            for (boolean aimed : new boolean[] {true, false}) run.add(() -> shareCell(pr, gun, ammo, aimed));
+        }
+        parallel(run);
+        STEPS.add(() -> {
+            BalanceFinal.standShots = null;
+            eachLane(() -> {
+                L.shooter.setInvulnerable(false);
+                L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+            });
+        });
+        wait(10);
+    }
+
+    private static void shareCell(BalanceFinalRule.Pair pr, Item gun, BulletConfig ammo, boolean aimed) {
+        // -PbalanceShareDist=<blocks>: one distance for all in place of the role's
+        int d = Integer.getInteger("ntmgunfeel.checkBalance.shareDist", homeOf(pr)), iv = BalanceFinalRule.intervalTicks(pr);
+        double proj = pr.projectiles();
+        int want = aimed ? 200 : 100;
+        int clicks = pr.pellets() >= 4 ? (aimed ? 25 : 13) : (int) Math.ceil(want / proj);
+        if (pr.auto()) clicks = Math.max(clicks, (int) Math.ceil(60.0 / iv));
+        int n = clicks;
+        int[] seen = {0};
+        STEPS.add(() -> {
+            begin(L.target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            wearAttributes(L.target);
+            EuphImmunity.forget(L.target);
+            L.shooter.setDeltaMovement(Vec3.ZERO);
+            L.shooter.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlockAndUpdate(L.o.offset(x, -1, d + z), Blocks.STONE.defaultBlockState());
+            L.target.setDeltaMovement(Vec3.ZERO);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + d, 180F, 0F);
+            L.aimHead = false;
+        });
+        // the bloom of the cell before gone (it halves every 5 ticks)
+        wait(40);
+        int[] shots = {0};
+        STEPS.add(() -> {
+            seen[0] = L.seen.hits;
+            var m = BalanceFinal.standShots;
+            shots[0] = m == null ? 0 : m.getOrDefault(L.shooter, 0);
+        });
+        for (int c = 0; c < n; c++) {
+            STEPS.add(() -> {
+                L.target.setHealth(L.target.getMaxHealth());
+                L.target.setAbsorptionAmount(0F);
+                L.target.setDeltaMovement(Vec3.ZERO);
+                L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + d, 180F, 0F);
+                L.shooter.setDeltaMovement(Vec3.ZERO);
+                // akimbo: both guns a click (the pair's hands)
+                if (aimed) fireAimed(L.shooter, gun, ammo, pr.hands() > 1);
+                else fireBoth(L.shooter, gun, ammo, pr.hands() > 1);
+            });
+            for (int t = 1; t < iv; t++) STEPS.add(() -> L.target.setHealth(L.target.getMaxHealth()));
+        }
+        for (int t = 0; t < 30; t++) STEPS.add(() -> L.target.setHealth(L.target.getMaxHealth()));
+        STEPS.add(() -> {
+            int hits = L.seen.hits - seen[0];
+            double fired = n * proj;
+            var m = BalanceFinal.standShots;
+            int out = (m == null ? 0 : m.getOrDefault(L.shooter, 0)) - shots[0];
+            line("ps\t" + pr.gun() + "\t" + pr.ammo() + "\t" + pr.role() + "\t" + d + "\t" + (aimed ? "aim" : "hip") + "\t" + n + "\t" + String.format(Locale.ROOT, "%.0f", fired)
+                    + "\t" + hits + "\t" + String.format(Locale.ROOT, "%.4f", hits / fired) + "\tshots " + out);
+        });
+    }
+
+    // ---------------------------------------------------------------- Trenchmaster's block with the scheme on (pass tb)
+
+    private static final String[][] TB_PAIRS = {{"g3", "r556_fmj"}, {"spas12", "g12"}, {"laser_pistol", "capacitor"}};
+
+    /**
+     * The pass tb: a bullet, a shotgun's shot and a beam at 4 blocks, aimed, on HEV and on Trenchmaster, the scheme on:
+     * the hits that came to the damage (NTM's filterAttack blocks one in three of a full Trenchmaster's before it).
+     */
+    private static void planTrenchBlock() {
+        line("#\t--- tb: гашение Trenchmaster при balance.final (filterAttack), 4 бл, прицельно");
+        line("#\ttb\tgun\tammo\tset\tclicks\tprojectiles\thits\tshare");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "false", "damageCapMobs", "false", "balance.final.range", "off");
+            eachLane(() -> L.shooter.setInvulnerable(true));
+        });
+        wait(20);
+        List<Runnable> run = new ArrayList<>();
+        for (String[] p : TB_PAIRS) {
+            Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + p[0]));
+            BulletConfig ammo = ammoNamed(gun, p[1]);
+            var pr = BalanceFinal.pairs().get(p[0] + "." + p[1]);
+            if (ammo == null || pr == null) {
+                line("tb\t" + p[0] + "\t" + p[1] + "\tнет патрона");
+                continue;
+            }
+            for (String set : new String[] {"hev", "trenchmaster"}) run.add(() -> trenchCell(pr, gun, ammo, set));
+        }
+        parallel(run);
+        STEPS.add(() -> eachLane(() -> {
+            L.shooter.setInvulnerable(false);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            wearAttributes(L.target);
+        }));
+        wait(10);
+    }
+
+    private static void trenchCell(BalanceFinalRule.Pair pr, Item gun, BulletConfig ammo, String set) {
+        int iv = BalanceFinalRule.intervalTicks(pr);
+        double proj = pr.projectiles();
+        int n = (int) Math.ceil(90 / proj);
+        int[] seen = {0};
+        STEPS.add(() -> {
+            begin(L.target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            dress(L.target, set, true);
+            wearAttributes(L.target);
+            EuphImmunity.forget(L.target);
+            L.target.setDeltaMovement(Vec3.ZERO);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+            L.aimHead = false;
+        });
+        wait(20);
+        STEPS.add(() -> seen[0] = L.seen.hits);
+        for (int c = 0; c < n; c++) {
+            STEPS.add(() -> {
+                L.target.setHealth(L.target.getMaxHealth());
+                L.target.setDeltaMovement(Vec3.ZERO);
+                L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+                fireAimed(L.shooter, gun, ammo);
+            });
+            for (int t = 1; t < Math.max(iv, 4); t++) STEPS.add(() -> L.target.setHealth(L.target.getMaxHealth()));
+        }
+        for (int t = 0; t < 20; t++) STEPS.add(() -> L.target.setHealth(L.target.getMaxHealth()));
+        STEPS.add(() -> {
+            int hits = L.seen.hits - seen[0];
+            line("tb\t" + pr.gun() + "\t" + pr.ammo() + "\t" + set + "\t" + n + "\t" + String.format(Locale.ROOT, "%.0f", n * proj) + "\t" + hits + "\t"
+                    + String.format(Locale.ROOT, "%.4f", hits / (n * proj)));
+        });
     }
 
     // ---------------------------------------------------------------- Fable's fight log (pass lg)
@@ -3408,15 +3595,31 @@ public final class BalanceCheck {
 
     /** a primary click through the sights (the gun's aiming spread, Fable's "aimed standing") */
     private static void fireAimed(LivingEntity from, Item item, BulletConfig ammo) {
+        fireAimed(from, item, ammo, false);
+    }
+
+    /** the same, with {@code both}: the secondary key too (an akimbo's other gun) */
+    private static void fireAimed(LivingEntity from, Item item, BulletConfig ammo, boolean both) {
+        fireKeys(from, item, ammo, true, both);
+    }
+
+    /** a click from the hip, with {@code both} the secondary key too */
+    private static void fireBoth(LivingEntity from, Item item, BulletConfig ammo, boolean both) {
+        fireKeys(from, item, ammo, false, both);
+    }
+
+    private static void fireKeys(LivingEntity from, Item item, BulletConfig ammo, boolean aimed, boolean both) {
         ItemStack stack = loaded(item, ammo);
-        ItemGunBaseNT.setIsAiming(stack, true);
+        if (aimed) ItemGunBaseNT.setIsAiming(stack, true);
         from.setItemSlot(EquipmentSlot.MAINHAND, stack);
         aim(from, L.victim);
         var gun = (ItemGunBaseNT) stack.getItem();
         SimpleContainer inv = new SimpleContainer(1);
         if (ammo.ammoItem != null) inv.setItem(0, new ItemStack(ammo.ammoItem.get(), 64));
         gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_PRIMARY, true);
+        if (both) gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_SECONDARY, true);
         gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_PRIMARY, false);
+        if (both) gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_SECONDARY, false);
     }
 
     private static void aim(LivingEntity from, LivingEntity at) {
