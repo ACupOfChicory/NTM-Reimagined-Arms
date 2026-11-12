@@ -123,7 +123,8 @@ public final class BalanceFinalRule {
             double g = a <= tier + full + 1e-9 ? 1.0 : fade > 0 ? Math.max(0.0, 1.0 - (a - tier - full) / fade) : 0.0;
             double shift = tiers * Math.min(1.0, k / K_MAX) * g;
             shift = Math.rint(shift / 0.05) * 0.05;
-            return shift <= 0 ? a : a - shift;
+            // no lower than bare: the acid has nothing to eat on a bare body
+            return shift <= 0 || a <= 0 ? a : Math.max(0.0, a - shift);
         }
 
         /** "tiers=1.0 tier=4 full=+1 fade=3"; "off": off; a broken entry is left out */

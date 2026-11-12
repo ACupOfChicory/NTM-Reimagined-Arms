@@ -198,6 +198,9 @@ class BalanceFinalRuleTest {
         assertEquals(8.0, a.tierOf(8, 0.75), 1e-9);
         assertEquals(9.0, a.tierOf(9, 0.75), 1e-9);
         assertEquals(4.0, a.tierOf(4, 0), 1e-9);
+        // bare and nearly bare: not below 0
+        assertEquals(0.0, a.tierOf(0, 0.75), 1e-9);
+        assertEquals(0.0, a.tierOf(0.5, 0.75), 1e-9);
         assertEquals(4.0, BalanceFinalRule.Acid.parse("off", a).tierOf(4, 0.75), 1e-9);
         assertEquals(2.5, BalanceFinalRule.Acid.parse("tiers=1.5 junk", BalanceFinalRule.Acid.DEFAULT).tierOf(4, 0.75), 1e-9);
     }
