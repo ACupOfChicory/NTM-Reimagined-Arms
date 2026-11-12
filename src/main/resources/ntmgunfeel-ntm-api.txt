@@ -463,6 +463,7 @@ CORE field com/hbm/items/weapon/sedna/factory/XFactoryBlackPowder iron Lcom/hbm/
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryBlackPowder shot Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryBlackPowder stone Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryEnergy energy_las Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactoryEnergy energy_tesla_ir_sub Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryEnergy energy_tesla_overcharge Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryFlamer flame_daybreaker_diesel Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactoryFlamer flame_diesel Lcom/hbm/items/weapon/sedna/BulletConfig;
