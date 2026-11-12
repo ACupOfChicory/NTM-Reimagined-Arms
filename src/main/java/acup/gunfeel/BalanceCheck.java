@@ -550,6 +550,8 @@ public final class BalanceCheck {
     }
 
     private static void plan() {
+        // -PbalanceTestLog=true: the server's test log on (each shot's spread, TestLog), its file in the result
+        if (Boolean.getBoolean(PROPERTY + ".testLog")) line("#\ttest log " + TestLog.set(false, true));
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
             if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg", "ps", "tb", "g4").contains(p)) throw new IllegalArgumentException("no pass " + p);
@@ -558,31 +560,37 @@ public final class BalanceCheck {
         // turn it on by a key line (balance.final true)
         STEPS.add(() -> keys("balance.final", String.valueOf(Boolean.getBoolean(PROPERTY + ".final")), "balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula"));
         wait(30);
-        if (only("2")) plan2();
-        if (only("1g")) planAbilities();
-        if (only("1v")) planRecipes();
-        if (only("1a")) plan1a();
-        if (only("1b")) plan1b();
-        if (only("dns")) planDns();
-        if (only("kit")) planKit();
-        if (only("db")) planDb();
-        if (only("hi")) planHigh();
-        if (only("expl")) planExpl();
-        if (only("esp")) planEsp();
-        if (only("pool")) planPool();
-        if (only("pep")) planPep();
-        if (only("hot")) planHot();
-        if (only("mx")) planMatrix();
-        if (only("team")) planTeam();
-        if (only("cheese")) planCheese();
-        if (only("frag")) planFrag();
-        if (only("bx")) planBlastLadder();
-        if (only("rg")) planRange();
-        if (only("lg")) planLog();
-        if (only("ps")) planShare();
-        if (only("tb")) planTrenchBlock();
+        if (only("2")) pass("2", BalanceCheck::plan2);
+        if (only("1g")) pass("1g", BalanceCheck::planAbilities);
+        if (only("1v")) pass("1v", BalanceCheck::planRecipes);
+        if (only("1a")) pass("1a", BalanceCheck::plan1a);
+        if (only("1b")) pass("1b", BalanceCheck::plan1b);
+        if (only("dns")) pass("dns", BalanceCheck::planDns);
+        if (only("kit")) pass("kit", BalanceCheck::planKit);
+        if (only("db")) pass("db", BalanceCheck::planDb);
+        if (only("hi")) pass("hi", BalanceCheck::planHigh);
+        if (only("expl")) pass("expl", BalanceCheck::planExpl);
+        if (only("esp")) pass("esp", BalanceCheck::planEsp);
+        if (only("pool")) pass("pool", BalanceCheck::planPool);
+        if (only("pep")) pass("pep", BalanceCheck::planPep);
+        if (only("hot")) pass("hot", BalanceCheck::planHot);
+        if (only("mx")) pass("mx", BalanceCheck::planMatrix);
+        if (only("team")) pass("team", BalanceCheck::planTeam);
+        if (only("cheese")) pass("cheese", BalanceCheck::planCheese);
+        if (only("frag")) pass("frag", BalanceCheck::planFrag);
+        if (only("bx")) pass("bx", BalanceCheck::planBlastLadder);
+        if (only("rg")) pass("rg", BalanceCheck::planRange);
+        if (only("lg")) pass("lg", BalanceCheck::planLog);
+        if (only("ps")) pass("ps", BalanceCheck::planShare);
+        if (only("tb")) pass("tb", BalanceCheck::planTrenchBlock);
         // asked by name only: the final scheme on in it whatever the run's
-        if (asked.contains("g4")) planAcidGas();
+        if (asked.contains("g4")) pass("g4", BalanceCheck::planAcidGas);
+    }
+
+    /** a pass planned, its start marked in the test log (-PbalanceTestLog: which pass a shot's spread is of) */
+    private static void pass(String name, Runnable plan) {
+        if (Boolean.getBoolean(PROPERTY + ".testLog")) STEPS.add(() -> TestLog.at(level, "pass", "name", name));
+        plan.run();
     }
 
     // ---------------------------------------------------------------- melee and the flamethrower (hotfix X867)
@@ -1532,12 +1540,16 @@ public final class BalanceCheck {
         };
     }
 
+    /** the clicks of the passes that measure the share of hits (ps, mx at the role's distance) with the shooter in the air */
+    private static int airClicks;
+
     /**
      * The pass ps: every pair of the scheme's file, the shooter standing (aimed, then from the hip), the target bare and
      * standing at the role's working distance; an automatic fires a held burst of at least 3 s (a click every interval:
-     * the bloom as held), the rest clicks at the gun's pace; at least 200 projectiles (a shotgun's shot: 25 clicks). The
-     * spread's settings are the server's defaults. A line: the projectiles fired (clicks × pellets × rounds × hands),
-     * the hits the target took, their share.
+     * the bloom as held), the rest clicks at the gun's pace; at least 200 projectiles (a shotgun's shot: 25 clicks;
+     * -PbalanceShareShots another number). The spread's settings are the server's defaults. A line: the projectiles
+     * fired (clicks × pellets × rounds × hands), the hits the target took, their share. The shooter on the ground at
+     * every click (Spread.inAir: no), or the pass is red.
      */
     private static void planShare() {
         line("#\t--- ps: доля попаданий единой меркой (Fable №2), стрелок стоит, цель на рабочей дистанции роли, без брони");
@@ -1550,6 +1562,7 @@ public final class BalanceCheck {
                 if (eq > 0) keys(kv.substring(0, eq), kv.substring(eq + 1));
             }
             BalanceFinal.standShots = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+            airClicks = 0;
             eachLane(() -> {
                 L.shooter.setInvulnerable(true);
                 for (int cx = (L.o.getX() - 8) >> 4; cx <= (L.o.getX() + 8) >> 4; cx++)
@@ -1578,6 +1591,7 @@ public final class BalanceCheck {
         parallel(run);
         STEPS.add(() -> {
             BalanceFinal.standShots = null;
+            check(airClicks == 0, "ps: стрелок на земле на каждом клике (в воздухе " + airClicks + ")");
             eachLane(() -> {
                 L.shooter.setInvulnerable(false);
                 L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
@@ -1596,7 +1610,8 @@ public final class BalanceCheck {
     private static void shareCell(BalanceFinalRule.Pair pr, Item gun, BulletConfig ammo, boolean aimed, int d, boolean crouch) {
         int iv = BalanceFinalRule.intervalTicks(pr);
         double proj = pr.projectiles();
-        int want = aimed ? 200 : 100;
+        // -PbalanceShareShots=<n>: this many projectiles an aimed cell (from the hip half), in place of 200
+        int asked = Integer.getInteger(PROPERTY + ".shareShots", 200), want = aimed ? asked : Math.max(1, asked / 2);
         int clicks = pr.pellets() >= 4 ? (aimed ? 25 : 13) : (int) Math.ceil(want / proj);
         if (pr.auto()) clicks = Math.max(clicks, (int) Math.ceil(60.0 / iv));
         int n = clicks;
@@ -1628,6 +1643,9 @@ public final class BalanceCheck {
                 L.target.setDeltaMovement(Vec3.ZERO);
                 L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + d, 180F, 0F);
                 L.shooter.setDeltaMovement(Vec3.ZERO);
+                // standing on the floor: a mannequin that never moves is never told it landed (Spread.inAir: spreadAir)
+                L.shooter.setOnGround(true);
+                if (Spread.inAir(L.shooter)) airClicks++;
                 // crouched: NTM's spread through Spread.apply takes isCrouching (spreadSneak)
                 if (crouch) L.shooter.setPose(net.minecraft.world.entity.Pose.CROUCHING);
                 // akimbo: both guns a click (the pair's hands)
