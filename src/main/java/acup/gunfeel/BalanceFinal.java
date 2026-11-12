@@ -113,6 +113,28 @@ public final class BalanceFinal {
         if (l != null && thrower.level().getGameTime() - l.tick() <= 2) PAIR.put(projectile, l.pair());
     }
 
+    /** the Tesla Cannon's IR arcs that took their shooter's pair (beamSub) */
+    private static final Map<Entity, Boolean> IR_SUBS = Collections.synchronizedMap(new WeakHashMap<>());
+
+    /**
+     * a beam made by the 3-argument constructor (MixinBalanceFinalBeamSub): the IR capacitor's arc (energy_tesla_ir_sub)
+     * takes the pair its shooter has just fired (balance.final.tesla.ir; Fable №2, 2.5). Its hit on the creature the
+     * click's arc has just struck is nothing (againThisTick): an IR click is the table's click; on anyone else, a click
+     * of the pair. Off: the arc has no pair and its damage is not the scheme's (X922).
+     */
+    public static void beamSub(Entity beam, LivingEntity thrower, com.hbm.items.weapon.sedna.BulletConfig config) {
+        if (beam == null || thrower == null || thrower.level().isClientSide() || !on()) return;
+        try {
+            if (config != com.hbm.items.weapon.sedna.factory.XFactoryEnergy.energy_tesla_ir_sub || !ReaimTimes.flag("balance.final.tesla.ir", true)) return;
+        } catch (RuntimeException | LinkageError e) {
+            return;
+        }
+        Last l = LAST.get(thrower);
+        if (l == null || thrower.level().getGameTime() - l.tick() > 2) return;
+        PAIR.put(beam, l.pair());
+        IR_SUBS.put(beam, Boolean.TRUE);
+    }
+
     /** the ammo name of the round loaded in the shooter's gun (its first receiver that has one), or null */
     private static String loadedAmmo(LivingEntity shooter, net.minecraft.world.item.Item gunItem) {
         var stack = shooter.getMainHandItem().getItem() == gunItem ? shooter.getMainHandItem() : shooter.getOffhandItem();
@@ -143,10 +165,14 @@ public final class BalanceFinal {
 
     private static final Map<Entity, BlastHit> BLAST_HITS = Collections.synchronizedMap(new WeakHashMap<>());
 
-    /** a second blast of the same shooter's on the target in the tick (the Tesla Cannon's arc again): nothing */
+    /**
+     * a second blast of the same shooter's on the target in the tick (the Tesla Cannon's arc again), or the IR arc's beam
+     * on the target its click's arc has just struck: nothing
+     */
     private static boolean againThisTick(LivingEntity target, DamageSource source) {
+        boolean irSub = source.getDirectEntity() != null && IR_SUBS.containsKey(source.getDirectEntity());
         // the Tesla Cannon's arc (a beam's class, not an explosion): an explosive shell's pellets each have their own blast
-        if (!BalanceArmor.vntBlastNow() || source.is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)
+        if (!(BalanceArmor.vntBlastNow() || irSub) || source.is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)
                 || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(BalanceArmor.category(source))) return false;
         long now = target.level().getGameTime();
         BlastHit was = BLAST_HITS.get(target);
