@@ -6,7 +6,9 @@
 # A pair's extra: floor= the armour formula's least share b times this on the sets of tier from= (4 when not given) and
 # up (balanceArmorFloor): piercing rounds, slugs, explosive and flechette shells more, the same gun's soft rounds less.
 # The tier is the pair's: balanceArmorTierFloor's rules go by it (a cheap pair gets through armour far above it with
-# less of the floor).
+# less of the floor). under=T:mult:neg:pen: on a set of tier below T the pair hits with these in place of its line's
+# (balanceGunUnder; of several, the least T above the set's tier): Tau keeps x2 +30 for DNS, FAU and euphemium and
+# hits tier 7 with x1.15 +18, tier 6 and below with x1.15.
 # gun	ammo	mult	neg	pen	tier	extra
 pepperbox	stone	1.59	0	0	0	floor=0.2 from=6
 pepperbox	stone_ap	1.0	0	0	0	floor=0.2 from=6
@@ -245,7 +247,7 @@ tesla_cannon	capacitor_overcharge	2	30	0	7
 minigun_lacunae	capacitor	0.6	50	0.15	9	
 minigun_lacunae	capacitor_ir	0.6	50	0.15	9	
 minigun_lacunae	capacitor_overcharge	0.6	50	0.15	9	
-tau	tau_uranium	2	30	0	8	
+tau	tau_uranium	2	30	0	8	under=7:1.15:0:0 under=8:1.15:18:0
 aberrator	secret_p35_800	2	50	0.5	9	floor=5 from=8
 aberrator	secret_p35_800_bl	2	50	0.5	9	floor=5 from=8
 aberrator_eott	secret_p35_800	1	0	0	9	
