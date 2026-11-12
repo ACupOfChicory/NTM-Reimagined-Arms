@@ -4,7 +4,8 @@
 # spread model: X904 (SpreadModel as of X904; when the spread changes, p_role and this file must be worked out again)
 # Fable №2 (2026-11-12): p_stand is the share of a click's projectiles in the target measured by the stand (pass ps): the shooter
 # standing and aimed, the target standing at the role's working distance (shot and slug 7, pistol, SMG, MG 12, rifle and beam 20,
-# sniper 30), an automatic in a held burst; 0.90 and above written as 1.00, below 0.05 as 0.05 (balance.final.hits = stand)
+# sniper 30), an automatic in a held burst; 0.90 and above written as 1.00, below 0.05 as 0.05 (balance.final.hits = stand); one share per group «gun x the ammo's spread»,
+# the mean of the group's pairs; the minigun and the twin miniguns 0.55, the mean of their 12 bursts (Fable's answer 6)
 # gun	ammo	tier	ped	p_role	delayTicks	auto	magRounds	reloadTicks	pelletsPerRound	roundsPerClick	hands	piercing	cat	rawD	explosive	role	p_stand
 pepperbox	stone_ap	0	0	0.78	27	0	6	67	1.0	1	1	0.0	PHYS	7.5	0	pistol	1.00
 am180	p22_sp	2	0	0.83	3	1	60	66	1.0	1	1	0.0	PHYS	2.0	0	smg	1.00
@@ -51,10 +52,10 @@ uzi	p9_jhp	4	0	0.95	2	1	30	55	1.0	1	1	-0.25	PHYS	4.5	0	smg	1.00
 heavy_revolver_protege	m44_express	5	1	1.0	14	0	6	46	1.0	1	1	0.1	PHYS	45.0	0	pistol	1.00
 lag	p9_ap	5	0	0.92	4	0	17	53	1.0	1	1	0.15	PHYS	31.25	0	rifle	1.00
 lag	p9_jhp	5	0	0.92	4	0	17	53	1.0	1	1	-0.25	PHYS	37.5	0	rifle	1.00
-minigun_dual	r762_du	5	0	0.45	1	1	-1	0	1.0	1	2	0.25	PHYS	9.0	0	mg	0.56
-minigun_dual	r762_he	5	0	0.45	1	1	-1	0	1.0	1	2	0.0	PHYS	10.5	0	mg	0.65
-minigun	r762_du	5	0	0.45	1	1	-1	0	1.0	1	1	0.25	PHYS	9.0	0	mg	0.60
-minigun	r762_he	5	0	0.45	1	1	-1	0	1.0	1	1	0.0	PHYS	10.5	0	mg	0.59
+minigun_dual	r762_du	5	0	0.45	1	1	-1	0	1.0	1	2	0.25	PHYS	9.0	0	mg	0.55
+minigun_dual	r762_he	5	0	0.45	1	1	-1	0	1.0	1	2	0.0	PHYS	10.5	0	mg	0.55
+minigun	r762_du	5	0	0.45	1	1	-1	0	1.0	1	1	0.25	PHYS	9.0	0	mg	0.55
+minigun	r762_he	5	0	0.45	1	1	-1	0	1.0	1	1	0.0	PHYS	10.5	0	mg	0.55
 amat_penance	bmg50_sm	6	1	1.0	15	0	7	51	1.0	1	1	0.35	PHYS	112.5	0	sniper	1.00
 amat_subtlety	bmg50_sm	6	1	1.0	17	0	7	51	1.0	1	1	0.35	PHYS	125.0	0	sniper	1.00
 amat	bmg50_sm	6	0	1.0	25	0	7	51	1.0	1	1	0.35	PHYS	75.0	0	sniper	1.00
@@ -225,14 +226,14 @@ mas36	r762_fmj	6	1	1.0	17	0	7	43	1.0	1	1	0.1	PHYS	24.0	0	sniper	1.00
 mas36	r762_he	6	1	1.0	17	0	7	43	1.0	1	1	0.0	PHYS	52.5	0	sniper	1.00
 mas36	r762_jhp	6	1	1.0	17	0	7	43	1.0	1	1	-0.25	PHYS	45.0	0	sniper	1.00
 mas36	r762_sp	6	1	1.0	17	0	7	43	1.0	1	1	0.0	PHYS	30.0	0	sniper	1.00
-minigun	r762_ap	5	0	0.45	1	1	-1	0	1.0	1	1	0.15	PHYS	7.5	0	mg	0.53
-minigun	r762_fmj	5	0	0.45	1	1	-1	0	1.0	1	1	0.1	PHYS	4.800000000000001	0	mg	0.53
-minigun	r762_jhp	5	0	0.45	1	1	-1	0	1.0	1	1	-0.25	PHYS	9.0	0	mg	0.59
-minigun	r762_sp	5	0	0.45	1	1	-1	0	1.0	1	1	0.0	PHYS	6.0	0	mg	0.54
-minigun_dual	r762_ap	5	0	0.45	1	1	-1	0	1.0	1	2	0.15	PHYS	7.5	0	mg	0.51
-minigun_dual	r762_fmj	5	0	0.45	1	1	-1	0	1.0	1	2	0.1	PHYS	4.800000000000001	0	mg	0.53
-minigun_dual	r762_jhp	5	0	0.45	1	1	-1	0	1.0	1	2	-0.25	PHYS	9.0	0	mg	0.52
-minigun_dual	r762_sp	5	0	0.45	1	1	-1	0	1.0	1	2	0.0	PHYS	6.0	0	mg	0.47
+minigun	r762_ap	5	0	0.45	1	1	-1	0	1.0	1	1	0.15	PHYS	7.5	0	mg	0.55
+minigun	r762_fmj	5	0	0.45	1	1	-1	0	1.0	1	1	0.1	PHYS	4.800000000000001	0	mg	0.55
+minigun	r762_jhp	5	0	0.45	1	1	-1	0	1.0	1	1	-0.25	PHYS	9.0	0	mg	0.55
+minigun	r762_sp	5	0	0.45	1	1	-1	0	1.0	1	1	0.0	PHYS	6.0	0	mg	0.55
+minigun_dual	r762_ap	5	0	0.45	1	1	-1	0	1.0	1	2	0.15	PHYS	7.5	0	mg	0.55
+minigun_dual	r762_fmj	5	0	0.45	1	1	-1	0	1.0	1	2	0.1	PHYS	4.800000000000001	0	mg	0.55
+minigun_dual	r762_jhp	5	0	0.45	1	1	-1	0	1.0	1	2	-0.25	PHYS	9.0	0	mg	0.55
+minigun_dual	r762_sp	5	0	0.45	1	1	-1	0	1.0	1	2	0.0	PHYS	6.0	0	mg	0.55
 minigun_lacunae	capacitor_ir	9	1	1.0	1	1	200	15	1.0	1	1	0.0	PHYS	12.0	0	mg	1.00
 minigun_lacunae	capacitor_overcharge	9	1	1.0	1	1	200	15	1.0	1	1	0.0	PHYS	12.0	0	mg	1.00
 pepperbox	stone	0	0	0.6	27	0	6	67	1.0	1	1	0.0	PHYS	5.0	0	pistol	1.00
