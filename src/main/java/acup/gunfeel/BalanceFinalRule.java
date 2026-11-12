@@ -111,7 +111,7 @@ public final class BalanceFinalRule {
         public static final String TTK_X912 = "+3:1.63 +2:2.08 +1:2.68 0:3.5 -1:7.0 -2:18 -3:105 -4:210";
         public static final String ROLES_X912 = "smg:1.6 mg:1.3 rifle:1.0 pistol:1.2 shotgun:0.75 sniper:0.85 beam:1.0";
         public static final Params DEFAULT = new Params(BalanceFinalRule.anchors(TTK), 0.7, 900, 1.1, 0.3, 0.7, 1.4, 1.15, 4.0, 0.15, 1.0, -1.0, 0.5, 1.0, 1.15,
-                Set.of(), 1.0, 1.0, BalanceFinalRule.roles(ROLES), 4, MagRule.OFF);
+                Set.of(), 1.0, 1.0, BalanceFinalRule.roles(ROLES), 4, MagRule.DEFAULT);
         public static final Params X912 = new Params(BalanceFinalRule.anchors(TTK_X912), 0.7, 900, 2.0, 0.3, 0.7, 1.4, 1.15, 4.0, 0.15, 1.0, -1.0, 0.5, 1.0, 1.15,
                 Set.of(), 1.0, 1.0, BalanceFinalRule.roles(ROLES_X912), 0, MagRule.OFF);
 

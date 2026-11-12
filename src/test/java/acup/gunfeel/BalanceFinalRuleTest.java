@@ -57,6 +57,12 @@ class BalanceFinalRuleTest {
         assertTrue(exact >= cells * 0.99, exact + " of " + cells + " exact");
     }
 
+    // Fable 2026-11-12 (notes/balance/fable/model, gen_tables.py): ladder H, roles, slug, pools 45/40 and the magazine's rule
+    @Test
+    void reproducesFable() throws IOException {
+        reproduces("final-table-fable.tsv", P, SETS);
+    }
+
     // stage 1: the same with the magazine's rule off (fm.use('fable', edge=False))
     @Test
     void reproducesFableWithoutTheMagazinesRule() throws IOException {
@@ -81,6 +87,25 @@ class BalanceFinalRuleTest {
                 assertTrue(Math.ceil((BalanceFinalRule.HP + a.pool()) / head - 1e-9) >= 2, pr.id() + " on " + a.kind());
                 assertTrue(!BalanceFinalRule.headOneShot(pr, a.hours(), P), pr.id());
             }
+    }
+
+    // the magazine's rule (Fable 10.3): G3 on HEV 26 rounds of 30, the heavy revolver 5 or 6 of 6
+    @Test
+    void magazinesRule() throws IOException {
+        var pairs = pairs();
+        var refs = BalanceFinalRule.refs(pairs.values());
+        var hev = SETS.get("hev");
+        int g3 = BalanceFinalRule.hitClicks(pairs.get("g3.r556_fmj"), hev, FAU, refs, P);
+        double[] t = BalanceFinalRule.realTtk(BalanceFinalRule.HP / g3, pairs.get("g3.r556_fmj"), 20);
+        assertEquals(26, (int) t[1]);
+        int rev = BalanceFinalRule.hitClicks(pairs.get("heavy_revolver.m44_fmj"), hev, FAU, refs, P);
+        double[] r = BalanceFinalRule.realTtk(BalanceFinalRule.HP / rev, pairs.get("heavy_revolver.m44_fmj"), 20);
+        assertTrue(r[1] >= 5 && r[1] <= 6, "heavy revolver " + r[1]);
+        var m = BalanceFinalRule.MagRule.parse("reserve=0.3 junk small=2", BalanceFinalRule.MagRule.DEFAULT);
+        assertEquals(0.3, m.reserve());
+        assertEquals(2, m.small());
+        assertEquals(0.6, m.min());
+        assertTrue(!BalanceFinalRule.MagRule.parse("reserve=0", m).on());
     }
 
     @Test
