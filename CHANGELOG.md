@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+- Fable's review of the balance (`balance.final`, each rule its own key, its
+  old behaviour a value of it). The ladder below the equal fight now goes by
+  equal hours: a group a tier or more below with as many hours in all as the
+  player above fights them even (a tier: about 2 players, two: 3, three: 5);
+  above, x0.77 a tier down to 1.25 s at +4 (`balance.final.ttk`). Pistols are
+  timed as rifles (1.0, was 1.2), a shotgun's slug or explosive shell too (role
+  `slug`, `balance.final.slug.pellets`). The pools swap: DNS 45, FAU 40
+  (`balance.final.pools`). The usual fight of equals: 3.0 s (was 3.5).
+- The magazine's rule (`balance.final.mag`): a kill that fell on the last
+  rounds of a magazine or the first after a reload comes a little earlier, so
+  one miss does not double the fight. G3 on HEV: 26 rounds of 30.
+- Blasts on the same ladder (`balance.final.blast*`): a launcher's or a hand
+  grenade's blast on a set takes a share of the health and pool by the tier
+  gap (direct hit x1.5, 3 blocks x0.75); a launcher lifts its round at most
+  two tiers. A tier 1 HE grenade no longer kills BJ in 5 hits but in 35; the
+  GL-54's fragment grenades count by their cone. `false`: formula C, as X912.
+- Damage by range (`balance.final.range`): SMGs and pistols stronger close up
+  and weaker past 24 blocks, rifles and machine guns full to 64, sniper rifles
+  to 160, each down to a floor; blasts and the Tesla Cannon's arc unchanged.
+- The fight log (`balance.final.log`): a line for every kill of a player by a
+  player in `logs/ntmgunfeel-fights.log` (gun, ammo, sets, distance, time from
+  the first hit, shots, hits, head hits, reloads), at most 4 MB.
+
 ## X912
 
 - New gun balance, one formula for every gun (server key `balance.final`,

@@ -545,7 +545,7 @@ public final class BalanceCheck {
     private static void plan() {
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         // the passes check the machine of X908 (formula C, the gun table): the final scheme off, its cells and team lines
         // turn it on by a key line (balance.final true)
@@ -571,6 +571,7 @@ public final class BalanceCheck {
         if (only("frag")) planFrag();
         if (only("bx")) planBlastLadder();
         if (only("rg")) planRange();
+        if (only("lg")) planLog();
     }
 
     // ---------------------------------------------------------------- melee and the flamethrower (hotfix X867)
@@ -1495,6 +1496,117 @@ public final class BalanceCheck {
         }
         STEPS.add(() -> line("rg\t" + p[0] + "\t" + p[1] + "\t" + p[2] + "\t" + d + "\t" + String.format(Locale.ROOT, "%.5f", took[0] / RG_CLICKS) + "\t"
                 + f(hits[0] / (float) RG_CLICKS) + "\t" + String.format(Locale.ROOT, "%.4f", BalanceFinal.hitClicks(p[0] + "." + p[1], p[2]))));
+    }
+
+    // ---------------------------------------------------------------- Fable's fight log (pass lg)
+
+    /** a player victim: it can be hurt by the stand's gunner, and its death goes to the event bus as a ServerPlayer's */
+    private static final class LogVictim extends FakePlayer {
+        LogVictim(ServerLevel level) {
+            super(level, new GameProfile(UUID.nameUUIDFromBytes("balanceVictim".getBytes()), "balanceVictim"));
+        }
+
+        @Override
+        public boolean canHarmPlayer(net.minecraft.world.entity.player.Player other) {
+            return true;
+        }
+
+        @Override
+        public boolean isInvulnerableTo(ServerLevel l, net.minecraft.world.damagesource.DamageSource source) {
+            return isInvulnerableToBase(source); // a FakePlayer's connection never loads a client
+        }
+
+        @Override
+        public void die(net.minecraft.world.damagesource.DamageSource source) {
+            net.neoforged.neoforge.common.CommonHooks.onLivingDeath(this, source);
+        }
+    }
+
+    private static LogVictim logVictim;
+    private static long logLines;
+    private static int logHeld;
+
+    private static long logLines() {
+        try {
+            Path f = Path.of(BalanceLog.FILE);
+            return Files.exists(f) ? Files.readAllLines(f).size() : 0;
+        } catch (java.io.IOException e) {
+            return -1;
+        }
+    }
+
+    /**
+     * balance.final.log: the stand's player gunner kills a player in HEV with G3 at about 6 blocks: a line in
+     * logs/ntmgunfeel-fights.log with its fields; then with the log off: no line, and nothing held for a shot. The
+     * victim's death is a player's (NeoForge's FakePlayer drops it: CommonHooks.onLivingDeath, as ServerPlayer.die).
+     */
+    private static void planLog() {
+        line("#\t--- lg: журнал боёв (balance.final.log), стрелок-игрок убивает игрока в HEV из G3");
+        Item g3 = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_g3"));
+        BulletConfig ammo = ammoNamed(g3, "r556_fmj");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "balance.final.log", "true");
+            logVictim = new LogVictim(level);
+            logVictim.setGameMode(GameType.SURVIVAL);
+            level.addNewPlayer(logVictim);
+            logVictim.connection.markClientLoaded();
+            L.target.snapTo(L.o.getX() + 6.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+        });
+        wait(5);
+        for (boolean on : new boolean[] {true, false}) {
+            STEPS.add(() -> {
+                keys("balance.final.log", String.valueOf(on));
+                for (EquipmentSlot slot : SLOTS) logVictim.setItemSlot(slot, ItemStack.EMPTY);
+                dress(logVictim, "hev", true);
+                logVictim.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+                begin(logVictim);
+                logVictim.setInvulnerable(false); // a ServerPlayer is born invulnerable until its client loads
+                L.aimHead = false;
+            });
+            wait(5);
+            int[] t = {0};
+            STEPS.add(() -> {
+                logLines = logLines();
+                logHeld = BalanceLog.held();
+            });
+            STEPS.add(() -> {
+                if (logVictim.getHealth() > 0F && t[0] < 600) {
+                    if (t[0] % 3 == 0) fire(L.gunner, g3, ammo, EnumKeybind.GUN_PRIMARY);
+                    if (logVictim.invulnerableTime > 0) logVictim.invulnerableTime--; // a FakePlayer does not tick
+                    t[0]++;
+                    L.hold = true;
+                    return;
+                }
+                long now = logLines();
+                boolean dead = logVictim.getHealth() <= 0F;
+                if (on && !BalanceFinal.on()) check(dead && now == logLines, "журнал при balance.final = false: убийство без строки (" + now + " / " + logLines + ")");
+                else if (on) {
+                    String last = "";
+                    try {
+                        var all = Files.readAllLines(Path.of(BalanceLog.FILE));
+                        last = all.isEmpty() ? "" : all.get(all.size() - 1);
+                    } catch (java.io.IOException e) {
+                        last = e.toString();
+                    }
+                    line("lg\t" + last);
+                    line("#\tlg: убит " + dead + ", тактов " + t[0] + ", здоровье " + logVictim.getHealth() + ", держит " + BalanceLog.held() + " (было " + logHeld + "), журнал " + BalanceLog.on());
+                    String[] c = last.split("\t");
+                    check(dead && now == logLines + (logLines == 0 ? 2 : 1) && c.length == 16 && c[1].startsWith("balanceGunner") && c[2].equals("balanceVictim")
+                            && c[3].equals("g3") && c[4].equals("r556_fmj") && c[8].equals("hev") && Double.parseDouble(c[11]) > 0 && Integer.parseInt(c[13]) >= 1
+                            && Integer.parseInt(c[12]) >= Integer.parseInt(c[13]), "журнал: строка убийства с полями (" + last + ")");
+                } else check(dead && now == logLines && BalanceLog.held() == logHeld, "журнал выключен: убийство без строки (" + now + " / " + logLines
+                        + "), в выстреле ничего не держится (" + BalanceLog.held() + " / " + logHeld + ")");
+            });
+            STEPS.add(() -> logVictim.setHealth(logVictim.getMaxHealth()));
+            wait(5);
+        }
+        STEPS.add(() -> {
+            keys("balance.final.log", "true");
+            level.removePlayerImmediately(logVictim, net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+            logVictim = null;
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+        });
+        wait(5);
     }
 
     // ---------------------------------------------------------------- Pepperbox: 13th-century tech

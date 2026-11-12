@@ -78,6 +78,11 @@ public final class BalanceLog {
         }
     }
 
+    /** the stand: what the log holds now (shooters, projectiles, fights), to see that a shot does no work with it off */
+    static int held() {
+        return GUNNERS.size() + SHOT.size() + FIGHTS.size();
+    }
+
     // ---------------------------------------------------------------- a hit
 
     /** a fight of one shooter on one target: since its first hit */
