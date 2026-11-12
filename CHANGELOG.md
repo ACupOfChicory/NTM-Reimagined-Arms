@@ -1,5 +1,16 @@
 # Changelog
 
+## X908
+
+- Tau no longer goes through tier 6 and 7 armour as if it were not there. Its
+  click did more than the damage cap lets through in a window, so it killed
+  any set below DNS in 0.8 s (tier 7 in 1.2 s), the same as no armour. Against
+  sets below tier 8 its hit now counts as ×1.15 (tier 7: ×1.15 +18 threshold
+  negation) instead of ×2 +30: BJ and the other tier 6 sets 2.0–3.0 s, CMB,
+  RPA and Schrabidium 3.0 s, HEV 1.0 s. DNS (5.6 s), FAU (4.8 s), euphemium
+  (18.2 s) and no armour (0.8 s) are as before. The gun table's new
+  `under=T:mult:neg:pen` does it; new server key `balanceGunUnder` (`true`;
+  `false`: as before).
 ## X906
 
 - The 12 Gauge Electroshock Shell's recipe now sits with NTM's last rounds in a

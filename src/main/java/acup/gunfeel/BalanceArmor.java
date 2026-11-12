@@ -415,7 +415,15 @@ public final class BalanceArmor {
             var pieceHit = fleshOf == amount * power ? hit : new BalanceArmorRule.Hit(fleshOf, neg, pen, squeeze);
             // the gun table's floor of the shot's pair (balanceArmorFloor): its bullet's hit, an explosive bullet's blast
             float floor = !expl || bulletBlastNow() ? BalanceGuns.floorOf(floorShot(source, expl), tier) : 1F;
-            byPiece[i] = Math.min(amount, BalanceArmorRule.full(pieceHit, s, tau(set), tune, floor, into));
+            // the pair's numbers below a tier (under=, balanceGunUnder): a bullet's or a beam's hit, not a blast
+            float[] u = expl ? null : BalanceGuns.underOf(source.getDirectEntity(), tier);
+            float top = amount, pieceInto = into;
+            if (u != null) {
+                pieceHit = new BalanceArmorRule.Hit(pieceHit.damage() * u[0], Math.max(0F, neg + u[1]), Math.max(0F, Math.min(1F, pen + u[2])), squeeze);
+                top = amount * u[0];
+                pieceInto = into * u[0];
+            }
+            byPiece[i] = Math.min(top, BalanceArmorRule.full(pieceHit, s, tau(set), tune, floor, pieceInto));
             any = true;
         }
         float rest = ntm;

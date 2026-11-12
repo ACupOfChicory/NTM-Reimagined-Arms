@@ -14,7 +14,8 @@ import java.util.Set;
  * <p>A pair's line: {@code gun ammo mult neg pen}. The shot's damage is NTM's times {@code mult}; {@code neg} is added
  * to the ammo's armour threshold negation, {@code pen} to its armour piercing. Its extra column may give
  * {@code floor=} (the armour formula's least share b times this, on the sets of tier {@code from=}, 4 when not given, and
- * up: an armour-piercing round keeps more of itself against heavy armour, a soft one less; balanceArmorFloor). A gun's own line (ammo {@code *}): a
+ * up: an armour-piercing round keeps more of itself against heavy armour, a soft one less; balanceArmorFloor) and
+ * {@code under=T:mult:neg:pen} (the pair's numbers on sets below tier T; balanceGunUnder). A gun's own line (ammo {@code *}): a
  * mult for all its ammo (over its pairs; {@code -} for none) and the receiver's changes ({@code delay=}, {@code auto=},
  * {@code mag=}, {@code dmg=}).
  *
@@ -38,8 +39,12 @@ public final class BalanceGunsRule {
      * {@code from} and up (balanceArmorFloor; 1: the formula's own); {@code tier}: the pair's tier, the table's sixth
      * column (-1: none given), which balanceArmorTierFloor goes by
      */
-    public record Shot(float mult, float neg, float pen, float floor, int from, int tier) {
+    public record Shot(float mult, float neg, float pen, float floor, int from, int tier, List<Under> under) {
         public static final Shot NONE = new Shot(1F, 0F, 0F);
+
+        public Shot {
+            under = List.copyOf(under);
+        }
 
         public Shot(float mult, float neg, float pen) {
             this(mult, neg, pen, 1F, FLOOR_FROM, -1);
@@ -49,14 +54,51 @@ public final class BalanceGunsRule {
             this(mult, neg, pen, floor, from, -1);
         }
 
+        public Shot(float mult, float neg, float pen, float floor, int from, int tier) {
+            this(mult, neg, pen, floor, from, tier, List.of());
+        }
+
         public boolean none() {
-            return mult == 1F && neg == 0F && pen == 0F && floor == 1F && tier < 0;
+            return mult == 1F && neg == 0F && pen == 0F && floor == 1F && tier < 0 && under.isEmpty();
         }
 
         /** the same with another mult (a gun's own line over its pairs) */
         Shot withMult(float m) {
-            return new Shot(m, neg, pen, floor, from, tier);
+            return new Shot(m, neg, pen, floor, from, tier, under);
         }
+
+        /** the pair's numbers on a set of {@code setTier}: its {@link Under} for that tier, null for its own line */
+        public Under on(int setTier) {
+            return BalanceGunsRule.under(under, setTier);
+        }
+    }
+
+    /**
+     * {@code under=T:mult:neg:pen} in a pair's extra column: on a set of tier below {@code T} the pair hits with this
+     * mult, neg and pen in place of its line's (balanceGunUnder; the owner, 2026-11-12: Tau made tier 6 and 7 armour
+     * paper). Of several, the least {@code T} above the set's tier.
+     */
+    public record Under(int below, float mult, float neg, float pen) {
+    }
+
+    /**
+     * the hit's changes for the pair's under= on a set of {@code setTier}: {damage share, neg added, pen added}, null
+     * for none. The shot left with the line's mult (a gun's {@code *} line's, when it has one: under='s mult is the
+     * pair's whole mult below T all the same). A line of mult 0 shoots nothing, an under= cannot lift it (share 1). The
+     * pen is added to the hit's, which NTM holds to 1: an under= with less pen than its line on a round already at 1
+     * keeps more than its own pen (no line of the table has pen and under= together).
+     */
+    public static float[] underShift(Shot s, int setTier) {
+        Under u = s.on(setTier);
+        if (u == null) return null;
+        return new float[] {s.mult() > 0F ? u.mult() / s.mult() : 1F, u.neg() - s.neg(), u.pen() - s.pen()};
+    }
+
+    /** the Under of {@code list} for a set of {@code setTier} (null: none, the line's own numbers) */
+    static Under under(List<Under> list, int setTier) {
+        Under out = null;
+        for (Under u : list) if (setTier < u.below() && (out == null || u.below() < out.below())) out = u;
+        return out;
     }
 
     /**
@@ -173,6 +215,7 @@ public final class BalanceGunsRule {
                     if (Float.isNaN(mult)) throw new IllegalArgumentException("a pair with no mult");
                     float floor = 1F;
                     int from = FLOOR_FROM;
+                    List<Under> under = new ArrayList<>();
                     String extra = f.length > 6 ? f[6].strip() : "";
                     // a pair's column 7 was free text before floor=/from=: other words in it are left as they are
                     for (String kv : extra.isEmpty() ? new String[0] : extra.split("\\s+")) {
@@ -185,6 +228,7 @@ public final class BalanceGunsRule {
                                 floor = Math.max(LEAST_FLOOR, Math.min(MOST_FLOOR, v));
                             }
                             case "from" -> from = positive(Integer.parseInt(p[1]), kv);
+                            case "under" -> under.add(under(p[1], kv, ped));
                             default -> { }
                         }
                     }
@@ -195,13 +239,24 @@ public final class BalanceGunsRule {
                     } catch (NumberFormatException e) {
                         tier = -1;
                     }
-                    pairs.computeIfAbsent(gun, g -> new LinkedHashMap<>()).put(ammo, new Shot(mult, neg, pen, floor, from, tier));
+                    pairs.computeIfAbsent(gun, g -> new LinkedHashMap<>()).put(ammo, new Shot(mult, neg, pen, floor, from, tier, under));
                 }
             } catch (RuntimeException e) {
                 bad.add(raw + "  (" + e.getMessage() + ")");
             }
         }
         return new Table(pairs, guns);
+    }
+
+    /** "T:mult:neg:pen" of under=, held to the line's limits */
+    private static Under under(String v, String kv, boolean ped) {
+        String[] p = v.split(":");
+        if (p.length != 4) throw new IllegalArgumentException(kv);
+        int below = positive(Integer.parseInt(p[0].strip()), kv);
+        float mult = Float.parseFloat(p[1].strip()), neg = Float.parseFloat(p[2].strip()), pen = Float.parseFloat(p[3].strip());
+        if (!(mult >= 0F && Float.isFinite(mult)) || !Float.isFinite(neg) || !Float.isFinite(pen)) throw new IllegalArgumentException(kv);
+        if (ped && mult > PEDESTAL_MULT) mult = PEDESTAL_MULT;
+        return new Under(below, mult, Math.max(0F, Math.min(MOST_NEG, neg)), Math.max(0F, Math.min(MOST_PEN, pen)));
     }
 
     private static int positive(int v, String kv) {

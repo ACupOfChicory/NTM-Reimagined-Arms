@@ -1,6 +1,8 @@
 package acup.gunfeel;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -178,6 +180,41 @@ class BalanceGunsRuleTest {
         assertEquals(6, shipped.pairs().get("m2").get("bmg50_jhp").from());
         assertTrue(shipped.pairs().get("m2").get("bmg50_jhp").floor() < 1F);
         assertEquals(0.2F, shipped.pairs().get("pepperbox").get("stone").floor(), 1e-6F);
+    }
+
+    @Test
+    void under() throws IOException {
+        List<String> bad = new ArrayList<>();
+        var t = BalanceGunsRule.parse(List.of("tau\ttau_uranium\t2\t30\t0\t8\tunder=7:1.15:0:0 under=8:1.15:18:0",
+                "aberrator\tsecret_p35_800\t2\t0\t0\t9\tunder=8:5:99:0.9", "tau\tx\t2\t0\t0\t8\tunder=7:1", "tau\ty\t2\t0\t0\t8\tunder=0:1:0:0"), bad);
+        assertEquals(2, bad.size(), bad.toString());
+        var tau = t.pairs().get("tau").get("tau_uranium");
+        assertEquals(new BalanceGunsRule.Under(7, 1.15F, 0F, 0F), tau.on(6));
+        assertEquals(new BalanceGunsRule.Under(7, 1.15F, 0F, 0F), tau.on(0));
+        assertEquals(new BalanceGunsRule.Under(8, 1.15F, 18F, 0F), tau.on(7));
+        // tier 8 and up: the line's own numbers
+        assertNull(tau.on(8));
+        assertNull(tau.on(9));
+        assertTrue(!tau.none());
+        // the hit's changes: the damage share of the line's mult, neg and pen shifted to under='s
+        assertArrayEquals(new float[] {0.575F, -30F, 0F}, BalanceGunsRule.underShift(tau, 6), 1e-6F);
+        assertArrayEquals(new float[] {0.575F, -12F, 0F}, BalanceGunsRule.underShift(tau, 7), 1e-6F);
+        assertNull(BalanceGunsRule.underShift(tau, 8));
+        // a gun's own line over its pairs keeps them; under='s mult stays the whole mult below T
+        var over = tau.withMult(2.2F);
+        assertEquals(tau.under(), over.under());
+        assertEquals(1.15F / 2.2F, BalanceGunsRule.underShift(over, 6)[0], 1e-6F);
+        // a line of mult 0: under= cannot lift it
+        assertEquals(1F, BalanceGunsRule.underShift(tau.withMult(0F), 6)[0]);
+        // a pedestal's under= is held to its limits
+        assertEquals(new BalanceGunsRule.Under(8, 2F, 50F, 0.5F), t.pairs().get("aberrator").get("secret_p35_800").on(4));
+        // the shipped table: Tau keeps x2 +30 for DNS, FAU and euphemium only
+        var shipped = table(new ArrayList<>()).pairs().get("tau").get("tau_uranium");
+        assertEquals(2F, shipped.mult());
+        assertEquals(30F, shipped.neg());
+        assertNull(shipped.on(8));
+        assertEquals(new BalanceGunsRule.Under(8, 1.15F, 18F, 0F), shipped.on(7));
+        assertEquals(new BalanceGunsRule.Under(7, 1.15F, 0F, 0F), shipped.on(6));
     }
 
     @Test

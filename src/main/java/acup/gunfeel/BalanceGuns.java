@@ -246,8 +246,24 @@ public final class BalanceGuns {
         if (s.none()) return damage;
         if (s.neg() != 0F || s.pen() != 0F || s.floor() != 1F || s.tier() >= 0)
             EXTRA.put(projectile, new float[] {s.neg(), s.pen(), s.floor(), s.from(), s.tier()});
+        if (!s.under().isEmpty()) UNDER.put(projectile, s);
         if (watch != null) watch.accept(s);
         return damage * s.mult();
+    }
+
+    /** the pairs of the shots whose line has under= (by the projectile) */
+    private static final Map<Entity, BalanceGunsRule.Shot> UNDER = Collections.synchronizedMap(new WeakHashMap<>());
+
+    /**
+     * balanceGunUnder (true; false: X904, the line's own numbers on every set): the pair's under= on a set of
+     * {@code tier} as changes to the hit, {damage share, neg added, pen added} (the shot left with the line's mult,
+     * neg and pen); null for none
+     */
+    public static float[] underOf(Entity direct, int tier) {
+        if (direct == null) return null;
+        BalanceGunsRule.Shot s = UNDER.get(direct);
+        if (s == null || !ReaimTimes.flag("balanceGunUnder", true)) return null;
+        return BalanceGunsRule.underShift(s, tier);
     }
 
     /** the stand: every shot that got the balance's numbers */

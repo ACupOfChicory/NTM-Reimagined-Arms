@@ -2480,6 +2480,10 @@ public final class BalanceCheck {
             new Pair1b("bj", "hangman · m44_express ×2 (пьед.)", ModItems.GUN_HANGMAN::get, () -> XFactory44.m44_express, 1.514F, 14, 3.941F, 6, 75F, 37.5F, false, false),
             new Pair1b("rpa", "g3_zebra · r556_inc_ap ×1,664", ModItems.GUN_G3_ZEBRA::get, () -> XFactory556mm.r556_inc_ap, 0.482F, 42, 0.678F, 30, 15.60F, 9.375F, false, false),
             new Pair1b("fau", "tau · tau_uranium ×2 +30", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 0.561F, 36, 2.729F, 8, 50F, 25F, false, false),
+            // Tau below tier 8 (under=, balanceGunUnder; notes/balance/tau-nerf-2026-11-12.md): its shot leaves with x2, the
+            // armour takes it as x1.15 on tier 6 and x1.15 +18 on tier 7 (X904: 5.54 and 3.26 a click, 5 and 7 clicks)
+            new Pair1b("bj", "tau · tau_uranium ×1,15 (under=7)", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 1.18F, 17, 1.31F, 16, 50F, 25F, false, false),
+            new Pair1b("cmb", "tau · tau_uranium ×1,15 +18 (under=8)", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 0.78F, 26, 1.31F, 16, 50F, 25F, false, false),
             // N.I.4.N.I.'s arc has no ammo item: the shot must go on (no check of numbers)
             new Pair1b("hev", "ni4ni · arc (нет предмета патрона)", ModItems.GUN_N_I_4_N_I::get, () -> XFactoryAccelerator.ni4ni_arc, 0F, 0, 0F, 0, 0F, 0F, false, true),
             // cheese 2026-11-11: a tier 2 gun on a tier 4 set, its floor halved (balanceArmorTierFloor 2:4:0.5): 0.813 → 0.407
