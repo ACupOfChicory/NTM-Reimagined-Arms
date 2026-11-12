@@ -93,10 +93,14 @@ public final class BalanceLog {
     /** a fight with no hit for this long starts again (ticks) */
     static final long FORGET = 20 * 60;
 
-    /** a hit of the scheme on {@code target} by the projectile of {@code source} (pair {@code pair}): counted to the fight */
-    static void hit(LivingEntity target, net.minecraft.world.damagesource.DamageSource source, BalanceFinalRule.Pair pair, boolean head) {
+    /**
+     * a hit of the scheme on {@code target} by {@code projectile} (or the source's direct entity) of the pair {@code id}
+     * at {@code tier} (a blast's: the launcher's pair, "grenade.<filling>"): counted to the fight
+     */
+    static void hit(LivingEntity target, net.minecraft.world.damagesource.DamageSource source, Entity projectile, String id, double tier, boolean head) {
         if (!(target instanceof Player) || !(source.getEntity() instanceof Player shooter)) return;
-        Long shot = SHOT.get(source.getDirectEntity());
+        Long shot = projectile != null ? SHOT.get(projectile) : null;
+        if (shot == null) shot = SHOT.get(source.getDirectEntity());
         if (shot == null) shot = ExplosiveDamage.bulletNow() == null ? null : SHOT.get(ExplosiveDamage.bulletNow());
         long now = target.level().getGameTime();
         synchronized (FIGHTS) {
@@ -111,9 +115,9 @@ public final class BalanceLog {
                 of.put(shooter.getUUID(), f);
             }
             f.lastTick = now;
-            if (pair != null) {
-                f.pair = pair.id();
-                f.tier = pair.tier();
+            if (id != null) {
+                f.pair = id;
+                f.tier = tier;
             }
             long click = shot != null ? shot : -now;
             f.clicks.add(click);

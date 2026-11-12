@@ -106,7 +106,7 @@ public final class BalanceFinalRule {
             double headGap, double laserTrench, Map<String, Double> roles, double slugPellets, MagRule mag) {
         /** Fable 2026-11-12 (10.2, ladder H): up x0.77 a tier to the floor 1.25 s, down the hours' ladder */
         public static final String TTK = "+4:1.25 +3:1.6 +2:2.1 +1:2.7 0:3.5 -1:7 -2:13.5 -3:28 -4:40 -5:50 -6:60 -7:68 -8:75 -9:82";
-        public static final String ROLES = "smg:1.6 mg:1.3 rifle:1.0 pistol:1.0 shotgun:0.75 slug:1.0 sniper:0.85 beam:1.0";
+        public static final String ROLES = "smg:1.6 mg:1.3 rifle:1.0 pistol:1.0 shotgun:0.75 slug:1.0 sniper:0.85 beam:1.0 airburst:1.2";
         /** X912's: the keys' values that give it back */
         public static final String TTK_X912 = "+3:1.63 +2:2.08 +1:2.68 0:3.5 -1:7.0 -2:18 -3:105 -4:210";
         public static final String ROLES_X912 = "smg:1.6 mg:1.3 rifle:1.0 pistol:1.2 shotgun:0.75 sniper:0.85 beam:1.0";

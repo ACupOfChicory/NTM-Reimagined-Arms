@@ -28,8 +28,9 @@ import net.minecraft.world.entity.player.Player;
  * balance.final.ttk). NTM's damage, the set's threshold and resistance and the formula C are not in it. The part hit
  * (head ×1.75, limb ×0.5), the damage cap and the pools of DNS, FAU and euphemium come after, as before.
  *
- * <p>Out of it: blasts (formula C, balanceBlast*, as they were), an explosive bullet's blast on anyone but the creature
- * it struck, the pairs of balance.final.table.pairs (their gun table lines and formula C, as X908), and shots of no
+ * <p>Blasts (balance.final.blast; Fable 12.3, BalanceBlastRule): a launcher's round's or an NTM hand grenade's blast on
+ * the same targets takes the ladder's share of the health and pool, the GL-54's fragment grenades a burst's share; the
+ * other blasts keep formula C (balanceBlast*). Out of it: an explosive bullet's blast on anyone but the creature it struck, the pairs of balance.final.table.pairs (their gun table lines and formula C, as X908), and shots of no
  * pair of the table (NTM's mobs' and turrets' shots of no gun, other games' guns): NTM's numbers (balance.final.mobs =
  * ntm). Off: everything as X908.
  */
@@ -70,9 +71,9 @@ public final class BalanceFinal {
     }
 
     private static void fired0(Entity projectile, LivingEntity shooter, net.minecraft.world.item.Item gunItem, com.hbm.items.weapon.sedna.BulletConfig ammo) {
-        String gun = BalanceGuns.gunName(gunItem);
+        String gun = gunName(gunItem);
         if (gun == null || ammo == null) return;
-        String id = gun + "." + BalanceGuns.ammoName(ammo);
+        String id = gun + "." + ammoName(ammo);
         if (!state().pairs().containsKey(id)) {
             String loaded = loadedAmmo(shooter, gunItem);
             if (loaded != null && state().pairs().containsKey(gun + "." + loaded)) id = gun + "." + loaded;
@@ -80,6 +81,23 @@ public final class BalanceFinal {
         PAIR.put(projectile, id);
         LAST.put(shooter, new Last(id, shooter.level().getGameTime()));
         if (BalanceLog.on()) BalanceLog.shot(projectile, shooter, gunItem);
+    }
+
+    /** the gun's name of the scheme: NTM's, or the GL-54's "gl54" (a launcher of balance.final.blast.launchers) */
+    static String gunName(net.minecraft.world.item.Item item) {
+        String g = BalanceGuns.gunName(item);
+        if (g != null) return g;
+        var id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item);
+        return id != null && id.getNamespace().equals(acup.gunfeel.gl54.Gl54Items.NAMESPACE) && id.getPath().equals("gun_gl54") ? "gl54" : null;
+    }
+
+    /** the ammo's name of the scheme: NTM's, or a GL-54 grenade's kind (he, airburst, ap, inc, ...) */
+    static String ammoName(com.hbm.items.weapon.sedna.BulletConfig ammo) {
+        if (ammo instanceof acup.gunfeel.gl54.GrenadeType g) {
+            var k = g.grenade();
+            return k != null ? k.key : g.kind;
+        }
+        return BalanceGuns.ammoName(ammo);
     }
 
     /** a submunition of {@code thrower}'s (made from a shot of its, the Shredder's plasma): the pair it has just fired */
@@ -143,7 +161,7 @@ public final class BalanceFinal {
     /** what the keys say now, worked out again when the settings change */
     private record State(Object version, BalanceFinalRule.Params params, Map<String, BalanceFinalRule.Pair> pairs, BalanceFinalRule.Refs refs,
             Set<String> table, String explosive, Map<String, BalanceFinalRule.Armor> sets, double[] weights, double empty,
-            Map<CacheKey, Double> cache) {
+            Map<CacheKey, Double> cache, BalanceBlastRule.Rule blast) {
     }
 
     /** a cell of the cache: the pair and the set it meets */
@@ -259,8 +277,15 @@ public final class BalanceFinal {
         } catch (NumberFormatException ignored) {
             // the defaults
         }
+        var blast = new BalanceBlastRule.Rule(ReaimTimes.flag("balance.final.blast", true),
+                Map.copyOf(BalanceBlastRule.launchers(ReaimTimes.text("balance.final.blast.launchers", BalanceBlastRule.LAUNCHERS))),
+                Map.copyOf(BalanceBlastRule.tiers(ReaimTimes.text("balance.final.blast.rounds", BalanceBlastRule.ROUNDS))),
+                Map.copyOf(BalanceBlastRule.tiers(ReaimTimes.text("balance.final.blast.grenades", BalanceBlastRule.GRENADES))),
+                num("balance.final.blast.shift", 1, -5, 5), BalanceBlastRule.cap(ReaimTimes.text("balance.final.blast.pair", "cap:2"), 2),
+                BalanceBlastRule.hits(ReaimTimes.text("balance.final.blast.hits", ""), BalanceBlastRule.Hits.DEFAULT),
+                Map.copyOf(BalanceBlastRule.frags(ReaimTimes.text("balance.final.blast.frags", BalanceBlastRule.FRAGS))));
         return new State(version, params, pairs, BalanceFinalRule.refs(formula), Set.copyOf(table), explosive, Map.copyOf(sets), weights,
-                num("balance.final.armor.empty", 0.5, 0, 20), new ConcurrentHashMap<>());
+                num("balance.final.armor.empty", 0.5, 0, 20), new ConcurrentHashMap<>(), blast);
     }
 
     /** a pair in balance.final.table.pairs: by its gun (all its ammo) or gun.ammo */
@@ -423,10 +448,12 @@ public final class BalanceFinal {
      * NaN when the hit is not the scheme's
      */
     static float damage(LivingEntity target, DamageSource source) {
+        float b = blastOrFrag(target, source);
+        if (!Float.isNaN(b)) return b * target.getMaxHealth() / (float) BalanceFinalRule.HP;
         Hit h = hit(target, source);
         if (h == null) return Float.NaN;
         if (againThisTick(target, source)) return 0F;
-        if (BalanceLog.on()) BalanceLog.hit(target, source, h.pair(), HeadDamage.onHead(target));
+        if (BalanceLog.on()) BalanceLog.hit(target, source, null, h.pair().id(), h.pair().tier(), HeadDamage.onHead(target));
         float scale = target.getMaxHealth() / (float) BalanceFinalRule.HP;
         if (h.oneShotHead() && HeadDamage.onHead(target)) {
             // the head's rule: the whole health (and pool) in one click, the head's multiplier after it
@@ -439,11 +466,13 @@ public final class BalanceFinal {
 
     /** what a hit takes from a full set's pool (EuphImmunity), or NaN when it is not the scheme's */
     static float drain(LivingEntity target, DamageSource source) {
+        float b = blastOrFrag(target, source);
+        if (!Float.isNaN(b)) return b;
         Hit h = hit(target, source);
         if (h == null) return Float.NaN;
         if (againThisTick(target, source)) return 0F;
         boolean head = HeadDamage.onHead(target);
-        if (BalanceLog.on()) BalanceLog.hit(target, source, h.pair(), head);
+        if (BalanceLog.on()) BalanceLog.hit(target, source, null, h.pair().id(), h.pair().tier(), head);
         if (h.oneShotHead() && head) return (float) ((BalanceFinalRule.HP + h.armor().pool()) / h.pair().projectiles());
         float d = h.projectile();
         return head ? Math.min(d * ModelHeads.multiplier(true, false), DamageCap.limits().head() * (float) BalanceFinalRule.HP) : d;
@@ -463,7 +492,184 @@ public final class BalanceFinal {
         if (id == null && BalanceArmor.vntBlastNow()) id = blastPair(source);
         if (id == null) return true;
         State s = state();
+        // a GL-54 fragment grenade's (BalanceFinal.frag): the scheme's, like a pair's
+        if (s.blast().on() && id.startsWith("gl54.") && s.blast().frags().containsKey(id.substring(5))) return false;
         return !inTable(s.table(), id) && !s.pairs().containsKey(id);
+    }
+
+    // ---------------------------------------------------------------- blasts (balance.final.blast; Fable 11.2, 12.3)
+
+    /** a blast of the ladder's under way on one target: what one hit of it takes (of 20 HP and the pool), its pair */
+    private record BlastNow(LivingEntity target, double take, String id, double tier, Entity projectile) {
+    }
+
+    private static final ThreadLocal<BlastNow> BLAST_NOW = new ThreadLocal<>();
+
+    /** a hand grenade going off (ItemGrenadeFilling.explode): its filling's name */
+    private static final ThreadLocal<String> GRENADE = new ThreadLocal<>();
+
+    /** a hand grenade goes off: its blasts are dealt with its filling known */
+    public static void grenade(com.hbm.entity.grenade.EntityGrenadeUniversal grenade, Runnable explode) {
+        if (grenade.level().isClientSide() || !on()) {
+            explode.run();
+            return;
+        }
+        String was = GRENADE.get(), filling;
+        try {
+            filling = grenade.getFilling().name().toLowerCase(java.util.Locale.ROOT);
+        } catch (RuntimeException e) {
+            filling = null;
+        }
+        if (filling != null) GRENADE.set(filling);
+        else GRENADE.remove();
+        try {
+            explode.run();
+        } finally {
+            if (was != null) GRENADE.set(was);
+            else GRENADE.remove();
+        }
+    }
+
+    /**
+     * an NTM blast's hit on {@code target} (MixinExplosiveProcessor): with a launcher's round's or a hand grenade's blast
+     * on a target of the scheme, the hurt deals the ladder's share instead (BalanceArmor.apply, EuphImmunity.drain)
+     */
+    public static boolean blastAt(com.hbm.explosion.vanillant.ExplosionVNT explosion, ExplosiveDamage.Blast blast, LivingEntity target, boolean struck,
+            boolean explosive, java.util.function.Supplier<Boolean> hurt) {
+        if (!explosive || explosion == null || target == null || target.level().isClientSide() || !on()) return hurt.get();
+        BlastNow b;
+        try {
+            b = blastOf(explosion, blast, target, struck);
+        } catch (RuntimeException e) {
+            b = null;
+        }
+        if (b == null) return hurt.get();
+        BlastNow was = BLAST_NOW.get();
+        BLAST_NOW.set(b);
+        try {
+            return hurt.get();
+        } finally {
+            if (was != null) BLAST_NOW.set(was);
+            else BLAST_NOW.remove();
+        }
+    }
+
+    /** the blast's hurt under way on {@code target} is the ladder's (no part's multiplier on it, NTM's early check passed) */
+    public static boolean blastNow(LivingEntity target) {
+        BlastNow b = BLAST_NOW.get();
+        return b != null && b.target() == target;
+    }
+
+    /** a hit the scheme takes, a blast's or a GL-54 fragment's among them (BalanceArmor.covers) */
+    static boolean takes(LivingEntity target, DamageSource source) {
+        return hit(target, source) != null || blastNow(target) && expl(source) || !Float.isNaN(frag(target, source, false));
+    }
+
+    private static boolean expl(DamageSource source) {
+        return DamageResistanceHandler.CATEGORY_EXPLOSION.equals(BalanceArmor.category(source));
+    }
+
+    private static BlastNow blastOf(com.hbm.explosion.vanillant.ExplosionVNT explosion, ExplosiveDamage.Blast blast, LivingEntity target, boolean struck) {
+        State s = state();
+        var r = s.blast();
+        if (!r.on()) return null;
+        var armor = armorOf(target, s);
+        if (armor == null) return null;
+        String id;
+        double tier, near;
+        Entity owner, projectile;
+        if (blast != null) {
+            // a launcher's round (its gun in balance.final.blast.launchers): its pair by the shot
+            var bullet = ExplosiveDamage.bulletOf(blast);
+            id = pairOf(bullet);
+            int dot = id == null ? -1 : id.indexOf('.');
+            if (dot <= 0) return null;
+            var l = r.launchers().get(id.substring(0, dot));
+            Double round = r.rounds().get(id.substring(dot + 1));
+            if (l == null || round == null) return null;
+            tier = BalanceBlastRule.pairTier(l, round, r.cap());
+            double t = tier;
+            near = s.cache().computeIfAbsent(new CacheKey("blast " + id, armor), k -> (double) BalanceBlastRule.nearLauncher(l, BalanceBlastRule.target(t, armor, s.params(), r)));
+            owner = bullet.getOwner();
+            projectile = bullet;
+        } else {
+            // a hand grenade (its filling in balance.final.blast.grenades), not inside a shot's impact
+            String filling = GRENADE.get();
+            Double t = filling == null || ExplosiveDamage.current() != null ? null : r.grenades().get(filling);
+            if (t == null) return null;
+            id = "grenade." + filling;
+            tier = t;
+            near = s.cache().computeIfAbsent(new CacheKey("blast " + id, armor), k -> BalanceBlastRule.nearGrenade(BalanceBlastRule.target(t, armor, s.params(), r), s.params(), r));
+            owner = explosion.exploder;
+            projectile = null;
+        }
+        // where the target is: struck, or its box's distance from the blast against NTM's reach (twice the size)
+        var box = target.getBoundingBox();
+        double dx = Math.max(Math.max(box.minX - explosion.posX, 0), explosion.posX - box.maxX);
+        double dy = Math.max(Math.max(box.minY - explosion.posY, 0), explosion.posY - box.maxY);
+        double dz = Math.max(Math.max(box.minZ - explosion.posZ, 0), explosion.posZ - box.maxZ);
+        double where = BalanceBlastRule.where(struck, Math.sqrt(dx * dx + dy * dy + dz * dz), 2.0 * explosion.size, r.hits());
+        double share = BalanceBlastRule.share(near, where);
+        // one's own blast: half
+        if (owner == target) share *= 0.5;
+        return new BlastNow(target, share * (BalanceFinalRule.HP + armor.pool()), id, tier, projectile);
+    }
+
+    /** a blast's or a GL-54 fragment's take of 20 HP and the pool, or NaN when the hit is neither (the log counts it) */
+    private static float blastOrFrag(LivingEntity target, DamageSource source) {
+        BlastNow b = BLAST_NOW.get();
+        if (b != null && b.target() == target && expl(source)) {
+            if (BalanceLog.on()) BalanceLog.hit(target, source, b.projectile(), b.id(), b.tier(), false);
+            return (float) b.take();
+        }
+        return frag(target, source, true);
+    }
+
+    /**
+     * a GL-54 fragment's (airburst, AP, incendiary; Fable 12.3) take of 20 HP and the pool: a burst whose cone's
+     * fragments all hit takes BalanceBlastRule.fragClick; NaN when the hit is not one
+     */
+    private static float frag(LivingEntity target, DamageSource source, boolean log) {
+        if (target.level().isClientSide() || !on()) return Float.NaN;
+        String cat = BalanceArmor.category(source);
+        if (cat == null || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) return Float.NaN;
+        Entity projectile = source.getDirectEntity();
+        String id = pairOf(projectile);
+        if (id == null || !id.startsWith("gl54.")) return Float.NaN;
+        State s = state();
+        var r = s.blast();
+        String kind = id.substring(5);
+        var f = r.frags().get(kind);
+        var l = r.launchers().get("gl54");
+        Double round = r.rounds().get(kind);
+        var spec = acup.gunfeel.gl54.frag.FragSpec.of(acup.gunfeel.gl54.GrenadeKind.of(kind));
+        if (!r.on() || f == null || l == null || round == null || spec == null) return Float.NaN;
+        var armor = armorOf(target, s);
+        if (armor == null) return Float.NaN;
+        double tier = BalanceBlastRule.pairTier(l, round, r.cap());
+        double role = s.params().roles().getOrDefault("airburst", 1.2);
+        double click = s.cache().computeIfAbsent(new CacheKey("frag " + id, armor), k -> BalanceBlastRule.fragClick(l, f, tier, armor, s.params(), role));
+        if (log && BalanceLog.on()) BalanceLog.hit(target, source, projectile, id, tier, false);
+        // the click is a burst whose cone all hits (the ring's fragments are the side spray, each the same)
+        return (float) (click / Math.max(1, spec.cone()));
+    }
+
+    /** the stand: a blast's hits to kill near (up to a block) of a launcher's pair or "grenade.<filling>" on a set (NaN: none) */
+    static double blastNear(String pair, String set) {
+        State s = state();
+        var r = s.blast();
+        var a = s.sets().get(set);
+        if (a == null) a = BalanceFinalRule.MODEL_SETS.get(set);
+        int dot = pair.indexOf('.');
+        if (a == null || dot <= 0) return Double.NaN;
+        if (pair.startsWith("grenade.")) {
+            Double t = r.grenades().get(pair.substring(dot + 1));
+            return t == null ? Double.NaN : BalanceBlastRule.nearGrenade(BalanceBlastRule.target(t, a, s.params(), r), s.params(), r);
+        }
+        var l = r.launchers().get(pair.substring(0, dot));
+        Double round = r.rounds().get(pair.substring(dot + 1));
+        if (l == null || round == null) return Double.NaN;
+        return BalanceBlastRule.nearLauncher(l, BalanceBlastRule.target(BalanceBlastRule.pairTier(l, round, r.cap()), a, s.params(), r));
     }
 
     /** the stand: the hit clicks of a pair on a set by the model's or NTM's names (NaN: no such pair or set) */

@@ -151,7 +151,7 @@ public final class BalanceArmor {
     public static boolean covers(LivingEntity target, DamageSource source) {
         if (!on() || category(source) == null) return false;
         // the final scheme: its hits get through, a shot it leaves to NTM meets NTM's own check
-        if (BalanceFinal.hit(target, source) != null) return true;
+        if (BalanceFinal.takes(target, source)) return true;
         if (BalanceFinal.ntmShot(target, source)) return false;
         for (int i = 0; i < 4; i++) {
             String set = setOf(target.getItemBySlot(SLOTS[i]), i);

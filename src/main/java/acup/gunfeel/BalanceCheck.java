@@ -545,7 +545,7 @@ public final class BalanceCheck {
     private static void plan() {
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         // the passes check the machine of X908 (formula C, the gun table): the final scheme off, its cells and team lines
         // turn it on by a key line (balance.final true)
@@ -569,6 +569,7 @@ public final class BalanceCheck {
         if (only("team")) planTeam();
         if (only("cheese")) planCheese();
         if (only("frag")) planFrag();
+        if (only("bx")) planBlastLadder();
     }
 
     // ---------------------------------------------------------------- melee and the flamethrower (hotfix X867)
@@ -1219,6 +1220,191 @@ public final class BalanceCheck {
         wait(10);
     }
 
+    // ---------------------------------------------------------------- Fable's stage 3: blasts on the ladder (pass bx)
+
+    /** a blast of the pass bx: its pair ("gun.ammo" of a launcher, "grenade.<filling>"), the blast of planExpl it is shot as */
+    private record Bx(String pair, Blast3 b) {
+    }
+
+    private static Blast3 launcher3(String name, Supplier<Item> gun, Supplier<BulletConfig> ammo) {
+        return new Blast3(new BalanceBlasts.Boom(name, true, 0, 0, 0, 0), null, gun, ammo);
+    }
+
+    private static List<Bx> bxBlasts() {
+        return List.of(new Bx("grenade.powder", BLASTS.get(0)), new Bx("grenade.he", BLASTS.get(1)), new Bx("grenade.demo", BLASTS.get(2)),
+                new Bx("congolake.g40_he", BLASTS.get(3)), new Bx("mk108.g40_he", BLASTS.get(4)),
+                new Bx("mk108.g40_demo", launcher3("mk108 demo", ModItems.GUN_MK108::get, () -> com.hbm.items.weapon.sedna.factory.XFactory40mm.g40_demo)),
+                new Bx("panzerschreck.rocket_he", BLASTS.get(5)),
+                new Bx("panzerschreck.rocket_demo", launcher3("panzerschreck demo", ModItems.GUN_PANZERSCHRECK::get, () -> XFactoryRocket.rocket_rpzb[2])),
+                new Bx("stinger.rocket_he", BLASTS.get(6)), new Bx("missile_launcher.rocket_he", BLASTS.get(7)),
+                new Bx("missile_launcher.rocket_demo", launcher3("ml demo", ModItems.GUN_MISSILE_LAUNCHER::get, () -> XFactoryRocket.rocket_ml[2])),
+                new Bx("gl54.he", launcher3("gl54 he", () -> acup.gunfeel.gl54.Gl54Items.GUN.get(), acup.gunfeel.gl54.Gl54Ammo::he)));
+    }
+
+    private static final String[] BX_SETS = {"", "dieselsuit", "t51", "security", "hev", "bj", "cmb", "rpa", "fau", "dns"};
+    private static final String[] BX_FRAG_SETS = {"", "dieselsuit", "t51", "hev", "bj", "cmb", "fau", "dns"};
+    private static final int BX_N = 2, BX_FRAG_N = 10;
+
+    /** a blast of the pass bx: a hand grenade, or a launcher's round with its pair (BalanceFinal.fired), the GL-54's from 4 blocks up so it arms */
+    private static void bxBoom(Bx x, float r, LivingEntity thrower) {
+        Vec3 t = spot3();
+        if (!x.b().boom().launched()) {
+            var grenade = new com.hbm.entity.grenade.EntityGrenadeUniversal(level, com.hbm.items.weapon.grenade.ItemGrenadeUniversal.make(
+                    com.hbm.items.weapon.grenade.ItemGrenadeShell.EnumGrenadeShell.STICK, x.b().filling(),
+                    com.hbm.items.weapon.grenade.ItemGrenadeFuze.EnumGrenadeFuze.IMPACT));
+            grenade.setThrower(thrower);
+            grenade.setPos(t.x + r, t.y + 0.15, t.z);
+            grenade.explode();
+            return;
+        }
+        BulletConfig c = x.b().ammo().get();
+        boolean gl54 = x.pair().startsWith("gl54.");
+        float dmg = gl54 ? acup.gunfeel.gl54.Gl54Grenade.BASE_DAMAGE : roundDamage(x.b());
+        com.hbm.entity.projectile.EntityBulletBaseMK4 round;
+        if (r < 0F) {
+            double dist = 15, drop = c.velocity > 0 ? c.gravity * Math.pow(dist / c.velocity, 2) / 2 : 0;
+            Vec3 from = new Vec3(t.x, t.y + 1.2, t.z - dist), d = new Vec3(t.x, t.y + 1.0 + drop, t.z).subtract(from).normalize();
+            round = new com.hbm.entity.projectile.EntityBulletBaseMK4(level, L.shooter, c, dmg, -c.spread, from.x, from.y, from.z, d.x, d.y, d.z);
+        } else if (gl54) {
+            // the GL-54's grenade arms after 3 blocks of flight: from 15 blocks back onto the ground beside the target
+            Vec3 from = new Vec3(t.x + r, t.y + 1.2, t.z - 15), d = new Vec3(t.x + r, t.y - 0.05, t.z).subtract(from).normalize();
+            round = new com.hbm.entity.projectile.EntityBulletBaseMK4(level, L.shooter, c, dmg, -c.spread, from.x, from.y, from.z, d.x, d.y, d.z);
+        } else round = new com.hbm.entity.projectile.EntityBulletBaseMK4(level, L.shooter, c, dmg, -c.spread, t.x + r, t.y + 1.2, t.z, 0, -1, 0);
+        BalanceFinal.fired(round, L.shooter, x.b().gun().get(), c);
+        level.addFreshEntity(round);
+    }
+
+    /**
+     * Fable 2026-11-12, 11.2 and 12.3 (stage 3): a launcher's round's or a hand grenade's blast on each set takes the
+     * ladder's share (direct, 1 and 3 blocks off); the GL-54's fragment grenades a burst's share at 1.5 and 3 blocks.
+     * Lines "bx" and "bxf" for notes/balance/fable/stand/bx.py (the model's numbers); checks only of the rules: no
+     * parts' multiplier, one's own blast half, balance.final.blast=false back to formula C (planExpl after it).
+     */
+    private static void planBlastLadder() {
+        line("#	--- bx: взрывы по лестнице (Fable 12.3), урон за взрыв; осколки GL-54 за подрыв");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "blastParts", "true", "blastPartsEven", "true",
+                    "balance.immune.dns.mode", "pool", "balance.immune.fau.mode", "pool", "balance.immune.mode", "pool", "balance.immune.pool", "0.0001",
+                    "balance.immune.window", "600", "balance.immune.recover", "1", "balance.immune.dns.pool", "0.0001", "balance.immune.dns.window", "600",
+                    "balance.immune.dns.recover", "1", "balance.immune.fau.pool", "0.0001", "balance.immune.fau.window", "600", "balance.immune.fau.recover", "1",
+                    "balance.final.blast", "true", "gl54", "true");
+            eachLane(() -> {
+                L.shooter.setInvulnerable(true);
+                L.shooter.snapTo(L.o.getX() + 8.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
+                for (int x = -6; x <= 6; x++) for (int z = 0; z <= 12; z++) level.setBlockAndUpdate(L.o.offset(x, -1, z), Blocks.BEDROCK.defaultBlockState());
+            });
+        });
+        wait(30);
+        List<Runnable> cases = new ArrayList<>();
+        for (Bx x : bxBlasts()) {
+            float[] where = x.b().boom().launched() ? new float[] {-1F, 1F, 3F} : new float[] {1F, 3F};
+            for (float r : where) for (String set : BX_SETS) cases.add(() -> bxCell(x, r, set, null, "bx"));
+        }
+        parallel(cases);
+        // the rules: no parts' multiplier (blastParts off: the same), one's own grenade half
+        List<Runnable> rules = new ArrayList<>();
+        Bx he = bxBlasts().get(1);
+        rules.add(() -> bxCell(he, 1F, "hev", null, "bx-parts-on"));
+        rules.add(() -> bxCell(he, 1F, "", null, "bx-self-other"));
+        rules.add(() -> bxCell(he, 1F, "", "self", "bx-self"));
+        parallel(rules);
+        STEPS.add(() -> keys("blastParts", "false"));
+        wait(5);
+        parallel(List.of(() -> bxCell(he, 1F, "hev", null, "bx-parts-off")));
+        STEPS.add(() -> keys("blastParts", "true"));
+        wait(5);
+        // the GL-54's fragments: a burst 1.5 and 3 blocks before the chest, flying at it
+        List<Runnable> frags = new ArrayList<>();
+        for (var spec : FRAG_SPECS) for (double d : new double[] {1.5, 3}) for (String set : BX_FRAG_SETS) frags.add(() -> bxFrag(spec, d, set));
+        parallel(frags);
+        STEPS.add(() -> {
+            keys("balance.immune.pool", "150", "balance.immune.window", "15", "balance.immune.recover", "60", "balance.immune.dns.mode", "formula",
+                    "balance.immune.fau.mode", "formula", "balance.immune.dns.pool", "40", "balance.immune.dns.window", "15", "balance.immune.dns.recover", "60",
+                    "balance.immune.fau.pool", "45", "balance.immune.fau.window", "15", "balance.immune.fau.recover", "60", "balance.final.blast", "false");
+            eachLane(() -> {
+                L.shooter.setInvulnerable(false);
+                for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+                wearAttributes(L.target);
+            });
+        });
+        wait(30);
+    }
+
+    /** a cell of bx: BX_N blasts on the target in {@code set} from full health, what each took ({@code who} "self": the target throws it) */
+    private static void bxCell(Bx x, float r, String set, String who, String tag) {
+        List<Float> lost = new ArrayList<>();
+        int wait = !x.b().boom().launched() ? 3 : r < 0F ? 25 : 12;
+        bxPrime(set);
+        for (int i = 0; i < BX_N; i++) {
+            STEPS.add(() -> {
+                ready3(set);
+                bxBoom(x, r, "self".equals(who) ? L.target : L.shooter);
+            });
+            wait(wait);
+            STEPS.add(() -> {
+                lost.add(L.blastLost);
+                L.target.setHealth(L.target.getMaxHealth());
+            });
+        }
+        STEPS.add(() -> {
+            float sum = 0F;
+            for (float l : lost) sum += l;
+            line(tag + "\t" + x.pair() + "\t" + (set.isEmpty() ? "-" : set) + "\t" + where3(r) + "\t" + String.format(Locale.ROOT, "%.4f", sum / Math.max(1, lost.size()))
+                    + "\t" + lost.size() + "\t" + lost);
+        });
+    }
+
+    /**
+     * the target in {@code set} with its pool's window open: a full pool calls its emptying hit off (the window from the
+     * next tick), so FAU and DNS take a hand grenade first; the pool's share is the scheme's all the same (balance.final.pools)
+     */
+    private static void bxPrime(String set) {
+        STEPS.add(() -> {
+            ready3(set);
+            EuphImmunity.forget(L.target);
+            if (set.equals("fau") || set.equals("dns")) bxBoom(bxBlasts().get(1), 1F, L.shooter);
+        });
+        wait(3);
+    }
+
+    /** a cell of bx: BX_FRAG_N bursts of {@code spec} {@code d} blocks before the chest of the target in {@code set}, each from full health */
+    private static void bxFrag(acup.gunfeel.gl54.frag.FragSpec spec, double d, String set) {
+        bxPrime(set);
+        STEPS.add(() -> {
+            ready3(set);
+            var type = acup.gunfeel.gl54.Gl54Ammo.type(spec.kind().key);
+            double sum = 0;
+            int[] rays = {0};
+            int seen0 = 0;
+            float out0 = 0F;
+            var was = acup.gunfeel.gl54.frag.FragBurst.watch;
+            acup.gunfeel.gl54.frag.FragBurst.watch = o -> {
+                var near = (LivingEntity[]) o[3];
+                var hits = (int[]) o[4];
+                for (int k = 0; k < near.length; k++) if (near[k] == L.target) rays[0] += hits[k];
+            };
+            for (int i = 0; i < BX_FRAG_N; i++) {
+                begin(L.target);
+                L.target.invulnerableTime = 0;
+                float hp = L.target.getHealth();
+                Vec3 chest = new Vec3(L.target.getX(), L.target.getY() + 1.2, L.target.getZ());
+                var proj = new com.hbm.entity.projectile.EntityBulletBaseMK4(level, L.shooter, type, 45F, 0F, chest.x, chest.y, chest.z - d - 1, 0, 0, 1);
+                BalanceFinal.fired(proj, L.shooter, acup.gunfeel.gl54.Gl54Items.GUN.get(), type);
+                acup.gunfeel.gl54.frag.FragBurst.burst(spec, level, L.shooter, proj, chest.add(0, 0, -d), new Vec3(0, 0, 1), 0xB0A5_0000L + i * 7919L);
+                sum += hp - L.target.getHealth();
+                seen0 += L.seen.hits;
+                out0 += L.seen.out;
+                L.target.clearFire();
+            }
+            acup.gunfeel.gl54.frag.FragBurst.watch = was;
+            fragFireOff();
+            line("bxf\t" + spec.kind().key + "\t" + (set.isEmpty() ? "-" : set) + "\t" + f((float) d) + "\t" + String.format(Locale.ROOT, "%.4f", sum / BX_FRAG_N) + "\t" + BX_FRAG_N
+                    + "\t" + f(rays[0] / (float) BX_FRAG_N) + "\t" + f(seen0 / (float) BX_FRAG_N) + "\t" + String.format(Locale.ROOT, "%.4f", out0 / BX_FRAG_N));
+            L.target.setHealth(L.target.getMaxHealth());
+        });
+        wait(3);
+    }
+
     // ---------------------------------------------------------------- Pepperbox: 13th-century tech
 
     private static final String[] PEP_SETS = {"", "steel", "dieselsuit", "t51", "hev", "security"};
@@ -1407,7 +1593,9 @@ public final class BalanceCheck {
         out(TSV3, "взрывчатка\tгде\tнабор\tвзрывов\tблок\tурон за взрыв\tстенд, до смерти\tмодель, урон\tмодель, до смерти\tD снаряда");
         STEPS.add(() -> {
             kitKeys(true);
-            keys("blastParts", "true", "blastPartsEven", "true", "damageCapBlasts", "true", "balanceArmorBlasts", "true", "balanceExplRawLimit", "60");
+            // formula C's blasts (X908; with balance.final on, its blasts off: X912's)
+            keys("blastParts", "true", "blastPartsEven", "true", "damageCapBlasts", "true", "balanceArmorBlasts", "true", "balanceExplRawLimit", "60",
+                    "balance.final.blast", "false");
             eachLane(() -> {
                 // the mannequin (the rounds' and grenades' shooter) out of the rounds' way and the blasts' reach
                 L.shooter.snapTo(L.o.getX() + 8.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
