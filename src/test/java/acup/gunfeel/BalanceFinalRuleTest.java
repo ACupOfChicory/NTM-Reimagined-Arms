@@ -13,7 +13,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-// The solver against the model's own table (notes/balance/final/model: final_check.py with the keys' defaults).
+// The solver against the model's own tables (notes/balance/fable/model: gen_tables.py; X912: notes/balance/final/model).
 class BalanceFinalRuleTest {
     private static final BalanceFinalRule.Params P = BalanceFinalRule.Params.DEFAULT;
     private static final Map<String, BalanceFinalRule.Armor> SETS = BalanceFinalRule.MODEL_SETS;
@@ -30,24 +30,23 @@ class BalanceFinalRuleTest {
         return out;
     }
 
-    @Test
-    void reproducesTheModelsTable() throws IOException {
+    /** the solver with {@code p} on the model's sets {@code sets} against a table of the model's: within one click, 99 % exact */
+    private static void reproduces(String table, BalanceFinalRule.Params p, Map<String, BalanceFinalRule.Armor> sets) throws IOException {
         var pairs = pairs();
         var refs = BalanceFinalRule.refs(pairs.values());
         String[] cols = null;
         int cells = 0, exact = 0;
         List<String> off = new ArrayList<>();
-        for (String l : lines("ntmgunfeel-balance-final-table.tsv")) {
+        for (String l : Files.readAllLines(Path.of("src/test/resources/balance/" + table), StandardCharsets.UTF_8)) {
             if (l.startsWith("# pair")) cols = l.substring(2).split("\t");
             if (l.startsWith("#") || l.isBlank()) continue;
             String[] c = l.split("\t");
             var pr = pairs.get(c[0]);
             assertTrue(pr != null, c[0]);
             for (int i = 2; i < c.length; i++) {
-                var a = SETS.get(cols[i]);
-                double want = BalanceFinalRule.HP / Double.parseDouble(c[i]);
-                double got = BalanceFinalRule.clickDamage(pr, a, FAU, refs, P);
-                double nWant = BalanceFinalRule.HP / want, nGot = BalanceFinalRule.HP / got;
+                var a = sets.get(cols[i]);
+                double nWant = Double.parseDouble(c[i]);
+                double nGot = BalanceFinalRule.HP / BalanceFinalRule.clickDamage(pr, a, sets.get("fau"), refs, p);
                 cells++;
                 if (Math.abs(nWant - nGot) < 1e-3) exact++;
                 if (Math.abs(nWant - nGot) > 1 + 1e-6) off.add(c[0] + "/" + cols[i] + ": " + nWant + " vs " + nGot);
@@ -58,20 +57,45 @@ class BalanceFinalRuleTest {
         assertTrue(exact >= cells * 0.99, exact + " of " + cells + " exact");
     }
 
+    // stage 1: the same with the magazine's rule off (fm.use('fable', edge=False))
+    @Test
+    void reproducesFableWithoutTheMagazinesRule() throws IOException {
+        reproduces("final-table-fable-noedge.tsv", P.withMag(BalanceFinalRule.MagRule.OFF), SETS);
+    }
+
+    // X912 is the keys' old values: its ladder and roles, no slug, no magazine's rule, pools 40/45
+    @Test
+    void reproducesX912ByTheOldKeys() throws IOException {
+        reproduces("final-table-x912.tsv", BalanceFinalRule.Params.X912, BalanceFinalRule.modelSets(40, 45));
+    }
+
+    // no one-shot on the head: a click on the head does at most the head's cap of 16 HP, below every set's 20 and more
+    @Test
+    void headTakesTwoClicksOrMore() throws IOException {
+        var pairs = pairs();
+        var refs = BalanceFinalRule.refs(pairs.values());
+        for (var pr : pairs.values())
+            for (var a : SETS.values()) {
+                double click = BalanceFinalRule.clickDamage(pr, a, FAU, refs, P);
+                double head = Math.min(0.8 * BalanceFinalRule.HP, click * 1.75);
+                assertTrue(Math.ceil((BalanceFinalRule.HP + a.pool()) / head - 1e-9) >= 2, pr.id() + " on " + a.kind());
+                assertTrue(!BalanceFinalRule.headOneShot(pr, a.hours(), P), pr.id());
+            }
+    }
+
     @Test
     void dnsNeverQuickerThanFau() throws IOException {
         var pairs = pairs();
         var refs = BalanceFinalRule.refs(pairs.values());
         for (var pr : pairs.values()) {
-            double dns = BalanceFinalRule.realTtk(BalanceFinalRule.clickDamage(pr, SETS.get("dns"), FAU, refs, P), pr, 60)[0];
-            double fau = BalanceFinalRule.realTtk(BalanceFinalRule.clickDamage(pr, FAU, null, refs, P), pr, 65)[0];
+            double dns = BalanceFinalRule.realTtk(BalanceFinalRule.clickDamage(pr, SETS.get("dns"), FAU, refs, P), pr, 20 + SETS.get("dns").pool())[0];
+            double fau = BalanceFinalRule.realTtk(BalanceFinalRule.clickDamage(pr, FAU, null, refs, P), pr, 20 + FAU.pool())[0];
             assertTrue(dns >= fau - 1e-9, pr.id() + ": DNS " + dns + " < FAU " + fau);
         }
     }
 
     private static BalanceFinalRule.Params heads(java.util.Set<String> guns) {
-        return new BalanceFinalRule.Params(P.anchors(), P.tmin(), P.tmax(), P.below(), P.beta(), P.lo(), P.hi(), P.energy(), P.ammoK(), P.ammoFrom(),
-                P.ammoMax(), P.jhp(), P.ped(), P.explShift(), P.dnsOverFau(), guns, P.headGap(), P.laserTrench(), P.roles());
+        return P.withHeadGuns(guns);
     }
 
     @Test
@@ -105,7 +129,7 @@ class BalanceFinalRuleTest {
         var carbine = pairs.get("carbine.r762_sp");
         double[] w = {3, 8, 6, 3};
         var hev = SETS.get("hev");
-        // the model's numbers (A_eff, hit clicks)
+        // the model's numbers (A_eff, hit clicks; X912's ladder)
         Object[][] cases = {{new BalanceFinalRule.Armor[] {hev, hev, hev, null}, 3.48, 11}, {new BalanceFinalRule.Armor[] {SETS.get("steel"), hev, hev, SETS.get("steel")}, 3.10, 10},
                 {new BalanceFinalRule.Armor[] {null, hev, null, null}, 1.90, 8}, {new BalanceFinalRule.Armor[] {null, SETS.get("cmb"), SETS.get("cmb"), null}, 5.05, 17},
                 {new BalanceFinalRule.Armor[] {null, SETS.get("dns"), SETS.get("dns"), null}, 6.45, 88}};
@@ -113,7 +137,7 @@ class BalanceFinalRuleTest {
             var mix = BalanceFinalRule.mix((BalanceFinalRule.Armor[]) c[0], w, 0.5);
             assertEquals((double) c[1], mix.tier(), 0.005);
             assertEquals(0.0, mix.pool());
-            assertEquals((int) c[2], BalanceFinalRule.hitClicks(carbine, mix, null, refs, P));
+            assertEquals((int) c[2], BalanceFinalRule.hitClicks(carbine, mix, null, refs, BalanceFinalRule.Params.X912));
         }
     }
 
@@ -122,9 +146,10 @@ class BalanceFinalRuleTest {
         var a = BalanceFinalRule.anchors("+3:1 0:2 -1:4 junk 2:x");
         assertEquals(3, a.size());
         assertEquals(2.0, BalanceFinalRule.ttkOf(0, P.anchors().size() > 0 ? new BalanceFinalRule.Params(a, 0.7, 900, 2, 0.3, 0.7, 1.4, 1.15, 4, 0.15, 1, -1, 0.5, 1, 1.15,
-                java.util.Set.of(), 1, 1, Map.of()) : P), 1e-9);
+                java.util.Set.of(), 1, 1, Map.of(), 0, BalanceFinalRule.MagRule.OFF) : P), 1e-9);
         // between 0 and +3 by the logarithm: no anchors at +1 and +2
-        var q = new BalanceFinalRule.Params(a, 0.1, 900, 2, 0.3, 0.7, 1.4, 1.15, 4, 0.15, 1, -1, 0.5, 1, 1.15, java.util.Set.of(), 1, 1, Map.of());
+        var q = new BalanceFinalRule.Params(a, 0.1, 900, 2, 0.3, 0.7, 1.4, 1.15, 4, 0.15, 1, -1, 0.5, 1, 1.15, java.util.Set.of(), 1, 1, Map.of(), 0,
+                BalanceFinalRule.MagRule.OFF);
         assertEquals(Math.exp(Math.log(2) * 2 / 3 + Math.log(1) / 3), BalanceFinalRule.ttkOf(1, q), 1e-9);
         assertEquals(16.0, BalanceFinalRule.ttkOf(-3, q), 1e-9);
         assertEquals(P.anchors(), BalanceFinalRule.anchors(""));

@@ -235,7 +235,7 @@ public final class EuphImmunity {
     }
 
     public static Pool pool(Kit kit) {
-        Pool d = new Pool(kit.size, Pool.DEFAULT.window(), Pool.DEFAULT.recover(), Pool.DEFAULT.hold());
+        Pool d = new Pool(BalanceFinal.poolOf(kit), Pool.DEFAULT.window(), Pool.DEFAULT.recover(), Pool.DEFAULT.hold());
         float size = ReaimTimes.number(kit.key + ".pool", d.size());
         float window = ReaimTimes.number(kit.key + ".window", d.window() / 20F);
         float recover = ReaimTimes.number(kit.key + ".recover", d.recover() / 20F);

@@ -79,6 +79,7 @@ public final class BalanceFinal {
         }
         PAIR.put(projectile, id);
         LAST.put(shooter, new Last(id, shooter.level().getGameTime()));
+        if (BalanceLog.on()) BalanceLog.shot(projectile, shooter, gunItem);
     }
 
     /** a submunition of {@code thrower}'s (made from a shot of its, the Shredder's plasma): the pair it has just fired */
@@ -225,7 +226,8 @@ public final class BalanceFinal {
                 num("balance.final.ttk.min", d.tmin(), 0.05, 60), num("balance.final.ttk.max", d.tmax(), 1, 1e6), num("balance.final.ttk.below", d.below(), 1, 100),
                 beta, lo, hi, num("balance.final.energy", d.energy(), 0.01, 100), ammoK, from, most, jhp, num("balance.final.ped", d.ped(), -5, 5),
                 explosive.equals("C") ? 1.0 : 0.0, num("balance.final.dnsOverFau", d.dnsOverFau(), 0, 100), Set.copyOf(heads),
-                num("balance.final.head.gap", d.headGap(), -10, 10), d.laserTrench(), Map.copyOf(roles));
+                num("balance.final.head.gap", d.headGap(), -10, 10), d.laserTrench(), Map.copyOf(roles), num("balance.final.slug.pellets", d.slugPellets(), 0, 1000),
+                BalanceFinalRule.MagRule.parse(ReaimTimes.text("balance.final.mag", ""), d.mag()));
         // the pairs, a tier of balance.final.pairTier.<gun>.<ammo> in place of their own
         Map<String, Double> tiers = new HashMap<>();
         for (String l : lines()) {
@@ -243,7 +245,11 @@ public final class BalanceFinal {
         List<BalanceFinalRule.Pair> formula = new ArrayList<>();
         for (var pr : pairs.values()) if (!inTable(table, pr.id())) formula.add(pr);
         Map<String, BalanceFinalRule.Armor> sets = new HashMap<>();
-        DEFAULT_SETS.forEach((name, a) -> sets.put(name, armorKey(name, a)));
+        DEFAULT_SETS.forEach((name, a) -> {
+            var kit = kitOf(name);
+            // the kits' pools the scheme counts in (balance.final.pools), whatever the pools' own keys: the stand makes them 0.0001
+            sets.put(name, armorKey(name, kit == null ? a : new BalanceFinalRule.Armor(a.kind(), a.tier(), a.hours(), a.en(), pools(kit))));
+        });
         double[] weights = {3, 8, 6, 3};
         String[] w = ReaimTimes.text("balance.final.armor.weights", "3,8,6,3").split(",");
         if (w.length == 4) try {
@@ -277,6 +283,33 @@ public final class BalanceFinal {
             // the default
         }
         return def;
+    }
+
+    /** the kit of a full set of {@code name} (NTM's name), or null */
+    private static EuphImmunity.Kit kitOf(String name) {
+        for (var k : EuphImmunity.Kit.values()) if (k.set.equals(name)) return k;
+        return null;
+    }
+
+    /** balance.final.pools: the pools of DNS, FAU and euphemium the scheme counts in, "dns:45 fau:40 euph:150" */
+    public static final String POOLS = "dns:45 fau:40 euph:150";
+
+    /** the pool of {@code kit} by balance.final.pools (Fable 2.6: DNS 45, FAU 40; X912: dns:40 fau:45) */
+    static double pools(EuphImmunity.Kit kit) {
+        String name = kit == EuphImmunity.Kit.EUPHEMIUM ? "euph" : kit.set;
+        var byKey = BalanceFinalRule.roles(ReaimTimes.text("balance.final.pools", POOLS));
+        Double v = byKey.get(name);
+        if (v == null) v = BalanceFinalRule.roles(POOLS).get(name);
+        return v == null ? kit.size : v;
+    }
+
+    /** the size of a kit's pool when its key balance.immune*.pool is not set: balance.final.pools with the scheme on, X908's own off */
+    static float poolOf(EuphImmunity.Kit kit) {
+        try {
+            return on() ? (float) pools(kit) : kit.size;
+        } catch (RuntimeException e) {
+            return kit.size;
+        }
     }
 
     private static BalanceFinalRule.Armor a(String kind, double t, double h, double en, double pool) {
@@ -393,6 +426,7 @@ public final class BalanceFinal {
         Hit h = hit(target, source);
         if (h == null) return Float.NaN;
         if (againThisTick(target, source)) return 0F;
+        if (BalanceLog.on()) BalanceLog.hit(target, source, h.pair(), HeadDamage.onHead(target));
         float scale = target.getMaxHealth() / (float) BalanceFinalRule.HP;
         if (h.oneShotHead() && HeadDamage.onHead(target)) {
             // the head's rule: the whole health (and pool) in one click, the head's multiplier after it
@@ -409,6 +443,7 @@ public final class BalanceFinal {
         if (h == null) return Float.NaN;
         if (againThisTick(target, source)) return 0F;
         boolean head = HeadDamage.onHead(target);
+        if (BalanceLog.on()) BalanceLog.hit(target, source, h.pair(), head);
         if (h.oneShotHead() && head) return (float) ((BalanceFinalRule.HP + h.armor().pool()) / h.pair().projectiles());
         float d = h.projectile();
         return head ? Math.min(d * ModelHeads.multiplier(true, false), DamageCap.limits().head() * (float) BalanceFinalRule.HP) : d;
