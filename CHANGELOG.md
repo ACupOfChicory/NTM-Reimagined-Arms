@@ -1,5 +1,14 @@
 # Changelog
 
+## X906
+
+- The 12 Gauge Electroshock Shell's recipe now sits with NTM's last rounds in a
+  weapon steel casing, the 10 gauge shells and the 12 gauge magnum, phosphorus
+  and explosive shells (tier 4): NTM's ammo press makes six from a capacitor
+  (niobium), a copper coil, smokeless powder and an advanced buckshot casing.
+  The old recipe asked for NTM's Old Capacitor block, which nothing makes. The
+  shell's tier in the gun table follows the recipe: 4 (9 with the tier 9 shotgun).
+
 ## X904
 
 - The Lever Action Rifle and Lincoln's Repeater now take DNS, FAU and
