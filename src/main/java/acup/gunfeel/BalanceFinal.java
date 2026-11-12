@@ -120,7 +120,7 @@ public final class BalanceFinal {
      * a beam made by the 3-argument constructor (MixinBalanceFinalBeamSub): the IR capacitor's arc (energy_tesla_ir_sub)
      * takes the pair its shooter has just fired (balance.final.tesla.ir; Fable №2, 2.5). Its hit on the creature the
      * click's arc has just struck is nothing (againThisTick): an IR click is the table's click; on anyone else, a click
-     * of the pair. Off: the arc has no pair and its damage is not the scheme's (X922).
+     * of the pair with no range rule. Off: the arc has no pair and its damage is not the scheme's (X922).
      */
     public static void beamSub(Entity beam, LivingEntity thrower, com.hbm.items.weapon.sedna.BulletConfig config) {
         if (beam == null || thrower == null || thrower.level().isClientSide() || !on()) return;
@@ -169,8 +169,12 @@ public final class BalanceFinal {
      * a second blast of the same shooter's on the target in the tick (the Tesla Cannon's arc again), or the IR arc's beam
      * on the target its click's arc has just struck: nothing
      */
+    private static boolean irSub(DamageSource source) {
+        return source.getDirectEntity() != null && IR_SUBS.containsKey(source.getDirectEntity());
+    }
+
     private static boolean againThisTick(LivingEntity target, DamageSource source) {
-        boolean irSub = source.getDirectEntity() != null && IR_SUBS.containsKey(source.getDirectEntity());
+        boolean irSub = irSub(source);
         // the Tesla Cannon's arc (a beam's class, not an explosion): an explosive shell's pellets each have their own blast
         if (!(BalanceArmor.vntBlastNow() || irSub) || source.is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)
                 || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(BalanceArmor.category(source))) return false;
@@ -505,14 +509,15 @@ public final class BalanceFinal {
 
     /**
      * the hit's share by range (balance.final.range; Fable 10.4): by the pair's role and the shooter's distance to the
-     * target now; 1 for a blast (an explosive shell's direct hit), the Tesla Cannon's arc, no shooter, the rule off
+     * target now; 1 for a blast (an explosive shell's direct hit), the Tesla Cannon's arc and its IR beam, no shooter, the rule off
      */
     private static float range(LivingEntity target, DamageSource source, Hit h) {
         var r = state().range();
         String role = BalanceFinalRule.roleOf(h.pair(), state().params());
         // an explosive shell's direct hit takes its role's line (balance.final.range.shells; Fable №2, 2.1); other blasts none
         boolean shell = expl(source) && h.pair().explosive() && (role.equals("shotgun") || role.equals("slug")) && ReaimTimes.flag("balance.final.range.shells", true);
-        if (!r.on() || BalanceArmor.vntBlastNow() || expl(source) && !shell || source.getEntity() == null) return 1F;
+        // the IR arc's beam: no range, like the arc (Fable's answer 6, 5)
+        if (!r.on() || BalanceArmor.vntBlastNow() || irSub(source) || expl(source) && !shell || source.getEntity() == null) return 1F;
         double d = source.getEntity().position().distanceTo(target.position());
         return (float) BalanceRangeRule.damage(r, role, d);
     }
