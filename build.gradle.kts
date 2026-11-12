@@ -406,6 +406,8 @@ neoForge {
             providers.gradleProperty("balanceCellHits").orNull?.let { systemProperty("ntmgunfeel.checkBalance.cellHits", "true") }
             // -PbalanceTeam=<file>: the pass "team", n shooters on one target (BalanceCheck.planTeam)
             providers.gradleProperty("balanceTeam").orNull?.let { systemProperty("ntmgunfeel.checkBalance.team", it) }
+            // -PbalanceFinal=true: the passes with the final scheme on (balance.final; by default off: they check X908's machine)
+            providers.gradleProperty("balanceFinal").orNull?.let { systemProperty("ntmgunfeel.checkBalance.final", it) }
             // -PbalanceLanes=<n>: n pairs of shooter and target at once, the cases of a pass shared out (8; 1: one pair)
             providers.gradleProperty("balanceLanes").orNull?.let { systemProperty("ntmgunfeel.checkBalance.lanes", it) }
         }

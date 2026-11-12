@@ -1,5 +1,32 @@
 # Changelog
 
+## X912
+
+- New gun balance, one formula for every gun (server key `balance.final`,
+  on; `false`: X908 as it was). A bullet or a beam no longer goes through
+  NTM's damage, the armour's threshold and resistance and the old armour
+  formula: a click whose projectiles all hit does 20/N HP, N worked out so
+  that the gun kills the set in the time its tier difference gives
+  (`balance.final.ttk`), shaded by the gun's role and raw damage and counting
+  its spread, pause and reloads. The head (×1.75), limbs, the damage cap and
+  the DNS, FAU and euphemium pools come after, as before; a pool counts in
+  the time only on a player whose set has one (`balance.immune*.mode = pool`).
+- A fight of equals now takes about 3.5 s on average (body, at the gun's
+  range), with each kind of gun its own: SMGs from the hip about 5.8 s,
+  machine guns 4.0, pistols 3.5, rifles 3.2, shotguns close up and sniper
+  rifles 2.5 (`balance.final.roles`). All hits on the head at point blank
+  take about half that (1.65 s on average). No gun kills with one shot on the
+  head any more, sniper rifles included (`balance.final.head.guns`, empty).
+- Armour a tier above the gun takes twice as long (7 s), two tiers 18 s.
+  Security and the steam suit count as tier 2.5,
+  DNS 9 (never killed quicker than FAU). A mixed or incomplete set counts by
+  its pieces (helmet 3, chestplate 8, leggings 6, boots 3; no pool).
+- Tau and the Old Classic go by the same formula (Tau at tier 8); the
+  explosive shotgun shells' hit on the creature they strike counts a tier up,
+  their blast on anyone else as before. Blasts, grenades, rockets, shields,
+  Med-X, melee and fire are unchanged; mobs' and turrets' shots of no gun take
+  NTM's own damage.
+
 ## X908
 
 - Tau no longer goes through tier 6 and 7 armour as if it were not there. Its

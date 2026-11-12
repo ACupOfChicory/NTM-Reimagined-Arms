@@ -364,7 +364,9 @@ public final class BalanceCheck {
                 L.hits++;
                 L.lost += e.getInflictedDamage();
                 // the pass mx: each hit of a cell, its type, what it took and the cap's ruling
-                if (L.mxHits != null) L.mxHits.append(e.getSource().getMsgId()).append(' ').append(f(e.getInflictedDamage())).append(" [").append(DamageCap.last).append("]; ");
+                if (L.mxHits != null) L.mxHits.append(e.getSource().getMsgId()).append(' ').append(f(e.getInflictedDamage())).append(" {")
+                        .append(e.getSource().getDirectEntity() == null ? "-" : e.getSource().getDirectEntity().getClass().getSimpleName()).append(' ')
+                        .append(BalanceFinal.pairOf(e.getSource().getDirectEntity())).append(BalanceArmor.vntBlastNow() ? " blast" : "").append("} [").append(DamageCap.last).append("]; ");
                 if (!e.getSource().is(net.minecraft.tags.DamageTypeTags.IS_FALL)) L.blastLost += e.getInflictedDamage();
             } finally {
                 L = was;
@@ -545,7 +547,9 @@ public final class BalanceCheck {
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
             if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
-        STEPS.add(() -> keys("balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula"));
+        // the passes check the machine of X908 (formula C, the gun table): the final scheme off, its cells and team lines
+        // turn it on by a key line (balance.final true)
+        STEPS.add(() -> keys("balance.final", String.valueOf(Boolean.getBoolean(PROPERTY + ".final")), "balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula"));
         wait(30);
         if (only("2")) plan2();
         if (only("1g")) planAbilities();
@@ -804,9 +808,10 @@ public final class BalanceCheck {
         }
         line("#\t--- матрица модели: " + cells.size() + " клеток, по 3 клика с полного здоровья, 4 бл");
         STEPS.add(() -> {
-            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", "formula",
-                    "balance.immune.fau.mode", "formula", "balance.immune.mode", "pool", "balance.immune.pool", "0.01", "balance.immune.window", "600",
-                    "balance.immune.recover", "1");
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", "pool",
+                    "balance.immune.fau.mode", "pool", "balance.immune.mode", "pool", "balance.immune.pool", "0.0001", "balance.immune.window", "600",
+                    "balance.immune.recover", "1", "balance.immune.dns.pool", "0.0001", "balance.immune.dns.window", "600", "balance.immune.dns.recover", "1",
+                    "balance.immune.fau.pool", "0.0001", "balance.immune.fau.window", "600", "balance.immune.fau.recover", "1");
             eachLane(() -> L.shooter.setInvulnerable(true));
         });
         wait(30);
@@ -834,7 +839,9 @@ public final class BalanceCheck {
         }
         parallel(run);
         STEPS.add(() -> {
-            keys("balance.immune.pool", "150", "balance.immune.window", "15", "balance.immune.recover", "60");
+            keys("balance.immune.pool", "150", "balance.immune.window", "15", "balance.immune.recover", "60", "balance.immune.dns.mode", "formula",
+                    "balance.immune.fau.mode", "formula", "balance.immune.dns.pool", "40", "balance.immune.dns.window", "15", "balance.immune.dns.recover", "60",
+                    "balance.immune.fau.pool", "45", "balance.immune.fau.window", "15", "balance.immune.fau.recover", "60");
             eachLane(() -> {
                 L.shooter.setInvulnerable(false);
                 for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
@@ -886,7 +893,7 @@ public final class BalanceCheck {
         }
         STEPS.add(() -> {
             L.aimHead = false;
-            line("mx\t" + id + "\t" + f(took[0] / 3F) + "\t" + f(hitsSeen[0] / 3F));
+            line("mx\t" + id + "\t" + String.format(Locale.ROOT, "%.5f", took[0] / 3F) + "\t" + f(hitsSeen[0] / 3F));
             if (mxLog) line("#\tmx-hits\t" + id + "\t" + L.mxHits);
             L.mxHits = null;
         });
@@ -2960,10 +2967,17 @@ public final class BalanceCheck {
 
     /** the full set, charged; {@code vanilla} off: its vanilla armour points taken off the pieces */
     private static void dress(LivingEntity v, String set, boolean vanilla) {
+        // "a/b/c/d": a set by slot (helmet, chestplate, leggings, boots), "-" an empty slot (a mixed set)
+        String[] bySlot = set.contains("/") ? set.split("/") : null;
         for (int i = 0; i < 4; i++) {
-            Item item = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", set + SUFFIX[i]));
+            String own = bySlot == null ? set : bySlot[i];
+            if (own.equals("-")) {
+                v.setItemSlot(SLOTS[i], ItemStack.EMPTY);
+                continue;
+            }
+            Item item = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", own + SUFFIX[i]));
             ItemStack stack = new ItemStack(item);
-            if (stack.isEmpty()) throw new IllegalStateException("no hbm:" + set + SUFFIX[i]);
+            if (stack.isEmpty()) throw new IllegalStateException("no hbm:" + own + SUFFIX[i]);
             if (item instanceof ModArmorItem armor && armor.isPowered()) armor.setCharge(stack, armor.maxPower(stack));
             if (!vanilla) stack.set(DataComponents.ATTRIBUTE_MODIFIERS, ItemAttributeModifiers.EMPTY);
             v.setItemSlot(SLOTS[i], stack);

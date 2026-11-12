@@ -242,6 +242,9 @@ public final class BalanceGuns {
         if (shooter == null || ammo == null || !on()) return damage;
         Item gun = gunOf(shooter);
         if (gun == null) return damage;
+        // the scheme's pair (balance.final), whatever the table has for it
+        BalanceFinal.fired(projectile, shooter, gun, ammo);
+        BalanceGuns.watchFinal(projectile);
         BalanceGunsRule.Shot s = safePair(gun, ammo);
         if (s.none()) return damage;
         if (s.neg() != 0F || s.pen() != 0F || s.floor() != 1F || s.tier() >= 0)
@@ -264,6 +267,14 @@ public final class BalanceGuns {
         BalanceGunsRule.Shot s = UNDER.get(direct);
         if (s == null || !ReaimTimes.flag("balanceGunUnder", true)) return null;
         return BalanceGunsRule.underShift(s, tier);
+    }
+
+    /** the stand: every shot made (its projectile), the scheme's pair noted */
+    static volatile java.util.function.Consumer<Entity> watchFinal;
+
+    private static void watchFinal(Entity projectile) {
+        var w = watchFinal;
+        if (w != null) w.accept(projectile);
     }
 
     /** the stand: every shot that got the balance's numbers */

@@ -307,6 +307,12 @@ public final class EuphImmunity {
     /** what the hit would do to the kit's drain set (formula C; one hit at most damageCapClick of the health), or 0 */
     static float drain(Kit kit, Player player, DamageSource source, float amount, String cat) {
         if (cat == null) return 0F;
+        // the final scheme: the pool takes the scheme's damage of the hit (balance.final)
+        float scheme = BalanceFinal.drain(player, source);
+        if (!Float.isNaN(scheme)) {
+            float click = ReaimTimes.number("damageCapClick", 0.6F);
+            return Float.isFinite(click) && click > 0F && !BalanceFinal.oneShotHead(player, source) && !HeadDamage.onHead(player) ? Math.min(scheme, click * player.getMaxHealth()) : scheme;
+        }
         float[] st = drainSet(kit);
         // NTM's accepted damage takes an electric hit on a powered chestplate five times (EntityDamageUtil)
         if (kit != Kit.EUPHEMIUM && source.is(com.hbm.lib.ModDamageTypes.ELECTRIC)

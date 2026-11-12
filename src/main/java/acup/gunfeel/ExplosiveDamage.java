@@ -43,6 +43,8 @@ public final class ExplosiveDamage {
     public static Context current(){return CURRENT.get();}
     /** the bullet whose impact is being dealt now (an explosive bullet's blast comes with no bullet of its own), or null */
     public static net.minecraft.world.entity.Entity bulletNow(){var c=CURRENT.get();return c==null?null:c.bullet;}
+    /** the creature the bullet whose impact is being dealt now struck, or null (a block, none) */
+    public static net.minecraft.world.entity.Entity struckNow(){var c=CURRENT.get();return c!=null && c.impact instanceof net.minecraft.world.phys.EntityHitResult hit?hit.getEntity():null;}
     public static boolean impact(BiConsumer<Object,Object> callback,EntityBulletBaseMK4 bullet,HitResult hit,boolean announce){
         if(bullet.level().isClientSide()){callback.accept(bullet,hit);return false;}
         int previousDepth=DEPTH.get();
