@@ -120,6 +120,9 @@ public final class BalanceCheck {
         final List<Float> blastCell = new ArrayList<>();
         /** the hi pass: a hit of this click went to the head (1), a sniper's (2) */
         int headHit;
+        /** the hits on the victim's head and what they took (the pass rg: the body's hits apart) */
+        int headHits;
+        float headLost;
         /** the stand aims at the victim's eyes, not its chest */
         boolean aimHead;
         /** the super stimpak's heal goes on by the stand's tick (the fake player is not ticked by the level) */
@@ -363,6 +366,10 @@ public final class BalanceCheck {
                 if (e.getEntity() != L.victim || L.victim == null) return;
                 L.hits++;
                 L.lost += e.getInflictedDamage();
+                if (DamageCap.last.contains(" head=true")) {
+                    L.headHits++;
+                    L.headLost += e.getInflictedDamage();
+                }
                 // the pass mx: each hit of a cell, its type, what it took and the cap's ruling
                 if (L.mxHits != null) L.mxHits.append(e.getSource().getMsgId()).append(' ').append(f(e.getInflictedDamage())).append(" {")
                         .append(e.getSource().getDirectEntity() == null ? "-" : e.getSource().getDirectEntity().getClass().getSimpleName()).append(' ')
@@ -1414,11 +1421,15 @@ public final class BalanceCheck {
 
     // ---------------------------------------------------------------- Fable's stage 4: damage by range (pass rg)
 
-    /** the pairs of Fable's table 10.4 (gun, ammo, set) and the distances, blocks */
+    /** the pairs of Fable's table 10.4 and of review №2's stage 2 (gun, ammo, set) and the distances, blocks */
     private static final String[][] RG_PAIRS = {{"autoshotgun", "g12", "hev"}, {"spas12", "g12_slug", "hev"}, {"uzi", "p9_fmj", "hev"}, {"star_f", "p22_fmj", "hev"},
             {"heavy_revolver", "m44_ap", "hev"}, {"g3", "r556_fmj", "hev"}, {"carbine", "r762_fmj", "hev"}, {"m2", "bmg50_fmj", "hev"}, {"amat", "bmg50_ap", "hev"},
-            {"amat", "bmg50_fmj", "hev"}, {"laser_pistol", "capacitor", "bj"}, {"stg77", "r556_fmj", "bj"}, {"mas36", "r762_du", "bj"}};
-    private static final int[] RG_DIST = {4, 7, 8, 12, 16, 20, 30, 32, 64, 128, 200};
+            {"amat", "bmg50_fmj", "hev"}, {"laser_pistol", "capacitor", "bj"}, {"stg77", "r556_fmj", "bj"}, {"mas36", "r762_du", "bj"},
+            // Fable №2, stage 2: the shotgun's line, the slug's, the beam's, an explosive shell's direct hit by its role's
+            {"autoshotgun", "g12_flechette", "hev"}, {"autoshotgun", "g12_magnum", "hev"}, {"autoshotgun", "g12_slug", "hev"},
+            {"autoshotgun", "g12_explosive", "hev"}, {"autoshotgun_shredder", "g12", "hev"}, {"lasrifle", "capacitor", "bj"},
+            {"tau", "tau_uranium", "bj"}, {"tesla_cannon", "capacitor", "bj"}};
+    private static final int[] RG_DIST = {4, 7, 8, 12, 16, 20, 24, 30, 32, 48, 64, 96, 128, 200};
     private static final int RG_CLICKS = 12, RG_FAR = 216;
 
     /**
@@ -1460,8 +1471,8 @@ public final class BalanceCheck {
     }
 
     private static void rangeCell(String[] p, Item gun, BulletConfig ammo, int d) {
-        float[] took = {0F};
-        int[] hits = {0};
+        float[] took = {0F}, headLost = {0F};
+        int[] hits = {0}, headHits = {0};
         int wait = d >= 64 ? 45 : SPACING + 10;
         STEPS.add(() -> {
             begin(L.target);
@@ -1488,16 +1499,22 @@ public final class BalanceCheck {
                 DamageCap.forget(L.target);
                 hp[0] = L.target.getHealth();
                 seen[0] = L.seen.hits;
+                L.headHits = 0;
+                L.headLost = 0F;
                 fireAimed(L.shooter, gun, ammo);
             });
             wait(wait);
             STEPS.add(() -> {
                 took[0] += hp[0] - Math.max(0F, L.target.getHealth());
                 hits[0] += L.seen.hits - seen[0];
+                headHits[0] += L.headHits;
+                headLost[0] += L.headLost;
             });
         }
         STEPS.add(() -> line("rg\t" + p[0] + "\t" + p[1] + "\t" + p[2] + "\t" + d + "\t" + String.format(Locale.ROOT, "%.5f", took[0] / RG_CLICKS) + "\t"
-                + f(hits[0] / (float) RG_CLICKS) + "\t" + String.format(Locale.ROOT, "%.4f", BalanceFinal.hitClicks(p[0] + "." + p[1], p[2]))));
+                + f(hits[0] / (float) RG_CLICKS) + "\t" + String.format(Locale.ROOT, "%.4f", BalanceFinal.hitClicks(p[0] + "." + p[1], p[2]))
+                // the head's hits a click and what they took a click (the body's: the rest)
+                + "\t" + f(headHits[0] / (float) RG_CLICKS) + "\t" + String.format(Locale.ROOT, "%.5f", headLost[0] / RG_CLICKS)));
     }
 
     // ---------------------------------------------------------------- the share of hits by one measure (Fable 2026-11-12 №2, pass ps)

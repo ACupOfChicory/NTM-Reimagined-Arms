@@ -517,7 +517,8 @@ public final class BalanceFinal {
         // an explosive shell's direct hit takes its role's line (balance.final.range.shells; Fable №2, 2.1); other blasts none
         boolean shell = expl(source) && h.pair().explosive() && (role.equals("shotgun") || role.equals("slug")) && ReaimTimes.flag("balance.final.range.shells", true);
         // the IR arc's beam: no range, like the arc (Fable's answer 6, 5)
-        if (!r.on() || BalanceArmor.vntBlastNow() || irSub(source) || expl(source) && !shell || source.getEntity() == null) return 1F;
+        // the shell's direct hit comes in NTM's blast (vntBlastNow): the shell's line all the same
+        if (!r.on() || (BalanceArmor.vntBlastNow() || expl(source)) && !shell || irSub(source) || source.getEntity() == null) return 1F;
         double d = source.getEntity().position().distanceTo(target.position());
         return (float) BalanceRangeRule.damage(r, role, d);
     }
