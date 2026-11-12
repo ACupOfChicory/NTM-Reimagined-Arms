@@ -197,7 +197,7 @@ public final class BalanceFinal {
     /** what the keys say now, worked out again when the settings change */
     private record State(Object version, BalanceFinalRule.Params params, Map<String, BalanceFinalRule.Pair> pairs, BalanceFinalRule.Refs refs,
             Set<String> table, String explosive, Map<String, BalanceFinalRule.Armor> sets, double[] weights, double empty,
-            Map<CacheKey, Double> cache, BalanceBlastRule.Rule blast, BalanceRangeRule.Rule range) {
+            Map<CacheKey, Double> cache, BalanceBlastRule.Rule blast, BalanceRangeRule.Rule range, BalanceFinalRule.Acid acid) {
     }
 
     /** a cell of the cache: the pair and the set it meets */
@@ -328,7 +328,8 @@ public final class BalanceFinal {
         var range = new BalanceRangeRule.Rule(parsed("balance.final.range", BalanceRangeRule.LINES, BalanceRangeRule::lines),
                 num("balance.final.range.close", 8, 0, 256), Map.copyOf(BalanceFinalRule.roles(ReaimTimes.text("balance.final.range.home", BalanceRangeRule.HOME))));
         return new State(version, params, pairs, BalanceFinalRule.refs(formula), Set.copyOf(table), explosive, Map.copyOf(sets), weights,
-                num("balance.final.armor.empty", 0, 0, 20), new ConcurrentHashMap<>(), blast, range);
+                num("balance.final.armor.empty", 0, 0, 20), new ConcurrentHashMap<>(), blast, range,
+                BalanceFinalRule.Acid.parse(ReaimTimes.text("balance.final.acid", ACID), BalanceFinalRule.Acid.DEFAULT));
     }
 
     /** a pair in balance.final.table.pairs: by its gun (all its ammo) or gun.ammo */
@@ -444,6 +445,19 @@ public final class BalanceFinal {
      * one by the slots' weights (no pool), nothing of the table: bare (players only); null when not the scheme's
      */
     static BalanceFinalRule.Armor armorOf(LivingEntity target, State s) {
+        var a = armorOf0(target, s);
+        if (a == null || !s.acid().on()) return a;
+        // the acid's corrosion takes the set's tier down (balance.final.acid; Fable №2, 2.4)
+        float k = acup.gunfeel.gas.GasServer.corrosion(target);
+        if (!(k > 0F)) return a;
+        double t = s.acid().tierOf(a.tier(), k);
+        return t == a.tier() ? a : new BalanceFinalRule.Armor(a.kind(), t, a.hours(), a.en(), a.pool());
+    }
+
+    /** balance.final.acid by default (off: X922) */
+    public static final String ACID = "tiers=1.0 tier=4 full=+1 fade=3";
+
+    private static BalanceFinalRule.Armor armorOf0(LivingEntity target, State s) {
         BalanceFinalRule.Armor[] slots = new BalanceFinalRule.Armor[4];
         String first = null;
         boolean same = true, any = false;
@@ -755,5 +769,24 @@ public final class BalanceFinal {
         if (a == null) a = BalanceFinalRule.MODEL_SETS.get(set);
         if (pr == null || a == null) return Double.NaN;
         return BalanceFinalRule.HP / BalanceFinalRule.clickDamage(pr, a, s.sets().get("fau"), s.refs(), s.params());
+    }
+
+    /** the stand: the same on the set with its tier {@code tier} (NaN: no such pair or set) */
+    static double hitClicksAt(String pair, String set, double tier) {
+        State s = state();
+        var pr = s.pairs().get(pair);
+        var a = s.sets().get(set);
+        if (a == null) a = BalanceFinalRule.MODEL_SETS.get(set);
+        if (pr == null || a == null) return Double.NaN;
+        var at = new BalanceFinalRule.Armor(a.kind(), tier, a.hours(), a.en(), a.pool());
+        return BalanceFinalRule.HP / BalanceFinalRule.clickDamage(pr, at, s.sets().get("fau"), s.refs(), s.params());
+    }
+
+    /** the stand: the set's tier by the acid's rule at corrosion {@code k} (NaN: no such set) */
+    static double acidTier(String set, float k) {
+        State s = state();
+        var a = s.sets().get(set);
+        if (a == null) a = BalanceFinalRule.MODEL_SETS.get(set);
+        return a == null ? Double.NaN : s.acid().on() ? s.acid().tierOf(a.tier(), k) : a.tier();
     }
 }

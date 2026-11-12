@@ -552,7 +552,7 @@ public final class BalanceCheck {
     private static void plan() {
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg", "ps", "tb").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg", "ps", "tb", "g4").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         // the passes check the machine of X908 (formula C, the gun table): the final scheme off, its cells and team lines
         // turn it on by a key line (balance.final true)
@@ -581,6 +581,8 @@ public final class BalanceCheck {
         if (only("lg")) planLog();
         if (only("ps")) planShare();
         if (only("tb")) planTrenchBlock();
+        // asked by name only: the final scheme on in it whatever the run's
+        if (asked.contains("g4")) planAcidGas();
     }
 
     // ---------------------------------------------------------------- melee and the flamethrower (hotfix X867)
@@ -1644,6 +1646,172 @@ public final class BalanceCheck {
             line("ps\t" + pr.gun() + "\t" + pr.ammo() + "\t" + pr.role() + "\t" + d + "\t" + (aimed ? crouch ? "aim-crouch" : "aim" : "hip") + "\t" + n + "\t" + String.format(Locale.ROOT, "%.0f", fired)
                     + "\t" + hits + "\t" + String.format(Locale.ROOT, "%.4f", hits / fired) + "\tshots " + out);
         });
+    }
+
+    // ---------------------------------------------------------------- the acid, the gas on the pools, the smoke (pass g4)
+
+    /** the pass g4's sets: the acid's on each at K 0 and 0.75 */
+    private static final String[] G4_SETS = {"t51", "hev", "bj", "fau"};
+    private static final String G4_GUN = "carbine", G4_AMMO = "r762_sp";
+
+    /**
+     * The pass g4 (Fable №2, stage 4), the final scheme on: (1) the acid: a click of the carbine's SP on each set at the
+     * corrosion K 0 and 0.75, what a click took (as the pass mx: 4 blocks, no range, the pools all but nothing) by the
+     * solver's clicks at the set's tier and at the tier the acid leaves; (2) the gas on FAU's pool: the mustard's step
+     * by the tick, what it did against what the pool lost and the health, then clean air; (3) the GL-54's laser and a
+     * cloud of smoke: a point behind it, before it, beside it.
+     */
+    private static void planAcidGas() {
+        line("#\t--- g4: кислота, газ по запасу, дым и дальномер (Fable №2, этап 4), balance.final вкл.");
+        STEPS.add(() -> {
+            keys("balance.final", "true", "balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false",
+                    "balance.immune.dns.mode", "pool", "balance.immune.fau.mode", "pool", "balance.immune.mode", "pool", "balance.immune.pool", "0.0001",
+                    "balance.immune.window", "600", "balance.immune.recover", "1", "balance.immune.dns.pool", "0.0001", "balance.immune.dns.window", "600",
+                    "balance.immune.dns.recover", "1", "balance.immune.fau.pool", "0.0001", "balance.immune.fau.window", "600", "balance.immune.fau.recover", "1",
+                    "balance.final.range", "off");
+            eachLane(() -> L.shooter.setInvulnerable(true));
+        });
+        wait(30);
+        line("#\tg4\tacid\tset\tK\ttier\tsolver clicks at it\t(mx line: HP a click, hits a click)");
+        Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + G4_GUN));
+        BulletConfig ammo = ammoNamed(gun, G4_AMMO);
+        String pair = G4_GUN + "." + G4_AMMO;
+        List<Runnable> run = new ArrayList<>();
+        for (String set : G4_SETS) for (float k : new float[] {0F, 0.75F}) run.add(() -> {
+            STEPS.add(() -> {
+                L.target.removeData(acup.gunfeel.gas.GasAttach.STATE.get());
+                if (k > 0F) acup.gunfeel.gas.GasServer.state(L.target).k = k;
+                double t = BalanceFinal.acidTier(set, k);
+                line("g4\tacid\t" + set + "\t" + k + "\t" + String.format(Locale.ROOT, "%.3f", t) + "\t"
+                        + String.format(Locale.ROOT, "%.3f", BalanceFinal.hitClicksAt(pair, set, t)));
+            });
+            matrixCell(new Cell(set, G4_GUN, G4_AMMO, false), gun, ammo, set + "@K" + k + "\t" + G4_GUN + "\t" + G4_AMMO + "\tbody");
+            STEPS.add(() -> L.target.removeData(acup.gunfeel.gas.GasAttach.STATE.get()));
+        });
+        parallel(run);
+        STEPS.add(() -> line("g4\tacid-ref\tt51 at tier 3\t" + String.format(Locale.ROOT, "%.3f", BalanceFinal.hitClicks(pair, "t51"))
+                + "\tbj at tier 5.33\t" + String.format(Locale.ROOT, "%.3f", BalanceFinal.hitClicksAt(pair, "bj", 6 - 2 / 3.0))));
+        planGasPool();
+        planSmokeRange();
+        STEPS.add(() -> {
+            keys("balance.final", String.valueOf(Boolean.getBoolean(PROPERTY + ".final")), "balance.immune.pool", "150", "balance.immune.window", "15",
+                    "balance.immune.recover", "60", "balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula", "balance.immune.dns.pool", "40",
+                    "balance.immune.dns.window", "15", "balance.immune.dns.recover", "60", "balance.immune.fau.pool", "45", "balance.immune.fau.window", "15",
+                    "balance.immune.fau.recover", "60", "balance.final.range", BalanceRangeRule.LINES);
+            eachLane(() -> {
+                L.shooter.setInvulnerable(false);
+                L.target.removeData(acup.gunfeel.gas.GasAttach.STATE.get());
+                for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+                wearAttributes(L.target);
+            });
+        });
+        wait(30);
+    }
+
+    /** the pool's HP now, the kit's size when it has no state yet, NaN out of the pool's phase */
+    private static float g4Pool(EuphImmunity.Kit kit) {
+        String d = EuphImmunity.describe(kit, L.target);
+        if (d.equals("нет")) return EuphImmunity.pool(kit).size();
+        return EuphImmunity.poolOf(kit, L.target);
+    }
+
+    /**
+     * FAU with its own pool (the game's keys of the pool) in the mustard's core, no hazmat over it: (a) the gas until the
+     * pool is half or 120 s, what the gas did (GasState.dealt) against what the pool lost, the health; (b) clean air until
+     * the pool is full again or 120 s; (c) the gas again until the health falls or 180 s.
+     */
+    private static void planGasPool() {
+        line("#\tg4\tgas\tphase\tticks\tgas HP\tpool lost\thealth lost\tpool now\tstate");
+        EuphImmunity.Kit kit = EuphImmunity.Kit.FAU;
+        float[] g = new float[6]; // pool at the phase's start, dealt at it, health at it, ticks, the last gas tick, a flag: the phase is over
+        STEPS.add(() -> {
+            // the game's keys of FAU's pool (ntmgunfeel-server.properties)
+            keys("balance.immune.fau.mode", "pool", "balance.immune.fau.pool", "45", "balance.immune.fau.window", "15",
+                    "balance.immune.fau.recover", "60", "balance.final.pools.gas", "drain");
+            begin(L.target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            dress(L.target, "fau", true);
+            wearAttributes(L.target);
+            EuphImmunity.forget(L.target);
+            L.target.removeData(acup.gunfeel.gas.GasAttach.STATE.get());
+            homePool();
+        });
+        wait(10);
+        String[] phases = {"gas", "air", "gas-again"};
+        int[] limit = {2400, 2400, 3600};
+        for (int ph = 0; ph < 3; ph++) {
+            String name = phases[ph];
+            boolean gas = ph != 1;
+            int lim = limit[ph];
+            int phase = ph;
+            STEPS.add(() -> {
+                g[0] = g4Pool(kit);
+                var st = acup.gunfeel.gas.GasServer.state(L.target);
+                g[1] = st.dealt;
+                g[2] = L.target.getHealth();
+                g[3] = 0;
+                g[5] = 0;
+            });
+            for (int t = 0; t < lim; t++) STEPS.add(() -> {
+                if (g[5] > 0) return;
+                L.target.setDeltaMovement(Vec3.ZERO);
+                float before = acup.gunfeel.gas.GasServer.state(L.target).dealt;
+                acup.gunfeel.gas.GasServer.standStep(level, L.target, acup.gunfeel.gas.GasKind.MUSTARD, gas ? 1F : 0F);
+                if (acup.gunfeel.gas.GasServer.state(L.target).dealt > before) g[4] = g[3];
+                g[3]++;
+                float pool = g4Pool(kit);
+                boolean over = phase == 0 ? pool <= g[0] / 2F : phase == 1 ? pool >= EuphImmunity.pool(kit).size() - 1e-3F : L.target.getHealth() < g[2] - 0.5F;
+                if (over || g[3] >= lim) {
+                    g[5] = 1;
+                    float dealt = acup.gunfeel.gas.GasServer.state(L.target).dealt - g[1];
+                    line("g4\tgas\t" + name + "\t" + (int) g[3] + "\t" + f(dealt) + "\t" + f(Float.isNaN(pool) ? Float.NaN : g[0] - pool) + "\t"
+                            + f(g[2] - L.target.getHealth()) + "\t" + f(pool) + "\t" + EuphImmunity.describe(kit, L.target)
+                            + (phase == 1 ? "\tlast gas hurt at tick " + (int) g[4] : ""));
+                }
+            });
+        }
+        STEPS.add(() -> {
+            L.target.removeData(acup.gunfeel.gas.GasAttach.STATE.get());
+            EuphImmunity.forget(L.target);
+            L.target.setHealth(L.target.getMaxHealth());
+        });
+    }
+
+    /**
+     * The GL-54's laser and a cloud of smoke 10 blocks before the shooter: the optical depth and smoked() to a point
+     * behind the cloud, before it, beside it, and the same with gl54.rangeSmoke false.
+     */
+    private static void planSmokeRange() {
+        line("#\tg4\tsmoke\tpoint\trangeSmoke\tdepth\tsmoked");
+        STEPS.add(() -> {
+            acup.gunfeel.smoke.SmokeClouds.forget(level);
+            homePool();
+            int id = acup.gunfeel.smoke.SmokeClouds.spawn(level, new Vec3(L.o.getX() + 0.5, L.o.getY() + 1.5, L.o.getZ() + 10.5), new Vec3(0, 0, 1),
+                    acup.gunfeel.smoke.SmokeKind.SMOKE, 1F);
+            line("#\tg4\tsmoke: облако " + id);
+        });
+        wait(60);
+        for (String flag : new String[] {"true", "false"}) {
+            STEPS.add(() -> {
+                keys("gl54.rangeSmoke", flag);
+                Vec3 eye = L.shooter.getEyePosition();
+                var clouds = acup.gunfeel.smoke.SmokeClouds.get(level);
+                double x = L.o.getX() + 0.5, z = L.o.getZ() + 0.5;
+                Object[][] pts = {{"behind 22", new Vec3(x, eye.y, z + 22)}, {"before 4", new Vec3(x, eye.y, z + 4)},
+                        {"beside 12 x", new Vec3(x + 12, eye.y, z)}, {"beside 12 x 3 z", new Vec3(x + 12, eye.y, z + 3)}};
+                for (Object[] p : pts) {
+                    Vec3 at = (Vec3) p[1];
+                    float depth = clouds == null ? 0F : clouds.opticalDepth(eye, at);
+                    line("g4\tsmoke\t" + p[0] + "\t" + flag + "\t" + f(depth) + "\t" + acup.gunfeel.gl54.Gl54Range.smoked(level, eye, at));
+                }
+            });
+            wait(2);
+        }
+        STEPS.add(() -> {
+            keys("gl54.rangeSmoke", "true");
+            acup.gunfeel.smoke.SmokeClouds.forget(level);
+        });
+        wait(5);
     }
 
     // ---------------------------------------------------------------- Trenchmaster's block with the scheme on (pass tb)

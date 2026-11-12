@@ -185,6 +185,23 @@ class BalanceFinalRuleTest {
         assertEquals("beam", BalanceFinalRule.roleOf(pairs.get("autoshotgun_shredder.g12"), BalanceFinalRule.Params.X922));
     }
 
+    // Fable №2 (2.4): the acid takes a set's tier down by up to one, in full to tier 5, nothing from 8
+    @Test
+    void acid() {
+        var a = BalanceFinalRule.Acid.parse(BalanceFinal.ACID, BalanceFinalRule.Acid.OFF);
+        assertEquals(BalanceFinalRule.Acid.DEFAULT, a);
+        assertEquals(3.0, a.tierOf(4, 0.75), 1e-9);
+        assertEquals(3.5, a.tierOf(4, 0.375), 1e-9);
+        assertEquals(4.0, a.tierOf(5, 0.75), 1e-9);
+        assertEquals(6 - 0.65, a.tierOf(6, 0.75), 1e-9);
+        assertEquals(7 - 0.35, a.tierOf(7, 0.75), 1e-9);
+        assertEquals(8.0, a.tierOf(8, 0.75), 1e-9);
+        assertEquals(9.0, a.tierOf(9, 0.75), 1e-9);
+        assertEquals(4.0, a.tierOf(4, 0), 1e-9);
+        assertEquals(4.0, BalanceFinalRule.Acid.parse("off", a).tierOf(4, 0.75), 1e-9);
+        assertEquals(2.5, BalanceFinalRule.Acid.parse("tiers=1.5 junk", BalanceFinalRule.Acid.DEFAULT).tierOf(4, 0.75), 1e-9);
+    }
+
     // Fable №2 with the stand's P (notes/balance/fable2/model/gen_table.py): the game's table, cell for cell
     @Test
     void reproducesFable2ByTheStandsP() throws IOException {
