@@ -1549,7 +1549,12 @@ public final class BalanceCheck {
                 line("ps\t" + pr.gun() + "\t" + pr.ammo() + "\tнет патрона");
                 continue;
             }
-            for (boolean aimed : new boolean[] {true, false}) run.add(() -> shareCell(pr, gun, ammo, aimed));
+            // -PbalanceShareDist=<blocks,...>: these distances for all in place of the role's; -PbalanceShareCrouch=<blocks,...>:
+            // an aimed cell crouched at each of these too
+            for (int d : shareDists("ntmgunfeel.checkBalance.shareDist", homeOf(pr))) {
+                for (boolean aimed : new boolean[] {true, false}) run.add(() -> shareCell(pr, gun, ammo, aimed, d, false));
+            }
+            for (int d : shareDists("ntmgunfeel.checkBalance.shareCrouch", -1)) if (d > 0) run.add(() -> shareCell(pr, gun, ammo, true, d, true));
         }
         parallel(run);
         STEPS.add(() -> {
@@ -1562,9 +1567,15 @@ public final class BalanceCheck {
         wait(10);
     }
 
-    private static void shareCell(BalanceFinalRule.Pair pr, Item gun, BulletConfig ammo, boolean aimed) {
-        // -PbalanceShareDist=<blocks>: one distance for all in place of the role's
-        int d = Integer.getInteger("ntmgunfeel.checkBalance.shareDist", homeOf(pr)), iv = BalanceFinalRule.intervalTicks(pr);
+    /** the distances a list property names, or {@code def} alone when it is not set */
+    private static int[] shareDists(String key, int def) {
+        String v = System.getProperty(key, "").trim();
+        if (v.isEmpty()) return new int[] {def};
+        return java.util.Arrays.stream(v.split("\\s*,\\s*")).mapToInt(Integer::parseInt).toArray();
+    }
+
+    private static void shareCell(BalanceFinalRule.Pair pr, Item gun, BulletConfig ammo, boolean aimed, int d, boolean crouch) {
+        int iv = BalanceFinalRule.intervalTicks(pr);
         double proj = pr.projectiles();
         int want = aimed ? 200 : 100;
         int clicks = pr.pellets() >= 4 ? (aimed ? 25 : 13) : (int) Math.ceil(want / proj);
@@ -1598,9 +1609,12 @@ public final class BalanceCheck {
                 L.target.setDeltaMovement(Vec3.ZERO);
                 L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + d, 180F, 0F);
                 L.shooter.setDeltaMovement(Vec3.ZERO);
+                // crouched: NTM's spread through Spread.apply takes isCrouching (spreadSneak)
+                if (crouch) L.shooter.setPose(net.minecraft.world.entity.Pose.CROUCHING);
                 // akimbo: both guns a click (the pair's hands)
                 if (aimed) fireAimed(L.shooter, gun, ammo, pr.hands() > 1);
                 else fireBoth(L.shooter, gun, ammo, pr.hands() > 1);
+                if (crouch) L.shooter.setPose(net.minecraft.world.entity.Pose.STANDING);
             });
             for (int t = 1; t < iv; t++) STEPS.add(() -> L.target.setHealth(L.target.getMaxHealth()));
         }
@@ -1610,7 +1624,7 @@ public final class BalanceCheck {
             double fired = n * proj;
             var m = BalanceFinal.standShots;
             int out = (m == null ? 0 : m.getOrDefault(L.shooter, 0)) - shots[0];
-            line("ps\t" + pr.gun() + "\t" + pr.ammo() + "\t" + pr.role() + "\t" + d + "\t" + (aimed ? "aim" : "hip") + "\t" + n + "\t" + String.format(Locale.ROOT, "%.0f", fired)
+            line("ps\t" + pr.gun() + "\t" + pr.ammo() + "\t" + pr.role() + "\t" + d + "\t" + (aimed ? crouch ? "aim-crouch" : "aim" : "hip") + "\t" + n + "\t" + String.format(Locale.ROOT, "%.0f", fired)
                     + "\t" + hits + "\t" + String.format(Locale.ROOT, "%.4f", hits / fired) + "\tshots " + out);
         });
     }

@@ -410,6 +410,7 @@ neoForge {
             providers.gradleProperty("balanceShare").orNull?.let { systemProperty("ntmgunfeel.checkBalance.share", it) }
             providers.gradleProperty("balanceShareKeys").orNull?.let { systemProperty("ntmgunfeel.checkBalance.shareKeys", it) }
             providers.gradleProperty("balanceShareDist").orNull?.let { systemProperty("ntmgunfeel.checkBalance.shareDist", it) }
+            providers.gradleProperty("balanceShareCrouch").orNull?.let { systemProperty("ntmgunfeel.checkBalance.shareCrouch", it) }
             // -PbalanceFinal=true: the passes with the final scheme on (balance.final; by default off: they check X908's machine)
             providers.gradleProperty("balanceFinal").orNull?.let { systemProperty("ntmgunfeel.checkBalance.final", it) }
             // -PbalanceLanes=<n>: n pairs of shooter and target at once, the cases of a pass shared out (8; 1: one pair)
