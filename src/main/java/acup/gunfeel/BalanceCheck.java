@@ -1343,7 +1343,7 @@ public final class BalanceCheck {
         for (int i = 0; i < BX_N; i++) {
             STEPS.add(() -> {
                 ready3(set);
-                bxBoom(x, r, "self".equals(who) ? L.target : L.shooter);
+                bxBoom(x, r, "self".equals(who) ? L.target : L.gunner);
             });
             wait(wait);
             STEPS.add(() -> {
@@ -1367,7 +1367,7 @@ public final class BalanceCheck {
         STEPS.add(() -> {
             ready3(set);
             EuphImmunity.forget(L.target);
-            if (set.equals("fau") || set.equals("dns")) bxBoom(bxBlasts().get(1), 1F, L.shooter);
+            if (set.equals("fau") || set.equals("dns")) bxBoom(bxBlasts().get(1), 1F, L.gunner);
         });
         wait(3);
     }

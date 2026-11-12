@@ -17,7 +17,8 @@
   grenade's blast on a set takes a share of the health and pool by the tier
   gap (direct hit x1.5, 3 blocks x0.75); a launcher lifts its round at most
   two tiers. A tier 1 HE grenade no longer kills BJ in 5 hits but in 35; the
-  GL-54's fragment grenades count by their cone. `false`: formula C, as X912.
+  GL-54's fragment grenades count by their cone; a mob's grenade keeps NTM's
+  numbers. `false`: formula C, as X912.
 - Damage by range (`balance.final.range`): SMGs and pistols stronger close up
   and weaker past 24 blocks, rifles and machine guns full to 64, sniper rifles
   to 160, each down to a floor; blasts and the Tesla Cannon's arc unchanged.

@@ -279,13 +279,13 @@ public final class BalanceFinal {
             // the defaults
         }
         var blast = new BalanceBlastRule.Rule(ReaimTimes.flag("balance.final.blast", true),
-                Map.copyOf(BalanceBlastRule.launchers(ReaimTimes.text("balance.final.blast.launchers", BalanceBlastRule.LAUNCHERS))),
-                Map.copyOf(BalanceBlastRule.tiers(ReaimTimes.text("balance.final.blast.rounds", BalanceBlastRule.ROUNDS))),
-                Map.copyOf(BalanceBlastRule.tiers(ReaimTimes.text("balance.final.blast.grenades", BalanceBlastRule.GRENADES))),
+                parsed("balance.final.blast.launchers", BalanceBlastRule.LAUNCHERS, BalanceBlastRule::launchers),
+                parsed("balance.final.blast.rounds", BalanceBlastRule.ROUNDS, BalanceBlastRule::tiers),
+                parsed("balance.final.blast.grenades", BalanceBlastRule.GRENADES, BalanceBlastRule::tiers),
                 num("balance.final.blast.shift", 1, -5, 5), BalanceBlastRule.cap(ReaimTimes.text("balance.final.blast.pair", "cap:2"), 2),
                 BalanceBlastRule.hits(ReaimTimes.text("balance.final.blast.hits", ""), BalanceBlastRule.Hits.DEFAULT),
-                Map.copyOf(BalanceBlastRule.frags(ReaimTimes.text("balance.final.blast.frags", BalanceBlastRule.FRAGS))));
-        var range = new BalanceRangeRule.Rule(Map.copyOf(BalanceRangeRule.lines(ReaimTimes.text("balance.final.range", BalanceRangeRule.LINES))),
+                parsed("balance.final.blast.frags", BalanceBlastRule.FRAGS, BalanceBlastRule::frags));
+        var range = new BalanceRangeRule.Rule(parsed("balance.final.range", BalanceRangeRule.LINES, BalanceRangeRule::lines),
                 num("balance.final.range.close", 8, 0, 256), Map.copyOf(BalanceFinalRule.roles(ReaimTimes.text("balance.final.range.home", BalanceRangeRule.HOME))));
         return new State(version, params, pairs, BalanceFinalRule.refs(formula), Set.copyOf(table), explosive, Map.copyOf(sets), weights,
                 num("balance.final.armor.empty", 0.5, 0, 20), new ConcurrentHashMap<>(), blast, range);
@@ -583,10 +583,19 @@ public final class BalanceFinal {
         return DamageResistanceHandler.CATEGORY_EXPLOSION.equals(BalanceArmor.category(source));
     }
 
+    /** a key's entries; a value of which nothing reads (not empty, not "off") is the default's, not none */
+    private static <T> Map<String, T> parsed(String key, String def, java.util.function.Function<String, Map<String, T>> parse) {
+        String text = ReaimTimes.text(key, def);
+        Map<String, T> out = parse.apply(text);
+        if (out.isEmpty() && text != null && !text.isBlank() && !text.trim().equalsIgnoreCase("off")) out = parse.apply(def);
+        return Map.copyOf(out);
+    }
+
     private static BlastNow blastOf(com.hbm.explosion.vanillant.ExplosionVNT explosion, ExplosiveDamage.Blast blast, LivingEntity target, boolean struck) {
         State s = state();
         var r = s.blast();
-        if (!r.on()) return null;
+        // balanceArmorBlasts off: the blast is NTM's (BalanceArmor.category), so not the ladder's either
+        if (!r.on() || !ReaimTimes.flag("balanceArmorBlasts", true)) return null;
         var armor = armorOf(target, s);
         if (armor == null) return null;
         String id;
@@ -615,6 +624,8 @@ public final class BalanceFinal {
             tier = t;
             near = s.cache().computeIfAbsent(new CacheKey("blast " + id, armor), k -> BalanceBlastRule.nearGrenade(BalanceBlastRule.target(t, armor, s.params(), r), s.params(), r));
             owner = explosion.exploder;
+            // a mob's or a machine's grenade: NTM's numbers, as their shots
+            if (owner != null && !(owner instanceof net.minecraft.world.entity.player.Player)) return null;
             projectile = null;
         }
         // where the target is: struck, or its box's distance from the blast against NTM's reach (twice the size)

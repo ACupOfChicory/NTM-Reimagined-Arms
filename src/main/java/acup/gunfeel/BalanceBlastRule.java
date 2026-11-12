@@ -81,7 +81,7 @@ public final class BalanceBlastRule {
                 String[] q = p[2].split("/");
                 double iv = Double.parseDouble(q[0]);
                 double mag = q.length > 1 ? Double.parseDouble(q[1]) : 0, rl = q.length > 2 ? Double.parseDouble(q[2]) : 0;
-                if (Double.isFinite(t) && iv > 0 && mag >= 0 && rl >= 0) out.put(p[0], new Launcher(t, iv, mag, rl));
+                if (Double.isFinite(t) && Double.isFinite(iv) && Double.isFinite(mag) && Double.isFinite(rl) && iv > 0 && mag >= 0 && rl >= 0) out.put(p[0], new Launcher(t, iv, mag, rl));
             } catch (NumberFormatException ignored) {
                 // left out
             }
@@ -120,7 +120,7 @@ public final class BalanceBlastRule {
                     case "far" -> {
                         int a = v.indexOf('@');
                         far = pos(Double.parseDouble(a < 0 ? v : v.substring(0, a)), far);
-                        if (a > 0) at = Math.max(1.0001, Double.parseDouble(v.substring(a + 1)));
+                        if (a > 0) at = pos(Double.parseDouble(v.substring(a + 1)) - 1.0001, at - 1.0001) + 1.0001;
                     }
                     default -> {
                     }

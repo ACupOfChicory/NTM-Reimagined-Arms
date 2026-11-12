@@ -102,4 +102,12 @@ class BalanceBlastRuleTest {
         assertEquals(2, f.size());
         assertEquals(0.15, f.get("ap").pen());
     }
+
+    @Test
+    void brokenNumbersLeftOut() {
+        var h = BalanceBlastRule.hits("far=0.75@NaN near=Infinity direct=NaN", BalanceBlastRule.Hits.DEFAULT);
+        org.junit.jupiter.api.Assertions.assertEquals(BalanceBlastRule.Hits.DEFAULT, h);
+        org.junit.jupiter.api.Assertions.assertTrue(BalanceBlastRule.launchers("mk108:4:Infinity/30/6.75 gl54:5:0.7/NaN/2.25").isEmpty());
+        org.junit.jupiter.api.Assertions.assertEquals(4.0, BalanceBlastRule.hits("far=0.75@4", BalanceBlastRule.Hits.DEFAULT).farAt(), 1e-9);
+    }
 }

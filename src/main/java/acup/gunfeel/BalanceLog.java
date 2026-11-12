@@ -95,8 +95,10 @@ public final class BalanceLog {
 
     /** by the target's id: its shooters' fights */
     private static final Map<UUID, Map<UUID, Fight>> FIGHTS = Collections.synchronizedMap(new HashMap<>());
-    /** a fight with no hit for this long starts again (ticks) */
+    /** a fight with no hit for this long starts again (ticks), and is no more the kill's */
     static final long FORGET = 20 * 60;
+    /** hits since the last sweep of the fights gone quiet (a target that lived or left) */
+    private static int sinceSweep;
 
     /**
      * a hit of the scheme on {@code target} by {@code projectile} (or the source's direct entity) of the pair {@code id}
@@ -109,6 +111,13 @@ public final class BalanceLog {
         if (shot == null) shot = ExplosiveDamage.bulletNow() == null ? null : SHOT.get(ExplosiveDamage.bulletNow());
         long now = target.level().getGameTime();
         synchronized (FIGHTS) {
+            if (++sinceSweep >= 256) {
+                sinceSweep = 0;
+                FIGHTS.values().removeIf(m -> {
+                    m.values().removeIf(x -> now - x.lastTick > FORGET);
+                    return m.isEmpty();
+                });
+            }
             Map<UUID, Fight> of = FIGHTS.computeIfAbsent(target.getUUID(), u -> new HashMap<>());
             Fight f = of.get(shooter.getUUID());
             if (f == null || now - f.lastTick > FORGET) {
@@ -138,8 +147,11 @@ public final class BalanceLog {
         Map<UUID, Fight> of = FIGHTS.remove(victim.getUUID());
         if (!on() || !(e.getSource().getEntity() instanceof Player killer) || killer == victim) return;
         try {
+            long now = victim.level().getGameTime();
             Fight f = of == null ? null : of.get(killer.getUUID());
-            write(line(killer, victim, f, victim.level().getGameTime()));
+            // a fight gone quiet long ago is not this kill's (the kill came by some other way)
+            if (f != null && now - f.lastTick > FORGET) f = null;
+            write(line(killer, victim, f, now));
         } catch (RuntimeException ex) {
             LOGGER.warn("The fight log: a kill not written", ex);
         }
@@ -148,6 +160,9 @@ public final class BalanceLog {
     public static void register() {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST, false,
                 net.neoforged.neoforge.event.entity.living.LivingDeathEvent.class, BalanceLog::death);
+        // a player who leaves: the fights on them forgotten
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent.class,
+                e -> FIGHTS.remove(e.getEntity().getUUID()));
     }
 
     private static String set(LivingEntity who) {
@@ -166,8 +181,9 @@ public final class BalanceLog {
         int dot = pair.indexOf('.');
         String gun = dot > 0 ? pair.substring(0, dot) : pair, ammo = dot > 0 ? pair.substring(dot + 1) : "-";
         String ttk = f == null ? "-" : num((now - f.firstTick) / 20.0);
-        String shots = f == null || g == null ? "-" : String.valueOf(Math.max(0, g.shots - f.shot0 + 1));
-        String reloads = f == null || g == null ? "-" : String.valueOf(Math.max(0, g.reloads - f.reloads0));
+        // a killer respawned since the first hit counts its shots anew: then they are not known
+        String shots = f == null || g == null || g.shots < f.shot0 ? "-" : String.valueOf(g.shots - f.shot0 + 1);
+        String reloads = f == null || g == null || g.reloads < f.reloads0 || g.shots < f.shot0 ? "-" : String.valueOf(g.reloads - f.reloads0);
         return String.join("\t", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME).substring(0, 19), killer.getGameProfile().name(),
                 victim.getGameProfile().name(), gun, ammo, f == null ? "-" : num(f.tier), set(killer), num(tier(killer)), set(victim), num(tier(victim)),
                 num(killer.distanceTo(victim)), ttk, shots, f == null ? "-" : String.valueOf(f.clicks.size()), f == null ? "-" : String.valueOf(f.heads.size()),

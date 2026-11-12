@@ -48,6 +48,12 @@ class BalanceRangeRuleTest {
     }
 
     @Test
+    void brokenNumbersLeftOut() {
+        assertTrue(BalanceRangeRule.lines("smg:x1e999/24/0.4@64 rifle:xNaN/64/0.5@160 mg:x1/64/0.5@Infinity").isEmpty());
+        assertEquals(1, BalanceRangeRule.lines("smg:x1e999/24/0.4@64 rifle:x1/64/0.5@160").size());
+    }
+
+    @Test
     void offAndKeys() {
         assertTrue(BalanceRangeRule.lines("off").isEmpty());
         var off = new BalanceRangeRule.Rule(BalanceRangeRule.lines("off"), 8, Map.of());

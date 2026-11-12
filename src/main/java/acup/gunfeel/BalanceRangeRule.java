@@ -46,7 +46,7 @@ public final class BalanceRangeRule {
                 int at = p[2].indexOf('@');
                 double floor = Double.parseDouble(at < 0 ? p[2] : p[2].substring(0, at));
                 double floorAt = at < 0 ? full : Double.parseDouble(p[2].substring(at + 1));
-                if (x > 0 && full >= 0 && floor > 0 && floor <= 1 && floorAt >= full) out.put(e.substring(0, c), new Line(x, full, floor, floorAt));
+                if (Double.isFinite(x) && Double.isFinite(floorAt) && x > 0 && full >= 0 && floor > 0 && floor <= 1 && floorAt >= full) out.put(e.substring(0, c), new Line(x, full, floor, floorAt));
             } catch (NumberFormatException ignored) {
                 // left out
             }
