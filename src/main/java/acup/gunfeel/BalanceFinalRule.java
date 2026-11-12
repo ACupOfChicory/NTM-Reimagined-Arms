@@ -59,10 +59,10 @@ public final class BalanceFinalRule {
     public record Params(TreeMap<Integer, Double> anchors, double tmin, double tmax, double below, double beta, double lo, double hi, double energy,
             double ammoK, double ammoFrom, double ammoMax, double jhp, double ped, double explShift, double dnsOverFau, Set<String> headGuns,
             double headGap, double laserTrench, Map<String, Double> roles) {
-        public static final String TTK = "+3:1.63 +2:2.08 +1:2.68 0:3.5 -1:7.0 -2:30 -3:105 -4:210";
+        public static final String TTK = "+3:1.63 +2:2.08 +1:2.68 0:3.5 -1:7.0 -2:18 -3:105 -4:210";
         public static final String ROLES = "smg:1.6 mg:1.3 rifle:1.0 pistol:1.2 shotgun:0.75 sniper:0.85 beam:1.0";
         public static final Params DEFAULT = new Params(BalanceFinalRule.anchors(TTK), 0.7, 900, 2.0, 0.3, 0.7, 1.4, 1.15, 4.0, 0.15, 1.0, -1.0, 0.5, 1.0, 1.15,
-                Set.of("amat", "amat_penance", "amat_subtlety", "mas36"), 1.0, 1.0, BalanceFinalRule.roles(ROLES));
+                Set.of(), 1.0, 1.0, BalanceFinalRule.roles(ROLES));
 
         /** the role's share of the usual TTK (1 for a role not given) */
         double role(String r) {
@@ -104,7 +104,7 @@ public final class BalanceFinalRule {
         return out.isEmpty() && !TTK_SAFE.isEmpty() ? new TreeMap<>(TTK_SAFE) : out;
     }
 
-    private static final TreeMap<Integer, Double> TTK_SAFE = new TreeMap<>(Map.of(3, 1.63, 2, 2.08, 1, 2.68, 0, 3.5, -1, 7.0, -2, 30.0, -3, 105.0, -4, 210.0));
+    private static final TreeMap<Integer, Double> TTK_SAFE = new TreeMap<>(Map.of(3, 1.63, 2, 2.08, 1, 2.68, 0, 3.5, -1, 7.0, -2, 18.0, -3, 105.0, -4, 210.0));
 
     /** the TTK the anchors give {@code d} (by the logarithm between two anchors; below the lowest ×below a step) */
     public static double ttkOf(double d, Params p) {

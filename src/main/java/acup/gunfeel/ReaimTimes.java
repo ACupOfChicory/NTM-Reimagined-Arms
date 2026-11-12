@@ -36,6 +36,8 @@ public final class ReaimTimes {
         return out;
     }
     private static long stamp = Long.MIN_VALUE;
+    // bumped at each read of the file: two writes in one millisecond still count as a change
+    private static long generation;
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("ntm-gunfeel");
 
     private ReaimTimes() {
@@ -119,7 +121,7 @@ public final class ReaimTimes {
             lastPoll = now;
             poll();
         }
-        return java.util.List.of(stamp, System.identityHashCode(values0()));
+        return java.util.List.of(generation, System.identityHashCode(values0()));
     }
 
     // the key is in the server's file (or the server's while connected to one), not only among the mod's defaults
@@ -172,6 +174,7 @@ public final class ReaimTimes {
             try (Reader r = Files.newBufferedReader(f)) {
                 p.load(r);
             }
+            generation++;
             VALUES.clear();
             for (String key : p.stringPropertyNames()) VALUES.put(key, p.getProperty(key));
         } catch (IOException | RuntimeException e) {

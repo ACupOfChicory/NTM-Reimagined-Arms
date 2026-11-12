@@ -69,25 +69,33 @@ class BalanceFinalRuleTest {
         }
     }
 
+    private static BalanceFinalRule.Params heads(java.util.Set<String> guns) {
+        return new BalanceFinalRule.Params(P.anchors(), P.tmin(), P.tmax(), P.below(), P.beta(), P.lo(), P.hi(), P.energy(), P.ammoK(), P.ammoFrom(),
+                P.ammoMax(), P.jhp(), P.ped(), P.explShift(), P.dnsOverFau(), guns, P.headGap(), P.laserTrench(), P.roles());
+    }
+
     @Test
     void headOneShot() throws IOException {
-        int amat = 0, all = 0;
+        // owner 2026-11-12 (3): no one-shots on the head by default; the four sniper rifles' rule by the key
+        var four = heads(java.util.Set.of("amat", "amat_penance", "amat_subtlety", "mas36"));
+        int amat = 0, all = 0, byDefault = 0;
         for (var pr : pairs().values())
             for (var e : SETS.entrySet()) {
                 if (e.getKey().equals("euph")) continue;
-                if (!BalanceFinalRule.headOneShot(pr, e.getValue().hours(), P)) continue;
+                if (BalanceFinalRule.headOneShot(pr, e.getValue().hours(), P)) byDefault++;
+                if (!BalanceFinalRule.headOneShot(pr, e.getValue().hours(), four)) continue;
                 all++;
                 if (pr.gun().equals("amat")) amat++;
             }
-        // out_final.md, D: AMAT 46 cells, the four guns 266
+        assertEquals(0, byDefault);
+        // out_final.md, D (the rule of answer 7): AMAT 46 cells, the four guns 266
         assertEquals(46, amat);
         assertEquals(266, all);
-        var only = new BalanceFinalRule.Params(P.anchors(), P.tmin(), P.tmax(), P.below(), P.beta(), P.lo(), P.hi(), P.energy(), P.ammoK(), P.ammoFrom(),
-                P.ammoMax(), P.jhp(), P.ped(), P.explShift(), P.dnsOverFau(), java.util.Set.of("amat"), P.headGap(), P.laserTrench(), P.roles());
+        var only = heads(java.util.Set.of("amat"));
         var mas = pairs().get("mas36.r762_du");
-        assertTrue(BalanceFinalRule.headOneShot(mas, 4, P));
+        assertTrue(BalanceFinalRule.headOneShot(mas, 4, four));
         assertTrue(!BalanceFinalRule.headOneShot(mas, 4, only));
-        assertTrue(!BalanceFinalRule.headOneShot(mas, 6, P));
+        assertTrue(!BalanceFinalRule.headOneShot(mas, 6, four));
     }
 
     @Test
@@ -99,8 +107,8 @@ class BalanceFinalRuleTest {
         var hev = SETS.get("hev");
         // the model's numbers (A_eff, hit clicks)
         Object[][] cases = {{new BalanceFinalRule.Armor[] {hev, hev, hev, null}, 3.48, 11}, {new BalanceFinalRule.Armor[] {SETS.get("steel"), hev, hev, SETS.get("steel")}, 3.10, 10},
-                {new BalanceFinalRule.Armor[] {null, hev, null, null}, 1.90, 8}, {new BalanceFinalRule.Armor[] {null, SETS.get("cmb"), SETS.get("cmb"), null}, 5.05, 18},
-                {new BalanceFinalRule.Armor[] {null, SETS.get("dns"), SETS.get("dns"), null}, 6.45, 115}};
+                {new BalanceFinalRule.Armor[] {null, hev, null, null}, 1.90, 8}, {new BalanceFinalRule.Armor[] {null, SETS.get("cmb"), SETS.get("cmb"), null}, 5.05, 17},
+                {new BalanceFinalRule.Armor[] {null, SETS.get("dns"), SETS.get("dns"), null}, 6.45, 88}};
         for (Object[] c : cases) {
             var mix = BalanceFinalRule.mix((BalanceFinalRule.Armor[]) c[0], w, 0.5);
             assertEquals((double) c[1], mix.tier(), 0.005);

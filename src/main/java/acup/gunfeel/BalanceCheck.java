@@ -808,9 +808,10 @@ public final class BalanceCheck {
         }
         line("#\t--- матрица модели: " + cells.size() + " клеток, по 3 клика с полного здоровья, 4 бл");
         STEPS.add(() -> {
-            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", "formula",
-                    "balance.immune.fau.mode", "formula", "balance.immune.mode", "pool", "balance.immune.pool", "0.01", "balance.immune.window", "600",
-                    "balance.immune.recover", "1");
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", "pool",
+                    "balance.immune.fau.mode", "pool", "balance.immune.mode", "pool", "balance.immune.pool", "0.0001", "balance.immune.window", "600",
+                    "balance.immune.recover", "1", "balance.immune.dns.pool", "0.0001", "balance.immune.dns.window", "600", "balance.immune.dns.recover", "1",
+                    "balance.immune.fau.pool", "0.0001", "balance.immune.fau.window", "600", "balance.immune.fau.recover", "1");
             eachLane(() -> L.shooter.setInvulnerable(true));
         });
         wait(30);
@@ -838,7 +839,9 @@ public final class BalanceCheck {
         }
         parallel(run);
         STEPS.add(() -> {
-            keys("balance.immune.pool", "150", "balance.immune.window", "15", "balance.immune.recover", "60");
+            keys("balance.immune.pool", "150", "balance.immune.window", "15", "balance.immune.recover", "60", "balance.immune.dns.mode", "formula",
+                    "balance.immune.fau.mode", "formula", "balance.immune.dns.pool", "40", "balance.immune.dns.window", "15", "balance.immune.dns.recover", "60",
+                    "balance.immune.fau.pool", "45", "balance.immune.fau.window", "15", "balance.immune.fau.recover", "60");
             eachLane(() -> {
                 L.shooter.setInvulnerable(false);
                 for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);

@@ -208,8 +208,10 @@ public final class DamageCap {
         if (shot == null) shot = new Shot(projectile == null ? now : now - projectile.tickCount,
                 gunDelay(shooter) >= limits().sniperDelay() && (projectile == null || !pellet(projectile)));
         boolean head = HeadDamage.onHead(target);
-        // the final scheme's one-shot on the head (balance.final.head.guns): a sniper's head cap
-        if (head && BalanceFinal.takeOneShot(target)) shot = new Shot(shot.tick(), true);
+        // the final scheme's one-shot on the head (balance.final.head.guns): a sniper's head cap; the scheme's other hits
+        // on the head (owner 2026-11-12: no one-shots on the head) the plain head cap, whatever the gun waits
+        if (head && BalanceFinal.takeOneShot(target, source)) shot = new Shot(shot.tick(), true);
+        else if (head && shot.sniper() && BalanceFinal.hit(target, source) != null) shot = new Shot(shot.tick(), false);
         float shield = 0F;
         HbmPlayerProps props = null;
         // read before this hurt, in this tick: an older one was left by a hurt that stopped short
