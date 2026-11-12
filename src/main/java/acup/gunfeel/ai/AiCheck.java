@@ -111,11 +111,12 @@ public final class AiCheck {
             AiCheckIdle idle = new AiCheckIdle(check, check.level, Y);
             AiCheckExit exit = new AiCheckExit(check, check.level, Y);
             AiCheckStep step = new AiCheckStep(check, check.level, Y);
+            AiCheckBase base = new AiCheckBase(check, check.level, Y);
             // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, aimed at a part, a
-            // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, watched where a target may come out, a player out of creative, a player not expected, the battle as the owner had it, squads against loners, a squad shaken falling back, up a block walking back
-            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step");
+            // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, watched where a target may come out, a player out of creative, a player not expected, the battle as the owner had it, squads against loners, a squad shaken falling back, up a block walking back, a machine gun as the base of fire
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
-                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick, retreat::tick, step::tick);
+                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick, retreat::tick, step::tick, base::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
             // (a,b,c: those stages, in the check's own order)
             List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
@@ -139,6 +140,9 @@ public final class AiCheck {
                     if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) {
                         // the call-outs of the stage; in the battle some, and no squad talking over itself
                         check.out("     call-outs in " + names.get(at[0]) + ": " + AiVoice.info());
+                        check.out(String.format(java.util.Locale.ROOT, "     pinned down in %s: %.1f%% of %d mob ticks (aiSuppression %s)", names.get(at[0]),
+                                AiBots.botTicks == 0 ? 0 : 100.0 * AiBots.pinnedTicks / AiBots.botTicks, AiBots.botTicks, AiUnderFire.on()));
+                        AiBots.botTicks = AiBots.pinnedTicks = 0;
                         if (names.get(at[0]).equals("battle")) {
                             check.check("the battle: the mobs call out, no squad more than " + VOICE_SECOND + " lines a second",
                                     AiVoice.total() > 0 && AiVoice.mostASecond(AiVoice.heard) <= VOICE_SECOND);

@@ -76,6 +76,8 @@ public final class SuppressionServer {
 
     // size: how far it hurts (NTM's ExplosionVNT size)
     public static void blast(ServerLevel level, Vec3 at, float size, @Nullable LivingEntity by) {
+        // the AI mobs near feel it too, by their own setting (aiSuppression)
+        acup.gunfeel.ai.AiUnderFire.blast(level, at, size, by);
         if (!on() || blastShare() <= 0F) return;
         double reach = SuppressionScale.blastRange(size, blastRange());
         var packet = new SuppressionBlastPayload(at.x, at.y, at.z, size);

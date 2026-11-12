@@ -63,6 +63,16 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
         return config != null && config.velocity >= 5F ? mult * ReaimTimes.number("bulletSpeed", 1.6F) : mult;
     }
 
+    // where it last hit anything: where it stopped, if this hit takes it away (AiUnderFire). First of the injectors
+    // here: the ones below may cancel the rest
+    @Unique
+    private Vec3 gunfeel$lastImpact;
+
+    @Inject(method = "onImpact", at = @At("HEAD"))
+    private void gunfeel$impactAt(net.minecraft.world.phys.HitResult mop, CallbackInfo ci) {
+        if (mop != null && mop.getType() != net.minecraft.world.phys.HitResult.Type.MISS) gunfeel$lastImpact = mop.getLocation();
+    }
+
     // the blast stand (BlastStand): the block a player's bullet stopped in
     @Inject(method = "onImpact", at = @At("HEAD"))
     private void gunfeel$standBlock(net.minecraft.world.phys.HitResult mop, CallbackInfo ci) {
@@ -173,6 +183,11 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
         acup.gunfeel.ClientHits.tickEnd(self);
         // the path it flew this tick stirs the gas it went through
         if (self.level() instanceof ServerLevel server && gunfeel$tickStart != null) acup.gunfeel.gas.GasStir.bullet(server, gunfeel$tickStart, self.position());
+        // and the AI mobs it passes or stops near are suppressed by it (only real bullets, as the players' tracers)
+        if (self.level() instanceof ServerLevel server && gunfeel$tickStart != null && config != null && config.velocity >= 5F
+                && !(self instanceof acup.gunfeel.CollisionProbe) && !acup.gunfeel.BeamLasers.laser(config))
+            acup.gunfeel.ai.AiUnderFire.bullet(server, self, gunfeel$tickStart, self.getDeltaMovement().scale(motionMult()), gunfeel$lastImpact,
+                    config.onImpact != null || acup.gunfeel.ExplosiveAmmo.heavy(config));
     }
 
     // announced first, then a player's bullet near mobs waits for its client's report of this tick's path (ClientHits):
@@ -190,6 +205,7 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
     @Unique
     private void gunfeel$announce(EntityBulletBaseMK4 self) {
         gunfeel$tickStart=self.position();
+        gunfeel$lastImpact = null;
         // the test log's lines during this bullet's tick (its hits, breaking, ricochets) are this bullet's
         if (acup.gunfeel.TestLog.server && !self.level().isClientSide()) acup.gunfeel.TestLog.shot(self.getId());
         if (gunfeel$announced || self instanceof acup.gunfeel.CollisionProbe || !(self.level() instanceof ServerLevel server)) return;

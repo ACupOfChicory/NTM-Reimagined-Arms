@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers are suppressed as players are: each bot has the players' own
+  scale (0 to 100), raised by a foe's bullets passing its eyes, by those
+  stopping near it (in its cover too) and by blasts near, with the server's
+  suppression forces and ranges. From 50 up a bot is pinned down: it keeps
+  behind its cover, fires blind over a low one, lies down in the open; kept
+  under fire it loses confidence and its squad holds back or falls back.
+  Pinned behind one low cover for 5 seconds, it leaves for other cover.
+  Before, only three shots within 2 blocks in a second pinned a bot, for 3
+  seconds whatever came after. New server setting `aiSuppression` (true by
+  default; false: as before).
+- Roles in a squad of AI soldiers, by the gun: a bot with a machine gun (a
+  belt, or an automatic with 40 rounds or more) among riflemen is the squad's
+  base of fire. It no longer goes round the side or after a lost target; while
+  another of its squad is on the move it fires long bursts at your cover with
+  short gaps, so your suppression scale stays up until the flanker is there.
+  New server settings `aiRoles` (true by default) and `aiBaseMagazine` (40).
+
 ## X922
 
 - Fable's review of the balance (`balance.final`, each rule its own key, its
