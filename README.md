@@ -59,8 +59,9 @@ page. They are alphas: expect bugs and back up your world.
   point at, the wheel shows its damage from the gun in hand, on a head hit and
   against armour, next to the loaded one.
 - A 12 Gauge Electroshock Shell for NTM's 12 gauge shotguns (all but the
-  Shredder), made in NTM's ammo press: a copper capacitor, four fine copper
-  wires and an advanced buckshot casing give six. One round, about 2 damage. A
+  Shredder), made in NTM's ammo press, at the tier of NTM's 10 gauge and 12
+  gauge magnum shells: a capacitor, a copper coil, smokeless powder and an
+  advanced buckshot casing give six. One round, about 2 damage. A
   hit shocks for 2 seconds: the HUD (other mods' too, not the chat or menus)
   glitches and shakes, the view shakes and drifts on its own, and the shots of
   whoever was hit, an AI soldier too, spread wide. Then 3 seconds of

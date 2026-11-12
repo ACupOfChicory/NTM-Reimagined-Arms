@@ -2,19 +2,21 @@
   "type": "hbm:ammo_press",
   "order": 12040,
   "pattern": [
-    " A ",
-    " B ",
-    " C "
+    "AB ",
+    " C ",
+    " D "
   ],
   "key": {
     "A": {
-      "ingredient": "hbm:capacitor_copper"
+      "ingredient": "hbm:circuit_capacitor"
     },
     "B": {
-      "ingredient": "#c:fine_wires/copper",
-      "count": 4
+      "ingredient": "hbm:coil_copper"
     },
     "C": {
+      "ingredient": "#hbm:dusts/any_smokeless"
+    },
+    "D": {
       "ingredient": "hbm:casing_buckshot_advanced"
     }
   },
