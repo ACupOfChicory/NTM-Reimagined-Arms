@@ -112,6 +112,16 @@ public final class ReaimTimes {
         return v == null ? def : v;
     }
 
+    // what the settings are now: changes when the file is read again or a server's take its place (BalanceFinal's cache)
+    public static synchronized Object version() {
+        long now = System.currentTimeMillis();
+        if (now - lastPoll > 1000L) {
+            lastPoll = now;
+            poll();
+        }
+        return java.util.List.of(stamp, System.identityHashCode(values0()));
+    }
+
     // the key is in the server's file (or the server's while connected to one), not only among the mod's defaults
     public static synchronized boolean inFile(String key) {
         long now = System.currentTimeMillis();

@@ -150,6 +150,9 @@ public final class BalanceArmor {
      */
     public static boolean covers(LivingEntity target, DamageSource source) {
         if (!on() || category(source) == null) return false;
+        // the final scheme: its hits get through, a shot it leaves to NTM meets NTM's own check
+        if (BalanceFinal.hit(target, source) != null) return true;
+        if (BalanceFinal.ntmShot(target, source)) return false;
         for (int i = 0; i < 4; i++) {
             String set = setOf(target.getItemBySlot(SLOTS[i]), i);
             if (set != null && (rofl(set) || rating(set) > 0F)) return true;
@@ -379,6 +382,11 @@ public final class BalanceArmor {
         if (!on() || !(amount > 0F)) return ntm;
         String cat = category(source);
         if (cat == null) return ntm;
+        // the final scheme (balance.final): its pairs' bullets and beams, an explosive bullet's blast on the creature it
+        // struck; a shot of no pair of the table is NTM's
+        float scheme = BalanceFinal.damage(target, source);
+        if (!Float.isNaN(scheme)) return scheme;
+        if (BalanceFinal.ntmShot(target, source)) return ntm;
         boolean en = DamageResistanceHandler.CATEGORY_ENERGY.equals(cat), expl = DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat);
         float[] byPiece = new float[4];
         boolean any = false, rofl = false;

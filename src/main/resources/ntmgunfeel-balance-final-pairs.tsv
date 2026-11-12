@@ -55,7 +55,7 @@ minigun	r762_he	5	0	0.45	1	1	-1	0	1.0	1	1	0.0	PHYS	10.5	0	mg
 amat_penance	bmg50_sm	6	1	1.0	15	0	7	51	1.0	1	1	0.35	PHYS	112.5	0	sniper
 amat_subtlety	bmg50_sm	6	1	1.0	17	0	7	51	1.0	1	1	0.35	PHYS	125.0	0	sniper
 amat	bmg50_sm	6	0	1.0	25	0	7	51	1.0	1	1	0.35	PHYS	75.0	0	sniper
-autoshotgun_shredder	g12_explosive	6	0	1.0	10	1	-1	0	1.0	1	1	0.0	EN	125.0	1	beam
+autoshotgun_shredder	g12_explosive	6	0	0.91	10	1	-1	0	1.0	1	1	0.0	EN	125.0	1	beam
 double_barrel_sacred_dragon	g10_du	6	0	0.41	10	0	2	41	10.0	2	1	0.2	PHYS	11.25	0	shotgun
 g3_zebra	r556_ap	6	0	0.98	2	1	30	50	1.0	1	1	0.15	PHYS	9.375	0	rifle
 g3_zebra	r556_jhp	6	0	0.98	2	1	30	50	1.0	1	1	-0.25	PHYS	11.25	0	rifle
@@ -119,11 +119,11 @@ autoshotgun_sexy	g12_bp_slug	9	1	0.74	4	1	100	110	1.0	1	1	0.0	PHYS	48.0	0	shotgu
 autoshotgun_sexy	g12_explosive	9	1	0.87	4	1	100	110	1.0	1	1	0.0	PHYS	160.0	1	shotgun
 autoshotgun_sexy	g12_flechette	9	1	0.57	4	1	100	110	8.0	1	1	0.2	PHYS	8.0	0	shotgun
 autoshotgun_sexy	g12_phosphorus	9	1	0.68	4	1	100	110	8.0	1	1	0.0	PHYS	8.0	0	shotgun
-autoshotgun_shredder	g12	6	0	1.0	10	1	-1	0	1.0	1	1	0.0	EN	50.0	0	beam
-autoshotgun_shredder	g12_flechette	6	0	1.0	10	1	-1	0	1.0	1	1	0.0	EN	50.0	0	beam
-autoshotgun_shredder	g12_magnum	6	0	1.0	10	1	-1	0	1.0	1	1	0.0	EN	100.0	0	beam
-autoshotgun_shredder	g12_phosphorus	6	0	1.0	10	1	-1	0	1.0	1	1	0.0	EN	50.0	0	beam
-autoshotgun_shredder	g12_slug	6	0	1.0	10	1	-1	0	1.0	1	1	0.0	EN	50.0	0	beam
+autoshotgun_shredder	g12	6	0	0.5	10	1	-1	0	8.0	1	1	0.0	EN	50.0	0	beam
+autoshotgun_shredder	g12_flechette	6	0	0.6	10	1	-1	0	8.0	1	1	0.0	EN	50.0	0	beam
+autoshotgun_shredder	g12_magnum	6	0	0.71	10	1	-1	0	4.0	1	1	0.0	EN	100.0	0	beam
+autoshotgun_shredder	g12_phosphorus	6	0	0.71	10	1	-1	0	8.0	1	1	0.0	EN	50.0	0	beam
+autoshotgun_shredder	g12_slug	6	0	0.91	10	1	-1	0	1.0	1	1	0.0	EN	50.0	0	beam
 bolter	b75	4	0	0.74	2	1	30	40	1.0	1	1	0.0	PHYS	15.0	0	mg
 bolter	b75_inc	4	0	0.74	2	1	30	40	1.0	1	1	0.1	PHYS	12.0	0	mg
 carbine	r762_ap	4	0	0.92	5	0	14	45	1.0	1	1	0.15	PHYS	18.75	0	rifle

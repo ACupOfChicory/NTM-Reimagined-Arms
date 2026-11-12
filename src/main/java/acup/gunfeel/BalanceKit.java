@@ -212,7 +212,8 @@ public final class BalanceKit {
      * for a hit of the formula.
      */
     public static float[] vanillaBack(LivingEntity target, net.minecraft.world.damagesource.DamageSource source) {
-        if (!vanilla0On() || target.level().isClientSide() || BalanceArmor.category(source) != null) return NO_ARMOR;
+        // a shot the final scheme leaves to NTM (no pair of the table) has vanilla's armour back, as NTM's numbers
+        if (!vanilla0On() || target.level().isClientSide() || (BalanceArmor.category(source) != null && !BalanceFinal.ntmShot(target, source))) return NO_ARMOR;
         double armor = 0, tough = 0;
         for (EquipmentSlot slot : new EquipmentSlot[] {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET}) {
             ItemStack stack = target.getItemBySlot(slot);

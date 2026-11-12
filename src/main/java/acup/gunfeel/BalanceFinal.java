@@ -1,0 +1,418 @@
+package acup.gunfeel;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
+
+import com.hbm.util.DamageResistanceHandler;
+
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+
+/**
+ * The balance's final scheme (server setting balance.final; BalanceFinalRule): a bullet or a beam of a pair of the
+ * scheme's table on a player, or on anyone wearing a piece of the table's sets, does {@code 20 / N} HP a click whose
+ * projectiles all hit, N worked out from the pair's tier, the set's, the pair's raw DPS and role (the TTK ladder of
+ * balance.final.ttk). NTM's damage, the set's threshold and resistance and the formula C are not in it. The part hit
+ * (head ×1.75, limb ×0.5), the damage cap and the pools of DNS, FAU and euphemium come after, as before.
+ *
+ * <p>Out of it: blasts (formula C, balanceBlast*, as they were), an explosive bullet's blast on anyone but the creature
+ * it struck, the pairs of balance.final.table.pairs (their gun table lines and formula C, as X908), and shots of no
+ * pair of the table (NTM's mobs' and turrets' shots of no gun, other games' guns): NTM's numbers (balance.final.mobs =
+ * ntm). Off: everything as X908.
+ */
+public final class BalanceFinal {
+    private BalanceFinal() {
+    }
+
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("ntm-gunfeel");
+    private static final String PAIRS = "/ntmgunfeel-balance-final-pairs.tsv";
+
+    public static boolean on() {
+        return ReaimTimes.flag("balance.final", true) && BalanceArmor.on();
+    }
+
+    // ---------------------------------------------------------------- the shot's pair
+
+    /** the pair (gun.ammo) a projectile was fired with, by the projectile */
+    private static final Map<Entity, String> PAIR = Collections.synchronizedMap(new WeakHashMap<>());
+
+    /** the last pair each shooter fired, and when (an NTM blast of its shot, the Tesla Cannon's, has no projectile) */
+    private record Last(String pair, long tick) {
+    }
+
+    private static final Map<Entity, Last> LAST = Collections.synchronizedMap(new WeakHashMap<>());
+
+    /**
+     * a shot of {@code shooter}'s {@code gunItem} with {@code ammo} has been made (BalanceGuns.shot): its pair by the
+     * ammo's name, or by the round loaded in the gun when the shot's config is not an ammo of the table (the Shredder
+     * fires a shell as plasma of a config of its own)
+     */
+    static void fired(Entity projectile, LivingEntity shooter, net.minecraft.world.item.Item gunItem, com.hbm.items.weapon.sedna.BulletConfig ammo) {
+        if (projectile == null || shooter == null || shooter.level().isClientSide()) return;
+        String gun = BalanceGuns.gunName(gunItem);
+        if (gun == null || ammo == null) return;
+        String id = gun + "." + BalanceGuns.ammoName(ammo);
+        if (!state().pairs().containsKey(id)) {
+            String loaded = loadedAmmo(shooter, gunItem);
+            if (loaded != null && state().pairs().containsKey(gun + "." + loaded)) id = gun + "." + loaded;
+        }
+        PAIR.put(projectile, id);
+        LAST.put(shooter, new Last(id, shooter.level().getGameTime()));
+    }
+
+    /** a submunition of {@code thrower}'s (made from a shot of its, the Shredder's plasma): the pair it has just fired */
+    public static void submunition(Entity projectile, LivingEntity thrower) {
+        if (projectile == null || thrower == null || thrower.level().isClientSide() || PAIR.containsKey(projectile)) return;
+        Last l = LAST.get(thrower);
+        if (l != null && thrower.level().getGameTime() - l.tick() <= 2) PAIR.put(projectile, l.pair());
+    }
+
+    /** the ammo name of the round loaded in the shooter's gun (its first receiver that has one), or null */
+    private static String loadedAmmo(LivingEntity shooter, net.minecraft.world.item.Item gunItem) {
+        var stack = shooter.getMainHandItem().getItem() == gunItem ? shooter.getMainHandItem() : shooter.getOffhandItem();
+        if (!(stack.getItem() instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)) return null;
+        try {
+            for (int c = 0; c < gun.getConfigCount(); c++)
+                for (var rec : gun.getConfig(stack, c).getReceivers(stack))
+                    if (rec.getMagazine(stack).getType(stack, null) instanceof com.hbm.items.weapon.sedna.BulletConfig b) return BalanceGuns.ammoName(b);
+        } catch (RuntimeException e) {
+            return null;
+        }
+        return null;
+    }
+
+    /** a blast of a shot (not a launcher's round) the scheme takes: the pair its shooter fired in the last ticks */
+    private static String blastPair(DamageSource source) {
+        Entity shooter = source.getEntity();
+        Last l = shooter == null ? null : LAST.get(shooter);
+        return l != null && shooter.level().getGameTime() - l.tick() <= 5 ? l.pair() : null;
+    }
+
+    /** a blast's hit of the scheme on a target: the blast (by its source) and its tick; one blast a click counts */
+    private record BlastHit(int source, Entity shooter, long tick) {
+    }
+
+    private static final Map<Entity, BlastHit> BLAST_HITS = Collections.synchronizedMap(new WeakHashMap<>());
+
+    /** a second blast of the same shooter's on the target in the tick (the Tesla Cannon's arc again): nothing */
+    private static boolean againThisTick(LivingEntity target, DamageSource source) {
+        // the Tesla Cannon's arc (a beam's class, not an explosion): an explosive shell's pellets each have their own blast
+        if (!BalanceArmor.vntBlastNow() || source.is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)
+                || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(BalanceArmor.category(source))) return false;
+        long now = target.level().getGameTime();
+        BlastHit was = BLAST_HITS.get(target);
+        int id = System.identityHashCode(source);
+        if (was != null && was.tick() == now && was.shooter() == source.getEntity() && was.source() != id) return true;
+        BLAST_HITS.put(target, new BlastHit(id, source.getEntity(), now));
+        return false;
+    }
+
+    /** the pair the projectile was fired with, or null */
+    static String pairOf(Entity projectile) {
+        return projectile == null ? null : PAIR.get(projectile);
+    }
+
+    // ---------------------------------------------------------------- the keys
+
+    /** what the keys say now, worked out again when the settings change */
+    private record State(Object version, BalanceFinalRule.Params params, Map<String, BalanceFinalRule.Pair> pairs, BalanceFinalRule.Refs refs,
+            Set<String> table, String explosive, Map<String, BalanceFinalRule.Armor> sets, double[] weights, double empty,
+            Map<String, Double> cache) {
+    }
+
+    private static volatile State state;
+    private static List<String> lines;
+
+    static State state() {
+        Object v = ReaimTimes.version();
+        State s = state;
+        if (s != null && s.version().equals(v)) return s;
+        synchronized (BalanceFinal.class) {
+            s = state;
+            if (s != null && s.version().equals(v)) return s;
+            state = s = build(v);
+            return s;
+        }
+    }
+
+    private static List<String> lines() {
+        if (lines == null) {
+            try (InputStream in = BalanceFinal.class.getResourceAsStream(PAIRS)) {
+                lines = in == null ? List.of() : new String(in.readAllBytes(), StandardCharsets.UTF_8).lines().toList();
+            } catch (IOException e) {
+                LOGGER.warn("Could not read the balance's final pairs", e);
+                lines = List.of();
+            }
+        }
+        return lines;
+    }
+
+    private static double num(String key, double def, double min, double max) {
+        float v = ReaimTimes.number(key, (float) def);
+        return Float.isFinite(v) && v >= min && v <= max ? v : def;
+    }
+
+    private static State build(Object version) {
+        var d = BalanceFinalRule.Params.DEFAULT;
+        String[] ch = ReaimTimes.text("balance.final.character", d.beta() + ":" + d.lo() + ":" + d.hi()).trim().split(":");
+        double beta = d.beta(), lo = d.lo(), hi = d.hi();
+        try {
+            if (ch.length == 3) {
+                double b = Double.parseDouble(ch[0]), l = Double.parseDouble(ch[1]), h = Double.parseDouble(ch[2]);
+                if (b >= 0 && l > 0 && h >= l) {
+                    beta = b;
+                    lo = l;
+                    hi = h;
+                }
+            }
+        } catch (NumberFormatException ignored) {
+            // the defaults
+        }
+        double ammoK = d.ammoK(), from = d.ammoFrom(), most = d.ammoMax(), jhp = d.jhp();
+        for (String e : ReaimTimes.text("balance.final.ammo", "").trim().split("\\s+")) {
+            int c = e.indexOf('=');
+            if (c <= 0) continue;
+            try {
+                double x = Double.parseDouble(e.substring(c + 1));
+                switch (e.substring(0, c)) {
+                    case "pen" -> ammoK = x;
+                    case "from" -> from = x;
+                    case "max" -> most = x;
+                    case "jhp" -> jhp = x;
+                    default -> {
+                    }
+                }
+            } catch (NumberFormatException ignored) {
+                // left out
+            }
+        }
+        String explosive = ReaimTimes.text("balance.final.explosive", "C").trim().toUpperCase(java.util.Locale.ROOT);
+        if (!explosive.equals("A") && !explosive.equals("B")) explosive = "C";
+        Set<String> heads = new HashSet<>();
+        for (String g : ReaimTimes.text("balance.final.head.guns", String.join(",", d.headGuns())).split("[,\\s]+")) if (!g.isBlank()) heads.add(g.trim());
+        Map<String, Double> roles = new HashMap<>(d.roles());
+        roles.putAll(BalanceFinalRule.roles(ReaimTimes.text("balance.final.roles", BalanceFinalRule.Params.ROLES)));
+        var params = new BalanceFinalRule.Params(BalanceFinalRule.anchors(ReaimTimes.text("balance.final.ttk", BalanceFinalRule.Params.TTK)),
+                num("balance.final.ttk.min", d.tmin(), 0.05, 60), num("balance.final.ttk.max", d.tmax(), 1, 1e6), num("balance.final.ttk.below", d.below(), 1, 100),
+                beta, lo, hi, num("balance.final.energy", d.energy(), 0.01, 100), ammoK, from, most, jhp, num("balance.final.ped", d.ped(), -5, 5),
+                explosive.equals("C") ? 1.0 : 0.0, num("balance.final.dnsOverFau", d.dnsOverFau(), 0, 100), Set.copyOf(heads),
+                num("balance.final.head.gap", d.headGap(), -10, 10), d.laserTrench(), Map.copyOf(roles));
+        // the pairs, a tier of balance.final.pairTier.<gun>.<ammo> in place of their own
+        Map<String, Double> tiers = new HashMap<>();
+        for (String l : lines()) {
+            var pr = BalanceFinalRule.parse(l);
+            if (pr == null) continue;
+            String key = "balance.final.pairTier." + pr.id();
+            if (ReaimTimes.inFile(key)) tiers.put(pr.id(), num(key, pr.tier(), -5, 20));
+        }
+        List<String> bad = new ArrayList<>();
+        var pairs = BalanceFinalRule.pairs(lines(), tiers, bad);
+        for (String b : bad) LOGGER.warn("The balance's final pairs: a line not read: {}", b);
+        Set<String> table = new HashSet<>();
+        for (String t : ReaimTimes.text("balance.final.table.pairs", "").split("[,\\s]+")) if (!t.isBlank()) table.add(t.trim());
+        // the refs of the pairs the formula takes (the table's are not)
+        List<BalanceFinalRule.Pair> formula = new ArrayList<>();
+        for (var pr : pairs.values()) if (!inTable(table, pr.id())) formula.add(pr);
+        Map<String, BalanceFinalRule.Armor> sets = new HashMap<>();
+        DEFAULT_SETS.forEach((name, a) -> sets.put(name, armorKey(name, a)));
+        double[] weights = {3, 8, 6, 3};
+        String[] w = ReaimTimes.text("balance.final.armor.weights", "3,8,6,3").split(",");
+        if (w.length == 4) try {
+            double[] x = new double[4];
+            for (int i = 0; i < 4; i++) x[i] = Double.parseDouble(w[i].trim());
+            if (x[0] >= 0 && x[1] >= 0 && x[2] >= 0 && x[3] >= 0 && x[0] + x[1] + x[2] + x[3] > 0) weights = x;
+        } catch (NumberFormatException ignored) {
+            // the defaults
+        }
+        return new State(version, params, pairs, BalanceFinalRule.refs(formula), Set.copyOf(table), explosive, Map.copyOf(sets), weights,
+                num("balance.final.armor.empty", 0.5, 0, 20), new ConcurrentHashMap<>());
+    }
+
+    /** a pair in balance.final.table.pairs: by its gun (all its ammo) or gun.ammo */
+    static boolean inTable(Set<String> table, String id) {
+        int dot = id.indexOf('.');
+        return table.contains(id) || (dot > 0 && table.contains(id.substring(0, dot)));
+    }
+
+    /** a set's numbers of balance.final.armor.<set> = tier:hours:EN, the scheme's by default */
+    private static BalanceFinalRule.Armor armorKey(String name, BalanceFinalRule.Armor def) {
+        String v = ReaimTimes.text("balance.final.armor." + name, "").trim();
+        if (v.isEmpty()) return def;
+        String[] p = v.split(":");
+        try {
+            double t = Double.parseDouble(p[0]);
+            double h = p.length > 1 ? Double.parseDouble(p[1]) : def.hours();
+            double en = p.length > 2 ? Double.parseDouble(p[2]) : def.en();
+            if (Double.isFinite(t) && Double.isFinite(h) && Double.isFinite(en)) return new BalanceFinalRule.Armor(def.kind(), t, h, en, def.pool());
+        } catch (NumberFormatException ignored) {
+            // the default
+        }
+        return def;
+    }
+
+    private static BalanceFinalRule.Armor a(String kind, double t, double h, double en, double pool) {
+        return new BalanceFinalRule.Armor(kind, t, h, en, pool);
+    }
+
+    /**
+     * the scheme's sets by NTM's names (the items' names before _helmet and the rest): tier, tier by the hours, beam
+     * shift, the pool of a full set (the kits' own sizes, whatever the pools' keys: the stand turns them off)
+     */
+    static final Map<String, BalanceFinalRule.Armor> DEFAULT_SETS = Map.ofEntries(Map.entry("steel", a("steel", 1, 1, -1, 0)),
+            Map.entry("cobalt", a("cobalt", 1, 1, -1, 0)), Map.entry("alloy", a("alloy", 1, 1, -1, 0)), Map.entry("titanium", a("titanium", 1, 1, -1, 0)),
+            Map.entry("taurun", a("taurun", 1, 1, -1, 0)), Map.entry("dieselsuit", a("dieselsuit", 2, 2, 0, 0)), Map.entry("t51", a("t51", 3, 3, 0, 0)),
+            Map.entry("steamsuit", a("steamsuit", 2.5, 4, 0, 0)), Map.entry("security", a("security", 2.5, 4, -1, 0)), Map.entry("hev", a("hev", 4, 4, 0, 0)),
+            Map.entry("ajr", a("ajr", 4, 4, 0, 0)), Map.entry("ajro", a("ajro", 4, 4, 0, 0)), Map.entry("envsuit", a("envsuit", 4, 4, 0, 0)),
+            Map.entry("trenchmaster", a("trench", 6.5, 6, 0, 0)), Map.entry("bismuth", a("bismuth", 6, 6, 0, 0)), Map.entry("starmetal", a("starmetal", 6, 6, 0, 0)),
+            Map.entry("bj", a("bj", 6, 6, 0, 0)), Map.entry("ncrpa", a("ncrpa", 6, 6, 0, 0)), Map.entry("cmb", a("cmb", 7, 7, 0, 0)),
+            Map.entry("schrabidium", a("schrabidium", 7, 7, 0, 0)), Map.entry("rpa", a("rpa", 7, 7, 0, 0)),
+            Map.entry("fau", a("fau", 8, 8, 0, EuphImmunity.Kit.FAU.size)), Map.entry("dns", a("dns", 9, 8, 0, EuphImmunity.Kit.DNS.size)),
+            Map.entry("euphemium", a("euph", 9, 9, 0, EuphImmunity.Kit.EUPHEMIUM.size)));
+
+    private static final EquipmentSlot[] SLOTS = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
+
+    // ---------------------------------------------------------------- a hit
+
+    /** the scheme's view of one hit: its pair, the set it meets, the head's rule */
+    record Hit(BalanceFinalRule.Pair pair, BalanceFinalRule.Armor armor, double clickDamage, boolean oneShotHead) {
+        /** the damage of one projectile on the body (before the part hit's multiplier) */
+        float projectile() {
+            return (float) (clickDamage / pair.projectiles());
+        }
+    }
+
+    /**
+     * the hit the scheme takes, or null when it is not the scheme's (blasts, pairs of no line or of the table, targets
+     * that are not players and wear nothing of the table)
+     */
+    static Hit hit(LivingEntity target, DamageSource source) {
+        if (!on()) return null;
+        String cat = BalanceArmor.category(source);
+        if (cat == null) return null;
+        State s = state();
+        Entity projectile;
+        if (DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) {
+            // an explosive bullet's blast on the creature it struck: its direct hit (variant C, B); the rest of the blast as before
+            if (s.explosive().equals("A") || !BalanceArmor.bulletBlastNow() || ExplosiveDamage.struckNow() != target) return null;
+            projectile = ExplosiveDamage.bulletNow();
+        } else projectile = source.getDirectEntity();
+        String id = pairOf(projectile);
+        // an NTM blast of a beam or a bullet of a pair (the Tesla Cannon's arc): the pair its shooter just fired
+        if (id == null && BalanceArmor.vntBlastNow() && !DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) id = blastPair(source);
+        if (id == null || inTable(s.table(), id)) return null;
+        var pr = s.pairs().get(id);
+        if (pr == null || (pr.explosive() && s.explosive().equals("A"))) return null;
+        var armor = armorOf(target, s);
+        if (armor == null) return null;
+        String key = id + "|" + armor;
+        BalanceFinalRule.Armor fau = s.sets().get("fau");
+        double click = s.cache().computeIfAbsent(key, k -> BalanceFinalRule.clickDamage(pr, armor, fau, s.refs(), s.params()));
+        return new Hit(pr, armor, click, BalanceFinalRule.headOneShot(pr, armor.hours(), s.params()));
+    }
+
+    /**
+     * the set the scheme takes on {@code target}: a full set of one kind its own (with its pool), a mixed or incomplete
+     * one by the slots' weights (no pool), nothing of the table: bare (players only); null when not the scheme's
+     */
+    static BalanceFinalRule.Armor armorOf(LivingEntity target, State s) {
+        BalanceFinalRule.Armor[] slots = new BalanceFinalRule.Armor[4];
+        String first = null;
+        boolean same = true, any = false;
+        for (int i = 0; i < 4; i++) {
+            String set = BalanceArmor.setOf(target.getItemBySlot(SLOTS[i]), i);
+            var a = set == null ? null : s.sets().get(set);
+            slots[i] = a;
+            if (a != null) any = true;
+            if (i == 0) first = set;
+            if (a == null || set == null || !set.equals(first)) same = false;
+        }
+        if (!any) return target instanceof Player ? BalanceFinalRule.MODEL_SETS.get("none") : null;
+        if (same) return slots[0];
+        return BalanceFinalRule.mix(slots, s.weights(), s.empty());
+    }
+
+    /** a one-shot on the head is under way (the damage cap lets it through as a sniper's head) */
+    private static final ThreadLocal<LivingEntity> ONE_SHOT = new ThreadLocal<>();
+
+    /** the one-shot on the head of the hurt under way on {@code target}, read once (DamageCap) */
+    static boolean takeOneShot(LivingEntity target) {
+        boolean out = ONE_SHOT.get() == target;
+        ONE_SHOT.remove();
+        return out;
+    }
+
+    /** the hit is the scheme's one-shot on the head (the pool's drain takes the whole pool) */
+    static boolean oneShotHead(LivingEntity target, DamageSource source) {
+        Hit h = hit(target, source);
+        return h != null && h.oneShotHead() && HeadDamage.onHead(target);
+    }
+
+    /**
+     * what the scheme leaves of a hit on {@code target} (in place of NTM's threshold and resistance and formula C), or
+     * NaN when the hit is not the scheme's
+     */
+    static float damage(LivingEntity target, DamageSource source) {
+        Hit h = hit(target, source);
+        if (h == null) return Float.NaN;
+        if (againThisTick(target, source)) return 0F;
+        float scale = target.getMaxHealth() / (float) BalanceFinalRule.HP;
+        if (h.oneShotHead() && HeadDamage.onHead(target)) {
+            // the head's rule: the whole health (and pool) in one click, the head's multiplier after it
+            ONE_SHOT.set(target);
+            return (float) ((BalanceFinalRule.HP + h.armor().pool()) * scale / ModelHeads.multiplier(true, false) / h.pair().projectiles());
+        }
+        ONE_SHOT.remove();
+        return h.projectile() * scale;
+    }
+
+    /** what a hit takes from a full set's pool (EuphImmunity), or NaN when it is not the scheme's */
+    static float drain(LivingEntity target, DamageSource source) {
+        Hit h = hit(target, source);
+        if (h == null) return Float.NaN;
+        if (againThisTick(target, source)) return 0F;
+        boolean head = HeadDamage.onHead(target);
+        if (h.oneShotHead() && head) return (float) ((BalanceFinalRule.HP + h.armor().pool()) / h.pair().projectiles());
+        float d = h.projectile();
+        return head ? Math.min(d * ModelHeads.multiplier(true, false), DamageCap.limits().head() * (float) BalanceFinalRule.HP) : d;
+    }
+
+    /**
+     * a shot or a beam the scheme leaves to NTM's numbers: a mob's or a turret's of no pair of the table (owner
+     * 2026-11-12: NTM's damage as it is): NTM's threshold and resistance, then vanilla's armour, no formula C
+     */
+    static boolean ntmShot(LivingEntity target, DamageSource source) {
+        if (!on()) return false;
+        String cat = BalanceArmor.category(source);
+        if (cat == null || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) return false;
+        // a player's shot of no pair (a launcher's submunition, another game's gun) keeps X908's machine
+        if (!(source.getEntity() instanceof LivingEntity shooter) || shooter instanceof Player) return false;
+        String id = pairOf(source.getDirectEntity());
+        if (id == null && BalanceArmor.vntBlastNow()) id = blastPair(source);
+        if (id == null) return true;
+        State s = state();
+        return !inTable(s.table(), id) && !s.pairs().containsKey(id);
+    }
+
+    /** the stand: the hit clicks of a pair on a set by the model's or NTM's names (NaN: no such pair or set) */
+    static double hitClicks(String pair, String set) {
+        State s = state();
+        var pr = s.pairs().get(pair);
+        var a = s.sets().get(set);
+        if (a == null) a = BalanceFinalRule.MODEL_SETS.get(set);
+        if (pr == null || a == null) return Double.NaN;
+        return BalanceFinalRule.HP / BalanceFinalRule.clickDamage(pr, a, s.sets().get("fau"), s.refs(), s.params());
+    }
+}

@@ -54,7 +54,7 @@ minigun.r762_he	formula	18	18	18	18	18	22	29	29	20	20	75	75	75	75	154	319	319	31
 amat_penance.bmg50_sm	formula	3	3	3	3	3	3	3	3	3	3	3	3	3	3	4	4	4	4	10	4	9
 amat_subtlety.bmg50_sm	formula	2	2	2	2	2	2	2	2	2	2	3	3	3	3	3	4	4	4	9	3	9
 amat.bmg50_sm	formula	2	2	2	2	2	2	2	2	2	2	3	3	3	3	3	4	4	4	18	4	17
-autoshotgun_shredder.g12_explosive	formula	5	5	5	5	5	5	5	5	5	5	7	7	7	7	8	9	9	9	69	16	69
+autoshotgun_shredder.g12_explosive	formula	4	4	4	4	4	4	4	4	4	4	6	6	6	6	7	8	8	8	63	15	63
 double_barrel_sacred_dragon.g10_du	formula	2	2	2	2	2	2	2	2	2	2	2	2	2	2	2	2	2	2	3	2	3
 g3_zebra.r556_ap	formula	16	16	16	16	16	16	17	17	16	16	28	28	28	28	29	30	30	30	255	64	253
 g3_zebra.r556_jhp	formula	15	15	15	15	15	19	24	24	16	16	38	38	38	38	80	148	148	148	1017	507	1014
@@ -118,11 +118,11 @@ autoshotgun_sexy.g12_bp_slug	formula	5	5	5	5	5	5	5	5	5	5	5	5	5	5	5	5	5	5	9	7	8
 autoshotgun_sexy.g12_explosive	formula	4	4	4	4	4	4	4	4	4	4	4	4	4	4	4	4	4	4	6	4	5
 autoshotgun_sexy.g12_flechette	formula	3	3	3	3	3	3	3	3	3	3	3	3	3	3	3	3	3	3	5	4	5
 autoshotgun_sexy.g12_phosphorus	formula	4	4	4	4	4	4	4	4	4	4	4	4	4	4	4	5	5	5	7	6	7
-autoshotgun_shredder.g12	formula	5	5	5	5	5	5	6	6	5	5	9	9	9	9	12	17	17	17	242	69	242
-autoshotgun_shredder.g12_flechette	formula	5	5	5	5	5	5	6	6	5	5	9	9	9	9	12	17	17	17	242	69	242
-autoshotgun_shredder.g12_magnum	formula	5	5	5	5	5	5	6	6	5	5	9	9	9	9	12	17	17	17	242	69	242
-autoshotgun_shredder.g12_phosphorus	formula	5	5	5	5	5	5	6	6	5	5	9	9	9	9	12	17	17	17	242	69	242
-autoshotgun_shredder.g12_slug	formula	5	5	5	5	5	5	6	6	5	5	9	9	9	9	12	17	17	17	242	69	242
+autoshotgun_shredder.g12	formula	2	2	2	2	2	2	3	3	2	2	5	5	5	5	6	9	9	9	121	35	121
+autoshotgun_shredder.g12_flechette	formula	3	3	3	3	3	3	3	3	3	3	5	5	5	5	7	10	10	10	145	41	145
+autoshotgun_shredder.g12_magnum	formula	3	3	3	3	3	3	4	4	3	3	6	6	6	6	8	12	12	12	172	49	171
+autoshotgun_shredder.g12_phosphorus	formula	3	3	3	3	3	3	4	4	3	3	6	6	6	6	8	12	12	12	172	49	171
+autoshotgun_shredder.g12_slug	formula	4	4	4	4	4	4	5	5	4	4	8	8	8	8	11	15	15	15	220	63	220
 bolter.b75	formula	12	12	12	12	15	19	22	22	17	17	131	131	131	131	236	437	437	437	1724	862	1723
 bolter.b75_inc	formula	12	12	12	12	16	20	22	22	18	18	134	134	134	134	248	466	466	466	1843	922	1842
 carbine.r762_ap	formula	6	6	6	6	7	8	10	10	7	7	26	26	26	26	52	102	102	102	544	273	543
