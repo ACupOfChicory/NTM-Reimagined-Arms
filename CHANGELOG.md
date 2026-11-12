@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- The GL-54's recipe moves up to technetium's tier: a rangefinder, a military
+  grade circuit board and a vacuum tube on top; a heavy barrel and a light
+  receiver of resistant alloy (technetium or cadmium alloy, 10 ingots in all)
+  and a technetium steel gun mechanism in the middle; a plastic grip and a
+  polymer stock at the bottom. With `gunMechanismRecipes = false` the
+  mechanism is NTM's weapon steel one, as in NTM's recipes of the tier.
+
 ## X912
 
 - New gun balance, one formula for every gun (server key `balance.final`,
