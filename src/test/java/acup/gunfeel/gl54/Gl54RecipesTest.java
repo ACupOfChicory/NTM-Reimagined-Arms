@@ -30,6 +30,8 @@ class Gl54RecipesTest {
     static final Path RECIPES = Path.of("src/main/resources/data/ntmgunfeel/recipe");
     static final Path OWN_ASSETS = Path.of("src/main/resources/assets/ntmgunfeel/items");
     static final Path OWN_TAGS = Path.of("src/main/resources/data/ntmgunfeel/tags/item");
+    // the tags this mod adds under NTM's namespace (the new gun mechanisms)
+    static final Path OWN_HBM_TAGS = Path.of("src/main/resources/data/hbm/tags/item");
 
     static List<Path> files() throws IOException {
         try (Stream<Path> s = Files.walk(RECIPES)) {
@@ -84,7 +86,8 @@ class Gl54RecipesTest {
                     boolean tag = id.startsWith("#");
                     String[] ns = (tag ? id.substring(1) : id).split(":", 2);
                     if (tag) {
-                        assertTrue(jar.getEntry("data/" + ns[0] + "/tags/item/" + ns[1] + ".json") != null || Files.exists(OWN_TAGS.resolve(ns[1] + ".json")), p + ": no tag " + id);
+                        assertTrue(jar.getEntry("data/" + ns[0] + "/tags/item/" + ns[1] + ".json") != null
+                                || Files.exists((ns[0].equals("hbm") ? OWN_HBM_TAGS : OWN_TAGS).resolve(ns[1] + ".json")), p + ": no tag " + id);
                     } else if (ns[0].equals("ntmgunfeel")) {
                         assertTrue(Files.exists(OWN_ASSETS.resolve(ns[1] + ".json")), p + ": no item " + id);
                     } else {
@@ -178,6 +181,29 @@ class Gl54RecipesTest {
         JsonObject empty = read(RECIPES.resolve("gl54_mag_empty.json"));
         assertEquals("ntmgunfeel:gl54_mag_empty", empty.getAsJsonObject("result").get("id").getAsString());
         assertEquals(2, empty.getAsJsonObject("result").get("count").getAsInt());
+    }
+
+    // the gun's recipe: technetium steel's tier (the resistant alloy's barrel and receiver, the military grade board); its
+    // mechanism is technetium steel's with gunMechanismRecipes on, as Lag's, the minigun's and the missile launcher's, and
+    // weapon steel's with it off, as NTM's recipes of these; the two files differ in nothing else
+    @Test
+    void theGunIsOfTechnetiumsTierWithTheMechanismOfTheSetting() throws IOException {
+        JsonObject on = read(RECIPES.resolve("gun_gl54.json")), off = read(RECIPES.resolve("gun_gl54_weapon_steel.json"));
+        assertEquals("[{\"type\":\"ntmgunfeel:gun_mechanism_recipes\",\"on\":true}]", on.get("neoforge:conditions").toString());
+        assertEquals("[{\"type\":\"ntmgunfeel:gun_mechanism_recipes\",\"on\":false}]", off.get("neoforge:conditions").toString());
+        assertEquals("[\"FCV\",\"BRM\",\"G S\"]", on.get("pattern").toString());
+        JsonObject k = on.getAsJsonObject("key");
+        assertEquals("hbm:circuit_advanced", k.get("C").getAsString());
+        assertEquals("#hbm:barrels_heavy/any_resistant_alloy", k.get("B").getAsString());
+        assertEquals("#hbm:receivers_light/any_resistant_alloy", k.get("R").getAsString());
+        assertEquals("#hbm:gun_mechanisms/tc_alloy", k.get("M").getAsString());
+        assertEquals("#hbm:gun_mechanisms/weapon_steel", off.getAsJsonObject("key").get("M").getAsString());
+        JsonObject a = on.deepCopy(), b = off.deepCopy();
+        for (JsonObject o : List.of(a, b)) {
+            o.remove("neoforge:conditions");
+            o.getAsJsonObject("key").remove("M");
+        }
+        assertEquals(a, b);
     }
 
     @Test

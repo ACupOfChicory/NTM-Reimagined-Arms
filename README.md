@@ -191,8 +191,8 @@ page. They are alphas: expect bugs and back up your world.
   high-speed steel for AM180, Congo Lake, the flamethrower and Liberator;
   desh for the carbine, heavy revolver, Panzerschreck, SPAS-12 and UZI;
   ferrouranium for AMAT, the auto-shotgun, M2 and Quadro; technetium steel
-  for Lag, the minigun, the missile launcher and Tesla Cannon (saturnite with
-  the balance's recipe).
+  for Lag, the minigun, the missile launcher, the GL-54 and Tesla Cannon
+  (saturnite with the balance's recipe).
 - A B-side takes the step above its base gun's: desh for Atlas, Henry
   Lincoln, the Maresleg pair and Topaz, ferrouranium for the UZI pair.
   Gunmetal and weapon steel mechanisms no longer fit these recipes; the

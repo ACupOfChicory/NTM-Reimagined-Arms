@@ -1,0 +1,27 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "ntmgunfeel:gun_mechanism_recipes",
+      "on": false
+    }
+  ],
+  "type": "hbm:crafting_shaped",
+  "pattern": [
+    "FCV",
+    "BRM",
+    "G S"
+  ],
+  "key": {
+    "F": "hbm:rangefinder",
+    "C": "hbm:circuit_advanced",
+    "V": "hbm:circuit_vacuum_tube",
+    "B": "#hbm:barrels_heavy/any_resistant_alloy",
+    "R": "#hbm:receivers_light/any_resistant_alloy",
+    "M": "#hbm:gun_mechanisms/weapon_steel",
+    "G": "#hbm:grips/any_plastic",
+    "S": "#hbm:stocks/polymer"
+  },
+  "result": {
+    "id": "ntmgunfeel:gun_gl54"
+  }
+}
