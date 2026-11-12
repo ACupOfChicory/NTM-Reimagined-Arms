@@ -447,7 +447,8 @@ final class AiCheckTeams {
         List<String> parted = AiGrenades.partings.subList(partedAtStart, AiGrenades.partings.size());
         check.out(String.format(Locale.ROOT, "       planned flights: %d of %d grenades left them", parted.size(), AiGrenades.traced - tracedAtStart));
         for (int i = 0; i < Math.min(6, parted.size()); i++) check.out("         " + parted.get(i));
-        boolean fought = redHits + blueHits >= 10 && (r < SIDE || b < SIDE);
+        // a hit of a heavy revolver kills since the balance of X922: a fight won at once is SIDE hits, no more
+        boolean fought = redHits + blueHits >= SIDE && (r < SIDE || b < SIDE);
         if (!fought) for (Mob m : red.size() + blue.size() == 0 ? List.<Mob>of() : concat()) {
             AiBot bot = AiBots.get(m);
             check.out(String.format(Locale.ROOT, "       %s %s at %.1f %.1f %.1f: %s", m.getTeam() == null ? "no team" : m.getTeam().getName(), m.getType().toShortString(),
