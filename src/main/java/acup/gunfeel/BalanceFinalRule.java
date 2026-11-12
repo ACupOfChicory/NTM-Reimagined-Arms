@@ -55,20 +55,89 @@ public final class BalanceFinalRule {
     public record Armor(String kind, double tier, double hours, double en, double pool) {
     }
 
+    /**
+     * the magazine's rule (balance.final.mag; Fable 2026-11-12, 2.4): a kill of the usual fight that falls on the last
+     * {@code spare} clicks of a magazine, or on the first click after a reload, is moved to click M − spare (of the
+     * magazine before), the damage of a click raised for it; spare = {@code small} for a magazine below 10 clicks, else
+     * {@code reserve} of it (at least 1). Not when the TTK after it is shorter than {@code min} of the target, nor for a
+     * magazine of fewer than 3 clicks. {@code reserve} 0: off (X912)
+     */
+    public record MagRule(double reserve, int small, double min) {
+        public static final MagRule OFF = new MagRule(0, 1, 0.6);
+        public static final MagRule DEFAULT = new MagRule(0.15, 1, 0.6);
+
+        public boolean on() {
+            return reserve > 0;
+        }
+
+        /** the clicks kept in a magazine of {@code mag} clicks (Python's round, half to even, as the model) */
+        double spare(double mag) {
+            return mag < 10 ? small : Math.max(1, (int) Math.rint(reserve * mag));
+        }
+
+        /** "reserve=0.15 small=1 min=0.6"; a broken entry is left out */
+        public static MagRule parse(String text, MagRule def) {
+            double reserve = def.reserve(), min = def.min();
+            int small = def.small();
+            if (text != null) for (String e : text.trim().split("\\s+")) {
+                int c = e.indexOf('=');
+                if (c <= 0) continue;
+                try {
+                    double x = Double.parseDouble(e.substring(c + 1));
+                    if (!Double.isFinite(x) || x < 0) continue;
+                    switch (e.substring(0, c)) {
+                        case "reserve" -> reserve = Math.min(x, 0.9);
+                        case "small" -> small = (int) x;
+                        case "min" -> min = x;
+                        default -> {
+                        }
+                    }
+                } catch (NumberFormatException ignored) {
+                    // left out
+                }
+            }
+            return new MagRule(reserve, small, min);
+        }
+    }
+
     /** the scheme's numbers (the server's keys balance.final.*) */
     public record Params(TreeMap<Integer, Double> anchors, double tmin, double tmax, double below, double beta, double lo, double hi, double energy,
             double ammoK, double ammoFrom, double ammoMax, double jhp, double ped, double explShift, double dnsOverFau, Set<String> headGuns,
-            double headGap, double laserTrench, Map<String, Double> roles) {
-        public static final String TTK = "+3:1.63 +2:2.08 +1:2.68 0:3.5 -1:7.0 -2:18 -3:105 -4:210";
-        public static final String ROLES = "smg:1.6 mg:1.3 rifle:1.0 pistol:1.2 shotgun:0.75 sniper:0.85 beam:1.0";
-        public static final Params DEFAULT = new Params(BalanceFinalRule.anchors(TTK), 0.7, 900, 2.0, 0.3, 0.7, 1.4, 1.15, 4.0, 0.15, 1.0, -1.0, 0.5, 1.0, 1.15,
-                Set.of(), 1.0, 1.0, BalanceFinalRule.roles(ROLES));
+            double headGap, double laserTrench, Map<String, Double> roles, double slugPellets, MagRule mag) {
+        /** Fable 2026-11-12 (10.2, ladder H): up x0.77 a tier to the floor 1.25 s, down the hours' ladder */
+        public static final String TTK = "+4:1.25 +3:1.6 +2:2.1 +1:2.7 0:3.5 -1:7 -2:13.5 -3:28 -4:40 -5:50 -6:60 -7:68 -8:75 -9:82";
+        public static final String ROLES = "smg:1.6 mg:1.3 rifle:1.0 pistol:1.0 shotgun:0.75 slug:1.0 sniper:0.85 beam:1.0 airburst:1.2";
+        /** X912's: the keys' values that give it back */
+        public static final String TTK_X912 = "+3:1.63 +2:2.08 +1:2.68 0:3.5 -1:7.0 -2:18 -3:105 -4:210";
+        public static final String ROLES_X912 = "smg:1.6 mg:1.3 rifle:1.0 pistol:1.2 shotgun:0.75 sniper:0.85 beam:1.0";
+        public static final Params DEFAULT = new Params(BalanceFinalRule.anchors(TTK), 0.7, 900, 1.1, 0.3, 0.7, 1.4, 1.15, 4.0, 0.15, 1.0, -1.0, 0.5, 1.0, 1.15,
+                Set.of(), 1.0, 1.0, BalanceFinalRule.roles(ROLES), 4, MagRule.DEFAULT);
+        public static final Params X912 = new Params(BalanceFinalRule.anchors(TTK_X912), 0.7, 900, 2.0, 0.3, 0.7, 1.4, 1.15, 4.0, 0.15, 1.0, -1.0, 0.5, 1.0, 1.15,
+                Set.of(), 1.0, 1.0, BalanceFinalRule.roles(ROLES_X912), 0, MagRule.OFF);
 
         /** the role's share of the usual TTK (1 for a role not given) */
         double role(String r) {
             Double v = roles.get(r);
             return v == null ? 1.0 : v;
         }
+
+        public Params withHeadGuns(Set<String> guns) {
+            return new Params(anchors, tmin, tmax, below, beta, lo, hi, energy, ammoK, ammoFrom, ammoMax, jhp, ped, explShift, dnsOverFau, guns, headGap,
+                    laserTrench, roles, slugPellets, mag);
+        }
+
+        public Params withMag(MagRule m) {
+            return new Params(anchors, tmin, tmax, below, beta, lo, hi, energy, ammoK, ammoFrom, ammoMax, jhp, ped, explShift, dnsOverFau, headGuns, headGap,
+                    laserTrench, roles, slugPellets, m);
+        }
+    }
+
+    /**
+     * the pair's role as the scheme takes it: a shotgun's shot of fewer than {@code slugPellets} projectiles a round (a
+     * slug, an explosive shell) is a {@code slug}, its time a rifle's (Fable 2.4); 0: no such role (X912)
+     */
+    public static String roleOf(Pair pr, Params p) {
+        return "shotgun".equals(pr.role()) && pr.pellets() < p.slugPellets() ? "slug" : pr.role();
     }
 
     /** "role:share" by spaces (share above 0); a broken entry is left out */
@@ -104,7 +173,9 @@ public final class BalanceFinalRule {
         return out.isEmpty() && !TTK_SAFE.isEmpty() ? new TreeMap<>(TTK_SAFE) : out;
     }
 
-    private static final TreeMap<Integer, Double> TTK_SAFE = new TreeMap<>(Map.of(3, 1.63, 2, 2.08, 1, 2.68, 0, 3.5, -1, 7.0, -2, 18.0, -3, 105.0, -4, 210.0));
+    private static final TreeMap<Integer, Double> TTK_SAFE = new TreeMap<>(Map.ofEntries(Map.entry(4, 1.25), Map.entry(3, 1.6), Map.entry(2, 2.1), Map.entry(1, 2.7),
+            Map.entry(0, 3.5), Map.entry(-1, 7.0), Map.entry(-2, 13.5), Map.entry(-3, 28.0), Map.entry(-4, 40.0), Map.entry(-5, 50.0), Map.entry(-6, 60.0),
+            Map.entry(-7, 68.0), Map.entry(-8, 75.0), Map.entry(-9, 82.0)));
 
     /** the TTK the anchors give {@code d} (by the logarithm between two anchors; below the lowest ×below a step) */
     public static double ttkOf(double d, Params p) {
@@ -184,7 +255,7 @@ public final class BalanceFinalRule {
     /** the TTK the pair is to kill the set in, its pool too, s; DNS never below dnsOverFau of FAU's */
     public static double target(Pair pr, Armor a, Armor fau, Refs refs, Params p) {
         double c = pr.phys() ? 1.0 : p.energy();
-        double t = Math.max(p.tmin(), ttkOf(d(pr, a, p), p) * c * character(pr, refs, p) * p.role(pr.role()));
+        double t = Math.max(p.tmin(), ttkOf(d(pr, a, p), p) * c * character(pr, refs, p) * p.role(roleOf(pr, p)));
         double tt = t * (HP + a.pool()) / HP;
         if ("dns".equals(a.kind()) && fau != null) tt = Math.max(tt, p.dnsOverFau() * target(pr, fau, null, refs, p));
         return tt;
@@ -199,9 +270,14 @@ public final class BalanceFinalRule {
         return new double[] {(n - 1) * dt + rl * pr.reload() / 20.0, n};
     }
 
-    /** the hit clicks N (2 or more) whose real TTK comes closest to the target */
+    /** the hit clicks N (2 or more) whose real TTK comes closest to the target, the magazine's rule after it */
     public static int hitClicks(Pair pr, Armor a, Armor fau, Refs refs, Params p) {
         double tt = target(pr, a, fau, refs, p), tot = HP + a.pool();
+        int nh = closest(pr, tot, tt);
+        return p.mag().on() ? magRule(pr, tot, tt, nh, p) : nh;
+    }
+
+    private static int closest(Pair pr, double tot, double tt) {
         int lo = 2, hi = 6000;
         if (realTtk(HP / lo, pr, tot)[0] >= tt) return 2;
         while (lo + 1 < hi) {
@@ -210,6 +286,31 @@ public final class BalanceFinalRule {
             else hi = mid;
         }
         return Math.abs(realTtk(HP / lo, pr, tot)[0] - tt) <= Math.abs(realTtk(HP / hi, pr, tot)[0] - tt) ? lo : hi;
+    }
+
+    /**
+     * the magazine's rule ({@link MagRule}; the model's fm.py {@code _cell}): the kill on the last spare clicks of a
+     * magazine, or on the first click after a reload, moved to click M − spare, fewer hit clicks for it
+     */
+    static int magRule(Pair pr, double tot, double tt, int nh, Params p) {
+        if (pr.mag() < 0) return nh;
+        double mag = pr.mag() / (double) Math.max(1, pr.roundsPerClick());
+        if (mag < 3) return nh;
+        int n = (int) realTtk(HP / nh, pr, tot)[1];
+        if (n < 2 || nh <= 2) return nh;
+        double lim = mag - p.mag().spare(mag);
+        double pos = (n - 1) % mag + 1, full = Math.floor((n - 1) / mag);
+        double want;
+        if (pos > lim) want = full * mag + lim;
+        else if (pos == 1 && n > mag) want = (full - 1) * mag + lim;
+        else return nh;
+        int w = (int) want;
+        if (w < 2) return nh;
+        int nh2 = nh;
+        while (nh2 > 2 && realTtk(HP / nh2, pr, tot)[1] > w) nh2--;
+        double[] r = realTtk(HP / nh2, pr, tot);
+        double t = r[1] > 1 ? Math.max(r[0], p.tmin()) : r[0];
+        return r[1] <= w && t >= p.mag().min() * tt ? nh2 : nh;
     }
 
     /**
@@ -281,8 +382,15 @@ public final class BalanceFinalRule {
         return out;
     }
 
-    /** the scheme's sets by the model's names: tier, tier by the hours, beam shift, pool of a full set */
-    public static final Map<String, Armor> MODEL_SETS = Map.ofEntries(Map.entry("none", new Armor("none", 0, 0, 0, 0)),
+    /** the same with these pools of DNS and FAU (X912: 40 and 45) */
+    public static Map<String, Armor> modelSets(double dns, double fau) {
+        Map<String, Armor> out = new HashMap<>(SETS0);
+        out.put("dns", new Armor("dns", 9, 8, 0, dns));
+        out.put("fau", new Armor("fau", 8, 8, 0, fau));
+        return Map.copyOf(out);
+    }
+
+    private static final Map<String, Armor> SETS0 = Map.ofEntries(Map.entry("none", new Armor("none", 0, 0, 0, 0)),
             Map.entry("steel", new Armor("steel", 1, 1, -1, 0)), Map.entry("taurun", new Armor("taurun", 1, 1, -1, 0)),
             Map.entry("titan", new Armor("titan", 1, 1, -1, 0)), Map.entry("diesel", new Armor("diesel", 2, 2, 0, 0)),
             Map.entry("t51", new Armor("t51", 3, 3, 0, 0)), Map.entry("ajr", new Armor("ajr", 4, 4, 0, 0)), Map.entry("hev", new Armor("hev", 4, 4, 0, 0)),
@@ -293,4 +401,7 @@ public final class BalanceFinalRule {
             Map.entry("rpa", new Armor("rpa", 7, 7, 0, 0)), Map.entry("schrab", new Armor("schrab", 7, 7, 0, 0)),
             Map.entry("dns", new Armor("dns", 9, 8, 0, 40)), Map.entry("fau", new Armor("fau", 8, 8, 0, 45)),
             Map.entry("euph", new Armor("euph", 9, 9, 0, 150)));
+
+    /** the scheme's sets by the model's names: tier, tier by the hours, beam shift, pool of a full set (DNS 45, FAU 40: Fable 2.6) */
+    public static final Map<String, Armor> MODEL_SETS = modelSets(45, 40);
 }

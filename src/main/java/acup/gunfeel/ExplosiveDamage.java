@@ -79,6 +79,12 @@ public final class ExplosiveDamage {
                 || context.bullet.level()!=explosion.world || context.bullet.getThrower()!=explosion.exploder)return null;
         context.exploded=true;return new Blast(context,base,explosion);
     }
+    /** the round or bullet the blast is bound to (its impact set it off), or null */
+    public static EntityBulletBaseMK4 bulletOf(Blast blast){return blast==null?null:blast.context.bullet;}
+    /** the blast's round struck {@code target} and its contact is not paid yet (call before damage()) */
+    public static boolean struck(Blast blast,Entity target){
+        return blast!=null && !blast.contactPaid && blast.context.impact instanceof EntityHitResult hit && hit.getEntity()==target;
+    }
     /** the blast is a launcher's round's (40 mm, rocket), not an explosive bullet's */
     public static boolean launched(Blast blast){return blast!=null && ExplosiveAmmo.heavy(blast.context.bullet.config);}
     /** a rocket's blast on the creature the rocket struck, before its contact share is paid (BalanceArmor's power by tier) */

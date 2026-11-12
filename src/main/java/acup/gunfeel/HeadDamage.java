@@ -33,6 +33,8 @@ public final class HeadDamage {
         var p=PENDING.get();
         if(p==null || p.target()!=e.getEntity()) return;
         PENDING.remove();
+        // a blast on the final scheme's ladder has no head nor limb (BalanceFinal.blastAt)
+        if(BalanceFinal.blastNow(e.getEntity())) return;
         e.setNewDamage(e.getNewDamage()*p.multiplier());
     }
     /** the NTM call that hurts the target with this damage */
