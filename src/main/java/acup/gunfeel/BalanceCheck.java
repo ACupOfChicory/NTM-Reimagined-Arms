@@ -545,7 +545,7 @@ public final class BalanceCheck {
     private static void plan() {
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         // the passes check the machine of X908 (formula C, the gun table): the final scheme off, its cells and team lines
         // turn it on by a key line (balance.final true)
@@ -570,6 +570,7 @@ public final class BalanceCheck {
         if (only("cheese")) planCheese();
         if (only("frag")) planFrag();
         if (only("bx")) planBlastLadder();
+        if (only("rg")) planRange();
     }
 
     // ---------------------------------------------------------------- melee and the flamethrower (hotfix X867)
@@ -812,7 +813,9 @@ public final class BalanceCheck {
             keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.immune.dns.mode", "pool",
                     "balance.immune.fau.mode", "pool", "balance.immune.mode", "pool", "balance.immune.pool", "0.0001", "balance.immune.window", "600",
                     "balance.immune.recover", "1", "balance.immune.dns.pool", "0.0001", "balance.immune.dns.window", "600", "balance.immune.dns.recover", "1",
-                    "balance.immune.fau.pool", "0.0001", "balance.immune.fau.window", "600", "balance.immune.fau.recover", "1");
+                    "balance.immune.fau.pool", "0.0001", "balance.immune.fau.window", "600", "balance.immune.fau.recover", "1",
+                    // the model's clicks are at the role's own distance, the stand's at 4 blocks: no range rule (pass rg has it)
+                    "balance.final.range", "off");
             eachLane(() -> L.shooter.setInvulnerable(true));
         });
         wait(30);
@@ -842,7 +845,8 @@ public final class BalanceCheck {
         STEPS.add(() -> {
             keys("balance.immune.pool", "150", "balance.immune.window", "15", "balance.immune.recover", "60", "balance.immune.dns.mode", "formula",
                     "balance.immune.fau.mode", "formula", "balance.immune.dns.pool", "40", "balance.immune.dns.window", "15", "balance.immune.dns.recover", "60",
-                    "balance.immune.fau.pool", "45", "balance.immune.fau.window", "15", "balance.immune.fau.recover", "60");
+                    "balance.immune.fau.pool", "45", "balance.immune.fau.window", "15", "balance.immune.fau.recover", "60", "balance.final.range",
+                    BalanceRangeRule.LINES);
             eachLane(() -> {
                 L.shooter.setInvulnerable(false);
                 for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
@@ -1403,6 +1407,94 @@ public final class BalanceCheck {
             L.target.setHealth(L.target.getMaxHealth());
         });
         wait(3);
+    }
+
+    // ---------------------------------------------------------------- Fable's stage 4: damage by range (pass rg)
+
+    /** the pairs of Fable's table 10.4 (gun, ammo, set) and the distances, blocks */
+    private static final String[][] RG_PAIRS = {{"autoshotgun", "g12", "hev"}, {"spas12", "g12_slug", "hev"}, {"uzi", "p9_fmj", "hev"}, {"star_f", "p22_fmj", "hev"},
+            {"heavy_revolver", "m44_ap", "hev"}, {"g3", "r556_fmj", "hev"}, {"carbine", "r762_fmj", "hev"}, {"m2", "bmg50_fmj", "hev"}, {"amat", "bmg50_ap", "hev"},
+            {"amat", "bmg50_fmj", "hev"}, {"laser_pistol", "capacitor", "bj"}, {"stg77", "r556_fmj", "bj"}, {"mas36", "r762_du", "bj"}};
+    private static final int[] RG_DIST = {4, 7, 8, 12, 16, 20, 30, 32, 64, 128, 200};
+    private static final int RG_CLICKS = 12, RG_FAR = 216;
+
+    /**
+     * Fable 2026-11-12, 10.4 (stage 4): the pairs of table 10.4 aimed standing from 4 to 200 blocks, RG_CLICKS clicks
+     * from full health each: what a click took and its hits (lines "rg" for notes/balance/fable/stand/rg.py: the
+     * model's multiplier and spread). The rule on (the default); the chunks along the lanes kept loaded.
+     */
+    private static void planRange() {
+        line("#	--- rg: дальность (Fable 10.4), по " + RG_CLICKS + " кликов с полного здоровья, стрелок прицельно стоя");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.final.range", BalanceRangeRule.LINES);
+            eachLane(() -> {
+                L.shooter.setInvulnerable(true);
+                for (int cx = (L.o.getX() - 8) >> 4; cx <= (L.o.getX() + 8) >> 4; cx++)
+                    for (int cz = (L.o.getZ() - 8) >> 4; cz <= (L.o.getZ() + RG_FAR) >> 4; cz++) level.setChunkForced(cx, cz, true);
+            });
+        });
+        wait(60);
+        List<Runnable> run = new ArrayList<>();
+        for (String[] p : RG_PAIRS) {
+            Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + p[0]));
+            BulletConfig ammo = ammoNamed(gun, p[1]);
+            if (ammo == null) {
+                line("rg\t" + p[0] + "\t" + p[1] + "\tнет патрона");
+                continue;
+            }
+            for (int d : RG_DIST) run.add(() -> rangeCell(p, gun, ammo, d));
+        }
+        parallel(run);
+        STEPS.add(() -> eachLane(() -> {
+            L.shooter.setInvulnerable(false);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            wearAttributes(L.target);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+            for (int cx = (L.o.getX() - 8) >> 4; cx <= (L.o.getX() + 8) >> 4; cx++)
+                for (int cz = ((L.o.getZ() + 24) >> 4) + 1; cz <= (L.o.getZ() + RG_FAR) >> 4; cz++) level.setChunkForced(cx, cz, false);
+        }));
+        wait(10);
+    }
+
+    private static void rangeCell(String[] p, Item gun, BulletConfig ammo, int d) {
+        float[] took = {0F};
+        int[] hits = {0};
+        int wait = d >= 64 ? 45 : SPACING + 10;
+        STEPS.add(() -> {
+            begin(L.target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            dress(L.target, p[2], true);
+            wearAttributes(L.target);
+            EuphImmunity.forget(L.target);
+            L.shooter.setDeltaMovement(Vec3.ZERO);
+            L.shooter.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlockAndUpdate(L.o.offset(x, -1, d + z), Blocks.STONE.defaultBlockState());
+            L.target.setDeltaMovement(Vec3.ZERO);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + d, 180F, 0F);
+            L.aimHead = false;
+        });
+        wait(3);
+        for (int c = 0; c < RG_CLICKS; c++) {
+            float[] hp = {0F};
+            int[] seen = {0};
+            STEPS.add(() -> {
+                L.target.setHealth(L.target.getMaxHealth());
+                L.target.setAbsorptionAmount(0F);
+                L.target.setDeltaMovement(Vec3.ZERO);
+                L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + d, 180F, 0F);
+                DamageCap.forget(L.target);
+                hp[0] = L.target.getHealth();
+                seen[0] = L.seen.hits;
+                fireAimed(L.shooter, gun, ammo);
+            });
+            wait(wait);
+            STEPS.add(() -> {
+                took[0] += hp[0] - Math.max(0F, L.target.getHealth());
+                hits[0] += L.seen.hits - seen[0];
+            });
+        }
+        STEPS.add(() -> line("rg\t" + p[0] + "\t" + p[1] + "\t" + p[2] + "\t" + d + "\t" + String.format(Locale.ROOT, "%.5f", took[0] / RG_CLICKS) + "\t"
+                + f(hits[0] / (float) RG_CLICKS) + "\t" + String.format(Locale.ROOT, "%.4f", BalanceFinal.hitClicks(p[0] + "." + p[1], p[2]))));
     }
 
     // ---------------------------------------------------------------- Pepperbox: 13th-century tech
@@ -3200,6 +3292,19 @@ public final class BalanceCheck {
         if (ammo.ammoItem != null) inv.setItem(0, new ItemStack(ammo.ammoItem.get(), 64));
         gun.handleKeybind(from, inv, stack, key, true);
         gun.handleKeybind(from, inv, stack, key, false);
+    }
+
+    /** a primary click through the sights (the gun's aiming spread, Fable's "aimed standing") */
+    private static void fireAimed(LivingEntity from, Item item, BulletConfig ammo) {
+        ItemStack stack = loaded(item, ammo);
+        ItemGunBaseNT.setIsAiming(stack, true);
+        from.setItemSlot(EquipmentSlot.MAINHAND, stack);
+        aim(from, L.victim);
+        var gun = (ItemGunBaseNT) stack.getItem();
+        SimpleContainer inv = new SimpleContainer(1);
+        if (ammo.ammoItem != null) inv.setItem(0, new ItemStack(ammo.ammoItem.get(), 64));
+        gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_PRIMARY, true);
+        gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_PRIMARY, false);
     }
 
     private static void aim(LivingEntity from, LivingEntity at) {

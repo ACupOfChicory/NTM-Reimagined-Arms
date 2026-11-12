@@ -26,7 +26,8 @@ import net.minecraft.world.entity.player.Player;
  * scheme's table on a player, or on anyone wearing a piece of the table's sets, does {@code 20 / N} HP a click whose
  * projectiles all hit, N worked out from the pair's tier, the set's, the pair's raw DPS and role (the TTK ladder of
  * balance.final.ttk). NTM's damage, the set's threshold and resistance and the formula C are not in it. The part hit
- * (head ×1.75, limb ×0.5), the damage cap and the pools of DNS, FAU and euphemium come after, as before.
+ * (head ×1.75, limb ×0.5), the damage cap and the pools of DNS, FAU and euphemium come after, as before; the hit's
+ * share by range (balance.final.range, BalanceRangeRule) by the pair's role and the shooter's distance.
  *
  * <p>Blasts (balance.final.blast; Fable 12.3, BalanceBlastRule): a launcher's round's or an NTM hand grenade's blast on
  * the same targets takes the ladder's share of the health and pool, the GL-54's fragment grenades a burst's share; the
@@ -161,7 +162,7 @@ public final class BalanceFinal {
     /** what the keys say now, worked out again when the settings change */
     private record State(Object version, BalanceFinalRule.Params params, Map<String, BalanceFinalRule.Pair> pairs, BalanceFinalRule.Refs refs,
             Set<String> table, String explosive, Map<String, BalanceFinalRule.Armor> sets, double[] weights, double empty,
-            Map<CacheKey, Double> cache, BalanceBlastRule.Rule blast) {
+            Map<CacheKey, Double> cache, BalanceBlastRule.Rule blast, BalanceRangeRule.Rule range) {
     }
 
     /** a cell of the cache: the pair and the set it meets */
@@ -284,8 +285,10 @@ public final class BalanceFinal {
                 num("balance.final.blast.shift", 1, -5, 5), BalanceBlastRule.cap(ReaimTimes.text("balance.final.blast.pair", "cap:2"), 2),
                 BalanceBlastRule.hits(ReaimTimes.text("balance.final.blast.hits", ""), BalanceBlastRule.Hits.DEFAULT),
                 Map.copyOf(BalanceBlastRule.frags(ReaimTimes.text("balance.final.blast.frags", BalanceBlastRule.FRAGS))));
+        var range = new BalanceRangeRule.Rule(Map.copyOf(BalanceRangeRule.lines(ReaimTimes.text("balance.final.range", BalanceRangeRule.LINES))),
+                num("balance.final.range.close", 8, 0, 256), Map.copyOf(BalanceFinalRule.roles(ReaimTimes.text("balance.final.range.home", BalanceRangeRule.HOME))));
         return new State(version, params, pairs, BalanceFinalRule.refs(formula), Set.copyOf(table), explosive, Map.copyOf(sets), weights,
-                num("balance.final.armor.empty", 0.5, 0, 20), new ConcurrentHashMap<>(), blast);
+                num("balance.final.armor.empty", 0.5, 0, 20), new ConcurrentHashMap<>(), blast, range);
     }
 
     /** a pair in balance.final.table.pairs: by its gun (all its ammo) or gun.ammo */
@@ -461,7 +464,18 @@ public final class BalanceFinal {
             return (float) ((BalanceFinalRule.HP + h.armor().pool()) * scale / ModelHeads.multiplier(true, false) / h.pair().projectiles());
         }
         ONE_SHOT.remove();
-        return h.projectile() * scale;
+        return h.projectile() * scale * range(target, source, h);
+    }
+
+    /**
+     * the hit's share by range (balance.final.range; Fable 10.4): by the pair's role and the shooter's distance to the
+     * target now; 1 for a blast (an explosive shell's direct hit), the Tesla Cannon's arc, no shooter, the rule off
+     */
+    private static float range(LivingEntity target, DamageSource source, Hit h) {
+        var r = state().range();
+        if (!r.on() || BalanceArmor.vntBlastNow() || expl(source) || source.getEntity() == null) return 1F;
+        double d = source.getEntity().position().distanceTo(target.position());
+        return (float) BalanceRangeRule.damage(r, BalanceFinalRule.roleOf(h.pair(), state().params()), d);
     }
 
     /** what a hit takes from a full set's pool (EuphImmunity), or NaN when it is not the scheme's */
@@ -474,7 +488,7 @@ public final class BalanceFinal {
         boolean head = HeadDamage.onHead(target);
         if (BalanceLog.on()) BalanceLog.hit(target, source, null, h.pair().id(), h.pair().tier(), head);
         if (h.oneShotHead() && head) return (float) ((BalanceFinalRule.HP + h.armor().pool()) / h.pair().projectiles());
-        float d = h.projectile();
+        float d = h.projectile() * range(target, source, h);
         return head ? Math.min(d * ModelHeads.multiplier(true, false), DamageCap.limits().head() * (float) BalanceFinalRule.HP) : d;
     }
 
