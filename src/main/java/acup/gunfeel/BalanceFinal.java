@@ -404,6 +404,15 @@ public final class BalanceFinal {
 
     // ---------------------------------------------------------------- a hit
 
+    /**
+     * the scheme's view of a hit in words, for the stands: its pair, the set it takes on the target and the damage of
+     * a click on the body ("stg77.r556_ap on hev, 1.18 a click"); null when the hit is not the scheme's
+     */
+    public static String describe(LivingEntity target, DamageSource source) {
+        Hit h = hit(target, source);
+        return h == null ? null : String.format(java.util.Locale.ROOT, "%s.%s on %s, %.3f a click", h.pair().gun(), h.pair().ammo(), h.armor().kind(), h.clickDamage());
+    }
+
     /** the scheme's view of one hit: its pair, the set it meets, the head's rule */
     record Hit(BalanceFinalRule.Pair pair, BalanceFinalRule.Armor armor, double clickDamage, boolean oneShotHead) {
         /** the damage of one projectile on the body (before the part hit's multiplier) */
