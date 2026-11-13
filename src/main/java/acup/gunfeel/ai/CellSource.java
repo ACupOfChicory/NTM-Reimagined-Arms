@@ -10,4 +10,9 @@ public interface CellSource {
 
     /** a block's voxel byte; unknown where nothing is kept */
     byte voxel(int x, int y, int z);
+
+    /** a block's kind (AiBlockKinds); neutral where none is kept */
+    default byte kind(int x, int y, int z) {
+        return AiBlockKinds.NEUTRAL;
+    }
 }

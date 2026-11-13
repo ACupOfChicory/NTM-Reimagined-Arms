@@ -198,6 +198,7 @@ public final class AiBots {
             return;
         }
         AiDoors.tick();
+        AiBlockKinds.tick();
         AiSquads.tick(level, l.bots.values());
         AiGrenades.tick(level);
         if (level.getGameTime() % 20 != 0) return;

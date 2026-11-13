@@ -148,4 +148,128 @@ class AiRoomsTest {
         // outside, beside the opening: the cells before the wall's ends
         assertTrue(has(w.beside(AiRooms.OUTSIDE), 4, 10) && has(w.beside(AiRooms.OUTSIDE), 10, 10));
     }
+
+    // ------------------------------------------------------------------ a cave or a building: the shell
+
+    /** the grid with each block's kind: every block that is not air of one kind, but for those set apart */
+    static final class Kinds implements CellSource {
+        final PathSearchTest.Grid g;
+        final byte all;
+        final java.util.Map<Long, Byte> own = new java.util.HashMap<>();
+
+        Kinds(PathSearchTest.Grid g, byte all) {
+            this.g = g;
+            this.all = all;
+        }
+
+        /** the blocks x0..x1, z0..z1, from under the floor to the roof */
+        Kinds set(int x0, int z0, int x1, int z1, byte kind) {
+            for (int x = x0; x <= x1; x++)
+                for (int z = z0; z <= z1; z++)
+                    for (int y = -1; y <= 3; y++) own.put(BlockPos.asLong(x, y, z), kind);
+            return this;
+        }
+
+        @Override
+        public SectionCells cells(long key) {
+            return g.cells(key);
+        }
+
+        @Override
+        public byte voxel(int x, int y, int z) {
+            return g.voxel(x, y, z);
+        }
+
+        @Override
+        public byte kind(int x, int y, int z) {
+            if (g.voxel(x, y, z) == Voxel.AIR) return AiBlockKinds.NEUTRAL;
+            Byte k = own.get(BlockPos.asLong(x, y, z));
+            return k != null ? k : all;
+        }
+    }
+
+    @Test
+    void aCaveIsNoBuilding() {
+        // the same hollows, all of them in the rock
+        Kinds cave = new Kinds(house().build(), AiBlockKinds.NATURAL);
+        assertNull(AiRooms.of(cave, BlockPos.asLong(6, 0, 7)));
+        // a path laid through it makes none either
+        for (int x = 5; x <= 8; x++) cave.own.put(BlockPos.asLong(x, -1, 7), AiBlockKinds.BUILT);
+        assertNull(AiRooms.of(cave, BlockPos.asLong(6, 0, 7)));
+        // with the setting off any roof makes one, as before
+        AiBlockKinds.shell = false;
+        try {
+            assertNotNull(AiRooms.of(cave, BlockPos.asLong(6, 0, 7)));
+        } finally {
+            AiBlockKinds.shell = true;
+        }
+    }
+
+    @Test
+    void aBunkerDugOutOfTheRockIsOneByWhatIsKeptInIt() {
+        // (a) the west room dug out of the rock, a chest in its west wall's place at (4, 7); a shut door to the east hollow
+        PathSearchTest.Grid g = house();
+        g.set(9, 0, 7, DOOR);
+        g.set(9, 1, 7, DOOR);
+        Kinds dug = new Kinds(g.build(), AiBlockKinds.NATURAL);
+        dug.own.put(BlockPos.asLong(4, 0, 7), AiBlockKinds.MARKER);
+        AiRooms.Plan p = AiRooms.of(dug, BlockPos.asLong(6, 0, 7));
+        assertNotNull(p);
+        assertEquals(1, p.rooms());
+        assertEquals(4 * 5, p.size[0]);
+        // the cave past its door is no part of it
+        assertEquals(AiRooms.OUTSIDE, p.room(BlockPos.asLong(12, 0, 7)));
+        boolean toCave = false;
+        for (AiRooms.Way w : p.ways) toCave |= w.door && has(w.cells, 9, 7) && w.other(0) == AiRooms.OUTSIDE;
+        assertTrue(toCave);
+        // with no door the rock near what is kept is the bunker's, the rock far from it is not
+        Kinds open = new Kinds(house().build(), AiBlockKinds.NATURAL);
+        open.own.put(BlockPos.asLong(4, 0, 7), AiBlockKinds.MARKER);
+        AiRooms.Plan q = AiRooms.of(open, BlockPos.asLong(6, 0, 7));
+        assertNotNull(q);
+        assertTrue(q.room(BlockPos.asLong(10, 0, 7)) >= 0);
+        assertEquals(AiRooms.OUTSIDE, q.room(BlockPos.asLong(14, 0, 5)));
+    }
+
+    @Test
+    void aBunkerBrokenIntoACaveEndsAtTheBreach() {
+        // (b) the west room of concrete, x 4..9 with the wall between; east of it a cave; the doorway is the breach
+        Kinds b = new Kinds(house().build(), AiBlockKinds.NATURAL).set(4, 4, 9, 10, AiBlockKinds.BUILT);
+        AiRooms.Plan p = AiRooms.of(b, BlockPos.asLong(6, 0, 7));
+        assertNotNull(p);
+        assertEquals(1, p.rooms());
+        assertEquals(4 * 5, p.size[0]);
+        assertEquals(AiRooms.OUTSIDE, p.room(BlockPos.asLong(10, 0, 7)));
+        assertEquals(AiRooms.OUTSIDE, p.room(BlockPos.asLong(12, 0, 7)));
+        boolean breach = false;
+        for (AiRooms.Way w : p.ways) breach |= has(w.cells, 9, 7) && w.other(0) == AiRooms.OUTSIDE;
+        assertTrue(breach);
+        // from the cave's side there is no building
+        assertNull(AiRooms.of(b, BlockPos.asLong(12, 0, 7)));
+    }
+
+    @Test
+    void wallsOfRockUnderABuiltFloorAndRoofAreABuilding() {
+        // (c) the floor and the roof put there, the walls the rock's
+        Kinds mixed = new Kinds(house().build(), AiBlockKinds.NATURAL);
+        for (int x = 4; x <= 15; x++)
+            for (int z = 4; z <= 10; z++) {
+                mixed.own.put(BlockPos.asLong(x, -1, z), AiBlockKinds.BUILT);
+                mixed.own.put(BlockPos.asLong(x, 3, z), AiBlockKinds.BUILT);
+            }
+        AiRooms.Plan p = AiRooms.of(mixed, BlockPos.asLong(6, 0, 7));
+        assertNotNull(p);
+        assertEquals(2, p.rooms());
+        assertEquals(4 * 5, p.size[p.room(BlockPos.asLong(6, 0, 7))]);
+        assertEquals(5 * 5, p.size[p.room(BlockPos.asLong(12, 0, 7))]);
+    }
+
+    @Test
+    void aBurrowWithNothingKeptInItIsNoBuilding() {
+        // (d) a hole in the ground with a door and nothing else
+        PathSearchTest.Grid g = house();
+        g.set(6, 0, 10, DOOR);
+        g.set(6, 1, 10, DOOR);
+        assertNull(AiRooms.of(new Kinds(g.build(), AiBlockKinds.NATURAL), BlockPos.asLong(6, 0, 7)));
+    }
 }

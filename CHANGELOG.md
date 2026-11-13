@@ -1,5 +1,23 @@
 # Changelog
 
+## X1025
+
+- AI soldiers go into a room together. The ones that go after a target lost
+  in a building no longer walk in through the doorway one after another:
+  they come up beside it, behind the wall and out of the line through it,
+  wait a moment for the second, and go in at once, each to its own side.
+  From there they search as before. A doorway one or two blocks wide counts;
+  a wider opening is entered as before. New server setting `aiEntry` (true
+  by default).
+- AI soldiers tell a cave from a building. A place under a roof is read by
+  its shell: mostly ground as the world made it, it is no building, and the
+  squad does not stack up at a cave's narrows; blocks someone put there make
+  it one. A bunker broken into a cave ends at the breach. A cellar dug out of
+  the rock counts when something is kept in it (a chest, a bed, a machine),
+  up to its door. New server settings `aiRoomsShell` (true by default) and
+  the block lists `aiRoomsNatural`, `aiRoomsDwelling`, `aiRoomsWild` (ids,
+  `#tags`, `~patterns`).
+
 ## X1021
 
 - An NTM suit drawn by its own model (HEV, T-51, AJR and the rest) bends with

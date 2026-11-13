@@ -2,6 +2,8 @@ package acup.gunfeel.ai;
 
 import java.util.Arrays;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * One chunk section (16 x 16 x 16) as {@link Voxel} bytes, copied on the server thread and never changed after:
  * the background threads read it while the world goes on changing. Index as Minecraft's: (y &lt;&lt; 8) | (z &lt;&lt; 4) | x.
@@ -15,35 +17,56 @@ public final class SectionSnapshot {
     public final int version;
     private final byte[] voxels;
     private final boolean uniform;
+    /** AiBlockKinds of each block, two bits each, four to a byte; null: all of them kind */
+    private final byte @Nullable [] kinds;
+    private final byte kind;
 
-    private SectionSnapshot(long key, int version, byte[] voxels, boolean uniform) {
+    private SectionSnapshot(long key, int version, byte[] voxels, boolean uniform, byte @Nullable [] kinds, byte kind) {
         this.key = key;
         this.version = version;
         this.voxels = voxels;
         this.uniform = uniform;
+        this.kinds = kinds;
+        this.kind = kind;
     }
 
     /** voxels: 4096 bytes, owned by the snapshot from here on */
     public static SectionSnapshot of(long key, int version, byte[] voxels) {
+        return of(key, version, voxels, null, (byte) 0);
+    }
+
+    /**
+     * The same with each block's kind (AiBlockKinds): two bits each, four to a byte, 1024 bytes, owned by the snapshot
+     * from here on; or null, all of them kind.
+     */
+    public static SectionSnapshot of(long key, int version, byte[] voxels, byte @Nullable [] kinds, byte kind) {
         if (voxels.length != SIZE) throw new IllegalArgumentException("a section has 4096 blocks, not " + voxels.length);
         byte first = voxels[0];
-        for (int i = 1; i < SIZE; i++) if (voxels[i] != first) return new SectionSnapshot(key, version, voxels, false);
-        return filled(key, version, first);
+        for (int i = 1; i < SIZE; i++) if (voxels[i] != first) return new SectionSnapshot(key, version, voxels, false, kinds, kind);
+        if (first == 0 && kinds == null && kind == 0) return air(key, version);
+        return new SectionSnapshot(key, version, voxels, true, kinds, kind);
     }
 
     public static SectionSnapshot air(long key, int version) {
-        return new SectionSnapshot(key, version, AIR, true);
+        return new SectionSnapshot(key, version, AIR, true, null, (byte) 0);
     }
 
     public static SectionSnapshot filled(long key, int version, byte v) {
         if (v == 0) return air(key, version);
         byte[] one = new byte[SIZE];
         Arrays.fill(one, v);
-        return new SectionSnapshot(key, version, one, true);
+        return new SectionSnapshot(key, version, one, true, null, (byte) 0);
     }
 
     public byte at(int x, int y, int z) {
         return voxels[(y << 8) | (z << 4) | x];
+    }
+
+    /** the block's kind (AiBlockKinds) */
+    public byte kind(int x, int y, int z) {
+        if (kinds == null) return kind;
+        int i = (y << 8) | (z << 4) | x;
+        return (byte) (kinds[i >> 2] >> ((i & 3) << 1) & 3);
     }
 
     public byte at(int index) {

@@ -7,6 +7,7 @@ import org.jspecify.annotations.Nullable;
 
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.core.BlockPos;
 
 /**
@@ -24,6 +25,8 @@ public final class AiRooms {
     static final int REACH = 20, MAX_CELLS = 900;
     /** a passage one wide this long or shorter is one way (a doorway in a thick wall); longer, a corridor with a way at each mouth */
     static final int WAY_LONG = 3;
+    /** a wild cell (AiRooms.wild) this many steps from a sign that someone lives there is a building's */
+    static final int DWELT = 8;
     /** not under the roof */
     public static final int OUTSIDE = -1;
     private static final int[] CARDINAL = {Dirs.N, Dirs.E, Dirs.S, Dirs.W};
@@ -105,6 +108,9 @@ public final class AiRooms {
         PathSearch.Reader r = new PathSearch.Reader(src);
         int sx = BlockPos.getX(seed), sy = BlockPos.getY(seed), sz = BlockPos.getZ(seed);
         if ((r.flags(sx, sy, sz) & SectionCells.ROOF) == 0 || !r.has(sx, sy, sz)) return null;
+        // the cells under the roof that are the wild's: a cave is no building
+        LongOpenHashSet wild = AiBlockKinds.shell ? wild(src, r, seed) : null;
+        if (wild != null && wild.contains(seed)) return null;
 
         // the cells under the roof joined to the seed, and the cells just out from under it
         LongArrayList cells = new LongArrayList();
@@ -130,7 +136,7 @@ public final class AiRooms {
                 int i = index.get(next);
                 if (i < 0) {
                     int nx = BlockPos.getX(next), nz = BlockPos.getZ(next);
-                    boolean roof = (r.flags(nx, BlockPos.getY(next), nz) & SectionCells.ROOF) != 0;
+                    boolean roof = (r.flags(nx, BlockPos.getY(next), nz) & SectionCells.ROOF) != 0 && (wild == null || !wild.contains(next));
                     if (roof && (Math.abs(nx - sx) > REACH || Math.abs(nz - sz) > REACH || inside >= MAX_CELLS)) {
                         cut = true;
                         continue;
@@ -286,6 +292,99 @@ public final class AiRooms {
         roomOf.defaultReturnValue(OUTSIDE);
         for (int i = 0; i < total; i++) if (room[i] >= 0) roomOf.put(cells.getLong(i), room[i]);
         return new Plan(size, mid, ways.toArray(new Way[0]), cut, roomOf);
+    }
+
+    /**
+     * The cells under the roof joined to the seed that are no building's (null: none). A cell's shell is the block under
+     * it, the roof over it and the blocks of its walls (where a mob does not step on): of the ground as the world made
+     * it more than of blocks put there (the roof counts most, then the floor), the cell is wild (a cave, a hollow under
+     * a tree). A wild cell is a building's
+     * all the same between two cells that are not wild (a doorway through rock), and within DWELT steps of a sign that someone lives there (AiBlockKinds.MARKER: a chest, a bed, a
+     * machine) through wild cells, not through a door: a cellar dug out of the rock, and not the cave past its door.
+     */
+    private static @Nullable LongOpenHashSet wild(CellSource src, PathSearch.Reader r, long seed) {
+        int sx = BlockPos.getX(seed), sz = BlockPos.getZ(seed);
+        LongArrayList cells = new LongArrayList();
+        LongOpenHashSet seen = new LongOpenHashSet(), wild = new LongOpenHashSet();
+        LongArrayList dwelt = new LongArrayList();
+        cells.add(seed);
+        seen.add(seed);
+        for (int head = 0; head < cells.size() && cells.size() <= MAX_CELLS; head++) {
+            long c = cells.getLong(head);
+            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+            int natural = 0, built = 0;
+            boolean marker = false;
+            int[] shell = new int[10];
+            int n = 0;
+            shell[n++] = src.kind(x, y - 1, z);
+            for (int up = 2; up < 2 + CellBuilder.ROOF_REACH; up++) {
+                int at = src.voxel(x, y + up, z);
+                if (!Voxel.open(at) || Voxel.sight(at)) {
+                    shell[n++] = src.kind(x, y + up, z);
+                    break;
+                }
+            }
+            int roofed = n;
+            for (int k = 0; k < 4; k++) {
+                long next = PathSearch.step(r, x, y, z, CARDINAL[k]);
+                if (next == PathSearch.NONE) {
+                    int wx = x + Dirs.DX[CARDINAL[k]], wz = z + Dirs.DZ[CARDINAL[k]];
+                    shell[n++] = src.kind(wx, y, wz);
+                    shell[n++] = src.kind(wx, y + 1, wz);
+                    continue;
+                }
+                int nx = BlockPos.getX(next), nz = BlockPos.getZ(next);
+                if (seen.contains(next) || Math.abs(nx - sx) > REACH || Math.abs(nz - sz) > REACH) continue;
+                if ((r.flags(nx, BlockPos.getY(next), nz) & SectionCells.ROOF) == 0) continue;
+                seen.add(next);
+                cells.add(next);
+            }
+            for (int i = 0; i < n; i++) {
+                // the roof counts for three, the floor for two, a wall's block for one: a roof put over bare ground is a
+                // house, a floor laid under the rock's roof a path through a cave
+                int w = i == 0 ? 2 : i < roofed ? 3 : 1;
+                if (shell[i] == AiBlockKinds.NATURAL) natural += w;
+                else if (shell[i] == AiBlockKinds.BUILT) built += w;
+                else if (shell[i] == AiBlockKinds.MARKER) {
+                    built += w;
+                    marker = true;
+                }
+            }
+            if (natural <= built) continue;
+            wild.add(c);
+            if (marker) dwelt.add(c);
+        }
+        if (wild.isEmpty()) return null;
+        // a wild cell between two that are not (a doorway cut through rock between two built rooms: mostly wall) is the building's
+        LongArrayList between = new LongArrayList();
+        for (long c : wild) {
+            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c), tame = 0;
+            for (int k = 0; k < 4; k++) {
+                long next = PathSearch.step(r, x, y, z, CARDINAL[k]);
+                if (next != PathSearch.NONE && seen.contains(next) && !wild.contains(next)) tame++;
+            }
+            if (tame >= 2) between.add(c);
+        }
+        for (long c : between) wild.remove(c);
+        // lived in: DWELT steps from a sign of it, through wild cells, a door's cell the last
+        LongArrayList at = dwelt, then = new LongArrayList();
+        for (long c : dwelt) wild.remove(c);
+        for (int step = 0; step < DWELT && !at.isEmpty(); step++) {
+            for (int i = 0; i < at.size(); i++) {
+                long c = at.getLong(i);
+                int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+                if ((src.voxel(x, y, z) & Voxel.DOOR) != 0) continue;
+                for (int k = 0; k < 4; k++) {
+                    long next = PathSearch.step(r, x, y, z, CARDINAL[k]);
+                    if (next != PathSearch.NONE && wild.remove(next)) then.add(next);
+                }
+            }
+            LongArrayList t = at == dwelt ? new LongArrayList() : at;
+            t.clear();
+            at = then;
+            then = t;
+        }
+        return wild.isEmpty() ? null : wild;
     }
 
     /** cell i of a room has, in cardinal k, a cell out from under the roof */
