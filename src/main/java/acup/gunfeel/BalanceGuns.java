@@ -149,7 +149,7 @@ public final class BalanceGuns {
         return p.startsWith("gun_") ? p.substring(4) : p;
     }
 
-    static String ammoName(BulletConfig b) {
+    public static String ammoName(BulletConfig b) {
         // a config with no ammo item (N.I.4.N.I.'s arc, NTM's mobs' shots): ammoStack() would throw
         if (b.ammoItem == null) return "config_" + b.id;
         ItemStack s;

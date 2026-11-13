@@ -204,6 +204,15 @@ page. They are alphas: expect bugs and back up your world.
   Operators bring them in with `/armsai spawn fbi|dummy [count] [gun]` (and
   `team <name>` at the end); `/armsai clear` removes them. They fight in the
   game's teams.
+- Their armour and rounds are yours to choose. After the gun add, in any
+  order, `armor <set>` (a full set by its name: `steel`, `t51`, `hev`, `sec`,
+  `bj`, `dns` and the rest, or `none`), `armor <slot>=<item> …` for single
+  pieces (`armor chest=hbm:hev_plate legs=steel`; slots `head`, `chest`,
+  `legs`, `feet`) and `ammo <round>` (one of the rounds the gun takes, such as
+  `r556_ap`; the bot reloads with it too). The names complete as you type.
+  `/armsai kit <targets> [armor …] [ammo …]` changes bots that already stand,
+  for example `/armsai kit @e[tag=armsai,distance=..20] armor hev ammo
+  r556_ap`.
 - They see and hear as a person does, run to cover, crouch behind low walls,
   run low past them, lean out round a corner, fire blind over cover and lie
   down in the open. They aim at what they see of you, never miss on purpose
@@ -484,7 +493,8 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 - `/gunsmoke` (operators): let out smoke clouds, clear them, show how many
   there are.
 - `/armsai` (operators): bring in, remove and inspect AI soldiers (`spawn`,
-  `clear`, `ammo`, `info`, `debug`), record fights (`record on|off`), lay out a
+  `clear`, `ammo`, `info`, `debug`), give them armour and rounds (`spawn …
+  armor … ammo …`, `kit`), record fights (`record on|off`), lay out a
   practice ground (`course`).
 
 If something goes wrong, the mod writes its log to `logs/ntm-gunfeel-debug.log`;
