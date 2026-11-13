@@ -1,5 +1,11 @@
 # Changelog
 
+## X949
+
+- AI soldiers change low cover as they do high cover: after two or three
+  bursts over one low wall a bot now and then moves to other cover, after
+  four always. Before, a bot behind low cover left it only when hit.
+
 ## X942
 
 - Fable's second review of the balance (`balance.final`, each rule its own

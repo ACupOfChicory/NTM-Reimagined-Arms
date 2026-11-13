@@ -84,6 +84,17 @@ final class AiCheckTeams {
     int redHitsOut, blueHitsOut, redShots, blueShots;
     /** all the fighters' shots, those from a crouch, those with a block that stops bullets just past the gun */
     int shotsAll, shotsLow, coverShots;
+    /** one of a few battles summed up by AiCheckBattle: the battle's marks are held to there, over them all */
+    boolean series;
+    /** for that: the times down too briefly, the longest run of looks out of one place, the cover changes, the ticks its fighters lived */
+    int briefOut, peekRunOut, shiftsOut;
+    long aliveTicksOut;
+    private final long[] modeTicks = new long[AiSoldier.Mode.values().length];
+    private long seeTicks;
+    private final it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap atOne = new it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap();
+    private final long[] firingAtOne = new long[6];
+    /** its fighters' ticks in a fight: on the way to cover, in it, out of it firing */
+    long fightTicksOut;
     double redDamage, blueDamage;
     private boolean done;
     // the sounds that reached the AI in the fight: per name, how many, how many loud and made by no mob or player
@@ -125,6 +136,18 @@ final class AiCheckTeams {
         for (AiBot bot : bots)
             if (bot.mob.isAlive() && bot.mover.runs() && FireLines.standsIn(level, bot.mob)) runInLine++;
         // how near each fighter keeps to its nearest foe (AiConfidence: pressing on, holding back)
+        for (AiBot bot : bots) {
+            if (!bot.mob.isAlive() || !(bot.brain instanceof AiSoldier so)) continue;
+            modeTicks[so.mode().ordinal()]++;
+            TargetMemory.Contact f = bot.memory.focusId < 0 ? null : bot.memory.contact(bot.memory.focusId);
+            if (f != null && f.state == TargetMemory.State.VISIBLE) {
+                seeTicks++;
+                if (bot.gunner.firingAt() != null) atOne.addTo(f.id, 1);
+            }
+        }
+        // how many fire at one target at once
+        for (int k : atOne.values()) firingAtOne[Math.min(k, firingAtOne.length - 1)]++;
+        atOne.clear();
         for (AiBot bot : bots) {
             if (!bot.mob.isAlive()) continue;
             double near = Double.MAX_VALUE;
@@ -499,7 +522,17 @@ final class AiCheckTeams {
                     sorted.isEmpty() ? "" : String.format(Locale.ROOT, " (%.1f..%.1f bl, median %.1f)", sorted.get(0), sorted.get(sorted.size() - 1), sorted.get(sorted.size() / 2))));
         }
         check.out(heard.toString());
-        if (battle && loners == null) {
+        check.out("     a fighter's ticks by what it does " + java.util.Arrays.toString(AiSoldier.Mode.values()) + ": " + java.util.Arrays.toString(modeTicks)
+                + "; with its target in sight " + seeTicks + " of " + aliveTicks);
+        // (told, not held to: with no turns given out a target is fired at by one 95 in 100 of those ticks, by three or more 1 in 300)
+        check.out("     ticks a target was fired at by 1, 2, 3, 4, 5 or more at once: "
+                + java.util.Arrays.toString(java.util.Arrays.copyOfRange(firingAtOne, 1, firingAtOne.length)));
+        fightTicksOut = modeTicks[AiSoldier.Mode.TO_COVER.ordinal()] + modeTicks[AiSoldier.Mode.COVER.ordinal()] + modeTicks[AiSoldier.Mode.PEEK.ordinal()];
+        briefOut = brief;
+        peekRunOut = peekRun;
+        shiftsOut = shifts;
+        aliveTicksOut = aliveTicks;
+        if (battle && loners == null && !series) {
             check.check("the battle: no lying down for less than " + AiProne.BRIEF / 20 + " s (" + brief + " times)", brief <= MARK_BRIEF);
             check.check("the battle: no looking out from one place more than " + MARK_PEEK_RUN + " times running (" + peekRun + ")", peekRun <= MARK_PEEK_RUN);
             check.check(String.format(Locale.ROOT, "the battle: cover changed %.0f times a fighter a minute at least (%.2f)", MARK_SHIFTS, shifts / minutes),

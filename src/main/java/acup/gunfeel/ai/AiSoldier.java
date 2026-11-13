@@ -202,6 +202,10 @@ public final class AiSoldier implements AiBrain {
     /** the place it looked out from last, and how many times running from that one */
     private long lastPeek = Long.MIN_VALUE;
     private int peeksHere, coverPeeks;
+    /** the burst over low cover last counted as a look out, and the one after which other cover was last thought of */
+    private long lowBurst, lowAsked;
+    /** the stands: times it left low cover after its bursts over it */
+    public int lowShifts;
     /** the noise (its tick) it goes to see after a look out found nothing */
     private long checkNoise = Long.MIN_VALUE;
     /** the last tick a hit in cover sent it to other cover */
@@ -812,6 +816,23 @@ public final class AiSoldier implements AiBrain {
                 // pinned down there: it does not rise into the fire, it fires blind over the cover where they were seen
                 if (reload || dist < BLIND_NEAR || !blindFire(bot, level, new Vec3(c.x, c.y + 1.1, c.z), false, tick)) {
                     g.fire(bot.prone.upright(tick) && !reload && burst(bot, tick, false));
+                    // each burst over low cover is a look out of it: after two or three now and then other cover, after
+                    // FROM_ONE for sure, as from one place to peek from (low cover is one place) (else one behind low cover never left it but hit)
+                    if (burstUntil != 0 && burstUntil != lowBurst) {
+                        lowBurst = burstUntil;
+                        coverPeeks++;
+                    }
+                    if (burstUntil != 0 && tick > burstUntil && lowAsked != burstUntil) {
+                        lowAsked = burstUntil;
+                        boolean must = coverPeeks >= FROM_ONE && !AiSquads.coversFallBack(bot);
+                        if (tick - lastShift > SHIFT_GAP && (must || AiSquads.mayMove(bot)) && AiChoice.ask(bot, Ask.SHIFT_AFTER_PEEK, must
+                                || coverPeeks >= 2 + bot.mob.getRandom().nextInt(2) && bot.mob.getRandom().nextFloat() < SHIFT_PEEKS, tick)) {
+                            lowShifts++;
+                            g.fire(false);
+                            shift(bot, tick, "fired over one low cover " + coverPeeks + " times: other cover");
+                            return;
+                        }
+                    }
                     // where its line of fire from down low is clear (the cover lower than its gun, a gap, none in
                     // the way) it fires down low, a smaller mark: it takes that between bursts, not halfway through
                     // one, and leaves it the tick the line is shut
