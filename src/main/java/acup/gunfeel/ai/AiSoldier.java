@@ -1501,7 +1501,8 @@ public final class AiSoldier implements AiBrain {
             }
             searchCell = room;
             why = Why.SEARCH;
-            watch = new Vec3(BlockPos.getX(room) + 0.5, BlockPos.getY(room) + 1.1, BlockPos.getZ(room) + 0.5);
+            Vec3 way = AiClearing.door(bot, level, c);
+            watch = way != null ? way : new Vec3(BlockPos.getX(room) + 0.5, BlockPos.getY(room) + 1.1, BlockPos.getZ(room) + 0.5);
             bot.gunner.aim(watch);
             return;
         }

@@ -19,7 +19,9 @@ import net.minecraft.world.phys.Vec3;
  * one list of the building's rooms (AiRooms): a room is checked when every cell of it has been looked at by one of
  * them (or walked to), and no one goes back into it; the two that go after it take a room together, then the next. A
  * soldier goes for the cell of its room nearest to it that no one has seen yet, so it looks in from the doorway
- * first and steps in for the corners. With every room checked they search as before, outside the building.
+ * first and steps in for the corners. Into a room none of them is in yet, through a doorway, they go as into the
+ * first one (AiEntry, with aiEntry on): beside the opening on the near side, then in together, each to its own side.
+ * With every room checked they search as before, outside the building.
  */
 public final class AiClearing {
     /** the server setting: AI soldiers search a building room after room */
@@ -27,7 +29,9 @@ public final class AiClearing {
     /** off only for the stands' "before" */
     static boolean on = true;
     /** the stands: sweeps begun, rooms checked */
-    public static int sweeps, checks;
+    public static int sweeps, checks, stacks;
+    /** off only for the stands' "before": no stacking up beside a doorway inside the building */
+    static boolean stack = true;
 
     static final long NONE = Long.MIN_VALUE;
     /** the most that take one room (no more than AiSquads.HUNTERS go after one target, so the two go room after room together) */
@@ -41,6 +45,17 @@ public final class AiClearing {
     /** a room's worth in blocks of way: one more room to go through, a room one of its side is in already */
     static final double HOP = 12, JOIN = 6;
 
+    private static final int STACK = 0, GO = 1, OVER = 2;
+
+    /** the going into one room through a doorway: who goes, their places beside it out and in, what they look at */
+    private static final class Entry {
+        int phase = STACK;
+        long phaseAt;
+        long[] slots = {}, inner = {};
+        final java.util.List<AiBot> members = new java.util.ArrayList<>(2), done = new java.util.ArrayList<>(2);
+        Vec3 door = Vec3.ZERO;
+    }
+
     private static final class Sweep {
         AiRooms.@Nullable Plan plan;
         long made, nextPlan, lost;
@@ -48,6 +63,9 @@ public final class AiClearing {
         long[][] cells = {};
         int[] left = {};
         boolean[] checked = {};
+        /** per room: one of the side has been in it; the going into it (null: none yet, or not through a doorway) */
+        boolean[] entered = {};
+        @Nullable Entry[] entries = {};
         /** per room: where the next look goes on from; rooms checked so far */
         int[] at = {};
         int done;
@@ -110,7 +128,10 @@ public final class AiClearing {
         VoxelRay.Source voxels = AiBots.voxels(level);
         Vec3 view = bot.mob.getViewVector(1F);
         double cone = Math.cos(Math.toRadians(bot.profile.fov() / 2));
-        if (in >= 0) look(s, in, eye, view, cone, voxels);
+        if (in >= 0) {
+            s.entered[in] = true;
+            look(s, in, eye, view, cone, voxels);
+        }
         if (mine != null && mine != in) look(s, mine, eye, view, cone, voxels);
         // the cell it went to, reached (or not to be reached): looked at
         Long goal = s.goals.get(bot);
@@ -131,6 +152,11 @@ public final class AiClearing {
             s.rooms.put(bot, mine);
             goal = null;
         }
+        long place = enter(s, plan, bot, mine, in, tick);
+        if (place != NONE) {
+            s.goals.remove(bot);
+            return place;
+        }
         // the nearest cell of its room no one has seen; the one it goes to already, while no one has
         long[] cells = s.cells[mine];
         boolean keep = false;
@@ -148,6 +174,81 @@ public final class AiClearing {
             s.goals.put(bot, goal);
         }
         return goal;
+    }
+
+    /**
+     * Into a room none of its side has been in, from the room next to it through a doorway: its place beside the
+     * opening while they gather, its place inside as they go in; NONE: it goes on as it would (no such way, no place
+     * left beside it, they are in).
+     */
+    private static long enter(Sweep s, AiRooms.Plan plan, AiBot bot, int room, int in, long tick) {
+        Entry e = s.entries[room];
+        if (e == null) {
+            if (!stack || !AiEntry.on() || s.entered[room] || in == room) return NONE;
+            AiRooms.Way way = null;
+            for (AiRooms.Way w : plan.waysOf(room))
+                if (w.other(room) == in && w.width <= AiEntry.WIDE && w.cells.length > 0 && w.beside(in).length > 0) {
+                    way = w;
+                    break;
+                }
+            if (way == null) return NONE;
+            e = s.entries[room] = new Entry();
+            e.phaseAt = tick;
+            e.slots = way.beside(in);
+            e.inner = way.beside(room);
+            long far = room == way.b ? way.cells[0] : way.cells[way.cells.length - 1];
+            e.door = new Vec3(BlockPos.getX(far) + 0.5, BlockPos.getY(far) + 1.1, BlockPos.getZ(far) + 0.5);
+        }
+        if (e.phase == OVER) return NONE;
+        final Entry entry = e;
+        e.members.removeIf(b -> b != bot && (!AiSquads.live(b) || !Integer.valueOf(room).equals(s.rooms.get(b))));
+        if (e.phase == STACK) {
+            // one of them in the room some other way: no more waiting at this one
+            if (s.entered[room]) {
+                e.phase = OVER;
+                return NONE;
+            }
+            boolean all = !e.members.isEmpty();
+            for (int i = 0; i < e.members.size(); i++) {
+                AiBot b = e.members.get(i);
+                all &= b.mover.goalIs(e.slots[i]) && b.mover.arrived();
+            }
+            if (e.members.isEmpty()) e.phaseAt = tick;
+            long waited = tick - e.phaseAt;
+            if (all && (e.members.size() >= Math.min(PAIR, e.slots.length) || waited >= AiEntry.WAIT_SECOND) || waited >= AiEntry.STACK_MAX) {
+                stacks++;
+                e.phase = GO;
+                e.phaseAt = tick;
+            }
+        } else if (entry.done.containsAll(e.members) || tick - e.phaseAt > AiEntry.GO_MAX) {
+            e.phase = OVER;
+            return NONE;
+        }
+        if (e.done.contains(bot)) return NONE;
+        int i = e.members.indexOf(bot);
+        if (i < 0) {
+            if (e.phase != STACK || e.members.size() >= e.slots.length) return NONE;
+            i = e.members.size();
+            e.members.add(bot);
+        }
+        long to = e.phase == STACK ? e.slots[i] : e.inner.length > 0 ? e.inner[i % e.inner.length] : plan.mid[room];
+        if (!bot.mover.goalIs(to)) {
+            bot.mover.costs(PathSearch.Cost.NONE);
+            bot.mover.goTo(to, e.phase == STACK ? 0.35 : 0.5, AiSoldier.RUN);
+        } else if (e.phase == GO && (bot.mover.arrived() || bot.mover.failed())) {
+            e.done.add(bot);
+            return NONE;
+        }
+        return to;
+    }
+
+    /** what a soldier going into a room so (step gave it its place) looks at: the doorway; null: where it goes */
+    static @Nullable Vec3 door(AiBot bot, ServerLevel level, TargetMemory.Contact c) {
+        Map<Long, Sweep> all = SWEEPS.get(level);
+        Sweep s = all == null ? null : all.get(key(bot, c.id));
+        Integer mine = s == null ? null : s.rooms.get(bot);
+        Entry e = mine == null ? null : s.entries[mine];
+        return e != null && e.phase == STACK && e.members.contains(bot) ? e.door : null;
     }
 
     private static boolean sweeps(AiBot b, int target) {
@@ -177,6 +278,8 @@ public final class AiClearing {
         s.left = new int[s.cells.length];
         s.at = new int[s.cells.length];
         s.checked = new boolean[s.cells.length];
+        s.entered = new boolean[s.cells.length];
+        s.entries = new Entry[s.cells.length];
         for (int r = 0; r < s.cells.length; r++) s.left[r] = s.cells[r].length;
         sweeps++;
         return s;

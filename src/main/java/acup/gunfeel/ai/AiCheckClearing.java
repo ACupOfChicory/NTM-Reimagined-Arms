@@ -18,14 +18,14 @@ import net.minecraft.world.phys.Vec3;
  * The AI check's search of a house room after room (AiClearing, stage 4.5d): a house of stone bricks with a roof,
  * four rooms in a square with a doorway between each two next to one another and one way in from outside; one of a
  * team hides in a far corner of one of the three rooms past the first and holds there (it does not walk); four of
- * another team outside know only that it was last seen just inside the way in. Rounds by twos, aiClearing off
- * (before) and on, the room it hides in in turn. Counted: whether and when it was found (seen again or hit) and put
+ * another team outside know only that it was last seen just inside the way in. Rounds by threes, aiClearing off
+ * (before), on with no stacking up at the doorways inside, and on, the room it hides in in turn. Counted: whether and when it was found (seen again or hit) and put
  * down, who of the four is left, the rooms the four have been in after a minute and by the end, the times one of
  * them went back into a room it had left, how many of them stood within 4 blocks of the place it was lost at (the
  * mean over the round), the rooms the sweep checked.
  */
 final class AiCheckClearing {
-    static final int X0 = 900, Z0 = 4, SIZE = 48, RUN = 1500, MINUTE = 1200, ARMS = 2, ROUNDS = 12, SQUAD = 4, ROOMS = 4;
+    static final int X0 = 900, Z0 = 4, SIZE = 48, RUN = 1500, MINUTE = 1200, ARMS = 3, ROUNDS = 18, SQUAD = 4, ROOMS = 4;
     /** the house: walls at x 918 and 932, z 6 and 20, and across at x 925 and z 13; the way in in the south wall */
     static final int WX0 = 918, WX1 = 932, WZ0 = 6, WZ1 = 20, MID_X = 925, MID_Z = 13, DOOR_X = 921;
     /** the doorways inside: south-west to south-east, south-west to north-west, south-east to north-east, north-west to north-east */
@@ -43,13 +43,13 @@ final class AiCheckClearing {
     private final ServerLevel level;
     private final int y;
     private boolean started;
-    private int round = -1, ticks, found, roomsAtMinute, back, near, sweepsBefore, checksBefore;
+    private int round = -1, ticks, found, roomsAtMinute, back, near, sweepsBefore, checksBefore, stacksBefore;
     private long startTick;
     private Mob hidden;
     private final List<Mob> squad = new ArrayList<>();
     private final int[] in = new int[SQUAD];
     private final boolean[][] been = new boolean[SQUAD][ROOMS];
-    /** per round: {arm, hide, found at, down, squad left, ticks, rooms been in after a minute, by the end, went back, near the place x100, rooms checked, sweeps} */
+    /** per round: {arm, hide, found at, down, squad left, ticks, rooms been in after a minute, by the end, went back, near the place x100, rooms checked, sweeps, stacks at the doorways inside} */
     private final List<int[]> results = new ArrayList<>();
 
     AiCheckClearing(AiCheck check, ServerLevel level, int y) {
@@ -107,7 +107,7 @@ final class AiCheckClearing {
         if (ticks < RUN && left > 0 && hidden.isAlive()) return false;
         if (ticks < MINUTE) roomsAtMinute = roomsBeen();
         results.add(new int[] {round % ARMS, round / ARMS % HIDES.length, found, hidden.isAlive() ? 0 : 1, left, ticks, roomsAtMinute, roomsBeen(), back, near * 100 / ticks,
-                AiClearing.checks - checksBefore, AiClearing.sweeps - sweepsBefore});
+                AiClearing.checks - checksBefore, AiClearing.sweeps - sweepsBefore, AiClearing.stacks - stacksBefore});
         for (Mob m : squad) m.discard();
         hidden.discard();
         squad.clear();
@@ -169,7 +169,8 @@ final class AiCheckClearing {
         roomsAtMinute = back = near = 0;
         java.util.Arrays.fill(in, -1);
         for (boolean[] b : been) java.util.Arrays.fill(b, false);
-        AiClearing.on = r % ARMS == 1;
+        AiClearing.on = r % ARMS >= 1;
+        AiClearing.stack = r % ARMS == 2;
         AiEntry.on = true;
         AiSquads.on = true;
         AiSquads.offTeams.clear();
@@ -184,6 +185,7 @@ final class AiCheckClearing {
         AiBots.refreshTargets(level);
         sweepsBefore = AiClearing.sweeps;
         checksBefore = AiClearing.checks;
+        stacksBefore = AiClearing.stacks;
         startTick = level.getGameTime();
         for (Mob m : squad) {
             AiBot b = AiBots.get(m);
@@ -193,8 +195,9 @@ final class AiCheckClearing {
 
     private boolean finish() {
         AiClearing.on = true;
-        String[] names = {"aiClearing off (before)", "aiClearing on"}, hides = {"south-east", "north-west", "north-east"};
-        double[][] sum = new double[ARMS][12];
+        AiClearing.stack = true;
+        String[] names = {"aiClearing off (before)", "aiClearing on, no stacking inside", "aiClearing on"}, hides = {"south-east", "north-west", "north-east"};
+        double[][] sum = new double[ARMS][13];
         int[] n = new int[ARMS], foundIn = new int[ARMS];
         double[] foundAt = new double[ARMS];
         for (int i = 0; i < results.size(); i++) {
@@ -206,14 +209,14 @@ final class AiCheckClearing {
                 foundAt[r[0]] += r[2];
             }
             check.out(String.format(Locale.ROOT, "     clearing, round %d, hid in the %s room, %s: found %s, %s; of the squad %d of %d left, %d ticks; rooms been in %d after a minute, %d by the end;"
-                    + " went back into a room %d times; near the place it was lost %.2f of them (mean); rooms checked %d, sweeps %d", i + 1, hides[r[1]], names[r[0]],
-                    r[2] < 0 ? "never" : "at tick " + r[2], r[3] == 1 ? "put down" : "not put down", r[4], SQUAD, r[5], r[6], r[7], r[8], r[9] / 100.0, r[10], r[11]));
+                    + " went back into a room %d times; near the place it was lost %.2f of them (mean); rooms checked %d, sweeps %d, stacks inside %d", i + 1, hides[r[1]], names[r[0]],
+                    r[2] < 0 ? "never" : "at tick " + r[2], r[3] == 1 ? "put down" : "not put down", r[4], SQUAD, r[5], r[6], r[7], r[8], r[9] / 100.0, r[10], r[11], r[12]));
         }
         for (int a = 0; a < ARMS; a++)
             check.out(String.format(Locale.ROOT, "     clearing, %s, %d rounds: found in %d, at tick %.0f (mean of those); put down in %.0f; of the squad %.0f of %d left; mean %.0f ticks;"
-                    + " rooms been in %.1f after a minute, %.1f by the end; went back into a room %.1f times; near the place it was lost %.2f; rooms checked %.1f", names[a], n[a], foundIn[a],
+                    + " rooms been in %.1f after a minute, %.1f by the end; went back into a room %.1f times; near the place it was lost %.2f; rooms checked %.1f; stacks inside %.1f", names[a], n[a], foundIn[a],
                     foundIn[a] == 0 ? 0 : foundAt[a] / foundIn[a], sum[a][3], sum[a][4], n[a] * SQUAD, sum[a][5] / Math.max(1, n[a]), sum[a][6] / Math.max(1, n[a]),
-                    sum[a][7] / Math.max(1, n[a]), sum[a][8] / Math.max(1, n[a]), sum[a][9] / 100 / Math.max(1, n[a]), sum[a][10] / Math.max(1, n[a])));
+                    sum[a][7] / Math.max(1, n[a]), sum[a][8] / Math.max(1, n[a]), sum[a][9] / 100 / Math.max(1, n[a]), sum[a][10] / Math.max(1, n[a]), sum[a][12] / Math.max(1, n[a])));
         check.check("clearing: all rounds ran", results.size() == ROUNDS);
         return true;
     }

@@ -10,6 +10,10 @@
   take a room together, then the next one. With every room checked they
   search outside as before. New server setting `aiClearing` (true by
   default).
+- Searching a building, AI soldiers go into each next room as into the first
+  one: the two stand beside the doorway on the near side, out of the line
+  through it, then go in together, each to its own side (with `aiEntry`
+  on). They used to walk in through the doorway one after the other.
 - AI soldiers go into a room together. The ones that go after a target lost
   in a building no longer walk in through the doorway one after another:
   they come up beside it, behind the wall and out of the line through it,
