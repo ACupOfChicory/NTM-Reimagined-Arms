@@ -1,5 +1,20 @@
 # Changelog
 
+## X1036
+
+- AI soldiers search a building room after room. The ones that go after a
+  target lost in a building used to search round the place it was lost,
+  each on its own, and seldom got past the next room. Now they share one
+  list of the building's rooms: a room is checked once every place in it has
+  been looked at, and no one goes back into it; the two that go after it
+  take a room together, then the next one. With every room checked they
+  search outside as before. New server setting `aiClearing` (true by
+  default).
+- Searching a building, AI soldiers go into each next room as into the first
+  one: the two stand beside the doorway on the near side, out of the line
+  through it, then go in together, each to its own side (with `aiEntry`
+  on). They used to walk in through the doorway one after the other.
+
 ## X1031
 
 - `/armsai debug rooms [radius]` shows the buildings round you as the AI
