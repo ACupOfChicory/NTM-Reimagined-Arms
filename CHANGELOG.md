@@ -1,5 +1,10 @@
 # Changelog
 
+## X1003
+
+- The 12 gauge electroshock shell has a new icon, drawn as NTM's own shells
+  are: a blue shell lying aslant with its grey case.
+
 ## X1001
 
 - A shot on armour drawn as a layer (SECURITY, CMB, Schrabidium, vanilla's)
