@@ -112,6 +112,25 @@ final class AiCheckDoors {
         }
     }
 
+    /** the room read off the map (AiRooms, stage 4.5b): one room, one way out with a door, two cells beside it outside */
+    private void rooms() {
+        TacticalMap map = TacticalMap.of(level);
+        long t0 = System.nanoTime();
+        AiRooms.Plan p = AiRooms.of(map, BlockPos.asLong(RX, y, RZ));
+        long us = (System.nanoTime() - t0) / 1000;
+        if (p == null) {
+            check.check("doors: the room is read off the map", false);
+            return;
+        }
+        AiRooms.Way out = p.ways.length == 1 ? p.ways[0] : null;
+        int beside = out == null ? 0 : out.beside(AiRooms.OUTSIDE).length;
+        check.out(String.format(Locale.ROOT, "     doors, the room read off the map: rooms %d, cells %d, ways %d, a door %s, cells beside it outside %d, %d us",
+                p.rooms(), p.rooms() > 0 ? p.size[0] : 0, p.ways.length, out != null && out.door, beside, us));
+        check.check("the room read off the map: one room of 25 cells, one way out, with a door, two cells beside it outside",
+                p.rooms() == 1 && p.size[0] == 25 && out != null && out.door && out.b == AiRooms.OUTSIDE && out.dir == Dirs.S && beside == 2);
+        check.check("no building is read where there is no roof", AiRooms.of(map, BlockPos.asLong(RX, y, RZ + FROM)) == null);
+    }
+
     private boolean finish() {
         AiDoors.on = true;
         if (mob != null) mob.discard();
@@ -128,6 +147,7 @@ final class AiCheckDoors {
             return true;
         }
         check.check("a shut wooden door, fence gate or NTM metal door on its way: it opens it and goes in", now);
+        rooms();
         check.check("with aiDoors off, and at an iron door: it stays out and opens nothing", before);
         return true;
     }

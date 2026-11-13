@@ -18,7 +18,7 @@ public final class PathSearch {
     /** the most a mob drops in one step */
     static final int MAX_DROP = 3;
     static final float UP = 0.6F, DOWN = 0.3F, DIAGONAL = 1.4142135F;
-    private static final long NONE = Long.MIN_VALUE;
+    static final long NONE = Long.MIN_VALUE;
 
     private PathSearch() {
     }
@@ -99,7 +99,7 @@ public final class PathSearch {
 
     // ------------------------------------------------------------------ reading cells, cached per search
 
-    private static final class Reader {
+    static final class Reader {
         final CellSource src;
         final Long2ObjectOpenHashMap<SectionCells> sections = new Long2ObjectOpenHashMap<>();
         final LongOpenHashSet missing = new LongOpenHashSet();
