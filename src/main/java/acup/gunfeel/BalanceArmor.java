@@ -67,6 +67,17 @@ public final class BalanceArmor {
     static boolean rofl(String set) {
         return ROFL.contains(set) && !(rating(set) > 0F);
     }
+    /** NTM's names of the sets the balance has numbers for: this table's and the scheme's (BalanceFinal.DEFAULT_SETS) */
+    public static java.util.Set<String> knownSets() {
+        java.util.Set<String> out = new java.util.TreeSet<>(SETS.keySet());
+        out.addAll(BalanceFinal.DEFAULT_SETS.keySet());
+        return out;
+    }
+
+    public static boolean knownSet(String set) {
+        return SETS.containsKey(set) || BalanceFinal.DEFAULT_SETS.containsKey(set);
+    }
+
     private static final String[] SUFFIX = {"_helmet", "_plate", "_legs", "_boots"};
     private static final EquipmentSlot[] SLOTS = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
 

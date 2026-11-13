@@ -2,7 +2,6 @@ package acup.gunfeel.ai;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
@@ -27,8 +26,10 @@ import net.minecraft.server.level.ServerPlayer;
  *                          (AiThoughts); off by default
  * /armsai info             the map of this level: sections, builds, their time, block changes seen; the AI mobs and
  *                          what their looks cost
- * /armsai spawn fbi|dummy [count] [gun] [team &lt;name&gt;]   AI mobs round you (NTM's FBI agent or test dummy), 1 by
- *                          default; in a team of the game's (made if there is none) they fight the other teams (AiTeams)
+ * /armsai spawn fbi|dummy [count] [gun] [armor …] [ammo &lt;round&gt;] [team &lt;name&gt;]   AI mobs round you (NTM's FBI agent
+ *                          or test dummy), 1 by default; in a team of the game's (made if there is none) they fight the
+ *                          other teams (AiTeams); the armour they wear and the round their guns load, in any order (AiKit)
+ * /armsai kit &lt;targets&gt; [armor …] [ammo &lt;round&gt;]   the AI mobs among the targets change armour, load the round
  * /armsai clear            every AI mob of this level goes
  * /armsai ammo infinite|&lt;rounds&gt;   what every AI mob of this level carries besides its gun
  * </pre>
@@ -50,16 +51,21 @@ public final class AiCommand {
                 .then(Commands.literal("off").executes(c -> log(c, false))));
         for (AiSpawn.Kind kind : AiSpawn.Kind.values()) {
             String name = kind.name().toLowerCase(java.util.Locale.ROOT);
-            // spawn <kind> [count] [gun] [team <name>]
-            root.then(Commands.literal("spawn").then(Commands.literal(name).executes(c -> spawn(c, kind, 1, null, null))
-                    .then(Commands.argument("count", IntegerArgumentType.integer(1, 200))
-                            .executes(c -> spawn(c, kind, IntegerArgumentType.getInteger(c, "count"), null, null))
-                            .then(team(c -> spawn(c, kind, IntegerArgumentType.getInteger(c, "count"), null, StringArgumentType.getString(c, "team"))))
-                            .then(Commands.argument("gun", IdentifierArgument.id()).suggests((c, b) -> SharedSuggestionProvider.suggestResource(guns(), b))
-                                    .executes(c -> spawn(c, kind, IntegerArgumentType.getInteger(c, "count"), IdentifierArgument.getId(c, "gun"), null))
-                                    .then(team(c -> spawn(c, kind, IntegerArgumentType.getInteger(c, "count"), IdentifierArgument.getId(c, "gun"),
-                                            StringArgumentType.getString(c, "team"))))))));
+            // spawn <kind> [count] [gun] [armor …] [ammo <round>] [team <name>]: the words after the gun in any order
+            // (AiKit), after the count or the kind too (the kind's own gun)
+            var byGun = Commands.argument("gun", IdentifierArgument.id()).suggests((c, b) -> SharedSuggestionProvider.suggestResource(guns(), b))
+                    .executes(c -> spawn(c, kind, IntegerArgumentType.getInteger(c, "count"), IdentifierArgument.getId(c, "gun"), null));
+            AiKitCommand.words(byGun, true, c -> java.util.List.of(hand(kind, BuiltInRegistries.ITEM.getOptional(IdentifierArgument.getId(c, "gun")).orElse(null))),
+                    (c, words) -> spawn(c, kind, IntegerArgumentType.getInteger(c, "count"), IdentifierArgument.getId(c, "gun"), words));
+            var byCount = Commands.argument("count", IntegerArgumentType.integer(1, 200))
+                    .executes(c -> spawn(c, kind, IntegerArgumentType.getInteger(c, "count"), null, null));
+            AiKitCommand.words(byCount, true, c -> java.util.List.of(hand(kind, null)),
+                    (c, words) -> spawn(c, kind, IntegerArgumentType.getInteger(c, "count"), null, words));
+            var byKind = Commands.literal(name).executes(c -> spawn(c, kind, 1, null, null));
+            AiKitCommand.words(byKind, true, c -> java.util.List.of(hand(kind, null)), (c, words) -> spawn(c, kind, 1, null, words));
+            root.then(Commands.literal("spawn").then(byKind.then(byCount.then(byGun))));
         }
+        root.then(AiKitCommand.kit());
         root.then(Commands.literal("clear").executes(AiCommand::clear));
         root.then(Commands.literal("ammo").then(Commands.literal("infinite").executes(c -> ammo(c, AiAmmo.INFINITE)))
                 .then(Commands.argument("rounds", IntegerArgumentType.integer(0, 100000))
@@ -89,13 +95,14 @@ public final class AiCommand {
         return out;
     }
 
-    // "team <name>": the game's team the mobs join (made if there is none), see AiTeams
-    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> team(com.mojang.brigadier.Command<CommandSourceStack> run) {
-        return Commands.literal("team").then(Commands.argument("team", StringArgumentType.word())
-                .suggests((c, b) -> SharedSuggestionProvider.suggest(c.getSource().getLevel().getScoreboard().getTeamNames(), b)).executes(run));
+    /** the gun every mob of the kind comes with: the one named, a dummy's own; empty when each has its own (FBI agents) */
+    private static net.minecraft.world.item.ItemStack hand(AiSpawn.Kind kind, @Nullable Item gun) {
+        if (gun == null && kind == AiSpawn.Kind.DUMMY) gun = BuiltInRegistries.ITEM.getValue(AiSpawn.DEFAULT_GUN);
+        return gun == null ? net.minecraft.world.item.ItemStack.EMPTY : new net.minecraft.world.item.ItemStack(gun);
     }
 
-    private static int spawn(CommandContext<CommandSourceStack> c, AiSpawn.Kind kind, int count, @Nullable Identifier gunId, @Nullable String team)
+    /** words: what follows the gun (AiKit): the armour, the round, the game's team the mobs join (made if there is none, AiTeams) */
+    private static int spawn(CommandContext<CommandSourceStack> c, AiSpawn.Kind kind, int count, @Nullable Identifier gunId, @Nullable String words)
             throws CommandSyntaxException {
         Item gun = null;
         if (gunId != null) {
@@ -105,11 +112,16 @@ public final class AiCommand {
                 return 0;
             }
         }
+        // a kit that makes no sense is told before any mob is made
+        AiKitCommand.Kit kit = AiKitCommand.read(words, true);
+        kit.fits(hand(kind, gun));
+        String team = kit.team();
         var mobs = AiSpawn.spawn(c.getSource().getLevel(), c.getSource().getPosition(), kind, count, gun);
         if (team != null) for (var m : mobs) AiTeams.join(c.getSource().getLevel(), m, team);
+        String kitted = kit.putOn(mobs);
         int n = mobs.size();
         c.getSource().sendSuccess(() -> Component.literal(n + " AI " + kind.name().toLowerCase(java.util.Locale.ROOT) + (n == 1 ? "" : "s")
-                + " spawned" + (team == null ? "" : " in team " + team) + (n < count ? " (no room for " + (count - n) + ")" : "")), true);
+                + " spawned" + (team == null ? "" : " in team " + team) + kitted + (n < count ? " (no room for " + (count - n) + ")" : "")), true);
         if (c.getSource().getEntity() instanceof ServerPlayer p && (p.isCreative() || p.isSpectator()))
             c.getSource().sendSuccess(() -> Component.translatable("ntmgunfeel.armsai.unseen"), false);
         return n;

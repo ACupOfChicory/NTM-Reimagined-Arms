@@ -21,6 +21,10 @@ public abstract class MixinVanillaBack {
     @WrapOperation(method = "getDamageAfterArmorAbsorb", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/damagesource/CombatRules;getDamageAfterAbsorb(Lnet/minecraft/world/entity/LivingEntity;FLnet/minecraft/world/damagesource/DamageSource;FF)F"))
     private float gunfeel$armor(LivingEntity entity, float damage, DamageSource source, float armor, float toughness, Operation<Float> original) {
+        // a hit of the final scheme on a mob: the armour of the pieces worn alone, as a player in them has
+        float[] own = acup.gunfeel.BalanceFinal.mobOwnArmor(entity, source);
+        if (own[0] > 0F) armor = Math.max(0F, armor - own[0]);
+        if (own[1] > 0F) toughness = Math.max(0F, toughness - own[1]);
         float[] back = BalanceKit.vanillaBack(entity, source);
         if (back[0] > 0F) armor = Math.min(30F, armor + back[0]);
         if (back[1] > 0F) toughness = Math.min(20F, toughness + back[1]);
