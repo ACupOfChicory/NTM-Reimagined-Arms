@@ -33,7 +33,7 @@ import net.minecraft.world.entity.player.Player;
  * <li>{@code balance.immune.hold} (10 s; 0: X873): a weapon's hit in the window keeps it open at least this long
  * after it, for the three sets (DNS and FAU too): a gun that does not kill in 15 s goes on as long as it keeps hitting,
  * instead of a whole round of invulnerability and a new pool (the TTK had no pair between 60 and 120 s);
- * <li>{@code balance.immune.reloadHold} (true; false: X896): a gun whose shot and reload from empty take longer than
+ * <li>the reload's hold (X896: none): a gun whose shot and reload from empty take longer than
  * the hold (Henry and Lincoln: 10.5 s) holds the window, and the pool's refill pause, for that and a second more, so
  * the reload does not close the window or give the pool back (DNS 1000-4800 s, euphemium never, before);
  * <li>{@code balance.immune.recover} (60 s): after the window the pool fills back from 0 over this time, the set

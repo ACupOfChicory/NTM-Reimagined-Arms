@@ -19,8 +19,7 @@ package acup.gunfeel;
  * early check ({@code allowSpecialCancel} false), the contact with them (10.3: × 1.5 hits);</li>
  * <li>the blast power {@code k} (balanceBlastPower): the set's formula takes {@code k·x} (its power and its flesh),
  * at most {@code x}; the raw limit and the cap by {@code x} itself; no set: {@code x}; on tier 4 and below at least
- * {@code balanceBlastLowFloor·S} for its share (rho), the flesh its own (BalanceArmor.blastInto,
- * balanceBlastFloorShare);</li>
+ * {@code balanceBlastLowFloor·S} for its share (rho), the flesh its own (BalanceArmor.blastInto);</li>
  * <li>hits to die {@code ⌈HP / damage⌉}.</li>
  * </ul>
  */

@@ -124,7 +124,8 @@ page. They are alphas: expect bugs and back up your world.
   Aberrator holds 9 rounds and Eyes of the Tempest 8 a gun.
 - The balance is one server switch: `balance = arms` (the default) or
   `balance = ntm`, NTM's own damage, armour, spread, range, blasts,
-  abilities and recipes. Its numbers are fixed in the mod.
+  abilities and recipes (the mod's other rules, such as the damage cap, keep
+  their own keys). Its numbers are fixed in the mod.
 
 ### Bullets and blocks
 
@@ -352,7 +353,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `clientHits` | `true` | A player's bullet hits what that player's game saw it hit; off: the server's view decides |
 | `cameraScaleMin` | `0` | Camera recoil players cannot go below |
 | `spreadStand`, `spreadMove`, `spreadSneak`, `spreadCrawl`, `spreadAim` | `1`, `1.5`, `0.75`, `0.5`, `1` | Spread by stance |
-| `balance` | `arms` | The balance: `arms`, the mod's; `ntm`, NTM's own. `arms`: NTM's combat sets take bullets, beams and blasts by the mod's armour formula, and a gun with its ammo kills a set in the time of the mod's ladder (by the tiers, the gun's role and the range), launchers' rounds and hand grenades on the same ladder; the kit (the shield, Med-X, the super stimpak, the inserts), the pools of euphemium, DNS and FAU, the sets' abilities, a steadier aim and less recoil in power armour, the shotguns' aimed choke and the balance's recipes. `ntm`: none of it, NTM's damage, armour, spread, range, blasts, abilities and recipes. Its numbers are fixed in the mod: no other key sets them, an old file's `balance*` keys are not read |
+| `balance` | `arms` | The balance: `arms`, the mod's; `ntm`, NTM's own. `arms`: NTM's combat sets take bullets, beams and blasts by the mod's armour formula, and a gun with its ammo kills a set in the time of the mod's ladder (by the tiers, the gun's role and the range), launchers' rounds and hand grenades on the same ladder; the kit (the shield, Med-X, the super stimpak, the inserts), the pools of euphemium, DNS and FAU, the sets' abilities, a steadier aim and less recoil in power armour, the shotguns' aimed choke and the balance's recipes. `ntm`: none of it, NTM's damage, armour, spread, range, blasts, abilities and recipes; the mod's rules that are not the balance (`damageCap`, the living spread, `bulletSpeed`, `modelHitboxes`) keep their own keys. Its numbers are fixed in the mod: no other key sets them, an old file's `balance*` keys are not read |
 | `sprintFireDelay` | `true` | No shot right after a sprint; `sprintFireTime` per gun |
 | `prone`, `proneWithoutGun` | `true` | Lying down; lying without a gun in hand |
 | `proneCrawlNoFire`, `proneCrawlSpeed` | `true`, `0.25` | No shot while crawling faster than this many blocks a second |

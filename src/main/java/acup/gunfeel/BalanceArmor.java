@@ -319,9 +319,9 @@ public final class BalanceArmor {
     static final ThreadLocal<Boolean> BULLET_BLAST = ThreadLocal.withInitial(() -> false);
 
     /**
-     * balanceBulletBlastCap (true; false: X865): an explosive bullet's blast is the formula's and the cap's at any raw
-     * damage. Its blast is the bullet's whole damage (NTM's EntityProcessorCrossSmooth): a heavy gun's HE round came
-     * past balanceExplRawLimit and killed any set from full health with one click.
+     * an explosive bullet's blast is the formula's and the cap's at any raw damage. Its blast is the bullet's whole
+     * damage (NTM's EntityProcessorCrossSmooth): up to X865 a heavy gun's HE round came past balanceExplRawLimit and
+     * killed any set from full health with one click.
      */
     /**
      * the shot whose pair's floor (balanceArmorFloor) a hit takes: the bullet itself, or for an explosive bullet's blast
@@ -415,7 +415,6 @@ public final class BalanceArmor {
             int bt = blastTier(set, tier);
             float pk = power > 1F ? pieceBlastPower(bt, amount, power) : 1F;
             float into = power > 1F ? blastInto(bt, amount, pk, s) : amount * power;
-            // balanceBlastFloorShare: the floor lifts rho, the flesh is the blast's damage times its power on the set
             // the floor of balanceBlastLowFloor lifts only the share that passes (rho), the flesh is the blast's own damage
             // times its power: with the floor's flesh too a set of a greater rating took more of a weak blast (X875)
             boolean share = power > 1F && into > amount * pk;

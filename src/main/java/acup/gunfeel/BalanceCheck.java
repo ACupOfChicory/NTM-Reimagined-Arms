@@ -653,7 +653,8 @@ public final class BalanceCheck {
         });
         // balance = arms: the choke and the bonus of the power armour back (the switch acts both ways)
         STEPS.add(() -> keysOnly("balance", "arms"));
-        wait(30);
+        // the shooter's bloom of the cases' shots gone (a half-life of 5 ticks: 2^-20 of it after 100)
+        wait(100);
         STEPS.add(() -> spreadCase("arms", 0.021F, 0.4F));
         // the run's keys as plan() set them
         STEPS.add(() -> keysOnly("balance.final", String.valueOf(Boolean.getBoolean(PROPERTY + ".final")), "balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula"));
@@ -2312,7 +2313,7 @@ public final class BalanceCheck {
         STEPS.add(() -> {
             // the game's keys of FAU's pool (ntmgunfeel-server.properties)
             keys("balance.immune.fau.mode", "pool", "balance.immune.fau.pool", "45", "balance.immune.fau.window", "15",
-                    "balance.immune.fau.recover", "60", "balance.final.pools.gas", "drain");
+                    "balance.immune.fau.recover", "60");
             begin(L.target);
             for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
             dress(L.target, "fau", true);

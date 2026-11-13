@@ -268,7 +268,7 @@ public final class BalanceGuns {
     private static final Map<Entity, BalanceGunsRule.Shot> UNDER = Collections.synchronizedMap(new WeakHashMap<>());
 
     /**
-     * balanceGunUnder (true; false: X904, the line's own numbers on every set): the pair's under= on a set of
+     * the pair's under= (X904: the line's own numbers on every set) on a set of
      * {@code tier} as changes to the hit, {damage share, neg added, pen added} (the shot left with the line's mult,
      * neg and pen); null for none
      */
@@ -299,7 +299,7 @@ public final class BalanceGuns {
     }
 
     /**
-     * balanceArmorFloor (true; false: X873): the table's floor of the hit's shot on a set of {@code tier} (1: none, or
+     * the table's floor of the hit's shot (X873: none) on a set of {@code tier} (1: none, or
      * a tier below the pair's), times balanceArmorTierFloor's share for the pair's tier on that set's (no less than the
      * table's least floor)
      */
