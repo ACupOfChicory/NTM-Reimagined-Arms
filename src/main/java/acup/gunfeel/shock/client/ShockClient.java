@@ -24,17 +24,17 @@ import net.neoforged.neoforge.common.NeoForge;
  * shock's length: the whole HUD glitches and shakes (ShockHud; its strength the server's shockGlitch times the
  * player's own shockGlitch, never under shockGlitchMin of the server's), the view shakes a little (shockShake) and
  * turns about on its own (shockCamera degrees a second at most: two slow waves each way, so it wanders off and back,
- * and the player's aim with it). All of it at full for the most of the shock and fading out over its last half second.
+ * and the player's aim with it). All of it at full for shockSeconds, then wearing off smoothly over the server's fade
+ * (ShockServer.envelope, the same as the slowing's: the view narrows with that by the game's own rule for slowness).
  */
 public final class ShockClient {
     private ShockClient() {
     }
 
-    private static final float FADE_SECONDS = 0.5F;
     private static final float MARK_SECONDS = 0.45F;
     private static final Random RANDOM = new Random();
 
-    // the shock now: its start and length in game ticks (the client's own count), the waves of the view's turn
+    // the shock now: its start and its time at full in game ticks (the client's own count), the waves of the view's turn
     private static long tick;
     private static long start = Long.MIN_VALUE;
     private static int length;
@@ -78,7 +78,7 @@ public final class ShockClient {
         start(p.ticks());
     }
 
-    /** a shock of {@code ticks} starts now (the server's packet, or the stand) */
+    /** a shock of {@code ticks} at full (then its fade) starts now (the server's packet, or the stand) */
     public static void start(int ticks) {
         start = tick;
         length = Math.max(1, ticks);
@@ -106,20 +106,18 @@ public final class ShockClient {
 
     // ---- how strong it is now
 
-    /** seconds into the shock (partial ticks counted), or -1 when there is none */
+    /** seconds into the shock (partial ticks counted), or -1 when there is none (or it has faded out) */
     private static float age(float partial) {
         var player = Minecraft.getInstance().player;
         if (start == Long.MIN_VALUE || player == null || !player.isAlive()) return -1F;
-        float t = (tick - start + partial) / 20F;
-        return t >= length / 20F ? -1F : t;
+        float t = tick - start + partial;
+        return t >= length + ShockServer.FADE_TICKS ? -1F : t / 20F;
     }
 
-    /** the shock's share now, 0 to 1: full, then down over its last half second */
+    /** the shock's share now, 0 to 1: full, then wearing off (ShockServer.envelope) */
     public static float envelope(float partial) {
         float t = age(partial);
-        if (t < 0F) return 0F;
-        float left = length / 20F - t;
-        return Math.clamp(left / Math.min(FADE_SECONDS, length / 20F), 0F, 1F);
+        return t < 0F ? 0F : ShockServer.envelope(t * 20F, length);
     }
 
     private static float partial() {

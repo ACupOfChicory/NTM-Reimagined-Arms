@@ -1,5 +1,15 @@
 # Changelog
 
+## X1012
+
+- The 12 gauge electroshock shell slows whoever it shocks: a player, an AI
+  soldier (on its path too) or any mob walks 40 % slower, and a player's view
+  narrows with it as with Slowness. The shock now wears off: after its
+  `shockSeconds` at full (2) the glitch of the HUD, the shaking and drifting
+  view, the wide spread and the slowing fade out smoothly over 3 more seconds,
+  instead of stopping after half a second. The immunity (`shockImmunity`)
+  starts once it has faded out.
+
 ## X1003
 
 - The 12 gauge electroshock shell has a new icon, drawn as NTM's own shells
