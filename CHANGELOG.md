@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- A shot on armour drawn as a layer (SECURITY, CMB, Schrabidium, vanilla's)
+  counts for the part under the piece on every mob and player, as it did on
+  the bots: the chestplate's collar a pixel over the neck is the body, not
+  the head; the leggings' waist is the body, not a leg. The head and limb
+  zones no longer grow under the armour (a skull or a block on the head still
+  grows the head). Before, about 6 % of the shots on a husk in such armour
+  landed in the wrong part (`modelHitboxesSuits`; false: as before).
+
 ## X993
 
 - The server counts the part a shot hits as the shooter's client draws it,
