@@ -91,6 +91,8 @@ final class AiCheckTeams {
     long aliveTicksOut;
     private final long[] modeTicks = new long[AiSoldier.Mode.values().length];
     private long seeTicks;
+    private final it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap atOne = new it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap();
+    private final long[] firingAtOne = new long[6];
     /** its fighters' ticks in a fight: on the way to cover, in it, out of it firing */
     long fightTicksOut;
     double redDamage, blueDamage;
@@ -138,8 +140,14 @@ final class AiCheckTeams {
             if (!bot.mob.isAlive() || !(bot.brain instanceof AiSoldier so)) continue;
             modeTicks[so.mode().ordinal()]++;
             TargetMemory.Contact f = bot.memory.focusId < 0 ? null : bot.memory.contact(bot.memory.focusId);
-            if (f != null && f.state == TargetMemory.State.VISIBLE) seeTicks++;
+            if (f != null && f.state == TargetMemory.State.VISIBLE) {
+                seeTicks++;
+                if (bot.gunner.firingAt() != null) atOne.addTo(f.id, 1);
+            }
         }
+        // how many fire at one target at once
+        for (int k : atOne.values()) firingAtOne[Math.min(k, firingAtOne.length - 1)]++;
+        atOne.clear();
         for (AiBot bot : bots) {
             if (!bot.mob.isAlive()) continue;
             double near = Double.MAX_VALUE;
@@ -516,6 +524,9 @@ final class AiCheckTeams {
         check.out(heard.toString());
         check.out("     a fighter's ticks by what it does " + java.util.Arrays.toString(AiSoldier.Mode.values()) + ": " + java.util.Arrays.toString(modeTicks)
                 + "; with its target in sight " + seeTicks + " of " + aliveTicks);
+        // (told, not held to: with no turns given out a target is fired at by one 95 in 100 of those ticks, by three or more 1 in 300)
+        check.out("     ticks a target was fired at by 1, 2, 3, 4, 5 or more at once: "
+                + java.util.Arrays.toString(java.util.Arrays.copyOfRange(firingAtOne, 1, firingAtOne.length)));
         fightTicksOut = modeTicks[AiSoldier.Mode.TO_COVER.ordinal()] + modeTicks[AiSoldier.Mode.COVER.ordinal()] + modeTicks[AiSoldier.Mode.PEEK.ordinal()];
         briefOut = brief;
         peekRunOut = peekRun;
