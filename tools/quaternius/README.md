@@ -2,13 +2,14 @@
 
 Puts clips of free (CC0) humanoid animation packs on the AI mobs' model of ten parts (`BotModel` in the mod): head,
 body, and each arm and leg in two, upper arm and forearm, thigh and shin, as vanilla's biped cut at the elbow and the
-knee. AI mobs play a few of the clips: `bot_clips.py` copies those into the mod.
+knee. AI mobs play some of the clips: `bot_clips.py` copies those into the mod, the crouching ones with their legs
+fitted under the head (`fit.py`).
 
 | Pack | Author | License | Where | What we take |
 |---|---|---|---|---|
 | Universal Animation Library 1 and 2, `[Standard]` | Quaternius | CC0 (`animations/LICENSE-Quaternius-UAL.txt`) | https://quaternius.itch.io/universal-animation-library, https://quaternius.itch.io/universal-animation-library-2 | idle, walk, pistol, crouch, throw, hits, death, signals |
 | KayKit Character Animations 1.1, Free | Kay Lousberg | CC0 (`animations/LICENSE-KayKit-Character-Animations.txt`) | https://kaylousberg.itch.io/kaykit-character-animations | rifle (aim, shoot, reload), crawl, crouch, sneak, lie down, throw, dodges |
-| SWAT | Quaternius | CC0 (`animations/LICENSE-Quaternius-SWAT.txt`) | https://poly.pizza/m/Btfn3G5Xv4 | one-handed gun: hold, point, shoot, run and shoot |
+| SWAT | Quaternius | CC0 (`animations/LICENSE-Quaternius-SWAT.txt`) | https://poly.pizza/m/Btfn3G5Xv4 | one-handed gun: hold, point, shoot, run and shoot; hits |
 
 ## Run
 
@@ -27,6 +28,27 @@ UAL1_GLB=<UAL1_Standard.glb> KAYKIT_GLB=<Rig_Medium_General.glb> SWAT_GLB=<swat.
 ```
 
 Python 3 and numpy only; the glb is read directly, no Blender. Each rig's bones are named in `RIGS`.
+
+## The clips in the mod
+
+```
+python3 -I tools/quaternius/bot_clips.py     # writes src/main/resources/assets/ntmgunfeel/animations/bot.animation.json
+python3 -I tools/quaternius/test_fit.py      # needs no pack
+```
+
+`bot_clips.py` names each clip the mod plays (`BOT`: the clip or its half as it is; `SPLICE`: clips cut and joined;
+`FIT`: below) and why. A clip goes in where it is graded good or fair in the half used, or is played over the whole
+body for an action's few ticks (the roll, the slide, the fall dead).
+
+An AI mob's head may not leave the eye the server looks and shoots from (3 cm), and a clip lowers and sways the whole
+body as its rig does. So a crouching clip is not taken as it is: `fit.py` moves it, frame by frame, till its neck is
+where vanilla's crouch has it (the body's pivot 3.2 px down), and bends each leg again at the knee so its ankle is
+back where the clip had it over the ground. The hips go with the head, the feet stay on the ground, no box goes into
+it. `fit.fit` takes besides: `plant` (a leg that does not reach the ground is lowered onto it), `body` (the trunk's
+turn in place of the clip's), `feet` (where the ankles stand, in place of the clip's) and `square` (each leg turned
+from the rest pose, without the clip's twist of a thigh about its own length, which a box shows as a leg edge on).
+The mod's two: `crouch_walk` (KayKit `Crouching`, its feet moved 0.4 px at most) and `kneel` (down on the right knee
+as UAL `Fixing_Kneeling` kneels, the trunk upright for the gun).
 
 ## The picker page (six parts)
 
