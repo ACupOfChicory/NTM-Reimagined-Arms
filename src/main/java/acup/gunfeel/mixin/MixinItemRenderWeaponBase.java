@@ -29,6 +29,17 @@ public abstract class MixinItemRenderWeaponBase {
     @org.spongepowered.asm.mixin.Shadow
     protected abstract void setupTransformsAndSubmit(ItemStack stack, LocalPlayer player, PoseStack pose, SubmitNodeCollector collector, int light);
 
+    // The gun model's FOV (NTM's Camera.calculateHudFov mixin) is worked out before the hand is drawn. A gun whose base
+    // FOV follows the aiming (the STG-77: 70 down to 5 degrees as it is raised) takes the aiming's partial tick from
+    // interp, which submitFirstPerson sets only later in the frame: the last frame's. Across a tick that is a tick off
+    // (up to 16 degrees), one frame ahead and the next behind: the model shook while raised to the eye, the more the
+    // frame rate varied (a fight). This frame's, as submitFirstPerson will set it.
+    @Inject(method = "adjustHudFov", at = @At("HEAD"))
+    private static void gunfeel$hudFovPartial(float fov, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Float> ci) {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        ItemRenderWeaponBase.interp = mc.gameRenderer.mainCamera().getCameraEntityPartialTicks(mc.getDeltaTracker());
+    }
+
     @Inject(method = "setupTransformsAndSubmit", at = @At("HEAD"))
     private void gunfeel$begin(ItemStack stack, LocalPlayer player, PoseStack pose, SubmitNodeCollector collector, int light, CallbackInfo ci) {
         ItemRenderWeaponBase self = (ItemRenderWeaponBase) (Object) this;
