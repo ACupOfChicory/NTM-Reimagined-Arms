@@ -1,5 +1,11 @@
 # Changelog
 
+## X1017
+
+- The 12 gauge electroshock shell stuns: 80 % slower at full instead of 40 %,
+  and a player's view narrows by a fifth, not as far as the game would narrow
+  it for such a slowing.
+
 ## X1014
 
 - An NTM suit drawn by its own model (HEV, T-51, AJR and the rest) sits on
