@@ -46,7 +46,7 @@ import net.minecraft.world.level.block.Blocks;
 //  - a shell into the player: the shock by ticks (exactly shockSeconds at full, then ShockServer.FADE_TICKS wearing
 //    off), the spread of the Maresleg's shot (NTM's calcSpread) up by shockSpread at full, by half of it halfway through
 //    the fade, not after; the speed on the server and on the client down by ShockServer.SLOW at full, by half that
-//    halfway, as before after; the client's view narrowed (the game's FOV modifier) and back; the client told (its
+//    halfway, as before after; the client's view narrowed by ShockServer.FOV at full, by half that halfway, and back; the client told (its
 //    shock, the view turned on its own);
 //  - immunity: a shell during the shock and one after it (within shockImmunity) do nothing, one after that shocks again;
 //  - the agent: the same spread through NTM's calcSpread with it as the shooter, its speed and its step on a path (its
@@ -336,8 +336,11 @@ final class ShockStand {
         log("клиент: скорость до/полная/середина/после {} {} {} {}; FOV ×{} ×{} ×{} ×{}", f(c0[1]), f(c1[1]), f(c2[1]), f(c3[1]), f(c0[2]), f(c1[2]), f(c2[2]),
                 f(c3[2]));
         check(Math.abs(c1[1] / c0[1] - (1F - slow)) < 0.01F, "клиент: скорость на полной ×" + f(1F - slow) + " (" + f(c1[1] / c0[1]) + ")");
-        check(c1[2] < c0[2] - 0.1F, "клиент: обзор на полной уже (FOV ×" + f(c0[2]) + " → ×" + f(c1[2]) + ")");
-        check(c2[2] > c1[2] + 0.02F && c2[2] < c0[2] - 0.02F, "клиент: в середине затухания обзор между (×" + f(c2[2]) + ")");
+        // the view narrowed by the shock's own share (ShockServer.FOV), not by the game's tunnel for such a slowing; the
+        // client hears a tick late, a tick halfway through the fade is 0.005 of the view
+        float fov = ShockServer.FOV;
+        check(Math.abs(c1[2] / c0[2] - (1F - fov)) < 0.005F, "клиент: обзор на полной ×" + f(1F - fov) + " от прежнего (×" + f(c0[2]) + " → ×" + f(c1[2]) + ")");
+        check(Math.abs(c2[2] / c0[2] - (1F - fov / 2F)) < 0.012F, "клиент: в середине затухания ×" + f(1F - fov / 2F) + " (×" + f(c2[2] / c0[2]) + ")");
         check(Math.abs(c3[2] - c0[2]) < 0.002F && Math.abs(c3[1] - c0[1]) < 1e-5F, "клиент: после шока обзор и скорость прежние (×" + f(c3[2]) + ")");
     }
 

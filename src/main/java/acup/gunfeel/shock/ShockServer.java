@@ -31,7 +31,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * mob) shocks it: at full for shockSeconds, then it wears off smoothly over FADE_TICKS more (envelope). Meanwhile
  * whatever gun it fires spreads its shots wide (shockSpread, added to the shot's spread where NTM works it out, so for
  * players and AI bots alike) and it walks slower (SLOW off its speed: a modifier of its movement speed, so a mob's and an
- * AI bot's steps on their path slow as well, and a player's view narrows as the game narrows it for any slowness). A
+ * AI bot's steps on their path slow as well, and a player's view narrows by FOV at full, not as far as the game would narrow it for such a slowness). A
  * player is told (ShockPayloads.Shock): its client glitches and shakes the HUD, shakes the view a little and turns it
  * about on its own. After a shock ends the one shocked takes none for shockImmunity seconds: a stream of shells does
  * not keep anyone shocked for good. The discharge is heard where it hit, and the shooter (a player) is told it hit with
@@ -43,9 +43,14 @@ public final class ShockServer {
 
     /** after its shockSeconds at full a shock wears off over these game ticks (the client's glitch, shake, drift too) */
     public static final int FADE_TICKS = 60;
-    /** the share of the speed a shock takes at full: a bit over vanilla's Slowness II (0.3) */
-    public static final float SLOW = 0.4F;
-    private static final Identifier SLOW_ID = Identifier.fromNamespaceAndPath("ntmgunfeel", "shock_slow");
+    /** the share of the speed a shock takes at full: a stun, far past vanilla's Slowness II (0.3) */
+    public static final float SLOW = 0.8F;
+    /**
+     * the share of a player's view a shock takes at full (GunWeight.fov). The game would narrow it by the speed, to
+     * x0.6 at SLOW 0.8, a tunnel; the shock's own narrowing is this instead, fading with the shock
+     */
+    public static final float FOV = 0.2F;
+    public static final Identifier SLOW_ID = Identifier.fromNamespaceAndPath("ntmgunfeel", "shock_slow");
 
     /**
      * The shock's strength, 0 to 1, {@code t} game ticks into a shock of {@code full} ticks at full: 1 for those, then

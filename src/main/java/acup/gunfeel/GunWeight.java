@@ -165,20 +165,24 @@ public final class GunWeight {
     /**
      * Client: the game narrows the view as the speed falls ({@code AbstractClientPlayer.getFieldOfViewModifier}: the
      * speed's share of the walking speed, plus 1, halved); a heavy gun is no reason for it, so its share is taken out
-     * of that factor again, and only it: running, flying and the rest stay as they were. Not while looking through a
-     * spyglass (the game's 0.1 then is no speed).
+     * of that factor again, and only it: running, flying and the rest stay as they were. A shock's slowing is taken out
+     * too and narrows the view by ShockServer.FOV times its strength instead (the game would make a tunnel of it). Not
+     * while looking through a spyglass (the game's 0.1 then is no speed).
      */
     public static void fov(net.neoforged.neoforge.client.event.ComputeFovModifierEvent e) {
         var p = e.getPlayer();
         AttributeInstance speed = p.getAttribute(Attributes.MOVEMENT_SPEED);
-        AttributeModifier mod = speed == null ? null : speed.getModifier(MODIFIER);
+        if (speed == null) return;
+        AttributeModifier gun = speed.getModifier(MODIFIER), shock = speed.getModifier(acup.gunfeel.shock.ShockServer.SLOW_ID);
         float walking = p.getAbilities().getWalkingSpeed();
-        if (mod == null || walking == 0F || p.isScoping()) return;
-        double g = 1.0 + mod.amount();
+        if (gun == null && shock == null || walking == 0F || p.isScoping()) return;
+        double g = (gun == null ? 1.0 : 1.0 + gun.amount()) * (shock == null ? 1.0 : 1.0 + shock.amount());
         if (!(g > 0.0)) return;
+        // the shock's strength 0..1 back from its modifier (-SLOW times it)
+        double k = shock == null ? 0.0 : Math.min(1.0, -shock.amount() / acup.gunfeel.shock.ShockServer.SLOW);
         float r = (float) speed.getValue() / walking;
         float m = e.getFovModifier();
-        float m0 = m * (float) ((r / g + 1.0) / (r + 1.0));
+        float m0 = m * (float) ((r / g + 1.0) / (r + 1.0) * (1.0 - acup.gunfeel.shock.ShockServer.FOV * k));
         e.setNewFovModifier(e.getNewFovModifier() + e.getFovScale() * (m0 - m));
     }
 

@@ -40,4 +40,11 @@ class ShockEnvelopeTest {
     void slowIsAShare() {
         assertTrue(ShockServer.SLOW > 0F && ShockServer.SLOW < 1F);
     }
+
+    @Test
+    void viewNarrowsLessThanTheGameWould() {
+        // the game's factor for such a slowing, standing: (speed share + 1) / 2
+        float game = (1F - ShockServer.SLOW + 1F) / 2F;
+        assertTrue(ShockServer.FOV > 0F && 1F - ShockServer.FOV > game, "x" + (1F - ShockServer.FOV) + " vs the game's x" + game);
+    }
 }
