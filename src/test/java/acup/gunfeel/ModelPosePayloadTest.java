@@ -32,6 +32,20 @@ class ModelPosePayloadTest {
         } finally { buf.release(); }
     }
 
+    @Test void theClientKeepsThePoseTheServerGets() {
+        // a box of doubles off the float grid (the capture subtracts the camera in doubles): the server decodes floats,
+        // the client keeps sent(), the very same numbers
+        var box = new ModelBox("mesh/Head", -.2500000123, 1.7500000071, -.2499999913, .5000000031, 1e-9, 0, 0, .4999999971, 0, 0, 0, .5).withMesh(7L);
+        var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+        try {
+            ModelPosePayload.CODEC.encode(buf, new ModelPosePayload(1, UUID.randomUUID(), 0, 0, 0, 0, List.of(box)));
+            var got = ModelPosePayload.CODEC.decode(buf).boxes().getFirst();
+            assertNotEquals(box, got);
+            assertEquals(box.sent(), got);
+            assertEquals(box.sent(), box.sent().sent());
+        } finally { buf.release(); }
+    }
+
     @Test void rejectsInvalidCountsBeforeAllocatingCubes() {
         for (int count : new int[] {-1, 0, 129, Integer.MAX_VALUE}) {
             var buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);

@@ -162,7 +162,29 @@ public final class ModelHits {
             for(var b:p.boxes()) if(armourPiece(b.part())) return zones;
             worn=armour(worn);
         }
+        if(suitsOn() && worn.any() && target instanceof LivingEntity living) worn=unsuited(worn,ntmWorn(living),p.boxes());
         return worn.any()?WornGear.zones(zones,worn,WornGear.humanoid(p.boxes()),WornGear.split(p.boxes())):zones;
+    }
+
+    /**
+     * What is worn, less the pieces an NTM suit draws by its own model (its groups among the pose's boxes): those are
+     * caught as they are drawn and a shot on them takes the part they cover (suitPiece), so they grow no zone. Grown,
+     * the head's and the arms' zones took the bare body by the neck and the shoulders where a suit leaves it open
+     * (Bismuth, Diesel: 5 % of the shots on the body as the head or a limb).
+     */
+    static WornGear.Worn unsuited(WornGear.Worn worn,boolean[] ntm,List<ModelBox> boxes) {
+        if(ntm==NONE_WORN) return worn;
+        boolean[] own=new boolean[4];boolean any=false;
+        for(var b:boxes) {
+            int s=suitSlot(b.part());
+            // by the piece's own group (an extra, a jetpack or a lamp, may ride on armour drawn as a layer); the helmet
+            // as the head only with modelHitboxesHelmet (helmet())
+            if(s<0 || !ntm[s] || own[s] || !SUIT_MAIN.contains(b.part().substring(b.part().lastIndexOf('/')+1)) || s==0 && !helmetsOn()) continue;
+            own[s]=true;any=true;
+        }
+        if(!any) return worn;
+        return new WornGear.Worn(own[0] && worn.head()==WornGear.Head.ARMOR?WornGear.Head.NONE:worn.head(),
+                worn.chest() && !own[1],worn.legs() && !own[2],worn.feet() && !own[3]);
     }
     enum Zone { HEAD, LIMB, BODY }
 
@@ -247,6 +269,9 @@ public final class ModelHits {
     static final java.util.Set<String> SUIT_ARMS=java.util.Set.of("LeftArm","RightArm");
     static final java.util.Set<String> SUIT_LEGS=java.util.Set.of("LeftLeg","RightLeg");
     static final java.util.Set<String> SUIT_BOOTS=java.util.Set.of("LeftBoot","RightBoot","LeftFoot","RightFoot");
+    /** the groups that are the piece itself, not an extra on it */
+    private static final java.util.Set<String> SUIT_MAIN=java.util.Set.of("Helmet","Head","Chest","Body","LeftArm","RightArm","LeftLeg","RightLeg",
+            "LeftBoot","RightBoot","LeftFoot","RightFoot");
 
     /** the slot whose piece draws a suit's group (0 head, 1 chest, 2 legs, 3 feet), or -1 for no group of a suit */
     static int suitSlot(String part) {

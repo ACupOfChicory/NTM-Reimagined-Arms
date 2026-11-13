@@ -78,6 +78,10 @@ final class BotStand {
             new Case("crouch", AiPose.CROUCH, 0, AiPose.HOLD, false),
             new Case("crouch_lean_right", AiPose.CROUCH, 100, AiPose.AIM, false),
             new Case("blind", AiPose.CROUCH, 0, AiPose.BLIND, false),
+            // down on a knee aiming, and the gun close beside a doorway, standing and crouched
+            new Case("kneel_aim", AiPose.CROUCH, 0, AiPose.AIM, false),
+            new Case("stack", AiPose.STAND, 0, AiPose.STACK, false),
+            new Case("crouch_stack", AiPose.CROUCH, 0, AiPose.STACK, false),
             new Case("prone_gun", AiPose.PRONE, 0, AiPose.HOLD, true) };
 
     private static int step, caseIndex, yawIndex, phase;
@@ -269,6 +273,13 @@ final class BotStand {
             err = Math.sqrt(sq(n[0] - r) + sq(n[1] - want.y) + sq(n[2] - f)) * 100;
             ClientSmoke.check(err < 3, String.format(Locale.ROOT, "%s поворот %.0f: голова там, где глаз сервера: ошибка %.1f см (сдвиг вбок %.0f см)",
                     c.name(), yaw, err, (n[0] - base[0]) * 100));
+        }
+        if (c.lean() == 0 && !c.lying() && c.arms() != AiPose.HOLD && c.arms() != AiPose.BLIND && base != null) {
+            // other arms over the same stance (down on a knee aiming, the gun close beside a doorway): the head where
+            // the stance has it
+            err = Math.sqrt(sq(n[0] - base[0]) + sq(n[1] - base[1]) + sq(n[2] - base[2])) * 100;
+            ClientSmoke.check(err < 3, String.format(Locale.ROOT, "%s поворот %.0f: голова там же, где в стойке с оружием у груди: ошибка %.1f см",
+                    c.name(), yaw, err));
         }
         double[] stand = BASE.get(yaw + "/" + AiPose.STAND);
         if (c.name().equals("crouch") && stand != null) {
@@ -523,8 +534,15 @@ final class BotStand {
             }
             edges.addAll(BotStandHits.helmetEdges(boxes, 180F));
             for (int i = 0; i < edges.size(); i++) zones[i] = edgeZone(m, edges.get(i));
+            serverBoxes.set(boxes);
         }).join();
         var seenBy = mc().level.getEntity(one.getId());
+        // the client's pose against the server's at the helmet's shots: whether it has one, the part furthest apart
+        if (seenBy != null) {
+            String apart = BotStandHits.apart(ModelHits.worldBoxes(seenBy), serverBoxes.get());
+            ClientSmoke.check(true, "шлем " + l.name() + " (сведения): поза клиента " + (ModelHits.hasPose(seenBy) ? "есть" : "нет") + ", против сервера " + apart);
+            ROWS.add("поза шлема\t" + l.name() + "\t" + (ModelHits.hasPose(seenBy) ? "есть" : "нет") + "\t" + apart);
+        }
         for (int i = 0; i < edges.size(); i++) {
             var e = edges.get(i);
             String[] client = seenBy == null ? new String[] { "нет моба", "" } : edgeZone(seenBy, e), at = zones[i];
@@ -538,6 +556,8 @@ final class BotStand {
             ROWS.add(String.format(Locale.ROOT, "шлем\t%s\t%s\tсервер %s%s\tклиент %s%s", l.name(), e.name(), at[0], at[1], client[0], client[1]));
         }
     }
+
+    private static final java.util.concurrent.atomic.AtomicReference<List<ModelBox>> serverBoxes = new java.util.concurrent.atomic.AtomicReference<>(List.of());
 
     /** where a shot along {@code e} hits the mob, and the part it takes: head, limb, body or past ("мимо") */
     private static String[] edgeZone(net.minecraft.world.entity.Entity m, BotStandHits.Edge e) {

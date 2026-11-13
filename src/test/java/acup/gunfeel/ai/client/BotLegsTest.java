@@ -67,16 +67,90 @@ class BotLegsTest {
         }
     }
 
+    /** the lowest point of a leg's two boxes over the ground, px (below it: under the ground) */
+    static float lowest(net.minecraft.client.model.geom.ModelPart thigh, net.minecraft.client.model.geom.ModelPart shin) {
+        return Math.min(BotDeathTest.box(BotDeathTest.frame(thigh), -2, 0, -2, 4, 6, 4)[0],
+                BotDeathTest.box(BotDeathTest.frame(thigh).mul(BotDeathTest.frame(shin)), -2, 0, -2, 4, 6, 4)[0]);
+    }
+
+    /** the knee over the ground, px */
+    static float knee(net.minecraft.client.model.geom.ModelPart thigh) {
+        return BotPoser.GROUND - BotDeathTest.at(BotDeathTest.frame(thigh), 0F, 6F, 0F).y;
+    }
+
     @Test
-    void crouchedItStepsWithTheThighsLowAndAFootDown() {
-        for (int i = 0; i < 40; i++) {
-            float pos = BotPoser.CYCLE * i / 40F;
-            BotPoser.Parts p = posed(1F, 0.25F, 0F, 1F, pos);
-            assertTrue(Math.abs(p.rightLeg().xRot) <= BotPoser.SWING_MOST + 1e-4F && Math.abs(p.leftLeg().xRot) <= BotPoser.SWING_MOST + 1e-4F,
-                    "at " + i / 40F + ": the thighs " + p.rightLeg().xRot + " " + p.leftLeg().xRot);
-            float[] r = BotLegsReplayTest.foot(p.rightLeg(), p.rightShin()), l = BotLegsReplayTest.foot(p.leftLeg(), p.leftShin());
-            assertTrue(Math.min(r[0], l[0]) <= 2F, "at " + i / 40F + ": the lower foot " + Math.min(r[0], l[0]) + " px up");
+    void crouchedOnTheMoveItWalksBentLowWithAFootDown() {
+        // the clip's walk bent low, its legs fitted under the head: through the step a foot is on the ground (within a
+        // pixel: the clip's own passing of the feet) and none under it, the knees bend, and the head, the trunk's top and the shoulders are where vanilla's crouch has them
+        float bent = 0F;
+        for (float speed : new float[] { 0.08F, 0.19F, 0.25F })
+            for (int i = 0; i < 40; i++) {
+                BotPoser.Parts p = posed(1F, speed, 0F, 1F, BotPoser.CYCLE * i / 40F);
+                float r = lowest(p.rightLeg(), p.rightShin()), l = lowest(p.leftLeg(), p.leftShin());
+                String at = "speed " + speed + " at " + i / 40F + ": the legs' lowest points " + r + " and " + l + " px over the ground";
+                assertTrue(Math.min(r, l) <= 1F && Math.min(r, l) >= -0.1F, at);
+                bent = Math.max(bent, Math.max(p.rightShin().xRot, p.leftShin().xRot));
+                assertEquals(4.2F, p.head().y, 1e-4F);
+                assertEquals(0F, p.head().z, 1e-4F);
+                assertEquals(3.2F, p.body().y, 1e-4F);
+                assertEquals(2F + acup.gunfeel.ai.AiPoseGeometry.CROUCH_ARM_DROP_PX, p.rightArm().y, 1e-4F);
+                // the hips: where the trunk ends, within a pixel and a half (the clip's pelvis tips and sways)
+                org.joml.Vector3f hips = BotDeathTest.at(BotDeathTest.frame(p.body()), 0F, 12F, 0F);
+                float off = (float) Math.hypot((p.rightLeg().y + p.leftLeg().y) / 2F - hips.y, (p.rightLeg().z + p.leftLeg().z) / 2F - hips.z);
+                assertTrue(off <= 1.5F, "speed " + speed + " at " + i / 40F + ": the legs " + off + " px off the trunk's end");
+            }
+        assertTrue(bent > 1.5F, "the knees bend " + bent + " rad at most");
+    }
+
+    @Test
+    void crouchedAtAStandItIsDownOnAKnee() {
+        for (float walkPos : new float[] { 0F, 2F, 5F }) {
+            BotPoser.Parts p = posed(1F, 0F, 0F, 0F, walkPos);
+            float r = lowest(p.rightLeg(), p.rightShin()), l = lowest(p.leftLeg(), p.leftShin());
+            assertEquals(0F, r, 0.05F, "the right leg on the ground");
+            assertEquals(0F, l, 0.05F, "the left leg on the ground");
+            assertTrue(knee(p.rightLeg()) < 3.5F, "the right knee " + knee(p.rightLeg()) + " px up: down");
+            assertTrue(knee(p.leftLeg()) > 5.5F, "the left knee " + knee(p.leftLeg()) + " px up: its foot ahead under it");
+            org.joml.Vector3f rf = BotLegsReplayTest.footAt(p.rightLeg(), p.rightShin()), lf = BotLegsReplayTest.footAt(p.leftLeg(), p.leftShin());
+            assertTrue(lf.z < -1.5F && rf.z > 6F, "the left foot ahead at " + lf.z + ", the right back at " + rf.z);
+            // nothing of the legs further ahead than the face (4 px), so it kneels behind what it stands behind
+            float ahead = Math.min(BotDeathTest.at(BotDeathTest.frame(p.leftLeg()), 0F, 6F, -2F).z, lf.z - 2F);
+            assertTrue(ahead >= -5.5F, "the left leg " + -ahead + " px ahead");
+            assertEquals(4.2F, p.head().y, 1e-4F);
+            assertEquals(0F, p.head().z, 1e-4F);
+            // the trunk nearly upright, its end at the hips
+            assertEquals(Math.toRadians(10), p.body().xRot, 0.01);
+            org.joml.Vector3f hips = BotDeathTest.at(BotDeathTest.frame(p.body()), 0F, 12F, 0F);
+            assertEquals(hips.y, p.rightLeg().y, 0.1F);
+            assertEquals(hips.z, p.rightLeg().z, 0.15F);
         }
+    }
+
+    @Test
+    void crouchedStartingOrStoppingNoLegGoesIntoTheGround() {
+        // between down on a knee and the walk bent low (0.01 to 0.05 blocks a tick) the two are mixed, and a mix of two
+        // poses that each stand on the ground does not: the legs are lifted to it
+        for (float speed = 0.01F; speed <= 0.0501F; speed += 0.004F)
+            for (int i = 0; i < 16; i++) {
+                BotPoser.Parts p = posed(1F, speed, 0F, Math.min(1F, speed * 4F), BotPoser.CYCLE * i / 16F);
+                float r = lowest(p.rightLeg(), p.rightShin()), l = lowest(p.leftLeg(), p.leftShin());
+                assertTrue(Math.min(r, l) >= -0.05F && Math.min(r, l) <= 1.5F,
+                        "speed " + speed + " at " + i / 16F + ": the legs' lowest points " + r + " and " + l + " px over the ground");
+                assertEquals(4.2F, p.head().y, 1e-4F);
+            }
+    }
+
+    @Test
+    void theCrouchComesAndGoesWithTheFeetNearTheGround() {
+        // standing up or going down, at a stand and walking: the legs' lowest point never far off the ground, never
+        // deep under it (4 ticks of it)
+        for (float speed : new float[] { 0F, 0.19F })
+            for (float c = 0F; c <= 1F; c += 0.05F)
+                for (int i = 0; i < 8; i++) {
+                    BotPoser.Parts p = posed(c, speed, 0F, Math.min(1F, speed * 4F), BotPoser.CYCLE * i / 8F);
+                    float low = Math.min(lowest(p.rightLeg(), p.rightShin()), lowest(p.leftLeg(), p.leftShin()));
+                    assertTrue(low <= 1.6F && low >= -1.6F, "crouch " + c + " speed " + speed + " at " + i / 8F + ": the lower leg " + low + " px over the ground");
+                }
     }
 
     @Test
@@ -114,12 +188,80 @@ class BotLegsTest {
 
     @Test
     void standingStillBothFeetStand() {
-        // still, whatever the phase it stopped at: both shins as the thighs (no bend left by a step)
+        // still and calm, whatever the phase it stopped at: both shins as the thighs (no bend left by a step), the
+        // feet together
         for (int i = 0; i < 8; i++) {
-            BotPoser.Parts p = posed(0F, 0F, 0F, 0F, BotPoser.CYCLE * i / 8F);
+            BotPoser.Parts p = BotPoserTest.parts();
+            BotPoser.apply(p, BotMoveClipsTest.calm(0F, 0F), 0F, 0F, BotPoser.CYCLE * i / 8F);
             assertEquals(0F, p.rightShin().xRot, 1e-3F, "at " + i / 8F);
             assertEquals(0F, p.leftShin().xRot, 1e-3F, "at " + i / 8F);
+            assertEquals(0F, p.rightLeg().xRot, 1e-3F, "at " + i / 8F);
         }
+    }
+
+    @Test
+    void inAFightItStandsWithAFootAheadAndAFootBack() {
+        for (int i = 0; i < 8; i++) {
+            BotPoser.Parts p = posed(0F, 0F, 0F, 0F, BotPoser.CYCLE * i / 8F);
+            org.joml.Vector3f rf = BotLegsReplayTest.footAt(p.rightLeg(), p.rightShin()), lf = BotLegsReplayTest.footAt(p.leftLeg(), p.leftShin());
+            assertTrue(rf.z - lf.z > 4F, "the feet " + (rf.z - lf.z) + " px apart, the left ahead");
+            float r = lowest(p.rightLeg(), p.rightShin()), l = lowest(p.leftLeg(), p.leftShin());
+            assertTrue(Math.abs(r) <= 0.4F && Math.abs(l) <= 0.4F, "the legs' lowest points " + r + " and " + l + " px over the ground");
+            assertEquals(0F, new org.joml.Vector3f(p.head().x, p.head().y, p.head().z).length(), 1e-4F, "the head where it was");
+        }
+        // walking, crouched or calm: no stance
+        assertEquals(0F, posed(1F, 0F, 0F, 0F, 0F).rightLeg().xRot, 0.05F);
+        BotPoser.Parts walking = posed(0F, 0.15F, 0F, 0.6F, BotPoser.CYCLE / 4F);
+        assertTrue(Math.abs(walking.rightLeg().xRot - walking.leftLeg().xRot) < 0.06F, "walking, the legs pass each other as the clips have them");
+    }
+
+    @Test
+    void inTheAirTheLegsAreTheJumps() {
+        BotClip jump = BotClips.get(BotClips.JUMP);
+        float[] want = new float[3];
+        BotAnimator.Frame f = new BotAnimator.Frame(0F, 0F, BotMoveClipsTest.HOLD, null, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0, 0.1F, 0F, -1F,
+                0.4F, 0F, 1F, 1F);
+        BotPoser.Parts p = BotPoserTest.parts();
+        BotPoser.apply(p, f, 0F, 0.4F, 0F);
+        for (String bone : BotPoser.LEGS) {
+            jump.rotation(bone, 0F, want);
+            assertEquals(want[0] * Mth.DEG_TO_RAD, p.get(bone).xRot, 1e-3F, bone);
+        }
+        assertTrue(p.leftShin().xRot > 0.5F, "a knee drawn up: the left shin bent " + p.leftShin().xRot);
+        // stepping down a slab or a stair (4 ticks off the ground, never going up) the legs keep their step
+        BotAnimator a = new BotAnimator();
+        a.fly(false, 0, 0);
+        for (int t = 1; t <= 4; t++) a.fly(true, -0.1, t);
+        assertEquals(0F, a.air, 1e-6F);
+        a.fly(false, 0, 5);
+        // a jump (going up) brings them in at once, and they stay in over its top and on its way down
+        a.fly(true, 0.42, 6);
+        assertTrue(a.air > 0F, "the first tick of a jump: " + a.air);
+        a.fly(true, 0.33, 7);
+        a.fly(true, 0.25, 8);
+        a.fly(true, 0.0005, 9);
+        for (int t = 10; t <= 13; t++) a.fly(true, -0.2, t);
+        assertEquals(1F, a.air, 1e-6F);
+        a.fly(false, 0, 14);
+        assertTrue(a.air < 1F && a.air > 0F, "landing, the legs come back over a few ticks: " + a.air);
+        for (int t = 15; t <= 18; t++) a.fly(false, 0, t);
+        assertEquals(0F, a.air, 1e-6F);
+        // a fall off a ledge: from the fifth tick of it
+        for (int t = 19; t <= 22; t++) a.fly(true, -0.3, t);
+        assertEquals(0F, a.air, 1e-6F);
+        a.fly(true, -0.5, 23);
+        assertTrue(a.air > 0F, "a fall of a block and more: " + a.air);
+        // a mob the client has just begun to see, standing still: the game has it off the ground till its first move
+        // comes; it stands
+        BotAnimator seen = new BotAnimator();
+        for (int t = 0; t <= 60; t++) {
+            seen.fly(true, 0, t);
+            assertEquals(0F, seen.air, 1e-6F, "standing still, said to be off the ground, at tick " + t);
+        }
+        // and one first seen falling is falling
+        BotAnimator falling = new BotAnimator();
+        falling.fly(true, -0.4, 0);
+        assertEquals(1F, falling.air, 1e-6F);
     }
 
     @Test

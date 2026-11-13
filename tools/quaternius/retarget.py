@@ -1,4 +1,5 @@
-"""Retarget Quaternius UAL clips onto the six parts of a Minecraft HumanoidModel.
+"""Retarget free humanoid clips (Quaternius UAL and SWAT, KayKit) onto the ten parts of the AI mobs' model
+(convert10, below; the six parts of a plain HumanoidModel, described here, are kept for the picker page).
 
 Run:  python3 -I tools/quaternius/retarget.py [--choices anim-choices.json] <animations dir> <check.json> TAG=<file.glb> ...
       (TAG: a key of PACKS — UAL1, UAL2, KK_RANGED, ..., SWAT; --choices: the owner's pick per clip from the
@@ -134,7 +135,8 @@ SELECTED = {
     "KK_MOVE_BASIC": ["Walking_A", "Running_A"],
     "KK_SIM": ["Lie_Down", "Lie_Idle", "Lie_StandUp", "Waving"],
     "SWAT": ["CharacterArmature|Idle_Gun", "CharacterArmature|Idle_Gun_Pointing", "CharacterArmature|Idle_Gun_Shoot",
-             "CharacterArmature|Gun_Shoot", "CharacterArmature|Run_Shoot", "CharacterArmature|Wave"],
+             "CharacterArmature|Gun_Shoot", "CharacterArmature|Run_Shoot", "CharacterArmature|Wave",
+             "CharacterArmature|HitRecieve", "CharacterArmature|HitRecieve_2"],
     "UAL1": [
         "Idle_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop", "Crouch_Idle_Loop", "Crouch_Fwd_Loop",
         "Pistol_Idle_Loop", "Pistol_Aim_Neutral", "Pistol_Aim_Up", "Pistol_Aim_Down", "Pistol_Shoot",

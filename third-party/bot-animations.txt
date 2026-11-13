@@ -2,18 +2,26 @@ AI mob animations
 =================
 
 The clips AI mobs play (src/main/resources/assets/ntmgunfeel/animations/bot.animation.json) are carried over
-from these packs onto Minecraft's six-part humanoid model by tools/quaternius/retarget.py:
+from these packs onto the AI mobs' model (Minecraft's humanoid, its arms and legs cut at the elbow and the knee:
+ten parts) by tools/quaternius/retarget.py, and picked and fitted by tools/quaternius/bot_clips.py:
 
   Universal Animation Library and Universal Animation Library 2 by Quaternius
     https://quaternius.itch.io/universal-animation-library
     https://quaternius.itch.io/universal-animation-library-2
     Idle_Loop, Hit_Chest, Hit_Head, OverhandThrow, Walk_Loop, Jog_Fwd_Loop, Sprint_Loop, Roll, Slide_Start,
-    Slide_Exit
+    Slide_Exit, Jump_Loop, Interact, Fixing_Kneeling
   KayKit : Character Animations 1.1 by Kay Lousberg (www.kaylousberg.com)
     https://kaylousberg.itch.io/kaykit-character-animations
-    Waving, Walking_Backwards, Running_Strafe_Left, Running_Strafe_Right, Ranged_2H_Reload, Death_A, Hit_B
+    Waving, Walking_Backwards, Running_Strafe_Left, Running_Strafe_Right, Ranged_2H_Reload, Death_A, Hit_B,
+    Crouching
+  SWAT by Quaternius
+    https://poly.pizza/m/Btfn3G5Xv4
+    HitRecieve, HitRecieve_2
 
 License: Creative Commons Zero (CC0 1.0 Universal), public domain dedication
          https://creativecommons.org/publicdomain/zero/1.0/
 No credit is required; it is given here with thanks. The clips were changed: turned into Minecraft's part
-rotations, keys thinned, and split into upper and lower halves; Slide_Start and Slide_Exit cut and joined into one slide.
+rotations, keys thinned, and split into upper and lower halves; Slide_Start and Slide_Exit cut and joined into one
+slide; Crouching and Fixing_Kneeling moved till the head is where the game keeps a crouching mob's eye, their legs
+bent again to stand on the ground (of Fixing_Kneeling one frame is kept: which knee is down and how far apart the
+feet are; the trunk is set upright).
