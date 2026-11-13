@@ -410,9 +410,13 @@ neoForge {
             providers.gradleProperty("balanceShare").orNull?.let { systemProperty("ntmgunfeel.checkBalance.share", it) }
             providers.gradleProperty("balanceShareKeys").orNull?.let { systemProperty("ntmgunfeel.checkBalance.shareKeys", it) }
             providers.gradleProperty("balanceShareDist").orNull?.let { systemProperty("ntmgunfeel.checkBalance.shareDist", it) }
-            providers.gradleProperty("balanceShareCrouch").orNull?.let { systemProperty("ntmgunfeel.checkBalance.shareCrouch", it) }
+            // -PbalanceCellsHome=true: the pass mx at the role's working distance, aimed, the range rule on (Fable №2, stage 5)
+            providers.gradleProperty("balanceCellsHome").orNull?.let { systemProperty("ntmgunfeel.checkBalance.cellsHome", it) }
+            providers.gradleProperty("balanceCellsDist").orNull?.let { systemProperty("ntmgunfeel.checkBalance.cellsDist", it) }
+            providers.gradleProperty("balanceCellsClicks").orNull?.let { systemProperty("ntmgunfeel.checkBalance.cellsClicks", it) }
             // -PbalanceTestLog=true: the server's test log on (each shot's spread), each pass marked in it
             providers.gradleProperty("balanceTestLog").orNull?.let { systemProperty("ntmgunfeel.checkBalance.testLog", it) }
+            providers.gradleProperty("balanceShareCrouch").orNull?.let { systemProperty("ntmgunfeel.checkBalance.shareCrouch", it) }
             // -PbalanceShareShots=<n>: projectiles an aimed cell of the pass "ps" (from the hip half), in place of 200
             providers.gradleProperty("balanceShareShots").orNull?.let { systemProperty("ntmgunfeel.checkBalance.shareShots", it) }
             // -PbalanceFinal=true: the passes with the final scheme on (balance.final; by default off: they check X908's machine)

@@ -808,10 +808,16 @@ public final class BalanceCheck {
      */
     /** -PbalanceCellHits: each hit of the cells logged */
     private static boolean mxLog;
+    /**
+     * -PbalanceCellsHome=true (Fable №2, stage 5): the pass mx at the role's working distance (homeOf), aimed, the range
+     * rule on, the clicks at the gun's own pace (matrixHomeCell); -PbalanceCellsDist=<blocks> one distance for all
+     */
+    private static boolean mxHome;
 
     private static void planMatrix() {
         String file = System.getProperty("ntmgunfeel.checkBalance.cells", "").trim();
         mxLog = Boolean.getBoolean("ntmgunfeel.checkBalance.cellHits");
+        mxHome = Boolean.getBoolean("ntmgunfeel.checkBalance.cellsHome");
         if (file.isEmpty()) return;
         List<Cell> cells = new ArrayList<>();
         // lines "key name value": server keys for the cells after it (a cell "key" line in place of a cell)
@@ -834,9 +840,15 @@ public final class BalanceCheck {
                     "balance.immune.fau.mode", "pool", "balance.immune.mode", "pool", "balance.immune.pool", "0.0001", "balance.immune.window", "600",
                     "balance.immune.recover", "1", "balance.immune.dns.pool", "0.0001", "balance.immune.dns.window", "600", "balance.immune.dns.recover", "1",
                     "balance.immune.fau.pool", "0.0001", "balance.immune.fau.window", "600", "balance.immune.fau.recover", "1",
-                    // the model's clicks are at the role's own distance, the stand's at 4 blocks: no range rule (pass rg has it)
-                    "balance.final.range", "off");
-            eachLane(() -> L.shooter.setInvulnerable(true));
+                    // the model's clicks are at the role's own distance, the stand's at 4 blocks: no range rule (pass rg has it);
+                    // at the role's distance (mxHome) the rule on
+                    "balance.final.range", mxHome ? BalanceRangeRule.LINES : "off");
+            airClicks = 0;
+            eachLane(() -> {
+                L.shooter.setInvulnerable(true);
+                if (mxHome) for (int cx = (L.o.getX() - 8) >> 4; cx <= (L.o.getX() + 8) >> 4; cx++)
+                    for (int cz = (L.o.getZ() - 8) >> 4; cz <= (L.o.getZ() + 40) >> 4; cz++) level.setChunkForced(cx, cz, true);
+            });
         });
         wait(30);
         // the cells between two key lines go to the lanes; a key line is the server's: all lanes wait for it
@@ -859,10 +871,13 @@ public final class BalanceCheck {
                 line("mx\t" + id + "\tнет патрона");
                 continue;
             }
-            run.add(() -> matrixCell(cell, gun, ammo, id));
+            var pr = mxHome ? BalanceFinal.pairs().get(cell.gun() + "." + cell.ammo()) : null;
+            if (pr != null) run.add(() -> matrixHomeCell(cell, gun, ammo, id, pr));
+            else run.add(() -> matrixCell(cell, gun, ammo, id));
         }
         parallel(run);
         STEPS.add(() -> {
+            if (mxHome) check(airClicks == 0, "mx: стрелок на земле на каждом клике (в воздухе " + airClicks + ")");
             keys("balance.immune.pool", "150", "balance.immune.window", "15", "balance.immune.recover", "60", "balance.immune.dns.mode", "formula",
                     "balance.immune.fau.mode", "formula", "balance.immune.dns.pool", "40", "balance.immune.dns.window", "15", "balance.immune.dns.recover", "60",
                     "balance.immune.fau.pool", "45", "balance.immune.fau.window", "15", "balance.immune.fau.recover", "60", "balance.final.range",
@@ -874,6 +889,83 @@ public final class BalanceCheck {
             });
         });
         wait(30);
+    }
+
+    /** the pass mx at the role's distance: the target {@code d} blocks off on a floor (at 4 blocks: homePool's place) */
+    private static void mxPlace(int d) {
+        if (d == (int) DIST) return;
+        for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlockAndUpdate(L.o.offset(x, -1, d + z), Blocks.STONE.defaultBlockState());
+        L.target.setDeltaMovement(Vec3.ZERO);
+        L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + d, 180F, 0F);
+    }
+
+    /**
+     * A cell of the pass mx at the role's working distance (mxHome): the shooter aimed, standing, both guns of akimbo;
+     * the clicks at the pair's interval, as held in a fight (an automatic's bloom as in the pass ps): at least 3, an
+     * automatic at least 3 s, at least 30 projectiles, a pair of a share of hits under 0.97 at least 100, Trenchmaster at
+     * least 9 clicks; the target's health put back every tick and what it lost summed. A set with the pool (euphemium, DNS, FAU): a click
+     * first that empties it (not counted). A line: what a click took, its hits, the clicks, the distance.
+     */
+    private static void matrixHomeCell(Cell cell, Item gun, BulletConfig ammo, String id, BalanceFinalRule.Pair pr) {
+        float[] took = {0F};
+        int[] hitsSeen = {0};
+        // a set with the pool (euphemium, DNS, FAU): a click first that empties it, or the cell's first hit goes into it
+        boolean pool = java.util.Arrays.stream(EuphImmunity.Kit.values()).anyMatch(k -> k.set.equals(cell.set()));
+        // -PbalanceCellsDist=<blocks>: one distance for all in place of the role's
+        int d = Integer.getInteger(PROPERTY + ".cellsDist", homeOf(pr)), iv = Math.max(1, BalanceFinalRule.intervalTicks(pr));
+        int n = 3;
+        if (pr.auto()) n = Math.max(n, (int) Math.ceil(60.0 / iv));
+        // a share of 0.90 and above is written as 1.00: a miss in 3 clicks would be a third of the cell
+        n = Math.max(n, (int) Math.ceil(30 / pr.projectiles()));
+        if (pr.p() < 0.97) n = Math.max(n, (int) Math.ceil(100 / pr.projectiles()));
+        if (cell.set().equals("trenchmaster")) n = Math.max(n, 9);
+        // -PbalanceCellsClicks=<n>: this many clicks a cell (a held burst's length)
+        int clicks = Integer.getInteger(PROPERTY + ".cellsClicks", n);
+        STEPS.add(() -> {
+            begin(L.target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            if (!cell.set().isEmpty()) dress(L.target, cell.set(), true);
+            wearAttributes(L.target);
+            EuphImmunity.forget(L.target);
+            homePool();
+            mxPlace(d);
+            L.aimHead = cell.head();
+        });
+        // the bloom of the cell before gone (it halves every 5 ticks)
+        wait(40);
+        if (pool) {
+            STEPS.add(() -> {
+                mxPlace(d);
+                fireAimed(L.shooter, gun, ammo, pr.hands() > 1);
+            });
+            wait(SPACING + 10);
+        }
+        STEPS.add(() -> {
+            L.target.setHealth(L.target.getMaxHealth());
+            L.target.setAbsorptionAmount(0F);
+            DamageCap.forget(L.target);
+            took[0] = 0F;
+            hitsSeen[0] = L.seen.hits;
+        });
+        int ticks = clicks * iv + SPACING + 10;
+        for (int t = 0; t < ticks; t++) {
+            boolean fire = t % iv == 0 && t / iv < clicks;
+            STEPS.add(() -> {
+                took[0] += Math.max(0F, L.target.getMaxHealth() - Math.max(0F, L.target.getHealth()));
+                L.target.setHealth(L.target.getMaxHealth());
+                L.target.setAbsorptionAmount(0F);
+                DamageCap.forget(L.target);
+                mxPlace(d);
+                if (fire && Spread.inAir(L.shooter)) airClicks++;
+                if (fire) fireAimed(L.shooter, gun, ammo, pr.hands() > 1);
+            });
+        }
+        STEPS.add(() -> {
+            took[0] += Math.max(0F, L.target.getMaxHealth() - Math.max(0F, L.target.getHealth()));
+            L.target.setHealth(L.target.getMaxHealth());
+            L.aimHead = false;
+            line("mx\t" + id + "\t" + String.format(Locale.ROOT, "%.5f", took[0] / clicks) + "\t" + f((L.seen.hits - hitsSeen[0]) / (float) clicks) + "\t" + clicks + "\t" + d);
+        });
     }
 
     /** a cell of the pass mx: three clicks from full health, what a click took and its hits */

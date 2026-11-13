@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+- Fable's second review of the balance (`balance.final`, each rule its own
+  key, its old behaviour a value of it). The share of hits of every pair is
+  now one measure from the stand (`balance.final.hits`): the shooter aimed and
+  standing, the target at the role's working distance, an automatic in a held
+  burst; one share for a gun and its ammo's spread. The miniguns hit 0.87 of
+  a held burst at 12 blocks, all of it at 4 and a little over half at 20.
+- Shotguns kill their equal in two clicks (`balance.final.roles` shotgun 0.35,
+  fading to nothing two tiers up, `balance.final.roles.fade`); the Shredder
+  counts as a shotgun (`balance.final.roleOf`). Shot loses damage past 16
+  blocks, slugs past 24, beams only past 64 (`balance.final.range`); an
+  explosive shell's direct hit takes its role's line
+  (`balance.final.range.shells`).
+- Beams no longer take longer than bullets (`balance.final.energy` 1.0); no
+  set is weaker against beams (the -1 of steel and the like is gone);
+  Trenchmaster is tier 6, its blocked third of hits counted on top. The
+  magazine's rule never cuts a fight below 0.65 of its time; a tier of few
+  pairs takes no raw-DPS character (`balance.final.character.few`); an empty
+  slot of a mixed set counts as nothing.
+- The Tesla Cannon's IR beam does a click of its pair on anyone the click's
+  arc did not strike (`balance.final.tesla.ir`).
+- The acid's corrosion takes the set's tier down (`balance.final.acid`): HEV
+  at full corrosion as T-51, BJ two thirds of a tier, FAU and up untouched,
+  never below bare.
+  The mod's gas on FAU, DNS or euphemium drains the pool HP for HP, like a
+  shot (`balance.final.pools.gas`). The GL-54's range finder does not measure
+  through thick smoke (`gl54.rangeSmoke`).
+
 ## X922
 
 - Fable's review of the balance (`balance.final`, each rule its own key, its
