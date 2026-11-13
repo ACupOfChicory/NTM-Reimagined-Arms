@@ -84,6 +84,8 @@ final class BotStand {
     private static long until, measuring, last;
     private static int samples, frameNo;
     private static volatile Mob one;
+    /** the husk of the armour's part (a mob of vanilla's model beside the agent), null out of it */
+    private static volatile Mob husk;
     private static final List<Mob> crowd = new ArrayList<>();
     /** the case's pose, from this game tick */
     private static volatile AiPose posed = AiPose.IDLE;
@@ -294,23 +296,41 @@ final class BotStand {
 
     /** the grid over the agent as the client draws it (its armour too); {@code watched}: with the H3 line */
     private static void grid(String name, float yaw, boolean watched) {
-        var seenBy = mc().level.getEntity(one.getId());
+        grid(name, yaw, watched, one, true);
+    }
+
+    /**
+     * the same over {@code who}; {@code strict}: every zone as drawn (the agent), or the suit's rays alone (the husk:
+     * a mob of vanilla's model, as a player's, its zones grown under the armour)
+     */
+    /** the sets of BotStandHits.LOADOUTS NTM draws by a suit's own model (CMB, Euphemium and Schrabidium are layers) */
+    private static final java.util.Set<String> OWN_MODEL = java.util.Set.of("T51", "HEV", "AJR", "NCRPA", "BJ", "RPA", "DNS", "FAU",
+            "TRENCH", "STEAM", "ENV", "BISMUTH", "TAURUN", "DIESEL");
+
+    private static void grid(String name, float yaw, boolean watched, Mob who, boolean strict) {
+        var seenBy = mc().level.getEntity(who.getId());
         var drawn = seenBy == null ? List.<ModelBox>of() : ModelHits.worldBoxes(seenBy);
         if (drawn.isEmpty()) {
             ClientSmoke.check(false, name + " поворот " + yaw + ": клиент не нарисовал модель");
             return;
         }
-        var rays = BotStandHits.grid(drawn, one.getBoundingBox(), yaw);
+        var rays = BotStandHits.grid(drawn, who.getBoundingBox(), yaw);
         var server = mc().getSingleplayerServer();
         BotStandHits.Grid[] got = new BotStandHits.Grid[1];
-        server.submit(() -> got[0] = BotStandHits.server((Mob) server.overworld().getEntity(one.getId()), rays)).join();
+        server.submit(() -> got[0] = BotStandHits.server((Mob) server.overworld().getEntity(who.getId()), rays)).join();
         var g = got[0];
-        // T-51 on the agent: its suit's arms, legs and chest are not the agent's split limbs (zones apart: written down);
-        // its helmet is checked, every ray on it the head
-        boolean suit = name.endsWith("T51");
-        if (suit) ClientSmoke.check(g.helmets() > 0 && g.helmetsWrong() == 0, String.format(Locale.ROOT, "сетка %s поворот %.0f: шлем — голова у сервера, %d лучей из %d",
+        // a suit of its own model: every ray on its helmet the head, and the rays on it in the part its piece covers
+        // (a mob that is not the bot: its server pose is a step off the drawn one, a ray in 200 on the helmet's edge may miss it)
+        if (g.helmets() > 0) ClientSmoke.check(g.helmetsWrong() <= (strict ? 0 : g.helmets() / 200), String.format(Locale.ROOT, "сетка %s поворот %.0f: шлем — голова у сервера, %d лучей из %d",
                 name, yaw, g.helmets() - g.helmetsWrong(), g.helmets()));
-        ClientSmoke.check(g.inHit() >= 0.99 && g.outHit() <= 0.01 && (suit || g.zoneSame() >= 0.99), String.format(Locale.ROOT,
+        // a set NTM draws by its own model must show it (a renamed group or a model not loaded leaves no rays on it)
+        if (OWN_MODEL.contains(name.substring(name.lastIndexOf(' ') + 1)))
+            ClientSmoke.check(g.suit() > 0, String.format(Locale.ROOT, "сетка %s поворот %.0f: лучи по костюму есть (%d)", name, yaw, g.suit()));
+        if (g.suit() > 0) ClientSmoke.check(g.suitWrong() <= g.suit() / 100, String.format(Locale.ROOT, "сетка %s поворот %.0f: костюм, лучей по нему %d, не в той зоне %d (%.2f%%)",
+                name, yaw, g.suit(), g.suitWrong(), 100.0 * g.suitWrong() / g.suit()));
+        if (g.suit() > 0) ROWS.add(String.format(Locale.ROOT, "костюм\t%s\t%.0f\tлучей %d\tне в той зоне %d\t%.2f%%", name, yaw, g.suit(), g.suitWrong(),
+                g.suit() == 0 ? 0 : 100.0 * g.suitWrong() / g.suit()));
+        ClientSmoke.check(g.inHit() >= 0.99 && g.outHit() <= 0.01 && (!strict || g.zoneSame() >= 0.99), String.format(Locale.ROOT,
                 "сетка %s поворот %.0f: по модели попаданий %.2f%% из %d, мимо модели %.2f%% из %d, та же зона %.2f%% %s;"
                         + " без точных хитбоксов (коробка): %.1f%% и %.1f%%",
                 name, yaw, g.inHit() * 100, g.in(), g.outHit() * 100, g.out(), g.zoneSame() * 100, g.wrong(), g.boxIn() * 100, g.boxOut() * 100));
@@ -383,6 +403,18 @@ final class BotStand {
             m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(1000);
             m.setInvulnerable(false);
             BotStandHits.wear(m, BotStandHits.LOADOUTS[0]);
+            // a husk beside it in the same loadout: a mob of vanilla's model (a player's), the suit's zones off the bots' path
+            var h = net.minecraft.world.entity.EntityTypes.HUSK.create(server.overworld(), EntitySpawnReason.COMMAND);
+            h.snapTo(3.5, O.getY(), 4.5, 180F, 0F);
+            h.setYBodyRot(180F);
+            h.setYHeadRot(180F);
+            h.setNoAi(true);
+            h.setInvulnerable(true);
+            h.setSilent(true);
+            h.setPersistenceRequired();
+            server.overworld().addFreshEntity(h);
+            BotStandHits.wear(h, BotStandHits.LOADOUTS[0]);
+            husk = h;
         }).join();
         loadout = 0;
         until = now() + 30;
@@ -445,8 +477,12 @@ final class BotStand {
             }
             ClientSmoke.check(true, "урон " + l.name() + ": DT/DR " + dtdr + ", ванильная броня/прочность " + armor + ", карабин " + carbine);
             m.setHealth(1000);
-            if (loadout + 1 < BotStandHits.LOADOUTS.length) BotStandHits.wear(m, BotStandHits.LOADOUTS[loadout + 1]);
-            else {
+            if (loadout + 1 < BotStandHits.LOADOUTS.length) {
+                BotStandHits.wear(m, BotStandHits.LOADOUTS[loadout + 1]);
+                if (husk != null) BotStandHits.wear(husk, BotStandHits.LOADOUTS[loadout + 1]);
+            } else {
+                if (husk != null) husk.discard();
+                husk = null;
                 BotStandHits.wear(m, BotStandHits.LOADOUTS[0]);
                 m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(agentHealth);
                 m.setHealth((float) agentHealth);
@@ -468,12 +504,15 @@ final class BotStand {
      */
     private static void armour(BotStandHits.Loadout l) {
         grid("броня " + l.name(), 180F, false);
+        if (husk != null) grid("кадавр " + l.name(), 180F, false, husk, false);
         var server = mc().getSingleplayerServer();
         List<BotStandHits.Edge> edges = new ArrayList<>();
         String[][] zones = new String[2][];
+        boolean[] suitHelmet = {false};
         server.submit(() -> {
             Mob m = (Mob) server.overworld().getEntity(one.getId());
             var boxes = ModelHits.worldBoxes(m);
+            for (var b : boxes) if (ModelHits.suitSlot(b.part()) == 0) suitHelmet[0] = true;
             var sizes = BotStandHits.sizes(boxes, 180F);
             ClientSmoke.check(true, "броня " + l.name() + " (сведения), px поперёк×вверх×вдоль: " + sizes);
             ROWS.add("размеры\t" + l.name() + "\t" + sizes);
@@ -490,8 +529,9 @@ final class BotStand {
             var e = edges.get(i);
             String[] client = seenBy == null ? new String[] { "нет моба", "" } : edgeZone(seenBy, e), at = zones[i];
             // a helmet: the head; nothing worn: past the head; a glass block: written down
-            // (a suit's own helmet, T-51's, stands lower than a layer's: half a pixel over the head may pass it by)
-            boolean helmet = l.head() != null && !l.head().getPath().equals("glass") && !l.head().getPath().equals("t51_helmet");
+            // a layer's helmet: half a pixel past the head is on it; a suit's own (T-51's stands lower) may pass it by:
+            // the server as the client there
+            boolean helmet = l.head() != null && !l.head().getPath().equals("glass") && !suitHelmet[0];
             boolean ok = client[0].equals(at[0]) && (helmet ? at[0].equals("head") : l.head() == null ? at[0].equals("мимо") : true);
             ClientSmoke.check(ok, String.format(Locale.ROOT, "шлем %s, выстрел %s: сервер %s%s, клиент %s%s", l.name(), e.name(), at[0], at[1],
                     client[0], client[1]));

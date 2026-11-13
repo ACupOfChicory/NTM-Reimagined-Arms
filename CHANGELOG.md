@@ -1,5 +1,14 @@
 # Changelog
 
+## X981
+
+- A shot on an NTM suit's own model counts for the part its piece covers,
+  on bots, mobs and players: the chest's collar and breastplate are the body,
+  the shoulder pads, sleeves, legs and boots a limb. Up to half the shots on
+  a T-51, HEV, AJR, NCR, BJ, FAU, Trenchmaster or another such suit landed in
+  the wrong part, the shoulder pads in the head (`modelHitboxesSuits`; false:
+  as before).
+
 ## X977
 
 - The Shredder's damage falls off with range as the laser guns' does: full
