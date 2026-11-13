@@ -524,14 +524,34 @@ tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.addAll(listOf("-proc:none", "-nowarn"))
 }
 
+// test: every test but the slow ones (@Tag("slow")), on every build; slowTest: the slow ones only, before a merge into
+// main. The two together run every test.
+val slowTest = tasks.register<Test>("slowTest") {
+    group = "verification"
+    description = "Runs the tests too slow for every build (@Tag(\"slow\")): ./gradlew build slowTest runs every test."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags("slow") }
+    shouldRunAfter(tasks.test)
+}
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform { excludeTags("slow") }
+    // test JVMs side by side, each some 400 MB (up to 512 MB of heap): three while the machine keeps 5 GB free after them,
+    // fewer when it would not (one without /proc/meminfo); -PtestForks=<n> sets it
+    maxParallelForks = providers.gradleProperty("testForks").orNull?.toInt() ?: run {
+        val freeMb = runCatching {
+            File("/proc/meminfo").readLines().first { it.startsWith("MemAvailable:") }.split(Regex("\\s+"))[1].toLong() / 1024
+        }.getOrNull()
+        if (freeMb == null) 1 else ((freeMb - 5 * 1024) / 600).toInt().coerceIn(1, 3)
+    }
     providers.gradleProperty("headDataset").orNull?.let {
         systemProperty("ntmgunfeel.headDataset",it)
         inputs.file(file(it).resolve("index.json"))
         inputs.dir(file(it).resolve("samples"))
         outputs.file(file(it).resolve("research/oracle.json"))
     }
+}
+tasks.withType<Test>().configureEach {
     // the tests read src/main/resources and src/test/pinned from the repository root
     workingDir = root
     inputs.property("pinUpdate", providers.environmentVariable("PIN_UPDATE").orElse(""))
