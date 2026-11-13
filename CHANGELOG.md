@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- The STG-77 no longer shakes while it is raised to the scope. Its model
+  zooms in as it comes up, and that zoom was worked out with the previous
+  frame's timing: across each game tick it jumped a tick ahead, then back.
+  At a steady high frame rate this was hardly seen; when the frame rate
+  varied (a fight, smoke, many particles) the model jerked back and forth.
+
 ## X949
 
 - AI soldiers change low cover as they do high cover: after two or three
