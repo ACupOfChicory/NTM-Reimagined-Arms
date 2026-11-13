@@ -14,6 +14,9 @@
   one: the two stand beside the doorway on the near side, out of the line
   through it, then go in together, each to its own side (with `aiEntry`
   on). They used to walk in through the doorway one after the other.
+
+## X1025
+
 - AI soldiers go into a room together. The ones that go after a target lost
   in a building no longer walk in through the doorway one after another:
   they come up beside it, behind the wall and out of the line through it,
@@ -29,6 +32,21 @@
   up to its door. New server settings `aiRoomsShell` (true by default) and
   the block lists `aiRoomsNatural`, `aiRoomsDwelling`, `aiRoomsWild` (ids,
   `#tags`, `~patterns`).
+
+## X1021
+
+- An NTM suit drawn by its own model (HEV, T-51, AJR and the rest) bends with
+  an FBI agent's or a test dummy's knees and elbows: what is below the knee or
+  the elbow, the boots too, goes with the shin or the forearm instead of
+  sticking out straight from the thigh or the upper arm, and a band across the
+  joint closes the bend, so the body does not show through it. The shots on the
+  suit follow its parts as drawn. Players are not changed.
+
+## X1017
+
+- The 12 gauge electroshock shell stuns: 80 % slower at full instead of 40 %,
+  and a player's view narrows by a fifth, not as far as the game would narrow
+  it for such a slowing.
 
 ## X1014
 

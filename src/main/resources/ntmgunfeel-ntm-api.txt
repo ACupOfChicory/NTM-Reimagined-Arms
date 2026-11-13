@@ -922,9 +922,11 @@ MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDI)Lcom/hbm/r
 MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDILcom/hbm/render/anim/BusAnimationKeyframe$IType;)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence hold (I)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence setPos (DDD)Lcom/hbm/render/anim/BusAnimationSequence;
+MOB_AI class com/hbm/client/render/ArmorWorldRenderer$Bone
 MOB_AI class com/hbm/entity/grenade/EntityGrenadeUniversal
 MOB_AI class com/hbm/entity/projectile/EntityThrowableNT
 MOB_AI class com/hbm/handler/HbmKeybinds$EnumKeybind
+MOB_AI class com/hbm/interfaces/injected/IBufferBuilderExtension
 MOB_AI class com/hbm/items/armor/ModArmorItem
 MOB_AI class com/hbm/items/weapon/sedna/BulletConfig
 MOB_AI class com/hbm/items/weapon/sedna/ItemGunBaseNT
@@ -932,6 +934,8 @@ MOB_AI class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 MOB_AI class com/hbm/items/weapon/sedna/mags/IMagazine
 MOB_AI class com/hbm/items/weapon/sedna/mags/MagazineBelt
 MOB_AI class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
+MOB_AI class com/hbm/render/loader/GroupObject
+MOB_AI class com/hbm/render/loader/HFRWavefrontObject
 MOB_AI field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 MOB_AI field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_TERTIARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 MOB_AI field com/hbm/handler/HbmKeybinds$EnumKeybind RELOAD Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
@@ -948,7 +952,13 @@ MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/ite
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState RELOADING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 MOB_AI field com/hbm/main/ResourceManager dummy_tex Lnet/minecraft/resources/Identifier;
 MOB_AI field com/hbm/main/ResourceManager fbi_tex Lnet/minecraft/resources/Identifier;
+MOB_AI field com/hbm/render/loader/GroupObject name Ljava/lang/String;
+MOB_AI field com/hbm/render/loader/HFRWavefrontObject groups [Lcom/hbm/render/loader/GroupObject;
+MOB_AI method com/hbm/client/render/ArmorWorldRenderer$Bone name ()Ljava/lang/String;
 MOB_AI method com/hbm/entity/projectile/EntityThrowableNT setThrowableHeading (DDDFF)V
+MOB_AI method com/hbm/interfaces/injected/IBufferBuilderExtension hbm$beginBlock (I)Z
+MOB_AI method com/hbm/interfaces/injected/IBufferBuilderExtension hbm$blockVertex (FFFIFFIIFFF)V
+MOB_AI method com/hbm/interfaces/injected/IBufferBuilderExtension hbm$endBlock ()V
 MOB_AI method com/hbm/items/armor/ModArmorItem getCharge (Lnet/minecraft/world/item/ItemStack;)J
 MOB_AI method com/hbm/items/armor/ModArmorItem isPowered ()Z
 MOB_AI method com/hbm/items/armor/ModArmorItem maxPower (Lnet/minecraft/world/item/ItemStack;)J
@@ -978,6 +988,11 @@ MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine reloadAction (Lnet/minec
 MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine setAmount (Lnet/minecraft/world/item/ItemStack;I)V
 MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine setType (Lnet/minecraft/world/item/ItemStack;Ljava/lang/Object;)V
 MOB_AI method com/hbm/items/weapon/sedna/mags/MagazineBelt setMagType (Lnet/minecraft/world/item/ItemStack;I)V
+MOB_AI method com/hbm/render/loader/GroupObject <init> (Ljava/lang/String;[F[F)V
+MOB_AI method com/hbm/render/loader/GroupObject emit (Lcom/mojang/blaze3d/vertex/PoseStack$Pose;Lcom/mojang/blaze3d/vertex/VertexConsumer;IIZ)V
+MOB_AI method com/hbm/render/loader/GroupObject faceCount ()I
+MOB_AI method com/hbm/render/loader/GroupObject quads (Z)[F
+MOB_AI method com/hbm/render/loader/HFRWavefrontObject smoothing ()Z
 MODEL_HITBOXES class com/hbm/entity/mob/EntityQuackos
 MODEL_HITBOXES class com/hbm/entity/mob/glyphid/EntityGlyphid
 MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBaseMK4

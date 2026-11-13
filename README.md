@@ -66,7 +66,7 @@ page. They are alphas: expect bugs and back up your world.
   hit shocks for 2 seconds, which then wear off smoothly over 3 more: the HUD
   (other mods' too, not the chat or menus) glitches and shakes, the view
   shakes and drifts on its own, and whoever was hit, an AI soldier or any mob
-  too, walks 40 % slower (a player's view narrows, as with Slowness) and
+  too, walks 80 % slower (a player's view narrows by a fifth) and
   spreads their shots wide. Then 3 seconds of immunity. The shooter sees a
   spark at the crosshair.
 
