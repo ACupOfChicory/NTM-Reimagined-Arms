@@ -74,4 +74,22 @@ class HelmetHitTest {
         assertNull(ModelHits.suitPiece(chestOnly, "mesh/LeftLeg"));
         assertNull(ModelHits.suitPiece(chestOnly, "mesh/Head"));
     }
+
+    @Test
+    void aSuitDrawnByItsOwnModelGrowsNoZone() {
+        var all = new WornGear.Worn(WornGear.Head.ARMOR, true, true, true);
+        boolean[] ntm = {true, true, true, true};
+        // the whole suit drawn by its own model: nothing left to grow the zones by
+        var suit = List.of(HEAD, HELMET, CHEST, box("mesh/LeftLeg", 0, 0, 0, 4, 12, 4), box("mesh/RightBoot", 0, 0, 0, 4, 4, 4));
+        assertFalse(ModelHits.unsuited(all, ntm, suit).any());
+        // the chest and the helmet by their model; the legs and boots (not drawn as groups) still grow theirs
+        assertEquals(new WornGear.Worn(WornGear.Head.NONE, false, true, true), ModelHits.unsuited(all, ntm, BOXES));
+        // a group under no NTM piece (a mob's own "Head"), or no group at all: as worn
+        boolean[] notNtm = {false, true, true, true};
+        assertEquals(new WornGear.Worn(WornGear.Head.ARMOR, false, true, true), ModelHits.unsuited(all, notNtm, BOXES));
+        assertEquals(all, ModelHits.unsuited(all, ntm, List.of(HEAD)));
+        // a skull on the head is no suit's helmet
+        var skull = new WornGear.Worn(WornGear.Head.SKULL, true, false, false);
+        assertEquals(new WornGear.Worn(WornGear.Head.SKULL, false, false, false), ModelHits.unsuited(skull, ntm, BOXES));
+    }
 }

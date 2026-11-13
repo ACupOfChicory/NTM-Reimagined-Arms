@@ -11,6 +11,16 @@ public record ModelBox(String part, double x, double y, double z,
     }
     public ModelBox withMesh(long id) { return new ModelBox(part, x, y, z, ux, uy, uz, vx, vy, vz, wx, wy, wz, id); }
     public static final int MAX_PART_NAME = 64;
+
+    /**
+     * The box as ModelPosePayload carries it, its numbers in floats: the client keeps for its own hits the pose it sends,
+     * so the server's test is the client's to the bit. A shot along a face (a suit helmet's top, half a pixel over the
+     * head) went in by the doubles and past by the floats' last digit.
+     */
+    public ModelBox sent() {
+        return new ModelBox(part, (float) x, (float) y, (float) z, (float) ux, (float) uy, (float) uz, (float) vx, (float) vy, (float) vz,
+                (float) wx, (float) wy, (float) wz, mesh);
+    }
     public double[] numbers() {
         return new double[] {x, y, z, ux, uy, uz, vx, vy, vz, wx, wy, wz};
     }
