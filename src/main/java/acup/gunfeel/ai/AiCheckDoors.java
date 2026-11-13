@@ -143,19 +143,33 @@ final class AiCheckDoors {
         check.check("the room read off the map: one room of 25 cells, one way out, with a door, two cells beside it outside",
                 p.rooms() == 1 && p.size[0] == 25 && out != null && out.door && out.b == AiRooms.OUTSIDE && out.dir == Dirs.S && beside == 2);
         check.check("no building is read where there is no roof", AiRooms.of(map, BlockPos.asLong(RX, y, RZ + FROM)) == null);
+        // what /armsai debug rooms sends of this room: its cells, its way with a door, the cells beside it, the blocks of its shell
+        AiRoomsPayload view = AiDebug.rooms(map, new BlockPos(RX, y, RZ), 12, true);
+        int[] kinds = new int[8];
+        for (int i = 0; i < view.marks().length; i += AiRoomsPayload.MARK) kinds[view.marks()[i + 3] & 7]++;
+        var buf = new net.minecraft.network.RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), level.registryAccess());
+        AiRoomsPayload.CODEC.encode(buf, view);
+        AiRoomsPayload back = AiRoomsPayload.CODEC.decode(buf);
+        check.out(String.format(Locale.ROOT, "     doors, the debug view of the room: marks %d (room %d, way %d, beside %d, stairs %d, wild %d, window %d, wall %d), labels %d%s", view.count(),
+                kinds[AiRoomsPayload.ROOM], kinds[AiRoomsPayload.WAY], kinds[AiRoomsPayload.BESIDE], kinds[AiRoomsPayload.STAIRS], kinds[AiRoomsPayload.WILD],
+                kinds[AiRoomsPayload.WINDOW], kinds[AiRoomsPayload.WALL], view.labels().size(), view.labels().isEmpty() ? "" : " (\"" + view.labels().get(0).text() + "\")"));
+        check.check("the debug view of the room: 25 cells of a room, a way's cell, cells beside it, the blocks of its shell, its label; through the codec and back",
+                kinds[AiRoomsPayload.ROOM] == 25 && kinds[AiRoomsPayload.WAY] == 1 && kinds[AiRoomsPayload.BESIDE] >= 2 && kinds[AiRoomsPayload.WALL] > 50
+                        && view.labels().size() == 1 && view.labels().get(0).text().equals("1 room 25") && java.util.Arrays.equals(back.marks(), view.marks())
+                        && back.labels().equals(view.labels()));
         // what the blocks say of a place (AiBlockKinds, by the settings' lists and tags)
         String[] ids = { "minecraft:stone", "minecraft:deepslate", "minecraft:dirt", "minecraft:oak_leaves", "minecraft:iron_ore", "minecraft:stone_bricks", "minecraft:cobblestone",
                 "minecraft:oak_planks", "minecraft:glass", "hbm:reinforced_stone", "hbm:brick_concrete", "minecraft:chest", "minecraft:furnace", "minecraft:red_bed",
                 "minecraft:spawner", "minecraft:oak_door", "minecraft:torch" };
         byte[] want = { 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 0, 0, 0 };
-        String[] kinds = { "none", "natural", "built", "dwelling" };
+        String[] kindNames = { "none", "natural", "built", "dwelling" };
         StringBuilder sb = new StringBuilder();
         boolean ok = true;
         AiBlockKinds.refresh();
         for (int i = 0; i < ids.length; i++) {
             Block b = BuiltInRegistries.BLOCK.getValue(Identifier.parse(ids[i]));
             byte k = b == Blocks.AIR ? -1 : AiBlockKinds.of(b.defaultBlockState());
-            sb.append(' ').append(ids[i]).append('=').append(k < 0 ? "missing" : kinds[k]);
+            sb.append(' ').append(ids[i]).append('=').append(k < 0 ? "missing" : kindNames[k]);
             ok &= k == want[i];
         }
         check.out("     doors, what the blocks say of a place:" + sb);
