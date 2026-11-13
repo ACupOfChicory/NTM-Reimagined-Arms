@@ -43,11 +43,14 @@ import net.minecraft.world.level.block.Blocks;
 //  - the shell is in the 12 gauge magazines (the Maresleg, the SPAS-12), not in the Shredder's;
 //  - the HUD's frames: none, shocked (three, the view held still: shockCamera, shockShake 0), none again; by pixels the
 //    HUD's rows change and the sky above them does not, and the frame after the shock is the first one again;
-//  - a shell into the player: the shock by ticks (exactly shockSeconds), the spread of the Maresleg's shot (NTM's
-//    calcSpread) up by shockSpread only in that window, the client told (its shock, the view turned on its own);
+//  - a shell into the player: the shock by ticks (exactly shockSeconds at full, then ShockServer.FADE_TICKS wearing
+//    off), the spread of the Maresleg's shot (NTM's calcSpread) up by shockSpread at full, by half of it halfway through
+//    the fade, not after; the speed on the server and on the client down by ShockServer.SLOW at full, by half that
+//    halfway, as before after; the client's view narrowed (the game's FOV modifier) and back; the client told (its
+//    shock, the view turned on its own);
 //  - immunity: a shell during the shock and one after it (within shockImmunity) do nothing, one after that shocks again;
-//  - the agent: the same window of spread through NTM's calcSpread with it as the shooter, immunity, and the shooter's
-//    marks (one that shocked, one that did not).
+//  - the agent: the same spread through NTM's calcSpread with it as the shooter, its speed and its step on a path (its
+//    move control's speed) down by SLOW, immunity, and the shooter's marks (one that shocked, one that did not).
 // Lines "[shock-stand] ..." in the log, PASS/FAIL in the report, frames shock-*.png in the run dir.
 final class ShockStand {
     static final boolean ENABLED = Boolean.getBoolean("ntmgunfeel.shockStand");
@@ -70,9 +73,11 @@ final class ShockStand {
     private static int hitAt;
     private static boolean listening;
     private static final StringBuilder SERIES = new StringBuilder();
-    private static int shockedTicks, spreadTicks, firstFree;
-    private static float spread0, spreadIn, spreadOut;
+    private static int shockedTicks, firstFree;
+    private static float spreadOut;
+    // the server's ticks {tick, shocked, spread, speed}; the client's frames {server tick, its speed, its FOV modifier}
     private static final List<float[]> TICKS = new ArrayList<>();
+    private static final List<float[]> FRAMES = new ArrayList<>();
     private static int shocks0, marks0, took0;
 
     private ShockStand() {
@@ -132,6 +137,9 @@ final class ShockStand {
     static void frame() {
         Minecraft mc = Minecraft.getInstance();
         frameNo++;
+        if (watching && mc.player != null)
+            FRAMES.add(new float[] {now(), (float) mc.player.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED),
+                    mc.player.getFieldOfViewModifier(true, 1F)});
         try {
             if (now() < until) return;
             switch (step) {
@@ -188,27 +196,29 @@ final class ShockStand {
                 case 40 -> { // a shell into the player
                     shocks0 = ShockClient.shocks;
                     TICKS.clear();
+                    FRAMES.clear();
                     SERIES.setLength(0);
-                    shockedTicks = spreadTicks = 0;
+                    shockedTicks = 0;
                     firstFree = -1;
-                    spreadIn = 0F;
                     hitAt = -1;
-                    fire(false);
+                    // watched from before the shell: the ticks before the hit are the base
                     watching = true;
+                    fire(false);
                     step = 41;
-                    until = now() + 75;
+                    until = now() + 40 + ShockServer.FADE_TICKS + 35;
                 }
                 case 41 -> {
                     watching = false;
                     judge();
-                    log("игрок: попадание на такте {}, шок {} тактов, разброс выше {} тактов (+{}), первый свободный такт {}, по тактам:{}", hitAt, shockedTicks,
-                            spreadTicks, f(spreadIn - spread0), firstFree, SERIES);
+                    int len = 40 + ShockServer.FADE_TICKS;
+                    log("игрок: попадание на такте {}, шок {} тактов, первый свободный такт {}, по тактам:{}", hitAt, shockedTicks, firstFree, SERIES);
                     check(hitAt >= 0, "игрок: шок пришёл");
-                    check(shockedTicks == 40 && firstFree == hitAt + 40, "игрок: шок ровно 40 тактов (" + shockedTicks + ", свободен с +" + (firstFree - hitAt) + ")");
-                    check(spreadTicks == 40, "игрок: разброс выше ровно в окне шока (" + spreadTicks + " тактов)");
-                    check(Math.abs(spreadIn - spreadOut - 0.12F) < 0.005F, "игрок: в последнем такте шока разброс на 0,12 выше, чем в первом после (" + f(spreadIn - spreadOut) + ")");
+                    check(shockedTicks == len && firstFree == hitAt + len,
+                            "игрок: шок ровно " + len + " тактов, 40 на полной и затухание (" + shockedTicks + ", свободен с +" + (firstFree - hitAt) + ")");
+                    windowChecks();
                     check(ShockClient.shocks == shocks0 + 1, "игрок: клиент узнал о шоке");
-                    check(ShockClient.turned > 5F && ShockClient.turned < 120F, "игрок: взгляд водило само (" + f(ShockClient.turned) + "°)");
+                    // at most shockCamera (45°/s) × (1 + 0.45 the pitch's share) over 2 s at full and the fade's 1.5 s worth
+                    check(ShockClient.turned > 5F && ShockClient.turned < 230F, "игрок: взгляд водило само (" + f(ShockClient.turned) + "°)");
                     immunity();
                 }
                 case 50 -> agent();
@@ -276,17 +286,68 @@ final class ShockStand {
         return d / 3.0;
     }
 
-    // one server tick of the window (on the server's thread): shocked or not, the spread
+    // one server tick of the window (on the server's thread): shocked or not, the spread, the speed
     private static void watch(ServerPlayer p) {
-        TICKS.add(new float[] {p.level().getServer().getTickCount(), ShockServer.shocked(p) ? 1F : 0F, spreadOn(p, p)});
+        TICKS.add(new float[] {p.level().getServer().getTickCount(), ShockServer.shocked(p) ? 1F : 0F, spreadOn(p, p),
+                (float) p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED)});
+    }
+
+    // the server's tick `at` of the window, or null
+    private static float[] at(int at) {
+        for (float[] t : TICKS) if ((int) t[0] == at) return t;
+        return null;
+    }
+
+    // the client's last frame on the server's tick `at` or before it (the client hears a tick late), or null
+    private static float[] frameAt(int at) {
+        float[] out = null;
+        for (float[] fr : FRAMES) if (fr[0] <= at) out = fr;
+        return out;
+    }
+
+    // the spread, the speed and the view at full (the middle of the 40 ticks), halfway through the fade (the envelope
+    // is a half there) and after: by the first free tick on the server, a few ticks later on the client
+    private static void windowChecks() {
+        float[] before = at(hitAt - 1), full = at(hitAt + 20), half = at(hitAt + 40 + ShockServer.FADE_TICKS / 2), after = at(firstFree);
+        if (before == null || full == null || half == null || after == null) {
+            check(false, "игрок: такты окна есть");
+            return;
+        }
+        float sp0 = after[2];
+        log("игрок: разброс до/полная/середина затухания/после {} {} {} {}; скорость {} {} {} {}", f(before[2]), f(full[2]), f(half[2]), f(after[2]), f(before[3]),
+                f(full[3]), f(half[3]), f(after[3]));
+        check(Math.abs(full[2] - sp0 - 0.12F) < 0.005F, "игрок: на полной разброс на 0,12 выше (" + f(full[2] - sp0) + ")");
+        check(Math.abs(half[2] - sp0 - 0.06F) < 0.005F, "игрок: в середине затухания на 0,06 выше (" + f(half[2] - sp0) + ")");
+        float v0 = before[3], slow = ShockServer.SLOW;
+        check(v0 > 0F && Math.abs(full[3] / v0 - (1F - slow)) < 0.005F, "игрок: скорость на полной ×" + f(1F - slow) + " (" + f(full[3] / v0) + ")");
+        check(Math.abs(half[3] / v0 - (1F - slow / 2F)) < 0.005F, "игрок: в середине затухания ×" + f(1F - slow / 2F) + " (" + f(half[3] / v0) + ")");
+        check(Math.abs(after[3] - v0) < 1e-5F, "игрок: после шока скорость прежняя (" + f(after[3]) + ")");
+        boolean down = true;
+        for (float[] t : TICKS) {
+            float[] next = at((int) t[0] + 1);
+            if (t[0] >= hitAt + 40 && t[0] < firstFree && next != null && next[3] < t[3] - 1e-6F) down = false;
+        }
+        check(down, "игрок: в затухании скорость только растёт");
+        float[] c0 = frameAt(hitAt - 1), c1 = frameAt(hitAt + 20), c2 = frameAt(hitAt + 40 + ShockServer.FADE_TICKS / 2), c3 = frameAt(firstFree + 5);
+        if (c0 == null || c1 == null || c2 == null || c3 == null) {
+            check(false, "игрок: кадры клиента в окне есть");
+            return;
+        }
+        log("клиент: скорость до/полная/середина/после {} {} {} {}; FOV ×{} ×{} ×{} ×{}", f(c0[1]), f(c1[1]), f(c2[1]), f(c3[1]), f(c0[2]), f(c1[2]), f(c2[2]),
+                f(c3[2]));
+        check(Math.abs(c1[1] / c0[1] - (1F - slow)) < 0.01F, "клиент: скорость на полной ×" + f(1F - slow) + " (" + f(c1[1] / c0[1]) + ")");
+        check(c1[2] < c0[2] - 0.1F, "клиент: обзор на полной уже (FOV ×" + f(c0[2]) + " → ×" + f(c1[2]) + ")");
+        check(c2[2] > c1[2] + 0.02F && c2[2] < c0[2] - 0.02F, "клиент: в середине затухания обзор между (×" + f(c2[2]) + ")");
+        check(Math.abs(c3[2] - c0[2]) < 0.002F && Math.abs(c3[1] - c0[1]) < 1e-5F, "клиент: после шока обзор и скорость прежние (×" + f(c3[2]) + ")");
     }
 
     // the window from the ticks. The player's own spread grows once hit (the hit knocks it about, the spread of
-    // moving): the base is its spread at the first tick after the shock; a tick is up when 0.06 over it
+    // moving): the base is its spread at the first tick after the shock; a tick is up (S, ! out of the shock) when 0.03
+    // over it
     private static void judge() {
         hitAt = -1;
         firstFree = -1;
-        shockedTicks = spreadTicks = 0;
+        shockedTicks = 0;
         spreadOut = -1F;
         for (float[] t : TICKS) {
             if (t[1] > 0F && hitAt < 0) hitAt = (int) t[0];
@@ -295,14 +356,9 @@ final class ShockStand {
                 spreadOut = t[2];
             }
         }
-        spread0 = spreadOut;
         for (float[] t : TICKS) {
-            boolean in = t[1] > 0F, up = t[2] > spreadOut + 0.06F;
-            if (in) {
-                shockedTicks++;
-                spreadIn = t[2];
-            }
-            if (up) spreadTicks++;
+            boolean in = t[1] > 0F, up = t[2] > spreadOut + 0.03F;
+            if (in) shockedTicks++;
             SERIES.append(' ').append(in ? (up ? 'S' : 's') : (up ? '!' : '.'));
         }
         StringBuilder v = new StringBuilder();
@@ -310,9 +366,9 @@ final class ShockStand {
         log("игрок: разброс по тактам:{}", v);
     }
 
-    // the immunity: a shell in the shock (at +20) and after it (+45) shock nothing, one at +105 shocks again
+    // the immunity: a shell in the shock (at +20) and after it (+110: the shock 100 ticks, the immunity 60 more) shock
+    // nothing, one at +170 shocks again
     private static void immunity() throws Exception {
-        // the last shock started at hitAt; now is about hitAt + 75
         onServer(p -> {
             ShockServer.clear();
             return null;
@@ -325,7 +381,7 @@ final class ShockStand {
         fire(false);
         waitTicks(5);
         long[] s1 = onServer(p -> ShockServer.state(p));
-        waitTicks(25);
+        waitTicks(85);
         fire(false);
         waitTicks(5);
         boolean afterEnd = onServer(p -> ShockServer.shocked(p));
@@ -349,6 +405,7 @@ final class ShockStand {
     // the agent: shocked by the player's shells, its shots' spread through calcSpread, the immunity and the marks. In
     // steps, the client drawing meanwhile: the player's shells wait for its client
     private static float agentBefore, agentDuring;
+    private static float[] stepBefore, stepDuring;
     private static boolean agentIn;
 
     private static void agent() {
@@ -360,6 +417,7 @@ final class ShockStand {
         marks0 = ShockClient.marks;
         took0 = ShockClient.marksTook;
         agentBefore = onServer(p -> spreadOn(agent, agent));
+        stepBefore = onServer(p -> step(agent));
         fire(true);
         wait(8, 52);
     }
@@ -367,21 +425,45 @@ final class ShockStand {
     private static void agentShocked() {
         agentIn = onServer(p -> ShockServer.shocked(agent));
         agentDuring = onServer(p -> spreadOn(agent, agent));
+        stepDuring = onServer(p -> step(agent));
         log("агент: добавка шока сама по себе {}", f(onServer(p -> ShockServer.spread(agent, XFactory12ga.g12_slug))));
         fire(true);
-        wait(50, 53);
+        // past the shock (at full and its fade) from the first shell
+        wait(40 + ShockServer.FADE_TICKS + 10, 53);
     }
 
     private static void agentAfter() {
         long[] s = onServer(p -> ShockServer.state(agent));
         boolean out = onServer(p -> ShockServer.shocked(agent));
         float after = onServer(p -> spreadOn(agent, agent));
+        float[] stepAfter = onServer(p -> step(agent));
         log("агент: шок {}, разброс {} → {} → {}, после {}", agentIn, f(agentBefore), f(agentDuring), f(after), out);
+        log("агент: скорость {} → {} → {}, шаг по пути {} → {} → {}", f(stepBefore[0]), f(stepDuring[0]), f(stepAfter[0]), f(stepBefore[1]), f(stepDuring[1]),
+                f(stepAfter[1]));
+        float k = 1F - ShockServer.SLOW;
+        check(stepBefore[0] > 0F && Math.abs(stepDuring[0] / stepBefore[0] - k) < 0.005F,
+                "агент: скорость под шоком ×" + f(k) + " (" + f(stepDuring[0] / stepBefore[0]) + ")");
+        check(stepBefore[1] > 0F && Math.abs(stepDuring[1] / stepBefore[1] - k) < 0.005F,
+                "агент: шаг по пути под шоком ×" + f(k) + " (" + f(stepDuring[1] / stepBefore[1]) + ")");
+        check(Math.abs(stepAfter[0] - stepBefore[0]) < 1e-5F && Math.abs(stepAfter[1] - stepBefore[1]) < 1e-5F, "агент: после шока скорость и шаг прежние");
         check(agentIn, "агент: шок пришёл");
         check(Math.abs(agentDuring - agentBefore - 0.12F) < 0.005F, "агент: разброс его выстрела +0,12 (" + f(agentDuring - agentBefore) + ")");
         check(!out && Math.abs(after - agentBefore) < 0.005F, "агент: после шока разброс прежний");
         check(s != null, "агент: состояние шока есть");
         wait(10, 54);
+    }
+
+    // a mob's speed and the speed its move control gives its step to a place 5 blocks off (as on a path: the
+    // navigation's moveTo sets the place, the move control the step); its step taken back after, it stays where it is
+    private static float[] step(Mob mob) {
+        float v = (float) mob.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+        mob.getMoveControl().setWantedPosition(mob.getX() + 5.0, mob.getY(), mob.getZ(), 1.0);
+        mob.getMoveControl().tick();
+        float s = mob.getSpeed();
+        mob.setZza(0F);
+        mob.setXxa(0F);
+        mob.setSpeed(0F);
+        return new float[] {v, s};
     }
 
     // a shell: from the mannequin into the player, or from the player into the agent

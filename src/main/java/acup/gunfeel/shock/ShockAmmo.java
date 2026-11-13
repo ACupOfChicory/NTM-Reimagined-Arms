@@ -48,6 +48,10 @@ public final class ShockAmmo {
             if (e.getTabKey().equals(weapons)) e.accept(new ItemStack(ITEM.get()));
         });
         modBus.addListener(net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent.class, e -> e.enqueueWork(ShockAmmo::setup));
+        // the shock's slowing, tick by tick as it wears off
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class, e -> ShockServer.tick());
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.Clone.class,
+                e -> ShockServer.cloned(e.getEntity()));
     }
 
     /** the shell's config (null before the common setup) */

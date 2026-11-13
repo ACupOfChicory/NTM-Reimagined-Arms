@@ -1,6 +1,9 @@
 package acup.gunfeel.shock;
 
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.WeakHashMap;
 
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
@@ -15,6 +18,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -22,14 +28,34 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * The shock of the 12 gauge electroshock shell, decided on the server. A hit on a living one (a player, an AI bot, any
- * mob) shocks it for shockSeconds: whatever gun it fires meanwhile spreads its shots wide (shockSpread, added to the
- * shot's spread where NTM works it out, so for players and AI bots alike). A player is told (ShockPayloads.Shock): its
- * client glitches and shakes the HUD, shakes the view a little and turns it about on its own. After a shock ends the
- * one shocked takes none for shockImmunity seconds: a stream of shells does not keep anyone shocked for good. The
- * discharge is heard where it hit, and the shooter (a player) is told it hit with shock (a mark at the crosshair).
+ * mob) shocks it: at full for shockSeconds, then it wears off smoothly over FADE_TICKS more (envelope). Meanwhile
+ * whatever gun it fires spreads its shots wide (shockSpread, added to the shot's spread where NTM works it out, so for
+ * players and AI bots alike) and it walks slower (SLOW off its speed: a modifier of its movement speed, so a mob's and an
+ * AI bot's steps on their path slow as well, and a player's view narrows as the game narrows it for any slowness). A
+ * player is told (ShockPayloads.Shock): its client glitches and shakes the HUD, shakes the view a little and turns it
+ * about on its own. After a shock ends the one shocked takes none for shockImmunity seconds: a stream of shells does
+ * not keep anyone shocked for good. The discharge is heard where it hit, and the shooter (a player) is told it hit with
+ * shock (a mark at the crosshair).
  */
 public final class ShockServer {
     private ShockServer() {
+    }
+
+    /** after its shockSeconds at full a shock wears off over these game ticks (the client's glitch, shake, drift too) */
+    public static final int FADE_TICKS = 60;
+    /** the share of the speed a shock takes at full: a bit over vanilla's Slowness II (0.3) */
+    public static final float SLOW = 0.4F;
+    private static final Identifier SLOW_ID = Identifier.fromNamespaceAndPath("ntmgunfeel", "shock_slow");
+
+    /**
+     * The shock's strength, 0 to 1, {@code t} game ticks into a shock of {@code full} ticks at full: 1 for those, then
+     * down to 0 over FADE_TICKS along a half cosine (no step at either end). Server and client alike.
+     */
+    public static float envelope(float t, int full) {
+        if (t < 0F) return 0F;
+        if (t < full) return 1F;
+        float u = (t - full) / FADE_TICKS;
+        return u >= 1F ? 0F : 0.5F * (1F + (float) Math.cos(Math.PI * u));
     }
 
     // ---- the server's settings (ntm-gunfeel-server.properties; a client reads the server's while connected)
@@ -73,11 +99,13 @@ public final class ShockServer {
 
     // ---- who is shocked
 
-    /** game ticks: until when the shock lasts, until when it does not take again */
-    private record State(long until, long immuneUntil) {
+    /** game ticks: when the shock started, how long at full, until when it lasts (faded out), until when it does not take again */
+    private record State(long start, int full, long until, long immuneUntil) {
     }
 
     private static final Map<LivingEntity, State> STATE = new WeakHashMap<>();
+    // the ones whose speed the shock holds down now
+    private static final Set<LivingEntity> SLOWED = Collections.newSetFromMap(new WeakHashMap<>());
 
     /** whether a shock holds {@code e} now (on the server) */
     public static synchronized boolean shocked(LivingEntity e) {
@@ -86,10 +114,19 @@ public final class ShockServer {
         return s != null && e.level().getGameTime() < s.until;
     }
 
-    /** the spread a shot of {@code shooter}'s gets on top of its own (0 when not shocked) */
+    /** the shock's strength on {@code e} now (on the server), 0 to 1: envelope */
+    public static synchronized float strength(LivingEntity e) {
+        if (e == null || e.level().isClientSide()) return 0F;
+        State s = STATE.get(e);
+        return s == null ? 0F : envelope(e.level().getGameTime() - s.start, s.full);
+    }
+
+    /** the spread a shot of {@code shooter}'s gets on top of its own (0 when not shocked; less as the shock wears off) */
     public static float spread(LivingEntity shooter, BulletConfig config) {
-        if (!on() || !shocked(shooter)) return 0F;
-        float s = spread();
+        if (!on()) return 0F;
+        float k = strength(shooter);
+        if (k <= 0F) return 0F;
+        float s = spread() * k;
         // a beam's spread is in degrees (EntityBulletBeamBase), a bullet's in NTM's heading units
         return config != null && config.pType == BulletConfig.ProjectileType.BEAM ? (float) Math.toDegrees(s) : s;
     }
@@ -124,8 +161,11 @@ public final class ShockServer {
             return false;
         }
         int ticks = Math.round(seconds() * 20F);
-        s = new State(now + ticks, now + ticks + Math.round(immunitySeconds() * 20F));
+        long until = now + ticks + FADE_TICKS;
+        s = new State(now, ticks, until, until + Math.round(immunitySeconds() * 20F));
         STATE.put(target, s);
+        SLOWED.add(target);
+        slow(target, 1F);
         if (target instanceof ServerPlayer sp) PacketDistributor.sendToPlayer(sp, new ShockPayloads.Shock(ticks));
         log(level, target, "shock", ticks, s.immuneUntil - now);
         return true;
@@ -139,7 +179,40 @@ public final class ShockServer {
 
     /** the stand: no shock nor immunity left on anyone */
     public static synchronized void clear() {
+        for (LivingEntity e : SLOWED) slow(e, 0F);
+        SLOWED.clear();
         STATE.clear();
+    }
+
+    /** each server tick: the slowing follows the shock's strength, and goes when it ends (or the shock is turned off) */
+    public static synchronized void tick() {
+        if (SLOWED.isEmpty()) return;
+        boolean on = on();
+        for (Iterator<LivingEntity> it = SLOWED.iterator(); it.hasNext();) {
+            LivingEntity e = it.next();
+            float k = e.isAlive() && !e.isRemoved() ? strength(e) : 0F;
+            // shock = false meanwhile: no slowing, but it comes back if turned on again within the shock
+            slow(e, on ? k : 0F);
+            if (k <= 0F) it.remove();
+        }
+    }
+
+    /** a player made anew (a respawn, back from the End): the old one's slowing may have been copied, and is not its own */
+    public static void cloned(net.minecraft.world.entity.player.Player p) {
+        slow(p, 0F);
+    }
+
+    // SLOW times k off the speed (a modifier the game does not save: a shock never outlives the entity's load)
+    private static void slow(LivingEntity e, float k) {
+        AttributeInstance speed = e.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speed == null) return;
+        AttributeModifier now = speed.getModifier(SLOW_ID);
+        if (k <= 0F) {
+            if (now != null) speed.removeModifier(SLOW_ID);
+            return;
+        }
+        double v = -SLOW * k;
+        if (now == null || Math.abs(now.amount() - v) > 1e-4) speed.addOrUpdateTransientModifier(new AttributeModifier(SLOW_ID, v, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
     }
 
     private static void log(ServerLevel level, LivingEntity target, String what, long left, long immune) {
