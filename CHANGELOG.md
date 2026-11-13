@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers change low cover as they do high cover: after two or three
+  bursts over one low wall a bot now and then moves to other cover, after
+  four always. Before, a bot behind low cover left it only when hit.
+
 ## X925
 
 - AI soldiers are suppressed as players are: each bot has the players' own
@@ -18,9 +24,6 @@
   another of its squad is on the move it fires long bursts at your cover with
   short gaps, so your suppression scale stays up until the flanker is there.
   New server settings `aiRoles` (true by default) and `aiBaseMagazine` (40).
-- AI soldiers change low cover as they do high cover: after two or three
-  bursts over one low wall a bot now and then moves to other cover, after
-  four always. Before, a bot behind low cover left it only when hit.
 
 ## X922
 
