@@ -59,10 +59,23 @@ class AiConfidenceTest {
     }
 
     @Test
+    void keptUnderFireItDoesNotGetOverIt() {
+        // a full scale: each tick takes twice the drift back, so it falls by the drift; half a scale undoes the drift
+        AiConfidence c = new AiConfidence();
+        c.tick(false, 0F, 0);
+        for (int t = 1; t <= 100; t++) c.tick(false, 1F, t);
+        assertEquals(AiConfidence.BASE - 100 * (AiConfidence.UNDER - AiConfidence.BACK), c.value(100), 1e-3);
+        AiConfidence d = new AiConfidence();
+        d.add(-0.2F, 0);
+        for (int t = 1; t <= 100; t++) d.tick(false, 0.5F, t);
+        assertEquals(AiConfidence.BASE - 0.2F, d.value(100), 1e-4);
+    }
+
+    @Test
     void pinnedCountsOnceAndTheSquadShares() {
         AiConfidence c = new AiConfidence();
-        c.tick(true, 0);
-        c.tick(true, 1);
+        c.tick(true, 0F, 0);
+        c.tick(true, 0F, 1);
         assertEquals(AiConfidence.BASE - AiConfidence.PINNED + AiConfidence.BACK, c.value(1), 1e-6);
         AiConfidence d = new AiConfidence();
         d.share(0.1F, 0);

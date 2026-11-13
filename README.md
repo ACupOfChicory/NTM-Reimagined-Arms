@@ -213,6 +213,12 @@ page. They are alphas: expect bugs and back up your world.
   leaves cover only while another covers it. They throw grenades, run from
   grenades thrown at them, including a player's, and do not turn their heads
   to the sounds of animals.
+- Fire suppresses them as it does you: bullets passing close, hitting their
+  cover or bursting near pin a bot down, and a squad kept under fire loses
+  heart, holds back and falls back (server key `aiSuppression`).
+- A bot with a machine gun is its squad's base of fire: it stays in place and
+  keeps your cover under long bursts while a rifleman goes round the side
+  (server keys `aiRoles`, `aiBaseMagazine`).
 - They move their bodies: breathing, flinching at hits, aiming, reloading,
   throwing, signalling with a hand, crouching, leaning and lying with the gun.
   Arms and legs bend at the elbows and knees, and the armour they wear is

@@ -17,6 +17,8 @@ public final class AiConfidence {
     static final float HURT = 0.3F, HURT_MIN = 0.03F;
     /** pinned down (AiProne), one of its own down near, a foe down near, a tick it hit a foe in */
     static final float PINNED = 0.08F, FRIEND_DOWN = 0.15F, FOE_DOWN = 0.2F, HIT = 0.04F;
+    /** a tick at a full suppression scale (AiProne.suppressed; twice its drift back) */
+    static final float UNDER = 0.001F;
     /** a fall near it counts within this, blocks */
     static final double NEAR = 24;
     /** back towards BASE a tick (0.25 in 25 s) */
@@ -67,9 +69,11 @@ public final class AiConfidence {
         add(HIT, tick);
     }
 
-    /** each tick of its brain: pinned down now (AiProne.pinned; the moment it becomes so counts), and the stands' ticks */
-    void tick(boolean pinned, long tick) {
+    /** each tick of its brain: pinned down now (AiProne.pinned; the moment it becomes so counts), its suppression scale as a share, and the stands' ticks */
+    void tick(boolean pinned, float suppressed, long tick) {
         if (pinned && !wasPinned) add(-PINNED, tick);
+        // kept under fire, it does not get over it: its drift back undone, and as much again at a full scale
+        if (suppressed > 0F) add(-UNDER * suppressed, tick);
         wasPinned = pinned;
         if (presses(tick)) pressTicks++;
         else if (fallsBack(tick)) fallTicks++;

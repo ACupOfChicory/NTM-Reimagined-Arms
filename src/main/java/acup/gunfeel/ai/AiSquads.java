@@ -17,7 +17,8 @@ import net.minecraft.world.phys.Vec3;
  * AI mobs of one side near one another fight as a squad: one goes round the side of the target it lost (the
  * flanker), the others keep the place it went out of sight under fire while one of theirs is on the move, and none
  * leaves its cover for other cover or for a hunt unless one of the rest is in cover ready to fire; at most half of
- * them move at a time, at most two go after one lost target. A mob alone, or with this off, fights as before.
+ * them move at a time, at most two go after one lost target. One with a machine gun among riflemen is the squad's
+ * base of fire (AiRole): it stays and fires. A mob alone, or with this off, fights as before.
  * Squads are made again every {@link #EVERY} ticks: the AI mobs of one team (or of none) within {@link #NEAR} blocks
  * of one another, chained, {@link #MAX} at most. No word goes between them: each acts on what it knows itself.
  * Server thread.
@@ -48,6 +49,8 @@ public final class AiSquads {
         int flanker = -1;
         /** the squad's middle when it was made */
         double cx, cz;
+        /** it has a base of fire and riflemen both: the base neither goes round nor after a target */
+        boolean based;
     }
 
     private static final class PerLevel {
@@ -146,16 +149,20 @@ public final class AiSquads {
                 best = e.getIntValue();
                 s.target = e.getIntKey();
             }
+        // its base of fire (AiRole: a machine gun) stays where it is and fires; with riflemen about, one of them goes
+        int rifles = 0;
+        for (AiBot b : s.bots) if (AiRole.of(b) != AiRole.BASE) rifles++;
+        s.based = rifles > 0 && rifles < s.bots.size();
         if (s.target < 0) return;
         for (AiBot b : s.bots)
-            if (flankers.contains(b.mob.getId()) && b.memory.contact(s.target) != null) {
+            if (flankers.contains(b.mob.getId()) && b.memory.contact(s.target) != null && !(s.based && AiRole.of(b) == AiRole.BASE)) {
                 s.flanker = b.mob.getId();
                 return;
             }
         double most = 2;
         for (AiBot b : s.bots) {
             Vec3 t = where(b, s.target);
-            if (t == null || b.prone.lying()) continue;
+            if (t == null || b.prone.lying() || s.based && AiRole.of(b) == AiRole.BASE) continue;
             double c = cos(b.mob.getX() - t.x, b.mob.getZ() - t.z, s.cx - t.x, s.cz - t.z);
             if (c < most) {
                 most = c;
@@ -182,6 +189,23 @@ public final class AiSquads {
         if (l == null) return null;
         Squad s = l.of.get(bot.mob.getId());
         return s != null && s.bots.contains(bot) ? s : null;
+    }
+
+    /**
+     * Its squad's base of fire (a machine gun among riflemen, AiRole): it goes neither round the side nor after a lost
+     * target, and keeps the place under fire in long bursts while one of the rest is on the move.
+     */
+    static boolean base(AiBot bot) {
+        Squad s = of(bot);
+        return s != null && s.based && AiRole.of(bot) == AiRole.BASE;
+    }
+
+    /** one of its squad that is no base of fire knows of this target */
+    private static boolean riflemanKnows(AiBot bot, int target) {
+        Squad s = of(bot);
+        if (s == null) return false;
+        for (AiBot b : s.bots) if (b != bot && live(b) && AiRole.of(b) != AiRole.BASE && b.memory.contact(target) != null) return true;
+        return false;
     }
 
     /** whether it is the one of its squad that goes round the side of this target */
@@ -244,6 +268,8 @@ public final class AiSquads {
      */
     static boolean mayHunt(AiBot bot, int target) {
         if (!on || !(bot.mob.level() instanceof ServerLevel level)) return true;
+        // its base of fire stays, while a rifleman of its squad knows of the target and may go
+        if (base(bot) && riflemanKnows(bot, target)) return false;
         String team = team(bot);
         if (offTeams.contains(team)) return true;
         int n = 0;

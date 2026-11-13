@@ -1,16 +1,13 @@
 package acup.gunfeel.ai;
 
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import acup.gunfeel.SuppressionScale;
+import acup.gunfeel.SuppressionServer;
 import it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.projectile.Projectile;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * An AI mob lying down, on the same terms as a player (Prone: the server's prone key; on the ground, out of water, not
@@ -19,7 +16,9 @@ import net.minecraft.world.phys.Vec3;
  * for it each tick it wants it ({@link #want}), and only to fire lying or for a long reload; once down it stays down
  * {@link #MIN_LIE} ticks, unless its mind sends it running; getting up takes {@link #RISE} ticks before a shot standing.
  *
- * <p>It also counts the shots that fly past it ({@link #watchShots}): three within a second pin it down for three.
+ * <p>It is suppressed as a player is (the same SuppressionScale and the server's forces; AiUnderFire tells it the shots
+ * past it, those stopping near it and the blasts): from {@link #PIN} up it is pinned down, till it is under {@link #UNPIN}. With aiSuppression off,
+ * three shots close past it within a second pin it down for three, as before.
  */
 public final class AiProne {
     /** a crawling player's size (Player's crawling pose) */
@@ -36,15 +35,20 @@ public final class AiProne {
     static final double NEAR = 2.0;
     /** near misses within WINDOW ticks that pin it down, and for how long */
     static final int PINNING = 3, WINDOW = 20, PINNED = 60;
-    /** how far out it looks for shots in flight (a bullet flies 10 blocks a tick) */
-    static final double WATCH = 12;
+    /** its scale (0 to 100) from which it is pinned down, and till it is under which (not in and out with every shot) */
+    static final float PIN = 50F, UNPIN = 30F;
+    /** near misses kept at most (those of the last WINDOW ticks; its tick takes the old ones away) */
+    static final int MISSES = 64;
 
     private final Mob mob;
     private boolean want;
     private long changed = Long.MIN_VALUE / 2;
     private final LongArrayFIFOQueue misses = new LongArrayFIFOQueue();
-    private final IntOpenHashSet seen = new IntOpenHashSet();
-    private long seenSince, pinnedUntil = Long.MIN_VALUE;
+    /** its suppression: the players' scale, fed by AiUnderFire */
+    private final SuppressionScale scale = new SuppressionScale();
+    private @org.jspecify.annotations.Nullable Entity missBy;
+    private boolean newMiss, under;
+    private long pinnedUntil = Long.MIN_VALUE;
     /** for the stands: shortLies, up within MIN_LIE of going down, not sent running; briefLies, down less than BRIEF */
     public int downs, nearMisses, shortLies, briefLies;
     static final int BRIEF = 40;
@@ -72,9 +76,9 @@ public final class AiProne {
         return !lying() && tick - changed >= RISE;
     }
 
-    /** shots flew past it lately */
+    /** under fire: its scale at PIN or over (with the scale off: shots flew close past it lately) */
     public boolean pinned(long tick) {
-        return tick < pinnedUntil;
+        return tick < pinnedUntil || under;
     }
 
     /** the stands: pinned down from now, as by shots close past it */
@@ -115,35 +119,45 @@ public final class AiProne {
     }
 
     /**
-     * Shots in flight round it this tick (not its own, not its own side's, AiTeams, not a creative or spectating
-     * player's): one whose step this tick passes within NEAR of its chest is a near miss, counted once. Returns who
-     * fired the last new near miss this tick, or null.
+     * A shot passed `d` blocks from its eyes at `speed` blocks a tick (AiUnderFire): within NEAR a near miss, its shooter
+     * kept for {@link #watchShots}; with the scale on, the pass a player's scale would count.
+     */
+    void pass(@org.jspecify.annotations.Nullable Entity owner, double d, double speed, boolean scaleOn, long tick) {
+        if (d < NEAR) {
+            if (misses.size() >= MISSES) misses.dequeueLong();
+            misses.enqueue(tick);
+            nearMisses++;
+            if (owner != null) missBy = owner;
+            newMiss = true;
+        }
+        if (scaleOn) feel(SuppressionScale.pass(d, speed, SuppressionServer.passRange()) * SuppressionServer.passShare(), true, tick);
+    }
+
+    /** an event of this force on its scale (AiUnderFire: a pass, a shot stopping near, a blast); burst: a pass or a hit */
+    void feel(float force, boolean burst, long tick) {
+        scale.add(force, burst, tick);
+    }
+
+    /**
+     * Each tick of the mob: its scale's tick, and the near misses since the last (AiUnderFire tells them as the shots
+     * fly). With the scale off, PINNING near misses within WINDOW pin it for PINNED. Returns who fired the last new
+     * near miss, or null.
      */
     @org.jspecify.annotations.Nullable Entity watchShots(ServerLevel level, long tick) {
-        Entity shooter = null;
-        if (tick - seenSince > 200) {
-            seen.clear();
-            seenSince = tick;
-        }
-        Vec3 c = mob.position().add(0, mob.getBbHeight() * 0.6, 0);
-        for (Projectile p : level.getEntitiesOfClass(Projectile.class, mob.getBoundingBox().inflate(WATCH), Entity::isAlive)) {
-            // a grenade is no shot past it: it runs from where that bursts (AiGrenades)
-            if (p instanceof com.hbm.entity.grenade.EntityGrenadeUniversal || p instanceof com.hbm.entity.grenade.EntityGrenadeBouncyGeneric) continue;
-            Entity owner = p.getOwner();
-            if (owner == mob || owner instanceof LivingEntity o && AiTeams.own(mob, o)
-                    || owner instanceof net.minecraft.world.entity.player.Player pl && (pl.isCreative() || pl.isSpectator())) continue;
-            Vec3 a = p.position(), v = p.getDeltaMovement();
-            double vv = v.lengthSqr();
-            if (vv < 0.25) continue;
-            double t = Mth.clamp(c.subtract(a).dot(v) / vv, 0, 1);
-            if (a.add(v.scale(t)).distanceToSqr(c) < NEAR * NEAR && seen.add(p.getId())) {
-                misses.enqueue(tick);
-                nearMisses++;
-                if (owner != null) shooter = owner;
-            }
-        }
+        boolean on = AiUnderFire.on();
+        if (on) scale.tick(SuppressionScale.MAX / (SuppressionServer.recoverySeconds() * 20F));
+        else if (scale.target() > 0F || scale.level() > 0F) scale.clear();
+        under = on && (scale.level() >= PIN || under && scale.level() >= UNPIN);
         while (!misses.isEmpty() && tick - misses.firstLong() > WINDOW) misses.dequeueLong();
-        if (misses.size() >= PINNING) pinnedUntil = tick + PINNED;
+        if (!on && misses.size() >= PINNING && newMiss) pinnedUntil = tick + PINNED;
+        Entity shooter = newMiss ? missBy : null;
+        newMiss = false;
+        missBy = null;
         return shooter;
+    }
+
+    /** its scale as a share, 0 to 1 (0 with the scale off) */
+    public float suppressed() {
+        return scale.share();
     }
 }
