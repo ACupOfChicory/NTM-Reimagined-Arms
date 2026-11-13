@@ -106,7 +106,7 @@ class BotMoveClipsTest {
     void walkingTheLegsAreTheClipsAndStepWithVanilla() {
         // standing still: vanilla's legs (no clip); walking: the walk clip's legs, the right leg furthest back where
         // vanilla's is (walkPos 0)
-        float[] still = posed(moving(0F, 0F, -1F, null), 0F, 0F);
+        float[] still = posed(calm(0F, 0F), 0F, 0F);
         BotPoser.Parts p = BotPoserTest.parts();
         BotPoser.apply(p, calm(0.1F, 0F), 0F, 0.5F, 0F);
         BotClip walk = BotClips.get(BotClips.WALK);

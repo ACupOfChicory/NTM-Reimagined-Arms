@@ -18,13 +18,18 @@ import org.joml.Vector3f;
  * Running_Strafe_Left/Right), by its speed and which way it goes from where it faces, in step with vanilla's swing;
  * the elbows with no gun;</li>
  * <li>the arms: as vanilla left them (HOLD, NO_GUN), aimed two-handed along the look (AIM), held up over the head
- * (BLIND, firing blind over cover), or along the ground when lying with a gun;</li>
+ * (BLIND, firing blind over cover), the gun close at the chest with its muzzle up (STACK, beside a doorway), or
+ * along the ground when lying with a gun;</li>
  * <li>lying on the move, a crawl on the belly (no clip: {@link #crawl});</li>
- * <li>vanilla's crouch, by its weight;</li>
+ * <li>in a fight at a stand, a foot ahead and a foot back; in the air, the legs of a jump (UAL Jump_Loop);</li>
+ * <li>the crouch, by its weight: the head, the trunk's top and the shoulders where vanilla's crouch has them (the eye
+ * the server keeps), under them down on a knee at a stand (as UAL Fixing_Kneeling kneels) and a walk bent low on the
+ * move (KayKit Crouching), their legs fitted to that head (tools/quaternius fit.py);</li>
  * <li>the action: a reload (KayKit Ranged_2H_Reload), a kick of a shot, a throw (UAL OverhandThrow), a wave with the
- * free left arm (KayKit Waving, mirrored), a point, a raised hand to halt, a slide into cover (UAL Slide_Start and
- * Slide_Exit) and a forward roll (UAL Roll), the whole body;</li>
- * <li>a hit's flinch, added on top (UAL Hit_Chest, Hit_Head; KayKit Hit_B when a blast throws it);</li>
+ * free left arm (KayKit Waving, mirrored), a point, a raised hand to halt, a door pushed open with the left hand (UAL
+ * Interact), a slide into cover (UAL Slide_Start and Slide_Exit) and a forward roll (UAL Roll), the whole body;</li>
+ * <li>a hit's flinch, added on top (UAL Hit_Chest, Hit_Head, Quaternius SWAT HitRecieve and HitRecieve_2 by turns;
+ * KayKit Hit_B when a blast throws it);</li>
  * <li>its fall dead (KayKit Death_A, the whole body: vanilla's tip onto its side is not drawn then);</li>
  * <li>the lean: the hips step aside and everything above them tips (AiPoseGeometry, the server's own numbers).</li>
  * </ol>
@@ -89,6 +94,22 @@ public final class BotPoser {
      */
     static final float[] CARRY = { -0.2F, -0.7F, 0F, -0.9F, -0.8F, 0.65F, 0F, -0.05F },
             CHEST = { -0.25F, -0.7F, 0F, -1.2F, -1.1F, 0.45F, 0F, 0F };
+    /**
+     * ... and beside a doorway (STACK), close at the chest with its muzzle up and forward: the right hand in front of
+     * the right shoulder, the forearm (the gun's line) raised 37 degrees over the level (as steep as the short upper
+     * arm lets it be with the hand below the face), the left hand 3 px up the gun
+     */
+    static final float[] READY = { 0.05F, -0.55F, -0.44F, -2.09F, -1.55F, 0.88F, 0.13F, -0.15F };
+    /**
+     * in a fight at a stand, the thighs' turn: the left foot ahead (its knee bent, the shin hung under it), the right
+     * leg straight back, radians
+     */
+    static final float STANCE_AHEAD = 0.3F, STANCE_BACK = 0.25F;
+    /** vanilla's crouch leans the trunk this far, radians, and its arms with it by this much of the lean */
+    static final float CROUCH_LEAN = 0.5F, CROUCH_ARMS = 0.8F;
+    static final String[] LEFT_ARM = { "left_arm", "left_forearm" };
+    /** the push of a door, seconds of its clip (UAL Interact: the left hand out from 0.5 to 1 s): from, and how long */
+    static final float DOOR_FROM = 0.2F, DOOR_FOR = 1.2F;
     /** a jog's share of the run's pose (a sprint's is all of it) */
     static final float JOG_RUN = 0.6F;
     /**
@@ -147,8 +168,8 @@ public final class BotPoser {
 
         // 2. the arms
         float headX = p.head.xRot, headY = p.head.yRot;
-        float hold = f.arms()[AiPose.HOLD] + f.arms()[AiPose.NO_GUN];
-        float aim = f.arms()[AiPose.AIM], blind = f.arms()[AiPose.BLIND];
+        float stack = f.arm(AiPose.STACK), plain = f.arm(AiPose.HOLD) + f.arm(AiPose.NO_GUN), hold = plain + stack;
+        float aim = f.arm(AiPose.AIM), blind = f.arm(AiPose.BLIND);
         if (aim + blind > 0F) {
             float rx = p.rightArm.xRot, ry = p.rightArm.yRot, rz = p.rightArm.zRot;
             float lx = p.leftArm.xRot, ly = p.leftArm.yRot, lz = p.leftArm.zRot;
@@ -171,12 +192,14 @@ public final class BotPoser {
                 * BotAnimator.smooth((f.speed() - MOVE_FROM) / (MOVE_FULL - MOVE_FROM));
         float[] gw = gaitWeights(f.speed(), f.heading());
         float run = move * (gw[1] * JOG_RUN + gw[2]), alert = BotAnimator.smooth(f.alert());
-        float gun = f.arms()[AiPose.HOLD] * upright;
+        float gun = f.arm(AiPose.HOLD) * upright;
         if (gun > 0F) {
             carry(p, CARRY, gun * (1F - alert));
             carry(p, CHEST, gun * run);
         }
-        float armed = 1F - f.arms()[AiPose.NO_GUN];
+        // beside a doorway: the gun close, its muzzle up
+        carry(p, READY, stack * upright);
+        float armed = 1F - f.arm(AiPose.NO_GUN);
         if (lying > 0F && armed > 0F) {
             // lying with a gun: the arms reach along the ground (the body's up is forward when lying)
             float w = lying * armed;
@@ -211,11 +234,19 @@ public final class BotPoser {
             if (p.rightShin != null) p.rightShin.xRot += k * Math.max(0F, swing);
             if (p.leftShin != null) p.leftShin.xRot += k * Math.max(0F, -swing);
         }
+        // in a fight at a stand: a foot ahead and a foot back, a shooter's stance (calm, feet together); the shins
+        // are plant's
+        float stance = alert * upright * (1F - BotAnimator.smooth(f.crouch())) * (1F - BotAnimator.smooth(f.speed() / MOVE_FULL))
+                * (1F - BotAnimator.smooth(walk / PLANT_WALK));
+        if (stance > 0F) {
+            p.leftLeg.xRot -= STANCE_AHEAD * stance;
+            p.rightLeg.xRot += STANCE_BACK * stance;
+        }
         // the foot it stands on, on the ground (walking back, the leg going forward); on the run and walking in a
         // fight its knee bent (stoop)
         float tac = alert * move * (1F - run), knees = RUN_BEND * run + TAC_BEND * tac;
         plant(p, upright * (1F - crawl), walkPos, move * gw[3], walk, knees);
-        float free = f.arms()[AiPose.NO_GUN] * upright;
+        float free = f.arm(AiPose.NO_GUN) * upright;
         if (free > 0F) {
             float bend = free * (ELBOW_FREE + ELBOW_WALK * walk);
             if (p.rightForearm != null) p.rightForearm.xRot -= bend;
@@ -227,15 +258,42 @@ public final class BotPoser {
         // walk); calm, a stroll as the clips have it
         stoop(p, RUN_LEAN * run + TAC_LEAN * tac, knees, gun * run);
 
-        // 3. vanilla's crouch (HumanoidModel.setupAnim, 26.2), by its weight
+        // in the air (a jump up a block, a fall): the legs of a jump, one knee drawn up
         float c = BotAnimator.smooth(f.crouch()) * upright;
+        float air = f.air() * upright * (1F - c);
+        BotClip jump = air > 0F ? BotClips.get(BotClips.JUMP) : null;
+        if (jump != null) turns(p, jump, jump.local(f.idleSec()), air, LEGS, a);
+
+        // 3. the crouch, by its weight: the head, the trunk's top and the shoulders where vanilla's crouch has them
+        // (HumanoidModel.setupAnim, 26.2: the eye the server keeps, and the hand of blind fire); under them, down on
+        // a knee at a stand and a walk bent low on the move, their legs and the trunk's lean fitted to that head
         if (c > 0F) {
-            p.body.xRot += 0.5F * c;
-            // vanilla tips the arms with the body; arms aimed or held up keep their line
-            p.rightArm.xRot += 0.4F * c * hold;
-            p.leftArm.xRot += 0.4F * c * hold;
-            p.rightLeg.z += 4F * c;
-            p.leftLeg.z += 4F * c;
+            BotClip kneel = BotClips.get(BotClips.KNEEL), low = BotClips.get(BotClips.CROUCH_WALK);
+            float lean = CROUCH_LEAN;
+            if (kneel != null && low != null) {
+                float go = BotAnimator.smooth((f.speed() - MOVE_FROM) / (MOVE_FULL - MOVE_FROM));
+                float t = ((walkPos / CYCLE + phase(BotClips.CROUCH_WALK, low)) % 1F + 1F) % 1F * low.length();
+                // the two by their shares, both of the way c from what the legs were
+                float walking = c * go, kneeling = walking >= 1F - 1e-4F ? 0F : c * (1F - go) / (1F - walking);
+                set(p, kneel, 0F, kneeling, LEGS, a);
+                set(p, low, t, walking, LEGS, a);
+                // each of the two stands on the ground, a mix of them (starting, stopping, going down) does not: a
+                // leg that would go into the ground is lifted to it, up into the trunk
+                org.joml.Matrix4f m = M4.get();
+                float right = limb(p.rightLeg, p.rightShin, -2F, 0F, m) - GROUND, left = limb(p.leftLeg, p.leftShin, -2F, 0F, m) - GROUND;
+                if (right > 0F) p.rightLeg.y -= right * c;
+                if (left > 0F) p.leftLeg.y -= left * c;
+                float k = kneel.rotation("body", 0F, a) ? a[0] : 0F, l = low.rotation("body", t, a) ? a[0] : 0F;
+                lean = Mth.DEG_TO_RAD * Mth.lerp(go, k, l);
+            } else {
+                // no clips: vanilla's, the legs back
+                p.rightLeg.z += 4F * c;
+                p.leftLeg.z += 4F * c;
+            }
+            p.body.xRot += lean * c;
+            // vanilla tips the arms with the body; arms aimed, held up or close at the chest keep their line
+            p.rightArm.xRot += CROUCH_ARMS * lean * c * plain;
+            p.leftArm.xRot += CROUCH_ARMS * lean * c * plain;
             p.head.y += 4.2F * c;
             p.body.y += 3.2F * c;
             p.rightArm.y += AiPoseGeometry.CROUCH_ARM_DROP_PX * c;
@@ -334,6 +392,12 @@ public final class BotPoser {
                 // only now may the head leave the eye the server keeps (pose-contract §4); it fades into the crouch
                 BotClip c = BotClips.get(act.kind() == AiPose.SLIDE ? BotClips.SLIDE : BotClips.ROLL);
                 if (c != null) set(p, c, act.u() * c.length(), w, ALL, a);
+            }
+            case AiPose.DOOR -> {
+                // the free left hand out to the door and back (UAL Interact's left arm), the gun kept in the right
+                BotClip t = BotClips.get(BotClips.DOOR);
+                if (t != null) turns(p, t, Math.min(DOOR_FROM + act.u() * DOOR_FOR, t.length()), w, LEFT_ARM, a);
+                else turn(p.leftArm, -PI / 2F, 0.2F, 0F, w);
             }
             case AiPose.SIGNAL_POINT -> turn(p.leftArm, -PI / 2F + headX, headY, 0F, w);
             case AiPose.SIGNAL_HALT -> {
@@ -616,6 +680,7 @@ public final class BotPoser {
 
     /** Moves the given parts toward the clip's pose (from the default pose), weighted. */
     static void set(Parts p, BotClip clip, float t, float w, String[] bones, float[] a) {
+        if (w <= 0F) return;
         for (String bone : bones) {
             ModelPart part = p.get(bone);
             if (part == null) continue;
@@ -630,7 +695,17 @@ public final class BotPoser {
         }
     }
 
-    /** The arms to a way of holding the gun (CARRY, CHEST), w of the way. */
+    /** Turns the given parts toward the clip's pose, weighted; their pivots stay where they are. */
+    static void turns(Parts p, BotClip clip, float t, float w, String[] bones, float[] a) {
+        if (w <= 0F) return;
+        for (String bone : bones) {
+            ModelPart part = p.get(bone);
+            if (part != null && clip.rotation(bone, t, a))
+                turn(part, Mth.DEG_TO_RAD * a[0], Mth.DEG_TO_RAD * a[1], Mth.DEG_TO_RAD * a[2], w);
+        }
+    }
+
+    /** The arms to a way of holding the gun (CARRY, CHEST, READY), w of the way. */
     static void carry(Parts p, float[] c, float w) {
         if (w <= 0F) return;
         turn(p.rightArm, c[0], c[1], c[2], w);
