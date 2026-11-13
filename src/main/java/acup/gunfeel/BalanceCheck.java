@@ -860,8 +860,10 @@ public final class BalanceCheck {
             airClicks = 0;
             eachLane(() -> {
                 L.shooter.setInvulnerable(true);
+                // the chunks out past the target (-PbalanceCellsDist), or a bullet stops at the edge of the loaded ones
+                int far = Math.max(40, Integer.getInteger(PROPERTY + ".cellsDist", 0) + 16);
                 if (mxHome) for (int cx = (L.o.getX() - 8) >> 4; cx <= (L.o.getX() + 8) >> 4; cx++)
-                    for (int cz = (L.o.getZ() - 8) >> 4; cz <= (L.o.getZ() + 40) >> 4; cz++) level.setChunkForced(cx, cz, true);
+                    for (int cz = (L.o.getZ() - 8) >> 4; cz <= (L.o.getZ() + far) >> 4; cz++) level.setChunkForced(cx, cz, true);
             });
         });
         wait(30);
