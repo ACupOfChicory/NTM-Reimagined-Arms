@@ -433,6 +433,8 @@ neoForge {
             providers.gradleProperty("balanceTrenchPairs").orNull?.let { systemProperty("ntmgunfeel.checkBalance.trenchPairs", it) }
             providers.gradleProperty("balanceFights").orNull?.let { systemProperty("ntmgunfeel.checkBalance.fights", it) }
             providers.gradleProperty("balanceFightLimit").orNull?.let { systemProperty("ntmgunfeel.checkBalance.fightLimit", it) }
+            // -PbalanceAimAll=true: the pass "aim" over every gun of the scheme's pairs
+            providers.gradleProperty("balanceAimAll").orNull?.let { systemProperty("ntmgunfeel.checkBalance.aimAll", it) }
         }
         // the new gun mechanisms and their recipes (MechanismCheck): ./gradlew runCheckMechanisms -PnoAssets
         register("checkMechanisms") {

@@ -1664,9 +1664,16 @@ public final class BalanceCheck {
      * stack's isAiming as its aim. A line: the gun, isAiming with the key held, NTM's spread then, aimed and from the hip.
      */
     private static void planAim() {
+        // -PbalanceAimAll=true: every gun of the scheme's pairs with its first ammo
+        String[][] guns = AIM_GUNS;
+        if (Boolean.getBoolean(PROPERTY + ".aimAll")) {
+            java.util.Map<String, String> first = new java.util.TreeMap<>();
+            for (var pr : BalanceFinal.pairs().values()) first.putIfAbsent(pr.gun(), pr.ammo());
+            guns = first.entrySet().stream().map(e -> new String[] {e.getKey(), e.getValue()}).toArray(String[][]::new);
+        }
         line("#\t--- aim: прицел NTM (Fable №3, 0.1): клавиша прицела зажата; aim в Lego.calcSpread = isAiming ствола");
-        line("#\taim\tgun\tammo\tisAiming\tразброс при нём\tприцельно\tот бедра\tконфигов (2: акимбо, стенд стреляет от бедра)");
-        for (String[] g : AIM_GUNS) {
+        line("#\taim\tgun\tammo\tisAiming\tразброс при нём\tприцельно\tот бедра\tконфигов\tклавиша прицела (TOGGLE, OWN, NONE: стенд стреляет от бедра)");
+        for (String[] g : guns) {
             STEPS.add(() -> {
                 Item item = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + g[0]));
                 BulletConfig ammo = ammoNamed(item, g[1]);
@@ -1686,7 +1693,7 @@ public final class BalanceCheck {
                 line("aim\t" + g[0] + "\t" + g[1] + "\t" + aimed + "\t" + String.format(Locale.ROOT, "%.4f", com.hbm.items.weapon.sedna.factory.Lego.calcSpread(ctx, stack, r, ammo, false, 0, aimed))
                         + "\t" + String.format(Locale.ROOT, "%.4f", com.hbm.items.weapon.sedna.factory.Lego.calcSpread(ctx, stack, r, ammo, false, 0, true))
                         + "\t" + String.format(Locale.ROOT, "%.4f", com.hbm.items.weapon.sedna.factory.Lego.calcSpread(ctx, stack, r, ammo, false, 0, false))
-                        + "\t" + gun.getConfigCount());
+                        + "\t" + gun.getConfigCount() + "\t" + aimKey(stack));
                 gun.handleKeybind(L.shooter, inv, stack, EnumKeybind.GUN_TERTIARY, false);
                 L.shooter.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
             });
@@ -4132,8 +4139,8 @@ public final class BalanceCheck {
 
     private static void fireKeys(LivingEntity from, Item item, BulletConfig ammo, boolean aimed, boolean both) {
         ItemStack stack = loaded(item, ammo);
-        // an akimbo (two guns, NTM's two configs) has no aim: its keys fire (owner 2026-11-13: from the hip, as in the game)
-        if (aimed && !akimbo(stack)) ItemGunBaseNT.setIsAiming(stack, true);
+        // a gun with no aim key (an akimbo, the SPAS-12) fires from the hip, as in the game (owner 2026-11-13)
+        if (aimed && aimKey(stack) != AimKey.NONE) ItemGunBaseNT.setIsAiming(stack, true);
         from.setItemSlot(EquipmentSlot.MAINHAND, stack);
         aim(from, L.victim);
         var gun = (ItemGunBaseNT) stack.getItem();
@@ -4145,9 +4152,19 @@ public final class BalanceCheck {
         if (both) gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_SECONDARY, false);
     }
 
-    /** two guns in NTM's two configs (maresleg_akimbo, uzi_akimbo, minigun_dual and the rest): no aim key */
-    static boolean akimbo(ItemStack stack) {
-        return stack.getItem() instanceof ItemGunBaseNT gun && gun.getConfigCount() > 1;
+    /** how a gun aims in NTM: the standard aim key (LAMBDA_TOGGLE_AIM), a key of its own, or none */
+    enum AimKey {
+        TOGGLE, OWN, NONE
+    }
+
+    /**
+     * the gun's aim key: none for two guns in NTM's two configs (maresleg_akimbo, uzi_akimbo, minigun_dual and the
+     * rest; owner 2026-11-13) and for a gun whose third key is nothing (the SPAS-12: its second key fires)
+     */
+    static AimKey aimKey(ItemStack stack) {
+        if (!(stack.getItem() instanceof ItemGunBaseNT gun) || gun.getConfigCount() > 1) return AimKey.NONE;
+        var pt = gun.getConfig(stack, 0).getPressTertiary(stack);
+        return pt == null ? AimKey.NONE : pt == com.hbm.items.weapon.sedna.factory.Lego.LAMBDA_TOGGLE_AIM ? AimKey.TOGGLE : AimKey.OWN;
     }
 
     private static void aim(LivingEntity from, LivingEntity at) {
