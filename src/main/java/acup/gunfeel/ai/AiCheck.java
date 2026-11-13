@@ -50,6 +50,12 @@ public final class AiCheck {
         String file = System.getProperty(PROPERTY);
         if (file == null || file.isBlank()) return;
         NeoForge.EVENT_BUS.addListener(ServerStartedEvent.class, e -> {
+            // a world brought from elsewhere: read as the AI reads it, no stage run, no block set (AiCheckWorld)
+            String world = System.getProperty(AiCheckWorld.PROPERTY);
+            if (world != null && !world.isBlank()) {
+                AiCheckWorld.start(e.getServer(), world, file);
+                return;
+            }
             List<String> out = new ArrayList<>();
             AiCheck check = new AiCheck();
             try {
@@ -313,6 +319,14 @@ public final class AiCheck {
         out.add("     debug view radius 16: " + p.count() + " cells, " + bytes + " bytes");
         check("debug cells survive the codec", p.count() > 100 && back.count() == p.count()
                 && java.util.Arrays.equals(back.cover(), p.cover()) && java.util.Arrays.equals(back.offsets(), p.offsets()));
+        // what /armsai debug rooms sends: through the network codec and back
+        AiRoomsPayload rp = AiDebug.rooms(map, new BlockPos(20, Y, 20), 16, true);
+        buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), level.registryAccess());
+        AiRoomsPayload.CODEC.encode(buf, rp);
+        int roomBytes = buf.readableBytes();
+        AiRoomsPayload rback = AiRoomsPayload.CODEC.decode(buf);
+        out.add("     debug rooms view radius 16: " + rp.count() + " marks, " + rp.labels().size() + " labels, " + roomBytes + " bytes");
+        check("debug rooms survive the codec", rback.count() == rp.count() && java.util.Arrays.equals(rback.marks(), rp.marks()) && rback.labels().equals(rp.labels()));
         senses();
         for (var e : made) e.discard();
         cover();

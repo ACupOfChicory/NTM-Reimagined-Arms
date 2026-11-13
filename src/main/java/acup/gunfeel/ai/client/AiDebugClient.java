@@ -28,6 +28,7 @@ public final class AiDebugClient {
     public static void init() {
         NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, e -> {
             draw();
+            AiRoomsClient.draw();
             AiBotsClient.draw();
         });
     }

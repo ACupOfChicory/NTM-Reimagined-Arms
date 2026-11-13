@@ -197,6 +197,8 @@ public final class GunFeelMod {
                         (p, ctx) -> ctx.enqueueWork(() -> acup.gunfeel.ai.client.AiDebugClient.receive(p)));
                 r.playToClient(acup.gunfeel.ai.AiBotsPayload.TYPE, acup.gunfeel.ai.AiBotsPayload.CODEC,
                         (p, ctx) -> ctx.enqueueWork(() -> acup.gunfeel.ai.client.AiBotsClient.receive(p)));
+                r.playToClient(acup.gunfeel.ai.AiRoomsPayload.TYPE, acup.gunfeel.ai.AiRoomsPayload.CODEC,
+                        (p, ctx) -> ctx.enqueueWork(() -> acup.gunfeel.ai.client.AiRoomsClient.receive(p)));
             } else {
                 r.playToClient(ShotPayload.TYPE, ShotPayload.CODEC);
                 r.playToClient(BulletStopPayload.TYPE,BulletStopPayload.CODEC);
@@ -215,6 +217,7 @@ public final class GunFeelMod {
                 acup.gunfeel.gas.GasSetup.payloads(r, false);
                 r.playToClient(acup.gunfeel.ai.AiCellsPayload.TYPE, acup.gunfeel.ai.AiCellsPayload.CODEC);
                 r.playToClient(acup.gunfeel.ai.AiBotsPayload.TYPE, acup.gunfeel.ai.AiBotsPayload.CODEC);
+                r.playToClient(acup.gunfeel.ai.AiRoomsPayload.TYPE, acup.gunfeel.ai.AiRoomsPayload.CODEC);
             }
             r.playToServer(acup.gunfeel.smoke.SmokePayloads.Resync.TYPE, acup.gunfeel.smoke.SmokePayloads.Resync.CODEC, (p, ctx) -> {
                 if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) ctx.enqueueWork(() -> acup.gunfeel.smoke.SmokeNet.resync(sp, p));

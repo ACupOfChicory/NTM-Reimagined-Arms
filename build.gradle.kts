@@ -491,6 +491,8 @@ neoForge {
             systemProperty("ntmgunfeel.checkAi", layout.buildDirectory.file("aicheck/result.txt").get().asFile.path)
             // -PaiStage=<name>: that stage of the check alone (AiCheck)
             providers.gradleProperty("aiStage").orNull?.let { systemProperty("ntmgunfeel.checkAiStage", it) }
+            // -PaiWorld=<a world's folder> -PaiWorldAt=x,y,z,radius[,up]: that world (a copy) read as the AI reads it (AiCheckWorld)
+            providers.gradleProperty("aiWorldAt").orNull?.let { systemProperty("ntmgunfeel.checkAiWorld", it) }
             // -PaiLegs=<file>: the fighters' moves, tick by tick, for the legs' replay (AiLegsLog, BotLegsReplayTest)
             providers.gradleProperty("aiLegs").orNull?.let { systemProperty("ntmgunfeel.checkAiLegs", it) }
         }
@@ -611,6 +613,8 @@ tasks.matching { it.name in checkRuns }.configureEach {
         // the dump stops the server before any world: what a stopped run left of one would only break the next
         dir.resolve("world").deleteRecursively()
         dir.mkdirs()
+        // the AI check on a world brought from elsewhere: a copy of it is the stand's world
+        if (name == "runCheckAi") providers.gradleProperty("aiWorld").orNull?.let { file(it).copyRecursively(dir.resolve("world"), true) }
         dir.resolve("eula.txt").writeText("eula=true\n")
         val properties = dir.resolve("server.properties")
         // the smallest world that still has one: flat, two chunks around, nothing generated on it
