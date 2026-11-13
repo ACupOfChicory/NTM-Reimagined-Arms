@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- A shot on an NTM suit's own model counts for the part its piece covers,
+  on bots, mobs and players: the chest's collar and breastplate are the body,
+  the shoulder pads, sleeves, legs and boots a limb. Up to half the shots on
+  a T-51, HEV, AJR, NCR, BJ, FAU, Trenchmaster or another such suit landed in
+  the wrong part, the shoulder pads in the head (`modelHitboxesSuits`; false:
+  as before).
+
 ## X953
 
 - A bot or another mob in armour of the balance's table takes a gun's hit as

@@ -45,5 +45,33 @@ class HelmetHitTest {
         // a mob's own part, and a suit's group with nothing on the head
         assertFalse(ModelHits.helmet(true, "mesh/root/head"));
         assertFalse(ModelHits.helmet(false, "mesh/Helmet"));
+        // a suit helmet's lamp (modelHitboxesSuits, on by default)
+        assertTrue(ModelHits.helmet(true, "mesh/Lamps"));
+    }
+
+    @Test
+    void suitGroupsByThePieceThatDrawsThem() {
+        // NTM's ArmorWorldRenderer: the helmet, the chest, the arms, the legs, the boots, the extras on the helmet or chest
+        assertEquals(ModelHits.Zone.HEAD, ModelHits.suitZone("mesh/Helmet"));
+        assertEquals(ModelHits.Zone.HEAD, ModelHits.suitZone("mesh/Lamps"));
+        assertEquals(ModelHits.Zone.BODY, ModelHits.suitZone("mesh/Chest"));
+        assertEquals(ModelHits.Zone.BODY, ModelHits.suitZone("mesh/Body"));
+        assertEquals(ModelHits.Zone.BODY, ModelHits.suitZone("mesh/Jetpack"));
+        assertEquals(ModelHits.Zone.LIMB, ModelHits.suitZone("mesh/LeftArm"));
+        assertEquals(ModelHits.Zone.LIMB, ModelHits.suitZone("mesh/RightLeg"));
+        assertEquals(ModelHits.Zone.LIMB, ModelHits.suitZone("mesh/LeftBoot"));
+        assertEquals(ModelHits.Zone.LIMB, ModelHits.suitZone("mesh/RightFoot"));
+        assertEquals(1, ModelHits.suitSlot("mesh/RightArm"));
+        assertEquals(2, ModelHits.suitSlot("mesh/LeftLeg"));
+        assertEquals(3, ModelHits.suitSlot("mesh/LeftFoot"));
+        // a mob's own part, a layer's draw, no group of a suit
+        assertNull(ModelHits.suitZone("mesh/root/left_arm"));
+        assertNull(ModelHits.suitZone("root/head/hat/armor/draws/0"));
+        assertNull(ModelHits.suitZone("mesh/Tail"));
+        // only under its own piece: the arms are the chestplate's
+        boolean[] chestOnly = {false, true, false, false};
+        assertEquals(ModelHits.Zone.LIMB, ModelHits.suitPiece(chestOnly, "mesh/LeftArm"));
+        assertNull(ModelHits.suitPiece(chestOnly, "mesh/LeftLeg"));
+        assertNull(ModelHits.suitPiece(chestOnly, "mesh/Head"));
     }
 }

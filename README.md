@@ -342,6 +342,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `modelHitboxes` | `true` | Hits by the model, with head and limb zones |
 | `modelHitboxesWorn` | `true` | Worn armour, skulls and pumpkins are part of the model |
 | `modelHitboxesHelmet` | `true` | A shot on a helmet is a shot in the head: a layer's helmet and an NTM suit's own helmet model (T-51, HEV and the rest), shown as the head in F3+B; false: as X949 |
+| `modelHitboxesSuits` | `true` | A shot on an NTM suit's own model is a shot in the part its piece covers: the chest's collar and breastplate the body, the shoulder pads, sleeves, legs and boots the limb; false: as X953 |
 | `clientHits` | `true` | A player's bullet hits what that player's game saw it hit; off: the server's view decides |
 | `cameraScaleMin` | `0` | Camera recoil players cannot go below |
 | `spreadStand`, `spreadMove`, `spreadSneak`, `spreadCrawl`, `spreadAim` | `1`, `1.5`, `0.75`, `0.5`, `1` | Spread by stance |
