@@ -180,6 +180,11 @@ public final class Arms {
         KICKED.set(pose.last().pose());
     }
 
+    // the stand (ScopeSmokeStand): the gun's origin as drawn last, in the camera's frame and in the pose's own
+    static Vector3f[] standGun() {
+        return new Vector3f[] {new Matrix4f(CAMERA).invert().mul(KICKED).transformPosition(new Vector3f()), KICKED.transformPosition(new Vector3f())};
+    }
+
     public static void part(PoseStack pose, HFRWavefrontObject model, int part) {
         if (!capturing) return;
         if (frameModel == null) {
