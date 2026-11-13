@@ -31,7 +31,8 @@ import net.neoforged.fml.loading.FMLPaths;
 /**
  * The balance's gun damage (stage 1b, server setting balanceGuns): a shot of an NTM gun does NTM's damage times its
  * gun and ammo's mult, and its ammo's armour threshold negation and piercing get the pair's additions
- * (BalanceGunsRule, the table {@code ntmgunfeel-balance-guns.tsv}; a file of the same name in config/ is read instead).
+ * (BalanceGunsRule, the table {@code ntmgunfeel-balance-guns.tsv}; on the stands, BalanceKeys.dev, a file of the same
+ * name in config/ is read instead).
  * On another game's server the client goes by that server's table (ServerSettings), its own file aside.
  *
  * <p>Put where a gun's shot is made (the bullet's and the beam's shot constructors: NTM's standard fire, the Tau's
@@ -97,7 +98,14 @@ public final class BalanceGuns {
             Path f = FMLPaths.CONFIGDIR.get().resolve(FILE);
             long stamp = -1L;
             try {
-                if (Files.exists(f)) stamp = Files.getLastModifiedTime(f).toMillis();
+                // config/'s table only on the stands (BalanceKeys.dev): the balance is fixed in the mod
+                if (Files.exists(f)) {
+                    if (BalanceKeys.dev()) stamp = Files.getLastModifiedTime(f).toMillis();
+                    else if (!ignoredLogged) {
+                        ignoredLogged = true;
+                        LOGGER.info("{} is not read any more: the balance's gun table is the mod's", f);
+                    }
+                }
             } catch (IOException e) {
                 stamp = -1L;
             }
@@ -110,6 +118,8 @@ public final class BalanceGuns {
         }
         return table;
     }
+
+    private static boolean ignoredLogged;
 
     private static BalanceGunsRule.Table read(Path f) {
         List<String> lines;
@@ -136,7 +146,7 @@ public final class BalanceGuns {
     /** the table as this game's server has it (its file, else the jar's), for the players */
     static String text() throws IOException {
         Path f = FMLPaths.CONFIGDIR.get().resolve(FILE);
-        if (Files.exists(f)) return Files.readString(f, StandardCharsets.UTF_8);
+        if (BalanceKeys.dev() && Files.exists(f)) return Files.readString(f, StandardCharsets.UTF_8);
         try (InputStream in = BalanceGuns.class.getResourceAsStream(RESOURCE)) {
             return in == null ? "" : new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
