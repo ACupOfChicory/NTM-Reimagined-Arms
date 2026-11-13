@@ -423,6 +423,16 @@ neoForge {
             providers.gradleProperty("balanceFinal").orNull?.let { systemProperty("ntmgunfeel.checkBalance.final", it) }
             // -PbalanceLanes=<n>: n pairs of shooter and target at once, the cases of a pass shared out (8; 1: one pair)
             providers.gradleProperty("balanceLanes").orNull?.let { systemProperty("ntmgunfeel.checkBalance.lanes", it) }
+            // Fable №3: -PbalanceRangePairs=<gun:ammo:set,...>, -PbalanceRangeDist=<blocks,...>, -PbalanceRangeClicks=<n>,
+            // -PbalanceRangeHip=true: the pass "rg" (and "rf") for these; -PbalanceTrenchPairs=<gun:ammo,...>: the pass "tb";
+            // -PbalanceFights=<n>, -PbalanceFightLimit=<ticks>: the pass "rf", fights by distance
+            providers.gradleProperty("balanceRangePairs").orNull?.let { systemProperty("ntmgunfeel.checkBalance.rangePairs", it) }
+            providers.gradleProperty("balanceRangeDist").orNull?.let { systemProperty("ntmgunfeel.checkBalance.rangeDist", it) }
+            providers.gradleProperty("balanceRangeClicks").orNull?.let { systemProperty("ntmgunfeel.checkBalance.rangeClicks", it) }
+            providers.gradleProperty("balanceRangeHip").orNull?.let { systemProperty("ntmgunfeel.checkBalance.rangeHip", it) }
+            providers.gradleProperty("balanceTrenchPairs").orNull?.let { systemProperty("ntmgunfeel.checkBalance.trenchPairs", it) }
+            providers.gradleProperty("balanceFights").orNull?.let { systemProperty("ntmgunfeel.checkBalance.fights", it) }
+            providers.gradleProperty("balanceFightLimit").orNull?.let { systemProperty("ntmgunfeel.checkBalance.fightLimit", it) }
         }
         // the new gun mechanisms and their recipes (MechanismCheck): ./gradlew runCheckMechanisms -PnoAssets
         register("checkMechanisms") {
