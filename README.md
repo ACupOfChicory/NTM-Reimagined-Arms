@@ -219,6 +219,8 @@ page. They are alphas: expect bugs and back up your world.
 - A bot with a machine gun is its squad's base of fire: it stays in place and
   keeps your cover under long bursts while a rifleman goes round the side
   (server keys `aiRoles`, `aiBaseMagazine`).
+- They open wooden doors, fence gates and NTM's plain doors on their way; an
+  iron door still keeps them out (server key `aiDoors`).
 - They move their bodies: breathing, flinching at hits, aiming, reloading,
   throwing, signalling with a hand, crouching, leaning and lying with the gun.
   Arms and legs bend at the elbows and knees, and the armour they wear is

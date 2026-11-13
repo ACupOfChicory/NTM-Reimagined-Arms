@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- AI soldiers open doors: a shut wooden door, fence gate or NTM door of the
+  plain kind (metal, office, bunker, red) on a bot's way no longer stops it. Its path goes through, it opens the door as it comes up
+  and leaves it open. Before, a shut door was a wall to it: shut the door
+  behind you and the squad stayed outside. Iron doors, trapdoors and NTM's
+  sliding, blast and vault doors still keep them out. New server setting `aiDoors` (true by default).
 - AI soldiers change low cover as they do high cover: after two or three
   bursts over one low wall a bot now and then moves to other cover, after
   four always. Before, a bot behind low cover left it only when hit.
