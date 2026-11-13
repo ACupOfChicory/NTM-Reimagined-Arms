@@ -225,6 +225,36 @@ class BalanceFinalRuleTest {
             }
     }
 
+    // Fable №3 (owner's answer 2): no cell in one click — every pair on every set, body and head, all its projectiles in
+    // the target, at 4 to 128 blocks with the range rule (an explosive shell's direct hit by the shell's line or its
+    // role's, whichever is more); the damage cap after it (a click 0.6 of the health, the head 0.8)
+    @Test
+    void noCellInOneClick() throws IOException {
+        var pairs = pairs();
+        var refs = BalanceFinalRule.refs(pairs.values());
+        var range = new BalanceRangeRule.Rule(BalanceRangeRule.lines(BalanceRangeRule.LINES), 8, Map.copyOf(BalanceFinalRule.roles(BalanceRangeRule.HOME)));
+        var cap = DamageCapRule.Limits.DEFAULT;
+        int cells = 0;
+        for (var pr : pairs.values()) {
+            String role = BalanceFinalRule.roleOf(pr, P);
+            for (var a : SETS.values()) {
+                double click = BalanceFinalRule.clickDamage(pr, a, a == FAU ? null : FAU, refs, P);
+                for (int d : new int[] {4, 8, 16, 32, 64, 128}) {
+                    double m = BalanceRangeRule.damage(range, role, d);
+                    if (pr.explosive()) m = Math.max(m, Math.max(1.0, BalanceRangeRule.shell(range, role, d)));
+                    double body = Math.min(cap.click() * BalanceFinalRule.HP, click * m);
+                    double head = pr.explosive() ? body : Math.min(cap.head() * BalanceFinalRule.HP, click * m * 1.75);
+                    double hp = BalanceFinalRule.HP + a.pool();
+                    assertTrue(Math.ceil(hp / body - 1e-9) >= 2, pr.id() + " on " + a.kind() + " at " + d + ": body in one click");
+                    assertTrue(Math.ceil(hp / head - 1e-9) >= 2, pr.id() + " on " + a.kind() + " at " + d + ": head in one click");
+                    assertTrue(!BalanceFinalRule.headOneShot(pr, a.hours(), P), pr.id());
+                    cells++;
+                }
+            }
+        }
+        assertTrue(cells >= 251 * 21 * 6, "cells " + cells);
+    }
+
     // the magazine's rule (Fable 10.3, X922): G3 on HEV 26 rounds of 30, the heavy revolver 5 or 6 of 6
     @Test
     void magazinesRule() throws IOException {

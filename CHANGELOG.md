@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- Fable's third review of the balance. A shotgun aimed throws its shot
+  tighter: NTM's spread past 0.015 counts 0.3 times (`spreadAimKnee`,
+  `spreadAimOver`; buckshot 0.035 -> 0.021, flechettes 0.025 -> 0.018, magnum
+  and slugs as they were). The SPAS-12 has no aim in NTM and gets the same
+  from the hip (`spreadHipKnee`, `spreadHipOver`). Akimbo guns have no aim and
+  no choke.
+- Shot keeps damage farther, down to 0.4 at 64 blocks (was 48); a slug keeps
+  full damage to 32 blocks and falls to 0.3 at 128; an explosive shell's
+  direct hit has its own line, full to 24 blocks and 0.25 at 80
+  (`balance.final.range`, `shell`).
+- The guns of two hands are counted from the hip in the shares of hits: the
+  twin miniguns 0.56, the twin Star F 0.80 (they were 0.87 and 1.00).
+
 ## X949
 
 - AI soldiers change low cover as they do high cover: after two or three

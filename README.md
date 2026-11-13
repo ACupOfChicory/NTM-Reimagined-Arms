@@ -44,6 +44,7 @@ page. They are alphas: expect bugs and back up your world.
   side, building up over the first shots. Set per gun.
 - Spread depends on stance and movement: standing, walking, sprinting,
   sneaking, lying, jumping and aiming, and it grows over a held-down burst.
+- A shotgun aimed throws its shot tighter, and a slug carries farther.
 - NTM's power armour (T-51, AJR, AJRO, RPA, NCRPA, BJ, Envsuit, HEV, FAU, DNS)
   halves recoil and the spread that walking, jumping and a burst add. The
   chestplate is enough.
@@ -335,6 +336,8 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `clientHits` | `true` | A player's bullet hits what that player's game saw it hit; off: the server's view decides |
 | `cameraScaleMin` | `0` | Camera recoil players cannot go below |
 | `spreadStand`, `spreadMove`, `spreadSneak`, `spreadCrawl`, `spreadAim` | `1`, `1.5`, `0.75`, `0.5`, `1` | Spread by stance |
+| `spreadAimKnee`, `spreadAimOver` | `0`, `1`; the shotguns that aim `0.015`, `0.3` | Aimed, NTM's spread past the knee counts `spreadAimOver` times (buckshot 0.035 -> 0.021, flechettes 0.025 -> 0.018); a knee of 0: off |
+| `spreadHipKnee`, `spreadHipOver` | `0`, `1`; the SPAS-12 `0.015`, `0.3` | The same from the hip: the SPAS-12 has no aim in NTM; a knee of 0: off |
 | `powerArmorSpread.<set>` | from `0.8` (T-51b) to `0.4` (FAU, DNS) | Movement and burst spread in power armour and Trenchmaster, as a share, by the chestplate's set |
 | `powerArmorSpread` | `0.5` | The same for a power armour chestplate with no line of its own |
 | `powerArmorRecoil.<set>` | from `0.8` (T-51b) to `0.4` (FAU, DNS) | Recoil in power armour and Trenchmaster, as a share, by the chestplate's set; the players' clients go by the server's |
@@ -398,12 +401,12 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.final.roles` | `smg:1.6 mg:1.3 rifle:1.0 pistol:1.0 shotgun:0.35 slug:1.0 sniper:0.85 beam:1.0 airburst:1.2` | Each gun's role (in the pairs' file) times its TTK: an SMG from the hip kills slower, a shotgun close up quicker; `airburst`: the GL-54's fragment grenades. X922: `shotgun:0.75`; X912: `pistol:1.2`, no slug |
 | `balance.final.roles.fade` | `shotgun:2` | `role:tiers`: the role's share fades back to 1 over this many tiers of the set above the pair (a shotgun kills its equal in two clicks, not a set two tiers up); empty: as X922 |
 | `balance.final.roleOf` | `autoshotgun_shredder:shotgun` | `gun:role` in place of the pairs' file (the Shredder fires shot); empty: as X922 |
-| `balance.final.hits` | `stand` | The share of hits P of each pair: `stand` the stand's one measure (the shooter aimed, standing, the target at the role's working distance, an automatic in a held burst; one share for a gun and its ammo's spread; the miniguns 0.87); `model`: the older estimate, as X922 |
+| `balance.final.hits` | `stand` | The share of hits P of each pair: `stand` the stand's one measure (the shooter aimed, standing, the target at the role's working distance, an automatic in a held burst, a gun of two hands from the hip, as it has no aim; one share for a gun and its ammo's spread; the minigun 0.87, the twin miniguns 0.56); `model`: the older estimate, as X922 |
 | `balance.final.character.few` | `one` | A tier of fewer than 6 pairs takes no raw-DPS character (1.0); `all`: every tier, as X922 |
 | `balance.final.slug.pellets` | `4` | A shotgun's round of fewer projectiles (a slug, an explosive shell) takes the role `slug`, timed as a rifle; `0`: no slug role, as X912 |
 | `balance.final.mag` | `reserve=0.15 small=1 min=0.65` | The magazine's rule: a kill of the equal fight on the last clicks of a magazine (`small` of one below 10 clicks, `reserve` of a bigger one) or on the first click after a reload moves to click M − spare (each click a little stronger), not below `min` of the TTK (X922: 0.6), not for a magazine below 3 clicks. G3 on HEV 26 rounds of 30, the heavy revolver 5 of 6. `reserve=0`: off, as X912 |
-| `balance.final.range` | `smg:x0.5/24/0.4@64 pistol:x0.8/24/0.4@64 shotgun:x1/16/0.4@48 slug:x1/24/0.4@64 beam:x1/64/0.5@160 rifle:x1/64/0.5@160 mg:x1/64/0.5@160 sniper:x1/160/0.7@256` | Damage by range, `role:xT/full/floor@at` by the shooter's distance at the hit: up to `.close` (8) blocks the role's close-up time T (an SMG ×0.5, a pistol ×0.8), back to 1 by `.home` (`pistol:12 smg:12`); full damage to `full` blocks, then straight down to `floor` at `at` blocks. A role with no line, blasts and the Tesla Cannon's arc and its IR beam: 1. X922: no shotgun line, `slug:x1/32/0.4@96 beam:x1/32/0.4@96`; `off`: as X912 |
-| `balance.final.range.shells` | `true` | An explosive shotgun shell's direct hit takes its role's range line; false: 1, as X922 |
+| `balance.final.range` | `smg:x0.5/24/0.4@64 pistol:x0.8/24/0.4@64 shotgun:x1/16/0.4@64 slug:x1/32/0.3@128 shell:x1/24/0.25@80 beam:x1/64/0.5@160 rifle:x1/64/0.5@160 mg:x1/64/0.5@160 sniper:x1/160/0.7@256` | Damage by range, `role:xT/full/floor@at` by the shooter's distance at the hit: up to `.close` (8) blocks the role's close-up time T (an SMG ×0.5, a pistol ×0.8), back to 1 by `.home` (`pistol:12 smg:12`); full damage to `full` blocks, then straight down to `floor` at `at` blocks. `shell`: an explosive shotgun shell's direct hit. A role with no line, blasts and the Tesla Cannon's arc and its IR beam: 1. X942: `shotgun:x1/16/0.4@48 slug:x1/24/0.4@64`, no `shell`; X922: no shotgun line, `slug:x1/32/0.4@96 beam:x1/32/0.4@96`; `off`: as X912 |
+| `balance.final.range.shells` | `true` | An explosive shotgun shell's direct hit takes the `shell` line, or its role's when there is none; false: 1, as X922 |
 | `balance.final.tesla.ir` | `true` | The Tesla Cannon's IR beam takes its shooter's pair: on the creature the click's arc has just struck nothing, on anyone else a click of the pair (no range rule); false: NTM's damage, as X922 |
 | `balance.final.acid` | `tiers=1.0 tier=4 full=+1 fade=3` | The acid's corrosion K (0 to 0.75) takes the set's tier down by `tiers` × K / 0.75, in full up to tier `tier` + `full`, fading to nothing over `fade` tiers above it (HEV at K 0.75 as T-51, BJ as tier 5.33, FAU as it is; never below bare); bullets, beams, blasts and fragments alike. `off`: as X922 |
 | `balance.final.pools.gas` | `drain` | The mod's gas on a full FAU, DNS or euphemium set takes the pool HP for HP, as a shot (the mask, filter and sealed helmet first, as before); `off`: as X922 |
