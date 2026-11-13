@@ -1566,7 +1566,8 @@ public final class BalanceCheck {
         boolean hip = Boolean.getBoolean(PROPERTY + ".rangeHip");
         line("#	--- rg: дальность (Fable 10.4), по " + clicks + " кликов с полного здоровья, стрелок " + (hip ? "от бедра" : "прицельно") + " стоя");
         STEPS.add(() -> {
-            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.final.range", BalanceRangeRule.LINES);
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.final.range", BalanceRangeRule.LINES,
+                    "balance.final.range.lineOf", BalanceRangeRule.LINE_OF);
             airClicks = 0;
             eachLane(() -> {
                 L.shooter.setInvulnerable(true);
@@ -1730,7 +1731,8 @@ public final class BalanceCheck {
         line("#\t--- rf: бои по дистанции (Fable №3, этап 4), по " + fights + " боёв, стрелок прицельно стоя, предел " + limit + " тактов");
         line("#\trf\tgun\tammo\tset\tdist\tfight\ttime s (> limit)\tclicks fired\tkilling click\thits");
         STEPS.add(() -> {
-            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.final.range", BalanceRangeRule.LINES);
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.final.range", BalanceRangeRule.LINES,
+                    "balance.final.range.lineOf", BalanceRangeRule.LINE_OF);
             airClicks = 0;
             eachLane(() -> {
                 L.shooter.setInvulnerable(true);
@@ -1748,7 +1750,8 @@ public final class BalanceCheck {
                 line("rf\t" + p[0] + "\t" + p[1] + "\tнет патрона");
                 continue;
             }
-            boolean shot = pr.pellets() >= 4;
+            // a shot of a gun of a line of its own (the Shredder's beam) goes as far as the line
+            boolean shot = pr.pellets() >= 4 && !BalanceRangeRule.lineOfs(BalanceRangeRule.LINE_OF).containsKey(pr.gun());
             for (int d : dists) {
                 if (shot && d > RF_SHOT_FAR) continue;
                 for (int f = 0; f < fights; f++) {

@@ -10,6 +10,9 @@ import java.util.Map;
  * (twice, 1.25 times), back to 1 by its {@code home} distance; full damage up to {@code full} blocks; then straight down
  * to {@code floor} of it at {@code floorAt} and no lower. A role of no line, blasts (but a shotgun's explosive shell's
  * direct hit, balance.final.range.shells: the line "shell", or its role's when there is none) and the Tesla Cannon's arc: 1.
+ * A gun of balance.final.range.lineOf takes the line given there in place of its role's for every hit of its the scheme
+ * takes but NTM's blasts of no explosion's class (the Shredder's beam: its flash, its drops and a drop's blast on the
+ * creature it struck, by the shooter's distance to the target).
  */
 public final class BalanceRangeRule {
     private BalanceRangeRule() {
@@ -19,9 +22,14 @@ public final class BalanceRangeRule {
     public record Line(double closeTime, double full, double floor, double floorAt) {
     }
 
-    /** the rule: its lines by role, the close range and the roles' home distances */
-    public record Rule(Map<String, Line> lines, double close, Map<String, Double> home) {
+    /** the rule: its lines by role, the close range, the roles' home distances and the guns' own lines (lineOf) */
+    public record Rule(Map<String, Line> lines, double close, Map<String, Double> home, Map<String, String> lineOf) {
         public static final Rule OFF = new Rule(Map.of(), 8, Map.of());
+
+        /** no gun of a line of its own (X967) */
+        public Rule(Map<String, Line> lines, double close, Map<String, Double> home) {
+            this(lines, close, home, Map.of());
+        }
 
         public boolean on() {
             return !lines.isEmpty();
@@ -38,6 +46,32 @@ public final class BalanceRangeRule {
     /** X922's (Fable's first review, 10.4) */
     public static final String LINES_X922 = "smg:x0.5/24/0.4@64 pistol:x0.8/24/0.4@64 slug:x1/32/0.4@96 beam:x1/32/0.4@96 rifle:x1/64/0.5@160 mg:x1/64/0.5@160 sniper:x1/160/0.7@256";
     public static final String HOME = "pistol:12 smg:12";
+    /**
+     * balance.final.range.lineOf (owner 2026-11-13): the Shredder fires beams of plasma whose drops, born where the beam
+     * strikes, do all its damage on a creature: the lasers' line, by the shooter's distance, not the shotgun's
+     */
+    public static final String LINE_OF = "autoshotgun_shredder:beam";
+
+    /** "gun:line" by spaces; "off" or none: no gun of a line of its own (X967); a broken entry is left out (the key: none read, the default) */
+    public static Map<String, String> lineOfs(String text) {
+        Map<String, String> out = new HashMap<>();
+        if (text == null || text.trim().equalsIgnoreCase("off")) return out;
+        for (String e : text.trim().split("\\s+")) {
+            int c = e.indexOf(':');
+            if (c > 0 && c < e.length() - 1) out.put(e.substring(0, c), e.substring(c + 1));
+        }
+        return out;
+    }
+
+    /**
+     * the multiplier of a hit of a pair of {@code gun} and {@code role} at {@code dist}: the gun's own line when it has one
+     * (lineOf; a drop's blast of its on the creature it struck too), else an explosive shell's direct hit ({@code shell}) the shell's, else the role's
+     */
+    public static double hit(Rule r, String gun, String role, boolean shell, double dist) {
+        String own = r.lineOf().get(gun);
+        if (own != null) return damage(r, own, dist);
+        return shell ? shell(r, role, dist) : damage(r, role, dist);
+    }
 
     /** "role:xT/full/floor@at" by spaces; "off" or none: no line; a broken entry is left out */
     public static Map<String, Line> lines(String text) {

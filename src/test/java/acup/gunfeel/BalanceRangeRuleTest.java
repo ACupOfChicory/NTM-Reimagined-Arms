@@ -103,4 +103,38 @@ class BalanceRangeRuleTest {
         assertEquals(24, l.get("smg").floorAt());
         assertEquals(1.0, BalanceRangeRule.damage(R, "rifle", Double.NaN), 1e-9);
     }
+
+    /**
+     * owner 2026-11-13: the Shredder's hits (its beam's flash, its drops, a drop's blast) take the lasers' line in place of
+     * the shotgun's, the slug's and the shell's; any other gun its role's; lineOf empty or off: X967 in every cell
+     */
+    @Test
+    void gunsOwnLine() {
+        var own = BalanceRangeRule.lineOfs(BalanceRangeRule.LINE_OF);
+        assertEquals(Map.of("autoshotgun_shredder", "beam"), own);
+        var r = new BalanceRangeRule.Rule(BalanceRangeRule.lines(BalanceRangeRule.LINES), 8, BalanceFinalRule.roles(BalanceRangeRule.HOME), own);
+        // the beam's line: 1 up to 64 blocks, 0.5 at 160 and on
+        double[][] want = {{4, 1}, {16, 1}, {32, 1}, {64, 1}, {96, 1 - 0.5 * 32 / 96}, {128, 1 - 0.5 * 64 / 96}, {160, 0.5}, {200, 0.5}};
+        for (double[] w : want)
+            for (String role : new String[] {"shotgun", "slug"})
+                for (boolean shell : new boolean[] {false, true})
+                    assertEquals(w[1], BalanceRangeRule.hit(r, "autoshotgun_shredder", role, shell, w[0]), 1e-9, role + (shell ? " shell" : "") + " at " + w[0]);
+        // another gun: its role's, the shell's for a shell
+        for (double d = 0; d <= 300; d += 0.5) {
+            assertEquals(BalanceRangeRule.damage(r, "shotgun", d), BalanceRangeRule.hit(r, "autoshotgun", "shotgun", false, d), 1e-12);
+            assertEquals(BalanceRangeRule.shell(r, "slug", d), BalanceRangeRule.hit(r, "autoshotgun", "slug", true, d), 1e-12);
+        }
+        // off and empty: no gun of its own line, the Shredder back on the shotgun's (X967)
+        for (String off : new String[] {"off", "", "  ", null}) {
+            var x967 = new BalanceRangeRule.Rule(r.lines(), 8, r.home(), BalanceRangeRule.lineOfs(off));
+            for (double d = 0; d <= 300; d += 0.5) {
+                assertEquals(BalanceRangeRule.damage(R, "shotgun", d), BalanceRangeRule.hit(x967, "autoshotgun_shredder", "shotgun", false, d), 1e-12);
+                assertEquals(BalanceRangeRule.shell(R, "slug", d), BalanceRangeRule.hit(x967, "autoshotgun_shredder", "slug", true, d), 1e-12);
+            }
+        }
+        // a broken entry is left out; a line the rule lacks: 1
+        assertEquals(Map.of("a", "b"), BalanceRangeRule.lineOfs("a:b :c d: e"));
+        var none = new BalanceRangeRule.Rule(r.lines(), 8, r.home(), Map.of("autoshotgun_shredder", "nope"));
+        assertEquals(1.0, BalanceRangeRule.hit(none, "autoshotgun_shredder", "shotgun", false, 200), 1e-12);
+    }
 }

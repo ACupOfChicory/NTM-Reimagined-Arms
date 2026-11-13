@@ -227,13 +227,14 @@ class BalanceFinalRuleTest {
 
     // Fable №3 (owner's answer 2): no cell in one click — every pair on every set, all its projectiles in the target, at 4
     // to 128 blocks with the range rule as the game takes it (an explosive shotgun shell's direct hit by the shell's
-    // line, BalanceFinal.range). The click before the damage cap must not kill on the body; on the head (x1.75) it may
+    // line, a gun of a line of its own by it: the Shredder's beam, BalanceFinal.range). The click before the damage cap must not kill on the body; on the head (x1.75) it may
     // only where the cap holds it, and the cap's shares stay below the whole health
     @Test
     void noCellInOneClick() throws IOException {
         var pairs = pairs();
         var refs = BalanceFinalRule.refs(pairs.values());
-        var range = new BalanceRangeRule.Rule(BalanceRangeRule.lines(BalanceRangeRule.LINES), 8, Map.copyOf(BalanceFinalRule.roles(BalanceRangeRule.HOME)));
+        var range = new BalanceRangeRule.Rule(BalanceRangeRule.lines(BalanceRangeRule.LINES), 8, Map.copyOf(BalanceFinalRule.roles(BalanceRangeRule.HOME)),
+                BalanceRangeRule.lineOfs(BalanceRangeRule.LINE_OF));
         var cap = DamageCapRule.Limits.DEFAULT;
         assertTrue(cap.click() < 1F && cap.head() < 1F, "the damage cap's shares");
         int cells = 0, headByCap = 0;
@@ -245,7 +246,7 @@ class BalanceFinalRuleTest {
                 double click = BalanceFinalRule.clickDamage(pr, a, a == FAU ? null : FAU, refs, P);
                 double hp = BalanceFinalRule.HP + a.pool();
                 for (int d : new int[] {4, 8, 16, 32, 64, 128}) {
-                    double m = shell ? BalanceRangeRule.shell(range, role, d) : BalanceRangeRule.damage(range, role, d);
+                    double m = BalanceRangeRule.hit(range, pr.gun(), role, shell, d);
                     if (click * m >= hp - 1e-9) body.add(pr.id() + " on " + a.kind() + " at " + d + ": " + click * m);
                     double head = pr.explosive() ? click * m : click * m * 1.75;
                     if (head >= hp - 1e-9) headByCap++;

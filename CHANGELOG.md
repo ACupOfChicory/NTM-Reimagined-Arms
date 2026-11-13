@@ -1,5 +1,13 @@
 # Changelog
 
+## X977
+
+- The Shredder's damage falls off with range as the laser guns' does: full
+  to 64 blocks, then down to half at 160 (`balance.final.range.lineOf`). It
+  fires beams of plasma, and the drops the beam leaves where it strikes do
+  its damage; they took the shotgun's line (0.4 at 64 blocks), the slug's or
+  the explosive shell's. Its damage up close is as it was.
+
 ## X973
 
 - AI soldiers open doors: a shut wooden door, fence gate or NTM door of the
@@ -9,6 +17,7 @@
   the squad stayed outside. Iron doors, trapdoors and NTM's sliding, blast
   and vault doors still keep them out. New server setting `aiDoors` (true by
   default).
+
 ## X967
 
 - Fable's third review of the balance. A shotgun aimed throws its shot
