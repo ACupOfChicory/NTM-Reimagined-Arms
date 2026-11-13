@@ -1,5 +1,17 @@
 # Changelog
 
+## X993
+
+- The server counts the part a shot hits as the shooter's client draws it,
+  for the shots it decides itself (bots, mobs, a shot whose client report did
+  not come). Under a suit drawn by its own model (Bismuth, Diesel and the
+  rest), a shot on the bare body by the neck or the shoulders counted as the
+  head or a limb: the head and arm zones grew as if vanilla armour were worn
+  there (with `modelHitboxesSuits` on). And a shot grazing a face of the model,
+  such as the top of an HEV or AJR helmet half a pixel over the head, could go
+  in on one side and past on the other: the client now tests its own shots on
+  the same numbers it sends the server.
+
 ## X989
 
 - AI soldiers crouch on bent legs. Standing still, a crouching soldier is

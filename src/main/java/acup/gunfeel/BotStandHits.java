@@ -211,6 +211,28 @@ final class BotStandHits {
                 new Edge("сбоку головы", past.add(fwd.scale(2)), past.subtract(fwd.scale(2))));
     }
 
+    /**
+     * Two poses of one mob (the client's, the server's): their box counts, and the part whose corners lie furthest
+     * apart, px (by the boxes' order)
+     */
+    static String apart(List<ModelBox> a, List<ModelBox> b) {
+        if (a.size() != b.size()) return "коробок " + a.size() + " против " + b.size();
+        double most = 0;
+        String part = "-";
+        for (int i = 0; i < a.size(); i++) {
+            ModelBox x = a.get(i), y = b.get(i);
+            if (!x.part().equals(y.part())) return "часть " + i + ": " + x.part() + " против " + y.part();
+            for (int c = 0; c < 8; c++) {
+                double d = ModelContours.point(x, c & 1, (c >> 1) & 1, (c >> 2) & 1).distanceTo(ModelContours.point(y, c & 1, (c >> 1) & 1, (c >> 2) & 1)) * 16;
+                if (d > most) {
+                    most = d;
+                    part = x.part();
+                }
+            }
+        }
+        return String.format(Locale.ROOT, "%d коробок, дальше всех %s %.3f px", a.size(), part, most);
+    }
+
     /** the zone nearest the point: its part, its size and how far out the point is along each edge, px (0.01 steps) */
     static String outside(List<HeadZone> zones, Vec3 p) {
         String best = "нет зон";
