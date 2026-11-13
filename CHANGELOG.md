@@ -1,6 +1,6 @@
 # Changelog
 
-## X1025
+## Unreleased
 
 - `/armsai debug rooms [radius]` shows the buildings round you as the AI
   reads them: each room's floor in its own colour with its number, kind
@@ -16,6 +16,8 @@
   among them. Before, only an opening one block wide parted two rooms, and a
   house with wide doorways was one room to them. A passage two wide is a
   corridor with a way at each mouth.
+
+## X1025
 
 - AI soldiers go into a room together. The ones that go after a target lost
   in a building no longer walk in through the doorway one after another:
