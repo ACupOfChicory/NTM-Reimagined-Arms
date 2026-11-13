@@ -97,6 +97,7 @@ public final class GunFeelMod {
                     }
                 });
         acup.gunfeel.ai.AiEvents.register();
+        acup.gunfeel.ai.AiUnderFire.init();
         HeadDamage.register();
         DamageCap.register();
         BalanceLog.register();

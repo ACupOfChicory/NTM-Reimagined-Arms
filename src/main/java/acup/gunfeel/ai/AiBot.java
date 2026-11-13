@@ -30,6 +30,9 @@ public final class AiBot {
     /** a slide into cover, a roll under fire */
     public final AiDash dash = new AiDash();
     public final AiConfidence confidence = new AiConfidence();
+    /** what it is to its squad, and the gun in its hands that was worked out for (AiRole.of) */
+    AiRole role = AiRole.RIFLE;
+    net.minecraft.world.item.@Nullable Item roleFor;
     /** what it does with what it knows; null: it only senses (a stand drives it) */
     public @Nullable AiBrain brain;
     /** grenades it has left (AiGrenades) */

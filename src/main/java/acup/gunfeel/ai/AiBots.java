@@ -251,6 +251,9 @@ public final class AiBots {
         tickNanos += System.nanoTime() - t0;
     }
 
+    /** the stands: AI mobs' ticks, and of those the ones pinned down */
+    public static long botTicks, pinnedTicks;
+
     /** the server stand: time in AI mobs' ticks (their guns' NTM work too), and in their looks; server thread */
     public static long tickNanos;
 
@@ -273,7 +276,10 @@ public final class AiBots {
         // a shot that flies close past it is one at it: as a hit, from where it was fired
         Entity shooter = bot.prone.watchShots(level, tick);
         if (shooter != null) bot.dash.nearMiss(tick);
-        bot.confidence.tick(bot.prone.pinned(tick), tick);
+        boolean pinned = bot.prone.pinned(tick);
+        botTicks++;
+        if (pinned) pinnedTicks++;
+        bot.confidence.tick(pinned, bot.prone.suppressed(), tick);
         if (shooter != null) hear(bot, shooter.getX(), shooter.getY(), shooter.getZ(), shooter.distanceTo(bot.mob), tick, true, true, 0.15, 2);
         if (bot.brain != null) bot.brain.tick(bot, tick);
         bot.prone.tick(level, bot.mover, tick, bot.brain != null && bot.stoop.down, bot.dash);

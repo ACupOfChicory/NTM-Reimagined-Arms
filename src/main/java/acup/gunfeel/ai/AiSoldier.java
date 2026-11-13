@@ -227,6 +227,14 @@ public final class AiSoldier implements AiBrain {
     private long suppressSince, nextSuppress;
     /** ticks between two bursts at the place, for those on the move */
     static final int SUPPRESS_GAP_MIN = 40, SUPPRESS_GAP_MAX = 60;
+    /**
+     * the squad's base of fire (AiRole.BASE): its burst at the place, the gap to its next, ticks (a player's
+     * suppression scale falls from full to none in 5 seconds: these keep it up); it reloads with fewer rounds left
+     */
+    static final int BASE_BURST_MIN = 40, BASE_BURST_MAX = 70, BASE_GAP_MIN = 8, BASE_GAP_MAX = 16, BASE_LEFT = 12;
+    /** its cover in the way of its burst this long: a step aside, ticks; the cover it stepped out from */
+    static final int BASE_BLOCKED = 8;
+    private long steppedFrom = Long.MIN_VALUE;
     // for the stands: flanks it went on, bursts at a place it fired for those on the move
     public int flanks, flankTries, suppressions;
 
@@ -442,8 +450,10 @@ public final class AiSoldier implements AiBrain {
         else if (c != null && c.state == TargetMemory.State.LOST && pushes(bot, c, tick)) search(bot, level, c, tick);
         // one of its squad on the move: it keeps the place they went out of sight under fire, a burst every few seconds
         // (not one that watches where they may come out: it keeps watching there)
-        else if (c != null && c.state == TargetMemory.State.LOST && spot != null && (mode == Mode.COVER || mode == Mode.PEEK || mode == Mode.HOLD)
-                && (wasSuppressing || AiSquads.suppresses(bot, c, tick)) && !watchesExit(bot, c, tick)) {
+        // (its base of fire goes on while the wait has turned into a search: the one gone round is still on its way)
+        else if (c != null && (c.state == TargetMemory.State.LOST || c.state == TargetMemory.State.SEARCH && mode != Mode.SEARCH && AiSquads.base(bot))
+                && spot != null && (mode == Mode.COVER || mode == Mode.PEEK || mode == Mode.HOLD)
+                && (wasSuppressing || AiSquads.suppresses(bot, c, tick)) && (AiSquads.base(bot) || !watchesExit(bot, c, tick))) {
             suppressing = wasSuppressing;
             suppress(bot, c, tick);
         }
@@ -793,6 +803,10 @@ public final class AiSoldier implements AiBrain {
             boolean there = bot.mover.arrived();
             boolean reload = g.loaded() >= 0 && g.loaded() < Math.max(1, g.capacity() / 3) && g.ammo.any();
             if (low && there) {
+                if (keptDown(bot, tick)) {
+                    g.fire(false);
+                    return;
+                }
                 // behind low cover it fires standing, and goes down only for a long reload
                 if ((reload || g.reloading()) && dist >= PRONE_NEVER && longReload(g)) bot.prone.want();
                 // pinned down there: it does not rise into the fire, it fires blind over the cover where they were seen
@@ -873,6 +887,7 @@ public final class AiSoldier implements AiBrain {
             boolean low = s.peek() == s.cell() || !s.hasPeek();
             // pinned down behind low cover: no look over it into the fire, a burst blind over it where they went (a
             // reload only when a third or less is left, as in a fight: not after its first blind shot)
+            if (low && bot.mover.arrived() && keptDown(bot, tick)) return;
             if (low && bot.mover.arrived() && !(g.loaded() >= 0 && g.loaded() < Math.max(1, g.capacity() / 3) && g.ammo.any())
                     && lost.distanceTo(bot.mob.position()) >= BLIND_NEAR && blindFire(bot, (ServerLevel) bot.mob.level(), lost, true, tick)) return;
             boolean reload = g.loaded() >= 0 && g.loaded() < g.capacity() && g.ammo.any();
@@ -1019,6 +1034,29 @@ public final class AiSoldier implements AiBrain {
         g.fire(burst(bot, tick, false));
         blindTicks++;
         why = Why.BLIND;
+        return true;
+    }
+
+    /** pinned down behind one low cover this long, ticks: it leaves it for other cover */
+    static final int KEPT_DOWN = 100;
+    private long downSince, downCell = Long.MIN_VALUE;
+    /** the stands: times it left cover it was kept down in */
+    public int keptDowns;
+
+    /**
+     * Kept pinned down behind this low cover KEPT_DOWN ticks (the scale holds it down as long as the fire lasts:
+     * AiUnderFire): they have its place, it goes for other cover, as after a hit. Whether it left.
+     */
+    private boolean keptDown(AiBot bot, long tick) {
+        if (!AiUnderFire.on() || !bot.prone.pinned(tick) || spot.cell() != downCell) {
+            downSince = tick;
+            downCell = spot.cell();
+            return false;
+        }
+        if (tick - downSince < KEPT_DOWN || tick - lastShift <= SHIFT_GAP || bot.prone.fresh(tick) || bot.confidence.fallsBack(tick)
+                || !AiSquads.mayMove(bot) || AiSquads.coversFallBack(bot)) return false;
+        keptDowns++;
+        shift(bot, tick, "kept down in one cover: other cover");
         return true;
     }
 
@@ -1330,18 +1368,23 @@ public final class AiSoldier implements AiBrain {
         AiGunner g = bot.gunner;
         g.aim(lost);
         boolean low = s.peek() == s.cell() || !s.hasPeek();
+        boolean base = AiSquads.base(bot);
         why = Why.SUPPRESS;
         if (!suppressing) {
             g.fire(false);
             if (mode == Mode.PEEK || mode == Mode.HOLD) mode(Mode.COVER, tick);
             if (!bot.mover.goalIs(s.cell())) bot.mover.goTo(s.cell(), 0.35, WALK);
-            boolean reload = g.loaded() >= 0 && g.loaded() < Math.max(1, g.capacity() / 3) && g.ammo.any();
+            // the base of fire fires its magazine down: it reloads when a burst's worth is not left
+            boolean reload = g.loaded() >= 0 && g.loaded() < (base ? Math.min(BASE_LEFT, Math.max(1, g.capacity() / 3)) : Math.max(1, g.capacity() / 3))
+                    && g.ammo.any();
             if (reload) g.reload();
             crouch = low && bot.mover.arrived();
             if (bot.mover.arrived() && !reload && !g.reloading() && g.loaded() != 0 && tick >= nextSuppress) {
                 suppressing = true;
                 suppressSince = tick;
-                burstUntil = 0;
+                // its one burst: a rifleman's usual one, the base of fire's a long one
+                burstUntil = base ? tick + BASE_BURST_MIN + bot.mob.getRandom().nextInt(BASE_BURST_MAX - BASE_BURST_MIN) : 0;
+                if (base) bursts++;
                 suppressions++;
                 if (!low) {
                     // a burst for others is no look out of its own: not counted toward other cover (choosePeek)
@@ -1354,7 +1397,7 @@ public final class AiSoldier implements AiBrain {
                     lastPeek = last;
                     mode(Mode.PEEK, tick);
                     peekSince = tick;
-                }
+                } else if (base && steppedFrom == s.cell() && bot.mob.level() instanceof ServerLevel level) sidestep(bot, level, lost);
                 event(bot, tick, "one of its squad on the move: a burst where they went");
             }
             return;
@@ -1362,12 +1405,22 @@ public final class AiSoldier implements AiBrain {
         // out, or up over low cover: one burst at the place, then back in
         boolean there = bot.mover.arrived();
         g.fire(there && bot.prone.upright(tick) && burst(bot, tick, false));
+        // its own cover in the way of the burst (high, with no place beside it to fire from): the base of fire steps out
+        // beside it, and from then on at once
+        if (base && there && g.coverTicks > BASE_BLOCKED && bot.mob.level() instanceof ServerLevel level) {
+            g.coverTicks = 0;
+            steppedFrom = s.cell();
+            burstUntil += BASE_BLOCKED;
+            sidestep(bot, level, lost);
+            event(bot, tick, "its cover in the way of its burst: a step aside");
+        }
         boolean done = there && burstUntil != 0 && tick > burstUntil;
-        if (done || tick - suppressSince > PEEK_BLIND + 40 || g.loaded() == 0) {
+        if (done || tick - suppressSince > PEEK_BLIND + (base ? BASE_BURST_MAX : 40) || g.loaded() == 0) {
             suppressing = false;
             g.fire(false);
-            nextSuppress = tick + SUPPRESS_GAP_MIN + bot.mob.getRandom().nextInt(SUPPRESS_GAP_MAX - SUPPRESS_GAP_MIN);
-            if (!low) {
+            nextSuppress = tick + (base ? BASE_GAP_MIN + bot.mob.getRandom().nextInt(BASE_GAP_MAX - BASE_GAP_MIN)
+                    : SUPPRESS_GAP_MIN + bot.mob.getRandom().nextInt(SUPPRESS_GAP_MAX - SUPPRESS_GAP_MIN));
+            if (!low || steppedFrom == s.cell()) {
                 bot.mover.goTo(s.cell(), 0.35, WALK);
                 mode(Mode.COVER, tick);
             }
@@ -1382,7 +1435,8 @@ public final class AiSoldier implements AiBrain {
         watch = look;
         bot.gunner.fire(false);
         bot.gunner.aim(look);
-        if (mode == Mode.PEEK && spot != null) bot.mover.goTo(spot.cell(), 0.35, WALK);
+        // (and back from beside its cover, where its burst for those on the move took it: suppress)
+        if (spot != null && (mode == Mode.PEEK || steppedFrom == spot.cell() && !bot.mover.goalIs(spot.cell()))) bot.mover.goTo(spot.cell(), 0.35, WALK);
         if (spot == null && tick >= nextQuery) {
             nextQuery = tick + QUERY_EVERY * 3;
             takeCover(bot, level, TacticalMap.of(level), List.of(new Vec3(c.lostX, c.lostY + 1.5, c.lostZ)), false);
