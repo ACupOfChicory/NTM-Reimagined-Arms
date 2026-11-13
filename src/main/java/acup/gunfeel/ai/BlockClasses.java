@@ -114,7 +114,7 @@ public final class BlockClasses {
         // hides: an opaque block, leaves, or a solid one with a model of its own that stops bullets (sandbags, NTM's
         // machines: the game does not take their models as hiding); glass of any kind, bars, panes and fences do not
         boolean sight = blocks && face >= COVERS && (state.canOcclude() || state.is(BlockTags.LEAVES) || protect >= 1 && !glass);
-        return Voxel.of(move, sight, protect, water, climb, door);
+        return Voxel.of(move, sight, protect, water, climb, AiDoors.byHand(state));
     }
 
     /** for the tests and /armsai: the name of a voxel byte */
