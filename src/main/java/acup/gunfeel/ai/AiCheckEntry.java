@@ -17,7 +17,7 @@ import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The AI check's way into a building (AiEntry, stage 4.5c): two of one team in a stone house with a roof and one way
+ * The AI check's way into a building (AiEntry, stage 4.5c): two of one team in a house of stone bricks with a roof and one way
  * in, four of another outside who know where they are. Rounds by twos, aiEntry off (before) and on; the first half
  * with an open doorway, the second with a shut wooden door. Counted: who is left, when the house was cleared, how
  * many got in and when the first did, those of the four that fell in the doorway or just before it, grenades thrown,
@@ -112,13 +112,13 @@ final class AiCheckEntry {
     }
 
     private void build(boolean door) {
-        BlockState stone = Blocks.STONE.defaultBlockState(), air = Blocks.AIR.defaultBlockState();
+        BlockState stone = Blocks.STONE.defaultBlockState(), brick = Blocks.STONE_BRICKS.defaultBlockState(), air = Blocks.AIR.defaultBlockState();
         for (int x = X0; x < X0 + SIZE; x++)
             for (int z = Z0; z < Z0 + SIZE; z++) {
                 set(x, y - 1, z, stone);
                 boolean in = x >= WX0 && x <= WX1 && z >= WZ0 && z <= WZ1, wall = in && (x == WX0 || x == WX1 || z == WZ0 || z == WZ1);
-                for (int h = 0; h < 3; h++) set(x, y + h, z, wall ? stone : air);
-                set(x, y + 3, z, in ? stone : air);
+                for (int h = 0; h < 3; h++) set(x, y + h, z, wall ? brick : air);
+                set(x, y + 3, z, in ? brick : air);
                 set(x, y + 4, z, air);
             }
         for (int[] p : LOW) set(p[0], y, p[1], stone);

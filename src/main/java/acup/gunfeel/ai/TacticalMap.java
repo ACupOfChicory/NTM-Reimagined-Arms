@@ -148,6 +148,13 @@ public final class TacticalMap implements CellSource {
         return s != null && s.stamp == c.stamp;
     }
 
+    /** a block's kind (AiBlockKinds) from the snapshots, any thread; neutral where none is kept */
+    @Override
+    public byte kind(int x, int y, int z) {
+        SectionSnapshot s = snaps.get(SectionPos.asLong(x >> 4, y >> 4, z >> 4));
+        return s == null ? AiBlockKinds.NEUTRAL : s.kind(x & 15, y & 15, z & 15);
+    }
+
     /** a block's voxel from the snapshots, any thread; unknown where none is kept */
     @Override
     public byte voxel(int x, int y, int z) {
@@ -181,15 +188,16 @@ public final class TacticalMap implements CellSource {
             map.offThread.add(pos.immutable());
             return;
         }
-        map.changed(pos, BlockClasses.of(state), false);
+        map.changed(pos, BlockClasses.of(state), AiBlockKinds.of(state), false);
     }
 
-    private void changed(BlockPos pos, int voxel, boolean unknownVoxel) {
+    private void changed(BlockPos pos, int voxel, int kind, boolean unknownVoxel) {
         long key = SectionPos.asLong(pos);
         Section s = sections.get(key);
         if (s == null) return;
         int lx = pos.getX() & 15, ly = pos.getY() & 15, lz = pos.getZ() & 15;
-        if (!s.snapDirty && s.snap != null && !unknownVoxel && s.snap.at(lx, ly, lz) == voxel) return;
+        // (a block of the same voxel and another kind, bricks for stone, is a change: AiRooms reads the kinds)
+        if (!s.snapDirty && s.snap != null && !unknownVoxel && s.snap.at(lx, ly, lz) == voxel && s.snap.kind(lx, ly, lz) == kind) return;
         changes++;
         s.version++;
         if (s.snap != null) {
@@ -254,7 +262,7 @@ public final class TacticalMap implements CellSource {
 
     void tick() {
         tick++;
-        for (BlockPos p; (p = offThread.poll()) != null; ) changed(p, 0, true);
+        for (BlockPos p; (p = offThread.poll()) != null; ) changed(p, 0, 0, true);
         for (Object r; (r = done.poll()) != null; ) publish(r);
         long t0 = System.nanoTime();
         long spent = 0;
@@ -364,10 +372,11 @@ public final class TacticalMap implements CellSource {
         SectionSnapshot snap;
         if (section.hasOnlyAir()) snap = SectionSnapshot.air(key, version);
         else {
-            byte[] v = new byte[SectionSnapshot.SIZE];
+            byte[] v = new byte[SectionSnapshot.SIZE], kinds = new byte[SectionSnapshot.SIZE / 4];
+            AiBlockKinds.refresh();
             BlockState last = null;
-            byte lastV = 0;
-            int i = 0;
+            byte lastV = 0, lastK = 0;
+            int i = 0, mixed = 0, firstK = -1;
             for (int y = 0; y < 16; y++)
                 for (int z = 0; z < 16; z++)
                     for (int x = 0; x < 16; x++) {
@@ -375,10 +384,14 @@ public final class TacticalMap implements CellSource {
                         if (st != last) {
                             last = st;
                             lastV = BlockClasses.of(st);
+                            lastK = AiBlockKinds.of(st);
+                            if (firstK < 0) firstK = lastK;
+                            mixed |= lastK ^ firstK;
                         }
+                        kinds[i >> 2] |= (byte) (lastK << ((i & 3) << 1));
                         v[i++] = lastV;
                     }
-            snap = SectionSnapshot.of(key, version, v);
+            snap = mixed != 0 ? SectionSnapshot.of(key, version, v, kinds, (byte) 0) : SectionSnapshot.of(key, version, v, null, (byte) firstK);
         }
         snapshots++;
         snapshotNanos += System.nanoTime() - t0;

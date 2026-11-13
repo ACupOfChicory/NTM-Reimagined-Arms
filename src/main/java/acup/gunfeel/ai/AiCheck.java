@@ -270,10 +270,14 @@ public final class AiCheck {
                 SectionCells.height(beside, Dirs.S) == 2 && SectionCells.height(beside, Dirs.SE) == 0);
         check("a cell beside the wall is fresh again", map.fresh(map.cellsAt(15, Y, 23)));
 
-        // a change that does not touch what the AI reads (stone to cobblestone): nothing to rebuild
+        // a change that does not touch what the AI reads (stone to granite: the same to a bullet, an eye and a mob, and
+        // the ground both): nothing to rebuild
         changesBefore = map.changes;
+        set(20, Y + 1, 24, Blocks.GRANITE.defaultBlockState());
+        check("stone to granite changes nothing for the AI", map.changes == changesBefore);
+        // ground to a block put there (granite to cobblestone) is a change: a building is read by its shell (AiBlockKinds)
         set(20, Y + 1, 24, Blocks.COBBLESTONE.defaultBlockState());
-        check("stone to cobblestone changes nothing for the AI", map.changes == changesBefore);
+        check("granite to cobblestone is a change for the AI: the ground, then a block put there", map.changes == changesBefore + 1);
 
         // an explosion at the end of the wall
         changesBefore = map.changes;

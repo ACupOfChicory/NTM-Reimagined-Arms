@@ -227,7 +227,7 @@ public final class BulletRules {
         return want != null && want.equals(id);
     }
 
-    static boolean blockMatches(List<String> sel, BlockState state) {
+    public static boolean blockMatches(List<String> sel, BlockState state) {
         Identifier id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
         for (String s : sel) {
             if (s.equals("*")) return true;
