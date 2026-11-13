@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 // The arm editor has no dead control: in every state of every gun, each control that can be pressed changes
@@ -182,8 +183,25 @@ class ArmEditorTest {
         e.hand = 1;
     }
 
+    // the guns of the quick run (test): the cheapest that between them show every control of the list at the end of
+    // sweep(), a gun with no animations among them; one of them (G3 Zebra Infiltrator) shares its arms with another gun,
+    // one (the double barrel) is seen as a variant too. Some 35 s of the six minutes the run of every gun takes
+    static final Set<String> QUICK = Set.of("gunfeel:no_animations", "hbm:gun_henry", "hbm:gun_double_barrel", "hbm:gun_g3_zebra_infiltrator");
+
     @Test
     void everyControlDoesSomethingOrSaysWhyNot() throws Exception {
+        sweep(QUICK);
+    }
+
+    // every gun of the jar: some six minutes, too long for every build; ./gradlew slowTest runs it
+    @Test
+    @Tag("slow")
+    void everyControlOfEveryGunDoesSomethingOrSaysWhyNot() throws Exception {
+        sweep(null);
+    }
+
+    // the guns of only (null = all of them)
+    private static void sweep(Set<String> only) throws Exception {
         var opened = Grips.snapshot();
         int pressed = 0, grey = 0, states = 0;
         Set<String> seen = new TreeSet<>(), shown = new TreeSet<>();
@@ -197,6 +215,10 @@ class ArmEditorTest {
         try {
             var guns = jarGuns();
             guns.put("gunfeel:no_animations", Set.of());
+            if (only != null) {
+                guns.keySet().retainAll(only);
+                assertEquals(only, guns.keySet(), "a gun of the quick run is gone from the jar");
+            }
             for (var g : guns.entrySet()) {
                 List<ArmEditor.Clips> looks = new ArrayList<>(List.of(clips(g.getValue())));
                 if (VARIANTS.containsKey(g.getKey())) looks.add(clips(g.getValue(), VARIANTS.get(g.getKey()), false));
@@ -254,10 +276,10 @@ class ArmEditorTest {
             Config.select(null);
         }
         System.out.println("ARMEDITOR states " + states + " pressed " + pressed + " grey " + grey + " controls " + shown.size());
-        // every control that was ever shown could be pressed somewhere
+        // every control that was ever shown could be pressed somewhere: on some gun, so only the run of every gun knows
         var never = new TreeSet<>(shown);
         never.removeAll(seen);
-        assertEquals(Set.of(), never, "shown but never pressable");
+        if (only == null) assertEquals(Set.of(), never, "shown but never pressable");
         for (String id : List.of("clip.prev", "play", "time.start", "track.around", "key.next", "arms.own", "arms.shared", "undo", "redo", "reset", "close",
                 "page.grip", "grip.mode", "grip.reset", "grip.part.next", "grip.variant.own", "grip.variant.common", "set.grip.2.plus",
                 "set.armReachLeft.minus", "set.armMaxScale.plus", "set.armSlide.toggle", "set.armSlideNearest.reset", "set.armStretch.reset",
@@ -288,6 +310,7 @@ class ArmEditorTest {
         var before = e.state();
         var undo = e.undoCopy();
         var redo = e.redoCopy();
+        var names = names(e);
         int pressed = 0, grey = 0;
         Set<String> ids = new HashSet<>();
         for (var a : e.actions()) {
@@ -296,12 +319,12 @@ class ArmEditorTest {
             shown.add(a.id());
             assertFalse(a.label().isBlank(), where + ": no label");
             assertFalse(a.hint().isBlank(), where + ": no hint");
-            noEnglish(a.label(), e, where);
-            noEnglish(a.hint(), e, where);
+            noEnglish(a.label(), names, where);
+            noEnglish(a.hint(), names, where);
             if (!a.active()) {
                 grey++;
                 assertFalse(a.why().isBlank(), where + ": grey without a reason");
-                noEnglish(a.why(), e, where);
+                noEnglish(a.why(), names, where);
                 continue;
             }
             seen.add(a.id());
@@ -329,21 +352,34 @@ class ArmEditorTest {
             String where = gun + e.clips.variant() + " " + e.page + " hand " + e.hand + " row";
             String text = r.slider() != null ? r.slider().text() : r.text();
             assertFalse(text.isBlank() || r.hint().isBlank(), where + ": a row without text or hint");
-            noEnglish(text, e, where);
-            noEnglish(r.hint(), e, where);
-            if (r.slider() != null && r.slider().why() != null) noEnglish(r.slider().why(), e, where);
+            noEnglish(text, names, where);
+            noEnglish(r.hint(), names, where);
+            if (r.slider() != null && r.slider().why() != null) noEnglish(r.slider().why(), names, where);
             for (String id : r.ids()) assertTrue(ids.contains(id), where + ": a button of the row is no action: " + id);
         }
         return new int[] {pressed, grey};
     }
 
+    // the names a text of this state may show in Latin letters; check() reads them once per state: every press there is
+    // undone and checked to be, so the state, and with it these names, stays the same for every text it looks at
+    record Names(String shared, List<java.util.regex.Pattern> parts) {
+    }
+
+    private static final java.util.regex.Pattern GUN_ID = java.util.regex.Pattern.compile("[a-z]+:[a-z0-9_]+"),
+            PROPERTIES = java.util.regex.Pattern.compile("[A-Za-z0-9_.:-]+\\.properties"), LATIN = java.util.regex.Pattern.compile("(?s).*[A-Za-z].*");
+
     // no Latin letters, apart from names of guns (shown as the game names them)
-    private static void noEnglish(String text, ArmEditor e, String where) {
+    private static void noEnglish(String text, Names names, String where) {
         String t = text;
-        String shared = e.sharedWith();
-        if (shared != null) t = t.replace(e.clips.gunName(shared), "");
+        if (names.shared() != null) t = t.replace(names.shared(), "");
         // guns (a stand-in names them by their ids) and the folder of the exports, as the game names them
-        t = t.replaceAll("[a-z]+:[a-z0-9_]+", "").replace("config/" + ArmFiles.FOLDER, "").replaceAll("[A-Za-z0-9_.:-]+\\.properties", "");
+        t = PROPERTIES.matcher(GUN_ID.matcher(t).replaceAll("").replace("config/" + ArmFiles.FOLDER, "")).replaceAll("");
+        for (var part : names.parts()) t = part.matcher(t).replaceAll("");
+        assertFalse(LATIN.matcher(t).matches(), where + ": English in «" + text + "»");
+    }
+
+    private static Names names(ArmEditor e) {
+        String shared = e.sharedWith();
         // the model's part names, as the model names them, the longest first ("BarrelShort" before "Barrel")
         Config.select(e.gun);
         var parts = new ArrayList<String>(e.clips.parts());
@@ -366,8 +402,9 @@ class ArmEditorTest {
         if (e.clip() != null) parts.addAll(e.clips.moves(e.clip().id()).keySet());
         parts.removeIf(String::isEmpty);
         parts.sort(Comparator.comparingInt(String::length).reversed());
-        for (String part : parts) t = t.replaceAll("(?i)" + java.util.regex.Pattern.quote(part), "");
-        assertFalse(t.matches("(?s).*[A-Za-z].*"), where + ": English in «" + text + "»");
+        var patterns = new ArrayList<java.util.regex.Pattern>();
+        for (String part : parts) patterns.add(java.util.regex.Pattern.compile("(?i)" + java.util.regex.Pattern.quote(part)));
+        return new Names(shared == null ? null : e.clips.gunName(shared), patterns);
     }
 
     // G3's inspect: the left hand holds the magazine there, so a path the old editor wrote for it is never played
