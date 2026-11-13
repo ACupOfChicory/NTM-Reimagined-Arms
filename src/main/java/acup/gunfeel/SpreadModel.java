@@ -38,6 +38,13 @@ public final class SpreadModel {
         return Math.max(0F, ntm * Math.max(0F, mult) + speedAdd(spreadSpeed, pace) + Math.max(0F, air) + bloom * stance);
     }
 
+    // the choke (Fable №3; aimed spreadAimKnee and spreadAimOver, from the hip spreadHipKnee and spreadHipOver): on,
+    // what of NTM's spread is past the knee counts over times; off, or a knee of 0, NTM's spread as it is
+    public static float choke(float ntm, boolean aim, float knee, float over) {
+        if (!aim || knee <= 0F || ntm <= knee) return ntm;
+        return knee + (ntm - knee) * Math.max(0F, over);
+    }
+
     // what is left of a bloom after that many ticks
     public static float decay(float bloom, long ticks, float halfLifeSeconds) {
         if (ticks <= 0) return bloom;

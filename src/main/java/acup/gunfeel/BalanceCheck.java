@@ -4200,7 +4200,8 @@ public final class BalanceCheck {
             if (kv.length == 0) Files.deleteIfExists(file());
             else {
                 StringBuilder s = new StringBuilder();
-                KEYS.forEach((k, v) -> s.append(k).append(" = ").append(v).append('\n'));
+                // a gun's own key (hbm:gun_x.key): the colon escaped, or the file reads it as the separator
+                KEYS.forEach((k, v) -> s.append(k.replace(":", "\\:")).append(" = ").append(v).append('\n'));
                 Files.writeString(file(), s);
                 Files.setLastModifiedTime(file(), java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis()));
             }
