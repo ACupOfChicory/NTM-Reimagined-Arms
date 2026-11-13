@@ -15,7 +15,7 @@ import acup.gunfeel.GunFeel;
 
 /**
  * The clips AI mobs play, from assets/ntmgunfeel/animations/bot.animation.json (tools/quaternius/bot_clips.py):
- * Quaternius' Universal Animation Library and KayKit's Character Animations, both CC0. Read from the jar once.
+ * Quaternius' Universal Animation Library and SWAT, KayKit's Character Animations, all CC0. Read from the jar once.
  */
 public final class BotClips {
     static final String PATH = "/assets/ntmgunfeel/animations/bot.animation.json";
@@ -28,6 +28,13 @@ public final class BotClips {
     public static final String RELOAD = "reload", DEATH = "death", HIT_KNOCK = "hit_knock";
     /** a slide into cover, a forward roll (the whole body, AiPose.SLIDE, ROLL) */
     public static final String SLIDE = "slide", ROLL = "roll";
+    /**
+     * crouching, the legs and the trunk's lean, fitted under the head where vanilla's crouch has it (tools/quaternius
+     * fit.py): down on a knee at a stand, a walk bent low on the move
+     */
+    public static final String KNEEL = "kneel", CROUCH_WALK = "crouch_walk";
+    /** in the air, the legs; two more flinches (doubled up, thrown back); a door pushed open, the left arm */
+    public static final String JUMP = "jump", HIT_FOLD = "hit_fold", HIT_BACK = "hit_back", DOOR = "door";
 
     private static volatile Map<String, BotClip> clips;
 

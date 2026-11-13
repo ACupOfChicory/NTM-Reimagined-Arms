@@ -12,6 +12,27 @@
   in on one side and past on the other: the client now tests its own shots on
   the same numbers it sends the server.
 
+## X989
+
+- AI soldiers crouch on bent legs. Standing still, a crouching soldier is
+  down on its right knee with the left foot ahead; moving, it walks bent low
+  with its knees bending. Before, a crouching soldier stood and walked on
+  straight legs set back, as a sneaking player does. Its head, shoulders and
+  hitbox are where they were: the eye it sees and shoots from did not move.
+- In a fight a soldier standing still stands with its left foot ahead and
+  its right foot back, not with its feet together.
+- A soldier in the air, jumping up a block or falling a block or more, draws
+  its knees up; before, its legs went on walking. Stepping down a slab or a
+  stair is not a jump.
+- A hit makes a soldier flinch one of four ways in turn (was two): its head
+  thrown back, its chest, doubled up, thrown back.
+- Two new things a soldier can be drawn doing, for going into buildings:
+  waiting beside a doorway with its gun close at the chest, muzzle up, and
+  reaching for a door with its free hand. The AI does not use them yet.
+- More clips of the free animation packs are in use (Quaternius' Universal
+  Animation Library and SWAT, KayKit's Character Animations, all CC0):
+  `third-party/bot-animations.txt`.
+
 ## X981
 
 - A shot on an NTM suit's own model counts for the part its piece covers,
