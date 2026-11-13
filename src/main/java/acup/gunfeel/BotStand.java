@@ -78,6 +78,10 @@ final class BotStand {
             new Case("crouch", AiPose.CROUCH, 0, AiPose.HOLD, false),
             new Case("crouch_lean_right", AiPose.CROUCH, 100, AiPose.AIM, false),
             new Case("blind", AiPose.CROUCH, 0, AiPose.BLIND, false),
+            // down on a knee aiming, and the gun close beside a doorway, standing and crouched
+            new Case("kneel_aim", AiPose.CROUCH, 0, AiPose.AIM, false),
+            new Case("stack", AiPose.STAND, 0, AiPose.STACK, false),
+            new Case("crouch_stack", AiPose.CROUCH, 0, AiPose.STACK, false),
             new Case("prone_gun", AiPose.PRONE, 0, AiPose.HOLD, true) };
 
     private static int step, caseIndex, yawIndex, phase;
@@ -269,6 +273,13 @@ final class BotStand {
             err = Math.sqrt(sq(n[0] - r) + sq(n[1] - want.y) + sq(n[2] - f)) * 100;
             ClientSmoke.check(err < 3, String.format(Locale.ROOT, "%s поворот %.0f: голова там, где глаз сервера: ошибка %.1f см (сдвиг вбок %.0f см)",
                     c.name(), yaw, err, (n[0] - base[0]) * 100));
+        }
+        if (c.lean() == 0 && !c.lying() && c.arms() != AiPose.HOLD && c.arms() != AiPose.BLIND && base != null) {
+            // other arms over the same stance (down on a knee aiming, the gun close beside a doorway): the head where
+            // the stance has it
+            err = Math.sqrt(sq(n[0] - base[0]) + sq(n[1] - base[1]) + sq(n[2] - base[2])) * 100;
+            ClientSmoke.check(err < 3, String.format(Locale.ROOT, "%s поворот %.0f: голова там же, где в стойке с оружием у груди: ошибка %.1f см",
+                    c.name(), yaw, err));
         }
         double[] stand = BASE.get(yaw + "/" + AiPose.STAND);
         if (c.name().equals("crouch") && stand != null) {

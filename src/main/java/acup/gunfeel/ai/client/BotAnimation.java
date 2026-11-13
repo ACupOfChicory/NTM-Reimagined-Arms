@@ -81,7 +81,7 @@ public final class BotAnimation {
      */
     public static float noSwim(HumanoidRenderState state) {
         BotAnimator.Frame f = ((BotRenderData) state).gunfeel$bot();
-        if (state.swimAmount <= 0F || f == null || f.arms()[acup.gunfeel.ai.AiPose.NO_GUN] >= 0.5F) return -1F;
+        if (state.swimAmount <= 0F || f == null || f.arm(acup.gunfeel.ai.AiPose.NO_GUN) >= 0.5F) return -1F;
         float swim = state.swimAmount;
         state.swimAmount = 0F;
         return swim;
