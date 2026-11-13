@@ -63,10 +63,12 @@ page. They are alphas: expect bugs and back up your world.
   Shredder), made in NTM's ammo press, at the tier of NTM's 10 gauge and 12
   gauge magnum shells: a capacitor, a copper coil, smokeless powder and an
   advanced buckshot casing give six. One round, about 2 damage. A
-  hit shocks for 2 seconds: the HUD (other mods' too, not the chat or menus)
-  glitches and shakes, the view shakes and drifts on its own, and the shots of
-  whoever was hit, an AI soldier too, spread wide. Then 3 seconds of
-  immunity. The shooter sees a spark at the crosshair.
+  hit shocks for 2 seconds, which then wear off smoothly over 3 more: the HUD
+  (other mods' too, not the chat or menus) glitches and shakes, the view
+  shakes and drifts on its own, and whoever was hit, an AI soldier or any mob
+  too, walks 40 % slower (a player's view narrows, as with Slowness) and
+  spreads their shots wide. Then 3 seconds of immunity. The shooter sees a
+  spark at the crosshair.
 
 ### Hits
 
@@ -355,7 +357,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `modelHitboxes` | `true` | Hits by the model, with head and limb zones |
 | `modelHitboxesWorn` | `true` | Worn armour, skulls and pumpkins are part of the model |
 | `modelHitboxesHelmet` | `true` | A shot on a helmet is a shot in the head: a layer's helmet and an NTM suit's own helmet model (T-51, HEV and the rest), shown as the head in F3+B; false: as X949 |
-| `modelHitboxesSuits` | `true` | A shot on an NTM suit's own model is a shot in the part its piece covers: the chest's collar and breastplate the body, the shoulder pads, sleeves, legs and boots the limb; false: as X953 |
+| `modelHitboxesSuits` | `true` | A shot on an NTM suit's own model, or on armour drawn as a layer, is a shot in the part its piece covers: the chest's collar and breastplate the body, the shoulder pads, sleeves, legs and boots the limb; false: as X953 |
 | `clientHits` | `true` | A player's bullet hits what that player's game saw it hit; off: the server's view decides |
 | `cameraScaleMin` | `0` | Camera recoil players cannot go below |
 | `spreadStand`, `spreadMove`, `spreadSneak`, `spreadCrawl`, `spreadAim` | `1`, `1.5`, `0.75`, `0.5`, `1` | Spread by stance |
@@ -372,7 +374,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `suppressionDarken`, `suppressionMuffle` | `1` | The most darkening (40 % at the edges) and muffling (the world's sounds to 40 %) players get |
 | `suppressionFlinch`, `suppressionFlinchDeg` | `false`, `0.22` | A jolt of the view at each event, 0.11 to 0.66 degrees at the default |
 | `shock` | `true` | A shock shell's hit shocks (`false`: it only does its damage) |
-| `shockSeconds`, `shockImmunity` | `2`, `3` | How long a shock lasts, and the seconds after it when another shell does not shock |
+| `shockSeconds`, `shockImmunity` | `2`, `3` | How long a shock lasts at full (it then wears off over 3 more seconds), and the seconds after it when another shell does not shock |
 | `shockSpread` | `0.12` | The spread added to a shocked one's shots (NTM's units: buckshot's is 0.035; about 7 degrees) |
 | `shockGlitch`, `shockGlitchMin` | `1`, `0.5` | The most the HUD glitches, and the least share of it a player may turn their own down to |
 | `shockCamera`, `shockShake` | `45`, `0.6` | How fast the view drifts on its own at most (degrees a second), and how much it shakes (degrees) |

@@ -178,6 +178,78 @@ final class BotStandHits {
         return out;
     }
 
+    /**
+     * The layer's pieces against the parts under them: how many, those drawn over no part of that name, and the piece
+     * furthest from its part (the nearest box of the part: its centre, px, and the largest angle between their edges)
+     */
+    record LayerFit(int pieces, List<String> orphans, double worstPx, double worstDeg, String worst) {
+    }
+
+    static LayerFit layerFit(List<ModelBox> boxes) {
+        int pieces = 0;
+        List<String> orphans = new ArrayList<>();
+        double worstPx = 0, worstDeg = 0;
+        String worst = "-";
+        for (ModelBox armour : boxes) {
+            int at = armour.part().indexOf("/armor/draws/");
+            if (at < 0) continue;
+            pieces++;
+            String part = armour.part().substring(0, at);
+            ModelBox bare = null;
+            double best = Double.MAX_VALUE;
+            for (ModelBox b : boxes) {
+                if (!b.part().equals(part)) continue;
+                double d = centreOf(b).distanceTo(centreOf(armour));
+                if (d < best) { best = d; bare = b; }
+            }
+            if (bare == null) { orphans.add(armour.part()); continue; }
+            double angle = Math.max(angle(bare.ux(), bare.uy(), bare.uz(), armour.ux(), armour.uy(), armour.uz()),
+                    Math.max(angle(bare.vx(), bare.vy(), bare.vz(), armour.vx(), armour.vy(), armour.vz()),
+                            angle(bare.wx(), bare.wy(), bare.wz(), armour.wx(), armour.wy(), armour.wz())));
+            double px = best * 16;
+            if (px > worstPx || angle > worstDeg) worst = String.format(Locale.ROOT, "%s %.2f px %.2f°", armour.part(), px, angle);
+            worstPx = Math.max(worstPx, px);
+            worstDeg = Math.max(worstDeg, angle);
+        }
+        return new LayerFit(pieces, orphans, worstPx, worstDeg, worst);
+    }
+
+    /** a box's lowest and highest point over {@code feet}, px */
+    record Span(String part, double low, double high) {
+        @Override
+        public String toString() {
+            return String.format(Locale.ROOT, "%s %.2f..%.2f", part, low, high);
+        }
+    }
+
+    /** how high the head, the body, the right leg's parts and the suit's groups stand above the agent's feet, as drawn */
+    static List<Span> spans(List<ModelBox> boxes, double feet) {
+        List<Span> out = new ArrayList<>();
+        Vec3 up = new Vec3(0, 1, 0);
+        for (ModelBox b : boxes) {
+            String p = b.part();
+            boolean bare = p.equals("root/head") || p.equals("root/body") || p.equals("root/right_leg") || p.equals("root/right_leg/shin");
+            if (!bare && !(p.startsWith("mesh/") && ModelHits.suitSlot(p) >= 0)) continue;
+            double c = centreOf(b).y, half = extent(b, up) / 2;
+            out.add(new Span(p, (c - half - feet) * 16, (c + half - feet) * 16));
+        }
+        return out;
+    }
+
+    /**
+     * How far a suit's boots stand off the feet: the lowest point of its boots' groups against the lowest of the shin,
+     * px (0: on the foot, +: above it); NaN when one of them is not drawn
+     */
+    static double bootLift(List<Span> spans) {
+        double boot = Double.NaN, shin = Double.NaN;
+        for (Span s : spans) {
+            String g = s.part().substring(s.part().lastIndexOf('/') + 1);
+            if (s.part().startsWith("mesh/") && ModelHits.SUIT_BOOTS.contains(g)) boot = Double.isNaN(boot) ? s.low() : Math.min(boot, s.low());
+            if (s.part().equals("root/right_leg/shin")) shin = Double.isNaN(shin) ? s.low() : Math.min(shin, s.low());
+        }
+        return boot - shin;
+    }
+
     private static Vec3 centreOf(ModelBox b) {
         return new Vec3(b.x() + (b.ux() + b.vx() + b.wx()) / 2, b.y() + (b.uy() + b.vy() + b.wy()) / 2, b.z() + (b.uz() + b.vz() + b.wz()) / 2);
     }
@@ -273,6 +345,9 @@ final class BotStandHits {
             suit("NCRPA", "ncrpa"), suit("BJ", "bj"), suit("RPA", "rpa"), suit("CMB", "cmb"), suit("DNS", "dns"), suit("FAU", "fau"),
             suit("TRENCH", "trenchmaster"), suit("EUPH", "euphemium"), suit("STEAM", "steamsuit"), suit("ENV", "envsuit"),
             suit("BISMUTH", "bismuth"), suit("TAURUN", "taurun"), suit("DIESEL", "dieselsuit"), suit("SCHRAB", "schrabidium") };
+
+    /** NTM's steel: a layer, vanilla's armour model */
+    static final Loadout STEEL = suit("STEEL", "steel");
 
     /** a full NTM set by its items' name */
     private static Loadout suit(String name, String set) {
