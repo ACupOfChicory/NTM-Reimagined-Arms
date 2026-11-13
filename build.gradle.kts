@@ -174,6 +174,14 @@ neoForge {
             systemProperty("ntmgunfeel.gasSoil",providers.gradleProperty("gasSoil").isPresent.toString())
             // -PgunWeight (with -PgasStand): the heavy guns' slowing and their tooltips (GunWeightStand)
             systemProperty("ntmgunfeel.gunWeight",providers.gradleProperty("gunWeight").isPresent.toString())
+            // -PscopeSmoke (with -PgasStand): a scoped gun aimed in and out with and without smoke about (ScopeSmokeStand)
+            systemProperty("ntmgunfeel.scopeSmoke",providers.gradleProperty("scopeSmoke").isPresent.toString())
+            // -PscopeJitter (with -PscopeSmoke): the frame rate jumping frame to frame and a thousand particles about
+            systemProperty("ntmgunfeel.scopeJitter",providers.gradleProperty("scopeJitter").isPresent.toString())
+            // -PscopeBots (with -PscopeSmoke): AI bots shooting at the player instead of smoke
+            systemProperty("ntmgunfeel.scopeBots",providers.gradleProperty("scopeBots").isPresent.toString())
+            // -PscopeOldFov (with -PscopeSmoke): the gun model's FOV with NTM's own (the last frame's) partial tick, to compare
+            systemProperty("ntmgunfeel.scopeOldFov",providers.gradleProperty("scopeOldFov").isPresent.toString())
             // -PsmokePoses=sky,wall: only the poses whose names start with one of these
             systemProperty("ntmgunfeel.smokePoses",providers.gradleProperty("smokePoses").orElse("").get())
             // -PsmokeFabulous: the stand runs with improved transparency (the transparency chain) on

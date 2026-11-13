@@ -36,8 +36,15 @@ public abstract class MixinItemRenderWeaponBase {
     // frame rate varied (a fight). This frame's, as submitFirstPerson will set it.
     @Inject(method = "adjustHudFov", at = @At("HEAD"))
     private static void gunfeel$hudFovPartial(float fov, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Float> ci) {
+        if (acup.gunfeel.ScopeStandHooks.oldHudFov) return;
         var mc = net.minecraft.client.Minecraft.getInstance();
         ItemRenderWeaponBase.interp = mc.gameRenderer.mainCamera().getCameraEntityPartialTicks(mc.getDeltaTracker());
+    }
+
+    // the stand (ScopeSmokeStand): the model's FOV as worked out last
+    @Inject(method = "adjustHudFov", at = @At("RETURN"))
+    private static void gunfeel$hudFovSeen(float fov, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Float> ci) {
+        if (acup.gunfeel.ScopeStandHooks.ON) acup.gunfeel.ScopeStandHooks.hudFov = ci.getReturnValueF();
     }
 
     @Inject(method = "setupTransformsAndSubmit", at = @At("HEAD"))
