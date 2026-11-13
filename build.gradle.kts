@@ -284,6 +284,12 @@ neoForge {
             systemProperty("ntmgunfeel.checkClient",layout.buildDirectory.file("botstand/result.txt").get().asFile.path)
             systemProperty("ntmgunfeel.botStand","true")
             systemProperty("ntmgunfeel.botStandFile",root.resolve("notes/ai/bot-stand/$label.tsv").path)
+            // -PsuitBendStand: only the suits bent at the knee and the elbow (SuitBend) in every pose and 100 in a
+            // suit; =cost: the 100 alone; -PsuitBendNoBand: the halves without the band
+            providers.gradleProperty("suitBendStand").orNull?.let { systemProperty("ntmgunfeel.suitBendStand",it.ifEmpty { "all" }) }
+            systemProperty("ntmgunfeel.suitBendNoBand",providers.gradleProperty("suitBendNoBand").isPresent.toString())
+            // -PbotStandJfr: a flight recording of the run beside its table
+            if(providers.gradleProperty("botStandJfr").isPresent) jvmArgument("-XX:StartFlightRecording=filename=${root.resolve("notes/ai/bot-stand/$label.jfr").path},settings=profile,dumponexit=true")
             providers.gradleProperty("mobBenchFps").orNull?.let { systemProperty("ntmgunfeel.benchFps",it) }
             systemProperty("MC_DEBUG_ENABLED","true")
             systemProperty("MC_DEBUG_PREFER_WAYLAND","true")

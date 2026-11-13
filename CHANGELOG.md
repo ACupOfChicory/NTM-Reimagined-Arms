@@ -1,5 +1,14 @@
 # Changelog
 
+## X1021
+
+- An NTM suit drawn by its own model (HEV, T-51, AJR and the rest) bends with
+  an FBI agent's or a test dummy's knees and elbows: what is below the knee or
+  the elbow, the boots too, goes with the shin or the forearm instead of
+  sticking out straight from the thigh or the upper arm, and a band across the
+  joint closes the bend, so the body does not show through it. The shots on the
+  suit follow its parts as drawn. Players are not changed.
+
 ## X1017
 
 - The 12 gauge electroshock shell stuns: 80 % slower at full instead of 40 %,
