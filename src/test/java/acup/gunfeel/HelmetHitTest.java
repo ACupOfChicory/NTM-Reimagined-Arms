@@ -88,6 +88,9 @@ class HelmetHitTest {
         boolean[] notNtm = {false, true, true, true};
         assertEquals(new WornGear.Worn(WornGear.Head.ARMOR, false, true, true), ModelHits.unsuited(all, notNtm, BOXES));
         assertEquals(all, ModelHits.unsuited(all, ntm, List.of(HEAD)));
+        // an extra on the chest (a jetpack) over armour drawn as a layer: the chest still grows its zones
+        var extra = List.of(HEAD, box("mesh/Jetpack", -4, 14, 2, 8, 8, 4), box("mesh/Lamps", -4, 30, -4, 8, 2, 8));
+        assertEquals(all, ModelHits.unsuited(all, ntm, extra));
         // a skull on the head is no suit's helmet
         var skull = new WornGear.Worn(WornGear.Head.SKULL, true, false, false);
         assertEquals(new WornGear.Worn(WornGear.Head.SKULL, false, false, false), ModelHits.unsuited(skull, ntm, BOXES));
