@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- AI soldiers search a building room after room. The ones that go after a
+  target lost in a building used to search round the place it was lost,
+  each on its own, and seldom got past the next room. Now they share one
+  list of the building's rooms: a room is checked once every place in it has
+  been looked at, and no one goes back into it; the two that go after it
+  take a room together, then the next one. With every room checked they
+  search outside as before. New server setting `aiClearing` (true by
+  default).
 - AI soldiers go into a room together. The ones that go after a target lost
   in a building no longer walk in through the doorway one after another:
   they come up beside it, behind the wall and out of the line through it,

@@ -236,6 +236,8 @@ page. They are alphas: expect bugs and back up your world.
   iron door still keeps them out (server key `aiDoors`).
 - They go into a room together: beside the doorway first, out of the line
   through it, then in at once, each to its own side (server key `aiEntry`).
+- They search a building room after room, two to a room, and do not go back
+  into a room already checked (server key `aiClearing`).
 - They tell a cave from a building by what its walls, floor and roof are
   made of (server key `aiRoomsShell`; the block lists are settings too).
 - They move their bodies: breathing, flinching at hits, aiming, reloading,

@@ -1491,6 +1491,20 @@ public final class AiSoldier implements AiBrain {
             return;
         }
         var cleared = bot.clearedFor(c);
+        // lost in a building: room after room, two to a room, a room checked not gone into again (AiClearing)
+        long room = AiClearing.on() ? AiClearing.step(bot, level, c, cleared, tick) : AiClearing.NONE;
+        if (room != AiClearing.NONE) {
+            if (!bot.mover.goalIs(room)) {
+                searchSpots++;
+                bot.mover.costs(PathSearch.Cost.NONE);
+                bot.mover.goTo(room, 0.6, WALK);
+            }
+            searchCell = room;
+            why = Why.SEARCH;
+            watch = new Vec3(BlockPos.getX(room) + 0.5, BlockPos.getY(room) + 1.1, BlockPos.getZ(room) + 0.5);
+            bot.gunner.aim(watch);
+            return;
+        }
         boolean reached = searchCell != Long.MIN_VALUE && (bot.mover.arrived() || bot.mover.failed());
         if (reached) {
             cleared.add(searchCell);

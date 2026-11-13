@@ -95,6 +95,16 @@ public final class AiRooms {
             return roomOf.get(cell);
         }
 
+        /** the cells of each room (the ways' cells are no room's) */
+        public long[][] cells() {
+            LongArrayList[] out = new LongArrayList[size.length];
+            for (int i = 0; i < out.length; i++) out[i] = new LongArrayList(size[i]);
+            for (var e : roomOf.long2IntEntrySet()) out[e.getIntValue()].add(e.getLongKey());
+            long[][] cells = new long[out.length][];
+            for (int i = 0; i < out.length; i++) cells[i] = out[i].toLongArray();
+            return cells;
+        }
+
         /** the ways out of room r */
         public List<Way> waysOf(int r) {
             List<Way> out = new ArrayList<>();

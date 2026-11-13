@@ -66,6 +66,13 @@ class AiRoomsTest {
         assertEquals(BlockPos.asLong(12, 0, 7), p.mid[east]);
         assertEquals(AiRooms.OUTSIDE, p.room(BlockPos.asLong(9, 0, 7)));
         assertEquals(2, p.ways.length);
+        // each room's cells by the room (the search room after room): all of them, the doorway's cell in neither
+        long[][] cells = p.cells();
+        assertEquals(2, cells.length);
+        assertEquals(4 * 5, cells[west].length);
+        assertEquals(5 * 5, cells[east].length);
+        assertTrue(has(cells[west], 5, 5) && has(cells[east], 14, 9));
+        assertFalse(has(cells[west], 9, 7) || has(cells[east], 9, 7));
         // the east room has one way, to the west room, one wide, no door
         assertEquals(1, p.waysOf(east).size());
         AiRooms.Way in = p.waysOf(east).get(0);

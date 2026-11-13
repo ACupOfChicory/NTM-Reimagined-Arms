@@ -195,6 +195,8 @@ public final class AiBots {
             // none left: their squads hold none of them (nor the level) any more
             AiSquads.forget(level);
             AiGrenades.forget(level);
+            AiEntry.forget(level);
+            AiClearing.forget(level);
             return;
         }
         AiDoors.tick();
