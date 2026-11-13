@@ -11,7 +11,8 @@ import java.util.Map;
  * to {@code floor} of it at {@code floorAt} and no lower. A role of no line, blasts (but a shotgun's explosive shell's
  * direct hit, balance.final.range.shells: the line "shell", or its role's when there is none) and the Tesla Cannon's arc: 1.
  * A gun of balance.final.range.lineOf takes the line given there in place of its role's for every hit of its the scheme
- * takes (the Shredder's beam: its flash, its drops and a drop's blast, by the shooter's distance to the target).
+ * takes but NTM's blasts of no explosion's class (the Shredder's beam: its flash, its drops and a drop's blast on the
+ * creature it struck, by the shooter's distance to the target).
  */
 public final class BalanceRangeRule {
     private BalanceRangeRule() {
@@ -51,7 +52,7 @@ public final class BalanceRangeRule {
      */
     public static final String LINE_OF = "autoshotgun_shredder:beam";
 
-    /** "gun:line" by spaces; "off" or none: no gun of a line of its own (X967); a broken entry is left out */
+    /** "gun:line" by spaces; "off" or none: no gun of a line of its own (X967); a broken entry is left out (the key: none read, the default) */
     public static Map<String, String> lineOfs(String text) {
         Map<String, String> out = new HashMap<>();
         if (text == null || text.trim().equalsIgnoreCase("off")) return out;
@@ -64,7 +65,7 @@ public final class BalanceRangeRule {
 
     /**
      * the multiplier of a hit of a pair of {@code gun} and {@code role} at {@code dist}: the gun's own line when it has one
-     * (lineOf; a blast of its too), else an explosive shell's direct hit ({@code shell}) the shell's, else the role's
+     * (lineOf; a drop's blast of its on the creature it struck too), else an explosive shell's direct hit ({@code shell}) the shell's, else the role's
      */
     public static double hit(Rule r, String gun, String role, boolean shell, double dist) {
         String own = r.lineOf().get(gun);

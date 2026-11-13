@@ -327,7 +327,7 @@ public final class BalanceFinal {
                 parsed("balance.final.blast.frags", BalanceBlastRule.FRAGS, BalanceBlastRule::frags));
         var range = new BalanceRangeRule.Rule(parsed("balance.final.range", BalanceRangeRule.LINES, BalanceRangeRule::lines),
                 num("balance.final.range.close", 8, 0, 256), Map.copyOf(BalanceFinalRule.roles(ReaimTimes.text("balance.final.range.home", BalanceRangeRule.HOME))),
-                Map.copyOf(BalanceRangeRule.lineOfs(ReaimTimes.text("balance.final.range.lineOf", BalanceRangeRule.LINE_OF))));
+                parsed("balance.final.range.lineOf", BalanceRangeRule.LINE_OF, BalanceRangeRule::lineOfs));
         return new State(version, params, pairs, BalanceFinalRule.refs(formula), Set.copyOf(table), explosive, Map.copyOf(sets), weights,
                 num("balance.final.armor.empty", 0, 0, 20), new ConcurrentHashMap<>(), blast, range,
                 BalanceFinalRule.Acid.parse(ReaimTimes.text("balance.final.acid", ACID), BalanceFinalRule.Acid.DEFAULT));
@@ -552,10 +552,6 @@ public final class BalanceFinal {
         return (float) BalanceRangeRule.hit(r, h.pair().gun(), role, shell, d);
     }
 
-    /** the line of {@code gun}'s own (balance.final.range.lineOf), or null */
-    static String lineOf(String gun) {
-        return state().range().lineOf().get(gun);
-    }
 
     /** what a hit takes from a full set's pool (EuphImmunity), or NaN when it is not the scheme's */
     static float drain(LivingEntity target, DamageSource source) {
