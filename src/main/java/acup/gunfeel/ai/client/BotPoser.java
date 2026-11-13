@@ -271,7 +271,10 @@ public final class BotPoser {
             BotClip kneel = BotClips.get(BotClips.KNEEL), low = BotClips.get(BotClips.CROUCH_WALK);
             float lean = CROUCH_LEAN;
             if (kneel != null && low != null) {
-                float go = BotAnimator.smooth((f.speed() - MOVE_FROM) / (MOVE_FULL - MOVE_FROM));
+                // under a slide or a roll and till a few ticks after it, down on the knee: the dash's clip fading out
+                // over a leg in the middle of its step, near half a turn from the clip's, would take that leg right
+                // round in a frame
+                float go = BotAnimator.smooth((f.speed() - MOVE_FROM) / (MOVE_FULL - MOVE_FROM)) * (1F - BotAnimator.smooth(f.dashed()));
                 float t = ((walkPos / CYCLE + phase(BotClips.CROUCH_WALK, low)) % 1F + 1F) % 1F * low.length();
                 // the two by their shares, both of the way c from what the legs were
                 float walking = c * go, kneeling = walking >= 1F - 1e-4F ? 0F : c * (1F - go) / (1F - walking);
@@ -703,6 +706,11 @@ public final class BotPoser {
             if (part != null && clip.rotation(bone, t, a))
                 turn(part, Mth.DEG_TO_RAD * a[0], Mth.DEG_TO_RAD * a[1], Mth.DEG_TO_RAD * a[2], w);
         }
+    }
+
+    /** an action of the whole body */
+    static boolean dash(byte kind) {
+        return kind == AiPose.SLIDE || kind == AiPose.ROLL;
     }
 
     /** The arms to a way of holding the gun (CARRY, CHEST, READY), w of the way. */

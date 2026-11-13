@@ -35,6 +35,9 @@ public final class BotAnimator {
     static final float SHOT_IN = 0.5F;
     /** ticks a slide or a roll takes to come in (it is on the run: no slow fade from the run's pose) */
     static final float DASH_IN = 2F;
+    /** ticks after a slide or a roll in which the legs under it come back to their step */
+    static final float DASH_OUT = 4F;
+    private float dashed;
 
     private static final Map<LivingEntity, BotAnimator> ALL = Collections.synchronizedMap(new WeakHashMap<>());
 
@@ -54,10 +57,18 @@ public final class BotAnimator {
      * @param deathSec seconds since it fell dead, or below 0 alive
      * @param alert   0 calm (the gun lowered, a stroll) .. 1 in a fight (the gun ready, a tactical walk)
      * @param air     0 on the ground .. 1 in the air (a jump, a fall)
+     * @param dashed  1 in a slide or a roll and just after it, going over a few ticks (the legs under it kept still)
      */
     public record Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits,
             float idleSec, int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert,
-            float air) {
+            float air, float dashed) {
+        /** a frame made by hand: in a dash while its action shows */
+        public Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits, float idleSec,
+                int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert, float air) {
+            this(crouch, lean, arms, act, fading, hits, idleSec, entity, speed, heading, deathSec, walk, walkPos, alert, air,
+                    act != null && BotPoser.dash(act.kind()) ? 1F : 0F);
+        }
+
         /** on the ground */
         public Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits, float idleSec,
                 int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert) {
@@ -189,7 +200,7 @@ public final class BotAnimator {
                     crouching);
             float death = e.deathTime > 0 ? (e.deathTime - 1 + partial) / 20F : -1F;
             return new Frame(f.crouch(), f.lean(), f.arms(), f.act(), f.fading(), f.hits(), f.idleSec(), f.entity(),
-                    a.speed, a.heading, death, a.walk, a.walkPos, f.alert(), a.air);
+                    a.speed, a.heading, death, a.walk, a.walkPos, f.alert(), a.air, f.dashed());
         }
     }
 
@@ -388,7 +399,12 @@ public final class BotAnimator {
         Hit[] hitList = shown.isEmpty() ? NO_HITS : shown.toArray(NO_HITS);
 
         alert = approach(alert, pose.alert() == AiPose.FIGHT ? 1F : 0F, dt / ALERT_TICKS);
-        return new Frame(crouch, lean, arms.clone(), act, fading, hitList, age / 20F, entity, 0F, 0F, -1F, 0F, 0F, alert);
+        // in a slide or a roll, and for a few ticks after: at once in (its clip takes the whole body in DASH_IN ticks
+        // and hides what is under it), slowly out
+        boolean dash = act != null && BotPoser.dash(act.kind());
+        for (Act out : fading) dash |= BotPoser.dash(out.kind());
+        dashed = dash ? approach(dashed, 1F, dt / DASH_IN) : approach(dashed, 0F, dt / DASH_OUT);
+        return new Frame(crouch, lean, arms.clone(), act, fading, hitList, age / 20F, entity, 0F, 0F, -1F, 0F, 0F, alert, 0F, dashed);
     }
 
     /** the flinch of the n-th hit, by turns: the head back, the chest, doubled up, thrown back */

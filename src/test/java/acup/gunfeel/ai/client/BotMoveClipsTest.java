@@ -465,6 +465,11 @@ class BotMoveClipsTest {
         return out;
     }
 
+    /** Frame.dashed as the animator has it: 1 through the dash (in within DASH_IN ticks, under its clip), going after */
+    static float after(float tick, int len) {
+        return tick < len ? Math.min(1F, tick / BotAnimator.DASH_IN) : Math.max(0F, 1F - (tick - len) / BotAnimator.DASH_OUT);
+    }
+
     @Test
     void slidingOrRollingHasNoJump() {
         for (byte kind : new byte[] { AiPose.SLIDE, AiPose.ROLL }) {
@@ -473,10 +478,11 @@ class BotMoveClipsTest {
                 float in = Math.min(1F, tick / BotAnimator.DASH_IN), out = Math.min(1F, (len - tick) / BotAnimator.ACTION_FADE);
                 BotAnimator.Act act = tick < len ? new BotAnimator.Act(kind, tick / len, BotAnimator.smooth(Math.min(in, out)), tick) : null;
                 BotPoser.Parts p = BotPoserTest.parts();
-                BotPoser.apply(p, new BotAnimator.Frame(1F, 0F, HOLD, act, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0, 0.2F, 0F, -1F), 0F, 0F, 0F);
+                BotPoser.apply(p, new BotAnimator.Frame(1F, 0F, HOLD, act, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0, 0.2F, 0F, -1F, 0F, 0F, 1F,
+                        0F, after(tick, len)), 0F, 0F, 0F);
                 return turns(p);
             };
-            float share = jumpShare(at, 0F, len + 2, (len + 2) * 3, 12, "abcdefghiXYZ");
+            float share = jumpShare(at, 0F, len + 6, (len + 6) * 3, 12, "abcdefghiXYZ");
             assertTrue(share < 0.25F, kind + ": a part jumped: " + share + "; " + where);
         }
     }
@@ -496,10 +502,11 @@ class BotMoveClipsTest {
                 float walk = 0.76F, pos = start + walk * tick;
                 p.rightLeg().setRotation(net.minecraft.util.Mth.cos(pos * 0.6662F) * 1.4F * walk, 0.005F, 0.005F);
                 p.leftLeg().setRotation(net.minecraft.util.Mth.cos(pos * 0.6662F + (float) Math.PI) * 1.4F * walk, -0.005F, -0.005F);
-                BotPoser.apply(p, new BotAnimator.Frame(1F, 0F, HOLD, act, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0, 0.19F, 0F, -1F), 0F, walk, pos);
+                BotPoser.apply(p, new BotAnimator.Frame(1F, 0F, HOLD, act, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0, 0.19F, 0F, -1F, 0F, 0F, 1F,
+                        0F, after(tick, len)), 0F, walk, pos);
                 return turns(p);
             };
-            float share = jumpShare(at, 0F, len + 2, (len + 2) * 6, 12, "abcdefghiXYZ");
+            float share = jumpShare(at, 0F, len + 6, (len + 6) * 6, 12, "abcdefghiXYZ");
             assertTrue(share < 0.25F, kind + " phase " + phase + ": a part jumped over walking legs: " + share + "; " + where);
         }
     }

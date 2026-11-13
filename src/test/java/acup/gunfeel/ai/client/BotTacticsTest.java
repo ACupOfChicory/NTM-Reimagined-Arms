@@ -136,6 +136,71 @@ class BotTacticsTest {
                     }
     }
 
+    /**
+     * A slide or a roll from tick 100 as the animator has it, crouched and going at {@code speed}, the walk at
+     * {@code start} when it begins: the model at {@code tick} ticks into it (and after it).
+     */
+    static BotPoser.Parts dashed(byte kind, float speed, float start, float tick) {
+        int len = acup.gunfeel.ai.AiDash.TICKS;
+        BotAnimator a = new BotAnimator();
+        AiPose crouch = new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.NONE, 0, (short) 0, AiPose.FIGHT);
+        AiPose dash = new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0, AiPose.HOLD, kind, 100, (short) len, AiPose.FIGHT);
+        BotAnimator.Frame f = null;
+        // crouched from 90 (settled by 100), then an eighth of a tick a frame, the last one at the tick asked
+        for (int i = 0; i < (10F + tick) * 8F; i++) {
+            float t = 90F + i / 8F;
+            f = a.step(t >= 100F ? dash : crouch, (long) t, t % 1F, 0, false, t, 1);
+        }
+        float last = 100F + tick;
+        f = a.step(last >= 100F ? dash : crouch, (long) last, last % 1F, 0, false, last, 1);
+        float walk = Math.min(1F, speed * 4F), pos = start + walk * tick;
+        BotPoser.Parts p = BotPoserTest.parts();
+        BotPoser.apply(p, new BotAnimator.Frame(f.crouch(), f.lean(), f.arms(), f.act(), f.fading(), f.hits(), 0F, 1, speed, 0F, -1F, walk, pos,
+                f.alert(), 0F, f.dashed()), 0F, walk, pos);
+        return p;
+    }
+
+    @Test
+    void slidingOrRollingOverTheCrouchedLegsHasNoJumpAndNoPartWhipsRound() {
+        // a dash ends crouched and still moving. Its clip fades out over the legs under it, and a roll's thigh, turned
+        // right over, is near half a turn from a leg in the middle of the walk bent low: between two such poses a part
+        // goes round in a frame. So under a dash, and for a few ticks after, the legs are down on the knee
+        int len = acup.gunfeel.ai.AiDash.TICKS;
+        for (byte kind : new byte[] { AiPose.SLIDE, AiPose.ROLL })
+            for (float speed : new float[] { 0F, 0.03F, 0.08F, 0.166F, 0.2F }) {
+                float worst = 0F, at = 0F;
+                for (int phase = 0; phase < 16; phase++) {
+                    float start = phase * BotPoser.CYCLE / 16F;
+                    BotPoser.Parts prev = null;
+                    for (int i = 0; i <= (len + 8) * 8; i++) {
+                        BotPoser.Parts p = dashed(kind, speed, start, i / 8F);
+                        if (prev != null) {
+                            float v = BotPoserTest.jump(prev, p) * 8F;
+                            if (v > worst) {
+                                worst = v;
+                                at = i / 8F;
+                            }
+                        }
+                        prev = p;
+                    }
+                    java.util.function.Function<Float, float[]> pose = tick -> BotMoveClipsTest.turns(dashed(kind, speed, start, tick));
+                    float share = BotMoveClipsTest.jumpShare(pose, 0F, len + 8, (len + 8) * 2, 12, "abcdefghiXYZ");
+                    // a jump keeps nearly all of its change however finely the frame is cut; a kink (a leg lifted to
+                    // the ground from where it would go into it) a third of a small one
+                    assertTrue(share < 0.4F, kind + " speed " + speed + " phase " + phase + ": a part jumped: " + share + "; " + BotMoveClipsTest.where);
+                }
+                System.out.println("bot dash " + kind + " at " + speed + ": the fastest part " + worst + " rad a tick, " + at + " ticks in");
+                // the roll's own fastest is 2.9 radians a tick, the slide's 1.7
+                assertTrue(worst < 3.3F, "dash " + kind + " speed " + speed + ": a part turns " + worst + " rad a tick, " + at + " ticks in");
+            }
+        // the head is back at the crouch's eye from the first tick after (pose-contract §4), whatever the legs do
+        for (byte kind : new byte[] { AiPose.SLIDE, AiPose.ROLL })
+            for (float after : new float[] { 0F, 1F, 2.5F, 4F, 6F }) {
+                BotPoser.Parts p = dashed(kind, 0.166F, 1.7F, len + after);
+                assertEquals(0F, new Vector3f(p.head().x, p.head().y - 4.2F, p.head().z).length(), 0.48F, kind + " " + after + " ticks after: the head");
+            }
+    }
+
     /** the largest move of any part a frame through a squad's way into a house, at perTick frames a tick */
     static float maxMove(int perTick) {
         BotAnimator an = new BotAnimator();
