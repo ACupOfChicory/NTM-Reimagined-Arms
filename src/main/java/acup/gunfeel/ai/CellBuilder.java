@@ -43,10 +43,14 @@ public final class CellBuilder {
                 for (int y = 0; y < 16; y++) {
                     b.unknown = false;
                     int feet = b.v(x, y, z);
-                    if (!Voxel.open(feet)) continue;
+                    // (a shut door a hand opens is a cell too: AiDoors)
+                    if (!Voxel.pass(feet)) continue;
                     int head = b.v(x, y + 1, z);
-                    if (!Voxel.open(head)) continue;
+                    if (!Voxel.pass(head)) continue;
                     int under = b.v(x, y - 1, z);
+                    // not on a door's lower half
+                    if (Voxel.shutDoor(under)) continue;
+                    boolean doorway = Voxel.shutDoor(feet) || Voxel.shutDoor(head);
                     boolean water = (feet & Voxel.WATER) != 0;
                     boolean stand = Voxel.floor(under) || (feet & Voxel.CLIMB) != 0
                             || (water && (head & Voxel.WATER) == 0);
@@ -57,7 +61,8 @@ public final class CellBuilder {
                         flags = java.util.Arrays.copyOf(flags, n * 2);
                     }
                     pos[n] = (short) (y << 8 | z << 4 | x);
-                    cover[n] = b.cover(x, y, z);
+                    // a shut door's cell is no place to stand behind anything
+                    cover[n] = doorway ? 0 : b.cover(x, y, z);
                     flags[n] = (byte) b.flags(x, y, z, feet);
                     n++;
                 }

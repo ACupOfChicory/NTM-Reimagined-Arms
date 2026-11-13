@@ -28,7 +28,7 @@ public final class Voxel {
     public static final int WATER = 1 << 5;
     /** ladders, vines, scaffolding */
     public static final int CLIMB = 1 << 6;
-    /** doors, gates, trapdoors */
+    /** a door or a gate a hand opens (AiDoors.byHand), shut or open: shut, an AI mob's path goes through it all the same */
     public static final int DOOR = 1 << 7;
 
     /** an unloaded neighbour: as a stone wall, so no cell leans on what is not known */
@@ -41,6 +41,16 @@ public final class Voxel {
 
     public static boolean open(int v) {
         return (v & MOVE_MASK) == OPEN;
+    }
+
+    /** a shut door a hand opens */
+    public static boolean shutDoor(int v) {
+        return (v & DOOR) != 0 && (v & MOVE_MASK) != OPEN;
+    }
+
+    /** a mob gets through: open, or a shut door it opens */
+    public static boolean pass(int v) {
+        return (v & MOVE_MASK) == OPEN || (v & DOOR) != 0;
     }
 
     /** a mob stands on it: a full block or a low one */

@@ -18,7 +18,7 @@ public final class PathSearch {
     /** the most a mob drops in one step */
     static final int MAX_DROP = 3;
     static final float UP = 0.6F, DOWN = 0.3F, DIAGONAL = 1.4142135F;
-    private static final long NONE = Long.MIN_VALUE;
+    static final long NONE = Long.MIN_VALUE;
 
     private PathSearch() {
     }
@@ -99,7 +99,7 @@ public final class PathSearch {
 
     // ------------------------------------------------------------------ reading cells, cached per search
 
-    private static final class Reader {
+    static final class Reader {
         final CellSource src;
         final Long2ObjectOpenHashMap<SectionCells> sections = new Long2ObjectOpenHashMap<>();
         final LongOpenHashSet missing = new LongOpenHashSet();
@@ -236,7 +236,7 @@ public final class PathSearch {
             if (!r.open(tx, y, z) || !r.open(tx, y + 1, z) || !r.open(x, y, tz) || !r.open(x, y + 1, tz)) return NONE;
             return r.has(tx, y, tz) ? BlockPos.asLong(tx, y, tz) : NONE;
         }
-        if (r.has(tx, y, tz)) return BlockPos.asLong(tx, y, tz);
+        if (r.has(tx, y, tz)) return !AiDoors.pass && Voxel.shutDoor(r.src.voxel(tx, y, tz)) ? NONE : BlockPos.asLong(tx, y, tz);
         // up a block: room to jump over the head, or a slab that is stepped onto
         if (r.has(tx, y + 1, tz) && (r.open(x, y + 2, z) || Voxel.move(r.src.voxel(tx, y, tz)) == Voxel.LOW))
             return BlockPos.asLong(tx, y + 1, tz);

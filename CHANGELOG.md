@@ -21,6 +21,15 @@
   Animation Library and SWAT, KayKit's Character Animations, all CC0):
   `third-party/bot-animations.txt`.
 
+## X973
+
+- AI soldiers open doors: a shut wooden door, fence gate or NTM door of the
+  plain kind (metal, office, bunker, red) on a bot's way no longer stops it.
+  Its path goes through, it opens the door as it comes up and leaves it
+  open. Before, a shut door was a wall to it: shut the door behind you and
+  the squad stayed outside. Iron doors, trapdoors and NTM's sliding, blast
+  and vault doors still keep them out. New server setting `aiDoors` (true by
+  default).
 ## X967
 
 - Fable's third review of the balance. A shotgun aimed throws its shot
