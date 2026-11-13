@@ -1,5 +1,18 @@
 # Changelog
 
+## X953
+
+- A bot or another mob in armour of the balance's table takes a gun's hit as
+  a player in the same set does. Its own vanilla armour (an FBI agent's 20
+  and `balance.fbiArmor`) took the hit a second time: an FBI agent in
+  Security lived through two dozen STG-77 rounds, the head's among them,
+  where its table kills it with 9 in the head (`balance.final.mobArmor`;
+  `own`: as before). A bare mob still takes NTM's damage.
+- A shot on a helmet is a shot in the head for every helmet: an NTM suit's
+  own helmet (T-51, HEV, AJR, NCR and the rest) stands further off the head,
+  and its edge counted as the body. F3+B shows a bot's helmet green, as the
+  head (`modelHitboxesHelmet`; false: as before).
+
 ## X951
 
 - AI soldiers can be given armour and rounds by command. `/armsai spawn

@@ -341,6 +341,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `bulletSpeed` | `1.6` | Bullet speed multiplier |
 | `modelHitboxes` | `true` | Hits by the model, with head and limb zones |
 | `modelHitboxesWorn` | `true` | Worn armour, skulls and pumpkins are part of the model |
+| `modelHitboxesHelmet` | `true` | A shot on a helmet is a shot in the head: a layer's helmet and an NTM suit's own helmet model (T-51, HEV and the rest), shown as the head in F3+B; false: as X949 |
 | `clientHits` | `true` | A player's bullet hits what that player's game saw it hit; off: the server's view decides |
 | `cameraScaleMin` | `0` | Camera recoil players cannot go below |
 | `spreadStand`, `spreadMove`, `spreadSneak`, `spreadCrawl`, `spreadAim` | `1`, `1.5`, `0.75`, `0.5`, `1` | Spread by stance |
@@ -414,6 +415,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.final.range` | `smg:x0.5/24/0.4@64 pistol:x0.8/24/0.4@64 shotgun:x1/16/0.4@48 slug:x1/24/0.4@64 beam:x1/64/0.5@160 rifle:x1/64/0.5@160 mg:x1/64/0.5@160 sniper:x1/160/0.7@256` | Damage by range, `role:xT/full/floor@at` by the shooter's distance at the hit: up to `.close` (8) blocks the role's close-up time T (an SMG ×0.5, a pistol ×0.8), back to 1 by `.home` (`pistol:12 smg:12`); full damage to `full` blocks, then straight down to `floor` at `at` blocks. A role with no line, blasts and the Tesla Cannon's arc and its IR beam: 1. X922: no shotgun line, `slug:x1/32/0.4@96 beam:x1/32/0.4@96`; `off`: as X912 |
 | `balance.final.range.shells` | `true` | An explosive shotgun shell's direct hit takes its role's range line; false: 1, as X922 |
 | `balance.final.tesla.ir` | `true` | The Tesla Cannon's IR beam takes its shooter's pair: on the creature the click's arc has just struck nothing, on anyone else a click of the pair (no range rule); false: NTM's damage, as X922 |
+| `balance.final.mobArmor` | `player` | A hit of the scheme on a mob meets the vanilla armour a player in the same pieces has; `own`: the mob's own armour too (an FBI agent's 20 and `balance.fbiArmor`), as X949 |
 | `balance.final.acid` | `tiers=1.0 tier=4 full=+1 fade=3` | The acid's corrosion K (0 to 0.75) takes the set's tier down by `tiers` × K / 0.75, in full up to tier `tier` + `full`, fading to nothing over `fade` tiers above it (HEV at K 0.75 as T-51, BJ as tier 5.33, FAU as it is; never below bare); bullets, beams, blasts and fragments alike. `off`: as X922 |
 | `balance.final.pools.gas` | `drain` | The mod's gas on a full FAU, DNS or euphemium set takes the pool HP for HP, as a shot (the mask, filter and sealed helmet first, as before); `off`: as X922 |
 | `balance.final.pools` | `dns:45 fau:40 euph:150` | The pools of DNS, FAU and euphemium the scheme counts in, and their size while no `balance.immune*.pool` is set (the pool grows with the tier). X912: `dns:40 fau:45` |

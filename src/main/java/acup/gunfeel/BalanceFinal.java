@@ -708,6 +708,35 @@ public final class BalanceFinal {
         return new BlastNow(target, share * (BalanceFinalRule.HP + armor.pool()), id, tier, projectile);
     }
 
+    /**
+     * balance.final.mobArmor (player; own: X949): a hit of the scheme on a mob meets the vanilla armour a player in
+     * the same pieces would have, the pieces' own; the mob's own armour (the FBI agent's 20 and balance.fbiArmor) took
+     * the scheme's damage a second time (an FBI agent in Security lived through 24 hits of the STG-77 its table kills
+     * with 9 in the head). The armour and toughness to take off what the mob has, {0, 0} for none
+     */
+    public static float[] mobOwnArmor(LivingEntity target, DamageSource source) {
+        if (target instanceof Player || target.level().isClientSide() || BalanceArmor.category(source) == null || !on()
+                || !ReaimTimes.text("balance.final.mobArmor", "player").trim().equalsIgnoreCase("player"))
+            return NO_OWN;
+        try {
+            if (!takes(target, source)) return NO_OWN;
+        } catch (RuntimeException e) {
+            return NO_OWN;
+        }
+        return new float[] {own(target, net.minecraft.world.entity.ai.attributes.Attributes.ARMOR),
+                own(target, net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS)};
+    }
+
+    private static final float[] NO_OWN = {0F, 0F};
+
+    /** the mob's own share of an attribute: its base and balance.fbiArmor's modifier */
+    private static float own(LivingEntity target, net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> attribute) {
+        var a = target.getAttribute(attribute);
+        if (a == null) return 0F;
+        var fbi = a.getModifier(BalanceKit.FBI_ARMOR);
+        return (float) Math.max(0, a.getBaseValue() + (fbi == null ? 0 : fbi.amount()));
+    }
+
     /** a blast's or a GL-54 fragment's take of 20 HP and the pool, or NaN when the hit is neither (the log counts it) */
     private static float blastOrFrag(LivingEntity target, DamageSource source) {
         BlastNow b = BLAST_NOW.get();

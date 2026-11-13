@@ -210,6 +210,55 @@ public final class ModelHits {
         return best==null || !armourPiece(best.part())?null:armourPartZone(best.part());
     }
 
+    /** how far off a part's drawn surface a shot may lie and still be on it, blocks (1/8 px) */
+    static final double ON_PART=1.0/16/8;
+
+    /**
+     * The part whose drawn surface (a cube's faces, a mesh's triangles) a shot (in the model's frame) lies on, the
+     * nearest within {@link #ON_PART}, or null. A short probe across the point along each axis, both ways: the part the
+     * shot met crosses it about its middle (the face it went in by or the one it would leave by), a part the point is
+     * merely inside of at its start. Parts further off the point than that are not probed.
+     */
+    static ModelBox partAt(List<ModelBox> boxes,Vec3 local) {
+        ModelBox best=null;double least=ON_PART;
+        for(var b:boxes) {
+            if(!b.containsPoint(local) && surface(b,local)>ON_PART) continue;
+            for(int axis=0;axis<3;axis++) for(int sign=-1;sign<=1;sign+=2) {
+                double dx=axis==0?sign*ON_PART:0,dy=axis==1?sign*ON_PART:0,dz=axis==2?sign*ON_PART:0;
+                double t=b.clip(local.x-dx,local.y-dy,local.z-dz,local.x+dx,local.y+dy,local.z+dz);
+                if(t<0) continue;
+                double d=Math.abs(t-.5)*2*ON_PART;
+                if(d<least) { least=d;best=b; }
+            }
+        }
+        return best;
+    }
+
+    /** the groups of NTM's own suit models that are the helmet ("mesh/<group>"; T-51, HEV, AJR, NCR and the rest) */
+    static final java.util.Set<String> SUIT_HELMETS=java.util.Set.of("Helmet","Head","Eyes");
+
+    /**
+     * modelHitboxesHelmet (true; false: X949): a shot on a helmet is a shot in the head, whatever the helmet: vanilla's
+     * or NTM's layer armour caught as its draw over the head, an NTM suit's own helmet model (it stands further off the
+     * head than vanilla's 1.5 pixels the head's zone grows by: its edge was the body)
+     */
+    static boolean helmet(LivingEntity target,String part) {
+        // a suit's group only under an NTM helmet: an NTM mob's own model may have a group "Head" of its own
+        var id=net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(target.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).getItem());
+        return helmet(id!=null && id.getNamespace().equals("hbm"),part);
+    }
+
+    /** the same by the part's name alone; {@code headWorn}: an NTM helmet is worn on the head */
+    static boolean helmet(boolean headWorn,String part) {
+        if(armourPiece(part)) return armourPartZone(part)==Zone.HEAD;
+        if(!headWorn || !part.startsWith("mesh/") || part.startsWith("mesh/root")) return false;
+        return SUIT_HELMETS.contains(part.substring(part.lastIndexOf('/')+1));
+    }
+
+    static boolean helmetsOn() {
+        return ReaimTimes.flag("modelHitboxesHelmet",true);
+    }
+
     // what is worn, the armour of it: a helmet stays, a block or a skull on the head does not
     static WornGear.Worn armour(WornGear.Worn worn) {
         return worn.head()==WornGear.Head.ARMOR || worn.head()==WornGear.Head.NONE?worn
@@ -406,6 +455,10 @@ public final class ModelHits {
         var local=unturn(point.subtract(impactOrigin(root,point)),angle);
         var piece=bodyOnly(root)?armourZone(pose.boxes(),local):null;
         if(piece!=null) return new ModelHeads.Hit(true,piece==Zone.HEAD,resolved.source(),"броня: часть под ней",resolved.confidence());
+        if(helmetsOn() && !resolved.zones().isEmpty()) {
+            var on=partAt(pose.boxes(),local);
+            if(on!=null && helmet(living,on.part())) return new ModelHeads.Hit(true,true,resolved.source(),"шлем",resolved.confidence());
+        }
         boolean head=HeadZone.contains(wornZones(root,pose,resolved.zones()),local);
         return new ModelHeads.Hit(true,head,resolved.source(),resolved.reason(),resolved.confidence());
     }
@@ -435,6 +488,9 @@ public final class ModelHits {
         double angle=turnAngle(living,pose);
         var out=new ArrayList<HeadZone>();
         for(var zone:wornZones(target,pose,resolved.zones())) out.add(world(zone,angle,target.position()));
+        // a helmet is the head (head()): F3+B shows it as the head, not as the body
+        if(helmetsOn() && !resolved.zones().isEmpty())
+            for(var b:pose.boxes()) if(helmet(living,b.part())) out.add(world(new HeadZone(b,List.of()),angle,target.position()));
         return List.copyOf(out);
     }
     /** the stand (BotStand): the limb zones in the world, as limb() takes them (grown with what is worn) */
