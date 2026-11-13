@@ -231,6 +231,8 @@ page. They are alphas: expect bugs and back up your world.
   (server keys `aiRoles`, `aiBaseMagazine`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
+- They go into a room together: beside the doorway first, out of the line
+  through it, then in at once, each to its own side (server key `aiEntry`).
 - They move their bodies: breathing, flinching at hits, aiming, reloading,
   throwing, signalling with a hand, crouching, leaning and lying with the gun.
   Arms and legs bend at the elbows and knees, and the armour they wear is

@@ -1482,6 +1482,14 @@ public final class AiSoldier implements AiBrain {
         }
         mode(Mode.SEARCH, tick);
         bot.gunner.fire(false);
+        // lost in a room: beside the way in first, and in together (AiEntry)
+        Vec3 door = AiEntry.on() ? AiEntry.step(bot, level, c, tick) : null;
+        if (door != null) {
+            searchCell = Long.MIN_VALUE;
+            watch = door;
+            bot.gunner.aim(door);
+            return;
+        }
         var cleared = bot.clearedFor(c);
         boolean reached = searchCell != Long.MIN_VALUE && (bot.mover.arrived() || bot.mover.failed());
         if (reached) {

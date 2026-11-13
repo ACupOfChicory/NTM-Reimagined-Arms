@@ -127,7 +127,7 @@ public final class AiSquads {
         }
     }
 
-    private static String team(AiBot b) {
+    static String team(AiBot b) {
         return b.mob.getTeam() == null ? "" : b.mob.getTeam().getName();
     }
 

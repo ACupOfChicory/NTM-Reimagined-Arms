@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers go into a room together. The ones that go after a target lost
+  in a building no longer walk in through the doorway one after another:
+  they come up beside it, behind the wall and out of the line through it,
+  wait a moment for the second, and go in at once, each to its own side.
+  From there they search as before. A doorway one or two blocks wide counts;
+  a wider opening is entered as before. New server setting `aiEntry` (true
+  by default).
+
 ## X977
 
 - The Shredder's damage falls off with range as the laser guns' does: full
