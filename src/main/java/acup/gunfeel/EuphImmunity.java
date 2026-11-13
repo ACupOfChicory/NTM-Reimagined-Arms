@@ -356,25 +356,36 @@ public final class EuphImmunity {
             if (kit == Kit.EUPHEMIUM) dropEffects(player);
             return false;
         }
+        // the gas's damage takes the pool HP for HP, as a shot (balance.final.pools.gas; Fable №2, 2.4)
+        boolean gas = gasDrains();
         // DNS and FAU: shots and blasts only; euphemium calls off every hit, its pool drained by melee as before
         String cat = kit == Kit.EUPHEMIUM ? BalanceArmor.categoryAny(source) : BalanceArmor.category(source);
-        if (kit != Kit.EUPHEMIUM && cat == null) return false;
+        if (kit != Kit.EUPHEMIUM && cat == null && !gas) return false;
         State s = state(kit, player, now);
         Pool p = pool(kit);
-        float drain = drain(kit, player, source, amount, cat);
-        // only a shot, an IR beam or a blast holds the window: for euphemium cat takes melee and the rest too
-        boolean keeps = kit == Kit.EUPHEMIUM ? BalanceArmor.category(source) != null : cat != null;
+        float drain = gas ? amount * (float) BalanceFinalRule.HP / player.getMaxHealth() : drain(kit, player, source, amount, cat);
+        // only a shot, an IR beam, a blast or the gas holds the window: for euphemium cat takes melee and the rest too
+        boolean keeps = gas || (kit == Kit.EUPHEMIUM ? BalanceArmor.category(source) != null : cat != null);
         Phase before;
         boolean off;
         synchronized (EuphImmunity.class) {
             before = phase(s, now);
-            off = hit(s, now, drain, cat != null, keeps, p, keeps ? reach(source) : 0);
+            off = hit(s, now, drain, gas || cat != null, keeps, p, keeps && !gas ? reach(source) : 0);
         }
         if (before == Phase.POOL && phase(s, now + 1) == Phase.WINDOW) {
             if (kit == Kit.EUPHEMIUM) dropEffects(player);
             if (player instanceof net.minecraft.server.level.ServerPlayer sp) sp.sendSystemMessage(Component.translatable(kit.message, p.window() / 20), true);
         }
         return off;
+    }
+
+    /**
+     * the hurt under way is the gas's and the pools take it (balance.final.pools.gas = drain, the final scheme on; off:
+     * the gas's damage on a full set of the three is NTM's, as X922)
+     */
+    static boolean gasDrains() {
+        if (!acup.gunfeel.gas.GasServer.gasNow() || !BalanceFinal.on()) return false;
+        return ReaimTimes.text("balance.final.pools.gas", "drain").trim().equalsIgnoreCase("drain");
     }
 
     /** balance.immune.reloadHold (true; false: X896) */

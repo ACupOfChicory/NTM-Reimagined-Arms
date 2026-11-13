@@ -69,7 +69,8 @@ public final class Spread {
         return total;
     }
 
-    private static boolean inAir(LivingEntity e) {
+    /** in the air for the spread (spreadAir); the balance stand checks its shooter is not, a click of a share's pass */
+    static boolean inAir(LivingEntity e) {
         if (e.onGround() || e.isPassenger() || e.onClimbable() || e.isInWater() || e.isFallFlying()) return false;
         return !(e instanceof Player p && p.getAbilities().flying);
     }
