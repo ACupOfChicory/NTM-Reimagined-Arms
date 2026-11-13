@@ -163,7 +163,7 @@ public final class SpreadCheck {
                     com.hbm.items.weapon.sedna.mags.IMagazine mag = r.getMagazine(stack);
                     mag.setType(stack, ammo);
                     mag.setAmount(stack, 1);
-                    boolean aim = c.endsWith("aim"), canAim = BalanceCheck.aimKey(stack) != BalanceCheck.AimKey.NONE, effAim = aim && canAim;
+                    boolean aim = c.endsWith("aim"), canAim = BalanceAim.key(stack) != BalanceAim.Key.NONE, effAim = aim && canAim;
                     // a gun with no aim key "aimed" is fired from the hip, as in the game
                     Key k = new Key(aim && !canAim ? "choke-noaim" : "choke", gun + " " + gc[1], "", effAim || !aim ? c : "stand");
                     shot(p, stack, k);

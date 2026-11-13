@@ -321,7 +321,7 @@ CORE class com/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/DamageSourceSedna
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
-CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
+CORE class com/hbm/items/weapon/sedna/Receiver
 CORE class com/hbm/items/weapon/sedna/mags/IMagazine
 CORE class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 CORE class com/hbm/registration/RegistryHandle
@@ -351,7 +351,6 @@ CORE field com/hbm/extprop/HbmPlayerProps maxShield F
 CORE field com/hbm/extprop/HbmPlayerProps shield F
 CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
-CORE field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_TERTIARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 CORE field com/hbm/hazard/HazardClass GAS_BLISTERING Lcom/hbm/hazard/HazardClass;
 CORE field com/hbm/hazard/HazardClass GAS_LUNG Lcom/hbm/hazard/HazardClass;
 CORE field com/hbm/items/ModItems GUN_ABERRATOR Lcom/hbm/registration/RegistryHandle;
@@ -435,7 +434,6 @@ CORE field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT lastShot [J
 CORE field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
-CORE field com/hbm/items/weapon/sedna/factory/Lego LAMBDA_TOGGLE_AIM Ljava/util/function/BiConsumer;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory10ga g10 Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory10ga g10_du Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory10ga g10_explosive Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -587,7 +585,6 @@ CORE method com/hbm/items/weapon/grenade/ItemGrenadeShell$EnumGrenadeShell getYe
 CORE method com/hbm/items/weapon/grenade/ItemGrenadeUniversal make (Lcom/hbm/items/weapon/grenade/ItemGrenadeShell$EnumGrenadeShell;Lcom/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling;Lcom/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze;)Lnet/minecraft/world/item/ItemStack;
 CORE method com/hbm/items/weapon/sedna/BulletConfig ammoStack ()Lnet/minecraft/world/item/ItemStack;
 CORE method com/hbm/items/weapon/sedna/BulletConfig getDamage (Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/util/DamageClass;)Lnet/minecraft/world/damagesource/DamageSource;
-CORE method com/hbm/items/weapon/sedna/GunConfig getPressTertiary (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiConsumer;
 CORE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
 CORE method com/hbm/items/weapon/sedna/GunConfig hasThermalSights (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
@@ -603,12 +600,10 @@ CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsEquipped (Lnet/minecra
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setState (Lnet/minecraft/world/item/ItemStack;ILcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setTimer (Lnet/minecraft/world/item/ItemStack;II)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setValueInt (Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;I)V
-CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext <init> (Lcom/hbm/items/weapon/sedna/GunConfig;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;I)V
 CORE method com/hbm/items/weapon/sedna/Receiver getBaseDamage (Lnet/minecraft/world/item/ItemStack;)F
 CORE method com/hbm/items/weapon/sedna/Receiver getDelayAfterFire (Lnet/minecraft/world/item/ItemStack;)I
 CORE method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 CORE method com/hbm/items/weapon/sedna/Receiver getRefireOnHold (Lnet/minecraft/world/item/ItemStack;)Z
-CORE method com/hbm/items/weapon/sedna/factory/Lego calcSpread (Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/Receiver;Lcom/hbm/items/weapon/sedna/BulletConfig;ZIZ)F
 CORE method com/hbm/items/weapon/sedna/factory/Lego standardExplode (Lcom/hbm/entity/projectile/EntityBulletBaseMK4;Lnet/minecraft/world/phys/HitResult;F)V
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecraft/world/item/ItemStack;)I

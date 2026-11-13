@@ -1663,7 +1663,8 @@ public final class BalanceCheck {
 
     /**
      * The pass aim: the aim key (GUN_TERTIARY) pressed, as a player aims; NTM's doStandardFire hands Lego.calcSpread the
-     * stack's isAiming as its aim. A line: the gun, isAiming with the key held, NTM's spread then, aimed and from the hip.
+     * stack's isAiming as its aim. A line: the gun, isAiming with the key held, NTM's spread then (as calcSpread works it
+     * out, before the mod's), aimed and from the hip.
      */
     private static void planAim() {
         // -PbalanceAimAll=true: every gun of the scheme's pairs with its first ammo
@@ -1687,16 +1688,17 @@ public final class BalanceCheck {
                 L.shooter.setItemSlot(EquipmentSlot.MAINHAND, stack);
                 var gun = (ItemGunBaseNT) stack.getItem();
                 SimpleContainer inv = new SimpleContainer(1);
-                gun.handleKeybind(L.shooter, inv, stack, EnumKeybind.GUN_TERTIARY, true);
+                BalanceAim.press(gun, L.shooter, inv, stack, true);
                 boolean aimed = ItemGunBaseNT.getIsAiming(stack);
                 var config = gun.getConfig(stack, 0);
                 var r = config.getReceivers(stack)[0];
-                var ctx = new ItemGunBaseNT.LambdaContext(config, L.shooter, inv, 0);
-                line("aim\t" + g[0] + "\t" + g[1] + "\t" + aimed + "\t" + String.format(Locale.ROOT, "%.4f", com.hbm.items.weapon.sedna.factory.Lego.calcSpread(ctx, stack, r, ammo, false, 0, aimed))
-                        + "\t" + String.format(Locale.ROOT, "%.4f", com.hbm.items.weapon.sedna.factory.Lego.calcSpread(ctx, stack, r, ammo, false, 0, true))
-                        + "\t" + String.format(Locale.ROOT, "%.4f", com.hbm.items.weapon.sedna.factory.Lego.calcSpread(ctx, stack, r, ammo, false, 0, false))
-                        + "\t" + gun.getConfigCount() + "\t" + aimKey(stack));
-                gun.handleKeybind(L.shooter, inv, stack, EnumKeybind.GUN_TERTIARY, false);
+                // NTM's spread as Lego.calcSpread works it out (no wear); not calcSpread itself, which is the system SPREAD's
+                float[] sp = BalanceAim.spread(r, stack, ammo);
+                float base = sp[0], hip = sp[1];
+                line("aim\t" + g[0] + "\t" + g[1] + "\t" + aimed + "\t" + String.format(Locale.ROOT, "%.4f", aimed ? base : hip)
+                        + "\t" + String.format(Locale.ROOT, "%.4f", base) + "\t" + String.format(Locale.ROOT, "%.4f", hip)
+                        + "\t" + gun.getConfigCount() + "\t" + BalanceAim.key(stack));
+                BalanceAim.press(gun, L.shooter, inv, stack, false);
                 L.shooter.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
             });
             wait(5);
@@ -4142,7 +4144,7 @@ public final class BalanceCheck {
     private static void fireKeys(LivingEntity from, Item item, BulletConfig ammo, boolean aimed, boolean both) {
         ItemStack stack = loaded(item, ammo);
         // a gun with no aim key (an akimbo, the SPAS-12) fires from the hip, as in the game (owner 2026-11-13)
-        if (aimed && aimKey(stack) != AimKey.NONE) ItemGunBaseNT.setIsAiming(stack, true);
+        if (aimed && BalanceAim.key(stack) != BalanceAim.Key.NONE) ItemGunBaseNT.setIsAiming(stack, true);
         from.setItemSlot(EquipmentSlot.MAINHAND, stack);
         aim(from, L.victim);
         var gun = (ItemGunBaseNT) stack.getItem();
@@ -4152,21 +4154,6 @@ public final class BalanceCheck {
         if (both) gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_SECONDARY, true);
         gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_PRIMARY, false);
         if (both) gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_SECONDARY, false);
-    }
-
-    /** how a gun aims in NTM: the standard aim key (LAMBDA_TOGGLE_AIM), a key of its own, or none */
-    enum AimKey {
-        TOGGLE, OWN, NONE
-    }
-
-    /**
-     * the gun's aim key: none for two guns in NTM's two configs (maresleg_akimbo, uzi_akimbo, minigun_dual and the
-     * rest; owner 2026-11-13) and for a gun whose third key is nothing (the SPAS-12: its second key fires)
-     */
-    static AimKey aimKey(ItemStack stack) {
-        if (!(stack.getItem() instanceof ItemGunBaseNT gun) || gun.getConfigCount() > 1) return AimKey.NONE;
-        var pt = gun.getConfig(stack, 0).getPressTertiary(stack);
-        return pt == null ? AimKey.NONE : pt == com.hbm.items.weapon.sedna.factory.Lego.LAMBDA_TOGGLE_AIM ? AimKey.TOGGLE : AimKey.OWN;
     }
 
     private static void aim(LivingEntity from, LivingEntity at) {
