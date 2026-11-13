@@ -321,6 +321,7 @@ CORE class com/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/DamageSourceSedna
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
+CORE class com/hbm/items/weapon/sedna/Receiver
 CORE class com/hbm/items/weapon/sedna/mags/IMagazine
 CORE class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 CORE class com/hbm/registration/RegistryHandle
