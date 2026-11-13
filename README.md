@@ -205,6 +205,15 @@ page. They are alphas: expect bugs and back up your world.
   Operators bring them in with `/armsai spawn fbi|dummy [count] [gun]` (and
   `team <name>` at the end); `/armsai clear` removes them. They fight in the
   game's teams.
+- Their armour and rounds are yours to choose. After the gun add, in any
+  order, `armor <set>` (a full set by its name: `steel`, `t51`, `hev`, `sec`,
+  `bj`, `dns` and the rest, or `none`), `armor <slot>=<item> …` for single
+  pieces (`armor chest=hbm:hev_plate legs=steel`; slots `head`, `chest`,
+  `legs`, `feet`) and `ammo <round>` (one of the rounds the gun takes, such as
+  `r556_ap`; the bot reloads with it too). The names complete as you type.
+  `/armsai kit <targets> [armor …] [ammo …]` changes bots that already stand,
+  for example `/armsai kit @e[tag=armsai,distance=..20] armor hev ammo
+  r556_ap`.
 - They see and hear as a person does, run to cover, crouch behind low walls,
   run low past them, lean out round a corner, fire blind over cover and lie
   down in the open. They aim at what they see of you, never miss on purpose
@@ -333,6 +342,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `bulletSpeed` | `1.6` | Bullet speed multiplier |
 | `modelHitboxes` | `true` | Hits by the model, with head and limb zones |
 | `modelHitboxesWorn` | `true` | Worn armour, skulls and pumpkins are part of the model |
+| `modelHitboxesHelmet` | `true` | A shot on a helmet is a shot in the head: a layer's helmet and an NTM suit's own helmet model (T-51, HEV and the rest), shown as the head in F3+B; false: as X949 |
 | `clientHits` | `true` | A player's bullet hits what that player's game saw it hit; off: the server's view decides |
 | `cameraScaleMin` | `0` | Camera recoil players cannot go below |
 | `spreadStand`, `spreadMove`, `spreadSneak`, `spreadCrawl`, `spreadAim` | `1`, `1.5`, `0.75`, `0.5`, `1` | Spread by stance |
@@ -408,6 +418,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `balance.final.range` | `smg:x0.5/24/0.4@64 pistol:x0.8/24/0.4@64 shotgun:x1/16/0.4@64 slug:x1/32/0.3@128 shell:x1/24/0.25@80 beam:x1/64/0.5@160 rifle:x1/64/0.5@160 mg:x1/64/0.5@160 sniper:x1/160/0.7@256` | Damage by range, `role:xT/full/floor@at` by the shooter's distance at the hit: up to `.close` (8) blocks the role's close-up time T (an SMG ×0.5, a pistol ×0.8), back to 1 by `.home` (`pistol:12 smg:12`); full damage to `full` blocks, then straight down to `floor` at `at` blocks. `shell`: an explosive shotgun shell's direct hit. A role with no line, blasts and the Tesla Cannon's arc and its IR beam: 1. X942: `shotgun:x1/16/0.4@48 slug:x1/24/0.4@64`, no `shell`; X922: no shotgun line, `slug:x1/32/0.4@96 beam:x1/32/0.4@96`; `off`: as X912 |
 | `balance.final.range.shells` | `true` | An explosive shotgun shell's direct hit takes the `shell` line, or its role's when there is none; false: 1, as X922 |
 | `balance.final.tesla.ir` | `true` | The Tesla Cannon's IR beam takes its shooter's pair: on the creature the click's arc has just struck nothing, on anyone else a click of the pair (no range rule); false: NTM's damage, as X922 |
+| `balance.final.mobArmor` | `player` | A hit of the scheme on a mob meets the vanilla armour a player in the same pieces has; `own`: the mob's own armour too (an FBI agent's 20 and `balance.fbiArmor`), as X949 |
 | `balance.final.acid` | `tiers=1.0 tier=4 full=+1 fade=3` | The acid's corrosion K (0 to 0.75) takes the set's tier down by `tiers` × K / 0.75, in full up to tier `tier` + `full`, fading to nothing over `fade` tiers above it (HEV at K 0.75 as T-51, BJ as tier 5.33, FAU as it is; never below bare); bullets, beams, blasts and fragments alike. `off`: as X922 |
 | `balance.final.pools.gas` | `drain` | The mod's gas on a full FAU, DNS or euphemium set takes the pool HP for HP, as a shot (the mask, filter and sealed helmet first, as before); `off`: as X922 |
 | `balance.final.pools` | `dns:45 fau:40 euph:150` | The pools of DNS, FAU and euphemium the scheme counts in, and their size while no `balance.immune*.pool` is set (the pool grows with the tier). X912: `dns:40 fau:45` |
@@ -487,7 +498,8 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 - `/gunsmoke` (operators): let out smoke clouds, clear them, show how many
   there are.
 - `/armsai` (operators): bring in, remove and inspect AI soldiers (`spawn`,
-  `clear`, `ammo`, `info`, `debug`), record fights (`record on|off`), lay out a
+  `clear`, `ammo`, `info`, `debug`), give them armour and rounds (`spawn …
+  armor … ammo …`, `kit`), record fights (`record on|off`), lay out a
   practice ground (`course`).
 
 If something goes wrong, the mod writes its log to `logs/ntm-gunfeel-debug.log`;

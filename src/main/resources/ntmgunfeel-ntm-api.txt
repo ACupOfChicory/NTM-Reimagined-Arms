@@ -924,14 +924,17 @@ MARESLEG method com/hbm/render/anim/BusAnimationSequence setPos (DDD)Lcom/hbm/re
 MOB_AI class com/hbm/entity/grenade/EntityGrenadeUniversal
 MOB_AI class com/hbm/entity/projectile/EntityThrowableNT
 MOB_AI class com/hbm/handler/HbmKeybinds$EnumKeybind
+MOB_AI class com/hbm/items/armor/ModArmorItem
 MOB_AI class com/hbm/items/weapon/sedna/BulletConfig
 MOB_AI class com/hbm/items/weapon/sedna/ItemGunBaseNT
 MOB_AI class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 MOB_AI class com/hbm/items/weapon/sedna/mags/IMagazine
+MOB_AI class com/hbm/items/weapon/sedna/mags/MagazineBelt
 MOB_AI class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 MOB_AI field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 MOB_AI field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_TERTIARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 MOB_AI field com/hbm/handler/HbmKeybinds$EnumKeybind RELOAD Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
+MOB_AI field com/hbm/items/weapon/sedna/BulletConfig configs Ljava/util/List;
 MOB_AI field com/hbm/items/weapon/sedna/BulletConfig damageMult F
 MOB_AI field com/hbm/items/weapon/sedna/BulletConfig projectilesMax I
 MOB_AI field com/hbm/items/weapon/sedna/BulletConfig spread F
@@ -945,11 +948,16 @@ MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState RELOADING Lcom/hb
 MOB_AI field com/hbm/main/ResourceManager dummy_tex Lnet/minecraft/resources/Identifier;
 MOB_AI field com/hbm/main/ResourceManager fbi_tex Lnet/minecraft/resources/Identifier;
 MOB_AI method com/hbm/entity/projectile/EntityThrowableNT setThrowableHeading (DDDFF)V
+MOB_AI method com/hbm/items/armor/ModArmorItem getCharge (Lnet/minecraft/world/item/ItemStack;)J
+MOB_AI method com/hbm/items/armor/ModArmorItem isPowered ()Z
+MOB_AI method com/hbm/items/armor/ModArmorItem maxPower (Lnet/minecraft/world/item/ItemStack;)J
+MOB_AI method com/hbm/items/armor/ModArmorItem setCharge (Lnet/minecraft/world/item/ItemStack;J)V
 MOB_AI method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
+MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT setValueInt (Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;I)V
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext <init> (Lcom/hbm/items/weapon/sedna/GunConfig;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;I)V
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getAmmoSpread (Lnet/minecraft/world/item/ItemStack;)F
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getBaseDamage (Lnet/minecraft/world/item/ItemStack;)F
@@ -967,6 +975,8 @@ MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecr
 MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;
 MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine reloadAction (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)V
 MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine setAmount (Lnet/minecraft/world/item/ItemStack;I)V
+MOB_AI method com/hbm/items/weapon/sedna/mags/IMagazine setType (Lnet/minecraft/world/item/ItemStack;Ljava/lang/Object;)V
+MOB_AI method com/hbm/items/weapon/sedna/mags/MagazineBelt setMagType (Lnet/minecraft/world/item/ItemStack;I)V
 MODEL_HITBOXES class com/hbm/entity/mob/EntityQuackos
 MODEL_HITBOXES class com/hbm/entity/mob/glyphid/EntityGlyphid
 MODEL_HITBOXES class com/hbm/entity/projectile/EntityBulletBaseMK4

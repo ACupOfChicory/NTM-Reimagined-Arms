@@ -565,7 +565,7 @@ public final class BalanceCheck {
         if (Boolean.getBoolean(PROPERTY + ".testLog")) line("#\ttest log " + TestLog.set(false, true));
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg", "ps", "tb", "g4", "aim", "rf").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg", "ps", "tb", "g4", "aim", "rf", "bot").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         // the passes check the machine of X908 (formula C, the gun table): the final scheme off, its cells and team lines
         // turn it on by a key line (balance.final true)
@@ -594,6 +594,7 @@ public final class BalanceCheck {
         if (only("lg")) pass("lg", BalanceCheck::planLog);
         if (only("ps")) pass("ps", BalanceCheck::planShare);
         if (only("tb")) pass("tb", BalanceCheck::planTrenchBlock);
+        if (only("bot")) pass("bot", BalanceCheck::planBot);
         // asked by name only: the final scheme on in it whatever the run's
         if (asked.contains("g4")) pass("g4", BalanceCheck::planAcidGas);
         // Fable №3: NTM's aim of the guns (0.1), fights by distance (stage 4); asked by name only
@@ -1838,6 +1839,160 @@ public final class BalanceCheck {
         });
         // the shots still flying land before the next fight
         wait(d >= 64 ? 60 : 25);
+    }
+
+    // ---------------------------------------------------------------- a bot in armour (owner 2026-11-13, pass bot)
+
+    /** the pass bot: the sets, the X942 table's hits to kill of stg77.r556_fmj on each (body) */
+    private static final String[][] BOT_SETS = {{"security", "15"}, {"steel", "13"}, {"hev", "22"}, {"t51", "17"}, {"", "13"}};
+    private static final int BOT_DIST = 12;
+
+    /**
+     * The owner (X949): an FBI agent in Security took 24 hits of the STG-77 (FMJ) in the head and lived, its table kills
+     * it with 9. The pass: an FBI agent and the player, each in a set of BOT_SETS (and bare), BOT_DIST blocks off, the
+     * shooter aimed at the head or the chest until it dies (MAX_CLICKS at most), with balance.final.mobArmor own (X949)
+     * and player. A line each: the clicks and hits to kill, what a hit took. Checked with player: the agent dies in the
+     * player's hits in the same set; with own, the agent in a set takes less than half a hit.
+     */
+    private static void planBot() {
+        line("#\t--- bot: FBI и игрок в броне, stg77 · r556_fmj, " + BOT_DIST + " бл., прицельно; было (mobArmor own) / стало (player)");
+        line("#\tbot\tрежим\tкто\tнабор\tкуда\tкликов\tударов\tснято за удар\tздоровье\tванильная броня\tтаблица X942 (тело)");
+        Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_stg77"));
+        BulletConfig ammo = ammoNamed(gun, "r556_fmj");
+        if (ammo == null) {
+            check(false, "bot: нет патрона r556_fmj у stg77");
+            return;
+        }
+        java.util.Map<String, Float> hitOf = new java.util.concurrent.ConcurrentHashMap<>();
+        java.util.Map<String, Integer> hitsOf = new java.util.concurrent.ConcurrentHashMap<>();
+        for (String mode : new String[] {"own", "player"}) {
+            STEPS.add(() -> {
+                keys("balance.final", "true", "balance.final.mobArmor", mode);
+                eachLane(() -> {
+                    L.shooter.setInvulnerable(true);
+                    for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlockAndUpdate(L.o.offset(x, -1, BOT_DIST + z), Blocks.STONE.defaultBlockState());
+                });
+            });
+            wait(30);
+            List<Runnable> cases = new ArrayList<>();
+            // the key is a mob's: with own, the agent alone
+            for (String[] set : BOT_SETS) for (String who : mode.equals("own") ? new String[] {"fbi"} : new String[] {"fbi", "player"})
+                for (boolean head : new boolean[] {true, false}) cases.add(() -> botCase(mode, set, who, head, gun, ammo, hitOf, hitsOf));
+            parallel(cases);
+        }
+        STEPS.add(() -> {
+            for (String[] set : BOT_SETS) for (String aim : new String[] {"голова", "тело"}) {
+                String name = set[0].isEmpty() ? "без брони" : set[0];
+                Integer fbi = hitsOf.get("player fbi " + set[0] + " " + aim), player = hitsOf.get("player player " + set[0] + " " + aim);
+                Integer fbiOwn = hitsOf.get("own fbi " + set[0] + " " + aim);
+                Float fbiHit = hitOf.get("player fbi " + set[0] + " " + aim), playerHit = hitOf.get("player player " + set[0] + " " + aim);
+                Float ownHit = hitOf.get("own fbi " + set[0] + " " + aim);
+                if (set[0].isEmpty()) {
+                    // bare: NTM's damage on a mob (the scheme takes no bare mob), the same in both
+                    check(fbiHit != null && ownHit != null && Math.abs(fbiHit - ownHit) <= 0.02F * Math.max(ownHit, 0.01F),
+                            "bot: FBI без брони, " + aim + ": урон NTM, тот же в обоих режимах (" + f(nz(ownHit)) + " / " + f(nz(fbiHit)) + ")");
+                    continue;
+                }
+                check(fbi != null && player != null && fbi > 0 && player > 0 && Math.abs(fbi - player) <= 1 && fbiHit != null && playerHit != null
+                        && Math.abs(fbiHit - playerHit) <= 0.05F * playerHit,
+                        "bot: FBI в " + name + ", " + aim + ": ударов " + fbi + ", снято за удар (из 20) " + f(nz(fbiHit)) + " = игрок " + player + ", " + f(nz(playerHit)));
+                check(ownHit != null && fbiHit != null && ownHit < fbiHit * 0.5F,
+                        "bot: было (own) у FBI в " + name + ", " + aim + ": " + f(nz(ownHit)) + " за удар против " + f(nz(fbiHit)) + " (ударов "
+                                + (fbiOwn == null || fbiOwn == 0 ? "> " + MAX_CLICKS + " кликов" : fbiOwn) + ")");
+            }
+            // the table: the body's hits to kill
+            for (String[] set : BOT_SETS) {
+                if (set[0].isEmpty()) continue;
+                Integer body = hitsOf.get("player fbi " + set[0] + " тело");
+                int table = Integer.parseInt(set[1]);
+                check(body != null && body > 0 && Math.abs(body - table) <= Math.max(1, table / 10), "bot: FBI в " + set[0]
+                        + ", тело: ударов до смерти " + body + " против таблицы X942 " + table);
+            }
+            keys("balance.final.mobArmor", "player", "balance.final", String.valueOf(Boolean.getBoolean(PROPERTY + ".final")));
+            eachLane(() -> L.shooter.setInvulnerable(false));
+        });
+        wait(10);
+    }
+
+    private static float nz(Float v) {
+        return v == null ? Float.NaN : v;
+    }
+
+    private static void botCase(String mode, String[] set, String who, boolean head, Item gun, BulletConfig ammo, java.util.Map<String, Float> hitOf,
+            java.util.Map<String, Integer> hitsOf) {
+        String aim = head ? "голова" : "тело";
+        String key = mode + " " + who + " " + set[0] + " " + aim;
+        int[] end = {0};
+        STEPS.add(() -> {
+            L.shooter.setDeltaMovement(Vec3.ZERO);
+            L.shooter.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
+            LivingEntity v;
+            if (who.equals("fbi")) {
+                var created = BuiltInRegistries.ENTITY_TYPE.getValue(FBI).create(level, EntitySpawnReason.COMMAND);
+                if (!(created instanceof Mob mob)) throw new IllegalStateException("no FBI agent");
+                L.fbi = mob;
+                mob.setNoAi(true);
+                mob.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + BOT_DIST, 180F, 0F);
+                level.addFreshEntity(mob);
+                for (EquipmentSlot slot : SLOTS) mob.setItemSlot(slot, ItemStack.EMPTY);
+                if (!set[0].isEmpty()) dress(mob, set[0], true);
+                mob.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+                // the player out of the line of fire
+                L.target.snapTo(L.o.getX() + 6.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+                v = mob;
+            } else {
+                v = L.target;
+                for (EquipmentSlot slot : SLOTS) v.setItemSlot(slot, ItemStack.EMPTY);
+                if (!set[0].isEmpty()) dress(v, set[0], true);
+                wearAttributes(v);
+                EuphImmunity.forget(L.target);
+                v.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + BOT_DIST, 180F, 0F);
+            }
+            begin(v);
+            L.noShield = true;
+            L.aimHead = head;
+        });
+        wait(3);
+        for (int i = 0; i < MAX_CLICKS; i++) {
+            STEPS.add(() -> {
+                if (L.deathClick > 0 || L.victim.getHealth() <= 0F) return;
+                // NTM's shield of a full set: the scheme counts none, as the model
+                if (L.victim instanceof net.minecraft.world.entity.player.Player p) com.hbm.extprop.HbmPlayerProps.getData(p).shield = 0F;
+                L.victim.setDeltaMovement(Vec3.ZERO);
+                L.victim.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + BOT_DIST, 180F, 0F);
+                fireAimed(L.shooter, gun, ammo);
+                L.clicks++;
+            });
+            for (int t = 0; t < SPACING; t++) STEPS.add(() -> {
+                if (L.deathClick <= 0 && L.clicks > 0 && L.victim.getHealth() <= 0F) {
+                    L.deathClick = L.clicks;
+                    L.skipTo = end[0];
+                }
+            });
+        }
+        end[0] = STEPS.size();
+        wait(5);
+        STEPS.add(() -> {
+            float per = L.hits > 0 ? L.lost / L.hits : 0F;
+            // a hit's share of the health, on 20 HP (the scheme scales a hit by the health)
+            hitOf.put(key, per * 20F / L.victim.getMaxHealth());
+            hitsOf.put(key, L.deathClick > 0 ? L.hits : 0);
+            float vanilla = (float) L.victim.getAttributeValue(Attributes.ARMOR);
+            line("bot\t" + (mode.equals("own") ? "было" : "стало") + "\t" + (who.equals("fbi") ? "FBI" : "игрок") + "\t" + (set[0].isEmpty() ? "без брони" : set[0])
+                    + "\t" + aim + "\t" + (L.deathClick > 0 ? String.valueOf(L.deathClick) : "> " + L.clicks) + "\t" + (L.deathClick > 0 ? String.valueOf(L.hits) : "> " + L.hits)
+                    + "\t" + f(per) + "\t" + f(L.victim.getMaxHealth()) + "\t" + f(vanilla) + "\t" + set[1]);
+            L.aimHead = false;
+            L.noShield = false;
+            if (who.equals("fbi")) {
+                L.fbi.discard();
+                L.fbi = null;
+                L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+            } else {
+                for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+                wearAttributes(L.target);
+                L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+            }
+        });
     }
 
     // ---------------------------------------------------------------- the share of hits by one measure (Fable 2026-11-12 №2, pass ps)
