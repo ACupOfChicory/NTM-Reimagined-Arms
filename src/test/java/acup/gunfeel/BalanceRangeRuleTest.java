@@ -14,7 +14,7 @@ class BalanceRangeRuleTest {
 
     /** follow1b.mult: the time's multiplier by role and distance */
     private static double mult(String role, double d) {
-        Map<String, double[]> sb = Map.of("smg", new double[] {0.5, 24, 0.4, 64}, "pistol", new double[] {0.8, 24, 0.4, 64}, "slug", new double[] {1, 24, 0.4, 64}, "shotgun", new double[] {1, 16, 0.4, 48},
+        Map<String, double[]> sb = Map.of("smg", new double[] {0.5, 24, 0.4, 64}, "pistol", new double[] {0.8, 24, 0.4, 64}, "slug", new double[] {1, 32, 0.3, 128}, "shotgun", new double[] {1, 16, 0.4, 64},
                 "rifle", new double[] {1, 64, 0.5, 160}, "mg", new double[] {1, 64, 0.5, 160}, "sniper", new double[] {1, 160, 0.7, 256}, "beam",
                 new double[] {1, 64, 0.5, 160});
         Map<String, Double> dr = Map.of("slug", 7.0, "shotgun", 7.0, "pistol", 12.0, "smg", 12.0, "mg", 12.0, "rifle", 20.0, "sniper", 30.0, "beam", 20.0);
@@ -42,10 +42,20 @@ class BalanceRangeRuleTest {
         assertEquals(0.4, BalanceRangeRule.damage(R, "pistol", 200), 1e-9);
         assertEquals(2.0 / 3, BalanceRangeRule.damage(R, "rifle", 128), 1e-9);
         assertEquals(0.875, BalanceRangeRule.damage(R, "sniper", 200), 1e-9);
-        // Fable №2: the shotgun's shot from 16 blocks to 0.4 at 48, the slug to 0.4 at 64, the beam as a rifle
+        // Fable №3: the shotgun's shot from 16 blocks to 0.4 at 64, the slug from 32 to 0.3 at 128 (the task's table)
         assertEquals(0.4, BalanceRangeRule.damage(R, "shotgun", 100), 1e-9);
-        assertEquals(0.7, BalanceRangeRule.damage(R, "shotgun", 32), 1e-9);
-        assertEquals(0.4, BalanceRangeRule.damage(R, "slug", 64), 1e-9);
+        assertEquals(0.9, BalanceRangeRule.damage(R, "shotgun", 24), 1e-9);
+        assertEquals(0.8, BalanceRangeRule.damage(R, "shotgun", 32), 1e-9);
+        assertEquals(0.6, BalanceRangeRule.damage(R, "shotgun", 48), 1e-9);
+        assertEquals(0.4, BalanceRangeRule.damage(R, "shotgun", 64), 1e-9);
+        assertEquals(1.0, BalanceRangeRule.damage(R, "slug", 32), 1e-9);
+        assertEquals(1 - 0.7 * 16 / 96, BalanceRangeRule.damage(R, "slug", 48), 1e-9);
+        assertEquals(1 - 0.7 * 64 / 96, BalanceRangeRule.damage(R, "slug", 96), 1e-9);
+        assertEquals(0.3, BalanceRangeRule.damage(R, "slug", 200), 1e-9);
+        // X942's: the shotgun's shot to 0.4 at 48, the slug to 0.4 at 64
+        var x942 = new BalanceRangeRule.Rule(BalanceRangeRule.lines(BalanceRangeRule.LINES_X942), 8, BalanceFinalRule.roles(BalanceRangeRule.HOME));
+        assertEquals(0.7, BalanceRangeRule.damage(x942, "shotgun", 32), 1e-9);
+        assertEquals(0.4, BalanceRangeRule.damage(x942, "slug", 64), 1e-9);
         assertEquals(2.0 / 3, BalanceRangeRule.damage(R, "beam", 128), 1e-9);
         // X922's lines: no shotgun's
         var old = new BalanceRangeRule.Rule(BalanceRangeRule.lines(BalanceRangeRule.LINES_X922), 8, BalanceFinalRule.roles(BalanceRangeRule.HOME));
