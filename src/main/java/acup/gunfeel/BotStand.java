@@ -316,7 +316,12 @@ final class BotStand {
         BotStandHits.Grid[] got = new BotStandHits.Grid[1];
         server.submit(() -> got[0] = BotStandHits.server((Mob) server.overworld().getEntity(one.getId()), rays)).join();
         var g = got[0];
-        ClientSmoke.check(g.inHit() >= 0.99 && g.outHit() <= 0.01 && g.zoneSame() >= 0.99, String.format(Locale.ROOT,
+        // T-51 on the agent: its suit's arms, legs and chest are not the agent's split limbs (zones apart: written down);
+        // its helmet is checked, every ray on it the head
+        boolean suit = name.endsWith("T51");
+        if (suit) ClientSmoke.check(g.helmets() > 0 && g.helmetsWrong() == 0, String.format(Locale.ROOT, "сетка %s поворот %.0f: шлем — голова у сервера, %d лучей из %d",
+                name, yaw, g.helmets() - g.helmetsWrong(), g.helmets()));
+        ClientSmoke.check(g.inHit() >= 0.99 && g.outHit() <= 0.01 && (suit || g.zoneSame() >= 0.99), String.format(Locale.ROOT,
                 "сетка %s поворот %.0f: по модели попаданий %.2f%% из %d, мимо модели %.2f%% из %d, та же зона %.2f%% %s;"
                         + " без точных хитбоксов (коробка): %.1f%% и %.1f%%",
                 name, yaw, g.inHit() * 100, g.in(), g.outHit() * 100, g.out(), g.zoneSame() * 100, g.wrong(), g.boxIn() * 100, g.boxOut() * 100));
@@ -496,7 +501,8 @@ final class BotStand {
             var e = edges.get(i);
             String[] client = seenBy == null ? new String[] { "нет моба", "" } : edgeZone(seenBy, e), at = zones[i];
             // a helmet: the head; nothing worn: past the head; a glass block: written down
-            boolean helmet = l.head() != null && !l.head().getPath().equals("glass");
+            // (a suit's own helmet, T-51's, stands lower than a layer's: half a pixel over the head may pass it by)
+            boolean helmet = l.head() != null && !l.head().getPath().equals("glass") && !l.head().getPath().equals("t51_helmet");
             boolean ok = client[0].equals(at[0]) && (helmet ? at[0].equals("head") : l.head() == null ? at[0].equals("мимо") : true);
             ClientSmoke.check(ok, String.format(Locale.ROOT, "шлем %s, выстрел %s: сервер %s%s, клиент %s%s", l.name(), e.name(), at[0], at[1],
                     client[0], client[1]));

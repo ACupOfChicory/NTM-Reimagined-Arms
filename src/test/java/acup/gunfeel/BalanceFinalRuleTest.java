@@ -225,6 +225,41 @@ class BalanceFinalRuleTest {
             }
     }
 
+    // Fable №3 (owner's answer 2): no cell in one click — every pair on every set, all its projectiles in the target, at 4
+    // to 128 blocks with the range rule as the game takes it (an explosive shotgun shell's direct hit by the shell's
+    // line, BalanceFinal.range). The click before the damage cap must not kill on the body; on the head (x1.75) it may
+    // only where the cap holds it, and the cap's shares stay below the whole health
+    @Test
+    void noCellInOneClick() throws IOException {
+        var pairs = pairs();
+        var refs = BalanceFinalRule.refs(pairs.values());
+        var range = new BalanceRangeRule.Rule(BalanceRangeRule.lines(BalanceRangeRule.LINES), 8, Map.copyOf(BalanceFinalRule.roles(BalanceRangeRule.HOME)));
+        var cap = DamageCapRule.Limits.DEFAULT;
+        assertTrue(cap.click() < 1F && cap.head() < 1F, "the damage cap's shares");
+        int cells = 0, headByCap = 0;
+        List<String> body = new ArrayList<>();
+        for (var pr : pairs.values()) {
+            String role = BalanceFinalRule.roleOf(pr, P);
+            boolean shell = pr.explosive() && (role.equals("shotgun") || role.equals("slug"));
+            for (var a : SETS.values()) {
+                double click = BalanceFinalRule.clickDamage(pr, a, a == FAU ? null : FAU, refs, P);
+                double hp = BalanceFinalRule.HP + a.pool();
+                for (int d : new int[] {4, 8, 16, 32, 64, 128}) {
+                    double m = shell ? BalanceRangeRule.shell(range, role, d) : BalanceRangeRule.damage(range, role, d);
+                    if (click * m >= hp - 1e-9) body.add(pr.id() + " on " + a.kind() + " at " + d + ": " + click * m);
+                    double head = pr.explosive() ? click * m : click * m * 1.75;
+                    if (head >= hp - 1e-9) headByCap++;
+                    assertTrue(Math.ceil(hp / Math.min(cap.head() * BalanceFinalRule.HP, head) - 1e-9) >= 2, pr.id() + " on " + a.kind() + " at " + d + ": head in one click");
+                    assertTrue(!BalanceFinalRule.headOneShot(pr, a.hours(), P), pr.id());
+                    cells++;
+                }
+            }
+        }
+        assertTrue(body.isEmpty(), body.size() + " cells in one click before the cap: " + body.subList(0, Math.min(5, body.size())));
+        assertEquals(251 * 21 * 6, cells);
+        System.out.println("noCellInOneClick: " + cells + " cells, on the head held by the cap " + headByCap);
+    }
+
     // the magazine's rule (Fable 10.3, X922): G3 on HEV 26 rounds of 30, the heavy revolver 5 or 6 of 6
     @Test
     void magazinesRule() throws IOException {

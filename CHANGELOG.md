@@ -1,5 +1,41 @@
 # Changelog
 
+## X967
+
+- Fable's third review of the balance. A shotgun aimed throws its shot
+  tighter: NTM's spread past 0.015 counts 0.3 times (`spreadAimKnee`,
+  `spreadAimOver`; buckshot 0.035 -> 0.021, flechettes 0.025 -> 0.018, magnum
+  and slugs as they were). The SPAS-12 has no aim in NTM and gets the same
+  from the hip (`spreadHipKnee`, `spreadHipOver`). Akimbo guns have no aim and
+  no choke.
+- Shot keeps damage farther, down to 0.4 at 64 blocks (was 48); a slug keeps
+  full damage to 32 blocks and falls to 0.3 at 128; an explosive shell's
+  direct hit has its own line, full to 24 blocks and 0.25 at 80
+  (`balance.final.range`, `shell`).
+- The guns of two hands are counted from the hip in the shares of hits: the
+  twin miniguns 0.56, the twin Star F 0.80 (they were 0.87 and 1.00).
+
+## X956
+
+- The STG-77 no longer shakes while it is raised to the scope. Its model
+  zooms in as it comes up, and that zoom was worked out with the previous
+  frame's timing: across each game tick it jumped a tick ahead, then back.
+  At a steady high frame rate this was hardly seen; when the frame rate
+  varied (a fight, smoke, many particles) the model jerked back and forth.
+
+## X953
+
+- A bot or another mob in armour of the balance's table takes a gun's hit as
+  a player in the same set does. Its own vanilla armour (an FBI agent's 20
+  and `balance.fbiArmor`) took the hit a second time: an FBI agent in
+  Security lived through two dozen STG-77 rounds, the head's among them,
+  where its table kills it with 9 in the head (`balance.final.mobArmor`;
+  `own`: as before). A bare mob still takes NTM's damage.
+- A shot on a helmet is a shot in the head for every helmet: an NTM suit's
+  own helmet (T-51, HEV, AJR, NCR and the rest) stands further off the head,
+  and its edge counted as the body. F3+B shows a bot's helmet green, as the
+  head (`modelHitboxesHelmet`; false: as before).
+
 ## X951
 
 - AI soldiers can be given armour and rounds by command. `/armsai spawn

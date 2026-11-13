@@ -5,7 +5,9 @@
 # Fable №2 (2026-11-12): p_stand is the share of a click's projectiles in the target measured by the stand (pass ps): the shooter
 # standing and aimed, the target standing at the role's working distance (shot and slug 7, pistol, SMG, MG 12, rifle and beam 20,
 # sniper 30), an automatic in a held burst; 0.90 and above written as 1.00, below 0.05 as 0.05 (balance.final.hits = stand); one share per group «gun x the ammo's spread»,
-# the mean of the group's pairs; the minigun and the twin miniguns one share, the mean of their 12 bursts (0.87, Fable's answers 6 and 7);
+# the mean of the group's pairs; the minigun one share, 0.87 (with the twin miniguns, the mean of their 12 bursts: Fable's answers 6 and 7);
+# Fable №3 (2026-11-13): the guns of two hands have no aim (owner) and are measured from the hip: the twin miniguns 0.56, star_f_akimbo
+# 0.80 (the mean of their bursts of 200, pass ps); the shotguns aimed with the choke, the SPAS-12 with its choke from the hip: 1.00 all;
 # the Pepperbox's stone_shot the mean of two runs (0.29, 0.22: 0.25, Fable's answer 7)
 # gun	ammo	tier	ped	p_role	delayTicks	auto	magRounds	reloadTicks	pelletsPerRound	roundsPerClick	hands	piercing	cat	rawD	explosive	role	p_stand
 pepperbox	stone_ap	0	0	0.78	27	0	6	67	1.0	1	1	0.0	PHYS	7.5	0	pistol	1.00
@@ -53,8 +55,8 @@ uzi	p9_jhp	4	0	0.95	2	1	30	55	1.0	1	1	-0.25	PHYS	4.5	0	smg	1.00
 heavy_revolver_protege	m44_express	5	1	1.0	14	0	6	46	1.0	1	1	0.1	PHYS	45.0	0	pistol	1.00
 lag	p9_ap	5	0	0.92	4	0	17	53	1.0	1	1	0.15	PHYS	31.25	0	rifle	1.00
 lag	p9_jhp	5	0	0.92	4	0	17	53	1.0	1	1	-0.25	PHYS	37.5	0	rifle	1.00
-minigun_dual	r762_du	5	0	0.45	1	1	-1	0	1.0	1	2	0.25	PHYS	9.0	0	mg	0.87
-minigun_dual	r762_he	5	0	0.45	1	1	-1	0	1.0	1	2	0.0	PHYS	10.5	0	mg	0.87
+minigun_dual	r762_du	5	0	0.45	1	1	-1	0	1.0	1	2	0.25	PHYS	9.0	0	mg	0.56
+minigun_dual	r762_he	5	0	0.45	1	1	-1	0	1.0	1	2	0.0	PHYS	10.5	0	mg	0.56
 minigun	r762_du	5	0	0.45	1	1	-1	0	1.0	1	1	0.25	PHYS	9.0	0	mg	0.87
 minigun	r762_he	5	0	0.45	1	1	-1	0	1.0	1	1	0.0	PHYS	10.5	0	mg	0.87
 amat_penance	bmg50_sm	6	1	1.0	15	0	7	51	1.0	1	1	0.35	PHYS	112.5	0	sniper	1.00
@@ -69,8 +71,8 @@ laser_pistol_pew_pew	capacitor	6	0	1.0	10	0	10	45	1.0	5	1	0.0	LASER	30.0	0	beam	
 laser_pistol	capacitor	6	0	1.0	5	0	30	45	1.0	1	1	0.0	LASER	25.0	0	beam	1.00
 lasrifle	capacitor	7	0	1.0	8	0	24	44	1.0	1	1	0.0	LASER	50.0	0	beam	1.00
 mas36	r762_du	6	1	1.0	17	0	7	43	1.0	1	1	0.25	PHYS	45.0	0	sniper	1.00
-star_f_akimbo	p22_ap	6	0	0.9	5	0	15	40	1.0	1	2	0.15	PHYS	15.625	0	pistol	1.00
-star_f_akimbo	p22_jhp	6	0	0.9	5	0	15	40	1.0	1	2	-0.25	PHYS	18.75	0	pistol	1.00
+star_f_akimbo	p22_ap	6	0	0.9	5	0	15	40	1.0	1	2	0.15	PHYS	15.625	0	pistol	0.80
+star_f_akimbo	p22_jhp	6	0	0.9	5	0	15	40	1.0	1	2	-0.25	PHYS	18.75	0	pistol	0.80
 stg77	r556_ap	6	0	0.98	2	1	30	46	1.0	1	1	0.15	PHYS	12.5	0	rifle	1.00
 stg77	r556_jhp	6	0	0.98	2	1	30	46	1.0	1	1	-0.25	PHYS	15.0	0	rifle	1.00
 lasrifle	capacitor_overcharge	7	0	1.0	8	0	24	44	1.0	1	1	0.0	LASER	50.0	0	beam	1.00
@@ -231,10 +233,10 @@ minigun	r762_ap	5	0	0.45	1	1	-1	0	1.0	1	1	0.15	PHYS	7.5	0	mg	0.87
 minigun	r762_fmj	5	0	0.45	1	1	-1	0	1.0	1	1	0.1	PHYS	4.800000000000001	0	mg	0.87
 minigun	r762_jhp	5	0	0.45	1	1	-1	0	1.0	1	1	-0.25	PHYS	9.0	0	mg	0.87
 minigun	r762_sp	5	0	0.45	1	1	-1	0	1.0	1	1	0.0	PHYS	6.0	0	mg	0.87
-minigun_dual	r762_ap	5	0	0.45	1	1	-1	0	1.0	1	2	0.15	PHYS	7.5	0	mg	0.87
-minigun_dual	r762_fmj	5	0	0.45	1	1	-1	0	1.0	1	2	0.1	PHYS	4.800000000000001	0	mg	0.87
-minigun_dual	r762_jhp	5	0	0.45	1	1	-1	0	1.0	1	2	-0.25	PHYS	9.0	0	mg	0.87
-minigun_dual	r762_sp	5	0	0.45	1	1	-1	0	1.0	1	2	0.0	PHYS	6.0	0	mg	0.87
+minigun_dual	r762_ap	5	0	0.45	1	1	-1	0	1.0	1	2	0.15	PHYS	7.5	0	mg	0.56
+minigun_dual	r762_fmj	5	0	0.45	1	1	-1	0	1.0	1	2	0.1	PHYS	4.800000000000001	0	mg	0.56
+minigun_dual	r762_jhp	5	0	0.45	1	1	-1	0	1.0	1	2	-0.25	PHYS	9.0	0	mg	0.56
+minigun_dual	r762_sp	5	0	0.45	1	1	-1	0	1.0	1	2	0.0	PHYS	6.0	0	mg	0.56
 minigun_lacunae	capacitor_ir	9	1	1.0	1	1	200	15	1.0	1	1	0.0	PHYS	12.0	0	mg	1.00
 minigun_lacunae	capacitor_overcharge	9	1	1.0	1	1	200	15	1.0	1	1	0.0	PHYS	12.0	0	mg	1.00
 pepperbox	stone	0	0	0.6	27	0	6	67	1.0	1	1	0.0	PHYS	5.0	0	pistol	1.00
@@ -249,8 +251,8 @@ spas12	g12_phosphorus	4	0	1.0	20	0	8	95	8.0	1	1	0.0	PHYS	4.0	0	shotgun	1.00
 spas12	g12_slug	4	0	1.0	20	0	8	95	1.0	1	1	0.15	PHYS	32.0	0	shotgun	1.00
 star_f	p22_fmj	4	0	0.9	5	0	15	40	1.0	1	1	0.1	PHYS	10.0	0	pistol	1.00
 star_f	p22_sp	4	0	0.9	5	0	15	40	1.0	1	1	0.0	PHYS	12.5	0	pistol	1.00
-star_f_akimbo	p22_fmj	6	0	0.9	5	0	15	40	1.0	1	2	0.1	PHYS	10.0	0	pistol	1.00
-star_f_akimbo	p22_sp	6	0	0.9	5	0	15	40	1.0	1	2	0.0	PHYS	12.5	0	pistol	1.00
+star_f_akimbo	p22_fmj	6	0	0.9	5	0	15	40	1.0	1	2	0.1	PHYS	10.0	0	pistol	0.80
+star_f_akimbo	p22_sp	6	0	0.9	5	0	15	40	1.0	1	2	0.0	PHYS	12.5	0	pistol	0.80
 stg77	r556_fmj	6	0	0.98	2	1	30	46	1.0	1	1	0.1	PHYS	8.0	0	rifle	1.00
 stg77	r556_sp	6	0	0.98	2	1	30	46	1.0	1	1	0.0	PHYS	10.0	0	rifle	1.00
 tesla_cannon	capacitor	7	0	1.0	20	0	-1	0	1.0	1	1	0.0	EN	35.0	0	beam	1.00

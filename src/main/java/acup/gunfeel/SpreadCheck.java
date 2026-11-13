@@ -111,6 +111,8 @@ public final class SpreadCheck {
     }
 
     private static void plan(FakePlayer p) {
+        // the choke first: it runs under the mod's own values, and the check at the end reads the last setting's file
+        choke(p);
         for (String setting : SETTINGS) {
             STEPS.add(() -> settings(setting));
             wait(30); // the server's file is looked at once a second
@@ -119,6 +121,75 @@ public final class SpreadCheck {
             STEPS.add(() -> recoil(p, setting));
             for (String gun : GUNS) for (String set : new String[] {"", "t51"}) cases(p, setting, gun, set, CASES, SETTLE);
             for (String set : SETS) cases(p, setting, GUNS[0], set, SHORT, SETTLE_SHORT);
+        }
+    }
+
+    /** Fable №3: the shotguns given the choke (spreadAimKnee, spreadAimOver in the mod's file; the SPAS-12 spreadHipKnee, spreadHipOver) */
+    static final String[] CHOKED = {"gun_maresleg", "gun_maresleg_broken", "gun_spas12", "gun_autoshotgun", "gun_autoshotgun_sexy", "gun_autoshotgun_heretic",
+            "gun_double_barrel", "gun_double_barrel_sacred_dragon"};
+    /** the guns and ammo of the choke's check: the nine and some others (whose spread is to stay X942's) */
+    private static final String[][] CHOKE_CASES = {{"gun_spas12", "g12"}, {"gun_spas12", "g12_flechette"}, {"gun_spas12", "g12_magnum"}, {"gun_spas12", "g12_slug"},
+            {"gun_maresleg", "g12"}, {"gun_maresleg_broken", "g12"}, {"gun_maresleg_akimbo", "g12"}, {"gun_autoshotgun", "g12"}, {"gun_autoshotgun", "g12_flechette"},
+            {"gun_autoshotgun", "g12_magnum"}, {"gun_autoshotgun_sexy", "g12"}, {"gun_autoshotgun_heretic", "g10"}, {"gun_double_barrel", "g10"}, {"gun_double_barrel_sacred_dragon", "g10"},
+            {"gun_autoshotgun_shredder", "g12"}, {"gun_g3", "r556_fmj"}, {"gun_minigun", "r762_fmj"}, {"gun_uzi", "p9_fmj"}, {"gun_amat", "bmg50_fmj"}};
+    private static final List<String> CHOKE_LINES = new ArrayList<>();
+
+    /**
+     * The choke (the mod's own values, no armour): standing from the hip and standing aimed, a shot each after the
+     * bloom is gone. From the hip: NTM's spread times spreadStand (X942); aimed: the knee and the share past it of
+     * NTM's aimed spread (a gun with no knee: X942's); a gun with no aim key (an akimbo, the SPAS-12) aimed is from
+     * the hip; the SPAS-12's from the hip by spreadHipKnee (it has no aim). The Maresleg and the auto-shotgun with shot
+     * aimed 0.021 ± 0.001, the SPAS-12 from the hip the same.
+     */
+    private static void choke(FakePlayer p) {
+        STEPS.add(() -> settings("mod"));
+        wait(30);
+        STEPS.add(() -> p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY));
+        for (String[] gc : CHOKE_CASES) {
+            for (String c : new String[] {"stand", "stand aim"}) {
+                STEPS.add(() -> {
+                    String gun = "hbm:" + gc[0];
+                    ItemStack stack = new ItemStack(item(gun));
+                    var g = (ItemGunBaseNT) stack.getItem();
+                    BulletConfig ammo = null;
+                    for (Receiver r : g.getConfig(stack, 0).getReceivers(stack))
+                        for (BulletConfig b : AmmoLock.accepted(r.getMagazine(stack))) if (BalanceGuns.ammoName(b).equals(gc[1])) ammo = b;
+                    if (ammo == null) {
+                        check(false, "choke: " + gun + " no ammo " + gc[1]);
+                        return;
+                    }
+                    Receiver r = g.getConfig(stack, 0).getReceivers(stack)[0];
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    com.hbm.items.weapon.sedna.mags.IMagazine mag = r.getMagazine(stack);
+                    mag.setType(stack, ammo);
+                    mag.setAmount(stack, 1);
+                    boolean aim = c.endsWith("aim"), canAim = BalanceAim.key(stack) != BalanceAim.Key.NONE, effAim = aim && canAim;
+                    // a gun with no aim key "aimed" is fired from the hip, as in the game
+                    Key k = new Key(aim && !canAim ? "choke-noaim" : "choke", gun + " " + gc[1], "", effAim || !aim ? c : "stand");
+                    shot(p, stack, k);
+                    float base = r.getInnateSpread(stack) + ammo.spread * r.getAmmoSpread(stack), hip = r.getHipfireSpread(stack);
+                    float stand = ReaimTimes.number(gun + ".spreadStand", ReaimTimes.number("spreadStand", 1F));
+                    float aimMult = ReaimTimes.number(gun + ".spreadAim", ReaimTimes.number("spreadAim", 1F));
+                    float knee = ReaimTimes.number(gun + ".spreadAimKnee", ReaimTimes.number("spreadAimKnee", 0F));
+                    float over = ReaimTimes.number(gun + ".spreadAimOver", ReaimTimes.number("spreadAimOver", 1F));
+                    float hipKnee = ReaimTimes.number(gun + ".spreadHipKnee", ReaimTimes.number("spreadHipKnee", 0F));
+                    float hipOver = ReaimTimes.number(gun + ".spreadHipOver", ReaimTimes.number("spreadHipOver", 1F));
+                    float got = SPREAD.get(k);
+                    float x942 = effAim ? base * stand * aimMult : (base + hip) * stand;
+                    float want = effAim ? SpreadModel.choke(base, true, knee, over) * stand * aimMult : SpreadModel.choke(base + hip, true, hipKnee, hipOver) * stand;
+                    String what = c + (aim && !canAim ? " (no aim key: from the hip)" : "");
+                    CHOKE_LINES.add(String.join("\t", "choke", gun, gc[1], what, f(base), f(hip), f(effAim ? knee : hipKnee), f(effAim ? over : hipOver), f(x942), f(want), f(got)));
+                    boolean listed = java.util.Arrays.asList(CHOKED).contains(gc[0]);
+                    check(Math.abs(got - want) < 1e-5F, "choke " + gun + " " + gc[1] + " " + what + ": " + f(got) + " (want " + f(want) + ", X942 " + f(x942) + ")");
+                    boolean spas = gc[0].equals("gun_spas12");
+                    if ((!effAim || !listed) && !spas) check(Math.abs(got - x942) < 1e-5F, "choke " + gun + " " + gc[1] + " " + what + ": as X942 " + f(x942));
+                    // the SPAS-12 (no aim): its choke from the hip, shot 0.021 ± 0.001 (owner 2026-11-13)
+                    if (spas && gc[1].equals("g12")) check(Math.abs(got - 0.021F) <= 0.001F, "choke " + gun + " g12 from the hip 0.021 ± 0.001: " + f(got));
+                    if (effAim && gc[1].equals("g12") && (gc[0].equals("gun_maresleg") || gc[0].equals("gun_autoshotgun")))
+                        check(Math.abs(got - 0.021F) <= 0.001F, "choke " + gun + " g12 aimed 0.021 ± 0.001: " + f(got));
+                });
+                wait(SETTLE_SHORT);
+            }
         }
     }
 
@@ -211,6 +282,8 @@ public final class SpreadCheck {
     }
 
     private static void report() {
+        LINES.add(String.join("\t", "choke", "gun", "ammo", "case", "NTM aimed", "NTM hip", "knee", "over", "X942", "want", "got"));
+        LINES.addAll(CHOKE_LINES);
         LINES.add(String.join("\t", "setting", "gun", "set", "case", "pace", "none", "armour", "none°", "armour°", "armour extra / none extra", "expected"));
         for (String setting : SETTINGS) for (String gun : GUNS) for (String set : all()) for (String c : CASES) {
             Float armour = SPREAD.get(new Key(setting, gun, set, c));
