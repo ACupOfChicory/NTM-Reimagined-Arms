@@ -63,11 +63,13 @@ class SpreadModelTest {
         assertTrue(SpreadModel.steadyBloom(10, 0.004F, 0.03F, 0.25F) < 0.0015F);
     }
 
+    /** what the game reads by default: the server's file shipped in the jar and the balance's keys fixed in the mod (balance = arms) */
     static Properties shipped() throws IOException {
         Properties p = new Properties();
         try (Reader r = Files.newBufferedReader(Path.of("src/main/resources/ntmgunfeel-server.properties"))) {
             p.load(r);
         }
+        p.putAll(BalanceKeys.ARMS);
         return p;
     }
 

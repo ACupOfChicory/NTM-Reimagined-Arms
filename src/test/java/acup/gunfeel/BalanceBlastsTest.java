@@ -78,8 +78,6 @@ class BalanceBlastsTest {
         // bare 3; the HE grenade's 3 on HEV as it was
         assertEquals("0.9", shipped.getProperty("balanceBlastLowFloor"));
         assertEquals(0.9F, BalanceArmor.blastLowFloor(), 1e-6F);
-        assertEquals("true", shipped.getProperty("balanceBlastFloorShare"));
-        assertTrue(BalanceArmor.blastFloorShare());
         var powder = new BalanceBlasts.Boom("граната порох", false, 10, 5, 5, 0);
         assertEquals(3, BalanceBlasts.hits(BalanceBlasts.damage(powder, 1, null, 0, 0)));
         for (String set : new String[] {"steamsuit", "hev", "ajr", "security"}) {

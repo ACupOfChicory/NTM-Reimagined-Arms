@@ -92,7 +92,7 @@ public final class SettingsCheck {
         // ---- the server: its files, a shape its own client made (a LAN host), the payload
         Files.writeString(rules, SERVER_RULES);
         // an old reaim key (once set with /gunaim): the time is the mod's now, not read from the file
-        Files.writeString(server, "bulletSpeed = 2.5\ncameraScaleMin = 0.4\npowerArmorRecoil.fau = 0.25\nhbm\\:gun_double_barrel.reaimInspect = 2.0\nhbm\\:gun_maresleg.reaimReload = 1.5\n");
+        Files.writeString(server, "bulletSpeed = 2.5\ncameraScaleMin = 0.4\nbalance = ntm\nhbm\\:gun_double_barrel.reaimInspect = 2.0\nhbm\\:gun_maresleg.reaimReload = 1.5\n");
         long[] cells = new long[65];
         for (int i = 0; i < 64; i += 3) cells[i] = 0x0F0F0F0F0F0F0F0FL;
         PassableClip.putShapes(Map.of("minecraft:oak_planks", cells));
@@ -137,7 +137,7 @@ public final class SettingsCheck {
         check("remote: a fence's cells still the jar's", true, PassableClip.byKey(PassableClip.familyKey("fence", Map.of())) != null);
         check("remote: bulletSpeed is the server's", 2.5F, ReaimTimes.number("bulletSpeed", 1.6F));
         check("remote: cameraScaleMin is the server's", 0.4F, ReaimTimes.number("cameraScaleMin", 0F));
-        check("remote: FAU's recoil share is the server's", 0.25F, ReaimTimes.number("powerArmorRecoil.fau", 1F));
+        check("remote: the server's balance = ntm, no recoil share of FAU", 1F, ReaimTimes.number("powerArmorRecoil.fau", 0.4F));
         check("remote: a reaim time is the mod's, not the server's", 0.6F, ReaimTimes.seconds("hbm:gun_double_barrel", "inspect"));
         check("remote: the reload reaim time is the mod's", 0.3F, ReaimTimes.seconds("hbm:gun_maresleg", "reload"));
         check("remote: the server's gun table, not the player's file", 3.33F, BalanceGuns.pair(henry, express).mult());

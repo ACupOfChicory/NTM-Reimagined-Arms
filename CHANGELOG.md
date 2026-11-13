@@ -1,5 +1,19 @@
 # Changelog
 
+## X999
+
+- ⚠ Breaks compatibility: the balance is one server switch, `balance = arms`
+  (the mod's, the default) or `balance = ntm` (NTM's own damage, armour,
+  spread, range, blasts, the sets' abilities and recipes: no rule of the
+  balance touches them; the mod's rules that are not the balance, such as the
+  damage cap, the living spread and the hit zones, keep their own keys). Every
+  number of the balance is fixed in the mod. The old keys (`balance*`,
+  `abilities.*`, `powerArmorSpread*`, `powerArmorRecoil*`, `spreadAimKnee` and
+  the rest of the shotguns' choke) are not read any more, nor
+  `config/ntm-gunfeel-balance-guns.tsv`: a server's file that still has them
+  writes one line in the log and goes on. With `balance = arms` the game is as
+  X993.
+
 ## X993
 
 - The server counts the part a shot hits as the shooter's client draws it,

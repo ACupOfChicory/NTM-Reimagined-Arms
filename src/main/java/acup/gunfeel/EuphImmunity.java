@@ -33,7 +33,7 @@ import net.minecraft.world.entity.player.Player;
  * <li>{@code balance.immune.hold} (10 s; 0: X873): a weapon's hit in the window keeps it open at least this long
  * after it, for the three sets (DNS and FAU too): a gun that does not kill in 15 s goes on as long as it keeps hitting,
  * instead of a whole round of invulnerability and a new pool (the TTK had no pair between 60 and 120 s);
- * <li>{@code balance.immune.reloadHold} (true; false: X896): a gun whose shot and reload from empty take longer than
+ * <li>the reload's hold (X896: none): a gun whose shot and reload from empty take longer than
  * the hold (Henry and Lincoln: 10.5 s) holds the window, and the pool's refill pause, for that and a second more, so
  * the reload does not close the window or give the pool back (DNS 1000-4800 s, euphemium never, before);
  * <li>{@code balance.immune.recover} (60 s): after the window the pool fills back from 0 over this time, the set
@@ -203,8 +203,6 @@ public final class EuphImmunity {
         public String mode() {
             if (this == EUPHEMIUM) return ReaimTimes.text("balance.immune.mode", "pool").trim().toLowerCase(java.util.Locale.ROOT);
             String m = ReaimTimes.text(key + ".mode", "pool").trim().toLowerCase(java.util.Locale.ROOT);
-            // the old switch of DNS (X858: balance.immune.dns = formula | ntm): its ntm counts while the new key is not set
-            if (this == DNS && !ReaimTimes.inFile(key + ".mode") && ReaimTimes.inFile(key) && ReaimTimes.text(key, "").trim().equalsIgnoreCase("ntm")) return "ntm";
             if (this == FAU && !m.equals("pool")) return "formula";
             return m.equals("ntm") || m.equals("formula") ? m : "pool";
         }
@@ -379,27 +377,18 @@ public final class EuphImmunity {
         return off;
     }
 
-    /**
-     * the hurt under way is the gas's and the pools take it (balance.final.pools.gas = drain, the final scheme on; off:
-     * the gas's damage on a full set of the three is NTM's, as X922)
-     */
+    /** the hurt under way is the gas's and the pools take it, the final scheme on (Fable №2, 2.4) */
     static boolean gasDrains() {
-        if (!acup.gunfeel.gas.GasServer.gasNow() || !BalanceFinal.on()) return false;
-        return ReaimTimes.text("balance.final.pools.gas", "drain").trim().equalsIgnoreCase("drain");
-    }
-
-    /** balance.immune.reloadHold (true; false: X896) */
-    static boolean reloadHold() {
-        return ReaimTimes.flag("balance.immune.reloadHold", true);
+        return acup.gunfeel.gas.GasServer.gasNow() && BalanceFinal.on();
     }
 
     /**
      * ticks the gun in the hitter's hand takes from a shot to the next one after a reload from empty (NTM's reload: the
      * begin, a cycle for each round after the first of a magazine loaded a round at a time, the end, and the empty
-     * gun's cocking), the longest of its configs (akimbo); 0: no gun, or balance.immune.reloadHold off
+     * gun's cocking), the longest of its configs (akimbo); 0: no gun
      */
     static int reach(DamageSource source) {
-        if (!reloadHold() || !(source.getEntity() instanceof net.minecraft.world.entity.LivingEntity hitter)) return 0;
+        if (!(source.getEntity() instanceof net.minecraft.world.entity.LivingEntity hitter)) return 0;
         return reachOf(hitter.getMainHandItem());
     }
 

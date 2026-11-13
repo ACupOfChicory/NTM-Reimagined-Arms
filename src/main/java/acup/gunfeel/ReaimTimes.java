@@ -11,7 +11,7 @@ import java.util.TreeMap;
 import net.neoforged.fml.loading.FMLPaths;
 
 // Server settings, config/ntm-gunfeel-server.properties: plain numbers and switches (bulletSpeed, spread*,
-// cameraScaleMin). On a client connected to another game's server the server's file counts (ServerSettings).
+// cameraScaleMin, balance). The balance's numbers are fixed in the mod (BalanceKeys), the file only picks arms or ntm. On a client connected to another game's server the server's file counts (ServerSettings).
 // Synchronized: in single player the client and the server thread share it. Also how long before the end of a reload /
 // an inspect the held aim comes back: fixed in the mod, not a setting (the file's old <gun>.reaim* keys are not read).
 public final class ReaimTimes {
@@ -85,8 +85,7 @@ public final class ReaimTimes {
         }
         Float cached = NUMBERS.get(key);
         if (cached != null) return cached;
-        String v = values.get(key);
-        if (v == null) v = BUILTIN.get(key);
+        String v = raw(values, key);
         float out = def;
         if (v != null) {
             String t = v.trim();
@@ -109,9 +108,26 @@ public final class ReaimTimes {
             lastPoll = now;
             poll();
         }
-        String v = values0().get(key);
-        if (v == null) v = BUILTIN.get(key);
+        String v = raw(values0(), key);
         return v == null ? def : v;
+    }
+
+    /**
+     * a key's value: the file's (or the server's), else the jar's; a key of the balance by the switch balance = arms | ntm
+     * (BalanceKeys), from the file only on the stands (-Dntmgunfeel.balanceKeys=true)
+     */
+    private static String raw(Map<String, String> values, String key) {
+        if (BalanceKeys.is(key)) {
+            if (BalanceKeys.dev()) {
+                String v = values.get(key);
+                if (v != null) return v;
+            }
+            String sw = values.get(BalanceKeys.KEY);
+            if (sw == null) sw = BUILTIN.get(BalanceKeys.KEY);
+            return BalanceKeys.value(key, BalanceKeys.ntm(sw));
+        }
+        String v = values.get(key);
+        return v != null ? v : BUILTIN.get(key);
     }
 
     // what the settings are now: changes when the file is read again or a server's take its place (BalanceFinal's cache)
@@ -131,7 +147,8 @@ public final class ReaimTimes {
             lastPoll = now;
             poll();
         }
-        return values0().containsKey(key);
+        // a key of the balance is never the file's (but on the stands)
+        return (!BalanceKeys.is(key) || BalanceKeys.dev()) && values0().containsKey(key);
     }
 
     /**
@@ -163,6 +180,19 @@ public final class ReaimTimes {
         return FMLPaths.CONFIGDIR.get().resolve(FILE);
     }
 
+    // the balance's old keys in the file, logged once for each set of them
+    private static java.util.List<String> ignored = java.util.List.of();
+
+    private static void ignored() {
+        if (BalanceKeys.dev()) return;
+        var old = VALUES.keySet().stream().filter(BalanceKeys::is).sorted().toList();
+        if (!old.isEmpty() && !old.equals(ignored))
+            LOGGER.info("{}: {} keys of the balance are not read any more, only balance = arms | ntm: {}", FILE, old.size(), String.join(", ", old));
+        ignored = old;
+        String sw = VALUES.get(BalanceKeys.KEY);
+        if (sw != null && !sw.trim().equalsIgnoreCase("arms") && !BalanceKeys.ntm(sw)) LOGGER.warn("{}: balance = {} is neither arms nor ntm: arms", FILE, sw.trim());
+    }
+
     private static void poll() {
         try {
             Path f = file();
@@ -177,6 +207,7 @@ public final class ReaimTimes {
             generation++;
             VALUES.clear();
             for (String key : p.stringPropertyNames()) VALUES.put(key, p.getProperty(key));
+            ignored();
         } catch (IOException | RuntimeException e) {
             LOGGER.warn("Could not read {}", FILE, e);
         }

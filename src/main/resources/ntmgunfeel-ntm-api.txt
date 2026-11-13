@@ -439,6 +439,7 @@ CORE field com/hbm/items/weapon/sedna/factory/XFactory10ga g10_du Lcom/hbm/items
 CORE field com/hbm/items/weapon/sedna/factory/XFactory10ga g10_explosive Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory10ga g10_shrapnel Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory10ga g10_slug Lcom/hbm/items/weapon/sedna/BulletConfig;
+CORE field com/hbm/items/weapon/sedna/factory/XFactory12ga g12 Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory12ga g12_bp Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory12ga g12_explosive Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory12ga g12_flechette Lcom/hbm/items/weapon/sedna/BulletConfig;
