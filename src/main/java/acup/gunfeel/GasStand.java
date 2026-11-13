@@ -118,6 +118,11 @@ final class GasStand {
             GunWeightStand.start();
             return;
         }
+        // -PscopeSmoke: a scoped gun aimed with and without smoke about (ScopeSmokeStand)
+        if (ScopeSmokeStand.ON) {
+            ScopeSmokeStand.start();
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         mc.options.pauseOnLostFocus = false;
         if (!mc.gui.hud.isHidden()) mc.gui.hud.toggle();
@@ -165,6 +170,10 @@ final class GasStand {
         }
         if (GunWeightStand.ON) {
             GunWeightStand.frame();
+            return;
+        }
+        if (ScopeSmokeStand.ON) {
+            ScopeSmokeStand.frame();
             return;
         }
         // the client's side of the player's doses and coughs: what the packets brought

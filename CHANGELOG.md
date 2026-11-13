@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## X1025
 
 - `/armsai debug rooms [radius]` shows the buildings round you as the AI
   reads them: each room's floor in its own colour with its number, kind
@@ -32,6 +32,57 @@
   up to its door. New server settings `aiRoomsShell` (true by default) and
   the block lists `aiRoomsNatural`, `aiRoomsDwelling`, `aiRoomsWild` (ids,
   `#tags`, `~patterns`).
+
+## X1021
+
+- An NTM suit drawn by its own model (HEV, T-51, AJR and the rest) bends with
+  an FBI agent's or a test dummy's knees and elbows: what is below the knee or
+  the elbow, the boots too, goes with the shin or the forearm instead of
+  sticking out straight from the thigh or the upper arm, and a band across the
+  joint closes the bend, so the body does not show through it. The shots on the
+  suit follow its parts as drawn. Players are not changed.
+
+## X1017
+
+- The 12 gauge electroshock shell stuns: 80 % slower at full instead of 40 %,
+  and a player's view narrows by a fifth, not as far as the game would narrow
+  it for such a slowing.
+
+## X1014
+
+- An NTM suit drawn by its own model (HEV, T-51, AJR and the rest) sits on
+  the body of an FBI agent and a test dummy: its legs and boots were drawn
+  6 pixels up, the boots on the knees. The shots on the suit follow it as
+  drawn.
+- Armour drawn as a layer (steel, SECURITY, vanilla's) on an FBI agent or a
+  test dummy no longer shows stray squares at the knees and the elbows: the
+  boots' soles at knee height, the sleeves' cuffs below the elbow.
+
+## X1012
+
+- The 12 gauge electroshock shell slows whoever it shocks: a player, an AI
+  soldier (on its path too) or any mob walks 40 % slower, and a player's view
+  narrows with it as with Slowness. The shock now wears off: after its
+  `shockSeconds` at full (2) the glitch of the HUD, the shaking and drifting
+  view, the wide spread and the slowing fade out smoothly over 3 more seconds,
+  instead of stopping after half a second. The immunity (`shockImmunity`)
+  starts once it has faded out.
+
+## X1003
+
+- The 12 gauge electroshock shell has a new icon, drawn as NTM's own shells
+  are: a blue shell lying aslant with its grey case.
+
+## X1001
+
+- A shot on armour drawn as a layer (SECURITY, CMB, Schrabidium, vanilla's)
+  counts for the part under the piece on every mob and player, as it did on
+  the bots: the chestplate's collar a pixel over the neck is the body, not
+  the head; the leggings' waist is the body, not a leg. The head and limb
+  zones no longer grow under the armour (a skull or a block on the head still
+  grows the head). Before, about 6 % of the shots on a husk in such armour
+  landed in the wrong part (`modelHitboxesSuits`; false: as before). The
+  armour protects as it did: only the part a shot counts for changed.
 
 ## X999
 

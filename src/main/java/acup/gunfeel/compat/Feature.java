@@ -34,7 +34,7 @@ public enum Feature {
     PRONE_FIRE("prone_fire", List.of("MixinProneFireClick", "MixinProneFireDecider", "MixinProneFireKeys"), List.of("ProneFire", "ProneFireStand")),
     BALANCE("balance", List.of("MixinBalanceArmor", "MixinBlastGrenadeFilling", "MixinBalanceElectric", "MixinBalanceGunShot", "MixinBalanceGunBeam", "MixinBalanceFinalSub", "MixinBalanceFinalBeamSub", "MixinBalanceGunHit", "ReceiverAccess", "MixinBalanceGunTooltip", "MixinArmorAbilities", "MixinArmorEsp", "MixinBalanceShield", "MixinBalanceShieldTick", "MixinBalanceShieldFlask", "MixinBalanceSyringe", "MixinBalanceInsert", "MixinEuphImmunity", "MixinEuphEffects", "MixinRadonTomb", "MixinBalanceDns", "MixinBalanceImmunity"), List.of("BalanceArmor", "BalanceGuns", "ArmorAbilities", "BalanceKit", "EuphImmunity")),
     GUN_MECHANISMS("gun_mechanisms", List.of("MixinMechanismAutogen"), List.of("GunMechanisms", "MechanismCheck")),
-    MOB_AI("mob_ai", List.of("MixinAiFbi", "MixinAiDummy", "MixinAiSmoke", "MixinAiLeanShot", "MixinBotModel"), List.of("AiGunner", "AiCommand", "AiKitCommand", "AiCheckKit", "AiCheckSpread", "AiCheckAim", "AiCheckRecoil", "FightLook")),
+    MOB_AI("mob_ai", List.of("MixinAiFbi", "MixinAiDummy", "MixinAiSmoke", "MixinAiLeanShot", "MixinBotModel", "MixinBotSuitFit"), List.of("SuitBend", "AiGunner", "AiCommand", "AiKitCommand", "AiCheckKit", "AiCheckSpread", "AiCheckAim", "AiCheckRecoil", "FightLook")),
     SUPPRESSION("suppression", List.of("MixinSuppressionBlast"), List.of("Suppression", "SuppressionServer", "SuppressionStand")),
     SHOCK("shock", List.of("MixinShockSpread"), List.of("ShockAmmo", "ShockServer", "ShockStand"));
 

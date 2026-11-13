@@ -174,6 +174,14 @@ neoForge {
             systemProperty("ntmgunfeel.gasSoil",providers.gradleProperty("gasSoil").isPresent.toString())
             // -PgunWeight (with -PgasStand): the heavy guns' slowing and their tooltips (GunWeightStand)
             systemProperty("ntmgunfeel.gunWeight",providers.gradleProperty("gunWeight").isPresent.toString())
+            // -PscopeSmoke (with -PgasStand): a scoped gun aimed in and out with and without smoke about (ScopeSmokeStand)
+            systemProperty("ntmgunfeel.scopeSmoke",providers.gradleProperty("scopeSmoke").isPresent.toString())
+            // -PscopeJitter (with -PscopeSmoke): the frame rate jumping frame to frame and a thousand particles about
+            systemProperty("ntmgunfeel.scopeJitter",providers.gradleProperty("scopeJitter").isPresent.toString())
+            // -PscopeBots (with -PscopeSmoke): AI bots shooting at the player instead of smoke
+            systemProperty("ntmgunfeel.scopeBots",providers.gradleProperty("scopeBots").isPresent.toString())
+            // -PscopeOldFov (with -PscopeSmoke): the gun model's FOV with NTM's own (the last frame's) partial tick, to compare
+            systemProperty("ntmgunfeel.scopeOldFov",providers.gradleProperty("scopeOldFov").isPresent.toString())
             // -PsmokePoses=sky,wall: only the poses whose names start with one of these
             systemProperty("ntmgunfeel.smokePoses",providers.gradleProperty("smokePoses").orElse("").get())
             // -PsmokeFabulous: the stand runs with improved transparency (the transparency chain) on
@@ -276,6 +284,12 @@ neoForge {
             systemProperty("ntmgunfeel.checkClient",layout.buildDirectory.file("botstand/result.txt").get().asFile.path)
             systemProperty("ntmgunfeel.botStand","true")
             systemProperty("ntmgunfeel.botStandFile",root.resolve("notes/ai/bot-stand/$label.tsv").path)
+            // -PsuitBendStand: only the suits bent at the knee and the elbow (SuitBend) in every pose and 100 in a
+            // suit; =cost: the 100 alone; -PsuitBendNoBand: the halves without the band
+            providers.gradleProperty("suitBendStand").orNull?.let { systemProperty("ntmgunfeel.suitBendStand",it.ifEmpty { "all" }) }
+            systemProperty("ntmgunfeel.suitBendNoBand",providers.gradleProperty("suitBendNoBand").isPresent.toString())
+            // -PbotStandJfr: a flight recording of the run beside its table
+            if(providers.gradleProperty("botStandJfr").isPresent) jvmArgument("-XX:StartFlightRecording=filename=${root.resolve("notes/ai/bot-stand/$label.jfr").path},settings=profile,dumponexit=true")
             providers.gradleProperty("mobBenchFps").orNull?.let { systemProperty("ntmgunfeel.benchFps",it) }
             systemProperty("MC_DEBUG_ENABLED","true")
             systemProperty("MC_DEBUG_PREFER_WAYLAND","true")
@@ -526,14 +540,34 @@ tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.addAll(listOf("-proc:none", "-nowarn"))
 }
 
+// test: every test but the slow ones (@Tag("slow")), on every build; slowTest: the slow ones only, before a merge into
+// main. The two together run every test.
+val slowTest = tasks.register<Test>("slowTest") {
+    group = "verification"
+    description = "Runs the tests too slow for every build (@Tag(\"slow\")): ./gradlew build slowTest runs every test."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags("slow") }
+    shouldRunAfter(tasks.test)
+}
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform { excludeTags("slow") }
+    // test JVMs side by side, each some 400 MB (up to 512 MB of heap): three while the machine keeps 5 GB free after them,
+    // fewer when it would not (one without /proc/meminfo); -PtestForks=<n> sets it
+    maxParallelForks = providers.gradleProperty("testForks").orNull?.toInt() ?: run {
+        val freeMb = runCatching {
+            File("/proc/meminfo").readLines().first { it.startsWith("MemAvailable:") }.split(Regex("\\s+"))[1].toLong() / 1024
+        }.getOrNull()
+        if (freeMb == null) 1 else ((freeMb - 5 * 1024) / 600).toInt().coerceIn(1, 3)
+    }
     providers.gradleProperty("headDataset").orNull?.let {
         systemProperty("ntmgunfeel.headDataset",it)
         inputs.file(file(it).resolve("index.json"))
         inputs.dir(file(it).resolve("samples"))
         outputs.file(file(it).resolve("research/oracle.json"))
     }
+}
+tasks.withType<Test>().configureEach {
     // the tests read src/main/resources and src/test/pinned from the repository root
     workingDir = root
     inputs.property("pinUpdate", providers.environmentVariable("PIN_UPDATE").orElse(""))

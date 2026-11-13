@@ -74,6 +74,41 @@ public final class BotModel {
         return child != null && LOWER.contains(child) ? child : null;
     }
 
+    /** the whole limbs made by {@link #whole}, by the split limb */
+    private static final Map<ModelPart, ModelPart> WHOLE = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /**
+     * A split limb as one box from its top to the hand or the foot, straight (its upper half and its forearm or shin
+     * at rest), for what measures the limb by its own boxes: NTM fits a suit's mesh to the limb's largest box, and the
+     * thigh alone put a boot on the knee. Any other part as it is.
+     */
+    public static ModelPart whole(ModelPart limb, acup.gunfeel.ModelPoseCapture.Parts cubes) {
+        ModelPart lower = lower(limb);
+        // a slot with no piece on this limb: nothing to measure, and nothing kept
+        if (lower == null || cubes.cubes(limb).isEmpty() && cubes.cubes(lower).isEmpty()) return limb;
+        return WHOLE.computeIfAbsent(limb, l -> {
+            float[] box = { Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE };
+            PartPose joint = lower.getInitialPose();
+            for (ModelPart.Cube c : cubes.cubes(l)) span(box, c, 0F, 0F, 0F);
+            for (ModelPart.Cube c : cubes.cubes(lower)) span(box, c, joint.x(), joint.y(), joint.z());
+            ModelPart.Cube one = new ModelPart.Cube(0, 0, box[0], box[1], box[2], box[3] - box[0], box[4] - box[1], box[5] - box[2],
+                    0F, 0F, 0F, false, TEX_W, TEX_H, ALL);
+            ModelPart out = new ModelPart(List.of(one), Map.of());
+            out.setInitialPose(l.getInitialPose());
+            out.loadPose(l.getInitialPose());
+            return out;
+        });
+    }
+
+    private static void span(float[] box, ModelPart.Cube c, float x, float y, float z) {
+        box[0] = Math.min(box[0], c.minX + x);
+        box[1] = Math.min(box[1], c.minY + y);
+        box[2] = Math.min(box[2], c.minZ + z);
+        box[3] = Math.max(box[3], c.maxX + x);
+        box[4] = Math.max(box[4], c.maxY + y);
+        box[5] = Math.max(box[5], c.maxZ + z);
+    }
+
     private static ModelPart limb(ModelPart old, acup.gunfeel.ModelPoseCapture.Parts cubes, boolean arm, boolean left) {
         int u = arm ? ARM_U : LEG_U, v = arm ? ARM_V : LEG_V;
         // vanilla's boxes: the right arm from x -3, the left from -1 (mirrored), a leg from -2; the arm from y -2
@@ -84,18 +119,25 @@ public final class BotModel {
         float grow = was.isEmpty() ? 0F : grown(was.getFirst());
         List<ModelPart.Cube> upper = List.of(), lowers = List.of();
         if (!was.isEmpty()) {
+            // An armour piece (grown) has no face where its halves meet, as the whole piece has none there: each
+            // end there takes a patch of the texture (a boot's sole, a sleeve's cuff) that stood in the open over a
+            // transparent stretch of the piece (above a boot, below a short sleeve) as a stray square at the knee or
+            // the elbow. The skin keeps them: it is solid, and they close the limb where it bends.
+            boolean armour = grow > 0F;
+            Set<Direction> upperFaces = armour ? without(Direction.UP) : ALL, lowerFaces = armour ? without(Direction.DOWN) : ALL,
+                    overlapFaces = armour ? without(Direction.UP, Direction.DOWN) : ALL;
             // the halves grown on their sides and their far end, not where they meet: the grown whole piece has its
             // texture's row 6 at the joint, so each half keeps its half of the skin as the whole piece has it there
-            ModelPart.Cube up = cube(u, v, x0, y0, -2F, HALF, grow, left);
+            ModelPart.Cube up = cube(u, v, x0, y0, -2F, HALF, grow, left, upperFaces);
             moveY(up, up.maxY + grow, up.maxY);
             upper = List.of(up);
             // the lower half in its own frame: on the joint, the limb's middle line
-            ModelPart.Cube lower = cube(u, v + (int) HALF, -2F, 0F, -2F, HALF, grow, left);
+            ModelPart.Cube lower = cube(u, v + (int) HALF, -2F, 0F, -2F, HALF, grow, left, lowerFaces);
             moveY(lower, lower.minY - grow, lower.minY);
             // its far end (the hand, the foot) keeps vanilla's end of the limb: the same face of the whole box
             endFrom(lower, (int) HALF, lower.maxY + grow);
             // inside the upper half, in from its faces
-            ModelPart.Cube overlap = cube(u, v + (int) (HALF - OVERLAP), -2F, -OVERLAP, -2F, OVERLAP, grow - INSET, left);
+            ModelPart.Cube overlap = cube(u, v + (int) (HALF - OVERLAP), -2F, -OVERLAP, -2F, OVERLAP, grow - INSET, left, overlapFaces);
             moveY(overlap, overlap.minY - grow + INSET, overlap.minY + INSET);
             moveY(overlap, overlap.maxY + grow - INSET, overlap.maxY - INSET);
             lowers = List.of(lower, overlap);
@@ -112,8 +154,18 @@ public final class BotModel {
         return out;
     }
 
-    private static ModelPart.Cube cube(int u, int v, float x, float y, float z, float h, float grow, boolean mirror) {
-        return new ModelPart.Cube(u, v, x, y, z, 4F, h, 4F, grow, grow, grow, mirror, TEX_W, TEX_H, ALL);
+    /**
+     * A limb's box, 4 x h x 4 px, with the given faces: in the model's frame (y down the limb) DOWN is the face at its
+     * smallest y (its top), UP the one at its largest (the hand's, the foot's end)
+     */
+    private static ModelPart.Cube cube(int u, int v, float x, float y, float z, float h, float grow, boolean mirror, Set<Direction> faces) {
+        return new ModelPart.Cube(u, v, x, y, z, 4F, h, 4F, grow, grow, grow, mirror, TEX_W, TEX_H, faces);
+    }
+
+    private static Set<Direction> without(Direction... faces) {
+        Set<Direction> out = EnumSet.allOf(Direction.class);
+        for (Direction d : faces) out.remove(d);
+        return out;
     }
 
     /**
