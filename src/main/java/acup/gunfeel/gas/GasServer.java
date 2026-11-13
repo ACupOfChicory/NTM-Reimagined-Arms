@@ -189,8 +189,31 @@ public final class GasServer {
     private static void hurt(ServerLevel level, LivingEntity e, float hp, Holder<DamageType> type) {
         int cooldown = e.invulnerableTime;
         e.invulnerableTime = 0;
-        e.hurtServer(level, new DamageSource(type), hp);
-        e.invulnerableTime = cooldown;
+        boolean was = GAS_NOW.get();
+        GAS_NOW.set(true);
+        try {
+            e.hurtServer(level, new DamageSource(type), hp);
+        } finally {
+            GAS_NOW.set(was);
+            e.invulnerableTime = cooldown;
+        }
+    }
+
+    /**
+     * The stand (BalanceCheck, pass g4): one tick of the gases for {@code e} at concentration {@code conc} of {@code gas}
+     * at its head, by the same step as a cloud's (a fake player is not among the level's entities a cloud finds).
+     */
+    public static void standStep(ServerLevel level, LivingEntity e, GasKind gas, float conc) {
+        float[] c = new float[GasState.N];
+        if (gas != null) c[gas.ordinal()] = conc;
+        step(level, e, state(e), c);
+    }
+
+    private static final ThreadLocal<Boolean> GAS_NOW = ThreadLocal.withInitial(() -> false);
+
+    /** The hurt under way is the gas's (this mod's clouds' damage), not a weapon's. */
+    public static boolean gasNow() {
+        return GAS_NOW.get();
     }
 
     private static void refresh(LivingEntity e, Holder<net.minecraft.world.effect.MobEffect> effect) {

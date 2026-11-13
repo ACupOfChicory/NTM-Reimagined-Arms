@@ -64,7 +64,9 @@ public final class BalanceFinalRule {
      */
     public record MagRule(double reserve, int small, double min) {
         public static final MagRule OFF = new MagRule(0, 1, 0.6);
-        public static final MagRule DEFAULT = new MagRule(0.15, 1, 0.6);
+        /** Fable №2 (2.5, 4): min 0.65 */
+        public static final MagRule DEFAULT = new MagRule(0.15, 1, 0.65);
+        public static final MagRule X922 = new MagRule(0.15, 1, 0.6);
 
         public boolean on() {
             return reserve > 0;
@@ -100,20 +102,92 @@ public final class BalanceFinalRule {
         }
     }
 
+    /**
+     * the acid's rule (balance.final.acid; Fable №2, 2.4): a set under the acid's corrosion K (0 to 0.75) counts
+     * {@code tiers · K / 0.75 · g} tiers lower, g = 1 up to tier {@code tier + full}, then down to 0 over {@code fade}
+     * tiers; {@code tiers} 0: off (X922)
+     */
+    public record Acid(double tiers, double tier, double full, double fade) {
+        public static final Acid OFF = new Acid(0, 4, 1, 3);
+        public static final Acid DEFAULT = new Acid(1.0, 4, 1, 3);
+        /** the corrosion's top (GasRules) */
+        public static final double K_MAX = 0.75;
+
+        public boolean on() {
+            return tiers > 0;
+        }
+
+        /** the set's tier {@code a} under corrosion {@code k}, in steps of 0.05 of a tier (the click's cache) */
+        public double tierOf(double a, double k) {
+            if (!on() || !(k > 0)) return a;
+            double g = a <= tier + full + 1e-9 ? 1.0 : fade > 0 ? Math.max(0.0, 1.0 - (a - tier - full) / fade) : 0.0;
+            double shift = tiers * Math.min(1.0, k / K_MAX) * g;
+            shift = Math.rint(shift / 0.05) * 0.05;
+            // no lower than bare: the acid has nothing to eat on a bare body
+            return shift <= 0 || a <= 0 ? a : Math.max(0.0, a - shift);
+        }
+
+        /** "tiers=1.0 tier=4 full=+1 fade=3"; "off": off; a broken entry is left out */
+        public static Acid parse(String text, Acid def) {
+            if (text == null) return def;
+            String t = text.trim();
+            if (t.equalsIgnoreCase("off")) return OFF;
+            double tiers = def.tiers(), tier = def.tier(), full = def.full(), fade = def.fade();
+            for (String e : t.split("\\s+")) {
+                int c = e.indexOf('=');
+                if (c <= 0) continue;
+                try {
+                    double x = Double.parseDouble(e.substring(c + 1));
+                    if (!Double.isFinite(x)) continue;
+                    switch (e.substring(0, c)) {
+                        case "tiers" -> tiers = Math.max(0, x);
+                        case "tier" -> tier = x;
+                        case "full" -> full = x;
+                        case "fade" -> fade = Math.max(0, x);
+                        default -> {
+                        }
+                    }
+                } catch (NumberFormatException ignored) {
+                    // left out
+                }
+            }
+            return new Acid(tiers, tier, full, fade);
+        }
+    }
+
     /** the scheme's numbers (the server's keys balance.final.*) */
     public record Params(TreeMap<Integer, Double> anchors, double tmin, double tmax, double below, double beta, double lo, double hi, double energy,
             double ammoK, double ammoFrom, double ammoMax, double jhp, double ped, double explShift, double dnsOverFau, Set<String> headGuns,
-            double headGap, double laserTrench, Map<String, Double> roles, double slugPellets, MagRule mag) {
+            double headGap, double laserTrench, Map<String, Double> roles, double slugPellets, MagRule mag, Map<String, String> roleOf, Map<String, Double> fade,
+            boolean fewOne) {
         /** Fable 2026-11-12 (10.2, ladder H): up x0.77 a tier to the floor 1.25 s, down the hours' ladder */
         public static final String TTK = "+4:1.25 +3:1.6 +2:2.1 +1:2.7 0:3.5 -1:7 -2:13.5 -3:28 -4:40 -5:50 -6:60 -7:68 -8:75 -9:82";
-        public static final String ROLES = "smg:1.6 mg:1.3 rifle:1.0 pistol:1.0 shotgun:0.75 slug:1.0 sniper:0.85 beam:1.0 airburst:1.2";
+        /** Fable №2 (2.1): the shotgun 0.35 of the ladder */
+        public static final String ROLES = "smg:1.6 mg:1.3 rifle:1.0 pistol:1.0 shotgun:0.35 slug:1.0 sniper:0.85 beam:1.0 airburst:1.2";
+        /** X922's roles (balance.final.roles before Fable №2) */
+        public static final String ROLES_X922 = "smg:1.6 mg:1.3 rifle:1.0 pistol:1.0 shotgun:0.75 slug:1.0 sniper:0.85 beam:1.0 airburst:1.2";
+        /** Fable №2 (2.1): the Shredder's plasma shot is a shotgun's */
+        public static final String ROLE_OF = "autoshotgun_shredder:shotgun";
+        /** Fable №2 (2.1): a shotgun's role back to 1 over two tiers of armour above the pair */
+        public static final String FADE = "shotgun:2";
         /** X912's: the keys' values that give it back */
         public static final String TTK_X912 = "+3:1.63 +2:2.08 +1:2.68 0:3.5 -1:7.0 -2:18 -3:105 -4:210";
         public static final String ROLES_X912 = "smg:1.6 mg:1.3 rifle:1.0 pistol:1.2 shotgun:0.75 sniper:0.85 beam:1.0";
-        public static final Params DEFAULT = new Params(BalanceFinalRule.anchors(TTK), 0.7, 900, 1.1, 0.3, 0.7, 1.4, 1.15, 4.0, 0.15, 1.0, -1.0, 0.5, 1.0, 1.15,
-                Set.of(), 1.0, 1.0, BalanceFinalRule.roles(ROLES), 4, MagRule.DEFAULT);
+        public static final Params DEFAULT = new Params(BalanceFinalRule.anchors(TTK), 0.7, 900, 1.1, 0.3, 0.7, 1.4, 1.0, 4.0, 0.15, 1.0, -1.0, 0.5, 1.0, 1.15,
+                Set.of(), 1.0, 1.0, BalanceFinalRule.roles(ROLES), 4, MagRule.DEFAULT, BalanceFinalRule.roleOfs(ROLE_OF), BalanceFinalRule.roles(FADE), true);
+        /** X922 (Fable's first review): the keys' values before Fable №2 */
+        public static final Params X922 = new Params(BalanceFinalRule.anchors(TTK), 0.7, 900, 1.1, 0.3, 0.7, 1.4, 1.15, 4.0, 0.15, 1.0, -1.0, 0.5, 1.0, 1.15,
+                Set.of(), 1.0, 1.0, BalanceFinalRule.roles(ROLES_X922), 4, MagRule.X922, Map.of(), Map.of(), false);
         public static final Params X912 = new Params(BalanceFinalRule.anchors(TTK_X912), 0.7, 900, 2.0, 0.3, 0.7, 1.4, 1.15, 4.0, 0.15, 1.0, -1.0, 0.5, 1.0, 1.15,
                 Set.of(), 1.0, 1.0, BalanceFinalRule.roles(ROLES_X912), 0, MagRule.OFF);
+
+        /** the numbers before Fable №2's keys: no role by gun, no fade, the character's refs as X922 */
+        public Params(TreeMap<Integer, Double> anchors, double tmin, double tmax, double below, double beta, double lo, double hi, double energy, double ammoK,
+                double ammoFrom, double ammoMax, double jhp, double ped, double explShift, double dnsOverFau, Set<String> headGuns, double headGap,
+                double laserTrench, Map<String, Double> roles, double slugPellets, MagRule mag) {
+            this(anchors, tmin, tmax, below, beta, lo, hi, energy, ammoK, ammoFrom, ammoMax, jhp, ped, explShift, dnsOverFau, headGuns, headGap, laserTrench, roles,
+                    slugPellets, mag, Map.of(), Map.of(), false);
+        }
 
         /** the role's share of the usual TTK (1 for a role not given) */
         double role(String r) {
@@ -123,12 +197,12 @@ public final class BalanceFinalRule {
 
         public Params withHeadGuns(Set<String> guns) {
             return new Params(anchors, tmin, tmax, below, beta, lo, hi, energy, ammoK, ammoFrom, ammoMax, jhp, ped, explShift, dnsOverFau, guns, headGap,
-                    laserTrench, roles, slugPellets, mag);
+                    laserTrench, roles, slugPellets, mag, roleOf, fade, fewOne);
         }
 
         public Params withMag(MagRule m) {
             return new Params(anchors, tmin, tmax, below, beta, lo, hi, energy, ammoK, ammoFrom, ammoMax, jhp, ped, explShift, dnsOverFau, headGuns, headGap,
-                    laserTrench, roles, slugPellets, m);
+                    laserTrench, roles, slugPellets, m, roleOf, fade, fewOne);
         }
     }
 
@@ -137,7 +211,31 @@ public final class BalanceFinalRule {
      * slug, an explosive shell) is a {@code slug}, its time a rifle's (Fable 2.4); 0: no such role (X912)
      */
     public static String roleOf(Pair pr, Params p) {
-        return "shotgun".equals(pr.role()) && pr.pellets() < p.slugPellets() ? "slug" : pr.role();
+        // balance.final.roleOf: a gun's role in place of the file's (Fable №2: the Shredder a shotgun)
+        String r = p.roleOf().getOrDefault(pr.gun(), pr.role());
+        return "shotgun".equals(r) && pr.pellets() < p.slugPellets() ? "slug" : r;
+    }
+
+    /** "gun:role" by spaces; a broken entry is left out */
+    public static Map<String, String> roleOfs(String text) {
+        Map<String, String> out = new HashMap<>();
+        if (text != null) for (String e : text.trim().split("\\s+")) {
+            int c = e.indexOf(':');
+            if (c > 0 && c < e.length() - 1) out.put(e.substring(0, c), e.substring(c + 1));
+        }
+        return out;
+    }
+
+    /**
+     * the role's share of the ladder's TTK on {@code d}: a role of balance.final.roles.fade goes back to 1 on armour
+     * above the pair, over N tiers: {@code 1 + (role − 1) · max(0, 1 + d / N)} for d below 0 (Fable №2, 2.1)
+     */
+    public static double roleShare(Pair pr, double d, Params p) {
+        String name = roleOf(pr, p);
+        double r = p.role(name);
+        Double n = p.fade().get(name);
+        if (n != null && n > 0 && d < 0) r = 1 + (r - 1) * Math.max(0.0, 1 + d / n);
+        return r;
     }
 
     /** "role:share" by spaces (share above 0); a broken entry is left out */
@@ -206,7 +304,7 @@ public final class BalanceFinalRule {
         return pr.rawDamage() * pr.pellets() * pr.roundsPerClick() * pr.hands() / (intervalTicks(pr) / 20.0);
     }
 
-    /** the pairs' raw DPS by tier (bullets only; a tier of fewer than 6 pairs takes all pairs' median) */
+    /** the pairs' raw DPS by tier, the tiers of 6 pairs or more (bullets only), and all pairs' median */
     public record Refs(Map<Double, Double> byTier, double all) {
         double of(double tier) {
             return byTier.getOrDefault(tier, all);
@@ -223,7 +321,9 @@ public final class BalanceFinalRule {
         }
         double allm = all.isEmpty() ? 1.0 : median(all);
         Map<Double, Double> out = new HashMap<>();
-        by.forEach((t, v) -> out.put(t, v.size() >= 6 ? median(v) : allm));
+        by.forEach((t, v) -> {
+            if (v.size() >= 6) out.put(t, median(v));
+        });
         return new Refs(out, allm);
     }
 
@@ -234,10 +334,18 @@ public final class BalanceFinalRule {
         return n % 2 == 1 ? s.get(n / 2) : (s.get(n / 2 - 1) + s.get(n / 2)) / 2.0;
     }
 
-    /** the pair's character: (its tier's DPS / its own)^beta within lo..hi (bullets only) */
+    /**
+     * the pair's character: (its tier's DPS / its own)^beta within lo..hi (bullets only); a tier of fewer than 6 pairs
+     * takes all pairs' median, or 1 with balance.final.character.few = one (Fable №2, 3.6)
+     */
     public static double character(Pair pr, Refs refs, Params p) {
         if (!pr.phys()) return 1.0;
-        double f = Math.pow(refs.of(pr.tier()) / Math.max(rawDps(pr), 1e-9), p.beta());
+        Double ref = refs.byTier().get(pr.tier());
+        if (ref == null) {
+            if (p.fewOne()) return 1.0;
+            ref = refs.all();
+        }
+        double f = Math.pow(ref / Math.max(rawDps(pr), 1e-9), p.beta());
         return Math.max(p.lo(), Math.min(p.hi(), f));
     }
 
@@ -255,7 +363,8 @@ public final class BalanceFinalRule {
     /** the TTK the pair is to kill the set in, its pool too, s; DNS never below dnsOverFau of FAU's */
     public static double target(Pair pr, Armor a, Armor fau, Refs refs, Params p) {
         double c = pr.phys() ? 1.0 : p.energy();
-        double t = Math.max(p.tmin(), ttkOf(d(pr, a, p), p) * c * character(pr, refs, p) * p.role(roleOf(pr, p)));
+        double d = d(pr, a, p);
+        double t = Math.max(p.tmin(), ttkOf(d, p) * c * character(pr, refs, p) * roleShare(pr, d, p));
         double tt = t * (HP + a.pool()) / HP;
         if ("dns".equals(a.kind()) && fau != null) tt = Math.max(tt, p.dnsOverFau() * target(pr, fau, null, refs, p));
         return tt;
@@ -277,7 +386,7 @@ public final class BalanceFinalRule {
         return p.mag().on() ? magRule(pr, tot, tt, nh, p) : nh;
     }
 
-    private static int closest(Pair pr, double tot, double tt) {
+    static int closest(Pair pr, double tot, double tt) {
         int lo = 2, hi = 6000;
         if (realTtk(HP / lo, pr, tot)[0] >= tt) return 2;
         while (lo + 1 < hi) {
@@ -352,14 +461,24 @@ public final class BalanceFinalRule {
         return new Armor("mix", t / sw, h / sw, en / sw, 0);
     }
 
-    /** a line of the pairs' file, or null */
+    /** a line of the pairs' file, or null; P the model's (balance.final.hits = model) */
     public static Pair parse(String line) {
+        return parse(line, false);
+    }
+
+    /**
+     * a line of the pairs' file, or null; {@code stand}: P the stand's (the column p_stand, Fable №2, 1; a line without
+     * it: 1), else the model's (p_role, X922)
+     */
+    public static Pair parse(String line, boolean stand) {
         if (line.isBlank() || line.startsWith("#")) return null;
         String[] c = line.split("\t");
         if (c.length < 16) return null;
         String role = c.length > 16 ? c[16].trim() : "rifle";
         try {
-            return new Pair(c[0], c[1], Double.parseDouble(c[2]), !c[3].equals("0"), Double.parseDouble(c[4]), Integer.parseInt(c[5]), !c[6].equals("0"),
+            double p = Double.parseDouble(c[4]);
+            if (stand) p = c.length > 17 && !c[17].isBlank() ? Double.parseDouble(c[17]) : 1.0;
+            return new Pair(c[0], c[1], Double.parseDouble(c[2]), !c[3].equals("0"), p, Integer.parseInt(c[5]), !c[6].equals("0"),
                     Integer.parseInt(c[7]), Integer.parseInt(c[8]), Double.parseDouble(c[9]), Integer.parseInt(c[10]), Integer.parseInt(c[11]),
                     Double.parseDouble(c[12]), c[13], Double.parseDouble(c[14]), !c[15].equals("0"), role);
         } catch (NumberFormatException e) {
@@ -369,9 +488,14 @@ public final class BalanceFinalRule {
 
     /** the pairs of the file by id (gun.ammo), {@code tiers} in place of their own (balance.final.pairTier) */
     public static Map<String, Pair> pairs(List<String> lines, Map<String, Double> tiers, List<String> bad) {
+        return pairs(lines, tiers, bad, false);
+    }
+
+    /** the same, P the stand's ({@code stand}) or the model's */
+    public static Map<String, Pair> pairs(List<String> lines, Map<String, Double> tiers, List<String> bad, boolean stand) {
         Map<String, Pair> out = new java.util.LinkedHashMap<>();
         for (String l : lines) {
-            Pair pr = parse(l);
+            Pair pr = parse(l, stand);
             if (pr == null) {
                 if (!l.isBlank() && !l.startsWith("#") && bad != null) bad.add(l);
                 continue;
@@ -382,26 +506,43 @@ public final class BalanceFinalRule {
         return out;
     }
 
-    /** the same with these pools of DNS and FAU (X912: 40 and 45) */
+    /** the same with these pools of DNS and FAU (X912: 40 and 45), the sets as before Fable №2 */
     public static Map<String, Armor> modelSets(double dns, double fau) {
         Map<String, Armor> out = new HashMap<>(SETS0);
         out.put("dns", new Armor("dns", 9, 8, 0, dns));
         out.put("fau", new Armor("fau", 8, 8, 0, fau));
+        for (String k : new String[] {"steel", "taurun", "titan"}) out.put(k, new Armor(k, 1, 1, -1, 0));
+        out.put("sec", new Armor("sec", 2.5, 4, -1, 0));
+        out.put("trench", new Armor("trench", 6.5, 6, 0, 0));
         return Map.copyOf(out);
     }
 
+    /** X922's sets (before Fable №2: the beam's shift −1 of the sets NTM gives no energy resistance, Trenchmaster 6.5) */
+    public static final Map<String, Armor> MODEL_SETS_X922;
+
     private static final Map<String, Armor> SETS0 = Map.ofEntries(Map.entry("none", new Armor("none", 0, 0, 0, 0)),
-            Map.entry("steel", new Armor("steel", 1, 1, -1, 0)), Map.entry("taurun", new Armor("taurun", 1, 1, -1, 0)),
-            Map.entry("titan", new Armor("titan", 1, 1, -1, 0)), Map.entry("diesel", new Armor("diesel", 2, 2, 0, 0)),
+            Map.entry("steel", new Armor("steel", 1, 1, 0, 0)), Map.entry("taurun", new Armor("taurun", 1, 1, 0, 0)),
+            Map.entry("titan", new Armor("titan", 1, 1, 0, 0)), Map.entry("diesel", new Armor("diesel", 2, 2, 0, 0)),
             Map.entry("t51", new Armor("t51", 3, 3, 0, 0)), Map.entry("ajr", new Armor("ajr", 4, 4, 0, 0)), Map.entry("hev", new Armor("hev", 4, 4, 0, 0)),
-            Map.entry("sec", new Armor("sec", 2.5, 4, -1, 0)), Map.entry("steam", new Armor("steam", 2.5, 4, 0, 0)),
+            Map.entry("sec", new Armor("sec", 2.5, 4, 0, 0)), Map.entry("steam", new Armor("steam", 2.5, 4, 0, 0)),
             Map.entry("bismuth", new Armor("bismuth", 6, 6, 0, 0)), Map.entry("bj", new Armor("bj", 6, 6, 0, 0)),
             Map.entry("ncrpa", new Armor("ncrpa", 6, 6, 0, 0)), Map.entry("star", new Armor("star", 6, 6, 0, 0)),
-            Map.entry("trench", new Armor("trench", 6.5, 6, 0, 0)), Map.entry("cmb", new Armor("cmb", 7, 7, 0, 0)),
+            Map.entry("trench", new Armor("trench", 6, 6, 0, 0)), Map.entry("cmb", new Armor("cmb", 7, 7, 0, 0)),
             Map.entry("rpa", new Armor("rpa", 7, 7, 0, 0)), Map.entry("schrab", new Armor("schrab", 7, 7, 0, 0)),
             Map.entry("dns", new Armor("dns", 9, 8, 0, 40)), Map.entry("fau", new Armor("fau", 8, 8, 0, 45)),
             Map.entry("euph", new Armor("euph", 9, 9, 0, 150)));
 
-    /** the scheme's sets by the model's names: tier, tier by the hours, beam shift, pool of a full set (DNS 45, FAU 40: Fable 2.6) */
-    public static final Map<String, Armor> MODEL_SETS = modelSets(45, 40);
+    /**
+     * the scheme's sets by the model's names: tier, tier by the hours, beam shift, pool of a full set (DNS 45, FAU 40:
+     * Fable 2.6); Fable №2 (3.3, 3.5): no beam shift, Trenchmaster 6 (NTM's block of one in three does the rest)
+     */
+    public static final Map<String, Armor> MODEL_SETS;
+
+    static {
+        Map<String, Armor> out = new HashMap<>(SETS0);
+        out.put("dns", new Armor("dns", 9, 8, 0, 45));
+        out.put("fau", new Armor("fau", 8, 8, 0, 40));
+        MODEL_SETS = Map.copyOf(out);
+        MODEL_SETS_X922 = modelSets(45, 40);
+    }
 }

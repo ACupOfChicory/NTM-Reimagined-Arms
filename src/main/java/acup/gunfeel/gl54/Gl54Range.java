@@ -102,6 +102,8 @@ public final class Gl54Range {
         Player player = ctx.getPlayer();
         if (player == null || player.level().isClientSide() || !Gl54Server.enabled() || !ItemGunBaseNT.getIsAiming(stack)) return;
         Hit hit = measure(player.level(), player);
+        // thick smoke on the ray (gl54.rangeSmoke; Fable №2, 2.5): the laser ends where it goes in, the range stays as it was
+        if (hit != null && smoked(player.level(), player.getEyePosition(), hit.point())) return;
         if (hit == null) {
             set(stack, OptionalDouble.empty());
             return;
@@ -155,6 +157,16 @@ public final class Gl54Range {
         }
         if (where == null) return null;
         return new Hit(where, entity);
+    }
+
+    // the smoke's optical depth past which the laser comes back from the cloud, not from what is behind it (e^-3: 5 % through)
+    public static final float SMOKE_DEPTH = 3F;
+
+    // the ray from the eye to the point found goes through thick smoke (gl54.rangeSmoke on; off: the laser sees through)
+    public static boolean smoked(Level level, Vec3 eye, Vec3 point) {
+        if (!(level instanceof net.minecraft.server.level.ServerLevel server) || !acup.gunfeel.ReaimTimes.flag("gl54.rangeSmoke", true)) return false;
+        var clouds = acup.gunfeel.smoke.SmokeClouds.get(server);
+        return clouds != null && !clouds.isEmpty() && clouds.opticalDepth(eye, point) > SMOKE_DEPTH;
     }
 
     public static double horizontal(Vec3 from, Vec3 to) {

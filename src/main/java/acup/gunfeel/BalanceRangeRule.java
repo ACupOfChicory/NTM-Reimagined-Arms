@@ -8,8 +8,8 @@ import java.util.Map;
  * hit of the scheme takes its click's damage times a share by its role and the distance from the shooter to the target.
  * Up to {@code close} blocks a role of its own close-up time (an SMG x0.5, a pistol x0.8) hits as many times harder
  * (twice, 1.25 times), back to 1 by its {@code home} distance; full damage up to {@code full} blocks; then straight down
- * to {@code floor} of it at {@code floorAt} and no lower. A role of no line (the shotgun's pellets: their spread is
- * their range), blasts and the Tesla Cannon's arc: 1.
+ * to {@code floor} of it at {@code floorAt} and no lower. A role of no line, blasts (but a shotgun's explosive shell's
+ * direct hit, balance.final.range.shells) and the Tesla Cannon's arc: 1.
  */
 public final class BalanceRangeRule {
     private BalanceRangeRule() {
@@ -28,7 +28,10 @@ public final class BalanceRangeRule {
         }
     }
 
-    public static final String LINES = "smg:x0.5/24/0.4@64 pistol:x0.8/24/0.4@64 slug:x1/32/0.4@96 beam:x1/32/0.4@96 rifle:x1/64/0.5@160 mg:x1/64/0.5@160 sniper:x1/160/0.7@256";
+    /** Fable №2 (2.1, 2.3): the shotgun's shot from 16 blocks, the slug from 24, the beams as a rifle */
+    public static final String LINES = "smg:x0.5/24/0.4@64 pistol:x0.8/24/0.4@64 shotgun:x1/16/0.4@48 slug:x1/24/0.4@64 beam:x1/64/0.5@160 rifle:x1/64/0.5@160 mg:x1/64/0.5@160 sniper:x1/160/0.7@256";
+    /** X922's (Fable's first review, 10.4) */
+    public static final String LINES_X922 = "smg:x0.5/24/0.4@64 pistol:x0.8/24/0.4@64 slug:x1/32/0.4@96 beam:x1/32/0.4@96 rifle:x1/64/0.5@160 mg:x1/64/0.5@160 sniper:x1/160/0.7@256";
     public static final String HOME = "pistol:12 smg:12";
 
     /** "role:xT/full/floor@at" by spaces; "off" or none: no line; a broken entry is left out */

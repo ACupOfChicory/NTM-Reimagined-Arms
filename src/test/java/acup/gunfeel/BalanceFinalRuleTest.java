@@ -57,22 +57,158 @@ class BalanceFinalRuleTest {
         assertTrue(exact >= cells * 0.99, exact + " of " + cells + " exact");
     }
 
-    // Fable 2026-11-12 (notes/balance/fable/model, gen_tables.py): ladder H, roles, slug, pools 45/40 and the magazine's rule
+    // X922 (Fable 2026-11-12, notes/balance/fable/model, gen_tables.py) by the keys' values before Fable №2: ladder H,
+    // roles, slug, pools 45/40 and the magazine's rule, the model's P
     @Test
-    void reproducesFable() throws IOException {
-        reproduces("final-table-fable.tsv", P, SETS);
+    void reproducesX922ByTheOldKeys() throws IOException {
+        reproduces("final-table-fable.tsv", BalanceFinalRule.Params.X922, BalanceFinalRule.MODEL_SETS_X922);
     }
 
-    // stage 1: the same with the magazine's rule off (fm.use('fable', edge=False))
+    // the same with the magazine's rule off (fm.use('fable', edge=False))
     @Test
-    void reproducesFableWithoutTheMagazinesRule() throws IOException {
-        reproduces("final-table-fable-noedge.tsv", P.withMag(BalanceFinalRule.MagRule.OFF), SETS);
+    void reproducesX922WithoutTheMagazinesRule() throws IOException {
+        reproduces("final-table-fable-noedge.tsv", BalanceFinalRule.Params.X922.withMag(BalanceFinalRule.MagRule.OFF), BalanceFinalRule.MODEL_SETS_X922);
     }
 
     // X912 is the keys' old values: its ladder and roles, no slug, no magazine's rule, pools 40/45
     @Test
     void reproducesX912ByTheOldKeys() throws IOException {
         reproduces("final-table-x912.tsv", BalanceFinalRule.Params.X912, BalanceFinalRule.modelSets(40, 45));
+    }
+
+    /** the pairs with P of a column of a pairs' table of Fable's ({@code gun ammo ... P_x922 P_est}) */
+    private static Map<String, BalanceFinalRule.Pair> withP(String file, int col) throws IOException {
+        var pairs = new java.util.LinkedHashMap<>(pairs());
+        for (String l : Files.readAllLines(Path.of("src/test/resources/balance/" + file), StandardCharsets.UTF_8)) {
+            if (l.startsWith("#") || l.startsWith("gun\t") || l.isBlank()) continue;
+            String[] c = l.split("\t");
+            var pr = pairs.get(c[0] + "." + c[1]);
+            assertTrue(pr != null, c[0] + "." + c[1]);
+            double p = Double.parseDouble(c[col]);
+            pairs.put(pr.id(), new BalanceFinalRule.Pair(pr.gun(), pr.ammo(), pr.tier(), pr.ped(), p, pr.delay(), pr.auto(), pr.mag(), pr.reload(), pr.pellets(),
+                    pr.roundsPerClick(), pr.hands(), pr.pen(), pr.cat(), pr.rawDamage(), pr.explosive(), pr.role()));
+        }
+        return pairs;
+    }
+
+    /** the solver on {@code pairs} with {@code p} against a table "gun ammo tier role sets…" of hit clicks: every cell exact */
+    private static void cellForCell(Map<String, BalanceFinalRule.Pair> pairs, String table, BalanceFinalRule.Params p) throws IOException {
+        var refs = BalanceFinalRule.refs(pairs.values());
+        String[] cols = null;
+        int cells = 0;
+        List<String> off = new ArrayList<>();
+        for (String l : Files.readAllLines(Path.of("src/test/resources/balance/" + table), StandardCharsets.UTF_8)) {
+            if (l.startsWith("#") || l.isBlank()) continue;
+            String[] c = l.split("\t");
+            if (c[0].equals("gun")) {
+                cols = c;
+                continue;
+            }
+            var pr = pairs.get(c[0] + "." + c[1]);
+            assertTrue(pr != null, c[0] + "." + c[1]);
+            assertEquals(c[3], BalanceFinalRule.roleOf(pr, p), pr.id());
+            for (int i = 4; i < c.length; i++) {
+                double want = Double.parseDouble(c[i]);
+                double got = BalanceFinalRule.HP / BalanceFinalRule.clickDamage(pr, SETS.get(cols[i]), FAU, refs, p);
+                cells++;
+                if (Math.abs(want - got) > 1e-3) off.add(pr.id() + "/" + cols[i] + ": " + want + " vs " + got);
+            }
+        }
+        assertEquals(251 * 21, cells);
+        assertTrue(off.isEmpty(), off.size() + " cells off: " + off.subList(0, Math.min(12, off.size())));
+    }
+
+    // Fable №2 (w-fable/fable2_table.py): the rules of the review with Fable's estimate of P, cell for cell
+    @Test
+    void reproducesFable2ByItsEstimateOfP() throws IOException {
+        cellForCell(withP("fable2-pairs-est.tsv", 6), "fable2-table-est.tsv", P);
+    }
+
+    /** the pairs with the stand's P (balance.final.hits = stand) */
+    private static Map<String, BalanceFinalRule.Pair> standPairs() throws IOException {
+        List<String> bad = new ArrayList<>();
+        var out = BalanceFinalRule.pairs(lines("ntmgunfeel-balance-final-pairs.tsv"), Map.of(), bad, true);
+        assertTrue(bad.isEmpty(), bad.toString());
+        return out;
+    }
+
+    private static final String[] BY_ARMOR = {"none", "steel", "diesel", "sec", "t51", "hev", "bj", "trench", "cmb", "fau", "dns"};
+
+    // Fable №2 (acceptance of stage 1): two clicks at least, DNS never quicker than FAU, the target never down along the
+    // armour's order, a fading role's target never down from d 0 to −3, the magazine's rule never below 0.65 of the target
+    @Test
+    void fable2Invariants() throws IOException {
+        var pairs = standPairs();
+        var refs = BalanceFinalRule.refs(pairs.values());
+        int moved = 0;
+        for (var pr : pairs.values()) {
+            double prev = 0;
+            for (String k : BY_ARMOR) {
+                double t = BalanceFinalRule.target(pr, SETS.get(k), FAU, refs, P);
+                assertTrue(t >= prev - 1e-9, pr.id() + ": the target down on " + k + " (" + t + " < " + prev + ")");
+                prev = t;
+            }
+            for (var a : SETS.values()) {
+                double tot = BalanceFinalRule.HP + a.pool(), tt = BalanceFinalRule.target(pr, a, FAU, refs, P);
+                int nh = BalanceFinalRule.hitClicks(pr, a, FAU, refs, P);
+                assertTrue(nh >= 2, pr.id() + " on " + a.kind() + ": " + nh);
+                assertTrue(BalanceFinalRule.HP / BalanceFinalRule.clickDamage(pr, a, FAU, refs, P) >= 2 - 1e-9, pr.id() + " on " + a.kind());
+                int plain = BalanceFinalRule.closest(pr, tot, tt);
+                if (nh != plain) {
+                    moved++;
+                    double[] r = BalanceFinalRule.realTtk(BalanceFinalRule.HP / nh, pr, tot);
+                    assertTrue(Math.max(r[0], P.tmin()) >= 0.65 * tt - 1e-9, pr.id() + " on " + a.kind() + ": the magazine's rule " + r[0] + " of " + tt);
+                }
+            }
+            double dns = BalanceFinalRule.realTtk(BalanceFinalRule.clickDamage(pr, SETS.get("dns"), FAU, refs, P), pr, 20 + SETS.get("dns").pool())[0];
+            double fau = BalanceFinalRule.realTtk(BalanceFinalRule.clickDamage(pr, FAU, null, refs, P), pr, 20 + FAU.pool())[0];
+            assertTrue(dns >= fau - 1e-9, pr.id() + ": DNS " + dns + " < FAU " + fau);
+            // the fade: a pair's role share from d 0 down to −3 never down
+            double was = 0;
+            for (double d = 0; d >= -3; d -= 0.05) {
+                double share = BalanceFinalRule.roleShare(pr, d, P);
+                assertTrue(share >= was - 1e-12, pr.id() + " at " + d);
+                was = share;
+            }
+        }
+        assertTrue(moved > 0);
+        // the shotgun at 0.35 on its own tier, 0.675 a tier above, 1 two and more
+        var maresleg = pairs.get("maresleg.g12_bp");
+        assertEquals(0.35, BalanceFinalRule.roleShare(maresleg, 0, P), 1e-12);
+        assertEquals(0.675, BalanceFinalRule.roleShare(maresleg, -1, P), 1e-12);
+        assertEquals(1.0, BalanceFinalRule.roleShare(maresleg, -2.5, P), 1e-12);
+        // X922: no fade, 0.75 on every tier
+        assertEquals(0.75, BalanceFinalRule.roleShare(maresleg, -1, BalanceFinalRule.Params.X922), 1e-12);
+        // the Shredder a shotgun (its slug and explosive shell a slug); X922: a beam
+        assertEquals("shotgun", BalanceFinalRule.roleOf(pairs.get("autoshotgun_shredder.g12"), P));
+        assertEquals("slug", BalanceFinalRule.roleOf(pairs.get("autoshotgun_shredder.g12_slug"), P));
+        assertEquals("beam", BalanceFinalRule.roleOf(pairs.get("autoshotgun_shredder.g12"), BalanceFinalRule.Params.X922));
+    }
+
+    // Fable №2 (2.4): the acid takes a set's tier down by up to one, in full to tier 5, nothing from 8
+    @Test
+    void acid() {
+        var a = BalanceFinalRule.Acid.parse(BalanceFinal.ACID, BalanceFinalRule.Acid.OFF);
+        assertEquals(BalanceFinalRule.Acid.DEFAULT, a);
+        assertEquals(3.0, a.tierOf(4, 0.75), 1e-9);
+        assertEquals(3.5, a.tierOf(4, 0.375), 1e-9);
+        assertEquals(4.0, a.tierOf(5, 0.75), 1e-9);
+        assertEquals(6 - 0.65, a.tierOf(6, 0.75), 1e-9);
+        assertEquals(7 - 0.35, a.tierOf(7, 0.75), 1e-9);
+        assertEquals(8.0, a.tierOf(8, 0.75), 1e-9);
+        assertEquals(9.0, a.tierOf(9, 0.75), 1e-9);
+        assertEquals(4.0, a.tierOf(4, 0), 1e-9);
+        // bare and nearly bare: not below 0
+        assertEquals(0.0, a.tierOf(0, 0.75), 1e-9);
+        assertEquals(0.0, a.tierOf(0.5, 0.75), 1e-9);
+        assertEquals(4.0, BalanceFinalRule.Acid.parse("off", a).tierOf(4, 0.75), 1e-9);
+        assertEquals(2.5, BalanceFinalRule.Acid.parse("tiers=1.5 junk", BalanceFinalRule.Acid.DEFAULT).tierOf(4, 0.75), 1e-9);
+    }
+
+    // Fable №2 with the stand's P (notes/balance/fable2/model/gen_table.py): the game's table, cell for cell
+    @Test
+    void reproducesFable2ByTheStandsP() throws IOException {
+        cellForCell(standPairs(), "fable2-table-stand.tsv", P);
     }
 
     // no one-shot on the head: a click on the head does at most the head's cap of 16 HP, below every set's 20 and more
@@ -89,22 +225,23 @@ class BalanceFinalRuleTest {
             }
     }
 
-    // the magazine's rule (Fable 10.3): G3 on HEV 26 rounds of 30, the heavy revolver 5 or 6 of 6
+    // the magazine's rule (Fable 10.3, X922): G3 on HEV 26 rounds of 30, the heavy revolver 5 or 6 of 6
     @Test
     void magazinesRule() throws IOException {
         var pairs = pairs();
         var refs = BalanceFinalRule.refs(pairs.values());
-        var hev = SETS.get("hev");
-        int g3 = BalanceFinalRule.hitClicks(pairs.get("g3.r556_fmj"), hev, FAU, refs, P);
+        var hev = BalanceFinalRule.MODEL_SETS_X922.get("hev");
+        var x922 = BalanceFinalRule.Params.X922;
+        int g3 = BalanceFinalRule.hitClicks(pairs.get("g3.r556_fmj"), hev, FAU, refs, x922);
         double[] t = BalanceFinalRule.realTtk(BalanceFinalRule.HP / g3, pairs.get("g3.r556_fmj"), 20);
         assertEquals(26, (int) t[1]);
-        int rev = BalanceFinalRule.hitClicks(pairs.get("heavy_revolver.m44_fmj"), hev, FAU, refs, P);
+        int rev = BalanceFinalRule.hitClicks(pairs.get("heavy_revolver.m44_fmj"), hev, FAU, refs, x922);
         double[] r = BalanceFinalRule.realTtk(BalanceFinalRule.HP / rev, pairs.get("heavy_revolver.m44_fmj"), 20);
         assertTrue(r[1] >= 5 && r[1] <= 6, "heavy revolver " + r[1]);
         var m = BalanceFinalRule.MagRule.parse("reserve=0.3 junk small=2", BalanceFinalRule.MagRule.DEFAULT);
         assertEquals(0.3, m.reserve());
         assertEquals(2, m.small());
-        assertEquals(0.6, m.min());
+        assertEquals(0.65, m.min());
         assertTrue(!BalanceFinalRule.MagRule.parse("reserve=0", m).on());
     }
 

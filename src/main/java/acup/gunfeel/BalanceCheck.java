@@ -120,6 +120,9 @@ public final class BalanceCheck {
         final List<Float> blastCell = new ArrayList<>();
         /** the hi pass: a hit of this click went to the head (1), a sniper's (2) */
         int headHit;
+        /** the hits on the victim's head and what they took (the pass rg: the body's hits apart) */
+        int headHits;
+        float headLost;
         /** the stand aims at the victim's eyes, not its chest */
         boolean aimHead;
         /** the super stimpak's heal goes on by the stand's tick (the fake player is not ticked by the level) */
@@ -363,6 +366,10 @@ public final class BalanceCheck {
                 if (e.getEntity() != L.victim || L.victim == null) return;
                 L.hits++;
                 L.lost += e.getInflictedDamage();
+                if (DamageCap.last.contains(" head=true")) {
+                    L.headHits++;
+                    L.headLost += e.getInflictedDamage();
+                }
                 // the pass mx: each hit of a cell, its type, what it took and the cap's ruling
                 if (L.mxHits != null) L.mxHits.append(e.getSource().getMsgId()).append(' ').append(f(e.getInflictedDamage())).append(" {")
                         .append(e.getSource().getDirectEntity() == null ? "-" : e.getSource().getDirectEntity().getClass().getSimpleName()).append(' ')
@@ -543,35 +550,47 @@ public final class BalanceCheck {
     }
 
     private static void plan() {
+        // -PbalanceTestLog=true: the server's test log on (each shot's spread, TestLog), its file in the result
+        if (Boolean.getBoolean(PROPERTY + ".testLog")) line("#\ttest log " + TestLog.set(false, true));
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg", "ps", "tb", "g4").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         // the passes check the machine of X908 (formula C, the gun table): the final scheme off, its cells and team lines
         // turn it on by a key line (balance.final true)
         STEPS.add(() -> keys("balance.final", String.valueOf(Boolean.getBoolean(PROPERTY + ".final")), "balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula"));
         wait(30);
-        if (only("2")) plan2();
-        if (only("1g")) planAbilities();
-        if (only("1v")) planRecipes();
-        if (only("1a")) plan1a();
-        if (only("1b")) plan1b();
-        if (only("dns")) planDns();
-        if (only("kit")) planKit();
-        if (only("db")) planDb();
-        if (only("hi")) planHigh();
-        if (only("expl")) planExpl();
-        if (only("esp")) planEsp();
-        if (only("pool")) planPool();
-        if (only("pep")) planPep();
-        if (only("hot")) planHot();
-        if (only("mx")) planMatrix();
-        if (only("team")) planTeam();
-        if (only("cheese")) planCheese();
-        if (only("frag")) planFrag();
-        if (only("bx")) planBlastLadder();
-        if (only("rg")) planRange();
-        if (only("lg")) planLog();
+        if (only("2")) pass("2", BalanceCheck::plan2);
+        if (only("1g")) pass("1g", BalanceCheck::planAbilities);
+        if (only("1v")) pass("1v", BalanceCheck::planRecipes);
+        if (only("1a")) pass("1a", BalanceCheck::plan1a);
+        if (only("1b")) pass("1b", BalanceCheck::plan1b);
+        if (only("dns")) pass("dns", BalanceCheck::planDns);
+        if (only("kit")) pass("kit", BalanceCheck::planKit);
+        if (only("db")) pass("db", BalanceCheck::planDb);
+        if (only("hi")) pass("hi", BalanceCheck::planHigh);
+        if (only("expl")) pass("expl", BalanceCheck::planExpl);
+        if (only("esp")) pass("esp", BalanceCheck::planEsp);
+        if (only("pool")) pass("pool", BalanceCheck::planPool);
+        if (only("pep")) pass("pep", BalanceCheck::planPep);
+        if (only("hot")) pass("hot", BalanceCheck::planHot);
+        if (only("mx")) pass("mx", BalanceCheck::planMatrix);
+        if (only("team")) pass("team", BalanceCheck::planTeam);
+        if (only("cheese")) pass("cheese", BalanceCheck::planCheese);
+        if (only("frag")) pass("frag", BalanceCheck::planFrag);
+        if (only("bx")) pass("bx", BalanceCheck::planBlastLadder);
+        if (only("rg")) pass("rg", BalanceCheck::planRange);
+        if (only("lg")) pass("lg", BalanceCheck::planLog);
+        if (only("ps")) pass("ps", BalanceCheck::planShare);
+        if (only("tb")) pass("tb", BalanceCheck::planTrenchBlock);
+        // asked by name only: the final scheme on in it whatever the run's
+        if (asked.contains("g4")) pass("g4", BalanceCheck::planAcidGas);
+    }
+
+    /** a pass planned, its start marked in the test log (-PbalanceTestLog: which pass a shot's spread is of) */
+    private static void pass(String name, Runnable plan) {
+        if (Boolean.getBoolean(PROPERTY + ".testLog")) STEPS.add(() -> TestLog.at(level, "pass", "name", name));
+        plan.run();
     }
 
     // ---------------------------------------------------------------- melee and the flamethrower (hotfix X867)
@@ -789,10 +808,16 @@ public final class BalanceCheck {
      */
     /** -PbalanceCellHits: each hit of the cells logged */
     private static boolean mxLog;
+    /**
+     * -PbalanceCellsHome=true (Fable №2, stage 5): the pass mx at the role's working distance (homeOf), aimed, the range
+     * rule on, the clicks at the gun's own pace (matrixHomeCell); -PbalanceCellsDist=<blocks> one distance for all
+     */
+    private static boolean mxHome;
 
     private static void planMatrix() {
         String file = System.getProperty("ntmgunfeel.checkBalance.cells", "").trim();
         mxLog = Boolean.getBoolean("ntmgunfeel.checkBalance.cellHits");
+        mxHome = Boolean.getBoolean("ntmgunfeel.checkBalance.cellsHome");
         if (file.isEmpty()) return;
         List<Cell> cells = new ArrayList<>();
         // lines "key name value": server keys for the cells after it (a cell "key" line in place of a cell)
@@ -815,9 +840,15 @@ public final class BalanceCheck {
                     "balance.immune.fau.mode", "pool", "balance.immune.mode", "pool", "balance.immune.pool", "0.0001", "balance.immune.window", "600",
                     "balance.immune.recover", "1", "balance.immune.dns.pool", "0.0001", "balance.immune.dns.window", "600", "balance.immune.dns.recover", "1",
                     "balance.immune.fau.pool", "0.0001", "balance.immune.fau.window", "600", "balance.immune.fau.recover", "1",
-                    // the model's clicks are at the role's own distance, the stand's at 4 blocks: no range rule (pass rg has it)
-                    "balance.final.range", "off");
-            eachLane(() -> L.shooter.setInvulnerable(true));
+                    // the model's clicks are at the role's own distance, the stand's at 4 blocks: no range rule (pass rg has it);
+                    // at the role's distance (mxHome) the rule on
+                    "balance.final.range", mxHome ? BalanceRangeRule.LINES : "off");
+            airClicks = 0;
+            eachLane(() -> {
+                L.shooter.setInvulnerable(true);
+                if (mxHome) for (int cx = (L.o.getX() - 8) >> 4; cx <= (L.o.getX() + 8) >> 4; cx++)
+                    for (int cz = (L.o.getZ() - 8) >> 4; cz <= (L.o.getZ() + 40) >> 4; cz++) level.setChunkForced(cx, cz, true);
+            });
         });
         wait(30);
         // the cells between two key lines go to the lanes; a key line is the server's: all lanes wait for it
@@ -840,10 +871,13 @@ public final class BalanceCheck {
                 line("mx\t" + id + "\tнет патрона");
                 continue;
             }
-            run.add(() -> matrixCell(cell, gun, ammo, id));
+            var pr = mxHome ? BalanceFinal.pairs().get(cell.gun() + "." + cell.ammo()) : null;
+            if (pr != null) run.add(() -> matrixHomeCell(cell, gun, ammo, id, pr));
+            else run.add(() -> matrixCell(cell, gun, ammo, id));
         }
         parallel(run);
         STEPS.add(() -> {
+            if (mxHome) check(airClicks == 0, "mx: стрелок на земле на каждом клике (в воздухе " + airClicks + ")");
             keys("balance.immune.pool", "150", "balance.immune.window", "15", "balance.immune.recover", "60", "balance.immune.dns.mode", "formula",
                     "balance.immune.fau.mode", "formula", "balance.immune.dns.pool", "40", "balance.immune.dns.window", "15", "balance.immune.dns.recover", "60",
                     "balance.immune.fau.pool", "45", "balance.immune.fau.window", "15", "balance.immune.fau.recover", "60", "balance.final.range",
@@ -855,6 +889,83 @@ public final class BalanceCheck {
             });
         });
         wait(30);
+    }
+
+    /** the pass mx at the role's distance: the target {@code d} blocks off on a floor (at 4 blocks: homePool's place) */
+    private static void mxPlace(int d) {
+        if (d == (int) DIST) return;
+        for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlockAndUpdate(L.o.offset(x, -1, d + z), Blocks.STONE.defaultBlockState());
+        L.target.setDeltaMovement(Vec3.ZERO);
+        L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + d, 180F, 0F);
+    }
+
+    /**
+     * A cell of the pass mx at the role's working distance (mxHome): the shooter aimed, standing, both guns of akimbo;
+     * the clicks at the pair's interval, as held in a fight (an automatic's bloom as in the pass ps): at least 3, an
+     * automatic at least 3 s, at least 30 projectiles, a pair of a share of hits under 0.97 at least 100, Trenchmaster at
+     * least 9 clicks; the target's health put back every tick and what it lost summed. A set with the pool (euphemium, DNS, FAU): a click
+     * first that empties it (not counted). A line: what a click took, its hits, the clicks, the distance.
+     */
+    private static void matrixHomeCell(Cell cell, Item gun, BulletConfig ammo, String id, BalanceFinalRule.Pair pr) {
+        float[] took = {0F};
+        int[] hitsSeen = {0};
+        // a set with the pool (euphemium, DNS, FAU): a click first that empties it, or the cell's first hit goes into it
+        boolean pool = java.util.Arrays.stream(EuphImmunity.Kit.values()).anyMatch(k -> k.set.equals(cell.set()));
+        // -PbalanceCellsDist=<blocks>: one distance for all in place of the role's
+        int d = Integer.getInteger(PROPERTY + ".cellsDist", homeOf(pr)), iv = Math.max(1, BalanceFinalRule.intervalTicks(pr));
+        int n = 3;
+        if (pr.auto()) n = Math.max(n, (int) Math.ceil(60.0 / iv));
+        // a share of 0.90 and above is written as 1.00: a miss in 3 clicks would be a third of the cell
+        n = Math.max(n, (int) Math.ceil(30 / pr.projectiles()));
+        if (pr.p() < 0.97) n = Math.max(n, (int) Math.ceil(100 / pr.projectiles()));
+        if (cell.set().equals("trenchmaster")) n = Math.max(n, 9);
+        // -PbalanceCellsClicks=<n>: this many clicks a cell (a held burst's length)
+        int clicks = Integer.getInteger(PROPERTY + ".cellsClicks", n);
+        STEPS.add(() -> {
+            begin(L.target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            if (!cell.set().isEmpty()) dress(L.target, cell.set(), true);
+            wearAttributes(L.target);
+            EuphImmunity.forget(L.target);
+            homePool();
+            mxPlace(d);
+            L.aimHead = cell.head();
+        });
+        // the bloom of the cell before gone (it halves every 5 ticks)
+        wait(40);
+        if (pool) {
+            STEPS.add(() -> {
+                mxPlace(d);
+                fireAimed(L.shooter, gun, ammo, pr.hands() > 1);
+            });
+            wait(SPACING + 10);
+        }
+        STEPS.add(() -> {
+            L.target.setHealth(L.target.getMaxHealth());
+            L.target.setAbsorptionAmount(0F);
+            DamageCap.forget(L.target);
+            took[0] = 0F;
+            hitsSeen[0] = L.seen.hits;
+        });
+        int ticks = clicks * iv + SPACING + 10;
+        for (int t = 0; t < ticks; t++) {
+            boolean fire = t % iv == 0 && t / iv < clicks;
+            STEPS.add(() -> {
+                took[0] += Math.max(0F, L.target.getMaxHealth() - Math.max(0F, L.target.getHealth()));
+                L.target.setHealth(L.target.getMaxHealth());
+                L.target.setAbsorptionAmount(0F);
+                DamageCap.forget(L.target);
+                mxPlace(d);
+                if (fire && Spread.inAir(L.shooter)) airClicks++;
+                if (fire) fireAimed(L.shooter, gun, ammo, pr.hands() > 1);
+            });
+        }
+        STEPS.add(() -> {
+            took[0] += Math.max(0F, L.target.getMaxHealth() - Math.max(0F, L.target.getHealth()));
+            L.target.setHealth(L.target.getMaxHealth());
+            L.aimHead = false;
+            line("mx\t" + id + "\t" + String.format(Locale.ROOT, "%.5f", took[0] / clicks) + "\t" + f((L.seen.hits - hitsSeen[0]) / (float) clicks) + "\t" + clicks + "\t" + d);
+        });
     }
 
     /** a cell of the pass mx: three clicks from full health, what a click took and its hits */
@@ -1412,11 +1523,15 @@ public final class BalanceCheck {
 
     // ---------------------------------------------------------------- Fable's stage 4: damage by range (pass rg)
 
-    /** the pairs of Fable's table 10.4 (gun, ammo, set) and the distances, blocks */
+    /** the pairs of Fable's table 10.4 and of review №2's stage 2 (gun, ammo, set) and the distances, blocks */
     private static final String[][] RG_PAIRS = {{"autoshotgun", "g12", "hev"}, {"spas12", "g12_slug", "hev"}, {"uzi", "p9_fmj", "hev"}, {"star_f", "p22_fmj", "hev"},
             {"heavy_revolver", "m44_ap", "hev"}, {"g3", "r556_fmj", "hev"}, {"carbine", "r762_fmj", "hev"}, {"m2", "bmg50_fmj", "hev"}, {"amat", "bmg50_ap", "hev"},
-            {"amat", "bmg50_fmj", "hev"}, {"laser_pistol", "capacitor", "bj"}, {"stg77", "r556_fmj", "bj"}, {"mas36", "r762_du", "bj"}};
-    private static final int[] RG_DIST = {4, 7, 8, 12, 16, 20, 30, 32, 64, 128, 200};
+            {"amat", "bmg50_fmj", "hev"}, {"laser_pistol", "capacitor", "bj"}, {"stg77", "r556_fmj", "bj"}, {"mas36", "r762_du", "bj"},
+            // Fable №2, stage 2: the shotgun's line, the slug's, the beam's, an explosive shell's direct hit by its role's
+            {"autoshotgun", "g12_flechette", "hev"}, {"autoshotgun", "g12_magnum", "hev"}, {"autoshotgun", "g12_slug", "hev"},
+            {"autoshotgun", "g12_explosive", "hev"}, {"autoshotgun_shredder", "g12", "hev"}, {"lasrifle", "capacitor", "bj"},
+            {"tau", "tau_uranium", "bj"}, {"tesla_cannon", "capacitor", "bj"}};
+    private static final int[] RG_DIST = {4, 7, 8, 12, 16, 20, 24, 30, 32, 48, 64, 96, 128, 200};
     private static final int RG_CLICKS = 12, RG_FAR = 216;
 
     /**
@@ -1458,8 +1573,8 @@ public final class BalanceCheck {
     }
 
     private static void rangeCell(String[] p, Item gun, BulletConfig ammo, int d) {
-        float[] took = {0F};
-        int[] hits = {0};
+        float[] took = {0F}, headLost = {0F};
+        int[] hits = {0}, headHits = {0};
         int wait = d >= 64 ? 45 : SPACING + 10;
         STEPS.add(() -> {
             begin(L.target);
@@ -1486,16 +1601,397 @@ public final class BalanceCheck {
                 DamageCap.forget(L.target);
                 hp[0] = L.target.getHealth();
                 seen[0] = L.seen.hits;
+                L.headHits = 0;
+                L.headLost = 0F;
                 fireAimed(L.shooter, gun, ammo);
             });
             wait(wait);
             STEPS.add(() -> {
                 took[0] += hp[0] - Math.max(0F, L.target.getHealth());
                 hits[0] += L.seen.hits - seen[0];
+                headHits[0] += L.headHits;
+                headLost[0] += L.headLost;
             });
         }
         STEPS.add(() -> line("rg\t" + p[0] + "\t" + p[1] + "\t" + p[2] + "\t" + d + "\t" + String.format(Locale.ROOT, "%.5f", took[0] / RG_CLICKS) + "\t"
-                + f(hits[0] / (float) RG_CLICKS) + "\t" + String.format(Locale.ROOT, "%.4f", BalanceFinal.hitClicks(p[0] + "." + p[1], p[2]))));
+                + f(hits[0] / (float) RG_CLICKS) + "\t" + String.format(Locale.ROOT, "%.4f", BalanceFinal.hitClicks(p[0] + "." + p[1], p[2]))
+                // the head's hits a click and what they took a click (the body's: the rest)
+                + "\t" + f(headHits[0] / (float) RG_CLICKS) + "\t" + String.format(Locale.ROOT, "%.5f", headLost[0] / RG_CLICKS)));
+    }
+
+    // ---------------------------------------------------------------- the share of hits by one measure (Fable 2026-11-12 №2, pass ps)
+
+    /** the role's working distance the share of hits is measured at (Fable №2, 1): shot and slug 7, pistol, SMG, MG 12, rifle and beam 20, sniper 30 */
+    static int homeOf(BalanceFinalRule.Pair pr) {
+        if (pr.gun().equals("autoshotgun_shredder")) return 7;
+        return switch (pr.role()) {
+            case "shotgun", "slug" -> 7;
+            case "pistol", "smg", "mg" -> 12;
+            case "sniper" -> 30;
+            default -> 20;
+        };
+    }
+
+    /** the clicks of the passes that measure the share of hits (ps, mx at the role's distance) with the shooter in the air */
+    private static int airClicks;
+
+    /**
+     * The pass ps: every pair of the scheme's file, the shooter standing (aimed, then from the hip), the target bare and
+     * standing at the role's working distance; an automatic fires a held burst of at least 3 s (a click every interval:
+     * the bloom as held), the rest clicks at the gun's pace; at least 200 projectiles (a shotgun's shot: 25 clicks;
+     * -PbalanceShareShots another number). The spread's settings are the server's defaults. A line: the projectiles
+     * fired (clicks × pellets × rounds × hands), the hits the target took, their share. The shooter on the ground at
+     * every click (Spread.inAir: no), or the pass is red.
+     */
+    private static void planShare() {
+        line("#\t--- ps: доля попаданий единой меркой (Fable №2), стрелок стоит, цель на рабочей дистанции роли, без брони");
+        line("#\tps\tgun\tammo\trole\thome\tmode\tclicks\tprojectiles\thits\tshare");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "false", "damageCapMobs", "false", "balance.final.range", "off");
+            // -PbalanceShareKeys="key=value ...": server keys of this run of the pass (the spread's, to take a part of it apart)
+            for (String kv : System.getProperty("ntmgunfeel.checkBalance.shareKeys", "").trim().split("\\s+")) {
+                int eq = kv.indexOf('=');
+                if (eq > 0) keys(kv.substring(0, eq), kv.substring(eq + 1));
+            }
+            BalanceFinal.standShots = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+            airClicks = 0;
+            eachLane(() -> {
+                L.shooter.setInvulnerable(true);
+                for (int cx = (L.o.getX() - 8) >> 4; cx <= (L.o.getX() + 8) >> 4; cx++)
+                    for (int cz = (L.o.getZ() - 8) >> 4; cz <= (L.o.getZ() + 40) >> 4; cz++) level.setChunkForced(cx, cz, true);
+            });
+        });
+        wait(40);
+        String onlyPairs = System.getProperty("ntmgunfeel.checkBalance.share", "").trim();
+        java.util.Set<String> want = onlyPairs.isEmpty() ? null : java.util.Set.of(onlyPairs.split("\\s*,\\s*"));
+        List<Runnable> run = new ArrayList<>();
+        for (var pr : BalanceFinal.pairs().values()) {
+            if (want != null && !want.contains(pr.id()) && !want.contains(pr.gun())) continue;
+            Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + pr.gun()));
+            BulletConfig ammo = ammoNamed(gun, pr.ammo());
+            if (ammo == null) {
+                line("ps\t" + pr.gun() + "\t" + pr.ammo() + "\tнет патрона");
+                continue;
+            }
+            // -PbalanceShareDist=<blocks,...>: these distances for all in place of the role's; -PbalanceShareCrouch=<blocks,...>:
+            // an aimed cell crouched at each of these too
+            for (int d : shareDists("ntmgunfeel.checkBalance.shareDist", homeOf(pr))) {
+                for (boolean aimed : new boolean[] {true, false}) run.add(() -> shareCell(pr, gun, ammo, aimed, d, false));
+            }
+            for (int d : shareDists("ntmgunfeel.checkBalance.shareCrouch", -1)) if (d > 0) run.add(() -> shareCell(pr, gun, ammo, true, d, true));
+        }
+        parallel(run);
+        STEPS.add(() -> {
+            BalanceFinal.standShots = null;
+            check(airClicks == 0, "ps: стрелок на земле на каждом клике (в воздухе " + airClicks + ")");
+            eachLane(() -> {
+                L.shooter.setInvulnerable(false);
+                L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+            });
+        });
+        wait(10);
+    }
+
+    /** the distances a list property names, or {@code def} alone when it is not set */
+    private static int[] shareDists(String key, int def) {
+        String v = System.getProperty(key, "").trim();
+        if (v.isEmpty()) return new int[] {def};
+        return java.util.Arrays.stream(v.split("\\s*,\\s*")).mapToInt(Integer::parseInt).toArray();
+    }
+
+    private static void shareCell(BalanceFinalRule.Pair pr, Item gun, BulletConfig ammo, boolean aimed, int d, boolean crouch) {
+        int iv = BalanceFinalRule.intervalTicks(pr);
+        double proj = pr.projectiles();
+        // -PbalanceShareShots=<n>: this many projectiles an aimed cell (from the hip half), in place of 200
+        int asked = Integer.getInteger(PROPERTY + ".shareShots", 200), want = aimed ? asked : Math.max(1, asked / 2);
+        int clicks = pr.pellets() >= 4 ? (aimed ? 25 : 13) : (int) Math.ceil(want / proj);
+        if (pr.auto()) clicks = Math.max(clicks, (int) Math.ceil(60.0 / iv));
+        int n = clicks;
+        int[] seen = {0};
+        STEPS.add(() -> {
+            begin(L.target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            wearAttributes(L.target);
+            EuphImmunity.forget(L.target);
+            L.shooter.setDeltaMovement(Vec3.ZERO);
+            L.shooter.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlockAndUpdate(L.o.offset(x, -1, d + z), Blocks.STONE.defaultBlockState());
+            L.target.setDeltaMovement(Vec3.ZERO);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + d, 180F, 0F);
+            L.aimHead = false;
+        });
+        // the bloom of the cell before gone (it halves every 5 ticks)
+        wait(40);
+        int[] shots = {0};
+        STEPS.add(() -> {
+            seen[0] = L.seen.hits;
+            var m = BalanceFinal.standShots;
+            shots[0] = m == null ? 0 : m.getOrDefault(L.shooter, 0);
+        });
+        for (int c = 0; c < n; c++) {
+            STEPS.add(() -> {
+                L.target.setHealth(L.target.getMaxHealth());
+                L.target.setAbsorptionAmount(0F);
+                L.target.setDeltaMovement(Vec3.ZERO);
+                L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + d, 180F, 0F);
+                L.shooter.setDeltaMovement(Vec3.ZERO);
+                // standing on the floor: a mannequin that never moves is never told it landed (Spread.inAir: spreadAir)
+                L.shooter.setOnGround(true);
+                if (Spread.inAir(L.shooter)) airClicks++;
+                // crouched: NTM's spread through Spread.apply takes isCrouching (spreadSneak)
+                if (crouch) L.shooter.setPose(net.minecraft.world.entity.Pose.CROUCHING);
+                // akimbo: both guns a click (the pair's hands)
+                if (aimed) fireAimed(L.shooter, gun, ammo, pr.hands() > 1);
+                else fireBoth(L.shooter, gun, ammo, pr.hands() > 1);
+                if (crouch) L.shooter.setPose(net.minecraft.world.entity.Pose.STANDING);
+            });
+            for (int t = 1; t < iv; t++) STEPS.add(() -> L.target.setHealth(L.target.getMaxHealth()));
+        }
+        for (int t = 0; t < 30; t++) STEPS.add(() -> L.target.setHealth(L.target.getMaxHealth()));
+        STEPS.add(() -> {
+            int hits = L.seen.hits - seen[0];
+            double fired = n * proj;
+            var m = BalanceFinal.standShots;
+            int out = (m == null ? 0 : m.getOrDefault(L.shooter, 0)) - shots[0];
+            line("ps\t" + pr.gun() + "\t" + pr.ammo() + "\t" + pr.role() + "\t" + d + "\t" + (aimed ? crouch ? "aim-crouch" : "aim" : "hip") + "\t" + n + "\t" + String.format(Locale.ROOT, "%.0f", fired)
+                    + "\t" + hits + "\t" + String.format(Locale.ROOT, "%.4f", hits / fired) + "\tshots " + out);
+        });
+    }
+
+    // ---------------------------------------------------------------- the acid, the gas on the pools, the smoke (pass g4)
+
+    /** the pass g4's sets: the acid's on each at K 0 and 0.75 */
+    private static final String[] G4_SETS = {"t51", "hev", "bj", "fau"};
+    private static final String G4_GUN = "carbine", G4_AMMO = "r762_sp";
+
+    /**
+     * The pass g4 (Fable №2, stage 4), the final scheme on: (1) the acid: a click of the carbine's SP on each set at the
+     * corrosion K 0 and 0.75, what a click took (as the pass mx: 4 blocks, no range, the pools all but nothing) by the
+     * solver's clicks at the set's tier and at the tier the acid leaves; (2) the gas on FAU's pool: the mustard's step
+     * by the tick, what it did against what the pool lost and the health, then clean air; (3) the GL-54's laser and a
+     * cloud of smoke: a point behind it, before it, beside it.
+     */
+    private static void planAcidGas() {
+        line("#\t--- g4: кислота, газ по запасу, дым и дальномер (Fable №2, этап 4), balance.final вкл.");
+        STEPS.add(() -> {
+            keys("balance.final", "true", "balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false",
+                    "balance.immune.dns.mode", "pool", "balance.immune.fau.mode", "pool", "balance.immune.mode", "pool", "balance.immune.pool", "0.0001",
+                    "balance.immune.window", "600", "balance.immune.recover", "1", "balance.immune.dns.pool", "0.0001", "balance.immune.dns.window", "600",
+                    "balance.immune.dns.recover", "1", "balance.immune.fau.pool", "0.0001", "balance.immune.fau.window", "600", "balance.immune.fau.recover", "1",
+                    "balance.final.range", "off");
+            eachLane(() -> L.shooter.setInvulnerable(true));
+        });
+        wait(30);
+        line("#\tg4\tacid\tset\tK\ttier\tsolver clicks at it\t(mx line: HP a click, hits a click)");
+        Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + G4_GUN));
+        BulletConfig ammo = ammoNamed(gun, G4_AMMO);
+        String pair = G4_GUN + "." + G4_AMMO;
+        List<Runnable> run = new ArrayList<>();
+        for (String set : G4_SETS) for (float k : new float[] {0F, 0.75F}) run.add(() -> {
+            STEPS.add(() -> {
+                L.target.removeData(acup.gunfeel.gas.GasAttach.STATE.get());
+                if (k > 0F) acup.gunfeel.gas.GasServer.state(L.target).k = k;
+                double t = BalanceFinal.acidTier(set, k);
+                line("g4\tacid\t" + set + "\t" + k + "\t" + String.format(Locale.ROOT, "%.3f", t) + "\t"
+                        + String.format(Locale.ROOT, "%.3f", BalanceFinal.hitClicksAt(pair, set, t)));
+            });
+            matrixCell(new Cell(set, G4_GUN, G4_AMMO, false), gun, ammo, set + "@K" + k + "\t" + G4_GUN + "\t" + G4_AMMO + "\tbody");
+            STEPS.add(() -> L.target.removeData(acup.gunfeel.gas.GasAttach.STATE.get()));
+        });
+        parallel(run);
+        STEPS.add(() -> line("g4\tacid-ref\tt51 at tier 3\t" + String.format(Locale.ROOT, "%.3f", BalanceFinal.hitClicks(pair, "t51"))
+                + "\tbj at tier 5.33\t" + String.format(Locale.ROOT, "%.3f", BalanceFinal.hitClicksAt(pair, "bj", 6 - 2 / 3.0))));
+        planGasPool();
+        planSmokeRange();
+        STEPS.add(() -> {
+            keys("balance.final", String.valueOf(Boolean.getBoolean(PROPERTY + ".final")), "balance.immune.pool", "150", "balance.immune.window", "15",
+                    "balance.immune.recover", "60", "balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula", "balance.immune.dns.pool", "40",
+                    "balance.immune.dns.window", "15", "balance.immune.dns.recover", "60", "balance.immune.fau.pool", "45", "balance.immune.fau.window", "15",
+                    "balance.immune.fau.recover", "60", "balance.final.range", BalanceRangeRule.LINES);
+            eachLane(() -> {
+                L.shooter.setInvulnerable(false);
+                L.target.removeData(acup.gunfeel.gas.GasAttach.STATE.get());
+                for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+                wearAttributes(L.target);
+            });
+        });
+        wait(30);
+    }
+
+    /** the pool's HP now, the kit's size when it has no state yet, NaN out of the pool's phase */
+    private static float g4Pool(EuphImmunity.Kit kit) {
+        String d = EuphImmunity.describe(kit, L.target);
+        if (d.equals("нет")) return EuphImmunity.pool(kit).size();
+        return EuphImmunity.poolOf(kit, L.target);
+    }
+
+    /**
+     * FAU with its own pool (the game's keys of the pool) in the mustard's core, no hazmat over it: (a) the gas until the
+     * pool is half or 120 s, what the gas did (GasState.dealt) against what the pool lost, the health; (b) clean air until
+     * the pool is full again or 120 s; (c) the gas again until the health falls or 180 s.
+     */
+    private static void planGasPool() {
+        line("#\tg4\tgas\tphase\tticks\tgas HP\tpool lost\thealth lost\tpool now\tstate");
+        EuphImmunity.Kit kit = EuphImmunity.Kit.FAU;
+        float[] g = new float[6]; // pool at the phase's start, dealt at it, health at it, ticks, the last gas tick, a flag: the phase is over
+        STEPS.add(() -> {
+            // the game's keys of FAU's pool (ntmgunfeel-server.properties)
+            keys("balance.immune.fau.mode", "pool", "balance.immune.fau.pool", "45", "balance.immune.fau.window", "15",
+                    "balance.immune.fau.recover", "60", "balance.final.pools.gas", "drain");
+            begin(L.target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            dress(L.target, "fau", true);
+            wearAttributes(L.target);
+            EuphImmunity.forget(L.target);
+            L.target.removeData(acup.gunfeel.gas.GasAttach.STATE.get());
+            homePool();
+        });
+        wait(10);
+        String[] phases = {"gas", "air", "gas-again"};
+        int[] limit = {2400, 2400, 3600};
+        for (int ph = 0; ph < 3; ph++) {
+            String name = phases[ph];
+            boolean gas = ph != 1;
+            int lim = limit[ph];
+            int phase = ph;
+            STEPS.add(() -> {
+                g[0] = g4Pool(kit);
+                var st = acup.gunfeel.gas.GasServer.state(L.target);
+                g[1] = st.dealt;
+                g[2] = L.target.getHealth();
+                g[3] = 0;
+                g[5] = 0;
+            });
+            for (int t = 0; t < lim; t++) STEPS.add(() -> {
+                if (g[5] > 0) return;
+                L.target.setDeltaMovement(Vec3.ZERO);
+                float before = acup.gunfeel.gas.GasServer.state(L.target).dealt;
+                acup.gunfeel.gas.GasServer.standStep(level, L.target, acup.gunfeel.gas.GasKind.MUSTARD, gas ? 1F : 0F);
+                if (acup.gunfeel.gas.GasServer.state(L.target).dealt > before) g[4] = g[3];
+                g[3]++;
+                float pool = g4Pool(kit);
+                boolean over = phase == 0 ? pool <= g[0] / 2F : phase == 1 ? pool >= EuphImmunity.pool(kit).size() - 1e-3F : L.target.getHealth() < g[2] - 0.5F;
+                if (over || g[3] >= lim) {
+                    g[5] = 1;
+                    float dealt = acup.gunfeel.gas.GasServer.state(L.target).dealt - g[1];
+                    line("g4\tgas\t" + name + "\t" + (int) g[3] + "\t" + f(dealt) + "\t" + f(Float.isNaN(pool) ? Float.NaN : g[0] - pool) + "\t"
+                            + f(g[2] - L.target.getHealth()) + "\t" + f(pool) + "\t" + EuphImmunity.describe(kit, L.target)
+                            + (phase == 1 ? "\tlast gas hurt at tick " + (int) g[4] : ""));
+                }
+            });
+        }
+        STEPS.add(() -> {
+            L.target.removeData(acup.gunfeel.gas.GasAttach.STATE.get());
+            EuphImmunity.forget(L.target);
+            L.target.setHealth(L.target.getMaxHealth());
+        });
+    }
+
+    /**
+     * The GL-54's laser and a cloud of smoke 10 blocks before the shooter: the optical depth and smoked() to a point
+     * behind the cloud, before it, beside it, and the same with gl54.rangeSmoke false.
+     */
+    private static void planSmokeRange() {
+        line("#\tg4\tsmoke\tpoint\trangeSmoke\tdepth\tsmoked");
+        STEPS.add(() -> {
+            acup.gunfeel.smoke.SmokeClouds.forget(level);
+            homePool();
+            int id = acup.gunfeel.smoke.SmokeClouds.spawn(level, new Vec3(L.o.getX() + 0.5, L.o.getY() + 1.5, L.o.getZ() + 10.5), new Vec3(0, 0, 1),
+                    acup.gunfeel.smoke.SmokeKind.SMOKE, 1F);
+            line("#\tg4\tsmoke: облако " + id);
+        });
+        wait(60);
+        for (String flag : new String[] {"true", "false"}) {
+            STEPS.add(() -> {
+                keys("gl54.rangeSmoke", flag);
+                Vec3 eye = L.shooter.getEyePosition();
+                var clouds = acup.gunfeel.smoke.SmokeClouds.get(level);
+                double x = L.o.getX() + 0.5, z = L.o.getZ() + 0.5;
+                Object[][] pts = {{"behind 22", new Vec3(x, eye.y, z + 22)}, {"before 4", new Vec3(x, eye.y, z + 4)},
+                        {"beside 12 x", new Vec3(x + 12, eye.y, z)}, {"beside 12 x 3 z", new Vec3(x + 12, eye.y, z + 3)}};
+                for (Object[] p : pts) {
+                    Vec3 at = (Vec3) p[1];
+                    float depth = clouds == null ? 0F : clouds.opticalDepth(eye, at);
+                    line("g4\tsmoke\t" + p[0] + "\t" + flag + "\t" + f(depth) + "\t" + acup.gunfeel.gl54.Gl54Range.smoked(level, eye, at));
+                }
+            });
+            wait(2);
+        }
+        STEPS.add(() -> {
+            keys("gl54.rangeSmoke", "true");
+            acup.gunfeel.smoke.SmokeClouds.forget(level);
+        });
+        wait(5);
+    }
+
+    // ---------------------------------------------------------------- Trenchmaster's block with the scheme on (pass tb)
+
+    private static final String[][] TB_PAIRS = {{"g3", "r556_fmj"}, {"spas12", "g12"}, {"laser_pistol", "capacitor"}};
+
+    /**
+     * The pass tb: a bullet, a shotgun's shot and a beam at 4 blocks, aimed, on HEV and on Trenchmaster, the scheme on:
+     * the hits that came to the damage (NTM's filterAttack blocks one in three of a full Trenchmaster's before it).
+     */
+    private static void planTrenchBlock() {
+        line("#\t--- tb: гашение Trenchmaster при balance.final (filterAttack), 4 бл, прицельно");
+        line("#\ttb\tgun\tammo\tset\tclicks\tprojectiles\thits\tshare");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "false", "damageCapMobs", "false", "balance.final.range", "off");
+            eachLane(() -> L.shooter.setInvulnerable(true));
+        });
+        wait(20);
+        List<Runnable> run = new ArrayList<>();
+        for (String[] p : TB_PAIRS) {
+            Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + p[0]));
+            BulletConfig ammo = ammoNamed(gun, p[1]);
+            var pr = BalanceFinal.pairs().get(p[0] + "." + p[1]);
+            if (ammo == null || pr == null) {
+                line("tb\t" + p[0] + "\t" + p[1] + "\tнет патрона");
+                continue;
+            }
+            for (String set : new String[] {"hev", "trenchmaster"}) run.add(() -> trenchCell(pr, gun, ammo, set));
+        }
+        parallel(run);
+        STEPS.add(() -> eachLane(() -> {
+            L.shooter.setInvulnerable(false);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            wearAttributes(L.target);
+        }));
+        wait(10);
+    }
+
+    private static void trenchCell(BalanceFinalRule.Pair pr, Item gun, BulletConfig ammo, String set) {
+        int iv = BalanceFinalRule.intervalTicks(pr);
+        double proj = pr.projectiles();
+        int n = (int) Math.ceil(90 / proj);
+        int[] seen = {0};
+        STEPS.add(() -> {
+            begin(L.target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            dress(L.target, set, true);
+            wearAttributes(L.target);
+            EuphImmunity.forget(L.target);
+            L.target.setDeltaMovement(Vec3.ZERO);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+            L.aimHead = false;
+        });
+        wait(20);
+        STEPS.add(() -> seen[0] = L.seen.hits);
+        for (int c = 0; c < n; c++) {
+            STEPS.add(() -> {
+                L.target.setHealth(L.target.getMaxHealth());
+                L.target.setDeltaMovement(Vec3.ZERO);
+                L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+                fireAimed(L.shooter, gun, ammo);
+            });
+            for (int t = 1; t < Math.max(iv, 4); t++) STEPS.add(() -> L.target.setHealth(L.target.getMaxHealth()));
+        }
+        for (int t = 0; t < 20; t++) STEPS.add(() -> L.target.setHealth(L.target.getMaxHealth()));
+        STEPS.add(() -> {
+            int hits = L.seen.hits - seen[0];
+            line("tb\t" + pr.gun() + "\t" + pr.ammo() + "\t" + set + "\t" + n + "\t" + String.format(Locale.ROOT, "%.0f", n * proj) + "\t" + hits + "\t"
+                    + String.format(Locale.ROOT, "%.4f", hits / (n * proj)));
+        });
     }
 
     // ---------------------------------------------------------------- Fable's fight log (pass lg)
@@ -3408,15 +3904,31 @@ public final class BalanceCheck {
 
     /** a primary click through the sights (the gun's aiming spread, Fable's "aimed standing") */
     private static void fireAimed(LivingEntity from, Item item, BulletConfig ammo) {
+        fireAimed(from, item, ammo, false);
+    }
+
+    /** the same, with {@code both}: the secondary key too (an akimbo's other gun) */
+    private static void fireAimed(LivingEntity from, Item item, BulletConfig ammo, boolean both) {
+        fireKeys(from, item, ammo, true, both);
+    }
+
+    /** a click from the hip, with {@code both} the secondary key too */
+    private static void fireBoth(LivingEntity from, Item item, BulletConfig ammo, boolean both) {
+        fireKeys(from, item, ammo, false, both);
+    }
+
+    private static void fireKeys(LivingEntity from, Item item, BulletConfig ammo, boolean aimed, boolean both) {
         ItemStack stack = loaded(item, ammo);
-        ItemGunBaseNT.setIsAiming(stack, true);
+        if (aimed) ItemGunBaseNT.setIsAiming(stack, true);
         from.setItemSlot(EquipmentSlot.MAINHAND, stack);
         aim(from, L.victim);
         var gun = (ItemGunBaseNT) stack.getItem();
         SimpleContainer inv = new SimpleContainer(1);
         if (ammo.ammoItem != null) inv.setItem(0, new ItemStack(ammo.ammoItem.get(), 64));
         gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_PRIMARY, true);
+        if (both) gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_SECONDARY, true);
         gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_PRIMARY, false);
+        if (both) gun.handleKeybind(from, inv, stack, EnumKeybind.GUN_SECONDARY, false);
     }
 
     private static void aim(LivingEntity from, LivingEntity at) {
