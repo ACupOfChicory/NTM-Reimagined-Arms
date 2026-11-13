@@ -31,7 +31,7 @@ import net.minecraft.world.entity.player.Player;
  *
  * <p>Blasts (balance.final.blast; Fable 12.3, BalanceBlastRule): a launcher's round's or an NTM hand grenade's blast on
  * the same targets takes the ladder's share of the health and pool, the GL-54's fragment grenades a burst's share; the
- * other blasts keep formula C (balanceBlast*). Out of it: an explosive bullet's blast on anyone but the creature it struck, the pairs of balance.final.table.pairs (their gun table lines and formula C, as X908), and shots of no
+ * other blasts keep formula C (balanceBlast*). Out of it: an explosive bullet's blast on anyone but the creature it struck, and shots of no
  * pair of the table (NTM's mobs' and turrets' shots of no gun, other games' guns): NTM's numbers (balance.final.mobs =
  * ntm). Off: everything as X908.
  */
@@ -120,12 +120,12 @@ public final class BalanceFinal {
      * a beam made by the 3-argument constructor (MixinBalanceFinalBeamSub): the IR capacitor's arc (energy_tesla_ir_sub)
      * takes the pair its shooter has just fired (balance.final.tesla.ir; Fable №2, 2.5). Its hit on the creature the
      * click's arc has just struck is nothing (againThisTick): an IR click is the table's click; on anyone else, a click
-     * of the pair with no range rule. Off: the arc has no pair and its damage is not the scheme's (X922).
+     * of the pair with no range rule.
      */
     public static void beamSub(Entity beam, LivingEntity thrower, com.hbm.items.weapon.sedna.BulletConfig config) {
         if (beam == null || thrower == null || thrower.level().isClientSide() || !on()) return;
         try {
-            if (config != com.hbm.items.weapon.sedna.factory.XFactoryEnergy.energy_tesla_ir_sub || !ReaimTimes.flag("balance.final.tesla.ir", true)) return;
+            if (config != com.hbm.items.weapon.sedna.factory.XFactoryEnergy.energy_tesla_ir_sub) return;
         } catch (RuntimeException | LinkageError e) {
             return;
         }
@@ -196,7 +196,7 @@ public final class BalanceFinal {
 
     /** what the keys say now, worked out again when the settings change */
     private record State(Object version, BalanceFinalRule.Params params, Map<String, BalanceFinalRule.Pair> pairs, BalanceFinalRule.Refs refs,
-            Set<String> table, String explosive, Map<String, BalanceFinalRule.Armor> sets, double[] weights, double empty,
+            Map<String, BalanceFinalRule.Armor> sets, double[] weights, double empty,
             Map<CacheKey, Double> cache, BalanceBlastRule.Rule blast, BalanceRangeRule.Rule range, BalanceFinalRule.Acid acid) {
     }
 
@@ -270,8 +270,6 @@ public final class BalanceFinal {
                 // left out
             }
         }
-        String explosive = ReaimTimes.text("balance.final.explosive", "C").trim().toUpperCase(java.util.Locale.ROOT);
-        if (!explosive.equals("A") && !explosive.equals("B")) explosive = "C";
         Set<String> heads = new HashSet<>();
         for (String g : ReaimTimes.text("balance.final.head.guns", String.join(",", d.headGuns())).split("[,\\s]+")) if (!g.isBlank()) heads.add(g.trim());
         Map<String, Double> roles = new HashMap<>(d.roles());
@@ -279,35 +277,22 @@ public final class BalanceFinal {
         var params = new BalanceFinalRule.Params(BalanceFinalRule.anchors(ReaimTimes.text("balance.final.ttk", BalanceFinalRule.Params.TTK)),
                 num("balance.final.ttk.min", d.tmin(), 0.05, 60), num("balance.final.ttk.max", d.tmax(), 1, 1e6), num("balance.final.ttk.below", d.below(), 1, 100),
                 beta, lo, hi, num("balance.final.energy", d.energy(), 0.01, 100), ammoK, from, most, jhp, num("balance.final.ped", d.ped(), -5, 5),
-                explosive.equals("C") ? 1.0 : 0.0, num("balance.final.dnsOverFau", d.dnsOverFau(), 0, 100), Set.copyOf(heads),
+                1.0, num("balance.final.dnsOverFau", d.dnsOverFau(), 0, 100), Set.copyOf(heads),
                 num("balance.final.head.gap", d.headGap(), -10, 10), d.laserTrench(), Map.copyOf(roles), num("balance.final.slug.pellets", d.slugPellets(), 0, 1000),
                 BalanceFinalRule.MagRule.parse(ReaimTimes.text("balance.final.mag", ""), d.mag()),
                 Map.copyOf(BalanceFinalRule.roleOfs(ReaimTimes.text("balance.final.roleOf", BalanceFinalRule.Params.ROLE_OF))),
                 Map.copyOf(BalanceFinalRule.roles(ReaimTimes.text("balance.final.roles.fade", BalanceFinalRule.Params.FADE))),
-                !ReaimTimes.text("balance.final.character.few", "one").trim().equalsIgnoreCase("all"));
-        // balance.final.hits: P the stand's (Fable №2, 1) or the model's (X922)
-        boolean stand = !ReaimTimes.text("balance.final.hits", "stand").trim().equalsIgnoreCase("model");
-        // the pairs, a tier of balance.final.pairTier.<gun>.<ammo> in place of their own
-        Map<String, Double> tiers = new HashMap<>();
-        for (String l : lines()) {
-            var pr = BalanceFinalRule.parse(l, stand);
-            if (pr == null) continue;
-            String key = "balance.final.pairTier." + pr.id();
-            if (ReaimTimes.inFile(key)) tiers.put(pr.id(), num(key, pr.tier(), -5, 20));
-        }
+                true);
+        // the pairs, P the stand's (Fable №2, 1)
         List<String> bad = new ArrayList<>();
-        var pairs = BalanceFinalRule.pairs(lines(), tiers, bad, stand);
+        var pairs = BalanceFinalRule.pairs(lines(), Map.of(), bad, true);
         for (String b : bad) LOGGER.warn("The balance's final pairs: a line not read: {}", b);
-        Set<String> table = new HashSet<>();
-        for (String t : ReaimTimes.text("balance.final.table.pairs", "").split("[,\\s]+")) if (!t.isBlank()) table.add(t.trim());
-        // the refs of the pairs the formula takes (the table's are not)
-        List<BalanceFinalRule.Pair> formula = new ArrayList<>();
-        for (var pr : pairs.values()) if (!inTable(table, pr.id())) formula.add(pr);
+        List<BalanceFinalRule.Pair> formula = new ArrayList<>(pairs.values());
         Map<String, BalanceFinalRule.Armor> sets = new HashMap<>();
         DEFAULT_SETS.forEach((name, a) -> {
             var kit = kitOf(name);
             // the kits' pools the scheme counts in (balance.final.pools), whatever the pools' own keys: the stand makes them 0.0001
-            sets.put(name, armorKey(name, kit == null ? a : new BalanceFinalRule.Armor(a.kind(), a.tier(), a.hours(), a.en(), pools(kit))));
+            sets.put(name, kit == null ? a : new BalanceFinalRule.Armor(a.kind(), a.tier(), a.hours(), a.en(), pools(kit)));
         });
         double[] weights = {3, 8, 6, 3};
         String[] w = ReaimTimes.text("balance.final.armor.weights", "3,8,6,3").split(",");
@@ -328,31 +313,9 @@ public final class BalanceFinal {
         var range = new BalanceRangeRule.Rule(parsed("balance.final.range", BalanceRangeRule.LINES, BalanceRangeRule::lines),
                 num("balance.final.range.close", 8, 0, 256), Map.copyOf(BalanceFinalRule.roles(ReaimTimes.text("balance.final.range.home", BalanceRangeRule.HOME))),
                 parsed("balance.final.range.lineOf", BalanceRangeRule.LINE_OF, BalanceRangeRule::lineOfs));
-        return new State(version, params, pairs, BalanceFinalRule.refs(formula), Set.copyOf(table), explosive, Map.copyOf(sets), weights,
+        return new State(version, params, pairs, BalanceFinalRule.refs(formula), Map.copyOf(sets), weights,
                 num("balance.final.armor.empty", 0, 0, 20), new ConcurrentHashMap<>(), blast, range,
                 BalanceFinalRule.Acid.parse(ReaimTimes.text("balance.final.acid", ACID), BalanceFinalRule.Acid.DEFAULT));
-    }
-
-    /** a pair in balance.final.table.pairs: by its gun (all its ammo) or gun.ammo */
-    static boolean inTable(Set<String> table, String id) {
-        int dot = id.indexOf('.');
-        return table.contains(id) || (dot > 0 && table.contains(id.substring(0, dot)));
-    }
-
-    /** a set's numbers of balance.final.armor.<set> = tier:hours:EN, the scheme's by default */
-    private static BalanceFinalRule.Armor armorKey(String name, BalanceFinalRule.Armor def) {
-        String v = ReaimTimes.text("balance.final.armor." + name, "").trim();
-        if (v.isEmpty()) return def;
-        String[] p = v.split(":");
-        try {
-            double t = Double.parseDouble(p[0]);
-            double h = p.length > 1 ? Double.parseDouble(p[1]) : def.hours();
-            double en = p.length > 2 ? Double.parseDouble(p[2]) : def.en();
-            if (Double.isFinite(t) && Double.isFinite(h) && Double.isFinite(en)) return new BalanceFinalRule.Armor(def.kind(), t, h, en, def.pool());
-        } catch (NumberFormatException ignored) {
-            // the default
-        }
-        return def;
     }
 
     /** the kit of a full set of {@code name} (NTM's name), or null */
@@ -433,16 +396,16 @@ public final class BalanceFinal {
         State s = state();
         Entity projectile;
         if (DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) {
-            // an explosive bullet's blast on the creature it struck: its direct hit (variant C, B); the rest of the blast as before
-            if (s.explosive().equals("A") || !BalanceArmor.bulletBlastNow() || ExplosiveDamage.struckNow() != target) return null;
+            // an explosive bullet's blast on the creature it struck: its direct hit (variant C); the rest of the blast as before
+            if (!BalanceArmor.bulletBlastNow() || ExplosiveDamage.struckNow() != target) return null;
             projectile = ExplosiveDamage.bulletNow();
         } else projectile = source.getDirectEntity();
         String id = pairOf(projectile);
         // an NTM blast of a beam or a bullet of a pair (the Tesla Cannon's arc): the pair its shooter just fired
         if (id == null && BalanceArmor.vntBlastNow() && !DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) id = blastPair(source);
-        if (id == null || inTable(s.table(), id)) return null;
+        if (id == null) return null;
         var pr = s.pairs().get(id);
-        if (pr == null || (pr.explosive() && s.explosive().equals("A"))) return null;
+        if (pr == null) return null;
         var armor = armorOf(target, s);
         if (armor == null) return null;
         BalanceFinalRule.Armor fau = s.sets().get("fau");
@@ -542,8 +505,8 @@ public final class BalanceFinal {
         var r = state().range();
         String role = BalanceFinalRule.roleOf(h.pair(), state().params());
         boolean own = r.lineOf().containsKey(h.pair().gun());
-        // an explosive shell's direct hit takes the shell's line, or its role's (balance.final.range.shells; Fable №2, 2.1; №3); other blasts none
-        boolean shell = !own && expl(source) && h.pair().explosive() && (role.equals("shotgun") || role.equals("slug")) && ReaimTimes.flag("balance.final.range.shells", true);
+        // an explosive shell's direct hit takes the shell's line, or its role's (Fable №2, 2.1; №3); other blasts none
+        boolean shell = !own && expl(source) && h.pair().explosive() && (role.equals("shotgun") || role.equals("slug"));
         // the IR arc's beam: no range, like the arc (Fable's answer 6, 5)
         // the shell's direct hit comes in NTM's blast (vntBlastNow): the shell's line all the same; so does a drop's blast of a gun's own line
         if (!r.on() || (BalanceArmor.vntBlastNow() || expl(source)) && !shell && !(own && expl(source)) || irSub(source) || source.getEntity() == null) return 1F;
@@ -583,7 +546,7 @@ public final class BalanceFinal {
         State s = state();
         // a GL-54 fragment grenade's (BalanceFinal.frag): the scheme's, like a pair's
         if (s.blast().on() && id.startsWith("gl54.") && s.blast().frags().containsKey(id.substring(5))) return false;
-        return !inTable(s.table(), id) && !s.pairs().containsKey(id);
+        return !s.pairs().containsKey(id);
     }
 
     // ---------------------------------------------------------------- blasts (balance.final.blast; Fable 11.2, 12.3)

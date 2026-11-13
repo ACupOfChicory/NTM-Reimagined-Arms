@@ -162,7 +162,29 @@ public final class ModelHits {
             for(var b:p.boxes()) if(armourPiece(b.part())) return zones;
             worn=armour(worn);
         }
+        if(suitsOn() && worn.any() && target instanceof LivingEntity living) worn=unsuited(worn,ntmWorn(living),p.boxes());
         return worn.any()?WornGear.zones(zones,worn,WornGear.humanoid(p.boxes()),WornGear.split(p.boxes())):zones;
+    }
+
+    /**
+     * What is worn, less the pieces an NTM suit draws by its own model (its groups among the pose's boxes): those are
+     * caught as they are drawn and a shot on them takes the part they cover (suitPiece), so they grow no zone. Grown,
+     * the head's and the arms' zones took the bare body by the neck and the shoulders where a suit leaves it open
+     * (Bismuth, Diesel: 5 % of the shots on the body as the head or a limb).
+     */
+    static WornGear.Worn unsuited(WornGear.Worn worn,boolean[] ntm,List<ModelBox> boxes) {
+        if(ntm==NONE_WORN) return worn;
+        boolean[] own=new boolean[4];boolean any=false;
+        for(var b:boxes) {
+            int s=suitSlot(b.part());
+            // by the piece's own group (an extra, a jetpack or a lamp, may ride on armour drawn as a layer); the helmet
+            // as the head only with modelHitboxesHelmet (helmet())
+            if(s<0 || !ntm[s] || own[s] || !SUIT_MAIN.contains(b.part().substring(b.part().lastIndexOf('/')+1)) || s==0 && !helmetsOn()) continue;
+            own[s]=true;any=true;
+        }
+        if(!any) return worn;
+        return new WornGear.Worn(own[0] && worn.head()==WornGear.Head.ARMOR?WornGear.Head.NONE:worn.head(),
+                worn.chest() && !own[1],worn.legs() && !own[2],worn.feet() && !own[3]);
     }
     enum Zone { HEAD, LIMB, BODY }
 
@@ -234,25 +256,87 @@ public final class ModelHits {
         return best;
     }
 
-    /** the groups of NTM's own suit models that are the helmet ("mesh/<group>"; T-51, HEV, AJR, NCR and the rest) */
-    static final java.util.Set<String> SUIT_HELMETS=java.util.Set.of("Helmet","Head","Eyes");
+    /**
+     * The groups of NTM's own suit models ("mesh/<group>"; T-51, HEV, AJR, NCR, BJ, FAU, Trenchmaster and the rest),
+     * by the piece that draws them and the part of the body it covers, as NTM's ArmorWorldRenderer registers them: the
+     * helmet, the chest, the arms, the legs, the boots, and the extras on the helmet (eyes, lamps, a light) or the chest
+     * (a jetpack, a fan, a glow, a cassette)
+     */
+    static final java.util.Set<String> SUIT_HELMETS=java.util.Set.of("Helmet","Head","Eyes","Lamps","Light");
+    /** the helmet's groups X953 knew (modelHitboxesSuits off keeps them alone) */
+    private static final java.util.Set<String> SUIT_HELMETS_X953=java.util.Set.of("Helmet","Head","Eyes");
+    static final java.util.Set<String> SUIT_CHEST=java.util.Set.of("Chest","Body","Jetpack","Fan","Glow","Cassette");
+    static final java.util.Set<String> SUIT_ARMS=java.util.Set.of("LeftArm","RightArm");
+    static final java.util.Set<String> SUIT_LEGS=java.util.Set.of("LeftLeg","RightLeg");
+    static final java.util.Set<String> SUIT_BOOTS=java.util.Set.of("LeftBoot","RightBoot","LeftFoot","RightFoot");
+    /** the groups that are the piece itself, not an extra on it */
+    private static final java.util.Set<String> SUIT_MAIN=java.util.Set.of("Helmet","Head","Chest","Body","LeftArm","RightArm","LeftLeg","RightLeg",
+            "LeftBoot","RightBoot","LeftFoot","RightFoot");
+
+    /** the slot whose piece draws a suit's group (0 head, 1 chest, 2 legs, 3 feet), or -1 for no group of a suit */
+    static int suitSlot(String part) {
+        if(!part.startsWith("mesh/") || part.startsWith("mesh/root")) return -1;
+        String g=part.substring(part.lastIndexOf('/')+1);
+        return SUIT_HELMETS.contains(g)?0:SUIT_CHEST.contains(g) || SUIT_ARMS.contains(g)?1:SUIT_LEGS.contains(g)?2:SUIT_BOOTS.contains(g)?3:-1;
+    }
+
+    /** the part of the body under a suit's group: the head, a limb (arms, legs, boots) or the body; null for none */
+    static Zone suitZone(String part) {
+        int slot=suitSlot(part);
+        if(slot<0) return null;
+        String g=part.substring(part.lastIndexOf('/')+1);
+        return slot==0?Zone.HEAD:SUIT_CHEST.contains(g)?Zone.BODY:Zone.LIMB;
+    }
+
+    private static final net.minecraft.world.entity.EquipmentSlot[] SUIT_SLOTS={net.minecraft.world.entity.EquipmentSlot.HEAD,
+            net.minecraft.world.entity.EquipmentSlot.CHEST,net.minecraft.world.entity.EquipmentSlot.LEGS,net.minecraft.world.entity.EquipmentSlot.FEET};
+
+    private static final boolean[] NONE_WORN=new boolean[4];
+
+    /**
+     * which slots hold an NTM piece (a suit's group counts only under its piece: an NTM mob's own model may have a
+     * "Head"); one shared array of falses when none does
+     */
+    static boolean[] ntmWorn(LivingEntity target) {
+        boolean[] out=null;
+        for(int i=0;i<4;i++) {
+            var stack=target.getItemBySlot(SUIT_SLOTS[i]);
+            if(stack.isEmpty()) continue;
+            var id=net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem());
+            if(id==null || !id.getNamespace().equals("hbm")) continue;
+            if(out==null) out=new boolean[4];
+            out[i]=true;
+        }
+        return out==null?NONE_WORN:out;
+    }
+
+    /** the part a worn suit's group covers, or null when the part is no group of a piece worn */
+    static Zone suitPiece(boolean[] worn,String part) {
+        int slot=suitSlot(part);
+        return slot<0 || !worn[slot]?null:suitZone(part);
+    }
 
     /**
      * modelHitboxesHelmet (true; false: X949): a shot on a helmet is a shot in the head, whatever the helmet: vanilla's
      * or NTM's layer armour caught as its draw over the head, an NTM suit's own helmet model (it stands further off the
      * head than vanilla's 1.5 pixels the head's zone grows by: its edge was the body)
+     * by the part's name; {@code headWorn}: an NTM helmet is worn on the head (a lamp or a light of it: with
+     * modelHitboxesSuits)
      */
-    static boolean helmet(LivingEntity target,String part) {
-        // a suit's group only under an NTM helmet: an NTM mob's own model may have a group "Head" of its own
-        var id=net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(target.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).getItem());
-        return helmet(id!=null && id.getNamespace().equals("hbm"),part);
-    }
-
-    /** the same by the part's name alone; {@code headWorn}: an NTM helmet is worn on the head */
     static boolean helmet(boolean headWorn,String part) {
         if(armourPiece(part)) return armourPartZone(part)==Zone.HEAD;
-        if(!headWorn || !part.startsWith("mesh/") || part.startsWith("mesh/root")) return false;
-        return SUIT_HELMETS.contains(part.substring(part.lastIndexOf('/')+1));
+        if(!headWorn || suitSlot(part)!=0) return false;
+        return SUIT_HELMETS_X953.contains(part.substring(part.lastIndexOf('/')+1)) || suitsOn();
+    }
+
+    /**
+     * modelHitboxesSuits (true; false: X953): a shot on an NTM suit's own model is a shot in the part its piece covers:
+     * the chest's (its collar, its breastplate) the body, the arms' (the shoulder pads, the sleeves) and the legs' and
+     * boots' the limb. The suit stands off the body further than the zones grow: its collar and shoulder pads were the
+     * head, its arms and legs the body (a bot in T-51: a quarter of the shots on the suit in the wrong part)
+     */
+    static boolean suitsOn() {
+        return ReaimTimes.flag("modelHitboxesSuits",true);
     }
 
     static boolean helmetsOn() {
@@ -455,9 +539,15 @@ public final class ModelHits {
         var local=unturn(point.subtract(impactOrigin(root,point)),angle);
         var piece=bodyOnly(root)?armourZone(pose.boxes(),local):null;
         if(piece!=null) return new ModelHeads.Hit(true,piece==Zone.HEAD,resolved.source(),"броня: часть под ней",resolved.confidence());
-        if(helmetsOn() && !resolved.zones().isEmpty()) {
+        if((helmetsOn() || suitsOn()) && !resolved.zones().isEmpty()) {
             var on=partAt(pose.boxes(),local);
-            if(on!=null && helmet(living,on.part())) return new ModelHeads.Hit(true,true,resolved.source(),"шлем",resolved.confidence());
+            if(on!=null) {
+                var worn=ntmWorn(living);
+                if(helmetsOn() && helmet(worn[0],on.part())) return new ModelHeads.Hit(true,true,resolved.source(),"шлем",resolved.confidence());
+                // a suit's piece not on the head: not the head, whatever zone it reaches into
+                var suit=suitsOn()?suitPiece(worn,on.part()):null;
+                if(suit!=null && suit!=Zone.HEAD) return new ModelHeads.Hit(true,false,resolved.source(),"костюм: часть под ним",resolved.confidence());
+            }
         }
         boolean head=HeadZone.contains(wornZones(root,pose,resolved.zones()),local);
         return new ModelHeads.Hit(true,head,resolved.source(),resolved.reason(),resolved.confidence());
@@ -477,8 +567,15 @@ public final class ModelHits {
         var local=unturn(point.subtract(impactOrigin(root,point)),angle);
         var piece=bodyOnly(root)?armourZone(pose.boxes(),local):null;
         if(piece!=null) return piece==Zone.LIMB;
-        var zones=wornZones(root,pose,ModelHeads.limbs(ModelHeads.key(root),pose.boxes(),pose.yaw()).zones());
-        return HeadZone.contains(zones,local);
+        var limbs=ModelHeads.limbs(ModelHeads.key(root),pose.boxes(),pose.yaw()).zones();
+        // a suit's piece: the part it covers (a mob with limbs only)
+        var worn=suitsOn() && !limbs.isEmpty()?ntmWorn(living):NONE_WORN;
+        if(worn!=NONE_WORN) {
+            var on=partAt(pose.boxes(),local);
+            var suit=on==null?null:suitPiece(worn,on.part());
+            if(suit!=null) return suit==Zone.LIMB;
+        }
+        return HeadZone.contains(wornZones(root,pose,limbs),local);
     }
     public static synchronized List<HeadZone> headZones(Entity target) {
         var poses=POSES.get(target.level());var pose=poses==null?null:poses.get(target.getId());
@@ -489,8 +586,10 @@ public final class ModelHits {
         var out=new ArrayList<HeadZone>();
         for(var zone:wornZones(target,pose,resolved.zones())) out.add(world(zone,angle,target.position()));
         // a helmet is the head (head()): F3+B shows it as the head, not as the body
-        if(helmetsOn() && !resolved.zones().isEmpty())
-            for(var b:pose.boxes()) if(helmet(living,b.part())) out.add(world(new HeadZone(b,List.of()),angle,target.position()));
+        if(helmetsOn() && !resolved.zones().isEmpty()) {
+            boolean headWorn=ntmWorn(living)[0];
+            for(var b:pose.boxes()) if(helmet(headWorn,b.part())) out.add(world(new HeadZone(b,List.of()),angle,target.position()));
+        }
         return List.copyOf(out);
     }
     /** the stand (BotStand): the limb zones in the world, as limb() takes them (grown with what is worn) */

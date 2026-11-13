@@ -361,6 +361,8 @@ neoForge {
             programArgument("--nogui")
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkSettings", layout.buildDirectory.file("settingscheck/result.txt").get().asFile.path)
+            // the stand sets the balance's keys in its file (BalanceKeys.dev): for players they are fixed in the mod
+            systemProperty("ntmgunfeel.balanceKeys", "true")
         }
         // bullets on real blocks in a small flat world (BulletCheck)
         register("checkBullets") {
@@ -377,6 +379,8 @@ neoForge {
             programArgument("--nogui")
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkSpread", layout.buildDirectory.file("spreadcheck/result.tsv").get().asFile.path)
+            // the stand sets the balance's keys in its file (BalanceKeys.dev): for players they are fixed in the mod
+            systemProperty("ntmgunfeel.balanceKeys", "true")
             // -PstandSprint=false: the ticks in real time (by default /tick sprint: the same ticks, the clock not waited for)
             providers.gradleProperty("standSprint").orNull?.let { systemProperty("ntmgunfeel.standSprint", it) }
         }
@@ -397,6 +401,8 @@ neoForge {
             programArgument("--nogui")
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkBalance", layout.buildDirectory.file("balancecheck/result.txt").get().asFile.path)
+            // the stand sets the balance's keys in its file (BalanceKeys.dev): for players they are fixed in the mod
+            systemProperty("ntmgunfeel.balanceKeys", "true")
             // -PstandSprint=false: the ticks in real time (by default /tick sprint: the same ticks, the clock not waited for)
             providers.gradleProperty("standSprint").orNull?.let { systemProperty("ntmgunfeel.standSprint", it) }
             // -PbalanceOnly=dns,1b: only these passes (BalanceCheck.only)
@@ -443,6 +449,8 @@ neoForge {
             programArgument("--nogui")
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkMechanisms", layout.buildDirectory.file("mechanismcheck/result.txt").get().asFile.path)
+            // the stand sets the balance's keys in its file (BalanceKeys.dev): for players they are fixed in the mod
+            systemProperty("ntmgunfeel.balanceKeys", "true")
         }
         // bullets in water: a basin in a flat world (WaterCheck), the result is a tsv
         register("checkWater") {

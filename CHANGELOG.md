@@ -18,6 +18,62 @@
   the block lists `aiRoomsNatural`, `aiRoomsDwelling`, `aiRoomsWild` (ids,
   `#tags`, `~patterns`).
 
+## X999
+
+- ⚠ Breaks compatibility: the balance is one server switch, `balance = arms`
+  (the mod's, the default) or `balance = ntm` (NTM's own damage, armour,
+  spread, range, blasts, the sets' abilities and recipes: no rule of the
+  balance touches them; the mod's rules that are not the balance, such as the
+  damage cap, the living spread and the hit zones, keep their own keys). Every
+  number of the balance is fixed in the mod. The old keys (`balance*`,
+  `abilities.*`, `powerArmorSpread*`, `powerArmorRecoil*`, `spreadAimKnee` and
+  the rest of the shotguns' choke) are not read any more, nor
+  `config/ntm-gunfeel-balance-guns.tsv`: a server's file that still has them
+  writes one line in the log and goes on. With `balance = arms` the game is as
+  X993.
+
+## X993
+
+- The server counts the part a shot hits as the shooter's client draws it,
+  for the shots it decides itself (bots, mobs, a shot whose client report did
+  not come). Under a suit drawn by its own model (Bismuth, Diesel and the
+  rest), a shot on the bare body by the neck or the shoulders counted as the
+  head or a limb: the head and arm zones grew as if vanilla armour were worn
+  there (with `modelHitboxesSuits` on). And a shot grazing a face of the model,
+  such as the top of an HEV or AJR helmet half a pixel over the head, could go
+  in on one side and past on the other: the client now tests its own shots on
+  the same numbers it sends the server.
+
+## X989
+
+- AI soldiers crouch on bent legs. Standing still, a crouching soldier is
+  down on its right knee with the left foot ahead; moving, it walks bent low
+  with its knees bending. Before, a crouching soldier stood and walked on
+  straight legs set back, as a sneaking player does. Its head, shoulders and
+  hitbox are where they were: the eye it sees and shoots from did not move.
+- In a fight a soldier standing still stands with its left foot ahead and
+  its right foot back, not with its feet together.
+- A soldier in the air, jumping up a block or falling a block or more, draws
+  its knees up; before, its legs went on walking. Stepping down a slab or a
+  stair is not a jump.
+- A hit makes a soldier flinch one of four ways in turn (was two): its head
+  thrown back, its chest, doubled up, thrown back.
+- Two new things a soldier can be drawn doing, for going into buildings:
+  waiting beside a doorway with its gun close at the chest, muzzle up, and
+  reaching for a door with its free hand. The AI does not use them yet.
+- More clips of the free animation packs are in use (Quaternius' Universal
+  Animation Library and SWAT, KayKit's Character Animations, all CC0):
+  `third-party/bot-animations.txt`.
+
+## X981
+
+- A shot on an NTM suit's own model counts for the part its piece covers,
+  on bots, mobs and players: the chest's collar and breastplate are the body,
+  the shoulder pads, sleeves, legs and boots a limb. Up to half the shots on
+  a T-51, HEV, AJR, NCR, BJ, FAU, Trenchmaster or another such suit landed in
+  the wrong part, the shoulder pads in the head (`modelHitboxesSuits`; false:
+  as before).
+
 ## X977
 
 - The Shredder's damage falls off with range as the laser guns' does: full

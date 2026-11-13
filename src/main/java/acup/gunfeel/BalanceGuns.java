@@ -31,7 +31,8 @@ import net.neoforged.fml.loading.FMLPaths;
 /**
  * The balance's gun damage (stage 1b, server setting balanceGuns): a shot of an NTM gun does NTM's damage times its
  * gun and ammo's mult, and its ammo's armour threshold negation and piercing get the pair's additions
- * (BalanceGunsRule, the table {@code ntmgunfeel-balance-guns.tsv}; a file of the same name in config/ is read instead).
+ * (BalanceGunsRule, the table {@code ntmgunfeel-balance-guns.tsv}; on the stands, BalanceKeys.dev, a file of the same
+ * name in config/ is read instead).
  * On another game's server the client goes by that server's table (ServerSettings), its own file aside.
  *
  * <p>Put where a gun's shot is made (the bullet's and the beam's shot constructors: NTM's standard fire, the Tau's
@@ -97,7 +98,14 @@ public final class BalanceGuns {
             Path f = FMLPaths.CONFIGDIR.get().resolve(FILE);
             long stamp = -1L;
             try {
-                if (Files.exists(f)) stamp = Files.getLastModifiedTime(f).toMillis();
+                // config/'s table only on the stands (BalanceKeys.dev): the balance is fixed in the mod
+                if (Files.exists(f)) {
+                    if (BalanceKeys.dev()) stamp = Files.getLastModifiedTime(f).toMillis();
+                    else if (!ignoredLogged) {
+                        ignoredLogged = true;
+                        LOGGER.info("{} is not read any more: the balance's gun table is the mod's", f);
+                    }
+                }
             } catch (IOException e) {
                 stamp = -1L;
             }
@@ -110,6 +118,8 @@ public final class BalanceGuns {
         }
         return table;
     }
+
+    private static boolean ignoredLogged;
 
     private static BalanceGunsRule.Table read(Path f) {
         List<String> lines;
@@ -136,7 +146,7 @@ public final class BalanceGuns {
     /** the table as this game's server has it (its file, else the jar's), for the players */
     static String text() throws IOException {
         Path f = FMLPaths.CONFIGDIR.get().resolve(FILE);
-        if (Files.exists(f)) return Files.readString(f, StandardCharsets.UTF_8);
+        if (BalanceKeys.dev() && Files.exists(f)) return Files.readString(f, StandardCharsets.UTF_8);
         try (InputStream in = BalanceGuns.class.getResourceAsStream(RESOURCE)) {
             return in == null ? "" : new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
@@ -258,14 +268,14 @@ public final class BalanceGuns {
     private static final Map<Entity, BalanceGunsRule.Shot> UNDER = Collections.synchronizedMap(new WeakHashMap<>());
 
     /**
-     * balanceGunUnder (true; false: X904, the line's own numbers on every set): the pair's under= on a set of
+     * the pair's under= (X904: the line's own numbers on every set) on a set of
      * {@code tier} as changes to the hit, {damage share, neg added, pen added} (the shot left with the line's mult,
      * neg and pen); null for none
      */
     public static float[] underOf(Entity direct, int tier) {
         if (direct == null) return null;
         BalanceGunsRule.Shot s = UNDER.get(direct);
-        if (s == null || !ReaimTimes.flag("balanceGunUnder", true)) return null;
+        if (s == null) return null;
         return BalanceGunsRule.underShift(s, tier);
     }
 
@@ -289,14 +299,14 @@ public final class BalanceGuns {
     }
 
     /**
-     * balanceArmorFloor (true; false: X873): the table's floor of the hit's shot on a set of {@code tier} (1: none, or
+     * the table's floor of the hit's shot (X873: none) on a set of {@code tier} (1: none, or
      * a tier below the pair's), times balanceArmorTierFloor's share for the pair's tier on that set's (no less than the
      * table's least floor)
      */
     public static float floorOf(Entity direct, int tier) {
         float[] e = extra(direct);
         if (e == null || e.length < 4) return 1F;
-        float own = e[2] == 1F || tier < e[3] || !ReaimTimes.flag("balanceArmorFloor", true) ? 1F : e[2];
+        float own = e[2] == 1F || tier < e[3] ? 1F : e[2];
         float k = e.length > 4 ? BalanceGunsRule.tierFloor(tierFloorRules(), (int) e[4], tier) : 1F;
         return k < 1F ? Math.max(BalanceGunsRule.LEAST_FLOOR, own * k) : own;
     }

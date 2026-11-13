@@ -117,12 +117,15 @@ page. They are alphas: expect bugs and back up your world.
   capped by the set's tier, bismuth is a tier 6 set, and VATS and thermal
   vision show no players (FAU and DNS thermal and AMAT Penance's thermal
   sight: the ones in sight within 16 blocks).
-- Guns' damage by gun and ammo (the balance's table, one line a pair, which a
-  server can replace with its own file): each pair's shot does NTM's damage
-  times its multiplier. A few guns change: Heretic is a semi-automatic
+- Guns' damage by gun and ammo (the balance's table, one line a pair): each
+  pair's shot does NTM's damage times its multiplier. A few guns change: Heretic is a semi-automatic
   shotgun with 24 rounds, AM180 fires slower with 60, the AMAT Penance,
   Subtlety and MAS-36 fire faster, Morning Glory hits twice as hard,
   Aberrator holds 9 rounds and Eyes of the Tempest 8 a gun.
+- The balance is one server switch: `balance = arms` (the default) or
+  `balance = ntm`, NTM's own damage, armour, spread, range, blasts,
+  abilities and recipes (the mod's other rules, such as the damage cap, keep
+  their own keys). Its numbers are fixed in the mod.
 
 ### Bullets and blocks
 
@@ -298,8 +301,9 @@ Settings are in the `config` folder:
   `/gunfeel set <key> <value>`, `/gunfeel get <key>` and `/gunfeel unset <key>`
   change its keys.
 - `ntm-gunfeel-server.properties`: the server's gameplay rules (bullets,
-  spread, beams, water, lying down, the sprint delay, gas, suppression, AI soldiers). They are sent to
-  connected players. The mod does not create this file: write the keys you
+  spread, beams, water, lying down, the sprint delay, gas, suppression, AI
+  soldiers, the balance: `arms` or `ntm`). They are sent to connected
+  players. The mod does not create this file: write the keys you
   want as `key = value`. Every key and its default is described in
   `ntmgunfeel-server.properties` inside the mod jar.
 - `ntm-gunfeel-bullets.txt`: what bullets do to blocks (breaking, piercing,
@@ -349,15 +353,11 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `modelHitboxes` | `true` | Hits by the model, with head and limb zones |
 | `modelHitboxesWorn` | `true` | Worn armour, skulls and pumpkins are part of the model |
 | `modelHitboxesHelmet` | `true` | A shot on a helmet is a shot in the head: a layer's helmet and an NTM suit's own helmet model (T-51, HEV and the rest), shown as the head in F3+B; false: as X949 |
+| `modelHitboxesSuits` | `true` | A shot on an NTM suit's own model is a shot in the part its piece covers: the chest's collar and breastplate the body, the shoulder pads, sleeves, legs and boots the limb; false: as X953 |
 | `clientHits` | `true` | A player's bullet hits what that player's game saw it hit; off: the server's view decides |
 | `cameraScaleMin` | `0` | Camera recoil players cannot go below |
 | `spreadStand`, `spreadMove`, `spreadSneak`, `spreadCrawl`, `spreadAim` | `1`, `1.5`, `0.75`, `0.5`, `1` | Spread by stance |
-| `spreadAimKnee`, `spreadAimOver` | `0`, `1`; the shotguns that aim `0.015`, `0.3` | Aimed, NTM's spread past the knee counts `spreadAimOver` times (buckshot 0.035 -> 0.021, flechettes 0.025 -> 0.018); a knee of 0: off |
-| `spreadHipKnee`, `spreadHipOver` | `0`, `1`; the SPAS-12 `0.015`, `0.3` | The same from the hip: the SPAS-12 has no aim in NTM; a knee of 0: off |
-| `powerArmorSpread.<set>` | from `0.8` (T-51b) to `0.4` (FAU, DNS) | Movement and burst spread in power armour and Trenchmaster, as a share, by the chestplate's set |
-| `powerArmorSpread` | `0.5` | The same for a power armour chestplate with no line of its own |
-| `powerArmorRecoil.<set>` | from `0.8` (T-51b) to `0.4` (FAU, DNS) | Recoil in power armour and Trenchmaster, as a share, by the chestplate's set; the players' clients go by the server's |
-| `powerArmorRecoil` | `0.5` | The same for a power armour chestplate with no line of its own |
+| `balance` | `arms` | The balance: `arms`, the mod's; `ntm`, NTM's own. `arms`: NTM's combat sets take bullets, beams and blasts by the mod's armour formula, and a gun with its ammo kills a set in the time of the mod's ladder (by the tiers, the gun's role and the range), launchers' rounds and hand grenades on the same ladder; the kit (the shield, Med-X, the super stimpak, the inserts), the pools of euphemium, DNS and FAU, the sets' abilities, a steadier aim and less recoil in power armour, the shotguns' aimed choke and the balance's recipes. `ntm`: none of it, NTM's damage, armour, spread, range, blasts, abilities and recipes; the mod's rules that are not the balance (`damageCap`, the living spread, `bulletSpeed`, `modelHitboxes`) keep their own keys. Its numbers are fixed in the mod: no other key sets them, an old file's `balance*` keys are not read |
 | `sprintFireDelay` | `true` | No shot right after a sprint; `sprintFireTime` per gun |
 | `prone`, `proneWithoutGun` | `true` | Lying down; lying without a gun in hand |
 | `proneCrawlNoFire`, `proneCrawlSpeed` | `true`, `0.25` | No shot while crawling faster than this many blocks a second |
@@ -389,95 +389,9 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `damageCapWindow`, `damageCapWindowTicks` | `0.8`, `14` | The most one shooter takes in any so many ticks |
 | `damageCapSniperDelay`, `damageCapSniperHead` | `25`, `1.0` | A gun that waits this many ticks between shots takes up to this much with a head click (not a pellet of buckshot or stone shot) |
 | `damageCapMobs` | `false` | Mobs and AI bots are capped too |
-| `damageCapBlasts` | `true` | NTM's blasts are capped (not those over `balanceExplRawLimit` raw damage); off: none of them is |
+| `damageCapBlasts` | `true` | NTM's blasts are capped (not those over 60 raw damage: a mine, C4); off: none of them is |
 | `damageCapAnyBlast` | `true` | Any NTM blast's hit counts in its click, whatever its class (the Tesla Cannon's electric blast); false: as X865 |
-| `balanceArmor` | `true` | NTM's combat sets take bullets, beams and blasts by the balance's formula; off: NTM's threshold and resistance |
-| `balanceS.<set>` | from `8` (steel) to `280` (euphemium) | Each set's rating; `0`: NTM's numbers for that set. Starmetal is a combat set of tier 6 with bismuth's `96` (`balanceS.starmetal` `0`: NTM's joke set, as X875) |
-| `balanceTau.<set>` | from `1` (steel) to `8.5` (euphemium) | Each set's tier in the formula: how much of a weak hit still gets through and how much of a strong one is stopped |
-| `balanceEnShare` | `0.75` | The share of the rating beams and lasers meet |
-| `balanceFleshKnee`, `balanceFleshMax` | `8`, `14` | One hit's damage on a set is squeezed past the first towards the second |
-| `balanceArmorBlasts` | `true` | Blasts go by the formula too; off: blasts by NTM's threshold and resistance |
-| `balanceExplRawLimit` | `60` | A blast of more raw damage (a mine, C4) is not squeezed and not capped |
-| `balanceBlastPower` | `3` | A weapon's blast (grenade, 40 mm, rocket) hits a combat set as this many times its damage, never more than with no armour; 2.7: as X865, 1: as X858 |
-| `balanceBlastPowerLow`, `balanceBlastPowerRocketHigh` | `1.7`, `2.2` | The power on sets of tier 4 and below, and of a rocket's direct hit on tier 7 (RPA, CMB, Schrabidium); at most `balanceBlastPower`; all three `2.7`: as X865 |
-| `balanceBlastRocketHighFrom` | `30` | `balanceBlastPowerRocketHigh` only for a rocket of more raw damage than this (Missile Launcher, Stinger); Panzerschreck's round hits tier 7 as a 40 mm shell of its damage; `0`: every rocket, as X873 |
-| `balanceBlastLowFloor` | `0.9` | A weapon's blast on a set of tier 4 and below passes it as if its power were at least this share of the set's rating: a gunpowder grenade takes 4 hits on tier 4 at 1 block, a DEMO grenade or a 40 mm shell's splash 5 to 7, never fewer than on T-51b; a blast under 7 raw damage (its far edge) gets the floor in its share of 7; `0.83` with `balanceBlastFloorShare` false: as X875; `0`: as X873 |
-| `balanceBlastFloorShare` | `true` | That floor lifts only the share of the blast that passes, its flesh stays the blast's own, so no tier 4 set holds a weak blast worse than T-51b; false: the floor's flesh too, as X875 |
-| `balanceBlastTrenchTier` | `4` | The tier Trenchmaster takes a weapon's blast at (its power and the floor above): NTM gives it HEV's explosion resistance, so it holds a blast like HEV; `6`: as X877 (3 hits of MK108's or a rocket's direct blast against HEV's 4) |
-| `balanceArmorTierFloor` | `2:4:0.5 5:8:0.5` | Rules `gun tier:set tier:factor`: the per-click floor of a gun of that tier or below, on a set of that tier or up, times the factor (the least factor of the rules that fit). So three guns of tier 2 do not outrun the damage cap on HEV, nor three of tier 5 on DNS and FAU; `off`: no rules, as X884 |
-| `balanceBulletBlastCap` | `true` | An explosive bullet's blast is squeezed and capped at any damage, not taken for a mine past `balanceExplRawLimit`; false: as X865 |
-| `balanceIrBeams` | `true` | An infrared beam (IR capacitors) is a beam: the armour formula's and the cap's; false: NTM's fire numbers, as X865 |
-| `balanceElectricPowered` | `1.5` | An electric hit (Tesla Cannon) on a powered chestplate counts this many times; 5: NTM's, as X865 |
-| `balanceRoflFloor` | `0.18` | The least share of a hit the dineutronium ingot set (and starmetal with `balanceS.starmetal` `0`) leaves |
-| `balanceGuns` | `true` | Guns' damage by the balance's table (`config/ntm-gunfeel-balance-guns.tsv` replaces the mod's; the players get the server's); off: NTM's damage and guns |
-| `balanceArmorFloor` | `true` | The table's floors (`floor=`, `from=` in a pair's extra column): the armour formula's least share times the floor on sets of that tier and up, so armour-piercing rounds, slugs, explosive and flechette shells beat the same gun's soft rounds against heavy armour; false: no floors, as X873 |
-| `balanceGunUnder` | `true` | The table's `under=T:mult:neg:pen` (a pair's extra column): on a set of tier below T the pair's hit counts with these numbers in place of its line's, so Tau keeps ×2 +30 for DNS, FAU and euphemium but takes tier 6 armour in about 2.4 s and tier 7 in 3 s (0.8 and 1.2 before); false: the line's numbers on every set, as X904 |
-| `balance.final` | `true` | The final scheme: a bullet or a beam of a pair of the scheme's table (`ntmgunfeel-balance-final-pairs.tsv`) on a player, or on anyone in a piece of the balance's sets, does 20/N HP a click whose projectiles all hit. N is worked out so the pair kills the set in the TTK of `balance.final.ttk` by the tier difference, times its role's share and its raw DPS's, counting its share of hits P, pause and reloads. NTM's damage, the set's threshold and resistance, formula C and the gun table's mult, neg, pen, floor and under= are not in it; the part hit, the damage cap and the pools come after as before. Blasts go by `balance.final.blast`; shields, melee and the shots of NTM's mobs and turrets with no gun (NTM's numbers) are not the scheme's. false: as X908 |
-| `balance.final.ttk` | `+4:1.25 +3:1.6 +2:2.1 +1:2.7 0:3.5 -1:7 -2:13.5 -3:28 -4:40 -5:50 -6:60 -7:68 -8:75 -9:82` | `d:seconds`, d = the pair's tier (with its ammo's and the pedestal's shifts) − the set's: the usual fight of equals 3.5 s (body, the role's range). Down the ladder of equal hours: a group of players a tier or more below with as many hours in all as the one above is an equal fight (a tier: about 2 players, two: 3, three: 5). Below −9 ×`balance.final.ttk.below` (1.1) a step, at most `.max` (900), never below `.min` (0.7). X912: `+3:1.63 +2:2.08 +1:2.68 0:3.5 -1:7.0 -2:18 -3:105 -4:210`, below 2 |
-| `balance.final.roles` | `smg:1.6 mg:1.3 rifle:1.0 pistol:1.0 shotgun:0.35 slug:1.0 sniper:0.85 beam:1.0 airburst:1.2` | Each gun's role (in the pairs' file) times its TTK: an SMG from the hip kills slower, a shotgun close up quicker; `airburst`: the GL-54's fragment grenades. X922: `shotgun:0.75`; X912: `pistol:1.2`, no slug |
-| `balance.final.roles.fade` | `shotgun:2` | `role:tiers`: the role's share fades back to 1 over this many tiers of the set above the pair (a shotgun kills its equal in two clicks, not a set two tiers up); empty: as X922 |
-| `balance.final.roleOf` | `autoshotgun_shredder:shotgun` | `gun:role` in place of the pairs' file (the Shredder fires shot); empty: as X922 |
-| `balance.final.hits` | `stand` | The share of hits P of each pair: `stand` the stand's one measure (the shooter aimed, standing, the target at the role's working distance, an automatic in a held burst, a gun of two hands from the hip, as it has no aim; one share for a gun and its ammo's spread; the minigun 0.87, the twin miniguns 0.56); `model`: the older estimate, as X922 |
-| `balance.final.character.few` | `one` | A tier of fewer than 6 pairs takes no raw-DPS character (1.0); `all`: every tier, as X922 |
-| `balance.final.slug.pellets` | `4` | A shotgun's round of fewer projectiles (a slug, an explosive shell) takes the role `slug`, timed as a rifle; `0`: no slug role, as X912 |
-| `balance.final.mag` | `reserve=0.15 small=1 min=0.65` | The magazine's rule: a kill of the equal fight on the last clicks of a magazine (`small` of one below 10 clicks, `reserve` of a bigger one) or on the first click after a reload moves to click M − spare (each click a little stronger), not below `min` of the TTK (X922: 0.6), not for a magazine below 3 clicks. G3 on HEV 26 rounds of 30, the heavy revolver 5 of 6. `reserve=0`: off, as X912 |
-| `balance.final.range` | `smg:x0.5/24/0.4@64 pistol:x0.8/24/0.4@64 shotgun:x1/16/0.4@64 slug:x1/32/0.3@128 shell:x1/24/0.25@80 beam:x1/64/0.5@160 rifle:x1/64/0.5@160 mg:x1/64/0.5@160 sniper:x1/160/0.7@256` | Damage by range, `role:xT/full/floor@at` by the shooter's distance at the hit: up to `.close` (8) blocks the role's close-up time T (an SMG ×0.5, a pistol ×0.8), back to 1 by `.home` (`pistol:12 smg:12`); full damage to `full` blocks, then straight down to `floor` at `at` blocks. `shell`: an explosive shotgun shell's direct hit. A role with no line, blasts and the Tesla Cannon's arc and its IR beam: 1. X942: `shotgun:x1/16/0.4@48 slug:x1/24/0.4@64`, no `shell`; X922: no shotgun line, `slug:x1/32/0.4@96 beam:x1/32/0.4@96`; `off`: as X912 |
-| `balance.final.range.shells` | `true` | An explosive shotgun shell's direct hit takes the `shell` line, or its role's when there is none; false: 1, as X922 |
-| `balance.final.range.lineOf` | `autoshotgun_shredder:beam` | A gun's own line in place of its role's, `gun:line` by spaces, for every hit of the gun's, an explosive drop's blast on the creature it struck too. The Shredder fires beams of plasma: the drops its beam leaves where it strikes take the `beam` line by the shooter's distance. Empty or `off`: the role's line, as X967 |
-| `balance.final.tesla.ir` | `true` | The Tesla Cannon's IR beam takes its shooter's pair: on the creature the click's arc has just struck nothing, on anyone else a click of the pair (no range rule); false: NTM's damage, as X922 |
-| `balance.final.mobArmor` | `player` | A hit of the scheme on a mob meets the vanilla armour a player in the same pieces has; `own`: the mob's own armour too (an FBI agent's 20 and `balance.fbiArmor`), as X949 |
-| `balance.final.acid` | `tiers=1.0 tier=4 full=+1 fade=3` | The acid's corrosion K (0 to 0.75) takes the set's tier down by `tiers` × K / 0.75, in full up to tier `tier` + `full`, fading to nothing over `fade` tiers above it (HEV at K 0.75 as T-51, BJ as tier 5.33, FAU as it is; never below bare); bullets, beams, blasts and fragments alike. `off`: as X922 |
-| `balance.final.pools.gas` | `drain` | The mod's gas on a full FAU, DNS or euphemium set takes the pool HP for HP, as a shot (the mask, filter and sealed helmet first, as before); `off`: as X922 |
-| `balance.final.pools` | `dns:45 fau:40 euph:150` | The pools of DNS, FAU and euphemium the scheme counts in, and their size while no `balance.immune*.pool` is set (the pool grows with the tier). X912: `dns:40 fau:45` |
-| `balance.final.blast` | `true` | Blasts on the ladder: a launcher's round's or a player's hand grenade's blast (a mob's grenade: NTM's numbers; with `balanceArmorBlasts = false` every blast NTM's) on a player, or on anyone in a set of the scheme, takes 1/N of the health and pool near it (up to a block), N from the ladder's TTK at the blast's tier + `.shift` (1) − the set's: a launcher's the hits whose time with its interval, magazine and reload comes closest (2 at least), a hand grenade's 3 at d = 0 times the TTK over the equal fight's. Direct hit ×1.5, 3 blocks ×0.75, the reach's edge ×0.4 (`.hits`), at most half a hit, one's own blast ×0.5, no head or limb. Radius, blocks and the big charges are NTM's. false: formula C (`balanceBlast*`), as X912 |
-| `balance.final.blast.pair` | `cap:2` | A launcher's round's tier: the smaller of the launcher's and the round's + 2 (a good tube lifts an old grenade two tiers); `max`: the larger of the two |
-| `balance.final.blast.launchers`, `.rounds`, `.grenades` | the scheme's | `launcher:tier:interval/magazine/reload` (GL-54 `gl54:5:0.7/8/2.25`); the rounds' explosive's tier by NTM's ammo name (`g40_he:1`, `rocket_demo:4`, GL-54 `he:1 airburst:1 inc:1 ap:4`); the hand grenades by filling (`powder:0 he:1 demo:4`; the others NTM's numbers) |
-| `balance.final.blast.frags` | `airburst:0.35 ap:0.6/0.15 inc:0.35` | The GL-54's fragment grenades, `kind:share[/piercing]`: a burst whose cone all hits takes its share of the health and pool for the bursts the ladder gives at the grenade's tier (role `airburst`); share: the cone's fragments in the target (the stand: airburst 0.49 at 1.5 blocks, 0.13 at 3) |
-| `balance.final.log` | `true` | The fight log: a line for every kill of a player by a player in `logs/ntmgunfeel-fights.log` (gun, ammo, the pair's tier, both sets and tiers, distance, seconds from the first hit, shots, hit clicks, head hits, reloads), at most `.size` MB (4; then kept as `.1`). The median of equals over a week is meant to be 4–7 s. false: nothing written, no work in a shot |
-| `balance.final.character` | `0.3:0.7:1.4` | `beta:lo:hi`: (the tier's median raw DPS / the pair's)^beta, within lo..hi, times a bullet's TTK |
-| `balance.final.energy`, `.ammo`, `.ped` | `1.0`, `pen=4.0 from=0.15 max=1.0 jhp=-1`, `0.5` | Beams' TTK times this (X922: 1.15); an armour-piercing round up to a tier (pen × piercing from 0.15), a hollow point a tier down (full from set tier 3); a pedestal, secret or loot gun half a tier up |
-| `balance.final.explosive` | `C` | The explosive shotgun shells' direct hit (their blast on the creature they struck): C a tier up, as DU; B no shift; A the gun table and formula C, as X908. The blast on anyone else is as before |
-| `balance.final.table.pairs` | (empty) | Pairs (`gun.ammo`, or a gun) left to the gun table and formula C, as X908 |
-| `balance.final.pairTier.<gun>.<ammo>` | (none) | A pair's tier in place of the table's (Tau's `tau_uranium` is 8) |
-| `balance.final.armor.<set>` | the scheme's | `tier:tier by the hours:beam shift` of an NTM set (`security`, `steamsuit` 2.5:4; `dns` 9:8; `trenchmaster` 6:6; X922: steel and the like −1 for beams, Trenchmaster 6.5); `.weights` `3,8,6,3` and `.empty` `0` (X922: `0.5`): a mixed or incomplete set counts by its slots (no pool) |
-| `balance.final.head.guns`, `.head.gap` | empty, `1` | No gun kills with one shot on the head (the scheme's hits on the head take the plain head cap, a sniper rifle's too). Guns listed here (`amat,amat_penance,amat_subtlety,mas36`) do, on a set at least `gap` tiers (by the hours) below the pair |
-| `balance.final.dnsOverFau` | `1.15` | DNS is never killed quicker than FAU: its TTK at least this times FAU's |
-| `balanceRecipes` | `true` | The balance's recipes for the diesel suit, the T-51 parts (a basic circuit each, as the helmet), Tesla Cannon, Lasrifle, Tau and Med-X; off: NTM's (after `/reload` or a restart) |
 | `gunMechanismRecipes` | `true` | Guns take the gun mechanism of their tier, on eight steps: the mod adds steel, high-speed steel, desh, ferrouranium and technetium steel mechanisms, cast in NTM's mechanism mold; off: NTM's recipes (after `/reload` or a restart) |
-| `abilities.mobilityCap` | `true` | A full set's Speed and Jump Boost by its tier: up to tier 6 II and I at most, from tier 7 III and II |
-| `abilities.strengthCap` | `2` | A full set's Strength at most this level; `0`: NTM's |
-| `abilities.bismuth` | `true` | Bismuth as a tier 6 set: Speed III, Jump Boost II, Regeneration I, night vision, two dashes; off: NTM's |
-| `abilities.esp.players` | `tier8` | VATS and the sets' thermal vision show no players, FAU and DNS thermal and AMAT Penance's thermal sight the ones they see within the range; `off`: none; `all`: NTM's |
-| `abilities.esp.playerRange` | `16` | How far FAU and DNS thermal vision and Penance's thermal sight show players |
-| `balance.shield` | `true` | The player's shield by the keys below; off: NTM's (the mod 25, a flask 5, up to 100 of flasks, back after 60 ticks at 0.005·t) |
-| `balance.shield.mod` | `10` | What the shield mod (australium III) gives |
-| `balance.shield.flask` | `2` | What a shield flask gives; no more flasks once they alone reach the cap |
-| `balance.shield.cap` | `16` | The most shield of flasks and the mod together |
-| `balance.shield.delay` | `100` | Ticks after the last hit before the shield comes back |
-| `balance.shield.rate` | `0.002` | Then rate·t a tick, t the ticks since |
-| `balance.medx` | `true` | Med-X gives Resistance I for 60 s; off: III for 4 min |
-| `balance.superStimpak` | `true` | The super stimpak heals its 25 HP over 12 s; off: at once |
-| `balance.healStack` | `false` | A second stimpak while one heals: the bigger of the two heals, not their sum; `true`: they add up, as X884 |
-| `balance.inserts` | `true` | An armour insert takes at most 1 − `balance.inserts.bullets` off a bullet; off: NTM's |
-| `balance.inserts.bullets` | `0.9` | The least share of a bullet an insert leaves |
-| `balance.vanilla0` | `true` | The combat sets of `balanceS.*` have no vanilla armour points and toughness (counts when a piece is put on again); off: theirs |
-| `balance.fbiArmor` | `10` | With `balance.vanilla0`, NTM's FBI agent's own vanilla armour on top (it wears Security) |
-| `balance.immune.mode` | `pool` | Euphemium's invulnerability with a pool; `ntm`: every hit called off |
-| `balance.immune.pool` | `150` | What bullets, beams and blasts on the set wear down before it opens (each as much as on a DNS-class set); the owner's choice, `2000`: as X865 |
-| `balance.immune.window` | `15` | Seconds the emptied pool leaves the wearer open, without the set's Regeneration and Resistance |
-| `balance.immune.hold` | `10` | For euphemium, DNS and FAU: a shot, IR beam or blast in the window (not melee) keeps it open at least this many seconds after it, so a gun that keeps hitting is not sent back to a full pool; `0`: the window is its own length, as X873 |
-| `balance.immune.refillPause` | `5` | For euphemium, DNS and FAU: seconds after the last hit on the pool before a worn-down pool starts to come back |
-| `balance.immune.reloadHold` | `true` | For euphemium, DNS and FAU: a gun whose shot and reload from empty take longer than `balance.immune.hold` (the Lever Action Rifle and Lincoln's Repeater, 10.5 s) holds the window and the refill pause that long and a second more, so its reload neither closes the window nor gives the pool back (DNS with AP in 200 s, the other rounds up to 500 s, where it was 1000 s to never; not with `balance.immune.hold` at `0`); every other gun goes by the two keys above; `false`: as X896 |
-| `balance.immune.recover` | `60` | Seconds the pool takes to fill back after the window (the set invulnerable meanwhile), or a worn-down pool after `balance.immune.refillPause` without a hit |
-| `balance.immune.dns.mode` | `pool` | DNS with euphemium's round: bullets, beams and blasts on the full charged set called off while its pool holds; `formula`: by its rating only; `ntm`: every hit but a blast called off, blasts down to 0.001 |
-| `balance.immune.dns.pool` | `40` | What hits wear down before DNS opens (each as much as it would do to DNS itself, S 186); the owner's choice, `500`: as X865, `120`: a middle way |
-| `balance.immune.dns.window` | `15` | Seconds the emptied pool leaves DNS open to its rating |
-| `balance.immune.dns.recover` | `60` | Seconds DNS's pool takes to fill back after the window, or a worn-down pool after `balance.immune.refillPause` without a hit |
-| `balance.immune.fau.mode` | `pool` | FAU the same; `formula`: by its rating only (NTM gives FAU no invulnerability) |
-| `balance.immune.fau.pool` | `45` | FAU's pool (each hit as much as on FAU itself, S 168); the owner's choice, `450`: as X865, `100`: a middle way |
-| `balance.immune.fau.window` | `15` | Seconds the emptied pool leaves FAU open |
-| `balance.immune.fau.recover` | `60` | Seconds FAU's pool takes to fill back |
-| `balance.immune.shared` | `true` | Euphemium, DNS and FAU share one pool: a suit put on in place of another takes over its pool and window, so swapping DNS for FAU gives no fresh pool; `false`: a pool a suit, as X884 |
 | `spectatorNoGuns` | `true` | Spectators cannot use NTM's guns |
 | `smoke` | `true` | Smoke clouds |
 | `smokeBlocksMobSight` | `false` | Mobs lose a target behind thick smoke |

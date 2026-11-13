@@ -565,7 +565,7 @@ public final class BalanceCheck {
         if (Boolean.getBoolean(PROPERTY + ".testLog")) line("#\ttest log " + TestLog.set(false, true));
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg", "ps", "tb", "g4", "aim", "rf", "bot").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg", "ps", "tb", "g4", "aim", "rf", "bot", "ntm").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         // the passes check the machine of X908 (formula C, the gun table): the final scheme off, its cells and team lines
         // turn it on by a key line (balance.final true)
@@ -600,6 +600,103 @@ public final class BalanceCheck {
         // Fable №3: NTM's aim of the guns (0.1), fights by distance (stage 4); asked by name only
         if (List.of(asked.split("\\s*,\\s*")).contains("aim")) pass("aim", BalanceCheck::planAim);
         if (List.of(asked.split("\\s*,\\s*")).contains("rf")) pass("rf", BalanceCheck::planFights);
+        // the one switch (owner 2026-11-13): balance = ntm; asked by name only, last (it clears the run's keys)
+        if (List.of(asked.split("\\s*,\\s*")).contains("ntm")) pass("ntm", BalanceCheck::planNtm);
+    }
+
+    // ---------------------------------------------------------------- balance = ntm: NTM's own numbers (owner 2026-11-13)
+
+    /** the pass ntm: gun, ammo, set ("-/-/-/-": bare) */
+    private static final String[][] NTM_CASES = {{"light_revolver", "m357_express", "-/-/-/-"}, {"light_revolver", "m357_express", "steel"},
+            {"spas12", "g12", "-/-/-/-"}, {"spas12", "g12", "hev"}, {"g3", "r556_fmj", "-/-/-/-"}, {"g3", "r556_fmj", "t51"},
+            {"panzerschreck", "rocket", "-/-/-/-"}, {"panzerschreck", "rocket", "security"}};
+    /** NTM by the old keys, each of the balance's switches off by hand (as the passes NTM of stage 1) */
+    private static final String[] NTM_BY_HAND = {"balance", "arms", "balanceArmor", "false", "balanceGuns", "false", "balance.final", "false", "balanceRecipes", "false",
+            "balance.shield", "false", "balance.medx", "false", "balance.superStimpak", "false", "balance.inserts", "false", "balance.vanilla0", "false",
+            "balance.immune.mode", "ntm", "balance.immune.dns.mode", "ntm", "balance.immune.fau.mode", "formula", "damageCap", "false", "damageCapMobs", "false"};
+
+    /**
+     * The pass ntm: the file holds balance = ntm and no other key of the balance (the cap off, it is not the balance's).
+     * Each case's hits: NTM's armour (what NTM's calculateDamage leaves is what is dealt), and the same damage before and
+     * after the armour and clicks to death as NTM by the old keys; the switches of the balance off, no choke, no bonus of
+     * the power armour; with balance = arms the choke and the bonus back.
+     */
+    private static void planNtm() {
+        line("#	--- ntm: balance = ntm против NTM по старым ключам (каждый выключен руками)");
+        line("#	режим	набор	пушка	кликов до смерти	снято первым кликом	ударов	D за удар	NTM за удар	наш за удар");
+        float[][] ntm = new float[NTM_CASES.length][], hand = new float[NTM_CASES.length][];
+        STEPS.add(() -> keysOnly("balance", "ntm", "damageCap", "false", "damageCapMobs", "false"));
+        wait(30);
+        STEPS.add(() -> {
+            check(!BalanceArmor.on() && !BalanceGuns.on() && !BalanceFinal.on() && !BalanceRecipes.on() && !EuphImmunity.on() && !EuphImmunity.dnsFormula(),
+                    "ntm: броня, пушки, схема, рецепты, пулы баланса выкл.");
+            check(!ArmorAbilities.keys().mobility() && ArmorAbilities.keys().strength() == 0 && !ArmorAbilities.keys().bismuth(), "ntm: способности наборов — NTM");
+            spreadCase("ntm", 0.035F, 1F);
+        });
+        for (int i = 0; i < NTM_CASES.length; i++) ntmCase("ntm", i, ntm);
+        STEPS.add(() -> keysOnly(NTM_BY_HAND));
+        wait(30);
+        for (int i = 0; i < NTM_CASES.length; i++) ntmCase("NTM руками", i, hand);
+        STEPS.add(() -> {
+            for (int i = 0; i < NTM_CASES.length; i++) {
+                float[] a = ntm[i], b = hand[i];
+                String what = "ntm, " + NTM_CASES[i][0] + " · " + NTM_CASES[i][1] + " по " + NTM_CASES[i][2] + ": ";
+                if (a == null || b == null) {
+                    check(false, what + "нет строки");
+                    continue;
+                }
+                check(a[0] == b[0], what + "кликов до смерти " + f(a[0]) + " против NTM руками " + f(b[0]));
+                check(ntmNear(a[1], b[1]), what + "первый клик снял " + f(a[1]) + " против " + f(b[1]));
+                // the hits NTM's calculateDamage saw (the bare target: none, no armour of NTM's)
+                if (a[2] > 0 || b[2] > 0) check(ntmNear(a[3], b[3]) && ntmNear(a[4], b[4]), what + "D за удар " + f(a[3]) + " / " + f(b[3]) + ", после брони " + f(a[4]) + " / " + f(b[4]));
+            }
+        });
+        // balance = arms: the choke and the bonus of the power armour back (the switch acts both ways)
+        STEPS.add(() -> keysOnly("balance", "arms"));
+        // the shooter's bloom of the cases' shots gone (a half-life of 5 ticks: 2^-20 of it after 100)
+        wait(100);
+        STEPS.add(() -> spreadCase("arms", 0.021F, 0.4F));
+        // the run's keys as plan() set them
+        STEPS.add(() -> keysOnly("balance.final", String.valueOf(Boolean.getBoolean(PROPERTY + ".final")), "balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula"));
+        wait(30);
+    }
+
+    private static boolean ntmNear(float a, float b) {
+        return Math.abs(a - b) <= 0.02F * Math.max(1F, Math.max(Math.abs(a), Math.abs(b)));
+    }
+
+    /** Maresleg's buckshot aimed (NTM 0.035) standing still, and FAU's share of the spread and of the recoil */
+    private static void spreadCase(String mode, float choke, float fau) {
+        ItemStack m = loaded(ModItems.GUN_MARESLEG.get(), XFactory12ga.g12);
+        float s = Spread.apply(L.shooter, m, true, 0.035F);
+        check(Math.abs(s - choke) < 1e-4F, mode + ": разброс Maresleg прицельно, NTM 0,035 → " + String.format(Locale.ROOT, "%.4f", s) + " (ждали " + choke + ")");
+        // the target is a player (the recoil's share is a player's)
+        dress(L.target, "fau", true);
+        float sp = PowerArmor.spread(L.target, "hbm:gun_g3");
+        float rc = PowerArmor.recoil(L.target);
+        check(sp == fau && rc == fau, mode + ": FAU, доля разброса " + f(sp) + ", отдачи " + f(rc) + " (ждали " + fau + ")");
+        dress(L.target, "-/-/-/-", true);
+    }
+
+    private static void ntmCase(String mode, int i, float[][] out) {
+        String[] c = NTM_CASES[i];
+        boolean rocket = c[0].equals("panzerschreck");
+        Item item = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + c[0]));
+        BulletConfig ammo = rocket ? XFactoryRocket.rocket_rpzb[0] : ammoNamed(item, c[1]);
+        if (ammo == null) throw new IllegalStateException("no ammo " + c[1] + " of " + c[0]);
+        STEPS.add(() -> {
+            begin(L.target);
+            dress(L.target, c[2], true);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST + (rocket ? 2 : 0), 180F, 0F);
+        });
+        clicks(L.shooter, () -> item, ammo, EnumKeybind.GUN_PRIMARY);
+        STEPS.add(() -> {
+            row(mode, c[2], c[0] + " · " + c[1]);
+            int n = L.seen.hits;
+            out[i] = new float[] {L.deathClick > 0 ? L.deathClick : -L.clicks, Math.max(0F, L.firstClick), n, n > 0 ? L.seen.in / n : 0F, n > 0 ? L.seen.out / n : 0F};
+            if (mode.equals("ntm") && n > 0) check(Math.abs(L.seen.out - L.seen.ntm) <= 1e-3F * Math.max(1F, L.seen.ntm),
+                    "ntm, " + c[0] + " по " + c[2] + ": после брони " + f(L.seen.out / n) + " = NTM " + f(L.seen.ntm / n));
+        });
     }
 
     /** a pass planned, its start marked in the test log (-PbalanceTestLog: which pass a shot's spread is of) */
@@ -2216,7 +2313,7 @@ public final class BalanceCheck {
         STEPS.add(() -> {
             // the game's keys of FAU's pool (ntmgunfeel-server.properties)
             keys("balance.immune.fau.mode", "pool", "balance.immune.fau.pool", "45", "balance.immune.fau.window", "15",
-                    "balance.immune.fau.recover", "60", "balance.final.pools.gas", "drain");
+                    "balance.immune.fau.recover", "60");
             begin(L.target);
             for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
             dress(L.target, "fau", true);
@@ -4340,6 +4437,12 @@ public final class BalanceCheck {
     }
 
     private static final java.util.Map<String, String> KEYS = new java.util.TreeMap<>();
+
+    /** only these keys in the file: the run's others gone (the pass ntm: the switch alone) */
+    private static void keysOnly(String... kv) {
+        KEYS.clear();
+        keys(kv);
+    }
 
     private static void keys(String... kv) {
         for (int i = 0; i < kv.length; i += 2) KEYS.put(kv[i], kv[i + 1]);

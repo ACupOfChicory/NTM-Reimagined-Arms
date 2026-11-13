@@ -35,6 +35,9 @@ public final class BotAnimator {
     static final float SHOT_IN = 0.5F;
     /** ticks a slide or a roll takes to come in (it is on the run: no slow fade from the run's pose) */
     static final float DASH_IN = 2F;
+    /** ticks after a slide or a roll in which the legs under it come back to their step */
+    static final float DASH_OUT = 4F;
+    private float dashed;
 
     private static final Map<LivingEntity, BotAnimator> ALL = Collections.synchronizedMap(new WeakHashMap<>());
 
@@ -43,7 +46,7 @@ public final class BotAnimator {
      *
      * @param crouch  0 standing .. 1 vanilla's crouch
      * @param lean    −1 left .. 1 right (0 lying)
-     * @param arms    weight of each arms way (AiPose.HOLD, AIM, BLIND, NO_GUN), summing to 1
+     * @param arms    weight of each arms way (AiPose.HOLD, AIM, BLIND, NO_GUN, STACK), summing to 1
      * @param act     the action under way, or null
      * @param fading  the actions it cut short, fading out under it (often none)
      * @param hits    the flinches showing: the last, and any it cut short fading out
@@ -53,9 +56,30 @@ public final class BotAnimator {
      * @param heading which way it goes, from where its body faces: radians, 0 ahead, + to its right
      * @param deathSec seconds since it fell dead, or below 0 alive
      * @param alert   0 calm (the gun lowered, a stroll) .. 1 in a fight (the gun ready, a tactical walk)
+     * @param air     0 on the ground .. 1 in the air (a jump, a fall)
+     * @param dashed  1 in a slide or a roll and just after it, going over a few ticks (the legs under it kept still)
      */
     public record Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits,
-            float idleSec, int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert) {
+            float idleSec, int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert,
+            float air, float dashed) {
+        /** a frame made by hand: in a dash while its action shows */
+        public Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits, float idleSec,
+                int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert, float air) {
+            this(crouch, lean, arms, act, fading, hits, idleSec, entity, speed, heading, deathSec, walk, walkPos, alert, air,
+                    act != null && BotPoser.dash(act.kind()) ? 1F : 0F);
+        }
+
+        /** on the ground */
+        public Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits, float idleSec,
+                int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert) {
+            this(crouch, lean, arms, act, fading, hits, idleSec, entity, speed, heading, deathSec, walk, walkPos, alert, 0F);
+        }
+
+        /** the weight of one arms way (AiPose.HOLD ..): none for a way the frame was made without */
+        public float arm(int way) {
+            return way < arms.length ? arms[way] : 0F;
+        }
+
         /** in a fight */
         public Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits, float idleSec,
                 int entity, float speed, float heading, float deathSec, float walk, float walkPos) {
@@ -134,7 +158,7 @@ public final class BotAnimator {
     private float crouch;
     /** in a fight, by weight: comes and goes over ALERT_TICKS; a first look takes it at once */
     private float alert;
-    private final float[] arms = { 1F, 0F, 0F, 0F };
+    private final float[] arms = { 1F, 0F, 0F, 0F, 0F };
     private byte actKind = AiPose.NONE;
     private int actTick, actLen;
     private float actW;
@@ -170,12 +194,51 @@ public final class BotAnimator {
             a.move(e.getX() - e.xo, e.getZ() - e.zo, e.yBodyRot, gameTime + (double) partial);
             // the push a hit gives it comes as its motion before it shows as steps
             a.push = (float) e.getDeltaMovement().horizontalDistance();
+            a.fly(!e.onGround() && !e.isInWater() && !e.isInLava() && !e.isPassenger() && !e.onClimbable() && !e.isFallFlying(),
+                    e.getY() - e.yo, gameTime + (double) partial);
             Frame f = a.step(pose, gameTime, partial, e.hurtTime, e.deathTime > 0, e.tickCount + partial, e.getId(),
                     crouching);
             float death = e.deathTime > 0 ? (e.deathTime - 1 + partial) / 20F : -1F;
             return new Frame(f.crouch(), f.lean(), f.arms(), f.act(), f.fading(), f.hits(), f.idleSec(), f.entity(),
-                    a.speed, a.heading, death, a.walk, a.walkPos, f.alert());
+                    a.speed, a.heading, death, a.walk, a.walkPos, f.alert(), a.air, f.dashed());
         }
+    }
+
+    /**
+     * ticks falling before the legs leave their step (a step down a slab or a stair, 4 ticks of it, is no jump; going
+     * up, a jump, they leave it at once), and ticks they take to the jump's pose and back
+     */
+    static final float AIR_FROM = 5F, AIR_TICKS = 3F;
+    /** blocks up in a tick from which it is going up; blocks up or down in a tick under which it does not move */
+    static final double RISING = 0.02, HANGING = 1e-3;
+    /** ticks not moving up or down after which it is not in the air, whatever the game says (a jump's top is one) */
+    static final float HANG_MOST = 2F;
+    /** in the air, by weight (Frame) */
+    float air;
+    private float airFor, hungFor;
+    private double airAt = Double.NaN;
+
+    /**
+     * Off the ground or on it, this frame, and its step up (down: under nought) since the last tick. A mob the client
+     * has just begun to see is "off the ground" till its first move comes (the game sends the flag only with a move),
+     * standing still for seconds: so off the ground counts only while it moves up or down.
+     */
+    void fly(boolean off, double dy, double now) {
+        float dt = Double.isNaN(airAt) ? Float.POSITIVE_INFINITY : (float) Math.max(0.0, now - airAt);
+        airAt = now;
+        boolean moving = Math.abs(dy) > HANGING;
+        if (dt > 20F) {
+            // a first look, or out of sight a while: as it is
+            off &= moving;
+            airFor = off ? AIR_FROM : 0F;
+            hungFor = 0F;
+            air = off ? 1F : 0F;
+            return;
+        }
+        hungFor = moving ? 0F : hungFor + dt;
+        off &= hungFor < HANG_MOST;
+        airFor = !off ? 0F : dy > RISING ? Math.max(airFor + dt, AIR_FROM) : airFor + dt;
+        air = approach(air, off && airFor >= AIR_FROM ? 1F : 0F, dt / AIR_TICKS);
     }
 
     /**
@@ -244,7 +307,8 @@ public final class BotAnimator {
         float crouchTo = pose.stance() == AiPose.CROUCH || crouching ? 1F : 0F;
         crouch = approach(crouch, crouchTo, dt / CROUCH_TICKS);
 
-        int to = Mth.clamp(pose.arms(), 0, arms.length - 1);
+        // a way of the arms this build does not know: the gun at the chest
+        int to = pose.arms() >= 0 && pose.arms() < arms.length ? pose.arms() : AiPose.HOLD;
         float step = dt / ARMS_TICKS;
         if (step >= 1F) {
             java.util.Arrays.fill(arms, 0F);
@@ -335,12 +399,22 @@ public final class BotAnimator {
         Hit[] hitList = shown.isEmpty() ? NO_HITS : shown.toArray(NO_HITS);
 
         alert = approach(alert, pose.alert() == AiPose.FIGHT ? 1F : 0F, dt / ALERT_TICKS);
-        return new Frame(crouch, lean, arms.clone(), act, fading, hitList, age / 20F, entity, 0F, 0F, -1F, 0F, 0F, alert);
+        // in a slide or a roll, and for a few ticks after: at once in (its clip takes the whole body in DASH_IN ticks
+        // and hides what is under it), slowly out
+        boolean dash = act != null && BotPoser.dash(act.kind());
+        for (Act out : fading) dash |= BotPoser.dash(out.kind());
+        dashed = dash ? approach(dashed, 1F, dt / DASH_IN) : approach(dashed, 0F, dt / DASH_OUT);
+        return new Frame(crouch, lean, arms.clone(), act, fading, hitList, age / 20F, entity, 0F, 0F, -1F, 0F, 0F, alert, 0F, dashed);
     }
 
-    /** the flinch of the n-th hit: head and chest by turns */
+    /** the flinch of the n-th hit, by turns: the head back, the chest, doubled up, thrown back */
     private static String clip(int n) {
-        return (n & 1) == 0 ? BotClips.HIT_HEAD : BotClips.HIT_CHEST;
+        return switch (n & 3) {
+            case 0 -> BotClips.HIT_HEAD;
+            case 1 -> BotClips.HIT_CHEST;
+            case 2 -> BotClips.get(BotClips.HIT_FOLD) != null ? BotClips.HIT_FOLD : BotClips.HIT_HEAD;
+            default -> BotClips.get(BotClips.HIT_BACK) != null ? BotClips.HIT_BACK : BotClips.HIT_CHEST;
+        };
     }
 
     /** how much more walkPos to where the legs pass each other (vanilla's swing, cos(walkPos 0.6662), at nought) */
