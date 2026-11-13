@@ -125,6 +125,9 @@ public final class BalanceCheck {
         float headLost;
         /** the stand aims at the victim's eyes, not its chest */
         boolean aimHead;
+        /** the pass rf: a fight under way; the game tick the hit that killed was fired at, the last projectile's flight */
+        boolean fightOn;
+        long fightKill = Long.MIN_VALUE, fightFlight;
         /** the super stimpak's heal goes on by the stand's tick (the fake player is not ticked by the level) */
         boolean healing;
         int targetTicks = Integer.MIN_VALUE;
@@ -361,6 +364,14 @@ public final class BalanceCheck {
             if (l == null) return;
             L = l;
             try {
+                // the pass rf: when the hit that killed was fired (a projectile by its age; a blast without one, by the
+                // last projectile's flight; the shooter's own beam, now)
+                if (e.getEntity() == L.target && L.fightOn && L.fightKill == Long.MIN_VALUE) {
+                    var d = e.getSource().getDirectEntity();
+                    long now = level.getGameTime();
+                    if (d != null && d != L.shooter) L.fightFlight = d.tickCount;
+                    if (L.target.getHealth() <= 0F || L.target.isDeadOrDying()) L.fightKill = now - (d == L.shooter ? 0 : L.fightFlight);
+                }
                 if (e.getEntity() == L.target && DamageCap.last.contains(" head=true"))
                     L.headHit = Math.max(L.headHit, DamageCap.last.contains(" sniper=true") ? 2 : 1);
                 if (e.getEntity() != L.victim || L.victim == null) return;
@@ -554,7 +565,7 @@ public final class BalanceCheck {
         if (Boolean.getBoolean(PROPERTY + ".testLog")) line("#\ttest log " + TestLog.set(false, true));
         String asked = System.getProperty("ntmgunfeel.checkBalance.only", "").trim();
         for (String p : asked.isEmpty() ? new String[0] : asked.split("\\s*,\\s*"))
-            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg", "ps", "tb", "g4", "bot").contains(p)) throw new IllegalArgumentException("no pass " + p);
+            if (!List.of("2", "1g", "1v", "1a", "1b", "dns", "kit", "db", "hi", "expl", "esp", "pool", "pep", "hot", "mx", "team", "cheese", "frag", "bx", "rg", "lg", "ps", "tb", "g4", "aim", "rf", "bot").contains(p)) throw new IllegalArgumentException("no pass " + p);
         // the passes before the pool of DNS and FAU check their ratings: the pool off (X858) but in the pass "pool"
         // the passes check the machine of X908 (formula C, the gun table): the final scheme off, its cells and team lines
         // turn it on by a key line (balance.final true)
@@ -586,6 +597,9 @@ public final class BalanceCheck {
         if (only("bot")) pass("bot", BalanceCheck::planBot);
         // asked by name only: the final scheme on in it whatever the run's
         if (asked.contains("g4")) pass("g4", BalanceCheck::planAcidGas);
+        // Fable №3: NTM's aim of the guns (0.1), fights by distance (stage 4); asked by name only
+        if (List.of(asked.split("\\s*,\\s*")).contains("aim")) pass("aim", BalanceCheck::planAim);
+        if (List.of(asked.split("\\s*,\\s*")).contains("rf")) pass("rf", BalanceCheck::planFights);
     }
 
     /** a pass planned, its start marked in the test log (-PbalanceTestLog: which pass a shot's spread is of) */
@@ -847,8 +861,10 @@ public final class BalanceCheck {
             airClicks = 0;
             eachLane(() -> {
                 L.shooter.setInvulnerable(true);
+                // the chunks out past the target (-PbalanceCellsDist), or a bullet stops at the edge of the loaded ones
+                int far = Math.max(40, Integer.getInteger(PROPERTY + ".cellsDist", 0) + 16);
                 if (mxHome) for (int cx = (L.o.getX() - 8) >> 4; cx <= (L.o.getX() + 8) >> 4; cx++)
-                    for (int cz = (L.o.getZ() - 8) >> 4; cz <= (L.o.getZ() + 40) >> 4; cz++) level.setChunkForced(cx, cz, true);
+                    for (int cz = (L.o.getZ() - 8) >> 4; cz <= (L.o.getZ() + far) >> 4; cz++) level.setChunkForced(cx, cz, true);
             });
         });
         wait(30);
@@ -1541,9 +1557,17 @@ public final class BalanceCheck {
      * model's multiplier and spread). The rule on (the default); the chunks along the lanes kept loaded.
      */
     private static void planRange() {
-        line("#	--- rg: дальность (Fable 10.4), по " + RG_CLICKS + " кликов с полного здоровья, стрелок прицельно стоя");
+        // -PbalanceRangePairs=<gun:ammo:set,...>, -PbalanceRangeDist=<blocks,...>, -PbalanceRangeClicks=<n>: these in place
+        // of RG_PAIRS, RG_DIST, RG_CLICKS; -PbalanceRangeHip=true: from the hip (Fable №3)
+        String[][] pairs = rangePairs();
+        int[] dists = shareDists(PROPERTY + ".rangeDist", -1);
+        if (dists.length == 1 && dists[0] < 0) dists = RG_DIST;
+        int clicks = Integer.getInteger(PROPERTY + ".rangeClicks", RG_CLICKS);
+        boolean hip = Boolean.getBoolean(PROPERTY + ".rangeHip");
+        line("#	--- rg: дальность (Fable 10.4), по " + clicks + " кликов с полного здоровья, стрелок " + (hip ? "от бедра" : "прицельно") + " стоя");
         STEPS.add(() -> {
             keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.final.range", BalanceRangeRule.LINES);
+            airClicks = 0;
             eachLane(() -> {
                 L.shooter.setInvulnerable(true);
                 for (int cx = (L.o.getX() - 8) >> 4; cx <= (L.o.getX() + 8) >> 4; cx++)
@@ -1552,16 +1576,17 @@ public final class BalanceCheck {
         });
         wait(60);
         List<Runnable> run = new ArrayList<>();
-        for (String[] p : RG_PAIRS) {
+        for (String[] p : pairs) {
             Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + p[0]));
             BulletConfig ammo = ammoNamed(gun, p[1]);
             if (ammo == null) {
                 line("rg\t" + p[0] + "\t" + p[1] + "\tнет патрона");
                 continue;
             }
-            for (int d : RG_DIST) run.add(() -> rangeCell(p, gun, ammo, d));
+            for (int d : dists) run.add(() -> rangeCell(p, gun, ammo, d, clicks, hip));
         }
         parallel(run);
+        STEPS.add(() -> check(airClicks == 0, "rg: стрелок на земле на каждом клике (в воздухе " + airClicks + ")"));
         STEPS.add(() -> eachLane(() -> {
             L.shooter.setInvulnerable(false);
             for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
@@ -1573,7 +1598,14 @@ public final class BalanceCheck {
         wait(10);
     }
 
-    private static void rangeCell(String[] p, Item gun, BulletConfig ammo, int d) {
+    /** the pairs of -PbalanceRangePairs (gun:ammo:set by commas), or RG_PAIRS */
+    private static String[][] rangePairs() {
+        String v = System.getProperty(PROPERTY + ".rangePairs", "").trim();
+        if (v.isEmpty()) return RG_PAIRS;
+        return java.util.Arrays.stream(v.split("\\s*,\\s*")).map(e -> e.split(":")).filter(e -> e.length == 3).toArray(String[][]::new);
+    }
+
+    private static void rangeCell(String[] p, Item gun, BulletConfig ammo, int d, int clicks, boolean hip) {
         float[] took = {0F}, headLost = {0F};
         int[] hits = {0}, headHits = {0};
         int wait = d >= 64 ? 45 : SPACING + 10;
@@ -1591,7 +1623,7 @@ public final class BalanceCheck {
             L.aimHead = false;
         });
         wait(3);
-        for (int c = 0; c < RG_CLICKS; c++) {
+        for (int c = 0; c < clicks; c++) {
             float[] hp = {0F};
             int[] seen = {0};
             STEPS.add(() -> {
@@ -1604,7 +1636,10 @@ public final class BalanceCheck {
                 seen[0] = L.seen.hits;
                 L.headHits = 0;
                 L.headLost = 0F;
-                fireAimed(L.shooter, gun, ammo);
+                L.shooter.setOnGround(true);
+                if (Spread.inAir(L.shooter)) airClicks++;
+                if (hip) fireBoth(L.shooter, gun, ammo, false);
+                else fireAimed(L.shooter, gun, ammo);
             });
             wait(wait);
             STEPS.add(() -> {
@@ -1614,10 +1649,196 @@ public final class BalanceCheck {
                 headLost[0] += L.headLost;
             });
         }
-        STEPS.add(() -> line("rg\t" + p[0] + "\t" + p[1] + "\t" + p[2] + "\t" + d + "\t" + String.format(Locale.ROOT, "%.5f", took[0] / RG_CLICKS) + "\t"
-                + f(hits[0] / (float) RG_CLICKS) + "\t" + String.format(Locale.ROOT, "%.4f", BalanceFinal.hitClicks(p[0] + "." + p[1], p[2]))
+        STEPS.add(() -> line("rg\t" + p[0] + "\t" + p[1] + "\t" + p[2] + "\t" + d + "\t" + String.format(Locale.ROOT, "%.5f", took[0] / clicks) + "\t"
+                + f(hits[0] / (float) clicks) + "\t" + String.format(Locale.ROOT, "%.4f", BalanceFinal.hitClicks(p[0] + "." + p[1], p[2]))
                 // the head's hits a click and what they took a click (the body's: the rest)
-                + "\t" + f(headHits[0] / (float) RG_CLICKS) + "\t" + String.format(Locale.ROOT, "%.5f", headLost[0] / RG_CLICKS)));
+                + "\t" + f(headHits[0] / (float) clicks) + "\t" + String.format(Locale.ROOT, "%.5f", headLost[0] / clicks)));
+    }
+
+    // ---------------------------------------------------------------- Fable №3: NTM's aim (pass aim), fights by distance (pass rf)
+
+    /** the guns and an ammo of theirs: does NTM aim them (Fable №3, 0.1) */
+    private static final String[][] AIM_GUNS = {{"maresleg", "g12"}, {"maresleg_akimbo", "g12"}, {"double_barrel", "g10"}, {"double_barrel_sacred_dragon", "g10"},
+            {"spas12", "g12"}, {"autoshotgun", "g12"}, {"light_revolver_dani", "m357_fmj"}, {"uzi_akimbo", "p9_fmj"}, {"star_f_akimbo", "p22_fmj"},
+            {"minigun_dual", "r762_fmj"}, {"aberrator_eott", "secret_p35_800"}, {"minigun", "r762_fmj"}};
+
+    /**
+     * The pass aim: the aim key (GUN_TERTIARY) pressed, as a player aims; NTM's doStandardFire hands Lego.calcSpread the
+     * stack's isAiming as its aim. A line: the gun, isAiming with the key held, NTM's spread then (as calcSpread works it
+     * out, before the mod's), aimed and from the hip.
+     */
+    private static void planAim() {
+        // -PbalanceAimAll=true: every gun of the scheme's pairs with its first ammo
+        String[][] guns = AIM_GUNS;
+        if (Boolean.getBoolean(PROPERTY + ".aimAll")) {
+            java.util.Map<String, String> first = new java.util.TreeMap<>();
+            for (var pr : BalanceFinal.pairs().values()) first.putIfAbsent(pr.gun(), pr.ammo());
+            guns = first.entrySet().stream().map(e -> new String[] {e.getKey(), e.getValue()}).toArray(String[][]::new);
+        }
+        line("#\t--- aim: прицел NTM (Fable №3, 0.1): клавиша прицела зажата; aim в Lego.calcSpread = isAiming ствола");
+        line("#\taim\tgun\tammo\tisAiming\tразброс при нём\tприцельно\tот бедра\tконфигов\tклавиша прицела (TOGGLE, OWN, NONE: стенд стреляет от бедра)");
+        for (String[] g : guns) {
+            STEPS.add(() -> {
+                Item item = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + g[0]));
+                BulletConfig ammo = ammoNamed(item, g[1]);
+                if (ammo == null) {
+                    line("aim\t" + g[0] + "\t" + g[1] + "\tнет патрона");
+                    return;
+                }
+                ItemStack stack = loaded(item, ammo);
+                L.shooter.setItemSlot(EquipmentSlot.MAINHAND, stack);
+                var gun = (ItemGunBaseNT) stack.getItem();
+                SimpleContainer inv = new SimpleContainer(1);
+                BalanceAim.press(gun, L.shooter, inv, stack, true);
+                boolean aimed = ItemGunBaseNT.getIsAiming(stack);
+                var config = gun.getConfig(stack, 0);
+                var r = config.getReceivers(stack)[0];
+                // NTM's spread as Lego.calcSpread works it out (no wear); not calcSpread itself, which is the system SPREAD's
+                float[] sp = BalanceAim.spread(r, stack, ammo);
+                float base = sp[0], hip = sp[1];
+                line("aim\t" + g[0] + "\t" + g[1] + "\t" + aimed + "\t" + String.format(Locale.ROOT, "%.4f", aimed ? base : hip)
+                        + "\t" + String.format(Locale.ROOT, "%.4f", base) + "\t" + String.format(Locale.ROOT, "%.4f", hip)
+                        + "\t" + gun.getConfigCount() + "\t" + BalanceAim.key(stack));
+                BalanceAim.press(gun, L.shooter, inv, stack, false);
+                L.shooter.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+            });
+            wait(5);
+        }
+    }
+
+    /** the pairs of Fable №3's table of stage 4 (gun, ammo, set) and its distances */
+    private static final String[][] RF_PAIRS = {{"spas12", "g12", "hev"}, {"spas12", "g12_flechette", "hev"}, {"spas12", "g12_magnum", "hev"}, {"spas12", "g12_slug", "hev"},
+            {"autoshotgun", "g12", "hev"}, {"autoshotgun", "g12_slug", "hev"}, {"autoshotgun", "g12_explosive", "hev"}, {"maresleg", "g12_bp", "dieselsuit"},
+            {"double_barrel", "g10_slug", "hev"}, {"autoshotgun_shredder", "g12", "bj"}, {"autoshotgun_shredder", "g12_slug", "bj"},
+            {"autoshotgun_shredder", "g12_explosive", "bj"}, {"tesla_cannon", "capacitor", "cmb"}, {"carbine", "r762_du", "hev"}};
+    private static final int[] RF_DIST = {4, 8, 16, 24, 32, 48, 64, 96, 128};
+    /** a shotgun's shot: not past this (the table's "—") */
+    private static final int RF_SHOT_FAR = 64;
+
+    /**
+     * The pass rf (Fable №3, stage 4): fights by distance. The shooter aimed standing, the target in its set from full
+     * health {@code d} blocks off; the clicks on the model's schedule (a click each interval, after a magazine its
+     * reload) until the target dies or the limit (-PbalanceFightLimit ticks, 1200). A line a fight: the time from the
+     * first click to the one that killed (its projectile's age at the hit tells which), seconds. -PbalanceFights=<n> fights
+     * a cell (9), -PbalanceRangePairs / -PbalanceRangeDist as the pass rg.
+     */
+    private static void planFights() {
+        String[][] pairs = System.getProperty(PROPERTY + ".rangePairs", "").isBlank() ? RF_PAIRS : rangePairs();
+        int[] dists = shareDists(PROPERTY + ".rangeDist", -1);
+        if (dists.length == 1 && dists[0] < 0) dists = RF_DIST;
+        int fights = Integer.getInteger(PROPERTY + ".fights", 9), limit = Integer.getInteger(PROPERTY + ".fightLimit", 1200);
+        line("#\t--- rf: бои по дистанции (Fable №3, этап 4), по " + fights + " боёв, стрелок прицельно стоя, предел " + limit + " тактов");
+        line("#\trf\tgun\tammo\tset\tdist\tfight\ttime s (> limit)\tclicks fired\tkilling click\thits");
+        STEPS.add(() -> {
+            keys("balanceArmor", "true", "balanceGuns", "true", "damageCap", "true", "damageCapMobs", "false", "balance.final.range", BalanceRangeRule.LINES);
+            airClicks = 0;
+            eachLane(() -> {
+                L.shooter.setInvulnerable(true);
+                for (int cx = (L.o.getX() - 8) >> 4; cx <= (L.o.getX() + 8) >> 4; cx++)
+                    for (int cz = (L.o.getZ() - 8) >> 4; cz <= (L.o.getZ() + RG_FAR) >> 4; cz++) level.setChunkForced(cx, cz, true);
+            });
+        });
+        wait(60);
+        List<Runnable> run = new ArrayList<>();
+        for (String[] p : pairs) {
+            Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + p[0]));
+            BulletConfig ammo = ammoNamed(gun, p[1]);
+            var pr = BalanceFinal.pairs().get(p[0] + "." + p[1]);
+            if (ammo == null || pr == null) {
+                line("rf\t" + p[0] + "\t" + p[1] + "\tнет патрона");
+                continue;
+            }
+            boolean shot = pr.pellets() >= 4;
+            for (int d : dists) {
+                if (shot && d > RF_SHOT_FAR) continue;
+                for (int f = 0; f < fights; f++) {
+                    int n = f;
+                    run.add(() -> fightCell(p, gun, ammo, pr, d, n, limit));
+                }
+            }
+        }
+        parallel(run);
+        STEPS.add(() -> check(airClicks == 0, "rf: стрелок на земле на каждом клике (в воздухе " + airClicks + ")"));
+        STEPS.add(() -> eachLane(() -> {
+            L.fightOn = false;
+            L.shooter.setInvulnerable(false);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            wearAttributes(L.target);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+            for (int cx = (L.o.getX() - 8) >> 4; cx <= (L.o.getX() + 8) >> 4; cx++)
+                for (int cz = ((L.o.getZ() + 24) >> 4) + 1; cz <= (L.o.getZ() + RG_FAR) >> 4; cz++) level.setChunkForced(cx, cz, false);
+        }));
+        wait(10);
+    }
+
+    /** the tick of click {@code i} of a fight: an interval each, a reload after each magazine (Fable's r3.ttk) */
+    static int fightTick(int i, int iv, double magClicks, int reload) {
+        return i * iv + (int) Math.floor(i / magClicks) * reload;
+    }
+
+    private static void fightCell(String[] p, Item gun, BulletConfig ammo, BalanceFinalRule.Pair pr, int d, int fight, int limit) {
+        int iv = Math.max(1, BalanceFinalRule.intervalTicks(pr));
+        double magClicks = pr.mag() > 0 ? Math.max(1.0, pr.mag() / (double) Math.max(1, pr.roundsPerClick())) : Double.POSITIVE_INFINITY;
+        java.util.Set<Integer> at = new java.util.HashSet<>();
+        for (int i = 0; ; i++) {
+            int t = fightTick(i, iv, magClicks, pr.reload());
+            if (t >= limit) break;
+            at.add(t);
+        }
+        List<Long> fired = new ArrayList<>();
+        int[] end = {0}, hits = {0};
+        STEPS.add(() -> {
+            begin(L.target);
+            for (EquipmentSlot slot : SLOTS) L.target.setItemSlot(slot, ItemStack.EMPTY);
+            dress(L.target, p[2], true);
+            wearAttributes(L.target);
+            EuphImmunity.forget(L.target);
+            L.shooter.setDeltaMovement(Vec3.ZERO);
+            L.shooter.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
+            for (int x = -1; x <= 1; x++) for (int z = -1; z <= 1; z++) level.setBlockAndUpdate(L.o.offset(x, -1, d + z), Blocks.STONE.defaultBlockState());
+            L.target.setDeltaMovement(Vec3.ZERO);
+            L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + d, 180F, 0F);
+            L.aimHead = false;
+        });
+        wait(3);
+        STEPS.add(() -> {
+            begin(L.target);
+            hits[0] = L.seen.hits;
+            L.fightKill = Long.MIN_VALUE;
+            L.fightFlight = 0;
+            L.fightOn = true;
+        });
+        for (int t = 0; t < limit; t++) {
+            boolean fire = at.contains(t);
+            STEPS.add(() -> {
+                if (L.fightKill != Long.MIN_VALUE || L.target.getHealth() <= 0F || L.target.isDeadOrDying()) {
+                    L.skipTo = end[0];
+                    return;
+                }
+                L.target.setDeltaMovement(Vec3.ZERO);
+                L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + d, 180F, 0F);
+                if (!fire) return;
+                L.shooter.setOnGround(true);
+                if (Spread.inAir(L.shooter)) airClicks++;
+                fired.add(level.getGameTime());
+                fireAimed(L.shooter, gun, ammo, pr.hands() > 1);
+            });
+        }
+        end[0] = STEPS.size();
+        STEPS.add(() -> {
+            L.fightOn = false;
+            boolean dead = L.fightKill != Long.MIN_VALUE || L.target.getHealth() <= 0F || L.target.isDeadOrDying();
+            long kill = L.fightKill != Long.MIN_VALUE ? L.fightKill : level.getGameTime() - 1;
+            // the killing click: the last one fired by the killing hit's tick (a tick's give either way)
+            int k = -1;
+            for (int i = 0; i < fired.size(); i++) if (fired.get(i) <= kill + 1) k = i;
+            String time = !dead || k < 0 ? "> " + f(limit / 20F) : f((fired.get(k) - fired.get(0)) / 20F);
+            line("rf\t" + p[0] + "\t" + p[1] + "\t" + p[2] + "\t" + d + "\t" + fight + "\t" + time + "\t" + fired.size() + "\t" + (k + 1) + "\t"
+                    + (L.seen.hits - hits[0]));
+            L.target.setHealth(L.target.getMaxHealth());
+        });
+        // the shots still flying land before the next fight
+        wait(d >= 64 ? 60 : 25);
     }
 
     // ---------------------------------------------------------------- a bot in armour (owner 2026-11-13, pass bot)
@@ -2096,7 +2317,10 @@ public final class BalanceCheck {
         });
         wait(20);
         List<Runnable> run = new ArrayList<>();
-        for (String[] p : TB_PAIRS) {
+        // -PbalanceTrenchPairs=<gun:ammo,...>: these in place of TB_PAIRS (Fable №3, 0.3)
+        String asked = System.getProperty(PROPERTY + ".trenchPairs", "").trim();
+        String[][] pairs = asked.isEmpty() ? TB_PAIRS : java.util.Arrays.stream(asked.split("\\s*,\\s*")).map(e -> e.split(":")).filter(e -> e.length == 2).toArray(String[][]::new);
+        for (String[] p : pairs) {
             Item gun = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + p[0]));
             BulletConfig ammo = ammoNamed(gun, p[1]);
             var pr = BalanceFinal.pairs().get(p[0] + "." + p[1]);
@@ -4074,7 +4298,8 @@ public final class BalanceCheck {
 
     private static void fireKeys(LivingEntity from, Item item, BulletConfig ammo, boolean aimed, boolean both) {
         ItemStack stack = loaded(item, ammo);
-        if (aimed) ItemGunBaseNT.setIsAiming(stack, true);
+        // a gun with no aim key (an akimbo, the SPAS-12) fires from the hip, as in the game (owner 2026-11-13)
+        if (aimed && BalanceAim.key(stack) != BalanceAim.Key.NONE) ItemGunBaseNT.setIsAiming(stack, true);
         from.setItemSlot(EquipmentSlot.MAINHAND, stack);
         aim(from, L.victim);
         var gun = (ItemGunBaseNT) stack.getItem();
@@ -4119,7 +4344,8 @@ public final class BalanceCheck {
             if (kv.length == 0) Files.deleteIfExists(file());
             else {
                 StringBuilder s = new StringBuilder();
-                KEYS.forEach((k, v) -> s.append(k).append(" = ").append(v).append('\n'));
+                // a gun's own key (hbm:gun_x.key): the colon escaped, or the file reads it as the separator
+                KEYS.forEach((k, v) -> s.append(k.replace(":", "\\:")).append(" = ").append(v).append('\n'));
                 Files.writeString(file(), s);
                 Files.setLastModifiedTime(file(), java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis()));
             }

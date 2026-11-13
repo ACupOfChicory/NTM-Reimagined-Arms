@@ -88,6 +88,30 @@ class SpreadModelTest {
                 bloom * k, 1F);
     }
 
+    /** Fable №3: the choke; the shipped keys of the shotguns (knee 0.015, over 0.3): aimed, the SPAS-12's from the hip, none for an akimbo */
+    @Test
+    void choke() throws IOException {
+        assertEquals(0.021F, SpreadModel.choke(0.035F, true, 0.015F, 0.3F), E);
+        assertEquals(0.018F, SpreadModel.choke(0.025F, true, 0.015F, 0.3F), E);
+        assertEquals(0.015F, SpreadModel.choke(0.015F, true, 0.015F, 0.3F), E);
+        assertEquals(0.01F, SpreadModel.choke(0.01F, true, 0.015F, 0.3F), E);
+        // from the hip, a knee of 0: NTM's spread as it is
+        assertEquals(0.035F, SpreadModel.choke(0.035F, false, 0.015F, 0.3F), E);
+        assertEquals(0.035F, SpreadModel.choke(0.035F, true, 0F, 0.3F), E);
+        Properties p = shipped();
+        assertEquals(0.015F, get(p, "hbm:gun_spas12", "spreadHipKnee", 0F));
+        assertEquals(0.3F, get(p, "hbm:gun_spas12", "spreadHipOver", 1F));
+        assertEquals(0F, get(p, "hbm:gun_spas12", "spreadAimKnee", 0F));
+        for (String g : new String[] {"maresleg", "maresleg_akimbo", "autoshotgun", "g3", "minigun"}) assertEquals(0F, get(p, "hbm:gun_" + g, "spreadHipKnee", 0F), g);
+        for (String g : new String[] {"maresleg", "maresleg_broken", "autoshotgun", "autoshotgun_sexy", "autoshotgun_heretic", "double_barrel",
+                "double_barrel_sacred_dragon"}) {
+            assertEquals(0.015F, get(p, "hbm:gun_" + g, "spreadAimKnee", 0F), g);
+            assertEquals(0.3F, get(p, "hbm:gun_" + g, "spreadAimOver", 1F), g);
+        }
+        for (String g : new String[] {"maresleg_akimbo", "autoshotgun_shredder", "g3", "minigun", "uzi_akimbo"})
+            assertEquals(0F, get(p, "hbm:gun_" + g, "spreadAimKnee", 0F), g);
+    }
+
     @Test
     void powerArmor() throws IOException {
         float k = get(shipped(), "hbm:gun_g3", "powerArmorSpread", 1F);

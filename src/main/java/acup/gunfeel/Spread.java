@@ -16,6 +16,9 @@ import net.minecraft.world.item.ItemStack;
 //    crawling (lying down on the prone key, or under a trapdoor) moving counts as still, as TaCZ's lie;
 //    spreadStack = 1: every state counts (sneaking and moving and aiming multiply together),
 //    spreadStack = 0: only the body state that weighs most (crawl, then sneak, then move, else stand), times aim;
+//  - spreadAimKnee, spreadAimOver (Fable №3, the shotguns' aimed choke): aimed, NTM's spread past the knee counts
+//    spreadAimOver times, before all the rest; spreadHipKnee, spreadHipOver the same from the hip (the SPAS-12, which
+//    has no aim; owner 2026-11-13); a knee of 0 (the default): NTM's spread as it is;
 //  - spreadSpeed is added per walking speed, spreadAir while off the ground;
 //  - spreadBloom is added per shot, at most spreadBloomMax, halving every spreadBloomHalfLife seconds; sneaking and
 //    crawling hold it down by their multipliers;
@@ -38,6 +41,10 @@ public final class Spread {
 
     public static float apply(LivingEntity e, ItemStack stack, boolean aim, float spread) {
         String gun = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+        // the choke first, on NTM's spread alone: before the mod's multipliers and what it adds; aimed by
+        // spreadAimKnee, from the hip by spreadHipKnee (the SPAS-12, which has no aim)
+        spread = aim ? SpreadModel.choke(spread, true, get(gun, "spreadAimKnee", 0F), get(gun, "spreadAimOver", 1F))
+                : SpreadModel.choke(spread, true, get(gun, "spreadHipKnee", 0F), get(gun, "spreadHipOver", 1F));
         boolean crawl = e.isVisuallyCrawling();
         boolean sneak = !crawl && e.isCrouching();
         var mv = e.getKnownSpeed(); // blocks moved last tick; for a player, what the client last sent
