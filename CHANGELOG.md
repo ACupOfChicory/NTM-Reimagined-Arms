@@ -1,6 +1,6 @@
 # Changelog
 
-## X978
+## X982
 
 - ⚠ Breaks compatibility: the balance is one server switch, `balance = arms`
   (the mod's, the default) or `balance = ntm` (NTM's own damage, armour,
@@ -10,7 +10,16 @@
   `powerArmorRecoil*`, `spreadAimKnee` and the rest of the shotguns' choke) are
   not read any more, nor `config/ntm-gunfeel-balance-guns.tsv`: a server's file
   that still has them writes one line in the log and goes on. With
-  `balance = arms` the game is as X977.
+  `balance = arms` the game is as X981.
+
+## X981
+
+- A shot on an NTM suit's own model counts for the part its piece covers,
+  on bots, mobs and players: the chest's collar and breastplate are the body,
+  the shoulder pads, sleeves, legs and boots a limb. Up to half the shots on
+  a T-51, HEV, AJR, NCR, BJ, FAU, Trenchmaster or another such suit landed in
+  the wrong part, the shoulder pads in the head (`modelHitboxesSuits`; false:
+  as before).
 
 ## X977
 

@@ -40,12 +40,9 @@ final class BotStandHits {
     /** where a part's name puts it: the head, a limb or the body */
     static String zone(String part) {
         if (part.isEmpty()) return "";
-        // an NTM suit's own model (T-51): its groups by name, the helmet the head
-        if (part.startsWith("mesh/") && !part.startsWith("mesh/root")) {
-            String g = part.substring(part.lastIndexOf('/') + 1);
-            if (ModelHits.SUIT_HELMETS.contains(g)) return "head";
-            return g.endsWith("Arm") || g.endsWith("Leg") || g.endsWith("Boot") || g.endsWith("Foot") ? "limb" : "body";
-        }
+        // an NTM suit's own model (T-51, HEV, ...): its groups by the piece that draws them (ModelHits.suitZone)
+        var suit = ModelHits.suitZone(part);
+        if (suit != null) return suit == ModelHits.Zone.HEAD ? "head" : suit == ModelHits.Zone.LIMB ? "limb" : "body";
         if (part.contains("head") || part.contains("hat")) return "head";
         if (part.contains("_arm") || part.contains("_leg")) return "limb";
         return "body";
@@ -90,14 +87,15 @@ final class BotStandHits {
     }
 
     /** the grid's shares on the server: hits on the drawn model, past it, the zone; and the plain box's */
-    record Grid(int in, int out, double inHit, double outHit, double zoneSame, double boxIn, double boxOut, String wrong, int helmets, int helmetsWrong) {
+    record Grid(int in, int out, double inHit, double outHit, double zoneSame, double boxIn, double boxOut, String wrong, int helmets, int helmetsWrong,
+            int suit, int suitWrong) {
     }
 
     /** on the server thread: each ray as a bullet would test it (ModelHits.clip, the box as its fallback) */
     static Grid server(Mob m, List<Ray> rays) {
         // the mob's box as the game has it: getBoundingBox is the mod's ModelAABB, whose clip is the model's
         AABB model = m.getBoundingBox(), box = new AABB(model.minX, model.minY, model.minZ, model.maxX, model.maxY, model.maxZ);
-        int in = 0, out = 0, inHit = 0, outHit = 0, same = 0, boxIn = 0, boxOut = 0, helmets = 0, helmetsWrong = 0;
+        int in = 0, out = 0, inHit = 0, outHit = 0, same = 0, boxIn = 0, boxOut = 0, helmets = 0, helmetsWrong = 0, suit = 0, suitWrong = 0;
         var wrong = new java.util.TreeMap<String, Integer>();
         for (Ray r : rays) {
             var hit = ModelHits.clip(m, r.from(), r.to(), box);
@@ -118,6 +116,11 @@ final class BotStandHits {
             boolean helmet = ModelHits.helmet(true, r.part());
             if (helmet) helmets++;
             if (helmet && !zone.equals("head")) helmetsWrong++;
+            // a ray on a suit's own model (its groups, "mesh/<group>"): the part its piece covers
+            if (ModelHits.suitZone(r.part()) != null) {
+                suit++;
+                if (!zone.equals(r.drawn())) suitWrong++;
+            }
             if (zone.equals(r.drawn())) same++;
             else {
                 wrong.merge(r.drawn() + "→" + zone + " " + r.part(), 1, Integer::sum);
@@ -127,7 +130,7 @@ final class BotStandHits {
         }
         return new Grid(in, out, in == 0 ? 0 : inHit / (double) in, out == 0 ? 0 : outHit / (double) out,
                 inHit == 0 ? 0 : same / (double) inHit, in == 0 ? 0 : boxIn / (double) in, out == 0 ? 0 : boxOut / (double) out,
-                wrong.toString(), helmets, helmetsWrong);
+                wrong.toString(), helmets, helmetsWrong, suit, suitWrong);
     }
 
     /** a part's box in the agent's frame, px: across, up, along its facing; at its centre */
@@ -244,7 +247,15 @@ final class BotStandHits {
             new Loadout("SECURITY", hbm("security_helmet"), hbm("security_plate"), hbm("security_legs"), hbm("security_boots")),
             new Loadout("GLASS+PAA", Identifier.withDefaultNamespace("glass"), hbm("paa_plate"), hbm("paa_legs"), hbm("paa_boots")),
             // a suit of its own model: the helmet a mesh standing further off the head than a layer's (modelHitboxesHelmet)
-            new Loadout("T51", hbm("t51_helmet"), hbm("t51_plate"), hbm("t51_legs"), hbm("t51_boots")) };
+            new Loadout("T51", hbm("t51_helmet"), hbm("t51_plate"), hbm("t51_legs"), hbm("t51_boots")), suit("HEV", "hev"), suit("AJR", "ajr"),
+            suit("NCRPA", "ncrpa"), suit("BJ", "bj"), suit("RPA", "rpa"), suit("CMB", "cmb"), suit("DNS", "dns"), suit("FAU", "fau"),
+            suit("TRENCH", "trenchmaster"), suit("EUPH", "euphemium"), suit("STEAM", "steamsuit"), suit("ENV", "envsuit"),
+            suit("BISMUTH", "bismuth"), suit("TAURUN", "taurun"), suit("DIESEL", "dieselsuit"), suit("SCHRAB", "schrabidium") };
+
+    /** a full NTM set by its items' name */
+    private static Loadout suit(String name, String set) {
+        return new Loadout(name, hbm(set + "_helmet"), hbm(set + "_plate"), hbm(set + "_legs"), hbm(set + "_boots"));
+    }
 
     /** the parts shot, by their names in the agent's boxes; the body first: the others are measured against it */
     static final String[][] PARTS = { { "тело", "root/body" }, { "голова", "root/head" }, { "плечо", "root/right_arm" },
