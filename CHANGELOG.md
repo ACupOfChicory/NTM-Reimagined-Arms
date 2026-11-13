@@ -8,6 +8,22 @@
   At a steady high frame rate this was hardly seen; when the frame rate
   varied (a fight, smoke, many particles) the model jerked back and forth.
 
+## X951
+
+- AI soldiers can be given armour and rounds by command. `/armsai spawn
+  fbi|dummy [count] [gun]` takes, after the gun and in any order, `armor
+  <set>` (a full set by the balance table's name or NTM's: `steel`, `t51`,
+  `hev`, `sec`, `bj`, `dns` and the rest; `none` for no armour), `armor
+  <slot>=<item> …` for single pieces (`head`, `chest`, `legs`, `feet`; an
+  item's id, a set's name or `none`) and `ammo <round>` (one of the rounds the
+  gun takes, such as `r556_ap`); `team <name>` goes there too. The bot loads
+  that round and reloads with it; before, a bot always had its gun's first
+  round and no armour but what `/item` put on it. Powered pieces come charged.
+  The words complete as they are typed, the rounds by the gun named.
+- `/armsai kit <targets> [armor …] [ammo …]` changes the armour and the round
+  of bots that already stand. A set there is not, or a round the gun does not
+  take, is refused with the names that would do.
+
 ## X949
 
 - AI soldiers change low cover as they do high cover: after two or three
