@@ -27,6 +27,8 @@ public final class AiRooms {
     static final int WAY_LONG = 3;
     /** a door's frame is this wide at most, and this many rows thick; a passage two wide and longer is a corridor */
     static final int WIDE = 3, WIDE_LONG = 2;
+    /** a room of so many cells at most at the end of a way one wide with no door is no room: the way is none */
+    static final int TINY = 2;
     /** a wild cell (AiRooms.wild) this many steps from a sign that someone lives there is a building's */
     static final int DWELT = 8;
     /** not under the roof */
@@ -305,30 +307,50 @@ public final class AiRooms {
 
         // rooms: the cells under the roof that are in no way, joined
         int[] room = new int[total];
-        java.util.Arrays.fill(room, OUTSIDE);
         List<int[]> sums = new ArrayList<>(); // {count, sum x, sum y, sum z}
         int[] stack = new int[total];
-        for (int i = 0; i < total; i++) {
-            if (near[i] == null || inWay[i] || room[i] != OUTSIDE) continue;
-            int id = sums.size(), top = 0;
-            int[] sum = new int[4];
-            stack[top++] = i;
-            room[i] = id;
-            while (top > 0) {
-                int c = stack[--top];
-                long at = cells.getLong(c);
-                sum[0]++;
-                sum[1] += BlockPos.getX(at);
-                sum[2] += BlockPos.getY(at);
-                sum[3] += BlockPos.getZ(at);
-                for (int k = 0; k < 4; k++) {
-                    int n = near[c][k];
-                    if (n < 0 || near[n] == null || inWay[n] || room[n] != OUTSIDE) continue;
-                    room[n] = id;
-                    stack[top++] = n;
+        for (int pass = 0; pass < 2; pass++) {
+            java.util.Arrays.fill(room, OUTSIDE);
+            sums.clear();
+            for (int i = 0; i < total; i++) {
+                if (near[i] == null || inWay[i] || room[i] != OUTSIDE) continue;
+                int id = sums.size(), top = 0;
+                int[] sum = new int[4];
+                stack[top++] = i;
+                room[i] = id;
+                while (top > 0) {
+                    int c = stack[--top];
+                    long at = cells.getLong(c);
+                    sum[0]++;
+                    sum[1] += BlockPos.getX(at);
+                    sum[2] += BlockPos.getY(at);
+                    sum[3] += BlockPos.getZ(at);
+                    for (int k = 0; k < 4; k++) {
+                        int n = near[c][k];
+                        if (n < 0 || near[n] == null || inWay[n] || room[n] != OUTSIDE) continue;
+                        room[n] = id;
+                        stack[top++] = n;
+                    }
                 }
+                sums.add(sum);
             }
-            sums.add(sum);
+            if (pass == 1) break;
+            // a way one wide with no door that ends in a room of a cell or two is no way: a walk one wide with
+            // openings along it (a gallery, a balcony) is one corridor, not a row of closets; read once more without
+            boolean dropped = false;
+            for (java.util.Iterator<int[]> it = runs.iterator(); it.hasNext(); ) {
+                int[] run = it.next();
+                int ax = axis[run[0]], back = ax == 0 ? 0 : 3, on = ax == 0 ? 2 : 1;
+                boolean hasDoor = false;
+                for (int c : run) hasDoor |= door[c];
+                if (hasDoor) continue;
+                int ea = near[run[0]][back], eb = near[run[run.length - 1]][on];
+                if (!(room[ea] >= 0 && sums.get(room[ea])[0] <= TINY || room[eb] >= 0 && sums.get(room[eb])[0] <= TINY)) continue;
+                for (int c : run) inWay[c] = false;
+                it.remove();
+                dropped = true;
+            }
+            if (!dropped) break;
         }
         int rooms = sums.size();
         int[] size = new int[rooms];
