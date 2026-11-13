@@ -18,6 +18,7 @@ import acup.gunfeel.ai.AiPoseGeometry;
 import acup.gunfeel.ai.client.BotAnimation;
 import acup.gunfeel.ai.client.BotClips;
 import acup.gunfeel.ai.client.BotPoser;
+import acup.gunfeel.ai.client.SuitBend;
 import net.minecraft.client.InactivityFpsLimit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
@@ -144,6 +145,7 @@ final class BotStand {
         step = 0;
         caseIndex = yawIndex = 0;
         until = now() + 40;
+        if (SUITS) startSuits();
     }
 
     private static Mob spawn(ServerLevel level, double x, double z, float yaw) {
@@ -169,6 +171,7 @@ final class BotStand {
                 case 3 -> damage();
                 case 4 -> clips();
                 case 5 -> armourPoses();
+                case 6 -> suits();
                 default -> {
                 }
             }
@@ -994,6 +997,108 @@ final class BotStand {
         startCost();
     }
 
+    // ---------------------------------------------------------------- the suits bent at the knee and the elbow
+
+    /** -PsuitBendStand: the suits of their own model in every pose, bent (SuitBend) and rigid, then 100 in a suit's cost */
+    static final boolean SUITS = !System.getProperty("ntmgunfeel.suitBendStand", "").isEmpty();
+    /** -PsuitBendStand=cost: the cost alone */
+    private static final boolean SUIT_COST = System.getProperty("ntmgunfeel.suitBendStand", "").equals("cost");
+    private static final List<BotStandHits.Loadout> SUIT_SETS = Arrays.stream(BotStandHits.LOADOUTS).filter(l -> OWN_MODEL.contains(l.name())).toList();
+    /** the suit 100 agents wear for the cost: Steamsuit, NTM's most faces on the limbs */
+    private static final String COST_SUIT = "STEAM";
+    private static int suitSet, suitCase, suitFrame;
+    /** per suit: the worst of the bent and of the rigid mesh, poke px and gap rays */
+    private static final double[] SUIT_WORST = new double[4];
+    /** the suit's gap rays standing, by NTM's bone */
+    private static final Map<String, Integer> STAND_HOLES = new HashMap<>();
+
+    private static void startSuits() {
+        if (SUIT_COST) {
+            startCost();
+            return;
+        }
+        step = 6;
+        suitSet = suitCase = 0;
+        setSuitPose();
+    }
+
+    private static void setSuitPose() {
+        var l = SUIT_SETS.get(suitSet);
+        Case cc = CASES[suitCase];
+        var server = mc().getSingleplayerServer();
+        server.submit(() -> {
+            Mob m = (Mob) server.overworld().getEntity(one.getId());
+            if (suitCase == 0) BotStandHits.wear(m, l);
+            m.setYRot(180F);
+            m.setYBodyRot(180F);
+            m.setYHeadRot(180F);
+            int at = (int) server.overworld().getGameTime();
+            m.setData(AiPose.Sync.TYPE, new AiPose(cc.stance(), (byte) cc.lean(), (byte) 0, at, cc.arms(), AiPose.NONE, 0, (short) 0, AiPose.FIGHT));
+            m.setPose(cc.lying() ? Pose.SWIMMING : cc.stance() == AiPose.CROUCH ? Pose.CROUCHING : Pose.STANDING);
+        }).join();
+        if (suitCase == 0) {
+            Arrays.fill(SUIT_WORST, 0);
+            STAND_HOLES.clear();
+        }
+        until = now() + 30;
+        suitFrame = 0;
+    }
+
+    /**
+     * Each suit in each pose: its arms and legs as drawn, bent and as NTM draws them rigid, against the skin under them
+     * (SuitBendStand): bent, the skin stands out no more and no gap opens where the rigid mesh has none
+     */
+    private static void suits() {
+        if (now() < until) return;
+        if (suitFrame == 0) {
+            SuitBend.capture = new java.util.concurrent.ConcurrentHashMap<>();
+            suitFrame = 1;
+            return;
+        }
+        var drawn = SuitBend.capture;
+        SuitBend.capture = null;
+        var l = SUIT_SETS.get(suitSet);
+        Case c = CASES[suitCase];
+        var seenBy = mc().level.getEntity(one.getId());
+        if (seenBy == null || drawn == null || drawn.isEmpty()) ClientSmoke.check(false, "костюм " + l.name() + " в позе " + c.name() + ": не нарисован (" + drawn + ")");
+        else {
+            var boxes = ModelHits.worldBoxes(seenBy);
+            for (var e : new java.util.TreeMap<>(drawn).entrySet()) {
+                var skin = SuitBendStand.skin(boxes, e.getKey());
+                var bent = SuitBendStand.measure(e.getValue(), e.getValue().bent(), skin);
+                var rigid = SuitBendStand.measure(e.getValue(), e.getValue().rigid(), skin);
+                ROWS.add(String.format(Locale.ROOT, "костюм в позе\t%s\t%s\t%s\tсгиб %.0f°\tсо сгибом %s\tжёсткий %s\tкожи %d", l.name(), c.name(), e.getKey(), bent.bend(),
+                        bent, rigid, skin.size()));
+                SUIT_WORST[0] = Math.max(SUIT_WORST[0], bent.poke());
+                SUIT_WORST[1] = Math.max(SUIT_WORST[1], bent.holes());
+                SUIT_WORST[2] = Math.max(SUIT_WORST[2], rigid.poke());
+                SUIT_WORST[3] = Math.max(SUIT_WORST[3], rigid.holes());
+                // a limb the suit covers straight (no ray out through it standing) stays covered bent, the skin standing
+                // out of it at most a pixel; a suit not round the limb (Bismuth's crystals, Diesel's leg a strip
+                // behind it) is written down. The rigid mesh is no measure: its lower half points elsewhere, and a ray
+                // meets it there.
+                if (suitCase == 0) STAND_HOLES.put(e.getKey(), bent.holes());
+                boolean covered = STAND_HOLES.getOrDefault(e.getKey(), 1) == 0;
+                String line = String.format(Locale.ROOT, "костюм %s в позе %s, %s (сгиб %.0f°): со сгибом %s, жёсткий %s", l.name(), c.name(), e.getKey(),
+                        bent.bend(), bent, rigid);
+                ClientSmoke.check(!skin.isEmpty() && (!covered || bent.holes() == 0 && bent.poke() <= 1.0), covered ? line : line + " (не вокруг конечности, сведения)");
+            }
+        }
+        if (++suitCase == CASES.length) {
+            ROWS.add(String.format(Locale.ROOT, "костюм итог\t%s\tсо сгибом %.2f px, щелей до %.0f\tжёсткий %.2f px, щелей до %.0f", l.name(), SUIT_WORST[0], SUIT_WORST[1],
+                    SUIT_WORST[2], SUIT_WORST[3]));
+            ClientSmoke.check(true, String.format(Locale.ROOT, "костюм %s (сведения), хуже всех поз: со сгибом %.2f px, щелей до %.0f; жёсткий %.2f px, щелей до %.0f",
+                    l.name(), SUIT_WORST[0], SUIT_WORST[1], SUIT_WORST[2], SUIT_WORST[3]));
+            suitCase = 0;
+            if (++suitSet == SUIT_SETS.size()) {
+                write();
+                startCost();
+                return;
+            }
+        }
+        setSuitPose();
+    }
+
     // ---------------------------------------------------------------- 3. the cost of 100
 
     private static final boolean[] PLAN = { true, false, false, true };
@@ -1005,6 +1110,10 @@ final class BotStand {
         server.submit(() -> {
             ServerLevel level = server.overworld();
             for (int i = 0; i < 100; i++) crowd.add(spawn(level, -6.75 + (i % 10) * 1.5, 4.5 + (i / 10) * 1.5, 180F));
+            if (SUITS) {
+                var suit = SUIT_SETS.stream().filter(l -> l.name().equals(COST_SUIT)).findFirst().orElseThrow();
+                for (Mob m : crowd) BotStandHits.wear(m, suit);
+            }
             var p = server.getPlayerList().getPlayers().getFirst();
             p.teleportTo(level, 0.5, O.getY() + 2.5, -3, Set.of(), 0F, 20F, false);
         }).join();
@@ -1027,13 +1136,17 @@ final class BotStand {
     private static void nextCost() {
         if (++planIndex == PLAN.length) {
             double on = MEANS[1] / 2, off = MEANS[0] / 2;
-            ClientSmoke.check(true, String.format(Locale.ROOT, "100 ботов: кадр %.3f мс с проигрывателем, %.3f мс без (%+.3f мс)", on, off, on - off));
+            ClientSmoke.check(true, String.format(Locale.ROOT, SUITS ? "100 ботов в костюме " + COST_SUIT + ": кадр %.3f мс со сгибом, %.3f мс без (%+.3f мс)"
+                    : "100 ботов: кадр %.3f мс с проигрывателем, %.3f мс без (%+.3f мс)", on, off, on - off));
+            SuitBend.on = true;
             write();
             ClientSmoke.check(true, "стенд ботов завершён");
             ClientSmoke.finish();
             return;
         }
-        BotAnimation.standOff = !PLAN[planIndex];
+        // the suit stand weighs the bend, the rest the clips' player
+        if (SUITS) SuitBend.on = PLAN[planIndex];
+        else BotAnimation.standOff = !PLAN[planIndex];
         until = System.nanoTime() + 3_000_000_000L;
         measuring = 0;
         samples = 0;
