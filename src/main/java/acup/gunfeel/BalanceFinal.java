@@ -326,7 +326,8 @@ public final class BalanceFinal {
                 BalanceBlastRule.hits(ReaimTimes.text("balance.final.blast.hits", ""), BalanceBlastRule.Hits.DEFAULT),
                 parsed("balance.final.blast.frags", BalanceBlastRule.FRAGS, BalanceBlastRule::frags));
         var range = new BalanceRangeRule.Rule(parsed("balance.final.range", BalanceRangeRule.LINES, BalanceRangeRule::lines),
-                num("balance.final.range.close", 8, 0, 256), Map.copyOf(BalanceFinalRule.roles(ReaimTimes.text("balance.final.range.home", BalanceRangeRule.HOME))));
+                num("balance.final.range.close", 8, 0, 256), Map.copyOf(BalanceFinalRule.roles(ReaimTimes.text("balance.final.range.home", BalanceRangeRule.HOME))),
+                Map.copyOf(BalanceRangeRule.lineOfs(ReaimTimes.text("balance.final.range.lineOf", BalanceRangeRule.LINE_OF))));
         return new State(version, params, pairs, BalanceFinalRule.refs(formula), Set.copyOf(table), explosive, Map.copyOf(sets), weights,
                 num("balance.final.armor.empty", 0, 0, 20), new ConcurrentHashMap<>(), blast, range,
                 BalanceFinalRule.Acid.parse(ReaimTimes.text("balance.final.acid", ACID), BalanceFinalRule.Acid.DEFAULT));
@@ -532,19 +533,28 @@ public final class BalanceFinal {
 
     /**
      * the hit's share by range (balance.final.range; Fable 10.4): by the pair's role and the shooter's distance to the
-     * target now; 1 for a blast (an explosive shell's direct hit), the Tesla Cannon's arc and its IR beam, no shooter, the rule off
+     * target now; 1 for a blast (an explosive shell's direct hit), the Tesla Cannon's arc and its IR beam, no shooter, the rule off.
+     * A gun of a line of its own (balance.final.range.lineOf: the Shredder) takes it on every hit of its the scheme takes:
+     * its beam's flash, the drops the beam leaves where it strikes (all its damage on a creature) and a drop's blast on
+     * the creature it struck, by the shooter's distance to the target
      */
     private static float range(LivingEntity target, DamageSource source, Hit h) {
         var r = state().range();
         String role = BalanceFinalRule.roleOf(h.pair(), state().params());
+        boolean own = r.lineOf().containsKey(h.pair().gun());
         // an explosive shell's direct hit takes the shell's line, or its role's (balance.final.range.shells; Fable №2, 2.1; №3); other blasts none
-        boolean shell = expl(source) && h.pair().explosive() && (role.equals("shotgun") || role.equals("slug")) && ReaimTimes.flag("balance.final.range.shells", true);
+        boolean shell = !own && expl(source) && h.pair().explosive() && (role.equals("shotgun") || role.equals("slug")) && ReaimTimes.flag("balance.final.range.shells", true);
         // the IR arc's beam: no range, like the arc (Fable's answer 6, 5)
-        // the shell's direct hit comes in NTM's blast (vntBlastNow): the shell's line all the same
-        if (!r.on() || (BalanceArmor.vntBlastNow() || expl(source)) && !shell || irSub(source) || source.getEntity() == null) return 1F;
+        // the shell's direct hit comes in NTM's blast (vntBlastNow): the shell's line all the same; so does a drop's blast of a gun's own line
+        if (!r.on() || (BalanceArmor.vntBlastNow() || expl(source)) && !shell && !(own && expl(source)) || irSub(source) || source.getEntity() == null) return 1F;
         double d = source.getEntity().position().distanceTo(target.position());
-        // the shell's own line (Fable №3), or its role's when the rule has none (X942)
-        return (float) (shell ? BalanceRangeRule.shell(r, role, d) : BalanceRangeRule.damage(r, role, d));
+        // the gun's own line; the shell's (Fable №3), or its role's when the rule has none (X942)
+        return (float) BalanceRangeRule.hit(r, h.pair().gun(), role, shell, d);
+    }
+
+    /** the line of {@code gun}'s own (balance.final.range.lineOf), or null */
+    static String lineOf(String gun) {
+        return state().range().lineOf().get(gun);
     }
 
     /** what a hit takes from a full set's pool (EuphImmunity), or NaN when it is not the scheme's */

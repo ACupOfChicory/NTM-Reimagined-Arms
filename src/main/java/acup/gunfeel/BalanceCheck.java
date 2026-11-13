@@ -1748,7 +1748,8 @@ public final class BalanceCheck {
                 line("rf\t" + p[0] + "\t" + p[1] + "\tнет патрона");
                 continue;
             }
-            boolean shot = pr.pellets() >= 4;
+            // a shot of a gun of a line of its own (the Shredder's beam) goes as far as the line
+            boolean shot = pr.pellets() >= 4 && BalanceFinal.lineOf(pr.gun()) == null;
             for (int d : dists) {
                 if (shot && d > RF_SHOT_FAR) continue;
                 for (int f = 0; f < fights; f++) {
