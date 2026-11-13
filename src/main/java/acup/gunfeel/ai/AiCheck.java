@@ -100,7 +100,7 @@ public final class AiCheck {
             AiCheckTeams teams = new AiCheckTeams(check, check.level, Y);
             AiCheckUnseen unseen = new AiCheckUnseen(check, check.level, Y);
             AiCheckReact react = new AiCheckReact(check, check.level, Y);
-            AiCheckTeams battle = new AiCheckTeams(check, check.level, Y, true);
+            AiCheckBattle battle = new AiCheckBattle(check, check.level, Y);
             AiCheckParts parts = new AiCheckParts(check, check.level, Y);
             AiCheckLean lean = new AiCheckLean(check, check.level, Y);
             AiCheckSquad squad = new AiCheckSquad(check, check.level, Y);

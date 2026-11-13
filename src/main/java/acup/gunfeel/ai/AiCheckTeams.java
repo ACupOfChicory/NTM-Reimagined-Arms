@@ -84,6 +84,11 @@ final class AiCheckTeams {
     int redHitsOut, blueHitsOut, redShots, blueShots;
     /** all the fighters' shots, those from a crouch, those with a block that stops bullets just past the gun */
     int shotsAll, shotsLow, coverShots;
+    /** one of a few battles summed up by AiCheckBattle: the battle's marks are held to there, over them all */
+    boolean series;
+    /** for that: the times down too briefly, the longest run of looks out of one place, the cover changes, the ticks its fighters lived */
+    int briefOut, peekRunOut, shiftsOut;
+    long aliveTicksOut;
     double redDamage, blueDamage;
     private boolean done;
     // the sounds that reached the AI in the fight: per name, how many, how many loud and made by no mob or player
@@ -499,7 +504,11 @@ final class AiCheckTeams {
                     sorted.isEmpty() ? "" : String.format(Locale.ROOT, " (%.1f..%.1f bl, median %.1f)", sorted.get(0), sorted.get(sorted.size() - 1), sorted.get(sorted.size() / 2))));
         }
         check.out(heard.toString());
-        if (battle && loners == null) {
+        briefOut = brief;
+        peekRunOut = peekRun;
+        shiftsOut = shifts;
+        aliveTicksOut = aliveTicks;
+        if (battle && loners == null && !series) {
             check.check("the battle: no lying down for less than " + AiProne.BRIEF / 20 + " s (" + brief + " times)", brief <= MARK_BRIEF);
             check.check("the battle: no looking out from one place more than " + MARK_PEEK_RUN + " times running (" + peekRun + ")", peekRun <= MARK_PEEK_RUN);
             check.check(String.format(Locale.ROOT, "the battle: cover changed %.0f times a fighter a minute at least (%.2f)", MARK_SHIFTS, shifts / minutes),
