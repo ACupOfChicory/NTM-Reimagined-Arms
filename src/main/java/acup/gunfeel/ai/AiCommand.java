@@ -22,6 +22,11 @@ import net.minecraft.server.level.ServerPlayer;
  * <pre>
  * /armsai debug [radius]   show (again: hide) the tactical map's cells around you, radius 16 blocks by default, and
  *                          what the AI mobs round you think; while anyone watches, their decisions go to the journal
+ * /armsai debug rooms [radius]  show (again: hide) the buildings round you as the AI reads them, radius 24 by default:
+ *                          rooms, corridors, ways with the cells beside them, windows, stairs, places under a roof
+ *                          that are no building; the colours are said in the chat
+ * /armsai debug walls      with them, the blocks of the rooms' shells by their kind (again: without)
+ * /armsai debug dump       the same in numbers: a line in the chat, the rest in the journal
  * /armsai log on|off       the AI mobs' decision journal in logs/ntm-gunfeel-debug.log with no one watching too
  *                          (AiThoughts); off by default
  * /armsai info             the map of this level: sections, builds, their time, block changes seen; the AI mobs and
@@ -45,7 +50,12 @@ public final class AiCommand {
         var root = Commands.literal("armsai").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS));
         root.then(Commands.literal("debug").executes(c -> debug(c, 16))
                 .then(Commands.argument("radius", IntegerArgumentType.integer(4, 48))
-                        .executes(c -> debug(c, IntegerArgumentType.getInteger(c, "radius")))));
+                        .executes(c -> debug(c, IntegerArgumentType.getInteger(c, "radius"))))
+                .then(Commands.literal("rooms").executes(c -> rooms(c, 24))
+                        .then(Commands.argument("radius", IntegerArgumentType.integer(4, 48))
+                                .executes(c -> rooms(c, IntegerArgumentType.getInteger(c, "radius")))))
+                .then(Commands.literal("walls").executes(AiCommand::walls))
+                .then(Commands.literal("dump").executes(AiCommand::dump)));
         root.then(Commands.literal("info").executes(AiCommand::info));
         root.then(Commands.literal("log").then(Commands.literal("on").executes(c -> log(c, true)))
                 .then(Commands.literal("off").executes(c -> log(c, false))));
@@ -78,6 +88,44 @@ public final class AiCommand {
         boolean on = AiDebug.toggle(p, radius);
         c.getSource().sendSuccess(() -> Component.literal(on ? "AI cells shown, radius " + radius + "; AI decisions go to " + JOURNAL : "AI cells hidden"),
                 false);
+        return 1;
+    }
+
+    /** what the colours of /armsai debug rooms mean, said as it is turned on */
+    static final String[] LEGEND = {
+            "Buildings as the AI reads them, radius %d (again: hide):",
+            " floor in a colour: a room, each its own; over its middle its number, room or corridor, its cells",
+            " orange cell with a frame: a way (a doorway, a hole, a corridor's mouth); red: with a door; bright blue: over a sill (a window they climb through); a post in it: it leads out from under the roof",
+            " small yellow and pink blocks: the cells beside a way where a squad stacks up (pink: the first room's side, yellow: the other side or outside)",
+            " light blue pane in a wall: a window seen and shot through and not walked through; paler: glazed",
+            " white bars on a floor: stairs; white rungs: a ladder",
+            " grey cross: under a roof, but no building (a cave, under a tree)",
+            " /armsai debug walls: the blocks of the rooms' shells (brown: the ground, blue-grey: put there, green: someone lives there)",
+            " /armsai debug dump: all of it in numbers, here and in " + JOURNAL};
+
+    private static int rooms(CommandContext<CommandSourceStack> c, int radius) throws CommandSyntaxException {
+        ServerPlayer p = c.getSource().getPlayerOrException();
+        boolean on = AiDebug.toggleRooms(p, radius);
+        if (!on) c.getSource().sendSuccess(() -> Component.literal("AI buildings hidden"), false);
+        else for (String line : LEGEND) c.getSource().sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT, line, radius)), false);
+        return 1;
+    }
+
+    private static int walls(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+        ServerPlayer p = c.getSource().getPlayerOrException();
+        boolean on = AiDebug.toggleWalls(p);
+        c.getSource().sendSuccess(() -> Component.literal(on ? "AI buildings: the blocks of the rooms' shells shown (brown: the ground, blue-grey: put there, green: someone lives there)"
+                : "AI buildings: the blocks of the rooms' shells hidden"), false);
+        return 1;
+    }
+
+    private static int dump(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+        ServerPlayer p = c.getSource().getPlayerOrException();
+        int radius = AiDebug.roomsRadius(p);
+        java.util.List<String> lines = AiDebug.dump(TacticalMap.of(p.level()), p.blockPosition(), radius < 0 ? 24 : radius);
+        for (String line : lines) acup.gunfeel.DebugLog.LOGGER.info("armsai rooms: " + line);
+        c.getSource().sendSuccess(() -> Component.literal(lines.get(0)), false);
+        c.getSource().sendSuccess(() -> Component.literal((lines.size() - 1) + " more lines in " + JOURNAL), false);
         return 1;
     }
 

@@ -272,4 +272,95 @@ class AiRoomsTest {
         g.set(6, 1, 10, DOOR);
         assertNull(AiRooms.of(new Kinds(g.build(), AiBlockKinds.NATURAL), BlockPos.asLong(6, 0, 7)));
     }
+
+    // ------------------------------------------------------------------ frames two and three wide, windows, corridors
+
+    @Test
+    void aDoorwayTwoWideInAWallIsAWay() {
+        PathSearchTest.Grid g = house();
+        hole(g, 9, 6);
+        g.build();
+        AiRooms.Plan p = AiRooms.of(g, BlockPos.asLong(6, 0, 7));
+        assertEquals(2, p.rooms());
+        int west = p.room(BlockPos.asLong(6, 0, 7)), east = p.room(BlockPos.asLong(12, 0, 7));
+        assertTrue(west >= 0 && east >= 0 && west != east);
+        AiRooms.Way in = p.waysOf(east).get(0);
+        assertEquals(2, in.width);
+        assertEquals(2, in.cells.length);
+        assertTrue(has(in.cells, 9, 6) && has(in.cells, 9, 7));
+        assertEquals(west, in.other(east));
+        // beside it: against the wall either side of the frame
+        assertTrue(has(in.beside(west), 8, 5) && has(in.beside(west), 8, 8));
+        assertTrue(has(in.beside(east), 10, 5) && has(in.beside(east), 10, 8));
+    }
+
+    @Test
+    void aDoorwayThreeWideIsAWayAndFourWideIsNone() {
+        PathSearchTest.Grid g = house();
+        hole(g, 9, 6);
+        hole(g, 9, 8);
+        g.build();
+        AiRooms.Plan p = AiRooms.of(g, BlockPos.asLong(6, 0, 7));
+        assertEquals(2, p.rooms());
+        assertEquals(3, p.waysOf(p.room(BlockPos.asLong(12, 0, 7))).get(0).width);
+        hole(g, 9, 5);
+        g.build();
+        // four wide of a wall five long: one room
+        assertEquals(1, AiRooms.of(g, BlockPos.asLong(6, 0, 7)).rooms());
+    }
+
+    @Test
+    void aRoomThreeWideIsNotCutAcross() {
+        // a room x 5..7 (three wide), z 5..14, a doorway one wide in its east wall at (8, 9) into a room x 9..13
+        PathSearchTest.Grid g = new PathSearchTest.Grid(2);
+        box(g, 4, 4, 14, 15);
+        for (int z = 5; z <= 14; z++) for (int y = 0; y < 3; y++) g.set(8, y, z, STONE);
+        hole(g, 8, 9);
+        g.build();
+        AiRooms.Plan p = AiRooms.of(g, BlockPos.asLong(6, 0, 6));
+        assertEquals(2, p.rooms());
+        assertEquals(3 * 10, p.size[p.room(BlockPos.asLong(6, 0, 6))]);
+        assertEquals(AiRooms.ROOM, p.kind[p.room(BlockPos.asLong(6, 0, 6))]);
+    }
+
+    @Test
+    void aPassageTwoWideIsACorridorWithAWayAtEachMouth() {
+        // rooms x 5..8 and x 16..19, z 5..9; between them a passage two wide (z 6..7), x 9..15
+        PathSearchTest.Grid g = new PathSearchTest.Grid(2);
+        box(g, 4, 4, 20, 10);
+        for (int x = 9; x <= 15; x++)
+            for (int z = 5; z <= 9; z++) if (z != 6 && z != 7) for (int y = 0; y < 3; y++) g.set(x, y, z, STONE);
+        g.build();
+        AiRooms.Plan p = AiRooms.of(g, BlockPos.asLong(6, 0, 7));
+        assertEquals(3, p.rooms());
+        int mid = p.room(BlockPos.asLong(12, 0, 7));
+        assertTrue(mid >= 0);
+        assertEquals(5 * 2, p.size[mid]);
+        assertEquals(AiRooms.CORRIDOR, p.kind[mid]);
+        assertEquals(AiRooms.ROOM, p.kind[p.room(BlockPos.asLong(6, 0, 7))]);
+        assertEquals(2, p.waysOf(mid).size());
+        assertEquals(2, p.waysOf(mid).get(0).width);
+    }
+
+    @Test
+    void aWindowIsSeenThroughAndNotWalkedThrough() {
+        PathSearchTest.Grid g = house();
+        // a hole at head height in the west room's west wall, glass at head height in its north wall, a rail in the east room
+        g.set(4, 1, 6, Voxel.AIR);
+        byte glass = Voxel.of(Voxel.SOLID, false, 0, false, false, false);
+        g.set(6, 1, 4, glass);
+        g.build();
+        AiRooms.Plan p = AiRooms.of(g, BlockPos.asLong(6, 0, 7));
+        int west = p.room(BlockPos.asLong(6, 0, 7));
+        assertEquals(2, p.windows.length);
+        boolean hole = false, pane = false;
+        for (AiRooms.Window w : p.windows) {
+            assertEquals(west, w.room());
+            if (w.block() == BlockPos.asLong(4, 1, 6)) hole = !w.glazed() && w.dir() == Dirs.W;
+            if (w.block() == BlockPos.asLong(6, 1, 4)) pane = w.glazed() && w.dir() == Dirs.N;
+        }
+        assertTrue(hole && pane);
+        assertEquals(0, p.stairs.length);
+        assertEquals(0, p.ladders.length);
+    }
 }

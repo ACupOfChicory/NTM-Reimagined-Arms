@@ -25,6 +25,8 @@ public final class AiRooms {
     static final int REACH = 20, MAX_CELLS = 900;
     /** a passage one wide this long or shorter is one way (a doorway in a thick wall); longer, a corridor with a way at each mouth */
     static final int WAY_LONG = 3;
+    /** a door's frame is this wide at most, and this many rows thick; a passage two wide and longer is a corridor */
+    static final int WIDE = 3, WIDE_LONG = 2;
     /** a wild cell (AiRooms.wild) this many steps from a sign that someone lives there is a building's */
     static final int DWELT = 8;
     /** not under the roof */
@@ -45,6 +47,8 @@ public final class AiRooms {
         public final boolean door;
         /** the cells beside the opening at each end with the wall between them and the other end: out of the line through it */
         public final long[] besideA, besideB;
+        /** it goes over a sill: its cells stand a step higher than the cell before it at an end (a window climbed through) */
+        public boolean sill;
 
         Way(long[] cells, int dir, int a, int b, int width, boolean door, long[] besideA, long[] besideB) {
             this.cells = cells;
@@ -68,6 +72,15 @@ public final class AiRooms {
         }
     }
 
+    /** A window of a room: the wall's block at head height, the direction out of the room, the room, glass or bars in it. */
+    public record Window(long block, int dir, int room, boolean glazed) {
+    }
+
+    /** a room's kind: a room, or a corridor (long and narrow) */
+    public static final byte ROOM = 0, CORRIDOR = 1;
+    /** a corridor is this wide at most; one a cell wide is this many cells at least, one two wide twice that */
+    static final int CORRIDOR_WIDE = 2, CORRIDOR_LONG = 4;
+
     /** A building's rooms and ways. */
     public static final class Plan {
         /** a room's cells counted, and the cell nearest its middle */
@@ -76,14 +89,28 @@ public final class AiRooms {
         public final Way[] ways;
         /** the roof went on past REACH or MAX_CELLS: the plan is a part of the building */
         public final boolean cut;
+        /** each room's kind, ROOM or CORRIDOR */
+        public final byte[] kind;
+        /** the cells of its stairs (a step up or down to the next cell) and of its ladders (climbed) */
+        public final long[] stairs, ladders;
+        public final Window[] windows;
         private final Long2IntOpenHashMap roomOf;
 
-        Plan(int[] size, long[] mid, Way[] ways, boolean cut, Long2IntOpenHashMap roomOf) {
+        Plan(int[] size, long[] mid, Way[] ways, boolean cut, Long2IntOpenHashMap roomOf, byte[] kind, long[] stairs, long[] ladders, Window[] windows) {
             this.size = size;
             this.mid = mid;
             this.ways = ways;
             this.cut = cut;
             this.roomOf = roomOf;
+            this.kind = kind;
+            this.stairs = stairs;
+            this.ladders = ladders;
+            this.windows = windows;
+        }
+
+        /** every cell of its rooms and the room it is in (the ways' cells are in none) */
+        public it.unimi.dsi.fastutil.longs.Long2IntMap roomCells() {
+            return it.unimi.dsi.fastutil.longs.Long2IntMaps.unmodifiable(roomOf);
         }
 
         public int rooms() {
@@ -105,11 +132,22 @@ public final class AiRooms {
 
     /** the building the cell is in, or null for a cell not under a roof */
     public static @Nullable Plan of(CellSource src, long seed) {
+        return of(src, seed, null);
+    }
+
+    /** the same; the cells under the roof round the seed that are no building's (wild) are put into wildOut (the debug view) */
+    static @Nullable Plan of(CellSource src, long seed, @Nullable LongOpenHashSet wildOut) {
+        return of(src, seed, wildOut, REACH, MAX_CELLS);
+    }
+
+    /** the same read this far from the cell and so many cells at most (the debug view reads a whole building) */
+    static @Nullable Plan of(CellSource src, long seed, @Nullable LongOpenHashSet wildOut, int reach, int most) {
         PathSearch.Reader r = new PathSearch.Reader(src);
         int sx = BlockPos.getX(seed), sy = BlockPos.getY(seed), sz = BlockPos.getZ(seed);
         if ((r.flags(sx, sy, sz) & SectionCells.ROOF) == 0 || !r.has(sx, sy, sz)) return null;
         // the cells under the roof that are the wild's: a cave is no building
-        LongOpenHashSet wild = AiBlockKinds.shell ? wild(src, r, seed) : null;
+        LongOpenHashSet wild = AiBlockKinds.shell ? wild(src, r, seed, reach, most) : null;
+        if (wild != null && wildOut != null) wildOut.addAll(wild);
         if (wild != null && wild.contains(seed)) return null;
 
         // the cells under the roof joined to the seed, and the cells just out from under it
@@ -137,7 +175,7 @@ public final class AiRooms {
                 if (i < 0) {
                     int nx = BlockPos.getX(next), nz = BlockPos.getZ(next);
                     boolean roof = (r.flags(nx, BlockPos.getY(next), nz) & SectionCells.ROOF) != 0 && (wild == null || !wild.contains(next));
-                    if (roof && (Math.abs(nx - sx) > REACH || Math.abs(nz - sz) > REACH || inside >= MAX_CELLS)) {
+                    if (roof && (Math.abs(nx - sx) > reach || Math.abs(nz - sz) > reach || inside >= most)) {
                         cut = true;
                         continue;
                     }
@@ -197,6 +235,73 @@ public final class AiRooms {
             }
         }
         for (int[] run : runs) for (int c : run) inWay[c] = true;
+
+        // two or three wide: a door's frame in a wall's line (a row of cells across, a wall at each end, gone through
+        // by every one of them), one or two rows thick, the place wider past it on both sides (or out from under the
+        // roof); a passage two wide and longer is a corridor with such a way at each mouth where it widens
+        List<int[][]> wides = new ArrayList<>(); // {{passage axis, width}, cells row by row from back to on}
+        for (int ax = 0; ax < 2; ax++) {
+            int back = ax == 0 ? 0 : 3, on = ax == 0 ? 2 : 1, left = ax == 0 ? 3 : 0, right = ax == 0 ? 1 : 2;
+            // each cell's row across: its index, or -1 for a row that is no frame's
+            int[] rowOf = new int[total];
+            java.util.Arrays.fill(rowOf, -2);
+            List<int[]> rows = new ArrayList<>();
+            for (int i = 0; i < total; i++) {
+                if (near[i] == null || rowOf[i] != -2) continue;
+                int start = i;
+                for (int guard = 0; guard < total; guard++) {
+                    int p = near[start][left];
+                    if (p < 0 || near[p] == null) break;
+                    start = p;
+                }
+                LongArrayList row = new LongArrayList();
+                // walls at both ends (not the roof's edge), every cell gone through both ways, none a way one wide
+                boolean frame = near[start][left] < 0;
+                int last = start;
+                for (int c = start, guard = 0; c >= 0 && near[c] != null && guard < total; c = near[c][right], guard++) {
+                    row.add(c);
+                    last = c;
+                    frame &= near[c][back] >= 0 && near[c][on] >= 0 && !inWay[c];
+                }
+                frame &= near[last][right] < 0 && row.size() >= 2 && row.size() <= WIDE;
+                int id = frame ? rows.size() : -1;
+                int[] cellsOf = new int[row.size()];
+                for (int k = 0; k < cellsOf.length; k++) {
+                    cellsOf[k] = (int) row.getLong(k);
+                    rowOf[cellsOf[k]] = id;
+                }
+                if (frame) rows.add(cellsOf);
+            }
+            boolean[] used = new boolean[rows.size()];
+            for (int s0 = 0; s0 < rows.size(); s0++) {
+                if (used[s0]) continue;
+                int w = rows.get(s0).length;
+                // back to the passage's first row, then on through it
+                int first = s0;
+                for (int guard = 0; guard < rows.size(); guard++) {
+                    int prev = before(near, rowOf, rows, first, back);
+                    if (prev < 0 || used[prev] || prev == s0) break;
+                    first = prev;
+                }
+                List<int[]> passage = new ArrayList<>();
+                for (int at = first; at >= 0 && !used[at]; at = before(near, rowOf, rows, at, on)) {
+                    used[at] = true;
+                    passage.add(rows.get(at));
+                }
+                boolean widerA = wider(near, passage.get(0), back, left, right), widerB = wider(near, passage.get(passage.size() - 1), on, left, right);
+                if (passage.size() <= WIDE_LONG) {
+                    if (!widerA || !widerB) continue;
+                    int[][] way = new int[passage.size() + 1][];
+                    way[0] = new int[] {ax, w};
+                    for (int k = 0; k < passage.size(); k++) way[k + 1] = passage.get(k);
+                    wides.add(way);
+                } else if (w == 2) {
+                    if (widerA) wides.add(new int[][] {{ax, w}, passage.get(0)});
+                    if (widerB) wides.add(new int[][] {{ax, w}, passage.get(passage.size() - 1)});
+                }
+            }
+        }
+        for (int[][] way : wides) for (int k = 1; k < way.length; k++) for (int c : way[k]) inWay[c] = true;
 
         // rooms: the cells under the roof that are in no way, joined
         int[] room = new int[total];
@@ -261,7 +366,36 @@ public final class AiRooms {
             long[] row = {cells.getLong(endA)}, rowB = {cells.getLong(endB)};
             Way w = new Way(at, dir, a, b, 1, hasDoor, beside(r, row, dir), beside(r, rowB, Dirs.opposite(dir)));
             // room a is never OUTSIDE
-            ways.add(a != OUTSIDE ? w : new Way(reverse(at), Dirs.opposite(dir), b, a, 1, hasDoor, w.besideB, w.besideA));
+            Way made = a != OUTSIDE ? w : new Way(reverse(at), Dirs.opposite(dir), b, a, 1, hasDoor, w.besideB, w.besideA);
+            made.sill = BlockPos.getY(at[0]) > BlockPos.getY(cells.getLong(endA)) || BlockPos.getY(at[at.length - 1]) > BlockPos.getY(cells.getLong(endB));
+            ways.add(made);
+        }
+        // the ways two and three wide
+        for (int[][] way : wides) {
+            int ax = way[0][0], back = ax == 0 ? 0 : 3, on = ax == 0 ? 2 : 1, w = way[0][1];
+            int[] firstRow = way[1], lastRow = way[way.length - 1];
+            long[] rowA = new long[w], rowB = new long[w];
+            int a = OUTSIDE, b = OUTSIDE;
+            for (int k = 0; k < w; k++) {
+                int ea = near[firstRow[k]][back], eb = near[lastRow[k]][on];
+                rowA[k] = cells.getLong(ea);
+                rowB[k] = cells.getLong(eb);
+                if (a == OUTSIDE) a = room[ea];
+                if (b == OUTSIDE) b = room[eb];
+            }
+            if (a == b) continue;
+            boolean hasDoor = false;
+            LongArrayList at = new LongArrayList();
+            for (int k = 1; k < way.length; k++)
+                for (int c : way[k]) {
+                    at.add(cells.getLong(c));
+                    hasDoor |= door[c];
+                }
+            int dir = CARDINAL[on];
+            Way wy = new Way(at.toLongArray(), dir, a, b, w, hasDoor, beside(r, rowA, dir), beside(r, rowB, Dirs.opposite(dir)));
+            Way made = a != OUTSIDE ? wy : new Way(reverse(at.toLongArray()), Dirs.opposite(dir), b, a, w, hasDoor, wy.besideB, wy.besideA);
+            made.sill = BlockPos.getY(cells.getLong(firstRow[0])) > BlockPos.getY(rowA[0]) || BlockPos.getY(cells.getLong(lastRow[0])) > BlockPos.getY(rowB[0]);
+            ways.add(made);
         }
         // the open sides: a room's cells with a cell out from under the roof next to them, in rows along the edge
         boolean[][] edgeSeen = new boolean[4][total];
@@ -288,10 +422,62 @@ public final class AiRooms {
             }
         }
 
+        // a corridor: most of its cells have room for one or two across, and it is long for that
+        byte[] kind = new byte[rooms];
+        int[] one = new int[rooms], two = new int[rooms];
+        for (int i = 0; i < total; i++) {
+            int id = room[i];
+            if (id < 0) continue;
+            int ns = 1, ew = 1;
+            for (int k = 0; k < 4; k++) {
+                int len = 0;
+                for (int c = near[i][k]; c >= 0 && near[c] != null && room[c] == id && len < CORRIDOR_WIDE; c = near[c][k]) len++;
+                if ((k & 1) == 0) ns += len;
+                else ew += len;
+            }
+            int across = Math.min(ns, ew);
+            if (across == 1) one[id]++;
+            if (across <= CORRIDOR_WIDE) two[id]++;
+        }
+        for (int id = 0; id < rooms; id++)
+            kind[id] = one[id] * 5 >= size[id] * 4 && size[id] >= CORRIDOR_LONG || two[id] * 5 >= size[id] * 4 && size[id] >= CORRIDOR_LONG * 2 ? CORRIDOR : ROOM;
+
+        // stairs: a flight, steps up one after another (a cell with a step up to the next and a step down to the one
+        // before, and the cells at its two ends); one step alone is a sill, a seat, a carpet's edge. Ladders: a cell climbed
+        LongArrayList stairs = new LongArrayList(), ladders = new LongArrayList();
+        boolean[] stair = new boolean[total];
+        // windows: a wall no mob steps through, seen through at head height (a hole over a sill, glass, bars)
+        List<Window> windows = new ArrayList<>();
+        for (int i = 0; i < total; i++) {
+            if (near[i] == null) continue;
+            long c = cells.getLong(i);
+            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+            int up = -1, down = -1;
+            for (int k = 0; k < 4; k++) {
+                int n = near[i][k];
+                if (n >= 0) {
+                    int ny = BlockPos.getY(cells.getLong(n));
+                    if (ny > y) up = n;
+                    else if (ny < y) down = n;
+                    continue;
+                }
+                if (room[i] < 0) continue;
+                int wx = x + Dirs.DX[CARDINAL[k]], wz = z + Dirs.DZ[CARDINAL[k]];
+                int feet = src.voxel(wx, y, wz), head = src.voxel(wx, y + 1, wz);
+                if (Voxel.sight(head) || ((feet | head) & Voxel.DOOR) != 0) continue;
+                // a sill that hides under a hole, or glass (bars) at head height; a rail seen over is cover, not a window
+                if (Voxel.open(head) && !Voxel.sight(feet)) continue;
+                windows.add(new Window(BlockPos.asLong(wx, y + 1, wz), CARDINAL[k], room[i], !Voxel.open(head)));
+            }
+            if ((r.flags(x, y, z) & SectionCells.CLIMB) != 0) ladders.add(c);
+            else if (up >= 0 && down >= 0) stair[i] = stair[up] = stair[down] = true;
+        }
+        for (int i = 0; i < total; i++) if (stair[i] && near[i] != null && (r.flags(BlockPos.getX(cells.getLong(i)), BlockPos.getY(cells.getLong(i)), BlockPos.getZ(cells.getLong(i))) & SectionCells.CLIMB) == 0) stairs.add(cells.getLong(i));
+
         Long2IntOpenHashMap roomOf = new Long2IntOpenHashMap();
         roomOf.defaultReturnValue(OUTSIDE);
         for (int i = 0; i < total; i++) if (room[i] >= 0) roomOf.put(cells.getLong(i), room[i]);
-        return new Plan(size, mid, ways.toArray(new Way[0]), cut, roomOf);
+        return new Plan(size, mid, ways.toArray(new Way[0]), cut, roomOf, kind, stairs.toLongArray(), ladders.toLongArray(), windows.toArray(new Window[0]));
     }
 
     /**
@@ -302,14 +488,14 @@ public final class AiRooms {
      * all the same between two cells that are not wild (a doorway through rock), and within DWELT steps of a sign that someone lives there (AiBlockKinds.MARKER: a chest, a bed, a
      * machine) through wild cells, not through a door: a cellar dug out of the rock, and not the cave past its door.
      */
-    private static @Nullable LongOpenHashSet wild(CellSource src, PathSearch.Reader r, long seed) {
+    private static @Nullable LongOpenHashSet wild(CellSource src, PathSearch.Reader r, long seed, int reach, int most) {
         int sx = BlockPos.getX(seed), sz = BlockPos.getZ(seed);
         LongArrayList cells = new LongArrayList();
         LongOpenHashSet seen = new LongOpenHashSet(), wild = new LongOpenHashSet();
         LongArrayList dwelt = new LongArrayList();
         cells.add(seed);
         seen.add(seed);
-        for (int head = 0; head < cells.size() && cells.size() <= MAX_CELLS; head++) {
+        for (int head = 0; head < cells.size() && cells.size() <= most; head++) {
             long c = cells.getLong(head);
             int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
             int natural = 0, built = 0;
@@ -334,7 +520,7 @@ public final class AiRooms {
                     continue;
                 }
                 int nx = BlockPos.getX(next), nz = BlockPos.getZ(next);
-                if (seen.contains(next) || Math.abs(nx - sx) > REACH || Math.abs(nz - sz) > REACH) continue;
+                if (seen.contains(next) || Math.abs(nx - sx) > reach || Math.abs(nz - sz) > reach) continue;
                 if ((r.flags(nx, BlockPos.getY(next), nz) & SectionCells.ROOF) == 0) continue;
                 seen.add(next);
                 cells.add(next);
@@ -385,6 +571,24 @@ public final class AiRooms {
             then = t;
         }
         return wild.isEmpty() ? null : wild;
+    }
+
+    /** the frame's row next to this one in cardinal k: the row its cells step into, cell for cell, as wide; or -1 */
+    private static int before(int[][] near, int[] rowOf, List<int[]> rows, int row, int k) {
+        int[] c = rows.get(row);
+        int to = near[c[0]][k];
+        if (to < 0 || near[to] == null || rowOf[to] < 0) return -1;
+        int[] next = rows.get(rowOf[to]);
+        if (next.length != c.length) return -1;
+        for (int i = 0; i < c.length; i++) if (near[c[i]][k] != next[i]) return -1;
+        return rowOf[to];
+    }
+
+    /** past this row of a frame in cardinal k the place is wider than it (past either end), or out from under the roof */
+    private static boolean wider(int[][] near, int[] row, int k, int left, int right) {
+        int a = near[row[0]][k], b = near[row[row.length - 1]][k];
+        for (int c : row) if (near[near[c][k]] == null) return true;
+        return near[a][left] >= 0 || near[b][right] >= 0;
     }
 
     /** cell i of a room has, in cardinal k, a cell out from under the roof */

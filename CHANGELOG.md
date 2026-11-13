@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- `/armsai debug rooms [radius]` shows the buildings round you as the AI
+  reads them: each room's floor in its own colour with its number, kind
+  (room or corridor) and size; ways (doorways, holes, a corridor's mouths)
+  in orange, red with a door, bright blue over a sill (a window they climb
+  through), with the cells beside each where a squad stacks up; windows that
+  are only seen and shot through as panes in the wall; stairs; grey crosses
+  where a roof covers no building (a cave, a tree). `/armsai debug walls`
+  adds the blocks of the rooms' shells by their kind, `/armsai debug dump`
+  writes all of it in numbers to the chat and the debug log. Off by default.
+- AI soldiers read doorways two and three blocks wide as ways between rooms:
+  a frame in a wall's line with the place wider on both sides, double doors
+  among them. Before, only an opening one block wide parted two rooms, and a
+  house with wide doorways was one room to them. A passage two wide is a
+  corridor with a way at each mouth.
+
 - AI soldiers go into a room together. The ones that go after a target lost
   in a building no longer walk in through the doorway one after another:
   they come up beside it, behind the wall and out of the line through it,

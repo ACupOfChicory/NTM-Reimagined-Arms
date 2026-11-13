@@ -247,6 +247,11 @@ page. They are alphas: expect bugs and back up your world.
   (`/armsai course clear` removes it). Recording is off by default.
 - `/armsai debug` shows what the bots think; `/armsai info` shows how many
   there are and what they cost.
+- `/armsai debug rooms` shows the buildings round you as the bots read
+  them: rooms, corridors, doorways with the places a squad stacks up at,
+  windows, stairs, and what is under a roof but no building. `/armsai debug
+  walls` adds what the walls are made of, `/armsai debug dump` gives it in
+  numbers.
 
 ### Other
 
