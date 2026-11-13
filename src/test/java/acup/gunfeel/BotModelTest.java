@@ -33,6 +33,17 @@ class BotModelTest {
     record V(float x, float y, float z, float u, float v, org.joml.Vector3fc normal) {
     }
 
+    /** a cube's faces lying flat at height {@code y} (its frame) */
+    static int endFaces(ModelPart.Cube cube, float y) {
+        int n = 0;
+        for (var p : cube.polygons) {
+            boolean flat = true;
+            for (var v : p.vertices()) flat &= Math.abs(v.y() - y) < 1e-4F;
+            if (flat) n++;
+        }
+        return n;
+    }
+
     static List<V> vertices(ModelPart.Cube cube, float dx, float dy, float dz) {
         var out = new java.util.ArrayList<V>();
         for (var p : cube.polygons)
@@ -213,8 +224,19 @@ class BotModelTest {
                     assertEquals(uv[0], vx.u(), 1e-5, slot + " " + limb + " lower u " + vx);
                     assertEquals(uv[1], vx.v(), 1e-5, slot + " " + limb + " lower v " + vx);
                 }
+                // no face where the halves meet, nor on the overlap's ends: the whole piece has none there, and their
+                // texture (a boot's sole, a sleeve's cuff) showed through the piece's transparent stretch
+                assertEquals(0, endFaces(up, a[3]), slot + " " + limb + " upper's joint face");
+                assertEquals(0, endFaces(low, 0F), slot + " " + limb + " lower's joint face");
+                assertEquals(1, endFaces(low, low.maxY + (b[3] - jy - low.maxY)), slot + " " + limb + " the hand's or the foot's end");
+                var overlap = ModelPoseCaptureTest.PARTS.cubes(lower).get(1);
+                for (var p : overlap.polygons) assertEquals(0F, p.normal().y(), 1e-6F, slot + " " + limb + " overlap's end");
             }
         }
+        // the skin keeps its faces at the joint: it is solid, and they close the bend
+        ModelPart skin = BotModel.split(vanilla(), ModelPoseCaptureTest.PARTS).getChild("right_leg");
+        assertEquals(1, endFaces(ModelPoseCaptureTest.PARTS.cubes(skin).getFirst(), 6F));
+        assertEquals(1, endFaces(ModelPoseCaptureTest.PARTS.cubes(BotModel.lower(skin)).getFirst(), 0F));
         // the chest's two sleeves, the leggings' two legs, the boots' two
         assertEquals(6, pieces);
     }
@@ -284,5 +306,24 @@ class BotModelTest {
         assertEquals(end.x, got.x, 1e-6);
         assertEquals(end.y, got.y, 1e-6);
         assertEquals(end.z, got.z, 1e-6);
+    }
+
+    // NTM fits a suit's mesh to a limb's own largest box (ArmorWorldRenderer.fit, MixinBotSuitFit): the split limb is
+    // measured whole, as vanilla's box, or the boots sit on the knees
+    @Test
+    void wholeLimbIsVanillasBox() {
+        ModelPart old = vanilla(), bot = BotModel.split(vanilla(), ModelPoseCaptureTest.PARTS);
+        for (String name : List.of("right_arm", "left_arm", "right_leg", "left_leg")) {
+            ModelPart whole = BotModel.whole(bot.getChild(name), ModelPoseCaptureTest.PARTS);
+            var cubes = ModelPoseCaptureTest.PARTS.cubes(whole);
+            assertEquals(1, cubes.size(), name);
+            var got = cubes.getFirst();
+            var want = ModelPoseCaptureTest.PARTS.cubes(old.getChild(name)).getFirst();
+            float[] g = { got.minX, got.minY, got.minZ, got.maxX, got.maxY, got.maxZ }, w = { want.minX, want.minY, want.minZ, want.maxX, want.maxY, want.maxZ };
+            for (int i = 0; i < 6; i++) assertEquals(w[i], g[i], 1e-6F, name + " " + i);
+            assertTrue(whole == BotModel.whole(bot.getChild(name), ModelPoseCaptureTest.PARTS), name + ": made once");
+        }
+        assertTrue(BotModel.whole(bot.getChild("head"), ModelPoseCaptureTest.PARTS) == bot.getChild("head"));
+        assertTrue(BotModel.whole(old.getChild("left_leg"), ModelPoseCaptureTest.PARTS) == old.getChild("left_leg"));
     }
 }
