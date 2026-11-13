@@ -528,13 +528,14 @@ public final class BalanceFinal {
     private static float range(LivingEntity target, DamageSource source, Hit h) {
         var r = state().range();
         String role = BalanceFinalRule.roleOf(h.pair(), state().params());
-        // an explosive shell's direct hit takes its role's line (balance.final.range.shells; Fable №2, 2.1); other blasts none
+        // an explosive shell's direct hit takes the shell's line, or its role's (balance.final.range.shells; Fable №2, 2.1; №3); other blasts none
         boolean shell = expl(source) && h.pair().explosive() && (role.equals("shotgun") || role.equals("slug")) && ReaimTimes.flag("balance.final.range.shells", true);
         // the IR arc's beam: no range, like the arc (Fable's answer 6, 5)
         // the shell's direct hit comes in NTM's blast (vntBlastNow): the shell's line all the same
         if (!r.on() || (BalanceArmor.vntBlastNow() || expl(source)) && !shell || irSub(source) || source.getEntity() == null) return 1F;
         double d = source.getEntity().position().distanceTo(target.position());
-        return (float) BalanceRangeRule.damage(r, role, d);
+        // the shell's own line (Fable №3), or its role's when the rule has none (X942)
+        return (float) (shell ? BalanceRangeRule.shell(r, role, d) : BalanceRangeRule.damage(r, role, d));
     }
 
     /** what a hit takes from a full set's pool (EuphImmunity), or NaN when it is not the scheme's */

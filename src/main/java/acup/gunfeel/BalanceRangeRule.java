@@ -9,7 +9,7 @@ import java.util.Map;
  * Up to {@code close} blocks a role of its own close-up time (an SMG x0.5, a pistol x0.8) hits as many times harder
  * (twice, 1.25 times), back to 1 by its {@code home} distance; full damage up to {@code full} blocks; then straight down
  * to {@code floor} of it at {@code floorAt} and no lower. A role of no line, blasts (but a shotgun's explosive shell's
- * direct hit, balance.final.range.shells) and the Tesla Cannon's arc: 1.
+ * direct hit, balance.final.range.shells: the line "shell", or its role's when there is none) and the Tesla Cannon's arc: 1.
  */
 public final class BalanceRangeRule {
     private BalanceRangeRule() {
@@ -28,8 +28,11 @@ public final class BalanceRangeRule {
         }
     }
 
-    /** Fable №3 (3.3): the shotgun's shot to 0.4 at 64 blocks, the slug from 32 to 0.3 at 128 */
-    public static final String LINES = "smg:x0.5/24/0.4@64 pistol:x0.8/24/0.4@64 shotgun:x1/16/0.4@64 slug:x1/32/0.3@128 beam:x1/64/0.5@160 rifle:x1/64/0.5@160 mg:x1/64/0.5@160 sniper:x1/160/0.7@256";
+    /**
+     * Fable №3 (3.3): the shotgun's shot to 0.4 at 64 blocks, the slug from 32 to 0.3 at 128, a shotgun's explosive
+     * shell's direct hit (shell) from 24 to 0.25 at 80
+     */
+    public static final String LINES = "smg:x0.5/24/0.4@64 pistol:x0.8/24/0.4@64 shotgun:x1/16/0.4@64 slug:x1/32/0.3@128 shell:x1/24/0.25@80 beam:x1/64/0.5@160 rifle:x1/64/0.5@160 mg:x1/64/0.5@160 sniper:x1/160/0.7@256";
     /** X942's (Fable №2, 2.1, 2.3): the shotgun's shot from 16 blocks to 0.4 at 48, the slug from 24 to 0.4 at 64, the beams as a rifle */
     public static final String LINES_X942 = "smg:x0.5/24/0.4@64 pistol:x0.8/24/0.4@64 shotgun:x1/16/0.4@48 slug:x1/24/0.4@64 beam:x1/64/0.5@160 rifle:x1/64/0.5@160 mg:x1/64/0.5@160 sniper:x1/160/0.7@256";
     /** X922's (Fable's first review, 10.4) */
@@ -57,6 +60,17 @@ public final class BalanceRangeRule {
             }
         }
         return out;
+    }
+
+    /** the line of a shotgun's explosive shell's direct hit (Fable №3, 3.3) */
+    public static final String SHELL = "shell";
+
+    /**
+     * the multiplier of an explosive shell's direct hit of a pair of {@code role} (balance.final.range.shells): the
+     * shell's line when the rule has one, else its role's (X942)
+     */
+    public static double shell(Rule r, String role, double dist) {
+        return damage(r, r.lines().containsKey(SHELL) ? SHELL : role, dist);
     }
 
     /** the damage's multiplier of a hit of a pair of {@code role} at {@code dist} blocks */

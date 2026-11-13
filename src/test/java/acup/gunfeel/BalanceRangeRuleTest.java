@@ -63,6 +63,30 @@ class BalanceRangeRuleTest {
         assertEquals(1.0, BalanceRangeRule.damage(R, "airburst", 100), 1e-9);
     }
 
+    /** Fable №3, stage 3: the explosive shell's direct hit takes the line shell, else its role's; X942's lines X942 in every cell */
+    @Test
+    void shellLine() {
+        var l = BalanceRangeRule.lines(BalanceRangeRule.LINES);
+        assertEquals(new BalanceRangeRule.Line(1, 24, 0.25, 80), l.get("shell"));
+        // the task's table: 12, 16, 24 blocks 1.00; 32 0.89; 48 0.68; 64 0.46; 80 and on 0.25
+        double[][] want = {{12, 1}, {16, 1}, {24, 1}, {32, 1 - 0.75 * 8 / 56}, {48, 1 - 0.75 * 24 / 56}, {64, 1 - 0.75 * 40 / 56}, {80, 0.25}, {96, 0.25}, {128, 0.25}};
+        for (double[] w : want) {
+            assertEquals(w[1], BalanceRangeRule.shell(R, "shotgun", w[0]), 1e-9, "shell at " + w[0]);
+            assertEquals(w[1], BalanceRangeRule.shell(R, "slug", w[0]), 1e-9, "a slug's shell at " + w[0]);
+        }
+        assertEquals(0.89, BalanceRangeRule.shell(R, "shotgun", 32), 0.005);
+        assertEquals(0.68, BalanceRangeRule.shell(R, "shotgun", 48), 0.005);
+        assertEquals(0.46, BalanceRangeRule.shell(R, "shotgun", 64), 0.005);
+        // no shell: the role's line, X942 in every cell
+        var x942 = new BalanceRangeRule.Rule(BalanceRangeRule.lines(BalanceRangeRule.LINES_X942), 8, BalanceFinalRule.roles(BalanceRangeRule.HOME));
+        for (String role : new String[] {"shotgun", "slug", "rifle", "beam"})
+            for (double d = 0; d <= 300; d += 0.5) assertEquals(BalanceRangeRule.damage(x942, role, d), BalanceRangeRule.shell(x942, role, d), 1e-12, role + " at " + d);
+        var noShell = new BalanceRangeRule.Rule(BalanceRangeRule.lines(BalanceRangeRule.LINES.replace("shell:x1/24/0.25@80 ", "")), 8, BalanceFinalRule.roles(BalanceRangeRule.HOME));
+        assertEquals(BalanceRangeRule.damage(R, "shotgun", 100), BalanceRangeRule.shell(noShell, "shotgun", 100), 1e-12);
+        // the line shell is no role's: a shot's pellet keeps its role's line
+        assertEquals(0.6, BalanceRangeRule.damage(R, "shotgun", 48), 1e-9);
+    }
+
     @Test
     void brokenNumbersLeftOut() {
         assertTrue(BalanceRangeRule.lines("smg:x1e999/24/0.4@64 rifle:xNaN/64/0.5@160 mg:x1/64/0.5@Infinity").isEmpty());
