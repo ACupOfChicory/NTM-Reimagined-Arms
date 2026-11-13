@@ -161,6 +161,10 @@ public final class ModelHits {
             // the armour caught as its draws: armourZone tells a shot on it; the bare parts' zones stay their own
             for(var b:p.boxes()) if(armourPiece(b.part())) return zones;
             worn=armour(worn);
+        } else if(worn.any() && layered(target,p.boxes())) {
+            // the same for every other humanoid and a player: the pieces caught grow nothing (a skull or a block on the
+            // head, or a helmet drawn otherwise, still grows the head)
+            worn=unarmoured(worn,p.boxes());
         }
         if(suitsOn() && worn.any() && target instanceof LivingEntity living) worn=unsuited(worn,ntmWorn(living),p.boxes());
         return worn.any()?WornGear.zones(zones,worn,WornGear.humanoid(p.boxes()),WornGear.split(p.boxes())):zones;
@@ -344,6 +348,26 @@ public final class ModelHits {
     }
 
     // what is worn, the armour of it: a helmet stays, a block or a skull on the head does not
+    /**
+     * Whose armour, caught as its layer's draws, is the part under it (armourZone): the bots always; every other mob
+     * and a player with modelHitboxesSuits. Grown, a helmet's head zone reached a pixel past the neck into the
+     * chestplate's collar (SECURITY, CMB, Schrabidium: 6 % of the shots on a husk's body taken for the head). Only on
+     * a humanoid model: armourPartZone knows a person's parts, a horse's armoured legs would be its body.
+     */
+    static boolean layered(Entity target,List<ModelBox> boxes) {
+        return bodyOnly(target) || suitsOn() && WornGear.humanoid(boxes);
+    }
+    /**
+     * what is worn less the armour caught as a layer's draws: the head's piece takes the helmet's growth, a piece on
+     * the body or a limb the chest's, legs' and boots'; a skull or a block on the head stays
+     */
+    static WornGear.Worn unarmoured(WornGear.Worn worn,List<ModelBox> boxes) {
+        boolean head=false,rest=false;
+        for(var b:boxes) if(armourPiece(b.part())) { if(armourPartZone(b.part())==Zone.HEAD) head=true;else rest=true; }
+        if(!head && !rest) return worn;
+        return new WornGear.Worn(head && worn.head()==WornGear.Head.ARMOR?WornGear.Head.NONE:worn.head(),
+                worn.chest() && !rest,worn.legs() && !rest,worn.feet() && !rest);
+    }
     static WornGear.Worn armour(WornGear.Worn worn) {
         return worn.head()==WornGear.Head.ARMOR || worn.head()==WornGear.Head.NONE?worn
                 :new WornGear.Worn(WornGear.Head.NONE,worn.chest(),worn.legs(),worn.feet());
@@ -537,7 +561,7 @@ public final class ModelHits {
         if(resolved.source().equals("height")) return heightHead(living,point);
         double angle=angle(living,pose);
         var local=unturn(point.subtract(impactOrigin(root,point)),angle);
-        var piece=bodyOnly(root)?armourZone(pose.boxes(),local):null;
+        var piece=layered(root,pose.boxes())?armourZone(pose.boxes(),local):null;
         if(piece!=null) return new ModelHeads.Hit(true,piece==Zone.HEAD,resolved.source(),"броня: часть под ней",resolved.confidence());
         if((helmetsOn() || suitsOn()) && !resolved.zones().isEmpty()) {
             var on=partAt(pose.boxes(),local);
@@ -565,7 +589,7 @@ public final class ModelHits {
         if(!usable(root,pose)) return false;
         double angle=angle(living,pose);
         var local=unturn(point.subtract(impactOrigin(root,point)),angle);
-        var piece=bodyOnly(root)?armourZone(pose.boxes(),local):null;
+        var piece=layered(root,pose.boxes())?armourZone(pose.boxes(),local):null;
         if(piece!=null) return piece==Zone.LIMB;
         var limbs=ModelHeads.limbs(ModelHeads.key(root),pose.boxes(),pose.yaw()).zones();
         // a suit's piece: the part it covers (a mob with limbs only)

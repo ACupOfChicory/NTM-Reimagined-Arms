@@ -222,6 +222,30 @@ class WornGearTest {
                 ModelHits.armour(new WornGear.Worn(WornGear.Head.SKULL, false, false, false)));
     }
 
+    // a husk or a player in a layer's armour (SECURITY, CMB, Schrabidium; Flywheel's ".../armor/slots/<n>/draws/..."):
+    // the chestplate's collar stands a pixel over the neck, inside the head's zone grown under the helmet. Drawn, it is
+    // the chestplate: the piece hit decides (ModelHits.layered), the zones stay bare, and a skull still grows the head
+    @Test
+    void aChestplatesCollarOnAHuskIsTheBody() {
+        var boxes = new java.util.ArrayList<>(zombie(1));
+        boxes.add(part("mesh/root/armor/slots/0/draws/0/tree/head", -5, 23, -5, 10, 10, 10, 1));
+        boxes.add(part("mesh/root/armor/slots/1/draws/0/tree/body", -5, 11, -3, 10, 14, 6, 1));
+        Vec3 collar = new Vec3(0, 24.5 * PX, -3 * PX);
+        var grown = WornGear.zones(List.of(new HeadZone(find(boxes, "root/head"), List.of())), HELMET, true, false);
+        assertTrue(HeadZone.contains(grown, collar), "the grown head zone takes the collar");
+        assertEquals(ModelHits.Zone.BODY, ModelHits.armourZone(boxes, collar));
+        assertEquals(ModelHits.Zone.HEAD, ModelHits.armourZone(boxes, new Vec3(0, 28 * PX, -5 * PX)));
+        assertEquals(WornGear.Worn.NOTHING, ModelHits.unarmoured(new WornGear.Worn(WornGear.Head.ARMOR, true, true, true), boxes));
+        assertEquals(new WornGear.Worn(WornGear.Head.SKULL, false, false, false),
+                ModelHits.unarmoured(new WornGear.Worn(WornGear.Head.SKULL, true, false, true), boxes));
+        // a helmet not caught as a layer (an NTM suit's own, drawn otherwise) still grows the head; the chest alone
+        // caught leaves the head's growth
+        var chestOnly = new java.util.ArrayList<>(zombie(1));
+        chestOnly.add(find(boxes, "mesh/root/armor/slots/1/draws/0/tree/body"));
+        assertEquals(HELMET, ModelHits.unarmoured(new WornGear.Worn(WornGear.Head.ARMOR, true, true, false), chestOnly));
+        assertSame(HELMET, ModelHits.unarmoured(HELMET, zombie(1)));
+    }
+
     // the bots' armour caught as its layer's draws (NtmMeshHits: "<part>/armor/draws/0"): a shot on a piece is in the
     // part under it, told by the face it lies on, where grown zones would overlap (a chestplate's lower edge and the
     // thigh's zone grown up a pixel)
