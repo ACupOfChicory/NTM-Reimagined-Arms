@@ -1,5 +1,15 @@
 # Changelog
 
+## X1014
+
+- An NTM suit drawn by its own model (HEV, T-51, AJR and the rest) sits on
+  the body of an FBI agent and a test dummy: its legs and boots were drawn
+  6 pixels up, the boots on the knees. The shots on the suit follow it as
+  drawn.
+- Armour drawn as a layer (steel, SECURITY, vanilla's) on an FBI agent or a
+  test dummy no longer shows stray squares at the knees and the elbows: the
+  boots' soles at knee height, the sleeves' cuffs below the elbow.
+
 ## X1012
 
 - The 12 gauge electroshock shell slows whoever it shocks: a player, an AI

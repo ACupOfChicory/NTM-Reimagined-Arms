@@ -168,6 +168,7 @@ final class BotStand {
                 case 2 -> cost();
                 case 3 -> damage();
                 case 4 -> clips();
+                case 5 -> armourPoses();
                 default -> {
                 }
             }
@@ -505,7 +506,78 @@ final class BotStand {
             until = now() + 30;
             return;
         }
-        startJumps();
+        startArmourPoses();
+    }
+
+    // ---------------------------------------------------------------- the armour in every pose
+
+    /** the sets worn through every pose: steel (a layer, vanilla's model cut as the body) and HEV (a suit's own model) */
+    private static final BotStandHits.Loadout[] POSED = { BotStandHits.STEEL, BotStandHits.LOADOUTS[4] };
+    private static int posedSet, posedCase;
+
+    private static void startArmourPoses() {
+        step = 5;
+        posedSet = posedCase = 0;
+        setArmourPose();
+    }
+
+    /** the agent in the set and the case's pose, turned 180 */
+    private static void setArmourPose() {
+        var l = POSED[posedSet];
+        Case cc = CASES[posedCase];
+        var server = mc().getSingleplayerServer();
+        server.submit(() -> {
+            Mob m = (Mob) server.overworld().getEntity(one.getId());
+            if (posedCase == 0) BotStandHits.wear(m, l);
+            m.setYRot(180F);
+            m.setYBodyRot(180F);
+            m.setYHeadRot(180F);
+            int at = (int) server.overworld().getGameTime();
+            m.setData(AiPose.Sync.TYPE, new AiPose(cc.stance(), (byte) cc.lean(), (byte) 0, at, cc.arms(), AiPose.NONE, 0, (short) 0, AiPose.FIGHT));
+            m.setPose(cc.lying() ? Pose.SWIMMING : cc.stance() == AiPose.CROUCH ? Pose.CROUCHING : Pose.STANDING);
+        }).join();
+        until = now() + 30;
+    }
+
+    /**
+     * Each piece of armour as the client draws it against the part under it, in every pose: a layer's piece over its
+     * part (posed as it, its centre within a pixel), none drawn over no part; a suit's boots on the feet.
+     */
+    private static void armourPoses() {
+        if (now() < until) return;
+        var l = POSED[posedSet];
+        Case c = CASES[posedCase];
+        var seenBy = mc().level.getEntity(one.getId());
+        if (seenBy == null) ClientSmoke.check(false, "броня в позе " + l.name() + " " + c.name() + ": клиент не видит агента");
+        else {
+            var boxes = ModelHits.worldBoxes(seenBy);
+            var fit = BotStandHits.layerFit(boxes);
+            ROWS.add(String.format(Locale.ROOT, "броня в позе\t%s\t%s\tкусков %d\tбез части %d\tцентр %.2f px\tугол %.2f°\t%s", l.name(), c.name(),
+                    fit.pieces(), fit.orphans().size(), fit.worstPx(), fit.worstDeg(), fit.worst()));
+            if (l == BotStandHits.STEEL) {
+                ClientSmoke.check(fit.pieces() > 0 && fit.orphans().isEmpty() && fit.worstPx() <= 1.0 && fit.worstDeg() <= 1.0,
+                        String.format(Locale.ROOT, "броня %s в позе %s: кусков слоя %d, без части под ним %s, дальше всех %.2f px, %.2f° (%s)",
+                                l.name(), c.name(), fit.pieces(), fit.orphans(), fit.worstPx(), fit.worstDeg(), fit.worst()));
+            } else {
+                var spans = BotStandHits.spans(boxes, seenBy.getY());
+                double lift = BotStandHits.bootLift(spans);
+                ROWS.add("высоты в позе\t" + l.name() + "\t" + c.name() + "\t" + spans);
+                // lying, the feet are not the lowest of the leg: the stand pose only
+                ClientSmoke.check(!c.name().equals("stand") || Math.abs(lift) <= 1.5, String.format(Locale.ROOT,
+                        "броня %s в позе %s: ботинки ниже голени на %.2f px", l.name(), c.name(), -lift));
+            }
+        }
+        if (++posedCase == CASES.length) {
+            posedCase = 0;
+            if (++posedSet == POSED.length) {
+                var server = mc().getSingleplayerServer();
+                server.submit(() -> BotStandHits.wear((Mob) server.overworld().getEntity(one.getId()), BotStandHits.LOADOUTS[0])).join();
+                write();
+                startJumps();
+                return;
+            }
+        }
+        setArmourPose();
     }
 
     /**
@@ -542,6 +614,13 @@ final class BotStand {
             String apart = BotStandHits.apart(ModelHits.worldBoxes(seenBy), serverBoxes.get());
             ClientSmoke.check(true, "шлем " + l.name() + " (сведения): поза клиента " + (ModelHits.hasPose(seenBy) ? "есть" : "нет") + ", против сервера " + apart);
             ROWS.add("поза шлема\t" + l.name() + "\t" + (ModelHits.hasPose(seenBy) ? "есть" : "нет") + "\t" + apart);
+            // a suit of its own model sits on the body as drawn: its boots on the feet, not on the knees
+            var spans = BotStandHits.spans(ModelHits.worldBoxes(seenBy), seenBy.getY());
+            ROWS.add("высоты\t" + l.name() + "\t" + spans);
+            double lift = BotStandHits.bootLift(spans);
+            if (OWN_MODEL.contains(l.name()) && !Double.isNaN(lift))
+                ClientSmoke.check(Math.abs(lift) <= 1.5, String.format(Locale.ROOT, "броня %s: ботинки костюма над стопой %.2f px; высоты, px над ногами: %s", l.name(), lift, spans));
+            else ClientSmoke.check(true, "броня " + l.name() + " (сведения): высоты, px над ногами: " + spans);
         }
         for (int i = 0; i < edges.size(); i++) {
             var e = edges.get(i);
