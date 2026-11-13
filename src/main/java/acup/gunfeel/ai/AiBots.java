@@ -197,6 +197,7 @@ public final class AiBots {
             AiGrenades.forget(level);
             return;
         }
+        AiDoors.tick();
         AiSquads.tick(level, l.bots.values());
         AiGrenades.tick(level);
         if (level.getGameTime() % 20 != 0) return;
@@ -285,6 +286,7 @@ public final class AiBots {
         bot.prone.tick(level, bot.mover, tick, bot.brain != null && bot.stoop.down, bot.dash);
         bot.mover.hold(bot.gunner.steady());
         bot.mover.tick(level, map, tick);
+        AiDoors.ahead(level, bot.mob);
         int reserve = bot.gunner.ammo.reserve();
         // a slide's or a roll's step is under a run's, and it still goes on its way, not facing them
         bot.gunner.runs = bot.mover.runs() || bot.dash.on(tick);
