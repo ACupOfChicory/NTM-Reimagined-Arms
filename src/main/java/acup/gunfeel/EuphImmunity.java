@@ -203,8 +203,6 @@ public final class EuphImmunity {
         public String mode() {
             if (this == EUPHEMIUM) return ReaimTimes.text("balance.immune.mode", "pool").trim().toLowerCase(java.util.Locale.ROOT);
             String m = ReaimTimes.text(key + ".mode", "pool").trim().toLowerCase(java.util.Locale.ROOT);
-            // the old switch of DNS (X858: balance.immune.dns = formula | ntm): its ntm counts while the new key is not set
-            if (this == DNS && !ReaimTimes.inFile(key + ".mode") && ReaimTimes.inFile(key) && ReaimTimes.text(key, "").trim().equalsIgnoreCase("ntm")) return "ntm";
             if (this == FAU && !m.equals("pool")) return "formula";
             return m.equals("ntm") || m.equals("formula") ? m : "pool";
         }
@@ -379,27 +377,18 @@ public final class EuphImmunity {
         return off;
     }
 
-    /**
-     * the hurt under way is the gas's and the pools take it (balance.final.pools.gas = drain, the final scheme on; off:
-     * the gas's damage on a full set of the three is NTM's, as X922)
-     */
+    /** the hurt under way is the gas's and the pools take it, the final scheme on (Fable №2, 2.4) */
     static boolean gasDrains() {
-        if (!acup.gunfeel.gas.GasServer.gasNow() || !BalanceFinal.on()) return false;
-        return ReaimTimes.text("balance.final.pools.gas", "drain").trim().equalsIgnoreCase("drain");
-    }
-
-    /** balance.immune.reloadHold (true; false: X896) */
-    static boolean reloadHold() {
-        return ReaimTimes.flag("balance.immune.reloadHold", true);
+        return acup.gunfeel.gas.GasServer.gasNow() && BalanceFinal.on();
     }
 
     /**
      * ticks the gun in the hitter's hand takes from a shot to the next one after a reload from empty (NTM's reload: the
      * begin, a cycle for each round after the first of a magazine loaded a round at a time, the end, and the empty
-     * gun's cocking), the longest of its configs (akimbo); 0: no gun, or balance.immune.reloadHold off
+     * gun's cocking), the longest of its configs (akimbo); 0: no gun
      */
     static int reach(DamageSource source) {
-        if (!reloadHold() || !(source.getEntity() instanceof net.minecraft.world.entity.LivingEntity hitter)) return 0;
+        if (!(source.getEntity() instanceof net.minecraft.world.entity.LivingEntity hitter)) return 0;
         return reachOf(hitter.getMainHandItem());
     }
 

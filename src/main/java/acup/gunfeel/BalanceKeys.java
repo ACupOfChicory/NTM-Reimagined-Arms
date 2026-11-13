@@ -139,23 +139,14 @@ public final class BalanceKeys {
         // A weapon's blast on a set of tier 4 and below hits it with at least this share of the set's rating as its power: a
         // gunpowder or DEMO grenade or a 40 mm shell's splash takes 3-4 hits on tier 4 (9-15 without; 3 with no armour), the HE
         // grenade's 3 as it was. A blast weaker than 7 raw (its far edge) gets the floor in its share of 7. 0: as X873.
-        // The floor lifts only the share of the blast that passes, its flesh is the blast's own (balanceBlastFloorShare; false:
-        // the floor's flesh too, as X875, and a set of a greater rating took more of a weak blast: Congo Lake's splash at 3
-        // blocks took 5 hits on tier 4, 6 on T-51b). 0.83 with balanceBlastFloorShare false: as X875.
+        // The floor lifts only the share of the blast that passes, its flesh is the blast's own (X875: the floor's flesh too,
+        // and a set of a greater rating took more of a weak blast: Congo Lake's splash at 3 blocks took 5 hits on tier 4, 6 on
+        // T-51b; 0.83 then).
         a.put("balanceBlastLowFloor", "0.9");
-        a.put("balanceBlastFloorShare", "true");
 
         // The tier Trenchmaster takes a weapon's blast at (the power and the floor above). NTM gives it HEV's explosion
         // resistance; at its own tier 6 it took MK108's or a rocket's direct hit in 3 hits against HEV's 4. 6: as X877.
         a.put("balanceBlastTrenchTier", "4");
-
-        // An explosive bullet's blast (NTM deals it with the bullet's whole damage) is squeezed and capped at any raw damage, not
-        // taken for a mine past balanceExplRawLimit. false: as X865 (a heavy gun's HE round past the limit killed any set at once).
-        a.put("balanceBulletBlastCap", "true");
-
-        // An infrared beam (the IR capacitors of the laser guns and Lacunae, NTM's fire class) is a beam: the formula's (EN)
-        // and the cap's. false: as X865 (NTM's fire numbers, past the formula, the cap and DNS's pool).
-        a.put("balanceIrBeams", "true");
 
         // An electric hit (the Tesla Cannon's beam and blast) on a powered chestplate counts this many times, with the balance's
         // armour on; NTM counts it five times, so one click took a DNS-class set whole. 5: as X865.
@@ -194,21 +185,6 @@ public final class BalanceKeys {
         // AI bots. Off: NTM's damage and receivers.
         a.put("balanceGuns", "true");
 
-        // A pair's line of the gun table may give the armour formula's least share b times floor= on the sets of tier from= (4
-        // when not given) and up: armour-piercing rounds, slugs, explosive and flechette shells keep more of themselves against
-        // armour of tier 4 and up (b was the same share of the flesh's damage for every round, so a soft round, with more of it,
-        // beat the piercing one), the same gun's soft rounds less from tier 6; the double Lever Action Shotguns less from tier 6,
-        // the Shredder more, the Pepperbox's stones a fifth from tier 6. The table's floors, on bullets and the pools of DNS, FAU
-        // and euphemium alike. false: no floors, as X873.
-        a.put("balanceArmorFloor", "true");
-
-        // A pair's line of the gun table may give under=T:mult:neg:pen: on a set of tier below T the pair's hit counts with
-        // these in place of its line's mult, neg and pen (of several, the least T above the set's tier; bullets and beams, not
-        // blasts). Tau keeps x2 +30 for DNS, FAU and euphemium and hits tier 7 with x1.15 +18, tier 6 and below with x1.15:
-        // BJ 0.8 s -> 3.0, bismuth 0.8 -> 2.4, CMB 1.2 -> 3.0, HEV 0.8 -> 1.0, no armour 0.8 as before. false: the line's own numbers on every
-        // set, as X904.
-        a.put("balanceGunUnder", "true");
-
         // The balance's final scheme: a bullet or a beam of a pair of the scheme's table (ntmgunfeel-balance-final-pairs.tsv) on
         // a player, or on anyone in a piece of the table's sets, does 20/N HP a click whose projectiles all hit. N is worked
         // out so the pair kills the set in the TTK of the ladder balance.final.ttk by d = the pair's tier - the set's (with
@@ -242,12 +218,6 @@ public final class BalanceKeys {
         // gun:role in place of the pairs' file's (the Shredder fires shot); empty: the file's (X922)
         a.put("balance.final.roleOf", "autoshotgun_shredder:shotgun");
 
-        // the share of hits P of each pair: stand, the stand's one measure (the pairs' file's p_stand: aimed, standing, the
-        // target at the role's working distance, an automatic in a held burst, a gun of two hands from the hip, as it has no aim;
-        // one for a gun and its ammo's spread); model, the
-        // older estimate (X922)
-        a.put("balance.final.hits", "stand");
-
         // 0: no slug role (X912)
         a.put("balance.final.slug.pellets", "4");
 
@@ -265,9 +235,6 @@ public final class BalanceKeys {
         // rule (X912).
         // shell: a shotgun's explosive shell's direct hit (Fable №3; none: its role's line, X942).
         a.put("balance.final.range", "smg:x0.5/24/0.4@64 pistol:x0.8/24/0.4@64 shotgun:x1/16/0.4@64 slug:x1/32/0.3@128 shell:x1/24/0.25@80 beam:x1/64/0.5@160 rifle:x1/64/0.5@160 mg:x1/64/0.5@160 sniper:x1/160/0.7@256");
-
-        // an explosive shotgun shell's direct hit takes the line shell (or its role's line when there is no shell); false: 1 (X922)
-        a.put("balance.final.range.shells", "true");
 
         // A gun's own line in place of its role's, gun:line by spaces: every hit of the gun's the scheme takes, an explosive
         // drop's blast on the creature it struck too. The Shredder fires beams of plasma (its role stays the shotgun's share):
@@ -323,13 +290,6 @@ public final class BalanceKeys {
         // beams and lasers: their TTK times this (X922: 1.15)
         a.put("balance.final.energy", "1.0");
 
-        // a tier of fewer than 6 pairs: no raw-DPS character (one); all: every tier (X922)
-        a.put("balance.final.character.few", "one");
-
-        // the Tesla Cannon's IR beam takes its shooter's pair: on the creature the click's arc has just struck nothing, on
-        // anyone else a click of the pair, no range rule; false: NTM's damage (X922)
-        a.put("balance.final.tesla.ir", "true");
-
         // a hit of the scheme on a mob meets the vanilla armour a player in the same pieces has (the pieces' own): player; own:
         // the mob's own armour too (an FBI agent's 20 and balance.fbiArmor took a hit of the scheme down to a fifth), as X949
         a.put("balance.final.mobArmor", "player");
@@ -338,25 +298,12 @@ public final class BalanceKeys {
         // nothing over fade tiers above it (HEV at K 0.75 as T-51, BJ as 5.33, FAU as it is; never below bare); off: none (X922)
         a.put("balance.final.acid", "tiers=1.0 tier=4 full=+1 fade=3");
 
-        // the mod's gas on a full FAU, DNS or euphemium set: drain, it takes the pool HP for HP as a shot (the mask, filter and
-        // sealed helmet first, as before); off: NTM's (X922)
-        a.put("balance.final.pools.gas", "drain");
-
         // an armour-piercing round (piercing from 0.15) a tier up to max for pen x piercing, a hollow point jhp; full from tier 3
         a.put("balance.final.ammo", "pen=4.0 from=0.15 max=1.0 jhp=-1");
 
         // a pedestal's, secret or loot gun: its tier plus this
         a.put("balance.final.ped", "0.5");
 
-        // the explosive shotgun shells' direct hit: C a tier up (as DU), B no shift, A the gun table's lines and formula C (X908)
-        a.put("balance.final.explosive", "C");
-
-        // pairs (gun.ammo, or a gun for all its ammo) left to the gun table and formula C, as X908
-        a.put("balance.final.table.pairs", "");
-
-        // balance.final.pairTier.<gun>.<ammo> = a pair's tier in place of its own (Tau tau_uranium: 8)
-        // balance.final.armor.<set> = tier:tier by the hours:beam shift (Security and the steam suit 2.5:4, DNS 9:8, Trenchmaster
-        // 6:6; X922: steel and the like -1 for beams, Trenchmaster 6.5)
         // a mixed or incomplete set: its tier by the slots' weights (helmet, chestplate, leggings, boots), an empty slot or a
         // piece not of the table counts as empty (X922: 0.5); the pool of DNS, FAU and euphemium only with a full set of one of them
         a.put("balance.final.armor.weights", "3,8,6,3");
@@ -460,12 +407,6 @@ public final class BalanceKeys {
 
         // For the three sets: seconds after the last hit that took from the pool before it starts to come back. 5: as X875.
         a.put("balance.immune.refillPause", "5");
-
-        // For the three sets: a gun whose shot and reload from empty take longer than balance.immune.hold (Henry and Lincoln:
-        // 10.5 s) holds the window, and the pool's refill pause, that long and a second more after its hit, so its reload
-        // neither closes the window nor gives the pool back (not with balance.immune.hold = 0). Every other gun goes by the two keys above. false: as X896 (Henry
-        // and Lincoln took DNS in 1000 s to never and never euphemium; now 200 s with AP, up to 500 s with the other rounds).
-        a.put("balance.immune.reloadHold", "true");
 
         // One pool a player for DNS, FAU and euphemium: putting another kit on keeps where the pool is (its share of the full pool, the
         // window, the recovery), instead of a fresh pool of the other kit's (DNS emptied, then FAU on, was a full pool of 45

@@ -1,6 +1,6 @@
 # Changelog
 
-## X982
+## X984
 
 - ⚠ Breaks compatibility: the balance is one server switch, `balance = arms`
   (the mod's, the default) or `balance = ntm` (NTM's own damage, armour,

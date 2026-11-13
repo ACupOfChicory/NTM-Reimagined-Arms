@@ -205,9 +205,6 @@ class BalanceKitTest {
         // balance.immune.refillPause 5 s, as X875 (Henry and Lincoln: balance.immune.reloadHold)
         assertEquals("5", p.getProperty("balance.immune.refillPause"));
         assertEquals(EuphImmunity.REFILL_PAUSE, EuphImmunity.refillPause());
-        // balance.immune.reloadHold: Henry and Lincoln hold the window and the refill through their reload
-        assertEquals("true", p.getProperty("balance.immune.reloadHold"));
-        assertTrue(EuphImmunity.reloadHold());
         assertEquals(200, Pool.DEFAULT.hold());
         assertEquals("pool", p.getProperty("balance.immune.dns.mode"));
         assertEquals("40", p.getProperty("balance.immune.dns.pool"));

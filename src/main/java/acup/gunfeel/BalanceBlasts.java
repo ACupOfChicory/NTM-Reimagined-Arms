@@ -49,8 +49,7 @@ final class BalanceBlasts {
         if (!(x > 0F)) return 0F;
         float kx = x <= RAW_LIMIT ? x * k : x, into = kx;
         if (x <= RAW_LIMIT && k > 1F && floor > 0F) into = Math.max(kx, BalanceArmor.lowFloorPower(floor, s, x));
-        // balanceBlastFloorShare: the floor lifts rho only (X875: its flesh too)
-        if (!BalanceArmor.blastFloorShare()) kx = into;
+        // the floor lifts rho only (X875: its flesh too)
         float out = set == null ? x
                 : Math.min(x, BalanceArmorRule.full(new BalanceArmorRule.Hit(kx, neg, pen, x <= RAW_LIMIT), s, tau, BalanceArmorRule.Tune.DEFAULT, 1.0, into));
         // more raw damage than the limit is not capped either

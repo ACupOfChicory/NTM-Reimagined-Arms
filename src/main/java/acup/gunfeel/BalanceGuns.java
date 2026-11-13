@@ -275,7 +275,7 @@ public final class BalanceGuns {
     public static float[] underOf(Entity direct, int tier) {
         if (direct == null) return null;
         BalanceGunsRule.Shot s = UNDER.get(direct);
-        if (s == null || !ReaimTimes.flag("balanceGunUnder", true)) return null;
+        if (s == null) return null;
         return BalanceGunsRule.underShift(s, tier);
     }
 
@@ -306,7 +306,7 @@ public final class BalanceGuns {
     public static float floorOf(Entity direct, int tier) {
         float[] e = extra(direct);
         if (e == null || e.length < 4) return 1F;
-        float own = e[2] == 1F || tier < e[3] || !ReaimTimes.flag("balanceArmorFloor", true) ? 1F : e[2];
+        float own = e[2] == 1F || tier < e[3] ? 1F : e[2];
         float k = e.length > 4 ? BalanceGunsRule.tierFloor(tierFloorRules(), (int) e[4], tier) : 1F;
         return k < 1F ? Math.max(BalanceGunsRule.LEAST_FLOOR, own * k) : own;
     }

@@ -97,12 +97,10 @@ public final class BalanceArmor {
         return path.substring(0, path.length() - SUFFIX[i].length());
     }
 
-    /** the set's tau (balanceTau.<set>; its b and d), the table's by default */
+    /** the set's tau (its b and d), the table's */
     static float tau(String set) {
         SetOf def = SETS.get(set);
-        if (def == null) return 1F;
-        float v = ReaimTimes.number("balanceTau." + set, def.tau());
-        return Float.isFinite(v) && v > 0F ? v : def.tau();
+        return def == null ? 1F : def.tau();
     }
 
     static float rating(String set) {
@@ -125,10 +123,9 @@ public final class BalanceArmor {
         return cat == null || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) || shot(source) || irBeam(source) ? cat : null;
     }
 
-    /** an infrared beam: a gun's beam of NTM's fire class, the formula's and the cap's as a beam (balanceIrBeams) */
+    /** an infrared beam: a gun's beam of NTM's fire class, the formula's and the cap's as a beam */
     public static boolean irBeam(DamageSource source) {
-        return source.getDirectEntity() instanceof com.hbm.entity.projectile.EntityBulletBeamBase && source.is(ModDamageTypes.FIRE)
-                && ReaimTimes.flag("balanceIrBeams", true);
+        return source.getDirectEntity() instanceof com.hbm.entity.projectile.EntityBulletBeamBase && source.is(ModDamageTypes.FIRE);
     }
 
     /**
@@ -278,16 +275,6 @@ public final class BalanceArmor {
         return pk > 1F && tier <= 4 ? Math.max(y, lowFloorPower(blastLowFloor(), s, amount)) : y;
     }
 
-    /**
-     * balanceBlastFloorShare (true; false: X875): the floor of balanceBlastLowFloor lifts only the share that passes
-     * (rho), the flesh is the blast's own damage times its power. With the flesh of the floor too, a set of a greater
-     * rating took more of a weak blast (the floor grows with S): Congo Lake's splash at 3 blocks took 5 hits on tier 4
-     * against T-51b's 6
-     */
-    static boolean blastFloorShare() {
-        return ReaimTimes.flag("balanceBlastFloorShare", true);
-    }
-
     /** a weak blast's power floor reaches c·S at this raw damage; a blast's tail below it gets a share as small */
     static final float BLAST_LOW_REF = 7F;
 
@@ -346,7 +333,7 @@ public final class BalanceArmor {
     }
 
     static boolean bulletBlastNow() {
-        return BULLET_BLAST.get() && ReaimTimes.flag("balanceBulletBlastCap", true);
+        return BULLET_BLAST.get();
     }
 
     /** the same; {@code bullet}: the blast is an explosive bullet's (bound to a bullet, not a launcher's round) */
@@ -429,7 +416,9 @@ public final class BalanceArmor {
             float pk = power > 1F ? pieceBlastPower(bt, amount, power) : 1F;
             float into = power > 1F ? blastInto(bt, amount, pk, s) : amount * power;
             // balanceBlastFloorShare: the floor lifts rho, the flesh is the blast's damage times its power on the set
-            boolean share = power > 1F && into > amount * pk && blastFloorShare();
+            // the floor of balanceBlastLowFloor lifts only the share that passes (rho), the flesh is the blast's own damage
+            // times its power: with the floor's flesh too a set of a greater rating took more of a weak blast (X875)
+            boolean share = power > 1F && into > amount * pk;
             float fleshOf = share ? amount * pk : into;
             var pieceHit = fleshOf == amount * power ? hit : new BalanceArmorRule.Hit(fleshOf, neg, pen, squeeze);
             // the gun table's floor of the shot's pair (balanceArmorFloor): its bullet's hit, an explosive bullet's blast
