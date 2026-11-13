@@ -1,6 +1,6 @@
 # Changelog
 
-## X1002
+## X1003
 
 - The 12 gauge electroshock shell has a new icon, drawn as NTM's own shells
   are: a blue shell lying aslant with its grey case.
