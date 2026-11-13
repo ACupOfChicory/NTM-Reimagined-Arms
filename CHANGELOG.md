@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## X925
 
 - AI soldiers are suppressed as players are: each bot has the players' own
   scale (0 to 100), raised by a foe's bullets passing its eyes, by those
