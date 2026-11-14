@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## X1066
 
 - The Mare's Leg kicks as it was tuned to: its recoil preset `levershot`
   (the shotgun's rise and roll, a longer and slower run back, a slow sway to
