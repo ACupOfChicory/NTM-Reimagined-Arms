@@ -476,12 +476,16 @@ public final class AiRooms {
                     if (p < 0 || room[p] != room[i] || !edge(near, p, k)) break;
                     start = p;
                 }
+                // the walk to the row's left end may end on a cell of a row made already (an edge that goes round, a
+                // step whose way back is another cell): then the row starts at this cell
+                if (edgeSeen[k][start]) start = i;
                 LongArrayList in = new LongArrayList(), out = new LongArrayList();
                 for (int c = start; c >= 0 && room[c] == room[i] && !edgeSeen[k][c] && edge(near, c, k); c = near[c][right]) {
                     edgeSeen[k][c] = true;
                     in.add(cells.getLong(c));
                     out.add(cells.getLong(near[c][k]));
                 }
+                if (in.isEmpty()) continue;
                 int dir = CARDINAL[k];
                 ways.add(new Way(in.toLongArray(), dir, room[i], OUTSIDE, in.size(), false, beside(r, in.toLongArray(), dir),
                         beside(r, out.toLongArray(), Dirs.opposite(dir))));
@@ -676,6 +680,7 @@ public final class AiRooms {
      */
     private static long[] beside(PathSearch.Reader r, long[] row, int through) {
         LongArrayList out = new LongArrayList(2);
+        if (row.length == 0) return out.toLongArray();
         int left = (through + 6) & 7, right = (through + 2) & 7;
         side(r, row[0], left, through, out);
         side(r, row[row.length - 1], right, through, out);
