@@ -10,6 +10,19 @@
   mob's role over it. This is the ground for the roles to come (a supplier,
   a marksman, a grenadier, a medic).
 
+## X1052
+
+- Groundwork for AI soldiers on different terrain; how they fight is not
+  changed yet. The mob AI now reads the lie of the land round its mobs, out to
+  some 150 blocks: the height of the ground, water and its depth, the crowns of
+  trees, hills and hollows, and how far one sees from a place in each
+  direction. It is read off the game's own height maps, so nothing is marked by
+  hand, and it follows digging, building and explosions by itself: an
+  explosion's blocks are taken in once, when it is over, and digging under the
+  ground costs nothing. `/armsai debug terrain [radius]` shows it (squares from
+  red, where one sees nowhere, to green, where one sees far; heights, hollows,
+  water and woods marked); `/armsai info` has its numbers.
+
 ## X1050
 
 - A fault in the AI's reading of a building no longer stops the server. If

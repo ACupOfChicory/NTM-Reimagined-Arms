@@ -47,9 +47,10 @@ public final class AiEvents {
     }
 
     public static void chunk(LevelAccessor l, ChunkAccess chunk, boolean loaded) {
-        if (!(l instanceof ServerLevel level) || !(chunk instanceof LevelChunk) || !TacticalMap.active) return;
+        if (!(l instanceof ServerLevel level) || !(chunk instanceof LevelChunk) || !TacticalMap.active && !AiTerrain.active) return;
         int cx = chunk.getPos().x(), cz = chunk.getPos().z();
         Runnable r = () -> {
+            AiTerrain.chunk(level, cx, cz, loaded);
             TacticalMap map = TacticalMap.peek(level);
             if (map == null) return;
             if (loaded) map.chunkLoaded(cx, cz);

@@ -508,6 +508,8 @@ neoForge {
             systemProperty("ntmgunfeel.benchAiLithium", providers.gradleProperty("benchAiLithium").isPresent.toString())
             providers.gradleProperty("benchAiPhases").orNull?.let { systemProperty("ntmgunfeel.benchAiPhases", it) }
             providers.gradleProperty("benchAiRounds").orNull?.let { systemProperty("ntmgunfeel.benchAiRounds", it) }
+            // -PbenchAiTerrainOff: no terrain layers (AiTerrain), the stand's "before"
+            if (providers.gradleProperty("benchAiTerrainOff").isPresent) systemProperty("ntmgunfeel.aiTerrainOff", "true")
         }
         // -Ptrace=<file> (relative to the run's folder) or -Ptrace=true: the run writes a trace (Trace.java) to compare
         // with tools/trace_diff.py; -PtraceScenario=<name>, -PtraceHex, -Pseed=<n> go with it

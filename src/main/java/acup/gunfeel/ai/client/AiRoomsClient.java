@@ -77,6 +77,26 @@ public final class AiRoomsClient {
                 case AiRoomsPayload.WALL -> {
                     if (value != AiBlockKinds.NEUTRAL && value < KINDS.length) Gizmos.cuboid(new AABB(x + 0.3, y + 0.3, z + 0.3, x + 0.7, y + 0.7, z + 0.7).inflate(0.21), GizmoStyle.stroke(KINDS[value] | 0xFF000000, 2F));
                 }
+                case AiRoomsPayload.TERRAIN -> {
+                    // red where one sees nowhere, green where one sees far
+                    float open = Math.min(1F, (value & 31) * 4 / 96F);
+                    int fill = 0x50000000 | (int) (0xE0 * (1 - open)) << 16 | (int) (0xD0 * open) << 8 | 0x30;
+                    Gizmos.rect(new Vec3(x + 0.1, y + 0.12, z + 0.1), new Vec3(x + 3.9, y + 0.13, z + 3.9), Direction.UP, GizmoStyle.fill(fill));
+                    int what = value >> 5 & 3;
+                    if (what != AiRoomsPayload.FLAT) {
+                        int c = what == AiRoomsPayload.HIGH ? 0xFFFFFFFF : what == AiRoomsPayload.HOLLOW ? 0xFF202060 : 0xFF30A0FF;
+                        Vec3 a = new Vec3(x + 0.3, y + 0.16, z + 0.3), b = new Vec3(x + 3.7, y + 0.16, z + 0.3), cc = new Vec3(x + 3.7, y + 0.16, z + 3.7),
+                                d = new Vec3(x + 0.3, y + 0.16, z + 3.7);
+                        Gizmos.line(a, b, c, 3F);
+                        Gizmos.line(b, cc, c, 3F);
+                        Gizmos.line(cc, d, c, 3F);
+                        Gizmos.line(d, a, c, 3F);
+                    }
+                    if ((value & 128) != 0) {
+                        Gizmos.line(new Vec3(x + 1.2, y + 0.16, z + 2), new Vec3(x + 2.8, y + 0.16, z + 2), 0xFF20A020, 3F);
+                        Gizmos.line(new Vec3(x + 2, y + 0.16, z + 1.2), new Vec3(x + 2, y + 0.16, z + 2.8), 0xFF20A020, 3F);
+                    }
+                }
                 default -> {
                 }
             }

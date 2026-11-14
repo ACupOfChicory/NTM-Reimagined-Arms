@@ -29,18 +29,66 @@ public final class AiDebug {
     /** the buildings' view reads a building this far from the cell asked about and so many cells of it at most */
     static final int VIEW_REACH = 64, VIEW_CELLS = 8000;
 
+    /** player -> radius across of the terrain layers' view (/armsai debug terrain); it and the buildings' view share a payload, one at a time */
+    private static final Map<UUID, Integer> TERRAIN = new HashMap<>();
+
+    /** the terrain layers' view on (with this radius) or off; whether it is on now */
+    public static boolean toggleTerrain(ServerPlayer player, int radius) {
+        if (TERRAIN.remove(player.getUUID()) != null) {
+            PacketDistributor.sendToPlayer(player, new AiRoomsPayload(player.blockPosition(), new byte[0], java.util.List.of()));
+            return false;
+        }
+        ROOMS.remove(player.getUUID());
+        TERRAIN.put(player.getUUID(), radius);
+        return true;
+    }
+
+    /** the coarse cells of the terrain layers round a place, and over each chunk's middle its numbers */
+    static AiRoomsPayload terrain(AiTerrain terrain, BlockPos at, int radius) {
+        byte[] marks = new byte[1024 * AiRoomsPayload.MARK];
+        int n = 0;
+        java.util.List<AiRoomsPayload.Label> labels = new java.util.ArrayList<>();
+        int x0 = (at.getX() - radius) & ~3, x1 = at.getX() + radius, z0 = (at.getZ() - radius) & ~3, z1 = at.getZ() + radius;
+        for (int z = z0; z <= z1; z += TerrainTile.CELL)
+            for (int x = x0; x <= x1; x += TerrainTile.CELL) {
+                TerrainTile t = terrain.tile(x, z);
+                TerrainDerived d = terrain.derived(x, z);
+                if (t == null || d == null) continue;
+                int y = t.hi(x, z), dy = y - at.getY();
+                if (Math.abs(x - at.getX()) > 120 || Math.abs(z - at.getZ()) > 120 || Math.abs(dy) > 120) continue;
+                int far = d.far(x, z), open = d.open(x, z);
+                int what = t.wet(x, z) >= 0.5F ? AiRoomsPayload.WET : far >= TerrainDerived.HIGH ? AiRoomsPayload.HIGH
+                        : far <= TerrainDerived.HOLLOW ? AiRoomsPayload.HOLLOW : AiRoomsPayload.FLAT;
+                if (n * AiRoomsPayload.MARK == marks.length) marks = java.util.Arrays.copyOf(marks, marks.length * 2);
+                int i = n++ * AiRoomsPayload.MARK;
+                marks[i] = (byte) (x - at.getX());
+                marks[i + 1] = (byte) dy;
+                marks[i + 2] = (byte) (z - at.getZ());
+                marks[i + 3] = AiRoomsPayload.TERRAIN;
+                marks[i + 4] = (byte) (Math.min(31, open / 4) | what << 5 | (t.crowned(x, z) >= 0.5F ? 128 : 0));
+                // one label a chunk, over the cell at its middle
+                if ((x & 15) == 8 && (z & 15) == 8 && labels.size() < AiRoomsPayload.LABELS)
+                    labels.add(new AiRoomsPayload.Label(new BlockPos(x, y + 1, z), "sees " + open + "  " + (far >= 0 ? "+" : "") + far
+                            + (t.crowned(x, z) > 0 ? "  crowns " + Math.round(t.crowned(x, z) * 100) + "%" : "")
+                            + (t.wet(x, z) > 0 ? "  water " + t.water(x, z) : ""), 0xFFFFFFFF));
+            }
+        return new AiRoomsPayload(at, java.util.Arrays.copyOf(marks, n * AiRoomsPayload.MARK), labels);
+    }
+
     /** the buildings' view on (with this radius) or off; whether it is on now */
     public static boolean toggleRooms(ServerPlayer player, int radius) {
         if (ROOMS.remove(player.getUUID()) != null) {
             PacketDistributor.sendToPlayer(player, new AiRoomsPayload(player.blockPosition(), new byte[0], java.util.List.of()));
             return false;
         }
+        TERRAIN.remove(player.getUUID());
         ROOMS.put(player.getUUID(), new int[] {radius, 0});
         return true;
     }
 
     /** the blocks of the rooms' shells shown or not (the buildings' view turned on for it); whether they are shown now */
     public static boolean toggleWalls(ServerPlayer player) {
+        TERRAIN.remove(player.getUUID());
         int[] v = ROOMS.computeIfAbsent(player.getUUID(), u -> new int[] {24, 0});
         v[1] ^= 1;
         return v[1] != 0;
@@ -260,6 +308,7 @@ public final class AiDebug {
     public static void forget(UUID player) {
         WATCHERS.remove(player);
         ROOMS.remove(player);
+        TERRAIN.remove(player);
     }
 
     /** someone watches */
@@ -268,6 +317,15 @@ public final class AiDebug {
     }
 
     public static void tick(ServerLevel level) {
+        if (!TERRAIN.isEmpty() && level.getGameTime() % 20 == 7)
+            for (ServerPlayer p : level.players()) {
+                Integer radius = TERRAIN.get(p.getUUID());
+                if (radius == null) continue;
+                AiTerrain terrain = AiTerrain.of(level);
+                BlockPos at = p.blockPosition();
+                terrain.want(at.getX(), at.getZ());
+                PacketDistributor.sendToPlayer(p, terrain(terrain, at, radius));
+            }
         if (!ROOMS.isEmpty() && level.getGameTime() % 20 == 5)
             for (ServerPlayer p : level.players()) {
                 int[] v = ROOMS.get(p.getUUID());

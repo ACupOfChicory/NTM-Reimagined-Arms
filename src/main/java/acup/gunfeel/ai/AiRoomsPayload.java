@@ -35,6 +35,13 @@ public record AiRoomsPayload(BlockPos origin, byte[] marks, List<Label> labels) 
     /** a block of a room's shell: the value its kind (AiBlockKinds) */
     public static final byte WALL = 6;
 
+    /**
+     * /armsai debug terrain: a coarse cell of the terrain layers, its corner; bits 0-4 how far one sees from it in fours
+     * of blocks, bits 5-6 what it is ({@link #FLAT}, {@link #HIGH}, {@link #HOLLOW}, {@link #WET}), bit 7 under the crowns of trees
+     */
+    public static final byte TERRAIN = 7;
+    public static final int FLAT = 0, HIGH = 1, HOLLOW = 2, WET = 3;
+
     public record Label(BlockPos at, String text, int colour) {
     }
 
