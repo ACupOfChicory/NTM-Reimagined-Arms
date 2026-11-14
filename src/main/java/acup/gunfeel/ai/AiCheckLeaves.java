@@ -54,12 +54,14 @@ final class AiCheckLeaves {
     private int ticks, round = -1;
     private Mob soldier, foe, watcher;
     private int knownAt, shotsBefore, shots, hits;
+    /** the soldier was an AI mob all the round (else it knew and fired nothing for want of a mind) */
+    private boolean minded;
     private final List<String> lines = new ArrayList<>();
     /** notice ticks through k leaves: standing, crouching, lying */
     private final int[][] leaves = new int[THICKEST + 1][3];
     /** open, short grass, tall grass: standing, crouching, lying, running */
     private final int[][] grass = new int[3][4];
-    private final int[][] live = new int[LIVE_LEAVES.length][3];
+    private final int[][] live = new int[LIVE_LEAVES.length][4];
 
     AiCheckLeaves(AiCheck check, ServerLevel level, int y) {
         this.check = check;
@@ -90,6 +92,7 @@ final class AiCheckLeaves {
         foe.setHealth(foe.getMaxHealth());
         soldier.setHealth(soldier.getMaxHealth());
         AiBot b = AiBots.get(soldier);
+        minded &= b != null;
         if (b != null) {
             TargetMemory.Contact c = b.memory.contact(foe.getId());
             if (knownAt < 0 && c != null && c.known()) knownAt = ticks - 5 - round * RUN;
@@ -97,7 +100,7 @@ final class AiCheckLeaves {
             shotsBefore = b.gunner.shots;
         }
         if (ticks - 5 - round * RUN >= RUN) {
-            live[round] = new int[] {knownAt, shots, hits};
+            live[round] = new int[] {knownAt, shots, hits, minded ? 1 : 0};
             lines.add(String.format(Locale.ROOT, "     leaves, a soldier and a foe %d off behind %d blocks of leaves: knows it %s, shots %d, hits %d", LIVE_FAR,
                     LIVE_LEAVES[round], knownAt < 0 ? "never" : "after " + knownAt + " ticks", shots, hits));
             soldier.discard();
@@ -218,6 +221,7 @@ final class AiCheckLeaves {
         AiSquads.offTeams.clear();
         AiSquads.forget(level);
         knownAt = -1;
+        minded = true;
         shots = 0;
         hits = 0;
         soldier = soldier(LIVE_X + 0.5, Z0 + LIVE_Z + 0.5, "leaves_side", 0F);
@@ -245,14 +249,15 @@ final class AiCheckLeaves {
         check.check("leaves: not seen through 9 or 10 blocks of leaves, whatever its bearing", max(leaves[9]) < 0 && max(leaves[10]) < 0);
         check.check("leaves: lying is noticed later than crouching, crouching later than standing, running sooner (" + grass[0][2] + "/" + grass[0][1] + "/"
                 + grass[0][0] + "/" + grass[0][3] + ")", grass[0][2] > grass[0][1] && grass[0][1] > grass[0][0] && grass[0][3] < grass[0][0] && grass[0][3] > 0);
-        check.check("leaves: short grass hides little: standing in it noticed within a fifth more than in the open (" + grass[1][0] + ", " + grass[0][0] + ")",
-                grass[1][0] > 0 && grass[1][0] <= grass[0][0] * 1.2);
+        // standing, its head is over short grass: lying, the look goes through it
+        check.check("leaves: short grass hides little: lying in it noticed later than in the open, within a third more (" + grass[1][2] + ", " + grass[0][2] + ")",
+                grass[1][2] > grass[0][2] && grass[1][2] <= grass[0][2] * 4 / 3);
         check.check("leaves: lying in tall grass is seen, later than lying in the open (" + grass[2][2] + ", " + grass[0][2] + ")",
                 grass[2][2] > grass[0][2] && grass[0][2] > 0);
         check.check("leaves: a soldier comes to know a foe behind 2 blocks of leaves and hits it through them (known after " + live[0][0] + " ticks, shots "
                 + live[0][1] + ", hits " + live[0][2] + ")", live[0][0] >= 0 && live[0][2] > 0);
         check.check("leaves: a foe behind 10 blocks of leaves it never knows of, never fires at (" + live[1][0] + ", shots " + live[1][1] + ")",
-                live[1][0] < 0 && live[1][1] == 0);
+                live[1][0] < 0 && live[1][1] == 0 && live[1][3] == 1);
         return true;
     }
 

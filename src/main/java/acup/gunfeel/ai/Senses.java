@@ -27,8 +27,6 @@ public final class Senses {
     private static final int[] FIRST = {1, 0, 2};
     /** the parts the last {@link #look} that saw its target saw (server thread) */
     static int parts;
-    /** and through how thick a veil it saw the thinnest of them, blocks of leaves */
-    static double veil;
 
     /**
      * Leaves and grass veil a target (VoxelRay.veil, the live world's marks): seen through a veil this thick (in blocks
@@ -42,6 +40,16 @@ public final class Senses {
     static final double LYING = 1.75, CROUCHING = 1.3, RUNNING = 0.75;
     /** faster than this (blocks over its last tick) a mob runs: a player walks at 0.216 */
     static final double RUN_PACE = 0.25;
+    /**
+     * A veil this thin or thinner is no hiding (noticed in under twice the time): one behind it is in plain sight, to its
+     * cover's choice and its keeping (CoverQuery, AiSoldier) and to a peek round a corner ({@link #clearLine})
+     */
+    static final double PLAIN = 4;
+
+    /** in plain sight along the line: no block that hides, and a veil of leaves and grass no thicker than {@link #PLAIN} */
+    public static boolean plain(VoxelRay.Source voxels, double x0, double y0, double z0, double x1, double y1, double z1) {
+        return VoxelRay.veil(voxels, x0, y0, z0, x1, y1, z1, GRASS, PLAIN) >= 0;
+    }
 
     /** how its bearing moves the time to notice it: lying or crouching longer, running shorter */
     static double bearing(LivingEntity target) {
@@ -100,19 +108,19 @@ public final class Senses {
             }
             if (seen == 0) return -1;
             parts = seen;
-            veil = thinnest;
             int t = p.reactionTicks(d, cos < COS_CENTRE);
             double k = bearing(target) / (1 - thinnest / VEIL);
-            return k == 1 ? t : (int) Math.ceil(t * k);
+            // a line that grazes a block of grass is no veil
+            return Math.abs(k - 1) < 1e-3 ? t : (int) Math.ceil(t * k);
         } finally {
             nanos += System.nanoTime() - t0;
         }
     }
 
-    /** whether a point is in plain sight from the eye (blocks and smoke only, no field of view) */
+    /** whether a point is in plain sight from the eye (blocks, a veil past {@link #PLAIN} and smoke only, no field of view) */
     public static boolean clearLine(VoxelRay.Source voxels, @Nullable SmokeClouds smoke, Vec3 eye, Vec3 point) {
         rays++;
-        if (!VoxelRay.clear(voxels, eye.x, eye.y, eye.z, point.x, point.y, point.z, Voxel.SIGHT)) return false;
+        if (!plain(voxels, eye.x, eye.y, eye.z, point.x, point.y, point.z)) return false;
         return smoke == null || smoke.isEmpty() || smoke.opticalDepth(eye, point) <= SMOKE_DEPTH;
     }
 

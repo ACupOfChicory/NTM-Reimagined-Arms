@@ -92,12 +92,14 @@ public final class VoxelRay {
             if (t > 1) break;
             int v = src.voxel(x, y, z);
             int mark = Voxel.veil(v);
+            // grass that hides as a block does (a modded bush with a model that hides) is a wall
+            if ((v & Voxel.SIGHT) != 0 && (mark & Voxel.LEAVES) == 0) return -1;
             if (mark != 0) {
                 // the line leaves this block where it enters the next one, or ends in it
                 double through = (Math.min(1, Math.min(tx, Math.min(ty, tz))) - t) * len;
                 sum += (mark & Voxel.LEAVES) != 0 ? through : through * grass;
                 if (sum > max) return -1;
-            } else if ((v & Voxel.SIGHT) != 0) return -1;
+            }
         }
         return sum;
     }

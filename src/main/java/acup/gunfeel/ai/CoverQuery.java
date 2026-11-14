@@ -157,7 +157,8 @@ public final class CoverQuery {
                 Vec3 t = threats.get(ti);
                 if (budget-- <= 0) break;
                 rays++;
-                if (VoxelRay.clear(voxels, t.x, t.y, t.z, x + 0.5, y + look, z + 0.5, Voxel.SIGHT)) {
+                // leaves hide it only thick: behind a bush it is seen (Senses.PLAIN)
+                if (Senses.plain(voxels, t.x, t.y, t.z, x + 0.5, y + look, z + 0.5)) {
                     // the one it fights must not see it; the others, in a fight, cost it
                     if (ti > 0 && p.othersSoft) seenBy += SEEN_BY;
                     else {
