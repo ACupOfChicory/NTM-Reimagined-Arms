@@ -30,30 +30,33 @@ public final class AiWater {
                 || m.getLastHurtByMob() != null && m.tickCount - m.getLastHurtByMobTimestamp() <= HURT;
     }
 
-    /** how far round a swimming mob a cell to get out at is looked for, blocks across and up or down */
-    static final int SHORE = 10, SHORE_UP = 2;
+    /** how far round a swimming mob a cell to get out at is looked for, blocks across; and down (up: a step, one) */
+    static final int SHORE = 10, SHORE_DOWN = 2;
 
     /**
-     * The nearest cell across where a mob swimming here gets out of the water (on the bank, or on the bed of a ford):
-     * a BlockPos long, or Long.MIN_VALUE if none is within {@link #SHORE}
+     * The nearest cell across where a mob swimming here gets out of the water (on the bank, or on the bed of a ford),
+     * no more than a step over the surface it swims at and not `not` (one it could not get to): a BlockPos long, or
+     * Long.MIN_VALUE if none is within {@link #SHORE}
      */
-    static long ashore(TacticalMap map, Mob mob) {
+    static long ashore(TacticalMap map, Mob mob, long not) {
         int bx = mob.getBlockX(), by = mob.getBlockY(), bz = mob.getBlockZ();
         long best = Long.MIN_VALUE;
         double bestD = Double.MAX_VALUE;
         for (int sx = (bx - SHORE) >> 4; sx <= (bx + SHORE) >> 4; sx++)
             for (int sz = (bz - SHORE) >> 4; sz <= (bz + SHORE) >> 4; sz++)
-                for (int sy = (by - SHORE_UP) >> 4; sy <= (by + SHORE_UP) >> 4; sy++) {
+                for (int sy = (by - SHORE_DOWN) >> 4; sy <= (by + 1) >> 4; sy++) {
                     SectionCells c = map.cells(net.minecraft.core.SectionPos.asLong(sx, sy, sz));
                     if (c == null) continue;
                     for (int i = 0; i < c.count(); i++) {
                         if ((c.flags(i) & SectionCells.SWIM) != 0) continue;
                         int x = (sx << 4) + c.x(i), y = (sy << 4) + c.y(i), z = (sz << 4) + c.z(i);
-                        if (Math.abs(y - by) > SHORE_UP) continue;
+                        if (y > by + 1 || y < by - SHORE_DOWN) continue;
                         double dx = x + 0.5 - mob.getX(), dz = z + 0.5 - mob.getZ(), d = dx * dx + dz * dz;
                         if (d > SHORE * SHORE || d >= bestD) continue;
+                        long cell = BlockPos.asLong(x, y, z);
+                        if (cell == not) continue;
                         bestD = d;
-                        best = BlockPos.asLong(x, y, z);
+                        best = cell;
                     }
                 }
         return best;

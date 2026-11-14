@@ -207,7 +207,7 @@ public final class PathSearch {
         return find(src, start, goal, goalRadius, maxNodes, cost, false);
     }
 
-    /** as above; dry: no swim is begun (one that starts in water swimming may swim on) */
+    /** as above; dry: no swim is begun from the dry (one that starts afloat swims on until it is out of the water) */
     public static Result find(CellSource src, long start, long goal, double goalRadius, int maxNodes, Cost cost, boolean dry) {
         return find(new Reader(src), start, goal, goalRadius, maxNodes, cost, true, dry);
     }
@@ -219,8 +219,6 @@ public final class PathSearch {
         double r2 = goalRadius * goalRadius;
         int sx = BlockPos.getX(start), sy = BlockPos.getY(start), sz = BlockPos.getZ(start);
         if (!r.has(sx, sy, sz)) return Result.none(0, r.missing.toLongArray(), System.nanoTime() - t0);
-        // in water swimming already: it swims out
-        dry &= (r.flags(sx, sy, sz) & SectionCells.SWIM) == 0;
         boolean refused = false;
 
         Nodes n = new Nodes(Math.min(maxNodes * 9 + 16, 1 << 20));
@@ -254,7 +252,8 @@ public final class PathSearch {
                 int nx = BlockPos.getX(next), ny = BlockPos.getY(next), nz = BlockPos.getZ(next);
                 int there = r.flags(nx, ny, nz);
                 boolean swim = ((here | there) & SectionCells.SWIM) != 0;
-                if (dry && (there & SectionCells.SWIM) != 0) {
+                // kept dry: no swim begun from the dry (one afloat at the start swims on till it is out)
+                if (dry && (there & SectionCells.SWIM) != 0 && (here & SectionCells.SWIM) == 0) {
                     refused = true;
                     continue;
                 }

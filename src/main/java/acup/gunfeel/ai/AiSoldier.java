@@ -193,6 +193,8 @@ public final class AiSoldier implements AiBrain {
     public int exits;
     /** when it may ask for a fall back again; the cover it falls back to (Long.MIN_VALUE: none); falls back so far (the stands) */
     private long nextBack, backTo = Long.MIN_VALUE, backAt = Long.MIN_VALUE, backIn = Long.MIN_VALUE;
+    /** swimming with no cover: where it gets out, and the last such place it could not get to */
+    private long shore = Long.MIN_VALUE, badShore = Long.MIN_VALUE;
     public int fallBacks;
     /** its last smoke grenade (AiSmoke), the tick */
     private long lastSmoke = Long.MIN_VALUE / 2;
@@ -761,12 +763,16 @@ public final class AiSoldier implements AiBrain {
             // no cover to be had: fight where it stands (lying, far off or pinned down by shots flying past), a step
             // aside when one of its own is in the line. Swimming it can do neither: out of the water first
             mode(Mode.COVER, tick);
-            long dry = AiWater.swims(bot.mob) ? AiWater.ashore(map, bot.mob) : Long.MIN_VALUE;
-            if (dry != Long.MIN_VALUE) {
-                bot.mover.goTo(dry, 0.35, RUN);
-                why = Why.ASHORE;
-                return;
-            }
+            if (AiWater.swims(bot.mob)) {
+                // the place it makes for kept while it may get there (another each tick would start the way over)
+                if (shore != Long.MIN_VALUE && bot.mover.goal() == shore && (bot.mover.failed() || bot.mover.noWay())) badShore = shore;
+                if (shore == Long.MIN_VALUE || shore == badShore || bot.mover.goal() != shore) shore = AiWater.ashore(map, bot.mob, badShore);
+                if (shore != Long.MIN_VALUE) {
+                    bot.mover.goTo(shore, 0.35, RUN);
+                    why = Why.ASHORE;
+                    return;
+                }
+            } else shore = Long.MIN_VALUE;
             if (dist >= PRONE_NEVER && (dist >= PRONE_FAR || bot.prone.pinned(tick) || longReload(g) && g.reloading())) bot.prone.want();
             why = dist < PRONE_NEVER ? Why.NO_COVER : dist >= PRONE_FAR ? Why.NO_COVER_FAR : bot.prone.pinned(tick) ? Why.NO_COVER_PINNED : Why.NO_COVER;
             burst(bot, tick, true);

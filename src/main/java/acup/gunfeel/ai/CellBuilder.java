@@ -52,8 +52,9 @@ public final class CellBuilder {
                     if (Voxel.shutDoor(under)) continue;
                     boolean doorway = Voxel.shutDoor(feet) || Voxel.shutDoor(head);
                     boolean water = (feet & Voxel.WATER) != 0;
-                    // its head under water: no cell (a mob there floats up; no path runs along a bed under water)
-                    if (water && (head & Voxel.WATER) != 0) continue;
+                    // its head under water: no cell (a mob there floats up; no path runs along a bed under water), but
+                    // on a ladder or vines (a flooded shaft is climbed)
+                    if (water && (head & Voxel.WATER) != 0 && (feet & Voxel.CLIMB) == 0) continue;
                     // its head out of water: it stands on the bed (wades) or floats (swims)
                     boolean stand = Voxel.floor(under) || (feet & Voxel.CLIMB) != 0 || water;
                     if (!stand) continue;

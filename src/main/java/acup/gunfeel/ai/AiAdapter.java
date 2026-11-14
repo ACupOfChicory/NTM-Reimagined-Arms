@@ -40,7 +40,13 @@ public final class AiAdapter {
         // over its head (AiWater); swimming takes the jump, the AI's goal the legs and the look
         boolean floats = false;
         for (WrappedGoal w : goals.getAvailableGoals()) floats |= w.getGoal() instanceof FloatGoal;
-        if (!floats) goals.addGoal(0, new FloatGoal(mob));
+        if (!floats) {
+            try {
+                goals.addGoal(0, new FloatGoal(mob));
+            } catch (IllegalArgumentException e) {
+                // a navigation that does not float (a flyer's, a swimmer's): it moves as it does
+            }
+        }
         ((AiNavigation) mob.getNavigation()).gunfeel$setAiOwned(true);
         if (!(mob.getMoveControl() instanceof AiMoveControl)) ((MobGoalsAccess) mob).gunfeel$setMoveControl(new AiMoveControl(mob));
         mob.setTarget(null);
