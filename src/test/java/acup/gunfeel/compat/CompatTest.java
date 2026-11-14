@@ -89,7 +89,7 @@ class CompatTest {
         assertTrue(r.off().keySet().containsAll(Set.of(Feature.RECOIL, Feature.ARMS)), r.off().toString());
         // RECOIL's and ARMS's other mixins go with them, and nothing else
         assertTrue(r.skipped().containsKey("MixinItemGunBaseNT"));
-        assertTrue(r.skipped().containsKey("MixinSexyBottle"));
+        assertTrue(r.skipped().containsKey("MixinWholeModelGuns"));
         assertEquals(Set.of(Feature.RECOIL, Feature.ARMS), r.off().keySet());
     }
 

@@ -14,14 +14,22 @@
     `.leftAt` keys in `ntm-gunfeel-guns.properties` are read as before.
   - `/gunfeel sounddebug`, a debugging aid. `/gunfeel testlog` still writes
     the shots' effects and ricochets.
-  - For developers: the JVM properties `ntmgunfeel.benchWarm` and
-    `ntmgunfeel.benchSeconds` and the Gradle switch `-PcheckGlyphidCreases`.
+  - `/gunfeel get <key>`. `/gunfeel set <key>` with no value shows the same
+    and more: the value, where it comes from and the defaults.
+  - `/gunfeel meshdump`, a debugging aid that wrote the triangles read around
+    the block looked at into `config/ntm-gunfeel-meshdump.txt`.
+  - For developers: the JVM properties `ntmgunfeel.benchWarm`,
+    `ntmgunfeel.benchSeconds` and `ntmgunfeel.testLog`, the Gradle switches
+    `-PcheckGlyphidCreases` and `-PflywheelOff` (`-PmobCpuGeometry` turns the
+    same backend off), and the first, pixel-by-pixel drawing in the glass
+    stand's timing.
   - The built-in gun settings no longer carry lines for ten gun names that
     NTM has no items for (the names it shows for a G3, an AM180, an Uzi and
     others with parts fitted); they never applied to anything.
-- ⚠ Breaks compatibility: `/gl54mag`, `/gunfeel grip` and
-  `/gunfeel sounddebug` are removed; a script, a command block or a datapack
-  function that calls one of them no longer works.
+- ⚠ Breaks compatibility: `/gl54mag`, `/gunfeel grip`, `/gunfeel get`,
+  `/gunfeel sounddebug` and `/gunfeel meshdump` are removed; a script, a
+  command block or a datapack function that calls one of them no longer
+  works.
 
 ## X1064
 

@@ -321,9 +321,9 @@ Settings are in the `config` folder:
   HUD, effects). The file's header describes the keys.
 - `ntm-gunfeel-guns.properties`: per-gun settings, as
   `hbm\:gun_g3.walkSway = 0`; the same key in `ntm-gunfeel.properties`
-  applies to every gun. With a gun in hand,
-  `/gunfeel set <key> <value>`, `/gunfeel get <key>` and `/gunfeel unset <key>`
-  change its keys.
+  applies to every gun. With a gun in hand, `/gunfeel set <key> <value>`
+  and `/gunfeel unset <key>` change its keys; `/gunfeel set <key>` with no
+  value shows the key's value, where it comes from and its defaults.
 - `ntm-gunfeel-server.properties`: the server's gameplay rules (bullets,
   spread, beams, water, lying down, the sprint delay, gas, suppression, AI
   soldiers, the balance: `arms` or `ntm`). They are sent to connected
@@ -435,7 +435,8 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 ## Commands
 
 - `/gunfeel status`: versions and what is turned off.
-- `/gunfeel set|get|unset <key>`: the gun-in-hand settings.
+- `/gunfeel set|unset <key>`: the gun-in-hand settings; `set <key>` with no
+  value shows it.
 - `/gunfeel quality <preset>`: impact-effect quality.
 - `/gunfeel hitvolume <0..4>`: loudness of hit sounds.
 - `/gunfeel clearholes`: remove the bullet holes on your screen.

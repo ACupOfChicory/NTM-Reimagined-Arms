@@ -19,7 +19,7 @@ public enum Feature {
     AMMO_CHOICE("ammo_choice", List.of("MixinAmmoLock", "MixinAmmoLockBelt", "MixinGunKeysRadial"),
             List.of("AmmoLock", "AmmoLockKey", "RadialMenu", "AmmoStats", "AmmoSelectPayload", "AmmoLockPayload")),
     RECOIL("recoil", List.of("MixinItemGunBaseNT", "MixinHbmAnimations"), List.of("CameraRecoil", "ModelRecoil")),
-    ARMS("arms", List.of("MixinItemRenderWeaponBase", "MixinWholeModelGuns", "MixinSexyBottle", "MixinHbmAnimations", "MixinG3Inspect"),
+    ARMS("arms", List.of("MixinItemRenderWeaponBase", "MixinWholeModelGuns", "MixinHbmAnimations", "MixinG3Inspect"),
             List.of("Arms", "Grips", "GunGeometry", "GripCommand", "ArmAnimationPreview", "ArmAnimationEditor", "ArmEditorScreen", "WeaponSway", "WalkSprint", "PistolHold", "PunchyCompat", "PunchyMovesCompat")),
     HUD("hud", List.of("MixinClientRegistry"), List.of("Hud", "Silhouette", "GunGeometry")),
     INSTANT_SWITCH("instant_switch", List.of("MixinHbmAnimationPayload"), List.of("InstantSwitch")),

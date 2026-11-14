@@ -74,13 +74,7 @@ public final class ServerSettings {
             String bullets = string(in);
             Map<String, String> server = map(in);
             Map<String, String> shapes = map(in);
-            // a server of before the gun table sends three parts: the client goes by the jar's table
-            String guns;
-            try {
-                guns = string(in);
-            } catch (java.io.EOFException e) {
-                guns = "";
-            }
+            String guns = string(in);
             return new Snapshot(bullets, server, shapes, guns);
         }
     }
