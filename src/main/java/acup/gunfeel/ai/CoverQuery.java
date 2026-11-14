@@ -44,6 +44,14 @@ public final class CoverQuery {
         public boolean othersSoft;
         /** a flank (AiSquads): the squad's middle; seen from the threat, cells within 45 degrees of it or past 135 are no flank */
         public @org.jspecify.annotations.Nullable Vec3 flankFrom;
+        /**
+         * in a fight: a spot it cannot shoot from does not fill the pool (it is still found, to be taken if nothing
+         * better is); and with half the rays spent and no spot to shoot from found yet, the rest go to cells on the
+         * threat's side (AHEAD more kept for them besides the KEEP), so that cover ahead to fire from is tried, not only
+         * the near cells that hide it (on a hill in steps every step does). Cover near to fire from is still taken
+         * first: one ahead only when there is none.
+         */
+        public boolean fight;
     }
 
     /** peek: the best place beside it to shoot from (the cell itself over low cover); peeks: every such place, up to MAX_PEEKS */
@@ -72,6 +80,11 @@ public final class CoverQuery {
     static final int SHOOT_MASK = Voxel.SIGHT | Voxel.PROTECT_MASK;
     /** the most kept to be tried with rays */
     static final int KEEP = 48;
+    /** off only for the stands' "before": a fight's query as any other (Params.fight left out) */
+    static boolean pick = true;
+    /** in a fight, kept besides the KEEP: cells on the threat's side (AHEAD_BY blocks nearer it than the mob at least) */
+    static final int AHEAD = 16;
+    static final double AHEAD_BY = 4;
 
     // for /armsai info
     static long runs, rays, nanos;
@@ -86,10 +99,14 @@ public final class CoverQuery {
         List<Spot> out = new ArrayList<>();
         if (threats.isEmpty()) return out;
         Vec3 main = threats.get(0);
-        long[] cand = new long[KEEP];
-        double[] score = new double[KEEP];
-        int[] info = new int[KEEP];
-        int count = 0;
+        // [0, KEEP) for any cell; in a fight [KEEP, KEEP + AHEAD) besides for cells on the threat's side
+        boolean fight = p.fight && pick;
+        int general = KEEP, all = fight ? KEEP + AHEAD : KEEP;
+        long[] cand = new long[all];
+        double[] score = new double[all];
+        int[] info = new int[all];
+        int[] counts = {0, 0};
+        double selfTd = Math.hypot(main.x - self.x, main.z - self.z);
         double r2 = p.radius * p.radius;
         int x0 = (int) Math.floor(self.x - p.radius), x1 = (int) Math.floor(self.x + p.radius);
         int z0 = (int) Math.floor(self.z - p.radius), z1 = (int) Math.floor(self.z + p.radius);
@@ -124,29 +141,36 @@ public final class CoverQuery {
                         if (key != p.current && nearAny(p.friendCovers, x, z, APART)) continue;
                         double s = (height == 2 ? HIGH : LOW) + (hard ? HARD : 0) - Math.sqrt(d2) * PER_BLOCK
                                 - Math.abs(td - p.fightAt) * OFF_RANGE + (key == p.current ? CURRENT : 0);
-                        int worst = -1;
-                        if (count < KEEP) worst = count++;
-                        else {
-                            worst = 0;
-                            for (int k = 1; k < KEEP; k++) if (score[k] < score[worst]) worst = k;
-                            if (score[worst] >= s) worst = -1;
-                        }
-                        if (worst >= 0) {
-                            cand[worst] = key;
-                            score[worst] = s;
-                            info[worst] = height | (hard ? 4 : 0) | dir << 3;
-                        }
+                        int inf = height | (hard ? 4 : 0) | dir << 3;
+                        keep(cand, score, info, counts, 0, 0, general, key, s, inf);
+                        if (fight && td <= selfTd - AHEAD_BY) keep(cand, score, info, counts, 1, general, all, key, s, inf);
                     }
                 }
-        Integer[] order = new Integer[count];
-        for (int i = 0; i < count; i++) order[i] = i;
-        java.util.Arrays.sort(order, (a, b) -> Double.compare(score[b], score[a]));
-        int budget = p.rayBudget;
-        // a few that pass, not the first: a place to shoot from and the other threats change their order
-        int pool = Math.max(n, POOL);
-        for (int k = 0; k < count && out.size() < pool && budget > 0; k++) {
+        // rays: all, best first (in a fight the cell it is going to first: it is kept unless something is clearly
+        // better); in a fight with half the rays spent and nothing to shoot from found, the threat's side, best first
+        int current = -1;
+        if (fight && p.current != Long.MIN_VALUE) for (int i = 0; i < counts[0] && current < 0; i++) if (cand[i] == p.current) current = i;
+        Integer[] rest = sorted(score, 0, counts[0]), ahead = sorted(score, general, general + counts[1]);
+        int r0 = current >= 0 ? 1 : 0, a0 = r0 + rest.length;
+        Integer[] order = new Integer[a0 + ahead.length];
+        if (current >= 0) order[0] = current;
+        System.arraycopy(rest, 0, order, r0, rest.length);
+        System.arraycopy(ahead, 0, order, a0, ahead.length);
+        int budget = p.rayBudget, aheadAt = p.rayBudget - p.rayBudget / 2;
+        // a few that pass, not the first: a place to shoot from and the other threats change their order; in a fight
+        // a few it can shoot from
+        int pool = Math.max(n, POOL), firing = 0;
+        // a cell kept twice (on the threat's side, and among all) is tried once
+        var tried = fight ? new it.unimi.dsi.fastutil.longs.LongOpenHashSet(all) : null;
+        for (int k = 0; k < order.length && (fight ? firing : out.size()) < pool && budget > 0; k++) {
             int i = order[k];
+            if (k < a0 && ahead.length > 0 && firing == 0 && budget <= aheadAt) {
+                k = a0 - 1;
+                continue;
+            }
+            if (k >= a0 && firing > 0) break;
             long key = cand[i];
+            if (tried != null && !tried.add(key)) continue;
             int x = BlockPos.getX(key), y = BlockPos.getY(key), z = BlockPos.getZ(key);
             int height = info[i] & 3, dir = info[i] >> 3;
             // hidden from every threat: its head behind high cover, its legs behind low cover (it shoots over that)
@@ -201,12 +225,35 @@ public final class CoverQuery {
                 }
             }
             if (p.needPeek && peek == Long.MIN_VALUE) continue;
+            if (peek != Long.MIN_VALUE) firing++;
             out.add(new Spot(key, score[i] + (peek != Long.MIN_VALUE ? p.peekBonus : 0) - seenBy, height, hard, peek, java.util.Arrays.copyOf(peeks, np)));
         }
         out.sort((a, b) -> Double.compare(b.score(), a.score()));
         if (out.size() > n) out.subList(n, out.size()).clear();
         nanos += System.nanoTime() - t0;
         return out;
+    }
+
+    /** into the KEEP's part [lo, hi) (counts[part] in it so far): in the room left, else over its worst if better */
+    private static void keep(long[] cand, double[] score, int[] info, int[] counts, int part, int lo, int hi, long key, double s, int inf) {
+        int at;
+        if (lo + counts[part] < hi) at = lo + counts[part]++;
+        else {
+            at = lo;
+            for (int k = lo + 1; k < hi; k++) if (score[k] < score[at]) at = k;
+            if (score[at] >= s) return;
+        }
+        cand[at] = key;
+        score[at] = s;
+        info[at] = inf;
+    }
+
+    /** the indices [lo, hi), best score first */
+    private static Integer[] sorted(double[] score, int lo, int hi) {
+        Integer[] order = new Integer[hi - lo];
+        for (int i = 0; i < order.length; i++) order[i] = lo + i;
+        java.util.Arrays.sort(order, (a, b) -> Double.compare(score[b], score[a]));
+        return order;
     }
 
     private static boolean open(CellSource map, int x, int y, int z) {
