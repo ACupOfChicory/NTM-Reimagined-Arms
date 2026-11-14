@@ -29,23 +29,14 @@ class BotLegsReplayTest {
     /** the foot of a leg straight down, model pixels (the hip at 12, the thigh and the shin 6 each) */
     static final float GROUND = 24F;
 
-    record Row(int fight, long tick, int id, double x, double z, float bodyYaw, AiPose pose, String mode, double spot) {
+    record Row(int fight, long tick, int id, double x, double z, float bodyYaw, AiPose pose, String mode, double spot, String why, String stage) {
     }
 
     @Test
     void replay() throws IOException {
         String file = System.getenv("LEGS_TSV");
         Assumptions.assumeTrue(file != null && Files.exists(Path.of(file)), "no LEGS_TSV");
-        Map<String, List<Row>> bots = new LinkedHashMap<>();
-        for (String line : Files.readAllLines(Path.of(file), StandardCharsets.UTF_8)) {
-            if (line.startsWith("fight")) continue;
-            String[] c = line.split("\t");
-            AiPose p = new AiPose(Byte.parseByte(c[6]), Byte.parseByte(c[7]), Byte.parseByte(c[8]), Integer.parseInt(c[9]), Byte.parseByte(c[10]),
-                    Byte.parseByte(c[11]), Integer.parseInt(c[12]), Short.parseShort(c[13]));
-            Row r = new Row(Integer.parseInt(c[0]), Long.parseLong(c[1]), Integer.parseInt(c[2]), Double.parseDouble(c[3]), Double.parseDouble(c[4]),
-                    Float.parseFloat(c[5]), p, c[14], Double.parseDouble(c[15]));
-            bots.computeIfAbsent(r.fight + "/" + r.id, k -> new ArrayList<>()).add(r);
-        }
+        Map<String, List<Row>> bots = read(file);
         Stats all = new Stats(), cover = new Stats(), crouched = new Stats(), upright = new Stats();
         try (PrintWriter frames = new PrintWriter(Files.newBufferedWriter(Path.of(file + ".frames.tsv"), StandardCharsets.UTF_8))) {
             frames.println("fight\ttick\tid\tmode\tatCover\tstep\tspeed\theadingDeg\twalk\twalkPos\tu\tcrouch\tmove\tfootR\tfootL\tshinR\tshinL"
@@ -62,6 +53,187 @@ class BotLegsReplayTest {
         try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(Path.of(file + ".stats.txt"), StandardCharsets.UTF_8))) {
             w.print(out);
         }
+    }
+
+    static Map<String, List<Row>> read(String file) throws IOException {
+        Map<String, List<Row>> bots = new LinkedHashMap<>();
+        for (String line : Files.readAllLines(Path.of(file), StandardCharsets.UTF_8)) {
+            if (line.startsWith("fight")) continue;
+            String[] c = line.split("\t");
+            AiPose p = new AiPose(Byte.parseByte(c[6]), Byte.parseByte(c[7]), Byte.parseByte(c[8]), Integer.parseInt(c[9]), Byte.parseByte(c[10]),
+                    Byte.parseByte(c[11]), Integer.parseInt(c[12]), Short.parseShort(c[13]));
+            // the why and the stage: since the legs walking backwards (older files have neither)
+            Row r = new Row(Integer.parseInt(c[0]), Long.parseLong(c[1]), Integer.parseInt(c[2]), Double.parseDouble(c[3]), Double.parseDouble(c[4]),
+                    Float.parseFloat(c[5]), p, c[14], Double.parseDouble(c[15]), c.length > 16 ? c[16] : "-", c.length > 17 ? c[17] : "teams");
+            bots.computeIfAbsent(r.fight + "/" + r.id, k -> new ArrayList<>()).add(r);
+        }
+        return bots;
+    }
+
+    /**
+     * The legs against the way it goes: on the move (as the client moves it), the foot on the ground (the lower, the
+     * same foot as the tick before) going with the way the mob goes, not back from it (BotLegsTest.footWithTheWay):
+     * the legs walk one way, the mob goes the other. The ticks of it, and the runs of them a second or more, by the
+     * stage, what the mob was doing and its stance; before (crouched, the walk bent low played on whichever way it
+     * went) and now. Only with LEGS_TSV; the numbers go to <file>.against.txt.
+     */
+    @Test
+    void against() throws IOException {
+        String file = System.getenv("LEGS_TSV");
+        Assumptions.assumeTrue(file != null && Files.exists(Path.of(file)), "no LEGS_TSV");
+        Map<String, List<Row>> bots = read(file);
+        StringBuilder out = new StringBuilder();
+        Against[] both = { new Against(), new Against() };
+        try {
+            for (int k = 0; k < 2; k++) {
+                BotPoser.crouchBack = k == 1;
+                for (List<Row> rows : bots.values()) against(rows, both[k]);
+            }
+        } finally {
+            BotPoser.crouchBack = true;
+        }
+        out.append(both[0].report("before"));
+        out.append(both[1].report("now"));
+        System.out.println(out);
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(Path.of(file + ".against.txt"), StandardCharsets.UTF_8))) {
+            w.print(out);
+        }
+    }
+
+    /** a run of ticks against the way it goes this long or more is seen: a second */
+    static final int AGAINST_RUN = 20;
+    /** ticks not against it (or not counted) a run goes over */
+    static final int AGAINST_GAP = 3;
+
+    static final class Against {
+        /** by stage: ticks counted (on the move, a foot on the ground moving), against, runs, their ticks */
+        final Map<String, long[]> stages = new java.util.TreeMap<>();
+        /** by stage, mode/why, stance: ticks against, runs, their ticks */
+        final Map<String, long[]> states = new java.util.TreeMap<>();
+        final List<String> samples = new ArrayList<>();
+        /** by stage, stance and the way it goes from where it faces (ahead, aside, back): ticks counted, against */
+        final Map<String, long[]> ways = new java.util.TreeMap<>();
+
+        String report(String what) {
+            StringBuilder b = new StringBuilder();
+            for (Map.Entry<String, long[]> e : stages.entrySet()) {
+                long[] v = e.getValue();
+                b.append(String.format(Locale.ROOT, "%s, %s: on the move with a foot on the ground %d ticks; the foot going with the way it goes %d (%.2f%%); runs of a second or more %d (%d ticks)%n",
+                        what, e.getKey(), v[0], v[1], v[0] == 0 ? 0 : 100.0 * v[1] / v[0], v[2], v[3]));
+            }
+            for (Map.Entry<String, long[]> e : ways.entrySet())
+                b.append(String.format(Locale.ROOT, "  %s, %s: %d ticks, the foot going with the way it goes %d (%.1f%%)%n", what, e.getKey(), e.getValue()[0],
+                        e.getValue()[1], 100.0 * e.getValue()[1] / Math.max(1, e.getValue()[0])));
+            for (Map.Entry<String, long[]> e : states.entrySet()) {
+                long[] v = e.getValue();
+                b.append(String.format(Locale.ROOT, "  %s, %s: %d ticks against, %d runs of a second or more (%d ticks)%n", what, e.getKey(), v[0], v[1], v[2]));
+            }
+            for (String s : samples) b.append("  ").append(what).append(", a run: ").append(s).append('\n');
+            return b.toString();
+        }
+    }
+
+    static void against(List<Row> rows, Against acc) {
+        BotAnimator a = null;
+        BotPoser.Parts p = BotPoserTest.parts();
+        double cx = 0, cz = 0, tx = 0, tz = 0;
+        int steps = 0;
+        long first = rows.get(0).tick, prevTick = Long.MIN_VALUE;
+        Vector3f was = null;
+        boolean wasRight = false;
+        int run = 0, gap = 0;
+        Row runFrom = null;
+        String runState = null;
+        for (Row r : rows) {
+            if (r.tick != prevTick + 1) {
+                // a gap (dead, another fight): start again
+                if (run > 0) end(acc, runFrom, runState, run, r);
+                a = new BotAnimator();
+                cx = tx = r.x;
+                cz = tz = r.z;
+                steps = 0;
+                was = null;
+                run = gap = 0;
+            }
+            prevTick = r.tick;
+            // the client: a new place every SENT ticks, gone to over SENT ticks
+            if ((r.tick - first) % SENT == 0) {
+                tx = r.x;
+                tz = r.z;
+                steps = SENT;
+            }
+            double ox = cx, oz = cz;
+            if (steps > 0) {
+                cx += (tx - cx) / steps;
+                cz += (tz - cz) / steps;
+                steps--;
+            }
+            a.move(cx - ox, cz - oz, r.bodyYaw, r.tick);
+            BotAnimator.Frame s = a.step(r.pose, r.tick, 0F, 0, false, r.tick - first, r.id, false);
+            BotAnimator.Frame f = new BotAnimator.Frame(s.crouch(), s.lean(), s.arms(), s.act(), s.fading(), s.hits(), s.idleSec(), r.id, a.speed, a.heading,
+                    -1F, a.walk, a.walkPos);
+            for (ModelPart part : BotPoserTest.all(p)) part.resetPose();
+            float swing = Mth.cos(a.walkPos * 0.6662F) * 1.4F * a.walk;
+            p.rightLeg().xRot = swing;
+            p.leftLeg().xRot = -swing;
+            BotPoser.apply(p, f, 0F, a.walk, a.walkPos);
+            float rh = foot(p.rightLeg(), p.rightShin())[0], lh = foot(p.leftLeg(), p.leftShin())[0];
+            boolean right = rh <= lh;
+            Vector3f ft = right ? footAt(p.rightLeg(), p.rightShin()) : footAt(p.leftLeg(), p.leftShin());
+            double dx = cx - ox, dz = cz - oz, step = Math.hypot(dx, dz);
+            // a slide or a roll (and its fade) poses the legs itself
+            boolean own = (r.pose.action() == AiPose.SLIDE || r.pose.action() == AiPose.ROLL) && r.tick - r.pose.actionTick() < r.pose.actionTicks() + 10;
+            boolean counted = false, bad = false;
+            String dir = null;
+            if (step > 0.02 && !own && r.pose.stance() != AiPose.PRONE && was != null && right == wasRight) {
+                float vx = ft.x - was.x, vz = ft.z - was.z, v = (float) Math.hypot(vx, vz);
+                if (v > 0.05F) {
+                    // the way it goes in the model, from where its body faces: ahead is -z, its right -x
+                    float way = (Mth.wrapDegrees((float) Math.toDegrees(Math.atan2(-dx, dz)) - r.bodyYaw)) * Mth.DEG_TO_RAD;
+                    float mx = -Mth.sin(way), mz = -Mth.cos(way);
+                    counted = true;
+                    bad = (vx * mx + vz * mz) / v > 0.5F;
+                    float off = Math.abs(way * Mth.RAD_TO_DEG);
+                    dir = r.stage + ", " + (r.pose.stance() == AiPose.CROUCH ? "crouched" : "up") + ", going " + (off > 120F ? "back" : off > 60F ? "aside" : "ahead");
+                }
+            }
+            was = ft;
+            wasRight = right;
+            String state = r.stage + ", " + r.mode + "/" + r.why + ", " + (r.pose.stance() == AiPose.CROUCH ? "crouched" : "up");
+            long[] st = acc.stages.computeIfAbsent(r.stage, k -> new long[4]);
+            if (counted) {
+                st[0]++;
+                long[] d = acc.ways.computeIfAbsent(dir, k -> new long[2]);
+                d[0]++;
+                if (bad) d[1]++;
+            }
+            if (bad) {
+                st[1]++;
+                acc.states.computeIfAbsent(state, k -> new long[3])[0]++;
+                if (run == 0) {
+                    runFrom = r;
+                    runState = state;
+                }
+                run += gap + 1;
+                gap = 0;
+            } else if (run > 0 && ++gap > AGAINST_GAP) {
+                end(acc, runFrom, runState, run, r);
+                run = gap = 0;
+            }
+        }
+        if (run > 0) end(acc, runFrom, runState, run, rows.get(rows.size() - 1));
+    }
+
+    private static void end(Against acc, Row from, String state, int len, Row at) {
+        if (len < AGAINST_RUN) return;
+        long[] st = acc.stages.get(from.stage);
+        st[2]++;
+        st[3] += len;
+        long[] v = acc.states.computeIfAbsent(state, k -> new long[3]);
+        v[1]++;
+        v[2] += len;
+        if (acc.samples.size() < 15)
+            acc.samples.add(String.format(Locale.ROOT, "fight %d, mob %d, from tick %d, %d ticks, from %.1f %.1f, %s", from.fight, from.id, from.tick, len, from.x, from.z, state));
     }
 
     static final class Stats {

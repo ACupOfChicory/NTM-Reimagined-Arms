@@ -105,6 +105,14 @@ public final class BotPoser {
      * leg straight back, radians
      */
     static final float STANCE_AHEAD = 0.3F, STANCE_BACK = 0.25F;
+    /**
+     * crouched on the move, the walk bent low (one clip, a walk ahead) goes from played on to played backwards, stepping
+     * back, from 100 to 120 degrees off ahead (the cosines -0.17 .. -0.5): a step aside stays played on, as half of each
+     * (the two at odds) would hold the legs nearly still
+     */
+    static final float CROUCH_BACK_FROM = -0.17F, CROUCH_BACK_FULL = -0.5F;
+    /** off only for the legs' replay "before": crouched, the walk bent low is played on whichever way it goes */
+    static boolean crouchBack = true;
     /** vanilla's crouch leans the trunk this far, radians, and its arms with it by this much of the lean */
     static final float CROUCH_LEAN = 0.5F, CROUCH_ARMS = 0.8F;
     static final String[] LEFT_ARM = { "left_arm", "left_forearm" };
@@ -275,11 +283,21 @@ public final class BotPoser {
                 // over a leg in the middle of its step, near half a turn from the clip's, would take that leg right
                 // round in a frame
                 float go = BotAnimator.smooth((f.speed() - MOVE_FROM) / (MOVE_FULL - MOVE_FROM)) * (1F - BotAnimator.smooth(f.dashed()));
-                float t = ((walkPos / CYCLE + phase(BotClips.CROUCH_WALK, low)) % 1F + 1F) % 1F * low.length();
-                // the two by their shares, both of the way c from what the legs were
-                float walking = c * go, kneeling = walking >= 1F - 1e-4F ? 0F : c * (1F - go) / (1F - walking);
+                // backwards about the clip's phase: at walkPos 0 both at the same pose, so going from one to the other
+                // does not shift the step
+                float ph = phase(BotClips.CROUCH_WALK, low), u = walkPos / CYCLE;
+                float t = ((u + ph) % 1F + 1F) % 1F * low.length(), tBack = ((ph - u) % 1F + 1F) % 1F * low.length();
+                // going back the clip is played backwards: a foot on the ground goes ahead under it, as the mob goes
+                // back (played on, the legs walked ahead while it went back)
+                float back = crouchBack(f.heading());
+                // the three by their shares, all of the way c from what the legs were: down on the knee, then the walk
+                // ahead, then back, each set over the ones before
+                float backW = c * go * back, aheadW = c * go * (1F - back);
+                float ahead = backW >= 1F - 1e-4F ? 0F : aheadW / (1F - backW);
+                float rest = (1F - backW) * (1F - ahead), kneeling = rest <= 1e-4F ? 0F : c * (1F - go) / rest;
                 set(p, kneel, 0F, kneeling, LEGS, a);
-                set(p, low, t, walking, LEGS, a);
+                set(p, low, t, ahead, LEGS, a);
+                set(p, low, tBack, backW, LEGS, a);
                 // each of the two stands on the ground, a mix of them (starting, stopping, going down) does not: a
                 // leg that would go into the ground is lifted to it, up into the trunk
                 org.joml.Matrix4f m = M4.get();
@@ -287,6 +305,7 @@ public final class BotPoser {
                 if (right > 0F) p.rightLeg.y -= right * c;
                 if (left > 0F) p.leftLeg.y -= left * c;
                 float k = kneel.rotation("body", 0F, a) ? a[0] : 0F, l = low.rotation("body", t, a) ? a[0] : 0F;
+                if (back > 0F) l = Mth.lerp(back, l, low.rotation("body", tBack, a) ? a[0] : 0F);
                 lean = Mth.DEG_TO_RAD * Mth.lerp(go, k, l);
             } else {
                 // no clips: vanilla's, the legs back
@@ -569,6 +588,12 @@ public final class BotPoser {
         shin.xRot = Mth.lerp(w, shin.xRot, k);
         shin.yRot = Mth.lerp(w, shin.yRot, 0F);
         shin.zRot = Mth.lerp(w, shin.zRot, 0F);
+    }
+
+    /** crouched on the move: the share of the walk bent low played backwards, 0 going ahead .. 1 going back */
+    static float crouchBack(float heading) {
+        if (!crouchBack) return 0F;
+        return BotAnimator.smooth((Mth.cos(heading) - CROUCH_BACK_FROM) / (CROUCH_BACK_FULL - CROUCH_BACK_FROM));
     }
 
     /** the clips gait blends: walk, jog, sprint, back, and the strafe to the side it goes */

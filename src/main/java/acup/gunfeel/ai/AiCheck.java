@@ -131,6 +131,9 @@ public final class AiCheck {
             // (a,b,c: those stages, in the check's own order)
             List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
             int[] at = {0}, grenadesFor = {-1};
+            // the fighters' moves for the legs' replay (AiLegsLog, -PaiLegs) where they walk into houses (the teams'
+            // fights, the battle among them, log their own)
+            List<String> legsIn = List.of("entry", "clearing");
             // and one from chunks a later stage loads, saved there with its shooter long gone: kept out
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class, joined -> {
                 if (joined.loadedFromDisk() && joined.getEntity() instanceof net.minecraft.world.entity.projectile.Projectile shot && shot.getOwner() == null) joined.setCanceled(true);
@@ -142,12 +145,16 @@ public final class AiCheck {
                     // grenades in the grenades' own stage and the battles; the other stages count what they did before
                     if (at[0] < stages.size() && grenadesFor[0] != at[0]) {
                         grenadesFor[0] = at[0];
+                        AiLegsLog.stage = names.get(at[0]);
+                        if (legsIn.contains(names.get(at[0]))) AiLegsLog.begin();
                         AiGrenades.trace = true;
                         AiGrenades.on = AiGrenades.dodgeOn = List.of("grenade", "battle", "duel", "entry").contains(names.get(at[0]));
                         AiVoice.reset();
                         AiVoice.counting = true;
                     }
+                    boolean counted = at[0] < stages.size() && legsIn.contains(names.get(at[0]));
                     if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) {
+                        if (counted) AiLegsLog.flush();
                         // the call-outs of the stage; in the battle some, and no squad talking over itself
                         check.out("     call-outs in " + names.get(at[0]) + ": " + AiVoice.info());
                         check.out(String.format(java.util.Locale.ROOT, "     pinned down in %s: %.1f%% of %d mob ticks (aiSuppression %s)", names.get(at[0]),
@@ -159,7 +166,7 @@ public final class AiCheck {
                         }
                         at[0]++;
                         clearShots(check.level);
-                    }
+                    } else if (counted) AiLegsLog.tick(check.level, AiBots.all(check.level));
                     done = at[0] >= stages.size();
                 } catch (Throwable x) {
                     crashed(out, x);
