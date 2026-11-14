@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Fixed a second server crash of the same kind: reading a building whose
+  roof's open edge has a step in it could make an empty row of cells and
+  stop the server with an ArrayIndexOutOfBoundsException in AiRooms (seen
+  searching a building, AiClearing).
+
 ## X1044
 
 - Fixed a server crash in X1038: an AI soldier that lost a target under a
