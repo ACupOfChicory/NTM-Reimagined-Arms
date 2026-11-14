@@ -47,6 +47,7 @@ public final class AiAdapter {
         } else if (bot.gunner.ammo.reserve() == 0) {
             bot.gunner.ammo.give(bot.gunner.capacity() * RESERVE_MAGS);
         }
+        AiRole.restore(bot);
         int nades = mob.getPersistentData().getIntOr(AiGrenades.STOCK_KEY, Integer.MIN_VALUE);
         bot.grenades = nades != Integer.MIN_VALUE ? nades : AiGrenades.stock();
         if (nades == Integer.MIN_VALUE) keepGrenades(bot);

@@ -91,6 +91,23 @@ class AiKitTest {
     }
 
     @Test
+    void aRoleIsOneOfTheRolesOrAuto() {
+        assertEquals("base", parse("role base").role());
+        assertEquals("rifle", parse("armor hev role Rifle team red").role());
+        assertEquals("auto", parse("role auto").role());
+        assertNull(parse("ammo m44_ap").role());
+        assertFalse(parse("role base").empty());
+        // a role is named with a kit too (/armsai kit), unlike a team
+        assertTrue(bad("role nosuch", false).contains("no role 'nosuch'"));
+        assertTrue(bad("role nosuch", false).contains("rifle, base"));
+        assertTrue(bad("role", true).contains("role needs a role"));
+        assertTrue(bad("role base role rifle", true).contains("role is named twice"));
+        assertTrue(next("role ").containsAll(List.of("rifle", "base", "auto")));
+        assertTrue(next("armor hev ").contains("role"));
+        assertFalse(next("role base ").contains("role"));
+    }
+
+    @Test
     void whatMakesNoSenseIsToldInWords() {
         assertTrue(bad("armor nosuch", true).contains("unknown armour set 'nosuch'"));
         assertTrue(bad("armor nosuch", true).contains("hev"), "the sets there are, named");
@@ -126,16 +143,16 @@ class AiKitTest {
         assertTrue(armor.containsAll(List.of("hev", "sec", "security", "none", "head=", "chest=", "legs=", "feet=")));
         assertFalse(armor.contains("ammo"));
         // after a set: the slots, and the words not used yet
-        assertEquals(List.of("head=", "chest=", "legs=", "feet=", "ammo", "team"), next("armor hev "));
-        assertEquals(List.of("head=", "legs=", "feet=", "ammo", "team"), next("armor chest=hev "));
+        assertEquals(List.of("head=", "chest=", "legs=", "feet=", "ammo", "role", "team"), next("armor hev "));
+        assertEquals(List.of("head=", "legs=", "feet=", "ammo", "role", "team"), next("armor chest=hev "));
         // a slot's pieces
         List<String> chest = next("armor chest=h");
         assertTrue(chest.containsAll(List.of("chest=hev", "chest=none")));
         // a value given: the words left
-        assertEquals(List.of("armor", "team"), next("ammo r556_ap "));
-        assertEquals(List.of("head=", "chest=", "legs=", "feet=", "team"), next("ammo r556_ap armor hev "));
-        assertEquals(List.of("team"), next("armor hev ammo r556_ap "));
-        assertEquals(List.of("armor"), AiKit.next("ammo r556_ap ", ROUNDS, null).words());
+        assertEquals(List.of("armor", "role", "team"), next("ammo r556_ap "));
+        assertEquals(List.of("head=", "chest=", "legs=", "feet=", "role", "team"), next("ammo r556_ap armor hev "));
+        assertEquals(List.of("role", "team"), next("armor hev ammo r556_ap "));
+        assertEquals(List.of("armor", "role"), AiKit.next("ammo r556_ap ", ROUNDS, null).words());
         // where the word being typed starts
         assertEquals(15, AiKit.next("armor hev ammo r5", ROUNDS, TEAMS).from());
         assertEquals(6, AiKit.next("armor ", ROUNDS, TEAMS).from());

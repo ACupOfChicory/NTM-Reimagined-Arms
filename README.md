@@ -233,7 +233,9 @@ page. They are alphas: expect bugs and back up your world.
   heart, holds back and falls back (server key `aiSuppression`).
 - A bot with a machine gun is its squad's base of fire: it stays in place and
   keeps your cover under long bursts while a rifleman goes round the side
-  (server keys `aiRoles`, `aiBaseMagazine`).
+  (server keys `aiRoles`, `aiBaseMagazine`). A role can be given by word
+  whatever the gun: `role base` or `role rifle` after the gun in
+  `/armsai spawn` and in `/armsai kit`, `role auto` to go by the gun again.
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They go into a room together: beside the doorway first, out of the line

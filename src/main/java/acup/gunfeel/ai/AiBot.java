@@ -32,6 +32,8 @@ public final class AiBot {
     public final AiConfidence confidence = new AiConfidence();
     /** what it is to its squad, and the gun in its hands that was worked out for (AiRole.of) */
     AiRole role = AiRole.RIFLE;
+    /** the role it was given by word (/armsai spawn … role, /armsai kit … role), null: by its gun */
+    @Nullable AiRole assigned;
     net.minecraft.world.item.@Nullable Item roleFor;
     /** what it does with what it knows; null: it only senses (a stand drives it) */
     public @Nullable AiBrain brain;

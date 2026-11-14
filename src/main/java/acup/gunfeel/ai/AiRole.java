@@ -32,8 +32,46 @@ public enum AiRole {
         return on && ReaimTimes.flag(KEY, true);
     }
 
+    /** where a role given by word is kept on the mob, so it lasts over a reload of the chunk */
+    static final String ROLE_KEY = "armsaiRole";
+    /** as typed after "role": the role is by the gun again */
+    static final String AUTO = "auto";
+
+    /** its name as typed (role base) and as shown */
+    String word() {
+        return name().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /** the role of this name as typed, or null */
+    static @org.jspecify.annotations.Nullable AiRole named(String word) {
+        for (AiRole r : values()) if (r.word().equals(word.toLowerCase(java.util.Locale.ROOT))) return r;
+        return null;
+    }
+
+    /** the names a role may be typed by, auto last */
+    static java.util.List<String> words() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (AiRole r : values()) out.add(r.word());
+        out.add(AUTO);
+        return out;
+    }
+
+    /** a role by word for this mob, kept on it (null: by its gun again) */
+    static void assign(AiBot bot, @org.jspecify.annotations.Nullable AiRole role) {
+        bot.assigned = role;
+        if (role == null) bot.mob.getPersistentData().remove(ROLE_KEY);
+        else bot.mob.getPersistentData().putString(ROLE_KEY, role.word());
+    }
+
+    /** the role kept on the mob, when it comes back into the world */
+    static void restore(AiBot bot) {
+        bot.assigned = bot.mob.getPersistentData().getString(ROLE_KEY).map(AiRole::named).orElse(null);
+    }
+
+    /** what it is to its squad: the role it was given by word, else the one its gun makes it */
     static AiRole of(AiBot bot) {
         if (!on()) return RIFLE;
+        if (bot.assigned != null) return bot.assigned;
         ItemStack stack = bot.mob.getMainHandItem();
         if (stack.getItem() != bot.roleFor) {
             bot.roleFor = stack.getItem();

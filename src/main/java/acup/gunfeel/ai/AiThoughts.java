@@ -134,6 +134,9 @@ public final class AiThoughts {
         if (bot.prone.lying()) b.append(", lying");
         if (g.loaded() >= 0) b.append("  ").append(g.loaded()).append('/').append(reserve(g));
         b.append("  ").append(hp(bot.mob));
+        // what it is to its squad, when that is more than a rifleman by its gun
+        AiRole role = AiRole.of(bot);
+        if (role != AiRole.RIFLE || bot.assigned != null) b.append("  ").append(role.word());
         if (!(bot.mob.level() instanceof ServerLevel level)) return b.toString();
         b.append('\n').append(target(bot, level, level.getGameTime()));
         b.append('\n').append(g.blockedTicks > 0 ? "holds fire: friend in the line" : s.why.label);

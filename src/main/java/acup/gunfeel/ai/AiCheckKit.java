@@ -275,6 +275,23 @@ final class AiCheckKit {
                 wrong.contains("does not take m44_ap") && AP.equals(round(shooter)));
         String team = run("armsai kit " + shooter.getStringUUID() + " armor hev team red");
         check.check("kit: /armsai kit names no team", team.contains("a team is named when the mobs are spawned"));
+        // a role by word: whatever the gun, kept on the mob; auto: by its gun again
+        AiBot who = AiBots.get(shooter);
+        AiRole byGun = who == null ? null : AiRole.of(who);
+        String based = run("armsai kit " + shooter.getStringUUID() + " role base");
+        boolean given = who != null && AiRole.of(who) == AiRole.BASE && "base".equals(shooter.getPersistentData().getString(AiRole.ROLE_KEY).orElse(""));
+        // as when the mob comes back into the world: read off the mob again
+        if (who != null) {
+            who.assigned = null;
+            AiRole.restore(who);
+        }
+        boolean kept = who != null && AiRole.of(who) == AiRole.BASE && AiSquads.roles(List.of(who)).equals("base 1");
+        String none = run("armsai kit " + shooter.getStringUUID() + " role sapper");
+        String auto = run("armsai kit " + shooter.getStringUUID() + " role auto");
+        check.check("kit: role base makes the rifleman (" + byGun + " by its gun) its squad's base of fire (" + based.trim() + "), kept on the mob; a role there is not is refused in words;"
+                + " role auto: by its gun again (" + auto.trim() + ")", byGun == AiRole.RIFLE && based.contains("role base") && given && kept
+                && none.contains("no role 'sapper'") && auto.contains("by their guns") && who != null && AiRole.of(who) == AiRole.RIFLE
+                && shooter.getPersistentData().getString(AiRole.ROLE_KEY).isEmpty());
         String both = run("armsai kit @e[tag=" + AiAdapter.TAG + ",distance=..30] ammo " + FMJ + " armor sec");
         AiBot bot = AiBots.get(shooter);
         check.check("kit: /armsai kit puts Security armour on both (" + worn(shooter) + "; " + worn(target) + "), the StG 77 is full of " + FMJ + " ("
