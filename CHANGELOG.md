@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The Mare's Leg kicks as it was tuned to: its recoil preset `levershot`
+  (the shotgun's rise and roll, a longer and slower run back, a slow sway to
+  the side) was missing from the mod's file, so the gun had the mild default
+  kick instead.
 - DNS's pool is 45 and FAU's is 40 by default (`balance.immune.dns.pool`,
   `balance.immune.fau.pool`; they were 40 and 45). These are the pools the
   balance's scheme already counted the guns against (`balance.final.pools`),
