@@ -140,6 +140,11 @@ public final class BotModel {
             ModelPart.Cube overlap = cube(u, v + (int) (HALF - OVERLAP), -2F, -OVERLAP, -2F, OVERLAP, grow - INSET, left, overlapFaces);
             moveY(overlap, overlap.minY - grow + INSET, overlap.minY + INSET);
             moveY(overlap, overlap.maxY + grow - INSET, overlap.maxY - INSET);
+            // An armour piece's overlap shows only the upper half's last row, stretched: it fills the corner where a
+            // sleeve or a legging goes on over the joint, and stays clear where it ends above it. With the upper
+            // half's rows 4 and 5 it took a band of a sleeve that ends at row 4 (every NTM layer set, vanilla's iron
+            // and diamond) down onto the forearm, out of the arm as soon as the elbow bent.
+            if (armour) lastRowOnly(overlap, v + (int) (HALF - OVERLAP), (int) OVERLAP);
             lowers = List.of(lower, overlap);
         }
         ModelPart child = new ModelPart(lowers, Map.of());
@@ -166,6 +171,19 @@ public final class BotModel {
         Set<Direction> out = EnumSet.allOf(Direction.class);
         for (Direction d : faces) out.remove(d);
         return out;
+    }
+
+    /**
+     * A cube's sides, {@code rows} pixels long from the skin's row {@code texV} + 4 (a 4 px deep box's sides start
+     * below its top and bottom faces), take the last of those rows alone, stretched over their length
+     */
+    static void lastRowOnly(ModelPart.Cube cube, int texV, int rows) {
+        float top = (texV + 4) / (float) TEX_H, last = (texV + 4 + rows - 1) / (float) TEX_H;
+        for (ModelPart.Polygon polygon : cube.polygons) {
+            ModelPart.Vertex[] vs = polygon.vertices();
+            for (int i = 0; i < vs.length; i++)
+                if (Math.abs(vs[i].v() - top) < 1e-5F) vs[i] = vs[i].remap(vs[i].u(), last);
+        }
     }
 
     /**

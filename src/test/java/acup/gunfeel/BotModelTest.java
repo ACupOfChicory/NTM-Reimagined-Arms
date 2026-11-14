@@ -14,6 +14,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 
 import acup.gunfeel.ai.client.BotAnimation;
 import acup.gunfeel.ai.client.BotModel;
+import acup.gunfeel.ai.client.LayerSeams;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.builders.CubeDeformation;
@@ -325,5 +326,71 @@ class BotModelTest {
         }
         assertTrue(BotModel.whole(bot.getChild("head"), ModelPoseCaptureTest.PARTS) == bot.getChild("head"));
         assertTrue(BotModel.whole(old.getChild("left_leg"), ModelPoseCaptureTest.PARTS) == old.getChild("left_leg"));
+    }
+
+    /** the layer textures in a jar by the folder they are in, read off the class path; none: empty */
+    static java.util.Map<String, java.awt.image.BufferedImage> textures(String folder) throws Exception {
+        var out = new java.util.TreeMap<String, java.awt.image.BufferedImage>();
+        for (var url : java.util.Collections.list(BotModelTest.class.getClassLoader().getResources(folder))) {
+            if (!(url.openConnection() instanceof java.net.JarURLConnection jar)) continue;
+            try (var file = new java.util.jar.JarFile(jar.getJarFileURL().getPath())) {
+                for (var e : java.util.Collections.list(file.entries())) {
+                    String n = e.getName();
+                    if (!n.startsWith(folder) || !n.endsWith(".png") || n.substring(folder.length()).contains("/")) continue;
+                    try (var in = file.getInputStream(e)) {
+                        var image = javax.imageio.ImageIO.read(in);
+                        if (image.getWidth() == 64 && image.getHeight() == 32) out.put(n.substring(n.indexOf("/") + 1), image);
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * A layer's piece that ends above the elbow or the knee (every NTM layer set's sleeve ends at its row 4) leaves
+     * nothing of itself on the bent forearm or shin out of the upper half: the overlap shows the upper half's last
+     * row alone. A piece that goes on over the joint (a legging) still fills the corner. (With that row alone the
+     * overlap can only fill a corner; the test holds the overlap to it. The stand measures the same on the bots' poses.)
+     */
+    @Test
+    void aBentLimbCarriesNoPieceOfASleeveThatEndsAboveIt() throws Exception {
+        var set = HumanoidModel.createArmorMeshSet(new CubeDeformation(0.5F), new CubeDeformation(1F))
+                .map(mesh -> BotModel.split(LayerDefinition.create(mesh, 64, 32).bakeRoot(), ModelPoseCaptureTest.PARTS));
+        var outer = new java.util.TreeMap<String, java.awt.image.BufferedImage>();
+        var inner = new java.util.TreeMap<String, java.awt.image.BufferedImage>();
+        for (String ns : new String[] { "hbm", "minecraft" }) {
+            outer.putAll(textures("assets/" + ns + "/textures/entity/equipment/humanoid/"));
+            inner.putAll(textures("assets/" + ns + "/textures/entity/equipment/humanoid_leggings/"));
+        }
+        // NTM's layer sets and vanilla's both read (a folder not found would leave its sets out unseen)
+        assertTrue(outer.containsKey("hbm/textures/entity/equipment/humanoid/steel.png"), outer.keySet().toString());
+        assertTrue(outer.containsKey("minecraft/textures/entity/equipment/humanoid/iron.png"), outer.keySet().toString());
+        assertTrue(outer.size() >= 20 && inner.size() >= 20, outer.size() + " outer, " + inner.size() + " inner");
+        int legCorner = 0;
+        StringBuilder table = new StringBuilder();
+        for (boolean legs : new boolean[] { false, true }) {
+            for (var t : (legs ? inner : outer).entrySet()) {
+                var image = t.getValue();
+                LayerSeams.Alpha alpha = (x, y) -> x >= 0 && y >= 0 && x < 64 && y < 32 && (image.getRGB(x, y) >>> 24) != 0;
+                var slots = legs ? new ModelPart[] { set.legs() } : new ModelPart[] { set.chest(), set.feet() };
+                int loose = 0, corner = 0;
+                for (ModelPart root : slots) for (float deg : new float[] { -120, -90, -45, 45, 90, 120 }) {
+                    for (String limb : new String[] { "right_arm", "left_arm", "right_leg", "left_leg" })
+                        BotModel.lower(root.getChild(limb)).xRot = (float) Math.toRadians(deg);
+                    var c = LayerSeams.measure(root, ModelPoseCaptureTest.PARTS, alpha);
+                    loose = Math.max(loose, c.loose());
+                    corner = Math.max(corner, c.corner());
+                    for (String limb : new String[] { "right_arm", "left_arm", "right_leg", "left_leg" })
+                        BotModel.lower(root.getChild(limb)).xRot = 0F;
+                }
+                table.append(String.format(java.util.Locale.ROOT, "%-50s loose %3d corner %3d%n", t.getKey(), loose, corner));
+                if (legs && t.getKey().equals("hbm/textures/entity/equipment/humanoid_leggings/steel.png")) legCorner = corner;
+                assertEquals(0, loose, t.getKey() + " loose texels on a bent limb\n" + table);
+            }
+        }
+        System.out.print(table);
+        // the steel legging goes on over the knee: its corner is filled
+        assertTrue(legCorner > 0, "steel legging's corner\n" + table);
     }
 }
