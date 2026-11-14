@@ -137,6 +137,7 @@ public final class AiThoughts {
         // what it is to its squad, when that is more than a rifleman by its gun
         AiRole role = AiRole.of(bot);
         if (role != AiRole.RIFLE || bot.assigned != null) b.append("  ").append(role.word());
+        if (role == AiRole.SUPPLIER) b.append(' ').append(AiSupply.shown(bot));
         if (!(bot.mob.level() instanceof ServerLevel level)) return b.toString();
         b.append('\n').append(target(bot, level, level.getGameTime()));
         b.append('\n').append(g.blockedTicks > 0 ? "holds fire: friend in the line" : s.why.label);

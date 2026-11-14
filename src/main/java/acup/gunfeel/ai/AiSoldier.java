@@ -384,6 +384,11 @@ public final class AiSoldier implements AiBrain {
     }
 
     /** a decision of a moment, for the journal (what: a constant, so nothing is built with the journal off) */
+    /** a line of its own in the decision journal (AiSupply) */
+    void note(AiBot bot, long tick, String what) {
+        event(bot, tick, what);
+    }
+
     private void event(AiBot bot, long tick, String what) {
         if (AiThoughts.on()) thoughts.event(bot, tick, what);
     }
@@ -428,6 +433,8 @@ public final class AiSoldier implements AiBrain {
             }
             downGrenade = -1;
         }
+        // its squad's supplier on a run to one that is short (AiSupply): nothing else till it has handed over
+        if (AiSupply.step(this, bot, level, tick)) return;
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         TargetMemory.Noise n = bot.memory.noise();
         // a burst at the place for those on the move goes on only while the decision below is that again

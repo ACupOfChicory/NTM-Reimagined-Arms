@@ -18,7 +18,9 @@ import net.minecraft.world.item.ItemStack;
  * the gun in its hands is another.
  */
 public enum AiRole {
-    RIFLE, BASE;
+    RIFLE, BASE,
+    /** hands out magazines and grenades to its squad (AiSupply); by word or by the spawn, never by the gun */
+    SUPPLIER;
 
     /** the server settings: roles by the gun; a base of fire's magazine from this many rounds */
     public static final String KEY = "aiRoles", MAG_KEY = "aiBaseMagazine";
@@ -66,6 +68,29 @@ public enum AiRole {
     /** the role kept on the mob, when it comes back into the world */
     static void restore(AiBot bot) {
         bot.assigned = bot.mob.getPersistentData().getString(ROLE_KEY).map(AiRole::named).orElse(null);
+    }
+
+    /** a squad's size (AiSquads.MAX) has one supplier; fewer than this many spawned at once have none */
+    static final int DEAL_FROM = 4;
+
+    /**
+     * The roles dealt among mobs spawned by number with no role named (the owner, 2026-11-14): one supplier to each
+     * squad's worth of them (AiSquads.MAX), picked at random, from DEAL_FROM of them up; the rest go by their guns.
+     * How many were made suppliers.
+     */
+    static int deal(java.util.List<? extends net.minecraft.world.entity.Mob> mobs, net.minecraft.util.RandomSource rng) {
+        if (!on() || !AiSupply.on() || mobs.size() < DEAL_FROM) return 0;
+        java.util.List<AiBot> bots = new java.util.ArrayList<>();
+        for (net.minecraft.world.entity.Mob m : mobs) {
+            AiBot b = AiBots.get(m);
+            if (b != null && b.assigned == null) bots.add(b);
+        }
+        int want = (mobs.size() + AiSquads.MAX - 1) / AiSquads.MAX, dealt = 0;
+        while (dealt < want && !bots.isEmpty()) {
+            assign(bots.remove(rng.nextInt(bots.size())), SUPPLIER);
+            dealt++;
+        }
+        return dealt;
     }
 
     /** what it is to its squad: the role it was given by word, else the one its gun makes it */
