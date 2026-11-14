@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## X1057
 
 - An AI soldier's role can be given by word. `role base` or `role rifle`
   after the gun in `/armsai spawn` and in `/armsai kit` makes it its squad's
